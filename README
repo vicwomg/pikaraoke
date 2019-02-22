@@ -1,0 +1,29 @@
+## PiKaraoke
+
+Karaoke song search and queueing system that uses Youtube videos as a source.
+
+Supports
+- Search song library via autocomplete
+- Adding new tracks from Youtube
+- Offline storage of karaoke files
+- Pause/Skip/Restart and volume control
+- Now playing and up next display
+- Queue editing
+
+## SETUP
+
+Make sure you you have omxplayer (should be installed by default in Raspbian), but in case it's not:
+
+`sudo apt-get install omxplayer`
+
+Install youtube-dl
+
+`sudo pip install --upgrade youtube_dl`
+
+Bump your GPU memory or some videos will show a GSOD (green screen of death)
+
+`nano /boot/config.txt`
+
+Add the following line:
+
+`gpu_mem=128`

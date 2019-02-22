@@ -10,6 +10,7 @@ import threading
 import sys
 import logging
 import os
+import json
 
 app = Flask(__name__)
 app.secret_key = 'HjI981293u99as811lll'
@@ -49,7 +50,12 @@ def home():
 @app.route("/nowplaying")
 def nowplaying():
     if (k.now_playing != None):
-        return k.now_playing
+        if (len(k.queue) >=2 ):
+            next_song = filename_from_path(k.queue[1])
+        else:
+            next_song = None
+        rc = {'now_playing' : k.now_playing, 'up_next' : next_song}
+        return json.dumps(rc)
     else:
         return ""
 
@@ -63,7 +69,7 @@ def enqueue():
     d = request.form.to_dict()
     song = d['song_to_add']
     k.enqueue(song)
-    flash('Song added to queue: ' + song)
+    flash('Song added to queue: ' + filename_from_path(song))
     return redirect(url_for('home'))
 
 @app.route("/skip")
@@ -79,6 +85,16 @@ def pause():
 @app.route("/restart")
 def restart():
     k.restart()
+    return redirect(url_for('home'))
+
+@app.route("/vol_up")
+def vol_up():
+    k.vol_up()
+    return redirect(url_for('home'))
+    
+@app.route("/vol_down")
+def vol_down():
+    k.vol_down()
     return redirect(url_for('home'))
 
 @app.route("/search", methods=['GET'])
@@ -104,13 +120,13 @@ def download():
     t.daemon = True
     t.start()
     
-    flash('Download started for: "' + song + '"')
-    flash('This may take a couple of minutes to complete...')
+    flash('Download started: "' + song + '"')
+    flash('This may take a couple of minutes to complete.')
  
     if (queue):
-    	flash('Song will be added to queue when complete.')
+    	flash('Song will be added to queue.')
     else:
-    	flash('Song will be available in the "available songs" list complete.')
+    	flash('Song will appear in the "available songs" list.')
     return redirect(url_for('search'))
     # return render_template('search.html', site_title = site_name, title='Search',
 #         songs=k.get_available_songs(), search_results = None)

@@ -12,10 +12,19 @@ $( function() {
           //alert(data);  // process results here
           //console.log("Current song: " + data);
           if (data) {
-            $("#now-playing").html(data);
+            //$("#now-playing").html(data);
+            var obj = JSON.parse(data);
+            $("#now-playing").html(obj.now_playing);
+            if (obj.up_next) {
+            	$("#up-next").html(obj.up_next);
+            }
+            else {
+	            $("#up-next").html("No song is queued.");
+            }
           }
           else {
             $("#now-playing").html("Nothing is playing right now. ");
+            $("#up-next").html("No song is queued.");
           }
 
           setTimeout(getNowPlaying,1500);
@@ -34,17 +43,35 @@ $( function() {
 
 {% block content %}
 
-  <p class="is-size-4" id="now-playing">
+  <p class="is-size-4 has-text-warning" id="now-playing">
     <!-- {% if now_playing %}
     {{now_playing}}
     {% else %}
     Nothing playing right now
     {% endif %} -->
+    Nothing is playing right now. 
   </p>
-  <!-- <form action="{{ url_for('skip') }}">
 
-  </form> -->
-  <button class="button"><a href="{{ url_for('restart') }}">restart</a></button>
-  <button class="button"><a href="{{ url_for('pause') }}">pause</a></button>
-  <button class="button"><a href="{{ url_for('skip') }}">skip</a></button>
+<!--
+<button class="button"><a href="{{ url_for('restart') }}">&#x21A9;&#xFE0F;</a></button>
+  <button class="button"><a href="{{ url_for('pause') }}">&#x23EF;&#xFE0F;</a></button>
+  <button class="button"><a href="{{ url_for('skip') }}">&#x23ED;&#xFE0F;</a></button>
+    <button class="button"><a href="{{ url_for('vol_down') }}">vol-</a></button>
+  <button class="button"><a href="{{ url_for('vol_up') }}">vol+</a></button>
+-->
+<p class="is-size-3	">
+  <a href="{{ url_for('restart') }}">&#x23EE;&#xFE0F;</a>&nbsp;&nbsp;
+  <a href="{{ url_for('pause') }}">&#x23EF;&#xFE0F;</a>&nbsp;&nbsp;
+  <a href="{{ url_for('skip') }}">&#x23ED;&#xFE0F;</a>&nbsp;&nbsp;
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="{{ url_for('vol_down') }}">&#x1F508;</a>&nbsp;&nbsp;
+  <a href="{{ url_for('vol_up') }}">&#x1F50A;</a>&nbsp;&nbsp;
+
+</p>
+  
+  <hr>
+  <h2>Next</h2>
+  <p id="up-next" class="has-text-warning"></p>
+
+  
 {% endblock %}

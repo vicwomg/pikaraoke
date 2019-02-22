@@ -1,4 +1,4 @@
-import urllib
+import urllib2
 # from bs4 import BeautifulSoup
 # from bs4 import SoupStrainer
 import lxml.html
@@ -13,7 +13,7 @@ import logging
 class Karaoke:
 
     #paths
-    download_path = "/home/pi/karaoke/songs"
+    download_path = "/home/pi/pikaraoke/songs"
     youtube_dl_path = "/usr/bin/youtube-dl"
     #vlc_path = "/Applications/VLC.app/Contents/MacOS/VLC"
     player_path = "/usr/bin/omxplayer"
@@ -34,24 +34,29 @@ class Karaoke:
 
     def get_search_results(self, textToSearch):
         logging.info("Searching YouTube for: " + textToSearch)
-        query = urllib.quote(textToSearch)
+        query = urllib2.quote(textToSearch)
         url = "https://www.youtube.com/results?search_query=" + query
-        response = urllib.urlopen(url)
-        html = response.read()
-        # logging.debug("Straining for links...")
-#         strainer = SoupStrainer('a')
-#         soup = BeautifulSoup(html, 'lxml', parseOnlyThese=strainer)
-#         logging.debug("Scraping for class yt-uix-tile-link...")
-#         results = soup.findAll(attrs={'class':'yt-uix-tile-link'})
-        doc = lxml.html.fromstring(html)
-        elements = doc.xpath('//a[contains(@class,"yt-uix-tile-link")]')
-        results = []
-        for each in elements:
-            results.append({'title':each.get('title'), 'href':each.get('href')})
-        rc = []
-        for vid in results:
-            rc.append([vid['title'], 'https://www.youtube.com' + vid['href']])
-        return(rc)
+        response = urllib2.urlopen(url,None,10)
+        if (response):
+	        html = response.read()
+	        # logging.debug("Straining for links...")
+	#         strainer = SoupStrainer('a')
+	#         soup = BeautifulSoup(html, 'lxml', parseOnlyThese=strainer)
+	#         logging.debug("Scraping for class yt-uix-tile-link...")
+	#         results = soup.findAll(attrs={'class':'yt-uix-tile-link'})
+	        doc = lxml.html.fromstring(html)
+	        elements = doc.xpath('//a[contains(@class,"yt-uix-tile-link")]')
+	        results = []
+	        for each in elements:
+	            results.append({'title':each.get('title'), 'href':each.get('href')})
+	        rc = []
+	        for vid in results:
+	            rc.append([vid['title'], 'https://www.youtube.com' + vid['href']])
+	        return(rc)
+        
+        else:
+        	logging.error("Failed to get response from: " + url)
+        
 
     def get_karaoke_search_results(self, songTitle):
         return self.get_search_results(songTitle + " karaoke")
@@ -66,6 +71,9 @@ class Karaoke:
         	"-o", dl_path, video_url]
         logging.debug("Youtube-dl command: " + ' '.join(cmd))
         rc = subprocess.call(cmd)
+        if (rc != 0):
+        	logging.error("Error code while downloading, retrying once...")
+        	rc = subprocess.call(cmd) #retry once. Seems like this can be flaky
         if (rc == 0):
             logging.debug("Song successfully downloaded: " + video_url)
             self.get_available_songs()
@@ -143,6 +151,20 @@ class Karaoke:
             self.process.stdin.write("p")
         else:
             logging.warning("Tried to pause, but no file is playing!")
+            
+    def vol_up(self):
+        if (self.is_file_playing()):
+            logging.info("Volume up: " + self.now_playing)
+            self.process.stdin.write("=")
+        else:
+            logging.warning("Tried to volume up, but no file is playing!")
+            
+    def vol_down(self):
+        if (self.is_file_playing()):
+            logging.info("Volume down: " + self.now_playing)
+            self.process.stdin.write("-")
+        else:
+            logging.warning("Tried to volume down, but no file is playing!")
             
     def restart(self):
         if (self.is_file_playing()):
