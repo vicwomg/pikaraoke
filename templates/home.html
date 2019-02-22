@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+<script>
+
+
+
+$( function() {
+
+  (function getNowPlaying(){
+      $.get('{{ url_for("nowplaying") }}', function(data) {
+          //alert(data);  // process results here
+          //console.log("Current song: " + data);
+          if (data) {
+            $("#now-playing").html(data);
+          }
+          else {
+            $("#now-playing").html("Nothing is playing right now. ");
+          }
+
+          setTimeout(getNowPlaying,1500);
+      });
+
+
+  })();
+
+});
+</script>
+{% endblock %}
+
+{% block header %}
+  <h1>{% block title %}Now Playing{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+
+  <p class="is-size-4" id="now-playing">
+    <!-- {% if now_playing %}
+    {{now_playing}}
+    {% else %}
+    Nothing playing right now
+    {% endif %} -->
+  </p>
+  <!-- <form action="{{ url_for('skip') }}">
+
+  </form> -->
+  <button class="button"><a href="{{ url_for('restart') }}">restart</a></button>
+  <button class="button"><a href="{{ url_for('pause') }}">pause</a></button>
+  <button class="button"><a href="{{ url_for('skip') }}">skip</a></button>
+{% endblock %}

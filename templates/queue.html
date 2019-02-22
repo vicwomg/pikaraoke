@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1 class>{% block title %}Queue{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+
+      {% if queue %}
+      <ol>
+        {% for song in queue %}
+        <li value='{{ song }}'>
+          <a href="">(up)</a>
+          <a href="">(down)</a>
+          {{filename_from_path(song)}}
+          <a href="">(x)</a>
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      queue is empty
+      {% endif %}
+
+{% endblock %}

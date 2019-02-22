@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    {% if title %}
+    <title>{{site_title}} - {{ title }}</title>
+    {% else %}
+    <title>{{site_title}}</title>
+    {% endif %}
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script type=text/javascript src="{{  url_for('static', filename='jquery-3.3.1.min.js') }}"></script>
+    <script type=text/javascript src="{{  url_for('static', filename='jquery-ui.min.js') }}"></script>
+    <link rel="stylesheet" href="{{  url_for('static', filename='bulma-dark.css') }}">
+    <link rel="stylesheet" href="{{  url_for('static', filename='jquery-ui.min.css') }}">
+    <link rel="stylesheet" href="{{  url_for('static', filename='jquery-ui.structure.min.css') }}">
+    <link rel="stylesheet" href="{{  url_for('static', filename='jquery-ui.theme.min.css') }}">
+    <link rel="stylesheet" href="{{  url_for('static', filename='custom.css') }}">
+    {% block scripts %}
+    {% endblock %}
+  </head>
+  <body>
+
+    <div class="container">
+
+        <nav class="navbar" role="navigation" aria-label="main navigation">
+          <div class="navbar-brand">
+            <a class="navbar-item" href="{{ url_for('home') }}">
+              &nbsp;&nbsp;&nbsp;&#127908;
+            </a>
+            <a class="navbar-item" href="{{ url_for('home') }}">
+              Home
+            </a>
+            <a class="navbar-item" href="{{ url_for('queue') }}">
+              Queue
+            </a>
+            <a class="navbar-item" href="{{ url_for('search') }}">
+              Songs
+            </a>
+          </div>
+
+        </nav>
+
+        <div class="box">
+        <header class="title">
+          {% block header %}{% endblock %}
+        </header>
+        
+        {% if get_flashed_messages() %}
+        <div class="box has-background-dark">
+        {% for message in get_flashed_messages() %}
+          <div class="flash">{{ message }}</div>
+        {% endfor %}
+        </div>
+        {% endif %}
+
+          <div class="content">
+          {% block content %}
+          {% endblock %}
+          </div>
+
+        </div>
+
+
+    </div>
+
+  </body>
+</html>
