@@ -1,8 +1,5 @@
 import urllib2
-# from bs4 import BeautifulSoup
-# from bs4 import SoupStrainer
 import lxml.html
-from pprint import pprint
 import glob
 import subprocess
 import time
@@ -15,7 +12,6 @@ class Karaoke:
     #paths
     download_path = "/home/pi/pikaraoke/songs"
     youtube_dl_path = "/usr/bin/youtube-dl"
-    #vlc_path = "/Applications/VLC.app/Contents/MacOS/VLC"
     player_path = "/usr/bin/omxplayer"
 
     queue = []
@@ -24,7 +20,7 @@ class Karaoke:
     process = None
 
     log_level = logging.DEBUG
-    logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
+    logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S', level=log_level)
 
     def __init__(self):
         self.get_available_songs()
@@ -39,11 +35,6 @@ class Karaoke:
         response = urllib2.urlopen(url,None,10)
         if (response):
 	        html = response.read()
-	        # logging.debug("Straining for links...")
-	#         strainer = SoupStrainer('a')
-	#         soup = BeautifulSoup(html, 'lxml', parseOnlyThese=strainer)
-	#         logging.debug("Scraping for class yt-uix-tile-link...")
-	#         results = soup.findAll(attrs={'class':'yt-uix-tile-link'})
 	        doc = lxml.html.fromstring(html)
 	        elements = doc.xpath('//a[contains(@class,"yt-uix-tile-link")]')
 	        results = []
@@ -56,7 +47,6 @@ class Karaoke:
         
         else:
         	logging.error("Failed to get response from: " + url)
-        
 
     def get_karaoke_search_results(self, songTitle):
         return self.get_search_results(songTitle + " karaoke")
@@ -90,7 +80,7 @@ class Karaoke:
 
     def get_available_songs(self):
         logging.debug("Fetching available songs in: " + self.download_path)
-        self.available_songs = glob.glob(self.download_path + "*")
+        self.available_songs = glob.glob(self.download_path + "/*")
         return self.available_songs
 
     def filename_from_path(self, file_path):
@@ -117,11 +107,6 @@ class Karaoke:
     def play_file(self, file_path):
         self.now_playing = self.filename_from_path(file_path)
         logging.info("Playing video: " + self.now_playing)
-        # self.process = subprocess.Popen([self.vlc_path, "-I", "http"
-        #     ,"--http-user=pi", "--http-password=pikaraoke", "--play-and-exit"
-        #     ,file_path])
-       #  self.process = subprocess.Popen([self.vlc_path, "--play-and-exit"
-#             ,file_path])
         cmd = [self.player_path,file_path, "--blank"]
         logging.debug("Player command: " + ' '.join(cmd))
         self.process = subprocess.Popen(cmd, stdin=subprocess.PIPE,)
@@ -136,6 +121,56 @@ class Karaoke:
     def enqueue(self, song_path):
         logging.info("Adding video to queue: " + song_path)
         self.queue.append(song_path)
+        
+    def queue_clear(self):
+    	logging.info("Clearing queue!")
+    	self.queue = []
+    	self.skip()
+    
+    def queue_edit(self, song_name, action):
+    	index = 0
+    	song_path = None
+    	for each in self.queue:
+    		if song_name in each:
+    			song_path = each
+    			break
+    		else:
+    			index += 1
+    	if (song_path == None):
+    		logging.error("Song not found in queue: " + song_name)
+    		return False
+    	if (action == "up"):
+    		if (index < 2):
+    			logging.warn("Song is now playing or up next, can't bump up in queue: " + song_path)
+    			return False
+    		else: 
+    			logging.info("Bumping song up in queue: " + song_path)
+    			del self.queue[index]
+    			self.queue.insert(index-1, song_path)
+    			return True
+    	elif (action == "down"):
+    		if (index == len(self.queue)-1):
+    			logging.warn("Song is already last, can't bump down in queue: " + song_path)
+    			return False
+    		if (index == 0):
+    			logging.warn("Song is currently playing, can't bump down in queue: " + song_path)
+    			return False
+    		else:
+    			logging.info("Bumping song down in queue: " + song_path)
+    			del self.queue[index]
+    			self.queue.insert(index+1, song_path)
+    			return True
+    	elif (action == "delete"):
+    		if (index == 0):
+    			logging.warn("Song is currently playing, can't delete from queue: " + song_path)
+    			return False
+    		else:
+    			logging.info("Deleting song from queue: " + song_path)
+    			del self.queue[index]
+    			return True
+    	else: 
+    		logging.error("Unrecognized direction: " + direction)
+    		return False
 
     def skip(self):
         if (self.is_file_playing()):
@@ -185,8 +220,10 @@ class Karaoke:
                     self.play_file(vid)
                     while (self.is_file_playing()):
                         # wait for file to complete
-                        time.sleep(0.5)
-                    self.queue.pop(0)
+                        time.sleep(1)
+                    if (self.queue and len(self.queue) > 0):
+                    	# remove first song from queue
+                        self.queue.pop(0)
 
 # log_level = logging.DEBUG
 # logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)

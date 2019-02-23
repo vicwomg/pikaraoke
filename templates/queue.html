@@ -1,5 +1,27 @@
 {% extends 'base.html' %}
 
+{% block scripts %}
+<meta http-equiv="refresh" content="5" >
+
+<script>
+$(function() {
+    $('.confirm-delete').click(function(e) {
+        e.preventDefault();
+        if (window.confirm("Are you sure you want to delete this song from the queue?")) {
+            location.href = this.href;
+        }
+    });
+    $('.confirm-clear').click(function(e) {
+        e.preventDefault();
+        if (window.confirm("Are you sure you want to clear the ENTIRE queue and kill the party!?")) {
+            location.href = this.href;
+        }
+    });
+});
+</script>
+
+{% endblock %}
+
 {% block header %}
   <h1 class>{% block title %}Queue{% endblock %}</h1>
 {% endblock %}
@@ -10,15 +32,17 @@
       <ol>
         {% for song in queue %}
         <li value='{{ song }}'>
-          <a href="">&#x1F53C;</a>
-          <a href="">&#x1F53D;</a>
+          <a href="/queue/edit?action=up&song={{filename_from_path(song)}}">&#x1F53C;</a>
+          <a href="/queue/edit?action=down&song={{filename_from_path(song)}}">&#x1F53D;</a>
           {{filename_from_path(song)}}
-          <a href="">(x)</a>
+          <a class="confirm-delete has-text-danger" href="/queue/edit?action=delete&song={{filename_from_path(song)}}">(x)</a>
         </li>
         {% endfor %}
       </ol>
       {% else %}
-      queue is empty
+      The queue is empty
       {% endif %}
+      <hr>
+      <a class="confirm-clear has-text-danger is-pulled-right" href="/queue/edit?action=clear">Clear all</a><br>
 
 {% endblock %}

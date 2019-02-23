@@ -9,10 +9,7 @@ $( function() {
 
   (function getNowPlaying(){
       $.get('{{ url_for("nowplaying") }}', function(data) {
-          //alert(data);  // process results here
-          //console.log("Current song: " + data);
           if (data) {
-            //$("#now-playing").html(data);
             var obj = JSON.parse(data);
             $("#now-playing").html(obj.now_playing);
             if (obj.up_next) {
@@ -66,7 +63,14 @@ $( function() {
   &nbsp;&nbsp;&nbsp;&nbsp;
   <a href="{{ url_for('vol_down') }}">&#x1F508;</a>&nbsp;&nbsp;
   <a href="{{ url_for('vol_up') }}">&#x1F50A;</a>&nbsp;&nbsp;
+<!--
 
+  <button class="button"><a href="{{ url_for('restart') }}">|&lt;</a></button>
+  <button class="button"><a href="{{ url_for('pause') }}">||</a></button>
+  <button class="button"><a href="{{ url_for('skip') }}">&gt;&gt;</a></button>
+  <button class="button"><a href="{{ url_for('vol_down') }}">vol-</a></button>
+  <button class="button"><a href="{{ url_for('vol_up') }}">vol+</a></button>
+-->
 </p>
   
   <hr>

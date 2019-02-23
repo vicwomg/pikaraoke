@@ -24,9 +24,6 @@ t = threading.Thread(target=k.run)
 t.daemon = True
 t.start()
 
-log_level = logging.DEBUG
-logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
-
 def filename_from_path(file_path):
     rc = os.path.basename(file_path)
     rc = os.path.splitext(rc)[0]
@@ -37,15 +34,7 @@ app.jinja_env.globals.update(filename_from_path=filename_from_path)
 
 @app.route("/")
 def home():
-    files = k.get_available_songs()
-    songs = []
-    #add titles to songs
-    for each in files:
-        title = k.filename_from_path(each)
-        songs.append([title, each])
-    return render_template('home.html', songs = songs,
-        now_playing = k.now_playing, queue = k.queue, site_title = site_name,
-        title='Home')
+    return render_template('home.html', site_title = site_name, title='Home')
 
 @app.route("/nowplaying")
 def nowplaying():
@@ -63,7 +52,36 @@ def nowplaying():
 def queue():
     return render_template('queue.html', queue = k.queue, site_title = site_name,
         title='Queue')
-
+        
+@app.route("/queue/edit", methods=['GET'])
+def queue_edit():
+    action = request.args['action']
+    if (action == "clear"):
+        k.queue_clear()
+        flash("Cleared the queue!")
+        return redirect(url_for('queue'))
+    else:
+        song = request.args['song']
+        if (action == "down"):
+            result = k.queue_edit(song, "down")
+            if (result):
+                flash("Moved down in queue: " + song)
+            else:
+                flash("Error moving down in queue: " + song)
+        elif (action == "up"):
+            result = k.queue_edit(song, "up")
+            if (result):
+                flash("Moved up in queue: " + song)
+            else:
+                flash("Error moving up in queue: " + song)
+        elif (action == "delete"):
+            result = k.queue_edit(song, "delete")
+            if (result):
+                flash("Deleted from queue: " + song)
+            else:
+                flash("Error deleting from queue: " + song)
+    return redirect(url_for('queue'))
+        
 @app.route("/enqueue", methods=['POST'])
 def enqueue():
     d = request.form.to_dict()
@@ -105,7 +123,7 @@ def search():
     else:
         search_results = None
     return render_template('search.html', site_title = site_name, title='Search',
-        songs=k.get_available_songs(), search_results = search_results)
+        songs=k.available_songs, search_results = search_results)
 
 @app.route("/download", methods=['POST'])
 def download():
@@ -115,7 +133,7 @@ def download():
         queue = True 
     else: 
         queue = False
-    #print("%s  - %s - %s" % (song, title, queue))
+
     t = threading.Thread(target= k.download_video,args=[song,queue])
     t.daemon = True
     t.start()
@@ -128,5 +146,3 @@ def download():
     else:
     	flash('Song will appear in the "available songs" list.')
     return redirect(url_for('search'))
-    # return render_template('search.html', site_title = site_name, title='Search',
-#         songs=k.get_available_songs(), search_results = None)
