@@ -32,10 +32,10 @@ $(function() {
       <ol>
         {% for song in queue %}
         <li value='{{ song }}'>
-          <a href="/queue/edit?action=up&song={{filename_from_path(song)}}">&#x1F53C;</a>
-          <a href="/queue/edit?action=down&song={{filename_from_path(song)}}">&#x1F53D;</a>
+          <a href="/queue/edit?action=up&song={{url_escape(filename_from_path(song))}}">&#x1F53C;</a>
+          <a href="/queue/edit?action=down&song={{url_escape(filename_from_path(song))}}">&#x1F53D;</a>
           {{filename_from_path(song)}}
-          <a class="confirm-delete has-text-danger" href="/queue/edit?action=delete&song={{filename_from_path(song)}}">(x)</a>
+          <a class="confirm-delete has-text-danger" href="/queue/edit?action=delete&song={{url_escape(filename_from_path(song))}}">(x)</a>
         </li>
         {% endfor %}
       </ol>

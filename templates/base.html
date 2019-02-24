@@ -19,6 +19,15 @@
     	$("#notification-close").click(function() {
 	    	$("#notification").hide();
     	});
+    	
+	    	// Check for click events on the navbar burger icon
+	  $(".navbar-burger").click(function() {
+	
+	      // Toggle the "is-active" class on both the "navbar-burger" and the "navbar-menu"
+	      $(".navbar-burger").toggleClass("is-active");
+	      $(".navbar-menu").toggleClass("is-active");
+	
+	  });
     });
     </script>
     {% block scripts %}
@@ -29,31 +38,47 @@
     <div class="container">
 
         <nav class="navbar" role="navigation" aria-label="main navigation">
-          <div class="navbar-brand">
+          <div class="navbar-brand" id="brand">
             <a class="navbar-item" href="{{ url_for('home') }}">
               &nbsp;&nbsp;&nbsp;&#127908;
             </a>
+<!--
             <a class="navbar-item" href="{{ url_for('home') }}">
               Home
             </a>
+-->
             <a class="navbar-item" href="{{ url_for('queue') }}">
               Queue
             </a>
             <a class="navbar-item" href="{{ url_for('search') }}">
               Songs
             </a>
+            <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+			  <span aria-hidden="true"></span>
+			  <span aria-hidden="true"></span>
+			  <span aria-hidden="true"></span>
+			</a>
+          </div>
+          <div class="navbar-menu" id="menu">
+          		<div class="navbar-end">
+          			<a class="navbar-item" href="">
+	          			Files
+              		</a>
+              		<a class="navbar-item" href="{{ url_for('info') }}">
+	          			Info
+              		</a>
+          		</div>
           </div>
 
         </nav>
         
         {% if get_flashed_messages() %}
-        
-        <div id="notification" class="notification is-info">
+        {% for category, message in get_flashed_messages(with_categories=true) %}
+        <div id="notification" class="notification {{category}}">
         <button id="notification-close" class="delete"></button>
-        {% for message in get_flashed_messages() %}
           <div class="flash">{{ message }}</div>
-        {% endfor %}
         </div>
+        {% endfor %}
         {% endif %}
 
         <div class="box">

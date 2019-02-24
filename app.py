@@ -5,6 +5,8 @@ from flask import redirect
 from flask import url_for
 from flask import send_from_directory
 from flask import flash
+from urllib import quote
+from urllib import unquote
 import karaoke
 import threading
 import sys
@@ -19,6 +21,7 @@ reload(sys)
 sys.setdefaultencoding('utf-8')
 site_name = "PiKaraoke"
 
+# Start karaoke process
 k = karaoke.Karaoke()
 t = threading.Thread(target=k.run)
 t.daemon = True
@@ -30,7 +33,11 @@ def filename_from_path(file_path):
     rc = rc.split("---")[0] #removes youtube id if present
     return rc
 
+def url_escape(filename):
+    return quote(filename)
+
 app.jinja_env.globals.update(filename_from_path=filename_from_path)
+app.jinja_env.globals.update(url_escape=url_escape)
 
 @app.route("/")
 def home():
@@ -58,36 +65,40 @@ def queue_edit():
     action = request.args['action']
     if (action == "clear"):
         k.queue_clear()
-        flash("Cleared the queue!")
+        flash("Cleared the queue!", "is-warning")
         return redirect(url_for('queue'))
     else:
         song = request.args['song']
+        song = unquote(song)
         if (action == "down"):
             result = k.queue_edit(song, "down")
             if (result):
-                flash("Moved down in queue: " + song)
+                flash("Moved down in queue: " + song, "is-success")
             else:
-                flash("Error moving down in queue: " + song)
+                flash("Error moving down in queue: " + song, "is-danger")
         elif (action == "up"):
             result = k.queue_edit(song, "up")
             if (result):
-                flash("Moved up in queue: " + song)
+                flash("Moved up in queue: " + song, "is-success")
             else:
-                flash("Error moving up in queue: " + song)
+                flash("Error moving up in queue: " + song, "is-danger")
         elif (action == "delete"):
             result = k.queue_edit(song, "delete")
             if (result):
-                flash("Deleted from queue: " + song)
+                flash("Deleted from queue: " + song, "is-success")
             else:
-                flash("Error deleting from queue: " + song)
+                flash("Error deleting from queue: " + song, "is-danger")
     return redirect(url_for('queue'))
         
 @app.route("/enqueue", methods=['POST'])
 def enqueue():
     d = request.form.to_dict()
     song = d['song_to_add']
-    k.enqueue(song)
-    flash('Song added to queue: ' + filename_from_path(song))
+    rc = k.enqueue(song)
+    if (rc):
+        flash('Song added to queue: ' + filename_from_path(song), "is-success")
+    else:
+        flash('Song is already in queue: ' + filename_from_path(song), "is-danger")
     return redirect(url_for('home'))
 
 @app.route("/skip")
@@ -134,15 +145,22 @@ def download():
     else: 
         queue = False
 
+    #download in the background since this can take a few minutes
     t = threading.Thread(target= k.download_video,args=[song,queue])
     t.daemon = True
     t.start()
     
-    flash('Download started: "' + song + '"')
-    flash('This may take a couple of minutes to complete.')
+    flash_message = "Download started: '" + song + "'. This may take a couple of minutes to complete. "
  
     if (queue):
-    	flash('Song will be added to queue.')
+    	flash_message += 'Song will be added to queue.'
     else:
-    	flash('Song will appear in the "available songs" list.')
+    	flash_message += 'Song will appear in the "available songs" list.'
+    flash(flash_message, "is-info")
     return redirect(url_for('search'))
+
+@app.route("/info")
+def info():
+    url = "http://" + request.host
+    return render_template('info.html', site_title = site_name, title='Info',
+        url=url)

@@ -19,7 +19,7 @@ class Karaoke:
     now_playing = None
     process = None
 
-    log_level = logging.DEBUG
+    log_level = logging.INFO
     logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S', level=log_level)
 
     def __init__(self):
@@ -119,8 +119,13 @@ class Karaoke:
             return False
 
     def enqueue(self, song_path):
-        logging.info("Adding video to queue: " + song_path)
-        self.queue.append(song_path)
+    	if (song_path in self.queue):
+    		logging.warn("Song already in queue, will not add: " + song_path)
+    		return False
+    	else:
+        	logging.info("Adding video to queue: " + song_path)
+        	self.queue.append(song_path)
+        	return True
         
     def queue_clear(self):
     	logging.info("Clearing queue!")
@@ -224,24 +229,3 @@ class Karaoke:
                     if (self.queue and len(self.queue) > 0):
                     	# remove first song from queue
                         self.queue.pop(0)
-
-# log_level = logging.DEBUG
-# logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
-#
-# k = Karaoke()
-#
-# t = threading.Thread(target=k.run)
-# t.daemon = True
-# t.start()
-#
-# songs = k.get_available_songs()
-# for each in songs:
-#     k.enqueue(each)
-#
-# results = k.get_karaoke_search_results('no doubt spiderwebs')
-# pprint(results)
-# vid = k.download_video(results[0][1])
-# k.enqueue(vid)
-#
-# while True:
-#     time.sleep(1)

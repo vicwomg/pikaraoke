@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+<script>
+
+$( function() {
+
+
+
+});
+</script>
+{% endblock %}
+
+{% block header %}
+  <h1>{% block title %}Information{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+
+<p>
+URL of {{site_title}}:
+</p>
+
+  <p class="is-size-4 has-text-warning">
+    <!-- {% if now_playing %}
+    {{now_playing}}
+    {% else %}
+    Nothing playing right now
+    {% endif %} -->
+   {{ url }}
+
+   
+  </p>
+<p>
+Handy URL QR code to share with a pal:
+</p>
+<img src="https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl={{url_escape(url)}}">
+  
+{% endblock %}
