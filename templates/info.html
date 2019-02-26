@@ -34,6 +34,6 @@ URL of {{site_title}}:
 <p>
 Handy URL QR code to share with a pal:
 </p>
-<img src="https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl={{url_escape(url)}}">
+<img src="{{ url_for('qrcode') }}">
   
 {% endblock %}

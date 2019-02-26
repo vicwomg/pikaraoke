@@ -4,6 +4,7 @@ from flask import request
 from flask import redirect
 from flask import url_for
 from flask import send_from_directory
+from flask import send_file
 from flask import flash
 from urllib import quote
 from urllib import unquote
@@ -20,6 +21,8 @@ app.secret_key = 'HjI981293u99as811lll'
 reload(sys)
 sys.setdefaultencoding('utf-8')
 site_name = "PiKaraoke"
+
+os.environ
 
 # Start karaoke process
 k = karaoke.Karaoke()
@@ -158,6 +161,10 @@ def download():
     	flash_message += 'Song will appear in the "available songs" list.'
     flash(flash_message, "is-info")
     return redirect(url_for('search'))
+    
+@app.route('/qrcode')
+def qrcode():
+    return send_file(k.generate_qr_code(), mimetype='image/png')
 
 @app.route("/info")
 def info():

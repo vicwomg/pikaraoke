@@ -6,27 +6,96 @@ import time
 import os
 import threading
 import logging
+from socket import gethostbyname
+from socket import gethostname
+import pygame
+import qrcode
+from io import BytesIO
 
 class Karaoke:
 
-    #paths
+    #default paths
     download_path = "/home/pi/pikaraoke/songs"
     youtube_dl_path = "/usr/bin/youtube-dl"
     player_path = "/usr/bin/omxplayer"
+    overlay_file_path = "/tmp/overlay.srt" # text overlay that will show on top of videos
 
     queue = []
     available_songs = []
     now_playing = None
     process = None
+    show_overlay = True
+    port = "<unknown_port>"
 
-    log_level = logging.INFO
+    log_level = logging.DEBUG
     logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S', level=log_level)
 
     def __init__(self):
-        self.get_available_songs()
-
+        
+        #override with env variables if provided
+        if (os.getenv('PK_PORT') != None):
+        	self.port = os.getenv('PK_PORT')
+        	logging.info("Port is: " + self.port)
+        if (os.getenv('PK_DOWNLOAD_PATH') != None):
+        	logging.info("Song download path: " + os.getenv('PK_DOWNLOAD_PATH'))
+        	self.download_path = os.getenv('PK_DOWNLOAD_PATH')
+        
+        # setup download directory
         if (not self.download_path.endswith('/')):
             self.download_path += '/'
+        if not os.path.exists(self.download_path):
+        	logging.info("Creating download path: " + self.download_path)
+        	os.makedirs(self.download_path)
+        	
+        # Generate connection URL and QR code
+        self.ip = gethostbyname(gethostname())
+        self.url = url = "http://" + self.ip + ":" + self.port
+        self.generate_qr_code()
+        
+        # get songs from download_path
+        self.get_available_songs()
+        
+        if (self.show_overlay):
+        	self.generate_pikaraoke_overlay_file()
+
+        self.initialize_screen()
+        self.render_splash_screen()
+    
+    def generate_pikaraoke_overlay_file(self):
+	    output = "00:00:00,00 --> 00:00:30,00 \nConnect at: %s" % self.url
+	    f = open(self.overlay_file_path, "w")
+	    f.write(output)
+	
+    def generate_qr_code(self):
+        logging.debug("Generating URL QR code")
+        img = qrcode.make(self.url)
+        qr_file = BytesIO()
+        img.save(qr_file, 'png')
+        qr_file.seek(0)
+        return qr_file
+        
+    def initialize_screen(self):
+        logging.debug("Initializing splash screen")
+        pygame.init()
+        pygame.mouse.set_visible(0)
+        self.font = pygame.font.SysFont(pygame.font.get_default_font(), 40)
+        self.width = pygame.display.Info().current_w
+        self.height = pygame.display.Info().current_h
+        self.screen = pygame.display.set_mode([self.width,self.height],pygame.FULLSCREEN)
+	    
+    def render_splash_screen(self):
+        logging.debug("Rendering splash screen")
+        p_image = pygame.image.load(self.generate_qr_code())
+        p_image = pygame.transform.scale(p_image, (150, 150))   
+        
+        text = self.font.render("Connect to PiKaraoke: " + self.url, True, (0, 0, 0)) 
+        self.screen.fill((255, 255, 255))
+        self.screen.blit(text,(10, self.height - text.get_height() - 5))
+        self.screen.blit(p_image, (0,0))
+        logo = pygame.image.load('./logo.jpg')
+        logo_rect = logo.get_rect(center = self.screen.get_rect().center)
+        self.screen.blit(logo, logo_rect)
+        pygame.display.flip()
 
     def get_search_results(self, textToSearch):
         logging.info("Searching YouTube for: " + textToSearch)
@@ -56,8 +125,6 @@ class Karaoke:
         dl_path = self.download_path + "%(title)s---%(id)s.%(ext)s"
         cmd = [self.youtube_dl_path,
         	'-f', 'mp4',
-        	'--external-downloader', 'aria2c',
-        	'-R', '5',
         	"-o", dl_path, video_url]
         logging.debug("Youtube-dl command: " + ' '.join(cmd))
         rc = subprocess.call(cmd)
@@ -108,6 +175,8 @@ class Karaoke:
         self.now_playing = self.filename_from_path(file_path)
         logging.info("Playing video: " + self.now_playing)
         cmd = [self.player_path,file_path, "--blank"]
+        if self.show_overlay:
+        	cmd += ["--subtitles", self.overlay_file_path]
         logging.debug("Player command: " + ' '.join(cmd))
         self.process = subprocess.Popen(cmd, stdin=subprocess.PIPE,)
 

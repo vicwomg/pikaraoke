@@ -21,12 +21,13 @@ Install youtube-dl:
 
 `sudo pip install --upgrade youtube_dl`
 
-Install gunicorn and futures:
+Install dependencies:
 
 `sudo pip install gunicorn`
 `sudo pip install futures`
+`sudo pip install qrcode[pil]`
 
-Bump up your GPU memory or some videos will show a GSOD (green screen of death):
+Bump up your GPU memory or some videos will show a GSOD (green screen of death). I had to do this on Pi Zero, not sure about Pi3:
 
 `nano /boot/config.txt`
 
