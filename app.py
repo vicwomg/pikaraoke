@@ -109,12 +109,12 @@ def pause():
     
 @app.route("/restart")
 def restart():
-    k.restart()
+    rc = k.restart()
     return redirect(url_for('home'))
 
 @app.route("/vol_up")
 def vol_up():
-    k.vol_up()
+    rc = k.vol_up()
     return redirect(url_for('home'))
     
 @app.route("/vol_down")

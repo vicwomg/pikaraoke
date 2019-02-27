@@ -170,7 +170,11 @@ class Karaoke:
         
     def rename(self, song_path, new_name):
         logging.info("Renaming song: '" + song_path + "' to: " + new_name)
+        ext = os.path.splitext(song_path)
+        if (len(ext) == 2):
+            new_name = new_name + ext[1]
         os.rename(song_path, self.download_path + new_name)
+        
         self.get_available_songs()
 
     def filename_from_path(self, file_path):
@@ -204,7 +208,10 @@ class Karaoke:
         self.process = subprocess.Popen(cmd, stdin=subprocess.PIPE,)
 
     def is_file_playing(self):
-        if (self.process.poll() == None):
+        if (self.process == None):
+            self.now_playing = None
+            return False
+        elif (self.process.poll() == None):
             return True
         else:
             self.now_playing = None
@@ -274,36 +281,46 @@ class Karaoke:
             logging.info("Skipping: " + self.now_playing)
             self.process.stdin.write("q")
             self.now_playing = None
+            return True
         else:
             logging.warning("Tried to skip, but no file is playing!")
+            return False
             
     def pause(self):
         if (self.is_file_playing()):
             logging.info("Pausing: " + self.now_playing)
             self.process.stdin.write("p")
+            return True
         else:
             logging.warning("Tried to pause, but no file is playing!")
+            return False
             
     def vol_up(self):
         if (self.is_file_playing()):
             logging.info("Volume up: " + self.now_playing)
             self.process.stdin.write("=")
+            return True
         else:
             logging.warning("Tried to volume up, but no file is playing!")
+            return False
             
     def vol_down(self):
         if (self.is_file_playing()):
             logging.info("Volume down: " + self.now_playing)
             self.process.stdin.write("-")
+            return True
         else:
             logging.warning("Tried to volume down, but no file is playing!")
+            return False
             
     def restart(self):
         if (self.is_file_playing()):
             logging.info("Restarting: " + self.now_playing)
             self.process.stdin.write("i")
+            return True
         else:
             logging.warning("Tried to restart, but no file is playing!")
+            return False
 
     def run(self):
         logging.info("Starting Karaoke!")
