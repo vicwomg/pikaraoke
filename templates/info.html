@@ -36,4 +36,13 @@ Handy URL QR code to share with a pal:
 </p>
 <img src="{{ url_for('qrcode') }}">
   
+<hr>
+
+<h1>System Info</h1>
+<ul>
+  <li>CPU: {{ cpu }}</li>
+  <li>Disk Usage: {{ disk }}</li>
+  <li>Memory: {{ memory }}</li>
+</ul>
+  
 {% endblock %}

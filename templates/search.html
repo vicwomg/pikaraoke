@@ -189,7 +189,7 @@
 
   <div class="field">
     <form action="{{ url_for('enqueue') }}" method="post">
-      <label class="label">Available Songs</label>
+      <label class="label">Available Songs <a href="{{ url_for('browse') }}">&nbsp;(browse)</a></label>
       <div class="field ui-widget">
         <!-- <select id="combobox" name='song_to_add' size="5" class="is-size-6"> -->
         <select id="combobox" name='song_to_add' >
@@ -214,7 +214,7 @@
       <div class="field">
         <input autocomplete="off" id="search_string" class="input" type="text" name='search_string'></input>
       </div>
-<!--       <p class="help">Search by song or artist</p> -->
+      <p class="help">Can't find it above? Add it here</p>
       <div class="field">
         <button class="button" id="search-button" type="submit" >Search</button>
       </div>

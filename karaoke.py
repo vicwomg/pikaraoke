@@ -11,6 +11,7 @@ from socket import gethostname
 import pygame
 import qrcode
 from io import BytesIO
+from signal import alarm, signal, SIGALRM, SIGKILL
 
 class Karaoke:
 
@@ -72,17 +73,29 @@ class Karaoke:
         return qr_file
         
     def initialize_screen(self):
-        logging.debug("Initializing splash screen")
+        logging.debug("Initializing pygame")
         pygame.init()
-        #pygame.mouse.init()
-        #pygame.font.init()
         pygame.mouse.set_visible(0)
         self.font = pygame.font.SysFont(pygame.font.get_default_font(), 40)
         self.width = pygame.display.Info().current_w
         self.height = pygame.display.Info().current_h
-        logging.debug("Initializing  screen mode")
-        self.screen = pygame.display.set_mode([self.width,self.height],pygame.FULLSCREEN)
-        logging.debug("done Initializing splash screen")
+        logging.debug("Initializing screen mode")
+        
+        # this section is an unbelievable nasty hack - for some reason Pygame
+        # needs a keyboardinterrupt to initialise in some limited circumstances
+        # source: https://stackoverflow.com/questions/17035699/pygame-requires-keyboard-interrupt-to-init-display
+        class Alarm(Exception):
+            pass
+        def alarm_handler(signum, frame):
+            raise Alarm
+        signal(SIGALRM, alarm_handler)
+        alarm(3)
+        try:
+            self.screen = pygame.display.set_mode([self.width,self.height],pygame.FULLSCREEN) 
+            alarm(0)
+        except Alarm:
+            raise KeyboardInterrupt
+        logging.debug("Done initializing splash screen")
 	    
     def render_splash_screen(self):
         logging.debug("Rendering splash screen")
@@ -148,8 +161,17 @@ class Karaoke:
 
     def get_available_songs(self):
         logging.debug("Fetching available songs in: " + self.download_path)
-        self.available_songs = glob.glob(self.download_path + "/*")
-        return self.available_songs
+        self.available_songs = sorted(glob.glob(self.download_path + "/*"))
+
+    def delete(self, song_path):
+        logging.info("Deleting song: " + song_path)
+        os.remove(song_path)
+        self.get_available_songs()
+        
+    def rename(self, song_path, new_name):
+        logging.info("Renaming song: '" + song_path + "' to: " + new_name)
+        os.rename(song_path, self.download_path + new_name)
+        self.get_available_songs()
 
     def filename_from_path(self, file_path):
 	    rc = os.path.basename(file_path)

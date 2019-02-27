@@ -33,8 +33,12 @@ Install youtube-dl:
 Install dependencies:
 
 `sudo pip install cherrypy`
+
 `sudo pip install futures`
+
 `sudo pip install qrcode[pil]`
+
+`sudo pip install psutil`
 
 Bump up your GPU memory or some videos will show a GSOD (green screen of death). I had to do this on Pi Zero, not sure about Pi3:
 

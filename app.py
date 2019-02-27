@@ -16,15 +16,17 @@ import os
 import json
 import cherrypy
 import argparse
+import psutil
 
 app = Flask(__name__)
 app.secret_key = 'HjI981293u99as811lll'
 site_name = "PiKaraoke"
 
-def filename_from_path(file_path):
+def filename_from_path(file_path,remove_youtube_id=True):
     rc = os.path.basename(file_path)
     rc = os.path.splitext(rc)[0]
-    rc = rc.split("---")[0] #removes youtube id if present
+    if (remove_youtube_id):
+        rc = rc.split("---")[0] #removes youtube id if present
     return rc
 
 def url_escape(filename):
@@ -81,10 +83,13 @@ def queue_edit():
                 flash("Error deleting from queue: " + song, "is-danger")
     return redirect(url_for('queue'))
         
-@app.route("/enqueue", methods=['POST'])
+@app.route("/enqueue", methods=['POST','GET'])
 def enqueue():
-    d = request.form.to_dict()
-    song = d['song_to_add']
+    if (request.args.has_key('song')):
+        song = request.args['song']
+    else:
+        d = request.form.to_dict()
+        song = d['song_to_add']
     rc = k.enqueue(song)
     if (rc):
         flash('Song added to queue: ' + filename_from_path(song), "is-success")
@@ -126,7 +131,19 @@ def search():
         search_results = None
     return render_template('search.html', site_title = site_name, title='Search',
         songs=k.available_songs, search_results = search_results)
-
+        
+@app.route("/browse", methods=['GET'])
+def browse():
+    if (request.args.has_key('sort') and request.args['sort'] == "date"):
+        songs = sorted(k.available_songs, key = lambda x: os.path.getctime(x))
+        songs.reverse()
+        sort_order = "Date"
+    else:
+        songs = k.available_songs
+        sort_order = "Alphabetical"
+    return render_template('files.html', sort_order=sort_order, site_title = site_name, 
+        title='Browse', songs=songs)
+        
 @app.route("/download", methods=['POST'])
 def download():
     d = request.form.to_dict()
@@ -154,11 +171,67 @@ def download():
 def qrcode():
     return send_file(k.generate_qr_code(), mimetype='image/png')
 
+@app.route('/files/delete', methods=['GET'])
+def delete_file():
+    if (request.args.has_key('song')):
+        song_path = request.args['song']
+        if song_path in k.queue:
+            flash("Error: Can't delete this song because it is in the current queue: " + song_path, "is-danger")
+        else:
+            k.delete(song_path)
+            flash("Song deleted: " + song_path, "is-warning")
+    else:
+        flash("Error: No song parameter specified!", "is-danger")
+    return redirect(url_for('browse'))
+    
+@app.route('/files/edit', methods=['GET', 'POST'])
+def edit_file():
+    queue_error_msg = "Error: Can't edit this song because it is in the current queue: "
+    if (request.args.has_key('song')):
+        song_path = request.args['song']
+        if song_path in k.queue:
+            flash(queue_error_msg + song_path, "is-danger")
+            return redirect(url_for('browse'))
+        else:
+            return render_template('edit.html', site_title = site_name, 
+                title='Song File Edit', song=song_path)
+    else:
+        d = request.form.to_dict()
+        if (d.has_key('new_file_name') and d.has_key('old_file_name')):
+            new_name = d['new_file_name']
+            old_name = d['old_file_name']
+            if old_name in k.queue:
+                # check one more time just in case someone added it during editing
+                flash(queue_error_msg + song_path, "is-danger")
+            else: 
+                k.rename(old_name, new_name)
+                flash("Renamed file: '%s' to '%s'." % (old_name, new_name), "is-warning")
+        else: 
+            flash("Error: No filename parameters were specified!", "is-danger")
+        return redirect(url_for('browse'))
+
 @app.route("/info")
 def info():
     url = "http://" + request.host
+    
+    #cpu
+    cpu = str(psutil.cpu_percent()) + '%'
+    
+    # mem
+    memory = psutil.virtual_memory()
+    available = round(memory.available/1024.0/1024.0,1)
+    total = round(memory.total/1024.0/1024.0,1)
+    memory = str(available) + 'MB free / ' + str(total) + 'MB total ( ' + str(memory.percent) + '% )'
+    
+    #disk
+    disk = psutil.disk_usage('/')
+    # Divide from Bytes -> KB -> MB -> GB
+    free = round(disk.free/1024.0/1024.0/1024.0,1)
+    total = round(disk.total/1024.0/1024.0/1024.0,1)
+    disk = str(free) + 'GB free / ' + str(total) + 'GB total ( ' + str(disk.percent) + '% )'
+    
     return render_template('info.html', site_title = site_name, title='Info',
-        url=url)
+        url=url, memory=memory, cpu=cpu, disk=disk )
         
 if __name__ == '__main__':
 
@@ -170,6 +243,7 @@ if __name__ == '__main__':
     parser.add_argument('-d','--download-path', help='Desired path for downloaded songs. (default: %s)' % default_dl_dir, default=default_dl_dir, required=False)
     args = parser.parse_args()
     
+    # Fix encoding for weird filenames
     reload(sys)
     sys.setdefaultencoding('utf-8')
     
@@ -195,3 +269,4 @@ if __name__ == '__main__':
     # Start the CherryPy WSGI web server
     cherrypy.engine.start()
     cherrypy.engine.block()
+    exit(0)
