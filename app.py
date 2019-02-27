@@ -14,21 +14,12 @@ import sys
 import logging
 import os
 import json
+import cherrypy
+import argparse
 
 app = Flask(__name__)
 app.secret_key = 'HjI981293u99as811lll'
-
-reload(sys)
-sys.setdefaultencoding('utf-8')
 site_name = "PiKaraoke"
-
-os.environ
-
-# Start karaoke process
-k = karaoke.Karaoke()
-t = threading.Thread(target=k.run)
-t.daemon = True
-t.start()
 
 def filename_from_path(file_path):
     rc = os.path.basename(file_path)
@@ -38,9 +29,6 @@ def filename_from_path(file_path):
 
 def url_escape(filename):
     return quote(filename)
-
-app.jinja_env.globals.update(filename_from_path=filename_from_path)
-app.jinja_env.globals.update(url_escape=url_escape)
 
 @app.route("/")
 def home():
@@ -171,3 +159,39 @@ def info():
     url = "http://" + request.host
     return render_template('info.html', site_title = site_name, title='Info',
         url=url)
+        
+if __name__ == '__main__':
+
+    # parse CLI args
+    parser = argparse.ArgumentParser()
+    default_port = 5000
+    parser.add_argument('-p','--port', help='Desired http port (default: %d)' % default_port, default=default_port, required=False)
+    default_dl_dir = os.getcwd() + '/songs'
+    parser.add_argument('-d','--download-path', help='Desired path for downloaded songs. (default: %s)' % default_dl_dir, default=default_dl_dir, required=False)
+    args = parser.parse_args()
+    
+    reload(sys)
+    sys.setdefaultencoding('utf-8')
+    
+    app.jinja_env.globals.update(filename_from_path=filename_from_path)
+    app.jinja_env.globals.update(url_escape=quote)
+
+    # Start karaoke process
+    global k 
+    k = karaoke.Karaoke(port=args.port, download_path=args.download_path)
+    t = threading.Thread(target=k.run)
+    t.daemon = True
+    t.start()
+
+    cherrypy.tree.graft(app, '/')
+    # Set the configuration of the web server
+    cherrypy.config.update({
+        'engine.autoreload_on': False,
+        'log.screen': True,
+        'server.socket_port': int(args.port),
+        'server.socket_host': '0.0.0.0'
+    })
+
+    # Start the CherryPy WSGI web server
+    cherrypy.engine.start()
+    cherrypy.engine.block()

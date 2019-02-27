@@ -15,8 +15,8 @@ from io import BytesIO
 class Karaoke:
 
     #default paths
-    download_path = "/home/pi/pikaraoke/songs"
-    youtube_dl_path = "/usr/bin/youtube-dl"
+    #download_path = "/home/pi/pikaraoke/songs"
+    youtube_dl_path = "/usr/local/bin/youtube-dl"
     player_path = "/usr/bin/omxplayer"
     overlay_file_path = "/tmp/overlay.srt" # text overlay that will show on top of videos
 
@@ -30,17 +30,14 @@ class Karaoke:
     log_level = logging.DEBUG
     logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S', level=log_level)
 
-    def __init__(self):
+    def __init__(self, port=5000, download_path=os.getcwd() + '/songs'):
         
-        #override with env variables if provided
-        if (os.getenv('PK_PORT') != None):
-        	self.port = os.getenv('PK_PORT')
-        	logging.info("Port is: " + self.port)
-        if (os.getenv('PK_DOWNLOAD_PATH') != None):
-        	logging.info("Song download path: " + os.getenv('PK_DOWNLOAD_PATH'))
-        	self.download_path = os.getenv('PK_DOWNLOAD_PATH')
+        #override with supplied constructor args if provided
+        self.port = port
+        logging.info("Port is: %s" % self.port)
         
         # setup download directory
+        self.download_path = download_path
         if (not self.download_path.endswith('/')):
             self.download_path += '/'
         if not os.path.exists(self.download_path):
@@ -49,7 +46,7 @@ class Karaoke:
         	
         # Generate connection URL and QR code
         self.ip = gethostbyname(gethostname())
-        self.url = url = "http://" + self.ip + ":" + self.port
+        self.url = url = "http://%s:%s" % (self.ip, self.port)
         self.generate_qr_code()
         
         # get songs from download_path
@@ -77,11 +74,15 @@ class Karaoke:
     def initialize_screen(self):
         logging.debug("Initializing splash screen")
         pygame.init()
+        #pygame.mouse.init()
+        #pygame.font.init()
         pygame.mouse.set_visible(0)
         self.font = pygame.font.SysFont(pygame.font.get_default_font(), 40)
         self.width = pygame.display.Info().current_w
         self.height = pygame.display.Info().current_h
+        logging.debug("Initializing  screen mode")
         self.screen = pygame.display.set_mode([self.width,self.height],pygame.FULLSCREEN)
+        logging.debug("done Initializing splash screen")
 	    
     def render_splash_screen(self):
         logging.debug("Rendering splash screen")

@@ -28,9 +28,11 @@ Install youtube-dl:
 
 `sudo pip install --upgrade youtube_dl`
 
+(Do NOT use apt-get to install youtube-dl, it is an outdated version and puts it in a different directory than expected)
+
 Install dependencies:
 
-`sudo pip install gunicorn`
+`sudo pip install cherrypy`
 `sudo pip install futures`
 `sudo pip install qrcode[pil]`
 
@@ -46,8 +48,14 @@ Add the following line:
 
 cd to the pikaraoke directory and run:
 
-`gunicorn app:app -b 0.0.0.0:5000 --threads 50`
+`sudo python app.py`
 
-Change the http port and thread count as needed. The above example is port 5000 and 50 threads. You'll need at least as many threads as intended concurrent users of the web interface.
+Yes, you must run as sudo since pikaraoke uses pygame to control the screen.
+
+Defaults to port 5000 and downloads songs to current working dir + /songs
+
+To change that, you can supply command line arguments (example):
+
+`python app.py --port 8080 --download-path /tmp/songs`
 
 Point your devices web browsers to the IP:port of the rpi, add some songs, and start singing!
