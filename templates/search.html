@@ -175,7 +175,15 @@
    	else {
         $("#add-queue-button").attr("disabled","true");
    	}
+   	
+   	$('#youtube-link').attr('href', $('#search_result_selector').val());
+    $('#youtube-link').text($('#search_result_selector').val());
     
+    $(document).on('change','#search_result_selector',function(){
+        var url = $('#search_result_selector').val();
+        $('#youtube-link').attr('href', url);
+        $('#youtube-link').text(url);
+    });
     
   } );
   </script>
@@ -233,7 +241,10 @@
         </select>
 
       </div>
+     
       <p class="help">Click dropdown to show more results</p>
+      
+      <p> Link: <a target="_blank" id='youtube-link' href=''></a> </p>
       <div class="field">
    	   <label class="checkbox">
 	   	   <input type="checkbox" name="queue">

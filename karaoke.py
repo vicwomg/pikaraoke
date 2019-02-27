@@ -197,7 +197,7 @@ class Karaoke:
     def play_file(self, file_path):
         self.now_playing = self.filename_from_path(file_path)
         logging.info("Playing video: " + self.now_playing)
-        cmd = [self.player_path,file_path, "--blank"]
+        cmd = [self.player_path,file_path, "--blank", "-o", "both"]
         if self.show_overlay:
         	cmd += ["--subtitles", self.overlay_file_path]
         logging.debug("Player command: " + ' '.join(cmd))
