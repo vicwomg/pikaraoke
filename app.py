@@ -30,7 +30,7 @@ def filename_from_path(file_path,remove_youtube_id=True):
     return rc
 
 def url_escape(filename):
-    return quote(filename)
+    return quote(filename.encode('utf8'))
 
 @app.route("/")
 def home():
@@ -189,12 +189,13 @@ def edit_file():
     queue_error_msg = "Error: Can't edit this song because it is in the current queue: "
     if (request.args.has_key('song')):
         song_path = request.args['song']
+        #print "SONG_PATH" + song_path
         if song_path in k.queue:
             flash(queue_error_msg + song_path, "is-danger")
             return redirect(url_for('browse'))
         else:
             return render_template('edit.html', site_title = site_name, 
-                title='Song File Edit', song=song_path)
+                title='Song File Edit', song=song_path.encode('utf-8'))
     else:
         d = request.form.to_dict()
         if (d.has_key('new_file_name') and d.has_key('old_file_name')):
@@ -242,10 +243,6 @@ if __name__ == '__main__':
     default_dl_dir = os.getcwd() + '/songs'
     parser.add_argument('-d','--download-path', help='Desired path for downloaded songs. (default: %s)' % default_dl_dir, default=default_dl_dir, required=False)
     args = parser.parse_args()
-    
-    # Fix encoding for weird filenames
-    reload(sys)
-    sys.setdefaultencoding('utf-8')
     
     app.jinja_env.globals.update(filename_from_path=filename_from_path)
     app.jinja_env.globals.update(url_escape=quote)

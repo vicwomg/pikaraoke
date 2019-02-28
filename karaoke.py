@@ -161,7 +161,8 @@ class Karaoke:
 
     def get_available_songs(self):
         logging.debug("Fetching available songs in: " + self.download_path)
-        self.available_songs = sorted(glob.glob(self.download_path + "/*"))
+        self.available_songs =  sorted(glob.glob(u'%s/*' % self.download_path)) # + "/*"))
+        #print self.available_songs
 
     def delete(self, song_path):
         logging.info("Deleting song: " + song_path)
@@ -224,6 +225,7 @@ class Karaoke:
     	else:
         	logging.info("Adding video to queue: " + song_path)
         	self.queue.append(song_path)
+        	#print self.queue
         	return True
         
     def queue_clear(self):

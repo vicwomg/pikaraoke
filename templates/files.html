@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+<script>
+
+$( function() {
+
+    
+
+});
+
+</script>
+
+{% endblock %}
+
+{% block header %}
+  <h1>{% block title %}{{ title }}{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+
+    <p> 
+        Sorted by "{{ sort_order }}" |
+        {% if sort_order == "Alphabetical" %}
+        <a href="{{ url_for('browse') }}?sort=date">Sort by Date</a> 
+        {% endif %}
+        {% if sort_order == "Date" %}
+        <a href="{{ url_for('browse') }}">Sort by Alphabetical</a> 
+        {% endif %}
+    
+    </p>
+
+    <ol>
+        {% for song in songs %}
+        <li value='{{ song }}'>
+        
+          <a class='has-text-weight-bold has-text-success' href="{{url_for('enqueue')}}?song={{url_escape(song.encode('utf-8'))}}">(+)</a>
+          <a class='edit-button' href="{{url_for('edit_file')}}?song={{url_escape(song.encode('utf-8'))}}">&#x270F;&#xFE0F;</a>
+           {{filename_from_path(song)}}
+        </li>
+        {% endfor %}
+      </ol>
+
+  
+{% endblock %}
