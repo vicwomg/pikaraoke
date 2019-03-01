@@ -30,7 +30,7 @@ Install youtube-dl:
 
 (Do NOT use apt-get to install youtube-dl, it is an outdated version and puts it in a different directory than expected)
 
-Install dependencies:
+Install these other dependencies:
 
 `sudo pip install cherrypy`
 
@@ -56,10 +56,42 @@ cd to the pikaraoke directory and run:
 
 Yes, you must run as sudo since pikaraoke uses pygame to control the screen.
 
-Defaults to port 5000 and downloads songs to current working dir + /songs
+Defaults to port 5000 and downloads songs to /usr/lib/pikaraoke/songs
 
 To change that, you can supply command line arguments (example):
 
-`python app.py --port 8080 --download-path /tmp/songs`
+`python app.py --port 8080 --download-path /home/pi/songs`
 
-Point your devices web browsers to the IP:port of the rpi, add some songs, and start singing!
+## Usage
+
+The screen should show the IP of the Pi along with a QR code. You can enter this IP or scan the QR code on your smartphone/computer to open it in a browser. From there you should see the PiKaraoke interface.
+
+Home (Microphone Icon)
+
+- View Now Playing and Next tracks
+
+- Access controls to repeat, pause, skip and control volume
+
+Queue
+
+- Edit the queue/playlist order
+
+- Add random songs to the queue
+
+- Clear the queue
+
+Songs
+
+- Put songs in the queue by searching current library on local storage (likely empty at first), search is executed autocomplete-style 
+
+- Add new songs from the internet by using the second search box
+
+- Click browse to view the full library. From here you can edit files in the library (rename/delete).
+
+Info
+
+- Shows the IP and QR code to share with others
+
+- Shows CPU / Memory / Disk Use stats
+
+- Allows user to shut down or reboot system

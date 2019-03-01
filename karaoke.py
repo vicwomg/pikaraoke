@@ -28,13 +28,14 @@ class Karaoke:
     show_overlay = True
     port = "<unknown_port>"
     qr_code = None
+    base_path = os.path.dirname(__file__)
     
     volume_offset = 0
 
     log_level = logging.INFO
     logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S', level=log_level)
 
-    def __init__(self, port=5000, download_path=os.getcwd() + '/songs'):
+    def __init__(self, port=5000, download_path='/usr/lib/pikaraoke/songs'):
         
         #override with supplied constructor args if provided
         self.port = port
@@ -105,7 +106,8 @@ class Karaoke:
         p_image = pygame.transform.scale(p_image, (150, 150))   
         self.screen.fill((255, 255, 255))
         self.screen.blit(p_image, (0,0))
-        logo = pygame.image.load('./logo.jpg')
+        
+        logo = pygame.image.load(os.path.join(self.base_path, 'logo.jpg'))
         logo_rect = logo.get_rect(center = self.screen.get_rect().center)
         self.screen.blit(logo, logo_rect)
         text = self.font.render("Connect to PiKaraoke: " + self.url, True, (0, 0, 0)) 
@@ -365,7 +367,7 @@ class Karaoke:
             return False
 
     def run(self):
-        logging.info("Starting Karaoke!")
+        logging.info("Starting PiKaraoke!")
         while True:
             if (len(self.queue) == 0):
                 # wait for queue to contain something

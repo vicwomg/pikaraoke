@@ -262,7 +262,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     default_port = 5000
     parser.add_argument('-p','--port', help='Desired http port (default: %d)' % default_port, default=default_port, required=False)
-    default_dl_dir = os.getcwd() + '/songs'
+    default_dl_dir = '/usr/lib/pikaraoke/songs'
     parser.add_argument('-d','--download-path', help='Desired path for downloaded songs. (default: %s)' % default_dl_dir, default=default_dl_dir, required=False)
     args = parser.parse_args()
     
