@@ -17,7 +17,6 @@ import random
 class Karaoke:
 
     #default paths
-    #download_path = "/home/pi/pikaraoke/songs"
     youtube_dl_path = "/usr/local/bin/youtube-dl"
     player_path = "/usr/bin/omxplayer"
     overlay_file_path = "/tmp/overlay.srt" # text overlay that will show on top of videos
@@ -28,10 +27,11 @@ class Karaoke:
     process = None
     show_overlay = True
     port = "<unknown_port>"
+    qr_code = None
     
     volume_offset = 0
 
-    log_level = logging.DEBUG
+    log_level = logging.INFO
     logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S', level=log_level)
 
     def __init__(self, port=5000, download_path=os.getcwd() + '/songs'):
@@ -51,21 +51,20 @@ class Karaoke:
         # Generate connection URL and QR code
         self.ip = gethostbyname(gethostname())
         self.url = url = "http://%s:%s" % (self.ip, self.port)
-        self.generate_qr_code()
         
         # get songs from download_path
         self.get_available_songs()
-        
-        if (self.show_overlay):
-        	self.generate_pikaraoke_overlay_file()
 
         self.initialize_screen()
         self.render_splash_screen()
     
-    def generate_pikaraoke_overlay_file(self):
-	    output = "00:00:00,00 --> 00:00:30,00 \nConnect at: %s" % self.url
-	    f = open(self.overlay_file_path, "w")
-	    f.write(output)
+    def generate_pikaraoke_overlay_file(self,file_path):
+        logging.debug("Generating overlay file")
+        current_song = self.filename_from_path(file_path)
+        output = "00:00:00,00 --> 00:00:30,00 \nNow Playing: %s\nConnect at: %s" % (current_song, self.url)
+        f = open(self.overlay_file_path, "w")
+        f.write(output.encode('utf8'))
+        logging.debug("Done generating overlay file: " + output)
 	
     def generate_qr_code(self):
         logging.debug("Generating URL QR code")
@@ -118,7 +117,8 @@ class Karaoke:
         if (len(self.queue) >= 2):
             logging.debug("Rendering next song to splash screen")
             next_song = self.filename_from_path(self.queue[1])
-            text = self.font.render("Up next: " + next_song, True, (0, 0, 0))
+            font_next_song = pygame.font.SysFont(pygame.font.get_default_font(), 60)
+            text = font_next_song.render("Up next: " + next_song, True, (128, 0, 0))
             self.screen.blit(text,(self.width - text.get_width() - 10, self.height - text.get_height() - 5))
             pygame.display.flip()
             return True
@@ -176,8 +176,7 @@ class Karaoke:
 
     def get_available_songs(self):
         logging.debug("Fetching available songs in: " + self.download_path)
-        self.available_songs =  sorted(glob.glob(u'%s/*' % self.download_path)) # + "/*"))
-        #print self.available_songs
+        self.available_songs =  sorted(glob.glob(u'%s/*' % self.download_path))
 
     def delete(self, song_path):
         logging.info("Deleting song: " + song_path)
@@ -216,7 +215,8 @@ class Karaoke:
 
     def play_file(self, file_path):
         self.now_playing = self.filename_from_path(file_path)
-        
+        if (self.show_overlay):
+        	self.generate_pikaraoke_overlay_file(file_path)
         logging.debug("Killing old omxplayer processes (just in case)")
         player_kill = ["killall", "omxplayer.bin"]
         subprocess.Popen(player_kill, stdin=subprocess.PIPE,)
@@ -246,7 +246,6 @@ class Karaoke:
     	else:
         	logging.info("Adding video to queue: " + song_path)
         	self.queue.append(song_path)
-        	#print self.queue
         	return True
         	
     def queue_add_random(self, amount):

@@ -244,6 +244,18 @@ def info():
     return render_template('info.html', site_title = site_name, title='Info',
         url=url, memory=memory, cpu=cpu, disk=disk )
         
+@app.route("/shutdown")
+def shutdown():
+    flash("Shutting down system!", "is-danger")
+    os.system('shutdown now')       
+    return redirect(url_for('home'))
+    
+@app.route("/reboot")
+def reboot():
+    flash("Rebooting system!", "is-danger")
+    os.system('reboot')    
+    return redirect(url_for('home'))
+        
 if __name__ == '__main__':
 
     # parse CLI args

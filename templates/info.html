@@ -5,7 +5,19 @@
 
 $( function() {
 
-
+    $('#shutdown-link').click(function(e) {
+        e.preventDefault();
+        if (window.confirm("Are you sure you want to shut down?")) {
+            location.href = this.href;
+        }
+    });
+    
+     $('#restart-link').click(function(e) {
+        e.preventDefault();
+        if (window.confirm("Are you sure you want to reboot?")) {
+            location.href = this.href;
+        }
+    });
 
 });
 </script>
@@ -22,14 +34,7 @@ URL of {{site_title}}:
 </p>
 
   <p class="is-size-4 has-text-warning">
-    <!-- {% if now_playing %}
-    {{now_playing}}
-    {% else %}
-    Nothing playing right now
-    {% endif %} -->
    {{ url }}
-
-   
   </p>
 <p>
 Handy URL QR code to share with a pal:
@@ -43,6 +48,15 @@ Handy URL QR code to share with a pal:
   <li>CPU: {{ cpu }}</li>
   <li>Disk Usage: {{ disk }}</li>
   <li>Memory: {{ memory }}</li>
+</ul>
+
+<hr>
+
+<h1>Shutdown</h1>
+<p>Don't just pull the plug! Always shut down your PiKaraoke properly to avoid data corruption.</p>
+<ul>
+  <li><a id="shutdown-link" href="{{ url_for('shutdown') }}">Shutdown</a></li>
+  <li><a id="restart-link" href="{{ url_for('reboot') }}">Reboot</a></li>
 </ul>
   
 {% endblock %}
