@@ -60,7 +60,7 @@ def add_random():
     if (rc):
         flash("Added %s random tracks" % amount, "is-success")
     else:
-        flash("Unable to add all %s random tracks. Ran out of songs!" % amount, "is-warning")
+        flash("Ran out of songs!", "is-warning")
     return redirect(url_for('queue'))
         
 @app.route("/queue/edit", methods=['GET'])
@@ -258,12 +258,23 @@ def reboot():
         
 if __name__ == '__main__':
 
+    default_port = 5000
+    default_volume = 0
+    default_dl_dir = '/usr/lib/pikaraoke/songs'
+    default_omxplayer_path = '/usr/bin/omxplayer'
+    default_youtubedl_path = '/usr/local/bin/youtube-dl'
+
     # parse CLI args
     parser = argparse.ArgumentParser()
-    default_port = 5000
+    
     parser.add_argument('-p','--port', help='Desired http port (default: %d)' % default_port, default=default_port, required=False)
-    default_dl_dir = '/usr/lib/pikaraoke/songs'
     parser.add_argument('-d','--download-path', help='Desired path for downloaded songs. (default: %s)' % default_dl_dir, default=default_dl_dir, required=False)
+    parser.add_argument('-o','--omxplayer-path', help='Path of omxplayer. (default: %s)' % default_omxplayer_path, default=default_omxplayer_path, required=False)
+    parser.add_argument('-y','--youtubedl-path', help='Path of youtube-dl. (default: %s)' % default_youtubedl_path, default=default_youtubedl_path, required=False)
+    parser.add_argument('-v','--volume', help='Initial player volume in millibels. Negative values ok. (default: %s , Note: 100 millibels = 1 decibel)' % default_volume, default=default_volume, required=False)
+    parser.add_argument('--hide-overlay', action='store_true', help='Hide overlay in player showing song title and IP.', required=False)
+    parser.add_argument('--hide-ip', action='store_true', help='Hide IP address from the screen.', required=False)
+    parser.add_argument('--hide-splash-screen', action='store_true', help='Hide splash screen before/between songs.', required=False)
     args = parser.parse_args()
     
     app.jinja_env.globals.update(filename_from_path=filename_from_path)
@@ -271,7 +282,14 @@ if __name__ == '__main__':
 
     # Start karaoke process
     global k 
-    k = karaoke.Karaoke(port=args.port, download_path=args.download_path)
+    k = karaoke.Karaoke(port = args.port, 
+        download_path = args.download_path, 
+        omxplayer_path = args.omxplayer_path,
+        youtubedl_path = args.youtubedl_path,
+        volume = args.volume,
+        hide_overlay = args.hide_overlay,
+        hide_ip = args.hide_ip,
+        hide_splash_screen = args.hide_splash_screen)
     t = threading.Thread(target=k.run)
     t.daemon = True
     t.start()

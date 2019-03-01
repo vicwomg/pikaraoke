@@ -1,44 +1,51 @@
 ## PiKaraoke
 
-Karaoke song search and queueing system that uses Youtube videos as a source.
+Karaoke song search and queueing system that uses Youtube videos as a source. For use with Raspberry Pi devices.
 
-Supports
+### Features
 
-* Web interface for multiple users
-
-* Searching song library via autocomplete
-
-* Adding new tracks from Youtube
-
-* Offline storage of video files
-
-* Pause/Skip/Restart and volume control
-
-* Now playing and up next display
-
-* Queue editing
+*  Web interface for multiple users to queue tracks
+*  Searching song library via autocomplete
+*  Adding new tracks from Youtube
+*  Offline storage of video files
+*  Pause/Skip/Restart and volume control
+*  Now playing and Up Next display
+*  Basic editing of downloaded file names
+*  Queue editing
 
 ## Setup
 
-Make sure you you have omxplayer (should be installed by default in Raspbian), but in case it's not:
+Clone this repo to the directory of your choice:
 
-`sudo apt-get install omxplayer`
+```
+git clone <this repo URL>
+```
+
+Make sure you you have omxplayer (should be installed by default in Raspbian):
+
+```
+which omxplayer
+# Should return: /usr/bin/omxplayer
+```
+
+If it is not found you should be able to install it with apt-get
 
 Install youtube-dl:
 
-`sudo pip install --upgrade youtube_dl`
+```
+sudo pip install --upgrade youtube_dl
+```
 
 (Do NOT use apt-get to install youtube-dl, it is an outdated version and puts it in a different directory than expected)
 
 Install these other dependencies:
 
-`sudo pip install cherrypy`
-
-`sudo pip install futures`
-
-`sudo pip install qrcode[pil]`
-
-`sudo pip install psutil`
+```
+sudo pip install cherrypy
+sudo pip install futures
+sudo pip install qrcode[pil]
+sudo pip install psutil
+```
 
 Bump up your GPU memory or some videos will show a GSOD (green screen of death). I had to do this on Pi Zero, not sure about Pi3:
 
@@ -56,42 +63,78 @@ cd to the pikaraoke directory and run:
 
 Yes, you must run as sudo since pikaraoke uses pygame to control the screen.
 
-Defaults to port 5000 and downloads songs to /usr/lib/pikaraoke/songs
-
-To change that, you can supply command line arguments (example):
+By default, the http port is 5000 and it downloads songs to "/usr/lib/pikaraoke/songs". To change this, you can supply the following command line arguments (example):
 
 `python app.py --port 8080 --download-path /home/pi/songs`
 
 ## Usage
 
-The screen should show the IP of the Pi along with a QR code. You can enter this IP or scan the QR code on your smartphone/computer to open it in a browser. From there you should see the PiKaraoke interface.
+Here is the full list of command line arguments:
 
-Home (Microphone Icon)
+```
+usage: app.py [-h] [-p PORT] [-d DOWNLOAD_PATH] [-o OMXPLAYER_PATH]
+              [-y YOUTUBEDL_PATH] [-v VOLUME] [--hide-overlay] [--hide-ip]
+              [--hide-splash-screen]
 
-- View Now Playing and Next tracks
+optional arguments:
+  -h, --help            show this help message and exit
+  -p PORT, --port PORT  Desired http port (default: 5000)
+  -d DOWNLOAD_PATH, --download-path DOWNLOAD_PATH
+                        Desired path for downloaded songs. (default:
+                        /usr/lib/pikaraoke/songs)
+  -o OMXPLAYER_PATH, --omxplayer-path OMXPLAYER_PATH
+                        Path of omxplayer. (default: /usr/bin/omxplayer)
+  -y YOUTUBEDL_PATH, --youtubedl-path YOUTUBEDL_PATH
+                        Path of youtube-dl. (default: /usr/local/bin/youtube-
+                        dl)
+  -v VOLUME, --volume VOLUME
+                        Initial player volume in millibels. Negative values
+                        ok. (default: 0 , Note: 100 millibels = 1 decibel)
+  --hide-overlay        Hide overlay in player showing song title and IP.
+  --hide-ip             Hide IP address from the screen.
+  --hide-splash-screen  Hide splash screen before/between songs.
+```
 
-- Access controls to repeat, pause, skip and control volume
+## UI
 
-Queue
+The connected monitor/TV should show a splash screen with the IP of the Pi along with a QR code. The splash screen also shows the next track in between songs.
 
-- Edit the queue/playlist order
+Make sure you are connected to the same network/wifi. You can then enter this IP or scan the QR code on your smartphone/computer to open it in a browser. From there you should see the PiKaraoke web interface. It is hopefully pretty self-explanitory, but if you really need some help:
 
-- Add random songs to the queue
+### Web UI
 
-- Clear the queue
+#### Home (Microphone Icon)
 
-Songs
+*  View Now Playing and Next tracks
+*  Access controls to repeat, pause, skip and control volume
 
-- Put songs in the queue by searching current library on local storage (likely empty at first), search is executed autocomplete-style 
+#### Queue
 
-- Add new songs from the internet by using the second search box
+*  Edit the queue/playlist order (up and down arrow icons)
+*  Delete from queue ( x icon )
+*  Add random songs to the queue 
+*  Clear the queue
 
-- Click browse to view the full library. From here you can edit files in the library (rename/delete).
+#### Songs
 
-Info
+*  Add songs to the queue by searching current library on local storage (likely empty at first), search is executed autocomplete-style 
+*  Add new songs from the internet by using the second search box
+*  Click browse to view the full library. From here you can edit files in the library (rename/delete).
 
-- Shows the IP and QR code to share with others
+#### Info
 
-- Shows CPU / Memory / Disk Use stats
+*  Shows the IP and QR code to share with others
+*  Shows CPU / Memory / Disk Use stats
+*  Allows user to shut down or reboot system
 
-- Allows user to shut down or reboot system
+## Troubleshooting
+
+#### Songs aren't downloading!
+
+Make sure youtube-dl is up to date, old versions have higher failure rates due to changes in Youtube 
+
+`sudo pip install --upgrade youtube_dl`
+
+#### Downloads are slow!
+
+youtube-dl is very CPU intensive, especially for single-core devices like the pi models zero and less-than 2. The more simultaneous downloads there are, the longer they will take. Try to limit it to 2 at a time.

@@ -13,20 +13,16 @@ import qrcode
 from io import BytesIO
 from signal import alarm, signal, SIGALRM, SIGKILL
 import random
+import sys
 
 class Karaoke:
 
-    #default paths
-    youtube_dl_path = "/usr/local/bin/youtube-dl"
-    player_path = "/usr/bin/omxplayer"
-    overlay_file_path = "/tmp/overlay.srt" # text overlay that will show on top of videos
+    overlay_file_path = "/tmp/pikaraoke-overlay.srt"
 
     queue = []
     available_songs = []
     now_playing = None
     process = None
-    show_overlay = True
-    port = "<unknown_port>"
     qr_code = None
     base_path = os.path.dirname(__file__)
     
@@ -35,11 +31,24 @@ class Karaoke:
     log_level = logging.INFO
     logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S', level=log_level)
 
-    def __init__(self, port=5000, download_path='/usr/lib/pikaraoke/songs'):
+    def __init__(self, 
+            port = 5000, 
+            download_path = '/usr/lib/pikaraoke/songs', 
+            hide_ip = False,
+            hide_splash_screen = False,
+            hide_overlay = False,
+            volume = 0,
+            youtubedl_path = '/usr/local/bin/youtube-dl',
+            omxplayer_path ='/usr/bin/omxplayer'):
         
         #override with supplied constructor args if provided
         self.port = port
-        logging.info("Port is: %s" % self.port)
+        self.hide_ip = hide_ip
+        self.hide_splash_screen = hide_splash_screen
+        self.hide_overlay = hide_overlay
+        self.volume_offset = volume
+        self.youtubedl_path = youtubedl_path
+        self.player_path = omxplayer_path
         
         # setup download directory
         self.download_path = download_path
@@ -48,6 +57,10 @@ class Karaoke:
         if not os.path.exists(self.download_path):
         	logging.info("Creating download path: " + self.download_path)
         	os.makedirs(self.download_path)
+
+        logging.debug("\n http port: %s\n hide IP: %s\n hide splash: %s\n hide overlay: %s\n download path: %s\n default volume: %s\n youtube-dl path: %s\n omxplayer path: %s" 
+            % (self.port, self.hide_ip, self.hide_splash_screen, self.hide_overlay, 
+            self.download_path, self.volume_offset, self.youtubedl_path, self.player_path))
         	
         # Generate connection URL and QR code
         self.ip = gethostbyname(gethostname())
@@ -55,17 +68,38 @@ class Karaoke:
         
         # get songs from download_path
         self.get_available_songs()
+        
+        # check binaries exist
+        if (not os.path.isfile(self.youtubedl_path)):
+            msg = "youtube-dl not found at: " + self.youtubedl_path
+            logging.error(msg)
+            sys.exit(msg)
+        if (not os.path.isfile(self.player_path)):
+            msg = "video player not found at: " + self.player_path
+            logging.error(msg)
+            sys.exit(msg)
+        
+        # clean up old sessions
+        self.kill_player()
+        if os.path.isfile(self.overlay_file_path):
+            os.remove(self.overlay_file_path)
 
-        self.initialize_screen()
-        self.render_splash_screen()
+        if (not self.hide_splash_screen):
+            self.initialize_screen()
+            self.render_splash_screen()
     
-    def generate_pikaraoke_overlay_file(self,file_path):
-        logging.debug("Generating overlay file")
-        current_song = self.filename_from_path(file_path)
-        output = "00:00:00,00 --> 00:00:30,00 \nNow Playing: %s\nConnect at: %s" % (current_song, self.url)
-        f = open(self.overlay_file_path, "w")
-        f.write(output.encode('utf8'))
-        logging.debug("Done generating overlay file: " + output)
+    def generate_overlay_file(self,file_path):    
+        if (not self.hide_overlay):
+            logging.debug("Generating overlay file")
+            current_song = self.filename_from_path(file_path)
+            if (not self.hide_ip):
+                msg = "PiKaraoke IP: %s" % self.url
+            else:
+                msg = ""
+            output = "00:00:00,00 --> 00:00:30,00 \n%s\n%s" % (current_song, msg)
+            f = open(self.overlay_file_path, "w")
+            f.write(output.encode('utf8'))
+            logging.debug("Done generating overlay file: " + output)
 	
     def generate_qr_code(self):
         logging.debug("Generating URL QR code")
@@ -76,57 +110,64 @@ class Karaoke:
         return qr_file
         
     def initialize_screen(self):
-        logging.debug("Initializing pygame")
-        pygame.init()
-        pygame.mouse.set_visible(0)
-        self.font = pygame.font.SysFont(pygame.font.get_default_font(), 40)
-        self.width = pygame.display.Info().current_w
-        self.height = pygame.display.Info().current_h
-        logging.debug("Initializing screen mode")
-        
-        # this section is an unbelievable nasty hack - for some reason Pygame
-        # needs a keyboardinterrupt to initialise in some limited circumstances
-        # source: https://stackoverflow.com/questions/17035699/pygame-requires-keyboard-interrupt-to-init-display
-        class Alarm(Exception):
-            pass
-        def alarm_handler(signum, frame):
-            raise Alarm
-        signal(SIGALRM, alarm_handler)
-        alarm(3)
-        try:
-            self.screen = pygame.display.set_mode([self.width,self.height],pygame.FULLSCREEN) 
-            alarm(0)
-        except Alarm:
-            raise KeyboardInterrupt
-        logging.debug("Done initializing splash screen")
+        if (not self.hide_splash_screen):
+            logging.debug("Initializing pygame")
+            pygame.init()
+            pygame.mouse.set_visible(0)
+            self.font = pygame.font.SysFont(pygame.font.get_default_font(), 40)
+            self.width = pygame.display.Info().current_w
+            self.height = pygame.display.Info().current_h
+            logging.debug("Initializing screen mode")
+            
+            # this section is an unbelievable nasty hack - for some reason Pygame
+            # needs a keyboardinterrupt to initialise in some limited circumstances
+            # source: https://stackoverflow.com/questions/17035699/pygame-requires-keyboard-interrupt-to-init-display
+            class Alarm(Exception):
+                pass
+            def alarm_handler(signum, frame):
+                raise Alarm
+            signal(SIGALRM, alarm_handler)
+            alarm(3)
+            try:
+                self.screen = pygame.display.set_mode([self.width,self.height],pygame.FULLSCREEN) 
+                alarm(0)
+            except Alarm:
+                raise KeyboardInterrupt
+            logging.debug("Done initializing splash screen")
 	    
     def render_splash_screen(self):
-        logging.debug("Rendering splash screen")
-        p_image = pygame.image.load(self.generate_qr_code())
-        p_image = pygame.transform.scale(p_image, (150, 150))   
-        self.screen.fill((255, 255, 255))
-        self.screen.blit(p_image, (0,0))
-        
-        logo = pygame.image.load(os.path.join(self.base_path, 'logo.jpg'))
-        logo_rect = logo.get_rect(center = self.screen.get_rect().center)
-        self.screen.blit(logo, logo_rect)
-        text = self.font.render("Connect to PiKaraoke: " + self.url, True, (0, 0, 0)) 
-        self.screen.blit(text, (p_image.get_width() + 10, 12))
-        pygame.display.flip()
+        if (not self.hide_splash_screen):
+            logging.debug("Rendering splash screen")
+            
+            self.screen.fill((0, 0, 0))
+            
+            logo = pygame.image.load(os.path.join(self.base_path, 'logo.jpg'))
+            logo_rect = logo.get_rect(center = self.screen.get_rect().center)
+            self.screen.blit(logo, logo_rect)
+            
+            if (not self.hide_ip):
+                p_image = pygame.image.load(self.generate_qr_code())
+                p_image = pygame.transform.scale(p_image, (150, 150))   
+                self.screen.blit(p_image, (0,0))
+                text = self.font.render("Connect to PiKaraoke: " + self.url, True, (255, 255, 255)) 
+                self.screen.blit(text, (p_image.get_width() + 15, 0))
+            
+            pygame.display.flip()
         
     def render_next_song_to_splash_screen(self):
-        self.render_splash_screen()
-        if (len(self.queue) >= 2):
-            logging.debug("Rendering next song to splash screen")
-            next_song = self.filename_from_path(self.queue[1])
-            font_next_song = pygame.font.SysFont(pygame.font.get_default_font(), 60)
-            text = font_next_song.render("Up next: " + next_song, True, (128, 0, 0))
-            self.screen.blit(text,(self.width - text.get_width() - 10, self.height - text.get_height() - 5))
-            pygame.display.flip()
-            return True
-        else:
-            logging.debug("Could not render next song to splash. No song in queue")
-            return False
+        if (not self.hide_splash_screen):
+            self.render_splash_screen()
+            if (len(self.queue) >= 2):
+                logging.debug("Rendering next song to splash screen")
+                next_song = self.filename_from_path(self.queue[1])
+                font_next_song = pygame.font.SysFont(pygame.font.get_default_font(), 60)
+                text = font_next_song.render("Up next: " + next_song, True, (0, 128, 0))
+                self.screen.blit(text,(self.width - text.get_width() - 10, self.height - text.get_height() - 5))
+                pygame.display.flip()
+                return True
+            else:
+                logging.debug("Could not render next song to splash. No song in queue")
+                return False
 
     def get_search_results(self, textToSearch):
         logging.info("Searching YouTube for: " + textToSearch)
@@ -154,7 +195,7 @@ class Karaoke:
     def download_video(self, video_url, enqueue=False):
         logging.info("Downloading video: " + video_url)
         dl_path = self.download_path + "%(title)s---%(id)s.%(ext)s"
-        cmd = [self.youtube_dl_path,
+        cmd = [self.youtubedl_path,
         	'-f', 'mp4',
         	"-o", dl_path, video_url]
         logging.debug("Youtube-dl command: " + ' '.join(cmd))
@@ -213,19 +254,28 @@ class Karaoke:
 			return s[1]
 		else:
 			logging.error("Error parsing youtube id from url: " + url)
-	    	return None
+	    	return NoneType
+	
+    def kill_player(self):    	
+        logging.debug("Killing old omxplayer processes")
+        player_kill = ["killall", "omxplayer.bin"]
+        FNULL = open(os.devnull, 'w')
+        subprocess.Popen(player_kill, stdin=subprocess.PIPE, stdout=FNULL, stderr=FNULL)    	
 
     def play_file(self, file_path):
         self.now_playing = self.filename_from_path(file_path)
-        if (self.show_overlay):
-        	self.generate_pikaraoke_overlay_file(file_path)
-        logging.debug("Killing old omxplayer processes (just in case)")
-        player_kill = ["killall", "omxplayer.bin"]
-        subprocess.Popen(player_kill, stdin=subprocess.PIPE,)
+        if (not self.hide_overlay):
+        	self.generate_overlay_file(file_path)
+        
+        self.kill_player()
         
         logging.info("Playing video: " + self.now_playing)
-        cmd = [self.player_path,file_path, "--blank", "-o", "both", "--vol", str(self.volume_offset), "--font-size", str(30)]
-        if self.show_overlay:
+        cmd = [self.player_path,file_path, 
+            "--blank", 
+            "-o", "both", 
+            "--vol", str(self.volume_offset), 
+            "--font-size", str(25)]
+        if (not self.hide_overlay):
         	cmd += ["--subtitles", self.overlay_file_path]
         logging.debug("Player command: " + ' '.join(cmd))
         self.process = subprocess.Popen(cmd, stdin=subprocess.PIPE,)
@@ -252,18 +302,21 @@ class Karaoke:
         	
     def queue_add_random(self, amount):
         logging.info("Adding %d random songs to queue" % amount) 
-        songs = self.available_songs
+        songs = list(self.available_songs) #make a copy
+        if len(songs) == 0:
+            logging.warn("No available songs!")
+            return False
         i = 0
         while i < amount:
             r = random.randint(0,len(songs)-1)
             if songs[r] in self.queue:
-                logger.warn("Song already in queue, trying another... " + songs[r])
+                logging.warn("Song already in queue, trying another... " + songs[r])
             else:
                 self.queue.append(songs[r])
                 i += 1
             songs.pop(r)
-            if len(songs) == 0:
-                logger.warn("Ran out of songs!")
+            if (len(songs) == 0):
+                logging.warn("Ran out of songs!")
                 return False
         return True
     

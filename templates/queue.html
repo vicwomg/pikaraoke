@@ -22,11 +22,13 @@ $(function() {
     $('.up-button').first().hide(); 
     $('.down-button').first().hide();
     
+    var blackout_tile = "&#x2B1B;"
+    
     // hide up button for second track
-    $('.up-button').eq(1).hide(); 
+    $('.up-button').eq(1).html(blackout_tile).removeAttr("href");
     
     // hide down button for last track
-    $('.down-button').last().hide();
+    $('.down-button').last().html(blackout_tile).removeAttr("href");
 });
 </script>
 
