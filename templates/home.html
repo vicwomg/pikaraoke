@@ -49,6 +49,15 @@ $( function() {
     Nothing is playing right now. 
   </p>
 
+
+  <hr>
+  <h3>Next</h3>
+  <p id="up-next" class="has-text-warning"></p>
+
+<hr>
+
+<h3>Player Control</h3>
+<div class="has-background-black box">
 <!--
 <button class="button"><a href="{{ url_for('restart') }}">&#x21A9;&#xFE0F;</a></button>
   <button class="button"><a href="{{ url_for('pause') }}">&#x23EF;&#xFE0F;</a></button>
@@ -61,8 +70,10 @@ $( function() {
   <a href="{{ url_for('pause') }}">&#x23EF;&#xFE0F;</a>&nbsp;&nbsp;
   <a href="{{ url_for('skip') }}">&#x23ED;&#xFE0F;</a>&nbsp;&nbsp;
   &nbsp;&nbsp;&nbsp;&nbsp;
+  <span class="is-pulled-right">
   <a href="{{ url_for('vol_down') }}">&#x1F508;</a>&nbsp;&nbsp;
-  <a href="{{ url_for('vol_up') }}">&#x1F50A;</a>&nbsp;&nbsp;
+  <a href="{{ url_for('vol_up') }}">&#x1F50A;</a>
+  </span>
 <!--
 
   <button class="button"><a href="{{ url_for('restart') }}">|&lt;</a></button>
@@ -73,9 +84,6 @@ $( function() {
 -->
 </p>
   
-  <hr>
-  <h2>Next</h2>
-  <p id="up-next" class="has-text-warning"></p>
-
+</div>
   
 {% endblock %}

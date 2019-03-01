@@ -104,15 +104,27 @@ class Karaoke:
         logging.debug("Rendering splash screen")
         p_image = pygame.image.load(self.generate_qr_code())
         p_image = pygame.transform.scale(p_image, (150, 150))   
-        
-        text = self.font.render("Connect to PiKaraoke: " + self.url, True, (0, 0, 0)) 
         self.screen.fill((255, 255, 255))
-        self.screen.blit(text,(10, self.height - text.get_height() - 5))
         self.screen.blit(p_image, (0,0))
         logo = pygame.image.load('./logo.jpg')
         logo_rect = logo.get_rect(center = self.screen.get_rect().center)
         self.screen.blit(logo, logo_rect)
+        text = self.font.render("Connect to PiKaraoke: " + self.url, True, (0, 0, 0)) 
+        self.screen.blit(text, (p_image.get_width() + 10, 12))
         pygame.display.flip()
+        
+    def render_next_song_to_splash_screen(self):
+        self.render_splash_screen()
+        if (len(self.queue) >= 2):
+            logging.debug("Rendering next song to splash screen")
+            next_song = self.filename_from_path(self.queue[1])
+            text = self.font.render("Up next: " + next_song, True, (0, 0, 0))
+            self.screen.blit(text,(self.width - text.get_width() - 10, self.height - text.get_height() - 5))
+            pygame.display.flip()
+            return True
+        else:
+            logging.debug("Could not render next song to splash. No song in queue")
+            return False
 
     def get_search_results(self, textToSearch):
         logging.info("Searching YouTube for: " + textToSearch)
@@ -210,11 +222,12 @@ class Karaoke:
         subprocess.Popen(player_kill, stdin=subprocess.PIPE,)
         
         logging.info("Playing video: " + self.now_playing)
-        cmd = [self.player_path,file_path, "--blank", "-o", "both", "--vol", str(self.volume_offset)]
+        cmd = [self.player_path,file_path, "--blank", "-o", "both", "--vol", str(self.volume_offset), "--font-size", str(30)]
         if self.show_overlay:
         	cmd += ["--subtitles", self.overlay_file_path]
         logging.debug("Player command: " + ' '.join(cmd))
         self.process = subprocess.Popen(cmd, stdin=subprocess.PIPE,)
+        self.render_splash_screen() # remove old previous track
 
     def is_file_playing(self):
         if (self.process == None):
@@ -365,6 +378,7 @@ class Karaoke:
                     while (self.is_file_playing()):
                         # wait for file to complete
                         time.sleep(1)
+                    self.render_next_song_to_splash_screen()
                     if (self.queue and len(self.queue) > 0):
                     	# remove first song from queue
                         self.queue.pop(0)
