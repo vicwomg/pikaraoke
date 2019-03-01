@@ -12,6 +12,7 @@ import pygame
 import qrcode
 from io import BytesIO
 from signal import alarm, signal, SIGALRM, SIGKILL
+import random
 
 class Karaoke:
 
@@ -27,6 +28,8 @@ class Karaoke:
     process = None
     show_overlay = True
     port = "<unknown_port>"
+    
+    volume_offset = 0
 
     log_level = logging.DEBUG
     logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S', level=log_level)
@@ -201,8 +204,13 @@ class Karaoke:
 
     def play_file(self, file_path):
         self.now_playing = self.filename_from_path(file_path)
+        
+        logging.debug("Killing old omxplayer processes (just in case)")
+        player_kill = ["killall", "omxplayer.bin"]
+        subprocess.Popen(player_kill, stdin=subprocess.PIPE,)
+        
         logging.info("Playing video: " + self.now_playing)
-        cmd = [self.player_path,file_path, "--blank", "-o", "both"]
+        cmd = [self.player_path,file_path, "--blank", "-o", "both", "--vol", str(self.volume_offset)]
         if self.show_overlay:
         	cmd += ["--subtitles", self.overlay_file_path]
         logging.debug("Player command: " + ' '.join(cmd))
@@ -227,7 +235,24 @@ class Karaoke:
         	self.queue.append(song_path)
         	#print self.queue
         	return True
-        
+        	
+    def queue_add_random(self, amount):
+        logging.info("Adding %d random songs to queue" % amount) 
+        songs = self.available_songs
+        i = 0
+        while i < amount:
+            r = random.randint(0,len(songs)-1)
+            if songs[r] in self.queue:
+                logger.warn("Song already in queue, trying another... " + songs[r])
+            else:
+                self.queue.append(songs[r])
+                i += 1
+            songs.pop(r)
+            if len(songs) == 0:
+                logger.warn("Ran out of songs!")
+                return False
+        return True
+    
     def queue_clear(self):
     	logging.info("Clearing queue!")
     	self.queue = []
@@ -268,8 +293,9 @@ class Karaoke:
     			return True
     	elif (action == "delete"):
     		if (index == 0):
-    			logging.warn("Song is currently playing, can't delete from queue: " + song_path)
-    			return False
+    			self.skip()
+    			logging.warn("Song is currently playing, skipping: " + song_path)
+    			return True
     		else:
     			logging.info("Deleting song from queue: " + song_path)
     			del self.queue[index]
@@ -301,6 +327,7 @@ class Karaoke:
         if (self.is_file_playing()):
             logging.info("Volume up: " + self.now_playing)
             self.process.stdin.write("=")
+            self.volume_offset += 300
             return True
         else:
             logging.warning("Tried to volume up, but no file is playing!")
@@ -310,6 +337,7 @@ class Karaoke:
         if (self.is_file_playing()):
             logging.info("Volume down: " + self.now_playing)
             self.process.stdin.write("-")
+            self.volume_offset -= 300
             return True
         else:
             logging.warning("Tried to volume down, but no file is playing!")

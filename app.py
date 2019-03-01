@@ -53,6 +53,16 @@ def queue():
     return render_template('queue.html', queue = k.queue, site_title = site_name,
         title='Queue')
         
+@app.route("/queue/addrandom", methods=['GET'])
+def add_random():
+    amount = int(request.args['amount'])
+    rc = k.queue_add_random(amount)
+    if (rc):
+        flash("Added %s random tracks" % amount, "is-success")
+    else:
+        flash("Unable to add all %s random tracks. Ran out of songs!" % amount, "is-warning")
+    return redirect(url_for('queue'))
+        
 @app.route("/queue/edit", methods=['GET'])
 def queue_edit():
     action = request.args['action']

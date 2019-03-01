@@ -17,6 +17,16 @@ $(function() {
             location.href = this.href;
         }
     });
+    
+    // hide queue controls for first track
+    $('.up-button').first().hide(); 
+    $('.down-button').first().hide();
+    
+    // hide up button for second track
+    $('.up-button').eq(1).hide(); 
+    
+    // hide down button for last track
+    $('.down-button').last().hide();
 });
 </script>
 
@@ -32,10 +42,10 @@ $(function() {
       <ol>
         {% for song in queue %}
         <li value='{{ song }}'>
-          <a href="/queue/edit?action=up&song={{url_escape(filename_from_path(song.encode('utf-8')))}}">&#x1F53C;</a>
-          <a href="/queue/edit?action=down&song={{url_escape(filename_from_path(song.encode('utf-8')))}}">&#x1F53D;</a>
+          <a class="up-button" href="/queue/edit?action=up&song={{url_escape(filename_from_path(song.encode('utf-8')))}}">&#x1F53C;</a>
+          <a class="down-button" href="/queue/edit?action=down&song={{url_escape(filename_from_path(song.encode('utf-8')))}}">&#x1F53D;</a>
           {{filename_from_path(song)}}
-          <a class="confirm-delete has-text-danger" href="/queue/edit?action=delete&song={{url_escape(filename_from_path(song.encode('utf-8')))}}">(x)</a>
+          <a class="delete-button confirm-delete has-text-danger" href="/queue/edit?action=delete&song={{url_escape(filename_from_path(song.encode('utf-8')))}}">(x)</a>
         </li>
         {% endfor %}
       </ol>
@@ -43,6 +53,8 @@ $(function() {
       The queue is empty
       {% endif %}
       <hr>
+      
+      <a class="add-random has-text-success" href="/queue/addrandom?amount=5">Add 5 random songs</a>
       <a class="confirm-clear has-text-danger is-pulled-right" href="/queue/edit?action=clear">Clear all</a><br>
 
 {% endblock %}
