@@ -141,7 +141,7 @@ class Karaoke:
             
             self.screen.fill((0, 0, 0))
             
-            logo = pygame.image.load(os.path.join(self.base_path, 'logo.jpg'))
+            logo = pygame.image.load(os.path.join(self.base_path, 'logo.png'))
             logo_rect = logo.get_rect(center = self.screen.get_rect().center)
             self.screen.blit(logo, logo_rect)
             
@@ -149,7 +149,7 @@ class Karaoke:
                 p_image = pygame.image.load(self.generate_qr_code())
                 p_image = pygame.transform.scale(p_image, (150, 150))   
                 self.screen.blit(p_image, (0,0))
-                text = self.font.render("Connect to PiKaraoke: " + self.url, True, (255, 255, 255)) 
+                text = self.font.render("Connect at: " + self.url, True, (255, 255, 255)) 
                 self.screen.blit(text, (p_image.get_width() + 15, 0))
             
             pygame.display.flip()
@@ -164,6 +164,7 @@ class Karaoke:
                 text = font_next_song.render("Up next: " + next_song, True, (0, 128, 0))
                 self.screen.blit(text,(self.width - text.get_width() - 10, self.height - text.get_height() - 5))
                 pygame.display.flip()
+                time.sleep(2) 
                 return True
             else:
                 logging.debug("Could not render next song to splash. No song in queue")
