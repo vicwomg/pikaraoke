@@ -67,6 +67,15 @@ By default, the http port is 5000 and it downloads songs to "/usr/lib/pikaraoke/
 
 `python app.py --port 8080 --download-path /home/pi/songs`
 
+## Auto-start PiKaraoke 
+
+Add the following to your /etc/rc.local file (paths and arguments may vary) to always start pikaraoke on reboot.
+
+```
+# start pikaraoke on startup
+/usr/bin/python /home/pi/pikaraoke/app.py &
+```
+
 ## Usage
 
 Here is the full list of command line arguments:
@@ -138,11 +147,3 @@ Make sure youtube-dl is up to date, old versions have higher failure rates due t
 #### Downloads are slow!
 
 youtube-dl is very CPU intensive, especially for single-core devices like the pi models zero and less-than 2. The more simultaneous downloads there are, the longer they will take. Try to limit it to 2 at a time.
-
-#### Where do I plug in a microphone?
-
-For now, I opted to not implement microphone input on the pi itself. First of all, it doesn't have a native hardware audio-in, and you must add it with a separate USB sound card. Secondly, there's bound to be latency and poor quality when processing audio through the pi, so you're probably better off using a separate sound system / amplifier to power the microphone. 
-
-#### The song is not in my range. How do I change the pitch of the song?
-
-Pitch change is not supported at this time. It would require some way to pipe the audio from omxplayer into DSP effect (not sure how to do this) and that would likely be very CPU intensive if it did happen. Let me know if you have an idea of how to implement this. 
