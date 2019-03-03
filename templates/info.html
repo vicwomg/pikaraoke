@@ -5,13 +5,20 @@
 
 $( function() {
 
+  $('#quit-link').click(function(e) {
+      e.preventDefault();
+      if (window.confirm("Are you sure you want to quit to console?")) {
+          location.href = this.href;
+      }
+  });
+
     $('#shutdown-link').click(function(e) {
         e.preventDefault();
         if (window.confirm("Are you sure you want to shut down?")) {
             location.href = this.href;
         }
     });
-    
+
      $('#restart-link').click(function(e) {
         e.preventDefault();
         if (window.confirm("Are you sure you want to reboot?")) {
@@ -40,7 +47,7 @@ URL of {{site_title}}:
 Handy URL QR code to share with a pal:
 </p>
 <img src="{{ url_for('qrcode') }}">
-  
+
 <hr>
 
 <h1>System Info</h1>
@@ -53,10 +60,11 @@ Handy URL QR code to share with a pal:
 <hr>
 
 <h1>Shutdown</h1>
-<p>Don't just pull the plug! Always shut down your PiKaraoke properly to avoid data corruption.</p>
+<p>Don't just pull the plug! Always shut down your server properly to avoid data corruption.</p>
 <ul>
-  <li><a id="shutdown-link" href="{{ url_for('shutdown') }}">Shutdown</a></li>
-  <li><a id="restart-link" href="{{ url_for('reboot') }}">Reboot</a></li>
+  <li><a id="quit-link" href="{{ url_for('quit') }}">Quit to console</a></li>
+  <li><a id="restart-link" href="{{ url_for('reboot') }}">Reboot System</a></li>
+  <li><a id="shutdown-link" href="{{ url_for('shutdown') }}">Shutdown System</a></li>
 </ul>
-  
+
 {% endblock %}

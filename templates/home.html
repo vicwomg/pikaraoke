@@ -7,20 +7,21 @@ $( function() {
 
   (function getNowPlaying(){
       $.get('{{ url_for("nowplaying") }}', function(data) {
-          if (data) {
+
             var obj = JSON.parse(data);
-            $("#now-playing").html(obj.now_playing);
+            if (obj.now_playing) {
+            	$("#now-playing").html(obj.now_playing);
+            }
+            else {
+	            $("#now-playing").html("Nothing is playing right now.");
+            }
             if (obj.up_next) {
             	$("#up-next").html(obj.up_next);
             }
             else {
 	            $("#up-next").html("No song is queued.");
             }
-          }
-          else {
-            $("#now-playing").html("Nothing is playing right now. ");
-            $("#up-next").html("No song is queued.");
-          }
+
           setTimeout(getNowPlaying,1500);
       });
 
@@ -38,7 +39,7 @@ $( function() {
 {% block content %}
 
   <p class="is-size-4 has-text-warning" id="now-playing">
-    Nothing is playing right now. 
+    Nothing is playing right now.
   </p>
 
   <hr>
@@ -61,7 +62,7 @@ $( function() {
   </span>
 
 </p>
-  
+
 </div>
-  
+
 {% endblock %}

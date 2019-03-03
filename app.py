@@ -17,6 +17,8 @@ import json
 import cherrypy
 import argparse
 import psutil
+import signal
+import time
 
 app = Flask(__name__)
 app.secret_key = 'HjI981293u99as811lll'
@@ -38,21 +40,18 @@ def home():
 
 @app.route("/nowplaying")
 def nowplaying():
-    if (k.now_playing != None):
-        if (len(k.queue) >=2 ):
-            next_song = filename_from_path(k.queue[1])
-        else:
-            next_song = None
-        rc = {'now_playing' : k.now_playing, 'up_next' : next_song}
-        return json.dumps(rc)
+    if (len(k.queue) >=2 ):
+        next_song = filename_from_path(k.queue[1])
     else:
-        return ""
+        next_song = None
+    rc = {'now_playing' : k.now_playing, 'up_next' : next_song}
+    return json.dumps(rc)
 
 @app.route("/queue")
 def queue():
     return render_template('queue.html', queue = k.queue, site_title = site_name,
         title='Queue')
-        
+
 @app.route("/queue/addrandom", methods=['GET'])
 def add_random():
     amount = int(request.args['amount'])
@@ -62,7 +61,7 @@ def add_random():
     else:
         flash("Ran out of songs!", "is-warning")
     return redirect(url_for('queue'))
-        
+
 @app.route("/queue/edit", methods=['GET'])
 def queue_edit():
     action = request.args['action']
@@ -92,7 +91,7 @@ def queue_edit():
             else:
                 flash("Error deleting from queue: " + song, "is-danger")
     return redirect(url_for('queue'))
-        
+
 @app.route("/enqueue", methods=['POST','GET'])
 def enqueue():
     if (request.args.has_key('song')):
@@ -111,12 +110,12 @@ def enqueue():
 def skip():
     k.skip()
     return redirect(url_for('home'))
-    
+
 @app.route("/pause")
 def pause():
     k.pause()
     return redirect(url_for('home'))
-    
+
 @app.route("/restart")
 def restart():
     rc = k.restart()
@@ -126,7 +125,7 @@ def restart():
 def vol_up():
     rc = k.vol_up()
     return redirect(url_for('home'))
-    
+
 @app.route("/vol_down")
 def vol_down():
     k.vol_down()
@@ -141,7 +140,7 @@ def search():
         search_results = None
     return render_template('search.html', site_title = site_name, title='Search',
         songs=k.available_songs, search_results = search_results)
-        
+
 @app.route("/browse", methods=['GET'])
 def browse():
     if (request.args.has_key('sort') and request.args['sort'] == "date"):
@@ -151,32 +150,32 @@ def browse():
     else:
         songs = k.available_songs
         sort_order = "Alphabetical"
-    return render_template('files.html', sort_order=sort_order, site_title = site_name, 
+    return render_template('files.html', sort_order=sort_order, site_title = site_name,
         title='Browse', songs=songs)
-        
+
 @app.route("/download", methods=['POST'])
 def download():
     d = request.form.to_dict()
     song = d['song-url']
     if (d.has_key('queue') and d['queue'] == "on"):
-        queue = True 
-    else: 
+        queue = True
+    else:
         queue = False
 
     #download in the background since this can take a few minutes
     t = threading.Thread(target= k.download_video,args=[song,queue])
     t.daemon = True
     t.start()
-    
+
     flash_message = "Download started: '" + song + "'. This may take a couple of minutes to complete. "
- 
+
     if (queue):
     	flash_message += 'Song will be added to queue.'
     else:
     	flash_message += 'Song will appear in the "available songs" list.'
     flash(flash_message, "is-info")
     return redirect(url_for('search'))
-    
+
 @app.route('/qrcode')
 def qrcode():
     return send_file(k.generate_qr_code(), mimetype='image/png')
@@ -193,7 +192,7 @@ def delete_file():
     else:
         flash("Error: No song parameter specified!", "is-danger")
     return redirect(url_for('browse'))
-    
+
 @app.route('/files/edit', methods=['GET', 'POST'])
 def edit_file():
     queue_error_msg = "Error: Can't edit this song because it is in the current queue: "
@@ -204,7 +203,7 @@ def edit_file():
             flash(queue_error_msg + song_path, "is-danger")
             return redirect(url_for('browse'))
         else:
-            return render_template('edit.html', site_title = site_name, 
+            return render_template('edit.html', site_title = site_name,
                 title='Song File Edit', song=song_path.encode('utf-8'))
     else:
         d = request.form.to_dict()
@@ -214,78 +213,108 @@ def edit_file():
             if old_name in k.queue:
                 # check one more time just in case someone added it during editing
                 flash(queue_error_msg + song_path, "is-danger")
-            else: 
+            else:
                 k.rename(old_name, new_name)
                 flash("Renamed file: '%s' to '%s'." % (old_name, new_name), "is-warning")
-        else: 
+        else:
             flash("Error: No filename parameters were specified!", "is-danger")
         return redirect(url_for('browse'))
 
 @app.route("/info")
 def info():
     url = "http://" + request.host
-    
+
     #cpu
     cpu = str(psutil.cpu_percent()) + '%'
-    
+
     # mem
     memory = psutil.virtual_memory()
     available = round(memory.available/1024.0/1024.0,1)
     total = round(memory.total/1024.0/1024.0,1)
     memory = str(available) + 'MB free / ' + str(total) + 'MB total ( ' + str(memory.percent) + '% )'
-    
+
     #disk
     disk = psutil.disk_usage('/')
     # Divide from Bytes -> KB -> MB -> GB
     free = round(disk.free/1024.0/1024.0/1024.0,1)
     total = round(disk.total/1024.0/1024.0/1024.0,1)
     disk = str(free) + 'GB free / ' + str(total) + 'GB total ( ' + str(disk.percent) + '% )'
-    
+
     return render_template('info.html', site_title = site_name, title='Info',
         url=url, memory=memory, cpu=cpu, disk=disk )
-        
+
+# Delay system commands to allow redirect to render first
+def delayed_halt(cmd):
+    time.sleep(3)
+    k.queue_clear() # stop all pending omxplayer processes
+    if (cmd == 0):
+        cherrypy.engine.exit()
+        sys.exit()
+    if (cmd == 1):
+        os.system('shutdown now')
+    if (cmd == 2):
+        os.system('reboot')
+
+@app.route("/quit")
+def quit():
+    flash("Quitting to console now!", "is-warning")
+    th = threading.Thread(target=delayed_halt,args=[0])
+    th.start()
+    return redirect(url_for('home'))
+
 @app.route("/shutdown")
 def shutdown():
-    flash("Shutting down system!", "is-danger")
-    os.system('shutdown now')       
+    flash("Shutting down system now!", "is-danger")
+    th = threading.Thread(target=delayed_halt,args=[1])
+    th.start()
     return redirect(url_for('home'))
-    
+
 @app.route("/reboot")
 def reboot():
-    flash("Rebooting system!", "is-danger")
-    os.system('reboot')    
+    flash("Rebooting system now!", "is-danger")
+    th = threading.Thread(target=delayed_halt,args=[2])
+    th.start()
     return redirect(url_for('home'))
-        
+
+# Handle sigterm, apparently cherrypy won't shut down without explicit handling
+signal.signal(signal.SIGTERM, lambda signum, stack_frame: sys.exit(1))
+
 if __name__ == '__main__':
 
     default_port = 5000
     default_volume = 0
+    default_splash_delay = 4
+    default_log_level = logging.INFO
     default_dl_dir = '/usr/lib/pikaraoke/songs'
     default_omxplayer_path = '/usr/bin/omxplayer'
     default_youtubedl_path = '/usr/local/bin/youtube-dl'
 
     # parse CLI args
     parser = argparse.ArgumentParser()
-    
+
     parser.add_argument('-p','--port', help='Desired http port (default: %d)' % default_port, default=default_port, required=False)
     parser.add_argument('-d','--download-path', help='Desired path for downloaded songs. (default: %s)' % default_dl_dir, default=default_dl_dir, required=False)
     parser.add_argument('-o','--omxplayer-path', help='Path of omxplayer. (default: %s)' % default_omxplayer_path, default=default_omxplayer_path, required=False)
     parser.add_argument('-y','--youtubedl-path', help='Path of youtube-dl. (default: %s)' % default_youtubedl_path, default=default_youtubedl_path, required=False)
     parser.add_argument('-v','--volume', help='Initial player volume in millibels. Negative values ok. (default: %s , Note: 100 millibels = 1 decibel)' % default_volume, default=default_volume, required=False)
+    parser.add_argument('-s','--splash-delay', help='Delay during splash screen between songs (in secs). (default: %s )' % default_splash_delay, default=default_splash_delay, required=False)
+    parser.add_argument('-l','--log-level', help='Logging level int value (DEBUG: 10, INFO: 20, WARNING: 30, ERROR: 40, CRITICAL: 50). (default: %s )' % default_log_level, default=default_log_level, required=False)
     parser.add_argument('--hide-overlay', action='store_true', help='Hide overlay in player showing song title and IP.', required=False)
     parser.add_argument('--hide-ip', action='store_true', help='Hide IP address from the screen.', required=False)
     parser.add_argument('--hide-splash-screen', action='store_true', help='Hide splash screen before/between songs.', required=False)
     args = parser.parse_args()
-    
+
     app.jinja_env.globals.update(filename_from_path=filename_from_path)
     app.jinja_env.globals.update(url_escape=quote)
 
     # Start karaoke process
-    global k 
-    k = karaoke.Karaoke(port = args.port, 
-        download_path = args.download_path, 
+    global k
+    k = karaoke.Karaoke(port = args.port,
+        download_path = args.download_path,
         omxplayer_path = args.omxplayer_path,
         youtubedl_path = args.youtubedl_path,
+        splash_delay = args.splash_delay,
+        log_level = args.log_level,
         volume = args.volume,
         hide_overlay = args.hide_overlay,
         hide_ip = args.hide_ip,
@@ -297,7 +326,7 @@ if __name__ == '__main__':
     cherrypy.tree.graft(app, '/')
     # Set the configuration of the web server
     cherrypy.config.update({
-        'engine.autoreload_on': False,
+        'engine.autoreload.on': False,
         'log.screen': True,
         'server.socket_port': int(args.port),
         'server.socket_host': '0.0.0.0'
@@ -306,4 +335,3 @@ if __name__ == '__main__':
     # Start the CherryPy WSGI web server
     cherrypy.engine.start()
     cherrypy.engine.block()
-    exit(0)

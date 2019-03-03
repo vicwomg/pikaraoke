@@ -19,14 +19,14 @@
     	$("#notification-close").click(function() {
 	    	$("#notification").hide();
     	});
-    	
+
 	    	// Check for click events on the navbar burger icon
 	  $(".navbar-burger").click(function() {
-	
+
 	      // Toggle the "is-active" class on both the "navbar-burger" and the "navbar-menu"
 	      $(".navbar-burger").toggleClass("is-active");
 	      $(".navbar-menu").toggleClass("is-active");
-	
+
 	  });
     });
     </script>
@@ -42,11 +42,11 @@
             <a class="navbar-item" href="{{ url_for('home') }}">
               &nbsp;&nbsp;&nbsp;&#127908;
             </a>
-<!--
+
             <a class="navbar-item" href="{{ url_for('home') }}">
               Home
             </a>
--->
+
             <a class="navbar-item" href="{{ url_for('queue') }}">
               Queue
             </a>
@@ -68,7 +68,7 @@
           </div>
 
         </nav>
-        
+
         {% if get_flashed_messages() %}
         {% for category, message in get_flashed_messages(with_categories=true) %}
         <div id="notification" class="notification {{category}}">
@@ -82,8 +82,8 @@
         <header class="title">
           {% block header %}{% endblock %}
         </header>
-        
-        
+
+
 
           <div class="content">
           {% block content %}

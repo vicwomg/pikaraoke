@@ -13,22 +13,31 @@ Karaoke song search and queueing system that uses Youtube videos as a source. Fo
 *  Basic editing of downloaded file names
 *  Queue editing
 
+### Supported Devices
+
+This *Should* work on all raspberry pi devices, but multi-core models recommended. I did most development on a Pi Zero W and suffered greatly through optimizing to make usable performance for it, so it will work. However, certain things like concurrent downloads and browsing big song libraries will suffer. All this runs excellently on a Pi 3.
+
 ## Setup
 
 Clone this repo to the directory of your choice:
 
 ```
-git clone <this repo URL>
+cd <destination_directory>
+git clone <this_repo_URL>
 ```
 
-Make sure you you have omxplayer (should be installed by default in Raspbian):
+Make sure you you have omxplayer, which should be installed by default in Raspbian full versions (possibly not Lite though). To double-check, run:
 
 ```
 which omxplayer
 # Should return: /usr/bin/omxplayer
 ```
 
-If it is not found you should be able to install it with apt-get
+If it is not found you should be able to install it with:
+```
+sudo apt-get update
+sudo apt-get install omxplayer
+```
 
 Install youtube-dl:
 
@@ -36,7 +45,7 @@ Install youtube-dl:
 sudo pip install --upgrade youtube_dl
 ```
 
-(Do NOT use apt-get to install youtube-dl, it is an outdated version and puts it in a different directory than expected)
+Note: Do NOT use apt-get to install youtube-dl, it is an outdated version and puts it in a different directory than expected.
 
 Install these other dependencies:
 
@@ -47,7 +56,7 @@ sudo pip install qrcode[pil]
 sudo pip install psutil
 ```
 
-Bump up your GPU memory or some videos will show a GSOD (green screen of death). I had to do this on Pi Zero, not sure about Pi3:
+Finally, bump up your GPU memory or some videos will show a GSOD (green screen of death).
 
 `nano /boot/config.txt`
 
@@ -61,13 +70,13 @@ cd to the pikaraoke directory and run:
 
 `sudo python app.py`
 
-Yes, you must run as sudo since pikaraoke uses pygame to control the screen.
+Yes, you must run as sudo since pikaraoke uses pygame to control the screen buffer.
 
 By default, the http port is 5000 and it downloads songs to "/usr/lib/pikaraoke/songs". To change this, you can supply the following command line arguments (example):
 
 `python app.py --port 8080 --download-path /home/pi/songs`
 
-## Auto-start PiKaraoke 
+## Auto-start PiKaraoke
 
 Add the following to your /etc/rc.local file (paths and arguments may vary) to always start pikaraoke on reboot.
 
@@ -82,8 +91,8 @@ Here is the full list of command line arguments:
 
 ```
 usage: app.py [-h] [-p PORT] [-d DOWNLOAD_PATH] [-o OMXPLAYER_PATH]
-              [-y YOUTUBEDL_PATH] [-v VOLUME] [--hide-overlay] [--hide-ip]
-              [--hide-splash-screen]
+              [-y YOUTUBEDL_PATH] [-v VOLUME] [-s SPLASH_DELAY] [-l LOG_LEVEL]
+              [--hide-overlay] [--hide-ip] [--hide-splash-screen]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -99,6 +108,12 @@ optional arguments:
   -v VOLUME, --volume VOLUME
                         Initial player volume in millibels. Negative values
                         ok. (default: 0 , Note: 100 millibels = 1 decibel)
+  -s SPLASH_DELAY, --splash-delay SPLASH_DELAY
+                        Delay during splash screen between songs (in secs).
+                        (default: 4 )
+  -l LOG_LEVEL, --log-level LOG_LEVEL
+                        Logging level int value (DEBUG: 10, INFO: 20, WARNING:
+                        30, ERROR: 40, CRITICAL: 50). (default: 20 )
   --hide-overlay        Hide overlay in player showing song title and IP.
   --hide-ip             Hide IP address from the screen.
   --hide-splash-screen  Hide splash screen before/between songs.
@@ -106,9 +121,9 @@ optional arguments:
 
 ## UI
 
-The connected monitor/TV should show a splash screen with the IP of the Pi along with a QR code. The splash screen also shows the next track in between songs.
+Upon launch, the connected monitor/TV should show a splash screen with the IP of PiKaraoke along with a QR code.
 
-Make sure you are connected to the same network/wifi. You can then enter this IP or scan the QR code on your smartphone/computer to open it in a browser. From there you should see the PiKaraoke web interface. It is hopefully pretty self-explanitory, but if you really need some help:
+Make sure you are connected to the same network/wifi. You can then enter the shown IP or scan the QR code on your smartphone/tablet/computer to open it in a browser. From there you should see the PiKaraoke web interface. It is hopefully pretty self-explanitory, but if you really need some help:
 
 ### Web UI
 
@@ -121,12 +136,12 @@ Make sure you are connected to the same network/wifi. You can then enter this IP
 
 *  Edit the queue/playlist order (up and down arrow icons)
 *  Delete from queue ( x icon )
-*  Add random songs to the queue 
+*  Add random songs to the queue
 *  Clear the queue
 
 #### Songs
 
-*  Add songs to the queue by searching current library on local storage (likely empty at first), search is executed autocomplete-style 
+*  Add songs to the queue by searching current library on local storage (likely empty at first), search is executed autocomplete-style
 *  Add new songs from the internet by using the second search box
 *  Click browse to view the full library. From here you can edit files in the library (rename/delete).
 
@@ -134,16 +149,28 @@ Make sure you are connected to the same network/wifi. You can then enter this IP
 
 *  Shows the IP and QR code to share with others
 *  Shows CPU / Memory / Disk Use stats
-*  Allows user to shut down or reboot system
+*  Allows user to quit to console, shut down, or reboot system
 
 ## Troubleshooting
 
 #### Songs aren't downloading!
 
-Make sure youtube-dl is up to date, old versions have higher failure rates due to changes in Youtube 
+Make sure youtube-dl is up to date, old versions have higher failure rates due to changes in Youtube
 
 `sudo pip install --upgrade youtube_dl`
 
 #### Downloads are slow!
 
-youtube-dl is very CPU intensive, especially for single-core devices like the pi models zero and less-than 2. The more simultaneous downloads there are, the longer they will take. Try to limit it to 2 at a time.
+youtube-dl is very CPU intensive, especially for single-core devices like the pi models zero and less-than 2. The more simultaneous downloads there are, the longer they will take. Try to limit it to 1-2 at a time. Pi 3 can handle quite a bit more.
+
+#### Where do I plug in a microphone?
+
+Ideally, you'd have a mixer and amplifier that you could run the line out of the pi to, as well as the microphones.
+
+The pi doesn't have a hardware audio input. Technically, you should be able to run a microphone through it with a USB sound card attached to the pi, but I personally wouldn't bother due to latency and quality issues. 
+
+#### How do I change song pitch/key?
+
+This is currently not supported due to lack of know-how. As far as I can tell we'd have to pipe omxplayer into some realtime-yet-lightweight audio DSP. Let me know if you have ideas on how to implement it.
+
+In the meantime, you might be able to get away with running the line out through a pitch shift guitar effects pedal or similar device.
