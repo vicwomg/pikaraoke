@@ -26,7 +26,7 @@ cd <destination_directory>
 git clone <this_repo_URL>
 ```
 
-Make sure you you have omxplayer, which should be installed by default in Raspbian full versions (possibly not Lite though). To double-check, run:
+Make sure you you have omxplayer, which should be installed by default in Raspbian full versions (not lite though). To double-check, run:
 
 ```
 which omxplayer
@@ -50,10 +50,15 @@ Note: Do NOT use apt-get to install youtube-dl, it is an outdated version and pu
 Install these other dependencies:
 
 ```
-sudo pip install cherrypy
-sudo pip install futures
-sudo pip install qrcode[pil]
-sudo pip install psutil
+sudo apt-get install libjpeg-dev
+```
+
+Install the python dependencies (these instructions install packagesglobally, use virtualenv if you prefer):
+
+```
+cd <pikaraoke_project_dir>
+sudo pip install -r requirements.txt
+
 ```
 
 Finally, bump up your GPU memory or some videos will show a GSOD (green screen of death).

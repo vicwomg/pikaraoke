@@ -81,7 +81,8 @@ class Karaoke:
         success = False
         while (int(time.time()) < end_time):
             try:
-                self.ip = gethostbyname(gethostname())
+                gethostbyname(gethostname())
+                self.ip = subprocess.check_output(["hostname", "-I"]).strip()
                 success = True
             except:
                 logging.debug("Could not get IP, retrying...")

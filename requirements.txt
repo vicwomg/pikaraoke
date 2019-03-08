@@ -1,0 +1,8 @@
+CherryPy==10.2.1
+Flask
+pillow
+qrcode
+pygame
+futures
+psutil
+lxml
