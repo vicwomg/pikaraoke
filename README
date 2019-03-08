@@ -29,7 +29,8 @@ git clone <this_repo_URL>
 Install required binaries:
 
 ```
-sudo pip install --upgrade youtube_dl libjpeg-dev omxplayer
+sudo apt-get install libjpeg-dev omxplayer
+sudo pip install --upgrade youtube_dl
 ```
 
 Note: Do NOT use apt-get to install youtube-dl, it is an outdated version and puts it in a different directory than expected.
