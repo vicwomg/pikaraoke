@@ -26,32 +26,13 @@ cd <destination_directory>
 git clone <this_repo_URL>
 ```
 
-Make sure you you have omxplayer, which should be installed by default in Raspbian full versions (not lite though). To double-check, run:
+Install required binaries:
 
 ```
-which omxplayer
-# Should return: /usr/bin/omxplayer
-```
-
-If it is not found you should be able to install it with:
-```
-sudo apt-get update
-sudo apt-get install omxplayer
-```
-
-Install youtube-dl:
-
-```
-sudo pip install --upgrade youtube_dl
+sudo pip install --upgrade youtube_dl libjpeg-dev omxplayer
 ```
 
 Note: Do NOT use apt-get to install youtube-dl, it is an outdated version and puts it in a different directory than expected.
-
-Install these other dependencies:
-
-```
-sudo apt-get install libjpeg-dev
-```
 
 Install the python dependencies (these instructions install packagesglobally, use virtualenv if you prefer):
 
