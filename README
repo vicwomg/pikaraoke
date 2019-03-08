@@ -29,7 +29,8 @@ git clone <this_repo_URL>
 Install required binaries:
 
 ```
-sudo apt-get install libjpeg-dev omxplayer python-pygame python-lxml
+sudo apt-get update
+sudo apt-get install libjpeg-dev omxplayer python-pip python-pygame python-lxml -y
 sudo pip install --upgrade youtube_dl
 ```
 
