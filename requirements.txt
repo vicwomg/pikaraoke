@@ -1,4 +1,5 @@
 CherryPy==10.2.1
+six==1.12.0
 Flask
 pillow
 qrcode
