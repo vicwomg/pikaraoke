@@ -15,7 +15,7 @@ Karaoke song search and queueing system that uses Youtube videos as a source. Fo
 
 ### Supported Devices
 
-This *Should* work on all raspberry pi devices, but multi-core models recommended. I did most development on a Pi Zero W and suffered greatly through optimizing to make usable performance for it, so it will work. However, certain things like concurrent downloads and browsing big song libraries will suffer. All this runs excellently on a Pi 3.
+This *should* work on all raspberry pi devices, but multi-core models recommended. I did most development on a Pi Zero W and did as much optimization as I could handle, so it will work. However, certain things like concurrent downloads and browsing big song libraries will suffer. All this runs excellently on a Pi 3.
 
 ## Setup
 
@@ -34,9 +34,9 @@ sudo apt-get install libjpeg-dev omxplayer python-pip python-pygame python-lxml 
 sudo pip install --upgrade youtube_dl
 ```
 
-Note: Do NOT use apt-get to install youtube-dl, it is an outdated version and puts it in a different directory than expected.
+Notes on above: Do NOT use apt-get to install youtube-dl, it is an outdated version and puts it in a different directory than expected. And conversely, don't use pip to install pygame, and lxml, when I tried on a fresh raspbian lite image I got dependency errors with pip.
 
-Install the python dependencies (these instructions install packagesglobally, use virtualenv if you prefer):
+Install the remaining ython dependencies (these instructions install packages globally, use virtualenv if you prefer):
 
 ```
 cd <pikaraoke_project_dir>
@@ -66,7 +66,7 @@ By default, the http port is 5000 and it downloads songs to "/usr/lib/pikaraoke/
 
 ## Auto-start PiKaraoke
 
-Add the following to your /etc/rc.local file (paths and arguments may vary) to always start pikaraoke on reboot.
+This is optional, but you may want to make your pi a dedicated karaoke device. If so, add the following to your /etc/rc.local file (paths and arguments may vary) to always start pikaraoke on reboot.
 
 ```
 # start pikaraoke on startup
@@ -137,7 +137,7 @@ Make sure you are connected to the same network/wifi. You can then enter the sho
 
 *  Shows the IP and QR code to share with others
 *  Shows CPU / Memory / Disk Use stats
-*  Allows user to quit to console, shut down, or reboot system
+*  Allows user to quit to console, shut down, or reboot system. Always shut down from here before you pull the plug on pikaraoke!
 
 ## Troubleshooting
 
@@ -153,9 +153,9 @@ youtube-dl is very CPU intensive, especially for single-core devices like the pi
 
 #### Where do I plug in a microphone?
 
-Ideally, you'd have a mixer and amplifier that you could run the line out of the pi to, as well as the microphones.
-
 The pi doesn't have a hardware audio input. Technically, you should be able to run a microphone through it with a USB sound card attached to the pi, but I personally wouldn't bother due to latency and quality issues. 
+
+Ideally, you'd have a mixer and amplifier that you could run the line out of the pi to, as well as the microphones. I used this affordable wireless microphone set from amazon: https://www.amazon.com/gp/product/B01N6448Q4/ It has a line in so you can also run PiKaraoke into the mix, and output to an amplifier.
 
 #### How do I change song pitch/key?
 
