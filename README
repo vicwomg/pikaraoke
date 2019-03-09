@@ -13,6 +13,10 @@ Karaoke song search and queueing system that uses Youtube videos as a source. Fo
 *  Basic editing of downloaded file names
 *  Queue editing
 
+### Screenshots
+
+![Screenshot](https://imgur.com/Id9dQdr?raw=true "Home Screen")
+
 ### Supported Devices
 
 This *should* work on all raspberry pi devices, but multi-core models recommended. I did most development on a Pi Zero W and did as much optimization as I could handle, so it will work. However, certain things like concurrent downloads and browsing big song libraries will suffer. All this runs excellently on a Pi 3.
