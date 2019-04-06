@@ -167,7 +167,7 @@ youtube-dl is very CPU intensive, especially for single-core devices like the pi
 
 Ideally, you'd have a mixer and amplifier that you could run the line out of the pi to, as well as the microphones.
 
-The pi doesn't have a hardware audio input. Technically, you should be able to run a microphone through it with a USB sound card attached to the pi, but I personally wouldn't bother due to latency and quality issues. 
+The pi doesn't have a hardware audio input. Technically, you should be able to run a microphone through it with a USB sound card attached to the pi, but I personally wouldn't bother due to latency and quality issues.
 
 #### How do I change song pitch/key?
 

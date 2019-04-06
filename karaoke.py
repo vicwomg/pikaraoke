@@ -14,6 +14,7 @@ from io import BytesIO
 from signal import alarm, signal, SIGALRM, SIGKILL
 import random
 import sys
+from subprocess import check_output
 
 class Karaoke:
 
@@ -80,13 +81,19 @@ class Karaoke:
         end_time = int(time.time()) + 30
         success = False
         while (int(time.time()) < end_time):
-            try:
-                self.ip = gethostbyname(gethostname())
-                success = True
-            except:
-                logging.debug("Could not get IP, retrying...")
+#            try:
+#                self.ip = gethostbyname(gethostname())
+#                success = True
+#            except:
+#                logging.debug("Could not get IP, retrying...")
+#                time.sleep(2)
+#            if success:
+#                break
+            self.ip = check_output(['hostname','-I']).strip()
+            if (len(self.ip) < 7):
+                logging.debug("Couldn't get IP, retrying....")
                 time.sleep(2)
-            if success:
+            else:
                 break
         self.url = url = "http://%s:%s" % (self.ip, self.port)
 
