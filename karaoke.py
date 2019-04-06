@@ -92,7 +92,6 @@ class Karaoke:
             self.ip = check_output(['hostname','-I']).strip()
             if (len(self.ip) < 7):
                 logging.debug("Couldn't get IP, retrying....")
-                time.sleep(2)
             else:
                 break
         self.url = url = "http://%s:%s" % (self.ip, self.port)
