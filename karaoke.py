@@ -33,7 +33,7 @@ class Karaoke:
             download_path = '/usr/lib/pikaraoke/songs',
             hide_ip = False,
             hide_splash_screen = False,
-            hide_overlay = False,
+            hide_overlay = True,
             volume = 0,
             log_level = logging.DEBUG,
             splash_delay = 2,
@@ -94,6 +94,9 @@ class Karaoke:
                 logging.debug("Couldn't get IP, retrying....")
             else:
                 break
+        if (len(self.ip) < 7): 
+            sys.exit("Couldn't get an IP. Active IP and internet connection is required.")
+
         self.url = url = "http://%s:%s" % (self.ip, self.port)
 
         # get songs from download_path

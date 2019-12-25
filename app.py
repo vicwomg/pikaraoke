@@ -299,7 +299,7 @@ if __name__ == '__main__':
     parser.add_argument('-v','--volume', help='Initial player volume in millibels. Negative values ok. (default: %s , Note: 100 millibels = 1 decibel)' % default_volume, default=default_volume, required=False)
     parser.add_argument('-s','--splash-delay', help='Delay during splash screen between songs (in secs). (default: %s )' % default_splash_delay, default=default_splash_delay, required=False)
     parser.add_argument('-l','--log-level', help='Logging level int value (DEBUG: 10, INFO: 20, WARNING: 30, ERROR: 40, CRITICAL: 50). (default: %s )' % default_log_level, default=default_log_level, required=False)
-    parser.add_argument('--hide-overlay', action='store_true', help='Hide overlay in player showing song title and IP.', required=False)
+    parser.add_argument('--show-overlay', action='store_true', help='Show overlay in omxplayer with song title and IP. (feature is broken on Pi 4 omxplayer 12/24/2019)', required=False)
     parser.add_argument('--hide-ip', action='store_true', help='Hide IP address from the screen.', required=False)
     parser.add_argument('--hide-splash-screen', action='store_true', help='Hide splash screen before/between songs.', required=False)
     args = parser.parse_args()
@@ -316,7 +316,7 @@ if __name__ == '__main__':
         splash_delay = args.splash_delay,
         log_level = args.log_level,
         volume = args.volume,
-        hide_overlay = args.hide_overlay,
+        hide_overlay = not args.show_overlay,
         hide_ip = args.hide_ip,
         hide_splash_screen = args.hide_splash_screen)
     t = threading.Thread(target=k.run)
