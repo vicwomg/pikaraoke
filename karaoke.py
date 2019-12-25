@@ -90,12 +90,10 @@ class Karaoke:
 #            if success:
 #                break
             self.ip = check_output(['hostname','-I']).strip()
-            if (len(self.ip) < 7):
+            if (not self.is_network_connected()):
                 logging.debug("Couldn't get IP, retrying....")
             else:
                 break
-        if (len(self.ip) < 7): 
-            sys.exit("Couldn't get an IP. Active IP and internet connection is required.")
 
         self.url = url = "http://%s:%s" % (self.ip, self.port)
 
@@ -120,7 +118,10 @@ class Karaoke:
         if (not self.hide_splash_screen):
             self.initialize_screen()
             self.render_splash_screen()
-
+    
+    def is_network_connected(self):
+        return not len(self.ip) < 7
+   
     def generate_overlay_file(self,file_path):
         if (not self.hide_overlay):
             logging.debug("Generating overlay file")
@@ -182,8 +183,15 @@ class Karaoke:
                 p_image = pygame.image.load(self.generate_qr_code())
                 p_image = pygame.transform.scale(p_image, (150, 150))
                 self.screen.blit(p_image, (0,0))
-                text = self.font.render("Connect at: " + self.url, True, (255, 255, 255))
-                self.screen.blit(text, (p_image.get_width() + 15, 0))
+                if (not self.is_network_connected()): 
+                    text = self.font.render("Wifi/Network not connected. Shutting down in 10s...", True, (255, 255, 255))
+                    self.screen.blit(text, (p_image.get_width() + 15, 0))
+                    pygame.display.flip()
+                    time.sleep(10)
+                    sys.exit("No IP found. Network/Wifi configuration required. For wifi config, try: sudo raspi-config or the desktop GUI: startx")
+                else:
+                    text = self.font.render("Connect at: " + self.url, True, (255, 255, 255))
+                    self.screen.blit(text, (p_image.get_width() + 15, 0))
 
             pygame.display.flip()
 
