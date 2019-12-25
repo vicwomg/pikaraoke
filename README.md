@@ -1,8 +1,8 @@
-## PiKaraoke
+# PiKaraoke
 
 Karaoke song search and queueing system that uses Youtube videos as a source. For use with Raspberry Pi devices.
 
-### Features
+## Features
 
 *  Web interface for multiple users to queue tracks
 *  Searching song library via autocomplete
@@ -13,11 +13,11 @@ Karaoke song search and queueing system that uses Youtube videos as a source. Fo
 *  Basic editing of downloaded file names
 *  Queue editing
 
-### Screenshots
+## Screenshots
 
 https://imgur.com/a/wgBYeFb
 
-### Supported Devices
+## Supported Devices
 
 This *should* work on all raspberry pi devices, but multi-core models recommended. I did most development on a Pi Zero W and did as much optimization as I could handle, so it will work. However, certain things like concurrent downloads and browsing big song libraries will suffer. All this runs excellently on a Pi 3.
 
@@ -111,33 +111,33 @@ optional arguments:
   --hide-splash-screen  Hide splash screen before/between songs.
 ```
 
-## UI
+## Screen UI
 
 Upon launch, the connected monitor/TV should show a splash screen with the IP of PiKaraoke along with a QR code.
 
 Make sure you are connected to the same network/wifi. You can then enter the shown IP or scan the QR code on your smartphone/tablet/computer to open it in a browser. From there you should see the PiKaraoke web interface. It is hopefully pretty self-explanitory, but if you really need some help:
 
-### Web UI
+## Web UI
 
-#### Home (Microphone Icon)
+### Home (Microphone Icon)
 
 *  View Now Playing and Next tracks
 *  Access controls to repeat, pause, skip and control volume
 
-#### Queue
+### Queue
 
 *  Edit the queue/playlist order (up and down arrow icons)
 *  Delete from queue ( x icon )
 *  Add random songs to the queue
 *  Clear the queue
 
-#### Songs
+### Songs
 
 *  Add songs to the queue by searching current library on local storage (likely empty at first), search is executed autocomplete-style
 *  Add new songs from the internet by using the second search box
 *  Click browse to view the full library. From here you can edit files in the library (rename/delete).
 
-#### Info
+### Info
 
 *  Shows the IP and QR code to share with others
 *  Shows CPU / Memory / Disk Use stats
@@ -145,17 +145,17 @@ Make sure you are connected to the same network/wifi. You can then enter the sho
 
 ## Troubleshooting
 
-#### Songs aren't downloading!
+### Songs aren't downloading!
 
 Make sure youtube-dl is up to date, old versions have higher failure rates due to changes in Youtube
 
 `sudo pip install --upgrade youtube_dl`
 
-#### Downloads are slow!
+### Downloads are slow!
 
 youtube-dl is very CPU intensive, especially for single-core devices like the pi models zero and less-than 2. The more simultaneous downloads there are, the longer they will take. Try to limit it to 1-2 at a time. Pi 3 can handle quite a bit more.
 
-#### Where do I plug in a microphone?
+### Where do I plug in a microphone?
 
 Ideally, you'd have a mixer and amplifier that you could run the line out of the pi to, as well as the microphones.
 
@@ -163,7 +163,7 @@ The pi doesn't have a hardware audio input. Technically, you should be able to r
 
 Ideally, you'd have a mixer and amplifier that you could run the line out of the pi to, as well as the microphones. I used this affordable wireless microphone set from amazon: https://www.amazon.com/gp/product/B01N6448Q4/ It has a line in so you can also run PiKaraoke into the mix, and output to an amplifier.
 
-#### How do I change song pitch/key?
+### How do I change song pitch/key?
 
 This is currently not supported due to lack of know-how. As far as I can tell we'd have to pipe omxplayer into some realtime-yet-lightweight audio DSP. Let me know if you have ideas on how to implement it.
 
