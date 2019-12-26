@@ -110,6 +110,8 @@ class Karaoke:
             logging.error(msg)
             sys.exit(msg)
 
+        self.get_youtubedl_version()
+
         # clean up old sessions
         self.kill_player()
         if os.path.isfile(self.overlay_file_path):
@@ -119,6 +121,9 @@ class Karaoke:
             self.initialize_screen()
             self.render_splash_screen()
     
+    def get_youtubedl_version(self):
+        self.youtubedl_version = check_output([self.youtubedl_path, "--version"])
+
     def is_network_connected(self):
         return not len(self.ip) < 7
    
