@@ -226,19 +226,18 @@ class Karaoke:
         url = "https://www.youtube.com/results?search_query=" + query
         response = urllib2.urlopen(url,None,10)
         if (response):
-	        html = response.read()
-	        doc = lxml.html.fromstring(html)
-	        elements = doc.xpath('//a[contains(@class,"yt-uix-tile-link")]')
-	        results = []
-	        for each in elements:
-	            results.append({'title':each.get('title'), 'href':each.get('href')})
-	        rc = []
-	        for vid in results:
-	            rc.append([vid['title'], 'https://www.youtube.com' + vid['href']])
-	        return(rc)
-
+            html = response.read()
+            doc = lxml.html.fromstring(html.decode("utf-8"))
+            elements = doc.xpath('//a[contains(@class,"yt-uix-tile-link")]')
+            results = []
+            for each in elements:
+                results.append({'title':each.get('title'), 'href':each.get('href')})
+            rc = []
+            for vid in results:
+                rc.append([vid['title'], 'https://www.youtube.com' + vid['href']])
+            return(rc)
         else:
-        	logging.error("Failed to get response from: " + url)
+       	    logging.error("Failed to get response from: " + url)
 
     def get_karaoke_search_results(self, songTitle):
         return self.get_search_results(songTitle + " karaoke")
