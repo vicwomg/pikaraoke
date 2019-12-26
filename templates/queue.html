@@ -13,8 +13,9 @@ $(function() {
     });
     $('.confirm-clear').click(function(e) {
         e.preventDefault();
-        if (window.confirm("Are you sure you want to clear the ENTIRE queue and kill the party!?")) {
-            location.href = this.href;
+        let prompt = window.prompt("Are you sure you want to clear the ENTIRE queue? Type 'OK' to continue")
+        if (prompt.toLowerCase() === "ok") {
+           location.href = this.href;
         }
     });
     
