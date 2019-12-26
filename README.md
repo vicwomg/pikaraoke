@@ -77,6 +77,10 @@ This is optional, but you may want to make your pi a dedicated karaoke device. I
 /usr/bin/python /home/pi/pikaraoke/app.py &
 ```
 
+If you want to kill the pikaraoke process, you can do so from the Web UI under: Info > Quit to console. Or you can ssh in and run "sudo killall python" or something similar.
+
+Note that if your wifi/network is inactive  pikaraoke will error out 10 seconds after being launched. This is to prevent the app from hijacking your ability to login to repair the connection. 
+
 ## Usage
 
 Here is the full list of command line arguments:
@@ -149,11 +153,34 @@ Make sure you are connected to the same network/wifi. You can then enter the sho
 
 Make sure youtube-dl is up to date, old versions have higher failure rates due to changes in Youtube
 
+You can update this from the web UI. Go to Info > Update Youtube-dl
+
+From the CLI:
 `sudo pip install --upgrade youtube_dl`
 
 ### Downloads are slow!
 
 youtube-dl is very CPU intensive, especially for single-core devices like the pi models zero and less-than 2. The more simultaneous downloads there are, the longer they will take. Try to limit it to 1-2 at a time. Pi 3 can handle quite a bit more.
+
+### I brought my pikaraoke to a friend's house and it can't connect to their network. How do I change wifi connection without ssh?
+
+These are my preferred ways to do it, but they will require either a USB keyboard or a computer with an SD Card reader
+
+* USB Keyboard: plug in a USB keyboard to the pi. After it boots up, log in and run "sudo raspi-config" and configure wifi through the Network Options section. If the desktop UI is installed, you can also run "startx" and configure wifi from the Raspbian GUI.
+* SD Card Reader: Remove the pi's SD card and open it on a computer with an SD card reader. It should mount as a disk drive. On the BOOT partition, add a plaintext file named "wpa_supplicant.conf" and put the following in it:
+
+```
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+country=<Your 2-letter country code, ex. US>
+network={
+  ssid="<the wifi ap ssid name>"
+  psk="<the wifi password>"
+  key_mgmt=WPA-PSK
+}
+```
+
+Add the SD card back to the pi and start it up. It should automatically add the wpa_supplicant.conf file to the correct location and connect to wifi.
 
 ### Where do I plug in a microphone?
 
