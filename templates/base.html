@@ -35,8 +35,7 @@
   </head>
   <body>
 
-    <div class="container">
-
+    <div class="container" style="padding: 5px;">
         <nav class="navbar" role="navigation" aria-label="main navigation">
           <div class="navbar-brand" id="brand">
             <a class="navbar-item" href="{{ url_for('home') }}">
@@ -71,14 +70,14 @@
 
         {% if get_flashed_messages() %}
         {% for category, message in get_flashed_messages(with_categories=true) %}
-        <div id="notification" class="notification {{category}}">
+        <div id="notification" class="notification {{category}}" style="margin-top: 5px">
         <button id="notification-close" class="delete"></button>
           <div class="flash">{{ message }}</div>
         </div>
         {% endfor %}
         {% endif %}
 
-        <div class="box">
+        <div class="box" style="margin-top: 5px;">
         <header class="title">
           {% block header %}{% endblock %}
         </header>
@@ -91,7 +90,6 @@
           </div>
 
         </div>
-
 
     </div>
 
