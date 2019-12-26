@@ -55,9 +55,16 @@ Handy URL QR code to share with a pal:
   <li>CPU: {{ cpu }}</li>
   <li>Disk Usage: {{ disk }}</li>
   <li>Memory: {{ memory }}</li>
+  <li>Youtube-dl version: {{ youtubedl_version }}</li>
 </ul>
 
 <hr>
+
+<h1>Updates</h1>
+<p>If downloads stopped working, updating youtube-dl will probably fix it. Make sure no downloads are currently active when you run this.</p>
+<ul>
+  <li><a id="update-ytdl-link" href="{{ url_for('update_ytdl') }}">Update youtube-dl</a></li>
+</ul>
 
 <h1>Shutdown</h1>
 <p>Don't just pull the plug! Always shut down your server properly to avoid data corruption.</p>

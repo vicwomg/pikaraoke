@@ -240,8 +240,11 @@ def info():
     total = round(disk.total/1024.0/1024.0/1024.0,1)
     disk = str(free) + 'GB free / ' + str(total) + 'GB total ( ' + str(disk.percent) + '% )'
 
+    #youtube-dl 
+    youtubedl_version = k.youtubedl_version
+
     return render_template('info.html', site_title = site_name, title='Info',
-        url=url, memory=memory, cpu=cpu, disk=disk )
+        url=url, memory=memory, cpu=cpu, disk=disk, youtubedl_version = youtubedl_version )
 
 # Delay system commands to allow redirect to render first
 def delayed_halt(cmd):
@@ -254,6 +257,25 @@ def delayed_halt(cmd):
         os.system('shutdown now')
     if (cmd == 2):
         os.system('reboot')
+
+update_log_path = '/tmp/youtube-dl-update.log'
+
+def update_youtube_dl():
+    time.sleep(3)
+    log_path = '/tmp/youtube-dl-update.log'
+    os.system('echo "Current youtube-dl version: " > %s' % update_log_path)
+    os.system('youtube-dl --version >> %s' % update_log_path)
+    os.system('pip install --upgrade youtube_dl >> %s' % update_log_path)
+    os.system('echo "New youtube-dl version: " >> %s' % update_log_path)
+    os.system('youtube-dl --version >> %s' % update_log_path)
+    k.get_youtubedl_version()
+
+@app.route("/update_ytdl")
+def update_ytdl():
+    flash("Updating youtube-dl! Should take a minute or two... (log output at: %s)" % update_log_path, "is-warning")
+    th = threading.Thread(target=update_youtube_dl)
+    th.start()
+    return redirect(url_for('home'))
 
 @app.route("/quit")
 def quit():
