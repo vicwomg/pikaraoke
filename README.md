@@ -76,6 +76,13 @@ This is optional, but you may want to make your pi a dedicated karaoke device. I
 /usr/bin/python /home/pi/pikaraoke/app.py &
 ```
 
+Or if you're like me and want some logging for aiding debugging, the following stores output at: /var/log/pikaraoke.log:
+
+```
+# start pikaraoke on startup / logging
+/usr/bin/python /home/pi/pikaraoke/app.py >> /var/log/pikaraoke.log 2>&1 &
+```
+
 If you want to kill the pikaraoke process, you can do so from the Web UI under: `Info > Quit to console`. Or you can ssh in and run `sudo killall python` or something similar.
 
 Note that if your wifi/network is inactive  pikaraoke will error out 10 seconds after being launched. This is to prevent the app from hijacking your ability to login to repair the connection. 
