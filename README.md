@@ -23,33 +23,33 @@ This *should* work on all raspberry pi devices, but multi-core models recommende
 
 ## Setup
 
-Clone this repo to the directory of your choice:
-
-```
-cd <destination_directory>
-git clone <this_repo_URL>
-```
+Assumes a fresh Raspbian install.
 
 Install required binaries:
-
 ```
 sudo apt-get update
-sudo apt-get install libjpeg-dev omxplayer python-pip python-pygame python-lxml -y
+sudo apt-get install git libjpeg-dev omxplayer python-pip python-pygame python-lxml -y
 sudo pip install --upgrade youtube_dl
 ```
 
 Notes on above: Do NOT use apt-get to install youtube-dl, it is an outdated version and puts it in a different directory than expected. And conversely, don't use pip to install pygame, and lxml, when I tried on a fresh raspbian lite image I got dependency errors with pip.
 
-Install the remaining ython dependencies (these instructions install packages globally, use virtualenv if you prefer):
+Clone this repo. The following puts it in /home/pi:
+```
+cd ~
+git clone https://github.com/vicwomg/pikaraoke.git
+```
+
+Install the remaining python dependencies (these instructions install packages globally, use virtualenv if you prefer):
 
 ```
-cd <pikaraoke_project_dir>
+cd pikaraoke
 sudo pip install -r requirements.txt
 ```
 
 Finally, bump up your GPU memory or some videos will show a GSOD (green screen of death).
 
-`nano /boot/config.txt`
+`sudo nano /boot/config.txt`
 
 Add the following line:
 
@@ -65,7 +65,7 @@ Yes, you must run as sudo since pikaraoke uses pygame to control the screen buff
 
 By default, the http port is 5000 and it downloads songs to "/usr/lib/pikaraoke/songs". To change this, you can supply the following command line arguments (example):
 
-`python app.py --port 8080 --download-path /home/pi/songs`
+`sudo python app.py --port 8080 --download-path /home/pi/songs`
 
 ## Auto-start PiKaraoke
 
@@ -83,9 +83,9 @@ Or if you're like me and want some logging for aiding debugging, the following s
 /usr/bin/python /home/pi/pikaraoke/app.py >> /var/log/pikaraoke.log 2>&1 &
 ```
 
-If you want to kill the pikaraoke process, you can do so from the Web UI under: `Info > Quit to console`. Or you can ssh in and run `sudo killall python` or something similar.
+If you want to kill the pikaraoke process, you can do so from the PiKaraoke Web UI under: `Info > Quit to console`. Or you can ssh in and run `sudo killall python` or something similar.
 
-Note that if your wifi/network is inactive  pikaraoke will error out 10 seconds after being launched. This is to prevent the app from hijacking your ability to login to repair the connection. 
+Note that if your wifi/network is inactive pikaraoke will error out 10 seconds after being launched. This is to prevent the app from hijacking your ability to login to repair the connection. 
 
 ## Usage
 
