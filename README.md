@@ -170,8 +170,9 @@ youtube-dl is very CPU intensive, especially for single-core devices like the pi
 
 ### I brought my pikaraoke to a friend's house and it can't connect to their network. How do I change wifi connection without ssh?
 
-These are my preferred ways to do it, but they will require either a USB keyboard or a computer with an SD Card reader.
+These are my preferred ways to do it, but they might require either a USB keyboard or a computer with an SD Card reader.
 
+* _Completely Headless_: I can highly recommend this package: https://github.com/jasbur/RaspiWiFi . Install it according to the directions and it will detect when there is no network connecttion, and act as a Wifi AP allowing you to configure wifi from your smartphone (similar to Chromecast initial setup). As an added bonus, when it's in AP mode, you can actually connect directly to the pi access run PiKaraoke and it's existing library without internet or wifi! But you won't be able to download new songs, obviously. 
 * _USB Keyboard_: plug in a USB keyboard to the pi. After it boots up, log in and run "sudo raspi-config" and configure wifi through the Network Options section. If the desktop UI is installed, you can also run "startx" and configure wifi from the Raspbian GUI. You can also manually edit /etc/wpa_supplicant/wpa_supplicant.conf as desribed below.
 * _SD Card Reader_: Remove the pi's SD card and open it on a computer with an SD card reader. It should mount as a disk drive. On the BOOT partition, add a plaintext file named "wpa_supplicant.conf" and put the following in it:
 
@@ -187,6 +188,12 @@ network={
 ```
 
 Add the SD card back to the pi and start it up. On boot, Raspbian should automatically add the wpa_supplicant.conf file to the correct location and connect to wifi.
+
+### Can I run PiKaraoke without a wifi/network connection?
+
+Actually, yes! If you run your pi as a wifi access point, your browser can connect to that access point, and it should work. See: https://www.raspberrypi.org/documentation/configuration/wireless/access-point.md
+
+Or even easier, if you install this: https://github.com/jasbur/RaspiWiFi (used for configuring wifi connections headless, see above). While it's in AP mode, you can connect to the pi as an AP and access the existing library on your device.
 
 ### Where do I plug in a microphone?
 
