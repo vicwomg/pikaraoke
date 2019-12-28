@@ -116,7 +116,8 @@ optional arguments:
   -l LOG_LEVEL, --log-level LOG_LEVEL
                         Logging level int value (DEBUG: 10, INFO: 20, WARNING:
                         30, ERROR: 40, CRITICAL: 50). (default: 20 )
-  --hide-overlay        Hide overlay in player showing song title and IP.
+  --show-overlay        Show overlay in omxplayer with song title and IP.
+                        (feature is broken on Pi 4 omxplayer 12/24/2019)
   --hide-ip             Hide IP address from the screen.
   --hide-splash-screen  Hide splash screen before/between songs.
 ```
