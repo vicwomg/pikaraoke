@@ -26,6 +26,14 @@ $( function() {
         }
     });
 
+ $('#update-ytdl-link').click(function(e) {
+        e.preventDefault();
+        if (window.confirm("Are you sure you want to update Youtube-dl right now? Current and pending downloads may fail.")) {
+            location.href = this.href;
+        }
+    });
+
+
 });
 </script>
 {% endblock %}
@@ -61,7 +69,7 @@ Handy URL QR code to share with a pal:
 <hr>
 
 <h1>Updates</h1>
-<p>If downloads stopped working, updating youtube-dl will probably fix it. Make sure no downloads are currently active when you run this.</p>
+<p>If downloads stopped working, updating youtube-dl will probably fix it. </p>
 <ul>
   <li><a id="update-ytdl-link" href="{{ url_for('update_ytdl') }}">Update youtube-dl</a></li>
 </ul>
