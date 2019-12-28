@@ -2,10 +2,10 @@ tempora==1.14.0
 jaraco.functools==2.0
 CherryPy==10.2.1
 six==1.12.0
-Flask==1.0
-pillow==4.0.0
-qrcode==6.1
-pygame==1.9.3
-futures==3.2.0
-psutil==5.5.1
-lxml==3.7.1
+Flask
+pillow
+qrcode
+pygame
+futures
+psutil
+lxml
