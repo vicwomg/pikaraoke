@@ -30,7 +30,7 @@ sudo apt-get update
 sudo apt-get install git
 ```
 
-Clone this repo. The following puts it in /home/pi/pikaraoke:
+Clone this repo. The rest of this guide assumes you install to /home/pi/pikaraoke:
 ```
 cd ~
 git clone https://github.com/vicwomg/pikaraoke.git
@@ -55,11 +55,9 @@ cd to the pikaraoke directory and run:
 
 `sudo python app.py`
 
-Yes, you must run as sudo since pikaraoke uses pygame to control the screen buffer.
+Yes, you must run as sudo since PiKaraoke uses pygame to control the screen buffer.
 
-By default, the http port is 5000 and it downloads songs to "/usr/lib/pikaraoke/songs". To change this, you can supply the following command line arguments (example):
-
-`sudo python app.py --port 8080 --download-path /home/pi/songs`
+The app should launch and show the PiKaraoke splash screen and a QR code and a URL. Using a device connected to the same wifi network as the Pi, scan this QR code or enter the URL into a browser. You are now connected! You can start exploring the UI and adding/queuing new songs directly from YouTube.
 
 ## Auto-start PiKaraoke
 
