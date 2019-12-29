@@ -23,37 +23,31 @@ This *should* work on all raspberry pi devices, but multi-core models recommende
 
 ## Setup
 
-Assumes a fresh Raspbian install.
+If you already have git, you can skip this. If not:
 
-Install required binaries:
 ```
 sudo apt-get update
-sudo apt-get install git libjpeg-dev omxplayer python-pip python-pygame python-lxml -y
-sudo pip install --upgrade youtube_dl
+sudo apt-get install git
 ```
 
-Notes on above: Do NOT use apt-get to install youtube-dl, it is an outdated version and puts it in a different directory than expected. And conversely, don't use pip to install pygame, and lxml, when I tried on a fresh raspbian lite image I got dependency errors with pip.
-
-Clone this repo. The following puts it in /home/pi:
+Clone this repo. The following puts it in /home/pi/pikaraoke:
 ```
 cd ~
 git clone https://github.com/vicwomg/pikaraoke.git
-```
-
-Install the remaining python dependencies (these instructions install packages globally, use virtualenv if you prefer):
-
-```
 cd pikaraoke
-sudo pip install -r requirements.txt
 ```
 
-Finally, bump up your GPU memory or some videos will show a GSOD (green screen of death).
+Run the setup script:
 
-`sudo nano /boot/config.txt`
+```
+./setup.sh
+```
 
-Add the following line:
+You will then probably need to reboot since this changes a boot setting (gpu_mem=128). This is to prevent certain videos from showing visual artifacts (green pixel distortion) 
 
-`gpu_mem=128`
+```
+sudo reboot
+```
 
 ## Launch
 
