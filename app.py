@@ -324,6 +324,7 @@ if __name__ == '__main__':
     parser.add_argument('--show-overlay', action='store_true', help='Show overlay in omxplayer with song title and IP. (feature is broken on Pi 4 omxplayer 12/24/2019)', required=False)
     parser.add_argument('--hide-ip', action='store_true', help='Hide IP address from the screen.', required=False)
     parser.add_argument('--hide-splash-screen', action='store_true', help='Hide splash screen before/between songs.', required=False)
+    parser.add_argument('--alsa-fix', action='store_true', help='Add this if you are using a USB soundcard or Hifi audio hat and cannot hear audio.', required=False)
     args = parser.parse_args()
 
     app.jinja_env.globals.update(filename_from_path=filename_from_path)
@@ -340,7 +341,8 @@ if __name__ == '__main__':
         volume = args.volume,
         hide_overlay = not args.show_overlay,
         hide_ip = args.hide_ip,
-        hide_splash_screen = args.hide_splash_screen)
+        hide_splash_screen = args.hide_splash_screen,
+        alsa_fix = args.alsa_fix)
     t = threading.Thread(target=k.run)
     t.daemon = True
     t.start()

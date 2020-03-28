@@ -34,6 +34,7 @@ class Karaoke:
             hide_ip = False,
             hide_splash_screen = False,
             hide_overlay = True,
+            alsa_fix = False,
             volume = 0,
             log_level = logging.DEBUG,
             splash_delay = 2,
@@ -44,6 +45,7 @@ class Karaoke:
         self.port = port
         self.hide_ip = hide_ip
         self.hide_splash_screen = hide_splash_screen
+        self.alsa_fix = alsa_fix
         self.splash_delay = int(splash_delay)
         self.hide_overlay = hide_overlay
         self.volume_offset = volume
@@ -66,13 +68,14 @@ class Karaoke:
     hide splash: %s
     splash_delay: %s
     hide overlay: %s
+    alsa fix: %s
     download path: %s
     default volume: %s
     youtube-dl path: %s
     omxplayer path: %s
     log_level: %s'''
             % (self.port, self.hide_ip, self.hide_splash_screen,
-            self.splash_delay, self.hide_overlay, self.download_path,
+            self.splash_delay, self.hide_overlay, self.alsa_fix, self.download_path,
             self.volume_offset, self.youtubedl_path, self.player_path,
             log_level))
 
@@ -81,14 +84,6 @@ class Karaoke:
         end_time = int(time.time()) + 30
         success = False
         while (int(time.time()) < end_time):
-#            try:
-#                self.ip = gethostbyname(gethostname())
-#                success = True
-#            except:
-#                logging.debug("Could not get IP, retrying...")
-#                time.sleep(2)
-#            if success:
-#                break
             self.ip = check_output(['hostname','-I']).strip()
             if (not self.is_network_connected()):
                 logging.debug("Couldn't get IP, retrying....")
@@ -151,7 +146,8 @@ class Karaoke:
     def initialize_screen(self):
         if (not self.hide_splash_screen):
             logging.debug("Initializing pygame")
-            pygame.init()
+            pygame.display.init()
+            pygame.font.init()
             pygame.mouse.set_visible(0)
             self.font = pygame.font.SysFont(pygame.font.get_default_font(), 40)
             self.width = pygame.display.Info().current_w
@@ -197,6 +193,11 @@ class Karaoke:
                 else:
                     text = self.font.render("Connect at: " + self.url, True, (255, 255, 255))
                     self.screen.blit(text, (p_image.get_width() + 15, 0))
+
+            if (True):
+                text = self.font.render("Configure wifi at: " + self.url, True, (255, 255, 255))
+                print self.screen.get_rect().bottomleft
+                self.screen.blit(text, self.screen.get_rect().bottomleft)
 
             pygame.display.flip()
 
@@ -318,11 +319,12 @@ class Karaoke:
         	self.generate_overlay_file(file_path)
 
         self.kill_player()
-
+        
+        output = "alsa:hw:0,0" if self.alsa_fix else "both"
         logging.info("Playing video: " + self.now_playing)
         cmd = [self.player_path,file_path,
             "--blank",
-            "-o", "both",
+            "-o", output,
             "--vol", str(self.volume_offset),
             "--font-size", str(25)]
         if (not self.hide_overlay):

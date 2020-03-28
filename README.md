@@ -112,6 +112,8 @@ optional arguments:
                         (feature is broken on Pi 4 omxplayer 12/24/2019)
   --hide-ip             Hide IP address from the screen.
   --hide-splash-screen  Hide splash screen before/between songs.
+  --alsa-fix            Add this if you are using a USB soundcard or Hifi
+                        audio hat and cannot hear audio.
 ```
 
 ## Screen UI
@@ -203,3 +205,7 @@ Ideally, you'd have a mixer and amplifier that you could run the line out of the
 This is currently not supported due to lack of know-how. As far as I can tell we'd have to pipe omxplayer into some realtime-yet-lightweight audio DSP. Let me know if you have ideas on how to implement it.
 
 In the meantime, you might be able to get away with running the line out through a pitch shift guitar effects pedal or similar device.
+
+### I can't hear audio and I'm getting a blank screen when I try to play a song
+
+If you're using an external USB sound card or hifi audio hat like the hifiberry, you'll need to add the argument --alsa-fix when you launch pikaraoke
