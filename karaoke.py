@@ -6,6 +6,7 @@ import time
 import os
 import threading
 import logging
+import re
 from socket import gethostbyname
 from socket import gethostname
 import pygame
@@ -19,6 +20,9 @@ from subprocess import check_output
 class Karaoke:
 
     overlay_file_path = "/tmp/pikaraoke-overlay.srt"
+    raspi_wifi_config_ip = "10.0.0.1"
+    raspi_wifi_conf_file = "/etc/raspiwifi/raspiwifi.conf"
+    raspi_wifi_config_installed = os.path.exists(raspi_wifi_conf_file)
 
     queue = []
     available_songs = []
@@ -116,6 +120,13 @@ class Karaoke:
             self.initialize_screen()
             self.render_splash_screen()
     
+    def get_raspi_wifi_ap(self):
+        f = open(self.raspi_wifi_conf_file, "r")
+        for line in f.readlines():
+            if "ssid_prefix=" in line:
+                return line.split("x=")[1].strip()
+        return False
+
     def get_youtubedl_version(self):
         self.youtubedl_version = check_output([self.youtubedl_path, "--version"])
 
@@ -194,10 +205,17 @@ class Karaoke:
                     text = self.font.render("Connect at: " + self.url, True, (255, 255, 255))
                     self.screen.blit(text, (p_image.get_width() + 15, 0))
 
-            if (True):
-                text = self.font.render("Configure wifi at: " + self.url, True, (255, 255, 255))
-                print self.screen.get_rect().bottomleft
-                self.screen.blit(text, self.screen.get_rect().bottomleft)
+            if (self.raspi_wifi_config_installed and self.raspi_wifi_config_ip in self.url):
+                ap = self.get_raspi_wifi_ap()
+                text1 = self.font.render("RaspiWifiConfig setup mode detected!", True, (255, 255, 255))
+                text2 = self.font.render("Connect another device/smartphone to the Wifi AP: '%s'" % ap, True, (255, 255, 255))
+                text3 = self.font.render("Then point its browser to: 'http://%s' and follow the instructions." % self.raspi_wifi_config_ip , True, (255, 255, 255))
+                y1 = self.height - text1.get_height() - 80
+                y2 = self.height - text2.get_height() - 40
+                y3 = self.height - text2.get_height() - 5
+                self.screen.blit(text1,(10, y1))
+                self.screen.blit(text2,(10, y2))
+                self.screen.blit(text3,(10, y3))
 
             pygame.display.flip()
 
@@ -325,6 +343,7 @@ class Karaoke:
         cmd = [self.player_path,file_path,
             "--blank",
             "-o", output,
+            "--display", "7",
             "--vol", str(self.volume_offset),
             "--font-size", str(25)]
         if (not self.hide_overlay):
