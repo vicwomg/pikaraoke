@@ -39,6 +39,7 @@ class Karaoke:
             hide_splash_screen = False,
             hide_overlay = True,
             alsa_fix = False,
+            dual_screen = False,
             volume = 0,
             log_level = logging.DEBUG,
             splash_delay = 2,
@@ -50,6 +51,7 @@ class Karaoke:
         self.hide_ip = hide_ip
         self.hide_splash_screen = hide_splash_screen
         self.alsa_fix = alsa_fix
+        self.dual_screen = dual_screen
         self.splash_delay = int(splash_delay)
         self.hide_overlay = hide_overlay
         self.volume_offset = volume
@@ -73,14 +75,15 @@ class Karaoke:
     splash_delay: %s
     hide overlay: %s
     alsa fix: %s
+    dual screen: %s
     download path: %s
     default volume: %s
     youtube-dl path: %s
     omxplayer path: %s
     log_level: %s'''
             % (self.port, self.hide_ip, self.hide_splash_screen,
-            self.splash_delay, self.hide_overlay, self.alsa_fix, self.download_path,
-            self.volume_offset, self.youtubedl_path, self.player_path,
+            self.splash_delay, self.hide_overlay, self.alsa_fix, self.dual_screen, 
+            self.download_path, self.volume_offset, self.youtubedl_path, self.player_path,
             log_level))
 
         # Generate connection URL and QR code, retry in case pi is still starting up
@@ -339,15 +342,19 @@ class Karaoke:
         self.kill_player()
         
         output = "alsa:hw:0,0" if self.alsa_fix else "both"
+       
         logging.info("Playing video: " + self.now_playing)
         cmd = [self.player_path,file_path,
             "--blank",
             "-o", output,
-            "--display", "7",
             "--vol", str(self.volume_offset),
             "--font-size", str(25)]
+        
+        if (self.dual_screen):
+            cmd += ["--display", "7"]
+
         if (not self.hide_overlay):
-        	cmd += ["--subtitles", self.overlay_file_path]
+            cmd += ["--subtitles", self.overlay_file_path]
         logging.debug("Player command: " + ' '.join(cmd))
         self.process = subprocess.Popen(cmd, stdin=subprocess.PIPE,)
         self.render_splash_screen() # remove old previous track
