@@ -6,7 +6,6 @@ import time
 import os
 import threading
 import logging
-import re
 from socket import gethostbyname
 from socket import gethostname
 import pygame
