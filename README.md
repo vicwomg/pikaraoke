@@ -114,6 +114,7 @@ optional arguments:
   --hide-splash-screen  Hide splash screen before/between songs.
   --alsa-fix            Add this if you are using a USB soundcard or Hifi
                         audio hat and cannot hear audio.
+  --dual-screen         Output video to both HDMI ports (raspberry pi 4 only)
 ```
 
 ## Screen UI
