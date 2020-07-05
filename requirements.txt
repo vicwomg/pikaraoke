@@ -7,5 +7,5 @@ pillow
 qrcode
 pygame
 futures
-psutil
-lxml
+psutil 
+unidecode

@@ -1,5 +1,6 @@
 import urllib2
-import lxml.html
+#import lxml.html
+import json
 import glob
 import subprocess
 import time
@@ -15,6 +16,7 @@ from signal import alarm, signal, SIGALRM, SIGKILL
 import random
 import sys
 from subprocess import check_output
+from unidecode import unidecode
 
 class Karaoke:
 
@@ -243,20 +245,39 @@ class Karaoke:
 
     def get_search_results(self, textToSearch):
         logging.info("Searching YouTube for: " + textToSearch)
-        query = urllib2.quote(textToSearch)
-        url = "https://www.youtube.com/results?search_query=" + query
+        query = urllib2.quote(unidecode(textToSearch))
+        
+        # This relies on the heroku deploy of the youtube-scrape node project. 
+        # No guarantees it will survive or was meant for general use. We'll see!
+        # https://github.com/HermanFassett/youtube-scrape
+        url = "http://youtube-scrape.herokuapp.com/api/search?q=" + query
         response = urllib2.urlopen(url,None,10)
         if (response):
             html = response.read()
-            doc = lxml.html.fromstring(html.decode("utf-8"))
-            elements = doc.xpath('//a[contains(@class,"yt-uix-tile-link")]')
-            results = []
-            for each in elements:
-                results.append({'title':each.get('title'), 'href':each.get('href')})
+            results = json.loads(html)['results']
             rc = []
-            for vid in results:
-                rc.append([vid['title'], 'https://www.youtube.com' + vid['href']])
-            return(rc)
+            for each in results:
+              if each.has_key('video'):
+                video = each['video']
+                rc.append([video['title'], video['url']])
+            return rc
+            
+            # Youtube broke this around 7/2/2020. Kind of a tough situation since the
+            # html now sits behind a js render. Scraping the source json looked hairy, and the above
+            # project already did a fine job of it, so using it for now.
+
+            #url = "https://www.youtube.com/results?search_query=" + query
+            #html = response.read()
+            #doc = lxml.html.fromstring(html.decode("utf-8"))
+            #elements = doc.xpath('//a')
+            #print html
+            #results = []
+            #for each in elements:
+            #    results.append({'title':each.get('title'), 'href':each.get('href')})
+            #rc = []
+            #for vid in results:
+            #    rc.append([vid['title'], 'https://www.youtube.com' + vid['href']])
+            #return(rc)
         else:
        	    logging.error("Failed to get response from: " + url)
 
