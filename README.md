@@ -2,6 +2,8 @@
 
 Karaoke song search and queueing system that uses Youtube videos as a source. For use with Raspberry Pi devices.
 
+Totally not expected, but folks have asked... so if you want to support this project with a little monetary tip, I wont stop ya! Much appreciated https://www.paypal.me/paniquejazz
+
 ## Features
 
 *  Web interface for multiple users to queue tracks
