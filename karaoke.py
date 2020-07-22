@@ -288,7 +288,7 @@ class Karaoke:
         logging.info("Downloading video: " + video_url)
         dl_path = self.download_path + "%(title)s---%(id)s.%(ext)s"
         cmd = [self.youtubedl_path,
-        	'-f', 'mp4',
+        	'-f', 'bestvideo[ext!=webm][height<=1080]+bestaudio[ext!=webm]/best[ext!=webm]',
         	"-o", dl_path, video_url]
         logging.debug("Youtube-dl command: " + ' '.join(cmd))
         rc = subprocess.call(cmd)
