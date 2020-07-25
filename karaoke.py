@@ -250,7 +250,7 @@ class Karaoke:
         # This relies on the heroku deploy of the youtube-scrape node project. 
         # No guarantees it will survive or was meant for general use. We'll see!
         # https://github.com/HermanFassett/youtube-scrape
-        url = "http://youtube-scrape.herokuapp.com/api/search?q=" + query
+        url = "http://pikaraoke-yt.herokuapp.com/api/search?q=" + query
         response = urllib2.urlopen(url,None,10)
         if (response):
             html = response.read()
