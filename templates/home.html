@@ -33,30 +33,30 @@ $( function() {
 {% endblock %}
 
 {% block header %}
-  <h1>{% block title %}Now Playing{% endblock %}</h1>
+  <h1>{% block title %}Now Playing <img width="40" src="{{  url_for('static', filename='images/now-playing.gif') }}">{% endblock %} </h1> 
 {% endblock %}
 
 {% block content %}
 
   <p class="is-size-4 has-text-warning" id="now-playing">
-    Nothing is playing right now.
+    John Legend - All of Me (Karaoke Version) - YouTube
   </p>
 
   <hr>
-  <h3>Next</h3>
+  <h3>Next Song</h3>
   <p id="up-next" class="has-text-warning"></p>
   <hr>
 
-<div class="has-background-black-bis box">
-  <h3>Player Control</h3>
+<div class="has-background-black-bis box control-box">
+  <h4>Player Control</h4>
   <p class="is-size-3	">
-    <a href="{{ url_for('restart') }}" onclick="return confirm('Are you sure you want to restart this track?')">&#x23EE;&#xFE0F;</a>&nbsp;&nbsp;
-    <a href="{{ url_for('pause') }}">&#x23EF;&#xFE0F;</a>&nbsp;&nbsp;
-    <a href="{{ url_for('skip') }}" onclick="return confirm('Are you sure you want to skip this track? If you didn\'t add this song, ask permission first!')">&#x23ED;&#xFE0F;</a>&nbsp;&nbsp;
+    <a title="Restart Song" href="{{ url_for('restart') }}" onclick="return confirm('Are you sure you want to restart this track?')"><i class="icon icon-to-start"></i> </a>&nbsp;&nbsp;
+    <a title="Play/Pause" href="{{ url_for('pause') }}"><i class="icon icon-pause"></i> </a>&nbsp;&nbsp;
+    <a title="Stop Current Song" href="{{ url_for('skip') }}" onclick="return confirm('Are you sure you want to skip this track? If you didn\'t add this song, ask permission first!')"><i class="icon icon-to-end"></i> </a>&nbsp;&nbsp;
   &nbsp;&nbsp;&nbsp;&nbsp;
     <span class="is-pulled-right">
-    <a href="{{ url_for('vol_down') }}">&#x1F508;</a>&nbsp;&nbsp;
-    <a href="{{ url_for('vol_up') }}">&#x1F50A;</a>
+    <a title="Volume Down" href="{{ url_for('vol_down') }}"><i class="icon icon-volume-down"></i> </a>&nbsp;&nbsp;
+    <a title="Volume Up" href="{{ url_for('vol_up') }}"><i class="icon icon-volume-up"></i> </a>
     </span>
 
   </p>
