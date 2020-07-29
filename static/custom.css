@@ -22,3 +22,11 @@
 #menu {
 	margin-right: 0;
 }
+
+.control-box a {
+	color:#cccccc;
+}
+
+.control-box a:hover {
+	color:#74ccb3;
+}

@@ -28,6 +28,7 @@ class Karaoke:
     queue = []
     available_songs = []
     now_playing = None
+    is_pause = True
     process = None
     qr_code = None
     base_path = os.path.dirname(__file__)
@@ -163,7 +164,8 @@ class Karaoke:
             logging.debug("Initializing pygame")
             pygame.display.init()
             pygame.font.init()
-            pygame.mouse.set_visible(0)
+            pygame.mouse.set_visible(0) #cahnge to  
+            #pygame.display.set_mode((640,480),pygame.RESIZABLE) #comment this line after
             self.font = pygame.font.SysFont(pygame.font.get_default_font(), 40)
             self.width = pygame.display.Info().current_w
             self.height = pygame.display.Info().current_h
@@ -179,7 +181,7 @@ class Karaoke:
             signal(SIGALRM, alarm_handler)
             alarm(3)
             try:
-                self.screen = pygame.display.set_mode([self.width,self.height],pygame.FULLSCREEN)
+                self.screen = pygame.display.set_mode([self.width,self.height],pygame.RESIZABLE)#FULLSCREEN
                 alarm(0)
             except Alarm:
                 raise KeyboardInterrupt
@@ -198,16 +200,16 @@ class Karaoke:
             if (not self.hide_ip):
                 p_image = pygame.image.load(self.generate_qr_code())
                 p_image = pygame.transform.scale(p_image, (150, 150))
-                self.screen.blit(p_image, (0,0))
+                self.screen.blit(p_image, (3,3))
                 if (not self.is_network_connected()): 
                     text = self.font.render("Wifi/Network not connected. Shutting down in 10s...", True, (255, 255, 255))
-                    self.screen.blit(text, (p_image.get_width() + 15, 0))
+                    self.screen.blit(text, (p_image.get_width() + 15, 10))
                     pygame.display.flip()
                     time.sleep(10)
                     sys.exit("No IP found. Network/Wifi configuration required. For wifi config, try: sudo raspi-config or the desktop GUI: startx")
                 else:
                     text = self.font.render("Connect at: " + self.url, True, (255, 255, 255))
-                    self.screen.blit(text, (p_image.get_width() + 15, 0))
+                    self.screen.blit(text, (p_image.get_width() + 15, 10))
 
             if (self.raspi_wifi_config_installed and self.raspi_wifi_config_ip in self.url):
                 ap = self.get_raspi_wifi_ap()
@@ -376,6 +378,7 @@ class Karaoke:
         if (not self.hide_overlay):
             cmd += ["--subtitles", self.overlay_file_path]
         logging.debug("Player command: " + ' '.join(cmd))
+        self.is_pause = False
         self.process = subprocess.Popen(cmd, stdin=subprocess.PIPE,)
         self.render_splash_screen() # remove old previous track
 
@@ -474,6 +477,7 @@ class Karaoke:
             logging.info("Skipping: " + self.now_playing)
             self.process.stdin.write("q")
             self.now_playing = None
+            self.is_pause = True
             return True
         else:
             logging.warning("Tried to skip, but no file is playing!")
@@ -483,6 +487,10 @@ class Karaoke:
         if (self.is_file_playing()):
             logging.info("Pausing: " + self.now_playing)
             self.process.stdin.write("p")
+            if self.is_pause == True:
+            	self.is_pause = False
+            else:
+            	self.is_pause = True
             return True
         else:
             logging.warning("Tried to pause, but no file is playing!")
@@ -512,6 +520,7 @@ class Karaoke:
         if (self.is_file_playing()):
             logging.info("Restarting: " + self.now_playing)
             self.process.stdin.write("i")
+            self.is_pause = False
             return True
         else:
             logging.warning("Tried to restart, but no file is playing!")
