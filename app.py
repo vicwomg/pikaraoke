@@ -44,7 +44,7 @@ def nowplaying():
         next_song = filename_from_path(k.queue[1])
     else:
         next_song = None
-    rc = {'now_playing' : k.now_playing, 'up_next' : next_song}
+    rc = {'now_playing' : k.now_playing, 'up_next' : next_song, 'is_pause' : k.is_pause}
     return json.dumps(rc)
 
 @app.route("/queue")
@@ -305,7 +305,7 @@ if __name__ == '__main__':
 
     default_port = 5000
     default_volume = 0
-    default_splash_delay = 4
+    default_splash_delay = 5
     default_log_level = logging.INFO
     default_dl_dir = '/usr/lib/pikaraoke/songs'
     default_omxplayer_path = '/usr/bin/omxplayer'
