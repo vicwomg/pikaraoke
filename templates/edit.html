@@ -6,9 +6,26 @@
   
     $('#remove-karaoke').click(function(e) {
         var new_name = $('#new_file_name').val();
-        new_name = new_name.replace(/\([Kk][Aa][Rr][Aa][Oo][Kk][Ee].*\)/g, "");
-        new_name = new_name.replace(/[Kk][Aa][Rr][Aa][Oo][Kk][Ee]/g, "");
+        new_name = new_name.replace(/\([Hh][Dd][ ].*\)/g, " ");
+        new_name = new_name.replace(/\s\s+/g, "");
+        new_name = new_name.replace(/\([Kk][Aa][Rr][Aa][Oo][Kk][Ee].*\)/g, " ");
+        new_name = new_name.replace(/\[[Kk][Aa][Rr][Aa][Oo][Kk][Ee].*\]/g, " ");
+        new_name = new_name.replace(/[Kk][Aa][Rr][Aa][Oo][Kk][Ee][  ][Vv][Ee][Rr][Ss][Ii][Oo][Nn]/g, " ");
+        new_name = new_name.replace(/[Kk][Aa][Rr][Aa][Oo][Kk][Ee]/g, " ");
+        new_name = new_name.replace(/\s\s+/g, " ");
+        new_name = new_name.replace("- -", "-");
+        new_name = new_name.replace("--", "-");
+        new_name = new_name.replace("as popularized by", "");
         new_name = new_name.trim();
+        
+        
+        
+        //title case
+        new_name = new_name.toLowerCase().replace(/\b[a-z]/g, function(letter) {
+            return letter.toUpperCase();
+        });
+        
+        new_name =new_name.replace("&Amp;", "&")
         $('#new_file_name').val(new_name);
     });
     
@@ -46,7 +63,7 @@
       <div class="field">
         <input autocomplete="off" id="new_file_name" class="input" type="text" name='new_file_name' value='{{ filename_from_path(song.decode('utf-8')) }}'></input>
       </div>
-      <ul>
+      <ul>  
         <li><a id='remove-karaoke'>Remove "karaoke" references</a></li>
         <li><a id='swap-order'>Swap artist/song order</a></li>
       </ul>

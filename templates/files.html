@@ -34,8 +34,8 @@ $( function() {
         {% for song in songs %}
         <li value='{{ song }}'>
         
-          <a class='has-text-weight-bold has-text-success' href="{{url_for('enqueue')}}?song={{url_escape(song.encode('utf-8'))}}">(+)</a>
-          <a class='edit-button' href="{{url_for('edit_file')}}?song={{url_escape(song.encode('utf-8'))}}">&#x270F;&#xFE0F;</a>
+          <a class='has-text-weight-bold has-text-success' href="{{url_for('enqueue')}}?song={{url_escape(song.encode('utf-8'))}}"><i class="icon icon-list-add"></i> </a>
+          <a class='edit-button' href="{{url_for('edit_file')}}?song={{url_escape(song.encode('utf-8'))}}"><i class="icon icon-edit"></i> </a>
            {{filename_from_path(song)}}
         </li>
         {% endfor %}
