@@ -200,16 +200,16 @@ class Karaoke:
             if (not self.hide_ip):
                 p_image = pygame.image.load(self.generate_qr_code())
                 p_image = pygame.transform.scale(p_image, (150, 150))
-                self.screen.blit(p_image, (3,3))
+                self.screen.blit(p_image, (0,0))
                 if (not self.is_network_connected()): 
                     text = self.font.render("Wifi/Network not connected. Shutting down in 10s...", True, (255, 255, 255))
-                    self.screen.blit(text, (p_image.get_width() + 15, 10))
+                    self.screen.blit(text, (p_image.get_width() + 15, 0))
                     pygame.display.flip()
                     time.sleep(10)
                     sys.exit("No IP found. Network/Wifi configuration required. For wifi config, try: sudo raspi-config or the desktop GUI: startx")
                 else:
                     text = self.font.render("Connect at: " + self.url, True, (255, 255, 255))
-                    self.screen.blit(text, (p_image.get_width() + 15, 10))
+                    self.screen.blit(text, (p_image.get_width() + 15, 0))
 
             if (self.raspi_wifi_config_installed and self.raspi_wifi_config_ip in self.url):
                 ap = self.get_raspi_wifi_ap()
@@ -487,10 +487,7 @@ class Karaoke:
         if (self.is_file_playing()):
             logging.info("Pausing: " + self.now_playing)
             self.process.stdin.write("p")
-            if self.is_pause == True:
-            	self.is_pause = False
-            else:
-            	self.is_pause = True
+            self.is_pause = not self.is_pause
             return True
         else:
             logging.warning("Tried to pause, but no file is playing!")
