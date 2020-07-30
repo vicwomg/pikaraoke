@@ -181,7 +181,7 @@ class Karaoke:
             signal(SIGALRM, alarm_handler)
             alarm(3)
             try:
-                self.screen = pygame.display.set_mode([self.width,self.height],pygame.RESIZABLE)#FULLSCREEN
+                self.screen = pygame.display.set_mode([self.width,self.height],pygame.FULLSCREEN)#FULLSCREEN
                 alarm(0)
             except Alarm:
                 raise KeyboardInterrupt
