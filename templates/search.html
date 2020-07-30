@@ -2,7 +2,7 @@
 
 {% block scripts %}
 <script>
-  $( function() {
+  $(function () {
     $("#search_result_selector").focus();
 
     $("#search-button").click(function () {
@@ -14,45 +14,45 @@
       //$(".overlay").show();
       $("#download-button").addClass("is-loading");
     });
-    
+
     $("#add-queue-button").click(function () {
       //$(".overlay").show();
       $("#add-queue-button").addClass("is-loading");
     });
-    
-    
-    $("#song-title-input").attr("value",$('#search_result_selector').find(":selected").text());
-    $("#search_result_selector").change(function() {
-    	var songTitle = $('#search_result_selector').find(":selected").text();
-    	$("#song-title-input").attr("value",songTitle);
-    });
-    
 
-    $.widget( "custom.combobox", {
-      _create: function() {
-        this.wrapper = $( "<span>" )
-          .addClass( "custom-combobox" )
-          .insertAfter( this.element );
+
+    $("#song-title-input").attr("value", $('#search_result_selector').find(":selected").text());
+    $("#search_result_selector").change(function () {
+      var songTitle = $('#search_result_selector').find(":selected").text();
+      $("#song-title-input").attr("value", songTitle);
+    });
+
+
+    $.widget("custom.combobox", {
+      _create: function () {
+        this.wrapper = $("<span>")
+          .addClass("custom-combobox")
+          .insertAfter(this.element);
 
         this.element.hide();
         this._createAutocomplete();
         this._createShowAllButton();
       },
 
-      _createAutocomplete: function() {
-        var selected = this.element.children( ":selected" ),
+      _createAutocomplete: function () {
+        var selected = this.element.children(":selected"),
           value = selected.val() ? selected.text() : "";
 
-        this.input = $( "<input>" )
-          .appendTo( this.wrapper )
-          .val( value )
-          .attr( "title", "" )
-          .attr( "size", "30")
-          .addClass( "custom-combobox-input ui-widget ui-widget-content ui-state-default ui-corner-left" )
+        this.input = $("<input>")
+          .appendTo(this.wrapper)
+          .val(value)
+          .attr("title", "")
+          .attr("size", "30")
+          .addClass("custom-combobox-input ui-widget ui-widget-content ui-state-default ui-corner-left")
           .autocomplete({
             delay: 0,
             minLength: 0,
-            source: $.proxy( this, "_source" )
+            source: $.proxy(this, "_source")
           })
           .tooltip({
             classes: {
@@ -60,10 +60,10 @@
             }
           });
 
-        this._on( this.input, {
-          autocompleteselect: function( event, ui ) {
+        this._on(this.input, {
+          autocompleteselect: function (event, ui) {
             ui.item.option.selected = true;
-            this._trigger( "select", event, {
+            this._trigger("select", event, {
               item: ui.item.option
             });
             $("#add-queue-button").removeAttr("disabled");
@@ -73,56 +73,56 @@
         });
       },
 
-      _createShowAllButton: function() {
+      _createShowAllButton: function () {
         var input = this.input,
           wasOpen = false;
 
-        $( "<a>" )
-          .attr( "tabIndex", -1 )
-          .attr( "title", "Show All Items" )
+        $("<a>")
+          .attr("tabIndex", -1)
+          .attr("title", "Show All Items")
           .tooltip()
-          .appendTo( this.wrapper )
+          .appendTo(this.wrapper)
           .button({
             icons: {
               primary: "ui-icon-triangle-1-s"
             },
             text: false
           })
-          .removeClass( "ui-corner-all" )
-          .addClass( "custom-combobox-toggle ui-corner-right" )
-          .on( "mousedown", function() {
-            wasOpen = input.autocomplete( "widget" ).is( ":visible" );
+          .removeClass("ui-corner-all")
+          .addClass("custom-combobox-toggle ui-corner-right")
+          .on("mousedown", function () {
+            wasOpen = input.autocomplete("widget").is(":visible");
           })
-          .on( "click", function() {
-            input.trigger( "focus" );
+          .on("click", function () {
+            input.trigger("focus");
 
             // Close if already visible
-            if ( wasOpen ) {
+            if (wasOpen) {
               return;
             }
 
             // Pass empty string as value to search for, displaying all results
-            input.autocomplete( "search", "" );
+            input.autocomplete("search", "");
           });
       },
 
-      _source: function( request, response ) {
-        var matcher = new RegExp( $.ui.autocomplete.escapeRegex(request.term), "i" );
-        response( this.element.children( "option" ).map(function() {
-          var text = $( this ).text();
-          if ( this.value && ( !request.term || matcher.test(text) ) )
+      _source: function (request, response) {
+        var matcher = new RegExp($.ui.autocomplete.escapeRegex(request.term), "i");
+        response(this.element.children("option").map(function () {
+          var text = $(this).text();
+          if (this.value && (!request.term || matcher.test(text)))
             return {
               label: text,
               value: text,
               option: this
             };
-        }) );
+        }));
       },
 
-      _removeIfInvalid: function( event, ui ) {
+      _removeIfInvalid: function (event, ui) {
 
         // Selected an item, nothing to do
-        if ( ui.item ) {
+        if (ui.item) {
           return;
         }
 
@@ -130,133 +130,133 @@
         var value = this.input.val(),
           valueLowerCase = value.toLowerCase(),
           valid = false;
-        this.element.children( "option" ).each(function() {
-          if ( $( this ).text().toLowerCase() === valueLowerCase ) {
+        this.element.children("option").each(function () {
+          if ($(this).text().toLowerCase() === valueLowerCase) {
             this.selected = valid = true;
             return false;
           }
         });
 
         // Found a match, nothing to do
-        if ( valid ) {
+        if (valid) {
           return;
         }
 
         // Remove invalid value
         this.input
-          .val( "" )
-          .attr( "title", "'" + value + "' didn't match any item" )
-          .tooltip( "open" );
+          .val("")
+          .attr("title", "'" + value + "' didn't match any item")
+          .tooltip("open");
         console.log(value);
         $("#search_string").val(value); //throw failed search into the downloader text box
-        this.element.val( "" ); 
-        this._delay(function() {
-          this.input.tooltip( "close" ).attr( "title", "" );
-        }, 2500 );
-        this.input.autocomplete( "instance" ).term = "";
+        this.element.val("");
+        this._delay(function () {
+          this.input.tooltip("close").attr("title", "");
+        }, 2500);
+        this.input.autocomplete("instance").term = "";
         $()
       },
 
-      _destroy: function() {
+      _destroy: function () {
         this.wrapper.remove();
         this.element.show();
       }
     });
 
-    $( "#combobox" ).combobox();
-    $( "#toggle" ).on( "click", function() {
-      $( "#combobox" ).toggle();
+    $("#combobox").combobox();
+    $("#toggle").on("click", function () {
+      $("#combobox").toggle();
     });
-    
+
 
     if ($('#combobox').find(":selected").text()) {
-        $("#add-queue-button").removeAttr("disabled");
-   	}
-   	else {
-        $("#add-queue-button").attr("disabled","true");
-   	}
-   	
-   	$('#youtube-link').attr('href', $('#search_result_selector').val());
+      $("#add-queue-button").removeAttr("disabled");
+    }
+    else {
+      $("#add-queue-button").attr("disabled", "true");
+    }
+
+    $('#youtube-link').attr('href', $('#search_result_selector').val());
     $('#youtube-link').text($('#search_result_selector').val());
-    
-    $(document).on('change','#search_result_selector',function(){
-        var url = $('#search_result_selector').val();
-        $('#youtube-link').attr('href', url);
-        $('#youtube-link').text(url);
+
+    $(document).on('change', '#search_result_selector', function () {
+      var url = $('#search_result_selector').val();
+      $('#youtube-link').attr('href', url);
+      $('#youtube-link').text(url);
     });
-    
-  } );
-  </script>
+
+  });
+</script>
 {% endblock %}
 
 {% block header %}
-  <h1>{% block title %}Songs{% endblock %}</h1>
+<h1>{% block title %}Songs{% endblock %}</h1>
 {% endblock %}
 
 {% block content %}
 
-  <div class="field">
-    <form action="{{ url_for('enqueue') }}" method="post">
-      <label class="label">Available Songs <a href="{{ url_for('browse') }}">&nbsp;(browse)</a></label>
-      <div class="field ui-widget">
-        <!-- <select id="combobox" name='song_to_add' size="5" class="is-size-6"> -->
-        <select id="combobox" name='song_to_add' >
-          <option value=''></option>
-          {% for file in songs %}
-          <option value='{{file}}'>{{ filename_from_path(file) }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <p class="help">Search by song or artist</p>
-      <div class="field">
-        <button class="button is-primary" id="add-queue-button" type="submit">Add to queue</button>
-      </div>
-    </form>
-  </div>
+<div class="field">
+  <form action="{{ url_for('enqueue') }}" method="post">
+    <label class="label">Available Songs <a href="{{ url_for('browse') }}">&nbsp;(browse)</a></label>
+    <div class="field ui-widget">
+      <!-- <select id="combobox" name='song_to_add' size="5" class="is-size-6"> -->
+      <select id="combobox" class="input" name='song_to_add'>
+        <option value=''></option>
+        {% for file in songs %}
+        <option value='{{file}}'>{{ filename_from_path(file) }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <p class="help">Search by song or artist</p>
+    <div class="field">
+      <button class="button is-primary" id="add-queue-button" type="submit">Add to queue</button>
+    </div>
+  </form>
+</div>
 
-  <hr>
+<hr>
 
-  <div class="field">
-    <form action="{{ url_for('search') }}" method="get">
-      <label class="label">Add New Song</label>
-      <div class="field">
-        <input autocomplete="off" id="search_string" class="input" type="text" name='search_string'></input>
-      </div>
-      <p class="help">Can't find it above? Add it here</p>
-      <div class="field">
-        <button class="button" id="search-button" type="submit" >Search</button>
-      </div>
-    </form>
-  </div>
+<div class="field">
+  <form action="{{ url_for('search') }}" method="get">
+    <label class="label">Add New Song</label>
+    <div class="field">
+      <input autocomplete="off" id="search_string" class="input" type="text" name='search_string'></input>
+    </div>
+    <p class="help">Can't find it above? Add it here</p>
+    <div class="field">
+      <button class="button" id="search-button" type="submit">Search</button>
+    </div>
+  </form>
+</div>
 
-    {% if search_results %}
-  <div class="field">
-    <form action="{{ url_for('download') }}" method="post">
-      <label class="label">Search Results</label>
-      <div class="field select">
-        <select id="search_result_selector" name='song-url' >>
-          {% for title,url in search_results %}
-          <option value='{{url}}'>{{title}}</option>
-          {% endfor %}
-        </select>
+{% if search_results %}
+<div class="field">
+  <form action="{{ url_for('download') }}" method="post">
+    <label class="label">Search Results</label>
+    <div class="field select">
+      <select id="search_result_selector" name='song-url'>>
+        {% for title,url in search_results %}
+        <option value='{{url}}'>{{title}}</option>
+        {% endfor %}
+      </select>
 
-      </div>
-     
-      <p class="help">Click dropdown to show more results</p>
-      
-      <p> Link: <a target="_blank" id='youtube-link' href=''></a> </p>
-      <div class="field">
-   	   <label class="checkbox">
-	   	   <input type="checkbox" name="queue">
-	   	   Add to queue
-  		</label>
-      </div>
-      <div class="field">
-        <button class="button is-success" id="download-button" type="submit">Download</button>
-      </div>
-    </form>
-  </div>
-    {% else %}
-    {% endif %}
+    </div>
+
+    <p class="help">Click dropdown to show more results</p>
+
+    <p> Link: <a target="_blank" id='youtube-link' href=''></a> </p>
+    <div class="field">
+      <label class="checkbox">
+        <input type="checkbox" name="queue">
+        Add to queue
+      </label>
+    </div>
+    <div class="field">
+      <button class="button is-success" id="download-button" type="submit">Download</button>
+    </div>
+  </form>
+</div>
+{% else %}
+{% endif %}
 
 {% endblock %}
