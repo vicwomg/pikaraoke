@@ -45,10 +45,10 @@ $(function() {
       <ol>
         {% for song in queue %}
         <li value='{{ song }}'>
-          <a class="up-button" href="/queue/edit?action=up&song={{url_escape(filename_from_path(song.encode('utf-8')))}}">&#x1F53C;</a>
-          <a class="down-button" href="/queue/edit?action=down&song={{url_escape(filename_from_path(song.encode('utf-8')))}}">&#x1F53D;</a>
+          <a class="up-button" href="/queue/edit?action=up&song={{url_escape(filename_from_path(song.encode('utf-8')))}}"><i class="icon icon-sort-up"></i> </a>
+          <a class="down-button" href="/queue/edit?action=down&song={{url_escape(filename_from_path(song.encode('utf-8')))}}"><i class="icon icon-sort-down"></i> </a>
           {{filename_from_path(song)}}
-          <a class="delete-button confirm-delete has-text-danger" href="/queue/edit?action=delete&song={{url_escape(filename_from_path(song.encode('utf-8')))}}">(x)</a>
+          <a class="delete-button confirm-delete has-text-danger" href="/queue/edit?action=delete&song={{url_escape(filename_from_path(song.encode('utf-8')))}}"><i class="icon icon-trash-empty"></i> </a>
         </li>
         {% endfor %}
       </ol>
@@ -57,7 +57,7 @@ $(function() {
       {% endif %}
       <hr>
       
-      <a class="add-random has-text-success" href="/queue/addrandom?amount=5">Add 5 random songs</a>
+      <a class="add-random has-text-success" href="/queue/addrandom?amount=3">Add 3 random songs</a>
       <a class="confirm-clear has-text-danger is-pulled-right" href="/queue/edit?action=clear">Clear all</a><br>
 
 {% endblock %}

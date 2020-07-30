@@ -14,6 +14,9 @@
     <link rel="stylesheet" href="{{  url_for('static', filename='jquery-ui.structure.min.css') }}">
     <link rel="stylesheet" href="{{  url_for('static', filename='jquery-ui.theme.min.css') }}">
     <link rel="stylesheet" href="{{  url_for('static', filename='custom.css') }}">
+
+    <link rel="stylesheet" href="{{  url_for('static', filename='fontello/css/fontello.css') }}">
+
     <script>
     $( function() {
     	$("#notification-close").click(function() {
@@ -39,7 +42,7 @@
         <nav class="navbar" role="navigation" aria-label="main navigation">
           <div class="navbar-brand" id="brand">
             <a class="navbar-item" href="{{ url_for('home') }}">
-              &nbsp;&nbsp;&nbsp;&#127908;
+              <img  src="{{  url_for('static', filename='images/logo-brand.png') }}">
             </a>
 
             <a class="navbar-item" href="{{ url_for('home') }}">
