@@ -164,8 +164,7 @@ class Karaoke:
             logging.debug("Initializing pygame")
             pygame.display.init()
             pygame.font.init()
-            pygame.mouse.set_visible(0) #cahnge to  
-            #pygame.display.set_mode((640,480),pygame.RESIZABLE) #comment this line after
+            pygame.mouse.set_visible(0) 
             self.font = pygame.font.SysFont(pygame.font.get_default_font(), 40)
             self.width = pygame.display.Info().current_w
             self.height = pygame.display.Info().current_h
@@ -181,7 +180,7 @@ class Karaoke:
             signal(SIGALRM, alarm_handler)
             alarm(3)
             try:
-                self.screen = pygame.display.set_mode([self.width,self.height],pygame.FULLSCREEN)#FULLSCREEN
+                self.screen = pygame.display.set_mode([self.width,self.height],pygame.FULLSCREEN)
                 alarm(0)
             except Alarm:
                 raise KeyboardInterrupt
