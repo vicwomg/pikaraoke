@@ -21,13 +21,13 @@
       new_name = new_name.replace(/\(\s?karaoke.*\)/g, "");
       new_name = new_name.replace(/\[\s?karaoke.*\]/g, "");
       new_name = new_name.replace(/karaoke.(version|video|instrumental)/g, "");
+      new_name = new_name.replace("[ goodkaraokesongs.com ]", "");
       new_name = new_name.replace(/karaoke/g, "");
       new_name = new_name.replace("karafun", "");
 
       //one-offs
       new_name = new_name.replace(/.no guide melody./g, "");
       new_name = new_name.replace(/\(hd[ ].*\)/g, "");
-      new_name = new_name.replace("[ goodkaraokesongs.com ]", "");
       new_name = new_name.replace("as popularized by", "-");
       new_name = new_name.replace("in the style of", "-");
       new_name = new_name.replace("instrumental", "");
