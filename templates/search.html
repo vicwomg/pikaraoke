@@ -47,8 +47,7 @@
           .appendTo(this.wrapper)
           .val(value)
           .attr("title", "")
-          .attr("size", "30")
-          .addClass("custom-combobox-input ui-widget ui-widget-content ui-state-default ui-corner-left")
+          .addClass("input custom-combobox-input ui-widget ui-widget-content ui-state-default ui-corner-left")
           .autocomplete({
             delay: 0,
             minLength: 0,
@@ -190,7 +189,7 @@
 {% endblock %}
 
 {% block header %}
-<h1>{% block title %}Songs{% endblock %}</h1>
+<h1>{% block title %}Search{% endblock %}</h1>
 {% endblock %}
 
 {% block content %}
@@ -198,7 +197,7 @@
 <div class="field">
   <form action="{{ url_for('enqueue') }}" method="post">
     <label class="label">Available Songs <a href="{{ url_for('browse') }}">&nbsp;(browse)</a></label>
-    <div class="field ui-widget">
+    <div class="field ui-widget" style="max-width: 375px">
       <!-- <select id="combobox" name='song_to_add' size="5" class="is-size-6"> -->
       <select id="combobox" class="input" name='song_to_add'>
         <option value=''></option>
@@ -219,7 +218,7 @@
 <div class="field">
   <form action="{{ url_for('search') }}" method="get">
     <label class="label">Add New Song</label>
-    <div class="field">
+    <div class="field" style="max-width: 375px">
       <input autocomplete="off" id="search_string" class="input" type="text" name='search_string'></input>
     </div>
     <p class="help">Can't find it above? Add it here</p>
