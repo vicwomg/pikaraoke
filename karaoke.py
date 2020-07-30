@@ -28,6 +28,7 @@ class Karaoke:
     queue = []
     available_songs = []
     now_playing = None
+    is_pause = True
     process = None
     qr_code = None
     base_path = os.path.dirname(__file__)
@@ -163,7 +164,7 @@ class Karaoke:
             logging.debug("Initializing pygame")
             pygame.display.init()
             pygame.font.init()
-            pygame.mouse.set_visible(0)
+            pygame.mouse.set_visible(0) 
             self.font = pygame.font.SysFont(pygame.font.get_default_font(), 40)
             self.width = pygame.display.Info().current_w
             self.height = pygame.display.Info().current_h
@@ -376,6 +377,7 @@ class Karaoke:
         if (not self.hide_overlay):
             cmd += ["--subtitles", self.overlay_file_path]
         logging.debug("Player command: " + ' '.join(cmd))
+        self.is_pause = False
         self.process = subprocess.Popen(cmd, stdin=subprocess.PIPE,)
         self.render_splash_screen() # remove old previous track
 
@@ -474,6 +476,7 @@ class Karaoke:
             logging.info("Skipping: " + self.now_playing)
             self.process.stdin.write("q")
             self.now_playing = None
+            self.is_pause = True
             return True
         else:
             logging.warning("Tried to skip, but no file is playing!")
@@ -483,6 +486,7 @@ class Karaoke:
         if (self.is_file_playing()):
             logging.info("Pausing: " + self.now_playing)
             self.process.stdin.write("p")
+            self.is_pause = not self.is_pause
             return True
         else:
             logging.warning("Tried to pause, but no file is playing!")
@@ -512,6 +516,7 @@ class Karaoke:
         if (self.is_file_playing()):
             logging.info("Restarting: " + self.now_playing)
             self.process.stdin.write("i")
+            self.is_pause = False
             return True
         else:
             logging.warning("Tried to restart, but no file is playing!")
