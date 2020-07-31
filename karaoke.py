@@ -1,22 +1,22 @@
-import urllib2
-#import lxml.html
-import json
 import glob
-import subprocess
-import time
-import os
-import threading
+import json
 import logging
-from socket import gethostbyname
-from socket import gethostname
+import os
+import random
+import subprocess
+import sys
+import threading
+import time
+import urllib2
+from io import BytesIO
+from signal import SIGALRM, SIGKILL, alarm, signal
+from socket import gethostbyname, gethostname
+from subprocess import check_output
+
 import pygame
 import qrcode
-from io import BytesIO
-from signal import alarm, signal, SIGALRM, SIGKILL
-import random
-import sys
-from subprocess import check_output
 from unidecode import unidecode
+
 
 class Karaoke:
 
@@ -42,6 +42,7 @@ class Karaoke:
             hide_overlay = True,
             alsa_fix = False,
             dual_screen = False,
+            high_quality = False,
             volume = 0,
             log_level = logging.DEBUG,
             splash_delay = 2,
@@ -54,6 +55,7 @@ class Karaoke:
         self.hide_splash_screen = hide_splash_screen
         self.alsa_fix = alsa_fix
         self.dual_screen = dual_screen
+        self.high_quality = high_quality
         self.splash_delay = int(splash_delay)
         self.hide_overlay = hide_overlay
         self.volume_offset = volume
@@ -78,13 +80,14 @@ class Karaoke:
     hide overlay: %s
     alsa fix: %s
     dual screen: %s
+    high quality video: %s
     download path: %s
     default volume: %s
     youtube-dl path: %s
     omxplayer path: %s
     log_level: %s'''
             % (self.port, self.hide_ip, self.hide_splash_screen,
-            self.splash_delay, self.hide_overlay, self.alsa_fix, self.dual_screen, 
+            self.splash_delay, self.hide_overlay, self.alsa_fix, self.dual_screen, self.high_quality, 
             self.download_path, self.volume_offset, self.youtubedl_path, self.player_path,
             log_level))
 
@@ -288,8 +291,9 @@ class Karaoke:
     def download_video(self, video_url, enqueue=False):
         logging.info("Downloading video: " + video_url)
         dl_path = self.download_path + "%(title)s---%(id)s.%(ext)s"
+        file_quality = "best" if self.high_quality else "mp4"
         cmd = [self.youtubedl_path,
-        	'-f', 'mp4',
+        	'-f', file_quality,
         	"-o", dl_path, video_url]
         logging.debug("Youtube-dl command: " + ' '.join(cmd))
         rc = subprocess.call(cmd)
