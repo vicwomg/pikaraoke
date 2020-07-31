@@ -7,7 +7,6 @@ import subprocess
 import sys
 import threading
 import time
-import urllib2
 from io import BytesIO
 from signal import SIGALRM, SIGKILL, alarm, signal
 from socket import gethostbyname, gethostname
@@ -249,41 +248,26 @@ class Karaoke:
 
     def get_search_results(self, textToSearch):
         logging.info("Searching YouTube for: " + textToSearch)
-        query = urllib2.quote(unidecode(textToSearch))
-        
-        # This relies on the heroku deploy of the youtube-scrape node project. 
-        # No guarantees it will survive or was meant for general use. We'll see!
-        # https://github.com/HermanFassett/youtube-scrape
-        url = "http://pikaraoke-yt.herokuapp.com/api/search?q=" + query
-        response = urllib2.urlopen(url,None,10)
-        if (response):
-            html = response.read()
-            results = json.loads(html)['results']
+        num_results = 10
+        yt_search = 'ytsearch%d:"%s"' % (num_results, unidecode(textToSearch))
+        cmd = [self.youtubedl_path,
+        	'-j', '--no-playlist', '--flat-playlist', yt_search ]
+        logging.debug("Youtube-dl search command: " + ' '.join(cmd))
+        try: 
+            output = subprocess.check_output(cmd)
+            logging.debug("Search results: " + output)
             rc = []
-            for each in results:
-              if each.has_key('video'):
-                video = each['video']
-                rc.append([video['title'], video['url']])
+            video_url_base =  "https://www.youtube.com/watch?v="
+            for each in output.split("\n"):
+                if len(each) > 2: 
+                    j = json.loads(each)
+                    if ((not 'title' in j) or (not 'url' in j)):
+                        continue
+                    rc.append([j['title'], video_url_base + j['url']])
             return rc
-            
-            # Youtube broke this around 7/2/2020. Kind of a tough situation since the
-            # html now sits behind a js render. Scraping the source json looked hairy, and the above
-            # project already did a fine job of it, so using it for now.
-
-            #url = "https://www.youtube.com/results?search_query=" + query
-            #html = response.read()
-            #doc = lxml.html.fromstring(html.decode("utf-8"))
-            #elements = doc.xpath('//a')
-            #print html
-            #results = []
-            #for each in elements:
-            #    results.append({'title':each.get('title'), 'href':each.get('href')})
-            #rc = []
-            #for vid in results:
-            #    rc.append([vid['title'], 'https://www.youtube.com' + vid['href']])
-            #return(rc)
-        else:
-       	    logging.error("Failed to get response from: " + url)
+        except Exception as e: 
+            logging.debug("Error while executing search: " + e.msg)
+            raise e
 
     def get_karaoke_search_results(self, songTitle):
         return self.get_search_results(songTitle + " karaoke")
