@@ -1,97 +1,102 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    {% if title %}
-    <title>{{site_title}} - {{ title }}</title>
-    {% else %}
-    <title>{{site_title}}</title>
-    {% endif %}
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script type=text/javascript src="{{  url_for('static', filename='jquery-3.3.1.min.js') }}"></script>
-    <script type=text/javascript src="{{  url_for('static', filename='jquery-ui.min.js') }}"></script>
-    <link rel="stylesheet" href="{{  url_for('static', filename='bulma-dark.css') }}">
-    <link rel="stylesheet" href="{{  url_for('static', filename='jquery-ui.min.css') }}">
-    <link rel="stylesheet" href="{{  url_for('static', filename='jquery-ui.structure.min.css') }}">
-    <link rel="stylesheet" href="{{  url_for('static', filename='jquery-ui.theme.min.css') }}">
-    <link rel="stylesheet" href="{{  url_for('static', filename='custom.css') }}">
-    <script>
-    $( function() {
-    	$("#notification-close").click(function() {
-	    	$("#notification").hide();
-    	});
 
-	    	// Check for click events on the navbar burger icon
-	  $(".navbar-burger").click(function() {
+<head>
+  {% if title %}
+  <title>{{site_title}} - {{ title }}</title>
+  {% else %}
+  <title>{{site_title}}</title>
+  {% endif %}
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script type=text/javascript src="{{  url_for('static', filename='jquery-3.3.1.min.js') }}"></script>
+  <script type=text/javascript src="{{  url_for('static', filename='jquery-ui.min.js') }}"></script>
+  <link rel="stylesheet" href="{{  url_for('static', filename='bulma-dark.css') }}">
+  <link rel="stylesheet" href="{{  url_for('static', filename='jquery-ui.min.css') }}">
+  <link rel="stylesheet" href="{{  url_for('static', filename='jquery-ui.structure.min.css') }}">
+  <link rel="stylesheet" href="{{  url_for('static', filename='jquery-ui.theme.min.css') }}">
+  <link rel="stylesheet" href="{{  url_for('static', filename='custom.css') }}">
 
-	      // Toggle the "is-active" class on both the "navbar-burger" and the "navbar-menu"
-	      $(".navbar-burger").toggleClass("is-active");
-	      $(".navbar-menu").toggleClass("is-active");
+  <link rel="stylesheet" href="{{  url_for('static', filename='fontello/css/fontello.css') }}">
 
-	  });
+  <script>
+    $(function () {
+      $("#notification-close").click(function () {
+        $("#notification").hide();
+      });
+
+      // Check for click events on the navbar burger icon
+      $(".navbar-burger").click(function () {
+
+        // Toggle the "is-active" class on both the "navbar-burger" and the "navbar-menu"
+        $(".navbar-burger").toggleClass("is-active");
+        $(".navbar-menu").toggleClass("is-active");
+
+      });
     });
-    </script>
-    {% block scripts %}
-    {% endblock %}
-  </head>
-  <body>
+  </script>
+  {% block scripts %}
+  {% endblock %}
+</head>
 
-    <div class="container" style="padding: 5px;">
-        <nav class="navbar" role="navigation" aria-label="main navigation">
-          <div class="navbar-brand" id="brand">
-            <a class="navbar-item" href="{{ url_for('home') }}">
-              &nbsp;&nbsp;&nbsp;&#127908;
-            </a>
+<body>
 
-            <a class="navbar-item" href="{{ url_for('home') }}">
-              Home
-            </a>
+  <div class="container" style="padding: 5px; max-width: 900px">
+    <nav class="navbar" role="navigation" aria-label="main navigation">
+      <div class="navbar-brand" id="brand" style="padding-left: 10px">
+        <a class="navbar-item" href="{{ url_for('home') }}">
+          Home
+        </a>
 
-            <a class="navbar-item" href="{{ url_for('queue') }}">
-              Queue
-            </a>
-            <a class="navbar-item" href="{{ url_for('search') }}">
-              Songs
-            </a>
-            <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
-			  <span aria-hidden="true"></span>
-			  <span aria-hidden="true"></span>
-			  <span aria-hidden="true"></span>
-			</a>
-          </div>
-          <div class="navbar-menu" id="menu">
-          		<div class="navbar-end">
-              		<a class="navbar-item" href="{{ url_for('info') }}">
-	          			Info &nbsp;&nbsp;
-              		</a>
-          		</div>
-          </div>
-
-        </nav>
-
-        {% if get_flashed_messages() %}
-        {% for category, message in get_flashed_messages(with_categories=true) %}
-        <div id="notification" class="notification {{category}}" style="margin-top: 5px">
-        <button id="notification-close" class="delete"></button>
-          <div class="flash">{{ message }}</div>
+        <a class="navbar-item" href="{{ url_for('queue') }}">
+          Queue
+        </a>
+        <a class="navbar-item" href="{{ url_for('search') }}">
+          Search
+        </a>
+        <a class="navbar-item" href="{{ url_for('browse') }}">
+          Browse
+        </a>
+        <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+        </a>
+      </div>
+      <div class="navbar-menu" id="menu">
+        <div class="navbar-end">
+          <a class="navbar-item" href="{{ url_for('info') }}">
+            Info &nbsp;&nbsp;
+          </a>
         </div>
-        {% endfor %}
-        {% endif %}
+      </div>
 
-        <div class="box" style="margin-top: 5px;">
-        <header class="title">
-          {% block header %}{% endblock %}
-        </header>
+    </nav>
+
+    {% if get_flashed_messages() %}
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div id="notification" class="notification {{category}}" style="margin-top: 5px">
+      <button id="notification-close" class="delete"></button>
+      <div class="flash">{{ message }}</div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="box" style="margin-top: 5px;">
+      <header class="title">
+        {% block header %}{% endblock %}
+      </header>
 
 
 
-          <div class="content">
-          {% block content %}
-          {% endblock %}
-          </div>
-
-        </div>
+      <div class="content">
+        {% block content %}
+        {% endblock %}
+      </div>
 
     </div>
 
-  </body>
+  </div>
+
+</body>
+
 </html>
