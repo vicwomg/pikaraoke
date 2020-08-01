@@ -1,6 +1,7 @@
 .custom-combobox {
   position: relative;
   display: inline-block;
+  width: 90%;
 }
 .custom-combobox-toggle {
   position: absolute;
@@ -10,8 +11,8 @@
   padding: 0;
 }
 .custom-combobox-input {
-  margin: 0;
-  padding: 5px 10px;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
 }
 #notification {
   margin-bottom: 0;
@@ -21,4 +22,12 @@
 }
 #menu {
 	margin-right: 0;
+}
+
+.control-box a {
+	color:#cccccc;
+}
+
+.control-box a:hover {
+	color:#74ccb3;
 }

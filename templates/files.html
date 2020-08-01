@@ -3,43 +3,51 @@
 {% block scripts %}
 <script>
 
-$( function() {
+  $(function () {
 
-    
 
-});
+
+  });
 
 </script>
 
 {% endblock %}
 
 {% block header %}
-  <h1>{% block title %}{{ title }}{% endblock %}</h1>
+<h1>{% block title %}{{ title }}{% endblock %}</h1>
 {% endblock %}
 
 {% block content %}
 
-    <p> 
-        Sorted by "{{ sort_order }}" |
-        {% if sort_order == "Alphabetical" %}
-        <a href="{{ url_for('browse') }}?sort=date">Sort by Date</a> 
-        {% endif %}
-        {% if sort_order == "Date" %}
-        <a href="{{ url_for('browse') }}">Sort by Alphabetical</a> 
-        {% endif %}
-    
-    </p>
+<p>
+  Sorted by "{{ sort_order }}" |
+  {% if sort_order == "Alphabetical" %}
+  <a href="{{ url_for('browse') }}?sort=date">Sort by Date</a>
+  {% endif %}
+  {% if sort_order == "Date" %}
+  <a href="{{ url_for('browse') }}">Sort by Alphabetical</a>
+  {% endif %}
 
-    <ol>
-        {% for song in songs %}
-        <li value='{{ song }}'>
-        
-          <a class='has-text-weight-bold has-text-success' href="{{url_for('enqueue')}}?song={{url_escape(song.encode('utf-8'))}}">(+)</a>
-          <a class='edit-button' href="{{url_for('edit_file')}}?song={{url_escape(song.encode('utf-8'))}}">&#x270F;&#xFE0F;</a>
-           {{filename_from_path(song)}}
-        </li>
-        {% endfor %}
-      </ol>
+</p>
 
-  
+<table>
+  {% for song in songs %}
+  <tr value='{{ song }}'>
+    <td width="20px" style="padding: 5px 0px">{{loop.index}}</td>
+    <td width="20px" style="padding: 5px 0px">
+      <a class='has-text-weight-bold has-text-success' title="Add to queue"
+        href="{{url_for('enqueue')}}?song={{url_escape(song.encode('utf-8'))}}"><i class="icon icon-list-add"></i> </a>
+    </td>
+    <td>
+      {{filename_from_path(song)}}
+    </td>
+    <td width="20px">
+      <a class='edit-button' href="{{url_for('edit_file')}}?song={{url_escape(song.encode('utf-8'))}}"
+        title="Edit song"><i class="icon icon-edit"></i> </a>
+    </td>
+    </li>
+    {% endfor %}
+</table>
+
+
 {% endblock %}
