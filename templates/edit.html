@@ -2,31 +2,19 @@
 
 {% block scripts %}
 <script>
-  $( function() {
+ $( function() {
   
     $('#remove-karaoke').click(function(e) {
-        var new_name = $('#new_file_name').val();
-        new_name = new_name.replace(/\([Hh][Dd][ ].*\)/g, " ");
-        new_name = new_name.replace(/\s\s+/g, "");
-        new_name = new_name.replace(/\([Kk][Aa][Rr][Aa][Oo][Kk][Ee].*\)/g, " ");
-        new_name = new_name.replace(/\[[Kk][Aa][Rr][Aa][Oo][Kk][Ee].*\]/g, " ");
-        new_name = new_name.replace(/[Kk][Aa][Rr][Aa][Oo][Kk][Ee][  ][Vv][Ee][Rr][Ss][Ii][Oo][Nn]/g, " ");
-        new_name = new_name.replace(/[Kk][Aa][Rr][Aa][Oo][Kk][Ee]/g, " ");
-        new_name = new_name.replace(/\s\s+/g, " ");
-        new_name = new_name.replace("- -", "-");
-        new_name = new_name.replace("--", "-");
-        new_name = new_name.replace("as popularized by", "");
-        new_name = new_name.trim();
-        
-        
-        
-        //title case
-        new_name = new_name.toLowerCase().replace(/\b[a-z]/g, function(letter) {
-            return letter.toUpperCase();
-        });
-        
-        new_name =new_name.replace("&Amp;", "&")
+        var new_name = clean_title($('#new_file_name').val());
         $('#new_file_name').val(new_name);
+    });
+    
+    $('#suggest-title').click(function(e) {
+    		if ($.trim($('#new_file_name').val()) != ""){
+          var format_name = clean_title($('#new_file_name').val(),title_case=true);
+          var search_string =format_name;
+          suggest_title (search_string,"#suggest_results");
+        }
     });
     
     $('#swap-order').click(function(e) {
@@ -41,9 +29,73 @@
             location.href = this.href;
         }
     });
+
+    $("#suggest_results").on("click", ".suggested_item", function(){
+        $('#new_file_name').val($(this).text());
+    });
     
-  } );
-  </script>
+ });
+  
+ 
+ function clean_title (search_str, title_case=false){
+   var new_name = $('#new_file_name').val();
+   new_name = new_name.replace(/\[+([^\][]+)]+/g,"($1)"); //replace brackets with parenthesis	
+   new_name = new_name.replace(/[^\x20-\x7E]+/g, "");//Remove all non printable and all non ASCII characters
+   new_name = new_name.replace(/\\|\//g, " ");//remove slashes
+   
+   //source: https://stackoverflow.com/questions/49655135/javascript-regex-remove-multiple-words-from-string
+   var uselessWordsArray = 
+       [
+         "as popularized by", "lyrics", "karafun", "instrumental", "minus one", "minusone", " by ",
+         "karaoke version", "karaoke","hd","hq", "coversph","singkaraoke"
+       ];
+		var expStr = uselessWordsArray.join("|");
+		new_name = new_name.replace(new RegExp('\\b(' + expStr + ')\\b', 'gi'), ' ').replace(/\s{2,}/g, ' ');
+    
+    if (title_case == true){
+      new_name = new_name.toLowerCase().replace(/\b[a-z]/g, function(letter) {
+          return letter.toUpperCase();
+      });
+    }
+    
+    new_name = new_name.replace(/\([\s&\-.)]*\)/g,"");//remove empty parenthesis
+    new_name = new_name.replace(/\_/g, '-');//replace _ to dash
+    new_name = new_name.replace(/\b\-\b/g, ' - ');//add space before and after dash
+    new_name =new_name.replace("&Amp;", "&");
+    new_name = new_name.replace(/\&/g, 'and');//replace & to and
+    new_name = new_name.replace(/\s\s+/g, " "); //remove white spaces
+    return new_name.trim();
+  }
+  
+  function suggest_title (search_str,results_div,max_suggestion = 5){
+  	$('.suggest_loader').removeClass("is-hidden");
+    var API_KEY = "058c382f5fd686b4146f6028961c14da";
+    var max_suggestion = max_suggestion;
+    var url = "https://ws.audioscrobbler.com/2.0/?method=track.search&track="+search_str+"&limit="+max_suggestion+"&page=1&api_key="+API_KEY+"&format=json";
+    $(results_div).html("");
+    
+    $.getJSON(url,function(json){
+      data = json.results.trackmatches.track;
+      console.log(data);
+      suggestions = "";
+      if (data.length != 0){
+        $.each(data, function(i, item) {
+            suggestions += "<li><a class='suggested_item'>"+item.name + " - " + item.artist+"</a></li>";
+            return i<max_suggestion-1;
+        });
+      }
+      else {
+        suggestions = "<li>No suggestion!</li>";
+        console.log("No suggestion!")
+      }
+      $(results_div).html("<ul>"+suggestions+"</ul>");
+    }).always(function() {
+      $('.suggest_loader').addClass("is-hidden");
+    });
+  }
+  
+  
+</script>
 {% endblock %}
 
 {% block header %}
@@ -61,11 +113,15 @@
       <input value="{{ song.decode('utf-8') }}" type="hidden" name='old_file_name'>
       <label class="label">Edit Song Name</label>
       <div class="field">
-        <input autocomplete="off" id="new_file_name" class="input" type="text" name='new_file_name' value='{{ filename_from_path(song.decode('utf-8')) }}'></input>
+        <input autocomplete="off" id="new_file_name" class="input" type="text" name="new_file_name" value="{{ filename_from_path(song.decode('utf-8')) }}"></input>
       </div>
       <ul>  
         <li><a id='remove-karaoke'>Remove "karaoke" references</a></li>
         <li><a id='swap-order'>Swap artist/song order</a></li>
+        <li><a id='suggest-title'>Suggest from Last.fm</a>
+          <span class="button is-loading is-hidden suggest_loader" style="border:0;background-color:transparent;"></span>
+          <span id="suggest_results"></span>
+        </li>
       </ul>
       <div class="field">
         <button class="button is-primary" id="search-button" type="submit" >Submit</button>
