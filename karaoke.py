@@ -1,22 +1,21 @@
-import urllib2
-#import lxml.html
-import json
 import glob
-import subprocess
-import time
-import os
-import threading
+import json
 import logging
-from socket import gethostbyname
-from socket import gethostname
+import os
+import random
+import subprocess
+import sys
+import threading
+import time
+from io import BytesIO
+from signal import SIGALRM, SIGKILL, alarm, signal
+from socket import gethostbyname, gethostname
+from subprocess import check_output
+
 import pygame
 import qrcode
-from io import BytesIO
-from signal import alarm, signal, SIGALRM, SIGKILL
-import random
-import sys
-from subprocess import check_output
 from unidecode import unidecode
+
 
 class Karaoke:
 
@@ -42,6 +41,7 @@ class Karaoke:
             hide_overlay = True,
             alsa_fix = False,
             dual_screen = False,
+            high_quality = False,
             volume = 0,
             log_level = logging.DEBUG,
             splash_delay = 2,
@@ -54,6 +54,7 @@ class Karaoke:
         self.hide_splash_screen = hide_splash_screen
         self.alsa_fix = alsa_fix
         self.dual_screen = dual_screen
+        self.high_quality = high_quality
         self.splash_delay = int(splash_delay)
         self.hide_overlay = hide_overlay
         self.volume_offset = volume
@@ -78,13 +79,14 @@ class Karaoke:
     hide overlay: %s
     alsa fix: %s
     dual screen: %s
+    high quality video: %s
     download path: %s
     default volume: %s
     youtube-dl path: %s
     omxplayer path: %s
     log_level: %s'''
             % (self.port, self.hide_ip, self.hide_splash_screen,
-            self.splash_delay, self.hide_overlay, self.alsa_fix, self.dual_screen, 
+            self.splash_delay, self.hide_overlay, self.alsa_fix, self.dual_screen, self.high_quality, 
             self.download_path, self.volume_offset, self.youtubedl_path, self.player_path,
             log_level))
 
@@ -164,8 +166,7 @@ class Karaoke:
             logging.debug("Initializing pygame")
             pygame.display.init()
             pygame.font.init()
-            pygame.mouse.set_visible(0) #cahnge to  
-            #pygame.display.set_mode((640,480),pygame.RESIZABLE) #comment this line after
+            pygame.mouse.set_visible(0) 
             self.font = pygame.font.SysFont(pygame.font.get_default_font(), 40)
             self.width = pygame.display.Info().current_w
             self.height = pygame.display.Info().current_h
@@ -181,7 +182,7 @@ class Karaoke:
             signal(SIGALRM, alarm_handler)
             alarm(3)
             try:
-                self.screen = pygame.display.set_mode([self.width,self.height],pygame.FULLSCREEN)#FULLSCREEN
+                self.screen = pygame.display.set_mode([self.width,self.height],pygame.FULLSCREEN)
                 alarm(0)
             except Alarm:
                 raise KeyboardInterrupt
@@ -200,16 +201,16 @@ class Karaoke:
             if (not self.hide_ip):
                 p_image = pygame.image.load(self.generate_qr_code())
                 p_image = pygame.transform.scale(p_image, (150, 150))
-                self.screen.blit(p_image, (3,3))
+                self.screen.blit(p_image, (0,0))
                 if (not self.is_network_connected()): 
                     text = self.font.render("Wifi/Network not connected. Shutting down in 10s...", True, (255, 255, 255))
-                    self.screen.blit(text, (p_image.get_width() + 15, 10))
+                    self.screen.blit(text, (p_image.get_width() + 15, 0))
                     pygame.display.flip()
                     time.sleep(10)
                     sys.exit("No IP found. Network/Wifi configuration required. For wifi config, try: sudo raspi-config or the desktop GUI: startx")
                 else:
                     text = self.font.render("Connect at: " + self.url, True, (255, 255, 255))
-                    self.screen.blit(text, (p_image.get_width() + 15, 10))
+                    self.screen.blit(text, (p_image.get_width() + 15, 0))
 
             if (self.raspi_wifi_config_installed and self.raspi_wifi_config_ip in self.url):
                 ap = self.get_raspi_wifi_ap()
@@ -247,41 +248,26 @@ class Karaoke:
 
     def get_search_results(self, textToSearch):
         logging.info("Searching YouTube for: " + textToSearch)
-        query = urllib2.quote(unidecode(textToSearch))
-        
-        # This relies on the heroku deploy of the youtube-scrape node project. 
-        # No guarantees it will survive or was meant for general use. We'll see!
-        # https://github.com/HermanFassett/youtube-scrape
-        url = "http://pikaraoke-yt.herokuapp.com/api/search?q=" + query
-        response = urllib2.urlopen(url,None,10)
-        if (response):
-            html = response.read()
-            results = json.loads(html)['results']
+        num_results = 10
+        yt_search = 'ytsearch%d:"%s"' % (num_results, unidecode(textToSearch))
+        cmd = [self.youtubedl_path,
+        	'-j', '--no-playlist', '--flat-playlist', yt_search ]
+        logging.debug("Youtube-dl search command: " + ' '.join(cmd))
+        try: 
+            output = subprocess.check_output(cmd)
+            logging.debug("Search results: " + output)
             rc = []
-            for each in results:
-              if each.has_key('video'):
-                video = each['video']
-                rc.append([video['title'], video['url']])
+            video_url_base =  "https://www.youtube.com/watch?v="
+            for each in output.split("\n"):
+                if len(each) > 2: 
+                    j = json.loads(each)
+                    if ((not 'title' in j) or (not 'url' in j)):
+                        continue
+                    rc.append([j['title'], video_url_base + j['url']])
             return rc
-            
-            # Youtube broke this around 7/2/2020. Kind of a tough situation since the
-            # html now sits behind a js render. Scraping the source json looked hairy, and the above
-            # project already did a fine job of it, so using it for now.
-
-            #url = "https://www.youtube.com/results?search_query=" + query
-            #html = response.read()
-            #doc = lxml.html.fromstring(html.decode("utf-8"))
-            #elements = doc.xpath('//a')
-            #print html
-            #results = []
-            #for each in elements:
-            #    results.append({'title':each.get('title'), 'href':each.get('href')})
-            #rc = []
-            #for vid in results:
-            #    rc.append([vid['title'], 'https://www.youtube.com' + vid['href']])
-            #return(rc)
-        else:
-       	    logging.error("Failed to get response from: " + url)
+        except Exception as e: 
+            logging.debug("Error while executing search: " + e.msg)
+            raise e
 
     def get_karaoke_search_results(self, songTitle):
         return self.get_search_results(songTitle + " karaoke")
@@ -289,8 +275,9 @@ class Karaoke:
     def download_video(self, video_url, enqueue=False):
         logging.info("Downloading video: " + video_url)
         dl_path = self.download_path + "%(title)s---%(id)s.%(ext)s"
+        file_quality = "best" if self.high_quality else "mp4"
         cmd = [self.youtubedl_path,
-        	'-f', 'mp4',
+        	'-f', file_quality,
         	"-o", dl_path, video_url]
         logging.debug("Youtube-dl command: " + ' '.join(cmd))
         rc = subprocess.call(cmd)
@@ -487,10 +474,7 @@ class Karaoke:
         if (self.is_file_playing()):
             logging.info("Pausing: " + self.now_playing)
             self.process.stdin.write("p")
-            if self.is_pause == True:
-            	self.is_pause = False
-            else:
-            	self.is_pause = True
+            self.is_pause = not self.is_pause
             return True
         else:
             logging.warning("Tried to pause, but no file is playing!")
