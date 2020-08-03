@@ -177,14 +177,32 @@
 
     $('#youtube-link').attr('href', $('#search_result_selector').val());
     $('#youtube-link').text($('#search_result_selector').val());
-
+    
+    //get youtube thumbnail based on ID
+    i = -1;
+    changeImage();
+  
+    
     $(document).on('change', '#search_result_selector', function () {
       var url = $('#search_result_selector').val();
       $('#youtube-link').attr('href', url);
       $('#youtube-link').text(url);
+      changeImage();
     });
-
+    //alow click of images
+    $('#youtube-thumb').click(function(e) { 
+      changeImage();
+    });
+    setInterval(function() {$('#youtube-thumb').trigger('click');}, 2000);
   });
+  
+ function changeImage(){
+      var next = (++i % 4);
+      var youtube_id = $('#search_result_selector').find(':selected').data('ytid');
+      var fn = (next == 0) ? "default" : next;
+      var img_src = 'https://img.youtube.com/vi/'+youtube_id+'/mq'+fn+'.jpg'
+      $('#youtube-thumb').attr("src",img_src);
+  }  
 </script>
 {% endblock %}
 
@@ -234,8 +252,8 @@
     <label class="label">Search Results</label>
     <div class="field select">
       <select id="search_result_selector" name='song-url'>>
-        {% for title,url in search_results %}
-        <option value='{{url}}'>{{title}}</option>
+        {% for title,url,id in search_results %}
+        <option data-ytID='{{id}}' value='{{url}}'>{{title}}</option>
         {% endfor %}
       </select>
 
@@ -244,6 +262,7 @@
     <p class="help">Click dropdown to show more results</p>
 
     <p> Link: <a target="_blank" id='youtube-link' href=''></a> </p>
+    <p> <img id='youtube-thumb'> </p>
     <div class="field">
       <label class="checkbox">
         <input type="checkbox" name="queue">
