@@ -260,8 +260,9 @@ def edit_file():
                 flash(queue_error_msg + song_path, "is-danger")
             else:
                 # check if new_name already exist
-                if os.path.isfile(os.path.join(k.download_path, new_name+'.mp4')):
-                    flash("Error Renaming file: '%s' to '%s'. Filename already exist." % (old_name, new_name), "is-danger")
+                file_name, file_extension = os.path.splitext(old_name)
+                if os.path.isfile(os.path.join(k.download_path, new_name+file_extension)):
+                    flash("Error Renaming file: '%s' to '%s'. Filename already exist." % (old_name, new_name+file_extension), "is-danger")
                 else:
                     k.rename(old_name, new_name)
                     flash(
