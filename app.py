@@ -259,10 +259,14 @@ def edit_file():
                 # check one more time just in case someone added it during editing
                 flash(queue_error_msg + song_path, "is-danger")
             else:
-                k.rename(old_name, new_name)
-                flash(
-                    "Renamed file: '%s' to '%s'." % (old_name, new_name), "is-warning"
-                )
+                # check if new_name already exist
+                if os.path.isfile(os.path.join(k.download_path, new_name+'.mp4')):
+                    flash("Error Renaming file: '%s' to '%s'. Filename already exist." % (old_name, new_name), "is-danger")
+                else:
+                    k.rename(old_name, new_name)
+                    flash(
+                        "Renamed file: '%s' to '%s'." % (old_name, new_name), "is-warning"
+                    )
         else:
             flash("Error: No filename parameters were specified!", "is-danger")
         return redirect(url_for("browse"))
