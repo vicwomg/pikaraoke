@@ -8,6 +8,8 @@ import threading
 import time
 from urllib import quote, unquote
 
+import cherrypy
+import psutil
 from flask import (
     Flask,
     flash,
@@ -19,9 +21,7 @@ from flask import (
     url_for,
 )
 
-import cherrypy
 import karaoke
-import psutil
 
 app = Flask(__name__)
 app.secret_key = "HjI981293u99as811lll"
@@ -259,10 +259,22 @@ def edit_file():
                 # check one more time just in case someone added it during editing
                 flash(queue_error_msg + song_path, "is-danger")
             else:
-                k.rename(old_name, new_name)
-                flash(
-                    "Renamed file: '%s' to '%s'." % (old_name, new_name), "is-warning"
-                )
+                # check if new_name already exist
+                file_name, file_extension = os.path.splitext(old_name)
+                if os.path.isfile(
+                    os.path.join(k.download_path, new_name + file_extension)
+                ):
+                    flash(
+                        "Error Renaming file: '%s' to '%s'. Filename already exists."
+                        % (old_name, new_name + file_extension),
+                        "is-danger",
+                    )
+                else:
+                    k.rename(old_name, new_name)
+                    flash(
+                        "Renamed file: '%s' to '%s'." % (old_name, new_name),
+                        "is-warning",
+                    )
         else:
             flash("Error: No filename parameters were specified!", "is-danger")
         return redirect(url_for("browse"))
