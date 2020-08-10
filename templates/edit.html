@@ -13,7 +13,7 @@
       if ($.trim($('#new_file_name').val()) != "") {
         var format_name = clean_title($('#new_file_name').val(), title_case = true);
         var search_string = format_name;
-        suggest_title(search_string, "#suggest_results");
+        suggest_title(clean_title(search_string), "#suggest_results");
       }
     });
 
