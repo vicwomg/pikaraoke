@@ -155,6 +155,7 @@ def search():
         search_string = request.args["search_string"]
         search_results = k.get_karaoke_search_results(search_string)
     else:
+        search_string = None
         search_results = None
     return render_template(
         "search.html",
@@ -162,6 +163,7 @@ def search():
         title="Search",
         songs=k.available_songs,
         search_results=search_results,
+        search_string=search_string,
     )
 
 
