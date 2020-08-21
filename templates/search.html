@@ -26,6 +26,12 @@
   #youtube-link {
     font-size: 80%;
   }
+
+  .selectize-input {
+    height: 38px;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
 </style>
 <script>
   $(function () {
@@ -189,8 +195,8 @@
 
 <div class="field" id="container_queue_form">
   <form action="{{ url_for('enqueue') }}" method="post">
-    <div class="field">
-      <div class="control" style="width:100%;margin-right:5px">
+    <div class="field has-addons">
+      <div class="control" style="width:100%">
         <select class="search-selectize" name="song_to_add">
           <option value=''></option>
           <optgroup label="Available Songs" id="available-songs">
@@ -200,7 +206,7 @@
           </optgroup>
         </select>
       </div>
-      <div class="control is-flex" style="justify-content: flex-end;">
+      <div class="control">
         <a class="button is-warning" id="search-link">Search</a>
         <a class="button is-info" id="add-queue-link">Queue</a>
       </div>
