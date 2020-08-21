@@ -68,7 +68,25 @@
     $("#add-queue-link").attr("disabled", "true");
     $("#search-link").attr("disabled", "true");
     var $select = $('.search-selectize').selectize({
-      createOnBlur: false,
+      createOnBlur: true,
+      openOnFocus: false,
+      createFilter: function (input) { return input.length >= 2; },
+      onInitialize: function () {
+        var that = this;
+
+        this.$control.on("click", function () {
+          that.ignoreFocusOpen = true;
+          setTimeout(function () {
+            that.ignoreFocusOpen = false;
+          }, 50);
+        });
+      },
+
+      onFocus: function () {
+        if (!this.ignoreFocusOpen) {
+          this.open();
+        }
+      },
       onBlur: function () {
         this.setTextboxValue(this.currentResults.query);
       },
