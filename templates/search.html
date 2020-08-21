@@ -39,12 +39,16 @@
 
     $("#search-link").click(function () {
       //$(".overlay").show();
-      $("#search-link").addClass("is-loading");
+      if (!$("#search-link").is('[disabled=disabled]')) {
+        $("#search-link").addClass("is-loading");
+      }
     });
 
     $("#download-button").click(function () {
       //$(".overlay").show();
-      $("#download-button").addClass("is-loading");
+      if (!$("#download-button").is('[disabled=disabled]')) {
+        $("#download-button").addClass("is-loading");
+      }
     });
 
     $("#add-queue-link").click(function () {
@@ -137,6 +141,7 @@
     $('#search-link').on('click', function (e) {
       e.preventDefault();
       var search_term = $(".search-selectize .selectize-input input").val();
+      console.log("search term: " + search_term)
       if (search_term) {
         $('#searching_loader').removeClass("is-hidden");
         $('#searching_loader #search_term').text(search_term);
