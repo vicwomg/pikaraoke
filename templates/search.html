@@ -1,22 +1,31 @@
 {% extends 'base.html' %}
 
 {% block scripts %}
-<link href="{{  url_for('static', filename='selectize.min.css') }}"rel="stylesheet" />
+<link href="{{  url_for('static', filename='selectize.min.css') }}" rel="stylesheet" />
 <script src="{{  url_for('static', filename='selectize.min.js') }}"></script>
 <style>
-.optgroup-header {font-weight:bold;}
-.row {
-  display: flex; /* equal height of the children */
-  border-bottom: 1px solid #cccccc;
-}
-.col-icon {
-  padding-left: 1px;
-}
-.col-text {
-  padding-left: 2px;
-  font-size:120%;
-}
-#youtube-link{font-size:80%;}
+  .optgroup-header {
+    font-weight: bold;
+  }
+
+  .row {
+    display: flex;
+    /* equal height of the children */
+    border-bottom: 1px solid #cccccc;
+  }
+
+  .col-icon {
+    padding-left: 1px;
+  }
+
+  .col-text {
+    padding-left: 2px;
+    font-size: 120%;
+  }
+
+  #youtube-link {
+    font-size: 80%;
+  }
 </style>
 <script>
   $(function () {
@@ -36,101 +45,101 @@
       //$(".overlay").show();
       $("#add-queue-link").addClass("is-loading");
     });
-    
+
     //START SELECTIZE CHANGES
-    
+
     //if enter key press, by default search button is click
     $(document).keypress(
-      function(event){
+      function (event) {
         if (event.which == '13') {
           event.preventDefault();
-          
-          if($(".search-selectize .selectize-input input").val()) {
-            $('#search-link').trigger( "click" );
+
+          if ($(".search-selectize .selectize-input input").val()) {
+            $('#search-link').trigger("click");
           }
           else if ($('.search-selectize').find(":selected").text()) {
-            $('#add-queue-link').trigger( "click" );
+            $('#add-queue-link').trigger("click");
           }
-          
+
         }
-    });
-             
+      });
+
     $("#add-queue-link").hide();
     $("#add-queue-link").attr("disabled", "true");
     $("#search-link").attr("disabled", "true");
     var $select = $('.search-selectize').selectize({
-      createOnBlur: true,
-      onBlur: function() {
-          this.setTextboxValue(this.currentResults.query);
+      createOnBlur: false,
+      onBlur: function () {
+        this.setTextboxValue(this.currentResults.query);
       },
       onChange: function (id) {
-          if (!id) {
-            $("#add-queue-link").attr("disabled", "true");
-            $("#search-link").attr("disabled", "true");
-            $("#add-queue-link").hide();
-            $("#search-link").show();
-          } else {
-            $("#add-queue-link").removeAttr("disabled");
-            $("#search-link").removeAttr("disabled");
-            $("#add-queue-link").show();
-            $("#search-link").hide();
-          }
+        if (!id) {
+          $("#add-queue-link").attr("disabled", "true");
+          $("#search-link").attr("disabled", "true");
+          $("#add-queue-link").hide();
+          $("#search-link").show();
+        } else {
+          $("#add-queue-link").removeAttr("disabled");
+          $("#search-link").removeAttr("disabled");
+          $("#add-queue-link").show();
+          $("#search-link").hide();
+        }
       },
-      onType : function (text) {
-          if(!text){
-            $("#search-link").attr("disabled", "true");
-            $("#add-queue-link").show();
-            $("#search-link").hide();
-          }
-          else {
-            $("#search-link").removeAttr("disabled");
-            $("#add-queue-link").hide();
-            $("#search-link").show();
-          }
-      },  
+      onType: function (text) {
+        if (!text) {
+          $("#search-link").attr("disabled", "true");
+          $("#add-queue-link").show();
+          $("#search-link").hide();
+        }
+        else {
+          $("#search-link").removeAttr("disabled");
+          $("#add-queue-link").hide();
+          $("#search-link").show();
+        }
+      },
       render: {
-          option: function(item, escape) {
-              return '<div class="row">'
-                    + '<div class="col-icon"><i class="icon icon-music has-text-info"></i></div>'
-                    + '<div class="col-text">'+item.text+'</div>'
-                    + '</div>';
-          },
-          optgroup_header: function (data, escape) {
-              return '<div class="optgroup-header has-text-info">' + escape(data.label) + '</div>';
-          }
+        option: function (item, escape) {
+          return '<div class="row">'
+            + '<div class="col-icon"><i class="icon icon-music has-text-info"></i></div>'
+            + '<div class="col-text">' + item.text + '</div>'
+            + '</div>';
+        },
+        optgroup_header: function (data, escape) {
+          return '<div class="optgroup-header has-text-info">' + escape(data.label) + '</div>';
+        }
       },
     });
 
-    $('#search-link').on('click',function(e) {
-        e.preventDefault();
-        var search_term = $(".search-selectize .selectize-input input").val();
-        if (search_term){
-          $('#searching_loader').removeClass("is-hidden");
-          $('#searching_loader #search_term').text(search_term);
-          $('#search-link').attr("disabled", "true");
-          $('#search_string').val(search_term);
-          $('#container_search_result').hide();
-          $('#container_search_form form').submit();
-        }
+    $('#search-link').on('click', function (e) {
+      e.preventDefault();
+      var search_term = $(".search-selectize .selectize-input input").val();
+      if (search_term) {
+        $('#searching_loader').removeClass("is-hidden");
+        $('#searching_loader #search_term').text(search_term);
+        $('#search-link').attr("disabled", "true");
+        $('#search_string').val(search_term);
+        $('#container_search_result').hide();
+        $('#container_search_form form').submit();
+      }
     });
-    $('#add-queue-link').on('click',function(e) {
-        e.preventDefault();
-        console.log($('.search-selectize').find(":selected").text())
-        if ($('.search-selectize').find(":selected").text()) {
-          $('#add-queue-link').attr("disabled", "true");
-          $('#container_queue_form form').submit();
-        }
+    $('#add-queue-link').on('click', function (e) {
+      e.preventDefault();
+      console.log($('.search-selectize').find(":selected").text())
+      if ($('.search-selectize').find(":selected").text()) {
+        $('#add-queue-link').attr("disabled", "true");
+        $('#container_queue_form form').submit();
+      }
     });
     //END SELECTIZE CHANGES
 
     $('#youtube-link').attr('href', $('#search_result_selector').val());
     $('#youtube-link').text($('#search_result_selector').val());
-    
+
     //get youtube thumbnail based on ID
     i = -1;
     changeImage();
-  
-    
+
+
     $(document).on('change', '#search_result_selector', function () {
       var url = $('#search_result_selector').val();
       $('#youtube-link').attr('href', url);
@@ -138,18 +147,18 @@
       changeImage();
     });
     //alow click of images
-    $('#youtube-thumb').click(function(e) { 
+    $('#youtube-thumb').click(function (e) {
       changeImage();
     });
-    setInterval(function() {$('#youtube-thumb').trigger('click');}, 2000);
+    setInterval(function () { $('#youtube-thumb').trigger('click'); }, 2000);
   });
-  
- function changeImage(){
-      var next = (++i % 4);
-      var youtube_id = $('#search_result_selector').find(':selected').data('ytid');
-      var fn = (next == 0) ? "default" : next;
-      var img_src = 'https://img.youtube.com/vi/'+youtube_id+'/mq'+fn+'.jpg'
-      $('#youtube-thumb').attr("src",img_src);
+
+  function changeImage() {
+    var next = (++i % 4);
+    var youtube_id = $('#search_result_selector').find(':selected').data('ytid');
+    var fn = (next == 0) ? "default" : next;
+    var img_src = 'https://img.youtube.com/vi/' + youtube_id + '/mq' + fn + '.jpg'
+    $('#youtube-thumb').attr("src", img_src);
   }  
 </script>
 {% endblock %}
@@ -162,24 +171,28 @@
 
 <div class="field" id="container_queue_form">
   <form action="{{ url_for('enqueue') }}" method="post">
-    <label class="label">Available Songs <a href="{{ url_for('browse') }}">&nbsp;(browse)</a></label>
-    <div class="field has-addons" > 
-      <div class="control" style="width:100%">
-        <select class="search-selectize" name="song_to_add"> 
+    <div class="field">
+      <div class="control" style="width:100%;margin-right:5px">
+        <select class="search-selectize" name="song_to_add">
           <option value=''></option>
-          <optgroup label="Available Songs">
+          <optgroup label="Available Songs" id="available-songs">
             {% for file in songs %}
             <option value='{{file}}'>{{ filename_from_path(file) }}</option>
             {% endfor %}
           </optgroup>
         </select>
       </div>
-      <div class="control">
+      <div class="control is-flex" style="justify-content: flex-end;">
         <a class="button is-warning" id="search-link">Search</a>
         <a class="button is-info" id="add-queue-link">Queue</a>
       </div>
-    </div> 
-    <p class="help">Search a song (title/artist) from the available songs and click 'Queue'. If song is unavailable, click 'Search' to search the song on Youtube</p>
+    </div>
+    <div>
+      <p class="help">Type a song (title/artist) to search the available songs and click 'Queue' to add it to the queue.
+        <br /><br />If the song doesn't appear in the "Available Songs" dropdown, click 'Search' to find it on Youtube
+      </p>
+    </div>
+
   </form>
 </div>
 
@@ -195,7 +208,8 @@
   </form>
 </div>
 
-<div id="searching_loader" class="control is-loading is-hidden">Searching <small><i>'<span id="search_term"></span>'</i></small></div>
+<div id="searching_loader" class="control is-loading is-hidden">Searching <small><i>'<span
+        id="search_term"></span>'</i></small></div>
 {% if search_results %}
 <div class="field" id="container_search_result">
   <form action="{{ url_for('download') }}" method="post">
