@@ -8,8 +8,6 @@ import threading
 import time
 from urllib import quote, unquote
 
-import cherrypy
-import psutil
 from flask import (
     Flask,
     flash,
@@ -21,7 +19,9 @@ from flask import (
     url_for,
 )
 
+import cherrypy
 import karaoke
+import psutil
 
 app = Flask(__name__)
 app.secret_key = "HjI981293u99as811lll"
@@ -155,6 +155,7 @@ def search():
         search_string = request.args["search_string"]
         search_results = k.get_karaoke_search_results(search_string)
     else:
+        search_string = None
         search_results = None
     return render_template(
         "search.html",
@@ -162,6 +163,7 @@ def search():
         title="Search",
         songs=k.available_songs,
         search_results=search_results,
+        search_string=search_string,
     )
 
 
@@ -493,7 +495,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--high-quality",
         action="store_true",
-        help="Download higher quality video",
+        help="Download higher quality video. Note: requires ffmpeg and may cause CPU, download speed, and other performance issues",
         required=False,
     ),
     args = parser.parse_args()
