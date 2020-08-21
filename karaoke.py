@@ -275,7 +275,7 @@ class Karaoke:
     def download_video(self, video_url, enqueue=False):
         logging.info("Downloading video: " + video_url)
         dl_path = self.download_path + "%(title)s---%(id)s.%(ext)s"
-        file_quality = "best" if self.high_quality else "mp4"
+        file_quality = "bestvideo[ext!=webm][height<=1080]+bestaudio[ext!=webm]/best[ext!=webm]" if self.high_quality else "mp4"
         cmd = [self.youtubedl_path,
         	'-f', file_quality,
         	"-o", dl_path, video_url]

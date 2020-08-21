@@ -8,8 +8,6 @@ import threading
 import time
 from urllib import quote, unquote
 
-import cherrypy
-import psutil
 from flask import (
     Flask,
     flash,
@@ -21,7 +19,9 @@ from flask import (
     url_for,
 )
 
+import cherrypy
 import karaoke
+import psutil
 
 app = Flask(__name__)
 app.secret_key = "HjI981293u99as811lll"
@@ -495,7 +495,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--high-quality",
         action="store_true",
-        help="Download higher quality video",
+        help="Download higher quality video. Note: requires ffmpeg and may cause CPU, download speed, and other performance issues",
         required=False,
     ),
     args = parser.parse_args()
