@@ -95,7 +95,9 @@ class Karaoke:
         end_time = int(time.time()) + 30
         success = False
         while (int(time.time()) < end_time):
-            self.ip = check_output(['hostname','-I']).strip()
+	    addresses_str = check_output(['hostname','-I']).strip()
+	    addresses = addresses_str.split(" ")
+	    self.ip = addresses[0]
             if (not self.is_network_connected()):
                 logging.debug("Couldn't get IP, retrying....")
             else:
