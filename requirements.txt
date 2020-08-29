@@ -9,3 +9,4 @@ pygame
 futures
 psutil 
 unidecode
+python-vlc

@@ -13,7 +13,7 @@ if [ $? -ne 0 ]; then echo "ERROR: 'apt-get update' failed with error code: $?";
 
 echo
 echo "*** INSTALLING REQUIRED BINARIES ***"
-sudo apt-get install libjpeg-dev omxplayer python-pip python-pygame python-lxml ffmpeg -y
+sudo apt-get install libjpeg-dev omxplayer vlc python-pip python-pygame python-lxml ffmpeg -y
 if [ $? -ne 0 ]; then echo "ERROR: Binary dependency installation failed with error code: $?"; exit 1; fi
 
 echo
