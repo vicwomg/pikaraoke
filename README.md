@@ -117,6 +117,10 @@ optional arguments:
   --alsa-fix            Add this if you are using a USB soundcard or Hifi
                         audio hat and cannot hear audio.
   --dual-screen         Output video to both HDMI ports (raspberry pi 4 only)
+  --high-quality        Download higher quality video. Note: requires ffmpeg
+                        and may cause CPU, download speed, and other
+                        performance issues
+  --use-vlc             Use VLC Player instead of the default OMX Player
 ```
 
 ## Screen UI
@@ -152,6 +156,18 @@ Make sure you are connected to the same network/wifi. You can then enter the sho
 *  Allows user to quit to console, shut down, or reboot system. Always shut down from here before you pull the plug on pikaraoke!
 
 ## Troubleshooting
+
+### I'm not hearing audio out of the headphone jack
+
+By default the raspbian outputs to HDMI audio when it's available. Pikaraoke tries to output to both HDMI and headphone, but if it doesn't work you may need to to force it to the headphone jack. This is definitely the case when using VLC. To do so, change following setting on the pi:
+`sudo raspi-config`
+Advanced Options > Audio > Force 3.5mm (headphone)
+
+See: https://www.raspberrypi.org/documentation/configuration/audio-config.md
+
+### I can't hear audio using an external sound card or audio device
+
+If you're using an external USB sound card or hifi audio hat like the hifiberry, you'll need to add the argument --alsa-fix when you launch pikaraoke
 
 ### Songs aren't downloading!
 
@@ -208,7 +224,3 @@ Ideally, you'd have a mixer and amplifier that you could run the line out of the
 This is currently not supported due to lack of know-how. As far as I can tell we'd have to pipe omxplayer into some realtime-yet-lightweight audio DSP. Let me know if you have ideas on how to implement it.
 
 In the meantime, you might be able to get away with running the line out through a pitch shift guitar effects pedal or similar device.
-
-### I can't hear audio and I'm getting a blank screen when I try to play a song
-
-If you're using an external USB sound card or hifi audio hat like the hifiberry, you'll need to add the argument --alsa-fix when you launch pikaraoke

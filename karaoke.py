@@ -14,9 +14,9 @@ from subprocess import check_output
 
 import pygame
 import qrcode
+import vlc
 from unidecode import unidecode
 
-import vlc
 
 class Karaoke:
 
@@ -390,7 +390,7 @@ class Karaoke:
             "--no-mouse-events",
             "--mouse-hide-timeout","0",
             "--video-on-top",
-            '--aout=alsa', '--alsa-audio-device=hw:1,0', #I dont have idea to output to both HDMI and jack; if HDMI hw:0,0
+            '--aout=alsa', '--alsa-audio-device=hw:0,0', 
             "--no-xlib",)
             self.vlcplayer = self.instance.media_player_new()
             media = self.instance.media_new(file_path)

@@ -501,7 +501,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--use-vlc",
         action="store_true",
-        help="Use VLC Player instead of the default OMX Player",
+        help="Use VLC Player instead of the default OMX Player. Note: if you want to play audio to the headphone jack, you'll need to configure this in raspi-config: 'Advanced Options > Audio > Force 3.5mm (headphone)'",
         required=False,
     ),
     args = parser.parse_args()
