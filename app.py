@@ -497,6 +497,12 @@ if __name__ == "__main__":
         action="store_true",
         help="Download higher quality video. Note: requires ffmpeg and may cause CPU, download speed, and other performance issues",
         required=False,
+    )
+    parser.add_argument(
+        "--use-vlc",
+        action="store_true",
+        help="Use VLC Player instead of the default OMX Player",
+        required=False,
     ),
     args = parser.parse_args()
 
@@ -519,6 +525,7 @@ if __name__ == "__main__":
         alsa_fix=args.alsa_fix,
         dual_screen=args.dual_screen,
         high_quality=args.high_quality,
+        use_vlc=args.use_vlc,
     )
     t = threading.Thread(target=k.run)
     t.daemon = True

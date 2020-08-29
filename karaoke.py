@@ -16,6 +16,7 @@ import pygame
 import qrcode
 from unidecode import unidecode
 
+import vlc
 
 class Karaoke:
 
@@ -46,7 +47,8 @@ class Karaoke:
             log_level = logging.DEBUG,
             splash_delay = 2,
             youtubedl_path = '/usr/local/bin/youtube-dl',
-            omxplayer_path ='/usr/bin/omxplayer'):
+            omxplayer_path ='/usr/bin/omxplayer',
+            use_vlc = False):
 
         #override with supplied constructor args if provided
         self.port = port
@@ -57,10 +59,11 @@ class Karaoke:
         self.high_quality = high_quality
         self.splash_delay = int(splash_delay)
         self.hide_overlay = hide_overlay
-        self.volume_offset = volume
+        self.use_vlc = use_vlc
+        self.volume_offset = volume if not self.use_vlc else 100
         self.youtubedl_path = youtubedl_path
         self.player_path = omxplayer_path
-
+        
         logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S', level=int(log_level))
 
         # setup download directory
@@ -84,10 +87,11 @@ class Karaoke:
     default volume: %s
     youtube-dl path: %s
     omxplayer path: %s
+    Use VLC: %s
     log_level: %s'''
             % (self.port, self.hide_ip, self.hide_splash_screen,
             self.splash_delay, self.hide_overlay, self.alsa_fix, self.dual_screen, self.high_quality, 
-            self.download_path, self.volume_offset, self.youtubedl_path, self.player_path,
+            self.download_path, self.volume_offset, self.youtubedl_path, self.player_path,self.use_vlc,
             log_level))
 
         # Generate connection URL and QR code, retry in case pi is still starting up
@@ -95,9 +99,9 @@ class Karaoke:
         end_time = int(time.time()) + 30
         success = False
         while (int(time.time()) < end_time):
-	    addresses_str = check_output(['hostname','-I']).strip()
-	    addresses = addresses_str.split(" ")
-	    self.ip = addresses[0]
+            addresses_str = check_output(['hostname','-I']).strip()
+            addresses = addresses_str.split(" ")
+            self.ip = addresses[0]
             if (not self.is_network_connected()):
                 logging.debug("Couldn't get IP, retrying....")
             else:
@@ -113,7 +117,7 @@ class Karaoke:
             msg = "youtube-dl not found at: " + self.youtubedl_path
             logging.error(msg)
             sys.exit(msg)
-        if (not os.path.isfile(self.player_path)):
+        if (not os.path.isfile(self.player_path)) and not self.use_vlc:
             msg = "video player not found at: " + self.player_path
             logging.error(msg)
             sys.exit(msg)
@@ -144,8 +148,8 @@ class Karaoke:
    
     def generate_overlay_file(self,file_path):
         if (not self.hide_overlay):
-            logging.debug("Generating overlay file")
             current_song = self.filename_from_path(file_path)
+            logging.debug("Generating overlay file")
             if (not self.hide_ip):
                 msg = "PiKaraoke IP: %s" % self.url
             else:
@@ -166,6 +170,11 @@ class Karaoke:
     def initialize_screen(self):
         if (not self.hide_splash_screen):
             logging.debug("Initializing pygame")
+            if not self.use_vlc:
+                display_mode = pygame.FULLSCREEN
+            else:
+                os.environ['SDL_VIDEO_CENTERED'] = '1' #HACK apparently if display mode is fullscreen the vlc window will be at the bottom of pygame
+                display_mode = pygame.NOFRAME
             pygame.display.init()
             pygame.font.init()
             pygame.mouse.set_visible(0) 
@@ -184,7 +193,7 @@ class Karaoke:
             signal(SIGALRM, alarm_handler)
             alarm(3)
             try:
-                self.screen = pygame.display.set_mode([self.width,self.height],pygame.FULLSCREEN)
+                self.screen = pygame.display.set_mode([self.width,self.height],display_mode)
                 alarm(0)
             except Alarm:
                 raise KeyboardInterrupt
@@ -340,46 +349,88 @@ class Karaoke:
 	    	return NoneType
 
     def kill_player(self):
-        logging.debug("Killing old omxplayer processes")
-        player_kill = ["killall", "omxplayer.bin"]
+        if not self.use_vlc:
+            logging.debug("Killing old omxplayer processes")
+            player_kill = ["killall", "omxplayer.bin"]
+        else:
+            logging.debug("Killing old VLC processes")
+            player_kill = ["killall", "-9","vlc"]
+        
         FNULL = open(os.devnull, 'w')
         subprocess.Popen(player_kill, stdin=subprocess.PIPE, stdout=FNULL, stderr=FNULL)
 
     def play_file(self, file_path):
         self.now_playing = self.filename_from_path(file_path)
-        if (not self.hide_overlay):
+        if (not self.hide_overlay) and (not self.use_vlc):
         	self.generate_overlay_file(file_path)
-
+            
         self.kill_player()
         
-        output = "alsa:hw:0,0" if self.alsa_fix else "both"
-       
-        logging.info("Playing video: " + self.now_playing)
-        cmd = [self.player_path,file_path,
-            "--blank",
-            "-o", output,
-            "--vol", str(self.volume_offset),
-            "--font-size", str(25)]
-        
-        if (self.dual_screen):
-            cmd += ["--display", "7"]
+        if not self.use_vlc:
+            logging.info("Playing video in omxPlayer: " + self.now_playing)
+            output = "alsa:hw:0,0" if self.alsa_fix else "both"
+            cmd = [self.player_path,file_path,
+                "--blank",
+                "-o", output,
+                "--vol", str(self.volume_offset),
+                "--font-size", str(25)]
+            if (self.dual_screen):
+                cmd += ["--display", "7"]
 
-        if (not self.hide_overlay):
-            cmd += ["--subtitles", self.overlay_file_path]
-        logging.debug("Player command: " + ' '.join(cmd))
-        self.is_pause = False
-        self.process = subprocess.Popen(cmd, stdin=subprocess.PIPE,)
+            if (not self.hide_overlay):
+                cmd += ["--subtitles", self.overlay_file_path]
+            logging.debug("Player command: " + ' '.join(cmd))
+            self.process = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+        else:
+            logging.info("Playing video in VLC: " + self.now_playing)
+            self.instance = vlc.Instance(
+            "--qt-continue", "0",
+            "--no-embedded-video",
+            "--no-keyboard-events",
+            "--no-mouse-events",
+            "--mouse-hide-timeout","0",
+            "--video-on-top",
+            '--aout=alsa', '--alsa-audio-device=hw:1,0', #I dont have idea to output to both HDMI and jack; if HDMI hw:0,0
+            "--no-xlib",)
+            self.vlcplayer = self.instance.media_player_new()
+            media = self.instance.media_new(file_path)
+            self.vlcplayer.set_media(media)
+            self.vlcplayer.set_fullscreen(True)
+            self.vlcplayer.play()
+            self.vlcplayer.audio_set_volume(self.volume_offset)
+            self.vlcplayer.video_set_mouse_input(False)
+            self.display_info()
+            
+        self.is_pause = False    
         self.render_splash_screen() # remove old previous track
 
     def is_file_playing(self):
-        if (self.process == None):
-            self.now_playing = None
-            return False
-        elif (self.process.poll() == None):
-            return True
+        if not self.use_vlc:
+            if (self.process == None):
+                self.now_playing = None
+                return False
+            elif (self.process.poll() == None):
+                return True
+            else:
+                self.now_playing = None
+                return False
         else:
-            self.now_playing = None
-            return False
+            #http://www.olivieraubert.net/vlc/python-ctypes/doc/vlc.State-class.html
+            #idle/close=0, opening=1, playing=3, paused=4, stopping=5, ended=6, error=7
+            #logging.info("IS PLAYING;" + str(self.vlcplayer.get_state()))
+            if self.vlcplayer.get_state() ==  3: #playing
+                self.is_pause = False
+                return True
+            elif self.vlcplayer.get_state() ==  4: #pause
+                self.is_pause = True
+                return True
+            elif self.vlcplayer.get_state() ==  1: #opening
+                return True
+            else:
+                self.vlcplayer.stop()
+                self.now_playing = None
+                return False
+                
 
     def enqueue(self, song_path):
     	if (song_path in self.queue):
@@ -464,7 +515,10 @@ class Karaoke:
     def skip(self):
         if (self.is_file_playing()):
             logging.info("Skipping: " + self.now_playing)
-            self.process.stdin.write("q")
+            if not self.use_vlc:
+                self.process.stdin.write("q")
+            else:
+                self.vlcplayer.stop()
             self.now_playing = None
             self.is_pause = True
             return True
@@ -475,7 +529,14 @@ class Karaoke:
     def pause(self):
         if (self.is_file_playing()):
             logging.info("Pausing: " + self.now_playing)
-            self.process.stdin.write("p")
+            if not self.use_vlc:
+                self.process.stdin.write("p")
+            else:
+                self.vlcplayer.pause()
+                if self.vlcplayer.get_state() ==  3:
+                    self.add_marquee("",0)
+                elif self.vlcplayer.get_state() ==  4:
+                    self.add_marquee("Pause",0)
             self.is_pause = not self.is_pause
             return True
         else:
@@ -484,9 +545,17 @@ class Karaoke:
 
     def vol_up(self):
         if (self.is_file_playing()):
-            logging.info("Volume up: " + self.now_playing)
-            self.process.stdin.write("=")
-            self.volume_offset += 300
+            if not self.use_vlc:
+                logging.info("Volume up: " + self.now_playing)
+                self.process.stdin.write("=")
+                self.volume_offset += 300
+            else:
+                cur_volume = self.vlcplayer.audio_get_volume()
+                if cur_volume < 200:
+                    self.vlcplayer.audio_set_volume(cur_volume+10)
+                new_vol = self.vlcplayer.audio_get_volume()
+                self.add_marquee("Volume Up: " + str(new_vol))
+                self.volume_offset = new_vol
             return True
         else:
             logging.warning("Tried to volume up, but no file is playing!")
@@ -494,9 +563,16 @@ class Karaoke:
 
     def vol_down(self):
         if (self.is_file_playing()):
-            logging.info("Volume down: " + self.now_playing)
-            self.process.stdin.write("-")
-            self.volume_offset -= 300
+            if not self.use_vlc:
+                logging.info("Volume down: " + self.now_playing)
+                self.process.stdin.write("-")
+                self.volume_offset -= 300
+            else:
+                cur_volume = self.vlcplayer.audio_get_volume()
+                self.vlcplayer.audio_set_volume(cur_volume-10)
+                new_vol = self.vlcplayer.audio_get_volume()
+                self.add_marquee("Volume Down: " + str(new_vol))
+                self.volume_offset = new_vol
             return True
         else:
             logging.warning("Tried to volume down, but no file is playing!")
@@ -504,14 +580,36 @@ class Karaoke:
 
     def restart(self):
         if (self.is_file_playing()):
-            logging.info("Restarting: " + self.now_playing)
-            self.process.stdin.write("i")
-            self.is_pause = False
+            if not self.use_vlc:
+                logging.info("Restarting: " + self.now_playing)
+                self.process.stdin.write("i")
+                self.is_pause = False
+            else:
+                self.vlcplayer.set_time(0)
             return True
+            
         else:
             logging.warning("Tried to restart, but no file is playing!")
             return False
-
+    
+    def add_marquee(self, text, timeout=2000, position=8, size=12):
+        self.vlcplayer.video_set_marquee_int(vlc.VideoMarqueeOption.Enable, 1)
+        self.vlcplayer.video_set_marquee_int(vlc.VideoMarqueeOption.Size, size)  # pixels
+        self.vlcplayer.video_set_marquee_int(vlc.VideoMarqueeOption.Position, position) #0=center, 1=left, 2=right, 4=top, 8=bottom you can also use combinations of these values, eg 6 = top-right. default value: -1
+        self.vlcplayer.video_set_marquee_int(vlc.VideoMarqueeOption.Timeout, timeout)
+        self.vlcplayer.video_set_marquee_int(vlc.VideoMarqueeOption.Refresh, 1000)
+        self.vlcplayer.video_set_marquee_int(vlc.VideoMarqueeOption.Y, 2)
+        self.vlcplayer.video_set_marquee_string(vlc.VideoMarqueeOption.Text, text)
+    
+    def display_info(self):
+        if (not self.hide_overlay) and self.vlcplayer.get_state() ==  3:
+            if len(self.queue) > 1:
+                no_queue_songs = len(self.queue)-1
+                next_song = self.filename_from_path(self.queue[1])
+                self.add_marquee("Next Song: " + next_song + " ("+str(no_queue_songs) + ")",0,6,10)
+            else:
+                self.add_marquee("No queued songs!",0,6,10)
+        
     def run(self):
         logging.info("Starting PiKaraoke!")
         while True:
@@ -525,6 +623,7 @@ class Karaoke:
                     while (self.is_file_playing()):
                         # wait for file to complete
                         time.sleep(1)
+                        self.display_info()
                     self.render_next_song_to_splash_screen()
                     if (self.queue and len(self.queue) > 0):
                     	# remove first song from queue
