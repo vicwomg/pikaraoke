@@ -6,8 +6,10 @@ import signal
 import sys
 import threading
 import time
-from urllib import quote, unquote
 
+import cherrypy
+import karaoke
+import psutil
 from flask import (
     Flask,
     flash,
@@ -19,9 +21,11 @@ from flask import (
     url_for,
 )
 
-import cherrypy
-import karaoke
-import psutil
+try:
+    from urllib.parse import quote, unquote
+except ImportError:
+    from urllib import quote, unquote
+
 
 app = Flask(__name__)
 app.secret_key = "HjI981293u99as811lll"
@@ -106,7 +110,7 @@ def queue_edit():
 
 @app.route("/enqueue", methods=["POST", "GET"])
 def enqueue():
-    if request.args.has_key("song"):
+    if "song" in request.args:
         song = request.args["song"]
     else:
         d = request.form.to_dict()
@@ -133,13 +137,11 @@ def pause():
 
 @app.route("/restart")
 def restart():
-    rc = k.restart()
     return redirect(url_for("home"))
 
 
 @app.route("/vol_up")
 def vol_up():
-    rc = k.vol_up()
     return redirect(url_for("home"))
 
 
@@ -151,7 +153,7 @@ def vol_down():
 
 @app.route("/search", methods=["GET"])
 def search():
-    if request.args.has_key("search_string"):
+    if "search_string" in request.args:
         search_string = request.args["search_string"]
         search_results = k.get_karaoke_search_results(search_string)
     else:
@@ -169,7 +171,7 @@ def search():
 
 @app.route("/browse", methods=["GET"])
 def browse():
-    if request.args.has_key("sort") and request.args["sort"] == "date":
+    if "sort" in request.args and request.args["sort"] == "date":
         songs = sorted(k.available_songs, key=lambda x: os.path.getctime(x))
         songs.reverse()
         sort_order = "Date"
@@ -189,7 +191,7 @@ def browse():
 def download():
     d = request.form.to_dict()
     song = d["song-url"]
-    if d.has_key("queue") and d["queue"] == "on":
+    if "queue" in d and d["queue"] == "on":
         queue = True
     else:
         queue = False
@@ -220,7 +222,7 @@ def qrcode():
 
 @app.route("/files/delete", methods=["GET"])
 def delete_file():
-    if request.args.has_key("song"):
+    if "song" in request.args:
         song_path = request.args["song"]
         if song_path in k.queue:
             flash(
@@ -239,7 +241,7 @@ def delete_file():
 @app.route("/files/edit", methods=["GET", "POST"])
 def edit_file():
     queue_error_msg = "Error: Can't edit this song because it is in the current queue: "
-    if request.args.has_key("song"):
+    if "song" in request.args:
         song_path = request.args["song"]
         # print "SONG_PATH" + song_path
         if song_path in k.queue:
@@ -254,7 +256,7 @@ def edit_file():
             )
     else:
         d = request.form.to_dict()
-        if d.has_key("new_file_name") and d.has_key("old_file_name"):
+        if "new_file_name" in d and "old_file_name" in d:
             new_name = d["new_file_name"]
             old_name = d["old_file_name"]
             if old_name in k.queue:
@@ -262,7 +264,7 @@ def edit_file():
                 flash(queue_error_msg + song_path, "is-danger")
             else:
                 # check if new_name already exist
-                file_name, file_extension = os.path.splitext(old_name)
+                file_extension = os.path.splitext(old_name)
                 if os.path.isfile(
                     os.path.join(k.download_path, new_name + file_extension)
                 ):
@@ -349,7 +351,6 @@ update_log_path = "/tmp/youtube-dl-update.log"
 
 def update_youtube_dl():
     time.sleep(3)
-    log_path = "/tmp/youtube-dl-update.log"
     os.system('echo "Current youtube-dl version: " > %s' % update_log_path)
     os.system("youtube-dl --version >> %s" % update_log_path)
     os.system("pip install --upgrade youtube_dl >> %s" % update_log_path)
