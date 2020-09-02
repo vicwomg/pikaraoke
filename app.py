@@ -353,7 +353,7 @@ def update_youtube_dl():
     time.sleep(3)
     os.system('echo "Current youtube-dl version: " > %s' % update_log_path)
     os.system("youtube-dl --version >> %s" % update_log_path)
-    os.system("pip install --upgrade youtube_dl >> %s" % update_log_path)
+    os.system("pip3 install --upgrade youtube_dl >> %s" % update_log_path)
     os.system('echo "New youtube-dl version: " >> %s' % update_log_path)
     os.system("youtube-dl --version >> %s" % update_log_path)
     k.get_youtubedl_version()

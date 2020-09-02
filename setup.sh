@@ -13,17 +13,17 @@ if [ $? -ne 0 ]; then echo "ERROR: 'apt-get update' failed with error code: $?";
 
 echo
 echo "*** INSTALLING REQUIRED BINARIES ***"
-sudo apt-get install libjpeg-dev omxplayer vlc python-pip python-pygame python-lxml ffmpeg -y
+sudo apt-get install libjpeg-dev vlc python3-pip python-pygame python-lxml ffmpeg -y
 if [ $? -ne 0 ]; then echo "ERROR: Binary dependency installation failed with error code: $?"; exit 1; fi
 
 echo
 echo "*** INSTALLING LATEST YOUTUBE_DL ***"
-sudo pip install --upgrade youtube_dl
+sudo pip3 install --upgrade youtube_dl
 if [ $? -ne 0 ]; then echo "ERROR: YouTube_dl installation failed with error code: $?"; exit 1; fi
 
 echo
 echo "*** INSTALLING PYTHON DEPENDENCIES ***"
-sudo pip install -r requirements.txt
+sudo pip3 install -r requirements.txt
 if [ $? -ne 0 ]; then echo "ERROR: Python requirements.txt installation failed with error code: $?"; exit 1; fi
 
 echo

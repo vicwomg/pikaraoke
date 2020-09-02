@@ -2,6 +2,7 @@ import glob
 import json
 import logging
 import os
+import platform
 import random
 import subprocess
 import sys
@@ -67,7 +68,8 @@ class Karaoke:
         self.youtubedl_path = youtubedl_path
         self.player_path = omxplayer_path
         self.is_raspberry_pi = os.uname()[4][:3] == "arm"
-        self.is_osx = sys.platform == "darwin"
+        self.is_osx = platform.system() == "Darwin"
+        self.is_linux = platform.system()==('Linux')
         self.vlcplayer = None
         self.vlcclient = None
 
@@ -76,7 +78,7 @@ class Karaoke:
             datefmt="%Y-%m-%d %H:%M:%S",
             level=int(log_level),
         )
-
+        logging.info(str(os.name) + " ---- " + os.uname()[4][:3] +" - " +platform.system())
         # setup download directory
         self.download_path = download_path
         if not self.download_path.endswith("/"):
@@ -203,15 +205,15 @@ class Karaoke:
         if not self.hide_splash_screen:
             logging.debug("Initializing pygame")
             if self.use_vlc:
-                if self.is_raspberry_pi:
+                if self.is_raspberry_pi or self.is_linux:
                     os.environ[
                         "SDL_VIDEO_CENTERED"
                     ] = "1"  # HACK apparently if display mode is fullscreen the vlc window will be at the bottom of pygame
                     display_mode = pygame.NOFRAME
                 else:
-                    display_mode = pygame.FULLSCREEN
+                    display_mode = pygame.RESIZABLE #FULLSCREEN
             else:
-                display_mode = pygame.FULLSCREEN
+                display_mode = pygame.RESIZABLE #FULLSCREEN
             pygame.display.init()
             pygame.font.init()
             pygame.mouse.set_visible(0)
@@ -451,6 +453,7 @@ class Karaoke:
                     "--alsa-audio-device=hw:0,0",
                     "--no-xlib",
                 )
+                self.vlcplayer = self.instance.media_player_new()
                 media = self.instance.media_new(file_path)
                 self.vlcplayer.set_media(media)
                 self.vlcplayer.set_fullscreen(True)
