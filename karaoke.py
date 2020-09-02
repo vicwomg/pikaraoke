@@ -2,7 +2,6 @@ import glob
 import json
 import logging
 import os
-import platform
 import random
 import subprocess
 import sys
@@ -68,8 +67,8 @@ class Karaoke:
         self.youtubedl_path = youtubedl_path
         self.player_path = omxplayer_path
         self.is_raspberry_pi = os.uname()[4][:3] == "arm"
-        self.is_osx = platform.system() == "Darwin"
-        self.is_linux = platform.system()==('Linux')
+        self.is_osx = sys.platform == "darwin"
+        self.is_linux = sys.platform.startswith('linux')
         self.vlcplayer = None
         self.vlcclient = None
 
@@ -78,7 +77,7 @@ class Karaoke:
             datefmt="%Y-%m-%d %H:%M:%S",
             level=int(log_level),
         )
-        logging.info(str(os.name) + " ---- " + os.uname()[4][:3] +" - " +platform.system())
+        logging.info(str(os.name) + " ---- " + os.uname()[4][:3] +" - " +sys.platform)
         # setup download directory
         self.download_path = download_path
         if not self.download_path.endswith("/"):
@@ -211,9 +210,9 @@ class Karaoke:
                     ] = "1"  # HACK apparently if display mode is fullscreen the vlc window will be at the bottom of pygame
                     display_mode = pygame.NOFRAME
                 else:
-                    display_mode = pygame.RESIZABLE #FULLSCREEN
+                    display_mode = pygame.FULLSCREEN
             else:
-                display_mode = pygame.RESIZABLE #FULLSCREEN
+                display_mode = pygame.FULLSCREEN
             pygame.display.init()
             pygame.font.init()
             pygame.mouse.set_visible(0)
