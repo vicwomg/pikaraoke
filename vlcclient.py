@@ -11,7 +11,7 @@ import requests
 
 
 class VLCClient:
-    def __init__(self, port=8080, path=None):
+    def __init__(self, port=5002, path=None):
         # OS detection
         self.is_raspberry_pi = os.uname()[4][:3] == "arm"
         self.is_osx = sys.platform == "darwin"
@@ -40,6 +40,8 @@ class VLCClient:
             "--play-and-exit",
             "--extraintf",
             "http",
+            "--http-port",
+            "%d" % self.port,
             "--http-password",
             self.http_password,
             "--no-embedded-video",
@@ -65,14 +67,14 @@ class VLCClient:
         self.process = None
 
     def play_file(self, file_path):
-        if self.is_vlc_running():
+        if self.is_running():
             self.kill()
         command = self.cmd_base + [file_path]
         print(self.http_password)
         self.process = subprocess.Popen(command, stdin=subprocess.PIPE)
 
     def command(self, command):
-        if self.process and self.process.poll() == None:
+        if self.is_running():
             url = self.http_command_endpoint + command
             request = requests.get(url, auth=("", self.http_password))
             return request
@@ -100,11 +102,11 @@ class VLCClient:
     def kill(self):
         self.process.kill()
 
-    def is_vlc_running(self):
+    def is_running(self):
         return self.process != None and self.process.poll() == None
 
     def is_playing(self):
-        if self.is_vlc_running():
+        if self.is_running():
             status = self.get_status()
             state = status.find("state").text
             return state == "playing"

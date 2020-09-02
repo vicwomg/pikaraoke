@@ -487,7 +487,7 @@ class Karaoke:
     def is_file_playing(self):
         if self.use_vlc:
             if self.is_osx:
-                if self.vlcclient != None and self.vlcclient.is_vlc_running():
+                if self.vlcclient != None and self.vlcclient.is_running():
                     return True
                 else:
                     self.now_playing = None
