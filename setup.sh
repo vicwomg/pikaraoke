@@ -48,7 +48,7 @@ echo "*** DONE! (yay, no errors) ***"
 if [ $GPU_SET -eq 1 ]; then 
   echo "Your gpu_mem setting was modified, so you need to reboot:  sudo reboot"
 fi
-echo "Run PiKaraoke with:  sudo python app.py"
+echo "Run PiKaraoke with:  sudo python3 app.py"
 echo
 
 # end setup stuff

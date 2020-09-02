@@ -127,7 +127,7 @@ class Karaoke:
 
         if self.is_raspberry_pi:
             while int(time.time()) < end_time:
-                addresses_str = check_output(["hostname", "-I"]).strip()
+                addresses_str = check_output(["hostname", "-I"]).strip().decode("utf-8")
                 addresses = addresses_str.split(" ")
                 self.ip = addresses[0]
                 if not self.is_network_connected():
@@ -499,18 +499,19 @@ class Karaoke:
                 # http://www.olivieraubert.net/vlc/python-ctypes/doc/vlc.State-class.html
                 # idle/close=0, opening=1, playing=3, paused=4, stopping=5, ended=6, error=7
                 # logging.info("IS PLAYING;" + str(self.vlcplayer.get_state()))
-                if self.vlcplayer.get_state() == 3:  # playing
-                    self.is_pause = False
-                    return True
-                elif self.vlcplayer.get_state() == 4:  # pause
-                    self.is_pause = True
-                    return True
-                elif self.vlcplayer.get_state() == 1:  # opening
-                    return True
-                else:
-                    self.vlcplayer.stop()
-                    self.now_playing = None
-                    return False
+                if self.vlcplayer != None:
+                    if self.vlcplayer.get_state() == 3:  # playing
+                        self.is_pause = False
+                        return True
+                    elif self.vlcplayer.get_state() == 4:  # pause
+                        self.is_pause = True
+                        return True
+                    elif self.vlcplayer.get_state() == 1:  # opening
+                        return True
+                    else:
+                        self.vlcplayer.stop()
+                        self.now_playing = None
+                        return False
         else:
             if self.process == None:
                 self.now_playing = None
