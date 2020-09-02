@@ -45,12 +45,12 @@
   <tr value='{{ song }}'>
     <td width="20px" style="padding: 5px 0px">{{loop.index}}</td>
     <td width="20px" style="padding: 5px 0px">
-      <a class="up-button" href="/queue/edit?action=up&song={{url_escape(filename_from_path(song.encode('utf-8')))}}"
+      <a class="up-button" href="/queue/edit?action=up&song={{url_escape(filename_from_path(song))}}"
         title="Move up in queue"><i class="icon icon-sort-up"></i> </a>
     </td>
     <td width="20px" style="padding: 5px 0px">
       <a class="down-button"
-        href="/queue/edit?action=down&song={{url_escape(filename_from_path(song.encode('utf-8')))}}"
+        href="/queue/edit?action=down&song={{url_escape(filename_from_path(song))}}"
         title="Move down in queue"><i class="icon icon-sort-down"></i> </a>
     </td>
 
@@ -60,7 +60,7 @@
 
     <td width="20px">
       <a class="delete-button confirm-delete has-text-danger" title="Delete from queue"
-        href="/queue/edit?action=delete&song={{url_escape(filename_from_path(song.encode('utf-8')))}}"><i
+        href="/queue/edit?action=delete&song={{url_escape(filename_from_path(song))}}"><i
           class="icon icon-trash-empty"></i> </a>
     </td>
   </tr>
