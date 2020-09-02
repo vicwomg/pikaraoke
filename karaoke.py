@@ -331,10 +331,10 @@ class Karaoke:
         logging.debug("Youtube-dl search command: " + " ".join(cmd))
         try:
             output = subprocess.check_output(cmd)
-            logging.debug("Search results: " + output)
+            logging.debug("Search results: " + output.decode("utf-8"))
             rc = []
             video_url_base = "https://www.youtube.com/watch?v="
-            for each in output.split("\n"):
+            for each in output.decode("utf-8").split("\n"):
                 if len(each) > 2:
                     j = json.loads(each)
                     if (not "title" in j) or (not "url" in j):
