@@ -264,7 +264,7 @@ def edit_file():
                 flash(queue_error_msg + song_path, "is-danger")
             else:
                 # check if new_name already exist
-                file_extension = os.path.splitext(old_name)
+                file_extension = os.path.splitext(old_name)[1]
                 if os.path.isfile(
                     os.path.join(k.download_path, new_name + file_extension)
                 ):
