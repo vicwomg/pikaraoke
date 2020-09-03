@@ -209,7 +209,7 @@ class Karaoke:
                     ] = "1"  # HACK apparently if display mode is fullscreen the vlc window will be at the bottom of pygame
                     display_mode = pygame.NOFRAME
                 else:
-                    display_mode = pygame.FULLSCREEN
+                    display_mode = pygame.RESIZABLE
             else:
                 display_mode = pygame.FULLSCREEN
             pygame.display.init()
@@ -458,7 +458,6 @@ class Karaoke:
                 self.vlcplayer.audio_set_volume(self.volume_offset)
                 self.vlcplayer.video_set_mouse_input(False)
                 self.display_info()
-
         else:
             logging.info("Playing video in omxPlayer: " + self.now_playing)
             output = "alsa:hw:0,0" if self.alsa_fix else "both"
@@ -650,6 +649,7 @@ class Karaoke:
             if self.use_vlc:
                 if self.is_osx:
                     self.vlcclient.vol_up()
+                    self.volume_offset = self.vlcclient.get_volume()
                 else:
                     cur_volume = self.vlcplayer.audio_get_volume()
                     if cur_volume < 200:
@@ -671,6 +671,7 @@ class Karaoke:
             if self.use_vlc:
                 if self.is_osx:
                     self.vlcclient.vol_down()
+                    self.volume_offset = self.vlcclient.get_volume()
                 else:
                     cur_volume = self.vlcplayer.audio_get_volume()
                     self.vlcplayer.audio_set_volume(cur_volume - 10)
