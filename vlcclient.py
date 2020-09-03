@@ -18,7 +18,7 @@ class VLCClient:
 
         # HTTP remote control server
         self.http_password = "".join(
-            [random.choice(string.ascii_letters + string.digits) for n in xrange(32)]
+            [random.choice(string.ascii_letters + string.digits) for n in range(32)]
         )
         self.port = port
         self.http_endpoint = "http://localhost:%s/requests/status.xml" % self.port
@@ -91,6 +91,7 @@ class VLCClient:
         return self.command("pl_stop")
 
     def restart(self):
+        logging.info(self.command("seek&val=0"))
         return self.command("seek&val=0")
 
     def vol_up(self):
