@@ -77,6 +77,11 @@ class Karaoke:
             level=int(log_level),
         )
 
+        # disallow overlay on OSX
+        if self.is_osx and not self.hide_overlay:
+            logging.warn("Overlay not supported on OSX")
+            self.hide_overlay = True
+
         # setup download directory
         self.download_path = download_path
         if not self.download_path.endswith("/"):
