@@ -457,6 +457,7 @@ class Karaoke:
                     "--alsa-audio-device=hw:0,0",
                     "--no-xlib",
                 )
+                self.vlcplayer = self.instance.media_player_new()
                 media = self.instance.media_new(file_path)
                 self.vlcplayer.set_media(media)
                 self.vlcplayer.set_fullscreen(True)
