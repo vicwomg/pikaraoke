@@ -68,6 +68,7 @@ class Karaoke:
         self.player_path = omxplayer_path
         self.is_raspberry_pi = os.uname()[4][:3] == "arm"
         self.is_osx = sys.platform == "darwin"
+        self.is_linux = sys.platform.startswith("linux")
         self.vlcplayer = None
         self.vlcclient = None
 
@@ -208,7 +209,7 @@ class Karaoke:
         if not self.hide_splash_screen:
             logging.debug("Initializing pygame")
             if self.use_vlc:
-                if self.is_raspberry_pi:
+                if self.is_raspberry_pi or self.is_linux:
                     os.environ[
                         "SDL_VIDEO_CENTERED"
                     ] = "1"  # HACK apparently if display mode is fullscreen the vlc window will be at the bottom of pygame
@@ -334,7 +335,7 @@ class Karaoke:
         cmd = [self.youtubedl_path, "-j", "--no-playlist", "--flat-playlist", yt_search]
         logging.debug("Youtube-dl search command: " + " ".join(cmd))
         try:
-            output = subprocess.check_output(cmd)
+            output = subprocess.check_output(cmd).decode("utf-8")
             logging.debug("Search results: " + output)
             rc = []
             video_url_base = "https://www.youtube.com/watch?v="
