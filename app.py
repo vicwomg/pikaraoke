@@ -44,6 +44,10 @@ def url_escape(filename):
     return quote(filename.encode("utf8"))
 
 
+def is_raspberry_pi():
+    return os.uname()[4][:3] == "arm"
+
+
 @app.route("/")
 def home():
     return render_template("home.html", site_title=site_name, title="Home")
@@ -332,6 +336,7 @@ def info():
         cpu=cpu,
         disk=disk,
         youtubedl_version=youtubedl_version,
+        is_raspberry_pi=is_raspberry_pi(),
     )
 
 

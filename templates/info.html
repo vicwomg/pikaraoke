@@ -1,62 +1,50 @@
-{% extends 'base.html' %}
-
-{% block scripts %}
+{% extends 'base.html' %} {% block scripts %}
 <script>
-
-$( function() {
-
-  $('#quit-link').click(function(e) {
+  $(function () {
+    $("#quit-link").click(function (e) {
       e.preventDefault();
       if (window.confirm("Are you sure you want to quit to console?")) {
-          location.href = this.href;
+        location.href = this.href;
       }
+    });
+
+    $("#shutdown-link").click(function (e) {
+      e.preventDefault();
+      if (window.confirm("Are you sure you want to shut down?")) {
+        location.href = this.href;
+      }
+    });
+
+    $("#restart-link").click(function (e) {
+      e.preventDefault();
+      if (window.confirm("Are you sure you want to reboot?")) {
+        location.href = this.href;
+      }
+    });
+
+    $("#update-ytdl-link").click(function (e) {
+      e.preventDefault();
+      if (
+        window.confirm(
+          "Are you sure you want to update Youtube-dl right now? Current and pending downloads may fail."
+        )
+      ) {
+        location.href = this.href;
+      }
+    });
   });
-
-    $('#shutdown-link').click(function(e) {
-        e.preventDefault();
-        if (window.confirm("Are you sure you want to shut down?")) {
-            location.href = this.href;
-        }
-    });
-
-     $('#restart-link').click(function(e) {
-        e.preventDefault();
-        if (window.confirm("Are you sure you want to reboot?")) {
-            location.href = this.href;
-        }
-    });
-
- $('#update-ytdl-link').click(function(e) {
-        e.preventDefault();
-        if (window.confirm("Are you sure you want to update Youtube-dl right now? Current and pending downloads may fail.")) {
-            location.href = this.href;
-        }
-    });
-
-
-});
 </script>
-{% endblock %}
+{% endblock %} {% block header %}
+<h1>{% block title %}Information{% endblock %}</h1>
+{% endblock %} {% block content %}
 
-{% block header %}
-  <h1>{% block title %}Information{% endblock %}</h1>
-{% endblock %}
+<p>URL of {{site_title}}:</p>
 
-{% block content %}
+<p class="is-size-4 has-text-warning">{{ url }}</p>
+<p>Handy URL QR code to share with a pal:</p>
+<img src="{{ url_for('qrcode') }}" />
 
-<p>
-URL of {{site_title}}:
-</p>
-
-  <p class="is-size-4 has-text-warning">
-   {{ url }}
-  </p>
-<p>
-Handy URL QR code to share with a pal:
-</p>
-<img src="{{ url_for('qrcode') }}">
-
-<hr>
+<hr />
 
 <h1>System Info</h1>
 <ul>
@@ -66,20 +54,31 @@ Handy URL QR code to share with a pal:
   <li>Youtube-dl version: {{ youtubedl_version }}</li>
 </ul>
 
-<hr>
+<hr />
 
 <h1>Updates</h1>
-<p>If downloads stopped working, updating youtube-dl will probably fix it. </p>
+<p>If downloads stopped working, updating youtube-dl will probably fix it.</p>
 <ul>
-  <li><a id="update-ytdl-link" href="{{ url_for('update_ytdl') }}">Update youtube-dl</a></li>
+  <li>
+    <a id="update-ytdl-link" href="{{ url_for('update_ytdl') }}"
+      >Update youtube-dl</a
+    >
+  </li>
 </ul>
 
 <h1>Shutdown</h1>
-<p>Don't just pull the plug! Always shut down your server properly to avoid data corruption.</p>
+<p>
+  Don't just pull the plug! Always shut down your server properly to avoid data
+  corruption.
+</p>
 <ul>
   <li><a id="quit-link" href="{{ url_for('quit') }}">Quit to console</a></li>
+  {% if is_raspberry_pi %}
   <li><a id="restart-link" href="{{ url_for('reboot') }}">Reboot System</a></li>
-  <li><a id="shutdown-link" href="{{ url_for('shutdown') }}">Shutdown System</a></li>
+  <li>
+    <a id="shutdown-link" href="{{ url_for('shutdown') }}">Shutdown System</a>
+  </li>
+  {% endif %}
 </ul>
 
 {% endblock %}
