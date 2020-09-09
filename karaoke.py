@@ -209,7 +209,7 @@ class Karaoke:
         if not self.hide_splash_screen:
             logging.debug("Initializing pygame")
             if self.use_vlc:
-                if self.is_raspberry_pi or self.is_linux:
+                if self.is_raspberry_pi:
                     os.environ[
                         "SDL_VIDEO_CENTERED"
                     ] = "1"  # HACK apparently if display mode is fullscreen the vlc window will be at the bottom of pygame
@@ -440,7 +440,7 @@ class Karaoke:
 
         if self.use_vlc:
             logging.info("Playing video in VLC: " + self.now_playing)
-            if self.is_osx:
+            if self.is_osx or self.is_linux:
                 self.vlcclient = vlcclient.VLCClient()
                 self.vlcclient.play_file(file_path)
             else:
@@ -492,7 +492,7 @@ class Karaoke:
 
     def is_file_playing(self):
         if self.use_vlc:
-            if self.is_osx:
+            if self.is_osx or self.is_linux:
                 if self.vlcclient != None and self.vlcclient.is_running():
                     return True
                 else:
@@ -615,7 +615,7 @@ class Karaoke:
         if self.is_file_playing():
             logging.info("Skipping: " + self.now_playing)
             if self.use_vlc:
-                if self.is_osx:
+                if self.is_osx or self.is_linux:
                     self.vlcclient.stop()
                 else:
                     self.vlcplayer.stop()
@@ -632,7 +632,7 @@ class Karaoke:
         if self.is_file_playing():
             logging.info("Pausing: " + self.now_playing)
             if self.use_vlc:
-                if self.is_osx:
+                if self.is_osx or self.is_linux:
                     if self.vlcclient.is_playing():
                         self.vlcclient.pause()
                     else:
@@ -654,7 +654,7 @@ class Karaoke:
     def vol_up(self):
         if self.is_file_playing():
             if self.use_vlc:
-                if self.is_osx:
+                if self.is_osx or self.is_linux:
                     self.vlcclient.vol_up()
                     self.volume_offset = self.vlcclient.get_volume()
                 else:
@@ -676,7 +676,7 @@ class Karaoke:
     def vol_down(self):
         if self.is_file_playing():
             if self.use_vlc:
-                if self.is_osx:
+                if self.is_osx or self.is_linux:
                     self.vlcclient.vol_down()
                     self.volume_offset = self.vlcclient.get_volume()
                 else:
@@ -697,7 +697,7 @@ class Karaoke:
     def restart(self):
         if self.is_file_playing():
             if self.use_vlc:
-                if self.is_osx:
+                if self.is_osx or self.is_linux:
                     self.vlcclient.restart()
                 else:
                     self.vlcplayer.set_time(0)
