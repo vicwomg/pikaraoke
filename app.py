@@ -411,7 +411,9 @@ if __name__ == "__main__":
     default_volume = 0
     default_splash_delay = 5
     default_log_level = logging.INFO
-    default_dl_dir = "/usr/lib/pikaraoke/songs"
+    default_dl_dir = (
+        "/usr/lib/pikaraoke/songs" if is_raspberry_pi() else "~/pikaraoke/songs"
+    )
     default_omxplayer_path = "/usr/bin/omxplayer"
     default_youtubedl_path = "/usr/local/bin/youtube-dl"
 
@@ -449,7 +451,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-v",
         "--volume",
-        help="Initial player volume in millibels. Negative values ok. (default: %s , Note: 100 millibels = 1 decibel)"
+        help="If using omxplayer, the initial player volume is specified in millibels. Negative values ok. (default: %s , Note: 100 millibels = 1 decibel)."
         % default_volume,
         default=default_volume,
         required=False,
@@ -517,6 +519,20 @@ if __name__ == "__main__":
     app.jinja_env.globals.update(filename_from_path=filename_from_path)
     app.jinja_env.globals.update(url_escape=quote)
 
+    cherrypy.tree.graft(app, "/")
+    # Set the configuration of the web server
+    cherrypy.config.update(
+        {
+            "engine.autoreload.on": False,
+            "log.screen": True,
+            "server.socket_port": int(args.port),
+            "server.socket_host": "0.0.0.0",
+        }
+    )
+
+    # Start the CherryPy WSGI web server
+    cherrypy.engine.start()
+
     # Start karaoke process
     global k
     k = karaoke.Karaoke(
@@ -535,21 +551,7 @@ if __name__ == "__main__":
         high_quality=args.high_quality,
         use_vlc=args.use_vlc,
     )
-    t = threading.Thread(target=k.run)
-    t.daemon = True
-    t.start()
+    k.run()
 
-    cherrypy.tree.graft(app, "/")
-    # Set the configuration of the web server
-    cherrypy.config.update(
-        {
-            "engine.autoreload.on": False,
-            "log.screen": True,
-            "server.socket_port": int(args.port),
-            "server.socket_host": "0.0.0.0",
-        }
-    )
-
-    # Start the CherryPy WSGI web server
-    cherrypy.engine.start()
-    cherrypy.engine.block()
+    cherrypy.engine.exit()
+    sys.exit()
