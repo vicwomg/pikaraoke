@@ -138,7 +138,7 @@ class Karaoke:
 
         if self.is_raspberry_pi:
             while int(time.time()) < end_time:
-                addresses_str = check_output(["hostname", "-I"]).strip()
+                addresses_str = check_output(["hostname", "-I"]).strip().decode("utf-8")
                 addresses = addresses_str.split(" ")
                 self.ip = addresses[0]
                 if not self.is_network_connected():
@@ -670,10 +670,13 @@ class Karaoke:
             logging.warning("Tried to restart, but no file is playing!")
             return False
 
+    def stop(self):
+        self.running = False
+
     def run(self):
         logging.info("Starting PiKaraoke!")
-        running = True
-        while running:
+        self.running = True
+        while self.running:
             try:
                 if len(self.queue) == 0:
                     # wait for queue to contain something
@@ -693,13 +696,13 @@ class Karaoke:
                     for event in pygame.event.get():
                         if event.type == pygame.QUIT:
                             logging.warn("Window closed: Exiting pikaraoke...")
-                            running = False
+                            self.running = False
                         if event.type == pygame.KEYDOWN:
                             if event.key == pygame.K_ESCAPE:
                                 logging.warn("ESC pressed: Exiting pikaraoke...")
-                                running = False
+                                self.running = False
                             if event.key == pygame.K_f:
                                 self.toggle_full_screen()
             except KeyboardInterrupt:
                 logging.warn("Keyboard interrupt: Exiting pikaraoke...")
-                running = False
+                self.running = False
