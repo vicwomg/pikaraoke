@@ -14,7 +14,6 @@ from subprocess import check_output
 
 import pygame
 import qrcode
-import vlc
 import vlcclient
 from unidecode import unidecode
 
@@ -51,6 +50,8 @@ class Karaoke:
         youtubedl_path="/usr/local/bin/youtube-dl",
         omxplayer_path="/usr/bin/omxplayer",
         use_vlc=False,
+        vlc_path=None,
+        vlc_port=None,
     ):
 
         # override with supplied constructor args if provided
@@ -62,10 +63,12 @@ class Karaoke:
         self.high_quality = high_quality
         self.splash_delay = int(splash_delay)
         self.hide_overlay = hide_overlay
-        self.use_vlc = use_vlc
         self.volume_offset = volume
         self.youtubedl_path = youtubedl_path
         self.player_path = omxplayer_path
+        self.use_vlc = use_vlc
+        self.vlc_path = vlc_path
+        self.vlc_port = vlc_port
 
         # other initializations
         self.is_raspberry_pi = os.uname()[4][:3] == "arm"
@@ -86,7 +89,7 @@ class Karaoke:
             self.use_vlc = True
 
         # disallow overlay on VLC
-        if self.use_vlc:
+        if self.use_vlc and not self.hide_overlay:
             logging.warn("Overlay not supported VLC")
             self.hide_overlay = True
 
@@ -203,10 +206,10 @@ class Karaoke:
                 msg = ""
             output = "00:00:00,00 --> 00:00:30,00 \n%s\n%s" % (current_song, msg)
             f = open(self.overlay_file_path, "w")
-            try: 
+            try:
                 f.write(output.encode("utf-8"))
             except TypeError:
-                #python 3 hack
+                # python 3 hack
                 f.write(output)
             logging.debug("Done generating overlay file: " + output)
 
@@ -454,13 +457,15 @@ class Karaoke:
     def kill_player(self):
         if self.use_vlc:
             logging.debug("Killing old VLC processes")
-            player_kill = ["killall", "-9", "vlc"]
+            if self.vlcclient != None:
+                self.vlcclient.kill()
         else:
             logging.debug("Killing old omxplayer processes")
             player_kill = ["killall", "omxplayer.bin"]
-
-        FNULL = open(os.devnull, "w")
-        subprocess.Popen(player_kill, stdin=subprocess.PIPE, stdout=FNULL, stderr=FNULL)
+            FNULL = open(os.devnull, "w")
+            subprocess.Popen(
+                player_kill, stdin=subprocess.PIPE, stdout=FNULL, stderr=FNULL
+            )
 
     def play_file(self, file_path):
         self.now_playing = self.filename_from_path(file_path)
@@ -471,10 +476,10 @@ class Karaoke:
 
         if self.use_vlc:
             logging.info("Playing video in VLC: " + self.now_playing)
-            self.vlcclient = vlcclient.VLCClient()
+            self.vlcclient = vlcclient.VLCClient(port=self.vlc_port, path=self.vlc_path)
             self.vlcclient.play_file(file_path)
         else:
-            logging.info("Playing video in omxPlayer: " + self.now_playing)
+            logging.info("Playing video in omxplayer: " + self.now_playing)
             output = "alsa:hw:0,0" if self.alsa_fix else "both"
             cmd = [
                 self.player_path,
@@ -626,7 +631,7 @@ class Karaoke:
                 else:
                     self.vlcclient.play()
             else:
-                self.process.stdin.write('p'.encode("utf-8"))
+                self.process.stdin.write("p".encode("utf-8"))
                 self.process.stdin.flush()
             self.is_pause = not self.is_pause
             return True

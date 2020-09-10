@@ -422,6 +422,7 @@ if __name__ == "__main__":
     )
     default_omxplayer_path = "/usr/bin/omxplayer"
     default_youtubedl_path = "/usr/local/bin/youtube-dl"
+    default_vlc_port = 5002
 
     # parse CLI args
     parser = argparse.ArgumentParser()
@@ -521,6 +522,18 @@ if __name__ == "__main__":
         help="Use VLC Player instead of the default OMX Player. Enabled by default on non-pi hardware. Note: if you want to play audio to the headphone jack on a rpi, you'll need to configure this in raspi-config: 'Advanced Options > Audio > Force 3.5mm (headphone)'",
         required=False,
     ),
+    parser.add_argument(
+        "--vlc-path",
+        help="Full path to VLC (Defaults to standard installation location)",
+        default=None,
+        required=False,
+    ),
+    parser.add_argument(
+        "--vlc-port",
+        help="HTTP port for VLC remote control api (Default: %s)" % default_vlc_port,
+        default=default_vlc_port,
+        required=False,
+    )
     args = parser.parse_args()
 
     app.jinja_env.globals.update(filename_from_path=filename_from_path)
@@ -557,6 +570,8 @@ if __name__ == "__main__":
         dual_screen=args.dual_screen,
         high_quality=args.high_quality,
         use_vlc=args.use_vlc,
+        vlc_path=args.vlc_path,
+        vlc_port=args.vlc_port,
     )
     k.run()
 

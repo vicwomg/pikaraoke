@@ -10,5 +10,4 @@ pygame==2.0.0.dev6; sys_platform == 'darwin'
 futures
 psutil 
 unidecode
-python-vlc
 requests
