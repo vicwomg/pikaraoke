@@ -101,7 +101,10 @@ class VLCClient:
         return self.command("volume&val=%d" % (self.get_volume() - self.volume_offset))
 
     def kill(self):
-        self.process.kill()
+        try:
+            self.process.kill()
+        except OSError:
+            return
 
     def is_running(self):
         return self.process != None and self.process.poll() == None

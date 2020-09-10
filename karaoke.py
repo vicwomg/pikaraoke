@@ -116,6 +116,8 @@ class Karaoke:
     youtube-dl path: %s
     omxplayer path: %s
     Use VLC: %s
+    VLC path: %s
+    VLC port: %s
     log_level: %s"""
             % (
                 self.port,
@@ -131,6 +133,8 @@ class Karaoke:
                 self.youtubedl_path,
                 self.player_path,
                 self.use_vlc,
+                self.vlc_path,
+                self.vlc_port,
                 log_level,
             )
         )
