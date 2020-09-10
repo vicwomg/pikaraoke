@@ -35,7 +35,11 @@ def filename_from_path(file_path, remove_youtube_id=True):
     rc = os.path.basename(file_path)
     rc = os.path.splitext(rc)[0]
     if remove_youtube_id:
-        rc = rc.split("---")[0]  # removes youtube id if present
+        try:
+            rc = rc.split("---")[0]  # removes youtube id if present
+        except TypeError:
+            # more fun python 3 hacks
+            rc = rc.split("---".encode('utf-8'))[0]
     return rc
 
 

@@ -203,7 +203,11 @@ class Karaoke:
                 msg = ""
             output = "00:00:00,00 --> 00:00:30,00 \n%s\n%s" % (current_song, msg)
             f = open(self.overlay_file_path, "w")
-            f.write(output.encode("utf8"))
+            try: 
+                f.write(output.encode("utf-8"))
+            except TypeError:
+                #python 3 hack
+                f.write(output)
             logging.debug("Done generating overlay file: " + output)
 
     def generate_qr_code(self):
@@ -604,7 +608,8 @@ class Karaoke:
             if self.use_vlc:
                 self.vlcclient.stop()
             else:
-                self.process.stdin.write("q")
+                self.process.stdin.write("q".encode("utf-8"))
+                self.process.stdin.flush()
             self.now_playing = None
             self.is_pause = True
             return True
@@ -614,14 +619,15 @@ class Karaoke:
 
     def pause(self):
         if self.is_file_playing():
-            logging.info("Pausing: " + self.now_playing)
+            logging.info("Toggling pause: " + self.now_playing)
             if self.use_vlc:
                 if self.vlcclient.is_playing():
                     self.vlcclient.pause()
                 else:
                     self.vlcclient.play()
             else:
-                self.process.stdin.write("p")
+                self.process.stdin.write('p'.encode("utf-8"))
+                self.process.stdin.flush()
             self.is_pause = not self.is_pause
             return True
         else:
@@ -635,7 +641,8 @@ class Karaoke:
                 self.volume_offset = self.vlcclient.get_volume()
             else:
                 logging.info("Volume up: " + self.now_playing)
-                self.process.stdin.write("=")
+                self.process.stdin.write("=".encode("utf-8"))
+                self.process.stdin.flush()
                 self.volume_offset += 300
             return True
         else:
@@ -649,7 +656,7 @@ class Karaoke:
                 self.volume_offset = self.vlcclient.get_volume()
             else:
                 logging.info("Volume down: " + self.now_playing)
-                self.process.stdin.write("-")
+                self.process.stdin.write("-".encode("utf-8"))
                 self.volume_offset -= 300
             return True
         else:
@@ -662,7 +669,8 @@ class Karaoke:
                 self.vlcclient.restart()
             else:
                 logging.info("Restarting: " + self.now_playing)
-                self.process.stdin.write("i")
+                self.process.stdin.write("i".encode("utf-8"))
+                self.process.stdin.flush()
                 self.is_pause = False
             return True
 

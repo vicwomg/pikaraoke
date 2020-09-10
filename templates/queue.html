@@ -45,7 +45,7 @@
     <td width="20px" style="padding: 5px 0px">
       <a
         class="up-button"
-        href="/queue/edit?action=up&song={{url_escape(filename_from_path(song))}}"
+        href="/queue/edit?action=up&song={{url_escape(filename_from_path(song.encode('utf-8')))}}"
         title="Move up in queue"
         ><i class="icon icon-sort-up"></i>
       </a>
@@ -53,7 +53,7 @@
     <td width="20px" style="padding: 5px 0px">
       <a
         class="down-button"
-        href="/queue/edit?action=down&song={{url_escape(filename_from_path(song))}}"
+        href="/queue/edit?action=down&song={{url_escape(filename_from_path(song.encode('utf-8')))}}"
         title="Move down in queue"
         ><i class="icon icon-sort-down"></i>
       </a>
@@ -65,7 +65,7 @@
       <a
         class="delete-button confirm-delete has-text-danger"
         title="Delete from queue"
-        href="/queue/edit?action=delete&song={{url_escape(filename_from_path(song))}}"
+        href="/queue/edit?action=delete&song={{url_escape(filename_from_path(song.encode('utf-8')))}}"
         ><i class="icon icon-trash-empty"></i>
       </a>
     </td>
