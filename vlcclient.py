@@ -88,7 +88,12 @@ class VLCClient:
         return self.command("pl_play")
 
     def stop(self):
-        return self.command("pl_stop")
+        try:
+            return self.command("pl_stop")
+        except:
+            e = sys.exc_info()[0]
+            logging.warn("Track stop: server may have shut down before http return code received: %s" % e)
+            return 
 
     def restart(self):
         logging.info(self.command("seek&val=0"))
