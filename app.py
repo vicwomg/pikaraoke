@@ -31,7 +31,6 @@ app = Flask(__name__)
 app.secret_key = "HjI981293u99as811lll"
 site_name = "PiKaraoke"
 
-
 def filename_from_path(file_path, remove_youtube_id=True):
     rc = os.path.basename(file_path)
     rc = os.path.splitext(rc)[0]
@@ -345,7 +344,9 @@ def delayed_halt(cmd):
     time.sleep(3)
     k.queue_clear()  # stop all pending omxplayer processes
     if cmd == 0:
+        cherrypy.engine.stop()
         cherrypy.engine.exit()
+        k.stop()
         sys.exit()
     if cmd == 1:
         os.system("shutdown now")
