@@ -31,6 +31,7 @@ app = Flask(__name__)
 app.secret_key = "HjI981293u99as811lll"
 site_name = "PiKaraoke"
 
+
 def filename_from_path(file_path, remove_youtube_id=True):
     rc = os.path.basename(file_path)
     rc = os.path.splitext(rc)[0]
@@ -39,7 +40,7 @@ def filename_from_path(file_path, remove_youtube_id=True):
             rc = rc.split("---")[0]  # removes youtube id if present
         except TypeError:
             # more fun python 3 hacks
-            rc = rc.split("---".encode('utf-8'))[0]
+            rc = rc.split("---".encode("utf-8"))[0]
     return rc
 
 
@@ -442,7 +443,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "-o",
         "--omxplayer-path",
-        help="Path of omxplayer. (default: %s)" % default_omxplayer_path,
+        help="Path of omxplayer. Only important to raspberry pi hardware. (default: %s)"
+        % default_omxplayer_path,
         default=default_omxplayer_path,
         required=False,
     )
@@ -480,7 +482,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--show-overlay",
         action="store_true",
-        help="Show overlay in omxplayer with song title and IP. (feature is broken on Pi 4 omxplayer 12/24/2019)",
+        help="Show text overlay in omxplayer with song title and IP. (feature is broken on Pi 4 omxplayer 12/24/2019)",
         required=False,
     )
     parser.add_argument(
@@ -498,7 +500,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--alsa-fix",
         action="store_true",
-        help="Add this if you are using a USB soundcard or Hifi audio hat and cannot hear audio.",
+        help="Add this if you are using a rpi USB soundcard or Hifi audio hat and cannot hear audio.",
         required=False,
     )
     parser.add_argument(
@@ -516,7 +518,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--use-vlc",
         action="store_true",
-        help="Use VLC Player instead of the default OMX Player. Note: if you want to play audio to the headphone jack, you'll need to configure this in raspi-config: 'Advanced Options > Audio > Force 3.5mm (headphone)'",
+        help="Use VLC Player instead of the default OMX Player. Enabled by default on non-pi hardware. Note: if you want to play audio to the headphone jack on a rpi, you'll need to configure this in raspi-config: 'Advanced Options > Audio > Force 3.5mm (headphone)'",
         required=False,
     ),
     args = parser.parse_args()
