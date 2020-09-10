@@ -6,7 +6,7 @@ Totally not expected, but folks have asked... so if you want to support this pro
 
 ## What's new (September 2020)
 
-- VLC support! Use either VLC or omxplayer (default) on raspberry pi
+- VLC support! Omxplayer is still default on raspberry pi.
 - Thanks to VLC, we now have cross platform support! Linux and OSX for now.
 - python3 support! python 2.7 will still work for now, but it has gone the way of Latin. This may become required in a near future revision.
 - basic hotkeys: "esc" exits app. "f" toggles fullscreen. This became necessary when working with windowed OS's
@@ -157,6 +157,9 @@ optional arguments:
                         want to play audio to the headphone jack on a rpi,
                         you'll need to configure this in raspi-config:
                         'Advanced Options > Audio > Force 3.5mm (headphone)'
+  --vlc-path VLC_PATH   Full path to VLC (Defaults to standard installation
+                        location)
+  --vlc-port VLC_PORT   HTTP port for VLC remote control api (Default: 5002)
 ```
 
 ## Screen UI
