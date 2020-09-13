@@ -113,7 +113,7 @@ Or if you're like me and want some logging for aiding debugging, the following s
 /usr/bin/python /home/pi/pikaraoke/app.py >> /var/log/pikaraoke.log 2>&1 &
 ```
 
-If you want to kill the pikaraoke process, you can do so from the PiKaraoke Web UI under: `Info > Quit to console`. Or you can ssh in and run `sudo killall python` or something similar.
+If you want to kill the pikaraoke process, you can do so from the PiKaraoke Web UI under: `Info > Quit pikaraoke`. Or you can ssh in and run `sudo killall python` or something similar.
 
 Note that if your wifi/network is inactive pikaraoke will error out 10 seconds after being launched. This is to prevent the app from hijacking your ability to login to repair the connection.
 
