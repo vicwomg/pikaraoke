@@ -224,7 +224,7 @@ def download():
 
 @app.route("/qrcode")
 def qrcode():
-    return send_file(k.generate_qr_code(), mimetype="image/png")
+    return send_file(k.qr_code_path, mimetype="image/png")
 
 
 @app.route("/files/delete", methods=["GET"])
