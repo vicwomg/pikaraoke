@@ -21,6 +21,8 @@ from flask import (
     url_for,
 )
 
+from get_platform import get_platform
+
 try:
     from urllib.parse import quote, unquote
 except ImportError:
@@ -28,7 +30,7 @@ except ImportError:
 
 
 app = Flask(__name__)
-app.secret_key = "HjI981293u99as811lll"
+app.secret_key = os.urandom(24)
 site_name = "PiKaraoke"
 
 
@@ -46,10 +48,6 @@ def filename_from_path(file_path, remove_youtube_id=True):
 
 def url_escape(filename):
     return quote(filename.encode("utf8"))
-
-
-def is_raspberry_pi():
-    return os.uname()[4][:3] == "arm"
 
 
 @app.route("/")
@@ -330,6 +328,8 @@ def info():
 
     # youtube-dl
     youtubedl_version = k.youtubedl_version
+    
+    show_shutdown = get_platform() == "raspberry_pi" 
 
     return render_template(
         "info.html",
@@ -340,7 +340,7 @@ def info():
         cpu=cpu,
         disk=disk,
         youtubedl_version=youtubedl_version,
-        is_raspberry_pi=is_raspberry_pi(),
+        show_shutdown=show_shutdown ,
     )
 
 
@@ -359,24 +359,15 @@ def delayed_halt(cmd):
         os.system("reboot")
 
 
-update_log_path = "/tmp/youtube-dl-update.log"
-
-
 def update_youtube_dl():
     time.sleep(3)
-    os.system('echo "Current youtube-dl version: " > %s' % update_log_path)
-    os.system("youtube-dl --version >> %s" % update_log_path)
-    os.system("pip install --upgrade youtube_dl >> %s" % update_log_path)
-    os.system('echo "New youtube-dl version: " >> %s' % update_log_path)
-    os.system("youtube-dl --version >> %s" % update_log_path)
-    k.get_youtubedl_version()
+    k.upgrade_youtubedl()
 
 
 @app.route("/update_ytdl")
 def update_ytdl():
     flash(
-        "Updating youtube-dl! Should take a minute or two... (log output at: %s)"
-        % update_log_path,
+        "Updating youtube-dl! Should take a minute or two... ",
         "is-warning",
     )
     th = threading.Thread(target=update_youtube_dl)
@@ -411,17 +402,56 @@ def reboot():
 # Handle sigterm, apparently cherrypy won't shut down without explicit handling
 signal.signal(signal.SIGTERM, lambda signum, stack_frame: sys.exit(1))
 
+def get_default_youtube_dl_path(platform):
+    if platform == "windows":
+        choco_ytdl_path = r"C:\ProgramData\chocolatey\bin\youtube-dl.exe"
+        scoop_ytdl_path = os.path.expanduser("~\scoop\shims\youtube-dl.exe")
+        if os.path.isfile(choco_ytdl_path):
+            return choco_ytdl_path
+        if os.path.isfile(scoop_ytdl_path):
+            return scoop_ytdl_path
+        return r"C:\Program Files\youtube-dl\youtube-dl.exe"
+    else:
+        return "/usr/local/bin/youtube-dl"
+
+def get_default_vlc_path(platform):
+    if platform == "osx":
+        return "/Applications/VLC.app/Contents/MacOS/VLC"
+    elif platform == "windows":
+        alt_vlc_path = r"C:\\Program Files (x86)\\VideoLAN\VLC\\vlc.exe"
+        if os.path.isfile(alt_vlc_path):
+            return alt_vlc_path
+        else:
+            return r"C:\Program Files\VideoLAN\VLC\vlc.exe"
+    else:
+        return "/usr/bin/vlc"
+
+def get_default_dl_dir(platform):
+    if platform == "raspberry_pi":
+        return "/usr/lib/pikaraoke/songs"
+    elif platform == "windows":
+        return ("~\pikaraoke\songs")
+    else:
+        return os.path.expanduser("~/pikaraoke/songs")
+
 if __name__ == "__main__":
 
+    platform = get_platform() 
     default_port = 5000
     default_volume = 0
     default_splash_delay = 5
     default_log_level = logging.INFO
-    default_dl_dir = (
-        "/usr/lib/pikaraoke/songs" if is_raspberry_pi() else "~/pikaraoke/songs"
+
+    logging.basicConfig(
+        format="[%(asctime)s] %(levelname)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=int(default_log_level),
     )
+
+    default_dl_dir = get_default_dl_dir(platform)
     default_omxplayer_path = "/usr/bin/omxplayer"
-    default_youtubedl_path = "/usr/local/bin/youtube-dl"
+    default_youtubedl_path = get_default_youtube_dl_path(platform)
+    default_vlc_path = get_default_vlc_path(platform)
     default_vlc_port = 5002
 
     # parse CLI args
@@ -524,8 +554,8 @@ if __name__ == "__main__":
     ),
     parser.add_argument(
         "--vlc-path",
-        help="Full path to VLC (Defaults to standard installation location)",
-        default=None,
+        help="Full path to VLC (Default: %s)" % default_vlc_path,
+        default=default_vlc_path,
         required=False,
     ),
     parser.add_argument(
@@ -550,6 +580,34 @@ if __name__ == "__main__":
         }
     )
 
+    # force VLC on non-pi hardware
+    if not platform == "raspberry_pi" and not args.use_vlc:
+        logging.info("Defaulting to VLC player")
+        args.use_vlc = True
+    # disallow overlay on VLC
+    if args.use_vlc and args.show_overlay:
+        logging.warn("Overlay not supported VLC. Disabling it.")
+        args.show_overlay = False
+
+    # check if required binaries exist
+    if not os.path.isfile(args.youtubedl_path):
+        logging.error("Youtube-dl path not found! " + args.youtubedl_path)
+        sys.exit(1)
+    if args.use_vlc and not os.path.isfile(args.vlc_path):
+        logging.error("VLC path not found! " + args.vlc_path)
+        sys.exit(1)
+    if platform == "raspberry_pi" and not args.use_vlc and not os.path.isfile(args.omxplayer_path):
+        logging.error("omxplayer path not found! " + args.omxplayer_path)
+        sys.exit(1)
+
+    # setup/create download directory if necessary
+    dl_path = os.path.expanduser(args.download_path)
+    if not dl_path.endswith("/"):
+        dl_path += "/"
+    if not os.path.exists(dl_path):
+        logging.info("Creating download path: " + dl_path)
+        os.makedirs(dl_path)
+
     # Start the CherryPy WSGI web server
     cherrypy.engine.start()
 
@@ -557,7 +615,7 @@ if __name__ == "__main__":
     global k
     k = karaoke.Karaoke(
         port=args.port,
-        download_path=args.download_path,
+        download_path=dl_path,
         omxplayer_path=args.omxplayer_path,
         youtubedl_path=args.youtubedl_path,
         splash_delay=args.splash_delay,

@@ -57,7 +57,7 @@
 <hr />
 
 <h1>Updates</h1>
-<p>If downloads stopped working, updating youtube-dl will probably fix it.</p>
+<p>If downloads or searches stopped working, updating youtube-dl will probably fix it. This may fail if you don't have proper file permissions. Check the pikaraoke log for errors</p>
 <ul>
   <li>
     <a id="update-ytdl-link" href="{{ url_for('update_ytdl') }}"
@@ -72,8 +72,8 @@
   corruption.
 </p>
 <ul>
-  <li><a id="quit-link" href="{{ url_for('quit') }}">Quit to console</a></li>
-  {% if is_raspberry_pi %}
+  <li><a id="quit-link" href="{{ url_for('quit') }}">Quit pikaraoke</a></li>
+  {% if show_shutdown %}
   <li><a id="restart-link" href="{{ url_for('reboot') }}">Reboot System</a></li>
   <li>
     <a id="shutdown-link" href="{{ url_for('shutdown') }}">Shutdown System</a>
