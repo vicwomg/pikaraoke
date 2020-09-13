@@ -33,7 +33,7 @@ class Karaoke:
     now_playing = None
     is_pause = True
     process = None
-    qr_code = None
+    qr_code_path = None
     base_path = os.path.dirname(__file__)
     volume_offset = 0
     loop_interval = 500  # in milliseconds
@@ -214,7 +214,8 @@ class Karaoke:
     def generate_qr_code(self):
         logging.debug("Generating URL QR code")
         img = qrcode.make(self.url)
-        img.save(os.path.join(self.base_path, "qrcode.png"))
+        self.qr_code_path = os.path.join(self.base_path, "qrcode.png")
+        img.save(self.qr_code_path)
 
     def get_default_display_mode(self):
         if self.use_vlc:
@@ -291,7 +292,7 @@ class Karaoke:
             self.screen.blit(logo, logo_rect)
 
             if not self.hide_ip:
-                p_image = pygame.image.load(os.path.join(self.base_path, "qrcode.png"))
+                p_image = pygame.image.load(self.qr_code_path)
                 p_image = pygame.transform.scale(p_image, (150, 150))
                 self.screen.blit(p_image, (20, 20))
                 if not self.is_network_connected():
@@ -705,7 +706,6 @@ class Karaoke:
                         self.render_next_song_to_splash_screen()
                         i = 0
                         while i < (self.splash_delay * 1000):
-                            logging.debug(i)
                             self.pygame_event_loop()
                             i += self.loop_interval
                         self.play_file(self.queue[0])
