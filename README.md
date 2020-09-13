@@ -35,6 +35,7 @@ Also works on macs, PCs, and linux!
 ## Installation
 
 Install git, if you haven't already.
+Install python3/pip3: https://www.python.org/downloads/ (python 2.7 may work, but is not officially supported)
 
 Clone this repo:
 
@@ -59,7 +60,6 @@ sudo reboot
 
 ### Linux / OSX
 
-- Install python3/pip3: https://www.python.org/downloads/
 - Install VLC (to its default location): https://www.videolan.org/
 - Install ffmpeg (only if you want to use --high-quality flag) https://ffmpeg.org/download.html
 
@@ -72,9 +72,6 @@ pip3 install --upgrade youtube_dl
 
 ### Windows
 
-Only tested on python3! Should work with 2.7, but who knows!
-
-- Install python3/pip3: https://www.python.org/downloads/
 - Install VLC (to its default location): https://www.videolan.org/
 - Install ffmpeg (only if you want to use --high-quality flag) https://ffmpeg.org/download.html
 
@@ -84,7 +81,7 @@ Open a powershell, and go to the pikaraoke directory:
 pip3 install -r requirements.txt
 ```
 
-Install youtube-dl, I used scoop as a package manager to do this, and believe it handles permissions best. Get scoop here: https://scoop.sh/
+Install youtube-dl.exe. FYI, pip3 didn't seem to work for this on windows, so I used scoop as a package manager and I think it handles filed permissions best. Install scoop by following the instructions here: https://scoop.sh/
 
 ```
 scoop install youtube-dl
@@ -94,7 +91,7 @@ scoop install youtube-dl
 
 cd to the pikaraoke directory and run:
 
-`sudo python app.py` (pi devices) or `python app.py` (other) or `python3 app.py` (python3)
+`sudo python3 app.py` (pi devices) or `python3 app.py` (other)
 
 You must run as sudo on pi devices since PiKaraoke uses pygame to control the screen buffer from the console.
 
