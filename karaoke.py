@@ -687,36 +687,41 @@ class Karaoke:
     def stop(self):
         self.running = False
 
+    def pygame_event_loop(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                logging.warn("Window closed: Exiting pikaraoke...")
+                self.running = False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    logging.warn("ESC pressed: Exiting pikaraoke...")
+                    self.running = False
+                if event.key == pygame.K_f:
+                    self.toggle_full_screen()
+
     def run(self):
         logging.info("Starting PiKaraoke!")
         self.running = True
+        clock = pygame.time.Clock()
         while self.running:
             try:
                 if len(self.queue) == 0:
                     # wait for queue to contain something
-                    time.sleep(1)
+                    self.pygame_event_loop()
+                    clock.tick(60)
                 else:
                     while len(self.queue) > 0:
                         vid = self.queue[0]
                         self.play_file(vid)
                         while self.is_file_playing():
                             # wait for file to complete
-                            time.sleep(1)
+                            self.pygame_event_loop()
+                            clock.tick(60)
                         self.render_next_song_to_splash_screen()
                         if self.queue and len(self.queue) > 0:
                             # remove first song from queue
                             self.queue.pop(0)
-                if not self.hide_splash_screen:
-                    for event in pygame.event.get():
-                        if event.type == pygame.QUIT:
-                            logging.warn("Window closed: Exiting pikaraoke...")
-                            self.running = False
-                        if event.type == pygame.KEYDOWN:
-                            if event.key == pygame.K_ESCAPE:
-                                logging.warn("ESC pressed: Exiting pikaraoke...")
-                                self.running = False
-                            if event.key == pygame.K_f:
-                                self.toggle_full_screen()
+
             except KeyboardInterrupt:
                 logging.warn("Keyboard interrupt: Exiting pikaraoke...")
                 self.running = False
