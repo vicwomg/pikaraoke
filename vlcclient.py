@@ -8,8 +8,8 @@ import time
 import xml.etree.ElementTree as ET
 
 import requests
-
 from get_platform import get_platform
+
 
 class VLCClient:
     def __init__(self, port=5002, path=None):
@@ -77,8 +77,9 @@ class VLCClient:
         if self.platform == "windows":
             file_path = r"{}".format(file_path)
         command = self.cmd_base + [file_path]
-        logging.info(command)
-        self.process = subprocess.Popen(command, shell=(self.platform == "windows"), stdin=subprocess.PIPE)
+        self.process = subprocess.Popen(
+            command, shell=(self.platform == "windows"), stdin=subprocess.PIPE
+        )
 
     def command(self, command):
         if self.is_running():
@@ -99,8 +100,11 @@ class VLCClient:
             return self.command("pl_stop")
         except:
             e = sys.exc_info()[0]
-            logging.warn("Track stop: server may have shut down before http return code received: %s" % e)
-            return 
+            logging.warn(
+                "Track stop: server may have shut down before http return code received: %s"
+                % e
+            )
+            return
 
     def restart(self):
         logging.info(self.command("seek&val=0"))

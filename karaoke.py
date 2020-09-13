@@ -8,20 +8,18 @@ import sys
 import threading
 import time
 from io import BytesIO
-
 from socket import gethostbyname, gethostname
 from subprocess import check_output
 
 import pygame
 import qrcode
 import vlcclient
+from get_platform import get_platform
 from unidecode import unidecode
 
-from get_platform import get_platform
-
-
-if get_platform() != "windows" :
+if get_platform() != "windows":
     from signal import SIGALRM, alarm, signal
+
 
 class Karaoke:
 
@@ -86,8 +84,6 @@ class Karaoke:
             datefmt="%Y-%m-%d %H:%M:%S",
             level=int(log_level),
         )
-
-        
 
         logging.debug(
             """
@@ -171,11 +167,25 @@ class Karaoke:
             check_output([self.youtubedl_path, "--version"]).strip().decode("utf8")
         )
         return self.youtubedl_version
-    
+
     def upgrade_youtubedl(self):
-        logging.info("Upgrading youtube-dl, current version: %s" % self.youtubedl_version)
-        output = check_output([self.youtubedl_path, "-U"]).decode("utf8")
+        logging.info(
+            "Upgrading youtube-dl, current version: %s" % self.youtubedl_version
+        )
+        output = check_output([self.youtubedl_path, "-U"]).decode("utf8").strip()
         logging.info(output)
+        if "It looks like you installed youtube-dl with a package manager" in output:
+            try:
+                logging.info("Attempting youtube-dl upgrade via pip3...")
+                output = check_output(
+                    ["pip3", "install", "--upgrade", "youtube-dl"]
+                ).decode("utf8")
+            except FileNotFoundError:
+                logging.info("Attempting youtube-dl upgrade via pip...")
+                output = check_output(
+                    ["pip", "install", "--upgrade", "youtube-dl"]
+                ).decode("utf8")
+            logging.info(output)
         self.get_youtubedl_version()
         logging.info("Done. New version: %s" % self.youtubedl_version)
 
