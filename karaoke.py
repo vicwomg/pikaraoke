@@ -10,7 +10,6 @@ import time
 from io import BytesIO
 from socket import gethostbyname, gethostname
 from subprocess import check_output
-
 import pygame
 import qrcode
 import vlcclient
@@ -682,19 +681,32 @@ class Karaoke:
     def stop(self):
         self.running = False
 
-    def pygame_event_loop(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                logging.warn("Window closed: Exiting pikaraoke...")
-                self.running = False
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    logging.warn("ESC pressed: Exiting pikaraoke...")
+    def handle_run_loop(self):
+        if self.hide_splash_screen:
+            time.sleep(self.loop_interval / 1000)
+        else: 
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    logging.warn("Window closed: Exiting pikaraoke...")
                     self.running = False
-                if event.key == pygame.K_f:
-                    self.toggle_full_screen()
-        pygame.display.update()
-        pygame.time.wait(self.loop_interval)
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        logging.warn("ESC pressed: Exiting pikaraoke...")
+                        self.running = False
+                    if event.key == pygame.K_f:
+                        self.toggle_full_screen()
+            pygame.display.update()
+            pygame.time.wait(self.loop_interval)
+
+    # Use this to reset the screen in case it loses focus
+    def pygame_reset_screen(self):
+        if self.hide_splash_screen:
+            pass
+        else:
+            logging.debug("Resetting pygame screen...")
+            pygame.display.quit()
+            self.initialize_screen()
+            self.render_splash_screen()
 
     def run(self):
         logging.info("Starting PiKaraoke!")
@@ -703,14 +715,18 @@ class Karaoke:
             try:
                 if len(self.queue) > 0:
                     if not self.is_file_playing():
+                        if not pygame.display.get_active():
+                            self.pygame_reset_screen()
                         self.render_next_song_to_splash_screen()
                         i = 0
                         while i < (self.splash_delay * 1000):
-                            self.pygame_event_loop()
+                            self.handle_run_loop()
                             i += self.loop_interval
                         self.play_file(self.queue[0])
                         self.queue.pop(0)
-                self.pygame_event_loop()
+                elif not pygame.display.get_active() and not self.is_file_playing():
+                    self.pygame_reset_screen()
+                self.handle_run_loop()
             except KeyboardInterrupt:
                 logging.warn("Keyboard interrupt: Exiting pikaraoke...")
                 self.running = False
