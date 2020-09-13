@@ -9,12 +9,10 @@ import xml.etree.ElementTree as ET
 
 import requests
 
+from get_platform import get_platform
 
 class VLCClient:
     def __init__(self, port=5002, path=None):
-        # OS detection
-        self.is_raspberry_pi = os.uname()[4][:3] == "arm"
-        self.is_osx = sys.platform == "darwin"
 
         # HTTP remote control server
         self.http_password = "".join(
@@ -25,9 +23,16 @@ class VLCClient:
         self.http_command_endpoint = self.http_endpoint + "?command="
 
         # Handle vlc paths
+        self.platform = get_platform()
         if path == None:
-            if self.is_osx:
+            if self.platform == "osx":
                 self.path = "/Applications/VLC.app/Contents/MacOS/VLC"
+            elif self.platform == "windows":
+                alt_vlc_path = r"C:\\Program Files (x86)\\VideoLAN\VLC\\vlc.exe"
+                if os.path.isfile(alt_vlc_path):
+                    self.path = alt_vlc_path
+                else:
+                    self.path = r"C:\\Program Files\\VideoLAN\VLC\\vlc.exe"
             else:
                 self.path = "/usr/bin/vlc"
         else:
@@ -51,7 +56,7 @@ class VLCClient:
             "0",
             "--video-on-top",
         ]
-        if self.is_osx:
+        if self.platform == "osx":
             self.cmd_base += [
                 "--no-macosx-show-playback-buttons",
                 "--no-macosx-show-playmode-buttons",
@@ -69,9 +74,11 @@ class VLCClient:
     def play_file(self, file_path):
         if self.is_running():
             self.kill()
+        if self.platform == "windows":
+            file_path = r"{}".format(file_path)
         command = self.cmd_base + [file_path]
-        print(self.http_password)
-        self.process = subprocess.Popen(command, stdin=subprocess.PIPE)
+        logging.info(command)
+        self.process = subprocess.Popen(command, shell=(self.platform == "windows"), stdin=subprocess.PIPE)
 
     def command(self, command):
         if self.is_running():

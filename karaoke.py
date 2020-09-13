@@ -8,7 +8,7 @@ import sys
 import threading
 import time
 from io import BytesIO
-from signal import SIGALRM, SIGKILL, alarm, signal
+
 from socket import gethostbyname, gethostname
 from subprocess import check_output
 
@@ -17,6 +17,11 @@ import qrcode
 import vlcclient
 from unidecode import unidecode
 
+from get_platform import get_platform
+
+
+if get_platform() != "windows" :
+    from signal import SIGALRM, alarm, signal
 
 class Karaoke:
 
@@ -59,6 +64,7 @@ class Karaoke:
         self.hide_ip = hide_ip
         self.hide_splash_screen = hide_splash_screen
         self.alsa_fix = alsa_fix
+        self.download_path = download_path
         self.dual_screen = dual_screen
         self.high_quality = high_quality
         self.splash_delay = int(splash_delay)
@@ -71,9 +77,7 @@ class Karaoke:
         self.vlc_port = vlc_port
 
         # other initializations
-        self.is_raspberry_pi = os.uname()[4][:3] == "arm"
-        self.is_osx = sys.platform == "darwin"
-        self.is_linux = sys.platform.startswith("linux")
+        self.platform = get_platform()
         self.vlcclient = None
         self.screen = None
 
@@ -83,23 +87,7 @@ class Karaoke:
             level=int(log_level),
         )
 
-        # force VLC on non-pi hardware
-        if not self.is_raspberry_pi and not self.use_vlc:
-            logging.info("Defaulting to VLC player")
-            self.use_vlc = True
-
-        # disallow overlay on VLC
-        if self.use_vlc and not self.hide_overlay:
-            logging.warn("Overlay not supported VLC")
-            self.hide_overlay = True
-
-        # setup download directory
-        self.download_path = os.path.expanduser(download_path)
-        if not self.download_path.endswith("/"):
-            self.download_path += "/"
-        if not os.path.exists(self.download_path):
-            logging.info("Creating download path: " + self.download_path)
-            os.makedirs(self.download_path)
+        
 
         logging.debug(
             """
@@ -143,7 +131,7 @@ class Karaoke:
         # and doesn't have an IP yet (occurs when launched from /etc/rc.local)
         end_time = int(time.time()) + 30
 
-        if self.is_raspberry_pi:
+        if self.platform == "raspberry_pi":
             while int(time.time()) < end_time:
                 addresses_str = check_output(["hostname", "-I"]).strip().decode("utf-8")
                 addresses = addresses_str.split(" ")
@@ -159,20 +147,6 @@ class Karaoke:
 
         # get songs from download_path
         self.get_available_songs()
-
-        # check binaries exist
-        if not os.path.isfile(self.youtubedl_path):
-            msg = "youtube-dl not found at: " + self.youtubedl_path
-            logging.error(msg)
-            sys.exit(msg)
-        if (
-            (not os.path.isfile(self.player_path))
-            and not self.use_vlc
-            and self.is_raspberry_pi
-        ):
-            msg = "video player not found at: " + self.player_path
-            logging.error(msg)
-            sys.exit(msg)
 
         self.get_youtubedl_version()
 
@@ -196,6 +170,14 @@ class Karaoke:
         self.youtubedl_version = (
             check_output([self.youtubedl_path, "--version"]).strip().decode("utf8")
         )
+        return self.youtubedl_version
+    
+    def upgrade_youtubedl(self):
+        logging.info("Upgrading youtube-dl, current version: %s" % self.youtubedl_version)
+        output = check_output([self.youtubedl_path, "-U"]).decode("utf8")
+        logging.info(output)
+        self.get_youtubedl_version()
+        logging.info("Done. New version: %s" % self.youtubedl_version)
 
     def is_network_connected(self):
         return not len(self.ip) < 7
@@ -227,7 +209,7 @@ class Karaoke:
 
     def get_default_display_mode(self):
         if self.use_vlc:
-            if self.is_raspberry_pi:
+            if self.platform == "raspberry_pi":
                 os.environ[
                     "SDL_VIDEO_CENTERED"
                 ] = "1"  # HACK apparently if display mode is fullscreen the vlc window will be at the bottom of pygame
@@ -250,24 +232,29 @@ class Karaoke:
             self.height = pygame.display.Info().current_h
             logging.debug("Initializing screen mode")
 
-            # this section is an unbelievable nasty hack - for some reason Pygame
-            # needs a keyboardinterrupt to initialise in some limited circumstances
-            # source: https://stackoverflow.com/questions/17035699/pygame-requires-keyboard-interrupt-to-init-display
-            class Alarm(Exception):
-                pass
-
-            def alarm_handler(signum, frame):
-                raise Alarm
-
-            signal(SIGALRM, alarm_handler)
-            alarm(3)
-            try:
+            if self.platform == "windows":
                 self.screen = pygame.display.set_mode(
                     [self.width, self.height], self.get_default_display_mode()
                 )
-                alarm(0)
-            except Alarm:
-                raise KeyboardInterrupt
+            else:
+                # this section is an unbelievable nasty hack - for some reason Pygame
+                # needs a keyboardinterrupt to initialise in some limited circumstances
+                # source: https://stackoverflow.com/questions/17035699/pygame-requires-keyboard-interrupt-to-init-display
+                class Alarm(Exception):
+                    pass
+
+                def alarm_handler(signum, frame):
+                    raise Alarm
+
+                signal(SIGALRM, alarm_handler)
+                alarm(3)
+                try:
+                    self.screen = pygame.display.set_mode(
+                        [self.width, self.height], self.get_default_display_mode()
+                    )
+                    alarm(0)
+                except Alarm:
+                    raise KeyboardInterrupt
             logging.debug("Done initializing splash screen")
 
     def toggle_full_screen(self):

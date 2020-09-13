@@ -7,9 +7,9 @@ Totally not expected, but folks have asked... so if you want to support this pro
 ## What's new (September 2020)
 
 - VLC support! Omxplayer is still default on raspberry pi.
-- Thanks to VLC, we now have cross platform support! Linux and OSX for now.
-- python3 support! python 2.7 will still work for now, but it has gone the way of Latin. This may become required in a near future revision.
-- basic hotkeys: "esc" exits app. "f" toggles fullscreen. This became necessary when working with windowed OS's
+- Thanks to VLC, we now have cross platform support! Linux, OSX, and Windows!
+- python3 support! python 2.7 will still work for now, but it has gone the way of Latin. Python3 will become required in a near future revision.
+- Basic hotkeys: "esc" exits app. "f" toggles fullscreen. This became necessary when working with windowed OS's
 
 ## Features
 
@@ -30,24 +30,20 @@ https://imgur.com/a/wgBYeFb
 
 This _should_ work on all raspberry pi devices, but multi-core models recommended. I did most development on a Pi Zero W and did as much optimization as I could handle, so it will work. However, certain things like concurrent downloads and browsing big song libraries will suffer. All this runs excellently on a Pi 3.
 
+Also works on macs, PCs, and linux. 
+
 ## Installation
 
-### Raspberry pi
+Install git, if you haven't already.
 
-If you already have git, you can skip this. If not:
-
-```
-sudo apt-get update
-sudo apt-get install git
-```
-
-Clone this repo. The rest of this guide assumes you install to /home/pi/pikaraoke:
+Clone this repo:
 
 ```
-cd ~
 git clone https://github.com/vicwomg/pikaraoke.git
 cd pikaraoke
 ```
+
+### Raspberry pi
 
 Run the setup script:
 
@@ -63,36 +59,50 @@ sudo reboot
 
 ### Linux / OSX
 
-Install VLC (preferably to its default location): https://www.videolan.org/
 Install pip: https://pip.pypa.io/en/stable/installing/
+Install VLC (to its default location): https://www.videolan.org/
+Install ffmpeg (only if you want to use --high-quality flag) https://ffmpeg.org/download.html
 
-Clone this repo:
-
-```
-git clone https://github.com/vicwomg/pikaraoke.git
-cd pikaraoke
-```
-
-Install requirements:
+Install requirements from the pikaraoke directory:
 
 ```
 sudo pip install -r requirements.txt
 sudo pip install --upgrade youtube_dl
 ```
 
+### Windows
+
+Only tested on python3! Should work with 2.7, but who knows!
+
+Install python3/pip3: https://www.python.org/downloads/
+Install VLC (to its default location): https://www.videolan.org/
+Install ffmpeg (only if you want to use --high-quality flag) https://ffmpeg.org/download.html
+
+Open a powershell, and go to the pikaraoke directory:
+
+```
+pip3 install -r requirements.txt
+```
+
+Install youtube-dl, I used scoop as a package manager to do this, and believe it handles permissions best. Get scoop here: https://scoop.sh/
+
+```
+scoop install youtube-dl
+```
+
 ## Launch
 
 cd to the pikaraoke directory and run:
 
-`sudo python app.py` (pi devices) or `python app.py` (other)
+`sudo python app.py` (pi devices) or `python app.py` (other) or `python3 app.py` (python3)
 
-You must run as sudo on pi devices since PiKaraoke uses pygame to control the screen buffer.
+You must run as sudo on pi devices since PiKaraoke uses pygame to control the screen buffer from the console.
 
 The app should launch and show the PiKaraoke splash screen and a QR code and a URL. Using a device connected to the same wifi network as the Pi, scan this QR code or enter the URL into a browser. You are now connected! You can start exploring the UI and adding/queuing new songs directly from YouTube.
 
 ## Auto-start PiKaraoke
 
-This is optional, but you may want to make your pi a dedicated karaoke device. If so, add the following to your /etc/rc.local file (paths and arguments may vary) to always start pikaraoke on reboot.
+This is optional, but you may want to make your raspberry pi a dedicated karaoke device. If so, add the following to your /etc/rc.local file (paths and arguments may vary) to always start pikaraoke on reboot.
 
 ```
 # start pikaraoke on startup
