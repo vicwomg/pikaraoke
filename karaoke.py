@@ -699,6 +699,7 @@ class Karaoke:
             pygame.time.wait(self.loop_interval)
 
     # Use this to reset the screen in case it loses focus
+    # This seems to occur in windows after playing a video
     def pygame_reset_screen(self):
         if self.hide_splash_screen:
             pass

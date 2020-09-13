@@ -376,7 +376,7 @@ def update_ytdl():
 
 @app.route("/quit")
 def quit():
-    flash("Quitting to console now!", "is-warning")
+    flash("Quitting pikaraoke now!", "is-warning")
     th = threading.Thread(target=delayed_halt, args=[0])
     th.start()
     return redirect(url_for("home"))
