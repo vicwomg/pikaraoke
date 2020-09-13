@@ -1,13 +1,13 @@
 # PiKaraoke
 
-Karaoke song search and queueing system that uses Youtube videos as a source. For use with Raspberry Pi devices.
+Karaoke song search and queueing system that uses Youtube videos as a source. ~For use with Raspberry Pi devices.~ Works on Raspberry Pi, OSX, Windows, and Linux!
 
-Totally not expected, but folks have asked... so if you want to support this project with a little monetary tip, I wont stop ya! Much appreciated https://www.paypal.me/paniquejazz
+If you want to support this project with a little monetary tip, it's much appreciated: https://www.paypal.me/paniquejazz
 
 ## What's new (September 2020)
 
-- VLC support! Omxplayer is still default on raspberry pi.
-- Thanks to VLC, we now have cross platform support! Linux, OSX, and Windows!
+- VLC support! Omxplayer is still default on raspberry pi, which can use both.
+- Thanks to VLC and a lot of hacking, we now have cross platform support: Linux, OSX, and Windows!
 - python3 support! python 2.7 will still work for now, but it has gone the way of Latin. Python3 will become required in a near future revision.
 - Basic hotkeys: "esc" exits app. "f" toggles fullscreen. This became necessary when working with windowed OS's
 
@@ -28,9 +28,9 @@ https://imgur.com/a/wgBYeFb
 
 ## Supported Devices
 
-This _should_ work on all raspberry pi devices, but multi-core models recommended. I did most development on a Pi Zero W and did as much optimization as I could handle, so it will work. However, certain things like concurrent downloads and browsing big song libraries will suffer. All this runs excellently on a Pi 3.
+This _should_ work on all raspberry pi devices, but multi-core models recommended. I did most development on a Pi Zero W and did as much optimization as I could handle, so it will work. However, certain things like concurrent downloads and browsing big song libraries will suffer. All this runs excellently on a Pi 3 and above.
 
-Also works on macs, PCs, and linux. 
+Also works on macs, PCs, and linux!
 
 ## Installation
 
@@ -59,24 +59,24 @@ sudo reboot
 
 ### Linux / OSX
 
-Install pip: https://pip.pypa.io/en/stable/installing/
-Install VLC (to its default location): https://www.videolan.org/
-Install ffmpeg (only if you want to use --high-quality flag) https://ffmpeg.org/download.html
+- Install python3/pip3: https://www.python.org/downloads/
+- Install VLC (to its default location): https://www.videolan.org/
+- Install ffmpeg (only if you want to use --high-quality flag) https://ffmpeg.org/download.html
 
 Install requirements from the pikaraoke directory:
 
 ```
-sudo pip install -r requirements.txt
-sudo pip install --upgrade youtube_dl
+pip3 install -r requirements.txt
+pip3 install --upgrade youtube_dl
 ```
 
 ### Windows
 
 Only tested on python3! Should work with 2.7, but who knows!
 
-Install python3/pip3: https://www.python.org/downloads/
-Install VLC (to its default location): https://www.videolan.org/
-Install ffmpeg (only if you want to use --high-quality flag) https://ffmpeg.org/download.html
+- Install python3/pip3: https://www.python.org/downloads/
+- Install VLC (to its default location): https://www.videolan.org/
+- Install ffmpeg (only if you want to use --high-quality flag) https://ffmpeg.org/download.html
 
 Open a powershell, and go to the pikaraoke directory:
 
@@ -224,10 +224,10 @@ If you're using an external USB sound card or hifi audio hat like the hifiberry,
 
 Make sure youtube-dl is up to date, old versions have higher failure rates due to security changes in Youtube. You can see your current version installed by navigating to `Info > System Info > Youtube-dl version`. The version number is usually the date it was released. If this is older than a few months, chances are it will need an update.
 
-You can update youtube-dl directly from the web UI. Go to `Info > Update Youtube-dl` (may need to be running pikaraoke as sudo for this to work)
+You can update youtube-dl directly from the web UI. Go to `Info > Update Youtube-dl` (depnding on how you installed, you may need to be running pikaraoke as sudo for this to work)
 
-Or, from the CLI:
-`sudo pip install --upgrade youtube_dl`
+Or, from the CLI (path may vary):
+`youtube-dl -U`
 
 ### Downloads are slow!
 
@@ -278,4 +278,4 @@ In the meantime, you might be able to get away with running the line out through
 
 ### I'm on a laptop, how do I output just pikaraoke to an external monitor/screen?
 
-You might be able to just launch from the target screen, but this doesn't really work very well right now. For now you'd probably have the most consistent experience using screen mirrored mode.
+You might be able to just drag the windows to the target screen (press 'f' to toggle fullscreen). But in my experience there can be issues figuring out which monitor to use once videos start playing. For now you'd probably have the most consistent experience using single-screen mirrored mode.
