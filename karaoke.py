@@ -562,9 +562,9 @@ class Karaoke:
             logging.error("Song not found in queue: " + song_name)
             return False
         if action == "up":
-            if index < 2:
+            if index < 1:
                 logging.warn(
-                    "Song is now playing or up next, can't bump up in queue: "
+                    "Song is up next, can't bump up in queue: "
                     + song_path
                 )
                 return False
@@ -577,11 +577,6 @@ class Karaoke:
             if index == len(self.queue) - 1:
                 logging.warn(
                     "Song is already last, can't bump down in queue: " + song_path
-                )
-                return False
-            if index == 0:
-                logging.warn(
-                    "Song is currently playing, can't bump down in queue: " + song_path
                 )
                 return False
             else:
