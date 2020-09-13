@@ -36,6 +36,7 @@ class Karaoke:
     qr_code = None
     base_path = os.path.dirname(__file__)
     volume_offset = 0
+    loop_interval = 500  # in milliseconds
 
     def __init__(
         self,
@@ -152,6 +153,7 @@ class Karaoke:
             os.remove(self.overlay_file_path)
 
         if not self.hide_splash_screen:
+            self.generate_qr_code()
             self.initialize_screen()
             self.render_splash_screen()
 
@@ -212,10 +214,7 @@ class Karaoke:
     def generate_qr_code(self):
         logging.debug("Generating URL QR code")
         img = qrcode.make(self.url)
-        qr_file = BytesIO()
-        img.save(qr_file, "png")
-        qr_file.seek(0)
-        return qr_file
+        img.save(os.path.join(self.base_path, "qrcode.png"))
 
     def get_default_display_mode(self):
         if self.use_vlc:
@@ -292,7 +291,7 @@ class Karaoke:
             self.screen.blit(logo, logo_rect)
 
             if not self.hide_ip:
-                p_image = pygame.image.load(self.generate_qr_code())
+                p_image = pygame.image.load(os.path.join(self.base_path, "qrcode.png"))
                 p_image = pygame.transform.scale(p_image, (150, 150))
                 self.screen.blit(p_image, (20, 20))
                 if not self.is_network_connected():
@@ -302,7 +301,6 @@ class Karaoke:
                         (255, 255, 255),
                     )
                     self.screen.blit(text, (p_image.get_width() + 35, 20))
-                    pygame.display.flip()
                     time.sleep(10)
                     sys.exit(
                         "No IP found. Network/Wifi configuration required. For wifi config, try: sudo raspi-config or the desktop GUI: startx"
@@ -339,14 +337,12 @@ class Karaoke:
                 self.screen.blit(text2, (10, y2))
                 self.screen.blit(text3, (10, y3))
 
-            pygame.display.update()
-
     def render_next_song_to_splash_screen(self):
         if not self.hide_splash_screen:
             self.render_splash_screen()
-            if len(self.queue) >= 2:
+            if len(self.queue) >= 1:
                 logging.debug("Rendering next song to splash screen")
-                next_song = self.filename_from_path(self.queue[1])
+                next_song = self.filename_from_path(self.queue[0])
                 font_next_song = pygame.font.SysFont(pygame.font.get_default_font(), 60)
                 text = font_next_song.render(
                     "Up next:  " + next_song, True, (0, 128, 0)
@@ -356,8 +352,6 @@ class Karaoke:
                 y = self.height - text.get_height() - 5
                 self.screen.blit(text, (x, y))
                 self.screen.blit(up_next, (x, y))
-                pygame.display.flip()
-                time.sleep(self.splash_delay)
                 return True
             else:
                 logging.debug("Could not render next song to splash. No song in queue")
@@ -698,30 +692,25 @@ class Karaoke:
                     self.running = False
                 if event.key == pygame.K_f:
                     self.toggle_full_screen()
+        pygame.display.update()
+        pygame.time.wait(self.loop_interval)
 
     def run(self):
         logging.info("Starting PiKaraoke!")
         self.running = True
-        clock = pygame.time.Clock()
         while self.running:
             try:
-                if len(self.queue) == 0:
-                    # wait for queue to contain something
-                    self.pygame_event_loop()
-                    clock.tick(60)
-                else:
-                    while len(self.queue) > 0:
-                        vid = self.queue[0]
-                        self.play_file(vid)
-                        while self.is_file_playing():
-                            # wait for file to complete
-                            self.pygame_event_loop()
-                            clock.tick(60)
+                if len(self.queue) > 0:
+                    if not self.is_file_playing():
                         self.render_next_song_to_splash_screen()
-                        if self.queue and len(self.queue) > 0:
-                            # remove first song from queue
-                            self.queue.pop(0)
-
+                        i = 0
+                        while i < (self.splash_delay * 1000):
+                            logging.debug(i)
+                            self.pygame_event_loop()
+                            i += self.loop_interval
+                        self.play_file(self.queue[0])
+                        self.queue.pop(0)
+                self.pygame_event_loop()
             except KeyboardInterrupt:
                 logging.warn("Keyboard interrupt: Exiting pikaraoke...")
                 self.running = False

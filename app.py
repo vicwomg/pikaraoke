@@ -20,7 +20,6 @@ from flask import (
     send_from_directory,
     url_for,
 )
-
 from get_platform import get_platform
 
 try:
@@ -57,8 +56,8 @@ def home():
 
 @app.route("/nowplaying")
 def nowplaying():
-    if len(k.queue) >= 2:
-        next_song = filename_from_path(k.queue[1])
+    if len(k.queue) >= 1:
+        next_song = filename_from_path(k.queue[0])
     else:
         next_song = None
     rc = {"now_playing": k.now_playing, "up_next": next_song, "is_pause": k.is_pause}
@@ -328,8 +327,8 @@ def info():
 
     # youtube-dl
     youtubedl_version = k.youtubedl_version
-    
-    show_shutdown = get_platform() == "raspberry_pi" 
+
+    show_shutdown = get_platform() == "raspberry_pi"
 
     return render_template(
         "info.html",
@@ -340,7 +339,7 @@ def info():
         cpu=cpu,
         disk=disk,
         youtubedl_version=youtubedl_version,
-        show_shutdown=show_shutdown ,
+        show_shutdown=show_shutdown,
     )
 
 
@@ -402,10 +401,11 @@ def reboot():
 # Handle sigterm, apparently cherrypy won't shut down without explicit handling
 signal.signal(signal.SIGTERM, lambda signum, stack_frame: sys.exit(1))
 
+
 def get_default_youtube_dl_path(platform):
     if platform == "windows":
         choco_ytdl_path = r"C:\ProgramData\chocolatey\bin\youtube-dl.exe"
-        scoop_ytdl_path = os.path.expanduser("~\scoop\shims\youtube-dl.exe")
+        scoop_ytdl_path = os.path.expanduser(r"~\scoop\shims\youtube-dl.exe")
         if os.path.isfile(choco_ytdl_path):
             return choco_ytdl_path
         if os.path.isfile(scoop_ytdl_path):
@@ -413,6 +413,7 @@ def get_default_youtube_dl_path(platform):
         return r"C:\Program Files\youtube-dl\youtube-dl.exe"
     else:
         return "/usr/local/bin/youtube-dl"
+
 
 def get_default_vlc_path(platform):
     if platform == "osx":
@@ -426,17 +427,19 @@ def get_default_vlc_path(platform):
     else:
         return "/usr/bin/vlc"
 
+
 def get_default_dl_dir(platform):
     if platform == "raspberry_pi":
         return "/usr/lib/pikaraoke/songs"
     elif platform == "windows":
-        return ("~\pikaraoke\songs")
+        return "~\pikaraoke\songs"
     else:
         return os.path.expanduser("~/pikaraoke/songs")
 
+
 if __name__ == "__main__":
 
-    platform = get_platform() 
+    platform = get_platform()
     default_port = 5000
     default_volume = 0
     default_splash_delay = 5
@@ -590,7 +593,11 @@ if __name__ == "__main__":
     if args.use_vlc and not os.path.isfile(args.vlc_path):
         print("VLC path not found! " + args.vlc_path)
         sys.exit(1)
-    if platform == "raspberry_pi" and not args.use_vlc and not os.path.isfile(args.omxplayer_path):
+    if (
+        platform == "raspberry_pi"
+        and not args.use_vlc
+        and not os.path.isfile(args.omxplayer_path)
+    ):
         print("omxplayer path not found! " + args.omxplayer_path)
         sys.exit(1)
 
