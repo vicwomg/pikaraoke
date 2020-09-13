@@ -442,12 +442,6 @@ if __name__ == "__main__":
     default_splash_delay = 5
     default_log_level = logging.INFO
 
-    logging.basicConfig(
-        format="[%(asctime)s] %(levelname)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-        level=int(default_log_level),
-    )
-
     default_dl_dir = get_default_dl_dir(platform)
     default_omxplayer_path = "/usr/bin/omxplayer"
     default_youtubedl_path = get_default_youtube_dl_path(platform)
@@ -582,22 +576,22 @@ if __name__ == "__main__":
 
     # force VLC on non-pi hardware
     if not platform == "raspberry_pi" and not args.use_vlc:
-        logging.info("Defaulting to VLC player")
+        print("Defaulting to VLC player")
         args.use_vlc = True
     # disallow overlay on VLC
     if args.use_vlc and args.show_overlay:
-        logging.warn("Overlay not supported VLC. Disabling it.")
+        print("Overlay not supported VLC. Disabling it.")
         args.show_overlay = False
 
     # check if required binaries exist
     if not os.path.isfile(args.youtubedl_path):
-        logging.error("Youtube-dl path not found! " + args.youtubedl_path)
+        print("Youtube-dl path not found! " + args.youtubedl_path)
         sys.exit(1)
     if args.use_vlc and not os.path.isfile(args.vlc_path):
-        logging.error("VLC path not found! " + args.vlc_path)
+        print("VLC path not found! " + args.vlc_path)
         sys.exit(1)
     if platform == "raspberry_pi" and not args.use_vlc and not os.path.isfile(args.omxplayer_path):
-        logging.error("omxplayer path not found! " + args.omxplayer_path)
+        print("omxplayer path not found! " + args.omxplayer_path)
         sys.exit(1)
 
     # setup/create download directory if necessary
@@ -605,7 +599,7 @@ if __name__ == "__main__":
     if not dl_path.endswith("/"):
         dl_path += "/"
     if not os.path.exists(dl_path):
-        logging.info("Creating download path: " + dl_path)
+        print("Creating download path: " + dl_path)
         os.makedirs(dl_path)
 
     # Start the CherryPy WSGI web server
