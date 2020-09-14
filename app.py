@@ -347,10 +347,10 @@ def info():
 def delayed_halt(cmd):
     time.sleep(3)
     k.queue_clear()  # stop all pending omxplayer processes
+    cherrypy.engine.stop()
+    cherrypy.engine.exit()
+    k.stop()
     if cmd == 0:
-        cherrypy.engine.stop()
-        cherrypy.engine.exit()
-        k.stop()
         sys.exit()
     if cmd == 1:
         os.system("shutdown now")
