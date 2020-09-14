@@ -707,6 +707,8 @@ class Karaoke:
         self.running = True
         while self.running:
             try:
+                if not self.is_file_playing() and self.now_playing != None:
+                    self.now_playing = None
                 if len(self.queue) > 0:
                     if not self.is_file_playing():
                         if not pygame.display.get_active():
