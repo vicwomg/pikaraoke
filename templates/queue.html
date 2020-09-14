@@ -1,77 +1,83 @@
-{% extends 'base.html' %}
-
-{% block scripts %}
-<meta http-equiv="refresh" content="5">
+{% extends 'base.html' %} {% block scripts %}
+<meta http-equiv="refresh" content="5" />
 
 <script>
   $(function () {
-    $('.confirm-delete').click(function (e) {
+    $(".confirm-delete").click(function (e) {
       e.preventDefault();
-      if (window.confirm("Are you sure you want to delete this song from the queue?")) {
+      if (
+        window.confirm(
+          "Are you sure you want to delete this song from the queue?"
+        )
+      ) {
         location.href = this.href;
       }
     });
-    $('.confirm-clear').click(function (e) {
+    $(".confirm-clear").click(function (e) {
       e.preventDefault();
-      let prompt = window.prompt("Are you sure you want to clear the ENTIRE queue? Type 'OK' to continue")
+      let prompt = window.prompt(
+        "Are you sure you want to clear the ENTIRE queue? Type 'OK' to continue"
+      );
       if (prompt.toLowerCase() === "ok") {
         location.href = this.href;
       }
     });
 
     // hide queue controls for first track
-    $('.up-button').first().hide();
-    $('.down-button').first().hide();
-
-    // hide up button for second track
-    $('.up-button').eq(1).hide();
+    $(".up-button").first().hide();
 
     // hide down button for last track
-    $('.down-button').last().hide();
+    $(".down-button").last().hide();
   });
 </script>
 
-{% endblock %}
-
-{% block header %}
+{% endblock %} {% block header %}
 <h1 class>{% block title %}Queue{% endblock %}</h1>
-{% endblock %}
-
-{% block content %}
-
-{% if queue %}
+{% endblock %} {% block content %} {% if queue %}
 <table>
   {% for song in queue %}
-  <tr value='{{ song }}'>
+  <tr value="{{ song }}">
     <td width="20px" style="padding: 5px 0px">{{loop.index}}</td>
     <td width="20px" style="padding: 5px 0px">
-      <a class="up-button" href="/queue/edit?action=up&song={{url_escape(filename_from_path(song.encode('utf-8')))}}"
-        title="Move up in queue"><i class="icon icon-sort-up"></i> </a>
+      <a
+        class="up-button"
+        href="/queue/edit?action=up&song={{url_escape(filename_from_path(song.encode('utf-8')))}}"
+        title="Move up in queue"
+        ><i class="icon icon-sort-up"></i>
+      </a>
     </td>
     <td width="20px" style="padding: 5px 0px">
-      <a class="down-button"
+      <a
+        class="down-button"
         href="/queue/edit?action=down&song={{url_escape(filename_from_path(song.encode('utf-8')))}}"
-        title="Move down in queue"><i class="icon icon-sort-down"></i> </a>
+        title="Move down in queue"
+        ><i class="icon icon-sort-down"></i>
+      </a>
     </td>
 
-    <td style="padding-left: 5px">
-      {{filename_from_path(song)}}
-    </td>
+    <td style="padding-left: 5px">{{filename_from_path(song)}}</td>
 
     <td width="20px">
-      <a class="delete-button confirm-delete has-text-danger" title="Delete from queue"
-        href="/queue/edit?action=delete&song={{url_escape(filename_from_path(song.encode('utf-8')))}}"><i
-          class="icon icon-trash-empty"></i> </a>
+      <a
+        class="delete-button confirm-delete has-text-danger"
+        title="Delete from queue"
+        href="/queue/edit?action=delete&song={{url_escape(filename_from_path(song.encode('utf-8')))}}"
+        ><i class="icon icon-trash-empty"></i>
+      </a>
     </td>
   </tr>
   {% endfor %}
 </table>
-{% else %}
-The queue is empty
-{% endif %}
-<hr>
+{% else %} The queue is empty {% endif %}
+<hr />
 
-<a class="add-random has-text-success" href="/queue/addrandom?amount=3">Add 3 random songs</a>
-<a class="confirm-clear has-text-danger is-pulled-right" href="/queue/edit?action=clear">Clear all</a><br>
+<a class="add-random has-text-success" href="/queue/addrandom?amount=3"
+  >Add 3 random songs</a
+>
+<a
+  class="confirm-clear has-text-danger is-pulled-right"
+  href="/queue/edit?action=clear"
+  >Clear all</a
+><br />
 
 {% endblock %}

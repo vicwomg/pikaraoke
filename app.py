@@ -6,8 +6,10 @@ import signal
 import sys
 import threading
 import time
-from urllib import quote, unquote
 
+import cherrypy
+import karaoke
+import psutil
 from flask import (
     Flask,
     flash,
@@ -18,13 +20,16 @@ from flask import (
     send_from_directory,
     url_for,
 )
+from get_platform import get_platform
 
-import cherrypy
-import karaoke
-import psutil
+try:
+    from urllib.parse import quote, unquote
+except ImportError:
+    from urllib import quote, unquote
+
 
 app = Flask(__name__)
-app.secret_key = "HjI981293u99as811lll"
+app.secret_key = os.urandom(24)
 site_name = "PiKaraoke"
 
 
@@ -32,7 +37,11 @@ def filename_from_path(file_path, remove_youtube_id=True):
     rc = os.path.basename(file_path)
     rc = os.path.splitext(rc)[0]
     if remove_youtube_id:
-        rc = rc.split("---")[0]  # removes youtube id if present
+        try:
+            rc = rc.split("---")[0]  # removes youtube id if present
+        except TypeError:
+            # more fun python 3 hacks
+            rc = rc.split("---".encode("utf-8"))[0]
     return rc
 
 
@@ -47,8 +56,8 @@ def home():
 
 @app.route("/nowplaying")
 def nowplaying():
-    if len(k.queue) >= 2:
-        next_song = filename_from_path(k.queue[1])
+    if len(k.queue) >= 1:
+        next_song = filename_from_path(k.queue[0])
     else:
         next_song = None
     rc = {"now_playing": k.now_playing, "up_next": next_song, "is_pause": k.is_pause}
@@ -106,7 +115,7 @@ def queue_edit():
 
 @app.route("/enqueue", methods=["POST", "GET"])
 def enqueue():
-    if request.args.has_key("song"):
+    if "song" in request.args:
         song = request.args["song"]
     else:
         d = request.form.to_dict()
@@ -133,13 +142,13 @@ def pause():
 
 @app.route("/restart")
 def restart():
-    rc = k.restart()
+    k.restart()
     return redirect(url_for("home"))
 
 
 @app.route("/vol_up")
 def vol_up():
-    rc = k.vol_up()
+    k.vol_up()
     return redirect(url_for("home"))
 
 
@@ -151,7 +160,7 @@ def vol_down():
 
 @app.route("/search", methods=["GET"])
 def search():
-    if request.args.has_key("search_string"):
+    if "search_string" in request.args:
         search_string = request.args["search_string"]
         search_results = k.get_karaoke_search_results(search_string)
     else:
@@ -169,7 +178,7 @@ def search():
 
 @app.route("/browse", methods=["GET"])
 def browse():
-    if request.args.has_key("sort") and request.args["sort"] == "date":
+    if "sort" in request.args and request.args["sort"] == "date":
         songs = sorted(k.available_songs, key=lambda x: os.path.getctime(x))
         songs.reverse()
         sort_order = "Date"
@@ -189,7 +198,7 @@ def browse():
 def download():
     d = request.form.to_dict()
     song = d["song-url"]
-    if d.has_key("queue") and d["queue"] == "on":
+    if "queue" in d and d["queue"] == "on":
         queue = True
     else:
         queue = False
@@ -215,12 +224,12 @@ def download():
 
 @app.route("/qrcode")
 def qrcode():
-    return send_file(k.generate_qr_code(), mimetype="image/png")
+    return send_file(k.qr_code_path, mimetype="image/png")
 
 
 @app.route("/files/delete", methods=["GET"])
 def delete_file():
-    if request.args.has_key("song"):
+    if "song" in request.args:
         song_path = request.args["song"]
         if song_path in k.queue:
             flash(
@@ -239,7 +248,7 @@ def delete_file():
 @app.route("/files/edit", methods=["GET", "POST"])
 def edit_file():
     queue_error_msg = "Error: Can't edit this song because it is in the current queue: "
-    if request.args.has_key("song"):
+    if "song" in request.args:
         song_path = request.args["song"]
         # print "SONG_PATH" + song_path
         if song_path in k.queue:
@@ -254,7 +263,7 @@ def edit_file():
             )
     else:
         d = request.form.to_dict()
-        if d.has_key("new_file_name") and d.has_key("old_file_name"):
+        if "new_file_name" in d and "old_file_name" in d:
             new_name = d["new_file_name"]
             old_name = d["old_file_name"]
             if old_name in k.queue:
@@ -262,7 +271,7 @@ def edit_file():
                 flash(queue_error_msg + song_path, "is-danger")
             else:
                 # check if new_name already exist
-                file_name, file_extension = os.path.splitext(old_name)
+                file_extension = os.path.splitext(old_name)[1]
                 if os.path.isfile(
                     os.path.join(k.download_path, new_name + file_extension)
                 ):
@@ -319,6 +328,8 @@ def info():
     # youtube-dl
     youtubedl_version = k.youtubedl_version
 
+    show_shutdown = get_platform() == "raspberry_pi"
+
     return render_template(
         "info.html",
         site_title=site_name,
@@ -328,6 +339,7 @@ def info():
         cpu=cpu,
         disk=disk,
         youtubedl_version=youtubedl_version,
+        show_shutdown=show_shutdown,
     )
 
 
@@ -336,7 +348,9 @@ def delayed_halt(cmd):
     time.sleep(3)
     k.queue_clear()  # stop all pending omxplayer processes
     if cmd == 0:
+        cherrypy.engine.stop()
         cherrypy.engine.exit()
+        k.stop()
         sys.exit()
     if cmd == 1:
         os.system("shutdown now")
@@ -344,25 +358,15 @@ def delayed_halt(cmd):
         os.system("reboot")
 
 
-update_log_path = "/tmp/youtube-dl-update.log"
-
-
 def update_youtube_dl():
     time.sleep(3)
-    log_path = "/tmp/youtube-dl-update.log"
-    os.system('echo "Current youtube-dl version: " > %s' % update_log_path)
-    os.system("youtube-dl --version >> %s" % update_log_path)
-    os.system("pip install --upgrade youtube_dl >> %s" % update_log_path)
-    os.system('echo "New youtube-dl version: " >> %s' % update_log_path)
-    os.system("youtube-dl --version >> %s" % update_log_path)
-    k.get_youtubedl_version()
+    k.upgrade_youtubedl()
 
 
 @app.route("/update_ytdl")
 def update_ytdl():
     flash(
-        "Updating youtube-dl! Should take a minute or two... (log output at: %s)"
-        % update_log_path,
+        "Updating youtube-dl! Should take a minute or two... ",
         "is-warning",
     )
     th = threading.Thread(target=update_youtube_dl)
@@ -372,7 +376,7 @@ def update_ytdl():
 
 @app.route("/quit")
 def quit():
-    flash("Quitting to console now!", "is-warning")
+    flash("Quitting pikaraoke now!", "is-warning")
     th = threading.Thread(target=delayed_halt, args=[0])
     th.start()
     return redirect(url_for("home"))
@@ -397,15 +401,55 @@ def reboot():
 # Handle sigterm, apparently cherrypy won't shut down without explicit handling
 signal.signal(signal.SIGTERM, lambda signum, stack_frame: sys.exit(1))
 
+
+def get_default_youtube_dl_path(platform):
+    if platform == "windows":
+        choco_ytdl_path = r"C:\ProgramData\chocolatey\bin\youtube-dl.exe"
+        scoop_ytdl_path = os.path.expanduser(r"~\scoop\shims\youtube-dl.exe")
+        if os.path.isfile(choco_ytdl_path):
+            return choco_ytdl_path
+        if os.path.isfile(scoop_ytdl_path):
+            return scoop_ytdl_path
+        return r"C:\Program Files\youtube-dl\youtube-dl.exe"
+    else:
+        return "/usr/local/bin/youtube-dl"
+
+
+def get_default_vlc_path(platform):
+    if platform == "osx":
+        return "/Applications/VLC.app/Contents/MacOS/VLC"
+    elif platform == "windows":
+        alt_vlc_path = r"C:\\Program Files (x86)\\VideoLAN\VLC\\vlc.exe"
+        if os.path.isfile(alt_vlc_path):
+            return alt_vlc_path
+        else:
+            return r"C:\Program Files\VideoLAN\VLC\vlc.exe"
+    else:
+        return "/usr/bin/vlc"
+
+
+def get_default_dl_dir(platform):
+    if platform == "raspberry_pi":
+        return "/usr/lib/pikaraoke/songs"
+    elif platform == "windows":
+        return "~\pikaraoke\songs"
+    else:
+        return os.path.expanduser("~/pikaraoke/songs")
+
+
 if __name__ == "__main__":
 
+    platform = get_platform()
     default_port = 5000
     default_volume = 0
     default_splash_delay = 5
     default_log_level = logging.INFO
-    default_dl_dir = "/usr/lib/pikaraoke/songs"
+
+    default_dl_dir = get_default_dl_dir(platform)
     default_omxplayer_path = "/usr/bin/omxplayer"
-    default_youtubedl_path = "/usr/local/bin/youtube-dl"
+    default_youtubedl_path = get_default_youtube_dl_path(platform)
+    default_vlc_path = get_default_vlc_path(platform)
+    default_vlc_port = 5002
 
     # parse CLI args
     parser = argparse.ArgumentParser()
@@ -427,7 +471,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "-o",
         "--omxplayer-path",
-        help="Path of omxplayer. (default: %s)" % default_omxplayer_path,
+        help="Path of omxplayer. Only important to raspberry pi hardware. (default: %s)"
+        % default_omxplayer_path,
         default=default_omxplayer_path,
         required=False,
     )
@@ -441,7 +486,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-v",
         "--volume",
-        help="Initial player volume in millibels. Negative values ok. (default: %s , Note: 100 millibels = 1 decibel)"
+        help="If using omxplayer, the initial player volume is specified in millibels. Negative values ok. (default: %s , Note: 100 millibels = 1 decibel)."
         % default_volume,
         default=default_volume,
         required=False,
@@ -465,7 +510,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--show-overlay",
         action="store_true",
-        help="Show overlay in omxplayer with song title and IP. (feature is broken on Pi 4 omxplayer 12/24/2019)",
+        help="Show text overlay in omxplayer with song title and IP. (feature is broken on Pi 4 omxplayer 12/24/2019)",
         required=False,
     )
     parser.add_argument(
@@ -483,7 +528,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--alsa-fix",
         action="store_true",
-        help="Add this if you are using a USB soundcard or Hifi audio hat and cannot hear audio.",
+        help="Add this if you are using a rpi USB soundcard or Hifi audio hat and cannot hear audio.",
         required=False,
     )
     parser.add_argument(
@@ -501,35 +546,25 @@ if __name__ == "__main__":
     parser.add_argument(
         "--use-vlc",
         action="store_true",
-        help="Use VLC Player instead of the default OMX Player. Note: if you want to play audio to the headphone jack, you'll need to configure this in raspi-config: 'Advanced Options > Audio > Force 3.5mm (headphone)'",
+        help="Use VLC Player instead of the default OMX Player. Enabled by default on non-pi hardware. Note: if you want to play audio to the headphone jack on a rpi, you'll need to configure this in raspi-config: 'Advanced Options > Audio > Force 3.5mm (headphone)'",
         required=False,
     ),
+    parser.add_argument(
+        "--vlc-path",
+        help="Full path to VLC (Default: %s)" % default_vlc_path,
+        default=default_vlc_path,
+        required=False,
+    ),
+    parser.add_argument(
+        "--vlc-port",
+        help="HTTP port for VLC remote control api (Default: %s)" % default_vlc_port,
+        default=default_vlc_port,
+        required=False,
+    )
     args = parser.parse_args()
 
     app.jinja_env.globals.update(filename_from_path=filename_from_path)
     app.jinja_env.globals.update(url_escape=quote)
-
-    # Start karaoke process
-    global k
-    k = karaoke.Karaoke(
-        port=args.port,
-        download_path=args.download_path,
-        omxplayer_path=args.omxplayer_path,
-        youtubedl_path=args.youtubedl_path,
-        splash_delay=args.splash_delay,
-        log_level=args.log_level,
-        volume=args.volume,
-        hide_overlay=not args.show_overlay,
-        hide_ip=args.hide_ip,
-        hide_splash_screen=args.hide_splash_screen,
-        alsa_fix=args.alsa_fix,
-        dual_screen=args.dual_screen,
-        high_quality=args.high_quality,
-        use_vlc=args.use_vlc,
-    )
-    t = threading.Thread(target=k.run)
-    t.daemon = True
-    t.start()
 
     cherrypy.tree.graft(app, "/")
     # Set the configuration of the web server
@@ -542,6 +577,62 @@ if __name__ == "__main__":
         }
     )
 
+    # force VLC on non-pi hardware
+    if not platform == "raspberry_pi" and not args.use_vlc:
+        print("Defaulting to VLC player")
+        args.use_vlc = True
+    # disallow overlay on VLC
+    if args.use_vlc and args.show_overlay:
+        print("Overlay not supported VLC. Disabling it.")
+        args.show_overlay = False
+
+    # check if required binaries exist
+    if not os.path.isfile(args.youtubedl_path):
+        print("Youtube-dl path not found! " + args.youtubedl_path)
+        sys.exit(1)
+    if args.use_vlc and not os.path.isfile(args.vlc_path):
+        print("VLC path not found! " + args.vlc_path)
+        sys.exit(1)
+    if (
+        platform == "raspberry_pi"
+        and not args.use_vlc
+        and not os.path.isfile(args.omxplayer_path)
+    ):
+        print("omxplayer path not found! " + args.omxplayer_path)
+        sys.exit(1)
+
+    # setup/create download directory if necessary
+    dl_path = os.path.expanduser(args.download_path)
+    if not dl_path.endswith("/"):
+        dl_path += "/"
+    if not os.path.exists(dl_path):
+        print("Creating download path: " + dl_path)
+        os.makedirs(dl_path)
+
     # Start the CherryPy WSGI web server
     cherrypy.engine.start()
-    cherrypy.engine.block()
+
+    # Start karaoke process
+    global k
+    k = karaoke.Karaoke(
+        port=args.port,
+        download_path=dl_path,
+        omxplayer_path=args.omxplayer_path,
+        youtubedl_path=args.youtubedl_path,
+        splash_delay=args.splash_delay,
+        log_level=args.log_level,
+        volume=args.volume,
+        hide_overlay=not args.show_overlay,
+        hide_ip=args.hide_ip,
+        hide_splash_screen=args.hide_splash_screen,
+        alsa_fix=args.alsa_fix,
+        dual_screen=args.dual_screen,
+        high_quality=args.high_quality,
+        use_vlc=args.use_vlc,
+        vlc_path=args.vlc_path,
+        vlc_port=args.vlc_port,
+    )
+    k.run()
+
+    cherrypy.engine.exit()
+    sys.exit()
