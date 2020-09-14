@@ -5,7 +5,9 @@ six==1.12.0
 Flask
 pillow
 qrcode
-pygame
+pygame; sys_platform != 'darwin'
+pygame==2.0.0.dev6; sys_platform == 'darwin'
 futures
 psutil 
 unidecode
+requests
