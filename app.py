@@ -560,6 +560,12 @@ if __name__ == "__main__":
         help="HTTP port for VLC remote control api (Default: %s)" % default_vlc_port,
         default=default_vlc_port,
         required=False,
+    ),
+    parser.add_argument(
+        "--logo_path",
+        help="Path to a custom logo image file for the splash screen. Recommended dimensions ~ 500x500px",
+        default=None,
+        required=False,
     )
     args = parser.parse_args()
 
@@ -631,6 +637,7 @@ if __name__ == "__main__":
         use_vlc=args.use_vlc,
         vlc_path=args.vlc_path,
         vlc_port=args.vlc_port,
+        logo_path=args.logo_path,
     )
     k.run()
 
