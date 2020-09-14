@@ -10,6 +10,7 @@ import time
 from io import BytesIO
 from socket import gethostbyname, gethostname
 from subprocess import check_output
+
 import pygame
 import qrcode
 import vlcclient
@@ -36,6 +37,7 @@ class Karaoke:
     base_path = os.path.dirname(__file__)
     volume_offset = 0
     loop_interval = 500  # in milliseconds
+    default_logo_path = os.path.join(base_path, "logo.png")
 
     def __init__(
         self,
@@ -55,6 +57,7 @@ class Karaoke:
         use_vlc=False,
         vlc_path=None,
         vlc_port=None,
+        logo_path=None,
     ):
 
         # override with supplied constructor args if provided
@@ -73,6 +76,7 @@ class Karaoke:
         self.use_vlc = use_vlc
         self.vlc_path = vlc_path
         self.vlc_port = vlc_port
+        self.logo_path = self.default_logo_path if logo_path == None else logo_path
 
         # other initializations
         self.platform = get_platform()
@@ -99,6 +103,7 @@ class Karaoke:
     default volume: %s
     youtube-dl path: %s
     omxplayer path: %s
+    logo path: %s
     Use VLC: %s
     VLC path: %s
     VLC port: %s
@@ -116,6 +121,7 @@ class Karaoke:
                 self.volume_offset,
                 self.youtubedl_path,
                 self.player_path,
+                self.logo_path,
                 self.use_vlc,
                 self.vlc_path,
                 self.vlc_port,
@@ -286,7 +292,7 @@ class Karaoke:
 
             self.screen.fill((0, 0, 0))
 
-            logo = pygame.image.load(os.path.join(self.base_path, "logo.png"))
+            logo = pygame.image.load(self.logo_path)
             logo_rect = logo.get_rect(center=self.screen.get_rect().center)
             self.screen.blit(logo, logo_rect)
 
@@ -563,10 +569,7 @@ class Karaoke:
             return False
         if action == "up":
             if index < 1:
-                logging.warn(
-                    "Song is up next, can't bump up in queue: "
-                    + song_path
-                )
+                logging.warn("Song is up next, can't bump up in queue: " + song_path)
                 return False
             else:
                 logging.info("Bumping song up in queue: " + song_path)
@@ -679,7 +682,7 @@ class Karaoke:
     def handle_run_loop(self):
         if self.hide_splash_screen:
             time.sleep(self.loop_interval / 1000)
-        else: 
+        else:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     logging.warn("Window closed: Exiting pikaraoke...")
