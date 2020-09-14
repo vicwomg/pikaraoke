@@ -588,14 +588,9 @@ class Karaoke:
                 self.queue.insert(index + 1, song_path)
                 return True
         elif action == "delete":
-            if index == 0:
-                self.skip()
-                logging.warn("Song is currently playing, skipping: " + song_path)
-                return True
-            else:
-                logging.info("Deleting song from queue: " + song_path)
-                del self.queue[index]
-                return True
+            logging.info("Deleting song from queue: " + song_path)
+            del self.queue[index]
+            return True
         else:
             logging.error("Unrecognized direction: " + action)
             return False
