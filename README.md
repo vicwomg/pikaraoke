@@ -94,7 +94,7 @@ cd to the pikaraoke directory and run:
 
 `sudo python3 app.py` (pi devices) or `python3 app.py` (other)
 
-You must run as sudo on pi devices since PiKaraoke uses pygame to control the screen buffer from the console.
+You must run as sudo on pi devices if you are running directly from the console since PiKaraoke uses pygame to control the screen buffer. You can probably run as non-sudo from the Raspbian desktop environment, but may need to specify a different download directory than the default with the -d option.
 
 The app should launch and show the PiKaraoke splash screen and a QR code and a URL. Using a device connected to the same wifi network as the Pi, scan this QR code or enter the URL into a browser. You are now connected! You can start exploring the UI and adding/queuing new songs directly from YouTube.
 
