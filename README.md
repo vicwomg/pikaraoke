@@ -153,8 +153,10 @@ optional arguments:
                         (feature is broken on Pi 4 omxplayer 12/24/2019)
   --hide-ip             Hide IP address from the screen.
   --hide-splash-screen  Hide splash screen before/between songs.
-  --alsa-fix            Add this if you are using a rpi USB soundcard or Hifi
-                        audio hat and cannot hear audio.
+  --adev ADEV           Pass the audio output device argument to omxplayer.
+                        Possible values: hdmi/local/both/alsa[:device]. If you
+                        are using a rpi USB soundcard or Hifi audio hat, try:
+                        'alsa:hw:0,0' Default 'both'
   --dual-screen         Output video to both HDMI ports (raspberry pi 4 only)
   --high-quality        Download higher quality video. Note: requires ffmpeg
                         and may cause CPU, download speed, and other
@@ -213,9 +215,15 @@ Advanced Options > Audio > Force 3.5mm (headphone)
 
 See: https://www.raspberrypi.org/documentation/configuration/audio-config.md
 
-### I can't hear audio using an external sound card or audio device
+### I'm having audio issues with the headphone jack, external sound card, or other audio device
 
-If you're using an external USB sound card or hifi audio hat like the hifiberry, you'll need to add the argument --alsa-fix when you launch pikaraoke
+Omxplayer tends to have some inconsistent results across different hardware combinations. Try experimenting with the --adev option, which specifies the audio device to omxplayer. Defaults to 'both' which is hdmi and headphone out. Other possible values are: hdmi/local/both/alsa[:device].
+
+If you're hearing distorted audio out, try '--adev alsa'
+
+If you're using an external USB sound card or hifi audio hat like the hifiberry, you'll need to add the argument '--adev alsa:hw:0,0' when you launch pikaraoke
+
+You can also try vlc with the --use-vlc option. It sometimes handles audio more consistently.
 
 ### Songs aren't downloading!
 
