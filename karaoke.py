@@ -31,6 +31,7 @@ class Karaoke:
     queue = []
     available_songs = []
     now_playing = None
+    now_playing_filename = None
     is_pause = True
     process = None
     qr_code_path = None
@@ -351,7 +352,7 @@ class Karaoke:
                 next_song = self.filename_from_path(self.queue[0])
                 font_next_song = pygame.font.SysFont(pygame.font.get_default_font(), 60)
                 text = font_next_song.render(
-                    "Up next:  " + next_song, True, (0, 128, 0)
+                    "Up next: %s" % unidecode(next_song), True, (0, 128, 0)
                 )
                 up_next = font_next_song.render("Up next:  ", True, (255, 255, 0))
                 x = self.width - text.get_width() - 10
@@ -468,8 +469,9 @@ class Karaoke:
                 player_kill, stdin=subprocess.PIPE, stdout=FNULL, stderr=FNULL
             )
 
-    def play_file(self, file_path):
+    def play_file(self, file_path, semitones=0):
         self.now_playing = self.filename_from_path(file_path)
+        self.now_playing_filename = file_path
         if (not self.hide_overlay) and (not self.use_vlc):
             self.generate_overlay_file(file_path)
 
@@ -478,7 +480,10 @@ class Karaoke:
         if self.use_vlc:
             logging.info("Playing video in VLC: " + self.now_playing)
             self.vlcclient = vlcclient.VLCClient(port=self.vlc_port, path=self.vlc_path)
-            self.vlcclient.play_file(file_path)
+            if semitones == 0:
+                self.vlcclient.play_file(file_path)
+            else:
+                self.vlcclient.play_file_transpose(file_path, semitones)
         else:
             logging.info("Playing video in omxplayer: " + self.now_playing)
             cmd = [
@@ -502,6 +507,13 @@ class Karaoke:
 
         self.is_pause = False
         self.render_splash_screen()  # remove old previous track
+
+    def transpose_current(self, semitones):
+        if self.use_vlc:
+            logging.info("Transposing song by %s semitones" % semitones)
+            self.play_file(self.now_playing_filename, semitones)
+        else:
+            logging.error("Not using VLC. Can't transpose track.")
 
     def is_file_playing(self):
         if self.use_vlc:
@@ -708,6 +720,7 @@ class Karaoke:
             try:
                 if not self.is_file_playing() and self.now_playing != None:
                     self.now_playing = None
+                    self.now_playing_filename = None
                 if len(self.queue) > 0:
                     if not self.is_file_playing():
                         if not pygame.display.get_active():
