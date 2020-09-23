@@ -140,6 +140,13 @@ def pause():
     return redirect(url_for("home"))
 
 
+@app.route("/transpose/<semitones>", methods=["GET"])
+def transpose(semitones):
+    print("Transposing %s semitones" % semitones)
+    k.transpose_current(semitones)
+    return redirect(url_for("home"))
+
+
 @app.route("/restart")
 def restart():
     k.restart()

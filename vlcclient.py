@@ -71,15 +71,31 @@ class VLCClient:
         self.volume_offset = 10
         self.process = None
 
-    def play_file(self, file_path):
+    def play_file(self, file_path, additional_parameters=None):
         if self.is_running():
             self.kill()
         if self.platform == "windows":
             file_path = r"{}".format(file_path)
-        command = self.cmd_base + [file_path]
+        if additional_parameters == None:
+            command = self.cmd_base + [file_path]
+        else:
+            command = self.cmd_base + additional_parameters + [file_path]
         self.process = subprocess.Popen(
             command, shell=(self.platform == "windows"), stdin=subprocess.PIPE
         )
+
+    def play_file_transpose(self, file_path, semitones):
+        params = [
+            "--audio-filter",
+            "scaletempo_pitch",
+            "--pitch-shift",
+            "%s" % semitones,
+            "--speex-resampler-quality",
+            "10",
+            "--src-converter-type",
+            "0",
+        ]
+        self.play_file(file_path, params)
 
     def command(self, command):
         if self.is_running():
