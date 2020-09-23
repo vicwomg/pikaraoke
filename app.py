@@ -447,6 +447,7 @@ if __name__ == "__main__":
 
     default_dl_dir = get_default_dl_dir(platform)
     default_omxplayer_path = "/usr/bin/omxplayer"
+    default_adev = "both"
     default_youtubedl_path = get_default_youtube_dl_path(platform)
     default_vlc_path = get_default_vlc_path(platform)
     default_vlc_port = 5002
@@ -526,9 +527,10 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
-        "--alsa-fix",
-        action="store_true",
-        help="Add this if you are using a rpi USB soundcard or Hifi audio hat and cannot hear audio.",
+        "--adev",
+        help="Pass the audio output device argument to omxplayer. Possible values: hdmi/local/both/alsa[:device]. If you are using a rpi USB soundcard or Hifi audio hat, try: 'alsa:hw:0,0' Default: '%s'"
+        % default_adev,
+        default=default_adev,
         required=False,
     )
     parser.add_argument(
@@ -631,7 +633,7 @@ if __name__ == "__main__":
         hide_overlay=not args.show_overlay,
         hide_ip=args.hide_ip,
         hide_splash_screen=args.hide_splash_screen,
-        alsa_fix=args.alsa_fix,
+        omxplayer_adev=args.adev,
         dual_screen=args.dual_screen,
         high_quality=args.high_quality,
         use_vlc=args.use_vlc,
