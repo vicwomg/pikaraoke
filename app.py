@@ -51,7 +51,12 @@ def url_escape(filename):
 
 @app.route("/")
 def home():
-    return render_template("home.html", site_title=site_name, title="Home")
+    return render_template(
+        "home.html",
+        site_title=site_name,
+        title="Home",
+        show_transpose=k.use_vlc,
+    )
 
 
 @app.route("/nowplaying")

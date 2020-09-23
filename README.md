@@ -8,6 +8,7 @@ If you want to support this project with a little monetary tip, it's much apprec
 
 - VLC support! Omxplayer is still default on raspberry pi, which can use both.
 - Thanks to VLC and a lot of hacking, we now have cross platform support: Linux, OSX, and Windows!
+- **Pitch shifting!!** Also thanks to VLC. Not supported on omxplayer.
 - python3 support! python 2.7 will still work for now, but it has gone the way of Latin. Python3 will become required in a near future revision.
 - Basic hotkeys: "esc" exits app. "f" toggles fullscreen. This became necessary when working with windowed OS's
 
@@ -277,9 +278,7 @@ Ideally, you'd have a mixer and amplifier that you could run the line out of the
 
 ### How do I change song pitch/key?
 
-This is currently not supported due to lack of know-how. As far as I can tell we'd have to pipe omxplayer into some realtime-yet-lightweight audio DSP. Let me know if you have ideas on how to implement it.
-
-In the meantime, you might be able to get away with running the line out through a pitch shift guitar effects pedal or similar device.
+While a song is playing, the home screen of the web interface will show a transpose slider. Slide it up or down based on your preference and press the "ok" button to restart the song in the given key.
 
 ### I'm on a laptop, how do I output just pikaraoke to an external monitor/screen?
 
