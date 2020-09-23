@@ -5,12 +5,13 @@
 
     var slider = document.getElementById("transpose");
     var output = document.getElementById("semitones-label");
-    output.innerHTML = slider.value + " semitones"; // Display the default slider value
-
-    // Update the current slider value (each time you drag the slider handle)
-    slider.oninput = function () {
-      output.innerHTML = slider.value + " semitones";
-    };
+    if (slider) {
+      output.innerHTML = slider.value + " semitones"; // Display the default slider value
+      // Update the current slider value (each time you drag the slider handle)
+      slider.oninput = function () {
+        output.innerHTML = slider.value + " semitones";
+      };
+    }
 
     $("#submit-transpose").click(function () {
       var value;
@@ -143,4 +144,7 @@
     </div>
   </div>
 </div>
-{% endif %} {% endblock %}
+{% endif %}
+
+<div></div>
+{% endblock %}

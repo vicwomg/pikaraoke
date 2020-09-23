@@ -55,7 +55,7 @@ def home():
         "home.html",
         site_title=site_name,
         title="Home",
-        show_transpose=k.use_vlc,
+        show_transpose=False,
     )
 
 
