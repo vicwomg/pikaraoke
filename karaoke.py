@@ -46,7 +46,7 @@ class Karaoke:
         hide_ip=False,
         hide_splash_screen=False,
         hide_overlay=True,
-        alsa_fix=False,
+        omxplayer_adev="both",
         dual_screen=False,
         high_quality=False,
         volume=0,
@@ -64,7 +64,7 @@ class Karaoke:
         self.port = port
         self.hide_ip = hide_ip
         self.hide_splash_screen = hide_splash_screen
-        self.alsa_fix = alsa_fix
+        self.omxplayer_adev = omxplayer_adev
         self.download_path = download_path
         self.dual_screen = dual_screen
         self.high_quality = high_quality
@@ -96,7 +96,7 @@ class Karaoke:
     hide splash: %s
     splash_delay: %s
     hide overlay: %s
-    alsa fix: %s
+    omx audio device: %s
     dual screen: %s
     high quality video: %s
     download path: %s
@@ -114,7 +114,7 @@ class Karaoke:
                 self.hide_splash_screen,
                 self.splash_delay,
                 self.hide_overlay,
-                self.alsa_fix,
+                self.omxplayer_adev,
                 self.dual_screen,
                 self.high_quality,
                 self.download_path,
@@ -481,13 +481,12 @@ class Karaoke:
             self.vlcclient.play_file(file_path)
         else:
             logging.info("Playing video in omxplayer: " + self.now_playing)
-            output = "alsa:hw:0,0" if self.alsa_fix else "both"
             cmd = [
                 self.player_path,
                 file_path,
                 "--blank",
                 "-o",
-                output,
+                self.omxplayer_adev,
                 "--vol",
                 str(self.volume_offset),
                 "--font-size",
