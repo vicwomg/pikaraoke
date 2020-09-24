@@ -8,6 +8,7 @@ import time
 import xml.etree.ElementTree as ET
 
 import requests
+
 from get_platform import get_platform
 
 
@@ -55,6 +56,9 @@ class VLCClient:
             "--mouse-hide-timeout",
             "0",
             "--video-on-top",
+            "--no-video-title",
+            "--mouse-hide-timeout",
+            "0",
         ]
         if self.platform == "osx":
             self.cmd_base += [
