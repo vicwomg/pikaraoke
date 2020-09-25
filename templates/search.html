@@ -1,262 +1,272 @@
 {% extends 'base.html' %}
 
 {% block scripts %}
+<link href="{{  url_for('static', filename='selectize.min.css') }}" rel="stylesheet" />
+<script src="{{  url_for('static', filename='selectize.min.js') }}"></script>
+<style>
+  .optgroup-header {
+    font-weight: bold;
+  }
+
+  .row {
+    display: flex;
+    /* equal height of the children */
+    border-bottom: 1px solid #cccccc;
+  }
+
+  .col-icon {
+    padding-left: 1px;
+  }
+
+  .col-text {
+    padding-left: 2px;
+    font-size: 120%;
+  }
+
+  #youtube-link {
+    font-size: 80%;
+  }
+
+  .selectize-input {
+    height: 37px;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+</style>
 <script>
-  $( function() {
+  $(function () {
     $("#search_result_selector").focus();
 
-    $("#search-button").click(function () {
+    $("#search-link").click(function () {
       //$(".overlay").show();
-      $("#search-button").addClass("is-loading");
+      if (!$("#search-link").is('[disabled=disabled]')) {
+        $("#search-link").addClass("is-loading");
+      }
     });
 
     $("#download-button").click(function () {
       //$(".overlay").show();
-      $("#download-button").addClass("is-loading");
-    });
-    
-    $("#add-queue-button").click(function () {
-      //$(".overlay").show();
-      $("#add-queue-button").addClass("is-loading");
-    });
-    
-    
-    $("#song-title-input").attr("value",$('#search_result_selector').find(":selected").text());
-    $("#search_result_selector").change(function() {
-    	var songTitle = $('#search_result_selector').find(":selected").text();
-    	$("#song-title-input").attr("value",songTitle);
-    });
-    
-
-    $.widget( "custom.combobox", {
-      _create: function() {
-        this.wrapper = $( "<span>" )
-          .addClass( "custom-combobox" )
-          .insertAfter( this.element );
-
-        this.element.hide();
-        this._createAutocomplete();
-        this._createShowAllButton();
-      },
-
-      _createAutocomplete: function() {
-        var selected = this.element.children( ":selected" ),
-          value = selected.val() ? selected.text() : "";
-
-        this.input = $( "<input>" )
-          .appendTo( this.wrapper )
-          .val( value )
-          .attr( "title", "" )
-          .attr( "size", "30")
-          .addClass( "custom-combobox-input ui-widget ui-widget-content ui-state-default ui-corner-left" )
-          .autocomplete({
-            delay: 0,
-            minLength: 0,
-            source: $.proxy( this, "_source" )
-          })
-          .tooltip({
-            classes: {
-              "ui-tooltip": "ui-state-highlight"
-            }
-          });
-
-        this._on( this.input, {
-          autocompleteselect: function( event, ui ) {
-            ui.item.option.selected = true;
-            this._trigger( "select", event, {
-              item: ui.item.option
-            });
-            $("#add-queue-button").removeAttr("disabled");
-          },
-
-          autocompletechange: "_removeIfInvalid"
-        });
-      },
-
-      _createShowAllButton: function() {
-        var input = this.input,
-          wasOpen = false;
-
-        $( "<a>" )
-          .attr( "tabIndex", -1 )
-          .attr( "title", "Show All Items" )
-          .tooltip()
-          .appendTo( this.wrapper )
-          .button({
-            icons: {
-              primary: "ui-icon-triangle-1-s"
-            },
-            text: false
-          })
-          .removeClass( "ui-corner-all" )
-          .addClass( "custom-combobox-toggle ui-corner-right" )
-          .on( "mousedown", function() {
-            wasOpen = input.autocomplete( "widget" ).is( ":visible" );
-          })
-          .on( "click", function() {
-            input.trigger( "focus" );
-
-            // Close if already visible
-            if ( wasOpen ) {
-              return;
-            }
-
-            // Pass empty string as value to search for, displaying all results
-            input.autocomplete( "search", "" );
-          });
-      },
-
-      _source: function( request, response ) {
-        var matcher = new RegExp( $.ui.autocomplete.escapeRegex(request.term), "i" );
-        response( this.element.children( "option" ).map(function() {
-          var text = $( this ).text();
-          if ( this.value && ( !request.term || matcher.test(text) ) )
-            return {
-              label: text,
-              value: text,
-              option: this
-            };
-        }) );
-      },
-
-      _removeIfInvalid: function( event, ui ) {
-
-        // Selected an item, nothing to do
-        if ( ui.item ) {
-          return;
-        }
-
-        // Search for a match (case-insensitive)
-        var value = this.input.val(),
-          valueLowerCase = value.toLowerCase(),
-          valid = false;
-        this.element.children( "option" ).each(function() {
-          if ( $( this ).text().toLowerCase() === valueLowerCase ) {
-            this.selected = valid = true;
-            return false;
-          }
-        });
-
-        // Found a match, nothing to do
-        if ( valid ) {
-          return;
-        }
-
-        // Remove invalid value
-        this.input
-          .val( "" )
-          .attr( "title", "'" + value + "' didn't match any item" )
-          .tooltip( "open" );
-        console.log(value);
-        $("#search_string").val(value); //throw failed search into the downloader text box
-        this.element.val( "" ); 
-        this._delay(function() {
-          this.input.tooltip( "close" ).attr( "title", "" );
-        }, 2500 );
-        this.input.autocomplete( "instance" ).term = "";
-        $()
-      },
-
-      _destroy: function() {
-        this.wrapper.remove();
-        this.element.show();
+      if (!$("#download-button").is('[disabled=disabled]')) {
+        $("#download-button").addClass("is-loading");
       }
     });
 
-    $( "#combobox" ).combobox();
-    $( "#toggle" ).on( "click", function() {
-      $( "#combobox" ).toggle();
+    $("#add-queue-link").click(function () {
+      //$(".overlay").show();
+      $("#add-queue-link").addClass("is-loading");
     });
-    
 
-    if ($('#combobox').find(":selected").text()) {
-        $("#add-queue-button").removeAttr("disabled");
-   	}
-   	else {
-        $("#add-queue-button").attr("disabled","true");
-   	}
-   	
-   	$('#youtube-link').attr('href', $('#search_result_selector').val());
-    $('#youtube-link').text($('#search_result_selector').val());
-    
-    $(document).on('change','#search_result_selector',function(){
-        var url = $('#search_result_selector').val();
-        $('#youtube-link').attr('href', url);
-        $('#youtube-link').text(url);
+    //START SELECTIZE CHANGES
+
+    //if enter key press, by default search button is click
+    $(document).keypress(
+      function (event) {
+        if (event.which == '13') {
+          event.preventDefault();
+
+          if ($(".search-selectize .selectize-input input").val()) {
+            $('#search-link').trigger("click");
+          }
+          else if ($('.search-selectize').find(":selected").text()) {
+            $('#add-queue-link').trigger("click");
+          }
+
+        }
+      });
+
+    $("#add-queue-link").hide();
+    $("#add-queue-link").attr("disabled", "true");
+    $("#search-link").attr("disabled", "true");
+    var $select = $('.search-selectize').selectize({
+      createOnBlur: true,
+      openOnFocus: false,
+      createFilter: function (input) { return input.length >= 2; },
+      onInitialize: function () {
+        var that = this;
+
+        this.$control.on("click", function () {
+          that.ignoreFocusOpen = true;
+          setTimeout(function () {
+            that.ignoreFocusOpen = false;
+          }, 50);
+        });
+      },
+
+      onFocus: function () {
+        if (!this.ignoreFocusOpen) {
+          this.open();
+        }
+      },
+      onBlur: function () {
+        this.setTextboxValue(this.currentResults.query);
+      },
+      onChange: function (id) {
+        if (!id) {
+          $("#add-queue-link").attr("disabled", "true");
+          $("#search-link").attr("disabled", "true");
+          $("#add-queue-link").hide();
+          $("#search-link").show();
+        } else {
+          $("#add-queue-link").removeAttr("disabled");
+          $("#search-link").removeAttr("disabled");
+          $("#add-queue-link").show();
+          $("#search-link").hide();
+        }
+      },
+      onType: function (text) {
+        if (!text) {
+          $("#search-link").attr("disabled", "true");
+          $("#add-queue-link").show();
+          $("#search-link").hide();
+        }
+        else {
+          $("#search-link").removeAttr("disabled");
+          $("#add-queue-link").hide();
+          $("#search-link").show();
+        }
+      },
+      render: {
+        option: function (item, escape) {
+          return '<div class="row">'
+            + '<div class="col-icon"><i class="icon icon-music has-text-info"></i></div>'
+            + '<div class="col-text">' + item.text + '</div>'
+            + '</div>';
+        },
+        optgroup_header: function (data, escape) {
+          return '<div class="optgroup-header has-text-info">' + escape(data.label) + '</div>';
+        }
+      },
     });
-    
-  } );
-  </script>
+
+    $('#search-link').on('click', function (e) {
+      e.preventDefault();
+      var search_term = $(".search-selectize .selectize-input input").val();
+      console.log("search term: " + search_term)
+      if (search_term) {
+        $('#searching_loader').removeClass("is-hidden");
+        $('#searching_loader #search_term').text(search_term);
+        $('#search-link').attr("disabled", "true");
+        $('#search_string').val(search_term);
+        $('#container_search_result').hide();
+        $('#container_search_form form').submit();
+      }
+    });
+    $('#add-queue-link').on('click', function (e) {
+      e.preventDefault();
+      console.log($('.search-selectize').find(":selected").text())
+      if ($('.search-selectize').find(":selected").text()) {
+        $('#add-queue-link').attr("disabled", "true");
+        $('#container_queue_form form').submit();
+      }
+    });
+    //END SELECTIZE CHANGES
+
+    $('#youtube-link').attr('href', $('#search_result_selector').val());
+    $('#youtube-link').text($('#search_result_selector').val());
+
+    //get youtube thumbnail based on ID
+    i = -1;
+    changeImage();
+
+
+    $(document).on('change', '#search_result_selector', function () {
+      var url = $('#search_result_selector').val();
+      $('#youtube-link').attr('href', url);
+      $('#youtube-link').text(url);
+      changeImage();
+    });
+    //alow click of images
+    $('#youtube-thumb').click(function (e) {
+      changeImage();
+    });
+    setInterval(function () { $('#youtube-thumb').trigger('click'); }, 2000);
+  });
+
+  function changeImage() {
+    var next = (++i % 4);
+    var youtube_id = $('#search_result_selector').find(':selected').data('ytid');
+    var fn = (next == 0) ? "default" : next;
+    var img_src = 'https://img.youtube.com/vi/' + youtube_id + '/mq' + fn + '.jpg'
+    $('#youtube-thumb').attr("src", img_src);
+  }  
+</script>
 {% endblock %}
 
 {% block header %}
-  <h1>{% block title %}Songs{% endblock %}</h1>
+<h1>{% block title %}Search{% endblock %}</h1>
 {% endblock %}
 
 {% block content %}
 
-  <div class="field">
-    <form action="{{ url_for('enqueue') }}" method="post">
-      <label class="label">Available Songs <a href="{{ url_for('browse') }}">&nbsp;(browse)</a></label>
-      <div class="field ui-widget">
-        <!-- <select id="combobox" name='song_to_add' size="5" class="is-size-6"> -->
-        <select id="combobox" name='song_to_add' >
+<div class="field" id="container_queue_form">
+  <form action="{{ url_for('enqueue') }}" method="post">
+    <div class="field has-addons">
+      <div class="control" style="width:100%">
+        <select class="search-selectize" name="song_to_add">
           <option value=''></option>
-          {% for file in songs %}
-          <option value='{{file}}'>{{ filename_from_path(file) }}</option>
-          {% endfor %}
+          <optgroup label="Available Songs" id="available-songs">
+            {% for file in songs %}
+            <option value='{{file}}'>{{ filename_from_path(file) }}</option>
+            {% endfor %}
+          </optgroup>
         </select>
       </div>
-      <p class="help">Search by song or artist</p>
-      <div class="field">
-        <button class="button is-primary" id="add-queue-button" type="submit">Add to queue</button>
+      <div class="control">
+        <a class="button is-warning" id="search-link">Search</a>
+        <a class="button is-info" id="add-queue-link">Queue</a>
       </div>
-    </form>
-  </div>
+    </div>
+    <div>
+      <p class="help">Type a song (title/artist) to search the available songs and click 'Queue' to add it to the queue.
+        <br /><br />If the song doesn't appear in the "Available Songs" dropdown, click 'Search' to find it on Youtube
+      </p>
+    </div>
 
-  <hr>
+  </form>
+</div>
 
-  <div class="field">
-    <form action="{{ url_for('search') }}" method="get">
-      <label class="label">Add New Song</label>
-      <div class="field">
-        <input autocomplete="off" id="search_string" class="input" type="text" name='search_string'></input>
-      </div>
-      <p class="help">Can't find it above? Add it here</p>
-      <div class="field">
-        <button class="button" id="search-button" type="submit" >Search</button>
-      </div>
-    </form>
-  </div>
+<hr>
 
-    {% if search_results %}
-  <div class="field">
-    <form action="{{ url_for('download') }}" method="post">
-      <label class="label">Search Results</label>
-      <div class="field select">
-        <select id="search_result_selector" name='song-url' >>
-          {% for title,url in search_results %}
-          <option value='{{url}}'>{{title}}</option>
-          {% endfor %}
-        </select>
+<div class="field is-hidden" id="container_search_form">
+  <form action="{{ url_for('search') }}" method="get">
+    <label class="label">Add New Song</label>
+    <div class="field" style="max-width: 375px">
+      <input autocomplete="off" id="search_string" class="input" type="text" name='search_string'></input>
+    </div>
+    <p class="help">Can't find it above? Add it here</p>
+  </form>
+</div>
 
-      </div>
-     
-      <p class="help">Click dropdown to show more results</p>
-      
-      <p> Link: <a target="_blank" id='youtube-link' href=''></a> </p>
-      <div class="field">
-   	   <label class="checkbox">
-	   	   <input type="checkbox" name="queue">
-	   	   Add to queue
-  		</label>
-      </div>
-      <div class="field">
-        <button class="button is-success" id="download-button" type="submit">Download</button>
-      </div>
-    </form>
-  </div>
-    {% else %}
-    {% endif %}
+<div id="searching_loader" class="control is-loading is-hidden">Searching <small><i>'<span
+        id="search_term"></span>'</i></small></div>
+{% if search_results %}
+<div class="field" id="container_search_result">
+  <form action="{{ url_for('download') }}" method="post">
+    <label class="label">Search Results for <small><i>'{{search_string}}'</i></small></label>
+    <div class="field select">
+      <select id="search_result_selector" name='song-url'>>
+        {% for title,url,id in search_results %}
+        <option data-ytID='{{id}}' value='{{url}}'>{{title}}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <p class="help">Click dropdown to show more results</p>
+
+    <p> Link: <a target="_blank" id='youtube-link' href=''></a> </p>
+    <p> <img id='youtube-thumb'> </p>
+    <div class="field">
+      <label class="checkbox">
+        <input type="checkbox" checked name="queue">
+        Add to queue
+      </label>
+    </div>
+    <div class="field">
+      <button class="button is-success is-medium" id="download-button" type="submit">Download</button>
+    </div>
+  </form>
+</div>
+{% else %}
+{% endif %}
 
 {% endblock %}
