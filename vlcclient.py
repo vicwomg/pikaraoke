@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 import xml.etree.ElementTree as ET
+from threading import Timer
 
 import requests
 
@@ -22,6 +23,7 @@ class VLCClient:
         self.port = port
         self.http_endpoint = "http://localhost:%s/requests/status.xml" % self.port
         self.http_command_endpoint = self.http_endpoint + "?command="
+        self.is_transposing = False
 
         # Handle vlc paths
         self.platform = get_platform()
@@ -94,12 +96,31 @@ class VLCClient:
             "scaletempo_pitch",
             "--pitch-shift",
             "%s" % semitones,
-            "--speex-resampler-quality",
-            "10",
-            "--src-converter-type",
-            "0",
         ]
+        # pi sounds bad otherwise (CPU not sufficient for maxed out settings)
+        if self.platform == "raspberry_pi":
+            params += [
+                "--speex-resampler-quality",
+                "4",
+                "--src-converter-type",
+                "3",
+            ]
+        else:
+            params += [
+                "--speex-resampler-quality",
+                "10",
+                "--src-converter-type",
+                "0",
+            ]
+        self.is_transposing = True
+        logging.debug("Transposing file...")
         self.play_file(file_path, params)
+        s = Timer(2.0, self.set_transposing_false)
+        s.start()
+
+    def set_transposing_false(self):
+        self.is_transposing = False
+        logging.debug("Transposing complete")
 
     def command(self, command):
         if self.is_running():
@@ -139,11 +160,13 @@ class VLCClient:
     def kill(self):
         try:
             self.process.kill()
-        except OSError:
+        except (OSError, AttributeError):
             return
 
     def is_running(self):
-        return self.process != None and self.process.poll() == None
+        return (
+            self.process != None and self.process.poll() == None
+        ) or self.is_transposing
 
     def is_playing(self):
         if self.is_running():
