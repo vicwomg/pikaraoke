@@ -78,8 +78,9 @@ class VLCClient:
         self.process = None
 
     def play_file(self, file_path, additional_parameters=None):
-        if self.is_running():
-            self.kill()
+        if self.is_playing():
+            logging.debug("VLC is currently playing, stopping track...")
+            self.stop()
         if self.platform == "windows":
             file_path = r"{}".format(file_path)
         if additional_parameters == None:
@@ -91,13 +92,7 @@ class VLCClient:
         )
 
     def play_file_transpose(self, file_path, semitones):
-        params = [
-            "--audio-filter",
-            "scaletempo_pitch",
-            "--pitch-shift",
-            "%s" % semitones,
-        ]
-	#--speex-resampler-quality=<integer [0 .. 10]>
+	    #--speex-resampler-quality=<integer [0 .. 10]>
         #  Resampling quality (0 = worst and fastest, 10 = best and slowest).
 
         #--src-converter-type={0 (Sinc function (best quality)), 1 (Sinc function (medium quality)), 
@@ -106,9 +101,8 @@ class VLCClient:
         #  Different resampling algorithms are supported. The best one is slower, while the fast one exhibits 
         #  low quality.
         
-        # pi sounds bad on hightest quality setting (CPU not sufficient)
-        
         if self.platform == "raspberry_pi":
+            # pi sounds bad on hightest quality setting (CPU not sufficient)
             speex_quality=10
             src_type=1
         else:
@@ -129,10 +123,12 @@ class VLCClient:
         self.is_transposing = True
         logging.debug("Transposing file...")
         self.play_file(file_path, params)
-        s = Timer(2.0, self.set_transposing_false)
+
+        # Prevent is_running() from returning False while we're transposing
+        s = Timer(2.0, self.set_transposing_complete)
         s.start()
 
-    def set_transposing_false(self):
+    def set_transposing_complete(self):
         self.is_transposing = False
         logging.debug("Transposing complete")
 
@@ -174,7 +170,8 @@ class VLCClient:
     def kill(self):
         try:
             self.process.kill()
-        except (OSError, AttributeError):
+        except (OSError, AttributeError) as e:
+            print(e)
             return
 
     def is_running(self):
