@@ -13,9 +13,10 @@ from subprocess import check_output
 
 import pygame
 import qrcode
+from unidecode import unidecode
+
 import vlcclient
 from get_platform import get_platform
-from unidecode import unidecode
 
 if get_platform() != "windows":
     from signal import SIGALRM, alarm, signal
