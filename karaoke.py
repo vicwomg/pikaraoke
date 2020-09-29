@@ -159,6 +159,9 @@ class Karaoke:
         if os.path.isfile(self.overlay_file_path):
             os.remove(self.overlay_file_path)
 
+        if self.use_vlc:
+            self.vlcclient = vlcclient.VLCClient(port=self.vlc_port, path=self.vlc_path)
+
         if not self.hide_splash_screen:
             self.generate_qr_code()
             self.initialize_screen()
@@ -476,17 +479,15 @@ class Karaoke:
         if (not self.hide_overlay) and (not self.use_vlc):
             self.generate_overlay_file(file_path)
 
-        self.kill_player()
-
         if self.use_vlc:
             logging.info("Playing video in VLC: " + self.now_playing)
-            self.vlcclient = vlcclient.VLCClient(port=self.vlc_port, path=self.vlc_path)
             if semitones == 0:
                 self.vlcclient.play_file(file_path)
             else:
                 self.vlcclient.play_file_transpose(file_path, semitones)
         else:
             logging.info("Playing video in omxplayer: " + self.now_playing)
+            self.kill_player()
             cmd = [
                 self.player_path,
                 file_path,
