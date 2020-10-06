@@ -78,7 +78,7 @@ class VLCClient:
         self.process = None
 
     def play_file(self, file_path, additional_parameters=None):
-        if self.is_playing():
+        if self.is_playing() or self.is_paused():
             logging.debug("VLC is currently playing, stopping track...")
             self.stop()
         if self.platform == "windows":
@@ -92,23 +92,23 @@ class VLCClient:
         )
 
     def play_file_transpose(self, file_path, semitones):
-	    #--speex-resampler-quality=<integer [0 .. 10]>
+        # --speex-resampler-quality=<integer [0 .. 10]>
         #  Resampling quality (0 = worst and fastest, 10 = best and slowest).
 
-        #--src-converter-type={0 (Sinc function (best quality)), 1 (Sinc function (medium quality)), 
+        # --src-converter-type={0 (Sinc function (best quality)), 1 (Sinc function (medium quality)),
         #      2 (Sinc function (fast)), 3 (Zero Order Hold (fastest)), 4 (Linear (fastest))}
         #  Sample rate converter type
-        #  Different resampling algorithms are supported. The best one is slower, while the fast one exhibits 
+        #  Different resampling algorithms are supported. The best one is slower, while the fast one exhibits
         #  low quality.
-        
+
         if self.platform == "raspberry_pi":
             # pi sounds bad on hightest quality setting (CPU not sufficient)
-            speex_quality=10
-            src_type=1
+            speex_quality = 10
+            src_type = 1
         else:
-            speex_quality=10
-            src_type=0
-        
+            speex_quality = 10
+            src_type = 0
+
         params = [
             "--audio-filter",
             "scaletempo_pitch",
@@ -184,6 +184,14 @@ class VLCClient:
             status = self.get_status()
             state = status.find("state").text
             return state == "playing"
+        else:
+            return False
+
+    def is_paused(self):
+        if self.is_running():
+            status = self.get_status()
+            state = status.find("state").text
+            return state == "paused"
         else:
             return False
 
