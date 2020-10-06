@@ -67,7 +67,12 @@ def nowplaying():
         next_song = filename_from_path(k.queue[0])
     else:
         next_song = None
-    rc = {"now_playing": k.now_playing, "up_next": next_song, "is_pause": k.is_paused}
+    rc = {
+        "now_playing": k.now_playing,
+        "up_next": next_song,
+        "is_paused": k.is_paused,
+        "transpose_value": k.now_playing_transpose,
+    }
     return json.dumps(rc)
 
 
@@ -149,7 +154,6 @@ def pause():
 
 @app.route("/transpose/<semitones>", methods=["GET"])
 def transpose(semitones):
-    print("Transposing %s semitones" % semitones)
     k.transpose_current(semitones)
     return redirect(url_for("home"))
 
