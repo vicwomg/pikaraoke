@@ -1,19 +1,23 @@
 {% extends 'base.html' %} {% block scripts %}
 <script>
+  function getSliderLabel(value) {
+    if (value > 0) {
+      return "+" + value + " semitones";
+    } else {
+      return value + " semitones";
+    }
+  }
+
   $(function () {
     $(".control-box").hide();
 
     var slider = document.getElementById("transpose");
     var output = document.getElementById("semitones-label");
     if (slider) {
-      output.innerHTML = slider.value + " semitones"; // Display the default slider value
+      output.innerHTML = getSliderLabel(slider.value);
       // Update the current slider value (each time you drag the slider handle)
       slider.oninput = function () {
-        if (slider.value > 0) {
-          output.innerHTML = "+" + slider.value + " semitones";
-        } else {
-          output.innerHTML = slider.value + " semitones";
-        }
+        output.innerHTML = getSliderLabel(slider.value);
       };
     }
 
@@ -132,7 +136,7 @@
         type="range"
         min="-12"
         max="12"
-        value="0"
+        value="{{ transpose_value }}"
         width="300px"
         class="transpose-slider"
         id="transpose"
