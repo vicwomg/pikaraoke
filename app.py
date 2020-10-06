@@ -8,7 +8,6 @@ import threading
 import time
 
 import cherrypy
-import karaoke
 import psutil
 from flask import (
     Flask,
@@ -20,6 +19,8 @@ from flask import (
     send_from_directory,
     url_for,
 )
+
+import karaoke
 from get_platform import get_platform
 
 try:
@@ -56,6 +57,7 @@ def home():
         site_title=site_name,
         title="Home",
         show_transpose=k.use_vlc,
+        transpose_value=k.now_playing_transpose,
     )
 
 
@@ -65,7 +67,7 @@ def nowplaying():
         next_song = filename_from_path(k.queue[0])
     else:
         next_song = None
-    rc = {"now_playing": k.now_playing, "up_next": next_song, "is_pause": k.is_pause}
+    rc = {"now_playing": k.now_playing, "up_next": next_song, "is_pause": k.is_paused}
     return json.dumps(rc)
 
 
