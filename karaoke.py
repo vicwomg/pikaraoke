@@ -13,9 +13,10 @@ from subprocess import check_output
 
 import pygame
 import qrcode
+from unidecode import unidecode
+
 import vlcclient
 from get_platform import get_platform
-from unidecode import unidecode
 
 if get_platform() != "windows":
     from signal import SIGALRM, alarm, signal
@@ -32,7 +33,8 @@ class Karaoke:
     available_songs = []
     now_playing = None
     now_playing_filename = None
-    is_pause = True
+    now_playing_transpose = 0
+    is_paused = True
     process = None
     qr_code_path = None
     base_path = os.path.dirname(__file__)
@@ -157,6 +159,9 @@ class Karaoke:
         self.kill_player()
         if os.path.isfile(self.overlay_file_path):
             os.remove(self.overlay_file_path)
+
+        if self.use_vlc:
+            self.vlcclient = vlcclient.VLCClient(port=self.vlc_port, path=self.vlc_path)
 
         if not self.hide_splash_screen:
             self.generate_qr_code()
@@ -475,17 +480,15 @@ class Karaoke:
         if (not self.hide_overlay) and (not self.use_vlc):
             self.generate_overlay_file(file_path)
 
-        self.kill_player()
-
         if self.use_vlc:
             logging.info("Playing video in VLC: " + self.now_playing)
-            self.vlcclient = vlcclient.VLCClient(port=self.vlc_port, path=self.vlc_path)
             if semitones == 0:
                 self.vlcclient.play_file(file_path)
             else:
                 self.vlcclient.play_file_transpose(file_path, semitones)
         else:
             logging.info("Playing video in omxplayer: " + self.now_playing)
+            self.kill_player()
             cmd = [
                 self.player_path,
                 file_path,
@@ -505,12 +508,13 @@ class Karaoke:
             logging.debug("Player command: " + " ".join(cmd))
             self.process = subprocess.Popen(cmd, stdin=subprocess.PIPE)
 
-        self.is_pause = False
+        self.is_paused = False
         self.render_splash_screen()  # remove old previous track
 
     def transpose_current(self, semitones):
         if self.use_vlc:
             logging.info("Transposing song by %s semitones" % semitones)
+            self.now_playing_transpose = semitones
             self.play_file(self.now_playing_filename, semitones)
         else:
             logging.error("Not using VLC. Can't transpose track.")
@@ -614,8 +618,7 @@ class Karaoke:
             else:
                 self.process.stdin.write("q".encode("utf-8"))
                 self.process.stdin.flush()
-            self.now_playing = None
-            self.is_pause = True
+            self.reset_now_playing()
             return True
         else:
             logging.warning("Tried to skip, but no file is playing!")
@@ -632,7 +635,7 @@ class Karaoke:
             else:
                 self.process.stdin.write("p".encode("utf-8"))
                 self.process.stdin.flush()
-            self.is_pause = not self.is_pause
+            self.is_paused = not self.is_paused
             return True
         else:
             logging.warning("Tried to pause, but no file is playing!")
@@ -675,7 +678,7 @@ class Karaoke:
                 logging.info("Restarting: " + self.now_playing)
                 self.process.stdin.write("i".encode("utf-8"))
                 self.process.stdin.flush()
-                self.is_pause = False
+                self.is_paused = False
             return True
 
         else:
@@ -713,14 +716,19 @@ class Karaoke:
             self.initialize_screen()
             self.render_splash_screen()
 
+    def reset_now_playing(self):
+        self.now_playing = None
+        self.now_playing_filename = None
+        self.is_paused = True
+        self.now_playing_transpose = 0
+
     def run(self):
         logging.info("Starting PiKaraoke!")
         self.running = True
         while self.running:
             try:
                 if not self.is_file_playing() and self.now_playing != None:
-                    self.now_playing = None
-                    self.now_playing_filename = None
+                    self.reset_now_playing()
                 if len(self.queue) > 0:
                     if not self.is_file_playing():
                         if not pygame.display.get_active():
