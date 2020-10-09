@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 import xml.etree.ElementTree as ET
+from threading import Timer
 
 import requests
 
@@ -22,6 +23,7 @@ class VLCClient:
         self.port = port
         self.http_endpoint = "http://localhost:%s/requests/status.xml" % self.port
         self.http_command_endpoint = self.http_endpoint + "?command="
+        self.is_transposing = False
 
         # Handle vlc paths
         self.platform = get_platform()
@@ -76,8 +78,9 @@ class VLCClient:
         self.process = None
 
     def play_file(self, file_path, additional_parameters=None):
-        if self.is_running():
-            self.kill()
+        if self.is_playing() or self.is_paused():
+            logging.debug("VLC is currently playing, stopping track...")
+            self.stop()
         if self.platform == "windows":
             file_path = r"{}".format(file_path)
         if additional_parameters == None:
@@ -89,17 +92,45 @@ class VLCClient:
         )
 
     def play_file_transpose(self, file_path, semitones):
+        # --speex-resampler-quality=<integer [0 .. 10]>
+        #  Resampling quality (0 = worst and fastest, 10 = best and slowest).
+
+        # --src-converter-type={0 (Sinc function (best quality)), 1 (Sinc function (medium quality)),
+        #      2 (Sinc function (fast)), 3 (Zero Order Hold (fastest)), 4 (Linear (fastest))}
+        #  Sample rate converter type
+        #  Different resampling algorithms are supported. The best one is slower, while the fast one exhibits
+        #  low quality.
+
+        if self.platform == "raspberry_pi":
+            # pi sounds bad on hightest quality setting (CPU not sufficient)
+            speex_quality = 10
+            src_type = 1
+        else:
+            speex_quality = 10
+            src_type = 0
+
         params = [
             "--audio-filter",
             "scaletempo_pitch",
             "--pitch-shift",
             "%s" % semitones,
             "--speex-resampler-quality",
-            "10",
+            "%s" % speex_quality,
             "--src-converter-type",
-            "0",
+            "%s" % src_type,
         ]
+
+        self.is_transposing = True
+        logging.debug("Transposing file...")
         self.play_file(file_path, params)
+
+        # Prevent is_running() from returning False while we're transposing
+        s = Timer(2.0, self.set_transposing_complete)
+        s.start()
+
+    def set_transposing_complete(self):
+        self.is_transposing = False
+        logging.debug("Transposing complete")
 
     def command(self, command):
         if self.is_running():
@@ -139,17 +170,28 @@ class VLCClient:
     def kill(self):
         try:
             self.process.kill()
-        except OSError:
+        except (OSError, AttributeError) as e:
+            print(e)
             return
 
     def is_running(self):
-        return self.process != None and self.process.poll() == None
+        return (
+            self.process != None and self.process.poll() == None
+        ) or self.is_transposing
 
     def is_playing(self):
         if self.is_running():
             status = self.get_status()
             state = status.find("state").text
             return state == "playing"
+        else:
+            return False
+
+    def is_paused(self):
+        if self.is_running():
+            status = self.get_status()
+            state = status.find("state").text
+            return state == "paused"
         else:
             return False
 
