@@ -38,7 +38,7 @@
 
     $("#pause-resume").click(function () {
       $.get("/pause");
-      setTimeout(getNowPlaying(), 230);
+      togglePausePlayButton();
     });
 
     $("#vol-up").click(function () {
@@ -64,6 +64,16 @@
         $.get("/skip");
       }
     });
+
+    function togglePausePlayButton() {
+      if ($("#pause-resume").hasClass("icon-pause")) {
+        $("#pause-resume").removeClass("icon-pause");
+        $("#pause-resume").addClass("icon-play");
+      } else {
+        $("#pause-resume").removeClass("icon-play");
+        $("#pause-resume").addClass("icon-pause");
+      }
+    }
 
     function getNowPlaying() {
       $.get('{{ url_for("nowplaying") }}', function (data) {
