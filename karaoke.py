@@ -731,6 +731,7 @@ class Karaoke:
                     self.reset_now_playing()
                 if len(self.queue) > 0:
                     if not self.is_file_playing():
+                        self.reset_now_playing()
                         if not pygame.display.get_active():
                             self.pygame_reset_screen()
                         self.render_next_song_to_splash_screen()
