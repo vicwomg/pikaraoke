@@ -25,6 +25,25 @@ If you want to support this project with a little monetary tip, it's much apprec
 
 ## Screenshots
 
+### Web interface
+
+<p float="left">
+<img width="250" style="float:left" alt="pikaraoke-nowplaying" src="https://user-images.githubusercontent.com/4107190/95813193-2cd5c180-0ccc-11eb-89f4-11a69676dc6f.png">
+<img width="250" style="float:left" alt="pikaraoke-queue" src="https://user-images.githubusercontent.com/4107190/95813195-2d6e5800-0ccc-11eb-8f00-1369350a8a1c.png">
+<img width="250" style="float:left" alt="pikaraoke-browse" src="https://user-images.githubusercontent.com/4107190/95813182-27787700-0ccc-11eb-82c8-fde7f0a631c1.png">
+<img width="250" style="float:left" alt="pikaraoke-search1" src="https://user-images.githubusercontent.com/4107190/95813197-2e06ee80-0ccc-11eb-9bf9-ddb24d988332.png">
+<img width="250" style="float:left" alt="pikaraoke-search2" src="https://user-images.githubusercontent.com/4107190/95813190-2ba49480-0ccc-11eb-84e3-f902cbd489a2.png">
+  </p>
+  
+### TV
+
+<p float="left">
+  <img width="400" alt="pikaraoke-tv1" src="https://user-images.githubusercontent.com/4107190/95813571-06645600-0ccd-11eb-8341-021a20813990.png">
+<img width="400" alt="pikaraoke-tv2" src="https://user-images.githubusercontent.com/4107190/95813564-019fa200-0ccd-11eb-95e1-57a002c357a3.png">
+  </p>
+  
+### Old screens
+
 https://imgur.com/a/wgBYeFb
 
 ## Supported Devices
