@@ -22,6 +22,7 @@ If you want to support this project with a little monetary tip, it's much apprec
 - Now playing and Up Next display
 - Basic editing of downloaded file names
 - Queue editing
+- Pitch shifting (only available while using vlc)
 
 ## Screenshots
 
@@ -296,6 +297,8 @@ The pi doesn't have a hardware audio input. Technically, you should be able to r
 Ideally, you'd have a mixer and amplifier that you could run the line out of the pi to, as well as the microphones. I used this affordable wireless microphone set from amazon: https://www.amazon.com/gp/product/B01N6448Q4/ It has a line in so you can also run PiKaraoke into the mix, and output to an amplifier.
 
 ### How do I change song pitch/key?
+
+First of all, you must be running pikaraoke with the --use-vlc option.
 
 While a song is playing, the home screen of the web interface will show a transpose slider. Slide it up or down based on your preference and press the "ok" button to restart the song in the given key.
 
