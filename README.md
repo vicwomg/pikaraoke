@@ -8,6 +8,7 @@ If you want to support this project with a little monetary tip, it's much apprec
 
 - VLC support! Omxplayer is still default on raspberry pi, which can use both.
 - Thanks to VLC and a lot of hacking, we now have cross platform support: Linux, OSX, and Windows!
+- **Pitch shifting!!** Also thanks to VLC. Not supported on omxplayer.
 - python3 support! python 2.7 will still work for now, but it has gone the way of Latin. Python3 will become required in a near future revision.
 - Basic hotkeys: "esc" exits app. "f" toggles fullscreen. This became necessary when working with windowed OS's
 
@@ -23,6 +24,25 @@ If you want to support this project with a little monetary tip, it's much apprec
 - Queue editing
 
 ## Screenshots
+
+### Web interface
+
+<p float="left">
+<img width="250" style="float:left" alt="pikaraoke-nowplaying" src="https://user-images.githubusercontent.com/4107190/95813193-2cd5c180-0ccc-11eb-89f4-11a69676dc6f.png">
+<img width="250" style="float:left" alt="pikaraoke-queue" src="https://user-images.githubusercontent.com/4107190/95813195-2d6e5800-0ccc-11eb-8f00-1369350a8a1c.png">
+<img width="250" style="float:left" alt="pikaraoke-browse" src="https://user-images.githubusercontent.com/4107190/95813182-27787700-0ccc-11eb-82c8-fde7f0a631c1.png">
+<img width="250" style="float:left" alt="pikaraoke-search1" src="https://user-images.githubusercontent.com/4107190/95813197-2e06ee80-0ccc-11eb-9bf9-ddb24d988332.png">
+<img width="250" style="float:left" alt="pikaraoke-search2" src="https://user-images.githubusercontent.com/4107190/95813190-2ba49480-0ccc-11eb-84e3-f902cbd489a2.png">
+  </p>
+  
+### TV
+
+<p float="left">
+  <img width="400" alt="pikaraoke-tv1" src="https://user-images.githubusercontent.com/4107190/95813571-06645600-0ccd-11eb-8341-021a20813990.png">
+<img width="400" alt="pikaraoke-tv2" src="https://user-images.githubusercontent.com/4107190/95813564-019fa200-0ccd-11eb-95e1-57a002c357a3.png">
+  </p>
+  
+### Old screens
 
 https://imgur.com/a/wgBYeFb
 
@@ -93,7 +113,7 @@ cd to the pikaraoke directory and run:
 
 `sudo python3 app.py` (pi devices) or `python3 app.py` (other)
 
-You must run as sudo on pi devices since PiKaraoke uses pygame to control the screen buffer from the console.
+You must run as sudo on pi devices if you are running directly from the console since PiKaraoke uses pygame to control the screen buffer. You can probably run as non-sudo from the Raspbian desktop environment, but may need to specify a different download directory than the default with the -d option.
 
 The app should launch and show the PiKaraoke splash screen and a QR code and a URL. Using a device connected to the same wifi network as the Pi, scan this QR code or enter the URL into a browser. You are now connected! You can start exploring the UI and adding/queuing new songs directly from YouTube.
 
@@ -277,9 +297,7 @@ Ideally, you'd have a mixer and amplifier that you could run the line out of the
 
 ### How do I change song pitch/key?
 
-This is currently not supported due to lack of know-how. As far as I can tell we'd have to pipe omxplayer into some realtime-yet-lightweight audio DSP. Let me know if you have ideas on how to implement it.
-
-In the meantime, you might be able to get away with running the line out through a pitch shift guitar effects pedal or similar device.
+While a song is playing, the home screen of the web interface will show a transpose slider. Slide it up or down based on your preference and press the "ok" button to restart the song in the given key.
 
 ### I'm on a laptop, how do I output just pikaraoke to an external monitor/screen?
 
