@@ -1,88 +1,198 @@
-{% extends 'base.html' %}
-
-{% block scripts %}
+{% extends 'base.html' %} {% block scripts %}
 <script>
+  function getSemitonesLabel(value) {
+    if (value > 0) {
+      return "+" + value + " semitones";
+    } else {
+      return value + " semitones";
+    }
+  }
 
   $(function () {
     $(".control-box").hide();
-    (function getNowPlaying() {
-      $.get('{{ url_for("nowplaying") }}', function (data) {
 
+    var slider = document.getElementById("transpose");
+    var output = document.getElementById("semitones-label");
+    if (slider) {
+      output.innerHTML = getSemitonesLabel(slider.value);
+      // Update the current slider value (each time you drag the slider handle)
+      slider.oninput = function () {
+        output.innerHTML = getSemitonesLabel(slider.value);
+      };
+    }
+
+    $("#submit-transpose").click(function () {
+      var value;
+      if (slider) {
+        value = slider.value;
+      } else {
+        value = 0;
+      }
+      r = confirm("Transpose this song: " + getSemitonesLabel(value) + "?");
+      if (r) {
+        $.get("/transpose/" + value);
+      }
+      slider.value = 0;
+      output.innerHTML = getSemitonesLabel(slider.value);
+    });
+
+    $("#pause-resume").click(function () {
+      $.get("/pause");
+      togglePausePlayButton();
+    });
+
+    $("#vol-up").click(function () {
+      $.get("/vol_up");
+    });
+
+    $("#vol-down").click(function () {
+      $.get("/vol_down");
+    });
+
+    $("#restart").click(function () {
+      r = confirm("Are you sure you want to restart this track?");
+      if (r) {
+        $.get("/restart");
+      }
+    });
+
+    $("#skip").click(function () {
+      r = confirm(
+        "Are you sure you want to skip this track? If you didn't add this song, ask permission first!"
+      );
+      if (r) {
+        $.get("/skip");
+      }
+    });
+
+    function togglePausePlayButton() {
+      if ($("#pause-resume").hasClass("icon-pause")) {
+        $("#pause-resume").removeClass("icon-pause");
+        $("#pause-resume").addClass("icon-play");
+      } else {
+        $("#pause-resume").removeClass("icon-play");
+        $("#pause-resume").addClass("icon-pause");
+      }
+    }
+
+    function getNowPlaying() {
+      $.get('{{ url_for("nowplaying") }}', function (data) {
         var obj = JSON.parse(data);
         if (obj.now_playing) {
-          $("#now-playing").html(obj.now_playing);
+          var nowPlayingHtml = obj.now_playing;
+
+          if (obj.transpose_value != 0) {
+            nowPlayingHtml +=
+              "<br><span class='is-size-6 has-text-success'><b>Key</b>: " +
+              getSemitonesLabel(obj.transpose_value) +
+              "<span>";
+          }
+
+          $("#now-playing").html(nowPlayingHtml);
           $(".control-box").show();
-        }
-        else {
+        } else {
           $("#now-playing").html("Nothing is playing right now.");
           $(".control-box").hide();
         }
 
-
         if (obj.up_next) {
           $("#up-next").html(obj.up_next);
-        }
-        else {
+        } else {
           $("#up-next").html("No song is queued.");
         }
 
-        if (obj.is_pause) {
-          $("#pause_resume").removeClass("icon-pause");
-          $("#pause_resume").addClass("icon-play");
-          $(".playing_gif").attr("src", "{{  url_for('static', filename='images/now-playing.png') }}");
+        if (obj.is_paused) {
+          $("#pause-resume").removeClass("icon-pause");
+          $("#pause-resume").addClass("icon-play");
+          $(".playing_gif").attr(
+            "src",
+            "{{  url_for('static', filename='images/now-playing.png') }}"
+          );
+        } else {
+          $("#pause-resume").removeClass("icon-play");
+          $("#pause-resume").addClass("icon-pause");
+          $(".playing_gif").attr(
+            "src",
+            "{{  url_for('static', filename='images/now-playing.gif') }}"
+          );
         }
-        else {
-          $("#pause_resume").removeClass("icon-play");
-          $("#pause_resume").addClass("icon-pause");
-          $(".playing_gif").attr("src", "{{  url_for('static', filename='images/now-playing.gif') }}");
-        }
-
-
-        setTimeout(getNowPlaying, 1500);
       });
+    }
 
-
-    })();
-
+    getNowPlaying();
+    setInterval(getNowPlaying, 1500);
   });
 </script>
-{% endblock %}
+{% endblock %} {% block header %}
+<h1>
+  {% block title %}Now Playing
+  <img
+    class="playing_gif control-box"
+    width="40"
+    src="{{  url_for('static', filename='images/now-playing.png') }}"
+  />{% endblock %}
+</h1>
+{% endblock %} {% block content %}
 
-{% block header %}
-<h1>{% block title %}Now Playing <img class="playing_gif control-box" width="40"
-    src="{{  url_for('static', filename='images/now-playing.png') }}">{% endblock %} </h1>
-{% endblock %}
+<p class="is-size-4 has-text-warning" id="now-playing"></p>
 
-{% block content %}
-
-<p class="is-size-4 has-text-warning" id="now-playing">
-
-</p>
-
-<hr>
+<hr />
 <h3>Next Song</h3>
 <p id="up-next" class="has-text-warning"></p>
-<hr>
+<hr />
 
 <div class="has-background-black-bis box control-box" style="max-width: 500px">
   <h4>Player Control</h4>
-  <p class="is-size-3	">
-    <a title="Restart Song" href="{{ url_for('restart') }}"
-      onclick="return confirm('Are you sure you want to restart this track?')"><i class="icon icon-to-start"></i>
-    </a>&nbsp;&nbsp;
-    <a title="Play/Pause" href="{{ url_for('pause') }}"><i id="pause_resume" class="icon icon-pause"></i>
-    </a>&nbsp;&nbsp;
-    <a title="Stop Current Song" href="{{ url_for('skip') }}"
-      onclick="return confirm('Are you sure you want to skip this track? If you didn\'t add this song, ask permission first!')"><i
-        class="icon icon-to-end"></i> </a>&nbsp;&nbsp;
-    &nbsp;&nbsp;&nbsp;&nbsp;
+  <p class="is-size-3">
+    <a title="Restart Song" id="restart"><i class="icon icon-to-start"></i> </a
+    >&nbsp;&nbsp;
+    <a title="Play/Pause"><i id="pause-resume" class="icon icon-pause"></i> </a
+    >&nbsp;&nbsp;
+    <a title="Stop Current Song" id="skip"><i class="icon icon-to-end"></i> </a
+    >&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;
     <span class="is-pulled-right">
-      <a title="Volume Down" href="{{ url_for('vol_down') }}"><i class="icon icon-volume-down"></i> </a>&nbsp;&nbsp;
-      <a title="Volume Up" href="{{ url_for('vol_up') }}"><i class="icon icon-volume-up"></i> </a>
+      <a title="Volume Down" id="vol-down"
+        ><i class="icon icon-volume-down"></i> </a
+      >&nbsp;&nbsp;
+      <a title="Volume Up" id="vol-up"><i class="icon icon-volume-up"></i> </a>
     </span>
-
   </p>
-
 </div>
 
+{% if show_transpose %}
+<div class="has-background-black-bis box control-box" style="max-width: 500px">
+  <div class="is-flex" style="justify-content: space-between">
+    <div>
+      <h4>Change Key</h4>
+    </div>
+    <div>
+      <h4 id="semitones-label"></h4>
+    </div>
+  </div>
+
+  <div style="width: 100%">
+    <div class="is-flex">
+      <input
+        type="range"
+        min="-12"
+        max="12"
+        value="0"
+        width="300px"
+        class="transpose-slider"
+        id="transpose"
+        style="width: 100%"
+      />
+      <button
+        id="submit-transpose"
+        class="button is-rounded"
+        style="margin-left: 10px"
+      >
+        OK
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div></div>
 {% endblock %}

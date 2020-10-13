@@ -18,16 +18,16 @@
   margin-bottom: 0;
 }
 #brand {
-	margin-left: 0;
+  margin-left: 0;
 }
 #menu {
-	margin-right: 0;
+  margin-right: 0;
 }
 
 .control-box a {
-	color:#cccccc;
+  color: #cccccc;
 }
 
 .control-box a:hover {
-	color:#74ccb3;
+  color: #74ccb3;
 }
