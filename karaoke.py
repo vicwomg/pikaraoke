@@ -1,4 +1,6 @@
 import glob
+import urllib.request
+import urllib.parse
 import json
 import logging
 import os
@@ -370,7 +372,8 @@ class Karaoke:
                 return False
 
     def get_search_results(self, textToSearch):
-        logging.info("Searching YouTube for: " + textToSearch)
+        logging.info("Searching YouTube for: " + textToSearch + " using youtube-dl")        
+        # Below is the original youtube-dl method of searching
         num_results = 10
         yt_search = 'ytsearch%d:"%s"' % (num_results, unidecode(textToSearch))
         cmd = [self.youtubedl_path, "-j", "--no-playlist", "--flat-playlist", yt_search]
@@ -388,11 +391,44 @@ class Karaoke:
                     rc.append([j["title"], video_url_base + j["url"], j["id"]])
             return rc
         except Exception as e:
-            logging.debug("Error while executing search: " + str(e))
-            raise e
+            logging.debug("Error while executing search using youtube-dl: " + str(e))
+            logging.info("Searching YouTube for: " + textToSearch + " using youtube-parse instead")
+            logging.info("Starting youtube-scrape...")
+            node_cmd = ["node", "youtube-scrape/server.js"]
+            p = subprocess.Popen(node_cmd)
+            time.sleep(5)
+
+            # Temporary youtube-parse method of searching based on commit 684024b
+            query = urllib.parse.quote(unidecode(textToSearch))
+            logging.debug("query: " + query)
+
+            # Based on youtube-scrape project https://github.com/HermanFassett/youtube-scrape
+            # Running youtube-scrape locally on 8080
+            url = "http://localhost:8080/api/search?q=" + query
+
+            response = urllib.request.urlopen(url,None,10)
+            p.terminate()
+            logging.info("Stopped youtube-scrape...")
+            if (response):
+                html = response.read()
+                results = json.loads(html)['results']
+                rc = []
+                for each in results:
+                  if ('video' in each):
+                    video = each['video']
+                    rc.append([video['title'], video['url'], video['id']])
+                
+                logging.info("Search successfully executed with youtube-parse")
+                return rc
+            else:
+       	        logging.error("Failed to get response from: " + url)
+                raise e
 
     def get_karaoke_search_results(self, songTitle):
         return self.get_search_results(songTitle + " karaoke")
+
+    def get_raw_search_results(self, songTitle):
+        return self.get_search_results(songTitle)
 
     def download_video(self, video_url, enqueue=False):
         logging.info("Downloading video: " + video_url)

@@ -22,14 +22,26 @@ sudo sed -i 's/geteuid/getppid/' /usr/bin/vlc
 if [ $? -ne 0 ]; then echo "ERROR: VLC patching failed with error code: $?"; exit 1; fi
 
 echo
-echo "*** INSTALLING LATEST YOUTUBE_DL ***"
-sudo pip3 install --upgrade youtube_dl
+echo "*** INSTALLING LATEST YOUTUBE_DL from l1ving repo ***"
+# sudo pip3 install --upgrade youtube_dl
+sudo pip3 uninstall youtube-dl -y
+sudo pip3 install -U git+https://github.com/l1ving/youtube-dl
 if [ $? -ne 0 ]; then echo "ERROR: YouTube_dl installation failed with error code: $?"; exit 1; fi
 
 echo
 echo "*** INSTALLING PYTHON DEPENDENCIES ***"
 sudo pip3 install -r requirements.txt
 if [ $? -ne 0 ]; then echo "ERROR: Python requirements.txt installation failed with error code: $?"; exit 1; fi
+
+echo
+echo "*** INSTALLING NodeJS and LOCAL YOUTUBE-PARSE repo ***"
+sudo curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
+sudo apt install -y nodejs
+if [ $? -ne 0 ]; then echo "ERROR: NPM installation failed with error code: $?"; exit 1; fi
+sudo git clone https://github.com/HermanFassett/youtube-scrape.git
+sudo cd youtube-scrape
+sudo npm install
+sudo cd ..
 
 echo
 echo "*** BUMPING UP GPU MEMORY ***"
@@ -62,3 +74,4 @@ else
 echo "bye."
 
 fi
+

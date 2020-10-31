@@ -4,7 +4,7 @@ Karaoke song search and queueing system that uses Youtube videos as a source. ~F
 
 If you want to support this project with a little monetary tip, it's much appreciated: https://www.paypal.me/paniquejazz
 
-## What's new (September 2020)
+## What's new (October 2020)
 
 - VLC support! Omxplayer is still default on raspberry pi, which can use both.
 - Thanks to VLC and a lot of hacking, we now have cross platform support: Linux, OSX, and Windows!
@@ -23,6 +23,7 @@ If you want to support this project with a little monetary tip, it's much apprec
 - Basic editing of downloaded file names
 - Queue editing
 - Pitch shifting (only available while using vlc)
+- Added option to search using url and raw searches. ex. "Hotel California raw" or "Hotel California Lyrics" returns top results (doesn't add 'karaoke' to search string)
 
 ## Screenshots
 
@@ -83,29 +84,32 @@ sudo reboot
 
 - Install VLC (to its default location): https://www.videolan.org/
 - Install ffmpeg (only if you want to use --high-quality flag) https://ffmpeg.org/download.html
+- Install NodeJS
+
+```
+sudo apt-get install -y nodejs
+```
 
 Install requirements from the pikaraoke directory:
 
 ```
 pip3 install -r requirements.txt
-pip3 install --upgrade youtube_dl
+sudo pip3 uninstall youtube-dl -y
+sudo pip3 install -U git+https://github.com/l1ving/youtube-dl
 ```
 
 ### Windows
 
 - Install VLC (to its default location): https://www.videolan.org/
 - Install ffmpeg (only if you want to use --high-quality flag) https://ffmpeg.org/download.html
+- Install NodeJS: https://nodejs.org/en/download/
 
-Open a powershell, and go to the pikaraoke directory:
+Open a powershell using "Run as Administrator", and go to the pikaraoke directory:
 
 ```
 pip3 install -r requirements.txt
-```
-
-Install youtube-dl.exe. FYI, pip3 didn't seem to work for this on windows, so I used scoop as a package manager and I think it handles filed permissions best. Install scoop by following the instructions here: https://scoop.sh/
-
-```
-scoop install youtube-dl
+pip3 uninstall youtube-dl -y
+pip3 install -U git+https://github.com/l1ving/youtube-dl
 ```
 
 ## Launch

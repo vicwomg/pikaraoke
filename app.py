@@ -180,7 +180,14 @@ def vol_down():
 def search():
     if "search_string" in request.args:
         search_string = request.args["search_string"]
-        search_results = k.get_karaoke_search_results(search_string)
+        if "lyrics" in search_string:
+            search_results = k.get_raw_search_results(search_string)
+        elif "raw" in search_string:
+            search_results = k.get_raw_search_results(search_string)
+        elif "watch?v" in search_string:
+            search_results = k.get_raw_search_results(search_string)
+        else:
+            search_results = k.get_karaoke_search_results(search_string)
     else:
         search_string = None
         search_results = None
