@@ -39,9 +39,9 @@ sudo curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
 sudo apt install -y nodejs
 if [ $? -ne 0 ]; then echo "ERROR: NPM installation failed with error code: $?"; exit 1; fi
 sudo git clone https://github.com/HermanFassett/youtube-scrape.git
-sudo cd youtube-scrape
+cd youtube-scrape
 sudo npm install
-sudo cd ..
+cd ..
 
 echo
 echo "*** BUMPING UP GPU MEMORY ***"
