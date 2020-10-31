@@ -81,12 +81,15 @@ class VLCClient:
         if self.is_playing() or self.is_paused():
             logging.debug("VLC is currently playing, stopping track...")
             self.stop()
+            # this pause prevents vlc http server from being borked after transpose
+            time.sleep(0.2)
         if self.platform == "windows":
             file_path = r"{}".format(file_path)
         if additional_parameters == None:
             command = self.cmd_base + [file_path]
         else:
             command = self.cmd_base + additional_parameters + [file_path]
+        print("Command: %s" % command)
         self.process = subprocess.Popen(
             command, shell=(self.platform == "windows"), stdin=subprocess.PIPE
         )
@@ -201,6 +204,7 @@ class VLCClient:
 
     def get_status(self):
         url = self.http_endpoint
+        print("httppassw: " + self.http_password)
         request = requests.get(url, auth=("", self.http_password))
         return ET.fromstring(request.text)
 

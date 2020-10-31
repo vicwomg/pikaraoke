@@ -22,8 +22,28 @@ If you want to support this project with a little monetary tip, it's much apprec
 - Now playing and Up Next display
 - Basic editing of downloaded file names
 - Queue editing
+- Pitch shifting (only available while using vlc)
 
 ## Screenshots
+
+### Web interface
+
+<p float="left">
+<img width="250" style="float:left" alt="pikaraoke-nowplaying" src="https://user-images.githubusercontent.com/4107190/95813193-2cd5c180-0ccc-11eb-89f4-11a69676dc6f.png">
+<img width="250" style="float:left" alt="pikaraoke-queue" src="https://user-images.githubusercontent.com/4107190/95813195-2d6e5800-0ccc-11eb-8f00-1369350a8a1c.png">
+<img width="250" style="float:left" alt="pikaraoke-browse" src="https://user-images.githubusercontent.com/4107190/95813182-27787700-0ccc-11eb-82c8-fde7f0a631c1.png">
+<img width="250" style="float:left" alt="pikaraoke-search1" src="https://user-images.githubusercontent.com/4107190/95813197-2e06ee80-0ccc-11eb-9bf9-ddb24d988332.png">
+<img width="250" style="float:left" alt="pikaraoke-search2" src="https://user-images.githubusercontent.com/4107190/95813190-2ba49480-0ccc-11eb-84e3-f902cbd489a2.png">
+  </p>
+  
+### TV
+
+<p float="left">
+  <img width="400" alt="pikaraoke-tv1" src="https://user-images.githubusercontent.com/4107190/95813571-06645600-0ccd-11eb-8341-021a20813990.png">
+<img width="400" alt="pikaraoke-tv2" src="https://user-images.githubusercontent.com/4107190/95813564-019fa200-0ccd-11eb-95e1-57a002c357a3.png">
+  </p>
+  
+### Old screens
 
 https://imgur.com/a/wgBYeFb
 
@@ -277,6 +297,8 @@ The pi doesn't have a hardware audio input. Technically, you should be able to r
 Ideally, you'd have a mixer and amplifier that you could run the line out of the pi to, as well as the microphones. I used this affordable wireless microphone set from amazon: https://www.amazon.com/gp/product/B01N6448Q4/ It has a line in so you can also run PiKaraoke into the mix, and output to an amplifier.
 
 ### How do I change song pitch/key?
+
+First of all, you must be running pikaraoke with the --use-vlc option.
 
 While a song is playing, the home screen of the web interface will show a transpose slider. Slide it up or down based on your preference and press the "ok" button to restart the song in the given key.
 
