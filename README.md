@@ -290,11 +290,9 @@ Or an even easier approach, if you install this: https://github.com/jasbur/Raspi
 
 ### Where do I plug in a microphone?
 
-Ideally, you'd have a mixer and amplifier that you could run the line out of the pi to, as well as the microphones.
+Ideally, you'd have a mixer and amplifier that you could run the line out of the pi to, as well as the microphones. I used this affordable wireless microphone set from amazon: https://www.amazon.com/gp/product/B01N6448Q4/ It has a line in so you can also run PiKaraoke into the mix, and output to an amplifier.
 
 The pi doesn't have a hardware audio input. Technically, you should be able to run a microphone through it with a USB sound card attached to the pi, but I personally wouldn't bother due to latency and quality issues.
-
-Ideally, you'd have a mixer and amplifier that you could run the line out of the pi to, as well as the microphones. I used this affordable wireless microphone set from amazon: https://www.amazon.com/gp/product/B01N6448Q4/ It has a line in so you can also run PiKaraoke into the mix, and output to an amplifier.
 
 ### How do I change song pitch/key?
 
