@@ -1,6 +1,6 @@
 # PiKaraoke
 
-Karaoke song search and queueing system that uses Youtube videos as a source. ~For use with Raspberry Pi devices.~ Works on Raspberry Pi, OSX, Windows, and Linux!
+PiKaraoke is a "KTV"-style karaoke song search and queueing system. It connects to your TV, and shows a QR code for computers and smartphones to connect to a web interface where multiple users can seamlessly search your local track library, queue up songs, add an endless selection of new karaoke tracks from YouTube, and more. ~For use with Raspberry Pi devices.~ Works on Raspberry Pi, OSX, Windows, and Linux!
 
 If you want to support this project with a little monetary tip, it's much appreciated: https://www.paypal.me/paniquejazz
 
@@ -8,7 +8,7 @@ If you want to support this project with a little monetary tip, it's much apprec
 
 - VLC support! Omxplayer is still default on raspberry pi, which can use both.
 - Thanks to VLC and a lot of hacking, we now have cross platform support: Linux, OSX, and Windows!
-- **Pitch shifting!!** Also thanks to VLC. Not supported on omxplayer.
+- **Key Change / Pitch shifting!!** Also thanks to VLC. Not supported on omxplayer.
 - python3 support! python 2.7 will still work for now, but it has gone the way of Latin. Python3 will become required in a near future revision.
 - Basic hotkeys: "esc" exits app. "f" toggles fullscreen. This became necessary when working with windowed OS's
 
@@ -22,9 +22,16 @@ If you want to support this project with a little monetary tip, it's much apprec
 - Now playing and Up Next display
 - Basic editing of downloaded file names
 - Queue editing
-- Pitch shifting (only available while using vlc)
+- Key Change / Pitch shifting (only available while using vlc)
 
 ## Screenshots
+
+### TV
+
+<p float="left">
+  <img width="400" alt="pikaraoke-tv1" src="https://user-images.githubusercontent.com/4107190/95813571-06645600-0ccd-11eb-8341-021a20813990.png">
+<img width="400" alt="pikaraoke-tv2" src="https://user-images.githubusercontent.com/4107190/95813564-019fa200-0ccd-11eb-95e1-57a002c357a3.png">
+  </p>
 
 ### Web interface
 
@@ -34,13 +41,6 @@ If you want to support this project with a little monetary tip, it's much apprec
 <img width="250" style="float:left" alt="pikaraoke-browse" src="https://user-images.githubusercontent.com/4107190/95813182-27787700-0ccc-11eb-82c8-fde7f0a631c1.png">
 <img width="250" style="float:left" alt="pikaraoke-search1" src="https://user-images.githubusercontent.com/4107190/95813197-2e06ee80-0ccc-11eb-9bf9-ddb24d988332.png">
 <img width="250" style="float:left" alt="pikaraoke-search2" src="https://user-images.githubusercontent.com/4107190/95813190-2ba49480-0ccc-11eb-84e3-f902cbd489a2.png">
-  </p>
-  
-### TV
-
-<p float="left">
-  <img width="400" alt="pikaraoke-tv1" src="https://user-images.githubusercontent.com/4107190/95813571-06645600-0ccd-11eb-8341-021a20813990.png">
-<img width="400" alt="pikaraoke-tv2" src="https://user-images.githubusercontent.com/4107190/95813564-019fa200-0ccd-11eb-95e1-57a002c357a3.png">
   </p>
   
 ### Old screens
