@@ -1,6 +1,6 @@
 # PiKaraoke
 
-PiKaraoke is a "KTV"-style karaoke song search and queueing system. It connects to your TV, and shows a QR code for computers and smartphones to connect to a web interface where multiple users can seamlessly search your local track library, queue up songs, add an endless selection of new karaoke tracks from YouTube, and more. ~For use with Raspberry Pi devices.~ Works on Raspberry Pi, OSX, Windows, and Linux!
+PiKaraoke is a "KTV"-style karaoke song search and queueing system. It connects to your TV, and shows a QR code for computers and smartphones to connect to a web interface. From there, multiple users can seamlessly search your local track library, queue up songs, add an endless selection of new karaoke tracks from YouTube, and more. ~For use with Raspberry Pi devices.~ Works on Raspberry Pi, OSX, Windows, and Linux!
 
 If you want to support this project with a little monetary tip, it's much appreciated: https://www.paypal.me/paniquejazz
 
