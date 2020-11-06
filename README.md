@@ -145,8 +145,9 @@ Here is the full list of command line arguments:
 ```
 usage: app.py [-h] [-p PORT] [-d DOWNLOAD_PATH] [-o OMXPLAYER_PATH]
               [-y YOUTUBEDL_PATH] [-v VOLUME] [-s SPLASH_DELAY] [-l LOG_LEVEL]
-              [--show-overlay] [--hide-ip] [--hide-splash-screen] [--alsa-fix]
-              [--dual-screen] [--high-quality] [--use-vlc]
+              [--show-overlay] [--hide-ip] [--hide-splash-screen] [--adev ADEV]
+              [--dual-screen] [--high-quality] [--use-vlc] [--vlc-path VLC_PATH] 
+              [--vlc-port VLC_PORT]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -198,14 +199,15 @@ Upon launch, the connected monitor/TV should show a splash screen with the IP of
 
 If there's a keyboard attached, you can exit pikaraoke by pressing "esc". You can toggle fullscreen mode by pressing "f"
 
-Make sure you are connected to the same network/wifi. You can then enter the shown IP or scan the QR code on your smartphone/tablet/computer to open it in a browser. From there you should see the PiKaraoke web interface. It is hopefully pretty self-explanitory, but if you really need some help:
+Make sure you are connected to the same network/wifi. You can then enter the shown IP or scan the QR code on your smartphone/tablet/computer to open it in a browser. From there you should see the PiKaraoke web interface. It is hopefully pretty self-explanatory, but if you really need some help:
 
 ## Web UI
 
 ### Home
 
 - View Now Playing and Next tracks
-- Access controls to repeat, pause, skip and control volume
+- Access controls to repeat, pause, skip and control volume 
+- (only when --use-vlc option is used) Transpose slider to change playback pitch
 
 ### Queue
 
@@ -250,7 +252,7 @@ You can also try vlc with the --use-vlc option. It sometimes handles audio more 
 
 Make sure youtube-dl is up to date, old versions have higher failure rates due to security changes in Youtube. You can see your current version installed by navigating to `Info > System Info > Youtube-dl version`. The version number is usually the date it was released. If this is older than a few months, chances are it will need an update.
 
-You can update youtube-dl directly from the web UI. Go to `Info > Update Youtube-dl` (depnding on how you installed, you may need to be running pikaraoke as sudo for this to work)
+You can update youtube-dl directly from the web UI. Go to `Info > Update Youtube-dl` (depending on how you installed, you may need to be running pikaraoke as sudo for this to work)
 
 Or, from the CLI (path may vary):
 `youtube-dl -U`
