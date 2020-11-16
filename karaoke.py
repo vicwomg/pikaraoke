@@ -3,12 +3,12 @@ import json
 import logging
 import os
 import random
+import socket
 import subprocess
 import sys
 import threading
 import time
 from io import BytesIO
-from socket import gethostbyname, gethostname
 from subprocess import check_output
 
 import pygame
@@ -146,7 +146,9 @@ class Karaoke:
                 else:
                     break
         else:
-            self.ip = gethostbyname(gethostname())
+            self.ip = self.get_ip()
+
+        logging.debug("IP address (for QR code and splash screen): " + self.ip)
 
         self.url = "http://%s:%s" % (self.ip, self.port)
 
@@ -167,6 +169,20 @@ class Karaoke:
             self.generate_qr_code()
             self.initialize_screen()
             self.render_splash_screen()
+
+    # Other ip-getting methods are unreliable and sometimes return 127.0.0.1
+    # https://stackoverflow.com/a/28950776
+    def get_ip(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            # doesn't even have to be reachable
+            s.connect(("10.255.255.255", 1))
+            IP = s.getsockname()[0]
+        except Exception:
+            IP = "127.0.0.1"
+        finally:
+            s.close()
+        return IP
 
     def get_raspi_wifi_ap(self):
         f = open(self.raspi_wifi_conf_file, "r")
