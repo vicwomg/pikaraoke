@@ -96,6 +96,12 @@ pip3 install --upgrade youtube_dl
 
 - Install VLC (to its default location): https://www.videolan.org/
 - Install ffmpeg (only if you want to use --high-quality flag) https://ffmpeg.org/download.html
+- Install MS Visual C++ (required to launch youtube-dl)  https://www.microsoft.com/en-US/download/details.aspx?id=5555
+- Install youtube-dl.exe. FYI, pip3 didn't seem to work for this on windows, so I used scoop as a package manager and I think it handles filed permissions best. Install scoop by following the instructions here: https://scoop.sh/
+
+```
+scoop install youtube-dl
+```
 
 Open a powershell, and go to the pikaraoke directory:
 
@@ -103,11 +109,7 @@ Open a powershell, and go to the pikaraoke directory:
 pip3 install -r requirements.txt
 ```
 
-Install youtube-dl.exe. FYI, pip3 didn't seem to work for this on windows, so I used scoop as a package manager and I think it handles filed permissions best. Install scoop by following the instructions here: https://scoop.sh/
-
-```
-scoop install youtube-dl
-```
+Note: if you have trouble installing pygame, there's apparently an incompatibility with Python 3.8. Try upgrading to the latest python version or downgrading to 3.7.
 
 ## Launch
 
