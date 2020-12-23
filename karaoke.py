@@ -440,20 +440,33 @@ class Karaoke:
 
     def get_available_songs(self):
         logging.debug("Fetching available songs in: " + self.download_path)
-        self.available_songs = sorted(glob.glob(u"%s/*" % self.download_path))
+        types = ('*.mp4', '*.mp3') 
+        files_grabbed = []
+        for files in types:
+            files_grabbed.extend(glob.glob(u"%s/%s" % (self.download_path, files)))
+        self.available_songs = sorted(files_grabbed)
 
     def delete(self, song_path):
         logging.info("Deleting song: " + song_path)
         os.remove(song_path)
+        ext = os.path.splitext(song_path)
+        # if we have an associated cdg file, delete that too
+        cdg_file = song_path.replace(ext[1],".cdg")
+        if (os.path.exists(cdg_file)):
+            os.remove(cdg_file)
+        
         self.get_available_songs()
 
     def rename(self, song_path, new_name):
         logging.info("Renaming song: '" + song_path + "' to: " + new_name)
         ext = os.path.splitext(song_path)
         if len(ext) == 2:
-            new_name = new_name + ext[1]
-        os.rename(song_path, self.download_path + new_name)
-
+            new_file_name = new_name + ext[1]
+        os.rename(song_path, self.download_path + new_file_name)
+        # if we have an associated cdg file, rename that too
+        cdg_file = song_path.replace(ext[1],".cdg")
+        if (os.path.exists(cdg_file)):
+            os.rename(cdg_file, self.download_path + new_name + ".cdg")
         self.get_available_songs()
 
     def filename_from_path(self, file_path):

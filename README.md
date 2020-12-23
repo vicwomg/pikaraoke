@@ -18,6 +18,7 @@ If you want to support this project with a little monetary tip, it's much apprec
 - Searching song library via autocomplete
 - Adding new tracks from Youtube
 - Offline storage of video files
+- mp3 + cdg file support (vlc only, must be uncompressed and added to download directory manually)
 - Pause/Skip/Restart and volume control
 - Now playing and Up Next display
 - Basic editing of downloaded file names
@@ -301,6 +302,14 @@ The pi doesn't have a hardware audio input. Technically, you should be able to r
 First of all, you must be running pikaraoke with the --use-vlc option.
 
 While a song is playing, the home screen of the web interface will show a transpose slider. Slide it up or down based on your preference and press the "ok" button to restart the song in the given key.
+
+### How do I add cdg files?
+
+You'll need to add them manually by copying them to the root of your download folder. Run `python app.py --help` and look under DOWNLOAD_PATH to find out what the default folder is, or specify your own. CDG files must have an mp3 file with a matching file name. They must also be uncompressed and not stashed away in sub-directories. 
+
+### I'm only hearing audio and not seeing video
+
+If this is a mp3 + cdg file, the filename of the cdg file might not match the mp3 file exactly or be missing. You'll have to fix this manually by supplying a matching cdg file. Also, cdg files are only supported in vlc. 
 
 ### I'm on a laptop, how do I output just pikaraoke to an external monitor/screen?
 
