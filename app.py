@@ -51,21 +51,29 @@ def home():
         show_transpose=k.use_vlc,
         transpose_value=k.now_playing_transpose,
     )
+    # except (Exception)  as e:
+    #     logging.error("Problem loading /, pikaraoke may still be starting up: " + str(e))
+    #     return ""
+
 
 
 @app.route("/nowplaying")
 def nowplaying():
-    if len(k.queue) >= 1:
-        next_song = filename_from_path(k.queue[0])
-    else:
-        next_song = None
-    rc = {
-        "now_playing": k.now_playing,
-        "up_next": next_song,
-        "is_paused": k.is_paused,
-        "transpose_value": k.now_playing_transpose,
-    }
-    return json.dumps(rc)
+    try: 
+        if len(k.queue) >= 1:
+            next_song = filename_from_path(k.queue[0])
+        else:
+            next_song = None
+        rc = {
+            "now_playing": k.now_playing,
+            "up_next": next_song,
+            "is_paused": k.is_paused,
+            "transpose_value": k.now_playing_transpose,
+        }
+        return json.dumps(rc)
+    except (Exception) as e:
+        logging.error("Problem loading /nowplaying, pikaraoke may still be starting up: " + str(e))
+        return ""
 
 
 @app.route("/queue")
