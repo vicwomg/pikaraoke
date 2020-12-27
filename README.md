@@ -5,13 +5,10 @@ PiKaraoke is a "KTV"-style karaoke song search and queueing system. It connects 
 If you want to support this project with a little monetary tip, it's much appreciated:
 <a href="https://www.buymeacoffee.com/vicwomg" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 
-## What's new (September 2020)
+## What's new (January 2021)
 
-- VLC support! Omxplayer is still default on raspberry pi, which can use both.
-- Thanks to VLC and a lot of hacking, we now have cross platform support: Linux, OSX, and Windows!
-- **Key Change / Pitch shifting!!** Also thanks to VLC. Not supported on omxplayer.
-- python3 support! python 2.7 will still work for now, but it has gone the way of Latin. Python3 will become required in a near future revision.
-- Basic hotkeys: "esc" exits app. "f" toggles fullscreen. This became necessary when working with windowed OS's
+- CDG file support! Also supports zipped cdg + mp3, just add the files to the root of the download directory
+- Default download directories are now ~/pikaraoke-songs
 
 ## Features
 
@@ -19,7 +16,7 @@ If you want to support this project with a little monetary tip, it's much apprec
 - Searching song library via autocomplete
 - Adding new tracks from Youtube
 - Offline storage of video files
-- mp3 + cdg file support (vlc only, must be uncompressed and added to download directory manually)
+- mp3 + cdg file support (not supported on omxplayer, must be copied to download directory manually)
 - Pause/Skip/Restart and volume control
 - Now playing and Up Next display
 - Basic editing of downloaded file names
@@ -306,13 +303,13 @@ First of all, you must be running pikaraoke with the --use-vlc option.
 
 While a song is playing, the home screen of the web interface will show a transpose slider. Slide it up or down based on your preference and press the "ok" button to restart the song in the given key.
 
-### How do I add cdg files?
+### How do I add cdg or mp3+cdg zip files?
 
-You'll need to add them manually by copying them to the root of your download folder. Run `python app.py --help` and look under DOWNLOAD_PATH to find out what the default folder is, or specify your own. CDG files must have an mp3 file with a matching file name. They must also be uncompressed and not stashed away in sub-directories. 
+You'll need to add them manually by copying them to the root of your download folder. Run `python app.py --help` and look under DOWNLOAD_PATH to find out what the default folder is, or specify your own. Only cdg/mp3 pairs and .zip files are supported.
 
-### I'm only hearing audio and not seeing video
+### My mp3/cdg file is not playing
 
-If this is a mp3 + cdg file, the filename of the cdg file might not match the mp3 file exactly or be missing. You'll have to fix this manually by supplying a matching cdg file. Also, cdg files are only supported in vlc. 
+CDG files must have an mp3 file with a exact matching file name. They can also be bundled together in a single zip file, but the filenames in the zip must still match. They must also be placed in the root of the download directory and not stashed away in sub-directories. Also, if you're running omxplayer instead of vlc, there will only be audio.
 
 ### I'm on a laptop, how do I output just pikaraoke to an external monitor/screen?
 
