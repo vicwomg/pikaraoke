@@ -440,7 +440,7 @@ class Karaoke:
 
     def get_available_songs(self):
         logging.debug("Fetching available songs in: " + self.download_path)
-        types = ('*.mp4', '*.mp3') 
+        types = ('*.mp4', '*.mp3', '*.zip') 
         files_grabbed = []
         for files in types:
             files_grabbed.extend(glob.glob(u"%s/%s" % (self.download_path, files)))
