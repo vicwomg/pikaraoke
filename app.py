@@ -9,16 +9,8 @@ import time
 
 import cherrypy
 import psutil
-from flask import (
-    Flask,
-    flash,
-    redirect,
-    render_template,
-    request,
-    send_file,
-    send_from_directory,
-    url_for,
-)
+from flask import (Flask, flash, redirect, render_template, request, send_file,
+                   send_from_directory, url_for)
 
 import karaoke
 from get_platform import get_platform
@@ -448,7 +440,13 @@ def get_default_vlc_path(platform):
 
 def get_default_dl_dir(platform):
     if platform == "raspberry_pi":
-        return "/usr/lib/pikaraoke/songs"
+        legacy_directory = "/usr/lib/pikaraoke/songs"
+        if os.path.isfile(legacy_directory):
+            # preserve old dl location for previous users
+            return legacy_directory
+        else:
+            # homedir is preferred because it doesn't require root #61
+            return "~/pikaraoke/songs"
     elif platform == "windows":
         return "~\pikaraoke\songs"
     else:
