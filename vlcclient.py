@@ -138,7 +138,7 @@ class VLCClient:
                 command = self.cmd_base + [file_path]
             else:
                 command = self.cmd_base + additional_parameters + [file_path]
-            print("Command: %s" % command)
+            logging.debug("VLC Command: %s" % command)
             self.process = subprocess.Popen(
                 command, shell=(self.platform == "windows"), stdin=subprocess.PIPE
             )
