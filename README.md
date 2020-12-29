@@ -7,7 +7,7 @@ If you want to support this project with a little monetary tip, it's much apprec
 
 ## What's new (January 2021)
 
-- CDG file support! Also supports zipped cdg + mp3, just add the files to the root of the download directory
+- CDG file support! Also supports zipped cdg + mp3, just add the files to the root of the download directory (must be using vlc)
 - Default download directories are now ~/pikaraoke-songs
 
 ## Features
@@ -16,7 +16,7 @@ If you want to support this project with a little monetary tip, it's much apprec
 - Searching song library via autocomplete
 - Adding new tracks from Youtube
 - Offline storage of video files
-- mp3 + cdg file support (not supported on omxplayer, must be copied to download directory manually)
+- mp3 + cdg file support (vlc-only. Not supported on omxplayer, must be copied to download directory manually)
 - Pause/Skip/Restart and volume control
 - Now playing and Up Next display
 - Basic editing of downloaded file names
