@@ -45,7 +45,7 @@ class VLCClient:
 
         # Determine tmp directories (for things like extracted cdg files)
         if self.platform == "windows":
-            self.tmp_dir = r"~\\AppData\\Local\\Temp\\pikaraoke\\"
+            self.tmp_dir = os.path.expanduser(r"~\\AppData\\Local\\Temp\\pikaraoke\\")
         else:
             self.tmp_dir = "/tmp/pikaraoke/"
 

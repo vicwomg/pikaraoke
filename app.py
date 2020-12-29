@@ -456,7 +456,7 @@ def get_default_dl_dir(platform):
             # homedir is preferred because it doesn't require root #61
             return "~/pikaraoke-songs"
     elif platform == "windows":
-        legacy_directory = "~\pikaraoke\songs"
+        legacy_directory = os.path.expanduser("~\pikaraoke\songs")
         if os.path.exists(legacy_directory):
             return legacy_directory
         else:
