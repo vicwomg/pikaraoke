@@ -387,6 +387,10 @@ def update_ytdl():
     th.start()
     return redirect(url_for("home"))
 
+@app.route("/refresh")
+def refresh():
+    k.get_available_songs()
+    return redirect(url_for("browse"))
 
 @app.route("/quit")
 def quit():

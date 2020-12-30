@@ -259,7 +259,6 @@ class VLCClient:
 
     def get_status(self):
         url = self.http_endpoint
-        print("httppassw: " + self.http_password)
         request = requests.get(url, auth=("", self.http_password))
         return ET.fromstring(request.text)
 
