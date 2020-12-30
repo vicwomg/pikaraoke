@@ -5,7 +5,7 @@ import time
 
 
 class OMXClient:
-    def __init__(self, path=None, adev=None, dual_screen=False):
+    def __init__(self, path=None, adev=None, dual_screen=False, volume_offset=None):
         # Handle omxplayer paths
         if path == None:
             self.path = "/usr/bin/omxplayer"
@@ -24,7 +24,10 @@ class OMXClient:
 
         self.paused = False
 
-        self.volume_offset = 0
+        if volume_offset:
+            self.volume_offset = volume_offset
+        else:
+            self.volume_offset = 0
         self.process = None
 
     def play_file(self, file_path, additional_parameters=None):
