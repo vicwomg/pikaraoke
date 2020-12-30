@@ -48,12 +48,14 @@ class OMXClient:
         self.paused = False
 
     def pause(self):
+        logging.debug("Pause pressed. Current paused state: " + self.paused)
         if (not self.paused):
             self.process.stdin.write("p".encode("utf-8"))
             self.process.stdin.flush()
             self.paused = True
 
     def play(self):
+        logging.debug("Play pressed. Current paused state: " + self.paused)
         if (self.paused):
             self.process.stdin.write("p".encode("utf-8"))
             self.process.stdin.flush()
@@ -74,11 +76,14 @@ class OMXClient:
         self.process.stdin.write("=".encode("utf-8"))
         self.process.stdin.flush()
         self.volume_offset += 300
+        logging.debug("Volume offset: " + self.volume_offset)
 
     def vol_down(self):
         logging.info("Volume down")
         self.process.stdin.write("-".encode("utf-8"))
+        self.process.stdin.flush()
         self.volume_offset -= 300
+        logging.debug("Volume offset: " + self.volume_offset)
 
     def kill(self):
         try:
@@ -100,9 +105,9 @@ class OMXClient:
         ) 
 
     def is_playing(self):
-        return (
-            self.process != None and self.process.poll() == None and self.paused == False
-        )
+        is_playing = self.process != None and self.process.poll() == None and self.paused == False
+        logging.debug("Is playing? " + is_playing)
+        return is_playing
 
     def is_paused(self):
         return self.paused
