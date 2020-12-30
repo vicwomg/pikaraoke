@@ -680,8 +680,8 @@ class Karaoke:
                 self.vlcclient.restart()
             else:
                 self.omxclient.restart()
+            self.is_paused = False
             return True
-
         else:
             logging.warning("Tried to restart, but no file is playing!")
             return False
