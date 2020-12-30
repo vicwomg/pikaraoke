@@ -1,4 +1,5 @@
 import logging
+import os
 import subprocess
 
 
@@ -82,6 +83,12 @@ class OMXClient:
     def kill(self):
         try:
             self.process.kill()
+            logging.debug("Killing old omxplayer processes")
+            player_kill = ["killall", "omxplayer.bin"]
+            FNULL = open(os.devnull, "w")
+            subprocess.Popen(
+                player_kill, stdin=subprocess.PIPE, stdout=FNULL, stderr=FNULL
+            )
             self.paused = False
         except (OSError, AttributeError) as e:
             logging.error(e)
