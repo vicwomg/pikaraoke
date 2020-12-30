@@ -2,13 +2,16 @@
 
 PiKaraoke is a "KTV"-style karaoke song search and queueing system. It connects to your TV, and shows a QR code for computers and smartphones to connect to a web interface. From there, multiple users can seamlessly search your local track library, queue up songs, add an endless selection of new karaoke tracks from YouTube, and more. ~For use with Raspberry Pi devices.~ Works on Raspberry Pi, OSX, Windows, and Linux!
 
-If you want to support this project with a little monetary tip, it's much appreciated:
+If you want to support this project with a little monetary tip, it's much appreciated: <br/>
 <a href="https://www.buymeacoffee.com/vicwomg" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 
 ## What's new (January 2021)
 
+- VLC is now the default media player. You can still use omxplayer for slower pi devices with `--use-omxplayer`
 - CDG file support! Also supports zipped cdg + mp3, just add the files to the root of the download directory (must be using vlc)
-- Default download directories are now ~/pikaraoke-songs
+- Refresh song list manually from the info screen.
+- Default download directories are now ~/pikaraoke-songs on MacOS, Windows, and Linux  
+- General overdue cleanup of libraries
 
 ## Features
 
@@ -16,12 +19,12 @@ If you want to support this project with a little monetary tip, it's much apprec
 - Searching song library via autocomplete
 - Adding new tracks from Youtube
 - Offline storage of video files
-- mp3 + cdg file support (vlc-only. Not supported on omxplayer, must be copied to download directory manually)
+- mp3 + cdg file support (vlc only)
 - Pause/Skip/Restart and volume control
 - Now playing and Up Next display
 - Basic editing of downloaded file names
 - Queue editing
-- Key Change / Pitch shifting (only available while using vlc)
+- Key Change / Pitch shifting (vlc only)
 
 ## Screenshots
 
@@ -125,14 +128,14 @@ This is optional, but you may want to make your raspberry pi a dedicated karaoke
 
 ```
 # start pikaraoke on startup
-/usr/bin/python /home/pi/pikaraoke/app.py &
+/usr/bin/python3 /home/pi/pikaraoke/app.py &
 ```
 
 Or if you're like me and want some logging for aiding debugging, the following stores output at: /var/log/pikaraoke.log:
 
 ```
 # start pikaraoke on startup / logging
-/usr/bin/python /home/pi/pikaraoke/app.py >> /var/log/pikaraoke.log 2>&1 &
+/usr/bin/python3 /home/pi/pikaraoke/app.py >> /var/log/pikaraoke.log 2>&1 &
 ```
 
 If you want to kill the pikaraoke process, you can do so from the PiKaraoke Web UI under: `Info > Quit pikaraoke`. Or you can ssh in and run `sudo killall python` or something similar.
@@ -141,21 +144,22 @@ Note that if your wifi/network is inactive pikaraoke will error out 10 seconds a
 
 ## Usage
 
-Here is the full list of command line arguments:
+Here is the full list of command line arguments on OSX as an example (may not be up to date, run `python3 app.py --help` for the latest):
 
 ```
 usage: app.py [-h] [-p PORT] [-d DOWNLOAD_PATH] [-o OMXPLAYER_PATH]
               [-y YOUTUBEDL_PATH] [-v VOLUME] [-s SPLASH_DELAY] [-l LOG_LEVEL]
-              [--show-overlay] [--hide-ip] [--hide-splash-screen] [--adev ADEV]
-              [--dual-screen] [--high-quality] [--use-vlc] [--vlc-path VLC_PATH] 
-              [--vlc-port VLC_PORT]
+              [--hide-ip] [--hide-splash-screen] [--adev ADEV] [--dual-screen]
+              [--high-quality] [--use-omxplayer] [--use-vlc]
+              [--vlc-path VLC_PATH] [--vlc-port VLC_PORT]
+              [--logo_path LOGO_PATH]
 
 optional arguments:
   -h, --help            show this help message and exit
   -p PORT, --port PORT  Desired http port (default: 5000)
   -d DOWNLOAD_PATH, --download-path DOWNLOAD_PATH
                         Desired path for downloaded songs. (default:
-                        ~/pikaraoke/songs)
+                        ~/pikaraoke-songs)
   -o OMXPLAYER_PATH, --omxplayer-path OMXPLAYER_PATH
                         Path of omxplayer. Only important to raspberry pi
                         hardware. (default: /usr/bin/omxplayer)
@@ -172,26 +176,32 @@ optional arguments:
   -l LOG_LEVEL, --log-level LOG_LEVEL
                         Logging level int value (DEBUG: 10, INFO: 20, WARNING:
                         30, ERROR: 40, CRITICAL: 50). (default: 20 )
-  --show-overlay        Show text overlay in omxplayer with song title and IP.
-                        (feature is broken on Pi 4 omxplayer 12/24/2019)
   --hide-ip             Hide IP address from the screen.
   --hide-splash-screen  Hide splash screen before/between songs.
   --adev ADEV           Pass the audio output device argument to omxplayer.
                         Possible values: hdmi/local/both/alsa[:device]. If you
                         are using a rpi USB soundcard or Hifi audio hat, try:
-                        'alsa:hw:0,0' Default 'both'
+                        'alsa:hw:0,0' Default: 'both'
   --dual-screen         Output video to both HDMI ports (raspberry pi 4 only)
   --high-quality        Download higher quality video. Note: requires ffmpeg
                         and may cause CPU, download speed, and other
                         performance issues
-  --use-vlc             Use VLC Player instead of the default OMX Player.
-                        Enabled by default on non-pi hardware. Note: if you
-                        want to play audio to the headphone jack on a rpi,
-                        you'll need to configure this in raspi-config:
-                        'Advanced Options > Audio > Force 3.5mm (headphone)'
-  --vlc-path VLC_PATH   Full path to VLC (Defaults to standard installation
-                        location)
+  --use-omxplayer       Use OMX Player to play video instead of the default
+                        VLC Player. This may be better-performing on older
+                        raspberry pi devices. Certain features like key change
+                        and cdg support wont be available. Note: if you want
+                        to play audio to the headphone jack on a rpi, you'll
+                        need to configure this in raspi-config: 'Advanced
+                        Options > Audio > Force 3.5mm (headphone)'
+  --use-vlc             Use VLC Player to play video. Enabled by default.
+                        Note: if you want to play audio to the headphone jack
+                        on a rpi, see troubleshooting steps in README.md
+  --vlc-path VLC_PATH   Full path to VLC (Default:
+                        /Applications/VLC.app/Contents/MacOS/VLC)
   --vlc-port VLC_PORT   HTTP port for VLC remote control api (Default: 5002)
+  --logo_path LOGO_PATH
+                        Path to a custom logo image file for the splash
+                        screen. Recommended dimensions ~ 500x500px
 ```
 
 ## Screen UI
@@ -208,7 +218,7 @@ Make sure you are connected to the same network/wifi. You can then enter the sho
 
 - View Now Playing and Next tracks
 - Access controls to repeat, pause, skip and control volume 
-- (only when --use-vlc option is used) Transpose slider to change playback pitch
+- Transpose slider to change playback pitch
 
 ### Queue
 
@@ -227,6 +237,7 @@ Make sure you are connected to the same network/wifi. You can then enter the sho
 
 - Shows the IP and QR code to share with others
 - Shows CPU / Memory / Disk Use stats
+- Allows updating the song list and youtube-dl version
 - Allows user to quit to console, shut down, or reboot system. Always shut down from here before you pull the plug on pikaraoke!
 
 ## Troubleshooting
@@ -239,15 +250,7 @@ Advanced Options > Audio > Force 3.5mm (headphone)
 
 See: https://www.raspberrypi.org/documentation/configuration/audio-config.md
 
-### I'm having audio issues with the headphone jack, external sound card, or other audio device
-
-Omxplayer tends to have some inconsistent results across different hardware combinations. Try experimenting with the --adev option, which specifies the audio device to omxplayer. Defaults to 'both' which is hdmi and headphone out. Other possible values are: hdmi/local/both/alsa[:device].
-
-If you're hearing distorted audio out, try '--adev alsa'
-
-If you're using an external USB sound card or hifi audio hat like the hifiberry, you'll need to add the argument '--adev alsa:hw:0,0' when you launch pikaraoke
-
-You can also try vlc with the --use-vlc option. There have been reports that HDMI audio works fine with vlc, but to use the headphone jack you need to edit some also conf files:
+If you're still having issues with hearing audio, it has been reported this helps on raspberry pi 4 devices:
 
 `sudo nano /usr/share/alsa/alsa.conf`
 
@@ -258,11 +261,19 @@ defaults.ctl.card 1
 defaults.pcm.card 1
 ```
 
-Note this value might be diffent in older versions of Raspbian. See source article for details: https://raspberrypi.stackexchange.com/a/39942
+Note this value might be different in older versions of Raspbian or if you have external audio hardware. See source article for details: https://raspberrypi.stackexchange.com/a/39942
+
+### I'm still having audio issues with the headphone jack, external sound card, or other audio device with omxplayer
+
+If using omxplayer with `--use-omxplayer`, it tends to have some inconsistent results across different hardware combinations. Try experimenting with the --adev option, which specifies the audio device to omxplayer. Defaults to 'both' which is hdmi and headphone out. Other possible values are: hdmi/local/both/alsa[:device].
+
+If you're hearing distorted audio output, try '--adev alsa' with omxplauer.
+
+If you're using an external USB sound card or hifi audio hat like the hifiberry, you'll need to add the argument '--adev alsa:hw:0,0' when you launch pikaraoke
 
 ### Songs aren't downloading!
 
-Make sure youtube-dl is up to date, old versions have higher failure rates due to security changes in Youtube. You can see your current version installed by navigating to `Info > System Info > Youtube-dl version`. The version number is usually the date it was released. If this is older than a few months, chances are it will need an update.
+Make sure youtube-dl is up to date, old versions have higher failure rates due to security changes in Youtube. You can see your current version installed by navigating to `Info > System Info > Youtube-dl version`. The version number is usually the date it was released. If this is older than a couple of months, chances are it will need an update.
 
 You can update youtube-dl directly from the web UI. Go to `Info > Update Youtube-dl` (depending on how you installed, you may need to be running pikaraoke as sudo for this to work)
 
@@ -310,9 +321,9 @@ The pi doesn't have a hardware audio input. Technically, you should be able to r
 
 ### How do I change song pitch/key?
 
-First of all, you must be running pikaraoke with the --use-vlc option.
-
 While a song is playing, the home screen of the web interface will show a transpose slider. Slide it up or down based on your preference and press the "ok" button to restart the song in the given key.
+
+If you don't see this option, you may be running the `--use-omxplayer` option. Omxplayer does not support key change.
 
 ### How do I add cdg or mp3+cdg zip files?
 
@@ -320,7 +331,9 @@ You'll need to add them manually by copying them to the root of your download fo
 
 ### My mp3/cdg file is not playing
 
-CDG files must have an mp3 file with a exact matching file name. They can also be bundled together in a single zip file, but the filenames in the zip must still match. They must also be placed in the root of the download directory and not stashed away in sub-directories. Also, if you're running omxplayer instead of vlc, there will only be audio.
+CDG files must have an mp3 file with a exact matching file name. They can also be bundled together in a single zip file, but the filenames in the zip must still match. They must also be placed in the root of the download directory and not stashed away in sub-directories. 
+
+If you only hear audio, you may be running the `--use-omxplayer` option. Omxplayer does not support cdg.
 
 ### I'm on a laptop, how do I output just pikaraoke to an external monitor/screen?
 
