@@ -1,6 +1,7 @@
 import logging
 import os
 import subprocess
+import time
 
 
 class OMXClient:
@@ -48,14 +49,12 @@ class OMXClient:
         self.paused = False
 
     def pause(self):
-        logging.debug("Pause pressed. Current paused state: %b" % self.paused)
         if (not self.paused):
             self.process.stdin.write("p".encode("utf-8"))
             self.process.stdin.flush()
             self.paused = True
 
     def play(self):
-        logging.debug("Play pressed. Current paused state: %b" % self.paused)
         if (self.paused):
             self.process.stdin.write("p".encode("utf-8"))
             self.process.stdin.flush()
@@ -69,6 +68,9 @@ class OMXClient:
     def restart(self):
         self.process.stdin.write("i".encode("utf-8"))
         self.process.stdin.flush()
+        if (self.paused):
+            time.sleep(0.2)
+            self.play()
         self.paused = False
 
     def vol_up(self):
@@ -104,7 +106,6 @@ class OMXClient:
 
     def is_playing(self):
         is_playing = self.process != None and self.process.poll() == None and self.paused == False
-        logging.debug("Is playing? %b" % is_playing)
         return is_playing
 
     def is_paused(self):
@@ -120,18 +121,3 @@ class OMXClient:
         except KeyboardInterrupt:
             self.kill()
 
-
-# if __name__ == "__main__":
-#     k = VLCClient()
-#     k.play_file("/path/to/file.mp4")
-#     time.sleep(2)
-#     k.pause()
-#     k.vol_up()
-#     k.vol_up()
-#     time.sleep(2)
-#     k.vol_down()
-#     k.vol_down()
-#     time.sleep(2)
-#     k.play()
-#     time.sleep(2)
-#     k.stop()

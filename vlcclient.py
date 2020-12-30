@@ -213,6 +213,7 @@ class VLCClient:
 
     def restart(self):
         logging.info(self.command("seek&val=0"))
+        self.play()
         return self.command("seek&val=0")
 
     def vol_up(self):

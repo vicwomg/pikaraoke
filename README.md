@@ -125,14 +125,14 @@ This is optional, but you may want to make your raspberry pi a dedicated karaoke
 
 ```
 # start pikaraoke on startup
-/usr/bin/python /home/pi/pikaraoke/app.py &
+/usr/bin/python3 /home/pi/pikaraoke/app.py &
 ```
 
 Or if you're like me and want some logging for aiding debugging, the following stores output at: /var/log/pikaraoke.log:
 
 ```
 # start pikaraoke on startup / logging
-/usr/bin/python /home/pi/pikaraoke/app.py >> /var/log/pikaraoke.log 2>&1 &
+/usr/bin/python3 /home/pi/pikaraoke/app.py >> /var/log/pikaraoke.log 2>&1 &
 ```
 
 If you want to kill the pikaraoke process, you can do so from the PiKaraoke Web UI under: `Info > Quit pikaraoke`. Or you can ssh in and run `sudo killall python` or something similar.
