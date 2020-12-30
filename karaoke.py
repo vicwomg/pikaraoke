@@ -25,7 +25,6 @@ if get_platform() != "windows":
 
 class Karaoke:
 
-    overlay_file_path = "/tmp/pikaraoke-overlay.srt"
     raspi_wifi_config_ip = "10.0.0.1"
     raspi_wifi_conf_file = "/etc/raspiwifi/raspiwifi.conf"
     raspi_wifi_config_installed = os.path.exists(raspi_wifi_conf_file)
@@ -49,7 +48,6 @@ class Karaoke:
         download_path="/usr/lib/pikaraoke/songs",
         hide_ip=False,
         hide_splash_screen=False,
-        hide_overlay=True,
         omxplayer_adev="both",
         dual_screen=False,
         high_quality=False,
@@ -58,7 +56,8 @@ class Karaoke:
         splash_delay=2,
         youtubedl_path="/usr/local/bin/youtube-dl",
         omxplayer_path="/usr/bin/omxplayer",
-        use_vlc=False,
+        use_omxplayer=False,
+        use_vlc=True,
         vlc_path=None,
         vlc_port=None,
         logo_path=None,
@@ -73,10 +72,10 @@ class Karaoke:
         self.dual_screen = dual_screen
         self.high_quality = high_quality
         self.splash_delay = int(splash_delay)
-        self.hide_overlay = hide_overlay
         self.volume_offset = volume
         self.youtubedl_path = youtubedl_path
         self.omxplayer_path = omxplayer_path
+        self.use_omxplayer = use_omxplayer
         self.use_vlc = use_vlc
         self.vlc_path = vlc_path
         self.vlc_port = vlc_port
@@ -100,7 +99,6 @@ class Karaoke:
     hide IP: %s
     hide splash: %s
     splash_delay: %s
-    hide overlay: %s
     omx audio device: %s
     dual screen: %s
     high quality video: %s
@@ -109,6 +107,7 @@ class Karaoke:
     youtube-dl path: %s
     omxplayer path: %s
     logo path: %s
+    Use OMXPlayer: %s
     Use VLC: %s
     VLC path: %s
     VLC port: %s
@@ -118,7 +117,6 @@ class Karaoke:
                 self.hide_ip,
                 self.hide_splash_screen,
                 self.splash_delay,
-                self.hide_overlay,
                 self.omxplayer_adev,
                 self.dual_screen,
                 self.high_quality,
@@ -127,6 +125,7 @@ class Karaoke:
                 self.youtubedl_path,
                 self.omxplayer_path,
                 self.logo_path,
+                self.use_omxplayer,
                 self.use_vlc,
                 self.vlc_path,
                 self.vlc_port,
@@ -161,13 +160,11 @@ class Karaoke:
 
         # clean up old sessions
         self.kill_player()
-        if os.path.isfile(self.overlay_file_path):
-            os.remove(self.overlay_file_path)
 
         if self.use_vlc:
             self.vlcclient = vlcclient.VLCClient(port=self.vlc_port, path=self.vlc_path)
         else:
-            self.omxclient = omxclient.OMXClient(path=self.omxplayer_path, adev=self.omxplayer_adev, dual_screen=self.dual_screen)
+            self.omxclient = omxclient.OMXClient(path=self.omxplayer_path, adev=self.omxplayer_adev, dual_screen=self.dual_screen, volume_offset=self.volume_offset)
 
         if not self.hide_splash_screen:
             self.generate_qr_code()
@@ -224,23 +221,6 @@ class Karaoke:
 
     def is_network_connected(self):
         return not len(self.ip) < 7
-
-    def generate_overlay_file(self, file_path):
-        if not self.hide_overlay:
-            current_song = self.filename_from_path(file_path)
-            logging.debug("Generating overlay file")
-            if not self.hide_ip:
-                msg = "PiKaraoke IP: %s" % self.url
-            else:
-                msg = ""
-            output = "00:00:00,00 --> 00:00:30,00 \n%s\n%s" % (current_song, msg)
-            f = open(self.overlay_file_path, "w")
-            try:
-                f.write(output.encode("utf-8"))
-            except TypeError:
-                # python 3 hack
-                f.write(output)
-            logging.debug("Done generating overlay file: " + output)
 
     def generate_qr_code(self):
         logging.debug("Generating URL QR code")
@@ -506,8 +486,6 @@ class Karaoke:
     def play_file(self, file_path, semitones=0):
         self.now_playing = self.filename_from_path(file_path)
         self.now_playing_filename = file_path
-        if (not self.hide_overlay) and (not self.use_vlc):
-            self.generate_overlay_file(file_path)
 
         if self.use_vlc:
             logging.info("Playing video in VLC: " + self.now_playing)
@@ -654,7 +632,6 @@ class Karaoke:
         if self.is_file_playing():
             if self.use_vlc:
                 self.vlcclient.vol_up()
-                self.volume_offset = self.vlcclient.get_volume()
             else:
                 self.omxclient.vol_up()
             return True
@@ -666,7 +643,6 @@ class Karaoke:
         if self.is_file_playing():
             if self.use_vlc:
                 self.vlcclient.vol_down()
-                self.volume_offset = self.vlcclient.get_volume()
             else:
                 self.omxclient.vol_down()
             return True

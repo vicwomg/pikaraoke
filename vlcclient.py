@@ -15,6 +15,18 @@ import requests
 from get_platform import get_platform
 
 
+def get_default_vlc_path(platform):
+    if platform == "osx":
+        return "/Applications/VLC.app/Contents/MacOS/VLC"
+    elif platform == "windows":
+        alt_vlc_path = r"C:\\Program Files (x86)\\VideoLAN\VLC\\vlc.exe"
+        if os.path.isfile(alt_vlc_path):
+            return alt_vlc_path
+        else:
+            return r"C:\Program Files\VideoLAN\VLC\vlc.exe"
+    else:
+        return "/usr/bin/vlc"
+
 class VLCClient:
     def __init__(self, port=5002, path=None):
 
@@ -30,16 +42,7 @@ class VLCClient:
         # Handle vlc paths
         self.platform = get_platform()
         if path == None:
-            if self.platform == "osx":
-                self.path = "/Applications/VLC.app/Contents/MacOS/VLC"
-            elif self.platform == "windows":
-                alt_vlc_path = r"C:\\Program Files (x86)\\VideoLAN\VLC\\vlc.exe"
-                if os.path.isfile(alt_vlc_path):
-                    self.path = alt_vlc_path
-                else:
-                    self.path = r"C:\\Program Files\\VideoLAN\VLC\\vlc.exe"
-            else:
-                self.path = "/usr/bin/vlc"
+            self.path = get_default_vlc_path(self.platform)
         else:
             self.path = path
 
