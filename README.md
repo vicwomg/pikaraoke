@@ -54,8 +54,8 @@ Also works on macs, PCs, and linux!
 
 ## Installation
 
-Install git, if you haven't already.
-Install python3/pip3: https://www.python.org/downloads/ (python 2.7 may work, but is not officially supported)
+Install git, if you haven't already. (on raspberry pi: `sudo apt-get update; sudo apt-get install git`)
+Install python3/pip3 (usually raspberry pis already have it, run `python3 --version` to check): https://www.python.org/downloads/ (python 2.7 may work, but is not officially supported)
 
 Clone this repo:
 
@@ -247,7 +247,18 @@ If you're hearing distorted audio out, try '--adev alsa'
 
 If you're using an external USB sound card or hifi audio hat like the hifiberry, you'll need to add the argument '--adev alsa:hw:0,0' when you launch pikaraoke
 
-You can also try vlc with the --use-vlc option. It sometimes handles audio more consistently.
+You can also try vlc with the --use-vlc option. There have been reports that HDMI audio works fine with vlc, but to use the headphone jack you need to edit some also conf files:
+
+`sudo nano /usr/share/alsa/alsa.conf`
+
+Scroll down and change defaults.ctl.card and defaults.pcm.card to "1"
+
+```
+defaults.ctl.card 1
+defaults.pcm.card 1
+```
+
+Note this value might be diffent in older versions of Raspbian. See source article for details: https://raspberrypi.stackexchange.com/a/39942
 
 ### Songs aren't downloading!
 
