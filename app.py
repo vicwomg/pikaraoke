@@ -14,6 +14,7 @@ from flask import (Flask, flash, redirect, render_template, request, send_file,
 
 import karaoke
 from get_platform import get_platform
+from vlcclient import get_default_vlc_path
 
 try:
     from urllib.parse import quote, unquote
@@ -51,11 +52,6 @@ def home():
         show_transpose=k.use_vlc,
         transpose_value=k.now_playing_transpose,
     )
-    # except (Exception)  as e:
-    #     logging.error("Problem loading /, pikaraoke may still be starting up: " + str(e))
-    #     return ""
-
-
 
 @app.route("/nowplaying")
 def nowplaying():
@@ -391,6 +387,10 @@ def update_ytdl():
     th.start()
     return redirect(url_for("home"))
 
+@app.route("/refresh")
+def refresh():
+    k.get_available_songs()
+    return redirect(url_for("browse"))
 
 @app.route("/quit")
 def quit():
@@ -432,29 +432,9 @@ def get_default_youtube_dl_path(platform):
     else:
         return "/usr/local/bin/youtube-dl"
 
-
-def get_default_vlc_path(platform):
-    if platform == "osx":
-        return "/Applications/VLC.app/Contents/MacOS/VLC"
-    elif platform == "windows":
-        alt_vlc_path = r"C:\\Program Files (x86)\\VideoLAN\VLC\\vlc.exe"
-        if os.path.isfile(alt_vlc_path):
-            return alt_vlc_path
-        else:
-            return r"C:\Program Files\VideoLAN\VLC\vlc.exe"
-    else:
-        return "/usr/bin/vlc"
-
-
 def get_default_dl_dir(platform):
     if platform == "raspberry_pi":
-        legacy_directory = "/usr/lib/pikaraoke/songs"
-        if os.path.exists(legacy_directory):
-            # preserve old dl location for previous users
-            return legacy_directory
-        else:
-            # homedir is preferred because it doesn't require root #61
-            return "~/pikaraoke-songs"
+        return "/usr/lib/pikaraoke/songs"
     elif platform == "windows":
         legacy_directory = os.path.expanduser("~\pikaraoke\songs")
         if os.path.exists(legacy_directory):
@@ -541,12 +521,6 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
-        "--show-overlay",
-        action="store_true",
-        help="Show text overlay in omxplayer with song title and IP. (feature is broken on Pi 4 omxplayer 12/24/2019)",
-        required=False,
-    )
-    parser.add_argument(
         "--hide-ip",
         action="store_true",
         help="Hide IP address from the screen.",
@@ -578,9 +552,15 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
+        "--use-omxplayer",
+        action="store_true",
+        help="Use OMX Player to play video instead of the default VLC Player. This may be better-performing on older raspberry pi devices. Certain features like key change and cdg support wont be available. Note: if you want to play audio to the headphone jack on a rpi, you'll need to configure this in raspi-config: 'Advanced Options > Audio > Force 3.5mm (headphone)'",
+        required=False,
+    ),
+    parser.add_argument(
         "--use-vlc",
         action="store_true",
-        help="Use VLC Player instead of the default OMX Player. Enabled by default on non-pi hardware. Note: if you want to play audio to the headphone jack on a rpi, you'll need to configure this in raspi-config: 'Advanced Options > Audio > Force 3.5mm (headphone)'",
+        help="Use VLC Player to play video. Enabled by default. Note: if you want to play audio to the headphone jack on a rpi, see troubleshooting steps in README.md",
         required=False,
     ),
     parser.add_argument(
@@ -617,14 +597,11 @@ if __name__ == "__main__":
         }
     )
 
-    # force VLC on non-pi hardware
-    if not platform == "raspberry_pi" and not args.use_vlc:
-        print("Defaulting to VLC player")
+    # Handle OMX player if specified
+    if platform == "raspberry_pi" and args.use_omxplayer:
+        args.use_vlc = False
+    else:
         args.use_vlc = True
-    # disallow overlay on VLC
-    if args.use_vlc and args.show_overlay:
-        print("Overlay not supported VLC. Disabling it.")
-        args.show_overlay = False
 
     # check if required binaries exist
     if not os.path.isfile(args.youtubedl_path):
@@ -662,12 +639,12 @@ if __name__ == "__main__":
         splash_delay=args.splash_delay,
         log_level=args.log_level,
         volume=args.volume,
-        hide_overlay=not args.show_overlay,
         hide_ip=args.hide_ip,
         hide_splash_screen=args.hide_splash_screen,
         omxplayer_adev=args.adev,
         dual_screen=args.dual_screen,
         high_quality=args.high_quality,
+        use_omxplayer=args.use_omxplayer,
         use_vlc=args.use_vlc,
         vlc_path=args.vlc_path,
         vlc_port=args.vlc_port,

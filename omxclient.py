@@ -1,9 +1,11 @@
 import logging
+import os
 import subprocess
+import time
 
 
 class OMXClient:
-    def __init__(self, path=None, adev=None, dual_screen=False):
+    def __init__(self, path=None, adev=None, dual_screen=False, volume_offset=None):
         # Handle omxplayer paths
         if path == None:
             self.path = "/usr/bin/omxplayer"
@@ -22,7 +24,10 @@ class OMXClient:
 
         self.paused = False
 
-        self.volume_offset = 0
+        if volume_offset:
+            self.volume_offset = volume_offset
+        else:
+            self.volume_offset = 0
         self.process = None
 
     def play_file(self, file_path, additional_parameters=None):
@@ -66,6 +71,9 @@ class OMXClient:
     def restart(self):
         self.process.stdin.write("i".encode("utf-8"))
         self.process.stdin.flush()
+        if (self.paused):
+            time.sleep(0.2)
+            self.play()
         self.paused = False
 
     def vol_up(self):
@@ -77,11 +85,18 @@ class OMXClient:
     def vol_down(self):
         logging.info("Volume down")
         self.process.stdin.write("-".encode("utf-8"))
+        self.process.stdin.flush()
         self.volume_offset -= 300
 
     def kill(self):
         try:
             self.process.kill()
+            logging.debug("Killing old omxplayer processes")
+            player_kill = ["killall", "omxplayer.bin"]
+            FNULL = open(os.devnull, "w")
+            subprocess.Popen(
+                player_kill, stdin=subprocess.PIPE, stdout=FNULL, stderr=FNULL
+            )
             self.paused = False
         except (OSError, AttributeError) as e:
             logging.error(e)
@@ -93,9 +108,8 @@ class OMXClient:
         ) 
 
     def is_playing(self):
-        return (
-            self.process != None and self.process.poll() == None and self.paused == False
-        )
+        is_playing = self.process != None and self.process.poll() == None and self.paused == False
+        return is_playing
 
     def is_paused(self):
         return self.paused
@@ -110,18 +124,3 @@ class OMXClient:
         except KeyboardInterrupt:
             self.kill()
 
-
-# if __name__ == "__main__":
-#     k = VLCClient()
-#     k.play_file("/path/to/file.mp4")
-#     time.sleep(2)
-#     k.pause()
-#     k.vol_up()
-#     k.vol_up()
-#     time.sleep(2)
-#     k.vol_down()
-#     k.vol_down()
-#     time.sleep(2)
-#     k.play()
-#     time.sleep(2)
-#     k.stop()
