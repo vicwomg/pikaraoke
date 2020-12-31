@@ -52,12 +52,13 @@
   <li>Disk Usage: {{ disk }}</li>
   <li>Memory: {{ memory }}</li>
   <li>Youtube-dl version: {{ youtubedl_version }}</li>
+  <li>Pikaraoke version: {{ pikaraoke_version }}</li>
 </ul>
 
 <hr />
 
 <h1>Updates</h1>
-<p>Manually update the song list:
+<p>Refresh the song list:</p> 
 <ul>
   <li>
     <a href="/refresh"
@@ -65,8 +66,9 @@
     >
   </li>
 </ul>
+<p class="help">You should only need to do this if you manually copied files to the download directory while pikaraoke was running.</p>
 
-<p>If downloads or searches stopped working, updating youtube-dl will probably fix it. This update link may fail if you don't have proper file permissions. Check the pikaraoke log for errors</p>
+<p>If downloads or searches stopped working, updating youtube-dl will probably fix it. The current installed version is: "{{ youtubedl_version }}"</p> 
 <ul>
   <li>
     <a id="update-ytdl-link" href="{{ url_for('update_ytdl') }}"
@@ -74,6 +76,7 @@
     >
   </li>
 </ul>
+<p class="help">This update link above may fail if you don't have proper file permissions. Check the pikaraoke log for errors. </p>
 
 <h1>Shutdown</h1>
 <p>
