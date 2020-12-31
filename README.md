@@ -12,6 +12,7 @@ If you want to support this project with a little monetary tip, it's much apprec
 - Refresh song list manually from the info screen.
 - Default download directories are now ~/pikaraoke-songs on MacOS, Windows, and Linux  
 - General overdue cleanup of libraries
+- Removed the --show-overlay feature since it is omxplayer only and not supported on pi4
 
 ## Features
 
@@ -19,7 +20,7 @@ If you want to support this project with a little monetary tip, it's much apprec
 - Searching song library via autocomplete
 - Adding new tracks from Youtube
 - Offline storage of video files
-- mp3 + cdg file support (vlc only)
+- mp3 + cdg support, including compressed .zip bundles (vlc only)
 - Pause/Skip/Restart and volume control
 - Now playing and Up Next display
 - Basic editing of downloaded file names

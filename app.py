@@ -13,6 +13,7 @@ from flask import (Flask, flash, redirect, render_template, request, send_file,
                    send_from_directory, url_for)
 
 import karaoke
+from constants import VERSION
 from get_platform import get_platform
 from vlcclient import get_default_vlc_path
 
@@ -354,6 +355,7 @@ def info():
         disk=disk,
         youtubedl_version=youtubedl_version,
         show_shutdown=show_shutdown,
+        pikaraoke_version=VERSION
     )
 
 
