@@ -35,3 +35,5 @@ echo
 echo
 echo "*** Your /etc/rc.local:"
 cat /etc/rc.local
+
+fi
