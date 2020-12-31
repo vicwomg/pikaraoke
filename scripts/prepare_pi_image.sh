@@ -25,15 +25,11 @@ cat /usr/share/alsa/alsa.conf | grep "defaults.pcm.card "
 echo "^ the above values should be set to 0, not 1"
 
 echo 
-echo "*** Double-checking /etc/rc.local expecting to see:"
-echo '
-if [ "$_IP" ]; then
-  /usr/bin/python3 /home/pi/pikaraoke/app.py --use-vlc >> /var/log/pikaraoke.log 2>&1 &
-fi
-'
-echo
-echo
-echo "*** Your /etc/rc.local:"
-cat /etc/rc.local
+echo "*** Double-checking /etc/rc.local expecting to see a line about launching pikaraoke:"
+cat /etc/rc.local | grep pikaraoke
+
+echo 
+echo "*** Double-checking we have a wpa_supplicant example file in /boot"
+ls -la /boot/wpa_supplicant.conf.example
 
 fi
