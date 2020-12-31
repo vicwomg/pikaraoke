@@ -1,17 +1,31 @@
 import logging
 import os
 import random
+import shutil
 import string
 import subprocess
 import sys
 import time
 import xml.etree.ElementTree as ET
+import zipfile
 from threading import Timer
 
 import requests
 
 from get_platform import get_platform
 
+
+def get_default_vlc_path(platform):
+    if platform == "osx":
+        return "/Applications/VLC.app/Contents/MacOS/VLC"
+    elif platform == "windows":
+        alt_vlc_path = r"C:\\Program Files (x86)\\VideoLAN\VLC\\vlc.exe"
+        if os.path.isfile(alt_vlc_path):
+            return alt_vlc_path
+        else:
+            return r"C:\Program Files\VideoLAN\VLC\vlc.exe"
+    else:
+        return "/usr/bin/vlc"
 
 class VLCClient:
     def __init__(self, port=5002, path=None):
@@ -28,18 +42,15 @@ class VLCClient:
         # Handle vlc paths
         self.platform = get_platform()
         if path == None:
-            if self.platform == "osx":
-                self.path = "/Applications/VLC.app/Contents/MacOS/VLC"
-            elif self.platform == "windows":
-                alt_vlc_path = r"C:\\Program Files (x86)\\VideoLAN\VLC\\vlc.exe"
-                if os.path.isfile(alt_vlc_path):
-                    self.path = alt_vlc_path
-                else:
-                    self.path = r"C:\\Program Files\\VideoLAN\VLC\\vlc.exe"
-            else:
-                self.path = "/usr/bin/vlc"
+            self.path = get_default_vlc_path(self.platform)
         else:
             self.path = path
+
+        # Determine tmp directories (for things like extracted cdg files)
+        if self.platform == "windows":
+            self.tmp_dir = os.path.expanduser(r"~\\AppData\\Local\\Temp\\pikaraoke\\")
+        else:
+            self.tmp_dir = "/tmp/pikaraoke/"
 
         # Set up command line args
         self.cmd_base = [
@@ -77,22 +88,65 @@ class VLCClient:
         self.volume_offset = 10
         self.process = None
 
-    def play_file(self, file_path, additional_parameters=None):
-        if self.is_playing() or self.is_paused():
-            logging.debug("VLC is currently playing, stopping track...")
-            self.stop()
-            # this pause prevents vlc http server from being borked after transpose
-            time.sleep(0.2)
-        if self.platform == "windows":
-            file_path = r"{}".format(file_path)
-        if additional_parameters == None:
-            command = self.cmd_base + [file_path]
+    def handle_zipped_cdg(self, file_path):
+        extracted_dir = os.path.join(self.tmp_dir, "extracted")
+        if (os.path.exists(extracted_dir)):
+            shutil.rmtree(extracted_dir)
+        with zipfile.ZipFile(file_path, 'r') as zip_ref:
+            zip_ref.extractall(extracted_dir)
+        
+        mp3_file = None
+        cdg_file = None
+        files = os.listdir(extracted_dir)
+        for file in files:
+            if os.path.splitext(file)[1] == ".mp3":
+                mp3_file = file
+            elif os.path.splitext(file)[1] == ".cdg":
+                cdg_file = file
+        
+        if (mp3_file is not None) and (cdg_file is not None):
+            if (os.path.splitext(mp3_file)[0] == os.path.splitext(cdg_file)[0] ):
+                return os.path.join(extracted_dir, mp3_file)
+            else:
+                raise Exception("Zipped .mp3 file did not have a matching .cdg file: " + files)
+        else: 
+            raise Exception("No .mp3 or .cdg was found in the zip file: " + file_path)
+
+    def handle_mp3_cdg(self, file_path):
+        if (os.path.isfile(os.path.splitext(file_path)[0] + ".cdg")):
+            return file_path
         else:
-            command = self.cmd_base + additional_parameters + [file_path]
-        print("Command: %s" % command)
-        self.process = subprocess.Popen(
-            command, shell=(self.platform == "windows"), stdin=subprocess.PIPE
-        )
+            raise Exception("No matching .cdg file found for: " + file_path)
+
+    def process_file(self, file_path):
+        file_extension = os.path.splitext(file_path)[1]
+        if (file_extension == ".zip"):
+            return self.handle_zipped_cdg(file_path)
+        elif (file_extension == ".mp3"):
+            return self.handle_mp3_cdg(file_path)
+        else:
+            return file_path
+
+    def play_file(self, file_path, additional_parameters=None):
+        try: 
+            file_path = self.process_file(file_path)
+            if self.is_playing() or self.is_paused():
+                logging.debug("VLC is currently playing, stopping track...")
+                self.stop()
+                # this pause prevents vlc http server from being borked after transpose
+                time.sleep(0.2)
+            if self.platform == "windows":
+                file_path = r"{}".format(file_path)
+            if additional_parameters == None:
+                command = self.cmd_base + [file_path]
+            else:
+                command = self.cmd_base + additional_parameters + [file_path]
+            logging.debug("VLC Command: %s" % command)
+            self.process = subprocess.Popen(
+                command, shell=(self.platform == "windows"), stdin=subprocess.PIPE
+            )
+        except Exception as e:
+            logging.error("Playing file failed: " + str(e))
 
     def play_file_transpose(self, file_path, semitones):
         # --speex-resampler-quality=<integer [0 .. 10]>
@@ -162,6 +216,7 @@ class VLCClient:
 
     def restart(self):
         logging.info(self.command("seek&val=0"))
+        self.play()
         return self.command("seek&val=0")
 
     def vol_up(self):
@@ -204,7 +259,6 @@ class VLCClient:
 
     def get_status(self):
         url = self.http_endpoint
-        print("httppassw: " + self.http_password)
         request = requests.get(url, auth=("", self.http_password))
         return ET.fromstring(request.text)
 

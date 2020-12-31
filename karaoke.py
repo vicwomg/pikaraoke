@@ -15,6 +15,7 @@ import pygame
 import qrcode
 from unidecode import unidecode
 
+import omxclient
 import vlcclient
 from get_platform import get_platform
 
@@ -24,7 +25,6 @@ if get_platform() != "windows":
 
 class Karaoke:
 
-    overlay_file_path = "/tmp/pikaraoke-overlay.srt"
     raspi_wifi_config_ip = "10.0.0.1"
     raspi_wifi_conf_file = "/etc/raspiwifi/raspiwifi.conf"
     raspi_wifi_config_installed = os.path.exists(raspi_wifi_conf_file)
@@ -48,7 +48,6 @@ class Karaoke:
         download_path="/usr/lib/pikaraoke/songs",
         hide_ip=False,
         hide_splash_screen=False,
-        hide_overlay=True,
         omxplayer_adev="both",
         dual_screen=False,
         high_quality=False,
@@ -57,7 +56,8 @@ class Karaoke:
         splash_delay=2,
         youtubedl_path="/usr/local/bin/youtube-dl",
         omxplayer_path="/usr/bin/omxplayer",
-        use_vlc=False,
+        use_omxplayer=False,
+        use_vlc=True,
         vlc_path=None,
         vlc_port=None,
         logo_path=None,
@@ -72,10 +72,10 @@ class Karaoke:
         self.dual_screen = dual_screen
         self.high_quality = high_quality
         self.splash_delay = int(splash_delay)
-        self.hide_overlay = hide_overlay
         self.volume_offset = volume
         self.youtubedl_path = youtubedl_path
-        self.player_path = omxplayer_path
+        self.omxplayer_path = omxplayer_path
+        self.use_omxplayer = use_omxplayer
         self.use_vlc = use_vlc
         self.vlc_path = vlc_path
         self.vlc_port = vlc_port
@@ -84,6 +84,7 @@ class Karaoke:
         # other initializations
         self.platform = get_platform()
         self.vlcclient = None
+        self.omxclient = None
         self.screen = None
 
         logging.basicConfig(
@@ -98,7 +99,6 @@ class Karaoke:
     hide IP: %s
     hide splash: %s
     splash_delay: %s
-    hide overlay: %s
     omx audio device: %s
     dual screen: %s
     high quality video: %s
@@ -107,6 +107,7 @@ class Karaoke:
     youtube-dl path: %s
     omxplayer path: %s
     logo path: %s
+    Use OMXPlayer: %s
     Use VLC: %s
     VLC path: %s
     VLC port: %s
@@ -116,15 +117,15 @@ class Karaoke:
                 self.hide_ip,
                 self.hide_splash_screen,
                 self.splash_delay,
-                self.hide_overlay,
                 self.omxplayer_adev,
                 self.dual_screen,
                 self.high_quality,
                 self.download_path,
                 self.volume_offset,
                 self.youtubedl_path,
-                self.player_path,
+                self.omxplayer_path,
                 self.logo_path,
+                self.use_omxplayer,
                 self.use_vlc,
                 self.vlc_path,
                 self.vlc_port,
@@ -159,11 +160,11 @@ class Karaoke:
 
         # clean up old sessions
         self.kill_player()
-        if os.path.isfile(self.overlay_file_path):
-            os.remove(self.overlay_file_path)
 
         if self.use_vlc:
             self.vlcclient = vlcclient.VLCClient(port=self.vlc_port, path=self.vlc_path)
+        else:
+            self.omxclient = omxclient.OMXClient(path=self.omxplayer_path, adev=self.omxplayer_adev, dual_screen=self.dual_screen, volume_offset=self.volume_offset)
 
         if not self.hide_splash_screen:
             self.generate_qr_code()
@@ -220,23 +221,6 @@ class Karaoke:
 
     def is_network_connected(self):
         return not len(self.ip) < 7
-
-    def generate_overlay_file(self, file_path):
-        if not self.hide_overlay:
-            current_song = self.filename_from_path(file_path)
-            logging.debug("Generating overlay file")
-            if not self.hide_ip:
-                msg = "PiKaraoke IP: %s" % self.url
-            else:
-                msg = ""
-            output = "00:00:00,00 --> 00:00:30,00 \n%s\n%s" % (current_song, msg)
-            f = open(self.overlay_file_path, "w")
-            try:
-                f.write(output.encode("utf-8"))
-            except TypeError:
-                # python 3 hack
-                f.write(output)
-            logging.debug("Done generating overlay file: " + output)
 
     def generate_qr_code(self):
         logging.debug("Generating URL QR code")
@@ -440,20 +424,33 @@ class Karaoke:
 
     def get_available_songs(self):
         logging.debug("Fetching available songs in: " + self.download_path)
-        self.available_songs = sorted(glob.glob(u"%s/*" % self.download_path))
+        types = ('*.mp4', '*.mp3', '*.zip') 
+        files_grabbed = []
+        for files in types:
+            files_grabbed.extend(glob.glob(u"%s/%s" % (self.download_path, files)))
+        self.available_songs = sorted(files_grabbed)
 
     def delete(self, song_path):
         logging.info("Deleting song: " + song_path)
         os.remove(song_path)
+        ext = os.path.splitext(song_path)
+        # if we have an associated cdg file, delete that too
+        cdg_file = song_path.replace(ext[1],".cdg")
+        if (os.path.exists(cdg_file)):
+            os.remove(cdg_file)
+        
         self.get_available_songs()
 
     def rename(self, song_path, new_name):
         logging.info("Renaming song: '" + song_path + "' to: " + new_name)
         ext = os.path.splitext(song_path)
         if len(ext) == 2:
-            new_name = new_name + ext[1]
-        os.rename(song_path, self.download_path + new_name)
-
+            new_file_name = new_name + ext[1]
+        os.rename(song_path, self.download_path + new_file_name)
+        # if we have an associated cdg file, rename that too
+        cdg_file = song_path.replace(ext[1],".cdg")
+        if (os.path.exists(cdg_file)):
+            os.rename(cdg_file, self.download_path + new_name + ".cdg")
         self.get_available_songs()
 
     def filename_from_path(self, file_path):
@@ -483,18 +480,12 @@ class Karaoke:
             if self.vlcclient != None:
                 self.vlcclient.kill()
         else:
-            logging.debug("Killing old omxplayer processes")
-            player_kill = ["killall", "omxplayer.bin"]
-            FNULL = open(os.devnull, "w")
-            subprocess.Popen(
-                player_kill, stdin=subprocess.PIPE, stdout=FNULL, stderr=FNULL
-            )
+            if self.omxclient != None:
+                self.omxclient.kill()
 
     def play_file(self, file_path, semitones=0):
         self.now_playing = self.filename_from_path(file_path)
         self.now_playing_filename = file_path
-        if (not self.hide_overlay) and (not self.use_vlc):
-            self.generate_overlay_file(file_path)
 
         if self.use_vlc:
             logging.info("Playing video in VLC: " + self.now_playing)
@@ -504,25 +495,7 @@ class Karaoke:
                 self.vlcclient.play_file_transpose(file_path, semitones)
         else:
             logging.info("Playing video in omxplayer: " + self.now_playing)
-            self.kill_player()
-            cmd = [
-                self.player_path,
-                file_path,
-                "--blank",
-                "-o",
-                self.omxplayer_adev,
-                "--vol",
-                str(self.volume_offset),
-                "--font-size",
-                str(25),
-            ]
-            if self.dual_screen:
-                cmd += ["--display", "7"]
-
-            if not self.hide_overlay:
-                cmd += ["--subtitles", self.overlay_file_path]
-            logging.debug("Player command: " + " ".join(cmd))
-            self.process = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+            self.omxclient.play_file(file_path)
 
         self.is_paused = False
         self.render_splash_screen()  # remove old previous track
@@ -543,10 +516,7 @@ class Karaoke:
                 self.now_playing = None
                 return False
         else:
-            if self.process == None:
-                self.now_playing = None
-                return False
-            elif self.process.poll() == None:
+            if self.omxclient != None and self.omxclient.is_running():
                 return True
             else:
                 self.now_playing = None
@@ -632,8 +602,7 @@ class Karaoke:
             if self.use_vlc:
                 self.vlcclient.stop()
             else:
-                self.process.stdin.write("q".encode("utf-8"))
-                self.process.stdin.flush()
+                self.omxclient.stop()
             self.reset_now_playing()
             return True
         else:
@@ -649,8 +618,10 @@ class Karaoke:
                 else:
                     self.vlcclient.play()
             else:
-                self.process.stdin.write("p".encode("utf-8"))
-                self.process.stdin.flush()
+                if self.omxclient.is_playing():
+                    self.omxclient.pause()
+                else:
+                    self.omxclient.play()
             self.is_paused = not self.is_paused
             return True
         else:
@@ -661,12 +632,8 @@ class Karaoke:
         if self.is_file_playing():
             if self.use_vlc:
                 self.vlcclient.vol_up()
-                self.volume_offset = self.vlcclient.get_volume()
             else:
-                logging.info("Volume up: " + self.now_playing)
-                self.process.stdin.write("=".encode("utf-8"))
-                self.process.stdin.flush()
-                self.volume_offset += 300
+                self.omxclient.vol_up()
             return True
         else:
             logging.warning("Tried to volume up, but no file is playing!")
@@ -676,11 +643,8 @@ class Karaoke:
         if self.is_file_playing():
             if self.use_vlc:
                 self.vlcclient.vol_down()
-                self.volume_offset = self.vlcclient.get_volume()
             else:
-                logging.info("Volume down: " + self.now_playing)
-                self.process.stdin.write("-".encode("utf-8"))
-                self.volume_offset -= 300
+                self.omxclient.vol_down()
             return True
         else:
             logging.warning("Tried to volume down, but no file is playing!")
@@ -691,12 +655,9 @@ class Karaoke:
             if self.use_vlc:
                 self.vlcclient.restart()
             else:
-                logging.info("Restarting: " + self.now_playing)
-                self.process.stdin.write("i".encode("utf-8"))
-                self.process.stdin.flush()
-                self.is_paused = False
+                self.omxclient.restart()
+            self.is_paused = False
             return True
-
         else:
             logging.warning("Tried to restart, but no file is playing!")
             return False
