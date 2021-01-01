@@ -5,14 +5,16 @@ PiKaraoke is a "KTV"-style karaoke song search and queueing system. It connects 
 If you want to support this project with a little monetary tip, it's much appreciated: <br/>
 <a href="https://www.buymeacoffee.com/vicwomg" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 
-## What's new (January 2021)
+## What's new (1.0.0)
 
+- Actual version number! v 1.0.0
 - VLC is now the default media player. You can still use omxplayer for slower pi devices with `--use-omxplayer`
 - CDG file support! Also supports zipped cdg + mp3, just add the files to the root of the download directory (must be using vlc)
 - Refresh song list manually from the info screen.
 - Default download directories are now ~/pikaraoke-songs on MacOS, Windows, and Linux  
 - General overdue cleanup of libraries
 - Removed the --show-overlay feature since it is omxplayer only and not supported on pi4
+- Prebuilt raspberry pi image that auto-launches pikaraoke: https://github.com/vicwomg/pikaraoke/releases/latest
 
 ## Features
 
@@ -57,6 +59,8 @@ This _should_ work on all raspberry pi devices, but multi-core models recommende
 Also works on macs, PCs, and linux!
 
 ## Installation
+
+If you're on a pi, you might want to just use the pre-built image here: https://github.com/vicwomg/pikaraoke/releases/latest
 
 Install git, if you haven't already. (on raspberry pi: `sudo apt-get update; sudo apt-get install git`)
 Install python3/pip3 (usually raspberry pis already have it, run `python3 --version` to check): https://www.python.org/downloads/ (python 2.7 may work, but is not officially supported)
