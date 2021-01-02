@@ -419,8 +419,7 @@ def reboot():
 
 
 # Handle sigterm, apparently cherrypy won't shut down without explicit handling
-signal.signal(signal.SIGTERM, lambda signum, stack_frame: sys.exit(1))
-
+signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
 def get_default_youtube_dl_path(platform):
     if platform == "windows":
