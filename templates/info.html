@@ -49,7 +49,7 @@
 
 <p class="is-size-4 has-text-warning">{{ url }}</p>
 <p>Handy URL QR code to share with a pal:</p>
-<img src="{{ url_for('qrcode') }}" />
+<img id="qr-img" width="300px" src="{{ url_for('qrcode') }}" style="image-rendering: pixelated" />
 
 <hr />
 
@@ -101,11 +101,11 @@
   {% endif %}
 </ul>
 
-
+{% if is_pi %}
 <h1>Other</h1>
 <a id="expand-link" href="{{ url_for('expand_fs') }}">Expand Raspberry Pi filesystem</a></li>
 <p class="help">If you just installed the pre-built pikaraoke pi image and your SD card is larger than 4GB, you may want to expand the filesystem to utilize the remaining space. You only need to do this once. This will reboot the system.</p>
-
+{% endif %}
 
 <hr/>
 {% if admin_enabled %}
