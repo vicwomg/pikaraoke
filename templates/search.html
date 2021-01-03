@@ -182,7 +182,41 @@
       changeImage();
     });
     setInterval(function () { $('#youtube-thumb').trigger('click'); }, 2000);
+
+    $('#advanced-settings').hide()
+
+    // handle show advanced state
+    $('#show-advanced').on('change', function () {
+      if ($('#show-advanced').is(":checked")) {
+        $('#advanced-settings').show()
+      }
+      else {
+        $('#advanced-settings').hide()
+      }
+    });
+
+    // handle direct download url input change
+    $('#direct-download-url').on('input', function () { 
+      var v = $('#direct-download-url').val()
+      console.log(v)
+      if (isYoutubeURL(v)) {
+        $('#direct-download-button').removeAttr("disabled")
+      }
+      else {
+        $('#direct-download-button').attr("disabled", true)
+      }
+    });
+    
   });
+    
+  function isYoutubeURL(s) {
+    if (s.includes("http")) {
+      return s.includes("youtube.com/watch?v=") || s.includes("youtube.com/v/") || s.includes("youtu.be/")
+    }
+    else {
+      return false
+    }
+  }
 
   function changeImage() {
     var next = (++i % 4);
@@ -220,9 +254,13 @@
     
     </div>
     <div class="control has-text-right">
-      <input type="checkbox" id="include-non-karaoke" name="include-non-karaoke">
-      <label for="include-non-karaoke" class="is-size-7">Include non-karaoke matches</label>
+      
+      <label class="checkbox is-size-7">
+        <input type="checkbox" id="show-advanced" name="show-advanced">
+        Advanced
+      </label>
     </div>
+    
     <div>
       <p class="help" style="margin-top: 15px">
         Type a song (title/artist) to search the available songs and click 'Queue' to add it to the queue.
@@ -231,8 +269,34 @@
         If the song doesn't appear in the "Available Songs" dropdown, click 'Search' to find it on Youtube
       </p>
     </div>
-
   </form>
+</div>
+
+<div>
+  <div id="advanced-settings" class="box has-background-black-bis" style="margin-top: 10px">
+    <div class="control">
+      <label class="checkbox">
+        <input type="checkbox" id="include-non-karaoke" name="include-non-karaoke">
+        Include non-karaoke matches
+      </label>
+    </div>
+    <hr>
+    <div class="control">
+      <div class="label">Direct download YouTube url: </div>
+      <form  action="{{ url_for('download') }}" method="post">
+        <input class="input" id="direct-download-url" type="text" name="song-url" />
+        <div class="field" style="margin-top: 5px">
+          <label class="checkbox">
+            <input type="checkbox" checked name="queue">
+            Add to queue
+          </label>
+        </div>
+        <div class="has-text-right" style="margin-top: 5px">
+          <button class="button is-small is-rounded" disabled id="direct-download-button" type="submit">Download</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 
 <hr>
