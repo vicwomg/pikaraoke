@@ -198,7 +198,6 @@
     // handle direct download url input change
     $('#direct-download-url').on('input', function () { 
       var v = $('#direct-download-url').val()
-      console.log(v)
       if (isYoutubeURL(v)) {
         $('#direct-download-button').removeAttr("disabled")
       }

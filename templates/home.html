@@ -141,6 +141,7 @@
 <p id="up-next" class="has-text-warning"></p>
 <hr />
 
+{% if admin %}
 <div class="has-background-black-bis box control-box" style="max-width: 500px">
   <h4>Player Control</h4>
   <p class="is-size-3">
@@ -159,39 +160,41 @@
   </p>
 </div>
 
-{% if show_transpose %}
-<div class="has-background-black-bis box control-box" style="max-width: 500px">
-  <div class="is-flex" style="justify-content: space-between">
-    <div>
-      <h4>Change Key</h4>
+  {% if show_transpose %}
+  <div class="has-background-black-bis box control-box" style="max-width: 500px">
+    <div class="is-flex" style="justify-content: space-between">
+      <div>
+        <h4>Change Key</h4>
+      </div>
+      <div>
+        <h4 id="semitones-label"></h4>
+      </div>
     </div>
-    <div>
-      <h4 id="semitones-label"></h4>
-    </div>
-  </div>
 
-  <div style="width: 100%">
-    <div class="is-flex">
-      <input
-        type="range"
-        min="-12"
-        max="12"
-        value="0"
-        width="300px"
-        class="transpose-slider"
-        id="transpose"
-        style="width: 100%"
-      />
-      <button
-        id="submit-transpose"
-        class="button is-rounded"
-        style="margin-left: 10px"
-      >
-        OK
-      </button>
+    <div style="width: 100%">
+      <div class="is-flex">
+        <input
+          type="range"
+          min="-12"
+          max="12"
+          value="0"
+          width="300px"
+          class="transpose-slider"
+          id="transpose"
+          style="width: 100%"
+        />
+        <button
+          id="submit-transpose"
+          class="button is-rounded"
+          style="margin-left: 10px"
+        >
+          OK
+        </button>
+      </div>
     </div>
   </div>
-</div>
+  {% endif %}
+
 {% endif %}
 
 <div></div>

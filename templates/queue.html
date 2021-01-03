@@ -38,6 +38,7 @@
   {% for song in queue %}
   <tr value="{{ song }}">
     <td width="20px" style="padding: 5px 0px">{{loop.index}}</td>
+    {% if admin %}
     <td width="20px" style="padding: 5px 0px">
       <a
         class="up-button"
@@ -54,9 +55,11 @@
         ><i class="icon icon-sort-down"></i>
       </a>
     </td>
+    {% endif %}
 
     <td style="padding-left: 5px">{{filename_from_path(song)}}</td>
 
+    {% if admin %}
     <td width="20px">
       <a
         class="delete-button confirm-delete has-text-danger"
@@ -65,12 +68,15 @@
         ><i class="icon icon-trash-empty"></i>
       </a>
     </td>
+    {% endif %}
+    
   </tr>
   {% endfor %}
 </table>
 {% else %} The queue is empty {% endif %}
 <hr />
 
+{% if admin %}
 <a class="add-random has-text-success" href="/queue/addrandom?amount=3"
   >Add 3 random songs</a
 >
@@ -79,5 +85,6 @@
   href="/queue/edit?action=clear"
   >Clear all</a
 ><br />
+{% endif %}
 
 {% endblock %}
