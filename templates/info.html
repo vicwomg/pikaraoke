@@ -57,6 +57,7 @@
 
 <hr />
 
+{% if admin %}
 <h1>Updates</h1>
 <p>Refresh the song list:</p> 
 <ul>
@@ -92,5 +93,12 @@
   </li>
   {% endif %}
 </ul>
+<hr/>
+{% if admin_enabled %}
+<p>Disable admin mode: <a href="{{ url_for('logout') }}">log out</a></p>
+{% endif %}
+{% else %}
+<p>Enable admin mode: <a href="{{ url_for('login') }}">log in</a></p>
+{% endif %}
 
 {% endblock %}

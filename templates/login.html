@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+<script>
+
+  $(function () {
+
+
+
+  });
+
+</script>
+
+{% endblock %}
+
+{% block header %}
+<h1>{% block title %}Login{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+
+  <p>Enter the administrator password</p>
+  <form action="{{ url_for('auth') }}" method="post">
+
+    <div class="field has-addons" style="margin-bottom: 5px">
+      <div class="control">
+        <input type="password" name="admin-password" class="input" style="max-width: 350px"></input>
+      </div>
+      <div class="control">
+        <button class="button is-rounded">Login</button>
+      </div>
+    </div>
+   
+  </form>
+
+{% endblock %}

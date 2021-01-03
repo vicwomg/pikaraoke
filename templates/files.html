@@ -41,11 +41,12 @@
     <td>
       {{filename_from_path(song)}}
     </td>
-    <td width="20px">
-      <a class='edit-button' href="{{url_for('edit_file')}}?song={{url_escape(song.encode('utf-8'))}}"
-        title="Edit song"><i class="icon icon-edit"></i> </a>
-    </td>
-    </li>
+    {% if admin %}
+      <td width="20px">
+        <a class='edit-button' href="{{url_for('edit_file')}}?song={{url_escape(song.encode('utf-8'))}}"
+          title="Edit song"><i class="icon icon-edit"></i> </a>
+      </td>
+    {% endif %}
     {% endfor %}
 </table>
 

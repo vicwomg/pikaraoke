@@ -6,11 +6,12 @@ import signal
 import sys
 import threading
 import time
+from functools import wraps
 
 import cherrypy
 import psutil
-from flask import (Flask, flash, redirect, render_template, request, send_file,
-                   send_from_directory, url_for)
+from flask import (Flask, flash, make_response, redirect, render_template,
+                   request, send_file, send_from_directory, url_for)
 
 import karaoke
 from constants import VERSION
@@ -26,7 +27,7 @@ except ImportError:
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 site_name = "PiKaraoke"
-
+admin_password = None
 
 def filename_from_path(file_path, remove_youtube_id=True):
     rc = os.path.basename(file_path)
@@ -44,6 +45,16 @@ def url_escape(filename):
     return quote(filename.encode("utf8"))
 
 
+def is_admin():
+    if (admin_password == None):
+        return True
+    if ('admin' in request.cookies):
+        a = request.cookies.get("admin")
+        if (a == admin_password):
+            return True
+    return False
+
+
 @app.route("/")
 def home():
     return render_template(
@@ -52,7 +63,32 @@ def home():
         title="Home",
         show_transpose=k.use_vlc,
         transpose_value=k.now_playing_transpose,
+        admin=is_admin()
     )
+
+@app.route("/auth", methods=["POST"])
+def auth():
+    d = request.form.to_dict()
+    p = d["admin-password"]
+    if (p == admin_password):
+        resp = make_response(redirect('/'))
+        resp.set_cookie('admin', admin_password)
+        flash("Admin mode granted!", "is-success")
+    else:
+        resp = make_response(redirect(url_for('login')))
+        flash("Incorrect admin password!", "is-danger")
+    return resp
+
+@app.route("/login")
+def login():
+    return render_template("login.html")
+
+@app.route("/logout")
+def logout():
+    resp = make_response(redirect('/'))
+    resp.set_cookie('admin', '')
+    flash("Logged out of admin mode!", "is-success")
+    return resp
 
 @app.route("/nowplaying")
 def nowplaying():
@@ -76,9 +112,8 @@ def nowplaying():
 @app.route("/queue")
 def queue():
     return render_template(
-        "queue.html", queue=k.queue, site_title=site_name, title="Queue"
+        "queue.html", queue=k.queue, site_title=site_name, title="Queue", admin=is_admin()
     )
-
 
 @app.route("/queue/addrandom", methods=["GET"])
 def add_random():
@@ -209,6 +244,7 @@ def browse():
         site_title=site_name,
         title="Browse",
         songs=songs,
+        admin=is_admin()
     )
 
 
@@ -358,7 +394,9 @@ def info():
         disk=disk,
         youtubedl_version=youtubedl_version,
         show_shutdown=show_shutdown,
-        pikaraoke_version=VERSION
+        pikaraoke_version=VERSION,
+        admin=is_admin(),
+        admin_enabled=admin_password != None
     )
 
 
@@ -381,43 +419,57 @@ def update_youtube_dl():
     time.sleep(3)
     k.upgrade_youtubedl()
 
-
 @app.route("/update_ytdl")
 def update_ytdl():
-    flash(
-        "Updating youtube-dl! Should take a minute or two... ",
-        "is-warning",
-    )
-    th = threading.Thread(target=update_youtube_dl)
-    th.start()
+    if (is_admin()):
+        flash(
+            "Updating youtube-dl! Should take a minute or two... ",
+            "is-warning",
+        )
+        th = threading.Thread(target=update_youtube_dl)
+        th.start()
+    else:
+        flash("You don't have permission to update youtube-dl", "is-danger")
     return redirect(url_for("home"))
 
 @app.route("/refresh")
 def refresh():
-    k.get_available_songs()
+    if (is_admin()):
+        k.get_available_songs()
+    else:
+        flash("You don't have permission to shut down", "is-danger")
     return redirect(url_for("browse"))
 
 @app.route("/quit")
 def quit():
-    flash("Quitting pikaraoke now!", "is-warning")
-    th = threading.Thread(target=delayed_halt, args=[0])
-    th.start()
+    if (is_admin()):
+        flash("Quitting pikaraoke now!", "is-warning")
+        th = threading.Thread(target=delayed_halt, args=[0])
+        th.start()
+    else:
+        flash("You don't have permission to quit", "is-danger")
     return redirect(url_for("home"))
 
 
 @app.route("/shutdown")
 def shutdown():
-    flash("Shutting down system now!", "is-danger")
-    th = threading.Thread(target=delayed_halt, args=[1])
-    th.start()
+    if (is_admin()): 
+        flash("Shutting down system now!", "is-danger")
+        th = threading.Thread(target=delayed_halt, args=[1])
+        th.start()
+    else:
+        flash("You don't have permission to shut down", "is-danger")
     return redirect(url_for("home"))
 
 
 @app.route("/reboot")
 def reboot():
-    flash("Rebooting system now!", "is-danger")
-    th = threading.Thread(target=delayed_halt, args=[2])
-    th.start()
+    if (is_admin()): 
+        flash("Rebooting system now!", "is-danger")
+        th = threading.Thread(target=delayed_halt, args=[2])
+        th.start()
+    else:
+        flash("You don't have permission to Reboot", "is-danger")
     return redirect(url_for("home"))
 
 
@@ -584,8 +636,17 @@ if __name__ == "__main__":
         help="Path to a custom logo image file for the splash screen. Recommended dimensions ~ 500x500px",
         default=None,
         required=False,
+    ),
+    parser.add_argument(
+        "--admin-password",
+        help="Administrator password, for locking down certain features of the web UI such as queue editing, player controls, song editing, and system shutdown. If unspecified, everyone is an admin.",
+        default=None,
+        required=False,
     )
     args = parser.parse_args()
+
+    if (args.admin_password):
+        admin_password = args.admin_password
 
     app.jinja_env.globals.update(filename_from_path=filename_from_path)
     app.jinja_env.globals.update(url_escape=quote)
