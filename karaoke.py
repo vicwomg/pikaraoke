@@ -15,9 +15,8 @@ import pygame
 import qrcode
 from unidecode import unidecode
 
-import omxclient
-import vlcclient
-from get_platform import get_platform
+from lib import omxclient, vlcclient
+from lib.get_platform import get_platform
 
 if get_platform() != "windows":
     from signal import SIGALRM, alarm, signal
@@ -55,7 +54,7 @@ class Karaoke:
         log_level=logging.DEBUG,
         splash_delay=2,
         youtubedl_path="/usr/local/bin/youtube-dl",
-        omxplayer_path="/usr/bin/omxplayer",
+        omxplayer_path=None,
         use_omxplayer=False,
         use_vlc=True,
         vlc_path=None,

@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -15,8 +16,8 @@ from flask import (Flask, flash, make_response, redirect, render_template,
 
 import karaoke
 from constants import VERSION
-from get_platform import get_platform
-from vlcclient import get_default_vlc_path
+from lib.get_platform import get_platform
+from lib.vlcclient import get_default_vlc_path
 
 try:
     from urllib.parse import quote, unquote
@@ -382,7 +383,7 @@ def info():
     # youtube-dl
     youtubedl_version = k.youtubedl_version
 
-    show_shutdown = get_platform() == "raspberry_pi"
+    is_pi = get_platform() == "raspberry_pi"
 
     return render_template(
         "info.html",
@@ -393,7 +394,7 @@ def info():
         cpu=cpu,
         disk=disk,
         youtubedl_version=youtubedl_version,
-        show_shutdown=show_shutdown,
+        is_pi=is_pi,
         pikaraoke_version=VERSION,
         admin=is_admin(),
         admin_enabled=admin_password != None
@@ -413,7 +414,13 @@ def delayed_halt(cmd):
         os.system("shutdown now")
     if cmd == 2:
         os.system("reboot")
-
+    if cmd == 3:
+        if (platform == "raspberry_pi" and is_admin()):
+            process = subprocess.Popen(["raspi-config", "--expand-rootfs"])
+            process.wait()
+            os.system("reboot")
+        else:
+            logging.error("Expand FS option is for raspberry pi only")
 
 def update_youtube_dl():
     time.sleep(3)
@@ -470,6 +477,18 @@ def reboot():
         th.start()
     else:
         flash("You don't have permission to Reboot", "is-danger")
+    return redirect(url_for("home"))
+
+@app.route("/expand_fs")
+def expand_fs():
+    if (is_admin() and platform == "raspberry_pi"): 
+        flash("Expanding filesystem and rebooting system now!", "is-danger")
+        th = threading.Thread(target=delayed_halt, args=[3])
+        th.start()
+    elif (platform != "raspberry_pi"):
+        flash("Cannot expand fs on non-raspberry pi devices!", "is-danger")
+    else:
+        flash("You don't have permission to resize the filesystem", "is-danger")
     return redirect(url_for("home"))
 
 
