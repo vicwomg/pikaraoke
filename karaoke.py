@@ -60,6 +60,7 @@ class Karaoke:
         vlc_path=None,
         vlc_port=None,
         logo_path=None,
+        show_overlay=False
     ):
 
         # override with supplied constructor args if provided
@@ -79,6 +80,7 @@ class Karaoke:
         self.vlc_path = vlc_path
         self.vlc_port = vlc_port
         self.logo_path = self.default_logo_path if logo_path == None else logo_path
+        self.show_overlay = show_overlay
 
         # other initializations
         self.platform = get_platform()
@@ -160,16 +162,20 @@ class Karaoke:
         # clean up old sessions
         self.kill_player()
 
+        self.generate_qr_code()
         if self.use_vlc:
-            self.vlcclient = vlcclient.VLCClient(port=self.vlc_port, path=self.vlc_path)
+            if (self.show_overlay):
+                self.vlcclient = vlcclient.VLCClient(port=self.vlc_port, path=self.vlc_path, qrcode=self.qr_code_path, url=self.url)
+            else: 
+                self.vlcclient = vlcclient.VLCClient(port=self.vlc_port, path=self.vlc_path)
         else:
             self.omxclient = omxclient.OMXClient(path=self.omxplayer_path, adev=self.omxplayer_adev, dual_screen=self.dual_screen, volume_offset=self.volume_offset)
 
         if not self.hide_splash_screen:
-            self.generate_qr_code()
             self.initialize_screen()
             self.render_splash_screen()
 
+ 
     # Other ip-getting methods are unreliable and sometimes return 127.0.0.1
     # https://stackoverflow.com/a/28950776
     def get_ip(self):
@@ -223,7 +229,14 @@ class Karaoke:
 
     def generate_qr_code(self):
         logging.debug("Generating URL QR code")
-        img = qrcode.make(self.url)
+        qr = qrcode.QRCode(
+            version=1,
+            box_size=1,
+            border=4,
+        )
+        qr.add_data(self.url)
+        qr.make()
+        img = qr.make_image()
         self.qr_code_path = os.path.join(self.base_path, "qrcode.png")
         img.save(self.qr_code_path)
 

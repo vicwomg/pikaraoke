@@ -651,9 +651,15 @@ if __name__ == "__main__":
         required=False,
     ),
     parser.add_argument(
-        "--logo_path",
+        "--logo-path",
         help="Path to a custom logo image file for the splash screen. Recommended dimensions ~ 500x500px",
         default=None,
+        required=False,
+    ),
+    parser.add_argument(
+        "--show-overlay",
+        action="store_true",
+        help="Show overlay on top of video with pikaraoke QR code and IP",
         required=False,
     ),
     parser.add_argument(
@@ -733,6 +739,7 @@ if __name__ == "__main__":
         vlc_path=args.vlc_path,
         vlc_port=args.vlc_port,
         logo_path=args.logo_path,
+        show_overlay=args.show_overlay
     )
     k.run()
 
