@@ -12,7 +12,7 @@ from threading import Timer
 
 import requests
 
-from get_platform import get_platform
+from lib.get_platform import get_platform
 
 
 def get_default_vlc_path(platform):

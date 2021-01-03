@@ -32,6 +32,13 @@
         location.href = this.href;
       }
     });
+
+    $("#expand-link").click(function (e) {
+      e.preventDefault();
+      if (window.confirm("Are you sure you want to expand the filesystem? This will reboot your raspberry pi.")) {
+        location.href = this.href;
+      }
+    });
   });
 </script>
 {% endblock %} {% block header %}
@@ -86,13 +93,20 @@
 </p>
 <ul>
   <li><a id="quit-link" href="{{ url_for('quit') }}">Quit pikaraoke</a></li>
-  {% if show_shutdown %}
+  {% if is_pi %}
   <li><a id="restart-link" href="{{ url_for('reboot') }}">Reboot System</a></li>
   <li>
     <a id="shutdown-link" href="{{ url_for('shutdown') }}">Shutdown System</a>
   </li>
   {% endif %}
 </ul>
+
+
+<h1>Other</h1>
+<a id="expand-link" href="{{ url_for('expand_fs') }}">Expand Raspberry Pi filesystem</a></li>
+<p class="help">If you just installed the pre-built pikaraoke pi image and your SD card is larger than 4GB, you may want to expand the filesystem to utilize the remaining space. You only need to do this once. This will reboot the system.</p>
+
+
 <hr/>
 {% if admin_enabled %}
 <p>Disable admin mode: <a href="{{ url_for('logout') }}">log out</a></p>
