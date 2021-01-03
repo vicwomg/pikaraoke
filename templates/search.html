@@ -56,6 +56,7 @@
       $("#add-queue-link").addClass("is-loading");
     });
 
+
     //START SELECTIZE CHANGES
 
     //if enter key press, by default search button is click
@@ -70,7 +71,6 @@
           else if ($('.search-selectize').find(":selected").text()) {
             $('#add-queue-link').trigger("click");
           }
-
         }
       });
 
@@ -142,11 +142,13 @@
       e.preventDefault();
       var search_term = $(".search-selectize .selectize-input input").val();
       console.log("search term: " + search_term)
+      var include_non_karaoke = $("#include-non-karaoke").is(":checked")
       if (search_term) {
         $('#searching_loader').removeClass("is-hidden");
         $('#searching_loader #search_term').text(search_term);
         $('#search-link').attr("disabled", "true");
         $('#search_string').val(search_term);
+        $('#non_karaoke').val(include_non_karaoke);
         $('#container_search_result').hide();
         $('#container_search_form form').submit();
       }
@@ -200,7 +202,7 @@
 
 <div class="field" id="container_queue_form">
   <form action="{{ url_for('enqueue') }}" method="post">
-    <div class="field has-addons">
+    <div class="field has-addons" style="margin-bottom: 5px">
       <div class="control" style="width:100%">
         <select class="search-selectize" name="song_to_add">
           <option value=''></option>
@@ -215,10 +217,18 @@
         <a class="button is-warning" id="search-link">Search</a>
         <a class="button is-info" id="add-queue-link">Queue</a>
       </div>
+    
+    </div>
+    <div class="control has-text-right">
+      <input type="checkbox" id="include-non-karaoke" name="include-non-karaoke">
+      <label for="include-non-karaoke" class="is-size-7">Include non-karaoke matches</label>
     </div>
     <div>
-      <p class="help">Type a song (title/artist) to search the available songs and click 'Queue' to add it to the queue.
-        <br /><br />If the song doesn't appear in the "Available Songs" dropdown, click 'Search' to find it on Youtube
+      <p class="help" style="margin-top: 15px">
+        Type a song (title/artist) to search the available songs and click 'Queue' to add it to the queue.
+      </p> 
+      <p class="help">
+        If the song doesn't appear in the "Available Songs" dropdown, click 'Search' to find it on Youtube
       </p>
     </div>
 
@@ -229,11 +239,8 @@
 
 <div class="field is-hidden" id="container_search_form">
   <form action="{{ url_for('search') }}" method="get">
-    <label class="label">Add New Song</label>
-    <div class="field" style="max-width: 375px">
-      <input autocomplete="off" id="search_string" class="input" type="text" name='search_string'></input>
-    </div>
-    <p class="help">Can't find it above? Add it here</p>
+    <input id="search_string" type="text" name='search_string' />
+    <input type="text" id="non_karaoke" name="non_karaoke" />
   </form>
 </div>
 
