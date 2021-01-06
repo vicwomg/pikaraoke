@@ -68,7 +68,7 @@
 <div id="alpha-bar" class="has-background-dark mobile-hide" >
   <a href="#">#</a>
   {% for letter in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']  %}
-  <a href="#{{letter}}">{{letter}}</a>
+  <a href="#{{letter}}">{{letter.upper()}}</a>
   {% endfor %}
 </div>
 
