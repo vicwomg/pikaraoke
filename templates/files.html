@@ -2,14 +2,13 @@
 
 {% block scripts %}
 <script>
-
   $(function () {
 
     if ($(window).width() <= 500) {
-      $('#alpha-bar').hide();
       $(document).scroll(function() {
         var y = $(this).scrollTop();
         if (y > 100) {
+          $('#alpha-bar').removeClass("mobile-hide");
           $('#alpha-bar').fadeIn();
         } else {
           $('#alpha-bar').fadeOut();
@@ -42,10 +41,13 @@
       display: flex;
       align-items: center;
       right: 8px;
-      top: 20px;
+      top: 15px;
       flex-direction: column;
       max-width: 22px;
       height: 95vh;
+    }
+    .mobile-hide {
+      visibility: hidden;
     }
   }
 </style>
@@ -63,7 +65,7 @@
   {% endif %}
 </p>
 
-<div id="alpha-bar" class="has-background-dark" >
+<div id="alpha-bar" class="has-background-dark mobile-hide" >
   <a href="#">#</a>
   {% for letter in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']  %}
   <a href="#{{letter}}">{{letter}}</a>
