@@ -22,35 +22,68 @@
 
       // Check for click events on the navbar burger icon
       $(".navbar-burger").click(function () {
-
         // Toggle the "is-active" class on both the "navbar-burger" and the "navbar-menu"
         $(".navbar-burger").toggleClass("is-active");
         $(".navbar-menu").toggleClass("is-active");
-
       });
+
+      var currentPath = window.location.pathname;
+
+      if (currentPath == "/") {
+        $("#home").addClass("is-active")
+      }
+      if (currentPath == "/queue") {
+        $("#queue").addClass("is-active")
+      }
+      if (currentPath == "/search") {
+        $("#search").addClass("is-active")
+      }
+      if (currentPath == "/browse") {
+        $("#browse").addClass("is-active")
+      }
+      if (currentPath == "/info") {
+        $("#info").addClass("is-active")
+      }
     });
+
+
   </script>
   {% block scripts %}
   {% endblock %}
 </head>
+
+<style>
+  .navbar-item > i {
+    margin-right: 2px;
+  }
+  @media screen and (max-width: 500px) {
+    .navbar-brand > .navbar-item > span {
+      display: none;
+    }
+  }
+</style>
 
 <body>
 
   <div class="container" style="padding: 5px; max-width: 900px">
     <nav class="navbar" role="navigation" aria-label="main navigation">
       <div class="navbar-brand" id="brand" style="padding-left: 10px">
-        <a class="navbar-item" href="{{ url_for('home') }}">
-          Home
+        <a id="home" class="navbar-item" href="{{ url_for('home') }}">
+          <i class="icon icon-home-2" title="Home"></i>
+          <span>Home</span>  
         </a>
 
-        <a class="navbar-item" href="{{ url_for('queue') }}">
-          Queue
+        <a id="queue" class="navbar-item" href="{{ url_for('queue') }}">
+          <i class="icon icon-list-numbered" title="Queue"></i>
+          <span>Queue</span>  
         </a>
-        <a class="navbar-item" href="{{ url_for('search') }}">
-          Search
+        <a id="search" class="navbar-item" href="{{ url_for('search') }}">
+          <i class="icon icon-search-1" title="Search"></i>
+          <span>Search</span>  
         </a>
-        <a class="navbar-item" href="{{ url_for('browse') }}">
-          Browse
+        <a id="browse" class="navbar-item" href="{{ url_for('browse') }}">
+          <i class="icon icon-folder-open-empty" title="Browse"></i>
+          <span>Browse</span>  
         </a>
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
           <span aria-hidden="true"></span>
@@ -60,8 +93,9 @@
       </div>
       <div class="navbar-menu" id="menu">
         <div class="navbar-end">
-          <a class="navbar-item" href="{{ url_for('info') }}">
-            Info &nbsp;&nbsp;
+          <a id="info" class="navbar-item" href="{{ url_for('info') }}">
+            <i class="icon icon-info-circled-1" title="Info"></i>
+            <span>Info</span>&nbsp;&nbsp; 
           </a>
         </div>
       </div>

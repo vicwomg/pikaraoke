@@ -29,12 +29,6 @@
 .icon-trash:before { content: '\e811'; } /* '' */
 .icon-plus:before { content: '\e812'; } /* '' */
 .icon-plus-circled:before { content: '\e813'; } /* '' */
-.icon-home-1:before { content: '\e814'; } /* '' */
-.icon-home-2:before { content: '\e815'; } /* '' */
-.icon-search-1:before { content: '\e816'; } /* '' */
-.icon-search-3:before { content: '\e817'; } /* '' */
-.icon-info-circled-1:before { content: '\e818'; } /* '' */
-.icon-info:before { content: '\e819'; } /* '' */
 .icon-left-circled:before { content: '\f0a8'; } /* '' */
 .icon-right-circled:before { content: '\f0a9'; } /* '' */
 .icon-up-circled:before { content: '\f0aa'; } /* '' */
@@ -44,4 +38,3 @@
 .icon-sort-down:before { content: '\f0dd'; } /* '' */
 .icon-sort-up:before { content: '\f0de'; } /* '' */
 .icon-folder-open-empty:before { content: '\f115'; } /* '' */
-.icon-search-2:before { content: '\f50d'; } /* '' */
