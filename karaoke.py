@@ -112,7 +112,8 @@ class Karaoke:
     Use VLC: %s
     VLC path: %s
     VLC port: %s
-    log_level: %s"""
+    log_level: %s
+    show overlay: %s"""
             % (
                 self.port,
                 self.hide_ip,
@@ -131,6 +132,7 @@ class Karaoke:
                 self.vlc_path,
                 self.vlc_port,
                 log_level,
+                self.show_overlay
             )
         )
 
