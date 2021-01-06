@@ -28,8 +28,9 @@
         $(".navbar-menu").toggleClass("is-active");
       });
 
-      var currentPath = window.location.pathname;
 
+      // handle highlighting current nav bar location
+      var currentPath = window.location.pathname;
       if (currentPath == "/") {
         $("#home").addClass("is-active")
       }
@@ -45,7 +46,13 @@
       if (currentPath == "/info") {
         $("#info").addClass("is-active")
       }
+
+      // handle auto-close notifications
+      setTimeout(function() { $(".notification").fadeOut()}, 3000);
+
     });
+
+
 
 
   </script>
@@ -57,9 +64,23 @@
   .navbar-item > i {
     margin-right: 2px;
   }
+  .notification {
+    position: fixed;
+    width: 500px;
+    bottom: 5px;
+    left: 50%;
+    margin-left: -250px;
+  }
   @media screen and (max-width: 500px) {
     .navbar-brand > .navbar-item > span {
       display: none;
+    }
+    .notification {
+      position: fixed;
+      width: 100%;
+      bottom: 5px;
+      left: 0px;
+      margin-left: 0px;
     }
   }
 </style>
@@ -96,7 +117,7 @@
         <div class="navbar-end">
           <a id="info" class="navbar-item" href="{{ url_for('info') }}">
             <i class="icon icon-info-circled-1" title="Info"></i>
-            <span>Info</span>&nbsp;&nbsp; 
+            <span>Pikaraoke</span>&nbsp;&nbsp; 
           </a>
         </div>
       </div>

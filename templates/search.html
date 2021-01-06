@@ -228,7 +228,7 @@
 {% endblock %}
 
 {% block header %}
-<h1>{% block title %}Search{% endblock %}</h1>
+<h1>{% block title %}Search / Add New{% endblock %}</h1>
 {% endblock %}
 
 {% block content %}
@@ -237,7 +237,7 @@
   <form action="{{ url_for('enqueue') }}" method="post">
     <div class="field has-addons" style="margin-bottom: 5px">
       <div class="control" style="width:100%">
-        <select class="search-selectize" name="song_to_add">
+        <select class="search-selectize is-size-7" name="song_to_add">
           <option value=''></option>
           <optgroup label="Available Songs" id="available-songs">
             {% for file in songs %}

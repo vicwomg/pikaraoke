@@ -45,11 +45,15 @@
 <h1>{% block title %}Information{% endblock %}</h1>
 {% endblock %} {% block content %}
 
-<p>URL of {{site_title}}:</p>
+<hr/>
 
-<p class="is-size-4 has-text-warning">{{ url }}</p>
-<p>Handy URL QR code to share with a pal:</p>
+
+<div class="has-text-centered">
+  <p>URL of {{site_title}}:</p>
+  <p class="is-size-4 has-text-warning has-text-centered">{{ url }}</p>
+  <p>Handy URL QR code to share with a pal:</p>
 <img id="qr-img" width="300px" src="{{ url_for('qrcode') }}" style="image-rendering: pixelated" />
+</div>
 
 <hr />
 
