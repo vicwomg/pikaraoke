@@ -5,7 +5,7 @@
 
   $(function () {
 
-    if ($(window).width() <= 400) {
+    if ($(window).width() <= 500) {
       $('#alpha-bar').hide();
       $(document).scroll(function() {
         var y = $(this).scrollTop();
@@ -35,7 +35,7 @@
     justify-content: space-between;
     top: 3px;
   }
-  @media screen and (max-width: 400px) {
+  @media screen and (max-width: 500px) {
     #alpha-bar {
       font-size: 13px;
       position: fixed;
