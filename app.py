@@ -415,12 +415,9 @@ def delayed_halt(cmd):
     if cmd == 2:
         os.system("reboot")
     if cmd == 3:
-        if (platform == "raspberry_pi" and is_admin()):
-            process = subprocess.Popen(["raspi-config", "--expand-rootfs"])
-            process.wait()
-            os.system("reboot")
-        else:
-            logging.error("Expand FS option is for raspberry pi only")
+        process = subprocess.Popen(["raspi-config", "--expand-rootfs"])
+        process.wait()
+        os.system("reboot")
 
 def update_youtube_dl():
     time.sleep(3)
