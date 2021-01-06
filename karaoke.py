@@ -316,17 +316,19 @@ class Karaoke:
             logo_rect = logo.get_rect(center=self.screen.get_rect().center)
             self.screen.blit(logo, logo_rect)
 
+            blitY = self.screen.get_rect().bottomleft[1] - 40
+
             if not self.hide_ip:
                 p_image = pygame.image.load(self.qr_code_path)
                 p_image = pygame.transform.scale(p_image, (150, 150))
-                self.screen.blit(p_image, (20, 20))
+                self.screen.blit(p_image, (20, blitY - 125))
                 if not self.is_network_connected():
                     text = self.font.render(
                         "Wifi/Network not connected. Shutting down in 10s...",
                         True,
                         (255, 255, 255),
                     )
-                    self.screen.blit(text, (p_image.get_width() + 35, 20))
+                    self.screen.blit(text, (p_image.get_width() + 35, blitY))
                     time.sleep(10)
                     logging.info(
                         "No IP found. Network/Wifi configuration required. For wifi config, try: sudo raspi-config or the desktop GUI: startx"
@@ -336,7 +338,7 @@ class Karaoke:
                     text = self.font.render(
                         "Connect at: " + self.url, True, (255, 255, 255)
                     )
-                    self.screen.blit(text, (p_image.get_width() + 35, 20))
+                    self.screen.blit(text, (p_image.get_width() + 35, blitY))
 
             if (
                 self.raspi_wifi_config_installed
@@ -357,12 +359,9 @@ class Karaoke:
                     True,
                     (255, 255, 255),
                 )
-                y1 = self.height - text1.get_height() - 80
-                y2 = self.height - text2.get_height() - 40
-                y3 = self.height - text2.get_height() - 5
-                self.screen.blit(text1, (10, y1))
-                self.screen.blit(text2, (10, y2))
-                self.screen.blit(text3, (10, y3))
+                self.screen.blit(text1, (10, 10))
+                self.screen.blit(text2, (10, 50))
+                self.screen.blit(text3, (10, 90))
 
     def render_next_song_to_splash_screen(self):
         if not self.hide_splash_screen:
@@ -370,13 +369,13 @@ class Karaoke:
             if len(self.queue) >= 1:
                 logging.debug("Rendering next song to splash screen")
                 next_song = self.filename_from_path(self.queue[0])
-                font_next_song = pygame.font.SysFont(pygame.font.get_default_font(), 60)
+                font_next_song = pygame.font.SysFont(pygame.font.get_default_font(), 40)
                 text = font_next_song.render(
                     "Up next: %s" % unidecode(next_song), True, (0, 128, 0)
                 )
                 up_next = font_next_song.render("Up next:  ", True, (255, 255, 0))
                 x = self.width - text.get_width() - 10
-                y = self.height - text.get_height() - 5
+                y = 5
                 self.screen.blit(text, (x, y))
                 self.screen.blit(up_next, (x, y))
                 return True
