@@ -163,6 +163,12 @@
       "src": "fontawesome"
     },
     {
+      "uid": "e82cedfa1d5f15b00c5a81c9bd731ea2",
+      "css": "info-circled",
+      "code": 59398,
+      "src": "fontawesome"
+    },
+    {
       "uid": "e99461abfef3923546da8d745372c995",
       "css": "cog",
       "code": 59399,
@@ -233,54 +239,6 @@
       "css": "plus-circled",
       "code": 59411,
       "src": "fontawesome"
-    },
-    {
-      "uid": "d7271d490b71df4311e32cdacae8b331",
-      "css": "home-1",
-      "code": 59412,
-      "src": "fontawesome"
-    },
-    {
-      "uid": "w3nzesrlbezu6f30q7ytyq919p6gdlb6",
-      "css": "home-2",
-      "code": 59413,
-      "src": "typicons"
-    },
-    {
-      "uid": "7222571caa5c15f83dcfd447c58d68d9",
-      "css": "search-1",
-      "code": 59414,
-      "src": "entypo"
-    },
-    {
-      "uid": "ec21fe3492bb04d9e29103c319556ed8",
-      "css": "search-2",
-      "code": 62733,
-      "src": "mfglabs"
-    },
-    {
-      "uid": "e45e9f27ce40ba9837cc984076d98067",
-      "css": "search-3",
-      "code": 59415,
-      "src": "elusive"
-    },
-    {
-      "uid": "e82cedfa1d5f15b00c5a81c9bd731ea2",
-      "css": "info-circled",
-      "code": 59398,
-      "src": "fontawesome"
-    },
-    {
-      "uid": "7e4164950ffa4990961958b2d6318658",
-      "css": "info-circled-1",
-      "code": 59416,
-      "src": "entypo"
-    },
-    {
-      "uid": "ccd52a22af21fbaa98a9c85fb50fca6b",
-      "css": "info",
-      "code": 59417,
-      "src": "iconic"
     }
   ]
 }

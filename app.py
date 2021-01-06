@@ -664,7 +664,13 @@ if __name__ == "__main__":
         help="Administrator password, for locking down certain features of the web UI such as queue editing, player controls, song editing, and system shutdown. If unspecified, everyone is an admin.",
         default=None,
         required=False,
-    )
+    ),
+    parser.add_argument(
+        "--developer-mode",
+        help="Run in flask developer mode. Only useful for tweaking the web UI in real time. Will disable the splash screen due to pygame main thread conflicts and may require FLASK_ENV=development env variable for full dev mode features.",
+        action="store_true",
+        required=False,
+    ),
     args = parser.parse_args()
 
     if (args.admin_password):
@@ -672,17 +678,6 @@ if __name__ == "__main__":
 
     app.jinja_env.globals.update(filename_from_path=filename_from_path)
     app.jinja_env.globals.update(url_escape=quote)
-
-    cherrypy.tree.graft(app, "/")
-    # Set the configuration of the web server
-    cherrypy.config.update(
-        {
-            "engine.autoreload.on": False,
-            "log.screen": True,
-            "server.socket_port": int(args.port),
-            "server.socket_host": "0.0.0.0",
-        }
-    )
 
     # Handle OMX player if specified
     if platform == "raspberry_pi" and args.use_omxplayer:
@@ -713,10 +708,11 @@ if __name__ == "__main__":
         print("Creating download path: " + dl_path)
         os.makedirs(dl_path)
 
-    # Start the CherryPy WSGI web server
-    cherrypy.engine.start()
+    if (args.developer_mode):
+        logging.warning("Splash screen is disabled in developer mode due to main thread conflicts")
+        args.hide_splash_screen = True
 
-    # Start karaoke process
+    # Configure karaoke process
     global k
     k = karaoke.Karaoke(
         port=args.port,
@@ -738,7 +734,25 @@ if __name__ == "__main__":
         logo_path=args.logo_path,
         show_overlay=args.show_overlay
     )
-    k.run()
 
-    cherrypy.engine.exit()
+    if (args.developer_mode):
+        th = threading.Thread(target=k.run)
+        th.start()
+        app.run(debug=True, port=args.port)
+    else:
+        # Start the CherryPy WSGI web server
+        cherrypy.tree.graft(app, "/")
+        # Set the configuration of the web server
+        cherrypy.config.update(
+            {
+                "engine.autoreload.on": False,
+                "log.screen": True,
+                "server.socket_port": int(args.port),
+                "server.socket_host": "0.0.0.0",
+            }
+        )
+        cherrypy.engine.start()
+        k.run()
+        cherrypy.engine.exit()
+
     sys.exit()
