@@ -44,7 +44,7 @@
         class="up-button"
         href="/queue/edit?action=up&song={{url_escape(filename_from_path(song.encode('utf-8')))}}"
         title="Move up in queue"
-        ><i class="icon icon-sort-up"></i>
+        ><i class="icon  icon-up-circled"></i>
       </a>
     </td>
     <td width="20px" style="padding: 5px 0px">
@@ -52,7 +52,7 @@
         class="down-button"
         href="/queue/edit?action=down&song={{url_escape(filename_from_path(song.encode('utf-8')))}}"
         title="Move down in queue"
-        ><i class="icon icon-sort-down"></i>
+        ><i class="icon  icon-down-circled"></i>
       </a>
     </td>
     {% endif %}
@@ -78,12 +78,12 @@
 
 {% if admin %}
 <a class="add-random has-text-success" href="/queue/addrandom?amount=3"
-  >Add 3 random songs</a
+  ><i class="icon  icon-plus-circled"></i>Add 3 random songs</a
 >
 <a
   class="confirm-clear has-text-danger is-pulled-right"
   href="/queue/edit?action=clear"
-  >Clear all</a
+  ><i class="icon icon-trash-empty"></i> Clear all</a
 ><br />
 {% endif %}
 

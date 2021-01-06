@@ -77,7 +77,7 @@
   <tr value='{{ song }}'>
     <td width="20px" style="padding: 5px 0px">{{loop.index}}</td>
     <td id={{filename_from_path(song)[0].lower()}} width="20px" style="padding: 5px 0px">
-      <a class='has-text-weight-bold has-text-success' title="Add to queue"
+      <a class='has-text-weight-bold has-text-success' title="Add '{{filename_from_path(song)}}' to queue"
         href="{{url_for('enqueue')}}?song={{url_escape(song.encode('utf-8'))}}"><i class="icon icon-list-add"></i> </a>
     </td>
     <td>

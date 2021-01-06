@@ -170,7 +170,7 @@ def enqueue():
         flash("Song added to queue: " + filename_from_path(song), "is-success")
     else:
         flash("Song is already in queue: " + filename_from_path(song), "is-danger")
-    return redirect(url_for("home"))
+    return redirect(url_for("browse"))
 
 
 @app.route("/skip")
