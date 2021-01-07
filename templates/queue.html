@@ -36,13 +36,13 @@
 {% endblock %} {% block content %} {% if queue %}
 <table>
   {% for song in queue %}
-  <tr value="{{ song }}">
+  <tr value="{{ song['file'] }}">
     <td width="20px" style="padding: 5px 0px">{{loop.index}}</td>
     {% if admin %}
     <td width="20px" style="padding: 5px 0px">
       <a
         class="up-button"
-        href="/queue/edit?action=up&song={{url_escape(filename_from_path(song.encode('utf-8')))}}"
+        href="/queue/edit?action=up&song={{url_escape(filename_from_path(song['file'].encode('utf-8')))}}"
         title="Move up in queue"
         ><i class="icon  icon-up-circled"></i>
       </a>
@@ -50,21 +50,23 @@
     <td width="20px" style="padding: 5px 0px">
       <a
         class="down-button"
-        href="/queue/edit?action=down&song={{url_escape(filename_from_path(song.encode('utf-8')))}}"
+        href="/queue/edit?action=down&song={{url_escape(filename_from_path(song['file'].encode('utf-8')))}}"
         title="Move down in queue"
         ><i class="icon  icon-down-circled"></i>
       </a>
     </td>
     {% endif %}
 
-    <td style="padding-left: 5px">{{filename_from_path(song)}}</td>
+    <td style="padding-left: 10px" class="is-hidden-mobile has-text-success"><b>{{song['user']}}</b></td>
+
+    <td style="padding-left: 5px"><b class="is-hidden-tablet has-text-success">{{song['user']}}: </b> {{filename_from_path(song['file'])}}</td>
 
     {% if admin %}
     <td width="20px">
       <a
         class="delete-button confirm-delete has-text-danger"
         title="Delete from queue"
-        href="/queue/edit?action=delete&song={{url_escape(filename_from_path(song.encode('utf-8')))}}"
+        href="/queue/edit?action=delete&song={{url_escape(filename_from_path(song['file'].encode('utf-8')))}}"
         ><i class="icon icon-trash-empty"></i>
       </a>
     </td>

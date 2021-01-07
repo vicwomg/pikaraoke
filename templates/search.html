@@ -35,6 +35,7 @@
 </style>
 <script>
   $(function () {
+
     $("#search_result_selector").focus();
 
     $("#search-link").click(function () {
@@ -209,7 +210,22 @@
         $('#direct-download-button').attr("disabled", true)
       }
     });
-    
+
+    var user = Cookies.get("user");
+
+    if (!user) {
+        let name = window.prompt(
+          "Please enter your name. This will show up next to the songs you queue up from this device."
+        );
+        if (name) {
+          Cookies.set("user", name)
+        }
+        location.reload()
+      }
+
+    $("#queue-user").val(user)
+    $("#search-user").val(user)
+
   });
     
   function isYoutubeURL(s) {
@@ -242,7 +258,7 @@
     <form action="{{ url_for('enqueue') }}" method="post">
       <div id="search-field" class="field has-addons" style="margin-bottom: 5px">
         <div class="control" style="width:100%">
-          <select class="search-selectize is-size-7" name="song_to_add">
+          <select class="search-selectize is-size-7" name="song-to-add">
             <option value=''></option>
             <optgroup label="Available Songs" id="available-songs">
               {% for file in songs %}
@@ -255,7 +271,7 @@
           <a class="button is-warning" id="search-link">Search</a>
           <a class="button is-info" id="add-queue-link">Queue</a>
         </div>
-      
+        <input id="queue-user" type="hidden" name="song-added-by" />
       </div>
       <div class="control has-text-right">
         
@@ -324,8 +340,9 @@
           <option data-ytID='{{id}}' value='{{url}}'>{{title}}</option>
           {% endfor %}
         </select>
+        
       </div>
-
+      <input id="search-user" type="hidden" name="song-added-by" />
       <p class="help">Click dropdown to show more results</p>
 
       <p> Link: <a target="_blank" id='youtube-link' href=''></a> </p>
