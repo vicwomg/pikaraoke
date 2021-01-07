@@ -369,7 +369,7 @@ class Karaoke:
             self.render_splash_screen()
             if len(self.queue) >= 1:
                 logging.debug("Rendering next song to splash screen")
-                next_song = self.filename_from_path(self.queue[0]["file"])
+                next_song = self.queue[0]["title"]
                 max_length = 60
                 if (len(next_song) > max_length):
                     next_song = next_song[0:max_length] + "..."
@@ -556,7 +556,7 @@ class Karaoke:
             return False
         else:
             logging.info("'%s' is adding song to queue: %s" % (user, song_path))
-            self.queue.append({"user": user, "file": song_path})
+            self.queue.append({"user": user, "file": song_path, "title": self.filename_from_path(song_path)})
             return True
 
     def queue_add_random(self, amount):
@@ -571,7 +571,7 @@ class Karaoke:
             if self.is_song_in_queue(songs[r]):
                 logging.warn("Song already in queue, trying another... " + songs[r])
             else:
-                self.queue.append({"user": "Randomizer", "file": songs[r]})
+                self.queue.append({"user": "Randomizer", "file": songs[r], "title": self.filename_from_path(songs[r])})
                 i += 1
             songs.pop(r)
             if len(songs) == 0:
