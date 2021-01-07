@@ -1,7 +1,69 @@
 {% extends 'base.html' %} {% block scripts %}
-<meta http-equiv="refresh" content="5" />
+<!-- <meta http-equiv="refresh" content="5" /> -->
 
 <script>
+  var queue = [];  
+  var previousQueue = [];
+
+  function getQueue() {
+    $.get('{{ url_for("get_queue") }}', function (data) {
+      newQueue =  JSON.parse(data);
+      if (!_.isEqual(newQueue, previousQueue)) {
+        queue = newQueue;
+        $("#auto-refresh").html(generateQueueHTML());
+        previousQueue = newQueue;
+      }
+    })
+  }
+
+  function generateQueueHTML() {
+    var html = "";
+    if (queue.length > 0) {
+      queue.forEach((e, index) => {
+        html += `
+          <tr value=${e.title}>
+            <td width="20px" style="padding: 5px 0px">${index + 1}</td>
+            {% if admin %}
+              <td width="20px" style="padding: 5px 0px">
+                <a
+                  class="up-button"
+                  href="/queue/edit?action=up&song=${encodeURIComponent(e.file)}"
+                  title="Move up in queue"
+                  ><i class="icon  icon-up-circled ${index == 0 && "is-hidden"}"></i>
+                </a>
+              </td>
+              <td width="20px" style="padding: 5px 0px">
+                <a
+                  class="down-button"
+                  href="/queue/edit?action=down&song=${encodeURIComponent(e.file)}"
+                  title="Move down in queue"
+                  ><i class="icon  icon-down-circled ${index + 1 == queue.length && "is-hidden"}"></i>
+                </a>
+              </td>
+            {% endif %}
+            <td style="padding-left: 10px" class="is-hidden-mobile has-text-success"><b>${e.user}</b></td>
+            <td style="padding-left: 5px"><b class="is-hidden-tablet has-text-success">${e.user}: </b> ${e.title}</td>
+            {% if admin %}
+              <td width="20px">
+                <a
+                  class="delete-button confirm-delete has-text-danger"
+                  title="Delete from queue"
+                  href="/queue/edit?action=delete&song=${encodeURIComponent(e.file)}"
+                  ><i class="icon icon-trash-empty"></i>
+                </a>
+              </td>
+            {% endif %}
+          </tr>
+        `
+      });
+    }
+    else {
+      console.log("empty")
+      html += "<tr>The queue is empty</tr>"
+    }
+    return html;
+  }
+
   $(function () {
     $(".confirm-delete").click(function (e) {
       e.preventDefault();
@@ -28,54 +90,28 @@
 
     // hide down button for last track
     $(".down-button").last().hide();
+
+    getQueue();
+    
+    var previousQueue;
+    setInterval(function() {
+        getQueue();
+      },
+      5000
+    )
   });
 </script>
 
-{% endblock %} {% block header %}
+{% endblock %} 
+
+{% block header %}
 <h1 class>{% block title %}Queue{% endblock %}</h1>
-{% endblock %} {% block content %} {% if queue %}
-<table>
-  {% for song in queue %}
-  <tr value="{{ song['file'] }}">
-    <td width="20px" style="padding: 5px 0px">{{loop.index}}</td>
-    {% if admin %}
-    <td width="20px" style="padding: 5px 0px">
-      <a
-        class="up-button"
-        href="/queue/edit?action=up&song={{url_escape(filename_from_path(song['file'].encode('utf-8')))}}"
-        title="Move up in queue"
-        ><i class="icon  icon-up-circled"></i>
-      </a>
-    </td>
-    <td width="20px" style="padding: 5px 0px">
-      <a
-        class="down-button"
-        href="/queue/edit?action=down&song={{url_escape(filename_from_path(song['file'].encode('utf-8')))}}"
-        title="Move down in queue"
-        ><i class="icon  icon-down-circled"></i>
-      </a>
-    </td>
-    {% endif %}
+{% endblock %} 
 
-    <td style="padding-left: 10px" class="is-hidden-mobile has-text-success"><b>{{song['user']}}</b></td>
+{% block content %} 
 
-    <td style="padding-left: 5px"><b class="is-hidden-tablet has-text-success">{{song['user']}}: </b> {{filename_from_path(song['file'])}}</td>
-
-    {% if admin %}
-    <td width="20px">
-      <a
-        class="delete-button confirm-delete has-text-danger"
-        title="Delete from queue"
-        href="/queue/edit?action=delete&song={{url_escape(filename_from_path(song['file'].encode('utf-8')))}}"
-        ><i class="icon icon-trash-empty"></i>
-      </a>
-    </td>
-    {% endif %}
-    
-  </tr>
-  {% endfor %}
+<table id="auto-refresh">
 </table>
-{% else %} The queue is empty {% endif %}
 <hr />
 
 {% if admin %}

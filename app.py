@@ -95,8 +95,8 @@ def logout():
 def nowplaying():
     try: 
         if len(k.queue) >= 1:
-            next_song = filename_from_path(k.queue[0]["file"])
-            next_user = filename_from_path(k.queue[0]["user"])
+            next_song = k.queue[0]["title"]
+            next_user = k.queue[0]["user"]
         else:
             next_song = None
             next_user = None
@@ -119,6 +119,13 @@ def queue():
     return render_template(
         "queue.html", queue=k.queue, site_title=site_name, title="Queue", admin=is_admin()
     )
+
+@app.route("/get_queue")
+def get_queue():
+    if len(k.queue) >= 1:
+        return json.dumps(k.queue)
+    else:
+        return json.dumps([])
 
 @app.route("/queue/addrandom", methods=["GET"])
 def add_random():
