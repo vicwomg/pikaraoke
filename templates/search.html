@@ -93,7 +93,7 @@
       },
 
       onFocus: function () {
-        if ($(window).width() <= 500) {
+        if ($(window).width() <= 500 && $(window).height() <= 740) {
           document.getElementById('search-field').scrollIntoView();
         }
         if (!this.ignoreFocusOpen) {
@@ -237,7 +237,7 @@
 
 {% block content %}
 
-<div style="height: 100vh">
+<div>
   <div class="field" id="container_queue_form">
     <form action="{{ url_for('enqueue') }}" method="post">
       <div id="search-field" class="field has-addons" style="margin-bottom: 5px">
