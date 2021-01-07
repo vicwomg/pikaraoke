@@ -370,18 +370,22 @@ class Karaoke:
             if len(self.queue) >= 1:
                 logging.debug("Rendering next song to splash screen")
                 next_song = self.filename_from_path(self.queue[0]["file"])
+                max_length = 60
+                if (len(next_song) > max_length):
+                    next_song = next_song[0:max_length] + "..."
                 next_user = self.queue[0]["user"]
-                font_next_song = pygame.font.SysFont(pygame.font.get_default_font(), 40)
+                font_next_song = pygame.font.SysFont(pygame.font.get_default_font(), 60)
                 text = font_next_song.render(
                     "Up next: %s" % (unidecode(next_song)), True, (0, 128, 0)
                 )
                 up_next = font_next_song.render("Up next:  " , True, (255, 255, 0))
-                user_name = font_next_song.render("Added by: %s " % next_user, True, (255, 120, 0))
+                font_user_name = pygame.font.SysFont(pygame.font.get_default_font(), 50)
+                user_name = font_user_name.render("Added by: %s " % next_user, True, (255, 120, 0))
                 x = self.width - text.get_width() - 10
                 y = 5
                 self.screen.blit(text, (x, y))
                 self.screen.blit(up_next, (x, y))
-                self.screen.blit(user_name, (self.width - user_name.get_width() - 10, y + 30))
+                self.screen.blit(user_name, (self.width - user_name.get_width() - 10, y + 50))
                 return True
             else:
                 logging.debug("Could not render next song to splash. No song in queue")
