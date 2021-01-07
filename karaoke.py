@@ -32,6 +32,7 @@ class Karaoke:
     available_songs = []
     now_playing = None
     now_playing_filename = None
+    now_playing_user = None
     now_playing_transpose = 0
     is_paused = True
     process = None
@@ -368,16 +369,19 @@ class Karaoke:
             self.render_splash_screen()
             if len(self.queue) >= 1:
                 logging.debug("Rendering next song to splash screen")
-                next_song = self.filename_from_path(self.queue[0])
+                next_song = self.filename_from_path(self.queue[0]["file"])
+                next_user = self.queue[0]["user"]
                 font_next_song = pygame.font.SysFont(pygame.font.get_default_font(), 40)
                 text = font_next_song.render(
-                    "Up next: %s" % unidecode(next_song), True, (0, 128, 0)
+                    "Up next: %s" % (unidecode(next_song)), True, (0, 128, 0)
                 )
-                up_next = font_next_song.render("Up next:  ", True, (255, 255, 0))
+                up_next = font_next_song.render("Up next:  " , True, (255, 255, 0))
+                user_name = font_next_song.render("Added by: %s " % next_user, True, (255, 120, 0))
                 x = self.width - text.get_width() - 10
                 y = 5
                 self.screen.blit(text, (x, y))
                 self.screen.blit(up_next, (x, y))
+                self.screen.blit(user_name, (self.width - user_name.get_width() - 10, y + 30))
                 return True
             else:
                 logging.debug("Could not render next song to splash. No song in queue")
@@ -408,7 +412,7 @@ class Karaoke:
     def get_karaoke_search_results(self, songTitle):
         return self.get_search_results(songTitle + " karaoke")
 
-    def download_video(self, video_url, enqueue=False):
+    def download_video(self, video_url, enqueue=False, user="Pikaraoke"):
         logging.info("Downloading video: " + video_url)
         dl_path = self.download_path + "%(title)s---%(id)s.%(ext)s"
         file_quality = (
@@ -429,7 +433,7 @@ class Karaoke:
                 y = self.get_youtube_id_from_url(video_url)
                 s = self.find_song_by_youtube_id(y)
                 if s:
-                    self.enqueue(s)
+                    self.enqueue(s, user)
                 else:
                     logging.error("Error queueing song: " + video_url)
         else:
@@ -536,13 +540,19 @@ class Karaoke:
                 self.now_playing = None
                 return False
 
-    def enqueue(self, song_path):
-        if song_path in self.queue:
-            logging.warn("Song already in queue, will not add: " + song_path)
+    def is_song_in_queue(self, song_path):
+        for each in self.queue:
+            if each["file"] == song_path:
+                return True
+        return False
+
+    def enqueue(self, song_path, user="Pikaraoke"):
+        if (self.is_song_in_queue(song_path)):
+            logging.warn("Song is already in queue, will not add: " + song_path)   
             return False
         else:
-            logging.info("Adding video to queue: " + song_path)
-            self.queue.append(song_path)
+            logging.info("'%s' is adding song to queue: %s" % (user, song_path))
+            self.queue.append({"user": user, "file": song_path})
             return True
 
     def queue_add_random(self, amount):
@@ -554,10 +564,10 @@ class Karaoke:
         i = 0
         while i < amount:
             r = random.randint(0, len(songs) - 1)
-            if songs[r] in self.queue:
+            if self.is_song_in_queue(songs[r]):
                 logging.warn("Song already in queue, trying another... " + songs[r])
             else:
-                self.queue.append(songs[r])
+                self.queue.append({"user": "Randomizer", "file": songs[r]})
                 i += 1
             songs.pop(r)
             if len(songs) == 0:
@@ -572,38 +582,38 @@ class Karaoke:
 
     def queue_edit(self, song_name, action):
         index = 0
-        song_path = None
+        song = None
         for each in self.queue:
-            if song_name in each:
-                song_path = each
+            if song_name in each["file"]:
+                song = each
                 break
             else:
                 index += 1
-        if song_path == None:
-            logging.error("Song not found in queue: " + song_name)
+        if song == None:
+            logging.error("Song not found in queue: " + song["file"])
             return False
         if action == "up":
             if index < 1:
-                logging.warn("Song is up next, can't bump up in queue: " + song_path)
+                logging.warn("Song is up next, can't bump up in queue: " + song["file"])
                 return False
             else:
-                logging.info("Bumping song up in queue: " + song_path)
+                logging.info("Bumping song up in queue: " + song["file"])
                 del self.queue[index]
-                self.queue.insert(index - 1, song_path)
+                self.queue.insert(index - 1, song)
                 return True
         elif action == "down":
             if index == len(self.queue) - 1:
                 logging.warn(
-                    "Song is already last, can't bump down in queue: " + song_path
+                    "Song is already last, can't bump down in queue: " + song["file"]
                 )
                 return False
             else:
-                logging.info("Bumping song down in queue: " + song_path)
+                logging.info("Bumping song down in queue: " + song["file"])
                 del self.queue[index]
-                self.queue.insert(index + 1, song_path)
+                self.queue.insert(index + 1, song)
                 return True
         elif action == "delete":
-            logging.info("Deleting song from queue: " + song_path)
+            logging.info("Deleting song from queue: " + song["file"])
             del self.queue[index]
             return True
         else:
@@ -710,6 +720,7 @@ class Karaoke:
     def reset_now_playing(self):
         self.now_playing = None
         self.now_playing_filename = None
+        self.now_playing_user = None
         self.is_paused = True
         self.now_playing_transpose = 0
 
@@ -730,7 +741,8 @@ class Karaoke:
                         while i < (self.splash_delay * 1000):
                             self.handle_run_loop()
                             i += self.loop_interval
-                        self.play_file(self.queue[0])
+                        self.play_file(self.queue[0]["file"])
+                        self.now_playing_user=self.queue[0]["user"]
                         self.queue.pop(0)
                 elif not pygame.display.get_active() and not self.is_file_playing():
                     self.pygame_reset_screen()

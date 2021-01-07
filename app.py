@@ -95,12 +95,16 @@ def logout():
 def nowplaying():
     try: 
         if len(k.queue) >= 1:
-            next_song = filename_from_path(k.queue[0])
+            next_song = filename_from_path(k.queue[0]["file"])
+            next_user = filename_from_path(k.queue[0]["user"])
         else:
             next_song = None
+            next_user = None
         rc = {
             "now_playing": k.now_playing,
+            "now_playing_user": k.now_playing_user,
             "up_next": next_song,
+            "next_user": next_user,
             "is_paused": k.is_paused,
             "transpose_value": k.now_playing_transpose,
         }
@@ -164,8 +168,13 @@ def enqueue():
         song = request.args["song"]
     else:
         d = request.form.to_dict()
-        song = d["song_to_add"]
-    rc = k.enqueue(song)
+        song = d["song-to-add"]
+    if "user" in request.args:
+        user = request.args["user"]
+    else:
+        d = request.form.to_dict()
+        user = d["song-added-by"]
+    rc = k.enqueue(song, user)
     if rc:
         flash("Song added to queue: " + filename_from_path(song), "is-success")
     else:
@@ -253,13 +262,14 @@ def browse():
 def download():
     d = request.form.to_dict()
     song = d["song-url"]
+    user = d["song-added-by"]
     if "queue" in d and d["queue"] == "on":
         queue = True
     else:
         queue = False
 
     # download in the background since this can take a few minutes
-    t = threading.Thread(target=k.download_video, args=[song, queue])
+    t = threading.Thread(target=k.download_video, args=[song, queue, user])
     t.daemon = True
     t.start()
 
@@ -321,7 +331,7 @@ def edit_file():
         if "new_file_name" in d and "old_file_name" in d:
             new_name = d["new_file_name"]
             old_name = d["old_file_name"]
-            if old_name in k.queue:
+            if k.is_song_in_queue(old_name):
                 # check one more time just in case someone added it during editing
                 flash(queue_error_msg + song_path, "is-danger")
             else:

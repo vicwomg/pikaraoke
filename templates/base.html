@@ -9,6 +9,7 @@
   {% endif %}
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script type=text/javascript src="{{  url_for('static', filename='jquery-3.3.1.min.js') }}"></script>
+  <script src="{{  url_for('static', filename='js.cookie-2.2.1.min.js') }}"></script>
   <link rel="stylesheet" href="{{  url_for('static', filename='bulma-dark.css') }}">
   <link rel="stylesheet" href="{{  url_for('static', filename='custom.css') }}">
   <link rel="icon" type="image/png" href="{{  url_for('static', filename='images/microphone.png') }}">
@@ -50,11 +51,26 @@
       // handle auto-close notifications
       setTimeout(function() { $(".notification").fadeOut()}, 3000);
 
+      // handle current user display
+      var currentUser = Cookies.get("user");
+    
+      if (currentUser) {
+        $("#current-user span").text(currentUser)
+        $("#current-user").removeClass("is-hidden");
+      };
+
+      $('#current-user').click(function(e) {
+        e.preventDefault();
+        let name = window.prompt(
+          "Do you want to change the name of the person using this device? This will show up on queued songs. Current: " + currentUser
+        );
+        if (name) {
+          Cookies.set("user", name)
+        }
+        location.reload();
+      });
+
     });
-
-
-
-
   </script>
   {% block scripts %}
   {% endblock %}
@@ -70,6 +86,12 @@
     bottom: 5px;
     left: 50%;
     margin-left: -250px;
+  }
+  .current-user {
+    position: fixed;
+    padding: 3px;
+    bottom: 5px;
+    right: 10px;
   }
   @media screen and (max-width: 500px) {
     .navbar-brand > .navbar-item > span {
@@ -118,6 +140,10 @@
       </div>
       <div class="navbar-menu" id="menu">
         <div class="navbar-end">
+          <a id="current-user" class="navbar-item is-hidden" href="#">
+            <i class="icon  icon-mic-1" title="Current user"></i>
+            <span></span>
+          </a>
           <a id="info" class="navbar-item" href="{{ url_for('info') }}">
             <i class="icon icon-info-circled-1" title="Info"></i>
             <span>Pikaraoke</span>&nbsp;&nbsp; 
@@ -149,6 +175,7 @@
       </div>
 
     </div>
+
 
   </div>
 
