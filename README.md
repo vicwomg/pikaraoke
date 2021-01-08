@@ -61,6 +61,8 @@ Also works on macs, PCs, and linux!
 
 ## Installation
 
+If you're on a pi, you might want to just use the pre-built image here: https://github.com/vicwomg/pikaraoke/releases/latest
+
 Install git, if you haven't already. (on raspberry pi: `sudo apt-get update; sudo apt-get install git`)
 Install python3/pip3 (usually raspberry pis already have it, run `python3 --version` to check): https://www.python.org/downloads/ (python 2.7 may work, but is not officially supported)
 
