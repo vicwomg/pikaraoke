@@ -18,10 +18,21 @@
   <link rel="stylesheet" href="/static/fontello/css/fontello.css?cachebust=1">
 
   <script>
+
+    function showNotification(message, categoryClass) {
+      console.log("Showing notification")
+      $("#notification-alt").addClass(categoryClass)
+      $("#notification-alt div").text(message)
+      $("#notification-alt").fadeIn()
+      setTimeout(function () {$("#notification-alt").fadeOut()}, 3000)
+      setTimeout(function () {$("#notification-alt").removeClass(categoryClass)}, 3500)
+    }
+
     $(function () {
       $("#notification-close").click(function () {
-        $("#notification").hide();
+        $(".notification").hide();
       });
+      $("#notification-alt").hide()
 
       // Check for click events on the navbar burger icon
       $(".navbar-burger").click(function () {
@@ -49,8 +60,8 @@
         $("#info").addClass("is-active")
       }
 
-      // handle auto-close notifications
-      setTimeout(function() { $(".notification").fadeOut()}, 3000);
+      // handle auto-close flash notifications
+      setTimeout(function() { $("#notification").fadeOut()}, 3000);
 
       // handle current user display
       var currentUser = Cookies.get("user");
@@ -93,6 +104,9 @@
     padding: 3px;
     bottom: 5px;
     right: 10px;
+  }
+  tr:nth-child(even) {
+    background-color: rgb(50, 55, 55);
   }
   @media screen and (max-width: 500px) {
     .navbar-brand > .navbar-item > span {
@@ -156,19 +170,23 @@
 
     {% if get_flashed_messages() %}
     {% for category, message in get_flashed_messages(with_categories=true) %}
-    <div id="notification" class="notification {{category}}" style="margin-top: 5px">
+    <div id="notification" class="notification {{category}}">
       <button id="notification-close" class="delete"></button>
       <div class="flash">{{ message }}</div>
     </div>
     {% endfor %}
     {% endif %}
 
+    <!-- Alternate notification for js-fired notifications using showNotification -->
+    <div id="notification-alt" class="notification">
+      <button id="notification-close" class="delete"></button>
+      <div class="flash"></div>
+    </div>
+
     <div class="box" style="margin-top: 5px;">
       <header class="title">
         {% block header %}{% endblock %}
       </header>
-
-
 
       <div class="content">
         {% block content %}

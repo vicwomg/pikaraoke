@@ -182,11 +182,13 @@ def enqueue():
         d = request.form.to_dict()
         user = d["song-added-by"]
     rc = k.enqueue(song, user)
-    if rc:
-        flash("Song added to queue: " + filename_from_path(song), "is-success")
-    else:
-        flash("Song is already in queue: " + filename_from_path(song), "is-danger")
-    return redirect(url_for("browse"))
+    song_title = filename_from_path(song)
+    # if rc:
+    #     flash("Song added to queue: " + song_title, "is-success")
+    # else:
+    #     flash("Song is already in queue: " + song_title, "is-danger")
+    #return redirect(url_for("home"))
+    return json.dumps({"song": song_title, "success": rc })
 
 
 @app.route("/skip")
