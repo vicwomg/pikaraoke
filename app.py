@@ -3,19 +3,21 @@ import json
 import logging
 import os
 import signal
+import subprocess
 import sys
 import threading
 import time
+from functools import wraps
 
 import cherrypy
 import psutil
-from flask import (Flask, flash, redirect, render_template, request, send_file,
-                   send_from_directory, url_for)
+from flask import (Flask, flash, make_response, redirect, render_template,
+                   request, send_file, send_from_directory, url_for)
 
 import karaoke
 from constants import VERSION
-from get_platform import get_platform
-from vlcclient import get_default_vlc_path
+from lib.get_platform import get_platform
+from lib.vlcclient import get_default_vlc_path
 
 try:
     from urllib.parse import quote, unquote
@@ -26,7 +28,7 @@ except ImportError:
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 site_name = "PiKaraoke"
-
+admin_password = None
 
 def filename_from_path(file_path, remove_youtube_id=True):
     rc = os.path.basename(file_path)
@@ -44,6 +46,16 @@ def url_escape(filename):
     return quote(filename.encode("utf8"))
 
 
+def is_admin():
+    if (admin_password == None):
+        return True
+    if ('admin' in request.cookies):
+        a = request.cookies.get("admin")
+        if (a == admin_password):
+            return True
+    return False
+
+
 @app.route("/")
 def home():
     return render_template(
@@ -52,18 +64,47 @@ def home():
         title="Home",
         show_transpose=k.use_vlc,
         transpose_value=k.now_playing_transpose,
+        admin=is_admin()
     )
+
+@app.route("/auth", methods=["POST"])
+def auth():
+    d = request.form.to_dict()
+    p = d["admin-password"]
+    if (p == admin_password):
+        resp = make_response(redirect('/'))
+        resp.set_cookie('admin', admin_password)
+        flash("Admin mode granted!", "is-success")
+    else:
+        resp = make_response(redirect(url_for('login')))
+        flash("Incorrect admin password!", "is-danger")
+    return resp
+
+@app.route("/login")
+def login():
+    return render_template("login.html")
+
+@app.route("/logout")
+def logout():
+    resp = make_response(redirect('/'))
+    resp.set_cookie('admin', '')
+    flash("Logged out of admin mode!", "is-success")
+    return resp
 
 @app.route("/nowplaying")
 def nowplaying():
     try: 
         if len(k.queue) >= 1:
-            next_song = filename_from_path(k.queue[0])
+            next_song = k.queue[0]["title"]
+            next_user = k.queue[0]["user"]
         else:
             next_song = None
+            next_user = None
         rc = {
             "now_playing": k.now_playing,
+            "now_playing_user": k.now_playing_user,
             "up_next": next_song,
+            "next_user": next_user,
             "is_paused": k.is_paused,
             "transpose_value": k.now_playing_transpose,
         }
@@ -76,9 +117,15 @@ def nowplaying():
 @app.route("/queue")
 def queue():
     return render_template(
-        "queue.html", queue=k.queue, site_title=site_name, title="Queue"
+        "queue.html", queue=k.queue, site_title=site_name, title="Queue", admin=is_admin()
     )
 
+@app.route("/get_queue")
+def get_queue():
+    if len(k.queue) >= 1:
+        return json.dumps(k.queue)
+    else:
+        return json.dumps([])
 
 @app.route("/queue/addrandom", methods=["GET"])
 def add_random():
@@ -128,13 +175,20 @@ def enqueue():
         song = request.args["song"]
     else:
         d = request.form.to_dict()
-        song = d["song_to_add"]
-    rc = k.enqueue(song)
-    if rc:
-        flash("Song added to queue: " + filename_from_path(song), "is-success")
+        song = d["song-to-add"]
+    if "user" in request.args:
+        user = request.args["user"]
     else:
-        flash("Song is already in queue: " + filename_from_path(song), "is-danger")
-    return redirect(url_for("home"))
+        d = request.form.to_dict()
+        user = d["song-added-by"]
+    rc = k.enqueue(song, user)
+    song_title = filename_from_path(song)
+    # if rc:
+    #     flash("Song added to queue: " + song_title, "is-success")
+    # else:
+    #     flash("Song is already in queue: " + song_title, "is-danger")
+    #return redirect(url_for("home"))
+    return json.dumps({"song": song_title, "success": rc })
 
 
 @app.route("/skip")
@@ -177,7 +231,10 @@ def vol_down():
 def search():
     if "search_string" in request.args:
         search_string = request.args["search_string"]
-        search_results = k.get_karaoke_search_results(search_string)
+        if ("non_karaoke" in request.args and request.args["non_karaoke"] == "true"):
+            search_results = k.get_search_results(search_string)
+        else:
+            search_results = k.get_karaoke_search_results(search_string)
     else:
         search_string = None
         search_results = None
@@ -206,6 +263,7 @@ def browse():
         site_title=site_name,
         title="Browse",
         songs=songs,
+        admin=is_admin()
     )
 
 
@@ -213,13 +271,14 @@ def browse():
 def download():
     d = request.form.to_dict()
     song = d["song-url"]
+    user = d["song-added-by"]
     if "queue" in d and d["queue"] == "on":
         queue = True
     else:
         queue = False
 
     # download in the background since this can take a few minutes
-    t = threading.Thread(target=k.download_video, args=[song, queue])
+    t = threading.Thread(target=k.download_video, args=[song, queue, user])
     t.daemon = True
     t.start()
 
@@ -281,7 +340,7 @@ def edit_file():
         if "new_file_name" in d and "old_file_name" in d:
             new_name = d["new_file_name"]
             old_name = d["old_file_name"]
-            if old_name in k.queue:
+            if k.is_song_in_queue(old_name):
                 # check one more time just in case someone added it during editing
                 flash(queue_error_msg + song_path, "is-danger")
             else:
@@ -343,7 +402,7 @@ def info():
     # youtube-dl
     youtubedl_version = k.youtubedl_version
 
-    show_shutdown = get_platform() == "raspberry_pi"
+    is_pi = get_platform() == "raspberry_pi"
 
     return render_template(
         "info.html",
@@ -354,8 +413,10 @@ def info():
         cpu=cpu,
         disk=disk,
         youtubedl_version=youtubedl_version,
-        show_shutdown=show_shutdown,
-        pikaraoke_version=VERSION
+        is_pi=is_pi,
+        pikaraoke_version=VERSION,
+        admin=is_admin(),
+        admin_enabled=admin_password != None
     )
 
 
@@ -372,55 +433,83 @@ def delayed_halt(cmd):
         os.system("shutdown now")
     if cmd == 2:
         os.system("reboot")
-
+    if cmd == 3:
+        process = subprocess.Popen(["raspi-config", "--expand-rootfs"])
+        process.wait()
+        os.system("reboot")
 
 def update_youtube_dl():
     time.sleep(3)
     k.upgrade_youtubedl()
 
-
 @app.route("/update_ytdl")
 def update_ytdl():
-    flash(
-        "Updating youtube-dl! Should take a minute or two... ",
-        "is-warning",
-    )
-    th = threading.Thread(target=update_youtube_dl)
-    th.start()
+    if (is_admin()):
+        flash(
+            "Updating youtube-dl! Should take a minute or two... ",
+            "is-warning",
+        )
+        th = threading.Thread(target=update_youtube_dl)
+        th.start()
+    else:
+        flash("You don't have permission to update youtube-dl", "is-danger")
     return redirect(url_for("home"))
 
 @app.route("/refresh")
 def refresh():
-    k.get_available_songs()
+    if (is_admin()):
+        k.get_available_songs()
+    else:
+        flash("You don't have permission to shut down", "is-danger")
     return redirect(url_for("browse"))
 
 @app.route("/quit")
 def quit():
-    flash("Quitting pikaraoke now!", "is-warning")
-    th = threading.Thread(target=delayed_halt, args=[0])
-    th.start()
+    if (is_admin()):
+        flash("Quitting pikaraoke now!", "is-warning")
+        th = threading.Thread(target=delayed_halt, args=[0])
+        th.start()
+    else:
+        flash("You don't have permission to quit", "is-danger")
     return redirect(url_for("home"))
 
 
 @app.route("/shutdown")
 def shutdown():
-    flash("Shutting down system now!", "is-danger")
-    th = threading.Thread(target=delayed_halt, args=[1])
-    th.start()
+    if (is_admin()): 
+        flash("Shutting down system now!", "is-danger")
+        th = threading.Thread(target=delayed_halt, args=[1])
+        th.start()
+    else:
+        flash("You don't have permission to shut down", "is-danger")
     return redirect(url_for("home"))
 
 
 @app.route("/reboot")
 def reboot():
-    flash("Rebooting system now!", "is-danger")
-    th = threading.Thread(target=delayed_halt, args=[2])
-    th.start()
+    if (is_admin()): 
+        flash("Rebooting system now!", "is-danger")
+        th = threading.Thread(target=delayed_halt, args=[2])
+        th.start()
+    else:
+        flash("You don't have permission to Reboot", "is-danger")
+    return redirect(url_for("home"))
+
+@app.route("/expand_fs")
+def expand_fs():
+    if (is_admin() and platform == "raspberry_pi"): 
+        flash("Expanding filesystem and rebooting system now!", "is-danger")
+        th = threading.Thread(target=delayed_halt, args=[3])
+        th.start()
+    elif (platform != "raspberry_pi"):
+        flash("Cannot expand fs on non-raspberry pi devices!", "is-danger")
+    else:
+        flash("You don't have permission to resize the filesystem", "is-danger")
     return redirect(url_for("home"))
 
 
 # Handle sigterm, apparently cherrypy won't shut down without explicit handling
-signal.signal(signal.SIGTERM, lambda signum, stack_frame: sys.exit(1))
-
+signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
 def get_default_youtube_dl_path(platform):
     if platform == "windows":
@@ -578,26 +667,36 @@ if __name__ == "__main__":
         required=False,
     ),
     parser.add_argument(
-        "--logo_path",
+        "--logo-path",
         help="Path to a custom logo image file for the splash screen. Recommended dimensions ~ 500x500px",
         default=None,
         required=False,
-    )
+    ),
+    parser.add_argument(
+        "--show-overlay",
+        action="store_true",
+        help="Show overlay on top of video with pikaraoke QR code and IP",
+        required=False,
+    ),
+    parser.add_argument(
+        "--admin-password",
+        help="Administrator password, for locking down certain features of the web UI such as queue editing, player controls, song editing, and system shutdown. If unspecified, everyone is an admin.",
+        default=None,
+        required=False,
+    ),
+    parser.add_argument(
+        "--developer-mode",
+        help="Run in flask developer mode. Only useful for tweaking the web UI in real time. Will disable the splash screen due to pygame main thread conflicts and may require FLASK_ENV=development env variable for full dev mode features.",
+        action="store_true",
+        required=False,
+    ),
     args = parser.parse_args()
+
+    if (args.admin_password):
+        admin_password = args.admin_password
 
     app.jinja_env.globals.update(filename_from_path=filename_from_path)
     app.jinja_env.globals.update(url_escape=quote)
-
-    cherrypy.tree.graft(app, "/")
-    # Set the configuration of the web server
-    cherrypy.config.update(
-        {
-            "engine.autoreload.on": False,
-            "log.screen": True,
-            "server.socket_port": int(args.port),
-            "server.socket_host": "0.0.0.0",
-        }
-    )
 
     # Handle OMX player if specified
     if platform == "raspberry_pi" and args.use_omxplayer:
@@ -628,10 +727,11 @@ if __name__ == "__main__":
         print("Creating download path: " + dl_path)
         os.makedirs(dl_path)
 
-    # Start the CherryPy WSGI web server
-    cherrypy.engine.start()
+    if (args.developer_mode):
+        logging.warning("Splash screen is disabled in developer mode due to main thread conflicts")
+        args.hide_splash_screen = True
 
-    # Start karaoke process
+    # Configure karaoke process
     global k
     k = karaoke.Karaoke(
         port=args.port,
@@ -651,8 +751,27 @@ if __name__ == "__main__":
         vlc_path=args.vlc_path,
         vlc_port=args.vlc_port,
         logo_path=args.logo_path,
+        show_overlay=args.show_overlay
     )
-    k.run()
 
-    cherrypy.engine.exit()
+    if (args.developer_mode):
+        th = threading.Thread(target=k.run)
+        th.start()
+        app.run(debug=True, port=args.port)
+    else:
+        # Start the CherryPy WSGI web server
+        cherrypy.tree.graft(app, "/")
+        # Set the configuration of the web server
+        cherrypy.config.update(
+            {
+                "engine.autoreload.on": False,
+                "log.screen": True,
+                "server.socket_port": int(args.port),
+                "server.socket_host": "0.0.0.0",
+            }
+        )
+        cherrypy.engine.start()
+        k.run()
+        cherrypy.engine.exit()
+
     sys.exit()

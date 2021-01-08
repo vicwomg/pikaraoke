@@ -12,7 +12,7 @@ from threading import Timer
 
 import requests
 
-from get_platform import get_platform
+from lib.get_platform import get_platform
 
 
 def get_default_vlc_path(platform):
@@ -28,7 +28,7 @@ def get_default_vlc_path(platform):
         return "/usr/bin/vlc"
 
 class VLCClient:
-    def __init__(self, port=5002, path=None):
+    def __init__(self, port=5002, path=None, qrcode=None, url=None):
 
         # HTTP remote control server
         self.http_password = "".join(
@@ -38,6 +38,9 @@ class VLCClient:
         self.http_endpoint = "http://localhost:%s/requests/status.xml" % self.port
         self.http_command_endpoint = self.http_endpoint + "?command="
         self.is_transposing = False
+
+        self.qrcode = qrcode
+        self.url = url
 
         # Handle vlc paths
         self.platform = get_platform()
@@ -82,11 +85,16 @@ class VLCClient:
                 "--macosx-continue-playback",
                 "0",
             ]
+        if self.qrcode and self.url:
+            self.cmd_base += self.get_marquee_cmd()
 
         logging.info("VLC command base: " + " ".join(self.cmd_base))
 
         self.volume_offset = 10
         self.process = None
+    
+    def get_marquee_cmd(self):
+        return ["--sub-source", 'logo{file=%s,position=9,x=2,opacity=200}:marq{marquee="Pikaraoke - connect at: \n%s",position=9,x=38,color=0xFFFFFF,size=11,opacity=200}' % (self.qrcode, self.url)]
 
     def handle_zipped_cdg(self, file_path):
         extracted_dir = os.path.join(self.tmp_dir, "extracted")
