@@ -51,8 +51,7 @@
     });
 
     $("#add-queue-link").click(function () {
-      $("#add-queue-link").addClass("is-loading");
-      setTimeout(function(){$("#add-queue-link").addClass("is-loading");}, 1000)
+ 
     });
 
     //START SELECTIZE CHANGES
@@ -142,7 +141,6 @@
     $('#search-link').on('click', function (e) {
       e.preventDefault();
       var search_term = $(".search-selectize .selectize-input input").val();
-      console.log("search term: " + search_term)
       var include_non_karaoke = $("#include-non-karaoke").is(":checked")
       if (search_term) {
         $('#searching_loader').removeClass("is-hidden");
@@ -158,7 +156,8 @@
       e.preventDefault();
       if ($('.search-selectize').find(":selected").text()) {
         $('#add-queue-link').attr("disabled", "true");
-        // $('#container_queue_form form').submit();
+        $("#add-queue-link").addClass("is-loading");
+        setTimeout(function(){$("#add-queue-link").removeClass("is-loading");}, 1000)
         $.ajax({
           url: "{{ url_for('enqueue') }}",
           type: 'post',
@@ -171,6 +170,7 @@
             else {
               showNotification("Song is already in the queue: " + obj.song, "is-danger")
             }
+            $select[0].selectize.clear()
           }
        });
       }
@@ -315,6 +315,7 @@
         <div class="label">Direct download YouTube url: </div>
         <form  action="{{ url_for('download') }}" method="post">
           <input class="input" id="direct-download-url" type="text" name="song-url" />
+          <input id="search-user" type="hidden" name="song-added-by" />
           <div class="field" style="margin-top: 5px">
             <label class="checkbox">
               <input type="checkbox" checked name="queue">
