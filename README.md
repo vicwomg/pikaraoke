@@ -1,31 +1,34 @@
 # PiKaraoke
 
-PiKaraoke is a "KTV"-style karaoke song search and queueing system. It connects to your TV, and shows a QR code for computers and smartphones to connect to a web interface. From there, multiple users can seamlessly search your local track library, queue up songs, add an endless selection of new karaoke tracks from YouTube, and more. ~For use with Raspberry Pi devices.~ Works on Raspberry Pi, OSX, Windows, and Linux!
+PiKaraoke is a "KTV"-style karaoke song search and queueing system. It connects to your TV, and shows a QR code for computers and smartphones to connect to a web interface. From there, multiple users can seamlessly search your local track library, queue up songs, add an endless selection of new karaoke tracks from YouTube, and more. Works on Raspberry Pi, OSX, Windows, and Linux!
 
 If you want to support this project with a little monetary tip, it's much appreciated: <br/>
 <a href="https://www.buymeacoffee.com/vicwomg" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 
-## What's new (January 2021)
+## What's new (1.1.0)
 
-- VLC is now the default media player. You can still use omxplayer for slower pi devices with `--use-omxplayer`
-- CDG file support! Also supports zipped cdg + mp3, just add the files to the root of the download directory (must be using vlc)
-- Refresh song list manually from the info screen.
-- Default download directories are now ~/pikaraoke-songs on MacOS, Windows, and Linux  
-- General overdue cleanup of libraries
-- Removed the --show-overlay feature since it is omxplayer only and not supported on pi4
+Nice, big update full of great suggestions from supporters and kind patrons of this project.
+
+- Singer names! Each new device is prompted for a name when first adding a song, so that singer name is shown in the queue, splash, and nowplaying. This value persists in a cookie for that device.
+- Administrator mode! Every karaoke party has some drunken mischief, this keeps things from getting out of hand ;) Can be enabled with "--admin-password <password>" option. Log in via the info screen. Regular users can add songs, but cannot modify playback, queue order, or edit songs. 
+- VLC playback overlay can show the pikaraoke connection QR code with the "--show-overlay" option
+- Advanced search option allows searching for non-karaoke results and downloading directly from a given Youtube URL.
+- Expand the raspberry pi filesystem to fill the remainind SD card from the info screen.
+- Loads of suggested UI improvements, polish, and optimizations.
+- Bugfixes, refactoring
 
 ## Features
 
 - Web interface for multiple users to queue tracks
-- Searching song library via autocomplete
-- Adding new tracks from Youtube
-- Offline storage of video files
-- mp3 + cdg support, including compressed .zip bundles (vlc only)
+- Splash screen with connection QR code and "Next up" display
+- Searching/browsing a local song library 
+- Adding new songs from Youtube
+- mp3 + cdg support, including compressed .zip bundles 
 - Pause/Skip/Restart and volume control
-- Now playing and Up Next display
-- Basic editing of downloaded file names
-- Queue editing
-- Key Change / Pitch shifting (vlc only)
+- Advanced editing of downloaded file names
+- Queue management
+- Key Change / Pitch shifting 
+- Lock down features with admin mode
 
 ## Screenshots
 
@@ -57,6 +60,8 @@ This _should_ work on all raspberry pi devices, but multi-core models recommende
 Also works on macs, PCs, and linux!
 
 ## Installation
+
+If you're on a pi, you might want to just use the pre-built image here: https://github.com/vicwomg/pikaraoke/releases/latest
 
 Install git, if you haven't already. (on raspberry pi: `sudo apt-get update; sudo apt-get install git`)
 Install python3/pip3 (usually raspberry pis already have it, run `python3 --version` to check): https://www.python.org/downloads/ (python 2.7 may work, but is not officially supported)
@@ -153,7 +158,8 @@ usage: app.py [-h] [-p PORT] [-d DOWNLOAD_PATH] [-o OMXPLAYER_PATH]
               [--hide-ip] [--hide-splash-screen] [--adev ADEV] [--dual-screen]
               [--high-quality] [--use-omxplayer] [--use-vlc]
               [--vlc-path VLC_PATH] [--vlc-port VLC_PORT]
-              [--logo_path LOGO_PATH]
+              [--logo-path LOGO_PATH] [--show-overlay]
+              [--admin-password ADMIN_PASSWORD] [--developer-mode]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -200,9 +206,21 @@ optional arguments:
   --vlc-path VLC_PATH   Full path to VLC (Default:
                         /Applications/VLC.app/Contents/MacOS/VLC)
   --vlc-port VLC_PORT   HTTP port for VLC remote control api (Default: 5002)
-  --logo_path LOGO_PATH
+  --logo-path LOGO_PATH
                         Path to a custom logo image file for the splash
                         screen. Recommended dimensions ~ 500x500px
+  --show-overlay        Show overlay on top of video with pikaraoke QR code
+                        and IP
+  --admin-password ADMIN_PASSWORD
+                        Administrator password, for locking down certain
+                        features of the web UI such as queue editing, player
+                        controls, song editing, and system shutdown. If
+                        unspecified, everyone is an admin.
+  --developer-mode      Run in flask developer mode. Only useful for tweaking
+                        the web UI in real time. Will disable the splash
+                        screen due to pygame main thread conflicts and may
+                        require FLASK_ENV=development env variable for full
+                        dev mode features.
 ```
 
 ## Screen UI
