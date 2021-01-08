@@ -9,48 +9,144 @@
   {% endif %}
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script type=text/javascript src="{{  url_for('static', filename='jquery-3.3.1.min.js') }}"></script>
+  <script src="{{  url_for('static', filename='js.cookie-2.2.1.min.js') }}"></script>
+  <script src="{{  url_for('static', filename='lodash.min.js') }}"></script>
   <link rel="stylesheet" href="{{  url_for('static', filename='bulma-dark.css') }}">
   <link rel="stylesheet" href="{{  url_for('static', filename='custom.css') }}">
   <link rel="icon" type="image/png" href="{{  url_for('static', filename='images/microphone.png') }}">
-  <link rel="stylesheet" href="{{  url_for('static', filename='fontello/css/fontello.css') }}">
+  <!-- <link rel="stylesheet" href="{{  url_for('static', filename='fontello/css/fontello.css') }}"> -->
+  <link rel="stylesheet" href="/static/fontello/css/fontello.css?cachebust=1">
 
   <script>
+
+    function showNotification(message, categoryClass, timeout=3000) {
+      console.log("Showing notification")
+      $("#notification-alt").addClass(categoryClass)
+      $("#notification-alt div").text(message)
+      $("#notification-alt").fadeIn()
+      setTimeout(function () {$("#notification-alt").fadeOut()}, timeout)
+      setTimeout(function () {$("#notification-alt").removeClass(categoryClass)}, timeout + 750)
+    }
+
     $(function () {
       $("#notification-close").click(function () {
-        $("#notification").hide();
+        $(".notification").hide();
       });
+      $("#notification-alt").hide()
 
       // Check for click events on the navbar burger icon
       $(".navbar-burger").click(function () {
-
         // Toggle the "is-active" class on both the "navbar-burger" and the "navbar-menu"
         $(".navbar-burger").toggleClass("is-active");
         $(".navbar-menu").toggleClass("is-active");
-
       });
+
+
+      // handle highlighting current nav bar location
+      var currentPath = window.location.pathname;
+      if (currentPath == "/") {
+        $("#home").addClass("is-active")
+      }
+      if (currentPath == "/queue") {
+        $("#queue").addClass("is-active")
+      }
+      if (currentPath == "/search") {
+        $("#search").addClass("is-active")
+      }
+      if (currentPath == "/browse") {
+        $("#browse").addClass("is-active")
+      }
+      if (currentPath == "/info") {
+        $("#info").addClass("is-active")
+      }
+
+      // handle auto-close flash notifications
+      setTimeout(function() { $("#notification").fadeOut()}, 3000);
+
+      // handle current user display
+      var currentUser = Cookies.get("user");
+    
+      if (currentUser) {
+        $("#current-user span").text(currentUser)
+        $("#current-user").removeClass("is-hidden");
+      };
+
+      $('#current-user').click(function(e) {
+        e.preventDefault();
+        let name = window.prompt(
+          "Do you want to change the name of the person using this device? This will show up on queued songs. Current: " + currentUser
+        );
+        if (name) {
+          Cookies.set("user", name)
+        }
+        location.reload();
+      });
+
     });
   </script>
   {% block scripts %}
   {% endblock %}
 </head>
 
+<style>
+  .navbar-item > i {
+    margin-right: 2px;
+  }
+  .notification {
+    position: fixed;
+    width: 500px;
+    bottom: 5px;
+    left: 50%;
+    margin-left: -250px;
+    z-index: 20;
+  }
+  .current-user {
+    position: fixed;
+    padding: 3px;
+    bottom: 5px;
+    right: 10px;
+  }
+  tr:nth-child(even) {
+    background-color: rgb(50, 55, 55);
+  }
+  @media screen and (max-width: 500px) {
+    .navbar-brand > .navbar-item > span {
+      display: none;
+    }
+    .notification {
+      position: fixed;
+      width: 100%;
+      bottom: 5px;
+      left: 0px;
+      margin-left: 0px;
+    }
+    body {
+      min-height: 120vh;
+    }
+  }
+</style>
+
 <body>
 
-  <div class="container" style="padding: 5px; max-width: 900px">
+  <div class="container" style="padding: 5px; max-width: 900px;">
     <nav class="navbar" role="navigation" aria-label="main navigation">
       <div class="navbar-brand" id="brand" style="padding-left: 10px">
-        <a class="navbar-item" href="{{ url_for('home') }}">
-          Home
+        <a id="home" class="navbar-item" href="{{ url_for('home') }}">
+          <i class="icon icon-home-2" title="Home"></i>
+          <span>Home</span>  
         </a>
 
-        <a class="navbar-item" href="{{ url_for('queue') }}">
-          Queue
+        <a id="queue" class="navbar-item" href="{{ url_for('queue') }}">
+          <i class="icon icon-list-numbered" title="Queue"></i>
+          <span>Queue</span>  
         </a>
-        <a class="navbar-item" href="{{ url_for('search') }}">
-          Search
+        <a id="search" class="navbar-item" href="{{ url_for('search') }}">
+          <i class="icon icon-search-1" title="Search"></i>
+          <span>Search</span>  
         </a>
-        <a class="navbar-item" href="{{ url_for('browse') }}">
-          Browse
+        <a id="browse" class="navbar-item" href="{{ url_for('browse') }}">
+          <i class="icon icon-folder-open-empty" title="Browse"></i>
+          <span>Browse</span>  
         </a>
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
           <span aria-hidden="true"></span>
@@ -60,8 +156,13 @@
       </div>
       <div class="navbar-menu" id="menu">
         <div class="navbar-end">
-          <a class="navbar-item" href="{{ url_for('info') }}">
-            Info &nbsp;&nbsp;
+          <a id="current-user" class="navbar-item is-hidden" href="#">
+            <i class="icon  icon-mic-1" title="Current user"></i>
+            <span></span>
+          </a>
+          <a id="info" class="navbar-item" href="{{ url_for('info') }}">
+            <i class="icon icon-info-circled-1" title="Info"></i>
+            <span>Pikaraoke</span>&nbsp;&nbsp; 
           </a>
         </div>
       </div>
@@ -70,19 +171,23 @@
 
     {% if get_flashed_messages() %}
     {% for category, message in get_flashed_messages(with_categories=true) %}
-    <div id="notification" class="notification {{category}}" style="margin-top: 5px">
+    <div id="notification" class="notification {{category}}">
       <button id="notification-close" class="delete"></button>
       <div class="flash">{{ message }}</div>
     </div>
     {% endfor %}
     {% endif %}
 
+    <!-- Alternate notification for js-fired notifications using showNotification -->
+    <div id="notification-alt" class="notification">
+      <button id="notification-close" class="delete"></button>
+      <div class="flash"></div>
+    </div>
+
     <div class="box" style="margin-top: 5px;">
       <header class="title">
         {% block header %}{% endblock %}
       </header>
-
-
 
       <div class="content">
         {% block content %}
@@ -90,6 +195,7 @@
       </div>
 
     </div>
+
 
   </div>
 
