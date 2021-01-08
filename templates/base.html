@@ -19,13 +19,13 @@
 
   <script>
 
-    function showNotification(message, categoryClass) {
+    function showNotification(message, categoryClass, timeout=3000) {
       console.log("Showing notification")
       $("#notification-alt").addClass(categoryClass)
       $("#notification-alt div").text(message)
       $("#notification-alt").fadeIn()
-      setTimeout(function () {$("#notification-alt").fadeOut()}, 3000)
-      setTimeout(function () {$("#notification-alt").removeClass(categoryClass)}, 3500)
+      setTimeout(function () {$("#notification-alt").fadeOut()}, timeout)
+      setTimeout(function () {$("#notification-alt").removeClass(categoryClass)}, timeout + 750)
     }
 
     $(function () {
@@ -98,6 +98,7 @@
     bottom: 5px;
     left: 50%;
     margin-left: -250px;
+    z-index: 20;
   }
   .current-user {
     position: fixed;
