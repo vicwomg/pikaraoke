@@ -70,11 +70,11 @@ If you're on a Raspberry Pi, you might want to just use the pre-built image to s
 - Before plugging it in, configure your wifi
   - Reconnect the SD card on the computer you used to flash the file
   - In the /boot drive that shows up, make a copy of wpa_supplicant.conf.example to wpa_supplicant.conf
-  - Edit this wpa_supplicant.conf and replace the ssid, password, and country code as necessary. Save the file
+  - Edit this wpa_supplicant.conf and replace with your wifi router's ssid, password, and if necessary, the country code. Save the file
 - Plug in the SD card to your pi device and turn it on
-- You should eventually see the Pikaraoke splash scree
-- On your phone, connect to the IP address it reports. 
-- Go to the "Pikaraoke" submenu in the titlebar. 
+- You should eventually see the Pikaraoke splash screen
+- On your phone, connect to the IP address on the screen (or use the QR code). 
+- In the web interface, go to the "Pikaraoke" submenu in the titlebar. 
   - Click the link to update youtube-dl and give it a couple of minutes to complete
   - Click the link to expand the Raspberry Pi filesystem to fill the rest of your SD card
 - Pi will reboot. You should be all set!
