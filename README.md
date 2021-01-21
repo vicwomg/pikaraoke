@@ -78,6 +78,7 @@ If you're on a Raspberry Pi, you might want to just use the pre-built image to s
   - Click the link to update youtube-dl and give it a couple of minutes to complete
   - Click the link to expand the Raspberry Pi filesystem to fill the rest of your SD card
 - Pi will reboot. You should be all set!
+- The credentials to log in to the pi are - username: pi / password: pikaraoke
 
 ### Manual install
 
