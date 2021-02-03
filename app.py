@@ -612,6 +612,12 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
+        "--use-external-ip",
+        action="store_true",
+        help="Use external (wan/internet) ip address instead of local (lan) ip",
+        required=False,
+    )
+    parser.add_argument(
         "--hide-ip",
         action="store_true",
         help="Hide IP address from the screen.",
@@ -751,7 +757,8 @@ if __name__ == "__main__":
         vlc_path=args.vlc_path,
         vlc_port=args.vlc_port,
         logo_path=args.logo_path,
-        show_overlay=args.show_overlay
+        show_overlay=args.show_overlay,
+        use_external_ip=args.use_external_ip
     )
 
     if (args.developer_mode):

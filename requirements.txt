@@ -11,3 +11,4 @@ futures
 psutil 
 unidecode
 requests
+miniupnpc

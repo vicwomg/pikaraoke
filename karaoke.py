@@ -10,10 +10,12 @@ import threading
 import time
 from io import BytesIO
 from subprocess import check_output
+import urllib.request
 
 import pygame
 import qrcode
 from unidecode import unidecode
+import miniupnpc
 
 from lib import omxclient, vlcclient
 from lib.get_platform import get_platform
@@ -61,7 +63,8 @@ class Karaoke:
         vlc_path=None,
         vlc_port=None,
         logo_path=None,
-        show_overlay=False
+        show_overlay=False,
+        use_external_ip=False
     ):
 
         # override with supplied constructor args if provided
@@ -82,6 +85,7 @@ class Karaoke:
         self.vlc_port = vlc_port
         self.logo_path = self.default_logo_path if logo_path == None else logo_path
         self.show_overlay = show_overlay
+        self.use_external_ip = use_external_ip
 
         # other initializations
         self.platform = get_platform()
@@ -114,7 +118,8 @@ class Karaoke:
     VLC path: %s
     VLC port: %s
     log_level: %s
-    show overlay: %s"""
+    show overlay: %s
+    use external IP: %s"""
             % (
                 self.port,
                 self.hide_ip,
@@ -133,7 +138,8 @@ class Karaoke:
                 self.vlc_path,
                 self.vlc_port,
                 log_level,
-                self.show_overlay
+                self.show_overlay,
+                self.use_external_ip
             )
         )
 
@@ -143,15 +149,23 @@ class Karaoke:
 
         if self.platform == "raspberry_pi":
             while int(time.time()) < end_time:
-                addresses_str = check_output(["hostname", "-I"]).strip().decode("utf-8")
-                addresses = addresses_str.split(" ")
-                self.ip = addresses[0]
+                if self.use_external_ip:
+                    self.ip = self.get_external_ip()
+                else:
+                    addresses_str = check_output(["hostname", "-I"]).strip().decode("utf-8")
+                    addresses = addresses_str.split(" ")
+                    self.ip = addresses[0]
                 if not self.is_network_connected():
                     logging.debug("Couldn't get IP, retrying....")
                 else:
                     break
         else:
-            self.ip = self.get_ip()
+            if self.use_external_ip:
+                self.ip = self.get_external_ip()
+                if not self.is_network_connected():
+                    self.ip = self.get_ip()
+            else:
+                self.ip = self.get_ip()
 
         logging.debug("IP address (for QR code and splash screen): " + self.ip)
 
@@ -192,6 +206,23 @@ class Karaoke:
         finally:
             s.close()
         return IP
+
+    # Get external IP. First, attempt to get it from UPnP router. If that doesn't work, use an external site.
+    # If all else fails, fall back to the local IP.
+    def get_external_ip(self):
+        try:
+            upnp = miniupnpc.UPnP()
+            upnp.discoverdelay = 10
+            if upnp.discover(): # upnp.discover() returns the number of devices found. Continue as long as it's not 0.
+                upnp.selectigd()
+                return upnp.externalipaddress()
+            else: # 0 devices found
+                # Try to get IP from external service http://ident.me
+                logging.debug("No UPnP devices found. Trying to get external IP from outside service.")
+                return urllib.request.urlopen('https://ident.me').read().decode('utf8')
+        except:
+            logging.warning("Unable to get external IP. Using local IP.")
+            return self.get_ip()
 
     def get_raspi_wifi_ap(self):
         f = open(self.raspi_wifi_conf_file, "r")
