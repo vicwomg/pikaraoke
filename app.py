@@ -11,8 +11,9 @@ from functools import wraps
 
 import cherrypy
 import psutil
-from flask import (Flask, flash, make_response, redirect, render_template,
-                   request, send_file, send_from_directory, url_for)
+from flask import (Flask, flash, jsonify, make_response, redirect,
+                   render_template, request, send_file, send_from_directory,
+                   url_for)
 from flask_paginate import Pagination, get_page_parameter
 
 import karaoke
@@ -254,8 +255,12 @@ def autocomplete():
     result = []
     for each in k.available_songs:
         if q in each.lower():
-            result.append({"path": each, "fileName": k.filename_from_path(each)})
-    return json.dumps(result)
+            result.append({"path": each, "fileName": k.filename_from_path(each), "type": "autocomplete"})
+    response = app.response_class(
+        response=json.dumps(result),
+        mimetype='application/json'
+    )
+    return response
 
 @app.route("/browse", methods=["GET"])
 def browse():
