@@ -31,3 +31,29 @@
 .control-box a:hover {
   color: #74ccb3;
 }
+
+.pagination-page-info {
+  padding: 0;
+  width: 100%;
+  margin: .5em;
+  margin-left: 0;
+  font-size: 12px;
+}
+.pagination-page-info b {
+  color: black;
+  background: #6aa6ed;
+  padding-left: 2px;
+  padding: .1em .25em;
+  font-size: 150%;
+}
+.pagination-list {
+  list-style: none !important;
+  margin-top: 0px !important;
+  margin-left: 0px !important;
+  margin-bottom: 10px;
+}
+.pagination-page-info b {
+  color: white;
+  background-color: transparent;
+  font-size: 100%
+}

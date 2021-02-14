@@ -90,17 +90,21 @@
   {% endif %}
 </p>
 
+{% if show_alpha_bar %}
 <div id="alpha-bar" class="has-background-dark mobile-hide" >
   <a href="#">#</a>
   {% for letter in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']  %}
   <a href="#{{letter}}">{{letter.upper()}}</a>
   {% endfor %}
 </div>
+{% endif %}
 
+{{ pagination.info }}
+{{ pagination.links }}
 <table>
   {% for song in songs %}
   <tr value='{{ song }}'>
-    <td width="20px" style="padding: 5px 0px">{{loop.index}}</td>
+    <td width="20px" style="padding: 5px 0px">{{loop.index + pagination.skip}}</td>
     <td id={{filename_from_path(song)[0].lower()}} width="20px" style="padding: 5px 0px">
       <a class='add-song-link has-text-weight-bold has-text-success' title="Add '{{filename_from_path(song)}}' to queue"
         href="{{url_for('enqueue')}}?song={{url_escape(song.encode('utf-8'))}}&user="><i class="icon icon-list-add"></i> </a>

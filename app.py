@@ -13,6 +13,7 @@ import cherrypy
 import psutil
 from flask import (Flask, flash, make_response, redirect, render_template,
                    request, send_file, send_from_directory, url_for)
+from flask_paginate import Pagination, get_page_parameter
 
 import karaoke
 from constants import VERSION
@@ -250,6 +251,12 @@ def search():
 
 @app.route("/browse", methods=["GET"])
 def browse():
+    search = False
+    q = request.args.get('q')
+    if q:
+        search = True
+    page = request.args.get(get_page_parameter(), type=int, default=1)
+
     if "sort" in request.args and request.args["sort"] == "date":
         songs = sorted(k.available_songs, key=lambda x: os.path.getctime(x))
         songs.reverse()
@@ -257,12 +264,18 @@ def browse():
     else:
         songs = k.available_songs
         sort_order = "Alphabetical"
+    
+    results_per_page = 500
+    pagination = Pagination(css_framework='bulma', page=page, total=len(songs), search=search, record_name='songs', per_page=results_per_page)
+    start_index = (page - 1) * (results_per_page - 1)
     return render_template(
         "files.html",
+        pagination=pagination,
         sort_order=sort_order,
         site_title=site_name,
+        show_alpha_bar=len(songs) <= 500,
         title="Browse",
-        songs=songs,
+        songs=songs[start_index:start_index + results_per_page],
         admin=is_admin()
     )
 
