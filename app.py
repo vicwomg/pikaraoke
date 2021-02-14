@@ -248,6 +248,14 @@ def search():
         search_string=search_string,
     )
 
+@app.route("/autocomplete")
+def autocomplete():
+    q = request.args.get('q').lower()
+    result = []
+    for each in k.available_songs:
+        if q in each.lower():
+            result.append({"path": each, "fileName": k.filename_from_path(each)})
+    return json.dumps(result)
 
 @app.route("/browse", methods=["GET"])
 def browse():

@@ -52,6 +52,9 @@
   margin-left: 0px !important;
   margin-bottom: 10px;
 }
+.pagination-list li {
+  margin-top: 0px !important;
+}
 .pagination-page-info b {
   color: white;
   background-color: transparent;
