@@ -449,7 +449,7 @@ class Karaoke:
         types = ('*.mp4', '*.MP4', '*.mp3', '*.MP3', '*.Mp3', '*.zip', '*.ZIP', '*.mkv', '*.MKV', '*.avi', '*.AVI', '*.webm', '*.WEBM', '*.mov', '*.MOV') 
         files_grabbed = []
         for files in types:
-            files_grabbed.extend(glob.glob(u"%s/%s" % (self.download_path, files)))
+            files_grabbed.extend(glob.glob(u"%s/**/%s" % (self.download_path, files), recursive=True))
         self.available_songs = sorted(files_grabbed, key=str.lower)
 
     def delete(self, song_path):
