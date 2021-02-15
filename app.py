@@ -270,12 +270,30 @@ def browse():
         search = True
     page = request.args.get(get_page_parameter(), type=int, default=1)
 
+    available_songs = k.available_songs
+
+    letter = request.args.get('letter')
+   
+    if (letter):
+        result = []
+        if (letter == "numeric"):
+            for song in available_songs:
+                f = k.filename_from_path(song)[0]
+                if (f.isnumeric()):
+                    result.append(song)
+        else: 
+            for song in available_songs:
+                f = k.filename_from_path(song).lower()
+                if (f.startswith(letter.lower())):
+                    result.append(song)
+        available_songs = result
+
     if "sort" in request.args and request.args["sort"] == "date":
-        songs = sorted(k.available_songs, key=lambda x: os.path.getctime(x))
+        songs = sorted(available_songs, key=lambda x: os.path.getctime(x))
         songs.reverse()
         sort_order = "Date"
     else:
-        songs = k.available_songs
+        songs = available_songs
         sort_order = "Alphabetical"
     
     results_per_page = 500
@@ -286,7 +304,7 @@ def browse():
         pagination=pagination,
         sort_order=sort_order,
         site_title=site_name,
-        show_alpha_bar=len(songs) <= 500,
+        letter=letter,
         title="Browse",
         songs=songs[start_index:start_index + results_per_page],
         admin=is_admin()

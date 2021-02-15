@@ -32,6 +32,9 @@
   color: #74ccb3;
 }
 
+.pagination {
+  margin-bottom: 7px;
+}
 .pagination-page-info {
   padding: 0;
   width: 100%;
@@ -42,18 +45,21 @@
 .pagination-page-info b {
   color: black;
   background: #6aa6ed;
-  padding-left: 2px;
-  padding: .1em .25em;
+  padding-right: 5px;
   font-size: 150%;
 }
 .pagination-list {
   list-style: none !important;
   margin-top: 0px !important;
   margin-left: 0px !important;
-  margin-bottom: 10px;
+  margin-bottom: 0px !important;
 }
 .pagination-list li {
   margin-top: 0px !important;
+}
+.pagination-previous, .pagination-next {
+  margin-top: 0px !important;
+  margin-bottom: 0px !important;
 }
 .pagination-page-info b {
   color: white;

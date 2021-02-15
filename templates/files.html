@@ -48,7 +48,14 @@
 {% endblock %}
 
 {% block header %}
-<h1>{% block title %}{{ title }}{% endblock %}</h1>
+<h1>{% block title %}
+  {% if letter %}
+    {{title}}: "{{ letter.upper() }}"
+  {% else %}
+    {{title}}
+  {% endif %}
+  {% endblock %}
+</h1>
 <style>
   #alpha-bar {
     padding: 5px 10px;
@@ -58,6 +65,7 @@
     display: flex;
     justify-content: space-between;
     top: 3px;
+    z-index: 20;
   }
   @media screen and (max-width: 500px) {
     #alpha-bar {
@@ -90,17 +98,15 @@
   {% endif %}
 </p>
 
-{% if show_alpha_bar %}
 <div id="alpha-bar" class="has-background-dark mobile-hide" >
-  <a href="#">#</a>
+  <a href="{{ url_for('browse') }}?letter=numeric">#</a>
   {% for letter in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']  %}
-  <a href="#{{letter}}">{{letter.upper()}}</a>
+  <a href="{{ url_for('browse') }}?letter={{letter}}">{{letter.upper()}}</a>
   {% endfor %}
 </div>
-{% endif %}
 
-{{ pagination.info }}
 {{ pagination.links }}
+{{ pagination.info }}
 <table>
   {% for song in songs %}
   <tr value='{{ song }}'>
@@ -120,6 +126,7 @@
     {% endif %}
     {% endfor %}
 </table>
+{{ pagination.links }}
 
 
 {% endblock %}
