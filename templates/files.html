@@ -19,17 +19,18 @@
 
     $('a.add-song-link').click(function(e) {
       e.preventDefault();
-      if (!Cookies.get("user")) {
+      var user = Cookies.get("user") 
+      if (!user) {
         let name = window.prompt(
           "Please enter your name. This will show up next to the songs you queue up from this device."
         );
         if (name) {
          Cookies.set("user", name, { expires: 3650 })
+         user = Cookies.get("user") 
         }
       }
-      $.get(this.href + Cookies.get("user"), function (data) {
+      $.get(this.href + encodeURIComponent(user), function (data) {
         var obj = JSON.parse(data);
-
         if (obj.success) {
           showNotification("Song added to the queue: " + obj.song, "is-success")
         }
@@ -37,7 +38,7 @@
           showNotification("Song already the queue: " + obj.song, "is-danger")
         }
       })
-
+      
       // location.href = this.href + Cookies.get("user");
     })
   });
