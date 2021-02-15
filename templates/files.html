@@ -24,7 +24,7 @@
           "Please enter your name. This will show up next to the songs you queue up from this device."
         );
         if (name) {
-         Cookies.set("user", name)
+         Cookies.set("user", name, { expires: 3650 })
         }
       }
       $.get(this.href + Cookies.get("user"), function (data) {
