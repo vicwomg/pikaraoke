@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import json
 import logging
 import os
@@ -75,7 +76,9 @@ def auth():
     p = d["admin-password"]
     if (p == admin_password):
         resp = make_response(redirect('/'))
-        resp.set_cookie('admin', admin_password)
+        expire_date = datetime.datetime.now()
+        expire_date = expire_date + datetime.timedelta(days=90)
+        resp.set_cookie('admin', admin_password, expires=expire_date)
         flash("Admin mode granted!", "is-success")
     else:
         resp = make_response(redirect(url_for('login')))
