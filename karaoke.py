@@ -450,7 +450,7 @@ class Karaoke:
         files_grabbed = []
         for files in types:
             files_grabbed.extend(glob.glob(u"%s/**/%s" % (self.download_path, files), recursive=True))
-        self.available_songs = sorted(files_grabbed, key=str.lower)
+        self.available_songs = sorted(files_grabbed, key=lambda f: str.lower(os.path.basename(f)))
 
     def delete(self, song_path):
         logging.info("Deleting song: " + song_path)
