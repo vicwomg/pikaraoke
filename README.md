@@ -61,7 +61,26 @@ Also works on macs, PCs, and linux!
 
 ## Installation
 
-If you're on a pi, you might want to just use the pre-built image here: https://github.com/vicwomg/pikaraoke/releases/latest
+### Pre-built Raspberry Pi image
+
+If you're on a Raspberry Pi, you might want to just use the pre-built image to save time installing dependencies:
+
+- Download the zip file of the raspberrry pi image and extract it: [latest release]( https://github.com/vicwomg/pikaraoke/releases/latest)
+- Write the image to an SD card. [Instructions on how to install pi img files](https://www.raspberrypi.org/documentation/installation/installing-images/)
+- Before plugging it in, configure your wifi
+  - Reconnect the SD card on the computer you used to flash the file
+  - In the /boot drive that shows up, make a copy of wpa_supplicant.conf.example to wpa_supplicant.conf
+  - Edit this wpa_supplicant.conf and replace with your wifi router's ssid, password, and if necessary, the country code. Save the file
+- Plug in the SD card to your pi device and turn it on
+- You should eventually see the Pikaraoke splash screen
+- On your phone, connect to the IP address on the screen (or use the QR code). 
+- In the web interface, go to the "Pikaraoke" submenu in the titlebar. 
+  - Click the link to update youtube-dl and give it a couple of minutes to complete
+  - Click the link to expand the Raspberry Pi filesystem to fill the rest of your SD card
+- Pi will reboot. You should be all set!
+- The credentials to log in to the pi are - username: pi / password: pikaraoke
+
+### Manual install
 
 Install git, if you haven't already. (on raspberry pi: `sudo apt-get update; sudo apt-get install git`)
 Install python3/pip3 (usually raspberry pis already have it, run `python3 --version` to check): https://www.python.org/downloads/ (python 2.7 may work, but is not officially supported)
@@ -73,7 +92,7 @@ git clone https://github.com/vicwomg/pikaraoke.git
 cd pikaraoke
 ```
 
-### Raspberry pi
+#### Raspberry pi
 
 Run the setup script:
 
@@ -87,7 +106,7 @@ You will then probably need to reboot since this changes a boot setting (gpu_mem
 sudo reboot
 ```
 
-### Linux / OSX
+#### Linux / OSX
 
 - Install VLC (to its default location): https://www.videolan.org/
 - Install ffmpeg (only if you want to use --high-quality flag) https://ffmpeg.org/download.html
@@ -99,7 +118,7 @@ pip3 install -r requirements.txt
 pip3 install --upgrade youtube_dl
 ```
 
-### Windows
+#### Windows
 
 - Install VLC (to its default location): https://www.videolan.org/
 - Install ffmpeg (only if you want to use --high-quality flag) https://ffmpeg.org/download.html
@@ -142,6 +161,16 @@ Or if you're like me and want some logging for aiding debugging, the following s
 ```
 # start pikaraoke on startup / logging
 /usr/bin/python3 /home/pi/pikaraoke/app.py >> /var/log/pikaraoke.log 2>&1 &
+```
+
+Another option is to only launch if there's a valid IP detected during startup, that way pikaraoke wont hijack your pi if it can't get connected:
+
+```
+_IP=$(hostname -I) || true
+if [ "$_IP" ]; then
+  printf "My IP address is %s\n" "$_IP"
+  /usr/bin/python3 /home/pi/pikaraoke/app.py >> /var/log/pikaraoke.log 2>&1 &
+fi
 ```
 
 If you want to kill the pikaraoke process, you can do so from the PiKaraoke Web UI under: `Info > Quit pikaraoke`. Or you can ssh in and run `sudo killall python` or something similar.
