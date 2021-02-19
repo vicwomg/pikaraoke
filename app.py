@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import json
 import logging
 import os
@@ -11,8 +12,10 @@ from functools import wraps
 
 import cherrypy
 import psutil
-from flask import (Flask, flash, make_response, redirect, render_template,
-                   request, send_file, send_from_directory, url_for)
+from flask import (Flask, flash, jsonify, make_response, redirect,
+                   render_template, request, send_file, send_from_directory,
+                   url_for)
+from flask_paginate import Pagination, get_page_parameter
 
 import karaoke
 from constants import VERSION
@@ -73,7 +76,9 @@ def auth():
     p = d["admin-password"]
     if (p == admin_password):
         resp = make_response(redirect('/'))
-        resp.set_cookie('admin', admin_password)
+        expire_date = datetime.datetime.now()
+        expire_date = expire_date + datetime.timedelta(days=90)
+        resp.set_cookie('admin', admin_password, expires=expire_date)
         flash("Admin mode granted!", "is-success")
     else:
         resp = make_response(redirect(url_for('login')))
@@ -247,22 +252,64 @@ def search():
         search_string=search_string,
     )
 
+@app.route("/autocomplete")
+def autocomplete():
+    q = request.args.get('q').lower()
+    result = []
+    for each in k.available_songs:
+        if q in each.lower():
+            result.append({"path": each, "fileName": k.filename_from_path(each), "type": "autocomplete"})
+    response = app.response_class(
+        response=json.dumps(result),
+        mimetype='application/json'
+    )
+    return response
 
 @app.route("/browse", methods=["GET"])
 def browse():
+    search = False
+    q = request.args.get('q')
+    if q:
+        search = True
+    page = request.args.get(get_page_parameter(), type=int, default=1)
+
+    available_songs = k.available_songs
+
+    letter = request.args.get('letter')
+   
+    if (letter):
+        result = []
+        if (letter == "numeric"):
+            for song in available_songs:
+                f = k.filename_from_path(song)[0]
+                if (f.isnumeric()):
+                    result.append(song)
+        else: 
+            for song in available_songs:
+                f = k.filename_from_path(song).lower()
+                if (f.startswith(letter.lower())):
+                    result.append(song)
+        available_songs = result
+
     if "sort" in request.args and request.args["sort"] == "date":
-        songs = sorted(k.available_songs, key=lambda x: os.path.getctime(x))
+        songs = sorted(available_songs, key=lambda x: os.path.getctime(x))
         songs.reverse()
         sort_order = "Date"
     else:
-        songs = k.available_songs
+        songs = available_songs
         sort_order = "Alphabetical"
+    
+    results_per_page = 500
+    pagination = Pagination(css_framework='bulma', page=page, total=len(songs), search=search, record_name='songs', per_page=results_per_page)
+    start_index = (page - 1) * (results_per_page - 1)
     return render_template(
         "files.html",
+        pagination=pagination,
         sort_order=sort_order,
         site_title=site_name,
+        letter=letter,
         title="Browse",
-        songs=songs,
+        songs=songs[start_index:start_index + results_per_page],
         admin=is_admin()
     )
 

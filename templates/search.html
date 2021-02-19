@@ -74,7 +74,14 @@
     $("#add-queue-link").hide();
     $("#add-queue-link").attr("disabled", "true");
     $("#search-link").attr("disabled", "true");
-    var $select = $('.search-selectize').selectize({
+    var $select = $('#song-to-add').selectize({
+      valueField: 'path',
+      labelField: 'fileName',
+      searchField: ['fileName'],
+      optgroupField: "type",
+      optgroups: [
+        {value: 'autocomplete', label: 'Available songs in local library'},
+      ],
       createOnBlur: true,
       openOnFocus: false,
       createFilter: function (input) { return input.length >= 2; },
@@ -129,13 +136,23 @@
         option: function (item, escape) {
           return '<div class="row">'
             + '<div class="col-icon"><i class="icon icon-music has-text-info"></i></div>'
-            + '<div class="col-text">' + item.text + '</div>'
+            + '<div class="col-text">' + escape(item.fileName) + '</div>'
             + '</div>';
         },
-        optgroup_header: function (data, escape) {
-          return '<div class="optgroup-header has-text-info">' + escape(data.label) + '</div>';
+        optgroup_header: function(data, escape) {
+          return '<div class="optgroup-header">' + escape(data.label) + '</div>';
         }
       },
+      load: function(query, callback) {
+        if (query.length < 2)  return callback;
+        $.ajax({
+          url: "{{ url_for('autocomplete') }}" + "?q=" + query,
+          type: 'get',
+          success: function(data){
+            callback(data)
+          }
+        });
+      }
     });
 
     $('#search-link').on('click', function (e) {
@@ -185,7 +202,6 @@
     i = -1;
     changeImage();
 
-
     $(document).on('change', '#search_result_selector', function () {
       var url = $('#search_result_selector').val();
       $('#youtube-link').attr('href', url);
@@ -228,7 +244,7 @@
           "Please enter your name. This will show up next to the songs you queue up from this device."
         );
         if (name) {
-          Cookies.set("user", name)
+          Cookies.set("user", name , { expires: 3650 })
         }
         location.reload()
       }
@@ -237,7 +253,7 @@
     $("#search-user").val(user)
 
   });
-    
+ 
   function isYoutubeURL(s) {
     if (s.includes("http")) {
       return s.includes("youtube.com/watch?v=") || s.includes("youtube.com/v/") || s.includes("youtu.be/")
@@ -268,13 +284,8 @@
     <form id="queue-form" >
       <div id="search-field" class="field has-addons" style="margin-bottom: 5px">
         <div class="control" style="width:100%">
-          <select class="search-selectize is-size-7" name="song-to-add">
-            <option value=''></option>
-            <optgroup label="Available Songs" id="available-songs">
-              {% for file in songs %}
-              <option value='{{file}}'>{{ filename_from_path(file) }}</option>
-              {% endfor %}
-            </optgroup>
+          <select id="song-to-add" class="search-selectize is-size-7" name="song-to-add">
+            <optgroup label="Available Songs" id="available-songs"></optgroup>
           </select>
         </div>
         <div class="control">
