@@ -5,17 +5,15 @@ PiKaraoke is a "KTV"-style karaoke song search and queueing system. It connects 
 If you want to support this project with a little monetary tip, it's much appreciated: <br/>
 <a href="https://www.buymeacoffee.com/vicwomg" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 
-## What's new (1.1.0)
+## What's new (1.1.1)
 
-Nice, big update full of great suggestions from supporters and kind patrons of this project.
-
-- Singer names! Each new device is prompted for a name when first adding a song, so that singer name is shown in the queue, splash, and nowplaying. This value persists in a cookie for that device.
-- Administrator mode! Every karaoke party has some drunken mischief, this keeps things from getting out of hand ;) Can be enabled with "--admin-password <password>" option. Log in via the info screen. Regular users can add songs, but cannot modify playback, queue order, or edit songs. 
-- VLC playback overlay can show the pikaraoke connection QR code with the "--show-overlay" option
-- Advanced search option allows searching for non-karaoke results and downloading directly from a given Youtube URL.
-- Expand the raspberry pi filesystem to fill the remainind SD card from the info screen.
-- Loads of suggested UI improvements, polish, and optimizations.
-- Bugfixes, refactoring
+Primarily bugfixes for maintaining mega-libraries
+- Fix slow loading of huge libraries
+- Paging controls on browse screen for libraries > 500
+- Fix issue with singer names with spaces and special characters not appearing #106
+- Support scanning subdirectories #108 (thanks jramboz)
+- Support more video formats and weird case sensitivity of mp3/cdg files #107 #95
+- Singer names persist for 90 days #105
 
 ## Features
 
