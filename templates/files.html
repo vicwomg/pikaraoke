@@ -19,17 +19,18 @@
 
     $('a.add-song-link').click(function(e) {
       e.preventDefault();
-      if (!Cookies.get("user")) {
+      var user = Cookies.get("user") 
+      if (!user) {
         let name = window.prompt(
           "Please enter your name. This will show up next to the songs you queue up from this device."
         );
         if (name) {
-         Cookies.set("user", name)
+         Cookies.set("user", name, { expires: 3650 })
+         user = Cookies.get("user") 
         }
       }
-      $.get(this.href + Cookies.get("user"), function (data) {
+      $.get(this.href + encodeURIComponent(user), function (data) {
         var obj = JSON.parse(data);
-
         if (obj.success) {
           showNotification("Song added to the queue: " + obj.song, "is-success")
         }
@@ -37,7 +38,7 @@
           showNotification("Song already the queue: " + obj.song, "is-danger")
         }
       })
-
+      
       // location.href = this.href + Cookies.get("user");
     })
   });
@@ -48,7 +49,14 @@
 {% endblock %}
 
 {% block header %}
-<h1>{% block title %}{{ title }}{% endblock %}</h1>
+<h1>{% block title %}
+  {% if letter %}
+    {{title}}: "{{ letter.upper() }}"
+  {% else %}
+    {{title}}
+  {% endif %}
+  {% endblock %}
+</h1>
 <style>
   #alpha-bar {
     padding: 5px 10px;
@@ -58,6 +66,7 @@
     display: flex;
     justify-content: space-between;
     top: 3px;
+    z-index: 20;
   }
   @media screen and (max-width: 500px) {
     #alpha-bar {
@@ -91,16 +100,18 @@
 </p>
 
 <div id="alpha-bar" class="has-background-dark mobile-hide" >
-  <a href="#">#</a>
+  <a href="{{ url_for('browse') }}?letter=numeric">#</a>
   {% for letter in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']  %}
-  <a href="#{{letter}}">{{letter.upper()}}</a>
+  <a href="{{ url_for('browse') }}?letter={{letter}}">{{letter.upper()}}</a>
   {% endfor %}
 </div>
 
+{{ pagination.links }}
+{{ pagination.info }}
 <table>
   {% for song in songs %}
   <tr value='{{ song }}'>
-    <td width="20px" style="padding: 5px 0px">{{loop.index}}</td>
+    <td width="20px" style="padding: 5px 0px">{{loop.index + pagination.skip}}</td>
     <td id={{filename_from_path(song)[0].lower()}} width="20px" style="padding: 5px 0px">
       <a class='add-song-link has-text-weight-bold has-text-success' title="Add '{{filename_from_path(song)}}' to queue"
         href="{{url_for('enqueue')}}?song={{url_escape(song.encode('utf-8'))}}&user="><i class="icon icon-list-add"></i> </a>
@@ -116,6 +127,7 @@
     {% endif %}
     {% endfor %}
 </table>
+{{ pagination.links }}
 
 
 {% endblock %}

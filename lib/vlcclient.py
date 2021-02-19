@@ -107,9 +107,10 @@ class VLCClient:
         cdg_file = None
         files = os.listdir(extracted_dir)
         for file in files:
-            if os.path.splitext(file)[1] == ".mp3":
+            ext = os.path.splitext(file)[1]
+            if ext == ".mp3" or ext == ".Mp3" or ext == ".MP3":
                 mp3_file = file
-            elif os.path.splitext(file)[1] == ".cdg":
+            elif ext == ".cdg" or ext == ".Cdg" or ext == ".CDG":
                 cdg_file = file
         
         if (mp3_file is not None) and (cdg_file is not None):
@@ -121,7 +122,8 @@ class VLCClient:
             raise Exception("No .mp3 or .cdg was found in the zip file: " + file_path)
 
     def handle_mp3_cdg(self, file_path):
-        if (os.path.isfile(os.path.splitext(file_path)[0] + ".cdg")):
+        f = os.path.splitext(file_path)[0]
+        if (os.path.isfile(f + ".cdg") or os.path.isfile(f + ".Cdg") or os.path.isfile(f + ".CDG")):
             return file_path
         else:
             raise Exception("No matching .cdg file found for: " + file_path)
