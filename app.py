@@ -665,6 +665,12 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
+        "--hide-raspiwifi-instructions",
+        action="store_true",
+        help="Hide RaspiWiFi setup instructions from the splash screen.",
+        required=False,
+    )
+    parser.add_argument(
         "--hide-splash-screen",
         action="store_true",
         help="Hide splash screen before/between songs.",
@@ -789,6 +795,7 @@ if __name__ == "__main__":
         log_level=args.log_level,
         volume=args.volume,
         hide_ip=args.hide_ip,
+        hide_raspiwifi_instructions=args.hide_raspiwifi_instructions,
         hide_splash_screen=args.hide_splash_screen,
         omxplayer_adev=args.adev,
         dual_screen=args.dual_screen,
