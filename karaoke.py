@@ -47,6 +47,7 @@ class Karaoke:
         port=5000,
         download_path="/usr/lib/pikaraoke/songs",
         hide_ip=False,
+        hide_raspiwifi_instructions=False,
         hide_splash_screen=False,
         omxplayer_adev="both",
         dual_screen=False,
@@ -67,6 +68,7 @@ class Karaoke:
         # override with supplied constructor args if provided
         self.port = port
         self.hide_ip = hide_ip
+        self.hide_raspiwifi_instructions = hide_raspiwifi_instructions
         self.hide_splash_screen = hide_splash_screen
         self.omxplayer_adev = omxplayer_adev
         self.download_path = download_path
@@ -99,6 +101,7 @@ class Karaoke:
             """
     http port: %s
     hide IP: %s
+    hide RaspiWiFi instructions: %s,
     hide splash: %s
     splash_delay: %s
     omx audio device: %s
@@ -118,6 +121,7 @@ class Karaoke:
             % (
                 self.port,
                 self.hide_ip,
+                self.hide_raspiwifi_instructions,
                 self.hide_splash_screen,
                 self.splash_delay,
                 self.omxplayer_adev,
@@ -359,7 +363,7 @@ class Karaoke:
                     )
                     self.screen.blit(text, (p_image.get_width() + 35, blitY))
 
-            if (
+            if not self.hide_raspiwifi_instructions and (
                 self.raspi_wifi_config_installed
                 and self.raspi_wifi_config_ip in self.url
             ):
