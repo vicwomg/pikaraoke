@@ -249,9 +249,7 @@
         location.reload()
       }
 
-    $("#queue-user").val(user)
-    $("#search-user").val(user)
-
+    $(".song-added-by").val(user)
   });
  
   function isYoutubeURL(s) {
@@ -292,7 +290,7 @@
           <a class="button is-warning" id="search-link">Search</a>
           <a class="button is-info" id="add-queue-link">Queue</a>
         </div>
-        <input id="queue-user" type="hidden" name="song-added-by" />
+        <input class="song-added-by" type="hidden" name="song-added-by" />
       </div>
       <div class="control has-text-right">
         
@@ -326,7 +324,7 @@
         <div class="label">Direct download YouTube url: </div>
         <form  action="{{ url_for('download') }}" method="post">
           <input class="input" id="direct-download-url" type="text" name="song-url" />
-          <input id="search-user" type="hidden" name="song-added-by" />
+          <input class="song-added-by" type="hidden" name="song-added-by" />
           <div class="field" style="margin-top: 5px">
             <label class="checkbox">
               <input type="checkbox" checked name="queue">
@@ -364,7 +362,7 @@
         </select>
         
       </div>
-      <input id="search-user" type="hidden" name="song-added-by" />
+      <input class="song-added-by" type="hidden" name="song-added-by" />
       <p class="help">Click dropdown to show more results</p>
 
       <p> Link: <a target="_blank" id='youtube-link' href=''></a> </p>
