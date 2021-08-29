@@ -47,6 +47,7 @@ class Karaoke:
         port=5000,
         download_path="/usr/lib/pikaraoke/songs",
         hide_ip=False,
+        hide_raspiwifi_instructions=False,
         hide_splash_screen=False,
         omxplayer_adev="both",
         dual_screen=False,
@@ -67,6 +68,7 @@ class Karaoke:
         # override with supplied constructor args if provided
         self.port = port
         self.hide_ip = hide_ip
+        self.hide_raspiwifi_instructions = hide_raspiwifi_instructions
         self.hide_splash_screen = hide_splash_screen
         self.omxplayer_adev = omxplayer_adev
         self.download_path = download_path
@@ -99,6 +101,7 @@ class Karaoke:
             """
     http port: %s
     hide IP: %s
+    hide RaspiWiFi instructions: %s,
     hide splash: %s
     splash_delay: %s
     omx audio device: %s
@@ -118,6 +121,7 @@ class Karaoke:
             % (
                 self.port,
                 self.hide_ip,
+                self.hide_raspiwifi_instructions,
                 self.hide_splash_screen,
                 self.splash_delay,
                 self.omxplayer_adev,
@@ -193,12 +197,30 @@ class Karaoke:
             s.close()
         return IP
 
-    def get_raspi_wifi_ap(self):
+    def get_raspi_wifi_conf_vals(self):
+        """Extract values from the RaspiWiFi configuration file."""
         f = open(self.raspi_wifi_conf_file, "r")
+        
+        # Define default values.
+        #
+        # References: 
+        # - https://github.com/jasbur/RaspiWiFi/blob/master/initial_setup.py (see defaults in input prompts)
+        # - https://github.com/jasbur/RaspiWiFi/blob/master/libs/reset_device/static_files/raspiwifi.conf
+        #
+        server_port = "80"
+        ssid_prefix = "RaspiWiFi Setup"
+        ssl_enabled = "0"
+        
+        # Override the default values according to the configuration file.
         for line in f.readlines():
-            if "ssid_prefix=" in line:
-                return line.split("x=")[1].strip()
-        return False
+            if "server_port=" in line:
+                server_port = line.split("t=")[1].strip()
+            elif "ssid_prefix=" in line:
+                ssid_prefix = line.split("x=")[1].strip()
+            elif "ssl_enabled=" in line:
+                ssl_enabled = line.split("d=")[1].strip()
+
+        return (server_port, ssid_prefix, ssl_enabled)
 
     def get_youtubedl_version(self):
         self.youtubedl_version = (
@@ -341,22 +363,25 @@ class Karaoke:
                     )
                     self.screen.blit(text, (p_image.get_width() + 35, blitY))
 
-            if (
+            if not self.hide_raspiwifi_instructions and (
                 self.raspi_wifi_config_installed
                 and self.raspi_wifi_config_ip in self.url
             ):
-                ap = self.get_raspi_wifi_ap()
+                (server_port, ssid_prefix, ssl_enabled) = self.get_raspi_wifi_conf_vals()
+
                 text1 = self.font.render(
                     "RaspiWifiConfig setup mode detected!", True, (255, 255, 255)
                 )
                 text2 = self.font.render(
-                    "Connect another device/smartphone to the Wifi AP: '%s'" % ap,
+                    "Connect another device/smartphone to the Wifi AP: '%s'" % ssid_prefix,
                     True,
                     (255, 255, 255),
                 )
                 text3 = self.font.render(
-                    "Then point its browser to: 'http://%s' and follow the instructions."
-                    % self.raspi_wifi_config_ip,
+                    "Then point its browser to: '%s://%s%s' and follow the instructions."
+                    % ("https" if ssl_enabled == "1" else "http", 
+                       self.raspi_wifi_config_ip, 
+                       ":%s" % server_port if server_port != "80" else ""),
                     True,
                     (255, 255, 255),
                 )
@@ -446,7 +471,14 @@ class Karaoke:
 
     def get_available_songs(self):
         logging.debug("Fetching available songs in: " + self.download_path)
-        types = ('*.mp4', '*.MP4', '*.mp3', '*.MP3', '*.Mp3', '*.zip', '*.ZIP', '*.mkv', '*.MKV', '*.avi', '*.AVI', '*.webm', '*.WEBM', '*.mov', '*.MOV') 
+        types = ['*.mp4', '*.mp3', '*.zip', '*.mkv', '*.avi', '*.webm', '*.mov'] 
+        if self.platform != "windows":
+            # Only non-windows. If we include extra casings, windows shows dups
+            types_caps = []
+            for ext in types:
+                types_caps.append(ext.upper())
+                types_caps.append(ext.title())
+            types = types + types_caps
         files_grabbed = []
         for files in types:
             files_grabbed.extend(glob.glob(u"%s/**/%s" % (self.download_path, files), recursive=True))
