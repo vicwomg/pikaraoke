@@ -8,7 +8,7 @@ if [ $REPLY = "y" ]
 
 echo
 echo "*** RUNNING APT-GET UPDATE ***"
-sudo apt-get update
+sudo apt-get update --allow-releaseinfo-change
 if [ $? -ne 0 ]; then echo "ERROR: 'apt-get update' failed with error code: $?"; exit 1; fi
 
 echo
