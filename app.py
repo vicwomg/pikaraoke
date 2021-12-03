@@ -30,6 +30,8 @@ except ImportError:
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+app.jinja_env.add_extension('jinja2.ext.i18n')
+app.jinja_env.install_null_translations()
 site_name = "PiKaraoke"
 admin_password = None
 

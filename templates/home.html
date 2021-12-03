@@ -25,7 +25,7 @@
           $("#now-playing").html(nowPlayingHtml);
           $(".control-box").show();
         } else {
-          $("#now-playing").html("Nothing is playing right now.");
+          $("#now-playing").html("{{ _('Nothing is playing right now.') }}");
           $(".control-box").hide();
         }
 
@@ -131,7 +131,8 @@
 </script>
 {% endblock %} {% block header %}
 <h1>
-  {% block title %}Now Playing
+  {% block title %}
+    {% trans %}Now Playing{% endtrans %}
   <img
     class="playing_gif control-box"
     width="40"
