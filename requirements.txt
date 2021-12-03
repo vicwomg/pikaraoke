@@ -13,3 +13,5 @@ psutil
 unidecode
 requests
 flask-paginate==2021.10.29
+Babel==2.9.1
+Flask-Babel==2.0.0
