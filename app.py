@@ -12,13 +12,15 @@ from functools import wraps
 
 import cherrypy
 import psutil
+from flask_babel import Babel
+import flask_babel
 from flask import (Flask, flash, jsonify, make_response, redirect,
                    render_template, request, send_file, send_from_directory,
                    url_for)
 from flask_paginate import Pagination, get_page_parameter
 
 import karaoke
-from constants import VERSION
+from constants import VERSION, LANGUAGES
 from lib.get_platform import get_platform
 from lib.vlcclient import get_default_vlc_path
 
@@ -27,11 +29,14 @@ try:
 except ImportError:
     from urllib import quote, unquote
 
+_ = flask_babel.gettext
+
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 app.jinja_env.add_extension('jinja2.ext.i18n')
-app.jinja_env.install_null_translations()
+app.config['BABEL_TRANSLATION_DIRECTORIES'] = 'translations'
+babel = Babel(app)
 site_name = "PiKaraoke"
 admin_password = None
 
@@ -60,6 +65,10 @@ def is_admin():
             return True
     return False
 
+@babel.localeselector
+def get_locale():
+    """Select the language to display the webpage in based on the Accept-Language header"""
+    return request.accept_languages.best_match(LANGUAGES.keys())
 
 @app.route("/")
 def home():
@@ -81,10 +90,12 @@ def auth():
         expire_date = datetime.datetime.now()
         expire_date = expire_date + datetime.timedelta(days=90)
         resp.set_cookie('admin', admin_password, expires=expire_date)
-        flash("Admin mode granted!", "is-success")
+        # MSG: Message shown after logging in as admin successfully
+        flash(_("Admin mode granted!"), "is-success")
     else:
         resp = make_response(redirect(url_for('login')))
-        flash("Incorrect admin password!", "is-danger")
+        # MSG: Message shown after failing to login as admin
+        flash(_("Incorrect admin password!"), "is-danger")
     return resp
 
 @app.route("/login")
