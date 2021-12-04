@@ -1,17 +1,18 @@
-# Translations template for PROJECT.
+# Chinese (Simplified, China) translations for .
 # Copyright (C) 2021 ORGANIZATION
-# This file is distributed under the same license as the PROJECT project.
-# FIRST AUTHOR <EMAIL@ADDRESS>, 2021.
+# This file is distributed under the same license as the  project.
+# Theo Belaire <theo.belaire@gmail.com>, 2021.
 #
-#, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: PROJECT VERSION\n"
+"Project-Id-Version:  1.1.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2021-12-03 19:45-0500\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"PO-Revision-Date: 2021-12-03 18:41-0500\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: zh_Hans_CN\n"
+"Language-Team: zh_Hans_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -31,7 +32,7 @@ msgstr ""
 #. currently playing
 #: templates/home.html:29
 msgid "Nothing is playing right now."
-msgstr ""
+msgstr "没有正在播放的音乐"
 
 #. Alternative text for the "Up next" section if no more songs are queued up.
 #: templates/home.html:38
@@ -48,5 +49,5 @@ msgstr ""
 #. Header showing the currently playing song.
 #: templates/home.html:139
 msgid "Now Playing"
-msgstr ""
+msgstr "正在播放曲目"
 

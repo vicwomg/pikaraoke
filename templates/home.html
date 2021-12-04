@@ -25,6 +25,7 @@
           $("#now-playing").html(nowPlayingHtml);
           $(".control-box").show();
         } else {
+          // {# MSG: Message which shows in the "Now Playing" section when there is no song currently playing #}
           $("#now-playing").html("{{ _('Nothing is playing right now.') }}");
           $(".control-box").hide();
         }
@@ -33,7 +34,8 @@
           $("#up-next").html(`<p style="margin-bottom: 5px">${obj.up_next}</p>
             <p class="has-text-success"><i class="icon icon-mic-1" title="Next singer"></i>${obj.next_user}</p>`);
         } else {
-          $("#up-next").html("No song is queued.");
+          // {# MSG: Alternative text for the "Up next" section if no more songs are queued up. #}
+          $("#up-next").html("{{ _('No song is queued.') }}");
         }
 
         if (obj.is_paused) {
@@ -104,7 +106,8 @@
 
     $("#skip").click(function () {
       r = confirm(
-        "Are you sure you want to skip this track? If you didn't add this song, ask permission first!"
+        // {# MSG: Confirmation message when clicking a button to skip a track. #}
+        `{{ _("Are you sure you want to skip this track? If you didn't add this song, ask permission first!") }}`
       );
       if (r) {
         $.get("/skip");
@@ -132,6 +135,7 @@
 {% endblock %} {% block header %}
 <h1>
   {% block title %}
+    {# MSG: Header showing the currently playing song. #}
     {% trans %}Now Playing{% endtrans %}
   <img
     class="playing_gif control-box"
