@@ -148,7 +148,10 @@
 <p class="is-size-4 has-text-warning" id="now-playing"></p>
 
 <hr />
-<h3>Next Song</h3>
+<h3>
+  {# MSG: Title for the section displaying the next song to be played. #}
+  {% trans %}Next Song{% endtrans %}
+  </h3>
 <p id="up-next" class="has-text-warning"></p>
 <hr />
 
@@ -177,7 +180,7 @@
     <div class="is-flex" style="justify-content: space-between">
       <div>
         <h4>Change Key</h4>
-      
+
       </div>
       <div class="is-flex">
         <h4 id="semitones-label"></h4>

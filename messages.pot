@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2021-12-03 19:45-0500\n"
+"POT-Creation-Date: 2021-12-04 21:43-0500\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -25,6 +25,35 @@ msgstr ""
 #. MSG: Message shown after failing to login as admin
 #: app.py:98
 msgid "Incorrect admin password!"
+msgstr ""
+
+#. Prompt when changing the current profile name.
+#: templates/base.html:80
+#, python-format
+msgid ""
+"Do you want to change the name of the person using this device? This will"
+" show up on queued songs. Current: %(currentUser)s"
+msgstr ""
+
+#. Navigation link for the home page.
+#: templates/base.html:142
+msgid "Home"
+msgstr ""
+
+#. Navigation link for the queue page.
+#: templates/base.html:148
+msgid "Queue"
+msgstr ""
+
+#. Navigation link for the search page add songs to the queue.
+#: templates/base.html:153
+msgid "Search"
+msgstr ""
+
+#. Navigation link for the page where the user can add existing songs to the
+#. queue.
+#: templates/base.html:158
+msgid "Browse"
 msgstr ""
 
 #. Message which shows in the "Now Playing" section when there is no song
@@ -48,5 +77,10 @@ msgstr ""
 #. Header showing the currently playing song.
 #: templates/home.html:139
 msgid "Now Playing"
+msgstr ""
+
+#. Title for the section displaying the next song to be played.
+#: templates/home.html:153
+msgid "Next Song"
 msgstr ""
 
