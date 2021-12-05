@@ -3,21 +3,24 @@
   $(function () {
     $("#quit-link").click(function (e) {
       e.preventDefault();
-      if (window.confirm("Are you sure you want to quit?")) {
+      // {# MSG: Confirmation text whe the user selects quit. #}
+      if (window.confirm("{{ _('Are you sure you want to quit?') }}")) {
         location.href = this.href;
       }
     });
 
     $("#shutdown-link").click(function (e) {
       e.preventDefault();
-      if (window.confirm("Are you sure you want to shut down?")) {
+      // {# MSG: Confirmation text whe the user starts to turn off the machine running PiKaraoke. #}
+      if (window.confirm("{{ _('Are you sure you want to shut down?') }}")) {
         location.href = this.href;
       }
     });
 
     $("#restart-link").click(function (e) {
       e.preventDefault();
-      if (window.confirm("Are you sure you want to reboot?")) {
+      // {# MSG: Confirmation text whe the user starts to reboot the machine running PiKaraoke. #}
+      if (window.confirm("{{ _('Are you sure you want to reboot?') }}")) {
         location.href = this.href;
       }
     });
@@ -26,7 +29,8 @@
       e.preventDefault();
       if (
         window.confirm(
-          "Are you sure you want to update Youtube-dl right now? Current and pending downloads may fail."
+          // {# MSG: Confirmation text whe the user asks to update the Youtube-dl tool. #}
+          "{{ _('Are you sure you want to update Youtube-dl right now? Current and pending downloads may fail.') }}"
         )
       ) {
         location.href = this.href;
@@ -35,88 +39,142 @@
 
     $("#expand-link").click(function (e) {
       e.preventDefault();
+      // {# MSG: Confirmation text when the user wants to expand the filesystem to take the entire SD card. #}
       if (window.confirm("Are you sure you want to expand the filesystem? This will reboot your raspberry pi.")) {
         location.href = this.href;
       }
     });
   });
 </script>
-{% endblock %} {% block header %}
-<h1>{% block title %}Information{% endblock %}</h1>
-{% endblock %} {% block content %}
+{% endblock %}
 
+{% block header %}
+  <h1>{% block title %}
+    {# MSG: Title of the information page. #}
+    {% trans %}Information{% endtrans %}
+  {% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
 <hr/>
 
-
-<div class="has-text-centered">
-  <p>URL of {{site_title}}:</p>
+<div class="has-text-centered">  
+  <p>
+    {# MSG: Label which appears before a url which links to the current page. #}
+    {%- trans -%}
+      URL of {{site_title}}:
+    {%- endtrans -%}
+  </p>
   <p class="is-size-4 has-text-warning has-text-centered">{{ url }}</p>
-  <p>Handy URL QR code to share with a pal:</p>
+  {# MSG: Label before a QR code which brings a frind (pal) to the main page if scanned, so they can also add songs. QR code follows this text. #}
+  <p>{% trans %}Handy URL QR code to share with a pal:{% endtrans %}</p>
 <img id="qr-img" width="300px" src="{{ url_for('qrcode') }}" style="image-rendering: pixelated" />
 </div>
 
 <hr />
 
-<h1>System Info</h1>
+{# MSG: Header of the information section about the computer running PiKaraoke. #}
+<h1>{% trans %}System Info{% endtrans %}</h1>
 <ul>
-  <li>CPU: {{ cpu }}</li>
-  <li>Disk Usage: {{ disk }}</li>
-  <li>Memory: {{ memory }}</li>
-  <li>Youtube-dl (yt-dlp) version: {{ youtubedl_version }}</li>
-  <li>Pikaraoke version: {{ pikaraoke_version }}</li>
+  {# MSG: The CPU usage of the computer running PiKaraoke. #}
+  <li>{% trans %}CPU: {{ cpu }}{% endtrans %}</li>
+  {# MSG: The disk usage of the computer running PiKaraoke. Used by downloaded songs. #}
+  <li>{% trans %}Disk Usage: {{ disk }}{% endtrans %}</li>
+  {# MSG: The memory (RAM) usiage of the computer running PiKaraoke. #}
+  <li>{% trans %}Memory: {{ memory }}{% endtrans %}</li>
+  {# MSG: The version of the program "Youtube-dl". #}
+  <li>{% trans %}Youtube-dl version: {{ youtubedl_version }}{% endtrans %}</li>
+  {# MSG: The version of PiKaraoke running right now. #}
+  <li>{% trans %}PiKaraoke version: {{ pikaraoke_version }}{% endtrans %}</li>
 </ul>
 
 <hr />
 
 {% if admin %}
-<h1>Updates</h1>
-<p>Refresh the song list:</p> 
+{# MSG: Title of the updates section. #}
+<h1>{% trans %}Updates{% endtrans %}</h1>
+{# MSG: Label before a link which forces PiKaraoke to rescan and pick up any new songs. #}
+<p>{% trans %}Refresh the song list:{% endtrans %}</p> 
 <ul>
   <li>
     <a href="/refresh"
-      >Rescan song directory</a
+    {# MSG: Text on the link which forces PiKaraoke to rescan and pick up any new songs. #}
+      >{% trans %}Rescan song directory{% endtrans %}</a
     >
   </li>
 </ul>
-<p class="help">You should only need to do this if you manually copied files to the download directory while pikaraoke was running.</p>
+{# MSG: Help text explaining the Rescan song directory link. #}
+<p class="help">{% trans -%}
+  You should only need to do this if you manually copied files to the download directory while pikaraoke was running.
+  {%- endtrans %}</p>
 
-<p>If downloads or searches stopped working, updating youtube-dl will probably fix it. The current installed version is: "{{ youtubedl_version }}"</p> 
+{# MSG: Text explaining why you might want to update youtube-dl. #}
+<p>{% trans %}If downloads or searches stopped working, updating youtube-dl will probably fix it.
+   The current installed version is: "{{ youtubedl_version }}"{% endtrans %}</p> 
 <ul>
   <li>
     <a id="update-ytdl-link" href="{{ url_for('update_ytdl') }}"
-      >Update youtube-dl</a
+    {# MSG: Text for the link which will try and update youtube-dl on the machine running PiKaraoke. #}
+      >{% trans %}Update youtube-dl{% endtrans %}</a
     >
   </li>
 </ul>
-<p class="help">This update link above may fail if you don't have proper file permissions. Check the pikaraoke log for errors. </p>
+<p class="help">
+  {# MSG: Help text which explains why updating youtube-dl can fail.  The log is a file on the machine running PiKaraoke. #}
+  {% trans -%}
+    This update link above may fail if you don't have proper file permissions.
+    Check the pikaraoke log for errors. 
+  {%- endtrans %}
+</p>
 
-<h1>Shutdown</h1>
+{# MSG: Title of the section on shutting down / turning off the machine running PiKaraoke. #}
+<h1>{% trans %}Shutdown{% endtrans %}</h1>
 <p>
-  Don't just pull the plug! Always shut down your server properly to avoid data
-  corruption.
+  {# MSG: Explainitory text which explains why to use the shutdown link. #}
+  {% trans %}
+    Don't just pull the plug! Always shut down your server properly to avoid data corruption.
+  {% endtrans %}
 </p>
 <ul>
-  <li><a id="quit-link" href="{{ url_for('quit') }}">Quit pikaraoke</a></li>
+  {# MSG: Text for button which turns off PiKaraoke for everyone using it at your house. #}
+  <li><a id="quit-link" href="{{ url_for('quit') }}">{% trans %}Quit PiKaraoke{% endtrans %}</a></li>
   {% if is_pi %}
-  <li><a id="restart-link" href="{{ url_for('reboot') }}">Reboot System</a></li>
-  <li>
-    <a id="shutdown-link" href="{{ url_for('shutdown') }}">Shutdown System</a>
-  </li>
+    {# MSG: Text for button which reboots the machine running PiKaraoke. #}
+    <li><a id="restart-link" href="{{ url_for('reboot') }}">{% trans %}Reboot System{% endtrans %}</a></li>
+    <li>
+      {# MSG: Text for button which turn soff the machine running PiKaraoke. #}
+      <a id="shutdown-link" href="{{ url_for('shutdown') }}">{% trans %}Shutdown System{% endtrans %}</a>
+    </li>
   {% endif %}
 </ul>
 
 {% if is_pi %}
-<h1>Other</h1>
-<a id="expand-link" href="{{ url_for('expand_fs') }}">Expand Raspberry Pi filesystem</a></li>
-<p class="help">If you just installed the pre-built pikaraoke pi image and your SD card is larger than 4GB, you may want to expand the filesystem to utilize the remaining space. You only need to do this once. This will reboot the system.</p>
+  {# MSG: Title for section containing a few other options on the Info page. #}
+  <h1>{% trans %}Other{% endtrans %}</h1>
+  <a id="expand-link" href="{{ url_for('expand_fs') }}">
+    {# MSG: Text for button#}
+    {% trans %}Expand Raspberry Pi filesystem{% endtrans %}
+  </a></li>
+  {# MSG: Explainitory text which explains why you might want to expand the filesystem. #}
+  <p class="help">{% trans -%}
+    If you just installed the pre-built pikaraoke pi image and your SD card is larger than 4GB,
+    you may want to expand the filesystem to utilize the remaining space. You only need to do this once.
+    This will reboot the system.
+  {%- endtrans %}</p>
 {% endif %}
 
 <hr/>
 {% if admin_enabled %}
-<p>Disable admin mode: <a href="{{ url_for('logout') }}">log out</a></p>
+  {# MSG: Link which will log out the user from admin mode. #}
+  <p>{% trans logout_url=url_for('logout') -%}
+    Disable admin mode: <a href="{{ logout_url }}">Log out</a>
+  {%- endtrans %}</p>
 {% endif %}
-{% else %}
-<p>Enable admin mode: <a href="{{ url_for('login') }}">log in</a></p>
+{% else %} {# from if admin #}
+  {# MSG: Link which will let the user log into admin mode. #}
+  <p>{% trans login_url=url_for('login') %}
+    Enable admin mode: <a href="{{ login_url }}">Log in</a>
+  {% endtrans %}</p>
 {% endif %}
 
 {% endblock %}

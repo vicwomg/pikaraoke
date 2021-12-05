@@ -22,7 +22,8 @@
       var user = Cookies.get("user") 
       if (!user) {
         let name = window.prompt(
-          "Please enter your name. This will show up next to the songs you queue up from this device."
+          // {# MSG: Prompt which asks the user their name when they first navigate to the page. #}
+          "{{ _('Please enter your name. This will show up next to the songs you queue up from this device.') }}"
         );
         if (name) {
          Cookies.set("user", name, { expires: 3650 })
@@ -32,10 +33,12 @@
       $.get(this.href + encodeURIComponent(user), function (data) {
         var obj = JSON.parse(data);
         if (obj.success) {
-          showNotification("Song added to the queue: " + obj.song, "is-success")
+          // {# MSG: Notification when a song gets added to the queue.  The song name comes after this string. #}
+          showNotification("{{ _('Song added to the queue: ') }}" + obj.song, "is-success")
         }
         else {
-          showNotification("Song already the queue: " + obj.song, "is-danger")
+          // {# MSG: Notification when a song does not get added to the queue.  The song name comes after this string. #}
+          showNotification("{{ _('Song already the queue: ') }}" + obj.song, "is-danger")
         }
       })
       
@@ -90,12 +93,21 @@
 {% block content %}
 
 <p>
-  Sorted by "{{ sort_order }}" |
   {% if sort_order == "Alphabetical" %}
-  <a href="{{ url_for('browse') }}?sort=date">Sort by Date</a>
+    {# MSG: Label which displays that the songs are currently sorted by alphabetical order. #}
+    {% trans %}Sorted Alphabetically{% endtrans %} |
+    <a href="{{ url_for('browse') }}?sort=date">
+      {# MSG: Button which changes how the songs are sorted so they become sorted by date. #}
+      {% trans %}Sort by Date{% endtrans %}
+    </a>
   {% endif %}
-  {% if sort_order == "Date" %}
-  <a href="{{ url_for('browse') }}">Sort by Alphabetical</a>
+  {% if sort_order == "Date" %}    
+    {# MSG: Label which displays that the songs are currently sorted by date. #}
+    {% trans %}Sorted by date{% endtrans %} |
+    <a href="{{ url_for('browse') }}">
+      {# MSG: Button which changes how the songs are sorted so they become sorted by name. #}
+      {% trans %}Sort by Alphabetical{% endtrans %}
+    </a>
   {% endif %}
 </p>
 

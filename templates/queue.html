@@ -121,12 +121,14 @@
 
 {% if admin %}
 <a class="add-random has-text-success" href="/queue/addrandom?amount=3"
-  ><i class="icon icon-plus-circled"></i>Add 3 random songs</a
+  {# MSG: Button text which picks three songs at random from the already downloaded songs and adds them to the queue. #}
+  ><i class="icon icon-plus-circled"></i>{% trans %}Add 3 random songs{% endtrans %}</a
 >
 <a
   class="confirm-clear has-text-danger is-pulled-right"
   href="/queue/edit?action=clear"
-  ><i class="icon icon-trash-empty"></i> Clear all</a
+  {# MSG: Text for the button which clears the entire queue. #}
+  ><i class="icon icon-trash-empty"></i{% trans %}>Clear all{% endtrans %}</a
 ><br />
 
 {% endif %}
