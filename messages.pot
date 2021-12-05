@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2021-12-04 21:43-0500\n"
+"POT-Creation-Date: 2021-12-04 22:23-0500\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -58,29 +58,74 @@ msgstr ""
 
 #. Message which shows in the "Now Playing" section when there is no song
 #. currently playing
-#: templates/home.html:29
+#: templates/home.html:30
 msgid "Nothing is playing right now."
 msgstr ""
 
-#. Alternative text for the "Up next" section if no more songs are queued up.
+#. Title text for the icon marking the next person to sing.
 #: templates/home.html:38
+msgid "Next singer"
+msgstr ""
+
+#. Alternative text for the "Up next" section if no more songs are queued up.
+#: templates/home.html:42
 msgid "No song is queued."
 msgstr ""
 
 #. Confirmation message when clicking a button to skip a track.
-#: templates/home.html:110
+#: templates/home.html:114
 msgid ""
 "Are you sure you want to skip this track? If you didn't add this song, "
 "ask permission first!"
 msgstr ""
 
 #. Header showing the currently playing song.
-#: templates/home.html:139
+#: templates/home.html:143
 msgid "Now Playing"
 msgstr ""
 
 #. Title for the section displaying the next song to be played.
-#: templates/home.html:153
+#: templates/home.html:157
 msgid "Next Song"
+msgstr ""
+
+#. Title of the box with controls such as pause and skip.
+#: templates/home.html:165
+msgid "Player Control"
+msgstr ""
+
+#. Title attribute on the button to restart the current song.
+#: templates/home.html:168
+msgid "Restart Song"
+msgstr ""
+
+#. Title attribute on the button to play or pause the current song.
+#: templates/home.html:171
+msgid "Play/Pause"
+msgstr ""
+
+#. Title attribute on the button to skip to the next song.
+#: templates/home.html:174
+msgid "Stop Current Song"
+msgstr ""
+
+#. Title attribute on the button to adjust volume down.
+#: templates/home.html:178
+msgid "Volume Down"
+msgstr ""
+
+#. Title attribute on the button to adjust volume up.
+#: templates/home.html:182
+msgid "Volume Up"
+msgstr ""
+
+#. Title of a control to change the key/pitch of the playing song.
+#: templates/home.html:193
+msgid "Change Key"
+msgstr ""
+
+#. Label on the button to confirm the change in key/pitch of the playing song.
+#: templates/home.html:220
+msgid "Change"
 msgstr ""
 

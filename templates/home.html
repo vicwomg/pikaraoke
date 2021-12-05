@@ -17,6 +17,7 @@
 
           if (obj.transpose_value != 0) {
             nowPlayingHtml +=
+              // {# MSG: Label for display of how many semitones the song has been shifted. #}
               "<span class='is-size-6 has-text-success'><b>Key</b>: " +
               getSemitonesLabel(obj.transpose_value) +
               "<span>";
@@ -32,7 +33,10 @@
 
         if (obj.up_next) {
           $("#up-next").html(`<p style="margin-bottom: 5px">${obj.up_next}</p>
-            <p class="has-text-success"><i class="icon icon-mic-1" title="Next singer"></i>${obj.next_user}</p>`);
+            <p class="has-text-success">
+              {# MSG: Title text for the icon marking the next person to sing. #}
+              <i class="icon icon-mic-1" title="{{ _('Next singer') }}"><
+                /i>${obj.next_user}</p>`);
         } else {
           // {# MSG: Alternative text for the "Up next" section if no more songs are queued up. #}
           $("#up-next").html("{{ _('No song is queued.') }}");
@@ -157,19 +161,25 @@
 
 {% if admin %}
 <div class="has-background-black-bis box control-box" style="max-width: 500px">
-  <h4>Player Control</h4>
+  {# MSG: Title of the box with controls such as pause and skip. #}
+  <h4>{% trans %}Player Control{% endtrans %}</h4>
   <p class="is-size-3">
-    <a title="Restart Song" id="restart"><i class="icon icon-to-start"></i> </a
+    {# MSG: Title attribute on the button to restart the current song. #}
+    <a title="{{ _('Restart Song') }}" id="restart"><i class="icon icon-to-start"></i> </a
     >&nbsp;&nbsp;
-    <a title="Play/Pause"><i id="pause-resume" class="icon icon-pause"></i> </a
+    {# MSG: Title attribute on the button to play or pause the current song. #}
+    <a title="{{ _('Play/Pause') }}"><i id="pause-resume" class="icon icon-pause"></i> </a
     >&nbsp;&nbsp;
-    <a title="Stop Current Song" id="skip"><i class="icon icon-to-end"></i> </a
+    {# MSG: Title attribute on the button to skip to the next song. #}
+    <a title="{{ _('Stop Current Song') }}" id="skip"><i class="icon icon-to-end"></i> </a
     >&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;
     <span class="is-pulled-right">
-      <a title="Volume Down" id="vol-down"
+      {# MSG: Title attribute on the button to adjust volume down. #}
+      <a title="{{ _('Volume Down') }}" id="vol-down"
         ><i class="icon icon-volume-down"></i> </a
       >&nbsp;&nbsp;
-      <a title="Volume Up" id="vol-up"><i class="icon icon-volume-up"></i> </a>
+      {# MSG: Title attribute on the button to adjust volume up. #}
+      <a title="{{ _('Volume Up') }}" id="vol-up"><i class="icon icon-volume-up"></i> </a>
     </span>
   </p>
 <!-- </div> -->
@@ -179,8 +189,8 @@
     <hr/>
     <div class="is-flex" style="justify-content: space-between">
       <div>
-        <h4>Change Key</h4>
-
+        {# MSG: Title of a control to change the key/pitch of the playing song. #}
+        <h4>{% trans %}Change Key{% endtrans %}</h4>
       </div>
       <div class="is-flex">
         <h4 id="semitones-label"></h4>
@@ -205,7 +215,8 @@
           class="button is-rounded is-small"
           style="margin-left: 10px"
         >
-          Change
+          {# MSG: Label on the button to confirm the change in key/pitch of the playing song. #}
+          {% trans %}Change{% endtrans %}
         </button>
       </div>
     </div>
