@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version:  1.1.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2021-12-03 19:45-0500\n"
+"POT-Creation-Date: 2021-12-04 21:43-0500\n"
 "PO-Revision-Date: 2021-12-03 18:41-0500\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_Hans_CN\n"
@@ -28,6 +28,35 @@ msgstr ""
 msgid "Incorrect admin password!"
 msgstr ""
 
+#. Prompt when changing the current profile name.
+#: templates/base.html:80
+#, python-format
+msgid ""
+"Do you want to change the name of the person using this device? This will"
+" show up on queued songs. Current: %(currentUser)s"
+msgstr ""
+
+#. Navigation link for the home page.
+#: templates/base.html:142
+msgid "Home"
+msgstr "主页"
+
+#. Navigation link for the queue page.
+#: templates/base.html:148
+msgid "Queue"
+msgstr "列表"
+
+#. Navigation link for the search page add songs to the queue.
+#: templates/base.html:153
+msgid "Search"
+msgstr "搜索"
+
+#. Navigation link for the page where the user can add existing songs to the
+#. queue.
+#: templates/base.html:158
+msgid "Browse"
+msgstr "浏览"
+
 #. Message which shows in the "Now Playing" section when there is no song
 #. currently playing
 #: templates/home.html:29
@@ -37,7 +66,7 @@ msgstr "没有正在播放的音乐"
 #. Alternative text for the "Up next" section if no more songs are queued up.
 #: templates/home.html:38
 msgid "No song is queued."
-msgstr ""
+msgstr "没有下一首歌"
 
 #. Confirmation message when clicking a button to skip a track.
 #: templates/home.html:110
@@ -50,4 +79,9 @@ msgstr ""
 #: templates/home.html:139
 msgid "Now Playing"
 msgstr "正在播放曲目"
+
+#. Title for the section displaying the next song to be played.
+#: templates/home.html:153
+msgid "Next Song"
+msgstr "下一首歌"
 
