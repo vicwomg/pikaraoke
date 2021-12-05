@@ -37,7 +37,7 @@ After modifying the templates or code and marking new strings for translation,
 run 
 
 ```shell
-$ pybabel extract -F babel.cfg -o messages.pot -c MSG: .
+$ pybabel extract -F babel.cfg -o messages.pot --add-comments="MSG:" --strip-comment-tags  --sort-by-file .
 $ pybabel update -i messages.pot -d translations
 # Update any translations/**/messages.po files
 $ pybabel compile -d translations/

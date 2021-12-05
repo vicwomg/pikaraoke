@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version:  1.1.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2021-12-04 22:23-0500\n"
+"POT-Creation-Date: 2021-12-05 00:10-0500\n"
 "PO-Revision-Date: 2021-12-03 18:41-0500\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_Hans_CN\n"
@@ -18,12 +18,12 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.9.1\n"
 
-#. MSG: Message shown after logging in as admin successfully
+#. Message shown after logging in as admin successfully
 #: app.py:94
 msgid "Admin mode granted!"
 msgstr ""
 
-#. MSG: Message shown after failing to login as admin
+#. Message shown after failing to login as admin
 #: app.py:98
 msgid "Incorrect admin password!"
 msgstr ""
@@ -47,7 +47,8 @@ msgid "Queue"
 msgstr "列表"
 
 #. Navigation link for the search page add songs to the queue.
-#: templates/base.html:153
+#. Submit button on the search form for searching YouTube.
+#: templates/base.html:153 templates/search.html:295
 msgid "Search"
 msgstr "搜索"
 
@@ -130,4 +131,97 @@ msgstr ""
 #: templates/home.html:220
 msgid "Change"
 msgstr ""
+
+#: templates/search.html:84
+msgid "Available songs in local library"
+msgstr "本地曲库"
+
+#. Prompt which asks the user their name when they first navigate to the page.
+#: templates/search.html:246
+msgid ""
+"Please enter your name. This will show up next to the songs you queue up "
+"from this device."
+msgstr "演唱者（我）的名字是："
+
+#. Title for the search page.
+#: templates/search.html:278
+msgid "Search / Add New"
+msgstr "搜索 / 添加新歌"
+
+#: templates/search.html:290
+msgid "Available Songs"
+msgstr "已有歌曲"
+
+#. Submit button on the search form when selecting a locally downloaded song.
+#. The button adds it to the queue.
+#: templates/search.html:297
+msgid "Add to queue"
+msgstr "添加至播放列表"
+
+#. Checkbox label which enables more options when searching.
+#: templates/search.html:306
+msgid "Advanced"
+msgstr "高级设置"
+
+#. Help text below the search bar.
+#: templates/search.html:313
+msgid ""
+"Type a song (title/artist) to search the available songs and click 'Add "
+"to queue' to add it to the queue."
+msgstr "输入想唱的歌的名字，点击旁边的“添加至播放列表”按键以添加歌曲"
+
+#. Additonal help text below the search bar.
+#: templates/search.html:319
+msgid ""
+"If the song doesn't appear in the \"Available Songs\" dropdown, click "
+"'Search' to find it on Youtube"
+msgstr "如果曲目不在“已有歌曲”列表中，点击”搜索“转跳到YouTube上搜索"
+
+#. Checkbox label which enables matching songs which are not karaoke versions
+#. (i.e. the songs still have a singer and are not just instrumentals.)
+#: templates/search.html:334
+msgid "Include non-karaoke matches"
+msgstr "搜索包含原唱版本（非伴奏）"
+
+#. Label for an input which takes a YouTube url directly instead of searching
+#. titles.
+#: templates/search.html:341
+msgid "Direct download YouTube url:"
+msgstr "通过YouTube url网址直接下载"
+
+#. Checkbox label which marks the song to be added to the queue after it
+#. finishes downloading.
+#: templates/search.html:350 templates/search.html:414
+msgid "Add to queue once downloaded"
+msgstr "下载完毕后自动添加曲目到播放列表"
+
+#. Button label for the direct download form's submit button.
+#. Label on the button which starts the download of the selected song.
+#: templates/search.html:356 templates/search.html:420
+msgid "Download"
+msgstr "下载"
+
+#. Html text which displays what was searched for, in quotes while the page is
+#. loading.
+#: templates/search.html:378
+#, python-format
+msgid "Searching YouTube for <small><i>'%(search_term)s'</i></small>"
+msgstr "在YouTube上搜索<small><i>'%(search_term)s'</i></small>"
+
+#. Html text which displays what was searched for, in quotes.
+#: templates/search.html:387
+#, python-format
+msgid "Search results for <small><i>'%(search_string)s'</i></small>"
+msgstr "搜索：<small><i>'%(search_string)s'</i></small> （点击下方查看全部搜索结果）"
+
+#. Help text which explains that the select box above can be operated to select
+#. different search results.
+#: templates/search.html:402
+msgid "Click dropdown to show more results"
+msgstr ""
+
+#. Label displayed before the YouTube url for the chosen search result.
+#: templates/search.html:407
+msgid "Link:"
+msgstr "YouTube歌曲链接"
 
