@@ -80,7 +80,8 @@
       searchField: ['fileName'],
       optgroupField: "type",
       optgroups: [
-        {value: 'autocomplete', label: 'Available songs in local library'},
+        {value: 'autocomplete', 
+        label: '{{ _("Available songs in local library") }}'},
       ],
       createOnBlur: true,
       openOnFocus: false,
@@ -241,7 +242,8 @@
 
     if (!user) {
         let name = window.prompt(
-          "Please enter your name. This will show up next to the songs you queue up from this device."
+          // {# MSG: Prompt which asks the user their name when they first navigate to the page. #}
+          "{{ _('Please enter your name. This will show up next to the songs you queue up from this device.') }}"
         );
         if (name) {
           Cookies.set("user", name , { expires: 3650 })
@@ -272,7 +274,8 @@
 {% endblock %}
 
 {% block header %}
-<h1>{% block title %}Search / Add New{% endblock %}</h1>
+{# MSG: Title for the search page. #}
+<h1>{% block title %}{% trans %}Search / Add New{% endtrans %}{% endblock %}</h1>
 {% endblock %}
 
 {% block content %}
@@ -283,12 +286,15 @@
       <div id="search-field" class="field has-addons" style="margin-bottom: 5px">
         <div class="control" style="width:100%">
           <select id="song-to-add" class="search-selectize is-size-7" name="song-to-add">
-            <optgroup label="Available Songs" id="available-songs"></optgroup>
+            {# TODO MSG: Label #} 
+            <optgroup label="{{ _('Available Songs') }}" id="available-songs"></optgroup>
           </select>
         </div>
         <div class="control">
-          <a class="button is-warning" id="search-link">Search</a>
-          <a class="button is-info" id="add-queue-link">Queue</a>
+          {# MSG: Submit button on the search form for searching YouTube. #}
+          <a class="button is-warning" id="search-link">{% trans %}Search{% endtrans %}</a>
+          {# MSG: Submit button on the search form when selecting a locally downloaded song. The button adds it to the queue. #}
+          <a class="button is-info" id="add-queue-link">{% trans %}Add to queue{% endtrans %}</a>
         </div>
         <input class="song-added-by" type="hidden" name="song-added-by" />
       </div>
@@ -296,16 +302,23 @@
         
         <label class="checkbox is-size-7">
           <input type="checkbox" id="show-advanced" name="show-advanced">
-          Advanced
+          {# MSG: Checkbox label which enables more options when searching. #}
+          {% trans %}Advanced{% endtrans %}
         </label>
       </div>
       
       <div>
         <p class="help" style="margin-top: 15px">
-          Type a song (title/artist) to search the available songs and click 'Queue' to add it to the queue.
+          {# MSG: Help text below the search bar. #}
+          {% trans -%}
+            Type a song (title/artist) to search the available songs and click 'Add to queue' to add it to the queue.
+          {%- endtrans %}
         </p> 
         <p class="help">
-          If the song doesn't appear in the "Available Songs" dropdown, click 'Search' to find it on Youtube
+          {# MSG: Additonal help text below the search bar. #}
+          {% trans -%}
+            If the song doesn't appear in the "Available Songs" dropdown, click 'Search' to find it on Youtube
+          {%- endtrans %}
         </p>
       </div>
     </form>
@@ -316,23 +329,32 @@
       <div class="control">
         <label class="checkbox">
           <input type="checkbox" id="include-non-karaoke" name="include-non-karaoke">
-          Include non-karaoke matches
+          {# MSG: Checkbox label which enables matching songs which are not karaoke versions
+             (i.e. the songs still have a singer and are not just instrumentals.) #}
+          {% trans %}Include non-karaoke matches{% endtrans %}
         </label>
       </div>
       <hr>
       <div class="control">
-        <div class="label">Direct download YouTube url: </div>
+        <div class="label">
+          {# MSG: Label for an input which takes a YouTube url directly instead of searching titles. #}
+          {% trans %}Direct download YouTube url:{% endtrans %}
+        </div>
         <form  action="{{ url_for('download') }}" method="post">
           <input class="input" id="direct-download-url" type="text" name="song-url" />
           <input class="song-added-by" type="hidden" name="song-added-by" />
           <div class="field" style="margin-top: 5px">
             <label class="checkbox">
               <input type="checkbox" checked name="queue">
-              Add to queue
+              {# MSG: Checkbox label which marks the song to be added to the queue after it finishes downloading. #}
+              {% trans %}Add to queue once downloaded{% endtrans %}
             </label>
           </div>
           <div class="has-text-right" style="margin-top: 5px">
-            <button class="button is-small is-rounded" disabled id="direct-download-button" type="submit">Download</button>
+            <button class="button is-small is-rounded" disabled id="direct-download-button" type="submit">
+              {# MSG: Button label for the direct download form's submit button. #}
+              {% trans %}Download{% endtrans %}
+            </button>
           </div>
         </form>
       </div>
@@ -348,12 +370,24 @@
     </form>
   </div>
 
-  <div id="searching_loader" class="control is-loading is-hidden">Searching YouTube for <small><i>'<span
-          id="search_term"></span>'</i></small></div>
+  <div id="searching_loader" class="control is-loading is-hidden">
+    {% set placeholder_search_term %}
+      <span id="search_term"></span>
+    {% endset %}
+    {# MSG: Html text which displays what was searched for, in quotes while the page is loading. #}
+    {% trans search_term=placeholder_search_term -%}
+      Searching YouTube for <small><i>'{{ search_term }}'</i></small>
+    {%- endtrans %}
+  </div>
   {% if search_results %}
   <div class="field" id="container_search_result">
     <form action="{{ url_for('download') }}" method="post">
-      <label class="label">Search results for <small><i>'{{search_string}}'</i></small></label>
+      <label class="label">
+        {# MSG: Html text which displays what was searched for, in quotes. #}
+        {% trans search_term=search_string -%}
+          Search results for <small><i>'{{search_string}}'</i></small>
+        {%- endtrans %}
+      </label>
       <div class="field select">
         <select id="search_result_selector" name='song-url'>>
           {% for title,url,id in search_results %}
@@ -363,18 +397,28 @@
         
       </div>
       <input class="song-added-by" type="hidden" name="song-added-by" />
-      <p class="help">Click dropdown to show more results</p>
+      <p class="help">
+        {# MSG: Help text which explains that the select box above can be operated to select different search results. #}
+        {% trans %}Click dropdown to show more results{% endtrans %}
+      </p>
 
-      <p> Link: <a target="_blank" id='youtube-link' href=''></a> </p>
+      <p>
+        {# MSG: Label displayed before the YouTube url for the chosen search result. #}
+        {% trans %}Link:{% endtrans %} <a target="_blank" id='youtube-link' href=''></a> 
+      </p>
       <p class="has-text-centered-mobile"> <img id='youtube-thumb'> </p>
       <div class="field">
         <label class="checkbox">
-          <input type="checkbox" checked name="queue">
-          Add to queue
+          <input type="checkbox" checked name="queue">          
+          {# MSG: Checkbox label which marks the song to be added to the queue after it finishes downloading. #}
+          {% trans %}Add to queue once downloaded{% endtrans %}
         </label>
       </div>
       <div class="field">
-        <button class="button is-success is-rounded" id="download-button" type="submit">Download</button>
+        <button class="button is-success is-rounded" id="download-button" type="submit">
+          {# MSG: Label on the button which starts the download of the selected song. #}
+          {%- trans %}Download{% endtrans -%}
+        </button>
       </div>
     </form>
   </div>
