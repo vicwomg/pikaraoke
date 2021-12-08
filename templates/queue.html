@@ -58,7 +58,8 @@
       });
     }
     else {
-      html += `<tr><td><p class="has-text-warning">The queue is empty</p></td></tr>`
+      // {# MSG: Placeholder text which appears instead of a song when the queue is empty. #}
+      html += `<tr><td><p class="has-text-warning">{{ _('The queue is empty') }}</p></td></tr>`
     }
     return html;
   }
@@ -111,7 +112,10 @@
 {% endblock %} 
 
 {% block header %}
-<h1 class>{% block title %}Queue{% endblock %}</h1>
+<h1 class>{% block title %}
+  {# MSG: Title of the page showing the currently queued songs. #}
+  {%- trans -%}Queue{%- endtrans -%}
+  {% endblock %}</h1>
 {% endblock %} 
 
 {% block content %} 
@@ -128,7 +132,7 @@
   class="confirm-clear has-text-danger is-pulled-right"
   href="/queue/edit?action=clear"
   {# MSG: Text for the button which clears the entire queue. #}
-  ><i class="icon icon-trash-empty"></i{% trans %}>Clear all{% endtrans %}</a
+  ><i class="icon icon-trash-empty"></i>{% trans %}Clear all{% endtrans %}</a
 ><br />
 
 {% endif %}
