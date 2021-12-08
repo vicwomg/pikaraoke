@@ -321,7 +321,8 @@ def browse():
         sort_order=sort_order,
         site_title=site_name,
         letter=letter,
-        title="Browse",
+        # MSG: Title of the files page.
+        title=_("Browse"),
         songs=songs[start_index:start_index + results_per_page],
         admin=is_admin()
     )

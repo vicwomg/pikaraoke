@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2021-12-05 14:57-0500\n"
+"POT-Creation-Date: 2021-12-07 23:39-0500\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -27,6 +27,13 @@ msgstr ""
 msgid "Incorrect admin password!"
 msgstr ""
 
+#. Title of the files page.
+#. Navigation link for the page where the user can add existing songs to the
+#. queue.
+#: app.py:325 templates/base.html:158
+msgid "Browse"
+msgstr ""
+
 #. Prompt when changing the current profile name.
 #: templates/base.html:80
 #, python-format
@@ -41,7 +48,8 @@ msgid "Home"
 msgstr ""
 
 #. Navigation link for the queue page.
-#: templates/base.html:148
+#. Title of the page showing the currently queued songs.
+#: templates/base.html:148 templates/queue.html:117
 msgid "Queue"
 msgstr ""
 
@@ -49,12 +57,6 @@ msgstr ""
 #. Submit button on the search form for searching YouTube.
 #: templates/base.html:153 templates/search.html:295
 msgid "Search"
-msgstr ""
-
-#. Navigation link for the page where the user can add existing songs to the
-#. queue.
-#: templates/base.html:158
-msgid "Browse"
 msgstr ""
 
 #. Confirmation prompt when the user deletes a song.
@@ -113,7 +115,7 @@ msgstr ""
 #. Notification when a song does not get added to the queue.  The song name
 #. comes after this string.
 #: templates/files.html:41
-msgid "Song already the queue: "
+msgid "Song already in the queue: "
 msgstr ""
 
 #. Label which displays that the songs are currently sorted by alphabetical
@@ -342,10 +344,8 @@ msgstr ""
 #. Explainitory text which explains why to use the shutdown link.
 #: templates/info.html:134
 msgid ""
-"\n"
-"    Don't just pull the plug! Always shut down your server properly to "
-"avoid data corruption.\n"
-"  "
+"Don't just pull the plug! Always shut down your server properly to avoid "
+"data corruption."
 msgstr ""
 
 #. Text for button which turns off PiKaraoke for everyone using it at your
@@ -411,15 +411,20 @@ msgstr ""
 msgid "Enter the administrator password"
 msgstr ""
 
+#. Placeholder text which appears instead of a song when the queue is empty.
+#: templates/queue.html:62
+msgid "The queue is empty"
+msgstr ""
+
 #. Button text which picks three songs at random from the already downloaded
 #. songs and adds them to the queue.
-#: templates/queue.html:125
+#: templates/queue.html:129
 msgid "Add 3 random songs"
 msgstr ""
 
 #. Text for the button which clears the entire queue.
-#: templates/queue.html:131
-msgid ">Clear all"
+#: templates/queue.html:135
+msgid "Clear all"
 msgstr ""
 
 #: templates/search.html:84
