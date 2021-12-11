@@ -343,6 +343,14 @@ def download():
     return redirect(url_for("search"))
 
 
+@app.route("/download-progress", methods=["GET"])
+def download_progress():
+    response = app.response_class(
+        response=json.dumps(k.get_download_progress()),
+        mimetype='application/json'
+    )
+    return response
+
 @app.route("/qrcode")
 def qrcode():
     return send_file(k.qr_code_path, mimetype="image/png")

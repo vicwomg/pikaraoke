@@ -8,6 +8,7 @@ import subprocess
 import sys
 import threading
 import time
+import re
 from io import BytesIO
 from subprocess import check_output
 
@@ -30,6 +31,7 @@ class Karaoke:
 
     queue = []
     available_songs = []
+    downloading_songs = {}
     now_playing = None
     now_playing_filename = None
     now_playing_user = None
@@ -443,18 +445,11 @@ class Karaoke:
 
     def download_video(self, video_url, enqueue=False, user="Pikaraoke"):
         logging.info("Downloading video: " + video_url)
-        dl_path = self.download_path + "%(title)s---%(id)s.%(ext)s"
-        file_quality = (
-            "bestvideo[ext!=webm][height<=1080]+bestaudio[ext!=webm]/best[ext!=webm]"
-            if self.high_quality
-            else "mp4"
-        )
-        cmd = [self.youtubedl_path, "-f", file_quality, "-o", dl_path, video_url]
-        logging.debug("Youtube-dl command: " + " ".join(cmd))
-        rc = subprocess.call(cmd)
+        
+        rc = self.call_youtube_dl(video_url)
         if rc != 0:
             logging.error("Error code while downloading, retrying once...")
-            rc = subprocess.call(cmd)  # retry once. Seems like this can be flaky
+            rc = self.call_youtube_dl(video_url)  # retry once. Seems like this can be flaky
         if rc == 0:
             logging.debug("Song successfully downloaded: " + video_url)
             self.get_available_songs()
@@ -468,6 +463,43 @@ class Karaoke:
         else:
             logging.error("Error downloading song: " + video_url)
         return rc
+
+    def call_youtube_dl(self, video_url):
+        dl_path = self.download_path + "%(title)s---%(id)s.%(ext)s"
+        file_quality = (
+            "bestvideo[ext!=webm][height<=1080]+bestaudio[ext!=webm]/best[ext!=webm]"
+            if self.high_quality
+            else "mp4"
+        )
+
+        cmd = [self.youtubedl_path, "-f", file_quality, "-o", dl_path, video_url]
+        logging.debug("Youtube-dl command: " + " ".join(cmd))
+
+        self.downloading_songs[video_url] = 0
+
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1, universal_newlines=True)
+        for line in iter(proc.stdout.readline, b''):
+            if line != None and line != '' and line != '\n':
+                print(line)
+                r = re.compile('\[download\]\s*([\d\.]+).*')
+                m = r.match(line.rstrip())
+                if m:
+                    try:
+                        progress = m.group(1)
+                        progressFloat = float(progress)
+                        if progressFloat == 100:
+                            del self.downloading_songs[video_url]
+                        else:
+                            self.downloading_songs[video_url] = progressFloat
+                    except ValueError:
+                        logging.warn("Can't parse download progress as float")
+                        del self.downloading_songs[video_url]
+        
+        del self.downloading_songs[video_url]
+        return proc.returncode
+
+    def get_download_progress(self):
+        return self.downloading_songs
 
     def get_available_songs(self):
         logging.debug("Fetching available songs in: " + self.download_path)
