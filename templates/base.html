@@ -56,6 +56,9 @@
       if (currentPath == "/browse") {
         $("#browse").addClass("is-active")
       }
+      if (currentPath == "/downloading") {
+        $("#downloading").addClass("is-active")
+      }
       if (currentPath == "/info") {
         $("#info").addClass("is-active")
       }
@@ -147,6 +150,10 @@
         <a id="browse" class="navbar-item" href="{{ url_for('browse') }}">
           <i class="icon icon-folder-open-empty" title="Browse"></i>
           <span>Browse</span>  
+        </a>
+        <a id="downloading" class="navbar-item" href="{{ url_for('downloading') }}">
+          <i class="icon icon-down-circled" title="Downloading"></i>
+          <span>Downloading</span>  
         </a>
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
           <span aria-hidden="true"></span>

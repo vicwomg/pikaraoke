@@ -1,0 +1,34 @@
+{% extends 'base.html' %} {% block scripts %}
+<script>
+  function getDownloads() {
+      $.get('{{ url_for("download_progress") }}', function (data) {
+        var html = '';
+
+        if (data != null && Object.entries(data).length !== 0) {
+          for(var song in data){
+            html += `<h5>${song}</h5>`;
+            html += `<p>${data[song]}% Downloaded</p>`;
+          }
+        } else {
+          html = '<p>Nothing downloading currently</p>';
+        }
+
+        $('#downloading-songs').html(html);
+      });
+    }
+
+  $(function () {
+    getDownloads();
+    setInterval(getDownloads, 5000);
+  });
+</script>
+{% endblock %} {% block header %}
+<h1>
+  Downloading
+</h1>
+{% endblock %} {% block content %}
+
+<div class="is-size-4 has-text-warning" id="downloading-songs"></div>
+
+<div></div>
+{% endblock %}

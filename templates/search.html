@@ -264,6 +264,8 @@
   function changeImage() {
     var next = (++i % 4);
     var youtube_id = $('#search_result_selector').find(':selected').data('ytid');
+    var title = $('#search_result_selector').find(':selected').data('songtitle');
+    $('#song-title').val(title);
     var fn = (next == 0) ? "default" : next;
     var img_src = 'https://img.youtube.com/vi/' + youtube_id + '/mq' + fn + '.jpg'
     $('#youtube-thumb').attr("src", img_src);
@@ -357,12 +359,12 @@
       <div class="field select">
         <select id="search_result_selector" name='song-url'>>
           {% for title,url,id in search_results %}
-          <option data-ytID='{{id}}' value='{{url}}'>{{title}}</option>
+          <option data-ytID='{{id}}' data-songTitle='{{title}}' value='{{url}}'>{{title}}</option>
           {% endfor %}
         </select>
-        
       </div>
       <input class="song-added-by" type="hidden" name="song-added-by" />
+      <input type="hidden" name="song-title" id="song-title" />
       <p class="help">Click dropdown to show more results</p>
 
       <p> Link: <a target="_blank" id='youtube-link' href=''></a> </p>

@@ -443,13 +443,13 @@ class Karaoke:
     def get_karaoke_search_results(self, songTitle):
         return self.get_search_results(songTitle + " karaoke")
 
-    def download_video(self, video_url, enqueue=False, user="Pikaraoke"):
+    def download_video(self, song_title, video_url, enqueue=False, user="Pikaraoke"):
         logging.info("Downloading video: " + video_url)
         
-        rc = self.call_youtube_dl(video_url)
+        rc = self.call_youtube_dl(song_title, video_url)
         if rc != 0:
             logging.error("Error code while downloading, retrying once...")
-            rc = self.call_youtube_dl(video_url)  # retry once. Seems like this can be flaky
+            rc = self.call_youtube_dl(song_title,video_url)  # retry once. Seems like this can be flaky
         if rc == 0:
             logging.debug("Song successfully downloaded: " + video_url)
             self.get_available_songs()
@@ -464,7 +464,7 @@ class Karaoke:
             logging.error("Error downloading song: " + video_url)
         return rc
 
-    def call_youtube_dl(self, video_url):
+    def call_youtube_dl(self, song_title, video_url):
         dl_path = self.download_path + "%(title)s---%(id)s.%(ext)s"
         file_quality = (
             "bestvideo[ext!=webm][height<=1080]+bestaudio[ext!=webm]/best[ext!=webm]"
@@ -475,7 +475,7 @@ class Karaoke:
         cmd = [self.youtubedl_path, "-f", file_quality, "-o", dl_path, video_url]
         logging.debug("Youtube-dl command: " + " ".join(cmd))
 
-        self.downloading_songs[video_url] = 0
+        self.downloading_songs[song_title] = 0
 
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1, universal_newlines=True)
         for line in iter(proc.stdout.readline, b''):
@@ -488,14 +488,14 @@ class Karaoke:
                         progress = m.group(1)
                         progressFloat = float(progress)
                         if progressFloat == 100:
-                            del self.downloading_songs[video_url]
+                            self.downloading_songs.pop(song_title, None)
                         else:
-                            self.downloading_songs[video_url] = progressFloat
+                            self.downloading_songs[song_title] = progressFloat
                     except ValueError:
                         logging.warn("Can't parse download progress as float")
-                        del self.downloading_songs[video_url]
+                        self.downloading_songs.pop(song_title, None)
         
-        del self.downloading_songs[video_url]
+        self.downloading_songs.pop(song_title, None)
         return proc.returncode
 
     def get_download_progress(self):
