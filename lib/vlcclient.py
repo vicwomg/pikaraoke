@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import random
 import shutil
 import string
@@ -108,9 +109,9 @@ class VLCClient:
         files = os.listdir(extracted_dir)
         for file in files:
             ext = os.path.splitext(file)[1]
-            if ext == ".mp3" or ext == ".Mp3" or ext == ".MP3":
+            if ext.casefold() == ".mp3":
                 mp3_file = file
-            elif ext == ".cdg" or ext == ".Cdg" or ext == ".CDG":
+            elif ext.casefold() == ".cdg":
                 cdg_file = file
         
         if (mp3_file is not None) and (cdg_file is not None):
@@ -122,17 +123,21 @@ class VLCClient:
             raise Exception("No .mp3 or .cdg was found in the zip file: " + file_path)
 
     def handle_mp3_cdg(self, file_path):
-        f = os.path.splitext(file_path)[0]
-        if (os.path.isfile(f + ".cdg") or os.path.isfile(f + ".Cdg") or os.path.isfile(f + ".CDG")):
-            return file_path
-        else:
+        pattern='*.cdg'
+        rule = re.compile(fnmatch.translate(pattern), re.IGNORECASE)
+        p=os.path.dirname(file_path)       # get the patch, not the filename
+        for n in os.listdir(p):
+            if rule.match(n):
+                return(n)
+        if (1):
+            # we didn't return, so always raise the exception: assert might work better?
             raise Exception("No matching .cdg file found for: " + file_path)
 
     def process_file(self, file_path):
         file_extension = os.path.splitext(file_path)[1]
-        if (file_extension == ".zip"):
+        if (file_extension.casefold() == ".zip"):
             return self.handle_zipped_cdg(file_path)
-        elif (file_extension == ".mp3"):
+        elif (file_extension.casefold() == ".mp3"):
             return self.handle_mp3_cdg(file_path)
         else:
             return file_path
