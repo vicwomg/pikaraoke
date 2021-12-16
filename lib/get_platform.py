@@ -1,17 +1,18 @@
 import os
 import sys
 
+
 def is_raspberry_pi():
     try: 
-        return os.uname()[4][:3] == "arm"
+        return os.uname()[4][:3] == "arm" and sys.platform != "darwin"
     except AttributeError:
         return False
 
 def get_platform():
-    if is_raspberry_pi():
-        return "raspberry_pi"
-    elif sys.platform == "darwin":
+    if sys.platform == "darwin":
         return "osx"
+    elif is_raspberry_pi():
+        return "raspberry_pi"
     elif sys.platform.startswith("linux"):
         return "linux"
     elif sys.platform.startswith("win"):
