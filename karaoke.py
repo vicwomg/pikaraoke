@@ -10,6 +10,7 @@ import threading
 import time
 from io import BytesIO
 from subprocess import check_output
+from pathlib import Path
 
 import pygame
 import qrcode
@@ -470,18 +471,17 @@ class Karaoke:
         return rc
 
     def get_available_songs(self):
-        logging.debug("Fetching available songs in: " + self.download_path)
-        types = ['*.mp4', '*.mp3', '*.zip', '*.mkv', '*.avi', '*.webm', '*.mov'] 
-        if self.platform != "windows":
-            # Only non-windows. If we include extra casings, windows shows dups
-            types_caps = []
-            for ext in types:
-                types_caps.append(ext.upper())
-                types_caps.append(ext.title())
-            types = types + types_caps
+        logging.info("Fetching available songs in: " + self.download_path)
+        types = ['.mp4', '.mp3', '.zip', '.mkv', '.avi', '.webm', '.mov']
         files_grabbed = []
-        for files in types:
-            files_grabbed.extend(glob.glob(u"%s/**/%s" % (self.download_path, files), recursive=True))
+        P=Path(self.download_path)
+        for file in P.rglob('*.*'):
+            base, ext = os.path.splitext(file.as_posix())
+            if ext.lower() in types:
+                if os.path.isfile(file.as_posix()):
+                    logging.debug("adding song: " + file.name)
+                    files_grabbed.append(file.as_posix())
+
         self.available_songs = sorted(files_grabbed, key=lambda f: str.lower(os.path.basename(f)))
 
     def delete(self, song_path):
