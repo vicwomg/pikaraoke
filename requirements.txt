@@ -6,7 +6,7 @@ Flask
 pillow
 qrcode
 pygame==1.9.6; sys_platform != 'darwin' and sys_platform != 'win32'
-pygame==2.0.0.dev6; sys_platform == 'darwin'
+#pygame==2.0.0.dev6; sys_platform == 'darwin'
 pygame==2.0.1; sys_platform == 'win32'
 futures
 psutil 
