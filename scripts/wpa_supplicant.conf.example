@@ -1,0 +1,9 @@
+country=us
+update_config=1
+ctrl_interface=/var/run/wpa_supplicant
+
+network={
+ scan_ssid=1
+ ssid="REPLACE_WITH_YOUR_WIFI_AP_INCLUDE_QUOTES"
+ psk="REPLACE_WITH_YOUR_PASSWORD_INCLUDE_QUOTES"
+}

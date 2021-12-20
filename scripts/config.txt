@@ -1,0 +1,12 @@
+
+#START_PIKARAOKE_CHANGES
+# forces 1080p
+hdmi_group=1
+hdmi_mode=16
+# fixes audio not working over HDMI
+hdmi_drive=2
+# Fixes vlc not displaying
+dtoverlay=vc4-fkms-v3d
+# Sets GPU mem higher to fix video display issues (no longer necessary w/ VLC?)
+#gpu_mem=128
+#END_PIKARAOKE_CHANGES

@@ -24,7 +24,8 @@ echo "^ the above values should be set to 0, not 1"
 echo "*** Double-checking /etc/rc.local expecting to see a line about launching pikaraoke:"
 cat /etc/rc.local | grep pikaraoke
 
-echo "*** Double-checking we have a wpa_supplicant example file in /boot"
+echo "*** Add a wpa_supplicant example file to /boot"
+sudo cp -rf ./wpa_supplicant.conf.example /boot/
 ls -la /boot/wpa_supplicant.conf.example
 
 echo "*** Expecting hostname to be 'pikaraoke'"

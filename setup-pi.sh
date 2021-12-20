@@ -29,32 +29,31 @@ if [ $? -ne 0 ]; then echo "ERROR: YouTube_dl installation failed with error cod
 
 echo
 echo "*** INSTALLING PYTHON DEPENDENCIES ***"
-echo "Uninstalling old pygame versions..."
-sudo pip3 uninstall -y pygame
 sudo pip3 install -r requirements.txt
 if [ $? -ne 0 ]; then echo "ERROR: Python requirements.txt installation failed with error code: $?"; exit 1; fi
 
-echo
-echo "*** BUMPING UP GPU MEMORY ***"
-echo "Getting your current gpu mem..."
 BOOT_CONFIG=/boot/config.txt
-more $BOOT_CONFIG | grep ^gpu_mem=
+BOOT_CONF_BACKUP=/boot/config.$(date +%s).old
+
+echo
+echo "*** ADDING PIKARAOKE CONFIGS ***"
+more $BOOT_CONFIG | grep ^\#START_PIKARAOKE_CHANGES 
 if [ $? -ne 1 ]; then 
-  echo "WARN: There's a gpu_mem setting in your ${BOOT_CONFIG}! I don't want to mess with it."; 
-  echo "If the above line reads gpu_mem=128 or greater, you should be ok"
-  echo "If it's less than 128, you may experience visual artifacts during video playback."
-  GPU_SET=2
+  echo "WARN: There are old pikaraoke settings in your ${BOOT_CONFIG}! I don't want to mess with it."; 
 else
-  echo "No current gpu_mem setting found."
-  echo "Appending gpu_mem=128 to $BOOT_CONFIG"
-  sudo sh -c "echo \"gpu_mem=128\" >> $BOOT_CONFIG"
-  GPU_SET=1
+  echo
+  echo "*** BACKING UP OLD CONFIG.TXT ***"
+  cp $BOOT_CONFIG $BOOT_CONF_BACKUP
+  echo "Appending pikaraoke changes to $BOOT_CONFIG"
+  sudo sh -c "echo >> $BOOT_CONFIG"
+  sudo sh -c "more ./scripts/config.txt >> $BOOT_CONFIG"
+  CONFIG_MODIFIED=1
 fi
 
 echo
 echo "*** DONE! (yay, no errors) ***"
-if [ $GPU_SET -eq 1 ]; then 
-  echo "Your gpu_mem setting was modified, so you need to reboot:  sudo reboot"
+if [ $CONFIG_MODIFIED -eq 1 ]; then 
+  echo "Your /boot/config.txt setting was modified, so you need to reboot:  sudo reboot"
 fi
 echo "Run PiKaraoke with:  sudo python3 app.py"
 echo
