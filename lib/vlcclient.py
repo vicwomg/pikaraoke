@@ -1,7 +1,7 @@
 import logging
 import os
-import re
 import random
+import re
 import shutil
 import string
 import subprocess
@@ -123,14 +123,10 @@ class VLCClient:
             raise Exception("No .mp3 or .cdg was found in the zip file: " + file_path)
 
     def handle_mp3_cdg(self, file_path):
-        pattern='*.cdg'
-        rule = re.compile(fnmatch.translate(pattern), re.IGNORECASE)
-        p=os.path.dirname(file_path)       # get the patch, not the filename
-        for n in os.listdir(p):
-            if rule.match(n):
-                return(n)
-        if (1):
-            # we didn't return, so always raise the exception: assert might work better?
+        f = os.path.splitext(file_path)[0]
+        if (os.path.isfile(f + ".cdg") or os.path.isfile(f + ".CDG") or os.path.isfile(f + ".Cdg") ):
+            return file_path
+        else:
             raise Exception("No matching .cdg file found for: " + file_path)
 
     def process_file(self, file_path):
