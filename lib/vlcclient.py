@@ -123,12 +123,13 @@ class VLCClient:
             raise Exception("No .mp3 or .cdg was found in the zip file: " + file_path)
 
     def handle_mp3_cdg(self, file_path):
-        pattern='*.cdg'
-        rule = re.compile(fnmatch.translate(pattern), re.IGNORECASE)
-        p=os.path.dirname(file_path)       # get the patch, not the filename
+        f = os.path.splitext(os.path.basename(file_path))[0]
+        pattern= f +'.cdg'
+        rule = re.compile(re.escape(pattern), re.IGNORECASE)
+        p=os.path.dirname(file_path)       # get the path, not the filename
         for n in os.listdir(p):
             if rule.match(n):
-                return(n)
+                return(file_path)
         if (1):
             # we didn't return, so always raise the exception: assert might work better?
             raise Exception("No matching .cdg file found for: " + file_path)
