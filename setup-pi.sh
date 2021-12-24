@@ -22,9 +22,9 @@ sudo sed -i 's/geteuid/getppid/' /usr/bin/vlc
 if [ $? -ne 0 ]; then echo "ERROR: VLC patching failed with error code: $?"; exit 1; fi
 
 echo
-echo "*** INSTALLING LATEST YOUTUBE_DL ***"
-sudo pip3 install --upgrade youtube_dl
-if [ $? -ne 0 ]; then echo "ERROR: YouTube_dl installation failed with error code: $?"; exit 1; fi
+echo "*** INSTALLING LATEST yt_dlp ***"
+sudo pip3 install --upgrade yt_dlp
+if [ $? -ne 0 ]; then echo "ERROR: yt_dlp installation failed with error code: $?"; exit 1; fi
 
 echo
 echo "*** INSTALLING PYTHON DEPENDENCIES ***"

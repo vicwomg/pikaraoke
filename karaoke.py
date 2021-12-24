@@ -56,7 +56,7 @@ class Karaoke:
         volume=0,
         log_level=logging.DEBUG,
         splash_delay=2,
-        youtubedl_path="/usr/local/bin/youtube-dl",
+        youtubedl_path="youtube-dl",
         omxplayer_path=None,
         use_omxplayer=False,
         use_vlc=True,
@@ -224,14 +224,14 @@ class Karaoke:
         return (server_port, ssid_prefix, ssl_enabled)
 
     def get_youtubedl_version(self):
-        self.youtubedl_version = (
+        self.ytdlp_version = (
             check_output([self.youtubedl_path, "--version"]).strip().decode("utf8")
         )
-        return self.youtubedl_version
+        return self.ytdlp_version
 
-    def upgrade_youtubedl(self):
+    def upgrade_ytdlp(self):
         logging.info(
-            "Upgrading youtube-dl, current version: %s" % self.youtubedl_version
+            "Upgrading yt_dlp, current version: %s" % self.ytdlp_version
         )
         output = check_output([self.youtubedl_path, "-U"]).decode("utf8").strip()
         logging.info(output)
@@ -239,16 +239,16 @@ class Karaoke:
             try:
                 logging.info("Attempting youtube-dl upgrade via pip3...")
                 output = check_output(
-                    ["pip3", "install", "--upgrade", "youtube-dl"]
+                    ["pip3", "install", "--upgrade", "yt_dlp"]
                 ).decode("utf8")
             except FileNotFoundError:
                 logging.info("Attempting youtube-dl upgrade via pip...")
                 output = check_output(
-                    ["pip", "install", "--upgrade", "youtube-dl"]
+                    ["pip", "install", "--upgrade", "yt_dlp"]
                 ).decode("utf8")
             logging.info(output)
         self.get_youtubedl_version()
-        logging.info("Done. New version: %s" % self.youtubedl_version)
+        logging.info("Done. New version: %s" % self.ytdlp_version)
 
     def is_network_connected(self):
         return not len(self.ip) < 7
@@ -427,7 +427,7 @@ class Karaoke:
             output = subprocess.check_output(cmd).decode("utf-8")
             logging.debug("Search results: " + output)
             rc = []
-            video_url_base = "https://www.youtube.com/watch?v="
+            video_url_base = ""#"https://www.youtube.com/watch?v="
             for each in output.split("\n"):
                 if len(each) > 2:
                     j = json.loads(each)
@@ -450,7 +450,7 @@ class Karaoke:
             if self.high_quality
             else "mp4"
         )
-        cmd = [self.youtubedl_path, "-f", file_quality, "-o", dl_path, video_url]
+        cmd = [self.youtubedl_path, "-f", file_quality, "--write-sub", "-o", dl_path, video_url]
         logging.debug("Youtube-dl command: " + " ".join(cmd))
         rc = subprocess.call(cmd)
         if rc != 0:

@@ -447,7 +447,7 @@ def info():
     )
 
     # youtube-dl
-    youtubedl_version = k.youtubedl_version
+    youtubedl_version = k.ytdlp_version
 
     is_pi = get_platform() == "raspberry_pi"
 
@@ -485,9 +485,9 @@ def delayed_halt(cmd):
         process.wait()
         os.system("reboot")
 
-def update_youtube_dl():
+def update_yt_dlp():
     time.sleep(3)
-    k.upgrade_youtubedl()
+    k.upgrade_ytdlp()
 
 @app.route("/update_ytdl")
 def update_ytdl():
@@ -496,7 +496,7 @@ def update_ytdl():
             "Updating youtube-dl! Should take a minute or two... ",
             "is-warning",
         )
-        th = threading.Thread(target=update_youtube_dl)
+        th = threading.Thread(target=update_yt_dlp)
         th.start()
     else:
         flash("You don't have permission to update youtube-dl", "is-danger")
@@ -558,17 +558,17 @@ def expand_fs():
 # Handle sigterm, apparently cherrypy won't shut down without explicit handling
 signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
-def get_default_youtube_dl_path(platform):
+def get_default_yt_dlp_path(platform):
     if platform == "windows":
-        choco_ytdl_path = r"C:\ProgramData\chocolatey\bin\youtube-dl.exe"
-        scoop_ytdl_path = os.path.expanduser(r"~\scoop\shims\youtube-dl.exe")
+        choco_ytdl_path = r"C:\ProgramData\chocolatey\bin\yt_dlp.exe"
+        scoop_ytdl_path = os.path.expanduser(r"~\scoop\shims\yt_dlp.exe")
         if os.path.isfile(choco_ytdl_path):
             return choco_ytdl_path
         if os.path.isfile(scoop_ytdl_path):
             return scoop_ytdl_path
-        return r"C:\Program Files\youtube-dl\youtube-dl.exe"
+        return r"C:\Program Files\yt_dlp\yt_dlp.exe"
     else:
-        return "/usr/local/bin/youtube-dl"
+        return "/usr/local/bin/yt-dlp"
 
 def get_default_dl_dir(platform):
     if platform == "raspberry_pi":
@@ -598,7 +598,7 @@ if __name__ == "__main__":
     default_dl_dir = get_default_dl_dir(platform)
     default_omxplayer_path = "/usr/bin/omxplayer"
     default_adev = "both"
-    default_youtubedl_path = get_default_youtube_dl_path(platform)
+    default_youtubedl_path = get_default_yt_dlp_path(platform)
     default_vlc_path = get_default_vlc_path(platform)
     default_vlc_port = 5002
 
