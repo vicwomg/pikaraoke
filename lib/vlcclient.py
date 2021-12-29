@@ -152,7 +152,7 @@ class VLCClient:
                 # this pause prevents vlc http server from being borked after transpose
                 time.sleep(0.2)
             if self.platform == "windows":
-                file_path = r"{}".format(file_path)
+                file_path = r"{}".format(file_path.replace('/','\\'))
             if additional_parameters == None:
                 command = self.cmd_base + [file_path]
             else:
