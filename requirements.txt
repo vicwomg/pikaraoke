@@ -12,4 +12,4 @@ futures
 psutil 
 unidecode
 requests
-flask-paginate
+flask-paginate==2021.10.29
