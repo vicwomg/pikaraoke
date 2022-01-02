@@ -239,12 +239,12 @@ class Karaoke:
             try:
                 logging.info("Attempting youtube-dl upgrade via pip3...")
                 output = check_output(
-                    ["pip3", "install", "--upgrade", "youtube-dl"]
+                    ["pip3", "install", "--upgrade", "yt-dlp"]
                 ).decode("utf8")
             except FileNotFoundError:
                 logging.info("Attempting youtube-dl upgrade via pip...")
                 output = check_output(
-                    ["pip", "install", "--upgrade", "youtube-dl"]
+                    ["pip", "install", "--upgrade", "yt-dlp"]
                 ).decode("utf8")
             logging.info(output)
         self.get_youtubedl_version()
