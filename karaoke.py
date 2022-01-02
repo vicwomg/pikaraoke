@@ -52,7 +52,7 @@ class Karaoke:
         hide_splash_screen=False,
         omxplayer_adev="both",
         dual_screen=False,
-        high_quality=False,
+        high_quality=True,
         volume=0,
         log_level=logging.DEBUG,
         splash_delay=2,
@@ -308,6 +308,8 @@ class Karaoke:
                 signal(SIGALRM, alarm_handler)
                 alarm(3)
                 try:
+                    os.environ['SDL_VIDEO_WINDOW_POS'] = "0, " + str(self.width)
+                    
                     self.screen = pygame.display.set_mode(
                         [self.width, self.height], self.get_default_display_mode()
                     )
