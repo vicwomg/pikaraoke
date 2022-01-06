@@ -113,7 +113,13 @@ Install requirements from the pikaraoke directory:
 
 ```
 pip3 install -r requirements.txt
-pip3 install --upgrade youtube_dl
+pip3 install --upgrade yt-dlp
+```
+
+*OSX only:* pip installs to a python library directory specific to your version of Python 3. This sets a symlink for yt-dlp in /usr/local/bin so pikaraoke can find it (optional, otherwise you'll probably need to manually specify --youtubedl-path):
+
+```
+sudo ln -s `which yt-dlp` /usr/local/bin/yt-dlp
 ```
 
 #### Windows
@@ -121,10 +127,10 @@ pip3 install --upgrade youtube_dl
 - Install VLC (to its default location): https://www.videolan.org/
 - Install ffmpeg (only if you want to use --high-quality flag) https://ffmpeg.org/download.html
 - Install MS Visual C++ (required to launch youtube-dl)  https://www.microsoft.com/en-US/download/details.aspx?id=5555
-- Install youtube-dl.exe. FYI, pip3 didn't seem to work for this on windows, so I used scoop as a package manager and I think it handles filed permissions best. Install scoop by following the instructions here: https://scoop.sh/
+- Install youtube-dl (yt-dlp). FYI, pip3 didn't seem to work for this on windows, so I used scoop as a package manager and I think it handles filed permissions best. Install scoop by following the instructions here: https://scoop.sh/
 
 ```
-scoop install youtube-dl
+scoop install yt-dlp
 ```
 
 Open a powershell, and go to the pikaraoke directory:
@@ -324,7 +330,7 @@ Make sure youtube-dl is up to date, old versions have higher failure rates due t
 You can update youtube-dl directly from the web UI. Go to `Info > Update Youtube-dl` (depending on how you installed, you may need to be running pikaraoke as sudo for this to work)
 
 Or, from the CLI (path may vary):
-`youtube-dl -U`
+`yt-dlp -U`
 
 ### Downloads are slow!
 

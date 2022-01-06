@@ -560,15 +560,23 @@ signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
 def get_default_youtube_dl_path(platform):
     if platform == "windows":
-        choco_ytdl_path = r"C:\ProgramData\chocolatey\bin\youtube-dl.exe"
-        scoop_ytdl_path = os.path.expanduser(r"~\scoop\shims\youtube-dl.exe")
+        choco_ytdl_path = r"C:\ProgramData\chocolatey\bin\yt-dlp.exe"
+        scoop_ytdl_path = os.path.expanduser(r"~\scoop\shims\yt-dlp.exe")
         if os.path.isfile(choco_ytdl_path):
             return choco_ytdl_path
         if os.path.isfile(scoop_ytdl_path):
             return scoop_ytdl_path
-        return r"C:\Program Files\youtube-dl\youtube-dl.exe"
+        return r"C:\Program Files\yt-dlp\yd-dlp.exe"
+    default_ytdl_unix_path = "/usr/local/bin/yt-dlp"
+    if platform == "osx":
+        if os.path.isfile(default_ytdl_unix_path):
+            return default_ytdl_unix_path
+        else: 
+            # just a guess based on the default python 3 install in OSX monterey
+            return "/Library/Frameworks/Python.framework/Versions/3.10/bin/yt-dlp"
     else:
-        return "/usr/local/bin/youtube-dl"
+        return default_ytdl_unix_path
+        
 
 def get_default_dl_dir(platform):
     if platform == "raspberry_pi":
