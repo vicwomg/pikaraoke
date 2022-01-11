@@ -566,7 +566,7 @@ def get_default_youtube_dl_path(platform):
             return choco_ytdl_path
         if os.path.isfile(scoop_ytdl_path):
             return scoop_ytdl_path
-        return r"C:\Program Files\yt-dlp\yd-dlp.exe"
+        return r"C:\Program Files\yt-dlp\yt-dlp.exe"
     default_ytdl_unix_path = "/usr/local/bin/yt-dlp"
     if platform == "osx":
         if os.path.isfile(default_ytdl_unix_path):
