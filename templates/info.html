@@ -70,12 +70,18 @@
 
 {% if admin %}
 <h1>Updates</h1>
-<p>Refresh the song list:</p> 
+<p>Re-synchronize audio and video:</p>
 <ul>
   <li>
-    <a href="/refresh"
-      >Rescan song directory</a
-    >
+    <a href="/resync">Re-sync audio/video</a>
+  </li>
+</ul>
+<p class="help">You should only need to do this if you are playing using a web browser.</p>
+
+<p>Refresh the song list:</p>
+<ul>
+  <li>
+    <a href="/refresh">Rescan song directory</a>
   </li>
 </ul>
 <p class="help">You should only need to do this if you manually copied files to the download directory while pikaraoke was running.</p>
@@ -83,9 +89,7 @@
 <p>If downloads or searches stopped working, updating youtube-dl will probably fix it. The current installed version is: "{{ youtubedl_version }}"</p> 
 <ul>
   <li>
-    <a id="update-ytdl-link" href="{{ url_for('update_ytdl') }}"
-      >Update youtube-dl</a
-    >
+    <a id="update-ytdl-link" href="{{ url_for('update_ytdl') }}">Update youtube-dl</a>
   </li>
 </ul>
 <p class="help">This update link above may fail if you don't have proper file permissions. Check the pikaraoke log for errors. </p>

@@ -1,7 +1,7 @@
 
 session_name=PiKaraoke
 cmds=("top"
-"sudo /home/xuancong/anaconda3/bin/python3 app.py"
+"sudo /home/$(whoami)/anaconda3/bin/python3 app.py -u $(whoami)"
 "./screencapture.sh -v -D 1 -e 1 -p 4000"
 "# pavucontrol"
 )
@@ -26,9 +26,10 @@ for i in `seq 0 $[${#cmds[*]}-1]`; do
 done
 
 # Set pulseaudio recording source
-src="`pacmd list | grep '.monitor>' | awk '{print $2}'`"
+src="`pacmd list-sources | grep '.monitor>' | awk '{print $2}' | head -1 `"
+idx="`pacmd list-source-outputs | grep index: | awk '{print $2}' | tail -1`"
 if [ "$src" ]; then
-	pacmd set-default-source "${src:1:-1}"
+	pacmd move-source-output $idx "${src:1:-1}"
 fi
 
 tmux a -t $session_name
