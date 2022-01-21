@@ -14,8 +14,8 @@ from subprocess import check_output
 
 import pygame
 import qrcode
-from unidecode import unidecode
 
+from unidecode import unidecode
 from lib import omxclient, vlcclient
 from lib.get_platform import get_platform
 
@@ -30,6 +30,7 @@ class Karaoke:
 
 	queue = []
 	available_songs = []
+	songname_trans = {} # transliteration is used for sorting and initial letter search
 	now_playing = None
 	now_playing_filename = None
 	now_playing_user = None
@@ -476,15 +477,22 @@ class Karaoke:
 		logging.info("Fetching available songs in: " + self.download_path)
 		types = ['.mp4', '.mp3', '.zip', '.mkv', '.avi', '.webm', '.mov']
 		files_grabbed = []
+		self.songname_trans = {}
 		P = Path(self.download_path)
 		for file in P.rglob('*.*'):
-			base, ext = os.path.splitext(file.as_posix())
-			if ext.lower() in types:
-				if os.path.isfile(file.as_posix()):
-					logging.debug("adding song: " + file.name)
-					files_grabbed.append(file.as_posix())
+			if file.is_file():
+				file = file.as_posix()
+				if os.path.splitext(file)[1].lower() in types:
+					logging.debug("adding song: " + file)
+					files_grabbed.append(file)
+					trans = unidecode(self.filename_from_path(file)).lower()
+					# strip leading non-transliterable symbols
+					while trans and not trans[0].islower() and not trans[0].isdigit():
+						trans = trans[1:]
+					self.songname_trans[file] = trans
 
-		self.available_songs = sorted(files_grabbed, key = lambda f: str.lower(os.path.basename(f)))
+		# self.available_songs = sorted(files_grabbed, key = lambda f: str.lower(os.path.basename(f)))
+		self.available_songs = sorted(self.songname_trans, key = self.songname_trans.get)
 
 	def delete(self, song_path):
 		logging.info("Deleting song: " + song_path)

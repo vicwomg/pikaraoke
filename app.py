@@ -12,6 +12,7 @@ from functools import wraps
 
 import cherrypy
 import psutil
+from unidecode import unidecode
 from flask import (Flask, flash, jsonify, make_response, redirect,
                    render_template, request, send_file, send_from_directory,
                    url_for)
@@ -275,29 +276,17 @@ def autocomplete():
 
 @app.route("/browse", methods = ["GET"])
 def browse():
-	search = False
-	q = request.args.get('q')
-	if q:
-		search = True
+	search = bool(request.args.get('q'))
 	page = request.args.get(get_page_parameter(), type = int, default = 1)
-
-	available_songs = k.available_songs
 
 	letter = request.args.get('letter')
 
-	if (letter):
-		result = []
+	available_songs = k.available_songs
+	if letter:
 		if (letter == "numeric"):
-			for song in available_songs:
-				f = k.filename_from_path(song)[0]
-				if (f.isnumeric()):
-					result.append(song)
+			available_songs = [k for k,v in k.songname_trans.items() if not v[0].islower()]
 		else:
-			for song in available_songs:
-				f = k.filename_from_path(song).lower()
-				if (f.startswith(letter.lower())):
-					result.append(song)
-		available_songs = result
+			available_songs = [k for k,v in k.songname_trans.items() if v.startswith(letter)]
 
 	if "sort" in request.args and request.args["sort"] == "date":
 		songs = sorted(available_songs, key = lambda x: os.path.getctime(x))
