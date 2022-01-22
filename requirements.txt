@@ -3,7 +3,7 @@ wheel
 tempora==1.14.0
 jaraco.functools==2.0
 CherryPy==10.2.1
-six==1.12.0
+six
 Flask
 pillow
 qrcode

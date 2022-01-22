@@ -1,7 +1,8 @@
+#!/usr/bin/env bash
 
 session_name=PiKaraoke
 cmds=("top"
-"sudo /home/$(whoami)/anaconda3/bin/python3 app.py -u $(whoami)"
+"sudo sh -c 'cp -f $HOME/.Xauthority ~ && $HOME/anaconda3/bin/python3 app.py -u $(whoami)'"
 "./screencapture.sh -v -D 1 -e 1 -p 4000"
 "# pavucontrol"
 )
@@ -10,6 +11,8 @@ if [ "`tmux ls | grep $session_name`" ]; then
 	echo "TMUX Session $session_name already exists!" >&2
 	exit 1
 fi
+
+export DISPLAY=:0
 
 cd "`dirname $0`"
 tmux new-session -s $session_name -d -x 240 -y 60
