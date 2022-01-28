@@ -69,7 +69,7 @@ class Karaoke:
 		self.dual_screen = dual_screen
 		self.high_quality = high_quality
 		self.splash_delay = int(splash_delay)
-		self.volume_offset = volume
+		self.volume_offset = self.volume = volume
 		self.youtubedl_path = youtubedl_path
 		self.omxplayer_path = omxplayer_path
 		self.use_omxplayer = use_omxplayer
@@ -710,6 +710,12 @@ class Karaoke:
 			logging.warning("Tried to volume down, but no file is playing!")
 			return False
 
+	def get_vol(self):
+		if self.use_vlc:
+			return self.vlcclient.get_volume()
+		else:
+			return self.omxclient.volume_offset
+
 	def restart(self):
 		if self.is_file_playing():
 			if self.use_vlc:
@@ -785,6 +791,8 @@ class Karaoke:
 						self.play_file(self.queue[0]["file"])
 						if isFirstSong:
 							self.resync(1)
+							if self.use_vlc:
+								self.vlcclient.volume_offset = None
 							isFirstSong = False
 						self.now_playing_user = self.queue[0]["user"]
 						self.queue.pop(0)

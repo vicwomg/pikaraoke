@@ -22,6 +22,8 @@ def get_default_vlc_path(platform):
 
 
 class VLCClient:
+	vol_increment = 10
+
 	def __init__(self, port = 5002, path = None, qrcode = None, url = None):
 
 		# HTTP remote control server
@@ -238,10 +240,12 @@ class VLCClient:
 		return self.command("seek&val=0")
 
 	def vol_up(self):
-		return self.command(f"volume&val=+{self.volume_offset}")
+		self.volume_offset = None
+		return self.command(f"volume&val=+{self.vol_increment}")
 
 	def vol_down(self):
-		return self.command(f"volume&val=-{self.volume_offset}")
+		self.volume_offset = None
+		return self.command(f"volume&val=-{self.vol_increment}")
 
 	def kill(self):
 		try:
@@ -271,11 +275,12 @@ class VLCClient:
 
 	def get_volume(self):
 		if self.is_running():
-			status = self.get_status()
-			volume = self.get_val_xml(status, 'volume')
-			return int(volume)
+			if self.volume_offset is None:
+				status = self.get_status()
+				self.volume_offset = int(self.get_val_xml(status, 'volume'))
+			return self.volume_offset
 		else:
-			return 0
+			return self.volume_offset
 
 	def get_status(self):
 		url = self.http_endpoint

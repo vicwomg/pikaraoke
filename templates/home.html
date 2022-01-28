@@ -59,6 +59,8 @@
             "{{  url_for('static', filename='images/now-playing.gif') }}"
           );
         }
+
+        $("#vol").text(obj.volume);
       });
     }
 
@@ -66,7 +68,7 @@
     $(".control-box").hide();
 
     var slider = document.getElementById("transpose");
-    var slider_prev_value = slider.value;
+    var slider_prev_value = 0;
     var output = document.getElementById("semitones-label");
     if (slider) {
       // Update the current slider value (each time you drag the slider handle)
@@ -74,6 +76,7 @@
         output.innerHTML = getSemitonesLabel(slider.value);
       };
       slider.oninput()
+      slider_prev_value = slider.value;
     }
 
     $("#transpose").change(function () {
@@ -165,7 +168,8 @@
 		<a title="Play/Pause"><i id="pause-resume" class="icon icon-pause"></i> </a>&nbsp;&nbsp;
 		<a title="Stop Current Song" id="skip"><i class="icon icon-to-end"></i> </a>&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;
 		<span class="is-pulled-right">
-      <a title="Volume Down" id="vol-down"><i class="icon icon-volume-down"></i> </a>&nbsp;&nbsp;
+      <a title="Volume Down" id="vol-down"><i class="icon icon-volume-down"></i> </a>
+      <a title="Volume Down" id="vol"> {{ volume }} </a>&nbsp;
       <a title="Volume Up" id="vol-up"><i class="icon icon-volume-up"></i> </a>
     </span>
 	</p>
