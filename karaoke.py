@@ -1,14 +1,5 @@
-import glob
-import json
-import logging
-import os
-import random
-import socket
-import subprocess
-import sys
-import threading
-import time
-from io import BytesIO
+import os, random, time, json
+import logging, socket, subprocess
 from pathlib import Path
 from subprocess import check_output
 
@@ -227,15 +218,11 @@ class Karaoke:
 		return (server_port, ssid_prefix, ssl_enabled)
 
 	def get_youtubedl_version(self):
-		self.youtubedl_version = (
-			check_output([self.youtubedl_path, "--version"]).strip().decode("utf8")
-		)
+		self.youtubedl_version = (check_output([self.youtubedl_path, "--version"]).strip().decode("utf8"))
 		return self.youtubedl_version
 
 	def upgrade_youtubedl(self):
-		logging.info(
-			"Upgrading youtube-dl, current version: %s" % self.youtubedl_version
-		)
+		logging.info("Upgrading youtube-dl, current version: %s" % self.youtubedl_version)
 		output = check_output([self.youtubedl_path, "-U"]).decode("utf8").strip()
 		logging.info(output)
 		if "It looks like you installed youtube-dl with a package manager" in output:
@@ -547,16 +534,16 @@ class Karaoke:
 			if self.omxclient != None:
 				self.omxclient.kill()
 
-	def play_file(self, file_path, semitones = 0):
+	def play_file(self, file_path, semitones = 0, extra_params = []):
 		self.now_playing = self.filename_from_path(file_path)
 		self.now_playing_filename = file_path
 
 		if self.use_vlc:
 			logging.info("Playing video in VLC: " + self.now_playing)
 			if semitones == 0:
-				self.vlcclient.play_file(file_path)
+				self.vlcclient.play_file(file_path, extra_params)
 			else:
-				self.vlcclient.play_file_transpose(file_path, semitones)
+				self.vlcclient.play_file_transpose(file_path, semitones, extra_params)
 		else:
 			logging.info("Playing video in omxplayer: " + self.now_playing)
 			self.omxclient.play_file(file_path)
@@ -566,9 +553,12 @@ class Karaoke:
 
 	def transpose_current(self, semitones):
 		if self.use_vlc:
-			logging.info("Transposing song by %s semitones" % semitones)
+			if self.now_playing_transpose == semitones:
+				return
+			status_xml = self.vlcclient.pause().text
+			posi, length = self.vlcclient.get_posi_xml(status_xml)
 			self.now_playing_transpose = semitones
-			self.play_file(self.now_playing_filename, semitones)
+			self.play_file(self.now_playing_filename, semitones, [f'--start-time={posi}'])
 		else:
 			logging.error("Not using VLC. Can't transpose track.")
 
