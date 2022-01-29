@@ -2,7 +2,8 @@
 
 session_name=PiKaraoke
 cmds=("top"
-"sudo sh -c 'cp -f $HOME/.Xauthority ~ && $HOME/anaconda3/bin/python3 app.py -u $(whoami)'"
+#"sudo sh -c 'cp -f $HOME/.Xauthority ~ && $HOME/anaconda3/bin/python3 app.py -u $(whoami)'"
+"$HOME/anaconda3/bin/python3 app.py"
 "./screencapture.sh -v -D 1 -e 1 -p 4000"
 "# pavucontrol"
 )

@@ -85,6 +85,7 @@ class Karaoke:
 		self.vlcclient = None
 		self.omxclient = None
 		self.screen = None
+		self.player_state = {}
 
 		logging.basicConfig(
 			format = "[%(asctime)s] %(levelname)s: %(message)s",
@@ -721,17 +722,10 @@ class Karaoke:
 			logging.warning("Tried to volume down, but no file is playing!")
 			return False
 
-	def get_vol(self):
-		if self.use_vlc:
-			return self.vlcclient.get_volume()
-		else:
-			return self.omxclient.volume_offset
-
 	def get_state(self):
-		if self.use_vlc:
-			return defaultdict(lambda: None, self.vlcclient.get_info_xml())
-		else:
-			return defaultdict(lambda: None, {'volume': self.omxclient.volume_offset})
+		new_state = self.vlcclient.get_info_xml() if self.use_vlc else {'volume': self.omxclient.volume_offset}
+		self.player_state.update(new_state)
+		return defaultdict(lambda: None, self.player_state)
 
 	def restart(self):
 		if self.is_file_playing():
@@ -784,8 +778,10 @@ class Karaoke:
 		self.now_playing_transpose = 0
 
 	def resync(self, delay=0):
-		if self.nonroot_user:
+		if os.geteuid()==0 and self.nonroot_user:
 			os.system(f"su -l {self.nonroot_user} -c 'sleep {delay} && tmux send-keys -t PiKaraoke:0.3 C-c Up Enter'")
+		else:
+			os.system(f"sleep {delay} && tmux send-keys -t PiKaraoke:0.3 C-c Up Enter")
 
 	def run(self):
 		logging.info("Starting PiKaraoke!")

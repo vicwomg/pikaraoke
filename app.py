@@ -70,7 +70,7 @@ def home():
 		title = "Home",
 		show_transpose = k.use_vlc,
 		transpose_value = k.now_playing_transpose,
-		volume = k.get_vol(),
+		volume = s['volume'],
 		admin = is_admin(),
 		seektrack_value = s['time'],
 		seektrack_max = s['length']
@@ -89,7 +89,7 @@ def nowplaying():
 			"up_next": next_song,
 			"next_user": next_user,
 			"is_paused": k.is_paused,
-			"volume": k.get_vol(),
+			"volume": s['volume'],
 			"transpose_value": k.now_playing_transpose,
 			"seektrack_value": s['time'],
 			"seektrack_max": s['length']

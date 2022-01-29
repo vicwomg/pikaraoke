@@ -1885,19 +1885,19 @@ a.box:active {
   font-size: 2em;
   margin-bottom: 0.5em; }
   .content h1:not(:first-child) {
-    margin-top: 1em; }
+    margin-top: 1.0em; }
 
 .content h2 {
   font-size: 1.75em;
-  margin-bottom: 0.5714em; }
+  margin-bottom: 0.5em; }
   .content h2:not(:first-child) {
-    margin-top: 1.1428em; }
+    margin-top: 1.0em; }
 
 .content h3 {
   font-size: 1.5em;
-  margin-bottom: 0.6666em; }
+  margin-bottom: 0.5em; }
   .content h3:not(:first-child) {
-    margin-top: 1.3333em; }
+    margin-top: 1.0em; }
 
 .content h4 {
   font-size: 1.25em;

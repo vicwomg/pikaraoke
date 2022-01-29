@@ -2,6 +2,7 @@
 <script>
   var transpose_seeking = false;
   var seektrack_seeking = false;
+  var obj = {};
 
   function getSemitonesLabel(value) {
     if (value > 0) {
@@ -15,9 +16,14 @@
   	return (new Date(value*1000)).toISOString().substr(11, 8);
   }
 
+  function setImgSrc(img, src) {
+  	if(img.attr('src')!=src)
+  		img.attr('src', src)
+  }
+
   function getNowPlaying() {
       $.get('{{ url_for("nowplaying") }}', function (data) {
-        var obj = JSON.parse(data);
+        obj = JSON.parse(data);
         if (obj.now_playing) {
           var nowPlayingHtml = `<p style="margin-bottom: 5px">${obj.now_playing}</p>
             <p class="has-text-success" style="margin-bottom: 5px"><i class="icon icon-mic-1" title="Current singer"></i>${obj.now_playing_user}</p>`;
@@ -59,22 +65,21 @@
         if (obj.is_paused) {
           $("#pause-resume").removeClass("icon-pause");
           $("#pause-resume").addClass("icon-play");
-          $(".playing_gif").attr(
-            "src",
-            "{{  url_for('static', filename='images/now-playing.png') }}"
-          );
+          setImgSrc($(".playing_gif"), '/static/images/now-playing.png');
         } else {
           $("#pause-resume").removeClass("icon-play");
           $("#pause-resume").addClass("icon-pause");
-          $(".playing_gif").attr(
-            "src",
-            "{{  url_for('static', filename='images/now-playing.gif') }}"
-          );
+          setImgSrc($(".playing_gif"), '/static/images/now-playing.gif')
         }
 
         $("#vol").text(obj.volume);
       });
     }
+
+  function checkUser() {
+  	try{ return obj.now_playing_user=='Randomizer' || $('#current-user').text().trim()==obj.now_playing_user; }
+  	catch(err){ return false; }
+  }
 
   $(function () {
     $(".control-box").hide();
@@ -113,7 +118,6 @@
 			$("#seektrack-val").text(getHHMMSS(seektrack.value));
     };
 
-
     $("#pause-resume").click(function () {
       $.get("/pause");
       togglePausePlayButton();
@@ -128,17 +132,13 @@
     });
 
     $("#restart").click(function () {
-      r = confirm("Are you sure you want to restart this track?");
-      if (r) {
+      if (checkUser() || confirm("This song is not added by you. Are you sure you want to restart this track?")) {
         $.get("/restart");
       }
     });
 
     $("#skip").click(function () {
-      r = confirm(
-        "Are you sure you want to skip this track? If you didn't add this song, ask permission first!"
-      );
-      if (r) {
+      if (checkUser() || confirm("This song is not added by you. Are you sure you want to skip this track?")) {
         $.get("/skip");
       }
     });
@@ -160,10 +160,19 @@
     getNowPlaying();
     setInterval(getNowPlaying, 1500);
   });
-
-
 </script>
+
 {% endblock %} {% block header %}
+<style>
+hr, h1, h3, h4, p {
+	padding-top: 0em;
+	margin-top: 0em;
+	margin-bottom: 0em;
+}
+body {
+	line-height: 1;
+}
+</style>
 <h1>
 	{% block title %}Now Playing
 	<img
@@ -222,7 +231,7 @@
 
 	{% if show_transpose %}
 	<!-- <div class="has-background-black-bis box control-box" style="max-width: 500px"> -->
-	<hr/>
+	<hr style="margin-top: 0.5em; margin-bottom: 0.5em;"/>
 	<div class="is-flex" style="justify-content: space-between">
 		<div>
 			<h4>Change Key</h4>

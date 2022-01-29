@@ -88,6 +88,8 @@ class VLCClient:
 
 		self.volume_offset = 10
 		self.process = None
+		self.last_status_text = ""
+		self.last_status_time = time.time()
 
 	def get_marquee_cmd(self):
 		return ["--sub-source", 'logo{file=%s,position=9,x=2,opacity=200}:marq{marquee="Pikaraoke - connect at: \n%s",position=9,x=38,color=0xFFFFFF,size=11,opacity=200}' % (self.qrcode, self.url)]
@@ -290,9 +292,15 @@ class VLCClient:
 			return self.volume_offset
 
 	def get_status(self):
-		url = self.http_endpoint
-		request = requests.get(url, auth = ("", self.http_password))
-		return request.text
+		cur_time = time.time()
+		if abs(cur_time-self.last_status_time)>1:
+			try:
+				url = self.http_endpoint
+				self.last_status_text = requests.get(url, auth = ("", self.http_password)).text
+				self.last_status_time = cur_time
+				return self.last_status_text
+			except: pass
+		return self.last_status_text
 
 	def run(self):
 		try:

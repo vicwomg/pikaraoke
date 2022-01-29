@@ -155,6 +155,11 @@
       }
     });
 
+{% if search_string %}
+    $("#song-to-add-selectized").val("{{search_string}}")
+    $("#song-to-add-selectized").width("100%");
+{% endif %}
+
     $('#search-link').on('click', function (e) {
       e.preventDefault();
       var search_term = $(".search-selectize .selectize-input input").val();
@@ -351,11 +356,12 @@
   <div id="searching_loader" class="control is-loading is-hidden">Searching YouTube for <small><i>'<span
           id="search_term"></span>'</i></small></div>
   {% if search_results %}
+  <iframe name="dummyframe" id="dummyframe" style="display: none;"></iframe>
   <div class="field" id="container_search_result">
-    <form action="{{ url_for('download') }}" method="post">
+    <form action="{{ url_for('download') }}" method="post" target="dummyframe">
       <label class="label">Search results for <small><i>'{{search_string}}'</i></small></label>
       <div class="field select">
-        <select id="search_result_selector" name='song-url'>>
+        <select id="search_result_selector" name='song-url'>
           {% for title,url,id in search_results %}
           <option data-ytID='{{id}}' value='{{url}}'>{{title}}</option>
           {% endfor %}
