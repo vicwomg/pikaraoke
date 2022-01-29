@@ -143,9 +143,12 @@ class VLCClient:
 			file_path = self.process_file(file_path)
 			if self.is_playing() or self.is_paused():
 				logging.debug("VLC is currently playing, stopping track...")
-				self.stop()
-				# this pause prevents vlc http server from being borked after transpose
-				time.sleep(0.2)
+				# must wait for VLC to quit or force kill, otherwise VLC http server will be borked
+				try:
+					self.stop()
+					self.process.wait(0.2)
+				except:
+					self.process.kill()
 			if self.platform == "windows":
 				file_path = r"{}".format(file_path.replace('/', '\\'))
 			command = self.cmd_base + params + [file_path]
@@ -219,9 +222,13 @@ class VLCClient:
 			return None
 		return s[:posi]
 
-	def get_posi_xml(self, xml):
-		posi, length = [float(self.get_val_xml(xml, key)) for key in ['position', 'length']]
-		return posi*length, length
+	def get_info_xml(self, xml=None):
+		try:
+			if xml is None:
+				xml = self.get_status()
+			return {key: float(self.get_val_xml(xml, key)) for key in ['position', 'length', 'volume', 'time']}
+		except:
+			return {}
 
 	def seek(self, seek_sec):
 		return self.command(f"seek&val={seek_sec}")

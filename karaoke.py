@@ -2,6 +2,7 @@ import os, random, time, json
 import logging, socket, subprocess
 from pathlib import Path
 from subprocess import check_output
+from collections import *
 
 import pygame
 import qrcode
@@ -556,7 +557,8 @@ class Karaoke:
 			if self.now_playing_transpose == semitones:
 				return
 			status_xml = self.vlcclient.pause().text
-			posi, length = self.vlcclient.get_posi_xml(status_xml)
+			info = self.vlcclient.get_info_xml(status_xml)
+			posi = info['position']*info['length']
 			self.now_playing_transpose = semitones
 			self.play_file(self.now_playing_filename, semitones, [f'--start-time={posi}'])
 		else:
@@ -665,9 +667,18 @@ class Karaoke:
 				self.omxclient.stop()
 			self.reset_now_playing()
 			return True
-		else:
-			logging.warning("Tried to skip, but no file is playing!")
-			return False
+		logging.warning("Tried to skip, but no file is playing!")
+		return False
+
+	def seek(self, seek_sec):
+		if self.is_file_playing():
+			if self.use_vlc:
+				self.vlcclient.seek(seek_sec)
+			else:
+				logging.warning("OMXplayer cannot seek track!")
+			return True
+		logging.warning("Tried to seek, but no file is playing!")
+		return False
 
 	def pause(self):
 		if self.is_file_playing():
@@ -715,6 +726,12 @@ class Karaoke:
 			return self.vlcclient.get_volume()
 		else:
 			return self.omxclient.volume_offset
+
+	def get_state(self):
+		if self.use_vlc:
+			return defaultdict(lambda: None, self.vlcclient.get_info_xml())
+		else:
+			return defaultdict(lambda: None, {'volume': self.omxclient.volume_offset})
 
 	def restart(self):
 		if self.is_file_playing():

@@ -8,6 +8,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 from functools import wraps
 
 import cherrypy
@@ -62,6 +63,7 @@ def is_admin():
 
 @app.route("/")
 def home():
+	s = k.get_state()
 	return render_template(
 		"home.html",
 		site_title = site_name,
@@ -69,8 +71,33 @@ def home():
 		show_transpose = k.use_vlc,
 		transpose_value = k.now_playing_transpose,
 		volume = k.get_vol(),
-		admin = is_admin()
+		admin = is_admin(),
+		seektrack_value = s['time'],
+		seektrack_max = s['length']
 	)
+
+
+@app.route("/nowplaying")
+def nowplaying():
+	try:
+		next_song = k.queue[0]["title"] if k.queue else None
+		next_user = k.queue[0]["user"] if k.queue else None
+		s = k.get_state()
+		rc = {
+			"now_playing": k.now_playing,
+			"now_playing_user": k.now_playing_user,
+			"up_next": next_song,
+			"next_user": next_user,
+			"is_paused": k.is_paused,
+			"volume": k.get_vol(),
+			"transpose_value": k.now_playing_transpose,
+			"seektrack_value": s['time'],
+			"seektrack_max": s['length']
+		}
+		return json.dumps(rc)
+	except Exception as e:
+		logging.error(f"Problem loading /nowplaying, pikaraoke may still be starting up: {e}\n{traceback.print_exc()}")
+		return ""
 
 
 @app.route("/auth", methods = ["POST"])
@@ -100,30 +127,6 @@ def logout():
 	resp.set_cookie('admin', '')
 	flash("Logged out of admin mode!", "is-success")
 	return resp
-
-
-@app.route("/nowplaying")
-def nowplaying():
-	try:
-		if len(k.queue) >= 1:
-			next_song = k.queue[0]["title"]
-			next_user = k.queue[0]["user"]
-		else:
-			next_song = None
-			next_user = None
-		rc = {
-			"now_playing": k.now_playing,
-			"now_playing_user": k.now_playing_user,
-			"up_next": next_song,
-			"next_user": next_user,
-			"is_paused": k.is_paused,
-			"volume": k.get_vol(),
-			"transpose_value": k.now_playing_transpose,
-		}
-		return json.dumps(rc)
-	except (Exception) as e:
-		logging.error("Problem loading /nowplaying, pikaraoke may still be starting up: " + str(e))
-		return ""
 
 
 @app.route("/queue")
@@ -220,6 +223,12 @@ def pause():
 @app.route("/transpose/<semitones>", methods = ["GET"])
 def transpose(semitones):
 	k.transpose_current(semitones)
+	return redirect(url_for("home"))
+
+
+@app.route("/seek/<goto_sec>", methods = ["GET"])
+def seek(goto_sec):
+	k.seek(goto_sec)
 	return redirect(url_for("home"))
 
 
@@ -389,7 +398,7 @@ def edit_file():
 			old_name = d["old_file_name"]
 			if k.is_song_in_queue(old_name):
 				# check one more time just in case someone added it during editing
-				flash(queue_error_msg + song_path, "is-danger")
+				flash(queue_error_msg + old_name, "is-danger")
 			else:
 				# check if new_name already exist
 				file_extension = os.path.splitext(old_name)[1]

@@ -1,6 +1,7 @@
 {% extends 'base.html' %} {% block scripts %}
 <script>
   var transpose_seeking = false;
+  var seektrack_seeking = false;
 
   function getSemitonesLabel(value) {
     if (value > 0) {
@@ -8,6 +9,10 @@
     } else {
       return value + " semitones";
     }
+  }
+
+  function getHHMMSS(value) {
+  	return (new Date(value*1000)).toISOString().substr(11, 8);
   }
 
   function getNowPlaying() {
@@ -32,6 +37,13 @@
 
           $("#now-playing").html(nowPlayingHtml);
           $(".control-box").show();
+
+          if($("#seektrack") && !seektrack_seeking){
+						$("#seektrack").attr({'max':obj.seektrack_max, 'value':obj.seektrack_value});
+						$("#seektrack").val(obj.seektrack_value);
+						$("#seektrack-val").text(getHHMMSS(obj.seektrack_value));
+						$("#seektrack-max").text(getHHMMSS(obj.seektrack_max));
+					}
         } else {
           $("#now-playing").html("Nothing is playing right now.");
           $(".control-box").hide();
@@ -92,6 +104,15 @@
         slider_prev_value = value
       }
     });
+
+		var seektrack = document.getElementById("seektrack");
+		seektrack.onchange = function () {
+			$.get("/seek/" + seektrack.value);
+    };
+    seektrack.oninput = function () {
+			$("#seektrack-val").text(getHHMMSS(seektrack.value));
+    };
+
 
     $("#pause-resume").click(function () {
       $.get("/pause");
@@ -173,6 +194,30 @@
       <a title="Volume Up" id="vol-up"><i class="icon icon-volume-up"></i> </a>
     </span>
 	</p>
+	<div class="is-flex" style="justify-content: space-between">
+		<h4>Seek To:</h4>
+		<a id="seektrack-val">00:00:00</a>
+		<a id="seektrack-max">00:00:00</a>
+	</div>
+
+	<div style="width: 100%">
+		<div class="is-flex">
+			<input
+					id="seektrack"
+					type="range"
+					min="0"
+					max="{{ seektrack_max }}"
+					value="{{ seektrack_value }}"
+					width="300px"
+					class="transpose-slider"
+					style="width: 100%"
+					onmousedown="seektrack_seeking=true"
+					onmouseup="seektrack_seeking=false"
+					ontouchstart="seektrack_seeking=true"
+					ontouchend="seektrack_seeking=false"
+			/>
+		</div>
+	</div>
 	<!-- </div> -->
 
 	{% if show_transpose %}
@@ -181,7 +226,6 @@
 	<div class="is-flex" style="justify-content: space-between">
 		<div>
 			<h4>Change Key</h4>
-
 		</div>
 		<div class="is-flex">
 			<h4 id="semitones-label"></h4>
