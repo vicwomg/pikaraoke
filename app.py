@@ -73,7 +73,8 @@ def home():
 		volume = s['volume'],
 		admin = is_admin(),
 		seektrack_value = s['time'],
-		seektrack_max = s['length']
+		seektrack_max = s['length'],
+		audio_delay = s['audiodelay']
 	)
 
 
@@ -92,7 +93,8 @@ def nowplaying():
 			"volume": s['volume'],
 			"transpose_value": k.now_playing_transpose,
 			"seektrack_value": s['time'],
-			"seektrack_max": s['length']
+			"seektrack_max": s['length'],
+			"audio_delay": s['audiodelay']
 		}
 		return json.dumps(rc)
 	except Exception as e:
@@ -232,6 +234,12 @@ def seek(goto_sec):
 	return redirect(url_for("home"))
 
 
+@app.route("/audio_delay/<delay_val>", methods = ["GET"])
+def audio_delay(delay_val):
+	k.set_audio_delay(delay_val)
+	return redirect(url_for("home"))
+
+
 @app.route("/restart")
 def restart():
 	k.restart()
@@ -247,6 +255,12 @@ def vol_up():
 @app.route("/vol_down")
 def vol_down():
 	k.vol_down()
+	return redirect(url_for("home"))
+
+
+@app.route("/vol/<volume>")
+def vol_set(volume):
+	k.vol_set(volume)
 	return redirect(url_for("home"))
 
 

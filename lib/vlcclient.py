@@ -228,7 +228,7 @@ class VLCClient:
 		try:
 			if xml is None:
 				xml = self.get_status()
-			return {key: float(self.get_val_xml(xml, key)) for key in ['position', 'length', 'volume', 'time']}
+			return {key: float(self.get_val_xml(xml, key)) for key in ['position', 'length', 'volume', 'time', 'audiodelay']}
 		except:
 			return {}
 
@@ -249,12 +249,13 @@ class VLCClient:
 		return self.command("seek&val=0")
 
 	def vol_up(self):
-		self.volume_offset = None
 		return self.command(f"volume&val=+{self.vol_increment}")
 
 	def vol_down(self):
-		self.volume_offset = None
 		return self.command(f"volume&val=-{self.vol_increment}")
+
+	def vol_set(self, value):
+		return self.command(f"volume&val={value}")
 
 	def kill(self):
 		try:
@@ -281,15 +282,6 @@ class VLCClient:
 			return state == "paused"
 		else:
 			return False
-
-	def get_volume(self):
-		if self.is_running():
-			if self.volume_offset is None:
-				status = self.get_status()
-				self.volume_offset = int(self.get_val_xml(status, 'volume'))
-			return self.volume_offset
-		else:
-			return self.volume_offset
 
 	def get_status(self):
 		cur_time = time.time()

@@ -27,6 +27,7 @@ class Karaoke:
 	now_playing_filename = None
 	now_playing_user = None
 	now_playing_transpose = 0
+	audio_delay = 0
 	is_paused = True
 	process = None
 	qr_code_path = None
@@ -561,7 +562,7 @@ class Karaoke:
 			info = self.vlcclient.get_info_xml(status_xml)
 			posi = info['position']*info['length']
 			self.now_playing_transpose = semitones
-			self.play_file(self.now_playing_filename, semitones, [f'--start-time={posi}'])
+			self.play_file(self.now_playing_filename, semitones, [f'--start-time={posi}', f'--audio-desync={self.audio_delay*1000}'])
 		else:
 			logging.error("Not using VLC. Can't transpose track.")
 
@@ -681,6 +682,29 @@ class Karaoke:
 		logging.warning("Tried to seek, but no file is playing!")
 		return False
 
+	def set_audio_delay(self, delay):
+		if delay == '+':
+			self.audio_delay += 0.1
+		elif delay == '-':
+			self.audio_delay -= 0.1
+		elif delay == '':
+			self.audio_delay = 0
+		else:
+			try:
+				self.audio_delay = float(delay)
+			except:
+				logging.warning(f"Tried to set audio delay to an invalid value {delay}, ignored!")
+				return False
+
+		if self.is_file_playing():
+			if self.use_vlc:
+				return self.vlcclient.command(f"audiodelay&val={self.audio_delay}")
+			else:
+				logging.warning("OMXplayer cannot set audio delay!")
+			return True
+		logging.warning("Tried to seek, but no file is playing!")
+		return False
+
 	def pause(self):
 		if self.is_file_playing():
 			logging.info("Toggling pause: " + self.now_playing)
@@ -720,6 +744,17 @@ class Karaoke:
 			return True
 		else:
 			logging.warning("Tried to volume down, but no file is playing!")
+			return False
+
+	def vol_set(self, volume):
+		if self.is_file_playing():
+			if self.use_vlc:
+				self.vlcclient.vol_set(volume)
+			else:
+				logging.warning("Only VLC player can set volume, ignored!")
+			return True
+		else:
+			logging.warning("Tried to set volume, but no file is playing!")
 			return False
 
 	def get_state(self):
@@ -776,6 +811,7 @@ class Karaoke:
 		self.now_playing_user = None
 		self.is_paused = True
 		self.now_playing_transpose = 0
+		self.audio_delay = 0
 
 	def resync(self, delay=0):
 		if os.geteuid()==0 and self.nonroot_user:
@@ -804,8 +840,6 @@ class Karaoke:
 						self.play_file(self.queue[0]["file"])
 						if isFirstSong:
 							self.resync(1)
-							if self.use_vlc:
-								self.vlcclient.volume_offset = None
 							isFirstSong = False
 						self.now_playing_user = self.queue[0]["user"]
 						self.queue.pop(0)

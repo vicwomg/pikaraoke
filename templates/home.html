@@ -2,6 +2,8 @@
 <script>
   var transpose_seeking = false;
   var seektrack_seeking = false;
+  var audiodelay_typing = false;
+  var volume_changing = false;
   var obj = {};
 
   function getSemitonesLabel(value) {
@@ -50,6 +52,9 @@
 						$("#seektrack-val").text(getHHMMSS(obj.seektrack_value));
 						$("#seektrack-max").text(getHHMMSS(obj.seektrack_max));
 					}
+
+					if("audio_delay" in obj && !audiodelay_typing)
+						$("#delay-val").text(obj.audio_delay.toFixed(2));
         } else {
           $("#now-playing").html("Nothing is playing right now.");
           $(".control-box").hide();
@@ -72,7 +77,8 @@
           setImgSrc($(".playing_gif"), '/static/images/now-playing.gif')
         }
 
-        $("#vol").text(obj.volume);
+				if("volume" in obj && !volume_changing)
+	        $("#vol").text(obj.volume);
       });
     }
 
@@ -131,6 +137,17 @@
       $.get("/vol_down");
     });
 
+    $("#vol").keypress(function (e) {
+    	var ch = String.fromCharCode(e.which);
+      if(!("0123456789".includes(ch))) e.preventDefault();
+      if(ch=="\n" || ch=="\r") $(this).blur();
+    });
+
+    $("#vol").blur(function () {
+    	$.get("/vol/"+$(this).text());
+    	volume_changing = false;
+    });
+
     $("#restart").click(function () {
       if (checkUser() || confirm("This song is not added by you. Are you sure you want to restart this track?")) {
         $.get("/restart");
@@ -141,6 +158,26 @@
       if (checkUser() || confirm("This song is not added by you. Are you sure you want to skip this track?")) {
         $.get("/skip");
       }
+    });
+
+    $("#delay-val").keypress(function (e) {
+    	var ch = String.fromCharCode(e.which);
+      if(!("0123456789.-".includes(ch))) e.preventDefault();
+      if(ch=="\n" || ch=="\r") $(this).blur();
+    });
+
+    $("#delay-val").blur(function () {
+    	if($(this).text()=="") $(this).text("0");
+    	$.get("/audio_delay/" + $(this).text());
+    	audiodelay_typing=false;
+    });
+
+    $("#delay-inc").click(function () {
+    	$.get("/audio_delay/+");
+    });
+
+    $("#delay-dec").click(function () {
+    	$.get("/audio_delay/-");
     });
 
     $("#semitones-info").click(function () {
@@ -199,12 +236,20 @@ body {
 		<a title="Stop Current Song" id="skip"><i class="icon icon-to-end"></i> </a>&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;
 		<span class="is-pulled-right">
       <a title="Volume Down" id="vol-down"><i class="icon icon-volume-down"></i> </a>
-      <a title="Volume Down" id="vol"> {{ volume }} </a>&nbsp;
+      <a title="Volume Down" id="vol" contenteditable="true" onfocus="volume_changing=true"> {{ volume }} </a>&nbsp;
       <a title="Volume Up" id="vol-up"><i class="icon icon-volume-up"></i> </a>
     </span>
 	</p>
+
 	<div class="is-flex" style="justify-content: space-between">
-		<h4>Seek To:</h4>
+		<h4>Audio Delay (sec):</h4>
+		<a title="Decrease Audio Delay" id="delay-dec"><b class="icon">&#x2796;</b> </a>
+		<a title="Set Audio Delay" id="delay-val" contenteditable="true" onfocus="audiodelay_typing=true">0</a>
+		<a title="Increase Audio Delay" id="delay-inc"><b class="icon">&#x2795;</b> </a>
+	</div>
+
+	<div class="is-flex" style="justify-content: space-between">
+		<div><h4>Seek To:</h4></div>
 		<a id="seektrack-val">00:00:00</a>
 		<a id="seektrack-max">00:00:00</a>
 	</div>
