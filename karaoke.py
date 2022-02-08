@@ -620,7 +620,21 @@ class Karaoke:
 		self.queue = []
 		self.skip()
 
-	def queue_edit(self, song_name, action):
+	def queue_edit(self, song_name, action, **kwargs):
+		if action == "move":
+			try:
+				src, tgt, size = [int(kwargs[n]) for n in ['src', 'tgt', 'size']]
+				if size > len(self.queue):
+					# new songs have started while dragging the list
+					diff = size - len(self.queue)
+					src -= diff
+					tgt -= diff
+				song = self.queue.pop(src)
+				self.queue.insert(tgt, song)
+			except:
+				return False
+			return True
+
 		index = 0
 		song = None
 		for each in self.queue:

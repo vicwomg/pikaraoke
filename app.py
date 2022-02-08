@@ -164,6 +164,19 @@ def queue_edit():
 		k.queue_clear()
 		flash("Cleared the queue!", "is-warning")
 		return redirect(url_for("queue"))
+	elif action == "move":
+		try:
+			id_from = request.args['from']
+			id_to = request.args['to']
+			id_size = request.args['size']
+		except:
+			flash("Error moving item inside queue: invalid-argument")
+
+		result = k.queue_edit(None, "move", src=id_from, tgt=id_to, size=id_size)
+		if result:
+			flash(f"Moved item inside queue {id_from}->{id_to}/{id_size} : is-success")
+		else:
+			flash(f"Error moving item inside queue {id_from}->{id_to}/{id_size}: is-danger")
 	else:
 		song = request.args["song"]
 		song = unquote(song)

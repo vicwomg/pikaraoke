@@ -236,16 +236,16 @@ body {
 		<a title="Stop Current Song" id="skip"><i class="icon icon-to-end"></i> </a>&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;
 		<span class="is-pulled-right">
       <a title="Volume Down" id="vol-down"><i class="icon icon-volume-down"></i> </a>
-      <a title="Volume Down" id="vol" contenteditable="true" onfocus="volume_changing=true"> {{ volume }} </a>&nbsp;
+      <a title="Set Volume" id="vol" style="cursor: pointer" contenteditable="true" onfocus="volume_changing=true"> {{ volume }} </a>&nbsp;
       <a title="Volume Up" id="vol-up"><i class="icon icon-volume-up"></i> </a>
     </span>
 	</p>
 
 	<div class="is-flex" style="justify-content: space-between">
 		<h4>Audio Delay (sec):</h4>
-		<a title="Decrease Audio Delay" id="delay-dec"><b class="icon">&#x2796;</b> </a>
-		<a title="Set Audio Delay" id="delay-val" contenteditable="true" onfocus="audiodelay_typing=true">0</a>
-		<a title="Increase Audio Delay" id="delay-inc"><b class="icon">&#x2795;</b> </a>
+		<h4 title="Decrease Audio Delay" id="delay-dec" class="tabs" style="color:red; cursor: pointer; font-weight: bold;"  >&#xff0d;</h4>
+		<h4 title="Set Audio Delay" id="delay-val" class="tabs" style="cursor: pointer" contenteditable="true" onfocus="audiodelay_typing=true">0</h4>
+		<h4 title="Increase Audio Delay" id="delay-inc" class="tabs" style="color:green; cursor: pointer; font-weight: bold" >&#xff0b;</h4>
 	</div>
 
 	<div class="is-flex" style="justify-content: space-between">
