@@ -1,3 +1,4 @@
+import hashlib
 import os, random, time, json
 import logging, socket, subprocess
 from pathlib import Path
@@ -593,6 +594,7 @@ class Karaoke:
 		else:
 			logging.info("'%s' is adding song to queue: %s" % (user, song_path))
 			self.queue.append({"user": user, "file": song_path, "title": self.filename_from_path(song_path)})
+			self.update_queue_hash()
 			return True
 
 	def queue_add_random(self, amount):
@@ -611,13 +613,19 @@ class Karaoke:
 				i += 1
 			songs.pop(r)
 			if len(songs) == 0:
+				self.update_queue_hash()
 				logging.warn("Ran out of songs!")
 				return False
+		self.update_queue_hash()
 		return True
+
+	def update_queue_hash(self):
+		self.queue_hash = hashlib.md5(json.dumps(self.queue).encode('utf-8')).hexdigest()
 
 	def queue_clear(self):
 		logging.info("Clearing queue!")
 		self.queue = []
+		self.update_queue_hash()
 		self.skip()
 
 	def queue_edit(self, song_name, action, **kwargs):
@@ -632,47 +640,44 @@ class Karaoke:
 				song = self.queue.pop(src)
 				self.queue.insert(tgt, song)
 			except:
+				logging.error("Invalid move song request: " + str(kwargs))
 				return False
-			return True
-
-		index = 0
-		song = None
-		for each in self.queue:
-			if song_name in each["file"]:
-				song = each
-				break
-			else:
-				index += 1
-		if song == None:
-			logging.error("Song not found in queue: " + song["file"])
-			return False
-		if action == "up":
-			if index < 1:
-				logging.warn("Song is up next, can't bump up in queue: " + song["file"])
-				return False
-			else:
-				logging.info("Bumping song up in queue: " + song["file"])
-				del self.queue[index]
-				self.queue.insert(index - 1, song)
-				return True
-		elif action == "down":
-			if index == len(self.queue) - 1:
-				logging.warn(
-					"Song is already last, can't bump down in queue: " + song["file"]
-				)
-				return False
-			else:
-				logging.info("Bumping song down in queue: " + song["file"])
-				del self.queue[index]
-				self.queue.insert(index + 1, song)
-				return True
-		elif action == "delete":
-			logging.info("Deleting song from queue: " + song["file"])
-			del self.queue[index]
-			return True
 		else:
-			logging.error("Unrecognized direction: " + action)
-			return False
+			index = 0
+			song = None
+			for each in self.queue:
+				if song_name in each["file"]:
+					song = each
+					break
+				else:
+					index += 1
+			if song == None:
+				logging.error("Song not found in queue: " + song["file"])
+				return False
+			if action == "up":
+				if index < 1:
+					logging.warn("Song is up next, can't bump up in queue: " + song["file"])
+					return False
+				else:
+					logging.info("Bumping song up in queue: " + song["file"])
+					del self.queue[index]
+					self.queue.insert(index - 1, song)
+			elif action == "down":
+				if index == len(self.queue) - 1:
+					logging.warn("Song is already last, can't bump down in queue: " + song["file"])
+					return False
+				else:
+					logging.info("Bumping song down in queue: " + song["file"])
+					del self.queue[index]
+					self.queue.insert(index + 1, song)
+			elif action == "delete":
+				logging.info("Deleting song from queue: " + song["file"])
+				del self.queue[index]
+			else:
+				logging.error("Unrecognized direction: " + action)
+				return False
+		self.update_queue_hash()
+		return True
 
 	def skip(self):
 		if self.is_file_playing():
@@ -857,6 +862,7 @@ class Karaoke:
 							isFirstSong = False
 						self.now_playing_user = self.queue[0]["user"]
 						self.queue.pop(0)
+						self.update_queue_hash()
 				elif not pygame.display.get_active() and not self.is_file_playing():
 					self.pygame_reset_screen()
 				self.handle_run_loop()

@@ -4,7 +4,7 @@
 <script src="/static/jquery.ui.touch-punch.min.js"></script>
 <script>
   var queue = [];
-  var previousQueue;
+  var queue_hash = 0;
   var dragging = null;
   function checkMobile() {
     let check = false;
@@ -14,26 +14,26 @@
   var isMobile = checkMobile();
 
   function getQueue() {
-    if(dragging==null) $.get('{{ url_for("get_queue") }}', function (data) {
-      newQueue =  JSON.parse(data);
-      if (!_.isEqual(newQueue, previousQueue)) {
-        queue = newQueue;
-        $("#auto-refresh").html(generateQueueHTML());
-        previousQueue = newQueue;
-        $('#auto-refresh').sortable({
-          disabled: isMobile,
-          tolerance: "pointer",
-          revert: true,
-          start: function( event, ui ){ dragging = ui.item.index() },
-          stop: function( event, ui ){ dragging = null },
-          update: function(event, ui){
-            var end_posi = ui.item.index();
-            $.get("/queue/edit?action=move&from=" + dragging + "&to=" + end_posi + "&size=" + queue.length)
-          }
-        });
+    if(dragging==null) $.get('/get_queue/'+queue_hash, function (data) {
+      if (!data) return;
+      [queue, queue_hash] =  JSON.parse(data);
+      $("#auto-refresh").html(generateQueueHTML());
+      $('#auto-refresh').sortable({
+        disabled: isMobile,
+        tolerance: "pointer",
+        revert: true,
+        start: function( event, ui ){ dragging = ui.item.index() },
+        stop: function( event, ui ){ dragging = null },
+        update: function(event, ui){
+          var end_posi = ui.item.index();
+          $.get("/queue/edit?action=move&from=" + dragging + "&to=" + end_posi + "&size=" + queue.length)
+        }
+      });
+      if(isMobile){
         $(".drag-starter").on("touchstart",  function(ev){ $('#auto-refresh').sortable("option", "disabled", false) });
         $(".drag-starter").on("touchend",    function(ev){ $('#auto-refresh').sortable("option", "disabled", true) });
         $(".drag-starter").on("touchcancel", function(ev){ $('#auto-refresh').sortable("option", "disabled", true)});
+        $(".drag-starter").css("background-color", '#71660b')
       }
     })
   }
@@ -122,7 +122,7 @@
   //on page load
   $(function () {
     getQueue();
-    setInterval(function() { getQueue() }, 2000);
+    setInterval(function() { getQueue() }, 1500);
   });
 </script>
 

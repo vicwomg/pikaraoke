@@ -138,12 +138,9 @@ def queue():
 	)
 
 
-@app.route("/get_queue")
-def get_queue():
-	if len(k.queue) >= 1:
-		return json.dumps(k.queue)
-	else:
-		return json.dumps([])
+@app.route("/get_queue/<last_hash>", methods = ["GET"])
+def get_queue(last_hash):
+	return json.dumps([k.queue, k.queue_hash]) if last_hash != k.queue_hash else ''
 
 
 @app.route("/queue/addrandom", methods = ["GET"])
