@@ -2,6 +2,11 @@
 <!-- <meta http-equiv="refresh" content="5" /> -->
 <script src="/static/jquery-ui.min.js"></script>
 <script src="/static/jquery.ui.touch-punch.min.js"></script>
+<style>
+  .drag-starter {
+    background-color: rgb(87, 78, 11);
+  }
+</style>
 <script>
   var queue = [];
   var queue_hash = 0;
@@ -33,7 +38,6 @@
         $(".drag-starter").on("touchstart",  function(ev){ $('#auto-refresh').sortable("option", "disabled", false) });
         $(".drag-starter").on("touchend",    function(ev){ $('#auto-refresh').sortable("option", "disabled", true) });
         $(".drag-starter").on("touchcancel", function(ev){ $('#auto-refresh').sortable("option", "disabled", true)});
-        $(".drag-starter").css("background-color", '#71660b')
       }
     })
   }

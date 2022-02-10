@@ -243,15 +243,15 @@ body {
 
 	<div class="is-flex" style="justify-content: space-between">
 		<h4>Audio Delay (sec):</h4>
-		<h4 title="Decrease Audio Delay" id="delay-dec" class="tabs" style="color:red; cursor: pointer; font-weight: bold;"  >&#xff0d;</h4>
-		<h4 title="Set Audio Delay" id="delay-val" class="tabs" style="cursor: pointer" contenteditable="true" onfocus="audiodelay_typing=true">0</h4>
-		<h4 title="Increase Audio Delay" id="delay-inc" class="tabs" style="color:green; cursor: pointer; font-weight: bold" >&#xff0b;</h4>
+		<h4 title="Decrease Audio Delay" id="delay-dec" class="tabs" style="margin:0; color:red; cursor: pointer; font-weight: bold; font-size:x-large;" >&#x2296;</h4>
+		<h4 title="Set Audio Delay" id="delay-val" class="tabs" style="padding-top:2px; margin:0; cursor: pointer" contenteditable="true" onfocus="audiodelay_typing=true">0</h4>
+		<h4 title="Increase Audio Delay" id="delay-inc" class="tabs" style="margin:0; color:green; cursor: pointer; font-weight:bold;font-size:x-large;" >&#x2295;</h4>
 	</div>
 
 	<div class="is-flex" style="justify-content: space-between">
 		<div><h4>Seek To:</h4></div>
-		<a id="seektrack-val">00:00:00</a>
-		<a id="seektrack-max">00:00:00</a>
+		<a style="padding-top:6px" id="seektrack-val">00:00:00</a>
+		<a style="padding-top:6px" id="seektrack-max">00:00:00</a>
 	</div>
 
 	<div style="width: 100%">
@@ -276,8 +276,7 @@ body {
 
 	{% if show_transpose %}
 	<!-- <div class="has-background-black-bis box control-box" style="max-width: 500px"> -->
-	<hr style="margin-top: 0.5em; margin-bottom: 0.5em;"/>
-	<div class="is-flex" style="justify-content: space-between">
+	<div class="is-flex" style="justify-content: space-between; padding-top: 1em">
 		<div>
 			<h4>Change Key</h4>
 		</div>
