@@ -347,6 +347,9 @@ def download():
 def qrcode():
     return send_file(k.qr_code_path, mimetype="image/png")
 
+@app.route("/logo")
+def logo():
+    return send_file(k.logo_path, mimetype="image/png")
 
 @app.route("/files/delete", methods=["GET"])
 def delete_file():
@@ -411,6 +414,13 @@ def edit_file():
             flash("Error: No filename parameters were specified!", "is-danger")
         return redirect(url_for("browse"))
 
+@app.route("/splash")
+def splash():
+    return render_template(
+        "splash.html",
+        blank_page=True,
+        url="http://" + request.host
+    )
 
 @app.route("/info")
 def info():

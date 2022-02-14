@@ -1,0 +1,85 @@
+{% extends 'base.html' %} {% block scripts %}
+<script>
+  function getNowPlaying() {
+    $.get('{{ url_for("nowplaying") }}', function (data) {
+      var obj = JSON.parse(data);
+      if (obj.up_next) {
+        $("#up-next").html(`
+            <p style="margin-bottom: 5px"><b class="has-text-white">Up next: </b>${obj.up_next}</p>
+            <p class="has-text-success has-text-right"><b class="has-text-white">Next singer: </b><i class="icon icon-mic-1" title="Next singer"></i>${obj.next_user}</p>
+          `);
+      } else {
+        $("#up-next").html("No song is queued.");
+      }
+    });
+  }
+
+  $(function () {
+    getNowPlaying();
+    setInterval(getNowPlaying, 1000);
+  });
+</script>
+{% endblock %} {% block body %}
+<div class="flex-container is-size-4">
+  <div class="flex-item">
+    <div id="up-next" class="has-text-warning"></div>
+  </div>
+  <div class="flex-item">
+    <div class="logo-container">
+      <img class="logo" src="{{ url_for('logo') }}" width="400px" alt="logo" />
+    </div>
+  </div>
+  <div class="flex-item">
+    <img
+      src="{{ url_for('qrcode') }}"
+      width="100px"
+      style="image-rendering: pixelated"
+      alt="qrcode"
+    />
+    <span class="is-size-4">&nbsp;Connect to pikaraoke at: {{ url }}</span>
+  </div>
+</div>
+
+<style>
+  body {
+    background-color: black;
+  }
+  .flex-container {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    align-content: stretch;
+    align-items: flex-start;
+    height: 100vh;
+  }
+  .flex-item {
+    padding: 10px 20px;
+  }
+  .flex-item:nth-child(1) {
+    flex: 0 1 auto;
+    align-self: flex-end;
+  }
+  .flex-item:nth-child(2) {
+    flex: 1 1 auto;
+    align-self: center;
+    justify-content: center;
+  }
+  .flex-item:nth-child(3) {
+    flex: 0 1 auto;
+    align-self: auto;
+  }
+
+  body {
+    background-color: black;
+  }
+  .logo-container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+  }
+</style>
+
+{% endblock %}
