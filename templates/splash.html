@@ -4,12 +4,17 @@
     $.get('{{ url_for("nowplaying") }}', function (data) {
       var obj = JSON.parse(data);
       if (obj.up_next) {
+        // {# MSG: Label for the next song to be played in the queue. #}
+        up_next_text = "{{ _('Up next:') }}"
+        // {# MSG: Label of the singer for next song to be played in the queue. (Who added it to the queue.) #}
+        next_singer_text = "{{ _('Next singer:') }}"
         $("#up-next").html(`
-            <p style="margin-bottom: 5px"><b class="has-text-white">Up next: </b>${obj.up_next}</p>
-            <p class="has-text-success has-text-right"><b class="has-text-white">Next singer: </b><i class="icon icon-mic-1" title="Next singer"></i>${obj.next_user}</p>
+            <p style="margin-bottom: 5px"><b class="has-text-white">${up_next_text} </b>${obj.up_next}</p>
+            <p class="has-text-success has-text-right"><b class="has-text-white">${next_singer_text} </b><i class="icon icon-mic-1" title="Next singer"></i>${obj.next_user}</p>
           `);
       } else {
-        $("#up-next").html("No song is queued.");
+        // {# MSG: Message when the queue of songs is empty.  Shown instead of what the next song is. #}
+        $("#up-next").html("{{ _('No song is queued.') }}");
       }
     });
   }

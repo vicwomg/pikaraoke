@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2022-04-28 09:43-0400\n"
+"POT-Creation-Date: 2022-04-28 09:57-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -151,7 +151,9 @@ msgid "Next singer"
 msgstr ""
 
 #. Alternative text for the "Up next" section if no more songs are queued up.
-#: templates/home.html:42
+#. Message when the queue of songs is empty.  Shown instead of what the next
+#. song is.
+#: templates/home.html:42 templates/splash.html:17
 msgid "No song is queued."
 msgstr ""
 
@@ -511,5 +513,16 @@ msgstr ""
 #. Label displayed before the YouTube url for the chosen search result.
 #: templates/search.html:407
 msgid "Link:"
+msgstr ""
+
+#. Label for the next song to be played in the queue.
+#: templates/splash.html:8
+msgid "Up next:"
+msgstr ""
+
+#. Label of the singer for next song to be played in the queue. (Who added it
+#. to the queue.)
+#: templates/splash.html:10
+msgid "Next singer:"
 msgstr ""
 
