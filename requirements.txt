@@ -13,5 +13,6 @@ psutil
 unidecode
 requests
 flask-paginate==2021.10.29
+jinja2==3.0.3 # Avoid escape issue: https://github.com/sphinx-doc/sphinx/issues/10289
 Babel==2.9.1
 Flask-Babel==2.0.0

@@ -5,19 +5,18 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: 1.1.1\n"
+"Project-Id-Version:  1.1.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2022-04-28 09:43-0400\n"
+"POT-Creation-Date: 2022-04-28 09:57-0400\n"
 "PO-Revision-Date: 2022-04-28 09:44-0400\n"
 "Last-Translator: \n"
-"Language-Team: zh_Hans_CN <LL@li.org>\n"
 "Language: zh_CN\n"
+"Language-Team: zh_Hans_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.9.1\n"
-"X-Generator: Poedit 3.0.1\n"
 
 #. Message shown after logging in as admin successfully
 #: app.py:94
@@ -40,11 +39,9 @@ msgstr "浏览"
 #: templates/base.html:80
 #, python-format
 msgid ""
-"Do you want to change the name of the person using this device? This "
-"will show up on queued songs. Current: %(currentUser)s"
-msgstr ""
-"是否更改此设备上的用户名称？它将显示在歌曲列表中。当下用户: "
-"%(currentUser)s"
+"Do you want to change the name of the person using this device? This will"
+" show up on queued songs. Current: %(currentUser)s"
+msgstr "是否更改此设备上的用户名称？它将显示在歌曲列表中。当下用户: %(currentUser)s"
 
 #. Navigation link for the home page.
 #: templates/base.html:143
@@ -155,7 +152,9 @@ msgid "Next singer"
 msgstr "下一个歌手"
 
 #. Alternative text for the "Up next" section if no more songs are queued up.
-#: templates/home.html:42
+#. Message when the queue of songs is empty.  Shown instead of what the next
+#. song is.
+#: templates/home.html:42 templates/splash.html:17
 msgid "No song is queued."
 msgstr "没有下一首歌"
 
@@ -236,8 +235,8 @@ msgstr "确定重启"
 #. Confirmation text whe the user asks to update the Youtube-dl tool.
 #: templates/info.html:33
 msgid ""
-"Are you sure you want to update Youtube-dl right now? Current and "
-"pending downloads may fail."
+"Are you sure you want to update Youtube-dl right now? Current and pending"
+" downloads may fail."
 msgstr "确定升级Youtube-dl？会终止正在下载的音乐"
 
 #. Title of the information page.
@@ -313,9 +312,7 @@ msgstr "重新扫描歌曲目录"
 msgid ""
 "You should only need to do this if you manually copied files to the "
 "download directory while pikaraoke was running."
-msgstr ""
-"只有当卡拉OK派在运行，而同时你又想手动添加歌曲到下载目录里的时候你才需要"
-"做这一步"
+msgstr "只有当卡拉OK派在运行，而同时你又想手动添加歌曲到下载目录里的时候你才需要做这一步"
 
 #. Text explaining why you might want to update youtube-dl.
 #: templates/info.html:112
@@ -390,8 +387,8 @@ msgstr "拓展Raspberry Pi文件系统"
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
 "is larger than 4GB,\n"
-"    you may want to expand the filesystem to utilize the remaining "
-"space. You only need to do this once.\n"
+"    you may want to expand the filesystem to utilize the remaining space."
+" You only need to do this once.\n"
 "    This will reboot the system."
 msgstr ""
 "如果你刚刚安装预设卡拉OK派图片而且你的SD卡超过4GB,\n"
@@ -516,9 +513,7 @@ msgstr "在YouTube上搜索<small><i>'%(search_term)s'</i></small>"
 #: templates/search.html:387
 #, python-format
 msgid "Search results for <small><i>'%(search_string)s'</i></small>"
-msgstr ""
-"搜索：<small><i>'%(search_string)s'</i></small> （点击下方查看全部搜索结"
-"果）"
+msgstr "搜索：<small><i>'%(search_string)s'</i></small> （点击下方查看全部搜索结果）"
 
 #. Help text which explains that the select box above can be operated to select
 #. different search results.
@@ -530,3 +525,15 @@ msgstr ""
 #: templates/search.html:407
 msgid "Link:"
 msgstr "YouTube歌曲链接"
+
+#. Label for the next song to be played in the queue.
+#: templates/splash.html:8
+msgid "Up next:"
+msgstr "下一首歌："
+
+#. Label of the singer for next song to be played in the queue. (Who added it
+#. to the queue.)
+#: templates/splash.html:10
+msgid "Next singer:"
+msgstr "下一个歌手："
+
