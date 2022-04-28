@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2022-04-28 09:57-0400\n"
+"POT-Creation-Date: 2022-04-28 10:09-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -281,7 +281,7 @@ msgstr ""
 #. The version of the program "Youtube-dl".
 #: templates/info.html:86
 #, python-format
-msgid "Youtube-dl version: %(youtubedl_version)s"
+msgid "Youtube-dl (yt-dlp) version: %(youtubedl_version)s"
 msgstr ""
 
 #. The version of Pikaraoke running right now.
