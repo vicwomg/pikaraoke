@@ -1,14 +1,14 @@
 # Translations template for PROJECT.
-# Copyright (C) 2021 ORGANIZATION
+# Copyright (C) 2022 ORGANIZATION
 # This file is distributed under the same license as the PROJECT project.
-# FIRST AUTHOR <EMAIL@ADDRESS>, 2021.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
 #
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2021-12-07 23:39-0500\n"
+"POT-Creation-Date: 2022-04-28 09:43-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -30,7 +30,7 @@ msgstr ""
 #. Title of the files page.
 #. Navigation link for the page where the user can add existing songs to the
 #. queue.
-#: app.py:325 templates/base.html:158
+#: app.py:325 templates/base.html:159
 msgid "Browse"
 msgstr ""
 
@@ -43,19 +43,19 @@ msgid ""
 msgstr ""
 
 #. Navigation link for the home page.
-#: templates/base.html:142
+#: templates/base.html:143
 msgid "Home"
 msgstr ""
 
 #. Navigation link for the queue page.
 #. Title of the page showing the currently queued songs.
-#: templates/base.html:148 templates/queue.html:117
+#: templates/base.html:149 templates/queue.html:117
 msgid "Queue"
 msgstr ""
 
 #. Navigation link for the search page add songs to the queue.
 #. Submit button on the search form for searching YouTube.
-#: templates/base.html:153 templates/search.html:295
+#: templates/base.html:154 templates/search.html:295
 msgid "Search"
 msgstr ""
 
@@ -208,7 +208,7 @@ msgid "Change Key"
 msgstr ""
 
 #. Label on the button to confirm the change in key/pitch of the playing song.
-#: templates/home.html:220
+#: templates/home.html:219
 msgid "Change"
 msgstr ""
 
@@ -218,13 +218,13 @@ msgid "Are you sure you want to quit?"
 msgstr ""
 
 #. Confirmation text whe the user starts to turn off the machine running
-#. PiKaraoke.
+#. Pikaraoke.
 #: templates/info.html:15
 msgid "Are you sure you want to shut down?"
 msgstr ""
 
 #. Confirmation text whe the user starts to reboot the machine running
-#. PiKaraoke.
+#. Pikaraoke.
 #: templates/info.html:23
 msgid "Are you sure you want to reboot?"
 msgstr ""
@@ -253,24 +253,24 @@ msgstr ""
 msgid "Handy URL QR code to share with a pal:"
 msgstr ""
 
-#. Header of the information section about the computer running PiKaraoke.
+#. Header of the information section about the computer running Pikaraoke.
 #: templates/info.html:77
 msgid "System Info"
 msgstr ""
 
-#. The CPU usage of the computer running PiKaraoke.
+#. The CPU usage of the computer running Pikaraoke.
 #: templates/info.html:80
 #, python-format
 msgid "CPU: %(cpu)s"
 msgstr ""
 
-#. The disk usage of the computer running PiKaraoke. Used by downloaded songs.
+#. The disk usage of the computer running Pikaraoke. Used by downloaded songs.
 #: templates/info.html:82
 #, python-format
 msgid "Disk Usage: %(disk)s"
 msgstr ""
 
-#. The memory (RAM) usiage of the computer running PiKaraoke.
+#. The memory (RAM) usiage of the computer running Pikaraoke.
 #: templates/info.html:84
 #, python-format
 msgid "Memory: %(memory)s"
@@ -282,10 +282,10 @@ msgstr ""
 msgid "Youtube-dl version: %(youtubedl_version)s"
 msgstr ""
 
-#. The version of PiKaraoke running right now.
+#. The version of Pikaraoke running right now.
 #: templates/info.html:88
 #, python-format
-msgid "PiKaraoke version: %(pikaraoke_version)s"
+msgid "Pikaraoke version: %(pikaraoke_version)s"
 msgstr ""
 
 #. Title of the updates section.
@@ -293,13 +293,13 @@ msgstr ""
 msgid "Updates"
 msgstr ""
 
-#. Label before a link which forces PiKaraoke to rescan and pick up any new
+#. Label before a link which forces Pikaraoke to rescan and pick up any new
 #. songs.
 #: templates/info.html:97
 msgid "Refresh the song list:"
 msgstr ""
 
-#. Text on the link which forces PiKaraoke to rescan and pick up any new songs.
+#. Text on the link which forces Pikaraoke to rescan and pick up any new songs.
 #: templates/info.html:102
 msgid "Rescan song directory"
 msgstr ""
@@ -321,13 +321,13 @@ msgid ""
 msgstr ""
 
 #. Text for the link which will try and update youtube-dl on the machine
-#. running PiKaraoke.
+#. running Pikaraoke.
 #: templates/info.html:118
 msgid "Update youtube-dl"
 msgstr ""
 
 #. Help text which explains why updating youtube-dl can fail.  The log is a
-#. file on the machine running PiKaraoke.
+#. file on the machine running Pikaraoke.
 #: templates/info.html:124
 msgid ""
 "This update link above may fail if you don't have proper file "
@@ -336,7 +336,7 @@ msgid ""
 msgstr ""
 
 #. Title of the section on shutting down / turning off the machine running
-#. PiKaraoke.
+#. Pikaraoke.
 #: templates/info.html:131
 msgid "Shutdown"
 msgstr ""
@@ -348,18 +348,18 @@ msgid ""
 "data corruption."
 msgstr ""
 
-#. Text for button which turns off PiKaraoke for everyone using it at your
+#. Text for button which turns off Pikaraoke for everyone using it at your
 #. house.
 #: templates/info.html:140
-msgid "Quit PiKaraoke"
+msgid "Quit Pikaraoke"
 msgstr ""
 
-#. Text for button which reboots the machine running PiKaraoke.
+#. Text for button which reboots the machine running Pikaraoke.
 #: templates/info.html:143
 msgid "Reboot System"
 msgstr ""
 
-#. Text for button which turn soff the machine running PiKaraoke.
+#. Text for button which turn soff the machine running Pikaraoke.
 #: templates/info.html:146
 msgid "Shutdown System"
 msgstr ""

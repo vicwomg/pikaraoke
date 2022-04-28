@@ -11,7 +11,7 @@
 
     $("#shutdown-link").click(function (e) {
       e.preventDefault();
-      // {# MSG: Confirmation text whe the user starts to turn off the machine running PiKaraoke. #}
+      // {# MSG: Confirmation text whe the user starts to turn off the machine running Pikaraoke. #}
       if (window.confirm("{{ _('Are you sure you want to shut down?') }}")) {
         location.href = this.href;
       }
@@ -19,7 +19,7 @@
 
     $("#restart-link").click(function (e) {
       e.preventDefault();
-      // {# MSG: Confirmation text whe the user starts to reboot the machine running PiKaraoke. #}
+      // {# MSG: Confirmation text whe the user starts to reboot the machine running Pikaraoke. #}
       if (window.confirm("{{ _('Are you sure you want to reboot?') }}")) {
         location.href = this.href;
       }
@@ -73,19 +73,19 @@
 
 <hr />
 
-{# MSG: Header of the information section about the computer running PiKaraoke. #}
+{# MSG: Header of the information section about the computer running Pikaraoke. #}
 <h1>{% trans %}System Info{% endtrans %}</h1>
 <ul>
-  {# MSG: The CPU usage of the computer running PiKaraoke. #}
+  {# MSG: The CPU usage of the computer running Pikaraoke. #}
   <li>{% trans %}CPU: {{ cpu }}{% endtrans %}</li>
-  {# MSG: The disk usage of the computer running PiKaraoke. Used by downloaded songs. #}
+  {# MSG: The disk usage of the computer running Pikaraoke. Used by downloaded songs. #}
   <li>{% trans %}Disk Usage: {{ disk }}{% endtrans %}</li>
-  {# MSG: The memory (RAM) usiage of the computer running PiKaraoke. #}
+  {# MSG: The memory (RAM) usiage of the computer running Pikaraoke. #}
   <li>{% trans %}Memory: {{ memory }}{% endtrans %}</li>
   {# MSG: The version of the program "Youtube-dl". #}
   <li>{% trans %}Youtube-dl version: {{ youtubedl_version }}{% endtrans %}</li>
-  {# MSG: The version of PiKaraoke running right now. #}
-  <li>{% trans %}PiKaraoke version: {{ pikaraoke_version }}{% endtrans %}</li>
+  {# MSG: The version of Pikaraoke running right now. #}
+  <li>{% trans %}Pikaraoke version: {{ pikaraoke_version }}{% endtrans %}</li>
 </ul>
 
 <hr />
@@ -93,12 +93,12 @@
 {% if admin %}
 {# MSG: Title of the updates section. #}
 <h1>{% trans %}Updates{% endtrans %}</h1>
-{# MSG: Label before a link which forces PiKaraoke to rescan and pick up any new songs. #}
+{# MSG: Label before a link which forces Pikaraoke to rescan and pick up any new songs. #}
 <p>{% trans %}Refresh the song list:{% endtrans %}</p> 
 <ul>
   <li>
     <a href="/refresh"
-    {# MSG: Text on the link which forces PiKaraoke to rescan and pick up any new songs. #}
+    {# MSG: Text on the link which forces Pikaraoke to rescan and pick up any new songs. #}
       >{% trans %}Rescan song directory{% endtrans %}</a
     >
   </li>
@@ -114,20 +114,20 @@
 <ul>
   <li>
     <a id="update-ytdl-link" href="{{ url_for('update_ytdl') }}"
-    {# MSG: Text for the link which will try and update youtube-dl on the machine running PiKaraoke. #}
+    {# MSG: Text for the link which will try and update youtube-dl on the machine running Pikaraoke. #}
       >{% trans %}Update youtube-dl{% endtrans %}</a
     >
   </li>
 </ul>
 <p class="help">
-  {# MSG: Help text which explains why updating youtube-dl can fail.  The log is a file on the machine running PiKaraoke. #}
+  {# MSG: Help text which explains why updating youtube-dl can fail.  The log is a file on the machine running Pikaraoke. #}
   {% trans -%}
     This update link above may fail if you don't have proper file permissions.
     Check the pikaraoke log for errors. 
   {%- endtrans %}
 </p>
 
-{# MSG: Title of the section on shutting down / turning off the machine running PiKaraoke. #}
+{# MSG: Title of the section on shutting down / turning off the machine running Pikaraoke. #}
 <h1>{% trans %}Shutdown{% endtrans %}</h1>
 <p>
   {# MSG: Explainitory text which explains why to use the shutdown link. #}
@@ -136,13 +136,13 @@
   {%- endtrans %}
 </p>
 <ul>
-  {# MSG: Text for button which turns off PiKaraoke for everyone using it at your house. #}
-  <li><a id="quit-link" href="{{ url_for('quit') }}">{% trans %}Quit PiKaraoke{% endtrans %}</a></li>
+  {# MSG: Text for button which turns off Pikaraoke for everyone using it at your house. #}
+  <li><a id="quit-link" href="{{ url_for('quit') }}">{% trans %}Quit Pikaraoke{% endtrans %}</a></li>
   {% if is_pi %}
-    {# MSG: Text for button which reboots the machine running PiKaraoke. #}
+    {# MSG: Text for button which reboots the machine running Pikaraoke. #}
     <li><a id="restart-link" href="{{ url_for('reboot') }}">{% trans %}Reboot System{% endtrans %}</a></li>
     <li>
-      {# MSG: Text for button which turn soff the machine running PiKaraoke. #}
+      {# MSG: Text for button which turn soff the machine running Pikaraoke. #}
       <a id="shutdown-link" href="{{ url_for('shutdown') }}">{% trans %}Shutdown System{% endtrans %}</a>
     </li>
   {% endif %}

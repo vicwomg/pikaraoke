@@ -5,18 +5,19 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version:  1.1.1\n"
+"Project-Id-Version: 1.1.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2021-12-07 23:39-0500\n"
-"PO-Revision-Date: 2021-12-07 23:35-0500\n"
+"POT-Creation-Date: 2022-04-28 09:43-0400\n"
+"PO-Revision-Date: 2022-04-28 09:44-0400\n"
 "Last-Translator: \n"
-"Language: zh_CN\n"
 "Language-Team: zh_Hans_CN <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0\n"
+"Language: zh_CN\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.9.1\n"
+"X-Generator: Poedit 3.0.1\n"
 
 #. Message shown after logging in as admin successfully
 #: app.py:94
@@ -31,7 +32,7 @@ msgstr "管理员密码错误"
 #. Title of the files page.
 #. Navigation link for the page where the user can add existing songs to the
 #. queue.
-#: app.py:325 templates/base.html:158
+#: app.py:325 templates/base.html:159
 msgid "Browse"
 msgstr "浏览"
 
@@ -39,24 +40,26 @@ msgstr "浏览"
 #: templates/base.html:80
 #, python-format
 msgid ""
-"Do you want to change the name of the person using this device? This will"
-" show up on queued songs. Current: %(currentUser)s"
-msgstr "是否更改此设备上的用户名称？它将显示在歌曲列表中。当下用户: %(currentUser)s"
+"Do you want to change the name of the person using this device? This "
+"will show up on queued songs. Current: %(currentUser)s"
+msgstr ""
+"是否更改此设备上的用户名称？它将显示在歌曲列表中。当下用户: "
+"%(currentUser)s"
 
 #. Navigation link for the home page.
-#: templates/base.html:142
+#: templates/base.html:143
 msgid "Home"
 msgstr "主页"
 
 #. Navigation link for the queue page.
 #. Title of the page showing the currently queued songs.
-#: templates/base.html:148 templates/queue.html:117
+#: templates/base.html:149 templates/queue.html:117
 msgid "Queue"
 msgstr "列表"
 
 #. Navigation link for the search page add songs to the queue.
 #. Submit button on the search form for searching YouTube.
-#: templates/base.html:153 templates/search.html:295
+#: templates/base.html:154 templates/search.html:295
 msgid "Search"
 msgstr "搜索"
 
@@ -209,7 +212,7 @@ msgid "Change Key"
 msgstr "升降调"
 
 #. Label on the button to confirm the change in key/pitch of the playing song.
-#: templates/home.html:220
+#: templates/home.html:219
 msgid "Change"
 msgstr "确认更改声调"
 
@@ -219,13 +222,13 @@ msgid "Are you sure you want to quit?"
 msgstr "确定退出"
 
 #. Confirmation text whe the user starts to turn off the machine running
-#. PiKaraoke.
+#. Pikaraoke.
 #: templates/info.html:15
 msgid "Are you sure you want to shut down?"
 msgstr "确定关闭"
 
 #. Confirmation text whe the user starts to reboot the machine running
-#. PiKaraoke.
+#. Pikaraoke.
 #: templates/info.html:23
 msgid "Are you sure you want to reboot?"
 msgstr "确定重启"
@@ -233,8 +236,8 @@ msgstr "确定重启"
 #. Confirmation text whe the user asks to update the Youtube-dl tool.
 #: templates/info.html:33
 msgid ""
-"Are you sure you want to update Youtube-dl right now? Current and pending"
-" downloads may fail."
+"Are you sure you want to update Youtube-dl right now? Current and "
+"pending downloads may fail."
 msgstr "确定升级Youtube-dl？会终止正在下载的音乐"
 
 #. Title of the information page.
@@ -254,24 +257,24 @@ msgstr "%(site_title)s 的网址"
 msgid "Handy URL QR code to share with a pal:"
 msgstr "快捷QR码（用于分享给朋友）"
 
-#. Header of the information section about the computer running PiKaraoke.
+#. Header of the information section about the computer running Pikaraoke.
 #: templates/info.html:77
 msgid "System Info"
 msgstr "系统信息"
 
-#. The CPU usage of the computer running PiKaraoke.
+#. The CPU usage of the computer running Pikaraoke.
 #: templates/info.html:80
 #, python-format
 msgid "CPU: %(cpu)s"
 msgstr "CPU: %(cpu)s"
 
-#. The disk usage of the computer running PiKaraoke. Used by downloaded songs.
+#. The disk usage of the computer running Pikaraoke. Used by downloaded songs.
 #: templates/info.html:82
 #, python-format
 msgid "Disk Usage: %(disk)s"
 msgstr "磁盘使用：%(disk)s"
 
-#. The memory (RAM) usiage of the computer running PiKaraoke.
+#. The memory (RAM) usiage of the computer running Pikaraoke.
 #: templates/info.html:84
 #, python-format
 msgid "Memory: %(memory)s"
@@ -283,10 +286,10 @@ msgstr "内存: %(memory)s"
 msgid "Youtube-dl version: %(youtubedl_version)s"
 msgstr "Youtube-dl 版本: %(youtubedl_version)s"
 
-#. The version of PiKaraoke running right now.
+#. The version of Pikaraoke running right now.
 #: templates/info.html:88
 #, python-format
-msgid "PiKaraoke version: %(pikaraoke_version)s"
+msgid "Pikaraoke version: %(pikaraoke_version)s"
 msgstr "卡拉OK派 版本: %(pikaraoke_version)s"
 
 #. Title of the updates section.
@@ -294,13 +297,13 @@ msgstr "卡拉OK派 版本: %(pikaraoke_version)s"
 msgid "Updates"
 msgstr "更新"
 
-#. Label before a link which forces PiKaraoke to rescan and pick up any new
+#. Label before a link which forces Pikaraoke to rescan and pick up any new
 #. songs.
 #: templates/info.html:97
 msgid "Refresh the song list:"
 msgstr "刷新歌曲列表"
 
-#. Text on the link which forces PiKaraoke to rescan and pick up any new songs.
+#. Text on the link which forces Pikaraoke to rescan and pick up any new songs.
 #: templates/info.html:102
 msgid "Rescan song directory"
 msgstr "重新扫描歌曲目录"
@@ -310,7 +313,9 @@ msgstr "重新扫描歌曲目录"
 msgid ""
 "You should only need to do this if you manually copied files to the "
 "download directory while pikaraoke was running."
-msgstr "只有当卡拉OK派在运行，而同时你又想手动添加歌曲到下载目录里的时候你才需要做这一步"
+msgstr ""
+"只有当卡拉OK派在运行，而同时你又想手动添加歌曲到下载目录里的时候你才需要"
+"做这一步"
 
 #. Text explaining why you might want to update youtube-dl.
 #: templates/info.html:112
@@ -324,13 +329,13 @@ msgstr ""
 "现有版本是: \"%(youtubedl_version)s\""
 
 #. Text for the link which will try and update youtube-dl on the machine
-#. running PiKaraoke.
+#. running Pikaraoke.
 #: templates/info.html:118
 msgid "Update youtube-dl"
 msgstr "更新 youtube-dl"
 
 #. Help text which explains why updating youtube-dl can fail.  The log is a
-#. file on the machine running PiKaraoke.
+#. file on the machine running Pikaraoke.
 #: templates/info.html:124
 msgid ""
 "This update link above may fail if you don't have proper file "
@@ -341,7 +346,7 @@ msgstr ""
 "    查看卡拉OK派的错误日志以检查错误"
 
 #. Title of the section on shutting down / turning off the machine running
-#. PiKaraoke.
+#. Pikaraoke.
 #: templates/info.html:131
 msgid "Shutdown"
 msgstr "关闭"
@@ -353,18 +358,18 @@ msgid ""
 "data corruption."
 msgstr ""
 
-#. Text for button which turns off PiKaraoke for everyone using it at your
+#. Text for button which turns off Pikaraoke for everyone using it at your
 #. house.
 #: templates/info.html:140
-msgid "Quit PiKaraoke"
+msgid "Quit Pikaraoke"
 msgstr "退出卡拉OK派"
 
-#. Text for button which reboots the machine running PiKaraoke.
+#. Text for button which reboots the machine running Pikaraoke.
 #: templates/info.html:143
 msgid "Reboot System"
 msgstr "重启系统"
 
-#. Text for button which turn soff the machine running PiKaraoke.
+#. Text for button which turn soff the machine running Pikaraoke.
 #: templates/info.html:146
 msgid "Shutdown System"
 msgstr "关机"
@@ -385,8 +390,8 @@ msgstr "拓展Raspberry Pi文件系统"
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
 "is larger than 4GB,\n"
-"    you may want to expand the filesystem to utilize the remaining space."
-" You only need to do this once.\n"
+"    you may want to expand the filesystem to utilize the remaining "
+"space. You only need to do this once.\n"
 "    This will reboot the system."
 msgstr ""
 "如果你刚刚安装预设卡拉OK派图片而且你的SD卡超过4GB,\n"
@@ -511,7 +516,9 @@ msgstr "在YouTube上搜索<small><i>'%(search_term)s'</i></small>"
 #: templates/search.html:387
 #, python-format
 msgid "Search results for <small><i>'%(search_string)s'</i></small>"
-msgstr "搜索：<small><i>'%(search_string)s'</i></small> （点击下方查看全部搜索结果）"
+msgstr ""
+"搜索：<small><i>'%(search_string)s'</i></small> （点击下方查看全部搜索结"
+"果）"
 
 #. Help text which explains that the select box above can be operated to select
 #. different search results.
@@ -523,4 +530,3 @@ msgstr ""
 #: templates/search.html:407
 msgid "Link:"
 msgstr "YouTube歌曲链接"
-
