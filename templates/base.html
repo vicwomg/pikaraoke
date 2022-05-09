@@ -65,7 +65,7 @@
 
       // handle current user display
       var currentUser = Cookies.get("user");
-    
+
       if (currentUser) {
         $("#current-user span").text(currentUser)
         $("#current-user").removeClass("is-hidden");
@@ -74,7 +74,12 @@
       $('#current-user').click(function(e) {
         e.preventDefault();
         let name = window.prompt(
-          "Do you want to change the name of the person using this device? This will show up on queued songs. Current: " + currentUser
+          // Use a javascript format string, so translators only need to see a regular
+          // parametric translation instead of asking them to create valid javascript template.
+          // {# MSG: Prompt when changing the current profile name. #}
+          `{% trans currentUser="${currentUser}" -%}
+            Do you want to change the name of the person using this device? This will show up on queued songs. Current: {{ currentUser }}
+          {%- endtrans %}`
         );
         if (name) {
           Cookies.set("user", name, { expires: 3650 })
@@ -134,20 +139,24 @@
       <div class="navbar-brand" id="brand" style="padding-left: 10px">
         <a id="home" class="navbar-item" href="{{ url_for('home') }}">
           <i class="icon icon-home-2" title="Home"></i>
-          <span>Home</span>  
+          {# MSG: Navigation link for the home page. #}
+          <span>{% trans %}Home{% endtrans %}</span>
         </a>
 
         <a id="queue" class="navbar-item" href="{{ url_for('queue') }}">
           <i class="icon icon-list-numbered" title="Queue"></i>
-          <span>Queue</span>  
+          {# MSG: Navigation link for the queue page. #}
+          <span>{% trans %}Queue{% endtrans %}</span>
         </a>
         <a id="search" class="navbar-item" href="{{ url_for('search') }}">
           <i class="icon icon-search-1" title="Search"></i>
-          <span>Search</span>  
+          {# MSG: Navigation link for the search page add songs to the queue. #}
+          <span>{% trans %}Search{% endtrans %}</span>
         </a>
         <a id="browse" class="navbar-item" href="{{ url_for('browse') }}">
           <i class="icon icon-folder-open-empty" title="Browse"></i>
-          <span>Browse</span>  
+          {# MSG: Navigation link for the page where the user can add existing songs to the queue. #}
+          <span>{% trans %}Browse{% endtrans %}</span>
         </a>
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
           <span aria-hidden="true"></span>
@@ -163,7 +172,7 @@
           </a>
           <a id="info" class="navbar-item" href="{{ url_for('info') }}">
             <i class="icon icon-info-circled-1" title="Info"></i>
-            <span>Pikaraoke</span>&nbsp;&nbsp; 
+            <span>Pikaraoke</span>&nbsp;&nbsp;
           </a>
         </div>
       </div>

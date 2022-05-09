@@ -25,7 +25,8 @@
     });
     $('.confirm-delete').click(function (e) {
       e.preventDefault();
-      if (window.confirm("Are you sure you want to delete this song from the library?")) {
+      // {# MSG: Confirmation prompt when the user deletes a song. #}
+      if (window.confirm("{{ _('Are you sure you want to delete this song from the library?') }}")) {
         location.href = this.href;
       }
     });
@@ -85,7 +86,8 @@
         });
       }
       else {
-        suggestions = "<li>No suggestion!</li>";
+        // {# MSG: Warning when no suggested tracks are found for a search. #}
+        suggestions = "<li>{{ _('No suggestion!') }}</li>";
         console.log("No suggestion!")
       }
       $(results_div).html("<ul>" + suggestions + "</ul>");
@@ -99,7 +101,8 @@
 {% endblock %}
 
 {% block header %}
-<h1>{% block title %}Edit Song{% endblock %}</h1>
+{# MSG: Page title for the page where a song can be edited. #}
+<h1>{% block title %}{% trans %}Edit Song{% endtrans %}{% endblock %}</h1>
 {% endblock %}
 
 {% block content %}
@@ -111,27 +114,39 @@
       <p class='has-text-warning'>{{ filename_from_path(song.decode('utf-8')) }} </p>
     </div>
     <input value="{{ song.decode('utf-8') }}" type="hidden" name='old_file_name'>
-    <label class="label">Edit Song Name</label>
+    {# MSG: Label on the control to edit the song's name #}
+    <label class="label">{% trans %}Edit Song Name{% endtrans %}</label>
     <div class="field">
       <input autocomplete="off" id="new_file_name" class="input" type="text" name="new_file_name"
         value="{{ filename_from_path(song.decode('utf-8')) }}"></input>
     </div>
     <ul>
-      <li><a id='remove-karaoke'>Auto-format</a></li>
-      <li><a id='swap-order'>Swap artist/song order</a></li>
+      {# MSG: Label on button which auto formats the song's title. #}
+      <li><a id='remove-karaoke'>{% trans %}Auto-format{% endtrans %}</a></li>
+      {# MSG: Label on button which swaps the order of the artist and song in the title. #}
+      <li><a id='swap-order'>{% trans %}Swap artist/song order{% endtrans %}</a></li>
+      {# MSG: Label on button which loads results from the website Last.fm and suggests titles based on matches there. #}
       <li><a id='suggest-title'>Suggest from Last.fm</a>
         <span class="button is-loading is-hidden suggest_loader" style="border:0;background-color:transparent;"></span>
         <span id="suggest_results"></span>
       </li>
     </ul>
     <div class="field">
-      <button class="button is-primary" id="search-button" type="submit">Save</button>
+      <button class="button is-primary" id="search-button" type="submit">
+        {# MSG: Label on button which saves the changes. #}
+        {%- trans %}Save{% endtrans -%}
+      </button>
     </div>
   </form>
 </div>
 
 <hr>
 <a class="edit-button confirm-delete has-text-danger is-pulled-right"
-  href="{{url_for('delete_file')}}?song={{url_escape(song)}}"><i class="icon icon-trash-empty"></i>Delete this song</a><br>
+  href="{{url_for('delete_file')}}?song={{url_escape(song)}}"><i class="icon icon-trash-empty"></i>
+  {# MSG: Label on button which deletes the current song. #}
+  {%- trans -%}
+    Delete this song
+  {%- endtrans -%}
+</a><br>
 
 {% endblock %}
