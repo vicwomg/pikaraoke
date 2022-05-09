@@ -9,56 +9,55 @@
   }
 
   function getNowPlaying() {
-      $.get('{{ url_for("nowplaying") }}', function (data) {
-        var obj = JSON.parse(data);
-        if (obj.now_playing) {
-          var nowPlayingHtml = `<p style="margin-bottom: 5px">${obj.now_playing}</p>
+    $.get('{{ url_for("nowplaying") }}', function (data) {
+      var obj = JSON.parse(data);
+      if (obj.now_playing) {
+        var nowPlayingHtml = `<p style="margin-bottom: 5px">${obj.now_playing}</p>
             <p class="has-text-success" style="margin-bottom: 5px"><i class="icon icon-mic-1" title="Current singer"></i>${obj.now_playing_user}</p>`;
 
-          if (obj.transpose_value != 0) {
-            nowPlayingHtml +=
-              // {# MSG: Label for display of how many semitones the song has been shifted. #}
-              "<span class='is-size-6 has-text-success'><b>Key</b>: " +
-              getSemitonesLabel(obj.transpose_value) +
-              "<span>";
-          }
-
-          $("#now-playing").html(nowPlayingHtml);
-          $(".control-box").show();
-        } else {
-          // {# MSG: Message which shows in the "Now Playing" section when there is no song currently playing #}
-          $("#now-playing").html("{{ _('Nothing is playing right now.') }}");
-          $(".control-box").hide();
+        if (obj.transpose_value != 0) {
+          nowPlayingHtml +=
+            // {# MSG: Label for display of how many semitones the song has been shifted. #}
+            "<span class='is-size-6 has-text-success'><b>Key</b>: " +
+            getSemitonesLabel(obj.transpose_value) +
+            "<span>";
         }
 
-        if (obj.up_next) {
-          $("#up-next").html(`<p style="margin-bottom: 5px">${obj.up_next}</p>
+        $("#now-playing").html(nowPlayingHtml);
+        $(".control-box").show();
+      } else {
+        // {# MSG: Message which shows in the "Now Playing" section when there is no song currently playing #}
+        $("#now-playing").html("{{ _('Nothing is playing right now.') }}");
+        $(".control-box").hide();
+      }
+
+      if (obj.up_next) {
+        $("#up-next").html(`<p style="margin-bottom: 5px">${obj.up_next}</p>
             <p class="has-text-success">
               {# MSG: Title text for the icon marking the next person to sing. #}
-              <i class="icon icon-mic-1" title="{{ _('Next singer') }}"><
-                /i>${obj.next_user}</p>`);
-        } else {
-          // {# MSG: Alternative text for the "Up next" section if no more songs are queued up. #}
-          $("#up-next").html("{{ _('No song is queued.') }}");
-        }
+              <i class="icon icon-mic-1" title="{{ _('Next singer') }}"></i>${obj.next_user}</p>`);
+      } else {
+        // {# MSG: Alternative text for the "Up next" section if no more songs are queued up. #}
+        $("#up-next").html("{{ _('No song is queued.') }}");
+      }
 
-        if (obj.is_paused) {
-          $("#pause-resume").removeClass("icon-pause");
-          $("#pause-resume").addClass("icon-play");
-          $(".playing_gif").attr(
-            "src",
-            "{{  url_for('static', filename='images/now-playing.png') }}"
-          );
-        } else {
-          $("#pause-resume").removeClass("icon-play");
-          $("#pause-resume").addClass("icon-pause");
-          $(".playing_gif").attr(
-            "src",
-            "{{  url_for('static', filename='images/now-playing.gif') }}"
-          );
-        }
-      });
-    }
+      if (obj.is_paused) {
+        $("#pause-resume").removeClass("icon-pause");
+        $("#pause-resume").addClass("icon-play");
+        $(".playing_gif").attr(
+          "src",
+          "{{  url_for('static', filename='images/now-playing.png') }}"
+        );
+      } else {
+        $("#pause-resume").removeClass("icon-play");
+        $("#pause-resume").addClass("icon-pause");
+        $(".playing_gif").attr(
+          "src",
+          "{{  url_for('static', filename='images/now-playing.gif') }}"
+        );
+      }
+    });
+  }
 
   $(function () {
     $(".control-box").hide();
@@ -119,7 +118,11 @@
     });
 
     $("#semitones-info").click(function () {
-      showNotification("A semitone is also known as a half-step. It is the smallest interval used in classical Western music, equal to a twelfth of an octave or half a tone.","is-info",10000)
+      showNotification(
+        "A semitone is also known as a half-step. It is the smallest interval used in classical Western music, equal to a twelfth of an octave or half a tone.",
+        "is-info",
+        10000
+      );
     });
 
     function togglePausePlayButton() {
@@ -138,9 +141,8 @@
 </script>
 {% endblock %} {% block header %}
 <h1>
-  {% block title %}
-    {# MSG: Header showing the currently playing song. #}
-    {% trans %}Now Playing{% endtrans %}
+  {% block title %} {# MSG: Header showing the currently playing song. #} {%
+  trans %}Now Playing{% endtrans %}
   <img
     class="playing_gif control-box"
     width="40"
@@ -153,9 +155,9 @@
 
 <hr />
 <h3>
-  {# MSG: Title for the section displaying the next song to be played. #}
-  {% trans %}Next Song{% endtrans %}
-  </h3>
+  {# MSG: Title for the section displaying the next song to be played. #} {%
+  trans %}Next Song{% endtrans %}
+</h3>
 <p id="up-next" class="has-text-warning"></p>
 <hr />
 
@@ -165,65 +167,70 @@
   <h4>{% trans %}Player Control{% endtrans %}</h4>
   <p class="is-size-3">
     {# MSG: Title attribute on the button to restart the current song. #}
-    <a title="{{ _('Restart Song') }}" id="restart"><i class="icon icon-to-start"></i> </a
-    >&nbsp;&nbsp;
-    {# MSG: Title attribute on the button to play or pause the current song. #}
-    <a title="{{ _('Play/Pause') }}"><i id="pause-resume" class="icon icon-pause"></i> </a
-    >&nbsp;&nbsp;
-    {# MSG: Title attribute on the button to skip to the next song. #}
-    <a title="{{ _('Stop Current Song') }}" id="skip"><i class="icon icon-to-end"></i> </a
+    <a title="{{ _('Restart Song') }}" id="restart"
+      ><i class="icon icon-to-start"></i> </a
+    >&nbsp;&nbsp; {# MSG: Title attribute on the button to play or pause the
+    current song. #}
+    <a title="{{ _('Play/Pause') }}"
+      ><i id="pause-resume" class="icon icon-pause"></i> </a
+    >&nbsp;&nbsp; {# MSG: Title attribute on the button to skip to the next
+    song. #}
+    <a title="{{ _('Stop Current Song') }}" id="skip"
+      ><i class="icon icon-to-end"></i> </a
     >&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;
     <span class="is-pulled-right">
       {# MSG: Title attribute on the button to adjust volume down. #}
       <a title="{{ _('Volume Down') }}" id="vol-down"
         ><i class="icon icon-volume-down"></i> </a
-      >&nbsp;&nbsp;
-      {# MSG: Title attribute on the button to adjust volume up. #}
-      <a title="{{ _('Volume Up') }}" id="vol-up"><i class="icon icon-volume-up"></i> </a>
+      >&nbsp;&nbsp; {# MSG: Title attribute on the button to adjust volume up.
+      #}
+      <a title="{{ _('Volume Up') }}" id="vol-up"
+        ><i class="icon icon-volume-up"></i>
+      </a>
     </span>
   </p>
-<!-- </div> -->
+  <!-- </div> -->
 
   {% if show_transpose %}
   <!-- <div class="has-background-black-bis box control-box" style="max-width: 500px"> -->
-    <hr/>
-    <div class="is-flex" style="justify-content: space-between">
-      <div>
-        {# MSG: Title of a control to change the key/pitch of the playing song. #}
-        <h4>{% trans %}Change Key{% endtrans %}</h4>
-      </div>
-      <div class="is-flex">
-        <h4 id="semitones-label"></h4>
-        <a id="semitones-info"> <i class="icon icon-info-circled-1" title="Info"></i></a>
-      </div>
+  <hr />
+  <div class="is-flex" style="justify-content: space-between">
+    <div>
+      {# MSG: Title of a control to change the key/pitch of the playing song. #}
+      <h4>{% trans %}Change Key{% endtrans %}</h4>
     </div>
-
-    <div style="width: 100%">
-      <div class="is-flex">
-        <input
-          type="range"
-          min="-12"
-          max="12"
-          value="0"
-          width="300px"
-          class="transpose-slider"
-          id="transpose"
-          style="width: 100%"
-        />
-        <button
-          id="submit-transpose"
-          class="button is-rounded is-small"
-          style="margin-left: 10px"
-        >
-          {# MSG: Label on the button to confirm the change in key/pitch of the playing song. #}
-          {% trans %}Change{% endtrans %}
-        </button>
-      </div>
+    <div class="is-flex">
+      <h4 id="semitones-label"></h4>
+      <a id="semitones-info">
+        <i class="icon icon-info-circled-1" title="Info"></i
+      ></a>
     </div>
   </div>
-  {% endif %}
 
-{% endif %}
+  <div style="width: 100%">
+    <div class="is-flex">
+      <input
+        type="range"
+        min="-12"
+        max="12"
+        value="0"
+        width="300px"
+        class="transpose-slider"
+        id="transpose"
+        style="width: 100%"
+      />
+      <button
+        id="submit-transpose"
+        class="button is-rounded is-small"
+        style="margin-left: 10px"
+      >
+        {# MSG: Label on the button to confirm the change in key/pitch of the
+        playing song. #} {% trans %}Change{% endtrans %}
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %} {% endif %}
 
 <div></div>
 {% endblock %}
