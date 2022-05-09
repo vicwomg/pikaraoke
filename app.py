@@ -12,13 +12,15 @@ from functools import wraps
 
 import cherrypy
 import psutil
+from flask_babel import Babel
+import flask_babel
 from flask import (Flask, flash, jsonify, make_response, redirect,
                    render_template, request, send_file, send_from_directory,
                    url_for)
 from flask_paginate import Pagination, get_page_parameter
 
 import karaoke
-from constants import VERSION
+from constants import VERSION, LANGUAGES
 from lib.get_platform import get_platform
 from lib.vlcclient import get_default_vlc_path
 
@@ -27,9 +29,14 @@ try:
 except ImportError:
     from urllib import quote, unquote
 
+_ = flask_babel.gettext
+
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+app.jinja_env.add_extension('jinja2.ext.i18n')
+app.config['BABEL_TRANSLATION_DIRECTORIES'] = 'translations'
+babel = Babel(app)
 site_name = "PiKaraoke"
 admin_password = None
 
@@ -58,6 +65,10 @@ def is_admin():
             return True
     return False
 
+@babel.localeselector
+def get_locale():
+    """Select the language to display the webpage in based on the Accept-Language header"""
+    return request.accept_languages.best_match(LANGUAGES.keys())
 
 @app.route("/")
 def home():
@@ -79,10 +90,12 @@ def auth():
         expire_date = datetime.datetime.now()
         expire_date = expire_date + datetime.timedelta(days=90)
         resp.set_cookie('admin', admin_password, expires=expire_date)
-        flash("Admin mode granted!", "is-success")
+        # MSG: Message shown after logging in as admin successfully
+        flash(_("Admin mode granted!"), "is-success")
     else:
         resp = make_response(redirect(url_for('login')))
-        flash("Incorrect admin password!", "is-danger")
+        # MSG: Message shown after failing to login as admin
+        flash(_("Incorrect admin password!"), "is-danger")
     return resp
 
 @app.route("/login")
@@ -308,7 +321,8 @@ def browse():
         sort_order=sort_order,
         site_title=site_name,
         letter=letter,
-        title="Browse",
+        # MSG: Title of the files page.
+        title=_("Browse"),
         songs=songs[start_index:start_index + results_per_page],
         admin=is_admin()
     )
@@ -347,6 +361,9 @@ def download():
 def qrcode():
     return send_file(k.qr_code_path, mimetype="image/png")
 
+@app.route("/logo")
+def logo():
+    return send_file(k.logo_path, mimetype="image/png")
 
 @app.route("/files/delete", methods=["GET"])
 def delete_file():
@@ -411,6 +428,13 @@ def edit_file():
             flash("Error: No filename parameters were specified!", "is-danger")
         return redirect(url_for("browse"))
 
+@app.route("/splash")
+def splash():
+    return render_template(
+        "splash.html",
+        blank_page=True,
+        url="http://" + request.host
+    )
 
 @app.route("/info")
 def info():
@@ -560,15 +584,23 @@ signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
 def get_default_youtube_dl_path(platform):
     if platform == "windows":
-        choco_ytdl_path = r"C:\ProgramData\chocolatey\bin\youtube-dl.exe"
-        scoop_ytdl_path = os.path.expanduser(r"~\scoop\shims\youtube-dl.exe")
+        choco_ytdl_path = r"C:\ProgramData\chocolatey\bin\yt-dlp.exe"
+        scoop_ytdl_path = os.path.expanduser(r"~\scoop\shims\yt-dlp.exe")
         if os.path.isfile(choco_ytdl_path):
             return choco_ytdl_path
         if os.path.isfile(scoop_ytdl_path):
             return scoop_ytdl_path
-        return r"C:\Program Files\youtube-dl\youtube-dl.exe"
+        return r"C:\Program Files\yt-dlp\yt-dlp.exe"
+    default_ytdl_unix_path = "/usr/local/bin/yt-dlp"
+    if platform == "osx":
+        if os.path.isfile(default_ytdl_unix_path):
+            return default_ytdl_unix_path
+        else: 
+            # just a guess based on the default python 3 install in OSX monterey
+            return "/Library/Frameworks/Python.framework/Versions/3.10/bin/yt-dlp"
     else:
-        return "/usr/local/bin/youtube-dl"
+        return default_ytdl_unix_path
+        
 
 def get_default_dl_dir(platform):
     if platform == "raspberry_pi":

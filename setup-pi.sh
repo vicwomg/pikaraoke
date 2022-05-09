@@ -13,7 +13,7 @@ if [ $? -ne 0 ]; then echo "ERROR: 'apt-get update' failed with error code: $?";
 
 echo
 echo "*** INSTALLING REQUIRED BINARIES ***"
-sudo apt-get install libjpeg-dev libsdl2-image-2.0-0 vlc python3-pip ffmpeg libsdl2-ttf-dev -y
+sudo apt-get install libjpeg-dev vlc python3-pip python3-pygame ffmpeg libsdl2-ttf-dev -y
 if [ $? -ne 0 ]; then echo "ERROR: Binary dependency installation failed with error code: $?"; exit 1; fi
 # libsdl packages are required to make later versions of pygame work with fonts and images
 
@@ -24,7 +24,7 @@ if [ $? -ne 0 ]; then echo "ERROR: VLC patching failed with error code: $?"; exi
 
 echo
 echo "*** INSTALLING LATEST YOUTUBE_DL ***"
-sudo pip3 install --upgrade youtube_dl
+sudo pip3 install --upgrade yt-dlp
 if [ $? -ne 0 ]; then echo "ERROR: YouTube_dl installation failed with error code: $?"; exit 1; fi
 
 echo
