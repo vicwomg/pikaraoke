@@ -156,6 +156,14 @@
       }
     });
 
+    // re-populate the search field with previous search term
+    const urlParams = new URLSearchParams(window.location.search);
+    const qSearchString = urlParams.get("search_string");
+    if (qSearchString) {
+      $("#song-to-add-selectized").val(qSearchString);
+      $("#song-to-add-selectized").width("100%");
+    }
+
     $('#search-link').on('click', function (e) {
       e.preventDefault();
       var search_term = $(".search-selectize .selectize-input input").val();
