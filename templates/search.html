@@ -164,6 +164,11 @@
       $("#song-to-add-selectized").width("100%");
     }
 
+    $('#clear-search').on('click', function (e) {
+      e.preventDefault();
+      $("#song-to-add-selectized").val("");
+    });
+
     $('#search-link').on('click', function (e) {
       e.preventDefault();
       var search_term = $(".search-selectize .selectize-input input").val();
@@ -307,7 +312,9 @@
         <input class="song-added-by" type="hidden" name="song-added-by" />
       </div>
       <div class="control has-text-right">
-        
+        <a id="clear-search" class="has-text-danger is-size-7" style="margin-right: 10px"> 
+          {# MSG: Link which clears the text from the search box. #}
+          {% trans %}Clear{% endtrans %}</a>
         <label class="checkbox is-size-7">
           <input type="checkbox" id="show-advanced" name="show-advanced">
           {# MSG: Checkbox label which enables more options when searching. #}

@@ -68,8 +68,11 @@
   <p class="is-size-4 has-text-warning has-text-centered">{{ url }}</p>
   {# MSG: Label before a QR code which brings a frind (pal) to the main page if scanned, so they can also add songs. QR code follows this text. #}
   <p>{% trans %}Handy URL QR code to share with a pal:{% endtrans %}</p>
-<img id="qr-img" width="300px" src="{{ url_for('qrcode') }}" style="image-rendering: pixelated" />
-</div>
+  <img id="qr-img" width="300px" src="{{ url_for('qrcode') }}" style="image-rendering: pixelated" />
+
+  {# MSG: Label before a link to the Splash screen. #}
+  <p><a href="{{ url_for('splash') }}">{% trans %}Open splash screen{% endtrans %}</a></p>
+  </div>
 
 <hr />
 
