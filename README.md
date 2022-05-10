@@ -5,15 +5,13 @@ PiKaraoke is a "KTV"-style karaoke song search and queueing system. It connects 
 If you want to support this project with a little monetary tip, it's much appreciated: <br/>
 <a href="https://www.buymeacoffee.com/vicwomg" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 
-## What's new (1.1.1)
+## What's new (1.1.2)
 
-Primarily bugfixes for maintaining mega-libraries
-- Fix slow loading of huge libraries
-- Paging controls on browse screen for libraries > 500
-- Fix issue with singer names with spaces and special characters not appearing #106
-- Support scanning subdirectories #108 (thanks jramboz)
-- Support more video formats and weird case sensitivity of mp3/cdg files #107 #95
-- Singer names persist for 90 days #105
+- Translation framework, with Chinese language support. Thanks tbelaire!
+- HTML splash screen at /splash for remote browser display of QR code and up next
+- Use yt-dlp instead of youtube-dl for faster downloads
+- Drop omxplayer from pi install script (no longer in Debian package manager)
+- Bugfixes
 
 ## Features
 
@@ -103,6 +101,8 @@ You will then probably need to reboot since this changes a boot setting (gpu_mem
 ```
 sudo reboot
 ```
+
+Note that on Raspberry Pi Bullseye, vlc support appears to be quite buggy if running in Raspberry Pi OS lite. Troubleshooting steps here: https://github.com/vicwomg/pikaraoke/discussions/196 , or try running with the full desktop version.
 
 #### Linux / OSX
 
