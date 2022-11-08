@@ -60,6 +60,8 @@ class VLCClient:
         self.cmd_base = [
             self.path,
             "-f",
+            "--no-loop",
+            "--no-repeat",
             "--play-and-exit",
             "--extraintf",
             "http",
