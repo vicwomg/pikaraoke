@@ -1,3 +1,9 @@
+# Rowdy Bard Karaoke
+
+A fork of PiKaraoke, but with added offline bar mode feature for those who still like to enter numbers on a screen with a flexible songlist suited to the user.
+
+# Original PiKaraoke Readme below
+
 # PiKaraoke
 
 PiKaraoke is a "KTV"-style karaoke song search and queueing system. It connects to your TV, and shows a QR code for computers and smartphones to connect to a web interface. From there, multiple users can seamlessly search your local track library, queue up songs, add an endless selection of new karaoke tracks from YouTube, and more. Works on Raspberry Pi, OSX, Windows, and Linux!
