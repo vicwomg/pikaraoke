@@ -9,8 +9,8 @@ import sys
 import threading
 import time
 from io import BytesIO
-from subprocess import check_output
 from pathlib import Path
+from subprocess import check_output
 
 import pygame
 import qrcode
@@ -56,7 +56,7 @@ class Karaoke:
         volume=0,
         log_level=logging.DEBUG,
         splash_delay=2,
-        youtubedl_path="/usr/local/bin/youtube-dl",
+        youtubedl_path="/usr/local/bin/yt-dlp",
         omxplayer_path=None,
         use_omxplayer=False,
         use_vlc=True,
@@ -239,12 +239,12 @@ class Karaoke:
             try:
                 logging.info("Attempting youtube-dl upgrade via pip3...")
                 output = check_output(
-                    ["pip3", "install", "--upgrade", "youtube-dl"]
+                    ["pip3", "install", "--upgrade", "yt-dlp"]
                 ).decode("utf8")
             except FileNotFoundError:
                 logging.info("Attempting youtube-dl upgrade via pip...")
                 output = check_output(
-                    ["pip", "install", "--upgrade", "youtube-dl"]
+                    ["pip", "install", "--upgrade", "yt-dlp"]
                 ).decode("utf8")
             logging.info(output)
         self.get_youtubedl_version()
@@ -429,13 +429,12 @@ class Karaoke:
             output = subprocess.check_output(cmd).decode("utf-8")
             logging.debug("Search results: " + output)
             rc = []
-            video_url_base = "https://www.youtube.com/watch?v="
             for each in output.split("\n"):
                 if len(each) > 2:
                     j = json.loads(each)
                     if (not "title" in j) or (not "url" in j):
                         continue
-                    rc.append([j["title"], video_url_base + j["url"], j["id"]])
+                    rc.append([j["title"], j["url"], j["id"]])
             return rc
         except Exception as e:
             logging.debug("Error while executing search: " + str(e))

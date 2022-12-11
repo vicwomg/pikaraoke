@@ -5,15 +5,13 @@ PiKaraoke is a "KTV"-style karaoke song search and queueing system. It connects 
 If you want to support this project with a little monetary tip, it's much appreciated: <br/>
 <a href="https://www.buymeacoffee.com/vicwomg" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 
-## What's new (1.1.1)
+## What's new (1.1.2)
 
-Primarily bugfixes for maintaining mega-libraries
-- Fix slow loading of huge libraries
-- Paging controls on browse screen for libraries > 500
-- Fix issue with singer names with spaces and special characters not appearing #106
-- Support scanning subdirectories #108 (thanks jramboz)
-- Support more video formats and weird case sensitivity of mp3/cdg files #107 #95
-- Singer names persist for 90 days #105
+- Translation framework, with Chinese language support. Thanks tbelaire!
+- HTML splash screen at /splash for remote browser display of QR code and up next
+- Use yt-dlp instead of youtube-dl for faster downloads
+- Drop omxplayer from pi install script (no longer in Debian package manager)
+- Bugfixes
 
 ## Features
 
@@ -104,6 +102,8 @@ You will then probably need to reboot since this changes a boot setting (gpu_mem
 sudo reboot
 ```
 
+Note that on Raspberry Pi Bullseye, vlc support appears to be quite buggy if running in Raspberry Pi OS lite. Troubleshooting steps here: https://github.com/vicwomg/pikaraoke/discussions/196 , or try running with the full desktop version.
+
 #### Linux / OSX
 
 - Install VLC (to its default location): https://www.videolan.org/
@@ -113,7 +113,13 @@ Install requirements from the pikaraoke directory:
 
 ```
 pip3 install -r requirements.txt
-pip3 install --upgrade youtube_dl
+pip3 install --upgrade yt-dlp
+```
+
+*OSX only:* pip installs to a python library directory specific to your version of Python 3. This sets a symlink for yt-dlp in /usr/local/bin so pikaraoke can find it (optional, otherwise you'll probably need to manually specify --youtubedl-path):
+
+```
+sudo ln -s `which yt-dlp` /usr/local/bin/yt-dlp
 ```
 
 #### Windows
@@ -121,10 +127,10 @@ pip3 install --upgrade youtube_dl
 - Install VLC (to its default location): https://www.videolan.org/
 - Install ffmpeg (only if you want to use --high-quality flag) https://ffmpeg.org/download.html
 - Install MS Visual C++ (required to launch youtube-dl)  https://www.microsoft.com/en-US/download/details.aspx?id=5555
-- Install youtube-dl.exe. FYI, pip3 didn't seem to work for this on windows, so I used scoop as a package manager and I think it handles filed permissions best. Install scoop by following the instructions here: https://scoop.sh/
+- Install youtube-dl (yt-dlp). FYI, pip3 didn't seem to work for this on windows, so I used scoop as a package manager and I think it handles filed permissions best. Install scoop by following the instructions here: https://scoop.sh/
 
 ```
-scoop install youtube-dl
+scoop install yt-dlp
 ```
 
 Open a powershell, and go to the pikaraoke directory:
@@ -324,7 +330,7 @@ Make sure youtube-dl is up to date, old versions have higher failure rates due t
 You can update youtube-dl directly from the web UI. Go to `Info > Update Youtube-dl` (depending on how you installed, you may need to be running pikaraoke as sudo for this to work)
 
 Or, from the CLI (path may vary):
-`youtube-dl -U`
+`yt-dlp -U`
 
 ### Downloads are slow!
 
