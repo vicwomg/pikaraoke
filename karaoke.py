@@ -8,6 +8,7 @@ import subprocess
 import sys
 import threading
 import time
+import contextlib
 from io import BytesIO
 from pathlib import Path
 from subprocess import check_output
@@ -485,7 +486,8 @@ class Karaoke:
 
     def delete(self, song_path):
         logging.info("Deleting song: " + song_path)
-        os.remove(song_path)
+        with contextlib.suppress(FileNotFoundError):
+            os.remove(song_path)
         ext = os.path.splitext(song_path)
         # if we have an associated cdg file, delete that too
         cdg_file = song_path.replace(ext[1],".cdg")
