@@ -235,7 +235,7 @@ class Karaoke:
         )
         output = check_output([self.youtubedl_path, "-U"]).decode("utf8").strip()
         logging.info(output)
-        if "It looks like you installed youtube-dl with a package manager" in output:
+        if "It looks like you installed yt-dlp with a package manager" in output:
             try:
                 logging.info("Attempting youtube-dl upgrade via pip3...")
                 output = check_output(
