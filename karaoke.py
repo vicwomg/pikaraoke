@@ -1,3 +1,4 @@
+import contextlib
 import glob
 import json
 import logging
@@ -8,10 +9,9 @@ import subprocess
 import sys
 import threading
 import time
-import contextlib
 from io import BytesIO
 from pathlib import Path
-from subprocess import check_output
+from subprocess import CalledProcessError, check_output
 
 import pygame
 import qrcode
@@ -234,9 +234,12 @@ class Karaoke:
         logging.info(
             "Upgrading youtube-dl, current version: %s" % self.youtubedl_version
         )
-        output = check_output([self.youtubedl_path, "-U"]).decode("utf8").strip()
+        try:  
+            output = check_output([self.youtubedl_path, "-U"], stderr=subprocess.STDOUT).decode("utf8").strip()
+        except CalledProcessError as e:
+            output = e.output.decode("utf8")
         logging.info(output)
-        if "It looks like you installed yt-dlp with a package manager" in output:
+        if "You installed yt-dlp with pip or using the wheel from PyPi" in output:
             try:
                 logging.info("Attempting youtube-dl upgrade via pip3...")
                 output = check_output(
