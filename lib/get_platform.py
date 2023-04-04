@@ -4,7 +4,10 @@ import sys
 
 def is_raspberry_pi():
     try: 
-        return os.uname()[4][:3] == "arm" and sys.platform != "darwin"
+        return (
+            os.uname()[4][:3] == "arm" or
+            os.uname()[4] == "aarch64"
+        ) and sys.platform != "darwin"
     except AttributeError:
         return False
 
