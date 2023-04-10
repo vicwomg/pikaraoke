@@ -344,7 +344,7 @@ class Karaoke:
             logo_rect = logo.get_rect(center=self.screen.get_rect().center)
             self.screen.blit(logo, logo_rect)
 
-            blitY = self.screen.get_rect().bottomleft[1] - 40
+            blitY = self.screen.get_rect().bottomleft[1] - 80
 
             if not self.hide_ip:
                 p_image = pygame.image.load(self.qr_code_path)
