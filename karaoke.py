@@ -46,7 +46,7 @@ class Karaoke:
 
     def __init__(
         self,
-        port=5000,
+        port=5555,
         download_path="/usr/lib/pikaraoke/songs",
         hide_ip=False,
         hide_raspiwifi_instructions=False,
