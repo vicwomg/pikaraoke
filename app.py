@@ -11,16 +11,16 @@ import time
 from functools import wraps
 
 import cherrypy
-import psutil
-from flask_babel import Babel
 import flask_babel
+import psutil
 from flask import (Flask, flash, jsonify, make_response, redirect,
                    render_template, request, send_file, send_from_directory,
                    url_for)
+from flask_babel import Babel
 from flask_paginate import Pagination, get_page_parameter
 
 import karaoke
-from constants import VERSION, LANGUAGES
+from constants import LANGUAGES, VERSION
 from lib.get_platform import get_platform
 from lib.vlcclient import get_default_vlc_path
 
@@ -622,7 +622,7 @@ def get_default_dl_dir(platform):
 if __name__ == "__main__":
 
     platform = get_platform()
-    default_port = 5000
+    default_port = 5555
     default_volume = 0
     default_splash_delay = 5
     default_log_level = logging.INFO

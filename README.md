@@ -17,13 +17,13 @@ If you want to support this project with a little monetary tip, it's much apprec
 
 - Web interface for multiple users to queue tracks
 - Splash screen with connection QR code and "Next up" display
-- Searching/browsing a local song library 
+- Searching/browsing a local song library
 - Adding new songs from Youtube
-- mp3 + cdg support, including compressed .zip bundles 
+- mp3 + cdg support, including compressed .zip bundles
 - Pause/Skip/Restart and volume control
 - Advanced editing of downloaded file names
 - Queue management
-- Key Change / Pitch shifting 
+- Key Change / Pitch shifting
 - Lock down features with admin mode
 
 ## Screenshots
@@ -61,7 +61,7 @@ Also works on macs, PCs, and linux!
 
 If you're on a Raspberry Pi, you might want to just use the pre-built image to save time installing dependencies:
 
-- Download the zip file of the raspberrry pi image and extract it: [latest release]( https://github.com/vicwomg/pikaraoke/releases/latest)
+- Download the zip file of the raspberrry pi image and extract it: [latest release](https://github.com/vicwomg/pikaraoke/releases/latest)
 - Write the image to an SD card. [Instructions on how to install pi img files](https://www.raspberrypi.org/documentation/installation/installing-images/)
 - Before plugging it in, configure your wifi
   - Reconnect the SD card on the computer you used to flash the file
@@ -69,8 +69,8 @@ If you're on a Raspberry Pi, you might want to just use the pre-built image to s
   - Edit this wpa_supplicant.conf and replace with your wifi router's ssid, password, and if necessary, the country code. Save the file
 - Plug in the SD card to your pi device and turn it on
 - You should eventually see the Pikaraoke splash screen
-- On your phone, connect to the IP address on the screen (or use the QR code). 
-- In the web interface, go to the "Pikaraoke" submenu in the titlebar. 
+- On your phone, connect to the IP address on the screen (or use the QR code).
+- In the web interface, go to the "Pikaraoke" submenu in the titlebar.
   - Click the link to update youtube-dl and give it a couple of minutes to complete
   - Click the link to expand the Raspberry Pi filesystem to fill the rest of your SD card
 - Pi will reboot. You should be all set!
@@ -116,7 +116,7 @@ pip3 install -r requirements.txt
 pip3 install --upgrade yt-dlp
 ```
 
-*OSX only:* pip installs to a python library directory specific to your version of Python 3. This sets a symlink for yt-dlp in /usr/local/bin so pikaraoke can find it (optional, otherwise you'll probably need to manually specify --youtubedl-path):
+_OSX only:_ pip installs to a python library directory specific to your version of Python 3. This sets a symlink for yt-dlp in /usr/local/bin so pikaraoke can find it (optional, otherwise you'll probably need to manually specify --youtubedl-path):
 
 ```
 sudo ln -s `which yt-dlp` /usr/local/bin/yt-dlp
@@ -126,7 +126,7 @@ sudo ln -s `which yt-dlp` /usr/local/bin/yt-dlp
 
 - Install VLC (to its default location): https://www.videolan.org/
 - Install ffmpeg (only if you want to use --high-quality flag) https://ffmpeg.org/download.html
-- Install MS Visual C++ (required to launch youtube-dl)  https://www.microsoft.com/en-US/download/details.aspx?id=5555
+- Install MS Visual C++ (required to launch youtube-dl) https://www.microsoft.com/en-US/download/details.aspx?id=5555
 - Install youtube-dl (yt-dlp). FYI, pip3 didn't seem to work for this on windows, so I used scoop as a package manager and I think it handles filed permissions best. Install scoop by following the instructions here: https://scoop.sh/
 
 ```
@@ -196,7 +196,7 @@ usage: app.py [-h] [-p PORT] [-d DOWNLOAD_PATH] [-o OMXPLAYER_PATH]
 
 optional arguments:
   -h, --help            show this help message and exit
-  -p PORT, --port PORT  Desired http port (default: 5000)
+  -p PORT, --port PORT  Desired http port (default: 5555)
   -d DOWNLOAD_PATH, --download-path DOWNLOAD_PATH
                         Desired path for downloaded songs. (default:
                         ~/pikaraoke-songs)
@@ -269,7 +269,7 @@ Make sure you are connected to the same network/wifi. You can then enter the sho
 ### Home
 
 - View Now Playing and Next tracks
-- Access controls to repeat, pause, skip and control volume 
+- Access controls to repeat, pause, skip and control volume
 - Transpose slider to change playback pitch
 
 ### Queue
@@ -363,7 +363,7 @@ Actually, yes! But you can only access your existing library and won't be able t
 
 If you run your pi as a wifi access point, your browser can connect to that access point, and it should work. See: https://www.raspberrypi.org/documentation/configuration/wireless/access-point.md
 
-Or an even easier approach, if you install this: https://github.com/jasbur/RaspiWiFi (used for configuring wifi connections headless, see above). While it's in AP mode, you can connect to the pi as an AP and connect directly to it at http://10.0.0.1:5000
+Or an even easier approach, if you install this: https://github.com/jasbur/RaspiWiFi (used for configuring wifi connections headless, see above). While it's in AP mode, you can connect to the pi as an AP and connect directly to it at http://10.0.0.1:5555
 
 ### Where do I plug in a microphone?
 
@@ -383,7 +383,7 @@ You'll need to add them manually by copying them to the root of your download fo
 
 ### My mp3/cdg file is not playing
 
-CDG files must have an mp3 file with a exact matching file name. They can also be bundled together in a single zip file, but the filenames in the zip must still match. They must also be placed in the root of the download directory and not stashed away in sub-directories. 
+CDG files must have an mp3 file with a exact matching file name. They can also be bundled together in a single zip file, but the filenames in the zip must still match. They must also be placed in the root of the download directory and not stashed away in sub-directories.
 
 If you only hear audio, you may be running the `--use-omxplayer` option. Omxplayer does not support cdg.
 
