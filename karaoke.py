@@ -357,7 +357,7 @@ class Karaoke:
         #The pitch value is (2^x/12), where x represents the number of semitones
         audio = input.audio.filter("rubberband", pitch=2**(semitones/12))
         video = input.video
-        output = ffmpeg.output(audio, video, stream_url, listen=1, f="mp4", movflags="frag_keyframe+empty_moov")
+        output = ffmpeg.output(audio, video, stream_url, vcodec="copy", listen=1, f="mp4", movflags="frag_keyframe+empty_moov")
         self.ffmpeg_process = output.run_async(pipe_stderr=True, pipe_stdin=True)
 
         while self.ffmpeg_process.poll() is None:
