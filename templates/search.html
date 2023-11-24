@@ -263,20 +263,9 @@
       }
     });
 
-    var user = Cookies.get("user");
+    setUserCookie(true);
 
-    if (!user) {
-      let name = window.prompt(
-        // {# MSG: Prompt which asks the user their name when they first navigate to the page. #}
-        "{{ _('Please enter your name. This will show up next to the songs you queue up from this device.') }}"
-      );
-      if (name) {
-        Cookies.set("user", name, { expires: 3650 });
-      }
-      location.reload();
-    }
-
-    $(".song-added-by").val(user);
+    $(".song-added-by").val(getUserCookie());
   });
 
   function isYoutubeURL(s) {

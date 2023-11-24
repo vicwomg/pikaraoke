@@ -21,11 +21,11 @@ from flask_babel import Babel
 from flask_paginate import Pagination, get_page_parameter
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 import karaoke
 from constants import LANGUAGES, VERSION
@@ -47,6 +47,7 @@ app.config['BABEL_TRANSLATION_DIRECTORIES'] = 'translations'
 babel = Babel(app)
 site_name = "PiKaraoke"
 admin_password = None
+is_raspberry_pi = get_platform() == "raspberry_pi"
 
 def filename_from_path(file_path, remove_youtube_id=True):
     rc = os.path.basename(file_path)
@@ -454,7 +455,8 @@ def splash():
     return render_template(
         "splash.html",
         blank_page=True,
-        url=f"http://{k.ip}:{k.port}" 
+        url=f"http://{k.ip}:{k.port}",
+        hide_ip=k.hide_ip
     )
 
 @app.route("/info")
@@ -494,8 +496,6 @@ def info():
     # youtube-dl
     youtubedl_version = k.youtubedl_version
 
-    is_pi = get_platform() == "raspberry_pi"
-
     return render_template(
         "info.html",
         site_title=site_name,
@@ -505,7 +505,7 @@ def info():
         cpu=cpu,
         disk=disk,
         youtubedl_version=youtubedl_version,
-        is_pi=is_pi,
+        is_pi=is_raspberry_pi,
         pikaraoke_version=VERSION,
         admin=is_admin(),
         admin_enabled=admin_password != None
@@ -589,7 +589,7 @@ def reboot():
 
 @app.route("/expand_fs")
 def expand_fs():
-    if (is_admin() and platform == "raspberry_pi"): 
+    if (is_admin() and is_raspberry_pi): 
         flash("Expanding filesystem and rebooting system now!", "is-danger")
         th = threading.Thread(target=delayed_halt, args=[3])
         th.start()
@@ -624,8 +624,8 @@ def get_default_youtube_dl_path(platform):
         
 
 def get_default_dl_dir(platform):
-    if platform == "raspberry_pi":
-        return "/usr/lib/pikaraoke/songs"
+    if is_raspberry_pi:
+        return "~/pikaraoke-songs"
     elif platform == "windows":
         legacy_directory = os.path.expanduser("~\pikaraoke\songs")
         if os.path.exists(legacy_directory):
@@ -714,7 +714,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--hide-ip",
         action="store_true",
-        help="Hide IP address from the screen.",
+        help="Hide IP address and QR code from the splash screen.",
         required=False,
     )
     parser.add_argument(
@@ -881,14 +881,16 @@ if __name__ == "__main__":
 
         # Start the splash screen using selenium
         if not args.hide_splash_screen: 
-            service = Service(executable_path='/usr/bin/chromedriver')
+            if platform == "raspberry_pi":
+                service = Service(executable_path='/usr/bin/chromedriver')
+            else: 
+                service = None
             options = Options()
-            #options.add_argument("--start-fullscreen")
             options.add_argument("--kiosk")
             options.add_experimental_option("excludeSwitches", ['enable-automation'])
             driver = webdriver.Chrome(service=service, options=options)
-            #driver = webdriver.Chrome(service=service)
-            driver.get("http://localhost:%s/splash" % args.port)
+            driver.get(f"http://{k.ip}:{k.port}/splash" )
+            driver.add_cookie({'name': 'user', 'value': 'PiKaraoke'})
             # Clicking this counts as an interaction, which will allow the browser to autoplay audio
             wait = WebDriverWait(driver, 60)
             elem = wait.until(EC.element_to_be_clickable((By.ID, "permissions-button")))

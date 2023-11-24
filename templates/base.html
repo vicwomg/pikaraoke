@@ -28,6 +28,24 @@
       setTimeout(function () {$("#notification-alt").removeClass(categoryClass)}, timeout + 750)
     }
 
+    function setUserCookie(reload=false) {
+      var user = Cookies.get("user");
+      if (!user) {
+        let name = window.prompt(
+          // {# MSG: Prompt which asks the user their name when they first try to add to the queue. #}
+          "{{ _('Please enter your name. This will show up next to the songs you queue up from this device.') }}"
+        );
+        if (name) {
+          Cookies.set("user", name, { expires: 3650 });
+        }
+        reload && location.reload();
+      }
+    }
+
+    function getUserCookie() {
+      return Cookies.get("user");
+    }
+
     $(function () {
       $("#notification-close").click(function () {
         $(".notification").hide();
