@@ -885,21 +885,23 @@ if __name__ == "__main__":
         cherrypy.engine.start()
 
         # Start the splash screen using selenium
-        driver = webdriver.Chrome()
-        options = Options()
-        options.add_argument("--kiosk")
-        options.add_experimental_option("excludeSwitches", ['enable-automation'])
-        driver = webdriver.Chrome(options=options)
-        driver.get("http://localhost:%s/splash" % args.port)
-        # Clicking this counts as an interaction, which will allow the browser to autoplay audio
-        elem = driver.find_element(By.ID, "permissions-button")
-        elem.click()
+        if not args.hide_splash_screen: 
+            driver = webdriver.Chrome()
+            options = Options()
+            options.add_argument("--kiosk")
+            options.add_experimental_option("excludeSwitches", ['enable-automation'])
+            driver = webdriver.Chrome(options=options)
+            driver.get("http://localhost:%s/splash" % args.port)
+            # Clicking this counts as an interaction, which will allow the browser to autoplay audio
+            elem = driver.find_element(By.ID, "permissions-button")
+            elem.click()
 
         # Start the karaoke process
         k.run()
 
         # Close running processes when done
-        driver.close()
+        if not args.hide_splash_screen:
+            driver.close()
         cherrypy.engine.exit()
 
     sys.exit()
