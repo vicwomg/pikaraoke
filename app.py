@@ -83,7 +83,6 @@ def home():
         "home.html",
         site_title=site_name,
         title="Home",
-        show_transpose=k.use_vlc,
         transpose_value=k.now_playing_transpose,
         admin=is_admin()
     )
@@ -215,11 +214,6 @@ def enqueue():
         user = d["song-added-by"]
     rc = k.enqueue(song, user)
     song_title = filename_from_path(song)
-    # if rc:
-    #     flash("Song added to queue: " + song_title, "is-success")
-    # else:
-    #     flash("Song is already in queue: " + song_title, "is-danger")
-    #return redirect(url_for("home"))
     return json.dumps({"song": song_title, "success": rc })
 
 
@@ -237,7 +231,7 @@ def pause():
 
 @app.route("/transpose/<semitones>", methods=["GET"])
 def transpose(semitones):
-    k.transpose_current(semitones)
+    k.transpose_current(int(semitones))
     return redirect(url_for("home"))
 
 
@@ -381,14 +375,12 @@ def logo():
 
 @app.route("/end_song", methods=["GET"])
 def end_song():
-    print("END SONG")
     k.end_song()
     return "ok"
 
 @app.route("/start_song", methods=["GET"])
 def start_song():
-    print("START SONG")
-    k.is_playing = True
+    k.start_song()
     return "ok"
 
 @app.route("/files/delete", methods=["GET"])

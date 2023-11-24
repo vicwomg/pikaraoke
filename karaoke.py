@@ -351,14 +351,11 @@ class Karaoke:
             return None
 
     def play_file(self, file_path, semitones=0):
-
-        #The pitch value is (2^x/12), where x represents the number of semitones
-        pitch_value = 2**(semitones/12)
-        
- 
+        logging.info(f"Playing file: {file_path} with trasposed {semitones} semitones")
         stream_url = f"http://{self.ip}:{self.ffmpeg_port}/{int(time.time())}"
         input = ffmpeg.input(file_path)
-        audio = input.audio.filter("rubberband", pitch=pitch_value)
+        #The pitch value is (2^x/12), where x represents the number of semitones
+        audio = input.audio.filter("rubberband", pitch=2**(semitones/12))
         video = input.video
         output = ffmpeg.output(audio, video, stream_url, listen=1, f="mp4", movflags="frag_keyframe+empty_moov")
         self.ffmpeg_process = output.run_async(pipe_stderr=True, pipe_stdin=True)
@@ -371,6 +368,7 @@ class Karaoke:
                 # Ffmpeg outputs "Input #0" when the stream is ready to consume
                 self.now_playing = self.filename_from_path(file_path)
                 self.now_playing_filename = file_path
+                self.now_playing_transpose = semitones
                 self.now_playing_url = stream_url
                 self.now_playing_user=self.queue[0]["user"]
                 self.is_paused = False
@@ -379,19 +377,25 @@ class Karaoke:
             if self.is_playing:
                 break
 
-    def end_song(self):
-        self.reset_now_playing()
-        # Kill ffmpeg if necessary
+    def kill_ffmpeg(self):
+        logging.debug("Killing ffmpeg process")
         if self.ffmpeg_process:
-            self.ffmpeg_process.stdin.write(b"q")
+            self.ffmpeg_process.kill()
+
+    def start_song(self):
+        logging.info("Song starting: " + self.now_playing)
+        self.is_playing = True
+
+    def end_song(self):
+        logging.info(f"Song ending: {self.now_playing}" )
+        self.reset_now_playing()
+        self.kill_ffmpeg()
 
     def transpose_current(self, semitones):
-        if self.use_vlc:
-            logging.info("Transposing song by %s semitones" % semitones)
-            self.now_playing_transpose = semitones
-            self.play_file(self.now_playing_filename, semitones)
-        else:
-            logging.error("Not using VLC. Can't transpose track.")
+        logging.info(f"Transposing current song {self.now_playing} by {semitones} semitones")
+        # Insert the same song at the top of the queue with transposition
+        self.enqueue(self.now_playing_filename, self.now_playing_user, semitones, True)
+        self.skip()
 
     def is_file_playing(self):
         return self.is_playing
@@ -402,13 +406,18 @@ class Karaoke:
                 return True
         return False
 
-    def enqueue(self, song_path, user="Pikaraoke"):
+    def enqueue(self, song_path, user="Pikaraoke", semitones=0, add_to_front=False):
         if (self.is_song_in_queue(song_path)):
             logging.warn("Song is already in queue, will not add: " + song_path)   
             return False
         else:
-            logging.info("'%s' is adding song to queue: %s" % (user, song_path))
-            self.queue.append({"user": user, "file": song_path, "title": self.filename_from_path(song_path)})
+            queue_item = {"user": user, "file": song_path, "title": self.filename_from_path(song_path), "semitones": semitones}
+            if add_to_front:
+                logging.info("'%s' is adding song to front of queue: %s" % (user, song_path))
+                self.queue.insert(0, queue_item)
+            else:
+                logging.info("'%s' is adding song to queue: %s" % (user, song_path))
+                self.queue.append(queue_item)
             return True
 
     def queue_add_random(self, amount):
@@ -423,7 +432,7 @@ class Karaoke:
             if self.is_song_in_queue(songs[r]):
                 logging.warn("Song already in queue, trying another... " + songs[r])
             else:
-                self.queue.append({"user": "Randomizer", "file": songs[r], "title": self.filename_from_path(songs[r])})
+                self.enqueue(songs[r], "Randomizer")
                 i += 1
             songs.pop(r)
             if len(songs) == 0:
@@ -497,10 +506,7 @@ class Karaoke:
 
     def vol_up(self):
         if self.is_file_playing():
-            if self.use_vlc:
-                self.vlcclient.vol_up()
-            else:
-                self.omxclient.vol_up()
+            self.now_playing_command = "vol_up"
             return True
         else:
             logging.warning("Tried to volume up, but no file is playing!")
@@ -508,10 +514,7 @@ class Karaoke:
 
     def vol_down(self):
         if self.is_file_playing():
-            if self.use_vlc:
-                self.vlcclient.vol_down()
-            else:
-                self.omxclient.vol_down()
+            self.now_playing_command = "vol_down"
             return True
         else:
             logging.warning("Tried to volume down, but no file is playing!")
@@ -556,9 +559,7 @@ class Karaoke:
                         while i < (self.splash_delay * 1000):
                             self.handle_run_loop()
                             i += self.loop_interval
-                        self.play_file(self.queue[0]["file"])
-                        # self.now_playing_user=self.queue[0]["user"]
-                        # self.queue.pop(0)
+                        self.play_file(self.queue[0]["file"], self.queue[0]["semitones"])
                 self.handle_run_loop()
             except KeyboardInterrupt:
                 logging.warn("Keyboard interrupt: Exiting pikaraoke...")
