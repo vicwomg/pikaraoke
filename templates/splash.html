@@ -156,17 +156,21 @@
   <div class="modal-background"></div>
   <div class="modal-content">
     <p>
-      Due to limititations with browser permissions, you need to confirm that
-      you allow autoplay of videos. Click the button below to confirm.
+      {# MSG: Prompt for interaction in order to enable video autoplay. #} {%
+      trans %}Due to limititations with browser permissions, you must interact
+      with the page once before it allows autoplay of videos. Pikaraoke will not
+      play otherwise. Click the button below to confirm.{% endtrans %}
     </p>
-    <button
-      id="permissions-button"
-      class="button is-success"
-      style="margin-top: 10px"
-      onClick="handleConfirmation()"
-    >
-      Confirm
-    </button>
+    <div class="has-text-centered">
+      <button
+        id="permissions-button"
+        class="button is-success"
+        style="margin-top: 10px"
+        onClick="handleConfirmation()"
+      >
+        Confirm
+      </button>
+    </div>
   </div>
 </div>
 

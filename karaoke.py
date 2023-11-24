@@ -1,25 +1,18 @@
 import contextlib
-import glob
 import json
 import logging
 import os
 import random
 import socket
 import subprocess
-import sys
-import threading
 import time
-from io import BytesIO
 from pathlib import Path
 from subprocess import CalledProcessError, check_output
 
 import ffmpeg
-import pygame
 import qrcode
-import requests
 from unidecode import unidecode
 
-from lib import omxclient, vlcclient
 from lib.get_platform import get_platform
 
 if get_platform() != "windows":
@@ -61,7 +54,7 @@ class Karaoke:
         download_path="/usr/lib/pikaraoke/songs",
         hide_ip=False,
         hide_raspiwifi_instructions=False,
-        hide_splash_screen=True,
+        hide_splash_screen=False,
         omxplayer_adev="both",
         dual_screen=False,
         high_quality=False,
@@ -111,48 +104,26 @@ class Karaoke:
         )
 
         logging.debug(
-            """
-    http port: %s
-    hide IP: %s
-    hide RaspiWiFi instructions: %s,
-    hide splash: %s
-    splash_delay: %s
-    omx audio device: %s
-    dual screen: %s
-    high quality video: %s
-    download path: %s
-    default volume: %s
-    youtube-dl path: %s
-    omxplayer path: %s
-    logo path: %s
-    Use OMXPlayer: %s
-    Use VLC: %s
-    VLC path: %s
-    VLC port: %s
-    log_level: %s
-    show overlay: %s"""
-            % (
-                self.port,
-                self.hide_ip,
-                self.hide_raspiwifi_instructions,
-                self.hide_splash_screen,
-                self.splash_delay,
-                self.omxplayer_adev,
-                self.dual_screen,
-                self.high_quality,
-                self.download_path,
-                self.volume_offset,
-                self.youtubedl_path,
-                self.omxplayer_path,
-                self.logo_path,
-                self.use_omxplayer,
-                self.use_vlc,
-                self.vlc_path,
-                self.vlc_port,
-                log_level,
-                self.show_overlay
-            )
-        )
+            f"""
+    http port: {self.port}
+    hide IP: {self.hide_ip}
+    hide RaspiWiFi instructions: {self.hide_raspiwifi_instructions}
+    hide splash: {self.hide_splash_screen}
+    splash_delay: {self.splash_delay}
+    omx audio device: {self.omxplayer_adev}
+    dual screen: {self.dual_screen}
+    high quality video: {self.high_quality}
+    download path: {self.download_path}
+    default volume: {self.volume_offset}
+    youtube-dl path: {self.youtubedl_path}
+    omxplayer path: {self.omxplayer_path}
+    logo path: {self.logo_path}
+    Use OMXPlayer: {self.use_omxplayer}
+    Use VLC: {self.use_vlc}
+    VLC path: {self.vlc_path}
+    VLC port: {self.vlc_port}
+    log_level: {log_level}
+    show overlay: {self.show_overlay}""")
 
         # Generate connection URL and QR code, retry in case pi is still starting up
         # and doesn't have an IP yet (occurs when launched from /etc/rc.local)
@@ -179,21 +150,8 @@ class Karaoke:
 
         self.get_youtubedl_version()
 
-        # clean up old sessions
-        self.kill_player()
-
         self.generate_qr_code()
-        if self.use_vlc:
-            if (self.show_overlay):
-                self.vlcclient = vlcclient.VLCClient(port=self.vlc_port, path=self.vlc_path, qrcode=self.qr_code_path, url=self.url)
-            else: 
-                self.vlcclient = vlcclient.VLCClient(port=self.vlc_port, path=self.vlc_path)
-        else:
-            self.omxclient = omxclient.OMXClient(path=self.omxplayer_path, adev=self.omxplayer_adev, dual_screen=self.dual_screen, volume_offset=self.volume_offset)
-
-        if not self.hide_splash_screen:
-            self.initialize_screen()
-            self.render_splash_screen()
+   
 
  
     # Other ip-getting methods are unreliable and sometimes return 127.0.0.1
@@ -280,157 +238,6 @@ class Karaoke:
         img = qr.make_image()
         self.qr_code_path = os.path.join(self.base_path, "qrcode.png")
         img.save(self.qr_code_path)
-
-    def get_default_display_mode(self):
-        if self.use_vlc:
-            if self.platform == "raspberry_pi":
-                os.environ[
-                    "SDL_VIDEO_CENTERED"
-                ] = "1"  # HACK apparently if display mode is fullscreen the vlc window will be at the bottom of pygame
-                return pygame.NOFRAME
-            else:
-                return pygame.FULLSCREEN
-        else:
-            return pygame.FULLSCREEN
-
-    def initialize_screen(self):
-        if not self.hide_splash_screen:
-            logging.debug("Initializing pygame")
-            self.full_screen = True
-            pygame.display.init()
-            pygame.display.set_caption("pikaraoke")
-            pygame.font.init()
-            pygame.mouse.set_visible(0)
-            self.font = pygame.font.SysFont(pygame.font.get_default_font(), 40)
-            self.width = pygame.display.Info().current_w
-            self.height = pygame.display.Info().current_h
-            logging.debug("Initializing screen mode")
-
-            if self.platform == "windows":
-                self.screen = pygame.display.set_mode(
-                    [self.width, self.height], self.get_default_display_mode()
-                )
-            else:
-                # this section is an unbelievable nasty hack - for some reason Pygame
-                # needs a keyboardinterrupt to initialise in some limited circumstances
-                # source: https://stackoverflow.com/questions/17035699/pygame-requires-keyboard-interrupt-to-init-display
-                class Alarm(Exception):
-                    pass
-
-                def alarm_handler(signum, frame):
-                    raise Alarm
-
-                signal(SIGALRM, alarm_handler)
-                alarm(3)
-                try:
-                    self.screen = pygame.display.set_mode(
-                        [self.width, self.height], self.get_default_display_mode()
-                    )
-                    alarm(0)
-                except Alarm:
-                    raise KeyboardInterrupt
-            logging.debug("Done initializing splash screen")
-
-    def toggle_full_screen(self):
-        if not self.hide_splash_screen:
-            logging.debug("Toggling fullscreen...")
-            if self.full_screen:
-                self.screen = pygame.display.set_mode([1280, 720])
-                self.render_splash_screen()
-                self.full_screen = False
-            else:
-                self.screen = pygame.display.set_mode(
-                    [self.width, self.height], self.get_default_display_mode()
-                )
-                self.render_splash_screen()
-                self.full_screen = True
-
-    def render_splash_screen(self):
-        if not self.hide_splash_screen:
-            logging.debug("Rendering splash screen")
-
-            self.screen.fill((0, 0, 0))
-
-            logo = pygame.image.load(self.logo_path)
-            logo_rect = logo.get_rect(center=self.screen.get_rect().center)
-            self.screen.blit(logo, logo_rect)
-
-            blitY = self.screen.get_rect().bottomleft[1] - 80
-
-            if not self.hide_ip:
-                p_image = pygame.image.load(self.qr_code_path)
-                p_image = pygame.transform.scale(p_image, (150, 150))
-                self.screen.blit(p_image, (20, blitY - 125))
-                if not self.is_network_connected():
-                    text = self.font.render(
-                        "Wifi/Network not connected. Shutting down in 10s...",
-                        True,
-                        (255, 255, 255),
-                    )
-                    self.screen.blit(text, (p_image.get_width() + 35, blitY))
-                    time.sleep(10)
-                    logging.info(
-                        "No IP found. Network/Wifi configuration required. For wifi config, try: sudo raspi-config or the desktop GUI: startx"
-                    )
-                    self.stop()
-                else:
-                    text = self.font.render(
-                        "Connect at: " + self.url, True, (255, 255, 255)
-                    )
-                    self.screen.blit(text, (p_image.get_width() + 35, blitY))
-
-            if not self.hide_raspiwifi_instructions and (
-                self.raspi_wifi_config_installed
-                and self.raspi_wifi_config_ip in self.url
-            ):
-                (server_port, ssid_prefix, ssl_enabled) = self.get_raspi_wifi_conf_vals()
-
-                text1 = self.font.render(
-                    "RaspiWifiConfig setup mode detected!", True, (255, 255, 255)
-                )
-                text2 = self.font.render(
-                    "Connect another device/smartphone to the Wifi AP: '%s'" % ssid_prefix,
-                    True,
-                    (255, 255, 255),
-                )
-                text3 = self.font.render(
-                    "Then point its browser to: '%s://%s%s' and follow the instructions."
-                    % ("https" if ssl_enabled == "1" else "http", 
-                       self.raspi_wifi_config_ip, 
-                       ":%s" % server_port if server_port != "80" else ""),
-                    True,
-                    (255, 255, 255),
-                )
-                self.screen.blit(text1, (10, 10))
-                self.screen.blit(text2, (10, 50))
-                self.screen.blit(text3, (10, 90))
-
-    def render_next_song_to_splash_screen(self):
-        if not self.hide_splash_screen:
-            self.render_splash_screen()
-            if len(self.queue) >= 1:
-                logging.debug("Rendering next song to splash screen")
-                next_song = self.queue[0]["title"]
-                max_length = 60
-                if (len(next_song) > max_length):
-                    next_song = next_song[0:max_length] + "..."
-                next_user = self.queue[0]["user"]
-                font_next_song = pygame.font.SysFont(pygame.font.get_default_font(), 60)
-                text = font_next_song.render(
-                    "Up next: %s" % (unidecode(next_song)), True, (0, 128, 0)
-                )
-                up_next = font_next_song.render("Up next:  " , True, (255, 255, 0))
-                font_user_name = pygame.font.SysFont(pygame.font.get_default_font(), 50)
-                user_name = font_user_name.render("Added by: %s " % next_user, True, (255, 120, 0))
-                x = self.width - text.get_width() - 10
-                y = 5
-                self.screen.blit(text, (x, y))
-                self.screen.blit(up_next, (x, y))
-                self.screen.blit(user_name, (self.width - user_name.get_width() - 10, y + 50))
-                return True
-            else:
-                logging.debug("Could not render next song to splash. No song in queue")
-                return False
 
     def get_search_results(self, textToSearch):
         logging.info("Searching YouTube for: " + textToSearch)
@@ -543,19 +350,11 @@ class Karaoke:
             logging.error("Error parsing youtube id from url: " + url)
             return None
 
-    def kill_player(self):
-        if self.use_vlc:
-            logging.debug("Killing old VLC processes")
-            if self.vlcclient != None:
-                self.vlcclient.kill()
-        else:
-            if self.omxclient != None:
-                self.omxclient.kill()
-
     def play_file(self, file_path, semitones=0):
 
         #The pitch value is (2^x/12), where x represents the number of semitones
-        pitch_value = 2**(2/12)
+        pitch_value = 2**(semitones/12)
+        
  
         stream_url = f"http://{self.ip}:{self.ffmpeg_port}/{int(time.time())}"
         input = ffmpeg.input(file_path)
@@ -564,12 +363,10 @@ class Karaoke:
         output = ffmpeg.output(audio, video, stream_url, listen=1, f="mp4", movflags="frag_keyframe+empty_moov")
         self.ffmpeg_process = output.run_async(pipe_stderr=True, pipe_stdin=True)
 
-        # self.ffmpeg_process = ffmpeg.input(file_path).audio.filter("rubberband", pitch=pitch_value).output(stream_url, listen=1, f="mp4", movflags="frag_keyframe+empty_moov").run_async(pipe_stderr=True, pipe_stdin=True)
-
         while self.ffmpeg_process.poll() is None:
             # ffmpeg outputs everything useful to stderr for some insane reason!
             output = self.ffmpeg_process.stderr.readline()
-            print("[FFMPEG] " + output.decode("utf-8").strip())
+            logging.debug("[FFMPEG] " + output.decode("utf-8").strip())
             if "Input #" in output.decode("utf-8"):
                 # Ffmpeg outputs "Input #0" when the stream is ready to consume
                 self.now_playing = self.filename_from_path(file_path)
@@ -581,18 +378,6 @@ class Karaoke:
                 # time.sleep(1) #prevents song from ending prematurely
             if self.is_playing:
                 break
-
-        # if self.use_vlc:
-        #     logging.info("Playing video in VLC: " + self.now_playing)
-        #     if semitones == 0:
-        #         self.vlcclient.play_file(file_path)
-        #     else:
-        #         self.vlcclient.play_file_transpose(file_path, semitones)
-        # else:
-        #     logging.info("Playing video in omxplayer: " + self.now_playing)
-        #     self.omxclient.play_file(file_path)
-
-        self.render_splash_screen()  # remove old previous track
 
     def end_song(self):
         self.reset_now_playing()
@@ -610,18 +395,6 @@ class Karaoke:
 
     def is_file_playing(self):
         return self.is_playing
-        # if self.use_vlc:
-        #     if self.vlcclient != None and self.vlcclient.is_running():
-        #         return True
-        #     else:
-        #         self.now_playing = None
-        #         return False
-        # else:
-        #     if self.omxclient != None and self.omxclient.is_running():
-        #         return True
-        #     else:
-        #         self.now_playing = None
-        #         return False
 
     def is_song_in_queue(self, song_path):
         for each in self.queue:
@@ -707,11 +480,6 @@ class Karaoke:
         if self.is_file_playing():
             logging.info("Skipping: " + self.now_playing)
             self.now_playing_command = "skip"
-            # if self.use_vlc:
-            #     self.vlcclient.stop()
-            # else:
-            #     self.omxclient.stop()
-            # self.reset_now_playing()
             return True
         else:
             logging.warning("Tried to skip, but no file is playing!")
@@ -721,17 +489,6 @@ class Karaoke:
         if self.is_file_playing():
             logging.info("Toggling pause: " + self.now_playing)
             self.now_playing_command = "pause"
-
-            # if self.use_vlc:
-            #     if self.vlcclient.is_playing():
-            #         self.vlcclient.pause()
-            #     else:
-            #         self.vlcclient.play()
-            # else:
-            #     if self.omxclient.is_playing():
-            #         self.omxclient.pause()
-            #     else:
-            #         self.omxclient.play()
             self.is_paused = not self.is_paused
             return True
         else:
@@ -763,11 +520,6 @@ class Karaoke:
     def restart(self):
         if self.is_file_playing():
             self.now_playing_command = "restart"
-            # if self.use_vlc:
-            #     self.vlcclient.restart()
-            # else:
-            #     self.omxclient.restart()
-            # self.is_paused = False
             return True
         else:
             logging.warning("Tried to restart, but no file is playing!")
@@ -777,32 +529,8 @@ class Karaoke:
         self.running = False
 
     def handle_run_loop(self):
-        if self.hide_splash_screen:
-            time.sleep(self.loop_interval / 1000)
-        else:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    logging.warn("Window closed: Exiting pikaraoke...")
-                    self.running = False
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        logging.warn("ESC pressed: Exiting pikaraoke...")
-                        self.running = False
-                    if event.key == pygame.K_f:
-                        self.toggle_full_screen()
-            pygame.display.update()
-            pygame.time.wait(self.loop_interval)
+        time.sleep(self.loop_interval / 1000)
 
-    # Use this to reset the screen in case it loses focus
-    # This seems to occur in windows after playing a video
-    def pygame_reset_screen(self):
-        if self.hide_splash_screen:
-            pass
-        else:
-            logging.debug("Resetting pygame screen...")
-            pygame.display.quit()
-            self.initialize_screen()
-            self.render_splash_screen()
 
     def reset_now_playing(self):
         self.now_playing = None
@@ -815,6 +543,7 @@ class Karaoke:
 
     def run(self):
         logging.info("Starting PiKaraoke!")
+        logging.info(f"Connect to: {self.url}/splash")
         self.running = True
         while self.running:
             try:
@@ -823,9 +552,6 @@ class Karaoke:
                 if len(self.queue) > 0:
                     if not self.is_file_playing():
                         self.reset_now_playing()
-                        if not pygame.display.get_active():
-                            self.pygame_reset_screen()
-                        self.render_next_song_to_splash_screen()
                         i = 0
                         while i < (self.splash_delay * 1000):
                             self.handle_run_loop()
@@ -833,8 +559,6 @@ class Karaoke:
                         self.play_file(self.queue[0]["file"])
                         # self.now_playing_user=self.queue[0]["user"]
                         # self.queue.pop(0)
-                elif not pygame.display.get_active() and not self.is_file_playing():
-                    self.pygame_reset_screen()
                 self.handle_run_loop()
             except KeyboardInterrupt:
                 logging.warn("Keyboard interrupt: Exiting pikaraoke...")
