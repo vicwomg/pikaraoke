@@ -7,6 +7,8 @@
   var isPaused = false;
   var nowPlayingInterval = null;
   var nowPlayingHash = null;
+  var showMenu = false;
+  var menuButtonVisible = false;
 
   function startNowPlayingPolling() {
     nowPlayingInterval = setInterval(getNowPlaying, 1000);
@@ -123,11 +125,17 @@
         document.body.style.cursor = "default";
         cursorVisible = true;
       }
+      if (!menuButtonVisible) {
+        $("#menu a").addClass("visible").removeClass("hidden");
+        menuButtonVisible = true;
+      }
       mouseTimer = window.setTimeout(() => {
         mouseTimer = null;
         document.body.style.cursor = "none";
         cursorVisible = false;
-      }, 2000);
+        $("#menu a").addClass("hidden").removeClass("visible");
+        menuButtonVisible = false;
+      }, 5000);
     };
 
     //Video status events for communicating state back to server
@@ -143,6 +151,20 @@
     window.addEventListener("beforeunload", function (event) {
       endSong();
     });
+
+    //open menu iframe
+    $("#menu a").click(function () {
+      if (showMenu) {
+        $("#menu-container").hide();
+        $("#menu-container iframe").attr("src", "");
+        showMenu = false;
+      } else {
+        setUserCookie();
+        $("#menu-container").show();
+        $("#menu-container iframe").attr("src", "{{ url }}");
+        showMenu = true;
+      }
+    });
   });
 </script>
 {% endblock %} {% block body %}
@@ -153,7 +175,6 @@
       <p id="up-next-bottom" class="has-text-success has-text-right"></p>
     </div>
   </div>
-
   <div class="flex-item">
     <div class="logo-container">
       <img class="logo" src="{{ url_for('logo') }}" width="500px" alt="logo" />
@@ -161,6 +182,7 @@
   </div>
 
   <div id="bottom-container" class="flex-item">
+    {% if not hide_ip %}
     <img
       src="{{ url_for('qrcode') }}"
       width="100px"
@@ -168,6 +190,7 @@
       alt="qrcode"
     />
     <span class="is-size-4">&nbsp;Connect at: {{ url }}</span>
+    {% endif %}
   </div>
 </div>
 
@@ -197,6 +220,24 @@
       </button>
     </div>
   </div>
+</div>
+
+<div id="menu">
+  <a
+    role="button"
+    class="navbar-burger"
+    aria-label="menu"
+    aria-expanded="false"
+    data-target="navbarBasicExample"
+    style="display: block; width: 20px; height: 30px"
+  >
+    <span aria-hidden="true"></span>
+    <span aria-hidden="true"></span>
+    <span aria-hidden="true"></span>
+  </a>
+</div>
+<div id="menu-container" class="">
+  <iframe src="{{ url }}"></iframe>
 </div>
 
 <style>
@@ -261,6 +302,33 @@
     height: 100%;
     align-items: center;
     justify-content: center;
+  }
+  #menu {
+    position: absolute;
+    z-index: 5;
+    top: 10px;
+    left: 20px;
+  }
+  #menu-container {
+    position: absolute;
+    z-index: 3;
+    top: 40px;
+    left: 20px;
+    display: none;
+  }
+  #menu-container iframe {
+    width: 600px;
+    height: 80vh;
+  }
+  .visible {
+    visibility: visible;
+    opacity: 1;
+    transition: opacity 0.5s linear;
+  }
+  .hidden {
+    visibility: hidden;
+    opacity: 0;
+    transition: visibility 0s 0.5s, opacity 0.5s linear;
   }
 </style>
 
