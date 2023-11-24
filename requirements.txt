@@ -1,6 +1,7 @@
 # tempora==1.14.0
 # jaraco.functools==2.0
-CherryPy==10.2.1
+# CherryPy==10.2.1
+CherryPy
 # six==1.12.0
 Flask
 # pillow
@@ -8,7 +9,7 @@ qrcode
 # futures
 psutil 
 unidecode
-# requests
+requests
 flask-paginate==2021.10.29
 jinja2==3.0.3 # Avoid escape issue: https://github.com/sphinx-doc/sphinx/issues/10289
 Babel==2.9.1
