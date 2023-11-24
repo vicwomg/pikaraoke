@@ -121,7 +121,7 @@
   });
 </script>
 {% endblock %} {% block body %}
-<div class="flex-container is-size-4">
+<div id="splash-container" class="flex-container is-size-4">
   <div id="top-container" class="flex-item">
     <div id="up-next" class="has-text-warning">
       <p id="up-next-top" style="margin-bottom: 5px"></p>
@@ -181,6 +181,13 @@
   body {
     background-color: black;
   }
+  #splash-container {
+    position: relative;
+    top: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1;
+  }
   .flex-container {
     display: flex;
     flex-direction: column;
@@ -212,7 +219,7 @@
   }
   .video-container {
     position: absolute;
-    z-index: 10;
+    z-index: 2;
     top: 0;
     width: 100vw;
     height: 100vh;

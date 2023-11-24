@@ -180,7 +180,7 @@
 
     {% if get_flashed_messages() %}
     {% for category, message in get_flashed_messages(with_categories=true) %}
-    <div id="notification" class="notification {{category}}">
+    <div id="notification" class="notification {{category}}" style="display: none">
       <button id="notification-close" class="delete"></button>
       <div class="flash">{{ message }}</div>
     </div>
@@ -188,7 +188,7 @@
     {% endif %}
 
     <!-- Alternate notification for js-fired notifications using showNotification -->
-    <div id="notification-alt" class="notification">
+    <div id="notification-alt" class="notification" style="display: none">
       <button id="notification-close" class="delete"></button>
       <div class="flash"></div>
     </div>
