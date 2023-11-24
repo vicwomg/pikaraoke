@@ -26,6 +26,12 @@
     setTimeout(() => (isPlaying = false), 1100);
   }
 
+  function executeCommand(callback) {
+    callback();
+    clearCommand();
+    setTimeout(() => getNowPlaying(), 100);
+  }
+
   function getNowPlaying() {
     $.get('{{ url_for("nowplaying") }}', function (data) {
       var obj = JSON.parse(data);
@@ -54,7 +60,7 @@
 
         const video = $("#video")[0];
 
-        // Handle playback if a valid now_playing_url is provided
+        // Start playback if a valid now_playing_url is provided
         if (obj.now_playing_url && !isPlaying) {
           isPlaying = true;
           $("#video-source").attr("src", obj.now_playing_url);
@@ -62,24 +68,43 @@
           video.play();
         }
 
+        // Handle vol up
+        if (obj.now_playing_command == "vol_up" && isPlaying) {
+          executeCommand(() => {
+            const volume = video.volume;
+            video.volume = Math.min(1, volume + 0.1);
+          });
+        }
+
+        // Handle vol down
+        if (obj.now_playing_command == "vol_down" && isPlaying) {
+          executeCommand(() => {
+            const volume = video.volume;
+            video.volume = Math.max(0, volume - 0.1);
+          });
+        }
+
         // Handle pause
         if (obj.now_playing_command == "pause" && isPlaying) {
-          isPaused ? video.play() : video.pause();
-          isPaused = !isPaused;
-          clearCommand();
+          executeCommand(() => {
+            isPaused ? video.play() : video.pause();
+            isPaused = !isPaused;
+          });
         }
 
         // Handle skip
         if (obj.now_playing_command == "skip" && isPlaying) {
-          video.pause();
-          endSong();
-          clearCommand();
+          executeCommand(() => {
+            video.pause();
+            endSong();
+          });
         }
 
         // Handle restart
         if (obj.now_playing_command == "restart" && isPlaying) {
-          video.currentTime = 0;
-          clearCommand();
+          executeCommand(() => {
+            video.currentTime = 0;
+          });
         }
       }
     });
