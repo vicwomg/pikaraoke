@@ -23,6 +23,9 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 import karaoke
 from constants import LANGUAGES, VERSION
@@ -878,14 +881,17 @@ if __name__ == "__main__":
 
         # Start the splash screen using selenium
         if not args.hide_splash_screen: 
-            driver = webdriver.Chrome()
+            service = Service(executable_path='/usr/bin/chromedriver')
             options = Options()
+            #options.add_argument("--start-fullscreen")
             options.add_argument("--kiosk")
             options.add_experimental_option("excludeSwitches", ['enable-automation'])
-            driver = webdriver.Chrome(options=options)
+            driver = webdriver.Chrome(service=service, options=options)
+            #driver = webdriver.Chrome(service=service)
             driver.get("http://localhost:%s/splash" % args.port)
             # Clicking this counts as an interaction, which will allow the browser to autoplay audio
-            elem = driver.find_element(By.ID, "permissions-button")
+            wait = WebDriverWait(driver, 60)
+            elem = wait.until(EC.element_to_be_clickable((By.ID, "permissions-button")))
             elem.click()
 
         # Start the karaoke process
