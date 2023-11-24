@@ -13,8 +13,10 @@ from io import BytesIO
 from pathlib import Path
 from subprocess import CalledProcessError, check_output
 
+import ffmpeg
 import pygame
 import qrcode
+import requests
 from unidecode import unidecode
 
 from lib import omxclient, vlcclient
@@ -32,10 +34,16 @@ class Karaoke:
 
     queue = []
     available_songs = []
+
+    # These all get sent to the /nowplaying endpoint for client-side polling
     now_playing = None
     now_playing_filename = None
     now_playing_user = None
     now_playing_transpose = 0
+    now_playing_url = None
+    now_playing_command = None
+
+    is_playing = False
     is_paused = True
     process = None
     qr_code_path = None
@@ -43,6 +51,9 @@ class Karaoke:
     volume_offset = 0
     loop_interval = 500  # in milliseconds
     default_logo_path = os.path.join(base_path, "logo.png")
+    
+    ffmpeg_process = None
+    ffmpeg_port = 5556
 
     def __init__(
         self,
@@ -50,7 +61,7 @@ class Karaoke:
         download_path="/usr/lib/pikaraoke/songs",
         hide_ip=False,
         hide_raspiwifi_instructions=False,
-        hide_splash_screen=False,
+        hide_splash_screen=True,
         omxplayer_adev="both",
         dual_screen=False,
         high_quality=False,
@@ -542,21 +553,52 @@ class Karaoke:
                 self.omxclient.kill()
 
     def play_file(self, file_path, semitones=0):
-        self.now_playing = self.filename_from_path(file_path)
-        self.now_playing_filename = file_path
 
-        if self.use_vlc:
-            logging.info("Playing video in VLC: " + self.now_playing)
-            if semitones == 0:
-                self.vlcclient.play_file(file_path)
-            else:
-                self.vlcclient.play_file_transpose(file_path, semitones)
-        else:
-            logging.info("Playing video in omxplayer: " + self.now_playing)
-            self.omxclient.play_file(file_path)
+        #The pitch value is (2^x/12), where x represents the number of semitones
+        pitch_value = 2**(2/12)
+ 
+        stream_url = f"http://{self.ip}:{self.ffmpeg_port}/{int(time.time())}"
+        input = ffmpeg.input(file_path)
+        audio = input.audio.filter("rubberband", pitch=pitch_value)
+        video = input.video
+        output = ffmpeg.output(audio, video, stream_url, listen=1, f="mp4", movflags="frag_keyframe+empty_moov")
+        self.ffmpeg_process = output.run_async(pipe_stderr=True, pipe_stdin=True)
 
-        self.is_paused = False
+        # self.ffmpeg_process = ffmpeg.input(file_path).audio.filter("rubberband", pitch=pitch_value).output(stream_url, listen=1, f="mp4", movflags="frag_keyframe+empty_moov").run_async(pipe_stderr=True, pipe_stdin=True)
+
+        while self.ffmpeg_process.poll() is None:
+            # ffmpeg outputs everything useful to stderr for some insane reason!
+            output = self.ffmpeg_process.stderr.readline()
+            print("[FFMPEG] " + output.decode("utf-8").strip())
+            if "Input #" in output.decode("utf-8"):
+                # Ffmpeg outputs "Input #0" when the stream is ready to consume
+                self.now_playing = self.filename_from_path(file_path)
+                self.now_playing_filename = file_path
+                self.now_playing_url = stream_url
+                self.now_playing_user=self.queue[0]["user"]
+                self.is_paused = False
+                self.queue.pop(0)
+                # time.sleep(1) #prevents song from ending prematurely
+            if self.is_playing:
+                break
+
+        # if self.use_vlc:
+        #     logging.info("Playing video in VLC: " + self.now_playing)
+        #     if semitones == 0:
+        #         self.vlcclient.play_file(file_path)
+        #     else:
+        #         self.vlcclient.play_file_transpose(file_path, semitones)
+        # else:
+        #     logging.info("Playing video in omxplayer: " + self.now_playing)
+        #     self.omxclient.play_file(file_path)
+
         self.render_splash_screen()  # remove old previous track
+
+    def end_song(self):
+        self.reset_now_playing()
+        # Kill ffmpeg if necessary
+        if self.ffmpeg_process:
+            self.ffmpeg_process.stdin.write(b"q")
 
     def transpose_current(self, semitones):
         if self.use_vlc:
@@ -567,18 +609,19 @@ class Karaoke:
             logging.error("Not using VLC. Can't transpose track.")
 
     def is_file_playing(self):
-        if self.use_vlc:
-            if self.vlcclient != None and self.vlcclient.is_running():
-                return True
-            else:
-                self.now_playing = None
-                return False
-        else:
-            if self.omxclient != None and self.omxclient.is_running():
-                return True
-            else:
-                self.now_playing = None
-                return False
+        return self.is_playing
+        # if self.use_vlc:
+        #     if self.vlcclient != None and self.vlcclient.is_running():
+        #         return True
+        #     else:
+        #         self.now_playing = None
+        #         return False
+        # else:
+        #     if self.omxclient != None and self.omxclient.is_running():
+        #         return True
+        #     else:
+        #         self.now_playing = None
+        #         return False
 
     def is_song_in_queue(self, song_path):
         for each in self.queue:
@@ -663,11 +706,12 @@ class Karaoke:
     def skip(self):
         if self.is_file_playing():
             logging.info("Skipping: " + self.now_playing)
-            if self.use_vlc:
-                self.vlcclient.stop()
-            else:
-                self.omxclient.stop()
-            self.reset_now_playing()
+            self.now_playing_command = "skip"
+            # if self.use_vlc:
+            #     self.vlcclient.stop()
+            # else:
+            #     self.omxclient.stop()
+            # self.reset_now_playing()
             return True
         else:
             logging.warning("Tried to skip, but no file is playing!")
@@ -676,16 +720,18 @@ class Karaoke:
     def pause(self):
         if self.is_file_playing():
             logging.info("Toggling pause: " + self.now_playing)
-            if self.use_vlc:
-                if self.vlcclient.is_playing():
-                    self.vlcclient.pause()
-                else:
-                    self.vlcclient.play()
-            else:
-                if self.omxclient.is_playing():
-                    self.omxclient.pause()
-                else:
-                    self.omxclient.play()
+            self.now_playing_command = "pause"
+
+            # if self.use_vlc:
+            #     if self.vlcclient.is_playing():
+            #         self.vlcclient.pause()
+            #     else:
+            #         self.vlcclient.play()
+            # else:
+            #     if self.omxclient.is_playing():
+            #         self.omxclient.pause()
+            #     else:
+            #         self.omxclient.play()
             self.is_paused = not self.is_paused
             return True
         else:
@@ -716,11 +762,12 @@ class Karaoke:
 
     def restart(self):
         if self.is_file_playing():
-            if self.use_vlc:
-                self.vlcclient.restart()
-            else:
-                self.omxclient.restart()
-            self.is_paused = False
+            self.now_playing_command = "restart"
+            # if self.use_vlc:
+            #     self.vlcclient.restart()
+            # else:
+            #     self.omxclient.restart()
+            # self.is_paused = False
             return True
         else:
             logging.warning("Tried to restart, but no file is playing!")
@@ -761,7 +808,9 @@ class Karaoke:
         self.now_playing = None
         self.now_playing_filename = None
         self.now_playing_user = None
+        self.now_playing_url = None
         self.is_paused = True
+        self.is_playing = False
         self.now_playing_transpose = 0
 
     def run(self):
@@ -782,8 +831,8 @@ class Karaoke:
                             self.handle_run_loop()
                             i += self.loop_interval
                         self.play_file(self.queue[0]["file"])
-                        self.now_playing_user=self.queue[0]["user"]
-                        self.queue.pop(0)
+                        # self.now_playing_user=self.queue[0]["user"]
+                        # self.queue.pop(0)
                 elif not pygame.display.get_active() and not self.is_file_playing():
                     self.pygame_reset_screen()
                 self.handle_run_loop()

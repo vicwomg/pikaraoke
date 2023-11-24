@@ -16,6 +16,11 @@
     })
   }
 
+  function refreshQueue() {
+    // slight delay to allow the queue to update
+    setTimeout(() => getQueue(), 100);
+  }
+
   function generateQueueHTML() {
     var html = "";
     if (queue.length > 0) {
@@ -72,20 +77,20 @@
         )
       ) {
         $.get(this.href, function (data) {})
-        getQueue();
+        refreshQueue();
       }
   });
 
   $(document).on('click', '.up-button', function (e) {
     e.preventDefault();
     $.get(this.href, function (data) {})
-    getQueue();
+    refreshQueue();
   });
 
   $(document).on('click', '.down-button', function (e) {
     e.preventDefault();
     $.get(this.href, function (data) {})
-    getQueue();
+    refreshQueue();
   });
 
   $(document).on('click', '.confirm-clear', function (e) {
@@ -94,7 +99,8 @@
       "Are you sure you want to clear the ENTIRE queue? Type 'OK' to continue"
     );
     if (prompt.toLowerCase() === "ok") {
-      location.href = this.href;
+      // location.href = this.href;
+      refreshQueue();
     }
   });
 
@@ -104,7 +110,7 @@
     setInterval(function() {
         getQueue();
       },
-      2500
+      1500
     )
   });
 </script>
