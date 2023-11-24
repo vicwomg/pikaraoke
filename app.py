@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import hashlib
 import json
 import logging
 import os
@@ -18,6 +19,10 @@ from flask import (Flask, flash, jsonify, make_response, redirect,
                    url_for)
 from flask_babel import Babel
 from flask_paginate import Pagination, get_page_parameter
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 
 import karaoke
 from constants import LANGUAGES, VERSION
@@ -55,6 +60,8 @@ def filename_from_path(file_path, remove_youtube_id=True):
 def url_escape(filename):
     return quote(filename.encode("utf8"))
 
+def hash_dict(d):
+    return hashlib.md5(json.dumps(d, sort_keys=True, ensure_ascii=True).encode('utf-8')).hexdigest()
 
 def is_admin():
     if (admin_password == None):
@@ -121,16 +128,24 @@ def nowplaying():
         rc = {
             "now_playing": k.now_playing,
             "now_playing_user": k.now_playing_user,
+            "now_playing_command": k.now_playing_command,
             "up_next": next_song,
             "next_user": next_user,
+            "now_playing_url": k.now_playing_url,
             "is_paused": k.is_paused,
             "transpose_value": k.now_playing_transpose,
         }
+        rc["hash"] = hash_dict(rc) # used to detect changes in the now playing data
         return json.dumps(rc)
     except (Exception) as e:
         logging.error("Problem loading /nowplaying, pikaraoke may still be starting up: " + str(e))
         return ""
 
+# Call this after receiving a command in the front end
+@app.route("/clear_command")
+def clear_command():
+    k.now_playing_command = None
+    return ""
 
 @app.route("/queue")
 def queue():
@@ -154,7 +169,6 @@ def add_random():
     else:
         flash("Ran out of songs!", "is-warning")
     return redirect(url_for("queue"))
-
 
 @app.route("/queue/edit", methods=["GET"])
 def queue_edit():
@@ -365,6 +379,18 @@ def qrcode():
 def logo():
     return send_file(k.logo_path, mimetype="image/png")
 
+@app.route("/end_song", methods=["GET"])
+def end_song():
+    print("END SONG")
+    k.end_song()
+    return "ok"
+
+@app.route("/start_song", methods=["GET"])
+def start_song():
+    print("START SONG")
+    k.is_playing = True
+    return "ok"
+
 @app.route("/files/delete", methods=["GET"])
 def delete_file():
     if "song" in request.args:
@@ -433,12 +459,12 @@ def splash():
     return render_template(
         "splash.html",
         blank_page=True,
-        url="http://" + request.host
+        url=f"http://{k.ip}:{k.port}" 
     )
 
 @app.route("/info")
 def info():
-    url = "http://" + request.host
+    url=f"http://{k.ip}:{k.port}" 
 
     # cpu
     cpu = str(psutil.cpu_percent()) + "%"
@@ -857,7 +883,23 @@ if __name__ == "__main__":
             }
         )
         cherrypy.engine.start()
+
+        # Start the splash screen using selenium
+        driver = webdriver.Chrome()
+        options = Options()
+        options.add_argument("--kiosk")
+        options.add_experimental_option("excludeSwitches", ['enable-automation'])
+        driver = webdriver.Chrome(options=options)
+        driver.get("http://localhost:%s/splash" % args.port)
+        # Clicking this counts as an interaction, which will allow the browser to autoplay audio
+        elem = driver.find_element(By.ID, "permissions-button")
+        elem.click()
+
+        # Start the karaoke process
         k.run()
+
+        # Close running processes when done
+        driver.close()
         cherrypy.engine.exit()
 
     sys.exit()
