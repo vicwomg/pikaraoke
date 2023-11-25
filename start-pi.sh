@@ -1,4 +1,4 @@
 #!/bin/bash
 
-source /home/pi/pikaraoke/.venv/bin/activate
-python3 app.py -y /home/pi/pikaraoke/.venv/bin/yt-dlp --hide-splash -l10
+source .venv/bin/activate
+python3 app.py -y .venv/bin/yt-dlp --hide-splash -l10
