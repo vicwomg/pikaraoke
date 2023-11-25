@@ -352,7 +352,7 @@ class Karaoke:
             return None
 
     def play_file(self, file_path, semitones=0):
-        logging.info(f"Playing file: {file_path} with trasposed {semitones} semitones")
+        logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
         stream_url = f"http://{self.ip}:{self.ffmpeg_port}/{int(time.time())}"
         pitch = 2**(semitones/12) #The pitch value is (2^x/12), where x represents the number of semitones
 
@@ -363,19 +363,27 @@ class Karaoke:
             self.queue.pop(0)
             return False
 
+        # use h/w acceleration on pi
+        default_vcodec = "h264_v4l2m2m" if self.platform == "raspberry_pi" else "libx264" 
+        # just copy the video stream if it's an mp4 or webm file, since they are supported natively in html5 
+        # otherwise use the default h264 codec
+        vcodec = "copy" if fr.file_extension == ".mp4" or fr.file_extension == ".webm" else default_vcodec
+
+        # copy the audio stream if no transposition, otherwise use the aac codec
+        is_transposed = semitones != 0
+        acodec = "aac" if is_transposed else "copy"
+        input = ffmpeg.input(fr.file_path)
+        audio = input.audio.filter("rubberband", pitch=pitch) if is_transposed else input.audio
+
         if (fr.cdg_file_path != None): #handle CDG files
             logging.info("Playing CDG/MP3 file: " + file_path)
-            input = ffmpeg.input(fr.file_path)
             cdg_input = ffmpeg.input(fr.cdg_file_path)
-            audio = input.audio.filter("rubberband", pitch=pitch)
             video = cdg_input.video
-            output = ffmpeg.output(audio, video, stream_url, listen=1, f="mp4", movflags="frag_keyframe+empty_moov") 
+            output = ffmpeg.output(audio, video, stream_url, vcodec=vcodec, acodec=acodec, listen=1, f="mp4", movflags="frag_keyframe+empty_moov") 
         else: 
             logging.info("Playing video file: " + file_path)
-            input = ffmpeg.input(fr.file_path)
-            audio = input.audio.filter("rubberband", pitch=pitch)
             video = input.video
-            output = ffmpeg.output(audio, video, stream_url, vcodec="copy", listen=1, f="mp4", movflags="frag_keyframe+empty_moov")
+            output = ffmpeg.output(audio, video, stream_url, vcodec=vcodec, acodec=acodec, listen=1, f="mp4", movflags="frag_keyframe+empty_moov")
         
         self.ffmpeg_process = output.run_async(pipe_stderr=True, pipe_stdin=True)
 
