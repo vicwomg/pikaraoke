@@ -456,7 +456,8 @@ def splash():
         "splash.html",
         blank_page=True,
         url=f"http://{k.ip}:{k.port}",
-        hide_ip=k.hide_ip
+        hide_ip=k.hide_ip,
+        overlay=k.show_overlay
     )
 
 @app.route("/info")
@@ -514,7 +515,7 @@ def info():
 
 # Delay system commands to allow redirect to render first
 def delayed_halt(cmd):
-    time.sleep(3)
+    time.sleep(1.5)
     k.queue_clear()  # stop all pending omxplayer processes
     cherrypy.engine.stop()
     cherrypy.engine.exit()
