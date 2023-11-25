@@ -379,11 +379,12 @@ class Karaoke:
             logging.info("Playing CDG/MP3 file: " + file_path)
             cdg_input = ffmpeg.input(fr.cdg_file_path)
             video = cdg_input.video
-            output = ffmpeg.output(audio, video, stream_url, vcodec=vcodec, acodec=acodec, listen=1, f="mp4", movflags="frag_keyframe+empty_moov") 
+            #raspberry pi fails at using h264_v4l2m2m for CDG files, so use the default libx264
+            output = ffmpeg.output(audio, video, stream_url, vcodec="libx264", acodec=acodec, listen=1, f="mp4", movflags="frag_keyframe+default_base_moof")
         else: 
             logging.info("Playing video file: " + file_path)
             video = input.video
-            output = ffmpeg.output(audio, video, stream_url, vcodec=vcodec, acodec=acodec, listen=1, f="mp4", movflags="frag_keyframe+empty_moov")
+            output = ffmpeg.output(audio, video, stream_url, vcodec=vcodec, acodec=acodec, listen=1, f="mp4", movflags="frag_keyframe+default_base_moof")
         
         self.ffmpeg_process = output.run_async(pipe_stderr=True, pipe_stdin=True)
 
