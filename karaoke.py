@@ -13,6 +13,7 @@ import ffmpeg
 import qrcode
 from unidecode import unidecode
 
+from lib.file_resolver import FileResolver
 from lib.get_platform import get_platform
 
 if get_platform() != "windows":
@@ -353,19 +354,38 @@ class Karaoke:
     def play_file(self, file_path, semitones=0):
         logging.info(f"Playing file: {file_path} with trasposed {semitones} semitones")
         stream_url = f"http://{self.ip}:{self.ffmpeg_port}/{int(time.time())}"
-        input = ffmpeg.input(file_path)
-        #The pitch value is (2^x/12), where x represents the number of semitones
-        audio = input.audio.filter("rubberband", pitch=2**(semitones/12))
-        video = input.video
-        output = ffmpeg.output(audio, video, stream_url, vcodec="copy", listen=1, f="mp4", movflags="frag_keyframe+empty_moov")
+        pitch = 2**(semitones/12) #The pitch value is (2^x/12), where x represents the number of semitones
+
+        try:
+            fr = FileResolver(file_path)
+        except Exception as e:
+            logging.error("Error resolving file: " + str(e))
+            self.queue.pop(0)
+            return False
+
+        if (fr.cdg_file_path != None): #handle CDG files
+            logging.info("Playing CDG/MP3 file: " + file_path)
+            input = ffmpeg.input(fr.file_path)
+            cdg_input = ffmpeg.input(fr.cdg_file_path)
+            audio = input.audio.filter("rubberband", pitch=pitch)
+            video = cdg_input.video
+            output = ffmpeg.output(audio, video, stream_url, listen=1, f="mp4", movflags="frag_keyframe+empty_moov") 
+        else: 
+            logging.info("Playing video file: " + file_path)
+            input = ffmpeg.input(fr.file_path)
+            audio = input.audio.filter("rubberband", pitch=pitch)
+            video = input.video
+            output = ffmpeg.output(audio, video, stream_url, vcodec="copy", listen=1, f="mp4", movflags="frag_keyframe+empty_moov")
+        
         self.ffmpeg_process = output.run_async(pipe_stderr=True, pipe_stdin=True)
 
         while self.ffmpeg_process.poll() is None:
             # ffmpeg outputs everything useful to stderr for some insane reason!
             output = self.ffmpeg_process.stderr.readline()
             logging.debug("[FFMPEG] " + output.decode("utf-8").strip())
-            if "Input #" in output.decode("utf-8"):
-                # Ffmpeg outputs "Input #0" when the stream is ready to consume
+            if "Stream #" in output.decode("utf-8"):
+                logging.debug("Stream ready to consume")
+                # Ffmpeg outputs "Stream #0" when the stream is ready to consume
                 self.now_playing = self.filename_from_path(file_path)
                 self.now_playing_filename = file_path
                 self.now_playing_transpose = semitones
@@ -373,7 +393,7 @@ class Karaoke:
                 self.now_playing_user=self.queue[0]["user"]
                 self.is_paused = False
                 self.queue.pop(0)
-                # time.sleep(1) #prevents song from ending prematurely
+                time.sleep(1) #prevents loop from trying to replay track
             if self.is_playing:
                 break
 
