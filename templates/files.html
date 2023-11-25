@@ -16,7 +16,7 @@
     $("a.add-song-link").click(function (e) {
       e.preventDefault();
       setUserCookie();
-      $.get(this.href + encodeURIComponent(user), function (data) {
+      $.get(this.href + encodeURIComponent(getUserCookie()), function (data) {
         var obj = JSON.parse(data);
         if (obj.success) {
           // {# MSG: Notification when a song gets added to the queue.  The song name comes after this string. #}
