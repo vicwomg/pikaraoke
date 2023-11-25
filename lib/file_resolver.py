@@ -10,6 +10,7 @@ from lib.get_platform import get_platform
 class FileResolver:
     file_path = None
     cdg_file_path = None
+    file_extension = None
 
     def __init__(self, file_path):
         # Determine tmp directories (for things like extracted cdg files)
@@ -62,10 +63,11 @@ class FileResolver:
         raise Exception("No matching .cdg file found for: " + file_path)
 
     def process_file(self, file_path):
-        file_extension = os.path.splitext(file_path)[1]
-        if (file_extension.casefold() == ".zip"):
+        file_extension = os.path.splitext(file_path)[1].casefold()
+        self.file_extension = file_extension
+        if (file_extension == ".zip"):
             self.handle_zipped_cdg(file_path)
-        elif (file_extension.casefold() == ".mp3"):
+        elif (file_extension == ".mp3"):
             self.handle_mp3_cdg(file_path)
         else:
             self.file_path = file_path
