@@ -14,6 +14,7 @@ if [ $? -ne 0 ]; then echo "ERROR: 'apt-get update' failed with error code: $?";
 echo
 echo "*** INSTALLING REQUIRED BINARIES ***"
 sudo apt-get install ffmpeg -y
+sudo apt-get install chromium-chromedriver
 if [ $? -ne 0 ]; then echo "ERROR: Binary dependency installation failed with error code: $?"; exit 1; fi
 
 # echo

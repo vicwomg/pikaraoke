@@ -891,7 +891,7 @@ if __name__ == "__main__":
             options.add_experimental_option("excludeSwitches", ['enable-automation'])
             driver = webdriver.Chrome(service=service, options=options)
             driver.get(f"http://{k.ip}:{k.port}/splash" )
-            driver.add_cookie({'name': 'user', 'value': 'PiKaraoke'})
+            driver.add_cookie({'name': 'user', 'value': 'PiKaraoke-Host'})
             # Clicking this counts as an interaction, which will allow the browser to autoplay audio
             wait = WebDriverWait(driver, 60)
             elem = wait.until(EC.element_to_be_clickable((By.ID, "permissions-button")))

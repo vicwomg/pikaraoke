@@ -368,6 +368,7 @@ class Karaoke:
         # just copy the video stream if it's an mp4 or webm file, since they are supported natively in html5 
         # otherwise use the default h264 codec
         vcodec = "copy" if fr.file_extension == ".mp4" or fr.file_extension == ".webm" else default_vcodec
+        vbitrate = "5M" #seems to yield best results w/ h264_v4l2m2m on pi, recommended for 720p.
 
         # copy the audio stream if no transposition, otherwise use the aac codec
         is_transposed = semitones != 0
@@ -378,20 +379,20 @@ class Karaoke:
 
         if (fr.cdg_file_path != None): #handle CDG files
             logging.info("Playing CDG/MP3 file: " + file_path)
-            # copyts helps with sync issues, fps=25 prevents ffmpeg from encoding cdg at 300fps
+            # copyts helps with sync issues, fps=25 prevents ffmpeg from needlessly encoding cdg at 300fps
             cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
             video = cdg_input.video.filter("fps", fps=25)
-            #cdg is very fussy about these flags. pi needs to encode to aac. 
+            #cdg is very fussy about these flags. pi needs to encode to aac and cant just copy the mp3 stream
             output = ffmpeg.output(audio, video, stream_url, 
                                    vcodec=vcodec, acodec="aac", 
-                                   pix_fmt="yuv420p", listen=1, f="mp4", 
+                                   pix_fmt="yuv420p", listen=1, f="mp4", video_bitrate=vbitrate,
                                    movflags="frag_keyframe+default_base_moof")     
         else: 
             logging.info("Playing video file: " + file_path)
             video = input.video
             output = ffmpeg.output(audio, video, stream_url, 
                                    vcodec=vcodec, acodec=acodec, 
-                                   listen=1, f="mp4", 
+                                   listen=1, f="mp4", video_bitrate=vbitrate,
                                    movflags="frag_keyframe+default_base_moof")
         
         args = output.get_args()
