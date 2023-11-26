@@ -375,17 +375,28 @@ class Karaoke:
         input = ffmpeg.input(fr.file_path)
         audio = input.audio.filter("rubberband", pitch=pitch) if is_transposed else input.audio
 
+
         if (fr.cdg_file_path != None): #handle CDG files
             logging.info("Playing CDG/MP3 file: " + file_path)
-            cdg_input = ffmpeg.input(fr.cdg_file_path)
-            video = cdg_input.video
-            #pi is very fussy about these flags. Requires:  aac encoding, pix_fmt=yuv420, vsync=2 (or it encodes at 300fps)
-            output = ffmpeg.output(audio, video, stream_url, vcodec=vcodec, acodec="aac", pix_fmt="yuv420p", vsync=2, listen=1, f="mp4", movflags="frag_keyframe+default_base_moof")        
+            # copyts helps with sync issues, fps=25 prevents ffmpeg from encoding cdg at 300fps
+            cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
+            video = cdg_input.video.filter("fps", fps=25)
+            #cdg is very fussy about these flags. pi needs to encode to aac. 
+            output = ffmpeg.output(audio, video, stream_url, 
+                                   vcodec=vcodec, acodec="aac", 
+                                   pix_fmt="yuv420p", listen=1, f="mp4", 
+                                   movflags="frag_keyframe+default_base_moof")     
         else: 
             logging.info("Playing video file: " + file_path)
             video = input.video
-            output = ffmpeg.output(audio, video, stream_url, vcodec=vcodec, acodec=acodec, listen=1, f="mp4", movflags="frag_keyframe+default_base_moof")
+            output = ffmpeg.output(audio, video, stream_url, 
+                                   vcodec=vcodec, acodec=acodec, 
+                                   listen=1, f="mp4", 
+                                   movflags="frag_keyframe+default_base_moof")
         
+        args = output.get_args()
+        logging.debug(f"COMMAND: ffmpeg " + " ".join(args))
+
         self.ffmpeg_process = output.run_async(pipe_stderr=True, pipe_stdin=True)
 
         while self.ffmpeg_process.poll() is None:
@@ -402,9 +413,22 @@ class Karaoke:
                 self.now_playing_user=self.queue[0]["user"]
                 self.is_paused = False
                 self.queue.pop(0)
-                time.sleep(2) #prevents loop from trying to replay track
-            if self.is_playing:
-                break
+
+                # Keep logging output until the splash screen reports back that the stream is playing
+                max_retries = 100
+                while self.is_playing == False and max_retries > 0:
+                    time.sleep(0.1) #prevents loop from trying to replay track
+                    output = self.ffmpeg_process.stderr.readline()
+                    if output:
+                        logging.debug("[FFMPEG] " + output.decode("utf-8").strip())
+                    max_retries -= 1
+                if self.is_playing:
+                    logging.debug("Stream is playing")
+                    break
+                else:   
+                    logging.error("Stream was not playable! Run with debug logging to see output. Skipping track")
+                    self.now_playing_command = "skip"
+                    break
 
     def kill_ffmpeg(self):
         logging.debug("Killing ffmpeg process")
