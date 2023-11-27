@@ -126,7 +126,7 @@ sudo ln -s `which yt-dlp` /usr/local/bin/yt-dlp
 
 - Install VLC (to its default location): https://www.videolan.org/
 - Install ffmpeg (only if you want to use --high-quality flag) https://ffmpeg.org/download.html
-- Install MS Visual C++ (required to launch youtube-dl) https://www.microsoft.com/en-US/download/details.aspx?id=5555
+- Install MS Visual C++ (required to launch youtube-dl) https://www.microsoft.com/en-us/download/details.aspx?id=48145
 - Install youtube-dl (yt-dlp). FYI, pip3 didn't seem to work for this on windows, so I used scoop as a package manager and I think it handles filed permissions best. Install scoop by following the instructions here: https://scoop.sh/
 
 ```
