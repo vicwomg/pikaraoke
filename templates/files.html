@@ -16,7 +16,7 @@
     $("a.add-song-link").click(function (e) {
       e.preventDefault();
       setUserCookie();
-
+      var user = Cookies.get("user");
       $.get(this.href + encodeURIComponent(user), function (data) {
         var obj = JSON.parse(data);
         if (obj.success) {
@@ -33,8 +33,6 @@
           );
         }
       });
-
-      // location.href = this.href + Cookies.get("user");
     });
   });
 </script>
