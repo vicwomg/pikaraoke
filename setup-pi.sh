@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 read -p "Are you sure you want to setup PiKaraoke? (y/n): " REPLY
 if [ $REPLY = "y" ]
