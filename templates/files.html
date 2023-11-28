@@ -1,59 +1,42 @@
 {% extends 'base.html' %} {% block scripts %}
 <script>
-    $(function () {
-      if ($(window).width() <= 500) {
-        $(document).scroll(function () {
-          var y = $(this).scrollTop();
-          if (y > 100) {
-            $("#alpha-bar").removeClass("mobile-hide");
-            $("#alpha-bar").fadeIn();
-          } else {
-            $("#alpha-bar").fadeOut();
-          }
-        });
-      }
-
-      $("a.add-song-link").click(function (e) {
-        e.preventDefault();
-  <<<<<<< HEAD
-        setUserCookie();
-        $.get(this.href + encodeURIComponent(getUserCookie()), function (data) {
-  =======
-        var user = Cookies.get("user");
-        if (!user) {
-          let name = window.prompt(
-            // {# MSG: Prompt which asks the user their name when they first navigate to the page. #}
-            "{{ _('Please enter your name. This will show up next to the songs you queue up from this device.') }}"
-          );
-          if (name) {
-            Cookies.set("user", name, { expires: 3650 });
-            user = Cookies.get("user");
-          }
+  $(function () {
+    if ($(window).width() <= 500) {
+      $(document).scroll(function () {
+        var y = $(this).scrollTop();
+        if (y > 100) {
+          $("#alpha-bar").removeClass("mobile-hide");
+          $("#alpha-bar").fadeIn();
+        } else {
+          $("#alpha-bar").fadeOut();
         }
-        $.get(this.href + encodeURIComponent(user), function (data) {
-  >>>>>>> master
-          var obj = JSON.parse(data);
-          if (obj.success) {
-            // {# MSG: Notification when a song gets added to the queue.  The song name comes after this string. #}
-            showNotification(
-              "{{ _('Song added to the queue: ') }}" + obj.song,
-              "is-success"
-            );
-          } else {
-            // {# MSG: Notification when a song does not get added to the queue.  The song name comes after this string. #}
-            showNotification(
-              "{{ _('Song already in the queue: ') }}" + obj.song,
-              "is-danger"
-            );
-          }
-        });
-  <<<<<<< HEAD
-  =======
-
-        // location.href = this.href + Cookies.get("user");
-  >>>>>>> master
       });
+    }
+
+    $("a.add-song-link").click(function (e) {
+      e.preventDefault();
+      setUserCookie();
+
+      $.get(this.href + encodeURIComponent(user), function (data) {
+        var obj = JSON.parse(data);
+        if (obj.success) {
+          // {# MSG: Notification when a song gets added to the queue.  The song name comes after this string. #}
+          showNotification(
+            "{{ _('Song added to the queue: ') }}" + obj.song,
+            "is-success"
+          );
+        } else {
+          // {# MSG: Notification when a song does not get added to the queue.  The song name comes after this string. #}
+          showNotification(
+            "{{ _('Song already in the queue: ') }}" + obj.song,
+            "is-danger"
+          );
+        }
+      });
+
+      // location.href = this.href + Cookies.get("user");
     });
+  });
 </script>
 
 {% endblock %} {% block header %}
