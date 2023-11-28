@@ -15,6 +15,9 @@ echo
 echo "*** INSTALLING REQUIRED BINARIES ***"
 sudo apt-get install ffmpeg -y
 sudo apt-get install chromium-chromedriver
+sudo wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp
+sudo chmod a+rx /usr/local/bin/yt-dlp 
+sudo chown -R $USER:$USER /usr/local/bin/yt-dlp
 if [ $? -ne 0 ]; then echo "ERROR: Binary dependency installation failed with error code: $?"; exit 1; fi
 
 # echo
