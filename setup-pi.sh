@@ -14,7 +14,8 @@ if [ $? -ne 0 ]; then echo "ERROR: 'apt-get update' failed with error code: $?";
 echo
 echo "*** INSTALLING REQUIRED BINARIES ***"
 sudo apt-get install ffmpeg -y
-sudo apt-get install chromium-chromedriver
+sudo apt-get install chromium-browser -y
+sudo apt-get install chromium-chromedriver -y
 sudo wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp
 sudo chmod a+rx /usr/local/bin/yt-dlp 
 sudo chown -R $USER:$USER /usr/local/bin/yt-dlp
@@ -32,7 +33,7 @@ source .venv/bin/activate
 
 echo
 echo "*** INSTALLING PYTHON DEPENDENCIES ***"
-sudo pip3 install -r requirements.txt
+pip3 install -r requirements.txt
 if [ $? -ne 0 ]; then echo "ERROR: Python requirements.txt installation failed with error code: $?"; exit 1; fi
 
 # echo
