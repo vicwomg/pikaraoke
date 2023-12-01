@@ -9,14 +9,12 @@ import subprocess
 import sys
 import threading
 import time
-from functools import wraps
 
 import cherrypy
 import flask_babel
 import psutil
-from flask import (Flask, flash, jsonify, make_response, redirect,
-                   render_template, request, send_file, send_from_directory,
-                   url_for)
+from flask import (Flask, flash, make_response, redirect, render_template,
+                   request, send_file, url_for)
 from flask_babel import Babel
 from flask_paginate import Pagination, get_page_parameter
 from selenium import webdriver
@@ -30,7 +28,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 import karaoke
 from constants import LANGUAGES, VERSION
 from lib.get_platform import get_platform
-from lib.vlcclient import get_default_vlc_path
 
 try:
     from urllib.parse import quote, unquote
@@ -516,7 +513,7 @@ def info():
 # Delay system commands to allow redirect to render first
 def delayed_halt(cmd):
     time.sleep(1.5)
-    k.queue_clear()  # stop all pending omxplayer processes
+    k.queue_clear()  
     cherrypy.engine.stop()
     cherrypy.engine.exit()
     k.stop()
@@ -606,22 +603,25 @@ signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
 def get_default_youtube_dl_path(platform):
     if platform == "windows":
-        choco_ytdl_path = r"C:\ProgramData\chocolatey\bin\yt-dlp.exe"
-        scoop_ytdl_path = os.path.expanduser(r"~\scoop\shims\yt-dlp.exe")
-        if os.path.isfile(choco_ytdl_path):
-            return choco_ytdl_path
-        if os.path.isfile(scoop_ytdl_path):
-            return scoop_ytdl_path
-        return r"C:\Program Files\yt-dlp\yt-dlp.exe"
-    default_ytdl_unix_path = "/usr/local/bin/yt-dlp"
-    if platform == "osx":
-        if os.path.isfile(default_ytdl_unix_path):
-            return default_ytdl_unix_path
-        else: 
-            # just a guess based on the default python 3 install in OSX monterey
-            return "/Library/Frameworks/Python.framework/Versions/3.10/bin/yt-dlp"
-    else:
-        return default_ytdl_unix_path
+        return os.path.join(os.path.dirname(__file__), ".venv/bin/yt-dlp.exe")
+    return os.path.join(os.path.dirname(__file__), ".venv/bin/yt-dlp")
+    # if platform == "windows":
+    #     choco_ytdl_path = r"C:\ProgramData\chocolatey\bin\yt-dlp.exe"
+    #     scoop_ytdl_path = os.path.expanduser(r"~\scoop\shims\yt-dlp.exe")
+    #     if os.path.isfile(choco_ytdl_path):
+    #         return choco_ytdl_path
+    #     if os.path.isfile(scoop_ytdl_path):
+    #         return scoop_ytdl_path
+    #     return r"C:\Program Files\yt-dlp\yt-dlp.exe"
+    # default_ytdl_unix_path = "/usr/local/bin/yt-dlp"
+    # if platform == "osx":
+    #     if os.path.isfile(default_ytdl_unix_path):
+    #         return default_ytdl_unix_path
+    #     else: 
+    #         # just a guess based on the default python 3 install in OSX monterey
+    #         return "/Library/Frameworks/Python.framework/Versions/3.10/bin/yt-dlp"
+    # else:
+    #     return default_ytdl_unix_path
         
 
 def get_default_dl_dir(platform):
@@ -650,11 +650,7 @@ if __name__ == "__main__":
     default_log_level = logging.INFO
 
     default_dl_dir = get_default_dl_dir(platform)
-    default_omxplayer_path = "/usr/bin/omxplayer"
-    default_adev = "both"
     default_youtubedl_path = get_default_youtube_dl_path(platform)
-    default_vlc_path = get_default_vlc_path(platform)
-    default_vlc_port = 5002
 
     # parse CLI args
     parser = argparse.ArgumentParser()
@@ -674,14 +670,6 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
-        "-o",
-        "--omxplayer-path",
-        help="Path of omxplayer. Only important to raspberry pi hardware. (default: %s)"
-        % default_omxplayer_path,
-        default=default_omxplayer_path,
-        required=False,
-    )
-    parser.add_argument(
         "-y",
         "--youtubedl-path",
         help="Path of youtube-dl. (default: %s)" % default_youtubedl_path,
@@ -691,8 +679,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-v",
         "--volume",
-        help="If using omxplayer, the initial player volume is specified in millibels. Negative values ok. (default: %s , Note: 100 millibels = 1 decibel)."
-        % default_volume,
+        help="Set initial player volume (default: %s)" % default_volume,
         default=default_volume,
         required=False,
     )
@@ -731,13 +718,6 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
-        "--adev",
-        help="Pass the audio output device argument to omxplayer. Possible values: hdmi/local/both/alsa[:device]. If you are using a rpi USB soundcard or Hifi audio hat, try: 'alsa:hw:0,0' Default: '%s'"
-        % default_adev,
-        default=default_adev,
-        required=False,
-    )
-    parser.add_argument(
         "--dual-screen",
         action="store_true",
         help="Output video to both HDMI ports (raspberry pi 4 only)",
@@ -749,30 +729,6 @@ if __name__ == "__main__":
         help="Download higher quality video. Note: requires ffmpeg and may cause CPU, download speed, and other performance issues",
         required=False,
     )
-    parser.add_argument(
-        "--use-omxplayer",
-        action="store_true",
-        help="Use OMX Player to play video instead of the default VLC Player. This may be better-performing on older raspberry pi devices. Certain features like key change and cdg support wont be available. Note: if you want to play audio to the headphone jack on a rpi, you'll need to configure this in raspi-config: 'Advanced Options > Audio > Force 3.5mm (headphone)'",
-        required=False,
-    ),
-    parser.add_argument(
-        "--use-vlc",
-        action="store_true",
-        help="Use VLC Player to play video. Enabled by default. Note: if you want to play audio to the headphone jack on a rpi, see troubleshooting steps in README.md",
-        required=False,
-    ),
-    parser.add_argument(
-        "--vlc-path",
-        help="Full path to VLC (Default: %s)" % default_vlc_path,
-        default=default_vlc_path,
-        required=False,
-    ),
-    parser.add_argument(
-        "--vlc-port",
-        help="HTTP port for VLC remote control api (Default: %s)" % default_vlc_port,
-        default=default_vlc_port,
-        required=False,
-    ),
     parser.add_argument(
         "--logo-path",
         help="Path to a custom logo image file for the splash screen. Recommended dimensions ~ 500x500px",
@@ -805,25 +761,10 @@ if __name__ == "__main__":
     app.jinja_env.globals.update(filename_from_path=filename_from_path)
     app.jinja_env.globals.update(url_escape=quote)
 
-    # Handle OMX player if specified
-    if platform == "raspberry_pi" and args.use_omxplayer:
-        args.use_vlc = False
-    else:
-        args.use_vlc = True
 
     # check if required binaries exist
     if not os.path.isfile(args.youtubedl_path):
         print("Youtube-dl path not found! " + args.youtubedl_path)
-        sys.exit(1)
-    if args.use_vlc and not os.path.isfile(args.vlc_path):
-        print("VLC path not found! " + args.vlc_path)
-        sys.exit(1)
-    if (
-        platform == "raspberry_pi"
-        and not args.use_vlc
-        and not os.path.isfile(args.omxplayer_path)
-    ):
-        print("omxplayer path not found! " + args.omxplayer_path)
         sys.exit(1)
 
     # setup/create download directory if necessary
@@ -843,7 +784,6 @@ if __name__ == "__main__":
     k = karaoke.Karaoke(
         port=args.port,
         download_path=dl_path,
-        omxplayer_path=args.omxplayer_path,
         youtubedl_path=args.youtubedl_path,
         splash_delay=args.splash_delay,
         log_level=args.log_level,
@@ -851,13 +791,8 @@ if __name__ == "__main__":
         hide_ip=args.hide_ip,
         hide_raspiwifi_instructions=args.hide_raspiwifi_instructions,
         hide_splash_screen=args.hide_splash_screen,
-        omxplayer_adev=args.adev,
         dual_screen=args.dual_screen,
         high_quality=args.high_quality,
-        use_omxplayer=args.use_omxplayer,
-        use_vlc=args.use_vlc,
-        vlc_path=args.vlc_path,
-        vlc_port=args.vlc_port,
         logo_path=args.logo_path,
         hide_overlay=args.hide_overlay
     )

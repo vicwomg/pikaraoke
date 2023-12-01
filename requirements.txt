@@ -1,12 +1,6 @@
-# tempora==1.14.0
-# jaraco.functools==2.0
-# CherryPy==10.2.1
 CherryPy
-# six==1.12.0
 Flask
-# pillow
 qrcode
-# futures
 psutil 
 unidecode
 requests
@@ -16,3 +10,4 @@ Babel==2.9.1
 Flask-Babel==2.0.0
 selenium
 ffmpeg-python
+yt-dlp

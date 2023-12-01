@@ -56,18 +56,12 @@ class Karaoke:
         hide_ip=False,
         hide_raspiwifi_instructions=False,
         hide_splash_screen=False,
-        omxplayer_adev="both",
         dual_screen=False,
         high_quality=False,
         volume=0,
         log_level=logging.DEBUG,
         splash_delay=2,
         youtubedl_path="/usr/local/bin/yt-dlp",
-        omxplayer_path=None,
-        use_omxplayer=False,
-        use_vlc=True,
-        vlc_path=None,
-        vlc_port=None,
         logo_path=None,
         hide_overlay=False
     ):
@@ -77,25 +71,17 @@ class Karaoke:
         self.hide_ip = hide_ip
         self.hide_raspiwifi_instructions = hide_raspiwifi_instructions
         self.hide_splash_screen = hide_splash_screen
-        self.omxplayer_adev = omxplayer_adev
         self.download_path = download_path
         self.dual_screen = dual_screen
         self.high_quality = high_quality
         self.splash_delay = int(splash_delay)
         self.volume_offset = volume
         self.youtubedl_path = youtubedl_path
-        self.omxplayer_path = omxplayer_path
-        self.use_omxplayer = use_omxplayer
-        self.use_vlc = use_vlc
-        self.vlc_path = vlc_path
-        self.vlc_port = vlc_port
         self.logo_path = self.default_logo_path if logo_path == None else logo_path
         self.hide_overlay = hide_overlay
 
         # other initializations
         self.platform = get_platform()
-        self.vlcclient = None
-        self.omxclient = None
         self.screen = None
 
         logging.basicConfig(
@@ -111,18 +97,12 @@ class Karaoke:
     hide RaspiWiFi instructions: {self.hide_raspiwifi_instructions}
     hide splash: {self.hide_splash_screen}
     splash_delay: {self.splash_delay}
-    omx audio device: {self.omxplayer_adev}
     dual screen: {self.dual_screen}
     high quality video: {self.high_quality}
     download path: {self.download_path}
     default volume: {self.volume_offset}
     youtube-dl path: {self.youtubedl_path}
-    omxplayer path: {self.omxplayer_path}
     logo path: {self.logo_path}
-    Use OMXPlayer: {self.use_omxplayer}
-    Use VLC: {self.use_vlc}
-    VLC path: {self.vlc_path}
-    VLC port: {self.vlc_port}
     log_level: {log_level}
     hide overlay: {self.hide_overlay}""")
 
