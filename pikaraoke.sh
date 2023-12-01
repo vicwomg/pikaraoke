@@ -1,4 +1,4 @@
 #!/bin/bash
 
 source .venv/bin/activate
-python3 app.py --hide-splash -l10
+python3 app.py $@
