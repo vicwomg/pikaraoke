@@ -457,7 +457,7 @@ def splash():
         blank_page=True,
         url=f"http://{k.ip}:{k.port}",
         hide_ip=k.hide_ip,
-        overlay=k.show_overlay
+        hide_overlay=k.hide_overlay
     )
 
 @app.route("/info")
@@ -780,9 +780,9 @@ if __name__ == "__main__":
         required=False,
     ),
     parser.add_argument(
-        "--show-overlay",
+        "--hide-overlay",
         action="store_true",
-        help="Show overlay on top of video with pikaraoke QR code and IP",
+        help="Hide overlay that shows on top of video with pikaraoke QR code and IP",
         required=False,
     ),
     parser.add_argument(
@@ -859,7 +859,7 @@ if __name__ == "__main__":
         vlc_path=args.vlc_path,
         vlc_port=args.vlc_port,
         logo_path=args.logo_path,
-        show_overlay=args.show_overlay
+        hide_overlay=args.hide_overlay
     )
 
     if (args.developer_mode):
@@ -876,6 +876,7 @@ if __name__ == "__main__":
                 "log.screen": True,
                 "server.socket_port": int(args.port),
                 "server.socket_host": "0.0.0.0",
+                "server.thread_pool": 100
             }
         )
         cherrypy.engine.start()

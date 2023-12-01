@@ -69,7 +69,7 @@ class Karaoke:
         vlc_path=None,
         vlc_port=None,
         logo_path=None,
-        show_overlay=False
+        hide_overlay=False
     ):
 
         # override with supplied constructor args if provided
@@ -90,7 +90,7 @@ class Karaoke:
         self.vlc_path = vlc_path
         self.vlc_port = vlc_port
         self.logo_path = self.default_logo_path if logo_path == None else logo_path
-        self.show_overlay = show_overlay
+        self.hide_overlay = hide_overlay
 
         # other initializations
         self.platform = get_platform()
@@ -124,7 +124,7 @@ class Karaoke:
     VLC path: {self.vlc_path}
     VLC port: {self.vlc_port}
     log_level: {log_level}
-    show overlay: {self.show_overlay}""")
+    hide overlay: {self.hide_overlay}""")
 
         # Generate connection URL and QR code, retry in case pi is still starting up
         # and doesn't have an IP yet (occurs when launched from /etc/rc.local)
