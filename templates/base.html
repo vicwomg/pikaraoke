@@ -132,7 +132,7 @@
   tr:nth-child(even) {
     background-color: rgb(50, 55, 55);
   }
-  @media screen and (max-width: 500px) {
+  @media screen and (max-width: 1088px) {
     .navbar-brand > .navbar-item > span {
       display: none;
     }
@@ -145,6 +145,10 @@
     }
     body {
       min-height: 120vh;
+    }
+    .navbar-menu.is-active {
+      position: absolute;
+      right: 0px;
     }
   }
 </style>

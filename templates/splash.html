@@ -116,7 +116,7 @@
   $(function () {
     $("#video-container").hide();
 
-    if ("{{ overlay }}" == "True") {
+    if ("{{ hide_overlay }}" == "False") {
       $("#bottom-container").addClass("overlay");
       $("#top-container").addClass("overlay");
     }
@@ -307,6 +307,8 @@
     top: 40px;
     left: 20px;
     display: none;
+    overflow: hidden;
+    width: 585px;
   }
   #menu-container iframe {
     width: 600px;
