@@ -7,7 +7,9 @@ import socket
 import subprocess
 import time
 from pathlib import Path
+from queue import Empty, Queue
 from subprocess import CalledProcessError, check_output
+from threading import Thread
 
 import ffmpeg
 import qrcode
@@ -16,9 +18,15 @@ from unidecode import unidecode
 from lib.file_resolver import FileResolver
 from lib.get_platform import get_platform
 
-if get_platform() != "windows":
-    from signal import SIGALRM, alarm, signal
 
+# Support function for reading  lines from ffmpeg stderr without blocking
+def enqueue_output(out, queue):
+    for line in iter(out.readline, b''):
+        queue.put(line)
+    out.close()
+
+def decode_ignore(input):
+    return input.decode("utf-8", "ignore").strip()
 
 class Karaoke:
 
@@ -116,7 +124,7 @@ class Karaoke:
 
         if self.platform == "raspberry_pi":
             while int(time.time()) < end_time:
-                addresses_str = check_output(["hostname", "-I"]).strip().decode("utf-8")
+                addresses_str = check_output(["hostname", "-I"]).strip().decode("utf-8", "ignore")
                 addresses = addresses_str.split(" ")
                 self.ip = addresses[0]
                 if not self.is_network_connected():
@@ -231,7 +239,7 @@ class Karaoke:
         cmd = [self.youtubedl_path, "-j", "--no-playlist", "--flat-playlist", yt_search]
         logging.debug("Youtube-dl search command: " + " ".join(cmd))
         try:
-            output = subprocess.check_output(cmd).decode("utf-8")
+            output = subprocess.check_output(cmd).decode("utf-8", "ignore")
             logging.debug("Search results: " + output)
             rc = []
             for each in output.split("\n"):
@@ -383,41 +391,57 @@ class Karaoke:
         self.kill_ffmpeg()
     
         self.ffmpeg_process = output.run_async(pipe_stderr=True, pipe_stdin=True)
+
         # prevent reading stderr from being a blocking action
-        os.set_blocking(self.ffmpeg_process.stderr.fileno(), False)
+        # os.set_blocking(self.ffmpeg_process.stderr.fileno(), False)
+        q = Queue()
+        t = Thread(target=enqueue_output, args=(self.ffmpeg_process.stderr, q))
+        t.daemon = True
+        t.start()
 
         while self.ffmpeg_process.poll() is None:
             # ffmpeg outputs everything useful to stderr for some insane reason!
-            output = self.ffmpeg_process.stderr.readline()
-            logging.debug("[FFMPEG] " + output.decode("utf-8").strip())
-            if "Stream #" in output.decode("utf-8"):
-                logging.debug("Stream ready!")
-                # Ffmpeg outputs "Stream #0" when the stream is ready to consume
-                self.now_playing = self.filename_from_path(file_path)
-                self.now_playing_filename = file_path
-                self.now_playing_transpose = semitones
-                self.now_playing_url = stream_url
-                self.now_playing_user=self.queue[0]["user"]
-                self.is_paused = False
-                self.queue.pop(0)
+            #output = self.ffmpeg_process.stderr.readline()
 
-                # Keep logging output until the splash screen reports back that the stream is playing
-                max_retries = 100
-                while self.is_playing == False and max_retries > 0:
-                    time.sleep(0.1) #prevents loop from trying to replay track
-                    output = self.ffmpeg_process.stderr.readline()
-                    if output:
-                        logging.debug("[FFMPEG] " + output.decode("utf-8").strip())
-                    else:
-                        max_retries -= 1
-                        logging.debug(max_retries)
-                if self.is_playing:
-                    logging.debug("Stream is playing")
-                    break
-                else:   
-                    logging.error("Stream was not playable! Run with debug logging to see output. Skipping track")
-                    self.end_song()
-                    break
+            try:  
+                output = q.get_nowait() 
+                logging.debug("[FFMPEG] " + decode_ignore(output))
+            except Empty:
+                pass
+            else: 
+                if  "Stream #" in decode_ignore(output):
+                    logging.debug("Stream ready!")
+                    # Ffmpeg outputs "Stream #0" when the stream is ready to consume
+                    self.now_playing = self.filename_from_path(file_path)
+                    self.now_playing_filename = file_path
+                    self.now_playing_transpose = semitones
+                    self.now_playing_url = stream_url
+                    self.now_playing_user=self.queue[0]["user"]
+                    self.is_paused = False
+                    self.queue.pop(0)
+
+                    # Keep logging output until the splash screen reports back that the stream is playing
+                    max_retries = 100
+                    while self.is_playing == False and max_retries > 0:
+                        time.sleep(0.1) #prevents loop from trying to replay track
+                        try:  
+                            output = q.get_nowait() 
+                        except Empty:
+                            pass
+                        else: 
+                            # output = self.ffmpeg_process.stderr.readline()
+                            if output:
+                                logging.debug("[FFMPEG] " + decode_ignore(output))
+                            else:
+                                max_retries -= 1
+                                logging.debug(max_retries)
+                    if self.is_playing:
+                        logging.debug("Stream is playing")
+                        break
+                    else:   
+                        logging.error("Stream was not playable! Run with debug logging to see output. Skipping track")
+                        self.end_song()
+                        break
 
     def kill_ffmpeg(self):
         logging.debug("Killing ffmpeg process")

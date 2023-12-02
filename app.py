@@ -54,7 +54,7 @@ def filename_from_path(file_path, remove_youtube_id=True):
             rc = rc.split("---")[0]  # removes youtube id if present
         except TypeError:
             # more fun python 3 hacks
-            rc = rc.split("---".encode("utf-8"))[0]
+            rc = rc.split("---".encode("utf-8", "ignore"))[0]
     return rc
 
 
@@ -62,7 +62,7 @@ def url_escape(filename):
     return quote(filename.encode("utf8"))
 
 def hash_dict(d):
-    return hashlib.md5(json.dumps(d, sort_keys=True, ensure_ascii=True).encode('utf-8')).hexdigest()
+    return hashlib.md5(json.dumps(d, sort_keys=True, ensure_ascii=True).encode('utf-8', "ignore")).hexdigest()
 
 def is_admin():
     if (admin_password == None):
@@ -416,7 +416,7 @@ def edit_file():
                 "edit.html",
                 site_title=site_name,
                 title="Song File Edit",
-                song=song_path.encode("utf-8"),
+                song=song_path.encode("utf-8", "ignore"),
             )
     else:
         d = request.form.to_dict()
