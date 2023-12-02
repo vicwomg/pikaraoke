@@ -45,7 +45,8 @@ class Karaoke:
     volume_offset = 0
     loop_interval = 500  # in milliseconds
     default_logo_path = os.path.join(base_path, "logo.png")
-    
+    screensaver_timeout = 300 # in seconds
+
     ffmpeg_process = None
     ffmpeg_port = 5556
 
@@ -63,7 +64,8 @@ class Karaoke:
         splash_delay=2,
         youtubedl_path="/usr/local/bin/yt-dlp",
         logo_path=None,
-        hide_overlay=False
+        hide_overlay=False,
+        screensaver_timeout = 300
     ):
 
         # override with supplied constructor args if provided
@@ -79,6 +81,7 @@ class Karaoke:
         self.youtubedl_path = youtubedl_path
         self.logo_path = self.default_logo_path if logo_path == None else logo_path
         self.hide_overlay = hide_overlay
+        self.screensaver_timeout = screensaver_timeout
 
         # other initializations
         self.platform = get_platform()
@@ -97,6 +100,7 @@ class Karaoke:
     hide RaspiWiFi instructions: {self.hide_raspiwifi_instructions}
     hide splash: {self.hide_splash_screen}
     splash_delay: {self.splash_delay}
+    screensaver_timeout: {self.screensaver_timeout}
     dual screen: {self.dual_screen}
     high quality video: {self.high_quality}
     download path: {self.download_path}
@@ -571,7 +575,6 @@ class Karaoke:
 
     def handle_run_loop(self):
         time.sleep(self.loop_interval / 1000)
-
 
     def reset_now_playing(self):
         self.now_playing = None

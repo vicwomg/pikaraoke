@@ -1,31 +1,35 @@
-$(function () {
-  let x = 0,
-    y = 0,
-    dirX = 1,
-    dirY = 1;
-  const speed = 0.5;
-  const pallete = ["#ff8800", "#e124ff", "#6a19ff", "#ff2188"];
-  let dvd = document.getElementById("dvd");
-  dvd.style.backgroundColor = pallete[0];
-  let prevColorChoiceIndex = 0;
-  let screensaver = document.getElementById("screensaver");
-  const dvdWidth = dvd.clientWidth;
-  const dvdHeight = dvd.clientHeight;
+let x = 0,
+  y = 0,
+  dirX = 1,
+  dirY = 1;
+const speed = 3;
+const pallete = ["#ff8800", "#e124ff", "#6a19ff", "#ff2188"];
+let prevColorChoiceIndex = 0;
 
-  function getNewRandomColor() {
-    const currentPallete = [...pallete];
-    currentPallete.splice(prevColorChoiceIndex, 1);
-    const colorChoiceIndex = Math.floor(Math.random() * currentPallete.length);
-    prevColorChoiceIndex =
-      colorChoiceIndex < prevColorChoiceIndex
-        ? colorChoiceIndex
-        : colorChoiceIndex + 1;
-    const colorChoice = currentPallete[colorChoiceIndex];
-    return colorChoice;
-  }
-  function animate() {
+let animationId = null;
+let animationRunning = false;
+var fps = 30;
+
+function getNewRandomColor() {
+  const currentPallete = [...pallete];
+  currentPallete.splice(prevColorChoiceIndex, 1);
+  const colorChoiceIndex = Math.floor(Math.random() * currentPallete.length);
+  prevColorChoiceIndex =
+    colorChoiceIndex < prevColorChoiceIndex
+      ? colorChoiceIndex
+      : colorChoiceIndex + 1;
+  const colorChoice = currentPallete[colorChoiceIndex];
+  return colorChoice;
+}
+
+function animate() {
+  setTimeout(() => {
+    let dvd = document.getElementById("dvd");
     const screenHeight = document.body.clientHeight;
     const screenWidth = document.body.clientWidth;
+    if (!dvd.style.backgroundColor) dvd.style.backgroundColor = pallete[0];
+    const dvdWidth = dvd.clientWidth;
+    const dvdHeight = dvd.clientHeight;
 
     if (y + dvdHeight >= screenHeight || y < 0) {
       dirY *= -1;
@@ -40,8 +44,16 @@ $(function () {
     y += dirY * speed;
     dvd.style.left = x + "px";
     dvd.style.top = y + "px";
-    window.requestAnimationFrame(animate);
-  }
+    animationRunning && window.requestAnimationFrame(animate);
+  }, 1000 / fps);
+}
 
-  window.requestAnimationFrame(animate);
-});
+function startScreensaver() {
+  animationRunning = true;
+  animationId = window.requestAnimationFrame(animate);
+}
+
+function stopScreensaver() {
+  animationRunning = false;
+  window.cancelAnimationFrame(animationId);
+}
