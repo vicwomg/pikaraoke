@@ -604,7 +604,7 @@ signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
 def get_default_youtube_dl_path(platform):
     if platform == "windows":
-        return os.path.join(os.path.dirname(__file__), ".venv/bin/yt-dlp.exe")
+        return os.path.join(os.path.dirname(__file__), ".venv\Scripts\yt-dlp.exe")
     return os.path.join(os.path.dirname(__file__), ".venv/bin/yt-dlp")
     # if platform == "windows":
     #     choco_ytdl_path = r"C:\ProgramData\chocolatey\bin\yt-dlp.exe"
