@@ -33,6 +33,8 @@ echo "*** INSTALLING PYTHON DEPENDENCIES ***"
 pip3 install -r requirements.txt
 if [ $? -ne 0 ]; then echo "ERROR: Python requirements.txt installation failed with error code: $?"; exit 1; fi
 
+echo
+echo "*** DONE ***"
 echo "Run PiKaraoke with: ./pikaraoke.sh <args>"
 echo
 
