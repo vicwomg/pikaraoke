@@ -454,7 +454,8 @@ def splash():
         blank_page=True,
         url=f"http://{k.ip}:{k.port}",
         hide_ip=k.hide_ip,
-        hide_overlay=k.hide_overlay
+        hide_overlay=k.hide_overlay,
+        screensaver_timeout=k.screensaver_timeout
     )
 
 @app.route("/info")
@@ -647,6 +648,7 @@ if __name__ == "__main__":
     default_port = 5555
     default_volume = 0
     default_splash_delay = 5
+    default_screensaver_delay = 300
     default_log_level = logging.INFO
 
     default_dl_dir = get_default_dl_dir(platform)
@@ -689,6 +691,14 @@ if __name__ == "__main__":
         help="Delay during splash screen between songs (in secs). (default: %s )"
         % default_splash_delay,
         default=default_splash_delay,
+        required=False,
+    )
+    parser.add_argument(
+        "-t",
+        "--screensaver-timeout",
+        help="Delay before the screensaver begins (in secs). (default: %s )"
+        % default_screensaver_delay,
+        default=default_screensaver_delay,
         required=False,
     )
     parser.add_argument(
@@ -794,7 +804,8 @@ if __name__ == "__main__":
         dual_screen=args.dual_screen,
         high_quality=args.high_quality,
         logo_path=args.logo_path,
-        hide_overlay=args.hide_overlay
+        hide_overlay=args.hide_overlay,
+        screensaver_timeout=args.screensaver_timeout
     )
 
     if (args.developer_mode):

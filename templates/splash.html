@@ -8,8 +8,10 @@
   var mouseTimer = null,
     cursorVisible = true;
 
-  var screensaverTimoutMs = 300000;
+  var screensaverTimeoutMs =
+    parseInt("{{ screensaver_timeout }}") * 1000 || 300000;
   let screensaverTimeout;
+  console.log(screensaverTimeoutMs);
 
   var isPlaying = false;
   var isPaused = false;
@@ -134,11 +136,12 @@
       ) {
         screensaverTimeout = setTimeout(function () {
           screensaver.style.visibility = "visible";
-          console.log("screensaver activated" + screensaverTimeout);
-        }, screensaverTimoutMs);
+          startScreensaver();
+        }, screensaverTimeoutMs);
       } else {
         if (nowPlaying.up_next || isPlaying || cursorVisible) {
           screensaver.style.visibility = "hidden";
+          stopScreensaver();
           screensaverTimeout = clearTimeout(screensaverTimeout);
         }
       }
