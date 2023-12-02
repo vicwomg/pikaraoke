@@ -356,7 +356,6 @@ class Karaoke:
         input = ffmpeg.input(fr.file_path)
         audio = input.audio.filter("rubberband", pitch=pitch) if is_transposed else input.audio
 
-
         if (fr.cdg_file_path != None): #handle CDG files
             logging.info("Playing CDG/MP3 file: " + file_path)
             # copyts helps with sync issues, fps=25 prevents ffmpeg from needlessly encoding cdg at 300fps
@@ -368,7 +367,6 @@ class Karaoke:
                                    pix_fmt="yuv420p", listen=1, f="mp4", video_bitrate=vbitrate,
                                    movflags="frag_keyframe+default_base_moof")     
         else: 
-            logging.info("Playing video file: " + file_path)
             video = input.video
             output = ffmpeg.output(audio, video, stream_url, 
                                    vcodec=vcodec, acodec=acodec, 
@@ -378,14 +376,18 @@ class Karaoke:
         args = output.get_args()
         logging.debug(f"COMMAND: ffmpeg " + " ".join(args))
 
+        self.kill_ffmpeg()
+    
         self.ffmpeg_process = output.run_async(pipe_stderr=True, pipe_stdin=True)
+        # prevent reading stderr from being a blocking action
+        os.set_blocking(self.ffmpeg_process.stderr.fileno(), False)
 
         while self.ffmpeg_process.poll() is None:
             # ffmpeg outputs everything useful to stderr for some insane reason!
             output = self.ffmpeg_process.stderr.readline()
             logging.debug("[FFMPEG] " + output.decode("utf-8").strip())
             if "Stream #" in output.decode("utf-8"):
-                logging.debug("Stream ready to consume")
+                logging.debug("Stream ready!")
                 # Ffmpeg outputs "Stream #0" when the stream is ready to consume
                 self.now_playing = self.filename_from_path(file_path)
                 self.now_playing_filename = file_path
@@ -402,13 +404,15 @@ class Karaoke:
                     output = self.ffmpeg_process.stderr.readline()
                     if output:
                         logging.debug("[FFMPEG] " + output.decode("utf-8").strip())
-                    max_retries -= 1
+                    else:
+                        max_retries -= 1
+                        logging.debug(max_retries)
                 if self.is_playing:
                     logging.debug("Stream is playing")
                     break
                 else:   
                     logging.error("Stream was not playable! Run with debug logging to see output. Skipping track")
-                    self.now_playing_command = "skip"
+                    self.end_song()
                     break
 
     def kill_ffmpeg(self):
