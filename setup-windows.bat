@@ -1,4 +1,3 @@
-#!/bin/bash
 @echo off
 
 :start
@@ -13,11 +12,11 @@ if /i "%confirm%" == "n" goto end
 echo
 echo "*** CREATING PYTHON VIRTUAL ENVIRONMENT ***"
 python3 -m venv .venv
-.venv\Scripts\activate
+call .venv\Scripts\activate
 
 echo
 echo "*** INSTALLING PYTHON DEPENDENCIES ***"
-pip3 install -r requirements.txt
+pip install -r requirements.txt
 
 echo
 echo "*** DONE ***"
