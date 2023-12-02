@@ -401,8 +401,6 @@ class Karaoke:
 
         while self.ffmpeg_process.poll() is None:
             # ffmpeg outputs everything useful to stderr for some insane reason!
-            #output = self.ffmpeg_process.stderr.readline()
-
             try:  
                 output = q.get_nowait() 
                 logging.debug("[FFMPEG] " + decode_ignore(output))
@@ -426,15 +424,11 @@ class Karaoke:
                         time.sleep(0.1) #prevents loop from trying to replay track
                         try:  
                             output = q.get_nowait() 
+                            logging.debug("[FFMPEG] " + decode_ignore(output))
                         except Empty:
                             pass
                         else: 
-                            # output = self.ffmpeg_process.stderr.readline()
-                            if output:
-                                logging.debug("[FFMPEG] " + decode_ignore(output))
-                            else:
-                                max_retries -= 1
-                                logging.debug(max_retries)
+                            max_retries -= 1
                     if self.is_playing:
                         logging.debug("Stream is playing")
                         break

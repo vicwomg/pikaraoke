@@ -29,7 +29,6 @@
     }
 
     function showNotification(message, categoryClass, timeout=3000) {
-      console.log("Showing notification")
       $("#notification-alt").addClass(categoryClass)
       $("#notification-alt div").text(message)
       $("#notification-alt").fadeIn()

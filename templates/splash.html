@@ -11,7 +11,6 @@
   var screensaverTimeoutMs =
     parseInt("{{ screensaver_timeout }}") * 1000 || 300000;
   let screensaverTimeout;
-  console.log(screensaverTimeoutMs);
 
   var isPlaying = false;
   var isPaused = false;
@@ -182,16 +181,26 @@
     //Video status events for communicating state back to server
     $("#video")[0].addEventListener("play", () => {
       $("#video-container").show();
-      $.get('{{ url_for("start_song") }}');
+      //Report song start after a slight delay to allow video to load
+      setTimeout(() => $.get('{{ url_for("start_song") }}'), 1200);
     });
     $("#video")[0].addEventListener("ended", () => {
       endSong();
     });
-
-    //make sure we end the song if the user closes the window or leaves page
-    window.addEventListener("beforeunload", function (event) {
+    $("#video source")[0].addEventListener("error", (e) => {
+      console.log("Error while playing video.");
+      console.log(e);
       endSong();
     });
+
+    //make sure we end the song if the user closes the window or leaves page
+    window.addEventListener(
+      "beforeunload",
+      function (event) {
+        endSong();
+      },
+      true
+    );
 
     //open menu iframe
     $("#menu a").click(function () {
