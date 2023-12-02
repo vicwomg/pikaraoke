@@ -19,6 +19,15 @@
 
   <script>
 
+    function generateRandomString(length) {
+      const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let result = '';
+      for (let i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length));
+      }
+      return result;
+    }
+
     function showNotification(message, categoryClass, timeout=3000) {
       console.log("Showing notification")
       $("#notification-alt").addClass(categoryClass)
@@ -37,6 +46,9 @@
         );
         if (name) {
           Cookies.set("user", name, { expires: 3650 });
+        }
+        else {
+          Cookies.set("user", `Anon-${generateRandomString(4)}`, { expires: 3650 });
         }
         reload && location.reload();
       }

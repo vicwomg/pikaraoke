@@ -1,14 +1,25 @@
 {% extends 'base.html' %} {% block scripts %}
+<script src="{{  url_for('static', filename='screensaver.js') }}"></script>
+<link
+  rel="stylesheet"
+  href="{{  url_for('static', filename='screensaver.css') }}"
+/>
 <script>
   var mouseTimer = null,
     cursorVisible = true;
+
+  var screensaverTimoutMs = 5000;
+  let screensaverTimeout;
 
   var isPlaying = false;
   var isPaused = false;
   var nowPlayingInterval = null;
   var nowPlayingHash = null;
+  var nowPlaying = {};
   var showMenu = false;
   var menuButtonVisible = false;
+  var confirmationDismissed = false;
+
   const url = `http://${window.location.host}`;
 
   function startNowPlayingPolling() {
@@ -17,6 +28,7 @@
 
   function handleConfirmation() {
     $("#permissions-modal").removeClass("is-active");
+    confirmationDismissed = true;
   }
 
   function clearCommand() {
@@ -40,6 +52,7 @@
       var obj = JSON.parse(data);
       if (obj.hash != nowPlayingHash) {
         nowPlayingHash = obj.hash;
+        nowPlaying = obj;
         console.log(obj);
 
         // render the queue details in top right
@@ -64,7 +77,7 @@
         const video = $("#video")[0];
 
         // Start playback if a valid now_playing_url is provided
-        if (obj.now_playing_url && !isPlaying) {
+        if (obj.now_playing_url && !isPlaying && confirmationDismissed) {
           isPlaying = true;
           $("#video-source").attr("src", obj.now_playing_url);
           video.load();
@@ -108,6 +121,25 @@
           executeCommand(() => {
             video.currentTime = 0;
           });
+        }
+      }
+
+      //handle screensaver
+      let screensaver = document.getElementById("screensaver");
+      if (
+        !nowPlaying.up_next &&
+        !isPlaying &&
+        !screensaverTimeout &&
+        !cursorVisible
+      ) {
+        screensaverTimeout = setTimeout(function () {
+          screensaver.style.visibility = "visible";
+          console.log("screensaver activated" + screensaverTimeout);
+        }, screensaverTimoutMs);
+      } else {
+        if (nowPlaying.up_next || isPlaying || cursorVisible) {
+          screensaver.style.visibility = "hidden";
+          screensaverTimeout = clearTimeout(screensaverTimeout);
         }
       }
     });
@@ -248,6 +280,15 @@
   <iframe src="{{ url }}"></iframe>
 </div>
 
+<!-- Screensaver code -->
+<div id="screensaver" style="visibility: hidden">
+  <div id="dvd">
+    {% if not hide_ip %}
+    <img src="{{ url_for('qrcode') }}" width="20%" height="20%" />
+    {% endif %}
+  </div>
+</div>
+
 <style>
   html {
     overflow-y: hidden;
@@ -308,7 +349,6 @@
     left: 20px;
     display: none;
     overflow: hidden;
-    width: 585px;
   }
   #menu-container iframe {
     width: 600px;
