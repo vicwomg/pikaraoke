@@ -16,7 +16,7 @@ class FileResolver:
     def __init__(self, file_path):
         # Determine tmp directories (for things like extracted cdg files)
         if get_platform() == "windows":
-            self.tmp_dir = os.path.expanduser(r"~\\AppData\\Local\\Temp\\pikaraoke\\" + self.pid + r"\\")
+            self.tmp_dir = os.path.expanduser(r"~\\AppData\\Local\\Temp\\pikaraoke\\" + str(self.pid) + r"\\")
         else:
             self.tmp_dir = f"/tmp/pikaraoke/{self.pid}"
         self.resolved_file_path = self.process_file(file_path)
