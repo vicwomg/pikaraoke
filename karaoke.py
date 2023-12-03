@@ -10,6 +10,7 @@ from pathlib import Path
 from queue import Empty, Queue
 from subprocess import CalledProcessError, check_output
 from threading import Thread
+from urllib.parse import urlparse
 
 import ffmpeg
 import qrcode
@@ -56,13 +57,13 @@ class Karaoke:
     screensaver_timeout = 300 # in seconds
 
     ffmpeg_process = None
-    ffmpeg_port = 5556
 
     def __init__(
         self,
         port=5555,
+        ffmpeg_port=5556,
         download_path="/usr/lib/pikaraoke/songs",
-        hide_ip=False,
+        hide_url=False,
         hide_raspiwifi_instructions=False,
         hide_splash_screen=False,
         dual_screen=False,
@@ -73,12 +74,15 @@ class Karaoke:
         youtubedl_path="/usr/local/bin/yt-dlp",
         logo_path=None,
         hide_overlay=False,
-        screensaver_timeout = 300
+        screensaver_timeout = 300,
+        url=None,
+        prefer_ip=False
     ):
 
         # override with supplied constructor args if provided
         self.port = port
-        self.hide_ip = hide_ip
+        self.ffmpeg_port = ffmpeg_port
+        self.hide_url = hide_url
         self.hide_raspiwifi_instructions = hide_raspiwifi_instructions
         self.hide_splash_screen = hide_splash_screen
         self.download_path = download_path
@@ -90,6 +94,8 @@ class Karaoke:
         self.logo_path = self.default_logo_path if logo_path == None else logo_path
         self.hide_overlay = hide_overlay
         self.screensaver_timeout = screensaver_timeout
+        self.url_override = url
+        self.prefer_ip = prefer_ip
 
         # other initializations
         self.platform = get_platform()
@@ -104,7 +110,10 @@ class Karaoke:
         logging.debug(
             f"""
     http port: {self.port}
-    hide IP: {self.hide_ip}
+    ffmpeg port {self.ffmpeg_port}
+    hide URL: {self.hide_url}
+    prefer IP: {self.prefer_ip}
+    url override: {self.url_override}
     hide RaspiWiFi instructions: {self.hide_raspiwifi_instructions}
     hide splash: {self.hide_splash_screen}
     splash_delay: {self.splash_delay}
@@ -116,13 +125,13 @@ class Karaoke:
     youtube-dl path: {self.youtubedl_path}
     logo path: {self.logo_path}
     log_level: {log_level}
-    hide overlay: {self.hide_overlay}""")
-
-        # Generate connection URL and QR code, retry in case pi is still starting up
-        # and doesn't have an IP yet (occurs when launched from /etc/rc.local)
-        end_time = int(time.time()) + 30
-
+    hide overlay: {self.hide_overlay}
+""")
+        # Generate connection URL and QR code, 
         if self.platform == "raspberry_pi":
+            #retry in case pi is still starting up
+            # and doesn't have an IP yet (occurs when launched from /etc/rc.local)
+            end_time = int(time.time()) + 30
             while int(time.time()) < end_time:
                 addresses_str = check_output(["hostname", "-I"]).strip().decode("utf-8", "ignore")
                 addresses = addresses_str.split(" ")
@@ -136,7 +145,15 @@ class Karaoke:
 
         logging.debug("IP address (for QR code and splash screen): " + self.ip)
 
-        self.url = "http://%s:%s" % (self.ip, self.port)
+        if self.url_override != None:
+            logging.debug("Overriding URL with " + self.url_override)
+            self.url = self.url_override
+        else:
+            if (self.prefer_ip):
+                self.url = f"http://{self.ip}:{self.port}" 
+            else:
+                self.url = f"http://{socket.getfqdn()}:{self.port}"
+        self.url_parsed = urlparse(self.url)
 
         # get songs from download_path
         self.get_available_songs()
@@ -345,7 +362,7 @@ class Karaoke:
 
     def play_file(self, file_path, semitones=0):
         logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
-        stream_url = f"http://{self.ip}:{self.ffmpeg_port}/{int(time.time())}"
+        stream_url = f"{self.url_parsed.scheme}://{self.url_parsed.hostname}:{self.ffmpeg_port}/{int(time.time())}"
         pitch = 2**(semitones/12) #The pitch value is (2^x/12), where x represents the number of semitones
 
         try:
@@ -393,7 +410,6 @@ class Karaoke:
         self.ffmpeg_process = output.run_async(pipe_stderr=True, pipe_stdin=True)
 
         # prevent reading stderr from being a blocking action
-        # os.set_blocking(self.ffmpeg_process.stderr.fileno(), False)
         q = Queue()
         t = Thread(target=enqueue_output, args=(self.ffmpeg_process.stderr, q))
         t.daemon = True
@@ -443,7 +459,7 @@ class Karaoke:
             self.ffmpeg_process.kill()
 
     def start_song(self):
-        logging.info("Song starting: " + self.now_playing)
+        logging.info(f"Song starting: {self.now_playing}" )
         self.is_playing = True
 
     def end_song(self):

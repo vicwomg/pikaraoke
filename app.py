@@ -452,15 +452,15 @@ def splash():
     return render_template(
         "splash.html",
         blank_page=True,
-        url=f"http://{k.ip}:{k.port}",
-        hide_ip=k.hide_ip,
+        url=k.url,
+        hide_url=k.hide_url,
         hide_overlay=k.hide_overlay,
         screensaver_timeout=k.screensaver_timeout
     )
 
 @app.route("/info")
 def info():
-    url=f"http://{k.ip}:{k.port}" 
+    url=k.url
 
     # cpu
     cpu = str(psutil.cpu_percent()) + "%"
@@ -646,10 +646,12 @@ if __name__ == "__main__":
 
     platform = get_platform()
     default_port = 5555
+    default_ffmpeg_port = 5556
     default_volume = 0
-    default_splash_delay = 5
+    default_splash_delay = 3
     default_screensaver_delay = 300
     default_log_level = logging.INFO
+    default_prefer_ip = False
 
     default_dl_dir = get_default_dl_dir(platform)
     default_youtubedl_path = get_default_youtube_dl_path(platform)
@@ -662,6 +664,13 @@ if __name__ == "__main__":
         "--port",
         help="Desired http port (default: %d)" % default_port,
         default=default_port,
+        required=False,
+    )
+    parser.add_argument(
+        "-f",
+        "--ffmpeg-port",
+        help=f"Desired ffmpeg port. This is where video stream URLs will be pointed (default: {default_ffmpeg_port})" ,
+        default=default_ffmpeg_port,
         required=False,
     )
     parser.add_argument(
@@ -704,15 +713,20 @@ if __name__ == "__main__":
     parser.add_argument(
         "-l",
         "--log-level",
-        help="Logging level int value (DEBUG: 10, INFO: 20, WARNING: 30, ERROR: 40, CRITICAL: 50). (default: %s )"
-        % default_log_level,
+        help=f"Logging level int value (DEBUG: 10, INFO: 20, WARNING: 30, ERROR: 40, CRITICAL: 50). (default: {default_log_level} )",
         default=default_log_level,
         required=False,
     )
     parser.add_argument(
-        "--hide-ip",
+        "--hide-url",
         action="store_true",
-        help="Hide IP address and QR code from the splash screen.",
+        help="Hide URL and QR code from the splash screen.",
+        required=False,
+    )
+    parser.add_argument(
+        "--prefer-ip",
+        action="store_true",
+        help=f"Show the IP instead of the fully qualified local domain name. Default: {default_prefer_ip}",
         required=False,
     )
     parser.add_argument(
@@ -724,7 +738,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--hide-splash-screen",
         action="store_true",
-        help="Hide splash screen before/between songs.",
+        help="Don't launch the splash screen/player on the pikaraoke server",
         required=False,
     )
     parser.add_argument(
@@ -741,7 +755,14 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--logo-path",
-        help="Path to a custom logo image file for the splash screen. Recommended dimensions ~ 500x500px",
+        help="Path to a custom logo image file for the splash screen. Recommended dimensions ~ 2048x1024px",
+        default=None,
+        required=False,
+    ),
+    parser.add_argument(
+        "-u",
+        "--url",
+        help="Override the displayed IP address with a supplied URL. This argument should include port, if necessary",
         default=None,
         required=False,
     ),
@@ -793,19 +814,22 @@ if __name__ == "__main__":
     global k
     k = karaoke.Karaoke(
         port=args.port,
+        ffmpeg_port=args.ffmpeg_port,
         download_path=dl_path,
         youtubedl_path=args.youtubedl_path,
         splash_delay=args.splash_delay,
         log_level=args.log_level,
         volume=args.volume,
-        hide_ip=args.hide_ip,
+        hide_url=args.hide_url,
         hide_raspiwifi_instructions=args.hide_raspiwifi_instructions,
         hide_splash_screen=args.hide_splash_screen,
         dual_screen=args.dual_screen,
         high_quality=args.high_quality,
         logo_path=args.logo_path,
         hide_overlay=args.hide_overlay,
-        screensaver_timeout=args.screensaver_timeout
+        screensaver_timeout=args.screensaver_timeout,
+        url=args.url,
+        prefer_ip=args.prefer_ip
     )
 
     if (args.developer_mode):
@@ -837,7 +861,7 @@ if __name__ == "__main__":
             options.add_argument("--kiosk")
             options.add_experimental_option("excludeSwitches", ['enable-automation'])
             driver = webdriver.Chrome(service=service, options=options)
-            driver.get(f"http://{k.ip}:{k.port}/splash" )
+            driver.get(f"{k.url}/splash" )
             driver.add_cookie({'name': 'user', 'value': 'PiKaraoke-Host'})
             # Clicking this counts as an interaction, which will allow the browser to autoplay audio
             wait = WebDriverWait(driver, 60)

@@ -233,7 +233,7 @@
 </div>
 
 <div id="bottom-container">
-  {% if not hide_ip %}
+  {% if not hide_url %}
   <img
     src="{{ url_for('qrcode') }}"
     width="100px"
@@ -295,7 +295,7 @@
 <!-- Screensaver code -->
 <div id="screensaver" style="visibility: hidden">
   <div id="dvd">
-    {% if not hide_ip %}
+    {% if not hide_url %}
     <img src="{{ url_for('qrcode') }}" width="20%" height="20%" />
     {% endif %}
   </div>
