@@ -24,7 +24,8 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots to help explain your problem.
 
 **Platform (please complete the following information):**
- - OS: [e.g. iOS]
+ - OS: [e.g. Raspberry Pi OS, OSX]
+ - OS version: [e.g. Raspberry pi Debian Bullseye 64-bit / 32-bit]
  - Browser [e.g. chrome, safari]
  - Version [e.g. 22]
 
