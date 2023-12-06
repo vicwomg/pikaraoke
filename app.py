@@ -737,8 +737,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--hide-splash-screen",
+        "--headless",
         action="store_true",
-        help="Don't launch the splash screen/player on the pikaraoke server",
+        help="Headless mode. Don't launch the splash screen/player on the pikaraoke server",
         required=False,
     )
     parser.add_argument(
