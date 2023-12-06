@@ -28,6 +28,15 @@
       return result;
     }
 
+    function getSemitonesLabel(value) {
+      if (value > 0) {
+        return "+" + value + " semitones";
+      } else {
+        return value + " semitones";
+      }
+    }
+
+
     function showNotification(message, categoryClass, timeout=3000) {
       $("#notification-alt").addClass(categoryClass)
       $("#notification-alt div").text(message)

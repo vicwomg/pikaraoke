@@ -115,7 +115,7 @@ class Karaoke:
     prefer IP: {self.prefer_ip}
     url override: {self.url_override}
     hide RaspiWiFi instructions: {self.hide_raspiwifi_instructions}
-    hide splash: {self.hide_splash_screen}
+    headless (hide splash): {self.hide_splash_screen}
     splash_delay: {self.splash_delay}
     screensaver_timeout: {self.screensaver_timeout}
     dual screen: {self.dual_screen}
@@ -152,7 +152,7 @@ class Karaoke:
             if (self.prefer_ip):
                 self.url = f"http://{self.ip}:{self.port}" 
             else:
-                self.url = f"http://{socket.getfqdn()}:{self.port}"
+                self.url = f"http://{socket.getfqdn().lower()}:{self.port}"
         self.url_parsed = urlparse(self.url)
 
         # get songs from download_path
@@ -621,7 +621,7 @@ class Karaoke:
 
     def run(self):
         logging.info("Starting PiKaraoke!")
-        logging.info(f"Connect to: {self.url}/splash")
+        logging.info(f"Connect the player host to: {self.url}/splash")
         self.running = True
         while self.running:
             try:

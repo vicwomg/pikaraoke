@@ -56,23 +56,38 @@
         nowPlaying = obj;
         console.log(obj);
 
+        if (obj.now_playing) {
+          var nowPlayingHtml = `<div class="has-text-right"><b class="has-text-white">${obj.now_playing}</b></div><p class="has-text-success has-text-right">`;
+
+          if (obj.transpose_value != 0) {
+            nowPlayingHtml +=
+              // {# MSG: Label for display of how many semitones the song has been shifted. #}
+              `<span class='is-size-6 has-text-success'><b>Key</b>: ` +
+              getSemitonesLabel(obj.transpose_value) +
+              "<span>";
+          }
+
+          nowPlayingHtml += `<i class="icon icon-mic-1" title="Current singer"></i>${obj.now_playing_user}</p>`;
+
+          $("#now-playing-song").html(obj.now_playing);
+          $("#now-playing-singer").html(obj.now_playing_user);
+          $("#now-playing").addClass("visible").removeClass("hidden");
+        } else {
+          // {# MSG: Message which shows in the "Now Playing" section when there is no song currently playing #}
+          $("#now-playing").addClass("hidden").removeClass("visible");
+        }
+
         // render the queue details in top right
         if (obj.up_next) {
           // {# MSG: Label for the next song to be played in the queue. #}
           up_next_text = "{{ _('Up next:') }}";
           // {# MSG: Label of the singer for next song to be played in the queue. (Who added it to the queue.) #}
           next_singer_text = "{{ _('Next singer:') }}";
-          $("#up-next-top").html(`
-           <b class="has-text-white">${up_next_text} </b>${obj.up_next}`);
-          $("#up-next-bottom").html(
-            `<b class="has-text-white">${next_singer_text} </b><i class="icon icon-mic-1" title="Next singer"></i>${obj.next_user}`
-          );
+          $("#up-next-song").html(obj.up_next);
+          $("#up-next-singer").html(obj.next_user);
+          $("#up-next").addClass("visible").removeClass("hidden");
         } else {
-          $("#up-next-top").html(
-            // {# MSG: Message when the queue of songs is empty.  Shown instead of what the next song is. #}
-            `<span class="has-text-warning">{{ _('No song is queued.') }}</span>`
-          );
-          $("#up-next-bottom").html("");
+          $("#up-next").addClass("hidden").removeClass("visible");
         }
 
         const video = $("#video")[0];
@@ -220,9 +235,19 @@
 {% endblock %} {% block body %}
 
 <div id="top-container">
-  <div id="up-next" class="has-text-warning is-size-4 stroke">
-    <p id="up-next-top" style="margin-bottom: 5px"></p>
-    <p id="up-next-bottom" class="has-text-success has-text-right"></p>
+  <div
+    id="now-playing"
+    class="has-text-warning stroke is-size-4 has-text-right"
+  >
+    <p
+      id="now-playing-song"
+      class="has-text-white"
+      style="margin-bottom: 5px"
+    ></p>
+    <div class="has-text-success">
+      <i class="icon icon-mic-1" title="Current singer"></i>&nbsp;
+      <span id="now-playing-singer"></span>
+    </div>
   </div>
 </div>
 
@@ -234,16 +259,32 @@
 
 <div id="bottom-container">
   {% if not hide_url %}
-  <img
-    src="{{ url_for('qrcode') }}"
-    width="100px"
-    style="image-rendering: pixelated"
-    alt="qrcode"
-  />
-  <div class="is-size-5 stroke" style="margin-left: 3px">
-    &nbsp;Connect at: {{ url }}
+  <div id="qr-code">
+    <img
+      src="{{ url_for('qrcode') }}"
+      width="100px"
+      style="image-rendering: pixelated"
+      alt="qrcode"
+    />
+    <div class="is-size-5 stroke">
+      <div>&nbsp;{{ url }}</div>
+    </div>
   </div>
   {% endif %}
+  <div id="up-next" class="has-text-warning is-size-5 stroke has-text-right">
+    <b class="has-text-white"
+      >{# MSG: Label for the next song to be played in the queue. #} {% trans
+      %}Up next:{% endtrans %}
+    </b>
+    <span id="up-next-song"></span>
+    <div class="has-text-success">
+      <b class="has-text-white"
+        >{# MSG: Label for the next singer in the queue. #} {% trans %}Next
+        singer:{% endtrans %} </b
+      >&nbsp;<i class="icon icon-mic-1" title="Next singer"></i
+      ><span id="up-next-singer"></span>
+    </div>
+  </div>
 </div>
 
 <div id="video-container" class="video-container">
@@ -268,7 +309,8 @@
         style="margin-top: 10px"
         onClick="handleConfirmation()"
       >
-        Confirm
+        {# MSG: Button to confirm to enable video autoplay. #} {% trans
+        %}Confirm{% endtrans %}
       </button>
     </div>
   </div>
@@ -312,16 +354,26 @@
   #bottom-container {
     position: absolute;
     z-index: 1;
+    padding: 10px 20px;
   }
   #top-container {
-    top: 10px;
-    right: 20px;
+    top: 0px;
+    right: 0px;
+    max-width: 75%;
   }
   #bottom-container {
-    bottom: 20px;
-    left: 20px;
+    bottom: 0px;
+    left: 0px;
+    width: 100%;
     display: flex;
+    justify-content: space-between;
     align-items: flex-end;
+  }
+  #qr-code {
+    max-width: 25%;
+  }
+  #up-next {
+    max-width: 75%;
   }
   .video-container {
     position: absolute;

@@ -1,13 +1,5 @@
 {% extends 'base.html' %} {% block scripts %}
 <script>
-  function getSemitonesLabel(value) {
-    if (value > 0) {
-      return "+" + value + " semitones";
-    } else {
-      return value + " semitones";
-    }
-  }
-
   var nowPlayingHash = null;
 
   function getNowPlaying() {
