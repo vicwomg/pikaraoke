@@ -1,6 +1,7 @@
 {% extends 'base.html' %} {% block scripts %}
 <script>
   var nowPlayingHash = null;
+  var volume = 0.85;
 
   function getNowPlaying() {
     $.get('{{ url_for("nowplaying") }}', function (data) {
@@ -36,6 +37,21 @@
         } else {
           // {# MSG: Alternative text for the "Up next" section if no more songs are queued up. #}
           $("#up-next").html("{{ _('No song is queued.') }}");
+        }
+
+        if (obj.transpose_value != 0) {
+          $("#transpose").val(obj.transpose_value);
+          $("#semitones-label").html(getSemitonesLabel(obj.transpose_value));
+        } else {
+          $("#transpose").val(0);
+          $("#semitones-label").html(getSemitonesLabel(obj.transpose_value));
+        }
+
+        // set the volume slider to the current volume
+        if (obj.volume != volume) {
+          volume = obj.volume;
+          console.log("setting volume to " + volume);
+          $("#volume-slider").val(volume);
         }
 
         if (obj.is_paused) {
@@ -75,6 +91,15 @@
       };
     }
 
+    $("#volume-slider").on(
+      "input",
+      _.debounce(function (event) {
+        const value = this.value;
+        $.get("/volume/" + value);
+        refreshNowPlaying();
+      }, 500)
+    );
+
     $("#submit-transpose").click(function () {
       var value;
       if (slider) {
@@ -98,10 +123,12 @@
 
     $("#vol-up").click(function () {
       $.get("/vol_up");
+      refreshNowPlaying();
     });
 
     $("#vol-down").click(function () {
       $.get("/vol_down");
+      refreshNowPlaying();
     });
 
     $("#restart").click(function () {
@@ -173,33 +200,35 @@
 >
   {# MSG: Title of the box with controls such as pause and skip. #}
   <h4>{% trans %}Player Control{% endtrans %}</h4>
-  <p class="is-size-3">
-    {# MSG: Title attribute on the button to restart the current song. #}
-    <a title="{{ _('Restart Song') }}" id="restart"
-      ><i class="icon icon-to-start"></i> </a
-    >&nbsp;&nbsp; {# MSG: Title attribute on the button to play or pause the
-    current song. #}
-    <a title="{{ _('Play/Pause') }}"
-      ><i id="pause-resume" class="icon icon-pause"></i> </a
-    >&nbsp;&nbsp; {# MSG: Title attribute on the button to skip to the next
-    song. #}
-    <a title="{{ _('Stop Current Song') }}" id="skip"
-      ><i class="icon icon-to-end"></i> </a
-    >&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;
-    <span class="is-pulled-right">
-      {# MSG: Title attribute on the button to adjust volume down. #}
-      <a title="{{ _('Volume Down') }}" id="vol-down"
-        ><i class="icon icon-volume-down"></i> </a
-      >&nbsp;&nbsp; {# MSG: Title attribute on the button to adjust volume up.
-      #}
-      <a title="{{ _('Volume Up') }}" id="vol-up"
-        ><i class="icon icon-volume-up"></i>
+  <div class="is-size-3" style="display: flex; justify-content: space-between">
+    <div class="is-size-3">
+      {# MSG: Title attribute on the button to restart the current song. #}
+      <a title="{{ _('Restart Song') }}" id="restart"
+        ><i class="icon icon-to-start"></i> </a
+      >&nbsp;&nbsp; {# MSG: Title attribute on the button to play or pause the
+      current song. #}
+      <a title="{{ _('Play/Pause') }}"
+        ><i id="pause-resume" class="icon icon-pause"></i> </a
+      >&nbsp;&nbsp; {# MSG: Title attribute on the button to skip to the next
+      song. #}
+      <a title="{{ _('Stop Current Song') }}" id="skip"
+        ><i class="icon icon-to-end"></i>
       </a>
-    </span>
-  </p>
-  <!-- </div> -->
-
-  <!-- <div class="has-background-black-bis box control-box" style="max-width: 500px"> -->
+    </div>
+    <div class="is-size-3" style="display: flex; align-items: center">
+      <i id="vol-down" class="icon icon-volume-down"></i>
+      <input
+        type="range"
+        min="0"
+        max="1"
+        value="0.85"
+        step="0.025"
+        id="volume-slider"
+        style="margin: 0 8px 0px 5px; width: 100px"
+      />
+      <i id="vol-up" class="icon icon-volume-up"></i>
+    </div>
+  </div>
   <hr />
   <div class="is-flex" style="justify-content: space-between">
     <div>
