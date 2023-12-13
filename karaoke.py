@@ -51,7 +51,7 @@ class Karaoke:
     process = None
     qr_code_path = None
     base_path = os.path.dirname(__file__)
-    volume_offset = 0
+    volume = None
     loop_interval = 500  # in milliseconds
     default_logo_path = os.path.join(base_path, "logo.png")
     screensaver_timeout = 300 # in seconds
@@ -68,7 +68,7 @@ class Karaoke:
         hide_splash_screen=False,
         dual_screen=False,
         high_quality=False,
-        volume=0,
+        volume=0.85,
         log_level=logging.DEBUG,
         splash_delay=2,
         youtubedl_path="/usr/local/bin/yt-dlp",
@@ -89,7 +89,7 @@ class Karaoke:
         self.dual_screen = dual_screen
         self.high_quality = high_quality
         self.splash_delay = int(splash_delay)
-        self.volume_offset = volume
+        self.volume = volume
         self.youtubedl_path = youtubedl_path
         self.logo_path = self.default_logo_path if logo_path == None else logo_path
         self.hide_overlay = hide_overlay
@@ -121,7 +121,7 @@ class Karaoke:
     dual screen: {self.dual_screen}
     high quality video: {self.high_quality}
     download path: {self.download_path}
-    default volume: {self.volume_offset}
+    default volume: {self.volume}
     youtube-dl path: {self.youtubedl_path}
     logo path: {self.logo_path}
     log_level: {log_level}
@@ -579,8 +579,17 @@ class Karaoke:
         else:
             logging.warning("Tried to pause, but no file is playing!")
             return False
+        
+    def volume_change(self, vol_level):
+        self.volume = vol_level
+        logging.debug(f"Setting volume to: {self.volume}")
+        if self.is_file_playing():
+            self.now_playing_command = f"volume_change: {self.volume}"
+        return True
 
     def vol_up(self):
+        self.volume += 0.1
+        logging.debug(f"Increasing volume by 10%: {self.volume}")
         if self.is_file_playing():
             self.now_playing_command = "vol_up"
             return True
@@ -589,6 +598,8 @@ class Karaoke:
             return False
 
     def vol_down(self):
+        self.volume -= 0.1
+        logging.debug(f"Decreasing volume by 10%: {self.volume}")
         if self.is_file_playing():
             self.now_playing_command = "vol_down"
             return True

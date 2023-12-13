@@ -134,6 +134,7 @@ def nowplaying():
             "now_playing_url": k.now_playing_url,
             "is_paused": k.is_paused,
             "transpose_value": k.now_playing_transpose,
+            "volume": k.volume,
         }
         rc["hash"] = hash_dict(rc) # used to detect changes in the now playing data
         return json.dumps(rc)
@@ -241,6 +242,10 @@ def restart():
     k.restart()
     return redirect(url_for("home"))
 
+@app.route("/volume/<volume>")
+def volume(volume):
+    k.volume_change(float(volume))
+    return redirect(url_for("home"))
 
 @app.route("/vol_up")
 def vol_up():
@@ -647,7 +652,7 @@ if __name__ == "__main__":
     platform = get_platform()
     default_port = 5555
     default_ffmpeg_port = 5556
-    default_volume = 0
+    default_volume = 0.85
     default_splash_delay = 3
     default_screensaver_delay = 300
     default_log_level = logging.INFO
@@ -690,7 +695,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-v",
         "--volume",
-        help="Set initial player volume (default: %s)" % default_volume,
+        help="Set initial player volume. A value between 0 and 1. (default: %s)" % default_volume,
         default=default_volume,
         required=False,
     )
@@ -781,7 +786,7 @@ if __name__ == "__main__":
     ),
     parser.add_argument(
         "--developer-mode",
-        help="Run in flask developer mode. Only useful for tweaking the web UI in real time. Will disable the splash screen due to pygame main thread conflicts and may require FLASK_ENV=development env variable for full dev mode features.",
+        help="Run in flask developer mode. Only useful for tweaking the web UI in real time. May require FLASK_ENV=development env variable for full dev mode features.",
         action="store_true",
         required=False,
     ),
@@ -807,9 +812,11 @@ if __name__ == "__main__":
         print("Creating download path: " + dl_path)
         os.makedirs(dl_path)
 
-    if (args.developer_mode):
-        logging.warning("Splash screen is disabled in developer mode due to main thread conflicts")
-        args.hide_splash_screen = True
+    parsed_volume = float(args.volume)
+    if parsed_volume > 1 or parsed_volume < 0:
+        # logging.warning("Volume must be between 0 and 1. Setting to default: %s" % default_volume)
+        print(f"[ERROR] Volume: {args.volume} must be between 0 and 1. Setting to default: {default_volume}")
+        parsed_volume = default_volume
 
     # Configure karaoke process
     global k
@@ -820,7 +827,7 @@ if __name__ == "__main__":
         youtubedl_path=args.youtubedl_path,
         splash_delay=args.splash_delay,
         log_level=args.log_level,
-        volume=args.volume,
+        volume=parsed_volume,
         hide_url=args.hide_url,
         hide_raspiwifi_instructions=args.hide_raspiwifi_instructions,
         hide_splash_screen=args.hide_splash_screen,
