@@ -867,6 +867,7 @@ if __name__ == "__main__":
                 service = None
             options = Options()
             options.add_argument("--kiosk")
+            options.add_argument("--start-maximized")
             options.add_experimental_option("excludeSwitches", ['enable-automation'])
             driver = webdriver.Chrome(service=service, options=options)
             driver.get(f"{k.url}/splash" )
