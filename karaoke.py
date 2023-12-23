@@ -362,7 +362,11 @@ class Karaoke:
 
     def play_file(self, file_path, semitones=0):
         logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
-        stream_url = f"{self.url_parsed.scheme}://{self.url_parsed.hostname}:{self.ffmpeg_port}/{int(time.time())}"
+        stream_uid = int(time.time())
+        stream_url = f"{self.url_parsed.scheme}://{self.url_parsed.hostname}:{self.ffmpeg_port}/{stream_uid}"
+        # pass a 0.0.0.0 IP to ffmpeg which will work for both hostnames and direct IP access
+        ffmpeg_url = f"http://0.0.0.0:{self.ffmpeg_port}/{stream_uid}"
+
         pitch = 2**(semitones/12) #The pitch value is (2^x/12), where x represents the number of semitones
 
         try:
@@ -391,13 +395,13 @@ class Karaoke:
             cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
             video = cdg_input.video.filter("fps", fps=25)
             #cdg is very fussy about these flags. pi needs to encode to aac and cant just copy the mp3 stream
-            output = ffmpeg.output(audio, video, stream_url, 
+            output = ffmpeg.output(audio, video, ffmpeg_url, 
                                    vcodec=vcodec, acodec="aac", 
                                    pix_fmt="yuv420p", listen=1, f="mp4", video_bitrate=vbitrate,
                                    movflags="frag_keyframe+default_base_moof")     
         else: 
             video = input.video
-            output = ffmpeg.output(audio, video, stream_url, 
+            output = ffmpeg.output(audio, video, ffmpeg_url, 
                                    vcodec=vcodec, acodec=acodec, 
                                    listen=1, f="mp4", video_bitrate=vbitrate,
                                    movflags="frag_keyframe+default_base_moof")

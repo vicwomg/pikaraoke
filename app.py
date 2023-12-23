@@ -784,12 +784,7 @@ if __name__ == "__main__":
         default=None,
         required=False,
     ),
-    parser.add_argument(
-        "--developer-mode",
-        help="Run in flask developer mode. Only useful for tweaking the web UI in real time. May require FLASK_ENV=development env variable for full dev mode features.",
-        action="store_true",
-        required=False,
-    ),
+
     args = parser.parse_args()
 
     if (args.admin_password):
@@ -840,48 +835,44 @@ if __name__ == "__main__":
         prefer_ip=args.prefer_ip
     )
 
-    if (args.developer_mode):
-        th = threading.Thread(target=k.run)
-        th.start()
-        app.run(debug=True, port=args.port)
-    else:
-        # Start the CherryPy WSGI web server
-        cherrypy.tree.graft(app, "/")
-        # Set the configuration of the web server
-        cherrypy.config.update(
-            {
-                "engine.autoreload.on": False,
-                "log.screen": True,
-                "server.socket_port": int(args.port),
-                "server.socket_host": "0.0.0.0",
-                "server.thread_pool": 100
-            }
-        )
-        cherrypy.engine.start()
+    # Start the CherryPy WSGI web server
+    cherrypy.tree.graft(app, "/")
+    # Set the configuration of the web server
+    cherrypy.config.update(
+        {
+            "engine.autoreload.on": False,
+            "log.screen": True,
+            "server.socket_port": int(args.port),
+            "server.socket_host": "0.0.0.0",
+            "server.thread_pool": 100
+        }
+    )
+    cherrypy.engine.start()
 
-        # Start the splash screen using selenium
-        if not args.hide_splash_screen: 
-            if platform == "raspberry_pi":
-                service = Service(executable_path='/usr/bin/chromedriver')
-            else: 
-                service = None
-            options = Options()
-            options.add_argument("--kiosk")
-            options.add_experimental_option("excludeSwitches", ['enable-automation'])
-            driver = webdriver.Chrome(service=service, options=options)
-            driver.get(f"{k.url}/splash" )
-            driver.add_cookie({'name': 'user', 'value': 'PiKaraoke-Host'})
-            # Clicking this counts as an interaction, which will allow the browser to autoplay audio
-            wait = WebDriverWait(driver, 60)
-            elem = wait.until(EC.element_to_be_clickable((By.ID, "permissions-button")))
-            elem.click()
+    # Start the splash screen using selenium
+    if not args.hide_splash_screen: 
+        if platform == "raspberry_pi":
+            service = Service(executable_path='/usr/bin/chromedriver')
+        else: 
+            service = None
+        options = Options()
+        options.add_argument("--kiosk")
+        options.add_argument("--start-maximized")
+        options.add_experimental_option("excludeSwitches", ['enable-automation'])
+        driver = webdriver.Chrome(service=service, options=options)
+        driver.get(f"{k.url}/splash" )
+        driver.add_cookie({'name': 'user', 'value': 'PiKaraoke-Host'})
+        # Clicking this counts as an interaction, which will allow the browser to autoplay audio
+        wait = WebDriverWait(driver, 60)
+        elem = wait.until(EC.element_to_be_clickable((By.ID, "permissions-button")))
+        elem.click()
 
-        # Start the karaoke process
-        k.run()
+    # Start the karaoke process
+    k.run()
 
-        # Close running processes when done
-        if not args.hide_splash_screen:
-            driver.close()
-        cherrypy.engine.exit()
+    # Close running processes when done
+    if not args.hide_splash_screen:
+        driver.close()
+    cherrypy.engine.exit()
 
     sys.exit()
