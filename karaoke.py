@@ -409,6 +409,7 @@ class Karaoke:
     
         self.ffmpeg_process = output.run_async(pipe_stderr=True, pipe_stdin=True)
 
+        # ffmpeg outputs everything useful to stderr for some insane reason!
         # prevent reading stderr from being a blocking action
         q = Queue()
         t = Thread(target=enqueue_output, args=(self.ffmpeg_process.stderr, q))
@@ -416,7 +417,6 @@ class Karaoke:
         t.start()
 
         while self.ffmpeg_process.poll() is None:
-            # ffmpeg outputs everything useful to stderr for some insane reason!
             try:  
                 output = q.get_nowait() 
                 logging.debug("[FFMPEG] " + decode_ignore(output))
@@ -443,8 +443,7 @@ class Karaoke:
                             logging.debug("[FFMPEG] " + decode_ignore(output))
                         except Empty:
                             pass
-                        else: 
-                            max_retries -= 1
+                        max_retries -= 1
                     if self.is_playing:
                         logging.debug("Stream is playing")
                         break
@@ -466,6 +465,7 @@ class Karaoke:
         logging.info(f"Song ending: {self.now_playing}" )
         self.reset_now_playing()
         self.kill_ffmpeg()
+        logging.debug("ffmpeg process killed")
 
     def transpose_current(self, semitones):
         logging.info(f"Transposing current song {self.now_playing} by {semitones} semitones")

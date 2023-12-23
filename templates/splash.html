@@ -5,6 +5,14 @@
   href="{{  url_for('static', filename='screensaver.css') }}"
 />
 <script>
+  const isVideoPlaying = (video) =>
+    !!(
+      video.currentTime > 0 &&
+      !video.paused &&
+      !video.ended &&
+      video.readyState > 2
+    );
+
   var mouseTimer = null,
     cursorVisible = true;
 
@@ -91,7 +99,12 @@
         const video = $("#video")[0];
 
         // Start playback if a valid now_playing_url is provided
-        if (obj.now_playing_url && !isPlaying && confirmationDismissed) {
+        if (obj.now_playing_url && !isPlaying) {
+          if (!confirmationDismissed) {
+            console.log(
+              "Browser is unable to play video. User did not confirm interaction prompt."
+            );
+          }
           isPlaying = true;
           $("#video-source").attr("src", obj.now_playing_url);
           video.load();
@@ -100,6 +113,13 @@
             video.volume = volume;
           }
           video.play();
+
+          // handle timeout if video fails to play
+          setTimeout(() => {
+            if (!isVideoPlaying(video)) {
+              endSong();
+            }
+          }, 10000);
         }
 
         // Handle vol up
