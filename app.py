@@ -57,6 +57,11 @@ def filename_from_path(file_path, remove_youtube_id=True):
             rc = rc.split("---".encode("utf-8", "ignore"))[0]
     return rc
 
+def arg_path_parse(path):
+    if (type(path) == list):
+        return " ".join(path)
+    else:
+        return path
 
 def url_escape(filename):
     return quote(filename.encode("utf8"))
@@ -681,6 +686,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-d",
         "--download-path",
+        nargs='+',
         help="Desired path for downloaded songs. (default: %s)" % default_dl_dir,
         default=default_dl_dir,
         required=False,
@@ -688,6 +694,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-y",
         "--youtubedl-path",
+        nargs='+',
         help="Path of youtube-dl. (default: %s)" % default_youtubedl_path,
         default=default_youtubedl_path,
         required=False,
@@ -755,6 +762,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--logo-path",
+        nargs='+',
         help="Path to a custom logo image file for the splash screen. Recommended dimensions ~ 2048x1024px",
         default=None,
         required=False,
@@ -794,7 +802,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # setup/create download directory if necessary
-    dl_path = os.path.expanduser(args.download_path)
+    dl_path = os.path.expanduser(arg_path_parse(args.download_path))
     if not dl_path.endswith("/"):
         dl_path += "/"
     if not os.path.exists(dl_path):
@@ -813,7 +821,7 @@ if __name__ == "__main__":
         port=args.port,
         ffmpeg_port=args.ffmpeg_port,
         download_path=dl_path,
-        youtubedl_path=args.youtubedl_path,
+        youtubedl_path=arg_path_parse(args.youtubedl_path),
         splash_delay=args.splash_delay,
         log_level=args.log_level,
         volume=parsed_volume,
@@ -821,7 +829,7 @@ if __name__ == "__main__":
         hide_raspiwifi_instructions=args.hide_raspiwifi_instructions,
         hide_splash_screen=args.hide_splash_screen,
         high_quality=args.high_quality,
-        logo_path=args.logo_path,
+        logo_path=arg_path_parse(args.logo_path),
         hide_overlay=args.hide_overlay,
         screensaver_timeout=args.screensaver_timeout,
         url=args.url,
