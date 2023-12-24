@@ -9,6 +9,9 @@ if [ $REPLY = "y" ]
 if [[ $(cat /etc/os-release | grep -i debian) != "" ]]; then
   echo "Client is a Debian-based system. Installing binaries"; 
   echo
+  echo "*** RUNNING APT-GET UPDATE ***"
+  sudo apt update --allow-releaseinfo-change || true
+  if [ $? -ne 0 ]; then echo "ERROR: 'apt-get update' failed with error code: $?"; fi
   echo "*** INSTALLING REQUIRED BINARIES ***"
   sudo apt install --only-upgrade ffmpeg chromium-browser chromium-chromedriver -y
   if [ $? -ne 0 ]; then echo "ERROR: Binary dependency installation failed with error code: $?"; exit 1; fi
