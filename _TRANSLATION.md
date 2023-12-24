@@ -1,6 +1,7 @@
 Translation requires you have Babel installed, and the `pybabel` command available to run.
 
 ## Marking strings for translation
+
 In Python files, you can mark a string for translation on the web frontend using `flask_babel`.
 
 ```python
@@ -33,8 +34,9 @@ when translating.
 ```
 
 ## Rebuilding translations
+
 After modifying the templates or code and marking new strings for translation,
-run 
+run
 
 ```shell
 $ pybabel extract -F babel.cfg -o messages.pot --add-comments="MSG:" --strip-comment-tags  --sort-by-file .
@@ -45,7 +47,7 @@ $ pybabel compile -d translations/
 
 This will extract the strings out of the .py and .html files, and place them into the master strings file `messages.pot`.
 The update command will update each languages `translations/<lang>/LC_MESSAGES/messages.po`
- file, which is what a translator for a particular language will see.  The python app consumes `messages.mo` files,
+file, which is what a translator for a particular language will see. The python app consumes `messages.mo` files,
 which are binary files created by the compile step.
 
 In order to start translating a new language, use
@@ -58,6 +60,7 @@ to create a new empty .po file.
 As well as editing the `constants.py` `LANGUAGES` mapping to make that language available.
 
 ## How are translations detected
+
 Currently I have it set based on the Accept-Language header sent with each request,
 [which can be modified using this guide][accept-language-chrome].
 
