@@ -1,114 +1,477 @@
 {% extends 'base.html' %} {% block scripts %}
+<script src="{{  url_for('static', filename='screensaver.js') }}"></script>
+<link
+  rel="stylesheet"
+  href="{{  url_for('static', filename='screensaver.css') }}"
+/>
 <script>
+  const isVideoPlaying = (video) =>
+    !!(
+      video.currentTime > 0 &&
+      !video.paused &&
+      !video.ended &&
+      video.readyState > 2
+    );
+
+  var mouseTimer = null,
+    cursorVisible = true;
+
+  var screensaverTimeoutMs =
+    parseInt("{{ screensaver_timeout }}") * 1000 || 300000;
+  let screensaverTimeout;
+
+  var isPlaying = false;
+  var isPaused = false;
+  var nowPlayingInterval = null;
+  var nowPlayingHash = null;
+  var nowPlaying = {};
+  var showMenu = false;
+  var menuButtonVisible = false;
+  var confirmationDismissed = false;
+  var volume = 0.85;
+
+  const url = `http://${window.location.host}`;
+
+  function startNowPlayingPolling() {
+    nowPlayingInterval = setInterval(getNowPlaying, 1000);
+  }
+
+  function handleConfirmation() {
+    $("#permissions-modal").removeClass("is-active");
+    confirmationDismissed = true;
+  }
+
+  function clearCommand() {
+    $.get('{{ url_for("clear_command") }}');
+  }
+
+  function endSong() {
+    $("#video-container").hide();
+    $.get('{{ url_for("end_song") }}');
+    setTimeout(() => (isPlaying = false), 1100);
+  }
+
+  function executeCommand(callback) {
+    callback();
+    clearCommand();
+    setTimeout(() => getNowPlaying(), 100);
+  }
+
   function getNowPlaying() {
     $.get('{{ url_for("nowplaying") }}', function (data) {
       var obj = JSON.parse(data);
-      if (obj.up_next) {
-        // {# MSG: Label for the next song to be played in the queue. #}
-        up_next_text = "{{ _('Up next:') }}"
-        // {# MSG: Label of the singer for next song to be played in the queue. (Who added it to the queue.) #}
-        next_singer_text = "{{ _('Next singer:') }}"
-        $("#up-next").html(`
-            <p style="margin-bottom: 5px"><b class="has-text-white">${up_next_text} </b>${obj.up_next}</p>
-            <p class="has-text-success has-text-right"><b class="has-text-white">${next_singer_text} </b><i class="icon icon-mic-1" title="Next singer"></i>${obj.next_user}</p>
-          `);
+      if (obj.hash != nowPlayingHash) {
+        nowPlayingHash = obj.hash;
+        nowPlaying = obj;
+        console.log(obj);
+
+        if (obj.now_playing) {
+          var nowPlayingHtml = `<span>${obj.now_playing}</span> `;
+
+          if (obj.transpose_value != 0) {
+            nowPlayingHtml +=
+              `<span class='is-size-6 has-text-success'><b>Key</b>: ` +
+              getSemitonesLabel(obj.transpose_value) +
+              "<span>";
+          }
+
+          $("#now-playing-song").html(nowPlayingHtml);
+          $("#now-playing-singer").html(obj.now_playing_user);
+          $("#now-playing").addClass("visible").removeClass("hidden");
+        } else {
+          // {# MSG: Message which shows in the "Now Playing" section when there is no song currently playing #}
+          $("#now-playing").addClass("hidden").removeClass("visible");
+        }
+
+        // render the queue details in top right
+        if (obj.up_next) {
+          // {# MSG: Label for the next song to be played in the queue. #}
+          up_next_text = "{{ _('Up next:') }}";
+          // {# MSG: Label of the singer for next song to be played in the queue. (Who added it to the queue.) #}
+          next_singer_text = "{{ _('Next singer:') }}";
+          $("#up-next-song").html(obj.up_next);
+          $("#up-next-singer").html(obj.next_user);
+          $("#up-next").addClass("visible").removeClass("hidden");
+        } else {
+          $("#up-next").addClass("hidden").removeClass("visible");
+        }
+
+        const video = $("#video")[0];
+
+        // Start playback if a valid now_playing_url is provided
+        if (obj.now_playing_url && !isPlaying) {
+          if (!confirmationDismissed) {
+            console.log(
+              "Browser is unable to play video. User did not confirm interaction prompt."
+            );
+          }
+          isPlaying = true;
+          $("#video-source").attr("src", obj.now_playing_url);
+          video.load();
+          if (volume != obj.volume) {
+            volume = obj.volume;
+            video.volume = volume;
+          }
+          video.play();
+
+          // handle timeout if video fails to play
+          setTimeout(() => {
+            if (!isVideoPlaying(video)) {
+              endSong();
+            }
+          }, 10000);
+        }
+
+        // Handle vol up
+        if (obj.now_playing_command == "vol_up" && isPlaying) {
+          executeCommand(() => {
+            const volume = video.volume;
+            video.volume = Math.min(1, volume + 0.1);
+          });
+        }
+
+        // Handle vol down
+        if (obj.now_playing_command == "vol_down" && isPlaying) {
+          executeCommand(() => {
+            const volume = video.volume;
+            video.volume = Math.max(0, volume - 0.1);
+          });
+        }
+
+        // Handle pause
+        if (obj.now_playing_command == "pause" && isPlaying) {
+          executeCommand(() => {
+            isPaused ? video.play() : video.pause();
+            isPaused = !isPaused;
+          });
+        }
+
+        // Handle skip
+        if (obj.now_playing_command == "skip" && isPlaying) {
+          executeCommand(() => {
+            video.pause();
+            endSong();
+          });
+        }
+
+        // Handle restart
+        if (obj.now_playing_command == "restart" && isPlaying) {
+          executeCommand(() => {
+            video.currentTime = 0;
+          });
+        }
+
+        // Handle volume change
+        if (
+          obj.now_playing_command &&
+          obj.now_playing_command.startsWith("volume_change:") &&
+          isPlaying
+        ) {
+          executeCommand(() => {
+            const volLevel = parseFloat(obj.now_playing_command.split(":")[1]);
+            video.volume = volLevel;
+          });
+        }
+      }
+
+      //handle screensaver
+      let screensaver = document.getElementById("screensaver");
+      if (
+        !nowPlaying.up_next &&
+        !isPlaying &&
+        !screensaverTimeout &&
+        !cursorVisible
+      ) {
+        screensaverTimeout = setTimeout(function () {
+          screensaver.style.visibility = "visible";
+          startScreensaver();
+        }, screensaverTimeoutMs);
       } else {
-        // {# MSG: Message when the queue of songs is empty.  Shown instead of what the next song is. #}
-        $("#up-next").html("{{ _('No song is queued.') }}");
+        if (nowPlaying.up_next || isPlaying || cursorVisible) {
+          screensaver.style.visibility = "hidden";
+          stopScreensaver();
+          screensaverTimeout = clearTimeout(screensaverTimeout);
+        }
       }
     });
   }
 
   $(function () {
-    getNowPlaying();
-    setInterval(getNowPlaying, 1000);
-  
-     var mouseTimer = null, cursorVisible = true;
+    $("#video-container").hide();
 
-    function disappearCursor() {
+    if ("{{ hide_overlay }}" == "False") {
+      $("#bottom-container").addClass("overlay");
+      $("#top-container").addClass("overlay");
+    }
+    startNowPlayingPolling();
+
+    //hide mouse cursor after 2 seconds of inactivity
+    document.onmousemove = function () {
+      if (mouseTimer) {
+        window.clearTimeout(mouseTimer);
+      }
+      if (!cursorVisible) {
+        document.body.style.cursor = "default";
+        cursorVisible = true;
+      }
+      if (!menuButtonVisible) {
+        $("#menu a").addClass("visible").removeClass("hidden");
+        menuButtonVisible = true;
+      }
+      mouseTimer = window.setTimeout(() => {
         mouseTimer = null;
         document.body.style.cursor = "none";
         cursorVisible = false;
-    }
-
-    document.onmousemove = function() {
-        if (mouseTimer) {
-            window.clearTimeout(mouseTimer);
-        }
-        if (!cursorVisible) {
-            document.body.style.cursor = "default";
-            cursorVisible = true;
-        }
-        mouseTimer = window.setTimeout(disappearCursor, 2000);
+        $("#menu a").addClass("hidden").removeClass("visible");
+        menuButtonVisible = false;
+      }, 5000);
     };
 
+    //Video status events for communicating state back to server
+    $("#video")[0].addEventListener("play", () => {
+      $("#video-container").show();
+      //Report song start after a slight delay to allow video to load
+      setTimeout(() => $.get('{{ url_for("start_song") }}'), 1200);
+    });
+    $("#video")[0].addEventListener("ended", () => {
+      endSong();
+    });
+    $("#video source")[0].addEventListener("error", (e) => {
+      console.log("Error while playing video.");
+      console.log(e);
+      endSong();
+    });
+
+    //make sure we end the song if the user closes the window or leaves page
+    window.addEventListener(
+      "beforeunload",
+      function (event) {
+        endSong();
+      },
+      true
+    );
+
+    //open menu iframe
+    $("#menu a").click(function () {
+      if (showMenu) {
+        $("#menu-container").hide();
+        $("#menu-container iframe").attr("src", "");
+        showMenu = false;
+      } else {
+        setUserCookie();
+        $("#menu-container").show();
+        $("#menu-container iframe").attr("src", url);
+        showMenu = true;
+      }
+    });
   });
-
-
 </script>
 {% endblock %} {% block body %}
-<div class="flex-container is-size-4">
-  <div class="flex-item">
-    <div id="up-next" class="has-text-warning"></div>
-  </div>
-  <div class="flex-item">
-    <div class="logo-container">
-      <img class="logo" src="{{ url_for('logo') }}" width="400px" alt="logo" />
+
+<div id="top-container">
+  <div
+    id="now-playing"
+    class="has-text-warning stroke is-size-4 has-text-right"
+  >
+    <p
+      id="now-playing-song"
+      class="has-text-white"
+      style="margin-bottom: 5px"
+    ></p>
+    <div class="has-text-success">
+      <i class="icon icon-mic-1" title="Current singer"></i>&nbsp;
+      <span id="now-playing-singer"></span>
     </div>
   </div>
-  <div class="flex-item">
+</div>
+
+<div id="logo-container">
+  <div>
+    <img class="logo" src="{{ url_for('logo') }}" width="500px" alt="logo" />
+  </div>
+</div>
+
+<div id="bottom-container">
+  {% if not hide_url %}
+  <div id="qr-code">
     <img
       src="{{ url_for('qrcode') }}"
       width="100px"
       style="image-rendering: pixelated"
       alt="qrcode"
     />
-    <span class="is-size-4">&nbsp;Connect to pikaraoke at: {{ url }}</span>
+    <div class="is-size-5 stroke">
+      <div>&nbsp;{{ url }}</div>
+    </div>
+  </div>
+  {% endif %}
+  <div id="up-next" class="has-text-warning is-size-5 stroke has-text-right">
+    <b class="has-text-white"
+      >{# MSG: Label for the next song to be played in the queue. #} {% trans
+      %}Up next:{% endtrans %}
+    </b>
+    <span id="up-next-song"></span>
+    <div class="has-text-success">
+      <b class="has-text-white"
+        >{# MSG: Label for the next singer in the queue. #} {% trans %}Next
+        singer:{% endtrans %} </b
+      >&nbsp;<i class="icon icon-mic-1" title="Next singer"></i
+      ><span id="up-next-singer"></span>
+    </div>
+  </div>
+</div>
+
+<div id="video-container" class="video-container">
+  <video id="video">
+    <source id="video-source" type="video/mp4" src="" />
+  </video>
+</div>
+
+<div id="permissions-modal" class="modal is-active">
+  <div class="modal-background"></div>
+  <div class="modal-content">
+    <p>
+      {# MSG: Prompt for interaction in order to enable video autoplay. #} {%
+      trans %}Due to limititations with browser permissions, you must interact
+      with the page once before it allows autoplay of videos. Pikaraoke will not
+      play otherwise. Click the button below to confirm.{% endtrans %}
+    </p>
+    <div class="has-text-centered">
+      <button
+        id="permissions-button"
+        class="button is-success"
+        style="margin-top: 10px"
+        onClick="handleConfirmation()"
+      >
+        {# MSG: Button to confirm to enable video autoplay. #} {% trans
+        %}Confirm{% endtrans %}
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="menu">
+  <a
+    role="button"
+    class="navbar-burger"
+    aria-label="menu"
+    aria-expanded="false"
+    data-target="navbarBasicExample"
+    style="display: block; width: 20px; height: 30px"
+  >
+    <span aria-hidden="true"></span>
+    <span aria-hidden="true"></span>
+    <span aria-hidden="true"></span>
+  </a>
+</div>
+<div id="menu-container" class="">
+  <iframe src="{{ url }}"></iframe>
+</div>
+
+<!-- Screensaver code -->
+<div id="screensaver" style="visibility: hidden">
+  <div id="dvd">
+    {% if not hide_url %}
+    <div>
+      <div style="text-align: right">
+        <img src="{{ url_for('qrcode') }}" width="30%" height="30%" />
+      </div>
+      <div>{{ url }}</div>
+    </div>
+    {% endif %}
   </div>
 </div>
 
 <style>
   html {
-    overflow-y:hidden;
+    overflow-y: hidden;
   }
   body {
     background-color: black;
   }
-  .flex-container {
-    display: flex;
-    flex-direction: column;
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    align-content: stretch;
-    align-items: flex-start;
-    height: 100vh;
-  }
-  .flex-item {
+  #top-container,
+  #bottom-container {
+    position: absolute;
+    z-index: 1;
     padding: 10px 20px;
   }
-  .flex-item:nth-child(1) {
-    flex: 0 1 auto;
-    align-self: flex-end;
+  #top-container {
+    top: 0px;
+    right: 0px;
+    max-width: 75%;
   }
-  .flex-item:nth-child(2) {
-    flex: 1 1 auto;
-    align-self: center;
-    justify-content: center;
+  #bottom-container {
+    bottom: 0px;
+    left: 0px;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
   }
-  .flex-item:nth-child(3) {
-    flex: 0 1 auto;
-    align-self: auto;
+  #qr-code {
+    max-width: 25%;
   }
-
+  #up-next {
+    max-width: 75%;
+  }
+  .video-container {
+    position: absolute;
+    z-index: 2;
+    top: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: black;
+    display: flex;
+    align-items: center;
+  }
+  video {
+    height: 100%;
+    width: 100%;
+    object-fit: contain;
+  }
   body {
     background-color: black;
   }
-  .logo-container {
+  #logo-container {
     display: flex;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
     align-items: center;
     justify-content: center;
+  }
+  #menu {
+    position: absolute;
+    z-index: 5;
+    top: 10px;
+    left: 20px;
+  }
+  #menu-container {
+    position: absolute;
+    z-index: 3;
+    top: 40px;
+    left: 20px;
+    display: none;
+    overflow: hidden;
+  }
+  #menu-container iframe {
+    width: 600px;
+    height: 75vh;
+  }
+  .visible {
+    visibility: visible;
+    opacity: 1;
+    transition: opacity 0.5s linear;
+  }
+  .hidden {
+    visibility: hidden;
+    opacity: 0;
+    transition: visibility 0s 0.5s, opacity 0.5s linear;
+  }
+  .overlay {
+    z-index: 3 !important;
+  }
+  .stroke {
+    text-shadow: 2px 0.75px black;
   }
 </style>
 

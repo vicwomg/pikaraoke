@@ -1,6 +1,7 @@
 *.pyc
 *.swp
 .vscode/
+.venv/
 __pycache__/
 songs/
 qrcode.png
