@@ -372,7 +372,12 @@
 <div id="screensaver" style="visibility: hidden">
   <div id="dvd">
     {% if not hide_url %}
-    <img src="{{ url_for('qrcode') }}" width="20%" height="20%" />
+    <div>
+      <div style="text-align: right">
+        <img src="{{ url_for('qrcode') }}" width="30%" height="30%" />
+      </div>
+      <div>{{ url }}</div>
+    </div>
     {% endif %}
   </div>
 </div>
