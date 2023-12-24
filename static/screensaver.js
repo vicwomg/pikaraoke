@@ -2,7 +2,7 @@ let x = 0,
   y = 0,
   dirX = 1,
   dirY = 1;
-const speed = 3;
+const speed = 1;
 const pallete = ["#ff8800", "#e124ff", "#6a19ff", "#ff2188"];
 let prevColorChoiceIndex = 0;
 
