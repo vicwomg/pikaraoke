@@ -54,8 +54,8 @@ Raspberry Pi 3 and above. Anything else will likely be too slow.
 
 Other pi considerations:
 
-- Must be running Raspberry pi desktop OS. It will not work on headless lite versions.
-- 32-bit version of the OS is recommended. 64-bit seemed slower in my testing
+- Should be running Raspberry pi desktop OS if running headed, since it requires a browser
+- 32-bit version of the OS is recommended. 64-bit seemed slower in my testing, but pi4 and above can probably handle it.
 - Disable "screen blanking" in raspi-config if you want to prevent the display from turning off when idle
 - Pi3 might struggle a bit with high-res video playback. Overclocking seems to help
 
@@ -69,7 +69,7 @@ Install git, if you haven't already.
 (on raspberry pi: `sudo apt-get update; sudo apt-get install git`)
 
 Install python3/pip3
-(usually raspberry pi's already have it, run `python3 --version` to check): https://www.python.org/downloads/
+(usually raspberry pi OS already has it, run `python3 --version` to check): https://www.python.org/downloads/
 
 Clone this repo:
 
@@ -78,7 +78,7 @@ git clone https://github.com/vicwomg/pikaraoke.git
 cd pikaraoke
 ```
 
-If you plan to run in auto-launch headed mode, you need to install Chrome browser.
+If you plan to run the splash screen in auto-launch headed mode, you also need to install Chrome browser. On raspberry pi, Chromium should be installed already, which also works fine.
 
 ### Raspberry pi / Linux / OSX
 
@@ -102,6 +102,8 @@ Run the setup script to install python dependencies:
 setup-windows.bat
 ```
 
+Windows firewall may initially block connections to port 5555 and 5556. Be sure to allow these. It should prompt the first time you run pikaraoke and launch a song. Otherwise, configure it manually in the security settings.
+
 ## Launch
 
 cd to the pikaraoke directory and run:
@@ -119,8 +121,20 @@ For more options, run `./pikaraoke.sh --help`
 This is optional, but you may want to make your raspberry pi a dedicated karaoke device.
 
 ```
-TODO: write instructions for Pikaraoke 1.3
+mkdir /home/pi/.config/autostart
+nano /home/pi/.config/autostart/pikaraoke.desktop
 ```
+
+Add this to the file, assuming you installed to /home/pi/pikaraoke, change the Exec path accordingly if not
+
+```
+[Desktop Entry]
+Type=Application
+Name=Pikaraoke
+Exec=/home/pi/pikaraoke/pikaraoke.sh
+```
+
+Restart and it should auto-launch on your next boot.
 
 If you want to kill the pikaraoke process, you can do so from the PiKaraoke Web UI under: `Info > Quit pikaraoke`. Or you can ssh in and run `sudo killall python` or something similar.
 
