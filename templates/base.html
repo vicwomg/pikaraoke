@@ -19,13 +19,51 @@
 
   <script>
 
+    function generateRandomString(length) {
+      const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let result = '';
+      for (let i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length));
+      }
+      return result;
+    }
+
+    function getSemitonesLabel(value) {
+      if (value > 0) {
+        return "+" + value + " semitones";
+      } else {
+        return value + " semitones";
+      }
+    }
+
+
     function showNotification(message, categoryClass, timeout=3000) {
-      console.log("Showing notification")
       $("#notification-alt").addClass(categoryClass)
       $("#notification-alt div").text(message)
       $("#notification-alt").fadeIn()
       setTimeout(function () {$("#notification-alt").fadeOut()}, timeout)
       setTimeout(function () {$("#notification-alt").removeClass(categoryClass)}, timeout + 750)
+    }
+
+    function setUserCookie(reload=false) {
+      var user = Cookies.get("user");
+      if (!user) {
+        let name = window.prompt(
+          // {# MSG: Prompt which asks the user their name when they first try to add to the queue. #}
+          "{{ _('Please enter your name. This will show up next to the songs you queue up from this device.') }}"
+        );
+        if (name) {
+          Cookies.set("user", name, { expires: 3650 });
+        }
+        else {
+          Cookies.set("user", `Anon-${generateRandomString(4)}`, { expires: 3650 });
+        }
+        reload && location.reload();
+      }
+    }
+
+    function getUserCookie() {
+      return Cookies.get("user");
     }
 
     $(function () {
@@ -114,7 +152,7 @@
   tr:nth-child(even) {
     background-color: rgb(50, 55, 55);
   }
-  @media screen and (max-width: 500px) {
+  @media screen and (max-width: 1088px) {
     .navbar-brand > .navbar-item > span {
       display: none;
     }
@@ -127,6 +165,10 @@
     }
     body {
       min-height: 120vh;
+    }
+    .navbar-menu.is-active {
+      position: absolute;
+      right: 0px;
     }
   }
 </style>
@@ -180,7 +222,7 @@
 
     {% if get_flashed_messages() %}
     {% for category, message in get_flashed_messages(with_categories=true) %}
-    <div id="notification" class="notification {{category}}">
+    <div id="notification" class="notification {{category}}" style="display: none">
       <button id="notification-close" class="delete"></button>
       <div class="flash">{{ message }}</div>
     </div>
@@ -188,7 +230,7 @@
     {% endif %}
 
     <!-- Alternate notification for js-fired notifications using showNotification -->
-    <div id="notification-alt" class="notification">
+    <div id="notification-alt" class="notification" style="display: none">
       <button id="notification-close" class="delete"></button>
       <div class="flash"></div>
     </div>

@@ -38,7 +38,7 @@
 .pagination-page-info {
   padding: 0;
   width: 100%;
-  margin: .5em;
+  margin: 0.5em;
   margin-left: 0;
   font-size: 12px;
 }
@@ -57,12 +57,32 @@
 .pagination-list li {
   margin-top: 0px !important;
 }
-.pagination-previous, .pagination-next {
+.pagination-previous,
+.pagination-next {
   margin-top: 0px !important;
   margin-bottom: 0px !important;
 }
 .pagination-page-info b {
   color: white;
   background-color: transparent;
-  font-size: 100%
+  font-size: 100%;
+}
+
+input {
+  /* prevents mobile zooming */
+  font-size: 16px !important;
+}
+
+table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.break-word {
+  overflow-wrap: break-word; /* Renamed property in CSS3 draft spec */
+  width: 100%;
+}
+
+body.hide-cursor * {
+  cursor: none !important;
 }

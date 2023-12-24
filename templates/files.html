@@ -15,17 +15,8 @@
 
     $("a.add-song-link").click(function (e) {
       e.preventDefault();
+      setUserCookie();
       var user = Cookies.get("user");
-      if (!user) {
-        let name = window.prompt(
-          // {# MSG: Prompt which asks the user their name when they first navigate to the page. #}
-          "{{ _('Please enter your name. This will show up next to the songs you queue up from this device.') }}"
-        );
-        if (name) {
-          Cookies.set("user", name, { expires: 3650 });
-          user = Cookies.get("user");
-        }
-      }
       $.get(this.href + encodeURIComponent(user), function (data) {
         var obj = JSON.parse(data);
         if (obj.success) {
@@ -42,8 +33,6 @@
           );
         }
       });
-
-      // location.href = this.href + Cookies.get("user");
     });
   });
 </script>
@@ -119,7 +108,7 @@
     <td
       id="{{filename_from_path(song)[0].lower()}}"
       width="20px"
-      style="padding: 5px 0px"
+      style="padding: 5px 0px 5px 4px"
     >
       <a
         class="add-song-link has-text-weight-bold has-text-success"
@@ -128,7 +117,7 @@
         ><i class="icon icon-list-add"></i>
       </a>
     </td>
-    <td>{{filename_from_path(song)}}</td>
+    <td class="break-word">{{filename_from_path(song)}}</td>
     {% if admin %}
     <td width="20px">
       <a
