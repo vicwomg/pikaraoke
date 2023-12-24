@@ -158,7 +158,6 @@ options:
                         Hide RaspiWiFi setup instructions from the splash screen.
   --hide-splash-screen, --headless
                         Headless mode. Don't launch the splash screen/player on the pikaraoke server
-  --dual-screen         Output video to both HDMI ports (raspberry pi 4 only)
   --high-quality        Download higher quality video. Note: requires ffmpeg and may cause CPU, download speed, and other performance issues
   --logo-path LOGO_PATH
                         Path to a custom logo image file for the splash screen. Recommended dimensions ~ 2048x1024px

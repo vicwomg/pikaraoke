@@ -66,7 +66,6 @@ class Karaoke:
         hide_url=False,
         hide_raspiwifi_instructions=False,
         hide_splash_screen=False,
-        dual_screen=False,
         high_quality=False,
         volume=0.85,
         log_level=logging.DEBUG,
@@ -86,7 +85,6 @@ class Karaoke:
         self.hide_raspiwifi_instructions = hide_raspiwifi_instructions
         self.hide_splash_screen = hide_splash_screen
         self.download_path = download_path
-        self.dual_screen = dual_screen
         self.high_quality = high_quality
         self.splash_delay = int(splash_delay)
         self.volume = volume
@@ -118,7 +116,6 @@ class Karaoke:
     headless (hide splash): {self.hide_splash_screen}
     splash_delay: {self.splash_delay}
     screensaver_timeout: {self.screensaver_timeout}
-    dual screen: {self.dual_screen}
     high quality video: {self.high_quality}
     download path: {self.download_path}
     default volume: {self.volume}
