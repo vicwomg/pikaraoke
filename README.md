@@ -7,9 +7,13 @@ If you want to support this project with a little monetary tip, it's much apprec
 
 ## What's new (1.2)
 
-- The player and splash screen is now HTML-based (was: pygame + vlc). Less pesky dependencies, and now you can run pikaraoke as a dedicated server process and don't have to have your pi connected to the TV!
+The player and splash screen is now HTML-based
+
+Why? Less pesky dependencies for one. Pygame was previously used to render the splash screen and VLC would pop on top of it. Both these packages proved to be difficult to maintain on Raspberry Pi OS versions. This has been replaced with a browser-based renderer which will host both the splash screen and video playback (streamed via ffmpeg) which should work much better on a wide variety of OS. Secondly, this means standalone server support: now you can run pikaraoke as a dedicated server process, launch the splash screen on a remote browser, and don't have to have your pi connected to the TV!
+
 - Splash screen player is way more dynamic feature-rich now
-- Lots of bugfixes and improvements from the backlog
+- Better python environment handling and yt-dlp install isolation
+- Lots of under-the-hood bugfixes and improvements from the backlog
 - Sunfly-inspired singing dolphin logo and screensaver :)
 
 ## Features
@@ -48,9 +52,14 @@ If you want to support this project with a little monetary tip, it's much apprec
 
 Raspberry Pi 3 and above. Anything else will likely be too slow.
 
-Must be running Raspberry pi desktop OS. It will not work on headless lite versions.
+Other pi considerations:
 
-Also works on macs, PCs, and linux!
+- Must be running Raspberry pi desktop OS. It will not work on headless lite versions.
+- 32-bit version of the OS is recommended. 64-bit seemed slower in my testing
+- Disable "screen blanking" in raspi-config if you want to prevent the display from turning off when idle
+- Pi3 might struggle a bit with high-res video playback. Overclocking seems to help
+
+Works fine on modern Mac, PCs, and Linux!
 
 ## Installation
 
@@ -198,7 +207,7 @@ youtube-dl is very CPU intensive, especially for single-core devices like the pi
 These are my preferred ways to do it, but they might require either a USB keyboard or a computer with an SD Card reader.
 
 - _USB Keyboard_: plug in a USB keyboard to the pi. After it boots up, log in and run "sudo raspi-config" and configure wifi through the Network Options section. If the desktop UI is installed, you can also run "startx" and configure wifi from the Raspbian GUI. You can also manually edit /etc/wpa_supplicant/wpa_supplicant.conf as desribed below.
-- _SD Card Reader_: Remove the pi's SD card and open it on a computer with an SD card reader. It should mount as a disk drive. On the BOOT partition, add a plaintext file named "wpa_supplicant.conf" and put the following in it:
+- _SD Card Reader_: Remove the pi's SD card and open it on another computer with an SD card reader. It should mount as a disk drive. On the BOOT partition, add a plaintext file named "wpa_supplicant.conf" and put the following in it:
 
 ```
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
@@ -213,19 +222,21 @@ network={
 
 Add the SD card back to the pi and start it up. On boot, Raspbian should automatically add the wpa_supplicant.conf file to the correct location and connect to wifi.
 
+Finally, this package can set up your pi as a self-configuring wireless access point, but hasn't been updated in a while https://github.com/jasbur/RaspiWiFi
+
 ### Can I run PiKaraoke without a wifi/network connection?
 
-Yes, but you can only access your existing library and won't be able to download new songs, obviously.
+Yes, but you can only access your existing library and won't be able to download new songs.
 
 If you run your pi as a wifi access point, your browser can connect to that access point, and it should work. See: https://www.raspberrypi.org/documentation/configuration/wireless/access-point.md
 
-You can also try this: https://github.com/jasbur/RaspiWiFi (used for configuring wifi connections headless, see above). While it's in AP mode, you can connect to the pi as an AP and connect directly to it at http://10.0.0.1:5555
+You can also try this: https://github.com/jasbur/RaspiWiFi (used for configuring wifi connections headless). While it's in AP mode, you can connect to the pi as an AP and connect directly to it at http://10.0.0.1:5555
 
 ### Where do I plug in a microphone?
 
-Ideally, you'd have a mixer and amplifier that you could run the line out of the pi to, as well as the microphones. I used this affordable wireless microphone set from amazon: https://amzn.to/2OXKXdc (affiliate link) It has a line-in so you can also run PiKaraoke into the mix, and output to an amplifier.
-
 The pi doesn't have a hardware audio input. Technically, you should be able to run a microphone through it with a USB sound card attached to the pi (or USB microphone), but the latency is generally not usable.
+
+Ideally, you'd have a mixer and amplifier that you could run the line out of the pi to, as well as the microphones. I used this affordable wireless microphone set from amazon: https://amzn.to/2OXKXdc (affiliate link) It has a line-in so you can also run PiKaraoke into the mix, and output to an amplifier.
 
 ### How do I change song pitch/key?
 
