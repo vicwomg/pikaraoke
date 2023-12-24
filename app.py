@@ -748,12 +748,6 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
-        "--dual-screen",
-        action="store_true",
-        help="Output video to both HDMI ports (raspberry pi 4 only)",
-        required=False,
-    )
-    parser.add_argument(
         "--high-quality",
         action="store_true",
         help="Download higher quality video. Note: requires ffmpeg and may cause CPU, download speed, and other performance issues",
@@ -826,7 +820,6 @@ if __name__ == "__main__":
         hide_url=args.hide_url,
         hide_raspiwifi_instructions=args.hide_raspiwifi_instructions,
         hide_splash_screen=args.hide_splash_screen,
-        dual_screen=args.dual_screen,
         high_quality=args.high_quality,
         logo_path=args.logo_path,
         hide_overlay=args.hide_overlay,
