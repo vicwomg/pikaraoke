@@ -55,9 +55,9 @@ Raspberry Pi 3 and above. Anything else will likely be too slow.
 Other pi considerations:
 
 - Should be running Raspberry pi desktop OS if running headed, since it requires a browser
-- 32-bit version of the OS is recommended. 64-bit seemed slower in my testing, but pi4 and above can probably handle it.
+- 32-bit version of the Bookworm or latest OS is recommended. There have been reported issues with Bullseye and 64-bit seemed slower on the pi 3, but pi4 and above can probably handle it.
 - Disable "screen blanking" in raspi-config if you want to prevent the display from turning off when idle
-- Pi3 might struggle a bit with high-res video playback. Overclocking seems to help
+- Pi 3 might struggle a bit with high-res video playback. Overclocking to 1300 seems to help
 
 Works fine on modern Mac, PCs, and Linux!
 
@@ -142,7 +142,7 @@ Note that if your wifi/network is inactive pikaraoke will error out 10 seconds a
 
 ## Usage
 
-May not be up to date, run `python3 app.py --help` for the latest:
+May not be up to date, run `./pikaraoke.sh --help` for the latest:
 
 ```
 usage: app.py [-h] [-p PORT] [-f FFMPEG_PORT] [-d DOWNLOAD_PATH] [-y YOUTUBEDL_PATH] [-v VOLUME] [-s SPLASH_DELAY] [-t SCREENSAVER_TIMEOUT]
@@ -182,7 +182,7 @@ options:
                         and system shutdown. If unspecified, everyone is an admin.
 ```
 
-## Troubleshooting
+## FAQ / Troubleshooting
 
 ### I'm not hearing audio out of the headphone jack
 
@@ -262,3 +262,27 @@ You'll need to add them manually by copying them to the root of your download fo
 ### My mp3/cdg file is not playing
 
 CDG files must have an mp3 file with a exact matching file name. They can also be bundled together in a single zip file, but the filenames in the zip must still match. They must also be placed in the root of the download directory and not stashed away in sub-directories.
+
+### Video playback is choppy and slow on my Raspberry Pi 3
+
+The Pi 3 might struggle with full screen video playback and transcoding of user-supplied high-resolution or high-framrerate video files. The files coming from the default configuration of yt-dlp should be fine, however. There are a couple of optimizations that can be made to make it usable:
+
+I also found that 32-bit versions of the OS are faster than 64 bit on the pi 3.
+
+Overclocking to 1300 also seemed to clear up any issues for our test hardware. Ensure your pi has sufficient cooling on the CPUs and memory (headsinks or even active cooling)
+
+To overclock, edit your boot.config:
+
+```
+sudo nano /boot/config.txt
+```
+
+Add these lines:
+
+```
+arm_freq=1300
+core_freq=500
+gpu_freq=500
+over_voltage=4
+sdram_freq=500
+```

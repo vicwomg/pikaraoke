@@ -360,8 +360,9 @@ class Karaoke:
     def play_file(self, file_path, semitones=0):
         logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
         stream_uid = int(time.time())
-        stream_url = f"{self.url_parsed.scheme}://{self.url_parsed.hostname}:{self.ffmpeg_port}/{stream_uid}"
-        # pass a 0.0.0.0 IP to ffmpeg which will work for both hostnames and direct IP access
+        # This is the stream URL that will be accessed by the splash screen client, Flask will proxy to the ffmpeg_url
+        stream_url = f"{self.url}/stream/{stream_uid}"
+        # Used by ffmpeg, pass a 0.0.0.0 IP to ffmpeg which will work for both hostnames and direct IP access
         ffmpeg_url = f"http://0.0.0.0:{self.ffmpeg_port}/{stream_uid}"
 
         pitch = 2**(semitones/12) #The pitch value is (2^x/12), where x represents the number of semitones

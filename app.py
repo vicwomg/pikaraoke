@@ -13,8 +13,9 @@ import time
 import cherrypy
 import flask_babel
 import psutil
-from flask import (Flask, flash, make_response, redirect, render_template,
-                   request, send_file, url_for)
+import requests
+from flask import (Flask, Response, flash, make_response, redirect,
+                   render_template, request, send_file, url_for)
 from flask_babel import Babel
 from flask_paginate import Pagination, get_page_parameter
 from selenium import webdriver
@@ -608,6 +609,27 @@ def expand_fs():
         flash("You don't have permission to resize the filesystem", "is-danger")
     return redirect(url_for("home"))
 
+# Proxy the video stream from ffmpeg to /stream/<path>, so pikaraoke works over a single port
+@app.route('/stream/<path>', methods=["GET", "POST"])  
+def redirect_to_ffmpeg_stream(path):  #NOTE var :path will be unused as all path we need will be read from :request ie from flask import request
+    res = requests.request(  # ref. https://stackoverflow.com/a/36601467/248616
+        method          = request.method,
+        url             = request.url.replace(request.host_url, f'{k.ffmmpeg_url_base}/'),
+        headers         = {k:v for k,v in request.headers if k.lower() != 'host'}, # exclude 'host' header
+        data            = request.get_data(),
+        cookies         = request.cookies,
+        allow_redirects = False,
+    )
+
+    #region exlcude some keys in :res response
+    excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']  #NOTE we here exclude all "hop-by-hop headers" defined by RFC 2616 section 13.5.1 ref. https://www.rfc-editor.org/rfc/rfc2616#section-13.5.1
+    headers          = [
+        (k,v) for k,v in res.raw.headers.items()
+        if k.lower() not in excluded_headers
+    ]
+    #endregion exclude some keys in :res response
+    response = Response(res.content, res.status_code, headers)
+    return response
 
 # Handle sigterm, apparently cherrypy won't shut down without explicit handling
 signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
@@ -616,24 +638,7 @@ def get_default_youtube_dl_path(platform):
     if platform == "windows":
         return os.path.join(os.path.dirname(__file__), ".venv\Scripts\yt-dlp.exe")
     return os.path.join(os.path.dirname(__file__), ".venv/bin/yt-dlp")
-    # if platform == "windows":
-    #     choco_ytdl_path = r"C:\ProgramData\chocolatey\bin\yt-dlp.exe"
-    #     scoop_ytdl_path = os.path.expanduser(r"~\scoop\shims\yt-dlp.exe")
-    #     if os.path.isfile(choco_ytdl_path):
-    #         return choco_ytdl_path
-    #     if os.path.isfile(scoop_ytdl_path):
-    #         return scoop_ytdl_path
-    #     return r"C:\Program Files\yt-dlp\yt-dlp.exe"
-    # default_ytdl_unix_path = "/usr/local/bin/yt-dlp"
-    # if platform == "osx":
-    #     if os.path.isfile(default_ytdl_unix_path):
-    #         return default_ytdl_unix_path
-    #     else: 
-    #         # just a guess based on the default python 3 install in OSX monterey
-    #         return "/Library/Frameworks/Python.framework/Versions/3.10/bin/yt-dlp"
-    # else:
-    #     return default_ytdl_unix_path
-        
+     
 
 def get_default_dl_dir(platform):
     if is_raspberry_pi:
