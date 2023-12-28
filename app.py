@@ -614,7 +614,7 @@ def expand_fs():
 def redirect_to_ffmpeg_stream(path):  #NOTE var :path will be unused as all path we need will be read from :request ie from flask import request
     res = requests.request(  # ref. https://stackoverflow.com/a/36601467/248616
         method          = request.method,
-        url             = request.url.replace(request.host_url, f'{k.ffmmpeg_url_base}/'),
+        url             = request.url.replace(request.host_url, f'{k.ffmpeg_url_base}/'),
         headers         = {k:v for k,v in request.headers if k.lower() != 'host'}, # exclude 'host' header
         data            = request.get_data(),
         cookies         = request.cookies,
