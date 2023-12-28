@@ -1,0 +1,18 @@
+version: '3'
+
+services:
+  pikaraoke:
+    image: honestlai/pikaraoke-docker:latest
+    container_name: PiKaraoke
+    volumes:
+      - pikaraoke-songs:/pikaraoke-songs
+    environment:
+      URL: #https://karaoke.yourdomain.com
+      PASSWORD: #optionalpassword
+    restart: unless-stopped
+    ports:
+      - "5555:5555"
+
+volumes:
+  pikaraoke-songs:
+    # Define your volume specifics here, if any.

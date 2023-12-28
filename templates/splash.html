@@ -265,6 +265,27 @@
       }
     });
   });
+
+  // Script for forcing browser to go full screen
+  function handleConfirmation() {
+    $("#permissions-modal").removeClass("is-active");
+    confirmationDismissed = true;
+    goFullScreen();
+  }
+
+  function goFullScreen() {
+    var elem = document.documentElement; // Get the document's root element
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen();
+    } else if (elem.mozRequestFullScreen) { /* Firefox */
+      elem.mozRequestFullScreen();
+    } else if (elem.webkitRequestFullscreen) { /* Chrome, Safari & Opera */
+      elem.webkitRequestFullscreen();
+    } else if (elem.msRequestFullscreen) { /* IE/Edge */
+      elem.msRequestFullscreen();
+    }
+  }
+
 </script>
 {% endblock %} {% block body %}
 
@@ -389,16 +410,25 @@
   body {
     background-color: black;
   }
+  .backdrop-blur {
+    -webkit-backdrop-filter: blur(10px); /* For Safari */
+    backdrop-filter: blur(10px); /* Standard syntax */
+ }
+ #now-playing, #qr-code, #up-next {
+    background-color: rgba(100, 100, 100, 0.3);
+    -webkit-backdrop-filter: blur(6px); /* For Safari */
+    backdrop-filter: blur(6px); /* Standard syntax */
+  } 
+  
   #top-container,
   #bottom-container {
     position: absolute;
     z-index: 1;
-    padding: 10px 20px;
   }
   #top-container {
     top: 0px;
     right: 0px;
-    max-width: 75%;
+    max-width: 75%; 
   }
   #bottom-container {
     bottom: 0px;
@@ -408,11 +438,20 @@
     justify-content: space-between;
     align-items: flex-end;
   }
+  #now-playing {
+    padding: 10px 20px 10px 20px;
+    border-bottom-left-radius: 20px;  
+  }
   #qr-code {
     max-width: 25%;
+    border-top-right-radius: 20px; /* Rounded corner */
+    text-align: center; /* Center QR code */   
+    padding: 20px;
   }
   #up-next {
     max-width: 75%;
+    border-top-left-radius: 20px; /* Rounded corner */ 
+    padding: 10px 20px 10px 20px; 
   }
   .video-container {
     position: absolute;
