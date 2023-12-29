@@ -102,7 +102,7 @@ Run the setup script to install python dependencies:
 setup-windows.bat
 ```
 
-Windows firewall may initially block connections to port 5555 and 5556. Be sure to allow these. It should prompt the first time you run pikaraoke and launch a song. Otherwise, configure it manually in the security settings.
+Windows firewall may initially block connections to port 5555. Be sure to allow this port. It should prompt the first time you run pikaraoke and launch a song. Otherwise, configure it manually in the security settings.
 
 ## Launch
 
@@ -153,7 +153,7 @@ options:
   -h, --help            show this help message and exit
   -p PORT, --port PORT  Desired http port (default: 5555)
   -f FFMPEG_PORT, --ffmpeg-port FFMPEG_PORT
-                        Desired ffmpeg port. This is where video stream URLs will be pointed (default: 5556)
+                        Desired ffmpeg port. This is where video streams will be hosted (default: 5556)
   -d DOWNLOAD_PATH, --download-path DOWNLOAD_PATH
                         Desired path for downloaded songs. (default: ~/pikaraoke-songs)
   -y YOUTUBEDL_PATH, --youtubedl-path YOUTUBEDL_PATH

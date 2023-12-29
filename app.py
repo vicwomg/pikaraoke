@@ -684,7 +684,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-f",
         "--ffmpeg-port",
-        help=f"Desired ffmpeg port. This is where video stream URLs will be pointed (default: {default_ffmpeg_port})" ,
+        help=f"Desired ffmpeg port. This is where video streams will be hosted (default: {default_ffmpeg_port})" ,
         default=default_ffmpeg_port,
         required=False,
     )
