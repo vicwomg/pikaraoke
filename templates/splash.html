@@ -215,17 +215,34 @@
         cursorVisible = true;
       }
       if (!menuButtonVisible) {
-        $("#menu a").addClass("visible").removeClass("hidden");
+        $("#menubg").addClass("visible").removeClass("hidden");
         menuButtonVisible = true;
       }
       mouseTimer = window.setTimeout(() => {
         mouseTimer = null;
         document.body.style.cursor = "none";
         cursorVisible = false;
-        $("#menu a").addClass("hidden").removeClass("visible");
+        $("#menubg").addClass("hidden").removeClass("visible");
         menuButtonVisible = false;
       }, 5000);
+
     };
+
+    function toggleFullscreen() {
+    const expandIcon = document.querySelector('#fullscreen-button svg:nth-child(1)');
+    const shrinkIcon = document.querySelector('#fullscreen-button svg:nth-child(2)');
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+            expandIcon.style.display = 'none';
+            shrinkIcon.style.display = 'block';
+        } else {
+            document.exitFullscreen();
+            expandIcon.style.display = 'block';
+            shrinkIcon.style.display = 'none';
+        }
+    }
+    document.getElementById('fullscreen-button').addEventListener("click", toggleFullscreen);
+
 
     //Video status events for communicating state back to server
     $("#video")[0].addEventListener("play", () => {
@@ -251,40 +268,31 @@
       true
     );
 
+    // Set the iframe source initially if not set
+    let menuIframe = $("#menu-container iframe");
+    if (menuIframe.attr("src") === "") {
+      menuIframe.attr("src", `${window.location.protocol}//${window.location.host}`);
+    }
+    
     //open menu iframe
     $("#menu a").click(function () {
       if (showMenu) {
         $("#menu-container").hide();
-        $("#menu-container iframe").attr("src", "");
         showMenu = false;
       } else {
         setUserCookie();
         $("#menu-container").show();
-        $("#menu-container iframe").attr("src", url);
         showMenu = true;
       }
     });
   });
 
-  // Script for forcing browser to go full screen
+ 
   function handleConfirmation() {
-    $("#permissions-modal").removeClass("is-active");
-    confirmationDismissed = true;
-    goFullScreen();
-  }
+  $("#permissions-modal").removeClass("is-active");
+  confirmationDismissed = true;
+}
 
-  function goFullScreen() {
-    var elem = document.documentElement; // Get the document's root element
-    if (elem.requestFullscreen) {
-      elem.requestFullscreen();
-    } else if (elem.mozRequestFullScreen) { /* Firefox */
-      elem.mozRequestFullScreen();
-    } else if (elem.webkitRequestFullscreen) { /* Chrome, Safari & Opera */
-      elem.webkitRequestFullscreen();
-    } else if (elem.msRequestFullscreen) { /* IE/Edge */
-      elem.msRequestFullscreen();
-    }
-  }
 
 </script>
 {% endblock %} {% block body %}
@@ -371,20 +379,35 @@
   </div>
 </div>
 
-<div id="menu">
-  <a
-    role="button"
-    class="navbar-burger"
-    aria-label="menu"
-    aria-expanded="false"
-    data-target="navbarBasicExample"
-    style="display: block; width: 20px; height: 30px"
-  >
-    <span aria-hidden="true"></span>
-    <span aria-hidden="true"></span>
-    <span aria-hidden="true"></span>
-  </a>
+<div id="menubg">
+    <div id="menu">
+    <a
+        role="button"
+        class="navbar-burger"
+        aria-label="menu"
+        aria-expanded="false"
+        data-target="navbarBasicExample"
+        style="display: block; width: 20px; height: 30px"
+    >
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+    </a>
+    
+    </div>
+
+    <button id="fullscreen-button">
+        <!-- SVG for expand -->
+        <svg viewBox="0 0 24 24" style="fill: white;">
+        <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"></path>
+        </svg>
+        <!-- SVG for retract -->
+        <svg viewBox="0 0 24 24" style="fill: white; display: none;">
+        <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"></path>
+        </svg>
+    </button>
 </div>
+
 <div id="menu-container" class="">
   <iframe src="{{ url }}"></iframe>
 </div>
@@ -496,6 +519,52 @@
     width: 600px;
     height: 75vh;
   }
+  #fullscreen-button {
+    position: absolute;
+    top: 8px;
+    left: 50px;
+    background-color: rgba(100, 100, 100, 0.3); /* Same as other elements */
+    -webkit-backdrop-filter: blur(6px); /* For Safari */
+    backdrop-filter: blur(6px); /* Standard syntax */
+    border: 0;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    box-sizing: border-box;
+    transition: transform .3s;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 3; /* Ensure it is above other elements */
+  }
+  #fullscreen-button:hover {
+    transform: scale(1.125);
+  }
+  #fullscreen-button:hover svg path {
+    fill: #63cfb1 !important;
+  }
+  [fullscreen] #fullscreen-button svg:nth-child(1) {
+    display: none;
+  }
+  [fullscreen] #fullscreen-button svg:nth-child(2) {
+    display: inline-block;
+  }
+  #menubg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 52px;
+    width: 95px;
+    background-color: rgba(100, 100, 100, 0.3); /* Same as other elements */
+    -webkit-backdrop-filter: blur(6px); /* For Safari */
+    backdrop-filter: blur(6px); /* Standard syntax */
+    display: flex;
+    align-items: center;
+    padding: 8px; /* Adjust as needed */
+    border-bottom-right-radius: 20px; /* Optional, for rounded corners */
+    z-index: 5; /* Adjust based on your layout */
+  }  
   .visible {
     visibility: visible;
     opacity: 1;
