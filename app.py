@@ -44,8 +44,8 @@ app.secret_key = os.urandom(24)
 app.jinja_env.add_extension('jinja2.ext.i18n')
 app.config['BABEL_TRANSLATION_DIRECTORIES'] = 'translations'
 babel = Babel(app)
-socketio = SocketIO(app)
 site_name = "PiKaraoke"
+socketio = SocketIO(app)
 admin_password = None
 is_raspberry_pi = get_platform() == "raspberry_pi"
 

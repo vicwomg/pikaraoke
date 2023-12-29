@@ -1,6 +1,5 @@
 CherryPy
 Flask
-flask-socketio
 eventlet
 qrcode
 psutil 
@@ -13,3 +12,4 @@ Flask-Babel==2.0.0
 selenium
 ffmpeg-python
 yt-dlp
+flask-socketio
