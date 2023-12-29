@@ -5,10 +5,11 @@ services:
     build: .
     container_name: PiKaraoke
     volumes:
+      - /etc/hostname:/etc/host_hostname:ro
       - pikaraoke-songs:/pikaraoke-songs
     environment:
-      URL: #https://karaoke.yourdomain.com
-      PASSWORD: #optionalpassword
+      URL: #optional https://karaoke.yourdomain.com
+      PASSWORD: #optional password
     restart: unless-stopped
     ports:
       - "5555:5555"

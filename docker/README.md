@@ -1,32 +1,33 @@
 
 # Dockerized PiKaraoke
 
-PiKaraoke is a "KTV"-style karaoke song search and queueing system, originally designed to work on Raspberry Pi, OSX, Windows, and Linux. This repository contains a Dockerized version of PiKaraoke, built on an alpine base, making it easy to set up and run on any system with Docker support.
+This repository contains a Dockerized version of PiKaraoke, a "KTV"-style karaoke song search and queueing system, originally designed to work on Raspberry Pi, OSX, Windows, and Linux. This container is built on alpine, making it easy to set up and run on any system with docker support.
 
 ## Features
 
 - The Dockerized version retains all features of the original PiKaraoke.
 - Easy to set up and run on any system with Docker support.
 - Automatically exposes on port 5555.
-- URL is required for reverse proxy setup with either http:// or https://.
-- The PASSWORD variable is optional.
 
 ## Prerequisites
 
 - Docker and Docker Compose installed on your system.
 - A reverse proxy like nginx is very helpful but not required.
+- The URL variable is optional, but will set the system to operate and function from the docker hosts hosthame, and only be accessible locally. The player/splashpage will be viewable at http://docker-hostname:5555/splash
+- If using a reverse proxy http:// or https:// is required at the beginning of the URL variable
+- The PASSWORD variable is optional.
+
+---
+
+For more details on the project and additional features, please visit the [main repository page](https://github.com/vicwomg/pikaraoke).
+
+---
 
 ## Installation and Launch
 
 ### Using Docker Compose Command Line
 
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/honestlai/pikaraoke-docker.git
-   cd pikaraoke-docker
-   ```
-
-2. **Create a Docker Compose File**:
+1. **Create a Docker Compose File**:
    Create a `docker-compose.yml` file with the following content:
    ```yaml
    version: '3'
@@ -36,9 +37,10 @@ PiKaraoke is a "KTV"-style karaoke song search and queueing system, originally d
        image: honestlai/pikaraoke-docker:latest
        container_name: PiKaraoke
        volumes:
+         - /etc/hostname:/etc/host_hostname:ro       
          - pikaraoke-songs:/pikaraoke-songs
        environment:
-         URL: #https://karaoke.yourdomain.com
+         URL: #optional https://karaoke.yourdomain.com
          PASSWORD: #optionalpassword
        restart: unless-stopped
        ports:
@@ -49,7 +51,7 @@ PiKaraoke is a "KTV"-style karaoke song search and queueing system, originally d
        # Define your volume specifics here, if any.
    ```
 
-3. **Running the Container**:
+2. **Running the Container**:
    Use Docker Compose to pull the image and start the container:
    ```bash
    docker-compose up -d
@@ -59,7 +61,7 @@ PiKaraoke is a "KTV"-style karaoke song search and queueing system, originally d
 
 1. **Access Portainer**: Navigate to the 'Stacks' section.
 2. **Add a New Stack**: Click on '+ Add stack'.
-3. **Compose File**: Clone the repository or copy the `docker-compose.yml` content.
+3. **Compose File**: Clone the repository or copy the `docker-compose.yml` content above.
 4. **Environment Variables**: Add necessary variables like `URL` and `PASSWORD`.
 5. **Deploy the Stack**: Click on 'Deploy the stack'.
 
@@ -67,8 +69,8 @@ PiKaraoke is a "KTV"-style karaoke song search and queueing system, originally d
 
 1. **Clone this Dockerized repository**:
    ```bash
-   git clone https://github.com/honestlai/pikaraoke-docker.git
-   cd pikaraoke-docker
+   git clone https://github.com/vicwomg/pikaraoke.git
+   cd pikaraoke/docker
    ```
 
 2. **Build and Run the Docker Container**:
@@ -76,6 +78,4 @@ PiKaraoke is a "KTV"-style karaoke song search and queueing system, originally d
    docker-compose up --build
    ```
 
----
 
-For more details on the project and additional features, please visit the [main repository page](https://github.com/vicwomg/pikaraoke).
