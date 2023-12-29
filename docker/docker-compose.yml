@@ -2,7 +2,7 @@ version: '3'
 
 services:
   pikaraoke:
-    image: honestlai/pikaraoke-docker:latest
+    build: .
     container_name: PiKaraoke
     volumes:
       - pikaraoke-songs:/pikaraoke-songs

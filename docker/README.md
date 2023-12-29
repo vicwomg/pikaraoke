@@ -26,7 +26,31 @@ PiKaraoke is a "KTV"-style karaoke song search and queueing system, originally d
    cd pikaraoke-docker
    ```
 
-2. **Running the Container**:
+2. **Create a Docker Compose File**:
+   Create a `docker-compose.yml` file with the following content:
+   ```yaml
+   version: '3'
+
+   services:
+     pikaraoke:
+       image: honestlai/pikaraoke-docker:latest
+       container_name: PiKaraoke
+       volumes:
+         - pikaraoke-songs:/pikaraoke-songs
+       environment:
+         URL: #https://karaoke.yourdomain.com
+         PASSWORD: #optionalpassword
+       restart: unless-stopped
+       ports:
+         - "5555:5555"
+
+   volumes:
+     pikaraoke-songs:
+       # Define your volume specifics here, if any.
+   ```
+
+3. **Running the Container**:
+   Use Docker Compose to pull the image and start the container:
    ```bash
    docker-compose up -d
    ```
