@@ -5,7 +5,7 @@ FROM alpine:latest
 RUN apk add --no-cache bash zsh git gcc python3-dev musl-dev linux-headers py3-pip ffmpeg htop screen figlet
 
 # Clone the pikaraoke repository
-RUN git clone -b PiKaraoke-Docker https://github.com/vicwomg/pikaraoke.git /pikaraoke
+RUN git clone -b PiKaraoke-Docker https://github.com/honestlai/pikaraoke.git /pikaraoke
 
 # Run the setup script
 RUN cd /pikaraoke && echo y | bash setup.sh
