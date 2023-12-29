@@ -16,6 +16,7 @@ import psutil
 import requests
 from flask import (Flask, Response, flash, make_response, redirect,
                    render_template, request, send_file, url_for)
+from flask_socketio import SocketIO
 from flask_babel import Babel
 from flask_paginate import Pagination, get_page_parameter
 from selenium import webdriver
@@ -23,7 +24,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support import expected_conditions as ECf
 from selenium.webdriver.support.ui import WebDriverWait
 
 import karaoke
@@ -43,6 +44,7 @@ app.secret_key = os.urandom(24)
 app.jinja_env.add_extension('jinja2.ext.i18n')
 app.config['BABEL_TRANSLATION_DIRECTORIES'] = 'translations'
 babel = Babel(app)
+socketio = SocketIO(app)
 site_name = "PiKaraoke"
 admin_password = None
 is_raspberry_pi = get_platform() == "raspberry_pi"

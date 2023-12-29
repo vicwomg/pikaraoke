@@ -1,5 +1,7 @@
 CherryPy
 Flask
+flask-socketio
+eventlet
 qrcode
 psutil 
 unidecode

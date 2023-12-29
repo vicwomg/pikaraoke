@@ -18,19 +18,22 @@ if [[ $(cat /etc/os-release | grep -i debian) != "" ]]; then
   sudo apt-get install ffmpeg -y
   sudo apt-get install chromium-browser -y
   sudo apt-get install chromium-chromedriver -y
+  sudo apt-get install python3-venv -y
   if [ $? -ne 0 ]; then echo "ERROR: Binary dependency installation failed with error code: $?"; exit 1; fi
 else  
- echo "Client is not Debian-based. Skipping binary installation. Please install ffmpeg and chrome manually."; 
+ echo "Client is not Debian-based. Skipping binary installation. Please install ffmpeg, chrome, and python3-venv manually."; 
 fi
 
 echo
 echo "*** CREATING PYTHON VIRTUAL ENVIRONMENT ***"
 python3 -m venv .venv
+if [ $? -ne 0 ]; then echo "ERROR: Virtual environment creation failed with error code: $?"; exit 1; fi
 source .venv/bin/activate
+if [ ! -f ".venv/bin/activate" ]; then echo "ERROR: Virtual environment activation failed."; exit 1; fi
 
 echo
 echo "*** INSTALLING PYTHON DEPENDENCIES ***"
-pip3 install -r requirements.txt
+pip install -r requirements.txt
 if [ $? -ne 0 ]; then echo "ERROR: Python requirements.txt installation failed with error code: $?"; exit 1; fi
 
 echo

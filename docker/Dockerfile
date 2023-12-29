@@ -7,6 +7,9 @@ RUN apk add --no-cache bash zsh git gcc python3-dev musl-dev linux-headers py3-p
 # Clone the pikaraoke repository
 RUN git clone -b PiKaraoke-Docker https://github.com/honestlai/pikaraoke.git /pikaraoke
 
+# Copy the docker logo.png into the pikaraoke directory in the container
+COPY docker-logo.png /pikaraoke/logo.png
+
 # Run the setup script
 RUN cd /pikaraoke && echo y | bash setup.sh
 
