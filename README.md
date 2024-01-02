@@ -70,6 +70,7 @@ Install git, if you haven't already.
 
 Install python3/pip3
 (usually raspberry pi OS already has it, run `python3 --version` to check): https://www.python.org/downloads/
+Python >= 3.8 is necessary
 
 Clone this repo:
 
