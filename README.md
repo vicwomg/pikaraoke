@@ -91,11 +91,13 @@ Run the setup script to install dependencies and set up the python env:
 
 If you're on a raspberry pi or debian system the setup script should have handled installing ffmpeg via apt.
 
-If you're on OSX or another Linux distro, manually install FFMPEG from here: https://ffmpeg.org/download.html
+If you're on OSX or another Linux distro, manually install FFMPEG 6.0 or greater from here: https://ffmpeg.org/download.html
+
+On Ubuntu, apt seemed to keep installing an old 4.X version of ffmpeg. I found better luck grabbing a pre-built version of ffmpeg 6.0+ and manually copying it to /usr/bin/. Pre-built releases were obtained from this repo: https://github.com/BtbN/FFmpeg-Builds/releases
 
 ### Windows
 
-Manually install ffmpeg https://ffmpeg.org/download.html
+Manually install ffmpeg 6.0 or greater https://ffmpeg.org/download.html
 
 Run the setup script to install python dependencies:
 
