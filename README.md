@@ -170,7 +170,8 @@ options:
   -l LOG_LEVEL, --log-level LOG_LEVEL
                         Logging level int value (DEBUG: 10, INFO: 20, WARNING: 30, ERROR: 40, CRITICAL: 50). (default: 20 )
   --hide-url            Hide URL and QR code from the splash screen.
-  --prefer-ip           Show the IP instead of the fully qualified local domain name. Default: False
+  --prefer-hostname     Use the local hostname instead of the IP as the connection URL. Use at your discretion: mDNS is not guaranteed to work on all
+                        LAN configurations. Defaults to False
   --hide-raspiwifi-instructions
                         Hide RaspiWiFi setup instructions from the splash screen.
   --hide-splash-screen, --headless
