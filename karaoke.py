@@ -75,7 +75,7 @@ class Karaoke:
         hide_overlay=False,
         screensaver_timeout = 300,
         url=None,
-        prefer_ip=False
+        prefer_hostname=True
     ):
 
         # override with supplied constructor args if provided
@@ -94,7 +94,7 @@ class Karaoke:
         self.hide_overlay = hide_overlay
         self.screensaver_timeout = screensaver_timeout
         self.url_override = url
-        self.prefer_ip = prefer_ip
+        self.prefer_hostname = prefer_hostname
 
         # other initializations
         self.platform = get_platform()
@@ -111,7 +111,7 @@ class Karaoke:
     http port: {self.port}
     ffmpeg port {self.ffmpeg_port}
     hide URL: {self.hide_url}
-    prefer IP: {self.prefer_ip}
+    prefer hostname: {self.prefer_hostname}
     url override: {self.url_override}
     hide RaspiWiFi instructions: {self.hide_raspiwifi_instructions}
     headless (hide splash): {self.hide_splash_screen}
@@ -147,10 +147,10 @@ class Karaoke:
             logging.debug("Overriding URL with " + self.url_override)
             self.url = self.url_override
         else:
-            if (self.prefer_ip):
-                self.url = f"http://{self.ip}:{self.port}" 
-            else:
+            if (self.prefer_hostname):
                 self.url = f"http://{socket.getfqdn().lower()}:{self.port}"
+            else:
+                self.url = f"http://{self.ip}:{self.port}" 
         self.url_parsed = urlparse(self.url)
 
         # get songs from download_path

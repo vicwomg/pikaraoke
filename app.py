@@ -639,7 +639,6 @@ def get_default_youtube_dl_path(platform):
         return os.path.join(os.path.dirname(__file__), ".venv\Scripts\yt-dlp.exe")
     return os.path.join(os.path.dirname(__file__), ".venv/bin/yt-dlp")
      
-
 def get_default_dl_dir(platform):
     if is_raspberry_pi:
         return "~/pikaraoke-songs"
@@ -666,7 +665,7 @@ if __name__ == "__main__":
     default_splash_delay = 3
     default_screensaver_delay = 300
     default_log_level = logging.INFO
-    default_prefer_ip = False
+    default_prefer_hostname = False
 
     default_dl_dir = get_default_dl_dir(platform)
     default_youtubedl_path = get_default_youtube_dl_path(platform)
@@ -741,9 +740,10 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
-        "--prefer-ip",
+        "--prefer-hostname",
         action="store_true",
-        help=f"Show the IP instead of the fully qualified local domain name. Default: {default_prefer_ip}",
+        help=f"Use the local hostname instead of the IP as the connection URL. Use at your discretion: mDNS is not guaranteed to work on all LAN configurations. Defaults to {default_prefer_hostname}",
+        default=default_prefer_hostname,
         required=False,
     )
     parser.add_argument(
@@ -838,7 +838,7 @@ if __name__ == "__main__":
         hide_overlay=args.hide_overlay,
         screensaver_timeout=args.screensaver_timeout,
         url=args.url,
-        prefer_ip=args.prefer_ip
+        prefer_hostname=args.prefer_hostname
     )
 
     # Start the CherryPy WSGI web server
