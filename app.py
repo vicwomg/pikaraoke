@@ -660,14 +660,8 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
-        "--width",
-        help="Desired window width in pixels",
-        default=0,
-        required=False,
-    )
-    parser.add_argument(
-        "--height",
-        help="Desired window height in pixels",
+        "--window-size",
+        help="Desired window geometry in pixels, specified as width,height",
         default=0,
         required=False,
     )
@@ -854,8 +848,8 @@ if __name__ == "__main__":
             service = None
         options = Options()
 
-        if args.width and args.height:
-            options.add_argument("--window-size=%s,%s" % (args.width,args.height))
+        if args.window_size:
+            options.add_argument("--window-size=%s" % (args.window_size))
             options.add_argument("--window-position=0,0")
             
         options.add_argument("--kiosk")
