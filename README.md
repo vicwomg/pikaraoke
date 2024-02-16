@@ -150,7 +150,7 @@ May not be up to date, run `python3 app.py --help` for the latest:
 ```
 usage: app.py [-h] [-p PORT] [-f FFMPEG_PORT] [-d DOWNLOAD_PATH] [-y YOUTUBEDL_PATH] [-v VOLUME] [-s SPLASH_DELAY] [-t SCREENSAVER_TIMEOUT]
               [-l LOG_LEVEL] [--hide-url] [--prefer-ip] [--hide-raspiwifi-instructions] [--hide-splash-screen] [--dual-screen] [--high-quality]
-              [--logo-path LOGO_PATH] [-u URL] [--hide-overlay] [--admin-password ADMIN_PASSWORD]
+              [--logo-path LOGO_PATH] [-u URL] [--hide-overlay] [--admin-password ADMIN_PASSWORD] [--window-size WIDTH,HEIGHT]
 
 options:
   -h, --help            show this help message and exit
@@ -184,6 +184,8 @@ options:
   --admin-password ADMIN_PASSWORD
                         Administrator password, for locking down certain features of the web UI such as queue editing, player controls, song editing,
                         and system shutdown. If unspecified, everyone is an admin.
+  --window-size WIDTH,HEIGHT
+                        Explicitly set the width and height of the splash screen, where the WIDTH and HEIGHT values are specified in pixels.
 ```
 
 ## Troubleshooting
