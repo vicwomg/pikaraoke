@@ -616,23 +616,6 @@ def get_default_youtube_dl_path(platform):
     if platform == "windows":
         return os.path.join(os.path.dirname(__file__), ".venv\Scripts\yt-dlp.exe")
     return os.path.join(os.path.dirname(__file__), ".venv/bin/yt-dlp")
-    # if platform == "windows":
-    #     choco_ytdl_path = r"C:\ProgramData\chocolatey\bin\yt-dlp.exe"
-    #     scoop_ytdl_path = os.path.expanduser(r"~\scoop\shims\yt-dlp.exe")
-    #     if os.path.isfile(choco_ytdl_path):
-    #         return choco_ytdl_path
-    #     if os.path.isfile(scoop_ytdl_path):
-    #         return scoop_ytdl_path
-    #     return r"C:\Program Files\yt-dlp\yt-dlp.exe"
-    # default_ytdl_unix_path = "/usr/local/bin/yt-dlp"
-    # if platform == "osx":
-    #     if os.path.isfile(default_ytdl_unix_path):
-    #         return default_ytdl_unix_path
-    #     else: 
-    #         # just a guess based on the default python 3 install in OSX monterey
-    #         return "/Library/Frameworks/Python.framework/Versions/3.10/bin/yt-dlp"
-    # else:
-    #     return default_ytdl_unix_path
         
 
 def get_default_dl_dir(platform):
@@ -661,7 +644,7 @@ if __name__ == "__main__":
     default_splash_delay = 3
     default_screensaver_delay = 300
     default_log_level = logging.INFO
-    default_prefer_ip = False
+    default_prefer_hostname = False
 
     default_dl_dir = get_default_dl_dir(platform)
     default_youtubedl_path = get_default_youtube_dl_path(platform)
@@ -674,6 +657,12 @@ if __name__ == "__main__":
         "--port",
         help="Desired http port (default: %d)" % default_port,
         default=default_port,
+        required=False,
+    )
+    parser.add_argument(
+        "--window-size",
+        help="Desired window geometry in pixels, specified as width,height",
+        default=0,
         required=False,
     )
     parser.add_argument(
@@ -736,9 +725,10 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
-        "--prefer-ip",
+        "--prefer-hostname",
         action="store_true",
-        help=f"Show the IP instead of the fully qualified local domain name. Default: {default_prefer_ip}",
+        help=f"Use the local hostname instead of the IP as the connection URL. Use at your discretion: mDNS is not guaranteed to work on all LAN configurations. Defaults to {default_prefer_hostname}",
+        default=default_prefer_hostname,
         required=False,
     )
     parser.add_argument(
@@ -842,6 +832,7 @@ if __name__ == "__main__":
         url=args.url,
         ffmpeg_url=args.ffmpeg_url,
         prefer_ip=args.prefer_ip
+        prefer_hostname=args.prefer_hostname
     )
 
     # Start the CherryPy WSGI web server
@@ -865,6 +856,11 @@ if __name__ == "__main__":
         else: 
             service = None
         options = Options()
+
+        if args.window_size:
+            options.add_argument("--window-size=%s" % (args.window_size))
+            options.add_argument("--window-position=0,0")
+            
         options.add_argument("--kiosk")
         options.add_argument("--start-maximized")
         options.add_experimental_option("excludeSwitches", ['enable-automation'])

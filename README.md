@@ -70,6 +70,7 @@ Install git, if you haven't already.
 
 Install python3/pip3
 (usually raspberry pi OS already has it, run `python3 --version` to check): https://www.python.org/downloads/
+Python >= 3.8 is necessary
 
 Clone this repo:
 
@@ -90,11 +91,13 @@ Run the setup script to install dependencies and set up the python env:
 
 If you're on a raspberry pi or debian system the setup script should have handled installing ffmpeg via apt.
 
-If you're on OSX or another Linux distro, manually install FFMPEG from here: https://ffmpeg.org/download.html
+If you're on OSX or another Linux distro, manually install FFMPEG 6.0 or greater from here: https://ffmpeg.org/download.html
+
+On Ubuntu, apt seemed to keep installing an old 4.X version of ffmpeg. I found better luck grabbing a pre-built version of ffmpeg 6.0+ and manually copying it to /usr/bin/. Pre-built releases were obtained from this repo: https://github.com/BtbN/FFmpeg-Builds/releases
 
 ### Windows
 
-Manually install ffmpeg https://ffmpeg.org/download.html
+Manually install ffmpeg 6.0 or greater https://ffmpeg.org/download.html
 
 Run the setup script to install python dependencies:
 
@@ -147,7 +150,7 @@ May not be up to date, run `python3 app.py --help` for the latest:
 ```
 usage: app.py [-h] [-p PORT] [-f FFMPEG_PORT] [-d DOWNLOAD_PATH] [-y YOUTUBEDL_PATH] [-v VOLUME] [-s SPLASH_DELAY] [-t SCREENSAVER_TIMEOUT]
               [-l LOG_LEVEL] [--hide-url] [--prefer-ip] [--hide-raspiwifi-instructions] [--hide-splash-screen] [--dual-screen] [--high-quality]
-              [--logo-path LOGO_PATH] [-u URL] [--hide-overlay] [--admin-password ADMIN_PASSWORD]
+              [--logo-path LOGO_PATH] [-u URL] [--hide-overlay] [--admin-password ADMIN_PASSWORD] [--window-size WIDTH,HEIGHT]
 
 options:
   -h, --help            show this help message and exit
@@ -167,7 +170,8 @@ options:
   -l LOG_LEVEL, --log-level LOG_LEVEL
                         Logging level int value (DEBUG: 10, INFO: 20, WARNING: 30, ERROR: 40, CRITICAL: 50). (default: 20 )
   --hide-url            Hide URL and QR code from the splash screen.
-  --prefer-ip           Show the IP instead of the fully qualified local domain name. Default: False
+  --prefer-hostname     Use the local hostname instead of the IP as the connection URL. Use at your discretion: mDNS is not guaranteed to work on all
+                        LAN configurations. Defaults to False
   --hide-raspiwifi-instructions
                         Hide RaspiWiFi setup instructions from the splash screen.
   --hide-splash-screen, --headless
@@ -180,6 +184,8 @@ options:
   --admin-password ADMIN_PASSWORD
                         Administrator password, for locking down certain features of the web UI such as queue editing, player controls, song editing,
                         and system shutdown. If unspecified, everyone is an admin.
+  --window-size WIDTH,HEIGHT
+                        Explicitly set the width and height of the splash screen, where the WIDTH and HEIGHT values are specified in pixels.
 ```
 
 ## Troubleshooting

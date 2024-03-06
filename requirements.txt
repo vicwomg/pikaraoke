@@ -1,5 +1,5 @@
 CherryPy
-Flask
+Flask==2.2.5
 qrcode
 psutil 
 unidecode
