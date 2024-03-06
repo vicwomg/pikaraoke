@@ -660,6 +660,12 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
+        "--window-size",
+        help="Desired window geometry in pixels, specified as width,height",
+        default=0,
+        required=False,
+    )
+    parser.add_argument(
         "-f",
         "--ffmpeg-port",
         help=f"Desired ffmpeg port. This is where video stream URLs will be pointed (default: {default_ffmpeg_port})" ,
@@ -841,6 +847,11 @@ if __name__ == "__main__":
         else: 
             service = None
         options = Options()
+
+        if args.window_size:
+            options.add_argument("--window-size=%s" % (args.window_size))
+            options.add_argument("--window-position=0,0")
+            
         options.add_argument("--kiosk")
         options.add_argument("--start-maximized")
         options.add_experimental_option("excludeSwitches", ['enable-automation'])
