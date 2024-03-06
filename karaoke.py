@@ -76,7 +76,6 @@ class Karaoke:
         screensaver_timeout = 300,
         url=None,
         ffmpeg_url=None,
-        prefer_ip=False
         prefer_hostname=True
     ):
 
