@@ -765,6 +765,13 @@ if __name__ == "__main__":
         required=False,
     ),
     parser.add_argument(
+        "-m",
+        "--ffmpeg-url",
+        help="Override the ffmpeg address with a supplied URL.",
+        default=None,
+        required=False,
+    ),
+    parser.add_argument(
         "--hide-overlay",
         action="store_true",
         help="Hide overlay that shows on top of video with pikaraoke QR code and IP",
@@ -823,6 +830,7 @@ if __name__ == "__main__":
         hide_overlay=args.hide_overlay,
         screensaver_timeout=args.screensaver_timeout,
         url=args.url,
+        ffmpeg_url=args.ffmpeg_url,
         prefer_hostname=args.prefer_hostname
     )
 
