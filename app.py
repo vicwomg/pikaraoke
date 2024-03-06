@@ -831,7 +831,6 @@ if __name__ == "__main__":
         screensaver_timeout=args.screensaver_timeout,
         url=args.url,
         ffmpeg_url=args.ffmpeg_url,
-        prefer_ip=args.prefer_ip
         prefer_hostname=args.prefer_hostname
     )
 
