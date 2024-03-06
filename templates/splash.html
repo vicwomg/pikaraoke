@@ -116,7 +116,7 @@
 
           // handle timeout if video fails to play
           setTimeout(() => {
-            if (!isVideoPlaying(video)) {
+            if (!isVideoPlaying(video) && !isPaused) {
               endSong();
             }
           }, 10000);
