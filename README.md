@@ -268,3 +268,9 @@ You'll need to add them manually by copying them to the root of your download fo
 ### My mp3/cdg file is not playing
 
 CDG files must have an mp3 file with a exact matching file name. They can also be bundled together in a single zip file, but the filenames in the zip must still match. They must also be placed in the root of the download directory and not stashed away in sub-directories.
+
+### How do I dismiss the Splash confirmation screen on an in-TV browser? (like a Samsung TV with web browsing)
+
+The splash confirmation screen is an unfortunate necessity due to modern browser permissions disabling video autoplay. A single interaction will enable it, and the confirmation screen serves as this interaction. Hopefully your TV has a way to click the button on the screen with the remote or otherwise.
+
+If you want to try without confirmation, you can add a parameter to the end of the splash screen URL "confirm=false". Ex: `http://pikaraoke.local:5555/splash.html?confirm=false` but there's no guarantee that videos will play; it depends on the embedded browser implementation.
