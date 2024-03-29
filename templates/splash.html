@@ -265,6 +265,16 @@
       }
     });
   });
+
+  document.addEventListener("DOMContentLoaded", (event) => {
+    let params = new URLSearchParams(window.location.search);
+    let dismissConfirmation = params.get("confirm");
+
+    if (dismissConfirmation === "false") {
+      let modal = document.getElementById("permissions-modal");
+      modal.classList.remove("is-active");
+    }
+  });
 </script>
 {% endblock %} {% block body %}
 
