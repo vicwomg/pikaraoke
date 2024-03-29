@@ -75,6 +75,7 @@ class Karaoke:
         hide_overlay=False,
         screensaver_timeout = 300,
         url=None,
+        ffmpeg_url=None,
         prefer_hostname=True
     ):
 
@@ -152,6 +153,10 @@ class Karaoke:
             else:
                 self.url = f"http://{self.ip}:{self.port}" 
         self.url_parsed = urlparse(self.url)
+        if ffmpeg_url is None:
+            self.ffmpeg_url = f"{self.url_parsed.scheme}://{self.url_parsed.hostname}:{self.ffmpeg_port}"
+        else:
+            self.ffmpeg_url = ffmpeg_url
 
         # get songs from download_path
         self.get_available_songs()
@@ -361,8 +366,12 @@ class Karaoke:
     def play_file(self, file_path, semitones=0):
         logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
         stream_uid = int(time.time())
-        # This is the stream URL that will be accessed by the splash screen client, Flask will
-        stream_url = f"{self.url}/stream/{stream_uid}"
+        
+        # This is the stream URL that will be accessed by the splash screen client, Flask will proxy this to the ffmpeg server if not overridden
+        if (self.ffmpeg_url): 
+            stream_url = f"{self.ffmpeg_url}/{stream_uid}"
+        else:
+            stream_url = f"{self.url}/stream/{stream_uid}"
         # Used by ffmpeg, pass a 0.0.0.0 IP to ffmpeg which will work for both hostnames and direct IP access
         ffmpeg_url = f"{self.ffmpeg_url_base}/{stream_uid}"
 

@@ -681,6 +681,12 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
+        "--window-size",
+        help="Desired window geometry in pixels, specified as width,height",
+        default=0,
+        required=False,
+    )
+    parser.add_argument(
         "-f",
         "--ffmpeg-port",
         help=f"Desired ffmpeg port. This is where video streams will be hosted (default: {default_ffmpeg_port})" ,
@@ -780,6 +786,13 @@ if __name__ == "__main__":
         required=False,
     ),
     parser.add_argument(
+        "-m",
+        "--ffmpeg-url",
+        help="Override the ffmpeg address with a supplied URL.",
+        default=None,
+        required=False,
+    ),
+    parser.add_argument(
         "--hide-overlay",
         action="store_true",
         help="Hide overlay that shows on top of video with pikaraoke QR code and IP",
@@ -838,6 +851,7 @@ if __name__ == "__main__":
         hide_overlay=args.hide_overlay,
         screensaver_timeout=args.screensaver_timeout,
         url=args.url,
+        ffmpeg_url=args.ffmpeg_url,
         prefer_hostname=args.prefer_hostname
     )
 
@@ -862,6 +876,11 @@ if __name__ == "__main__":
         else: 
             service = None
         options = Options()
+
+        if args.window_size:
+            options.add_argument("--window-size=%s" % (args.window_size))
+            options.add_argument("--window-position=0,0")
+            
         options.add_argument("--kiosk")
         options.add_argument("--start-maximized")
         options.add_experimental_option("excludeSwitches", ['enable-automation'])
