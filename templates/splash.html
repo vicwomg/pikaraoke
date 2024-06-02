@@ -301,6 +301,12 @@
   </div>
 </div>
 
+<div id="ap-container">
+  <div class="is-size-5 stroke">
+    <div id="hostap">{% for line in hostap_info %}{{ line }}<br />{% endfor %}</div>
+  </div>
+</div>
+
 <div id="bottom-container">
   {% if not hide_url %}
   <div id="qr-code">
@@ -387,7 +393,7 @@
       <div style="text-align: right">
         <img src="{{ url_for('qrcode') }}" width="30%" height="30%" />
       </div>
-      <div>{{ url }}</div>
+      <div>{{ hostap_info[0] }}<br />{{ url }}</div>
     </div>
     {% endif %}
   </div>
@@ -401,6 +407,7 @@
     background-color: black;
   }
   #top-container,
+  #ap-container,
   #bottom-container {
     position: absolute;
     z-index: 1;
@@ -410,6 +417,14 @@
     top: 0px;
     right: 0px;
     max-width: 75%;
+  }
+  #ap-container {
+    top: 0px;
+    left: 0px;
+    max-width: 50%;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
   }
   #bottom-container {
     bottom: 0px;
