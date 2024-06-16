@@ -55,7 +55,7 @@ Raspberry Pi 3 and above. Anything else will likely be too slow.
 Other pi considerations:
 
 - Should be running Raspberry pi desktop OS if running headed, since it requires a browser
-- 32-bit version of the OS is recommended. 64-bit seemed slower in my testing, but pi4 and above can probably handle it.
+- 32-bit version of the Bullseye OS is recommended. 64-bit seemed slower in my testing, but pi4 and above can probably handle it. Bookworm seems to install an incompatible version of ffmpeg at the moment. Please avoid if possible ( see #323 )
 - Disable "screen blanking" in raspi-config if you want to prevent the display from turning off when idle
 - Pi3 might struggle a bit with high-res video playback. Overclocking seems to help
 
@@ -91,7 +91,7 @@ Run the setup script to install dependencies and set up the python env:
 
 If you're on a raspberry pi or debian system the setup script should have handled installing ffmpeg via apt.
 
-If you're on OSX or another Linux distro, manually install FFMPEG 6.0 or greater from here: https://ffmpeg.org/download.html
+If you're on OSX or another Linux distro, manually install the latest stable version FFMPEG 6.0 or greater from here: https://ffmpeg.org/download.html . Do not install experimental snapshot builds.
 
 On Ubuntu, apt seemed to keep installing an old 4.X version of ffmpeg. I found better luck grabbing a pre-built version of ffmpeg 6.0+ and manually copying it to /usr/bin/. Pre-built releases were obtained from this repo: https://github.com/BtbN/FFmpeg-Builds/releases
 

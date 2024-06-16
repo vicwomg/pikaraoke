@@ -41,6 +41,7 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)
 app.jinja_env.add_extension('jinja2.ext.i18n')
 app.config['BABEL_TRANSLATION_DIRECTORIES'] = 'translations'
+app.config['JSON_SORT_KEYS'] = False
 babel = Babel(app)
 site_name = "PiKaraoke"
 admin_password = None
@@ -459,10 +460,42 @@ def edit_file():
 
 @app.route("/splash")
 def splash():
+    # Only do this on Raspberry Pis
+    if is_raspberry_pi:
+        status = subprocess.run(['iwconfig', 'wlan0'], stdout=subprocess.PIPE).stdout.decode('utf-8')
+        text = ""
+        if "Mode:Master" in status:
+            # Wifi is setup as a Access Point
+            ap_name = ""
+            ap_password = ""
+            
+            if os.path.isfile("/etc/raspiwifi/raspiwifi.conf"):
+                f = open("/etc/raspiwifi/raspiwifi.conf", "r")
+            
+                # Override the default values according to the configuration file.
+                for line in f.readlines():
+                    line = line.split("#", 1)[0]
+                    if "ssid_prefix=" in line:
+                        ap_name = line.split("ssid_prefix=")[1].strip()
+                    elif "wpa_key=" in line:
+                        ap_password = line.split("wpa_key=")[1].strip()
+
+            if len(ap_password) > 0:
+                text = [f"Wifi Network: {ap_name} Password: {ap_password}", f"Configure Wifi: {k.url.rpartition(':')[0]}"]
+            else:
+                text = [f"Wifi Network: {ap_name}", f"Configure Wifi: {k.url.rpartition(':',1)[0]}"]
+        else:
+            # You are connected to Wifi as a client
+            text = ""
+    else:
+        # Not a Raspberry Pi
+        text = ""
+
     return render_template(
         "splash.html",
         blank_page=True,
         url=k.url,
+        hostap_info=text,
         hide_url=k.hide_url,
         hide_overlay=k.hide_overlay,
         screensaver_timeout=k.screensaver_timeout
