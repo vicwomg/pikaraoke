@@ -503,6 +503,7 @@ msgstr ""
 "Kirjoita kappale (kappale/artisti) nähdäksesi tarjolla olevat kappaleet "
 "ja paina 'Lisää Jonoon'-nappia."
 
+
 #. Additonal help text below the search bar.
 #: templates/search.html:334
 msgid ""
