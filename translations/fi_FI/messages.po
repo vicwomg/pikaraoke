@@ -129,17 +129,17 @@ msgstr "Kappale on jo jonossa: "
 #. order.
 #: templates/files.html:98
 msgid "Sorted Alphabetically"
-msgstr "Aakkosjärjestys"
+msgstr "Aakkosjärjestyksessä"
 
 #. Button which changes how the songs are sorted so they become sorted by date.
 #: templates/files.html:101
 msgid "Sort by Date"
-msgstr "Päivämäärä järjestys."
+msgstr "Päivämääräjärjestykseen"
 
 #. Label which displays that the songs are currently sorted by date.
 #: templates/files.html:106
 msgid "Sorted by date"
-msgstr "Päivämääräjärjestykseen."
+msgstr "Päivämääräjärjestyksessä"
 
 #. Button which changes how the songs are sorted so they become sorted by name.
 #: templates/files.html:109
@@ -502,6 +502,7 @@ msgid ""
 msgstr ""
 "Kirjoita kappale (kappale/artisti) nähdäksesi tarjolla olevat kappaleet "
 "ja paina 'Lisää Jonoon'-nappia."
+
 
 #. Additonal help text below the search bar.
 #: templates/search.html:334
