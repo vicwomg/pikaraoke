@@ -11,6 +11,7 @@ from queue import Empty, Queue
 from subprocess import CalledProcessError, check_output
 from threading import Thread
 from urllib.parse import urlparse
+import yt_dlp
 
 import ffmpeg
 import qrcode
@@ -19,6 +20,7 @@ from unidecode import unidecode
 from lib.file_resolver import FileResolver
 from lib.get_platform import get_platform
 
+YT_DLP_VERSION = yt_dlp.version.__version__
 
 # Support function for reading  lines from ffmpeg stderr without blocking
 def enqueue_output(out, queue):
@@ -29,6 +31,8 @@ def enqueue_output(out, queue):
 def decode_ignore(input):
     return input.decode("utf-8", "ignore").strip()
 
+YT_DLP_CMD = "yt-dlp"
+
 class Karaoke:
 
     raspi_wifi_config_ip = "10.0.0.1"
@@ -36,7 +40,7 @@ class Karaoke:
     raspi_wifi_config_installed = os.path.exists(raspi_wifi_conf_file)
 
     queue = []
-    available_songs = []
+    available_songs: list[str] = []
 
     # These all get sent to the /nowplaying endpoint for client-side polling
     now_playing = None
@@ -159,9 +163,6 @@ class Karaoke:
 
         # get songs from download_path
         self.get_available_songs()
-
-        self.get_youtubedl_version()
-
         self.generate_qr_code()
    
 
@@ -205,20 +206,13 @@ class Karaoke:
 
         return (server_port, ssid_prefix, ssl_enabled)
 
-    def get_youtubedl_version(self):
-        self.youtubedl_version = (
-            check_output([self.youtubedl_path, "--version"]).strip().decode("utf8")
-        )
-        return self.youtubedl_version
-
     def upgrade_youtubedl(self):
-        logging.info(
-            "Upgrading youtube-dl, current version: %s" % self.youtubedl_version
-        )
+        logging.info(f"Upgrading youtube-dl, current version: {YT_DLP_VERSION}")
         try:  
-            output = check_output([self.youtubedl_path, "-U"], stderr=subprocess.STDOUT).decode("utf8").strip()
+            output = check_output([YT_DLP_CMD, "-U"], stderr=subprocess.STDOUT).decode("utf8").strip()
         except CalledProcessError as e:
             output = e.output.decode("utf8")
+
         logging.info(output)
         if "You installed yt-dlp with pip or using the wheel from PyPi" in output:
             try:
@@ -232,8 +226,7 @@ class Karaoke:
                     ["pip", "install", "--upgrade", "yt-dlp"]
                 ).decode("utf8")
             logging.info(output)
-        self.get_youtubedl_version()
-        logging.info("Done. New version: %s" % self.youtubedl_version)
+        logging.info(f"Done. New version: {YT_DLP_VERSION}")
 
     def is_network_connected(self):
         return not len(self.ip) < 7
@@ -304,7 +297,7 @@ class Karaoke:
         return rc
 
     def get_available_songs(self):
-        logging.info("Fetching available songs in: " + self.download_path)
+        logging.info(f"Fetching available songs in: {self.download_path}")
         types = ['.mp4', '.mp3', '.zip', '.mkv', '.avi', '.webm', '.mov']
         files_grabbed = []
         P=Path(self.download_path)
@@ -488,7 +481,7 @@ class Karaoke:
                 return True
         return False
 
-    def enqueue(self, song_path, user="Pikaraoke", semitones=0, add_to_front=False):
+    def enqueue(self, song_path: str, user: str="Pikaraoke", semitones: int=0, add_to_front: bool=False):
         if (self.is_song_in_queue(song_path)):
             logging.warn("Song is already in queue, will not add: " + song_path)   
             return False

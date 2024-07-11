@@ -21,13 +21,14 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from pathlib import Path
 
 import karaoke
 from constants import LANGUAGES, VERSION
-from lib.get_platform import get_platform
+from lib.get_platform import get_platform, Platform
+import secrets
 
 try:
     from urllib.parse import quote, unquote
@@ -36,56 +37,54 @@ except ImportError:
 
 _ = flask_babel.gettext
 
-
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = secrets.token_bytes(24)
 app.jinja_env.add_extension('jinja2.ext.i18n')
 app.config['BABEL_TRANSLATION_DIRECTORIES'] = 'translations'
 app.config['JSON_SORT_KEYS'] = False
 babel = Babel(app)
 site_name = "PiKaraoke"
 admin_password = None
-is_raspberry_pi = get_platform() == "raspberry_pi"
+platform = get_platform()
 
-def filename_from_path(file_path, remove_youtube_id=True):
-    rc = os.path.basename(file_path)
-    rc = os.path.splitext(rc)[0]
+def filename_from_path(file_path, remove_youtube_id=True) -> str:
+    rc = Path(file_path).name
     if remove_youtube_id:
         try:
             rc = rc.split("---")[0]  # removes youtube id if present
         except TypeError:
             # more fun python 3 hacks
             rc = rc.split("---".encode("utf-8", "ignore"))[0]
+
     return rc
 
 def arg_path_parse(path):
-    if (type(path) == list):
-        return " ".join(path)
-    else:
-        return path
+    return " ".join(path) if isinstance(path, list) else path
 
-def url_escape(filename):
+def url_escape(filename: str):
     return quote(filename.encode("utf8"))
 
-def hash_dict(d):
+def hash_dict(d) -> str:
     return hashlib.md5(json.dumps(d, sort_keys=True, ensure_ascii=True).encode('utf-8', "ignore")).hexdigest()
 
-def is_admin():
-    if (admin_password == None):
+def is_admin() -> bool:
+    if admin_password is None:
         return True
-    if ('admin' in request.cookies):
+
+    if 'admin' in request.cookies:
         a = request.cookies.get("admin")
         if (a == admin_password):
             return True
+
     return False
 
 @babel.localeselector
-def get_locale():
+def get_locale() -> str | None:
     """Select the language to display the webpage in based on the Accept-Language header"""
     return request.accept_languages.best_match(LANGUAGES.keys())
 
 @app.route("/")
-def home():
+def home() -> str:
     return render_template(
         "home.html",
         site_title=site_name,
@@ -97,8 +96,8 @@ def home():
 @app.route("/auth", methods=["POST"])
 def auth():
     d = request.form.to_dict()
-    p = d["admin-password"]
-    if (p == admin_password):
+    pw = d["admin-password"]
+    if (pw == admin_password):
         resp = make_response(redirect('/'))
         expire_date = datetime.datetime.now()
         expire_date = expire_date + datetime.timedelta(days=90)
@@ -109,10 +108,11 @@ def auth():
         resp = make_response(redirect(url_for('login')))
         # MSG: Message shown after failing to login as admin
         flash(_("Incorrect admin password!"), "is-danger")
+
     return resp
 
 @app.route("/login")
-def login():
+def login() -> str:
     return render_template("login.html")
 
 @app.route("/logout")
@@ -120,10 +120,11 @@ def logout():
     resp = make_response(redirect('/'))
     resp.set_cookie('admin', '')
     flash("Logged out of admin mode!", "is-success")
+
     return resp
 
 @app.route("/nowplaying")
-def nowplaying():
+def nowplaying() -> str:
     try: 
         if len(k.queue) >= 1:
             next_song = k.queue[0]["title"]
@@ -155,17 +156,14 @@ def clear_command():
     return ""
 
 @app.route("/queue")
-def queue():
+def queue() -> str:
     return render_template(
         "queue.html", queue=k.queue, site_title=site_name, title="Queue", admin=is_admin()
     )
 
 @app.route("/get_queue")
-def get_queue():
-    if len(k.queue) >= 1:
-        return json.dumps(k.queue)
-    else:
-        return json.dumps([])
+def get_queue() -> str:
+    return json.dumps(k.queue if len(k.queue) >= 1 else [])
 
 @app.route("/queue/addrandom", methods=["GET"])
 def add_random():
@@ -175,6 +173,7 @@ def add_random():
         flash("Added %s random tracks" % amount, "is-success")
     else:
         flash("Ran out of songs!", "is-warning")
+
     return redirect(url_for("queue"))
 
 @app.route("/queue/edit", methods=["GET"])
@@ -184,27 +183,24 @@ def queue_edit():
         k.queue_clear()
         flash("Cleared the queue!", "is-warning")
         return redirect(url_for("queue"))
-    else:
-        song = request.args["song"]
-        song = unquote(song)
-        if action == "down":
-            result = k.queue_edit(song, "down")
-            if result:
-                flash("Moved down in queue: " + song, "is-success")
-            else:
-                flash("Error moving down in queue: " + song, "is-danger")
-        elif action == "up":
-            result = k.queue_edit(song, "up")
-            if result:
-                flash("Moved up in queue: " + song, "is-success")
-            else:
-                flash("Error moving up in queue: " + song, "is-danger")
-        elif action == "delete":
-            result = k.queue_edit(song, "delete")
-            if result:
-                flash("Deleted from queue: " + song, "is-success")
-            else:
-                flash("Error deleting from queue: " + song, "is-danger")
+
+    song = unquote(request.args["song"])
+    if action == "down":
+        if k.queue_edit(song, "down"):
+            flash("Moved down in queue: " + song, "is-success")
+        else:
+            flash("Error moving down in queue: " + song, "is-danger")
+    elif action == "up":
+        if  k.queue_edit(song, "up"):
+            flash("Moved up in queue: " + song, "is-success")
+        else:
+            flash("Error moving up in queue: " + song, "is-danger")
+    elif action == "delete":
+        if k.queue_edit(song, "delete"):
+            flash("Deleted from queue: " + song, "is-success")
+        else:
+            flash("Error deleting from queue: " + song, "is-danger")
+
     return redirect(url_for("queue"))
 
 
@@ -222,6 +218,7 @@ def enqueue():
         user = d["song-added-by"]
     rc = k.enqueue(song, user)
     song_title = filename_from_path(song)
+
     return json.dumps({"song": song_title, "success": rc })
 
 
@@ -276,6 +273,7 @@ def search():
     else:
         search_string = None
         search_results = None
+
     return render_template(
         "search.html",
         site_title=site_name,
@@ -325,7 +323,7 @@ def browse():
         available_songs = result
 
     if "sort" in request.args and request.args["sort"] == "date":
-        songs = sorted(available_songs, key=lambda x: os.path.getctime(x))
+        songs = sorted(available_songs, key=lambda x: Path(x).stat().st_ctime)
         songs.reverse()
         sort_order = "Date"
     else:
@@ -410,6 +408,7 @@ def delete_file():
             flash("Song deleted: " + song_path, "is-warning")
     else:
         flash("Error: No song parameter specified!", "is-danger")
+
     return redirect(url_for("browse"))
 
 
@@ -422,58 +421,58 @@ def edit_file():
         if song_path in k.queue:
             flash(queue_error_msg + song_path, "is-danger")
             return redirect(url_for("browse"))
+
+        return render_template(
+            "edit.html",
+            site_title=site_name,
+            title="Song File Edit",
+            song=song_path.encode("utf-8", "ignore"),
+        )
+
+    d = request.form.to_dict()
+    if "new_file_name" in d and "old_file_name" in d:
+        new_name = d["new_file_name"]
+        old_name = d["old_file_name"]
+        if k.is_song_in_queue(old_name):
+            # check one more time just in case someone added it during editing
+            flash(queue_error_msg + song_path, "is-danger")
         else:
-            return render_template(
-                "edit.html",
-                site_title=site_name,
-                title="Song File Edit",
-                song=song_path.encode("utf-8", "ignore"),
-            )
-    else:
-        d = request.form.to_dict()
-        if "new_file_name" in d and "old_file_name" in d:
-            new_name = d["new_file_name"]
-            old_name = d["old_file_name"]
-            if k.is_song_in_queue(old_name):
-                # check one more time just in case someone added it during editing
-                flash(queue_error_msg + song_path, "is-danger")
+            # check if new_name already exist
+            file_extension = Path(old_name).suffix
+            new_file_path = Path(k.download_path).joinpath(new_name).with_suffix(file_extension)
+            if new_file_path.is_file():
+                flash(
+                    "Error Renaming file: '%s' to '%s'. Filename already exists."
+                    % (old_name, new_name + file_extension),
+                    "is-danger",
+                )
             else:
-                # check if new_name already exist
-                file_extension = os.path.splitext(old_name)[1]
-                if os.path.isfile(
-                    os.path.join(k.download_path, new_name + file_extension)
-                ):
-                    flash(
-                        "Error Renaming file: '%s' to '%s'. Filename already exists."
-                        % (old_name, new_name + file_extension),
-                        "is-danger",
-                    )
-                else:
-                    k.rename(old_name, new_name)
-                    flash(
-                        "Renamed file: '%s' to '%s'." % (old_name, new_name),
-                        "is-warning",
-                    )
-        else:
-            flash("Error: No filename parameters were specified!", "is-danger")
-        return redirect(url_for("browse"))
+                k.rename(old_name, new_name)
+                flash(
+                    "Renamed file: '%s' to '%s'." % (old_name, new_name),
+                    "is-warning",
+                )
+    else:
+        flash("Error: No filename parameters were specified!", "is-danger")
+    return redirect(url_for("browse"))
 
 @app.route("/splash")
 def splash():
     # Only do this on Raspberry Pis
-    if is_raspberry_pi:
+    if platform.is_rpi():
         status = subprocess.run(['iwconfig', 'wlan0'], stdout=subprocess.PIPE).stdout.decode('utf-8')
         text = ""
         if "Mode:Master" in status:
             # Wifi is setup as a Access Point
             ap_name = ""
             ap_password = ""
-            
-            if os.path.isfile("/etc/raspiwifi/raspiwifi.conf"):
-                f = open("/etc/raspiwifi/raspiwifi.conf", "r")
+
+            config_file = Path("/etc/raspiwifi/raspiwifi.conf")
+            if config_file.is_file():
+                content = config_file.read_text()
             
                 # Override the default values according to the configuration file.
-                for line in f.readlines():
+                for line in content.splitlines():
                     line = line.split("#", 1)[0]
                     if "ssid_prefix=" in line:
                         ap_name = line.split("ssid_prefix=")[1].strip()
@@ -547,7 +546,7 @@ def info():
         cpu=cpu,
         disk=disk,
         youtubedl_version=youtubedl_version,
-        is_pi=is_raspberry_pi,
+        is_pi=platform.is_rpi(),
         pikaraoke_version=VERSION,
         admin=is_admin(),
         admin_enabled=admin_password != None
@@ -631,65 +630,79 @@ def reboot():
 
 @app.route("/expand_fs")
 def expand_fs():
-    if (is_admin() and is_raspberry_pi): 
+    if (is_admin() and platform.is_rpi()): 
         flash("Expanding filesystem and rebooting system now!", "is-danger")
         th = threading.Thread(target=delayed_halt, args=[3])
         th.start()
-    elif (platform != "raspberry_pi"):
+    elif not platform.is_rpi():
         flash("Cannot expand fs on non-raspberry pi devices!", "is-danger")
     else:
         flash("You don't have permission to resize the filesystem", "is-danger")
+
     return redirect(url_for("home"))
 
 
 # Handle sigterm, apparently cherrypy won't shut down without explicit handling
 signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
-def get_default_youtube_dl_path(platform):
-    if platform == "windows":
-        return os.path.join(os.path.dirname(__file__), ".venv\Scripts\yt-dlp.exe")
-    return os.path.join(os.path.dirname(__file__), ".venv/bin/yt-dlp")
-        
+def get_default_youtube_dl_path(platform: Platform) -> Path:
+    base_dir = Path(__file__).resolve().parent / ".venv"
+    return base_dir / "Scripts" / "yt-dlp.exe" if platform.is_windows() else base_dir / "bin" / "yt-dlp"
 
-def get_default_dl_dir(platform):
-    if is_raspberry_pi:
-        return "~/pikaraoke-songs"
-    elif platform == "windows":
-        legacy_directory = os.path.expanduser("~\pikaraoke\songs")
-        if os.path.exists(legacy_directory):
-            return legacy_directory
-        else:
-            return "~\pikaraoke-songs"
-    else:
-        legacy_directory = "~/pikaraoke/songs"
-        if os.path.exists(legacy_directory):
-            return legacy_directory
-        else:
-            return "~/pikaraoke-songs"
+def get_default_dl_dir(platform: Platform) -> Path:
+    default_dir = Path.home() / "pikaraoke-songs"
+    legacy_dir = Path.home() / "pikaraoke" / "songs"
 
+    if not platform.is_rpi() and legacy_dir.exists():
+        return legacy_dir
+
+    return default_dir
 
 if __name__ == "__main__":
 
-    platform = get_platform()
-    default_port = 5555
-    default_ffmpeg_port = 5556
-    default_volume = 0.85
-    default_splash_delay = 3
-    default_screensaver_delay = 300
-    default_log_level = logging.INFO
-    default_prefer_hostname = False
+    platform: Platform = get_platform()
+    PORT = 5555
+    PORT_FFMPEG = 5556
+    VOLUME = 0.85
+    DELAY_SPLASH = 3
+    DELAY_SCREENSAVER = 300
+    LOG_LEVEL = logging.INFO
+    PREFER_HOSTNAME = False
 
-    default_dl_dir = get_default_dl_dir(platform)
-    default_youtubedl_path = get_default_youtube_dl_path(platform)
+    DL_DIR: Path = get_default_dl_dir(platform)
+    YOUTUBE_DL: Path = get_default_youtube_dl_path(platform)
+    print(f"{YOUTUBE_DL=}")
 
     # parse CLI args
+    class ArgsNamespace(argparse.Namespace):
+        """Provides typehints to the input args"""
+        port: int
+        window_size: str
+        ffmpeg_port: int
+        download_path: list[str]
+        youtubedl_path: Path
+        volume: float
+        splash_delay: float
+        screensaver_timeout: float
+        log_level: int
+        hide_url: bool
+        prefer_hostname: bool
+        hide_raspiwifi_instructions: bool
+        hide_splash_screen: bool
+        high_quality: bool
+        logo_path: list[str] | None
+        url: str | None
+        ffmpeg_url: str | None
+        hide_overlay: bool
+        admin_password: str | None
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
         "-p",
         "--port",
-        help="Desired http port (default: %d)" % default_port,
-        default=default_port,
+        help="Desired http port (default: %d)" % PORT,
+        default=PORT,
         required=False,
     )
     parser.add_argument(
@@ -701,54 +714,55 @@ if __name__ == "__main__":
     parser.add_argument(
         "-f",
         "--ffmpeg-port",
-        help=f"Desired ffmpeg port. This is where video stream URLs will be pointed (default: {default_ffmpeg_port})" ,
-        default=default_ffmpeg_port,
+        help=f"Desired ffmpeg port. This is where video stream URLs will be pointed (default: {PORT_FFMPEG})" ,
+        default=PORT_FFMPEG,
         required=False,
     )
     parser.add_argument(
         "-d",
         "--download-path",
         nargs='+',
-        help="Desired path for downloaded songs. (default: %s)" % default_dl_dir,
-        default=default_dl_dir,
+        help="Desired path for downloaded songs. (default: %s)" % DL_DIR,
+        default=DL_DIR,
         required=False,
     )
     parser.add_argument(
         "-y",
         "--youtubedl-path",
-        nargs='+',
-        help="Path of youtube-dl. (default: %s)" % default_youtubedl_path,
-        default=default_youtubedl_path,
+        help=f"Path to yt-dlp binary. Defaults to {YOUTUBE_DL}",
+        default=YOUTUBE_DL,
+        type=Path,
         required=False,
     )
+
     parser.add_argument(
         "-v",
         "--volume",
-        help="Set initial player volume. A value between 0 and 1. (default: %s)" % default_volume,
-        default=default_volume,
+        help="Set initial player volume. A value between 0 and 1. (default: %s)" % VOLUME,
+        default=VOLUME,
         required=False,
     )
     parser.add_argument(
         "-s",
         "--splash-delay",
         help="Delay during splash screen between songs (in secs). (default: %s )"
-        % default_splash_delay,
-        default=default_splash_delay,
+        % DELAY_SPLASH,
+        default=DELAY_SPLASH,
         required=False,
     )
     parser.add_argument(
         "-t",
         "--screensaver-timeout",
         help="Delay before the screensaver begins (in secs). (default: %s )"
-        % default_screensaver_delay,
-        default=default_screensaver_delay,
+        % DELAY_SCREENSAVER,
+        default=DELAY_SCREENSAVER,
         required=False,
     )
     parser.add_argument(
         "-l",
         "--log-level",
-        help=f"Logging level int value (DEBUG: 10, INFO: 20, WARNING: 30, ERROR: 40, CRITICAL: 50). (default: {default_log_level} )",
-        default=default_log_level,
+        help=f"Logging level int value (DEBUG: 10, INFO: 20, WARNING: 30, ERROR: 40, CRITICAL: 50). (default: {LOG_LEVEL} )",
+        default=LOG_LEVEL,
         required=False,
     )
     parser.add_argument(
@@ -760,8 +774,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--prefer-hostname",
         action="store_true",
-        help=f"Use the local hostname instead of the IP as the connection URL. Use at your discretion: mDNS is not guaranteed to work on all LAN configurations. Defaults to {default_prefer_hostname}",
-        default=default_prefer_hostname,
+        help=f"Use the local hostname instead of the IP as the connection URL. Use at your discretion: mDNS is not guaranteed to work on all LAN configurations. Defaults to {PREFER_HOSTNAME}",
+        default=PREFER_HOSTNAME,
         required=False,
     )
     parser.add_argument(
@@ -817,7 +831,7 @@ if __name__ == "__main__":
         required=False,
     ),
 
-    args = parser.parse_args()
+    args = parser.parse_args(namespace=ArgsNamespace())
 
     if (args.admin_password):
         admin_password = args.admin_password
@@ -826,24 +840,15 @@ if __name__ == "__main__":
     app.jinja_env.globals.update(url_escape=quote)
 
 
-    # check if required binaries exist
-    if not os.path.isfile(args.youtubedl_path):
-        print("Youtube-dl path not found! " + args.youtubedl_path)
-        sys.exit(1)
-
     # setup/create download directory if necessary
-    dl_path = os.path.expanduser(arg_path_parse(args.download_path))
-    if not dl_path.endswith("/"):
-        dl_path += "/"
-    if not os.path.exists(dl_path):
-        print("Creating download path: " + dl_path)
-        os.makedirs(dl_path)
+    dl_path: Path = arg_path_parse(args.download_path).expanduser()
+    dl_path.mkdir(parents=True, exist_ok=True)
 
     parsed_volume = float(args.volume)
     if parsed_volume > 1 or parsed_volume < 0:
         # logging.warning("Volume must be between 0 and 1. Setting to default: %s" % default_volume)
-        print(f"[ERROR] Volume: {args.volume} must be between 0 and 1. Setting to default: {default_volume}")
-        parsed_volume = default_volume
+        print(f"[ERROR] Volume: {args.volume} must be between 0 and 1. Setting to default: {VOLUME}")
+        parsed_volume = VOLUME
 
     # Configure karaoke process
     global k
@@ -851,7 +856,7 @@ if __name__ == "__main__":
         port=args.port,
         ffmpeg_port=args.ffmpeg_port,
         download_path=dl_path,
-        youtubedl_path=arg_path_parse(args.youtubedl_path),
+        youtubedl_path=str(args.youtubedl_path),
         splash_delay=args.splash_delay,
         log_level=args.log_level,
         volume=parsed_volume,

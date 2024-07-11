@@ -1,8 +1,24 @@
 import os
 import sys
+from enum import Enum
 
+class Platform(Enum):
+    OSX = "osx"
+    RASPBERRY_PI = "raspberry_pi"
+    LINUX = "linux"
+    WINDOWS = "windows"
+    UNKNOWN = "unknown"
 
-def is_raspberry_pi():
+    def is_rpi(self):
+        return self == Platform.RASPBERRY_PI
+    
+    def is_windows(self):
+        return self == Platform.WINDOWS
+    
+    def is_linux(self):
+        return self == Platform.LINUX
+
+def _is_raspberry_pi() -> bool:
     try: 
         return (
             os.uname()[4][:3] == "arm" or
@@ -11,14 +27,14 @@ def is_raspberry_pi():
     except AttributeError:
         return False
 
-def get_platform():
+def get_platform() -> Platform:
     if sys.platform == "darwin":
-        return "osx"
-    elif is_raspberry_pi():
-        return "raspberry_pi"
-    elif sys.platform.startswith("linux"):
-        return "linux"
+        return Platform.OSX
+    elif _is_raspberry_pi():
+        return Platform.RASPBERRY_PI
+    elif sys.platform.startswith(Platform.LINUX.value):
+        return Platform.LINUX
     elif sys.platform.startswith("win"):
-        return "windows"
+        return Platform.WINDOWS
     else:
-        return "unknown"
+        return Platform.UNKNOWN
