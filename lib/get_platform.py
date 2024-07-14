@@ -1,6 +1,7 @@
 import os
 import sys
 from enum import Enum
+import platform
 
 
 class Platform(Enum):
@@ -18,6 +19,9 @@ class Platform(Enum):
 
     def is_linux(self):
         return self == Platform.LINUX
+    
+    def is_mac(self):
+        return self == Platform.OSX
 
 
 def _is_raspberry_pi() -> bool:
@@ -28,9 +32,8 @@ def _is_raspberry_pi() -> bool:
     except AttributeError:
         return False
 
-
 def get_platform() -> Platform:
-    if sys.platform == "darwin":
+    if "darwin" in sys.platform:
         return Platform.OSX
     elif _is_raspberry_pi():
         return Platform.RASPBERRY_PI

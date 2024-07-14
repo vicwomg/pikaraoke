@@ -8,7 +8,7 @@ import subprocess
 import time
 from pathlib import Path
 from queue import Empty, Queue
-from subprocess import CalledProcessError, check_output
+from subprocess import check_output
 from threading import Thread
 from urllib.parse import urlparse
 import yt_dlp
@@ -21,27 +21,25 @@ from lib.file_resolver import FileResolver
 from lib.get_platform import get_platform
 
 YT_DLP_VERSION = yt_dlp.version.__version__
+YT_DLP_CMD = "yt-dlp"
 
 
 # Support function for reading  lines from ffmpeg stderr without blocking
-def enqueue_output(out, queue):
+def enqueue_output(out, queue: Queue):
     for line in iter(out.readline, b""):
         queue.put(line)
     out.close()
 
 
-def decode_ignore(input):
+def decode_ignore(input: bytes):
     return input.decode("utf-8", "ignore").strip()
-
-
-YT_DLP_CMD = "yt-dlp"
 
 
 class Karaoke:
 
     raspi_wifi_config_ip = "10.0.0.1"
-    raspi_wifi_conf_file = "/etc/raspiwifi/raspiwifi.conf"
-    raspi_wifi_config_installed = os.path.exists(raspi_wifi_conf_file)
+    raspi_wifi_conf_file = Path("/etc/raspiwifi/raspiwifi.conf")
+    raspi_wifi_config_installed = raspi_wifi_conf_file.is_file()
 
     queue = []
     available_songs: list[str] = []
@@ -58,10 +56,10 @@ class Karaoke:
     is_paused = True
     process = None
     qr_code_path = None
-    base_path = os.path.dirname(__file__)
     volume = None
     loop_interval = 500  # in milliseconds
-    default_logo_path = os.path.join(base_path, "logo.png")
+    base_path = Path(__file__).parent
+    default_logo_path = base_path.joinpath("logo.png")
     screensaver_timeout = 300  # in seconds
 
     ffmpeg_process = None
@@ -70,7 +68,7 @@ class Karaoke:
         self,
         port=5555,
         ffmpeg_port=5556,
-        download_path="/usr/lib/pikaraoke/songs",
+        download_path: Path = "/usr/lib/pikaraoke/songs",
         hide_url=False,
         hide_raspiwifi_instructions=False,
         hide_splash_screen=False,
@@ -78,15 +76,13 @@ class Karaoke:
         volume=0.85,
         log_level=logging.DEBUG,
         splash_delay=2,
-        youtubedl_path="/usr/local/bin/yt-dlp",
-        logo_path=None,
+        logo_path=default_logo_path,
         hide_overlay=False,
         screensaver_timeout=300,
         url=None,
         ffmpeg_url=None,
         prefer_hostname=True,
     ):
-
         # override with supplied constructor args if provided
         self.port = port
         self.ffmpeg_port = ffmpeg_port
@@ -97,8 +93,7 @@ class Karaoke:
         self.high_quality = high_quality
         self.splash_delay = int(splash_delay)
         self.volume = volume
-        self.youtubedl_path = youtubedl_path
-        self.logo_path = self.default_logo_path if logo_path == None else logo_path
+        self.logo_path = logo_path
         self.hide_overlay = hide_overlay
         self.screensaver_timeout = screensaver_timeout
         self.url_override = url
@@ -128,14 +123,14 @@ class Karaoke:
     high quality video: {self.high_quality}
     download path: {self.download_path}
     default volume: {self.volume}
-    youtube-dl path: {self.youtubedl_path}
     logo path: {self.logo_path}
     log_level: {log_level}
     hide overlay: {self.hide_overlay}
+    base_path: {self.base_path}
 """
         )
         # Generate connection URL and QR code,
-        if self.platform == "raspberry_pi":
+        if self.platform.is_rpi():
             # retry in case pi is still starting up
             # and doesn't have an IP yet (occurs when launched from /etc/rc.local)
             end_time = int(time.time()) + 30
@@ -188,7 +183,7 @@ class Karaoke:
 
     def get_raspi_wifi_conf_vals(self):
         """Extract values from the RaspiWiFi configuration file."""
-        f = open(self.raspi_wifi_conf_file, "r")
+        f = self.raspi_wifi_conf_file.open()
 
         # Define default values.
         #
@@ -211,32 +206,6 @@ class Karaoke:
 
         return (server_port, ssid_prefix, ssl_enabled)
 
-    def upgrade_youtubedl(self):
-        logging.info(f"Upgrading youtube-dl, current version: {YT_DLP_VERSION}")
-        try:
-            output = (
-                check_output([YT_DLP_CMD, "-U"], stderr=subprocess.STDOUT)
-                .decode("utf8")
-                .strip()
-            )
-        except CalledProcessError as e:
-            output = e.output.decode("utf8")
-
-        logging.info(output)
-        if "You installed yt-dlp with pip or using the wheel from PyPi" in output:
-            try:
-                logging.info("Attempting youtube-dl upgrade via pip3...")
-                output = check_output(
-                    ["pip3", "install", "--upgrade", "yt-dlp"]
-                ).decode("utf8")
-            except FileNotFoundError:
-                logging.info("Attempting youtube-dl upgrade via pip...")
-                output = check_output(["pip", "install", "--upgrade", "yt-dlp"]).decode(
-                    "utf8"
-                )
-            logging.info(output)
-        logging.info(f"Done. New version: {YT_DLP_VERSION}")
-
     def is_network_connected(self):
         return not len(self.ip) < 7
 
@@ -257,7 +226,7 @@ class Karaoke:
         logging.info("Searching YouTube for: " + textToSearch)
         num_results = 10
         yt_search = 'ytsearch%d:"%s"' % (num_results, unidecode(textToSearch))
-        cmd = [self.youtubedl_path, "-j", "--no-playlist", "--flat-playlist", yt_search]
+        cmd = [YT_DLP_CMD, "-j", "--no-playlist", "--flat-playlist", yt_search]
         logging.debug("Youtube-dl search command: " + " ".join(cmd))
         try:
             output = subprocess.check_output(cmd).decode("utf-8", "ignore")
@@ -285,7 +254,7 @@ class Karaoke:
             if self.high_quality
             else "mp4"
         )
-        cmd = [self.youtubedl_path, "-f", file_quality, "-o", dl_path, video_url]
+        cmd = [YT_DLP_CMD, "-f", file_quality, "-o", dl_path, video_url]
         logging.debug("Youtube-dl command: " + " ".join(cmd))
         rc = subprocess.call(cmd)
         if rc != 0:
