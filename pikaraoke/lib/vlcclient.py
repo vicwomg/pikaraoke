@@ -10,16 +10,17 @@ import time
 import xml.etree.ElementTree as ET
 import zipfile
 from threading import Timer
+from pathlib import Path
 
 import requests
 
-from lib.get_platform import get_platform
+from .get_platform import get_platform, Platform
 
 
-def get_default_vlc_path(platform):
-    if platform == "osx":
+def get_default_vlc_path(platform: Platform) -> str:
+    if platform.is_mac():
         return "/Applications/VLC.app/Contents/MacOS/VLC"
-    elif platform == "windows":
+    elif platform.is_windows():
         alt_vlc_path = r"C:\\Program Files (x86)\\VideoLAN\VLC\\vlc.exe"
         if os.path.isfile(alt_vlc_path):
             return alt_vlc_path
@@ -51,10 +52,10 @@ class VLCClient:
             self.path = path
 
         # Determine tmp directories (for things like extracted cdg files)
-        if self.platform == "windows":
-            self.tmp_dir = os.path.expanduser(r"~\\AppData\\Local\\Temp\\pikaraoke\\")
+        if get_platform().is_windows():
+            self.tmp_dir = Path.home() / "AppData" / "Local" / "Temp" / "pikaraoke" / ""
         else:
-            self.tmp_dir = "/tmp/pikaraoke/"
+            self.tmp_dir = Path("/tmp") / "pikaraoke"
 
         # Set up command line args
         self.cmd_base = [
@@ -77,7 +78,7 @@ class VLCClient:
             "--mouse-hide-timeout",
             "0",
         ]
-        if self.platform == "osx":
+        if self.platform.is_mac():
             self.cmd_base += [
                 "--no-macosx-show-playback-buttons",
                 "--no-macosx-show-playmode-buttons",
@@ -97,16 +98,16 @@ class VLCClient:
     def get_marquee_cmd(self):
         return ["--sub-source", 'logo{file=%s,position=9,x=2,opacity=200}:marq{marquee="Pikaraoke - connect at: \n%s",position=9,x=38,color=0xFFFFFF,size=11,opacity=200}' % (self.qrcode, self.url)]
 
-    def handle_zipped_cdg(self, file_path):
-        extracted_dir = os.path.join(self.tmp_dir, "extracted")
-        if (os.path.exists(extracted_dir)):
+    def handle_zipped_cdg(self, file_path: str) -> Path:
+        extracted_dir = self.tmp_dir / "extracted"
+        if extracted_dir.is_file():
             shutil.rmtree(extracted_dir)
         with zipfile.ZipFile(file_path, 'r') as zip_ref:
             zip_ref.extractall(extracted_dir)
         
         mp3_file = None
         cdg_file = None
-        files = os.listdir(extracted_dir)
+        files = extracted_dir.iterdir()
         for file in files:
             ext = os.path.splitext(file)[1]
             if ext.casefold() == ".mp3":
@@ -116,7 +117,7 @@ class VLCClient:
         
         if (mp3_file is not None) and (cdg_file is not None):
             if (os.path.splitext(mp3_file)[0] == os.path.splitext(cdg_file)[0] ):
-                return os.path.join(extracted_dir, mp3_file)
+                return extracted_dir.joinpath(mp3_file)
             else:
                 raise Exception("Zipped .mp3 file did not have a matching .cdg file: " + files)
         else: 
@@ -134,7 +135,7 @@ class VLCClient:
             # we didn't return, so always raise the exception: assert might work better?
             raise Exception("No matching .cdg file found for: " + file_path)
 
-    def process_file(self, file_path):
+    def process_file(self, file_path: str) -> Path:
         file_extension = os.path.splitext(file_path)[1]
         if (file_extension.casefold() == ".zip"):
             return self.handle_zipped_cdg(file_path)
@@ -151,7 +152,7 @@ class VLCClient:
                 self.stop()
                 # this pause prevents vlc http server from being borked after transpose
                 time.sleep(0.2)
-            if self.platform == "windows":
+            if self.platform.is_windows():
                 file_path = r"{}".format(file_path.replace('/','\\'))
             if additional_parameters == None:
                 command = self.cmd_base + [file_path]
@@ -159,7 +160,7 @@ class VLCClient:
                 command = self.cmd_base + additional_parameters + [file_path]
             logging.debug("VLC Command: %s" % command)
             self.process = subprocess.Popen(
-                command, shell=(self.platform == "windows"), stdin=subprocess.PIPE
+                command, shell=(self.platform.is_windows()), stdin=subprocess.PIPE
             )
         except Exception as e:
             logging.error("Playing file failed: " + str(e))
@@ -174,7 +175,7 @@ class VLCClient:
         #  Different resampling algorithms are supported. The best one is slower, while the fast one exhibits
         #  low quality.
 
-        if self.platform == "raspberry_pi":
+        if self.platform.is_rpi():
             # pi sounds bad on hightest quality setting (CPU not sufficient)
             speex_quality = 10
             src_type = 1

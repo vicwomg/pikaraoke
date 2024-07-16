@@ -17,12 +17,22 @@ import ffmpeg
 import qrcode
 from unidecode import unidecode
 
-from lib.file_resolver import FileResolver
-from lib.get_platform import get_platform
+from .lib.file_resolver import FileResolver
+from .lib.get_platform import get_platform
+from typing import TypedDict
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 YT_DLP_VERSION = yt_dlp.version.__version__
 YT_DLP_CMD = "yt-dlp"
 
+class SongQueue(TypedDict):
+    user: str
+    file: str
+    title: str
+    semitones: float
 
 # Support function for reading  lines from ffmpeg stderr without blocking
 def enqueue_output(out, queue: Queue):
@@ -41,7 +51,7 @@ class Karaoke:
     raspi_wifi_conf_file = Path("/etc/raspiwifi/raspiwifi.conf")
     raspi_wifi_config_installed = raspi_wifi_conf_file.is_file()
 
-    queue = []
+    queue: list[SongQueue] = []
     available_songs: list[str] = []
 
     # These all get sent to the /nowplaying endpoint for client-side polling
@@ -59,13 +69,13 @@ class Karaoke:
     volume = None
     loop_interval = 500  # in milliseconds
     base_path = Path(__file__).parent
-    default_logo_path = base_path.joinpath("logo.png")
     screensaver_timeout = 300  # in seconds
 
     ffmpeg_process = None
 
     def __init__(
         self,
+        logo_path: Path,
         port=5555,
         ffmpeg_port=5556,
         download_path: Path = "/usr/lib/pikaraoke/songs",
@@ -76,7 +86,6 @@ class Karaoke:
         volume=0.85,
         log_level=logging.DEBUG,
         splash_delay=2,
-        logo_path=default_logo_path,
         hide_overlay=False,
         screensaver_timeout=300,
         url=None,
@@ -84,6 +93,7 @@ class Karaoke:
         prefer_hostname=True,
     ):
         # override with supplied constructor args if provided
+        self.logo_path = logo_path
         self.port = port
         self.ffmpeg_port = ffmpeg_port
         self.hide_url = hide_url
@@ -93,7 +103,6 @@ class Karaoke:
         self.high_quality = high_quality
         self.splash_delay = int(splash_delay)
         self.volume = volume
-        self.logo_path = logo_path
         self.hide_overlay = hide_overlay
         self.screensaver_timeout = screensaver_timeout
         self.url_override = url
@@ -102,12 +111,6 @@ class Karaoke:
         # other initializations
         self.platform = get_platform()
         self.screen = None
-
-        logging.basicConfig(
-            format="[%(asctime)s] %(levelname)s: %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-            level=int(log_level),
-        )
 
         logging.debug(
             f"""
@@ -219,8 +222,10 @@ class Karaoke:
         qr.add_data(self.url)
         qr.make()
         img = qr.make_image()
-        self.qr_code_path = os.path.join(self.base_path, "qrcode.png")
-        img.save(self.qr_code_path)
+        print(f"{self.qr_code_path=}")
+        self.qr_code_path = self.base_path.joinpath("qrcode.png")
+        print(f"{self.qr_code_path=}")
+        img.save(str(self.qr_code_path))
 
     def get_search_results(self, textToSearch):
         logging.info("Searching YouTube for: " + textToSearch)
@@ -248,7 +253,7 @@ class Karaoke:
 
     def download_video(self, video_url, enqueue=False, user="Pikaraoke"):
         logging.info("Downloading video: " + video_url)
-        dl_path = self.download_path + "%(title)s---%(id)s.%(ext)s"
+        dl_path = str(self.download_path) + "%(title)s---%(id)s.%(ext)s"
         file_quality = (
             "bestvideo[ext!=webm][height<=1080]+bestaudio[ext!=webm]/best[ext!=webm]"
             if self.high_quality
@@ -277,48 +282,40 @@ class Karaoke:
     def get_available_songs(self):
         logging.info(f"Fetching available songs in: {self.download_path}")
         types = [".mp4", ".mp3", ".zip", ".mkv", ".avi", ".webm", ".mov"]
-        files_grabbed = []
-        P = Path(self.download_path)
-        for file in P.rglob("*.*"):
-            base, ext = os.path.splitext(file.as_posix())
-            if ext.lower() in types:
-                if os.path.isfile(file.as_posix()):
-                    logging.debug("adding song: " + file.name)
-                    files_grabbed.append(file.as_posix())
+        files_grabbed: list[Path] = []
 
-        self.available_songs = sorted(
-            files_grabbed, key=lambda f: str.lower(os.path.basename(f))
-        )
+        for file in self.download_path.rglob("*.*"):
+            if file.suffix.lower() in types and file.is_file():
+                logging.debug("adding song: " + file.name)
+                files_grabbed.append(file)
 
-    def delete(self, song_path):
-        logging.info("Deleting song: " + song_path)
-        with contextlib.suppress(FileNotFoundError):
-            os.remove(song_path)
-        ext = os.path.splitext(song_path)
-        # if we have an associated cdg file, delete that too
-        cdg_file = song_path.replace(ext[1], ".cdg")
-        if os.path.exists(cdg_file):
-            os.remove(cdg_file)
+        sorted_files = sorted(files_grabbed, key=lambda f: f.name.lower())
+        self.available_songs = list(map(str, sorted_files))
+        logger.debug(f"{self.available_songs=}")
+
+    def delete(self, song_path: Path):
+        logging.info(f"Deleting song: {song_path}")
+        song_path.unlink(missing_ok=True)
+
+        cdg_file = song_path.with_suffix(".cdg")
+        cdg_file.unlink(missing_ok=True)
 
         self.get_available_songs()
 
-    def rename(self, song_path, new_name):
+    def rename(self, song_path: str, new_name: str):
         logging.info("Renaming song: '" + song_path + "' to: " + new_name)
-        ext = os.path.splitext(song_path)
-        if len(ext) == 2:
-            new_file_name = new_name + ext[1]
-        os.rename(song_path, self.download_path + new_file_name)
+        base, ext = os.path.splitext(song_path)
+        new_file_name = new_name + ext
+        os.rename(song_path, str(self.download_path) + new_file_name)
+
         # if we have an associated cdg file, rename that too
-        cdg_file = song_path.replace(ext[1], ".cdg")
+        cdg_file = song_path.replace(ext, ".cdg")
         if os.path.exists(cdg_file):
-            os.rename(cdg_file, self.download_path + new_name + ".cdg")
+            os.rename(cdg_file, str(self.download_path) + new_name + ".cdg")
         self.get_available_songs()
 
-    def filename_from_path(self, file_path):
-        rc = os.path.basename(file_path)
-        rc = os.path.splitext(rc)[0]
-        rc = rc.split("---")[0]  # removes youtube id if present
-        return rc
+    def filename_from_path(self, file_path: str) -> str:
+        return Path(file_path).stem.split("---")[0]  # removes youtube id if present
 
     def find_song_by_youtube_id(self, youtube_id):
         for each in self.available_songs:
@@ -335,8 +332,8 @@ class Karaoke:
             logging.error("Error parsing youtube id from url: " + url)
             return None
 
-    def play_file(self, file_path, semitones=0):
-        logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
+    def play_file(self, file: str, semitones: int=0):
+        logging.info(f"Playing file: {file} transposed {semitones} semitones")
         stream_uid = int(time.time())
         stream_url = f"{self.ffmpeg_url}/{stream_uid}"
         # pass a 0.0.0.0 IP to ffmpeg which will work for both hostnames and direct IP access
@@ -347,7 +344,7 @@ class Karaoke:
         )  # The pitch value is (2^x/12), where x represents the number of semitones
 
         try:
-            fr = FileResolver(file_path)
+            fr = FileResolver(file)
         except Exception as e:
             logging.error("Error resolving file: " + str(e))
             self.queue.pop(0)
@@ -377,7 +374,7 @@ class Karaoke:
         )
 
         if fr.cdg_file_path != None:  # handle CDG files
-            logging.info("Playing CDG/MP3 file: " + file_path)
+            logging.info("Playing CDG/MP3 file: " + file)
             # copyts helps with sync issues, fps=25 prevents ffmpeg from needlessly encoding cdg at 300fps
             cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
             video = cdg_input.video.filter("fps", fps=25)
@@ -409,7 +406,7 @@ class Karaoke:
             )
 
         args = output.get_args()
-        logging.debug(f"COMMAND: ffmpeg " + " ".join(args))
+        logging.debug(f"COMMAND: ffmpeg {args}")
 
         self.kill_ffmpeg()
 
@@ -432,8 +429,8 @@ class Karaoke:
                 if "Stream #" in decode_ignore(output):
                     logging.debug("Stream ready!")
                     # Ffmpeg outputs "Stream #0" when the stream is ready to consume
-                    self.now_playing = self.filename_from_path(file_path)
-                    self.now_playing_filename = file_path
+                    self.now_playing = self.filename_from_path(file)
+                    self.now_playing_filename = file
                     self.now_playing_transpose = semitones
                     self.now_playing_url = stream_url
                     self.now_playing_user = self.queue[0]["user"]
@@ -486,11 +483,8 @@ class Karaoke:
     def is_file_playing(self):
         return self.is_playing
 
-    def is_song_in_queue(self, song_path):
-        for each in self.queue:
-            if each["file"] == song_path:
-                return True
-        return False
+    def is_song_in_queue(self, song_path: str):
+        return any(song.get("file", "") == song_path for song in self.queue)
 
     def enqueue(
         self,
@@ -500,7 +494,7 @@ class Karaoke:
         add_to_front: bool = False,
     ):
         if self.is_song_in_queue(song_path):
-            logging.warn("Song is already in queue, will not add: " + song_path)
+            logging.warning(f"Song is already in queue, will not add: {song_path=}")
             return False
         else:
             queue_item = {
@@ -510,13 +504,12 @@ class Karaoke:
                 "semitones": semitones,
             }
             if add_to_front:
-                logging.info(
-                    "'%s' is adding song to front of queue: %s" % (user, song_path)
-                )
+                logging.info(f"'{user}' is adding song to front of queue: {song_path}")
                 self.queue.insert(0, queue_item)
             else:
                 logging.info("'%s' is adding song to queue: %s" % (user, song_path))
                 self.queue.append(queue_item)
+
             return True
 
     def queue_add_random(self, amount):
@@ -541,7 +534,7 @@ class Karaoke:
 
     def queue_clear(self):
         logging.info("Clearing queue!")
-        self.queue = []
+        self.queue.clear()
         self.skip()
 
     def queue_edit(self, song_name, action):
@@ -669,7 +662,8 @@ class Karaoke:
                             self.handle_run_loop()
                             i += self.loop_interval
                         self.play_file(
-                            self.queue[0]["file"], self.queue[0]["semitones"]
+                            file=self.queue[0]["file"],
+                            semitones=self.queue[0]["semitones"]
                         )
                 self.handle_run_loop()
             except KeyboardInterrupt:

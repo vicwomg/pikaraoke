@@ -1,4 +1,6 @@
 import argparse
+import importlib.resources as pkg_resources
+from pikaraoke import resources
 from pathlib import Path
 from .get_platform import Platform, get_platform
 import logging
@@ -21,9 +23,12 @@ DELAY_SPLASH = 3
 DELAY_SCREENSAVER = 300
 LOG_LEVEL = logging.INFO
 PREFER_HOSTNAME = False
-LOGO_PATH_DEFAULT = Path(__file__).parent / "logo.png"
 PLATFORM = get_platform()
 DL_DIR: Path = get_default_dl_dir(PLATFORM)
+
+
+logo_path_default = pkg_resources.files(resources).joinpath("logo.png")
+
 
 def volume_type(input):
     """Verify the volume input"""
@@ -167,7 +172,7 @@ def parse_args() -> ArgsNamespace:
     parser.add_argument(
         "--logo-path",
         help="Path to a custom logo image file for the splash screen. Recommended dimensions ~ 2048x1024px",
-        default=LOGO_PATH_DEFAULT,
+        default=logo_path_default,
         type=Path,
     )
 

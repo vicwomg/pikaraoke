@@ -1,4 +1,3 @@
-import argparse
 import datetime
 import hashlib
 import json
@@ -15,24 +14,15 @@ import secrets
 import cherrypy
 import flask_babel
 import psutil
-from flask import (
-    Flask,
-    flash,
-    make_response,
-    redirect,
-    render_template,
-    request,
-    send_file,
-    url_for,
-)
+import flask
 from flask_babel import Babel
 from flask_paginate import Pagination, get_page_parameter
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from yt_dlp.version import __version__ as yt_dlp_version
-
-from lib.browser import Browser, get_default_browser
+from .lib.parse_args import parse_args
+from .lib.browser import Browser, get_default_browser
 
 # Import the browser depending on what default browser is set on the system,
 default_browser: Browser = get_default_browser()
@@ -53,10 +43,9 @@ else:  # Chrom is set as default
     from selenium.webdriver.chrome.options import Options
     from selenium.webdriver.chrome.service import Service
 
-
-from constants import LANGUAGES, VERSION
-from karaoke import Karaoke
-from lib.get_platform import get_platform
+from .constants import LANGUAGES, VERSION
+from .karaoke import Karaoke
+from .lib.get_platform import get_platform
 
 try:
     from urllib.parse import quote, unquote
@@ -69,7 +58,7 @@ VOLUME = 0.85
 
 _ = flask_babel.gettext
 
-app = Flask(__name__)
+app = flask.Flask(__name__)
 app.secret_key = secrets.token_bytes(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
@@ -80,7 +69,7 @@ admin_password = None
 platform_current = get_platform()
 
 
-def filename_from_path(file_path, remove_youtube_id=True) -> str:
+def filename_from_path(file_path: str, remove_youtube_id=True) -> str:
     rc = Path(file_path).name
     if remove_youtube_id:
         try:
@@ -106,8 +95,8 @@ def is_admin() -> bool:
     if admin_password is None:
         return True
 
-    if "admin" in request.cookies:
-        a = request.cookies.get("admin")
+    if "admin" in flask.request.cookies:
+        a = flask.request.cookies.get("admin")
         if a == admin_password:
             return True
 
@@ -117,12 +106,12 @@ def is_admin() -> bool:
 @babel.localeselector
 def get_locale() -> str | None:
     """Select the language to display the webpage in based on the Accept-Language header"""
-    return request.accept_languages.best_match(LANGUAGES.keys())
+    return flask.request.accept_languages.best_match(LANGUAGES.keys())
 
 
 @app.route("/")
 def home() -> str:
-    return render_template(
+    return flask.render_template(
         "home.html",
         site_title=site_name,
         title="Home",
@@ -133,33 +122,33 @@ def home() -> str:
 
 @app.route("/auth", methods=["POST"])
 def auth():
-    d = request.form.to_dict()
+    d = flask.request.form.to_dict()
     pw = d["admin-password"]
     if pw == admin_password:
-        resp = make_response(redirect("/"))
+        resp = flask.make_response(flask.redirect("/"))
         expire_date = datetime.datetime.now()
         expire_date = expire_date + datetime.timedelta(days=90)
         resp.set_cookie("admin", admin_password, expires=expire_date)
         # MSG: Message shown after logging in as admin successfully
-        flash(_("Admin mode granted!"), "is-success")
+        flask.flash(_("Admin mode granted!"), "is-success")
     else:
-        resp = make_response(redirect(url_for("login")))
+        resp = flask.make_response(flask.redirect(flask.url_for("login")))
         # MSG: Message shown after failing to login as admin
-        flash(_("Incorrect admin password!"), "is-danger")
+        flask.flash(_("Incorrect admin password!"), "is-danger")
 
     return resp
 
 
 @app.route("/login")
 def login() -> str:
-    return render_template("login.html")
+    return flask.render_template("login.html")
 
 
 @app.route("/logout")
 def logout():
-    resp = make_response(redirect("/"))
+    resp = flask.make_response(flask.redirect("/"))
     resp.set_cookie("admin", "")
-    flash("Logged out of admin mode!", "is-success")
+    flask.flash("Logged out of admin mode!", "is-success")
 
     return resp
 
@@ -202,7 +191,7 @@ def clear_command():
 
 @app.route("/queue")
 def queue() -> str:
-    return render_template(
+    return flask.render_template(
         "queue.html",
         queue=karaoke.queue,
         site_title=site_name,
@@ -218,55 +207,55 @@ def get_queue() -> str:
 
 @app.route("/queue/addrandom", methods=["GET"])
 def add_random():
-    amount = int(request.args["amount"])
+    amount = int(flask.request.args["amount"])
     rc = karaoke.queue_add_random(amount)
     if rc:
-        flash("Added %s random tracks" % amount, "is-success")
+        flask.flash("Added %s random tracks" % amount, "is-success")
     else:
-        flash("Ran out of songs!", "is-warning")
+        flask.flash("Ran out of songs!", "is-warning")
 
-    return redirect(url_for("queue"))
+    return flask.redirect(flask.url_for("queue"))
 
 
 @app.route("/queue/edit", methods=["GET"])
 def queue_edit():
-    action = request.args["action"]
+    action = flask.request.args["action"]
     if action == "clear":
         karaoke.queue_clear()
-        flash("Cleared the queue!", "is-warning")
-        return redirect(url_for("queue"))
+        flask.flash("Cleared the queue!", "is-warning")
+        return flask.redirect(flask.url_for("queue"))
 
-    song = unquote(request.args["song"])
+    song = unquote(flask.request.args["song"])
     if action == "down":
         if karaoke.queue_edit(song, "down"):
-            flash("Moved down in queue: " + song, "is-success")
+            flask.flash("Moved down in queue: " + song, "is-success")
         else:
-            flash("Error moving down in queue: " + song, "is-danger")
+            flask.flash("Error moving down in queue: " + song, "is-danger")
     elif action == "up":
         if karaoke.queue_edit(song, "up"):
-            flash("Moved up in queue: " + song, "is-success")
+            flask.flash("Moved up in queue: " + song, "is-success")
         else:
-            flash("Error moving up in queue: " + song, "is-danger")
+            flask.flash("Error moving up in queue: " + song, "is-danger")
     elif action == "delete":
         if karaoke.queue_edit(song, "delete"):
-            flash("Deleted from queue: " + song, "is-success")
+            flask.flash("Deleted from queue: " + song, "is-success")
         else:
-            flash("Error deleting from queue: " + song, "is-danger")
+            flask.flash("Error deleting from queue: " + song, "is-danger")
 
-    return redirect(url_for("queue"))
+    return flask.redirect(flask.url_for("queue"))
 
 
 @app.route("/enqueue", methods=["POST", "GET"])
 def enqueue():
-    if "song" in request.args:
-        song = request.args["song"]
+    if "song" in flask.request.args:
+        song = flask.request.args["song"]
     else:
-        d = request.form.to_dict()
+        d = flask.request.form.to_dict()
         song = d["song-to-add"]
-    if "user" in request.args:
-        user = request.args["user"]
+    if "user" in flask.request.args:
+        user = flask.request.args["user"]
     else:
-        d = request.form.to_dict()
+        d = flask.request.form.to_dict()
         user = d["song-added-by"]
     rc = karaoke.enqueue(song, user)
     song_title = filename_from_path(song)
@@ -277,50 +266,50 @@ def enqueue():
 @app.route("/skip")
 def skip():
     karaoke.skip()
-    return redirect(url_for("home"))
+    return flask.redirect(flask.url_for("home"))
 
 
 @app.route("/pause")
 def pause():
     karaoke.pause()
-    return redirect(url_for("home"))
+    return flask.redirect(flask.url_for("home"))
 
 
 @app.route("/transpose/<semitones>", methods=["GET"])
 def transpose(semitones):
     karaoke.transpose_current(int(semitones))
-    return redirect(url_for("home"))
+    return flask.redirect(flask.url_for("home"))
 
 
 @app.route("/restart")
 def restart():
     karaoke.restart()
-    return redirect(url_for("home"))
+    return flask.redirect(flask.url_for("home"))
 
 
 @app.route("/volume/<volume>")
 def volume(volume):
     karaoke.volume_change(float(volume))
-    return redirect(url_for("home"))
+    return flask.redirect(flask.url_for("home"))
 
 
 @app.route("/vol_up")
 def vol_up():
     karaoke.vol_up()
-    return redirect(url_for("home"))
+    return flask.redirect(flask.url_for("home"))
 
 
 @app.route("/vol_down")
 def vol_down():
     karaoke.vol_down()
-    return redirect(url_for("home"))
+    return flask.redirect(flask.url_for("home"))
 
 
 @app.route("/search", methods=["GET"])
 def search():
-    if "search_string" in request.args:
-        search_string = request.args["search_string"]
-        if "non_karaoke" in request.args and request.args["non_karaoke"] == "true":
+    if "search_string" in flask.request.args:
+        search_string = flask.request.args["search_string"]
+        if "non_karaoke" in flask.request.args and flask.request.args["non_karaoke"] == "true":
             search_results = karaoke.get_search_results(search_string)
         else:
             search_results = karaoke.get_karaoke_search_results(search_string)
@@ -328,7 +317,7 @@ def search():
         search_string = None
         search_results = None
 
-    return render_template(
+    return flask.render_template(
         "search.html",
         site_title=site_name,
         title="Search",
@@ -340,7 +329,7 @@ def search():
 
 @app.route("/autocomplete")
 def autocomplete():
-    q = request.args.get("q").lower()
+    q = flask.request.args.get("q").lower()
     result = []
     for each in karaoke.available_songs:
         if q in each.lower():
@@ -360,14 +349,14 @@ def autocomplete():
 @app.route("/browse", methods=["GET"])
 def browse():
     search = False
-    q = request.args.get("q")
+    q = flask.request.args.get("q")
     if q:
         search = True
-    page = request.args.get(get_page_parameter(), type=int, default=1)
+    page = flask.request.args.get(get_page_parameter(), type=int, default=1)
 
     available_songs = karaoke.available_songs
 
-    letter = request.args.get("letter")
+    letter = flask.request.args.get("letter")
 
     if letter:
         result = []
@@ -383,13 +372,16 @@ def browse():
                     result.append(song)
         available_songs = result
 
-    if "sort" in request.args and request.args["sort"] == "date":
+    if "sort" in flask.request.args and flask.request.args["sort"] == "date":
         songs = sorted(available_songs, key=lambda x: Path(x).stat().st_ctime)
         songs.reverse()
         sort_order = "Date"
     else:
         songs = available_songs
         sort_order = "Alphabetical"
+
+    # Ensure songs is a list of strings
+    songs = [str(song) for song in songs]
 
     results_per_page = 500
     pagination = Pagination(
@@ -401,7 +393,7 @@ def browse():
         per_page=results_per_page,
     )
     start_index = (page - 1) * (results_per_page - 1)
-    return render_template(
+    return flask.render_template(
         "files.html",
         pagination=pagination,
         sort_order=sort_order,
@@ -416,7 +408,7 @@ def browse():
 
 @app.route("/download", methods=["POST"])
 def download():
-    d = request.form.to_dict()
+    d = flask.request.form.to_dict()
     song = d["song-url"]
     user = d["song-added-by"]
     if "queue" in d and d["queue"] == "on":
@@ -439,18 +431,18 @@ def download():
         flash_message += "Song will be added to queue."
     else:
         flash_message += 'Song will appear in the "available songs" list.'
-    flash(flash_message, "is-info")
-    return redirect(url_for("search"))
+    flask.flash(flash_message, "is-info")
+    return flask.redirect(flask.url_for("search"))
 
 
 @app.route("/qrcode")
 def qrcode():
-    return send_file(karaoke.qr_code_path, mimetype="image/png")
+    return flask.send_file(karaoke.qr_code_path, mimetype="image/png")
 
 
 @app.route("/logo")
 def logo():
-    return send_file(karaoke.logo_path, mimetype="image/png")
+    return flask.send_file(karaoke.logo_path, mimetype="image/png")
 
 
 @app.route("/end_song", methods=["GET"])
@@ -467,47 +459,47 @@ def start_song():
 
 @app.route("/files/delete", methods=["GET"])
 def delete_file():
-    if "song" in request.args:
-        song_path = request.args["song"]
+    if "song" in flask.request.args:
+        song_path = flask.request.args["song"]
         if song_path in karaoke.queue:
-            flash(
+            flask.flash(
                 "Error: Can't delete this song because it is in the current queue: "
                 + song_path,
                 "is-danger",
             )
         else:
-            karaoke.delete(song_path)
-            flash("Song deleted: " + song_path, "is-warning")
+            karaoke.delete(Path(song_path))
+            flask.flash("Song deleted: " + song_path, "is-warning")
     else:
-        flash("Error: No song parameter specified!", "is-danger")
+        flask.flash("Error: No song parameter specified!", "is-danger")
 
-    return redirect(url_for("browse"))
+    return flask.redirect(flask.url_for("browse"))
 
 
 @app.route("/files/edit", methods=["GET", "POST"])
 def edit_file():
     queue_error_msg = "Error: Can't edit this song because it is in the current queue: "
-    if "song" in request.args:
-        song_path = request.args["song"]
+    if "song" in flask.request.args:
+        song_path = flask.request.args["song"]
         # print "SONG_PATH" + song_path
         if song_path in karaoke.queue:
-            flash(queue_error_msg + song_path, "is-danger")
-            return redirect(url_for("browse"))
+            flask.flash(queue_error_msg + song_path, "is-danger")
+            return flask.redirect(flask.url_for("browse"))
 
-        return render_template(
+        return flask.render_template(
             "edit.html",
             site_title=site_name,
             title="Song File Edit",
             song=song_path.encode("utf-8", "ignore"),
         )
 
-    d = request.form.to_dict()
+    d = flask.request.form.to_dict()
     if "new_file_name" in d and "old_file_name" in d:
         new_name = d["new_file_name"]
         old_name = d["old_file_name"]
         if karaoke.is_song_in_queue(old_name):
             # check one more time just in case someone added it during editing
-            flash(queue_error_msg + song_path, "is-danger")
+            flask.flash(queue_error_msg + song_path, "is-danger")
         else:
             # check if new_name already exist
             file_extension = Path(old_name).suffix
@@ -517,20 +509,20 @@ def edit_file():
                 .with_suffix(file_extension)
             )
             if new_file_path.is_file():
-                flash(
+                flask.flash(
                     "Error Renaming file: '%s' to '%s'. Filename already exists."
                     % (old_name, new_name + file_extension),
                     "is-danger",
                 )
             else:
                 karaoke.rename(old_name, new_name)
-                flash(
+                flask.flash(
                     "Renamed file: '%s' to '%s'." % (old_name, new_name),
                     "is-warning",
                 )
     else:
-        flash("Error: No filename parameters were specified!", "is-danger")
-    return redirect(url_for("browse"))
+        flask.flash("Error: No filename parameters were specified!", "is-danger")
+    return flask.redirect(flask.url_for("browse"))
 
 
 @app.route("/splash")
@@ -575,7 +567,7 @@ def splash():
         # Not a Raspberry Pi
         text = ""
 
-    return render_template(
+    return flask.render_template(
         "splash.html",
         blank_page=True,
         url=karaoke.url,
@@ -620,7 +612,7 @@ def info():
         + "% )"
     )
 
-    return render_template(
+    return flask.render_template(
         "info.html",
         site_title=site_name,
         title="Info",
@@ -657,7 +649,7 @@ def delayed_halt(cmd):
 
 @app.route("/update_ytdl")
 def update_ytdl():
-    flash("Support for updating ytdl removed.", "is-danger")
+    flask.flash("Support for updating ytdl removed.", "is-danger")
 
 
 @app.route("/refresh")
@@ -665,65 +657,71 @@ def refresh():
     if is_admin():
         karaoke.get_available_songs()
     else:
-        flash("You don't have permission to shut down", "is-danger")
-    return redirect(url_for("browse"))
+        flask.flash("You don't have permission to shut down", "is-danger")
+    return flask.redirect(flask.url_for("browse"))
 
 
 @app.route("/quit")
 def quit():
     if is_admin():
-        flash("Quitting pikaraoke now!", "is-warning")
+        flask.flash("Quitting pikaraoke now!", "is-warning")
         th = threading.Thread(target=delayed_halt, args=[0])
         th.start()
     else:
-        flash("You don't have permission to quit", "is-danger")
-    return redirect(url_for("home"))
+        flask.flash("You don't have permission to quit", "is-danger")
+    return flask.redirect(flask.url_for("home"))
 
 
 @app.route("/shutdown")
 def shutdown():
     if is_admin():
-        flash("Shutting down system now!", "is-danger")
+        flask.flash("Shutting down system now!", "is-danger")
         th = threading.Thread(target=delayed_halt, args=[1])
         th.start()
     else:
-        flash("You don't have permission to shut down", "is-danger")
-    return redirect(url_for("home"))
+        flask.flash("You don't have permission to shut down", "is-danger")
+    return flask.redirect(flask.url_for("home"))
 
 
 @app.route("/reboot")
 def reboot():
     if is_admin():
-        flash("Rebooting system now!", "is-danger")
+        flask.flash("Rebooting system now!", "is-danger")
         th = threading.Thread(target=delayed_halt, args=[2])
         th.start()
     else:
-        flash("You don't have permission to Reboot", "is-danger")
-    return redirect(url_for("home"))
+        flask.flash("You don't have permission to Reboot", "is-danger")
+    return flask.redirect(flask.url_for("home"))
 
 
 @app.route("/expand_fs")
 def expand_fs():
     if is_admin() and platform_current.is_rpi():
-        flash("Expanding filesystem and rebooting system now!", "is-danger")
+        flask.flash("Expanding filesystem and rebooting system now!", "is-danger")
         th = threading.Thread(target=delayed_halt, args=[3])
         th.start()
     elif not platform_current.is_rpi():
-        flash("Cannot expand fs on non-raspberry pi devices!", "is-danger")
+        flask.flash("Cannot expand fs on non-raspberry pi devices!", "is-danger")
     else:
-        flash("You don't have permission to resize the filesystem", "is-danger")
+        flask.flash("You don't have permission to resize the filesystem", "is-danger")
 
-    return redirect(url_for("home"))
+    return flask.redirect(flask.url_for("home"))
 
 
 # Handle sigterm, apparently cherrypy won't shut down without explicit handling
 signal.signal(signal.SIGTERM, lambda signum, stack_frame: karaoke.stop())
 
-from lib.parse_args import parse_args
 
-if __name__ == "__main__":
+def main():
     args = parse_args()
 
+    logging.basicConfig(
+            format="[%(asctime)s] %(levelname)s: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+            level=logging.DEBUG,
+        )
+
+    global admin_password
     if args.admin_password:
         admin_password = args.admin_password
 
@@ -737,7 +735,7 @@ if __name__ == "__main__":
     dl_path.mkdir(parents=True, exist_ok=True)
 
     # Configure karaoke process
-    global k
+    global karaoke
     karaoke = Karaoke(
         port=args.port,
         ffmpeg_port=args.ffmpeg_port,
@@ -807,3 +805,6 @@ if __name__ == "__main__":
     cherrypy.engine.exit()
 
     sys.exit()
+
+if __name__ == "__main__":
+    main()

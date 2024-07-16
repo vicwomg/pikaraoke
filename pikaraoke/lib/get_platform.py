@@ -1,7 +1,6 @@
 import os
 import sys
 from enum import Enum
-import platform
 
 
 class Platform(Enum):
