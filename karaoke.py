@@ -18,7 +18,7 @@ from unidecode import unidecode
 
 from lib.file_resolver import FileResolver
 from lib.get_platform import (get_ffmpeg_version, get_os_version, get_platform,
-                              is_raspberry_pi)
+                              is_raspberry_pi, supports_hardware_h264_encoding)
 
 
 # Support function for reading  lines from ffmpeg stderr without blocking
@@ -60,6 +60,8 @@ class Karaoke:
     ffmpeg_process = None
     ffmpeg_log = None
     ffmpeg_version = get_ffmpeg_version()
+    supports_hardware_h264_encoding = supports_hardware_h264_encoding()
+    
     raspberry_pi = is_raspberry_pi()
     os_version = get_os_version()
 
@@ -133,6 +135,7 @@ class Karaoke:
     platform: {self.platform} 
     os version: {self.os_version}
     ffmpeg version: {self.ffmpeg_version}
+    hardware h264 encoding: {self.supports_hardware_h264_encoding}
     youtubedl-version: {self.get_youtubedl_version()}
 """)
         # Generate connection URL and QR code, 
@@ -395,7 +398,7 @@ class Karaoke:
             return False
 
         # use h/w acceleration on pi
-        default_vcodec = "h264_v4l2m2m" if self.raspberry_pi else "libx264" 
+        default_vcodec = "h264_v4l2m2m" if self.supports_hardware_h264_encoding else "libx264" 
         # just copy the video stream if it's an mp4 or webm file, since they are supported natively in html5 
         # otherwise use the default h264 codec
         vcodec = "copy" if fr.file_extension == ".mp4" or fr.file_extension == ".webm" else default_vcodec

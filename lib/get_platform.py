@@ -1,5 +1,6 @@
 import os
 import platform
+import re
 import subprocess
 import sys
 
@@ -46,3 +47,17 @@ def get_platform():
 
 def get_os_version():
     return platform.version()
+
+def supports_hardware_h264_encoding():
+    if is_raspberry_pi():
+        platform = get_platform()
+        
+        # Raspberry Pi >= 5 no longer has hardware GPU decoding
+        match = re.search(r"Raspberry Pi (\d+)", platform)
+        if match:
+            model_number = int(match.group(1))
+            if model_number >= 5:
+                return False
+        return True
+    else:
+        return False
