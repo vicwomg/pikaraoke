@@ -1,7 +1,7 @@
 import logging
 import os
-import re
 import random
+import re
 import shutil
 import string
 import subprocess
@@ -13,7 +13,7 @@ from threading import Timer
 
 import requests
 
-from lib.get_platform import get_platform
+from lib.get_platform import get_platform, is_raspberry_pi
 
 
 def get_default_vlc_path(platform):
@@ -49,6 +49,7 @@ class VLCClient:
             self.path = get_default_vlc_path(self.platform)
         else:
             self.path = path
+        self.raspberry_pi = is_raspberry_pi()
 
         # Determine tmp directories (for things like extracted cdg files)
         if self.platform == "windows":
@@ -173,8 +174,8 @@ class VLCClient:
         #  Sample rate converter type
         #  Different resampling algorithms are supported. The best one is slower, while the fast one exhibits
         #  low quality.
-
-        if self.platform == "raspberry_pi":
+        
+        if self.raspberry_pi:
             # pi sounds bad on hightest quality setting (CPU not sufficient)
             speex_quality = 10
             src_type = 1
