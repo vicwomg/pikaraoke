@@ -269,6 +269,12 @@ You'll need to add them manually by copying them to the root of your download fo
 
 CDG files must have an mp3 file with a exact matching file name. They can also be bundled together in a single zip file, but the filenames in the zip must still match. They must also be placed in the root of the download directory and not stashed away in sub-directories.
 
+### I'm getting this ChromeDriver error on launch: "session not created: DevToolsActivePort file doesn't exist"
+
+Are you trying to launch over SSH? That probably indicates that chromedriver doesn't know which display to launch the browser on. If so, you may need to specify the native display of the remote device using this command: `DISPLAY=:0.0 ./pikaraoke.sh`.
+
+You can alternately run headless if you launch the splash screen manually on a separate machine: `./pikaraoke.sh --headless`
+
 ### How do I dismiss the Splash confirmation screen on an in-TV browser? (like a Samsung TV with web browsing)
 
 The splash confirmation screen is an unfortunate necessity due to modern browser permissions disabling video autoplay. A single interaction will enable it, and the confirmation screen serves as this interaction. Hopefully your TV has a way to click the button on the screen with the remote or otherwise.
