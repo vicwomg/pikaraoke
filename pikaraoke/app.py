@@ -18,41 +18,19 @@ import flask_babel
 import psutil
 from flask_babel import Babel
 from flask_paginate import Pagination, get_page_parameter
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 from yt_dlp.version import __version__ as yt_dlp_version
-
-from pikaraoke.lib.browser import Browser, get_default_browser
-from pikaraoke.lib.parse_args import parse_args
-
-# Import the browser depending on what default browser is set on the system,
-default_browser: Browser = get_default_browser()
-if default_browser == Browser.FIREFOX:
-    from selenium.webdriver import Firefox as WebDriverBrowser
-    from selenium.webdriver.firefox.options import Options
-    from selenium.webdriver.firefox.service import Service
-elif default_browser == Browser.EDGE:
-    from selenium.webdriver import Edge as WebDriverBrowser
-    from selenium.webdriver.edge.options import Options
-    from selenium.webdriver.edge.service import Service
-elif default_browser == Browser.SAFARI:
-    from selenium.webdriver import Safari as WebDriverBrowser
-    from selenium.webdriver.safari.options import Options
-    from selenium.webdriver.safari.service import Service
-else:  # Chrom is set as default
-    from selenium.webdriver import Chrome as WebDriverBrowser
-    from selenium.webdriver.chrome.options import Options
-    from selenium.webdriver.chrome.service import Service
 
 from pikaraoke.constants import LANGUAGES, VERSION
 from pikaraoke.karaoke import Karaoke
 from pikaraoke.lib.get_platform import get_platform
+from pikaraoke.lib.parse_args import parse_args
 
 try:
     from urllib.parse import quote, unquote
 except ImportError:
     from urllib import quote, unquote
+
+import webbrowser
 
 logger = logging.getLogger(__name__)
 
@@ -763,34 +741,15 @@ def main():
 
     # Start the splash screen using selenium
     if not args.hide_splash_screen:
-        if platform_current.is_rpi():
-            service = Service(executable_path="/usr/bin/chromedriver")  # MUST MAKE THIS GENERIC
-        else:
-            service = None
-        options = Options()
-
-        if args.window_size:
-            options.add_argument(f"--window-size={args.window_size}")
-            options.add_argument("--window-position=0,0")
-
-        options.add_argument("--kiosk")
-        options.add_argument("--start-maximized")
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        driver = WebDriverBrowser(service=service, options=options)  # Chrome/Firefox/Edge/Safari
-        driver.get(f"{karaoke.url}/splash")
-        driver.add_cookie({"name": "user", "value": "PiKaraoke-Host"})
-        # Clicking this counts as an interaction, which will allow the browser to autoplay audio
-        wait = WebDriverWait(driver, 60)
-        elem = wait.until(EC.element_to_be_clickable((By.ID, "permissions-button")))
-        elem.click()
+        url = f"http://{karaoke.get_ip()}:5555/splash"
+        logger.debug(f"Opening in default browser at {url}")
+        webbrowser.open(url)
 
     # Start the karaoke process
     with karaoke:
         karaoke.run()
 
     # Close running processes when done
-    if not args.hide_splash_screen:
-        driver.close()
     cherrypy.engine.exit()
 
     sys.exit()
