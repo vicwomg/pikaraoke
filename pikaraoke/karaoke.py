@@ -1,4 +1,3 @@
-import contextlib
 import json
 import logging
 import os
@@ -17,8 +16,8 @@ import ffmpeg
 import qrcode
 from unidecode import unidecode
 
-from .lib.file_resolver import FileResolver
-from .lib.get_platform import get_platform
+from pikaraoke.lib.file_resolver import FileResolver
+from pikaraoke.lib.get_platform import get_platform
 from typing import TypedDict
 
 import logging
@@ -28,11 +27,13 @@ logger = logging.getLogger(__name__)
 YT_DLP_VERSION = yt_dlp.version.__version__
 YT_DLP_CMD = "yt-dlp"
 
+
 class SongQueue(TypedDict):
     user: str
     file: str
     title: str
     semitones: float
+
 
 # Support function for reading  lines from ffmpeg stderr without blocking
 def enqueue_output(out, queue: Queue):
@@ -112,26 +113,36 @@ class Karaoke:
         self.platform = get_platform()
         self.screen = None
 
+        # Get /tmp dir
+        try:
+            fr = FileResolver("logo.png")
+            self._tmp_dir = fr.tmp_dir
+        except Exception as e:
+            logger.error("Failed to find /tmp dir. Using '/tmp/pikaraoke'")
+            self._tmp_dir = Path("/tmp/pikaraoke")
+
+        self._tmp_dir.parent.mkdir(parents=True, exist_ok=True)
+
         logging.debug(
-            f"""
-    http port: {self.port}
-    ffmpeg port {self.ffmpeg_port}
-    hide URL: {self.hide_url}
-    prefer hostname: {self.prefer_hostname}
-    url override: {self.url_override}
-    hide RaspiWiFi instructions: {self.hide_raspiwifi_instructions}
-    headless (hide splash): {self.hide_splash_screen}
-    splash_delay: {self.splash_delay}
-    screensaver_timeout: {self.screensaver_timeout}
-    high quality video: {self.high_quality}
-    download path: {self.download_path}
-    default volume: {self.volume}
-    logo path: {self.logo_path}
-    log_level: {log_level}
-    hide overlay: {self.hide_overlay}
-    base_path: {self.base_path}
-"""
+            f"http port: {self.port}\n"
+            f"ffmpeg port {self.ffmpeg_port}\n"
+            f"hide URL: {self.hide_url}\n"
+            f"prefer hostname: {self.prefer_hostname}\n"
+            f"url override: {self.url_override}\n"
+            f"hide RaspiWiFi instructions: {self.hide_raspiwifi_instructions}\n"
+            f"headless (hide splash): {self.hide_splash_screen}\n"
+            f"splash_delay: {self.splash_delay}\n"
+            f"screensaver_timeout: {self.screensaver_timeout}\n"
+            f"high quality video: {self.high_quality}\n"
+            f"download path: {self.download_path}\n"
+            f"default volume: {self.volume}\n"
+            f"logo path: {self.logo_path}\n"
+            f"log_level: {log_level}\n"
+            f"hide overlay: {self.hide_overlay}\n"
+            f"base_path: {self.base_path}\n"
+            f"tmp dir: {self._tmp_dir}\n"
         )
+
         # Generate connection URL and QR code,
         if self.platform.is_rpi():
             # retry in case pi is still starting up
@@ -222,9 +233,11 @@ class Karaoke:
         qr.add_data(self.url)
         qr.make()
         img = qr.make_image()
-        print(f"{self.qr_code_path=}")
-        self.qr_code_path = self.base_path.joinpath("qrcode.png")
-        print(f"{self.qr_code_path=}")
+
+        self.qr_code_path = self._tmp_dir.joinpath("qrcode.png")
+        self.qr_code_path.parent.mkdir(parents=True, exist_ok=True)
+
+        logger.debug(f"{self.qr_code_path=}")
         img.save(str(self.qr_code_path))
 
     def get_search_results(self, textToSearch):
@@ -332,7 +345,7 @@ class Karaoke:
             logging.error("Error parsing youtube id from url: " + url)
             return None
 
-    def play_file(self, file: str, semitones: int=0):
+    def play_file(self, file: str, semitones: int = 0):
         logging.info(f"Playing file: {file} transposed {semitones} semitones")
         stream_uid = int(time.time())
         stream_url = f"{self.ffmpeg_url}/{stream_uid}"
@@ -663,9 +676,19 @@ class Karaoke:
                             i += self.loop_interval
                         self.play_file(
                             file=self.queue[0]["file"],
-                            semitones=self.queue[0]["semitones"]
+                            semitones=self.queue[0]["semitones"],
                         )
                 self.handle_run_loop()
             except KeyboardInterrupt:
                 logging.warn("Keyboard interrupt: Exiting pikaraoke...")
                 self.running = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        logger.debug(f"Removing '{self.qr_code_path.name}' from '{self.qr_code_path}'")
+        self.qr_code_path.unlink(missing_ok=True)
+
+        logger.debug(f"Removing tmp dir '{self._tmp_dir.name}' from '{self._tmp_dir}'")
+        self._tmp_dir.rmdir()

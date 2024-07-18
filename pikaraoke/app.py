@@ -21,8 +21,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from yt_dlp.version import __version__ as yt_dlp_version
-from .lib.parse_args import parse_args
-from .lib.browser import Browser, get_default_browser
+from pikaraoke.lib.parse_args import parse_args
+from pikaraoke.lib.browser import Browser, get_default_browser
+from datetime import datetime
 
 # Import the browser depending on what default browser is set on the system,
 default_browser: Browser = get_default_browser()
@@ -43,9 +44,9 @@ else:  # Chrom is set as default
     from selenium.webdriver.chrome.options import Options
     from selenium.webdriver.chrome.service import Service
 
-from .constants import LANGUAGES, VERSION
-from .karaoke import Karaoke
-from .lib.get_platform import get_platform
+from pikaraoke.constants import LANGUAGES, VERSION
+from pikaraoke.karaoke import Karaoke
+from pikaraoke.lib.get_platform import get_platform
 
 try:
     from urllib.parse import quote, unquote
@@ -711,15 +712,26 @@ def expand_fs():
 # Handle sigterm, apparently cherrypy won't shut down without explicit handling
 signal.signal(signal.SIGTERM, lambda signum, stack_frame: karaoke.stop())
 
-
-def main():
-    args = parse_args()
+def _configure_logger(log_level: int):
+    # Generate filename with current date and time
+    logs_folder = Path("logs")
+    log_filename = logs_folder / datetime.now().strftime("%Y-%m-%d_%H-%M-%S.log")
+    logs_folder.mkdir(exist_ok=True) # Create logs/ folder
 
     logging.basicConfig(
-            format="[%(asctime)s] %(levelname)s: %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-            level=logging.DEBUG,
-        )
+        format="[%(asctime)s] %(levelname)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=log_level, # Remember to move args before settup logging and use args here
+        handlers=[
+            logging.FileHandler(log_filename),
+            logging.StreamHandler()
+        ]
+    )
+
+def main():
+    _configure_logger(log_level=logging.DEBUG)
+
+    args = parse_args()
 
     global admin_password
     if args.admin_password:
@@ -736,6 +748,7 @@ def main():
 
     # Configure karaoke process
     global karaoke
+
     karaoke = Karaoke(
         port=args.port,
         ffmpeg_port=args.ffmpeg_port,
@@ -797,7 +810,8 @@ def main():
         elem.click()
 
     # Start the karaoke process
-    karaoke.run()
+    with karaoke:
+        karaoke.run()
 
     # Close running processes when done
     if not args.hide_splash_screen:

@@ -6,3 +6,6 @@ __pycache__/
 songs/
 qrcode.png
 .DS_Store
+**build
+**dist
+**logs

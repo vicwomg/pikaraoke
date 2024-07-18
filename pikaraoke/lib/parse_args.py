@@ -4,6 +4,8 @@ from pikaraoke import resources
 from pathlib import Path
 from .get_platform import Platform, get_platform
 import logging
+import sys
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +28,6 @@ PREFER_HOSTNAME = False
 PLATFORM = get_platform()
 DL_DIR: Path = get_default_dl_dir(PLATFORM)
 
-
-logo_path_default = pkg_resources.files(resources).joinpath("logo.png")
 
 
 def volume_type(input):
@@ -65,7 +65,30 @@ class ArgsNamespace(argparse.Namespace):
     admin_password: str | None
 
 
+def _get_logo_path():
+    try:
+        # Access the resource using importlib.resources
+        return pkg_resources.path(resources, "logo.png")
+        # Resolve the path to an actual file
+    except Exception as e:
+        print(f"Error accessing logo.png: {e}")
+        return None
+    
+def resource_path(relative_path):
+
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
+    
 def parse_args() -> ArgsNamespace:
+    # Usage example to get path to logo.png inside the executable
+    # logo_path_default = resource_path("resources/logo.png") # Works in pyinstaller
+    logo_path_default = _get_logo_path() # Works in poetry
+    logger.debug(f"{logo_path_default=}")
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -206,12 +229,4 @@ def parse_args() -> ArgsNamespace:
         required=False,
     )
 
-    args = parser.parse_args(namespace=ArgsNamespace())
-    parsed_volume = float(args.volume)
-    if parsed_volume > 1 or parsed_volume < 0:
-        logger.error(
-            f"{args.volume=} must be between 0 and 1. Setting to default: {VOLUME}"
-        )
-        parsed_volume = VOLUME
-
-    return args
+    return parser.parse_args(namespace=ArgsNamespace())
