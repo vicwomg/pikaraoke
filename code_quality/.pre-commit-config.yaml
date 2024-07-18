@@ -1,0 +1,85 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+
+# Exlude binary files and CHANGELOGS that are automanaged
+exclude: \.(deb|exe|bat)|^.*\/(CHANGELOG|bug_report|feature_request)\.md$
+
+repos:
+
+  # Python tools
+  # ----------------------------------------------------------------------------------------------
+- repo: https://github.com/hadialqattan/pycln
+  rev: v2.4.0
+  hooks:
+  - id: pycln
+    name: Remove Unused Python Imports
+    args: [--exclude, conftest.py]
+
+- repo: https://github.com/PyCQA/isort
+  rev: 5.12.0
+  hooks:
+  - id: isort
+    name: Sort Python Imports
+    args: [--profile=black]
+
+- repo: https://github.com/psf/black
+  rev: 23.11.0
+  hooks:
+  - id: black
+    name: Format Python Code
+    args: [--line-length, '100']
+
+- repo: https://github.com/PyCQA/pylint
+  rev: v3.0.1
+  hooks:
+  - id: pylint
+    name: Lint Python Code
+    entry: bash -c 'echo $PATH'
+    language: system
+    types: [python]
+  # ----------------------------------------------------------------------------------------------
+- repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
+  rev: v2.11.0
+  hooks:
+  - id: pretty-format-yaml
+    args: [--autofix, --indent, '2', --line-width, '100']
+
+- repo: https://github.com/adrienverge/yamllint.git
+  rev: v1.33.0
+  hooks:
+  - id: yamllint
+    name: Lint YAML Files
+    args: [-c=code_quality/.yamllint]
+
+- repo: https://github.com/executablebooks/mdformat
+  rev: 0.7.17
+  hooks:
+  - id: mdformat
+    name: Format Markdown Files
+    additional_dependencies:
+    - mdformat-black
+    args: [--number]
+
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.5.0
+  hooks:
+  - id: trailing-whitespace
+    name: Trim Trailing Whitespace
+  - id: check-yaml
+    name: Check YAML Parseable
+  - id: requirements-txt-fixer
+    name: Sort requirements.txt
+  - id: check-added-large-files
+  - id: check-case-conflict
+  - id: check-merge-conflict
+  - id: end-of-file-fixer
+    name: Ensure End of File Newline
+  - id: fix-byte-order-marker
+  - id: mixed-line-ending
+  - id: check-executables-have-shebangs
+  - id: check-shebang-scripts-are-executable
+    exclude: .bat
+  - id: no-commit-to-branch
+    name: No Commit to main
+    args: [--branch, main]

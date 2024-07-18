@@ -21,7 +21,7 @@ ffmpeg-python = "0.2.0"
 yt-dlp = "2024.7.9"
 
 [tool.poetry.dev-dependencies]
-pytest = "^6.2.5"
+pre-commit = "3.7.1"
 
 [tool.poetry.scripts]
 pikaraoke = "pikaraoke.app:main"
