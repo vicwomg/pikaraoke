@@ -1,13 +1,16 @@
 import argparse
 import importlib.resources as pkg_resources
-from pikaraoke import resources
-from pathlib import Path
-from .get_platform import Platform, get_platform
 import logging
-import sys
 import os
+import sys
+from pathlib import Path
+
+from pikaraoke import resources
+
+from .get_platform import Platform, get_platform
 
 logger = logging.getLogger(__name__)
+
 
 def get_default_dl_dir(platform: Platform) -> Path:
     default_dir = Path.home() / "pikaraoke-songs"
@@ -17,6 +20,7 @@ def get_default_dl_dir(platform: Platform) -> Path:
         return legacy_dir
 
     return default_dir
+
 
 PORT = 5555
 PORT_FFMPEG = 5556
@@ -29,18 +33,20 @@ PLATFORM = get_platform()
 DL_DIR: Path = get_default_dl_dir(PLATFORM)
 
 
-
 def volume_type(input):
     """Verify the volume input"""
     try:
         volume = float(input)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"Volume must be a float between 0 and 1, but got '{input}'")
+        raise argparse.ArgumentTypeError(
+            f"Volume must be a float between 0 and 1, but got '{input}'"
+        )
 
     if volume < 0 or volume > 1:
         raise argparse.ArgumentTypeError(f"Volume must be between 0 and 1, but got {volume}")
-    
+
     return volume
+
 
 class ArgsNamespace(argparse.Namespace):
     """Provides typehints to the input args"""
@@ -73,9 +79,9 @@ def _get_logo_path():
     except Exception as e:
         print(f"Error accessing logo.png: {e}")
         return None
-    
-def resource_path(relative_path):
 
+
+def resource_path(relative_path):
     try:
         base_path = sys._MEIPASS
     except Exception:
@@ -83,11 +89,11 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
-    
+
 def parse_args() -> ArgsNamespace:
     # Usage example to get path to logo.png inside the executable
     # logo_path_default = resource_path("resources/logo.png") # Works in pyinstaller
-    logo_path_default = _get_logo_path() # Works in poetry
+    logo_path_default = _get_logo_path()  # Works in poetry
     logger.debug(f"{logo_path_default=}")
     parser = argparse.ArgumentParser()
 
@@ -130,8 +136,7 @@ def parse_args() -> ArgsNamespace:
     parser.add_argument(
         "-v",
         "--volume",
-        help="Set initial player volume. A value between 0 and 1. (default: %s)"
-        % VOLUME,
+        help="Set initial player volume. A value between 0 and 1. (default: %s)" % VOLUME,
         default=VOLUME,
         type=volume_type,
         required=False,
@@ -139,16 +144,14 @@ def parse_args() -> ArgsNamespace:
     parser.add_argument(
         "-s",
         "--splash-delay",
-        help="Delay during splash screen between songs (in secs). (default: %s )"
-        % DELAY_SPLASH,
+        help="Delay during splash screen between songs (in secs). (default: %s )" % DELAY_SPLASH,
         default=DELAY_SPLASH,
         required=False,
     )
     parser.add_argument(
         "-t",
         "--screensaver-timeout",
-        help="Delay before the screensaver begins (in secs). (default: %s )"
-        % DELAY_SCREENSAVER,
+        help="Delay before the screensaver begins (in secs). (default: %s )" % DELAY_SCREENSAVER,
         default=DELAY_SCREENSAVER,
         required=False,
     )

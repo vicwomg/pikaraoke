@@ -1,7 +1,7 @@
 import logging
 import os
-import re
 import random
+import re
 import shutil
 import string
 import subprocess
@@ -9,12 +9,12 @@ import sys
 import time
 import xml.etree.ElementTree as ET
 import zipfile
-from threading import Timer
 from pathlib import Path
+from threading import Timer
 
 import requests
 
-from .get_platform import get_platform, Platform
+from .get_platform import Platform, get_platform
 
 
 def get_default_vlc_path(platform: Platform) -> str:
@@ -29,9 +29,9 @@ def get_default_vlc_path(platform: Platform) -> str:
     else:
         return "/usr/bin/vlc"
 
+
 class VLCClient:
     def __init__(self, port=5002, path=None, qrcode=None, url=None):
-
         # HTTP remote control server
         self.http_password = "".join(
             [random.choice(string.ascii_letters + string.digits) for n in range(32)]
@@ -94,17 +94,21 @@ class VLCClient:
 
         self.volume_offset = 10
         self.process = None
-    
+
     def get_marquee_cmd(self):
-        return ["--sub-source", 'logo{file=%s,position=9,x=2,opacity=200}:marq{marquee="Pikaraoke - connect at: \n%s",position=9,x=38,color=0xFFFFFF,size=11,opacity=200}' % (self.qrcode, self.url)]
+        return [
+            "--sub-source",
+            'logo{file=%s,position=9,x=2,opacity=200}:marq{marquee="Pikaraoke - connect at: \n%s",position=9,x=38,color=0xFFFFFF,size=11,opacity=200}'
+            % (self.qrcode, self.url),
+        ]
 
     def handle_zipped_cdg(self, file_path: str) -> Path:
         extracted_dir = self.tmp_dir / "extracted"
         if extracted_dir.is_file():
             shutil.rmtree(extracted_dir)
-        with zipfile.ZipFile(file_path, 'r') as zip_ref:
+        with zipfile.ZipFile(file_path, "r") as zip_ref:
             zip_ref.extractall(extracted_dir)
-        
+
         mp3_file = None
         cdg_file = None
         files = extracted_dir.iterdir()
@@ -114,38 +118,38 @@ class VLCClient:
                 mp3_file = file
             elif ext.casefold() == ".cdg":
                 cdg_file = file
-        
+
         if (mp3_file is not None) and (cdg_file is not None):
-            if (os.path.splitext(mp3_file)[0] == os.path.splitext(cdg_file)[0] ):
+            if os.path.splitext(mp3_file)[0] == os.path.splitext(cdg_file)[0]:
                 return extracted_dir.joinpath(mp3_file)
             else:
                 raise Exception("Zipped .mp3 file did not have a matching .cdg file: " + files)
-        else: 
+        else:
             raise Exception("No .mp3 or .cdg was found in the zip file: " + file_path)
 
     def handle_mp3_cdg(self, file_path):
         f = os.path.splitext(os.path.basename(file_path))[0]
-        pattern= f +'.cdg'
+        pattern = f + ".cdg"
         rule = re.compile(re.escape(pattern), re.IGNORECASE)
-        p=os.path.dirname(file_path)       # get the path, not the filename
+        p = os.path.dirname(file_path)  # get the path, not the filename
         for n in os.listdir(p):
             if rule.match(n):
-                return(file_path)
-        if (1):
+                return file_path
+        if 1:
             # we didn't return, so always raise the exception: assert might work better?
             raise Exception("No matching .cdg file found for: " + file_path)
 
     def process_file(self, file_path: str) -> Path:
         file_extension = os.path.splitext(file_path)[1]
-        if (file_extension.casefold() == ".zip"):
+        if file_extension.casefold() == ".zip":
             return self.handle_zipped_cdg(file_path)
-        elif (file_extension.casefold() == ".mp3"):
+        elif file_extension.casefold() == ".mp3":
             return self.handle_mp3_cdg(file_path)
         else:
             return file_path
 
     def play_file(self, file_path, additional_parameters=None):
-        try: 
+        try:
             file_path = self.process_file(file_path)
             if self.is_playing() or self.is_paused():
                 logging.debug("VLC is currently playing, stopping track...")
@@ -153,7 +157,7 @@ class VLCClient:
                 # this pause prevents vlc http server from being borked after transpose
                 time.sleep(0.2)
             if self.platform.is_windows():
-                file_path = r"{}".format(file_path.replace('/','\\'))
+                file_path = r"{}".format(file_path.replace("/", "\\"))
             if additional_parameters == None:
                 command = self.cmd_base + [file_path]
             else:
@@ -226,8 +230,7 @@ class VLCClient:
         except:
             e = sys.exc_info()[0]
             logging.warn(
-                "Track stop: server may have shut down before http return code received: %s"
-                % e
+                "Track stop: server may have shut down before http return code received: %s" % e
             )
             return
 
@@ -250,9 +253,7 @@ class VLCClient:
             return
 
     def is_running(self):
-        return (
-            self.process != None and self.process.poll() == None
-        ) or self.is_transposing
+        return (self.process != None and self.process.poll() == None) or self.is_transposing
 
     def is_playing(self):
         if self.is_running():

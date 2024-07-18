@@ -1,9 +1,10 @@
-import platform
-import subprocess
 import enum
 import logging
+import platform
+import subprocess
 
 logger = logging.getLogger(__name__)
+
 
 class Browser(enum.Enum):
     FIREFOX = "firefox"
@@ -54,9 +55,7 @@ def _get_default_browser_macos() -> str:
 def _get_default_browser_windows() -> str:
     import winreg
 
-    key_path = (
-        r"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice"
-    )
+    key_path = r"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice"
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path) as key:
             prog_id, _ = winreg.QueryValueEx(key, "ProgId")
@@ -99,6 +98,7 @@ def get_default_browser() -> Browser:
         return Browser.EDGE
     else:
         return Browser.UNSUPPORTED
+
 
 if __name__ == "__main__":
     print("Default browser:", get_default_browser())

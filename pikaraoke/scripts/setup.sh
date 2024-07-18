@@ -7,7 +7,7 @@ if [ $REPLY = "y" ]
 ## setup stuff
 
 if [[ $(cat /etc/os-release | grep ^ID= | grep -i 'debian\|raspbian') != "" ]]; then
-  echo "Client is a Debian-based system. Installing binaries"; 
+  echo "Client is a Debian-based system. Installing binaries";
   echo
   echo "*** RUNNING APT-GET UPDATE ***"
   sudo apt-get update --allow-releaseinfo-change
@@ -19,8 +19,8 @@ if [[ $(cat /etc/os-release | grep ^ID= | grep -i 'debian\|raspbian') != "" ]]; 
   sudo apt-get install chromium-browser -y
   sudo apt-get install chromium-chromedriver -y
   if [ $? -ne 0 ]; then echo "ERROR: Binary dependency installation failed with error code: $?"; exit 1; fi
-else  
- echo "Client is not Debian-based. Skipping binary installation. Please install ffmpeg and chrome manually."; 
+else
+ echo "Client is not Debian-based. Skipping binary installation. Please install ffmpeg and chrome manually.";
 fi
 
 echo
@@ -40,7 +40,7 @@ echo
 
 # end setup stuff
 
-else 
+else
 echo "bye."
 
 fi

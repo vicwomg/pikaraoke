@@ -46,19 +46,19 @@ class OMXClient:
         ]
         if self.dual_screen:
             cmd += ["--display", "7"]
-       
+
         logging.debug("Player command: " + " ".join(cmd))
         self.process = subprocess.Popen(cmd, stdin=subprocess.PIPE)
         self.paused = False
 
     def pause(self):
-        if (not self.paused):
+        if not self.paused:
             self.process.stdin.write("p".encode("utf-8"))
             self.process.stdin.flush()
             self.paused = True
 
     def play(self):
-        if (self.paused):
+        if self.paused:
             self.process.stdin.write("p".encode("utf-8"))
             self.process.stdin.flush()
             self.paused = False
@@ -71,7 +71,7 @@ class OMXClient:
     def restart(self):
         self.process.stdin.write("i".encode("utf-8"))
         self.process.stdin.flush()
-        if (self.paused):
+        if self.paused:
             time.sleep(0.2)
             self.play()
         self.paused = False
@@ -94,18 +94,14 @@ class OMXClient:
             logging.debug("Killing old omxplayer processes")
             player_kill = ["killall", "omxplayer.bin"]
             FNULL = open(os.devnull, "w")
-            subprocess.Popen(
-                player_kill, stdin=subprocess.PIPE, stdout=FNULL, stderr=FNULL
-            )
+            subprocess.Popen(player_kill, stdin=subprocess.PIPE, stdout=FNULL, stderr=FNULL)
             self.paused = False
         except (OSError, AttributeError) as e:
             logging.error(e)
             return
 
     def is_running(self):
-        return (
-            self.process != None and self.process.poll() == None
-        ) 
+        return self.process != None and self.process.poll() == None
 
     def is_playing(self):
         is_playing = self.process != None and self.process.poll() == None and self.paused == False
@@ -123,4 +119,3 @@ class OMXClient:
                 pass
         except KeyboardInterrupt:
             self.kill()
-

@@ -18,7 +18,7 @@ class Platform(Enum):
 
     def is_linux(self):
         return self == Platform.LINUX
-    
+
     def is_mac(self):
         return self == Platform.OSX
 
@@ -30,6 +30,7 @@ def _is_raspberry_pi() -> bool:
         ) and sys.platform != "darwin"
     except AttributeError:
         return False
+
 
 def get_platform() -> Platform:
     if "darwin" in sys.platform:

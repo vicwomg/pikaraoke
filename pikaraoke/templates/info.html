@@ -58,7 +58,7 @@
 {% block content %}
 <hr/>
 
-<div class="has-text-centered">  
+<div class="has-text-centered">
   <p>
     {# MSG: Label which appears before a url which links to the current page. #}
     {%- trans -%}
@@ -95,7 +95,7 @@
 {# MSG: Title of the updates section. #}
 <h1>{% trans %}Updates{% endtrans %}</h1>
 {# MSG: Label before a link which forces Pikaraoke to rescan and pick up any new songs. #}
-<p>{% trans %}Refresh the song list:{% endtrans %}</p> 
+<p>{% trans %}Refresh the song list:{% endtrans %}</p>
 <ul>
   <li>
     <a href="/refresh"
@@ -111,7 +111,7 @@
 
 {# MSG: Text explaining why you might want to update youtube-dl. #}
 <p>{% trans %}If downloads or searches stopped working, updating youtube-dl will probably fix it.
-   The current installed version is: "{{ youtubedl_version }}"{% endtrans %}</p> 
+   The current installed version is: "{{ youtubedl_version }}"{% endtrans %}</p>
 <ul>
   <li>
     <a id="update-ytdl-link" href="{{ url_for('update_ytdl') }}"
@@ -124,7 +124,7 @@
   {# MSG: Help text which explains why updating youtube-dl can fail.  The log is a file on the machine running Pikaraoke. #}
   {% trans -%}
     This update link above may fail if you don't have proper file permissions.
-    Check the pikaraoke log for errors. 
+    Check the pikaraoke log for errors.
   {%- endtrans %}
 </p>
 

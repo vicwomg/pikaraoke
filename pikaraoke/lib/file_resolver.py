@@ -1,19 +1,21 @@
+import logging
 import os
 import re
 import shutil
 import zipfile
 from pathlib import Path
-import logging
 
 from .get_platform import get_platform
 
 logger = logging.getLogger(__name__)
 
+
 class FileResolver:
     """Processes a given file path to determine the file format and file path
-    
+
     Extracting zips into cdg + mp3 if necessary.
     """
+
     def __init__(self, file: str):
         self._pid = os.getpid()  # for scoping tmp directories to this process
 
@@ -23,8 +25,10 @@ class FileResolver:
 
         # Determine tmp directories (for things like extracted cdg files)
         if get_platform().is_windows():
-            self.tmp_dir = Path.home() / "AppData" / "Local" / "Temp" / "pikaraoke" / str(self._pid) / ""
-        else:    
+            self.tmp_dir = (
+                Path.home() / "AppData" / "Local" / "Temp" / "pikaraoke" / str(self._pid) / ""
+            )
+        else:
             self.tmp_dir = Path("/tmp") / "pikaraoke" / str(self._pid)
 
         self.resolved_file_path = self._process_file(Path(file))
@@ -41,10 +45,9 @@ class FileResolver:
     def file_extension(self):
         return self._file_extension
 
-
     def _handle_zipped_cdg(self, file_path: Path):
         """Extract zipped cdg + mp3 files into a temporary directory
-        
+
         Sets the paths to both files.
         """
         extracted_dir = self.tmp_dir.joinpath("extracted")
@@ -56,22 +59,20 @@ class FileResolver:
         mp3_file = None
         cdg_file = None
         files = extracted_dir.iterdir()
-    
+
         for file in files:
             file_extension = file.suffix.casefold()
             if file_extension == ".mp3":
                 mp3_file = file
             elif file_extension == ".cdg":
                 cdg_file = file
-    
+
         if all([mp3_file, cdg_file]):
             if mp3_file.stem == cdg_file.stem:
                 self._file_path = extracted_dir.joinpath(mp3_file)
                 self._cdg_file_path = extracted_dir.joinpath(cdg_file)
             else:
-                raise Exception(
-                    "Zipped .mp3 file did not have a matching .cdg file: " + files
-                )
+                raise Exception("Zipped .mp3 file did not have a matching .cdg file: " + files)
         else:
             raise Exception("No .mp3 or .cdg was found in the zip file: " + file_path)
 

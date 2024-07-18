@@ -9,18 +9,16 @@ from pathlib import Path
 from queue import Empty, Queue
 from subprocess import check_output
 from threading import Thread
+from typing import TypedDict
 from urllib.parse import urlparse
-import yt_dlp
 
 import ffmpeg
 import qrcode
+import yt_dlp
 from unidecode import unidecode
 
 from pikaraoke.lib.file_resolver import FileResolver
 from pikaraoke.lib.get_platform import get_platform
-from typing import TypedDict
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +45,6 @@ def decode_ignore(input: bytes):
 
 
 class Karaoke:
-
     raspi_wifi_config_ip = "10.0.0.1"
     raspi_wifi_conf_file = Path("/etc/raspiwifi/raspiwifi.conf")
     raspi_wifi_config_installed = raspi_wifi_conf_file.is_file()
@@ -149,9 +146,7 @@ class Karaoke:
             # and doesn't have an IP yet (occurs when launched from /etc/rc.local)
             end_time = int(time.time()) + 30
             while int(time.time()) < end_time:
-                addresses_str = (
-                    check_output(["hostname", "-I"]).strip().decode("utf-8", "ignore")
-                )
+                addresses_str = check_output(["hostname", "-I"]).strip().decode("utf-8", "ignore")
                 addresses = addresses_str.split(" ")
                 self.ip = addresses[0]
                 if not self.is_network_connected():
@@ -173,7 +168,9 @@ class Karaoke:
                 self.url = f"http://{self.ip}:{self.port}"
         self.url_parsed = urlparse(self.url)
         if ffmpeg_url is None:
-            self.ffmpeg_url = f"{self.url_parsed.scheme}://{self.url_parsed.hostname}:{self.ffmpeg_port}"
+            self.ffmpeg_url = (
+                f"{self.url_parsed.scheme}://{self.url_parsed.hostname}:{self.ffmpeg_port}"
+            )
         else:
             self.ffmpeg_url = ffmpeg_url
 
@@ -364,9 +361,7 @@ class Karaoke:
             return False
 
         # use h/w acceleration on pi
-        default_vcodec = (
-            "h264_v4l2m2m" if self.platform == "raspberry_pi" else "libx264"
-        )
+        default_vcodec = "h264_v4l2m2m" if self.platform == "raspberry_pi" else "libx264"
         # just copy the video stream if it's an mp4 or webm file, since they are supported natively in html5
         # otherwise use the default h264 codec
         vcodec = (
@@ -380,11 +375,7 @@ class Karaoke:
         is_transposed = semitones != 0
         acodec = "aac" if is_transposed else "copy"
         input = ffmpeg.input(fr.file_path)
-        audio = (
-            input.audio.filter("rubberband", pitch=pitch)
-            if is_transposed
-            else input.audio
-        )
+        audio = input.audio.filter("rubberband", pitch=pitch) if is_transposed else input.audio
 
         if fr.cdg_file_path != None:  # handle CDG files
             logging.info("Playing CDG/MP3 file: " + file)
@@ -486,9 +477,7 @@ class Karaoke:
         logging.debug("ffmpeg process killed")
 
     def transpose_current(self, semitones):
-        logging.info(
-            f"Transposing current song {self.now_playing} by {semitones} semitones"
-        )
+        logging.info(f"Transposing current song {self.now_playing} by {semitones} semitones")
         # Insert the same song at the top of the queue with transposition
         self.enqueue(self.now_playing_filename, self.now_playing_user, semitones, True)
         self.skip()
@@ -573,9 +562,7 @@ class Karaoke:
                 return True
         elif action == "down":
             if index == len(self.queue) - 1:
-                logging.warn(
-                    "Song is already last, can't bump down in queue: " + song["file"]
-                )
+                logging.warn("Song is already last, can't bump down in queue: " + song["file"])
                 return False
             else:
                 logging.info("Bumping song down in queue: " + song["file"])

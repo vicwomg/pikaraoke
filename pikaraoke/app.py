@@ -3,27 +3,28 @@ import hashlib
 import json
 import logging
 import os
+import secrets
 import signal
 import subprocess
 import sys
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
-import secrets
 
 import cherrypy
+import flask
 import flask_babel
 import psutil
-import flask
 from flask_babel import Babel
 from flask_paginate import Pagination, get_page_parameter
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from yt_dlp.version import __version__ as yt_dlp_version
-from pikaraoke.lib.parse_args import parse_args
+
 from pikaraoke.lib.browser import Browser, get_default_browser
-from datetime import datetime
+from pikaraoke.lib.parse_args import parse_args
 
 # Import the browser depending on what default browser is set on the system,
 default_browser: Browser = get_default_browser()
@@ -177,9 +178,7 @@ def nowplaying() -> str:
         rc["hash"] = hash_dict(rc)  # used to detect changes in the now playing data
         return json.dumps(rc)
     except Exception as e:
-        logging.error(
-            "Problem loading /nowplaying, pikaraoke may still be starting up: " + str(e)
-        )
+        logging.error("Problem loading /nowplaying, pikaraoke may still be starting up: " + str(e))
         return ""
 
 
@@ -341,9 +340,7 @@ def autocomplete():
                     "type": "autocomplete",
                 }
             )
-    response = app.response_class(
-        response=json.dumps(result), mimetype="application/json"
-    )
+    response = app.response_class(response=json.dumps(result), mimetype="application/json")
     return response
 
 
@@ -423,9 +420,7 @@ def download():
     t.start()
 
     flash_message = (
-        "Download started: '"
-        + song
-        + "'. This may take a couple of minutes to complete. "
+        "Download started: '" + song + "'. This may take a couple of minutes to complete. "
     )
 
     if queue:
@@ -464,8 +459,7 @@ def delete_file():
         song_path = flask.request.args["song"]
         if song_path in karaoke.queue:
             flask.flash(
-                "Error: Can't delete this song because it is in the current queue: "
-                + song_path,
+                "Error: Can't delete this song because it is in the current queue: " + song_path,
                 "is-danger",
             )
         else:
@@ -505,9 +499,7 @@ def edit_file():
             # check if new_name already exist
             file_extension = Path(old_name).suffix
             new_file_path = (
-                Path(karaoke.download_path)
-                .joinpath(new_name)
-                .with_suffix(file_extension)
+                Path(karaoke.download_path).joinpath(new_name).with_suffix(file_extension)
             )
             if new_file_path.is_file():
                 flask.flash(
@@ -530,9 +522,9 @@ def edit_file():
 def splash():
     # Only do this on Raspberry Pis
     if platform_current.is_rpi():
-        status = subprocess.run(
-            ["iwconfig", "wlan0"], stdout=subprocess.PIPE
-        ).stdout.decode("utf-8")
+        status = subprocess.run(["iwconfig", "wlan0"], stdout=subprocess.PIPE).stdout.decode(
+            "utf-8"
+        )
         text = ""
         if "Mode:Master" in status:
             # Wifi is setup as a Access Point
@@ -591,12 +583,7 @@ def info():
     available = round(memory.available / 1024.0 / 1024.0, 1)
     total = round(memory.total / 1024.0 / 1024.0, 1)
     memory = (
-        str(available)
-        + "MB free / "
-        + str(total)
-        + "MB total ( "
-        + str(memory.percent)
-        + "% )"
+        str(available) + "MB free / " + str(total) + "MB total ( " + str(memory.percent) + "% )"
     )
 
     # disk
@@ -604,14 +591,7 @@ def info():
     # Divide from Bytes -> KB -> MB -> GB
     free = round(disk.free / 1024.0 / 1024.0 / 1024.0, 1)
     total = round(disk.total / 1024.0 / 1024.0 / 1024.0, 1)
-    disk = (
-        str(free)
-        + "GB free / "
-        + str(total)
-        + "GB total ( "
-        + str(disk.percent)
-        + "% )"
-    )
+    disk = str(free) + "GB free / " + str(total) + "GB total ( " + str(disk.percent) + "% )"
 
     return flask.render_template(
         "info.html",
@@ -712,21 +692,20 @@ def expand_fs():
 # Handle sigterm, apparently cherrypy won't shut down without explicit handling
 signal.signal(signal.SIGTERM, lambda signum, stack_frame: karaoke.stop())
 
+
 def _configure_logger(log_level: int):
     # Generate filename with current date and time
     logs_folder = Path("logs")
     log_filename = logs_folder / datetime.now().strftime("%Y-%m-%d_%H-%M-%S.log")
-    logs_folder.mkdir(exist_ok=True) # Create logs/ folder
+    logs_folder.mkdir(exist_ok=True)  # Create logs/ folder
 
     logging.basicConfig(
         format="[%(asctime)s] %(levelname)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
-        level=log_level, # Remember to move args before settup logging and use args here
-        handlers=[
-            logging.FileHandler(log_filename),
-            logging.StreamHandler()
-        ]
+        level=log_level,  # Remember to move args before settup logging and use args here
+        handlers=[logging.FileHandler(log_filename), logging.StreamHandler()],
     )
+
 
 def main():
     _configure_logger(log_level=logging.DEBUG)
@@ -785,9 +764,7 @@ def main():
     # Start the splash screen using selenium
     if not args.hide_splash_screen:
         if platform_current.is_rpi():
-            service = Service(
-                executable_path="/usr/bin/chromedriver"
-            )  # MUST MAKE THIS GENERIC
+            service = Service(executable_path="/usr/bin/chromedriver")  # MUST MAKE THIS GENERIC
         else:
             service = None
         options = Options()
@@ -799,9 +776,7 @@ def main():
         options.add_argument("--kiosk")
         options.add_argument("--start-maximized")
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        driver = WebDriverBrowser(
-            service=service, options=options
-        )  # Chrome/Firefox/Edge/Safari
+        driver = WebDriverBrowser(service=service, options=options)  # Chrome/Firefox/Edge/Safari
         driver.get(f"{karaoke.url}/splash")
         driver.add_cookie({"name": "user", "value": "PiKaraoke-Host"})
         # Clicking this counts as an interaction, which will allow the browser to autoplay audio
@@ -819,6 +794,7 @@ def main():
     cherrypy.engine.exit()
 
     sys.exit()
+
 
 if __name__ == "__main__":
     main()
