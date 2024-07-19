@@ -190,6 +190,10 @@ options:
 
 ## Troubleshooting
 
+### How do I update pikaraoke to the latest version?
+
+Simply run the setup script again. CD the pikaraoke directory and run: `./setup.sh` (linux/osx/rpi) `setup-windows.bat` (windows)
+
 ### I'm not hearing audio out of the headphone jack
 
 By default the raspbian outputs to HDMI audio when it's available. Pikaraoke tries to output to both HDMI and headphone, but if it doesn't work you may need to to force it to the headphone jack. This is definitely the case when using VLC. To do so, change following setting on the pi:
@@ -271,7 +275,7 @@ CDG files must have an mp3 file with a exact matching file name. They can also b
 
 ### I'm getting this ChromeDriver error on launch: "session not created: DevToolsActivePort file doesn't exist"
 
-Are you trying to launch over SSH? That probably indicates that chromedriver doesn't know which display to launch the browser on. If so, you may need to specify the native display of the remote device using this command: `DISPLAY=:0.0 ./pikaraoke.sh`.
+Are you trying to launch over SSH? That probably indicates that chromedriver doesn't know which display to launch the browser on. If so, you may need to specify the native display of the remote device using this command: `DISPLAY=:0.0 ./pikaraoke.sh`. Note that Pikaraoke 1.2.1 and newer should do this for you.
 
 You can alternately run headless if you launch the splash screen manually on a separate machine: `./pikaraoke.sh --headless`
 
