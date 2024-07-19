@@ -22,6 +22,9 @@ yt-dlp = "2024.7.9"
 
 [tool.poetry.dev-dependencies]
 pre-commit = "3.7.1"
+pytest = "8.2.2"
+pytest-playwright = "0.5.1"
+pytest-xdist = "3.6.1"
 
 [tool.poetry.scripts]
 pikaraoke = "pikaraoke.app:main"
