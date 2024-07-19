@@ -15,7 +15,8 @@ import flask_babel
 import psutil
 import requests
 from flask import (Flask, Response, flash, make_response, redirect,
-                   render_template, request, send_file, url_for)
+                   render_template, request, send_file, stream_with_context,
+                   url_for)
 from flask_babel import Babel
 from flask_paginate import Pagination, get_page_parameter
 from selenium import webdriver
@@ -657,6 +658,7 @@ def redirect_to_ffmpeg_stream(path):  #NOTE var :path will be unused as all path
         data            = request.get_data(),
         cookies         = request.cookies,
         allow_redirects = False,
+        stream          = True,
     )
 
     #region exlcude some keys in :res response
@@ -665,8 +667,13 @@ def redirect_to_ffmpeg_stream(path):  #NOTE var :path will be unused as all path
         (k,v) for k,v in res.raw.headers.items()
         if k.lower() not in excluded_headers
     ]
+
+    def generate():
+        for chunk in res.iter_content(chunk_size=4096):
+            yield chunk
+
     #endregion exclude some keys in :res response
-    response = Response(res.content, res.status_code, headers)
+    response = Response(stream_with_context(generate()), res.status_code, headers)
     return response
 
 # Handle sigterm, apparently cherrypy won't shut down without explicit handling

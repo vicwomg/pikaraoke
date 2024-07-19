@@ -433,7 +433,7 @@ class Karaoke:
             output = ffmpeg.output(audio, video, ffmpeg_url, 
                                    vcodec="libx264", acodec="aac", preset="ultrafast",
                                    pix_fmt="yuv420p", listen=1, f="mp4", video_bitrate="500k",
-                                   movflags="frag_keyframe+default_base_moof")     
+                                   movflags="frag_keyframe+default_base_moof")   
         else: 
             video = input.video
             output = ffmpeg.output(audio, video, ffmpeg_url, 
