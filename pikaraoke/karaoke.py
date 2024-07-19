@@ -154,7 +154,7 @@ class Karaoke:
                 else:
                     break
         else:
-            self.ip = self.get_ip()
+            self.ip = self._get_ip()
 
         logging.debug("IP address (for QR code and splash screen): " + self.ip)
 
@@ -180,7 +180,7 @@ class Karaoke:
 
     # Other ip-getting methods are unreliable and sometimes return 127.0.0.1
     # https://stackoverflow.com/a/28950776
-    def get_ip(self):
+    def _get_ip(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
             # doesn't even have to be reachable
@@ -261,33 +261,43 @@ class Karaoke:
     def get_karaoke_search_results(self, songTitle):
         return self.get_search_results(songTitle + " karaoke")
 
-    def download_video(self, video_url, enqueue=False, user="Pikaraoke"):
-        logging.info("Downloading video: " + video_url)
-        dl_path = str(self.download_path) + "%(title)s---%(id)s.%(ext)s"
+    def download_video(self, video_url: str, enqueue=False, user="Pikaraoke"):
+        logging.info(f"Downloading video: {video_url}")
+
+        yt_id = self.get_youtube_id_from_url(video_url)
+        found_song = self.find_song_by_youtube_id(yt_id)
+
+        if found_song:
+            logger.info(f"Already downloaded the song `{Path(found_song).name}`")
+            if enqueue:
+                self.enqueue(found_song, user)
+
+            return 0
+
+        dl_path = self.download_path.joinpath("%(title)s---%(id)s.%(ext)s")
         file_quality = (
             "bestvideo[ext!=webm][height<=1080]+bestaudio[ext!=webm]/best[ext!=webm]"
             if self.high_quality
             else "mp4"
         )
-        cmd = [YT_DLP_CMD, "-f", file_quality, "-o", dl_path, video_url]
+        cmd = [YT_DLP_CMD, "-f", file_quality, "-o", str(dl_path), video_url]
         logging.debug("Youtube-dl command: " + " ".join(cmd))
-        rc = subprocess.call(cmd)
-        if rc != 0:
+        result = subprocess.call(cmd)
+        if result != 0:
             logging.error("Error code while downloading, retrying once...")
-            rc = subprocess.call(cmd)  # retry once. Seems like this can be flaky
-        if rc == 0:
+            result = subprocess.call(cmd)  # retry once. Seems like this can be flaky
+        if result == 0:
             logging.debug("Song successfully downloaded: " + video_url)
             self.get_available_songs()
             if enqueue:
-                y = self.get_youtube_id_from_url(video_url)
-                s = self.find_song_by_youtube_id(y)
-                if s:
-                    self.enqueue(s, user)
+                if found_song:
+                    self.enqueue(found_song, user)
                 else:
-                    logging.error("Error queueing song: " + video_url)
+                    logging.error("queueing song: " + video_url)
         else:
             logging.error("Error downloading song: " + video_url)
-        return rc
+
+        return result
 
     def get_available_songs(self):
         logging.info(f"Fetching available songs in: {self.download_path}")
@@ -328,13 +338,13 @@ class Karaoke:
         return Path(file_path).stem.split("---")[0]  # removes youtube id if present
 
     def find_song_by_youtube_id(self, youtube_id):
-        for each in self.available_songs:
-            if youtube_id in each:
-                return each
-        logging.error("No available song found with youtube id: " + youtube_id)
+        for song in self.available_songs:
+            if youtube_id in song:
+                return song
+        logging.error(f"No available song found with {youtube_id=}")
         return None
 
-    def get_youtube_id_from_url(self, url):
+    def get_youtube_id_from_url(self, url: str):
         s = url.split("watch?v=")
         if len(s) == 2:
             return s[1]
@@ -505,11 +515,13 @@ class Karaoke:
                 "title": self.filename_from_path(song_path),
                 "semitones": semitones,
             }
+            logger.debug(f"Creating {queue_item=}")
+
             if add_to_front:
                 logging.info(f"'{user}' is adding song to front of queue: {song_path}")
                 self.queue.insert(0, queue_item)
             else:
-                logging.info("'%s' is adding song to queue: %s" % (user, song_path))
+                logging.info(f"'{user}' is adding song to queue: {song_path}")
                 self.queue.append(queue_item)
 
             return True

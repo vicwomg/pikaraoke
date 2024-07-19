@@ -385,8 +385,10 @@ def browse():
 @app.route("/download", methods=["POST"])
 def download():
     d = flask.request.form.to_dict()
+    logger.debug(f"Got download request: {d=}")
     song = d["song-url"]
     user = d["song-added-by"]
+
     if "queue" in d and d["queue"] == "on":
         queue = True
     else:
@@ -741,7 +743,7 @@ def main():
 
     # Start the splash screen using selenium
     if not args.hide_splash_screen:
-        url = f"http://{karaoke.get_ip()}:5555/splash"
+        url = f"http://{karaoke.ip}:5555/splash"
         logger.debug(f"Opening in default browser at {url}")
         webbrowser.open(url)
 
