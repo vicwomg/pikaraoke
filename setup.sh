@@ -8,6 +8,7 @@ if [ $REPLY = "y" ]
 echo
 echo "*** PULLING LATEST PIKARAOKE CODE ***."
 git pull
+if [ $? -ne 0 ]; then echo "ERROR: 'git pull' failed with error code: $?"; exit 1; fi
 echo
 
 if [[ $(cat /etc/os-release | grep ^ID= | grep -i 'debian\|raspbian') != "" ]] ||  [[ $(cat /etc/os-release | grep ^ID_LIKE= | grep -i 'debian') != "" ]]; then
