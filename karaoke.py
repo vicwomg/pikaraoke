@@ -419,10 +419,12 @@ class Karaoke:
             # copyts helps with sync issues, fps=25 prevents ffmpeg from needlessly encoding cdg at 300fps
             cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
             video = cdg_input.video.filter("fps", fps=25)
-            #cdg is very fussy about these flags. pi needs to encode to aac and cant just copy the mp3 stream
+            #cdg is very fussy about these flags. 
+            # pi ffmpeg needs to encode to aac and cant just copy the mp3 stream
+            # It alse appears to have memory issues with hardware acceleration h264_v4l2m2m in 
             output = ffmpeg.output(audio, video, ffmpeg_url, 
-                                   vcodec=vcodec, acodec="aac", 
-                                   pix_fmt="yuv420p", listen=1, f="mp4", video_bitrate=vbitrate,
+                                   vcodec="libx264", acodec="aac", preset="ultrafast",
+                                   pix_fmt="yuv420p", listen=1, f="mp4", video_bitrate="500k",
                                    movflags="frag_keyframe+default_base_moof")     
         else: 
             video = input.video
