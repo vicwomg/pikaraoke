@@ -28,7 +28,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 import karaoke
 from constants import LANGUAGES, VERSION
-from lib.get_platform import get_platform
+from lib.get_platform import get_platform, is_raspberry_pi
 
 try:
     from urllib.parse import quote, unquote
@@ -42,10 +42,12 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)
 app.jinja_env.add_extension('jinja2.ext.i18n')
 app.config['BABEL_TRANSLATION_DIRECTORIES'] = 'translations'
+app.config['JSON_SORT_KEYS'] = False
 babel = Babel(app)
 site_name = "PiKaraoke"
 admin_password = None
-is_raspberry_pi = get_platform() == "raspberry_pi"
+raspberry_pi = is_raspberry_pi()
+linux = get_platform() == "linux"
 
 def filename_from_path(file_path, remove_youtube_id=True):
     rc = os.path.basename(file_path)
@@ -460,10 +462,42 @@ def edit_file():
 
 @app.route("/splash")
 def splash():
+    # Only do this on Raspberry Pis
+    if raspberry_pi:
+        status = subprocess.run(['iwconfig', 'wlan0'], stdout=subprocess.PIPE).stdout.decode('utf-8')
+        text = ""
+        if "Mode:Master" in status:
+            # Wifi is setup as a Access Point
+            ap_name = ""
+            ap_password = ""
+            
+            if os.path.isfile("/etc/raspiwifi/raspiwifi.conf"):
+                f = open("/etc/raspiwifi/raspiwifi.conf", "r")
+            
+                # Override the default values according to the configuration file.
+                for line in f.readlines():
+                    line = line.split("#", 1)[0]
+                    if "ssid_prefix=" in line:
+                        ap_name = line.split("ssid_prefix=")[1].strip()
+                    elif "wpa_key=" in line:
+                        ap_password = line.split("wpa_key=")[1].strip()
+
+            if len(ap_password) > 0:
+                text = [f"Wifi Network: {ap_name} Password: {ap_password}", f"Configure Wifi: {k.url.rpartition(':')[0]}"]
+            else:
+                text = [f"Wifi Network: {ap_name}", f"Configure Wifi: {k.url.rpartition(':',1)[0]}"]
+        else:
+            # You are connected to Wifi as a client
+            text = ""
+    else:
+        # Not a Raspberry Pi
+        text = ""
+
     return render_template(
         "splash.html",
         blank_page=True,
         url=k.url,
+        hostap_info=text,
         hide_url=k.hide_url,
         hide_overlay=k.hide_overlay,
         screensaver_timeout=k.screensaver_timeout
@@ -514,8 +548,12 @@ def info():
         memory=memory,
         cpu=cpu,
         disk=disk,
+        ffmpeg_version=k.ffmpeg_version,
         youtubedl_version=youtubedl_version,
-        is_pi=is_raspberry_pi,
+        platform=k.platform,
+        os_version=k.os_version,
+        is_pi=raspberry_pi,
+        is_linux=linux,
         pikaraoke_version=VERSION,
         admin=is_admin(),
         admin_enabled=admin_password != None
@@ -599,11 +637,11 @@ def reboot():
 
 @app.route("/expand_fs")
 def expand_fs():
-    if (is_admin() and is_raspberry_pi): 
+    if (is_admin() and raspberry_pi): 
         flash("Expanding filesystem and rebooting system now!", "is-danger")
         th = threading.Thread(target=delayed_halt, args=[3])
         th.start()
-    elif (platform != "raspberry_pi"):
+    elif (not raspberry_pi):
         flash("Cannot expand fs on non-raspberry pi devices!", "is-danger")
     else:
         flash("You don't have permission to resize the filesystem", "is-danger")
@@ -640,7 +678,7 @@ def get_default_youtube_dl_path(platform):
     return os.path.join(os.path.dirname(__file__), ".venv/bin/yt-dlp")
      
 def get_default_dl_dir(platform):
-    if is_raspberry_pi:
+    if raspberry_pi:
         return "~/pikaraoke-songs"
     elif platform == "windows":
         legacy_directory = os.path.expanduser("~\pikaraoke\songs")
@@ -871,7 +909,7 @@ if __name__ == "__main__":
 
     # Start the splash screen using selenium
     if not args.hide_splash_screen: 
-        if platform == "raspberry_pi":
+        if raspberry_pi:
             service = Service(executable_path='/usr/bin/chromedriver')
         else: 
             service = None

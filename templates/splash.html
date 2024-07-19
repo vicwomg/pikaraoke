@@ -265,6 +265,16 @@
       }
     });
   });
+
+  document.addEventListener("DOMContentLoaded", (event) => {
+    let params = new URLSearchParams(window.location.search);
+    let dismissConfirmation = params.get("confirm");
+
+    if (dismissConfirmation === "false") {
+      let modal = document.getElementById("permissions-modal");
+      modal.classList.remove("is-active");
+    }
+  });
 </script>
 {% endblock %} {% block body %}
 
@@ -288,6 +298,14 @@
 <div id="logo-container">
   <div>
     <img class="logo" src="{{ url_for('logo') }}" width="500px" alt="logo" />
+  </div>
+</div>
+
+<div id="ap-container">
+  <div class="is-size-5 stroke">
+    <div id="hostap">
+      {% for line in hostap_info %}{{ line }}<br />{% endfor %}
+    </div>
   </div>
 </div>
 
@@ -333,8 +351,9 @@
     <p>
       {# MSG: Prompt for interaction in order to enable video autoplay. #} {%
       trans %}Due to limititations with browser permissions, you must interact
-      with the page once before it allows videos to play. Click the button below
-      to continue.{% endtrans %}
+      with the page once before it allows autoplay of videos. Pikaraoke will not
+      play otherwise. Click the button below to
+      <a onClick="handleConfirmation()">confirm</a> .{% endtrans %}
     </p>
     <div class="has-text-centered">
       <button
@@ -376,7 +395,7 @@
       <div style="text-align: right">
         <img src="{{ url_for('qrcode') }}" width="30%" height="30%" />
       </div>
-      <div>{{ url }}</div>
+      <div>{{ hostap_info[0] }}<br />{{ url }}</div>
     </div>
     {% endif %}
   </div>
@@ -390,6 +409,7 @@
     background-color: black;
   }
   #top-container,
+  #ap-container,
   #bottom-container {
     position: absolute;
     z-index: 1;
@@ -399,6 +419,14 @@
     top: 0px;
     right: 0px;
     max-width: 75%;
+  }
+  #ap-container {
+    top: 0px;
+    left: 0px;
+    max-width: 50%;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
   }
   #bottom-container {
     bottom: 0px;

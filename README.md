@@ -55,9 +55,9 @@ Raspberry Pi 3 and above. Anything else will likely be too slow.
 Other pi considerations:
 
 - Should be running Raspberry pi desktop OS if running headed, since it requires a browser
-- 32-bit version of the Bookworm or latest OS is recommended. There have been reported issues with Bullseye and 64-bit seemed slower on the pi 3, but pi4 and above can probably handle it.
+- 32-bit version of the Bullseye OS is recommended for pi 3. 64-bit bookworm is fine for pi 4 and above.
+- Pi3 might struggle a bit with high-res video playback. Overclocking seems to help
 - Disable "screen blanking" in raspi-config if you want to prevent the display from turning off when idle
-- Pi 3 might struggle a bit with high-res video playback. Overclocking to 1300 seems to help
 
 Works fine on modern Mac, PCs, and Linux!
 
@@ -91,7 +91,7 @@ Run the setup script to install dependencies and set up the python env:
 
 If you're on a raspberry pi or debian system the setup script should have handled installing ffmpeg via apt.
 
-If you're on OSX or another Linux distro, manually install FFMPEG 6.0 or greater from here: https://ffmpeg.org/download.html
+If you're on OSX or another Linux distro, manually install the latest stable version FFMPEG 6.0 or greater from here: https://ffmpeg.org/download.html . Do not install experimental snapshot builds.
 
 On Ubuntu, apt seemed to keep installing an old 4.X version of ffmpeg. I found better luck grabbing a pre-built version of ffmpeg 6.0+ and manually copying it to /usr/bin/. Pre-built releases were obtained from this repo: https://github.com/BtbN/FFmpeg-Builds/releases
 
@@ -190,6 +190,10 @@ options:
 
 ## FAQ / Troubleshooting
 
+### How do I update pikaraoke to the latest version?
+
+Simply run the setup script again. CD the pikaraoke directory and run: `./setup.sh` (linux/osx/rpi) `setup-windows.bat` (windows)
+
 ### I'm not hearing audio out of the headphone jack
 
 By default the raspbian outputs to HDMI audio when it's available. Pikaraoke tries to output to both HDMI and headphone, but if it doesn't work you may need to to force it to the headphone jack. This is definitely the case when using VLC. To do so, change following setting on the pi:
@@ -277,7 +281,7 @@ I also found that 32-bit versions of the OS are faster than 64 bit on the pi 3.
 
 Overclocking to 1300 also seemed to clear up any issues for our test hardware. Ensure your pi has sufficient cooling on the CPUs and memory (headsinks or even active cooling)
 
-To overclock, edit your boot.config:
+To overclock your pi 3, edit your boot.config:
 
 ```
 sudo nano /boot/config.txt
@@ -292,3 +296,15 @@ gpu_freq=500
 over_voltage=4
 sdram_freq=500
 ```
+
+### I'm getting this ChromeDriver error on launch: "session not created: DevToolsActivePort file doesn't exist"
+
+Are you trying to launch over SSH? That probably indicates that chromedriver doesn't know which display to launch the browser on. If so, you may need to specify the native display of the remote device using this command: `DISPLAY=:0.0 ./pikaraoke.sh`. Note that Pikaraoke 1.2.1 and newer should do this for you.
+
+You can alternately run headless if you launch the splash screen manually on a separate machine: `./pikaraoke.sh --headless`
+
+### How do I dismiss the Splash confirmation screen on an in-TV browser? (like a Samsung TV with web browsing)
+
+The splash confirmation screen is an unfortunate necessity due to modern browser permissions disabling video autoplay. A single interaction will enable it, and the confirmation screen serves as this interaction. Hopefully your TV has a way to click the button on the screen with the remote or otherwise.
+
+If you want to try without confirmation, you can add a parameter to the end of the splash screen URL "confirm=false". Ex: `http://pikaraoke.local:5555/splash.html?confirm=false` but there's no guarantee that videos will play; it depends on the embedded browser implementation.

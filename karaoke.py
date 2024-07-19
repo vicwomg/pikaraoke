@@ -17,7 +17,8 @@ import qrcode
 from unidecode import unidecode
 
 from lib.file_resolver import FileResolver
-from lib.get_platform import get_platform
+from lib.get_platform import (get_ffmpeg_version, get_os_version, get_platform,
+                              is_raspberry_pi, supports_hardware_h264_encoding)
 
 
 # Support function for reading  lines from ffmpeg stderr without blocking
@@ -57,6 +58,12 @@ class Karaoke:
     screensaver_timeout = 300 # in seconds
 
     ffmpeg_process = None
+    ffmpeg_log = None
+    ffmpeg_version = get_ffmpeg_version()
+    supports_hardware_h264_encoding = supports_hardware_h264_encoding()
+    
+    raspberry_pi = is_raspberry_pi()
+    os_version = get_os_version()
 
     def __init__(
         self,
@@ -125,9 +132,15 @@ class Karaoke:
     logo path: {self.logo_path}
     log_level: {log_level}
     hide overlay: {self.hide_overlay}
+
+    platform: {self.platform} 
+    os version: {self.os_version}
+    ffmpeg version: {self.ffmpeg_version}
+    hardware h264 encoding: {self.supports_hardware_h264_encoding}
+    youtubedl-version: {self.get_youtubedl_version()}
 """)
         # Generate connection URL and QR code, 
-        if self.platform == "raspberry_pi":
+        if self.raspberry_pi:
             #retry in case pi is still starting up
             # and doesn't have an IP yet (occurs when launched from /etc/rc.local)
             end_time = int(time.time()) + 30
@@ -362,6 +375,12 @@ class Karaoke:
         else:
             logging.error("Error parsing youtube id from url: " + url)
             return None
+        
+    def log_ffmpeg_output(self):
+        if self.ffmpeg_log != None and self.ffmpeg_log.qsize() > 0:
+            while self.ffmpeg_log.qsize() > 0:
+                output = self.ffmpeg_log.get_nowait() 
+                logging.debug("[FFMPEG] " + decode_ignore(output))
 
     def play_file(self, file_path, semitones=0):
         logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
@@ -385,7 +404,7 @@ class Karaoke:
             return False
 
         # use h/w acceleration on pi
-        default_vcodec = "h264_v4l2m2m" if self.platform == "raspberry_pi" else "libx264" 
+        default_vcodec = "h264_v4l2m2m" if self.supports_hardware_h264_encoding else "libx264" 
         # just copy the video stream if it's an mp4 or webm file, since they are supported natively in html5 
         # otherwise use the default h264 codec
         vcodec = "copy" if fr.file_extension == ".mp4" or fr.file_extension == ".webm" else default_vcodec
@@ -396,21 +415,27 @@ class Karaoke:
         acodec = "aac" if is_transposed else "copy"
         input = ffmpeg.input(fr.file_path)
         audio = input.audio.filter("rubberband", pitch=pitch) if is_transposed else input.audio
+        # Ffmpeg outputs "Stream #0" when the stream is ready to consume  
+        stream_ready_string = "Stream #"
 
         if (fr.cdg_file_path != None): #handle CDG files
             logging.info("Playing CDG/MP3 file: " + file_path)
+            # Ffmpeg outputs "Video: cdgraphics" when the stream is ready to consume  
+            stream_ready_string = "Video: cdgraphics"
             # copyts helps with sync issues, fps=25 prevents ffmpeg from needlessly encoding cdg at 300fps
             cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
             video = cdg_input.video.filter("fps", fps=25)
-            #cdg is very fussy about these flags. pi needs to encode to aac and cant just copy the mp3 stream
+            #cdg is very fussy about these flags. 
+            # pi ffmpeg needs to encode to aac and cant just copy the mp3 stream
+            # It alse appears to have memory issues with hardware acceleration h264_v4l2m2m  
             output = ffmpeg.output(audio, video, ffmpeg_url, 
-                                   vcodec=vcodec, acodec="aac", 
-                                   pix_fmt="yuv420p", listen=1, f="mp4", video_bitrate=vbitrate,
+                                   vcodec="libx264", acodec="aac", preset="ultrafast",
+                                   pix_fmt="yuv420p", listen=1, f="mp4", video_bitrate="500k",
                                    movflags="frag_keyframe+default_base_moof")     
         else: 
             video = input.video
             output = ffmpeg.output(audio, video, ffmpeg_url, 
-                                   vcodec=vcodec, acodec=acodec, 
+                                   vcodec=vcodec, acodec=acodec, preset="ultrafast",
                                    listen=1, f="mp4", video_bitrate=vbitrate,
                                    movflags="frag_keyframe+default_base_moof")
         
@@ -423,21 +448,20 @@ class Karaoke:
 
         # ffmpeg outputs everything useful to stderr for some insane reason!
         # prevent reading stderr from being a blocking action
-        q = Queue()
-        t = Thread(target=enqueue_output, args=(self.ffmpeg_process.stderr, q))
+        self.ffmpeg_log = Queue()
+        t = Thread(target=enqueue_output, args=(self.ffmpeg_process.stderr, self.ffmpeg_log))
         t.daemon = True
         t.start()
 
         while self.ffmpeg_process.poll() is None:
             try:  
-                output = q.get_nowait() 
+                output = self.ffmpeg_log.get_nowait() 
                 logging.debug("[FFMPEG] " + decode_ignore(output))
             except Empty:
                 pass
             else: 
-                if  "Stream #" in decode_ignore(output):
+                if  stream_ready_string in decode_ignore(output):
                     logging.debug("Stream ready!")
-                    # Ffmpeg outputs "Stream #0" when the stream is ready to consume
                     self.now_playing = self.filename_from_path(file_path)
                     self.now_playing_filename = file_path
                     self.now_playing_transpose = semitones
@@ -446,15 +470,10 @@ class Karaoke:
                     self.is_paused = False
                     self.queue.pop(0)
 
-                    # Keep logging output until the splash screen reports back that the stream is playing
+                    # Pause until the stream is playing
                     max_retries = 100
                     while self.is_playing == False and max_retries > 0:
                         time.sleep(0.1) #prevents loop from trying to replay track
-                        try:  
-                            output = q.get_nowait() 
-                            logging.debug("[FFMPEG] " + decode_ignore(output))
-                        except Empty:
-                            pass
                         max_retries -= 1
                     if self.is_playing:
                         logging.debug("Stream is playing")
@@ -641,6 +660,7 @@ class Karaoke:
         self.is_paused = True
         self.is_playing = False
         self.now_playing_transpose = 0
+        self.ffmpeg_log = None
 
     def run(self):
         logging.info("Starting PiKaraoke!")
@@ -658,6 +678,7 @@ class Karaoke:
                             self.handle_run_loop()
                             i += self.loop_interval
                         self.play_file(self.queue[0]["file"], self.queue[0]["semitones"])
+                self.log_ffmpeg_output()
                 self.handle_run_loop()
             except KeyboardInterrupt:
                 logging.warn("Keyboard interrupt: Exiting pikaraoke...")
