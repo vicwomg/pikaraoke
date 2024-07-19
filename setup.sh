@@ -5,8 +5,12 @@ if [ $REPLY = "y" ]
  then
 
 ## setup stuff
+echo
+echo "*** PULLING LATEST PIKARAOKE CODE ***."
+git pull
+echo
 
-if [[ $(cat /etc/os-release | grep ^ID= | grep -i 'debian\|raspbian') != "" ]]; then
+if [[ $(cat /etc/os-release | grep ^ID_LIKE= | grep -i 'debian\|raspbian') != "" ]]; then
   echo "Client is a Debian-based system. Installing binaries"; 
   echo
   echo "*** RUNNING APT-GET UPDATE ***"

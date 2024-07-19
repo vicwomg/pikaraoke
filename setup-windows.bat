@@ -10,6 +10,10 @@ if /i "%confirm%" == "n" goto end
 :setup
 
 echo
+echo "*** PULLING LATEST PIKARAOKE CODE ***."
+git pull
+
+echo
 echo "*** CREATING PYTHON VIRTUAL ENVIRONMENT ***"
 python3 -m venv .venv
 call .venv\Scripts\activate

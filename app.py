@@ -46,6 +46,7 @@ babel = Babel(app)
 site_name = "PiKaraoke"
 admin_password = None
 raspberry_pi = is_raspberry_pi()
+linux = get_platform() == "linux"
 
 def filename_from_path(file_path, remove_youtube_id=True):
     rc = os.path.basename(file_path)
@@ -551,6 +552,7 @@ def info():
         platform=k.platform,
         os_version=k.os_version,
         is_pi=raspberry_pi,
+        is_linux=linux,
         pikaraoke_version=VERSION,
         admin=is_admin(),
         admin_enabled=admin_password != None
