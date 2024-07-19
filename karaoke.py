@@ -421,7 +421,7 @@ class Karaoke:
             video = cdg_input.video.filter("fps", fps=25)
             #cdg is very fussy about these flags. 
             # pi ffmpeg needs to encode to aac and cant just copy the mp3 stream
-            # It alse appears to have memory issues with hardware acceleration h264_v4l2m2m in 
+            # It alse appears to have memory issues with hardware acceleration h264_v4l2m2m  
             output = ffmpeg.output(audio, video, ffmpeg_url, 
                                    vcodec="libx264", acodec="aac", preset="ultrafast",
                                    pix_fmt="yuv420p", listen=1, f="mp4", video_bitrate="500k",
@@ -429,7 +429,7 @@ class Karaoke:
         else: 
             video = input.video
             output = ffmpeg.output(audio, video, ffmpeg_url, 
-                                   vcodec=vcodec, acodec=acodec, 
+                                   vcodec=vcodec, acodec=acodec, preset="ultrafast",
                                    listen=1, f="mp4", video_bitrate=vbitrate,
                                    movflags="frag_keyframe+default_base_moof")
         
