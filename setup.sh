@@ -10,7 +10,7 @@ echo "*** PULLING LATEST PIKARAOKE CODE ***."
 git pull
 echo
 
-if [[ $(cat /etc/os-release | grep ^ID_LIKE= | grep -i 'debian\|raspbian') != "" ]]; then
+if [[ $(cat /etc/os-release | grep ^ID= | grep -i 'debian\|raspbian') != "" ]] ||  [[ $(cat /etc/os-release | grep ^ID_LIKE= | grep -i 'debian') != "" ]]; then
   echo "Client is a Debian-based system. Installing binaries"; 
   echo
   echo "*** RUNNING APT-GET UPDATE ***"
