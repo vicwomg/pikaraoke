@@ -409,9 +409,13 @@ class Karaoke:
         acodec = "aac" if is_transposed else "copy"
         input = ffmpeg.input(fr.file_path)
         audio = input.audio.filter("rubberband", pitch=pitch) if is_transposed else input.audio
+        # Ffmpeg outputs "Stream #0" when the stream is ready to consume  
+        stream_ready_string = "Stream #"
 
         if (fr.cdg_file_path != None): #handle CDG files
             logging.info("Playing CDG/MP3 file: " + file_path)
+            # Ffmpeg outputs "Video: cdgraphics" when the stream is ready to consume  
+            stream_ready_string = "Video: cdgraphics"
             # copyts helps with sync issues, fps=25 prevents ffmpeg from needlessly encoding cdg at 300fps
             cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
             video = cdg_input.video.filter("fps", fps=25)
@@ -448,9 +452,8 @@ class Karaoke:
             except Empty:
                 pass
             else: 
-                if  "Stream #" in decode_ignore(output):
+                if  stream_ready_string in decode_ignore(output):
                     logging.debug("Stream ready!")
-                    # Ffmpeg outputs "Stream #0" when the stream is ready to consume
                     self.now_playing = self.filename_from_path(file_path)
                     self.now_playing_filename = file_path
                     self.now_playing_transpose = semitones
