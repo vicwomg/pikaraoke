@@ -77,16 +77,25 @@
 {# MSG: Header of the information section about the computer running Pikaraoke. #}
 <h1>{% trans %}System Info{% endtrans %}</h1>
 <ul>
+  {# MSG: The hardware platform  #}
+  <li><u>{% trans %}Platform:{% endtrans %}</u> {{ platform }}</li>
+  {# MSG: The os version  #}
+  <li><u>{% trans %}OS Version:{% endtrans %}</u> {{ os_version }}</li>
+  {# MSG: The version of the program "Youtube-dl". #}
+  <li><u>{% trans %}Youtube-dl (yt-dlp) version:{% endtrans %}</u> {{ youtubedl_version }}</li>
+  {# MSG: The version of the program "ffmpeg". #}
+  <li><u>{% trans %}FFmpeg version:{% endtrans %}</u> {{ ffmpeg_version }}</li>
+  {# MSG: The version of Pikaraoke running right now. #}
+  <li><u>{% trans %}Pikaraoke version:{% endtrans %}</u> {{ pikaraoke_version }}</li>
+</ul>
+<h1>{% trans %}System stats{% endtrans %}</h1>
+<ul>
   {# MSG: The CPU usage of the computer running Pikaraoke. #}
   <li>{% trans %}CPU: {{ cpu }}{% endtrans %}</li>
   {# MSG: The disk usage of the computer running Pikaraoke. Used by downloaded songs. #}
   <li>{% trans %}Disk Usage: {{ disk }}{% endtrans %}</li>
-  {# MSG: The memory (RAM) usiage of the computer running Pikaraoke. #}
+  {# MSG: The memory (RAM) usage of the computer running Pikaraoke. #}
   <li>{% trans %}Memory: {{ memory }}{% endtrans %}</li>
-  {# MSG: The version of the program "Youtube-dl". #}
-  <li>{% trans %}Youtube-dl (yt-dlp) version: {{ youtubedl_version }}{% endtrans %}</li>
-  {# MSG: The version of Pikaraoke running right now. #}
-  <li>{% trans %}Pikaraoke version: {{ pikaraoke_version }}{% endtrans %}</li>
 </ul>
 
 <hr />
@@ -139,7 +148,7 @@
 <ul>
   {# MSG: Text for button which turns off Pikaraoke for everyone using it at your house. #}
   <li><a id="quit-link" href="{{ url_for('quit') }}">{% trans %}Quit Pikaraoke{% endtrans %}</a></li>
-  {% if is_pi %}
+  {% if is_pi or is_linux %}
     {# MSG: Text for button which reboots the machine running Pikaraoke. #}
     <li><a id="restart-link" href="{{ url_for('reboot') }}">{% trans %}Reboot System{% endtrans %}</a></li>
     <li>

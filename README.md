@@ -55,9 +55,9 @@ Raspberry Pi 3 and above. Anything else will likely be too slow.
 Other pi considerations:
 
 - Should be running Raspberry pi desktop OS if running headed, since it requires a browser
-- 32-bit version of the Bullseye OS is recommended. 64-bit seemed slower in my testing, but pi4 and above can probably handle it. Bookworm seems to install an incompatible version of ffmpeg at the moment. Please avoid if possible ( see #323 )
-- Disable "screen blanking" in raspi-config if you want to prevent the display from turning off when idle
+- 32-bit version of the Bullseye OS is recommended for pi 3. 64-bit bookworm is fine for pi 4 and above.
 - Pi3 might struggle a bit with high-res video playback. Overclocking seems to help
+- Disable "screen blanking" in raspi-config if you want to prevent the display from turning off when idle
 
 Works fine on modern Mac, PCs, and Linux!
 
@@ -190,6 +190,10 @@ options:
 
 ## Troubleshooting
 
+### How do I update pikaraoke to the latest version?
+
+Simply run the setup script again. CD the pikaraoke directory and run: `./setup.sh` (linux/osx/rpi) `setup-windows.bat` (windows)
+
 ### I'm not hearing audio out of the headphone jack
 
 By default the raspbian outputs to HDMI audio when it's available. Pikaraoke tries to output to both HDMI and headphone, but if it doesn't work you may need to to force it to the headphone jack. This is definitely the case when using VLC. To do so, change following setting on the pi:
@@ -268,6 +272,12 @@ You'll need to add them manually by copying them to the root of your download fo
 ### My mp3/cdg file is not playing
 
 CDG files must have an mp3 file with a exact matching file name. They can also be bundled together in a single zip file, but the filenames in the zip must still match. They must also be placed in the root of the download directory and not stashed away in sub-directories.
+
+### I'm getting this ChromeDriver error on launch: "session not created: DevToolsActivePort file doesn't exist"
+
+Are you trying to launch over SSH? That probably indicates that chromedriver doesn't know which display to launch the browser on. If so, you may need to specify the native display of the remote device using this command: `DISPLAY=:0.0 ./pikaraoke.sh`. Note that Pikaraoke 1.2.1 and newer should do this for you.
+
+You can alternately run headless if you launch the splash screen manually on a separate machine: `./pikaraoke.sh --headless`
 
 ### How do I dismiss the Splash confirmation screen on an in-TV browser? (like a Samsung TV with web browsing)
 
