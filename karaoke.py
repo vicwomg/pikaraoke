@@ -166,8 +166,10 @@ class Karaoke:
             else:
                 self.url = f"http://{self.ip}:{self.port}" 
         self.url_parsed = urlparse(self.url)
+
+        # handle ffmpeg URL overrides
         if ffmpeg_url is None:
-            self.ffmpeg_url = f"{self.url_parsed.scheme}://{self.url_parsed.hostname}:{self.ffmpeg_port}"
+            self.ffmpeg_url = None
         else:
             self.ffmpeg_url = ffmpeg_url
 
