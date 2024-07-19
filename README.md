@@ -55,9 +55,9 @@ Raspberry Pi 3 and above. Anything else will likely be too slow.
 Other pi considerations:
 
 - Should be running Raspberry pi desktop OS if running headed, since it requires a browser
-- 32-bit version of the Bullseye OS is recommended. 64-bit seemed slower in my testing, but pi4 and above can probably handle it. Bookworm seems to install an incompatible version of ffmpeg at the moment. Please avoid if possible ( see #323 )
-- Disable "screen blanking" in raspi-config if you want to prevent the display from turning off when idle
+- 32-bit version of the Bullseye OS is recommended for pi 3. 64-bit bookworm is fine for pi 4 and above.
 - Pi3 might struggle a bit with high-res video playback. Overclocking seems to help
+- Disable "screen blanking" in raspi-config if you want to prevent the display from turning off when idle
 
 Works fine on modern Mac, PCs, and Linux!
 
