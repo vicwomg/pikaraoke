@@ -655,6 +655,7 @@ file_cache = {}
 
 @app.route('/stream/<id>')
 def stream(id):
+    global file_cache
     # Check if file is already in cache
     if id not in file_cache:
         # clear the file cache
