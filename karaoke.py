@@ -384,6 +384,7 @@ class Karaoke:
     def play_file(self, file_path, semitones=0):
         logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
         stream_uid = int(time.time())
+        output_file = f"/tmp/pikaraoke/{stream_uid}.mp4"
         stream_url = f"{self.url}/stream/{stream_uid}"
         # pass a 0.0.0.0 IP to ffmpeg which will work for both hostnames and direct IP access
         ffmpeg_url = f"http://0.0.0.0:{self.ffmpeg_port}/{stream_uid}"
@@ -422,13 +423,13 @@ class Karaoke:
             #cdg is very fussy about these flags. 
             # pi ffmpeg needs to encode to aac and cant just copy the mp3 stream
             # It alse appears to have memory issues with hardware acceleration h264_v4l2m2m  
-            output = ffmpeg.output(audio, video, ffmpeg_url, 
+            output = ffmpeg.output(audio, video, output_file, 
                                    vcodec="libx264", acodec="aac", preset="ultrafast",
                                    pix_fmt="yuv420p", listen=1, f="mp4", video_bitrate="500k",
                                    movflags="frag_keyframe+default_base_moof")     
         else: 
             video = input.video
-            output = ffmpeg.output(audio, video, ffmpeg_url, 
+            output = ffmpeg.output(audio, video, output_file, 
                                    vcodec=vcodec, acodec=acodec, preset="ultrafast",
                                    listen=1, f="mp4", video_bitrate=vbitrate,
                                    movflags="frag_keyframe+default_base_moof")
