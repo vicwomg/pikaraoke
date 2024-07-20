@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -13,8 +14,10 @@ import time
 import cherrypy
 import flask_babel
 import psutil
-from flask import (Flask, flash, make_response, redirect, render_template,
-                   request, send_file, url_for)
+import requests
+from flask import (Flask, Response, flash, make_response, redirect,
+                   render_template, request, send_file, stream_with_context,
+                   url_for)
 from flask_babel import Babel
 from flask_paginate import Pagination, get_page_parameter
 from selenium import webdriver
@@ -645,6 +648,46 @@ def expand_fs():
     else:
         flash("You don't have permission to resize the filesystem", "is-danger")
     return redirect(url_for("home"))
+
+
+# Cache variable (in-memory)
+file_cache = {}
+
+@app.route('/stream/<id>')
+def stream(id):
+    # Check if file is already in cache
+    if id not in file_cache:
+        # clear the file cache
+        file_cache = {}
+        # Download and cache file
+        target_url = f'http://0.0.0.0:5556/{id}'
+        response = requests.get(target_url)
+        file_cache[id] = response.content
+
+    file_content = file_cache[id]
+    range_header = request.headers.get('Range', None)
+
+    if not range_header:
+        return Response(file_content, mimetype='video/mp4')
+
+    # Extract range start and end from Range header (e.g., "bytes=0-499")
+    range_match = re.search(r'bytes=(\d+)-(\d*)', range_header)
+    start, end = range_match.groups()
+
+    start = int(start)
+    end = int(end) if end else len(file_content) - 1
+
+    # Generate response with part of file
+    data = file_content[start:end+1]
+    status_code = 206  # Partial content
+    headers = {
+        'Content-Type': 'video/mp4',
+        'Accept-Ranges': 'bytes',
+        'Content-Range': f'bytes {start}-{end}/{len(file_content)}',
+        'Content-Length': str(len(data)),
+    }
+
+    return Response(data, status=status_code, headers=headers)
 
 
 # Handle sigterm, apparently cherrypy won't shut down without explicit handling
