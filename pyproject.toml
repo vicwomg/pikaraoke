@@ -25,6 +25,11 @@ pre-commit = "3.7.1"
 pytest = "8.2.2"
 pytest-playwright = "0.5.1"
 pytest-xdist = "3.6.1"
+pillow = "10.4.0"
+requests = "2.32.3"
+qrcode = "7.4.2"
+pyzbar = "0.1.9"
+
 
 [tool.poetry.scripts]
 pikaraoke = "pikaraoke.app:main"

@@ -8,4 +8,4 @@ qrcode.png
 .DS_Store
 **build
 **dist
-**logs
+**logs*
