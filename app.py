@@ -652,7 +652,7 @@ signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
 def get_default_youtube_dl_path(platform):
     if platform == "windows":
-        return os.path.join(os.path.dirname(__file__), ".venv\Scripts\yt-dlp.exe")
+        return os.path.join(os.path.dirname(__file__), ".venv\\Scripts\\yt-dlp.exe")
     return os.path.join(os.path.dirname(__file__), ".venv/bin/yt-dlp")
         
 
@@ -660,11 +660,11 @@ def get_default_dl_dir(platform):
     if raspberry_pi:
         return "~/pikaraoke-songs"
     elif platform == "windows":
-        legacy_directory = os.path.expanduser("~\pikaraoke\songs")
+        legacy_directory = os.path.expanduser("~\\pikaraoke\\songs")
         if os.path.exists(legacy_directory):
             return legacy_directory
         else:
-            return "~\pikaraoke-songs"
+            return "~\\pikaraoke-songs"
     else:
         legacy_directory = "~/pikaraoke/songs"
         if os.path.exists(legacy_directory):
