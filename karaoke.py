@@ -411,12 +411,10 @@ class Karaoke:
         input = ffmpeg.input(fr.file_path)
         audio = input.audio.filter("rubberband", pitch=pitch) if is_transposed else input.audio
         # Ffmpeg outputs "Stream #0" when the stream is ready to consume  
-        stream_ready_string = "Stream #"
 
         if (fr.cdg_file_path != None): #handle CDG files
             logging.info("Playing CDG/MP3 file: " + file_path)
             # Ffmpeg outputs "Video: cdgraphics" when the stream is ready to consume  
-            stream_ready_string = "Video: cdgraphics"
             # copyts helps with sync issues, fps=25 prevents ffmpeg from needlessly encoding cdg at 300fps
             cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
             video = cdg_input.video.filter("fps", fps=25)
@@ -448,14 +446,16 @@ class Karaoke:
         t.daemon = True
         t.start()
 
+        output_file_size = 0
         while self.ffmpeg_process.poll() is None:
-            try:  
-                output = self.ffmpeg_log.get_nowait() 
-                logging.debug("[FFMPEG] " + decode_ignore(output))
-            except Empty:
+            try:
+                # Add a loop to check the size of output_file
+                output_file_size = os.path.getsize(output_file)
+            except FileNotFoundError:
+                # Handle the case where the file might not exist yet
                 pass
             else: 
-                if  stream_ready_string in decode_ignore(output):
+                if  output_file_size > 1048576 * 2:  # 2MB in bytes
                     logging.debug("Stream ready!")
                     self.now_playing = self.filename_from_path(file_path)
                     self.now_playing_filename = file_path
