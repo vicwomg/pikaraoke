@@ -455,7 +455,7 @@ class Karaoke:
                 # Handle the case where the file might not exist yet
                 pass
             else: 
-                if  output_file_size > 1048576 * 2:  # 2MB in bytes
+                if  output_file_size > 1048576:  # 1MB in bytes
                     logging.debug("Stream ready!")
                     self.now_playing = self.filename_from_path(file_path)
                     self.now_playing_filename = file_path

@@ -649,7 +649,7 @@ def expand_fs():
         flash("You don't have permission to resize the filesystem", "is-danger")
     return redirect(url_for("home"))
 
-
+# Streams the file in chunks from the filesystem (chrome supports it, safari does not)
 @app.route('/stream/<id>')
 def stream(id):
     file_path = f"/tmp/pikaraoke/{id}.mp4"
@@ -657,58 +657,65 @@ def stream(id):
     def generate():
         previous_size = -1
         current_size = 0
-        while True:
-            current_size = os.path.getsize(file_path)
-            if current_size == previous_size:
-                # File size has stabilized, break the loop
-                break
-            with open(file_path, 'rb') as file:
+        position = 0  # Initialize the position variable
+        with open(file_path, 'rb') as file:  # Open the file outside the loop
+            while True:
+                current_size = os.path.getsize(file_path)
+                if current_size == previous_size:
+                    # File size has stabilized, break the loop
+                    print(f"**FILE SIZE STABILIZED {current_size}")
+                    break
+                file.seek(position)  # Move to the last read position
                 while True:
-                    chunk = file.read(10240)  # Read in 10KB chunks
+                    chunk = file.read(10240 * 100 * 30)  # Read in 3mb chunks
                     if not chunk:
+                        print(f"**CHUNK BREAK {len(chunk)}")
                         break  # End of file reached
+                    print(f"**YIELD CHUNK {len(chunk)}")
                     yield chunk
-            previous_size = current_size
-            time.sleep(.1)  # Wait a bit before checking the file size again
+                    position += len(chunk)  # Update the position with the size of the chunk
+                previous_size = current_size
+                time.sleep(1)  # Wait a bit before checking the file size again
 
     return Response(generate(), mimetype='video/mp4')
 
+# Streams the file in full with proper range headers 
+# (Safari compatible, but requires the ffmpeg transcoding to be complete to know file size)
+@app.route('/stream/full/<id>')
+def stream_full(id):
+    file_path = f"/tmp/pikaraoke/{id}.mp4"
+    try:
+        file_size = os.path.getsize(file_path)
+        range_header = request.headers.get('Range', None)
+        if not range_header:
+            with open(file_path, 'rb') as file:
+                file_content = file.read()
+            return Response(file_content, mimetype='video/mp4')
 
-# @app.route('/stream/<id>')
-# def stream(id):
-#     file_path = f"/tmp/pikaraoke/{id}.mp4"
-#     try:
-#         file_size = os.path.getsize(file_path)
-#         range_header = request.headers.get('Range', None)
-#         if not range_header:
-#             with open(file_path, 'rb') as file:
-#                 file_content = file.read()
-#             return Response(file_content, mimetype='video/mp4')
+        # Extract range start and end from Range header (e.g., "bytes=0-499")
+        range_match = re.search(r'bytes=(\d+)-(\d*)', range_header)
+        start, end = range_match.groups()
 
-#         # Extract range start and end from Range header (e.g., "bytes=0-499")
-#         range_match = re.search(r'bytes=(\d+)-(\d*)', range_header)
-#         start, end = range_match.groups()
+        start = int(start)
+        end = int(end) if end else file_size - 1
 
-#         start = int(start)
-#         end = int(end) if end else file_size - 1
+        print(f"***range header: {range_header} FILE_SIZE: {file_size}")
+        # Generate response with part of file
+        with open(file_path, 'rb') as file:
+            file.seek(start)
+            data = file.read(end - start + 1)
+        status_code = 206  # Partial content
+        headers = {
+            'Content-Type': 'video/mp4',
+            'Accept-Ranges': 'bytes',
+            'Content-Range': f'bytes {start}-{end}/{file_size}',
+            'Content-Length': str(len(data)),
+        }
 
-#         print(f"***range header: {range_header} FILE_SIZE: {file_size}")
-#         # Generate response with part of file
-#         with open(file_path, 'rb') as file:
-#             file.seek(start)
-#             data = file.read(end - start + 1)
-#         status_code = 206  # Partial content
-#         headers = {
-#             'Content-Type': 'video/mp4',
-#             'Accept-Ranges': 'bytes',
-#             'Content-Range': f'bytes {start}-{end}/{file_size}',
-#             'Content-Length': str(len(data)),
-#         }
-
-#         return Response(data, status=status_code, headers=headers)
-#     except IOError:
-#         flash("File not found.", "is-danger")
-#         return redirect(url_for("home"))
+        return Response(data, status=status_code, headers=headers)
+    except IOError:
+        flash("File not found.", "is-danger")
+        return redirect(url_for("home"))
 
 
 # Handle sigterm, apparently cherrypy won't shut down without explicit handling
