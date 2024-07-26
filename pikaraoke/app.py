@@ -673,24 +673,35 @@ def expand_fs():
 signal.signal(signal.SIGTERM, lambda signum, stack_frame: karaoke.stop())
 
 
-def _configure_logger(log_level: int):
-    # Generate filename with current date and time
-    logs_folder = Path("logs")
-    log_filename = logs_folder / datetime.now().strftime("%Y-%m-%d_%H-%M-%S.log")
-    logs_folder.mkdir(exist_ok=True)  # Create logs/ folder
-
-    logging.basicConfig(
-        format="[%(asctime)s] %(levelname)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-        level=log_level,  # Remember to move args before settup logging and use args here
-        handlers=[logging.FileHandler(log_filename), logging.StreamHandler()],
-    )
-
+@contextmanager
+def start_server():
+    try:
+        logger.debug("Starting server...")
+        cherrypy.engine.start()
+        yield
+    finally:
+        logger.debug("Stopping the server...")
+        cherrypy.engine.exit()
+        logger.debug("Server stopped.")
 
 def main():
     _configure_logger(log_level=logging.DEBUG)
 
     args = parse_args()
+    # Configure before configuring the logger because cherrypy configures a logging format that
+    # overrides the format in pikaraoke
+    cherrypy.tree.graft(app, "/")
+    cherrypy.config.update(
+        {
+            "engine.autoreload.on": False,
+            "log.screen": True,
+            "server.socket_port": args.port,
+            "server.socket_host": "0.0.0.0",
+            "server.thread_pool": 100,
+        }
+    )
+
+    configure_logger(log_level=logging.DEBUG)
 
     global admin_password
     if args.admin_password:
@@ -700,10 +711,8 @@ def main():
     app.jinja_env.globals.update(url_escape=quote)
 
     # setup/create download directory if necessary
-    dl_path: Path = (
-        args.download_path.expanduser()
-    )  # Is it necessary to expand user? I don't think so.
-    dl_path.mkdir(parents=True, exist_ok=True)
+    download_path = args.download_path.expanduser()
+    download_path.mkdir(parents=True, exist_ok=True)
 
     # Configure karaoke process
     global karaoke
@@ -711,7 +720,7 @@ def main():
     karaoke = Karaoke(
         port=args.port,
         ffmpeg_port=args.ffmpeg_port,
-        download_path=dl_path,
+        download_path=download_path,
         splash_delay=args.splash_delay,
         log_level=args.log_level,
         volume=args.volume,
@@ -727,35 +736,16 @@ def main():
         prefer_hostname=args.prefer_hostname,
     )
 
-    # Start the CherryPy WSGI web server
-    cherrypy.tree.graft(app, "/")
-    # Set the configuration of the web server
-    cherrypy.config.update(
-        {
-            "engine.autoreload.on": False,
-            "log.screen": True,
-            "server.socket_port": int(args.port),
-            "server.socket_host": "0.0.0.0",
-            "server.thread_pool": 100,
-        }
-    )
-    cherrypy.engine.start()
+    with start_server(), karaoke:
+        logger.debug("Server is running.")
 
-    # Start the splash screen using selenium
-    if not args.hide_splash_screen:
-        url = f"http://{karaoke.ip}:5555/splash"
-        logger.debug(f"Opening in default browser at {url}")
-        webbrowser.open(url)
+        # Start the splash screen using selenium
+        if not args.hide_splash_screen:
+            url = f"http://{karaoke.ip}:5555/splash"
+            logger.debug(f"Opening in default browser at {url}")
+            webbrowser.open(url)
 
-    # Start the karaoke process
-    with karaoke:
         karaoke.run()
-
-    # Close running processes when done
-    cherrypy.engine.exit()
-
-    sys.exit()
-
 
 if __name__ == "__main__":
     main()
