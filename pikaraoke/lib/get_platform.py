@@ -4,6 +4,19 @@ from enum import Enum
 
 
 class Platform(Enum):
+    """Which OS the current host is among OSX, RPI, LINUX, WINDOWS, UNKNOWN.
+
+    Supports methods: `is_rpi()` `is_windows()` `is_linux()` `is_mac()`.
+
+    ### Example:
+
+    ```
+    platform = Platform.LINUX
+    platform.is_linux() # Returns True
+    platform.is_max() # Returns False
+    ```
+    """
+
     OSX = "osx"
     RASPBERRY_PI = "raspberry_pi"
     LINUX = "linux"

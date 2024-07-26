@@ -76,14 +76,14 @@
   {% if sort_order == "Alphabetical" %} {# MSG: Label which displays that the
   songs are currently sorted by alphabetical order. #} {% trans %}Sorted
   Alphabetically{% endtrans %} |
-  <a href="{{ url_for('browse') }}?sort=date">
+  <a href="{{ url_for('home.browse') }}?sort=date">
     {# MSG: Button which changes how the songs are sorted so they become sorted
     by date. #} {% trans %}Sort by Date{% endtrans %}
   </a>
   {% endif %} {% if sort_order == "Date" %} {# MSG: Label which displays that
   the songs are currently sorted by date. #} {% trans %}Sorted by date{%
   endtrans %} |
-  <a href="{{ url_for('browse') }}">
+  <a href="{{ url_for('home.browse') }}">
     {# MSG: Button which changes how the songs are sorted so they become sorted
     by name. #} {% trans %}Sort by Alphabetical{% endtrans %}
   </a>
@@ -91,10 +91,10 @@
 </p>
 
 <div id="alpha-bar" class="has-background-dark mobile-hide">
-  <a href="{{ url_for('browse') }}?letter=numeric">#</a>
+  <a href="{{ url_for('home.browse') }}?letter=numeric">#</a>
   {% for letter in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l',
   'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'] %}
-  <a href="{{ url_for('browse') }}?letter={{letter}}">{{letter.upper()}}</a>
+  <a href="{{ url_for('home.browse') }}?letter={{letter}}">{{letter.upper()}}</a>
   {% endfor %}
 </div>
 
@@ -113,7 +113,7 @@
       <a
         class="add-song-link has-text-weight-bold has-text-success"
         title="Add '{{filename_from_path(song)}}' to queue"
-        href="{{url_for('enqueue')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&user="
+        href="{{url_for('karaoke.enqueue')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&user="
         ><i class="icon icon-list-add"></i>
       </a>
     </td>
@@ -122,7 +122,7 @@
     <td width="20px">
       <a
         class="edit-button"
-        href="{{url_for('edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}"
+        href="{{url_for('file.edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}"
         title="Edit song"
         ><i class="icon icon-edit-1"></i>
       </a>

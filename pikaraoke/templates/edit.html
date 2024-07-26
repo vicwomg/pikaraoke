@@ -109,7 +109,7 @@
 
 
 <div class="field">
-  <form action="{{ url_for('edit_file') }}" method="post">
+  <form action="{{ url_for('file.edit_file') }}" method="post">
     <div class="field">
       <p class='has-text-warning'>{{ filename_from_path(song.decode('utf-8', 'ignore')) }} </p>
     </div>
@@ -142,7 +142,7 @@
 
 <hr>
 <a class="edit-button confirm-delete has-text-danger is-pulled-right"
-  href="{{url_for('delete_file')}}?song={{url_escape(song)}}"><i class="icon icon-trash-empty"></i>
+  href="{{url_for('file.delete_file')}}?song={{url_escape(song)}}"><i class="icon icon-trash-empty"></i>
   {# MSG: Label on button which deletes the current song. #}
   {%- trans -%}
     Delete this song
