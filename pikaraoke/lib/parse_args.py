@@ -1,8 +1,6 @@
 import argparse
 import importlib.resources as pkg_resources
 import logging
-import os
-import sys
 from pathlib import Path
 
 from pikaraoke import resources
@@ -33,7 +31,7 @@ PLATFORM = get_platform()
 DL_DIR: Path = get_default_dl_dir(PLATFORM)
 
 
-def volume_type(input):
+def _volume_type(input):
     """Verify the volume input"""
     try:
         volume = float(input)
@@ -81,20 +79,9 @@ def _get_logo_path():
         return None
 
 
-def resource_path(relative_path):
-    try:
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-
-    return os.path.join(base_path, relative_path)
-
-
 def parse_args() -> ArgsNamespace:
     # Usage example to get path to logo.png inside the executable
-    # logo_path_default = resource_path("resources/logo.png") # Works in pyinstaller
     logo_path_default = _get_logo_path()  # Works in poetry
-    logger.debug(f"{logo_path_default=}")
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -138,7 +125,7 @@ def parse_args() -> ArgsNamespace:
         "--volume",
         help="Set initial player volume. A value between 0 and 1. (default: %s)" % VOLUME,
         default=VOLUME,
-        type=volume_type,
+        type=_volume_type,
         required=False,
     )
     parser.add_argument(
