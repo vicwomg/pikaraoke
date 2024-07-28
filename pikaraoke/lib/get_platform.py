@@ -24,16 +24,44 @@ class Platform(Enum):
     UNKNOWN = "unknown"
 
     def is_rpi(self):
+        """Check if the platform is Raspberry Pi
+
+        Returns:
+            bool: True if the platform is Raspberry Pi, False otherwise
+        """
         return self == Platform.RASPBERRY_PI
 
     def is_windows(self):
+        """Check if the platform is Windows
+
+        Returns:
+            bool: True if the platform is Windows, False otherwise
+        """
         return self == Platform.WINDOWS
 
     def is_linux(self):
+        """Check if the platform is Linux
+
+        Returns:
+            bool: True if the platform is Linux, False otherwise
+        """
         return self == Platform.LINUX
 
     def is_mac(self):
+        """Check if the platform is macOS
+
+        Returns:
+            bool: True if the platform is macOS, False otherwise
+        """
         return self == Platform.OSX
+
+    def is_unknown(self):
+        """Check if the platform is unknown
+
+        Returns:
+            bool: True if the platform is unknown, False otherwise
+        """
+        return self == Platform.UNKNOWN
 
 
 def _is_raspberry_pi() -> bool:
@@ -46,6 +74,11 @@ def _is_raspberry_pi() -> bool:
 
 
 def get_platform() -> Platform:
+    """Determine the current platform
+
+    Returns:
+        Platform: The current platform as a member of the Platform enum
+    """
     if "darwin" in sys.platform:
         return Platform.OSX
     elif _is_raspberry_pi():
