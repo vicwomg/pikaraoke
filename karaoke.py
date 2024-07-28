@@ -61,7 +61,7 @@ class Karaoke:
     ffmpeg_log = None
     ffmpeg_version = get_ffmpeg_version()
     supports_hardware_h264_encoding = supports_hardware_h264_encoding()
-    
+
     raspberry_pi = is_raspberry_pi()
     os_version = get_os_version()
 
@@ -132,13 +132,13 @@ class Karaoke:
     log_level: {log_level}
     hide overlay: {self.hide_overlay}
 
-    platform: {self.platform} 
+    platform: {self.platform}
     os version: {self.os_version}
     ffmpeg version: {self.ffmpeg_version}
     hardware h264 encoding: {self.supports_hardware_h264_encoding}
     youtubedl-version: {self.get_youtubedl_version()}
 """)
-        # Generate connection URL and QR code, 
+        # Generate connection URL and QR code,
         if self.raspberry_pi:
             #retry in case pi is still starting up
             # and doesn't have an IP yet (occurs when launched from /etc/rc.local)
@@ -163,7 +163,7 @@ class Karaoke:
             if (self.prefer_hostname):
                 self.url = f"http://{socket.getfqdn().lower()}:{self.port}"
             else:
-                self.url = f"http://{self.ip}:{self.port}" 
+                self.url = f"http://{self.ip}:{self.port}"
         self.url_parsed = urlparse(self.url)
         if ffmpeg_url is None:
             self.ffmpeg_url = f"{self.url_parsed.scheme}://{self.url_parsed.hostname}:{self.ffmpeg_port}"
@@ -176,9 +176,9 @@ class Karaoke:
         self.get_youtubedl_version()
 
         self.generate_qr_code()
-   
 
- 
+
+
     # Other ip-getting methods are unreliable and sometimes return 127.0.0.1
     # https://stackoverflow.com/a/28950776
     def get_ip(self):
@@ -196,17 +196,17 @@ class Karaoke:
     def get_raspi_wifi_conf_vals(self):
         """Extract values from the RaspiWiFi configuration file."""
         f = open(self.raspi_wifi_conf_file, "r")
-        
+
         # Define default values.
         #
-        # References: 
+        # References:
         # - https://github.com/jasbur/RaspiWiFi/blob/master/initial_setup.py (see defaults in input prompts)
         # - https://github.com/jasbur/RaspiWiFi/blob/master/libs/reset_device/static_files/raspiwifi.conf
         #
         server_port = "80"
         ssid_prefix = "RaspiWiFi Setup"
         ssl_enabled = "0"
-        
+
         # Override the default values according to the configuration file.
         for line in f.readlines():
             if "server_port=" in line:
@@ -228,7 +228,7 @@ class Karaoke:
         logging.info(
             "Upgrading youtube-dl, current version: %s" % self.youtubedl_version
         )
-        try:  
+        try:
             output = check_output([self.youtubedl_path, "-U"], stderr=subprocess.STDOUT).decode("utf8").strip()
         except CalledProcessError as e:
             output = e.output.decode("utf8")
@@ -339,7 +339,7 @@ class Karaoke:
         cdg_file = song_path.replace(ext[1],".cdg")
         if (os.path.exists(cdg_file)):
             os.remove(cdg_file)
-        
+
         self.get_available_songs()
 
     def rename(self, song_path, new_name):
@@ -368,17 +368,22 @@ class Karaoke:
         return None
 
     def get_youtube_id_from_url(self, url):
-        s = url.split("watch?v=")
+        if "v=" in url: #accomodates youtube.com/watch?v= and m.youtube.com/?v=
+            s = url.split("watch?v=")
+        else: #accomodates youtu.be/
+            s = url.split("u.be/")
         if len(s) == 2:
+            if "?" in s[1]: #Strip uneeded Youtube Params
+                s[1] = s[1][0: s[1].index('?')]
             return s[1]
         else:
             logging.error("Error parsing youtube id from url: " + url)
             return None
-        
+
     def log_ffmpeg_output(self):
         if self.ffmpeg_log != None and self.ffmpeg_log.qsize() > 0:
             while self.ffmpeg_log.qsize() > 0:
-                output = self.ffmpeg_log.get_nowait() 
+                output = self.ffmpeg_log.get_nowait()
                 logging.debug("[FFMPEG] " + decode_ignore(output))
 
     def play_file(self, file_path, semitones=0):
@@ -398,8 +403,8 @@ class Karaoke:
             return False
 
         # use h/w acceleration on pi
-        default_vcodec = "h264_v4l2m2m" if self.supports_hardware_h264_encoding else "libx264" 
-        # just copy the video stream if it's an mp4 or webm file, since they are supported natively in html5 
+        default_vcodec = "h264_v4l2m2m" if self.supports_hardware_h264_encoding else "libx264"
+        # just copy the video stream if it's an mp4 or webm file, since they are supported natively in html5
         # otherwise use the default h264 codec
         vcodec = "copy" if fr.file_extension == ".mp4" or fr.file_extension == ".webm" else default_vcodec
         vbitrate = "5M" #seems to yield best results w/ h264_v4l2m2m on pi, recommended for 720p.
@@ -409,35 +414,35 @@ class Karaoke:
         acodec = "aac" if is_transposed else "copy"
         input = ffmpeg.input(fr.file_path)
         audio = input.audio.filter("rubberband", pitch=pitch) if is_transposed else input.audio
-        # Ffmpeg outputs "Stream #0" when the stream is ready to consume  
+        # Ffmpeg outputs "Stream #0" when the stream is ready to consume
         stream_ready_string = "Stream #"
 
         if (fr.cdg_file_path != None): #handle CDG files
             logging.info("Playing CDG/MP3 file: " + file_path)
-            # Ffmpeg outputs "Video: cdgraphics" when the stream is ready to consume  
+            # Ffmpeg outputs "Video: cdgraphics" when the stream is ready to consume
             stream_ready_string = "Video: cdgraphics"
             # copyts helps with sync issues, fps=25 prevents ffmpeg from needlessly encoding cdg at 300fps
             cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
             video = cdg_input.video.filter("fps", fps=25)
-            #cdg is very fussy about these flags. 
+            #cdg is very fussy about these flags.
             # pi ffmpeg needs to encode to aac and cant just copy the mp3 stream
-            # It alse appears to have memory issues with hardware acceleration h264_v4l2m2m  
-            output = ffmpeg.output(audio, video, ffmpeg_url, 
+            # It alse appears to have memory issues with hardware acceleration h264_v4l2m2m
+            output = ffmpeg.output(audio, video, ffmpeg_url,
                                    vcodec="libx264", acodec="aac", preset="ultrafast",
                                    pix_fmt="yuv420p", listen=1, f="mp4", video_bitrate="500k",
-                                   movflags="frag_keyframe+default_base_moof")     
-        else: 
+                                   movflags="frag_keyframe+default_base_moof")
+        else:
             video = input.video
-            output = ffmpeg.output(audio, video, ffmpeg_url, 
+            output = ffmpeg.output(audio, video, ffmpeg_url,
                                    vcodec=vcodec, acodec=acodec, preset="ultrafast",
                                    listen=1, f="mp4", video_bitrate=vbitrate,
                                    movflags="frag_keyframe+default_base_moof")
-        
+
         args = output.get_args()
         logging.debug(f"COMMAND: ffmpeg " + " ".join(args))
 
         self.kill_ffmpeg()
-    
+
         self.ffmpeg_process = output.run_async(pipe_stderr=True, pipe_stdin=True)
 
         # ffmpeg outputs everything useful to stderr for some insane reason!
@@ -448,12 +453,12 @@ class Karaoke:
         t.start()
 
         while self.ffmpeg_process.poll() is None:
-            try:  
-                output = self.ffmpeg_log.get_nowait() 
+            try:
+                output = self.ffmpeg_log.get_nowait()
                 logging.debug("[FFMPEG] " + decode_ignore(output))
             except Empty:
                 pass
-            else: 
+            else:
                 if  stream_ready_string in decode_ignore(output):
                     logging.debug("Stream ready!")
                     self.now_playing = self.filename_from_path(file_path)
@@ -472,7 +477,7 @@ class Karaoke:
                     if self.is_playing:
                         logging.debug("Stream is playing")
                         break
-                    else:   
+                    else:
                         logging.error("Stream was not playable! Run with debug logging to see output. Skipping track")
                         self.end_song()
                         break
@@ -509,7 +514,7 @@ class Karaoke:
 
     def enqueue(self, song_path, user="Pikaraoke", semitones=0, add_to_front=False):
         if (self.is_song_in_queue(song_path)):
-            logging.warn("Song is already in queue, will not add: " + song_path)   
+            logging.warn("Song is already in queue, will not add: " + song_path)
             return False
         else:
             queue_item = {"user": user, "file": song_path, "title": self.filename_from_path(song_path), "semitones": semitones}
@@ -604,7 +609,7 @@ class Karaoke:
         else:
             logging.warning("Tried to pause, but no file is playing!")
             return False
-        
+
     def volume_change(self, vol_level):
         self.volume = vol_level
         logging.debug(f"Setting volume to: {self.volume}")
