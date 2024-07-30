@@ -72,8 +72,8 @@ class ArgsNamespace(argparse.Namespace):
 def _get_logo_path():
     try:
         # Access the resource using importlib.resources
-        return pkg_resources.path(resources, "logo.png")
-        # Resolve the path to an actual file
+        with pkg_resources.path(resources, "logo.png") as logo_path:
+            return logo_path
     except Exception as e:
         print(f"Error accessing logo.png: {e}")
         return None
