@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  push:
+    branches:
+    - master
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+    env:
+      SKIP: no-commit-to-branch # skips commit to main check
+      PRE_COMMIT_CONFIG: code_quality/.pre-commit-config.yaml
+      VENV: venv
+      VENV_ACTIVATE: venv/bin/activate
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # V4.1.7
+      with:
+        token: ${{ github.token }}
+
+    - name: Cache pre-commit dependencies
+      uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # V4.0.2
+      id: cache
+      with:
+        path: ~/.cache/pre-commit
+        key: ${{ runner.os }}-pre-commit-${{ hashFiles(env.PRE_COMMIT_CONFIG) }}
+        restore-keys: |
+          ${{ runner.os }}-pre-commit-
+
+    - name: Install Requirements
+      run: python3 -m pip install docstr-coverage==2.3.2 pre-commit==3.7.1
+
+    - name: Code Quality
+      run: |
+        pre-commit run --config ${{ env.PRE_COMMIT_CONFIG }} --all-files
+
+    - name: Docstring Coverage
+      run: |
+        mkdir -p docs/badges/ docstr
+        mv code_quality/.docstr.yaml . # --config option didn't work
+        docstr-coverage 2>&1 | tee docstr/docstring_coverage.txt
+        ls docs/badges
