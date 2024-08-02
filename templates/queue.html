@@ -2,7 +2,7 @@
 <!-- <meta http-equiv="refresh" content="5" /> -->
 
 <script>
-  var queue = [];  
+  var queue = [];
   var previousQueue;
 
   function getQueue() {
@@ -115,16 +115,16 @@
   });
 </script>
 
-{% endblock %} 
+{% endblock %}
 
 {% block header %}
 <h1 class>{% block title %}
   {# MSG: Title of the page showing the currently queued songs. #}
   {%- trans -%}Queue{%- endtrans -%}
   {% endblock %}</h1>
-{% endblock %} 
+{% endblock %}
 
-{% block content %} 
+{% block content %}
 
 <table class="table is-striped" id="auto-refresh" style="margin-bottom: 30px">
 </table>

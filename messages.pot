@@ -536,4 +536,3 @@ msgstr ""
 #: templates/splash.html:10
 msgid "Next singer:"
 msgstr ""
-
