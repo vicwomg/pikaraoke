@@ -1,0 +1,11 @@
+ignore_name_file: .*/test  # ignore all test files
+badge: docs/badges/docstr_coverage.svg
+verbose: 3  # int (0-4)
+fail_under: 0  # Fail under a certain percentage coverage
+skip_magic: false  # Ignore all magic methods (except __init__)
+skip_file_doc: false  # Ignore module docstrings (at the top of files)
+skip_init: false  # Ignore all __init__ methods
+skip_class_def: false  # Ignore docstrings of class definitions
+skip_private: true  # Ignore private functions (starting with a single underscore)
+accept_empty: true  # Exit with code 0 if no Python files are found (default: exit code 1)
+percentage_only: false  # Show only percentage at the end

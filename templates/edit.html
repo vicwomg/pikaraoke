@@ -40,7 +40,7 @@
 
   function clean_title(search_str, title_case = false) {
     var new_name = $('#new_file_name').val();
-    new_name = new_name.replace(/\[+([^\][]+)]+/g, "($1)"); //replace brackets with parenthesis	
+    new_name = new_name.replace(/\[+([^\][]+)]+/g, "($1)"); //replace brackets with parenthesis
     new_name = new_name.replace(/[^\x20-\x7E]+/g, "");//Remove all non printable and all non ASCII characters
     new_name = new_name.replace(/\\|\//g, " ");//remove slashes
 
