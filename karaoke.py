@@ -17,8 +17,13 @@ import qrcode
 from unidecode import unidecode
 
 from lib.file_resolver import FileResolver
-from lib.get_platform import (get_ffmpeg_version, get_os_version, get_platform,
-                              is_raspberry_pi, supports_hardware_h264_encoding)
+from lib.get_platform import (
+    get_ffmpeg_version,
+    get_os_version,
+    get_platform,
+    is_raspberry_pi,
+    supports_hardware_h264_encoding,
+)
 
 
 # Support function for reading  lines from ffmpeg stderr without blocking
@@ -367,13 +372,13 @@ class Karaoke:
         return None
 
     def get_youtube_id_from_url(self, url):
-        if "v=" in url: #accomodates youtube.com/watch?v= and m.youtube.com/?v=
+        if "v=" in url:  # accomodates youtube.com/watch?v= and m.youtube.com/?v=
             s = url.split("watch?v=")
-        else: #accomodates youtu.be/
+        else:  # accomodates youtu.be/
             s = url.split("u.be/")
         if len(s) == 2:
-            if "?" in s[1]: #Strip uneeded Youtube Params
-                s[1] = s[1][0: s[1].index('?')]
+            if "?" in s[1]:  # Strip uneeded Youtube Params
+                s[1] = s[1][0 : s[1].index("?")]
             return s[1]
         else:
             logging.error("Error parsing youtube id from url: " + url)
