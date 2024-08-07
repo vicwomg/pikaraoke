@@ -1,7 +1,7 @@
 ## Preliminary steps
 
 - Get the image in good working order on the smallest SD card possible (Raspbian Lite on a 4GB card)
-- On the source pi, boot it up the script in this directory and pay attention that the output matches the expected text 
+- On the source pi, boot it up the script in this directory and pay attention that the output matches the expected text
 - Remove SD card and plug into computer
 
 ## Creating a pi image in OSX

@@ -1,13 +1,13 @@
+Babel==2.9.1
 CherryPy
+ffmpeg-python
 Flask==2.2.5
-qrcode
-psutil 
-unidecode
-requests
+Flask-Babel==2.0.0
 flask-paginate==2021.10.29
 jinja2==3.0.3 # Avoid escape issue: https://github.com/sphinx-doc/sphinx/issues/10289
-Babel==2.9.1
-Flask-Babel==2.0.0
+psutil
+qrcode
+requests
 selenium==4.21.0
-ffmpeg-python
+unidecode
 yt-dlp

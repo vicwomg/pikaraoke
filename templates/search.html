@@ -300,7 +300,7 @@
     setUserCookie(true);
 
     $(".song-added-by").val(getUserCookie());
-    const items = document.querySelectorAll('.search_result_items li')   
+    const items = document.querySelectorAll('.search_result_items li')
     items.forEach(item=> item.querySelector('button').addEventListener('click', ()=>{
       const index = item.getAttribute('data-index')
       document.querySelector('#search_result_selector').selectedIndex = index
@@ -531,7 +531,7 @@
     <ul class="search_result_items">
       {% for title,url,id in search_results %}
       <li data-ytID="{{id}}" value="{{url}}" data-index="{{loop.index0}}" >
-        <img src="https://img.youtube.com/vi/{{id}}/0.jpg"/> 
+        <img src="https://img.youtube.com/vi/{{id}}/0.jpg"/>
         <div class="search_result_items_meta">
           {{title}}
           <button class="button search_result_items_download">Download</button>

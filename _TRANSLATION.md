@@ -7,6 +7,7 @@ In Python files, you can mark a string for translation on the web frontend using
 ```python
 # At the top of the file
 import flask_babel
+
 _ = flask_babel.gettext
 
 # At use site, include a tagged comment which will be included for the
