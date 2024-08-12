@@ -12,7 +12,6 @@ import zipfile
 from threading import Timer
 
 import requests
-
 from lib.get_platform import get_platform, is_raspberry_pi
 
 

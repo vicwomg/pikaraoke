@@ -14,8 +14,6 @@ from urllib.parse import urlparse
 
 import ffmpeg
 import qrcode
-from unidecode import unidecode
-
 from lib.file_resolver import FileResolver
 from lib.get_platform import (
     get_ffmpeg_version,
@@ -24,6 +22,7 @@ from lib.get_platform import (
     is_raspberry_pi,
     supports_hardware_h264_encoding,
 )
+from unidecode import unidecode
 
 
 # Support function for reading  lines from ffmpeg stderr without blocking
