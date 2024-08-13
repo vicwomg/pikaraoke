@@ -12,9 +12,7 @@ import time
 
 import cherrypy
 import flask_babel
-import karaoke
 import psutil
-from constants import LANGUAGES, VERSION
 from flask import (
     Flask,
     flash,
@@ -27,7 +25,6 @@ from flask import (
 )
 from flask_babel import Babel
 from flask_paginate import Pagination, get_page_parameter
-from lib.get_platform import get_platform, is_raspberry_pi
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -35,6 +32,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+
+from pikaraoke import karaoke
+from pikaraoke.constants import LANGUAGES, VERSION
+from pikaraoke.lib.get_platform import get_platform, is_raspberry_pi
 
 try:
     from urllib.parse import quote, unquote
@@ -685,12 +686,6 @@ def expand_fs():
 signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
 
-def get_default_youtube_dl_path(platform):
-    if platform == "windows":
-        return os.path.join(os.path.dirname(__file__), ".venv\\Scripts\\yt-dlp.exe")
-    return os.path.join(os.path.dirname(__file__), ".venv/bin/yt-dlp")
-
-
 def get_default_dl_dir(platform):
     if raspberry_pi:
         return "~/pikaraoke-songs"
@@ -708,7 +703,7 @@ def get_default_dl_dir(platform):
             return "~/pikaraoke-songs"
 
 
-if __name__ == "__main__":
+def main():
     platform = get_platform()
     default_port = 5555
     default_ffmpeg_port = 5556
@@ -719,7 +714,7 @@ if __name__ == "__main__":
     default_prefer_hostname = False
 
     default_dl_dir = get_default_dl_dir(platform)
-    default_youtubedl_path = get_default_youtube_dl_path(platform)
+    default_youtubedl_path = "yt-dlp"
 
     # parse CLI args
     parser = argparse.ArgumentParser()
@@ -864,11 +859,6 @@ if __name__ == "__main__":
     app.jinja_env.globals.update(filename_from_path=filename_from_path)
     app.jinja_env.globals.update(url_escape=quote)
 
-    # check if required binaries exist
-    if not os.path.isfile(args.youtubedl_path):
-        print("Youtube-dl path not found! " + args.youtubedl_path)
-        sys.exit(1)
-
     # setup/create download directory if necessary
     dl_path = os.path.expanduser(arg_path_parse(args.download_path))
     if not dl_path.endswith("/"):
@@ -953,3 +943,7 @@ if __name__ == "__main__":
     cherrypy.engine.exit()
 
     sys.exit()
+
+
+if __name__ == "__main__":
+    main()

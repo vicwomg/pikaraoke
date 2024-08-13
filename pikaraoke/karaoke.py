@@ -14,15 +14,16 @@ from urllib.parse import urlparse
 
 import ffmpeg
 import qrcode
-from lib.file_resolver import FileResolver
-from lib.get_platform import (
+from unidecode import unidecode
+
+from pikaraoke.lib.file_resolver import FileResolver
+from pikaraoke.lib.get_platform import (
     get_ffmpeg_version,
     get_os_version,
     get_platform,
     is_raspberry_pi,
     supports_hardware_h264_encoding,
 )
-from unidecode import unidecode
 
 
 # Support function for reading  lines from ffmpeg stderr without blocking
