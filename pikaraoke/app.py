@@ -896,6 +896,7 @@ def main():
         ffmpeg_url=args.ffmpeg_url,
         prefer_hostname=args.prefer_hostname,
     )
+    k.upgrade_youtubedl()
 
     # Start the CherryPy WSGI web server
     cherrypy.tree.graft(app, "/")
