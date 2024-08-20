@@ -2,6 +2,7 @@
 *.swp
 .vscode/
 .venv/
+.venv*
 __pycache__/
 songs/
 qrcode.png
