@@ -25,6 +25,7 @@ pytest = "^6.2.5"
 
 [tool.poetry.scripts]
 pikaraoke = "pikaraoke.app:main"
+pikaraoke-setup = "pikaraoke.setup_apt:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
