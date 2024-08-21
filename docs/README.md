@@ -21,30 +21,29 @@ If you want to support this project with a little monetary tip, it's much apprec
 
 ## Features
 
-| **Feature**                            | **Description**                                      |
-|----------------------------------------|------------------------------------------------------|
-| Web Interface                          | Multiple users can queue tracks                     |
-| Player/Splash Screen                   | Connection QR code and "Next up" display             |
-| Searching/Browsing                     | Browse a local song library                         |
-| Adding New Songs                       | Add new songs from Youtube                          |
-| mp3 + cdg Support                      | Includes compressed .zip bundles                    |
-| Playback Controls                      | Pause, Skip, Restart, and volume control            |
-| File Name Editing                      | Advanced editing of downloaded file names           |
-| Queue Management                       | Manage the song queue                               |
-| Key Change / Pitch Shifting            | Adjust the pitch of songs                           |
-| Admin Mode                             | Lock down features with admin mode                  |
+| **Feature**                 | **Description**                                               |
+| --------------------------- | ------------------------------------------------------------- |
+| Web Interface               | Multiple users can queue tracks from their smartphones        |
+| Player/Splash Screen        | Connection QR code and "Next up" display                      |
+| Searching/Browsing          | Browse a local song library                                   |
+| Adding New Songs            | Add new songs from Youtube                                    |
+| mp3 + cdg Support           | Includes compressed .zip bundles                              |
+| Playback Controls           | Pause, Skip, Restart, and volume control                      |
+| File Management             | Advanced editing of downloaded file names                     |
+| Queue Management            | Manage the song queue and change the order                    |
+| Key Change / Pitch Shifting | Adjust the pitch of songs                                     |
+| Admin Mode                  | Lock down features with admin mode                            |
+| Headless Mode               | Run a dedicated server and stream pikaraoke to remote browser |
 
 ## Supported Devices / OS
 
-| **Device/OS**                         | **Details**                                                                                   |
-|---------------------------------------|-----------------------------------------------------------------------------------------------|
-| Raspberry Pi 3 and above              | Suitable, but anything below Pi 3 will likely be too slow.                                    |
-| Raspberry Pi Desktop OS (headed)      | Should be used if running with a display, as it requires a browser.                           |
-| 32-bit Bullseye OS (recommended for Pi 3) | Recommended OS for Pi 3.                                                                      |
-| 64-bit Bookworm OS (recommended for Pi 4 and above) | Fine for Pi 4 and above.                                                             |
-| Raspberry Pi 3 High-Res Video Playback | Pi 3 might struggle with high-res video playback, but overclocking can help.                  |
-| Disable Screen Blanking               | Disable "screen blanking" in `raspi-config` to prevent the display from turning off when idle.|
-| Modern Mac, PCs, and Linux            | Works fine on modern devices.                                                                 |
+- Raspberry Pi
+  - Requires a Raspberry Pi Model 3 or higher
+  - Desktop OS required for standalone/headed mode
+  - For Pi 3: 32-bit Bullseye OS and overclocking is recommended for smoother playback.
+- OSX
+- Windows
+- Linux
 
 ## Get Started
 
