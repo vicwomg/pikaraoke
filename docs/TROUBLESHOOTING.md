@@ -2,28 +2,39 @@
 
 ### How do I update pikaraoke to the latest version?
 
-Simply run the setup script again. CD the pikaraoke directory and run: `./setup.sh` (linux/osx/rpi) `setup-windows.bat` (windows)
+`pip install --upgrade pikaraoke`
 
-### I'm not hearing audio out of the headphone jack
+### I'm not hearing audio out of the headphone jack (rpi)
 
-By default the raspbian outputs to HDMI audio when it's available. Pikaraoke tries to output to both HDMI and headphone, but if it doesn't work you may need to to force it to the headphone jack. This is definitely the case when using VLC. To do so, change following setting on the pi:
-`sudo raspi-config`
-Advanced Options > Audio > Force 3.5mm (headphone)
+See: https://www.raspberrypi.com/documentation/computers/configuration.html#change-audio-output
 
-See: https://www.raspberrypi.org/documentation/configuration/audio-config.md
+### How to auto-start PiKaraoke (rpi)
 
-If you're still having issues with hearing audio, it has been reported this helps on raspberry pi 4 devices:
-
-`sudo nano /usr/share/alsa/alsa.conf`
-
-Scroll down and change defaults.ctl.card and defaults.pcm.card to "1"
+This is optional, but you may want to make your raspberry pi a dedicated karaoke device.
 
 ```
-defaults.ctl.card 1
-defaults.pcm.card 1
+mkdir /home/pi/.config/autostart
+nano /home/pi/.config/autostart/pikaraoke.desktop
 ```
 
-Note this value might be different in older versions of Raspbian or if you have external audio hardware. See source article for details: https://raspberrypi.stackexchange.com/a/39942
+Add this to the file, assuming you installed to /home/pi/pikaraoke, change the Exec path accordingly if not
+
+```
+[Desktop Entry]
+Type=Application
+Name=Pikaraoke
+Exec=/home/pi/pikaraoke/scripts/pikaraoke.sh
+```
+
+Restart and it should auto-launch on your next boot.
+
+If you want to kill the pikaraoke process, you can do so from the PiKaraoke Web UI under: `Info > Quit pikaraoke`. Or you can ssh in and run `sudo killall python` or something similar.
+
+Note that if your wifi/network is inactive pikaraoke will error out 10 seconds after being launched. This is to prevent the app from hijacking your ability to login to repair the connection.
+
+### How to keep the screen from turning off when idle (rpi)
+
+Disable "screen blanking" in raspi-config: https://www.raspberrypi.com/documentation/computers/configuration.html#display-options
 
 ### Songs aren't downloading!
 
@@ -35,11 +46,11 @@ You can update youtube-dl directly from the web UI. Go to `Info > Update Youtube
 
 youtube-dl is very CPU intensive, especially for single-core devices like the pi models zero and less-than 2. The more simultaneous downloads there are, the longer they will take. Try to limit it to 1-2 at a time. Pi 3 can handle quite a bit more.
 
-### I brought my pikaraoke to a friend's house and it can't connect to their network. How do I change wifi connection without ssh?
+### I brought my pikaraoke to a friend's house and it can't connect to their network. How do I change wifi connection without ssh? (rpi)
 
 These are my preferred ways to do it, but they might require either a USB keyboard or a computer with an SD Card reader.
 
-- _USB Keyboard_: plug in a USB keyboard to the pi. After it boots up, log in and run "sudo raspi-config" and configure wifi through the Network Options section. If the desktop UI is installed, you can also run "startx" and configure wifi from the Raspbian GUI. You can also manually edit /etc/wpa_supplicant/wpa_supplicant.conf as desribed below.
+- _USB Keyboard_: plug in a USB keyboard to the pi. After it boots up, log in and run "sudo raspi-config" and configure wifi through the Network Options section. If the desktop UI is installed, you can configure wifi using the GUI wizard (right-click the wifi icon in the top right). You can also manually edit /etc/wpa_supplicant/wpa_supplicant.conf as desribed below.
 - _SD Card Reader_: Remove the pi's SD card and open it on another computer with an SD card reader. It should mount as a disk drive. On the BOOT partition, add a plaintext file named "wpa_supplicant.conf" and put the following in it:
 
 ```
@@ -77,7 +88,7 @@ While a song is playing, the home screen of the web interface will show a transp
 
 ### How do I add cdg or mp3+cdg zip files?
 
-You'll need to add them manually by copying them to the root of your download folder. Run `pikaraoke.sh --help` and look under DOWNLOAD_PATH to find out what the default folder is, or specify your own. Only cdg/mp3 pairs and .zip files are supported.
+You'll need to add them manually by copying them to the root of your download folder. Run `pikaraoke --help` and look under DOWNLOAD_PATH to find out what the default folder is, or specify your own. Only cdg/mp3 pairs and .zip files are supported.
 
 ### My mp3/cdg file is not playing
 
@@ -85,9 +96,9 @@ CDG files must have an mp3 file with a exact matching file name. They can also b
 
 ### I'm getting this ChromeDriver error on launch: "session not created: DevToolsActivePort file doesn't exist"
 
-Are you trying to launch over SSH? That probably indicates that chromedriver doesn't know which display to launch the browser on. If so, you may need to specify the native display of the remote device using this command: `DISPLAY=:0.0 ./pikaraoke.sh`. Note that Pikaraoke 1.2.1 and newer should do this for you.
+Are you trying to launch over SSH? That probably indicates that chromedriver doesn't know which display to launch the browser on. If so, you may need to specify the native display of the remote device using this command: `DISPLAY=:0.0 pikaraoke`.
 
-You can alternately run headless if you launch the splash screen manually on a separate machine: `./pikaraoke.sh --headless`
+You can alternately run headless if you launch the splash screen manually on a separate machine: `pikaraoke --headless`
 
 ### How do I dismiss the Splash confirmation screen on an in-TV browser? (like a Samsung TV with web browsing)
 

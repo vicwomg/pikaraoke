@@ -47,22 +47,35 @@ If you want to support this project with a little monetary tip, it's much apprec
 
 ## Get Started
 
-### Install
+### Install required programs
 
-Install pikaraoke from PyPi on the host.
+Raspberry Pi OS / Debian-based distros:
+
+```
+sudo apt-get install ffmpeg -y
+sudo apt-get install chromium-browser -y
+sudo apt-get install chromium-chromedriver -y
+```
+
+Windows / OSX / Linux:
+
+- FFmpeg 6.0 or greater: https://ffmpeg.org/download.html
+- Chrome Browser: http://google.com/chrome (only required for headed mode)
+
+### Install pikaraoke
+
+Optional: create a virtual environment. Recommended if you might have conflicting python programs installed. Probably not a concern for many users. (See: https://docs.python.org/3/library/venv.html)
+
+Install pikaraoke from PyPi on the host:
 
 ```sh
-# Setup a virtual environment (optional) (recommended)
-python -m venv venv
-source venv/bin/activate
-
 # Install pikaraoke from PyPi
 pip install pikaraoke
 ```
 
 ### Run
 
-Pikaraoke is now installed in `$PATH` with the command line interface `pikaraoke`. Start is by
+Pikaraoke is now installed in `$PATH` with the command line interface `pikaraoke`. Start by
 calling the pikaraoke command.
 
 ```sh
@@ -93,4 +106,4 @@ See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for help with issues.
 ## Install from Repository (Legacy)
 
 See [README](../scripts/README.md) for how to install pikaraoke cloning this repo and using the
-scripts. This is a legacy method.
+scripts. This is a legacy method and may no longer work.

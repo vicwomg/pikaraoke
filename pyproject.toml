@@ -5,7 +5,7 @@ description = "Youtube-based Karaoke machine for Raspberry Pi, OSX, Windows, and
 authors = ["Vic Wong"]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.9"
 CherryPy = "18.10.0"
 Flask = "2.2.5"
 qrcode = "7.4.2"
