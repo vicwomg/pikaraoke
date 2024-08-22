@@ -39,7 +39,7 @@ If you want to support this project with a little monetary tip, it's much apprec
 
 - Raspberry Pi
   - Requires a Raspberry Pi Model 3 or higher
-  - Desktop OS required for standalone/headed mode
+  - Bullseye/Bookworm Desktop OS required for standalone/headed mode
   - For Pi 3: 32-bit Bullseye OS and overclocking is recommended for smoother playback.
 - OSX
 - Windows
@@ -59,6 +59,7 @@ sudo apt-get install chromium-chromedriver -y
 
 Windows / OSX / Linux:
 
+- Python 3.9 or greater: https://www.python.org/downloads/
 - FFmpeg 6.0 or greater: https://ffmpeg.org/download.html
 - Chrome Browser: http://google.com/chrome (only required for headed mode)
 
