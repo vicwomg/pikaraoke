@@ -1,6 +1,5 @@
 *.pyc
 *.swp
-.vscode/
 .venv/
 .venv*
 __pycache__/

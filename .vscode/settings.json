@@ -1,0 +1,3 @@
+{
+  "pylint.args": ["--rcfile=${workspaceFolder}/code_quality/.pylintrc"]
+}

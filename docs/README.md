@@ -65,24 +65,35 @@ Windows / OSX / Linux:
 
 ### Install pikaraoke
 
-Optional: create a virtual environment. Recommended if you might have conflicting python programs installed. Probably not a concern for many users. (See: https://docs.python.org/3/library/venv.html)
+Optional: create a virtual environment. Recommended if you might have conflicting python programs installed. This may not be a concern for most users, but is generally good practice (See: https://docs.python.org/3/library/venv.html). On the other hand, if you install globally with pip, you can launch pikaraoke without activating a venv each time.
 
-Install pikaraoke from PyPi on the host:
+```sh
+# Create a .venv directory in the homedir
+python -m venv ~/.venv
+# Activate your virtual environment
+source ~/.venv/bin/activate
+```
+
+Install pikaraoke from PyPi on the host into your venv:
 
 ```sh
 # Install pikaraoke from PyPi
 pip install pikaraoke
 ```
 
+Note: if you did not use a venv, you may need to add the `--break-system-packages` parameter to ignore the warning and install pikaraoke and its dependencies globally.
+
 ### Run
 
-Pikaraoke is now installed in `$PATH` with the command line interface `pikaraoke`. Start by
-calling the pikaraoke command.
+Pikaraoke is now installed in the `$PATH` with the command line interface `pikaraoke`. Start by calling the pikaraoke command.
 
 ```sh
 # Run pikaraoke
 pikaraoke
 ```
+
+Virtual env users: note that if you close your terminal, you'll need to run
+`source ~/.venv/bin/activate` again before launching pikaraoke again.
 
 ### More Options
 
@@ -104,7 +115,26 @@ See the help command `pikaraoke --help` for available options.
 
 See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for help with issues.
 
-## Install from Repository (Legacy)
+## Developing pikaraoke
+
+The Pikaraoke project utilizes poetry dependency management and local development.
+
+- Install poetry: https://python-poetry.org/docs/#installation
+- Clone this repo.
+
+From the pikaraoke directory:
+
+```sh
+# install dependencies
+poetry install
+```
+
+```sh
+# Run pikaraoke from the local codebase
+poetry run pikaraoke
+```
+
+## Run from Repository (Legacy)
 
 See [README](../scripts/README.md) for how to install pikaraoke cloning this repo and using the
 scripts. This is a legacy method and may no longer work.
