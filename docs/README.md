@@ -10,14 +10,9 @@ If you want to support this project with a little monetary tip, it's much apprec
 - [Features](#features)
 - [Supported Devices / OS](#supported-devices--os)
 - [Get Started](#get-started)
-  - [Install](#install)
-  - [Run](#run)
-  - [More Options](#more-options)
 - [Screenshots](#screenshots)
-  - [TV](#tv)
-  - [Web interface](#web-interface)
+- [Developing pikaraoke](#developing-pikaraoke)
 - [Troubleshooting](#troubleshooting)
-- [Install from Repo](#install-from-repository-legacy)
 
 ## Features
 
@@ -116,13 +111,9 @@ See the help command `pikaraoke --help` for available options.
 <img width="400" alt="pikaraoke-tv2" src="https://user-images.githubusercontent.com/4107190/95813564-019fa200-0ccd-11eb-95e1-57a002c357a3.png">
   </p>
 
-## Troubleshooting
-
-See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for help with issues.
-
 ## Developing pikaraoke
 
-The Pikaraoke project utilizes poetry dependency management and local development.
+The Pikaraoke project utilizes Poetry for dependency management and local development.
 
 - Install poetry: [Poetry](https://python-poetry.org/docs/#installation)
 - Git clone this repo
@@ -139,7 +130,11 @@ poetry install
 poetry run pikaraoke
 ```
 
-## Run from repository (Legacy)
+#### Run from repository (legacy)
 
 See [README](../scripts/README.md) for how to install pikaraoke cloning this repo and using the
 scripts. This is a legacy method and may no longer work.
+
+## Troubleshooting
+
+See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for help with issues.
