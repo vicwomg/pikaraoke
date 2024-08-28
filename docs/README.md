@@ -49,7 +49,9 @@ If you want to support this project with a little monetary tip, it's much apprec
 
 ### Install required programs
 
-Raspberry Pi OS / Debian-based distros:
+Pikaraoke requires Python 3.9 or greater. You can check your current version by running `python --version`. [Python downloads](https://www.python.org/downloads/)
+
+#### Raspberry Pi OS / Linux distros with `apt`:
 
 ```
 sudo apt-get install ffmpeg -y
@@ -57,15 +59,18 @@ sudo apt-get install chromium-browser -y
 sudo apt-get install chromium-chromedriver -y
 ```
 
-Windows / OSX / Linux:
+#### Windows / OSX / Linux:
 
-- Python 3.9 or greater: https://www.python.org/downloads/
-- FFmpeg 6.0 or greater: https://ffmpeg.org/download.html
-- Chrome Browser: http://google.com/chrome (only required for headed mode)
+- FFmpeg 6.0 or greater: [FFmpeg downloads](https://ffmpeg.org/download.html)
+- Chrome Browser: [Chrome](http://google.com/chrome) (only required for headed mode)
 
 ### Install pikaraoke
 
-Optional: create a virtual environment. Recommended if you might have conflicting python programs installed. This may not be a concern for most users, but is generally good practice (See: https://docs.python.org/3/library/venv.html). On the other hand, if you install globally with pip, you can launch pikaraoke without activating a venv each time.
+Optional: create a virtual environment. This is recommended to prevent conflicts with other global python packages.
+
+On the other hand, if you install globally without venv, you can launch pikaraoke without activating a venv each time, which is more convenient and fine for many users. The choice is yours.
+
+See [the python documentation](https://docs.python.org/3/library/venv.html) for more details on venv.
 
 ```sh
 # Create a .venv directory in the homedir
@@ -92,8 +97,8 @@ Pikaraoke is now installed in the `$PATH` with the command line interface `pikar
 pikaraoke
 ```
 
-Virtual env users: note that if you close your terminal, you'll need to run
-`source ~/.venv/bin/activate` again before launching pikaraoke again.
+Virtual env users: note that if you close your terminal between launches, you'll need to run:
+`source ~/.venv/bin/activate` before launching pikaraoke again.
 
 ### More Options
 
@@ -119,8 +124,8 @@ See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for help with issues.
 
 The Pikaraoke project utilizes poetry dependency management and local development.
 
-- Install poetry: https://python-poetry.org/docs/#installation
-- Clone this repo.
+- Install poetry: [Poetry](https://python-poetry.org/docs/#installation)
+- Git clone this repo
 
 From the pikaraoke directory:
 
@@ -134,7 +139,7 @@ poetry install
 poetry run pikaraoke
 ```
 
-## Run from Repository (Legacy)
+## Run from repository (Legacy)
 
 See [README](../scripts/README.md) for how to install pikaraoke cloning this repo and using the
 scripts. This is a legacy method and may no longer work.
