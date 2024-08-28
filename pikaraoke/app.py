@@ -33,8 +33,8 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from pikaraoke import karaoke
-from pikaraoke.constants import LANGUAGES, VERSION
+from pikaraoke import VERSION, karaoke
+from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.get_platform import get_platform, is_raspberry_pi
 
 try:
