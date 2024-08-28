@@ -1,9 +1,9 @@
-from pikaraoke.constants import VERSION
 from pikaraoke.karaoke import Karaoke
 from pikaraoke.lib.get_platform import get_platform
+from pikaraoke.version import __version__
 
-__version__ = VERSION
 PACKAGE = __package__
+VERSION = __version__
 
 __all__ = [
     "VERSION",
