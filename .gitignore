@@ -2,7 +2,9 @@
 *.swp
 .vscode/
 .venv/
+.venv*
 __pycache__/
+dist/
 songs/
 qrcode.png
 .DS_Store
