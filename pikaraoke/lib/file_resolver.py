@@ -3,7 +3,7 @@ import re
 import shutil
 import zipfile
 
-from lib.get_platform import get_platform
+from pikaraoke.lib.get_platform import get_platform
 
 
 # Processes a given file path and determines the file format and file path, extracting zips into cdg + mp3 if necessary.

@@ -16,8 +16,8 @@ import ffmpeg
 import qrcode
 from unidecode import unidecode
 
-from lib.file_resolver import FileResolver
-from lib.get_platform import (
+from pikaraoke.lib.file_resolver import FileResolver
+from pikaraoke.lib.get_platform import (
     get_ffmpeg_version,
     get_os_version,
     get_platform,

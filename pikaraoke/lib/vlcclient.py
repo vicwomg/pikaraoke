@@ -13,7 +13,7 @@ from threading import Timer
 
 import requests
 
-from lib.get_platform import get_platform, is_raspberry_pi
+from pikaraoke.lib.get_platform import get_platform, is_raspberry_pi
 
 
 def get_default_vlc_path(platform):
