@@ -65,7 +65,7 @@ sudo apt-get install chromium-chromedriver -y
 
 Using a virtual environment (venv) is recommended to prevent conflicts with other global python packages.
 
-If you skip these steps and install globally with pip, you may find it more convenient since you can launch pikaraoke without activating your venv, but you run the risk of conflicting with other python programs.
+You may find it more convenient to skip these steps, which allows you to launch pikaraoke without activating a venv first, but you run the risk of package conflicts.
 
 If you don't install a lot of python projects with pip, that skipping venv is probably be fine. The choice is yours. See [the python documentation](https://docs.python.org/3/library/venv.html) for more details on venv.
 
