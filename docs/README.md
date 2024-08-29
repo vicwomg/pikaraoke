@@ -61,11 +61,15 @@ sudo apt-get install chromium-chromedriver -y
 
 ### Install pikaraoke
 
-Optional: create a virtual environment. This is recommended to prevent conflicts with other global python packages.
+#### Create a virtual environment (optional)
 
-On the other hand, if you install globally without venv, you can launch pikaraoke without activating a venv each time, which is more convenient and fine for many users. The choice is yours.
+Using a virtual environment (venv) is recommended to prevent conflicts with other global python packages.
 
-See [the python documentation](https://docs.python.org/3/library/venv.html) for more details on venv.
+If you skip these steps and install globally with pip, you may find it more convenient since you can launch pikaraoke without activating your venv, but you run the risk of conflicting with other python programs.
+
+If you don't install a lot of python projects with pip, that skipping venv is probably be fine. The choice is yours. See [the python documentation](https://docs.python.org/3/library/venv.html) for more details on venv.
+
+Raspberry Pi/Linux/OSX:
 
 ```sh
 # Create a .venv directory in the homedir
@@ -74,7 +78,20 @@ python -m venv ~/.venv
 source ~/.venv/bin/activate
 ```
 
-Install pikaraoke from PyPi on the host into your venv:
+Windows (Powershell terminal):
+
+```batch
+:: Create a venv in Windows in your homedir
+cd $HOME
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+You should see a "(venv)" prefix in your terminal prompt if the venv is successfully activated.
+
+#### Install pikaraoke via pip
+
+Next, install pikaraoke from PyPi on the host into your venv:
 
 ```sh
 # Install pikaraoke from PyPi
@@ -92,8 +109,10 @@ Pikaraoke is now installed in the `$PATH` with the command line interface `pikar
 pikaraoke
 ```
 
+This will start pikaraoke in headed mode, and open Chrome browser with the splash screen. You can then connect to the QR code via your mobile device and start downloading and queueing songs.
+
 Virtual env users: note that if you close your terminal between launches, you'll need to run:
-`source ~/.venv/bin/activate` before launching pikaraoke again.
+`source ~/.venv/bin/activate` or `.venv\Scripts\activate` (windows) before launching pikaraoke again.
 
 ### More Options
 
