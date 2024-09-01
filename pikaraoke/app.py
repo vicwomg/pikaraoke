@@ -766,7 +766,8 @@ def main():
     parser.add_argument(
         "-n",
         "--normalize-audio",
-        help="Normalize volume. May cause performance issues on slower devices (default: %s)" % default_normalize_audio,
+        help="Normalize volume. May cause performance issues on slower devices (default: %s)"
+        % default_normalize_audio,
         action="store_true",
         default=default_normalize_audio,
         required=False,
