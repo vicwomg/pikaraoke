@@ -1,5 +1,8 @@
 {
-  "pylint.args": ["--rcfile=${workspaceFolder}/code_quality/.pylintrc"],
+  "pylint.args": [
+    "--rcfile=${workspaceFolder}/code_quality/.pylintrc",
+    "--max-line-length=100"
+  ],
   "[python]": {
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
