@@ -428,7 +428,7 @@ class Karaoke:
         acodec = "aac" if is_transposed or self.normalize_audio else "copy"
         input = ffmpeg.input(fr.file_path)
         audio = input.audio.filter("rubberband", pitch=pitch) if is_transposed else input.audio
-        #normalize the audio
+        # normalize the audio
         audio = audio.filter("loudnorm", i=-16, tp=-1.5, lra=11) if self.normalize_audio else audio
 
         # Ffmpeg outputs "Stream #0" when the stream is ready to consume
