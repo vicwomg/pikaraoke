@@ -6,5 +6,8 @@
       "source.organizeImports": "explicit"
     }
   },
+  "[yaml]": {
+    "editor.formatOnSave": false
+  },
   "isort.args": ["--profile", "black"]
 }
