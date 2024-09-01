@@ -176,4 +176,4 @@ You can alternately run headless if you launch the splash screen manually on a s
 
 The splash confirmation screen is an unfortunate necessity due to modern browser permissions disabling video autoplay. A single interaction will enable it, and the confirmation screen serves as this interaction. Hopefully your TV has a way to click the button on the screen with the remote or otherwise.
 
-If you want to try without confirmation, you can add a parameter to the end of the splash screen URL "confirm=false". Ex: `http://pikaraoke.local:5555/splash.html?confirm=false` but there's no guarantee that videos will play; it depends on the embedded browser implementation.
+If you want to try without confirmation, you can add a parameter to the end of the splash screen URL "confirm=false". Ex: `http://pikaraoke.local:5555/splash?confirm=false` but there's no guarantee that videos will play; it depends on the embedded browser implementation.
