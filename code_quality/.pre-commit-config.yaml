@@ -83,4 +83,3 @@ repos:
   - id: no-commit-to-branch
     name: No Commit to master
     args: [--branch, master]
-    
