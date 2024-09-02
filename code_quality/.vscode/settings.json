@@ -1,8 +1,7 @@
+// Suggested vscode settings
+
 {
-  "pylint.args": [
-    "--rcfile=${workspaceFolder}/code_quality/.pylintrc",
-    "--max-line-length=100"
-  ],
+  "pylint.args": ["--rcfile=${workspaceFolder}/code_quality/.pylintrc"],
   "[python]": {
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
