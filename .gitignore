@@ -2,6 +2,7 @@
 *.swp
 .venv/
 .venv*
+/.vscode/
 __pycache__/
 dist/
 songs/
