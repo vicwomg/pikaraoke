@@ -44,3 +44,10 @@ jobs:
         mv code_quality/.docstr.yaml . # --config option didn't work
         docstr-coverage 2>&1 | tee docstr/docstring_coverage.txt
         ls docs/badges
+
+  commitlint:
+    runs-on: ubuntu-latest
+    name: Commitlint
+    steps:
+    - name: Run commitlint
+      uses: opensource-nepal/commitlint@v1
