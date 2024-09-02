@@ -67,6 +67,7 @@ class Karaoke:
     ffmpeg_log = None
     ffmpeg_version = get_ffmpeg_version()
     supports_hardware_h264_encoding = supports_hardware_h264_encoding()
+    normalize_audio = False
 
     raspberry_pi = is_raspberry_pi()
     os_version = get_os_version()
@@ -81,6 +82,7 @@ class Karaoke:
         hide_splash_screen=False,
         high_quality=False,
         volume=0.85,
+        normalize_audio=False,
         log_level=logging.DEBUG,
         splash_delay=2,
         youtubedl_path="/usr/local/bin/yt-dlp",
@@ -101,6 +103,7 @@ class Karaoke:
         self.high_quality = high_quality
         self.splash_delay = int(splash_delay)
         self.volume = volume
+        self.normalize_audio = normalize_audio
         self.youtubedl_path = youtubedl_path
         self.logo_path = self.default_logo_path if logo_path == None else logo_path
         self.hide_overlay = hide_overlay
@@ -132,6 +135,7 @@ class Karaoke:
     high quality video: {self.high_quality}
     download path: {self.download_path}
     default volume: {self.volume}
+    normalize audio: {self.normalize_audio}
     youtube-dl path: {self.youtubedl_path}
     logo path: {self.logo_path}
     log_level: {log_level}
@@ -419,11 +423,14 @@ class Karaoke:
         )
         vbitrate = "5M"  # seems to yield best results w/ h264_v4l2m2m on pi, recommended for 720p.
 
-        # copy the audio stream if no transposition, otherwise use the aac codec
+        # copy the audio stream if no transposition/normalization, otherwise reincode with the aac codec
         is_transposed = semitones != 0
-        acodec = "aac" if is_transposed else "copy"
+        acodec = "aac" if is_transposed or self.normalize_audio else "copy"
         input = ffmpeg.input(fr.file_path)
         audio = input.audio.filter("rubberband", pitch=pitch) if is_transposed else input.audio
+        # normalize the audio
+        audio = audio.filter("loudnorm", i=-16, tp=-1.5, lra=11) if self.normalize_audio else audio
+
         # Ffmpeg outputs "Stream #0" when the stream is ready to consume
         stream_ready_string = "Stream #"
 

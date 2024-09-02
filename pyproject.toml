@@ -30,3 +30,7 @@ pikaraoke-setup = "pikaraoke.setup_apt:main"
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+# pyproject.toml
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^3.7.1"

@@ -708,6 +708,7 @@ def main():
     default_port = 5555
     default_ffmpeg_port = 5556
     default_volume = 0.85
+    default_normalize_audio = False
     default_splash_delay = 3
     default_screensaver_delay = 300
     default_log_level = logging.INFO
@@ -760,6 +761,15 @@ def main():
         "--volume",
         help="Set initial player volume. A value between 0 and 1. (default: %s)" % default_volume,
         default=default_volume,
+        required=False,
+    )
+    parser.add_argument(
+        "-n",
+        "--normalize-audio",
+        help="Normalize volume. May cause performance issues on slower devices (default: %s)"
+        % default_normalize_audio,
+        action="store_true",
+        default=default_normalize_audio,
         required=False,
     )
     parser.add_argument(
@@ -885,6 +895,7 @@ def main():
         splash_delay=args.splash_delay,
         log_level=args.log_level,
         volume=parsed_volume,
+        normalize_audio=args.normalize_audio,
         hide_url=args.hide_url,
         hide_raspiwifi_instructions=args.hide_raspiwifi_instructions,
         hide_splash_screen=args.hide_splash_screen,
