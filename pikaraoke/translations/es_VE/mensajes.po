@@ -9,15 +9,15 @@ msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: frederick.chang@hotmail.com\n"
 "POT-Creation-Date: 2022-04-28 10:09-0400\n"
-"PO-Revision-Date: 2024-08-28 00:55-0400\n"
-"Last-Translator:FREDERICK CHANG <frederick.chang@hotmail.com> \n"
+"PO-Revision-Date: 2024-09-03 02:28-0400\n"
+"Last-Translator: FREDERICK CHANG <frederick.chang@hotmail.com>\n"
 "Language-Team: \n"
 "Language: es_VE\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.9.1\n"
-"X-Generator: Poedit 3.4.4\n"
+"X-Generator: Poedit 3.5\n"
 
 #. Message shown after logging in as admin successfully
 #: app.py:94
@@ -27,7 +27,7 @@ msgstr "Modo Administrados Otorgado!"
 #. Message shown after failing to login as admin
 #: app.py:98
 msgid "Incorrect admin password!"
-msgstr "Contraseña Incorrecta para Admin"
+msgstr "Contraseña Incorrecta para Admin!"
 
 #. Title of the files page.
 #. Navigation link for the page where the user can add existing songs to the
@@ -56,7 +56,7 @@ msgstr "Inicio"
 #. Title of the page showing the currently queued songs.
 #: templates/base.html:149 templates/queue.html:117
 msgid "Queue"
-msgstr "Lista de Espera o Cola"
+msgstr "Lista de Espera"
 
 #. Navigation link for the search page add songs to the queue.
 #. Submit button on the search form for searching YouTube.
@@ -72,7 +72,7 @@ msgstr "Estas seguro que quieres eliminar esta canción de la librería?"
 #. Warning when no suggested tracks are found for a search.
 #: templates/edit.html:90
 msgid "No suggestion!"
-msgstr "Ninguna sugerencia"
+msgstr "Ninguna sugerencia!"
 
 #. Page title for the page where a song can be edited.
 #: templates/edit.html:105
@@ -117,13 +117,13 @@ msgstr ""
 #. this string.
 #: templates/files.html:37
 msgid "Song added to the queue: "
-msgstr "Canción agregada a la cola:"
+msgstr "Canción agregada a la cola: "
 
 #. Notification when a song does not get added to the queue.  The song name
 #. comes after this string.
 #: templates/files.html:41
 msgid "Song already in the queue: "
-msgstr "Esta canción ya está en la cola:"
+msgstr "Esta canción ya está en la cola: "
 
 #. Label which displays that the songs are currently sorted by alphabetical
 #. order.
@@ -150,12 +150,12 @@ msgstr "Ordenar alfabéticamente"
 #. currently playing
 #: templates/home.html:30
 msgid "Nothing is playing right now."
-msgstr "No se esta reproduciendo nada en este momento."
+msgstr "Nada se esta reproduciendo en este momento."
 
 #. Title text for the icon marking the next person to sing.
 #: templates/home.html:38
 msgid "Next singer"
-msgstr "ATENTO Próximo cantante"
+msgstr "Próximo cantante"
 
 #. Alternative text for the "Up next" section if no more songs are queued up.
 #. Message when the queue of songs is empty.  Shown instead of what the next
@@ -258,7 +258,7 @@ msgstr "Información"
 #: templates/info.html:64
 #, python-format
 msgid "URL of %(site_title)s:"
-msgstr ""
+msgstr "URL of %(site_title)s:"
 
 #. Label before a QR code which brings a frind (pal) to the main page if
 #. scanned, so they can also add songs. QR code follows this text.
@@ -275,7 +275,7 @@ msgstr "Información del sistema"
 #: templates/info.html:80
 #, python-format
 msgid "CPU: %(cpu)s"
-msgstr ""
+msgstr "CPU: %(cpu)s"
 
 #. The disk usage of the computer running Pikaraoke. Used by downloaded songs.
 #: templates/info.html:82
@@ -293,13 +293,13 @@ msgstr "Memoria: %(memory)s"
 #: templates/info.html:86
 #, python-format
 msgid "Youtube-dl (yt-dlp) version: %(youtubedl_version)s"
-msgstr ""
+msgstr "Youtube-dl (yt-dlp) version: %(youtubedl_version)s"
 
 #. The version of Pikaraoke running right now.
 #: templates/info.html:88
 #, python-format
 msgid "Pikaraoke version: %(pikaraoke_version)s"
-msgstr ""
+msgstr "Pikaraoke version: %(pikaraoke_version)s"
 
 #. Title of the updates section.
 #: templates/info.html:95
@@ -324,7 +324,7 @@ msgid ""
 "directory while pikaraoke was running."
 msgstr ""
 "Sólo deberías necesitar hacer esto si copiaste archivos manualmente al "
-"directorio de descarga mientras se ejecutaba pikaraoke"
+"directorio de descarga mientras se ejecutaba pikaraoke."
 
 #. Text explaining why you might want to update youtube-dl.
 #: templates/info.html:112
@@ -461,7 +461,7 @@ msgstr "Borrar todo"
 
 #: templates/search.html:84
 msgid "Available songs in local library"
-msgstr "Canciones disponibles en la biblioteca local."
+msgstr "Canciones disponibles en la biblioteca local"
 
 #. Title for the search page.
 #: templates/search.html:278
@@ -499,7 +499,7 @@ msgid ""
 "'Search' to find it on Youtube"
 msgstr ""
 "Si la canción no aparece en el menú desplegable \"Canciones disponibles\", "
-"haga clic en \"Buscar\" para encontrarla en Youtube."
+"haga clic en \"Buscar\" para encontrarla en Youtube"
 
 #. Checkbox label which enables matching songs which are not karaoke versions
 #. (i.e. the songs still have a singer and are not just instrumentals.)
@@ -543,7 +543,7 @@ msgstr ""
 #. different search results.
 #: templates/search.html:402
 msgid "Click dropdown to show more results"
-msgstr "Haga clic en el menú desplegable para mostrar más resultados."
+msgstr "Haga clic en el menú desplegable para mostrar más resultados"
 
 #. Label displayed before the YouTube url for the chosen search result.
 #: templates/search.html:407
