@@ -3,6 +3,15 @@ name = "pikaraoke"
 version = "1.4.0"
 description = "Youtube-based Karaoke machine for Raspberry Pi, OSX, Windows, and Linux"
 authors = ["Vic Wong"]
+readme = "docs/README.md"
+homepage = "https://github.com/vicwomg/pikaraoke"
+repository = "https://github.com/vicwomg/pikaraoke"
+keywords = ["karaoke", "ktv", "video", "audio", "youtube", "raspberry-pi", "osx", "windows", "linux"]
+classifiers = [
+  "Topic :: Multimedia :: Video",
+  "Topic :: Multimedia :: Sound/Audio",
+  "Topic :: Games/Entertainment"
+]
 
 [tool.poetry.dependencies]
 python = "^3.9"
