@@ -7,6 +7,9 @@ on:
     branches:
     - master
 
+env:
+  PYTHON_VERSION: '3.9'
+
 jobs:
   code-quality:
     runs-on: ubuntu-latest
@@ -51,3 +54,35 @@ jobs:
     steps:
     - name: Run commitlint
       uses: opensource-nepal/commitlint@v1
+
+  smoketest:
+    runs-on: ${{ matrix.os }}
+    name: Smoke Test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+      fail-fast: false
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install pipx
+      run: |
+        python3 -m pip install --upgrade pip
+        python3 -m pip install pipx
+        python3 -m pipx ensurepath
+
+    - name: Install Poetry
+      run: |
+        pipx install poetry
+
+    - name: Install Package
+      run: poetry install --no-interaction --no-ansi
+
+    - name: Verify Install
+      run: poetry run pikaraoke --help
