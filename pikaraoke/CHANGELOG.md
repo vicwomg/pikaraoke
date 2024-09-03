@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/vicwomg/pikaraoke/compare/1.4.0...1.4.1) (2024-09-03)
+
+
+### Bug Fixes
+
+* **ci:** missing long_description in build ([e5482b0](https://github.com/vicwomg/pikaraoke/commit/e5482b036dee906323aed876bed646237be0df5e))
+
 ## [1.4.0](https://github.com/vicwomg/pikaraoke/compare/v1.3.0...1.4.0) (2024-09-03)
 
 
