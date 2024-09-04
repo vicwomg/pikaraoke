@@ -53,6 +53,19 @@
     top: 3px;
     z-index: 20;
   }
+  table {
+    width: 100%;
+    table-layout: auto; /* Allows columns to adjust based on content */
+  }
+  td {
+    word-wrap: break-word; /* Ensures long words break to fit within the cell */
+  }
+  .break-word {
+    word-break: break-all; /* Ensures long words break to fit within the cell */
+  }
+  .mobile-hide {
+    visibility: hidden;
+  }
   @media screen and (max-width: 500px) {
     #alpha-bar {
       font-size: 13px;
@@ -64,9 +77,6 @@
       flex-direction: column;
       max-width: 22px;
       height: 95vh;
-    }
-    .mobile-hide {
-      visibility: hidden;
     }
   }
 </style>
@@ -102,14 +112,8 @@
 <table>
   {% for song in songs %}
   <tr value="{{ song }}">
-    <td width="20px" style="padding: 5px 0px">
-      {{loop.index + pagination.skip}}
-    </td>
-    <td
-      id="{{filename_from_path(song)[0].lower()}}"
-      width="20px"
-      style="padding: 5px 0px 5px 4px"
-    >
+    <td style="padding: 5px 0px">{{loop.index + pagination.skip}}</td>
+    <td id="{{filename_from_path(song)[0].lower()}}" style="padding-right: 0">
       <a
         class="add-song-link has-text-weight-bold has-text-success"
         title="Add '{{filename_from_path(song)}}' to queue"
@@ -117,9 +121,11 @@
         ><i class="icon icon-list-add"></i>
       </a>
     </td>
-    <td class="break-word">{{filename_from_path(song)}}</td>
+    <td class="break-word" style="padding-right: 0">
+      {{filename_from_path(song)}}
+    </td>
     {% if admin %}
-    <td width="20px">
+    <td style="padding-right: 0">
       <a
         class="edit-button"
         href="{{url_for('edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}"
