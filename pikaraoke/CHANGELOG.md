@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.5.0](https://github.com/vicwomg/pikaraoke/compare/1.4.1...1.5.0) (2024-09-04)
+
+
+### Features
+
+* add messages.mo file for es_VE translation ([3cd7d26](https://github.com/vicwomg/pikaraoke/commit/3cd7d2627f1e3ea2d44b482f896f9a6af750b1af))
+
+
+### Bug Fixes
+
+* song number overflows to add button when &gt; 999 songs [#379](https://github.com/vicwomg/pikaraoke/issues/379) ([a53c9e0](https://github.com/vicwomg/pikaraoke/commit/a53c9e00e144f5203bbecabe1a02f79dff739b68))
+
+
+### Documentation
+
+* move TROUBLESHOOTING to wiki ([331e814](https://github.com/vicwomg/pikaraoke/commit/331e814a5299189f5248c8595452af5985da3ef4))
+* **readme:** recommend Bookworm OS over bullseye ([15598f2](https://github.com/vicwomg/pikaraoke/commit/15598f22e822e3c2014c63a866ecd3b72530698a))
+
 ## [1.4.1](https://github.com/vicwomg/pikaraoke/compare/1.4.0...1.4.1) (2024-09-03)
 
 
