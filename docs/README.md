@@ -158,4 +158,4 @@ scripts. This is a legacy method and may no longer work.
 
 ## Troubleshooting
 
-See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for help with issues.
+See [TROUBLESHOOTING.md](https://github.com/vicwomg/pikaraoke/wiki/FAQ-&-Troubleshooting) for help with issues.
