@@ -36,8 +36,8 @@ If you want to support this project with a little monetary tip, it's much apprec
 
 - Raspberry Pi
   - Requires a Raspberry Pi Model 3 or higher
-  - Bullseye/Bookworm Desktop OS required for standalone/headed mode
-  - For Pi 3: 32-bit Bullseye OS and overclocking is recommended for smoother playback.
+  - Bookworm Desktop OS required for standalone/headed mode
+  - For Pi 3: overclocking is recommended for smoother playback
 - OSX
 - Windows
 - Linux
@@ -158,4 +158,4 @@ scripts. This is a legacy method and may no longer work.
 
 ## Troubleshooting
 
-See [TROUBLESHOOTING.md](https://github.com/vicwomg/pikaraoke/wiki/FAQ-&-Troubleshooting) for help with issues.
+See the [TROUBLESHOOTING wiki](https://github.com/vicwomg/pikaraoke/wiki/FAQ-&-Troubleshooting) for help with issues.
