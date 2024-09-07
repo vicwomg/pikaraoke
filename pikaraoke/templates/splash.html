@@ -13,9 +13,6 @@
       video.readyState > 2
     );
 
-  const isFirefox = typeof InstallTrigger !== "undefined";
-  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-
   var mouseTimer = null,
     cursorVisible = true;
 
@@ -45,12 +42,12 @@
   }
 
   function clearCommand() {
-    $.get('{{ url_for("clear_command") }}');
+    $.get('{{ url_for("karaoke.clear_command") }}');
   }
 
   function endSong() {
     $("#video-container").hide();
-    $.get('{{ url_for("end_song") }}');
+    $.get('{{ url_for("karaoke.end_song") }}');
     setTimeout(() => (isPlaying = false), 1100);
   }
 
@@ -61,7 +58,7 @@
   }
 
   function getNowPlaying() {
-    $.get('{{ url_for("nowplaying") }}', function (data) {
+    $.get('{{ url_for("karaoke.nowplaying") }}', function (data) {
       var obj = JSON.parse(data);
       if (obj.hash != nowPlayingHash) {
         nowPlayingHash = obj.hash;
@@ -234,7 +231,7 @@
     $("#video")[0].addEventListener("play", () => {
       $("#video-container").show();
       //Report song start after a slight delay to allow video to load
-      setTimeout(() => $.get('{{ url_for("start_song") }}'), 1200);
+      setTimeout(() => $.get('{{ url_for("karaoke.start_song") }}'), 1200);
     });
     $("#video")[0].addEventListener("ended", () => {
       endSong();
@@ -273,12 +270,6 @@
     let params = new URLSearchParams(window.location.search);
     let dismissConfirmation = params.get("confirm");
 
-    if (isFirefox || isSafari) {
-      confirm(
-        "This browser is not supported. You may experience streaming issues. Please use Chrome for best results."
-      );
-    }
-
     if (dismissConfirmation === "false") {
       let modal = document.getElementById("permissions-modal");
       modal.classList.remove("is-active");
@@ -306,15 +297,13 @@
 
 <div id="logo-container">
   <div>
-    <img class="logo" src="{{ url_for('logo') }}" width="500px" alt="logo" />
+    <img class="logo" src="{{ url_for('file.logo') }}" width="500px" alt="logo" />
   </div>
 </div>
 
 <div id="ap-container">
   <div class="is-size-5 stroke">
-    <div id="hostap">
-      {% for line in hostap_info %}{{ line }}<br />{% endfor %}
-    </div>
+    <div id="hostap">{% for line in hostap_info %}{{ line }}<br />{% endfor %}</div>
   </div>
 </div>
 
@@ -322,7 +311,7 @@
   {% if not hide_url %}
   <div id="qr-code">
     <img
-      src="{{ url_for('qrcode') }}"
+      src="{{ url_for('file.qrcode') }}"
       width="100px"
       style="image-rendering: pixelated"
       alt="qrcode"
@@ -402,7 +391,7 @@
     {% if not hide_url %}
     <div>
       <div style="text-align: right">
-        <img src="{{ url_for('qrcode') }}" width="30%" height="30%" />
+        <img src="{{ url_for('file.qrcode') }}" width="30%" height="30%" />
       </div>
       <div>{{ hostap_info[0] }}<br />{{ url }}</div>
     </div>

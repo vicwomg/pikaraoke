@@ -13,7 +13,7 @@ from threading import Timer
 
 import requests
 
-from pikaraoke.lib.get_platform import get_platform, is_raspberry_pi
+from pikaraoke.lib.get_platform import get_platform
 
 
 def get_default_vlc_path(platform):
@@ -49,7 +49,6 @@ class VLCClient:
             self.path = get_default_vlc_path(self.platform)
         else:
             self.path = path
-        self.raspberry_pi = is_raspberry_pi()
 
         # Determine tmp directories (for things like extracted cdg files)
         if self.platform == "windows":
@@ -179,7 +178,7 @@ class VLCClient:
         #  Different resampling algorithms are supported. The best one is slower, while the fast one exhibits
         #  low quality.
 
-        if self.raspberry_pi:
+        if self.platform.is_rpi():
             # pi sounds bad on hightest quality setting (CPU not sufficient)
             speex_quality = 10
             src_type = 1

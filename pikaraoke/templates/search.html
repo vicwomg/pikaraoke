@@ -33,40 +33,6 @@
     border-top-right-radius: 0;
     border-bottom-right-radius: 0;
   }
-  ul.search_result_items{
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-  ul.search_result_items li{
-    text-align: center;
-    margin-bottom: 1rem;
-  }
-  ul.search_result_items li:nth-child(odd){
-    background-color: rgb(50, 55, 55);
-  }
-  .search_result_items_meta{
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1rem;
-    text-align: left;
-  }
-  .search_result_items_download{
-    margin-left: 1rem;
-  }
-  @media screen and (min-width: 768px) {
-    ul.search_result_items img{
-      width: 30%;
-    }
-    ul.search_result_items li{
-      display: flex;
-    }
-    .search_result_items_meta{
-      align-items: start;
-      flex: 1;
-    }
-}
 </style>
 <script>
   $(function () {
@@ -186,7 +152,7 @@
       load: function (query, callback) {
         if (query.length < 2) return callback;
         $.ajax({
-          url: "{{ url_for('autocomplete') }}" + "?q=" + query,
+          url: "{{ url_for('karaoke.autocomplete') }}" + "?q=" + query,
           type: "get",
           success: function (data) {
             callback(data);
@@ -231,7 +197,7 @@
           $("#add-queue-link").removeClass("is-loading");
         }, 1000);
         $.ajax({
-          url: "{{ url_for('enqueue') }}",
+          url: "{{ url_for('karaoke.enqueue') }}",
           type: "post",
           data: $("#queue-form").serialize(),
           success: function (data) {
@@ -300,12 +266,6 @@
     setUserCookie(true);
 
     $(".song-added-by").val(getUserCookie());
-    const items = document.querySelectorAll('.search_result_items li')
-    items.forEach(item=> item.querySelector('button').addEventListener('click', ()=>{
-      const index = item.getAttribute('data-index')
-      document.querySelector('#search_result_selector').selectedIndex = index
-      document.querySelector('#download-button').click()
-    }))
   });
 
   function isYoutubeURL(s) {
@@ -428,7 +388,7 @@
           of searching titles. #} {% trans %}Direct download YouTube url:{%
           endtrans %}
         </div>
-        <form action="{{ url_for('download') }}" method="post">
+        <form action="{{ url_for('karaoke.download') }}" method="post">
           <input
             class="input"
             id="direct-download-url"
@@ -463,7 +423,7 @@
   <hr />
 
   <div class="field is-hidden" id="container_search_form">
-    <form action="{{ url_for('search') }}" method="get">
+    <form action="{{ url_for('home.home') }}" method="get">
       <input id="search_string" type="text" name="search_string" />
       <input type="text" id="non_karaoke" name="non_karaoke" />
     </form>
@@ -480,35 +440,33 @@
   </div>
   {% if search_results %}
   <div class="field" id="container_search_result">
-    <form action="{{ url_for('download') }}" method="post">
+    <form action="{{ url_for('karaoke.download') }}" method="post">
       <label class="label">
         {# MSG: Html text which displays what was searched for, in quotes. #} {%
         trans search_term=search_string -%} Search results for
         <small><i>'{{search_string}}'</i></small>
         {%- endtrans %}
       </label>
-      <div class="is-hidden">
-        <div class="field select">
-          <select id="search_result_selector" name="song-url">
-            > {% for title,url,id in search_results %}
-            <option data-ytID="{{id}}" value="{{url}}">{{title}}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <input class="song-added-by" type="hidden" name="song-added-by" />
-        <p class="help">
-          {# MSG: Help text which explains that the select box above can be
-          operated to select different search results. #} {% trans %}Click
-          dropdown to show more results{% endtrans %}
-        </p>
-        <p>
-          {# MSG: Label displayed before the YouTube url for the chosen search
-          result. #} {% trans %}Link:{% endtrans %}
-          <a target="_blank" id="youtube-link" href=""></a>
-        </p>
-        <p class="has-text-centered-mobile"><img id="youtube-thumb" /></p>
+      <div class="field select">
+        <select id="search_result_selector" name="song-url">
+          > {% for title,url,id in search_results %}
+          <option data-ytID="{{id}}" value="{{url}}">{{title}}</option>
+          {% endfor %}
+        </select>
       </div>
+      <input class="song-added-by" type="hidden" name="song-added-by" />
+      <p class="help">
+        {# MSG: Help text which explains that the select box above can be
+        operated to select different search results. #} {% trans %}Click
+        dropdown to show more results{% endtrans %}
+      </p>
 
+      <p>
+        {# MSG: Label displayed before the YouTube url for the chosen search
+        result. #} {% trans %}Link:{% endtrans %}
+        <a target="_blank" id="youtube-link" href=""></a>
+      </p>
+      <p class="has-text-centered-mobile"><img id="youtube-thumb" /></p>
       <div class="field">
         <label class="checkbox">
           <input type="checkbox" checked name="queue" />
@@ -517,7 +475,7 @@
           downloaded{% endtrans %}
         </label>
       </div>
-      <div class="field is-hidden">
+      <div class="field">
         <button
           class="button is-success is-rounded"
           id="download-button"
@@ -528,17 +486,6 @@
         </button>
       </div>
     </form>
-    <ul class="search_result_items">
-      {% for title,url,id in search_results %}
-      <li data-ytID="{{id}}" value="{{url}}" data-index="{{loop.index0}}" >
-        <img src="https://img.youtube.com/vi/{{id}}/0.jpg"/>
-        <div class="search_result_items_meta">
-          {{title}}
-          <button class="button search_result_items_download">Download</button>
-        </div>
-      </li>
-      {% endfor %}
-    </ul>
   </div>
 </div>
 {% else %} {% endif %} {% endblock %}

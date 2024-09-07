@@ -4,7 +4,7 @@
   var volume = 0.85;
 
   function getNowPlaying() {
-    $.get('{{ url_for("nowplaying") }}', function (data) {
+    $.get('{{ url_for("karaoke.nowplaying") }}', function (data) {
       var obj = JSON.parse(data);
       if (obj.hash != nowPlayingHash) {
         nowPlayingHash = obj.hash;
