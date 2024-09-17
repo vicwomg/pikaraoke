@@ -474,7 +474,7 @@ def edit_file():
             old_name = d["old_file_name"]
             if k.is_song_in_queue(old_name):
                 # check one more time just in case someone added it during editing
-                flash(queue_error_msg + song_path, "is-danger")
+                flash(queue_error_msg + old_name, "is-danger")
             else:
                 # check if new_name already exist
                 file_extension = os.path.splitext(old_name)[1]
