@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/vicwomg/pikaraoke/compare/1.5.0...1.5.1) (2024-09-23)
+
+
+### Bug Fixes
+
+* 500 error when renaming while queued ([#399](https://github.com/vicwomg/pikaraoke/issues/399)) ([d84fcb3](https://github.com/vicwomg/pikaraoke/commit/d84fcb3ac8974a56e533c2bc3a2c2a58f91baee2))
+
 ## [1.5.0](https://github.com/vicwomg/pikaraoke/compare/1.4.1...1.5.0) (2024-09-04)
 
 
