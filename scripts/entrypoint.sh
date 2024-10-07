@@ -15,11 +15,12 @@ else
     URL_VARIABLE="-u $URL"
 fi
 
+cd pikaraoke
 # Run pikaraoke with necessary parameters
 if [ -z "$PASSWORD" ]; then
-    python3 /pikaraoke/pikaraoke/app.py -d /pikaraoke-songs/ --headless $URL_VARIABLE
+    poetry run pikaraoke -d /pikaraoke-songs/ --headless $URL_VARIABLE
 else
-    python3 /pikaraoke/pikaraoke/app.py /pikaraoke-songs/ --headless $URL_VARIABLE --admin-password $PASSWORD
+    poetry run pikaraoke -d /pikaraoke-songs/ --headless $URL_VARIABLE --admin-password $PASSWORD
 fi
 
 # Keep the container running
