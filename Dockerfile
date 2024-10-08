@@ -2,13 +2,7 @@ FROM python:3.12-slim-bookworm
 
 # Install required packages
 RUN apt-get update --allow-releaseinfo-change
-RUN apt-get install figlet
-RUN apt-get install ffmpeg -y
-RUN apt-get install chromium -y
-RUN apt-get install chromium-driver -y
-
-# Add sbin to path as "iwconfig" lives there now
-ENV PATH="$PATH:/sbin"
+RUN apt-get install figlet ffmpeg chromium chromium-driver wireless-tools -y
 
 # Copy contents of the project into the image
 RUN mkdir pikaraoke
