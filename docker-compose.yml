@@ -1,0 +1,18 @@
+services:
+  pikaraoke:
+    image: pikaraoke:latest
+    container_name: PiKaraoke
+    volumes:
+      - /etc/hostname:/etc/host_hostname:ro
+      - pikaraoke-songs:/pikaraoke-songs
+    environment:
+      URL: "http://localhost"
+      PASSWORD: #optional password
+    restart: unless-stopped
+    ports:
+      - "5555:5555"
+      - "5556:5556"
+
+volumes:
+  pikaraoke-songs:
+  # Define your volume specifics here, if any.
