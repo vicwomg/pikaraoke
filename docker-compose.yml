@@ -6,11 +6,12 @@ services:
       - /etc/hostname:/etc/host_hostname:ro
       - pikaraoke-songs:/pikaraoke-songs
     environment:
-      URL: #optional https://karaoke.yourdomain.com
+      URL: "http://localhost"
       PASSWORD: #optional password
     restart: unless-stopped
     ports:
       - "5555:5555"
+      - "5556:5556"
 
 volumes:
   pikaraoke-songs:
