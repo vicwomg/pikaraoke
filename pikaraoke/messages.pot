@@ -586,4 +586,3 @@ msgstr ""
 #: templates/splash.html:374
 msgid "Confirm"
 msgstr ""
-

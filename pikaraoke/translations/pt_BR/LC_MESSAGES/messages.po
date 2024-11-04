@@ -637,4 +637,3 @@ msgstr ""
 
 #~ msgid "Open splash screen"
 #~ msgstr "Abrir tela de abertura"
-
