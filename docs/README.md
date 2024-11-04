@@ -151,6 +151,8 @@ poetry install
 poetry run pikaraoke
 ```
 
+See the [Pikaraoke development guide](https://github.com/vicwomg/pikaraoke/wiki/Pikaraoke-development-guide) for more details.
+
 #### Run from repository (legacy)
 
 See [README](../scripts/README.md) for how to install pikaraoke cloning this repo and using the
