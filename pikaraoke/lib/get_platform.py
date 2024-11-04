@@ -57,6 +57,10 @@ def supports_hardware_h264_encoding():
     if is_raspberry_pi():
         platform = get_platform()
 
+        # For other platform(OrangePI etc)
+        if platform is None:
+            return False
+
         # Raspberry Pi >= 5 no longer has hardware GPU decoding
         match = re.search(r"Raspberry Pi (\d+)", platform)
         if match:
