@@ -864,6 +864,7 @@ def main():
     args = parser.parse_args()
 
     if args.admin_password:
+        global admin_password
         admin_password = args.admin_password
 
     app.jinja_env.globals.update(filename_from_path=filename_from_path)
