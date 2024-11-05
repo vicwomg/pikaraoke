@@ -949,9 +949,9 @@ def main():
             elem.click()
         except Exception as e:
             print(
-                f"[ERROR] Error starting splash screen. If you're running headed mode over SSH, you may need to run `export DISPLAY=:0.0` first to target the proper screen. Example: `export DISPLAY=:0.0; pikaraoke`"
+                f"\n[ERROR] Error starting splash screen. If you're running headed mode over SSH, you may need to run `export DISPLAY=:0.0` first to target the proper screen. Example: `export DISPLAY=:0.0; pikaraoke`\n"
             )
-            # cherrypy.engine.exit()
+            cherrypy.engine.exit()
             sys.exit()
 
     # Start the karaoke process
