@@ -26,6 +26,7 @@ from flask import (
 from flask_babel import Babel
 from flask_paginate import Pagination, get_page_parameter
 from selenium import webdriver
+from selenium.common.exceptions import SessionNotCreatedException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -947,7 +948,7 @@ def main():
             wait = WebDriverWait(driver, 60)
             elem = wait.until(EC.element_to_be_clickable((By.ID, "permissions-button")))
             elem.click()
-        except Exception as e:
+        except SessionNotCreatedException as e:
             print(str(e))
             print(
                 f"\n[ERROR] Error starting splash screen. If you're running headed mode over SSH, you may need to run `export DISPLAY=:0.0` first to target the host machine's screen. Example: `export DISPLAY=:0.0; pikaraoke`\n"
