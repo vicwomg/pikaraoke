@@ -948,6 +948,7 @@ def main():
             elem = wait.until(EC.element_to_be_clickable((By.ID, "permissions-button")))
             elem.click()
         except Exception as e:
+            print(e)
             print(
                 f"\n[ERROR] Error starting splash screen. If you're running headed mode over SSH, you may need to run `export DISPLAY=:0.0` first to target the host machine's screen. Example: `export DISPLAY=:0.0; pikaraoke`\n"
             )
