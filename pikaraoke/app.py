@@ -860,6 +860,12 @@ def main():
         default=None,
         required=False,
     ),
+    parser.add_argument(
+        "--force-youtubedl-upgrade",
+        action="store_true",
+        help="Allows youtube-dl to upgrade globally in the externally managed environment, potentially breaking system python packages",
+        required=False,
+    )
 
     args = parser.parse_args()
 
@@ -893,6 +899,7 @@ def main():
         ffmpeg_port=args.ffmpeg_port,
         download_path=dl_path,
         youtubedl_path=arg_path_parse(args.youtubedl_path),
+        force_youtubedl_upgrade=args.force_youtubedl_upgrade,
         splash_delay=args.splash_delay,
         log_level=args.log_level,
         volume=parsed_volume,
