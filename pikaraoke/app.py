@@ -939,13 +939,21 @@ def main():
         options.add_argument("--kiosk")
         options.add_argument("--start-maximized")
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        driver = webdriver.Chrome(service=service, options=options)
-        driver.get(f"{k.url}/splash")
-        driver.add_cookie({"name": "user", "value": "PiKaraoke-Host"})
-        # Clicking this counts as an interaction, which will allow the browser to autoplay audio
-        wait = WebDriverWait(driver, 60)
-        elem = wait.until(EC.element_to_be_clickable((By.ID, "permissions-button")))
-        elem.click()
+        try:
+            driver = webdriver.Chrome(service=service, options=options)
+            driver.get(f"{k.url}/splash")
+            driver.add_cookie({"name": "user", "value": "PiKaraoke-Host"})
+            # Clicking this counts as an interaction, which will allow the browser to autoplay audio
+            wait = WebDriverWait(driver, 60)
+            elem = wait.until(EC.element_to_be_clickable((By.ID, "permissions-button")))
+            elem.click()
+        except Exception as e:
+            print(
+                f"[ERROR] Error starting splash screen: {e}. If you're running headed mode over SSH, you may need to run `export DISPLAY=:0.0` first to target the proper screen."
+            )
+            driver.quit()
+            cherrypy.engine.exit()
+            sys.exit()
 
     # Start the karaoke process
     k.run()
