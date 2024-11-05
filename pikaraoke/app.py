@@ -949,9 +949,8 @@ def main():
             elem.click()
         except Exception as e:
             print(
-                f"[ERROR] Error starting splash screen: {e}. If you're running headed mode over SSH, you may need to run `export DISPLAY=:0.0` first to target the proper screen."
+                f"[ERROR] Error starting splash screen. If you're running headed mode over SSH, you may need to run `export DISPLAY=:0.0` first to target the proper screen."
             )
-            driver.quit()
             cherrypy.engine.exit()
             sys.exit()
 
