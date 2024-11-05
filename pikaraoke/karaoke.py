@@ -246,14 +246,20 @@ class Karaoke:
             output = e.output.decode("utf8")
         logging.info(output)
         if "You installed yt-dlp with pip or using the wheel from PyPi" in output:
+            # allow pip to break system packages (probably required if installed without venv)
+            args = ["install", "--upgrade", "yt-dlp", "--break-system-packages"]
             try:
                 logging.info("Attempting youtube-dl upgrade via pip3...")
-                output = check_output(["pip3", "install", "--upgrade", "yt-dlp"]).decode("utf8")
+                output = (
+                    check_output(["pip3"] + args, stderr=subprocess.STDOUT).decode("utf8").strip()
+                )
             except FileNotFoundError:
                 logging.info("Attempting youtube-dl upgrade via pip...")
-                output = check_output(["pip", "install", "--upgrade", "yt-dlp"]).decode("utf8")
-            logging.info(output)
+                output = (
+                    check_output(["pip"] + args, stderr=subprocess.STDOUT).decode("utf8").strip()
+                )
         self.get_youtubedl_version()
+
         logging.info("Done. New version: %s" % self.youtubedl_version)
 
     def is_network_connected(self):
