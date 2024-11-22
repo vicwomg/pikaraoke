@@ -44,6 +44,27 @@ setup-windows.bat
 
 Windows firewall may initially block connections to port 5555 and 5556. Be sure to allow these. It should prompt the first time you run pikaraoke and launch a song. Otherwise, configure it manually in the security settings.
 
+### Android (via Termux App)
+
+Install the Termux App via https://f-droid.org/en/packages/com.termux/ or from Google Play via https://play.google.com/store/apps/details?id=com.termux
+
+Open the Termux App (A terminal emulator similar to linux)
+
+Optional (but recommended):
+Updated the packages using the command:
+
+```
+pkg update && pkg upgrade
+```
+
+Install python and ffmpeg:
+
+```
+pkg install python ffmpeg
+```
+
+from this point onwards, you only need to follow the installation for Raspberry pi / Linux / OSX (see above).
+
 ## Launch
 
 cd to the pikaraoke directory and run:

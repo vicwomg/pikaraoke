@@ -24,8 +24,10 @@ def get_ffmpeg_version():
 def is_raspberry_pi():
     try:
         return (
-            os.uname()[4][:3] == "arm" or os.uname()[4] == "aarch64"
-        ) and sys.platform != "darwin"
+            (os.uname()[4][:3] == "arm" or os.uname()[4] == "aarch64")
+            and sys.platform != "darwin"
+            and not (os.path.exists("/system/app/") and os.path.exists("/system/priv-app"))
+        )
     except AttributeError:
         return False
 
@@ -33,6 +35,14 @@ def is_raspberry_pi():
 def get_platform():
     if sys.platform == "darwin":
         return "osx"
+    # elif sys.platform.startswith("linux"):
+    #    for key in os.environ:
+    #        if key == "PREFIX":
+    #            if "termux" in os.environ[key]:
+    #                return "Termux on Android"
+    #    return "linux"
+    elif os.path.exists("/system/app/") and os.path.exists("/system/priv-app"):
+        return "Android"
     elif is_raspberry_pi():
         try:
             with open("/proc/device-tree/model", "r") as file:

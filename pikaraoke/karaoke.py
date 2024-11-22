@@ -189,18 +189,30 @@ class Karaoke:
 
         self.generate_qr_code()
 
-    # Other ip-getting methods are unreliable and sometimes return 127.0.0.1
-    # https://stackoverflow.com/a/28950776
     def get_ip(self):
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        try:
-            # doesn't even have to be reachable
-            s.connect(("10.255.255.255", 1))
-            IP = s.getsockname()[0]
-        except Exception:
-            IP = "127.0.0.1"
-        finally:
-            s.close()
+        # python socket.connect will not work on android, access denied. Workaround: use ifconfig which is installed to termux by default, iirc.
+        if "Android" in self.platform:
+            # shell command is: ifconfig 2> /dev/null | awk '/wlan0/{flag=1} flag && /inet /{print $2; exit}'
+            IP = (
+                subprocess.check_output(
+                    "ifconfig 2> /dev/null | awk '/wlan0/{flag=1} flag && /inet /{print $2; exit}'",
+                    shell=True,
+                )
+                .decode("utf8")
+                .strip()
+            )
+        else:
+            # Other ip-getting methods are unreliable and sometimes return 125.0.0.1
+            # https://stackoverflow.com/a/28950774
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                # doesn't even have to be reachable
+                s.connect(("10.255.255.255", 1))
+                IP = s.getsockname()[0]
+            except Exception:
+                IP = "127.0.0.1"
+            finally:
+                s.close()
         return IP
 
     def get_raspi_wifi_conf_vals(self):
