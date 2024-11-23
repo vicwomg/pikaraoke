@@ -26,10 +26,14 @@ def is_raspberry_pi():
         return (
             (os.uname()[4][:3] == "arm" or os.uname()[4] == "aarch64")
             and sys.platform != "darwin"
-            and not (os.path.exists("/system/app/") and os.path.exists("/system/priv-app"))
+            and not is_android()
         )
     except AttributeError:
         return False
+
+
+def is_android():
+    return os.path.exists("/system/app/") and os.path.exists("/system/priv-app")
 
 
 def get_platform():
@@ -41,8 +45,8 @@ def get_platform():
     #            if "termux" in os.environ[key]:
     #                return "Termux on Android"
     #    return "linux"
-    elif os.path.exists("/system/app/") and os.path.exists("/system/priv-app"):
-        return "Android"
+    elif is_android():
+        return "android"
     elif is_raspberry_pi():
         try:
             with open("/proc/device-tree/model", "r") as file:

@@ -191,7 +191,7 @@ class Karaoke:
 
     def get_ip(self):
         # python socket.connect will not work on android, access denied. Workaround: use ifconfig which is installed to termux by default, iirc.
-        if "Android" in self.platform:
+        if self.platform == "android":
             # shell command is: ifconfig 2> /dev/null | awk '/wlan0/{flag=1} flag && /inet /{print $2; exit}'
             IP = (
                 subprocess.check_output(
