@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/vicwomg/pikaraoke/compare/1.5.2...1.6.0) (2024-11-23)
+
+
+### Features
+
+* Added support to Android via Termux App ([#423](https://github.com/vicwomg/pikaraoke/issues/423)) ([0118733](https://github.com/vicwomg/pikaraoke/commit/0118733d698263bc684829aeed69b3c589df43e5))
+
 ## [1.5.2](https://github.com/vicwomg/pikaraoke/compare/1.5.1...1.5.2) (2024-11-05)
 
 
