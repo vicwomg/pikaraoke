@@ -676,6 +676,9 @@ class Karaoke:
 
     def vol_up(self):
         self.volume += 0.1
+        if self.volume > 1.0:
+            self.volume = 1.0
+            logging.debug("max volume reached.")
         logging.debug(f"Increasing volume by 10%: {self.volume}")
         if self.is_file_playing():
             self.now_playing_command = "vol_up"
@@ -686,6 +689,9 @@ class Karaoke:
 
     def vol_down(self):
         self.volume -= 0.1
+        if self.volume < 0:
+            self.volume = 0
+            logging.debug("minimum volume reached.")
         logging.debug(f"Decreasing volume by 10%: {self.volume}")
         if self.is_file_playing():
             self.now_playing_command = "vol_down"
