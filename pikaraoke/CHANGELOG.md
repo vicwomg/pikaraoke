@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/vicwomg/pikaraoke/compare/1.6.0...1.6.1) (2024-12-02)
+
+
+### Bug Fixes
+
+* prevent hangs when volume change from exceeds max ([#429](https://github.com/vicwomg/pikaraoke/issues/429)) ([d097311](https://github.com/vicwomg/pikaraoke/commit/d0973114be53759f88a59d33112efffc72ebc6db))
+
 ## [1.6.0](https://github.com/vicwomg/pikaraoke/compare/1.5.2...1.6.0) (2024-11-23)
 
 
