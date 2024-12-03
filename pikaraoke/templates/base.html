@@ -222,7 +222,7 @@
 
     {% if get_flashed_messages() %}
     {% for category, message in get_flashed_messages(with_categories=true) %}
-    <div id="notification" class="notification {{category}}" style="display: none">
+    <div id="notification" class="notification {{category}}">
       <button id="notification-close" class="delete"></button>
       <div class="flash">{{ message }}</div>
     </div>
