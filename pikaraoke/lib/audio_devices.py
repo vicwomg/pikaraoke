@@ -110,14 +110,16 @@ def round_sink_volume(volume, sink_number = "default"):
     run_commands(command)
     return volume * 100
 
+# increase volume by 0.1 - max volume is 1.5 (150%)
 def set_device_vol_up(sink_number = "default"):
     sink = "@DEFAULT_AUDIO_SINK@" if sink_number == "default" else sink_number
     command = ['wpctl', 'set-volume', '-l', '1.5', sink, "0.1+"]
     return run_commands(command)
 
+# decrease volume by 0.1
 def set_device_vol_down(sink_number = "default"):
     sink = "@DEFAULT_AUDIO_SINK@" if sink_number == "default" else sink_number
-    command = ['wpctl', 'set-volume', '-l', '1.5', sink, "0.1-"]
+    command = ['wpctl', 'set-volume', sink, "0.1-"]
     return run_commands(command)
 
 # Function that runs the commands using subprocess

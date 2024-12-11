@@ -28,7 +28,7 @@ section = "DEVICES"
 key = "known"
 config_obj = configparser.ConfigParser()
 
-# Pega os dispositivos conhecidos do arquivo definido
+# Grabs the list of known devices
 def get_known_devices():
     logging.debug("Getting known devices")
     if os.path.exists(file):
@@ -44,7 +44,7 @@ def get_known_devices():
     else:
         return ['error', 'no_file']
 
-# Adiciona o dispositivo conhecido no arquivo
+# Adds the device to the file
 def add_known_device(device):
     logging.debug(f'Adding known device: {device["name"]}')
     devices = get_known_devices()
@@ -68,7 +68,7 @@ def add_known_device(device):
     logging.info("Device added successfully: %s", device["name"])
     return
 
-# Remove o dispositivo conhecido do arquivo
+# Remove the device from the file
 def remove_known_device(device):
     logging.debug(f'Removing known device: {device["name"]}')
     if os.path.exists(file):
@@ -82,21 +82,21 @@ def remove_known_device(device):
             return ["ok", "Device removed successfully"]
     return ["error", "Something went wrong while removing the device"]
 
-# Roda os comandos 
+# Runs the bt commands
 def run_bluetoothctl_command(process, command):
     # Inicia o processo bluetoothctl
     process.stdin.write(command)
     process.stdin.flush()
     return
 
-# Recebe os comandos e roda em sequência
+# Receive a list of commands and run them one by one
 def run_commands(process, commands):
     for command in commands:
         run_bluetoothctl_command(process, command)
         # time.sleep(2)
     return
 
-# Escaneia os dispositivos bluetooth detectáveis
+# Scan for bluetooth devices
 def scan_and_get_bt_devices(scan_time=10):
 
     process = subprocess.Popen(['bluetoothctl'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,text=True)
@@ -130,7 +130,7 @@ def scan_and_get_bt_devices(scan_time=10):
         'known': devices_known
     }
 
-# Conecta ao dispositivo escolhido
+# Connect to a bluetooth device (Pair, connect and trust)
 def connect_to_bt_device(device):
     tries = 0
     success = False
@@ -173,7 +173,7 @@ def connect_to_bt_device(device):
         logging.debug(f'Fail to connect to {device["name"]}')
         return ["error", f'Fail to connect to {device["name"]}']
 
-# Remove o dispositivo do controle de bluetooth e do arquivo de dispositivos conhecidos
+# Remove the device from bluetooth controller and the file
 def remove_bt_device(device):
     logging.debug(f'Removing {device["name"]} - MAC: {device["mac"]}')
     try:
