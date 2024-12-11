@@ -40,11 +40,64 @@
     $("#expand-link").click(function (e) {
       e.preventDefault();
       // {# MSG: Confirmation text when the user wants to expand the filesystem to take the entire SD card. #}
-      if (window.confirm("Are you sure you want to expand the filesystem? This will reboot your raspberry pi.")) {
+      if (window.confirm("{{ _('Are you sure you want to expand the filesystem? This will reboot your raspberry pi.')}}")) {
         location.href = this.href;
       }
     });
+
+    $("#audio-devices").change(function (e) {
+      e.preventDefault();
+      // {# MSG: Confirmation text when the user wants to change the audio device. #}
+      if (window.confirm("{{ _('Are you sure you want to change the audio device?')}}")) {
+        changeDevice($(this).val())
+      }
+    });
+
+    function changeDevice(deviceValue){
+      url = "{{ url_for('change_audio_output') }}" + "?device=" + deviceValue
+      window.location.href = url;
+    }
+
+    $(".device-volume-button").click(function (e) {
+      e.preventDefault();
+
+      if ($(this).prop("disabled")) return;
+
+      let volume = parseInt($("#volume-value").text(), 10)
+      let upOrDown = $(this).attr("volume")
+      let url = $(this).data("url");
+
+      volume = (upOrDown == "up") ? volume + 10 : volume - 10
+
+      console.log(volume)
+      console.log(typeof volume)
+
+      $.get( url, function( response ) {
+        if (response.msg && response.status) {
+          showNotification(response.msg, response.status);
+          if (response.status == "is-success"){
+            console.log(volume)
+            console.log(volume === 150)
+            $("#volume-value").text(volume + "%");
+            $("#device-volume-up").prop("disabled", volume === 150);
+            $("#device-volume-down").prop("disabled", volume === 0);
+          }
+        }
+      });
+    });
+
+    $("#bt-container").on("click", ".pair-device", function(){
+      // {# MSG: Notification text when the system is pairing a bluetooth device. #}
+      showNotification("{{ _('Pairing bluetooth device...')}}", "is-info", timeout=15000);
+    })
+
+    $("#bt-container").on("click", ".remove-device", function(){
+      // {# MSG: Notification text when the system is removing a bluetooth device. #}
+      showNotification("{{ _('Removing bluetooth device...')}}", "is-info", timeout=15000);
+    })
+
   });
+
 </script>
 {% endblock %}
 
@@ -171,6 +224,129 @@
     you may want to expand the filesystem to utilize the remaining space. You only need to do this once.
     This will reboot the system.
   {%- endtrans %}</p>
+
+  {% if have_pipewire %}
+    <hr/>
+    {# MSG: Title for section about output audio devices #}
+    <h1>{% trans %}Output Audio Device{% endtrans %}</h1>
+    {# MSG: Subtitle for section where the user can change the default audio output #}
+    <h3>{% trans %}Main Sound Output{% endtrans %}</h3>
+    {# MSG: Explainitory text which explains about the default audio output. #}
+    <p class="help">{% trans -%}
+      If you want to change the default audio output, you can do so here. It uses Pipewire with Wireplumber so it's necessary to have them installed in your system.
+    {%- endtrans %}</p>
+    <div id="sound-devices" class="select is-loading">
+        <select id="audio-devices" name="audio-devices">
+        </select>
+    </div>
+
+    {# MSG: Subtitle for section where the user can change the audio output volume #}
+    <h3>{% trans %}Output Audio Device volume{% endtrans %}</h3>
+    {# MSG: information when the system is loading #}
+    <p class="loading">{% trans %}Loading...{% endtrans %}</p>
+    <div id="volume-buttons"class="buttons is-hidden">
+      {# MSG: Button for decreasing device volume #}
+      <button data-url="{{ url_for('change_device_volume', volume='down') }}" id="device-volume-down" class="device-volume-button button" volume="down" style="margin: 0" title="{% trans %}Decrease volume 10%{% endtrans %}">
+        <span class="icon icon-volume-down"></span>
+      </button>
+      <span id="volume-value" class="tag is-medium" style="margin: 0 0.5rem;"></span>
+      {# MSG: Button for increasing device volume #}
+      <button data-url="{{ url_for('change_device_volume', volume='up') }}" id="device-volume-up" class="device-volume-button button" volume="up" style="margin: 0" title="{% trans %}Increase volume 10%{% endtrans %}">
+        <span class="icon icon-volume-up"></span>
+      </button>
+    </div>
+
+    {# MSG: Subtitle for section where the user can scan and pair bluetooth devices #}
+    <h1>{% trans %}Bluetooth Devices{% endtrans %}</h1>
+    {# MSG: information when the system is loading #}
+    <p class="loading">{% trans %}Loading...{% endtrans %}</p>
+    <div id="bt-container" class="is-hidden">
+      <div id="known-bt-devices-container">
+        {# MSG: Subtitle for the Bluetooth section where the user can find known bluetooth devices #}
+        <p>{% trans %}Known devices:{% endtrans %}</p>
+        <ul id="known-bt-devices" class="bt-devices">
+        </ul>
+      </div>
+      <div id="new-bt-devices-container">
+      {# MSG: Subtitle for the Bluetooth section where the user can find New bluetooth devices #}
+      <p>{% trans %}Found devices:{% endtrans %}</p>
+        <ul id="new-bt-devices" class="bt-devices">
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      $(document).ready(function () {
+        $.getJSON("{{ url_for('get_audio_devices') }}", function (data) {
+          // Hide "loading..."
+          $(".loading").hide();
+          $("#sound-devices").removeClass("is-loading")
+
+          if ("audio_devices" in data){
+            for (audio_device of data["audio_devices"]){
+              if (audio_device["default"]){
+                $("#audio-devices").append($("<option selected>").attr("value", audio_device["number"]).text("*" + audio_device["name"]))
+                $("#volume-value").text(audio_device["volume"] + "%")
+                $("#volume-buttons").removeClass("is-hidden")
+              } else {
+                $("#audio-devices").append($("<option>").attr("value", audio_device["number"]).text(audio_device["name"]))
+              }
+            }
+          } else {
+            // {# MSG: Text information for when no audio devices are found #}
+            $("#audio-devices").append($("<option>").attr("value", "").text("No audio devices found"))
+          }
+
+          if ("bluetooth" in data){
+            if (data["bluetooth"]["known"].length != 0){
+              for (bt_device of data["bluetooth"]["known"]){
+
+                line = `<li class="known-bt-device">`
+
+                if ("audio_device" in bt_device){
+                  if (!bt_device["default"]){
+                    // {# MSG: Link to make a known bluetooth device the default output audio device #}
+                    line += `<a href="{{ url_for('change_audio_output') }}?device=${bt_device.number}" class="make-bt-default-device" >${bt_device.name}</a>
+                      <span> | </span>
+                      <a href="{{ url_for('change_audio_output') }}?device=${bt_device.number}" class="make-bt-default-device" >{% trans %}Make default output{% endtrans %}</a>`
+                  }else{
+                    line += `${bt_device.name}`
+                  }
+                } else {
+                  line += `<a href="{{ url_for('pair_bt_device') }}?mac=${bt_device.mac}&name=${bt_device.name}" class="pair-device" >${bt_device.name}</a>`
+                }
+
+                // {# MSG: Link to remove a known bluetooth device #}
+                line += `<span> | </span>
+                <a href="{{ url_for('remove_bt_device') }}?mac=${bt_device.mac}&name=${bt_device.name}" class="remove-bt-device" >{% trans %}Remove{% endtrans %}</a>
+                </li>`
+
+                $("#known-bt-devices").append(line)
+              }
+            } else {
+              $("#known-bt-devices-container").addClass("is-hidden")
+            }
+
+            if (data["bluetooth"]["new"].length != 0){
+              for (bt_device of data["bluetooth"]["new"]){
+                $("#new-bt-devices").append(
+                  `<li class="new-bt-device">
+                    <a href="{{ url_for('pair_bt_device') }}?mac=${bt_device.mac}&name=${bt_device.name}" class="pair-device" >${bt_device.name}</a>
+                  </li>`
+                )
+              }
+            } else {
+              // {# MSG: Message to the user when no bluetooth devices are found #}
+              $("#new-bt-devices-container p").text("No devices found!")
+            }
+            
+            
+            $("#bt-container").removeClass("is-hidden")
+          }
+        })
+      })
+    </script>
+  {% endif %}
 {% endif %}
 
 <hr/>
