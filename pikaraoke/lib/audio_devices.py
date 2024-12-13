@@ -1,4 +1,4 @@
-""" 
+"""
 This script is only for Raspberry Pi
 
 It uses Pipewire / Wireplumber to:
@@ -13,16 +13,17 @@ Based on the Wireplumber docs
 https://wiki.archlinux.org/title/WirePlumber
 """
 
-import subprocess
 import html
 import logging
+import subprocess
+
 
 def get_audio_sinks():
     try:
         # Executes the wpctl status command and captures the output
         logging.debug("Getting audio sinks")
 
-        command = ['wpctl', 'status']
+        command = ["wpctl", "status"]
         result = run_commands(command)
 
         # logging.debug("Audio sinks: " + result)
@@ -35,7 +36,7 @@ def get_audio_sinks():
         # Processes each line of the output
         for line in result.splitlines():
             line = line.strip()
-            
+
             # Detects the start and end of the audio section
             if not in_audio_section and line == "Audio":
                 in_audio_section = True
@@ -61,24 +62,24 @@ def get_audio_sinks():
                     continue
 
                 # newline = []
-                default=False
+                default = False
 
                 # Checks if it's the default sink line
                 if "*" in line:
                     # newline.append("1")
-                    default=True
+                    default = True
                     line.remove("*")
                 else:
-                    default=False
+                    default = False
                     # newline.append("0")
 
-                number = line[1].strip('.') # Gets the number
-                name = ' '.join(line[2:-2]) # Gets the name
+                number = line[1].strip(".")  # Gets the number
+                name = " ".join(line[2:-2])  # Gets the name
 
-                volume = get_volume(float(line[-1].strip('[]'))) # Gets the volume
+                volume = get_volume(float(line[-1].strip("[]")))  # Gets the volume
 
                 newline = {"default": default, "number": number, "volume": volume, "name": name}
-                   
+
                 sinks.append(newline)
 
         return sinks
@@ -87,9 +88,10 @@ def get_audio_sinks():
         logging.debug(f"Error getting audio sinks: {e}")
         return []
 
+
 def set_default_audio_sink(sink_number):
     logging.debug(f"Setting default audio sink to: {sink_number}")
-    command = ['wpctl', 'set-default', sink_number]
+    command = ["wpctl", "set-default", sink_number]
     return run_commands(command)
 
 
@@ -101,26 +103,30 @@ def get_volume(volume):
         volume = round_sink_volume(volume)
     return int(volume)
 
+
 # As we increase and decrease the volume by 0.1, we need to round it
-def round_sink_volume(volume, sink_number = "default"):
+def round_sink_volume(volume, sink_number="default"):
     logging.debug(f"Rounding volume: {volume}")
-    volume = round(volume/100, 1)
+    volume = round(volume / 100, 1)
     sink = "@DEFAULT_AUDIO_SINK@" if sink_number == "default" else sink_number
-    command = ['wpctl', 'set-volume', sink, str(volume)]
+    command = ["wpctl", "set-volume", sink, str(volume)]
     run_commands(command)
     return volume * 100
 
+
 # increase volume by 0.1 - max volume is 1.5 (150%)
-def set_device_vol_up(sink_number = "default"):
+def set_device_vol_up(sink_number="default"):
     sink = "@DEFAULT_AUDIO_SINK@" if sink_number == "default" else sink_number
-    command = ['wpctl', 'set-volume', '-l', '1.5', sink, "0.1+"]
+    command = ["wpctl", "set-volume", "-l", "1.5", sink, "0.1+"]
     return run_commands(command)
 
+
 # decrease volume by 0.1
-def set_device_vol_down(sink_number = "default"):
+def set_device_vol_down(sink_number="default"):
     sink = "@DEFAULT_AUDIO_SINK@" if sink_number == "default" else sink_number
-    command = ['wpctl', 'set-volume', sink, "0.1-"]
+    command = ["wpctl", "set-volume", sink, "0.1-"]
     return run_commands(command)
+
 
 # Function that runs the commands using subprocess
 def run_commands(command):

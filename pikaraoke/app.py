@@ -16,13 +16,13 @@ import psutil
 from flask import (
     Flask,
     flash,
+    jsonify,
     make_response,
     redirect,
     render_template,
     request,
     send_file,
     url_for,
-    jsonify,
 )
 from flask_babel import Babel
 from flask_paginate import Pagination, get_page_parameter
@@ -37,7 +37,11 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
-from pikaraoke.lib.get_platform import get_platform, is_raspberry_pi, is_pipewire_installed
+from pikaraoke.lib.get_platform import (
+    get_platform,
+    is_pipewire_installed,
+    is_raspberry_pi,
+)
 
 try:
     from urllib.parse import quote, unquote
@@ -57,6 +61,7 @@ site_name = "PiKaraoke"
 admin_password = None
 raspberry_pi = is_raspberry_pi()
 linux = get_platform() == "linux"
+
 
 def filename_from_path(file_path, remove_youtube_id=True):
     rc = os.path.basename(file_path)
@@ -439,7 +444,7 @@ def start_song():
 def delete_file():
     if "song" in request.args:
         song_path = request.args["song"]
-        exists = any(item.get('file') == song_path for item in k.queue)
+        exists = any(item.get("file") == song_path for item in k.queue)
         if exists:
             flash(
                 "Error: Can't delete this song because it is in the current queue: " + song_path,
@@ -593,7 +598,7 @@ def info():
         pikaraoke_version=VERSION,
         admin=is_admin(),
         admin_enabled=admin_password != None,
-        have_pipewire = have_pipewire
+        have_pipewire=have_pipewire,
     )
 
 
@@ -710,6 +715,7 @@ def get_default_dl_dir(platform):
         else:
             return "~/pikaraoke-songs"
 
+
 @app.route("/audio_devices/")
 def get_audio_devices():
     audio_devices = k.get_audio_devices()
@@ -722,9 +728,10 @@ def get_audio_devices():
                 bt_device["audio_device"] = True
                 bt_device["default"] = audio_device["default"]
 
-    devices= {"audio_devices": audio_devices, "bluetooth": bluetooth_devices}
+    devices = {"audio_devices": audio_devices, "bluetooth": bluetooth_devices}
 
     return jsonify(devices)
+
 
 @app.route("/audio_devices/change_output", methods=["GET"])
 def change_audio_output():
@@ -741,6 +748,7 @@ def change_audio_output():
         flash("You don't have permission to change audio output", "is-danger")
     return redirect(url_for("info"))
 
+
 @app.route("/audio_devices/change_volume", methods=["GET"])
 def change_device_volume():
     if is_admin() and raspberry_pi:
@@ -751,10 +759,17 @@ def change_device_volume():
         else:
             response = {"msg": "Error: No volume specified!", "status": "is-danger"}
     elif not raspberry_pi:
-        response = {"msg": "Cannot change device volume on non-raspberry pi devices!", "status": "is-danger"}
+        response = {
+            "msg": "Cannot change device volume on non-raspberry pi devices!",
+            "status": "is-danger",
+        }
     else:
-        response = {"msg": "You don't have permission to change device volume", "status": "is-danger"}
+        response = {
+            "msg": "You don't have permission to change device volume",
+            "status": "is-danger",
+        }
     return jsonify(response)
+
 
 @app.route("/bluetooth/pair", methods=["GET"])
 def pair_bt_device():
@@ -767,6 +782,7 @@ def pair_bt_device():
         flash("You don't have permission to change device volume", "is-danger")
     return redirect(url_for("info"))
 
+
 @app.route("/bluetooth/remove", methods=["GET"])
 def remove_bt_device():
     if is_admin() and raspberry_pi:
@@ -777,6 +793,7 @@ def remove_bt_device():
     else:
         flash("You don't have permission to change device volume", "is-danger")
     return redirect(url_for("info"))
+
 
 def main():
     platform = get_platform()

@@ -3,7 +3,7 @@ import platform
 import re
 import subprocess
 import sys
-import logging
+
 
 def is_pipewire_installed():
     try:
@@ -15,7 +15,10 @@ def is_pipewire_installed():
         if "pipewire" in first_line:
             # Check if wireplumber is present'
             result = subprocess.run(
-                ["wireplumber", "--version"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+                ["wireplumber", "--version"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
             )
             first_line = result.stdout.split("\n")[0]
             if "wireplumber" in first_line:
@@ -23,6 +26,7 @@ def is_pipewire_installed():
         return False
     except:
         return False
+
 
 def get_ffmpeg_version():
     try:
