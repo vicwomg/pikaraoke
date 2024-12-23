@@ -3,7 +3,8 @@ services:
     image: pikaraoke:latest
     container_name: PiKaraoke
     network_mode: host
+    environment:
+      EXTRA_ARGS: --high-quality # Optional
     volumes:
-      - /etc/hostname:/etc/host_hostname:ro
-      - pikaraoke-songs:/pikaraoke-songs
+      - /path/to/song/storage:/pikaraoke-songs # Optional
     restart: unless-stopped

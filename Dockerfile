@@ -2,7 +2,7 @@ FROM python:3.12-slim-bookworm
 
 # Install required packages
 RUN apt-get update --allow-releaseinfo-change
-RUN apt-get install figlet ffmpeg chromium chromium-driver wireless-tools -y
+RUN apt-get install figlet ffmpeg wireless-tools -y
 
 # Copy contents of the project into the image
 RUN mkdir pikaraoke
