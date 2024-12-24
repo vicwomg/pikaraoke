@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.7.0](https://github.com/vicwomg/pikaraoke/compare/1.6.1...1.7.0) (2024-12-24)
+
+
+### Features
+
+* add arm64/amd64 docker builds to release-please ci ([a07265f](https://github.com/vicwomg/pikaraoke/commit/a07265fbece73b49cef95d99dbf54d4a4dd457e3))
+* add dockerization support ([f93168f](https://github.com/vicwomg/pikaraoke/commit/f93168fa5413c6cdc20c265934dc05a42c728be2))
+
+
+### Bug Fixes
+
+* commitlint error ([69cb031](https://github.com/vicwomg/pikaraoke/commit/69cb03170b325a111d4384c150b725f427d23968))
+* File was being deleted even if it was in queue ([86dae29](https://github.com/vicwomg/pikaraoke/commit/86dae29b8fb279e5b8a410d22127cf20564359dd))
+* Notification not being shown using Flask Flash ([497196a](https://github.com/vicwomg/pikaraoke/commit/497196a78285831492dd7f166f33513d19c29117))
+* Transposing hangs when ffmpeg does not have librubberband ([#435](https://github.com/vicwomg/pikaraoke/issues/435)) ([8939e60](https://github.com/vicwomg/pikaraoke/commit/8939e6030aa967a18baf391c8499757708b0a73e))
+
 ## [1.6.1](https://github.com/vicwomg/pikaraoke/compare/1.6.0...1.6.1) (2024-12-02)
 
 
