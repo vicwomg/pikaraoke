@@ -550,7 +550,10 @@ def info():
     url = k.url
 
     # cpu
-    cpu = str(psutil.cpu_percent()) + "%"
+    try:
+        cpu = str(psutil.cpu_percent()) + "%"
+    except:
+        cpu = "CPU usage query unsupported"
 
     # mem
     memory = psutil.virtual_memory()
@@ -925,6 +928,10 @@ def main():
     )
     cherrypy.engine.start()
 
+    # force headless mode when on Android
+    if (platform == "android") and not args.hide_splash_screen:
+        args.hide_splash_screen = True
+        logging.info("Forced to run headless mode in Android")
     # Start the splash screen using selenium
     if not args.hide_splash_screen:
         if raspberry_pi:

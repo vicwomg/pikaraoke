@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.6.1](https://github.com/vicwomg/pikaraoke/compare/1.6.0...1.6.1) (2024-12-02)
+
+
+### Bug Fixes
+
+* prevent hangs when volume change from exceeds max ([#429](https://github.com/vicwomg/pikaraoke/issues/429)) ([d097311](https://github.com/vicwomg/pikaraoke/commit/d0973114be53759f88a59d33112efffc72ebc6db))
+
+## [1.6.0](https://github.com/vicwomg/pikaraoke/compare/1.5.2...1.6.0) (2024-11-23)
+
+
+### Features
+
+* Added support to Android via Termux App ([#423](https://github.com/vicwomg/pikaraoke/issues/423)) ([0118733](https://github.com/vicwomg/pikaraoke/commit/0118733d698263bc684829aeed69b3c589df43e5))
+
+## [1.5.2](https://github.com/vicwomg/pikaraoke/compare/1.5.1...1.5.2) (2024-11-05)
+
+
+### Bug Fixes
+
+* admin passwords not working [#401](https://github.com/vicwomg/pikaraoke/issues/401) ([35550dc](https://github.com/vicwomg/pikaraoke/commit/35550dc858864aa928d5f25f75b57472826a11c0))
+* broken upgrade path for --break-system-packages users ([9f01f23](https://github.com/vicwomg/pikaraoke/commit/9f01f23ebaabee2aa72b674ebe668d3247be571d))
+* broken upgrade path for --break-system-packages users ([#395](https://github.com/vicwomg/pikaraoke/issues/395)) ([74c9dca](https://github.com/vicwomg/pikaraoke/commit/74c9dcaaf2d3a43bf93d4b179c2809be906855b5))
+* Italian translation ([#415](https://github.com/vicwomg/pikaraoke/issues/415)) ([2c791c7](https://github.com/vicwomg/pikaraoke/commit/2c791c7f48129f84c9cf45dc2d857ad6742e4c0e))
+* support orangepi devices as raspberry pi w/o hw accel ([658d381](https://github.com/vicwomg/pikaraoke/commit/658d381a82b0c87a321ab4f44d6eefea4bfb3bc0))
+
 ## [1.5.1](https://github.com/vicwomg/pikaraoke/compare/1.5.0...1.5.1) (2024-09-23)
 
 
