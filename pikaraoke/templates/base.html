@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  {% if title %}
+  <title>{{site_title}} - {{ title }}</title>
+  {% else %}
+  <title>{{site_title}}</title>
+  {% endif %}
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script type=text/javascript src="{{  url_for('static', filename='jquery-3.3.1.min.js') }}"></script>
+  <script src="{{  url_for('static', filename='js.cookie-2.2.1.min.js') }}"></script>
+  <script src="{{  url_for('static', filename='lodash.min.js') }}"></script>
+  <link rel="stylesheet" href="{{  url_for('static', filename='bulma-dark.css') }}">
+  <link rel="stylesheet" href="{{  url_for('static', filename='custom.css') }}">
+  <link rel="icon" type="image/png" href="{{  url_for('static', filename='images/microphone.png') }}">
+  <!-- <link rel="stylesheet" href="{{  url_for('static', filename='fontello/css/fontello.css') }}"> -->
+  <link rel="stylesheet" href="/static/fontello/css/fontello.css?cachebust=1">
+
+  <script>
+
+    function generateRandomString(length) {
+      const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let result = '';
+      for (let i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length));
+      }
+      return result;
+    }
+
+    function getSemitonesLabel(value) {
+      if (value > 0) {
+        return "+" + value + " semitones";
+      } else {
+        return value + " semitones";
+      }
+    }
+
+
+    function showNotification(message, categoryClass, timeout=3000) {
+      $("#notification-alt").addClass(categoryClass)
+      $("#notification-alt div").text(message)
+      $("#notification-alt").fadeIn()
+      setTimeout(function () {$("#notification-alt").fadeOut()}, timeout)
+      setTimeout(function () {$("#notification-alt").removeClass(categoryClass)}, timeout + 750)
+    }
+
+    function setUserCookie(reload=false) {
+      var user = Cookies.get("user");
+      if (!user) {
+        let name = window.prompt(
+          // {# MSG: Prompt which asks the user their name when they first try to add to the queue. #}
+          "{{ _('Please enter your name. This will show up next to the songs you queue up from this device.') }}"
+        );
+        if (name) {
+          Cookies.set("user", name, { expires: 3650 });
+        }
+        else {
+          Cookies.set("user", `Anon-${generateRandomString(4)}`, { expires: 3650 });
+        }
+        reload && location.reload();
+      }
+    }
+
+    function getUserCookie() {
+      return Cookies.get("user");
+    }
+
+    $(function () {
+      $("#notification-close").click(function () {
+        $(".notification").hide();
+      });
+      $("#notification-alt").hide()
+
+      // Check for click events on the navbar burger icon
+      $(".navbar-burger").click(function () {
+        // Toggle the "is-active" class on both the "navbar-burger" and the "navbar-menu"
+        $(".navbar-burger").toggleClass("is-active");
+        $(".navbar-menu").toggleClass("is-active");
+      });
+
+
+      // handle highlighting current nav bar location
+      var currentPath = window.location.pathname;
+      if (currentPath == "/") {
+        $("#home").addClass("is-active")
+      }
+      if (currentPath == "/queue") {
+        $("#queue").addClass("is-active")
+      }
+      if (currentPath == "/search") {
+        $("#search").addClass("is-active")
+      }
+      if (currentPath == "/browse") {
+        $("#browse").addClass("is-active")
+      }
+      if (currentPath == "/info") {
+        $("#info").addClass("is-active")
+      }
+
+      // handle auto-close flash notifications
+      setTimeout(function() { $("#notification").fadeOut()}, 3000);
+
+      // handle current user display
+      var currentUser = Cookies.get("user");
+
+      if (currentUser) {
+        $("#current-user span").text(currentUser)
+        $("#current-user").removeClass("is-hidden");
+      };
+
+      $('#current-user').click(function(e) {
+        e.preventDefault();
+        let name = window.prompt(
+          // Use a javascript format string, so translators only need to see a regular
+          // parametric translation instead of asking them to create valid javascript template.
+          // {# MSG: Prompt when changing the current profile name. #}
+          `{% trans currentUser="${currentUser}" -%}
+            Do you want to change the name of the person using this device? This will show up on queued songs. Current: {{ currentUser }}
+          {%- endtrans %}`
+        );
+        if (name) {
+          Cookies.set("user", name, { expires: 3650 })
+        }
+        location.reload();
+      });
+
+    });
+  </script>
+  {% block scripts %}
+  {% endblock %}
+</head>
+
+<style>
+  .navbar-item > i {
+    margin-right: 2px;
+  }
+  .notification {
+    position: fixed;
+    width: 500px;
+    bottom: 5px;
+    left: 50%;
+    margin-left: -250px;
+    z-index: 20;
+  }
+  .current-user {
+    position: fixed;
+    padding: 3px;
+    bottom: 5px;
+    right: 10px;
+  }
+  tr:nth-child(even) {
+    background-color: rgb(50, 55, 55);
+  }
+  @media screen and (max-width: 1088px) {
+    .navbar-brand > .navbar-item > span {
+      display: none;
+    }
+    .notification {
+      position: fixed;
+      width: 100%;
+      bottom: 5px;
+      left: 0px;
+      margin-left: 0px;
+    }
+    body {
+      min-height: 120vh;
+    }
+    .navbar-menu.is-active {
+      position: absolute;
+      right: 0px;
+    }
+  }
+</style>
+
+<body>
+
+  {% if not blank_page %}
+  <div class="container" style="padding: 5px; max-width: 900px;">
+    <nav class="navbar" role="navigation" aria-label="main navigation">
+      <div class="navbar-brand" id="brand" style="padding-left: 10px">
+        <a id="home" class="navbar-item" href="{{ url_for('home') }}">
+          <i class="icon icon-home-2" title="Home"></i>
+          {# MSG: Navigation link for the home page. #}
+          <span>{% trans %}Home{% endtrans %}</span>
+        </a>
+
+        <a id="queue" class="navbar-item" href="{{ url_for('queue') }}">
+          <i class="icon icon-list-numbered" title="Queue"></i>
+          {# MSG: Navigation link for the queue page. #}
+          <span>{% trans %}Queue{% endtrans %}</span>
+        </a>
+        <a id="search" class="navbar-item" href="{{ url_for('search') }}">
+          <i class="icon icon-search-1" title="Search"></i>
+          {# MSG: Navigation link for the search page add songs to the queue. #}
+          <span>{% trans %}Search{% endtrans %}</span>
+        </a>
+        <a id="browse" class="navbar-item" href="{{ url_for('browse') }}">
+          <i class="icon icon-folder-open-empty" title="Browse"></i>
+          {# MSG: Navigation link for the page where the user can add existing songs to the queue. #}
+          <span>{% trans %}Browse{% endtrans %}</span>
+        </a>
+        <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+        </a>
+      </div>
+      <div class="navbar-menu" id="menu">
+        <div class="navbar-end">
+          <a id="current-user" class="navbar-item is-hidden" href="#">
+            <i class="icon  icon-mic-1" title="Current user"></i>
+            <span></span>
+          </a>
+          <a id="info" class="navbar-item" href="{{ url_for('info') }}">
+            <i class="icon icon-info-circled-1" title="Info"></i>
+            <span>Pikaraoke</span>&nbsp;&nbsp;
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    {% if get_flashed_messages() %}
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div id="notification" class="notification {{category}}" style="display: none">
+      <button id="notification-close" class="delete"></button>
+      <div class="flash">{{ message }}</div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- Alternate notification for js-fired notifications using showNotification -->
+    <div id="notification-alt" class="notification" style="display: none">
+      <button id="notification-close" class="delete"></button>
+      <div class="flash"></div>
+    </div>
+
+    <div class="box" style="margin-top: 5px;">
+      <header class="title">
+        {% block header %}{% endblock %}
+      </header>
+      <div class="content">
+        {% block content %}
+        {% endblock %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+
+  {% block body %}
+  {% endblock %}
+
+</body>
+
+</html>

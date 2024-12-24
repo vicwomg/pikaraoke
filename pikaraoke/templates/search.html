@@ -1,0 +1,544 @@
+{% extends 'base.html' %} {% block scripts %}
+<link
+  href="{{  url_for('static', filename='selectize.min.css') }}"
+  rel="stylesheet"
+/>
+<script src="{{  url_for('static', filename='selectize.min.js') }}"></script>
+<style>
+  .optgroup-header {
+    font-weight: bold;
+  }
+
+  .row {
+    display: flex;
+    /* equal height of the children */
+    border-bottom: 1px solid #cccccc;
+  }
+
+  .col-icon {
+    padding-left: 1px;
+  }
+
+  .col-text {
+    padding-left: 2px;
+    font-size: 120%;
+  }
+
+  #youtube-link {
+    font-size: 80%;
+  }
+
+  .selectize-input {
+    height: 37px;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  ul.search_result_items{
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  ul.search_result_items li{
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  ul.search_result_items li:nth-child(odd){
+    background-color: rgb(50, 55, 55);
+  }
+  .search_result_items_meta{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    text-align: left;
+  }
+  .search_result_items_download{
+    margin-left: 1rem;
+  }
+  @media screen and (min-width: 768px) {
+    ul.search_result_items img{
+      width: 30%;
+    }
+    ul.search_result_items li{
+      display: flex;
+    }
+    .search_result_items_meta{
+      align-items: start;
+      flex: 1;
+    }
+}
+</style>
+<script>
+  $(function () {
+    $("#search_result_selector").focus();
+
+    $("#search-link").click(function () {
+      if (!$("#search-link").is("[disabled=disabled]")) {
+        $("#search-link").addClass("is-loading");
+      }
+    });
+
+    $("#download-button").click(function () {
+      if (!$("#download-button").is("[disabled=disabled]")) {
+        $("#download-button").addClass("is-loading");
+      }
+    });
+
+    $("#add-queue-link").click(function () {});
+
+    //START SELECTIZE CHANGES
+
+    //if enter key press, by default search button is click
+    $(document).keypress(function (event) {
+      if (event.which == "13") {
+        event.preventDefault();
+
+        if ($(".search-selectize .selectize-input input").val()) {
+          $("#search-link").trigger("click");
+        } else if ($(".search-selectize").find(":selected").text()) {
+          $("#add-queue-link").trigger("click");
+        }
+      }
+    });
+
+    $("#add-queue-link").hide();
+    $("#add-queue-link").attr("disabled", "true");
+    $("#search-link").attr("disabled", "true");
+    var $select = $("#song-to-add").selectize({
+      valueField: "path",
+      labelField: "fileName",
+      searchField: ["fileName"],
+      optgroupField: "type",
+      optgroups: [
+        {
+          value: "autocomplete",
+          label: '{{ _("Available songs in local library") }}',
+        },
+      ],
+      createOnBlur: true,
+      openOnFocus: false,
+      createFilter: function (input) {
+        return input.length >= 2;
+      },
+      onInitialize: function () {
+        var that = this;
+
+        this.$control.on("click", function () {
+          that.ignoreFocusOpen = true;
+          setTimeout(function () {
+            that.ignoreFocusOpen = false;
+          }, 50);
+        });
+      },
+
+      onFocus: function () {
+        if ($(window).width() <= 500 && $(window).height() <= 740) {
+          document.getElementById("search-field").scrollIntoView();
+        }
+        if (!this.ignoreFocusOpen) {
+          this.open();
+        }
+      },
+      onBlur: function () {
+        this.setTextboxValue(this.currentResults.query);
+      },
+      onChange: function (id) {
+        if (!id) {
+          $("#add-queue-link").attr("disabled", "true");
+          $("#search-link").attr("disabled", "true");
+          $("#add-queue-link").hide();
+          $("#search-link").show();
+        } else {
+          $("#add-queue-link").removeAttr("disabled");
+          $("#search-link").removeAttr("disabled");
+          $("#add-queue-link").show();
+          $("#search-link").hide();
+        }
+      },
+      onType: function (text) {
+        if (!text) {
+          $("#search-link").attr("disabled", "true");
+          $("#add-queue-link").show();
+          $("#search-link").hide();
+        } else {
+          $("#search-link").removeAttr("disabled");
+          $("#add-queue-link").hide();
+          $("#search-link").show();
+        }
+      },
+      render: {
+        option: function (item, escape) {
+          return (
+            '<div class="row">' +
+            '<div class="col-icon"><i class="icon icon-music has-text-info"></i></div>' +
+            '<div class="col-text">' +
+            escape(item.fileName) +
+            "</div>" +
+            "</div>"
+          );
+        },
+        optgroup_header: function (data, escape) {
+          return (
+            '<div class="optgroup-header">' + escape(data.label) + "</div>"
+          );
+        },
+      },
+      load: function (query, callback) {
+        if (query.length < 2) return callback;
+        $.ajax({
+          url: "{{ url_for('autocomplete') }}" + "?q=" + query,
+          type: "get",
+          success: function (data) {
+            callback(data);
+          },
+        });
+      },
+    });
+
+    // re-populate the search field with previous search term
+    const urlParams = new URLSearchParams(window.location.search);
+    const qSearchString = urlParams.get("search_string");
+    if (qSearchString) {
+      $("#song-to-add-selectized").val(qSearchString);
+      $("#song-to-add-selectized").width("100%");
+    }
+
+    $("#clear-search").on("click", function (e) {
+      e.preventDefault();
+      $("#song-to-add-selectized").val("");
+    });
+
+    $("#search-link").on("click", function (e) {
+      e.preventDefault();
+      var search_term = $(".search-selectize .selectize-input input").val();
+      var include_non_karaoke = $("#include-non-karaoke").is(":checked");
+      if (search_term) {
+        $("#searching_loader").removeClass("is-hidden");
+        $("#searching_loader #search_term").text(search_term);
+        $("#search-link").attr("disabled", "true");
+        $("#search_string").val(search_term);
+        $("#non_karaoke").val(include_non_karaoke);
+        $("#container_search_result").hide();
+        $("#container_search_form form").submit();
+      }
+    });
+    $("#add-queue-link").on("click", function (e) {
+      e.preventDefault();
+      if ($(".search-selectize").find(":selected").text()) {
+        $("#add-queue-link").attr("disabled", "true");
+        $("#add-queue-link").addClass("is-loading");
+        setTimeout(function () {
+          $("#add-queue-link").removeClass("is-loading");
+        }, 1000);
+        $.ajax({
+          url: "{{ url_for('enqueue') }}",
+          type: "post",
+          data: $("#queue-form").serialize(),
+          success: function (data) {
+            var obj = JSON.parse(data);
+            if (obj.success) {
+              showNotification(
+                "Added song to queue: " + obj.song,
+                "is-success"
+              );
+            } else {
+              showNotification(
+                "Song is already in the queue: " + obj.song,
+                "is-danger"
+              );
+            }
+            $select[0].selectize.clear();
+          },
+        });
+      }
+    });
+
+    //END SELECTIZE CHANGES
+
+    $("#youtube-link").attr("href", $("#search_result_selector").val());
+    $("#youtube-link").text($("#search_result_selector").val());
+
+    //get youtube thumbnail based on ID
+    i = -1;
+    changeImage();
+
+    $(document).on("change", "#search_result_selector", function () {
+      var url = $("#search_result_selector").val();
+      $("#youtube-link").attr("href", url);
+      $("#youtube-link").text(url);
+      changeImage();
+    });
+    //alow click of images
+    $("#youtube-thumb").click(function (e) {
+      changeImage();
+    });
+    setInterval(function () {
+      $("#youtube-thumb").trigger("click");
+    }, 2000);
+
+    $("#advanced-settings").hide();
+
+    // handle show advanced state
+    $("#show-advanced").on("change", function () {
+      if ($("#show-advanced").is(":checked")) {
+        $("#advanced-settings").show();
+      } else {
+        $("#advanced-settings").hide();
+      }
+    });
+
+    // handle direct download url input change
+    $("#direct-download-url").on("input", function () {
+      var v = $("#direct-download-url").val();
+      if (isYoutubeURL(v)) {
+        $("#direct-download-button").removeAttr("disabled");
+      } else {
+        $("#direct-download-button").attr("disabled", true);
+      }
+    });
+
+    setUserCookie(true);
+
+    $(".song-added-by").val(getUserCookie());
+    const items = document.querySelectorAll('.search_result_items li')
+    items.forEach(item=> item.querySelector('button').addEventListener('click', ()=>{
+      const index = item.getAttribute('data-index')
+      document.querySelector('#search_result_selector').selectedIndex = index
+      document.querySelector('#download-button').click()
+    }))
+  });
+
+  function isYoutubeURL(s) {
+    if (s.includes("http")) {
+      return (
+        s.includes("youtube.com/watch?v=") ||
+        s.includes("youtube.com/v/") ||
+        s.includes("youtu.be/")
+      );
+    } else {
+      return false;
+    }
+  }
+
+  function changeImage() {
+    var next = ++i % 4;
+    var youtube_id = $("#search_result_selector")
+      .find(":selected")
+      .data("ytid");
+    var fn = next == 0 ? "default" : next;
+    var img_src =
+      "https://img.youtube.com/vi/" + youtube_id + "/mq" + fn + ".jpg";
+    $("#youtube-thumb").attr("src", img_src);
+  }
+</script>
+{% endblock %} {% block header %} {# MSG: Title for the search page. #}
+<h1>
+  {% block title %}{% trans %}Search / Add New{% endtrans %}{% endblock %}
+</h1>
+{% endblock %} {% block content %}
+
+<div>
+  <div class="field" id="container_queue_form">
+    <form id="queue-form">
+      <div
+        id="search-field"
+        class="field has-addons"
+        style="margin-bottom: 5px"
+      >
+        <div class="control" style="width: 100%">
+          <select
+            id="song-to-add"
+            class="search-selectize is-size-7"
+            name="song-to-add"
+          >
+            {# TODO MSG: Label #}
+            <optgroup
+              label="{{ _('Available Songs') }}"
+              id="available-songs"
+            ></optgroup>
+          </select>
+        </div>
+        <div class="control">
+          {# MSG: Submit button on the search form for searching YouTube. #}
+          <a class="button is-warning" id="search-link"
+            >{% trans %}Search{% endtrans %}</a
+          >
+          {# MSG: Submit button on the search form when selecting a locally
+          downloaded song. The button adds it to the queue. #}
+          <a class="button is-info" id="add-queue-link"
+            >{% trans %}Add to queue{% endtrans %}</a
+          >
+        </div>
+        <input class="song-added-by" type="hidden" name="song-added-by" />
+      </div>
+      <div class="control has-text-right">
+        <a
+          id="clear-search"
+          class="has-text-danger is-size-7"
+          style="margin-right: 10px"
+        >
+          {# MSG: Link which clears the text from the search box. #} {% trans
+          %}Clear{% endtrans %}</a
+        >
+        <label class="checkbox is-size-7">
+          <input type="checkbox" id="show-advanced" name="show-advanced" />
+          {# MSG: Checkbox label which enables more options when searching. #}
+          {% trans %}Advanced{% endtrans %}
+        </label>
+      </div>
+
+      <div>
+        <p class="help" style="margin-top: 15px">
+          {# MSG: Help text below the search bar. #} {% trans -%} Type a song
+          (title/artist) to search the available songs and click 'Add to queue'
+          to add it to the queue. {%- endtrans %}
+        </p>
+        <p class="help">
+          {# MSG: Additonal help text below the search bar. #} {% trans -%} If
+          the song doesn't appear in the "Available Songs" dropdown, click
+          'Search' to find it on Youtube {%- endtrans %}
+        </p>
+      </div>
+    </form>
+  </div>
+
+  <div>
+    <div
+      id="advanced-settings"
+      class="box has-background-black-bis"
+      style="margin-top: 10px; display: none"
+    >
+      <div class="control">
+        <label class="checkbox">
+          <input
+            type="checkbox"
+            id="include-non-karaoke"
+            name="include-non-karaoke"
+          />
+          {# MSG: Checkbox label which enables matching songs which are not
+          karaoke versions (i.e. the songs still have a singer and are not just
+          instrumentals.) #} {% trans %}Include non-karaoke matches{% endtrans
+          %}
+        </label>
+      </div>
+      <hr />
+      <div class="control">
+        <div class="label">
+          {# MSG: Label for an input which takes a YouTube url directly instead
+          of searching titles. #} {% trans %}Direct download YouTube url:{%
+          endtrans %}
+        </div>
+        <form action="{{ url_for('download') }}" method="post">
+          <input
+            class="input"
+            id="direct-download-url"
+            type="text"
+            name="song-url"
+          />
+          <input class="song-added-by" type="hidden" name="song-added-by" />
+          <div class="field" style="margin-top: 5px">
+            <label class="checkbox">
+              <input type="checkbox" checked name="queue" />
+              {# MSG: Checkbox label which marks the song to be added to the
+              queue after it finishes downloading. #} {% trans %}Add to queue
+              once downloaded{% endtrans %}
+            </label>
+          </div>
+          <div class="has-text-right" style="margin-top: 5px">
+            <button
+              class="button is-small is-rounded"
+              disabled
+              id="direct-download-button"
+              type="submit"
+            >
+              {# MSG: Button label for the direct download form's submit button.
+              #} {% trans %}Download{% endtrans %}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <hr />
+
+  <div class="field is-hidden" id="container_search_form">
+    <form action="{{ url_for('search') }}" method="get">
+      <input id="search_string" type="text" name="search_string" />
+      <input type="text" id="non_karaoke" name="non_karaoke" />
+    </form>
+  </div>
+
+  <div id="searching_loader" class="control is-loading is-hidden">
+    {% set placeholder_search_term %}
+    <span id="search_term"></span>
+    {% endset %} {# MSG: Html text which displays what was searched for, in
+    quotes while the page is loading. #} {% trans
+    search_term=placeholder_search_term -%} Searching YouTube for
+    <small><i>'{{ search_term }}'</i></small>
+    {%- endtrans %}
+  </div>
+  {% if search_results %}
+  <div class="field" id="container_search_result">
+    <form action="{{ url_for('download') }}" method="post">
+      <label class="label">
+        {# MSG: Html text which displays what was searched for, in quotes. #} {%
+        trans search_term=search_string -%} Search results for
+        <small><i>'{{search_string}}'</i></small>
+        {%- endtrans %}
+      </label>
+      <div class="is-hidden">
+        <div class="field select">
+          <select id="search_result_selector" name="song-url">
+            > {% for title,url,id in search_results %}
+            <option data-ytID="{{id}}" value="{{url}}">{{title}}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <input class="song-added-by" type="hidden" name="song-added-by" />
+        <p class="help">
+          {# MSG: Help text which explains that the select box above can be
+          operated to select different search results. #} {% trans %}Click
+          dropdown to show more results{% endtrans %}
+        </p>
+        <p>
+          {# MSG: Label displayed before the YouTube url for the chosen search
+          result. #} {% trans %}Link:{% endtrans %}
+          <a target="_blank" id="youtube-link" href=""></a>
+        </p>
+        <p class="has-text-centered-mobile"><img id="youtube-thumb" /></p>
+      </div>
+
+      <div class="field">
+        <label class="checkbox">
+          <input type="checkbox" checked name="queue" />
+          {# MSG: Checkbox label which marks the song to be added to the queue
+          after it finishes downloading. #} {% trans %}Add to queue once
+          downloaded{% endtrans %}
+        </label>
+      </div>
+      <div class="field is-hidden">
+        <button
+          class="button is-success is-rounded"
+          id="download-button"
+          type="submit"
+        >
+          {# MSG: Label on the button which starts the download of the selected
+          song. #} {%- trans %}Download{% endtrans -%}
+        </button>
+      </div>
+    </form>
+    <ul class="search_result_items">
+      {% for title,url,id in search_results %}
+      <li data-ytID="{{id}}" value="{{url}}" data-index="{{loop.index0}}" >
+        <img src="https://img.youtube.com/vi/{{id}}/0.jpg"/>
+        <div class="search_result_items_meta">
+          {{title}}
+          <button class="button search_result_items_download">Download</button>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% else %} {% endif %} {% endblock %}

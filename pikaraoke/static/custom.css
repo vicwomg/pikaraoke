@@ -1,0 +1,88 @@
+.custom-combobox {
+  position: relative;
+  display: inline-block;
+  width: 90%;
+}
+.custom-combobox-toggle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  margin-left: -1px;
+  padding: 0;
+}
+.custom-combobox-input {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+#notification {
+  margin-bottom: 0;
+}
+#brand {
+  margin-left: 0;
+}
+#menu {
+  margin-right: 0;
+}
+
+.control-box a {
+  color: #cccccc;
+}
+
+.control-box a:hover {
+  color: #74ccb3;
+}
+
+.pagination {
+  margin-bottom: 7px;
+}
+.pagination-page-info {
+  padding: 0;
+  width: 100%;
+  margin: 0.5em;
+  margin-left: 0;
+  font-size: 12px;
+}
+.pagination-page-info b {
+  color: black;
+  background: #6aa6ed;
+  padding-right: 5px;
+  font-size: 150%;
+}
+.pagination-list {
+  list-style: none !important;
+  margin-top: 0px !important;
+  margin-left: 0px !important;
+  margin-bottom: 0px !important;
+}
+.pagination-list li {
+  margin-top: 0px !important;
+}
+.pagination-previous,
+.pagination-next {
+  margin-top: 0px !important;
+  margin-bottom: 0px !important;
+}
+.pagination-page-info b {
+  color: white;
+  background-color: transparent;
+  font-size: 100%;
+}
+
+input {
+  /* prevents mobile zooming */
+  font-size: 16px !important;
+}
+
+table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.break-word {
+  overflow-wrap: break-word; /* Renamed property in CSS3 draft spec */
+  width: 100%;
+}
+
+body.hide-cursor * {
+  cursor: none !important;
+}

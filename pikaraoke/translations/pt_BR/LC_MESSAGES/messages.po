@@ -1,0 +1,639 @@
+# Portuguese (Brazil) translations for pikaraoke.
+# Copyright (C) 2022 ORGANIZATION
+# This file is distributed under the same license as the Pikaraoke project.
+# FIRST AUTHOR <mawkee@gmail.com>, 2022.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: mawkee@gmail.com\n"
+"POT-Creation-Date: 2024-10-30 14:43-0300\n"
+"PO-Revision-Date: 2022-06-28 18:57-0300\n"
+"Last-Translator: FULL NAME <mawkee@gmail.com>\n"
+"Language: pt_BR\n"
+"Language-Team: pt_BR <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.16.0\n"
+
+#. Message shown after logging in as admin successfully
+#: app.py:126
+msgid "Admin mode granted!"
+msgstr "Modo administrador concedido!"
+
+#. Message shown after failing to login as admin
+#: app.py:130
+msgid "Incorrect admin password!"
+msgstr "Senha de administração incorreta!"
+
+#. Title of the files page.
+#. Navigation link for the page where the user can add existing songs to the
+#. queue.
+#: app.py:382 templates/base.html:201
+msgid "Browse"
+msgstr "Navegar"
+
+#. Prompt which asks the user their name when they first try to add to the
+#. queue.
+#: templates/base.html:53
+msgid ""
+"Please enter your name. This will show up next to the songs you queue up "
+"from this device."
+msgstr ""
+"Por favor entre com o seu nome. Irá aparecer ao lado das músicas em “a "
+"seguir” no dispositivo."
+
+#. Prompt when changing the current profile name.
+#: templates/base.html:118
+#, python-format
+msgid ""
+"Do you want to change the name of the person using this device? This will"
+" show up on queued songs. Current: %(currentUser)s"
+msgstr ""
+"Você quer mudar o nome da pessoa que usa este dispositivo? Isto aparecerá"
+" em músicas em fila de espera. Atual: %(currentUser)s"
+
+#. Navigation link for the home page.
+#: templates/base.html:185
+msgid "Home"
+msgstr "Home"
+
+#. Navigation link for the queue page.
+#. Title of the page showing the currently queued songs.
+#: templates/base.html:191 templates/queue.html:123
+msgid "Queue"
+msgstr "Fila"
+
+#. Navigation link for the search page add songs to the queue.
+#. Submit button on the search form for searching YouTube.
+#: templates/base.html:196 templates/search.html:364
+msgid "Search"
+msgstr "Busca"
+
+#. Confirmation prompt when the user deletes a song.
+#: templates/edit.html:29
+msgid "Are you sure you want to delete this song from the library?"
+msgstr "Tem certeza que quer excluir esta música da biblioteca?"
+
+#. Warning when no suggested tracks are found for a search.
+#: templates/edit.html:90
+msgid "No suggestion!"
+msgstr "Sem sugestões!"
+
+#. Page title for the page where a song can be edited.
+#: templates/edit.html:105
+msgid "Edit Song"
+msgstr "Editar música"
+
+#. Label on the control to edit the song's name
+#: templates/edit.html:118
+msgid "Edit Song Name"
+msgstr "Editar nome da música"
+
+#. Label on button which auto formats the song's title.
+#: templates/edit.html:125
+msgid "Auto-format"
+msgstr "Auto-formatar"
+
+#. Label on button which swaps the order of the artist and song in the title.
+#: templates/edit.html:127
+msgid "Swap artist/song order"
+msgstr "Inverter ordem de artista/música"
+
+#. Label on button which saves the changes.
+#: templates/edit.html:137
+msgid "Save"
+msgstr "Salvar"
+
+#. Label on button which deletes the current song.
+#: templates/edit.html:147
+msgid "Delete this song"
+msgstr "Apagar esta música"
+
+#. Notification when a song gets added to the queue.  The song name comes after
+#. this string.
+#: templates/files.html:25
+msgid "Song added to the queue: "
+msgstr "Música adicionada na fila: "
+
+#. Notification when a song does not get added to the queue.  The song name
+#. comes after this string.
+#: templates/files.html:31
+msgid "Song already in the queue: "
+msgstr "Música já está na fila: "
+
+#. Label which displays that the   songs are currently sorted by alphabetical
+#. order.
+#: templates/files.html:87
+#, fuzzy
+msgid ""
+"Sorted\n"
+"  Alphabetically"
+msgstr "Ordenar alfabeticamente"
+
+#. Button which changes how the songs are sorted so they become sorted     by
+#. date.
+#: templates/files.html:91
+msgid "Sort by Date"
+msgstr "Ordenar por data"
+
+#. Label which displays that   the songs are currently sorted by date.
+#: templates/files.html:94
+msgid "Sorted by date"
+msgstr "Ordenado por data"
+
+#. Button which changes how the songs are sorted so they become sorted     by
+#. name.
+#: templates/files.html:98
+msgid "Sort by Alphabetical"
+msgstr "Ordenar por nome"
+
+#. Message which shows in the "Now Playing" section when there is no song
+#. currently playing
+#: templates/home.html:28
+msgid "Nothing is playing right now."
+msgstr "Nada está sendo tocado no momento."
+
+#. Title text for the icon marking the next person to sing.
+#: templates/home.html:36
+msgid "Next singer"
+msgstr "Próximo artista"
+
+#. Alternative text for the "Up next" section if no more songs are queued up.
+#: templates/home.html:39
+msgid "No song is queued."
+msgstr "Nenhuma música na fila."
+
+#. Confirmation message when clicking a button to skip a track.
+#: templates/home.html:144
+msgid ""
+"Are you sure you want to skip this track? If you didn't add this song, "
+"ask permission first!"
+msgstr ""
+"Tem certeza que quer pular esta música? Se não foi você que adicionou, "
+"peça permissão primeiro!"
+
+#. Header showing the currently playing song.
+#: templates/home.html:176
+msgid "Now Playing"
+msgstr "Tocando agora"
+
+#. Title for the section displaying the next song to be played.
+#: templates/home.html:191
+msgid "Next Song"
+msgstr "Próxima música"
+
+#. Title of the box with controls such as pause and skip.
+#: templates/home.html:202
+msgid "Player Control"
+msgstr "Controles do Player"
+
+#. Title attribute on the button to restart the current song.
+#: templates/home.html:206
+msgid "Restart Song"
+msgstr "Reiniciar Música"
+
+#. Title attribute on the button to play or pause the       current song.
+#: templates/home.html:210
+msgid "Play/Pause"
+msgstr "Tocar/Pausar"
+
+#. Title attribute on the button to skip to the next       song.
+#: templates/home.html:214
+msgid "Stop Current Song"
+msgstr "Parar música atual"
+
+#. Title of a control to change the key/pitch of the playing song.
+#: templates/home.html:236
+msgid "Change Key"
+msgstr "Mudar tom"
+
+#. Label on the button to confirm the change in key/pitch of the
+#. playing song.
+#: templates/home.html:264
+msgid "Change"
+msgstr "Alterar"
+
+#. Confirmation text whe the user selects quit.
+#: templates/info.html:7
+msgid "Are you sure you want to quit?"
+msgstr "Tem certeza que deseja sair?"
+
+#. Confirmation text whe the user starts to turn off the machine running
+#. Pikaraoke.
+#: templates/info.html:15
+msgid "Are you sure you want to shut down?"
+msgstr "Tem certeza que deseja desligar?"
+
+#. Confirmation text whe the user starts to reboot the machine running
+#. Pikaraoke.
+#: templates/info.html:23
+msgid "Are you sure you want to reboot?"
+msgstr "Tem certeza que deseja reiniciar?"
+
+#. Confirmation text whe the user asks to update the Youtube-dl tool.
+#: templates/info.html:33
+msgid ""
+"Are you sure you want to update Youtube-dl right now? Current and pending"
+" downloads may fail."
+msgstr ""
+"Tem certeza que quer atualizar o Youtube-dl agora? Downloads em execução "
+"e pendentes podem falhar."
+
+#. Title of the information page.
+#: templates/info.html:54
+msgid "Information"
+msgstr "Informação"
+
+#. Label which appears before a url which links to the current page.
+#: templates/info.html:64
+#, python-format
+msgid "URL of %(site_title)s:"
+msgstr "URL de %(site_title)s:"
+
+#. Label before a QR code which brings a frind (pal) to the main page if
+#. scanned, so they can also add songs. QR code follows this text.
+#: templates/info.html:70
+msgid "Handy URL QR code to share with a pal:"
+msgstr "QR code da URL para compartilhar com um coleguinha:"
+
+#. Header of the information section about the computer running Pikaraoke.
+#: templates/info.html:78
+msgid "System Info"
+msgstr "Informação do Sistema"
+
+#. The hardware platform
+#: templates/info.html:81
+#, fuzzy
+msgid "Platform:"
+msgstr "Auto-formatar"
+
+#. The os version
+#: templates/info.html:83
+msgid "OS Version:"
+msgstr ""
+
+#. The version of the program "Youtube-dl".
+#: templates/info.html:85
+#, fuzzy, python-format
+msgid "Youtube-dl (yt-dlp) version:"
+msgstr "Versão do Youtube-dl (yt-dlp): %(youtubedl_version)s"
+
+#. The version of the program "ffmpeg".
+#: templates/info.html:87
+msgid "FFmpeg version:"
+msgstr ""
+
+#. The version of Pikaraoke running right now.
+#: templates/info.html:89
+#, fuzzy, python-format
+msgid "Pikaraoke version:"
+msgstr "Versão do Pikaraoke: %(pikaraoke_version)s"
+
+#: templates/info.html:91
+#, fuzzy
+msgid "System stats"
+msgstr "Informação do Sistema"
+
+#. The CPU usage of the computer running Pikaraoke.
+#: templates/info.html:94
+#, python-format
+msgid "CPU: %(cpu)s"
+msgstr "CPU: %(cpu)s"
+
+#. The disk usage of the computer running Pikaraoke. Used by downloaded songs.
+#: templates/info.html:96
+#, python-format
+msgid "Disk Usage: %(disk)s"
+msgstr "Uso de disco: %(disk)s"
+
+#. The memory (RAM) usage of the computer running Pikaraoke.
+#: templates/info.html:98
+#, python-format
+msgid "Memory: %(memory)s"
+msgstr "Memória: %(memory)s"
+
+#. Title of the updates section.
+#: templates/info.html:105
+msgid "Updates"
+msgstr "Atualizações"
+
+#. Label before a link which forces Pikaraoke to rescan and pick up any new
+#. songs.
+#: templates/info.html:107
+msgid "Refresh the song list:"
+msgstr "Atualizar lista de músicas:"
+
+#. Text on the link which forces Pikaraoke to rescan and pick up any new songs.
+#: templates/info.html:112
+msgid "Rescan song directory"
+msgstr "Rescanear diretório de músicas"
+
+#. Help text explaining the Rescan song directory link.
+#: templates/info.html:117
+msgid ""
+"You should only need to do this if you manually copied files to the "
+"download directory while pikaraoke was running."
+msgstr ""
+"Você só precisará fazer isso se copiar manualmente os arquivos para o "
+"diretório de download enquanto o pikaraoke estava rodando."
+
+#. Text explaining why you might want to update youtube-dl.
+#: templates/info.html:122
+#, python-format
+msgid ""
+"If downloads or searches stopped working, updating youtube-dl will "
+"probably fix it.\n"
+"   The current installed version is: \"%(youtubedl_version)s\""
+msgstr ""
+"Se os downloads ou buscas pararem de funcionar, a atualização do youtube-"
+"dl provavelmente irá consertá-lo.\n"
+"   A versão instalada atual é: \"%(youtubedl_version)s\""
+
+#. Text for the link which will try and update youtube-dl on the machine
+#. running Pikaraoke.
+#: templates/info.html:128
+msgid "Update youtube-dl"
+msgstr "Atualizar youtube-dl"
+
+#. Help text which explains why updating youtube-dl can fail.  The log is a
+#. file on the machine running Pikaraoke.
+#: templates/info.html:134
+msgid ""
+"This update link above may fail if you don't have proper file "
+"permissions.\n"
+"    Check the pikaraoke log for errors."
+msgstr ""
+"Este link de atualização acima pode falhar se você não tiver as devidas "
+"permissões de arquivo.\n"
+"    Verifique se há erros no log do pikaraoke."
+
+#. Title of the section on shutting down / turning off the machine running
+#. Pikaraoke.
+#: templates/info.html:141
+msgid "Shutdown"
+msgstr "Desligar"
+
+#. Explainitory text which explains why to use the shutdown link.
+#: templates/info.html:144
+msgid ""
+"Don't just pull the plug! Always shut down your server properly to avoid "
+"data corruption."
+msgstr ""
+"Não puxe o plugue da tomada! Sempre desligue o servidor corretamente para"
+" evitar dados corrompidos."
+
+#. Text for button which turns off Pikaraoke for everyone using it at your
+#. house.
+#: templates/info.html:150
+msgid "Quit Pikaraoke"
+msgstr "Sair do Pikaraoke"
+
+#. Text for button which reboots the machine running Pikaraoke.
+#: templates/info.html:153
+msgid "Reboot System"
+msgstr "Reiniciar sistema"
+
+#. Text for button which turn soff the machine running Pikaraoke.
+#: templates/info.html:156
+msgid "Shutdown System"
+msgstr "Desligar sistema"
+
+#. Title for section containing a few other options on the Info page.
+#: templates/info.html:163
+msgid "Other"
+msgstr "Outros"
+
+#. Text for button
+#: templates/info.html:166
+msgid "Expand Raspberry Pi filesystem"
+msgstr "Expandir sistema de arquivos do Raspberry Pi"
+
+#. Explainitory text which explains why you might want to expand the
+#. filesystem.
+#: templates/info.html:169
+msgid ""
+"If you just installed the pre-built pikaraoke pi image and your SD card "
+"is larger than 4GB,\n"
+"    you may want to expand the filesystem to utilize the remaining space."
+" You only need to do this once.\n"
+"    This will reboot the system."
+msgstr ""
+"Se você acabou de instalar a imagem do pikaraoke pi pré-construído e seu "
+"cartão SD é maior que 4GB,\n"
+"    você pode querer expandir o sistema de arquivos para utilizar o "
+"espaço restante. Você só precisa fazer isso uma vez.\n"
+"    Isto reiniciará o sistema."
+
+#. Link which will log out the user from admin mode.
+#: templates/info.html:179
+#, python-format
+msgid "Disable admin mode: <a href=\"%(logout_url)s\">Log out</a>"
+msgstr "Desabilitar modo administrador: <a href=“%(logout_url)s”>Deslogar</a>"
+
+#. Link which will let the user log into admin mode.
+#: templates/info.html:185
+#, python-format
+msgid ""
+"\n"
+"    Enable admin mode: <a href=\"%(login_url)s\">Log in</a>\n"
+"  "
+msgstr ""
+"\n"
+"    Habilitar modo admin: <a href=“%(login_url)s”>Logar</a>\n"
+"  "
+
+#. Title for the log in page for admins.
+#. Text on submit button for the admin login form.
+#: templates/login.html:19 templates/login.html:35
+msgid "Login"
+msgstr "Login"
+
+#. Title fo the form to enter the administrator password.
+#: templates/login.html:26
+msgid "Enter the administrator password"
+msgstr "Digite a senha de administrador"
+
+#. Placeholder text which appears instead of a song when the queue is empty.
+#: templates/queue.html:67
+msgid "The queue is empty"
+msgstr "A fila está vazia"
+
+#. Button text which picks three songs at random from the already downloaded
+#. songs and adds them to the queue.
+#: templates/queue.html:135
+msgid "Add 3 random songs"
+msgstr "Adicionar 3 músicas aleatórias"
+
+#. Text for the button which clears the entire queue.
+#: templates/queue.html:141
+msgid "Clear all"
+msgstr "Limpar todos"
+
+#: templates/search.html:115
+msgid "Available songs in local library"
+msgstr "Músicas disponíveis na biblioteca local"
+
+#. Title for the search page.
+#: templates/search.html:336
+msgid "Search / Add New"
+msgstr "Procurar / Adicionar Novo"
+
+#: templates/search.html:356
+msgid "Available Songs"
+msgstr "Músicas disponíveis"
+
+#. Submit button on the search form when selecting a locally
+#. downloaded song. The button adds it to the queue.
+#: templates/search.html:369
+msgid "Add to queue"
+msgstr "Adicionar à fila"
+
+#. Link which clears the text from the search box.
+#: templates/search.html:380
+msgid "Clear"
+msgstr "Limpar"
+
+#. Checkbox label which enables more options when searching.
+#: templates/search.html:386
+msgid "Advanced"
+msgstr "Avançado"
+
+#. Help text below the search bar.
+#: templates/search.html:392
+#, fuzzy
+msgid ""
+"Type a song\n"
+"          (title/artist) to search the available songs and click 'Add to "
+"queue'\n"
+"          to add it to the queue."
+msgstr ""
+"Digite uma música (título/artista) para procurar as músicas disponíveis e"
+" clique em 'Adicionar à fila' para adicioná-la à fila."
+
+#. Additonal help text below the search bar.
+#: templates/search.html:397
+#, fuzzy
+msgid ""
+"If\n"
+"          the song doesn't appear in the \"Available Songs\" dropdown, "
+"click\n"
+"          'Search' to find it on Youtube"
+msgstr ""
+"Se a música não aparecer no menu suspenso \"Canções Disponíveis\", clique"
+" em \"Procurar\" para encontrá-la no Youtube"
+
+#. Checkbox label which enables matching songs which are not           karaoke
+#. versions (i.e. the songs still have a singer and are not just
+#. instrumentals.)
+#: templates/search.html:420
+msgid "Include non-karaoke matches"
+msgstr "Adicionar resultados não-karaoke"
+
+#. Label for an input which takes a YouTube url directly instead           of
+#. searching titles.
+#: templates/search.html:428
+msgid "Direct download YouTube url:"
+msgstr "URL direta para baixar do YouTube:"
+
+#. Checkbox label which marks the song to be added to the               queue
+#. after it finishes downloading.
+#: templates/search.html:443
+#, fuzzy
+msgid ""
+"Add to queue\n"
+"              once downloaded"
+msgstr "Adicionar para a fila depois de baixar"
+
+#. Button label for the direct download form's submit button.
+#. Label on the button which starts the download of the selected
+#. song.
+#: templates/search.html:455 templates/search.html:527
+msgid "Download"
+msgstr "Baixar"
+
+#. Html text which displays what was searched for, in     quotes while the page
+#. is loading.
+#: templates/search.html:476
+#, fuzzy, python-format
+msgid ""
+"Searching YouTube for\n"
+"    <small><i>'%(search_term)s'</i></small>"
+msgstr "Procurando no YouTube por <small><i>’%(search_term)s’</i></small>"
+
+#. Html text which displays what was searched for, in quotes.
+#: templates/search.html:486
+#, fuzzy, python-format
+msgid ""
+"Search results for\n"
+"        <small><i>'%(search_string)s'</i></small>"
+msgstr "Buscar resultados por <small><i>’%(search_string)s’</i></small>"
+
+#. Help text which explains that the select box above can be           operated
+#. to select different search results.
+#: templates/search.html:501
+#, fuzzy
+msgid ""
+"Click\n"
+"          dropdown to show more results"
+msgstr "Clique para mostrar mais resultados"
+
+#. Label displayed before the YouTube url for the chosen search
+#. result.
+#: templates/search.html:506
+msgid "Link:"
+msgstr "Link:"
+
+#. Checkbox label which marks the song to be added to the queue           after
+#. it finishes downloading.
+#: templates/search.html:516
+#, fuzzy
+msgid ""
+"Add to queue once\n"
+"          downloaded"
+msgstr "Adicionar para a fila depois de baixar"
+
+#. Label for the next song to be played in the queue.
+#: templates/splash.html:92 templates/splash.html:337
+msgid "Up next:"
+msgstr "A seguir:"
+
+#. Label of the singer for next song to be played in the queue. (Who added it
+#. to the queue.)
+#: templates/splash.html:94
+msgid "Next singer:"
+msgstr "Próxima pessoa a cantar:"
+
+#. Label for the next singer in the queue.
+#: templates/splash.html:343
+#, fuzzy
+msgid ""
+"Next\n"
+"        singer:"
+msgstr "Próxima pessoa a cantar:"
+
+#. Prompt for interaction in order to enable video autoplay.
+#: templates/splash.html:362
+msgid ""
+"Due to limititations with browser permissions, you must interact\n"
+"      with the page once before it allows autoplay of videos. Pikaraoke "
+"will not\n"
+"      play otherwise. Click the button below to\n"
+"      <a onClick=\"handleConfirmation()\">confirm</a> ."
+msgstr ""
+
+#. Button to confirm to enable video autoplay.
+#: templates/splash.html:374
+msgid "Confirm"
+msgstr ""
+
+#~ msgid "Volume Down"
+#~ msgstr "Abaixar volume"
+
+#~ msgid "Volume Up"
+#~ msgstr "Aumentar volume"
+
+#~ msgid "Open splash screen"
+#~ msgstr "Abrir tela de abertura"

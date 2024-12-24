@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+<script>
+  $(function () {
+
+    $('#remove-karaoke').click(function (e) {
+      var new_name = clean_title($('#new_file_name').val());
+      $('#new_file_name').val(new_name);
+    });
+
+    $('#suggest-title').click(function (e) {
+      if ($.trim($('#new_file_name').val()) != "") {
+        var format_name = clean_title($('#new_file_name').val(), title_case = true);
+        var search_string = format_name;
+        suggest_title(clean_title(search_string), "#suggest_results");
+      }
+    });
+
+    $('#swap-order').click(function (e) {
+      var split_name = $('#new_file_name').val().split(' - ');
+      var new_name = split_name[1] + " - " + split_name[0];
+      new_name = new_name.trim();
+      $('#new_file_name').val(new_name);
+    });
+    $('.confirm-delete').click(function (e) {
+      e.preventDefault();
+      // {# MSG: Confirmation prompt when the user deletes a song. #}
+      if (window.confirm("{{ _('Are you sure you want to delete this song from the library?') }}")) {
+        location.href = this.href;
+      }
+    });
+
+    $("#suggest_results").on("click", ".suggested_item", function () {
+      $('#new_file_name').val($(this).text());
+    });
+
+  });
+
+
+  function clean_title(search_str, title_case = false) {
+    var new_name = $('#new_file_name').val();
+    new_name = new_name.replace(/\[+([^\][]+)]+/g, "($1)"); //replace brackets with parenthesis
+    new_name = new_name.replace(/[^\x20-\x7E]+/g, "");//Remove all non printable and all non ASCII characters
+    new_name = new_name.replace(/\\|\//g, " ");//remove slashes
+
+    //source: https://stackoverflow.com/questions/49655135/javascript-regex-remove-multiple-words-from-string
+    var uselessWordsArray =
+      [
+        "as popularized by", "lyrics", "karafun", "instrumental", "minus one", "minusone", "made famous by", " by ",
+        "karaoke version", "karaoke", "hd", "hq", "coversph", "singkaraoke", "in the style of",
+        "no lead vocal", "with lyrics", "cc"
+      ];
+    var expStr = uselessWordsArray.join("|");
+    new_name = new_name.replace(new RegExp('\\b(' + expStr + ')\\b', 'gi'), ' ').replace(/\s{2,}/g, ' ');
+
+    if (title_case == true) {
+      new_name = new_name.toLowerCase().replace(/\b[a-z]/g, function (letter) {
+        return letter.toUpperCase();
+      });
+    }
+
+    new_name = new_name.replace(/\([\s&\-.)]*\)/g, "");//remove empty parenthesis
+    new_name = new_name.replace(/\_/g, '-');//replace _ to dash
+    new_name = new_name.replace(/\b\-\b/g, ' - ');//add space before and after dash
+    new_name = new_name.replace("&Amp;", "&");
+    new_name = new_name.replace(/\&/g, 'and');//replace & to and
+    new_name = new_name.replace(/\s\s+/g, " "); //remove white spaces
+    return new_name.trim();
+  }
+
+  function suggest_title(search_str, results_div, max_suggestion = 5) {
+    $('.suggest_loader').removeClass("is-hidden");
+    var API_KEY = "058c382f5fd686b4146f6028961c14da";
+    var max_suggestion = max_suggestion;
+    var url = "https://ws.audioscrobbler.com/2.0/?method=track.search&track=" + search_str + "&limit=" + max_suggestion + "&page=1&api_key=" + API_KEY + "&format=json";
+    $(results_div).html("");
+
+    $.getJSON(url, function (json) {
+      data = json.results.trackmatches.track;
+      suggestions = "";
+      if (data.length != 0) {
+        $.each(data, function (i, item) {
+          suggestions += "<li><a class='suggested_item is-warning'>" + item.name + " - " + item.artist + "</a></li>";
+          return i < max_suggestion - 1;
+        });
+      }
+      else {
+        // {# MSG: Warning when no suggested tracks are found for a search. #}
+        suggestions = "<li>{{ _('No suggestion!') }}</li>";
+        console.log("No suggestion!")
+      }
+      $(results_div).html("<ul>" + suggestions + "</ul>");
+    }).always(function () {
+      $('.suggest_loader').addClass("is-hidden");
+    });
+  }
+
+
+</script>
+{% endblock %}
+
+{% block header %}
+{# MSG: Page title for the page where a song can be edited. #}
+<h1>{% block title %}{% trans %}Edit Song{% endtrans %}{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+
+
+<div class="field">
+  <form action="{{ url_for('edit_file') }}" method="post">
+    <div class="field">
+      <p class='has-text-warning'>{{ filename_from_path(song.decode('utf-8', 'ignore')) }} </p>
+    </div>
+    <input value="{{ song.decode('utf-8', 'ignore') }}" type="hidden" name='old_file_name'>
+    {# MSG: Label on the control to edit the song's name #}
+    <label class="label">{% trans %}Edit Song Name{% endtrans %}</label>
+    <div class="field">
+      <input autocomplete="off" id="new_file_name" class="input" type="text" name="new_file_name"
+        value="{{ filename_from_path(song.decode('utf-8', 'ignore')) }}"></input>
+    </div>
+    <ul>
+      {# MSG: Label on button which auto formats the song's title. #}
+      <li><a id='remove-karaoke'>{% trans %}Auto-format{% endtrans %}</a></li>
+      {# MSG: Label on button which swaps the order of the artist and song in the title. #}
+      <li><a id='swap-order'>{% trans %}Swap artist/song order{% endtrans %}</a></li>
+      {# MSG: Label on button which loads results from the website Last.fm and suggests titles based on matches there. #}
+      <li><a id='suggest-title'>Suggest from Last.fm</a>
+        <span class="button is-loading is-hidden suggest_loader" style="border:0;background-color:transparent;"></span>
+        <span id="suggest_results"></span>
+      </li>
+    </ul>
+    <div class="field">
+      <button class="button is-primary" id="search-button" type="submit">
+        {# MSG: Label on button which saves the changes. #}
+        {%- trans %}Save{% endtrans -%}
+      </button>
+    </div>
+  </form>
+</div>
+
+<hr>
+<a class="edit-button confirm-delete has-text-danger is-pulled-right"
+  href="{{url_for('delete_file')}}?song={{url_escape(song)}}"><i class="icon icon-trash-empty"></i>
+  {# MSG: Label on button which deletes the current song. #}
+  {%- trans -%}
+    Delete this song
+  {%- endtrans -%}
+</a><br>
+
+{% endblock %}
