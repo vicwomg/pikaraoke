@@ -1,3 +1,4 @@
+import io
 import os
 import platform
 import re
@@ -35,13 +36,12 @@ def is_transpose_enabled():
 
 def is_raspberry_pi():
     try:
-        return (
-            (os.uname()[4][:3] == "arm" or os.uname()[4] == "aarch64")
-            and sys.platform != "darwin"
-            and not is_android()
-        )
-    except AttributeError:
-        return False
+        with io.open("/sys/firmware/devicetree/base/model", "r") as m:
+            if "raspberry pi" in m.read().lower():
+                return True
+    except Exception:
+        pass
+    return False
 
 
 def is_android():

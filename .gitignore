@@ -8,3 +8,4 @@ dist/
 songs/
 qrcode.png
 .DS_Store
+docker-compose.yml
