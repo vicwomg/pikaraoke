@@ -21,6 +21,18 @@ def get_ffmpeg_version():
         return "Unable to parse FFmpeg version"
 
 
+def is_transpose_enabled():
+    try:
+        filters = subprocess.run(["ffmpeg", "-filters"], capture_output=True)
+    except FileNotFoundError:
+        # FFmpeg is not installed
+        return False
+    except IndexError:
+        # Unable to parse FFmpeg filters
+        return False
+    return "rubberband" in filters.stdout.decode()
+
+
 def is_raspberry_pi():
     try:
         return (

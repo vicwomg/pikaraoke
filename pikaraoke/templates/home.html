@@ -82,8 +82,10 @@
     $(".control-box").hide();
 
     var slider = document.getElementById("transpose");
+    console.log("slider returned: ", slider)
     var output = document.getElementById("semitones-label");
-    if (slider) {
+    console.log("output returned: ", output)
+    if (slider && output) {
       output.innerHTML = getSemitonesLabel(slider.value);
       // Update the current slider value (each time you drag the slider handle)
       slider.oninput = function () {
@@ -230,6 +232,8 @@
     </div>
   </div>
   <hr />
+
+  {% if is_transpose_enabled %}
   <div class="is-flex" style="justify-content: space-between">
     <div>
       {# MSG: Title of a control to change the key/pitch of the playing song. #}
@@ -242,7 +246,6 @@
       ></a>
     </div>
   </div>
-
   <div style="width: 100%">
     <div class="is-flex">
       <input
@@ -265,6 +268,7 @@
       </button>
     </div>
   </div>
+  {% endif %}
 </div>
 {% endif %}
 

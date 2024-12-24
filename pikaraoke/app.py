@@ -111,6 +111,7 @@ def home():
         title="Home",
         transpose_value=k.now_playing_transpose,
         admin=is_admin(),
+        is_transpose_enabled=k.is_transpose_enabled,
     )
 
 
@@ -164,6 +165,7 @@ def nowplaying():
             "is_paused": k.is_paused,
             "transpose_value": k.now_playing_transpose,
             "volume": k.volume,
+            # "is_transpose_enabled": k.is_transpose_enabled,
         }
         rc["hash"] = hash_dict(rc)  # used to detect changes in the now playing data
         return json.dumps(rc)
@@ -582,6 +584,7 @@ def info():
         cpu=cpu,
         disk=disk,
         ffmpeg_version=k.ffmpeg_version,
+        is_transpose_enabled=k.is_transpose_enabled,
         youtubedl_version=youtubedl_version,
         platform=k.platform,
         os_version=k.os_version,
