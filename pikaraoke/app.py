@@ -441,7 +441,7 @@ def start_song():
 def delete_file():
     if "song" in request.args:
         song_path = request.args["song"]
-        exists = any(item.get('file') == song_path for item in k.queue)
+        exists = any(item.get("file") == song_path for item in k.queue)
         if exists:
             flash(
                 "Error: Can't delete this song because it is in the current queue: " + song_path,
