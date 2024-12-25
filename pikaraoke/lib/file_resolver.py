@@ -46,7 +46,7 @@ class FileResolver:
         self.resolved_file_path = self.process_file(file_path)
         self.stream_uid = string_to_hash(file_path)
         self.output_file = f"{self.tmp_dir}/{self.stream_uid}.mp4"
-        self.stream_url_path = f"stream/{self.stream_uid}"
+        self.stream_url_path = f"/stream/{self.stream_uid}"
 
     # Extract zipped cdg + mp3 files into a temporary directory, and set the paths to both files.
     def handle_zipped_cdg(self, file_path):

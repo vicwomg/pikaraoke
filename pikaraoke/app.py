@@ -783,7 +783,6 @@ def get_default_dl_dir(platform):
 def main():
     platform = get_platform()
     default_port = 5555
-    default_ffmpeg_port = 5556
     default_volume = 0.85
     default_normalize_audio = False
     default_splash_delay = 3
@@ -808,13 +807,6 @@ def main():
         "--window-size",
         help="Desired window geometry in pixels, specified as width,height",
         default=0,
-        required=False,
-    )
-    parser.add_argument(
-        "-f",
-        "--ffmpeg-port",
-        help=f"Desired ffmpeg port. This is where video stream URLs will be pointed (default: {default_ffmpeg_port})",
-        default=default_ffmpeg_port,
         required=False,
     )
     parser.add_argument(
@@ -919,13 +911,6 @@ def main():
         required=False,
     ),
     parser.add_argument(
-        "-m",
-        "--ffmpeg-url",
-        help="Override the ffmpeg address with a supplied URL.",
-        default=None,
-        required=False,
-    ),
-    parser.add_argument(
         "--hide-overlay",
         action="store_true",
         help="Hide overlay that shows on top of video with pikaraoke QR code and IP",
@@ -967,7 +952,6 @@ def main():
     global k
     k = karaoke.Karaoke(
         port=args.port,
-        ffmpeg_port=args.ffmpeg_port,
         download_path=dl_path,
         youtubedl_path=arg_path_parse(args.youtubedl_path),
         splash_delay=args.splash_delay,
@@ -982,7 +966,6 @@ def main():
         hide_overlay=args.hide_overlay,
         screensaver_timeout=args.screensaver_timeout,
         url=args.url,
-        ffmpeg_url=args.ffmpeg_url,
         prefer_hostname=args.prefer_hostname,
     )
     k.upgrade_youtubedl()

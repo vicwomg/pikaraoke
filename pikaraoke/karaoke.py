@@ -7,7 +7,7 @@ import socket
 import subprocess
 import time
 from pathlib import Path
-from queue import Empty, Queue
+from queue import Queue
 from subprocess import CalledProcessError, check_output
 from threading import Thread
 from urllib.parse import urlparse
@@ -78,7 +78,6 @@ class Karaoke:
     def __init__(
         self,
         port=5555,
-        ffmpeg_port=5556,
         download_path="/usr/lib/pikaraoke/songs",
         hide_url=False,
         hide_raspiwifi_instructions=False,
@@ -93,12 +92,10 @@ class Karaoke:
         hide_overlay=False,
         screensaver_timeout=300,
         url=None,
-        ffmpeg_url=None,
         prefer_hostname=True,
     ):
         # override with supplied constructor args if provided
         self.port = port
-        self.ffmpeg_port = ffmpeg_port
         self.hide_url = hide_url
         self.hide_raspiwifi_instructions = hide_raspiwifi_instructions
         self.hide_splash_screen = hide_splash_screen
@@ -127,7 +124,6 @@ class Karaoke:
         logging.debug(
             f"""
     http port: {self.port}
-    ffmpeg port {self.ffmpeg_port}
     hide URL: {self.hide_url}
     prefer hostname: {self.prefer_hostname}
     url override: {self.url_override}
@@ -179,12 +175,6 @@ class Karaoke:
             else:
                 self.url = f"http://{self.ip}:{self.port}"
         self.url_parsed = urlparse(self.url)
-        if ffmpeg_url is None:
-            self.ffmpeg_url = (
-                f"{self.url_parsed.scheme}://{self.url_parsed.hostname}:{self.ffmpeg_port}"
-            )
-        else:
-            self.ffmpeg_url = ffmpeg_url
 
         # get songs from download_path
         self.get_available_songs()
@@ -452,13 +442,13 @@ class Karaoke:
                 is_transcoding_complete = stream_ready_string in decode_ignore(output)
                 if is_transcoding_complete:
                     logging.debug(f"Transcoding complete. File size: {output_file_size}")
-            except Empty:
+            except:
                 try:
                     output_file_size = os.path.getsize(fr.output_file)
                     is_buffering_complete = output_file_size > buffering_threshold
                     if is_buffering_complete:
                         logging.debug(f"Buffering complete. File size: {output_file_size}")
-                except (FileNotFoundError, AttributeError):
+                except:
                     pass
             # Check if the stream is ready to play. Determined by:
             # - completed transcoding
@@ -468,7 +458,7 @@ class Karaoke:
                 self.now_playing = self.filename_from_path(file_path)
                 self.now_playing_filename = file_path
                 self.now_playing_transpose = semitones
-                self.now_playing_url = f"{self.url}/{fr.stream_url_path}"
+                self.now_playing_url = fr.stream_url_path
                 self.now_playing_user = self.queue[0]["user"]
                 self.is_paused = False
                 self.queue.pop(0)
