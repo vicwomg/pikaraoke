@@ -40,6 +40,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
+from pikaraoke.lib.file_resolver import get_tmp_dir
 from pikaraoke.lib.get_platform import get_platform, is_raspberry_pi
 
 try:
@@ -697,7 +698,7 @@ def expand_fs():
 # Streams the file in chunks from the filesystem (chrome supports it, safari does not)
 @app.route("/stream/<id>")
 def stream(id):
-    file_path = f"/tmp/pikaraoke/{id}.mp4"
+    file_path = f"{get_tmp_dir()}/{id}.mp4"
 
     def generate():
         previous_size = -1
@@ -708,15 +709,12 @@ def stream(id):
                 current_size = os.path.getsize(file_path)
                 if current_size == previous_size:
                     # File size has stabilized, break the loop
-                    print(f"**FILE SIZE STABILIZED {current_size}")
                     break
                 file.seek(position)  # Move to the last read position
                 while True:
                     chunk = file.read(10240 * 100 * 30)  # Read in 3mb chunks
                     if not chunk:
-                        print(f"**CHUNK BREAK {len(chunk)}")
                         break  # End of file reached
-                    print(f"**YIELD CHUNK {len(chunk)}")
                     yield chunk
                     position += len(chunk)  # Update the position with the size of the chunk
                 previous_size = current_size
@@ -729,7 +727,7 @@ def stream(id):
 # (Safari compatible, but requires the ffmpeg transcoding to be complete to know file size)
 @app.route("/stream/full/<id>")
 def stream_full(id):
-    file_path = f"/tmp/pikaraoke/{id}.mp4"
+    file_path = f"{get_tmp_dir()}/{id}.mp4"
     try:
         file_size = os.path.getsize(file_path)
         range_header = request.headers.get("Range", None)
@@ -745,7 +743,6 @@ def stream_full(id):
         start = int(start)
         end = int(end) if end else file_size - 1
 
-        print(f"***range header: {range_header} FILE_SIZE: {file_size}")
         # Generate response with part of file
         with open(file_path, "rb") as file:
             file.seek(start)

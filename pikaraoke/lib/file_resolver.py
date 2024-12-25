@@ -6,6 +6,19 @@ import zipfile
 from pikaraoke.lib.get_platform import get_platform
 
 
+def get_tmp_dir():
+    # Determine tmp directories (for things like extracted cdg files)
+    pid = os.getpid()  # for scoping tmp directories to this process
+    if get_platform() == "windows":
+        tmp_dir = os.path.expanduser(r"~\\AppData\\Local\\Temp\\pikaraoke\\" + str(pid) + r"\\")
+    else:
+        tmp_dir = f"/tmp/pikaraoke/{pid}"
+    # create tmp_dir if it doesn't exist
+    if not os.path.exists(tmp_dir):
+        os.makedirs(tmp_dir)
+    return tmp_dir
+
+
 # Processes a given file path and determines the file format and file path, extracting zips into cdg + mp3 if necessary.
 class FileResolver:
     file_path = None
@@ -14,13 +27,7 @@ class FileResolver:
     pid = os.getpid()  # for scoping tmp directories to this process
 
     def __init__(self, file_path):
-        # Determine tmp directories (for things like extracted cdg files)
-        if get_platform() == "windows":
-            self.tmp_dir = os.path.expanduser(
-                r"~\\AppData\\Local\\Temp\\pikaraoke\\" + str(self.pid) + r"\\"
-            )
-        else:
-            self.tmp_dir = f"/tmp/pikaraoke/{self.pid}"
+        self.tmp_dir = get_tmp_dir()
         self.resolved_file_path = self.process_file(file_path)
 
     # Extract zipped cdg + mp3 files into a temporary directory, and set the paths to both files.

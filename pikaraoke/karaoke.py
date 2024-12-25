@@ -3,11 +3,12 @@ import json
 import logging
 import os
 import random
+import shutil
 import socket
 import subprocess
 import time
 from pathlib import Path
-from queue import Queue
+from queue import Empty, Queue
 from subprocess import CalledProcessError, check_output
 from threading import Thread
 from urllib.parse import urlparse
@@ -16,7 +17,7 @@ import ffmpeg
 import qrcode
 from unidecode import unidecode
 
-from pikaraoke.lib.file_resolver import FileResolver
+from pikaraoke.lib.file_resolver import FileResolver, get_tmp_dir
 from pikaraoke.lib.get_platform import (
     get_ffmpeg_version,
     get_os_version,
@@ -418,7 +419,7 @@ class Karaoke:
     def play_file(self, file_path, semitones=0):
         logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
         stream_uid = int(time.time())
-        output_file = f"/tmp/pikaraoke/{stream_uid}.mp4"
+        output_file = f"{get_tmp_dir()}/{stream_uid}.mp4"
         stream_url = f"{self.url}/stream/{stream_uid}"
         # pass a 0.0.0.0 IP to ffmpeg which will work for both hostnames and direct IP access
         ffmpeg_url = f"http://0.0.0.0:{self.ffmpeg_port}/{stream_uid}"
@@ -453,13 +454,11 @@ class Karaoke:
         # normalize the audio
         audio = audio.filter("loudnorm", i=-16, tp=-1.5, lra=11) if self.normalize_audio else audio
 
-        # Ffmpeg outputs "Stream #0" when the stream is ready to consume
-        stream_ready_string = "Stream #"
+        # Ffmpeg outputs "out#0" when the stream is done transcoding
+        stream_ready_string = "out#0/mp4"
 
         if fr.cdg_file_path != None:  # handle CDG files
             logging.info("Playing CDG/MP3 file: " + file_path)
-            # Ffmpeg outputs "Video: cdgraphics" when the stream is ready to consume
-            stream_ready_string = "Video: cdgraphics"
             # copyts helps with sync issues, fps=25 prevents ffmpeg from needlessly encoding cdg at 300fps
             cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
             video = cdg_input.video.filter("fps", fps=25)
@@ -512,13 +511,20 @@ class Karaoke:
         while self.ffmpeg_process.poll() is None:
             try:
                 # Add a loop to check the size of output_file
+                output = self.ffmpeg_log.get_nowait()
                 output_file_size = os.path.getsize(output_file)
-            except FileNotFoundError:
+                logging.debug("[FFMPEG] " + decode_ignore(output))
+                logging.debug(f"Output file size: {output_file_size}")
+            except (FileNotFoundError, Empty, AttributeError):
                 # Handle the case where the file might not exist yet
+                time.sleep(0.1)
                 pass
             else:
-                if output_file_size > 1048576:  # 1MB in bytes
-                    logging.debug("Stream ready!")
+                # Check if the stream is ready to play
+                # Determined by completed transcode stream_ready_string match
+                # or the file size being greater than a threshold
+                if (stream_ready_string in decode_ignore(output)) or (output_file_size > 4048576):
+                    logging.debug(f"Stream ready! File size: {output_file_size}")
                     self.now_playing = self.filename_from_path(file_path)
                     self.now_playing_filename = file_path
                     self.now_playing_transpose = semitones
@@ -541,6 +547,7 @@ class Karaoke:
                         )
                         self.end_song()
                         break
+                time.sleep(0.1)
 
     def kill_ffmpeg(self):
         logging.debug("Killing ffmpeg process")
@@ -555,6 +562,8 @@ class Karaoke:
         logging.info(f"Song ending: {self.now_playing}")
         self.reset_now_playing()
         self.kill_ffmpeg()
+        # delete the tmp dir
+        shutil.rmtree(get_tmp_dir())
         logging.debug("ffmpeg process killed")
 
     def transpose_current(self, semitones):
