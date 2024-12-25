@@ -14,7 +14,6 @@ import time
 import cherrypy
 import flask_babel
 import psutil
-import requests
 from flask import (
     Flask,
     Response,
@@ -24,7 +23,6 @@ from flask import (
     render_template,
     request,
     send_file,
-    stream_with_context,
     url_for,
 )
 from flask_babel import Babel

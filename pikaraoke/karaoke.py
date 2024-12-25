@@ -12,17 +12,19 @@ from subprocess import CalledProcessError, check_output
 from threading import Thread
 from urllib.parse import urlparse
 
-import ffmpeg
 import qrcode
 from unidecode import unidecode
 
+from pikaraoke.lib.ffmpeg import (
+    build_ffmpeg_cmd,
+    get_ffmpeg_version,
+    is_transpose_enabled,
+)
 from pikaraoke.lib.file_resolver import FileResolver, delete_tmp_dir
 from pikaraoke.lib.get_platform import (
-    get_ffmpeg_version,
     get_os_version,
     get_platform,
     is_raspberry_pi,
-    is_transpose_enabled,
     supports_hardware_h264_encoding,
 )
 
@@ -68,7 +70,6 @@ class Karaoke:
     ffmpeg_log = None
     ffmpeg_version = get_ffmpeg_version()
     is_transpose_enabled = is_transpose_enabled()
-    supports_hardware_h264_encoding = supports_hardware_h264_encoding()
     normalize_audio = False
 
     raspberry_pi = is_raspberry_pi()
@@ -147,7 +148,7 @@ class Karaoke:
     os version: {self.os_version}
     ffmpeg version: {self.ffmpeg_version}
     ffmpeg transpose support: {self.is_transpose_enabled}
-    hardware h264 encoding: {self.supports_hardware_h264_encoding}
+    hardware h264 encoding: {supports_hardware_h264_encoding()}
     youtubedl-version: {self.get_youtubedl_version()}
 """
         )
@@ -418,10 +419,6 @@ class Karaoke:
     def play_file(self, file_path, semitones=0):
         logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
 
-        pitch = 2 ** (
-            semitones / 12
-        )  # The pitch value is (2^x/12), where x represents the number of semitones
-
         try:
             fr = FileResolver(file_path)
         except Exception as e:
@@ -429,70 +426,10 @@ class Karaoke:
             self.queue.pop(0)
             return False
 
-        # use h/w acceleration on pi
-        default_vcodec = "h264_v4l2m2m" if self.supports_hardware_h264_encoding else "libx264"
-        # just copy the video stream if it's an mp4 or webm file, since they are supported natively in html5
-        # otherwise use the default h264 codec
-        vcodec = (
-            "copy"
-            if fr.file_extension == ".mp4" or fr.file_extension == ".webm"
-            else default_vcodec
-        )
-        vbitrate = "5M"  # seems to yield best results w/ h264_v4l2m2m on pi, recommended for 720p.
-
-        # copy the audio stream if no transposition/normalization, otherwise reincode with the aac codec
-        is_transposed = semitones != 0
-        acodec = "aac" if is_transposed or self.normalize_audio else "copy"
-        input = ffmpeg.input(fr.file_path)
-        audio = input.audio.filter("rubberband", pitch=pitch) if is_transposed else input.audio
-        # normalize the audio
-        audio = audio.filter("loudnorm", i=-16, tp=-1.5, lra=11) if self.normalize_audio else audio
-
-        # Ffmpeg outputs "out#0" when the stream is done transcoding
-        stream_ready_string = "out#0/mp4"
-
-        if fr.cdg_file_path != None:  # handle CDG files
-            logging.info("Playing CDG/MP3 file: " + file_path)
-            # copyts helps with sync issues, fps=25 prevents ffmpeg from needlessly encoding cdg at 300fps
-            cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
-            video = cdg_input.video.filter("fps", fps=25)
-            # cdg is very fussy about these flags.
-            # pi ffmpeg needs to encode to aac and cant just copy the mp3 stream
-            # It alse appears to have memory issues with hardware acceleration h264_v4l2m2m
-            output = ffmpeg.output(
-                audio,
-                video,
-                fr.output_file,
-                vcodec="libx264",
-                acodec="aac",
-                preset="ultrafast",
-                pix_fmt="yuv420p",
-                listen=1,
-                f="mp4",
-                video_bitrate="500k",
-                movflags="frag_keyframe+default_base_moof",
-            )
-        else:
-            video = input.video
-            output = ffmpeg.output(
-                audio,
-                video,
-                fr.output_file,
-                vcodec=vcodec,
-                acodec=acodec,
-                preset="ultrafast",
-                listen=1,
-                f="mp4",
-                video_bitrate=vbitrate,
-                movflags="frag_keyframe+default_base_moof",
-            )
-
-        args = output.get_args()
-        logging.debug(f"COMMAND: ffmpeg " + " ".join(args))
-
         self.kill_ffmpeg()
 
-        self.ffmpeg_process = output.run_async(pipe_stderr=True, pipe_stdin=True)
+        ffmpeg_cmd = build_ffmpeg_cmd(fr, semitones, self.normalize_audio)
+        self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
 
         # ffmpeg outputs everything useful to stderr for some insane reason!
         # prevent reading stderr from being a blocking action
@@ -501,8 +438,11 @@ class Karaoke:
         t.daemon = True
         t.start()
 
+        # Ffmpeg outputs "out#0" when the stream is done transcoding
+        stream_ready_string = "out#0/mp4"
         output_file_size = 0
         buffering_threshold = 4000000  # raise this if pi3 struggles to keep up with transcoding
+
         while self.ffmpeg_process.poll() is None:
             is_transcoding_complete = False
             is_buffering_complete = False
@@ -520,9 +460,9 @@ class Karaoke:
                         logging.debug(f"Buffering complete. File size: {output_file_size}")
                 except (FileNotFoundError, AttributeError):
                     pass
-            # Check if the stream is ready to play
-            # Determined by completed transcode stream_ready_string match
-            # or the buffered file size being greater than a threshold
+            # Check if the stream is ready to play. Determined by:
+            # - completed transcoding
+            # - buffered file size being greater than a threshold
             if is_transcoding_complete or is_buffering_complete:
                 logging.debug(f"Stream ready!")
                 self.now_playing = self.filename_from_path(file_path)
