@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 import zipfile
+from sys import maxsize
 
 from pikaraoke.lib.get_platform import get_platform
 
@@ -13,10 +14,24 @@ def get_tmp_dir():
         tmp_dir = os.path.expanduser(r"~\\AppData\\Local\\Temp\\pikaraoke\\" + str(pid) + r"\\")
     else:
         tmp_dir = f"/tmp/pikaraoke/{pid}"
+    return tmp_dir
+
+
+def create_tmp_dir():
+    tmp_dir = get_tmp_dir()
     # create tmp_dir if it doesn't exist
     if not os.path.exists(tmp_dir):
         os.makedirs(tmp_dir)
-    return tmp_dir
+
+
+def delete_tmp_dir():
+    tmp_dir = get_tmp_dir()
+    if os.path.exists(tmp_dir):
+        shutil.rmtree(tmp_dir)
+
+
+def string_to_hash(s):
+    return hash(s) % ((maxsize + 1) * 2)
 
 
 # Processes a given file path and determines the file format and file path, extracting zips into cdg + mp3 if necessary.
@@ -24,11 +39,14 @@ class FileResolver:
     file_path = None
     cdg_file_path = None
     file_extension = None
-    pid = os.getpid()  # for scoping tmp directories to this process
 
     def __init__(self, file_path):
+        create_tmp_dir()
         self.tmp_dir = get_tmp_dir()
         self.resolved_file_path = self.process_file(file_path)
+        self.stream_uid = string_to_hash(file_path)
+        self.output_file = f"{self.tmp_dir}/{self.stream_uid}.mp4"
+        self.stream_url_path = f"stream/{self.stream_uid}"
 
     # Extract zipped cdg + mp3 files into a temporary directory, and set the paths to both files.
     def handle_zipped_cdg(self, file_path):

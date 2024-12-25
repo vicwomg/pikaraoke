@@ -40,7 +40,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
-from pikaraoke.lib.file_resolver import get_tmp_dir
+from pikaraoke.lib.file_resolver import delete_tmp_dir, get_tmp_dir
 from pikaraoke.lib.get_platform import get_platform, is_raspberry_pi
 
 try:
@@ -1046,6 +1046,7 @@ def main():
         driver.close()
     cherrypy.engine.exit()
 
+    delete_tmp_dir()
     sys.exit()
 
 

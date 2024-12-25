@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import random
-import shutil
 import socket
 import subprocess
 import time
@@ -17,7 +16,7 @@ import ffmpeg
 import qrcode
 from unidecode import unidecode
 
-from pikaraoke.lib.file_resolver import FileResolver, get_tmp_dir
+from pikaraoke.lib.file_resolver import FileResolver, delete_tmp_dir
 from pikaraoke.lib.get_platform import (
     get_ffmpeg_version,
     get_os_version,
@@ -418,11 +417,6 @@ class Karaoke:
 
     def play_file(self, file_path, semitones=0):
         logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
-        stream_uid = int(time.time())
-        output_file = f"{get_tmp_dir()}/{stream_uid}.mp4"
-        stream_url = f"{self.url}/stream/{stream_uid}"
-        # pass a 0.0.0.0 IP to ffmpeg which will work for both hostnames and direct IP access
-        ffmpeg_url = f"http://0.0.0.0:{self.ffmpeg_port}/{stream_uid}"
 
         pitch = 2 ** (
             semitones / 12
@@ -468,7 +462,7 @@ class Karaoke:
             output = ffmpeg.output(
                 audio,
                 video,
-                output_file,
+                fr.output_file,
                 vcodec="libx264",
                 acodec="aac",
                 preset="ultrafast",
@@ -483,7 +477,7 @@ class Karaoke:
             output = ffmpeg.output(
                 audio,
                 video,
-                output_file,
+                fr.output_file,
                 vcodec=vcodec,
                 acodec=acodec,
                 preset="ultrafast",
@@ -508,46 +502,50 @@ class Karaoke:
         t.start()
 
         output_file_size = 0
+        buffering_threshold = 4000000  # raise this if pi3 struggles to keep up with transcoding
         while self.ffmpeg_process.poll() is None:
+            is_transcoding_complete = False
+            is_buffering_complete = False
             try:
-                # Add a loop to check the size of output_file
                 output = self.ffmpeg_log.get_nowait()
-                output_file_size = os.path.getsize(output_file)
                 logging.debug("[FFMPEG] " + decode_ignore(output))
-                logging.debug(f"Output file size: {output_file_size}")
-            except (FileNotFoundError, Empty, AttributeError):
-                # Handle the case where the file might not exist yet
-                time.sleep(0.1)
-                pass
-            else:
-                # Check if the stream is ready to play
-                # Determined by completed transcode stream_ready_string match
-                # or the file size being greater than a threshold
-                if (stream_ready_string in decode_ignore(output)) or (output_file_size > 4048576):
-                    logging.debug(f"Stream ready! File size: {output_file_size}")
-                    self.now_playing = self.filename_from_path(file_path)
-                    self.now_playing_filename = file_path
-                    self.now_playing_transpose = semitones
-                    self.now_playing_url = stream_url
-                    self.now_playing_user = self.queue[0]["user"]
-                    self.is_paused = False
-                    self.queue.pop(0)
-
-                    # Pause until the stream is playing
-                    max_retries = 100
-                    while self.is_playing == False and max_retries > 0:
-                        time.sleep(0.1)  # prevents loop from trying to replay track
-                        max_retries -= 1
-                    if self.is_playing:
-                        logging.debug("Stream is playing")
-                        break
-                    else:
-                        logging.error(
-                            "Stream was not playable! Run with debug logging to see output. Skipping track"
-                        )
-                        self.end_song()
-                        break
-                time.sleep(0.1)
+                is_transcoding_complete = stream_ready_string in decode_ignore(output)
+                if is_transcoding_complete:
+                    logging.debug(f"Transcoding complete. File size: {output_file_size}")
+            except Empty:
+                try:
+                    output_file_size = os.path.getsize(fr.output_file)
+                    is_buffering_complete = output_file_size > buffering_threshold
+                    if is_buffering_complete:
+                        logging.debug(f"Buffering complete. File size: {output_file_size}")
+                except (FileNotFoundError, AttributeError):
+                    pass
+            # Check if the stream is ready to play
+            # Determined by completed transcode stream_ready_string match
+            # or the buffered file size being greater than a threshold
+            if is_transcoding_complete or is_buffering_complete:
+                logging.debug(f"Stream ready!")
+                self.now_playing = self.filename_from_path(file_path)
+                self.now_playing_filename = file_path
+                self.now_playing_transpose = semitones
+                self.now_playing_url = f"{self.url}/{fr.stream_url_path}"
+                self.now_playing_user = self.queue[0]["user"]
+                self.is_paused = False
+                self.queue.pop(0)
+                # Pause until the stream is playing
+                max_retries = 100
+                while self.is_playing == False and max_retries > 0:
+                    time.sleep(0.1)  # prevents loop from trying to replay track
+                    max_retries -= 1
+                if self.is_playing:
+                    logging.debug("Stream is playing")
+                    break
+                else:
+                    logging.error(
+                        "Stream was not playable! Run with debug logging to see output. Skipping track"
+                    )
+                    self.end_song()
+                    break
 
     def kill_ffmpeg(self):
         logging.debug("Killing ffmpeg process")
@@ -562,8 +560,7 @@ class Karaoke:
         logging.info(f"Song ending: {self.now_playing}")
         self.reset_now_playing()
         self.kill_ffmpeg()
-        # delete the tmp dir
-        shutil.rmtree(get_tmp_dir())
+        delete_tmp_dir()
         logging.debug("ffmpeg process killed")
 
     def transpose_current(self, semitones):
