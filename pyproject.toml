@@ -1,0 +1,42 @@
+[tool.poetry]
+name = "pikaraoke"
+version = "1.7.0"
+description = "Youtube-based Karaoke machine for Raspberry Pi, OSX, Windows, and Linux"
+authors = ["Vic Wong"]
+readme = "docs/README.md"
+homepage = "https://github.com/vicwomg/pikaraoke"
+repository = "https://github.com/vicwomg/pikaraoke"
+keywords = ["karaoke", "ktv", "video", "audio", "youtube", "raspberry-pi", "osx", "windows", "linux"]
+classifiers = [
+  "Topic :: Multimedia :: Video",
+  "Topic :: Multimedia :: Sound/Audio",
+  "Topic :: Games/Entertainment"
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+CherryPy = "18.10.0"
+Flask = "2.2.5"
+qrcode = "7.4.2"
+psutil = "6.0.0"
+unidecode = "1.3.8"
+requests = "2.32.3"
+flask-paginate = "2021.10.29"
+jinja2 = "3.1.5"  # Avoid escape issue: https://github.com/sphinx-doc/sphinx/issues/10289
+Babel = "2.9.1"
+Flask-Babel = "2.0.0"
+selenium = "4.21.0"
+ffmpeg-python = "0.2.0"
+yt-dlp = "*"
+
+[tool.poetry.scripts]
+pikaraoke = "pikaraoke.app:main"
+pikaraoke-setup = "pikaraoke.setup_apt:main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^3.7.1"
+pytest = "^8.3.2"

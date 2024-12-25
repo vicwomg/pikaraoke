@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+<script>
+
+  $(function () {
+
+
+
+  });
+
+</script>
+
+{% endblock %}
+
+{% block header %}
+<h1>{% block title %}
+  {# MSG: Title for the log in page for admins. #}
+  {% trans %}Login{% endtrans %}
+{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+
+{# MSG: Title fo the form to enter the administrator password. #}
+<p>{% trans %}Enter the administrator password{% endtrans %}</p>
+<form action="{{ url_for('auth') }}" method="post">
+
+  <div class="field has-addons" style="margin-bottom: 5px ">
+    <div class="control" style="width:100%; max-width:350px">
+      <input type="password" name="admin-password" class="input" ></input>
+    </div>
+    <div class="control">
+      {# MSG: Text on submit button for the admin login form. #}
+      <button class="button is-rounded">{% trans %}Login{% endtrans %}</button>
+    </div>
+  </div>
+
+</form>
+
+{% endblock %}

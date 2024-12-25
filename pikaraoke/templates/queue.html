@@ -1,0 +1,146 @@
+{% extends 'base.html' %} {% block scripts %}
+<!-- <meta http-equiv="refresh" content="5" /> -->
+
+<script>
+  var queue = [];
+  var previousQueue;
+
+  function getQueue() {
+    $.get('{{ url_for("get_queue") }}', function (data) {
+      newQueue =  JSON.parse(data);
+      if (!_.isEqual(newQueue, previousQueue)) {
+        queue = newQueue;
+        $("#auto-refresh").html(generateQueueHTML());
+        previousQueue = newQueue;
+      }
+    })
+  }
+
+  function refreshQueue() {
+    // slight delay to allow the queue to update
+    setTimeout(() => getQueue(), 100);
+  }
+
+  function generateQueueHTML() {
+    var html = "";
+    if (queue.length > 0) {
+      queue.forEach((e, index) => {
+        html += `
+          <tr value=${e.title}>
+            <td width="20px" style="padding: 5px 0px">${index + 1}</td>
+            {% if admin %}
+              <td width="20px" style="padding: 5px 0px">
+                <a
+                  class="up-button"
+                  href="/queue/edit?action=up&song=${encodeURIComponent(e.file)}"
+                  title="Move up in queue"
+                  ><i class="icon  icon-up-circled ${index == 0 && "is-hidden"}"></i>
+                </a>
+              </td>
+              <td width="20px" style="padding: 5px 0px">
+                <a
+                  class="down-button"
+                  href="/queue/edit?action=down&song=${encodeURIComponent(e.file)}"
+                  title="Move down in queue"
+                  ><i class="icon  icon-down-circled ${index + 1 == queue.length && "is-hidden"}"></i>
+                </a>
+              </td>
+            {% endif %}
+            <td style="padding-left: 10px"><b class="is-hidden-tablet has-text-success">${e.user}: </b> ${e.title}</td>
+            <td style="padding-left: 5px" class="queue-user is-hidden-mobile has-text-success"><b>${e.user}</b></td>
+            {% if admin %}
+              <td width="20px">
+                <a
+                  class="delete-button confirm-delete has-text-danger"
+                  title="${e.title}"
+                  href="/queue/edit?action=delete&song=${encodeURIComponent(e.file)}"
+                  ><i class="icon icon-trash-empty"></i>
+                </a>
+              </td>
+            {% endif %}
+          </tr>
+        `
+      });
+    }
+    else {
+      // {# MSG: Placeholder text which appears instead of a song when the queue is empty. #}
+      html += `<tr><td><p class="has-text-warning">{{ _('The queue is empty') }}</p></td></tr>`
+    }
+    return html;
+  }
+
+  $(document).on('click', '.confirm-delete', function (e) {
+    e.preventDefault();
+      if (
+        window.confirm(
+          `Are you sure you want to delete "${this.title}"" from the queue?`
+        )
+      ) {
+        $.get(this.href)
+        refreshQueue();
+      }
+  });
+
+  $(document).on('click', '.up-button', function (e) {
+    e.preventDefault();
+    $.get(this.href)
+    refreshQueue();
+  });
+
+  $(document).on('click', '.down-button', function (e) {
+    e.preventDefault();
+    $.get(this.href)
+    refreshQueue();
+  });
+
+  $(document).on('click', '.confirm-clear', function (e) {
+    e.preventDefault();
+    let prompt = window.prompt(
+      "Are you sure you want to clear the ENTIRE queue? Type 'ok' to continue"
+    );
+    if (prompt.toLowerCase() === "ok") {
+      $.get(this.href)
+      refreshQueue();
+    }
+  });
+
+  //on page load
+  $(function () {
+    getQueue();
+    setInterval(function() {
+        getQueue();
+      },
+      1500
+    )
+  });
+</script>
+
+{% endblock %}
+
+{% block header %}
+<h1 class>{% block title %}
+  {# MSG: Title of the page showing the currently queued songs. #}
+  {%- trans -%}Queue{%- endtrans -%}
+  {% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+
+<table class="table is-striped" id="auto-refresh" style="margin-bottom: 30px">
+</table>
+
+{% if admin %}
+<a class="add-random has-text-success" href="/queue/addrandom?amount=3"
+  {# MSG: Button text which picks three songs at random from the already downloaded songs and adds them to the queue. #}
+  ><i class="icon icon-plus-circled"></i>{% trans %}Add 3 random songs{% endtrans %}</a
+>
+<a
+  class="confirm-clear has-text-danger is-pulled-right"
+  href="/queue/edit?action=clear"
+  {# MSG: Text for the button which clears the entire queue. #}
+  ><i class="icon icon-trash-empty"></i>{% trans %}Clear all{% endtrans %}</a
+><br />
+
+{% endif %}
+
+{% endblock %}
