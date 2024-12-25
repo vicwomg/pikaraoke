@@ -5,10 +5,9 @@ services:
     # Below Host network mode may work better on some systems and replace manual IP configuration. Does not work on OSX
     # network_mode: host
     environment:
-      EXTRA_ARGS: --url http://<YOUR_LAN_IP>:5555 # Replace with your LAN IP or DNS url, not necesary if using network_mode: host
+      EXTRA_ARGS: --url http://<YOUR_LAN_IP> # Replace with your LAN IP or DNS url to render proper QR code, may not be necesary if using network_mode: host
     volumes:
       - </PATH/TO/LOCAL/SONGS/DIR>:/app/pikaraoke-songs # Replace with local dir. Insures your songs are persisted outside the container
     restart: unless-stopped
     ports:
-      - "5555:5555" # Forward the port for the web interface
-      - "5556:5556" # Forward the port for the ffmpeg video stream interface
+      - "80:5555" # Forward to the pikaraoke web interface on 5555, adjust host port as necessary
