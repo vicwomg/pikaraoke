@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -15,6 +16,7 @@ import flask_babel
 import psutil
 from flask import (
     Flask,
+    Response,
     flash,
     make_response,
     redirect,
@@ -36,6 +38,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
+from pikaraoke.lib.file_resolver import delete_tmp_dir, get_tmp_dir
 from pikaraoke.lib.get_platform import get_platform, is_raspberry_pi
 
 try:
@@ -690,6 +693,72 @@ def expand_fs():
     return redirect(url_for("home"))
 
 
+# Streams the file in chunks from the filesystem (chrome supports it, safari does not)
+@app.route("/stream/<id>")
+def stream(id):
+    file_path = f"{get_tmp_dir()}/{id}.mp4"
+
+    def generate():
+        previous_size = -1
+        current_size = 0
+        position = 0  # Initialize the position variable
+        with open(file_path, "rb") as file:  # Open the file outside the loop
+            while True:
+                current_size = os.path.getsize(file_path)
+                if current_size == previous_size:
+                    # File size has stabilized, break the loop
+                    break
+                file.seek(position)  # Move to the last read position
+                while True:
+                    chunk = file.read(10240 * 100 * 30)  # Read in 3mb chunks
+                    if not chunk:
+                        break  # End of file reached
+                    yield chunk
+                    position += len(chunk)  # Update the position with the size of the chunk
+                previous_size = current_size
+                time.sleep(1)  # Wait a bit before checking the file size again
+
+    return Response(generate(), mimetype="video/mp4")
+
+
+# Streams the file in full with proper range headers
+# (Safari compatible, but requires the ffmpeg transcoding to be complete to know file size)
+@app.route("/stream/full/<id>")
+def stream_full(id):
+    file_path = f"{get_tmp_dir()}/{id}.mp4"
+    try:
+        file_size = os.path.getsize(file_path)
+        range_header = request.headers.get("Range", None)
+        if not range_header:
+            with open(file_path, "rb") as file:
+                file_content = file.read()
+            return Response(file_content, mimetype="video/mp4")
+
+        # Extract range start and end from Range header (e.g., "bytes=0-499")
+        range_match = re.search(r"bytes=(\d+)-(\d*)", range_header)
+        start, end = range_match.groups()
+
+        start = int(start)
+        end = int(end) if end else file_size - 1
+
+        # Generate response with part of file
+        with open(file_path, "rb") as file:
+            file.seek(start)
+            data = file.read(end - start + 1)
+        status_code = 206  # Partial content
+        headers = {
+            "Content-Type": "video/mp4",
+            "Accept-Ranges": "bytes",
+            "Content-Range": f"bytes {start}-{end}/{file_size}",
+            "Content-Length": str(len(data)),
+        }
+
+        return Response(data, status=status_code, headers=headers)
+    except IOError:
+        flash("File not found.", "is-danger")
+        return redirect(url_for("home"))
+
+
 # Handle sigterm, apparently cherrypy won't shut down without explicit handling
 signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
@@ -714,7 +783,6 @@ def get_default_dl_dir(platform):
 def main():
     platform = get_platform()
     default_port = 5555
-    default_ffmpeg_port = 5556
     default_volume = 0.85
     default_normalize_audio = False
     default_splash_delay = 3
@@ -739,13 +807,6 @@ def main():
         "--window-size",
         help="Desired window geometry in pixels, specified as width,height",
         default=0,
-        required=False,
-    )
-    parser.add_argument(
-        "-f",
-        "--ffmpeg-port",
-        help=f"Desired ffmpeg port. This is where video stream URLs will be pointed (default: {default_ffmpeg_port})",
-        default=default_ffmpeg_port,
         required=False,
     )
     parser.add_argument(
@@ -850,13 +911,6 @@ def main():
         required=False,
     ),
     parser.add_argument(
-        "-m",
-        "--ffmpeg-url",
-        help="Override the ffmpeg address with a supplied URL.",
-        default=None,
-        required=False,
-    ),
-    parser.add_argument(
         "--hide-overlay",
         action="store_true",
         help="Hide overlay that shows on top of video with pikaraoke QR code and IP",
@@ -898,7 +952,6 @@ def main():
     global k
     k = karaoke.Karaoke(
         port=args.port,
-        ffmpeg_port=args.ffmpeg_port,
         download_path=dl_path,
         youtubedl_path=arg_path_parse(args.youtubedl_path),
         splash_delay=args.splash_delay,
@@ -913,7 +966,6 @@ def main():
         hide_overlay=args.hide_overlay,
         screensaver_timeout=args.screensaver_timeout,
         url=args.url,
-        ffmpeg_url=args.ffmpeg_url,
         prefer_hostname=args.prefer_hostname,
     )
     k.upgrade_youtubedl()
@@ -975,6 +1027,7 @@ def main():
         driver.close()
     cherrypy.engine.exit()
 
+    delete_tmp_dir()
     sys.exit()
 
 
