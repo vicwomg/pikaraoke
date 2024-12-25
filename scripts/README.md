@@ -85,15 +85,13 @@ Note that if your wifi/network is inactive pikaraoke will error out 10 seconds a
 May not be up to date, run `python3 app.py --help` for the latest:
 
 ```
-usage: app.py [-h] [-p PORT] [-f FFMPEG_PORT] [-d DOWNLOAD_PATH] [-y YOUTUBEDL_PATH] [-v VOLUME] [-s SPLASH_DELAY] [-t SCREENSAVER_TIMEOUT]
+usage: app.py [-h] [-p PORT] [-d DOWNLOAD_PATH] [-y YOUTUBEDL_PATH] [-v VOLUME] [-s SPLASH_DELAY] [-t SCREENSAVER_TIMEOUT]
               [-l LOG_LEVEL] [--hide-url] [--prefer-ip] [--hide-raspiwifi-instructions] [--hide-splash-screen] [--dual-screen] [--high-quality]
               [--logo-path LOGO_PATH] [-u URL] [--hide-overlay] [--admin-password ADMIN_PASSWORD] [--window-size WIDTH,HEIGHT]
 
 options:
   -h, --help            show this help message and exit
   -p PORT, --port PORT  Desired http port (default: 5555)
-  -f FFMPEG_PORT, --ffmpeg-port FFMPEG_PORT
-                        Desired ffmpeg port. This is where video stream URLs will be pointed (default: 5556)
   -d DOWNLOAD_PATH, --download-path DOWNLOAD_PATH
                         Desired path for downloaded songs. (default: ~/pikaraoke-songs)
   -y YOUTUBEDL_PATH, --youtubedl-path YOUTUBEDL_PATH
