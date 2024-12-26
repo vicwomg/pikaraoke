@@ -433,56 +433,76 @@ class Karaoke:
         t.daemon = True
         t.start()
 
-        # Ffmpeg outputs "out#0" when the stream is done transcoding
-        stream_ready_string = "out#0/mp4"
         output_file_size = 0
         buffering_threshold = 4000000  # raise this if pi3 struggles to keep up with transcoding
+        max_playback_retries = 2500  # approx 2 minutes
 
-        while self.ffmpeg_process.poll() is None:
-            is_transcoding_complete = False
-            is_buffering_complete = False
+        is_transcoding_complete = False
+        is_buffering_complete = False
+
+        # Playback start retry loop
+        while True:
             try:
                 output = self.ffmpeg_log.get_nowait()
                 logging.debug("[FFMPEG] " + decode_ignore(output))
-                is_transcoding_complete = stream_ready_string in decode_ignore(output)
-                if is_transcoding_complete:
-                    logging.debug(f"Transcoding complete. File size: {output_file_size}")
             except:
-                try:
-                    output_file_size = os.path.getsize(fr.output_file)
-                    if not self.buffer_fully_before_playback:
-                        is_buffering_complete = output_file_size > buffering_threshold
-                        if is_buffering_complete:
-                            logging.debug(f"Buffering complete. File size: {output_file_size}")
-                except:
-                    pass
-
-            # Check if the stream is ready to play. Determined by:
-            # - completed transcoding
-            # - buffered file size being greater than a threshold
-            if is_transcoding_complete or is_buffering_complete:
-                logging.debug(f"Stream ready!")
-                self.now_playing = self.filename_from_path(file_path)
-                self.now_playing_filename = file_path
-                self.now_playing_transpose = semitones
-                self.now_playing_url = fr.stream_url_path
-                self.now_playing_user = self.queue[0]["user"]
-                self.is_paused = False
-                self.queue.pop(0)
-                # Pause until the stream is playing
-                max_retries = 100
-                while self.is_playing == False and max_retries > 0:
-                    time.sleep(0.1)  # prevents loop from trying to replay track
-                    max_retries -= 1
-                if self.is_playing:
-                    logging.debug("Stream is playing")
-                    break
-                else:
+                pass
+            # Check if the ffmpeg process has exited
+            if self.ffmpeg_process.poll() is not None:
+                exitcode = self.ffmpeg_process.poll()
+                if exitcode != 0:
                     logging.error(
-                        "Stream was not playable! Run with debug logging to see output. Skipping track"
+                        f"FFMPEG transcode exited with nonzero exit code ending: {exitcode}. Skipping track"
                     )
                     self.end_song()
                     break
+                else:
+                    is_transcoding_complete = True
+                    output_file_size = os.path.getsize(fr.output_file)
+                    logging.debug(f"Transcoding complete. File size: {output_file_size}")
+                    break
+            # Check if the file has buffered enough to start playback
+            try:
+                output_file_size = os.path.getsize(fr.output_file)
+                if not self.buffer_fully_before_playback:
+                    is_buffering_complete = output_file_size > buffering_threshold
+                    if is_buffering_complete:
+                        logging.debug(f"Buffering complete. File size: {output_file_size}")
+                        break
+            except:
+                pass
+            # Prevent infinite loop if playback never starts
+            if max_playback_retries <= 0:
+                logging.error("Max retries reached trying to play song. Skipping track")
+                self.end_song()
+                break
+            max_playback_retries -= 1
+            time.sleep(0.05)
+
+        # Check if the stream is ready to play. Determined by:
+        # - completed transcoding
+        # - buffered file size being greater than a threshold
+        if is_transcoding_complete or is_buffering_complete:
+            logging.debug(f"Stream ready!")
+            self.now_playing = self.filename_from_path(file_path)
+            self.now_playing_filename = file_path
+            self.now_playing_transpose = semitones
+            self.now_playing_url = fr.stream_url_path
+            self.now_playing_user = self.queue[0]["user"]
+            self.is_paused = False
+            self.queue.pop(0)
+            # Pause until the stream is playing
+            max_retries = 100
+            while self.is_playing == False and max_retries > 0:
+                time.sleep(0.1)  # prevents loop from trying to replay track
+                max_retries -= 1
+            if self.is_playing:
+                logging.debug("Stream is playing")
+            else:
+                logging.error(
+                    "Stream was not playable! Run with debug logging to see output. Skipping track"
+                )
+                self.end_song()
 
     def kill_ffmpeg(self):
         logging.debug("Killing ffmpeg process")
