@@ -6,6 +6,29 @@ import subprocess
 import sys
 
 
+def is_pipewire_installed():
+    try:
+        # Check if pipewire is present'
+        result = subprocess.run(
+            ["pipewire", "--version"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        )
+        first_line = result.stdout.split("\n")[0]
+        if "pipewire" in first_line:
+            # Check if wireplumber is present'
+            result = subprocess.run(
+                ["wireplumber", "--version"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            first_line = result.stdout.split("\n")[0]
+            if "wireplumber" in first_line:
+                return True
+        return False
+    except:
+        return False
+
+
 def get_ffmpeg_version():
     try:
         # Execute the command 'ffmpeg -version'

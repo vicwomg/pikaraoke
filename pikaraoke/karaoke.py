@@ -16,6 +16,17 @@ import ffmpeg
 import qrcode
 from unidecode import unidecode
 
+from pikaraoke.lib.audio_devices import (
+    get_audio_sinks,
+    set_default_audio_sink,
+    set_device_vol_down,
+    set_device_vol_up,
+)
+from pikaraoke.lib.bluetooth import (
+    connect_to_bt_device,
+    remove_bt_device,
+    scan_and_get_bt_devices,
+)
 from pikaraoke.lib.file_resolver import FileResolver
 from pikaraoke.lib.get_platform import (
     get_ffmpeg_version,
@@ -728,6 +739,35 @@ class Karaoke:
         self.is_playing = False
         self.now_playing_transpose = 0
         self.ffmpeg_log = None
+
+    def get_audio_devices(self):
+        logging.debug("Getting audio sinks")
+        return get_audio_sinks()
+
+    def change_audio_output(self, audio_device):
+        logging.debug(f"Changing audio output to: {audio_device}")
+        result = set_default_audio_sink(audio_device)
+        return
+
+    def change_device_volume(self, volume):
+        logging.debug(f"Changing device volume: {volume}")
+        if volume == "up":
+            result = set_device_vol_up()
+        else:
+            result = set_device_vol_down()
+        return
+
+    def get_bluetooth_devices(self):
+        logging.debug("Getting bluetooth audio devices")
+        return scan_and_get_bt_devices()
+
+    def pair_bluetooth_device(self, bt_device):
+        logging.debug("Pairing to bluetooth device: " + bt_device["name"])
+        return connect_to_bt_device(bt_device)
+
+    def remove_bluetooth_device(self, bt_device):
+        logging.debug("Removing bluetooth device: " + bt_device["name"])
+        return remove_bt_device(bt_device)
 
     def run(self):
         logging.info("Starting PiKaraoke!")

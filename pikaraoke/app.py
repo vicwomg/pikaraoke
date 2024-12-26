@@ -16,6 +16,7 @@ import psutil
 from flask import (
     Flask,
     flash,
+    jsonify,
     make_response,
     redirect,
     render_template,
@@ -36,7 +37,11 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
-from pikaraoke.lib.get_platform import get_platform, is_raspberry_pi
+from pikaraoke.lib.get_platform import (
+    get_platform,
+    is_pipewire_installed,
+    is_raspberry_pi,
+)
 
 try:
     from urllib.parse import quote, unquote
@@ -576,6 +581,8 @@ def info():
     # youtube-dl
     youtubedl_version = k.youtubedl_version
 
+    have_pipewire = is_pipewire_installed()
+
     return render_template(
         "info.html",
         site_title=site_name,
@@ -594,6 +601,7 @@ def info():
         pikaraoke_version=VERSION,
         admin=is_admin(),
         admin_enabled=admin_password != None,
+        have_pipewire=have_pipewire,
     )
 
 
@@ -709,6 +717,85 @@ def get_default_dl_dir(platform):
             return legacy_directory
         else:
             return "~/pikaraoke-songs"
+
+
+@app.route("/audio_devices/")
+def get_audio_devices():
+    audio_devices = k.get_audio_devices()
+    bluetooth_devices = k.get_bluetooth_devices()
+
+    for bt_device in bluetooth_devices["known"]:
+        for audio_device in audio_devices:
+            if bt_device["name"] == audio_device["name"]:
+                bt_device["number"] = audio_device["number"]
+                bt_device["audio_device"] = True
+                bt_device["default"] = audio_device["default"]
+
+    devices = {"audio_devices": audio_devices, "bluetooth": bluetooth_devices}
+
+    return jsonify(devices)
+
+
+@app.route("/audio_devices/change_output", methods=["GET"])
+def change_audio_output():
+    if is_admin() and raspberry_pi:
+        if "device" in request.args:
+            device = request.args["device"]
+            k.change_audio_output(device)
+            flash("Output audio device successfully changed!", "is-success")
+        else:
+            flash("Error: No device specified!", "is-danger")
+    elif not raspberry_pi:
+        flash("Cannot change audio output on non-raspberry pi devices!", "is-danger")
+    else:
+        flash("You don't have permission to change audio output", "is-danger")
+    return redirect(url_for("info"))
+
+
+@app.route("/audio_devices/change_volume", methods=["GET"])
+def change_device_volume():
+    if is_admin() and raspberry_pi:
+        if "volume" in request.args:
+            volume = request.args["volume"]
+            k.change_device_volume(volume)
+            response = {"msg": "Device volume changed", "status": "is-success"}
+        else:
+            response = {"msg": "Error: No volume specified!", "status": "is-danger"}
+    elif not raspberry_pi:
+        response = {
+            "msg": "Cannot change device volume on non-raspberry pi devices!",
+            "status": "is-danger",
+        }
+    else:
+        response = {
+            "msg": "You don't have permission to change device volume",
+            "status": "is-danger",
+        }
+    return jsonify(response)
+
+
+@app.route("/bluetooth/pair", methods=["GET"])
+def pair_bt_device():
+    if is_admin() and raspberry_pi:
+        result = k.pair_bluetooth_device(request.args)
+        flash(result[1], "is-danger" if result[0] != "ok" else "is-success")
+    elif not raspberry_pi:
+        flash("Cannot change device volume on non-raspberry pi devices!", "is-danger")
+    else:
+        flash("You don't have permission to change device volume", "is-danger")
+    return redirect(url_for("info"))
+
+
+@app.route("/bluetooth/remove", methods=["GET"])
+def remove_bt_device():
+    if is_admin() and raspberry_pi:
+        result = k.remove_bluetooth_device(request.args)
+        flash(result[1], "is-danger" if result[0] != "ok" else "is-success")
+    elif not raspberry_pi:
+        flash("Cannot change device volume on non-raspberry pi devices!", "is-danger")
+    else:
+        flash("You don't have permission to change device volume", "is-danger")
+    return redirect(url_for("info"))
 
 
 def main():
