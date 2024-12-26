@@ -85,6 +85,7 @@ class Karaoke:
         high_quality=False,
         volume=0.85,
         normalize_audio=False,
+        buffer_fully_before_playback=False,
         log_level=logging.DEBUG,
         splash_delay=2,
         youtubedl_path="/usr/local/bin/yt-dlp",
@@ -104,6 +105,7 @@ class Karaoke:
         self.splash_delay = int(splash_delay)
         self.volume = volume
         self.normalize_audio = normalize_audio
+        self.buffer_fully_before_playback = buffer_fully_before_playback
         self.youtubedl_path = youtubedl_path
         self.logo_path = self.default_logo_path if logo_path == None else logo_path
         self.hide_overlay = hide_overlay
@@ -135,6 +137,7 @@ class Karaoke:
     download path: {self.download_path}
     default volume: {self.volume}
     normalize audio: {self.normalize_audio}
+    buffer audio fully before playback: {self.buffer_fully_before_playback}
     youtube-dl path: {self.youtubedl_path}
     logo path: {self.logo_path}
     log_level: {log_level}
@@ -410,7 +413,7 @@ class Karaoke:
         logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
 
         try:
-            fr = FileResolver(file_path)
+            fr = FileResolver(file_path, self.buffer_fully_before_playback)
         except Exception as e:
             logging.error("Error resolving file: " + str(e))
             self.queue.pop(0)
@@ -418,7 +421,9 @@ class Karaoke:
 
         self.kill_ffmpeg()
 
-        ffmpeg_cmd = build_ffmpeg_cmd(fr, semitones, self.normalize_audio)
+        ffmpeg_cmd = build_ffmpeg_cmd(
+            fr, semitones, self.normalize_audio, self.buffer_fully_before_playback
+        )
         self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
 
         # ffmpeg outputs everything useful to stderr for some insane reason!
@@ -445,11 +450,13 @@ class Karaoke:
             except:
                 try:
                     output_file_size = os.path.getsize(fr.output_file)
-                    is_buffering_complete = output_file_size > buffering_threshold
-                    if is_buffering_complete:
-                        logging.debug(f"Buffering complete. File size: {output_file_size}")
+                    if not self.buffer_fully_before_playback:
+                        is_buffering_complete = output_file_size > buffering_threshold
+                        if is_buffering_complete:
+                            logging.debug(f"Buffering complete. File size: {output_file_size}")
                 except:
                     pass
+
             # Check if the stream is ready to play. Determined by:
             # - completed transcoding
             # - buffered file size being greater than a threshold
