@@ -733,14 +733,11 @@ def stream_full(id):
             with open(file_path, "rb") as file:
                 file_content = file.read()
             return Response(file_content, mimetype="video/mp4")
-
         # Extract range start and end from Range header (e.g., "bytes=0-499")
         range_match = re.search(r"bytes=(\d+)-(\d*)", range_header)
         start, end = range_match.groups()
-
         start = int(start)
         end = int(end) if end else file_size - 1
-
         # Generate response with part of file
         with open(file_path, "rb") as file:
             file.seek(start)
@@ -752,7 +749,6 @@ def stream_full(id):
             "Content-Range": f"bytes {start}-{end}/{file_size}",
             "Content-Length": str(len(data)),
         }
-
         return Response(data, status=status_code, headers=headers)
     except IOError:
         flash("File not found.", "is-danger")
@@ -897,6 +893,13 @@ def main():
         required=False,
     )
     parser.add_argument(
+        "-b",
+        "--buffer-fully-before-playback",
+        action="store_true",
+        help="Allow ffmpeg transcoding buffer to fully complete before playback begins. This can help with streaming on slower devices and improve browser compatibility (Safari), but will increase the delay before playback begins.",
+        required=False,
+    )
+    parser.add_argument(
         "--logo-path",
         nargs="+",
         help="Path to a custom logo image file for the splash screen. Recommended dimensions ~ 2048x1024px",
@@ -958,6 +961,7 @@ def main():
         log_level=args.log_level,
         volume=parsed_volume,
         normalize_audio=args.normalize_audio,
+        buffer_fully_before_playback=args.buffer_fully_before_playback,
         hide_url=args.hide_url,
         hide_raspiwifi_instructions=args.hide_raspiwifi_instructions,
         hide_splash_screen=args.hide_splash_screen,

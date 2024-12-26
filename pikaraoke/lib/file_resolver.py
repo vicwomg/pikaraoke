@@ -40,13 +40,19 @@ class FileResolver:
     cdg_file_path = None
     file_extension = None
 
-    def __init__(self, file_path):
+    def __init__(self, file_path, buffer_fully_before_playback=False):
         create_tmp_dir()
         self.tmp_dir = get_tmp_dir()
         self.resolved_file_path = self.process_file(file_path)
         self.stream_uid = string_to_hash(file_path)
         self.output_file = f"{self.tmp_dir}/{self.stream_uid}.mp4"
-        self.stream_url_path = f"/stream/{self.stream_uid}"
+        if buffer_fully_before_playback:
+            # This route is used for streaming the full video file, and includes more
+            # accurate headers for safari and other browsers
+            self.stream_url_path = f"/stream/full/{self.stream_uid}"
+        else:
+            # This route is used for streaming the video file in chunks, only works on chrome
+            self.stream_url_path = f"/stream/{self.stream_uid}"
 
     # Extract zipped cdg + mp3 files into a temporary directory, and set the paths to both files.
     def handle_zipped_cdg(self, file_path):
