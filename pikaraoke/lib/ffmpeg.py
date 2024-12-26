@@ -6,7 +6,7 @@ import ffmpeg
 from pikaraoke.lib.get_platform import supports_hardware_h264_encoding
 
 
-def build_ffmpeg_cmd(fr, semitones=0, normalize_audio=True):
+def build_ffmpeg_cmd(fr, semitones=0, normalize_audio=True, buffer_fully_before_playback=False):
     # use h/w acceleration on pi
     default_vcodec = "h264_v4l2m2m" if supports_hardware_h264_encoding() else "libx264"
     # just copy the video stream if it's an mp4 or webm file, since they are supported natively in html5
@@ -28,6 +28,10 @@ def build_ffmpeg_cmd(fr, semitones=0, normalize_audio=True):
     # normalize the audio
     audio = audio.filter("loudnorm", i=-16, tp=-1.5, lra=11) if normalize_audio else audio
 
+    # frag_keyframe+default_base_moof is used to set the correct headers for streaming incomplete files,
+    # without it, there's better compatibility for streaming on certain browsers like Firefox
+    movflags = "+faststart" if buffer_fully_before_playback else "frag_keyframe+default_base_moof"
+
     if fr.cdg_file_path != None:  # handle CDG files
         logging.info("Playing CDG/MP3 file: " + fr.file_path)
         # copyts helps with sync issues, fps=25 prevents ffmpeg from needlessly encoding cdg at 300fps
@@ -35,7 +39,7 @@ def build_ffmpeg_cmd(fr, semitones=0, normalize_audio=True):
         video = cdg_input.video.filter("fps", fps=25)
         # cdg is very fussy about these flags.
         # pi ffmpeg needs to encode to aac and cant just copy the mp3 stream
-        # It alse appears to have memory issues with hardware acceleration h264_v4l2m2m
+        # It also appears to have memory issues with hardware acceleration h264_v4l2m2m
         output = ffmpeg.output(
             audio,
             video,
@@ -47,7 +51,7 @@ def build_ffmpeg_cmd(fr, semitones=0, normalize_audio=True):
             listen=1,
             f="mp4",
             video_bitrate="500k",
-            movflags="frag_keyframe+default_base_moof",
+            movflags=movflags,
         )
     else:
         video = input.video
@@ -61,7 +65,7 @@ def build_ffmpeg_cmd(fr, semitones=0, normalize_audio=True):
             listen=1,
             f="mp4",
             video_bitrate=vbitrate,
-            movflags="frag_keyframe+default_base_moof",
+            movflags=movflags,
         )
 
     args = output.get_args()
