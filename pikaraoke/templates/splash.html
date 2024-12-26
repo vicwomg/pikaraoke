@@ -33,8 +33,6 @@
   var confirmationDismissed = false;
   var volume = 0.85;
 
-  const url = `http://${window.location.host}`;
-
   function startNowPlayingPolling() {
     nowPlayingInterval = setInterval(getNowPlaying, 1000);
   }
@@ -263,7 +261,7 @@
       } else {
         setUserCookie();
         $("#menu-container").show();
-        $("#menu-container iframe").attr("src", url);
+        $("#menu-container iframe").attr("src", "/");
         showMenu = true;
       }
     });
@@ -396,7 +394,7 @@
   </a>
 </div>
 <div id="menu-container" class="">
-  <iframe src="{{ url }}"></iframe>
+  <iframe src="/"></iframe>
 </div>
 
 <!-- Screensaver code -->
