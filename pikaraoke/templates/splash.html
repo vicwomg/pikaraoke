@@ -274,9 +274,12 @@
     let dismissConfirmation = params.get("confirm");
 
     if (isFirefox || isSafari) {
-      confirm(
-        "This browser is not supported. You may experience streaming issues. Please use Chrome for best results."
-      );
+      let modalContents = document.getElementById("permissions-modal-content");
+      let warningMessage = document.createElement("p");
+      warningMessage.classList.add("notification", "is-warning");
+      warningMessage.innerHTML =
+        "This browser is not supported. You may experience streaming issues unless you enable full playback buffering. Please use Chrome for best results.";
+      modalContents.prepend(warningMessage);
     }
 
     if (dismissConfirmation === "false") {
@@ -356,7 +359,7 @@
 
 <div id="permissions-modal" class="modal is-active">
   <div class="modal-background"></div>
-  <div class="modal-content">
+  <div class="modal-content" id="permissions-modal-content">
     <p>
       {# MSG: Prompt for interaction in order to enable video autoplay. #} {%
       trans %}Due to limititations with browser permissions, you must interact
