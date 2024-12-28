@@ -63,6 +63,12 @@ jobs:
     - name: Add Poetry to PATH
       run: echo "/opt/poetry/bin" >> $GITHUB_PATH
 
+    - name: Extract version number
+      id: get_version
+      run: |
+        version=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)
+        echo "VERSION=$version" >> $GITHUB_ENV
+
     - name: Install Package
       run: poetry install --no-interaction --no-ansi
 
@@ -89,4 +95,4 @@ jobs:
       with:
         platforms: linux/amd64,linux/arm64
         push: true
-        tags: vicwomg/pikaraoke:latest
+        tags: vicwomg/pikaraoke:latest,vicwomg/pikaraoke:${{ env.VERSION }}
