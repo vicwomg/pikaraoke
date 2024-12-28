@@ -665,6 +665,7 @@ class Karaoke:
     def restart(self):
         if self.is_file_playing():
             self.send_command("restart")
+            self.is_paused = False
             return True
         else:
             logging.warning("Tried to restart, but no file is playing!")
