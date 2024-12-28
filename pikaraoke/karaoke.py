@@ -86,7 +86,8 @@ class Karaoke:
         high_quality=False,
         volume=0.85,
         normalize_audio=False,
-        buffer_fully_before_playback=False,
+        complete_transcode_before_play=False,
+        buffer_size=2000000,
         log_level=logging.DEBUG,
         splash_delay=2,
         youtubedl_path="/usr/local/bin/yt-dlp",
@@ -106,7 +107,8 @@ class Karaoke:
         self.splash_delay = int(splash_delay)
         self.volume = volume
         self.normalize_audio = normalize_audio
-        self.buffer_fully_before_playback = buffer_fully_before_playback
+        self.complete_transcode_before_play = complete_transcode_before_play
+        self.buffer_size = buffer_size
         self.youtubedl_path = youtubedl_path
         self.logo_path = self.default_logo_path if logo_path == None else logo_path
         self.hide_overlay = hide_overlay
@@ -138,7 +140,8 @@ class Karaoke:
     download path: {self.download_path}
     default volume: {self.volume}
     normalize audio: {self.normalize_audio}
-    buffer audio fully before playback: {self.buffer_fully_before_playback}
+    complete transcode before play: {self.complete_transcode_before_play}
+    buffer size: {self.buffer_size}
     youtube-dl path: {self.youtubedl_path}
     logo path: {self.logo_path}
     log_level: {log_level}
@@ -414,7 +417,7 @@ class Karaoke:
         logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
 
         try:
-            fr = FileResolver(file_path, self.buffer_fully_before_playback)
+            fr = FileResolver(file_path, self.complete_transcode_before_play)
         except Exception as e:
             logging.error("Error resolving file: " + str(e))
             self.queue.pop(0)
@@ -423,7 +426,7 @@ class Karaoke:
         self.kill_ffmpeg()
 
         ffmpeg_cmd = build_ffmpeg_cmd(
-            fr, semitones, self.normalize_audio, self.buffer_fully_before_playback
+            fr, semitones, self.normalize_audio, self.complete_transcode_before_play
         )
         self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
 
@@ -435,7 +438,6 @@ class Karaoke:
         t.start()
 
         output_file_size = 0
-        buffering_threshold = 4000000  # raise this if pi3 struggles to keep up with transcoding
         max_playback_retries = 2500  # approx 2 minutes
 
         is_transcoding_complete = False
@@ -443,11 +445,7 @@ class Karaoke:
 
         # Playback start retry loop
         while True:
-            try:
-                output = self.ffmpeg_log.get_nowait()
-                logging.debug("[FFMPEG] " + decode_ignore(output))
-            except:
-                pass
+            self.log_ffmpeg_output()
             # Check if the ffmpeg process has exited
             if self.ffmpeg_process.poll() is not None:
                 exitcode = self.ffmpeg_process.poll()
@@ -465,8 +463,8 @@ class Karaoke:
             # Check if the file has buffered enough to start playback
             try:
                 output_file_size = os.path.getsize(fr.output_file)
-                if not self.buffer_fully_before_playback:
-                    is_buffering_complete = output_file_size > buffering_threshold
+                if not self.complete_transcode_before_play:
+                    is_buffering_complete = output_file_size > self.buffer_size
                     if is_buffering_complete:
                         logging.debug(f"Buffering complete. File size: {output_file_size}")
                         break

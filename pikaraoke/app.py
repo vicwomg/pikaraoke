@@ -548,7 +548,7 @@ def splash():
         hide_url=k.hide_url,
         hide_overlay=k.hide_overlay,
         screensaver_timeout=k.screensaver_timeout,
-        show_end_time=k.buffer_fully_before_playback,
+        show_end_time=k.complete_transcode_before_play,
     )
 
 
@@ -786,6 +786,7 @@ def main():
     default_screensaver_delay = 300
     default_log_level = logging.INFO
     default_prefer_hostname = False
+    default_buffer_size = 2500000
 
     default_dl_dir = get_default_dl_dir(platform)
     default_youtubedl_path = "yt-dlp"
@@ -798,11 +799,12 @@ def main():
         "--port",
         help="Desired http port (default: %d)" % default_port,
         default=default_port,
+        type=int,
         required=False,
     )
     parser.add_argument(
         "--window-size",
-        help="Desired window geometry in pixels, specified as width,height",
+        help="Desired window geometry in pixels for headed mode, specified as width,height",
         default=0,
         required=False,
     )
@@ -844,6 +846,7 @@ def main():
         help="Delay during splash screen between songs (in secs). (default: %s )"
         % default_splash_delay,
         default=default_splash_delay,
+        type=int,
         required=False,
     )
     parser.add_argument(
@@ -852,6 +855,7 @@ def main():
         help="Delay before the screensaver begins (in secs). (default: %s )"
         % default_screensaver_delay,
         default=default_screensaver_delay,
+        type=int,
         required=False,
     )
     parser.add_argument(
@@ -894,12 +898,20 @@ def main():
         required=False,
     )
     parser.add_argument(
-        "-b",
-        "--buffer-fully-before-playback",
+        "-c",
+        "--complete-transcode-before-play",
         action="store_true",
-        help="Allow ffmpeg transcoding buffer to fully complete before playback begins. This can help with streaming on slower devices and improve browser compatibility (Safari), but will increase the delay before playback begins.",
+        help="Wait for ffmpeg transcoding to fully complete before playback begins. Also adds end time to splash screen display. This can help with streaming on slower devices and improve browser compatibility (Safari, Firefox), but will significantly increase the delay before playback begins. On modern hardware, the delay is likely negligible.",
         required=False,
     )
+    parser.add_argument(
+        "-b",
+        "--buffer-size",
+        help=f"Buffer size for streaming video (in bytes). Increase if you experience songs cutting off early. Higher buffer size will increase the delay before playback begins. This value is ignored if --complete-transcode-before-play was specified. Default is: {default_buffer_size}",
+        default=default_buffer_size,
+        type=int,
+        required=False,
+    ),
     parser.add_argument(
         "--logo-path",
         nargs="+",
@@ -962,7 +974,8 @@ def main():
         log_level=args.log_level,
         volume=parsed_volume,
         normalize_audio=args.normalize_audio,
-        buffer_fully_before_playback=args.buffer_fully_before_playback,
+        complete_transcode_before_play=args.complete_transcode_before_play,
+        buffer_size=args.buffer_size,
         hide_url=args.hide_url,
         hide_raspiwifi_instructions=args.hide_raspiwifi_instructions,
         hide_splash_screen=args.hide_splash_screen,
