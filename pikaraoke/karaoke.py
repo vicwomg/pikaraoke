@@ -5,6 +5,7 @@ import os
 import random
 import socket
 import subprocess
+import threading
 import time
 from pathlib import Path
 from queue import Queue
@@ -620,7 +621,7 @@ class Karaoke:
     def skip(self):
         if self.is_file_playing():
             logging.info("Skipping: " + self.now_playing)
-            self.now_playing_command = "skip"
+            self.end_song()
             return True
         else:
             logging.warning("Tried to skip, but no file is playing!")
@@ -629,7 +630,6 @@ class Karaoke:
     def pause(self):
         if self.is_file_playing():
             logging.info("Toggling pause: " + self.now_playing)
-            self.now_playing_command = "pause"
             self.is_paused = not self.is_paused
             return True
         else:
@@ -639,8 +639,6 @@ class Karaoke:
     def volume_change(self, vol_level):
         self.volume = vol_level
         logging.debug(f"Setting volume to: {self.volume}")
-        if self.is_file_playing():
-            self.now_playing_command = f"volume_change: {self.volume}"
         return True
 
     def vol_up(self):
@@ -650,12 +648,6 @@ class Karaoke:
             self.volume = 1.0
             logging.debug("max volume reached.")
         logging.debug(f"Increasing volume by 10%: {self.volume}")
-        if self.is_file_playing():
-            self.now_playing_command = "vol_up"
-            return True
-        else:
-            logging.warning("Tried to volume up, but no file is playing!")
-            return False
 
     def vol_down(self):
         self.volume -= 0.1
@@ -664,16 +656,15 @@ class Karaoke:
             self.volume = 0
             logging.debug("minimum volume reached.")
         logging.debug(f"Decreasing volume by 10%: {self.volume}")
-        if self.is_file_playing():
-            self.now_playing_command = "vol_down"
-            return True
-        else:
-            logging.warning("Tried to volume down, but no file is playing!")
-            return False
+
+    def send_command(self, command):
+        self.now_playing_command = command
+        threading.Timer(2, self.reset_now_playing_command).start()
+        # Clear the command asynchronously. 2s should be enough for client polling to pick it up
 
     def restart(self):
         if self.is_file_playing():
-            self.now_playing_command = "restart"
+            self.send_command("restart")
             return True
         else:
             logging.warning("Tried to restart, but no file is playing!")
@@ -684,6 +675,9 @@ class Karaoke:
 
     def handle_run_loop(self):
         time.sleep(self.loop_interval / 1000)
+
+    def reset_now_playing_command(self):
+        self.now_playing_command = None
 
     def reset_now_playing(self):
         self.now_playing = None
