@@ -13,6 +13,18 @@
       video.readyState > 2
     );
 
+  function formatTime(seconds) {
+    if (isNaN(seconds)) {
+      return "00:00";
+    }
+    const totalSeconds = Math.floor(seconds);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    const formattedMinutes = String(minutes).padStart(2, "0");
+    const formattedSeconds = String(secs).padStart(2, "0");
+    return `${formattedMinutes}:${formattedSeconds}`;
+  }
+
   const isFirefox = typeof InstallTrigger !== "undefined";
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
@@ -213,14 +225,20 @@
     };
 
     //Video status events for communicating state back to server
-    $("#video")[0].addEventListener("play", () => {
+    const video = $("#video")[0];
+    video.addEventListener("play", () => {
       $("#video-container").show();
       //Report song start after a slight delay to allow video to load
       setTimeout(() => $.get('{{ url_for("start_song") }}'), 1200);
     });
-    $("#video")[0].addEventListener("ended", () => {
+    video.addEventListener("ended", () => {
       endSong();
     });
+    video.addEventListener("timeupdate", (e) => {
+      $("#current").text(formatTime(video.currentTime));
+      $("#duration").text(formatTime(video.duration));
+    });
+
     $("#video source")[0].addEventListener("error", (e) => {
       console.log("Error while playing video.");
       console.log(e);
@@ -283,7 +301,10 @@
       style="margin-bottom: 5px"
     ></p>
     <div class="has-text-success">
-      <i class="icon icon-mic-1" title="Current singer"></i>&nbsp;
+      <span class="timestamp is-size-6">
+        <span id="current">0:00</span>
+        {% if show_end_time %}/ <span id="duration">0:00</span> {% endif %} </span
+      >&nbsp;<i class="icon icon-mic-1" title="Current singer"></i>&nbsp;
       <span id="now-playing-singer"></span>
     </div>
   </div>
@@ -296,7 +317,7 @@
 </div>
 
 <div id="ap-container">
-  <div class="is-size-5 stroke">
+  <div class="is-size-6 stroke">
     <div id="hostap">
       {% for line in hostap_info %}{{ line }}<br />{% endfor %}
     </div>
@@ -312,7 +333,7 @@
       style="image-rendering: pixelated"
       alt="qrcode"
     />
-    <div class="is-size-5 stroke">
+    <div class="is-size-6 stroke">
       <div>&nbsp;{{ url }}</div>
     </div>
   </div>
@@ -494,6 +515,9 @@
   }
   .stroke {
     text-shadow: 2px 0.75px black;
+  }
+  .timestamp {
+    font-family: monospace;
   }
 </style>
 

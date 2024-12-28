@@ -548,6 +548,7 @@ def splash():
         hide_url=k.hide_url,
         hide_overlay=k.hide_overlay,
         screensaver_timeout=k.screensaver_timeout,
+        show_end_time=k.buffer_fully_before_playback,
     )
 
 
