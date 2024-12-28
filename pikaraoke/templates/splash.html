@@ -163,7 +163,7 @@
 
         // Handle restart
         if (
-          isVideoPlaying(video) &&
+          obj.now_playing &&
           obj.now_playing_command == "restart" &&
           video.currentTime > 3
         ) {
