@@ -32,7 +32,7 @@ If you want to support this project with a little monetary tip, it's much apprec
 | Admin Mode                  | Lock down features with admin mode                            |
 | Headless Mode               | Run a dedicated server and stream pikaraoke to remote browser |
 
-## Supported Devices / OS
+## Supported Devices / OS / Platforms
 
 - Raspberry Pi
   - Requires a Raspberry Pi Model 3 or higher
@@ -41,6 +41,7 @@ If you want to support this project with a little monetary tip, it's much apprec
 - OSX
 - Windows
 - Linux
+- Docker - [See official Dockerhub repo](https://hub.docker.com/repository/docker/vicwomg/pikaraoke)
 
 ## Get Started
 

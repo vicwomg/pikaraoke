@@ -1,6 +1,6 @@
 services:
   pikaraoke:
-    image: pikaraoke:latest
+    image: vicwomg/pikaraoke:latest
     container_name: PiKaraoke
     # Below Host network mode may work better on some systems and replace manual IP configuration. Does not work on OSX
     # network_mode: host
