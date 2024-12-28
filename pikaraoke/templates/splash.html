@@ -23,8 +23,9 @@
     parseInt("{{ screensaver_timeout }}") * 1000 || 300000;
   let screensaverTimeout;
 
-  // var isPlaying = false;
   var nowPlayingInterval = null;
+  var pollingInterval = 1000;
+
   var nowPlayingHash = null;
   var nowPlaying = {};
   var showMenu = false;
@@ -33,7 +34,7 @@
   var volume = 0.85;
 
   function startNowPlayingPolling() {
-    nowPlayingInterval = setInterval(getNowPlaying, 1000);
+    nowPlayingInterval = setInterval(getNowPlaying, pollingInterval);
   }
 
   function handleConfirmation() {
@@ -47,7 +48,6 @@
 
   function stopVideo() {
     $("#video-container").hide();
-    // setTimeout(() => (isPlaying = false), 1100);
   }
 
   function endSong() {
@@ -102,12 +102,6 @@
 
         const video = $("#video")[0];
 
-        //is video-container hidden?
-        console.log({
-          paused: video.paused,
-          hidden: $("#video-container").is(":hidden"),
-        });
-
         // Start playback if a valid now_playing_url is provided
         if (
           obj.now_playing_url &&
@@ -119,7 +113,6 @@
               "Browser is unable to play video. User did not confirm interaction prompt."
             );
           }
-          // isPlaying = true;
           $("#video-source").attr("src", obj.now_playing_url);
           video.load();
           if (volume != obj.volume) {
