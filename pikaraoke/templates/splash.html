@@ -73,6 +73,27 @@
     setTimeout(() => getNowPlaying(), 100);
   }
 
+  function flashNotification(message, categoryClass) {
+    const sn = $("#splash-notification");
+    if (sn.html()) {
+      console.log(sn.html());
+      // dont clobber currently displayed notifications
+      return;
+    } else {
+      sn.html(message);
+      sn.addClass(categoryClass);
+      sn.fadeIn();
+      setTimeout(() => {
+        sn.fadeOut();
+        setTimeout(() => {
+          // reset the notification after fade out animation
+          sn.html("");
+          sn.removeClass(categoryClass);
+        }, 450);
+      }, 3000);
+    }
+  }
+
   function getNowPlaying() {
     $.get('{{ url_for("nowplaying") }}', function (data) {
       var obj = JSON.parse(data);
@@ -93,10 +114,10 @@
 
           $("#now-playing-song").html(nowPlayingHtml);
           $("#now-playing-singer").html(obj.now_playing_user);
-          $("#now-playing").addClass("visible").removeClass("hidden");
+          $("#now-playing").fadeIn();
         } else {
           // {# MSG: Message which shows in the "Now Playing" section when there is no song currently playing #}
-          $("#now-playing").addClass("hidden").removeClass("visible");
+          $("#now-playing").fadeOut();
         }
 
         // render the queue details in top right
@@ -107,9 +128,9 @@
           next_singer_text = "{{ _('Next singer:') }}";
           $("#up-next-song").html(obj.up_next);
           $("#up-next-singer").html(obj.next_user);
-          $("#up-next").addClass("visible").removeClass("hidden");
+          $("#up-next").fadeIn();
         } else {
-          $("#up-next").addClass("hidden").removeClass("visible");
+          $("#up-next").fadeOut();
         }
 
         const video = $("#video")[0];
@@ -141,8 +162,11 @@
           }, 10000);
         }
 
-        // Stop video if we're out of sync with server
-        if (isVideoPlaying(video) && !obj.now_playing) {
+        // Handle skip song
+        if (
+          (isVideoPlaying(video) || $("#video-container").is(":visible")) &&
+          !obj.now_playing
+        ) {
           video.pause();
           stopVideo();
         }
@@ -168,6 +192,17 @@
           video.currentTime > 3
         ) {
           video.currentTime = 0;
+        }
+
+        // handle messages
+        if (
+          obj.now_playing_command &&
+          obj.now_playing_command.startsWith("message::")
+        ) {
+          const cmd = obj.now_playing_command.split("::");
+          const message = cmd[1];
+          const categoryClass = cmd.length >= 2 ? cmd[2] : "is-primary";
+          flashNotification(message, categoryClass);
         }
       }
 
@@ -212,14 +247,14 @@
         cursorVisible = true;
       }
       if (!menuButtonVisible) {
-        $("#menu a").addClass("visible").removeClass("hidden");
+        $("#menu a").fadeIn();
         menuButtonVisible = true;
       }
       mouseTimer = window.setTimeout(() => {
         mouseTimer = null;
         document.body.style.cursor = "none";
         cursorVisible = false;
-        $("#menu a").addClass("hidden").removeClass("visible");
+        $("#menu a").fadeOut();
         menuButtonVisible = false;
       }, 5000);
     };
@@ -294,6 +329,7 @@
   <div
     id="now-playing"
     class="has-text-warning stroke is-size-4 has-text-right"
+    style="display: none"
   >
     <p
       id="now-playing-song"
@@ -338,7 +374,11 @@
     </div>
   </div>
   {% endif %}
-  <div id="up-next" class="has-text-warning is-size-5 stroke has-text-right">
+  <div
+    id="up-next"
+    class="has-text-warning is-size-5 stroke has-text-right"
+    style="display: none"
+  >
     <b class="has-text-white"
       >{# MSG: Label for the next song to be played in the queue. #} {% trans
       %}Up next:{% endtrans %}
@@ -401,6 +441,13 @@
 <div id="menu-container" class="">
   <iframe src="/"></iframe>
 </div>
+
+<!-- Notification code -->
+<div
+  id="splash-notification"
+  class="notification overlay"
+  style="display: none"
+></div>
 
 <!-- Screensaver code -->
 <div id="screensaver" style="visibility: hidden">
@@ -518,6 +565,14 @@
   }
   .timestamp {
     font-family: monospace;
+  }
+  #splash-notification {
+    position: absolute;
+    top: 15px;
+    left: 50px;
+    z-index: 6;
+    padding: 5px 10px;
+    max-width: 450px;
   }
 </style>
 

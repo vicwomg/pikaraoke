@@ -81,6 +81,7 @@ class Karaoke:
         port=5555,
         download_path="/usr/lib/pikaraoke/songs",
         hide_url=False,
+        hide_notifications=False,
         hide_raspiwifi_instructions=False,
         hide_splash_screen=False,
         high_quality=False,
@@ -100,6 +101,7 @@ class Karaoke:
         # override with supplied constructor args if provided
         self.port = port
         self.hide_url = hide_url
+        self.hide_notifications = hide_notifications
         self.hide_raspiwifi_instructions = hide_raspiwifi_instructions
         self.hide_splash_screen = hide_splash_screen
         self.download_path = download_path
@@ -146,6 +148,7 @@ class Karaoke:
     logo path: {self.logo_path}
     log_level: {log_level}
     hide overlay: {self.hide_overlay}
+    hide notifications: {self.hide_notifications}
 
     platform: {self.platform}
     os version: {self.os_version}
@@ -315,8 +318,29 @@ class Karaoke:
     def get_karaoke_search_results(self, songTitle):
         return self.get_search_results(songTitle + " karaoke")
 
-    def download_video(self, video_url, enqueue=False, user="Pikaraoke"):
-        logging.info("Downloading video: " + video_url)
+    def send_message_to_splash(self, message, color="primary"):
+        # Color should be bulma compatible: primary, warning, success, danger
+        if not self.hide_notifications:
+            self.send_command("message::" + message + "::is-" + color)
+
+    def log_and_send(self, message, category="info"):
+        # Category should be one of: info, success, warning, danger
+        if category == "success":
+            logging.info(message)
+            self.send_message_to_splash(message, "success")
+        elif category == "warning":
+            logging.warning(message)
+            self.send_message_to_splash(message, "warning")
+        elif category == "danger":
+            logging.error(message)
+            self.send_message_to_splash(message, "danger")
+        else:
+            logging.info(message)
+            self.send_message_to_splash(message, "primary")
+
+    def download_video(self, video_url, enqueue=False, user="Pikaraoke", title=None):
+        displayed_title = title if title else video_url
+        self.log_and_send(f"Downloading video: {displayed_title}")
         dl_path = self.download_path + "%(title)s---%(id)s.%(ext)s"
         file_quality = (
             "bestvideo[ext!=webm][height<=1080]+bestaudio[ext!=webm]/best[ext!=webm]"
@@ -330,17 +354,18 @@ class Karaoke:
             logging.error("Error code while downloading, retrying once...")
             rc = subprocess.call(cmd)  # retry once. Seems like this can be flaky
         if rc == 0:
-            logging.debug("Song successfully downloaded: " + video_url)
+            msg_prefix = f"{user} downloaded and queued: " if enqueue else f"{user} downloaded: "
+            self.log_and_send(msg_prefix + displayed_title, "success")
             self.get_available_songs()
             if enqueue:
                 y = self.get_youtube_id_from_url(video_url)
                 s = self.find_song_by_youtube_id(y)
                 if s:
-                    self.enqueue(s, user)
+                    self.enqueue(s, user, log_action=False)
                 else:
-                    logging.error("Error queueing song: " + video_url)
+                    self.log_and_send("Error queueing song: " + displayed_title, "danger")
         else:
-            logging.error("Error downloading song: " + video_url)
+            self.log_and_send("Error downloading song: " + displayed_title, "danger")
         return rc
 
     def get_available_songs(self):
@@ -520,10 +545,10 @@ class Karaoke:
         logging.debug("ffmpeg process killed")
 
     def transpose_current(self, semitones):
-        logging.info(f"Transposing current song {self.now_playing} by {semitones} semitones")
+        self.log_and_send(f"Transpose {self.now_playing} by {semitones} semitones")
         # Insert the same song at the top of the queue with transposition
         self.enqueue(self.now_playing_filename, self.now_playing_user, semitones, True)
-        self.skip()
+        self.skip(log_action=False)
 
     def is_file_playing(self):
         return self.is_playing
@@ -534,9 +559,11 @@ class Karaoke:
                 return True
         return False
 
-    def enqueue(self, song_path, user="Pikaraoke", semitones=0, add_to_front=False):
+    def enqueue(
+        self, song_path, user="Pikaraoke", semitones=0, add_to_front=False, log_action=True
+    ):
         if self.is_song_in_queue(song_path):
-            logging.warn("Song is already in queue, will not add: " + song_path)
+            logging.warning("Song is already in queue, will not add: " + song_path)
             return False
         else:
             queue_item = {
@@ -546,10 +573,11 @@ class Karaoke:
                 "semitones": semitones,
             }
             if add_to_front:
-                logging.info("'%s' is adding song to front of queue: %s" % (user, song_path))
+                self.log_and_send(f"'{user}' added to top of queue: {queue_item['title']}")
                 self.queue.insert(0, queue_item)
             else:
-                logging.info("'%s' is adding song to queue: %s" % (user, song_path))
+                if log_action:
+                    self.log_and_send(f"{user} added to the queue: {queue_item['title']}", "info")
                 self.queue.append(queue_item)
             return True
 
@@ -557,26 +585,26 @@ class Karaoke:
         logging.info("Adding %d random songs to queue" % amount)
         songs = list(self.available_songs)  # make a copy
         if len(songs) == 0:
-            logging.warn("No available songs!")
+            logging.warning("No available songs!")
             return False
         i = 0
         while i < amount:
             r = random.randint(0, len(songs) - 1)
             if self.is_song_in_queue(songs[r]):
-                logging.warn("Song already in queue, trying another... " + songs[r])
+                logging.warning("Song already in queue, trying another... " + songs[r])
             else:
                 self.enqueue(songs[r], "Randomizer")
                 i += 1
             songs.pop(r)
             if len(songs) == 0:
-                logging.warn("Ran out of songs!")
+                logging.warning("Ran out of songs!")
                 return False
         return True
 
     def queue_clear(self):
-        logging.info("Clearing queue!")
+        self.log_and_send("Clear queue", "danger")
         self.queue = []
-        self.skip()
+        self.skip(log_action=False)
 
     def queue_edit(self, song_name, action):
         index = 0
@@ -592,7 +620,7 @@ class Karaoke:
             return False
         if action == "up":
             if index < 1:
-                logging.warn("Song is up next, can't bump up in queue: " + song["file"])
+                logging.warning("Song is up next, can't bump up in queue: " + song["file"])
                 return False
             else:
                 logging.info("Bumping song up in queue: " + song["file"])
@@ -601,7 +629,7 @@ class Karaoke:
                 return True
         elif action == "down":
             if index == len(self.queue) - 1:
-                logging.warn("Song is already last, can't bump down in queue: " + song["file"])
+                logging.warning("Song is already last, can't bump down in queue: " + song["file"])
                 return False
             else:
                 logging.info("Bumping song down in queue: " + song["file"])
@@ -616,9 +644,10 @@ class Karaoke:
             logging.error("Unrecognized direction: " + action)
             return False
 
-    def skip(self):
+    def skip(self, log_action=True):
         if self.is_file_playing():
-            logging.info("Skipping: " + self.now_playing)
+            if log_action:
+                self.log_and_send("Skip: " + self.now_playing)
             self.end_song()
             return True
         else:
@@ -627,7 +656,10 @@ class Karaoke:
 
     def pause(self):
         if self.is_file_playing():
-            logging.info("Toggling pause: " + self.now_playing)
+            if self.is_paused:
+                self.log_and_send(f"Resume: {self.now_playing}")
+            else:
+                self.log_and_send(f"Pause: {self.now_playing}")
             self.is_paused = not self.is_paused
             return True
         else:
@@ -636,26 +668,30 @@ class Karaoke:
 
     def volume_change(self, vol_level):
         self.volume = vol_level
-        logging.debug(f"Setting volume to: {self.volume}")
+        self.log_and_send(f"Volume: {int(self.volume * 100)}%")
         return True
 
     def vol_up(self):
-        self.volume += 0.1
-        # keep the maximum volume to 1 when volume up is clicked
         if self.volume > 1.0:
-            self.volume = 1.0
+            new_vol = self.volume = 1.0
             logging.debug("max volume reached.")
+        new_vol = self.volume + 0.1
+        self.volume_change(new_vol)
         logging.debug(f"Increasing volume by 10%: {self.volume}")
 
     def vol_down(self):
-        self.volume -= 0.1
-        # keep the minimum volume to 0 when volume down is clicked
-        if self.volume < 0:
-            self.volume = 0
-            logging.debug("minimum volume reached.")
+        if self.volume < 0.1:
+            new_vol = self.volume = 0.0
+            logging.debug("min volume reached.")
+        new_vol = self.volume - 0.1
+        self.volume_change(new_vol)
         logging.debug(f"Decreasing volume by 10%: {self.volume}")
 
     def send_command(self, command):
+        # don't allow new messages to clobber existing commands, one message at a time
+        # other commands have a higher priority
+        if command.startswith("message::") and self.now_playing_command != None:
+            return
         self.now_playing_command = command
         threading.Timer(2, self.reset_now_playing_command).start()
         # Clear the command asynchronously. 2s should be enough for client polling to pick it up
@@ -663,6 +699,7 @@ class Karaoke:
     def restart(self):
         if self.is_file_playing():
             self.send_command("restart")
+            logging.info("Restarting: " + self.now_playing)
             self.is_paused = False
             return True
         else:
@@ -707,5 +744,5 @@ class Karaoke:
                 self.log_ffmpeg_output()
                 self.handle_run_loop()
             except KeyboardInterrupt:
-                logging.warn("Keyboard interrupt: Exiting pikaraoke...")
+                logging.warning("Keyboard interrupt: Exiting pikaraoke...")
                 self.running = False
