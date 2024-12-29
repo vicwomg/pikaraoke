@@ -135,7 +135,7 @@
   .navbar-item > i {
     margin-right: 2px;
   }
-  .notification {
+  .base-notification {
     position: fixed;
     width: 500px;
     bottom: 5px;
@@ -156,7 +156,7 @@
     .navbar-brand > .navbar-item > span {
       display: none;
     }
-    .notification {
+    .base-notification {
       position: fixed;
       width: 100%;
       bottom: 5px;
@@ -222,7 +222,7 @@
 
     {% if get_flashed_messages() %}
     {% for category, message in get_flashed_messages(with_categories=true) %}
-    <div id="notification" class="notification {{category}}">
+    <div id="notification" class="notification base-notification {{category}}">
       <button id="notification-close" class="delete"></button>
       <div class="flash">{{ message }}</div>
     </div>
@@ -230,7 +230,7 @@
     {% endif %}
 
     <!-- Alternate notification for js-fired notifications using showNotification -->
-    <div id="notification-alt" class="notification" style="display: none">
+    <div id="notification-alt" class="notification base-notification" style="display: none">
       <button id="notification-close" class="delete"></button>
       <div class="flash"></div>
     </div>

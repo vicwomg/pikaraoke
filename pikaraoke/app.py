@@ -396,18 +396,20 @@ def download():
     d = request.form.to_dict()
     song = d["song-url"]
     user = d["song-added-by"]
+    title = d["song-title"]
     if "queue" in d and d["queue"] == "on":
         queue = True
     else:
         queue = False
 
     # download in the background since this can take a few minutes
-    t = threading.Thread(target=k.download_video, args=[song, queue, user])
+    t = threading.Thread(target=k.download_video, args=[song, queue, user, title])
     t.daemon = True
     t.start()
 
+    displayed_title = title if title else song
     flash_message = (
-        "Download started: '" + song + "'. This may take a couple of minutes to complete. "
+        f"Download started: '{displayed_title}'. This may take a couple of minutes to complete. "
     )
 
     if queue:
@@ -452,7 +454,7 @@ def delete_file():
             )
         else:
             k.delete(song_path)
-            flash("Song deleted: " + song_path, "is-warning")
+            flash("Song deleted: " + k.filename_from_path(song_path), "is-warning")
     else:
         flash("Error: No song parameter specified!", "is-danger")
     return redirect(url_for("browse"))
@@ -651,7 +653,9 @@ def refresh():
 @app.route("/quit")
 def quit():
     if is_admin():
-        flash("Quitting pikaraoke now!", "is-warning")
+        msg = "Exiting pikaraoke now!"
+        flash(msg, "is-danger")
+        k.send_message_to_splash(msg, "danger")
         th = threading.Thread(target=delayed_halt, args=[0])
         th.start()
     else:
@@ -662,7 +666,9 @@ def quit():
 @app.route("/shutdown")
 def shutdown():
     if is_admin():
-        flash("Shutting down system now!", "is-danger")
+        msg = "Shutting down system now!"
+        flash(msg, "is-danger")
+        k.send_message_to_splash(msg, "danger")
         th = threading.Thread(target=delayed_halt, args=[1])
         th.start()
     else:
@@ -673,7 +679,9 @@ def shutdown():
 @app.route("/reboot")
 def reboot():
     if is_admin():
-        flash("Rebooting system now!", "is-danger")
+        msg = "Rebooting system now!"
+        flash(msg, "is-danger")
+        k.send_message_to_splash(msg, "danger")
         th = threading.Thread(target=delayed_halt, args=[2])
         th.start()
     else:
@@ -803,12 +811,6 @@ def main():
         required=False,
     )
     parser.add_argument(
-        "--window-size",
-        help="Desired window geometry in pixels for headed mode, specified as width,height",
-        default=0,
-        required=False,
-    )
-    parser.add_argument(
         "-d",
         "--download-path",
         nargs="+",
@@ -879,6 +881,18 @@ def main():
         required=False,
     )
     parser.add_argument(
+        "--hide-overlay",
+        action="store_true",
+        help="Hide overlay that shows on top of video with pikaraoke QR code and IP",
+        required=False,
+    ),
+    parser.add_argument(
+        "--hide-notifications",
+        action="store_true",
+        help="Hide notifications from the splash screen.",
+        required=False,
+    )
+    parser.add_argument(
         "--hide-raspiwifi-instructions",
         action="store_true",
         help="Hide RaspiWiFi setup instructions from the splash screen.",
@@ -894,7 +908,7 @@ def main():
     parser.add_argument(
         "--high-quality",
         action="store_true",
-        help="Download higher quality video. Note: requires ffmpeg and may cause CPU, download speed, and other performance issues",
+        help="Download higher quality video. May cause CPU, download speed, and other performance issues",
         required=False,
     )
     parser.add_argument(
@@ -927,11 +941,11 @@ def main():
         required=False,
     ),
     parser.add_argument(
-        "--hide-overlay",
-        action="store_true",
-        help="Hide overlay that shows on top of video with pikaraoke QR code and IP",
+        "--window-size",
+        help="Desired window geometry in pixels for headed mode, specified as width,height",
+        default=0,
         required=False,
-    ),
+    )
     parser.add_argument(
         "--admin-password",
         help="Administrator password, for locking down certain features of the web UI such as queue editing, player controls, song editing, and system shutdown. If unspecified, everyone is an admin.",
@@ -977,6 +991,7 @@ def main():
         complete_transcode_before_play=args.complete_transcode_before_play,
         buffer_size=args.buffer_size,
         hide_url=args.hide_url,
+        hide_notifications=args.hide_notifications,
         hide_raspiwifi_instructions=args.hide_raspiwifi_instructions,
         hide_splash_screen=args.hide_splash_screen,
         high_quality=args.high_quality,
