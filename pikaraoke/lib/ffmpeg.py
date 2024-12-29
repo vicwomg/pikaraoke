@@ -6,6 +6,14 @@ import ffmpeg
 from pikaraoke.lib.get_platform import supports_hardware_h264_encoding
 
 
+def get_media_duration(file_path):
+    try:
+        duration = ffmpeg.probe(file_path)["format"]["duration"]
+        return round(float(duration))
+    except:
+        return None
+
+
 def build_ffmpeg_cmd(fr, semitones=0, normalize_audio=True, buffer_fully_before_playback=False):
     # use h/w acceleration on pi
     default_vcodec = "h264_v4l2m2m" if supports_hardware_h264_encoding() else "libx264"
