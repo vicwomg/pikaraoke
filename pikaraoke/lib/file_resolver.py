@@ -4,6 +4,7 @@ import shutil
 import zipfile
 from sys import maxsize
 
+from pikaraoke.lib.ffmpeg import get_media_duration
 from pikaraoke.lib.get_platform import get_platform
 
 
@@ -34,25 +35,28 @@ def string_to_hash(s):
     return hash(s) % ((maxsize + 1) * 2)
 
 
+def is_cdg_file(file_path):
+    file_extension = os.path.splitext(file_path)[1].casefold()
+    return file_extension == ".zip" or file_extension == ".mp3"
+
+
+def is_transcoding_required(file_path):
+    file_extension = os.path.splitext(file_path)[1].casefold()
+    return file_extension != ".mp4" and file_extension != ".webm"
+
+
 # Processes a given file path and determines the file format and file path, extracting zips into cdg + mp3 if necessary.
 class FileResolver:
     file_path = None
     cdg_file_path = None
     file_extension = None
 
-    def __init__(self, file_path, buffer_fully_before_playback=False):
+    def __init__(self, file_path):
         create_tmp_dir()
         self.tmp_dir = get_tmp_dir()
         self.resolved_file_path = self.process_file(file_path)
         self.stream_uid = string_to_hash(file_path)
         self.output_file = f"{self.tmp_dir}/{self.stream_uid}.mp4"
-        if buffer_fully_before_playback:
-            # This route is used for streaming the full video file, and includes more
-            # accurate headers for safari and other browsers
-            self.stream_url_path = f"/stream/full/{self.stream_uid}"
-        else:
-            # This route is used for streaming the video file in chunks, only works on chrome
-            self.stream_url_path = f"/stream/{self.stream_uid}"
 
     # Extract zipped cdg + mp3 files into a temporary directory, and set the paths to both files.
     def handle_zipped_cdg(self, file_path):
@@ -65,7 +69,6 @@ class FileResolver:
         mp3_file = None
         cdg_file = None
         files = os.listdir(extracted_dir)
-        print(files)
         for file in files:
             ext = os.path.splitext(file)[1]
             if ext.casefold() == ".mp3":
@@ -86,8 +89,6 @@ class FileResolver:
         pattern = f + ".cdg"
         rule = re.compile(re.escape(pattern), re.IGNORECASE)
         p = os.path.dirname(file_path)  # get the path, not the filename
-        print(p)
-        print(pattern)
         for n in os.listdir(p):
             if rule.match(n):
                 self.file_path = file_path
@@ -105,3 +106,4 @@ class FileResolver:
             self.handle_mp3_cdg(file_path)
         else:
             self.file_path = file_path
+        self.duration = get_media_duration(self.file_path)

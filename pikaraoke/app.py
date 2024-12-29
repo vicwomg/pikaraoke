@@ -162,11 +162,12 @@ def nowplaying():
             "now_playing": k.now_playing,
             "now_playing_user": k.now_playing_user,
             "now_playing_command": k.now_playing_command,
+            "now_playing_duration": k.now_playing_duration,
+            "now_playing_transpose": k.now_playing_transpose,
+            "now_playing_url": k.now_playing_url,
             "up_next": next_song,
             "next_user": next_user,
-            "now_playing_url": k.now_playing_url,
             "is_paused": k.is_paused,
-            "transpose_value": k.now_playing_transpose,
             "volume": k.volume,
             # "is_transpose_enabled": k.is_transpose_enabled,
         }
@@ -550,7 +551,6 @@ def splash():
         hide_url=k.hide_url,
         hide_overlay=k.hide_overlay,
         screensaver_timeout=k.screensaver_timeout,
-        show_end_time=k.complete_transcode_before_play,
     )
 
 
@@ -915,13 +915,13 @@ def main():
         "-c",
         "--complete-transcode-before-play",
         action="store_true",
-        help="Wait for ffmpeg transcoding to fully complete before playback begins. Also adds end time to splash screen display. This can help with streaming on slower devices and improve browser compatibility (Safari, Firefox), but will significantly increase the delay before playback begins. On modern hardware, the delay is likely negligible.",
+        help="Wait for ffmpeg video transcoding to fully complete before playback begins. Transcoding occurs when you have normalization on, play a cdg file, or change key. May improve performance and browser compatibility (Safari, Firefox), but will significantly increase the delay before playback begins. On modern hardware, the delay is likely negligible.",
         required=False,
     )
     parser.add_argument(
         "-b",
         "--buffer-size",
-        help=f"Buffer size for streaming video (in bytes). Increase if you experience songs cutting off early. Higher buffer size will increase the delay before playback begins. This value is ignored if --complete-transcode-before-play was specified. Default is: {default_buffer_size}",
+        help=f"Buffer size for transcoded video (in bytes). Increase if you experience songs cutting off early. Higher size will transcode more of the file before streaming it to the client. This will increase the delay before playback begins. This value is ignored if --complete-transcode-before-play was specified. Default is: {default_buffer_size}",
         default=default_buffer_size,
         type=int,
         required=False,

@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import random
+import shutil
 import socket
 import subprocess
 import threading
@@ -21,7 +22,11 @@ from pikaraoke.lib.ffmpeg import (
     get_ffmpeg_version,
     is_transpose_enabled,
 )
-from pikaraoke.lib.file_resolver import FileResolver, delete_tmp_dir
+from pikaraoke.lib.file_resolver import (
+    FileResolver,
+    delete_tmp_dir,
+    is_transcoding_required,
+)
 from pikaraoke.lib.get_platform import (
     get_os_version,
     get_platform,
@@ -54,6 +59,7 @@ class Karaoke:
     now_playing_filename = None
     now_playing_user = None
     now_playing_transpose = 0
+    now_playing_duration = None
     now_playing_url = None
     now_playing_command = None
 
@@ -441,67 +447,83 @@ class Karaoke:
     def play_file(self, file_path, semitones=0):
         logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
 
+        requires_transcoding = (
+            semitones != 0 or self.normalize_audio or is_transcoding_required(file_path)
+        )
+
         try:
-            fr = FileResolver(file_path, self.complete_transcode_before_play)
+            fr = FileResolver(file_path)
         except Exception as e:
             logging.error("Error resolving file: " + str(e))
             self.queue.pop(0)
             return False
 
-        self.kill_ffmpeg()
+        if self.complete_transcode_before_play or not requires_transcoding:
+            # This route is used for streaming the full video file, and includes more
+            # accurate headers for safari and other browsers
+            stream_url_path = f"/stream/full/{fr.stream_uid}"
+        else:
+            # This route is used for streaming the video file in chunks, only works on chrome
+            stream_url_path = f"/stream/{fr.stream_uid}"
 
-        ffmpeg_cmd = build_ffmpeg_cmd(
-            fr, semitones, self.normalize_audio, self.complete_transcode_before_play
-        )
-        self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
+        if not requires_transcoding:
+            # simply copy file path to the tmp directory and the stream is ready
+            shutil.copy(file_path, fr.output_file)
+            is_transcoding_complete = True
+        else:
+            self.kill_ffmpeg()
+            ffmpeg_cmd = build_ffmpeg_cmd(
+                fr, semitones, self.normalize_audio, self.complete_transcode_before_play
+            )
+            self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
 
-        # ffmpeg outputs everything useful to stderr for some insane reason!
-        # prevent reading stderr from being a blocking action
-        self.ffmpeg_log = Queue()
-        t = Thread(target=enqueue_output, args=(self.ffmpeg_process.stderr, self.ffmpeg_log))
-        t.daemon = True
-        t.start()
+            # ffmpeg outputs everything useful to stderr for some insane reason!
+            # prevent reading stderr from being a blocking action
+            self.ffmpeg_log = Queue()
+            t = Thread(target=enqueue_output, args=(self.ffmpeg_process.stderr, self.ffmpeg_log))
+            t.daemon = True
+            t.start()
 
-        output_file_size = 0
-        max_playback_retries = 2500  # approx 2 minutes
+            output_file_size = 0
+            transcode_max_retries = 2500  # Transcode completion max: approx 2 minutes
 
-        is_transcoding_complete = False
-        is_buffering_complete = False
+            is_transcoding_complete = False
+            is_buffering_complete = False
 
-        # Playback start retry loop
-        while True:
-            self.log_ffmpeg_output()
-            # Check if the ffmpeg process has exited
-            if self.ffmpeg_process.poll() is not None:
-                exitcode = self.ffmpeg_process.poll()
-                if exitcode != 0:
-                    logging.error(
-                        f"FFMPEG transcode exited with nonzero exit code ending: {exitcode}. Skipping track"
-                    )
+            # Transcoding readiness polling loop
+            while True:
+                self.log_ffmpeg_output()
+                # Check if the ffmpeg process has exited
+                if self.ffmpeg_process.poll() is not None:
+                    exitcode = self.ffmpeg_process.poll()
+                    if exitcode != 0:
+                        logging.error(
+                            f"FFMPEG transcode exited with nonzero exit code ending: {exitcode}. Skipping track"
+                        )
+                        self.end_song()
+                        break
+                    else:
+                        is_transcoding_complete = True
+                        output_file_size = os.path.getsize(fr.output_file)
+                        logging.debug(f"Transcoding complete. File size: {output_file_size}")
+                        break
+                # Check if the file has buffered enough to start playback
+                try:
+                    output_file_size = os.path.getsize(fr.output_file)
+                    if not self.complete_transcode_before_play:
+                        is_buffering_complete = output_file_size > self.buffer_size
+                        if is_buffering_complete:
+                            logging.debug(f"Buffering complete. File size: {output_file_size}")
+                            break
+                except:
+                    pass
+                # Prevent infinite loop if playback never starts
+                if transcode_max_retries <= 0:
+                    logging.error("Max retries reached trying to play song. Skipping track")
                     self.end_song()
                     break
-                else:
-                    is_transcoding_complete = True
-                    output_file_size = os.path.getsize(fr.output_file)
-                    logging.debug(f"Transcoding complete. File size: {output_file_size}")
-                    break
-            # Check if the file has buffered enough to start playback
-            try:
-                output_file_size = os.path.getsize(fr.output_file)
-                if not self.complete_transcode_before_play:
-                    is_buffering_complete = output_file_size > self.buffer_size
-                    if is_buffering_complete:
-                        logging.debug(f"Buffering complete. File size: {output_file_size}")
-                        break
-            except:
-                pass
-            # Prevent infinite loop if playback never starts
-            if max_playback_retries <= 0:
-                logging.error("Max retries reached trying to play song. Skipping track")
-                self.end_song()
-                break
-            max_playback_retries -= 1
-            time.sleep(0.05)
+                transcode_max_retries -= 1
+                time.sleep(0.05)
 
         # Check if the stream is ready to play. Determined by:
         # - completed transcoding
@@ -511,15 +533,16 @@ class Karaoke:
             self.now_playing = self.filename_from_path(file_path)
             self.now_playing_filename = file_path
             self.now_playing_transpose = semitones
-            self.now_playing_url = fr.stream_url_path
+            self.now_playing_duration = fr.duration
+            self.now_playing_url = stream_url_path
             self.now_playing_user = self.queue[0]["user"]
             self.is_paused = False
             self.queue.pop(0)
             # Pause until the stream is playing
-            max_retries = 100
-            while self.is_playing == False and max_retries > 0:
+            transcode_max_retries = 100
+            while self.is_playing == False and transcode_max_retries > 0:
                 time.sleep(0.1)  # prevents loop from trying to replay track
-                max_retries -= 1
+                transcode_max_retries -= 1
             if self.is_playing:
                 logging.debug("Stream is playing")
             else:
@@ -723,6 +746,7 @@ class Karaoke:
         self.is_paused = True
         self.is_playing = False
         self.now_playing_transpose = 0
+        self.now_playing_duration = None
         self.ffmpeg_log = None
 
     def run(self):
