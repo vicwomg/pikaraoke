@@ -13,6 +13,37 @@
       video.readyState > 2
     );
 
+  function fadeOutVolume(video, onComplete=() => {}, duration=1000) {
+    const interval = 50; // Interval in milliseconds
+    const steps = duration / interval;
+    const volumeStep = video.volume / steps;
+    const fadeOut = setInterval(() => {
+      if (video.volume > volumeStep) {
+        video.volume -= volumeStep;
+      } else {
+        video.volume = 0;
+        clearInterval(fadeOut);
+        onComplete()
+      }
+    }, interval);
+  }
+
+  function fadeInVolume(video, targetVolume, onComplete=() => {}, duration=1000) {
+    const interval = 50; // Interval in milliseconds
+    const steps = duration / interval;
+    const volumeStep = video.volume / steps;
+    video.volume = 0;
+    const fadeIn = setInterval(() => {
+      if (video.volume < targetVolume - volumeStep) {
+        video.volume += volumeStep;
+      } else {
+        video.volume = targetVolume;
+        clearInterval(fadeIn);
+        onComplete()
+      }
+    }, interval);
+  }
+
   function formatTime(seconds) {
     if (isNaN(seconds)) {
       return "00:00";
@@ -177,21 +208,28 @@
           (isVideoPlaying(video) || $("#video-container").is(":visible")) &&
           !obj.now_playing
         ) {
-          video.pause();
-          stopVideo();
+          fadeOutVolume(video, () => {
+            video.pause();
+            video.volume = obj.volume;
+            stopVideo();
+          });
         }
 
         // Handle pause/play
         if (obj.now_playing && !video.paused && obj.is_paused) {
-          video.pause();
+          fadeOutVolume(video, () => {
+            video.pause();
+            video.volume = obj.volume;
+          });
         }
         if (obj.now_playing && video.paused && !obj.is_paused) {
           video.play();
+          fadeInVolume(video, obj.volume);
         }
 
         // Handle volume change
         if (volume != obj.volume) {
-          volume = obj.volume;
+          volume = obj.volume; //set global volume
           video.volume = volume;
         }
 
