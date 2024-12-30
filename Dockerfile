@@ -2,20 +2,23 @@
 FROM python:3.12-slim-bullseye
 
 # Install required packages
-RUN apt-get update --allow-releaseinfo-change
-RUN apt-get install ffmpeg wireless-tools -y
+RUN apt-get update --allow-releaseinfo-change && \
+    apt-get install -y --no-install-recommends ffmpeg wireless-tools && \
+    apt-get clean && \
+    pip install poetry && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Copy minimum required files into the image
 COPY pyproject.toml ./
-COPY pikaraoke ./pikaraoke
 COPY docs ./docs
 
-# Install pikaraoke
-RUN pip install .
+# Only install main dependencies for better docker caching
+RUN poetry install --only main
 
-COPY docker/entrypoint.sh ./
-RUN chmod +x entrypoint.sh
+# Copy the rest of the files and install the remaining deps in a separate layer
+COPY pikaraoke ./pikaraoke
+RUN poetry install
 
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["poetry", "run", "pikaraoke", "-d", "/app/pikaraoke-songs/", "--headless"]
