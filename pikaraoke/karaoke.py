@@ -469,7 +469,15 @@ class Karaoke:
         if not requires_transcoding:
             # simply copy file path to the tmp directory and the stream is ready
             shutil.copy(file_path, fr.output_file)
-            is_transcoding_complete = True
+            max_retries = 5
+            while max_retries > 0:
+                if os.path.exists(fr.output_file):
+                    is_transcoding_complete = True
+                    break
+                max_retries -= 1
+                time.sleep(1)
+            if max_retries == 0:
+                logging.debug(f"Copying file failed: {fr.output_file}")
         else:
             self.kill_ffmpeg()
             ffmpeg_cmd = build_ffmpeg_cmd(
@@ -560,8 +568,12 @@ class Karaoke:
         logging.info(f"Song starting: {self.now_playing}")
         self.is_playing = True
 
-    def end_song(self):
+    def end_song(self, reason=None):
         logging.info(f"Song ending: {self.now_playing}")
+        if reason != None:
+            logging.info(f"Reason: {reason}")
+            if reason != "complete":
+                self.send_message_to_splash(f"Song ended abnormally: {reason}", "danger")
         self.reset_now_playing()
         self.kill_ffmpeg()
         delete_tmp_dir()
