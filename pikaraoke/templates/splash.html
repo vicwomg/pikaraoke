@@ -93,9 +93,9 @@
     $("#video-container").hide();
   }
 
-  function endSong() {
+  function endSong(reason=null) {
     stopVideo();
-    $.get('{{ url_for("end_song") }}');
+    $.post('{{ url_for("end_song") }}', {reason: reason});
   }
 
   function executeCommand(callback) {
@@ -198,7 +198,7 @@
           // handle timeout if video fails to play
           setTimeout(() => {
             if (!isVideoPlaying(video) && !video.paused) {
-              endSong();
+              endSong("failed to start");
             }
           }, 10000);
         }
@@ -315,7 +315,7 @@
       setTimeout(() => $.get('{{ url_for("start_song") }}'), 1200);
     });
     video.addEventListener("ended", () => {
-      endSong();
+      endSong("complete");
     });
     video.addEventListener("timeupdate", (e) => {
       $("#current").text(formatTime(video.currentTime));
@@ -324,14 +324,16 @@
     $("#video source")[0].addEventListener("error", (e) => {
       console.log("Error while playing video.");
       console.log(e);
-      endSong();
+      endSong("error while playing");
     });
 
     //make sure we end the song if the user closes the window or leaves page
     window.addEventListener(
       "beforeunload",
       function (event) {
-        endSong();
+        if (isVideoPlaying(video)) {
+          endSong("splash screen closed");
+        }
       },
       true
     );

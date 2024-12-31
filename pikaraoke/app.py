@@ -431,9 +431,11 @@ def logo():
     return send_file(k.logo_path, mimetype="image/png")
 
 
-@app.route("/end_song", methods=["GET"])
+@app.route("/end_song", methods=["GET", "POST"])
 def end_song():
-    k.end_song()
+    d = request.form.to_dict()
+    reason = d["reason"] if "reason" in d else None
+    k.end_song(reason)
     return "ok"
 
 
@@ -708,24 +710,20 @@ def stream(id):
     file_path = f"{get_tmp_dir()}/{id}.mp4"
 
     def generate():
-        previous_size = -1
-        current_size = 0
         position = 0  # Initialize the position variable
-        with open(file_path, "rb") as file:  # Open the file outside the loop
-            while True:
-                current_size = os.path.getsize(file_path)
-                if current_size == previous_size:
-                    # File size has stabilized, break the loop
-                    break
+        chunk_size = 10240 * 1000 * 25  # Read file in up to 25MB chunks
+        with open(file_path, "rb") as file:
+            # Keep yielding file chunks as long as ffmpeg process is transcoding
+            while k.ffmpeg_process.poll() is None:
                 file.seek(position)  # Move to the last read position
-                while True:
-                    chunk = file.read(10240 * 100 * 30)  # Read in 3mb chunks
-                    if not chunk:
-                        break  # End of file reached
+                chunk = file.read(chunk_size)
+                if chunk is not None and len(chunk) > 0:
                     yield chunk
                     position += len(chunk)  # Update the position with the size of the chunk
-                previous_size = current_size
                 time.sleep(1)  # Wait a bit before checking the file size again
+            chunk = file.read(chunk_size)  # Read the last chunk
+            yield chunk
+            position += len(chunk)  # Update the position with the size of the chunk
 
     return Response(generate(), mimetype="video/mp4")
 
@@ -794,7 +792,7 @@ def main():
     default_screensaver_delay = 300
     default_log_level = logging.INFO
     default_prefer_hostname = False
-    default_buffer_size = 2500000
+    default_buffer_size = 150000
 
     default_dl_dir = get_default_dl_dir(platform)
     default_youtubedl_path = "yt-dlp"
