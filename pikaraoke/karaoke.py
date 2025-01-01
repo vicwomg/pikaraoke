@@ -24,6 +24,7 @@ from pikaraoke.lib.get_platform import (
     get_os_version,
     get_platform,
     is_raspberry_pi,
+    is_transpose_enabled,
     supports_hardware_h264_encoding,
 )
 
@@ -69,6 +70,7 @@ class Karaoke:
     ffmpeg_process = None
     ffmpeg_log = None
     ffmpeg_version = get_ffmpeg_version()
+    is_transpose_enabled = is_transpose_enabled()
     supports_hardware_h264_encoding = supports_hardware_h264_encoding()
     normalize_audio = False
 
@@ -166,6 +168,7 @@ class Karaoke:
     platform: {self.platform}
     os version: {self.os_version}
     ffmpeg version: {self.ffmpeg_version}
+    ffmpeg transpose support: {self.is_transpose_enabled}
     hardware h264 encoding: {self.supports_hardware_h264_encoding}
     youtubedl-version: {self.get_youtubedl_version()}
 """

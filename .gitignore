@@ -9,3 +9,4 @@ songs/
 qrcode.png
 .DS_Store
 config.ini
+docker-compose.yml

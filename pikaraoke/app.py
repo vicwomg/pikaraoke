@@ -113,6 +113,7 @@ def home():
         title="Home",
         transpose_value=k.now_playing_transpose,
         admin=is_admin(),
+        is_transpose_enabled=k.is_transpose_enabled,
     )
 
 
@@ -166,6 +167,7 @@ def nowplaying():
             "is_paused": k.is_paused,
             "transpose_value": k.now_playing_transpose,
             "volume": k.volume,
+            # "is_transpose_enabled": k.is_transpose_enabled,
         }
         rc["hash"] = hash_dict(rc)  # used to detect changes in the now playing data
         return json.dumps(rc)
@@ -448,7 +450,8 @@ def start_song():
 def delete_file():
     if "song" in request.args:
         song_path = request.args["song"]
-        if song_path in k.queue:
+        exists = any(item.get("file") == song_path for item in k.queue)
+        if exists:
             flash(
                 "Error: Can't delete this song because it is in the current queue: " + song_path,
                 "is-danger",
@@ -594,6 +597,7 @@ def info():
         cpu=cpu,
         disk=disk,
         ffmpeg_version=k.ffmpeg_version,
+        is_transpose_enabled=k.is_transpose_enabled,
         youtubedl_version=youtubedl_version,
         platform=k.platform,
         os_version=k.os_version,
