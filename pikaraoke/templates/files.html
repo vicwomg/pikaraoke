@@ -19,17 +19,17 @@
       var user = Cookies.get("user");
       $.get(this.href + encodeURIComponent(user), function (data) {
         var obj = JSON.parse(data);
-        if (obj.success) {
+        if (obj.success[0]) {
           // {# MSG: Notification when a song gets added to the queue.  The song name comes after this string. #}
           showNotification(
-            "{{ _('Song added to the queue: ') }}" + obj.song,
-            "is-success"
+            obj.success[1], 
+            'is-success'
           );
         } else {
           // {# MSG: Notification when a song does not get added to the queue.  The song name comes after this string. #}
           showNotification(
-            "{{ _('Song already in the queue: ') }}" + obj.song,
-            "is-danger"
+            obj.success[1],
+            'is-danger'
           );
         }
       });
