@@ -39,7 +39,7 @@
       } else {
         video.volume = targetVolume;
         clearInterval(fadeIn);
-        onComplete()
+        onComplete();
       }
     }, interval);
   }
@@ -83,6 +83,8 @@
   function handleConfirmation() {
     $("#permissions-modal").removeClass("is-active");
     confirmationDismissed = true;
+    // interstitial music player
+    musicPlayerPlay();
   }
 
   function clearCommand() {
@@ -93,9 +95,53 @@
     $("#video-container").hide();
   }
 
+  function getVideoPlayer () {
+    return $("#video")[0];
+  }
+
+  function getMusicPlayer () {
+    return $("#music-player")[0];
+  }
+
+  function musicPlayerPlay() {
+    const musicPlayer = getMusicPlayer();
+    musicPlayer.load();
+    flashNotification("Loading interstitial music player...");
+    const retry = setInterval(() => {
+      if (musicPlayer.networkState === 1) {
+        flashNotification("Playing interstitial music", "is-success");
+        musicPlayer.play();
+        fadeInVolume(musicPlayer, 0.85);
+        clearInterval(retry)
+      }
+      else if (musicPlayer.networkState === 2) {
+        // network loading state
+        return;
+      }
+      else if (musicPlayer.networkState === 3) {
+        flashNotification("Failed to start interstitial music player. Bad URL?", "is-danger");
+        clearInterval(retry)
+      }
+    }, 1000);
+  }
+
+  function musicPlayerPause() {
+    const musicPlayer = getMusicPlayer();
+    fadeOutVolume(musicPlayer, () => { musicPlayer.pause(); musicPlayer.volume = 0.85 });
+  }
+
+  function scheduleMusicPlayerPlay() {
+    setTimeout(() => {
+      if (!isVideoPlaying(getVideoPlayer())) {
+        musicPlayerPlay();
+      }
+    }, 10000);
+  }
+
   function endSong(reason=null) {
     stopVideo();
     $.post('{{ url_for("end_song") }}', {reason: reason});
+    scheduleMusicPlayerPlay();
   }
 
   function executeCommand(callback) {
@@ -164,7 +210,7 @@
           $("#up-next").fadeOut();
         }
 
-        const video = $("#video")[0];
+        const video = getVideoPlayer();
 
         // Start playback if a valid now_playing_url is provided
         if (
@@ -177,6 +223,9 @@
               "Browser is unable to play video. User did not confirm interaction prompt."
             );
           }
+          // pause interstitial music player
+          musicPlayerPause();
+
           $("#video-source").attr("src", obj.now_playing_url);
           video.load();
           if (volume != obj.volume) {
@@ -212,6 +261,7 @@
             video.pause();
             video.volume = obj.volume;
             stopVideo();
+            scheduleMusicPlayerPlay();
           });
         }
 
@@ -308,7 +358,7 @@
     };
 
     //Video status events for communicating state back to server
-    const video = $("#video")[0];
+    const video = getVideoPlayer();
     video.addEventListener("play", () => {
       $("#video-container").show();
       //Report song start after a slight delay to allow video to load
@@ -369,6 +419,8 @@
     if (dismissConfirmation === "false") {
       let modal = document.getElementById("permissions-modal");
       modal.classList.remove("is-active");
+      // interstitial music player
+      musicPlayerPlay();
     }
   });
 </script>
@@ -447,6 +499,10 @@
     <source id="video-source" type="video/mp4" src="" />
   </video>
 </div>
+
+<audio id="music-player">
+  <source src="https://ais-sa2.cdnstream1.com/2053_128.mp3" type="audio/mpeg">
+</audio>
 
 <div id="permissions-modal" class="modal is-active">
   <div class="modal-background"></div>
