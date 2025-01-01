@@ -3,13 +3,13 @@ import datetime
 import hashlib
 import json
 import logging
+import mimetypes
 import os
 import signal
 import subprocess
 import sys
 import threading
 import time
-import mimetypes
 
 import cherrypy
 import flask_babel
@@ -17,13 +17,13 @@ import psutil
 from flask import (
     Flask,
     flash,
+    jsonify,
     make_response,
     redirect,
     render_template,
     request,
     send_file,
     url_for,
-    jsonify,
 )
 from flask_babel import Babel
 from flask_paginate import Pagination, get_page_parameter
@@ -419,20 +419,24 @@ def download():
 def qrcode():
     return send_file(k.qr_code_path, mimetype="image/png")
 
+
 @app.route("/logo")
 def logo():
     return send_file(k.logo_path, mimetype="image/png")
- 
+
+
 @app.route("/background_music")
 def background_music():
     music_path = k.bg_music_path
     mime_type, _ = mimetypes.guess_type(music_path)
     return send_file(k.bg_music_path, mimetype=mime_type)
 
+
 @app.route("/end_song", methods=["GET"])
 def end_song():
     k.end_song()
     return "ok"
+
 
 @app.route("/start_song", methods=["GET"])
 def start_song():
@@ -696,31 +700,34 @@ def expand_fs():
     else:
         flash("You don't have permission to resize the filesystem", "is-danger")
     return redirect(url_for("home"))
- 
+
+
 @app.route("/change_preferences", methods=["GET"])
 def change_preferences():
-	if is_admin():
-			preference = request.args["pref"]
-			val = request.args["val"]
-   
-			rc = k.change_preferences(preference, val)
+    if is_admin():
+        preference = request.args["pref"]
+        val = request.args["val"]
 
-			return jsonify(rc)
-	else:
-		flash(_("You don't have permission to define audio output"), "is-danger")
-	return redirect(url_for("info"))
+        rc = k.change_preferences(preference, val)
+
+        return jsonify(rc)
+    else:
+        flash(_("You don't have permission to define audio output"), "is-danger")
+    return redirect(url_for("info"))
+
 
 @app.route("/clear_preferences", methods=["GET"])
 def clear_preferences():
-	if is_admin():
-			rc = k.clear_preferences()
-			if rc[0]:
-				flash(rc[1], "is-success")
-			else:
-				flash(rc[1], "is-danger")
-	else:
-		flash(_("You don't have permission to define audio output"), "is-danger")
-	return redirect(url_for("home"))
+    if is_admin():
+        rc = k.clear_preferences()
+        if rc[0]:
+            flash(rc[1], "is-success")
+        else:
+            flash(rc[1], "is-danger")
+    else:
+        flash(_("You don't have permission to define audio output"), "is-danger")
+    return redirect(url_for("home"))
+
 
 # Handle sigterm, apparently cherrypy won't shut down without explicit handling
 signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
@@ -910,7 +917,8 @@ def main():
     parser.add_argument(
         "--bg-music-volume",
         default=default_bg_music_volume,
-        help="Set the volume of background music on splash screen. A value between 0 and 1. (default: %s)" % default_bg_music_volume,
+        help="Set the volume of background music on splash screen. A value between 0 and 1. (default: %s)"
+        % default_bg_music_volume,
         required=False,
     ),
     parser.add_argument(
@@ -991,7 +999,7 @@ def main():
         bg_music_volume=parsed_bg_volume,
         bg_music_path=arg_path_parse(args.bg_music_path),
         disable_score=args.disable_score,
-        limit_user_songs_by=args.limit_user_songs_by
+        limit_user_songs_by=args.limit_user_songs_by,
     )
     k.upgrade_youtubedl()
 

@@ -86,16 +86,16 @@ const launchMultipleFireworks = (count) => {
 	  simultaneousFireworks = 3;
 	  intensity = 500
 	}
- 
+
 	const launchInterval = () => {
 	  if (Date.now() - startTime > showDuration) return; // Para após o tempo definido
- 
+
 	  const fireworkCount = Math.floor(Math.random() * simultaneousFireworks) + simultaneousFireworks; // Entre 2 e 5 fogos simultâneos
 	  launchMultipleFireworks(fireworkCount);
- 
+
 	  const nextInterval = Math.random() * intensity + 200; // Intervalo entre 200ms e 1s
 	  setTimeout(launchInterval, nextInterval); // Agenda o próximo grupo
 	};
- 
+
 	launchInterval(); // Inicia o ciclo
  };

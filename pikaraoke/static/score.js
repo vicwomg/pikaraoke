@@ -8,7 +8,7 @@ function getScoreData(scoreValue){
 	} else {
 		return {applause: "applause-h.ogg", review: scoreReviews.high[Math.floor(Math.random() * scoreReviews.high.length)]}
 	}
-}	
+}
 
 // Function that creates a random score biased towards 99
 function getScoreValue() {
@@ -50,21 +50,21 @@ async function rotateScore(scoreTextElement, duration) {
 
 // Function that starts the score animation
 async function startScore(staticPath) {
-	
+
 	const scoreElement = $("#score");
 	const scoreTextElement = $("#score-number-text")
 	const scoreReviewElement = $("#score-review-text")
-	
+
 	const scoreValue = getScoreValue();
 	const drums = new Audio(staticPath + "sounds/score-drums.ogg");
-	
+
 	const scoreData = getScoreData(scoreValue);
 
 	scoreElement.show();
 	drums.volume = 0.3;
 	drums.play();
 	const drumDuration = 4100;
-	
+
 	await rotateScore(scoreTextElement, drumDuration);
 	await showFinalScore(scoreTextElement, scoreValue, scoreReviewElement, scoreData);
 	scoreElement.hide();

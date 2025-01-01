@@ -1,8 +1,8 @@
+import configparser
 import contextlib
 import json
 import logging
 import os
-import math
 import random
 import socket
 import subprocess
@@ -12,11 +12,10 @@ from queue import Empty, Queue
 from subprocess import CalledProcessError, check_output
 from threading import Thread
 from urllib.parse import urlparse
-import configparser
-from flask_babel import _
 
 import ffmpeg
 import qrcode
+from flask_babel import _
 from unidecode import unidecode
 
 from pikaraoke.lib.file_resolver import FileResolver
@@ -104,7 +103,6 @@ class Karaoke:
         disable_score=False,
         limit_user_songs_by=0,
     ):
-        
         logging.basicConfig(
             format="[%(asctime)s] %(levelname)s: %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
@@ -128,11 +126,13 @@ class Karaoke:
         self.screensaver_timeout = screensaver_timeout
         self.url_override = url
         self.prefer_hostname = prefer_hostname
-        self.disable_bg_music = self.get_user_preference("disable_bg_music") or disable_bg_music 
+        self.disable_bg_music = self.get_user_preference("disable_bg_music") or disable_bg_music
         self.bg_music_volume = self.get_user_preference("bg_music_volume") or bg_music_volume
         self.bg_music_path = self.default_bg_music_path if bg_music_path == None else bg_music_path
         self.disable_score = self.get_user_preference("disable_score") or disable_score
-        self.limit_user_songs_by = self.get_user_preference("limit_user_songs_by") or limit_user_songs_by
+        self.limit_user_songs_by = (
+            self.get_user_preference("limit_user_songs_by") or limit_user_songs_by
+        )
 
         # other initializations
         self.platform = get_platform()
@@ -170,7 +170,7 @@ class Karaoke:
     youtubedl-version: {self.get_youtubedl_version()}
 """
         )
-        
+
         # Generate connection URL and QR code,
         if self.raspberry_pi:
             # retry in case pi is still starting up
@@ -229,7 +229,7 @@ class Karaoke:
             return self.config_obj.get("USERPREFERENCES", preference)
         except (configparser.NoOptionError, ValueError):
             return default_value
-        
+
     def change_preferences(self, preference, val):
         """Makes changes in the config.ini file that stores the user preferences.
         Receives the preference and it's new value"""
@@ -241,21 +241,21 @@ class Karaoke:
 
             userprefs = self.config_obj["USERPREFERENCES"]
             userprefs[preference] = str(val)
-            setattr(self,preference,eval(str(val)))
+            setattr(self, preference, eval(str(val)))
             with open("config.ini", "w") as conf:
                 self.config_obj.write(conf)
                 self.changed_preferences = True
-            return [True, _("Your preferences were changed successfully")] 
+            return [True, _("Your preferences were changed successfully")]
         except Exception as e:
             logging.debug("Failed to change user preference << %s >>: %s", preference, e)
             return [False, _("Something went wrong! Your preferences were not changed")]
-         
+
     def clear_preferences(self):
-      try:
-         os.remove("config.ini")
-         return [True, _("Your preferences were cleared successfully")]
-      except OSError:
-         return [False, _("Something went wrong! Your preferences were not cleared")]
+        try:
+            os.remove("config.ini")
+            return [True, _("Your preferences were cleared successfully")]
+        except OSError:
+            return [False, _("Something went wrong! Your preferences were not cleared")]
 
     def get_ip(self):
         # python socket.connect will not work on android, access denied. Workaround: use ifconfig which is installed to termux by default, iirc.
@@ -633,23 +633,29 @@ class Karaoke:
             if each["file"] == song_path:
                 return True
         return False
-    
+
     def is_user_limited(self, user):
-        #Returns if a user needs to be limited or not if the limitation is on and if the user reached the limit of songs in queue
+        # Returns if a user needs to be limited or not if the limitation is on and if the user reached the limit of songs in queue
         if self.limit_user_songs_by == "0" or user == "Pikaraoke":
             return False
-        cont = len([i for i in self.queue if i['user'] == user]) + (1 if self.now_playing_user == user else 0)
+        cont = len([i for i in self.queue if i["user"] == user]) + (
+            1 if self.now_playing_user == user else 0
+        )
         return True if cont >= int(self.limit_user_songs_by) else False
 
     def enqueue(self, song_path, user="Pikaraoke", semitones=0, add_to_front=False):
-        #Check if the song is already in the queue, if not add it
+        # Check if the song is already in the queue, if not add it
         if self.is_song_in_queue(song_path):
             logging.warn("Song is already in queue, will not add: " + song_path)
             return [False, _("Song is already in queue, will not add: ") + song_path]
-        #check if the user has reached the limit of songs in queue
+        # check if the user has reached the limit of songs in queue
         elif self.is_user_limited(user):
             logging.debug("User limitted by: " + str(self.limit_user_songs_by))
-            return [False, _("You reached the limit of %s song(s) from an user in queue!") % (str(self.limit_user_songs_by))]
+            return [
+                False,
+                _("You reached the limit of %s song(s) from an user in queue!")
+                % (str(self.limit_user_songs_by)),
+            ]
         else:
             queue_item = {
                 "user": user,
