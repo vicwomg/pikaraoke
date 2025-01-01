@@ -24,7 +24,8 @@ from pikaraoke.lib.ffmpeg import (
 )
 from pikaraoke.lib.file_resolver import (
     FileResolver,
-    delete_tmp_dir,
+    delete_old_tmp_files,
+    get_tmp_dir,
     is_transcoding_required,
 )
 from pikaraoke.lib.get_platform import (
@@ -33,6 +34,7 @@ from pikaraoke.lib.get_platform import (
     is_raspberry_pi,
     supports_hardware_h264_encoding,
 )
+from pikaraoke.lib.interstitial_music_player import create_randomized_playlist
 
 
 # Support function for reading  lines from ffmpeg stderr without blocking
@@ -86,6 +88,7 @@ class Karaoke:
         self,
         port=5555,
         download_path="/usr/lib/pikaraoke/songs",
+        mp3_path=None,
         hide_url=False,
         hide_notifications=False,
         hide_raspiwifi_instructions=False,
@@ -111,6 +114,7 @@ class Karaoke:
         self.hide_raspiwifi_instructions = hide_raspiwifi_instructions
         self.hide_splash_screen = hide_splash_screen
         self.download_path = download_path
+        self.mp3_path = mp3_path
         self.high_quality = high_quality
         self.splash_delay = int(splash_delay)
         self.volume = volume
@@ -146,6 +150,7 @@ class Karaoke:
     screensaver_timeout: {self.screensaver_timeout}
     high quality video: {self.high_quality}
     download path: {self.download_path}
+    mp3 path: {self.mp3_path}
     default volume: {self.volume}
     normalize audio: {self.normalize_audio}
     complete transcode before play: {self.complete_transcode_before_play}
@@ -191,6 +196,11 @@ class Karaoke:
             else:
                 self.url = f"http://{self.ip}:{self.port}"
         self.url_parsed = urlparse(self.url)
+
+        # create the interstitial playlist if mp3_path is provided
+        if self.mp3_path != None:
+            playlist_path = f"{get_tmp_dir()}/playlist/"
+            create_randomized_playlist(self.mp3_path, "/music", playlist_path)
 
         # get songs from download_path
         self.get_available_songs()
@@ -576,7 +586,6 @@ class Karaoke:
                 self.send_message_to_splash(f"Song ended abnormally: {reason}", "danger")
         self.reset_now_playing()
         self.kill_ffmpeg()
-        delete_tmp_dir()
         logging.debug("ffmpeg process killed")
 
     def transpose_current(self, semitones):
@@ -776,6 +785,7 @@ class Karaoke:
                         while i < (self.splash_delay * 1000):
                             self.handle_run_loop()
                             i += self.loop_interval
+                        delete_old_tmp_files()
                         self.play_file(self.queue[0]["file"], self.queue[0]["semitones"])
                 self.log_ffmpeg_output()
                 self.handle_run_loop()

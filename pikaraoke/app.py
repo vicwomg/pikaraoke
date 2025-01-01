@@ -795,6 +795,7 @@ def main():
     default_buffer_size = 150000
 
     default_dl_dir = get_default_dl_dir(platform)
+    default_mp3_dir = None
     default_youtubedl_path = "yt-dlp"
 
     # parse CLI args
@@ -814,6 +815,15 @@ def main():
         nargs="+",
         help="Desired path for downloaded songs. (default: %s)" % default_dl_dir,
         default=default_dl_dir,
+        required=False,
+    )
+    parser.add_argument(
+        "-i",
+        "--interstitial-music-path",
+        nargs="+",
+        help="Desired path for interstitial music to be played between karaoke tracks. The directory should contain mp3 files from which a randomized playlist will be generated. If not specified, no music will be played. (default: %s)"
+        % default_mp3_dir,
+        default=default_mp3_dir,
         required=False,
     )
     parser.add_argument(

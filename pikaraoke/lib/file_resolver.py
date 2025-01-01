@@ -1,6 +1,7 @@
 import os
 import re
 import shutil
+import time
 import zipfile
 from sys import maxsize
 
@@ -29,6 +30,18 @@ def delete_tmp_dir():
     tmp_dir = get_tmp_dir()
     if os.path.exists(tmp_dir):
         shutil.rmtree(tmp_dir)
+
+
+def delete_old_tmp_files():
+    tmp_dir = get_tmp_dir()
+    now = time.time()
+    cutoff = now - 1800  # 30 minutes ago
+    for filename in os.listdir(tmp_dir):
+        file_path = os.path.join(tmp_dir, filename)
+        if os.path.isfile(file_path):
+            file_mtime = os.path.getmtime(file_path)
+            if file_mtime < cutoff:
+                os.remove(file_path)
 
 
 def string_to_hash(s):
