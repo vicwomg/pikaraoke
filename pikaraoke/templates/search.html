@@ -33,40 +33,40 @@
     border-top-right-radius: 0;
     border-bottom-right-radius: 0;
   }
-  ul.search_result_items{
+  ul.search_result_items {
     list-style: none;
     padding: 0;
     margin: 0;
   }
-  ul.search_result_items li{
+  ul.search_result_items li {
     text-align: center;
     margin-bottom: 1rem;
   }
-  ul.search_result_items li:nth-child(odd){
+  ul.search_result_items li:nth-child(odd) {
     background-color: rgb(50, 55, 55);
   }
-  .search_result_items_meta{
+  .search_result_items_meta {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 1rem;
     text-align: left;
   }
-  .search_result_items_download{
+  .search_result_items_download {
     margin-left: 1rem;
   }
   @media screen and (min-width: 768px) {
-    ul.search_result_items img{
+    ul.search_result_items img {
       width: 30%;
     }
-    ul.search_result_items li{
+    ul.search_result_items li {
       display: flex;
     }
-    .search_result_items_meta{
+    .search_result_items_meta {
       align-items: start;
       flex: 1;
     }
-}
+  }
 </style>
 <script>
   $(function () {
@@ -300,12 +300,16 @@
     setUserCookie(true);
 
     $(".song-added-by").val(getUserCookie());
-    const items = document.querySelectorAll('.search_result_items li')
-    items.forEach(item=> item.querySelector('button').addEventListener('click', ()=>{
-      const index = item.getAttribute('data-index')
-      document.querySelector('#search_result_selector').selectedIndex = index
-      document.querySelector('#download-button').click()
-    }))
+    const items = document.querySelectorAll(".search_result_items li");
+    items.forEach((item) =>
+      item.querySelector("button").addEventListener("click", () => {
+        const index = item.getAttribute("data-index");
+        const title = item.getAttribute("data-ytTitle");
+        $("#song-title").val(title);
+        document.querySelector("#search_result_selector").selectedIndex = index;
+        document.querySelector("#download-button").click();
+      })
+    );
   });
 
   function isYoutubeURL(s) {
@@ -436,6 +440,7 @@
             name="song-url"
           />
           <input class="song-added-by" type="hidden" name="song-added-by" />
+          <input class="song-title" type="hidden" name="song-title" value="" />
           <div class="field" style="margin-top: 5px">
             <label class="checkbox">
               <input type="checkbox" checked name="queue" />
@@ -491,11 +496,14 @@
         <div class="field select">
           <select id="search_result_selector" name="song-url">
             > {% for title,url,id in search_results %}
-            <option data-ytID="{{id}}" value="{{url}}">{{title}}</option>
+            <option data-ytID="{{id}}" data-ytTitle="{{title}}" value="{{url}}">
+              {{title}}
+            </option>
             {% endfor %}
           </select>
         </div>
         <input class="song-added-by" type="hidden" name="song-added-by" />
+        <input id="song-title" type="hidden" name="song-title" />
         <p class="help">
           {# MSG: Help text which explains that the select box above can be
           operated to select different search results. #} {% trans %}Click
@@ -530,8 +538,13 @@
     </form>
     <ul class="search_result_items">
       {% for title,url,id in search_results %}
-      <li data-ytID="{{id}}" value="{{url}}" data-index="{{loop.index0}}" >
-        <img src="https://img.youtube.com/vi/{{id}}/0.jpg"/>
+      <li
+        data-ytID="{{id}}"
+        data-ytTitle="{{title}}"
+        value="{{url}}"
+        data-index="{{loop.index0}}"
+      >
+        <img src="https://img.youtube.com/vi/{{id}}/0.jpg" />
         <div class="search_result_items_meta">
           {{title}}
           <button class="button search_result_items_download">Download</button>

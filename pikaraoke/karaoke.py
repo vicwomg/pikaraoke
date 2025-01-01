@@ -4,27 +4,35 @@ import json
 import logging
 import os
 import random
+import shutil
 import socket
 import subprocess
+import threading
 import time
 from pathlib import Path
-from queue import Empty, Queue
+from queue import Queue
 from subprocess import CalledProcessError, check_output
 from threading import Thread
 from urllib.parse import urlparse
 
-import ffmpeg
 import qrcode
 from flask_babel import _
 from unidecode import unidecode
 
-from pikaraoke.lib.file_resolver import FileResolver
-from pikaraoke.lib.get_platform import (
+from pikaraoke.lib.ffmpeg import (
+    build_ffmpeg_cmd,
     get_ffmpeg_version,
+    is_transpose_enabled,
+)
+from pikaraoke.lib.file_resolver import (
+    FileResolver,
+    delete_tmp_dir,
+    is_transcoding_required,
+)
+from pikaraoke.lib.get_platform import (
     get_os_version,
     get_platform,
     is_raspberry_pi,
-    is_transpose_enabled,
     supports_hardware_h264_encoding,
 )
 
@@ -53,6 +61,7 @@ class Karaoke:
     now_playing_filename = None
     now_playing_user = None
     now_playing_transpose = 0
+    now_playing_duration = None
     now_playing_url = None
     now_playing_command = None
 
@@ -71,7 +80,6 @@ class Karaoke:
     ffmpeg_log = None
     ffmpeg_version = get_ffmpeg_version()
     is_transpose_enabled = is_transpose_enabled()
-    supports_hardware_h264_encoding = supports_hardware_h264_encoding()
     normalize_audio = False
 
     raspberry_pi = is_raspberry_pi()
@@ -82,14 +90,16 @@ class Karaoke:
     def __init__(
         self,
         port=5555,
-        ffmpeg_port=5556,
         download_path="/usr/lib/pikaraoke/songs",
         hide_url=False,
+        hide_notifications=False,
         hide_raspiwifi_instructions=False,
         hide_splash_screen=False,
         high_quality=False,
         volume=0.85,
         normalize_audio=False,
+        complete_transcode_before_play=False,
+        buffer_size=2000000,
         log_level=logging.DEBUG,
         splash_delay=2,
         youtubedl_path="/usr/local/bin/yt-dlp",
@@ -97,7 +107,6 @@ class Karaoke:
         hide_overlay=False,
         screensaver_timeout=300,
         url=None,
-        ffmpeg_url=None,
         prefer_hostname=True,
         disable_bg_music=False,
         bg_music_volume=0.3,
@@ -113,8 +122,8 @@ class Karaoke:
 
         # override with supplied constructor args if provided
         self.port = port
-        self.ffmpeg_port = ffmpeg_port
         self.hide_url = hide_url
+        self.hide_notifications = hide_notifications
         self.hide_raspiwifi_instructions = hide_raspiwifi_instructions
         self.hide_splash_screen = hide_splash_screen
         self.download_path = download_path
@@ -122,6 +131,8 @@ class Karaoke:
         self.splash_delay = int(splash_delay)
         self.volume = volume
         self.normalize_audio = normalize_audio
+        self.complete_transcode_before_play = complete_transcode_before_play
+        self.buffer_size = buffer_size
         self.youtubedl_path = youtubedl_path
         self.logo_path = self.default_logo_path if logo_path == None else logo_path
         self.hide_overlay = hide_overlay
@@ -143,7 +154,6 @@ class Karaoke:
         logging.debug(
             f"""
     http port: {self.port}
-    ffmpeg port {self.ffmpeg_port}
     hide URL: {self.hide_url}
     prefer hostname: {self.prefer_hostname}
     url override: {self.url_override}
@@ -155,6 +165,8 @@ class Karaoke:
     download path: {self.download_path}
     default volume: {self.volume}
     normalize audio: {self.normalize_audio}
+    complete transcode before play: {self.complete_transcode_before_play}
+    buffer size: {self.buffer_size}
     youtube-dl path: {self.youtubedl_path}
     logo path: {self.logo_path}
     log_level: {log_level}
@@ -164,12 +176,13 @@ class Karaoke:
     bg music path: {self.bg_music_path}
     disable score: {self.disable_score}
     limit user songs by: {self.limit_user_songs_by}
+    hide notifications: {self.hide_notifications}
 
     platform: {self.platform}
     os version: {self.os_version}
     ffmpeg version: {self.ffmpeg_version}
     ffmpeg transpose support: {self.is_transpose_enabled}
-    hardware h264 encoding: {self.supports_hardware_h264_encoding}
+    hardware h264 encoding: {supports_hardware_h264_encoding()}
     youtubedl-version: {self.get_youtubedl_version()}
 """
         )
@@ -201,12 +214,6 @@ class Karaoke:
             else:
                 self.url = f"http://{self.ip}:{self.port}"
         self.url_parsed = urlparse(self.url)
-        if ffmpeg_url is None:
-            self.ffmpeg_url = (
-                f"{self.url_parsed.scheme}://{self.url_parsed.hostname}:{self.ffmpeg_port}"
-            )
-        else:
-            self.ffmpeg_url = ffmpeg_url
 
         # get songs from download_path
         self.get_available_songs()
@@ -385,8 +392,29 @@ class Karaoke:
     def get_karaoke_search_results(self, songTitle):
         return self.get_search_results(songTitle + " karaoke")
 
-    def download_video(self, video_url, enqueue=False, user="Pikaraoke"):
-        logging.info("Downloading video: " + video_url)
+    def send_message_to_splash(self, message, color="primary"):
+        # Color should be bulma compatible: primary, warning, success, danger
+        if not self.hide_notifications:
+            self.send_command("message::" + message + "::is-" + color)
+
+    def log_and_send(self, message, category="info"):
+        # Category should be one of: info, success, warning, danger
+        if category == "success":
+            logging.info(message)
+            self.send_message_to_splash(message, "success")
+        elif category == "warning":
+            logging.warning(message)
+            self.send_message_to_splash(message, "warning")
+        elif category == "danger":
+            logging.error(message)
+            self.send_message_to_splash(message, "danger")
+        else:
+            logging.info(message)
+            self.send_message_to_splash(message, "primary")
+
+    def download_video(self, video_url, enqueue=False, user="Pikaraoke", title=None):
+        displayed_title = title if title else video_url
+        self.log_and_send(f"Downloading video: {displayed_title}")
         dl_path = self.download_path + "%(title)s---%(id)s.%(ext)s"
         file_quality = (
             "bestvideo[ext!=webm][height<=1080]+bestaudio[ext!=webm]/best[ext!=webm]"
@@ -400,17 +428,18 @@ class Karaoke:
             logging.error("Error code while downloading, retrying once...")
             rc = subprocess.call(cmd)  # retry once. Seems like this can be flaky
         if rc == 0:
-            logging.debug("Song successfully downloaded: " + video_url)
+            msg_prefix = f"{user} downloaded and queued: " if enqueue else f"{user} downloaded: "
+            self.log_and_send(msg_prefix + displayed_title, "success")
             self.get_available_songs()
             if enqueue:
                 y = self.get_youtube_id_from_url(video_url)
                 s = self.find_song_by_youtube_id(y)
                 if s:
-                    self.enqueue(s, user)
+                    self.enqueue(s, user, log_action=False)
                 else:
-                    logging.error("Error queueing song: " + video_url)
+                    self.log_and_send("Error queueing song: " + displayed_title, "danger")
         else:
-            logging.error("Error downloading song: " + video_url)
+            self.log_and_send("Error downloading song: " + displayed_title, "danger")
         return rc
 
     def get_available_songs(self):
@@ -485,14 +514,10 @@ class Karaoke:
 
     def play_file(self, file_path, semitones=0):
         logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
-        stream_uid = int(time.time())
-        stream_url = f"{self.ffmpeg_url}/{stream_uid}"
-        # pass a 0.0.0.0 IP to ffmpeg which will work for both hostnames and direct IP access
-        ffmpeg_url = f"http://0.0.0.0:{self.ffmpeg_port}/{stream_uid}"
 
-        pitch = 2 ** (
-            semitones / 12
-        )  # The pitch value is (2^x/12), where x represents the number of semitones
+        requires_transcoding = (
+            semitones != 0 or self.normalize_audio or is_transcoding_required(file_path)
+        )
 
         try:
             fr = FileResolver(file_path)
@@ -501,111 +526,106 @@ class Karaoke:
             self.queue.pop(0)
             return False
 
-        # use h/w acceleration on pi
-        default_vcodec = "h264_v4l2m2m" if self.supports_hardware_h264_encoding else "libx264"
-        # just copy the video stream if it's an mp4 or webm file, since they are supported natively in html5
-        # otherwise use the default h264 codec
-        vcodec = (
-            "copy"
-            if fr.file_extension == ".mp4" or fr.file_extension == ".webm"
-            else default_vcodec
-        )
-        vbitrate = "5M"  # seems to yield best results w/ h264_v4l2m2m on pi, recommended for 720p.
-
-        # copy the audio stream if no transposition/normalization, otherwise reincode with the aac codec
-        is_transposed = semitones != 0
-        acodec = "aac" if is_transposed or self.normalize_audio else "copy"
-        input = ffmpeg.input(fr.file_path)
-        audio = input.audio.filter("rubberband", pitch=pitch) if is_transposed else input.audio
-        # normalize the audio
-        audio = audio.filter("loudnorm", i=-16, tp=-1.5, lra=11) if self.normalize_audio else audio
-
-        # Ffmpeg outputs "Stream #0" when the stream is ready to consume
-        stream_ready_string = "Stream #"
-
-        if fr.cdg_file_path != None:  # handle CDG files
-            logging.info("Playing CDG/MP3 file: " + file_path)
-            # Ffmpeg outputs "Video: cdgraphics" when the stream is ready to consume
-            stream_ready_string = "Video: cdgraphics"
-            # copyts helps with sync issues, fps=25 prevents ffmpeg from needlessly encoding cdg at 300fps
-            cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
-            video = cdg_input.video.filter("fps", fps=25)
-            # cdg is very fussy about these flags.
-            # pi ffmpeg needs to encode to aac and cant just copy the mp3 stream
-            # It alse appears to have memory issues with hardware acceleration h264_v4l2m2m
-            output = ffmpeg.output(
-                audio,
-                video,
-                ffmpeg_url,
-                vcodec="libx264",
-                acodec="aac",
-                preset="ultrafast",
-                pix_fmt="yuv420p",
-                listen=1,
-                f="mp4",
-                video_bitrate="500k",
-                movflags="frag_keyframe+default_base_moof",
-            )
+        if self.complete_transcode_before_play or not requires_transcoding:
+            # This route is used for streaming the full video file, and includes more
+            # accurate headers for safari and other browsers
+            stream_url_path = f"/stream/full/{fr.stream_uid}"
         else:
-            video = input.video
-            output = ffmpeg.output(
-                audio,
-                video,
-                ffmpeg_url,
-                vcodec=vcodec,
-                acodec=acodec,
-                preset="ultrafast",
-                listen=1,
-                f="mp4",
-                video_bitrate=vbitrate,
-                movflags="frag_keyframe+default_base_moof",
+            # This route is used for streaming the video file in chunks, only works on chrome
+            stream_url_path = f"/stream/{fr.stream_uid}"
+
+        if not requires_transcoding:
+            # simply copy file path to the tmp directory and the stream is ready
+            shutil.copy(file_path, fr.output_file)
+            max_retries = 5
+            while max_retries > 0:
+                if os.path.exists(fr.output_file):
+                    is_transcoding_complete = True
+                    break
+                max_retries -= 1
+                time.sleep(1)
+            if max_retries == 0:
+                logging.debug(f"Copying file failed: {fr.output_file}")
+        else:
+            self.kill_ffmpeg()
+            ffmpeg_cmd = build_ffmpeg_cmd(
+                fr, semitones, self.normalize_audio, self.complete_transcode_before_play
             )
+            self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
 
-        args = output.get_args()
-        logging.debug(f"COMMAND: ffmpeg " + " ".join(args))
+            # ffmpeg outputs everything useful to stderr for some insane reason!
+            # prevent reading stderr from being a blocking action
+            self.ffmpeg_log = Queue()
+            t = Thread(target=enqueue_output, args=(self.ffmpeg_process.stderr, self.ffmpeg_log))
+            t.daemon = True
+            t.start()
 
-        self.kill_ffmpeg()
+            output_file_size = 0
+            transcode_max_retries = 2500  # Transcode completion max: approx 2 minutes
 
-        self.ffmpeg_process = output.run_async(pipe_stderr=True, pipe_stdin=True)
+            is_transcoding_complete = False
+            is_buffering_complete = False
 
-        # ffmpeg outputs everything useful to stderr for some insane reason!
-        # prevent reading stderr from being a blocking action
-        self.ffmpeg_log = Queue()
-        t = Thread(target=enqueue_output, args=(self.ffmpeg_process.stderr, self.ffmpeg_log))
-        t.daemon = True
-        t.start()
-
-        while self.ffmpeg_process.poll() is None:
-            try:
-                output = self.ffmpeg_log.get_nowait()
-                logging.debug("[FFMPEG] " + decode_ignore(output))
-            except Empty:
-                pass
-            else:
-                if stream_ready_string in decode_ignore(output):
-                    logging.debug("Stream ready!")
-                    self.now_playing = self.filename_from_path(file_path)
-                    self.now_playing_filename = file_path
-                    self.now_playing_transpose = semitones
-                    self.now_playing_url = stream_url
-                    self.now_playing_user = self.queue[0]["user"]
-                    self.is_paused = False
-                    self.queue.pop(0)
-
-                    # Pause until the stream is playing
-                    max_retries = 100
-                    while self.is_playing == False and max_retries > 0:
-                        time.sleep(0.1)  # prevents loop from trying to replay track
-                        max_retries -= 1
-                    if self.is_playing:
-                        logging.debug("Stream is playing")
-                        break
-                    else:
+            # Transcoding readiness polling loop
+            while True:
+                self.log_ffmpeg_output()
+                # Check if the ffmpeg process has exited
+                if self.ffmpeg_process.poll() is not None:
+                    exitcode = self.ffmpeg_process.poll()
+                    if exitcode != 0:
                         logging.error(
-                            "Stream was not playable! Run with debug logging to see output. Skipping track"
+                            f"FFMPEG transcode exited with nonzero exit code ending: {exitcode}. Skipping track"
                         )
                         self.end_song()
                         break
+                    else:
+                        is_transcoding_complete = True
+                        output_file_size = os.path.getsize(fr.output_file)
+                        logging.debug(f"Transcoding complete. File size: {output_file_size}")
+                        break
+                # Check if the file has buffered enough to start playback
+                try:
+                    output_file_size = os.path.getsize(fr.output_file)
+                    if not self.complete_transcode_before_play:
+                        is_buffering_complete = output_file_size > self.buffer_size
+                        if is_buffering_complete:
+                            logging.debug(f"Buffering complete. File size: {output_file_size}")
+                            break
+                except:
+                    pass
+                # Prevent infinite loop if playback never starts
+                if transcode_max_retries <= 0:
+                    logging.error("Max retries reached trying to play song. Skipping track")
+                    self.end_song()
+                    break
+                transcode_max_retries -= 1
+                time.sleep(0.05)
+
+        # Check if the stream is ready to play. Determined by:
+        # - completed transcoding
+        # - buffered file size being greater than a threshold
+        if is_transcoding_complete or is_buffering_complete:
+            logging.debug(f"Stream ready!")
+            self.now_playing = self.filename_from_path(file_path)
+            self.now_playing_filename = file_path
+            self.now_playing_transpose = semitones
+            self.now_playing_duration = fr.duration
+            self.now_playing_url = stream_url_path
+            self.now_playing_user = self.queue[0]["user"]
+            self.is_paused = False
+            self.queue.pop(0)
+            # Pause until the stream is playing
+            transcode_max_retries = 100
+            while self.is_playing == False and transcode_max_retries > 0:
+                time.sleep(0.1)  # prevents loop from trying to replay track
+                transcode_max_retries -= 1
+            if self.is_playing:
+                logging.debug("Stream is playing")
+            else:
+                logging.error(
+                    "Stream was not playable! Run with debug logging to see output. Skipping track"
+                )
+                self.end_song()
 
     def kill_ffmpeg(self):
         logging.debug("Killing ffmpeg process")
@@ -616,17 +636,22 @@ class Karaoke:
         logging.info(f"Song starting: {self.now_playing}")
         self.is_playing = True
 
-    def end_song(self):
+    def end_song(self, reason=None):
         logging.info(f"Song ending: {self.now_playing}")
+        if reason != None:
+            logging.info(f"Reason: {reason}")
+            if reason != "complete":
+                self.send_message_to_splash(f"Song ended abnormally: {reason}", "danger")
         self.reset_now_playing()
         self.kill_ffmpeg()
+        delete_tmp_dir()
         logging.debug("ffmpeg process killed")
 
     def transpose_current(self, semitones):
-        logging.info(f"Transposing current song {self.now_playing} by {semitones} semitones")
+        self.log_and_send(f"Transpose {self.now_playing} by {semitones} semitones")
         # Insert the same song at the top of the queue with transposition
         self.enqueue(self.now_playing_filename, self.now_playing_user, semitones, True)
-        self.skip()
+        self.skip(log_action=False)
 
     def is_file_playing(self):
         return self.is_playing
@@ -639,19 +664,19 @@ class Karaoke:
 
     def is_user_limited(self, user):
         # Returns if a user needs to be limited or not if the limitation is on and if the user reached the limit of songs in queue
-        if self.limit_user_songs_by == "0" or user == "Pikaraoke":
+        if self.limit_user_songs_by == "0" or user == "Pikaraoke" or user == "Randomizer":
             return False
         cont = len([i for i in self.queue if i["user"] == user]) + (
             1 if self.now_playing_user == user else 0
         )
         return True if cont >= int(self.limit_user_songs_by) else False
 
-    def enqueue(self, song_path, user="Pikaraoke", semitones=0, add_to_front=False):
-        # Check if the song is already in the queue, if not add it
+    def enqueue(
+        self, song_path, user="Pikaraoke", semitones=0, add_to_front=False, log_action=True
+    ):
         if self.is_song_in_queue(song_path):
-            logging.warn("Song is already in queue, will not add: " + song_path)
-            return [False, _("Song is already in queue, will not add: ") + song_path]
-        # check if the user has reached the limit of songs in queue
+            logging.warning("Song is already in queue, will not add: " + song_path)
+            return False
         elif self.is_user_limited(user):
             logging.debug("User limitted by: " + str(self.limit_user_songs_by))
             return [
@@ -667,10 +692,11 @@ class Karaoke:
                 "semitones": semitones,
             }
             if add_to_front:
-                logging.info(_("'%s' is adding song to front of queue: %s") % (user, song_path))
+                self.log_and_send(f"'{user}' added to top of queue: {queue_item['title']}")
                 self.queue.insert(0, queue_item)
             else:
-                logging.info(_("'%s' is adding song to queue: %s") % (user, song_path))
+                if log_action:
+                    self.log_and_send(f"{user} added to the queue: {queue_item['title']}", "info")
                 self.queue.append(queue_item)
             return [True, _("Song added to the queue: %s") % (self.filename_from_path(song_path))]
 
@@ -678,26 +704,26 @@ class Karaoke:
         logging.info("Adding %d random songs to queue" % amount)
         songs = list(self.available_songs)  # make a copy
         if len(songs) == 0:
-            logging.warn("No available songs!")
+            logging.warning("No available songs!")
             return False
         i = 0
         while i < amount:
             r = random.randint(0, len(songs) - 1)
             if self.is_song_in_queue(songs[r]):
-                logging.warn("Song already in queue, trying another... " + songs[r])
+                logging.warning("Song already in queue, trying another... " + songs[r])
             else:
                 self.enqueue(songs[r], "Randomizer")
                 i += 1
             songs.pop(r)
             if len(songs) == 0:
-                logging.warn("Ran out of songs!")
+                logging.warning("Ran out of songs!")
                 return False
         return True
 
     def queue_clear(self):
-        logging.info("Clearing queue!")
+        self.log_and_send("Clear queue", "danger")
         self.queue = []
-        self.skip()
+        self.skip(log_action=False)
 
     def queue_edit(self, song_name, action):
         index = 0
@@ -713,7 +739,7 @@ class Karaoke:
             return False
         if action == "up":
             if index < 1:
-                logging.warn("Song is up next, can't bump up in queue: " + song["file"])
+                logging.warning("Song is up next, can't bump up in queue: " + song["file"])
                 return False
             else:
                 logging.info("Bumping song up in queue: " + song["file"])
@@ -722,7 +748,7 @@ class Karaoke:
                 return True
         elif action == "down":
             if index == len(self.queue) - 1:
-                logging.warn("Song is already last, can't bump down in queue: " + song["file"])
+                logging.warning("Song is already last, can't bump down in queue: " + song["file"])
                 return False
             else:
                 logging.info("Bumping song down in queue: " + song["file"])
@@ -737,10 +763,11 @@ class Karaoke:
             logging.error("Unrecognized direction: " + action)
             return False
 
-    def skip(self):
+    def skip(self, log_action=True):
         if self.is_file_playing():
-            logging.info("Skipping: " + self.now_playing)
-            self.now_playing_command = "skip"
+            if log_action:
+                self.log_and_send("Skip: " + self.now_playing)
+            self.end_song()
             return True
         else:
             logging.warning("Tried to skip, but no file is playing!")
@@ -748,8 +775,10 @@ class Karaoke:
 
     def pause(self):
         if self.is_file_playing():
-            logging.info("Toggling pause: " + self.now_playing)
-            self.now_playing_command = "pause"
+            if self.is_paused:
+                self.log_and_send(f"Resume: {self.now_playing}")
+            else:
+                self.log_and_send(f"Pause: {self.now_playing}")
             self.is_paused = not self.is_paused
             return True
         else:
@@ -758,42 +787,39 @@ class Karaoke:
 
     def volume_change(self, vol_level):
         self.volume = vol_level
-        logging.debug(f"Setting volume to: {self.volume}")
-        if self.is_file_playing():
-            self.now_playing_command = f"volume_change: {self.volume}"
+        self.log_and_send(f"Volume: {int(self.volume * 100)}%")
         return True
 
     def vol_up(self):
-        self.volume += 0.1
-        # keep the maximum volume to 1 when volume up is clicked
         if self.volume > 1.0:
-            self.volume = 1.0
+            new_vol = self.volume = 1.0
             logging.debug("max volume reached.")
+        new_vol = self.volume + 0.1
+        self.volume_change(new_vol)
         logging.debug(f"Increasing volume by 10%: {self.volume}")
-        if self.is_file_playing():
-            self.now_playing_command = "vol_up"
-            return True
-        else:
-            logging.warning("Tried to volume up, but no file is playing!")
-            return False
 
     def vol_down(self):
-        self.volume -= 0.1
-        # keep the minimum volume to 0 when volume down is clicked
-        if self.volume < 0:
-            self.volume = 0
-            logging.debug("minimum volume reached.")
+        if self.volume < 0.1:
+            new_vol = self.volume = 0.0
+            logging.debug("min volume reached.")
+        new_vol = self.volume - 0.1
+        self.volume_change(new_vol)
         logging.debug(f"Decreasing volume by 10%: {self.volume}")
-        if self.is_file_playing():
-            self.now_playing_command = "vol_down"
-            return True
-        else:
-            logging.warning("Tried to volume down, but no file is playing!")
-            return False
+
+    def send_command(self, command):
+        # don't allow new messages to clobber existing commands, one message at a time
+        # other commands have a higher priority
+        if command.startswith("message::") and self.now_playing_command != None:
+            return
+        self.now_playing_command = command
+        threading.Timer(2, self.reset_now_playing_command).start()
+        # Clear the command asynchronously. 2s should be enough for client polling to pick it up
 
     def restart(self):
         if self.is_file_playing():
-            self.now_playing_command = "restart"
+            self.send_command("restart")
+            logging.info("Restarting: " + self.now_playing)
+            self.is_paused = False
             return True
         else:
             logging.warning("Tried to restart, but no file is playing!")
@@ -805,6 +831,9 @@ class Karaoke:
     def handle_run_loop(self):
         time.sleep(self.loop_interval / 1000)
 
+    def reset_now_playing_command(self):
+        self.now_playing_command = None
+
     def reset_now_playing(self):
         self.now_playing = None
         self.now_playing_filename = None
@@ -813,6 +842,7 @@ class Karaoke:
         self.is_paused = True
         self.is_playing = False
         self.now_playing_transpose = 0
+        self.now_playing_duration = None
         self.ffmpeg_log = None
 
     def run(self):
@@ -834,5 +864,5 @@ class Karaoke:
                 self.log_ffmpeg_output()
                 self.handle_run_loop()
             except KeyboardInterrupt:
-                logging.warn("Keyboard interrupt: Exiting pikaraoke...")
+                logging.warning("Keyboard interrupt: Exiting pikaraoke...")
                 self.running = False

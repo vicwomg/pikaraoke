@@ -5,6 +5,7 @@ import json
 import logging
 import mimetypes
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -16,6 +17,7 @@ import flask_babel
 import psutil
 from flask import (
     Flask,
+    Response,
     flash,
     jsonify,
     make_response,
@@ -38,6 +40,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
+from pikaraoke.lib.file_resolver import delete_tmp_dir, get_tmp_dir
 from pikaraoke.lib.get_platform import get_platform, is_raspberry_pi
 
 try:
@@ -161,11 +164,12 @@ def nowplaying():
             "now_playing": k.now_playing,
             "now_playing_user": k.now_playing_user,
             "now_playing_command": k.now_playing_command,
+            "now_playing_duration": k.now_playing_duration,
+            "now_playing_transpose": k.now_playing_transpose,
+            "now_playing_url": k.now_playing_url,
             "up_next": next_song,
             "next_user": next_user,
-            "now_playing_url": k.now_playing_url,
             "is_paused": k.is_paused,
-            "transpose_value": k.now_playing_transpose,
             "volume": k.volume,
             # "is_transpose_enabled": k.is_transpose_enabled,
         }
@@ -395,18 +399,20 @@ def download():
     d = request.form.to_dict()
     song = d["song-url"]
     user = d["song-added-by"]
+    title = d["song-title"]
     if "queue" in d and d["queue"] == "on":
         queue = True
     else:
         queue = False
 
     # download in the background since this can take a few minutes
-    t = threading.Thread(target=k.download_video, args=[song, queue, user])
+    t = threading.Thread(target=k.download_video, args=[song, queue, user, title])
     t.daemon = True
     t.start()
 
+    displayed_title = title if title else song
     flash_message = (
-        "Download started: '" + song + "'. This may take a couple of minutes to complete. "
+        f"Download started: '{displayed_title}'. This may take a couple of minutes to complete. "
     )
 
     if queue:
@@ -434,9 +440,11 @@ def background_music():
     return send_file(k.bg_music_path, mimetype=mime_type)
 
 
-@app.route("/end_song", methods=["GET"])
+@app.route("/end_song", methods=["GET", "POST"])
 def end_song():
-    k.end_song()
+    d = request.form.to_dict()
+    reason = d["reason"] if "reason" in d else None
+    k.end_song(reason)
     return "ok"
 
 
@@ -458,7 +466,7 @@ def delete_file():
             )
         else:
             k.delete(song_path)
-            flash("Song deleted: " + song_path, "is-warning")
+            flash("Song deleted: " + k.filename_from_path(song_path), "is-warning")
     else:
         flash("Error: No song parameter specified!", "is-danger")
     return redirect(url_for("browse"))
@@ -663,7 +671,9 @@ def refresh():
 @app.route("/quit")
 def quit():
     if is_admin():
-        flash("Quitting pikaraoke now!", "is-warning")
+        msg = "Exiting pikaraoke now!"
+        flash(msg, "is-danger")
+        k.send_message_to_splash(msg, "danger")
         th = threading.Thread(target=delayed_halt, args=[0])
         th.start()
     else:
@@ -674,7 +684,9 @@ def quit():
 @app.route("/shutdown")
 def shutdown():
     if is_admin():
-        flash("Shutting down system now!", "is-danger")
+        msg = "Shutting down system now!"
+        flash(msg, "is-danger")
+        k.send_message_to_splash(msg, "danger")
         th = threading.Thread(target=delayed_halt, args=[1])
         th.start()
     else:
@@ -685,7 +697,9 @@ def shutdown():
 @app.route("/reboot")
 def reboot():
     if is_admin():
-        flash("Rebooting system now!", "is-danger")
+        msg = "Rebooting system now!"
+        flash(msg, "is-danger")
+        k.send_message_to_splash(msg, "danger")
         th = threading.Thread(target=delayed_halt, args=[2])
         th.start()
     else:
@@ -733,6 +747,66 @@ def clear_preferences():
     return redirect(url_for("home"))
 
 
+# Streams the file in chunks from the filesystem (chrome supports it, safari does not)
+
+
+@app.route("/stream/<id>")
+def stream(id):
+    file_path = f"{get_tmp_dir()}/{id}.mp4"
+
+    def generate():
+        position = 0  # Initialize the position variable
+        chunk_size = 10240 * 1000 * 25  # Read file in up to 25MB chunks
+        with open(file_path, "rb") as file:
+            # Keep yielding file chunks as long as ffmpeg process is transcoding
+            while k.ffmpeg_process.poll() is None:
+                file.seek(position)  # Move to the last read position
+                chunk = file.read(chunk_size)
+                if chunk is not None and len(chunk) > 0:
+                    yield chunk
+                    position += len(chunk)  # Update the position with the size of the chunk
+                time.sleep(1)  # Wait a bit before checking the file size again
+            chunk = file.read(chunk_size)  # Read the last chunk
+            yield chunk
+            position += len(chunk)  # Update the position with the size of the chunk
+
+    return Response(generate(), mimetype="video/mp4")
+
+
+# Streams the file in full with proper range headers
+# (Safari compatible, but requires the ffmpeg transcoding to be complete to know file size)
+@app.route("/stream/full/<id>")
+def stream_full(id):
+    file_path = f"{get_tmp_dir()}/{id}.mp4"
+    try:
+        file_size = os.path.getsize(file_path)
+        range_header = request.headers.get("Range", None)
+        if not range_header:
+            with open(file_path, "rb") as file:
+                file_content = file.read()
+            return Response(file_content, mimetype="video/mp4")
+        # Extract range start and end from Range header (e.g., "bytes=0-499")
+        range_match = re.search(r"bytes=(\d+)-(\d*)", range_header)
+        start, end = range_match.groups()
+        start = int(start)
+        end = int(end) if end else file_size - 1
+        # Generate response with part of file
+        with open(file_path, "rb") as file:
+            file.seek(start)
+            data = file.read(end - start + 1)
+        status_code = 206  # Partial content
+        headers = {
+            "Content-Type": "video/mp4",
+            "Accept-Ranges": "bytes",
+            "Content-Range": f"bytes {start}-{end}/{file_size}",
+            "Content-Length": str(len(data)),
+        }
+        return Response(data, status=status_code, headers=headers)
+    except IOError:
+        flash("File not found.", "is-danger")
+        return redirect(url_for("home"))
+
+
 # Handle sigterm, apparently cherrypy won't shut down without explicit handling
 signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
@@ -757,7 +831,6 @@ def get_default_dl_dir(platform):
 def main():
     platform = get_platform()
     default_port = 5555
-    default_ffmpeg_port = 5556
     default_volume = 0.85
     default_normalize_audio = False
     default_splash_delay = 3
@@ -765,6 +838,7 @@ def main():
     default_log_level = logging.INFO
     default_prefer_hostname = False
     default_bg_music_volume = 0.3
+    default_buffer_size = 150000
 
     default_dl_dir = get_default_dl_dir(platform)
     default_youtubedl_path = "yt-dlp"
@@ -777,19 +851,7 @@ def main():
         "--port",
         help="Desired http port (default: %d)" % default_port,
         default=default_port,
-        required=False,
-    )
-    parser.add_argument(
-        "--window-size",
-        help="Desired window geometry in pixels, specified as width,height",
-        default=0,
-        required=False,
-    )
-    parser.add_argument(
-        "-f",
-        "--ffmpeg-port",
-        help=f"Desired ffmpeg port. This is where video stream URLs will be pointed (default: {default_ffmpeg_port})",
-        default=default_ffmpeg_port,
+        type=int,
         required=False,
     )
     parser.add_argument(
@@ -830,6 +892,7 @@ def main():
         help="Delay during splash screen between songs (in secs). (default: %s )"
         % default_splash_delay,
         default=default_splash_delay,
+        type=int,
         required=False,
     )
     parser.add_argument(
@@ -838,6 +901,7 @@ def main():
         help="Delay before the screensaver begins (in secs). (default: %s )"
         % default_screensaver_delay,
         default=default_screensaver_delay,
+        type=int,
         required=False,
     )
     parser.add_argument(
@@ -861,6 +925,18 @@ def main():
         required=False,
     )
     parser.add_argument(
+        "--hide-overlay",
+        action="store_true",
+        help="Hide overlay that shows on top of video with pikaraoke QR code and IP",
+        required=False,
+    ),
+    parser.add_argument(
+        "--hide-notifications",
+        action="store_true",
+        help="Hide notifications from the splash screen.",
+        required=False,
+    )
+    parser.add_argument(
         "--hide-raspiwifi-instructions",
         action="store_true",
         help="Hide RaspiWiFi setup instructions from the splash screen.",
@@ -876,9 +952,24 @@ def main():
     parser.add_argument(
         "--high-quality",
         action="store_true",
-        help="Download higher quality video. Note: requires ffmpeg and may cause CPU, download speed, and other performance issues",
+        help="Download higher quality video. May cause CPU, download speed, and other performance issues",
         required=False,
     )
+    parser.add_argument(
+        "-c",
+        "--complete-transcode-before-play",
+        action="store_true",
+        help="Wait for ffmpeg video transcoding to fully complete before playback begins. Transcoding occurs when you have normalization on, play a cdg file, or change key. May improve performance and browser compatibility (Safari, Firefox), but will significantly increase the delay before playback begins. On modern hardware, the delay is likely negligible.",
+        required=False,
+    )
+    parser.add_argument(
+        "-b",
+        "--buffer-size",
+        help=f"Buffer size for transcoded video (in bytes). Increase if you experience songs cutting off early. Higher size will transcode more of the file before streaming it to the client. This will increase the delay before playback begins. This value is ignored if --complete-transcode-before-play was specified. Default is: {default_buffer_size}",
+        default=default_buffer_size,
+        type=int,
+        required=False,
+    ),
     parser.add_argument(
         "--logo-path",
         nargs="+",
@@ -894,18 +985,11 @@ def main():
         required=False,
     ),
     parser.add_argument(
-        "-m",
-        "--ffmpeg-url",
-        help="Override the ffmpeg address with a supplied URL.",
-        default=None,
+        "--window-size",
+        help="Desired window geometry in pixels for headed mode, specified as width,height",
+        default=0,
         required=False,
-    ),
-    parser.add_argument(
-        "--hide-overlay",
-        action="store_true",
-        help="Hide overlay that shows on top of video with pikaraoke QR code and IP",
-        required=False,
-    ),
+    )
     parser.add_argument(
         "--admin-password",
         help="Administrator password, for locking down certain features of the web UI such as queue editing, player controls, song editing, and system shutdown. If unspecified, everyone is an admin.",
@@ -940,7 +1024,7 @@ def main():
     ),
     parser.add_argument(
         "--limit-user-songs-by",
-        help="Limit the number of songs a user can add to queue (default: 0 = illimited)",
+        help="Limit the number of songs a user can add to queue. User name 'Pikaraoke' is always unlimited (default: 0 = unlimited)",
         default="0",
         required=False,
     ),
@@ -982,14 +1066,16 @@ def main():
     global k
     k = karaoke.Karaoke(
         port=args.port,
-        ffmpeg_port=args.ffmpeg_port,
         download_path=dl_path,
         youtubedl_path=arg_path_parse(args.youtubedl_path),
         splash_delay=args.splash_delay,
         log_level=args.log_level,
         volume=parsed_volume,
         normalize_audio=args.normalize_audio,
+        complete_transcode_before_play=args.complete_transcode_before_play,
+        buffer_size=args.buffer_size,
         hide_url=args.hide_url,
+        hide_notifications=args.hide_notifications,
         hide_raspiwifi_instructions=args.hide_raspiwifi_instructions,
         hide_splash_screen=args.hide_splash_screen,
         high_quality=args.high_quality,
@@ -997,7 +1083,6 @@ def main():
         hide_overlay=args.hide_overlay,
         screensaver_timeout=args.screensaver_timeout,
         url=args.url,
-        ffmpeg_url=args.ffmpeg_url,
         prefer_hostname=args.prefer_hostname,
         disable_bg_music=args.disable_bg_music,
         bg_music_volume=parsed_bg_volume,
@@ -1064,6 +1149,7 @@ def main():
         driver.close()
     cherrypy.engine.exit()
 
+    delete_tmp_dir()
     sys.exit()
 
 

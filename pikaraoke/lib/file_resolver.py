@@ -2,8 +2,47 @@ import os
 import re
 import shutil
 import zipfile
+from sys import maxsize
 
+from pikaraoke.lib.ffmpeg import get_media_duration
 from pikaraoke.lib.get_platform import get_platform
+
+
+def get_tmp_dir():
+    # Determine tmp directories (for things like extracted cdg files)
+    pid = os.getpid()  # for scoping tmp directories to this process
+    if get_platform() == "windows":
+        tmp_dir = os.path.expanduser(r"~\\AppData\\Local\\Temp\\pikaraoke\\" + str(pid) + r"\\")
+    else:
+        tmp_dir = f"/tmp/pikaraoke/{pid}"
+    return tmp_dir
+
+
+def create_tmp_dir():
+    tmp_dir = get_tmp_dir()
+    # create tmp_dir if it doesn't exist
+    if not os.path.exists(tmp_dir):
+        os.makedirs(tmp_dir)
+
+
+def delete_tmp_dir():
+    tmp_dir = get_tmp_dir()
+    if os.path.exists(tmp_dir):
+        shutil.rmtree(tmp_dir)
+
+
+def string_to_hash(s):
+    return hash(s) % ((maxsize + 1) * 2)
+
+
+def is_cdg_file(file_path):
+    file_extension = os.path.splitext(file_path)[1].casefold()
+    return file_extension == ".zip" or file_extension == ".mp3"
+
+
+def is_transcoding_required(file_path):
+    file_extension = os.path.splitext(file_path)[1].casefold()
+    return file_extension != ".mp4" and file_extension != ".webm"
 
 
 # Processes a given file path and determines the file format and file path, extracting zips into cdg + mp3 if necessary.
@@ -11,17 +50,13 @@ class FileResolver:
     file_path = None
     cdg_file_path = None
     file_extension = None
-    pid = os.getpid()  # for scoping tmp directories to this process
 
     def __init__(self, file_path):
-        # Determine tmp directories (for things like extracted cdg files)
-        if get_platform() == "windows":
-            self.tmp_dir = os.path.expanduser(
-                r"~\\AppData\\Local\\Temp\\pikaraoke\\" + str(self.pid) + r"\\"
-            )
-        else:
-            self.tmp_dir = f"/tmp/pikaraoke/{self.pid}"
+        create_tmp_dir()
+        self.tmp_dir = get_tmp_dir()
         self.resolved_file_path = self.process_file(file_path)
+        self.stream_uid = string_to_hash(file_path)
+        self.output_file = f"{self.tmp_dir}/{self.stream_uid}.mp4"
 
     # Extract zipped cdg + mp3 files into a temporary directory, and set the paths to both files.
     def handle_zipped_cdg(self, file_path):
@@ -34,7 +69,6 @@ class FileResolver:
         mp3_file = None
         cdg_file = None
         files = os.listdir(extracted_dir)
-        print(files)
         for file in files:
             ext = os.path.splitext(file)[1]
             if ext.casefold() == ".mp3":
@@ -55,8 +89,6 @@ class FileResolver:
         pattern = f + ".cdg"
         rule = re.compile(re.escape(pattern), re.IGNORECASE)
         p = os.path.dirname(file_path)  # get the path, not the filename
-        print(p)
-        print(pattern)
         for n in os.listdir(p):
             if rule.match(n):
                 self.file_path = file_path
@@ -74,3 +106,4 @@ class FileResolver:
             self.handle_mp3_cdg(file_path)
         else:
             self.file_path = file_path
+        self.duration = get_media_duration(self.file_path)

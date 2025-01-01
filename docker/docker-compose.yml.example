@@ -1,14 +1,14 @@
 services:
   pikaraoke:
-    image: pikaraoke:latest
+    image: vicwomg/pikaraoke:latest
     container_name: PiKaraoke
-    # Below Host network mode may work better on some systems and replace manual IP configuration. Does not work on OSX
+    ## Below Host network mode may work better on some systems and replace manual IP configuration. Does not work on OSX
     # network_mode: host
-    environment:
-      EXTRA_ARGS: --url http://<YOUR_LAN_IP>:5555 # Replace with your LAN IP or DNS url, not necesary if using network_mode: host
+    ## add additional command line args if needed in example below: debug level logging, manually specified URL
+    command: -l10 --url http://<YOUR_LAN_IP>
     volumes:
-      - </PATH/TO/LOCAL/SONGS/DIR>:/app/pikaraoke-songs # Replace with local dir. Insures your songs are persisted outside the container
+      - </PATH/TO/LOCAL/SONGS/DIR>:/app/pikaraoke-songs # Replace with local dir. to persist songs outside the container
     restart: unless-stopped
+    ## Forward host port 80 to the pikaraoke web interface on 5555, adjust host port as necessary
     ports:
-      - "5555:5555" # Forward the port for the web interface
-      - "5556:5556" # Forward the port for the ffmpeg video stream interface
+      - "80:5555"
