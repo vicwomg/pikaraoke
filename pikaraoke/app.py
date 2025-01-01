@@ -3,6 +3,7 @@ import datetime
 import hashlib
 import json
 import logging
+import mimetypes
 import os
 import signal
 import subprocess
@@ -16,6 +17,7 @@ import psutil
 from flask import (
     Flask,
     flash,
+    jsonify,
     make_response,
     redirect,
     render_template,
@@ -425,6 +427,13 @@ def logo():
     return send_file(k.logo_path, mimetype="image/png")
 
 
+@app.route("/background_music")
+def background_music():
+    music_path = k.bg_music_path
+    mime_type, _ = mimetypes.guess_type(music_path)
+    return send_file(k.bg_music_path, mimetype=mime_type)
+
+
 @app.route("/end_song", methods=["GET"])
 def end_song():
     k.end_song()
@@ -545,6 +554,9 @@ def splash():
         hide_url=k.hide_url,
         hide_overlay=k.hide_overlay,
         screensaver_timeout=k.screensaver_timeout,
+        disable_bg_music=k.disable_bg_music,
+        disable_score=k.disable_score,
+        bg_music_volume=k.bg_music_volume,
     )
 
 
@@ -594,6 +606,10 @@ def info():
         pikaraoke_version=VERSION,
         admin=is_admin(),
         admin_enabled=admin_password != None,
+        disable_bg_music=k.disable_bg_music,
+        bg_music_volume=int(100 * k.bg_music_volume),
+        disable_score=k.disable_score,
+        limit_user_songs_by=k.limit_user_songs_by,
     )
 
 
@@ -690,6 +706,33 @@ def expand_fs():
     return redirect(url_for("home"))
 
 
+@app.route("/change_preferences", methods=["GET"])
+def change_preferences():
+    if is_admin():
+        preference = request.args["pref"]
+        val = request.args["val"]
+
+        rc = k.change_preferences(preference, val)
+
+        return jsonify(rc)
+    else:
+        flash(_("You don't have permission to define audio output"), "is-danger")
+    return redirect(url_for("info"))
+
+
+@app.route("/clear_preferences", methods=["GET"])
+def clear_preferences():
+    if is_admin():
+        rc = k.clear_preferences()
+        if rc[0]:
+            flash(rc[1], "is-success")
+        else:
+            flash(rc[1], "is-danger")
+    else:
+        flash(_("You don't have permission to define audio output"), "is-danger")
+    return redirect(url_for("home"))
+
+
 # Handle sigterm, apparently cherrypy won't shut down without explicit handling
 signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
@@ -721,6 +764,7 @@ def main():
     default_screensaver_delay = 300
     default_log_level = logging.INFO
     default_prefer_hostname = False
+    default_bg_music_volume = 0.3
 
     default_dl_dir = get_default_dl_dir(platform)
     default_youtubedl_path = "yt-dlp"
@@ -868,6 +912,38 @@ def main():
         default=None,
         required=False,
     ),
+    parser.add_argument(
+        "--disable-bg-music",
+        action="store_true",
+        help="Disable background music on splash screen",
+        required=False,
+    ),
+    parser.add_argument(
+        "--bg-music-volume",
+        default=default_bg_music_volume,
+        help="Set the volume of background music on splash screen. A value between 0 and 1. (default: %s)"
+        % default_bg_music_volume,
+        required=False,
+    ),
+    parser.add_argument(
+        "--bg-music-path",
+        nargs="+",
+        help="Path to a custom background music for the splash screen. (.mp3, .wav or .ogg)",
+        default=None,
+        required=False,
+    ),
+    parser.add_argument(
+        "--disable-score",
+        help="Disable the score screen after each song",
+        action="store_true",
+        required=False,
+    ),
+    parser.add_argument(
+        "--limit-user-songs-by",
+        help="Limit the number of songs a user can add to queue (default: 0 = illimited)",
+        default="0",
+        required=False,
+    ),
 
     args = parser.parse_args()
 
@@ -894,6 +970,14 @@ def main():
         )
         parsed_volume = default_volume
 
+    parsed_bg_volume = float(args.bg_music_volume)
+    if parsed_bg_volume > 1 or parsed_bg_volume < 0:
+        # logging.warning("BG music volume must be between 0 and 1. Setting to default: %s" % default_bg_volume)
+        print(
+            f"[ERROR] Volume: {args.bg_music_volume} must be between 0 and 1. Setting to default: {default_bg_music_volume}"
+        )
+        parsed_bg_volume = default_bg_music_volume
+
     # Configure karaoke process
     global k
     k = karaoke.Karaoke(
@@ -915,6 +999,11 @@ def main():
         url=args.url,
         ffmpeg_url=args.ffmpeg_url,
         prefer_hostname=args.prefer_hostname,
+        disable_bg_music=args.disable_bg_music,
+        bg_music_volume=parsed_bg_volume,
+        bg_music_path=arg_path_parse(args.bg_music_path),
+        disable_score=args.disable_score,
+        limit_user_songs_by=args.limit_user_songs_by,
     )
     k.upgrade_youtubedl()
 
