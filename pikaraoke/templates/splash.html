@@ -463,8 +463,8 @@
     <span id="up-next-song"></span>
     <div class="has-text-success">
       <b class="has-text-white"
-        >{# MSG: Label for the next singer in the queue. #} {% trans %}Next
-        singer:{% endtrans %} </b
+        >{# MSG: Label for the next singer in the queue. #}
+        {% trans %}Next singer:{% endtrans %} </b
       >&nbsp;<i class="icon icon-mic-1" title="Next singer"></i
       ><span id="up-next-singer"></span>
     </div>
@@ -479,7 +479,8 @@
 
 <div id="score" style="display: none">
 	<div id="your-score-text">
-		Your Score
+    {# MSG: The title of the score screen, telling the user their singing score #}
+		{% trans %}Your Score{% endtrans %}
 	</div>
 	<div id="score-number-text">
 	</div>

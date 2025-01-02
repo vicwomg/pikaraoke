@@ -25,6 +25,7 @@ from flask import (
     render_template,
     request,
     send_file,
+    session,
     url_for,
 )
 from flask_babel import Babel
@@ -105,7 +106,12 @@ def is_admin():
 @babel.localeselector
 def get_locale():
     """Select the language to display the webpage in based on the Accept-Language header"""
-    return request.accept_languages.best_match(LANGUAGES.keys())
+    if request.args.get("lang"):
+        session["lang"] = request.args.get("lang")
+        locale = session.get("lang", "en")
+    else:
+        locale = request.accept_languages.best_match(LANGUAGES.keys())
+    return locale
 
 
 @app.route("/")
@@ -147,7 +153,8 @@ def login():
 def logout():
     resp = make_response(redirect("/"))
     resp.set_cookie("admin", "")
-    flash("Logged out of admin mode!", "is-success")
+    # MSG: Message shown after logging out as admin successfully
+    flash(_("Logged out of admin mode!"), "is-success")
     return resp
 
 
@@ -207,9 +214,11 @@ def add_random():
     amount = int(request.args["amount"])
     rc = k.queue_add_random(amount)
     if rc:
-        flash("Added %s random tracks" % amount, "is-success")
+        # MSG: Message shown after adding random tracks
+        flash(_("Added %s random tracks") % amount, "is-success")
     else:
-        flash("Ran out of songs!", "is-warning")
+        # MSG: Message shown after running out songs to add during random track addition
+        flash(_("Ran out of songs!"), "is-warning")
     return redirect(url_for("queue"))
 
 
@@ -218,7 +227,8 @@ def queue_edit():
     action = request.args["action"]
     if action == "clear":
         k.queue_clear()
-        flash("Cleared the queue!", "is-warning")
+        # MSG: Message shown after clearing the queue
+        flash(_("Cleared the queue!"), "is-warning")
         return redirect(url_for("queue"))
     else:
         song = request.args["song"]
@@ -226,21 +236,27 @@ def queue_edit():
         if action == "down":
             result = k.queue_edit(song, "down")
             if result:
-                flash("Moved down in queue: " + song, "is-success")
+                # MSG: Message shown after moving a song down in the queue
+                flash(_("Moved down in queue") + ": " + song, "is-success")
             else:
-                flash("Error moving down in queue: " + song, "is-danger")
+                # MSG: Message shown after failing to move a song down in the queue
+                flash(_("Error moving down in queue") + ": " + song, "is-danger")
         elif action == "up":
             result = k.queue_edit(song, "up")
             if result:
-                flash("Moved up in queue: " + song, "is-success")
+                # MSG: Message shown after moving a song up in the queue
+                flash(_("Moved up in queue") + ": " + song, "is-success")
             else:
-                flash("Error moving up in queue: " + song, "is-danger")
+                # MSG: Message shown after failing to move a song up in the queue
+                flash(_("Error moving up in queue") + ": " + song, "is-danger")
         elif action == "delete":
             result = k.queue_edit(song, "delete")
             if result:
-                flash("Deleted from queue: " + song, "is-success")
+                # MSG: Message shown after deleting a song from the queue
+                flash(_("Deleted from queue") + ": " + song, "is-success")
             else:
-                flash("Error deleting from queue: " + song, "is-danger")
+                # MSG: Message shown after failing to delete a song from the queue
+                flash(_("Error deleting from queue") + ": " + song, "is-danger")
     return redirect(url_for("queue"))
 
 
@@ -412,13 +428,17 @@ def download():
 
     displayed_title = title if title else song
     flash_message = (
-        f"Download started: '{displayed_title}'. This may take a couple of minutes to complete. "
+        # MSG: Message shown after starting a download. Song title is displayed in the message.
+        _("Download started: %s. This may take a couple of minutes to complete.")
+        % displayed_title
     )
 
     if queue:
-        flash_message += "Song will be added to queue."
+        # MSG: Message shown after starting a download that will be adding a song to the queue.
+        flash_message += _("Song will be added to queue.")
     else:
-        flash_message += 'Song will appear in the "available songs" list.'
+        # MSG: Message shown after after starting a download.
+        flash_message += _('Song will appear in the "available songs" list.')
     flash(flash_message, "is-info")
     return redirect(url_for("search"))
 
@@ -461,20 +481,26 @@ def delete_file():
         exists = any(item.get("file") == song_path for item in k.queue)
         if exists:
             flash(
-                "Error: Can't delete this song because it is in the current queue: " + song_path,
+                # MSG: Message shown after trying to delete a song that is in the queue.
+                _("Error: Can't delete this song because it is in the current queue")
+                + ": "
+                + song_path,
                 "is-danger",
             )
         else:
             k.delete(song_path)
-            flash("Song deleted: " + k.filename_from_path(song_path), "is-warning")
+            # MSG: Message shown after deleting a song. Followed by the song path
+            flash(_("Song deleted: %s") % k.filename_from_path(song_path), "is-warning")
     else:
-        flash("Error: No song parameter specified!", "is-danger")
+        # MSG: Message shown after trying to delete a song without specifying the song.
+        flash(_("Error: No song specified!"), "is-danger")
     return redirect(url_for("browse"))
 
 
 @app.route("/files/edit", methods=["GET", "POST"])
 def edit_file():
-    queue_error_msg = "Error: Can't edit this song because it is in the current queue: "
+    # MSG: Message shown after trying to edit a song that is in the queue.
+    queue_error_msg = _("Error: Can't edit this song because it is in the current queue: ")
     if "song" in request.args:
         song_path = request.args["song"]
         # print "SONG_PATH" + song_path
@@ -501,18 +527,21 @@ def edit_file():
                 file_extension = os.path.splitext(old_name)[1]
                 if os.path.isfile(os.path.join(k.download_path, new_name + file_extension)):
                     flash(
-                        "Error Renaming file: '%s' to '%s'. Filename already exists."
+                        # MSG: Message shown after trying to rename a file to a name that already exists.
+                        _("Error renaming file: '%s' to '%s', Filename already exists")
                         % (old_name, new_name + file_extension),
                         "is-danger",
                     )
                 else:
                     k.rename(old_name, new_name)
                     flash(
-                        "Renamed file: '%s' to '%s'." % (old_name, new_name),
+                        # MSG: Message shown after renaming a file.
+                        _("Renamed file: %s to %s") % (old_name, new_name),
                         "is-warning",
                     )
         else:
-            flash("Error: No filename parameters were specified!", "is-danger")
+            # MSG: Message shown after trying to edit a song without specifying the filename.
+            flash(_("Error: No filename parameters were specified!"), "is-danger")
         return redirect(url_for("browse"))
 
 
@@ -576,7 +605,7 @@ def info():
     try:
         cpu = str(psutil.cpu_percent()) + "%"
     except:
-        cpu = "CPU usage query unsupported"
+        cpu = _("CPU usage query unsupported")
 
     # mem
     memory = psutil.virtual_memory()
@@ -650,13 +679,15 @@ def update_youtube_dl():
 def update_ytdl():
     if is_admin():
         flash(
-            "Updating youtube-dl! Should take a minute or two... ",
+            # MSG: Message shown after starting the youtube-dl update.
+            _("Updating youtube-dl! Should take a minute or two... "),
             "is-warning",
         )
         th = threading.Thread(target=update_youtube_dl)
         th.start()
     else:
-        flash("You don't have permission to update youtube-dl", "is-danger")
+        # MSG: Message shown after trying to update youtube-dl without admin permissions.
+        flash(_("You don't have permission to update youtube-dl"), "is-danger")
     return redirect(url_for("home"))
 
 
@@ -665,59 +696,69 @@ def refresh():
     if is_admin():
         k.get_available_songs()
     else:
-        flash("You don't have permission to shut down", "is-danger")
+        # MSG: Message shown after trying to refresh the song list without admin permissions.
+        flash(_("You don't have permission to shut down"), "is-danger")
     return redirect(url_for("browse"))
 
 
 @app.route("/quit")
 def quit():
     if is_admin():
-        msg = "Exiting pikaraoke now!"
+        # MSG: Message shown after quitting pikaraoke.
+        msg = _("Exiting pikaraoke now!")
         flash(msg, "is-danger")
         k.send_message_to_splash(msg, "danger")
         th = threading.Thread(target=delayed_halt, args=[0])
         th.start()
     else:
-        flash("You don't have permission to quit", "is-danger")
+        # MSG: Message shown after trying to quit pikaraoke without admin permissions.
+        flash(_("You don't have permission to quit"), "is-danger")
     return redirect(url_for("home"))
 
 
 @app.route("/shutdown")
 def shutdown():
     if is_admin():
-        msg = "Shutting down system now!"
+        # MSG: Message shown after shutting down the system.
+        msg = _("Shutting down system now!")
         flash(msg, "is-danger")
         k.send_message_to_splash(msg, "danger")
         th = threading.Thread(target=delayed_halt, args=[1])
         th.start()
     else:
-        flash("You don't have permission to shut down", "is-danger")
+        # MSG: Message shown after trying to shut down the system without admin permissions.
+        flash(_("You don't have permission to shut down"), "is-danger")
     return redirect(url_for("home"))
 
 
 @app.route("/reboot")
 def reboot():
     if is_admin():
-        msg = "Rebooting system now!"
+        # MSG: Message shown after rebooting the system.
+        msg = _("Rebooting system now!")
         flash(msg, "is-danger")
         k.send_message_to_splash(msg, "danger")
         th = threading.Thread(target=delayed_halt, args=[2])
         th.start()
     else:
-        flash("You don't have permission to Reboot", "is-danger")
+        # MSG: Message shown after trying to reboot the system without admin permissions.
+        flash(_("You don't have permission to Reboot"), "is-danger")
     return redirect(url_for("home"))
 
 
 @app.route("/expand_fs")
 def expand_fs():
     if is_admin() and raspberry_pi:
-        flash("Expanding filesystem and rebooting system now!", "is-danger")
+        # MSG: Message shown after expanding the filesystem.
+        flash(_("Expanding filesystem and rebooting system now!"), "is-danger")
         th = threading.Thread(target=delayed_halt, args=[3])
         th.start()
     elif not raspberry_pi:
-        flash("Cannot expand fs on non-raspberry pi devices!", "is-danger")
+        # MSG: Message shown after trying to expand the filesystem on a non-raspberry pi device.
+        flash(_("Cannot expand fs on non-raspberry pi devices!"), "is-danger")
     else:
-        flash("You don't have permission to resize the filesystem", "is-danger")
+        # MSG: Message shown after trying to expand the filesystem without admin permissions
+        flash(_("You don't have permission to resize the filesystem"), "is-danger")
     return redirect(url_for("home"))
 
 
@@ -731,6 +772,7 @@ def change_preferences():
 
         return jsonify(rc)
     else:
+        # MSG: Message shown after trying to change preferences without admin permissions.
         flash(_("You don't have permission to define audio output"), "is-danger")
     return redirect(url_for("info"))
 
@@ -744,6 +786,7 @@ def clear_preferences():
         else:
             flash(rc[1], "is-danger")
     else:
+        # MSG: Message shown after trying to clear preferences without admin permissions.
         flash(_("You don't have permission to define audio output"), "is-danger")
     return redirect(url_for("home"))
 
@@ -804,7 +847,8 @@ def stream_full(id):
         }
         return Response(data, status=status_code, headers=headers)
     except IOError:
-        flash("File not found.", "is-danger")
+        # MSG: Message shown after trying to stream a file that does not exist.
+        flash(_("File not found."), "is-danger")
         return redirect(url_for("home"))
 
 

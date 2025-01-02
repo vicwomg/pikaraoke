@@ -425,7 +425,8 @@ class Karaoke:
 
     def download_video(self, video_url, enqueue=False, user="Pikaraoke", title=None):
         displayed_title = title if title else video_url
-        self.log_and_send(f"Downloading video: {displayed_title}")
+        # MSG: Message shown after the download is started
+        self.log_and_send(_("Downloading video: %s" % displayed_title))
         dl_path = self.download_path + "%(title)s---%(id)s.%(ext)s"
         file_quality = (
             "bestvideo[ext!=webm][height<=1080]+bestaudio[ext!=webm]/best[ext!=webm]"
@@ -439,8 +440,12 @@ class Karaoke:
             logging.error("Error code while downloading, retrying once...")
             rc = subprocess.call(cmd)  # retry once. Seems like this can be flaky
         if rc == 0:
-            msg_prefix = f"{user} downloaded and queued: " if enqueue else f"{user} downloaded: "
-            self.log_and_send(msg_prefix + displayed_title, "success")
+            if enqueue:
+                # MSG: Message shown after the download is completed and queued
+                self.log_and_send(_("Downloaded and queued: %s" % displayed_title), "success")
+            else:
+                # MSG: Message shown after the download is completed but not queued
+                self.log_and_send(_("Downloaded: %s" % displayed_title), "success")
             self.get_available_songs()
             if enqueue:
                 y = self.get_youtube_id_from_url(video_url)
@@ -448,9 +453,11 @@ class Karaoke:
                 if s:
                     self.enqueue(s, user, log_action=False)
                 else:
-                    self.log_and_send("Error queueing song: " + displayed_title, "danger")
+                    # MSG: Message shown after the download is completed but the adding to queue fails
+                    self.log_and_send(_("Error queueing song: ") + displayed_title, "danger")
         else:
-            self.log_and_send("Error downloading song: " + displayed_title, "danger")
+            # MSG: Message shown after the download process is completed but the song is not found
+            self.log_and_send(_("Error downloading song: ") + displayed_title, "danger")
         return rc
 
     def get_available_songs(self):
@@ -652,14 +659,16 @@ class Karaoke:
         if reason != None:
             logging.info(f"Reason: {reason}")
             if reason != "complete":
-                self.send_message_to_splash(f"Song ended abnormally: {reason}", "danger")
+                # MSG: Message shown when the song ends abnormally
+                self.send_message_to_splash(_("Song ended abnormally: %s") % reason, "danger")
         self.reset_now_playing()
         self.kill_ffmpeg()
         delete_tmp_dir()
         logging.debug("ffmpeg process killed")
 
     def transpose_current(self, semitones):
-        self.log_and_send(f"Transpose {self.now_playing} by {semitones} semitones")
+        # MSG: Message shown after the song is transposed, first is the semitones and then the song name
+        self.log_and_send(_("Transposing by %s semitones: %s") % (semitones, self.now_playing))
         # Insert the same song at the top of the queue with transposition
         self.enqueue(self.now_playing_filename, self.now_playing_user, semitones, True)
         self.skip(log_action=False)
@@ -703,11 +712,13 @@ class Karaoke:
                 "semitones": semitones,
             }
             if add_to_front:
-                self.log_and_send(f"'{user}' added to top of queue: {queue_item['title']}")
+                # MSG: Message shown after the song is added to the top of the queue
+                self.log_and_send(_("%s added to top of queue: %s") % (user, queue_item["title"]))
                 self.queue.insert(0, queue_item)
             else:
                 if log_action:
-                    self.log_and_send(f"{user} added to the queue: {queue_item['title']}", "info")
+                    # MSG: Message shown after the song is added to the queue
+                    self.log_and_send(_("%s added to the queue: %s") % (user, queue_item["title"]))
                 self.queue.append(queue_item)
             return [True, _("Song added to the queue: %s") % (self.filename_from_path(song_path))]
 
@@ -732,7 +743,8 @@ class Karaoke:
         return True
 
     def queue_clear(self):
-        self.log_and_send("Clear queue", "danger")
+        # MSG: Message shown after the queue is cleared
+        self.log_and_send(_("Clear queue"), "danger")
         self.queue = []
         self.skip(log_action=False)
 
@@ -777,7 +789,8 @@ class Karaoke:
     def skip(self, log_action=True):
         if self.is_file_playing():
             if log_action:
-                self.log_and_send("Skip: " + self.now_playing)
+                # MSG: Message shown after the song is skipped, will be followed by song name
+                self.log_and_send(_("Skip: %s") % self.now_playing)
             self.end_song()
             return True
         else:
@@ -787,9 +800,11 @@ class Karaoke:
     def pause(self):
         if self.is_file_playing():
             if self.is_paused:
-                self.log_and_send(f"Resume: {self.now_playing}")
+                # MSG: Message shown after the song is resumed, will be followed by song name
+                self.log_and_send(_("Resume: %s") % self.now_playing)
             else:
-                self.log_and_send(f"Pause: {self.now_playing}")
+                # MSG: Message shown after the song is paused, will be followed by song name
+                self.log_and_send(_("Pause") + f": {self.now_playing}")
             self.is_paused = not self.is_paused
             return True
         else:
@@ -798,7 +813,8 @@ class Karaoke:
 
     def volume_change(self, vol_level):
         self.volume = vol_level
-        self.log_and_send(f"Volume: {int(self.volume * 100)}%")
+        # MSG: Message shown after the volume is changed, will be followed by the volume level
+        self.log_and_send(_("Volume: %s%") % (int(self.volume * 100)))
         return True
 
     def vol_up(self):
