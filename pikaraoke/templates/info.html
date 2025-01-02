@@ -153,7 +153,7 @@
 <h1>{% trans %}User Preferences{% endtrans %}</h1>
 
 {# MSG: Help text explaining the the need to restart after changing preferences #}
-<p>You may need to restart pikaraoke for these changes to take effect.</p>
+<p>{% trans %}You may need to restart pikaraoke for these changes to take effect.{% endtrans %}</p>
 
 <h5>Flags</h5>
 
@@ -226,7 +226,7 @@
   </li>
 </ul>
 <p class="help">
-  {# MSG: Help text which explains why updating youtube-dl can fail.  The log is a file on the machine running Pikaraoke. #}
+  {# MSG: Help text which explains why updating youtube-dl can fail. The log is a file on the machine running Pikaraoke. #}
   {% trans -%}
     This update link above may fail if you don't have proper file permissions.
     Check the pikaraoke log for errors.
