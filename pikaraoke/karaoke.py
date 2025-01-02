@@ -73,7 +73,7 @@ class Karaoke:
     volume = None
     loop_interval = 500  # in milliseconds
     default_logo_path = os.path.join(base_path, "logo.png")
-    default_bg_music_path = os.path.join(base_path, "static/sounds/bg-music.ogg")
+    default_bg_music_path = os.path.join(base_path, "static/sounds/midnight-dorufin.mp3")
     screensaver_timeout = 300  # in seconds
 
     ffmpeg_process = None
@@ -122,7 +122,7 @@ class Karaoke:
 
         # override with supplied constructor args if provided
         self.port = port
-        self.hide_url = hide_url
+        self.hide_url = self.get_user_preference("hide_url") or hide_url
         self.hide_notifications = hide_notifications
         self.hide_raspiwifi_instructions = hide_raspiwifi_instructions
         self.hide_splash_screen = hide_splash_screen
@@ -140,11 +140,11 @@ class Karaoke:
         self.url_override = url
         self.prefer_hostname = prefer_hostname
         self.disable_bg_music = self.get_user_preference("disable_bg_music") or disable_bg_music
-        self.bg_music_volume = self.get_user_preference("bg_music_volume") or bg_music_volume
+        self.bg_music_volume = float(self.get_user_preference("bg_music_volume")) or bg_music_volume
         self.bg_music_path = self.default_bg_music_path if bg_music_path == None else bg_music_path
         self.disable_score = self.get_user_preference("disable_score") or disable_score
         self.limit_user_songs_by = (
-            self.get_user_preference("limit_user_songs_by") or limit_user_songs_by
+            int(self.get_user_preference("limit_user_songs_by")) or limit_user_songs_by
         )
 
         # other initializations
@@ -664,7 +664,7 @@ class Karaoke:
 
     def is_user_limited(self, user):
         # Returns if a user needs to be limited or not if the limitation is on and if the user reached the limit of songs in queue
-        if self.limit_user_songs_by == "0" or user == "Pikaraoke" or user == "Randomizer":
+        if self.limit_user_songs_by == 0 or user == "Pikaraoke" or user == "Randomizer":
             return False
         cont = len([i for i in self.queue if i["user"] == user]) + (
             1 if self.now_playing_user == user else 0

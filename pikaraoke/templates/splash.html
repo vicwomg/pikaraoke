@@ -51,22 +51,24 @@
   const scoreReviews = {
 	low:[
 		"{{ _('Never sing again... ever.') }}", // {# MSG: Score review message #}
-		"{{ _('I hope you don\'t do this for a living.') }}", // {# MSG: Score review message #}
-		"{{ _('Thank god it\'s over.') }}", // {# MSG: Score review message #}
-		"{{ _('Pass the mic for someone else, please!') }}", // {# MSG: Score review message #}
+		"{{ _('That was a really convincing impression of a dying cat!') }}", // {# MSG: Score review message #}
+		"{{ _('Thank God it\'s over.') }}", // {# MSG: Score review message #}
+		"{{ _('Pass the mic, please!') }}", // {# MSG: Score review message #}
+    "{{ _('Well, I\'m sure you\'re very good at your day job.') }}", // {# MSG: Score review message #}
   ],
 	mid:[
-		"{{ _('I\'ve seen better singers.') }}", // {# MSG: Score review message #}
+		"{{ _('I\'ve seen better.') }}", // {# MSG: Score review message #}
 		"{{ _('Ok... just ok.') }}", // {# MSG: Score review message #}
 		"{{ _('Not bad for an amateur.') }}", // {# MSG: Score review message #}
-		"{{ _('You put up a nice show.') }}", // {# MSG: Score review message #}
+		"{{ _('You put on a decent show.') }}", // {# MSG: Score review message #}
+    "{{ _('That was... something!') }}", // {# MSG: Score review message #}
 	],
 	high:[
-		"{{ _('Congratulations! Couldn\'t be better.') }}", // {# MSG: Score review message #}
-		"{{ _('Wow, have you tried The Voice?') }}", // {# MSG: Score review message #}
+		"{{ _('Congratulations! That was unbelievable!') }}", // {# MSG: Score review message #}
+		"{{ _('Wow, have you tried auditioning for The Voice?') }}", // {# MSG: Score review message #}
 		"{{ _('Please, sing another one!') }}", // {# MSG: Score review message #}
 		"{{ _('You rock! You know that?!') }}", // {# MSG: Score review message #}
-		"{{ _('I wish more people could sing like this.') }}", // {# MSG: Score review message #}
+		"{{ _('Woah, who let Freddie Mercury in here?') }}", // {# MSG: Score review message #}
 	]
   }
 
@@ -104,19 +106,19 @@
 
   // handle background music
   async function playBGMusic(play) {
-	let bgMusicVolume = "{{ bg_music_volume }}" *1 //hack to parse string to float;
-	if ('{{ disable_bg_music }}' == 'False') {
-		 let audio = document.getElementById('background-music');
-		 if (play == true) {
-			audio.volume = 0;
-			await audio.load(); // restart the music
-			await audio.play();
-			$(audio).animate({ volume: bgMusicVolume }, 2000); // fade in 2 sec
-          } else {
-             $(audio).animate({ volume: 0 }, 2000); // fade out 2 sec
-          }
-        }
+	  let bgMusicVolume = "{{ bg_music_volume }}" *1 //hack to parse string to float;
+	  if ('{{ disable_bg_music }}' == 'False') {
+      let audio = document.getElementById('background-music');
+      if (play == true) {
+        audio.volume = 0;
+        await audio.load(); // restart the music
+        await audio.play();
+        $(audio).animate({ volume: bgMusicVolume }, 1000); // fade in 1 sec
+      } else {
+        $(audio).animate({ volume: 0 }, 1000); // fade out 1 sec
       }
+    }
+  }
 
   // handle showing notifications
   function flashNotification(message, categoryClass) {
@@ -393,6 +395,7 @@
     if (dismissConfirmation === 'false') {
       let modal = document.getElementById('permissions-modal');
       modal.classList.remove('is-active');
+      playBGMusic(true);
     }
   });
 </script>
@@ -546,7 +549,7 @@
   </div>
 </div>
 
-<audio id="background-music" autoplay loop>
+<audio id="background-music" loop>
 	<source src="{{ url_for('background_music') }}" type="audio/mpeg">
 	<source src="{{ url_for('background_music') }}" type="audio/ogg">
 	<source src="{{ url_for('background_music') }}" type="audio/wav">
@@ -554,8 +557,8 @@
 
 <audio id="score-drums">
 	<source
-	  src="{{  url_for('static', filename='sounds/score-drums.ogg') }}"
-	  type="audio/ogg"
+	  src="{{  url_for('static', filename='sounds/score-drums.mp3') }}"
+	  type="audio/mp3"
 	/>
 </audio>
 

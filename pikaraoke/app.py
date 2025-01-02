@@ -617,6 +617,7 @@ def info():
         disable_bg_music=k.disable_bg_music,
         bg_music_volume=int(100 * k.bg_music_volume),
         disable_score=k.disable_score,
+        hide_url=k.hide_url,
         limit_user_songs_by=k.limit_user_songs_by,
     )
 
@@ -927,7 +928,7 @@ def main():
     parser.add_argument(
         "--hide-overlay",
         action="store_true",
-        help="Hide overlay that shows on top of video with pikaraoke QR code and IP",
+        help="Hide all overlays that show on top of video, including current/next song, pikaraoke QR code and IP",
         required=False,
     ),
     parser.add_argument(
@@ -1088,7 +1089,7 @@ def main():
         bg_music_volume=parsed_bg_volume,
         bg_music_path=arg_path_parse(args.bg_music_path),
         disable_score=args.disable_score,
-        limit_user_songs_by=args.limit_user_songs_by,
+        limit_user_songs_by=int(args.limit_user_songs_by),
     )
     k.upgrade_youtubedl()
 
