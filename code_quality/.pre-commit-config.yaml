@@ -71,6 +71,7 @@ repos:
   - id: requirements-txt-fixer
     name: Sort requirements.txt
   - id: check-added-large-files
+    args: [--maxkb=3000]
   - id: check-case-conflict
   - id: check-merge-conflict
   - id: end-of-file-fixer

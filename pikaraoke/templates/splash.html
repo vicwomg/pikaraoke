@@ -1,48 +1,20 @@
 {% extends 'base.html' %} {% block scripts %}
-<script src="{{  url_for('static', filename='screensaver.js') }}"></script>
 <link
   rel="stylesheet"
   href="{{  url_for('static', filename='screensaver.css') }}"
 />
+<link
+  rel="stylesheet"
+  href="{{  url_for('static', filename='score.css') }}"
+/>
 <script>
-  const isVideoPlaying = (video) =>
+  const isMediaPlaying = (media) =>
     !!(
-      video.currentTime > 0 &&
-      !video.paused &&
-      !video.ended &&
-      video.readyState > 2
+      media.currentTime > 0 &&
+      !media.paused &&
+      !media.ended &&
+      media.readyState > 2
     );
-
-  function fadeOutVolume(video, onComplete=() => {}, duration=1000) {
-    const interval = 50; // Interval in milliseconds
-    const steps = duration / interval;
-    const volumeStep = video.volume / steps;
-    const fadeOut = setInterval(() => {
-      if (video.volume > volumeStep) {
-        video.volume -= volumeStep;
-      } else {
-        video.volume = 0;
-        clearInterval(fadeOut);
-        onComplete()
-      }
-    }, interval);
-  }
-
-  function fadeInVolume(video, targetVolume, onComplete=() => {}, duration=1000) {
-    const interval = 50; // Interval in milliseconds
-    const steps = duration / interval;
-    const volumeStep = video.volume / steps;
-    video.volume = 0;
-    const fadeIn = setInterval(() => {
-      if (video.volume < targetVolume - volumeStep) {
-        video.volume += volumeStep;
-      } else {
-        video.volume = targetVolume;
-        clearInterval(fadeIn);
-        onComplete()
-      }
-    }, interval);
-  }
 
   function formatTime(seconds) {
     if (isNaN(seconds)) {
@@ -63,7 +35,7 @@
     cursorVisible = true;
 
   var screensaverTimeoutMs =
-    parseInt("{{ screensaver_timeout }}") * 1000 || 300000;
+    parseInt('{{ screensaver_timeout }}') * 1000 || 300000;
   let screensaverTimeout;
 
   var nowPlayingInterval = null;
@@ -76,13 +48,38 @@
   var confirmationDismissed = false;
   var volume = 0.85;
 
+  const scoreReviews = {
+	low:[
+		"{{ _('Never sing again... ever.') }}", // {# MSG: Score review message #}
+		"{{ _('That was a really good impression of a dying cat!') }}", // {# MSG: Score review message #}
+		"{{ _('Thank God it\'s over.') }}", // {# MSG: Score review message #}
+		"{{ _('Pass the mic, please!') }}", // {# MSG: Score review message #}
+    "{{ _('Well, I\'m sure you\'re very good at your day job.') }}", // {# MSG: Score review message #}
+  ],
+	mid:[
+		"{{ _('I\'ve seen better.') }}", // {# MSG: Score review message #}
+		"{{ _('Ok... just ok.') }}", // {# MSG: Score review message #}
+		"{{ _('Not bad for an amateur.') }}", // {# MSG: Score review message #}
+		"{{ _('You put on a decent show.') }}", // {# MSG: Score review message #}
+    "{{ _('That was... something.') }}", // {# MSG: Score review message #}
+	],
+	high:[
+		"{{ _('Congratulations! That was unbelievable!') }}", // {# MSG: Score review message #}
+		"{{ _('Wow, have you tried auditioning for The Voice?') }}", // {# MSG: Score review message #}
+		"{{ _('Please, sing another one!') }}", // {# MSG: Score review message #}
+		"{{ _('You rock! You know that?!') }}", // {# MSG: Score review message #}
+		"{{ _('Woah, who let Freddie Mercury in here?') }}", // {# MSG: Score review message #}
+	]
+  }
+
   function startNowPlayingPolling() {
     nowPlayingInterval = setInterval(getNowPlaying, pollingInterval);
   }
 
   function handleConfirmation() {
-    $("#permissions-modal").removeClass("is-active");
+    $('#permissions-modal').removeClass('is-active');
     confirmationDismissed = true;
+    playBGMusic(true);
   }
 
   function clearCommand() {
@@ -93,17 +90,40 @@
     $("#video-container").hide();
   }
 
-  function endSong(reason=null) {
+  async function endSong(reason=null, showScore=false) {
     stopVideo();
+    if (showScore && '{{ disable_score }}' == 'False') {
+		  await startScore("{{ url_for('static', filename='') }}");
+	  }
     $.post('{{ url_for("end_song") }}', {reason: reason});
   }
 
-  function executeCommand(callback) {
-    callback();
-    clearCommand();
-    setTimeout(() => getNowPlaying(), 100);
+  function getBackgroundMusicPlayer() {
+    return document.getElementById('background-music');
   }
 
+  // handle background music
+  async function playBGMusic(play) {
+	  let bgMusicVolume = "{{ bg_music_volume }}" *1 //hack to parse string to float;
+	  if ('{{ disable_bg_music }}' == 'False') {
+      let audio = getBackgroundMusicPlayer();
+      if (play == true) {
+        if (isMediaPlaying(audio)) {
+          return; // already playing
+        }
+        else {
+          audio.volume = 0;
+          if (audio.readyState <= 2) await audio.load(); // load the music first time
+          await audio.play();
+          $(audio).animate({ volume: bgMusicVolume }, 2000); // fade in 1 sec
+        }
+      } else {
+        $(audio).animate({ volume: 0 }, 2000, () => audio.pause()); // fade out 1 sec
+      }
+    }
+  }
+
+  // handle showing notifications
   function flashNotification(message, categoryClass) {
     const sn = $("#splash-notification");
     if (sn.html()) {
@@ -138,9 +158,7 @@
 
           if (obj.now_playing_transpose != 0) {
             nowPlayingHtml +=
-              `<span class='is-size-6 has-text-success'><b>Key</b>: ` +
-              getSemitonesLabel(obj.now_playing_transpose) +
-              "<span>";
+              `<span class='is-size-6 has-text-success'><b>Key</b>: ${getSemitonesLabel(obj.now_playing_transpose)} </span>`
           }
 
           $("#now-playing-song").html(nowPlayingHtml);
@@ -149,6 +167,13 @@
         } else {
           // {# MSG: Message which shows in the "Now Playing" section when there is no song currently playing #}
           $("#now-playing").fadeOut();
+        }
+
+        // Handle the Background music depending on the up_next and nowplaying status
+        if (obj.up_next) {
+          playBGMusic(false);
+        } else if (!obj.now_playing) {
+          setTimeout(() => playBGMusic(true), 4000);
         }
 
         // render the queue details in top right
@@ -164,18 +189,19 @@
           $("#up-next").fadeOut();
         }
 
-        const video = $("#video")[0];
+        const video = $('#video')[0];
 
         // Start playback if a valid now_playing_url is provided
         if (
           obj.now_playing_url &&
-          !isVideoPlaying(video) &&
+          !isMediaPlaying(video) &&
           $("#video-container").is(":hidden")
         ) {
           if (!confirmationDismissed) {
             console.log(
-              "Browser is unable to play video. User did not confirm interaction prompt."
+              'Browser is unable to play video. User did not confirm interaction prompt.'
             );
+            endSong("interaction confirmation required");
           }
           $("#video-source").attr("src", obj.now_playing_url);
           video.load();
@@ -197,7 +223,7 @@
 
           // handle timeout if video fails to play
           setTimeout(() => {
-            if (!isVideoPlaying(video) && !video.paused) {
+            if (!isMediaPlaying(video) && !video.paused) {
               endSong("failed to start");
             }
           }, 10000);
@@ -205,10 +231,10 @@
 
         // Handle skip song
         if (
-          (isVideoPlaying(video) || $("#video-container").is(":visible")) &&
+          (isMediaPlaying(video) || $("#video-container").is(":visible")) &&
           !obj.now_playing
         ) {
-          fadeOutVolume(video, () => {
+          $(video).animate({ volume: 0 }, 1000, () => {
             video.pause();
             video.volume = obj.volume;
             stopVideo();
@@ -217,14 +243,15 @@
 
         // Handle pause/play
         if (obj.now_playing && !video.paused && obj.is_paused) {
-          fadeOutVolume(video, () => {
+          $(video).animate({ volume: 0 }, 1000, () => {
             video.pause();
             video.volume = obj.volume;
           });
         }
         if (obj.now_playing && video.paused && !obj.is_paused) {
           video.play();
-          fadeInVolume(video, obj.volume);
+          video.volume = 0
+          $(video).animate({ volume: obj.volume }, 1000);
         }
 
         // Handle volume change
@@ -255,33 +282,34 @@
       }
 
       //handle screensaver
-      let screensaver = document.getElementById("screensaver");
+      let screensaver = document.getElementById('screensaver');
       if (
         !nowPlaying.up_next &&
-        !isVideoPlaying(video) &&
+        !isMediaPlaying(video) &&
         !screensaverTimeout &&
         !cursorVisible
       ) {
         screensaverTimeout = setTimeout(function () {
-          screensaver.style.visibility = "visible";
+          screensaver.style.visibility = 'visible';
           startScreensaver();
         }, screensaverTimeoutMs);
       } else {
-        if (nowPlaying.up_next || isVideoPlaying(video) || cursorVisible) {
+        if (nowPlaying.up_next || isMediaPlaying(video) || cursorVisible) {
           screensaver.style.visibility = "hidden";
           stopScreensaver();
           screensaverTimeout = clearTimeout(screensaverTimeout);
         }
       }
+
     });
   }
 
   $(function () {
-    $("#video-container").hide();
+    $('#video-container').hide();
 
-    if ("{{ hide_overlay }}" == "False") {
-      $("#bottom-container").addClass("overlay");
-      $("#top-container").addClass("overlay");
+    if ('{{ hide_overlay }}' == 'False') {
+      $('#bottom-container').addClass('overlay');
+      $('#top-container').addClass('overlay');
     }
     startNowPlayingPolling();
 
@@ -291,7 +319,7 @@
         window.clearTimeout(mouseTimer);
       }
       if (!cursorVisible) {
-        document.body.style.cursor = "default";
+        document.body.style.cursor = 'default';
         cursorVisible = true;
       }
       if (!menuButtonVisible) {
@@ -300,7 +328,7 @@
       }
       mouseTimer = window.setTimeout(() => {
         mouseTimer = null;
-        document.body.style.cursor = "none";
+        document.body.style.cursor = 'none';
         cursorVisible = false;
         $("#menu a").fadeOut();
         menuButtonVisible = false;
@@ -315,7 +343,7 @@
       setTimeout(() => $.get('{{ url_for("start_song") }}'), 1200);
     });
     video.addEventListener("ended", () => {
-      endSong("complete");
+      endSong("complete", true);
     });
     video.addEventListener("timeupdate", (e) => {
       $("#current").text(formatTime(video.currentTime));
@@ -329,9 +357,9 @@
 
     //make sure we end the song if the user closes the window or leaves page
     window.addEventListener(
-      "beforeunload",
+      'beforeunload',
       function (event) {
-        if (isVideoPlaying(video)) {
+        if (isMediaPlaying(video)) {
           endSong("splash screen closed");
         }
       },
@@ -339,10 +367,10 @@
     );
 
     //open menu iframe
-    $("#menu a").click(function () {
+    $('#menu a').click(function () {
       if (showMenu) {
-        $("#menu-container").hide();
-        $("#menu-container iframe").attr("src", "");
+        $('#menu-container').hide();
+        $('#menu-container iframe').attr('src', '');
         showMenu = false;
       } else {
         setUserCookie();
@@ -353,9 +381,9 @@
     });
   });
 
-  document.addEventListener("DOMContentLoaded", (event) => {
+  document.addEventListener('DOMContentLoaded', (event) => {
     let params = new URLSearchParams(window.location.search);
-    let dismissConfirmation = params.get("confirm");
+    let dismissConfirmation = params.get('confirm');
 
     if (isFirefox || isSafari) {
       let modalContents = document.getElementById("permissions-modal-content");
@@ -366,9 +394,10 @@
       modalContents.prepend(warningMessage);
     }
 
-    if (dismissConfirmation === "false") {
-      let modal = document.getElementById("permissions-modal");
-      modal.classList.remove("is-active");
+    if (dismissConfirmation === 'false') {
+      let modal = document.getElementById('permissions-modal');
+      modal.classList.remove('is-active');
+      playBGMusic(true);
     }
   });
 </script>
@@ -443,9 +472,20 @@
 </div>
 
 <div id="video-container" class="video-container">
-  <video id="video">
+  <video id="video" disableRemotePlayback>
     <source id="video-source" type="video/mp4" src="" />
   </video>
+</div>
+
+<div id="score" style="display: none">
+	<div id="your-score-text">
+		Your Score
+	</div>
+	<div id="score-number-text">
+	</div>
+	<div id="score-review-text">
+	</div>
+	<canvas id="fireworks"></canvas>
 </div>
 
 <div id="permissions-modal" class="modal is-active">
@@ -510,6 +550,23 @@
     {% endif %}
   </div>
 </div>
+
+<audio id="background-music" loop>
+	<source src="{{ url_for('background_music') }}" type="audio/mpeg">
+	<source src="{{ url_for('background_music') }}" type="audio/ogg">
+	<source src="{{ url_for('background_music') }}" type="audio/wav">
+</audio>
+
+<audio id="score-drums">
+	<source
+	  src="{{  url_for('static', filename='sounds/score-drums.mp3') }}"
+	  type="audio/mp3"
+	/>
+</audio>
+
+<script src="{{  url_for('static', filename='screensaver.js') }}"></script>
+<script src="{{  url_for('static', filename='fireworks.js') }}"></script>
+<script src="{{  url_for('static', filename='score.js') }}"></script>
 
 <style>
   html {
