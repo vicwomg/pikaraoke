@@ -155,7 +155,7 @@
 {# MSG: Help text explaining the the need to restart after changing preferences #}
 <p>You may need to restart pikaraoke for these changes to take effect.</p>
 
-<h3>Flags</h3>
+<h5>Flags</h5>
 
 <div class="user-preference-container">
   <input id="pref-bg-music" class="user-preference-checkbox" type="checkbox" data-pref="disable_bg_music" {% if disable_bg_music %}checked{% endif %}>
@@ -175,7 +175,7 @@
   </label>
 </div>
 
-<h3>Parameters</h3>
+<h5 style="margin-top: 20px">Parameters</h5>
 
 <div class="user-preference-container">
   <input id="bg-music-volume" class="user-preference-input" type="number" min="0" max="100" step="5" data-pref="bg_music_volume" data-start-value="{{ bg_music_volume }}" value="{{ bg_music_volume }}" />
@@ -190,8 +190,10 @@
   </label>
 </div>
 
-{# MSG: Text for the link where the user can clear all user preferences #}
-<a id="clear-preferences-link" class="has-text-danger" href="{{ url_for('clear_preferences') }}">{% trans %}Clear preferences{% endtrans %}</a>
+<div style="margin-top: 20px">
+  {# MSG: Text for the link where the user can clear all user preferences #}
+  <a id="clear-preferences-link" class="has-text-danger" href="{{ url_for('clear_preferences') }}">{% trans %}Clear preferences{% endtrans %}</a>
+</div>
 
 <hr/>
 
