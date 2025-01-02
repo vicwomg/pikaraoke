@@ -21,16 +21,16 @@ If you want to support this project with a little monetary tip, it's much apprec
 | **Feature**                 | **Description**                                               |
 | --------------------------- | ------------------------------------------------------------- |
 | Web Interface               | Multiple users can queue tracks from their smartphones        |
-| Player/Splash Screen        | Connection QR code and "Next up" display                      |
-| Searching/Browsing          | Browse a local song library                                   |
+| Player/Splash Screen        | Connection QR code and song queue metadata                    |
+| Searching/Browsing          | Search and rowse a local song library                         |
 | Adding New Songs            | Add new songs from Youtube                                    |
-| mp3 + cdg Support           | Includes compressed .zip bundles                              |
+| mp3 + cdg Support           | CDG file support, supports compressed .zip bundles            |
 | Playback Controls           | Pause, Skip, Restart, and volume control                      |
-| File Management             | Advanced editing of downloaded file names                     |
 | Queue Management            | Manage the song queue and change the order                    |
 | Key Change / Pitch Shifting | Adjust the pitch of songs                                     |
+| File Management             | Advanced editing of downloaded file names                     |
 | Admin Mode                  | Lock down features with admin mode                            |
-| Headless Mode               | Run a dedicated server and stream pikaraoke to remote browser |
+| Headless Mode               | Run a dedicated pikaraoke server and stream to remote browser |
 
 ## Supported Devices / OS / Platforms
 
@@ -43,11 +43,21 @@ If you want to support this project with a little monetary tip, it's much apprec
 - Linux
 - Docker - [See official Dockerhub repo](https://hub.docker.com/repository/docker/vicwomg/pikaraoke)
 
-## Get Started
+## Docker instructions
+
+For Docker users, you can get going with one command. The deployed images includes everything you need to run in headless mode:
+
+```sh
+docker run vicwomg/pikaraoke:latest
+```
+
+## Native installation
 
 ### Install required programs
 
-Pikaraoke requires Python 3.9 or greater. You can check your current version by running `python --version`. [Python downloads](https://www.python.org/downloads/)
+Pikaraoke requires Python 3.9 or greater. You can check your current version by running `python --version`.
+
+[Python downloads](https://www.python.org/downloads/)
 
 #### Raspberry Pi OS / Linux distros with `apt`:
 
@@ -57,51 +67,23 @@ sudo apt-get install chromium-browser -y
 sudo apt-get install chromium-chromedriver -y
 ```
 
+Chromium/Chromdriver is optional if you're running with the `--headless` option.
+
 #### Windows / OSX / Linux:
 
 - FFmpeg 6.0 or greater: [FFmpeg downloads](https://ffmpeg.org/download.html)
 - Chrome Browser: [Chrome](http://google.com/chrome) (only required for headed mode)
 
-### Install pikaraoke
+### Install pikaraoke via pip
 
-#### Create a virtual environment (optional)
-
-Using a virtual environment (venv) is recommended to prevent conflicts with other global python packages.
-
-You may find it more convenient to skip these steps, which allows you to launch pikaraoke without activating a venv first, but you run the risk of package conflicts.
-
-If you don't install a lot of python projects with pip, that skipping venv is probably be fine. The choice is yours. See [the python documentation](https://docs.python.org/3/library/venv.html) for more details on venv.
-
-Raspberry Pi/Linux/OSX:
-
-```sh
-# Create a .venv directory in the homedir
-python -m venv ~/.venv
-# Activate your virtual environment
-source ~/.venv/bin/activate
-```
-
-Windows (Powershell terminal):
-
-```batch
-:: Create a venv in Windows in your homedir
-cd $HOME
-python -m venv .venv
-.venv\Scripts\activate
-```
-
-You should see a "(venv)" prefix in your terminal prompt if the venv is successfully activated.
-
-#### Install pikaraoke via pip
-
-Next, install pikaraoke from PyPi on the host into your venv:
+Globally or within a virtual env:
 
 ```sh
 # Install pikaraoke from PyPi
 pip install pikaraoke
 ```
 
-Note: if you did not use a venv, you may need to add the `--break-system-packages` parameter to ignore the warning and install pikaraoke and its dependencies globally.
+Note: if you did not use a venv, you may need to add the `--break-system-packages` parameter to ignore the warning and install pikaraoke and its dependencies globally. You may experience package conflicts if you have other python programs installed.
 
 ### Run
 
@@ -114,8 +96,7 @@ pikaraoke
 
 This will start pikaraoke in headed mode, and open Chrome browser with the splash screen. You can then connect to the QR code via your mobile device and start downloading and queueing songs.
 
-Virtual env users: note that if you close your terminal between launches, you'll need to run:
-`source ~/.venv/bin/activate` or `.venv\Scripts\activate` (windows) before launching pikaraoke again.
+Virtual env users: note that if you close your terminal between launches, you'll need to reactivate your venv before running pikaraoke.
 
 ### More Options
 
@@ -154,11 +135,8 @@ poetry run pikaraoke
 
 See the [Pikaraoke development guide](https://github.com/vicwomg/pikaraoke/wiki/Pikaraoke-development-guide) for more details.
 
-#### Run from repository (legacy)
-
-See [README](../scripts/README.md) for how to install pikaraoke cloning this repo and using the
-scripts. This is a legacy method and may no longer work.
-
-## Troubleshooting
+## Troubleshooting and guides
 
 See the [TROUBLESHOOTING wiki](https://github.com/vicwomg/pikaraoke/wiki/FAQ-&-Troubleshooting) for help with issues.
+
+There are also some great guides [on the wiki](https://github.com/vicwomg/pikaraoke/wiki/) to running pikaraoke in all manner of bizarre places including Android, Chromecast, and embedded TVs!
