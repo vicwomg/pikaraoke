@@ -140,11 +140,11 @@ class Karaoke:
         self.url_override = url
         self.prefer_hostname = prefer_hostname
         self.disable_bg_music = self.get_user_preference("disable_bg_music") or disable_bg_music
-        self.bg_music_volume = float(self.get_user_preference("bg_music_volume")) or bg_music_volume
+        self.bg_music_volume = self.get_user_preference("bg_music_volume") or bg_music_volume
         self.bg_music_path = self.default_bg_music_path if bg_music_path == None else bg_music_path
         self.disable_score = self.get_user_preference("disable_score") or disable_score
         self.limit_user_songs_by = (
-            int(self.get_user_preference("limit_user_songs_by")) or limit_user_songs_by
+            self.get_user_preference("limit_user_songs_by") or limit_user_songs_by
         )
 
         # other initializations
@@ -236,7 +236,18 @@ class Karaoke:
 
         # Try to get the value
         try:
-            return self.config_obj.get("USERPREFERENCES", preference)
+            pref = self.config_obj.get("USERPREFERENCES", preference)
+            if pref == "True":
+                return True
+            elif pref == "False":
+                return False
+            elif pref.isnumeric():
+                return int(pref)
+            elif pref.replace(".", "", 1).isdigit():
+                return float(pref)
+            else:
+                return pref
+
         except (configparser.NoOptionError, ValueError):
             return default_value
 
