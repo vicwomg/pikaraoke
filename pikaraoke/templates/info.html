@@ -1,6 +1,46 @@
 {% extends 'base.html' %} {% block scripts %}
 <script>
   $(function () {
+	$(".user-preference-input").change(function() {
+		let val = $(this).val();
+		let pref = $(this).attr("data-pref");
+		let startVal = $(this).attr("data-start-value");
+		let $this = $(this);
+
+		if (val == startVal) return;
+
+		let timeoutId = setTimeout(function() {
+			$this.attr("data-start-value", val);
+
+			if (pref == "bg_music_volume") {
+				val = val / 100;
+			}
+			changePreferences(pref, val);
+		}, 1000);
+
+		// Se o usuário alterar o valor novamente antes do delay expirar, cancela o timeout
+		$(this).one("change", function() {
+			clearTimeout(timeoutId);
+		});
+	})
+	$(".user-preference-checkbox").click(function() {
+		let val = $(this).is(":checked") ? "True" : "False";
+		let pref = $(this).attr("data-pref");
+
+		changePreferences(pref, val);
+	})
+
+	function changePreferences(pref, val) {
+		$.get("{{ url_for('change_preferences') }}", {
+			"pref": pref,
+			"val": val
+		})
+		.done(function(data) {
+			if (data[0]) showNotification(data[1], "is-success");
+			else showNotification(data[1], "is-danger")
+		});
+	}
+
     $("#quit-link").click(function (e) {
       e.preventDefault();
       // {# MSG: Confirmation text whe the user selects quit. #}
@@ -13,6 +53,14 @@
       e.preventDefault();
       // {# MSG: Confirmation text whe the user starts to turn off the machine running Pikaraoke. #}
       if (window.confirm("{{ _('Are you sure you want to shut down?') }}")) {
+        location.href = this.href;
+      }
+    });
+
+    $("#clear-preferences-link").click(function (e) {
+      e.preventDefault();
+      // {# MSG: Confirmation text whe the user clears preferences. #}
+      if (window.confirm("{{ _('Are you sure you want to clear your preferences?') }}")) {
         location.href = this.href;
       }
     });
@@ -101,6 +149,54 @@
 <hr />
 
 {% if admin %}
+{# MSG: Title of the user preferences section. #}
+<h1>{% trans %}User Preferences{% endtrans %}</h1>
+
+{# MSG: Help text explaining the the need to restart after changing preferences #}
+<p>You may need to restart pikaraoke for these changes to take effect.</p>
+
+<h5>Flags</h5>
+
+<div class="user-preference-container">
+  <input id="pref-bg-music" class="user-preference-checkbox" type="checkbox" data-pref="disable_bg_music" {% if disable_bg_music %}checked{% endif %}>
+  <label class="label">{# MSG: Checkbox label which enable/disables background music on the Splash Screen #} {% trans %}Disable background music on splash screen{% endtrans %}
+  </label>
+</div>
+
+<div class="user-preference-container">
+  <input id="pref-score" type="checkbox" class="user-preference-checkbox" data-pref="disable_score" {% if disable_score %}checked{% endif %}>
+  <label class="label">{# MSG: Checkbox label which enable/disables the Score Screen #} {% trans %}Disable the score screen after each song{% endtrans %}
+  </label>
+</div>
+
+<div class="user-preference-container">
+  <input id="pref-qr-code" type="checkbox" class="user-preference-checkbox" data-pref="hide_url" {% if hide_url %}checked{% endif %}>
+  <label class="label">{# MSG: Checkbox label which enable/disables the URL display #} {% trans %}Hide the URL and QR code{% endtrans %}
+  </label>
+</div>
+
+<h5 style="margin-top: 20px">Parameters</h5>
+
+<div class="user-preference-container">
+  <input id="bg-music-volume" class="user-preference-input" type="number" min="0" max="100" step="5" data-pref="bg_music_volume" data-start-value="{{ bg_music_volume }}" value="{{ bg_music_volume }}" />
+  <label class="label">{# MSG: Numberbox label for setting the background music volume#} {% trans %}Volume of the background music (min 0, max 100, default: 30){% endtrans %}
+  </label>
+</div>
+
+<div class="user-preference-container">
+  <input id="pref-limit-user-songs-by" class="user-preference-input" type="number" min="0" max="99" data-pref="limit_user_songs_by" data-start-value="{{ limit_user_songs_by }}" value="{{ limit_user_songs_by }}" />
+  <label class="label">
+      {# MSG: Numberbox label for limitting the number of songs for each player #} {% trans %}Limit of songs an individual user can add to the queue (0 = unlimited){% endtrans %}
+  </label>
+</div>
+
+<div style="margin-top: 20px">
+  {# MSG: Text for the link where the user can clear all user preferences #}
+  <a id="clear-preferences-link" class="has-text-danger" href="{{ url_for('clear_preferences') }}">{% trans %}Clear preferences{% endtrans %}</a>
+</div>
+
+<hr/>
+
 {# MSG: Title of the updates section. #}
 <h1>{% trans %}Updates{% endtrans %}</h1>
 {# MSG: Label before a link which forces Pikaraoke to rescan and pick up any new songs. #}
@@ -186,5 +282,20 @@
     Enable admin mode: <a href="{{ login_url }}">Log in</a>
   {% endtrans %}</p>
 {% endif %}
+
+<style>
+  .user-preference-container {
+    display: flex;
+    margin-bottom: 8px;
+  }
+  .user-preference-input {
+    min-width: 60px;
+    margin-right: 8px;
+  }
+  .user-preference-checkbox {
+    margin-right: 8px;
+    min-width: 20px;
+  }
+</style>
 
 {% endblock %}
