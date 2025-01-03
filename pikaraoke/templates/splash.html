@@ -307,9 +307,9 @@
   $(function () {
     $('#video-container').hide();
 
-    if ('{{ hide_overlay }}' == 'False') {
-      $('#bottom-container').addClass('overlay');
-      $('#top-container').addClass('overlay');
+    if ('{{ hide_overlay }}' == 'True') {
+      $('#bottom-container').hide();
+      $('#top-container').hide();
     }
     startNowPlayingPolling();
 
@@ -403,7 +403,7 @@
 </script>
 {% endblock %} {% block body %}
 
-<div id="top-container">
+<div id="top-container" class="overlay">
   <div
     id="now-playing"
     class="has-text-warning stroke is-size-4 has-text-right"
@@ -437,7 +437,7 @@
   </div>
 </div>
 
-<div id="bottom-container">
+<div id="bottom-container" class="overlay">
   {% if not hide_url %}
   <div id="qr-code">
     <img
@@ -451,6 +451,7 @@
     </div>
   </div>
   {% endif %}
+  <div></div>
   <div
     id="up-next"
     class="has-text-warning is-size-5 stroke has-text-right"

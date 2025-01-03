@@ -648,6 +648,15 @@ def info():
         disable_score=k.disable_score,
         hide_url=k.hide_url,
         limit_user_songs_by=k.limit_user_songs_by,
+        hide_notifications=k.hide_notifications,
+        hide_overlay=k.hide_overlay,
+        normalize_audio=k.normalize_audio,
+        complete_transcode_before_play=k.complete_transcode_before_play,
+        high_quality_audio=k.high_quality,
+        splash_delay=k.splash_delay,
+        screensaver_timeout=k.screensaver_timeout,
+        volume=int(100 * k.volume),
+        buffer_size=k.buffer_size,
     )
 
 
@@ -773,7 +782,7 @@ def change_preferences():
         return jsonify(rc)
     else:
         # MSG: Message shown after trying to change preferences without admin permissions.
-        flash(_("You don't have permission to define audio output"), "is-danger")
+        flash(_("You don't have permission to change preferences"), "is-danger")
     return redirect(url_for("info"))
 
 
@@ -787,7 +796,7 @@ def clear_preferences():
             flash(rc[1], "is-danger")
     else:
         # MSG: Message shown after trying to clear preferences without admin permissions.
-        flash(_("You don't have permission to define audio output"), "is-danger")
+        flash(_("You don't have permission to clear preferences"), "is-danger")
     return redirect(url_for("home"))
 
 
