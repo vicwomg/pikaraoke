@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-01-02 10:10-0800\n"
+"POT-Creation-Date: 2025-01-02 17:38-0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,140 +18,140 @@ msgstr ""
 "Generated-By: Babel 2.9.1\n"
 
 #. Message shown after logging in as admin successfully
-#: app.py:144
+#: app.py:139
 msgid "Admin mode granted!"
 msgstr ""
 
 #. Message shown after failing to login as admin
-#: app.py:148
+#: app.py:143
 msgid "Incorrect admin password!"
 msgstr ""
 
 #. Message shown after logging out as admin successfully
-#: app.py:162
+#: app.py:157
 msgid "Logged out of admin mode!"
 msgstr ""
 
 #. Message shown after adding random tracks
-#: app.py:223
+#: app.py:218
 #, python-format
 msgid "Added %s random tracks"
 msgstr ""
 
 #. Message shown after running out songs to add during random track addition
-#: app.py:226
+#: app.py:221
 msgid "Ran out of songs!"
 msgstr ""
 
 #. Message shown after clearing the queue
-#: app.py:236
+#: app.py:231
 msgid "Cleared the queue!"
 msgstr ""
 
 #. Message shown after moving a song down in the queue
-#: app.py:245
+#: app.py:240
 msgid "Moved down in queue"
 msgstr ""
 
 #. Message shown after failing to move a song down in the queue
-#: app.py:248
+#: app.py:243
 msgid "Error moving down in queue"
 msgstr ""
 
 #. Message shown after moving a song up in the queue
-#: app.py:253
+#: app.py:248
 msgid "Moved up in queue"
 msgstr ""
 
 #. Message shown after failing to move a song up in the queue
-#: app.py:256
+#: app.py:251
 msgid "Error moving up in queue"
 msgstr ""
 
 #. Message shown after deleting a song from the queue
-#: app.py:261
+#: app.py:256
 msgid "Deleted from queue"
 msgstr ""
 
 #. Message shown after failing to delete a song from the queue
-#: app.py:264
+#: app.py:259
 msgid "Error deleting from queue"
 msgstr ""
 
 #. Title of the files page.
 #. Navigation link for the page where the user can add existing songs to the
 #. queue.
-#: app.py:412 templates/base.html:201
+#: app.py:407 templates/base.html:201
 msgid "Browse"
 msgstr ""
 
 #. Message shown after starting a download. Song title is displayed in the
 #. message.
-#: app.py:437
+#: app.py:432
 #, python-format
 msgid "Download started: %s. This may take a couple of minutes to complete."
 msgstr ""
 
 #. Message shown after starting a download that will be adding a song to the
 #. queue.
-#: app.py:443
+#: app.py:438
 msgid "Song will be added to queue."
 msgstr ""
 
 #. Message shown after after starting a download.
-#: app.py:446
+#: app.py:441
 msgid "Song will appear in the \"available songs\" list."
 msgstr ""
 
 #. Message shown after trying to delete a song that is in the queue.
-#: app.py:490
+#: app.py:485
 msgid "Error: Can't delete this song because it is in the current queue"
 msgstr ""
 
 #. Message shown after deleting a song. Followed by the song path
-#: app.py:498
+#: app.py:493
 #, python-format
 msgid "Song deleted: %s"
 msgstr ""
 
 #. Message shown after trying to delete a song without specifying the song.
-#: app.py:501
+#: app.py:496
 msgid "Error: No song specified!"
 msgstr ""
 
 #. Message shown after trying to edit a song that is in the queue.
-#: app.py:508
+#: app.py:503
 msgid "Error: Can't edit this song because it is in the current queue: "
 msgstr ""
 
 #. Message shown after trying to rename a file to a name that already exists.
-#: app.py:536
+#: app.py:531
 #, python-format
 msgid "Error renaming file: '%s' to '%s', Filename already exists"
 msgstr ""
 
 #. Message shown after renaming a file.
-#: app.py:544
+#: app.py:539
 #, python-format
 msgid "Renamed file: %s to %s"
 msgstr ""
 
 #. Message shown after trying to edit a song without specifying the filename.
-#: app.py:549
+#: app.py:544
 msgid "Error: No filename parameters were specified!"
 msgstr ""
 
-#: app.py:613
+#: app.py:608
 msgid "CPU usage query unsupported"
 msgstr ""
 
 #. Message shown after starting the youtube-dl update.
-#: app.py:688
+#: app.py:692
 msgid "Updating youtube-dl! Should take a minute or two... "
 msgstr ""
 
 #. Message shown after trying to update youtube-dl without admin permissions.
-#: app.py:695
+#: app.py:699
 msgid "You don't have permission to update youtube-dl"
 msgstr ""
 
@@ -159,168 +159,172 @@ msgstr ""
 #. permissions.
 #. Message shown after trying to shut down the system without admin
 #. permissions.
-#: app.py:705 app.py:735
+#: app.py:709 app.py:739
 msgid "You don't have permission to shut down"
 msgstr ""
 
 #. Message shown after quitting pikaraoke.
-#: app.py:713
+#: app.py:717
 msgid "Exiting pikaraoke now!"
 msgstr ""
 
 #. Message shown after trying to quit pikaraoke without admin permissions.
-#: app.py:720
+#: app.py:724
 msgid "You don't have permission to quit"
 msgstr ""
 
 #. Message shown after shutting down the system.
-#: app.py:728
+#: app.py:732
 msgid "Shutting down system now!"
 msgstr ""
 
 #. Message shown after rebooting the system.
-#: app.py:743
+#: app.py:747
 msgid "Rebooting system now!"
 msgstr ""
 
 #. Message shown after trying to reboot the system without admin permissions.
-#: app.py:750
+#: app.py:754
 msgid "You don't have permission to Reboot"
 msgstr ""
 
 #. Message shown after expanding the filesystem.
-#: app.py:758
+#: app.py:762
 msgid "Expanding filesystem and rebooting system now!"
 msgstr ""
 
 #. Message shown after trying to expand the filesystem on a non-raspberry pi
 #. device.
-#: app.py:763
+#: app.py:767
 msgid "Cannot expand fs on non-raspberry pi devices!"
 msgstr ""
 
 #. Message shown after trying to expand the filesystem without admin
 #. permissions
-#: app.py:766
+#: app.py:770
 msgid "You don't have permission to resize the filesystem"
 msgstr ""
 
 #. Message shown after trying to change preferences without admin permissions.
+#: app.py:785
+msgid "You don't have permission to change preferences"
+msgstr ""
+
 #. Message shown after trying to clear preferences without admin permissions.
-#: app.py:781 app.py:795
-msgid "You don't have permission to define audio output"
+#: app.py:799
+msgid "You don't have permission to clear preferences"
 msgstr ""
 
 #. Message shown after trying to stream a file that does not exist.
-#: app.py:856
+#: app.py:860
 msgid "File not found."
 msgstr ""
 
-#: karaoke.py:269
+#: karaoke.py:276
 msgid "Your preferences were changed successfully"
 msgstr ""
 
-#: karaoke.py:272
+#: karaoke.py:279
 msgid "Something went wrong! Your preferences were not changed"
 msgstr ""
 
-#: karaoke.py:277
+#: karaoke.py:284
 msgid "Your preferences were cleared successfully"
 msgstr ""
 
-#: karaoke.py:279
+#: karaoke.py:286
 msgid "Something went wrong! Your preferences were not cleared"
 msgstr ""
 
 #. Message shown after the download is started
-#: karaoke.py:429
+#: karaoke.py:436
 #, python-format
 msgid "Downloading video: %s"
 msgstr ""
 
 #. Message shown after the download is completed and queued
-#: karaoke.py:445
+#: karaoke.py:452
 #, python-format
 msgid "Downloaded and queued: %s"
 msgstr ""
 
 #. Message shown after the download is completed but not queued
-#: karaoke.py:448
+#: karaoke.py:455
 #, python-format
 msgid "Downloaded: %s"
 msgstr ""
 
 #. Message shown after the download is completed but the adding to queue fails
-#: karaoke.py:457
+#: karaoke.py:464
 msgid "Error queueing song: "
 msgstr ""
 
 #. Message shown after the download process is completed but the song is not
 #. found
-#: karaoke.py:460
+#: karaoke.py:467
 msgid "Error downloading song: "
 msgstr ""
 
 #. Message shown when the song ends abnormally
-#: karaoke.py:663
+#: karaoke.py:670
 #, python-format
 msgid "Song ended abnormally: %s"
 msgstr ""
 
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
-#: karaoke.py:671
+#: karaoke.py:678
 #, python-format
 msgid "Transposing by %s semitones: %s"
 msgstr ""
 
-#: karaoke.py:704
+#: karaoke.py:711
 #, python-format
 msgid "You reached the limit of %s song(s) from an user in queue!"
 msgstr ""
 
 #. Message shown after the song is added to the top of the queue
-#: karaoke.py:716
+#: karaoke.py:723
 #, python-format
 msgid "%s added to top of queue: %s"
 msgstr ""
 
 #. Message shown after the song is added to the queue
-#: karaoke.py:721
+#: karaoke.py:728
 #, python-format
 msgid "%s added to the queue: %s"
 msgstr ""
 
-#: karaoke.py:723
+#: karaoke.py:730
 #, python-format
 msgid "Song added to the queue: %s"
 msgstr ""
 
 #. Message shown after the queue is cleared
-#: karaoke.py:747
+#: karaoke.py:754
 msgid "Clear queue"
 msgstr ""
 
 #. Message shown after the song is skipped, will be followed by song name
-#: karaoke.py:793
+#: karaoke.py:800
 #, python-format
 msgid "Skip: %s"
 msgstr ""
 
 #. Message shown after the song is resumed, will be followed by song name
-#: karaoke.py:804
+#: karaoke.py:811
 #, python-format
 msgid "Resume: %s"
 msgstr ""
 
 #. Message shown after the song is paused, will be followed by song name
-#: karaoke.py:807
+#: karaoke.py:814
 msgid "Pause"
 msgstr ""
 
 #. Message shown after the volume is changed, will be followed by the volume
 #. level
-#: karaoke.py:817
+#: karaoke.py:824
 #, python-format
 msgid "Volume: %s%"
 msgstr ""
@@ -400,7 +404,7 @@ msgstr ""
 
 #. Label which displays that the   songs are currently sorted by alphabetical
 #. order.
-#: templates/files.html:88
+#: templates/files.html:82
 msgid ""
 "Sorted\n"
 "  Alphabetically"
@@ -408,18 +412,18 @@ msgstr ""
 
 #. Button which changes how the songs are sorted so they become sorted     by
 #. date.
-#: templates/files.html:92
+#: templates/files.html:86
 msgid "Sort by Date"
 msgstr ""
 
 #. Label which displays that   the songs are currently sorted by date.
-#: templates/files.html:95
+#: templates/files.html:89
 msgid "Sorted by date"
 msgstr ""
 
 #. Button which changes how the songs are sorted so they become sorted     by
 #. name.
-#: templates/files.html:99
+#: templates/files.html:93
 msgid "Sort by Alphabetical"
 msgstr ""
 
@@ -534,122 +538,194 @@ msgid "Handy URL QR code to share with a pal:"
 msgstr ""
 
 #. Header of the information section about the computer running Pikaraoke.
-#: templates/info.html:126
+#: templates/info.html:129
 msgid "System Info"
 msgstr ""
 
 #. The hardware platform
-#: templates/info.html:129
+#: templates/info.html:132
 msgid "Platform:"
 msgstr ""
 
 #. The os version
-#: templates/info.html:131
+#: templates/info.html:134
 msgid "OS Version:"
 msgstr ""
 
 #. The version of the program "Youtube-dl".
-#: templates/info.html:133
+#: templates/info.html:136
 msgid "Youtube-dl (yt-dlp) version:"
 msgstr ""
 
 #. The version of the program "ffmpeg".
-#: templates/info.html:135
+#: templates/info.html:138
 msgid "FFmpeg version:"
 msgstr ""
 
 #. The version of Pikaraoke running right now.
-#: templates/info.html:137
+#: templates/info.html:140
 msgid "Pikaraoke version:"
 msgstr ""
 
-#: templates/info.html:139
+#: templates/info.html:142
 msgid "System stats"
 msgstr ""
 
 #. The CPU usage of the computer running Pikaraoke.
-#: templates/info.html:142
+#: templates/info.html:145
 #, python-format
 msgid "CPU: %(cpu)s"
 msgstr ""
 
 #. The disk usage of the computer running Pikaraoke. Used by downloaded songs.
-#: templates/info.html:144
+#: templates/info.html:147
 #, python-format
 msgid "Disk Usage: %(disk)s"
 msgstr ""
 
 #. The memory (RAM) usage of the computer running Pikaraoke.
-#: templates/info.html:146
+#: templates/info.html:149
 #, python-format
 msgid "Memory: %(memory)s"
 msgstr ""
 
 #. Title of the user preferences section.
-#: templates/info.html:153
+#: templates/info.html:155
 msgid "User Preferences"
 msgstr ""
 
-#. Help text explaining the the need to restart after changing preferences
-#: templates/info.html:156
-msgid "You may need to restart pikaraoke for these changes to take effect."
+#. Title text for the splash screen settings section of preferences
+#: templates/info.html:157
+msgid "Splash screen settings"
+msgstr ""
+
+#. Help text explaining the the need to restart after changing splash screen
+#. preferences
+#: templates/info.html:160
+msgid ""
+"*You may need to refresh the splash screen for these changes to take "
+"effect."
 msgstr ""
 
 #. Checkbox label which enable/disables background music on the Splash Screen
-#: templates/info.html:162
-msgid "Disable background music on splash screen"
+#: templates/info.html:164
+msgid "Disable background music"
 msgstr ""
 
 #. Checkbox label which enable/disables the Score Screen
-#: templates/info.html:168
+#: templates/info.html:170
 msgid "Disable the score screen after each song"
 msgstr ""
 
+#. Checkbox label which enable/disables notifications on the splash screen
+#: templates/info.html:176
+msgid "Hide notifications"
+msgstr ""
+
 #. Checkbox label which enable/disables the URL display
-#: templates/info.html:174
+#: templates/info.html:182
 msgid "Hide the URL and QR code"
 msgstr ""
 
+#. Checkbox label which enable/disables showing overlay data on the splash
+#. screen
+#: templates/info.html:188
+msgid "Hide all overlays, including now playing, up next, and QR code"
+msgstr ""
+
+#. Numberbox label for setting the default video volume
+#: templates/info.html:194
+msgid "Default volume of the videos (min 0, max 100)"
+msgstr ""
+
 #. Numberbox label for setting the background music volume
-#: templates/info.html:182
-msgid "Volume of the background music (min 0, max 100, default: 30)"
+#: templates/info.html:200
+msgid "Volume of the background music (min 0, max 100)"
+msgstr ""
+
+#. Numberbox label for setting the inactive delay before showing the
+#. screensaver
+#: templates/info.html:207
+msgid "The amount of idle time in seconds before the screen saver activates"
+msgstr ""
+
+#. Numberbox label for setting the delay before playing the next song
+#: templates/info.html:214
+msgid "The delay in seconds before starting the next song"
+msgstr ""
+
+#. Title text for the server settings section of preferences
+#: templates/info.html:218
+msgid "Server settings"
+msgstr ""
+
+#. Checkbox label which enable/disables audio volume normalization
+#: templates/info.html:222
+msgid "Normalize audio volume"
+msgstr ""
+
+#. Checkbox label which enable/disables high quality video downloads
+#: templates/info.html:228
+msgid "Download high quality videos"
+msgstr ""
+
+#. Checkbox label which enable/disables full transcode before playback
+#: templates/info.html:234
+msgid ""
+"Transcode video completely before playing (better browser compatibility, "
+"slower starts). Buffer size will be ignored.*"
 msgstr ""
 
 #. Numberbox label for limitting the number of songs for each player
-#: templates/info.html:189
+#: templates/info.html:241
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
 msgstr ""
 
+#. Numberbox label for setting the buffer size in bytes
+#: templates/info.html:248
+msgid ""
+"Buffer size in bytes. Transcode this amount of the video before sending "
+"it to the splash screen. "
+msgstr ""
+
+#. Help text explaining when videos will be transcoded
+#: templates/info.html:252
+msgid ""
+"* Videos are only transcoded when: normalization is on, a song is "
+"transposed, playing a CDG/MOV/AVI/MKV file. Most unmodified MP4 files "
+"will not need to be transcoded."
+msgstr ""
+
 #. Text for the link where the user can clear all user preferences
-#: templates/info.html:195
+#: templates/info.html:256
 msgid "Clear preferences"
 msgstr ""
 
 #. Title of the updates section.
-#: templates/info.html:201
+#: templates/info.html:262
 msgid "Updates"
 msgstr ""
 
 #. Label before a link which forces Pikaraoke to rescan and pick up any new
 #. songs.
-#: templates/info.html:203
+#: templates/info.html:264
 msgid "Refresh the song list:"
 msgstr ""
 
 #. Text on the link which forces Pikaraoke to rescan and pick up any new songs.
-#: templates/info.html:208
+#: templates/info.html:269
 msgid "Rescan song directory"
 msgstr ""
 
 #. Help text explaining the Rescan song directory link.
-#: templates/info.html:213
+#: templates/info.html:274
 msgid ""
 "You should only need to do this if you manually copied files to the "
 "download directory while pikaraoke was running."
 msgstr ""
 
 #. Text explaining why you might want to update youtube-dl.
-#: templates/info.html:218
+#: templates/info.html:279
 #, python-format
 msgid ""
 "If downloads or searches stopped working, updating youtube-dl will "
@@ -659,13 +735,13 @@ msgstr ""
 
 #. Text for the link which will try and update youtube-dl on the machine
 #. running Pikaraoke.
-#: templates/info.html:224
+#: templates/info.html:285
 msgid "Update youtube-dl"
 msgstr ""
 
-#. Help text which explains why updating youtube-dl can fail.  The log is a
-#. file on the machine running Pikaraoke.
-#: templates/info.html:230
+#. Help text which explains why updating youtube-dl can fail. The log is a file
+#. on the machine running Pikaraoke.
+#: templates/info.html:291
 msgid ""
 "This update link above may fail if you don't have proper file "
 "permissions.\n"
@@ -674,12 +750,12 @@ msgstr ""
 
 #. Title of the section on shutting down / turning off the machine running
 #. Pikaraoke.
-#: templates/info.html:237
+#: templates/info.html:298
 msgid "Shutdown"
 msgstr ""
 
 #. Explainitory text which explains why to use the shutdown link.
-#: templates/info.html:240
+#: templates/info.html:301
 msgid ""
 "Don't just pull the plug! Always shut down your server properly to avoid "
 "data corruption."
@@ -687,33 +763,33 @@ msgstr ""
 
 #. Text for button which turns off Pikaraoke for everyone using it at your
 #. house.
-#: templates/info.html:246
+#: templates/info.html:307
 msgid "Quit Pikaraoke"
 msgstr ""
 
 #. Text for button which reboots the machine running Pikaraoke.
-#: templates/info.html:249
+#: templates/info.html:310
 msgid "Reboot System"
 msgstr ""
 
 #. Text for button which turn soff the machine running Pikaraoke.
-#: templates/info.html:252
+#: templates/info.html:313
 msgid "Shutdown System"
 msgstr ""
 
 #. Title for section containing a few other options on the Info page.
-#: templates/info.html:259
+#: templates/info.html:320
 msgid "Other"
 msgstr ""
 
 #. Text for button
-#: templates/info.html:262
+#: templates/info.html:323
 msgid "Expand Raspberry Pi filesystem"
 msgstr ""
 
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
-#: templates/info.html:265
+#: templates/info.html:326
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
 "is larger than 4GB,\n"
@@ -723,13 +799,13 @@ msgid ""
 msgstr ""
 
 #. Link which will log out the user from admin mode.
-#: templates/info.html:275
+#: templates/info.html:336
 #, python-format
 msgid "Disable admin mode: <a href=\"%(logout_url)s\">Log out</a>"
 msgstr ""
 
 #. Link which will let the user log into admin mode.
-#: templates/info.html:281
+#: templates/info.html:342
 #, python-format
 msgid ""
 "\n"
@@ -954,24 +1030,24 @@ msgid "Woah, who let Freddie Mercury in here?"
 msgstr ""
 
 #. Label for the next song to be played in the queue.
-#: templates/splash.html:182 templates/splash.html:460
+#: templates/splash.html:182 templates/splash.html:461
 msgid "Up next:"
 msgstr ""
 
 #. Label of the singer for next song to be played in the queue. (Who added it
 #. to the queue.)
 #. Label for the next singer in the queue.
-#: templates/splash.html:184 templates/splash.html:467
+#: templates/splash.html:184 templates/splash.html:468
 msgid "Next singer:"
 msgstr ""
 
 #. The title of the score screen, telling the user their singing score
-#: templates/splash.html:483
+#: templates/splash.html:484
 msgid "Your Score"
 msgstr ""
 
 #. Prompt for interaction in order to enable video autoplay.
-#: templates/splash.html:497
+#: templates/splash.html:498
 msgid ""
 "Due to limititations with browser permissions, you must interact\n"
 "      with the page once before it allows autoplay of videos. Pikaraoke "
@@ -981,6 +1057,6 @@ msgid ""
 msgstr ""
 
 #. Button to confirm to enable video autoplay.
-#: templates/splash.html:509
+#: templates/splash.html:510
 msgid "Confirm"
 msgstr ""

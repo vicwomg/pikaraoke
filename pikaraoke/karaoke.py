@@ -123,20 +123,27 @@ class Karaoke:
         # override with supplied constructor args if provided
         self.port = port
         self.hide_url = self.get_user_preference("hide_url") or hide_url
-        self.hide_notifications = hide_notifications
+        self.hide_notifications = (
+            self.get_user_preference("hide_notifications") or hide_notifications
+        )
         self.hide_raspiwifi_instructions = hide_raspiwifi_instructions
         self.hide_splash_screen = hide_splash_screen
         self.download_path = download_path
-        self.high_quality = high_quality
-        self.splash_delay = int(splash_delay)
-        self.volume = volume
-        self.normalize_audio = normalize_audio
-        self.complete_transcode_before_play = complete_transcode_before_play
-        self.buffer_size = buffer_size
+        self.high_quality = self.get_user_preference("high_quality") or high_quality
+        self.splash_delay = self.get_user_preference("splash_delay") or int(splash_delay)
+        self.volume = self.get_user_preference("volume") or volume
+        self.normalize_audio = self.get_user_preference("normalize_audio") or normalize_audio
+        self.complete_transcode_before_play = (
+            self.get_user_preference("complete_transcode_before_play")
+            or complete_transcode_before_play
+        )
+        self.buffer_size = self.get_user_preference("buffer_size") or buffer_size
         self.youtubedl_path = youtubedl_path
         self.logo_path = self.default_logo_path if logo_path == None else logo_path
-        self.hide_overlay = hide_overlay
-        self.screensaver_timeout = screensaver_timeout
+        self.hide_overlay = self.get_user_preference("hide_overlay") or hide_overlay
+        self.screensaver_timeout = (
+            self.get_user_preference("screensaver_timeout") or screensaver_timeout
+        )
         self.url_override = url
         self.prefer_hostname = prefer_hostname
         self.disable_bg_music = self.get_user_preference("disable_bg_music") or disable_bg_music
