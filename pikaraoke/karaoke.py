@@ -73,7 +73,7 @@ class Karaoke:
     volume = None
     loop_interval = 500  # in milliseconds
     default_logo_path = os.path.join(base_path, "logo.png")
-    default_bg_music_path = os.path.join(base_path, "static/sounds/midnight-dorufin.mp3")
+    default_bg_music_path = os.path.join(base_path, "static/music/")
     screensaver_timeout = 300  # in seconds
 
     ffmpeg_process = None
