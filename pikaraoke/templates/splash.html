@@ -105,11 +105,35 @@
     return document.getElementById('background-music');
   }
 
-  // handle background music
+  // A global array of the paths to mp3s for the background music playlist
+  // it will be loaded from the /bg_playlist endpoint
+  var bg_playlist = []
+
+  // Gets the next song from the playlist, rotating back to the first song if at the end
+  function getNextBgMusicSong() {
+    let currentSong = getBackgroundMusicPlayer().getAttribute('src');
+    let nextSong = bg_playlist[0];
+    if (currentSong) {
+      let currentIndex = bg_playlist.indexOf(currentSong);
+      if (currentIndex >= 0 && currentIndex < bg_playlist.length - 1) {
+        nextSong = bg_playlist[currentIndex + 1];
+      }
+    }
+    return nextSong;
+  }
+
+  // Plays or pauses the background music
   async function playBGMusic(play) {
 	  let bgMusicVolume = "{{ bg_music_volume }}" *1 //hack to parse string to float;
 	  if ('{{ disable_bg_music }}' == 'False') {
       let audio = getBackgroundMusicPlayer();
+      if (bg_playlist.length == 0) {
+        console.log('No background music playlist loaded');
+        return;
+      }
+      if (!audio.getAttribute('src')) {
+        audio.setAttribute('src', getNextBgMusicSong());
+      }
       if (play == true) {
         if (isMediaPlaying(audio)) {
           return; // already playing
@@ -307,6 +331,7 @@
     });
   }
 
+  // ** Post page load actions and event handlers **
   $(function () {
     $('#video-container').hide();
 
@@ -358,6 +383,20 @@
       endSong("error while playing");
     });
 
+    // Load the background music playlist from server
+    $.get('{{ url_for("bg_playlist") }}', function (data) {
+      if (data) bg_playlist = data;
+    });
+
+    // Add a listener to the background player to play the next song in the playlist
+    const bgMusic = getBackgroundMusicPlayer();
+    bgMusic.addEventListener("ended", async () => {
+      bgMusic.setAttribute('src', getNextBgMusicSong());
+      await bgMusic.load();
+      await setTimeout(() => {}, 2500) // delay between songs
+      await bgMusic.play();
+    });
+
     //make sure we end the song if the user closes the window or leaves page
     window.addEventListener(
       'beforeunload',
@@ -382,9 +421,7 @@
         showMenu = true;
       }
     });
-  });
 
-  document.addEventListener('DOMContentLoaded', (event) => {
     let params = new URLSearchParams(window.location.search);
     let dismissConfirmation = params.get('confirm');
 
@@ -556,10 +593,8 @@
   </div>
 </div>
 
-<audio id="background-music" loop>
-	<source src="{{ url_for('background_music') }}" type="audio/mpeg">
-	<source src="{{ url_for('background_music') }}" type="audio/ogg">
-	<source src="{{ url_for('background_music') }}" type="audio/wav">
+<audio id="background-music">
+  <source src="" type="audio/mpeg">
 </audio>
 
 <audio id="score-drums">

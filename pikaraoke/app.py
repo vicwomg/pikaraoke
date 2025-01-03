@@ -3,7 +3,6 @@ import datetime
 import hashlib
 import json
 import logging
-import mimetypes
 import os
 import re
 import signal
@@ -41,6 +40,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
+from pikaraoke.lib.background_music import create_randomized_playlist
 from pikaraoke.lib.file_resolver import delete_tmp_dir, get_tmp_dir
 from pikaraoke.lib.get_platform import get_platform, is_raspberry_pi
 
@@ -453,11 +453,20 @@ def logo():
     return send_file(k.logo_path, mimetype="image/png")
 
 
-@app.route("/background_music")
-def background_music():
-    music_path = k.bg_music_path
-    mime_type, _ = mimetypes.guess_type(music_path)
-    return send_file(k.bg_music_path, mimetype=mime_type)
+# Routes for streaming background music
+@app.route("/bg_music/<file>", methods=["GET"])
+def bg_music(file):
+    mp3_path = os.path.join(k.bg_music_path, file)
+    return send_file(mp3_path, mimetype="audio/mpeg")
+
+
+# Route for getting the randomized background music playlist
+@app.route("/bg_playlist", methods=["GET"])
+def bg_playlist():
+    if (k.bg_music_path == None) or (not os.path.exists(k.bg_music_path)):
+        return jsonify([])
+    playlist = create_randomized_playlist(k.bg_music_path, "/bg_music")
+    return jsonify(playlist)
 
 
 @app.route("/end_song", methods=["GET", "POST"])
@@ -1064,7 +1073,7 @@ def main():
     parser.add_argument(
         "--bg-music-path",
         nargs="+",
-        help="Path to a custom background music for the splash screen. (.mp3, .wav or .ogg)",
+        help="Path to a custom directory for the splash screen background music. Directory must contain mp3 files which will be randomized in a playlist.",
         default=None,
         required=False,
     ),
