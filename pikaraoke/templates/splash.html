@@ -47,6 +47,7 @@
   var menuButtonVisible = false;
   var confirmationDismissed = false;
   var volume = 0.85;
+  var isScoreShown = false;
 
   const scoreReviews = {
 	low:[
@@ -86,15 +87,17 @@
     $.get('{{ url_for("clear_command") }}');
   }
 
-  function stopVideo() {
+  function hideVideo() {
     $("#video-container").hide();
   }
 
   async function endSong(reason=null, showScore=false) {
-    stopVideo();
     if (showScore && '{{ disable_score }}' == 'False') {
+      isScoreShown = true;
 		  await startScore("{{ url_for('static', filename='') }}");
+      isScoreShown = false;
 	  }
+    hideVideo();
     $.post('{{ url_for("end_song") }}', {reason: reason});
   }
 
@@ -237,7 +240,7 @@
           $(video).animate({ volume: 0 }, 1000, () => {
             video.pause();
             video.volume = obj.volume;
-            stopVideo();
+            hideVideo();
           });
         }
 
@@ -248,7 +251,7 @@
             video.volume = obj.volume;
           });
         }
-        if (obj.now_playing && video.paused && !obj.is_paused) {
+        if (obj.now_playing && video.paused && !obj.is_paused && !isScoreShown) {
           video.play();
           video.volume = 0
           $(video).animate({ volume: obj.volume }, 1000);
