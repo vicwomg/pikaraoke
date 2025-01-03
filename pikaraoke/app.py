@@ -801,11 +801,9 @@ def clear_preferences():
 
 
 # Streams the file in chunks from the filesystem (chrome supports it, safari does not)
-
-
 @app.route("/stream/<id>")
 def stream(id):
-    file_path = f"{get_tmp_dir()}/{id}.mp4"
+    file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
 
     def generate():
         position = 0  # Initialize the position variable
@@ -830,7 +828,7 @@ def stream(id):
 # (Safari compatible, but requires the ffmpeg transcoding to be complete to know file size)
 @app.route("/stream/full/<id>")
 def stream_full(id):
-    file_path = f"{get_tmp_dir()}/{id}.mp4"
+    file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
     try:
         file_size = os.path.getsize(file_path)
         range_header = request.headers.get("Range", None)
