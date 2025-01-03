@@ -12,7 +12,7 @@
 		let timeoutId = setTimeout(function() {
 			$this.attr("data-start-value", val);
 
-			if (pref == "bg_music_volume") {
+			if (pref == "bg_music_volume" || pref == "volume") {
 				val = val / 100;
 			}
 			changePreferences(pref, val);
@@ -120,7 +120,10 @@
 
   </div>
 
-<hr />
+  <hr />
+
+
+{% if admin %}
 
 {# MSG: Header of the information section about the computer running Pikaraoke. #}
 <h1>{% trans %}System Info{% endtrans %}</h1>
@@ -148,18 +151,17 @@
 
 <hr />
 
-{% if admin %}
 {# MSG: Title of the user preferences section. #}
 <h1>{% trans %}User Preferences{% endtrans %}</h1>
 
-{# MSG: Help text explaining the the need to restart after changing preferences #}
-<p>{% trans %}You may need to restart pikaraoke for these changes to take effect.{% endtrans %}</p>
+<h4>{# MSG: Title text for the splash screen settings section of preferences #}{% trans %}Splash screen settings{% endtrans %}</h4>
 
-<h5>Flags</h5>
+{# MSG: Help text explaining the the need to restart after changing splash screen preferences #}
+<p class="has-text-warning" style="margin-top: 10px">{% trans %}*You may need to refresh the splash screen for these changes to take effect.{% endtrans %}</p>
 
 <div class="user-preference-container">
   <input id="pref-bg-music" class="user-preference-checkbox" type="checkbox" data-pref="disable_bg_music" {% if disable_bg_music %}checked{% endif %}>
-  <label class="label">{# MSG: Checkbox label which enable/disables background music on the Splash Screen #} {% trans %}Disable background music on splash screen{% endtrans %}
+  <label class="label">{# MSG: Checkbox label which enable/disables background music on the Splash Screen #} {% trans %}Disable background music{% endtrans %}
   </label>
 </div>
 
@@ -170,16 +172,66 @@
 </div>
 
 <div class="user-preference-container">
+  <input id="pref-notifications" type="checkbox" class="user-preference-checkbox" data-pref="hide_notifications" {% if hide_notifications %}checked{% endif %}>
+  <label class="label">{# MSG: Checkbox label which enable/disables notifications on the splash screen #} {% trans %}Hide notifications{% endtrans %}
+  </label>
+</div>
+
+<div class="user-preference-container">
   <input id="pref-qr-code" type="checkbox" class="user-preference-checkbox" data-pref="hide_url" {% if hide_url %}checked{% endif %}>
   <label class="label">{# MSG: Checkbox label which enable/disables the URL display #} {% trans %}Hide the URL and QR code{% endtrans %}
   </label>
 </div>
 
-<h5 style="margin-top: 20px">Parameters</h5>
+<div class="user-preference-container">
+  <input id="pref-overlay" type="checkbox" class="user-preference-checkbox" data-pref="hide_overlay" {% if hide_overlay %}checked{% endif %}>
+  <label class="label">{# MSG: Checkbox label which enable/disables showing overlay data on the splash screen #} {% trans %}Hide all overlays, including now playing, up next, and QR code{% endtrans %}
+  </label>
+</div>
+
+<div class="user-preference-container">
+  <input id="pref-volume" class="user-preference-input" type="number" min="0" max="100" step="5" data-pref="volume" data-start-value="{{ volume }}" value="{{ volume }}" />
+  <label class="label">{# MSG: Numberbox label for setting the default video volume#} {% trans %}Default volume of the videos (min 0, max 100){% endtrans %}
+  </label>
+</div>
 
 <div class="user-preference-container">
   <input id="bg-music-volume" class="user-preference-input" type="number" min="0" max="100" step="5" data-pref="bg_music_volume" data-start-value="{{ bg_music_volume }}" value="{{ bg_music_volume }}" />
-  <label class="label">{# MSG: Numberbox label for setting the background music volume#} {% trans %}Volume of the background music (min 0, max 100, default: 30){% endtrans %}
+  <label class="label">{# MSG: Numberbox label for setting the background music volume#} {% trans %}Volume of the background music (min 0, max 100){% endtrans %}
+  </label>
+</div>
+
+<div class="user-preference-container">
+  <input id="pref-screensaver-timeout" class="user-preference-input" type="number" min="0" max="999" data-pref="screensaver_timeout" data-start-value="{{ screensaver_timeout }}" value="{{ screensaver_timeout }}" />
+  <label class="label">
+    {# MSG: Numberbox label for setting the inactive delay before showing the screensaver  #} {% trans %}The amount of idle time in seconds before the screen saver activates{% endtrans %}
+  </label>
+</div>
+
+<div class="user-preference-container">
+  <input id="pref-splash-delay" class="user-preference-input" type="number" min="0" max="99" data-pref="splash_delay" data-start-value="{{ splash_delay }}" value="{{ splash_delay }}" />
+  <label class="label">
+      {# MSG: Numberbox label for setting the delay before playing the next song #} {% trans %}The delay in seconds before starting the next song{% endtrans %}
+  </label>
+</div>
+
+<h4 style="margin-top: 20px">{# MSG: Title text for the server settings section of preferences #}{% trans %}Server settings{% endtrans %}</h4>
+
+<div class="user-preference-container">
+  <input id="pref-normalize" type="checkbox" class="user-preference-checkbox" data-pref="normalize_audio" {% if normalize_audio %}checked{% endif %}>
+  <label class="label">{# MSG: Checkbox label which enable/disables audio volume normalization #} {% trans %}Normalize audio volume{% endtrans %}
+  </label>
+</div>
+
+<div class="user-preference-container">
+  <input id="pref-high-quality" type="checkbox" class="user-preference-checkbox" data-pref="high_quality" {% if high_quality %}checked{% endif %}>
+  <label class="label">{# MSG: Checkbox label which enable/disables high quality video downloads #} {% trans %}Download high quality videos{% endtrans %}
+  </label>
+</div>
+
+<div class="user-preference-container">
+  <input id="pref-complete_transcode_before_play" type="checkbox" class="user-preference-checkbox" data-pref="complete_transcode_before_play" {% if complete_transcode_before_play %}checked{% endif %}>
+  <label class="label">{# MSG: Checkbox label which enable/disables full transcode before playback #} {% trans %}Transcode video completely before playing (better browser compatibility, slower starts). Buffer size will be ignored.*{% endtrans %}
   </label>
 </div>
 
@@ -189,6 +241,15 @@
       {# MSG: Numberbox label for limitting the number of songs for each player #} {% trans %}Limit of songs an individual user can add to the queue (0 = unlimited){% endtrans %}
   </label>
 </div>
+
+<div class="user-preference-container">
+  <input id="pref-buffer-size" class="user-preference-input" type="number" min="0" max="999999999" data-pref="buffer_size" data-start-value="{{ buffer_size }}" value="{{ buffer_size }}" />
+  <label class="label">
+      {# MSG: Numberbox label for setting the buffer size in bytes  #} {% trans %}Buffer size in bytes. Transcode this amount of the video before sending it to the splash screen. {% endtrans %}
+  </label>
+</div>
+
+<p class="help">{# MSG: Help text explaining when videos will be transcoded  #} {% trans %}* Videos are only transcoded when: normalization is on, a song is transposed, playing a CDG/MOV/AVI/MKV file. Most unmodified MP4 files will not need to be transcoded.{% endtrans %} </p>
 
 <div style="margin-top: 20px">
   {# MSG: Text for the link where the user can clear all user preferences #}
