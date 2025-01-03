@@ -99,7 +99,7 @@ class Karaoke:
         volume=0.85,
         normalize_audio=False,
         complete_transcode_before_play=False,
-        buffer_size=2000000,
+        buffer_size=150,
         log_level=logging.DEBUG,
         splash_delay=2,
         youtubedl_path="/usr/local/bin/yt-dlp",
@@ -173,7 +173,7 @@ class Karaoke:
     default volume: {self.volume}
     normalize audio: {self.normalize_audio}
     complete transcode before play: {self.complete_transcode_before_play}
-    buffer size: {self.buffer_size}
+    buffer size (kb): {self.buffer_size}
     youtube-dl path: {self.youtubedl_path}
     logo path: {self.logo_path}
     log_level: {log_level}
@@ -612,7 +612,7 @@ class Karaoke:
                 try:
                     output_file_size = os.path.getsize(fr.output_file)
                     if not self.complete_transcode_before_play:
-                        is_buffering_complete = output_file_size > self.buffer_size
+                        is_buffering_complete = output_file_size > self.buffer_size * 1000
                         if is_buffering_complete:
                             logging.debug(f"Buffering complete. File size: {output_file_size}")
                             break

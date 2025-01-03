@@ -41,7 +41,6 @@ If you want to support this project with a little monetary tip, it's much apprec
 - OSX
 - Windows
 - Linux
-- Docker - [See official Dockerhub repo](https://hub.docker.com/repository/docker/vicwomg/pikaraoke)
 
 ## Docker instructions
 
@@ -50,6 +49,8 @@ For Docker users, you can get going with one command. The deployed images includ
 ```sh
 docker run vicwomg/pikaraoke:latest
 ```
+
+For more information, [see official Dockerhub repo](https://hub.docker.com/repository/docker/vicwomg/pikaraoke)
 
 ## Native installation
 
@@ -131,6 +132,12 @@ poetry install
 ```sh
 # Run pikaraoke from the local codebase
 poetry run pikaraoke
+```
+
+If you don't want to install poetry, you can alternately install pikaraoke directly from the source code root:
+
+```sh
+pip install .
 ```
 
 See the [Pikaraoke development guide](https://github.com/vicwomg/pikaraoke/wiki/Pikaraoke-development-guide) for more details.
