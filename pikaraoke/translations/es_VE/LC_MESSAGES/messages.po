@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version:  \n"
 "Report-Msgid-Bugs-To: frederick.chang@hotmail.com\n"
-"POT-Creation-Date: 2025-01-02 17:38-0800\n"
+"POT-Creation-Date: 2025-01-03 00:00-0800\n"
 "PO-Revision-Date: 2024-08-28 00:55-0400\n"
 "Last-Translator: FREDERICK CHANG <frederick.chang@hotmail.com> \n"
 "Language: es_VE\n"
@@ -111,122 +111,122 @@ msgid "Song will appear in the \"available songs\" list."
 msgstr ""
 
 #. Message shown after trying to delete a song that is in the queue.
-#: app.py:485
+#: app.py:494
 msgid "Error: Can't delete this song because it is in the current queue"
 msgstr ""
 
 #. Message shown after deleting a song. Followed by the song path
-#: app.py:493
+#: app.py:502
 #, python-format
 msgid "Song deleted: %s"
 msgstr ""
 
 #. Message shown after trying to delete a song without specifying the song.
-#: app.py:496
+#: app.py:505
 msgid "Error: No song specified!"
 msgstr ""
 
 #. Message shown after trying to edit a song that is in the queue.
-#: app.py:503
+#: app.py:512
 msgid "Error: Can't edit this song because it is in the current queue: "
 msgstr ""
 
 #. Message shown after trying to rename a file to a name that already exists.
-#: app.py:531
+#: app.py:540
 #, python-format
 msgid "Error renaming file: '%s' to '%s', Filename already exists"
 msgstr ""
 
 #. Message shown after renaming a file.
-#: app.py:539
+#: app.py:548
 #, python-format
 msgid "Renamed file: %s to %s"
 msgstr ""
 
 #. Message shown after trying to edit a song without specifying the filename.
-#: app.py:544
+#: app.py:553
 msgid "Error: No filename parameters were specified!"
 msgstr ""
 
-#: app.py:608
+#: app.py:617
 msgid "CPU usage query unsupported"
 msgstr ""
 
 #. Message shown after starting the youtube-dl update.
-#: app.py:692
+#: app.py:701
 msgid "Updating youtube-dl! Should take a minute or two... "
 msgstr ""
 
 #. Message shown after trying to update youtube-dl without admin permissions.
-#: app.py:699
+#: app.py:708
 msgid "You don't have permission to update youtube-dl"
 msgstr ""
 
 #. Message shown after trying to refresh the song list without admin
 #. permissions.
 #. Message shown after trying to shut down the system without admin
-#: app.py:709 app.py:739
+#: app.py:718 app.py:748
 msgid "You don't have permission to shut down"
 msgstr ""
 
 #. Message shown after quitting pikaraoke.
-#: app.py:717
+#: app.py:726
 #, fuzzy
 msgid "Exiting pikaraoke now!"
 msgstr "Salir del pikaraoke"
 
 #. Message shown after trying to quit pikaraoke without admin permissions.
-#: app.py:724
+#: app.py:733
 msgid "You don't have permission to quit"
 msgstr ""
 
 #. Message shown after shutting down the system.
-#: app.py:732
+#: app.py:741
 #, fuzzy
 msgid "Shutting down system now!"
 msgstr "Sistema de apagado"
 
 #. Message shown after rebooting the system.
-#: app.py:747
+#: app.py:756
 #, fuzzy
 msgid "Rebooting system now!"
 msgstr "Reiniciar el sistema"
 
 #. Message shown after trying to reboot the system without admin permissions.
-#: app.py:754
+#: app.py:763
 msgid "You don't have permission to Reboot"
 msgstr ""
 
 #. Message shown after expanding the filesystem.
-#: app.py:762
+#: app.py:771
 msgid "Expanding filesystem and rebooting system now!"
 msgstr ""
 
 #. Message shown after trying to expand the filesystem on a non-raspberry pi
 #. device.
-#: app.py:767
+#: app.py:776
 msgid "Cannot expand fs on non-raspberry pi devices!"
 msgstr ""
 
 #. Message shown after trying to expand the filesystem without admin
 #. permissions
-#: app.py:770
+#: app.py:779
 msgid "You don't have permission to resize the filesystem"
 msgstr ""
 
 #. Message shown after trying to change preferences without admin permissions.
-#: app.py:785
+#: app.py:794
 msgid "You don't have permission to change preferences"
 msgstr ""
 
 #. Message shown after trying to clear preferences without admin permissions.
-#: app.py:799
+#: app.py:808
 #, fuzzy
 msgid "You don't have permission to clear preferences"
 msgstr "¿Estás seguro(a) de que quieres reiniciar?"
 
 #. Message shown after trying to stream a file that does not exist.
-#: app.py:860
+#: app.py:867
 msgid "File not found."
 msgstr ""
 
@@ -702,11 +702,11 @@ msgstr ""
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
 msgstr ""
 
-#. Numberbox label for setting the buffer size in bytes
+#. Numberbox label for setting the buffer size in kilobytes
 #: templates/info.html:248
 msgid ""
-"Buffer size in bytes. Transcode this amount of the video before sending "
-"it to the splash screen. "
+"Buffer size in kilobytes. Transcode this amount of the video before "
+"sending it to the splash screen. "
 msgstr ""
 
 #. Help text explaining when videos will be transcoded
@@ -1007,99 +1007,99 @@ msgid ""
 msgstr "Agregar a la cola una vez descargado"
 
 #. Score review message
-#: templates/splash.html:53
+#: templates/splash.html:54
 msgid "Never sing again... ever."
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:54
+#: templates/splash.html:55
 msgid "That was a really good impression of a dying cat!"
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:55
+#: templates/splash.html:56
 msgid "Thank God it's over."
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:56
+#: templates/splash.html:57
 msgid "Pass the mic, please!"
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:57
+#: templates/splash.html:58
 msgid "Well, I'm sure you're very good at your day job."
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:60
+#: templates/splash.html:61
 msgid "I've seen better."
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:61
+#: templates/splash.html:62
 msgid "Ok... just ok."
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:62
+#: templates/splash.html:63
 msgid "Not bad for an amateur."
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:63
+#: templates/splash.html:64
 msgid "You put on a decent show."
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:64
+#: templates/splash.html:65
 msgid "That was... something."
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:67
+#: templates/splash.html:68
 msgid "Congratulations! That was unbelievable!"
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:68
+#: templates/splash.html:69
 msgid "Wow, have you tried auditioning for The Voice?"
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:69
+#: templates/splash.html:70
 msgid "Please, sing another one!"
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:70
+#: templates/splash.html:71
 msgid "You rock! You know that?!"
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:71
+#: templates/splash.html:72
 msgid "Woah, who let Freddie Mercury in here?"
 msgstr ""
 
 #. Label for the next song to be played in the queue.
-#: templates/splash.html:182 templates/splash.html:461
+#: templates/splash.html:209 templates/splash.html:501
 msgid "Up next:"
 msgstr "A continuación:"
 
 #. Label of the singer for next song to be played in the queue. (Who added it
 #. to the queue.)
 #. Label for the next singer in the queue.
-#: templates/splash.html:184 templates/splash.html:468
+#: templates/splash.html:211 templates/splash.html:508
 msgid "Next singer:"
 msgstr "Próximo cantante:"
 
 #. The title of the score screen, telling the user their singing score
-#: templates/splash.html:484
+#: templates/splash.html:524
 msgid "Your Score"
 msgstr ""
 
 #. Prompt for interaction in order to enable video autoplay.
-#: templates/splash.html:498
+#: templates/splash.html:538
 msgid ""
 "Due to limititations with browser permissions, you must interact\n"
 "      with the page once before it allows autoplay of videos. Pikaraoke "
@@ -1109,6 +1109,6 @@ msgid ""
 msgstr ""
 
 #. Button to confirm to enable video autoplay.
-#: templates/splash.html:510
+#: templates/splash.html:550
 msgid "Confirm"
 msgstr ""

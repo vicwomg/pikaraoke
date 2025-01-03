@@ -899,7 +899,7 @@ def main():
     default_log_level = logging.INFO
     default_prefer_hostname = False
     default_bg_music_volume = 0.3
-    default_buffer_size = 150000
+    default_buffer_size = 150
 
     default_dl_dir = get_default_dl_dir(platform)
     default_youtubedl_path = "yt-dlp"
@@ -1026,7 +1026,7 @@ def main():
     parser.add_argument(
         "-b",
         "--buffer-size",
-        help=f"Buffer size for transcoded video (in bytes). Increase if you experience songs cutting off early. Higher size will transcode more of the file before streaming it to the client. This will increase the delay before playback begins. This value is ignored if --complete-transcode-before-play was specified. Default is: {default_buffer_size}",
+        help=f"Buffer size for transcoded video (in kilobytes). Increase if you experience songs cutting off early. Higher size will transcode more of the file before streaming it to the client. This will increase the delay before playback begins. This value is ignored if --complete-transcode-before-play was specified. Default is: {default_buffer_size}",
         default=default_buffer_size,
         type=int,
         required=False,

@@ -243,9 +243,9 @@
 </div>
 
 <div class="user-preference-container">
-  <input id="pref-buffer-size" class="user-preference-input" type="number" min="0" max="999999999" data-pref="buffer_size" data-start-value="{{ buffer_size }}" value="{{ buffer_size }}" />
+  <input id="pref-buffer-size" class="user-preference-input" type="number" min="0" max="9999" data-pref="buffer_size" data-start-value="{{ buffer_size }}" value="{{ buffer_size }}" />
   <label class="label">
-      {# MSG: Numberbox label for setting the buffer size in bytes  #} {% trans %}Buffer size in bytes. Transcode this amount of the video before sending it to the splash screen. {% endtrans %}
+      {# MSG: Numberbox label for setting the buffer size in kilobytes  #} {% trans %}Buffer size in kilobytes. Transcode this amount of the video before sending it to the splash screen. {% endtrans %}
   </label>
 </div>
 
