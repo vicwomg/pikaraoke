@@ -31,6 +31,8 @@
   const isFirefox = typeof InstallTrigger !== "undefined";
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
+  var socket = io();
+
   var mouseTimer = null,
     cursorVisible = true;
 
@@ -120,6 +122,10 @@
       }
     }
     return nextSong;
+  }
+
+  function getVideoPlayer() {
+    return $("#video")[0]
   }
 
   // Plays or pauses the background music
@@ -254,46 +260,6 @@
               endSong("failed to start");
             }
           }, 10000);
-        }
-
-        // Handle skip song
-        if (
-          (isMediaPlaying(video) || $("#video-container").is(":visible")) &&
-          !obj.now_playing
-        ) {
-          $(video).animate({ volume: 0 }, 1000, () => {
-            video.pause();
-            video.volume = obj.volume;
-            hideVideo();
-          });
-        }
-
-        // Handle pause/play
-        if (obj.now_playing && !video.paused && obj.is_paused) {
-          $(video).animate({ volume: 0 }, 1000, () => {
-            video.pause();
-            video.volume = obj.volume;
-          });
-        }
-        if (obj.now_playing && video.paused && !obj.is_paused && !isScoreShown) {
-          video.play();
-          video.volume = 0
-          $(video).animate({ volume: obj.volume }, 1000);
-        }
-
-        // Handle volume change
-        if (volume != obj.volume) {
-          volume = obj.volume; //set global volume
-          video.volume = volume;
-        }
-
-        // Handle restart
-        if (
-          obj.now_playing &&
-          obj.now_playing_command == "restart" &&
-          video.currentTime > 3
-        ) {
-          video.currentTime = 0;
         }
 
         // handle messages
@@ -439,6 +405,70 @@
       modal.classList.remove('is-active');
       playBGMusic(true);
     }
+
+
+    socket.on('pause', () => {
+      const video = getVideoPlayer();
+      const currVolume = video.volume;
+      if (!video.paused) {
+        $(video).animate({ volume: 0 }, 1000, () => {
+          video.pause();
+          video.volume = currVolume;
+        });
+        console.log(`Pause`);
+      }
+    });
+
+    socket.on('play', () => {
+      const video = getVideoPlayer();
+      const currVolume = video.volume;
+      if (video.paused) {
+        video.play();
+        video.volume = 0;
+        $(video).animate({ volume: currVolume }, 1000);
+        console.log(`Play`);
+      }
+    });
+
+    socket.on('skip', () => {
+      const video = getVideoPlayer();
+      if (!isMediaPlaying(video)) {
+        const currVolume = video.volume;
+        $(video).animate({ volume: 0 }, 1000, () => {
+            video.pause();
+            video.volume = currVolume;
+            hideVideo();
+          });
+        console.log(`Skip`);
+      }
+    });
+
+    socket.on('volume', (val) => {
+      const video = getVideoPlayer();
+      if (val == "up") {
+        console.log(`Volume up`);
+        video.volume = Math.min(1, video.volume + 0.1);
+      } else if (val == "down") {
+        console.log(`Volume down`);
+        video.volume = Math.max(0, video.volume - 0.1);
+      }
+      else {
+        console.log(`Volume: ${video.volume}`);
+        video.volume = val;
+      }
+
+    });
+
+    socket.on('restart', () => {
+      const video = getVideoPlayer();
+      if (isMediaPlaying(video)) {
+        video.currentTime = 0;
+        if (video.paused) video.play()
+        console.log(`Restart`);
+      // TODO: fix: doesn't automatically begin playback when restarting paused track
+      }
+    });
+
   });
 </script>
 {% endblock %} {% block body %}

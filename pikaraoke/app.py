@@ -1,3 +1,7 @@
+from gevent import monkey
+
+monkey.patch_all()
+
 import argparse
 import datetime
 import hashlib
@@ -29,6 +33,7 @@ from flask import (
 )
 from flask_babel import Babel
 from flask_paginate import Pagination, get_page_parameter
+from flask_socketio import SocketIO, emit
 from selenium import webdriver
 from selenium.common.exceptions import SessionNotCreatedException
 from selenium.webdriver.chrome.options import Options
@@ -51,9 +56,11 @@ except ImportError:
 
 _ = flask_babel.gettext
 
+from gevent.pywsgi import WSGIServer
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+socketio = SocketIO(app)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
@@ -101,6 +108,10 @@ def is_admin():
         if a == admin_password:
             return True
     return False
+
+
+def broadcast_event(event, data=None):
+    emit(event, data, namespace="/", broadcast=True)
 
 
 @babel.localeselector
@@ -280,11 +291,16 @@ def enqueue():
 @app.route("/skip")
 def skip():
     k.skip()
+    broadcast_event("skip")
     return redirect(url_for("home"))
 
 
 @app.route("/pause")
 def pause():
+    if k.is_paused:
+        broadcast_event("play")
+    else:
+        broadcast_event("pause")
     k.pause()
     return redirect(url_for("home"))
 
@@ -298,23 +314,27 @@ def transpose(semitones):
 @app.route("/restart")
 def restart():
     k.restart()
+    broadcast_event("restart")
     return redirect(url_for("home"))
 
 
 @app.route("/volume/<volume>")
 def volume(volume):
+    broadcast_event("volume", volume)
     k.volume_change(float(volume))
     return redirect(url_for("home"))
 
 
 @app.route("/vol_up")
 def vol_up():
+    broadcast_event("volume", "up")
     k.vol_up()
     return redirect(url_for("home"))
 
 
 @app.route("/vol_down")
 def vol_down():
+    broadcast_event("volume", "down")
     k.vol_down()
     return redirect(url_for("home"))
 
@@ -466,8 +486,6 @@ def bg_playlist():
     if (k.bg_music_path == None) or (not os.path.exists(k.bg_music_path)):
         return jsonify([])
     playlist = create_randomized_playlist(k.bg_music_path, "/bg_music", 50)
-    print(playlist)
-
     return jsonify(playlist)
 
 
@@ -1156,18 +1174,21 @@ def main():
     k.upgrade_youtubedl()
 
     # Start the CherryPy WSGI web server
-    cherrypy.tree.graft(app, "/")
-    # Set the configuration of the web server
-    cherrypy.config.update(
-        {
-            "engine.autoreload.on": False,
-            "log.screen": True,
-            "server.socket_port": int(args.port),
-            "server.socket_host": "0.0.0.0",
-            "server.thread_pool": 100,
-        }
-    )
-    cherrypy.engine.start()
+    # cherrypy.tree.graft(app, "/")
+    # # Set the configuration of the web server
+    # cherrypy.config.update(
+    #     {
+    #         "engine.autoreload.on": False,
+    #         "log.screen": True,
+    #         "server.socket_port": int(args.port),
+    #         "server.socket_host": "0.0.0.0",
+    #         "server.thread_pool": 100,
+    #     }
+    # )
+    # cherrypy.engine.start()
+
+    server = WSGIServer(("0.0.0.0", int(args.port)), app)
+    server.start()
 
     # force headless mode when on Android
     if (platform == "android") and not args.hide_splash_screen:
@@ -1201,7 +1222,8 @@ def main():
             print(
                 f"\n[ERROR] Error starting splash screen. If you're running headed mode over SSH, you may need to run `export DISPLAY=:0.0` first to target the host machine's screen. Example: `export DISPLAY=:0.0; pikaraoke`\n"
             )
-            cherrypy.engine.exit()
+            # cherrypy.engine.exit()
+            server.stop()
             sys.exit()
 
     # Start the karaoke process
@@ -1210,7 +1232,7 @@ def main():
     # Close running processes when done
     if not args.hide_splash_screen:
         driver.close()
-    cherrypy.engine.exit()
+    server.stop()
 
     delete_tmp_dir()
     sys.exit()
