@@ -465,7 +465,9 @@ def bg_music(file):
 def bg_playlist():
     if (k.bg_music_path == None) or (not os.path.exists(k.bg_music_path)):
         return jsonify([])
-    playlist = create_randomized_playlist(k.bg_music_path, "/bg_music")
+    playlist = create_randomized_playlist(k.bg_music_path, "/bg_music", 50)
+    print(playlist)
+
     return jsonify(playlist)
 
 
