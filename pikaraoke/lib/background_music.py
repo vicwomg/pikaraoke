@@ -3,16 +3,21 @@ import random
 import urllib
 
 
-def create_randomized_playlist(input_directory, base_url):
+def create_randomized_playlist(input_directory, base_url, max_songs=50):
     # Get all mp3 files in the given directory
-    mp3_files = [f for f in os.listdir(input_directory) if f.endswith(".mp3")]
+    files = [
+        f
+        for f in os.listdir(input_directory)
+        if f.lower().endswith(".mp3") or f.lower().endswith(".mp4")
+    ]
 
     # Shuffle the list of mp3 files
-    random.shuffle(mp3_files)
+    random.shuffle(files)
+    files = files[:max_songs]
 
     # Create the playlist
     playlist = []
-    for mp3 in mp3_files:
+    for mp3 in files:
         mp3 = urllib.parse.quote(mp3.encode("utf8"))
         url = f"{base_url}/{mp3}"
         playlist.append(f"{url}")
