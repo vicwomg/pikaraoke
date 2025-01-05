@@ -11,9 +11,8 @@ import threading
 import time
 from pathlib import Path
 from queue import Queue
-from subprocess import CalledProcessError, check_output
+from subprocess import check_output
 from threading import Thread
-from urllib.parse import urlparse
 
 import qrcode
 from flask_babel import _
@@ -23,17 +22,19 @@ from pikaraoke.lib.ffmpeg import (
     build_ffmpeg_cmd,
     get_ffmpeg_version,
     is_transpose_enabled,
+    supports_hardware_h264_encoding,
 )
 from pikaraoke.lib.file_resolver import (
     FileResolver,
     delete_tmp_dir,
     is_transcoding_required,
 )
-from pikaraoke.lib.get_platform import (
-    get_os_version,
-    get_platform,
-    is_raspberry_pi,
-    supports_hardware_h264_encoding,
+from pikaraoke.lib.get_platform import get_os_version, get_platform, is_raspberry_pi
+from pikaraoke.lib.youtube_dl import (
+    build_ytdl_download_command,
+    get_youtube_id_from_url,
+    get_youtubedl_version,
+    upgrade_youtubedl,
 )
 
 
@@ -44,15 +45,7 @@ def enqueue_output(out, queue):
     out.close()
 
 
-def decode_ignore(input):
-    return input.decode("utf-8", "ignore").strip()
-
-
 class Karaoke:
-    raspi_wifi_config_ip = "10.0.0.1"
-    raspi_wifi_conf_file = "/etc/raspiwifi/raspiwifi.conf"
-    raspi_wifi_config_installed = os.path.exists(raspi_wifi_conf_file)
-
     queue = []
     available_songs = []
 
@@ -78,12 +71,7 @@ class Karaoke:
 
     ffmpeg_process = None
     ffmpeg_log = None
-    ffmpeg_version = get_ffmpeg_version()
-    is_transpose_enabled = is_transpose_enabled()
     normalize_audio = False
-
-    raspberry_pi = is_raspberry_pi()
-    os_version = get_os_version()
 
     config_obj = configparser.ConfigParser()
 
@@ -93,7 +81,6 @@ class Karaoke:
         download_path="/usr/lib/pikaraoke/songs",
         hide_url=False,
         hide_notifications=False,
-        hide_raspiwifi_instructions=False,
         hide_splash_screen=False,
         high_quality=False,
         volume=0.85,
@@ -113,6 +100,7 @@ class Karaoke:
         bg_music_path=None,
         disable_score=False,
         limit_user_songs_by=0,
+        config_file_path="config.ini",
     ):
         logging.basicConfig(
             format="[%(asctime)s] %(levelname)s: %(message)s",
@@ -120,13 +108,22 @@ class Karaoke:
             level=int(log_level),
         )
 
-        # override with supplied constructor args if provided
+        # Platform-specific initializations
+        self.platform = get_platform()
+        self.os_version = get_os_version()
+        self.ffmpeg_version = get_ffmpeg_version()
+        self.is_transpose_enabled = is_transpose_enabled()
+        self.supports_hardware_h264_encoding = supports_hardware_h264_encoding()
+        self.youtubedl_version = get_youtubedl_version(youtubedl_path)
+        self.is_raspberry_pi = is_raspberry_pi()
+
+        # Initialize variables
+        self.config_file_path = config_file_path
         self.port = port
         self.hide_url = self.get_user_preference("hide_url") or hide_url
         self.hide_notifications = (
             self.get_user_preference("hide_notifications") or hide_notifications
         )
-        self.hide_raspiwifi_instructions = hide_raspiwifi_instructions
         self.hide_splash_screen = hide_splash_screen
         self.download_path = download_path
         self.high_quality = self.get_user_preference("high_quality") or high_quality
@@ -137,6 +134,7 @@ class Karaoke:
             self.get_user_preference("complete_transcode_before_play")
             or complete_transcode_before_play
         )
+        self.log_level = log_level
         self.buffer_size = self.get_user_preference("buffer_size") or buffer_size
         self.youtubedl_path = youtubedl_path
         self.logo_path = self.default_logo_path if logo_path == None else logo_path
@@ -144,7 +142,6 @@ class Karaoke:
         self.screensaver_timeout = (
             self.get_user_preference("screensaver_timeout") or screensaver_timeout
         )
-        self.url_override = url
         self.prefer_hostname = prefer_hostname
         self.disable_bg_music = self.get_user_preference("disable_bg_music") or disable_bg_music
         self.bg_music_volume = self.get_user_preference("bg_music_volume") or bg_music_volume
@@ -153,49 +150,19 @@ class Karaoke:
         self.limit_user_songs_by = (
             self.get_user_preference("limit_user_songs_by") or limit_user_songs_by
         )
+        self.url_override = url
+        self.url = self.get_url()
 
-        # other initializations
-        self.platform = get_platform()
-        self.screen = None
+        # Log the settings to debug level
+        self.log_settings_to_debug()
 
-        logging.debug(
-            f"""
-    http port: {self.port}
-    hide URL: {self.hide_url}
-    prefer hostname: {self.prefer_hostname}
-    url override: {self.url_override}
-    hide RaspiWiFi instructions: {self.hide_raspiwifi_instructions}
-    headless (hide splash): {self.hide_splash_screen}
-    splash_delay: {self.splash_delay}
-    screensaver_timeout: {self.screensaver_timeout}
-    high quality video: {self.high_quality}
-    download path: {self.download_path}
-    default volume: {self.volume}
-    normalize audio: {self.normalize_audio}
-    complete transcode before play: {self.complete_transcode_before_play}
-    buffer size (kb): {self.buffer_size}
-    youtube-dl path: {self.youtubedl_path}
-    logo path: {self.logo_path}
-    log_level: {log_level}
-    hide overlay: {self.hide_overlay}
-    disable bg music: {self.disable_bg_music}
-    bg music volume: {self.bg_music_volume}
-    bg music path: {self.bg_music_path}
-    disable score: {self.disable_score}
-    limit user songs by: {self.limit_user_songs_by}
-    hide notifications: {self.hide_notifications}
+        # get songs from download_path
+        self.get_available_songs()
 
-    platform: {self.platform}
-    os version: {self.os_version}
-    ffmpeg version: {self.ffmpeg_version}
-    ffmpeg transpose support: {self.is_transpose_enabled}
-    hardware h264 encoding: {supports_hardware_h264_encoding()}
-    youtubedl-version: {self.get_youtubedl_version()}
-"""
-        )
+        self.generate_qr_code()
 
-        # Generate connection URL and QR code,
-        if self.raspberry_pi:
+    def get_url(self):
+        if self.is_raspberry_pi:
             # retry in case pi is still starting up
             # and doesn't have an IP yet (occurs when launched from /etc/rc.local)
             end_time = int(time.time()) + 30
@@ -203,7 +170,7 @@ class Karaoke:
                 addresses_str = check_output(["hostname", "-I"]).strip().decode("utf-8", "ignore")
                 addresses = addresses_str.split(" ")
                 self.ip = addresses[0]
-                if not self.is_network_connected():
+                if len(self.ip) < 7:
                     logging.debug("Couldn't get IP, retrying....")
                 else:
                     break
@@ -214,26 +181,25 @@ class Karaoke:
 
         if self.url_override != None:
             logging.debug("Overriding URL with " + self.url_override)
-            self.url = self.url_override
+            url = self.url_override
         else:
             if self.prefer_hostname:
-                self.url = f"http://{socket.getfqdn().lower()}:{self.port}"
+                url = f"http://{socket.getfqdn().lower()}:{self.port}"
             else:
-                self.url = f"http://{self.ip}:{self.port}"
-        self.url_parsed = urlparse(self.url)
+                url = f"http://{self.ip}:{self.port}"
+        return url
 
-        # get songs from download_path
-        self.get_available_songs()
-
-        self.get_youtubedl_version()
-
-        self.generate_qr_code()
+    def log_settings_to_debug(self):
+        output = ""
+        for key, value in sorted(vars(self).items()):
+            output += f"  {key}: {value}\n"
+        logging.debug("\n\n" + output)
 
     # def get_user_preferences(self, preference):
     def get_user_preference(self, preference, default_value=False):
         # Try to read the config file
         try:
-            self.config_obj.read("config.ini")
+            self.config_obj.read(self.config_file_path)
         except FileNotFoundError:
             return default_value
 
@@ -270,7 +236,7 @@ class Karaoke:
             userprefs = self.config_obj["USERPREFERENCES"]
             userprefs[preference] = str(val)
             setattr(self, preference, eval(str(val)))
-            with open("config.ini", "w") as conf:
+            with open(self.config_file_path, "w") as conf:
                 self.config_obj.write(conf)
                 self.changed_preferences = True
             return [True, _("Your preferences were changed successfully")]
@@ -280,7 +246,7 @@ class Karaoke:
 
     def clear_preferences(self):
         try:
-            os.remove("config.ini")
+            os.remove(self.config_file_path)
             return [True, _("Your preferences were cleared successfully")]
         except OSError:
             return [False, _("Something went wrong! Your preferences were not cleared")]
@@ -311,67 +277,10 @@ class Karaoke:
                 s.close()
         return IP
 
-    def get_raspi_wifi_conf_vals(self):
-        """Extract values from the RaspiWiFi configuration file."""
-        f = open(self.raspi_wifi_conf_file, "r")
-
-        # Define default values.
-        #
-        # References:
-        # - https://github.com/jasbur/RaspiWiFi/blob/master/initial_setup.py (see defaults in input prompts)
-        # - https://github.com/jasbur/RaspiWiFi/blob/master/libs/reset_device/static_files/raspiwifi.conf
-        #
-        server_port = "80"
-        ssid_prefix = "RaspiWiFi Setup"
-        ssl_enabled = "0"
-
-        # Override the default values according to the configuration file.
-        for line in f.readlines():
-            if "server_port=" in line:
-                server_port = line.split("t=")[1].strip()
-            elif "ssid_prefix=" in line:
-                ssid_prefix = line.split("x=")[1].strip()
-            elif "ssl_enabled=" in line:
-                ssl_enabled = line.split("d=")[1].strip()
-
-        return (server_port, ssid_prefix, ssl_enabled)
-
-    def get_youtubedl_version(self):
-        self.youtubedl_version = (
-            check_output([self.youtubedl_path, "--version"]).strip().decode("utf8")
-        )
-        return self.youtubedl_version
-
     def upgrade_youtubedl(self):
         logging.info("Upgrading youtube-dl, current version: %s" % self.youtubedl_version)
-        try:
-            output = (
-                check_output([self.youtubedl_path, "-U"], stderr=subprocess.STDOUT)
-                .decode("utf8")
-                .strip()
-            )
-        except CalledProcessError as e:
-            output = e.output.decode("utf8")
-        logging.info(output)
-        if "You installed yt-dlp with pip or using the wheel from PyPi" in output:
-            # allow pip to break system packages (probably required if installed without venv)
-            args = ["install", "--upgrade", "yt-dlp", "--break-system-packages"]
-            try:
-                logging.info("Attempting youtube-dl upgrade via pip3...")
-                output = (
-                    check_output(["pip3"] + args, stderr=subprocess.STDOUT).decode("utf8").strip()
-                )
-            except FileNotFoundError:
-                logging.info("Attempting youtube-dl upgrade via pip...")
-                output = (
-                    check_output(["pip"] + args, stderr=subprocess.STDOUT).decode("utf8").strip()
-                )
-        self.get_youtubedl_version()
-
-        logging.info("Done. New version: %s" % self.youtubedl_version)
-
-    def is_network_connected(self):
-        return not len(self.ip) < 7
+        self.youtubedl_version = upgrade_youtubedl(self.youtubedl_path)
+        logging.info("Done. Installed version: %s" % self.youtubedl_version)
 
     def generate_qr_code(self):
         logging.debug("Generating URL QR code")
@@ -434,13 +343,9 @@ class Karaoke:
         displayed_title = title if title else video_url
         # MSG: Message shown after the download is started
         self.log_and_send(_("Downloading video: %s" % displayed_title))
-        dl_path = self.download_path + "%(title)s---%(id)s.%(ext)s"
-        file_quality = (
-            "bestvideo[ext!=webm][height<=1080]+bestaudio[ext!=webm]/best[ext!=webm]"
-            if self.high_quality
-            else "mp4"
+        cmd = build_ytdl_download_command(
+            self.youtubedl_path, video_url, self.download_path, self.high_quality
         )
-        cmd = [self.youtubedl_path, "-f", file_quality, "-o", dl_path, video_url]
         logging.debug("Youtube-dl command: " + " ".join(cmd))
         rc = subprocess.call(cmd)
         if rc != 0:
@@ -455,7 +360,7 @@ class Karaoke:
                 self.log_and_send(_("Downloaded: %s" % displayed_title), "success")
             self.get_available_songs()
             if enqueue:
-                y = self.get_youtube_id_from_url(video_url)
+                y = get_youtube_id_from_url(video_url)
                 s = self.find_song_by_youtube_id(y)
                 if s:
                     self.enqueue(s, user, log_action=False)
@@ -524,24 +429,11 @@ class Karaoke:
         logging.error("No available song found with youtube id: " + youtube_id)
         return None
 
-    def get_youtube_id_from_url(self, url):
-        if "v=" in url:  # accomodates youtube.com/watch?v= and m.youtube.com/?v=
-            s = url.split("watch?v=")
-        else:  # accomodates youtu.be/
-            s = url.split("u.be/")
-        if len(s) == 2:
-            if "?" in s[1]:  # Strip uneeded Youtube Params
-                s[1] = s[1][0 : s[1].index("?")]
-            return s[1]
-        else:
-            logging.error("Error parsing youtube id from url: " + url)
-            return None
-
     def log_ffmpeg_output(self):
         if self.ffmpeg_log != None and self.ffmpeg_log.qsize() > 0:
             while self.ffmpeg_log.qsize() > 0:
                 output = self.ffmpeg_log.get_nowait()
-                logging.debug("[FFMPEG] " + decode_ignore(output))
+                logging.debug("[FFMPEG] " + output.decode("utf-8", "ignore").strip())
 
     def play_file(self, file_path, semitones=0):
         logging.info(f"Playing file: {file_path} transposed {semitones} semitones")

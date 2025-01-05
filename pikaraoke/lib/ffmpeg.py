@@ -3,8 +3,6 @@ import subprocess
 
 import ffmpeg
 
-from pikaraoke.lib.get_platform import supports_hardware_h264_encoding
-
 
 def get_media_duration(file_path):
     try:
@@ -101,9 +99,25 @@ def is_transpose_enabled():
     try:
         filters = subprocess.run(["ffmpeg", "-filters"], capture_output=True)
     except FileNotFoundError:
-        # FFmpeg is not installed
         return False
     except IndexError:
-        # Unable to parse FFmpeg filters
         return False
     return "rubberband" in filters.stdout.decode()
+
+
+def supports_hardware_h264_encoding():
+    try:
+        codecs = subprocess.run(["ffmpeg", "-codecs"], capture_output=True)
+    except FileNotFoundError:
+        return False
+    except IndexError:
+        return False
+    return "h264_v4l2m2m" in codecs.stdout.decode()
+
+
+def is_ffmpeg_installed():
+    try:
+        subprocess.run(["ffmpeg", "-version"], capture_output=True)
+    except FileNotFoundError:
+        return False
+    return True

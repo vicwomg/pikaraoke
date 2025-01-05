@@ -33,6 +33,7 @@ default_log_level = logging.INFO
 default_prefer_hostname = False
 default_bg_music_volume = 0.3
 default_buffer_size = 150
+default_config_file_path = "config.ini"
 
 default_dl_dir = get_default_dl_dir(platform)
 default_youtubedl_path = "yt-dlp"
@@ -133,12 +134,6 @@ def parse_pikaraoke_args():
         required=False,
     )
     parser.add_argument(
-        "--hide-raspiwifi-instructions",
-        action="store_true",
-        help="Hide RaspiWiFi setup instructions from the splash screen.",
-        required=False,
-    )
-    parser.add_argument(
         "--hide-splash-screen",
         "--headless",
         action="store_true",
@@ -222,6 +217,12 @@ def parse_pikaraoke_args():
         "--limit-user-songs-by",
         help="Limit the number of songs a user can add to queue. User name 'Pikaraoke' is always unlimited (default: 0 = unlimited)",
         default="0",
+        required=False,
+    ),
+    parser.add_argument(
+        "--config-file-path",
+        help=f"Path to a config file to load settings from. Config file settings are set in the web interface or manually edited and will override command line arguments. Default {default_config_file_path}",
+        default=default_config_file_path,
         required=False,
     ),
 

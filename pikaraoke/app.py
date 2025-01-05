@@ -28,21 +28,15 @@ from flask import (
 )
 from flask_babel import Babel
 from flask_paginate import Pagination, get_page_parameter
-from selenium import webdriver
-from selenium.common.exceptions import SessionNotCreatedException
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.background_music import create_randomized_playlist
+from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir, get_tmp_dir
 from pikaraoke.lib.get_platform import get_platform, is_raspberry_pi
+from pikaraoke.lib.raspi_wifi_config import get_raspi_wifi_text
 from pikaraoke.lib.selenium import launch_splash_screen
 
 try:
@@ -266,7 +260,7 @@ def enqueue():
         d = request.form.to_dict()
         user = d["song-added-by"]
     rc = k.enqueue(song, user)
-    song_title = filename_from_path(song)
+    song_title = k.filename_from_path(song)
     return json.dumps({"song": song_title, "success": rc})
 
 
@@ -556,28 +550,8 @@ def splash():
         )
         text = ""
         if "Mode:Master" in status:
-            # Wifi is setup as a Access Point
-            ap_name = ""
-            ap_password = ""
-
-            if os.path.isfile("/etc/raspiwifi/raspiwifi.conf"):
-                f = open("/etc/raspiwifi/raspiwifi.conf", "r")
-
-                # Override the default values according to the configuration file.
-                for line in f.readlines():
-                    line = line.split("#", 1)[0]
-                    if "ssid_prefix=" in line:
-                        ap_name = line.split("ssid_prefix=")[1].strip()
-                    elif "wpa_key=" in line:
-                        ap_password = line.split("wpa_key=")[1].strip()
-
-            if len(ap_password) > 0:
-                text = [
-                    f"Wifi Network: {ap_name} Password: {ap_password}",
-                    f"Configure Wifi: {k.url.rpartition(':')[0]}",
-                ]
-            else:
-                text = [f"Wifi Network: {ap_name}", f"Configure Wifi: {k.url.rpartition(':',1)[0]}"]
+            # handle raspiwifi connection mode
+            text = get_raspi_wifi_text()
         else:
             # You are connected to Wifi as a client
             text = ""
@@ -850,6 +824,12 @@ def main():
 
     args = parse_pikaraoke_args()
 
+    if not is_ffmpeg_installed():
+        logging.error(
+            "ffmpeg is not installed, which is required to run PiKaraoke. See: https://www.ffmpeg.org/"
+        )
+        sys.exit(1)
+
     if args.admin_password:
         global admin_password
         admin_password = args.admin_password
@@ -873,7 +853,6 @@ def main():
         buffer_size=args.buffer_size,
         hide_url=args.hide_url,
         hide_notifications=args.hide_notifications,
-        hide_raspiwifi_instructions=args.hide_raspiwifi_instructions,
         hide_splash_screen=args.hide_splash_screen,
         high_quality=args.high_quality,
         logo_path=args.logo_path,
@@ -886,6 +865,7 @@ def main():
         bg_music_path=args.bg_music_path,
         disable_score=args.disable_score,
         limit_user_songs_by=args.limit_user_songs_by,
+        config_file_path=args.config_file_path,
     )
 
     # Expose some functions to jinja templates
