@@ -65,6 +65,24 @@ raspberry_pi = is_raspberry_pi()
 linux = get_platform() == "linux"
 
 
+def delayed_halt(cmd):
+    time.sleep(1.5)
+    k.queue_clear()
+    cherrypy.engine.stop()
+    cherrypy.engine.exit()
+    k.stop()
+    if cmd == 0:
+        sys.exit()
+    if cmd == 1:
+        os.system("shutdown now")
+    if cmd == 2:
+        os.system("reboot")
+    if cmd == 3:
+        process = subprocess.Popen(["raspi-config", "--expand-rootfs"])
+        process.wait()
+        os.system("reboot")
+
+
 def is_admin():
     if admin_password == None:
         return True
@@ -676,24 +694,6 @@ def refresh():
 
 @app.route("/quit")
 def quit():
-    # Delay system commands to allow redirect to render first
-    def delayed_halt(cmd):
-        time.sleep(1.5)
-        k.queue_clear()
-        cherrypy.engine.stop()
-        cherrypy.engine.exit()
-        k.stop()
-        if cmd == 0:
-            sys.exit()
-        if cmd == 1:
-            os.system("shutdown now")
-        if cmd == 2:
-            os.system("reboot")
-        if cmd == 3:
-            process = subprocess.Popen(["raspi-config", "--expand-rootfs"])
-            process.wait()
-            os.system("reboot")
-
     if is_admin():
         # MSG: Message shown after quitting pikaraoke.
         msg = _("Exiting pikaraoke now!")
