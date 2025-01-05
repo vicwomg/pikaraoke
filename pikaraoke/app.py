@@ -1,21 +1,17 @@
-import datetime
 import hashlib
 import json
 import logging
 import os
-import re
 import signal
 import subprocess
 import sys
 import threading
-import time
 
 import cherrypy
 import flask_babel
 import psutil
 from flask import (
     Flask,
-    Response,
     flash,
     jsonify,
     make_response,
@@ -33,11 +29,15 @@ from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.background_music import create_randomized_playlist
+from pikaraoke.lib.current_app import get_admin_password, get_karaoke_instance, is_admin
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
-from pikaraoke.lib.file_resolver import delete_tmp_dir, get_tmp_dir
+from pikaraoke.lib.file_resolver import delete_tmp_dir
 from pikaraoke.lib.get_platform import get_platform, is_raspberry_pi
 from pikaraoke.lib.raspi_wifi_config import get_raspi_wifi_text
 from pikaraoke.lib.selenium import launch_splash_screen
+from pikaraoke.routes.admin import get_admin_bp
+from pikaraoke.routes.preferences import get_preferences_bp
+from pikaraoke.routes.stream import get_stream_bp
 
 try:
     from urllib.parse import quote, unquote
@@ -54,37 +54,14 @@ app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
 babel = Babel(app)
 site_name = "PiKaraoke"
-admin_password = None
 raspberry_pi = is_raspberry_pi()
 linux = get_platform() == "linux"
 
 
-def delayed_halt(cmd):
-    time.sleep(1.5)
-    k.queue_clear()
-    cherrypy.engine.stop()
-    cherrypy.engine.exit()
-    k.stop()
-    if cmd == 0:
-        sys.exit()
-    if cmd == 1:
-        os.system("shutdown now")
-    if cmd == 2:
-        os.system("reboot")
-    if cmd == 3:
-        process = subprocess.Popen(["raspi-config", "--expand-rootfs"])
-        process.wait()
-        os.system("reboot")
-
-
-def is_admin():
-    if admin_password == None:
-        return True
-    if "admin" in request.cookies:
-        a = request.cookies.get("admin")
-        if a == admin_password:
-            return True
-    return False
+# Register blueprints additional routes
+app.register_blueprint(get_stream_bp())
+app.register_blueprint(get_preferences_bp())
+app.register_blueprint(get_admin_bp())
 
 
 @babel.localeselector
@@ -100,6 +77,7 @@ def get_locale():
 
 @app.route("/")
 def home():
+    k = get_karaoke_instance()
     return render_template(
         "home.html",
         site_title=site_name,
@@ -108,24 +86,6 @@ def home():
         admin=is_admin(),
         is_transpose_enabled=k.is_transpose_enabled,
     )
-
-
-@app.route("/auth", methods=["POST"])
-def auth():
-    d = request.form.to_dict()
-    p = d["admin-password"]
-    if p == admin_password:
-        resp = make_response(redirect("/"))
-        expire_date = datetime.datetime.now()
-        expire_date = expire_date + datetime.timedelta(days=90)
-        resp.set_cookie("admin", admin_password, expires=expire_date)
-        # MSG: Message shown after logging in as admin successfully
-        flash(_("Admin mode granted!"), "is-success")
-    else:
-        resp = make_response(redirect(url_for("login")))
-        # MSG: Message shown after failing to login as admin
-        flash(_("Incorrect admin password!"), "is-danger")
-    return resp
 
 
 @app.route("/login")
@@ -144,6 +104,7 @@ def logout():
 
 @app.route("/nowplaying")
 def nowplaying():
+    k = get_karaoke_instance()
     try:
         if len(k.queue) >= 1:
             next_song = k.queue[0]["title"]
@@ -177,12 +138,14 @@ def nowplaying():
 # Call this after receiving a command in the front end
 @app.route("/clear_command")
 def clear_command():
+    k = get_karaoke_instance()
     k.now_playing_command = None
     return ""
 
 
 @app.route("/queue")
 def queue():
+    k = get_karaoke_instance()
     return render_template(
         "queue.html", queue=k.queue, site_title=site_name, title="Queue", admin=is_admin()
     )
@@ -190,6 +153,7 @@ def queue():
 
 @app.route("/get_queue")
 def get_queue():
+    k = get_karaoke_instance()
     if len(k.queue) >= 1:
         return json.dumps(k.queue)
     else:
@@ -198,6 +162,7 @@ def get_queue():
 
 @app.route("/queue/addrandom", methods=["GET"])
 def add_random():
+    k = get_karaoke_instance()
     amount = int(request.args["amount"])
     rc = k.queue_add_random(amount)
     if rc:
@@ -211,6 +176,7 @@ def add_random():
 
 @app.route("/queue/edit", methods=["GET"])
 def queue_edit():
+    k = get_karaoke_instance()
     action = request.args["action"]
     if action == "clear":
         k.queue_clear()
@@ -249,6 +215,7 @@ def queue_edit():
 
 @app.route("/enqueue", methods=["POST", "GET"])
 def enqueue():
+    k = get_karaoke_instance()
     if "song" in request.args:
         song = request.args["song"]
     else:
@@ -266,48 +233,56 @@ def enqueue():
 
 @app.route("/skip")
 def skip():
+    k = get_karaoke_instance()
     k.skip()
     return redirect(url_for("home"))
 
 
 @app.route("/pause")
 def pause():
+    k = get_karaoke_instance()
     k.pause()
     return redirect(url_for("home"))
 
 
 @app.route("/transpose/<semitones>", methods=["GET"])
 def transpose(semitones):
+    k = get_karaoke_instance()
     k.transpose_current(int(semitones))
     return redirect(url_for("home"))
 
 
 @app.route("/restart")
 def restart():
+    k = get_karaoke_instance()
     k.restart()
     return redirect(url_for("home"))
 
 
 @app.route("/volume/<volume>")
 def volume(volume):
+    k = get_karaoke_instance()
     k.volume_change(float(volume))
     return redirect(url_for("home"))
 
 
 @app.route("/vol_up")
 def vol_up():
+    k = get_karaoke_instance()
     k.vol_up()
     return redirect(url_for("home"))
 
 
 @app.route("/vol_down")
 def vol_down():
+    k = get_karaoke_instance()
     k.vol_down()
     return redirect(url_for("home"))
 
 
 @app.route("/search", methods=["GET"])
 def search():
+    k = get_karaoke_instance()
     if "search_string" in request.args:
         search_string = request.args["search_string"]
         if "non_karaoke" in request.args and request.args["non_karaoke"] == "true":
@@ -329,6 +304,7 @@ def search():
 
 @app.route("/autocomplete")
 def autocomplete():
+    k = get_karaoke_instance()
     q = request.args.get("q").lower()
     result = []
     for each in k.available_songs:
@@ -342,6 +318,7 @@ def autocomplete():
 
 @app.route("/browse", methods=["GET"])
 def browse():
+    k = get_karaoke_instance()
     search = False
     q = request.args.get("q")
     if q:
@@ -399,6 +376,7 @@ def browse():
 
 @app.route("/download", methods=["POST"])
 def download():
+    k = get_karaoke_instance()
     d = request.form.to_dict()
     song = d["song-url"]
     user = d["song-added-by"]
@@ -432,17 +410,20 @@ def download():
 
 @app.route("/qrcode")
 def qrcode():
+    k = get_karaoke_instance()
     return send_file(k.qr_code_path, mimetype="image/png")
 
 
 @app.route("/logo")
 def logo():
+    k = get_karaoke_instance()
     return send_file(k.logo_path, mimetype="image/png")
 
 
 # Routes for streaming background music
 @app.route("/bg_music/<file>", methods=["GET"])
 def bg_music(file):
+    k = get_karaoke_instance()
     mp3_path = os.path.join(k.bg_music_path, file)
     return send_file(mp3_path, mimetype="audio/mpeg")
 
@@ -450,6 +431,7 @@ def bg_music(file):
 # Route for getting the randomized background music playlist
 @app.route("/bg_playlist", methods=["GET"])
 def bg_playlist():
+    k = get_karaoke_instance()
     if (k.bg_music_path == None) or (not os.path.exists(k.bg_music_path)):
         return jsonify([])
     playlist = create_randomized_playlist(k.bg_music_path, "/bg_music", 50)
@@ -458,6 +440,7 @@ def bg_playlist():
 
 @app.route("/end_song", methods=["GET", "POST"])
 def end_song():
+    k = get_karaoke_instance()
     d = request.form.to_dict()
     reason = d["reason"] if "reason" in d else None
     k.end_song(reason)
@@ -466,12 +449,14 @@ def end_song():
 
 @app.route("/start_song", methods=["GET"])
 def start_song():
+    k = get_karaoke_instance()
     k.start_song()
     return "ok"
 
 
 @app.route("/files/delete", methods=["GET"])
 def delete_file():
+    k = get_karaoke_instance()
     if "song" in request.args:
         song_path = request.args["song"]
         exists = any(item.get("file") == song_path for item in k.queue)
@@ -495,6 +480,7 @@ def delete_file():
 
 @app.route("/files/edit", methods=["GET", "POST"])
 def edit_file():
+    k = get_karaoke_instance()
     # MSG: Message shown after trying to edit a song that is in the queue.
     queue_error_msg = _("Error: Can't edit this song because it is in the current queue: ")
     if "song" in request.args:
@@ -543,6 +529,7 @@ def edit_file():
 
 @app.route("/splash")
 def splash():
+    k = get_karaoke_instance()
     # Only do this on Raspberry Pis
     if raspberry_pi:
         status = subprocess.run(["iwconfig", "wlan0"], stdout=subprocess.PIPE).stdout.decode(
@@ -575,7 +562,9 @@ def splash():
 
 @app.route("/info")
 def info():
+    k = get_karaoke_instance()
     url = k.url
+    admin_password = get_admin_password()
 
     # cpu
     try:
@@ -636,189 +625,6 @@ def info():
     )
 
 
-@app.route("/update_ytdl")
-def update_ytdl():
-    def update_youtube_dl():
-        time.sleep(3)
-        k.upgrade_youtubedl()
-
-    if is_admin():
-        flash(
-            # MSG: Message shown after starting the youtube-dl update.
-            _("Updating youtube-dl! Should take a minute or two... "),
-            "is-warning",
-        )
-        th = threading.Thread(target=update_youtube_dl)
-        th.start()
-    else:
-        # MSG: Message shown after trying to update youtube-dl without admin permissions.
-        flash(_("You don't have permission to update youtube-dl"), "is-danger")
-    return redirect(url_for("home"))
-
-
-@app.route("/refresh")
-def refresh():
-    if is_admin():
-        k.get_available_songs()
-    else:
-        # MSG: Message shown after trying to refresh the song list without admin permissions.
-        flash(_("You don't have permission to shut down"), "is-danger")
-    return redirect(url_for("browse"))
-
-
-@app.route("/quit")
-def quit():
-    if is_admin():
-        # MSG: Message shown after quitting pikaraoke.
-        msg = _("Exiting pikaraoke now!")
-        flash(msg, "is-danger")
-        k.send_message_to_splash(msg, "danger")
-        th = threading.Thread(target=delayed_halt, args=[0])
-        th.start()
-    else:
-        # MSG: Message shown after trying to quit pikaraoke without admin permissions.
-        flash(_("You don't have permission to quit"), "is-danger")
-    return redirect(url_for("home"))
-
-
-@app.route("/shutdown")
-def shutdown():
-    if is_admin():
-        # MSG: Message shown after shutting down the system.
-        msg = _("Shutting down system now!")
-        flash(msg, "is-danger")
-        k.send_message_to_splash(msg, "danger")
-        th = threading.Thread(target=delayed_halt, args=[1])
-        th.start()
-    else:
-        # MSG: Message shown after trying to shut down the system without admin permissions.
-        flash(_("You don't have permission to shut down"), "is-danger")
-    return redirect(url_for("home"))
-
-
-@app.route("/reboot")
-def reboot():
-    if is_admin():
-        # MSG: Message shown after rebooting the system.
-        msg = _("Rebooting system now!")
-        flash(msg, "is-danger")
-        k.send_message_to_splash(msg, "danger")
-        th = threading.Thread(target=delayed_halt, args=[2])
-        th.start()
-    else:
-        # MSG: Message shown after trying to reboot the system without admin permissions.
-        flash(_("You don't have permission to Reboot"), "is-danger")
-    return redirect(url_for("home"))
-
-
-@app.route("/expand_fs")
-def expand_fs():
-    if is_admin() and raspberry_pi:
-        # MSG: Message shown after expanding the filesystem.
-        flash(_("Expanding filesystem and rebooting system now!"), "is-danger")
-        th = threading.Thread(target=delayed_halt, args=[3])
-        th.start()
-    elif not raspberry_pi:
-        # MSG: Message shown after trying to expand the filesystem on a non-raspberry pi device.
-        flash(_("Cannot expand fs on non-raspberry pi devices!"), "is-danger")
-    else:
-        # MSG: Message shown after trying to expand the filesystem without admin permissions
-        flash(_("You don't have permission to resize the filesystem"), "is-danger")
-    return redirect(url_for("home"))
-
-
-@app.route("/change_preferences", methods=["GET"])
-def change_preferences():
-    if is_admin():
-        preference = request.args["pref"]
-        val = request.args["val"]
-
-        rc = k.change_preferences(preference, val)
-
-        return jsonify(rc)
-    else:
-        # MSG: Message shown after trying to change preferences without admin permissions.
-        flash(_("You don't have permission to change preferences"), "is-danger")
-    return redirect(url_for("info"))
-
-
-@app.route("/clear_preferences", methods=["GET"])
-def clear_preferences():
-    if is_admin():
-        rc = k.clear_preferences()
-        if rc[0]:
-            flash(rc[1], "is-success")
-        else:
-            flash(rc[1], "is-danger")
-    else:
-        # MSG: Message shown after trying to clear preferences without admin permissions.
-        flash(_("You don't have permission to clear preferences"), "is-danger")
-    return redirect(url_for("home"))
-
-
-# Streams the file in chunks from the filesystem (chrome supports it, safari does not)
-@app.route("/stream/<id>")
-def stream(id):
-    file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
-
-    def generate():
-        position = 0  # Initialize the position variable
-        chunk_size = 10240 * 1000 * 25  # Read file in up to 25MB chunks
-        with open(file_path, "rb") as file:
-            # Keep yielding file chunks as long as ffmpeg process is transcoding
-            while k.ffmpeg_process.poll() is None:
-                file.seek(position)  # Move to the last read position
-                chunk = file.read(chunk_size)
-                if chunk is not None and len(chunk) > 0:
-                    yield chunk
-                    position += len(chunk)  # Update the position with the size of the chunk
-                time.sleep(1)  # Wait a bit before checking the file size again
-            chunk = file.read(chunk_size)  # Read the last chunk
-            yield chunk
-            position += len(chunk)  # Update the position with the size of the chunk
-
-    return Response(generate(), mimetype="video/mp4")
-
-
-# Streams the file in full with proper range headers
-# (Safari compatible, but requires the ffmpeg transcoding to be complete to know file size)
-@app.route("/stream/full/<id>")
-def stream_full(id):
-    file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
-    try:
-        file_size = os.path.getsize(file_path)
-        range_header = request.headers.get("Range", None)
-        if not range_header:
-            with open(file_path, "rb") as file:
-                file_content = file.read()
-            return Response(file_content, mimetype="video/mp4")
-        # Extract range start and end from Range header (e.g., "bytes=0-499")
-        range_match = re.search(r"bytes=(\d+)-(\d*)", range_header)
-        start, end = range_match.groups()
-        start = int(start)
-        end = int(end) if end else file_size - 1
-        # Generate response with part of file
-        with open(file_path, "rb") as file:
-            file.seek(start)
-            data = file.read(end - start + 1)
-        status_code = 206  # Partial content
-        headers = {
-            "Content-Type": "video/mp4",
-            "Accept-Ranges": "bytes",
-            "Content-Range": f"bytes {start}-{end}/{file_size}",
-            "Content-Length": str(len(data)),
-        }
-        return Response(data, status=status_code, headers=headers)
-    except IOError:
-        # MSG: Message shown after trying to stream a file that does not exist.
-        flash(_("File not found."), "is-danger")
-        return redirect(url_for("home"))
-
-
-# Handle sigterm, apparently cherrypy won't shut down without explicit handling
-signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
-
-
 def main():
     platform = get_platform()
 
@@ -830,17 +636,12 @@ def main():
         )
         sys.exit(1)
 
-    if args.admin_password:
-        global admin_password
-        admin_password = args.admin_password
-
     # setup/create download directory if necessary
     if not os.path.exists(args.download_path):
         print("Creating download path: " + args.download_path)
         os.makedirs(args.download_path)
 
     # Configure karaoke process
-    global k
     k = karaoke.Karaoke(
         port=args.port,
         download_path=args.download_path,
@@ -868,6 +669,13 @@ def main():
         config_file_path=args.config_file_path,
     )
 
+    # expose karaoke object to the flask app
+    with app.app_context():
+        app.k = k
+
+    # expose shared configuration variables to the flask app
+    app.config["ADMIN_PASSWORD"] = args.admin_password
+
     # Expose some functions to jinja templates
     app.jinja_env.globals.update(filename_from_path=k.filename_from_path)
     app.jinja_env.globals.update(url_escape=quote)
@@ -887,6 +695,9 @@ def main():
         }
     )
     cherrypy.engine.start()
+
+    # Handle sigterm, apparently cherrypy won't shut down without explicit handling
+    signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
     # force headless mode when on Android
     if (platform == "android") and not args.hide_splash_screen:
