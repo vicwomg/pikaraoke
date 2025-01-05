@@ -821,7 +821,7 @@ class Karaoke:
     def volume_change(self, vol_level):
         self.volume = vol_level
         # MSG: Message shown after the volume is changed, will be followed by the volume level
-        self.log_and_send(_("Volume: %s%") % (int(self.volume * 100)))
+        self.log_and_send(_("Volume: %s") % (int(self.volume * 100)))
         return True
 
     def vol_up(self):
