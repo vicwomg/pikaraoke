@@ -8,5 +8,5 @@ dist/
 songs/
 qrcode.png
 .DS_Store
-config.ini
+*.ini
 docker-compose.yml
