@@ -11,7 +11,7 @@ from pikaraoke.lib.get_platform import is_raspberry_pi
 
 
 def launch_splash_screen(karaoke, window_size=None):
-    if is_raspberry_pi():
+    if karaoke.is_raspberry_pi:
         service = service(executable_path="/usr/bin/chromedriver")
     else:
         service = None
