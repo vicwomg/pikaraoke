@@ -505,10 +505,16 @@ class Karaoke:
             os.rename(cdg_file, self.download_path + new_name + ".cdg")
         self.get_available_songs()
 
-    def filename_from_path(self, file_path):
+    def filename_from_path(self, file_path, remove_youtube_id=True):
         rc = os.path.basename(file_path)
         rc = os.path.splitext(rc)[0]
         rc = rc.split("---")[0]  # removes youtube id if present
+        if remove_youtube_id:
+            try:
+                rc = rc.split("---")[0]  # removes youtube id if present
+            except TypeError:
+                # more fun python 3 hacks
+                rc = rc.split("---".encode("utf-8", "ignore"))[0]
         return rc
 
     def find_song_by_youtube_id(self, youtube_id):

@@ -75,6 +75,23 @@ def get_platform():
         return "unknown"
 
 
+def get_default_dl_dir(platform):
+    if is_raspberry_pi():
+        return "~/pikaraoke-songs"
+    elif platform == "windows":
+        legacy_directory = os.path.expanduser("~\\pikaraoke\\songs")
+        if os.path.exists(legacy_directory):
+            return legacy_directory
+        else:
+            return "~\\pikaraoke-songs"
+    else:
+        legacy_directory = "~/pikaraoke/songs"
+        if os.path.exists(legacy_directory):
+            return legacy_directory
+        else:
+            return "~/pikaraoke-songs"
+
+
 def get_os_version():
     return platform.version()
 

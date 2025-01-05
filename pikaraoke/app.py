@@ -1,4 +1,3 @@
-import argparse
 import datetime
 import hashlib
 import json
@@ -40,9 +39,11 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
+from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.background_music import create_randomized_playlist
 from pikaraoke.lib.file_resolver import delete_tmp_dir, get_tmp_dir
 from pikaraoke.lib.get_platform import get_platform, is_raspberry_pi
+from pikaraoke.lib.selenium import launch_splash_screen
 
 try:
     from urllib.parse import quote, unquote
@@ -62,35 +63,6 @@ site_name = "PiKaraoke"
 admin_password = None
 raspberry_pi = is_raspberry_pi()
 linux = get_platform() == "linux"
-
-
-def filename_from_path(file_path, remove_youtube_id=True):
-    rc = os.path.basename(file_path)
-    rc = os.path.splitext(rc)[0]
-    if remove_youtube_id:
-        try:
-            rc = rc.split("---")[0]  # removes youtube id if present
-        except TypeError:
-            # more fun python 3 hacks
-            rc = rc.split("---".encode("utf-8", "ignore"))[0]
-    return rc
-
-
-def arg_path_parse(path):
-    if type(path) == list:
-        return " ".join(path)
-    else:
-        return path
-
-
-def url_escape(filename):
-    return quote(filename.encode("utf8"))
-
-
-def hash_dict(d):
-    return hashlib.md5(
-        json.dumps(d, sort_keys=True, ensure_ascii=True).encode("utf-8", "ignore")
-    ).hexdigest()
 
 
 def is_admin():
@@ -180,7 +152,10 @@ def nowplaying():
             "volume": k.volume,
             # "is_transpose_enabled": k.is_transpose_enabled,
         }
-        rc["hash"] = hash_dict(rc)  # used to detect changes in the now playing data
+        hash = hashlib.md5(
+            json.dumps(rc, sort_keys=True, ensure_ascii=True).encode("utf-8", "ignore")
+        ).hexdigest()
+        rc["hash"] = hash  # used to detect changes in the now playing data
         return json.dumps(rc)
     except Exception as e:
         logging.error("Problem loading /nowplaying, pikaraoke may still be starting up: " + str(e))
@@ -669,32 +644,12 @@ def info():
     )
 
 
-# Delay system commands to allow redirect to render first
-def delayed_halt(cmd):
-    time.sleep(1.5)
-    k.queue_clear()
-    cherrypy.engine.stop()
-    cherrypy.engine.exit()
-    k.stop()
-    if cmd == 0:
-        sys.exit()
-    if cmd == 1:
-        os.system("shutdown now")
-    if cmd == 2:
-        os.system("reboot")
-    if cmd == 3:
-        process = subprocess.Popen(["raspi-config", "--expand-rootfs"])
-        process.wait()
-        os.system("reboot")
-
-
-def update_youtube_dl():
-    time.sleep(3)
-    k.upgrade_youtubedl()
-
-
 @app.route("/update_ytdl")
 def update_ytdl():
+    def update_youtube_dl():
+        time.sleep(3)
+        k.upgrade_youtubedl()
+
     if is_admin():
         flash(
             # MSG: Message shown after starting the youtube-dl update.
@@ -721,6 +676,24 @@ def refresh():
 
 @app.route("/quit")
 def quit():
+    # Delay system commands to allow redirect to render first
+    def delayed_halt(cmd):
+        time.sleep(1.5)
+        k.queue_clear()
+        cherrypy.engine.stop()
+        cherrypy.engine.exit()
+        k.stop()
+        if cmd == 0:
+            sys.exit()
+        if cmd == 1:
+            os.system("shutdown now")
+        if cmd == 2:
+            os.system("reboot")
+        if cmd == 3:
+            process = subprocess.Popen(["raspi-config", "--expand-rootfs"])
+            process.wait()
+            os.system("reboot")
+
     if is_admin():
         # MSG: Message shown after quitting pikaraoke.
         msg = _("Exiting pikaraoke now!")
@@ -872,266 +845,29 @@ def stream_full(id):
 signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
 
-def get_default_dl_dir(platform):
-    if raspberry_pi:
-        return "~/pikaraoke-songs"
-    elif platform == "windows":
-        legacy_directory = os.path.expanduser("~\\pikaraoke\\songs")
-        if os.path.exists(legacy_directory):
-            return legacy_directory
-        else:
-            return "~\\pikaraoke-songs"
-    else:
-        legacy_directory = "~/pikaraoke/songs"
-        if os.path.exists(legacy_directory):
-            return legacy_directory
-        else:
-            return "~/pikaraoke-songs"
-
-
 def main():
     platform = get_platform()
-    default_port = 5555
-    default_volume = 0.85
-    default_normalize_audio = False
-    default_splash_delay = 3
-    default_screensaver_delay = 300
-    default_log_level = logging.INFO
-    default_prefer_hostname = False
-    default_bg_music_volume = 0.3
-    default_buffer_size = 150
 
-    default_dl_dir = get_default_dl_dir(platform)
-    default_youtubedl_path = "yt-dlp"
-
-    # parse CLI args
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "-p",
-        "--port",
-        help="Desired http port (default: %d)" % default_port,
-        default=default_port,
-        type=int,
-        required=False,
-    )
-    parser.add_argument(
-        "-d",
-        "--download-path",
-        nargs="+",
-        help="Desired path for downloaded songs. (default: %s)" % default_dl_dir,
-        default=default_dl_dir,
-        required=False,
-    )
-    parser.add_argument(
-        "-y",
-        "--youtubedl-path",
-        nargs="+",
-        help="Path of youtube-dl. (default: %s)" % default_youtubedl_path,
-        default=default_youtubedl_path,
-        required=False,
-    )
-    parser.add_argument(
-        "-v",
-        "--volume",
-        help="Set initial player volume. A value between 0 and 1. (default: %s)" % default_volume,
-        default=default_volume,
-        required=False,
-    )
-    parser.add_argument(
-        "-n",
-        "--normalize-audio",
-        help="Normalize volume. May cause performance issues on slower devices (default: %s)"
-        % default_normalize_audio,
-        action="store_true",
-        default=default_normalize_audio,
-        required=False,
-    )
-    parser.add_argument(
-        "-s",
-        "--splash-delay",
-        help="Delay during splash screen between songs (in secs). (default: %s )"
-        % default_splash_delay,
-        default=default_splash_delay,
-        type=int,
-        required=False,
-    )
-    parser.add_argument(
-        "-t",
-        "--screensaver-timeout",
-        help="Delay before the screensaver begins (in secs). (default: %s )"
-        % default_screensaver_delay,
-        default=default_screensaver_delay,
-        type=int,
-        required=False,
-    )
-    parser.add_argument(
-        "-l",
-        "--log-level",
-        help=f"Logging level int value (DEBUG: 10, INFO: 20, WARNING: 30, ERROR: 40, CRITICAL: 50). (default: {default_log_level} )",
-        default=default_log_level,
-        required=False,
-    )
-    parser.add_argument(
-        "--hide-url",
-        action="store_true",
-        help="Hide URL and QR code from the splash screen.",
-        required=False,
-    )
-    parser.add_argument(
-        "--prefer-hostname",
-        action="store_true",
-        help=f"Use the local hostname instead of the IP as the connection URL. Use at your discretion: mDNS is not guaranteed to work on all LAN configurations. Defaults to {default_prefer_hostname}",
-        default=default_prefer_hostname,
-        required=False,
-    )
-    parser.add_argument(
-        "--hide-overlay",
-        action="store_true",
-        help="Hide all overlays that show on top of video, including current/next song, pikaraoke QR code and IP",
-        required=False,
-    ),
-    parser.add_argument(
-        "--hide-notifications",
-        action="store_true",
-        help="Hide notifications from the splash screen.",
-        required=False,
-    )
-    parser.add_argument(
-        "--hide-raspiwifi-instructions",
-        action="store_true",
-        help="Hide RaspiWiFi setup instructions from the splash screen.",
-        required=False,
-    )
-    parser.add_argument(
-        "--hide-splash-screen",
-        "--headless",
-        action="store_true",
-        help="Headless mode. Don't launch the splash screen/player on the pikaraoke server",
-        required=False,
-    )
-    parser.add_argument(
-        "--high-quality",
-        action="store_true",
-        help="Download higher quality video. May cause CPU, download speed, and other performance issues",
-        required=False,
-    )
-    parser.add_argument(
-        "-c",
-        "--complete-transcode-before-play",
-        action="store_true",
-        help="Wait for ffmpeg video transcoding to fully complete before playback begins. Transcoding occurs when you have normalization on, play a cdg file, or change key. May improve performance and browser compatibility (Safari, Firefox), but will significantly increase the delay before playback begins. On modern hardware, the delay is likely negligible.",
-        required=False,
-    )
-    parser.add_argument(
-        "-b",
-        "--buffer-size",
-        help=f"Buffer size for transcoded video (in kilobytes). Increase if you experience songs cutting off early. Higher size will transcode more of the file before streaming it to the client. This will increase the delay before playback begins. This value is ignored if --complete-transcode-before-play was specified. Default is: {default_buffer_size}",
-        default=default_buffer_size,
-        type=int,
-        required=False,
-    ),
-    parser.add_argument(
-        "--logo-path",
-        nargs="+",
-        help="Path to a custom logo image file for the splash screen. Recommended dimensions ~ 2048x1024px",
-        default=None,
-        required=False,
-    ),
-    parser.add_argument(
-        "-u",
-        "--url",
-        help="Override the displayed IP address with a supplied URL. This argument should include port, if necessary",
-        default=None,
-        required=False,
-    ),
-    parser.add_argument(
-        "--window-size",
-        help="Desired window geometry in pixels for headed mode, specified as width,height",
-        default=0,
-        required=False,
-    )
-    parser.add_argument(
-        "--admin-password",
-        help="Administrator password, for locking down certain features of the web UI such as queue editing, player controls, song editing, and system shutdown. If unspecified, everyone is an admin.",
-        default=None,
-        required=False,
-    ),
-    parser.add_argument(
-        "--disable-bg-music",
-        action="store_true",
-        help="Disable background music on splash screen",
-        required=False,
-    ),
-    parser.add_argument(
-        "--bg-music-volume",
-        default=default_bg_music_volume,
-        help="Set the volume of background music on splash screen. A value between 0 and 1. (default: %s)"
-        % default_bg_music_volume,
-        required=False,
-    ),
-    parser.add_argument(
-        "--bg-music-path",
-        nargs="+",
-        help="Path to a custom directory for the splash screen background music. Directory must contain mp3 files which will be randomized in a playlist.",
-        default=None,
-        required=False,
-    ),
-    parser.add_argument(
-        "--disable-score",
-        help="Disable the score screen after each song",
-        action="store_true",
-        required=False,
-    ),
-    parser.add_argument(
-        "--limit-user-songs-by",
-        help="Limit the number of songs a user can add to queue. User name 'Pikaraoke' is always unlimited (default: 0 = unlimited)",
-        default="0",
-        required=False,
-    ),
-
-    args = parser.parse_args()
+    args = parse_pikaraoke_args()
 
     if args.admin_password:
         global admin_password
         admin_password = args.admin_password
 
-    app.jinja_env.globals.update(filename_from_path=filename_from_path)
-    app.jinja_env.globals.update(url_escape=quote)
-
     # setup/create download directory if necessary
-    dl_path = os.path.expanduser(arg_path_parse(args.download_path))
-    if not dl_path.endswith("/"):
-        dl_path += "/"
-    if not os.path.exists(dl_path):
-        print("Creating download path: " + dl_path)
-        os.makedirs(dl_path)
-
-    parsed_volume = float(args.volume)
-    if parsed_volume > 1 or parsed_volume < 0:
-        # logging.warning("Volume must be between 0 and 1. Setting to default: %s" % default_volume)
-        print(
-            f"[ERROR] Volume: {args.volume} must be between 0 and 1. Setting to default: {default_volume}"
-        )
-        parsed_volume = default_volume
-
-    parsed_bg_volume = float(args.bg_music_volume)
-    if parsed_bg_volume > 1 or parsed_bg_volume < 0:
-        # logging.warning("BG music volume must be between 0 and 1. Setting to default: %s" % default_bg_volume)
-        print(
-            f"[ERROR] Volume: {args.bg_music_volume} must be between 0 and 1. Setting to default: {default_bg_music_volume}"
-        )
-        parsed_bg_volume = default_bg_music_volume
+    if not os.path.exists(args.download_path):
+        print("Creating download path: " + args.download_path)
+        os.makedirs(args.download_path)
 
     # Configure karaoke process
     global k
     k = karaoke.Karaoke(
         port=args.port,
-        download_path=dl_path,
-        youtubedl_path=arg_path_parse(args.youtubedl_path),
+        download_path=args.download_path,
+        youtubedl_path=args.youtubedl_path,
         splash_delay=args.splash_delay,
         log_level=args.log_level,
-        volume=parsed_volume,
+        volume=args.volume,
         normalize_audio=args.normalize_audio,
         complete_transcode_before_play=args.complete_transcode_before_play,
         buffer_size=args.buffer_size,
@@ -1140,17 +876,22 @@ def main():
         hide_raspiwifi_instructions=args.hide_raspiwifi_instructions,
         hide_splash_screen=args.hide_splash_screen,
         high_quality=args.high_quality,
-        logo_path=arg_path_parse(args.logo_path),
+        logo_path=args.logo_path,
         hide_overlay=args.hide_overlay,
         screensaver_timeout=args.screensaver_timeout,
         url=args.url,
         prefer_hostname=args.prefer_hostname,
         disable_bg_music=args.disable_bg_music,
-        bg_music_volume=parsed_bg_volume,
-        bg_music_path=arg_path_parse(args.bg_music_path),
+        bg_music_volume=args.bg_music_volume,
+        bg_music_path=args.bg_music_path,
         disable_score=args.disable_score,
-        limit_user_songs_by=int(args.limit_user_songs_by),
+        limit_user_songs_by=args.limit_user_songs_by,
     )
+
+    # Expose some functions to jinja templates
+    app.jinja_env.globals.update(filename_from_path=k.filename_from_path)
+    app.jinja_env.globals.update(url_escape=quote)
+
     k.upgrade_youtubedl()
 
     # Start the CherryPy WSGI web server
@@ -1171,45 +912,23 @@ def main():
     if (platform == "android") and not args.hide_splash_screen:
         args.hide_splash_screen = True
         logging.info("Forced to run headless mode in Android")
+
     # Start the splash screen using selenium
     if not args.hide_splash_screen:
-        if raspberry_pi:
-            service = Service(executable_path="/usr/bin/chromedriver")
-        else:
-            service = None
-        options = Options()
-
-        if args.window_size:
-            options.add_argument("--window-size=%s" % (args.window_size))
-            options.add_argument("--window-position=0,0")
-
-        options.add_argument("--kiosk")
-        options.add_argument("--start-maximized")
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        try:
-            driver = webdriver.Chrome(service=service, options=options)
-            driver.get(f"{k.url}/splash")
-            driver.add_cookie({"name": "user", "value": "PiKaraoke-Host"})
-            # Clicking this counts as an interaction, which will allow the browser to autoplay audio
-            wait = WebDriverWait(driver, 60)
-            elem = wait.until(EC.element_to_be_clickable((By.ID, "permissions-button")))
-            elem.click()
-        except SessionNotCreatedException as e:
-            print(str(e))
-            print(
-                f"\n[ERROR] Error starting splash screen. If you're running headed mode over SSH, you may need to run `export DISPLAY=:0.0` first to target the host machine's screen. Example: `export DISPLAY=:0.0; pikaraoke`\n"
-            )
+        driver = launch_splash_screen(k, args.window_size)
+        if not driver:
             cherrypy.engine.exit()
             sys.exit()
+    else:
+        driver = None
 
     # Start the karaoke process
     k.run()
 
     # Close running processes when done
-    if not args.hide_splash_screen:
+    if driver is not None:
         driver.close()
     cherrypy.engine.exit()
-
     delete_tmp_dir()
     sys.exit()
 
