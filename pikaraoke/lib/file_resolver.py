@@ -12,7 +12,6 @@ from pikaraoke.lib.get_platform import get_platform
 def get_tmp_dir():
     # Determine tmp directories (for things like extracted cdg files)
     pid = os.getpid()  # for scoping tmp directories to this process
-    print(tempfile.gettempdir())
     tmp_dir = os.path.join(tempfile.gettempdir(), f"{pid}")
     return tmp_dir
 
