@@ -330,7 +330,7 @@
     };
 
     //Video status events for communicating state back to server
-    const video = $("#video")[0];
+    const video = getVideoPlayer();
     video.addEventListener("play", () => {
       $("#video-container").show();
       //Report song start after a slight delay to allow video to load
@@ -460,13 +460,10 @@
     });
 
     socket.on('restart', () => {
+      console.log(`Restart`);
       const video = getVideoPlayer();
-      if (isMediaPlaying(video)) {
-        video.currentTime = 0;
-        if (video.paused) video.play()
-        console.log(`Restart`);
-      // TODO: fix: doesn't automatically begin playback when restarting paused track
-      }
+      video.currentTime = 0;
+      if (video.paused) video.play()
     });
 
   });
