@@ -186,7 +186,7 @@
       load: function (query, callback) {
         if (query.length < 2) return callback;
         $.ajax({
-          url: "{{ url_for('autocomplete') }}" + "?q=" + query,
+          url: "{{ url_for('search.autocomplete') }}" + "?q=" + query,
           type: "get",
           success: function (data) {
             callback(data);
@@ -231,7 +231,7 @@
           $("#add-queue-link").removeClass("is-loading");
         }, 1000);
         $.ajax({
-          url: "{{ url_for('enqueue') }}",
+          url: "{{ url_for('queue.enqueue') }}",
           type: "post",
           data: $("#queue-form").serialize(),
           success: function (data) {
@@ -432,7 +432,7 @@
           of searching titles. #} {% trans %}Direct download YouTube url:{%
           endtrans %}
         </div>
-        <form action="{{ url_for('download') }}" method="post">
+        <form action="{{ url_for('search.download') }}" method="post">
           <input
             class="input"
             id="direct-download-url"
@@ -468,7 +468,7 @@
   <hr />
 
   <div class="field is-hidden" id="container_search_form">
-    <form action="{{ url_for('search') }}" method="get">
+    <form action="{{ url_for('search.search') }}" method="get">
       <input id="search_string" type="text" name="search_string" />
       <input type="text" id="non_karaoke" name="non_karaoke" />
     </form>
@@ -485,7 +485,7 @@
   </div>
   {% if search_results %}
   <div class="field" id="container_search_result">
-    <form action="{{ url_for('download') }}" method="post">
+    <form action="{{ url_for('search.download') }}" method="post">
       <label class="label">
         {# MSG: Html text which displays what was searched for, in quotes. #} {%
         trans search_term=search_string -%} Search results for
