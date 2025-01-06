@@ -9,7 +9,6 @@ import cherrypy
 import flask_babel
 from flask import (
     Blueprint,
-    current_app,
     flash,
     make_response,
     redirect,
