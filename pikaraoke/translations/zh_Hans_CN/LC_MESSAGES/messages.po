@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version:  1.1.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-01-03 00:00-0800\n"
+"POT-Creation-Date: 2025-01-05 22:49-0800\n"
 "PO-Revision-Date: 2022-04-28 10:09-0400\n"
 "Last-Translator: \n"
 "Language: zh_CN\n"
@@ -18,315 +18,315 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.9.1\n"
 
-#. Message shown after logging in as admin successfully
-#: app.py:139
-msgid "Admin mode granted!"
-msgstr "管理员模式开启"
-
-#. Message shown after failing to login as admin
-#: app.py:143
-msgid "Incorrect admin password!"
-msgstr "管理员密码错误"
-
-#. Message shown after logging out as admin successfully
-#: app.py:157
-msgid "Logged out of admin mode!"
-msgstr ""
-
-#. Message shown after adding random tracks
-#: app.py:218
-#, python-format
-msgid "Added %s random tracks"
-msgstr "添加随机%s首歌"
-
-#. Message shown after running out songs to add during random track addition
-#: app.py:221
-msgid "Ran out of songs!"
-msgstr ""
-
-#. Message shown after clearing the queue
-#: app.py:231
-msgid "Cleared the queue!"
-msgstr ""
-
-#. Message shown after moving a song down in the queue
-#: app.py:240
-msgid "Moved down in queue"
-msgstr ""
-
-#. Message shown after failing to move a song down in the queue
-#: app.py:243
-msgid "Error moving down in queue"
-msgstr ""
-
-#. Message shown after moving a song up in the queue
-#: app.py:248
-msgid "Moved up in queue"
-msgstr ""
-
-#. Message shown after failing to move a song up in the queue
-#: app.py:251
-msgid "Error moving up in queue"
-msgstr ""
-
-#. Message shown after deleting a song from the queue
-#: app.py:256
-msgid "Deleted from queue"
-msgstr ""
-
-#. Message shown after failing to delete a song from the queue
-#: app.py:259
-msgid "Error deleting from queue"
-msgstr ""
-
-#. Title of the files page.
-#. Navigation link for the page where the user can add existing songs to the
-#. queue.
-#: app.py:407 templates/base.html:201
-msgid "Browse"
-msgstr "浏览"
-
-#. Message shown after starting a download. Song title is displayed in the
-#. message.
-#: app.py:432
-#, python-format
-msgid "Download started: %s. This may take a couple of minutes to complete."
-msgstr ""
-
-#. Message shown after starting a download that will be adding a song to the
-#. queue.
-#: app.py:438
-msgid "Song will be added to queue."
-msgstr ""
-
-#. Message shown after after starting a download.
-#: app.py:441
-msgid "Song will appear in the \"available songs\" list."
-msgstr ""
-
-#. Message shown after trying to delete a song that is in the queue.
-#: app.py:494
-msgid "Error: Can't delete this song because it is in the current queue"
-msgstr ""
-
-#. Message shown after deleting a song. Followed by the song path
-#: app.py:502
-#, python-format
-msgid "Song deleted: %s"
-msgstr ""
-
-#. Message shown after trying to delete a song without specifying the song.
-#: app.py:505
-msgid "Error: No song specified!"
-msgstr ""
-
-#. Message shown after trying to edit a song that is in the queue.
-#: app.py:512
-msgid "Error: Can't edit this song because it is in the current queue: "
-msgstr ""
-
-#. Message shown after trying to rename a file to a name that already exists.
-#: app.py:540
-#, python-format
-msgid "Error renaming file: '%s' to '%s', Filename already exists"
-msgstr ""
-
-#. Message shown after renaming a file.
-#: app.py:548
-#, python-format
-msgid "Renamed file: %s to %s"
-msgstr ""
-
-#. Message shown after trying to edit a song without specifying the filename.
-#: app.py:553
-msgid "Error: No filename parameters were specified!"
-msgstr ""
-
-#: app.py:617
-msgid "CPU usage query unsupported"
-msgstr ""
-
-#. Message shown after starting the youtube-dl update.
-#: app.py:701
-msgid "Updating youtube-dl! Should take a minute or two... "
-msgstr ""
-
-#. Message shown after trying to update youtube-dl without admin permissions.
-#: app.py:708
-msgid "You don't have permission to update youtube-dl"
-msgstr ""
-
-#. Message shown after trying to refresh the song list without admin
-#. permissions.
-#. Message shown after trying to shut down the system without admin
-#: app.py:718 app.py:748
-msgid "You don't have permission to shut down"
-msgstr ""
-
-#. Message shown after quitting pikaraoke.
-#: app.py:726
-msgid "Exiting pikaraoke now!"
-msgstr "退出卡拉OK派"
-
-#. Message shown after trying to quit pikaraoke without admin permissions.
-#: app.py:733
-msgid "You don't have permission to quit"
-msgstr ""
-
-#. Message shown after shutting down the system.
-#: app.py:741
-msgid "Shutting down system now!"
-msgstr "关机"
-
-#. Message shown after rebooting the system.
-#: app.py:756
-msgid "Rebooting system now!"
-msgstr "重启系统"
-
-#. Message shown after trying to reboot the system without admin permissions.
-#: app.py:763
-msgid "You don't have permission to Reboot"
-msgstr ""
-
-#. Message shown after expanding the filesystem.
-#: app.py:771
-msgid "Expanding filesystem and rebooting system now!"
-msgstr ""
-
-#. Message shown after trying to expand the filesystem on a non-raspberry pi
-#. device.
-#: app.py:776
-msgid "Cannot expand fs on non-raspberry pi devices!"
-msgstr ""
-
-#. Message shown after trying to expand the filesystem without admin
-#. permissions
-#: app.py:779
-msgid "You don't have permission to resize the filesystem"
-msgstr ""
-
-#. Message shown after trying to change preferences without admin permissions.
-#: app.py:794
-msgid "You don't have permission to change preferences"
-msgstr ""
-
-#. Message shown after trying to clear preferences without admin permissions.
-#: app.py:808
-msgid "You don't have permission to clear preferences"
-msgstr ""
-
-#. Message shown after trying to stream a file that does not exist.
-#: app.py:867
-msgid "File not found."
-msgstr ""
-
-#: karaoke.py:276
+#: karaoke.py:242
 msgid "Your preferences were changed successfully"
 msgstr ""
 
-#: karaoke.py:279
+#: karaoke.py:245
 msgid "Something went wrong! Your preferences were not changed"
 msgstr ""
 
-#: karaoke.py:284
+#: karaoke.py:250
 msgid "Your preferences were cleared successfully"
 msgstr ""
 
-#: karaoke.py:286
+#: karaoke.py:252
 msgid "Something went wrong! Your preferences were not cleared"
 msgstr ""
 
 #. Message shown after the download is started
-#: karaoke.py:436
+#: karaoke.py:345
 #, python-format
 msgid "Downloading video: %s"
 msgstr ""
 
 #. Message shown after the download is completed and queued
-#: karaoke.py:452
+#: karaoke.py:357
 #, python-format
 msgid "Downloaded and queued: %s"
 msgstr "成功添加歌曲： %s"
 
 #. Message shown after the download is completed but not queued
-#: karaoke.py:455
+#: karaoke.py:360
 #, python-format
 msgid "Downloaded: %s"
 msgstr "下载: %s"
 
 #. Message shown after the download is completed but the adding to queue fails
-#: karaoke.py:464
+#: karaoke.py:369
 msgid "Error queueing song: "
 msgstr ""
 
 #. Message shown after the download process is completed but the song is not
 #. found
-#: karaoke.py:467
+#: karaoke.py:372
 msgid "Error downloading song: "
 msgstr ""
 
 #. Message shown when the song ends abnormally
-#: karaoke.py:670
+#: karaoke.py:570
 #, python-format
 msgid "Song ended abnormally: %s"
 msgstr ""
 
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
-#: karaoke.py:678
+#: karaoke.py:578
 #, python-format
 msgid "Transposing by %s semitones: %s"
 msgstr ""
 
-#: karaoke.py:711
+#: karaoke.py:611
 #, python-format
 msgid "You reached the limit of %s song(s) from an user in queue!"
 msgstr ""
 
 #. Message shown after the song is added to the top of the queue
-#: karaoke.py:723
+#: karaoke.py:623
 #, python-format
 msgid "%s added to top of queue: %s"
 msgstr "%s 成功添加歌曲： %s"
 
 #. Message shown after the song is added to the queue
-#: karaoke.py:728
+#: karaoke.py:628
 #, python-format
 msgid "%s added to the queue: %s"
 msgstr "%s 成功添加歌曲： %s"
 
-#: karaoke.py:730
+#: karaoke.py:630
 #, python-format
 msgid "Song added to the queue: %s"
 msgstr "成功添加歌曲：%s"
 
 #. Message shown after the queue is cleared
-#: karaoke.py:754
+#: karaoke.py:654
 msgid "Clear queue"
 msgstr ""
 
 #. Message shown after the song is skipped, will be followed by song name
-#: karaoke.py:800
+#: karaoke.py:700
 #, python-format
 msgid "Skip: %s"
 msgstr ""
 
 #. Message shown after the song is resumed, will be followed by song name
-#: karaoke.py:811
+#: karaoke.py:711
 #, python-format
 msgid "Resume: %s"
 msgstr ""
 
 #. Message shown after the song is paused, will be followed by song name
-#: karaoke.py:814
+#: karaoke.py:714
 msgid "Pause"
 msgstr ""
 
 #. Message shown after the volume is changed, will be followed by the volume
 #. level
-#: karaoke.py:824
+#: karaoke.py:724
 #, python-format
-msgid "Volume: %s%"
+msgid "Volume: %s"
+msgstr ""
+
+#. Message shown after starting the youtube-dl update.
+#: routes/admin.py:58
+msgid "Updating youtube-dl! Should take a minute or two... "
+msgstr ""
+
+#. Message shown after trying to update youtube-dl without admin permissions.
+#: routes/admin.py:65
+msgid "You don't have permission to update youtube-dl"
+msgstr ""
+
+#. Message shown after trying to refresh the song list without admin
+#. permissions.
+#. Message shown after trying to shut down the system without admin
+#: routes/admin.py:76 routes/admin.py:108
+msgid "You don't have permission to shut down"
+msgstr ""
+
+#. Message shown after quitting pikaraoke.
+#: routes/admin.py:85
+msgid "Exiting pikaraoke now!"
+msgstr "退出卡拉OK派"
+
+#. Message shown after trying to quit pikaraoke without admin permissions.
+#: routes/admin.py:92
+msgid "You don't have permission to quit"
+msgstr ""
+
+#. Message shown after shutting down the system.
+#: routes/admin.py:101
+msgid "Shutting down system now!"
+msgstr "关机"
+
+#. Message shown after rebooting the system.
+#: routes/admin.py:117
+msgid "Rebooting system now!"
+msgstr "重启系统"
+
+#. Message shown after trying to reboot the system without admin permissions.
+#: routes/admin.py:124
+msgid "You don't have permission to Reboot"
+msgstr ""
+
+#. Message shown after expanding the filesystem.
+#: routes/admin.py:133
+msgid "Expanding filesystem and rebooting system now!"
+msgstr ""
+
+#. Message shown after trying to expand the filesystem on a non-raspberry pi
+#. device.
+#: routes/admin.py:138
+msgid "Cannot expand fs on non-raspberry pi devices!"
+msgstr ""
+
+#. Message shown after trying to expand the filesystem without admin
+#. permissions
+#: routes/admin.py:141
+msgid "You don't have permission to resize the filesystem"
+msgstr ""
+
+#. Message shown after logging in as admin successfully
+#: routes/admin.py:156
+msgid "Admin mode granted!"
+msgstr "管理员模式开启"
+
+#. Message shown after failing to login as admin
+#: routes/admin.py:160
+msgid "Incorrect admin password!"
+msgstr "管理员密码错误"
+
+#. Message shown after logging out as admin successfully
+#: routes/admin.py:174
+msgid "Logged out of admin mode!"
+msgstr ""
+
+#. Title of the files page.
+#. Navigation link for the page where the user can add existing songs to the
+#. queue.
+#: routes/files.py:68 templates/base.html:201
+msgid "Browse"
+msgstr "浏览"
+
+#. Message shown after trying to delete a song that is in the queue.
+#: routes/files.py:83
+msgid "Error: Can't delete this song because it is in the current queue"
+msgstr ""
+
+#. Message shown after deleting a song. Followed by the song path
+#: routes/files.py:91
+#, python-format
+msgid "Song deleted: %s"
+msgstr ""
+
+#. Message shown after trying to delete a song without specifying the song.
+#: routes/files.py:94
+msgid "Error: No song specified!"
+msgstr ""
+
+#. Message shown after trying to edit a song that is in the queue.
+#: routes/files.py:103
+msgid "Error: Can't edit this song because it is in the current queue: "
+msgstr ""
+
+#. Message shown after trying to rename a file to a name that already exists.
+#: routes/files.py:131
+#, python-format
+msgid "Error renaming file: '%s' to '%s', Filename already exists"
+msgstr ""
+
+#. Message shown after renaming a file.
+#: routes/files.py:139
+#, python-format
+msgid "Renamed file: %s to %s"
+msgstr ""
+
+#. Message shown after trying to edit a song without specifying the filename.
+#: routes/files.py:144
+msgid "Error: No filename parameters were specified!"
+msgstr ""
+
+#: routes/info.py:32
+msgid "CPU usage query unsupported"
+msgstr ""
+
+#. Message shown after trying to change preferences without admin permissions.
+#: routes/preferences.py:23
+msgid "You don't have permission to change preferences"
+msgstr ""
+
+#. Message shown after trying to clear preferences without admin permissions.
+#: routes/preferences.py:38
+msgid "You don't have permission to clear preferences"
+msgstr ""
+
+#. Message shown after adding random tracks
+#: routes/queue.py:43
+#, python-format
+msgid "Added %s random tracks"
+msgstr "添加随机%s首歌"
+
+#. Message shown after running out songs to add during random track addition
+#: routes/queue.py:46
+msgid "Ran out of songs!"
+msgstr ""
+
+#. Message shown after clearing the queue
+#: routes/queue.py:57
+msgid "Cleared the queue!"
+msgstr ""
+
+#. Message shown after moving a song down in the queue
+#: routes/queue.py:66
+msgid "Moved down in queue"
+msgstr ""
+
+#. Message shown after failing to move a song down in the queue
+#: routes/queue.py:69
+msgid "Error moving down in queue"
+msgstr ""
+
+#. Message shown after moving a song up in the queue
+#: routes/queue.py:74
+msgid "Moved up in queue"
+msgstr ""
+
+#. Message shown after failing to move a song up in the queue
+#: routes/queue.py:77
+msgid "Error moving up in queue"
+msgstr ""
+
+#. Message shown after deleting a song from the queue
+#: routes/queue.py:82
+msgid "Deleted from queue"
+msgstr ""
+
+#. Message shown after failing to delete a song from the queue
+#: routes/queue.py:85
+msgid "Error deleting from queue"
+msgstr ""
+
+#. Message shown after starting a download. Song title is displayed in the
+#. message.
+#: routes/search.py:79
+#, python-format
+msgid "Download started: %s. This may take a couple of minutes to complete."
+msgstr ""
+
+#. Message shown after starting a download that will be adding a song to the
+#. queue.
+#: routes/search.py:85
+msgid "Song will be added to queue."
+msgstr ""
+
+#. Message shown after after starting a download.
+#: routes/search.py:88
+msgid "Song will appear in the \"available songs\" list."
+msgstr ""
+
+#. Message shown after trying to stream a file that does not exist.
+#: routes/stream.py:72
+msgid "File not found."
 msgstr ""
 
 #. Prompt which asks the user their name when they first try to add to the

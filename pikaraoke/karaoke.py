@@ -442,6 +442,8 @@ class Karaoke:
             semitones != 0 or self.normalize_audio or is_transcoding_required(file_path)
         )
 
+        logging.debug(f"Requires transcoding: {requires_transcoding}")
+
         try:
             fr = FileResolver(file_path)
         except Exception as e:
