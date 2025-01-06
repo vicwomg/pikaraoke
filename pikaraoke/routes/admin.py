@@ -63,7 +63,7 @@ def update_ytdl():
     else:
         # MSG: Message shown after trying to update youtube-dl without admin permissions.
         flash(_("You don't have permission to update youtube-dl"), "is-danger")
-    return redirect(url_for("home"))
+    return redirect(url_for("home.home"))
 
 
 @admin_bp.route("/refresh")
@@ -74,7 +74,7 @@ def refresh():
     else:
         # MSG: Message shown after trying to refresh the song list without admin permissions.
         flash(_("You don't have permission to shut down"), "is-danger")
-    return redirect(url_for("browse"))
+    return redirect(url_for("files.browse"))
 
 
 @admin_bp.route("/quit")
@@ -90,7 +90,7 @@ def quit():
     else:
         # MSG: Message shown after trying to quit pikaraoke without admin permissions.
         flash(_("You don't have permission to quit"), "is-danger")
-    return redirect(url_for("home"))
+    return redirect(url_for("home.home"))
 
 
 @admin_bp.route("/shutdown")
@@ -106,7 +106,7 @@ def shutdown():
     else:
         # MSG: Message shown after trying to shut down the system without admin permissions.
         flash(_("You don't have permission to shut down"), "is-danger")
-    return redirect(url_for("home"))
+    return redirect(url_for("home.home"))
 
 
 @admin_bp.route("/reboot")
@@ -122,7 +122,7 @@ def reboot():
     else:
         # MSG: Message shown after trying to reboot the system without admin permissions.
         flash(_("You don't have permission to Reboot"), "is-danger")
-    return redirect(url_for("home"))
+    return redirect(url_for("home.home"))
 
 
 @admin_bp.route("/expand_fs")
@@ -139,7 +139,7 @@ def expand_fs():
     else:
         # MSG: Message shown after trying to expand the filesystem without admin permissions
         flash(_("You don't have permission to resize the filesystem"), "is-danger")
-    return redirect(url_for("home"))
+    return redirect(url_for("home.home"))
 
 
 @admin_bp.route("/auth", methods=["POST"])
