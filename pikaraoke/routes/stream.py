@@ -38,11 +38,7 @@ def stream(id):
     return Response(generate(), mimetype="video/mp4")
 
 
-# Streams the file in full with proper range headers
-# (Safari compatible, but requires the ffmpeg transcoding to be complete to know file size)
-@stream_bp.route("/stream/full/<id>")
-def stream_full(id):
-    file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
+def stream_file_path_full(file_path):
     try:
         file_size = os.path.getsize(file_path)
         range_header = request.headers.get("Range", None)
@@ -71,3 +67,21 @@ def stream_full(id):
         # MSG: Message shown after trying to stream a file that does not exist.
         flash(_("File not found."), "is-danger")
         return redirect(url_for("home.home"))
+
+
+# Streams the file in full with proper range headers
+# (Safari compatible, but requires the ffmpeg transcoding to be complete to know file size)
+@stream_bp.route("/stream/full/<id>")
+def stream_full(id):
+    file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
+    return stream_file_path_full(file_path)
+
+
+@stream_bp.route("/stream/bg_video")
+def stream_bg_video():
+    k = get_karaoke_instance()
+    file_path = k.bg_video_path
+    if k.bg_video_path is not None:
+        return stream_file_path_full(file_path)
+    else:
+        return Response("Background video not found.", status=404)

@@ -48,6 +48,7 @@
   var confirmationDismissed = false;
   var volume = 0.85;
   var isScoreShown = false;
+  var hasBgVideo = "{{ has_bg_video }}" == 'True'
 
   const scoreReviews = {
 	low:[
@@ -77,9 +78,12 @@
     nowPlayingInterval = setInterval(getNowPlaying, pollingInterval);
   }
 
-  function handleConfirmation() {
+  async function handleConfirmation() {
     $('#permissions-modal').removeClass('is-active');
     confirmationDismissed = true;
+    if (hasBgVideo)  {
+      playBGVideo(true);
+    }
     playBGMusic(true);
   }
 
@@ -103,6 +107,10 @@
 
   function getBackgroundMusicPlayer() {
     return document.getElementById('background-music');
+  }
+
+  function getBackgroundVideoPlayer() {
+    return document.getElementById('bg-video');
   }
 
   // A global array of the paths to mp3s for the background music playlist
@@ -147,6 +155,25 @@
       } else {
         $(audio).animate({ volume: 0 }, 2000, () => audio.pause()); // fade out 1 sec
       }
+    }
+  }
+
+  async function playBGVideo(play) {
+    let bgVideo = getBackgroundVideoPlayer();
+    const bgVideoContainer = $('#bg-video-container');
+    if (play == true) {
+      if (isMediaPlaying(bgVideo)) {
+        return; // already playing
+      }
+      else {
+        if (bgVideo.readyState <= 2) await bgVideo.load(); // load the video first time
+        bgVideoContainer.hide();
+        bgVideoContainer.fadeIn(2000);
+        bgVideo.play();
+      }
+    } else {
+      bgVideo.pause();
+      bgVideoContainer.fadeOut(2000);
     }
   }
 
@@ -199,8 +226,12 @@
         // Handle the Background music depending on the up_next and nowplaying status
         if (obj.up_next) {
           playBGMusic(false);
+          playBGVideo(false);
         } else if (!obj.now_playing) {
-          setTimeout(() => playBGMusic(true), 4000);
+          setTimeout(() => {
+            playBGMusic(true);
+            playBGVideo(true)
+          }, 2500);
         }
 
         // render the queue details in top right
@@ -318,12 +349,14 @@
       ) {
         screensaverTimeout = setTimeout(function () {
           screensaver.style.visibility = 'visible';
+          playBGVideo(false);
           startScreensaver();
         }, screensaverTimeoutMs);
       } else {
         if (nowPlaying.up_next || isMediaPlaying(video) || cursorVisible) {
           screensaver.style.visibility = "hidden";
           stopScreensaver();
+          playBGVideo(true);
           screensaverTimeout = clearTimeout(screensaverTimeout);
         }
       }
@@ -438,7 +471,9 @@
       let modal = document.getElementById('permissions-modal');
       modal.classList.remove('is-active');
       playBGMusic(true);
+      playBGVideo(true)
     }
+
   });
 </script>
 {% endblock %} {% block body %}
@@ -518,6 +553,12 @@
   </video>
 </div>
 
+<div id="bg-video-container" class="video-container">
+  <video id="bg-video" disableRemotePlayback muted loop>
+    <source id="video-source" type="video/mp4" src="{{ url_for('stream.stream_bg_video') }}" />
+  </video>
+</div>
+
 <div id="score" style="display: none">
 	<div id="your-score-text">
     {# MSG: The title of the score screen, telling the user their singing score #}
@@ -580,16 +621,18 @@
 ></div>
 
 <!-- Screensaver code -->
-<div id="screensaver" style="visibility: hidden">
-  <div id="dvd">
-    {% if not hide_url %}
-    <div>
-      <div style="text-align: right">
-        <img src="{{ url_for('images.qrcode') }}" width="30%" height="30%" />
+ <div class="fw-fh-container">
+  <div id="screensaver" style="visibility: hidden">
+    <div id="dvd">
+      {% if not hide_url %}
+      <div>
+        <div style="text-align: right">
+          <img src="{{ url_for('images.qrcode') }}" width="30%" height="30%" />
+        </div>
+        <div>{{ hostap_info[0] }}<br />{{ url }}</div>
       </div>
-      <div>{{ hostap_info[0] }}<br />{{ url }}</div>
+      {% endif %}
     </div>
-    {% endif %}
   </div>
 </div>
 
@@ -659,6 +702,11 @@
     display: flex;
     align-items: center;
   }
+  #bg-video-container {
+    z-index: 0;
+    width: 100vw;
+    height: 100vh;
+  }
   video {
     height: 100%;
     width: 100%;
@@ -667,7 +715,13 @@
   body {
     background-color: black;
   }
+  .fw-fh-container {
+    height: 100vh;
+    width: 100vw;
+  }
   #logo-container {
+    position: absolute;
+    z-index: 1;
     display: flex;
     width: 100vw;
     height: 100vh;
