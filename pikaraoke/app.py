@@ -28,7 +28,6 @@ from flask_paginate import Pagination, get_page_parameter
 from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
-from pikaraoke.lib.background_music import create_randomized_playlist
 from pikaraoke.lib.current_app import get_admin_password, get_karaoke_instance, is_admin
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
@@ -36,6 +35,7 @@ from pikaraoke.lib.get_platform import get_platform, is_raspberry_pi
 from pikaraoke.lib.raspi_wifi_config import get_raspi_wifi_text
 from pikaraoke.lib.selenium import launch_splash_screen
 from pikaraoke.routes.admin import get_admin_bp
+from pikaraoke.routes.background_music import get_background_music_bp
 from pikaraoke.routes.preferences import get_preferences_bp
 from pikaraoke.routes.stream import get_stream_bp
 
@@ -62,6 +62,7 @@ linux = get_platform() == "linux"
 app.register_blueprint(get_stream_bp())
 app.register_blueprint(get_preferences_bp())
 app.register_blueprint(get_admin_bp())
+app.register_blueprint(get_background_music_bp())
 
 
 @babel.localeselector
@@ -86,20 +87,6 @@ def home():
         admin=is_admin(),
         is_transpose_enabled=k.is_transpose_enabled,
     )
-
-
-@app.route("/login")
-def login():
-    return render_template("login.html")
-
-
-@app.route("/logout")
-def logout():
-    resp = make_response(redirect("/"))
-    resp.set_cookie("admin", "")
-    # MSG: Message shown after logging out as admin successfully
-    flash(_("Logged out of admin mode!"), "is-success")
-    return resp
 
 
 @app.route("/nowplaying")
@@ -411,31 +398,13 @@ def download():
 @app.route("/qrcode")
 def qrcode():
     k = get_karaoke_instance()
-    return send_file(k.qr_code_path, mimetype="image/png")
+    return send_file(k.qr_codei9ew38905_path, mimetype="image/png")
 
 
 @app.route("/logo")
 def logo():
     k = get_karaoke_instance()
     return send_file(k.logo_path, mimetype="image/png")
-
-
-# Routes for streaming background music
-@app.route("/bg_music/<file>", methods=["GET"])
-def bg_music(file):
-    k = get_karaoke_instance()
-    mp3_path = os.path.join(k.bg_music_path, file)
-    return send_file(mp3_path, mimetype="audio/mpeg")
-
-
-# Route for getting the randomized background music playlist
-@app.route("/bg_playlist", methods=["GET"])
-def bg_playlist():
-    k = get_karaoke_instance()
-    if (k.bg_music_path == None) or (not os.path.exists(k.bg_music_path)):
-        return jsonify([])
-    playlist = create_randomized_playlist(k.bg_music_path, "/bg_music", 50)
-    return jsonify(playlist)
 
 
 @app.route("/end_song", methods=["GET", "POST"])

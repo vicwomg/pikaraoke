@@ -384,7 +384,7 @@
     });
 
     // Load the background music playlist from server
-    $.get('{{ url_for("bg_playlist") }}', function (data) {
+    $.get('{{ url_for("bg_music.bg_playlist") }}', function (data) {
       if (data) bg_playlist = data;
     });
 
