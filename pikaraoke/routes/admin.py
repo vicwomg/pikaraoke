@@ -26,10 +26,6 @@ _ = flask_babel.gettext
 admin_bp = Blueprint("admin", __name__)
 
 
-def get_admin_bp():
-    return admin_bp
-
-
 def delayed_halt(cmd: int, k: Karaoke):
     time.sleep(1.5)
     k.queue_clear()

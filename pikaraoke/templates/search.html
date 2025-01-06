@@ -231,7 +231,7 @@
           $("#add-queue-link").removeClass("is-loading");
         }, 1000);
         $.ajax({
-          url: "{{ url_for('enqueue') }}",
+          url: "{{ url_for('queue.enqueue') }}",
           type: "post",
           data: $("#queue-form").serialize(),
           success: function (data) {

@@ -42,6 +42,15 @@ def get_admin_password() -> str:
     return current_app.config["ADMIN_PASSWORD"]
 
 
+def get_site_name() -> str:
+    """Get the site name from the current app's configuration
+    This function returns the site name stored in the current app's configuration.
+    Returns:
+        str: The site name stored in the current app's configuration.
+    """
+    return current_app.config["SITE_NAME"]
+
+
 def delayed_halt(cmd):
     time.sleep(1.5)
     current_app.k.queue_clear()
