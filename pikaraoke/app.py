@@ -13,8 +13,6 @@ import psutil
 from flask import (
     Flask,
     flash,
-    jsonify,
-    make_response,
     redirect,
     render_template,
     request,
@@ -28,21 +26,27 @@ from flask_paginate import Pagination, get_page_parameter
 from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
-from pikaraoke.lib.current_app import get_admin_password, get_karaoke_instance, is_admin
+from pikaraoke.lib.current_app import (
+    get_admin_password,
+    get_karaoke_instance,
+    get_site_name,
+    is_admin,
+)
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
 from pikaraoke.lib.get_platform import get_platform, is_raspberry_pi
 from pikaraoke.lib.raspi_wifi_config import get_raspi_wifi_text
 from pikaraoke.lib.selenium import launch_splash_screen
-from pikaraoke.routes.admin import get_admin_bp
-from pikaraoke.routes.background_music import get_background_music_bp
-from pikaraoke.routes.preferences import get_preferences_bp
-from pikaraoke.routes.stream import get_stream_bp
+from pikaraoke.routes.admin import admin_bp
+from pikaraoke.routes.background_music import background_music_bp
+from pikaraoke.routes.preferences import preferences_bp
+from pikaraoke.routes.queue import queue_bp
+from pikaraoke.routes.stream import stream_bp
 
 try:
-    from urllib.parse import quote, unquote
+    from urllib.parse import quote
 except ImportError:
-    from urllib import quote, unquote
+    from urllib import quote
 
 _ = flask_babel.gettext
 
@@ -53,16 +57,16 @@ app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
 babel = Babel(app)
-site_name = "PiKaraoke"
 raspberry_pi = is_raspberry_pi()
 linux = get_platform() == "linux"
 
 
 # Register blueprints additional routes
-app.register_blueprint(get_stream_bp())
-app.register_blueprint(get_preferences_bp())
-app.register_blueprint(get_admin_bp())
-app.register_blueprint(get_background_music_bp())
+app.register_blueprint(stream_bp)
+app.register_blueprint(preferences_bp)
+app.register_blueprint(admin_bp)
+app.register_blueprint(background_music_bp)
+app.register_blueprint(queue_bp)
 
 
 @babel.localeselector
@@ -79,6 +83,7 @@ def get_locale():
 @app.route("/")
 def home():
     k = get_karaoke_instance()
+    site_name = get_site_name()
     return render_template(
         "home.html",
         site_title=site_name,
@@ -128,94 +133,6 @@ def clear_command():
     k = get_karaoke_instance()
     k.now_playing_command = None
     return ""
-
-
-@app.route("/queue")
-def queue():
-    k = get_karaoke_instance()
-    return render_template(
-        "queue.html", queue=k.queue, site_title=site_name, title="Queue", admin=is_admin()
-    )
-
-
-@app.route("/get_queue")
-def get_queue():
-    k = get_karaoke_instance()
-    if len(k.queue) >= 1:
-        return json.dumps(k.queue)
-    else:
-        return json.dumps([])
-
-
-@app.route("/queue/addrandom", methods=["GET"])
-def add_random():
-    k = get_karaoke_instance()
-    amount = int(request.args["amount"])
-    rc = k.queue_add_random(amount)
-    if rc:
-        # MSG: Message shown after adding random tracks
-        flash(_("Added %s random tracks") % amount, "is-success")
-    else:
-        # MSG: Message shown after running out songs to add during random track addition
-        flash(_("Ran out of songs!"), "is-warning")
-    return redirect(url_for("queue"))
-
-
-@app.route("/queue/edit", methods=["GET"])
-def queue_edit():
-    k = get_karaoke_instance()
-    action = request.args["action"]
-    if action == "clear":
-        k.queue_clear()
-        # MSG: Message shown after clearing the queue
-        flash(_("Cleared the queue!"), "is-warning")
-        return redirect(url_for("queue"))
-    else:
-        song = request.args["song"]
-        song = unquote(song)
-        if action == "down":
-            result = k.queue_edit(song, "down")
-            if result:
-                # MSG: Message shown after moving a song down in the queue
-                flash(_("Moved down in queue") + ": " + song, "is-success")
-            else:
-                # MSG: Message shown after failing to move a song down in the queue
-                flash(_("Error moving down in queue") + ": " + song, "is-danger")
-        elif action == "up":
-            result = k.queue_edit(song, "up")
-            if result:
-                # MSG: Message shown after moving a song up in the queue
-                flash(_("Moved up in queue") + ": " + song, "is-success")
-            else:
-                # MSG: Message shown after failing to move a song up in the queue
-                flash(_("Error moving up in queue") + ": " + song, "is-danger")
-        elif action == "delete":
-            result = k.queue_edit(song, "delete")
-            if result:
-                # MSG: Message shown after deleting a song from the queue
-                flash(_("Deleted from queue") + ": " + song, "is-success")
-            else:
-                # MSG: Message shown after failing to delete a song from the queue
-                flash(_("Error deleting from queue") + ": " + song, "is-danger")
-    return redirect(url_for("queue"))
-
-
-@app.route("/enqueue", methods=["POST", "GET"])
-def enqueue():
-    k = get_karaoke_instance()
-    if "song" in request.args:
-        song = request.args["song"]
-    else:
-        d = request.form.to_dict()
-        song = d["song-to-add"]
-    if "user" in request.args:
-        user = request.args["user"]
-    else:
-        d = request.form.to_dict()
-        user = d["song-added-by"]
-    rc = k.enqueue(song, user)
-    song_title = k.filename_from_path(song)
-    return json.dumps({"song": song_title, "success": rc})
 
 
 @app.route("/skip")
@@ -270,6 +187,7 @@ def vol_down():
 @app.route("/search", methods=["GET"])
 def search():
     k = get_karaoke_instance()
+    site_name = get_site_name()
     if "search_string" in request.args:
         search_string = request.args["search_string"]
         if "non_karaoke" in request.args and request.args["non_karaoke"] == "true":
@@ -306,6 +224,7 @@ def autocomplete():
 @app.route("/browse", methods=["GET"])
 def browse():
     k = get_karaoke_instance()
+    site_name = get_site_name()
     search = False
     q = request.args.get("q")
     if q:
@@ -398,7 +317,7 @@ def download():
 @app.route("/qrcode")
 def qrcode():
     k = get_karaoke_instance()
-    return send_file(k.qr_codei9ew38905_path, mimetype="image/png")
+    return send_file(k.qr_code_path, mimetype="image/png")
 
 
 @app.route("/logo")
@@ -450,6 +369,7 @@ def delete_file():
 @app.route("/files/edit", methods=["GET", "POST"])
 def edit_file():
     k = get_karaoke_instance()
+    site_name = get_site_name()
     # MSG: Message shown after trying to edit a song that is in the queue.
     queue_error_msg = _("Error: Can't edit this song because it is in the current queue: ")
     if "song" in request.args:
@@ -532,6 +452,7 @@ def splash():
 @app.route("/info")
 def info():
     k = get_karaoke_instance()
+    site_name = get_site_name()
     url = k.url
     admin_password = get_admin_password()
 
@@ -644,6 +565,7 @@ def main():
 
     # expose shared configuration variables to the flask app
     app.config["ADMIN_PASSWORD"] = args.admin_password
+    app.config["SITE_NAME"] = "PiKaraoke"
 
     # Expose some functions to jinja templates
     app.jinja_env.globals.update(filename_from_path=k.filename_from_path)

@@ -12,10 +12,6 @@ background_music_bp = Blueprint("bg_music", __name__)
 _ = flask_babel.gettext
 
 
-def get_background_music_bp():
-    return background_music_bp
-
-
 def create_randomized_playlist(input_directory, base_url, max_songs=50):
     # Get all mp3 files in the given directory
     files = [

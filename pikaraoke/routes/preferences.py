@@ -8,10 +8,6 @@ preferences_bp = Blueprint("preferences", __name__)
 _ = flask_babel.gettext
 
 
-def get_preferences_bp():
-    return preferences_bp
-
-
 @preferences_bp.route("/change_preferences", methods=["GET"])
 def change_preferences():
     k = get_karaoke_instance()

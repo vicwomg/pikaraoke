@@ -13,10 +13,6 @@ _ = flask_babel.gettext
 stream_bp = Blueprint("stream", __name__)
 
 
-def get_stream_bp():
-    return stream_bp
-
-
 # Streams the file in chunks from the filesystem (chrome supports it, safari does not)
 @stream_bp.route("/stream/<id>")
 def stream(id):

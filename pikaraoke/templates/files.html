@@ -112,7 +112,7 @@
       <a
         class="add-song-link has-text-weight-bold has-text-success"
         title="Add '{{filename_from_path(song)}}' to queue"
-        href="{{url_for('enqueue')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&user="
+        href="{{url_for('queue.enqueue')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&user="
         ><i class="icon icon-list-add"></i>
       </a>
     </td>
