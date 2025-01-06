@@ -70,4 +70,4 @@ def stream_full(id):
     except IOError:
         # MSG: Message shown after trying to stream a file that does not exist.
         flash(_("File not found."), "is-danger")
-        return redirect(url_for("home"))
+        return redirect(url_for("home.home"))

@@ -465,7 +465,7 @@
 
 <div id="logo-container">
   <div>
-    <img class="logo" src="{{ url_for('logo') }}" width="500px" alt="logo" />
+    <img class="logo" src="{{ url_for('images.logo') }}" width="500px" alt="logo" />
   </div>
 </div>
 
@@ -481,7 +481,7 @@
   {% if not hide_url %}
   <div id="qr-code">
     <img
-      src="{{ url_for('qrcode') }}"
+      src="{{ url_for('images.qrcode') }}"
       width="100px"
       style="image-rendering: pixelated"
       alt="qrcode"
@@ -585,7 +585,7 @@
     {% if not hide_url %}
     <div>
       <div style="text-align: right">
-        <img src="{{ url_for('qrcode') }}" width="30%" height="30%" />
+        <img src="{{ url_for('images.qrcode') }}" width="30%" height="30%" />
       </div>
       <div>{{ hostap_info[0] }}<br />{{ url }}</div>
     </div>
