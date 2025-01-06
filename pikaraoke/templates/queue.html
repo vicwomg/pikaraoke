@@ -6,7 +6,7 @@
   var previousQueue;
 
   function getQueue() {
-    $.get('{{ url_for("get_queue") }}', function (data) {
+    $.get('{{ url_for("queue.get_queue") }}', function (data) {
       newQueue =  JSON.parse(data);
       if (!_.isEqual(newQueue, previousQueue)) {
         queue = newQueue;
