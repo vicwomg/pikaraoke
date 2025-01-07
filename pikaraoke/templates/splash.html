@@ -36,7 +36,8 @@
 
   var screensaverTimeoutMs =
     parseInt('{{ screensaver_timeout }}') * 1000 || 300000;
-  let screensaverTimeout;
+  let screensaverTimeout; //stores the screensaver timer
+
 
   var nowPlayingInterval = null;
   var pollingInterval = 1000;
@@ -159,21 +160,23 @@
   }
 
   async function playBGVideo(play) {
-    let bgVideo = getBackgroundVideoPlayer();
-    const bgVideoContainer = $('#bg-video-container');
-    if (play == true) {
-      if (isMediaPlaying(bgVideo)) {
-        return; // already playing
+    if ('{{ disable_bg_video }}' == 'False') {
+      let bgVideo = getBackgroundVideoPlayer();
+      const bgVideoContainer = $('#bg-video-container');
+      if (play == true) {
+        if (isMediaPlaying(bgVideo)) {
+          return; // already playing
+        }
+        else {
+          $("#bg-video").attr("src", "{{ url_for('stream.stream_bg_video') }}");
+          if (bgVideo.readyState <= 2) await bgVideo.load(); // load the video first time
+          bgVideo.play();
+          bgVideoContainer.fadeIn(2000);
+        }
+      } else {
+        bgVideo.pause();
+        bgVideoContainer.fadeOut(2000);
       }
-      else {
-        if (bgVideo.readyState <= 2) await bgVideo.load(); // load the video first time
-        bgVideoContainer.hide();
-        bgVideoContainer.fadeIn(2000);
-        bgVideo.play();
-      }
-    } else {
-      bgVideo.pause();
-      bgVideoContainer.fadeOut(2000);
     }
   }
 
@@ -231,7 +234,7 @@
           setTimeout(() => {
             playBGMusic(true);
             playBGVideo(true)
-          }, 2500);
+          }, 2000);
         }
 
         // render the queue details in top right
@@ -342,6 +345,7 @@
       //handle screensaver
       let screensaver = document.getElementById('screensaver');
       if (
+        screensaverTimeoutMs > 0 &&
         !nowPlaying.up_next &&
         !isMediaPlaying(video) &&
         !screensaverTimeout &&
@@ -354,10 +358,12 @@
         }, screensaverTimeoutMs);
       } else {
         if (nowPlaying.up_next || isMediaPlaying(video) || cursorVisible) {
-          screensaver.style.visibility = "hidden";
-          stopScreensaver();
-          playBGVideo(true);
-          screensaverTimeout = clearTimeout(screensaverTimeout);
+          if (screensaver.style.visibility == 'visible') {
+            screensaver.style.visibility = "hidden";
+            stopScreensaver();
+            playBGVideo(true);
+            screensaverTimeout = clearTimeout(screensaverTimeout);
+          }
         }
       }
 
@@ -554,8 +560,8 @@
 </div>
 
 <div id="bg-video-container" class="video-container">
-  <video id="bg-video" disableRemotePlayback muted loop>
-    <source id="video-source" type="video/mp4" src="{{ url_for('stream.stream_bg_video') }}" />
+  <video id="bg-video" disableRemotePlayback muted loop style="object-fit: cover">
+    <source id="video-source" type="video/mp4" src="" />
   </video>
 </div>
 

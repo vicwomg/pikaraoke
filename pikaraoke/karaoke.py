@@ -67,6 +67,7 @@ class Karaoke:
     loop_interval = 500  # in milliseconds
     default_logo_path = os.path.join(base_path, "logo.png")
     default_bg_music_path = os.path.join(base_path, "static/music/")
+    default_bg_video_path = os.path.join(base_path, "static/video/the_drive_by_visualdon.mp4")
     screensaver_timeout = 300  # in seconds
 
     ffmpeg_process = None
@@ -99,6 +100,7 @@ class Karaoke:
         bg_music_volume=0.3,
         bg_music_path=None,
         bg_video_path=None,
+        disable_bg_video=False,
         disable_score=False,
         limit_user_songs_by=0,
         config_file_path="config.ini",
@@ -147,7 +149,8 @@ class Karaoke:
         self.disable_bg_music = self.get_user_preference("disable_bg_music") or disable_bg_music
         self.bg_music_volume = self.get_user_preference("bg_music_volume") or bg_music_volume
         self.bg_music_path = self.default_bg_music_path if bg_music_path == None else bg_music_path
-        self.bg_video_path = bg_video_path
+        self.disable_bg_video = self.get_user_preference("disable_bg_video") or disable_bg_video
+        self.bg_video_path = self.default_bg_video_path if bg_video_path == None else bg_video_path
         self.disable_score = self.get_user_preference("disable_score") or disable_score
         self.limit_user_songs_by = (
             self.get_user_preference("limit_user_songs_by") or limit_user_songs_by

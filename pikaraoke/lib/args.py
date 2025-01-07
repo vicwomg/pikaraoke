@@ -27,7 +27,7 @@ platform = get_platform()
 default_port = 5555
 default_volume = 0.85
 default_normalize_audio = False
-default_splash_delay = 3
+default_splash_delay = 2
 default_screensaver_delay = 300
 default_log_level = logging.INFO
 default_prefer_hostname = False
@@ -95,7 +95,7 @@ def parse_pikaraoke_args():
     parser.add_argument(
         "-t",
         "--screensaver-timeout",
-        help="Delay before the screensaver begins (in secs). (default: %s )"
+        help="Delay before the screensaver begins (in secs). Set to 0 to disable screensaver. (default: %s )"
         % default_screensaver_delay,
         default=default_screensaver_delay,
         type=int,
@@ -212,6 +212,12 @@ def parse_pikaraoke_args():
         nargs="+",
         help="Path to a background video mp4 file. Will play in the background of the splash screen.",
         default=None,
+        required=False,
+    ),
+    parser.add_argument(
+        "--disable-bg-video",
+        action="store_true",
+        help="Disable background video on splash screen",
         required=False,
     ),
     parser.add_argument(
