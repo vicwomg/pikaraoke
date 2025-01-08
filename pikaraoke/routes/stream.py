@@ -3,7 +3,7 @@ import re
 import time
 
 import flask_babel
-from flask import Blueprint, Response, flash, redirect, request, url_for
+from flask import Blueprint, Response, flash, redirect, request, send_file, url_for
 
 from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.file_resolver import get_tmp_dir
@@ -82,6 +82,6 @@ def stream_bg_video():
     k = get_karaoke_instance()
     file_path = k.bg_video_path
     if k.bg_video_path is not None:
-        return stream_file_path_full(file_path)
+        return send_file(file_path, mimetype="video/mp4")
     else:
         return Response("Background video not found.", status=404)

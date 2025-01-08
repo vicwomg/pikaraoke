@@ -477,7 +477,9 @@
       let modal = document.getElementById('permissions-modal');
       modal.classList.remove('is-active');
       playBGMusic(true);
-      playBGVideo(true)
+      if (hasBgVideo)  {
+        playBGVideo(true);
+      }
     }
 
   });
