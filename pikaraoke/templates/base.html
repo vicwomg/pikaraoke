@@ -180,23 +180,23 @@
   <div class="container" style="padding: 5px; max-width: 900px;">
     <nav class="navbar" role="navigation" aria-label="main navigation">
       <div class="navbar-brand" id="brand" style="padding-left: 10px">
-        <a id="home" class="navbar-item" href="{{ url_for('home') }}">
+        <a id="home" class="navbar-item" href="{{ url_for('home.home') }}">
           <i class="icon icon-home-2" title="Home"></i>
           {# MSG: Navigation link for the home page. #}
           <span>{% trans %}Home{% endtrans %}</span>
         </a>
 
-        <a id="queue" class="navbar-item" href="{{ url_for('queue') }}">
+        <a id="queue" class="navbar-item" href="{{ url_for('queue.queue') }}">
           <i class="icon icon-list-numbered" title="Queue"></i>
           {# MSG: Navigation link for the queue page. #}
           <span>{% trans %}Queue{% endtrans %}</span>
         </a>
-        <a id="search" class="navbar-item" href="{{ url_for('search') }}">
+        <a id="search" class="navbar-item" href="{{ url_for('search.search') }}">
           <i class="icon icon-search-1" title="Search"></i>
           {# MSG: Navigation link for the search page add songs to the queue. #}
           <span>{% trans %}Search{% endtrans %}</span>
         </a>
-        <a id="browse" class="navbar-item" href="{{ url_for('browse') }}">
+        <a id="browse" class="navbar-item" href="{{ url_for('files.browse') }}">
           <i class="icon icon-folder-open-empty" title="Browse"></i>
           {# MSG: Navigation link for the page where the user can add existing songs to the queue. #}
           <span>{% trans %}Browse{% endtrans %}</span>
@@ -213,7 +213,7 @@
             <i class="icon  icon-mic-1" title="Current user"></i>
             <span></span>
           </a>
-          <a id="info" class="navbar-item" href="{{ url_for('info') }}">
+          <a id="info" class="navbar-item" href="{{ url_for('info.info') }}">
             <i class="icon icon-info-circled-1" title="Info"></i>
             <span>Pikaraoke</span>&nbsp;&nbsp;
           </a>

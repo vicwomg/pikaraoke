@@ -38,7 +38,9 @@
 
   var screensaverTimeoutMs =
     parseInt('{{ screensaver_timeout }}') * 1000 || 300000;
-  let screensaverTimeout;
+  let screensaverTimeout; //stores the screensaver timer
+  var isScreensaverEnabled = screensaverTimeoutMs > 0
+
 
   var nowPlayingInterval = null;
   var pollingInterval = 1000;
@@ -50,6 +52,7 @@
   var confirmationDismissed = false;
   var volume = 0.85;
   var isScoreShown = false;
+  var hasBgVideo = "{{ has_bg_video }}" == 'True'
 
   const scoreReviews = {
 	low:[
@@ -79,9 +82,12 @@
     nowPlayingInterval = setInterval(getNowPlaying, pollingInterval);
   }
 
-  function handleConfirmation() {
+  async function handleConfirmation() {
     $('#permissions-modal').removeClass('is-active');
     confirmationDismissed = true;
+    if (hasBgVideo)  {
+      playBGVideo(true);
+    }
     playBGMusic(true);
   }
 
@@ -105,6 +111,10 @@
 
   function getBackgroundMusicPlayer() {
     return document.getElementById('background-music');
+  }
+
+  function getBackgroundVideoPlayer() {
+    return document.getElementById('bg-video');
   }
 
   // A global array of the paths to mp3s for the background music playlist
@@ -152,6 +162,27 @@
         }
       } else {
         $(audio).animate({ volume: 0 }, 2000, () => audio.pause()); // fade out 1 sec
+      }
+    }
+  }
+
+  async function playBGVideo(play) {
+    if ('{{ disable_bg_video }}' == 'False') {
+      let bgVideo = getBackgroundVideoPlayer();
+      const bgVideoContainer = $('#bg-video-container');
+      if (play == true) {
+        if (isMediaPlaying(bgVideo)) {
+          return; // already playing
+        }
+        else {
+          $("#bg-video").attr("src", "{{ url_for('stream.stream_bg_video') }}");
+          if (bgVideo.readyState <= 2) await bgVideo.load(); // load the video first time
+          bgVideo.play();
+          bgVideoContainer.fadeIn(2000);
+        }
+      } else {
+        bgVideo.pause();
+        bgVideoContainer.fadeOut(2000);
       }
     }
   }
@@ -205,8 +236,12 @@
         // Handle the Background music depending on the up_next and nowplaying status
         if (obj.up_next) {
           playBGMusic(false);
+          playBGVideo(false);
         } else if (!obj.now_playing) {
-          setTimeout(() => playBGMusic(true), 4000);
+          setTimeout(() => {
+            playBGMusic(true);
+            playBGVideo(true)
+          }, 2000);
         }
 
         // render the queue details in top right
@@ -275,25 +310,32 @@
       }
 
       //handle screensaver
-      let screensaver = document.getElementById('screensaver');
-      if (
-        !nowPlaying.up_next &&
-        !isMediaPlaying(video) &&
-        !screensaverTimeout &&
-        !cursorVisible
-      ) {
-        screensaverTimeout = setTimeout(function () {
-          screensaver.style.visibility = 'visible';
-          startScreensaver();
-        }, screensaverTimeoutMs);
-      } else {
-        if (nowPlaying.up_next || isMediaPlaying(video) || cursorVisible) {
-          screensaver.style.visibility = "hidden";
-          stopScreensaver();
-          screensaverTimeout = clearTimeout(screensaverTimeout);
+      if (isScreensaverEnabled) {
+        let screensaver = document.getElementById('screensaver');
+        if (
+          !nowPlaying.up_next &&
+          !isMediaPlaying(video) &&
+          !screensaverTimeout &&
+          !cursorVisible
+        ) {
+          screensaverTimeout = setTimeout(function () {
+            screensaver.style.visibility = 'visible';
+            playBGVideo(false);
+            startScreensaver();
+          }, screensaverTimeoutMs);
+        } else {
+          if (nowPlaying.up_next || isMediaPlaying(video) || cursorVisible) {
+            if (screensaver.style.visibility == 'visible') {
+              screensaver.style.visibility = "hidden";
+              stopScreensaver();
+              screensaverTimeout = clearTimeout(screensaverTimeout);
+              if (!nowPlaying.up_next && !isMediaPlaying(video)) {
+                playBGVideo(true);
+              }
+            }
+          }
         }
       }
-
     });
   }
 
@@ -350,7 +392,7 @@
     });
 
     // Load the background music playlist from server
-    $.get('{{ url_for("bg_playlist") }}', function (data) {
+    $.get('{{ url_for("bg_music.bg_playlist") }}', function (data) {
       if (data) bg_playlist = data;
     });
 
@@ -404,6 +446,9 @@
       let modal = document.getElementById('permissions-modal');
       modal.classList.remove('is-active');
       playBGMusic(true);
+      if (hasBgVideo)  {
+        playBGVideo(true);
+      }
     }
 
 
@@ -492,7 +537,7 @@
 
 <div id="logo-container">
   <div>
-    <img class="logo" src="{{ url_for('logo') }}" width="500px" alt="logo" />
+    <img class="logo" src="{{ url_for('images.logo') }}" width="500px" alt="logo" />
   </div>
 </div>
 
@@ -508,7 +553,7 @@
   {% if not hide_url %}
   <div id="qr-code">
     <img
-      src="{{ url_for('qrcode') }}"
+      src="{{ url_for('images.qrcode') }}"
       width="100px"
       style="image-rendering: pixelated"
       alt="qrcode"
@@ -541,6 +586,12 @@
 
 <div id="video-container" class="video-container">
   <video id="video" disableRemotePlayback>
+    <source id="video-source" type="video/mp4" src="" />
+  </video>
+</div>
+
+<div id="bg-video-container" class="video-container">
+  <video id="bg-video" disableRemotePlayback muted loop style="object-fit: cover">
     <source id="video-source" type="video/mp4" src="" />
   </video>
 </div>
@@ -607,16 +658,18 @@
 ></div>
 
 <!-- Screensaver code -->
-<div id="screensaver" style="visibility: hidden">
-  <div id="dvd">
-    {% if not hide_url %}
-    <div>
-      <div style="text-align: right">
-        <img src="{{ url_for('qrcode') }}" width="30%" height="30%" />
+ <div class="fw-fh-container">
+  <div id="screensaver" style="visibility: hidden">
+    <div id="dvd">
+      {% if not hide_url %}
+      <div>
+        <div style="text-align: right">
+          <img src="{{ url_for('images.qrcode') }}" width="30%" height="30%" />
+        </div>
+        <div>{{ hostap_info[0] }}<br />{{ url }}</div>
       </div>
-      <div>{{ hostap_info[0] }}<br />{{ url }}</div>
+      {% endif %}
     </div>
-    {% endif %}
   </div>
 </div>
 
@@ -686,6 +739,11 @@
     display: flex;
     align-items: center;
   }
+  #bg-video-container {
+    z-index: 0;
+    width: 100vw;
+    height: 100vh;
+  }
   video {
     height: 100%;
     width: 100%;
@@ -694,7 +752,13 @@
   body {
     background-color: black;
   }
+  .fw-fh-container {
+    height: 100vh;
+    width: 100vw;
+  }
   #logo-container {
+    position: absolute;
+    z-index: 1;
     display: flex;
     width: 100vw;
     height: 100vh;

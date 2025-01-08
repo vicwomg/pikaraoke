@@ -1,6 +1,7 @@
 import os
 import re
 import shutil
+import tempfile
 import zipfile
 from sys import maxsize
 
@@ -11,10 +12,7 @@ from pikaraoke.lib.get_platform import get_platform
 def get_tmp_dir():
     # Determine tmp directories (for things like extracted cdg files)
     pid = os.getpid()  # for scoping tmp directories to this process
-    if get_platform() == "windows":
-        tmp_dir = os.path.expanduser(r"~\\AppData\\Local\\Temp\\pikaraoke\\" + str(pid) + r"\\")
-    else:
-        tmp_dir = f"/tmp/pikaraoke/{pid}"
+    tmp_dir = os.path.join(tempfile.gettempdir(), f"{pid}")
     return tmp_dir
 
 
