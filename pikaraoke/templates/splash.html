@@ -37,6 +37,7 @@
   var screensaverTimeoutMs =
     parseInt('{{ screensaver_timeout }}') * 1000 || 300000;
   let screensaverTimeout; //stores the screensaver timer
+  var isScreensaverEnabled = screensaverTimeoutMs > 0
 
 
   var nowPlayingInterval = null;
@@ -343,30 +344,32 @@
       }
 
       //handle screensaver
-      let screensaver = document.getElementById('screensaver');
-      if (
-        screensaverTimeoutMs > 0 &&
-        !nowPlaying.up_next &&
-        !isMediaPlaying(video) &&
-        !screensaverTimeout &&
-        !cursorVisible
-      ) {
-        screensaverTimeout = setTimeout(function () {
-          screensaver.style.visibility = 'visible';
-          playBGVideo(false);
-          startScreensaver();
-        }, screensaverTimeoutMs);
-      } else {
-        if (nowPlaying.up_next || isMediaPlaying(video) || cursorVisible) {
-          if (screensaver.style.visibility == 'visible') {
-            screensaver.style.visibility = "hidden";
-            stopScreensaver();
-            playBGVideo(true);
-            screensaverTimeout = clearTimeout(screensaverTimeout);
+      if (isScreensaverEnabled) {
+        let screensaver = document.getElementById('screensaver');
+        if (
+          !nowPlaying.up_next &&
+          !isMediaPlaying(video) &&
+          !screensaverTimeout &&
+          !cursorVisible
+        ) {
+          screensaverTimeout = setTimeout(function () {
+            screensaver.style.visibility = 'visible';
+            playBGVideo(false);
+            startScreensaver();
+          }, screensaverTimeoutMs);
+        } else {
+          if (nowPlaying.up_next || isMediaPlaying(video) || cursorVisible) {
+            if (screensaver.style.visibility == 'visible') {
+              screensaver.style.visibility = "hidden";
+              stopScreensaver();
+              screensaverTimeout = clearTimeout(screensaverTimeout);
+              if (!nowPlaying.up_next && !isMediaPlaying(video)) {
+                playBGVideo(true);
+              }
+            }
           }
         }
       }
-
     });
   }
 
