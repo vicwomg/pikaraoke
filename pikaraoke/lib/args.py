@@ -27,7 +27,7 @@ platform = get_platform()
 default_port = 5555
 default_volume = 0.85
 default_normalize_audio = False
-default_splash_delay = 3
+default_splash_delay = 2
 default_screensaver_delay = 300
 default_log_level = logging.INFO
 default_prefer_hostname = False
@@ -95,7 +95,7 @@ def parse_pikaraoke_args():
     parser.add_argument(
         "-t",
         "--screensaver-timeout",
-        help="Delay before the screensaver begins (in secs). (default: %s )"
+        help="Delay before the screensaver begins (in secs). Set to 0 to disable screensaver. (default: %s )"
         % default_screensaver_delay,
         default=default_screensaver_delay,
         type=int,
@@ -208,6 +208,19 @@ def parse_pikaraoke_args():
         required=False,
     ),
     parser.add_argument(
+        "--bg-video-path",
+        nargs="+",
+        help="Path to a background video mp4 file. Will play in the background of the splash screen.",
+        default=None,
+        required=False,
+    ),
+    parser.add_argument(
+        "--disable-bg-video",
+        action="store_true",
+        help="Disable background video on splash screen",
+        required=False,
+    ),
+    parser.add_argument(
         "--disable-score",
         help="Disable the score screen after each song",
         action="store_true",
@@ -238,6 +251,11 @@ def parse_pikaraoke_args():
     youtubedl_path = arg_path_parse(args.youtubedl_path)
     logo_path = arg_path_parse(args.logo_path)
     bg_music_path = arg_path_parse(args.bg_music_path)
+    bg_video_path = arg_path_parse(args.bg_video_path)
+
+    if bg_video_path is not None and not os.path.isfile(bg_video_path):
+        print(f"Background video found: {bg_video_path}. Setting to None")
+
     dl_path = os.path.expanduser(arg_path_parse(args.download_path))
     if not dl_path.endswith("/"):
         dl_path += "/"
@@ -245,6 +263,7 @@ def parse_pikaraoke_args():
     args.youtubedl_path = youtubedl_path
     args.logo_path = logo_path
     args.bg_music_path = bg_music_path
+    args.bg_video_path = bg_video_path
     args.download_path = dl_path
 
     return args

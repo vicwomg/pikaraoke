@@ -69,6 +69,7 @@ def info():
         admin_enabled=admin_password != None,
         disable_bg_music=k.disable_bg_music,
         bg_music_volume=int(100 * k.bg_music_volume),
+        disable_bg_video=k.disable_bg_video,
         disable_score=k.disable_score,
         hide_url=k.hide_url,
         limit_user_songs_by=k.limit_user_songs_by,

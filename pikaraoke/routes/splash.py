@@ -40,6 +40,8 @@ def splash():
         hide_overlay=k.hide_overlay,
         screensaver_timeout=k.screensaver_timeout,
         disable_bg_music=k.disable_bg_music,
+        disable_bg_video=k.disable_bg_video,
         disable_score=k.disable_score,
         bg_music_volume=k.bg_music_volume,
+        has_bg_video=k.bg_video_path is not None,
     )

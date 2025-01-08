@@ -166,6 +166,12 @@
 </div>
 
 <div class="user-preference-container">
+  <input id="pref-bg-video" class="user-preference-checkbox" type="checkbox" data-pref="disable_bg_video" {% if disable_bg_video %}checked{% endif %}>
+  <label class="label">{# MSG: Checkbox label which enable/disables background video on the Splash Screen #} {% trans %}Disable background video{% endtrans %}
+  </label>
+</div>
+
+<div class="user-preference-container">
   <input id="pref-score" type="checkbox" class="user-preference-checkbox" data-pref="disable_score" {% if disable_score %}checked{% endif %}>
   <label class="label">{# MSG: Checkbox label which enable/disables the Score Screen #} {% trans %}Disable the score screen after each song{% endtrans %}
   </label>
@@ -204,7 +210,7 @@
 <div class="user-preference-container">
   <input id="pref-screensaver-timeout" class="user-preference-input" type="number" min="0" max="999" data-pref="screensaver_timeout" data-start-value="{{ screensaver_timeout }}" value="{{ screensaver_timeout }}" />
   <label class="label">
-    {# MSG: Numberbox label for setting the inactive delay before showing the screensaver  #} {% trans %}The amount of idle time in seconds before the screen saver activates{% endtrans %}
+    {# MSG: Numberbox label for setting the inactive delay before showing the screensaver  #} {% trans %}The amount of idle time in seconds before the screen saver activates. Set to 0 to disable it.{% endtrans %}
   </label>
 </div>
 
