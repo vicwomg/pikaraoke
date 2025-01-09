@@ -9,9 +9,9 @@ import os
 import sys
 
 import flask_babel
-from flask import Flask, redirect, request, session, url_for
+from flask import Flask, request, session
 from flask_babel import Babel
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO
 
 from pikaraoke import karaoke
 from pikaraoke.constants import LANGUAGES
@@ -23,6 +23,7 @@ from pikaraoke.lib.get_platform import get_platform, is_raspberry_pi
 from pikaraoke.lib.selenium import launch_splash_screen
 from pikaraoke.routes.admin import admin_bp
 from pikaraoke.routes.background_music import background_music_bp
+from pikaraoke.routes.controller import controller_bp
 from pikaraoke.routes.files import files_bp
 from pikaraoke.routes.home import home_bp
 from pikaraoke.routes.images import images_bp
@@ -64,11 +65,7 @@ app.register_blueprint(files_bp)
 app.register_blueprint(search_bp)
 app.register_blueprint(info_bp)
 app.register_blueprint(splash_bp)
-
-
-def broadcast_event(event, data=None):
-    print("Broadcasting event: " + event)
-    emit(event, data, namespace="/", broadcast=True)
+app.register_blueprint(controller_bp)
 
 
 @babel.localeselector
@@ -113,88 +110,6 @@ def nowplaying():
     except Exception as e:
         logging.error("Problem loading /nowplaying, pikaraoke may still be starting up: " + str(e))
         return ""
-
-
-# Call this after receiving a command in the front end
-@app.route("/clear_command")
-def clear_command():
-    k = get_karaoke_instance()
-    k.now_playing_command = None
-    return ""
-
-
-@app.route("/skip")
-def skip():
-    k = get_karaoke_instance()
-    broadcast_event("skip")
-    k.skip()
-    return redirect(url_for("home.home"))
-
-
-@app.route("/pause")
-def pause():
-    k = get_karaoke_instance()
-    if k.is_paused:
-        broadcast_event("play")
-    else:
-        broadcast_event("pause")
-    k.pause()
-    return redirect(url_for("home.home"))
-
-
-@app.route("/transpose/<semitones>", methods=["GET"])
-def transpose(semitones):
-    k = get_karaoke_instance()
-    k.transpose_current(int(semitones))
-    return redirect(url_for("home.home"))
-
-
-@app.route("/restart")
-def restart():
-    k = get_karaoke_instance()
-    broadcast_event("restart")
-    k.restart()
-    return redirect(url_for("home.home"))
-
-
-@app.route("/volume/<volume>")
-def volume(volume):
-    k = get_karaoke_instance()
-    broadcast_event("volume", volume)
-    k.volume_change(float(volume))
-    return redirect(url_for("home.home"))
-
-
-@app.route("/vol_up")
-def vol_up():
-    k = get_karaoke_instance()
-    broadcast_event("volume", "up")
-    k.vol_up()
-    return redirect(url_for("home.home"))
-
-
-@app.route("/vol_down")
-def vol_down():
-    k = get_karaoke_instance()
-    broadcast_event("volume", "down")
-    k.vol_down()
-    return redirect(url_for("home.home"))
-
-
-@app.route("/end_song", methods=["GET", "POST"])
-def end_song():
-    k = get_karaoke_instance()
-    d = request.form.to_dict()
-    reason = d["reason"] if "reason" in d else None
-    k.end_song(reason)
-    return "ok"
-
-
-@app.route("/start_song", methods=["GET"])
-def start_song():
-    k = get_karaoke_instance()
-    k.start_song()
-    return "ok"
 
 
 def main():

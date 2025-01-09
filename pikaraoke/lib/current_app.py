@@ -4,6 +4,7 @@ import sys
 import time
 
 from flask import current_app, request
+from flask_socketio import emit
 
 from pikaraoke.karaoke import Karaoke
 
@@ -48,6 +49,11 @@ def get_site_name() -> str:
         str: The site name stored in the current app's configuration.
     """
     return current_app.config["SITE_NAME"]
+
+
+def broadcast_event(event, data=None):
+    print("Broadcasting event: " + event)
+    emit(event, data, namespace="/", broadcast=True)
 
 
 def delayed_halt(cmd):

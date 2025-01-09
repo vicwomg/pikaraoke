@@ -36,11 +36,6 @@
   var mouseTimer = null,
     cursorVisible = true;
 
-  var screensaverTimeoutMs =
-    parseInt('{{ screensaver_timeout }}') * 1000 || 300000;
-  let screensaverTimeout; //stores the screensaver timer
-  var isScreensaverEnabled = screensaverTimeoutMs > 0
-
 
   var nowPlayingInterval = null;
   var pollingInterval = 1000;
@@ -91,10 +86,6 @@
     playBGMusic(true);
   }
 
-  function clearCommand() {
-    $.get('{{ url_for("clear_command") }}');
-  }
-
   function hideVideo() {
     $("#video-container").hide();
   }
@@ -106,7 +97,7 @@
       isScoreShown = false;
 	  }
     hideVideo();
-    $.post('{{ url_for("end_song") }}', {reason: reason});
+    $.post('{{ url_for("controller.end_song") }}', {reason: reason});
   }
 
   function getBackgroundMusicPlayer() {
@@ -181,8 +172,10 @@
           bgVideoContainer.fadeIn(2000);
         }
       } else {
-        bgVideo.pause();
-        bgVideoContainer.fadeOut(2000);
+        if (isMediaPlaying(bgVideo)) {
+          bgVideo.pause();
+          bgVideoContainer.fadeOut(2000);
+        }
       }
     }
   }
@@ -207,6 +200,39 @@
         }, 450);
       }, 3000);
     }
+  }
+
+  //handle screensaver idle loop
+  var idleTime = 0;
+  var screensaverTimeoutSeconds = parseInt('{{ screensaver_timeout }}') || 0;
+  if (screensaverTimeoutSeconds > 0) {
+    setInterval(() => {
+      let screensaver = document.getElementById('screensaver');
+      let video = getVideoPlayer();
+      if (isMediaPlaying(video) || cursorVisible) {
+        idleTime = 0; //reset idle timer on playback and mouse move
+      }
+      if (idleTime >= screensaverTimeoutSeconds) {
+        if (screensaver.style.visibility == 'hidden') {
+          screensaver.style.visibility = 'visible';
+          playBGVideo(false);
+          startScreensaver();
+        }
+        if (idleTime > screensaverTimeoutSeconds + 36000) {
+          idleTime = screensaverTimeoutSeconds; //prevent overflow
+        }
+      }
+      else { //stop screensaver
+        if (screensaver.style.visibility == 'visible') {
+          screensaver.style.visibility = 'hidden';
+          stopScreensaver();
+          if (!nowPlaying.up_next && !isMediaPlaying(video)) {
+            playBGVideo(true);
+          }
+        }
+      }
+      idleTime++;
+    }, 1000)
   }
 
   function getNowPlaying() {
@@ -235,6 +261,7 @@
 
         // Handle the Background music depending on the up_next and nowplaying status
         if (obj.up_next) {
+          idleTime = 0; // reset idle timer to clear screensaver
           playBGMusic(false);
           playBGVideo(false);
         } else if (!obj.now_playing) {
@@ -309,33 +336,8 @@
         }
       }
 
-      //handle screensaver
-      if (isScreensaverEnabled) {
-        let screensaver = document.getElementById('screensaver');
-        if (
-          !nowPlaying.up_next &&
-          !isMediaPlaying(video) &&
-          !screensaverTimeout &&
-          !cursorVisible
-        ) {
-          screensaverTimeout = setTimeout(function () {
-            screensaver.style.visibility = 'visible';
-            playBGVideo(false);
-            startScreensaver();
-          }, screensaverTimeoutMs);
-        } else {
-          if (nowPlaying.up_next || isMediaPlaying(video) || cursorVisible) {
-            if (screensaver.style.visibility == 'visible') {
-              screensaver.style.visibility = "hidden";
-              stopScreensaver();
-              screensaverTimeout = clearTimeout(screensaverTimeout);
-              if (!nowPlaying.up_next && !isMediaPlaying(video)) {
-                playBGVideo(true);
-              }
-            }
-          }
-        }
-      }
+
+
     });
   }
 
@@ -376,7 +378,7 @@
     video.addEventListener("play", () => {
       $("#video-container").show();
       //Report song start after a slight delay to allow video to load
-      setTimeout(() => $.get('{{ url_for("start_song") }}'), 1200);
+      setTimeout(() => $.get('{{ url_for("controller.start_song") }}'), 1200);
     });
     video.addEventListener("ended", () => {
       endSong("complete", true);
@@ -475,16 +477,16 @@
       }
     });
 
-    socket.on('skip', () => {
+    socket.on('skip', (reason) => {
       const video = getVideoPlayer();
-      if (!isMediaPlaying(video)) {
+      if (isMediaPlaying(video)) {
         const currVolume = video.volume;
         $(video).animate({ volume: 0 }, 1000, () => {
             video.pause();
             video.volume = currVolume;
             hideVideo();
           });
-        console.log(`Skip`);
+        console.log(`Skip: ${reason}`);
       }
     });
 

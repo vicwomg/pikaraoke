@@ -3,7 +3,12 @@ import json
 import flask_babel
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
-from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
+from pikaraoke.lib.current_app import (
+    broadcast_event,
+    get_karaoke_instance,
+    get_site_name,
+    is_admin,
+)
 
 try:
     from urllib.parse import unquote
@@ -55,6 +60,7 @@ def queue_edit():
         k.queue_clear()
         # MSG: Message shown after clearing the queue
         flash(_("Cleared the queue!"), "is-warning")
+        broadcast_event("skip", "clear queue")
         return redirect(url_for("queue.queue"))
     else:
         song = request.args["song"]
