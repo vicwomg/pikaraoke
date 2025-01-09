@@ -97,7 +97,7 @@
       isScoreShown = false;
 	  }
     hideVideo();
-    $.post('{{ url_for("controller.end_song") }}', {reason: reason});
+    socket.emit("end_song", reason);
   }
 
   function getBackgroundMusicPlayer() {
@@ -236,7 +236,7 @@
   }
 
   function getNowPlaying() {
-    $.get('{{ url_for("nowplaying") }}', function (data) {
+    $.get('{{ url_for("now_playing.nowplaying") }}', function (data) {
       var obj = JSON.parse(data);
       if (obj.hash != nowPlayingHash) {
         nowPlayingHash = obj.hash;
@@ -378,7 +378,9 @@
     video.addEventListener("play", () => {
       $("#video-container").show();
       //Report song start after a slight delay to allow video to load
-      setTimeout(() => $.get('{{ url_for("controller.start_song") }}'), 1200);
+      setTimeout(() => {
+        socket.emit("start_song")
+      }, 1200);
     });
     video.addEventListener("ended", () => {
       endSong("complete", true);

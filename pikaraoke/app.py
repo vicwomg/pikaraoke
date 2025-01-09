@@ -1,9 +1,9 @@
 from gevent import monkey
 
+from pikaraoke.lib.current_app import get_karaoke_instance
+
 monkey.patch_all()
 
-import hashlib
-import json
 import logging
 import os
 import sys
@@ -16,10 +16,9 @@ from flask_socketio import SocketIO
 from pikaraoke import karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
-from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
-from pikaraoke.lib.get_platform import get_platform, is_raspberry_pi
+from pikaraoke.lib.get_platform import get_platform
 from pikaraoke.lib.selenium import launch_splash_screen
 from pikaraoke.routes.admin import admin_bp
 from pikaraoke.routes.background_music import background_music_bp
@@ -28,6 +27,7 @@ from pikaraoke.routes.files import files_bp
 from pikaraoke.routes.home import home_bp
 from pikaraoke.routes.images import images_bp
 from pikaraoke.routes.info import info_bp
+from pikaraoke.routes.now_playing import nowplaying_bp
 from pikaraoke.routes.preferences import preferences_bp
 from pikaraoke.routes.queue import queue_bp
 from pikaraoke.routes.search import search_bp
@@ -43,15 +43,15 @@ _ = flask_babel.gettext
 
 from gevent.pywsgi import WSGIServer
 
+socketio = SocketIO()
+babel = Babel()
+
+
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
-socketio = SocketIO(app)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
-babel = Babel(app)
-raspberry_pi = is_raspberry_pi()
-
 
 # Register blueprints for additional routes
 app.register_blueprint(home_bp)
@@ -66,6 +66,10 @@ app.register_blueprint(search_bp)
 app.register_blueprint(info_bp)
 app.register_blueprint(splash_bp)
 app.register_blueprint(controller_bp)
+app.register_blueprint(nowplaying_bp)
+
+babel.init_app(app)
+socketio.init_app(app)
 
 
 @babel.localeselector
@@ -79,37 +83,22 @@ def get_locale():
     return locale
 
 
-@app.route("/nowplaying")
-def nowplaying():
+# Handle all the socketio incoming events here.
+# TODO: figure out how to move to a blueprint file if this gets out of hand
+
+
+@socketio.on("end_song")
+def end_song(reason):
     k = get_karaoke_instance()
-    try:
-        if len(k.queue) >= 1:
-            next_song = k.queue[0]["title"]
-            next_user = k.queue[0]["user"]
-        else:
-            next_song = None
-            next_user = None
-        rc = {
-            "now_playing": k.now_playing,
-            "now_playing_user": k.now_playing_user,
-            "now_playing_command": k.now_playing_command,
-            "now_playing_duration": k.now_playing_duration,
-            "now_playing_transpose": k.now_playing_transpose,
-            "now_playing_url": k.now_playing_url,
-            "up_next": next_song,
-            "next_user": next_user,
-            "is_paused": k.is_paused,
-            "volume": k.volume,
-            # "is_transpose_enabled": k.is_transpose_enabled,
-        }
-        hash = hashlib.md5(
-            json.dumps(rc, sort_keys=True, ensure_ascii=True).encode("utf-8", "ignore")
-        ).hexdigest()
-        rc["hash"] = hash  # used to detect changes in the now playing data
-        return json.dumps(rc)
-    except Exception as e:
-        logging.error("Problem loading /nowplaying, pikaraoke may still be starting up: " + str(e))
-        return ""
+    d = request.form.to_dict()
+    reason = d["reason"] if "reason" in d else None
+    k.end_song(reason)
+
+
+@socketio.on("start_song")
+def start_song():
+    k = get_karaoke_instance()
+    k.start_song()
 
 
 def main():

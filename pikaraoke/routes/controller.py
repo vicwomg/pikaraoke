@@ -66,19 +66,3 @@ def vol_down():
     broadcast_event("volume", "down")
     k.vol_down()
     return redirect(url_for("home.home"))
-
-
-@controller_bp.route("/end_song", methods=["GET", "POST"])
-def end_song():
-    k = get_karaoke_instance()
-    d = request.form.to_dict()
-    reason = d["reason"] if "reason" in d else None
-    k.end_song(reason)
-    return "ok"
-
-
-@controller_bp.route("/start_song", methods=["GET"])
-def start_song():
-    k = get_karaoke_instance()
-    k.start_song()
-    return "ok"
