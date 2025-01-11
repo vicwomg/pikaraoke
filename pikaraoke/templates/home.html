@@ -1,80 +1,71 @@
 {% extends 'base.html' %} {% block scripts %}
 <script>
-  var nowPlayingHash = null;
   var volume = 0.85;
 
-  function getNowPlaying() {
-    $.get('{{ url_for("now_playing.nowplaying") }}', function (data) {
-      var obj = JSON.parse(data);
-      if (obj.hash != nowPlayingHash) {
-        nowPlayingHash = obj.hash;
-        console.log(obj);
-        if (obj.now_playing) {
-          var nowPlayingHtml = `<p style="margin-bottom: 5px">${obj.now_playing}</p>
-              <p class="has-text-success" style="margin-bottom: 5px"><i class="icon icon-mic-1" title="Current singer"></i>${obj.now_playing_user}</p>`;
+  var socket = io();
 
-          if (obj.now_playing_transpose != 0) {
-            nowPlayingHtml +=
-              // {# MSG: Label for display of how many semitones the song has been shifted. #}
-              "<span class='is-size-6 has-text-success'><b>Key</b>: " +
-              getSemitonesLabel(obj.now_playing_transpose) +
-              "<span>";
-          }
+  function handleNowPlaying(np) {
+    console.log(np);
+    if (np.now_playing) {
+      var nowPlayingHtml = `<p style="margin-bottom: 5px">${np.now_playing}</p>
+          <p class="has-text-success" style="margin-bottom: 5px"><i class="icon icon-mic-1" title="Current singer"></i>${np.now_playing_user}</p>`;
 
-          $("#now-playing").html(nowPlayingHtml);
-          $(".control-box").show();
-        } else {
-          // {# MSG: Message which shows in the "Now Playing" section when there is no song currently playing #}
-          $("#now-playing").html("{{ _('Nothing is playing right now.') }}");
-          $(".control-box").hide();
-        }
-
-        if (obj.up_next) {
-          $("#up-next").html(`<p style="margin-bottom: 5px">${obj.up_next}</p>
-              <p class="has-text-success">
-                {# MSG: Title text for the icon marking the next person to sing. #}
-                <i class="icon icon-mic-1" title="{{ _('Next singer') }}"></i>${obj.next_user}</p>`);
-        } else {
-          // {# MSG: Alternative text for the "Up next" section if no more songs are queued up. #}
-          $("#up-next").html("{{ _('No song is queued.') }}");
-        }
-
-        if (obj.now_playing_transpose != 0) {
-          $("#transpose").val(obj.now_playing_transpose);
-          $("#semitones-label").html(
-            getSemitonesLabel(obj.now_playing_transpose)
-          );
-        } else {
-          $("#transpose").val(0);
-          $("#semitones-label").html(
-            getSemitonesLabel(obj.now_playing_transpose)
-          );
-        }
-
-        // set the volume slider to the current volume
-        if (obj.volume != volume) {
-          volume = obj.volume;
-          console.log("setting volume to " + volume);
-          $("#volume-slider").val(volume);
-        }
-
-        if (obj.is_paused) {
-          $("#pause-resume").removeClass("icon-pause");
-          $("#pause-resume").addClass("icon-play");
-          $(".playing_gif").attr(
-            "src",
-            "{{  url_for('static', filename='images/now-playing.png') }}"
-          );
-        } else {
-          $("#pause-resume").removeClass("icon-play");
-          $("#pause-resume").addClass("icon-pause");
-          $(".playing_gif").attr(
-            "src",
-            "{{  url_for('static', filename='images/now-playing.gif') }}"
-          );
-        }
+      if (np.now_playing_transpose != 0) {
+        nowPlayingHtml +=
+          // {# MSG: Label for display of how many semitones the song has been shifted. #}
+          "<span class='is-size-6 has-text-success'><b>Key</b>: " +
+          getSemitonesLabel(np.now_playing_transpose) +
+          "<span>";
       }
-    });
+
+      $("#now-playing").html(nowPlayingHtml);
+      $(".control-box").show();
+    } else {
+      // {# MSG: Message which shows in the "Now Playing" section when there is no song currently playing #}
+      $("#now-playing").html("{{ _('Nothing is playing right now.') }}");
+      $(".control-box").hide();
+    }
+
+    if (np.up_next) {
+      $("#up-next").html(`<p style="margin-bottom: 5px">${np.up_next}</p>
+          <p class="has-text-success">
+            {# MSG: Title text for the icon marking the next person to sing. #}
+            <i class="icon icon-mic-1" title="{{ _('Next singer') }}"></i>${np.next_user}</p>`);
+    } else {
+      // {# MSG: Alternative text for the "Up next" section if no more songs are queued up. #}
+      $("#up-next").html("{{ _('No song is queued.') }}");
+    }
+
+    if (np.now_playing_transpose != 0) {
+      $("#transpose").val(np.now_playing_transpose);
+      $("#semitones-label").html(getSemitonesLabel(np.now_playing_transpose));
+    } else {
+      $("#transpose").val(0);
+      $("#semitones-label").html(getSemitonesLabel(np.now_playing_transpose));
+    }
+
+    // set the volume slider to the current volume
+    if (np.volume != volume) {
+      volume = np.volume;
+      console.log("setting volume to " + volume);
+      $("#volume-slider").val(volume);
+    }
+
+    if (np.is_paused) {
+      $("#pause-resume").removeClass("icon-pause");
+      $("#pause-resume").addClass("icon-play");
+      $(".playing_gif").attr(
+        "src",
+        "{{  url_for('static', filename='images/now-playing.png') }}"
+      );
+    } else {
+      $("#pause-resume").removeClass("icon-play");
+      $("#pause-resume").addClass("icon-pause");
+      $(".playing_gif").attr(
+        "src",
+        "{{  url_for('static', filename='images/now-playing.gif') }}"
+      );
+    }
   }
 
   function refreshNowPlaying() {
@@ -170,8 +161,12 @@
       }
     }
 
-    getNowPlaying();
-    setInterval(getNowPlaying, 1500);
+    //for first time load of splash screen
+    $.get('{{ url_for("now_playing.now_playing") }}', function (data) {
+      handleNowPlaying(JSON.parse(data));
+    });
+    //for pushed updates to now playing state
+    socket.on("now_playing", (np) => handleNowPlaying(np));
   });
 </script>
 {% endblock %} {% block header %}

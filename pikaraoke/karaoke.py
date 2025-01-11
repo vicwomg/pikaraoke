@@ -1,5 +1,6 @@
 import configparser
 import contextlib
+import hashlib
 import json
 import logging
 import os
@@ -783,6 +784,28 @@ class Karaoke:
         self.now_playing_transpose = 0
         self.now_playing_duration = None
         self.ffmpeg_log = None
+
+    def get_now_playing(self):
+        np = {
+            "now_playing": self.now_playing,
+            "now_playing_user": self.now_playing_user,
+            "now_playing_command": self.now_playing_command,
+            "now_playing_duration": self.now_playing_duration,
+            "now_playing_transpose": self.now_playing_transpose,
+            "now_playing_url": self.now_playing_url,
+            "up_next": self.queue[0]["title"] if len(self.queue) > 0 else None,
+            "next_user": self.queue[0]["user"] if len(self.queue) > 0 else None,
+            "is_paused": self.is_paused,
+            "volume": self.volume,
+        }
+        return np
+
+    def get_now_playing_hash(self):
+        return hashlib.md5(
+            json.dumps(self.get_now_playing(), sort_keys=True, ensure_ascii=True).encode(
+                "utf-8", "ignore"
+            )
+        ).hexdigest()
 
     def run(self):
         logging.info("Starting PiKaraoke!")

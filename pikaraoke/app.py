@@ -1,7 +1,5 @@
 from gevent import monkey
 
-from pikaraoke.lib.current_app import get_karaoke_instance
-
 monkey.patch_all()
 
 import logging
@@ -16,6 +14,7 @@ from flask_socketio import SocketIO
 from pikaraoke import karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
+from pikaraoke.lib.current_app import broadcast_event, get_karaoke_instance
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
 from pikaraoke.lib.get_platform import get_platform
@@ -40,6 +39,9 @@ except ImportError:
     from urllib import quote
 
 _ = flask_babel.gettext
+
+import threading
+import time
 
 from gevent.pywsgi import WSGIServer
 
@@ -90,8 +92,6 @@ def get_locale():
 @socketio.on("end_song")
 def end_song(reason):
     k = get_karaoke_instance()
-    d = request.form.to_dict()
-    reason = d["reason"] if "reason" in d else None
     k.end_song(reason)
 
 
@@ -99,6 +99,17 @@ def end_song(reason):
 def start_song():
     k = get_karaoke_instance()
     k.start_song()
+
+
+def poll_nowplaying(k: karaoke.Karaoke):
+    now_playing_hash = None
+    while True:
+        time.sleep(0.5)
+        hash = k.get_now_playing_hash()
+        if hash != now_playing_hash:
+            now_playing_hash = hash
+            logging.info(k.get_now_playing())
+            socketio.emit("now_playing", k.get_now_playing(), namespace="/")
 
 
 def main():
@@ -160,7 +171,7 @@ def main():
 
     k.upgrade_youtubedl()
 
-    server = WSGIServer(("0.0.0.0", int(args.port)), app)
+    server = WSGIServer(("0.0.0.0", int(args.port)), app, log=None, error_log=logging.getLogger())
     server.start()
 
     # Handle sigterm, apparently cherrypy won't shut down without explicit handling
@@ -178,6 +189,11 @@ def main():
             sys.exit()
     else:
         driver = None
+
+    # Poll karaoke object for now playing updates
+    thread = threading.Thread(target=poll_nowplaying, args=(k,))
+    thread.daemon = True
+    thread.start()
 
     # Start the karaoke process
     k.run()
