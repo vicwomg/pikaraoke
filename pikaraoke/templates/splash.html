@@ -311,13 +311,10 @@
     }
 
     // handle messages
-    if (
-      np.now_playing_command &&
-      np.now_playing_command.startsWith("message::")
-    ) {
-      const cmd = np.now_playing_command.split("::");
-      const message = cmd[1];
-      const categoryClass = cmd.length >= 2 ? cmd[2] : "is-primary";
+    if (np.now_playing_notification) {
+      const cmd = np.now_playing_notification.split("::");
+      const message = cmd[0];
+      const categoryClass = cmd.length > 1 ? cmd[1] : "is-primary";
       flashNotification(message, categoryClass);
     }
   }
