@@ -1,3 +1,4 @@
+import logging
 import os
 import subprocess
 import sys
@@ -52,7 +53,7 @@ def get_site_name() -> str:
 
 
 def broadcast_event(event, data=None):
-    print("Broadcasting event: " + event)
+    logging.debug("Broadcasting event: " + event)
     emit(event, data, namespace="/", broadcast=True)
 
 

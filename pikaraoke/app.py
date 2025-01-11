@@ -101,15 +101,22 @@ def start_song():
     k.start_song()
 
 
-def poll_nowplaying(k: karaoke.Karaoke):
-    now_playing_hash = None
+def poll_karaoke_state(k: karaoke.Karaoke):
+    curr_now_playing_hash = None
+    curr_queue_hash = None
+    poll_interval = 0.5
     while True:
-        time.sleep(0.5)
-        hash = k.get_now_playing_hash()
-        if hash != now_playing_hash:
-            now_playing_hash = hash
-            logging.info(k.get_now_playing())
+        time.sleep(poll_interval)
+        np_hash = k.get_now_playing_hash()
+        if np_hash != curr_now_playing_hash:
+            curr_now_playing_hash = np_hash
+            logging.debug(k.get_now_playing())
             socketio.emit("now_playing", k.get_now_playing(), namespace="/")
+        q_hash = k.get_queue_hash()
+        if q_hash != curr_queue_hash:
+            curr_queue_hash = q_hash
+            logging.debug(k.queue)
+            socketio.emit("queue_update", namespace="/")
 
 
 def main():
@@ -191,7 +198,7 @@ def main():
         driver = None
 
     # Poll karaoke object for now playing updates
-    thread = threading.Thread(target=poll_nowplaying, args=(k,))
+    thread = threading.Thread(target=poll_karaoke_state, args=(k,))
     thread.daemon = True
     thread.start()
 

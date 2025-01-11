@@ -807,6 +807,11 @@ class Karaoke:
             )
         ).hexdigest()
 
+    def get_queue_hash(self):
+        return hashlib.md5(
+            json.dumps(self.queue, ensure_ascii=True).encode("utf-8", "ignore")
+        ).hexdigest()
+
     def run(self):
         logging.info("Starting PiKaraoke!")
         logging.info(f"Connect the player host to: {self.url}/splash")
