@@ -254,7 +254,7 @@ def parse_pikaraoke_args():
     bg_video_path = arg_path_parse(args.bg_video_path)
 
     if bg_video_path is not None and not os.path.isfile(bg_video_path):
-        print(f"Background video found: {bg_video_path}. Setting to None")
+        print(f"Background video not found: {bg_video_path}. Setting to None")
 
     dl_path = os.path.expanduser(arg_path_parse(args.download_path))
     if not dl_path.endswith("/"):

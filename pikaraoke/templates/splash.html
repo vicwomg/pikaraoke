@@ -310,13 +310,6 @@
       }, 10000);
     }
 
-    // handle messages
-    if (np.now_playing_notification) {
-      const cmd = np.now_playing_notification.split("::");
-      const message = cmd[0];
-      const categoryClass = cmd.length > 1 ? cmd[1] : "is-primary";
-      flashNotification(message, categoryClass);
-    }
   }
 
   // ** Post page load actions and event handlers **
@@ -491,6 +484,13 @@
       if (video.paused) video.play()
     });
 
+    socket.on("notification", (data) => {
+      const notification = data.split("::");
+      const message = notification[0];
+      const categoryClass = notification.length > 1 ? notification[1] : "is-primary";
+      flashNotification(message, categoryClass);
+      socket.emit("clear_notification");
+    });
 
     //for first time load of splash screen
     $.get('{{ url_for("now_playing.now_playing") }}', function (data) {

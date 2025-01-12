@@ -101,22 +101,34 @@ def start_song():
     k.start_song()
 
 
+@socketio.on("clear_notification")
+def clear_notification():
+    k = get_karaoke_instance()
+    k.reset_now_playing_notification()
+
+
 def poll_karaoke_state(k: karaoke.Karaoke):
     curr_now_playing_hash = None
     curr_queue_hash = None
+    curr_notification = None
     poll_interval = 0.5
     while True:
         time.sleep(poll_interval)
-        np_hash = k.get_now_playing_hash()
+        np_hash = k.now_playing_hash
         if np_hash != curr_now_playing_hash:
             curr_now_playing_hash = np_hash
             logging.debug(k.get_now_playing())
             socketio.emit("now_playing", k.get_now_playing(), namespace="/")
-        q_hash = k.get_queue_hash()
+        q_hash = k.queue_hash
         if q_hash != curr_queue_hash:
             curr_queue_hash = q_hash
             logging.debug(k.queue)
             socketio.emit("queue_update", namespace="/")
+        notification = k.now_playing_notification
+        if notification != curr_notification:
+            curr_notification = notification
+            if notification:
+                socketio.emit("notification", notification, namespace="/")
 
 
 def main():
