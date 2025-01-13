@@ -52,12 +52,17 @@ def upgrade_youtubedl(youtubedl_path):
     return youtubedl_version
 
 
-def build_ytdl_download_command(youtubedl_path, video_url, download_path, high_quality=False):
+def build_ytdl_download_command(
+    youtubedl_path, video_url, download_path, high_quality=False, youtubedl_proxy=None
+):
     dl_path = download_path + "%(title)s---%(id)s.%(ext)s"
     file_quality = (
         "bestvideo[ext!=webm][height<=1080]+bestaudio[ext!=webm]/best[ext!=webm]"
         if high_quality
         else "mp4"
     )
-    cmd = [youtubedl_path, "-f", file_quality, "-o", dl_path, video_url]
+    cmd = [youtubedl_path, "-f", file_quality, "-o", dl_path]
+    if youtubedl_proxy:
+        cmd += ["--proxy", youtubedl_proxy]
+    cmd += [video_url]
     return cmd

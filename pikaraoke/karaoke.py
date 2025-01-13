@@ -95,6 +95,7 @@ class Karaoke:
         log_level=logging.DEBUG,
         splash_delay=2,
         youtubedl_path="/usr/local/bin/yt-dlp",
+        youtubedl_proxy=None,
         logo_path=None,
         hide_overlay=False,
         screensaver_timeout=300,
@@ -144,6 +145,7 @@ class Karaoke:
         self.log_level = log_level
         self.buffer_size = self.get_user_preference("buffer_size") or buffer_size
         self.youtubedl_path = youtubedl_path
+        self.youtubedl_proxy = youtubedl_proxy
         self.logo_path = self.default_logo_path if logo_path == None else logo_path
         self.hide_overlay = self.get_user_preference("hide_overlay") or hide_overlay
         self.screensaver_timeout = (
@@ -357,7 +359,11 @@ class Karaoke:
         # MSG: Message shown after the download is started
         self.log_and_send(_("Downloading video: %s" % displayed_title))
         cmd = build_ytdl_download_command(
-            self.youtubedl_path, video_url, self.download_path, self.high_quality
+            self.youtubedl_path,
+            video_url,
+            self.download_path,
+            self.high_quality,
+            self.youtubedl_proxy,
         )
         logging.debug("Youtube-dl command: " + " ".join(cmd))
         rc = subprocess.call(cmd)
