@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.9.0](https://github.com/vicwomg/pikaraoke/compare/1.8.0...1.9.0) (2025-01-08)
+
+
+### Features
+
+* support splash screen background video ([#464](https://github.com/vicwomg/pikaraoke/issues/464)) ([5774208](https://github.com/vicwomg/pikaraoke/commit/5774208b95ff8530f564ae62c52af69eba4e65bf))
+
+
+### Bug Fixes
+
+* allow mp4 files in create_random_playlist, add max_songs param ([5c2db91](https://github.com/vicwomg/pikaraoke/commit/5c2db915dc2a72dde93fd2c9f922b598a2a7e027))
+* missing delayed halt function ([9cf7ab8](https://github.com/vicwomg/pikaraoke/commit/9cf7ab87e9a67d5a042cc2f97f48e9b789f39ba5))
+* tmp directory is not writeable in android [#549](https://github.com/vicwomg/pikaraoke/issues/549) ([b06367b](https://github.com/vicwomg/pikaraoke/commit/b06367b69d7a0dace7c9555f46353028bacb4cd1))
+* volume_change logging error, remove logging in bg_playlist ([147364c](https://github.com/vicwomg/pikaraoke/commit/147364cb59c48623e25f02f83e24fe1401692f53))
+
 ## [1.8.0](https://github.com/vicwomg/pikaraoke/compare/1.7.0...1.8.0) (2025-01-03)
 
 
