@@ -1,29 +1,32 @@
-import hashlib
-import json
+from gevent import monkey
+
+monkey.patch_all()
+
 import logging
 import os
-import signal
 import sys
 
-import cherrypy
 import flask_babel
-from flask import Flask, redirect, request, session, url_for
+from flask import Flask, request, session
 from flask_babel import Babel
+from flask_socketio import SocketIO
 
 from pikaraoke import karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
-from pikaraoke.lib.current_app import get_karaoke_instance
+from pikaraoke.lib.current_app import broadcast_event, get_karaoke_instance
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
-from pikaraoke.lib.get_platform import get_platform, is_raspberry_pi
+from pikaraoke.lib.get_platform import get_platform
 from pikaraoke.lib.selenium import launch_splash_screen
 from pikaraoke.routes.admin import admin_bp
 from pikaraoke.routes.background_music import background_music_bp
+from pikaraoke.routes.controller import controller_bp
 from pikaraoke.routes.files import files_bp
 from pikaraoke.routes.home import home_bp
 from pikaraoke.routes.images import images_bp
 from pikaraoke.routes.info import info_bp
+from pikaraoke.routes.now_playing import nowplaying_bp
 from pikaraoke.routes.preferences import preferences_bp
 from pikaraoke.routes.queue import queue_bp
 from pikaraoke.routes.search import search_bp
@@ -37,15 +40,20 @@ except ImportError:
 
 _ = flask_babel.gettext
 
+import threading
+import time
+
+from gevent.pywsgi import WSGIServer
+
+socketio = SocketIO()
+babel = Babel()
+
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
-babel = Babel(app)
-raspberry_pi = is_raspberry_pi()
-
 
 # Register blueprints for additional routes
 app.register_blueprint(home_bp)
@@ -59,6 +67,11 @@ app.register_blueprint(files_bp)
 app.register_blueprint(search_bp)
 app.register_blueprint(info_bp)
 app.register_blueprint(splash_bp)
+app.register_blueprint(controller_bp)
+app.register_blueprint(nowplaying_bp)
+
+babel.init_app(app)
+socketio.init_app(app)
 
 
 @babel.localeselector
@@ -72,110 +85,50 @@ def get_locale():
     return locale
 
 
-@app.route("/nowplaying")
-def nowplaying():
+# Handle all the socketio incoming events here.
+# TODO: figure out how to move to a blueprint file if this gets out of hand
+
+
+@socketio.on("end_song")
+def end_song(reason):
     k = get_karaoke_instance()
-    try:
-        if len(k.queue) >= 1:
-            next_song = k.queue[0]["title"]
-            next_user = k.queue[0]["user"]
-        else:
-            next_song = None
-            next_user = None
-        rc = {
-            "now_playing": k.now_playing,
-            "now_playing_user": k.now_playing_user,
-            "now_playing_command": k.now_playing_command,
-            "now_playing_duration": k.now_playing_duration,
-            "now_playing_transpose": k.now_playing_transpose,
-            "now_playing_url": k.now_playing_url,
-            "up_next": next_song,
-            "next_user": next_user,
-            "is_paused": k.is_paused,
-            "volume": k.volume,
-            # "is_transpose_enabled": k.is_transpose_enabled,
-        }
-        hash = hashlib.md5(
-            json.dumps(rc, sort_keys=True, ensure_ascii=True).encode("utf-8", "ignore")
-        ).hexdigest()
-        rc["hash"] = hash  # used to detect changes in the now playing data
-        return json.dumps(rc)
-    except Exception as e:
-        logging.error("Problem loading /nowplaying, pikaraoke may still be starting up: " + str(e))
-        return ""
-
-
-# Call this after receiving a command in the front end
-@app.route("/clear_command")
-def clear_command():
-    k = get_karaoke_instance()
-    k.now_playing_command = None
-    return ""
-
-
-@app.route("/skip")
-def skip():
-    k = get_karaoke_instance()
-    k.skip()
-    return redirect(url_for("home.home"))
-
-
-@app.route("/pause")
-def pause():
-    k = get_karaoke_instance()
-    k.pause()
-    return redirect(url_for("home.home"))
-
-
-@app.route("/transpose/<semitones>", methods=["GET"])
-def transpose(semitones):
-    k = get_karaoke_instance()
-    k.transpose_current(int(semitones))
-    return redirect(url_for("home.home"))
-
-
-@app.route("/restart")
-def restart():
-    k = get_karaoke_instance()
-    k.restart()
-    return redirect(url_for("home.home"))
-
-
-@app.route("/volume/<volume>")
-def volume(volume):
-    k = get_karaoke_instance()
-    k.volume_change(float(volume))
-    return redirect(url_for("home.home"))
-
-
-@app.route("/vol_up")
-def vol_up():
-    k = get_karaoke_instance()
-    k.vol_up()
-    return redirect(url_for("home.home"))
-
-
-@app.route("/vol_down")
-def vol_down():
-    k = get_karaoke_instance()
-    k.vol_down()
-    return redirect(url_for("home.home"))
-
-
-@app.route("/end_song", methods=["GET", "POST"])
-def end_song():
-    k = get_karaoke_instance()
-    d = request.form.to_dict()
-    reason = d["reason"] if "reason" in d else None
     k.end_song(reason)
-    return "ok"
 
 
-@app.route("/start_song", methods=["GET"])
+@socketio.on("start_song")
 def start_song():
     k = get_karaoke_instance()
     k.start_song()
-    return "ok"
+
+
+@socketio.on("clear_notification")
+def clear_notification():
+    k = get_karaoke_instance()
+    k.reset_now_playing_notification()
+
+
+def poll_karaoke_state(k: karaoke.Karaoke):
+    curr_now_playing_hash = None
+    curr_queue_hash = None
+    curr_notification = None
+    poll_interval = 0.5
+    while True:
+        time.sleep(poll_interval)
+        np_hash = k.now_playing_hash
+        if np_hash != curr_now_playing_hash:
+            curr_now_playing_hash = np_hash
+            logging.debug(k.get_now_playing())
+            socketio.emit("now_playing", k.get_now_playing(), namespace="/")
+        q_hash = k.queue_hash
+        if q_hash != curr_queue_hash:
+            curr_queue_hash = q_hash
+            logging.debug(k.queue)
+            socketio.emit("queue_update", namespace="/")
+        notification = k.now_playing_notification
+        if notification != curr_notification:
+            curr_notification = notification
+            if notification:
+                socketio.emit("notification", notification, namespace="/")
 
 
 def main():
@@ -237,22 +190,11 @@ def main():
 
     k.upgrade_youtubedl()
 
-    # Start the CherryPy WSGI web server
-    cherrypy.tree.graft(app, "/")
-    # Set the configuration of the web server
-    cherrypy.config.update(
-        {
-            "engine.autoreload.on": False,
-            "log.screen": True,
-            "server.socket_port": int(args.port),
-            "server.socket_host": "0.0.0.0",
-            "server.thread_pool": 100,
-        }
-    )
-    cherrypy.engine.start()
+    server = WSGIServer(("0.0.0.0", int(args.port)), app, log=None, error_log=logging.getLogger())
+    server.start()
 
     # Handle sigterm, apparently cherrypy won't shut down without explicit handling
-    signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
+    # signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
     # force headless mode when on Android
     if (platform == "android") and not args.hide_splash_screen:
@@ -263,10 +205,14 @@ def main():
     if not args.hide_splash_screen:
         driver = launch_splash_screen(k, args.window_size)
         if not driver:
-            cherrypy.engine.exit()
             sys.exit()
     else:
         driver = None
+
+    # Poll karaoke object for now playing updates
+    thread = threading.Thread(target=poll_karaoke_state, args=(k,))
+    thread.daemon = True
+    thread.start()
 
     # Start the karaoke process
     k.run()
@@ -274,7 +220,7 @@ def main():
     # Close running processes when done
     if driver is not None:
         driver.close()
-    cherrypy.engine.exit()
+
     delete_tmp_dir()
     sys.exit()
 
