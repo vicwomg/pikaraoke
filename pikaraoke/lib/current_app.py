@@ -1,10 +1,11 @@
+import logging
 import os
 import subprocess
 import sys
 import time
 
-import cherrypy
 from flask import current_app, request
+from flask_socketio import emit
 
 from pikaraoke.karaoke import Karaoke
 
@@ -51,11 +52,14 @@ def get_site_name() -> str:
     return current_app.config["SITE_NAME"]
 
 
+def broadcast_event(event, data=None):
+    logging.debug("Broadcasting event: " + event)
+    emit(event, data, namespace="/", broadcast=True)
+
+
 def delayed_halt(cmd):
     time.sleep(1.5)
     current_app.k.queue_clear()
-    cherrypy.engine.stop()
-    cherrypy.engine.exit()
     current_app.k.stop()
     if cmd == 0:
         sys.exit()

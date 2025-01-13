@@ -31,19 +31,21 @@
   const isFirefox = typeof InstallTrigger !== "undefined";
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
+  var socket = io();
+
+  function connectSocket() {
+    socket = io();
+    socket.on('connect', function() {
+        console.log('Socket connected');
+    });
+    socket.on('disconnect', function() {
+        console.log('Socket disconnected');
+    });
+  }
+
   var mouseTimer = null,
     cursorVisible = true;
 
-  var screensaverTimeoutMs =
-    parseInt('{{ screensaver_timeout }}') * 1000 || 300000;
-  let screensaverTimeout; //stores the screensaver timer
-  var isScreensaverEnabled = screensaverTimeoutMs > 0
-
-
-  var nowPlayingInterval = null;
-  var pollingInterval = 1000;
-
-  var nowPlayingHash = null;
   var nowPlaying = {};
   var showMenu = false;
   var menuButtonVisible = false;
@@ -76,10 +78,6 @@
 	]
   }
 
-  function startNowPlayingPolling() {
-    nowPlayingInterval = setInterval(getNowPlaying, pollingInterval);
-  }
-
   async function handleConfirmation() {
     $('#permissions-modal').removeClass('is-active');
     confirmationDismissed = true;
@@ -87,10 +85,6 @@
       playBGVideo(true);
     }
     playBGMusic(true);
-  }
-
-  function clearCommand() {
-    $.get('{{ url_for("clear_command") }}');
   }
 
   function hideVideo() {
@@ -104,7 +98,7 @@
       isScoreShown = false;
 	  }
     hideVideo();
-    $.post('{{ url_for("end_song") }}', {reason: reason});
+    socket.emit("end_song", reason);
   }
 
   function getBackgroundMusicPlayer() {
@@ -130,6 +124,10 @@
       }
     }
     return nextSong;
+  }
+
+  function getVideoPlayer() {
+    return $("#video")[0]
   }
 
   // Plays or pauses the background music
@@ -175,8 +173,10 @@
           bgVideoContainer.fadeIn(2000);
         }
       } else {
-        bgVideo.pause();
-        bgVideoContainer.fadeOut(2000);
+        if (isMediaPlaying(bgVideo)) {
+          bgVideo.pause();
+          bgVideoContainer.fadeOut(2000);
+        }
       }
     }
   }
@@ -203,173 +203,128 @@
     }
   }
 
-  function getNowPlaying() {
-    $.get('{{ url_for("nowplaying") }}', function (data) {
-      var obj = JSON.parse(data);
-      if (obj.hash != nowPlayingHash) {
-        nowPlayingHash = obj.hash;
-        nowPlaying = obj;
-        console.log(obj);
-
-        if (obj.now_playing) {
-          var nowPlayingHtml = `<span>${obj.now_playing}</span> `;
-
-          if (obj.now_playing_transpose != 0) {
-            nowPlayingHtml +=
-              `<span class='is-size-6 has-text-success'><b>Key</b>: ${getSemitonesLabel(obj.now_playing_transpose)} </span>`
-          }
-
-          $("#now-playing-song").html(nowPlayingHtml);
-          $("#now-playing-singer").html(obj.now_playing_user);
-          $("#now-playing").fadeIn();
-        } else {
-          // {# MSG: Message which shows in the "Now Playing" section when there is no song currently playing #}
-          $("#now-playing").fadeOut();
-        }
-
-        // Handle the Background music depending on the up_next and nowplaying status
-        if (obj.up_next) {
-          playBGMusic(false);
+  //handle screensaver idle loop
+  var idleTime = 0;
+  var screensaverTimeoutSeconds = parseInt('{{ screensaver_timeout }}') || 0;
+  if (screensaverTimeoutSeconds > 0) {
+    setInterval(() => {
+      let screensaver = document.getElementById('screensaver');
+      let video = getVideoPlayer();
+      if (isMediaPlaying(video) || cursorVisible) {
+        idleTime = 0; //reset idle timer on playback and mouse move
+      }
+      if (idleTime >= screensaverTimeoutSeconds) {
+        if (screensaver.style.visibility == 'hidden') {
+          screensaver.style.visibility = 'visible';
           playBGVideo(false);
-        } else if (!obj.now_playing) {
-          setTimeout(() => {
-            playBGMusic(true);
-            playBGVideo(true)
-          }, 2000);
+          startScreensaver();
         }
-
-        // render the queue details in top right
-        if (obj.up_next) {
-          // {# MSG: Label for the next song to be played in the queue. #}
-          up_next_text = "{{ _('Up next:') }}";
-          // {# MSG: Label of the singer for next song to be played in the queue. (Who added it to the queue.) #}
-          next_singer_text = "{{ _('Next singer:') }}";
-          $("#up-next-song").html(obj.up_next);
-          $("#up-next-singer").html(obj.next_user);
-          $("#up-next").fadeIn();
-        } else {
-          $("#up-next").fadeOut();
-        }
-
-        const video = $('#video')[0];
-
-        // Start playback if a valid now_playing_url is provided
-        if (
-          obj.now_playing_url &&
-          !isMediaPlaying(video) &&
-          $("#video-container").is(":hidden")
-        ) {
-          if (!confirmationDismissed) {
-            console.log(
-              'Browser is unable to play video. User did not confirm interaction prompt.'
-            );
-            endSong("interaction confirmation required");
-          }
-          $("#video-source").attr("src", obj.now_playing_url);
-          video.load();
-          if (volume != obj.volume) {
-            volume = obj.volume;
-            video.volume = volume;
-          }
-
-          // show end time if available
-          const duration = $("#duration");
-          if (obj.now_playing_duration) {
-            duration.text(`/${formatTime(obj.now_playing_duration)}`);
-            duration.show();
-          } else {
-            duration.hide();
-          }
-
-          video.play();
-
-          // handle timeout if video fails to play
-          setTimeout(() => {
-            if (!isMediaPlaying(video) && !video.paused) {
-              endSong("failed to start");
-            }
-          }, 10000);
-        }
-
-        // Handle skip song
-        if (
-          (isMediaPlaying(video) || $("#video-container").is(":visible")) &&
-          !obj.now_playing
-        ) {
-          $(video).animate({ volume: 0 }, 1000, () => {
-            video.pause();
-            video.volume = obj.volume;
-            hideVideo();
-          });
-        }
-
-        // Handle pause/play
-        if (obj.now_playing && !video.paused && obj.is_paused) {
-          $(video).animate({ volume: 0 }, 1000, () => {
-            video.pause();
-            video.volume = obj.volume;
-          });
-        }
-        if (obj.now_playing && video.paused && !obj.is_paused && !isScoreShown) {
-          video.play();
-          video.volume = 0
-          $(video).animate({ volume: obj.volume }, 1000);
-        }
-
-        // Handle volume change
-        if (volume != obj.volume) {
-          volume = obj.volume; //set global volume
-          video.volume = volume;
-        }
-
-        // Handle restart
-        if (
-          obj.now_playing &&
-          obj.now_playing_command == "restart" &&
-          video.currentTime > 3
-        ) {
-          video.currentTime = 0;
-        }
-
-        // handle messages
-        if (
-          obj.now_playing_command &&
-          obj.now_playing_command.startsWith("message::")
-        ) {
-          const cmd = obj.now_playing_command.split("::");
-          const message = cmd[1];
-          const categoryClass = cmd.length >= 2 ? cmd[2] : "is-primary";
-          flashNotification(message, categoryClass);
+        if (idleTime > screensaverTimeoutSeconds + 36000) {
+          idleTime = screensaverTimeoutSeconds; //prevent overflow
         }
       }
-
-      //handle screensaver
-      if (isScreensaverEnabled) {
-        let screensaver = document.getElementById('screensaver');
-        if (
-          !nowPlaying.up_next &&
-          !isMediaPlaying(video) &&
-          !screensaverTimeout &&
-          !cursorVisible
-        ) {
-          screensaverTimeout = setTimeout(function () {
-            screensaver.style.visibility = 'visible';
-            playBGVideo(false);
-            startScreensaver();
-          }, screensaverTimeoutMs);
-        } else {
-          if (nowPlaying.up_next || isMediaPlaying(video) || cursorVisible) {
-            if (screensaver.style.visibility == 'visible') {
-              screensaver.style.visibility = "hidden";
-              stopScreensaver();
-              screensaverTimeout = clearTimeout(screensaverTimeout);
-              if (!nowPlaying.up_next && !isMediaPlaying(video)) {
-                playBGVideo(true);
-              }
-            }
+      else { //stop screensaver
+        if (screensaver.style.visibility == 'visible') {
+          screensaver.style.visibility = 'hidden';
+          stopScreensaver();
+          if (!nowPlaying.up_next && !isMediaPlaying(video)) {
+            playBGVideo(true);
           }
         }
       }
+      idleTime++;
+    }, 1000)
+  }
+
+  function handleNowPlaying(np) {
+    console.log(np)
+    nowPlaying = np;
+    if (np.now_playing) {
+      var nowPlayingHtml = `<span>${np.now_playing}</span> `;
+
+      if (np.now_playing_transpose != 0) {
+        nowPlayingHtml +=
+          `<span class='is-size-6 has-text-success'><b>Key</b>: ${getSemitonesLabel(np.now_playing_transpose)} </span>`
+      }
+
+      $("#now-playing-song").html(nowPlayingHtml);
+      $("#now-playing-singer").html(np.now_playing_user);
+      $("#now-playing").fadeIn();
+    } else {
+      // {# MSG: Message which shows in the "Now Playing" section when there is no song currently playing #}
+      $("#now-playing").fadeOut();
+    }
+
+    // Handle the Background music depending on the up_next and nowplaying status
+    if (np.up_next) {
+      idleTime = 0; // reset idle timer to clear screensaver
+      playBGMusic(false);
+      playBGVideo(false);
+    } else if (!np.now_playing) {
+      setTimeout(() => {
+        playBGMusic(true);
+        playBGVideo(true)
+      }, 2000);
+    }
+
+    // render the queue details in top right
+    if (np.up_next) {
+      // {# MSG: Label for the next song to be played in the queue. #}
+      up_next_text = "{{ _('Up next:') }}";
+      // {# MSG: Label of the singer for next song to be played in the queue. (Who added it to the queue.) #}
+      next_singer_text = "{{ _('Next singer:') }}";
+      $("#up-next-song").html(np.up_next);
+      $("#up-next-singer").html(np.next_user);
+      $("#up-next").fadeIn();
+    } else {
+      $("#up-next").fadeOut();
+    }
+
+    const video = getVideoPlayer();
+
+    // Start playback if a valid now_playing_url is provided
+    if (
+      np.now_playing_url &&
+      !isMediaPlaying(video) &&
+      $("#video-container").is(":hidden")
+    ) {
+      if (!confirmationDismissed) {
+        console.log(
+          'Browser is unable to play video. User did not confirm interaction prompt.'
+        );
+        endSong("interaction confirmation required");
+      }
+      $("#video-source").attr("src", np.now_playing_url);
+      video.load();
+      if (volume != np.volume) {
+        volume = np.volume;
+        video.volume = volume;
+      }
+
+      // show end time if available
+      const duration = $("#duration");
+      if (np.now_playing_duration) {
+        duration.text(`/${formatTime(np.now_playing_duration)}`);
+        duration.show();
+      } else {
+        duration.hide();
+      }
+
+      video.play();
+
+      // handle timeout if video fails to play
+      setTimeout(() => {
+        if (!isMediaPlaying(video) && !video.paused) {
+          endSong("failed to start");
+        }
+      }, 10000);
+    }
+
+  }
+
+  function loadNowPlaying() {
+    $.get('{{ url_for("now_playing.now_playing") }}', function (data) {
+      handleNowPlaying(JSON.parse(data));
     });
   }
 
@@ -381,7 +336,6 @@
       $('#bottom-container').hide();
       $('#top-container').hide();
     }
-    startNowPlayingPolling();
 
     //hide mouse cursor after 2 seconds of inactivity
     document.onmousemove = function () {
@@ -406,11 +360,13 @@
     };
 
     //Video status events for communicating state back to server
-    const video = $("#video")[0];
+    const video = getVideoPlayer();
     video.addEventListener("play", () => {
       $("#video-container").show();
       //Report song start after a slight delay to allow video to load
-      setTimeout(() => $.get('{{ url_for("start_song") }}'), 1200);
+      setTimeout(() => {
+        socket.emit("start_song")
+      }, 1200);
     });
     video.addEventListener("ended", () => {
       endSong("complete", true);
@@ -484,6 +440,89 @@
         playBGVideo(true);
       }
     }
+
+    socket.on('pause', () => {
+      const video = getVideoPlayer();
+      const currVolume = video.volume;
+      if (!video.paused) {
+        $(video).animate({ volume: 0 }, 1000, () => {
+          video.pause();
+          video.volume = currVolume;
+        });
+        console.log(`Pause`);
+      }
+    });
+
+    socket.on('play', () => {
+      const video = getVideoPlayer();
+      const currVolume = video.volume;
+      if (video.paused) {
+        video.play();
+        video.volume = 0;
+        $(video).animate({ volume: currVolume }, 1000);
+        console.log(`Play`);
+      }
+    });
+
+    socket.on('skip', (reason) => {
+      const video = getVideoPlayer();
+      if (isMediaPlaying(video)) {
+        const currVolume = video.volume;
+        $(video).animate({ volume: 0 }, 1000, () => {
+            video.pause();
+            video.volume = currVolume;
+            hideVideo();
+          });
+        console.log(`Skip: ${reason}`);
+      }
+    });
+
+    socket.on('volume', (val) => {
+      const video = getVideoPlayer();
+      if (val == "up") {
+        console.log(`Volume up`);
+        video.volume = Math.min(1, video.volume + 0.1);
+      } else if (val == "down") {
+        console.log(`Volume down`);
+        video.volume = Math.max(0, video.volume - 0.1);
+      }
+      else {
+        console.log(`Volume: ${video.volume}`);
+        video.volume = val;
+      }
+    });
+
+    socket.on('restart', () => {
+      console.log(`Restart`);
+      const video = getVideoPlayer();
+      video.currentTime = 0;
+      if (video.paused) video.play()
+    });
+
+    socket.on("notification", (data) => {
+      const notification = data.split("::");
+      const message = notification[0];
+      const categoryClass = notification.length > 1 ? notification[1] : "is-primary";
+      flashNotification(message, categoryClass);
+      socket.emit("clear_notification");
+    });
+
+    //for first time load of splash screen
+    loadNowPlaying();
+
+    //for socket pushed updates to now playing state
+    socket.on("now_playing", np => handleNowPlaying(np));
+
+    // reconnect socket / refresh if tab is hidden and then visible
+    document.addEventListener("visibilitychange", function() {
+      if (document.visibilityState === 'visible') {
+        loadNowPlaying();
+        if (!socket.connected) {
+            console.log('Reconnecting socket...');
+            connectSocket();
+        }
+      }
+    });
 
   });
 </script>

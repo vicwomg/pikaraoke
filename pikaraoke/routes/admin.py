@@ -5,7 +5,6 @@ import sys
 import threading
 import time
 
-import cherrypy
 import flask_babel
 from flask import (
     Blueprint,
@@ -29,8 +28,6 @@ admin_bp = Blueprint("admin", __name__)
 def delayed_halt(cmd: int, k: Karaoke):
     time.sleep(1.5)
     k.queue_clear()
-    cherrypy.engine.stop()
-    cherrypy.engine.exit()
     k.stop()
     if cmd == 0:
         sys.exit()
@@ -84,7 +81,7 @@ def quit():
         # MSG: Message shown after quitting pikaraoke.
         msg = _("Exiting pikaraoke now!")
         flash(msg, "is-danger")
-        k.send_message_to_splash(msg, "danger")
+        k.send_notification(msg, "danger")
         th = threading.Thread(target=delayed_halt, args=[0, k])
         th.start()
     else:
@@ -100,7 +97,7 @@ def shutdown():
         # MSG: Message shown after shutting down the system.
         msg = _("Shutting down system now!")
         flash(msg, "is-danger")
-        k.send_message_to_splash(msg, "danger")
+        k.send_notification(msg, "danger")
         th = threading.Thread(target=delayed_halt, args=[1, k])
         th.start()
     else:
@@ -116,7 +113,7 @@ def reboot():
         # MSG: Message shown after rebooting the system.
         msg = _("Rebooting system now!")
         flash(msg, "is-danger")
-        k.send_message_to_splash(msg, "danger")
+        k.send_notification(msg, "danger")
         th = threading.Thread(target=delayed_halt, args=[2, k])
         th.start()
     else:
