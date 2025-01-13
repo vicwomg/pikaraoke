@@ -643,6 +643,7 @@ class Karaoke:
                     self.log_and_send(_("%s added to the queue: %s") % (user, queue_item["title"]))
                 self.queue.append(queue_item)
             self.update_queue_hash()
+            self.update_now_playing_hash()
             return [True, _("Song added to the queue: %s") % (self.filename_from_path(song_path))]
 
     def queue_add_random(self, amount):
@@ -670,6 +671,7 @@ class Karaoke:
         self.log_and_send(_("Clear queue"), "danger")
         self.queue = []
         self.update_queue_hash()
+        self.update_now_playing_hash()
         self.skip(log_action=False)
 
     def queue_edit(self, song_name, action):
@@ -708,6 +710,7 @@ class Karaoke:
             logging.error("Unrecognized direction: " + action)
         if rc:
             self.update_queue_hash()
+            self.update_now_playing_hash()
         return rc
 
     def skip(self, log_action=True):
