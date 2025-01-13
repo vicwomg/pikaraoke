@@ -68,6 +68,11 @@ def parse_pikaraoke_args():
         required=False,
     )
     parser.add_argument(
+        "--youtubedl-proxy",
+        help="Proxy server to use for youtube-dl, in case blocked by a firewall",
+        required=False,
+    )
+    parser.add_argument(
         "-v",
         "--volume",
         help="Set initial player volume. A value between 0 and 1. (default: %s)" % default_volume,
