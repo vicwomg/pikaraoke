@@ -3,7 +3,12 @@ import json
 import flask_babel
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
-from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
+from pikaraoke.lib.current_app import (
+    broadcast_event,
+    get_karaoke_instance,
+    get_site_name,
+    is_admin,
+)
 
 try:
     from urllib.parse import unquote
@@ -44,6 +49,7 @@ def add_random():
     else:
         # MSG: Message shown after running out songs to add during random track addition
         flash(_("Ran out of songs!"), "is-warning")
+    broadcast_event("queue_update")
     return redirect(url_for("queue.queue"))
 
 
@@ -51,11 +57,13 @@ def add_random():
 def queue_edit():
     k = get_karaoke_instance()
     action = request.args["action"]
+    success = False
     if action == "clear":
         k.queue_clear()
         # MSG: Message shown after clearing the queue
         flash(_("Cleared the queue!"), "is-warning")
-        return redirect(url_for("queue.queue"))
+        broadcast_event("skip", "clear queue")
+        success = True
     else:
         song = request.args["song"]
         song = unquote(song)
@@ -64,6 +72,7 @@ def queue_edit():
             if result:
                 # MSG: Message shown after moving a song down in the queue
                 flash(_("Moved down in queue") + ": " + song, "is-success")
+                success = True
             else:
                 # MSG: Message shown after failing to move a song down in the queue
                 flash(_("Error moving down in queue") + ": " + song, "is-danger")
@@ -72,6 +81,7 @@ def queue_edit():
             if result:
                 # MSG: Message shown after moving a song up in the queue
                 flash(_("Moved up in queue") + ": " + song, "is-success")
+                success = True
             else:
                 # MSG: Message shown after failing to move a song up in the queue
                 flash(_("Error moving up in queue") + ": " + song, "is-danger")
@@ -80,9 +90,12 @@ def queue_edit():
             if result:
                 # MSG: Message shown after deleting a song from the queue
                 flash(_("Deleted from queue") + ": " + song, "is-success")
+                success = True
             else:
                 # MSG: Message shown after failing to delete a song from the queue
                 flash(_("Error deleting from queue") + ": " + song, "is-danger")
+    if success:
+        broadcast_event("queue_update")
     return redirect(url_for("queue.queue"))
 
 
@@ -100,5 +113,6 @@ def enqueue():
         d = request.form.to_dict()
         user = d["song-added-by"]
     rc = k.enqueue(song, user)
+    broadcast_event("queue_update")
     song_title = k.filename_from_path(song)
     return json.dumps({"song": song_title, "success": rc})

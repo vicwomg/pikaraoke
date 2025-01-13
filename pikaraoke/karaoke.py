@@ -1,5 +1,6 @@
 import configparser
 import contextlib
+import hashlib
 import json
 import logging
 import os
@@ -7,7 +8,6 @@ import random
 import shutil
 import socket
 import subprocess
-import threading
 import time
 from pathlib import Path
 from queue import Queue
@@ -56,18 +56,22 @@ class Karaoke:
     now_playing_transpose = 0
     now_playing_duration = None
     now_playing_url = None
-    now_playing_command = None
+    now_playing_notification = None
+    is_paused = True
+    volume = None
+
+    # hashes are used to determine if the client needs to update the now playing or queue
+    now_playing_hash = None
+    queue_hash = None
 
     is_playing = False
-    is_paused = True
     process = None
     qr_code_path = None
     base_path = os.path.dirname(__file__)
-    volume = None
     loop_interval = 500  # in milliseconds
     default_logo_path = os.path.join(base_path, "logo.png")
     default_bg_music_path = os.path.join(base_path, "static/music/")
-    default_bg_video_path = os.path.join(base_path, "static/video/the_drive_by_visualdon.mp4")
+    default_bg_video_path = os.path.join(base_path, "static/video/night_sea.mp4")
     screensaver_timeout = 300  # in seconds
 
     ffmpeg_process = None
@@ -324,25 +328,29 @@ class Karaoke:
     def get_karaoke_search_results(self, songTitle):
         return self.get_search_results(songTitle + " karaoke")
 
-    def send_message_to_splash(self, message, color="primary"):
+    def send_notification(self, message, color="primary"):
         # Color should be bulma compatible: primary, warning, success, danger
         if not self.hide_notifications:
-            self.send_command("message::" + message + "::is-" + color)
+            # don't allow new messages to clobber existing commands, one message at a time
+            # other commands have a higher priority
+            if self.now_playing_notification != None:
+                return
+            self.now_playing_notification = message + "::is-" + color
 
     def log_and_send(self, message, category="info"):
         # Category should be one of: info, success, warning, danger
         if category == "success":
             logging.info(message)
-            self.send_message_to_splash(message, "success")
+            self.send_notification(message, "success")
         elif category == "warning":
             logging.warning(message)
-            self.send_message_to_splash(message, "warning")
+            self.send_notification(message, "warning")
         elif category == "danger":
             logging.error(message)
-            self.send_message_to_splash(message, "danger")
+            self.send_notification(message, "danger")
         else:
             logging.info(message)
-            self.send_message_to_splash(message, "primary")
+            self.send_notification(message, "primary")
 
     def download_video(self, video_url, enqueue=False, user="Pikaraoke", title=None):
         displayed_title = title if title else video_url
@@ -544,6 +552,8 @@ class Karaoke:
             self.now_playing_user = self.queue[0]["user"]
             self.is_paused = False
             self.queue.pop(0)
+            self.update_now_playing_hash()
+            self.update_queue_hash()
             # Pause until the stream is playing
             transcode_max_retries = 100
             while self.is_playing == False and transcode_max_retries > 0:
@@ -572,7 +582,7 @@ class Karaoke:
             logging.info(f"Reason: {reason}")
             if reason != "complete":
                 # MSG: Message shown when the song ends abnormally
-                self.send_message_to_splash(_("Song ended abnormally: %s") % reason, "danger")
+                self.send_notification(_("Song ended abnormally: %s") % reason, "danger")
         self.reset_now_playing()
         self.kill_ffmpeg()
         delete_tmp_dir()
@@ -632,6 +642,8 @@ class Karaoke:
                     # MSG: Message shown after the song is added to the queue
                     self.log_and_send(_("%s added to the queue: %s") % (user, queue_item["title"]))
                 self.queue.append(queue_item)
+            self.update_queue_hash()
+            self.update_now_playing_hash()
             return [True, _("Song added to the queue: %s") % (self.filename_from_path(song_path))]
 
     def queue_add_random(self, amount):
@@ -658,11 +670,14 @@ class Karaoke:
         # MSG: Message shown after the queue is cleared
         self.log_and_send(_("Clear queue"), "danger")
         self.queue = []
+        self.update_queue_hash()
+        self.update_now_playing_hash()
         self.skip(log_action=False)
 
     def queue_edit(self, song_name, action):
         index = 0
         song = None
+        rc = False
         for each in self.queue:
             if song_name in each["file"]:
                 song = each
@@ -671,32 +686,32 @@ class Karaoke:
                 index += 1
         if song == None:
             logging.error("Song not found in queue: " + song["file"])
-            return False
         if action == "up":
             if index < 1:
                 logging.warning("Song is up next, can't bump up in queue: " + song["file"])
-                return False
             else:
                 logging.info("Bumping song up in queue: " + song["file"])
                 del self.queue[index]
                 self.queue.insert(index - 1, song)
-                return True
+                rc = True
         elif action == "down":
             if index == len(self.queue) - 1:
                 logging.warning("Song is already last, can't bump down in queue: " + song["file"])
-                return False
             else:
                 logging.info("Bumping song down in queue: " + song["file"])
                 del self.queue[index]
                 self.queue.insert(index + 1, song)
-                return True
+                rc = True
         elif action == "delete":
             logging.info("Deleting song from queue: " + song["file"])
             del self.queue[index]
-            return True
+            rc = True
         else:
             logging.error("Unrecognized direction: " + action)
-            return False
+        if rc:
+            self.update_queue_hash()
+            self.update_now_playing_hash()
+        return rc
 
     def skip(self, log_action=True):
         if self.is_file_playing():
@@ -718,6 +733,7 @@ class Karaoke:
                 # MSG: Message shown after the song is paused, will be followed by song name
                 self.log_and_send(_("Pause") + f": {self.now_playing}")
             self.is_paused = not self.is_paused
+            self.update_now_playing_hash()
             return True
         else:
             logging.warning("Tried to pause, but no file is playing!")
@@ -727,6 +743,7 @@ class Karaoke:
         self.volume = vol_level
         # MSG: Message shown after the volume is changed, will be followed by the volume level
         self.log_and_send(_("Volume: %s") % (int(self.volume * 100)))
+        self.update_now_playing_hash()
         return True
 
     def vol_up(self):
@@ -745,18 +762,8 @@ class Karaoke:
         self.volume_change(new_vol)
         logging.debug(f"Decreasing volume by 10%: {self.volume}")
 
-    def send_command(self, command):
-        # don't allow new messages to clobber existing commands, one message at a time
-        # other commands have a higher priority
-        if command.startswith("message::") and self.now_playing_command != None:
-            return
-        self.now_playing_command = command
-        threading.Timer(2, self.reset_now_playing_command).start()
-        # Clear the command asynchronously. 2s should be enough for client polling to pick it up
-
     def restart(self):
         if self.is_file_playing():
-            self.send_command("restart")
             logging.info("Restarting: " + self.now_playing)
             self.is_paused = False
             return True
@@ -770,8 +777,8 @@ class Karaoke:
     def handle_run_loop(self):
         time.sleep(self.loop_interval / 1000)
 
-    def reset_now_playing_command(self):
-        self.now_playing_command = None
+    def reset_now_playing_notification(self):
+        self.now_playing_notification = None
 
     def reset_now_playing(self):
         self.now_playing = None
@@ -783,6 +790,33 @@ class Karaoke:
         self.now_playing_transpose = 0
         self.now_playing_duration = None
         self.ffmpeg_log = None
+        self.update_now_playing_hash()
+
+    def get_now_playing(self):
+        np = {
+            "now_playing": self.now_playing,
+            "now_playing_user": self.now_playing_user,
+            "now_playing_duration": self.now_playing_duration,
+            "now_playing_transpose": self.now_playing_transpose,
+            "now_playing_url": self.now_playing_url,
+            "up_next": self.queue[0]["title"] if len(self.queue) > 0 else None,
+            "next_user": self.queue[0]["user"] if len(self.queue) > 0 else None,
+            "is_paused": self.is_paused,
+            "volume": self.volume,
+        }
+        return np
+
+    def update_now_playing_hash(self):
+        self.now_playing_hash = hashlib.md5(
+            json.dumps(self.get_now_playing(), sort_keys=True, ensure_ascii=True).encode(
+                "utf-8", "ignore"
+            )
+        ).hexdigest()
+
+    def update_queue_hash(self):
+        self.queue_hash = hashlib.md5(
+            json.dumps(self.queue, ensure_ascii=True).encode("utf-8", "ignore")
+        ).hexdigest()
 
     def run(self):
         logging.info("Starting PiKaraoke!")
