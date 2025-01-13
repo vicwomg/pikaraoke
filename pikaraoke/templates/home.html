@@ -4,6 +4,13 @@
 
   var socket = io();
 
+  function loadNowPlaying() {
+    console.log("Loadingn now playing data");
+    $.get('{{ url_for("now_playing.now_playing") }}', function (data) {
+      handleNowPlaying(JSON.parse(data));
+    });
+  }
+
   function handleNowPlaying(np) {
     console.log(np);
     if (np.now_playing) {
@@ -66,11 +73,6 @@
         "{{  url_for('static', filename='images/now-playing.gif') }}"
       );
     }
-  }
-
-  function refreshNowPlaying() {
-    // slight delay to allow the queue to update
-    setTimeout(() => getNowPlaying(), 100);
   }
 
   $(function () {
@@ -162,11 +164,22 @@
     }
 
     //for first time load of splash screen
-    $.get('{{ url_for("now_playing.now_playing") }}', function (data) {
-      handleNowPlaying(JSON.parse(data));
-    });
+    loadNowPlaying();
     //for pushed updates to now playing state
     socket.on("now_playing", (np) => handleNowPlaying(np));
+
+    document.addEventListener("visibilitychange", function () {
+      console.log("on visibility change");
+
+      if (document.visibilityState === "visible") {
+        loadNowPlaying();
+        console.log(socket);
+        if (!socket.connected) {
+          console.log("Reconnecting socket...");
+          connectSocket();
+        }
+      }
+    });
   });
 </script>
 {% endblock %} {% block header %}

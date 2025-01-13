@@ -33,6 +33,16 @@
 
   var socket = io();
 
+  function connectSocket() {
+    socket = io();
+    socket.on('connect', function() {
+        console.log('Socket connected');
+    });
+    socket.on('disconnect', function() {
+        console.log('Socket disconnected');
+    });
+  }
+
   var mouseTimer = null,
     cursorVisible = true;
 
@@ -312,6 +322,12 @@
 
   }
 
+  function loadNowPlaying() {
+    $.get('{{ url_for("now_playing.now_playing") }}', function (data) {
+      handleNowPlaying(JSON.parse(data));
+    });
+  }
+
   // ** Post page load actions and event handlers **
   $(function () {
     $('#video-container').hide();
@@ -425,7 +441,6 @@
       }
     }
 
-
     socket.on('pause', () => {
       const video = getVideoPlayer();
       const currVolume = video.volume;
@@ -493,11 +508,21 @@
     });
 
     //for first time load of splash screen
-    $.get('{{ url_for("now_playing.now_playing") }}', function (data) {
-      handleNowPlaying(JSON.parse(data));
-    });
-    //for pushed updates to now playing state
+    loadNowPlaying();
+
+    //for socket pushed updates to now playing state
     socket.on("now_playing", np => handleNowPlaying(np));
+
+    // reconnect socket / refresh if tab is hidden and then visible
+    document.addEventListener("visibilitychange", function() {
+      if (document.visibilityState === 'visible') {
+        loadNowPlaying();
+        if (!socket.connected) {
+            console.log('Reconnecting socket...');
+            connectSocket();
+        }
+      }
+    });
 
   });
 </script>

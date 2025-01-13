@@ -100,7 +100,18 @@
 
   //on page load
   $(function () {
+    //first time load
     getQueue();
+
+    document.addEventListener("visibilitychange", function() {
+      if (document.visibilityState === 'visible') {
+        getQueue();
+        if (!socket.connected) {
+            console.log('Reconnecting socket...');
+            connectSocket();
+        }
+      }
+    });
   });
 </script>
 
