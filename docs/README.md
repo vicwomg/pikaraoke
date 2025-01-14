@@ -4,7 +4,7 @@
 
 PiKaraoke is a "KTV"-style karaoke song search and queueing system. It connects to your TV, and shows a QR code for computers and smartphones to connect to a web interface. From there, multiple users can seamlessly search your local track library, queue up songs, add an endless selection of new karaoke tracks from YouTube, and more. Works on Raspberry Pi, OSX, Windows, and Linux!
 
-If you want to support this project with a little monetary tip, it's much appreciated: <br/>
+Pikaraoke is independently developed and maintained. If you want to support this project with a little monetary tip, it's much appreciated: <br/><br/>
 <a href="https://www.buymeacoffee.com/vicwomg" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 
 ## Table of Contents
@@ -42,25 +42,15 @@ If you want to support this project with a little monetary tip, it's much apprec
 - Windows
 - Linux
 
-## Docker instructions
-
-For Docker users, you can get going with one command. The deployed images includes everything you need to run in headless mode:
-
-```sh
-docker run vicwomg/pikaraoke:latest
-```
-
-For more information, [see official Dockerhub repo](https://hub.docker.com/repository/docker/vicwomg/pikaraoke)
-
 ## Native installation
 
-### Install required programs
+### Requirements
 
-Pikaraoke requires Python 3.9 or greater. You can check your current version by running `python --version`.
+- Python 3.9 or greater (You can check your current version by running `python --version`): [Python downloads](https://www.python.org/downloads/)
+- FFmpeg: [FFmpeg downloads](https://ffmpeg.org/download.html)
+- Chrome browser (recommended, though Safari and Firefox will work with the `--complete-transcode-before-play` option)
 
-[Python downloads](https://www.python.org/downloads/)
-
-#### Raspberry Pi OS / Linux distros with `apt`:
+#### Specific install instructions for Raspberry Pi OS / Linux distros with `apt`:
 
 ```
 sudo apt-get install ffmpeg -y
@@ -69,11 +59,6 @@ sudo apt-get install chromium-chromedriver -y
 ```
 
 Chromium/Chromdriver is optional if you're running with the `--headless` option.
-
-#### Windows / OSX / Linux:
-
-- FFmpeg 6.0 or greater: [FFmpeg downloads](https://ffmpeg.org/download.html)
-- Chrome Browser: [Chrome](http://google.com/chrome) (only required for headed mode)
 
 ### Install pikaraoke via pip
 
@@ -84,14 +69,13 @@ Globally or within a virtual env:
 pip install pikaraoke
 ```
 
-Note: if you did not use a venv, you may need to add the `--break-system-packages` parameter to ignore the warning and install pikaraoke and its dependencies globally. You may experience package conflicts if you have other python programs installed.
+Note: Some OS install `pip` as `pip3`. if you did not use a venv, you may need to add the `--break-system-packages` parameter to ignore the warning and install pikaraoke and its dependencies globally. You may experience package conflicts if you have other python programs installed.
 
 ### Run
 
 Pikaraoke is now installed in the `$PATH` with the command line interface `pikaraoke`. Start by calling the pikaraoke command.
 
 ```sh
-# Run pikaraoke
 pikaraoke
 ```
 
@@ -99,9 +83,27 @@ This will start pikaraoke in headed mode, and open Chrome browser with the splas
 
 Virtual env users: note that if you close your terminal between launches, you'll need to reactivate your venv before running pikaraoke.
 
+### Upgrading
+
+To upgrade to the latest version of pikaraoke, run:
+
+```sh
+pip install pikaraoke --upgrade
+```
+
 ### More Options
 
 See the help command `pikaraoke --help` for available options.
+
+## Docker instructions
+
+For Docker users, you can get going with one command. The deployed images includes everything you need to run in headless mode:
+
+```sh
+docker run vicwomg/pikaraoke:latest
+```
+
+For more information, [see official Dockerhub repo](https://hub.docker.com/repository/docker/vicwomg/pikaraoke)
 
 ## Screenshots
 
