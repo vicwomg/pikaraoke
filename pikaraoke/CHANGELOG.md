@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.10.1](https://github.com/vicwomg/pikaraoke/compare/1.10.0...1.10.1) (2025-01-14)
+
+
+### Bug Fixes
+
+* Docker build not working in CI ([cd3d9ae](https://github.com/vicwomg/pikaraoke/commit/cd3d9ae3ad7b0fa9426744e118a73055869b2670))
+
+
+### Documentation
+
+* add additional language templates: NO, RU, TH ([a3c447f](https://github.com/vicwomg/pikaraoke/commit/a3c447fec588cf3c1b57eb06e87bf4d5755fae29))
+* update readme for clarity and brevity ([2bfa77f](https://github.com/vicwomg/pikaraoke/commit/2bfa77fc0ea8ca4f1d8dbb5a3c8310bc732cd47a))
+
 ## [1.10.0](https://github.com/vicwomg/pikaraoke/compare/1.9.0...1.10.0) (2025-01-14)
 
 
