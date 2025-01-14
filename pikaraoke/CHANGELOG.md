@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.10.0](https://github.com/vicwomg/pikaraoke/compare/1.9.0...1.10.0) (2025-01-14)
+
+
+### Features
+
+* add placeholder translation files for common languages ([30c9d5b](https://github.com/vicwomg/pikaraoke/commit/30c9d5ba791a577ea7333bec48625f71b2245c7c))
+* support for specifying yt-dlp proxy ([e276fbf](https://github.com/vicwomg/pikaraoke/commit/e276fbfe1ae3b7495fe7750bdcb15bd948c7eb72))
+
+
+### Performance Improvements
+
+* use websocket for player communication ([#466](https://github.com/vicwomg/pikaraoke/issues/466)) ([bbd0360](https://github.com/vicwomg/pikaraoke/commit/bbd036073ef456cdb4e213161cdccea51065b7c5))
+
 ## [1.9.0](https://github.com/vicwomg/pikaraoke/compare/1.8.0...1.9.0) (2025-01-08)
 
 
