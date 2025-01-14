@@ -1,5 +1,11 @@
 Translation requires you have Babel installed, and the `pybabel` command available to run.
 
+## Contributing to translations
+
+Translation help is much appreciated
+
+Look in `pikaraoke/translations` directory and identify the `messages.po` file for a locale/language you can help translate. Fill in all the translations in the file and submit a PR or email the maintainer of pikaraoke.
+
 ## Marking strings for translation
 
 In Python files, you can mark a string for translation on the web frontend using `flask_babel`.

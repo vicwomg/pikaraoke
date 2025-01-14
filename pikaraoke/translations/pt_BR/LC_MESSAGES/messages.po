@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: mawkee@gmail.com\n"
-"POT-Creation-Date: 2025-01-06 21:59-0800\n"
+"POT-Creation-Date: 2025-01-13 22:50-0800\n"
 "PO-Revision-Date: 2022-06-28 18:57-0300\n"
 "Last-Translator: FULL NAME <mawkee@gmail.com>\n"
 "Language: pt_BR\n"
@@ -18,193 +18,193 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.9.1\n"
 
-#: karaoke.py:247
+#: karaoke.py:253
 msgid "Your preferences were changed successfully"
 msgstr ""
 
-#: karaoke.py:250
+#: karaoke.py:256
 msgid "Something went wrong! Your preferences were not changed"
 msgstr ""
 
-#: karaoke.py:255
+#: karaoke.py:261
 msgid "Your preferences were cleared successfully"
 msgstr ""
 
-#: karaoke.py:257
+#: karaoke.py:263
 msgid "Something went wrong! Your preferences were not cleared"
 msgstr ""
 
 #. Message shown after the download is started
-#: karaoke.py:350
+#: karaoke.py:360
 #, python-format
 msgid "Downloading video: %s"
 msgstr ""
 
 #. Message shown after the download is completed and queued
-#: karaoke.py:362
+#: karaoke.py:376
 #, python-format
 msgid "Downloaded and queued: %s"
 msgstr "Música adicionada na fila: %s"
 
 #. Message shown after the download is completed but not queued
-#: karaoke.py:365
+#: karaoke.py:379
 #, python-format
 msgid "Downloaded: %s"
 msgstr "Baixar: %s"
 
 #. Message shown after the download is completed but the adding to queue fails
-#: karaoke.py:374
+#: karaoke.py:388
 msgid "Error queueing song: "
 msgstr ""
 
 #. Message shown after the download process is completed but the song is not
 #. found
-#: karaoke.py:377
+#: karaoke.py:391
 msgid "Error downloading song: "
 msgstr ""
 
 #. Message shown when the song ends abnormally
-#: karaoke.py:575
+#: karaoke.py:591
 #, python-format
 msgid "Song ended abnormally: %s"
 msgstr ""
 
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
-#: karaoke.py:583
+#: karaoke.py:599
 #, python-format
 msgid "Transposing by %s semitones: %s"
 msgstr ""
 
-#: karaoke.py:616
+#: karaoke.py:632
 #, python-format
 msgid "You reached the limit of %s song(s) from an user in queue!"
 msgstr ""
 
 #. Message shown after the song is added to the top of the queue
-#: karaoke.py:628
+#: karaoke.py:644
 #, python-format
 msgid "%s added to top of queue: %s"
 msgstr "%s adicionado à fila: %s"
 
 #. Message shown after the song is added to the queue
-#: karaoke.py:633
+#: karaoke.py:649
 #, python-format
 msgid "%s added to the queue: %s"
 msgstr "%s adicionado à fila: %s"
 
-#: karaoke.py:635
+#: karaoke.py:653
 #, python-format
 msgid "Song added to the queue: %s"
 msgstr "Música adicionada na fila: %s"
 
 #. Message shown after the queue is cleared
-#: karaoke.py:659
+#: karaoke.py:677
 msgid "Clear queue"
 msgstr ""
 
 #. Message shown after the song is skipped, will be followed by song name
-#: karaoke.py:705
+#: karaoke.py:726
 #, python-format
 msgid "Skip: %s"
 msgstr ""
 
 #. Message shown after the song is resumed, will be followed by song name
-#: karaoke.py:716
+#: karaoke.py:737
 #, python-format
 msgid "Resume: %s"
 msgstr "Tocar: %s"
 
 #. Message shown after the song is paused, will be followed by song name
-#: karaoke.py:719
+#: karaoke.py:740
 msgid "Pause"
 msgstr "Pausar"
 
 #. Message shown after the volume is changed, will be followed by the volume
 #. level
-#: karaoke.py:729
+#: karaoke.py:751
 #, fuzzy, python-format
 msgid "Volume: %s"
 msgstr "Tocar: %s"
 
 #. Message shown after starting the youtube-dl update.
-#: routes/admin.py:58
+#: routes/admin.py:55
 msgid "Updating youtube-dl! Should take a minute or two... "
 msgstr ""
 
 #. Message shown after trying to update youtube-dl without admin permissions.
-#: routes/admin.py:65
+#: routes/admin.py:62
 msgid "You don't have permission to update youtube-dl"
 msgstr ""
 
 #. Message shown after trying to refresh the song list without admin
 #. permissions.
 #. Message shown after trying to shut down the system without admin
-#: routes/admin.py:76 routes/admin.py:108
+#: routes/admin.py:73 routes/admin.py:105
 msgid "You don't have permission to shut down"
 msgstr ""
 
 #. Message shown after quitting pikaraoke.
-#: routes/admin.py:85
+#: routes/admin.py:82
 msgid "Exiting pikaraoke now!"
 msgstr "Sair do Pikaraoke"
 
 #. Message shown after trying to quit pikaraoke without admin permissions.
-#: routes/admin.py:92
+#: routes/admin.py:89
 msgid "You don't have permission to quit"
 msgstr ""
 
 #. Message shown after shutting down the system.
-#: routes/admin.py:101
+#: routes/admin.py:98
 msgid "Shutting down system now!"
 msgstr "Desligar sistema"
 
 #. Message shown after rebooting the system.
-#: routes/admin.py:117
+#: routes/admin.py:114
 msgid "Rebooting system now!"
 msgstr "Reiniciar sistema"
 
 #. Message shown after trying to reboot the system without admin permissions.
-#: routes/admin.py:124
+#: routes/admin.py:121
 msgid "You don't have permission to Reboot"
 msgstr ""
 
 #. Message shown after expanding the filesystem.
-#: routes/admin.py:133
+#: routes/admin.py:130
 msgid "Expanding filesystem and rebooting system now!"
 msgstr ""
 
 #. Message shown after trying to expand the filesystem on a non-raspberry pi
 #. device.
-#: routes/admin.py:138
+#: routes/admin.py:135
 msgid "Cannot expand fs on non-raspberry pi devices!"
 msgstr ""
 
 #. Message shown after trying to expand the filesystem without admin
 #. permissions
-#: routes/admin.py:141
+#: routes/admin.py:138
 msgid "You don't have permission to resize the filesystem"
 msgstr ""
 
 #. Message shown after logging in as admin successfully
-#: routes/admin.py:156
+#: routes/admin.py:153
 msgid "Admin mode granted!"
 msgstr "Modo administrador concedido!"
 
 #. Message shown after failing to login as admin
-#: routes/admin.py:160
+#: routes/admin.py:157
 msgid "Incorrect admin password!"
 msgstr "Senha de administração incorreta!"
 
 #. Message shown after logging out as admin successfully
-#: routes/admin.py:174
+#: routes/admin.py:171
 msgid "Logged out of admin mode!"
 msgstr ""
 
 #. Title of the files page.
 #. Navigation link for the page where the user can add existing songs to the
 #. queue.
-#: routes/files.py:68 templates/base.html:201
+#: routes/files.py:68 templates/base.html:212
 msgid "Browse"
 msgstr "Navegar"
 
@@ -261,48 +261,48 @@ msgid "You don't have permission to clear preferences"
 msgstr ""
 
 #. Message shown after adding random tracks
-#: routes/queue.py:43
+#: routes/queue.py:48
 #, python-format
 msgid "Added %s random tracks"
 msgstr "Adicionar %s músicas aleatórias"
 
 #. Message shown after running out songs to add during random track addition
-#: routes/queue.py:46
+#: routes/queue.py:51
 msgid "Ran out of songs!"
 msgstr ""
 
 #. Message shown after clearing the queue
-#: routes/queue.py:57
+#: routes/queue.py:64
 msgid "Cleared the queue!"
 msgstr "Limpou a fila"
 
 #. Message shown after moving a song down in the queue
-#: routes/queue.py:66
+#: routes/queue.py:74
 msgid "Moved down in queue"
 msgstr ""
 
 #. Message shown after failing to move a song down in the queue
-#: routes/queue.py:69
+#: routes/queue.py:78
 msgid "Error moving down in queue"
 msgstr ""
 
 #. Message shown after moving a song up in the queue
-#: routes/queue.py:74
+#: routes/queue.py:83
 msgid "Moved up in queue"
 msgstr ""
 
 #. Message shown after failing to move a song up in the queue
-#: routes/queue.py:77
+#: routes/queue.py:87
 msgid "Error moving up in queue"
 msgstr ""
 
 #. Message shown after deleting a song from the queue
-#: routes/queue.py:82
+#: routes/queue.py:92
 msgid "Deleted from queue"
 msgstr ""
 
 #. Message shown after failing to delete a song from the queue
-#: routes/queue.py:85
+#: routes/queue.py:96
 msgid "Error deleting from queue"
 msgstr ""
 
@@ -331,7 +331,7 @@ msgstr ""
 
 #. Prompt which asks the user their name when they first try to add to the
 #. queue.
-#: templates/base.html:53
+#: templates/base.html:64
 msgid ""
 "Please enter your name. This will show up next to the songs you queue up "
 "from this device."
@@ -340,7 +340,7 @@ msgstr ""
 "seguir” no dispositivo."
 
 #. Prompt when changing the current profile name.
-#: templates/base.html:118
+#: templates/base.html:129
 #, python-format
 msgid ""
 "Do you want to change the name of the person using this device? This will"
@@ -350,19 +350,19 @@ msgstr ""
 " em músicas em fila de espera. Atual: %(currentUser)s"
 
 #. Navigation link for the home page.
-#: templates/base.html:185
+#: templates/base.html:196
 msgid "Home"
 msgstr "Home"
 
 #. Navigation link for the queue page.
 #. Title of the page showing the currently queued songs.
-#: templates/base.html:191 templates/queue.html:123
+#: templates/base.html:202 templates/queue.html:123
 msgid "Queue"
 msgstr "Fila"
 
 #. Navigation link for the search page add songs to the queue.
 #. Submit button on the search form for searching YouTube.
-#: templates/base.html:196 templates/search.html:368
+#: templates/base.html:207 templates/search.html:368
 msgid "Search"
 msgstr "Busca"
 
@@ -433,22 +433,22 @@ msgstr "Ordenar por nome"
 
 #. Message which shows in the "Now Playing" section when there is no song
 #. currently playing
-#: templates/home.html:28
+#: templates/home.html:32
 msgid "Nothing is playing right now."
 msgstr "Nada está sendo tocado no momento."
 
 #. Title text for the icon marking the next person to sing.
-#: templates/home.html:36
+#: templates/home.html:40
 msgid "Next singer"
 msgstr "Próximo artista"
 
 #. Alternative text for the "Up next" section if no more songs are queued up.
-#: templates/home.html:39
+#: templates/home.html:43
 msgid "No song is queued."
 msgstr "Nenhuma música na fila."
 
 #. Confirmation message when clicking a button to skip a track.
-#: templates/home.html:148
+#: templates/home.html:141
 msgid ""
 "Are you sure you want to skip this track? If you didn't add this song, "
 "ask permission first!"
@@ -457,43 +457,43 @@ msgstr ""
 "peça permissão primeiro!"
 
 #. Header showing the currently playing song.
-#: templates/home.html:180
+#: templates/home.html:188
 msgid "Now Playing"
 msgstr "Tocando agora"
 
 #. Title for the section displaying the next song to be played.
-#: templates/home.html:195
+#: templates/home.html:203
 msgid "Next Song"
 msgstr "Próxima música"
 
 #. Title of the box with controls such as pause and skip.
-#: templates/home.html:206
+#: templates/home.html:214
 msgid "Player Control"
 msgstr "Controles do Player"
 
 #. Title attribute on the button to restart the current song.
-#: templates/home.html:210
+#: templates/home.html:218
 msgid "Restart Song"
 msgstr "Reiniciar Música"
 
 #. Title attribute on the button to play or pause the       current song.
-#: templates/home.html:214
+#: templates/home.html:222
 msgid "Play/Pause"
 msgstr "Tocar/Pausar"
 
 #. Title attribute on the button to skip to the next       song.
-#: templates/home.html:218
+#: templates/home.html:226
 msgid "Stop Current Song"
 msgstr "Parar música atual"
 
 #. Title of a control to change the key/pitch of the playing song.
-#: templates/home.html:242
+#: templates/home.html:250
 msgid "Change Key"
 msgstr "Mudar tom"
 
 #. Label on the button to confirm the change in key/pitch of the
 #. playing song.
-#: templates/home.html:269
+#: templates/home.html:277
 msgid "Change"
 msgstr "Alterar"
 
@@ -858,7 +858,7 @@ msgid "Enter the administrator password"
 msgstr "Digite a senha de administrador"
 
 #. Placeholder text which appears instead of a song when the queue is empty.
-#: templates/queue.html:67
+#: templates/queue.html:63
 msgid "The queue is empty"
 msgstr "A fila está vazia"
 
@@ -992,99 +992,99 @@ msgid ""
 msgstr "Adicionar para a fila depois de baixar"
 
 #. Score review message
-#: templates/splash.html:56
+#: templates/splash.html:59
 msgid "Never sing again... ever."
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:57
+#: templates/splash.html:60
 msgid "That was a really good impression of a dying cat!"
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:58
+#: templates/splash.html:61
 msgid "Thank God it's over."
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:59
+#: templates/splash.html:62
 msgid "Pass the mic, please!"
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:60
+#: templates/splash.html:63
 msgid "Well, I'm sure you're very good at your day job."
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:63
+#: templates/splash.html:66
 msgid "I've seen better."
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:64
+#: templates/splash.html:67
 msgid "Ok... just ok."
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:65
+#: templates/splash.html:68
 msgid "Not bad for an amateur."
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:66
+#: templates/splash.html:69
 msgid "You put on a decent show."
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:67
+#: templates/splash.html:70
 msgid "That was... something."
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:70
+#: templates/splash.html:73
 msgid "Congratulations! That was unbelievable!"
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:71
+#: templates/splash.html:74
 msgid "Wow, have you tried auditioning for The Voice?"
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:72
+#: templates/splash.html:75
 msgid "Please, sing another one!"
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:73
+#: templates/splash.html:76
 msgid "You rock! You know that?!"
 msgstr ""
 
 #. Score review message
-#: templates/splash.html:74
+#: templates/splash.html:77
 msgid "Woah, who let Freddie Mercury in here?"
 msgstr ""
 
 #. Label for the next song to be played in the queue.
-#: templates/splash.html:243 templates/splash.html:542
+#: templates/splash.html:273 templates/splash.html:586
 msgid "Up next:"
 msgstr "A seguir:"
 
 #. Label of the singer for next song to be played in the queue. (Who added it
 #. to the queue.)
 #. Label for the next singer in the queue.
-#: templates/splash.html:245 templates/splash.html:549
+#: templates/splash.html:275 templates/splash.html:593
 msgid "Next singer:"
 msgstr "Próxima pessoa a cantar:"
 
 #. The title of the score screen, telling the user their singing score
-#: templates/splash.html:571
+#: templates/splash.html:615
 msgid "Your Score"
 msgstr ""
 
 #. Prompt for interaction in order to enable video autoplay.
-#: templates/splash.html:585
+#: templates/splash.html:629
 msgid ""
 "Due to limititations with browser permissions, you must interact\n"
 "      with the page once before it allows autoplay of videos. Pikaraoke "
@@ -1098,6 +1098,6 @@ msgstr ""
 " onClick=\"handleConfirmation()\">confirmar</a> ."
 
 #. Button to confirm to enable video autoplay.
-#: templates/splash.html:597
+#: templates/splash.html:641
 msgid "Confirm"
 msgstr "Confirmar"
