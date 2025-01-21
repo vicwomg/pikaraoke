@@ -420,9 +420,6 @@
       }
     });
 
-    let params = new URLSearchParams(window.location.search);
-    let dismissConfirmation = params.get('confirm');
-
     if (isFirefox || isSafari) {
       let modalContents = document.getElementById("permissions-modal-content");
       let warningMessage = document.createElement("p");
@@ -432,9 +429,13 @@
       modalContents.prepend(warningMessage);
     }
 
-    if (dismissConfirmation === 'false') {
+    let params = new URLSearchParams(window.location.search);
+    let requireConfirmation = params.get('confirm');
+
+    if (requireConfirmation === 'false') {
       let modal = document.getElementById('permissions-modal');
       modal.classList.remove('is-active');
+      confirmationDismissed = true;
       playBGMusic(true);
       if (hasBgVideo)  {
         playBGVideo(true);
