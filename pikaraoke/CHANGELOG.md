@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.2](https://github.com/vicwomg/pikaraoke/compare/1.10.1...1.10.2) (2025-01-21)
+
+
+### Bug Fixes
+
+* Add German translation ([70a9557](https://github.com/vicwomg/pikaraoke/commit/70a95576d6e8e881e1a5afd226142a169044304d))
+
 ## [1.10.1](https://github.com/vicwomg/pikaraoke/compare/1.10.0...1.10.1) (2025-01-14)
 
 
