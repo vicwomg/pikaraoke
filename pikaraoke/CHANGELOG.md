@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.3](https://github.com/vicwomg/pikaraoke/compare/1.10.2...1.10.3) (2025-01-21)
+
+
+### Bug Fixes
+
+* confirmation override breaks video playback ([a372d52](https://github.com/vicwomg/pikaraoke/commit/a372d520a5b70c079d2c012952e61ed1f5c9da45))
+
 ## [1.10.2](https://github.com/vicwomg/pikaraoke/compare/1.10.1...1.10.2) (2025-01-21)
 
 
