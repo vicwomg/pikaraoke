@@ -77,7 +77,7 @@ def info():
         hide_overlay=k.hide_overlay,
         normalize_audio=k.normalize_audio,
         complete_transcode_before_play=k.complete_transcode_before_play,
-        high_quality_audio=k.high_quality,
+        high_quality=k.high_quality,
         splash_delay=k.splash_delay,
         screensaver_timeout=k.screensaver_timeout,
         volume=int(100 * k.volume),
