@@ -70,7 +70,7 @@ def refresh():
         k.get_available_songs()
     else:
         # MSG: Message shown after trying to refresh the song list without admin permissions.
-        flash(_("You don't have permission to shut down"), "is-danger")
+        flash(_("You don't have permission to refresh the song list"), "is-danger")
     return redirect(url_for("files.browse"))
 
 
