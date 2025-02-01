@@ -242,6 +242,13 @@
 </div>
 
 <div class="user-preference-container">
+  <input id="pref-avsync" class="user-preference-input" type="number" step="0.1" min="-10" max="10" data-pref="avsync" data-start-value="{{ avsync }}" value="{{ avsync }}" />
+  <label class="label">
+      {# MSG: Numberbox label for audio video synchronization #} {% trans %}Fix the audio and video synchronization in seconds (negative = advances audio | positive = delays audio){% endtrans %}
+  </label>
+</div>
+
+<div class="user-preference-container">
   <input id="pref-limit-user-songs-by" class="user-preference-input" type="number" min="0" max="99" data-pref="limit_user_songs_by" data-start-value="{{ limit_user_songs_by }}" value="{{ limit_user_songs_by }}" />
   <label class="label">
       {# MSG: Numberbox label for limitting the number of songs for each player #} {% trans %}Limit of songs an individual user can add to the queue (0 = unlimited){% endtrans %}
@@ -255,7 +262,7 @@
   </label>
 </div>
 
-<p class="help">{# MSG: Help text explaining when videos will be transcoded  #} {% trans %}* Videos are only transcoded when: normalization is on, a song is transposed, playing a CDG/MOV/AVI/MKV file. Most unmodified MP4 files will not need to be transcoded.{% endtrans %} </p>
+<p class="help">{# MSG: Help text explaining when videos will be transcoded  #} {% trans %}* Videos are only transcoded when: normalization is on, audio/video synchronization not zero, a song is transposed, playing a CDG/MOV/AVI/MKV file. Most unmodified MP4 files will not need to be transcoded.{% endtrans %} </p>
 
 <div style="margin-top: 20px">
   {# MSG: Text for the link where the user can clear all user preferences #}

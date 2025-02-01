@@ -174,6 +174,7 @@ def main():
         bg_video_path=args.bg_video_path,
         disable_score=args.disable_score,
         limit_user_songs_by=args.limit_user_songs_by,
+        avsync=args.avsync,
         config_file_path=args.config_file_path,
     )
 
