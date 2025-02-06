@@ -12,7 +12,10 @@ def get_media_duration(file_path):
         return None
 
 
-def build_ffmpeg_cmd(fr, semitones=0, normalize_audio=True, buffer_fully_before_playback=False):
+def build_ffmpeg_cmd(
+    fr, semitones=0, normalize_audio=True, buffer_fully_before_playback=False, avsync=0
+):
+    avsync = float(avsync)
     # use h/w acceleration on pi
     default_vcodec = "h264_v4l2m2m" if supports_hardware_h264_encoding() else "libx264"
     # just copy the video stream if it's an mp4 or webm file, since they are supported natively in html5
@@ -24,13 +27,21 @@ def build_ffmpeg_cmd(fr, semitones=0, normalize_audio=True, buffer_fully_before_
 
     # copy the audio stream if no transposition/normalization, otherwise reincode with the aac codec
     is_transposed = semitones != 0
-    acodec = "aac" if is_transposed or normalize_audio else "copy"
+    acodec = "aac" if is_transposed or normalize_audio or avsync != 0 else "copy"
+
     input = ffmpeg.input(fr.file_path)
+    audio = input.audio
+
+    # If avsync is set, delay or trim the audio stream
+    if avsync > 0:
+        audio = audio.filter("adelay", f"{avsync * 1000}|{avsync * 1000}")  # delay
+    elif avsync < 0:
+        audio = audio.filter("atrim", start=-avsync)  # trim
 
     # The pitch value is (2^x/12), where x represents the number of semitones
     pitch = 2 ** (semitones / 12)
 
-    audio = input.audio.filter("rubberband", pitch=pitch) if is_transposed else input.audio
+    audio = audio.filter("rubberband", pitch=pitch) if is_transposed else audio
     # normalize the audio
     audio = audio.filter("loudnorm", i=-16, tp=-1.5, lra=11) if normalize_audio else audio
 
