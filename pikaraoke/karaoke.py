@@ -108,6 +108,7 @@ class Karaoke:
         disable_bg_video=False,
         disable_score=False,
         limit_user_songs_by=0,
+        avsync=0,
         config_file_path="config.ini",
     ):
         logging.basicConfig(
@@ -161,6 +162,7 @@ class Karaoke:
         self.limit_user_songs_by = (
             self.get_user_preference("limit_user_songs_by") or limit_user_songs_by
         )
+        self.avsync = self.get_user_preference("avsync") or avsync
         self.url_override = url
         self.url = self.get_url()
 
@@ -458,7 +460,10 @@ class Karaoke:
         logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
 
         requires_transcoding = (
-            semitones != 0 or self.normalize_audio or is_transcoding_required(file_path)
+            semitones != 0
+            or self.normalize_audio
+            or is_transcoding_required(file_path)
+            or self.avsync != 0
         )
 
         logging.debug(f"Requires transcoding: {requires_transcoding}")
@@ -493,7 +498,11 @@ class Karaoke:
         else:
             self.kill_ffmpeg()
             ffmpeg_cmd = build_ffmpeg_cmd(
-                fr, semitones, self.normalize_audio, self.complete_transcode_before_play
+                fr,
+                semitones,
+                self.normalize_audio,
+                self.complete_transcode_before_play,
+                self.avsync,
             )
             self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
 

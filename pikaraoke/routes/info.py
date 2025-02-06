@@ -73,6 +73,7 @@ def info():
         disable_score=k.disable_score,
         hide_url=k.hide_url,
         limit_user_songs_by=k.limit_user_songs_by,
+        avsync=k.avsync,
         hide_notifications=k.hide_notifications,
         hide_overlay=k.hide_overlay,
         normalize_audio=k.normalize_audio,
