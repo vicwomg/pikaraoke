@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.11.0](https://github.com/vicwomg/pikaraoke/compare/1.10.3...1.11.0) (2025-02-08)
+
+
+### Features
+
+* add support for adjusting a/v sync ([#489](https://github.com/vicwomg/pikaraoke/issues/489)) ([489d2ef](https://github.com/vicwomg/pikaraoke/commit/489d2ef214b2951bb2373cedca1ee5db3b0277ba))
+
+
+### Bug Fixes
+
+* high quality video flag state not displaying in info.html ([3bc7719](https://github.com/vicwomg/pikaraoke/commit/3bc7719397902070073256aa9efff7dd989eb1ca))
+* installed eventlet python package prevents launch ([99496cd](https://github.com/vicwomg/pikaraoke/commit/99496cdc643530fc45c7e75b5855e31a3d8b80e3))
+
+
+### Documentation
+
+* PT-BR translation for Pikaraoke ([455c528](https://github.com/vicwomg/pikaraoke/commit/455c528526ebe786d974d62c8249b428d34159b0))
+
 ## [1.10.3](https://github.com/vicwomg/pikaraoke/compare/1.10.2...1.10.3) (2025-01-21)
 
 

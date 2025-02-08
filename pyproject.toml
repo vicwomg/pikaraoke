@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pikaraoke"
-version = "1.10.3"
+version = "1.11.0"
 description = "Youtube-based Karaoke machine for Raspberry Pi, OSX, Windows, and Linux"
 authors = ["Vic Wong"]
 readme = "docs/README.md"
