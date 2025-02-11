@@ -244,6 +244,12 @@ def parse_pikaraoke_args():
         required=False,
     ),
     parser.add_argument(
+        "--acptrack",
+        help="Set accompaniment track for your karavideo if you have. (Usally is 1)",
+        default="1",
+        required=False,
+    ),
+    parser.add_argument(
         "--config-file-path",
         help=f"Path to a config file to load settings from. Config file settings are set in the web interface or manually edited and will override command line arguments. Default {default_config_file_path}",
         default=default_config_file_path,

@@ -28,6 +28,18 @@ def pause():
     return redirect(url_for("home.home"))
 
 
+@controller_bp.route("/setrack/<semitones>", methods=["GET"])
+def setrack(semitones):
+    k = get_karaoke_instance()
+    if k.setrack != k.acptrack:
+        k.setrack=k.acptrack
+    else:
+        k.setrack=0
+    broadcast_event("skip", "transpose current")
+    k.transpose_current(int(semitones))
+    return redirect(url_for("home.home"))
+
+
 @controller_bp.route("/transpose/<semitones>", methods=["GET"])
 def transpose(semitones):
     k = get_karaoke_instance()
