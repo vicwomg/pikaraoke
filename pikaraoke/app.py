@@ -175,6 +175,7 @@ def main():
         disable_score=args.disable_score,
         limit_user_songs_by=args.limit_user_songs_by,
         avsync=args.avsync,
+        acptrack=args.acptrack,
         config_file_path=args.config_file_path,
     )
 

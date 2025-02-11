@@ -249,6 +249,13 @@
 </div>
 
 <div class="user-preference-container">
+  <input id="pref-acptrack" class="user-preference-input" type="number" step="1" min="1" max="10" data-pref="acptrack" data-start-value="{{ acptrack }}" value="{{ acptrack }}" />
+  <label class="label">
+      {# MSG: Numberbox label for audio track #} {% trans %}The track when you click switch would play. (negative = advances audio ){% endtrans %}
+  </label>
+</div>
+
+<div class="user-preference-container">
   <input id="pref-limit-user-songs-by" class="user-preference-input" type="number" min="0" max="99" data-pref="limit_user_songs_by" data-start-value="{{ limit_user_songs_by }}" value="{{ limit_user_songs_by }}" />
   <label class="label">
       {# MSG: Numberbox label for limitting the number of songs for each player #} {% trans %}Limit of songs an individual user can add to the queue (0 = unlimited){% endtrans %}

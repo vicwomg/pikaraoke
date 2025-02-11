@@ -109,6 +109,8 @@ class Karaoke:
         disable_score=False,
         limit_user_songs_by=0,
         avsync=0,
+        setrack=0,
+        acptrack=1,
         config_file_path="config.ini",
     ):
         logging.basicConfig(
@@ -163,6 +165,8 @@ class Karaoke:
             self.get_user_preference("limit_user_songs_by") or limit_user_songs_by
         )
         self.avsync = self.get_user_preference("avsync") or avsync
+        self.setrack = self.get_user_preference("setrack") or setrack
+        self.acptrack = self.get_user_preference("acptrack") or acptrack
         self.url_override = url
         self.url = self.get_url()
 
@@ -464,6 +468,7 @@ class Karaoke:
             or self.normalize_audio
             or is_transcoding_required(file_path)
             or self.avsync != 0
+            or self.setrack != 0
         )
 
         logging.debug(f"Requires transcoding: {requires_transcoding}")
@@ -503,6 +508,7 @@ class Karaoke:
                 self.normalize_audio,
                 self.complete_transcode_before_play,
                 self.avsync,
+                self.setrack,
             )
             self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
 

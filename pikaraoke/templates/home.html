@@ -97,6 +97,18 @@
       }, 500)
     );
 
+    $("#setrack").click(function () {
+      var value;
+      if (slider) {
+        value = slider.value;
+      } else {
+        value = 0;
+      }
+      $.get("/setrack/" + value);
+      slider.value = 0;
+      output.innerHTML = getSemitonesLabel(slider.value);
+    });
+
     $("#submit-transpose").click(function () {
       var value;
       if (slider) {
@@ -275,6 +287,14 @@
       >
         {# MSG: Label on the button to confirm the change in key/pitch of the
         playing song. #} {% trans %}Change{% endtrans %}
+      </button>
+      <button
+        id="setrack"
+        class="button is-rounded is-small"
+        style="margin-left: 10px"
+      >
+        {# MSG: Label on the button to change track of the
+        playing song. #} {% trans %}Switch{% endtrans %}
       </button>
     </div>
   </div>

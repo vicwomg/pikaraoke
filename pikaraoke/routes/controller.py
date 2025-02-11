@@ -1,4 +1,5 @@
 import flask_babel
+import time
 from flask import Blueprint, redirect, request, url_for
 
 from pikaraoke.lib.current_app import broadcast_event, get_karaoke_instance
@@ -8,10 +9,17 @@ _ = flask_babel.gettext
 
 controller_bp = Blueprint("controller", __name__)
 
+def pawait(s=1):
+    k = get_karaoke_instance()
+    if k.is_paused:
+        pause()
+        time.sleep(s)
+
 
 @controller_bp.route("/skip")
 def skip():
     k = get_karaoke_instance()
+    pawait()
     broadcast_event("skip", "user command")
     k.skip()
     return redirect(url_for("home.home"))
@@ -28,9 +36,23 @@ def pause():
     return redirect(url_for("home.home"))
 
 
+@controller_bp.route("/setrack/<semitones>", methods=["GET"])
+def setrack(semitones):
+    k = get_karaoke_instance()
+    pawait()
+    if k.setrack != k.acptrack:
+        k.setrack=k.acptrack
+    else:
+        k.setrack=0
+    broadcast_event("skip", "transpose current")
+    k.transpose_current(int(semitones))
+    return redirect(url_for("home.home"))
+
+
 @controller_bp.route("/transpose/<semitones>", methods=["GET"])
 def transpose(semitones):
     k = get_karaoke_instance()
+    pawait()
     broadcast_event("skip", "transpose current")
     k.transpose_current(int(semitones))
     return redirect(url_for("home.home"))
@@ -39,6 +61,7 @@ def transpose(semitones):
 @controller_bp.route("/restart")
 def restart():
     k = get_karaoke_instance()
+    pawait()
     broadcast_event("restart")
     k.restart()
     return redirect(url_for("home.home"))
