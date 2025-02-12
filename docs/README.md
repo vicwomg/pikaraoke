@@ -103,7 +103,7 @@ For Docker users, you can get going with one command. The deployed images includ
 docker run vicwomg/pikaraoke:latest
 ```
 
-For more information, [see official Dockerhub repo](https://hub.docker.com/repository/docker/vicwomg/pikaraoke)
+For more information, [see official Dockerhub repo](https://hub.docker.com/r/vicwomg/pikaraoke)
 
 ## Screenshots
 
