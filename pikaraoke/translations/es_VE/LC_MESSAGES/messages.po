@@ -45,13 +45,13 @@ msgstr ""
 #: karaoke.py:376
 #, fuzzy, python-format
 msgid "Downloaded and queued: %s"
-msgstr "Canción agregada a la cola:"
+msgstr "Canción agregada a la cola: %s"
 
 #. Message shown after the download is completed but not queued
 #: karaoke.py:379
 #, fuzzy, python-format
 msgid "Downloaded: %s"
-msgstr "Descargar"
+msgstr "Descargar: %s"
 
 #. Message shown after the download is completed but the adding to queue fails
 #: karaoke.py:388
@@ -86,18 +86,18 @@ msgstr ""
 #: karaoke.py:644
 #, fuzzy, python-format
 msgid "%s added to top of queue: %s"
-msgstr "Canción agregada a la cola:"
+msgstr "%s canción agregada a la cola: %s"
 
 #. Message shown after the song is added to the queue
 #: karaoke.py:649
 #, fuzzy, python-format
 msgid "%s added to the queue: %s"
-msgstr "Canción agregada a la cola:"
+msgstr "%s canción agregada a la cola: %s"
 
 #: karaoke.py:653
 #, fuzzy, python-format
 msgid "Song added to the queue: %s"
-msgstr "Canción agregada a la cola:"
+msgstr "Canción agregada a la cola: %s"
 
 #. Message shown after the queue is cleared
 #: karaoke.py:677
@@ -126,7 +126,7 @@ msgstr ""
 #: karaoke.py:751
 #, fuzzy, python-format
 msgid "Volume: %s"
-msgstr "Subir Volumen"
+msgstr "Subir Volumen: %s"
 
 #. Message shown after starting the youtube-dl update.
 #: routes/admin.py:55
@@ -269,7 +269,7 @@ msgstr "¿Estás seguro(a) de que quieres reiniciar?"
 #: routes/queue.py:48
 #, fuzzy, python-format
 msgid "Added %s random tracks"
-msgstr "Agrega 3 canciones aleatorias"
+msgstr "Agrega %s canciones aleatorias"
 
 #. Message shown after running out songs to add during random track addition
 #: routes/queue.py:51
