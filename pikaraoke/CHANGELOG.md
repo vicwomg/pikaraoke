@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.11.1](https://github.com/vicwomg/pikaraoke/compare/1.11.0...1.11.1) (2025-04-26)
+
+
+### Bug Fixes
+
+* fix merge conflict ([d35ee93](https://github.com/vicwomg/pikaraoke/commit/d35ee93ed286392e92c82984def99ad97d703d81))
+
+
+### Documentation
+
+* Add correct dockerhub URL ([757b65b](https://github.com/vicwomg/pikaraoke/commit/757b65b1c8ec259844e7d3dfe445099eb27dbd0b))
+* add french translation ([#505](https://github.com/vicwomg/pikaraoke/issues/505)) ([d55fbdf](https://github.com/vicwomg/pikaraoke/commit/d55fbdf46c13f58120b4a774c5cab2a8f4306b7b))
+* add Italian translation ([26dc459](https://github.com/vicwomg/pikaraoke/commit/26dc459bff15fce3020a5f6e9fbb8f51c2bc4fea))
+* fix translation errors ([aa8aff7](https://github.com/vicwomg/pikaraoke/commit/aa8aff77320dbafd99defcbc871880209f2cfbb7))
+
 ## [1.11.0](https://github.com/vicwomg/pikaraoke/compare/1.10.3...1.11.0) (2025-02-08)
 
 
