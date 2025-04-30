@@ -1,5 +1,6 @@
 import logging
 import subprocess
+import json
 
 import ffmpeg
 
@@ -13,7 +14,7 @@ def get_media_duration(file_path):
 
 
 def build_ffmpeg_cmd(
-    fr, semitones=0, normalize_audio=True, buffer_fully_before_playback=False, avsync=0
+    fr, semitones=0, normalize_audio=True, buffer_fully_before_playback=False, avsync=0, setrack=0
 ):
     avsync = float(avsync)
     # use h/w acceleration on pi
@@ -30,7 +31,20 @@ def build_ffmpeg_cmd(
     acodec = "aac" if is_transposed or normalize_audio or avsync != 0 else "copy"
 
     input = ffmpeg.input(fr.file_path)
-    audio = input.audio
+    atct = 0
+    cmd = [
+        "ffprobe",
+        "-v", "error",
+        "-show_streams",
+        "-print_format", "json",
+        fr.file_path
+    ]
+    probe = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    probe = json.loads(probe.stdout)
+    for stream in probe["streams"]:
+        if stream["codec_type"] == "audio":
+            atct += 1
+    audio = input["a:" + str(setrack)] if atct > 1 else input.audio
 
     # If avsync is set, delay or trim the audio stream
     if avsync > 0:
