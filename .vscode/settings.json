@@ -1,0 +1,16 @@
+{
+  "pylint.args": [
+    "--rcfile=${workspaceFolder}/code_quality/.pylintrc",
+    "--max-line-length=100"
+  ],
+  "[python]": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+  "[yaml]": {
+    "editor.formatOnSave": false
+  },
+  "isort.args": ["--profile", "black"]
+}

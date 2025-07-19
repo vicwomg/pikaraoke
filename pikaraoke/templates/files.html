@@ -19,18 +19,12 @@
       var user = Cookies.get("user");
       $.get(this.href + encodeURIComponent(user), function (data) {
         var obj = JSON.parse(data);
-        if (obj.success) {
+        if (obj.success[0]) {
           // {# MSG: Notification when a song gets added to the queue.  The song name comes after this string. #}
-          showNotification(
-            "{{ _('Song added to the queue: ') }}" + obj.song,
-            "is-success"
-          );
+          showNotification(obj.success[1], "is-success");
         } else {
           // {# MSG: Notification when a song does not get added to the queue.  The song name comes after this string. #}
-          showNotification(
-            "{{ _('Song already in the queue: ') }}" + obj.song,
-            "is-danger"
-          );
+          showNotification(obj.success[1], "is-danger");
         }
       });
     });
@@ -53,6 +47,17 @@
     top: 3px;
     z-index: 20;
   }
+  table {
+    width: 100%;
+    table-layout: auto; /* Allows columns to adjust based on content */
+  }
+  td {
+    word-wrap: break-word; /* Ensures long words break to fit within the cell */
+  }
+  .break-word {
+    word-break: break-all; /* Ensures long words break to fit within the cell */
+  }
+
   @media screen and (max-width: 500px) {
     #alpha-bar {
       font-size: 13px;
@@ -76,14 +81,14 @@
   {% if sort_order == "Alphabetical" %} {# MSG: Label which displays that the
   songs are currently sorted by alphabetical order. #} {% trans %}Sorted
   Alphabetically{% endtrans %} |
-  <a href="{{ url_for('browse') }}?sort=date">
+  <a href="{{ url_for('files.browse') }}?sort=date">
     {# MSG: Button which changes how the songs are sorted so they become sorted
     by date. #} {% trans %}Sort by Date{% endtrans %}
   </a>
   {% endif %} {% if sort_order == "Date" %} {# MSG: Label which displays that
   the songs are currently sorted by date. #} {% trans %}Sorted by date{%
   endtrans %} |
-  <a href="{{ url_for('browse') }}">
+  <a href="{{ url_for('files.browse') }}">
     {# MSG: Button which changes how the songs are sorted so they become sorted
     by name. #} {% trans %}Sort by Alphabetical{% endtrans %}
   </a>
@@ -91,10 +96,12 @@
 </p>
 
 <div id="alpha-bar" class="has-background-dark mobile-hide">
-  <a href="{{ url_for('browse') }}?letter=numeric">#</a>
+  <a href="{{ url_for('files.browse') }}?letter=numeric">#</a>
   {% for letter in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l',
   'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'] %}
-  <a href="{{ url_for('browse') }}?letter={{letter}}">{{letter.upper()}}</a>
+  <a href="{{ url_for('files.browse') }}?letter={{letter}}"
+    >{{letter.upper()}}</a
+  >
   {% endfor %}
 </div>
 
@@ -102,27 +109,23 @@
 <table>
   {% for song in songs %}
   <tr value="{{ song }}">
-    <td width="20px" style="padding: 5px 0px">
-      {{loop.index + pagination.skip}}
-    </td>
-    <td
-      id="{{filename_from_path(song)[0].lower()}}"
-      width="20px"
-      style="padding: 5px 0px 5px 4px"
-    >
+    <td style="padding: 5px 0px">{{loop.index + pagination.skip}}</td>
+    <td id="{{filename_from_path(song)[0].lower()}}" style="padding-right: 0">
       <a
         class="add-song-link has-text-weight-bold has-text-success"
         title="Add '{{filename_from_path(song)}}' to queue"
-        href="{{url_for('enqueue')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&user="
+        href="{{url_for('queue.enqueue')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&user="
         ><i class="icon icon-list-add"></i>
       </a>
     </td>
-    <td class="break-word">{{filename_from_path(song)}}</td>
+    <td class="break-word" style="padding-right: 0">
+      {{filename_from_path(song)}}
+    </td>
     {% if admin %}
-    <td width="20px">
+    <td style="padding-right: 0">
       <a
         class="edit-button"
-        href="{{url_for('edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}"
+        href="{{url_for('files.edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}"
         title="Edit song"
         ><i class="icon icon-edit-1"></i>
       </a>

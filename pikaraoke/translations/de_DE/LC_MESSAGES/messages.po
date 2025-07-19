@@ -1,0 +1,1069 @@
+# German (Germany) translations for PROJECT.
+# Copyright (C) 2025 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2025-01-13 22:50-0800\n"
+"PO-Revision-Date: 2025-01-13 22:53-0800\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: de_DE\n"
+"Language-Team: de_DE <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: karaoke.py:253
+msgid "Your preferences were changed successfully"
+msgstr "Die Einstellungen wurden erfolgreich geändert"
+
+#: karaoke.py:256
+msgid "Something went wrong! Your preferences were not changed"
+msgstr "Etwas ist schiefgelaufen! Die Einstellungen wurden nicht geändert"
+
+#: karaoke.py:261
+msgid "Your preferences were cleared successfully"
+msgstr "Die Einstellungen wurden erfolgreich zurückgesetzt"
+
+#: karaoke.py:263
+msgid "Something went wrong! Your preferences were not cleared"
+msgstr "Etwas ist schiefgelaufen! Die Einstellungen wurden nicht zurückgesetzt"
+
+#. Message shown after the download is started
+#: karaoke.py:360
+#, python-format
+msgid "Downloading video: %s"
+msgstr "Video wird heruntergeladen: %s"
+
+#. Message shown after the download is completed and queued
+#: karaoke.py:376
+#, python-format
+msgid "Downloaded and queued: %s"
+msgstr "Heruntergeladen und in die Warteschlange eingereiht: %s"
+
+#. Message shown after the download is completed but not queued
+#: karaoke.py:379
+#, python-format
+msgid "Downloaded: %s"
+msgstr "Heruntergeladen: %s"
+
+#. Message shown after the download is completed but the adding to queue fails
+#: karaoke.py:388
+msgid "Error queueing song: "
+msgstr "Fehler beim Hinzufügen des Liedes zur Warteschlange: "
+
+#. Message shown after the download process is completed but the song is not
+#. found
+#: karaoke.py:391
+msgid "Error downloading song: "
+msgstr "Fehler beim Herunterladen des Liedes: "
+
+#. Message shown when the song ends abnormally
+#: karaoke.py:591
+#, python-format
+msgid "Song ended abnormally: %s"
+msgstr "Lied endete unerwartet: %s"
+
+#. Message shown after the song is transposed, first is the semitones and then
+#. the song name
+#: karaoke.py:599
+#, python-format
+msgid "Transposing by %s semitones: %s"
+msgstr "Transponieren um %s Halbtöne: %s"
+
+#: karaoke.py:632
+#, python-format
+msgid "You reached the limit of %s song(s) from an user in queue!"
+msgstr "Das Limit von %s Lied(er) per Benutzer in der Warteschlange ist erreicht!"
+
+#. Message shown after the song is added to the top of the queue
+#: karaoke.py:644
+#, python-format
+msgid "%s added to top of queue: %s"
+msgstr "%s wurde an die Spitze der Warteschlange hinzugefügt: %s"
+
+#. Message shown after the song is added to the queue
+#: karaoke.py:649
+#, python-format
+msgid "%s added to the queue: %s"
+msgstr "%s wurde der Warteschlange hinzugefügt: %s"
+
+#: karaoke.py:653
+#, python-format
+msgid "Song added to the queue: %s"
+msgstr "Lied wurde der Warteschlange hinzugefügt: %s"
+
+#. Message shown after the queue is cleared
+#: karaoke.py:677
+msgid "Clear queue"
+msgstr "Warteschlange leeren"
+
+#. Message shown after the song is skipped, will be followed by song name
+#: karaoke.py:726
+#, python-format
+msgid "Skip: %s"
+msgstr "Übersprungen: %s"
+
+#. Message shown after the song is resumed, will be followed by song name
+#: karaoke.py:737
+#, python-format
+msgid "Resume: %s"
+msgstr "Fortsetzen: %s"
+
+#. Message shown after the song is paused, will be followed by song name
+#: karaoke.py:740
+msgid "Pause"
+msgstr "Pause"
+
+#. Message shown after the volume is changed, will be followed by the volume
+#. level
+#: karaoke.py:751
+#, python-format
+msgid "Volume: %s"
+msgstr "Lautstärke: %s"
+
+#. Message shown after starting the youtube-dl update.
+#: routes/admin.py:55
+msgid "Updating youtube-dl! Should take a minute or two..."
+msgstr "Youtube-DL wird aktualisiert! Dies sollte ein bis zwei Minuten dauern..."
+
+#. Message shown after trying to update youtube-dl without admin permissions.
+#: routes/admin.py:62
+msgid "You don't have permission to update youtube-dl"
+msgstr "Keine Berechtigung, Youtube-DL zu aktualisieren"
+
+#. Message shown after trying to refresh the song list without admin
+#. permissions.
+#. Message shown after trying to shut down the system without admin
+#: routes/admin.py:73 routes/admin.py:105
+msgid "You don't have permission to shut down"
+msgstr "Keine Berechtigung, das System herunterzufahren"
+
+#. Message shown after quitting pikaraoke.
+#: routes/admin.py:82
+msgid "Exiting pikaraoke now!"
+msgstr "Pikaraoke wird jetzt beendet!"
+
+#. Message shown after trying to quit pikaraoke without admin permissions.
+#: routes/admin.py:89
+msgid "You don't have permission to quit"
+msgstr "Keine Berechtigung, das Programm zu beenden"
+
+#. Message shown after shutting down the system.
+#: routes/admin.py:98
+msgid "Shutting down system now!"
+msgstr "System wird jetzt heruntergefahren!"
+
+#. Message shown after rebooting the system.
+#: routes/admin.py:114
+msgid "Rebooting system now!"
+msgstr "System wird jetzt neu gestartet!"
+
+#. Message shown after trying to reboot the system without admin permissions.
+#: routes/admin.py:121
+msgid "You don't have permission to Reboot"
+msgstr "Keine Berechtigung, das System neu zu starten"
+
+#. Message shown after expanding the filesystem.
+#: routes/admin.py:130
+msgid "Expanding filesystem and rebooting system now!"
+msgstr "Dateisystem wird erweitert und das System wird neu gestartet!"
+
+#. Message shown after trying to expand the filesystem on a non-raspberry pi
+#. device.
+#: routes/admin.py:135
+msgid "Cannot expand fs on non-raspberry pi devices!"
+msgstr "Dateisystem kann auf Nicht-Raspberry-Pi-Geräten nicht erweitert werden!"
+
+#. Message shown after trying to expand the filesystem without admin
+#. permissions
+#: routes/admin.py:138
+msgid "You don't have permission to resize the filesystem"
+msgstr "Keine Berechtigung, das Dateisystem zu ändern"
+
+#. Message shown after logging in as admin successfully
+#: routes/admin.py:153
+msgid "Admin mode granted!"
+msgstr "Admin-Modus aktiviert!"
+
+#. Message shown after failing to login as admin
+#: routes/admin.py:157
+msgid "Incorrect admin password!"
+msgstr "Falsches Admin-Passwort!"
+
+#. Message shown after logging out as admin successfully
+#: routes/admin.py:171
+msgid "Logged out of admin mode!"
+msgstr "Admin-Modus verlassen!"
+
+#. Title of the files page.
+#. Navigation link for the page where the user can add existing songs to the
+#. queue.
+#: routes/files.py:68 templates/base.html:212
+msgid "Browse"
+msgstr "Durchsuchen"
+
+#. Message shown after trying to delete a song that is in the queue.
+#: routes/files.py:83
+msgid "Error: Can't delete this song because it is in the current queue"
+msgstr "Fehler: Dieses Lied kann nicht gelöscht werden, da es in der aktuellen Warteschlange ist"
+
+#. Message shown after deleting a song. Followed by the song path
+#: routes/files.py:91
+#, python-format
+msgid "Song deleted: %s"
+msgstr "Lied gelöscht: %s"
+
+#. Message shown after trying to delete a song without specifying the song.
+#: routes/files.py:94
+msgid "Error: No song specified!"
+msgstr "Fehler: Kein Lied angegeben!"
+
+#. Message shown after trying to edit a song that is in the queue.
+#: routes/files.py:103
+msgid "Error: Can't edit this song because it is in the current queue: "
+msgstr "Fehler: Dieses Lied kann nicht bearbeitet werden, da es in der aktuellen Warteschlange ist: "
+
+#. Message shown after trying to rename a file to a name that already exists.
+#: routes/files.py:131
+#, python-format
+msgid "Error renaming file: '%s' to '%s', Filename already exists"
+msgstr "Fehler beim Umbenennen der Datei: '%s' in '%s', Dateiname existiert bereits"
+
+#. Message shown after renaming a file.
+#: routes/files.py:139
+#, python-format
+msgid "Renamed file: %s to %s"
+msgstr "Datei umbenannt: %s in %s"
+
+#. Message shown after trying to edit a song without specifying the filename.
+#: routes/files.py:144
+msgid "Error: No filename parameters were specified!"
+msgstr "Fehler: Keine Dateinamenparameter angegeben!"
+
+#: routes/info.py:32
+msgid "CPU usage query unsupported"
+msgstr "CPU-Nutzungsabfrage wird nicht unterstützt"
+
+#. Message shown after trying to change preferences without admin permissions.
+#: routes/preferences.py:23
+msgid "You don't have permission to change preferences"
+msgstr "Keine Berechtigung, Einstellungen zu ändern"
+
+#. Message shown after trying to clear preferences without admin permissions.
+#: routes/preferences.py:38
+msgid "You don't have permission to clear preferences"
+msgstr "Keine Berechtigung, Einstellungen zu löschen"
+
+#. Message shown after adding random tracks
+#: routes/queue.py:48
+#, python-format
+msgid "Added %s random tracks"
+msgstr "%s zufällige Titel hinzugefügt"
+
+#. Message shown after running out songs to add during random track addition
+#: routes/queue.py:51
+msgid "Ran out of songs!"
+msgstr "Nicht genügend Lieder zum Hinzufügen!"
+
+#. Message shown after clearing the queue
+#: routes/queue.py:64
+msgid "Cleared the queue!"
+msgstr "Warteschlange wurde geleert!"
+
+#. Message shown after moving a song down in the queue
+#: routes/queue.py:74
+msgid "Moved down in queue"
+msgstr "In der Warteschlange nach unten verschoben"
+
+#. Message shown after failing to move a song down in the queue
+#: routes/queue.py:78
+msgid "Error moving down in queue"
+msgstr "Fehler beim Verschieben in der Warteschlange nach unten"
+
+#. Message shown after moving a song up in the queue
+#: routes/queue.py:83
+msgid "Moved up in queue"
+msgstr "In der Warteschlange nach oben verschoben"
+
+#. Message shown after failing to move a song up in the queue
+#: routes/queue.py:87
+msgid "Error moving up in queue"
+msgstr "Fehler beim Verschieben in der Warteschlange nach oben"
+
+#. Message shown after deleting a song from the queue
+#: routes/queue.py:92
+msgid "Deleted from queue"
+msgstr "Aus der Warteschlange entfernt"
+
+#. Message shown after failing to delete a song from the queue
+#: routes/queue.py:96
+msgid "Error deleting from queue"
+msgstr "Fehler beim Entfernen aus der Warteschlange"
+
+#. Message shown after starting a download. Song title is displayed in the
+#. message.
+#: routes/search.py:79
+#, python-format
+msgid "Download started: %s. This may take a couple of minutes to complete."
+msgstr "Herunterladen gestartet: %s. Dies kann einige Minuten dauern."
+
+#. Message shown after starting a download that will be adding a song to the
+#. queue.
+#: routes/search.py:85
+msgid "Song will be added to queue."
+msgstr "Lied wird der Warteschlange hinzugefügt."
+
+#. Message shown after after starting a download.
+#: routes/search.py:88
+msgid "Song will appear in the "available songs" list."
+msgstr "Lied wird in der Liste "Verfügbare Lieder" angezeigt."
+
+#. Message shown after trying to stream a file that does not exist.
+#: routes/stream.py:68
+msgid "File not found."
+msgstr "Datei nicht gefunden."
+
+#. Prompt which asks the user their name when they first try to add to the
+#. queue.
+#: templates/base.html:64
+msgid ""
+"Please enter your name. This will show up next to the songs you queue up "
+"from this device."
+msgstr "Bitte gib deinen Namen ein. Der Name wird neben den von dir hinzugefügten Liedern angezeigt."
+
+#. Prompt when changing the current profile name.
+#: templates/base.html:129
+#, python-format
+msgid ""
+"Do you want to change the name of the person using this device? This will"
+" show up on queued songs. Current: %(currentUser)s"
+msgstr "Möchtest du den Benutzernamen dieses Geräts ändern? Dieser erscheint neben von dir hinzugefügten Liedern. Aktuell: %(currentUser)s"
+
+#. Navigation link for the home page.
+#: templates/base.html:196
+msgid "Home"
+msgstr "Startseite"
+
+#. Navigation link for the queue page.
+#. Title of the page showing the currently queued songs.
+#: templates/base.html:202 templates/queue.html:123
+msgid "Queue"
+msgstr "Warteschlange"
+
+#. Navigation link for the search page add songs to the queue.
+#. Submit button on the search form for searching YouTube.
+#: templates/base.html:207 templates/search.html:368
+msgid "Search"
+msgstr "Suche"
+
+#. Confirmation prompt when the user deletes a song.
+#: templates/edit.html:29
+msgid "Are you sure you want to delete this song from the library?"
+msgstr "Dieses Lied wirklich aus der Bibliothek löschen?"
+
+#. Warning when no suggested tracks are found for a search.
+#: templates/edit.html:90
+msgid "No suggestion!"
+msgstr "Kein Vorschlag!"
+
+#. Page title for the page where a song can be edited.
+#: templates/edit.html:105
+msgid "Edit Song"
+msgstr "Lied bearbeiten"
+
+#. Label on the control to edit the song's name
+#: templates/edit.html:118
+msgid "Edit Song Name"
+msgstr "Liedname bearbeiten"
+
+#. Label on button which auto formats the song's title.
+#: templates/edit.html:125
+msgid "Auto-format"
+msgstr "Automatische Formatierung"
+
+#. Label on button which swaps the order of the artist and song in the title.
+#: templates/edit.html:127
+msgid "Swap artist/song order"
+msgstr "Künstler-/Liedreihenfolge tauschen"
+
+#. Label on button which saves the changes.
+#: templates/edit.html:137
+msgid "Save"
+msgstr "Speichern"
+
+#. Label on button which deletes the current song.
+#: templates/edit.html:147
+msgid "Delete this song"
+msgstr "Dieses Lied löschen"
+
+#. Label which displays that the   songs are currently sorted by alphabetical
+#. order.
+#: templates/files.html:82
+msgid ""
+"Sorted\n"
+"  Alphabetically"
+msgstr "Alphabetisch sortiert"
+
+#. Button which changes how the songs are sorted so they become sorted     by
+#. date.
+#: templates/files.html:86
+msgid "Sort by Date"
+msgstr "Nach Datum sortieren"
+
+#. Label which displays that   the songs are currently sorted by date.
+#: templates/files.html:89
+msgid "Sorted by date"
+msgstr "Nach Datum sortiert"
+
+#. Button which changes how the songs are sorted so they become sorted     by
+#. name.
+#: templates/files.html:93
+msgid "Sort by Alphabetical"
+msgstr "Alphabetisch sortieren"
+
+#. Message which shows in the "Now Playing" section when there is no song
+#. currently playing
+#: templates/home.html:32
+msgid "Nothing is playing right now."
+msgstr "Es wird gerade nichts abgespielt."
+
+#. Title text for the icon marking the next person to sing.
+#: templates/home.html:40
+msgid "Next singer"
+msgstr "Nächster Sänger"
+
+#. Alternative text for the "Up next" section if no more songs are queued up.
+#: templates/home.html:43
+msgid "No song is queued."
+msgstr "Kein Lied in der Warteschlange"
+
+#. Confirmation message when clicking a button to skip a track.
+#: templates/home.html:141
+msgid ""
+"Are you sure you want to skip this track? If you didn't add this song, "
+"ask permission first!"
+msgstr "Bist du sicher, dass du dieses Lied überspringen möchtest? Wenn du diesen Song nicht selbst hinzugefügt hast, frage um Erlaubnis!"
+
+#. Header showing the currently playing song.
+#: templates/home.html:188
+msgid "Now Playing"
+msgstr "Jetzt läuft"
+
+#. Title for the section displaying the next song to be played.
+#: templates/home.html:203
+msgid "Next Song"
+msgstr "Nächstes Lied"
+
+#. Title of the box with controls such as pause and skip.
+#: templates/home.html:214
+msgid "Player Control"
+msgstr "Player-Steuerung"
+
+#. Title attribute on the button to restart the current song.
+#: templates/home.html:218
+msgid "Restart Song"
+msgstr "Lied neu starten"
+
+#. Title attribute on the button to play or pause the       current song.
+#: templates/home.html:222
+msgid "Play/Pause"
+msgstr "Abspielen/Pause"
+
+#. Title attribute on the button to skip to the next       song.
+#: templates/home.html:226
+msgid "Stop Current Song"
+msgstr "Aktuelles Lied stoppen"
+
+#. Title of a control to change the key/pitch of the playing song.
+#: templates/home.html:250
+msgid "Change Key"
+msgstr "Tonart ändern"
+
+#. Label on the button to confirm the change in key/pitch of the
+#. playing song.
+#: templates/home.html:277
+msgid "Change"
+msgstr "Ändern"
+
+#. Confirmation text whe the user selects quit.
+#: templates/info.html:47
+msgid "Are you sure you want to quit?"
+msgstr "Wirklich beenden?"
+
+#. Confirmation text whe the user starts to turn off the machine running
+#. Pikaraoke.
+#: templates/info.html:55
+msgid "Are you sure you want to shut down?"
+msgstr "Das System wirklich herunterfahren?"
+
+#. Confirmation text whe the user clears preferences.
+#: templates/info.html:63
+msgid "Are you sure you want to clear your preferences?"
+msgstr "Die Einstellungen wirklich zurücksetzen?"
+
+#. Confirmation text whe the user starts to reboot the machine running
+#. Pikaraoke.
+#: templates/info.html:71
+msgid "Are you sure you want to reboot?"
+msgstr "Das System wirklich neu starten?"
+
+#. Confirmation text whe the user asks to update the Youtube-dl tool.
+#: templates/info.html:81
+msgid ""
+"Are you sure you want to update Youtube-dl right now? Current and pending"
+" downloads may fail."
+msgstr "Bist du sicher, dass du Youtube-DL jetzt aktualisieren möchtest? Aktive und ausstehende Downloads könnten fehlschlagen."
+
+#. Title of the information page.
+#: templates/info.html:102
+msgid "Information"
+msgstr "Information"
+
+#. Label which appears before a url which links to the current page.
+#: templates/info.html:112
+#, python-format
+msgid "URL of %(site_title)s:"
+msgstr "URL von %(site_title)s:"
+
+#. Label before a QR code which brings a frind (pal) to the main page if
+#. scanned, so they can also add songs. QR code follows this text.
+#: templates/info.html:118
+msgid "Handy URL QR code to share with a pal:"
+msgstr "Praktischer URL-QR-Code, um ihn mit einem Freund zu teilen:"
+
+#. Header of the information section about the computer running Pikaraoke.
+#: templates/info.html:129
+msgid "System Info"
+msgstr "Systeminfo"
+
+#. The hardware platform
+#: templates/info.html:132
+msgid "Platform:"
+msgstr "Plattform:"
+
+#. The os version
+#: templates/info.html:134
+msgid "OS Version:"
+msgstr "OS-Version:"
+
+#. The version of the program "Youtube-dl".
+#: templates/info.html:136
+msgid "Youtube-dl (yt-dlp) version:"
+msgstr "Youtube-DL (yt-dlp)-Version:"
+
+#. The version of the program "ffmpeg".
+#: templates/info.html:138
+msgid "FFmpeg version:"
+msgstr "FFmpeg-Version:"
+
+#. The version of Pikaraoke running right now.
+#: templates/info.html:140
+msgid "Pikaraoke version:"
+msgstr "Pikaraoke-Version:"
+
+#: templates/info.html:142
+msgid "System stats"
+msgstr "Systemstatistiken"
+
+#. The CPU usage of the computer running Pikaraoke.
+#: templates/info.html:145
+#, python-format
+msgid "CPU: %(cpu)s"
+msgstr "CPU: %(cpu)s"
+
+#. The disk usage of the computer running Pikaraoke. Used by downloaded songs.
+#: templates/info.html:147
+#, python-format
+msgid "Disk Usage: %(disk)s"
+msgstr "Festplattennutzung: %(disk)s"
+
+#. The memory (RAM) usage of the computer running Pikaraoke.
+#: templates/info.html:149
+#, python-format
+msgid "Memory: %(memory)s"
+msgstr "Speicher: %(memory)s"
+
+#. Title of the user preferences section.
+#: templates/info.html:155
+msgid "User Preferences"
+msgstr "Benutzereinstellungen"
+
+#. Title text for the splash screen settings section of preferences
+#: templates/info.html:157
+msgid "Splash screen settings"
+msgstr "Einstellungen für den Begrüßungsbildschirm"
+
+#. Help text explaining the the need to restart after changing splash screen
+#. preferences
+#: templates/info.html:160
+msgid ""
+"*You may need to refresh the splash screen for these changes to take "
+"effect."
+msgstr "Möglicherweise muss der Begrüßungsbildschirm neu geladen werden, damit die Änderungen sichtbar sind."
+
+#. Checkbox label which enable/disables background music on the Splash Screen
+#: templates/info.html:164
+msgid "Disable background music"
+msgstr "Hintergrundmusik deaktivieren"
+
+#. Checkbox label which enable/disables background video on the Splash Screen
+#: templates/info.html:170
+msgid "Disable background video"
+msgstr "Hintergrundvideo deaktivieren"
+
+#. Checkbox label which enable/disables the Score Screen
+#: templates/info.html:176
+msgid "Disable the score screen after each song"
+msgstr "Bewertungsbildschirm nach jedem Lied deaktivieren"
+
+#. Checkbox label which enable/disables notifications on the splash screen
+#: templates/info.html:182
+msgid "Hide notifications"
+msgstr "Benachrichtigungen ausblenden"
+
+#. Checkbox label which enable/disables the URL display
+#: templates/info.html:188
+msgid "Hide the URL and QR code"
+msgstr "URL und QR-Code ausblenden"
+
+#. Checkbox label which enable/disables showing overlay data on the splash
+#. screen
+#: templates/info.html:194
+msgid "Hide all overlays, including now playing, up next, and QR code"
+msgstr "Alle Overlays ausblenden, einschließlich 'Jetzt läuft', 'Als Nächstes' und QR-Code"
+
+#. Numberbox label for setting the default video volume
+#: templates/info.html:200
+msgid "Default volume of the videos (min 0, max 100)"
+msgstr "Standardlautstärke der Videos (min 0, max 100)"
+
+#. Numberbox label for setting the background music volume
+#: templates/info.html:206
+msgid "Volume of the background music (min 0, max 100)"
+msgstr "Lautstärke der Hintergrundmusik (min 0, max 100)"
+
+#. Numberbox label for setting the inactive delay before showing the
+#. screensaver
+#: templates/info.html:213
+msgid ""
+"The amount of idle time in seconds before the screen saver activates. Set"
+" to 0 to disable it."
+msgstr "Inaktivzeit bis sich der Bildschirmschoner aktiviert. Zum Deaktivieren auf 0 setzen."
+
+#. Numberbox label for setting the delay before playing the next song
+#: templates/info.html:220
+msgid "The delay in seconds before starting the next song"
+msgstr "Die Verzögerung in Sekunden vor dem Start des nächsten Liedes"
+
+#. Title text for the server settings section of preferences
+#: templates/info.html:224
+msgid "Server settings"
+msgstr "Servereinstellungen"
+
+#. Checkbox label which enable/disables audio volume normalization
+#: templates/info.html:228
+msgid "Normalize audio volume"
+msgstr "Audio-Lautstärke normalisieren"
+
+#. Checkbox label which enable/disables high quality video downloads
+#: templates/info.html:234
+msgid "Download high quality videos"
+msgstr "Videos in hoher Qualität herunterladen"
+
+#. Checkbox label which enable/disables full transcode before playback
+#: templates/info.html:240
+msgid ""
+"Transcode video completely before playing (better browser compatibility, "
+"slower starts). Buffer size will be ignored.*"
+msgstr "Video vor dem Abspielen vollständig transkodieren (Bessere Browser-Kompatibilität, langsamerer Liedstart). Puffergröße wird ignoriert."
+
+#. Numberbox label for limitting the number of songs for each player
+#: templates/info.html:247
+msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
+msgstr "Limit an Liedern, die ein Benutzer zur Warteschlange hinzufügen kann (0 = unbegrenzt)"
+
+#. Numberbox label for setting the buffer size in kilobytes
+#: templates/info.html:254
+msgid ""
+"Buffer size in kilobytes. Transcode this amount of the video before "
+"sending it to the splash screen. "
+msgstr "Puffergröße in Kilobytes. Transkodiert diesen Teil des Videos, bevor es abgespielt wird."
+
+#. Help text explaining when videos will be transcoded
+#: templates/info.html:258
+msgid ""
+"* Videos are only transcoded when: normalization is on, a song is "
+"transposed, playing a CDG/MOV/AVI/MKV file. Most unmodified MP4 files "
+"will not need to be transcoded."
+msgstr "Videos werden nur transkodiert, wenn: Normalisierung aktiviert ist, ein Lied transponiert wird, eine CDG/MOV/AVI/MKV-Datei abgespielt wird. Die meisten unmodifizierten MP4-Dateien müssen nicht transkodiert werden."
+
+#. Text for the link where the user can clear all user preferences
+#: templates/info.html:262
+msgid "Clear preferences"
+msgstr "Einstellungen löschen"
+
+#. Title of the updates section.
+#: templates/info.html:268
+msgid "Updates"
+msgstr "Aktualisierungen"
+
+#. Label before a link which forces Pikaraoke to rescan and pick up any new
+#. songs.
+#: templates/info.html:270
+msgid "Refresh the song list:"
+msgstr "Liederliste aktualisieren:"
+
+#. Text on the link which forces Pikaraoke to rescan and pick up any new songs.
+#: templates/info.html:275
+msgid "Rescan song directory"
+msgstr "Liederverzeichnis erneut scannen"
+
+#. Help text explaining the Rescan song directory link.
+#: templates/info.html:280
+msgid ""
+"You should only need to do this if you manually copied files to the "
+"download directory while pikaraoke was running."
+msgstr "Nur nötig, wenn manuell Dateien in das Liederverzeichnis kopiert wurden, während Pikaraoke aktiv ist."
+
+#. Text explaining why you might want to update youtube-dl.
+#: templates/info.html:285
+#, python-format
+msgid ""
+"If downloads or searches stopped working, updating youtube-dl will "
+"probably fix it.\n"
+"   The current installed version is: \"%(youtubedl_version)s\""
+msgstr "Wenn das Herunterladen oder die Suche nicht funktionieren, wird eine Aktualisierung von Youtube-DL das Problem wahrscheinlich beheben. Die aktuell installierte Version ist: \"%(youtubedl_version)s\"
+
+#. Text for the link which will try and update youtube-dl on the machine
+#. running Pikaraoke.
+#: templates/info.html:291
+msgid "Update youtube-dl"
+msgstr "Youtube-DL aktualisieren"
+
+#. Help text which explains why updating youtube-dl can fail. The log is a file
+#. on the machine running Pikaraoke.
+#: templates/info.html:297
+msgid ""
+"This update link above may fail if you don't have proper file "
+"permissions.\n"
+"    Check the pikaraoke log for errors."
+msgstr "Diese Aktualisierung kann ohne die nötigen Dateiberechtigungen fehlschlagen. Pikaraoke-Log auf Fehler überprüfen."
+
+#. Title of the section on shutting down / turning off the machine running
+#. Pikaraoke.
+#: templates/info.html:304
+msgid "Shutdown"
+msgstr "Herunterfahren"
+
+#. Explainitory text which explains why to use the shutdown link.
+#: templates/info.html:307
+msgid ""
+"Don't just pull the plug! Always shut down your server properly to avoid "
+"data corruption."
+msgstr "Zieh nicht einfach den Stecker! Fahr den Server immer korrekt herunter, um Datenkorruption zu vermeiden."
+
+#. Text for button which turns off Pikaraoke for everyone using it at your
+#. house.
+#: templates/info.html:313
+msgid "Quit Pikaraoke"
+msgstr "Pikaraoke beenden"
+
+#. Text for button which reboots the machine running Pikaraoke.
+#: templates/info.html:316
+msgid "Reboot System"
+msgstr "System neustarten"
+
+#. Text for button which turn soff the machine running Pikaraoke.
+#: templates/info.html:319
+msgid "Shutdown System"
+msgstr "System herunterfahren"
+
+#. Title for section containing a few other options on the Info page.
+#: templates/info.html:326
+msgid "Other"
+msgstr "Sonstiges"
+
+#. Text for button
+#: templates/info.html:329
+msgid "Expand Raspberry Pi filesystem"
+msgstr "Raspberry Pi-Dateisystem erweitern"
+
+#. Explainitory text which explains why you might want to expand the
+#. filesystem.
+#: templates/info.html:332
+msgid ""
+"If you just installed the pre-built pikaraoke pi image and your SD card "
+"is larger than 4GB,\n"
+"    you may want to expand the filesystem to utilize the remaining space."
+" You only need to do this once.\n"
+"    This will reboot the system."
+msgstr "Wenn du das vorgefertigte Pikaraoke-Pi-Image installiert hast und deine SD-Karte größer als 4GB ist, solltest du das Dateisystem erweitern, um den gesamten Speicherplatz nutzbar zu machen. Dies musst du nur einmal machen. Das System startet hierzu neu."
+
+#. Link which will log out the user from admin mode.
+#: templates/info.html:342
+#, python-format
+msgid "Disable admin mode: <a href=\"%(logout_url)s\">Log out</a>"
+msgstr "Admin-Modus deaktivieren: <a href=\"%(logout_url)s\">Abmelden</a>"
+
+#. Link which will let the user log into admin mode.
+#: templates/info.html:348
+#, python-format
+msgid ""
+"\n"
+"    Enable admin mode: <a href=\"%(login_url)s\">Log in</a>\n"
+"  "
+msgstr "Admin-Modus aktivieren: <a href=\"%(login_url)s\">Anmelden</a>"
+
+#. Title for the log in page for admins.
+#. Text on submit button for the admin login form.
+#: templates/login.html:19 templates/login.html:35
+msgid "Login"
+msgstr "Anmelden"
+
+#. Title fo the form to enter the administrator password.
+#: templates/login.html:26
+msgid "Enter the administrator password"
+msgstr "Administratorpasswort eingeben"
+
+#. Placeholder text which appears instead of a song when the queue is empty.
+#: templates/queue.html:63
+msgid "The queue is empty"
+msgstr "Die Warteschlange ist leer"
+
+#. Button text which picks three songs at random from the already downloaded
+#. songs and adds them to the queue.
+#: templates/queue.html:135
+msgid "Add 3 random songs"
+msgstr "3 zufällige Lieder hinzufügen"
+
+#. Text for the button which clears the entire queue.
+#: templates/queue.html:141
+msgid "Clear all"
+msgstr "Alles löschen"
+
+#: templates/search.html:115
+msgid "Available songs in local library"
+msgstr "Verfügbare Lieder in der lokalen Bibliothek"
+
+#. Title for the search page.
+#: templates/search.html:340
+msgid "Search / Add New"
+msgstr "Suchen / Neu hinzufügen"
+
+#: templates/search.html:360
+msgid "Available Songs"
+msgstr "Verfügbare Lieder"
+
+#. Submit button on the search form when selecting a locally
+#. downloaded song. The button adds it to the queue.
+#: templates/search.html:373
+msgid "Add to queue"
+msgstr "Zur Warteschlange hinzufügen"
+
+#. Link which clears the text from the search box.
+#: templates/search.html:384
+msgid "Clear"
+msgstr "Löschen"
+
+#. Checkbox label which enables more options when searching.
+#: templates/search.html:390
+msgid "Advanced"
+msgstr "Erweitert"
+
+#. Help text below the search bar.
+#: templates/search.html:396
+msgid ""
+"Type a song\n"
+"          (title/artist) to search the available songs and click 'Add to "
+"queue'\n"
+"          to add it to the queue."
+msgstr "Tippe ein Lied ein (Titel/Künstler), um die verfügbaren Lieder zu durchsuchen und klicke auf "Zur Warteschlange hinzufügen", um es zur Warteschlange hinzufügen."
+
+#. Additonal help text below the search bar.
+#: templates/search.html:401
+msgid ""
+"If\n"
+"          the song doesn't appear in the \"Available Songs\" dropdown, "
+"click\n"
+"          'Search' to find it on Youtube"
+msgstr "Wenn das Lied nicht im \"Verfügbare Lieder\"-Dropdown-Menü erscheint, klicke auf "Suche", um es auf Youtube zu finden.
+
+#. Checkbox label which enables matching songs which are not           karaoke
+#. versions (i.e. the songs still have a singer and are not just
+#. instrumentals.)
+#: templates/search.html:424
+msgid "Include non-karaoke matches"
+msgstr "Nicht-Karaoke-Treffer einbeziehen"
+
+#. Label for an input which takes a YouTube url directly instead           of
+#. searching titles.
+#: templates/search.html:432
+msgid "Direct download YouTube url:"
+msgstr "Direktes Herunterladen von einer YouTube-URL:"
+
+#. Checkbox label which marks the song to be added to the               queue
+#. after it finishes downloading.
+#: templates/search.html:448
+msgid ""
+"Add to queue\n"
+"              once downloaded"
+msgstr "Nach dem Herunterladen zur Warteschlange hinzufügen"
+
+#. Button label for the direct download form's submit button.
+#. Label on the button which starts the download of the selected
+#. song.
+#: templates/search.html:460 templates/search.html:535
+msgid "Download"
+msgstr "Herunterladen"
+
+#. Html text which displays what was searched for, in     quotes while the page
+#. is loading.
+#: templates/search.html:481
+#, python-format
+msgid ""
+"Searching YouTube for\n"
+"    <small><i>'%(search_term)s'</i></small>"
+msgstr "Suche auf Youtube nach <small><i>'%(search_term)s'</i></small>"
+
+#. Html text which displays what was searched for, in quotes.
+#: templates/search.html:491
+#, python-format
+msgid ""
+"Search results for\n"
+"        <small><i>'%(search_string)s'</i></small>"
+msgstr "Suchergebnisse für <small><i>'%(search_string)s'</i></small>"
+
+#. Help text which explains that the select box above can be           operated
+#. to select different search results.
+#: templates/search.html:509
+msgid ""
+"Click\n"
+"          dropdown to show more results"
+msgstr "Klicke auf das Dropdown-Menü für weitere Ergebnisse"
+
+#. Label displayed before the YouTube url for the chosen search
+#. result.
+#: templates/search.html:514
+msgid "Link:"
+msgstr "Link:"
+
+#. Checkbox label which marks the song to be added to the queue           after
+#. it finishes downloading.
+#: templates/search.html:524
+msgid ""
+"Add to queue once\n"
+"          downloaded"
+msgstr "Nach dem Herunterladen zur Warteschlange hinzufügen"
+
+#. Score review message
+#: templates/splash.html:59
+msgid "Never sing again... ever."
+msgstr "Sing bloß nie wieder... niemals."
+
+#. Score review message
+#: templates/splash.html:60
+msgid "That was a really good impression of a dying cat!"
+msgstr "Das war eine wirklich gute Imitation einer sterbenden Katze!"
+
+#. Score review message
+#: templates/splash.html:61
+msgid "Thank God it's over."
+msgstr "Gott sei Dank ist es vorbei."
+
+#. Score review message
+#: templates/splash.html:62
+msgid "Pass the mic, please!"
+msgstr "Lass lieber jemand anderes singen!"
+
+#. Score review message
+#: templates/splash.html:63
+msgid "Well, I'm sure you're very good at your day job."
+msgstr "Nun, bestimmt bist du wenigstens in deinem Hauptberuf sehr gut."
+
+#. Score review message
+#: templates/splash.html:66
+msgid "I've seen better."
+msgstr "Ich habe schon Besseres gesehen."
+
+#. Score review message
+#: templates/splash.html:67
+msgid "Ok... just ok."
+msgstr "Okay... einfach okay."
+
+#. Score review message
+#: templates/splash.html:68
+msgid "Not bad for an amateur."
+msgstr "Nicht schlecht für einen Amateur."
+
+#. Score review message
+#: templates/splash.html:69
+msgid "You put on a decent show."
+msgstr "Du hast eine ordentliche Show abgeliefert."
+
+#. Score review message
+#: templates/splash.html:70
+msgid "That was... something."
+msgstr "Das war... etwas."
+
+#. Score review message
+#: templates/splash.html:73
+msgid "Congratulations! That was unbelievable!"
+msgstr "Herzlichen Glückwunsch! Das war unglaublich!"
+
+#. Score review message
+#: templates/splash.html:74
+msgid "Wow, have you tried auditioning for The Voice?"
+msgstr "Wow, hast du dich schon für 'The Voice' beworben?"
+
+#. Score review message
+#: templates/splash.html:75
+msgid "Please, sing another one!"
+msgstr "Bitte, sing noch eins!"
+
+#. Score review message
+#: templates/splash.html:76
+msgid "You rock! You know that?!"
+msgstr "Du rockst! Weißt du das?!"
+
+#. Score review message
+#: templates/splash.html:77
+msgid "Woah, who let Freddie Mercury in here?"
+msgstr "Wow, wer hat Freddie Mercury hier reingelassen?"
+
+#. Label for the next song to be played in the queue.
+#: templates/splash.html:273 templates/splash.html:586
+msgid "Up next:"
+msgstr "Als Nächstes:"
+
+#. Label of the singer for next song to be played in the queue. (Who added it
+#. to the queue.)
+#. Label for the next singer in the queue.
+#: templates/splash.html:275 templates/splash.html:593
+msgid "Next singer:"
+msgstr "Nächster Sänger:"
+
+#. The title of the score screen, telling the user their singing score
+#: templates/splash.html:615
+msgid "Your Score"
+msgstr "Deine Punktzahl"
+
+#. Prompt for interaction in order to enable video autoplay.
+#: templates/splash.html:629
+msgid ""
+"Due to limititations with browser permissions, you must interact\n"
+"      with the page once before it allows autoplay of videos. Pikaraoke "
+"will not\n"
+"      play otherwise. Click the button below to\n"
+"      <a onClick=\"handleConfirmation()\">confirm</a> ."
+msgstr "Aufgrund eingeschränkter Browserberechtigungen musst du mit der Seite interagieren, damit Autoplay für Videos aktiviert werden kann. Pikaraoke kann ansonsten keine Videos abspielen. Klicke hierzu auf den Button <a onClick=\"handleConfirmation()\">Bestätigen</a>."
+
+#. Button to confirm to enable video autoplay.
+#: templates/splash.html:641
+msgid "Confirm"
+msgstr "Bestätigen"

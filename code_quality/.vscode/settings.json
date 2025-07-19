@@ -1,0 +1,15 @@
+// Suggested vscode settings
+
+{
+  "pylint.args": ["--rcfile=${workspaceFolder}/code_quality/.pylintrc"],
+  "[python]": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+  "[yaml]": {
+    "editor.formatOnSave": false
+  },
+  "isort.args": ["--profile", "black"]
+}

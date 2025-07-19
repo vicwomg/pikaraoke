@@ -1,0 +1,98 @@
+on:
+  push:
+    branches:
+    - master
+
+name: release-please
+
+permissions:
+  contents: write
+  pull-requests: write
+
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+    steps:
+    - name: Release Please
+      id: release
+      uses: googleapis/release-please-action@v4
+      with:
+        token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+
+  build-and-publish:
+    runs-on: ubuntu-latest
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    permissions:
+      # IMPORTANT: this permission is mandatory for trusted publishing
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pikaraoke
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'
+
+    - name: Cache Poetry Install
+      id: cache-poetry
+      uses: actions/cache@v4
+      with:
+        path: |
+          /opt/poetry
+          ~/.cache/pypoetry
+          .venv
+        key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}-${{ hashFiles('**/pyproject.toml')
+          }}
+
+    - name: Install Poetry
+      if: steps.cache-poetry.outputs.cache-hit != 'true'
+      run: |
+        export POETRY_HOME=/opt/poetry
+        python3 -m venv $POETRY_HOME
+        $POETRY_HOME/bin/pip install poetry==1.8.2
+        $POETRY_HOME/bin/poetry --version
+
+    - name: Add Poetry to PATH
+      run: echo "/opt/poetry/bin" >> $GITHUB_PATH
+
+    - name: Extract version number
+      id: get_version
+      run: |
+        version=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)
+        echo "VERSION=$version" >> $GITHUB_ENV
+
+    - name: Install Package
+      run: poetry install --no-interaction --no-ansi
+
+    - name: Build Package
+      run: poetry build
+
+    - name: Publish Python 🐍 distribution 📦 to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build and push
+      uses: docker/build-push-action@v6
+      with:
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: vicwomg/pikaraoke:latest,vicwomg/pikaraoke:${{ env.VERSION }}

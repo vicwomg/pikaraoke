@@ -3,6 +3,8 @@ import os
 import subprocess
 import time
 
+# This is a legacy class for interacting with raspberry pi's OMXPlayer to play back the video. It is no longer in use. All playback is handled by the browser
+
 
 class OMXClient:
     def __init__(self, path=None, adev=None, dual_screen=False, volume_offset=None):

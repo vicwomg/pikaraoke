@@ -29,6 +29,7 @@ def get_default_vlc_path(platform):
         return "/usr/bin/vlc"
 
 
+# This is a legacy class for interacting with VLC to play back the video. It is no longer in use. All playback is handled by the browser
 class VLCClient:
     def __init__(self, port=5002, path=None, qrcode=None, url=None):
         # HTTP remote control server

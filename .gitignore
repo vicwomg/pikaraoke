@@ -1,10 +1,12 @@
 *.pyc
 *.swp
-.vscode/
 .venv/
 .venv*
+/.vscode/
 __pycache__/
 dist/
 songs/
 qrcode.png
 .DS_Store
+*.ini
+docker-compose.yml

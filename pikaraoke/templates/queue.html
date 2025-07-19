@@ -4,9 +4,10 @@
 <script>
   var queue = [];
   var previousQueue;
+  var socket = io();
 
   function getQueue() {
-    $.get('{{ url_for("get_queue") }}', function (data) {
+    $.get('{{ url_for("queue.get_queue") }}', function (data) {
       newQueue =  JSON.parse(data);
       if (!_.isEqual(newQueue, previousQueue)) {
         queue = newQueue;
@@ -14,11 +15,6 @@
         previousQueue = newQueue;
       }
     })
-  }
-
-  function refreshQueue() {
-    // slight delay to allow the queue to update
-    setTimeout(() => getQueue(), 100);
   }
 
   function generateQueueHTML() {
@@ -77,20 +73,17 @@
         )
       ) {
         $.get(this.href)
-        refreshQueue();
       }
   });
 
   $(document).on('click', '.up-button', function (e) {
     e.preventDefault();
     $.get(this.href)
-    refreshQueue();
   });
 
   $(document).on('click', '.down-button', function (e) {
     e.preventDefault();
     $.get(this.href)
-    refreshQueue();
   });
 
   $(document).on('click', '.confirm-clear', function (e) {
@@ -100,18 +93,25 @@
     );
     if (prompt.toLowerCase() === "ok") {
       $.get(this.href)
-      refreshQueue();
     }
   });
 
+  socket.on("queue_update", getQueue);
+
   //on page load
   $(function () {
+    //first time load
     getQueue();
-    setInterval(function() {
+
+    document.addEventListener("visibilitychange", function() {
+      if (document.visibilityState === 'visible') {
         getQueue();
-      },
-      1500
-    )
+        if (!socket.connected) {
+            console.log('Reconnecting socket...');
+            connectSocket();
+        }
+      }
+    });
   });
 </script>
 

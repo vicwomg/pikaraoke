@@ -1,5 +1,11 @@
 Translation requires you have Babel installed, and the `pybabel` command available to run.
 
+## Contributing to translations
+
+Translation help is much appreciated
+
+Look in `pikaraoke/translations` directory and identify the `messages.po` file for a locale/language you can help translate. Fill in all the translations in the file and submit a PR or email the maintainer of pikaraoke.
+
 ## Marking strings for translation
 
 In Python files, you can mark a string for translation on the web frontend using `flask_babel`.
@@ -37,7 +43,7 @@ when translating.
 ## Rebuilding translations
 
 After modifying the templates or code and marking new strings for translation,
-run
+from the ./pikaraoke subdirectory, run
 
 ```shell
 $ pybabel extract -F babel.cfg -o messages.pot --add-comments="MSG:" --strip-comment-tags  --sort-by-file .
@@ -50,6 +56,12 @@ This will extract the strings out of the .py and .html files, and place them int
 The update command will update each languages `translations/<lang>/LC_MESSAGES/messages.po`
 file, which is what a translator for a particular language will see. The python app consumes `messages.mo` files,
 which are binary files created by the compile step.
+
+Note: 'Fuzzy' messages are marked with a #, fuzzy line above the msgid line, and are the result of a merge where a message is deemed slightly changed from the previous version. These will be ignored by the translation until they are addressed! A message marked as fuzzy is supposed to be looked at by a human to make sure the translation doesn't need updating, after which the human translator removes that flag. Often line break changes will trigger these, if you want to force compilation, run:
+
+```shell
+$ pybabel compile -f -d translations
+```
 
 In order to start translating a new language, use
 
@@ -64,5 +76,11 @@ As well as editing the `constants.py` `LANGUAGES` mapping to make that language 
 
 Currently I have it set based on the Accept-Language header sent with each request,
 [which can be modified using this guide][accept-language-chrome].
+
+## Testing a language
+
+You can force a language locale on a given webpage by adding the lang query to the end of the URL. Example: `http://localhost:5555/?lang=pt_BR`
+
+This will work for HTML endpoints, but for translations within python code (flashed messages, splash screen notifications), the host's locale is used.
 
 [accept-language-chrome]: https://support.google.com/pixelslate/answer/173424?hl=en&co=GENIE.Platform%3DDesktop
