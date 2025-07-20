@@ -2,12 +2,11 @@
 # Copyright (C) 2024 ORGANIZATION
 # This file is distributed under the same license as the  project.
 #
-#
 msgid ""
 msgstr ""
 "Project-Id-Version:  1.1.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-01-13 22:50-0800\n"
+"POT-Creation-Date: 2025-07-20 14:10+0800\n"
 "PO-Revision-Date: 2024-08-28 10:09-0400\n"
 "Last-Translator: \n"
 "Language: zh_TW\n"
@@ -18,111 +17,111 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.9.1\n"
 
-#: karaoke.py:253
+#: karaoke.py:255
 msgid "Your preferences were changed successfully"
 msgstr "您的偏好設定已成功更改"
 
-#: karaoke.py:256
+#: karaoke.py:258
 msgid "Something went wrong! Your preferences were not changed"
 msgstr "發生錯誤！您的偏好設定未被更改"
 
-#: karaoke.py:261
+#: karaoke.py:263
 msgid "Your preferences were cleared successfully"
 msgstr "您的偏好設定已成功清除"
 
-#: karaoke.py:263
+#: karaoke.py:265
 msgid "Something went wrong! Your preferences were not cleared"
 msgstr "發生錯誤！您的偏好設定未被清除"
 
 #. Message shown after the download is started
-#: karaoke.py:360
+#: karaoke.py:362
 #, python-format
 msgid "Downloading video: %s"
 msgstr "正在下載影片：%s"
 
 #. Message shown after the download is completed and queued
-#: karaoke.py:376
+#: karaoke.py:378
 #, python-format
 msgid "Downloaded and queued: %s"
 msgstr "成功添加歌曲：%s"
 
 #. Message shown after the download is completed but not queued
-#: karaoke.py:379
+#: karaoke.py:381
 #, python-format
 msgid "Downloaded: %s"
 msgstr "下載：%s"
 
 #. Message shown after the download is completed but the adding to queue fails
-#: karaoke.py:388
+#: karaoke.py:390
 msgid "Error queueing song: "
 msgstr "添加歌曲到播放列表時出錯："
 
 #. Message shown after the download process is completed but the song is not
 #. found
-#: karaoke.py:391
+#: karaoke.py:393
 msgid "Error downloading song: "
 msgstr "下載歌曲時出錯："
 
 #. Message shown when the song ends abnormally
-#: karaoke.py:591
+#: karaoke.py:600
 #, python-format
 msgid "Song ended abnormally: %s"
 msgstr "歌曲異常結束：%s"
 
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
-#: karaoke.py:599
+#: karaoke.py:608
 #, python-format
 msgid "Transposing by %s semitones: %s"
 msgstr "調整音調 %s 個半音：%s"
 
-#: karaoke.py:632
+#: karaoke.py:641
 #, python-format
 msgid "You reached the limit of %s song(s) from an user in queue!"
 msgstr "您已達到每位用戶在播放列表中的 %s 首歌曲限制！"
 
 #. Message shown after the song is added to the top of the queue
-#: karaoke.py:644
+#: karaoke.py:653
 #, python-format
 msgid "%s added to top of queue: %s"
 msgstr "%s 成功添加歌曲到播放列表頂部：%s"
 
 #. Message shown after the song is added to the queue
-#: karaoke.py:649
+#: karaoke.py:658
 #, python-format
 msgid "%s added to the queue: %s"
 msgstr "%s 成功添加歌曲到播放列表：%s"
 
-#: karaoke.py:653
+#: karaoke.py:662
 #, python-format
 msgid "Song added to the queue: %s"
 msgstr "成功添加歌曲到播放列表：%s"
 
 #. Message shown after the queue is cleared
-#: karaoke.py:677
+#: karaoke.py:686
 msgid "Clear queue"
 msgstr "清空播放列表"
 
 #. Message shown after the song is skipped, will be followed by song name
-#: karaoke.py:726
+#: karaoke.py:735
 #, python-format
 msgid "Skip: %s"
 msgstr "跳過：%s"
 
 #. Message shown after the song is resumed, will be followed by song name
-#: karaoke.py:737
+#: karaoke.py:746
 #, python-format
 msgid "Resume: %s"
 msgstr "繼續播放：%s"
 
 #. Message shown after the song is paused, will be followed by song name
-#: karaoke.py:740
+#: karaoke.py:749
 msgid "Pause"
 msgstr "暫停"
 
 #. Message shown after the volume is changed, will be followed by the volume
 #. level
-#: karaoke.py:751
+#: karaoke.py:760
 #, python-format
 msgid "Volume: %s"
 msgstr "音量：%s"
@@ -139,15 +138,15 @@ msgstr "您沒有權限更新 youtube-dl"
 
 #. Message shown after trying to refresh the song list without admin
 #. permissions.
-#. Message shown after trying to shut down the system without admin
-#: routes/admin.py:73 routes/admin.py:105
-msgid "You don't have permission to shut down"
-msgstr "您沒有權限關閉系統"
+#: routes/admin.py:73
+#, fuzzy
+msgid "You don't have permission to refresh the song list"
+msgstr "您沒有權限調整檔案系統大小"
 
 #. Message shown after quitting pikaraoke.
 #: routes/admin.py:82
 msgid "Exiting pikaraoke now!"
-msgstr "正在退出卡拉OK派！"
+msgstr "正在退出 Pikaraoke！"
 
 #. Message shown after trying to quit pikaraoke without admin permissions.
 #: routes/admin.py:89
@@ -158,6 +157,12 @@ msgstr "您沒有權限退出"
 #: routes/admin.py:98
 msgid "Shutting down system now!"
 msgstr "正在關閉系統！"
+
+#. Message shown after trying to shut down the system without admin
+#. permissions.
+#: routes/admin.py:105
+msgid "You don't have permission to shut down"
+msgstr "您沒有權限關閉系統"
 
 #. Message shown after rebooting the system.
 #: routes/admin.py:114
@@ -246,7 +251,7 @@ msgstr "已重命名檔案：%s 到 %s"
 msgid "Error: No filename parameters were specified!"
 msgstr "錯誤：未指定檔案名參數！"
 
-#: routes/info.py:32
+#: routes/info.py:36
 msgid "CPU usage query unsupported"
 msgstr "不支援 CPU 使用率查詢"
 
@@ -329,6 +334,23 @@ msgstr "歌曲將出現在「可用歌曲」列表中。"
 msgid "File not found."
 msgstr "找不到檔案。"
 
+#: routes/wifi.py:16
+#, fuzzy
+msgid "You don't have permission to change WiFi settings"
+msgstr "您沒有權限更改偏好設定"
+
+#: routes/wifi.py:25
+msgid "Permission denied"
+msgstr "權限不足"
+
+#: routes/wifi.py:32
+msgid "Connected successfully"
+msgstr "連接成功"
+
+#: routes/wifi.py:34
+msgid "Connection failed"
+msgstr "連接失敗"
+
 #. Prompt which asks the user their name when they first try to add to the
 #. queue.
 #: templates/base.html:64
@@ -361,6 +383,12 @@ msgstr "播放列表"
 #: templates/base.html:207 templates/search.html:368
 msgid "Search"
 msgstr "搜尋"
+
+#. Navigation link for the page where the user can add existing songs to the
+#. queue.
+#: templates/base.html:217
+msgid "Wi-Fi"
+msgstr "Wi-Fi"
 
 #. Confirmation prompt when the user deletes a song.
 #: templates/edit.html:29
@@ -565,7 +593,7 @@ msgstr "FFmpeg 版本："
 #. The version of Pikaraoke running right now.
 #: templates/info.html:140
 msgid "Pikaraoke version:"
-msgstr "卡拉OK派版本："
+msgstr "Pikaraoke 版本："
 
 #: templates/info.html:142
 msgid "System stats"
@@ -661,108 +689,131 @@ msgstr "螢幕保護程式啟動前的閒置時間（秒）。設為 0 可停用
 msgid "The delay in seconds before starting the next song"
 msgstr "開始下一首歌曲前的延遲時間（秒）"
 
-#. Title text for the server settings section of preferences
+#. Title text for the language settings section of preferences
 #: templates/info.html:224
+#, fuzzy
+msgid "Language settings"
+msgstr "語言設定"
+
+#. Label for language selection dropdown
+#: templates/info.html:232
+msgid "Preferred language"
+msgstr "偏好語言"
+
+#. Title text for the server settings section of preferences
+#: templates/info.html:236
 msgid "Server settings"
 msgstr "伺服器設定"
 
 #. Checkbox label which enable/disables audio volume normalization
-#: templates/info.html:228
+#: templates/info.html:240
 msgid "Normalize audio volume"
 msgstr "標準化音訊音量"
 
 #. Checkbox label which enable/disables high quality video downloads
-#: templates/info.html:234
+#: templates/info.html:246
 msgid "Download high quality videos"
 msgstr "下載高品質影片"
 
 #. Checkbox label which enable/disables full transcode before playback
-#: templates/info.html:240
+#: templates/info.html:252
 msgid ""
 "Transcode video completely before playing (better browser compatibility, "
 "slower starts). Buffer size will be ignored.*"
 msgstr "在播放前完全轉碼影片（更好的瀏覽器相容性，較慢的啟動）。緩衝區大小將被忽略。*"
 
+#. Numberbox label for audio video synchronization
+#: templates/info.html:259
+msgid ""
+"Fix the audio and video synchronization in seconds (negative = advances "
+"audio | positive = delays audio)"
+msgstr "以秒為單位修復音訊和視訊同步（負數 = 提前音訊 | 正數 = 延遲音訊）"
+
 #. Numberbox label for limitting the number of songs for each player
-#: templates/info.html:247
+#: templates/info.html:266
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
 msgstr "個別使用者可以添加到播放列表的歌曲數量限制（0 = 無限制）"
 
 #. Numberbox label for setting the buffer size in kilobytes
-#: templates/info.html:254
+#: templates/info.html:273
 msgid ""
 "Buffer size in kilobytes. Transcode this amount of the video before "
 "sending it to the splash screen. "
 msgstr "緩衝區大小（KB）。在將影片發送到啟動畫面之前，轉碼這個數量的影片。"
 
 #. Help text explaining when videos will be transcoded
-#: templates/info.html:258
+#: templates/info.html:277
+#, fuzzy
 msgid ""
-"* Videos are only transcoded when: normalization is on, a song is "
-"transposed, playing a CDG/MOV/AVI/MKV file. Most unmodified MP4 files "
-"will not need to be transcoded."
+"* Videos are only transcoded when: normalization is on, audio/video "
+"synchronization not zero, a song is transposed, playing a CDG/MOV/AVI/MKV"
+" file. Most unmodified MP4 files will not need to be transcoded."
 msgstr "* 只有在以下情況下才會轉碼影片：標準化開啟、歌曲被轉調、播放 CDG/MOV/AVI/MKV 檔案。大多數未修改的 MP4 檔案不需要轉碼。"
 
 #. Text for the link where the user can clear all user preferences
-#: templates/info.html:262
+#: templates/info.html:281
 msgid "Clear preferences"
 msgstr "清除偏好設定"
 
 #. Title of the updates section.
-#: templates/info.html:268
+#: templates/info.html:287
 msgid "Updates"
 msgstr "更新"
 
 #. Label before a link which forces Pikaraoke to rescan and pick up any new
 #. songs.
-#: templates/info.html:270
+#: templates/info.html:289
 msgid "Refresh the song list:"
 msgstr "重新整理歌曲列表："
 
 #. Text on the link which forces Pikaraoke to rescan and pick up any new songs.
-#: templates/info.html:275
+#: templates/info.html:294
 msgid "Rescan song directory"
 msgstr "重新掃描歌曲目錄"
 
 #. Help text explaining the Rescan song directory link.
-#: templates/info.html:280
+#: templates/info.html:299
 msgid ""
 "You should only need to do this if you manually copied files to the "
 "download directory while pikaraoke was running."
-msgstr "只有當卡拉OK派正在運行時，您手動複製檔案到下載目錄，才需要執行此操作。"
+msgstr "只有當 Pikaraoke 正在運行時，您手動複製檔案到下載目錄，才需要執行此操作。"
 
 #. Text explaining why you might want to update youtube-dl.
-#: templates/info.html:285
+#: templates/info.html:304
 #, python-format
 msgid ""
 "If downloads or searches stopped working, updating youtube-dl will "
 "probably fix it.\n"
 "   The current installed version is: \"%(youtubedl_version)s\""
-msgstr "如果下載或搜尋停止工作，更新 youtube-dl 可能會解決問題。\n   當前安裝的版本是：\"%(youtubedl_version)s\""
+msgstr ""
+"如果下載或搜尋停止工作，更新 youtube-dl 可能會解決問題。\n"
+"   當前安裝的版本是：\"%(youtubedl_version)s\""
 
 #. Text for the link which will try and update youtube-dl on the machine
 #. running Pikaraoke.
-#: templates/info.html:291
+#: templates/info.html:310
 msgid "Update youtube-dl"
 msgstr "更新 youtube-dl"
 
 #. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
-#: templates/info.html:297
+#: templates/info.html:316
 msgid ""
 "This update link above may fail if you don't have proper file "
 "permissions.\n"
 "    Check the pikaraoke log for errors."
-msgstr "如果您沒有適當的檔案權限，上面的更新連結可能會失敗。\n    檢查卡拉OK派日誌以查看錯誤。"
+msgstr ""
+"如果您沒有適當的檔案權限，上面的更新連結可能會失敗。\n"
+"    檢查 Pikaraoke 日誌以查看錯誤。"
 
 #. Title of the section on shutting down / turning off the machine running
 #. Pikaraoke.
-#: templates/info.html:304
+#: templates/info.html:323
 msgid "Shutdown"
 msgstr "關機"
 
 #. Explainitory text which explains why to use the shutdown link.
-#: templates/info.html:307
+#: templates/info.html:326
 msgid ""
 "Don't just pull the plug! Always shut down your server properly to avoid "
 "data corruption."
@@ -770,55 +821,61 @@ msgstr "不要直接拔掉電源！始終正確關閉您的伺服器，以避免
 
 #. Text for button which turns off Pikaraoke for everyone using it at your
 #. house.
-#: templates/info.html:313
+#: templates/info.html:332
 msgid "Quit Pikaraoke"
-msgstr "退出卡拉OK派"
+msgstr "退出 Pikaraoke"
 
 #. Text for button which reboots the machine running Pikaraoke.
-#: templates/info.html:316
+#: templates/info.html:335
 msgid "Reboot System"
 msgstr "重新啟動系統"
 
 #. Text for button which turn soff the machine running Pikaraoke.
-#: templates/info.html:319
+#: templates/info.html:338
 msgid "Shutdown System"
 msgstr "關閉系統"
 
 #. Title for section containing a few other options on the Info page.
-#: templates/info.html:326
+#: templates/info.html:345
 msgid "Other"
 msgstr "其他"
 
 #. Text for button
-#: templates/info.html:329
+#: templates/info.html:348
 msgid "Expand Raspberry Pi filesystem"
 msgstr "擴展樹莓派檔案系統"
 
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
-#: templates/info.html:332
+#: templates/info.html:351
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
 "is larger than 4GB,\n"
 "    you may want to expand the filesystem to utilize the remaining space."
 " You only need to do this once.\n"
 "    This will reboot the system."
-msgstr "如果您剛剛安裝了預建的卡拉OK派樹莓派映像，且您的 SD 卡大於 4GB，\n    您可能想要擴展檔案系統以利用剩餘空間。您只需執行一次。\n    這將重新啟動系統。"
+msgstr ""
+"如果您剛剛安裝了預建的 Pikaraoke 樹莓派映像，且您的 SD 卡大於 4GB，\n"
+"    您可能想要擴展檔案系統以利用剩餘空間。您只需執行一次。\n"
+"    這將重新啟動系統。"
 
 #. Link which will log out the user from admin mode.
-#: templates/info.html:342
+#: templates/info.html:361
 #, python-format
 msgid "Disable admin mode: <a href=\"%(logout_url)s\">Log out</a>"
 msgstr "停用管理員模式：<a href=\"%(logout_url)s\">登出</a>"
 
 #. Link which will let the user log into admin mode.
-#: templates/info.html:348
+#: templates/info.html:367
 #, python-format
 msgid ""
 "\n"
 "    Enable admin mode: <a href=\"%(login_url)s\">Log in</a>\n"
 "  "
-msgstr "\n    啟用管理員模式：<a href=\"%(login_url)s\">登入</a>\n  "
+msgstr ""
+"\n"
+"    啟用管理員模式：<a href=\"%(login_url)s\">登入</a>\n"
+"  "
 
 #. Title for the log in page for admins.
 #. Text on submit button for the admin login form.
@@ -883,7 +940,10 @@ msgid ""
 "          (title/artist) to search the available songs and click 'Add to "
 "queue'\n"
 "          to add it to the queue."
-msgstr "輸入歌曲\n          （標題/歌手）以搜尋可用歌曲，並點擊「添加到播放列表」\n          將其添加到播放列表。"
+msgstr ""
+"輸入歌曲\n"
+"          （標題/歌手）以搜尋可用歌曲，並點擊「添加到播放列表」\n"
+"          將其添加到播放列表。"
 
 #. Additonal help text below the search bar.
 #: templates/search.html:401
@@ -892,7 +952,10 @@ msgid ""
 "          the song doesn't appear in the \"Available Songs\" dropdown, "
 "click\n"
 "          'Search' to find it on Youtube"
-msgstr "如果\n          歌曲未出現在「可用歌曲」下拉選單中，點擊\n          「搜尋」在 Youtube 上尋找"
+msgstr ""
+"如果\n"
+"          歌曲未出現在「可用歌曲」下拉選單中，點擊\n"
+"          「搜尋」在 Youtube 上尋找"
 
 #. Checkbox label which enables matching songs which are not           karaoke
 #. versions (i.e. the songs still have a singer and are not just
@@ -913,7 +976,9 @@ msgstr "直接下載 YouTube 網址："
 msgid ""
 "Add to queue\n"
 "              once downloaded"
-msgstr "下載完成後\n              添加到播放列表"
+msgstr ""
+"下載完成後\n"
+"              添加到播放列表"
 
 #. Button label for the direct download form's submit button.
 #. Label on the button which starts the download of the selected
@@ -929,7 +994,9 @@ msgstr "下載"
 msgid ""
 "Searching YouTube for\n"
 "    <small><i>'%(search_term)s'</i></small>"
-msgstr "在 YouTube 上搜尋\n    <small><i>'%(search_term)s'</i></small>"
+msgstr ""
+"在 YouTube 上搜尋\n"
+"    <small><i>'%(search_term)s'</i></small>"
 
 #. Html text which displays what was searched for, in quotes.
 #: templates/search.html:491
@@ -937,7 +1004,9 @@ msgstr "在 YouTube 上搜尋\n    <small><i>'%(search_term)s'</i></small>"
 msgid ""
 "Search results for\n"
 "        <small><i>'%(search_string)s'</i></small>"
-msgstr "搜尋結果：\n        <small><i>'%(search_string)s'</i></small>"
+msgstr ""
+"搜尋結果：\n"
+"        <small><i>'%(search_string)s'</i></small>"
 
 #. Help text which explains that the select box above can be           operated
 #. to select different search results.
@@ -945,7 +1014,9 @@ msgstr "搜尋結果：\n        <small><i>'%(search_string)s'</i></small>"
 msgid ""
 "Click\n"
 "          dropdown to show more results"
-msgstr "點擊\n          下拉選單顯示更多結果"
+msgstr ""
+"點擊\n"
+"          下拉選單顯示更多結果"
 
 #. Label displayed before the YouTube url for the chosen search
 #. result.
@@ -959,7 +1030,9 @@ msgstr "連結："
 msgid ""
 "Add to queue once\n"
 "          downloaded"
-msgstr "下載完成後\n          添加到播放列表"
+msgstr ""
+"下載完成後\n"
+"          添加到播放列表"
 
 #. Score review message
 #: templates/splash.html:59
@@ -1037,33 +1110,100 @@ msgid "Woah, who let Freddie Mercury in here?"
 msgstr "哇，誰讓佛萊迪·默丘里進來了？"
 
 #. Label for the next song to be played in the queue.
-#: templates/splash.html:273 templates/splash.html:586
+#: templates/splash.html:273 templates/splash.html:587
 msgid "Up next:"
 msgstr "即將播放："
 
 #. Label of the singer for next song to be played in the queue. (Who added it
 #. to the queue.)
 #. Label for the next singer in the queue.
-#: templates/splash.html:275 templates/splash.html:593
+#: templates/splash.html:275 templates/splash.html:594
 msgid "Next singer:"
 msgstr "下一位歌手："
 
 #. The title of the score screen, telling the user their singing score
-#: templates/splash.html:615
+#: templates/splash.html:616
 msgid "Your Score"
 msgstr "您的分數"
 
 #. Prompt for interaction in order to enable video autoplay.
-#: templates/splash.html:629
+#: templates/splash.html:630
 msgid ""
 "Due to limititations with browser permissions, you must interact\n"
 "      with the page once before it allows autoplay of videos. Pikaraoke "
 "will not\n"
 "      play otherwise. Click the button below to\n"
 "      <a onClick=\"handleConfirmation()\">confirm</a> ."
-msgstr "由於瀏覽器權限限制，您必須先與頁面互動一次，\n      才能允許自動播放影片。否則卡拉OK派將無法\n      播放。點擊下方按鈕\n      <a onClick=\"handleConfirmation()\">確認</a>。"
+msgstr ""
+"由於瀏覽器權限限制，您必須先與頁面互動一次，\n"
+"      才能允許自動播放影片。否則 Pikaraoke 將無法\n"
+"      播放。點擊下方按鈕\n"
+"      <a onClick=\"handleConfirmation()\">確認</a>。"
 
 #. Button to confirm to enable video autoplay.
-#: templates/splash.html:641
+#: templates/splash.html:642
 msgid "Confirm"
 msgstr "確認"
+
+#: templates/wifi.html:6
+#, fuzzy
+msgid "WiFi Settings"
+msgstr "Wi-Fi 設定"
+
+#: templates/wifi.html:8
+msgid "Current Wi-Fi"
+msgstr "當前 Wi-Fi"
+
+#: templates/wifi.html:10
+msgid "Loading..."
+msgstr "載入中..."
+
+#: templates/wifi.html:14
+#, fuzzy
+msgid "Available Wi-Fi"
+msgstr "可用 Wi-Fi"
+
+#: templates/wifi.html:18
+msgid "SSID"
+msgstr "SSID"
+
+#: templates/wifi.html:19
+msgid "Actions"
+msgstr "動作"
+
+#: templates/wifi.html:31
+msgid "Connect to"
+msgstr "連接到"
+
+#: templates/wifi.html:36
+msgid "Password"
+msgstr "密碼"
+
+#: templates/wifi.html:38
+msgid "WiFi password"
+msgstr "Wi-Fi 密碼"
+
+#: templates/wifi.html:43 templates/wifi.html:92
+msgid "Connect"
+msgstr "連接"
+
+#: templates/wifi.html:44
+msgid "Cancel"
+msgstr "取消"
+
+#: templates/wifi.html:62
+#, fuzzy
+msgid "Connected"
+msgstr "已連接"
+
+#: templates/wifi.html:72
+msgid "No Connected"
+msgstr "未連接"
+
+#: templates/wifi.html:72
+msgid "Select to Connect"
+msgstr "選擇進行連接"
+
+#: templates/wifi.html:89
+msgid "Hidden"
+msgstr "隱藏"
