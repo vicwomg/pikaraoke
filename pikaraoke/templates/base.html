@@ -211,6 +211,11 @@
           {# MSG: Navigation link for the page where the user can add existing songs to the queue. #}
           <span>{% trans %}Browse{% endtrans %}</span>
         </a>
+        <a id="wifi" class="navbar-item" href="{{ url_for('wifi.wifi_settings') }}">
+          <i class="icon icon-wifi" title="Wi-Fi"></i>
+          {# MSG: Navigation link for the page where the user can add existing songs to the queue. #}
+          <span>{% trans %}Wi-Fi{% endtrans %}</span>
+        </a>
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
           <span aria-hidden="true"></span>
           <span aria-hidden="true"></span>
