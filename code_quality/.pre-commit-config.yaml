@@ -38,19 +38,6 @@ repos:
     entry: bash -c 'echo $PATH'
     language: system
     types: [python]
-  # ----------------------------------------------------------------------------------------------
-- repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-  rev: v2.11.0
-  hooks:
-  - id: pretty-format-yaml
-    args: [--autofix, --indent, '2', --line-width, '100']
-
-- repo: https://github.com/adrienverge/yamllint.git
-  rev: v1.33.0
-  hooks:
-  - id: yamllint
-    name: Lint YAML Files
-    args: [-c=code_quality/.yamllint]
 
 - repo: https://github.com/executablebooks/mdformat
   rev: 0.7.17
