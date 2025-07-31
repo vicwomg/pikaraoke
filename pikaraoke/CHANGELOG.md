@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.12.0](https://github.com/vicwomg/pikaraoke/compare/1.11.1...1.12.0) (2025-07-31)
+
+
+### Features
+
+* update VE spanish translation 2025 ([#518](https://github.com/vicwomg/pikaraoke/issues/518)) ([50c2411](https://github.com/vicwomg/pikaraoke/commit/50c24115555fd8ab65ac9189542a4ff57333ffd5))
+* ZH_TW i18n support and language change UI ([#517](https://github.com/vicwomg/pikaraoke/issues/517)) ([271b426](https://github.com/vicwomg/pikaraoke/commit/271b426a60b89150602827da72d0c50d88bfacfb))
+
+
+### Bug Fixes
+
+* code quality issues ([af29ecf](https://github.com/vicwomg/pikaraoke/commit/af29ecf630940521bb9b6e9c0bc2e2facfbae816))
+* relax yml lint requirements ([22b5335](https://github.com/vicwomg/pikaraoke/commit/22b53351da892ef46f0b7f90df17470e39cfd61b))
+
 ## [1.11.1](https://github.com/vicwomg/pikaraoke/compare/1.11.0...1.11.1) (2025-04-26)
 
 
