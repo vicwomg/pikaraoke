@@ -25,7 +25,7 @@ def info():
     url = k.url
     admin_password = get_admin_password()
     is_linux = get_platform() == "linux"
-    
+
     # 獲取當前偏好語言
     preferred_language = k.get_user_preference("preferred_language", "en")
 
