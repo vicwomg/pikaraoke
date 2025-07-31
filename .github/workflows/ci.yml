@@ -14,14 +14,14 @@ jobs:
   code-quality:
     runs-on: ubuntu-latest
     env:
-      SKIP: no-commit-to-branch # skips commit to main check
+      SKIP: no-commit-to-branch  # skips commit to main check
       PRE_COMMIT_CONFIG: code_quality/.pre-commit-config.yaml
       VENV: venv
       VENV_ACTIVATE: venv/bin/activate
 
     steps:
     - name: Check out code
-      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # V4.1.7
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332  # V4.1.7
       with:
         token: ${{ github.token }}
 
