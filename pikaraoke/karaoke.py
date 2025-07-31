@@ -248,7 +248,7 @@ class Karaoke:
 
             userprefs = self.config_obj["USERPREFERENCES"]
             userprefs[preference] = str(val)
-            setattr(self, preference, eval(str(val)))
+            setattr(self, preference, val)
             with open(self.config_file_path, "w") as conf:
                 self.config_obj.write(conf)
                 self.changed_preferences = True
