@@ -45,7 +45,8 @@ import time
 
 from gevent.pywsgi import WSGIServer
 
-socketio = SocketIO(async_mode="gevent")
+args = parse_pikaraoke_args()
+socketio = SocketIO(async_mode="gevent", cors_allowed_origins=args.url)
 babel = Babel()
 
 
