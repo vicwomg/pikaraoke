@@ -13,7 +13,12 @@ def get_media_duration(file_path):
 
 
 def build_ffmpeg_cmd(
-    fr, semitones=0, normalize_audio=True, buffer_fully_before_playback=False, avsync=0
+    fr,
+    semitones=0,
+    normalize_audio=True,
+    buffer_fully_before_playback=False,
+    avsync=0,
+    cdg_pixel_scaling=False,
 ):
     avsync = float(avsync)
     # use h/w acceleration on pi
@@ -53,7 +58,11 @@ def build_ffmpeg_cmd(
         logging.info("Playing CDG/MP3 file: " + fr.file_path)
         # copyts helps with sync issues, fps=25 prevents ffmpeg from needlessly encoding cdg at 300fps
         cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
-        video = cdg_input.video.filter("fps", fps=25)
+        if cdg_pixel_scaling:
+            video = cdg_input.video.filter("fps", fps=25).filter("scale", -1, 720, flags="neighbor")
+        else:
+            video = cdg_input.video.filter("fps", fps=25)
+
         # cdg is very fussy about these flags.
         # pi ffmpeg needs to encode to aac and cant just copy the mp3 stream
         # It also appears to have memory issues with hardware acceleration h264_v4l2m2m
