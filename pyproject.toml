@@ -27,7 +27,7 @@ Babel = "2.9.1"
 Flask-Babel = "2.0.0"
 selenium = "4.21.0"
 ffmpeg-python = "0.2.0"
-yt-dlp = "*"
+yt-dlp = ">=2025.07.21"
 flask-socketio = "^5.5.0"
 gevent = "^24.11.1"
 
