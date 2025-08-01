@@ -57,11 +57,21 @@ The update command will update each languages `translations/<lang>/LC_MESSAGES/m
 file, which is what a translator for a particular language will see. The python app consumes `messages.mo` files,
 which are binary files created by the compile step.
 
-Note: 'Fuzzy' messages are marked with a #, fuzzy line above the msgid line, and are the result of a merge where a message is deemed slightly changed from the previous version. These will be ignored by the translation until they are addressed! A message marked as fuzzy is supposed to be looked at by a human to make sure the translation doesn't need updating, after which the human translator removes that flag. Often line break changes will trigger these, if you want to force compilation, run:
+## Updating an existing translation
+
+After updating the translation files, 'Fuzzy' messages are marked with a `#, fuzzy` line above the msgid line, and are the result of a merge where a message is deemed slightly changed from the previous version.
+
+_These will be ignored by the translation until they are addressed!_ A message marked as fuzzy is supposed to be looked at by a human to make sure the translation doesn't need updating, after which the human translator removes that flag.
+
+Be sure to review the updated translation and recompile as necessary.
+
+Often line break changes will trigger these, if you want to force compilation, run:
 
 ```shell
 $ pybabel compile -f -d translations
 ```
+
+## Add a new language
 
 In order to start translating a new language, use
 
@@ -76,6 +86,8 @@ As well as editing the `constants.py` `LANGUAGES` mapping to make that language 
 
 Currently I have it set based on the Accept-Language header sent with each request,
 [which can be modified using this guide][accept-language-chrome].
+
+They can also be changed in the web UI's settings menu under "Preferred language" a restart of pikaraoke is required.
 
 ## Testing a language
 

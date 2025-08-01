@@ -229,7 +229,7 @@
     <option value="{{ lang_code }}" {% if preferred_language == lang_code %}selected{% endif %}>{{ lang_name }}</option>
     {% endfor %}
   </select>
-  <label class="label">{# MSG: Label for language selection dropdown #} {% trans %}Preferred language{% endtrans %}
+  <label class="label">{# MSG: Label for language selection dropdown #} {% trans %}Preferred language (requires restart){% endtrans %}
   </label>
 </div>
 
@@ -274,7 +274,7 @@
   </label>
 </div>
 
-<p class="help">{# MSG: Help text explaining when videos will be transcoded  #} {% trans %}* Videos are only transcoded when: normalization is on, audio/video synchronization not zero, a song is transposed, playing a CDG/MOV/AVI/MKV file. Most unmodified MP4 files will not need to be transcoded.{% endtrans %} </p>
+<p class="help">{# MSG: Help text explaining when videos will be transcoded  #} {% trans %}* Videos are only transcoded when: normalization is on, audio/video synchronization not zero, a song is transposed, playing a CDG/MOV/AVI/MKV file. Most unmodified MP4 files will not need to be transcoded.{% endtrans %}</p>
 
 <div style="margin-top: 20px">
   {# MSG: Text for the link where the user can clear all user preferences #}

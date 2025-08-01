@@ -61,8 +61,6 @@ repos:
     args: [--maxkb=3000]
   - id: check-case-conflict
   - id: check-merge-conflict
-  - id: end-of-file-fixer
-    name: Ensure End of File Newline
   - id: fix-byte-order-marker
   - id: mixed-line-ending
   - id: check-executables-have-shebangs
