@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-08-01 14:25-0700\n"
+"POT-Creation-Date: 2025-08-01 16:41-0700\n"
 "PO-Revision-Date: 2024-10-30 14:44-0300\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: it_IT\n"
@@ -18,111 +18,111 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.9.1\n"
 
-#: karaoke.py:255
+#: karaoke.py:257
 msgid "Your preferences were changed successfully"
 msgstr "Le tue preferenze sono state modificate con successo"
 
-#: karaoke.py:258
+#: karaoke.py:260
 msgid "Something went wrong! Your preferences were not changed"
 msgstr "Qualcosa è andato storto! Le tue preferenze non sono state modificate"
 
-#: karaoke.py:263
+#: karaoke.py:265
 msgid "Your preferences were cleared successfully"
 msgstr "Le tue preferenze sono state cancellate con successo"
 
-#: karaoke.py:265
+#: karaoke.py:267
 msgid "Something went wrong! Your preferences were not cleared"
 msgstr "Qualcosa è andato storto! Le tue preferenze non sono state cancellate"
 
 #. Message shown after the download is started
-#: karaoke.py:362
+#: karaoke.py:364
 #, python-format
 msgid "Downloading video: %s"
 msgstr "Scaricamento video: %s"
 
 #. Message shown after the download is completed and queued
-#: karaoke.py:378
+#: karaoke.py:380
 #, python-format
 msgid "Downloaded and queued: %s"
 msgstr "Scaricato ed aggiunto in coda: %s"
 
 #. Message shown after the download is completed but not queued
-#: karaoke.py:381
+#: karaoke.py:383
 #, python-format
 msgid "Downloaded: %s"
 msgstr "Scaricato: %s"
 
 #. Message shown after the download is completed but the adding to queue fails
-#: karaoke.py:390
+#: karaoke.py:392
 msgid "Error queueing song: "
 msgstr "Errore durante l'aggiunta del brano alla coda: "
 
 #. Message shown after the download process is completed but the song is not
 #. found
-#: karaoke.py:393
+#: karaoke.py:395
 msgid "Error downloading song: "
 msgstr "Errore nello scaricamento della canzone: "
 
 #. Message shown when the song ends abnormally
-#: karaoke.py:600
+#: karaoke.py:603
 #, python-format
 msgid "Song ended abnormally: %s"
 msgstr "La canzone si è conclusa in modo anomalo: %s"
 
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
-#: karaoke.py:608
+#: karaoke.py:611
 #, python-format
 msgid "Transposing by %s semitones: %s"
 msgstr "Trasposizione di %s semitoni: %s"
 
-#: karaoke.py:641
+#: karaoke.py:644
 #, python-format
 msgid "You reached the limit of %s song(s) from an user in queue!"
 msgstr "Hai raggiunto il limite di %s brani da un utente in coda!"
 
 #. Message shown after the song is added to the top of the queue
-#: karaoke.py:653
+#: karaoke.py:656
 #, python-format
 msgid "%s added to top of queue: %s"
 msgstr "%s aggiunto in cima alla coda: %s"
 
 #. Message shown after the song is added to the queue
-#: karaoke.py:658
+#: karaoke.py:661
 #, python-format
 msgid "%s added to the queue: %s"
 msgstr "%s aggiunto alla coda: %s"
 
-#: karaoke.py:662
+#: karaoke.py:665
 #, python-format
 msgid "Song added to the queue: %s"
 msgstr "Brano aggiunto alla coda: %s"
 
 #. Message shown after the queue is cleared
-#: karaoke.py:686
+#: karaoke.py:689
 msgid "Clear queue"
 msgstr "Coda ripulita"
 
 #. Message shown after the song is skipped, will be followed by song name
-#: karaoke.py:735
+#: karaoke.py:738
 #, python-format
 msgid "Skip: %s"
 msgstr "Salta: %s"
 
 #. Message shown after the song is resumed, will be followed by song name
-#: karaoke.py:746
+#: karaoke.py:749
 #, python-format
 msgid "Resume: %s"
 msgstr "Riprendere: %s"
 
 #. Message shown after the song is paused, will be followed by song name
-#: karaoke.py:749
+#: karaoke.py:752
 msgid "Pause"
 msgstr "Pausa"
 
 #. Message shown after the volume is changed, will be followed by the volume
 #. level
-#: karaoke.py:760
+#: karaoke.py:763
 #, python-format
 msgid "Volume: %s"
 msgstr "Volume: %s"
@@ -723,22 +723,29 @@ msgstr ""
 "compatibilità con i browser, avvii più lenti). La dimensione del buffer "
 "verrà ignorata.*"
 
+#. Checkbox label which enable/disables CDG pixel scaling
+#: templates/info.html:258
+msgid ""
+"Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU"
+" usage)"
+msgstr ""
+
 #. Numberbox label for audio video synchronization
-#: templates/info.html:259
+#: templates/info.html:265
 msgid ""
 "Fix the audio and video synchronization in seconds (negative = advances "
 "audio | positive = delays audio)"
 msgstr ""
 
 #. Numberbox label for limitting the number of songs for each player
-#: templates/info.html:266
+#: templates/info.html:272
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
 msgstr ""
 "Limite di brani che un singolo utente può aggiungere alla coda (0 = "
 "illimitato)"
 
 #. Numberbox label for setting the buffer size in kilobytes
-#: templates/info.html:273
+#: templates/info.html:279
 msgid ""
 "Buffer size in kilobytes. Transcode this amount of the video before "
 "sending it to the splash screen. "
@@ -747,7 +754,7 @@ msgstr ""
 "video prima di inviarlo allo schermo. "
 
 #. Help text explaining when videos will be transcoded
-#: templates/info.html:277
+#: templates/info.html:283
 #, fuzzy
 msgid ""
 "* Videos are only transcoded when: normalization is on, audio/video "
@@ -760,28 +767,28 @@ msgstr ""
 "bisogno di essere transcodificata."
 
 #. Text for the link where the user can clear all user preferences
-#: templates/info.html:281
+#: templates/info.html:287
 msgid "Clear preferences"
 msgstr "Cancella preferenze"
 
 #. Title of the updates section.
-#: templates/info.html:287
+#: templates/info.html:293
 msgid "Updates"
 msgstr "Aggiornamenti"
 
 #. Label before a link which forces Pikaraoke to rescan and pick up any new
 #. songs.
-#: templates/info.html:289
+#: templates/info.html:295
 msgid "Refresh the song list:"
 msgstr "Aggiorna l'elenco dei brani:"
 
 #. Text on the link which forces Pikaraoke to rescan and pick up any new songs.
-#: templates/info.html:294
+#: templates/info.html:300
 msgid "Rescan song directory"
 msgstr "Riscansiona la cartella dei brani"
 
 #. Help text explaining the Rescan song directory link.
-#: templates/info.html:299
+#: templates/info.html:305
 msgid ""
 "You should only need to do this if you manually copied files to the "
 "download directory while pikaraoke was running."
@@ -790,7 +797,7 @@ msgstr ""
 "download mentre pikaraoke era in esecuzione."
 
 #. Text explaining why you might want to update youtube-dl.
-#: templates/info.html:304
+#: templates/info.html:310
 #, python-format
 msgid ""
 "If downloads or searches stopped working, updating youtube-dl will "
@@ -803,13 +810,13 @@ msgstr ""
 
 #. Text for the link which will try and update youtube-dl on the machine
 #. running Pikaraoke.
-#: templates/info.html:310
+#: templates/info.html:316
 msgid "Update youtube-dl"
 msgstr "Aggiorna youtube-dl"
 
 #. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
-#: templates/info.html:316
+#: templates/info.html:322
 msgid ""
 "This update link above may fail if you don't have proper file "
 "permissions.\n"
@@ -821,12 +828,12 @@ msgstr ""
 
 #. Title of the section on shutting down / turning off the machine running
 #. Pikaraoke.
-#: templates/info.html:323
+#: templates/info.html:329
 msgid "Shutdown"
 msgstr "Spegnimento"
 
 #. Explainitory text which explains why to use the shutdown link.
-#: templates/info.html:326
+#: templates/info.html:332
 msgid ""
 "Don't just pull the plug! Always shut down your server properly to avoid "
 "data corruption."
@@ -836,33 +843,33 @@ msgstr ""
 
 #. Text for button which turns off Pikaraoke for everyone using it at your
 #. house.
-#: templates/info.html:332
+#: templates/info.html:338
 msgid "Quit Pikaraoke"
 msgstr "Esci da Pikaraoke"
 
 #. Text for button which reboots the machine running Pikaraoke.
-#: templates/info.html:335
+#: templates/info.html:341
 msgid "Reboot System"
 msgstr "Riavvia il sistema"
 
 #. Text for button which turn soff the machine running Pikaraoke.
-#: templates/info.html:338
+#: templates/info.html:344
 msgid "Shutdown System"
 msgstr "Spegni il sistema"
 
 #. Title for section containing a few other options on the Info page.
-#: templates/info.html:345
+#: templates/info.html:351
 msgid "Other"
 msgstr "Altro"
 
 #. Text for button
-#: templates/info.html:348
+#: templates/info.html:354
 msgid "Expand Raspberry Pi filesystem"
 msgstr "Espandi il file system del Raspberry Pi"
 
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
-#: templates/info.html:351
+#: templates/info.html:357
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
 "is larger than 4GB,\n"
@@ -877,13 +884,13 @@ msgstr ""
 " Questo riavvierà il sistema."
 
 #. Link which will log out the user from admin mode.
-#: templates/info.html:361
+#: templates/info.html:367
 #, python-format
 msgid "Disable admin mode: <a href=\"%(logout_url)s\">Log out</a>"
 msgstr "Disabilita modalità admin: <a href=\"%(logout_url)s\">Log out</a>"
 
 #. Link which will let the user log into admin mode.
-#: templates/info.html:367
+#: templates/info.html:373
 #, python-format
 msgid ""
 "\n"
@@ -1163,3 +1170,4 @@ msgstr ""
 #: templates/splash.html:642
 msgid "Confirm"
 msgstr "Conferma"
+
