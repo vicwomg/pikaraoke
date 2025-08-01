@@ -1,3 +1,4 @@
+import shutil
 import subprocess
 
 import flask_babel
@@ -15,21 +16,19 @@ splash_bp = Blueprint("splash", __name__)
 @splash_bp.route("/splash")
 def splash():
     k = get_karaoke_instance()
-    # Only do this on Raspberry Pis
+    text = ""
     if k.is_raspberry_pi:
-        status = subprocess.run(["iwconfig", "wlan0"], stdout=subprocess.PIPE).stdout.decode(
-            "utf-8"
-        )
-        text = ""
-        if "Mode:Master" in status:
-            # handle raspiwifi connection mode
-            text = get_raspi_wifi_text()
-        else:
-            # You are connected to Wifi as a client
-            text = ""
-    else:
-        # Not a Raspberry Pi
-        text = ""
+        has_iwconfig = shutil.which("iwconfig")
+        has_iw = shutil.which("iw")
+        if has_iwconfig or has_iw:
+            # iwconfig is deprecated on Ubuntu, but still available on Raspbian
+            command = "iwconfig" if has_iwconfig else "iw"
+            status = subprocess.run([command, "wlan0"], stdout=subprocess.PIPE).stdout.decode(
+                "utf-8"
+            )
+            if "Mode:Master" in status:
+                # handle raspiwifi connection mode
+                text = get_raspi_wifi_text()
 
     return render_template(
         "splash.html",
