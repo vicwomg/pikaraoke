@@ -184,6 +184,7 @@ def main():
         limit_user_songs_by=args.limit_user_songs_by,
         avsync=args.avsync,
         config_file_path=args.config_file_path,
+        cdg_pixel_scaling=args.cdg_pixel_scaling,
     )
 
     # expose karaoke object to the flask app

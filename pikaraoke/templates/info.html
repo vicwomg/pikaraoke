@@ -254,6 +254,12 @@
 </div>
 
 <div class="user-preference-container">
+  <input id="pref-cdg-scaling" type="checkbox" class="user-preference-checkbox" data-pref="cdg_pixel_scaling" {% if cdg_pixel_scaling == "True" %}checked{% endif %}>
+  <label class="label">{# MSG: Checkbox label which enable/disables CDG pixel scaling #} {% trans %}Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU usage){% endtrans %}
+  </label>
+</div>
+
+<div class="user-preference-container">
   <input id="pref-avsync" class="user-preference-input" type="number" step="0.1" min="-10" max="10" data-pref="avsync" data-start-value="{{ avsync }}" value="{{ avsync }}" />
   <label class="label">
       {# MSG: Numberbox label for audio video synchronization #} {% trans %}Fix the audio and video synchronization in seconds (negative = advances audio | positive = delays audio){% endtrans %}
