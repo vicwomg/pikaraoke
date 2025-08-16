@@ -233,6 +233,18 @@
   </label>
 </div>
 
+<h4 style="margin-top: 20px">{# MSG: Title text for the Wi-Fi settings section #}{% trans %}Wi-Fi settings{% endtrans %}</h4>
+
+<div class="user-preference-container">
+  <a href="{{ url_for('wifi.wifi_settings') }}" class="button is-info">
+    <span class="icon">
+      <i class="icon icon-wifi"></i>
+    </span>
+    <span>{# MSG: Button text for Wi-Fi configuration #}{% trans %}Configure Wi-Fi{% endtrans %}</span>
+  </a>
+  <label class="label" style="margin-left: 10px; align-self: center;">{# MSG: Help text for Wi-Fi configuration button #}{% trans %}Manage wireless network connections{% endtrans %}</label>
+</div>
+
 <h4 style="margin-top: 20px">{# MSG: Title text for the server settings section of preferences #}{% trans %}Server settings{% endtrans %}</h4>
 
 <div class="user-preference-container">

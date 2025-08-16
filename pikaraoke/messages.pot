@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-07-20 14:10+0800\n"
+"POT-Creation-Date: 2025-08-17 01:05+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -382,12 +382,6 @@ msgstr ""
 msgid "Search"
 msgstr ""
 
-#. Navigation link for the page where the user can add existing songs to the
-#. queue.
-#: templates/base.html:217
-msgid "Wi-Fi"
-msgstr ""
-
 #. Confirmation prompt when the user deletes a song.
 #: templates/edit.html:29
 msgid "Are you sure you want to delete this song from the library?"
@@ -697,49 +691,64 @@ msgstr ""
 msgid "Preferred language"
 msgstr ""
 
-#. Title text for the server settings section of preferences
+#. Title text for the Wi-Fi settings section
 #: templates/info.html:236
+msgid "Wi-Fi settings"
+msgstr ""
+
+#. Button text for Wi-Fi configuration
+#: templates/info.html:243
+msgid "Configure Wi-Fi"
+msgstr ""
+
+#. Help text for Wi-Fi configuration button
+#: templates/info.html:245
+msgid "Manage wireless network connections"
+msgstr ""
+
+#. Title text for the server settings section of preferences
+#: templates/info.html:248
 msgid "Server settings"
 msgstr ""
 
 #. Checkbox label which enable/disables audio volume normalization
-#: templates/info.html:240
+#: templates/info.html:252
 msgid "Normalize audio volume"
 msgstr ""
 
 #. Checkbox label which enable/disables high quality video downloads
-#: templates/info.html:246
+#: templates/info.html:258
 msgid "Download high quality videos"
 msgstr ""
 
 #. Checkbox label which enable/disables full transcode before playback
-#: templates/info.html:252
+#: templates/info.html:264
 msgid ""
 "Transcode video completely before playing (better browser compatibility, "
 "slower starts). Buffer size will be ignored.*"
 msgstr ""
 
 #. Numberbox label for audio video synchronization
-#: templates/info.html:259
+#: templates/info.html:271
 msgid ""
 "Fix the audio and video synchronization in seconds (negative = advances "
 "audio | positive = delays audio)"
 msgstr ""
 
 #. Numberbox label for limitting the number of songs for each player
-#: templates/info.html:266
+#: templates/info.html:278
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
 msgstr ""
 
 #. Numberbox label for setting the buffer size in kilobytes
-#: templates/info.html:273
+#: templates/info.html:285
 msgid ""
 "Buffer size in kilobytes. Transcode this amount of the video before "
 "sending it to the splash screen. "
 msgstr ""
 
 #. Help text explaining when videos will be transcoded
-#: templates/info.html:277
+#: templates/info.html:289
 msgid ""
 "* Videos are only transcoded when: normalization is on, audio/video "
 "synchronization not zero, a song is transposed, playing a CDG/MOV/AVI/MKV"
@@ -747,35 +756,35 @@ msgid ""
 msgstr ""
 
 #. Text for the link where the user can clear all user preferences
-#: templates/info.html:281
+#: templates/info.html:293
 msgid "Clear preferences"
 msgstr ""
 
 #. Title of the updates section.
-#: templates/info.html:287
+#: templates/info.html:299
 msgid "Updates"
 msgstr ""
 
 #. Label before a link which forces Pikaraoke to rescan and pick up any new
 #. songs.
-#: templates/info.html:289
+#: templates/info.html:301
 msgid "Refresh the song list:"
 msgstr ""
 
 #. Text on the link which forces Pikaraoke to rescan and pick up any new songs.
-#: templates/info.html:294
+#: templates/info.html:306
 msgid "Rescan song directory"
 msgstr ""
 
 #. Help text explaining the Rescan song directory link.
-#: templates/info.html:299
+#: templates/info.html:311
 msgid ""
 "You should only need to do this if you manually copied files to the "
 "download directory while pikaraoke was running."
 msgstr ""
 
 #. Text explaining why you might want to update youtube-dl.
-#: templates/info.html:304
+#: templates/info.html:316
 #, python-format
 msgid ""
 "If downloads or searches stopped working, updating youtube-dl will "
@@ -785,13 +794,13 @@ msgstr ""
 
 #. Text for the link which will try and update youtube-dl on the machine
 #. running Pikaraoke.
-#: templates/info.html:310
+#: templates/info.html:322
 msgid "Update youtube-dl"
 msgstr ""
 
 #. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
-#: templates/info.html:316
+#: templates/info.html:328
 msgid ""
 "This update link above may fail if you don't have proper file "
 "permissions.\n"
@@ -800,12 +809,12 @@ msgstr ""
 
 #. Title of the section on shutting down / turning off the machine running
 #. Pikaraoke.
-#: templates/info.html:323
+#: templates/info.html:335
 msgid "Shutdown"
 msgstr ""
 
 #. Explainitory text which explains why to use the shutdown link.
-#: templates/info.html:326
+#: templates/info.html:338
 msgid ""
 "Don't just pull the plug! Always shut down your server properly to avoid "
 "data corruption."
@@ -813,33 +822,33 @@ msgstr ""
 
 #. Text for button which turns off Pikaraoke for everyone using it at your
 #. house.
-#: templates/info.html:332
+#: templates/info.html:344
 msgid "Quit Pikaraoke"
 msgstr ""
 
 #. Text for button which reboots the machine running Pikaraoke.
-#: templates/info.html:335
+#: templates/info.html:347
 msgid "Reboot System"
 msgstr ""
 
 #. Text for button which turn soff the machine running Pikaraoke.
-#: templates/info.html:338
+#: templates/info.html:350
 msgid "Shutdown System"
 msgstr ""
 
 #. Title for section containing a few other options on the Info page.
-#: templates/info.html:345
+#: templates/info.html:357
 msgid "Other"
 msgstr ""
 
 #. Text for button
-#: templates/info.html:348
+#: templates/info.html:360
 msgid "Expand Raspberry Pi filesystem"
 msgstr ""
 
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
-#: templates/info.html:351
+#: templates/info.html:363
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
 "is larger than 4GB,\n"
@@ -849,13 +858,13 @@ msgid ""
 msgstr ""
 
 #. Link which will log out the user from admin mode.
-#: templates/info.html:361
+#: templates/info.html:373
 #, python-format
 msgid "Disable admin mode: <a href=\"%(logout_url)s\">Log out</a>"
 msgstr ""
 
 #. Link which will let the user log into admin mode.
-#: templates/info.html:367
+#: templates/info.html:379
 #, python-format
 msgid ""
 "\n"
@@ -1170,3 +1179,4 @@ msgstr ""
 #: templates/wifi.html:89
 msgid "Hidden"
 msgstr ""
+

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version:  1.1.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-07-20 14:10+0800\n"
+"POT-Creation-Date: 2025-08-17 01:05+0800\n"
 "PO-Revision-Date: 2024-08-28 10:09-0400\n"
 "Last-Translator: \n"
 "Language: zh_TW\n"
@@ -384,12 +384,6 @@ msgstr "播放列表"
 msgid "Search"
 msgstr "搜尋"
 
-#. Navigation link for the page where the user can add existing songs to the
-#. queue.
-#: templates/base.html:217
-msgid "Wi-Fi"
-msgstr "Wi-Fi"
-
 #. Confirmation prompt when the user deletes a song.
 #: templates/edit.html:29
 msgid "Are you sure you want to delete this song from the library?"
@@ -700,49 +694,65 @@ msgstr "語言設定"
 msgid "Preferred language"
 msgstr "偏好語言"
 
-#. Title text for the server settings section of preferences
+#. Title text for the Wi-Fi settings section
 #: templates/info.html:236
+#, fuzzy
+msgid "Wi-Fi settings"
+msgstr "Wi-Fi 設定"
+
+#. Button text for Wi-Fi configuration
+#: templates/info.html:243
+msgid "Configure Wi-Fi"
+msgstr "設置 Wi-FI"
+
+#. Help text for Wi-Fi configuration button
+#: templates/info.html:245
+msgid "Manage wireless network connections"
+msgstr "管理 Wi-Fi 連線"
+
+#. Title text for the server settings section of preferences
+#: templates/info.html:248
 msgid "Server settings"
 msgstr "伺服器設定"
 
 #. Checkbox label which enable/disables audio volume normalization
-#: templates/info.html:240
+#: templates/info.html:252
 msgid "Normalize audio volume"
 msgstr "標準化音訊音量"
 
 #. Checkbox label which enable/disables high quality video downloads
-#: templates/info.html:246
+#: templates/info.html:258
 msgid "Download high quality videos"
 msgstr "下載高品質影片"
 
 #. Checkbox label which enable/disables full transcode before playback
-#: templates/info.html:252
+#: templates/info.html:264
 msgid ""
 "Transcode video completely before playing (better browser compatibility, "
 "slower starts). Buffer size will be ignored.*"
 msgstr "在播放前完全轉碼影片（更好的瀏覽器相容性，較慢的啟動）。緩衝區大小將被忽略。*"
 
 #. Numberbox label for audio video synchronization
-#: templates/info.html:259
+#: templates/info.html:271
 msgid ""
 "Fix the audio and video synchronization in seconds (negative = advances "
 "audio | positive = delays audio)"
 msgstr "以秒為單位修復音訊和視訊同步（負數 = 提前音訊 | 正數 = 延遲音訊）"
 
 #. Numberbox label for limitting the number of songs for each player
-#: templates/info.html:266
+#: templates/info.html:278
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
 msgstr "個別使用者可以添加到播放列表的歌曲數量限制（0 = 無限制）"
 
 #. Numberbox label for setting the buffer size in kilobytes
-#: templates/info.html:273
+#: templates/info.html:285
 msgid ""
 "Buffer size in kilobytes. Transcode this amount of the video before "
 "sending it to the splash screen. "
 msgstr "緩衝區大小（KB）。在將影片發送到啟動畫面之前，轉碼這個數量的影片。"
 
 #. Help text explaining when videos will be transcoded
-#: templates/info.html:277
+#: templates/info.html:289
 #, fuzzy
 msgid ""
 "* Videos are only transcoded when: normalization is on, audio/video "
@@ -751,35 +761,35 @@ msgid ""
 msgstr "* 只有在以下情況下才會轉碼影片：標準化開啟、歌曲被轉調、播放 CDG/MOV/AVI/MKV 檔案。大多數未修改的 MP4 檔案不需要轉碼。"
 
 #. Text for the link where the user can clear all user preferences
-#: templates/info.html:281
+#: templates/info.html:293
 msgid "Clear preferences"
 msgstr "清除偏好設定"
 
 #. Title of the updates section.
-#: templates/info.html:287
+#: templates/info.html:299
 msgid "Updates"
 msgstr "更新"
 
 #. Label before a link which forces Pikaraoke to rescan and pick up any new
 #. songs.
-#: templates/info.html:289
+#: templates/info.html:301
 msgid "Refresh the song list:"
 msgstr "重新整理歌曲列表："
 
 #. Text on the link which forces Pikaraoke to rescan and pick up any new songs.
-#: templates/info.html:294
+#: templates/info.html:306
 msgid "Rescan song directory"
 msgstr "重新掃描歌曲目錄"
 
 #. Help text explaining the Rescan song directory link.
-#: templates/info.html:299
+#: templates/info.html:311
 msgid ""
 "You should only need to do this if you manually copied files to the "
 "download directory while pikaraoke was running."
 msgstr "只有當 Pikaraoke 正在運行時，您手動複製檔案到下載目錄，才需要執行此操作。"
 
 #. Text explaining why you might want to update youtube-dl.
-#: templates/info.html:304
+#: templates/info.html:316
 #, python-format
 msgid ""
 "If downloads or searches stopped working, updating youtube-dl will "
@@ -791,13 +801,13 @@ msgstr ""
 
 #. Text for the link which will try and update youtube-dl on the machine
 #. running Pikaraoke.
-#: templates/info.html:310
+#: templates/info.html:322
 msgid "Update youtube-dl"
 msgstr "更新 youtube-dl"
 
 #. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
-#: templates/info.html:316
+#: templates/info.html:328
 msgid ""
 "This update link above may fail if you don't have proper file "
 "permissions.\n"
@@ -808,12 +818,12 @@ msgstr ""
 
 #. Title of the section on shutting down / turning off the machine running
 #. Pikaraoke.
-#: templates/info.html:323
+#: templates/info.html:335
 msgid "Shutdown"
 msgstr "關機"
 
 #. Explainitory text which explains why to use the shutdown link.
-#: templates/info.html:326
+#: templates/info.html:338
 msgid ""
 "Don't just pull the plug! Always shut down your server properly to avoid "
 "data corruption."
@@ -821,33 +831,33 @@ msgstr "不要直接拔掉電源！始終正確關閉您的伺服器，以避免
 
 #. Text for button which turns off Pikaraoke for everyone using it at your
 #. house.
-#: templates/info.html:332
+#: templates/info.html:344
 msgid "Quit Pikaraoke"
 msgstr "退出 Pikaraoke"
 
 #. Text for button which reboots the machine running Pikaraoke.
-#: templates/info.html:335
+#: templates/info.html:347
 msgid "Reboot System"
 msgstr "重新啟動系統"
 
 #. Text for button which turn soff the machine running Pikaraoke.
-#: templates/info.html:338
+#: templates/info.html:350
 msgid "Shutdown System"
 msgstr "關閉系統"
 
 #. Title for section containing a few other options on the Info page.
-#: templates/info.html:345
+#: templates/info.html:357
 msgid "Other"
 msgstr "其他"
 
 #. Text for button
-#: templates/info.html:348
+#: templates/info.html:360
 msgid "Expand Raspberry Pi filesystem"
 msgstr "擴展樹莓派檔案系統"
 
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
-#: templates/info.html:351
+#: templates/info.html:363
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
 "is larger than 4GB,\n"
@@ -860,13 +870,13 @@ msgstr ""
 "    這將重新啟動系統。"
 
 #. Link which will log out the user from admin mode.
-#: templates/info.html:361
+#: templates/info.html:373
 #, python-format
 msgid "Disable admin mode: <a href=\"%(logout_url)s\">Log out</a>"
 msgstr "停用管理員模式：<a href=\"%(logout_url)s\">登出</a>"
 
 #. Link which will let the user log into admin mode.
-#: templates/info.html:367
+#: templates/info.html:379
 #, python-format
 msgid ""
 "\n"
@@ -1207,3 +1217,7 @@ msgstr "選擇進行連接"
 #: templates/wifi.html:89
 msgid "Hidden"
 msgstr "隱藏"
+
+#~ msgid "Wi-Fi"
+#~ msgstr "Wi-Fi"
+
