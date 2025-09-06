@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version:  1.1.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-08-01 16:41-0700\n"
+"POT-Creation-Date: 2025-09-06 09:44-0700\n"
 "PO-Revision-Date: 2024-08-28 10:09-0400\n"
 "Last-Translator: \n"
 "Language: zh_TW\n"
@@ -139,13 +139,14 @@ msgstr "您沒有權限更新 youtube-dl"
 #. Message shown after trying to refresh the song list without admin
 #. permissions.
 #: routes/admin.py:73
+#, fuzzy
 msgid "You don't have permission to refresh the song list"
-msgstr "您無權刷新歌曲列表"
+msgstr "您沒有權限調整檔案系統大小"
 
 #. Message shown after quitting pikaraoke.
 #: routes/admin.py:82
 msgid "Exiting pikaraoke now!"
-msgstr "正在退出卡拉OK派！"
+msgstr "正在退出 Pikaraoke！"
 
 #. Message shown after trying to quit pikaraoke without admin permissions.
 #: routes/admin.py:89
@@ -250,7 +251,7 @@ msgstr "已重命名檔案：%s 到 %s"
 msgid "Error: No filename parameters were specified!"
 msgstr "錯誤：未指定檔案名參數！"
 
-#: routes/info.py:36
+#: routes/info.py:39
 msgid "CPU usage query unsupported"
 msgstr "不支援 CPU 使用率查詢"
 
@@ -332,6 +333,31 @@ msgstr "歌曲將出現在「可用歌曲」列表中。"
 #: routes/stream.py:68
 msgid "File not found."
 msgstr "找不到檔案。"
+
+#: routes/wifi.py:22
+msgid "Wifi editing is not supported on this platform"
+msgstr ""
+
+#: routes/wifi.py:26
+#, fuzzy
+msgid "You don't have permission to change WiFi settings"
+msgstr "您沒有權限更改偏好設定"
+
+#: routes/wifi.py:35 routes/wifi.py:52 routes/wifi.py:63
+msgid "WiFi editing is not supported on this platform"
+msgstr ""
+
+#: routes/wifi.py:38
+msgid "Permission denied"
+msgstr "權限不足"
+
+#: routes/wifi.py:45
+msgid "Connected successfully"
+msgstr "連接成功"
+
+#: routes/wifi.py:47
+msgid "Connection failed"
+msgstr "連接失敗"
 
 #. Prompt which asks the user their name when they first try to add to the
 #. queue.
@@ -569,7 +595,7 @@ msgstr "FFmpeg 版本："
 #. The version of Pikaraoke running right now.
 #: templates/info.html:140
 msgid "Pikaraoke version:"
-msgstr "卡拉OK派版本："
+msgstr "Pikaraoke 版本："
 
 #: templates/info.html:142
 msgid "System stats"
@@ -667,64 +693,82 @@ msgstr "開始下一首歌曲前的延遲時間（秒）"
 
 #. Title text for the language settings section of preferences
 #: templates/info.html:224
+#, fuzzy
 msgid "Language settings"
 msgstr "語言設定"
 
 #. Label for language selection dropdown
 #: templates/info.html:232
-msgid "Preferred language (requires restart)"
-msgstr "首選語言（需要重啟"
+msgid "Preferred language"
+msgstr "偏好語言"
+
+#. Title text for the Wi-Fi settings section
+#: templates/info.html:236
+#, fuzzy
+msgid "Wi-Fi settings"
+msgstr "Wi-Fi 設定"
+
+#. Button text for Wi-Fi configuration
+#: templates/info.html:243
+msgid "Configure Wi-Fi"
+msgstr "設置 Wi-FI"
+
+#. Help text for Wi-Fi configuration button
+#: templates/info.html:245
+msgid "Manage wireless network connections"
+msgstr "管理 Wi-Fi 連線"
 
 #. Title text for the server settings section of preferences
-#: templates/info.html:236
+#: templates/info.html:248
 msgid "Server settings"
 msgstr "伺服器設定"
 
 #. Checkbox label which enable/disables audio volume normalization
-#: templates/info.html:240
+#: templates/info.html:252
 msgid "Normalize audio volume"
 msgstr "標準化音訊音量"
 
 #. Checkbox label which enable/disables high quality video downloads
-#: templates/info.html:246
+#: templates/info.html:258
 msgid "Download high quality videos"
 msgstr "下載高品質影片"
 
 #. Checkbox label which enable/disables full transcode before playback
-#: templates/info.html:252
+#: templates/info.html:264
 msgid ""
 "Transcode video completely before playing (better browser compatibility, "
 "slower starts). Buffer size will be ignored.*"
 msgstr "在播放前完全轉碼影片（更好的瀏覽器相容性，較慢的啟動）。緩衝區大小將被忽略。*"
 
 #. Checkbox label which enable/disables CDG pixel scaling
-#: templates/info.html:258
+#: templates/info.html:270
 msgid ""
 "Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU"
 " usage)"
 msgstr ""
 
 #. Numberbox label for audio video synchronization
-#: templates/info.html:265
+#: templates/info.html:277
 msgid ""
 "Fix the audio and video synchronization in seconds (negative = advances "
 "audio | positive = delays audio)"
-msgstr ""
+msgstr "以秒為單位修復音訊和視訊同步（負數 = 提前音訊 | 正數 = 延遲音訊）"
 
 #. Numberbox label for limitting the number of songs for each player
-#: templates/info.html:272
+#: templates/info.html:284
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
 msgstr "個別使用者可以添加到播放列表的歌曲數量限制（0 = 無限制）"
 
 #. Numberbox label for setting the buffer size in kilobytes
-#: templates/info.html:279
+#: templates/info.html:291
 msgid ""
 "Buffer size in kilobytes. Transcode this amount of the video before "
 "sending it to the splash screen. "
 msgstr "緩衝區大小（KB）。在將影片發送到啟動畫面之前，轉碼這個數量的影片。"
 
 #. Help text explaining when videos will be transcoded
-#: templates/info.html:283
+#: templates/info.html:295
+#, fuzzy
 msgid ""
 "* Videos are only transcoded when: normalization is on, audio/video "
 "synchronization not zero, a song is transposed, playing a CDG/MOV/AVI/MKV"
@@ -732,35 +776,35 @@ msgid ""
 msgstr "* 只有在以下情況下才會轉碼影片：標準化開啟、歌曲被轉調、播放 CDG/MOV/AVI/MKV 檔案。大多數未修改的 MP4 檔案不需要轉碼。"
 
 #. Text for the link where the user can clear all user preferences
-#: templates/info.html:287
+#: templates/info.html:299
 msgid "Clear preferences"
 msgstr "清除偏好設定"
 
 #. Title of the updates section.
-#: templates/info.html:293
+#: templates/info.html:305
 msgid "Updates"
 msgstr "更新"
 
 #. Label before a link which forces Pikaraoke to rescan and pick up any new
 #. songs.
-#: templates/info.html:295
+#: templates/info.html:307
 msgid "Refresh the song list:"
 msgstr "重新整理歌曲列表："
 
 #. Text on the link which forces Pikaraoke to rescan and pick up any new songs.
-#: templates/info.html:300
+#: templates/info.html:312
 msgid "Rescan song directory"
 msgstr "重新掃描歌曲目錄"
 
 #. Help text explaining the Rescan song directory link.
-#: templates/info.html:305
+#: templates/info.html:317
 msgid ""
 "You should only need to do this if you manually copied files to the "
 "download directory while pikaraoke was running."
-msgstr "只有當卡拉OK派正在運行時，您手動複製檔案到下載目錄，才需要執行此操作。"
+msgstr "只有當 Pikaraoke 正在運行時，您手動複製檔案到下載目錄，才需要執行此操作。"
 
 #. Text explaining why you might want to update youtube-dl.
-#: templates/info.html:310
+#: templates/info.html:322
 #, python-format
 msgid ""
 "If downloads or searches stopped working, updating youtube-dl will "
@@ -772,29 +816,29 @@ msgstr ""
 
 #. Text for the link which will try and update youtube-dl on the machine
 #. running Pikaraoke.
-#: templates/info.html:316
+#: templates/info.html:328
 msgid "Update youtube-dl"
 msgstr "更新 youtube-dl"
 
 #. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
-#: templates/info.html:322
+#: templates/info.html:334
 msgid ""
 "This update link above may fail if you don't have proper file "
 "permissions.\n"
 "    Check the pikaraoke log for errors."
 msgstr ""
 "如果您沒有適當的檔案權限，上面的更新連結可能會失敗。\n"
-"    檢查卡拉OK派日誌以查看錯誤。"
+"    檢查 Pikaraoke 日誌以查看錯誤。"
 
 #. Title of the section on shutting down / turning off the machine running
 #. Pikaraoke.
-#: templates/info.html:329
+#: templates/info.html:341
 msgid "Shutdown"
 msgstr "關機"
 
 #. Explainitory text which explains why to use the shutdown link.
-#: templates/info.html:332
+#: templates/info.html:344
 msgid ""
 "Don't just pull the plug! Always shut down your server properly to avoid "
 "data corruption."
@@ -802,33 +846,33 @@ msgstr "不要直接拔掉電源！始終正確關閉您的伺服器，以避免
 
 #. Text for button which turns off Pikaraoke for everyone using it at your
 #. house.
-#: templates/info.html:338
+#: templates/info.html:350
 msgid "Quit Pikaraoke"
-msgstr "退出卡拉OK派"
+msgstr "退出 Pikaraoke"
 
 #. Text for button which reboots the machine running Pikaraoke.
-#: templates/info.html:341
+#: templates/info.html:353
 msgid "Reboot System"
 msgstr "重新啟動系統"
 
 #. Text for button which turn soff the machine running Pikaraoke.
-#: templates/info.html:344
+#: templates/info.html:356
 msgid "Shutdown System"
 msgstr "關閉系統"
 
 #. Title for section containing a few other options on the Info page.
-#: templates/info.html:351
+#: templates/info.html:363
 msgid "Other"
 msgstr "其他"
 
 #. Text for button
-#: templates/info.html:354
+#: templates/info.html:366
 msgid "Expand Raspberry Pi filesystem"
 msgstr "擴展樹莓派檔案系統"
 
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
-#: templates/info.html:357
+#: templates/info.html:369
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
 "is larger than 4GB,\n"
@@ -836,18 +880,18 @@ msgid ""
 " You only need to do this once.\n"
 "    This will reboot the system."
 msgstr ""
-"如果您剛剛安裝了預建的卡拉OK派樹莓派映像，且您的 SD 卡大於 4GB，\n"
+"如果您剛剛安裝了預建的 Pikaraoke 樹莓派映像，且您的 SD 卡大於 4GB，\n"
 "    您可能想要擴展檔案系統以利用剩餘空間。您只需執行一次。\n"
 "    這將重新啟動系統。"
 
 #. Link which will log out the user from admin mode.
-#: templates/info.html:367
+#: templates/info.html:379
 #, python-format
 msgid "Disable admin mode: <a href=\"%(logout_url)s\">Log out</a>"
 msgstr "停用管理員模式：<a href=\"%(logout_url)s\">登出</a>"
 
 #. Link which will let the user log into admin mode.
-#: templates/info.html:373
+#: templates/info.html:385
 #, python-format
 msgid ""
 "\n"
@@ -1117,7 +1161,7 @@ msgid ""
 "      <a onClick=\"handleConfirmation()\">confirm</a> ."
 msgstr ""
 "由於瀏覽器權限限制，您必須先與頁面互動一次，\n"
-"      才能允許自動播放影片。否則卡拉OK派將無法\n"
+"      才能允許自動播放影片。否則 Pikaraoke 將無法\n"
 "      播放。點擊下方按鈕\n"
 "      <a onClick=\"handleConfirmation()\">確認</a>。"
 
@@ -1125,4 +1169,73 @@ msgstr ""
 #: templates/splash.html:642
 msgid "Confirm"
 msgstr "確認"
+
+#: templates/wifi.html:6
+#, fuzzy
+msgid "WiFi Settings"
+msgstr "Wi-Fi 設定"
+
+#: templates/wifi.html:8
+msgid "Current Wi-Fi"
+msgstr "當前 Wi-Fi"
+
+#: templates/wifi.html:10
+msgid "Loading..."
+msgstr "載入中..."
+
+#: templates/wifi.html:14
+#, fuzzy
+msgid "Available Wi-Fi"
+msgstr "可用 Wi-Fi"
+
+#: templates/wifi.html:18
+msgid "SSID"
+msgstr "SSID"
+
+#: templates/wifi.html:19
+msgid "Actions"
+msgstr "動作"
+
+#: templates/wifi.html:31
+msgid "Connect to"
+msgstr "連接到"
+
+#: templates/wifi.html:36
+msgid "Password"
+msgstr "密碼"
+
+#: templates/wifi.html:38
+msgid "WiFi password"
+msgstr "Wi-Fi 密碼"
+
+#: templates/wifi.html:43 templates/wifi.html:92
+msgid "Connect"
+msgstr "連接"
+
+#: templates/wifi.html:44
+msgid "Cancel"
+msgstr "取消"
+
+#: templates/wifi.html:62
+#, fuzzy
+msgid "Connected"
+msgstr "已連接"
+
+#: templates/wifi.html:72
+msgid "No Connected"
+msgstr "未連接"
+
+#: templates/wifi.html:72
+msgid "Select to Connect"
+msgstr "選擇進行連接"
+
+#: templates/wifi.html:89
+msgid "Hidden"
+msgstr "隱藏"
+
+#~ msgid "Wi-Fi"
+#~ msgstr "Wi-Fi"
+
+#~ msgid "Preferred language (requires restart)"
+#~ msgstr "偏好語言"
 

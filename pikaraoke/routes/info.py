@@ -29,6 +29,9 @@ def info():
     # 獲取當前偏好語言
     preferred_language = k.get_user_preference("preferred_language", "en")
 
+    # 獲取當前偏好語言
+    preferred_language = k.get_user_preference("preferred_language", "en")
+
     # cpu
     try:
         cpu = str(psutil.cpu_percent()) + "%"
