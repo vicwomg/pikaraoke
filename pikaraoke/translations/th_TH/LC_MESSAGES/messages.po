@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-08-01 16:41-0700\n"
+"POT-Creation-Date: 2025-09-06 09:44-0700\n"
 "PO-Revision-Date: 2025-01-14 10:20-0800\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: th_TH\n"
@@ -251,7 +251,7 @@ msgstr ""
 msgid "Error: No filename parameters were specified!"
 msgstr ""
 
-#: routes/info.py:36
+#: routes/info.py:39
 msgid "CPU usage query unsupported"
 msgstr ""
 
@@ -332,6 +332,30 @@ msgstr ""
 #. Message shown after trying to stream a file that does not exist.
 #: routes/stream.py:68
 msgid "File not found."
+msgstr ""
+
+#: routes/wifi.py:22
+msgid "Wifi editing is not supported on this platform"
+msgstr ""
+
+#: routes/wifi.py:26
+msgid "You don't have permission to change WiFi settings"
+msgstr ""
+
+#: routes/wifi.py:35 routes/wifi.py:52 routes/wifi.py:63
+msgid "WiFi editing is not supported on this platform"
+msgstr ""
+
+#: routes/wifi.py:38
+msgid "Permission denied"
+msgstr ""
+
+#: routes/wifi.py:45
+msgid "Connected successfully"
+msgstr ""
+
+#: routes/wifi.py:47
+msgid "Connection failed"
 msgstr ""
 
 #. Prompt which asks the user their name when they first try to add to the
@@ -673,59 +697,74 @@ msgstr ""
 
 #. Label for language selection dropdown
 #: templates/info.html:232
-msgid "Preferred language (requires restart)"
+msgid "Preferred language"
+msgstr ""
+
+#. Title text for the Wi-Fi settings section
+#: templates/info.html:236
+msgid "Wi-Fi settings"
+msgstr ""
+
+#. Button text for Wi-Fi configuration
+#: templates/info.html:243
+msgid "Configure Wi-Fi"
+msgstr ""
+
+#. Help text for Wi-Fi configuration button
+#: templates/info.html:245
+msgid "Manage wireless network connections"
 msgstr ""
 
 #. Title text for the server settings section of preferences
-#: templates/info.html:236
+#: templates/info.html:248
 msgid "Server settings"
 msgstr ""
 
 #. Checkbox label which enable/disables audio volume normalization
-#: templates/info.html:240
+#: templates/info.html:252
 msgid "Normalize audio volume"
 msgstr ""
 
 #. Checkbox label which enable/disables high quality video downloads
-#: templates/info.html:246
+#: templates/info.html:258
 msgid "Download high quality videos"
 msgstr ""
 
 #. Checkbox label which enable/disables full transcode before playback
-#: templates/info.html:252
+#: templates/info.html:264
 msgid ""
 "Transcode video completely before playing (better browser compatibility, "
 "slower starts). Buffer size will be ignored.*"
 msgstr ""
 
 #. Checkbox label which enable/disables CDG pixel scaling
-#: templates/info.html:258
+#: templates/info.html:270
 msgid ""
 "Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU"
 " usage)"
 msgstr ""
 
 #. Numberbox label for audio video synchronization
-#: templates/info.html:265
+#: templates/info.html:277
 msgid ""
 "Fix the audio and video synchronization in seconds (negative = advances "
 "audio | positive = delays audio)"
 msgstr ""
 
 #. Numberbox label for limitting the number of songs for each player
-#: templates/info.html:272
+#: templates/info.html:284
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
 msgstr ""
 
 #. Numberbox label for setting the buffer size in kilobytes
-#: templates/info.html:279
+#: templates/info.html:291
 msgid ""
 "Buffer size in kilobytes. Transcode this amount of the video before "
 "sending it to the splash screen. "
 msgstr ""
 
 #. Help text explaining when videos will be transcoded
-#: templates/info.html:283
+#: templates/info.html:295
 msgid ""
 "* Videos are only transcoded when: normalization is on, audio/video "
 "synchronization not zero, a song is transposed, playing a CDG/MOV/AVI/MKV"
@@ -733,35 +772,35 @@ msgid ""
 msgstr ""
 
 #. Text for the link where the user can clear all user preferences
-#: templates/info.html:287
+#: templates/info.html:299
 msgid "Clear preferences"
 msgstr ""
 
 #. Title of the updates section.
-#: templates/info.html:293
+#: templates/info.html:305
 msgid "Updates"
 msgstr ""
 
 #. Label before a link which forces Pikaraoke to rescan and pick up any new
 #. songs.
-#: templates/info.html:295
+#: templates/info.html:307
 msgid "Refresh the song list:"
 msgstr ""
 
 #. Text on the link which forces Pikaraoke to rescan and pick up any new songs.
-#: templates/info.html:300
+#: templates/info.html:312
 msgid "Rescan song directory"
 msgstr ""
 
 #. Help text explaining the Rescan song directory link.
-#: templates/info.html:305
+#: templates/info.html:317
 msgid ""
 "You should only need to do this if you manually copied files to the "
 "download directory while pikaraoke was running."
 msgstr ""
 
 #. Text explaining why you might want to update youtube-dl.
-#: templates/info.html:310
+#: templates/info.html:322
 #, python-format
 msgid ""
 "If downloads or searches stopped working, updating youtube-dl will "
@@ -771,13 +810,13 @@ msgstr ""
 
 #. Text for the link which will try and update youtube-dl on the machine
 #. running Pikaraoke.
-#: templates/info.html:316
+#: templates/info.html:328
 msgid "Update youtube-dl"
 msgstr ""
 
 #. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
-#: templates/info.html:322
+#: templates/info.html:334
 msgid ""
 "This update link above may fail if you don't have proper file "
 "permissions.\n"
@@ -786,12 +825,12 @@ msgstr ""
 
 #. Title of the section on shutting down / turning off the machine running
 #. Pikaraoke.
-#: templates/info.html:329
+#: templates/info.html:341
 msgid "Shutdown"
 msgstr ""
 
 #. Explainitory text which explains why to use the shutdown link.
-#: templates/info.html:332
+#: templates/info.html:344
 msgid ""
 "Don't just pull the plug! Always shut down your server properly to avoid "
 "data corruption."
@@ -799,33 +838,33 @@ msgstr ""
 
 #. Text for button which turns off Pikaraoke for everyone using it at your
 #. house.
-#: templates/info.html:338
+#: templates/info.html:350
 msgid "Quit Pikaraoke"
 msgstr ""
 
 #. Text for button which reboots the machine running Pikaraoke.
-#: templates/info.html:341
+#: templates/info.html:353
 msgid "Reboot System"
 msgstr ""
 
 #. Text for button which turn soff the machine running Pikaraoke.
-#: templates/info.html:344
+#: templates/info.html:356
 msgid "Shutdown System"
 msgstr ""
 
 #. Title for section containing a few other options on the Info page.
-#: templates/info.html:351
+#: templates/info.html:363
 msgid "Other"
 msgstr ""
 
 #. Text for button
-#: templates/info.html:354
+#: templates/info.html:366
 msgid "Expand Raspberry Pi filesystem"
 msgstr ""
 
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
-#: templates/info.html:357
+#: templates/info.html:369
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
 "is larger than 4GB,\n"
@@ -835,13 +874,13 @@ msgid ""
 msgstr ""
 
 #. Link which will log out the user from admin mode.
-#: templates/info.html:367
+#: templates/info.html:379
 #, python-format
 msgid "Disable admin mode: <a href=\"%(logout_url)s\">Log out</a>"
 msgstr ""
 
 #. Link which will let the user log into admin mode.
-#: templates/info.html:373
+#: templates/info.html:385
 #, python-format
 msgid ""
 "\n"
@@ -1097,11 +1136,74 @@ msgstr ""
 msgid "Confirm"
 msgstr ""
 
+#: templates/wifi.html:6
+msgid "WiFi Settings"
+msgstr ""
+
+#: templates/wifi.html:8
+msgid "Current Wi-Fi"
+msgstr ""
+
+#: templates/wifi.html:10
+msgid "Loading..."
+msgstr ""
+
+#: templates/wifi.html:14
+msgid "Available Wi-Fi"
+msgstr ""
+
+#: templates/wifi.html:18
+msgid "SSID"
+msgstr ""
+
+#: templates/wifi.html:19
+msgid "Actions"
+msgstr ""
+
+#: templates/wifi.html:31
+msgid "Connect to"
+msgstr ""
+
+#: templates/wifi.html:36
+msgid "Password"
+msgstr ""
+
+#: templates/wifi.html:38
+msgid "WiFi password"
+msgstr ""
+
+#: templates/wifi.html:43 templates/wifi.html:92
+msgid "Connect"
+msgstr ""
+
+#: templates/wifi.html:44
+msgid "Cancel"
+msgstr ""
+
+#: templates/wifi.html:62
+msgid "Connected"
+msgstr ""
+
+#: templates/wifi.html:72
+msgid "No Connected"
+msgstr ""
+
+#: templates/wifi.html:72
+msgid "Select to Connect"
+msgstr ""
+
+#: templates/wifi.html:89
+msgid "Hidden"
+msgstr ""
+
 #~ msgid ""
 #~ "* Videos are only transcoded when: "
 #~ "normalization is on, a song is "
 #~ "transposed, playing a CDG/MOV/AVI/MKV file."
 #~ " Most unmodified MP4 files will not"
 #~ " need to be transcoded."
+#~ msgstr ""
+
+#~ msgid "Preferred language (requires restart)"
 #~ msgstr ""
 

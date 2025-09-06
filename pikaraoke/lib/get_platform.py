@@ -58,3 +58,7 @@ def get_default_dl_dir(platform):
 
 def get_os_version():
     return platform.version()
+
+
+def supports_wifi_editing():
+    return get_platform() != "osx"

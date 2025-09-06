@@ -32,6 +32,7 @@ from pikaraoke.routes.queue import queue_bp
 from pikaraoke.routes.search import search_bp
 from pikaraoke.routes.splash import splash_bp
 from pikaraoke.routes.stream import stream_bp
+from pikaraoke.routes.wifi import wifi_bp
 
 try:
     from urllib.parse import quote
@@ -70,6 +71,7 @@ app.register_blueprint(info_bp)
 app.register_blueprint(splash_bp)
 app.register_blueprint(controller_bp)
 app.register_blueprint(nowplaying_bp)
+app.register_blueprint(wifi_bp)
 
 babel.init_app(app)
 socketio.init_app(app)

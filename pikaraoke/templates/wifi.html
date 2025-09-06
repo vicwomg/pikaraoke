@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="section">
+    <div class="box">
+        <h1 class="title">{% trans %}WiFi Settings{% endtrans %}</h1>
+        <div class="box">
+            <h2 class="subtitle">{% trans %}Current Wi-Fi{% endtrans %}</h2>
+            <div id="current-wifi-info" class="mt-3">
+                <p class="has-text-grey">{% trans %}Loading...{% endtrans %}</p>
+            </div>
+        </div>
+        <div class="box">
+            <h2 class="subtitle">{% trans %}Available Wi-Fi{% endtrans %}</h2>
+            <table id="wifi-table">
+                <thead>
+                    <tr>
+                        <th>{% trans %}SSID{% endtrans %}</th>
+                        <th>{% trans %}Actions{% endtrans %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="modal" id="password-modal">
+            <div class="modal-background"></div>
+            <div class="modal-card">
+                <header class="modal-card-head">
+                    <p class="modal-card-title">{% trans %}Connect to{% endtrans %} <span id="modal-ssid"></span></p>
+                    <button class="delete" aria-label="close"></button>
+                </header>
+                <section class="modal-card-body">
+                    <div class="field">
+                        <label class="label">{% trans %}Password{% endtrans %}</label>
+                        <div class="control">
+                            <input class="input" type="password" id="wifi-password" placeholder="{{ _('WiFi password') }}">
+                        </div>
+                    </div>
+                </section>
+                <footer class="modal-card-foot">
+                    <button class="button is-success" id="confirm-connect">{% trans %}Connect{% endtrans %}</button>
+                    <button class="button" id="cancel-connect">{% trans %}Cancel{% endtrans %}</button>
+                </footer>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    $(document).ready(function () {
+        function get_current_wifi_info() {
+            $.get("/current_wifi", function (data) {
+                if (data.success) {
+                    const status = data.status;
+                    const ssid = data.ssid;
+                    const html = `
+                    <div class="columns is-vcentered">
+                    <div class="column">
+                        <i class="icon icon-wifi" title="Wi-Fi"></i>
+                        <span>${ssid}<p class="subtitle is-7 has-text-grey">${status || "{{ _('Connected') }}"}</p></span>
+                    </div>
+                    </div>
+                `;
+                    $("#current-wifi-info").html(html);
+                } else {
+                    $("#current-wifi-info").html(`
+                    <div class="columns is-vcentered">
+                    <div class="column">
+                        <i class="icon icon-wifi" title="Wi-Fi"></i>
+                        <span>{{ _('No Connected') }}<p class="subtitle is-7 has-text-grey">{{ _('Select to Connect') }}</p></span>
+                    </div>
+                    </div>
+      `);
+                }
+            });
+        }
+        get_current_wifi_info()
+
+        $.get("/available_wifi", function (data) {
+            if (data.success) {
+                const tableBody = $("#wifi-table tbody");
+                tableBody.empty();
+
+                data.networks.forEach(net => {
+                    const row = `
+        <tr>
+             <td>${net.ssid || '{{ _("Hidden") }}'}</td>
+            <td>
+                <button class="button is-small is-primary connect-btn" data-ssid="${net.ssid}">
+                    {{ _('Connect') }}
+                </button>
+            </td>
+        </tr>
+      `;
+                    tableBody.append(row);
+                });
+            }
+        });
+
+        $(document).on('click', '.connect-btn', function () {
+            const ssid = $(this).data('ssid');
+            $('#modal-ssid').text(ssid);
+            $('#wifi-password').val('');
+            $('#password-modal').addClass('is-active');
+        });
+
+        $('#confirm-connect').click(function () {
+            const password = $('#wifi-password').val();
+            const ssid = $('#modal-ssid').text();
+            $.post('/connect_wifi', { ssid, password }, function (data) {
+                if (data.success) {
+                    get_current_wifi_info()
+                    location.reload();
+                } else {
+                    alert(data.message);
+                }
+            });
+        });
+
+        $('.delete, #cancel-connect').click(function () {
+            $('#password-modal').removeClass('is-active');
+        });
+    });
+</script>
+{% endblock %}
