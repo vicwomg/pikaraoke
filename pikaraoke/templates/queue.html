@@ -113,6 +113,13 @@
       }
     });
   });
+
+  $(document).on('click', '.add-random', function (e) {
+    e.preventDefault();
+    const amount = $('#randomNumberInput').val();
+    const baseUrl = '/queue/addrandom';
+    $.get(`${baseUrl}?amount=${amount}`);
+  });
 </script>
 
 {% endblock %}
@@ -130,10 +137,10 @@
 </table>
 
 {% if admin %}
-<a class="add-random has-text-success" href="/queue/addrandom?amount=3"
-  {# MSG: Button text which picks three songs at random from the already downloaded songs and adds them to the queue. #}
-  ><i class="icon icon-plus-circled"></i>{% trans %}Add 3 random songs{% endtrans %}</a
->
+<a class="add-random has-text-success" href="#"
+  {# MSG: Button text which picks a given number of random songs from the already downloaded songs and adds them to the queue. #}
+  ><i class="icon icon-plus-circled"></i></a
+>{% trans %}Add <input id="randomNumberInput" type="number" value="3" min="1" max="100" style="width: 50px" /> random songs{% endtrans %}
 <a
   class="confirm-clear has-text-danger is-pulled-right"
   href="/queue/edit?action=clear"
