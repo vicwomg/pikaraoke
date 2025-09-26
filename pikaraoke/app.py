@@ -45,7 +45,8 @@ import time
 
 from gevent.pywsgi import WSGIServer
 
-socketio = SocketIO(async_mode="gevent")
+args = parse_pikaraoke_args()
+socketio = SocketIO(async_mode="gevent", cors_allowed_origins=args.url)
 babel = Babel()
 
 
@@ -77,9 +78,16 @@ socketio.init_app(app)
 @babel.localeselector
 def get_locale():
     """Select the language to display the webpage in based on the Accept-Language header"""
-    if request.args.get("lang"):
+    # Check config.ini lang settings
+    k = get_karaoke_instance()
+    preferred_lang = k.get_user_preference("preferred_language")
+    if preferred_lang and preferred_lang in LANGUAGES.keys():
+        return preferred_lang
+    # Check URL arguments
+    elif request.args.get("lang"):
         session["lang"] = request.args.get("lang")
         locale = session.get("lang", "en")
+    # Use browser header
     else:
         locale = request.accept_languages.best_match(LANGUAGES.keys())
     return locale
@@ -176,6 +184,7 @@ def main():
         limit_user_songs_by=args.limit_user_songs_by,
         avsync=args.avsync,
         config_file_path=args.config_file_path,
+        cdg_pixel_scaling=args.cdg_pixel_scaling,
     )
 
     # expose karaoke object to the flask app

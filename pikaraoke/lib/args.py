@@ -249,6 +249,12 @@ def parse_pikaraoke_args():
         default=default_config_file_path,
         required=False,
     ),
+    parser.add_argument(
+        "--cdg-pixel-scaling",
+        help="Enable CDG pixel scaling to improve video rendering of CDG files. This may increase CPU usage and may cause performance issues on slower devices.",
+        action="store_true",
+        required=False,
+    ),
 
     args = parser.parse_args()
 

@@ -110,6 +110,7 @@ class Karaoke:
         limit_user_songs_by=0,
         avsync=0,
         config_file_path="config.ini",
+        cdg_pixel_scaling=False,
     ):
         logging.basicConfig(
             format="[%(asctime)s] %(levelname)s: %(message)s",
@@ -162,6 +163,7 @@ class Karaoke:
         self.limit_user_songs_by = (
             self.get_user_preference("limit_user_songs_by") or limit_user_songs_by
         )
+        self.cdg_pixel_scaling = self.get_user_preference("cdg_pixel_scaling") or cdg_pixel_scaling
         self.avsync = self.get_user_preference("avsync") or avsync
         self.url_override = url
         self.url = self.get_url()
@@ -248,7 +250,7 @@ class Karaoke:
 
             userprefs = self.config_obj["USERPREFERENCES"]
             userprefs[preference] = str(val)
-            setattr(self, preference, eval(str(val)))
+            setattr(self, preference, val)
             with open(self.config_file_path, "w") as conf:
                 self.config_obj.write(conf)
                 self.changed_preferences = True
@@ -524,6 +526,7 @@ class Karaoke:
                 self.normalize_audio,
                 self.complete_transcode_before_play,
                 self.avsync,
+                self.cdg_pixel_scaling,
             )
             self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
 

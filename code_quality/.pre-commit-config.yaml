@@ -10,7 +10,7 @@ repos:
   # Python tools
   # ----------------------------------------------------------------------------------------------
 - repo: https://github.com/hadialqattan/pycln
-  rev: v2.4.0
+  rev: v2.5.0
   hooks:
   - id: pycln
     name: Remove Unused Python Imports
@@ -38,19 +38,6 @@ repos:
     entry: bash -c 'echo $PATH'
     language: system
     types: [python]
-  # ----------------------------------------------------------------------------------------------
-- repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-  rev: v2.11.0
-  hooks:
-  - id: pretty-format-yaml
-    args: [--autofix, --indent, '2', --line-width, '100']
-
-- repo: https://github.com/adrienverge/yamllint.git
-  rev: v1.33.0
-  hooks:
-  - id: yamllint
-    name: Lint YAML Files
-    args: [-c=code_quality/.yamllint]
 
 - repo: https://github.com/executablebooks/mdformat
   rev: 0.7.17
@@ -74,8 +61,6 @@ repos:
     args: [--maxkb=3000]
   - id: check-case-conflict
   - id: check-merge-conflict
-  - id: end-of-file-fixer
-    name: Ensure End of File Newline
   - id: fix-byte-order-marker
   - id: mixed-line-ending
   - id: check-executables-have-shebangs

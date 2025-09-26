@@ -1,5 +1,54 @@
 # Changelog
 
+## [1.13.0](https://github.com/vicwomg/pikaraoke/compare/1.12.0...1.13.0) (2025-08-02)
+
+
+### Features
+
+* Upscale CDG using nearest neigbor algorithm [#511](https://github.com/vicwomg/pikaraoke/issues/511) ([4326f66](https://github.com/vicwomg/pikaraoke/commit/4326f6676cdd8c67933058224cb594247c77fe41))
+
+
+### Bug Fixes
+
+* error launching on pi: iwconfig is not found [#510](https://github.com/vicwomg/pikaraoke/issues/510) ([b329664](https://github.com/vicwomg/pikaraoke/commit/b3296645dea96d9b668527c976ac293b3789ff6f))
+* proxy error "not an accepted origin" [#519](https://github.com/vicwomg/pikaraoke/issues/519) ([#523](https://github.com/vicwomg/pikaraoke/issues/523)) ([c7a90cf](https://github.com/vicwomg/pikaraoke/commit/c7a90cf6e49613284217f969f54122bea65abff9))
+* settings checkbox show incorrect state when False ([18e5751](https://github.com/vicwomg/pikaraoke/commit/18e5751eebc564f7d5b919a373b3b4e22873c1dd))
+* update outdated translation files ([4dc5432](https://github.com/vicwomg/pikaraoke/commit/4dc5432144892e1efd02e8b38c8fbc6afecc17c2))
+
+
+### Documentation
+
+* update translation files ([3836d17](https://github.com/vicwomg/pikaraoke/commit/3836d17e1878e56ad06dadd63ed9c0d418c4e0f3))
+
+## [1.12.0](https://github.com/vicwomg/pikaraoke/compare/1.11.1...1.12.0) (2025-07-31)
+
+
+### Features
+
+* update VE spanish translation 2025 ([#518](https://github.com/vicwomg/pikaraoke/issues/518)) ([50c2411](https://github.com/vicwomg/pikaraoke/commit/50c24115555fd8ab65ac9189542a4ff57333ffd5))
+* ZH_TW i18n support and language change UI ([#517](https://github.com/vicwomg/pikaraoke/issues/517)) ([271b426](https://github.com/vicwomg/pikaraoke/commit/271b426a60b89150602827da72d0c50d88bfacfb))
+
+
+### Bug Fixes
+
+* code quality issues ([af29ecf](https://github.com/vicwomg/pikaraoke/commit/af29ecf630940521bb9b6e9c0bc2e2facfbae816))
+* relax yml lint requirements ([22b5335](https://github.com/vicwomg/pikaraoke/commit/22b53351da892ef46f0b7f90df17470e39cfd61b))
+
+## [1.11.1](https://github.com/vicwomg/pikaraoke/compare/1.11.0...1.11.1) (2025-04-26)
+
+
+### Bug Fixes
+
+* fix merge conflict ([d35ee93](https://github.com/vicwomg/pikaraoke/commit/d35ee93ed286392e92c82984def99ad97d703d81))
+
+
+### Documentation
+
+* Add correct dockerhub URL ([757b65b](https://github.com/vicwomg/pikaraoke/commit/757b65b1c8ec259844e7d3dfe445099eb27dbd0b))
+* add french translation ([#505](https://github.com/vicwomg/pikaraoke/issues/505)) ([d55fbdf](https://github.com/vicwomg/pikaraoke/commit/d55fbdf46c13f58120b4a774c5cab2a8f4306b7b))
+* add Italian translation ([26dc459](https://github.com/vicwomg/pikaraoke/commit/26dc459bff15fce3020a5f6e9fbb8f51c2bc4fea))
+* fix translation errors ([aa8aff7](https://github.com/vicwomg/pikaraoke/commit/aa8aff77320dbafd99defcbc871880209f2cfbb7))
+
 ## [1.11.0](https://github.com/vicwomg/pikaraoke/compare/1.10.3...1.11.0) (2025-02-08)
 
 

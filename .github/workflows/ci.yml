@@ -14,19 +14,19 @@ jobs:
   code-quality:
     runs-on: ubuntu-latest
     env:
-      SKIP: no-commit-to-branch # skips commit to main check
+      SKIP: no-commit-to-branch  # skips commit to main check
       PRE_COMMIT_CONFIG: code_quality/.pre-commit-config.yaml
       VENV: venv
       VENV_ACTIVATE: venv/bin/activate
 
     steps:
     - name: Check out code
-      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # V4.1.7
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332  # V4.1.7
       with:
         token: ${{ github.token }}
 
     - name: Cache pre-commit dependencies
-      uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # V4.0.2
+      uses: actions/cache@v4
       id: cache
       with:
         path: ~/.cache/pre-commit
