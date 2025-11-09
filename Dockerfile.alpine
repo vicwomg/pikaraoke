@@ -1,13 +1,16 @@
 # Use alpine and multi-stage build for better image size  
-FROM python:3.12-alpine AS build
+FROM alpine:edge AS build
 
 # Install required packages
-RUN apk upgrade && apk add ffmpeg poetry rubberband &&  apk cache clean && poetry config virtualenvs.in-project true
-RUN apk update  && apk add gcc python3-dev musl-dev linux-headers
+RUN apk upgrade && apk add  poetry  && poetry config virtualenvs.in-project true
+RUN apk add gcc python3-dev musl-dev linux-headers
 
 WORKDIR /app
 
 # Copy minimum required files into the image
+COPY apk ./apk
+RUN apk add --allow-untrusted apk/*
+
 COPY pyproject.toml ./
 COPY docs ./docs
 # Only install main dependencies for better docker caching
@@ -17,11 +20,13 @@ COPY pikaraoke ./pikaraoke
 RUN poetry install
 
 
-FROM python:3.12-alpine
-RUN apk upgrade && apk add ffmpeg poetry rubberband &&  apk cache clean && poetry config virtualenvs.in-project true
+FROM alpine:edge
+RUN apk upgrade && apk add poetry  &&  apk cache clean && poetry config virtualenvs.in-project true
 WORKDIR /app
 
 COPY --from=build /app /app
+COPY apk ./apk
+RUN apk add --allow-untrusted apk/*
 
 ENTRYPOINT ["poetry", "run", "pikaraoke"]
 
