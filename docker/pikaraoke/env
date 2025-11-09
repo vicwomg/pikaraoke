@@ -1,0 +1,19 @@
+
+#use upstream docker image
+#IMAGE=vicwomg/pikaraoke:latest
+IMAGE=rhome/pikaraoke
+
+#docker container name
+NAME=pikaraoke
+
+#Local directory with songs
+MEDIADIR=${PREFIX}/pikaraoke-songs
+
+ENV="--env-file=${PREFIX}/.env "
+
+VOLUMES="-v ${MEDIADIR}:/app/pikaraoke-songs  -v ${PREFIX}/config.ini:/app/config.ini"
+
+#Arguments passed to docker run 
+ARGS="--init --rm  --network=host"
+#EXTRA="--cap-add=NET_ADMIN --cap-add=NET_RAW"
+
