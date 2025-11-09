@@ -2,11 +2,9 @@
 FROM python:3.12-slim-bullseye
 
 # Install required packages
-RUN apt-get update --allow-releaseinfo-change && \
-    apt-get install -y --no-install-recommends ffmpeg wireless-tools && \
-    apt-get clean && \
-    pip install poetry && \
-    rm -rf /var/lib/apt/lists/*
+RUN apk upgrade && apk add ffmpeg && apk cache clean
+
+RUN pip install poetry
 
 WORKDIR /app
 

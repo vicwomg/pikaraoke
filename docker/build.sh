@@ -22,7 +22,8 @@ PREFIX=$(dirname $(GetPrefix $0))
 
 #CONST
 DEFAULT_TAG="rhome/pikaraoke"
-DOCKERFILE=Dockerfile
+#DOCKERFILE=Dockerfile
+DOCKERFILE=Dockerfile.alpine
 #PLATFORM=linux/arm64,linux/amd64
 PLATFORM=linux/amd64
 ARGS="--network=host"

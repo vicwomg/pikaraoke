@@ -20,4 +20,4 @@ PREFIX=$(dirname $(GetPrefix $0))
 source ${PREFIX}/env
 
 
-/usr/bin/docker run ${ARGS} ${ENV} ${VOLUMES} ${EXTRA} --name ${NAME} ${IMAGE} -l10 $*
+/usr/bin/docker run ${ARGS} ${ENV} ${VOLUMES} ${EXTRA} --name ${NAME} ${IMAGE} -l10 -d /app/pikaraoke-songs/ --headless $*
