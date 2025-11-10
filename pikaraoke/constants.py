@@ -6,4 +6,5 @@ LANGUAGES = {
     "zh_TW": "Chinese (Traditional)",
     "pt_BR": "Brazilian Portuguese",
     "it_IT": "Italian",
+    "ru_RU": "Russian",
 }
