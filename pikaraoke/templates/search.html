@@ -300,6 +300,29 @@
     setUserCookie(true);
 
     $(".song-added-by").val(getUserCookie());
+
+    // Restore checkbox states from cookies
+    restoreCheckboxStates();
+
+    // Save checkbox states when they change
+    $("#include-non-karaoke").change(function () {
+      Cookies.set("include-non-karaoke", $(this).is(":checked"), {
+        expires: 365,
+      });
+    });
+
+    $("#add-to-queue-direct, #add-to-queue-search").change(function () {
+      Cookies.set("add-to-queue-on-download", $(this).is(":checked"), {
+        expires: 365,
+      });
+      // Sync both checkboxes to have the same state
+      var isChecked = $(this).is(":checked");
+      $("#add-to-queue-direct, #add-to-queue-search").prop(
+        "checked",
+        isChecked
+      );
+    });
+
     const items = document.querySelectorAll(".search_result_items li");
     items.forEach((item) =>
       item.querySelector("button").addEventListener("click", () => {
@@ -333,6 +356,24 @@
     var img_src =
       "https://img.youtube.com/vi/" + youtube_id + "/mq" + fn + ".jpg";
     $("#youtube-thumb").attr("src", img_src);
+  }
+
+  function restoreCheckboxStates() {
+    // Restore "Include non-karaoke matches" checkbox state
+    var includeNonKaraoke = Cookies.get("include-non-karaoke");
+    if (includeNonKaraoke !== undefined) {
+      $("#include-non-karaoke").prop("checked", includeNonKaraoke === "true");
+    }
+
+    // Restore "Add to queue once downloaded" checkbox state
+    var addToQueue = Cookies.get("add-to-queue-on-download");
+    if (addToQueue !== undefined) {
+      var shouldCheck = addToQueue === "true";
+      $("#add-to-queue-direct, #add-to-queue-search").prop(
+        "checked",
+        shouldCheck
+      );
+    }
   }
 </script>
 {% endblock %} {% block header %} {# MSG: Title for the search page. #}
@@ -443,7 +484,12 @@
           <input class="song-title" type="hidden" name="song-title" value="" />
           <div class="field" style="margin-top: 5px">
             <label class="checkbox">
-              <input type="checkbox" checked name="queue" />
+              <input
+                type="checkbox"
+                checked
+                name="queue"
+                id="add-to-queue-direct"
+              />
               {# MSG: Checkbox label which marks the song to be added to the
               queue after it finishes downloading. #} {% trans %}Add to queue
               once downloaded{% endtrans %}
@@ -519,7 +565,12 @@
 
       <div class="field">
         <label class="checkbox">
-          <input type="checkbox" checked name="queue" />
+          <input
+            type="checkbox"
+            checked
+            name="queue"
+            id="add-to-queue-search"
+          />
           {# MSG: Checkbox label which marks the song to be added to the queue
           after it finishes downloading. #} {% trans %}Add to queue once
           downloaded{% endtrans %}
