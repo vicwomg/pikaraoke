@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: mawkee@gmail.com\n"
-"POT-Creation-Date: 2025-08-01 16:41-0700\n"
+"POT-Creation-Date: 2025-09-25 14:53-0300\n"
 "PO-Revision-Date: 2022-06-28 18:57-0300\n"
 "Last-Translator: FULL NAME <mawkee@gmail.com>\n"
 "Language: pt_BR\n"
@@ -363,7 +363,7 @@ msgstr "Home"
 
 #. Navigation link for the queue page.
 #. Title of the page showing the currently queued songs.
-#: templates/base.html:202 templates/queue.html:123
+#: templates/base.html:202 templates/queue.html:130
 msgid "Queue"
 msgstr "Fila"
 
@@ -910,14 +910,17 @@ msgstr "Digite a senha de administrador"
 msgid "The queue is empty"
 msgstr "A fila está vazia"
 
-#. Button text which picks three songs at random from the already downloaded
-#. songs and adds them to the queue.
-#: templates/queue.html:135
-msgid "Add 3 random songs"
-msgstr "Adicionar 3 músicas aleatórias"
+#. Button text which picks a given number of random songs from the already
+#. downloaded songs and adds them to the queue.
+#: templates/queue.html:143
+msgid ""
+"Add <input id=\"randomNumberInput\" type=\"number\" value=\"3\" min=\"1\""
+" max=\"100\" style=\"width: 50px\" /> random songs"
+msgstr "Adicionar <input id=\"randomNumberInput\" type=\"number\" value=\"3\" min=\"1\""
+" max=\"100\" style=\"width: 50px\" /> músicas aleatórias"
 
 #. Text for the button which clears the entire queue.
-#: templates/queue.html:141
+#: templates/queue.html:148
 msgid "Clear all"
 msgstr "Limpar todos"
 
