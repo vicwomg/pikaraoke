@@ -1,4 +1,5 @@
 import logging
+import shlex
 import subprocess
 
 
@@ -53,7 +54,12 @@ def upgrade_youtubedl(youtubedl_path):
 
 
 def build_ytdl_download_command(
-    youtubedl_path, video_url, download_path, high_quality=False, youtubedl_proxy=None
+    youtubedl_path,
+    video_url,
+    download_path,
+    high_quality=False,
+    youtubedl_proxy=None,
+    additional_args=None,
 ):
     dl_path = download_path + "%(title)s---%(id)s.%(ext)s"
     file_quality = (
@@ -64,5 +70,7 @@ def build_ytdl_download_command(
     cmd = [youtubedl_path, "-f", file_quality, "-o", dl_path, "-S", "vcodec:h264"]
     if youtubedl_proxy:
         cmd += ["--proxy", youtubedl_proxy]
+    if additional_args:
+        cmd += shlex.split(additional_args)
     cmd += [video_url]
     return cmd

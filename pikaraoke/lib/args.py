@@ -73,6 +73,11 @@ def parse_pikaraoke_args():
         required=False,
     )
     parser.add_argument(
+        "--ytdl-args",
+        help="Additional arguments to pass to youtube-dl/yt-dlp (as a single string)",
+        required=False,
+    )
+    parser.add_argument(
         "-v",
         "--volume",
         help="Set initial player volume. A value between 0 and 1. (default: %s)" % default_volume,
