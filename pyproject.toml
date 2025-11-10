@@ -14,7 +14,7 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 CherryPy = "18.10.0"
 Flask = "2.2.5"
 qrcode = "7.4.2"
@@ -27,7 +27,7 @@ Babel = "2.9.1"
 Flask-Babel = "2.0.0"
 selenium = "4.21.0"
 ffmpeg-python = "0.2.0"
-yt-dlp = ">=2025.07.21"
+yt-dlp = ">=2025.10.22"
 flask-socketio = "^5.5.0"
 gevent = "^24.11.1"
 
