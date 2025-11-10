@@ -61,7 +61,7 @@ def build_ytdl_download_command(
         if high_quality
         else "mp4"
     )
-    cmd = [youtubedl_path, "-f", file_quality, "-o", dl_path]
+    cmd = [youtubedl_path, "-f", file_quality, "-o", dl_path, "-S", "vcodec:h264"]
     if youtubedl_proxy:
         cmd += ["--proxy", youtubedl_proxy]
     cmd += [video_url]
