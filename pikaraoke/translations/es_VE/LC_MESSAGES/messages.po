@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version:  \n"
 "Report-Msgid-Bugs-To: frederick.chang@hotmail.com\n"
-"POT-Creation-Date: 2025-09-25 14:53-0300\n"
+"POT-Creation-Date: 2025-11-10 12:48-0800\n"
 "PO-Revision-Date: 2025-07-19 03:30-0400\n"
 "Last-Translator: FREDERICK CHANG <frederick.chang@hotmail.com>\n"
 "Language: es_VE\n"
@@ -18,111 +18,111 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.9.1\n"
 
-#: karaoke.py:257
+#: karaoke.py:256
 msgid "Your preferences were changed successfully"
 msgstr "Tus preferencias se han modificado correctamente"
 
-#: karaoke.py:260
+#: karaoke.py:259
 msgid "Something went wrong! Your preferences were not changed"
 msgstr "Algo ha ocurrido. Sus preferencias no se han modificado"
 
-#: karaoke.py:265
+#: karaoke.py:264
 msgid "Your preferences were cleared successfully"
 msgstr "Tus preferencias se han borrado correctamente"
 
-#: karaoke.py:267
+#: karaoke.py:266
 msgid "Something went wrong! Your preferences were not cleared"
 msgstr "Algo ha ocurrido. Tus preferencias no se han borrado"
 
 #. Message shown after the download is started
-#: karaoke.py:364
+#: karaoke.py:363
 #, python-format
 msgid "Downloading video: %s"
 msgstr "Descargando vídeo: %s"
 
 #. Message shown after the download is completed and queued
-#: karaoke.py:380
+#: karaoke.py:379
 #, python-format
 msgid "Downloaded and queued: %s"
 msgstr "Descargada y agregada a la cola: %s"
 
 #. Message shown after the download is completed but not queued
-#: karaoke.py:383
+#: karaoke.py:382
 #, python-format
 msgid "Downloaded: %s"
 msgstr "Descargado: %s"
 
 #. Message shown after the download is completed but the adding to queue fails
-#: karaoke.py:392
+#: karaoke.py:391
 msgid "Error queueing song: "
 msgstr "Error al colocar la canción a la cola: "
 
 #. Message shown after the download process is completed but the song is not
 #. found
-#: karaoke.py:395
+#: karaoke.py:394
 msgid "Error downloading song: "
 msgstr "Error al descargar la canción: "
 
 #. Message shown when the song ends abnormally
-#: karaoke.py:603
+#: karaoke.py:602
 #, python-format
 msgid "Song ended abnormally: %s"
 msgstr "La canción terminó de forma anormal: %s"
 
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
-#: karaoke.py:611
+#: karaoke.py:610
 #, python-format
 msgid "Transposing by %s semitones: %s"
 msgstr "Cambiando a %s semitonos: %s"
 
-#: karaoke.py:644
+#: karaoke.py:643
 #, python-format
 msgid "You reached the limit of %s song(s) from an user in queue!"
 msgstr "Haz alcanzado el limite de %s canción(es) de un usuario en cola!"
 
 #. Message shown after the song is added to the top of the queue
-#: karaoke.py:656
+#: karaoke.py:655
 #, python-format
 msgid "%s added to top of queue: %s"
 msgstr "%s añadido al principio de la cola: %s"
 
 #. Message shown after the song is added to the queue
-#: karaoke.py:661
+#: karaoke.py:660
 #, python-format
 msgid "%s added to the queue: %s"
 msgstr "%s agregada a la cola: %s"
 
-#: karaoke.py:665
+#: karaoke.py:664
 #, python-format
 msgid "Song added to the queue: %s"
 msgstr "Canción agregada a la cola: %s"
 
 #. Message shown after the queue is cleared
-#: karaoke.py:689
+#: karaoke.py:688
 msgid "Clear queue"
 msgstr "Borrar cola"
 
 #. Message shown after the song is skipped, will be followed by song name
-#: karaoke.py:738
+#: karaoke.py:737
 #, python-format
 msgid "Skip: %s"
 msgstr "Saltar: %s"
 
 #. Message shown after the song is resumed, will be followed by song name
-#: karaoke.py:749
+#: karaoke.py:748
 #, python-format
 msgid "Resume: %s"
 msgstr "Reanudar: %s"
 
 #. Message shown after the song is paused, will be followed by song name
-#: karaoke.py:752
+#: karaoke.py:751
 msgid "Pause"
 msgstr "Pause"
 
 #. Message shown after the volume is changed, will be followed by the volume
 #. level
-#: karaoke.py:763
+#: karaoke.py:762
 #, python-format
 msgid "Volume: %s"
 msgstr "Volumen: %s"
@@ -920,8 +920,8 @@ msgstr "La cola esta vacia"
 #. downloaded songs and adds them to the queue.
 #: templates/queue.html:143
 msgid ""
-"Add <input id=\"randomNumberInput\" type=\"number\" value=\"3\" min=\"1\""
-" max=\"100\" style=\"width: 50px\" /> random songs"
+"Add <input id=\"randomNumberInput\" pattern=\"\\d*\" maxlength=\"2\" "
+"value=\"3\" min=\"1\" max=\"99\" style=\"width: 40px\" /> random songs"
 msgstr ""
 
 #. Text for the button which clears the entire queue.
@@ -1175,4 +1175,10 @@ msgstr "Confirmar"
 
 #~ msgid "Add 3 random songs"
 #~ msgstr "Agrega 3 canciones aleatorias"
+
+#~ msgid ""
+#~ "Add <input id=\"randomNumberInput\" type=\"number\""
+#~ " value=\"3\" min=\"1\" max=\"100\" style=\"width:"
+#~ " 50px\" /> random songs"
+#~ msgstr ""
 
