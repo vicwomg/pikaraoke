@@ -110,6 +110,7 @@ class Karaoke:
         avsync=0,
         config_file_path="config.ini",
         cdg_pixel_scaling=False,
+        additional_ytdl_args=None,
     ):
         logging.basicConfig(
             format="[%(asctime)s] %(levelname)s: %(message)s",
@@ -147,6 +148,7 @@ class Karaoke:
         self.buffer_size = self.get_user_preference("buffer_size") or buffer_size
         self.youtubedl_path = youtubedl_path
         self.youtubedl_proxy = youtubedl_proxy
+        self.additional_ytdl_args = additional_ytdl_args
         self.logo_path = self.default_logo_path if logo_path == None else logo_path
         self.hide_overlay = self.get_user_preference("hide_overlay") or hide_overlay
         self.screensaver_timeout = (
@@ -367,6 +369,7 @@ class Karaoke:
             self.download_path,
             self.high_quality,
             self.youtubedl_proxy,
+            self.additional_ytdl_args,
         )
         logging.debug("Youtube-dl command: " + " ".join(cmd))
         rc = subprocess.call(cmd)
