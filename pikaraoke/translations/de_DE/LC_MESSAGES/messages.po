@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-08-01 16:41-0700\n"
+"POT-Creation-Date: 2025-09-25 14:53-0300\n"
 "PO-Revision-Date: 2025-01-13 22:53-0800\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: de_DE\n"
@@ -369,7 +369,7 @@ msgstr "Startseite"
 
 #. Navigation link for the queue page.
 #. Title of the page showing the currently queued songs.
-#: templates/base.html:202 templates/queue.html:123
+#: templates/base.html:202 templates/queue.html:130
 msgid "Queue"
 msgstr "Warteschlange"
 
@@ -911,14 +911,16 @@ msgstr "Administratorpasswort eingeben"
 msgid "The queue is empty"
 msgstr "Die Warteschlange ist leer"
 
-#. Button text which picks three songs at random from the already downloaded
-#. songs and adds them to the queue.
-#: templates/queue.html:135
-msgid "Add 3 random songs"
-msgstr "3 zufällige Lieder hinzufügen"
+#. Button text which picks a given number of random songs from the already
+#. downloaded songs and adds them to the queue.
+#: templates/queue.html:143
+msgid ""
+"Add <input id=\"randomNumberInput\" type=\"number\" value=\"3\" min=\"1\""
+" max=\"100\" style=\"width: 50px\" /> random songs"
+msgstr ""
 
 #. Text for the button which clears the entire queue.
-#: templates/queue.html:141
+#: templates/queue.html:148
 msgid "Clear all"
 msgstr "Alles löschen"
 
@@ -1151,4 +1153,7 @@ msgstr ""
 #: templates/splash.html:642
 msgid "Confirm"
 msgstr "Bestätigen"
+
+#~ msgid "Add 3 random songs"
+#~ msgstr "3 zufällige Lieder hinzufügen"
 
