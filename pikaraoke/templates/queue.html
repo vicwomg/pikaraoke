@@ -140,7 +140,7 @@
 <a class="add-random has-text-success" href="#"
   {# MSG: Button text which picks a given number of random songs from the already downloaded songs and adds them to the queue. #}
   ><i class="icon icon-plus-circled"></i></a
->{% trans %}Add <input id="randomNumberInput" type="number" value="3" min="1" max="100" style="width: 50px" /> random songs{% endtrans %}
+>{% trans %}Add <input id="randomNumberInput" pattern="\d*" maxlength="2" value="3" min="1" max="99" style="width: 40px" /> random songs{% endtrans %}
 <a
   class="confirm-clear has-text-danger is-pulled-right"
   href="/queue/edit?action=clear"
