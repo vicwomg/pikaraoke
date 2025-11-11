@@ -185,6 +185,7 @@ def main():
         avsync=args.avsync,
         config_file_path=args.config_file_path,
         cdg_pixel_scaling=args.cdg_pixel_scaling,
+        additional_ytdl_args=getattr(args, "ytdl_args", None),
     )
 
     # expose karaoke object to the flask app

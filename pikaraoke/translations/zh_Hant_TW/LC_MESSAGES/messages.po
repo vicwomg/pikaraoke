@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version:  1.1.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-08-01 16:41-0700\n"
+"POT-Creation-Date: 2025-11-10 12:48-0800\n"
 "PO-Revision-Date: 2024-08-28 10:09-0400\n"
 "Last-Translator: \n"
 "Language: zh_TW\n"
@@ -17,111 +17,111 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.9.1\n"
 
-#: karaoke.py:257
+#: karaoke.py:256
 msgid "Your preferences were changed successfully"
 msgstr "您的偏好設定已成功更改"
 
-#: karaoke.py:260
+#: karaoke.py:259
 msgid "Something went wrong! Your preferences were not changed"
 msgstr "發生錯誤！您的偏好設定未被更改"
 
-#: karaoke.py:265
+#: karaoke.py:264
 msgid "Your preferences were cleared successfully"
 msgstr "您的偏好設定已成功清除"
 
-#: karaoke.py:267
+#: karaoke.py:266
 msgid "Something went wrong! Your preferences were not cleared"
 msgstr "發生錯誤！您的偏好設定未被清除"
 
 #. Message shown after the download is started
-#: karaoke.py:364
+#: karaoke.py:363
 #, python-format
 msgid "Downloading video: %s"
 msgstr "正在下載影片：%s"
 
 #. Message shown after the download is completed and queued
-#: karaoke.py:380
+#: karaoke.py:379
 #, python-format
 msgid "Downloaded and queued: %s"
 msgstr "成功添加歌曲：%s"
 
 #. Message shown after the download is completed but not queued
-#: karaoke.py:383
+#: karaoke.py:382
 #, python-format
 msgid "Downloaded: %s"
 msgstr "下載：%s"
 
 #. Message shown after the download is completed but the adding to queue fails
-#: karaoke.py:392
+#: karaoke.py:391
 msgid "Error queueing song: "
 msgstr "添加歌曲到播放列表時出錯："
 
 #. Message shown after the download process is completed but the song is not
 #. found
-#: karaoke.py:395
+#: karaoke.py:394
 msgid "Error downloading song: "
 msgstr "下載歌曲時出錯："
 
 #. Message shown when the song ends abnormally
-#: karaoke.py:603
+#: karaoke.py:602
 #, python-format
 msgid "Song ended abnormally: %s"
 msgstr "歌曲異常結束：%s"
 
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
-#: karaoke.py:611
+#: karaoke.py:610
 #, python-format
 msgid "Transposing by %s semitones: %s"
 msgstr "調整音調 %s 個半音：%s"
 
-#: karaoke.py:644
+#: karaoke.py:643
 #, python-format
 msgid "You reached the limit of %s song(s) from an user in queue!"
 msgstr "您已達到每位用戶在播放列表中的 %s 首歌曲限制！"
 
 #. Message shown after the song is added to the top of the queue
-#: karaoke.py:656
+#: karaoke.py:655
 #, python-format
 msgid "%s added to top of queue: %s"
 msgstr "%s 成功添加歌曲到播放列表頂部：%s"
 
 #. Message shown after the song is added to the queue
-#: karaoke.py:661
+#: karaoke.py:660
 #, python-format
 msgid "%s added to the queue: %s"
 msgstr "%s 成功添加歌曲到播放列表：%s"
 
-#: karaoke.py:665
+#: karaoke.py:664
 #, python-format
 msgid "Song added to the queue: %s"
 msgstr "成功添加歌曲到播放列表：%s"
 
 #. Message shown after the queue is cleared
-#: karaoke.py:689
+#: karaoke.py:688
 msgid "Clear queue"
 msgstr "清空播放列表"
 
 #. Message shown after the song is skipped, will be followed by song name
-#: karaoke.py:738
+#: karaoke.py:737
 #, python-format
 msgid "Skip: %s"
 msgstr "跳過：%s"
 
 #. Message shown after the song is resumed, will be followed by song name
-#: karaoke.py:749
+#: karaoke.py:748
 #, python-format
 msgid "Resume: %s"
 msgstr "繼續播放：%s"
 
 #. Message shown after the song is paused, will be followed by song name
-#: karaoke.py:752
+#: karaoke.py:751
 msgid "Pause"
 msgstr "暫停"
 
 #. Message shown after the volume is changed, will be followed by the volume
 #. level
-#: karaoke.py:763
+#: karaoke.py:762
 #, python-format
 msgid "Volume: %s"
 msgstr "音量：%s"
@@ -356,7 +356,7 @@ msgstr "首頁"
 
 #. Navigation link for the queue page.
 #. Title of the page showing the currently queued songs.
-#: templates/base.html:202 templates/queue.html:123
+#: templates/base.html:202 templates/queue.html:130
 msgid "Queue"
 msgstr "播放列表"
 
@@ -874,14 +874,16 @@ msgstr "輸入管理員密碼"
 msgid "The queue is empty"
 msgstr "播放列表是空的"
 
-#. Button text which picks three songs at random from the already downloaded
-#. songs and adds them to the queue.
-#: templates/queue.html:135
-msgid "Add 3 random songs"
-msgstr "添加 3 首隨機歌曲"
+#. Button text which picks a given number of random songs from the already
+#. downloaded songs and adds them to the queue.
+#: templates/queue.html:143
+msgid ""
+"Add <input id=\"randomNumberInput\" pattern=\"\\d*\" maxlength=\"2\" "
+"value=\"3\" min=\"1\" max=\"99\" style=\"width: 40px\" /> random songs"
+msgstr ""
 
 #. Text for the button which clears the entire queue.
-#: templates/queue.html:141
+#: templates/queue.html:148
 msgid "Clear all"
 msgstr "清除全部"
 
@@ -1125,4 +1127,13 @@ msgstr ""
 #: templates/splash.html:642
 msgid "Confirm"
 msgstr "確認"
+
+#~ msgid "Add 3 random songs"
+#~ msgstr "添加 3 首隨機歌曲"
+
+#~ msgid ""
+#~ "Add <input id=\"randomNumberInput\" type=\"number\""
+#~ " value=\"3\" min=\"1\" max=\"100\" style=\"width:"
+#~ " 50px\" /> random songs"
+#~ msgstr ""
 

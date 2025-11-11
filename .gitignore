@@ -10,3 +10,4 @@ qrcode.png
 .DS_Store
 *.ini
 docker-compose.yml
+/.idea/
