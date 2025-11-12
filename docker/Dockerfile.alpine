@@ -1,0 +1,41 @@
+ARG IMAGE="alpine:edge"
+
+FROM ${IMAGE} AS build
+
+#Update image and install poetry (builder for pykaraoke) 
+RUN apk upgrade && apk add  poetry  && poetry config virtualenvs.in-project true
+#install devel packages for build pykaraoke and ffmpeg apk
+RUN apk add gcc python3-dev musl-dev linux-headers && apk add alpine-sdk coreutils cmake 
+
+#build custom ffmpeg apk with Rubberband (ffmpeg on alpine laks support Rubberband)
+
+WORKDIR /root
+COPY docker/ffmpeg ./ffmpeg
+RUN  abuild-keygen -a -n && mkdir /apk     
+#ignore error on unnesseary  build index
+RUN  abuild -F -C /root/ffmpeg -P /apk -r || /bin/true 
+RUN rm -f /apk/root/x86_64/ffmpeg-dbg* /apk/root/x86_64/apk/ffmpeg-dev* &&  apk add --allow-untrusted /apk/root/x86_64/*
+
+WORKDIR /app
+
+# Copy minimum required files into the image
+
+COPY pyproject.toml ./
+COPY docs ./docs
+# Only install main dependencies for better docker caching
+RUN poetry install --only main --no-root
+# Copy the rest of the files and install the remaining deps in a separate layer
+COPY pikaraoke ./pikaraoke
+RUN poetry install
+
+
+FROM ${IMAGE}
+RUN apk upgrade && apk add poetry  &&  apk cache clean && poetry config virtualenvs.in-project true
+WORKDIR /app
+
+COPY --from=build /app /app
+COPY --from=build /apk /apk 
+RUN apk add --allow-untrusted /apk/root/x86_64/* && rm -rf /apk
+
+ENTRYPOINT ["poetry", "run", "pikaraoke"]
+CMD ["-d", "/app/pikaraoke-songs/", "--headless"]

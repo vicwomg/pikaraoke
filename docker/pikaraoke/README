@@ -1,0 +1,30 @@
+Docker users can use this set of configuration files to deploy pikaraoke on a server.
+
+Prerequisites:
+1. Docker-ce must already be installed and configured on the server.
+2. The server must have Internet access, because the Docker image will be downloaded during the first launch, and then ytub-dl will be downloaded periodically and, if desired, the search on youtube.com will work with further downloading of the found songs.
+
+
+Installation:
+1. Download the docker/pikaraoke folder to any convenient folder on the server. For example, to /opt/pikaraoke. I assume you have done so.
+2. Go to this folder and specify the location for song files. 
+
+By default, songs will be stored in the /opt/piraraoke/pikaraoke-songs folder.
+If desired, you can create a symbolic link to the actual location or edit the MEDIADIR variable in the /opt/pikaraoke/env file
+
+3. Run the /opt/pikaraoke/bin/docker.run script in the terminal. 
+
+The system will start, and you can check that it is working. 
+The log will be directly in the terminal. If there are errors, view and edit the variables in the /opt/pikaraoke/env file
+To exit pikaraoke, type ctrl-c.
+
+Once you have verified that everything is working, run the script /opt/pikaraoke/bin/gen_systemd_service. It will generate a service file that can be added to startup.
+
+
+Start the service: systemctl start pikaraoke
+Stop the service: systemctl stop pikaraoke
+View the service status: systemctl status pikaraoke
+Enable the service to start automatically: systemctl enable pikaraoke
+
+View logs: journalctl -u pikaraoke
+Real-time logs: journalctl -f -u pikaraoke

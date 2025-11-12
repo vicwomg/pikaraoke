@@ -1,0 +1,385 @@
+# Contributor: Sergei Lukin <sergej.lukin@gmail.com>
+# Contributor: Łukasz Jendrysik <scadu@yandex.com>
+# Contributor: Jakub Skrzypnik <j.skrzypnik@openmailbox.org>
+maintainer="Achill Gilgenast <achill@achill.org>"
+pkgname=ffmpeg
+pkgver=8.0
+pkgrel=3
+pkgdesc="Complete and free Internet live audio and video broadcasting solution for Linux/Unix"
+url="https://ffmpeg.org/"
+arch="all"
+license="GPL-2.0-or-later AND LGPL-2.1-or-later"
+makedepends="
+	rubberband-dev
+	alsa-lib-dev
+	aom-dev
+	bzip2-dev
+	coreutils
+	dav1d-dev
+	fontconfig-dev
+	freetype-dev
+	fribidi-dev
+	harfbuzz-dev
+	imlib2-dev
+	ladspa-dev
+	lame-dev
+	libass-dev
+	libbluray-dev
+	libdrm-dev
+	libjxl-dev
+	libopenmpt-dev
+	libplacebo-dev
+	librist-dev
+	libsrt-dev
+	libssh-dev
+	libtheora-dev
+	libva-dev
+	libvdpau-dev
+	libvorbis-dev
+	libvpx-dev
+	libwebp-dev
+	libxfixes-dev
+	libxml2-dev
+	lilv-dev
+	nasm
+	openssl-dev
+	opus-dev
+	perl-dev
+	pulseaudio-dev
+	rav1e-dev
+	sdl2-dev
+	soxr-dev
+	v4l-utils-dev
+	vidstab-dev
+	vulkan-loader-dev
+	x264-dev
+	x265-dev
+	xvidcore-dev
+	zeromq-dev
+	zimg-dev
+	zlib-dev
+	"
+checkdepends="rsync"
+subpackages="
+	ffplay
+	$pkgname-dbg
+	$pkgname-dev
+	$pkgname-doc
+	$pkgname-libavcodec
+	$pkgname-libavdevice
+	$pkgname-libavfilter
+	$pkgname-libavformat
+	$pkgname-libavutil
+	$pkgname-libswresample
+	$pkgname-libswscale
+	$pkgname-libs
+	"
+source="https://ffmpeg.org/releases/ffmpeg-$pkgver.tar.xz
+	add-av_stream_get_first_dts-for-chromium.patch
+	0001-Revert-configure-rename-POSIX-ioctl-check.patch
+	"
+options="!check" # tests/data/hls-lists.append.m3u8 fails
+
+# secfixes:
+#   8.0-r0:
+#     - CVE-2023-6602
+#     - CVE-2023-6604
+#     - CVE-2023-6605
+#     - CVE-2025-0518
+#     - CVE-2025-1373
+#     - CVE-2025-1594
+#     - CVE-2025-1816
+#     - CVE-2025-22919
+#     - CVE-2025-22920
+#     - CVE-2025-25471
+#     - CVE-2025-59728
+#     - CVE-2025-59729
+#     - CVE-2025-59730
+#     - CVE-2025-59731
+#     - CVE-2025-59732
+#     - CVE-2025-59733
+#     - CVE-2025-59734
+#     - CVE-2025-59734
+#   7.1.1-r0:
+#     - CVE-2023-49501
+#     - CVE-2023-49502
+#     - CVE-2023-50007
+#     - CVE-2023-50008
+#     - CVE-2024-28661
+#     - CVE-2024-31578
+#     - CVE-2024-31582
+#     - CVE-2024-35367
+#     - CVE-2024-36617
+#     - CVE-2024-7055
+#     - CVE-2025-1594
+#     - CVE-2024-7055
+#     - CVE-2024-35368
+#     - CVE-2023-6602
+#     - CVE-2023-6604
+#     - CVE-2023-6605
+#     - CVE-2025-0518
+#     - CVE-2025-1816
+#     - CVE-2025-22919
+#   6.1-r0:
+#     - CVE-2023-47470
+#     - CVE-2023-46407
+#   6.0.1-r0:
+#     - CVE-2023-47342
+#   6.0-r0:
+#     - CVE-2022-3965
+#   5.1-r1:
+#     - ALPINE-14094
+#   4.4.1-r0:
+#     - CVE-2020-20446
+#     - CVE-2020-20453
+#     - CVE-2020-22015
+#     - CVE-2020-22019
+#     - CVE-2020-22021
+#     - CVE-2020-22037
+#     - CVE-2021-38114
+#     - CVE-2021-38171
+#     - CVE-2021-38291
+#   4.4-r1:
+#     - CVE-2021-33815
+#   4.4-r0:
+#     - CVE-2020-20450
+#     - CVE-2020-21041
+#     - CVE-2020-22038
+#     - CVE-2020-22042
+#     - CVE-2020-24020
+#     - CVE-2021-30123
+#   4.3.2-r0:
+#     - CVE-2020-35964
+#     - CVE-2020-35965
+#   4.3.1-r0:
+#     - CVE-2020-14212
+#   4.3-r0:
+#     - CVE-2020-13904
+#     - CVE-2020-12284
+#   4.2.1-r0:
+#     - CVE-2019-15942
+#   4.2-r0:
+#     - CVE-2019-17539
+#     - CVE-2019-17542
+#   4.1.4-r0:
+#     - CVE-2019-12730
+#   4.1.3-r0:
+#     - CVE-2019-9718
+#     - CVE-2019-9721
+#     - CVE-2019-11338
+#     - CVE-2019-11339
+#   4.1.1-r0:
+#     - CVE-2019-1000016
+#   4.1-r0:
+#     - CVE-2018-13305
+#     - CVE-2018-15822
+#   4.0.2-r0:
+#     - CVE-2018-13301
+#     - CVE-2018-13303
+#     - CVE-2018-13304
+#     - CVE-2018-1999010
+#     - CVE-2018-1999011
+#     - CVE-2018-1999012
+#     - CVE-2018-1999013
+#     - CVE-2018-1999014
+#     - CVE-2018-1999015
+#   4.0.1-r0:
+#     - CVE-2018-12459
+#     - CVE-2018-12460
+#   4.0.0-r0:
+#     - CVE-2018-6912
+#     - CVE-2018-7757
+#     - CVE-2018-9841
+#   3.4.4-r0:
+#     - CVE-2018-14395
+#   3.4.3-r0:
+#     - CVE-2018-7557
+#     - CVE-2018-7751
+#     - CVE-2018-10001
+#     - CVE-2018-12458
+#     - CVE-2018-13300
+#     - CVE-2018-13302
+#     - CVE-2018-14394
+#   3.3.4-r0:
+#     - CVE-2017-14054
+#     - CVE-2017-14055
+#     - CVE-2017-14056
+#     - CVE-2017-14057
+#     - CVE-2017-14058
+#     - CVE-2017-14059
+#     - CVE-2017-14169
+#     - CVE-2017-14170
+#     - CVE-2017-14171
+#     - CVE-2017-14222
+#     - CVE-2017-14223
+#     - CVE-2017-14225
+
+case "$CARCH" in
+x86|armhf|armv7)
+	;;
+*)
+	makedepends="$makedepends svt-av1-dev"
+	_svt_av1="--enable-libsvtav1"
+	;;
+esac
+
+case "$CARCH" in
+x86_64)
+	makedepends="$makedepends libvpl-dev"
+	_libvpl="--enable-libvpl"
+	;;
+esac
+
+build() {
+	case "$CARCH" in
+	x86) local asm="--disable-asm" ;;
+	esac
+
+	./configure \
+		--prefix=/usr \
+		--disable-librtmp \
+		--disable-lzma \
+		--disable-static \
+		--disable-stripping \
+		--enable-avfilter \
+		--enable-librubberband \
+		--enable-gpl \
+		--enable-ladspa \
+		--enable-libaom \
+		--enable-libass \
+		--enable-libbluray \
+		--enable-libdav1d \
+		--enable-libdrm \
+		--enable-libfontconfig \
+		--enable-libfreetype \
+		--enable-libfribidi \
+		--enable-libharfbuzz \
+		--enable-libjxl \
+		--enable-libmp3lame \
+		--enable-libopenmpt \
+		--enable-libopus \
+		--enable-libplacebo \
+		--enable-libpulse \
+		--enable-librav1e \
+		--enable-librist \
+		--enable-libsoxr \
+		--enable-libsrt \
+		--enable-libssh \
+		--enable-libtheora \
+		--enable-libv4l2 \
+		--enable-libvidstab \
+		--enable-libvorbis \
+		--enable-libvpx \
+		--enable-libwebp \
+		--enable-libx264 \
+		--enable-libx265 \
+		--enable-libxcb \
+		--enable-libxml2 \
+		--enable-libxvid \
+		--enable-libzimg \
+		--enable-libzmq \
+		--enable-lto=auto \
+		--enable-lv2 \
+		--enable-openssl \
+		--enable-pic \
+		--enable-pthreads \
+		--enable-shared \
+		--enable-vaapi \
+		--enable-vdpau \
+		--enable-version3 \
+		--enable-vulkan \
+		--optflags="-O3" \
+		$asm \
+		$_svt_av1 \
+		$_libvpl
+	make
+	${CC:-gcc} -o tools/qt-faststart $CFLAGS $LDFLAGS tools/qt-faststart.c
+}
+
+# https://ffmpeg.org/fate.html
+check() {
+	./configure \
+		--samples=fate-suite/
+	make fate-rsync
+	make fate-list
+	make fate
+}
+
+package() {
+	make DESTDIR="$pkgdir" install install-man
+	install -D -m755 tools/qt-faststart "$pkgdir/usr/bin/qt-faststart"
+}
+
+doc() {
+	default_doc
+
+	amove usr/share/ffmpeg/examples
+}
+
+libavcodec() {
+	pkgdesc="$pkgdesc (libavcodec library)"
+
+	amove usr/lib/libavcodec.so.*
+}
+
+libavdevice() {
+	pkgdesc="$pkgdesc (libavdevice library)"
+
+	amove usr/lib/libavdevice.so.*
+}
+
+libavfilter() {
+	pkgdesc="$pkgdesc (libavfilter library)"
+
+	amove usr/lib/libavfilter.so.*
+}
+
+libavformat() {
+	pkgdesc="$pkgdesc (libavformat library)"
+
+	amove usr/lib/libavformat.so.*
+}
+
+libavutil() {
+	pkgdesc="$pkgdesc (libavutil library)"
+
+	amove usr/lib/libavutil.so.*
+}
+
+libswresample() {
+	pkgdesc="$pkgdesc (libswresample library)"
+
+	amove usr/lib/libswresample.so.*
+}
+
+libswscale() {
+	pkgdesc="$pkgdesc (libswscale library)"
+
+	amove usr/lib/libswscale.so.*
+}
+
+libs() {
+	pkgdesc="compat hack for all ffmpeg libs"
+
+	mkdir -p "$subpkgdir"
+	depends="
+		$pkgname-libavcodec=$pkgver-r$pkgrel
+		$pkgname-libavdevice=$pkgver-r$pkgrel
+		$pkgname-libavfilter=$pkgver-r$pkgrel
+		$pkgname-libavformat=$pkgver-r$pkgrel
+		$pkgname-libavutil=$pkgver-r$pkgrel
+		$pkgname-libswresample=$pkgver-r$pkgrel
+		$pkgname-libswscale=$pkgver-r$pkgrel
+		"
+}
+
+ffplay() {
+	pkgdesc="$pkgdesc (example media player)"
+	amove usr/bin/ffplay
+}
+
+sha512sums="
+96f01fc3b881e208e8d35d858b2f60627f298b06103195e3e753b1c6429810d7a484d4daeebad6d0810172616383d103dfb5fcadc4512726c3719800d24a3fde  ffmpeg-8.0.tar.xz
+0c2284bc053c92478ce6e3665e03273cb93926534c6f927eb60e060c7770c68dca12724853adbcac03c4a58df81f2de938d54e82f43c7e789d345bed872ffc69  add-av_stream_get_first_dts-for-chromium.patch
+126efc5f80c2ccf2f87e38adae72e7c360c5c9ed515ddc1832c527e8f92de6529d5febaff20c900fc750a631353d4b96b183b9dfd6564c1cc07f5a08946b3150  0001-Revert-configure-rename-POSIX-ioctl-check.patch
+"

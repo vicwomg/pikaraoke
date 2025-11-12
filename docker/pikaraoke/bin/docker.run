@@ -1,0 +1,45 @@
+
+DEBUG=1
+#function GetPrefix (src)
+#The function follows symbolic links until it gets the address of a directory or file.
+#Allows you to create symbolic links in /usr/bin without breaking the prefix to program files.
+#parameter src - link or path  to a file or directory
+#returns the absolute path  to the directory where this file or directory is located.
+
+function GetPrefix {
+    SRC=$1
+    while [[ -L "${SRC}" ]]
+    do
+    SRC=$(readlink ${SRC})
+    done
+    echo $(dirname $(realpath $SRC))
+}
+
+#set prefix to parent dir
+PREFIX=$(dirname $(GetPrefix $0))
+
+#SET ENVIRONMENT VARIABLES like ${ARGS} ${ENV} ${VOLUMES} ${EXTRA} ${NAME} ${IMAGE}
+source ${PREFIX}/env
+
+[[ -n "$DEBUG" ]] && cat<<EOF
+PARAMETERS:
+Pefix:        ${PREFIX}
+Settings:     ${PREFIX}/env
+Docker image: ${IMAGE}
+Docker name:  ${NAME}
+Volumes:      ${VOLUMES} 
+Arguments:    ${ARGS}
+Environment:  ${ENV}
+Extra:        ${EXTRA} 
+
+#see docker image inspect ${IMAGE}
+#Work dir: /app
+#entrypoynt: poetry run pikaraoke
+#CMD -d /app/pikaraoke-songs/ --headless
+
+Runing now:
+/usr/bin/docker run ${ARGS} ${ENV} ${VOLUMES} ${EXTRA} --name ${NAME} ${IMAGE} $*
+EOF
+
+
+#/usr/bin/docker run ${ARGS} ${ENV} ${VOLUMES} ${EXTRA} --name ${NAME} ${IMAGE} $*

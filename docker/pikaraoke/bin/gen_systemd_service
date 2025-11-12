@@ -1,0 +1,61 @@
+#!/bin/bash
+
+function GetPrefix {
+    SRC=$1
+    while [[ -L "${SRC}" ]]
+    do
+    SRC=$(readlink ${SRC})
+    done
+    echo $(dirname $(realpath $SRC))
+}
+
+#set prefix to parent dir
+PREFIX=$(dirname $(GetPrefix $0))
+
+#SET ENVIRONMENT VARIABLES like ${PREFIX} ${DESCRIPTION} and so on...
+source ${PREFIX}/env
+
+#Custom dir for systemd service files is  /etc/systemd/system 
+#System dir for systemd service files is  /usr/lib/systemd/system
+DST=/etc/systemd/system
+SERVICE=${DST}/${NAME}.service
+
+
+echo This script create systemd service file ${SERVICE} to start docker from systemd.
+[[ -f "${SERVICE}" ]] && echo "Warning: systemd file exists!"
+echo "proceed? (or ctrl-c for exit)"
+read
+
+cat <<EOF > "${SERVICE}"
+[Unit]
+Description=${DESCRIPTION}
+After=docker.service
+Requires=docker.service
+
+[Service]
+ExecStart=${PREFIX}/bin/docker.run
+ExecStop=/bin/docker stop ${NAME}
+Restart=always
+RestartSec=10s
+Type=simple
+TimeoutStartSec=120
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+
+#Post exec
+
+#reload systemd daemon
+/usr/bin/systemctl daemon-reload
+
+# optional enable autostart 
+# /usr/bin/systemctl enable ${NAME}
+
+# optional start 
+# /usr/bin/systemctl start ${NAME}
+
+# optional enable and start 
+# /usr/bin/systemctl enable --now ${NAME}
