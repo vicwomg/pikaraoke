@@ -33,7 +33,7 @@ def upgrade_youtubedl(youtubedl_path):
     logging.info(output)
     if "You installed yt-dlp with pip or using the wheel from PyPi" in output:
         # allow pip to break system packages (probably required if installed without venv)
-        args = ["install", "--upgrade", "yt-dlp", "--break-system-packages"]
+        args = ["install", "--upgrade", "yt-dlp[default]", "--break-system-packages"]
         try:
             logging.info("Attempting youtube-dl upgrade via pip3...")
             output = (
