@@ -92,3 +92,12 @@ class YtDlpClient:
 
         cmd += [video_url]
         return cmd
+
+    def download_video(self, video_url, download_path, high_quality=False):
+        cmd = self.build_download_command(
+            video_url=video_url,
+            download_path=download_path,
+            high_quality=high_quality,
+        )
+        logging.debug("Youtube-dl command: " + " ".join(cmd))
+        return subprocess.call(cmd)
