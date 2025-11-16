@@ -8,6 +8,7 @@ import random
 import shutil
 import socket
 import subprocess
+import sys
 import time
 from pathlib import Path
 from queue import Queue
@@ -113,6 +114,7 @@ class Karaoke:
         additional_ytdl_args=None,
     ):
         logging.basicConfig(
+            stream=sys.stdout,
             format="[%(asctime)s] %(levelname)s: %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
             level=int(log_level),
