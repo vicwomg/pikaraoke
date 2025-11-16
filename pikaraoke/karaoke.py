@@ -369,16 +369,20 @@ class Karaoke:
         displayed_title = title if title else video_url
         # MSG: Message shown after the download is started
         self.log_and_send(_("Downloading video: %s" % displayed_title))
-        cmd = self.ytdl_client.build_download_command(
+
+        rc = self.ytdl_client.download_video(
             video_url=video_url,
             download_path=self.download_path,
             high_quality=self.high_quality,
         )
-        logging.debug("Youtube-dl command: " + " ".join(cmd))
-        rc = subprocess.call(cmd)
         if rc != 0:
             logging.error("Error code while downloading, retrying once...")
-            rc = subprocess.call(cmd)  # retry once. Seems like this can be flaky
+            rc = self.ytdl_client.download_video(
+                video_url=video_url,
+                download_path=self.download_path,
+                high_quality=self.high_quality,
+            )
+
         if rc == 0:
             if enqueue:
                 # MSG: Message shown after the download is completed and queued
