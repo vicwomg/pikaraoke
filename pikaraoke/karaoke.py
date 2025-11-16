@@ -30,13 +30,7 @@ from pikaraoke.lib.file_resolver import (
     is_transcoding_required,
 )
 from pikaraoke.lib.get_platform import get_os_version, get_platform, is_raspberry_pi
-from pikaraoke.lib.youtube_dl import (
-    build_ytdl_download_command,
-    get_youtube_id_from_url,
-    get_youtubedl_version,
-    upgrade_youtubedl,
-)
-
+from pikaraoke.lib.youtube_dl import YtDlpClient
 
 # Support function for reading  lines from ffmpeg stderr without blocking
 def enqueue_output(out, queue):
@@ -126,8 +120,18 @@ class Karaoke:
         self.ffmpeg_version = get_ffmpeg_version()
         self.is_transpose_enabled = is_transpose_enabled()
         self.supports_hardware_h264_encoding = supports_hardware_h264_encoding()
-        self.youtubedl_version = get_youtubedl_version(youtubedl_path)
         self.is_raspberry_pi = is_raspberry_pi()
+
+        # YoutubeDL client
+        self.youtubedl_path = youtubedl_path
+        self.youtubedl_proxy = youtubedl_proxy
+        self.additional_ytdl_args = additional_ytdl_args
+        self.ytdl_client = YtDlpClient(
+            youtubedl_path=self.youtubedl_path,
+            youtubedl_proxy=self.youtubedl_proxy,
+            additional_args=self.additional_ytdl_args,
+        )
+        self.youtubedl_version = self.ytdl_client.get_version()
 
         # Initialize variables
         self.config_file_path = config_file_path
@@ -297,7 +301,7 @@ class Karaoke:
 
     def upgrade_youtubedl(self):
         logging.info("Upgrading youtube-dl, current version: %s" % self.youtubedl_version)
-        self.youtubedl_version = upgrade_youtubedl(self.youtubedl_path)
+        self.youtubedl_version = self.ytdl_client.upgrade()
         logging.info("Done. Installed version: %s" % self.youtubedl_version)
 
     def generate_qr_code(self):
@@ -365,13 +369,10 @@ class Karaoke:
         displayed_title = title if title else video_url
         # MSG: Message shown after the download is started
         self.log_and_send(_("Downloading video: %s" % displayed_title))
-        cmd = build_ytdl_download_command(
-            self.youtubedl_path,
-            video_url,
-            self.download_path,
-            self.high_quality,
-            self.youtubedl_proxy,
-            self.additional_ytdl_args,
+        cmd = self.ytdl_client.build_download_command(
+            video_url=video_url,
+            download_path=self.download_path,
+            high_quality=self.high_quality,
         )
         logging.debug("Youtube-dl command: " + " ".join(cmd))
         rc = subprocess.call(cmd)
@@ -387,7 +388,7 @@ class Karaoke:
                 self.log_and_send(_("Downloaded: %s" % displayed_title), "success")
             self.get_available_songs()
             if enqueue:
-                y = get_youtube_id_from_url(video_url)
+                y = self.ytdl_client.get_youtube_id_from_url(video_url)
                 s = self.find_song_by_youtube_id(y)
                 if s:
                     self.enqueue(s, user, log_action=False)
