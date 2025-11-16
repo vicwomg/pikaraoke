@@ -8,6 +8,7 @@ from flask import current_app, request
 from flask_socketio import emit
 
 from pikaraoke.karaoke import Karaoke
+from pikaraoke.lib.on_screen_notification import OnScreenNotification
 
 
 def is_admin() -> bool:
@@ -32,6 +33,14 @@ def get_karaoke_instance() -> Karaoke:
         Karaoke: The Karaoke instance stored in the current app's configuration.
     """
     return current_app.k
+
+def get_notification_instance() -> OnScreenNotification:
+    """Get the current app's Karaoke instance
+    This function returns the Karaoke instance stored in the current app's configuration.
+    Returns:
+        Karaoke: The Karaoke instance stored in the current app's configuration.
+    """
+    return current_app.n
 
 
 def get_admin_password() -> str:

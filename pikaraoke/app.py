@@ -1,5 +1,7 @@
 from gevent import monkey
 
+from pikaraoke.lib.on_screen_notification import OnScreenNotification
+
 monkey.patch_all()
 
 import logging
@@ -14,7 +16,7 @@ from flask_socketio import SocketIO
 from pikaraoke import karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
-from pikaraoke.lib.current_app import get_karaoke_instance
+from pikaraoke.lib.current_app import get_karaoke_instance, get_notification_instance
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
 from pikaraoke.lib.get_platform import get_platform, has_js_runtime
@@ -111,11 +113,11 @@ def start_song():
 
 @socketio.on("clear_notification")
 def clear_notification():
-    k = get_karaoke_instance()
-    k.reset_now_playing_notification()
+    n = get_notification_instance()
+    n.clear()
 
 
-def poll_karaoke_state(k: karaoke.Karaoke):
+def poll_karaoke_state(k: karaoke.Karaoke, n: OnScreenNotification):
     curr_now_playing_hash = None
     curr_queue_hash = None
     curr_notification = None
@@ -132,7 +134,7 @@ def poll_karaoke_state(k: karaoke.Karaoke):
             curr_queue_hash = q_hash
             logging.debug(k.queue)
             socketio.emit("queue_update", namespace="/")
-        notification = k.now_playing_notification
+        notification = n.current_notification
         if notification != curr_notification:
             curr_notification = notification
             if notification:
@@ -160,6 +162,8 @@ def main():
         print("Creating download path: " + args.download_path)
         os.makedirs(args.download_path)
 
+    n = OnScreenNotification(hide_notifications=args.hide_notifications)
+
     # Configure karaoke process
     k = karaoke.Karaoke(
         port=args.port,
@@ -173,7 +177,7 @@ def main():
         complete_transcode_before_play=args.complete_transcode_before_play,
         buffer_size=args.buffer_size,
         hide_url=args.hide_url,
-        hide_notifications=args.hide_notifications,
+        notification_instance=n,
         hide_splash_screen=args.hide_splash_screen,
         high_quality=args.high_quality,
         logo_path=args.logo_path,
@@ -196,6 +200,7 @@ def main():
     # expose karaoke object to the flask app
     with app.app_context():
         app.k = k
+        app.n = n
 
     # expose shared configuration variables to the flask app
     app.config["ADMIN_PASSWORD"] = args.admin_password
@@ -227,7 +232,7 @@ def main():
         driver = None
 
     # Poll karaoke object for now playing updates
-    thread = threading.Thread(target=poll_karaoke_state, args=(k,))
+    thread = threading.Thread(target=poll_karaoke_state, args=(k,n))
     thread.daemon = True
     thread.start()
 
