@@ -1,15 +1,20 @@
 import logging
 import shlex
 import subprocess
+import threading
+
+from pikaraoke.lib.on_screen_notification import OnScreenNotification
 
 from pikaraoke.lib.get_platform import get_installed_js_runtime
 
 
 class YtDlpClient:
-    def __init__(self, youtubedl_path, youtubedl_proxy=None, additional_args=None):
+    def __init__(self, youtubedl_path, notification_instance: OnScreenNotification, youtubedl_proxy=None,
+                 additional_args=None):
         self.youtubedl_path = youtubedl_path
         self.youtubedl_proxy = youtubedl_proxy
         self.additional_args = additional_args
+        self.notification = notification_instance
 
     def get_version(self):
         return (
@@ -93,11 +98,39 @@ class YtDlpClient:
         cmd += [video_url]
         return cmd
 
-    def download_video(self, video_url, download_path, high_quality=False):
+    def download_video(self, video_url, download_path, high_quality=False, title=None):
+        displayed_title = title if title else video_url
+        # MSG: Message shown after the download is started
+        self.notification.log_and_send("Downloading video: %s" % displayed_title)
+
         cmd = self.build_download_command(
             video_url=video_url,
             download_path=download_path,
-            high_quality=high_quality,
+            high_quality=high_quality
         )
         logging.debug("Youtube-dl command: " + " ".join(cmd))
-        return subprocess.call(cmd)
+
+        rc = subprocess.call(cmd)
+        if rc != 0:
+            logging.error("Error code while downloading, retrying once...")
+            rc = subprocess.call(cmd)
+        if rc != 0:
+            # MSG: Message shown after the download process is completed but the song is not found
+            self.notification.log_and_send("Error downloading song: " + displayed_title, "danger")
+
+        return rc
+
+    def download_video_async(self, video_url, download_path, high_quality=False, title=None, on_complete=None):
+
+        def download_worker():
+            rc = self.download_video(
+                video_url=video_url,
+                download_path=download_path,
+                high_quality=high_quality,
+                title=title
+            )
+            if on_complete:
+                on_complete(rc == 0, video_url, title)
+
+        thread = threading.Thread(target=download_worker, daemon=True)
+        thread.start()

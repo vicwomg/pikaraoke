@@ -1,6 +1,4 @@
 import json
-import threading
-
 import flask_babel
 from flask import (
     Blueprint,
@@ -64,14 +62,12 @@ def download():
     user = d["song-added-by"]
     title = d["song-title"]
     if "queue" in d and d["queue"] == "on":
-        queue = True
+        enqueue = True
     else:
-        queue = False
+        enqueue = False
 
-    # download in the background since this can take a few minutes
-    t = threading.Thread(target=k.download_video, args=[song, queue, user, title])
-    t.daemon = True
-    t.start()
+    # Download in the background (threading is now handled by Karaoke.download_video)
+    k.download_video(song, enqueue=enqueue, user=user, title=title)
 
     displayed_title = title if title else song
     flash_message = (
@@ -80,7 +76,7 @@ def download():
         % displayed_title
     )
 
-    if queue:
+    if enqueue:
         # MSG: Message shown after starting a download that will be adding a song to the queue.
         flash_message += _("Song will be added to queue.")
     else:

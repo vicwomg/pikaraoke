@@ -130,6 +130,7 @@ class Karaoke:
             youtubedl_path=self.youtubedl_path,
             youtubedl_proxy=self.youtubedl_proxy,
             additional_args=self.additional_ytdl_args,
+            notification_instance=notification_instance
         )
         self.youtubedl_version = self.ytdl_client.get_version()
 
@@ -341,43 +342,37 @@ class Karaoke:
         return self.get_search_results(songTitle + " karaoke")
 
     def download_video(self, video_url, enqueue=False, user="Pikaraoke", title=None):
-        displayed_title = title if title else video_url
-        # MSG: Message shown after the download is started
-        self.notification.log_and_send(_("Downloading video: %s" % displayed_title))
+        def on_download_complete(success, url, display_title):
+            """Callback executed when download completes"""
+            displayed_title = display_title if display_title else url
 
-        rc = self.ytdl_client.download_video(
+            if success:
+                if enqueue:
+                    # MSG: Message shown after the download is completed and queued
+                    self.notification.log_and_send(_("Downloaded and queued: %s" % displayed_title), "success")
+                else:
+                    # MSG: Message shown after the download is completed but not queued
+                    self.notification.log_and_send(_("Downloaded: %s" % displayed_title), "success")
+
+                self.get_available_songs()
+
+                if enqueue:
+                    youtube_id = self.ytdl_client.get_youtube_id_from_url(url)
+                    song = self.find_song_by_youtube_id(youtube_id)
+                    if song:
+                        self.enqueue(song, user, log_action=False)
+                    else:
+                        # MSG: Message shown after the download is completed but the adding to queue fails
+                        self.notification.log_and_send(_("Error queueing song: ") + displayed_title, "danger")
+
+        # Initiate async download with callback
+        self.ytdl_client.download_video_async(
             video_url=video_url,
             download_path=self.download_path,
             high_quality=self.high_quality,
+            title=title,
+            on_complete=on_download_complete
         )
-        if rc != 0:
-            logging.error("Error code while downloading, retrying once...")
-            rc = self.ytdl_client.download_video(
-                video_url=video_url,
-                download_path=self.download_path,
-                high_quality=self.high_quality,
-            )
-
-        if rc == 0:
-            if enqueue:
-                # MSG: Message shown after the download is completed and queued
-                self.notification.log_and_send(_("Downloaded and queued: %s" % displayed_title), "success")
-            else:
-                # MSG: Message shown after the download is completed but not queued
-                self.notification.log_and_send(_("Downloaded: %s" % displayed_title), "success")
-            self.get_available_songs()
-            if enqueue:
-                y = self.ytdl_client.get_youtube_id_from_url(video_url)
-                s = self.find_song_by_youtube_id(y)
-                if s:
-                    self.enqueue(s, user, log_action=False)
-                else:
-                    # MSG: Message shown after the download is completed but the adding to queue fails
-                    self.notification.log_and_send(_("Error queueing song: ") + displayed_title, "danger")
-        else:
-            # MSG: Message shown after the download process is completed but the song is not found
-            self.notification.log_and_send(_("Error downloading song: ") + displayed_title, "danger")
-        return rc
 
     def get_available_songs(self):
         logging.info("Fetching available songs in: " + self.download_path)
