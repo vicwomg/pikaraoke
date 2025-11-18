@@ -2,8 +2,10 @@ import logging
 import shlex
 import subprocess
 import threading
+import queue
 
 from pikaraoke.lib.on_screen_notification import OnScreenNotification
+from flask_babel import _
 
 from pikaraoke.lib.get_platform import get_installed_js_runtime
 
@@ -15,6 +17,11 @@ class YtDlpClient:
         self.youtubedl_proxy = youtubedl_proxy
         self.additional_args = additional_args
         self.notification = notification_instance
+        self.download_queue = queue.Queue()
+        self.is_downloading = False
+        self.queue_worker_thread = None
+
+        self._start_queue_worker()
 
     def get_version(self):
         return (
@@ -98,10 +105,55 @@ class YtDlpClient:
         cmd += [video_url]
         return cmd
 
-    def download_video(self, video_url, download_path, high_quality=False, title=None):
+    def _start_queue_worker(self):
+        """Start the background worker thread that processes downloads from the queue."""
+        self.queue_worker_thread = threading.Thread(target=self._process_download_queue, daemon=True)
+        self.queue_worker_thread.start()
+
+    def _process_download_queue(self):
+        """Worker thread that processes downloads sequentially from the queue."""
+        while True:
+            try:
+                # This blocks until an item is available
+                download_task = self.download_queue.get(timeout=None)
+
+                if download_task is None:  # Sentinel value to stop the worker
+                    break
+
+                video_url, download_path, high_quality, title, on_complete = download_task
+                self.is_downloading = True
+
+                try:
+                    rc = self._download_video(
+                        video_url=video_url,
+                        download_path=download_path,
+                        high_quality=high_quality,
+                        title=title
+                    )
+
+                    if on_complete:
+                        on_complete(rc == 0, video_url, title)
+
+                finally:
+                    self.is_downloading = False
+
+                self.download_queue.task_done()
+
+            except queue.Empty:
+                # This shouldn't happen with timeout=None, but good practice
+                continue
+            except Exception as e:
+                logging.error(f"Error processing download from queue: {e}")
+                self.is_downloading = False
+                try:
+                    self.download_queue.task_done()
+                except ValueError:
+                    pass
+
+    def _download_video(self, video_url, download_path, high_quality=False, title=None):
         displayed_title = title if title else video_url
         # MSG: Message shown after the download is started
-        self.notification.log_and_send("Downloading video: %s" % displayed_title)
+        logging.info("Start downloading video from queue: %s" % displayed_title)
 
         cmd = self.build_download_command(
             video_url=video_url,
@@ -116,21 +168,32 @@ class YtDlpClient:
             rc = subprocess.call(cmd)
         if rc != 0:
             # MSG: Message shown after the download process is completed but the song is not found
-            self.notification.log_and_send("Error downloading song: " + displayed_title, "danger")
+            self.notification.log_and_send(_("Error downloading song: ") + displayed_title, "danger")
 
         return rc
 
     def download_video_async(self, video_url, download_path, high_quality=False, title=None, on_complete=None):
 
-        def download_worker():
-            rc = self.download_video(
-                video_url=video_url,
-                download_path=download_path,
-                high_quality=high_quality,
-                title=title
-            )
-            if on_complete:
-                on_complete(rc == 0, video_url, title)
+        """Queue a video for downloading. Downloads happen sequentially."""
+        download_task = (video_url, download_path, high_quality, title, on_complete)
+        self.download_queue.put(download_task)
 
-        thread = threading.Thread(target=download_worker, daemon=True)
-        thread.start()
+        displayed_title = title if title else video_url
+        # MSG: Message shown when video is added to download queue
+        self.notification.log_and_send(_("Downloading video: %s" % displayed_title))
+
+    def get_queue_status(self):
+        """Return the number of videos waiting in the download queue."""
+        return {
+            "queued": self.download_queue.qsize(),
+            "is_downloading": self.is_downloading
+        }
+
+    def clear_queue(self):
+        """Clear all pending downloads from the queue."""
+        while not self.download_queue.empty():
+            try:
+                self.download_queue.get_nowait()
+                self.download_queue.task_done()
+            except queue.Empty:
+                break
