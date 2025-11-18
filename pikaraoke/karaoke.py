@@ -8,6 +8,7 @@ import random
 import shutil
 import socket
 import subprocess
+import sys
 import time
 from pathlib import Path
 from queue import Queue
@@ -29,13 +30,8 @@ from pikaraoke.lib.file_resolver import (
     is_transcoding_required,
 )
 from pikaraoke.lib.get_platform import get_os_version, get_platform, is_raspberry_pi
-from pikaraoke.lib.youtube_dl import (
-    build_ytdl_download_command,
-    get_youtube_id_from_url,
-    get_youtubedl_version,
-    upgrade_youtubedl,
-)
-
+from pikaraoke.lib.on_screen_notification import OnScreenNotification
+from pikaraoke.lib.youtube_dl import YtDlpClient
 
 # Support function for reading  lines from ffmpeg stderr without blocking
 def enqueue_output(out, queue):
@@ -55,7 +51,6 @@ class Karaoke:
     now_playing_transpose = 0
     now_playing_duration = None
     now_playing_url = None
-    now_playing_notification = None
     is_paused = True
     volume = None
 
@@ -84,7 +79,7 @@ class Karaoke:
         port=5555,
         download_path="/usr/lib/pikaraoke/songs",
         hide_url=False,
-        hide_notifications=False,
+        notification_instance:OnScreenNotification=None,
         hide_splash_screen=False,
         high_quality=False,
         volume=0.85,
@@ -113,6 +108,7 @@ class Karaoke:
         additional_ytdl_args=None,
     ):
         logging.basicConfig(
+            stream=sys.stdout,
             format="[%(asctime)s] %(levelname)s: %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
             level=int(log_level),
@@ -124,16 +120,26 @@ class Karaoke:
         self.ffmpeg_version = get_ffmpeg_version()
         self.is_transpose_enabled = is_transpose_enabled()
         self.supports_hardware_h264_encoding = supports_hardware_h264_encoding()
-        self.youtubedl_version = get_youtubedl_version(youtubedl_path)
         self.is_raspberry_pi = is_raspberry_pi()
+
+        # YoutubeDL client
+        self.youtubedl_path = youtubedl_path
+        self.youtubedl_proxy = youtubedl_proxy
+        self.additional_ytdl_args = additional_ytdl_args
+        self.ytdl_client = YtDlpClient(
+            youtubedl_path=self.youtubedl_path,
+            youtubedl_proxy=self.youtubedl_proxy,
+            additional_args=self.additional_ytdl_args,
+            notification_instance=notification_instance
+        )
+        self.youtubedl_version = self.ytdl_client.get_version()
+
+        self.notification=notification_instance
 
         # Initialize variables
         self.config_file_path = config_file_path
         self.port = port
         self.hide_url = self.get_user_preference("hide_url") or hide_url
-        self.hide_notifications = (
-            self.get_user_preference("hide_notifications") or hide_notifications
-        )
         self.hide_splash_screen = hide_splash_screen
         self.download_path = download_path
         self.high_quality = self.get_user_preference("high_quality") or high_quality
@@ -295,7 +301,7 @@ class Karaoke:
 
     def upgrade_youtubedl(self):
         logging.info("Upgrading youtube-dl, current version: %s" % self.youtubedl_version)
-        self.youtubedl_version = upgrade_youtubedl(self.youtubedl_path)
+        self.youtubedl_version = self.ytdl_client.upgrade()
         logging.info("Done. Installed version: %s" % self.youtubedl_version)
 
     def generate_qr_code(self):
@@ -335,67 +341,40 @@ class Karaoke:
     def get_karaoke_search_results(self, songTitle):
         return self.get_search_results(songTitle + " karaoke")
 
-    def send_notification(self, message, color="primary"):
-        # Color should be bulma compatible: primary, warning, success, danger
-        if not self.hide_notifications:
-            # don't allow new messages to clobber existing commands, one message at a time
-            # other commands have a higher priority
-            if self.now_playing_notification != None:
-                return
-            self.now_playing_notification = message + "::is-" + color
-
-    def log_and_send(self, message, category="info"):
-        # Category should be one of: info, success, warning, danger
-        if category == "success":
-            logging.info(message)
-            self.send_notification(message, "success")
-        elif category == "warning":
-            logging.warning(message)
-            self.send_notification(message, "warning")
-        elif category == "danger":
-            logging.error(message)
-            self.send_notification(message, "danger")
-        else:
-            logging.info(message)
-            self.send_notification(message, "primary")
-
     def download_video(self, video_url, enqueue=False, user="Pikaraoke", title=None):
-        displayed_title = title if title else video_url
-        # MSG: Message shown after the download is started
-        self.log_and_send(_("Downloading video: %s" % displayed_title))
-        cmd = build_ytdl_download_command(
-            self.youtubedl_path,
-            video_url,
-            self.download_path,
-            self.high_quality,
-            self.youtubedl_proxy,
-            self.additional_ytdl_args,
+        # Initiate async download with callback
+        self.ytdl_client.download_video_async(
+            video_url=video_url,
+            download_path=self.download_path,
+            high_quality=self.high_quality,
+            title=title,
+            on_complete=lambda success, url, display_title: self._on_download_complete(
+                success, url, display_title, enqueue, user
+            )
         )
-        logging.debug("Youtube-dl command: " + " ".join(cmd))
-        rc = subprocess.call(cmd)
-        if rc != 0:
-            logging.error("Error code while downloading, retrying once...")
-            rc = subprocess.call(cmd)  # retry once. Seems like this can be flaky
-        if rc == 0:
+
+    def _on_download_complete(self, success, url, display_title, enqueue, user):
+        """Callback executed when download completes"""
+        displayed_title = display_title if display_title else url
+
+        if success:
             if enqueue:
                 # MSG: Message shown after the download is completed and queued
-                self.log_and_send(_("Downloaded and queued: %s" % displayed_title), "success")
+                self.notification.log_and_send(_("Downloaded and queued: %s" % displayed_title), "success")
             else:
                 # MSG: Message shown after the download is completed but not queued
-                self.log_and_send(_("Downloaded: %s" % displayed_title), "success")
+                self.notification.log_and_send(_("Downloaded: %s" % displayed_title), "success")
+
             self.get_available_songs()
+
             if enqueue:
-                y = get_youtube_id_from_url(video_url)
-                s = self.find_song_by_youtube_id(y)
-                if s:
-                    self.enqueue(s, user, log_action=False)
+                youtube_id = self.ytdl_client.get_youtube_id_from_url(url)
+                song = self.find_song_by_youtube_id(youtube_id)
+                if song:
+                    self.enqueue(song, user, log_action=False)
                 else:
                     # MSG: Message shown after the download is completed but the adding to queue fails
-                    self.log_and_send(_("Error queueing song: ") + displayed_title, "danger")
-        else:
-            # MSG: Message shown after the download process is completed but the song is not found
-            self.log_and_send(_("Error downloading song: ") + displayed_title, "danger")
-        return rc
+                    self.notification.log_and_send(_("Error queueing song: ") + displayed_title, "danger")
 
     def get_available_songs(self):
         logging.info("Fetching available songs in: " + self.download_path)
@@ -602,7 +581,7 @@ class Karaoke:
             logging.info(f"Reason: {reason}")
             if reason != "complete":
                 # MSG: Message shown when the song ends abnormally
-                self.send_notification(_("Song ended abnormally: %s") % reason, "danger")
+                self.notification.send(_("Song ended abnormally: %s") % reason, "danger")
         self.reset_now_playing()
         self.kill_ffmpeg()
         delete_tmp_dir()
@@ -610,7 +589,7 @@ class Karaoke:
 
     def transpose_current(self, semitones):
         # MSG: Message shown after the song is transposed, first is the semitones and then the song name
-        self.log_and_send(_("Transposing by %s semitones: %s") % (semitones, self.now_playing))
+        self.notification.log_and_send(_("Transposing by %s semitones: %s") % (semitones, self.now_playing))
         # Insert the same song at the top of the queue with transposition
         self.enqueue(self.now_playing_filename, self.now_playing_user, semitones, True)
         self.skip(log_action=False)
@@ -655,12 +634,12 @@ class Karaoke:
             }
             if add_to_front:
                 # MSG: Message shown after the song is added to the top of the queue
-                self.log_and_send(_("%s added to top of queue: %s") % (user, queue_item["title"]))
+                self.notification.log_and_send(_("%s added to top of queue: %s") % (user, queue_item["title"]))
                 self.queue.insert(0, queue_item)
             else:
                 if log_action:
                     # MSG: Message shown after the song is added to the queue
-                    self.log_and_send(_("%s added to the queue: %s") % (user, queue_item["title"]))
+                    self.notification.log_and_send(_("%s added to the queue: %s") % (user, queue_item["title"]))
                 self.queue.append(queue_item)
             self.update_queue_hash()
             self.update_now_playing_hash()
@@ -688,7 +667,7 @@ class Karaoke:
 
     def queue_clear(self):
         # MSG: Message shown after the queue is cleared
-        self.log_and_send(_("Clear queue"), "danger")
+        self.notification.log_and_send(_("Clear queue"), "danger")
         self.queue = []
         self.update_queue_hash()
         self.update_now_playing_hash()
@@ -737,7 +716,7 @@ class Karaoke:
         if self.is_file_playing():
             if log_action:
                 # MSG: Message shown after the song is skipped, will be followed by song name
-                self.log_and_send(_("Skip: %s") % self.now_playing)
+                self.notification.log_and_send(_("Skip: %s") % self.now_playing)
             self.end_song()
             return True
         else:
@@ -748,10 +727,10 @@ class Karaoke:
         if self.is_file_playing():
             if self.is_paused:
                 # MSG: Message shown after the song is resumed, will be followed by song name
-                self.log_and_send(_("Resume: %s") % self.now_playing)
+                self.notification.log_and_send(_("Resume: %s") % self.now_playing)
             else:
                 # MSG: Message shown after the song is paused, will be followed by song name
-                self.log_and_send(_("Pause") + f": {self.now_playing}")
+                self.notification.log_and_send(_("Pause") + f": {self.now_playing}")
             self.is_paused = not self.is_paused
             self.update_now_playing_hash()
             return True
@@ -762,7 +741,7 @@ class Karaoke:
     def volume_change(self, vol_level):
         self.volume = vol_level
         # MSG: Message shown after the volume is changed, will be followed by the volume level
-        self.log_and_send(_("Volume: %s") % (int(self.volume * 100)))
+        self.notification.log_and_send(_("Volume: %s") % (int(self.volume * 100)))
         self.update_now_playing_hash()
         return True
 
@@ -796,9 +775,6 @@ class Karaoke:
 
     def handle_run_loop(self):
         time.sleep(self.loop_interval / 1000)
-
-    def reset_now_playing_notification(self):
-        self.now_playing_notification = None
 
     def reset_now_playing(self):
         self.now_playing = None
