@@ -46,7 +46,7 @@ Pikaraoke is independently developed and maintained. If you want to support this
 
 ### Requirements
 
-- Python 3.9 or greater (You can check your current version by running `python --version`): [Python downloads](https://www.python.org/downloads/)
+- Python 3.10 or greater (You can check your current version by running `python --version`): [Python downloads](https://www.python.org/downloads/)
 - FFmpeg: [FFmpeg downloads](https://ffmpeg.org/download.html)
 - Chrome browser (recommended, though Safari and Firefox will work with the `--complete-transcode-before-play` option)
 
