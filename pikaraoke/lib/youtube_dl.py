@@ -2,6 +2,8 @@ import logging
 import shlex
 import subprocess
 
+from pikaraoke.lib.get_platform import get_installed_js_runtime
+
 
 def get_youtubedl_version(youtubedl_path):
     return subprocess.check_output([youtubedl_path, "--version"]).strip().decode("utf8")
@@ -68,6 +70,10 @@ def build_ytdl_download_command(
         else "mp4"
     )
     cmd = [youtubedl_path, "-f", file_quality, "-o", dl_path, "-S", "vcodec:h264"]
+    preferred_js_runtime = get_installed_js_runtime()
+    if preferred_js_runtime and preferred_js_runtime != "deno":
+        # Deno is automatically assumed by yt-dlp, and does not need specification here
+        cmd += ["--js-runtimes", preferred_js_runtime]
     if youtubedl_proxy:
         cmd += ["--proxy", youtubedl_proxy]
     if additional_args:
