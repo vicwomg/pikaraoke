@@ -89,48 +89,21 @@ def stream_bg_video():
 # subtitle .ass
 @stream_bp.route("/subtitle/<id>")
 def stream_subtitle(id):
-    k = get_karaoke_instance()
-    
-    # 1. Recria o caminho do arquivo .mp4 transcodificado
-    # O PiKaraoke associa o ID do stream ao arquivo MP4 na pasta temp
-    file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
-    
-    # 2. Re-resolve o FileResolver para obter o caminho do arquivo .ass original
+    k = get_karaoke_instance()    
+    file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")    
     try:
-        # Nota: O FileResolver armazena o caminho do arquivo original,
-        # mas o PiKaraoke precisa do caminho do arquivo original para re-resolver o .ass.
-        # Infelizmente, o ID do stream (fr.stream_uid) é baseado no caminho do arquivo original.
-        # Para ser 100% correto, você precisaria armazenar o caminho do arquivo original 
-        # junto com o UID, mas isso não está disponível no 'k' (Karaoke instance) diretamente.
-        
-        # SOLUÇÃO DE CONTORNO (PiKaraoke):
-        # A maneira mais limpa seria: k.now_playing_filename (o caminho completo do arquivo original)
-        # Se você está servindo o .ass, assume-se que o arquivo original ainda está em uso.
-        
-        # **Assumindo que o k.now_playing_filename corresponde ao ID do stream:**
-        original_file_path = k.now_playing_filename 
-        
-        # Verifica se o arquivo é o correto antes de tentar resolver
-        if original_file_path and k.now_playing_url and id in k.now_playing_url:
-            
-            # Re-resolve o FileResolver para garantir que o ass_file_path seja carregado
+        original_file_path = k.now_playing_filename         
+        if original_file_path and k.now_playing_url and id in k.now_playing_url:            
             fr = FileResolver(original_file_path)
-            ass_file_path = fr.ass_file_path
-            
+            ass_file_path = fr.ass_file_path            
             if ass_file_path and os.path.exists(ass_file_path):
-                # 3. Retorna o arquivo .ass com o mimetype correto
-                # O SubtitlesOctopus lê arquivos ASS como texto
                 return send_file(
                     ass_file_path,
                     mimetype="text/plain", 
                     as_attachment=False,
                     download_name=os.path.basename(ass_file_path)
-                )
-        
+                )        
     except Exception as e:
-        # MSG: Mensagem de erro caso a resolução do arquivo falhe
         k.log_and_send(_(f"Failed to stream subtitle: {e}"), "danger")
-        return Response("Subtitle streaming error.", status=500)
-        
-    # Retorno padrão se a legenda não foi encontrada ou não está definida
+        return Response("Subtitle streaming error.", status=500)        
     return Response("Subtitle file not found for this stream ID.", status=404)

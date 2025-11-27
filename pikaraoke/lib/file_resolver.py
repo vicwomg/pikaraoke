@@ -116,10 +116,9 @@ class FileResolver:
             self.handle_zipped_cdg(file_path)
         elif file_extension == ".mp3":
             self.handle_mp3_cdg(file_path)
-        elif file_extension == ".mp4" or file_extension == ".webm": # <-- Altere esta linha
-            # Se for MP4/WebM, defina o path e tente encontrar o .ass
+        elif file_extension == ".mp4" or file_extension == ".webm":            
             self.file_path = file_path
-            self.handle_mp4_ass(file_path) # Tenta encontrar o .ass e armazena em self.ass_file_path
+            self.handle_mp4_ass(file_path)
         else:
             self.file_path = file_path
         self.duration = get_media_duration(self.file_path)

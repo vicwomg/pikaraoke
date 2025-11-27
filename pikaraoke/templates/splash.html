@@ -284,25 +284,21 @@
 
     const video = getVideoPlayer();
 
-    // =================================================================
-    // NOVO: LÓGICA DE CONTROLE DO SUBTITLESOCTOPUS
-    // =================================================================
+    // SUBTITLESOCTOPUS
     const subtitleUrl = np.now_playing_subtitle_url;        
 
-    // 1. Limpeza: Destrói a instância anterior, se existir (para evitar que legendas antigas persistam)
     if (octopusInstance) {
         octopusInstance.dispose(); 
         octopusInstance = null;
     }
 
-    // 2. Inicialização: Se houver URL de legenda
+    // if have .ass subtitle
     if (subtitleUrl && video) {  
 
         var options = {
                     video: video,
-                    subUrl: '{{ url_for("static", filename="bucky_op1.ass") }}',
+                    subUrl: subtitleUrl,
                     fonts: ['{{ url_for("static", filename="fonts/Arial.ttf") }}' ],
-                    //onReady: onReadyFunction,
                     debug: true,
                     workerUrl: '{{ url_for("static", filename="js/subtitles-octopus-worker.js") }}'
         };        
@@ -315,7 +311,6 @@
             console.error('Error initializing SubtitlesOctopus:', e);
         }
     }
-    // =================================================================
 
     // Start playback if a valid now_playing_url is provided
     if (

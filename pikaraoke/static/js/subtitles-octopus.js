@@ -1460,7 +1460,7 @@ var SubtitlesOctopus = function (options) {
             self.canvas.height = height;
 
             if (videoSize != null) {
-                self.canvasParent.style.position = 'relative';
+                self.canvasParent.style.position = 'fixed';
                 self.canvas.style.display = 'block';
                 self.canvas.style.position = 'absolute';
                 self.canvas.style.width = videoSize.width + 'px';
