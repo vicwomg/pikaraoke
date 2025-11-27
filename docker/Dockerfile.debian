@@ -1,0 +1,37 @@
+ARG IMAGE=python:3.12-slim-bullseye
+
+# Use bullseye over bookworm for better image size and ffmpeg compatibility
+FROM ${IMAGE} AS build
+
+# Install required packages
+RUN apt-get update --allow-releaseinfo-change && \
+    apt-get install -y --no-install-recommends ffmpeg wireless-tools && \
+    pip install poetry && poetry config virtualenvs.in-project true && \
+    apt-get clean
+
+WORKDIR /app
+
+# Copy minimum required files into the image
+COPY pyproject.toml ./
+COPY docs ./docs
+
+# Only install main dependencies for better docker caching
+RUN poetry install --only main --no-root
+
+# Copy the rest of the files and install the remaining deps in a separate layer
+COPY pikaraoke ./pikaraoke
+RUN poetry install
+
+FROM ${IMAGE}
+
+RUN apt-get update --allow-releaseinfo-change && \
+    apt-get install -y --no-install-recommends ffmpeg wireless-tools && \
+    pip install poetry && poetry config virtualenvs.in-project true && \
+    apt-get clean
+    
+WORKDIR /app
+
+COPY --from=build /app /app
+
+ENTRYPOINT ["poetry", "run", "pikaraoke"]
+CMD ["-d", "/app/pikaraoke-songs/", "--headless"]

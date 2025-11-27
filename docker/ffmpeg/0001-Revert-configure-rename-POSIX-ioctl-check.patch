@@ -1,0 +1,58 @@
+From 1467cb424d5db46a985afc4cc6ad970cddd62eb8 Mon Sep 17 00:00:00 2001
+From: Achill Gilgenast <achill@achill.org>
+Date: Sat, 6 Sep 2025 23:51:00 +0200
+Subject: [PATCH] Revert "configure: rename POSIX ioctl check"
+
+This reverts commit 5fea5e3e11d6ff425db48f44489916399822aece.
+
+Signed-off-by: Achill Gilgenast <achill@achill.org>
+---
+ configure          | 4 ++--
+ libavdevice/v4l2.c | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/configure b/configure
+index 732de592926a..1895f95e925a 100755
+--- a/configure
++++ b/configure
+@@ -2538,7 +2538,6 @@ HAVE_LIST="
+     $TOOLCHAIN_FEATURES
+     $TYPES_LIST
+     gzip
+-    ioctl_posix
+     libdrm_getfb2
+     makeinfo
+     makeinfo_html
+@@ -2551,6 +2550,7 @@ HAVE_LIST="
+     opencl_videotoolbox
+     perl
+     pod2man
++    posix_ioctl
+     texi2html
+     xmllint
+     zlib_gzip
+@@ -7351,7 +7351,7 @@ xmllint --version  > /dev/null 2>&1 && enable xmllint   || disable xmllint
+ check_headers linux/fb.h
+ check_headers linux/videodev2.h
+ test_code cc linux/videodev2.h "struct v4l2_frmsizeenum vfse; vfse.discrete.width = 0;" && enable_sanitized struct_v4l2_frmivalenum_discrete
+-test_code cc sys/ioctl.h "int ioctl(int, int, ...)" && enable ioctl_posix
++test_code cc sys/ioctl.h "int ioctl(int, int, ...)" && enable posix_ioctl
+ 
+ # check V4L2 codecs available in the API
+ if enabled v4l2_m2m; then
+diff --git a/libavdevice/v4l2.c b/libavdevice/v4l2.c
+index c38ecbb37804..0ae68723382f 100644
+--- a/libavdevice/v4l2.c
++++ b/libavdevice/v4l2.c
+@@ -111,7 +111,7 @@ struct video_data {
+     int (*open_f)(const char *file, int oflag, ...);
+     int (*close_f)(int fd);
+     int (*dup_f)(int fd);
+-#if HAVE_IOCTL_POSIX
++#if HAVE_POSIX_IOCTL
+     int (*ioctl_f)(int fd, int request, ...);
+ #else
+     int (*ioctl_f)(int fd, unsigned long int request, ...);
+-- 
+2.51.0
+
