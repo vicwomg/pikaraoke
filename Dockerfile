@@ -1,10 +1,10 @@
-# Use bullseye over bookworm for better image size and ffmpeg compatibility
-FROM python:3.12-slim-bullseye
+FROM python:3.12-slim
 
 # Install required packages
 RUN apt-get update --allow-releaseinfo-change && \
-    apt-get install -y --no-install-recommends ffmpeg wireless-tools && \
+    apt-get install -y --no-install-recommends ffmpeg wireless-tools curl unzip && \
     apt-get clean && \
+    curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh -s -- -y && \
     pip install poetry && \
     rm -rf /var/lib/apt/lists/*
 
