@@ -1095,7 +1095,7 @@ msgstr "Isso foi... alguma coisa."
 #. Score review message
 #: templates/splash.html:73
 msgid "Congratulations! That was unbelievable!"
-msgstr ""
+msgstr "Parabéns! Isso foi incrível!"
 
 #. Score review message
 #: templates/splash.html:74
@@ -1152,7 +1152,4 @@ msgstr ""
 #: templates/splash.html:642
 msgid "Confirm"
 msgstr "Confirmar"
-
-#~ msgid "Parabéns! Isso foi inacreditável!"
-#~ msgstr ""
 
