@@ -60,6 +60,10 @@ sudo apt-get install chromium-chromedriver -y
 
 Chromium/Chromdriver is optional if you're running with the `--headless` option.
 
+#### Windows
+
+You may want to try the install script by @lvmasterrj: https://github.com/lvmasterrj/win-pikaraoke-installer
+
 ### Install pikaraoke via pip
 
 Globally or within a virtual env:
