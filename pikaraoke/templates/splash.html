@@ -420,6 +420,13 @@
       }
     });
 
+	 //close menu iframe clicking outside
+	 $('#menu-background').click(function () {
+		if (showMenu) {
+			$(".navbar-burger").click();
+		}
+	 });
+
     if (isFirefox || isSafari) {
       let modalContents = document.getElementById("permissions-modal-content");
       let warningMessage = document.createElement("p");
@@ -660,9 +667,12 @@
     <span aria-hidden="true"></span>
   </a>
 </div>
-<div id="menu-container" class="">
-  <iframe src="/"></iframe>
-</div>
+
+  <div id="menu-background" class="overlay"></div>
+   <div id="menu-container" class="">
+     <iframe src="/"></iframe>
+   </div>
+
 
 <!-- Notification code -->
 <div
@@ -778,6 +788,15 @@
     height: 100vh;
     align-items: center;
     justify-content: center;
+  }
+  #menu-background {
+    bottom: 0;
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+	 width: 100vw;
+	 height: 100vh;
   }
   #menu {
     position: absolute;
