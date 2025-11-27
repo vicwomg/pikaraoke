@@ -1,6 +1,7 @@
 import io
 import os
 import platform
+import shutil
 import sys
 
 
@@ -16,6 +17,23 @@ def is_raspberry_pi():
 
 def is_android():
     return os.path.exists("/system/app/") and os.path.exists("/system/priv-app")
+
+
+def get_installed_js_runtime():
+    # prioritize deno and node
+    if shutil.which("deno") is not None:
+        return "deno"
+    if shutil.which("node") is not None:
+        return "node"
+    if shutil.which("bun") is not None:
+        return "bun"
+    if shutil.which("quickjs") is not None:
+        return "quickjs"
+    return None
+
+
+def has_js_runtime():
+    return get_installed_js_runtime() is not None
 
 
 def get_platform():
