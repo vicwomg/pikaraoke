@@ -31,7 +31,7 @@ def info():
 
     # cpu
     try:
-        cpu = str(psutil.cpu_percent()) + "%"
+        cpu = str(psutil.cpu_percent(interval=1)) + "%"
     except:
         cpu = _("CPU usage query unsupported")
 
