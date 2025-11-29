@@ -559,12 +559,11 @@ class Karaoke:
                     break
                 transcode_max_retries -= 1
                 time.sleep(0.05)
-        
+
         subtitle_url = None
-        if fr.ass_file_path:            
+        if fr.ass_file_path:
             subtitle_url = f"/subtitle/{fr.stream_uid}"
             logging.debug(f"Subtitle file found: {fr.ass_file_path}. URL: {subtitle_url}")
-
 
         # Check if the stream is ready to play. Determined by:
         # - completed transcoding
@@ -575,8 +574,8 @@ class Karaoke:
             self.now_playing_filename = file_path
             self.now_playing_transpose = semitones
             self.now_playing_duration = fr.duration
-            self.now_playing_url = stream_url_path            
-            self.now_playing_subtitle_url = subtitle_url 
+            self.now_playing_url = stream_url_path
+            self.now_playing_subtitle_url = subtitle_url
             self.now_playing_user = self.queue[0]["user"]
             self.is_paused = False
             self.queue.pop(0)

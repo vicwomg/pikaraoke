@@ -57,17 +57,17 @@ class FileResolver:
         self.stream_uid = string_to_hash(file_path)
         self.output_file = f"{self.tmp_dir}/{self.stream_uid}.mp4"
 
-    def handle_mp4_ass(self, file_path):        
-        base_name = os.path.splitext(os.path.basename(file_path))[0]        
+    def handle_mp4_ass(self, file_path):
+        base_name = os.path.splitext(os.path.basename(file_path))[0]
         pattern = base_name + ".ass"
-        rule = re.compile(re.escape(pattern), re.IGNORECASE)        
-        directory = os.path.dirname(file_path)                
+        rule = re.compile(re.escape(pattern), re.IGNORECASE)
+        directory = os.path.dirname(file_path)
         for filename in os.listdir(directory):
             if rule.match(filename):
                 self.file_path = file_path
                 self.ass_file_path = os.path.join(directory, filename)
                 return True
-                                        
+
         return False
 
     # Extract zipped cdg + mp3 files into a temporary directory, and set the paths to both files.
@@ -116,7 +116,7 @@ class FileResolver:
             self.handle_zipped_cdg(file_path)
         elif file_extension == ".mp3":
             self.handle_mp3_cdg(file_path)
-        elif file_extension == ".mp4" or file_extension == ".webm":            
+        elif file_extension == ".mp4" or file_extension == ".webm":
             self.file_path = file_path
             self.handle_mp4_ass(file_path)
         else:

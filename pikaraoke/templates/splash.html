@@ -8,7 +8,7 @@
   href="{{  url_for('static', filename='score.css') }}"
 />
 <script src="{{ url_for('static', filename='js/subtitles-octopus.js') }}"></script>
-<script>  
+<script>
   const isMediaPlaying = (media) =>
     !!(
       media.currentTime > 0 &&
@@ -285,15 +285,15 @@
     const video = getVideoPlayer();
 
     // SUBTITLESOCTOPUS
-    const subtitleUrl = np.now_playing_subtitle_url;        
+    const subtitleUrl = np.now_playing_subtitle_url;
 
     if (octopusInstance) {
-        octopusInstance.dispose(); 
+        octopusInstance.dispose();
         octopusInstance = null;
     }
 
     // if have .ass subtitle
-    if (subtitleUrl && video) {  
+    if (subtitleUrl && video) {
 
         var options = {
                     video: video,
@@ -301,12 +301,12 @@
                     fonts: ['{{ url_for("static", filename="fonts/Arial.ttf") }}' ],
                     debug: true,
                     workerUrl: '{{ url_for("static", filename="js/subtitles-octopus-worker.js") }}'
-        };        
+        };
         try {
-            octopusInstance = new SubtitlesOctopus(options); 
+            octopusInstance = new SubtitlesOctopus(options);
             octopusInstance.width = 800;
             octopusInstance.height = 600;
-            console.log('SubtitlesOctopus initialized for:', octopusInstance);            
+            console.log('SubtitlesOctopus initialized for:', octopusInstance);
         } catch (e) {
             console.error('Error initializing SubtitlesOctopus:', e);
         }

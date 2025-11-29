@@ -1,10 +1,10 @@
 // # The following lists all copyright notices and licenses for the
 // # work contained in JavascriptSubtitlesOctopus per project.
-// 
+//
 // # Project: subtitlesoctopus
 // License: Expat
 // Copyright: 2017-2021 JavascriptSubtitlesOctopus contributors
-// 
+//
 // # Project: brotli
 // License: Expat
 // Copyright: 2014 Google Inc.
@@ -16,7 +16,7 @@
 //   2013 Google Inc.
 //   2009, 2010, 2013-2016 by the Brotli Authors
 //   2010 Google Inc.
-// 
+//
 // # Project: expat
 // License: Expat
 // Copyright: 2019 Zhongyuan Zhou <zhouzhongyuan@huawei.com>
@@ -105,7 +105,7 @@
 //   2016 Thomas Beutlich <tc@tbeu.de>
 //   2000-2006 Fred L. Drake, Jr. <fdrake@users.sourceforge.net>
 //   2019 Vadim Zeitlin <vadim@zeitlins.org>
-// 
+//
 // # Project: freetype
 // License: FTL
 // Copyright: 2009-2013 Adobe Systems Incorporated.
@@ -178,13 +178,13 @@
 //   2005-2022 David Turner, Robert Wilhelm, and Werner Lemberg.
 //   1995-2019 Mark Adler
 //   2004-2022 suzuki toshiya, Masatake YAMATO, Red Hat K.K.,
-// 
+//
 // License: public-domain
 // Copyright: 2001 Alexander Peslyak and it is hereby released to the
-// 
+//
 // License: Zlib
 // Copyright: 1995-2022 Jean-loup Gailly and Mark Adler
-// 
+//
 // License: Expat
 // Copyright: 2001-2004 Francesco Zappa Nardelli
 //   2000-2001, 2004 Francesco Zappa Nardelli
@@ -201,10 +201,10 @@
 //   2000-2001, 2003 Francesco Zappa Nardelli
 //   2000-2004, 2006-2011, 2013-2014 Francesco Zappa Nardelli
 //   2000-2010, 2012-2014 Francesco Zappa Nardelli
-// 
+//
 // License: BSL-1.0
 // Copyright: 2019 nyorain
-// 
+//
 // # Project: fribidi
 // License: LGPL-2.1+
 // Copyright: 1999-2000, 2017 Dov Grobgeld
@@ -220,7 +220,7 @@
 //   2001 Behdad Esfahbod.
 //   2001-2002 Behdad Esfahbod
 //   2004 Sharif FarsiWeb, Inc
-// 
+//
 // # Project: fontconfig
 // License: NTP~disclaimer
 // Copyright: 2002 Keith Packard
@@ -251,12 +251,12 @@
 //   2010 Behdad Esfahbod
 //   2013 Google, Inc.
 //   2013 Akira TAGOH
-// 
+//
 // License: MIT~old
 // Copyright: 2009-2010 Red Hat, Inc.
 //   2011-2013 Google, Inc.
 //   2007 Chris Wilson
-// 
+//
 // License: public-domain
 // Copyright: 2008,2009 Red Hat, Inc.
 //   2009 Roozbeh Pournader
@@ -264,15 +264,15 @@
 //   2008 Danilo Šegan
 //   2005 Patrick Lam
 //   2000-2007 Keith Packard
-// 
+//
 // License: Expat
 // Copyright: 2002-2003 Juliusz Chroboczek
-// 
+//
 // # Project: harfbuzz
 // License: NTP~disclaimer
 // Copyright: 2002 Keith Packard
 //   2014 Google, Inc.
-// 
+//
 // License: MIT~old
 // Copyright: 2004, 2007, 2009 Red Hat, Inc.
 //   2012 Mozilla Foundation.
@@ -301,16 +301,16 @@
 //   2015-2019 Ebrahim Byagowi
 //   2016 Google, Inc.
 //   2011 Google, Inc.
-// 
+//
 // # Project: libass
 // License: public-domain
 // Copyright: 2006-2016 libass contributors
-// 
+//
 // License: NTP
 // Copyright: 1994 Sun Microsystems, Inc.
 //   2016 Oleg Oshmyan <chortos@inbox.lv>
 //   1988-1993 The Regents of the University of California.
-// 
+//
 // License: ISC
 // Copyright: 2015 Oleg Oshmyan <chortos@inbox.lv>
 //   2011-2014 Yu Zhuohuang <yuzhuohuang@qq.com>
@@ -330,7 +330,7 @@
 //   2015 Grigori Goronzy <greg@kinoho.net>
 //   2006 Evgeniy Stepanov <eugeni.stepanov@gmail.com>
 //   2009 Grigori Goronzy <greg@geekmind.org>
-// 
+//
 // # The following section contains the full license text or
 // # where permitted a shorter notice for all works contained
 // # in JavascriptSubtitlesOctopus listed above
@@ -343,7 +343,7 @@
 // #   MIT~old        | MIT-Modern-Variant
 // #   Expat          | MIT
 // #   NTP~disclaimer | (None; it is NTP with a more verbose warranty disclaimer)
-// 
+//
 // License: Expat
 //   Permission is  hereby granted,  free of charge,  to any  person obtaining
 //   a  copy  of  this  software   and  associated  documentation  files  (the
@@ -363,13 +363,13 @@
 //   DAMAGES OR  OTHER LIABILITY, WHETHER  IN AN  ACTION OF CONTRACT,  TORT OR
 //   OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 //   USE OR OTHER DEALINGS IN THE SOFTWARE.
-// 
+//
 // License: FTL
 //   Portions of this software are copyright © 2021 The FreeType
 //   Project (www.freetype.org).  All rights reserved.
 //   A copy of the FreeType License can be obtained at
 //   https://gitlab.freedesktop.org/freetype/freetype/-/blob/master/docs/FTL.TXT
-// 
+//
 // License: ISC
 //   Permission to use, copy, modify, and/or distribute this software for any
 //   purpose with or without fee is hereby granted, provided that the above
@@ -382,7 +382,7 @@
 //   WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 //   ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 //   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-// 
+//
 // License: MIT~old
 //   Permission is hereby granted, without written agreement and without
 //   license or royalty fees, to use, copy, modify, and distribute this
@@ -401,7 +401,7 @@
 //   FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
 //   ON AN "AS IS" BASIS, AND THE COPYRIGHT HOLDER HAS NO OBLIGATION TO
 //   PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS
-// 
+//
 // License: NTP
 //   Permission to use, copy, modify, and distribute this
 //   software and its documentation for any purpose and without
@@ -410,7 +410,7 @@
 //   makes no representations about the suitability of this
 //   software for any purpose.  It is provided "as is" without
 //   express or implied warranty.
-// 
+//
 // License: NTP~disclaimer
 //   Permission to use, copy, modify, distribute, and sell this software and its
 //   documentation for any purpose is hereby granted without fee, provided that
@@ -429,7 +429,7 @@
 //   DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 //   TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 //   PERFORMANCE OF THIS SOFTWARE.
-// 
+//
 // License: Zlib
 //   This software is provided 'as-is', without any express or implied
 //   warranty.  In no event will the authors be held liable for any damages
@@ -446,7 +446,7 @@
 //   2. Altered source versions must be plainly marked as such, and must not be
 //      misrepresented as being the original software.
 //   3. This notice may not be removed or altered from any source distribution.
-// 
+//
 // License: BSL-1
 //   Boost Software License - Version 1.0 - August 17th, 2003
 //   .
@@ -471,7 +471,7 @@
 //   FOR ANY DAMAGES OR OTHER LIABILITY, WHETHER IN CONTRACT, TORT OR OTHERWISE,
 //   ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 //   DEALINGS IN THE SOFTWARE.
-// 
+//
 // License: LGPL-2.1
 //             GNU LESSER GENERAL PUBLIC LICENSE
 //                  Version 2.1, February 1999
@@ -621,7 +621,7 @@
 //   on the Library (independent of the use of the Library in a tool for
 //   writing it).  Whether that is true depends on what the Library does
 //   and what the program that uses the Library does.
-//     
+//
 //     1. You may copy and distribute verbatim copies of the Library's
 //   complete source code as you receive it, in any medium, provided that
 //   you conspicuously and appropriately publish on each copy an
@@ -1655,7 +1655,7 @@ var SubtitlesOctopus = function (options) {
             style: style
         });
     };
-    
+
     self.getStyles = function (onSuccess, onError) {
         self.fetchFromWorker({
             target: 'get-styles'
