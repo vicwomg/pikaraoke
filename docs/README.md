@@ -46,9 +46,10 @@ Pikaraoke is independently developed and maintained. If you want to support this
 
 ### Requirements
 
-- Python 3.9 or greater (You can check your current version by running `python --version`): [Python downloads](https://www.python.org/downloads/)
+- Python 3.10 or greater (You can check your current version by running `python --version`): [Python downloads](https://www.python.org/downloads/)
 - FFmpeg: [FFmpeg downloads](https://ffmpeg.org/download.html)
 - Chrome browser (recommended, though Safari and Firefox will work with the `--complete-transcode-before-play` option)
+- A js runtime installed to your PATH (such as Node, Deno, Bun, QuickJS), this is a requirement as of yt-dlp 2025.11.12 otherwise some downloads may not work: https://github.com/yt-dlp/yt-dlp/wiki/EJS . Deno is probably easiest: https://deno.com/
 
 #### Specific install instructions for Raspberry Pi OS / Linux distros with `apt`:
 
@@ -56,9 +57,14 @@ Pikaraoke is independently developed and maintained. If you want to support this
 sudo apt-get install ffmpeg -y
 sudo apt-get install chromium-browser -y
 sudo apt-get install chromium-chromedriver -y
+sudo curl -fsSL https://deno.land/x/install/install.sh | sh
 ```
 
 Chromium/Chromdriver is optional if you're running with the `--headless` option.
+
+#### Windows
+
+You may want to try the install script by @lvmasterrj: https://github.com/lvmasterrj/win-pikaraoke-installer
 
 ### Install pikaraoke via pip
 

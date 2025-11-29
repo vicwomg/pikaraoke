@@ -17,7 +17,7 @@ from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
-from pikaraoke.lib.get_platform import get_platform
+from pikaraoke.lib.get_platform import get_platform, has_js_runtime
 from pikaraoke.lib.selenium import launch_splash_screen
 from pikaraoke.routes.admin import admin_bp
 from pikaraoke.routes.background_music import background_music_bp
@@ -149,6 +149,11 @@ def main():
             "ffmpeg is not installed, which is required to run PiKaraoke. See: https://www.ffmpeg.org/"
         )
         sys.exit(1)
+
+    if not has_js_runtime():
+        logging.warning(
+            "No js runtime is installed (such as Deno, Bun, Node.js, or QuickJS). This is required to run yt-dlp. Some downloads may not work. See: https://github.com/yt-dlp/yt-dlp/wiki/EJS"
+        )
 
     # setup/create download directory if necessary
     if not os.path.exists(args.download_path):

@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.14.1](https://github.com/vicwomg/pikaraoke/compare/1.14.0...1.14.1) (2025-11-27)
+
+
+### Bug Fixes
+
+* Update yt-dlp to 2025.11.12, add js runtime support ([#541](https://github.com/vicwomg/pikaraoke/issues/541)) ([#553](https://github.com/vicwomg/pikaraoke/issues/553)) ([127c22b](https://github.com/vicwomg/pikaraoke/commit/127c22be12e6db1fc03e338773d07bd2be995585))
+
+
+### Documentation
+
+* recommend [@lvmasterrj](https://github.com/lvmasterrj) windows install script ([d5bcab7](https://github.com/vicwomg/pikaraoke/commit/d5bcab79e4d754b1d65fcafa0b9cd77418c29f2b))
+
 ## [1.14.0](https://github.com/vicwomg/pikaraoke/compare/1.13.0...1.14.0) (2025-11-11)
 
 ### Features
