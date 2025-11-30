@@ -1,4 +1,5 @@
 import json
+
 import flask_babel
 from flask import (
     Blueprint,

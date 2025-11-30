@@ -7,8 +7,9 @@ from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.current_app import (
     get_admin_password,
     get_karaoke_instance,
+    get_notification_instance,
     get_site_name,
-    is_admin, get_notification_instance,
+    is_admin,
 )
 from pikaraoke.lib.get_platform import get_platform
 

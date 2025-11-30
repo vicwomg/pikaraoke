@@ -34,6 +34,7 @@ def get_karaoke_instance() -> Karaoke:
     """
     return current_app.k
 
+
 def get_notification_instance() -> OnScreenNotification:
     """Get the current app's Karaoke instance
     This function returns the Karaoke instance stored in the current app's configuration.

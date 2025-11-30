@@ -17,7 +17,12 @@ from flask import (
 )
 
 from pikaraoke.karaoke import Karaoke
-from pikaraoke.lib.current_app import get_admin_password, get_karaoke_instance, is_admin, get_notification_instance
+from pikaraoke.lib.current_app import (
+    get_admin_password,
+    get_karaoke_instance,
+    get_notification_instance,
+    is_admin,
+)
 
 _ = flask_babel.gettext
 

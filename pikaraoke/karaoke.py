@@ -33,6 +33,7 @@ from pikaraoke.lib.get_platform import get_os_version, get_platform, is_raspberr
 from pikaraoke.lib.on_screen_notification import OnScreenNotification
 from pikaraoke.lib.youtube_dl import YtDlpClient
 
+
 # Support function for reading  lines from ffmpeg stderr without blocking
 def enqueue_output(out, queue):
     for line in iter(out.readline, b""):
@@ -79,7 +80,7 @@ class Karaoke:
         port=5555,
         download_path="/usr/lib/pikaraoke/songs",
         hide_url=False,
-        notification_instance:OnScreenNotification=None,
+        notification_instance: OnScreenNotification = None,
         hide_splash_screen=False,
         high_quality=False,
         volume=0.85,
@@ -130,11 +131,11 @@ class Karaoke:
             youtubedl_path=self.youtubedl_path,
             youtubedl_proxy=self.youtubedl_proxy,
             additional_args=self.additional_ytdl_args,
-            notification_instance=notification_instance
+            notification_instance=notification_instance,
         )
         self.youtubedl_version = self.ytdl_client.get_version()
 
-        self.notification=notification_instance
+        self.notification = notification_instance
 
         # Initialize variables
         self.config_file_path = config_file_path
@@ -350,7 +351,7 @@ class Karaoke:
             title=title,
             on_complete=lambda success, url, display_title: self._on_download_complete(
                 success, url, display_title, enqueue, user
-            )
+            ),
         )
 
     def _on_download_complete(self, success, url, display_title, enqueue, user):
@@ -360,7 +361,9 @@ class Karaoke:
         if success:
             if enqueue:
                 # MSG: Message shown after the download is completed and queued
-                self.notification.log_and_send(_("Downloaded and queued: %s" % displayed_title), "success")
+                self.notification.log_and_send(
+                    _("Downloaded and queued: %s" % displayed_title), "success"
+                )
             else:
                 # MSG: Message shown after the download is completed but not queued
                 self.notification.log_and_send(_("Downloaded: %s" % displayed_title), "success")
@@ -374,7 +377,9 @@ class Karaoke:
                     self.enqueue(song, user, log_action=False)
                 else:
                     # MSG: Message shown after the download is completed but the adding to queue fails
-                    self.notification.log_and_send(_("Error queueing song: ") + displayed_title, "danger")
+                    self.notification.log_and_send(
+                        _("Error queueing song: ") + displayed_title, "danger"
+                    )
 
     def get_available_songs(self):
         logging.info("Fetching available songs in: " + self.download_path)
@@ -589,7 +594,9 @@ class Karaoke:
 
     def transpose_current(self, semitones):
         # MSG: Message shown after the song is transposed, first is the semitones and then the song name
-        self.notification.log_and_send(_("Transposing by %s semitones: %s") % (semitones, self.now_playing))
+        self.notification.log_and_send(
+            _("Transposing by %s semitones: %s") % (semitones, self.now_playing)
+        )
         # Insert the same song at the top of the queue with transposition
         self.enqueue(self.now_playing_filename, self.now_playing_user, semitones, True)
         self.skip(log_action=False)
@@ -634,12 +641,16 @@ class Karaoke:
             }
             if add_to_front:
                 # MSG: Message shown after the song is added to the top of the queue
-                self.notification.log_and_send(_("%s added to top of queue: %s") % (user, queue_item["title"]))
+                self.notification.log_and_send(
+                    _("%s added to top of queue: %s") % (user, queue_item["title"])
+                )
                 self.queue.insert(0, queue_item)
             else:
                 if log_action:
                     # MSG: Message shown after the song is added to the queue
-                    self.notification.log_and_send(_("%s added to the queue: %s") % (user, queue_item["title"]))
+                    self.notification.log_and_send(
+                        _("%s added to the queue: %s") % (user, queue_item["title"])
+                    )
                 self.queue.append(queue_item)
             self.update_queue_hash()
             self.update_now_playing_hash()

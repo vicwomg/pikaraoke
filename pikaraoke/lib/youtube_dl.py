@@ -1,18 +1,23 @@
 import logging
+import queue
 import shlex
 import subprocess
 import threading
-import queue
 
-from pikaraoke.lib.on_screen_notification import OnScreenNotification
 from flask_babel import _
 
 from pikaraoke.lib.get_platform import get_installed_js_runtime
+from pikaraoke.lib.on_screen_notification import OnScreenNotification
 
 
 class YtDlpClient:
-    def __init__(self, youtubedl_path, notification_instance: OnScreenNotification, youtubedl_proxy=None,
-                 additional_args=None):
+    def __init__(
+        self,
+        youtubedl_path,
+        notification_instance: OnScreenNotification,
+        youtubedl_proxy=None,
+        additional_args=None,
+    ):
         self.youtubedl_path = youtubedl_path
         self.youtubedl_proxy = youtubedl_proxy
         self.additional_args = additional_args
@@ -24,11 +29,7 @@ class YtDlpClient:
         self._start_queue_worker()
 
     def get_version(self):
-        return (
-            subprocess.check_output([self.youtubedl_path, "--version"])
-            .strip()
-            .decode("utf8")
-        )
+        return subprocess.check_output([self.youtubedl_path, "--version"]).strip().decode("utf8")
 
     @staticmethod
     def get_youtube_id_from_url(url):
@@ -38,7 +39,7 @@ class YtDlpClient:
             s = url.split("u.be/")
         if len(s) == 2:
             if "?" in s[1]:  # Strip uneeded Youtube Params
-                s[1] = s[1][0: s[1].index("?")]
+                s[1] = s[1][0 : s[1].index("?")]
             return s[1]
         else:
             logging.error("Error parsing youtube id from url: " + url)
@@ -47,9 +48,7 @@ class YtDlpClient:
     def upgrade(self):
         try:
             output = (
-                subprocess.check_output(
-                    [self.youtubedl_path, "-U"], stderr=subprocess.STDOUT
-                )
+                subprocess.check_output([self.youtubedl_path, "-U"], stderr=subprocess.STDOUT)
                 .decode("utf8")
                 .strip()
             )
@@ -75,19 +74,22 @@ class YtDlpClient:
                 )
         return self.get_version()
 
-    def build_download_command(
-            self,
-            video_url,
-            download_path,
-            high_quality=False
-    ):
+    def build_download_command(self, video_url, download_path, high_quality=False):
         dl_path = download_path + "%(title)s---%(id)s.%(ext)s"
         file_quality = (
             "bestvideo[ext!=webm][height<=1080]+bestaudio[ext!=webm]/best[ext!=webm]"
             if high_quality
             else "mp4"
         )
-        cmd = [self.youtubedl_path, "-f", file_quality, "-o", dl_path, "-S", "vcodec:h264", ]
+        cmd = [
+            self.youtubedl_path,
+            "-f",
+            file_quality,
+            "-o",
+            dl_path,
+            "-S",
+            "vcodec:h264",
+        ]
 
         preferred_js_runtime = get_installed_js_runtime()
         if preferred_js_runtime and preferred_js_runtime != "deno":
@@ -107,7 +109,9 @@ class YtDlpClient:
 
     def _start_queue_worker(self):
         """Start the background worker thread that processes downloads from the queue."""
-        self.queue_worker_thread = threading.Thread(target=self._process_download_queue, daemon=True)
+        self.queue_worker_thread = threading.Thread(
+            target=self._process_download_queue, daemon=True
+        )
         self.queue_worker_thread.start()
 
     def _process_download_queue(self):
@@ -128,7 +132,7 @@ class YtDlpClient:
                         video_url=video_url,
                         download_path=download_path,
                         high_quality=high_quality,
-                        title=title
+                        title=title,
                     )
 
                     if on_complete:
@@ -156,9 +160,7 @@ class YtDlpClient:
         logging.info("Start downloading video from queue: %s" % displayed_title)
 
         cmd = self.build_download_command(
-            video_url=video_url,
-            download_path=download_path,
-            high_quality=high_quality
+            video_url=video_url, download_path=download_path, high_quality=high_quality
         )
         logging.debug("Youtube-dl command: " + " ".join(cmd))
 
@@ -168,12 +170,15 @@ class YtDlpClient:
             rc = subprocess.call(cmd)
         if rc != 0:
             # MSG: Message shown after the download process is completed but the song is not found
-            self.notification.log_and_send(_("Error downloading song: ") + displayed_title, "danger")
+            self.notification.log_and_send(
+                _("Error downloading song: ") + displayed_title, "danger"
+            )
 
         return rc
 
-    def download_video_async(self, video_url, download_path, high_quality=False, title=None, on_complete=None):
-
+    def download_video_async(
+        self, video_url, download_path, high_quality=False, title=None, on_complete=None
+    ):
         """Queue a video for downloading. Downloads happen sequentially."""
         download_task = (video_url, download_path, high_quality, title, on_complete)
         self.download_queue.put(download_task)
@@ -184,10 +189,7 @@ class YtDlpClient:
 
     def get_queue_status(self):
         """Return the number of videos waiting in the download queue."""
-        return {
-            "queued": self.download_queue.qsize(),
-            "is_downloading": self.is_downloading
-        }
+        return {"queued": self.download_queue.qsize(), "is_downloading": self.is_downloading}
 
     def clear_queue(self):
         """Clear all pending downloads from the queue."""

@@ -232,7 +232,7 @@ def main():
         driver = None
 
     # Poll karaoke object for now playing updates
-    thread = threading.Thread(target=poll_karaoke_state, args=(k,n))
+    thread = threading.Thread(target=poll_karaoke_state, args=(k, n))
     thread.daemon = True
     thread.start()
 
