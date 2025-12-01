@@ -100,24 +100,24 @@ hr {
    BUTTONS
    =================================== */
 .button {
-	transition: all 200ms ease;
+	/* transition: all 200ms ease;
 	border-width: 2px;
 	color: var(--dark-text-primary);
 	background-color: var(--dark-bg-secondary);
-	border-color: var(--dark-border);
+	border-color: var(--dark-border); */
 }
 
 .button:hover {
-	border-color: var(--dark-border-light);
-	color: var(--dark-text-secondary);
+	/* border-color: var(--dark-border-light);
+	color: var(--dark-text-secondary); */
 }
 
 .button:focus,
 .button.is-focused,
 .button:active,
 .button.is-active {
-	box-shadow: 0 0 0 2px rgba(140, 155, 157, 0.5);
-	border-color: var(--dark-border-light);
+	/* box-shadow: 0 0 0 2px rgba(140, 155, 157, 0.5);
+	border-color: var(--dark-border-light); */
 }
 
 /* Colored buttons */
@@ -159,7 +159,7 @@ hr {
 
 .button.is-danger {
 	/* background-color: var(--dark-danger); */
-	border-color: transparent;
+	/* border-color: transparent; */
 }
 
 /* ===================================
