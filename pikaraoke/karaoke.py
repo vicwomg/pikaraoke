@@ -55,6 +55,7 @@ class Karaoke:
     now_playing_transpose = 0
     now_playing_duration = None
     now_playing_url = None
+    now_playing_subtitle_url = None
     now_playing_notification = None
     is_paused = True
     volume = None
@@ -559,6 +560,11 @@ class Karaoke:
                 transcode_max_retries -= 1
                 time.sleep(0.05)
 
+        subtitle_url = None
+        if fr.ass_file_path:
+            subtitle_url = f"/subtitle/{fr.stream_uid}"
+            logging.debug(f"Subtitle file found: {fr.ass_file_path}. URL: {subtitle_url}")
+
         # Check if the stream is ready to play. Determined by:
         # - completed transcoding
         # - buffered file size being greater than a threshold
@@ -569,6 +575,7 @@ class Karaoke:
             self.now_playing_transpose = semitones
             self.now_playing_duration = fr.duration
             self.now_playing_url = stream_url_path
+            self.now_playing_subtitle_url = subtitle_url
             self.now_playing_user = self.queue[0]["user"]
             self.is_paused = False
             self.queue.pop(0)
@@ -819,6 +826,7 @@ class Karaoke:
             "now_playing_duration": self.now_playing_duration,
             "now_playing_transpose": self.now_playing_transpose,
             "now_playing_url": self.now_playing_url,
+            "now_playing_subtitle_url": self.now_playing_subtitle_url,
             "up_next": self.queue[0]["title"] if len(self.queue) > 0 else None,
             "next_user": self.queue[0]["user"] if len(self.queue) > 0 else None,
             "is_paused": self.is_paused,
