@@ -131,6 +131,10 @@ hr {
 	background-color: #436d9a;
 }
 
+.button.is-primary[disabled] {
+	background-color: #3e5b7a;
+}
+
 .button.is-link {
 	background-color: var(--dark-link);
 	border-color: transparent;
@@ -196,6 +200,13 @@ hr {
 
 .select:not(.is-multiple):not(.is-loading)::after {
 	border-color: var(--dark-link);
+}
+
+.checkbox {
+	accent-color: hsl(141, 71%, 48%);
+	margin-right: 8px;
+	min-width: 20px;
+	min-height: 20px;
 }
 
 /* ===================================
@@ -382,20 +393,20 @@ hr {
    MESSAGES
    =================================== */
 .message {
-	background-color: var(--dark-bg-secondary);
-	border-radius: 0.4em;
+	/* background-color: var(--dark-bg-secondary);
+	border-radius: 0.4em; */
 }
 
 .message-header {
-	background-color: var(--dark-bg-tertiary);
+	/* background-color: var(--dark-bg-tertiary);
 	color: var(--dark-text-primary);
-	font-weight: 700;
+	font-weight: 700; */
 }
 
 .message-body {
-	border-width: 2px;
+	/* border-width: 2px;
 	border-color: var(--dark-bg-tertiary);
-	color: var(--dark-text-primary);
+	color: var(--dark-text-primary); */
 }
 
 /* ===================================
