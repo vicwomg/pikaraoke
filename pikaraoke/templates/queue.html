@@ -137,16 +137,23 @@
 </table>
 
 {% if admin %}
-<a class="add-random has-text-success" href="#"
-  {# MSG: Button text which picks a given number of random songs from the already downloaded songs and adds them to the queue. #}
-  ><i class="icon icon-plus-circled"></i></a
->{% trans %}Add <input id="randomNumberInput" pattern="\d*" maxlength="2" value="3" min="1" max="99" style="width: 40px" /> random songs{% endtrans %}
-<a
-  class="confirm-clear has-text-danger is-pulled-right"
-  href="/queue/edit?action=clear"
-  {# MSG: Text for the button which clears the entire queue. #}
-  ><i class="icon icon-trash-empty"></i>{% trans %}Clear all{% endtrans %}</a
-><br />
+<div class="is-flex is-justify-content-space-between is-align-items-center mb-3">
+	<div class="is-flex is-align-items-center">
+		<a class="add-random has-text-success" href="#"
+			{# MSG: Button text which picks a given number of random songs from the already downloaded songs and adds them to the queue. #}
+			><i class="icon icon-plus-circled is-size-5 mr-1"></i></a>
+			{% trans %}Add <input id="randomNumberInput" class="input mx-1" pattern="\d*" maxlength="2" value="3" min="1" max="99" style="width: 40px" /> random songs{% endtrans %}
+	</div>
+
+	<div>
+		<a
+		class="button is-danger is-outlined confirm-clear"
+		href="/queue/edit?action=clear"
+		{# MSG: Text for the button which clears the entire queue. #}
+		><i class="icon icon-trash-empty mr-1"></i>{% trans %}Clear all{% endtrans %}</a>
+	</div>
+</div>
+
 
 {% endif %}
 
