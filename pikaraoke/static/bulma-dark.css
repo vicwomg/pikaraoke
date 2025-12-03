@@ -40,7 +40,7 @@
    =================================== */
 html {
 	background-color: var(--dark-bg-primary);
-	font-size: 15px;
+	/* font-size: 15px; */
 }
 
 body {
@@ -84,7 +84,7 @@ a:hover {
 code {
 	background-color: var(--dark-bg-secondary);
 	color: var(--dark-danger);
-	padding: 0.25em 0.5em;
+	/* padding: 0.25em 0.5em; */
 }
 
 pre {
@@ -168,10 +168,10 @@ hr {
 .input,
 .textarea,
 .select select {
-	transition: all 200ms ease;
+	/* transition: all 200ms ease; */
 	background-color: #fff;
 	border-color: var(--dark-border);
-	border-width: 2px;
+	/* border-width: 2px; */
 	color: var(--dark-bg-secondary);
 }
 
