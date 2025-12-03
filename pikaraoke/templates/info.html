@@ -272,7 +272,7 @@
 						<label class="label" for="pref-normalize">{# MSG: Checkbox label which enable/disables audio volume normalization #} {% trans %}Normalize audio volume{% endtrans %}
 						</label>
 					</div>
-			
+
 					<div class="user-preference-container">
 					<input id="pref-high-quality" type="checkbox" class="user-preference-checkbox checkbox" data-pref="high_quality" {% if high_quality == "True"  %}checked{% endif %}>
 					<label class="label" for="pref-high-quality">{# MSG: Checkbox label which enable/disables high quality video downloads #} {% trans %}Download high quality videos{% endtrans %}
@@ -346,7 +346,7 @@
 
 			<header class="card-header py-3 px-5">
 				{# MSG: Label for the YT-DLP update on the updates section #}
-				<h3 class="title mb-0">{% trans %}YT-DLP update{% endtrans %}</h3>	
+				<h3 class="title mb-0">{% trans %}YT-DLP update{% endtrans %}</h3>
 			</header>
 			<div class="card-content">
 				<div class="content">
@@ -391,7 +391,7 @@
 						{% if is_pi or is_linux %}
 							{# MSG: Text for button which reboots the machine running Pikaraoke. #}
 							<a id="restart-link" class="button is-primary" href="{{ url_for('admin.reboot') }}">{% trans %}Reboot System{% endtrans %}</a>
-							
+
 							{# MSG: Text for button which turn soff the machine running Pikaraoke. #}
 							<a id="shutdown-link" class="button is-primary" href="{{ url_for('admin.shutdown') }}">{% trans %}Shutdown System{% endtrans %}</a>
 						{% endif %}
@@ -425,7 +425,7 @@
 					</div>
 				</div>
 			</div>
-			
+
 		{% endif %}
 
 		{% if admin_password != none %}
@@ -450,9 +450,9 @@
 				</div>
 			</div>
 
-			
+
 		{% endif %}
-		
+
 	{% else %} {# from if admin #}
 		{# MSG: Title of the admin section. #}
 		<h1>{% trans %}Admin{% endtrans %}</h1>
