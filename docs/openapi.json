@@ -1,0 +1,879 @@
+{
+    "info": {
+        "version": "1.0.0",
+        "title": "PiKaraoke API",
+        "description": "API for controlling PiKaraoke - a KTV-style karaoke system",
+        "termsOfService": ""
+    },
+    "paths": {
+        "/": {
+            "get": {
+                "summary": "Home page with now playing info and controls.",
+                "responses": {
+                    "200": {
+                        "description": "HTML home page"
+                    }
+                },
+                "tags": [
+                    "Pages"
+                ]
+            }
+        },
+        "/stream/{id}": {
+            "get": {
+                "summary": "Stream transcoded video in chunks (Chrome compatible).",
+                "responses": {
+                    "200": {
+                        "description": "Chunked video stream"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "type": "string",
+                        "required": true,
+                        "description": "Video stream ID"
+                    }
+                ],
+                "tags": [
+                    "Stream"
+                ],
+                "produces": [
+                    "video/mp4"
+                ]
+            }
+        },
+        "/stream/full/{id}": {
+            "get": {
+                "summary": "Stream video with range headers (Safari compatible).",
+                "responses": {
+                    "200": {
+                        "description": "Full video file"
+                    },
+                    "206": {
+                        "description": "Partial video content (range request)"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "type": "string",
+                        "required": true,
+                        "description": "Video stream ID"
+                    }
+                ],
+                "tags": [
+                    "Stream"
+                ],
+                "produces": [
+                    "video/mp4"
+                ]
+            }
+        },
+        "/stream/bg_video": {
+            "get": {
+                "summary": "Stream the background video file.",
+                "responses": {
+                    "200": {
+                        "description": "Background video file"
+                    },
+                    "404": {
+                        "description": "Background video not configured"
+                    }
+                },
+                "tags": [
+                    "Stream"
+                ],
+                "produces": [
+                    "video/mp4"
+                ]
+            }
+        },
+        "/change_preferences": {
+            "get": {
+                "summary": "Change a user preference setting.",
+                "responses": {
+                    "200": {
+                        "description": "JSON result of preference change"
+                    },
+                    "302": {
+                        "description": "Redirects to info page if not admin"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "pref",
+                        "in": "query",
+                        "type": "string",
+                        "required": true,
+                        "description": "Preference key to change"
+                    },
+                    {
+                        "name": "val",
+                        "in": "query",
+                        "type": "string",
+                        "required": true,
+                        "description": "New value for the preference"
+                    }
+                ],
+                "tags": [
+                    "Preferences"
+                ]
+            }
+        },
+        "/clear_preferences": {
+            "get": {
+                "summary": "Reset all preferences to defaults.",
+                "responses": {
+                    "302": {
+                        "description": "Redirects to home page"
+                    }
+                },
+                "tags": [
+                    "Preferences"
+                ]
+            }
+        },
+        "/update_ytdl": {
+            "get": {
+                "summary": "Update yt-dlp to the latest version.",
+                "responses": {
+                    "302": {
+                        "description": "Redirects to home page"
+                    }
+                },
+                "tags": [
+                    "Admin"
+                ]
+            }
+        },
+        "/refresh": {
+            "get": {
+                "summary": "Refresh the available songs list.",
+                "responses": {
+                    "302": {
+                        "description": "Redirects to browse page"
+                    }
+                },
+                "tags": [
+                    "Admin"
+                ]
+            }
+        },
+        "/quit": {
+            "get": {
+                "summary": "Exit the PiKaraoke application.",
+                "responses": {
+                    "302": {
+                        "description": "Redirects to home page before exit"
+                    }
+                },
+                "tags": [
+                    "Admin"
+                ]
+            }
+        },
+        "/shutdown": {
+            "get": {
+                "summary": "Shut down the host system.",
+                "responses": {
+                    "302": {
+                        "description": "Redirects to home page before shutdown"
+                    }
+                },
+                "tags": [
+                    "Admin"
+                ]
+            }
+        },
+        "/reboot": {
+            "get": {
+                "summary": "Reboot the host system.",
+                "responses": {
+                    "302": {
+                        "description": "Redirects to home page before reboot"
+                    }
+                },
+                "tags": [
+                    "Admin"
+                ]
+            }
+        },
+        "/expand_fs": {
+            "get": {
+                "summary": "Expand filesystem on Raspberry Pi.",
+                "responses": {
+                    "302": {
+                        "description": "Redirects to home page before reboot"
+                    }
+                },
+                "tags": [
+                    "Admin"
+                ]
+            }
+        },
+        "/auth": {
+            "post": {
+                "summary": "Authenticate as admin.",
+                "responses": {
+                    "302": {
+                        "description": "Redirects to home on success, login on failure"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "admin-password",
+                        "in": "formData",
+                        "type": "string",
+                        "required": true,
+                        "description": "Admin password"
+                    }
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ]
+            }
+        },
+        "/login": {
+            "get": {
+                "summary": "Admin login page.",
+                "responses": {
+                    "200": {
+                        "description": "HTML login page"
+                    }
+                },
+                "tags": [
+                    "Pages"
+                ]
+            }
+        },
+        "/logout": {
+            "get": {
+                "summary": "Log out of admin mode.",
+                "responses": {
+                    "302": {
+                        "description": "Redirects to home page"
+                    }
+                },
+                "tags": [
+                    "Admin"
+                ]
+            }
+        },
+        "/bg_music/{file}": {
+            "get": {
+                "summary": "Stream a background music file.",
+                "responses": {
+                    "200": {
+                        "description": "Audio file stream"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "file",
+                        "in": "path",
+                        "type": "string",
+                        "required": true,
+                        "description": "Filename of the music file"
+                    }
+                ],
+                "tags": [
+                    "Background Music"
+                ],
+                "produces": [
+                    "audio/mpeg"
+                ]
+            }
+        },
+        "/bg_playlist": {
+            "get": {
+                "summary": "Get a randomized background music playlist.",
+                "responses": {
+                    "200": {
+                        "description": "List of background music URLs",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "description": "URL to a background music file"
+                            }
+                        }
+                    }
+                },
+                "tags": [
+                    "Background Music"
+                ]
+            }
+        },
+        "/queue": {
+            "get": {
+                "summary": "Queue management page.",
+                "responses": {
+                    "200": {
+                        "description": "HTML queue management page"
+                    }
+                },
+                "tags": [
+                    "Pages"
+                ]
+            }
+        },
+        "/get_queue": {
+            "get": {
+                "summary": "Get the current song queue.",
+                "responses": {
+                    "200": {
+                        "description": "List of songs in queue",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "user": {
+                                        "type": "string",
+                                        "description": "User who added the song"
+                                    },
+                                    "file": {
+                                        "type": "string",
+                                        "description": "File path of the song"
+                                    },
+                                    "title": {
+                                        "type": "string",
+                                        "description": "Display title of the song"
+                                    },
+                                    "semitones": {
+                                        "type": "integer",
+                                        "description": "Transpose value in semitones"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": [
+                    "Queue"
+                ]
+            }
+        },
+        "/queue/addrandom": {
+            "get": {
+                "summary": "Add random songs to the queue.",
+                "responses": {
+                    "302": {
+                        "description": "Redirects to queue page"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "amount",
+                        "in": "query",
+                        "type": "integer",
+                        "required": true,
+                        "description": "Number of random songs to add"
+                    }
+                ],
+                "tags": [
+                    "Queue"
+                ]
+            }
+        },
+        "/enqueue": {
+            "get": {
+                "summary": "Add a song to the queue.",
+                "responses": {
+                    "200": {
+                        "description": "Result of enqueue operation",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "song": {
+                                    "type": "string",
+                                    "description": "Title of the song"
+                                },
+                                "success": {
+                                    "type": "boolean",
+                                    "description": "Whether the song was added"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "song",
+                        "in": "query",
+                        "type": "string",
+                        "description": "Path to the song file"
+                    },
+                    {
+                        "name": "user",
+                        "in": "query",
+                        "type": "string",
+                        "description": "Name of the user adding the song"
+                    },
+                    {
+                        "name": "song-to-add",
+                        "in": "formData",
+                        "type": "string",
+                        "description": "Path to the song file (form data)"
+                    },
+                    {
+                        "name": "song-added-by",
+                        "in": "formData",
+                        "type": "string",
+                        "description": "Name of the user (form data)"
+                    }
+                ],
+                "tags": [
+                    "Queue"
+                ]
+            },
+            "post": {
+                "summary": "Add a song to the queue.",
+                "responses": {
+                    "200": {
+                        "description": "Result of enqueue operation",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "song": {
+                                    "type": "string",
+                                    "description": "Title of the song"
+                                },
+                                "success": {
+                                    "type": "boolean",
+                                    "description": "Whether the song was added"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "song",
+                        "in": "query",
+                        "type": "string",
+                        "description": "Path to the song file"
+                    },
+                    {
+                        "name": "user",
+                        "in": "query",
+                        "type": "string",
+                        "description": "Name of the user adding the song"
+                    },
+                    {
+                        "name": "song-to-add",
+                        "in": "formData",
+                        "type": "string",
+                        "description": "Path to the song file (form data)"
+                    },
+                    {
+                        "name": "song-added-by",
+                        "in": "formData",
+                        "type": "string",
+                        "description": "Name of the user (form data)"
+                    }
+                ],
+                "tags": [
+                    "Queue"
+                ]
+            }
+        },
+        "/qrcode": {
+            "get": {
+                "summary": "Get QR code image for the web interface URL.",
+                "responses": {
+                    "200": {
+                        "description": "QR code PNG image"
+                    }
+                },
+                "tags": [
+                    "Images"
+                ],
+                "produces": [
+                    "image/png"
+                ]
+            }
+        },
+        "/logo": {
+            "get": {
+                "summary": "Get the PiKaraoke logo image.",
+                "responses": {
+                    "200": {
+                        "description": "Logo PNG image"
+                    }
+                },
+                "tags": [
+                    "Images"
+                ],
+                "produces": [
+                    "image/png"
+                ]
+            }
+        },
+        "/browse": {
+            "get": {
+                "summary": "Browse available songs page.",
+                "responses": {
+                    "200": {
+                        "description": "HTML browse page"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "type": "string",
+                        "description": "Search query"
+                    },
+                    {
+                        "name": "letter",
+                        "in": "query",
+                        "type": "string",
+                        "description": "Filter by first letter (or 'numeric')"
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "type": "string",
+                        "description": "Sort order ('date' for date, otherwise alphabetical)"
+                    }
+                ],
+                "tags": [
+                    "Pages"
+                ]
+            }
+        },
+        "/files/delete": {
+            "get": {
+                "summary": "Delete a song file.",
+                "responses": {
+                    "302": {
+                        "description": "Redirects to browse page"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "song",
+                        "in": "query",
+                        "type": "string",
+                        "required": true,
+                        "description": "Path to the song file to delete"
+                    }
+                ],
+                "tags": [
+                    "Files"
+                ]
+            }
+        },
+        "/search": {
+            "get": {
+                "summary": "YouTube search page.",
+                "responses": {
+                    "200": {
+                        "description": "HTML search page with results"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "search_string",
+                        "in": "query",
+                        "type": "string",
+                        "description": "YouTube search query"
+                    },
+                    {
+                        "name": "non_karaoke",
+                        "in": "query",
+                        "type": "string",
+                        "description": "Set to 'true' to include non-karaoke results"
+                    }
+                ],
+                "tags": [
+                    "Pages"
+                ]
+            }
+        },
+        "/autocomplete": {
+            "get": {
+                "summary": "Search available songs for autocomplete.",
+                "responses": {
+                    "200": {
+                        "description": "List of matching songs",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "path": {
+                                        "type": "string",
+                                        "description": "File path of the song"
+                                    },
+                                    "fileName": {
+                                        "type": "string",
+                                        "description": "Display name of the song"
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "description": "Result type (autocomplete)"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "type": "string",
+                        "required": true,
+                        "description": "Search query string"
+                    }
+                ],
+                "tags": [
+                    "Search"
+                ]
+            }
+        },
+        "/download": {
+            "post": {
+                "summary": "Download a video from YouTube.",
+                "responses": {
+                    "302": {
+                        "description": "Redirects to search page"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "song-url",
+                        "in": "formData",
+                        "type": "string",
+                        "required": true,
+                        "description": "YouTube video URL"
+                    },
+                    {
+                        "name": "song-added-by",
+                        "in": "formData",
+                        "type": "string",
+                        "required": true,
+                        "description": "Username initiating download"
+                    },
+                    {
+                        "name": "song-title",
+                        "in": "formData",
+                        "type": "string",
+                        "description": "Display title for the song"
+                    },
+                    {
+                        "name": "queue",
+                        "in": "formData",
+                        "type": "string",
+                        "description": "Set to 'on' to add to queue after download"
+                    }
+                ],
+                "tags": [
+                    "Search"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ]
+            }
+        },
+        "/info": {
+            "get": {
+                "summary": "System information and settings page.",
+                "responses": {
+                    "200": {
+                        "description": "HTML page with system info and settings"
+                    }
+                },
+                "tags": [
+                    "Pages"
+                ]
+            }
+        },
+        "/splash": {
+            "get": {
+                "summary": "Splash screen / player display for TV output.",
+                "responses": {
+                    "200": {
+                        "description": "HTML splash screen page"
+                    }
+                },
+                "tags": [
+                    "Pages"
+                ]
+            }
+        },
+        "/skip": {
+            "get": {
+                "summary": "Skip the currently playing song.",
+                "responses": {
+                    "302": {
+                        "description": "Redirects to home page"
+                    }
+                },
+                "tags": [
+                    "Playback"
+                ]
+            }
+        },
+        "/pause": {
+            "get": {
+                "summary": "Toggle pause/resume playback.",
+                "responses": {
+                    "302": {
+                        "description": "Redirects to home page"
+                    }
+                },
+                "tags": [
+                    "Playback"
+                ]
+            }
+        },
+        "/transpose/{semitones}": {
+            "get": {
+                "summary": "Transpose (pitch shift) the current song.",
+                "responses": {
+                    "302": {
+                        "description": "Redirects to home page"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "semitones",
+                        "in": "path",
+                        "type": "integer",
+                        "required": true,
+                        "description": "Semitones to transpose (-12 to 12)"
+                    }
+                ],
+                "tags": [
+                    "Playback"
+                ]
+            }
+        },
+        "/restart": {
+            "get": {
+                "summary": "Restart the current song from the beginning.",
+                "responses": {
+                    "302": {
+                        "description": "Redirects to home page"
+                    }
+                },
+                "tags": [
+                    "Playback"
+                ]
+            }
+        },
+        "/volume/{volume}": {
+            "get": {
+                "summary": "Set the playback volume.",
+                "responses": {
+                    "302": {
+                        "description": "Redirects to home page"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "volume",
+                        "in": "path",
+                        "type": "number",
+                        "required": true,
+                        "description": "Volume level (0.0 to 1.0)"
+                    }
+                ],
+                "tags": [
+                    "Playback"
+                ]
+            }
+        },
+        "/vol_up": {
+            "get": {
+                "summary": "Increase volume by 10%.",
+                "responses": {
+                    "302": {
+                        "description": "Redirects to home page"
+                    }
+                },
+                "tags": [
+                    "Playback"
+                ]
+            }
+        },
+        "/vol_down": {
+            "get": {
+                "summary": "Decrease volume by 10%.",
+                "responses": {
+                    "302": {
+                        "description": "Redirects to home page"
+                    }
+                },
+                "tags": [
+                    "Playback"
+                ]
+            }
+        },
+        "/now_playing": {
+            "get": {
+                "summary": "Get current playback status.",
+                "responses": {
+                    "200": {
+                        "description": "Current playback state",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "now_playing": {
+                                    "type": "string",
+                                    "description": "Title of current song (null if none)"
+                                },
+                                "now_playing_user": {
+                                    "type": "string",
+                                    "description": "User who queued the song"
+                                },
+                                "now_playing_duration": {
+                                    "type": "integer",
+                                    "description": "Song duration in seconds"
+                                },
+                                "now_playing_transpose": {
+                                    "type": "integer",
+                                    "description": "Current transpose value"
+                                },
+                                "now_playing_url": {
+                                    "type": "string",
+                                    "description": "Stream URL for the song"
+                                },
+                                "up_next": {
+                                    "type": "string",
+                                    "description": "Title of next song in queue"
+                                },
+                                "next_user": {
+                                    "type": "string",
+                                    "description": "User who queued the next song"
+                                },
+                                "is_paused": {
+                                    "type": "boolean",
+                                    "description": "Whether playback is paused"
+                                },
+                                "volume": {
+                                    "type": "number",
+                                    "description": "Current volume (0.0-1.0)"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": [
+                    "Status"
+                ]
+            }
+        }
+    },
+    "definitions": {},
+    "swagger": "2.0"
+}
