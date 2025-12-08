@@ -15,9 +15,24 @@ _ = flask_babel.gettext
 stream_bp = Blueprint("stream", __name__)
 
 
-# Streams the file in chunks from the filesystem (chrome supports it, safari does not)
 @stream_bp.route("/stream/<id>")
 def stream(id):
+    """Stream transcoded video in chunks (Chrome compatible).
+    ---
+    tags:
+      - Stream
+    parameters:
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: Video stream ID
+    produces:
+      - video/mp4
+    responses:
+      200:
+        description: Chunked video stream
+    """
     file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
     k = get_karaoke_instance()
 
@@ -73,16 +88,44 @@ def stream_file_path_full(file_path):
         return redirect(url_for("home.home"))
 
 
-# Streams the file in full with proper range headers
-# (Safari compatible, but requires the ffmpeg transcoding to be complete to know file size)
 @stream_bp.route("/stream/full/<id>")
 def stream_full(id):
+    """Stream video with range headers (Safari compatible).
+    ---
+    tags:
+      - Stream
+    parameters:
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: Video stream ID
+    produces:
+      - video/mp4
+    responses:
+      200:
+        description: Full video file
+      206:
+        description: Partial video content (range request)
+    """
     file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
     return stream_file_path_full(file_path)
 
 
 @stream_bp.route("/stream/bg_video")
 def stream_bg_video():
+    """Stream the background video file.
+    ---
+    tags:
+      - Stream
+    produces:
+      - video/mp4
+    responses:
+      200:
+        description: Background video file
+      404:
+        description: Background video not configured
+    """
     k = get_karaoke_instance()
     file_path = k.bg_video_path
     if k.bg_video_path is not None:

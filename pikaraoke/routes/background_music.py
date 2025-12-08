@@ -36,17 +36,44 @@ def create_randomized_playlist(input_directory, base_url, max_songs=50):
     return playlist
 
 
-# Routes for streaming background music
 @background_music_bp.route("/bg_music/<file>", methods=["GET"])
 def bg_music(file):
+    """Stream a background music file.
+    ---
+    tags:
+      - Background Music
+    parameters:
+      - name: file
+        in: path
+        type: string
+        required: true
+        description: Filename of the music file
+    produces:
+      - audio/mpeg
+    responses:
+      200:
+        description: Audio file stream
+    """
     k = get_karaoke_instance()
     mp3_path = os.path.join(k.bg_music_path, file)
     return send_file(mp3_path, mimetype="audio/mpeg")
 
 
-# Route for getting the randomized background music playlist
 @background_music_bp.route("/bg_playlist", methods=["GET"])
 def bg_playlist():
+    """Get a randomized background music playlist.
+    ---
+    tags:
+      - Background Music
+    responses:
+      200:
+        description: List of background music URLs
+        schema:
+          type: array
+          items:
+            type: string
+            description: URL to a background music file
+    """
     k = get_karaoke_instance()
     if (k.bg_music_path == None) or (not os.path.exists(k.bg_music_path)):
         return jsonify([])

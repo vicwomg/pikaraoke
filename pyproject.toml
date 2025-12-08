@@ -26,6 +26,7 @@ dependencies = [
   "yt-dlp[default]>=2025.11.12",
   "flask-socketio>=5.5.0",
   "gevent>=24.11.1",
+  "flasgger>=0.9.7.1",
 ]
 
 [project.optional-dependencies]

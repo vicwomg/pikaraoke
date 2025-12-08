@@ -10,6 +10,7 @@ import sys
 
 import flask_babel
 from flask import Flask, request, session
+from flasgger import Swagger
 from flask_babel import Babel
 from flask_socketio import SocketIO
 
@@ -57,6 +58,14 @@ app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
+app.config["SWAGGER"] = {
+    "title": "PiKaraoke API",
+    "description": "API for controlling PiKaraoke - a KTV-style karaoke system",
+    "version": "1.0.0",
+    "termsOfService": "",
+    "hide_top_bar": True,
+}
+swagger = Swagger(app)
 
 # Register blueprints for additional routes
 app.register_blueprint(home_bp)
