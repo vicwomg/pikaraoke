@@ -1,3 +1,5 @@
+"""Song queue management routes."""
+
 import json
 
 import flask_babel
@@ -25,7 +27,11 @@ def queue():
     k = get_karaoke_instance()
     site_name = get_site_name()
     return render_template(
-        "queue.html", queue=k.queue, site_title=site_name, title="Queue", admin=is_admin()
+        "queue.html",
+        queue=k.queue,
+        site_title=site_name,
+        title="Queue",
+        admin=is_admin(),
     )
 
 

@@ -1,3 +1,5 @@
+"""Now playing status endpoint."""
+
 import json
 import logging
 
@@ -14,5 +16,7 @@ def now_playing():
     try:
         return json.dumps(k.get_now_playing())
     except Exception as e:
-        logging.error("Problem loading /nowplaying, pikaraoke may still be starting up: " + str(e))
+        logging.error(
+            "Problem loading /nowplaying, pikaraoke may still be starting up: " + str(e)
+        )
         return ""

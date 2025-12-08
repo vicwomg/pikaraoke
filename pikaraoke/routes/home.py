@@ -1,3 +1,5 @@
+"""Home page route."""
+
 import flask_babel
 from flask import Blueprint, render_template
 

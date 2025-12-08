@@ -1,3 +1,5 @@
+"""Background music streaming routes."""
+
 import os
 import random
 import urllib

@@ -1,3 +1,5 @@
+"""Splash screen / player display route."""
+
 import shutil
 import subprocess
 
@@ -23,9 +25,9 @@ def splash():
         if has_iwconfig or has_iw:
             # iwconfig is deprecated on Ubuntu, but still available on Raspbian
             command = "iwconfig" if has_iwconfig else "iw"
-            status = subprocess.run([command, "wlan0"], stdout=subprocess.PIPE).stdout.decode(
-                "utf-8"
-            )
+            status = subprocess.run(
+                [command, "wlan0"], stdout=subprocess.PIPE
+            ).stdout.decode("utf-8")
             if "Mode:Master" in status:
                 # handle raspiwifi connection mode
                 text = get_raspi_wifi_text()

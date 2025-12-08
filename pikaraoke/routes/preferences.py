@@ -1,3 +1,5 @@
+"""User preferences management routes."""
+
 import flask_babel
 from flask import Blueprint, flash, jsonify, redirect, request, url_for
 

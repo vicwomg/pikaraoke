@@ -1,3 +1,5 @@
+"""Video streaming routes for transcoded media playback."""
+
 import os
 import re
 import time
@@ -29,7 +31,9 @@ def stream(id):
                 chunk = file.read(chunk_size)
                 if chunk is not None and len(chunk) > 0:
                     yield chunk
-                    position += len(chunk)  # Update the position with the size of the chunk
+                    position += len(
+                        chunk
+                    )  # Update the position with the size of the chunk
                 time.sleep(1)  # Wait a bit before checking the file size again
             chunk = file.read(chunk_size)  # Read the last chunk
             yield chunk

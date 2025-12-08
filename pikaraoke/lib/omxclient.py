@@ -96,7 +96,9 @@ class OMXClient:
             logging.debug("Killing old omxplayer processes")
             player_kill = ["killall", "omxplayer.bin"]
             FNULL = open(os.devnull, "w")
-            subprocess.Popen(player_kill, stdin=subprocess.PIPE, stdout=FNULL, stderr=FNULL)
+            subprocess.Popen(
+                player_kill, stdin=subprocess.PIPE, stdout=FNULL, stderr=FNULL
+            )
             self.paused = False
         except (OSError, AttributeError) as e:
             logging.error(e)
@@ -106,7 +108,11 @@ class OMXClient:
         return self.process != None and self.process.poll() == None
 
     def is_playing(self):
-        is_playing = self.process != None and self.process.poll() == None and self.paused == False
+        is_playing = (
+            self.process != None
+            and self.process.poll() == None
+            and self.paused == False
+        )
         return is_playing
 
     def is_paused(self):
