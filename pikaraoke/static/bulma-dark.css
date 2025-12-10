@@ -191,7 +191,7 @@ hr {
 .textarea.is-focused,
 .select select:focus {
 	border-color: var(--dark-link);
-	box-shadow: 0 0 0 0.125em rgba(26, 188, 156, 0.25);
+	box-shadow: 0 0 0 0.125em rgba(255, 255, 255, 0.25);
 }
 
 .label {
@@ -207,6 +207,24 @@ hr {
 	margin-right: 8px;
 	min-width: 20px;
 	min-height: 20px;
+}
+
+.input.is-success {
+	background: #defff0;
+	color: #035530;
+	border: 2px solid #2ba76f;
+}
+
+.input.is-warning {
+	background: #fff3d8;
+	color: #674905;
+	border: 2px solid #ffb70f;
+}
+
+.input.is-danger {
+	background: #ffd5de;
+	color: #4d0212;
+	border: 2px solid #ff6685;
 }
 
 /* ===================================

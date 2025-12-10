@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version:  1.1.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-11-10 12:48-0800\n"
+"POT-Creation-Date: 2025-12-10 14:45-0300\n"
 "PO-Revision-Date: 2022-04-28 10:09-0400\n"
 "Last-Translator: \n"
 "Language: zh_CN\n"
@@ -18,111 +18,111 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.9.1\n"
 
-#: karaoke.py:256
+#: karaoke.py:258
 msgid "Your preferences were changed successfully"
 msgstr ""
 
-#: karaoke.py:259
+#: karaoke.py:261
 msgid "Something went wrong! Your preferences were not changed"
 msgstr ""
 
-#: karaoke.py:264
+#: karaoke.py:266
 msgid "Your preferences were cleared successfully"
 msgstr ""
 
-#: karaoke.py:266
+#: karaoke.py:268
 msgid "Something went wrong! Your preferences were not cleared"
 msgstr ""
 
 #. Message shown after the download is started
-#: karaoke.py:363
+#: karaoke.py:365
 #, python-format
 msgid "Downloading video: %s"
 msgstr ""
 
 #. Message shown after the download is completed and queued
-#: karaoke.py:379
+#: karaoke.py:382
 #, python-format
 msgid "Downloaded and queued: %s"
 msgstr "成功添加歌曲： %s"
 
 #. Message shown after the download is completed but not queued
-#: karaoke.py:382
+#: karaoke.py:385
 #, python-format
 msgid "Downloaded: %s"
 msgstr "下载: %s"
 
 #. Message shown after the download is completed but the adding to queue fails
-#: karaoke.py:391
+#: karaoke.py:394
 msgid "Error queueing song: "
 msgstr ""
 
 #. Message shown after the download process is completed but the song is not
 #. found
-#: karaoke.py:394
+#: karaoke.py:397
 msgid "Error downloading song: "
 msgstr ""
 
 #. Message shown when the song ends abnormally
-#: karaoke.py:602
+#: karaoke.py:605
 #, python-format
 msgid "Song ended abnormally: %s"
 msgstr ""
 
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
-#: karaoke.py:610
+#: karaoke.py:613
 #, python-format
 msgid "Transposing by %s semitones: %s"
 msgstr ""
 
-#: karaoke.py:643
+#: karaoke.py:646
 #, python-format
 msgid "You reached the limit of %s song(s) from an user in queue!"
 msgstr ""
 
 #. Message shown after the song is added to the top of the queue
-#: karaoke.py:655
+#: karaoke.py:658
 #, python-format
 msgid "%s added to top of queue: %s"
 msgstr "%s 成功添加歌曲： %s"
 
 #. Message shown after the song is added to the queue
-#: karaoke.py:660
+#: karaoke.py:663
 #, python-format
 msgid "%s added to the queue: %s"
 msgstr "%s 成功添加歌曲： %s"
 
-#: karaoke.py:664
+#: karaoke.py:667
 #, python-format
 msgid "Song added to the queue: %s"
 msgstr "成功添加歌曲：%s"
 
 #. Message shown after the queue is cleared
-#: karaoke.py:688
+#: karaoke.py:691
 msgid "Clear queue"
 msgstr ""
 
 #. Message shown after the song is skipped, will be followed by song name
-#: karaoke.py:737
+#: karaoke.py:740
 #, python-format
 msgid "Skip: %s"
 msgstr ""
 
 #. Message shown after the song is resumed, will be followed by song name
-#: karaoke.py:748
+#: karaoke.py:751
 #, python-format
 msgid "Resume: %s"
 msgstr ""
 
 #. Message shown after the song is paused, will be followed by song name
-#: karaoke.py:751
+#: karaoke.py:754
 msgid "Pause"
 msgstr ""
 
 #. Message shown after the volume is changed, will be followed by the volume
 #. level
-#: karaoke.py:762
+#: karaoke.py:765
 #, python-format
 msgid "Volume: %s"
 msgstr ""
@@ -206,10 +206,37 @@ msgstr "管理员密码错误"
 msgid "Logged out of admin mode!"
 msgstr ""
 
+#. Title of the button to accept the suggested name
+#: routes/batch_song_renamer.py:355
+msgid "Accept suggested name"
+msgstr ""
+
+#. Title of the files page.
+#. Page title for the page where the user can batch rename songs.
+#: routes/batch_song_renamer.py:363 templates/batch-song-renamer.html:133
+msgid "Batch Song Renamer"
+msgstr ""
+
+#. Message shown after trying to edit a song that is in the queue.
+#: routes/batch_song_renamer.py:455 routes/files.py:103
+msgid "Error: Can't edit this song because it is in the current queue: "
+msgstr ""
+
+#. Message shown after trying to rename a file to a name that already exists.
+#: routes/batch_song_renamer.py:461 routes/files.py:131
+#, python-format
+msgid "Error renaming file: '%s' to '%s', Filename already exists"
+msgstr ""
+
+#. Message shown after trying to edit a song without specifying the filename.
+#: routes/batch_song_renamer.py:470 routes/files.py:144
+msgid "Error: No filename parameters were specified!"
+msgstr ""
+
 #. Title of the files page.
 #. Navigation link for the page where the user can add existing songs to the
 #. queue.
-#: routes/files.py:68 templates/base.html:212
+#: routes/files.py:68 templates/base.html:213
 msgid "Browse"
 msgstr "浏览"
 
@@ -229,26 +256,10 @@ msgstr ""
 msgid "Error: No song specified!"
 msgstr ""
 
-#. Message shown after trying to edit a song that is in the queue.
-#: routes/files.py:103
-msgid "Error: Can't edit this song because it is in the current queue: "
-msgstr ""
-
-#. Message shown after trying to rename a file to a name that already exists.
-#: routes/files.py:131
-#, python-format
-msgid "Error renaming file: '%s' to '%s', Filename already exists"
-msgstr ""
-
 #. Message shown after renaming a file.
 #: routes/files.py:139
 #, python-format
 msgid "Renamed file: %s to %s"
-msgstr ""
-
-#. Message shown after trying to edit a song without specifying the filename.
-#: routes/files.py:144
-msgid "Error: No filename parameters were specified!"
 msgstr ""
 
 #: routes/info.py:36
@@ -336,14 +347,14 @@ msgstr ""
 
 #. Prompt which asks the user their name when they first try to add to the
 #. queue.
-#: templates/base.html:64
+#: templates/base.html:65
 msgid ""
 "Please enter your name. This will show up next to the songs you queue up "
 "from this device."
 msgstr "演唱者（我）的名字是："
 
 #. Prompt when changing the current profile name.
-#: templates/base.html:129
+#: templates/base.html:130
 #, python-format
 msgid ""
 "Do you want to change the name of the person using this device? This will"
@@ -351,21 +362,58 @@ msgid ""
 msgstr "是否更改此设备上的用户名称？它将显示在歌曲列表中。当下用户: %(currentUser)s"
 
 #. Navigation link for the home page.
-#: templates/base.html:196
+#: templates/base.html:197
 msgid "Home"
 msgstr "主页"
 
 #. Navigation link for the queue page.
 #. Title of the page showing the currently queued songs.
-#: templates/base.html:202 templates/queue.html:130
+#: templates/base.html:203 templates/queue.html:130
 msgid "Queue"
 msgstr "列表"
 
 #. Navigation link for the search page add songs to the queue.
 #. Submit button on the search form for searching YouTube.
-#: templates/base.html:207 templates/search.html:368
+#: templates/base.html:208 templates/search.html:481
 msgid "Search"
 msgstr "搜索"
+
+#. Message about the wait for loading the songs
+#: templates/batch-song-renamer.html:136
+msgid ""
+"The loading process may take a few seconds, as the song titles are "
+"compared online. Loading time may vary\n"
+"\tbased on your internet connection."
+msgstr ""
+
+#. Label which displays that all songs are being shown
+#: templates/batch-song-renamer.html:141
+msgid ""
+"Showing all\n"
+"\tsongs"
+msgstr ""
+
+#. Button which changes to show only the songs to rename
+#: templates/batch-song-renamer.html:144
+msgid "Show only songs to rename"
+msgstr ""
+
+#. Label which displays that only songs to rename are being shown.
+#: templates/batch-song-renamer.html:147
+msgid ""
+"Showing only songs\n"
+"\tto rename"
+msgstr ""
+
+#. Button which changes to show all songs
+#: templates/batch-song-renamer.html:150
+msgid "Show all songs"
+msgstr ""
+
+#. Message displaying that the songs are currently being loaded
+#: templates/batch-song-renamer.html:158
+msgid "Loading songs..."
+msgstr ""
 
 #. Confirmation prompt when the user deletes a song.
 #: templates/edit.html:29
@@ -407,30 +455,40 @@ msgstr "保存"
 msgid "Delete this song"
 msgstr "删除此曲"
 
-#. Label which displays that the   songs are currently sorted by alphabetical
-#. order.
-#: templates/files.html:82
-msgid ""
-"Sorted\n"
-"  Alphabetically"
+#. Label which displays that the songs are currently sorted by
+#. alphabetical order.
+#: templates/files.html:92
+#, fuzzy
+msgid "Sorted Alphabetically"
 msgstr "现在歌曲正在按字母排序"
 
-#. Button which changes how the songs are sorted so they become sorted     by
-#. date.
-#: templates/files.html:86
-msgid "Sort by Date"
-msgstr "用日期排序"
+#. Button which changes how the songs are sorted so they become sorted by date.
+#: templates/files.html:94
+#, fuzzy
+msgid ""
+"Sort by\n"
+"\t\t\tDate"
+msgstr "现在歌曲正在按日期排序"
 
-#. Label which displays that   the songs are currently sorted by date.
-#: templates/files.html:89
+#. Label which displays that the songs are currently sorted by
+#. date.
+#: templates/files.html:98
 msgid "Sorted by date"
 msgstr "现在歌曲正在按日期排序"
 
-#. Button which changes how the songs are sorted so they become sorted     by
-#. name.
-#: templates/files.html:93
-msgid "Sort by Alphabetical"
+#. Button which changes how the songs are sorted so they become sorted by name.
+#: templates/files.html:100
+#, fuzzy
+msgid ""
+"Sort by\n"
+"\t\t\tAlphabetical"
 msgstr "用字母排序"
+
+#. Button to open the batch song renamer page.
+#: templates/files.html:107
+#, fuzzy
+msgid "Edit all songs"
+msgstr "修改歌曲"
 
 #. Message which shows in the "Now Playing" section when there is no song
 #. currently playing
@@ -526,206 +584,208 @@ msgid ""
 msgstr "确定升级Youtube-dl？会终止正在下载的音乐"
 
 #. Title of the information page.
-#: templates/info.html:102
+#: templates/info.html:103
 msgid "Information"
 msgstr "信息"
 
 #. Label which appears before a url which links to the current page.
-#: templates/info.html:112
+#: templates/info.html:115
 #, python-format
 msgid "URL of %(site_title)s:"
 msgstr "%(site_title)s 的网址"
 
 #. Label before a QR code which brings a frind (pal) to the main page if
 #. scanned, so they can also add songs. QR code follows this text.
-#: templates/info.html:118
+#: templates/info.html:121
 msgid "Handy URL QR code to share with a pal:"
 msgstr "快捷QR码（用于分享给朋友）"
 
+#. Title of the system data section.
+#: templates/info.html:130
+#, fuzzy
+msgid "System Data"
+msgstr "系统信息"
+
 #. Header of the information section about the computer running Pikaraoke.
-#: templates/info.html:129
+#: templates/info.html:135
 msgid "System Info"
 msgstr "系统信息"
 
 #. The hardware platform
-#: templates/info.html:132
+#: templates/info.html:141
 msgid "Platform:"
 msgstr ""
 
 #. The os version
-#: templates/info.html:134
+#: templates/info.html:143
 msgid "OS Version:"
 msgstr ""
 
 #. The version of the program "Youtube-dl".
-#: templates/info.html:136
+#: templates/info.html:145
 msgid "Youtube-dl (yt-dlp) version:"
 msgstr "Youtube-dl (yt-dlp) 版本:"
 
 #. The version of the program "ffmpeg".
-#: templates/info.html:138
+#: templates/info.html:147
 msgid "FFmpeg version:"
 msgstr ""
 
 #. The version of Pikaraoke running right now.
-#: templates/info.html:140
+#: templates/info.html:149
 msgid "Pikaraoke version:"
 msgstr "卡拉OK派 版本:"
 
-#: templates/info.html:142
+#. Header of the information section about the System stats.
+#: templates/info.html:155
 msgid "System stats"
 msgstr "系统信息"
 
 #. The CPU usage of the computer running Pikaraoke.
-#: templates/info.html:145
+#: templates/info.html:161
 #, python-format
 msgid "CPU: %(cpu)s"
 msgstr "CPU: %(cpu)s"
 
 #. The disk usage of the computer running Pikaraoke. Used by downloaded songs.
-#: templates/info.html:147
+#: templates/info.html:163
 #, python-format
 msgid "Disk Usage: %(disk)s"
 msgstr "磁盘使用：%(disk)s"
 
 #. The memory (RAM) usage of the computer running Pikaraoke.
-#: templates/info.html:149
+#: templates/info.html:165
 #, python-format
 msgid "Memory: %(memory)s"
 msgstr "内存: %(memory)s"
 
 #. Title of the user preferences section.
-#: templates/info.html:155
+#: templates/info.html:172
 msgid "User Preferences"
 msgstr ""
 
 #. Title text for the splash screen settings section of preferences
-#: templates/info.html:157
+#: templates/info.html:178
 msgid "Splash screen settings"
 msgstr ""
 
 #. Help text explaining the the need to restart after changing splash screen
 #. preferences
-#: templates/info.html:160
+#: templates/info.html:181
 msgid ""
 "*You may need to refresh the splash screen for these changes to take "
 "effect."
 msgstr ""
 
-#. Checkbox label which enable/disables background music on the Splash Screen
-#: templates/info.html:164
-msgid "Disable background music"
-msgstr ""
-
 #. Checkbox label which enable/disables background video on the Splash Screen
-#: templates/info.html:170
+#: templates/info.html:188
 msgid "Disable background video"
 msgstr ""
 
 #. Checkbox label which enable/disables the Score Screen
-#: templates/info.html:176
+#: templates/info.html:194
 msgid "Disable the score screen after each song"
 msgstr ""
 
 #. Checkbox label which enable/disables notifications on the splash screen
-#: templates/info.html:182
+#: templates/info.html:200
 msgid "Hide notifications"
 msgstr ""
 
 #. Checkbox label which enable/disables the URL display
-#: templates/info.html:188
+#: templates/info.html:206
 msgid "Hide the URL and QR code"
 msgstr ""
 
 #. Checkbox label which enable/disables showing overlay data on the splash
 #. screen
-#: templates/info.html:194
+#: templates/info.html:212
 msgid "Hide all overlays, including now playing, up next, and QR code"
 msgstr ""
 
 #. Numberbox label for setting the default video volume
-#: templates/info.html:200
+#: templates/info.html:218
 msgid "Default volume of the videos (min 0, max 100)"
 msgstr ""
 
 #. Numberbox label for setting the background music volume
-#: templates/info.html:206
+#: templates/info.html:224
 msgid "Volume of the background music (min 0, max 100)"
 msgstr ""
 
 #. Numberbox label for setting the inactive delay before showing the
 #. screensaver
-#: templates/info.html:213
+#: templates/info.html:231
 msgid ""
 "The amount of idle time in seconds before the screen saver activates. Set"
 " to 0 to disable it."
 msgstr ""
 
 #. Numberbox label for setting the delay before playing the next song
-#: templates/info.html:220
+#: templates/info.html:238
 msgid "The delay in seconds before starting the next song"
 msgstr ""
 
 #. Title text for the language settings section of preferences
-#: templates/info.html:224
+#: templates/info.html:245
 msgid "Language settings"
 msgstr ""
 
 #. Label for language selection dropdown
-#: templates/info.html:232
+#: templates/info.html:258
 msgid "Preferred language (requires restart)"
 msgstr ""
 
 #. Title text for the server settings section of preferences
-#: templates/info.html:236
+#: templates/info.html:265
 msgid "Server settings"
 msgstr ""
 
 #. Checkbox label which enable/disables audio volume normalization
-#: templates/info.html:240
+#: templates/info.html:272
 msgid "Normalize audio volume"
 msgstr ""
 
 #. Checkbox label which enable/disables high quality video downloads
-#: templates/info.html:246
+#: templates/info.html:278
 msgid "Download high quality videos"
 msgstr ""
 
 #. Checkbox label which enable/disables full transcode before playback
-#: templates/info.html:252
+#: templates/info.html:284
 msgid ""
 "Transcode video completely before playing (better browser compatibility, "
 "slower starts). Buffer size will be ignored.*"
 msgstr ""
 
 #. Checkbox label which enable/disables CDG pixel scaling
-#: templates/info.html:258
+#: templates/info.html:290
 msgid ""
 "Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU"
 " usage)"
 msgstr ""
 
 #. Numberbox label for audio video synchronization
-#: templates/info.html:265
+#: templates/info.html:297
 msgid ""
 "Fix the audio and video synchronization in seconds (negative = advances "
 "audio | positive = delays audio)"
 msgstr ""
 
 #. Numberbox label for limitting the number of songs for each player
-#: templates/info.html:272
+#: templates/info.html:304
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
 msgstr ""
 
 #. Numberbox label for setting the buffer size in kilobytes
-#: templates/info.html:279
+#: templates/info.html:311
 msgid ""
 "Buffer size in kilobytes. Transcode this amount of the video before "
 "sending it to the splash screen. "
 msgstr ""
 
 #. Help text explaining when videos will be transcoded
-#: templates/info.html:283
+#: templates/info.html:315
 msgid ""
 "* Videos are only transcoded when: normalization is on, audio/video "
 "synchronization not zero, a song is transposed, playing a CDG/MOV/AVI/MKV"
@@ -733,69 +793,77 @@ msgid ""
 msgstr ""
 
 #. Text for the link where the user can clear all user preferences
-#: templates/info.html:287
+#: templates/info.html:319
 msgid "Clear preferences"
 msgstr ""
 
 #. Title of the updates section.
-#: templates/info.html:293
+#: templates/info.html:327
 msgid "Updates"
 msgstr "更新"
 
-#. Label before a link which forces Pikaraoke to rescan and pick up any new
-#. songs.
-#: templates/info.html:295
-msgid "Refresh the song list:"
+#. Label for the Refresh the song list on the updates section
+#: templates/info.html:332
+#, fuzzy
+msgid "Refresh the song list"
 msgstr "刷新歌曲列表"
 
-#. Text on the link which forces Pikaraoke to rescan and pick up any new songs.
-#: templates/info.html:300
-msgid "Rescan song directory"
-msgstr "重新扫描歌曲目录"
-
 #. Help text explaining the Rescan song directory link.
-#: templates/info.html:305
+#: templates/info.html:337
 msgid ""
 "You should only need to do this if you manually copied files to the "
 "download directory while pikaraoke was running."
 msgstr "只有当卡拉OK派在运行，而同时你又想手动添加歌曲到下载目录里的时候你才需要做这一步"
 
+#. Text on the link which forces Pikaraoke to rescan and pick up any new songs.
+#: templates/info.html:342
+msgid "Rescan song directory"
+msgstr "重新扫描歌曲目录"
+
+#. Label for the YT-DLP update on the updates section
+#: templates/info.html:349
+msgid "YT-DLP update"
+msgstr ""
+
 #. Text explaining why you might want to update youtube-dl.
-#: templates/info.html:310
-#, python-format
+#: templates/info.html:354
+#, fuzzy, python-format
 msgid ""
-"If downloads or searches stopped working, updating youtube-dl will "
-"probably fix it.\n"
-"   The current installed version is: \"%(youtubedl_version)s\""
+"\n"
+"\t\t\t\t\t\tIf downloads or searches stopped working, updating youtube-dl"
+" will probably fix it.<br/>\n"
+"\t\t\t\t\t\tThe current installed version is: \"%(youtubedl_version)s\".\n"
+"\t\t\t\t\t"
 msgstr ""
 "如果下载或搜索功能不工作的话，可能你需要更新youtube-dl.\n"
 "现有版本是: \"%(youtubedl_version)s\""
 
 #. Text for the link which will try and update youtube-dl on the machine
 #. running Pikaraoke.
-#: templates/info.html:316
+#: templates/info.html:360
 msgid "Update youtube-dl"
 msgstr "更新 youtube-dl"
 
 #. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
-#: templates/info.html:322
+#: templates/info.html:364
+#, fuzzy
 msgid ""
-"This update link above may fail if you don't have proper file "
+"* This update link above may fail if you don't have proper file "
 "permissions.\n"
-"    Check the pikaraoke log for errors."
+"\t\t\t\t\t\t\tCheck the pikaraoke log for errors."
 msgstr ""
 "以上的链接有可能失败，如果你没有相应的权限的话.\n"
 "    查看卡拉OK派的错误日志以检查错误"
 
 #. Title of the section on shutting down / turning off the machine running
 #. Pikaraoke.
-#: templates/info.html:329
+#: templates/info.html:376
 msgid "Shutdown"
 msgstr "关闭"
 
 #. Explainitory text which explains why to use the shutdown link.
-#: templates/info.html:332
+#: templates/info.html:383
 msgid ""
 "Don't just pull the plug! Always shut down your server properly to avoid "
 "data corruption."
@@ -803,70 +871,86 @@ msgstr ""
 
 #. Text for button which turns off Pikaraoke for everyone using it at your
 #. house.
-#: templates/info.html:338
+#: templates/info.html:390
 msgid "Quit Pikaraoke"
 msgstr "退出卡拉OK派"
 
 #. Text for button which reboots the machine running Pikaraoke.
-#: templates/info.html:341
+#: templates/info.html:393
 msgid "Reboot System"
 msgstr "重启系统"
 
 #. Text for button which turn soff the machine running Pikaraoke.
-#: templates/info.html:344
+#: templates/info.html:396
 msgid "Shutdown System"
 msgstr "关机"
 
-#. Title for section containing a few other options on the Info page.
-#: templates/info.html:351
+#. Title of the updates section.
+#: templates/info.html:407
 msgid "Other"
 msgstr "其他"
 
+#. Title for section containing a few other options on the Info page.
 #. Text for button
-#: templates/info.html:354
+#: templates/info.html:412 templates/info.html:424
 msgid "Expand Raspberry Pi filesystem"
 msgstr "拓展Raspberry Pi文件系统"
 
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
-#: templates/info.html:357
+#: templates/info.html:417
+#, fuzzy
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
 "is larger than 4GB,\n"
-"    you may want to expand the filesystem to utilize the remaining space."
-" You only need to do this once.\n"
-"    This will reboot the system."
+"\t\t\t\t\t\t\tyou may want to expand the filesystem to utilize the "
+"remaining space. You only need to do this once.\n"
+"\t\t\t\t\t\t\tThis will reboot the system."
 msgstr ""
 "如果你刚刚安装预设卡拉OK派图片而且你的SD卡超过4GB,\n"
 "    你可能会想要拓展文件系统从而使用剩余的空间。你只需要做一次\n"
 "    这会让你的电脑系统重启"
 
-#. Link which will log out the user from admin mode.
-#: templates/info.html:367
-#, python-format
-msgid "Disable admin mode: <a href=\"%(logout_url)s\">Log out</a>"
-msgstr "关闭管理员模式: <a href=\"%(logout_url)s\">登出</a>"
-
-#. Link which will let the user log into admin mode.
-#: templates/info.html:373
-#, python-format
-msgid ""
-"\n"
-"    Enable admin mode: <a href=\"%(login_url)s\">Log in</a>\n"
-"  "
+#. Title of the admin section.
+#: templates/info.html:433 templates/info.html:458
+msgid "Admin"
 msgstr ""
-"\n"
-"    开启管理员模式: <a href=\"%(login_url)s\">登入</a>\n"
-"  "
 
+#. Title for section logout on the Info page.
+#: templates/info.html:440
+msgid "Logout"
+msgstr ""
+
+#. Message for the log out user from admin mode button.
+#: templates/info.html:446
+msgid "Click here to logout from admin mode."
+msgstr ""
+
+#. Link which will log out the user from admin mode.
+#: templates/info.html:448
+msgid "Log out"
+msgstr ""
+
+#. Title for section login on the Info page.
 #. Title for the log in page for admins.
 #. Text on submit button for the admin login form.
-#: templates/login.html:19 templates/login.html:35
+#: templates/info.html:464 templates/login.html:8 templates/login.html:19
 msgid "Login"
 msgstr "登录"
 
+#. Message for the log in user to admin mode button.
+#: templates/info.html:470
+msgid "Click here to login as admin."
+msgstr ""
+
+#. Link which will let the user log into admin mode.
+#: templates/info.html:472
+#, fuzzy
+msgid "Log in"
+msgstr "登录"
+
 #. Title fo the form to enter the administrator password.
-#: templates/login.html:26
+#: templates/login.html:11
 msgid "Enter the administrator password"
 msgstr "输入管理员密码"
 
@@ -877,130 +961,118 @@ msgstr "播放列表是空的"
 
 #. Button text which picks a given number of random songs from the already
 #. downloaded songs and adds them to the queue.
-#: templates/queue.html:143
+#: templates/queue.html:145
 msgid ""
-"Add <input id=\"randomNumberInput\" pattern=\"\\d*\" maxlength=\"2\" "
-"value=\"3\" min=\"1\" max=\"99\" style=\"width: 40px\" /> random songs"
+"Add <input id=\"randomNumberInput\" class=\"input mx-1\" pattern=\"\\d*\""
+" maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" style=\"width: 40px\" "
+"/> random songs"
 msgstr ""
 
 #. Text for the button which clears the entire queue.
-#: templates/queue.html:148
+#: templates/queue.html:153
 msgid "Clear all"
 msgstr "清除所有"
 
-#: templates/search.html:115
+#: templates/search.html:194
 msgid "Available songs in local library"
 msgstr "本地曲库"
 
 #. Title for the search page.
-#: templates/search.html:340
+#: templates/search.html:466
 msgid "Search / Add New"
 msgstr "搜索 / 添加新歌"
 
-#: templates/search.html:360
+#: templates/search.html:476
 msgid "Available Songs"
 msgstr "已有歌曲"
 
-#. Submit button on the search form when selecting a locally
-#. downloaded song. The button adds it to the queue.
-#: templates/search.html:373
+#. Submit button on the search form when selecting a locally downloaded song.
+#. The button adds it to                                         the queue.
+#: templates/search.html:484
 msgid "Add to queue"
 msgstr "添加至播放列表"
 
 #. Link which clears the text from the search box.
-#: templates/search.html:384
+#: templates/search.html:490
 msgid "Clear"
 msgstr "清除所有"
 
 #. Checkbox label which enables more options when searching.
-#: templates/search.html:390
+#: templates/search.html:494
 msgid "Advanced"
 msgstr "高级设置"
 
 #. Help text below the search bar.
-#: templates/search.html:396
+#: templates/search.html:509
+#, fuzzy
 msgid ""
-"Type a song\n"
-"          (title/artist) to search the available songs and click 'Add to "
-"queue'\n"
-"          to add it to the queue."
+"- Type a song (title/artist) to search\n"
+"\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to"
+" the queue."
 msgstr "输入想唱的歌的名字，点击旁边的“添加至播放列表”按键以添加歌曲"
 
 #. Additonal help text below the search bar.
-#: templates/search.html:401
+#: templates/search.html:513
+#, fuzzy
 msgid ""
-"If\n"
-"          the song doesn't appear in the \"Available Songs\" dropdown, "
-"click\n"
-"          'Search' to find it on Youtube"
+"- If the song doesn't appear in\n"
+"\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find "
+"it on Youtube"
 msgstr "如果曲目不在“已有歌曲”列表中，点击”搜索“转跳到YouTube上搜索"
 
-#. Checkbox label which enables matching songs which are not           karaoke
-#. versions (i.e. the songs still have a singer and are not just
-#. instrumentals.)
-#: templates/search.html:424
+#. Checkbox label which enables matching songs which are not karaoke versions
+#. (i.e. the songs still                                         have a singer
+#. and are not just instrumentals.)
+#: templates/search.html:529
 msgid "Include non-karaoke matches"
 msgstr "搜索包含原唱版本（非伴奏）"
 
-#. Label for an input which takes a YouTube url directly instead           of
-#. searching titles.
-#: templates/search.html:432
+#. Label for an input which takes a YouTube url directly instead of searching
+#. titles.
+#: templates/search.html:535
 msgid "Direct download YouTube url:"
 msgstr "通过YouTube url网址直接下载"
 
-#. Checkbox label which marks the song to be added to the               queue
-#. after it finishes downloading.
-#: templates/search.html:448
-msgid ""
-"Add to queue\n"
-"              once downloaded"
+#. Checkbox label which marks the song to be added to the queue after it
+#. finishes downloading.
+#: templates/search.html:552 templates/search.html:618
+#, fuzzy
+msgid "Add to queue once downloaded"
 msgstr "下载完毕后自动添加曲目到播放列表"
 
 #. Button label for the direct download form's submit button.
-#. Label on the button which starts the download of the selected
-#. song.
-#: templates/search.html:460 templates/search.html:535
+#. Label on the button which starts the download of the selected song.
+#: templates/search.html:557 templates/search.html:623
 msgid "Download"
 msgstr "下载"
 
-#. Html text which displays what was searched for, in     quotes while the page
-#. is loading.
-#: templates/search.html:481
-#, python-format
+#. Html text which displays what was searched for, in quotes while the page is
+#. loading.
+#: templates/search.html:579
+#, fuzzy, python-format
 msgid ""
 "Searching YouTube for\n"
-"    <small><i>'%(search_term)s'</i></small>"
+"\t\t<small><i>'%(search_term)s'</i></small>"
 msgstr "在YouTube上搜索<small><i>'%(search_term)s'</i></small>"
 
 #. Html text which displays what was searched for, in quotes.
-#: templates/search.html:491
-#, python-format
+#: templates/search.html:587
+#, fuzzy, python-format
 msgid ""
 "Search results for\n"
-"        <small><i>'%(search_string)s'</i></small>"
+"\t\t\t\t<small><i>'%(search_string)s'</i></small>"
 msgstr "搜索：<small><i>'%(search_string)s'</i></small> （点击下方查看全部搜索结果）"
 
-#. Help text which explains that the select box above can be           operated
-#. to select different search results.
-#: templates/search.html:509
-msgid ""
-"Click\n"
-"          dropdown to show more results"
+#. Help text which explains that the select box above can be operated to select
+#. different search                                         results.
+#: templates/search.html:604
+msgid "Click dropdown to show more results"
 msgstr ""
 
-#. Label displayed before the YouTube url for the chosen search
-#. result.
-#: templates/search.html:514
+#. Label displayed before the YouTube url for the chosen search result.
+#: templates/search.html:607
 msgid "Link:"
 msgstr "YouTube歌曲链接"
-
-#. Checkbox label which marks the song to be added to the queue           after
-#. it finishes downloading.
-#: templates/search.html:524
-msgid ""
-"Add to queue once\n"
-"          downloaded"
-msgstr "下载完毕后自动添加曲目到播放列表"
 
 #. Score review message
 #: templates/splash.html:59
@@ -1078,24 +1150,24 @@ msgid "Woah, who let Freddie Mercury in here?"
 msgstr ""
 
 #. Label for the next song to be played in the queue.
-#: templates/splash.html:273 templates/splash.html:587
+#: templates/splash.html:273 templates/splash.html:590
 msgid "Up next:"
 msgstr "下一首歌："
 
 #. Label of the singer for next song to be played in the queue. (Who added it
 #. to the queue.)
 #. Label for the next singer in the queue.
-#: templates/splash.html:275 templates/splash.html:594
+#: templates/splash.html:275 templates/splash.html:597
 msgid "Next singer:"
 msgstr "下一个歌手："
 
 #. The title of the score screen, telling the user their singing score
-#: templates/splash.html:616
+#: templates/splash.html:619
 msgid "Your Score"
 msgstr ""
 
 #. Prompt for interaction in order to enable video autoplay.
-#: templates/splash.html:630
+#: templates/splash.html:633
 msgid ""
 "Due to limititations with browser permissions, you must interact\n"
 "      with the page once before it allows autoplay of videos. Pikaraoke "
@@ -1105,7 +1177,7 @@ msgid ""
 msgstr ""
 
 #. Button to confirm to enable video autoplay.
-#: templates/splash.html:642
+#: templates/splash.html:645
 msgid "Confirm"
 msgstr ""
 
@@ -1124,5 +1196,42 @@ msgstr ""
 #~ "Add <input id=\"randomNumberInput\" type=\"number\""
 #~ " value=\"3\" min=\"1\" max=\"100\" style=\"width:"
 #~ " 50px\" /> random songs"
+#~ msgstr ""
+
+#~ msgid "Sort by Date"
+#~ msgstr "用日期排序"
+
+#~ msgid "Disable background music"
+#~ msgstr ""
+
+#~ msgid "Disable admin mode: <a href=\"%(logout_url)s\">Log out</a>"
+#~ msgstr "关闭管理员模式: <a href=\"%(logout_url)s\">登出</a>"
+
+#~ msgid ""
+#~ "\n"
+#~ "    Enable admin mode: <a href=\"%(login_url)s\">Log in</a>\n"
+#~ "  "
+#~ msgstr ""
+#~ "\n"
+#~ "    开启管理员模式: <a href=\"%(login_url)s\">登入</a>\n"
+#~ "  "
+
+#~ msgid ""
+#~ "Add <input id=\"randomNumberInput\" pattern=\"\\d*\""
+#~ " maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\""
+#~ " style=\"width: 40px\" /> random songs"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Add to queue\n"
+#~ "              once downloaded"
+#~ msgstr "下载完毕后自动添加曲目到播放列表"
+
+#~ msgid ""
+#~ "Click\n"
+#~ "          dropdown to show more results"
+#~ msgstr ""
+
+#~ msgid "Accept suggested name"
 #~ msgstr ""
 
