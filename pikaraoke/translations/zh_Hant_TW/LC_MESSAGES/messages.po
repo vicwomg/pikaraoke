@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version:  1.1.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-12-10 14:45-0300\n"
+"POT-Creation-Date: 2025-12-11 15:29-0300\n"
 "PO-Revision-Date: 2024-08-28 10:09-0400\n"
 "Last-Translator: \n"
 "Language: zh_TW\n"
@@ -17,111 +17,111 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.9.1\n"
 
-#: karaoke.py:258
+#: karaoke.py:262
 msgid "Your preferences were changed successfully"
 msgstr "您的偏好設定已成功更改"
 
-#: karaoke.py:261
+#: karaoke.py:265
 msgid "Something went wrong! Your preferences were not changed"
 msgstr "發生錯誤！您的偏好設定未被更改"
 
-#: karaoke.py:266
+#: karaoke.py:270
 msgid "Your preferences were cleared successfully"
 msgstr "您的偏好設定已成功清除"
 
-#: karaoke.py:268
+#: karaoke.py:272
 msgid "Something went wrong! Your preferences were not cleared"
 msgstr "發生錯誤！您的偏好設定未被清除"
 
 #. Message shown after the download is started
-#: karaoke.py:365
+#: karaoke.py:369
 #, python-format
 msgid "Downloading video: %s"
 msgstr "正在下載影片：%s"
 
 #. Message shown after the download is completed and queued
-#: karaoke.py:382
+#: karaoke.py:386
 #, python-format
 msgid "Downloaded and queued: %s"
 msgstr "成功添加歌曲：%s"
 
 #. Message shown after the download is completed but not queued
-#: karaoke.py:385
+#: karaoke.py:389
 #, python-format
 msgid "Downloaded: %s"
 msgstr "下載：%s"
 
 #. Message shown after the download is completed but the adding to queue fails
-#: karaoke.py:394
+#: karaoke.py:398
 msgid "Error queueing song: "
 msgstr "添加歌曲到播放列表時出錯："
 
 #. Message shown after the download process is completed but the song is not
 #. found
-#: karaoke.py:397
+#: karaoke.py:401
 msgid "Error downloading song: "
 msgstr "下載歌曲時出錯："
 
 #. Message shown when the song ends abnormally
-#: karaoke.py:605
+#: karaoke.py:609
 #, python-format
 msgid "Song ended abnormally: %s"
 msgstr "歌曲異常結束：%s"
 
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
-#: karaoke.py:613
+#: karaoke.py:617
 #, python-format
 msgid "Transposing by %s semitones: %s"
 msgstr "調整音調 %s 個半音：%s"
 
-#: karaoke.py:646
+#: karaoke.py:650
 #, python-format
 msgid "You reached the limit of %s song(s) from an user in queue!"
 msgstr "您已達到每位用戶在播放列表中的 %s 首歌曲限制！"
 
 #. Message shown after the song is added to the top of the queue
-#: karaoke.py:658
+#: karaoke.py:662
 #, python-format
 msgid "%s added to top of queue: %s"
 msgstr "%s 成功添加歌曲到播放列表頂部：%s"
 
 #. Message shown after the song is added to the queue
-#: karaoke.py:663
+#: karaoke.py:667
 #, python-format
 msgid "%s added to the queue: %s"
 msgstr "%s 成功添加歌曲到播放列表：%s"
 
-#: karaoke.py:667
+#: karaoke.py:671
 #, python-format
 msgid "Song added to the queue: %s"
 msgstr "成功添加歌曲到播放列表：%s"
 
 #. Message shown after the queue is cleared
-#: karaoke.py:691
+#: karaoke.py:695
 msgid "Clear queue"
 msgstr "清空播放列表"
 
 #. Message shown after the song is skipped, will be followed by song name
-#: karaoke.py:740
+#: karaoke.py:744
 #, python-format
 msgid "Skip: %s"
 msgstr "跳過：%s"
 
 #. Message shown after the song is resumed, will be followed by song name
-#: karaoke.py:751
+#: karaoke.py:755
 #, python-format
 msgid "Resume: %s"
 msgstr "繼續播放：%s"
 
 #. Message shown after the song is paused, will be followed by song name
-#: karaoke.py:754
+#: karaoke.py:758
 msgid "Pause"
 msgstr "暫停"
 
 #. Message shown after the volume is changed, will be followed by the volume
 #. level
-#: karaoke.py:765
+#: karaoke.py:769
 #, python-format
 msgid "Volume: %s"
 msgstr "音量：%s"
@@ -507,285 +507,323 @@ msgid "No song is queued."
 msgstr "沒有排隊的歌曲。"
 
 #. Confirmation message when clicking a button to skip a track.
-#: templates/home.html:141
+#: templates/home.html:135
 msgid ""
 "Are you sure you want to skip this track? If you didn't add this song, "
 "ask permission first!"
 msgstr "您確定要跳過這首歌嗎？如果您不是添加這首歌的人，請先徵求許可！"
 
 #. Header showing the currently playing song.
-#: templates/home.html:188
+#: templates/home.html:181
 msgid "Now Playing"
 msgstr "正在播放"
 
 #. Title for the section displaying the next song to be played.
-#: templates/home.html:203
+#: templates/home.html:194
 msgid "Next Song"
 msgstr "下一首歌"
 
 #. Title of the box with controls such as pause and skip.
-#: templates/home.html:214
+#: templates/home.html:201
 msgid "Player Control"
 msgstr "播放器控制"
 
-#. Title attribute on the button to restart the current song.
-#: templates/home.html:218
+#. Title attribute on the button to play or pause the current song.
+#: templates/home.html:205
 msgid "Restart Song"
 msgstr "重新開始歌曲"
 
-#. Title attribute on the button to play or pause the       current song.
-#: templates/home.html:222
+#. Title attribute on the button to skip to the next song.
+#: templates/home.html:207
 msgid "Play/Pause"
 msgstr "播放/暫停"
 
-#. Title attribute on the button to skip to the next       song.
-#: templates/home.html:226
+#: templates/home.html:209
 msgid "Stop Current Song"
 msgstr "停止當前歌曲"
 
 #. Title of a control to change the key/pitch of the playing song.
-#: templates/home.html:250
+#: templates/home.html:231
 msgid "Change Key"
 msgstr "更改音調"
 
-#. Label on the button to confirm the change in key/pitch of the
-#. playing song.
-#: templates/home.html:277
+#. Label on the button to confirm the change in key/pitch of the playing song.
+#: templates/home.html:251
 msgid "Change"
 msgstr "更改"
 
 #. Confirmation text whe the user selects quit.
-#: templates/info.html:47
+#: templates/info.html:64
 msgid "Are you sure you want to quit?"
 msgstr "您確定要退出嗎？"
 
 #. Confirmation text whe the user starts to turn off the machine running
 #. Pikaraoke.
-#: templates/info.html:55
+#: templates/info.html:72
 msgid "Are you sure you want to shut down?"
 msgstr "您確定要關機嗎？"
 
 #. Confirmation text whe the user clears preferences.
-#: templates/info.html:63
+#: templates/info.html:80
 msgid "Are you sure you want to clear your preferences?"
 msgstr "您確定要清除您的偏好設定嗎？"
 
 #. Confirmation text whe the user starts to reboot the machine running
 #. Pikaraoke.
-#: templates/info.html:71
+#: templates/info.html:88
 msgid "Are you sure you want to reboot?"
 msgstr "您確定要重新啟動嗎？"
 
 #. Confirmation text whe the user asks to update the Youtube-dl tool.
-#: templates/info.html:81
+#: templates/info.html:98
 msgid ""
 "Are you sure you want to update Youtube-dl right now? Current and pending"
 " downloads may fail."
 msgstr "您確定要立即更新 Youtube-dl 嗎？當前和待處理的下載可能會失敗。"
 
 #. Title of the information page.
-#: templates/info.html:103
+#: templates/info.html:136
 msgid "Information"
 msgstr "資訊"
 
 #. Label which appears before a url which links to the current page.
-#: templates/info.html:115
+#: templates/info.html:148
 #, python-format
 msgid "URL of %(site_title)s:"
 msgstr "%(site_title)s 的網址："
 
 #. Label before a QR code which brings a frind (pal) to the main page if
 #. scanned, so they can also add songs. QR code follows this text.
-#: templates/info.html:121
+#: templates/info.html:154
 msgid "Handy URL QR code to share with a pal:"
 msgstr "方便分享給朋友的網址 QR 碼："
 
 #. Title of the system data section.
-#: templates/info.html:130
+#: templates/info.html:163
 #, fuzzy
 msgid "System Data"
 msgstr "系統統計"
 
 #. Header of the information section about the computer running Pikaraoke.
-#: templates/info.html:135
+#: templates/info.html:168
 msgid "System Info"
 msgstr "系統資訊"
 
 #. The hardware platform
-#: templates/info.html:141
+#: templates/info.html:174
 msgid "Platform:"
 msgstr "平台："
 
 #. The os version
-#: templates/info.html:143
+#: templates/info.html:176
 msgid "OS Version:"
 msgstr "作業系統版本："
 
 #. The version of the program "Youtube-dl".
-#: templates/info.html:145
+#: templates/info.html:178
 msgid "Youtube-dl (yt-dlp) version:"
 msgstr "Youtube-dl (yt-dlp) 版本："
 
 #. The version of the program "ffmpeg".
-#: templates/info.html:147
+#: templates/info.html:180
 msgid "FFmpeg version:"
 msgstr "FFmpeg 版本："
 
 #. The version of Pikaraoke running right now.
-#: templates/info.html:149
+#: templates/info.html:182
 msgid "Pikaraoke version:"
 msgstr "卡拉OK派版本："
 
 #. Header of the information section about the System stats.
-#: templates/info.html:155
+#: templates/info.html:188
 msgid "System stats"
 msgstr "系統統計"
 
 #. The CPU usage of the computer running Pikaraoke.
-#: templates/info.html:161
+#: templates/info.html:194
 #, python-format
 msgid "CPU: %(cpu)s"
 msgstr "CPU：%(cpu)s"
 
 #. The disk usage of the computer running Pikaraoke. Used by downloaded songs.
-#: templates/info.html:163
+#: templates/info.html:196
 #, python-format
 msgid "Disk Usage: %(disk)s"
 msgstr "磁碟使用量：%(disk)s"
 
 #. The memory (RAM) usage of the computer running Pikaraoke.
-#: templates/info.html:165
+#: templates/info.html:198
 #, python-format
 msgid "Memory: %(memory)s"
 msgstr "記憶體：%(memory)s"
 
 #. Title of the user preferences section.
-#: templates/info.html:172
+#: templates/info.html:205
 msgid "User Preferences"
 msgstr "使用者偏好設定"
 
 #. Title text for the splash screen settings section of preferences
-#: templates/info.html:178
+#: templates/info.html:211
 msgid "Splash screen settings"
 msgstr "啟動畫面設定"
 
 #. Help text explaining the the need to restart after changing splash screen
 #. preferences
-#: templates/info.html:181
+#: templates/info.html:214
 msgid ""
 "*You may need to refresh the splash screen for these changes to take "
 "effect."
 msgstr "*您可能需要重新整理啟動畫面才能使這些更改生效。"
 
 #. Checkbox label which enable/disables background video on the Splash Screen
-#: templates/info.html:188
+#: templates/info.html:221
 msgid "Disable background video"
 msgstr "停用背景影片"
 
 #. Checkbox label which enable/disables the Score Screen
-#: templates/info.html:194
+#: templates/info.html:227
 msgid "Disable the score screen after each song"
 msgstr "停用每首歌曲後的分數畫面"
 
 #. Checkbox label which enable/disables notifications on the splash screen
-#: templates/info.html:200
+#: templates/info.html:233
 msgid "Hide notifications"
 msgstr "隱藏通知"
 
 #. Checkbox label which enable/disables the URL display
-#: templates/info.html:206
+#: templates/info.html:239
 msgid "Hide the URL and QR code"
 msgstr "隱藏網址和 QR 碼"
 
 #. Checkbox label which enable/disables showing overlay data on the splash
 #. screen
-#: templates/info.html:212
+#: templates/info.html:245
 msgid "Hide all overlays, including now playing, up next, and QR code"
 msgstr "隱藏所有覆蓋層，包括正在播放、即將播放和 QR 碼"
 
 #. Numberbox label for setting the default video volume
-#: templates/info.html:218
+#: templates/info.html:251
 msgid "Default volume of the videos (min 0, max 100)"
 msgstr "影片的預設音量（最小 0，最大 100）"
 
 #. Numberbox label for setting the background music volume
-#: templates/info.html:224
+#: templates/info.html:257
 msgid "Volume of the background music (min 0, max 100)"
 msgstr "背景音樂的音量（最小 0，最大 100）"
 
 #. Numberbox label for setting the inactive delay before showing the
 #. screensaver
-#: templates/info.html:231
+#: templates/info.html:264
 msgid ""
 "The amount of idle time in seconds before the screen saver activates. Set"
 " to 0 to disable it."
 msgstr "螢幕保護程式啟動前的閒置時間（秒）。設為 0 可停用。"
 
 #. Numberbox label for setting the delay before playing the next song
-#: templates/info.html:238
+#: templates/info.html:271
 msgid "The delay in seconds before starting the next song"
 msgstr "開始下一首歌曲前的延遲時間（秒）"
 
+#. Title text for the Score Phrases section of preferences
+#: templates/info.html:280
+msgid "Score phrases"
+msgstr ""
+
+#. Help text explaining how to add phrases
+#: templates/info.html:283
+msgid "Add one phrase per line in each box and hit save."
+msgstr ""
+
+#. Title for LOW Score Phrases
+#: templates/info.html:289
+msgid "LOW Score Phrases (score < 30)"
+msgstr ""
+
+#. Placeholder for the low score phrases textarea
+#: templates/info.html:291
+msgid "Could be better..."
+msgstr ""
+
+#. Title for MID Score Phrases
+#: templates/info.html:294
+msgid "MID Score Phrases (30 > score < 60)"
+msgstr ""
+
+#. Placeholder for the MID score phrases textarea
+#: templates/info.html:296
+msgid "That was ok..."
+msgstr ""
+
+#. Title for HIGH Score Phrases
+#: templates/info.html:299
+msgid "HIGH Score Phrases (score > 60)"
+msgstr ""
+
+#. Placeholder for the HIGH score phrases textarea
+#: templates/info.html:301
+msgid "Wonderfull..."
+msgstr ""
+
 #. Title text for the language settings section of preferences
-#: templates/info.html:245
+#: templates/info.html:307
 msgid "Language settings"
 msgstr "語言設定"
 
 #. Label for language selection dropdown
-#: templates/info.html:258
+#: templates/info.html:320
 msgid "Preferred language (requires restart)"
 msgstr "首選語言（需要重啟"
 
 #. Title text for the server settings section of preferences
-#: templates/info.html:265
+#: templates/info.html:327
 msgid "Server settings"
 msgstr "伺服器設定"
 
 #. Checkbox label which enable/disables audio volume normalization
-#: templates/info.html:272
+#: templates/info.html:334
 msgid "Normalize audio volume"
 msgstr "標準化音訊音量"
 
 #. Checkbox label which enable/disables high quality video downloads
-#: templates/info.html:278
+#: templates/info.html:340
 msgid "Download high quality videos"
 msgstr "下載高品質影片"
 
 #. Checkbox label which enable/disables full transcode before playback
-#: templates/info.html:284
+#: templates/info.html:346
 msgid ""
 "Transcode video completely before playing (better browser compatibility, "
 "slower starts). Buffer size will be ignored.*"
 msgstr "在播放前完全轉碼影片（更好的瀏覽器相容性，較慢的啟動）。緩衝區大小將被忽略。*"
 
 #. Checkbox label which enable/disables CDG pixel scaling
-#: templates/info.html:290
+#: templates/info.html:352
 msgid ""
 "Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU"
 " usage)"
 msgstr ""
 
 #. Numberbox label for audio video synchronization
-#: templates/info.html:297
+#: templates/info.html:359
 msgid ""
 "Fix the audio and video synchronization in seconds (negative = advances "
 "audio | positive = delays audio)"
 msgstr ""
 
 #. Numberbox label for limitting the number of songs for each player
-#: templates/info.html:304
+#: templates/info.html:366
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
 msgstr "個別使用者可以添加到播放列表的歌曲數量限制（0 = 無限制）"
 
 #. Numberbox label for setting the buffer size in kilobytes
-#: templates/info.html:311
+#: templates/info.html:373
 msgid ""
 "Buffer size in kilobytes. Transcode this amount of the video before "
 "sending it to the splash screen. "
 msgstr "緩衝區大小（KB）。在將影片發送到啟動畫面之前，轉碼這個數量的影片。"
 
 #. Help text explaining when videos will be transcoded
-#: templates/info.html:315
+#: templates/info.html:377
 msgid ""
 "* Videos are only transcoded when: normalization is on, audio/video "
 "synchronization not zero, a song is transposed, playing a CDG/MOV/AVI/MKV"
@@ -793,40 +831,40 @@ msgid ""
 msgstr "* 只有在以下情況下才會轉碼影片：標準化開啟、歌曲被轉調、播放 CDG/MOV/AVI/MKV 檔案。大多數未修改的 MP4 檔案不需要轉碼。"
 
 #. Text for the link where the user can clear all user preferences
-#: templates/info.html:319
+#: templates/info.html:381
 msgid "Clear preferences"
 msgstr "清除偏好設定"
 
 #. Title of the updates section.
-#: templates/info.html:327
+#: templates/info.html:389
 msgid "Updates"
 msgstr "更新"
 
 #. Label for the Refresh the song list on the updates section
-#: templates/info.html:332
+#: templates/info.html:394
 #, fuzzy
 msgid "Refresh the song list"
 msgstr "重新整理歌曲列表："
 
 #. Help text explaining the Rescan song directory link.
-#: templates/info.html:337
+#: templates/info.html:399
 msgid ""
 "You should only need to do this if you manually copied files to the "
 "download directory while pikaraoke was running."
 msgstr "只有當卡拉OK派正在運行時，您手動複製檔案到下載目錄，才需要執行此操作。"
 
 #. Text on the link which forces Pikaraoke to rescan and pick up any new songs.
-#: templates/info.html:342
+#: templates/info.html:404
 msgid "Rescan song directory"
 msgstr "重新掃描歌曲目錄"
 
 #. Label for the YT-DLP update on the updates section
-#: templates/info.html:349
+#: templates/info.html:411
 msgid "YT-DLP update"
 msgstr ""
 
 #. Text explaining why you might want to update youtube-dl.
-#: templates/info.html:354
+#: templates/info.html:416
 #, fuzzy, python-format
 msgid ""
 "\n"
@@ -840,13 +878,13 @@ msgstr ""
 
 #. Text for the link which will try and update youtube-dl on the machine
 #. running Pikaraoke.
-#: templates/info.html:360
+#: templates/info.html:422
 msgid "Update youtube-dl"
 msgstr "更新 youtube-dl"
 
 #. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
-#: templates/info.html:364
+#: templates/info.html:426
 #, fuzzy
 msgid ""
 "* This update link above may fail if you don't have proper file "
@@ -858,12 +896,12 @@ msgstr ""
 
 #. Title of the section on shutting down / turning off the machine running
 #. Pikaraoke.
-#: templates/info.html:376
+#: templates/info.html:438
 msgid "Shutdown"
 msgstr "關機"
 
 #. Explainitory text which explains why to use the shutdown link.
-#: templates/info.html:383
+#: templates/info.html:445
 msgid ""
 "Don't just pull the plug! Always shut down your server properly to avoid "
 "data corruption."
@@ -871,34 +909,34 @@ msgstr "不要直接拔掉電源！始終正確關閉您的伺服器，以避免
 
 #. Text for button which turns off Pikaraoke for everyone using it at your
 #. house.
-#: templates/info.html:390
+#: templates/info.html:452
 msgid "Quit Pikaraoke"
 msgstr "退出卡拉OK派"
 
 #. Text for button which reboots the machine running Pikaraoke.
-#: templates/info.html:393
+#: templates/info.html:455
 msgid "Reboot System"
 msgstr "重新啟動系統"
 
 #. Text for button which turn soff the machine running Pikaraoke.
-#: templates/info.html:396
+#: templates/info.html:458
 msgid "Shutdown System"
 msgstr "關閉系統"
 
 #. Title of the updates section.
-#: templates/info.html:407
+#: templates/info.html:469
 msgid "Other"
 msgstr "其他"
 
 #. Title for section containing a few other options on the Info page.
 #. Text for button
-#: templates/info.html:412 templates/info.html:424
+#: templates/info.html:474 templates/info.html:486
 msgid "Expand Raspberry Pi filesystem"
 msgstr "擴展樹莓派檔案系統"
 
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
-#: templates/info.html:417
+#: templates/info.html:479
 #, fuzzy
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
@@ -912,39 +950,39 @@ msgstr ""
 "    這將重新啟動系統。"
 
 #. Title of the admin section.
-#: templates/info.html:433 templates/info.html:458
+#: templates/info.html:495 templates/info.html:520
 msgid "Admin"
 msgstr ""
 
 #. Title for section logout on the Info page.
-#: templates/info.html:440
+#: templates/info.html:502
 msgid "Logout"
 msgstr ""
 
 #. Message for the log out user from admin mode button.
-#: templates/info.html:446
+#: templates/info.html:508
 msgid "Click here to logout from admin mode."
 msgstr ""
 
 #. Link which will log out the user from admin mode.
-#: templates/info.html:448
+#: templates/info.html:510
 msgid "Log out"
 msgstr ""
 
 #. Title for section login on the Info page.
 #. Title for the log in page for admins.
 #. Text on submit button for the admin login form.
-#: templates/info.html:464 templates/login.html:8 templates/login.html:19
+#: templates/info.html:526 templates/login.html:8 templates/login.html:19
 msgid "Login"
 msgstr "登入"
 
 #. Message for the log in user to admin mode button.
-#: templates/info.html:470
+#: templates/info.html:532
 msgid "Click here to login as admin."
 msgstr ""
 
 #. Link which will let the user log into admin mode.
-#: templates/info.html:472
+#: templates/info.html:534
 #, fuzzy
 msgid "Log in"
 msgstr "登入"
@@ -1115,74 +1153,74 @@ msgid "Well, I'm sure you're very good at your day job."
 msgstr "嗯，我相信你的正職工作一定很出色。"
 
 #. Score review message
-#: templates/splash.html:66
+#: templates/splash.html:69
 msgid "I've seen better."
 msgstr "我見過更好的。"
 
 #. Score review message
-#: templates/splash.html:67
+#: templates/splash.html:70
 msgid "Ok... just ok."
 msgstr "還可以...只是還可以。"
 
 #. Score review message
-#: templates/splash.html:68
+#: templates/splash.html:71
 msgid "Not bad for an amateur."
 msgstr "對業餘選手來說不錯。"
 
 #. Score review message
-#: templates/splash.html:69
+#: templates/splash.html:72
 msgid "You put on a decent show."
 msgstr "你表演得不錯。"
 
 #. Score review message
-#: templates/splash.html:70
+#: templates/splash.html:73
 msgid "That was... something."
 msgstr "那真是...有點特別。"
 
 #. Score review message
-#: templates/splash.html:73
+#: templates/splash.html:79
 msgid "Congratulations! That was unbelievable!"
 msgstr "恭喜！那真是難以置信！"
 
 #. Score review message
-#: templates/splash.html:74
+#: templates/splash.html:80
 msgid "Wow, have you tried auditioning for The Voice?"
 msgstr "哇，你有考慮過去參加《好聲音》嗎？"
 
 #. Score review message
-#: templates/splash.html:75
+#: templates/splash.html:81
 msgid "Please, sing another one!"
 msgstr "請再唱一首！"
 
 #. Score review message
-#: templates/splash.html:76
+#: templates/splash.html:82
 msgid "You rock! You know that?!"
 msgstr "你太棒了！你知道嗎？！"
 
 #. Score review message
-#: templates/splash.html:77
+#: templates/splash.html:83
 msgid "Woah, who let Freddie Mercury in here?"
 msgstr "哇，誰讓佛萊迪·默丘里進來了？"
 
 #. Label for the next song to be played in the queue.
-#: templates/splash.html:273 templates/splash.html:590
+#: templates/splash.html:282 templates/splash.html:599
 msgid "Up next:"
 msgstr "即將播放："
 
 #. Label of the singer for next song to be played in the queue. (Who added it
 #. to the queue.)
 #. Label for the next singer in the queue.
-#: templates/splash.html:275 templates/splash.html:597
+#: templates/splash.html:284 templates/splash.html:606
 msgid "Next singer:"
 msgstr "下一位歌手："
 
 #. The title of the score screen, telling the user their singing score
-#: templates/splash.html:619
+#: templates/splash.html:628
 msgid "Your Score"
 msgstr "您的分數"
 
 #. Prompt for interaction in order to enable video autoplay.
-#: templates/splash.html:633
+#: templates/splash.html:642
 msgid ""
 "Due to limititations with browser permissions, you must interact\n"
 "      with the page once before it allows autoplay of videos. Pikaraoke "
@@ -1196,7 +1234,7 @@ msgstr ""
 "      <a onClick=\"handleConfirmation()\">確認</a>。"
 
 #. Button to confirm to enable video autoplay.
-#: templates/splash.html:645
+#: templates/splash.html:654
 msgid "Confirm"
 msgstr "確認"
 

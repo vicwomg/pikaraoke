@@ -1,5 +1,22 @@
 {% extends 'base.html' %} {% block scripts %}
 	<script>
+		async function updatePhrases(phrases) {
+			let returnData = null
+
+			for (const phraseRange in phrases) {
+				returnData = await $.get("{{ url_for('preferences.change_preferences') }}", {
+						pref: phraseRange,
+						val: phrases[phraseRange]
+				})
+
+				// se o Python retornar False, para o loop
+				if (!returnData[0]) break
+			}
+
+			if (returnData[0]) showNotification(returnData[1], "is-success");
+			else showNotification(returnData[1], "is-danger");
+		}
+
 		$(function () {
 			$(".user-preference-input").change(function() {
 				let val = $(this).val();
@@ -18,7 +35,7 @@
 					changePreferences(pref, val);
 				}, 1000);
 
-				// Se o usuário alterar o valor novamente antes do delay expirar, cancela o timeout
+				// If the user changes the value again before the daly expires, cancel the timeout
 				$(this).one("change", function() {
 					clearTimeout(timeoutId);
 				});
@@ -92,6 +109,22 @@
 					location.href = this.href;
 				}
 			});
+
+			$("#save-phrases").click(function (e){
+				e.preventDefault();
+
+				//let low = $("#low-score-phrases").val().replace(/\n/g, '|');
+				//let mid = $("#mid-score-phrases").val().replace(/\n/g, '|');
+				//let high = $("#high-score-phrases").val().replace(/\n/g, '|');
+
+				let phrases = {
+					"low_score_phrases": $("#low-score-phrases").val(),
+					"mid_score_phrases": $("#mid-score-phrases").val(),
+					"high_score_phrases": $("#high-score-phrases").val()
+				}
+
+				updatePhrases(phrases)
+			})
 		});
 	</script>
 {% endblock %}
@@ -184,31 +217,31 @@
 			<div class="card-content">
 				<div class="content">
 					<div class="user-preference-container">
-						<input id="pref-bg-video" class="user-preference-checkbox checkbox" type="checkbox" data-pref="disable_bg_video" {% if disable_bg_video == "True" %}checked{% endif %} />
+						<input id="pref-bg-video" class="user-preference-checkbox checkbox" type="checkbox" data-pref="disable_bg_video" {% if disable_bg_video == True %}checked{% endif %} />
 						<label class="label" for="pref-bg-video">{# MSG: Checkbox label which enable/disables background video on the Splash Screen #} {% trans %}Disable background video{% endtrans %}
 						</label>
 					</div>
 
 					<div class="user-preference-container">
-						<input id="pref-score" type="checkbox" class="user-preference-checkbox checkbox" data-pref="disable_score" {% if disable_score == "True" %}checked{% endif %}>
+						<input id="pref-score" type="checkbox" class="user-preference-checkbox checkbox" data-pref="disable_score" {% if disable_score == True %}checked{% endif %}>
 						<label class="label" for="pref-score">{# MSG: Checkbox label which enable/disables the Score Screen #} {% trans %}Disable the score screen after each song{% endtrans %}
 						</label>
 					</div>
 
 					<div class="user-preference-container">
-						<input id="pref-notifications" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_notifications" {% if hide_notifications == "True" %}checked{% endif %}>
+						<input id="pref-notifications" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_notifications" {% if hide_notifications == True %}checked{% endif %}>
 						<label class="label" for="pref-notifications">{# MSG: Checkbox label which enable/disables notifications on the splash screen #} {% trans %}Hide notifications{% endtrans %}
 						</label>
 					</div>
 
 					<div class="user-preference-container">
-						<input id="pref-qr-code" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_url" {% if hide_url == "True" %}checked{% endif %}>
+						<input id="pref-qr-code" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_url" {% if hide_url == True %}checked{% endif %}>
 						<label class="label" for="pref-qr-code">{# MSG: Checkbox label which enable/disables the URL display #} {% trans %}Hide the URL and QR code{% endtrans %}
 						</label>
 					</div>
 
 					<div class="user-preference-container">
-						<input id="pref-overlay" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_overlay" {% if hide_overlay == "True" %}checked{% endif %}>
+						<input id="pref-overlay" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_overlay" {% if hide_overlay == True %}checked{% endif %}>
 						<label class="label" for="pref-overlay">{# MSG: Checkbox label which enable/disables showing overlay data on the splash screen #} {% trans %}Hide all overlays, including now playing, up next, and QR code{% endtrans %}
 						</label>
 					</div>
@@ -242,6 +275,35 @@
 			</div>
 
 			<header class="card-header py-3 px-5">
+				<div class="media-content">
+				{# MSG: Title text for the Score Phrases section of preferences #}
+				<h3 class="title m-0">{% trans %}Score phrases{% endtrans %}</h3>
+
+				{# MSG: Help text explaining how to add phrases #}
+				<p class="subtitle has-text-warning mt-1 is-size-6">{% trans %}Add one phrase per line in each box and hit save.{% endtrans %}</p>
+				</div>
+			</header>
+			<div class="card-content">
+				<div class="content">
+					{# MSG: Title for LOW Score Phrases #}
+					<h5>{% trans %}LOW Score Phrases (score < 30){% endtrans %}</h5>
+					{# MSG: Placeholder for the low score phrases textarea #}
+					<textarea id="low-score-phrases" class="textarea" placeholder="{% trans %}Could be better...{% endtrans %}">{{ schore_phrases.low }}</textarea>
+					<hr>
+					{# MSG: Title for MID Score Phrases #}
+					<h5>{% trans %}MID Score Phrases (30 > score < 60){% endtrans %}</h5>
+					{# MSG: Placeholder for the MID score phrases textarea #}
+					<textarea id="mid-score-phrases" class="textarea" placeholder="{% trans %}That was ok...{% endtrans %}">{{ schore_phrases.mid }}</textarea>
+					<hr>
+					{# MSG: Title for HIGH Score Phrases #}
+					<h5>{% trans %}HIGH Score Phrases (60 < score){% endtrans %}</h5>
+					{# MSG: Placeholder for the HIGH score phrases textarea #}
+					<textarea id="high-score-phrases" class="textarea" placeholder="{% trans %}Wonderfull...{% endtrans %}">{{ schore_phrases.high }}</textarea>
+					<a id="save-phrases" class="button is-fullwidth is-primary mt-5">Save phrases</a>
+				</div>
+			</div>
+
+			<header class="card-header py-3 px-5">
 				<h3 class="m-0">{# MSG: Title text for the language settings section of preferences #}{% trans %}Language settings{% endtrans %}</h3>
 			</header>
 			<div class="card-content">
@@ -268,25 +330,25 @@
 				<div class="content">
 
 					<div class="user-preference-container">
-						<input id="pref-normalize" type="checkbox" class="user-preference-checkbox checkbox" data-pref="normalize_audio" {% if normalize_audio == "True" %}checked{% endif %}>
+						<input id="pref-normalize" type="checkbox" class="user-preference-checkbox checkbox" data-pref="normalize_audio" {% if normalize_audio == True %}checked{% endif %}>
 						<label class="label" for="pref-normalize">{# MSG: Checkbox label which enable/disables audio volume normalization #} {% trans %}Normalize audio volume{% endtrans %}
 						</label>
 					</div>
 
 					<div class="user-preference-container">
-					<input id="pref-high-quality" type="checkbox" class="user-preference-checkbox checkbox" data-pref="high_quality" {% if high_quality == "True"  %}checked{% endif %}>
+					<input id="pref-high-quality" type="checkbox" class="user-preference-checkbox checkbox" data-pref="high_quality" {% if high_quality == True  %}checked{% endif %}>
 					<label class="label" for="pref-high-quality">{# MSG: Checkbox label which enable/disables high quality video downloads #} {% trans %}Download high quality videos{% endtrans %}
 					</label>
 					</div>
 
 					<div class="user-preference-container">
-					<input id="pref-complete_transcode_before_play" type="checkbox" class="user-preference-checkbox checkbox" data-pref="complete_transcode_before_play" {% if complete_transcode_before_play == "True" %}checked{% endif %}>
+					<input id="pref-complete_transcode_before_play" type="checkbox" class="user-preference-checkbox checkbox" data-pref="complete_transcode_before_play" {% if complete_transcode_before_play == True %}checked{% endif %}>
 					<label class="label" for="pref-complete_transcode_before_play">{# MSG: Checkbox label which enable/disables full transcode before playback #} {% trans %}Transcode video completely before playing (better browser compatibility, slower starts). Buffer size will be ignored.*{% endtrans %}
 					</label>
 					</div>
 
 					<div class="user-preference-container">
-					<input id="pref-cdg-scaling" type="checkbox" class="user-preference-checkbox checkbox" data-pref="cdg_pixel_scaling" {% if cdg_pixel_scaling == "True" %}checked{% endif %}>
+					<input id="pref-cdg-scaling" type="checkbox" class="user-preference-checkbox checkbox" data-pref="cdg_pixel_scaling" {% if cdg_pixel_scaling == True %}checked{% endif %}>
 					<label class="label" for="pref-cdg-scaling">{# MSG: Checkbox label which enable/disables CDG pixel scaling #} {% trans %}Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU usage){% endtrans %}
 					</label>
 					</div>
@@ -491,6 +553,9 @@
 		accent-color: hsl(141, 71%, 48%);
 		margin-right: 8px;
 		min-width: 20px;
+	}
+	textarea::placeholder {
+		color: #bbb !important;
 	}
 	</style>
 

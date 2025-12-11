@@ -89,4 +89,9 @@ def info():
         buffer_size=k.buffer_size,
         languages=LANGUAGES,
         preferred_language=preferred_language,  # 傳遞當前偏好語言
+        schore_phrases={
+            "low": k.low_score_phrases,
+            "mid": k.mid_score_phrases,
+            "high": k.high_score_phrases,
+        },
     )

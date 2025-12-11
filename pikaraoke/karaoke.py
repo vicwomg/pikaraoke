@@ -177,6 +177,10 @@ class Karaoke:
 
         self.generate_qr_code()
 
+        self.low_score_phrases = self.get_user_preference("low_score_phrases") or ""
+        self.mid_score_phrases = self.get_user_preference("mid_score_phrases") or ""
+        self.high_score_phrases = self.get_user_preference("high_score_phrases") or ""
+
     def get_url(self):
         if self.is_raspberry_pi:
             # retry in case pi is still starting up
