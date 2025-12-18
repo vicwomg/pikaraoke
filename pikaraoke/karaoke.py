@@ -591,6 +591,9 @@ class Karaoke:
         logging.debug("Killing ffmpeg process")
         if self.ffmpeg_process:
             self.ffmpeg_process.kill()
+            self.ffmpeg_process.wait()  # Wait for process to fully terminate
+            if self.ffmpeg_process.stderr:
+                self.ffmpeg_process.stderr.close()  # Close stderr pipe to prevent leaks
 
     def start_song(self):
         logging.info(f"Song starting: {self.now_playing}")
