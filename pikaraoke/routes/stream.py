@@ -20,20 +20,22 @@ def stream(id):
     k = get_karaoke_instance()
 
     def generate():
-        position = 0  # Initialize the position variable
-        chunk_size = 10240 * 1000 * 25  # Read file in up to 25MB chunks
+        chunk_size = 1024 * 1024 * 2  # 2MB chunks (reduced from 25MB for Raspberry Pi)
         with open(file_path, "rb") as file:
             # Keep yielding file chunks as long as ffmpeg process is transcoding
             while k.ffmpeg_process.poll() is None:
-                file.seek(position)  # Move to the last read position
                 chunk = file.read(chunk_size)
-                if chunk is not None and len(chunk) > 0:
+                if chunk:
                     yield chunk
-                    position += len(chunk)  # Update the position with the size of the chunk
-                time.sleep(1)  # Wait a bit before checking the file size again
-            chunk = file.read(chunk_size)  # Read the last chunk
-            yield chunk
-            position += len(chunk)  # Update the position with the size of the chunk
+                else:
+                    # No data available yet, wait briefly for ffmpeg to produce more
+                    time.sleep(0.05)
+            # Read any remaining data after transcoding completes
+            while True:
+                chunk = file.read(chunk_size)
+                if not chunk:
+                    break
+                yield chunk
 
     return Response(generate(), mimetype="video/mp4")
 
