@@ -1,6 +1,5 @@
 import configparser
 import contextlib
-import hashlib
 import json
 import logging
 import os
@@ -59,10 +58,6 @@ class Karaoke:
     is_paused = True
     volume = None
 
-    # hashes are used to determine if the client needs to update the now playing or queue
-    now_playing_hash = None
-    queue_hash = None
-
     is_playing = False
     process = None
     qr_code_path = None
@@ -111,6 +106,7 @@ class Karaoke:
         config_file_path="config.ini",
         cdg_pixel_scaling=False,
         additional_ytdl_args=None,
+        socketio=None,
     ):
         logging.basicConfig(
             format="[%(asctime)s] %(levelname)s: %(message)s",
@@ -168,6 +164,7 @@ class Karaoke:
         self.avsync = self.get_user_preference("avsync") or avsync
         self.url_override = url
         self.url = self.get_url()
+        self.socketio = socketio
 
         # Log the settings to debug level
         self.log_settings_to_debug()
@@ -343,6 +340,9 @@ class Karaoke:
             if self.now_playing_notification != None:
                 return
             self.now_playing_notification = message + "::is-" + color
+            # Emit notification directly via SocketIO
+            if self.socketio:
+                self.socketio.emit("notification", self.now_playing_notification, namespace="/")
 
     def log_and_send(self, message, category="info"):
         # Category should be one of: info, success, warning, danger
@@ -827,16 +827,14 @@ class Karaoke:
         return np
 
     def update_now_playing_hash(self):
-        self.now_playing_hash = hashlib.md5(
-            json.dumps(self.get_now_playing(), sort_keys=True, ensure_ascii=True).encode(
-                "utf-8", "ignore"
-            )
-        ).hexdigest()
+        """Emit now_playing state change via SocketIO"""
+        if self.socketio:
+            self.socketio.emit("now_playing", self.get_now_playing(), namespace="/")
 
     def update_queue_hash(self):
-        self.queue_hash = hashlib.md5(
-            json.dumps(self.queue, ensure_ascii=True).encode("utf-8", "ignore")
-        ).hexdigest()
+        """Emit queue_update state change via SocketIO"""
+        if self.socketio:
+            self.socketio.emit("queue_update", namespace="/")
 
     def run(self):
         logging.info("Starting PiKaraoke!")
