@@ -467,15 +467,21 @@
 
     socket.on('skip', (reason) => {
       const video = getVideoPlayer();
+      const currVolume = video.volume;
+
       if (isMediaPlaying(video)) {
-        const currVolume = video.volume;
+        // Fade out if currently playing
         $(video).animate({ volume: 0 }, 1000, () => {
             video.pause();
             video.volume = currVolume;
             hideVideo();
           });
-        console.log(`Skip: ${reason}`);
+      } else {
+        // Immediately hide if paused or stopped
+        video.pause();
+        hideVideo();
       }
+      console.log(`Skip: ${reason}`);
     });
 
     socket.on('volume', (val) => {
