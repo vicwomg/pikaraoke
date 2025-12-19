@@ -169,6 +169,9 @@ class Karaoke:
         self.url_override = url
         self.url = self.get_url()
 
+        # Cache preferred language to avoid disk reads on every HTTP request
+        self._cached_preferred_language = self.get_user_preference("preferred_language")
+
         # Log the settings to debug level
         self.log_settings_to_debug()
 
@@ -213,6 +216,10 @@ class Karaoke:
 
     # def get_user_preferences(self, preference):
     def get_user_preference(self, preference, default_value=False):
+        # Return cached value for preferred_language to avoid disk I/O on every request
+        if preference == "preferred_language" and hasattr(self, '_cached_preferred_language'):
+            return self._cached_preferred_language
+
         # Try to read the config file
         try:
             self.config_obj.read(self.config_file_path)
