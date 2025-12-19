@@ -26,7 +26,17 @@ def create_tmp_dir():
 def delete_tmp_dir():
     tmp_dir = get_tmp_dir()
     if os.path.exists(tmp_dir):
-        shutil.rmtree(tmp_dir)
+        # On Windows, files may still be locked briefly after process termination
+        # Use error handler to ignore permission errors on individual files
+        def handle_remove_error(func, path, exc_info):
+            """Error handler for shutil.rmtree - ignores permission errors on Windows"""
+            import logging
+            if isinstance(exc_info[1], PermissionError):
+                logging.debug(f"Could not delete {path}: file in use, will be cleaned up on next run")
+            else:
+                logging.warning(f"Error deleting {path}: {exc_info[1]}")
+
+        shutil.rmtree(tmp_dir, onerror=handle_remove_error)
 
 
 def string_to_hash(s):

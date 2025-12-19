@@ -258,7 +258,31 @@ class Karaoke:
 
             userprefs = self.config_obj["USERPREFERENCES"]
             userprefs[preference] = str(val)
-            setattr(self, preference, val)
+
+            # Convert string values to proper types
+            converted_val = val
+            if isinstance(val, str):
+                if val.lower() == "true":
+                    converted_val = True
+                elif val.lower() == "false":
+                    converted_val = False
+                elif hasattr(self, preference):
+                    # Try to match the type of the existing attribute if it's not None
+                    current_val = getattr(self, preference)
+                    if current_val is not None:
+                        current_type = type(current_val)
+                        if current_type in (int, float):
+                            try:
+                                converted_val = current_type(val)
+                            except ValueError:
+                                pass  # Keep as string if conversion fails
+
+            setattr(self, preference, converted_val)
+
+            # Update cache for preferred_language if that's what changed
+            if preference == "preferred_language":
+                self._cached_preferred_language = converted_val
+
             with open(self.config_file_path, "w") as conf:
                 self.config_obj.write(conf)
                 self.changed_preferences = True
