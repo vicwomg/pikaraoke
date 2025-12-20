@@ -510,13 +510,12 @@ class Karaoke:
             self.queue.pop(0)
             return False
 
-        if self.complete_transcode_before_play or not requires_transcoding:
-            # This route is used for streaming the full video file, and includes more
-            # accurate headers for safari and other browsers
+        # Always use HLS streaming for both on-the-fly and complete transcode modes
+        stream_url_path = f"/stream/{fr.stream_uid}.m3u8"
+
+        # For non-transcoded files, still use direct MP4 serving
+        if not requires_transcoding:
             stream_url_path = f"/stream/full/{fr.stream_uid}"
-        else:
-            # This route is used for streaming the video file in chunks, only works on chrome
-            stream_url_path = f"/stream/{fr.stream_uid}"
 
         if not requires_transcoding:
             # simply copy file path to the tmp directory and the stream is ready
@@ -576,9 +575,15 @@ class Karaoke:
                 try:
                     output_file_size = os.path.getsize(fr.output_file)
                     if not self.complete_transcode_before_play:
-                        is_buffering_complete = output_file_size > self.buffer_size * 1000
+                        # For HLS, check if playlist exists and has at least 2 segments
+                        if output_file_size > 0:
+                            with open(fr.output_file, 'r') as f:
+                                playlist_content = f.read()
+                                # Count .ts segment references in playlist
+                                segment_count = playlist_content.count('.ts')
+                                is_buffering_complete = segment_count >= 2  # At least 2 segments ready
                         if is_buffering_complete:
-                            logging.debug(f"Buffering complete. File size: {output_file_size}")
+                            logging.debug(f"Buffering complete. Playlist size: {output_file_size}, Segments: {segment_count}")
                             break
                 except:
                     pass

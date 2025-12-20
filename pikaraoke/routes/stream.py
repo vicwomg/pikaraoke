@@ -13,29 +13,51 @@ _ = flask_babel.gettext
 stream_bp = Blueprint("stream", __name__)
 
 
-# Streams the file in chunks from the filesystem (chrome supports it, safari does not)
-@stream_bp.route("/stream/<id>")
-def stream(id):
-    file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
+# Serves HLS playlist file - explicit .m3u8 extension
+@stream_bp.route("/stream/<id>.m3u8")
+def stream_playlist(id):
+    file_path = os.path.join(get_tmp_dir(), f"{id}.m3u8")
     k = get_karaoke_instance()
 
-    def generate():
-        position = 0  # Initialize the position variable
-        chunk_size = 10240 * 1000 * 25  # Read file in up to 25MB chunks
-        with open(file_path, "rb") as file:
-            # Keep yielding file chunks as long as ffmpeg process is transcoding
-            while k.ffmpeg_process.poll() is None:
-                file.seek(position)  # Move to the last read position
-                chunk = file.read(chunk_size)
-                if chunk is not None and len(chunk) > 0:
-                    yield chunk
-                    position += len(chunk)  # Update the position with the size of the chunk
-                time.sleep(1)  # Wait a bit before checking the file size again
-            chunk = file.read(chunk_size)  # Read the last chunk
-            yield chunk
-            position += len(chunk)  # Update the position with the size of the chunk
+    # Wait for playlist file to exist
+    max_wait = 50  # 5 seconds max
+    wait_count = 0
+    while not os.path.exists(file_path) and wait_count < max_wait:
+        time.sleep(0.1)
+        wait_count += 1
 
-    return Response(generate(), mimetype="video/mp4")
+    if os.path.exists(file_path):
+        return send_file(file_path, mimetype="application/vnd.apple.mpegurl")
+    else:
+        return Response("Playlist not found", status=404)
+
+
+# Serves HLS segment files - explicit .ts extension
+@stream_bp.route("/stream/<filename>.ts")
+def stream_segment(filename):
+    # Security: prevent directory traversal
+    if '..' in filename or '/' in filename:
+        return Response("Invalid segment", status=400)
+
+    segment_path = os.path.join(get_tmp_dir(), f"{filename}.ts")
+
+    if os.path.exists(segment_path):
+        return send_file(segment_path, mimetype="video/mp2t")
+    else:
+        return Response(f"Segment not found: {filename}.ts", status=404)
+
+
+# Legacy route for backward compatibility (old MP4 streaming)
+@stream_bp.route("/stream/<id>")
+def stream_legacy(id):
+    # Check if it's an HLS request
+    if request.path.endswith('.m3u8'):
+        return stream_playlist(id.replace('.m3u8', ''))
+    elif request.path.endswith('.ts'):
+        return stream_segment(id.replace('.ts', ''))
+    else:
+        # Old MP4 streaming (will be deprecated)
+        return Response("Use .m3u8 for HLS streaming", status=404)
 
 
 def stream_file_path_full(file_path):
