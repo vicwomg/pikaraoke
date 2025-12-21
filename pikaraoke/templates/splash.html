@@ -311,7 +311,35 @@
           if (window.hls) {
             window.hls.destroy();
           }
-          window.hls = new Hls();
+          // Configure hls.js for better compatibility on low-power devices
+          const hlsConfig = {
+            enableWorker: false, // Disable web workers for better RPi compatibility
+            lowLatencyMode: false,
+            backBufferLength: 90
+          };
+          window.hls = new Hls(hlsConfig);
+
+          // Add error handling
+          window.hls.on(Hls.Events.ERROR, function(event, data) {
+            console.error('HLS error:', data.type, data.details, data);
+            if (data.fatal) {
+              switch(data.type) {
+                case Hls.ErrorTypes.NETWORK_ERROR:
+                  console.error('Fatal network error, trying to recover');
+                  window.hls.startLoad();
+                  break;
+                case Hls.ErrorTypes.MEDIA_ERROR:
+                  console.error('Fatal media error, trying to recover');
+                  window.hls.recoverMediaError();
+                  break;
+                default:
+                  console.error('Fatal error, cannot recover');
+                  endSong('HLS playback error');
+                  break;
+              }
+            }
+          });
+
           window.hls.loadSource(np.now_playing_url);
           window.hls.attachMedia(video);
         } else {
@@ -640,8 +668,8 @@
 </div>
 
 <div id="video-container" class="video-container">
-  <video id="video" disableRemotePlayback>
-    <source id="video-source" type="video/mp4" src="" />
+  <video id="video" disableRemotePlayback style="width: 100%; height: 100%; object-fit: contain;">
+    <source id="video-source" src="" />
   </video>
 </div>
 
