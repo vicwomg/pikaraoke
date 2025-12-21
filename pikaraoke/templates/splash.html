@@ -298,20 +298,24 @@
         endSong("interaction confirmation required");
       }
 
-      // Use hls.js for HLS streams on browsers that don't support it natively
+      // Handle HLS streams - prefer native support, fallback to hls.js
       if (np.now_playing_url.includes('.m3u8')) {
-        if (Hls.isSupported()) {
-          // Use hls.js for Chromium/Chrome
+        if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          // Native HLS support (Safari, Chrome on some platforms)
+          console.log('Using native HLS playback');
+          $("#video-source").attr("src", np.now_playing_url);
+          video.load();
+        } else if (Hls.isSupported()) {
+          // Use hls.js fallback for browsers without native HLS
+          console.log('Using hls.js for HLS playback');
           if (window.hls) {
             window.hls.destroy();
           }
           window.hls = new Hls();
           window.hls.loadSource(np.now_playing_url);
           window.hls.attachMedia(video);
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          // Native HLS support (Safari)
-          $("#video-source").attr("src", np.now_playing_url);
-          video.load();
+        } else {
+          console.error('HLS not supported on this browser');
         }
       } else {
         // Non-HLS video
