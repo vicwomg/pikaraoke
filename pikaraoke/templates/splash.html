@@ -494,12 +494,7 @@
     socket.on('restart', () => {
       console.log(`Restart`);
       const video = getVideoPlayer();
-      const source = document.getElementById('video-source');
-      // For HLS, reload the source to properly restart
-      const currentSrc = source.src;
-      source.src = '';
-      video.load();
-      source.src = currentSrc;
+      // For HLS, reload the video to restart from beginning
       video.load();
       video.play();
     });
