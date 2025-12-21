@@ -53,6 +53,7 @@
   var volume = 0.85;
   var isScoreShown = false;
   var hasBgVideo = "{{ has_bg_video }}" == 'True'
+  var videoHasPlayed = false;
 
   const scoreReviews = {
 	low:[
@@ -89,6 +90,7 @@
 
   function hideVideo() {
     $("#video-container").hide();
+    videoHasPlayed = false;
   }
 
   async function endSong(reason=null, showScore=false) {
@@ -375,10 +377,20 @@
       $("#current").text(formatTime(video.currentTime));
     });
 
+    $("#video")[0].addEventListener("playing", () => {
+      videoHasPlayed = true;
+    });
+
     $("#video source")[0].addEventListener("error", (e) => {
-      console.log("Error while playing video.");
-      console.log(e);
-      endSong("error while playing");
+      // Only treat errors as fatal if the video has actually started playing
+      // HLS streams can have transient errors during initial buffering
+      if (videoHasPlayed) {
+        console.log("Error while playing video.");
+        console.log(e);
+        endSong("error while playing");
+      } else {
+        console.log("Ignoring error during initial HLS buffering:", e);
+      }
     });
 
     // Load the background music playlist from server
