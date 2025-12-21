@@ -7,7 +7,6 @@
   rel="stylesheet"
   href="{{  url_for('static', filename='score.css') }}"
 />
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script>
   const isMediaPlaying = (media) =>
     !!(
@@ -298,58 +297,11 @@
         endSong("interaction confirmation required");
       }
 
-      // Handle HLS streams - prefer native support, fallback to hls.js
-      if (np.now_playing_url.includes('.m3u8')) {
-        if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          // Native HLS support (Safari, Chrome on some platforms)
-          console.log('Using native HLS playback');
-          $("#video-source").attr("src", np.now_playing_url);
-          video.load();
-        } else if (Hls.isSupported()) {
-          // Use hls.js fallback for browsers without native HLS
-          console.log('Using hls.js for HLS playback');
-          if (window.hls) {
-            window.hls.destroy();
-          }
-          // Configure hls.js for better compatibility on low-power devices
-          const hlsConfig = {
-            enableWorker: false, // Disable web workers for better RPi compatibility
-            lowLatencyMode: false,
-            backBufferLength: 90
-          };
-          window.hls = new Hls(hlsConfig);
-
-          // Add error handling
-          window.hls.on(Hls.Events.ERROR, function(event, data) {
-            console.error('HLS error:', data.type, data.details, data);
-            if (data.fatal) {
-              switch(data.type) {
-                case Hls.ErrorTypes.NETWORK_ERROR:
-                  console.error('Fatal network error, trying to recover');
-                  window.hls.startLoad();
-                  break;
-                case Hls.ErrorTypes.MEDIA_ERROR:
-                  console.error('Fatal media error, trying to recover');
-                  window.hls.recoverMediaError();
-                  break;
-                default:
-                  console.error('Fatal error, cannot recover');
-                  endSong('HLS playback error');
-                  break;
-              }
-            }
-          });
-
-          window.hls.loadSource(np.now_playing_url);
-          window.hls.attachMedia(video);
-        } else {
-          console.error('HLS not supported on this browser');
-        }
-      } else {
-        // Non-HLS video
-        $("#video-source").attr("src", np.now_playing_url);
-        video.load();
-      }
+      // Set video source - try native playback for all browsers
+      console.log('Loading video:', np.now_playing_url);
+      console.log('Browser HLS support:', video.canPlayType('application/vnd.apple.mpegurl'));
+      $("#video-source").attr("src", np.now_playing_url);
+      video.load();
       if (volume != np.volume) {
         volume = np.volume;
         video.volume = volume;
@@ -558,15 +510,8 @@
     socket.on('restart', () => {
       console.log(`Restart`);
       const video = getVideoPlayer();
-      // For HLS with hls.js, seek to beginning
-      if (window.hls) {
-        video.currentTime = 0;
-        if (video.paused) video.play();
-      } else {
-        // For native video or Safari HLS
-        video.load();
-        video.play();
-      }
+      video.currentTime = 0;
+      if (video.paused) video.play();
     });
 
     socket.on("notification", (data) => {
