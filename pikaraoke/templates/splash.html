@@ -7,6 +7,7 @@
   rel="stylesheet"
   href="{{  url_for('static', filename='score.css') }}"
 />
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script>
   const isMediaPlaying = (media) =>
     !!(
@@ -296,8 +297,27 @@
         );
         endSong("interaction confirmation required");
       }
-      $("#video-source").attr("src", np.now_playing_url);
-      video.load();
+
+      // Use hls.js for HLS streams on browsers that don't support it natively
+      if (np.now_playing_url.includes('.m3u8')) {
+        if (Hls.isSupported()) {
+          // Use hls.js for Chromium/Chrome
+          if (window.hls) {
+            window.hls.destroy();
+          }
+          window.hls = new Hls();
+          window.hls.loadSource(np.now_playing_url);
+          window.hls.attachMedia(video);
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          // Native HLS support (Safari)
+          $("#video-source").attr("src", np.now_playing_url);
+          video.load();
+        }
+      } else {
+        // Non-HLS video
+        $("#video-source").attr("src", np.now_playing_url);
+        video.load();
+      }
       if (volume != np.volume) {
         volume = np.volume;
         video.volume = volume;
@@ -315,12 +335,11 @@
       video.play();
 
       // handle timeout if video fails to play
-      // Increased timeout for HLS streams which need more buffering time
       setTimeout(() => {
         if (!isMediaPlaying(video) && !video.paused) {
           endSong("failed to start");
         }
-      }, 30000);
+      }, 10000);
     }
 
   }
@@ -507,9 +526,15 @@
     socket.on('restart', () => {
       console.log(`Restart`);
       const video = getVideoPlayer();
-      // For HLS, reload the video to restart from beginning
-      video.load();
-      video.play();
+      // For HLS with hls.js, seek to beginning
+      if (window.hls) {
+        video.currentTime = 0;
+        if (video.paused) video.play();
+      } else {
+        // For native video or Safari HLS
+        video.load();
+        video.play();
+      }
     });
 
     socket.on("notification", (data) => {
