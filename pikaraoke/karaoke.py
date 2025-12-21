@@ -603,6 +603,11 @@ class Karaoke:
             if reason != "complete":
                 # MSG: Message shown when the song ends abnormally
                 self.send_notification(_("Song ended abnormally: %s") % reason, "danger")
+
+        # Emit skip event to client to hide video player
+        if self.socketio:
+            self.socketio.emit("skip", reason, namespace="/")
+
         self.reset_now_playing()
         self.kill_ffmpeg()
         delete_tmp_dir()

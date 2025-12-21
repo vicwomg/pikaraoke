@@ -93,7 +93,6 @@
       _.debounce(function (event) {
         const value = this.value;
         $.get("/volume/" + value);
-        refreshNowPlaying();
       }, 500)
     );
 
@@ -115,17 +114,14 @@
     $("#pause-resume").click(function () {
       $.get("/pause");
       togglePausePlayButton();
-      refreshNowPlaying();
     });
 
     $("#vol-up").click(function () {
       $.get("/vol_up");
-      refreshNowPlaying();
     });
 
     $("#vol-down").click(function () {
       $.get("/vol_down");
-      refreshNowPlaying();
     });
 
     $("#restart").click(function () {

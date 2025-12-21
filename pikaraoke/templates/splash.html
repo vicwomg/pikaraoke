@@ -467,15 +467,13 @@
 
     socket.on('skip', (reason) => {
       const video = getVideoPlayer();
-      if (isMediaPlaying(video)) {
-        const currVolume = video.volume;
-        $(video).animate({ volume: 0 }, 1000, () => {
-            video.pause();
-            video.volume = currVolume;
-            hideVideo();
-          });
-        console.log(`Skip: ${reason}`);
-      }
+      const currVolume = video.volume;
+      $(video).animate({ volume: 0 }, 1000, () => {
+          video.pause();
+          video.volume = currVolume;
+          hideVideo();
+        });
+      console.log(`Skip: ${reason}`);
     });
 
     socket.on('volume', (val) => {
@@ -496,8 +494,14 @@
     socket.on('restart', () => {
       console.log(`Restart`);
       const video = getVideoPlayer();
-      video.currentTime = 0;
-      if (video.paused) video.play()
+      const source = document.getElementById('video-source');
+      // For HLS, reload the source to properly restart
+      const currentSrc = source.src;
+      source.src = '';
+      video.load();
+      source.src = currentSrc;
+      video.load();
+      video.play();
     });
 
     socket.on("notification", (data) => {
