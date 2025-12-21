@@ -315,11 +315,12 @@
       video.play();
 
       // handle timeout if video fails to play
+      // Increased timeout for HLS streams which need more buffering time
       setTimeout(() => {
         if (!isMediaPlaying(video) && !video.paused) {
           endSong("failed to start");
         }
-      }, 10000);
+      }, 30000);
     }
 
   }
