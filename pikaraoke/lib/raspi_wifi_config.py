@@ -1,23 +1,31 @@
+"""RaspiWiFi configuration utilities for Raspberry Pi access point mode."""
+
 import os
 
-raspi_wifi_config_ip = "10.0.0.1"
-raspi_wifi_conf_file = "/etc/raspiwifi/raspiwifi.conf"
-raspi_wifi_config_installed = os.path.exists(raspi_wifi_conf_file)
+raspi_wifi_config_ip: str = "10.0.0.1"
+raspi_wifi_conf_file: str = "/etc/raspiwifi/raspiwifi.conf"
+raspi_wifi_config_installed: bool = os.path.exists(raspi_wifi_conf_file)
 
 
-def get_raspi_wifi_conf_vals():
-    """Extract values from the RaspiWiFi configuration file."""
+def get_raspi_wifi_conf_vals() -> tuple[str, str, str, str]:
+    """Extract values from the RaspiWiFi configuration file.
+
+    Reads the RaspiWiFi configuration and returns network settings.
+
+    Returns:
+        Tuple of (server_port, ssid_prefix, ssl_enabled, wpa_key).
+
+    References:
+        - https://github.com/jasbur/RaspiWiFi/blob/master/initial_setup.py
+        - https://github.com/jasbur/RaspiWiFi/blob/master/libs/reset_device/static_files/raspiwifi.conf
+    """
     f = open(raspi_wifi_conf_file, "r")
 
     # Define default values.
-    #
-    # References:
-    # - https://github.com/jasbur/RaspiWiFi/blob/master/initial_setup.py (see defaults in input prompts)
-    # - https://github.com/jasbur/RaspiWiFi/blob/master/libs/reset_device/static_files/raspiwifi.conf
-    #
     server_port = "80"
     ssid_prefix = "RaspiWiFi Setup"
     ssl_enabled = "0"
+    wpa_key = ""
 
     # Override the default values according to the configuration file.
     for line in f.readlines():
@@ -33,8 +41,15 @@ def get_raspi_wifi_conf_vals():
     return (server_port, ssid_prefix, ssl_enabled, wpa_key)
 
 
-def get_raspi_wifi_text(url):
-    # Wifi is setup as a Access Point
+def get_raspi_wifi_text(url: str) -> list[str]:
+    """Get display text for RaspiWiFi access point connection info.
+
+    Args:
+        url: The PiKaraoke URL to display for WiFi configuration.
+
+    Returns:
+        List of strings with WiFi network name and configuration URL.
+    """
     ap_name = ""
     ap_password = ""
 
@@ -49,6 +64,6 @@ def get_raspi_wifi_text(url):
             f"Configure Wifi: {url.rpartition(':')[0]}",
         ]
     else:
-        text = [f"Wifi Network: {ap_name}", f"Configure Wifi: {url.rpartition(':',1)[0]}"]
+        text = [f"Wifi Network: {ap_name}", f"Configure Wifi: {url.rpartition(':')[0]}"]
 
     return text

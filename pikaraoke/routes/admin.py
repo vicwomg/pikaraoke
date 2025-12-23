@@ -1,3 +1,5 @@
+"""Admin routes for system control and authentication."""
+
 import datetime
 import os
 import subprocess

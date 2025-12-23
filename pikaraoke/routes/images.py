@@ -1,3 +1,5 @@
+"""Image serving routes for QR code and logo."""
+
 import flask_babel
 from flask import Blueprint, send_file
 

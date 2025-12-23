@@ -1,3 +1,5 @@
+"""File management routes for browsing, editing, and deleting songs."""
+
 import os
 
 import flask_babel
