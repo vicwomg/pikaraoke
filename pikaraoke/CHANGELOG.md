@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.2](https://github.com/vicwomg/pikaraoke/compare/1.14.1...1.14.2) (2025-12-23)
+
+
+### Bug Fixes
+
+* update api docs job failing ([3bad488](https://github.com/vicwomg/pikaraoke/commit/3bad488e3b929b1afd30d43f6c87ffffafd75ca8))
+
 ## [1.14.1](https://github.com/vicwomg/pikaraoke/compare/1.14.0...1.14.1) (2025-11-27)
 
 
