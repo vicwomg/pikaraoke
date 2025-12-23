@@ -1,3 +1,5 @@
+"""File resolution and temporary file management utilities."""
+
 import os
 import re
 import shutil
@@ -9,55 +11,114 @@ from pikaraoke.lib.ffmpeg import get_media_duration
 from pikaraoke.lib.get_platform import get_platform
 
 
-def get_tmp_dir():
-    # Determine tmp directories (for things like extracted cdg files)
+def get_tmp_dir() -> str:
+    """Get the temporary directory path scoped to this process.
+
+    Returns:
+        Path to the process-specific temporary directory.
+    """
     pid = os.getpid()  # for scoping tmp directories to this process
     tmp_dir = os.path.join(tempfile.gettempdir(), f"{pid}")
     return tmp_dir
 
 
-def create_tmp_dir():
+def create_tmp_dir() -> None:
+    """Create the temporary directory if it doesn't exist."""
     tmp_dir = get_tmp_dir()
-    # create tmp_dir if it doesn't exist
     if not os.path.exists(tmp_dir):
         os.makedirs(tmp_dir)
 
 
-def delete_tmp_dir():
+def delete_tmp_dir() -> None:
+    """Delete the temporary directory and all its contents."""
     tmp_dir = get_tmp_dir()
     if os.path.exists(tmp_dir):
         shutil.rmtree(tmp_dir)
 
 
-def string_to_hash(s):
+def string_to_hash(s: str) -> int:
+    """Convert a string to a positive integer hash.
+
+    Args:
+        s: String to hash.
+
+    Returns:
+        Positive integer hash value.
+    """
     return hash(s) % ((maxsize + 1) * 2)
 
 
-def is_cdg_file(file_path):
+def is_cdg_file(file_path: str) -> bool:
+    """Check if a file is a CDG karaoke file (zip or mp3 with cdg).
+
+    Args:
+        file_path: Path to the file.
+
+    Returns:
+        True if the file is a CDG-related format.
+    """
     file_extension = os.path.splitext(file_path)[1].casefold()
     return file_extension == ".zip" or file_extension == ".mp3"
 
 
-def is_transcoding_required(file_path):
+def is_transcoding_required(file_path: str) -> bool:
+    """Check if a file requires transcoding for browser playback.
+
+    MP4 and WebM files can be played natively; others need transcoding.
+
+    Args:
+        file_path: Path to the media file.
+
+    Returns:
+        True if transcoding is required, False otherwise.
+    """
     file_extension = os.path.splitext(file_path)[1].casefold()
     return file_extension != ".mp4" and file_extension != ".webm"
 
 
-# Processes a given file path and determines the file format and file path, extracting zips into cdg + mp3 if necessary.
 class FileResolver:
-    file_path = None
-    cdg_file_path = None
-    file_extension = None
+    """Resolves media files for playback, handling CDG and zipped formats.
 
-    def __init__(self, file_path):
+    Processes a given file path and determines the file format and paths,
+    extracting zips into cdg + mp3 if necessary.
+
+    Attributes:
+        file_path: Path to the main media file (audio).
+        cdg_file_path: Path to the CDG graphics file, if applicable.
+        file_extension: Lowercase file extension of the input file.
+        tmp_dir: Temporary directory for extracted files.
+        stream_uid: Unique identifier for the stream based on file path hash.
+        output_file: Path where the transcoded output will be written.
+        duration: Duration of the media file in seconds.
+    """
+
+    file_path: str | None = None
+    cdg_file_path: str | None = None
+    file_extension: str | None = None
+
+    def __init__(self, file_path: str) -> None:
+        """Initialize the FileResolver with a media file path.
+
+        Args:
+            file_path: Path to the media file to resolve.
+        """
         create_tmp_dir()
         self.tmp_dir = get_tmp_dir()
         self.resolved_file_path = self.process_file(file_path)
         self.stream_uid = string_to_hash(file_path)
         self.output_file = f"{self.tmp_dir}/{self.stream_uid}.mp4"
 
-    # Extract zipped cdg + mp3 files into a temporary directory, and set the paths to both files.
-    def handle_zipped_cdg(self, file_path):
+    def handle_zipped_cdg(self, file_path: str) -> None:
+        """Extract zipped CDG + MP3 files into a temporary directory.
+
+        Sets self.file_path and self.cdg_file_path to the extracted files.
+
+        Args:
+            file_path: Path to the zip file containing CDG and MP3.
+
+        Raises:
+            Exception: If the zip doesn't contain matching CDG and MP3 files.
+        """
         extracted_dir = os.path.join(self.tmp_dir, "extracted")
         if os.path.exists(extracted_dir):
             shutil.rmtree(extracted_dir)  # clears out any previous extractions
@@ -82,7 +143,20 @@ class FileResolver:
         else:
             raise Exception("No .mp3 or .cdg was found in the zip file: " + file_path)
 
-    def handle_mp3_cdg(self, file_path):
+    def handle_mp3_cdg(self, file_path: str) -> bool:
+        """Find and set the CDG file path for an MP3 file.
+
+        Searches for a CDG file with the same base name as the MP3.
+
+        Args:
+            file_path: Path to the MP3 file.
+
+        Returns:
+            True if a matching CDG file was found.
+
+        Raises:
+            Exception: If no matching CDG file is found.
+        """
         f = os.path.splitext(os.path.basename(file_path))[0]
         pattern = f + ".cdg"
         rule = re.compile(re.escape(pattern), re.IGNORECASE)
@@ -95,7 +169,12 @@ class FileResolver:
 
         raise Exception("No matching .cdg file found for: " + file_path)
 
-    def process_file(self, file_path):
+    def process_file(self, file_path: str) -> None:
+        """Process a file path and set up resolution based on file type.
+
+        Args:
+            file_path: Path to the media file.
+        """
         file_extension = os.path.splitext(file_path)[1].casefold()
         self.file_extension = file_extension
         if file_extension == ".zip":

@@ -1,3 +1,5 @@
+"""Splash screen / player display route."""
+
 import shutil
 import subprocess
 
@@ -15,6 +17,14 @@ splash_bp = Blueprint("splash", __name__)
 
 @splash_bp.route("/splash")
 def splash():
+    """Splash screen / player display for TV output.
+    ---
+    tags:
+      - Pages
+    responses:
+      200:
+        description: HTML splash screen page
+    """
     k = get_karaoke_instance()
     text = ""
     if k.is_raspberry_pi:

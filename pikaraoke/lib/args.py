@@ -1,3 +1,5 @@
+"""Command-line argument parsing for PiKaraoke."""
+
 import argparse
 import logging
 import os
@@ -5,18 +7,38 @@ import os
 from pikaraoke.lib.get_platform import get_default_dl_dir, get_platform, is_raspberry_pi
 
 
-def arg_path_parse(path):
-    if type(path) == list:
+def arg_path_parse(path: str | list[str] | None) -> str | None:
+    """Convert a path argument to a string.
+
+    Handles argparse nargs="+" which returns a list.
+
+    Args:
+        path: Path as string, list of strings, or None.
+
+    Returns:
+        Path as a single string (joined with spaces if list), or None.
+    """
+    if path is None:
+        return None
+    if isinstance(path, list):
         return " ".join(path)
-    else:
-        return path
+    return path
 
 
-def parse_volume(volume, type):
+def parse_volume(volume: str | float, volume_type: str) -> float:
+    """Parse and validate a volume value.
+
+    Args:
+        volume: Volume value as string or float.
+        volume_type: Description of the volume type for error messages.
+
+    Returns:
+        Validated volume as float between 0 and 1.
+    """
     parsed_volume = float(volume)
     if parsed_volume > 1 or parsed_volume < 0:
         print(
-            f"[ERROR] {type}: {volume} must be between 0 and 1. Setting to default: {default_volume}"
+            f"[ERROR] {volume_type}: {volume} must be between 0 and 1. Setting to default: {default_volume}"
         )
         parsed_volume = default_volume
     return parsed_volume
@@ -39,8 +61,12 @@ default_dl_dir = get_default_dl_dir(platform)
 default_youtubedl_path = "yt-dlp"
 
 
-def parse_pikaraoke_args():
-    # parse CLI args
+def parse_pikaraoke_args() -> argparse.Namespace:
+    """Parse command-line arguments for PiKaraoke.
+
+    Returns:
+        Parsed arguments namespace with all configuration options.
+    """
     parser = argparse.ArgumentParser()
 
     parser.add_argument(

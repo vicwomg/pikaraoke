@@ -1,3 +1,5 @@
+"""Flask application entry point and server initialization."""
+
 from gevent import monkey
 
 monkey.patch_all()
@@ -7,6 +9,7 @@ import os
 import sys
 
 import flask_babel
+from flasgger import Swagger
 from flask import Flask, request, session
 from flask_babel import Babel
 from flask_socketio import SocketIO
@@ -56,6 +59,14 @@ app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
+app.config["SWAGGER"] = {
+    "title": "PiKaraoke API",
+    "description": "API for controlling PiKaraoke - a KTV-style karaoke system",
+    "version": "1.0.0",
+    "termsOfService": "",
+    "hide_top_bar": True,
+}
+swagger = Swagger(app)
 
 # Register blueprints for additional routes
 app.register_blueprint(home_bp)
@@ -78,8 +89,12 @@ socketio.init_app(app)
 
 
 @babel.localeselector
-def get_locale():
-    """Select the language to display the webpage in based on the Accept-Language header"""
+def get_locale() -> str | None:
+    """Select the language to display based on user preference or Accept-Language header.
+
+    Returns:
+        Language code string (e.g., 'en', 'fr') or None.
+    """
     # Check config.ini lang settings
     k = get_karaoke_instance()
     preferred_lang = k.get_user_preference("preferred_language")
@@ -100,25 +115,40 @@ def get_locale():
 
 
 @socketio.on("end_song")
-def end_song(reason):
+def end_song(reason: str) -> None:
+    """Handle end_song WebSocket event from client.
+
+    Args:
+        reason: Reason for ending the song (e.g., 'complete', 'error').
+    """
     k = get_karaoke_instance()
     k.end_song(reason)
 
 
 @socketio.on("start_song")
-def start_song():
+def start_song() -> None:
+    """Handle start_song WebSocket event when playback begins."""
     k = get_karaoke_instance()
     k.start_song()
 
 
 @socketio.on("clear_notification")
-def clear_notification():
+def clear_notification() -> None:
+    """Handle clear_notification WebSocket event to dismiss notifications."""
     k = get_karaoke_instance()
     k.reset_now_playing_notification()
 
 
-def poll_karaoke_state(k: karaoke.Karaoke):
-    curr_now_playing_hash = None
+def poll_karaoke_state(k: karaoke.Karaoke) -> None:
+    """Poll karaoke state and emit WebSocket events on changes.
+
+    Runs in a background thread to detect and broadcast state changes
+    for now playing, queue, and notifications.
+
+    Args:
+        k: The Karaoke instance to poll.
+    """
+    curr_now_playing_hash: str | None = None
     curr_queue_hash = None
     curr_notification = None
     poll_interval = 0.5
@@ -141,7 +171,12 @@ def poll_karaoke_state(k: karaoke.Karaoke):
                 socketio.emit("notification", notification, namespace="/")
 
 
-def main():
+def main() -> None:
+    """Main entry point for the PiKaraoke application.
+
+    Initializes the Flask server, Karaoke engine, and splash screen.
+    Blocks until the application is terminated.
+    """
     platform = get_platform()
 
     args = parse_pikaraoke_args()

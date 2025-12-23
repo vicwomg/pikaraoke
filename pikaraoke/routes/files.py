@@ -1,3 +1,5 @@
+"""File management routes for browsing, editing, and deleting songs."""
+
 import os
 
 import flask_babel
@@ -14,6 +16,27 @@ files_bp = Blueprint("files", __name__)
 
 @files_bp.route("/browse", methods=["GET"])
 def browse():
+    """Browse available songs page.
+    ---
+    tags:
+      - Pages
+    parameters:
+      - name: q
+        in: query
+        type: string
+        description: Search query
+      - name: letter
+        in: query
+        type: string
+        description: Filter by first letter (or 'numeric')
+      - name: sort
+        in: query
+        type: string
+        description: Sort order ('date' for date, otherwise alphabetical)
+    responses:
+      200:
+        description: HTML browse page
+    """
     k = get_karaoke_instance()
     site_name = get_site_name()
     search = False
@@ -73,6 +96,20 @@ def browse():
 
 @files_bp.route("/files/delete", methods=["GET"])
 def delete_file():
+    """Delete a song file.
+    ---
+    tags:
+      - Files
+    parameters:
+      - name: song
+        in: query
+        type: string
+        required: true
+        description: Path to the song file to delete
+    responses:
+      302:
+        description: Redirects to browse page
+    """
     k = get_karaoke_instance()
     if "song" in request.args:
         song_path = request.args["song"]

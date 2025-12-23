@@ -1,25 +1,57 @@
+"""FFmpeg utilities for media processing and transcoding."""
+
+from __future__ import annotations
+
 import logging
 import subprocess
+from typing import TYPE_CHECKING
 
 import ffmpeg
 
+if TYPE_CHECKING:
+    from pikaraoke.lib.file_resolver import FileResolver
 
-def get_media_duration(file_path):
+
+def get_media_duration(file_path: str) -> int | None:
+    """Get the duration of a media file in seconds.
+
+    Args:
+        file_path: Path to the media file.
+
+    Returns:
+        Duration in seconds (rounded), or None if unable to determine.
+    """
     try:
         duration = ffmpeg.probe(file_path)["format"]["duration"]
         return round(float(duration))
-    except:
+    except (ffmpeg.Error, KeyError, TypeError):
         return None
 
 
 def build_ffmpeg_cmd(
-    fr,
-    semitones=0,
-    normalize_audio=True,
-    buffer_fully_before_playback=False,
-    avsync=0,
-    cdg_pixel_scaling=False,
-):
+    fr: FileResolver,
+    semitones: int = 0,
+    normalize_audio: bool = True,
+    buffer_fully_before_playback: bool = False,
+    avsync: float = 0,
+    cdg_pixel_scaling: bool = False,
+) -> ffmpeg.nodes.OutputStream:
+    """Build an ffmpeg command for transcoding media.
+
+    Handles video/audio codec selection, pitch shifting, audio normalization,
+    and CDG file rendering.
+
+    Args:
+        fr: FileResolver instance with source file information.
+        semitones: Number of semitones to shift pitch (0 = no shift).
+        normalize_audio: Whether to apply loudness normalization.
+        buffer_fully_before_playback: If True, use faststart for full buffering.
+        avsync: Audio/video sync adjustment in seconds.
+        cdg_pixel_scaling: Whether to apply pixel scaling for CDG files.
+
+    Returns:
+        ffmpeg OutputStream object ready to execute.
+    """
     avsync = float(avsync)
     # use h/w acceleration on pi
     default_vcodec = "h264_v4l2m2m" if supports_hardware_h264_encoding() else "libx264"
@@ -99,11 +131,20 @@ def build_ffmpeg_cmd(
     return output
 
 
-def get_ffmpeg_version():
+def get_ffmpeg_version() -> str:
+    """Get the installed FFmpeg version string.
+
+    Returns:
+        Version string, or an error message if FFmpeg is not installed
+        or version cannot be parsed.
+    """
     try:
         # Execute the command 'ffmpeg -version'
         result = subprocess.run(
-            ["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+            ["ffmpeg", "-version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
         )
         # Parse the first line to get the version
         first_line = result.stdout.split("\n")[0]
@@ -115,27 +156,40 @@ def get_ffmpeg_version():
         return "Unable to parse FFmpeg version"
 
 
-def is_transpose_enabled():
+def is_transpose_enabled() -> bool:
+    """Check if FFmpeg has the rubberband filter for pitch shifting.
+
+    Returns:
+        True if rubberband filter is available, False otherwise.
+    """
     try:
         filters = subprocess.run(["ffmpeg", "-filters"], capture_output=True)
     except FileNotFoundError:
         return False
-    except IndexError:
-        return False
     return "rubberband" in filters.stdout.decode()
 
 
-def supports_hardware_h264_encoding():
+def supports_hardware_h264_encoding() -> bool:
+    """Check if hardware H.264 encoding (h264_v4l2m2m) is available.
+
+    This is typically available on Raspberry Pi devices.
+
+    Returns:
+        True if h264_v4l2m2m codec is available, False otherwise.
+    """
     try:
         codecs = subprocess.run(["ffmpeg", "-codecs"], capture_output=True)
     except FileNotFoundError:
         return False
-    except IndexError:
-        return False
     return "h264_v4l2m2m" in codecs.stdout.decode()
 
 
-def is_ffmpeg_installed():
+def is_ffmpeg_installed() -> bool:
+    """Check if FFmpeg is installed and accessible.
+
+    Returns:
+        True if FFmpeg is installed, False otherwise.
+    """
     try:
         subprocess.run(["ffmpeg", "-version"], capture_output=True)
     except FileNotFoundError:
