@@ -4,7 +4,7 @@ import argparse
 import logging
 import os
 
-from pikaraoke.lib.get_platform import get_default_dl_dir, get_platform, is_raspberry_pi
+from pikaraoke.lib.get_platform import get_default_dl_dir, get_platform, is_raspberry_pi, should_use_mp4_streaming
 
 
 def arg_path_parse(path: str | list[str] | None) -> str | None:
@@ -147,6 +147,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     parser.add_argument(
         "--hide-url",
         action="store_true",
+        default=None,
         help="Hide URL and QR code from the splash screen.",
         required=False,
     )
@@ -160,12 +161,14 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     parser.add_argument(
         "--hide-overlay",
         action="store_true",
+        default=None,
         help="Hide all overlays that show on top of video, including current/next song, pikaraoke QR code and IP",
         required=False,
     ),
     parser.add_argument(
         "--hide-notifications",
         action="store_true",
+        default=None,
         help="Hide notifications from the splash screen.",
         required=False,
     )
@@ -179,6 +182,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     parser.add_argument(
         "--high-quality",
         action="store_true",
+        default=None,
         help="Download higher quality video. May cause CPU, download speed, and other performance issues",
         required=False,
     )
@@ -186,6 +190,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         "-c",
         "--complete-transcode-before-play",
         action="store_true",
+        default=None,
         help="Wait for ffmpeg video transcoding to fully complete before playback begins. Transcoding occurs when you have normalization on, play a cdg file, or change key. May improve performance and browser compatibility (Safari, Firefox), but will significantly increase the delay before playback begins. On modern hardware, the delay is likely negligible.",
         required=False,
     )
@@ -226,6 +231,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     parser.add_argument(
         "--disable-bg-music",
         action="store_true",
+        default=None,
         help="Disable background music on splash screen",
         required=False,
     ),
@@ -253,6 +259,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     parser.add_argument(
         "--disable-bg-video",
         action="store_true",
+        default=None,
         help="Disable background video on splash screen",
         required=False,
     ),
@@ -260,6 +267,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         "--disable-score",
         help="Disable the score screen after each song",
         action="store_true",
+        default=None,
         required=False,
     ),
     parser.add_argument(
@@ -284,6 +292,14 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         "--cdg-pixel-scaling",
         help="Enable CDG pixel scaling to improve video rendering of CDG files. This may increase CPU usage and may cause performance issues on slower devices.",
         action="store_true",
+        default=None,
+        required=False,
+    ),
+    parser.add_argument(
+        "--streaming-format",
+        help="Video streaming format: 'hls' (HLS with fMP4 segments - works on Smart TVs, Safari, modern browsers), 'mp4' (progressive MP4 with movflags - for older RPi Chromium), or 'auto' (auto-detect based on hardware). Default is 'auto'.",
+        choices=["hls", "mp4", "auto"],
+        default="auto",
         required=False,
     ),
 
@@ -313,5 +329,16 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     args.bg_music_path = bg_music_path
     args.bg_video_path = bg_video_path
     args.download_path = dl_path
+
+    # Resolve streaming format
+    if args.streaming_format == "auto":
+        if should_use_mp4_streaming():
+            args.streaming_format = "mp4"
+            print("Auto-detected older Raspberry Pi hardware. Using MP4 streaming format.")
+        else:
+            args.streaming_format = "hls"
+            print("Using HLS streaming format.")
+    else:
+        print(f"Streaming format set to: {args.streaming_format}")
 
     return args

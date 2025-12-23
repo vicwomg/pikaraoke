@@ -55,18 +55,20 @@ def build_ffmpeg_cmd(
     avsync = float(avsync)
     # use h/w acceleration on pi
     default_vcodec = "h264_v4l2m2m" if supports_hardware_h264_encoding() else "libx264"
-    # just copy the video stream if it's an mp4 or webm file, since they are supported natively in html5
-    # otherwise use the default h264 codec
-    vcodec = (
-        "copy" if fr.file_extension == ".mp4" or fr.file_extension == ".webm" else default_vcodec
-    )
+    # just copy the video stream if it's an mp4 file (already H.264 compatible)
+    # webm uses VP8/VP9 which must be transcoded to H.264 for fMP4 containers
+    vcodec = "copy" if fr.file_extension == ".mp4" else default_vcodec
     vbitrate = "5M"  # seems to yield best results w/ h264_v4l2m2m on pi, recommended for 720p.
 
     # copy the audio stream if no transposition/normalization, otherwise reincode with the aac codec
     is_transposed = semitones != 0
     acodec = "aac" if is_transposed or normalize_audio or avsync != 0 else "copy"
 
-    input = ffmpeg.input(fr.file_path)
+    # For WEBM files, use genpts to regenerate timestamps and fix VFR issues
+    if fr.file_extension == ".webm":
+        input = ffmpeg.input(fr.file_path, **{"fflags": "+genpts"})
+    else:
+        input = ffmpeg.input(fr.file_path)
     audio = input.audio
 
     # If avsync is set, delay or trim the audio stream
@@ -82,10 +84,6 @@ def build_ffmpeg_cmd(
     # normalize the audio
     audio = audio.filter("loudnorm", i=-16, tp=-1.5, lra=11) if normalize_audio else audio
 
-    # frag_keyframe+default_base_moof is used to set the correct headers for streaming incomplete files,
-    # without it, there's better compatibility for streaming on certain browsers like Firefox
-    movflags = "+faststart" if buffer_fully_before_playback else "frag_keyframe+default_base_moof"
-
     if fr.cdg_file_path != None:  # handle CDG files
         logging.info("Playing CDG/MP3 file: " + fr.file_path)
         # copyts helps with sync issues, fps=25 prevents ffmpeg from needlessly encoding cdg at 300fps
@@ -95,36 +93,82 @@ def build_ffmpeg_cmd(
         else:
             video = cdg_input.video.filter("fps", fps=25)
 
-        # cdg is very fussy about these flags.
-        # pi ffmpeg needs to encode to aac and cant just copy the mp3 stream
-        # It also appears to have memory issues with hardware acceleration h264_v4l2m2m
-        output = ffmpeg.output(
-            audio,
-            video,
-            fr.output_file,
-            vcodec="libx264",
-            acodec="aac",
-            preset="ultrafast",
-            pix_fmt="yuv420p",
-            listen=1,
-            f="mp4",
-            video_bitrate="500k",
-            movflags=movflags,
-        )
+        # Output format based on streaming_format setting
+        if fr.streaming_format == "mp4":
+            # Progressive MP4 with movflags - for older RPi Chromium
+            output = ffmpeg.output(
+                audio,
+                video,
+                fr.output_file,
+                vcodec="libx264",
+                acodec="aac",
+                preset="ultrafast",
+                pix_fmt="yuv420p",
+                f="mp4",
+                movflags="frag_keyframe+empty_moov+default_base_moof",
+                video_bitrate="500k",
+            )
+        else:  # hls
+            # HLS with fMP4 segments and robust AAC audio encoding
+            # Works on all platforms: Smart TVs, Chrome, Safari, RPi
+            output = ffmpeg.output(
+                audio,
+                video,
+                fr.output_file,
+                vcodec="libx264",
+                acodec="aac",
+                audio_bitrate="192k",  # Explicit quality for AAC
+                ac=2,  # Force stereo (downmix surround sound)
+                ar=48000,  # Standard sample rate for streaming
+                preset="ultrafast",
+                pix_fmt="yuv420p",
+                f="hls",
+                hls_time=3,
+                hls_list_size=0,
+                hls_segment_type="fmp4",
+                hls_fmp4_init_filename=fr.init_filename,
+                hls_segment_filename=fr.segment_pattern,
+                video_bitrate="500k",
+                **{"vsync": "cfr", "avoid_negative_ts": "make_zero"},  # Force constant frame rate and fix negative timestamps
+            )
     else:
         video = input.video
-        output = ffmpeg.output(
-            audio,
-            video,
-            fr.output_file,
-            vcodec=vcodec,
-            acodec=acodec,
-            preset="ultrafast",
-            listen=1,
-            f="mp4",
-            video_bitrate=vbitrate,
-            movflags=movflags,
-        )
+        # Output format based on streaming_format setting
+        if fr.streaming_format == "mp4":
+            # Progressive MP4 with movflags - for older RPi Chromium
+            output = ffmpeg.output(
+                audio,
+                video,
+                fr.output_file,
+                vcodec=vcodec,
+                acodec=acodec,
+                preset="ultrafast",
+                f="mp4",
+                movflags="frag_keyframe+empty_moov+default_base_moof",
+                video_bitrate=vbitrate,
+            )
+        else:  # hls
+            # HLS with fMP4 segments and robust AAC audio encoding
+            # Works on all platforms: Smart TVs, Chrome, Safari, RPi
+            output = ffmpeg.output(
+                audio,
+                video,
+                fr.output_file,
+                vcodec=vcodec,
+                acodec="aac",  # Force AAC encoding for compatibility
+                audio_bitrate="192k",  # Explicit quality for AAC
+                ac=2,  # Force stereo (downmix surround sound)
+                ar=48000,  # Standard sample rate for streaming
+                preset="ultrafast",
+                f="hls",
+                hls_time=3,
+                hls_list_size=0,
+                hls_segment_type="fmp4",
+                hls_fmp4_init_filename=fr.init_filename,
+                hls_segment_filename=fr.segment_pattern,
+                video_bitrate=vbitrate,
+                **{"vsync": "cfr", "avoid_negative_ts": "make_zero"},  # Force constant frame rate and fix negative timestamps
+            )
 
     args = output.get_args()
     logging.debug(f"COMMAND: ffmpeg " + " ".join(args))

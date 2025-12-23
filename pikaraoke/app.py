@@ -7,6 +7,8 @@ monkey.patch_all()
 import logging
 import os
 import sys
+import threading
+import time
 
 import flask_babel
 from flasgger import Swagger
@@ -43,9 +45,6 @@ except ImportError:
     from urllib import quote
 
 _ = flask_babel.gettext
-
-import threading
-import time
 
 from gevent.pywsgi import WSGIServer
 
@@ -226,13 +225,16 @@ def main() -> None:
         disable_bg_music=args.disable_bg_music,
         bg_music_volume=args.bg_music_volume,
         bg_music_path=args.bg_music_path,
+        disable_bg_video=args.disable_bg_video,
         bg_video_path=args.bg_video_path,
         disable_score=args.disable_score,
         limit_user_songs_by=args.limit_user_songs_by,
         avsync=args.avsync,
         config_file_path=args.config_file_path,
         cdg_pixel_scaling=args.cdg_pixel_scaling,
+        streaming_format=args.streaming_format,
         additional_ytdl_args=getattr(args, "ytdl_args", None),
+        socketio=socketio,
     )
 
     # expose karaoke object to the flask app
@@ -267,11 +269,6 @@ def main() -> None:
             sys.exit()
     else:
         driver = None
-
-    # Poll karaoke object for now playing updates
-    thread = threading.Thread(target=poll_karaoke_state, args=(k,))
-    thread.daemon = True
-    thread.start()
 
     # Start the karaoke process
     k.run()

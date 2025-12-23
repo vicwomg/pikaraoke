@@ -1,5 +1,3 @@
-"""Platform detection utilities for PiKaraoke."""
-
 import io
 import os
 import platform
@@ -7,12 +5,7 @@ import shutil
 import sys
 
 
-def is_raspberry_pi() -> bool:
-    """Check if the current system is a Raspberry Pi.
-
-    Returns:
-        True if running on a Raspberry Pi, False otherwise.
-    """
+def is_raspberry_pi():
     try:
         with io.open("/sys/firmware/devicetree/base/model", "r") as m:
             if "raspberry pi" in m.read().lower():
@@ -22,25 +15,12 @@ def is_raspberry_pi() -> bool:
     return False
 
 
-def is_android() -> bool:
-    """Check if the current system is Android.
-
-    Returns:
-        True if running on Android, False otherwise.
-    """
+def is_android():
     return os.path.exists("/system/app/") and os.path.exists("/system/priv-app")
 
 
-def get_installed_js_runtime() -> str | None:
-    """Get the name of an installed JavaScript runtime.
-
-    Checks for deno, node, bun, and quickjs in order of preference.
-    A JS runtime is required by yt-dlp for some downloads.
-
-    Returns:
-        Name of the installed runtime ('deno', 'node', 'bun', 'quickjs'),
-        or None if none is installed.
-    """
+def get_installed_js_runtime():
+    # prioritize deno and node
     if shutil.which("deno") is not None:
         return "deno"
     if shutil.which("node") is not None:
@@ -52,22 +32,11 @@ def get_installed_js_runtime() -> str | None:
     return None
 
 
-def has_js_runtime() -> bool:
-    """Check if a JavaScript runtime is installed.
-
-    Returns:
-        True if a JS runtime is available, False otherwise.
-    """
+def has_js_runtime():
     return get_installed_js_runtime() is not None
 
 
-def get_platform() -> str:
-    """Detect the current operating system/platform.
-
-    Returns:
-        Platform identifier string: 'osx', 'android', 'linux', 'windows',
-        'unknown', or the Raspberry Pi model string if on a Pi.
-    """
+def get_platform():
     if sys.platform == "darwin":
         return "osx"
     elif is_android():
@@ -88,18 +57,28 @@ def get_platform() -> str:
         return "unknown"
 
 
-def get_default_dl_dir(platform: str) -> str:
-    """Get the default download directory for the given platform.
-
-    Checks for legacy directory locations and returns those if they exist,
-    otherwise returns the new default location.
-
-    Args:
-        platform: Platform identifier from get_platform().
-
-    Returns:
-        Path string for the default download directory.
+def should_use_mp4_streaming() -> bool:
     """
+    Determines if MP4 streaming should be used instead of HLS.
+    Returns True for older Raspberry Pi models (3B+, 3B, or earlier)
+    where Chromium doesn't support HLS natively.
+    """
+    if not is_raspberry_pi():
+        return False
+
+    try:
+        with open("/proc/device-tree/model", "r") as file:
+            model = file.read().strip().lower()
+            # Detect RPi 3B+, 3B, or earlier (not 4 or 5)
+            if "raspberry pi 3" in model or "raspberry pi 2" in model or "raspberry pi 1" in model or "raspberry pi zero" in model:
+                return True
+    except FileNotFoundError:
+        pass
+
+    return False
+
+
+def get_default_dl_dir(platform: str) -> str:
     if is_raspberry_pi():
         return "~/pikaraoke-songs"
     elif platform == "windows":
@@ -116,10 +95,5 @@ def get_default_dl_dir(platform: str) -> str:
             return "~/pikaraoke-songs"
 
 
-def get_os_version() -> str:
-    """Get the operating system version string.
-
-    Returns:
-        OS version string from platform.version().
-    """
+def get_os_version():
     return platform.version()
