@@ -129,7 +129,7 @@
     {
       "uid": "513ac180ff85bd275f2b736720cbbf5e",
       "css": "home",
-      "code": 59394,
+      "code": 8962,
       "src": "entypo"
     },
     {
@@ -147,7 +147,7 @@
     {
       "uid": "9dd9e835aebe1060ba7190ad2b2ed951",
       "css": "search",
-      "code": 59396,
+      "code": 128269,
       "src": "fontawesome"
     },
     {
@@ -159,19 +159,19 @@
     {
       "uid": "c95735c17a10af81448c7fed98a04546",
       "css": "folder-open",
-      "code": 59397,
+      "code": 128194,
       "src": "fontawesome"
     },
     {
       "uid": "e99461abfef3923546da8d745372c995",
       "css": "cog",
-      "code": 59399,
+      "code": 9881,
       "src": "fontawesome"
     },
     {
       "uid": "98687378abd1faf8f6af97c254eb6cd6",
       "css": "cog-alt",
-      "code": 59400,
+      "code": 9967,
       "src": "fontawesome"
     },
     {
@@ -201,25 +201,25 @@
     {
       "uid": "1c4068ed75209e21af36017df8871802",
       "css": "down-big",
-      "code": 59404,
+      "code": 8595,
       "src": "fontawesome"
     },
     {
       "uid": "555ef8c86832e686fef85f7af2eb7cde",
       "css": "left-big",
-      "code": 59405,
+      "code": 8592,
       "src": "fontawesome"
     },
     {
       "uid": "ad6b3fbb5324abe71a9c0b6609cbb9f1",
       "css": "right-big",
-      "code": 59406,
+      "code": 8594,
       "src": "fontawesome"
     },
     {
       "uid": "95376bf082bfec6ce06ea1cda7bd7ead",
       "css": "up-big",
-      "code": 59408,
+      "code": 8593,
       "src": "fontawesome"
     },
     {
@@ -267,7 +267,7 @@
     {
       "uid": "e82cedfa1d5f15b00c5a81c9bd731ea2",
       "css": "info-circled",
-      "code": 59398,
+      "code": 59141,
       "src": "fontawesome"
     },
     {
@@ -281,6 +281,30 @@
       "css": "info",
       "code": 59417,
       "src": "iconic"
+    },
+    {
+      "uid": "12f4ece88e46abd864e40b35e05b11cd",
+      "css": "ok",
+      "code": 59420,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "6020aff067fc3c119cdd75daa5249220",
+      "css": "exchange",
+      "code": 61676,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "c819c6225685bae2eed1b8da13e629fa",
+      "css": "list-alt",
+      "code": 59418,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "41087bc74d4b20b55059c60a33bf4008",
+      "css": "edit",
+      "code": 59419,
+      "src": "fontawesome"
     }
   ]
 }
