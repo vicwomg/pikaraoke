@@ -26,19 +26,25 @@ jobs:
         run: |
           python -c "
           import json
-          from flask import Flask
-          from flasgger import Swagger
+          import sys
 
-          # Import app to get all routes registered
-          from pikaraoke.app import app
+          try:
+              # Import app to get all routes registered
+              from pikaraoke.app import app, swagger
 
-          # Get the spec
-          with app.app_context():
-              spec = app.extensions['swagger'].get_apispecs()
+              # Get the spec using the swagger object directly
+              with app.app_context():
+                  spec = swagger.get_apispecs()
 
-          # Write formatted JSON
-          with open('openapi.json', 'w') as f:
-              json.dump(spec, f, indent=2)
+              # Write formatted JSON
+              with open('openapi.json', 'w') as f:
+                  json.dump(spec, f, indent=2)
+
+          except Exception as e:
+              print(f'Error generating OpenAPI spec: {e}', file=sys.stderr)
+              import traceback
+              traceback.print_exc()
+              sys.exit(1)
           "
 
       - name: Checkout gh-pages branch
