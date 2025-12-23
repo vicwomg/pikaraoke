@@ -1,3 +1,5 @@
+"""System information and settings page route."""
+
 import flask_babel
 import psutil
 from flask import Blueprint, render_template
@@ -20,6 +22,14 @@ info_bp = Blueprint("info", __name__)
 
 @info_bp.route("/info")
 def info():
+    """System information and settings page.
+    ---
+    tags:
+      - Pages
+    responses:
+      200:
+        description: HTML page with system info and settings
+    """
     k = get_karaoke_instance()
     site_name = get_site_name()
     url = k.url
@@ -31,7 +41,7 @@ def info():
 
     # cpu
     try:
-        cpu = str(psutil.cpu_percent()) + "%"
+        cpu = str(psutil.cpu_percent(interval=1)) + "%"
     except:
         cpu = _("CPU usage query unsupported")
 
@@ -89,4 +99,9 @@ def info():
         buffer_size=k.buffer_size,
         languages=LANGUAGES,
         preferred_language=preferred_language,  # 傳遞當前偏好語言
+        schore_phrases={
+            "low": k.low_score_phrases,
+            "mid": k.mid_score_phrases,
+            "high": k.high_score_phrases,
+        },
     )

@@ -1,3 +1,5 @@
+"""Splash screen / player display route."""
+
 import shutil
 import subprocess
 
@@ -15,6 +17,14 @@ splash_bp = Blueprint("splash", __name__)
 
 @splash_bp.route("/splash")
 def splash():
+    """Splash screen / player display for TV output.
+    ---
+    tags:
+      - Pages
+    responses:
+      200:
+        description: HTML splash screen page
+    """
     k = get_karaoke_instance()
     text = ""
     if k.is_raspberry_pi:
@@ -43,4 +53,11 @@ def splash():
         disable_score=k.disable_score,
         bg_music_volume=k.bg_music_volume,
         has_bg_video=k.bg_video_path is not None,
+        schore_phrases={
+            "low": [phrase.strip() for phrase in k.low_score_phrases.split("\n") if phrase.strip()],
+            "mid": [phrase.strip() for phrase in k.mid_score_phrases.split("\n") if phrase.strip()],
+            "high": [
+                phrase.strip() for phrase in k.high_score_phrases.split("\n") if phrase.strip()
+            ],
+        },
     )
