@@ -124,9 +124,7 @@ class VLCClient:
             if os.path.splitext(mp3_file)[0] == os.path.splitext(cdg_file)[0]:
                 return os.path.join(extracted_dir, mp3_file)
             else:
-                raise Exception(
-                    "Zipped .mp3 file did not have a matching .cdg file: " + files
-                )
+                raise Exception("Zipped .mp3 file did not have a matching .cdg file: " + files)
         else:
             raise Exception("No .mp3 or .cdg was found in the zip file: " + file_path)
 
@@ -233,8 +231,7 @@ class VLCClient:
         except:
             e = sys.exc_info()[0]
             logging.warn(
-                "Track stop: server may have shut down before http return code received: %s"
-                % e
+                "Track stop: server may have shut down before http return code received: %s" % e
             )
             return
 
@@ -257,9 +254,7 @@ class VLCClient:
             return
 
     def is_running(self):
-        return (
-            self.process != None and self.process.poll() == None
-        ) or self.is_transposing
+        return (self.process != None and self.process.poll() == None) or self.is_transposing
 
     def is_playing(self):
         if self.is_running():

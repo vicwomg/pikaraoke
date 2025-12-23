@@ -42,12 +42,7 @@ def info():
     available = round(memory.available / 1024.0 / 1024.0, 1)
     total = round(memory.total / 1024.0 / 1024.0, 1)
     memory = (
-        str(available)
-        + "MB free / "
-        + str(total)
-        + "MB total ( "
-        + str(memory.percent)
-        + "% )"
+        str(available) + "MB free / " + str(total) + "MB total ( " + str(memory.percent) + "% )"
     )
 
     # disk
@@ -55,14 +50,7 @@ def info():
     # Divide from Bytes -> KB -> MB -> GB
     free = round(disk.free / 1024.0 / 1024.0 / 1024.0, 1)
     total = round(disk.total / 1024.0 / 1024.0 / 1024.0, 1)
-    disk = (
-        str(free)
-        + "GB free / "
-        + str(total)
-        + "GB total ( "
-        + str(disk.percent)
-        + "% )"
-    )
+    disk = str(free) + "GB free / " + str(total) + "GB total ( " + str(disk.percent) + "% )"
 
     # youtube-dl
     youtubedl_version = k.youtubedl_version

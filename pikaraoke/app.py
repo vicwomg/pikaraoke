@@ -235,9 +235,7 @@ def main() -> None:
 
     k.upgrade_youtubedl()
 
-    server = WSGIServer(
-        ("0.0.0.0", int(args.port)), app, log=None, error_log=logging.getLogger()
-    )
+    server = WSGIServer(("0.0.0.0", int(args.port)), app, log=None, error_log=logging.getLogger())
     server.start()
 
     # Handle sigterm, apparently cherrypy won't shut down without explicit handling

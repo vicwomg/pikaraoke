@@ -58,13 +58,9 @@ def build_ffmpeg_cmd(
     # just copy the video stream if it's an mp4 or webm file, since they are supported natively in html5
     # otherwise use the default h264 codec
     vcodec = (
-        "copy"
-        if fr.file_extension == ".mp4" or fr.file_extension == ".webm"
-        else default_vcodec
+        "copy" if fr.file_extension == ".mp4" or fr.file_extension == ".webm" else default_vcodec
     )
-    vbitrate = (
-        "5M"  # seems to yield best results w/ h264_v4l2m2m on pi, recommended for 720p.
-    )
+    vbitrate = "5M"  # seems to yield best results w/ h264_v4l2m2m on pi, recommended for 720p.
 
     # copy the audio stream if no transposition/normalization, otherwise reincode with the aac codec
     is_transposed = semitones != 0
@@ -84,26 +80,18 @@ def build_ffmpeg_cmd(
 
     audio = audio.filter("rubberband", pitch=pitch) if is_transposed else audio
     # normalize the audio
-    audio = (
-        audio.filter("loudnorm", i=-16, tp=-1.5, lra=11) if normalize_audio else audio
-    )
+    audio = audio.filter("loudnorm", i=-16, tp=-1.5, lra=11) if normalize_audio else audio
 
     # frag_keyframe+default_base_moof is used to set the correct headers for streaming incomplete files,
     # without it, there's better compatibility for streaming on certain browsers like Firefox
-    movflags = (
-        "+faststart"
-        if buffer_fully_before_playback
-        else "frag_keyframe+default_base_moof"
-    )
+    movflags = "+faststart" if buffer_fully_before_playback else "frag_keyframe+default_base_moof"
 
     if fr.cdg_file_path != None:  # handle CDG files
         logging.info("Playing CDG/MP3 file: " + fr.file_path)
         # copyts helps with sync issues, fps=25 prevents ffmpeg from needlessly encoding cdg at 300fps
         cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
         if cdg_pixel_scaling:
-            video = cdg_input.video.filter("fps", fps=25).filter(
-                "scale", -1, 720, flags="neighbor"
-            )
+            video = cdg_input.video.filter("fps", fps=25).filter("scale", -1, 720, flags="neighbor")
         else:
             video = cdg_input.video.filter("fps", fps=25)
 
@@ -160,9 +148,7 @@ def get_ffmpeg_version() -> str:
         )
         # Parse the first line to get the version
         first_line = result.stdout.split("\n")[0]
-        version_info = first_line.split(" ")[
-            2
-        ]  # Assumes the version info is the third element
+        version_info = first_line.split(" ")[2]  # Assumes the version info is the third element
         return version_info
     except FileNotFoundError:
         return "FFmpeg is not installed"

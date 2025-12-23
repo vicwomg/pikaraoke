@@ -106,8 +106,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     parser.add_argument(
         "-v",
         "--volume",
-        help="Set initial player volume. A value between 0 and 1. (default: %s)"
-        % default_volume,
+        help="Set initial player volume. A value between 0 and 1. (default: %s)" % default_volume,
         default=default_volume,
         required=False,
     )
@@ -292,9 +291,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
 
     # additional sanitization of args:
     args.volume = parse_volume(args.volume, "Volume (default)")
-    args.bg_music_volume = parse_volume(
-        args.bg_music_volume, "Background Music Volume (default)"
-    )
+    args.bg_music_volume = parse_volume(args.bg_music_volume, "Background Music Volume (default)")
 
     limit_user_songs_by = int(args.limit_user_songs_by)
     args.limit_user_songs_by = limit_user_songs_by

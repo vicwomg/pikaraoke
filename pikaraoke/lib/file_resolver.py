@@ -139,9 +139,7 @@ class FileResolver:
                 self.file_path = os.path.join(extracted_dir, mp3_file)
                 self.cdg_file_path = os.path.join(extracted_dir, cdg_file)
             else:
-                raise Exception(
-                    "Zipped .mp3 file did not have a matching .cdg file: " + files
-                )
+                raise Exception("Zipped .mp3 file did not have a matching .cdg file: " + files)
         else:
             raise Exception("No .mp3 or .cdg was found in the zip file: " + file_path)
 

@@ -14,9 +14,7 @@ def run_command(command: str) -> None:
     """
     result = subprocess.run(command, shell=True, text=True)
     if result.returncode != 0:
-        raise Exception(
-            f"ERROR: '{command}' failed with error code: {result.returncode}"
-        )
+        raise Exception(f"ERROR: '{command}' failed with error code: {result.returncode}")
 
 
 def apt(command: str) -> None:

@@ -58,9 +58,7 @@ def autocomplete():
                     "type": "autocomplete",
                 }
             )
-    response = current_app.response_class(
-        response=json.dumps(result), mimetype="application/json"
-    )
+    response = current_app.response_class(response=json.dumps(result), mimetype="application/json")
     return response
 
 
