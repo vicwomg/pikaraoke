@@ -95,13 +95,18 @@ def get_locale() -> str | None:
     Returns:
         Language code string (e.g., 'en', 'fr') or None.
     """
-    # Check config.ini lang settings
-    k = get_karaoke_instance()
-    preferred_lang = k.get_user_preference("preferred_language")
-    if preferred_lang and preferred_lang in LANGUAGES.keys():
-        return preferred_lang
+    # Check config.ini lang settings (if karaoke instance is initialized)
+    try:
+        k = get_karaoke_instance()
+        preferred_lang = k.get_user_preference("preferred_language")
+        if preferred_lang and preferred_lang in LANGUAGES.keys():
+            return preferred_lang
+    except (RuntimeError, AttributeError):
+        # App context not available or karaoke instance not initialized yet
+        pass
+
     # Check URL arguments
-    elif request.args.get("lang"):
+    if request.args.get("lang"):
         session["lang"] = request.args.get("lang")
         locale = session.get("lang", "en")
     # Use browser header
