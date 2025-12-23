@@ -265,6 +265,9 @@ class Karaoke:
         Returns:
             HTTP URL string for the web interface.
         """
+        self.low_score_phrases = self.get_user_preference("low_score_phrases") or ""
+        self.mid_score_phrases = self.get_user_preference("mid_score_phrases") or ""
+        self.high_score_phrases = self.get_user_preference("high_score_phrases") or ""
         if self.is_raspberry_pi:
             # retry in case pi is still starting up
             # and doesn't have an IP yet (occurs when launched from /etc/rc.local)

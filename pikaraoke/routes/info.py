@@ -33,7 +33,7 @@ def info():
 
     # cpu
     try:
-        cpu = str(psutil.cpu_percent()) + "%"
+        cpu = str(psutil.cpu_percent(interval=1)) + "%"
     except:
         cpu = _("CPU usage query unsupported")
 
@@ -103,4 +103,9 @@ def info():
         buffer_size=k.buffer_size,
         languages=LANGUAGES,
         preferred_language=preferred_language,  # 傳遞當前偏好語言
+        schore_phrases={
+            "low": k.low_score_phrases,
+            "mid": k.mid_score_phrases,
+            "high": k.high_score_phrases,
+        },
     )

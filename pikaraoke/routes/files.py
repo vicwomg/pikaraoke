@@ -43,7 +43,7 @@ def browse():
         available_songs = result
 
     if "sort" in request.args and request.args["sort"] == "date":
-        songs = sorted(available_songs, key=lambda x: os.path.getctime(x))
+        songs = sorted(available_songs, key=lambda x: os.path.getmtime(x))
         songs.reverse()
         sort_order = "Date"
     else:
@@ -59,7 +59,7 @@ def browse():
         record_name="songs",
         per_page=results_per_page,
     )
-    start_index = (page - 1) * (results_per_page - 1)
+    start_index = (page - 1) * results_per_page
     return render_template(
         "files.html",
         pagination=pagination,

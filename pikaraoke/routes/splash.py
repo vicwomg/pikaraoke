@@ -45,4 +45,11 @@ def splash():
         disable_score=k.disable_score,
         bg_music_volume=k.bg_music_volume,
         has_bg_video=k.bg_video_path is not None,
+        schore_phrases={
+            "low": [phrase.strip() for phrase in k.low_score_phrases.split("\n") if phrase.strip()],
+            "mid": [phrase.strip() for phrase in k.mid_score_phrases.split("\n") if phrase.strip()],
+            "high": [
+                phrase.strip() for phrase in k.high_score_phrases.split("\n") if phrase.strip()
+            ],
+        },
     )

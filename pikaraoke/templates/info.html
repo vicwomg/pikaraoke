@@ -1,393 +1,562 @@
 {% extends 'base.html' %} {% block scripts %}
-<script>
-  $(function () {
-	$(".user-preference-input").change(function() {
-		let val = $(this).val();
-		let pref = $(this).attr("data-pref");
-		let startVal = $(this).attr("data-start-value");
-		let $this = $(this);
+	<script>
+		async function updatePhrases(phrases) {
+			let returnData = null
 
-		if (val == startVal) return;
+			for (const phraseRange in phrases) {
+				returnData = await $.get("{{ url_for('preferences.change_preferences') }}", {
+						pref: phraseRange,
+						val: phrases[phraseRange]
+				})
 
-		let timeoutId = setTimeout(function() {
-			$this.attr("data-start-value", val);
-
-			if (pref == "bg_music_volume" || pref == "volume") {
-				val = val / 100;
+				// se o Python retornar False, para o loop
+				if (!returnData[0]) break
 			}
-			changePreferences(pref, val);
-		}, 1000);
 
-		// Se o usuário alterar o valor novamente antes do delay expirar, cancela o timeout
-		$(this).one("change", function() {
-			clearTimeout(timeoutId);
+			if (returnData[0]) showNotification(returnData[1], "is-success");
+			else showNotification(returnData[1], "is-danger");
+		}
+
+		$(function () {
+			$(".user-preference-input").change(function() {
+				let val = $(this).val();
+				let pref = $(this).attr("data-pref");
+				let startVal = $(this).attr("data-start-value");
+				let $this = $(this);
+
+				if (val == startVal) return;
+
+				let timeoutId = setTimeout(function() {
+					$this.attr("data-start-value", val);
+
+					if (pref == "bg_music_volume" || pref == "volume") {
+						val = val / 100;
+					}
+					changePreferences(pref, val);
+				}, 1000);
+
+				// If the user changes the value again before the daly expires, cancel the timeout
+				$(this).one("change", function() {
+					clearTimeout(timeoutId);
+				});
+			})
+			$(".user-preference-checkbox").click(function() {
+				let val = $(this).is(":checked") ? "True" : "False";
+				let pref = $(this).attr("data-pref");
+
+				changePreferences(pref, val);
+			})
+
+			function changePreferences(pref, val) {
+				$.get("{{ url_for('preferences.change_preferences') }}", {
+					"pref": pref,
+					"val": val
+				})
+				.done(function(data) {
+					if (data[0]) showNotification(data[1], "is-success");
+					else showNotification(data[1], "is-danger")
+				});
+			}
+
+			$("#quit-link").click(function (e) {
+				e.preventDefault();
+				// {# MSG: Confirmation text whe the user selects quit. #}
+				if (window.confirm("{{ _('Are you sure you want to quit?') }}")) {
+					location.href = this.href;
+				}
+			});
+
+			$("#shutdown-link").click(function (e) {
+				e.preventDefault();
+				// {# MSG: Confirmation text whe the user starts to turn off the machine running Pikaraoke. #}
+				if (window.confirm("{{ _('Are you sure you want to shut down?') }}")) {
+					location.href = this.href;
+				}
+			});
+
+			$("#clear-preferences-link").click(function (e) {
+				e.preventDefault();
+				// {# MSG: Confirmation text whe the user clears preferences. #}
+				if (window.confirm("{{ _('Are you sure you want to clear your preferences?') }}")) {
+					location.href = this.href;
+				}
+			});
+
+			$("#restart-link").click(function (e) {
+				e.preventDefault();
+				// {# MSG: Confirmation text whe the user starts to reboot the machine running Pikaraoke. #}
+				if (window.confirm("{{ _('Are you sure you want to reboot?') }}")) {
+					location.href = this.href;
+				}
+			});
+
+			$("#update-ytdl-link").click(function (e) {
+				e.preventDefault();
+				if (
+					window.confirm(
+						// {# MSG: Confirmation text whe the user asks to update the Youtube-dl tool. #}
+						"{{ _('Are you sure you want to update Youtube-dl right now? Current and pending downloads may fail.') }}"
+					)
+				) {
+					location.href = this.href;
+				}
+			});
+
+			$("#expand-link").click(function (e) {
+				e.preventDefault();
+				// {# MSG: Confirmation text when the user wants to expand the filesystem to take the entire SD card. #}
+				if (window.confirm("Are you sure you want to expand the filesystem? This will reboot your raspberry pi.")) {
+					location.href = this.href;
+				}
+			});
+
+			$("#save-phrases").click(function (e){
+				e.preventDefault();
+
+				//let low = $("#low-score-phrases").val().replace(/\n/g, '|');
+				//let mid = $("#mid-score-phrases").val().replace(/\n/g, '|');
+				//let high = $("#high-score-phrases").val().replace(/\n/g, '|');
+
+				let phrases = {
+					"low_score_phrases": $("#low-score-phrases").val(),
+					"mid_score_phrases": $("#mid-score-phrases").val(),
+					"high_score_phrases": $("#high-score-phrases").val()
+				}
+
+				updatePhrases(phrases)
+			})
 		});
-	})
-	$(".user-preference-checkbox").click(function() {
-		let val = $(this).is(":checked") ? "True" : "False";
-		let pref = $(this).attr("data-pref");
-
-		changePreferences(pref, val);
-	})
-
-	function changePreferences(pref, val) {
-		$.get("{{ url_for('preferences.change_preferences') }}", {
-			"pref": pref,
-			"val": val
-		})
-		.done(function(data) {
-			if (data[0]) showNotification(data[1], "is-success");
-			else showNotification(data[1], "is-danger")
-		});
-	}
-
-    $("#quit-link").click(function (e) {
-      e.preventDefault();
-      // {# MSG: Confirmation text whe the user selects quit. #}
-      if (window.confirm("{{ _('Are you sure you want to quit?') }}")) {
-        location.href = this.href;
-      }
-    });
-
-    $("#shutdown-link").click(function (e) {
-      e.preventDefault();
-      // {# MSG: Confirmation text whe the user starts to turn off the machine running Pikaraoke. #}
-      if (window.confirm("{{ _('Are you sure you want to shut down?') }}")) {
-        location.href = this.href;
-      }
-    });
-
-    $("#clear-preferences-link").click(function (e) {
-      e.preventDefault();
-      // {# MSG: Confirmation text whe the user clears preferences. #}
-      if (window.confirm("{{ _('Are you sure you want to clear your preferences?') }}")) {
-        location.href = this.href;
-      }
-    });
-
-    $("#restart-link").click(function (e) {
-      e.preventDefault();
-      // {# MSG: Confirmation text whe the user starts to reboot the machine running Pikaraoke. #}
-      if (window.confirm("{{ _('Are you sure you want to reboot?') }}")) {
-        location.href = this.href;
-      }
-    });
-
-    $("#update-ytdl-link").click(function (e) {
-      e.preventDefault();
-      if (
-        window.confirm(
-          // {# MSG: Confirmation text whe the user asks to update the Youtube-dl tool. #}
-          "{{ _('Are you sure you want to update Youtube-dl right now? Current and pending downloads may fail.') }}"
-        )
-      ) {
-        location.href = this.href;
-      }
-    });
-
-    $("#expand-link").click(function (e) {
-      e.preventDefault();
-      // {# MSG: Confirmation text when the user wants to expand the filesystem to take the entire SD card. #}
-      if (window.confirm("Are you sure you want to expand the filesystem? This will reboot your raspberry pi.")) {
-        location.href = this.href;
-      }
-    });
-  });
-</script>
+	</script>
 {% endblock %}
 
 {% block header %}
-  <h1>{% block title %}
-    {# MSG: Title of the information page. #}
-    {% trans %}Information{% endtrans %}
-  {% endblock %}</h1>
+	<h1>
+		{% block title %}
+			{# MSG: Title of the information page. #}
+			{% trans %}Information{% endtrans %}
+		{% endblock %}
+	</h1>
 {% endblock %}
 
 {% block content %}
-<hr/>
 
-<div class="has-text-centered">
-  <p>
-    {# MSG: Label which appears before a url which links to the current page. #}
-    {%- trans -%}
-      URL of {{site_title}}:
-    {%- endtrans -%}
-  </p>
-  <p class="is-size-4 has-text-warning has-text-centered">{{ url }}</p>
-  {# MSG: Label before a QR code which brings a frind (pal) to the main page if scanned, so they can also add songs. QR code follows this text. #}
-  <p>{% trans %}Handy URL QR code to share with a pal:{% endtrans %}</p>
-  <img id="qr-img" width="300px" src="{{ url_for('images.qrcode') }}" style="image-rendering: pixelated" />
+	<div class="card">
+		<div class="card-content">
+			<div class="content has-text-centered">
+				<p>
+					{# MSG: Label which appears before a url which links to the current page. #}
+					{%- trans -%}
+						URL of {{site_title}}:
+					{%- endtrans -%}
+				</p>
+				<p class="is-size-4 has-text-warning has-text-centered">{{ url }}</p>
+				{# MSG: Label before a QR code which brings a frind (pal) to the main page if scanned, so they can also add songs. QR code follows this text. #}
+				<p>{% trans %}Handy URL QR code to share with a pal:{% endtrans %}</p>
+				<img id="qr-img" width="300px" src="{{ url_for('images.qrcode') }}" style="image-rendering: pixelated" />
+			</div>
+		</div>
+	</div>
 
-  </div>
+	{% if admin %}
 
-  <hr />
+		{# MSG: Title of the system data section. #}
+		<h1>{% trans %}System Data{% endtrans %}</h1>
+
+		<div class="card">
+			<header class="card-header py-3 px-5">
+					{# MSG: Header of the information section about the computer running Pikaraoke. #}
+					<h3 class="m-0">{% trans %}System Info{% endtrans %}</h3>
+			</header>
+			<div class="card-content">
+				<div class="content">
+					<ul>
+					{# MSG: The hardware platform  #}
+					<li><u>{% trans %}Platform:{% endtrans %}</u> {{ platform }}</li>
+					{# MSG: The os version  #}
+					<li><u>{% trans %}OS Version:{% endtrans %}</u> {{ os_version }}</li>
+					{# MSG: The version of the program "Youtube-dl". #}
+					<li><u>{% trans %}Youtube-dl (yt-dlp) version:{% endtrans %}</u> {{ youtubedl_version }}</li>
+					{# MSG: The version of the program "ffmpeg". #}
+					<li><u>{% trans %}FFmpeg version:{% endtrans %}</u> {{ ffmpeg_version }} {% if not is_transpose_enabled %} (missing lib-rubberband, pitch shift is not supported) {% endif %}</li>
+					{# MSG: The version of Pikaraoke running right now. #}
+					<li><u>{% trans %}Pikaraoke version:{% endtrans %}</u> {{ pikaraoke_version }}</li>
+					</ul>
+				</div>
+			</div>
+			<header class="card-header py-3 px-5">
+					{# MSG: Header of the information section about the System stats. #}
+					<h3 class="m-0">{% trans %}System stats{% endtrans %}</h3>
+			</header>
+			<div class="card-content">
+				<div class="content">
+					<ul>
+					{# MSG: The CPU usage of the computer running Pikaraoke. #}
+					<li>{% trans %}CPU: {{ cpu }}{% endtrans %}</li>
+					{# MSG: The disk usage of the computer running Pikaraoke. Used by downloaded songs. #}
+					<li>{% trans %}Disk Usage: {{ disk }}{% endtrans %}</li>
+					{# MSG: The memory (RAM) usage of the computer running Pikaraoke. #}
+					<li>{% trans %}Memory: {{ memory }}{% endtrans %}</li>
+					</ul>
+				</div>
+			</div>
+		</div>
+
+		{# MSG: Title of the user preferences section. #}
+		<h1>{% trans %}User Preferences{% endtrans %}</h1>
+
+		<div class="card">
+			<header class="card-header py-3 px-5">
+				<div class="media-content">
+					{# MSG: Title text for the splash screen settings section of preferences #}
+					<h3 class="title mb-0">{% trans %}Splash screen settings{% endtrans %}</h3>
+
+					{# MSG: Help text explaining the the need to restart after changing splash screen preferences #}
+					<p class="subtitle has-text-warning mt-1 is-size-6">{% trans %}*You may need to refresh the splash screen for these changes to take effect.{% endtrans %}</p>
+				</div>
+			</header>
+			<div class="card-content">
+				<div class="content">
+					<div class="user-preference-container">
+						<input id="pref-bg-video" class="user-preference-checkbox checkbox" type="checkbox" data-pref="disable_bg_video" {% if disable_bg_video == True %}checked{% endif %} />
+						<label class="label" for="pref-bg-video">{# MSG: Checkbox label which enable/disables background video on the Splash Screen #} {% trans %}Disable background video{% endtrans %}
+						</label>
+					</div>
+
+					<div class="user-preference-container">
+						<input id="pref-score" type="checkbox" class="user-preference-checkbox checkbox" data-pref="disable_score" {% if disable_score == True %}checked{% endif %}>
+						<label class="label" for="pref-score">{# MSG: Checkbox label which enable/disables the Score Screen #} {% trans %}Disable the score screen after each song{% endtrans %}
+						</label>
+					</div>
+
+					<div class="user-preference-container">
+						<input id="pref-notifications" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_notifications" {% if hide_notifications == True %}checked{% endif %}>
+						<label class="label" for="pref-notifications">{# MSG: Checkbox label which enable/disables notifications on the splash screen #} {% trans %}Hide notifications{% endtrans %}
+						</label>
+					</div>
+
+					<div class="user-preference-container">
+						<input id="pref-qr-code" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_url" {% if hide_url == True %}checked{% endif %}>
+						<label class="label" for="pref-qr-code">{# MSG: Checkbox label which enable/disables the URL display #} {% trans %}Hide the URL and QR code{% endtrans %}
+						</label>
+					</div>
+
+					<div class="user-preference-container">
+						<input id="pref-overlay" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_overlay" {% if hide_overlay == True %}checked{% endif %}>
+						<label class="label" for="pref-overlay">{# MSG: Checkbox label which enable/disables showing overlay data on the splash screen #} {% trans %}Hide all overlays, including now playing, up next, and QR code{% endtrans %}
+						</label>
+					</div>
+
+					<div class="user-preference-container is-align-items-center">
+						<input id="pref-volume" class="user-preference-input input" type="number" min="0" max="100" step="5" data-pref="volume" data-start-value="{{ volume }}" value="{{ volume }}" />
+						<label class="label" for="pref-volume">{# MSG: Numberbox label for setting the default video volume#} {% trans %}Default volume of the videos (min 0, max 100){% endtrans %}
+						</label>
+					</div>
+
+					<div class="user-preference-container is-align-items-center">
+						<input id="bg-music-volume" class="user-preference-input input" type="number" min="0" max="100" step="5" data-pref="bg_music_volume" data-start-value="{{ bg_music_volume }}" value="{{ bg_music_volume }}" />
+						<label class="label" for="bg-music-volume">{# MSG: Numberbox label for setting the background music volume#} {% trans %}Volume of the background music (min 0, max 100){% endtrans %}
+						</label>
+					</div>
+
+					<div class="user-preference-container is-align-items-center">
+						<input id="pref-screensaver-timeout" class="user-preference-input input" type="number" min="0" max="999" data-pref="screensaver_timeout" data-start-value="{{ screensaver_timeout }}" value="{{ screensaver_timeout }}" />
+						<label class="label" for="pref-screensaver-timeout">
+							{# MSG: Numberbox label for setting the inactive delay before showing the screensaver  #} {% trans %}The amount of idle time in seconds before the screen saver activates. Set to 0 to disable it.{% endtrans %}
+						</label>
+					</div>
+
+					<div class="user-preference-container is-align-items-center">
+						<input id="pref-splash-delay" class="user-preference-input input" type="number" min="0" max="99" data-pref="splash_delay" data-start-value="{{ splash_delay }}" value="{{ splash_delay }}" />
+						<label class="label" for="pref-splash-delay">
+							{# MSG: Numberbox label for setting the delay before playing the next song #} {% trans %}The delay in seconds before starting the next song{% endtrans %}
+						</label>
+					</div>
+				</div>
+			</div>
+
+			<header class="card-header py-3 px-5">
+				<div class="media-content">
+				{# MSG: Title text for the Score Phrases section of preferences #}
+				<h3 class="title m-0">{% trans %}Score phrases{% endtrans %}</h3>
+
+				{# MSG: Help text explaining how to add phrases #}
+				<p class="subtitle has-text-warning mt-1 is-size-6">{% trans %}Add one phrase per line in each box and hit save.{% endtrans %}</p>
+				</div>
+			</header>
+			<div class="card-content">
+				<div class="content">
+					{# MSG: Title for LOW Score Phrases #}
+					<h5>{% trans %}LOW Score Phrases (score < 30){% endtrans %}</h5>
+					{# MSG: Placeholder for the low score phrases textarea #}
+					<textarea id="low-score-phrases" class="textarea" placeholder="{% trans %}Could be better...{% endtrans %}">{{ schore_phrases.low }}</textarea>
+					<hr>
+					{# MSG: Title for MID Score Phrases #}
+					<h5>{% trans %}MID Score Phrases (30 > score < 60){% endtrans %}</h5>
+					{# MSG: Placeholder for the MID score phrases textarea #}
+					<textarea id="mid-score-phrases" class="textarea" placeholder="{% trans %}That was ok...{% endtrans %}">{{ schore_phrases.mid }}</textarea>
+					<hr>
+					{# MSG: Title for HIGH Score Phrases #}
+					<h5>{% trans %}HIGH Score Phrases (60 < score){% endtrans %}</h5>
+					{# MSG: Placeholder for the HIGH score phrases textarea #}
+					<textarea id="high-score-phrases" class="textarea" placeholder="{% trans %}Wonderfull...{% endtrans %}">{{ schore_phrases.high }}</textarea>
+					<a id="save-phrases" class="button is-fullwidth is-primary mt-5">Save phrases</a>
+				</div>
+			</div>
+
+			<header class="card-header py-3 px-5">
+				<h3 class="m-0">{# MSG: Title text for the language settings section of preferences #}{% trans %}Language settings{% endtrans %}</h3>
+			</header>
+			<div class="card-content">
+				<div class="content">
+
+					<div class="user-preference-container is-align-items-center">
+						<div class="select">
+							<select id="pref-language" class="user-preference-input" data-pref="preferred_language" data-start-value="{{ preferred_language }}">
+								{% for lang_code, lang_name in languages.items() %}
+								<option value="{{ lang_code }}" {% if preferred_language == lang_code %}selected{% endif %}>{{ lang_name }}</option>
+								{% endfor %}
+							</select>
+						</div>
+						<label class="label" for="pref-language">{# MSG: Label for language selection dropdown #} {% trans %}Preferred language (requires restart){% endtrans %}
+						</label>
+					</div>
+				</div>
+			</div>
+
+			<header class="card-header py-3 px-5">
+				<h3 class="m-0">{# MSG: Title text for the server settings section of preferences #}{% trans %}Server settings{% endtrans %}</h3>
+			</header>
+			<div class="card-content">
+				<div class="content">
+
+					<div class="user-preference-container">
+						<input id="pref-normalize" type="checkbox" class="user-preference-checkbox checkbox" data-pref="normalize_audio" {% if normalize_audio == True %}checked{% endif %}>
+						<label class="label" for="pref-normalize">{# MSG: Checkbox label which enable/disables audio volume normalization #} {% trans %}Normalize audio volume{% endtrans %}
+						</label>
+					</div>
+
+					<div class="user-preference-container">
+					<input id="pref-high-quality" type="checkbox" class="user-preference-checkbox checkbox" data-pref="high_quality" {% if high_quality == True  %}checked{% endif %}>
+					<label class="label" for="pref-high-quality">{# MSG: Checkbox label which enable/disables high quality video downloads #} {% trans %}Download high quality videos{% endtrans %}
+					</label>
+					</div>
+
+					<div class="user-preference-container">
+					<input id="pref-complete_transcode_before_play" type="checkbox" class="user-preference-checkbox checkbox" data-pref="complete_transcode_before_play" {% if complete_transcode_before_play == True %}checked{% endif %}>
+					<label class="label" for="pref-complete_transcode_before_play">{# MSG: Checkbox label which enable/disables full transcode before playback #} {% trans %}Transcode video completely before playing (better browser compatibility, slower starts). Buffer size will be ignored.*{% endtrans %}
+					</label>
+					</div>
+
+					<div class="user-preference-container">
+					<input id="pref-cdg-scaling" type="checkbox" class="user-preference-checkbox checkbox" data-pref="cdg_pixel_scaling" {% if cdg_pixel_scaling == True %}checked{% endif %}>
+					<label class="label" for="pref-cdg-scaling">{# MSG: Checkbox label which enable/disables CDG pixel scaling #} {% trans %}Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU usage){% endtrans %}
+					</label>
+					</div>
+
+					<div class="user-preference-container is-align-items-center">
+					<input id="pref-avsync" class="user-preference-input input" type="number" step="0.1" min="-10" max="10" data-pref="avsync" data-start-value="{{ avsync }}" value="{{ avsync }}" />
+					<label class="label" for="pref-avsync">
+							{# MSG: Numberbox label for audio video synchronization #} {% trans %}Fix the audio and video synchronization in seconds (negative = advances audio | positive = delays audio){% endtrans %}
+					</label>
+					</div>
+
+					<div class="user-preference-container is-align-items-center">
+					<input id="pref-limit-user-songs-by" class="user-preference-input input" type="number" min="0" max="99" data-pref="limit_user_songs_by" data-start-value="{{ limit_user_songs_by }}" value="{{ limit_user_songs_by }}" />
+					<label class="label" for="pref-limit-user-songs-by">
+							{# MSG: Numberbox label for limitting the number of songs for each player #} {% trans %}Limit of songs an individual user can add to the queue (0 = unlimited){% endtrans %}
+					</label>
+					</div>
+
+					<div class="user-preference-container is-align-items-center">
+					<input id="pref-buffer-size" class="user-preference-input input" type="number" min="0" max="9999" data-pref="buffer_size" data-start-value="{{ buffer_size }}" value="{{ buffer_size }}" />
+					<label class="label" for="pref-buffer-size">
+							{# MSG: Numberbox label for setting the buffer size in kilobytes  #} {% trans %}Buffer size in kilobytes. Transcode this amount of the video before sending it to the splash screen. {% endtrans %}
+					</label>
+					</div>
+
+					<p class="mt-3 is-size-7 has-text-warning">{# MSG: Help text explaining when videos will be transcoded  #} {% trans %}* Videos are only transcoded when: normalization is on, audio/video synchronization not zero, a song is transposed, playing a CDG/MOV/AVI/MKV file. Most unmodified MP4 files will not need to be transcoded.{% endtrans %}</p>
+
+					<div style="margin-top: 20px">
+						{# MSG: Text for the link where the user can clear all user preferences #}
+						<a id="clear-preferences-link" class="button is-danger is-outlined" href="{{ url_for('preferences.clear_preferences') }}">{% trans %}Clear preferences{% endtrans %}</a>
+					</div>
+
+				</div>
+			</div>
+		</div>
+
+		{# MSG: Title of the updates section. #}
+		<h1>{% trans %}Updates{% endtrans %}</h1>
+
+		<div class="card">
+			<header class="card-header py-3 px-5">
+				{# MSG: Label for the Refresh the song list on the updates section #}
+				<h3 class="title mb-0">{% trans %}Refresh the song list{% endtrans %}</h3>
+			</header>
+			<div class="card-content">
+				<div class="content">
+					{# MSG: Help text explaining the Rescan song directory link. #}
+					<p class="">{% trans -%}
+						You should only need to do this if you manually copied files to the download directory while pikaraoke was running.
+					{%- endtrans %}</p>
+					<a class="button is-primary is-inverted" href="{{ url_for('admin.refresh') }}"
+						{# MSG: Text on the link which forces Pikaraoke to rescan and pick up any new songs. #}
+							>{% trans %}Rescan song directory{% endtrans %}</a
+						>
+				</div>
+			</div>
+
+			<header class="card-header py-3 px-5">
+				{# MSG: Label for the YT-DLP update on the updates section #}
+				<h3 class="title mb-0">{% trans %}YT-DLP update{% endtrans %}</h3>
+			</header>
+			<div class="card-content">
+				<div class="content">
+					{# MSG: Text explaining why you might want to update youtube-dl. #}
+					<p>{% trans %}
+						If downloads or searches stopped working, updating youtube-dl will probably fix it.<br/>
+						The current installed version is: "{{ youtubedl_version }}".
+					{% endtrans %}</p>
+					<a id="update-ytdl-link" class="button is-primary is-inverted" href="{{ url_for('admin.update_ytdl') }}"
+						{# MSG: Text for the link which will try and update youtube-dl on the machine running Pikaraoke. #}
+							>{% trans %}Update youtube-dl{% endtrans %}</a
+						>
+					<p class="mt-3 is-size-7 has-text-warning">
+						{# MSG: Help text which explains why updating youtube-dl can fail. The log is a file on the machine running Pikaraoke. #}
+						{% trans -%}
+							* This update link above may fail if you don't have proper file permissions.
+							Check the pikaraoke log for errors.
+						{%- endtrans %}
+					</p>
+				</div>
+			</div>
+		</div>
 
 
-{% if admin %}
 
-{# MSG: Header of the information section about the computer running Pikaraoke. #}
-<h1>{% trans %}System Info{% endtrans %}</h1>
-<ul>
-  {# MSG: The hardware platform  #}
-  <li><u>{% trans %}Platform:{% endtrans %}</u> {{ platform }}</li>
-  {# MSG: The os version  #}
-  <li><u>{% trans %}OS Version:{% endtrans %}</u> {{ os_version }}</li>
-  {# MSG: The version of the program "Youtube-dl". #}
-  <li><u>{% trans %}Youtube-dl (yt-dlp) version:{% endtrans %}</u> {{ youtubedl_version }}</li>
-  {# MSG: The version of the program "ffmpeg". #}
-  <li><u>{% trans %}FFmpeg version:{% endtrans %}</u> {{ ffmpeg_version }} {% if not is_transpose_enabled %} (missing lib-rubberband, pitch shift is not supported) {% endif %}</li>
-  {# MSG: The version of Pikaraoke running right now. #}
-  <li><u>{% trans %}Pikaraoke version:{% endtrans %}</u> {{ pikaraoke_version }}</li>
-</ul>
-<h1>{% trans %}System stats{% endtrans %}</h1>
-<ul>
-  {# MSG: The CPU usage of the computer running Pikaraoke. #}
-  <li>{% trans %}CPU: {{ cpu }}{% endtrans %}</li>
-  {# MSG: The disk usage of the computer running Pikaraoke. Used by downloaded songs. #}
-  <li>{% trans %}Disk Usage: {{ disk }}{% endtrans %}</li>
-  {# MSG: The memory (RAM) usage of the computer running Pikaraoke. #}
-  <li>{% trans %}Memory: {{ memory }}{% endtrans %}</li>
-</ul>
+		{# MSG: Title of the section on shutting down / turning off the machine running Pikaraoke. #}
+		<h1>{% trans %}Shutdown{% endtrans %}</h1>
 
-<hr />
+		<div class="card">
+			<div class="card-content">
+				<div class="content">
+					<p>
+						{# MSG: Explainitory text which explains why to use the shutdown link. #}
+						{% trans -%}
+							Don't just pull the plug! Always shut down your server properly to avoid data corruption.
+						{%- endtrans %}
+					</p>
 
-{# MSG: Title of the user preferences section. #}
-<h1>{% trans %}User Preferences{% endtrans %}</h1>
+					<div class="buttons">
+						{# MSG: Text for button which turns off Pikaraoke for everyone using it at your house. #}
+						<a id="quit-link" class="button is-primary" href="{{ url_for('admin.quit') }}">{% trans %}Quit Pikaraoke{% endtrans %}</a>
+						{% if is_pi or is_linux %}
+							{# MSG: Text for button which reboots the machine running Pikaraoke. #}
+							<a id="restart-link" class="button is-primary" href="{{ url_for('admin.reboot') }}">{% trans %}Reboot System{% endtrans %}</a>
 
-<h4>{# MSG: Title text for the splash screen settings section of preferences #}{% trans %}Splash screen settings{% endtrans %}</h4>
+							{# MSG: Text for button which turn soff the machine running Pikaraoke. #}
+							<a id="shutdown-link" class="button is-primary" href="{{ url_for('admin.shutdown') }}">{% trans %}Shutdown System{% endtrans %}</a>
+						{% endif %}
+					</div>
 
-{# MSG: Help text explaining the the need to restart after changing splash screen preferences #}
-<p class="has-text-warning" style="margin-top: 10px">{% trans %}*You may need to refresh the splash screen for these changes to take effect.{% endtrans %}</p>
+				</div>
+			</div>
+		</div>
 
-<div class="user-preference-container">
-  <input id="pref-bg-music" class="user-preference-checkbox" type="checkbox" data-pref="disable_bg_music" {% if disable_bg_music == "True" %}checked{% endif %}>
-  <label class="label">{# MSG: Checkbox label which enable/disables background music on the Splash Screen #} {% trans %}Disable background music{% endtrans %}
-  </label>
-</div>
+		{% if is_pi %}
 
-<div class="user-preference-container">
-  <input id="pref-bg-video" class="user-preference-checkbox" type="checkbox" data-pref="disable_bg_video" {% if disable_bg_video == "True" %}checked{% endif %}>
-  <label class="label">{# MSG: Checkbox label which enable/disables background video on the Splash Screen #} {% trans %}Disable background video{% endtrans %}
-  </label>
-</div>
+			{# MSG: Title of the updates section. #}
+			<h1>{% trans %}Other{% endtrans %}</h1>
 
-<div class="user-preference-container">
-  <input id="pref-score" type="checkbox" class="user-preference-checkbox" data-pref="disable_score" {% if disable_score == "True" %}checked{% endif %}>
-  <label class="label">{# MSG: Checkbox label which enable/disables the Score Screen #} {% trans %}Disable the score screen after each song{% endtrans %}
-  </label>
-</div>
+			<div class="card">
+				<header class="card-header py-3 px-5">
+					{# MSG: Title for section containing a few other options on the Info page. #}
+					<h3 class="title mb-0">{% trans %}Expand Raspberry Pi filesystem{% endtrans %}</h3>
+				</header>
+				<div class="card-content">
+					<div class="content">
+						{# MSG: Explainitory text which explains why you might want to expand the filesystem. #}
+						<p>{% trans -%}
+							If you just installed the pre-built pikaraoke pi image and your SD card is larger than 4GB,
+							you may want to expand the filesystem to utilize the remaining space. You only need to do this once.
+							This will reboot the system.
+						{%- endtrans %}</p>
+						<a id="expand-link"  class="button is-primary is-inverted" href="{{ url_for('admin.expand_fs') }}">
+							{# MSG: Text for button#}
+							{% trans %}Expand Raspberry Pi filesystem{% endtrans %}</a>
+					</div>
+				</div>
+			</div>
 
-<div class="user-preference-container">
-  <input id="pref-notifications" type="checkbox" class="user-preference-checkbox" data-pref="hide_notifications" {% if hide_notifications == "True" %}checked{% endif %}>
-  <label class="label">{# MSG: Checkbox label which enable/disables notifications on the splash screen #} {% trans %}Hide notifications{% endtrans %}
-  </label>
-</div>
+		{% endif %}
 
-<div class="user-preference-container">
-  <input id="pref-qr-code" type="checkbox" class="user-preference-checkbox" data-pref="hide_url" {% if hide_url == "True" %}checked{% endif %}>
-  <label class="label">{# MSG: Checkbox label which enable/disables the URL display #} {% trans %}Hide the URL and QR code{% endtrans %}
-  </label>
-</div>
+		{% if admin_password != none %}
+			{# MSG: Title of the admin section. #}
+			<h1>{% trans %}Admin{% endtrans %}</h1>
 
-<div class="user-preference-container">
-  <input id="pref-overlay" type="checkbox" class="user-preference-checkbox" data-pref="hide_overlay" {% if hide_overlay == "True" %}checked{% endif %}>
-  <label class="label">{# MSG: Checkbox label which enable/disables showing overlay data on the splash screen #} {% trans %}Hide all overlays, including now playing, up next, and QR code{% endtrans %}
-  </label>
-</div>
 
-<div class="user-preference-container">
-  <input id="pref-volume" class="user-preference-input" type="number" min="0" max="100" step="5" data-pref="volume" data-start-value="{{ volume }}" value="{{ volume }}" />
-  <label class="label">{# MSG: Numberbox label for setting the default video volume#} {% trans %}Default volume of the videos (min 0, max 100){% endtrans %}
-  </label>
-</div>
+			<div class="card">
+				<header class="card-header py-3 px-5">
+					<div class="media-content">
+						{# MSG: Title for section logout on the Info page. #}
+						<h3 class="title mb-0">{% trans %}Logout{% endtrans %}</h3>
+					</div>
+				</header>
+				<div class="card-content">
+					<div class="content">
+						{# MSG: Message for the log out user from admin mode button. #}
+						<p>{% trans %}Click here to logout from admin mode.{% endtrans %}</p>
+						{# MSG: Link which will log out the user from admin mode. #}
+						<a class="button is-primary"  href="{{ url_for('admin.logout') }}">{% trans %}Log out{% endtrans %}</a>
+					</div>
+				</div>
+			</div>
 
-<div class="user-preference-container">
-  <input id="bg-music-volume" class="user-preference-input" type="number" min="0" max="100" step="5" data-pref="bg_music_volume" data-start-value="{{ bg_music_volume }}" value="{{ bg_music_volume }}" />
-  <label class="label">{# MSG: Numberbox label for setting the background music volume#} {% trans %}Volume of the background music (min 0, max 100){% endtrans %}
-  </label>
-</div>
 
-<div class="user-preference-container">
-  <input id="pref-screensaver-timeout" class="user-preference-input" type="number" min="0" max="999" data-pref="screensaver_timeout" data-start-value="{{ screensaver_timeout }}" value="{{ screensaver_timeout }}" />
-  <label class="label">
-    {# MSG: Numberbox label for setting the inactive delay before showing the screensaver  #} {% trans %}The amount of idle time in seconds before the screen saver activates. Set to 0 to disable it.{% endtrans %}
-  </label>
-</div>
+		{% endif %}
 
-<div class="user-preference-container">
-  <input id="pref-splash-delay" class="user-preference-input" type="number" min="0" max="99" data-pref="splash_delay" data-start-value="{{ splash_delay }}" value="{{ splash_delay }}" />
-  <label class="label">
-      {# MSG: Numberbox label for setting the delay before playing the next song #} {% trans %}The delay in seconds before starting the next song{% endtrans %}
-  </label>
-</div>
+	{% else %} {# from if admin #}
+		{# MSG: Title of the admin section. #}
+		<h1>{% trans %}Admin{% endtrans %}</h1>
 
-<h4 style="margin-top: 20px">{# MSG: Title text for the language settings section of preferences #}{% trans %}Language settings{% endtrans %}</h4>
+		<div class="card">
+			<header class="card-header py-3 px-5">
+				<div class="media-content">
+					{# MSG: Title for section login on the Info page. #}
+					<h3 class="title mb-0">{% trans %}Login{% endtrans %}</h3>
+				</div>
+			</header>
+			<div class="card-content">
+				<div class="content">
+					{# MSG: Message for the log in user to admin mode button. #}
+					<p>{% trans %}Click here to login as admin.{% endtrans %}</p>
+					{# MSG: Link which will let the user log into admin mode. #}
+					<a class="button is-primary" href="{{ url_for('admin.login') }}">{% trans %}Log in{% endtrans %}</a>
+				</div>
+			</div>
+		</div>
+	{% endif %}
 
-<div class="user-preference-container">
-  <select id="pref-language" class="user-preference-input" data-pref="preferred_language" data-start-value="{{ preferred_language }}">
-    {% for lang_code, lang_name in languages.items() %}
-    <option value="{{ lang_code }}" {% if preferred_language == lang_code %}selected{% endif %}>{{ lang_name }}</option>
-    {% endfor %}
-  </select>
-  <label class="label">{# MSG: Label for language selection dropdown #} {% trans %}Preferred language (requires restart){% endtrans %}
-  </label>
-</div>
-
-<h4 style="margin-top: 20px">{# MSG: Title text for the server settings section of preferences #}{% trans %}Server settings{% endtrans %}</h4>
-
-<div class="user-preference-container">
-  <input id="pref-normalize" type="checkbox" class="user-preference-checkbox" data-pref="normalize_audio" {% if normalize_audio == "True" %}checked{% endif %}>
-  <label class="label">{# MSG: Checkbox label which enable/disables audio volume normalization #} {% trans %}Normalize audio volume{% endtrans %}
-  </label>
-</div>
-
-<div class="user-preference-container">
-  <input id="pref-high-quality" type="checkbox" class="user-preference-checkbox" data-pref="high_quality" {% if high_quality == "True"  %}checked{% endif %}>
-  <label class="label">{# MSG: Checkbox label which enable/disables high quality video downloads #} {% trans %}Download high quality videos{% endtrans %}
-  </label>
-</div>
-
-<div class="user-preference-container">
-  <input id="pref-complete_transcode_before_play" type="checkbox" class="user-preference-checkbox" data-pref="complete_transcode_before_play" {% if complete_transcode_before_play == "True" %}checked{% endif %}>
-  <label class="label">{# MSG: Checkbox label which enable/disables full transcode before playback #} {% trans %}Transcode video completely before playing (better browser compatibility, slower starts). Buffer size will be ignored.*{% endtrans %}
-  </label>
-</div>
-
-<div class="user-preference-container">
-  <input id="pref-cdg-scaling" type="checkbox" class="user-preference-checkbox" data-pref="cdg_pixel_scaling" {% if cdg_pixel_scaling == "True" %}checked{% endif %}>
-  <label class="label">{# MSG: Checkbox label which enable/disables CDG pixel scaling #} {% trans %}Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU usage){% endtrans %}
-  </label>
-</div>
-
-<div class="user-preference-container">
-  <input id="pref-avsync" class="user-preference-input" type="number" step="0.1" min="-10" max="10" data-pref="avsync" data-start-value="{{ avsync }}" value="{{ avsync }}" />
-  <label class="label">
-      {# MSG: Numberbox label for audio video synchronization #} {% trans %}Fix the audio and video synchronization in seconds (negative = advances audio | positive = delays audio){% endtrans %}
-  </label>
-</div>
-
-<div class="user-preference-container">
-  <input id="pref-limit-user-songs-by" class="user-preference-input" type="number" min="0" max="99" data-pref="limit_user_songs_by" data-start-value="{{ limit_user_songs_by }}" value="{{ limit_user_songs_by }}" />
-  <label class="label">
-      {# MSG: Numberbox label for limitting the number of songs for each player #} {% trans %}Limit of songs an individual user can add to the queue (0 = unlimited){% endtrans %}
-  </label>
-</div>
-
-<div class="user-preference-container">
-  <input id="pref-buffer-size" class="user-preference-input" type="number" min="0" max="9999" data-pref="buffer_size" data-start-value="{{ buffer_size }}" value="{{ buffer_size }}" />
-  <label class="label">
-      {# MSG: Numberbox label for setting the buffer size in kilobytes  #} {% trans %}Buffer size in kilobytes. Transcode this amount of the video before sending it to the splash screen. {% endtrans %}
-  </label>
-</div>
-
-<p class="help">{# MSG: Help text explaining when videos will be transcoded  #} {% trans %}* Videos are only transcoded when: normalization is on, audio/video synchronization not zero, a song is transposed, playing a CDG/MOV/AVI/MKV file. Most unmodified MP4 files will not need to be transcoded.{% endtrans %}</p>
-
-<div style="margin-top: 20px">
-  {# MSG: Text for the link where the user can clear all user preferences #}
-  <a id="clear-preferences-link" class="has-text-danger" href="{{ url_for('preferences.clear_preferences') }}">{% trans %}Clear preferences{% endtrans %}</a>
-</div>
-
-<hr/>
-
-{# MSG: Title of the updates section. #}
-<h1>{% trans %}Updates{% endtrans %}</h1>
-{# MSG: Label before a link which forces Pikaraoke to rescan and pick up any new songs. #}
-<p>{% trans %}Refresh the song list:{% endtrans %}</p>
-<ul>
-  <li>
-    <a href="{{ url_for('admin.refresh') }}"
-    {# MSG: Text on the link which forces Pikaraoke to rescan and pick up any new songs. #}
-      >{% trans %}Rescan song directory{% endtrans %}</a
-    >
-  </li>
-</ul>
-{# MSG: Help text explaining the Rescan song directory link. #}
-<p class="help">{% trans -%}
-  You should only need to do this if you manually copied files to the download directory while pikaraoke was running.
-  {%- endtrans %}</p>
-
-{# MSG: Text explaining why you might want to update youtube-dl. #}
-<p>{% trans %}If downloads or searches stopped working, updating youtube-dl will probably fix it.
-   The current installed version is: "{{ youtubedl_version }}"{% endtrans %}</p>
-<ul>
-  <li>
-    <a id="update-ytdl-link" href="{{ url_for('admin.update_ytdl') }}"
-    {# MSG: Text for the link which will try and update youtube-dl on the machine running Pikaraoke. #}
-      >{% trans %}Update youtube-dl{% endtrans %}</a
-    >
-  </li>
-</ul>
-<p class="help">
-  {# MSG: Help text which explains why updating youtube-dl can fail. The log is a file on the machine running Pikaraoke. #}
-  {% trans -%}
-    This update link above may fail if you don't have proper file permissions.
-    Check the pikaraoke log for errors.
-  {%- endtrans %}
-</p>
-
-{# MSG: Title of the section on shutting down / turning off the machine running Pikaraoke. #}
-<h1>{% trans %}Shutdown{% endtrans %}</h1>
-<p>
-  {# MSG: Explainitory text which explains why to use the shutdown link. #}
-  {% trans -%}
-    Don't just pull the plug! Always shut down your server properly to avoid data corruption.
-  {%- endtrans %}
-</p>
-<ul>
-  {# MSG: Text for button which turns off Pikaraoke for everyone using it at your house. #}
-  <li><a id="quit-link" href="{{ url_for('admin.quit') }}">{% trans %}Quit Pikaraoke{% endtrans %}</a></li>
-  {% if is_pi or is_linux %}
-    {# MSG: Text for button which reboots the machine running Pikaraoke. #}
-    <li><a id="restart-link" href="{{ url_for('admin.reboot') }}">{% trans %}Reboot System{% endtrans %}</a></li>
-    <li>
-      {# MSG: Text for button which turn soff the machine running Pikaraoke. #}
-      <a id="shutdown-link" href="{{ url_for('admin.shutdown') }}">{% trans %}Shutdown System{% endtrans %}</a>
-    </li>
-  {% endif %}
-</ul>
-
-{% if is_pi %}
-  {# MSG: Title for section containing a few other options on the Info page. #}
-  <h1>{% trans %}Other{% endtrans %}</h1>
-  <a id="expand-link" href="{{ url_for('admin.expand_fs') }}">
-    {# MSG: Text for button#}
-    {% trans %}Expand Raspberry Pi filesystem{% endtrans %}
-  </a></li>
-  {# MSG: Explainitory text which explains why you might want to expand the filesystem. #}
-  <p class="help">{% trans -%}
-    If you just installed the pre-built pikaraoke pi image and your SD card is larger than 4GB,
-    you may want to expand the filesystem to utilize the remaining space. You only need to do this once.
-    This will reboot the system.
-  {%- endtrans %}</p>
-{% endif %}
-
-<hr/>
-{% if admin_enabled %}
-  {# MSG: Link which will log out the user from admin mode. #}
-  <p>{% trans logout_url=url_for('admin.logout') -%}
-    Disable admin mode: <a href="{{ logout_url }}">Log out</a>
-  {%- endtrans %}</p>
-{% endif %}
-{% else %} {# from if admin #}
-  {# MSG: Link which will let the user log into admin mode. #}
-  <p>{% trans login_url=url_for('admin.login') %}
-    Enable admin mode: <a href="{{ login_url }}">Log in</a>
-  {% endtrans %}</p>
-{% endif %}
-
-<style>
-  .user-preference-container {
-    display: flex;
-    margin-bottom: 8px;
-  }
-  .user-preference-input {
-    min-width: 60px;
-    margin-right: 8px;
-  }
-  .user-preference-checkbox {
-    margin-right: 8px;
-    min-width: 20px;
-  }
-</style>
+	<style>
+	.user-preference-container {
+		display: flex;
+		margin-bottom: 8px;
+	}
+	.user-preference-input {
+		min-width: 80px;
+		margin-right: 8px;
+	}
+	.input {
+		width: 80px;
+	}
+	.user-preference-checkbox {
+		accent-color: hsl(141, 71%, 48%);
+		margin-right: 8px;
+		min-width: 20px;
+	}
+	textarea::placeholder {
+		color: #bbb !important;
+	}
+	</style>
 
 {% endblock %}
