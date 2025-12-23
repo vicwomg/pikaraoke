@@ -52,6 +52,10 @@ jobs:
     runs-on: ubuntu-latest
     name: Commitlint
     steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
     - name: Run commitlint
       uses: opensource-nepal/commitlint@v1
 
