@@ -7,6 +7,7 @@ from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.current_app import (
     get_admin_password,
     get_karaoke_instance,
+    get_notification_instance,
     get_site_name,
     is_admin,
 )
@@ -21,6 +22,7 @@ info_bp = Blueprint("info", __name__)
 @info_bp.route("/info")
 def info():
     k = get_karaoke_instance()
+    n = get_notification_instance()
     site_name = get_site_name()
     url = k.url
     admin_password = get_admin_password()
@@ -75,7 +77,7 @@ def info():
         disable_bg_music=k.disable_bg_music,
         disable_bg_video=k.disable_bg_video,
         disable_score=k.disable_score,
-        hide_notifications=k.hide_notifications,
+        hide_notifications=n.hide_notifications,
         hide_url=k.hide_url,
         hide_overlay=k.hide_overlay,
         screensaver_timeout=k.screensaver_timeout,
