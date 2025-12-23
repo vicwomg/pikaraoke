@@ -55,28 +55,37 @@
   var hasBgVideo = "{{ has_bg_video }}" == 'True'
 
   const scoreReviews = {
-	low:[
-		"{{ _('Never sing again... ever.') }}", // {# MSG: Score review message #}
-		"{{ _('That was a really good impression of a dying cat!') }}", // {# MSG: Score review message #}
-		"{{ _('Thank God it\'s over.') }}", // {# MSG: Score review message #}
-		"{{ _('Pass the mic, please!') }}", // {# MSG: Score review message #}
-    "{{ _('Well, I\'m sure you\'re very good at your day job.') }}", // {# MSG: Score review message #}
-  ],
-	mid:[
-		"{{ _('I\'ve seen better.') }}", // {# MSG: Score review message #}
-		"{{ _('Ok... just ok.') }}", // {# MSG: Score review message #}
-		"{{ _('Not bad for an amateur.') }}", // {# MSG: Score review message #}
-		"{{ _('You put on a decent show.') }}", // {# MSG: Score review message #}
-    "{{ _('That was... something.') }}", // {# MSG: Score review message #}
-	],
-	high:[
-		"{{ _('Congratulations! That was unbelievable!') }}", // {# MSG: Score review message #}
-		"{{ _('Wow, have you tried auditioning for The Voice?') }}", // {# MSG: Score review message #}
-		"{{ _('Please, sing another one!') }}", // {# MSG: Score review message #}
-		"{{ _('You rock! You know that?!') }}", // {# MSG: Score review message #}
-		"{{ _('Woah, who let Freddie Mercury in here?') }}", // {# MSG: Score review message #}
-	]
-  }
+    low:[
+        "{{ _('Never sing again... ever.') }}", // {# MSG: Score review message #}
+        "{{ _('That was a really good impression of a dying cat!') }}", // {# MSG: Score review message #}
+        "{{ _('Thank God it\'s over.') }}", // {# MSG: Score review message #}
+        "{{ _('Pass the mic, please!') }}", // {# MSG: Score review message #}
+        "{{ _('Well, I\'m sure you\'re very good at your day job.') }}"{{ "," if schore_phrases.low else "" }} // {# MSG: Score review message #}
+        {% for phrase in schore_phrases.low %}
+        ,"{{ _(phrase) }}"
+        {% endfor %}
+    ],
+    mid:[
+        "{{ _('I\'ve seen better.') }}", // {# MSG: Score review message #}
+        "{{ _('Ok... just ok.') }}", // {# MSG: Score review message #}
+        "{{ _('Not bad for an amateur.') }}", // {# MSG: Score review message #}
+        "{{ _('You put on a decent show.') }}", // {# MSG: Score review message #}
+        "{{ _('That was... something.') }}"{{ "," if schore_phrases.mid else "" }} // {# MSG: Score review message #}
+        {% for phrase in schore_phrases.mid %}
+        ,"{{ _(phrase) }}"
+        {% endfor %}
+    ],
+    high:[
+        "{{ _('Congratulations! That was unbelievable!') }}", // {# MSG: Score review message #}
+        "{{ _('Wow, have you tried auditioning for The Voice?') }}", // {# MSG: Score review message #}
+        "{{ _('Please, sing another one!') }}", // {# MSG: Score review message #}
+        "{{ _('You rock! You know that?!') }}", // {# MSG: Score review message #}
+        "{{ _('Woah, who let Freddie Mercury in here?') }}"{{ "," if schore_phrases.high else "" }} // {# MSG: Score review message #}
+        {% for phrase in schore_phrases.high %}
+        ,"{{ _(phrase) }}"
+        {% endfor %}
+    ]
+}
 
   async function handleConfirmation() {
     $('#permissions-modal').removeClass('is-active');
@@ -535,8 +544,8 @@
   });
 </script>
 {% endblock %} {% block body %}
-
 <div id="top-container" class="overlay">
+<i class="icon icon-mic-1 is-invisible" style="position: absolute" title="Current singer"></i>
   <div
     id="now-playing"
     class="has-text-warning stroke is-size-4 has-text-right"
@@ -548,10 +557,13 @@
       style="margin-bottom: 5px"
     ></p>
     <div class="has-text-success">
-      <span class="timestamp is-size-6">
-        <span id="current">00:00</span><span id="duration">/00:00</span></span></span
-      >&nbsp;&nbsp;<i class="icon icon-mic-1" title="Current singer"></i>&nbsp;
+		</span><i class="icon icon-mic-1" title="Current singer"></i>
       <span id="now-playing-singer"></span>
+		<br />
+		<span class="timestamp is-size-6">
+        <span id="current">00:00</span>
+		  <span id="duration">/00:00</span>
+		</span>
     </div>
   </div>
 </div>
