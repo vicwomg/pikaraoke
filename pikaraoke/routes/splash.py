@@ -1,3 +1,5 @@
+"""Splash screen / player display route."""
+
 import shutil
 import subprocess
 

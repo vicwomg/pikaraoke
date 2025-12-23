@@ -1,3 +1,5 @@
+"""Playback control routes for skip, pause, volume, and transpose."""
+
 import flask_babel
 from flask import Blueprint, redirect, request, url_for
 

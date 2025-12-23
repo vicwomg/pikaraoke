@@ -1,3 +1,5 @@
+"""System information and settings page route."""
+
 import flask_babel
 import psutil
 from flask import Blueprint, render_template

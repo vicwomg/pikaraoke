@@ -1,3 +1,5 @@
+"""Now playing status endpoint."""
+
 import json
 import logging
 

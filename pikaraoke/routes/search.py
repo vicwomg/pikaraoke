@@ -1,3 +1,5 @@
+"""YouTube search and download routes."""
+
 import json
 import threading
 
@@ -50,7 +52,11 @@ def autocomplete():
     for each in k.available_songs:
         if q in each.lower():
             result.append(
-                {"path": each, "fileName": k.filename_from_path(each), "type": "autocomplete"}
+                {
+                    "path": each,
+                    "fileName": k.filename_from_path(each),
+                    "type": "autocomplete",
+                }
             )
     response = current_app.response_class(response=json.dumps(result), mimetype="application/json")
     return response

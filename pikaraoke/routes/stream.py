@@ -1,3 +1,5 @@
+"""Video streaming routes for transcoded media playback."""
+
 import os
 import re
 import time
