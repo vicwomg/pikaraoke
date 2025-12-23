@@ -2090,4 +2090,4 @@ dev = ["pre-commit", "pytest"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10"
-content-hash = "03056546a71d75518ceeb2b34409254f8e6e57c7baa780463b6a1bdf3473d78c"
+content-hash = "8c72c6746d39e7316fa354bb69697e69e10796810809e3ffd23bda9e55fbb7e9"
