@@ -41,7 +41,7 @@ def info():
 
     # cpu
     try:
-        cpu = str(psutil.cpu_percent()) + "%"
+        cpu = str(psutil.cpu_percent(interval=1)) + "%"
     except:
         cpu = _("CPU usage query unsupported")
 
@@ -50,12 +50,7 @@ def info():
     available = round(memory.available / 1024.0 / 1024.0, 1)
     total = round(memory.total / 1024.0 / 1024.0, 1)
     memory = (
-        str(available)
-        + "MB free / "
-        + str(total)
-        + "MB total ( "
-        + str(memory.percent)
-        + "% )"
+        str(available) + "MB free / " + str(total) + "MB total ( " + str(memory.percent) + "% )"
     )
 
     # disk
@@ -63,14 +58,7 @@ def info():
     # Divide from Bytes -> KB -> MB -> GB
     free = round(disk.free / 1024.0 / 1024.0 / 1024.0, 1)
     total = round(disk.total / 1024.0 / 1024.0 / 1024.0, 1)
-    disk = (
-        str(free)
-        + "GB free / "
-        + str(total)
-        + "GB total ( "
-        + str(disk.percent)
-        + "% )"
-    )
+    disk = str(free) + "GB free / " + str(total) + "GB total ( " + str(disk.percent) + "% )"
 
     # youtube-dl
     youtubedl_version = k.youtubedl_version
@@ -111,4 +99,9 @@ def info():
         buffer_size=k.buffer_size,
         languages=LANGUAGES,
         preferred_language=preferred_language,  # 傳遞當前偏好語言
+        schore_phrases={
+            "low": k.low_score_phrases,
+            "mid": k.mid_score_phrases,
+            "high": k.high_score_phrases,
+        },
     )

@@ -23,7 +23,7 @@ dependencies = [
   "Flask-Babel==2.0.0",
   "selenium==4.21.0",
   "ffmpeg-python==0.2.0",
-  "yt-dlp[default]>=2025.11.12",
+  "yt-dlp[default]>=2025.12.8",
   "flask-socketio>=5.5.0",
   "gevent>=24.11.1",
   "flasgger>=0.9.7.1",

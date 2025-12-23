@@ -9,8 +9,8 @@ import os
 import sys
 
 import flask_babel
-from flask import Flask, request, session
 from flasgger import Swagger
+from flask import Flask, request, session
 from flask_babel import Babel
 from flask_socketio import SocketIO
 
@@ -24,6 +24,7 @@ from pikaraoke.lib.get_platform import get_platform, has_js_runtime
 from pikaraoke.lib.selenium import launch_splash_screen
 from pikaraoke.routes.admin import admin_bp
 from pikaraoke.routes.background_music import background_music_bp
+from pikaraoke.routes.batch_song_renamer import batch_song_renamer_bp
 from pikaraoke.routes.controller import controller_bp
 from pikaraoke.routes.files import files_bp
 from pikaraoke.routes.home import home_bp
@@ -81,6 +82,7 @@ app.register_blueprint(info_bp)
 app.register_blueprint(splash_bp)
 app.register_blueprint(controller_bp)
 app.register_blueprint(nowplaying_bp)
+app.register_blueprint(batch_song_renamer_bp)
 
 babel.init_app(app)
 socketio.init_app(app)
@@ -242,9 +244,7 @@ def main() -> None:
 
     k.upgrade_youtubedl()
 
-    server = WSGIServer(
-        ("0.0.0.0", int(args.port)), app, log=None, error_log=logging.getLogger()
-    )
+    server = WSGIServer(("0.0.0.0", int(args.port)), app, log=None, error_log=logging.getLogger())
     server.start()
 
     # Handle sigterm, apparently cherrypy won't shut down without explicit handling

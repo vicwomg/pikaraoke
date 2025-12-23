@@ -77,9 +77,7 @@ def get_platform() -> str:
             with open("/proc/device-tree/model", "r") as file:
                 model = file.read().strip()
                 if "Raspberry Pi" in model:
-                    return (
-                        model  # Returns something like "Raspberry Pi 4 Model B Rev 1.2"
-                    )
+                    return model  # Returns something like "Raspberry Pi 4 Model B Rev 1.2"
         except FileNotFoundError:
             return "Rasperry Pi - unrecognized"
     elif sys.platform.startswith("linux"):

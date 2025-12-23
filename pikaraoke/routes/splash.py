@@ -33,9 +33,9 @@ def splash():
         if has_iwconfig or has_iw:
             # iwconfig is deprecated on Ubuntu, but still available on Raspbian
             command = "iwconfig" if has_iwconfig else "iw"
-            status = subprocess.run(
-                [command, "wlan0"], stdout=subprocess.PIPE
-            ).stdout.decode("utf-8")
+            status = subprocess.run([command, "wlan0"], stdout=subprocess.PIPE).stdout.decode(
+                "utf-8"
+            )
             if "Mode:Master" in status:
                 # handle raspiwifi connection mode
                 text = get_raspi_wifi_text()
@@ -53,4 +53,11 @@ def splash():
         disable_score=k.disable_score,
         bg_music_volume=k.bg_music_volume,
         has_bg_video=k.bg_video_path is not None,
+        schore_phrases={
+            "low": [phrase.strip() for phrase in k.low_score_phrases.split("\n") if phrase.strip()],
+            "mid": [phrase.strip() for phrase in k.mid_score_phrases.split("\n") if phrase.strip()],
+            "high": [
+                phrase.strip() for phrase in k.high_score_phrases.split("\n") if phrase.strip()
+            ],
+        },
     )

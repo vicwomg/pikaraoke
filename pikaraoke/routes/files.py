@@ -64,7 +64,7 @@ def browse():
         available_songs = result
 
     if "sort" in request.args and request.args["sort"] == "date":
-        songs = sorted(available_songs, key=lambda x: os.path.getctime(x))
+        songs = sorted(available_songs, key=lambda x: os.path.getmtime(x))
         songs.reverse()
         sort_order = "Date"
     else:
@@ -80,7 +80,7 @@ def browse():
         record_name="songs",
         per_page=results_per_page,
     )
-    start_index = (page - 1) * (results_per_page - 1)
+    start_index = (page - 1) * results_per_page
     return render_template(
         "files.html",
         pagination=pagination,
@@ -137,9 +137,7 @@ def edit_file():
     k = get_karaoke_instance()
     site_name = get_site_name()
     # MSG: Message shown after trying to edit a song that is in the queue.
-    queue_error_msg = _(
-        "Error: Can't edit this song because it is in the current queue: "
-    )
+    queue_error_msg = _("Error: Can't edit this song because it is in the current queue: ")
     if "song" in request.args:
         song_path = request.args["song"]
         # print "SONG_PATH" + song_path
@@ -164,9 +162,7 @@ def edit_file():
             else:
                 # check if new_name already exist
                 file_extension = os.path.splitext(old_name)[1]
-                if os.path.isfile(
-                    os.path.join(k.download_path, new_name + file_extension)
-                ):
+                if os.path.isfile(os.path.join(k.download_path, new_name + file_extension)):
                     flash(
                         # MSG: Message shown after trying to rename a file to a name that already exists.
                         _("Error renaming file: '%s' to '%s', Filename already exists")
