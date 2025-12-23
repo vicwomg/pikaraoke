@@ -1,3 +1,9 @@
+"""Selenium utilities for launching the splash screen browser."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from selenium import webdriver
 from selenium.common.exceptions import SessionNotCreatedException
 from selenium.webdriver.chrome.options import Options
@@ -6,8 +12,25 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+if TYPE_CHECKING:
+    from pikaraoke.karaoke import Karaoke
 
-def launch_splash_screen(karaoke, window_size=None):
+
+def launch_splash_screen(
+    karaoke: Karaoke, window_size: str | None = None
+) -> webdriver.Chrome | bool:
+    """Launch the Chrome browser with the splash screen in kiosk mode.
+
+    Opens Chrome to display the karaoke splash screen with QR code
+    and player interface.
+
+    Args:
+        karaoke: Karaoke instance with URL and platform configuration.
+        window_size: Optional window geometry as "width,height" string.
+
+    Returns:
+        Chrome WebDriver instance on success, or False on failure.
+    """
     if karaoke.is_raspberry_pi:
         service = Service(executable_path="/usr/bin/chromedriver")
     else:
