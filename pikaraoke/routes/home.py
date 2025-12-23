@@ -13,6 +13,14 @@ home_bp = Blueprint("home", __name__)
 
 @home_bp.route("/")
 def home():
+    """Home page with now playing info and controls.
+    ---
+    tags:
+      - Pages
+    responses:
+      200:
+        description: HTML home page
+    """
     k = get_karaoke_instance()
     site_name = get_site_name()
     return render_template(
