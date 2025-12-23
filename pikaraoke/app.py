@@ -40,9 +40,6 @@ except ImportError:
 
 _ = flask_babel.gettext
 
-import threading
-import time
-
 from gevent.pywsgi import WSGIServer
 
 args = parse_pikaraoke_args()
@@ -115,30 +112,6 @@ def clear_notification():
     k.reset_now_playing_notification()
 
 
-def poll_karaoke_state(k: karaoke.Karaoke):
-    curr_now_playing_hash = None
-    curr_queue_hash = None
-    curr_notification = None
-    poll_interval = 0.5
-    while True:
-        time.sleep(poll_interval)
-        np_hash = k.now_playing_hash
-        if np_hash != curr_now_playing_hash:
-            curr_now_playing_hash = np_hash
-            logging.debug(k.get_now_playing())
-            socketio.emit("now_playing", k.get_now_playing(), namespace="/")
-        q_hash = k.queue_hash
-        if q_hash != curr_queue_hash:
-            curr_queue_hash = q_hash
-            logging.debug(k.queue)
-            socketio.emit("queue_update", namespace="/")
-        notification = k.now_playing_notification
-        if notification != curr_notification:
-            curr_notification = notification
-            if notification:
-                socketio.emit("notification", notification, namespace="/")
-
-
 def main():
     platform = get_platform()
 
@@ -184,13 +157,16 @@ def main():
         disable_bg_music=args.disable_bg_music,
         bg_music_volume=args.bg_music_volume,
         bg_music_path=args.bg_music_path,
+        disable_bg_video=args.disable_bg_video,
         bg_video_path=args.bg_video_path,
         disable_score=args.disable_score,
         limit_user_songs_by=args.limit_user_songs_by,
         avsync=args.avsync,
         config_file_path=args.config_file_path,
         cdg_pixel_scaling=args.cdg_pixel_scaling,
+        streaming_format=args.streaming_format,
         additional_ytdl_args=getattr(args, "ytdl_args", None),
+        socketio=socketio,
     )
 
     # expose karaoke object to the flask app
@@ -225,11 +201,6 @@ def main():
             sys.exit()
     else:
         driver = None
-
-    # Poll karaoke object for now playing updates
-    thread = threading.Thread(target=poll_karaoke_state, args=(k,))
-    thread.daemon = True
-    thread.start()
 
     # Start the karaoke process
     k.run()

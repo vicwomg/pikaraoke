@@ -26,7 +26,17 @@ def create_tmp_dir():
 def delete_tmp_dir():
     tmp_dir = get_tmp_dir()
     if os.path.exists(tmp_dir):
-        shutil.rmtree(tmp_dir)
+        # On Windows, files may still be locked briefly after process termination
+        # Use error handler to ignore permission errors on individual files
+        def handle_remove_error(func, path, exc_info):
+            """Error handler for shutil.rmtree - ignores permission errors on Windows"""
+            import logging
+            if isinstance(exc_info[1], PermissionError):
+                logging.debug(f"Could not delete {path}: file in use, will be cleaned up on next run")
+            else:
+                logging.warning(f"Error deleting {path}: {exc_info[1]}")
+
+        shutil.rmtree(tmp_dir, onerror=handle_remove_error)
 
 
 def string_to_hash(s):
@@ -49,12 +59,20 @@ class FileResolver:
     cdg_file_path = None
     file_extension = None
 
-    def __init__(self, file_path):
+    def __init__(self, file_path, streaming_format="hls"):
         create_tmp_dir()
         self.tmp_dir = get_tmp_dir()
         self.resolved_file_path = self.process_file(file_path)
         self.stream_uid = string_to_hash(file_path)
-        self.output_file = f"{self.tmp_dir}/{self.stream_uid}.mp4"
+        self.streaming_format = streaming_format
+
+        # Set output file extension based on streaming format
+        if streaming_format == "mp4":
+            self.output_file = f"{self.tmp_dir}/{self.stream_uid}.mp4"
+        else:  # hls
+            self.output_file = f"{self.tmp_dir}/{self.stream_uid}.m3u8"
+
+        self.segment_pattern = f"{self.tmp_dir}/{self.stream_uid}_segment_%03d.m4s"
 
     # Extract zipped cdg + mp3 files into a temporary directory, and set the paths to both files.
     def handle_zipped_cdg(self, file_path):

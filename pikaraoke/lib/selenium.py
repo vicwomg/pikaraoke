@@ -20,6 +20,8 @@ def launch_splash_screen(karaoke, window_size=None):
 
     options.add_argument("--kiosk")
     options.add_argument("--start-maximized")
+    options.add_argument("--autoplay-policy=no-user-gesture-required")  # Allow autoplay and seeking
+    options.add_argument("--disable-features=MediaSessionService")  # Prevent media session interference
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     try:
         driver = webdriver.Chrome(service=service, options=options)

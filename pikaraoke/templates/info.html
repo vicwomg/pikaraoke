@@ -160,37 +160,37 @@
 <p class="has-text-warning" style="margin-top: 10px">{% trans %}*You may need to refresh the splash screen for these changes to take effect.{% endtrans %}</p>
 
 <div class="user-preference-container">
-  <input id="pref-bg-music" class="user-preference-checkbox" type="checkbox" data-pref="disable_bg_music" {% if disable_bg_music == "True" %}checked{% endif %}>
+  <input id="pref-bg-music" class="user-preference-checkbox" type="checkbox" data-pref="disable_bg_music" {% if disable_bg_music %}checked{% endif %}>
   <label class="label">{# MSG: Checkbox label which enable/disables background music on the Splash Screen #} {% trans %}Disable background music{% endtrans %}
   </label>
 </div>
 
 <div class="user-preference-container">
-  <input id="pref-bg-video" class="user-preference-checkbox" type="checkbox" data-pref="disable_bg_video" {% if disable_bg_video == "True" %}checked{% endif %}>
+  <input id="pref-bg-video" class="user-preference-checkbox" type="checkbox" data-pref="disable_bg_video" {% if disable_bg_video %}checked{% endif %}>
   <label class="label">{# MSG: Checkbox label which enable/disables background video on the Splash Screen #} {% trans %}Disable background video{% endtrans %}
   </label>
 </div>
 
 <div class="user-preference-container">
-  <input id="pref-score" type="checkbox" class="user-preference-checkbox" data-pref="disable_score" {% if disable_score == "True" %}checked{% endif %}>
+  <input id="pref-score" type="checkbox" class="user-preference-checkbox" data-pref="disable_score" {% if disable_score %}checked{% endif %}>
   <label class="label">{# MSG: Checkbox label which enable/disables the Score Screen #} {% trans %}Disable the score screen after each song{% endtrans %}
   </label>
 </div>
 
 <div class="user-preference-container">
-  <input id="pref-notifications" type="checkbox" class="user-preference-checkbox" data-pref="hide_notifications" {% if hide_notifications == "True" %}checked{% endif %}>
+  <input id="pref-notifications" type="checkbox" class="user-preference-checkbox" data-pref="hide_notifications" {% if hide_notifications %}checked{% endif %}>
   <label class="label">{# MSG: Checkbox label which enable/disables notifications on the splash screen #} {% trans %}Hide notifications{% endtrans %}
   </label>
 </div>
 
 <div class="user-preference-container">
-  <input id="pref-qr-code" type="checkbox" class="user-preference-checkbox" data-pref="hide_url" {% if hide_url == "True" %}checked{% endif %}>
+  <input id="pref-qr-code" type="checkbox" class="user-preference-checkbox" data-pref="hide_url" {% if hide_url %}checked{% endif %}>
   <label class="label">{# MSG: Checkbox label which enable/disables the URL display #} {% trans %}Hide the URL and QR code{% endtrans %}
   </label>
 </div>
 
 <div class="user-preference-container">
-  <input id="pref-overlay" type="checkbox" class="user-preference-checkbox" data-pref="hide_overlay" {% if hide_overlay == "True" %}checked{% endif %}>
+  <input id="pref-overlay" type="checkbox" class="user-preference-checkbox" data-pref="hide_overlay" {% if hide_overlay %}checked{% endif %}>
   <label class="label">{# MSG: Checkbox label which enable/disables showing overlay data on the splash screen #} {% trans %}Hide all overlays, including now playing, up next, and QR code{% endtrans %}
   </label>
 </div>
@@ -236,25 +236,25 @@
 <h4 style="margin-top: 20px">{# MSG: Title text for the server settings section of preferences #}{% trans %}Server settings{% endtrans %}</h4>
 
 <div class="user-preference-container">
-  <input id="pref-normalize" type="checkbox" class="user-preference-checkbox" data-pref="normalize_audio" {% if normalize_audio == "True" %}checked{% endif %}>
+  <input id="pref-normalize" type="checkbox" class="user-preference-checkbox" data-pref="normalize_audio" {% if normalize_audio %}checked{% endif %}>
   <label class="label">{# MSG: Checkbox label which enable/disables audio volume normalization #} {% trans %}Normalize audio volume{% endtrans %}
   </label>
 </div>
 
 <div class="user-preference-container">
-  <input id="pref-high-quality" type="checkbox" class="user-preference-checkbox" data-pref="high_quality" {% if high_quality == "True"  %}checked{% endif %}>
+  <input id="pref-high-quality" type="checkbox" class="user-preference-checkbox" data-pref="high_quality" {% if high_quality %}checked{% endif %}>
   <label class="label">{# MSG: Checkbox label which enable/disables high quality video downloads #} {% trans %}Download high quality videos{% endtrans %}
   </label>
 </div>
 
 <div class="user-preference-container">
-  <input id="pref-complete_transcode_before_play" type="checkbox" class="user-preference-checkbox" data-pref="complete_transcode_before_play" {% if complete_transcode_before_play == "True" %}checked{% endif %}>
+  <input id="pref-complete_transcode_before_play" type="checkbox" class="user-preference-checkbox" data-pref="complete_transcode_before_play" {% if complete_transcode_before_play %}checked{% endif %}>
   <label class="label">{# MSG: Checkbox label which enable/disables full transcode before playback #} {% trans %}Transcode video completely before playing (better browser compatibility, slower starts). Buffer size will be ignored.*{% endtrans %}
   </label>
 </div>
 
 <div class="user-preference-container">
-  <input id="pref-cdg-scaling" type="checkbox" class="user-preference-checkbox" data-pref="cdg_pixel_scaling" {% if cdg_pixel_scaling == "True" %}checked{% endif %}>
+  <input id="pref-cdg-scaling" type="checkbox" class="user-preference-checkbox" data-pref="cdg_pixel_scaling" {% if cdg_pixel_scaling %}checked{% endif %}>
   <label class="label">{# MSG: Checkbox label which enable/disables CDG pixel scaling #} {% trans %}Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU usage){% endtrans %}
   </label>
 </div>

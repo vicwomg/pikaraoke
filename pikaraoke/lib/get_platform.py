@@ -57,6 +57,27 @@ def get_platform():
         return "unknown"
 
 
+def should_use_mp4_streaming():
+    """
+    Determines if MP4 streaming should be used instead of HLS.
+    Returns True for older Raspberry Pi models (3B+, 3B, or earlier)
+    where Chromium doesn't support HLS natively.
+    """
+    if not is_raspberry_pi():
+        return False
+
+    try:
+        with open("/proc/device-tree/model", "r") as file:
+            model = file.read().strip().lower()
+            # Detect RPi 3B+, 3B, or earlier (not 4 or 5)
+            if "raspberry pi 3" in model or "raspberry pi 2" in model or "raspberry pi 1" in model or "raspberry pi zero" in model:
+                return True
+    except FileNotFoundError:
+        pass
+
+    return False
+
+
 def get_default_dl_dir(platform):
     if is_raspberry_pi():
         return "~/pikaraoke-songs"

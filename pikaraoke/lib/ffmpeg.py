@@ -50,10 +50,6 @@ def build_ffmpeg_cmd(
     # normalize the audio
     audio = audio.filter("loudnorm", i=-16, tp=-1.5, lra=11) if normalize_audio else audio
 
-    # frag_keyframe+default_base_moof is used to set the correct headers for streaming incomplete files,
-    # without it, there's better compatibility for streaming on certain browsers like Firefox
-    movflags = "+faststart" if buffer_fully_before_playback else "frag_keyframe+default_base_moof"
-
     if fr.cdg_file_path != None:  # handle CDG files
         logging.info("Playing CDG/MP3 file: " + fr.file_path)
         # copyts helps with sync issues, fps=25 prevents ffmpeg from needlessly encoding cdg at 300fps
@@ -63,36 +59,73 @@ def build_ffmpeg_cmd(
         else:
             video = cdg_input.video.filter("fps", fps=25)
 
-        # cdg is very fussy about these flags.
-        # pi ffmpeg needs to encode to aac and cant just copy the mp3 stream
-        # It also appears to have memory issues with hardware acceleration h264_v4l2m2m
-        output = ffmpeg.output(
-            audio,
-            video,
-            fr.output_file,
-            vcodec="libx264",
-            acodec="aac",
-            preset="ultrafast",
-            pix_fmt="yuv420p",
-            listen=1,
-            f="mp4",
-            video_bitrate="500k",
-            movflags=movflags,
-        )
+        # Output format based on streaming_format setting
+        if fr.streaming_format == "mp4":
+            # Progressive MP4 with movflags - for older RPi Chromium
+            output = ffmpeg.output(
+                audio,
+                video,
+                fr.output_file,
+                vcodec="libx264",
+                acodec="aac",
+                preset="ultrafast",
+                pix_fmt="yuv420p",
+                f="mp4",
+                movflags="frag_keyframe+empty_moov+default_base_moof",
+                video_bitrate="500k",
+            )
+        else:  # hls
+            # HLS with fMP4 segments - fixes audio sync on Smart TVs
+            output = ffmpeg.output(
+                audio,
+                video,
+                fr.output_file,
+                vcodec="libx264",
+                acodec="aac",
+                preset="ultrafast",
+                pix_fmt="yuv420p",
+                f="hls",
+                hls_time=3,
+                hls_list_size=0,
+                hls_segment_type="fmp4",
+                hls_fmp4_init_filename="init.mp4",
+                hls_segment_filename=fr.segment_pattern,
+                video_bitrate="500k",
+                **{"vsync": "cfr"},  # Force constant frame rate for better A/V sync
+            )
     else:
         video = input.video
-        output = ffmpeg.output(
-            audio,
-            video,
-            fr.output_file,
-            vcodec=vcodec,
-            acodec=acodec,
-            preset="ultrafast",
-            listen=1,
-            f="mp4",
-            video_bitrate=vbitrate,
-            movflags=movflags,
-        )
+        # Output format based on streaming_format setting
+        if fr.streaming_format == "mp4":
+            # Progressive MP4 with movflags - for older RPi Chromium
+            output = ffmpeg.output(
+                audio,
+                video,
+                fr.output_file,
+                vcodec=vcodec,
+                acodec=acodec,
+                preset="ultrafast",
+                f="mp4",
+                movflags="frag_keyframe+empty_moov+default_base_moof",
+                video_bitrate=vbitrate,
+            )
+        else:  # hls
+            # HLS with fMP4 segments - fixes audio sync on Smart TVs
+            output = ffmpeg.output(
+                audio,
+                video,
+                fr.output_file,
+                vcodec=vcodec,
+                acodec=acodec,
+                preset="ultrafast",
+                f="hls",
+                hls_time=3,
+                hls_list_size=0,
+                hls_segment_type="fmp4",
+                hls_fmp4_init_filename="init.mp4",
+                hls_segment_filename=fr.segment_pattern,
+                video_bitrate=vbitrate,
+            )
 
     args = output.get_args()
     logging.debug(f"COMMAND: ffmpeg " + " ".join(args))

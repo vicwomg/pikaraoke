@@ -1,6 +1,5 @@
 import configparser
 import contextlib
-import hashlib
 import json
 import logging
 import os
@@ -59,10 +58,6 @@ class Karaoke:
     is_paused = True
     volume = None
 
-    # hashes are used to determine if the client needs to update the now playing or queue
-    now_playing_hash = None
-    queue_hash = None
-
     is_playing = False
     process = None
     qr_code_path = None
@@ -110,7 +105,9 @@ class Karaoke:
         avsync=0,
         config_file_path="config.ini",
         cdg_pixel_scaling=False,
+        streaming_format="hls",
         additional_ytdl_args=None,
+        socketio=None,
     ):
         logging.basicConfig(
             format="[%(asctime)s] %(levelname)s: %(message)s",
@@ -130,44 +127,45 @@ class Karaoke:
         # Initialize variables
         self.config_file_path = config_file_path
         self.port = port
-        self.hide_url = self.get_user_preference("hide_url") or hide_url
-        self.hide_notifications = (
-            self.get_user_preference("hide_notifications") or hide_notifications
-        )
+
+        # Helper to prioritize CLI args over config: CLI arg > Config > Default
+        def get_pref(pref_name, cli_value, default):
+            return cli_value if cli_value is not None else self.get_user_preference(pref_name, default)
+
+        self.hide_url = get_pref("hide_url", hide_url, False)
+        self.hide_notifications = get_pref("hide_notifications", hide_notifications, False)
         self.hide_splash_screen = hide_splash_screen
         self.download_path = download_path
-        self.high_quality = self.get_user_preference("high_quality") or high_quality
-        self.splash_delay = self.get_user_preference("splash_delay") or int(splash_delay)
-        self.volume = self.get_user_preference("volume") or volume
-        self.normalize_audio = self.get_user_preference("normalize_audio") or normalize_audio
-        self.complete_transcode_before_play = (
-            self.get_user_preference("complete_transcode_before_play")
-            or complete_transcode_before_play
-        )
+        self.high_quality = get_pref("high_quality", high_quality, False)
+        self.splash_delay = get_pref("splash_delay", splash_delay, 5)
+        self.volume = get_pref("volume", volume, 0.85)
+        self.normalize_audio = get_pref("normalize_audio", normalize_audio, False)
+        self.complete_transcode_before_play = get_pref("complete_transcode_before_play", complete_transcode_before_play, False)
         self.log_level = log_level
-        self.buffer_size = self.get_user_preference("buffer_size") or buffer_size
+        self.buffer_size = get_pref("buffer_size", buffer_size, 256)
         self.youtubedl_path = youtubedl_path
         self.youtubedl_proxy = youtubedl_proxy
         self.additional_ytdl_args = additional_ytdl_args
         self.logo_path = self.default_logo_path if logo_path == None else logo_path
-        self.hide_overlay = self.get_user_preference("hide_overlay") or hide_overlay
-        self.screensaver_timeout = (
-            self.get_user_preference("screensaver_timeout") or screensaver_timeout
-        )
+        self.hide_overlay = get_pref("hide_overlay", hide_overlay, False)
+        self.screensaver_timeout = get_pref("screensaver_timeout", screensaver_timeout, 300)
         self.prefer_hostname = prefer_hostname
-        self.disable_bg_music = self.get_user_preference("disable_bg_music") or disable_bg_music
-        self.bg_music_volume = self.get_user_preference("bg_music_volume") or bg_music_volume
+        self.disable_bg_music = get_pref("disable_bg_music", disable_bg_music, False)
+        self.bg_music_volume = get_pref("bg_music_volume", bg_music_volume, 0.3)
         self.bg_music_path = self.default_bg_music_path if bg_music_path == None else bg_music_path
-        self.disable_bg_video = self.get_user_preference("disable_bg_video") or disable_bg_video
+        self.disable_bg_video = get_pref("disable_bg_video", disable_bg_video, False)
         self.bg_video_path = self.default_bg_video_path if bg_video_path == None else bg_video_path
-        self.disable_score = self.get_user_preference("disable_score") or disable_score
-        self.limit_user_songs_by = (
-            self.get_user_preference("limit_user_songs_by") or limit_user_songs_by
-        )
-        self.cdg_pixel_scaling = self.get_user_preference("cdg_pixel_scaling") or cdg_pixel_scaling
-        self.avsync = self.get_user_preference("avsync") or avsync
+        self.disable_score = get_pref("disable_score", disable_score, False)
+        self.limit_user_songs_by = get_pref("limit_user_songs_by", limit_user_songs_by, 0)
+        self.cdg_pixel_scaling = get_pref("cdg_pixel_scaling", cdg_pixel_scaling, False)
+        self.streaming_format = get_pref("streaming_format", streaming_format, "hls")
+        self.avsync = get_pref("avsync", avsync, 0)
         self.url_override = url
         self.url = self.get_url()
+        self.socketio = socketio
+
+        # Cache preferred language to avoid disk reads on every HTTP request
+        self._cached_preferred_language = self.get_user_preference("preferred_language")
 
         # Log the settings to debug level
         self.log_settings_to_debug()
@@ -212,32 +210,55 @@ class Karaoke:
         logging.debug("\n\n" + output)
 
     # def get_user_preferences(self, preference):
-    def get_user_preference(self, preference, default_value=False):
-        # Try to read the config file
-        try:
-            self.config_obj.read(self.config_file_path)
-        except FileNotFoundError:
-            return default_value
+    def get_user_preference(self, preference, default_value=None):
+        """Get a user preference from config.ini. Returns the preference value,
+        or default_value if not found"""
 
-        # Check if the section exists
-        if not self.config_obj.has_section("USERPREFERENCES"):
-            return default_value
+        # Return cached value for preferred_language to avoid disk I/O on every request
+        if preference == "preferred_language" and hasattr(self, '_cached_preferred_language'):
+            return self._cached_preferred_language
 
-        # Try to get the value
         try:
-            pref = self.config_obj.get("USERPREFERENCES", preference)
-            if pref == "True":
-                return True
-            elif pref == "False":
-                return False
-            elif pref.isnumeric():
-                return int(pref)
-            elif pref.replace(".", "", 1).isdigit():
-                return float(pref)
-            else:
+            # Read the config file from disk
+            try:
+                self.config_obj.read(self.config_file_path)
+            except FileNotFoundError:
+                return default_value
+
+            # Check if USERPREFERENCES section exists first
+            if "USERPREFERENCES" not in self.config_obj:
+                return default_value
+
+            # Check if the specific preference exists
+            if preference not in self.config_obj["USERPREFERENCES"]:
+                return default_value
+
+            pref = self.config_obj["USERPREFERENCES"][preference]
+
+            # Only convert if it's a string
+            if not isinstance(pref, str):
                 return pref
 
-        except (configparser.NoOptionError, ValueError):
+            # Convert string boolean values to actual booleans
+            if pref.lower() == "true":
+                return True
+            elif pref.lower() == "false":
+                return False
+
+            # Try to convert to number if it looks like one
+            if pref.replace(".", "", 1).replace("-", "", 1).isdigit():
+                try:
+                    if "." in pref:
+                        return float(pref)
+                    else:
+                        return int(pref)
+                except ValueError:
+                    pass  # Keep as string if conversion fails
+
+            # Return as string
+            return pref
+
+        except (configparser.NoOptionError, ValueError, AttributeError, KeyError):
             return default_value
 
     def change_preferences(self, preference, val):
@@ -251,7 +272,28 @@ class Karaoke:
 
             userprefs = self.config_obj["USERPREFERENCES"]
             userprefs[preference] = str(val)
-            setattr(self, preference, val)
+
+            # Convert string values to proper types
+            converted_val = val
+            if isinstance(val, str) and hasattr(self, preference):
+                current_val = getattr(self, preference)
+                if current_val is not None:
+                    current_type = type(current_val)
+
+                    if current_type == bool:
+                        converted_val = val.lower() == "true"
+                    elif current_type in (int, float):
+                        try:
+                            converted_val = current_type(val)
+                        except ValueError:
+                            pass  # Keep as string if conversion fails
+
+            setattr(self, preference, converted_val)
+
+            # Update cache for preferred_language if that's what changed
+            if preference == "preferred_language":
+                self._cached_preferred_language = converted_val
+
             with open(self.config_file_path, "w") as conf:
                 self.config_obj.write(conf)
                 self.changed_preferences = True
@@ -343,6 +385,9 @@ class Karaoke:
             if self.now_playing_notification != None:
                 return
             self.now_playing_notification = message + "::is-" + color
+            # Emit notification directly via SocketIO
+            if self.socketio:
+                self.socketio.emit("notification", self.now_playing_notification, namespace="/")
 
     def log_and_send(self, message, category="info"):
         # Category should be one of: info, success, warning, danger
@@ -473,19 +518,21 @@ class Karaoke:
         logging.debug(f"Requires transcoding: {requires_transcoding}")
 
         try:
-            fr = FileResolver(file_path)
+            fr = FileResolver(file_path, streaming_format=self.streaming_format)
         except Exception as e:
             logging.error("Error resolving file: " + str(e))
             self.queue.pop(0)
             return False
 
-        if self.complete_transcode_before_play or not requires_transcoding:
-            # This route is used for streaming the full video file, and includes more
-            # accurate headers for safari and other browsers
+        # Set stream URL based on format
+        if self.streaming_format == "mp4":
+            stream_url_path = f"/stream/{fr.stream_uid}.mp4"
+        else:  # hls
+            stream_url_path = f"/stream/{fr.stream_uid}.m3u8"
+
+        # For non-transcoded files, still use direct MP4 serving
+        if not requires_transcoding:
             stream_url_path = f"/stream/full/{fr.stream_uid}"
-        else:
-            # This route is used for streaming the video file in chunks, only works on chrome
-            stream_url_path = f"/stream/{fr.stream_uid}"
 
         if not requires_transcoding:
             # simply copy file path to the tmp directory and the stream is ready
@@ -545,10 +592,23 @@ class Karaoke:
                 try:
                     output_file_size = os.path.getsize(fr.output_file)
                     if not self.complete_transcode_before_play:
-                        is_buffering_complete = output_file_size > self.buffer_size * 1000
-                        if is_buffering_complete:
-                            logging.debug(f"Buffering complete. File size: {output_file_size}")
-                            break
+                        if self.streaming_format == "mp4":
+                            # For progressive MP4, check file size
+                            min_buffer_size = 1024 * 1024  # 1MB minimum
+                            if output_file_size >= min_buffer_size:
+                                is_buffering_complete = True
+                                logging.debug(f"Buffering complete. File size: {output_file_size} bytes ({output_file_size / 1024 / 1024:.2f} MB)")
+                                break
+                        else:  # hls
+                            # For HLS, check if playlist has at least 2 segments
+                            if output_file_size > 0:
+                                with open(fr.output_file, 'r') as f:
+                                    playlist_content = f.read()
+                                    segment_count = playlist_content.count('.m4s')
+                                    is_buffering_complete = segment_count >= 2
+                            if is_buffering_complete:
+                                logging.debug(f"Buffering complete. Playlist size: {output_file_size}, Segments: {segment_count}")
+                                break
                 except:
                     pass
                 # Prevent infinite loop if playback never starts
@@ -603,6 +663,11 @@ class Karaoke:
             if reason != "complete":
                 # MSG: Message shown when the song ends abnormally
                 self.send_notification(_("Song ended abnormally: %s") % reason, "danger")
+
+        # Emit skip event to client to hide video player
+        if self.socketio:
+            self.socketio.emit("skip", reason, namespace="/")
+
         self.reset_now_playing()
         self.kill_ffmpeg()
         delete_tmp_dir()
@@ -827,16 +892,14 @@ class Karaoke:
         return np
 
     def update_now_playing_hash(self):
-        self.now_playing_hash = hashlib.md5(
-            json.dumps(self.get_now_playing(), sort_keys=True, ensure_ascii=True).encode(
-                "utf-8", "ignore"
-            )
-        ).hexdigest()
+        """Emit now_playing state change via SocketIO"""
+        if self.socketio:
+            self.socketio.emit("now_playing", self.get_now_playing(), namespace="/")
 
     def update_queue_hash(self):
-        self.queue_hash = hashlib.md5(
-            json.dumps(self.queue, ensure_ascii=True).encode("utf-8", "ignore")
-        ).hexdigest()
+        """Emit queue_update state change via SocketIO"""
+        if self.socketio:
+            self.socketio.emit("queue_update", namespace="/")
 
     def run(self):
         logging.info("Starting PiKaraoke!")
