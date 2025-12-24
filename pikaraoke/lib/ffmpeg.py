@@ -32,7 +32,11 @@ def build_ffmpeg_cmd(
     is_transposed = semitones != 0
     acodec = "aac" if is_transposed or normalize_audio or avsync != 0 else "copy"
 
-    input = ffmpeg.input(fr.file_path)
+    # For WEBM files, use genpts to regenerate timestamps and fix VFR issues
+    if fr.file_extension == ".webm":
+        input = ffmpeg.input(fr.file_path, **{"fflags": "+genpts"})
+    else:
+        input = ffmpeg.input(fr.file_path)
     audio = input.audio
 
     # If avsync is set, delay or trim the audio stream
