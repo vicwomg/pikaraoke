@@ -302,6 +302,11 @@
       console.log('Loading video:', streamUrl);
       console.log('User Agent:', navigator.userAgent);
 
+      // Clear the source first to prevent browser from caching old HLS playlist
+      $("#video-source").attr("src", "");
+      video.load();
+
+      // Now set the new source
       $("#video-source").attr("src", streamUrl);
       video.load();
       if (volume != np.volume) {

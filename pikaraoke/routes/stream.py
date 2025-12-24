@@ -47,10 +47,14 @@ def stream_segment_m4s(filename):
         return Response(f"Segment not found: {filename}.m4s", status=404)
 
 
-# Serves init.mp4 header file for fMP4
-@stream_bp.route("/stream/init.mp4")
-def stream_init():
-    init_path = os.path.join(get_tmp_dir(), "init.mp4")
+# Serves init.mp4 header file for fMP4 (with unique filenames per stream)
+@stream_bp.route("/stream/<filename>_init.mp4")
+def stream_init(filename):
+    # Security: prevent directory traversal
+    if '..' in filename or '/' in filename:
+        return Response("Invalid init file", status=400)
+
+    init_path = os.path.join(get_tmp_dir(), f"{filename}_init.mp4")
     if os.path.exists(init_path):
         return send_file(init_path, mimetype="video/mp4")
     else:
@@ -91,7 +95,7 @@ def stream_auto(id):
     if is_chrome:
         # Serve continuous MP4 stream for RPi hardware acceleration
         def generate_mp4_stream():
-            init_path = os.path.join(tmp_dir, "init.mp4")
+            init_path = os.path.join(tmp_dir, f"{id}_init.mp4")
             # Wait for init file
             max_wait = 100
             wait_count = 0

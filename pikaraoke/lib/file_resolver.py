@@ -7,6 +7,7 @@ from sys import maxsize
 
 from pikaraoke.lib.ffmpeg import get_media_duration
 from pikaraoke.lib.get_platform import get_platform
+import time
 
 
 def get_tmp_dir():
@@ -63,7 +64,9 @@ class FileResolver:
         create_tmp_dir()
         self.tmp_dir = get_tmp_dir()
         self.resolved_file_path = self.process_file(file_path)
-        self.stream_uid = string_to_hash(file_path)
+        # Include timestamp to ensure unique stream UIDs for repeated plays
+        unique_string = f"{file_path}_{time.time()}"
+        self.stream_uid = string_to_hash(unique_string)
         self.streaming_format = streaming_format
 
         # Set output file extension based on streaming format
@@ -73,6 +76,7 @@ class FileResolver:
             self.output_file = f"{self.tmp_dir}/{self.stream_uid}.m3u8"
 
         self.segment_pattern = f"{self.tmp_dir}/{self.stream_uid}_segment_%03d.m4s"
+        self.init_filename = f"{self.stream_uid}_init.mp4"
 
     # Extract zipped cdg + mp3 files into a temporary directory, and set the paths to both files.
     def handle_zipped_cdg(self, file_path):
