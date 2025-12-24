@@ -23,11 +23,9 @@ def build_ffmpeg_cmd(
     avsync = float(avsync)
     # use h/w acceleration on pi
     default_vcodec = "h264_v4l2m2m" if supports_hardware_h264_encoding() else "libx264"
-    # just copy the video stream if it's an mp4 or webm file, since they are supported natively in html5
-    # otherwise use the default h264 codec
-    vcodec = (
-        "copy" if fr.file_extension == ".mp4" or fr.file_extension == ".webm" else default_vcodec
-    )
+    # just copy the video stream if it's an mp4 file (already H.264 compatible)
+    # webm uses VP8/VP9 which must be transcoded to H.264 for fMP4 containers
+    vcodec = "copy" if fr.file_extension == ".mp4" else default_vcodec
     vbitrate = "5M"  # seems to yield best results w/ h264_v4l2m2m on pi, recommended for 720p.
 
     # copy the audio stream if no transposition/normalization, otherwise reincode with the aac codec
@@ -75,26 +73,37 @@ def build_ffmpeg_cmd(
                 video_bitrate="500k",
             )
         else:  # hls
-            # HLS with fMP4 segments - fixes audio sync on Smart TVs
+            # HLS with fMP4 segments and robust AAC audio encoding
+            # Works on all platforms: Smart TVs, Chrome, Safari, RPi
             output = ffmpeg.output(
                 audio,
                 video,
                 fr.output_file,
                 vcodec="libx264",
                 acodec="aac",
+                audio_bitrate="192k",  # Explicit quality for AAC
+                ac=2,  # Force stereo (downmix surround sound)
+                ar=48000,  # Standard sample rate for streaming
                 preset="ultrafast",
                 pix_fmt="yuv420p",
                 f="hls",
                 hls_time=3,
                 hls_list_size=0,
                 hls_segment_type="fmp4",
-                hls_fmp4_init_filename="init.mp4",
+                hls_fmp4_init_filename=fr.init_filename,
                 hls_segment_filename=fr.segment_pattern,
                 video_bitrate="500k",
                 **{"vsync": "cfr"},  # Force constant frame rate for better A/V sync
             )
     else:
         video = input.video
+
+        # For WEBM files with VFR, force constant 30fps to fix timing issues
+        if fr.file_extension == ".webm":
+            video = video.filter("fps", fps=30).filter("setpts", "PTS-STARTPTS")
+            # Resample audio and reset timestamps to fix timing alignment
+            audio = audio.filter("aresample", 48000).filter("asetpts", "PTS-STARTPTS")
+
         # Output format based on streaming_format setting
         if fr.streaming_format == "mp4":
             # Progressive MP4 with movflags - for older RPi Chromium
@@ -110,21 +119,26 @@ def build_ffmpeg_cmd(
                 video_bitrate=vbitrate,
             )
         else:  # hls
-            # HLS with fMP4 segments - fixes audio sync on Smart TVs
+            # HLS with fMP4 segments and robust AAC audio encoding
+            # Works on all platforms: Smart TVs, Chrome, Safari, RPi
             output = ffmpeg.output(
                 audio,
                 video,
                 fr.output_file,
                 vcodec=vcodec,
-                acodec=acodec,
+                acodec="aac",  # Force AAC encoding for compatibility
+                audio_bitrate="192k",  # Explicit quality for AAC
+                ac=2,  # Force stereo (downmix surround sound)
+                ar=48000,  # Standard sample rate for streaming
                 preset="ultrafast",
                 f="hls",
                 hls_time=3,
                 hls_list_size=0,
                 hls_segment_type="fmp4",
-                hls_fmp4_init_filename="init.mp4",
+                hls_fmp4_init_filename=fr.init_filename,
                 hls_segment_filename=fr.segment_pattern,
                 video_bitrate=vbitrate,
+                **{"vsync": "cfr"},  # Force constant frame rate for better A/V sync
             )
 
     args = output.get_args()
