@@ -19,7 +19,12 @@ from flask import (
 )
 
 from pikaraoke.karaoke import Karaoke
-from pikaraoke.lib.current_app import get_admin_password, get_karaoke_instance, is_admin
+from pikaraoke.lib.current_app import (
+    get_admin_password,
+    get_karaoke_instance,
+    get_notification_instance,
+    is_admin,
+)
 
 _ = flask_babel.gettext
 
@@ -103,11 +108,12 @@ def quit():
         description: Redirects to home page before exit
     """
     k = get_karaoke_instance()
+    n = get_notification_instance()
     if is_admin():
         # MSG: Message shown after quitting pikaraoke.
         msg = _("Exiting pikaraoke now!")
         flash(msg, "is-danger")
-        k.send_notification(msg, "danger")
+        n.send(msg, "danger")
         th = threading.Thread(target=delayed_halt, args=[0, k])
         th.start()
     else:
@@ -127,11 +133,12 @@ def shutdown():
         description: Redirects to home page before shutdown
     """
     k = get_karaoke_instance()
+    n = get_notification_instance()
     if is_admin():
         # MSG: Message shown after shutting down the system.
         msg = _("Shutting down system now!")
         flash(msg, "is-danger")
-        k.send_notification(msg, "danger")
+        n.send(msg, "danger")
         th = threading.Thread(target=delayed_halt, args=[1, k])
         th.start()
     else:
@@ -151,11 +158,12 @@ def reboot():
         description: Redirects to home page before reboot
     """
     k = get_karaoke_instance()
+    n = get_notification_instance()
     if is_admin():
         # MSG: Message shown after rebooting the system.
         msg = _("Rebooting system now!")
         flash(msg, "is-danger")
-        k.send_notification(msg, "danger")
+        n.send(msg, "danger")
         th = threading.Thread(target=delayed_halt, args=[2, k])
         th.start()
     else:
