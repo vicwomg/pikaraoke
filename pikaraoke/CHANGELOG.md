@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.3](https://github.com/vicwomg/pikaraoke/compare/1.14.2...1.14.3) (2025-12-24)
+
+
+### Bug Fixes
+
+* superficial commit to fix build ([225e2fc](https://github.com/vicwomg/pikaraoke/commit/225e2fc824d1456c86427b97107c383052a0d309))
+
 ## [1.14.2](https://github.com/vicwomg/pikaraoke/compare/1.14.1...1.14.2) (2025-12-23)
 
 ### Features
