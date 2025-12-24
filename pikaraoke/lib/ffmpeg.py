@@ -102,11 +102,8 @@ def build_ffmpeg_cmd(
     else:
         video = input.video
 
-        # For WEBM files with VFR, force constant 30fps to fix timing issues
-        if fr.file_extension == ".webm":
-            video = video.filter("fps", fps=30).filter("setpts", "PTS-STARTPTS")
-            # Resample audio and reset timestamps to fix timing alignment
-            audio = audio.filter("aresample", 48000).filter("asetpts", "PTS-STARTPTS")
+        # For WEBM files, genpts at input level handles timestamp regeneration
+        # No additional filters needed - let genpts + avoid_negative_ts do the work
 
         # Output format based on streaming_format setting
         if fr.streaming_format == "mp4":
