@@ -1,3 +1,5 @@
+"""Flask application entry point and server initialization."""
+
 from gevent import monkey
 
 from pikaraoke.lib.on_screen_notification import OnScreenNotification
@@ -9,6 +11,7 @@ import os
 import sys
 
 import flask_babel
+from flasgger import Swagger
 from flask import Flask, request, session
 from flask_babel import Babel
 from flask_socketio import SocketIO
@@ -23,6 +26,7 @@ from pikaraoke.lib.get_platform import get_platform, has_js_runtime
 from pikaraoke.lib.selenium import launch_splash_screen
 from pikaraoke.routes.admin import admin_bp
 from pikaraoke.routes.background_music import background_music_bp
+from pikaraoke.routes.batch_song_renamer import batch_song_renamer_bp
 from pikaraoke.routes.controller import controller_bp
 from pikaraoke.routes.files import files_bp
 from pikaraoke.routes.home import home_bp
@@ -57,6 +61,14 @@ app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
+app.config["SWAGGER"] = {
+    "title": "PiKaraoke API",
+    "description": "API for controlling PiKaraoke - a KTV-style karaoke system",
+    "version": "1.0.0",
+    "termsOfService": "",
+    "hide_top_bar": True,
+}
+swagger = Swagger(app)
 
 # Register blueprints for additional routes
 app.register_blueprint(home_bp)
@@ -72,21 +84,31 @@ app.register_blueprint(info_bp)
 app.register_blueprint(splash_bp)
 app.register_blueprint(controller_bp)
 app.register_blueprint(nowplaying_bp)
+app.register_blueprint(batch_song_renamer_bp)
 
 babel.init_app(app)
 socketio.init_app(app)
 
 
 @babel.localeselector
-def get_locale():
-    """Select the language to display the webpage in based on the Accept-Language header"""
-    # Check config.ini lang settings
-    k = get_karaoke_instance()
-    preferred_lang = k.get_user_preference("preferred_language")
-    if preferred_lang and preferred_lang in LANGUAGES.keys():
-        return preferred_lang
+def get_locale() -> str | None:
+    """Select the language to display based on user preference or Accept-Language header.
+
+    Returns:
+        Language code string (e.g., 'en', 'fr') or None.
+    """
+    # Check config.ini lang settings (if karaoke instance is initialized)
+    try:
+        k = get_karaoke_instance()
+        preferred_lang = k.get_user_preference("preferred_language")
+        if preferred_lang and preferred_lang in LANGUAGES.keys():
+            return preferred_lang
+    except (RuntimeError, AttributeError):
+        # App context not available or karaoke instance not initialized yet
+        pass
+
     # Check URL arguments
-    elif request.args.get("lang"):
+    if request.args.get("lang"):
         session["lang"] = request.args.get("lang")
         locale = session.get("lang", "en")
     # Use browser header
@@ -100,24 +122,41 @@ def get_locale():
 
 
 @socketio.on("end_song")
-def end_song(reason):
+def end_song(reason: str) -> None:
+    """Handle end_song WebSocket event from client.
+
+    Args:
+        reason: Reason for ending the song (e.g., 'complete', 'error').
+    """
     k = get_karaoke_instance()
     k.end_song(reason)
 
 
 @socketio.on("start_song")
-def start_song():
+def start_song() -> None:
+    """Handle start_song WebSocket event when playback begins."""
     k = get_karaoke_instance()
     k.start_song()
 
 
 @socketio.on("clear_notification")
 def clear_notification():
+    """Handle clear_notification WebSocket event to dismiss notifications."""
+
     n = get_notification_instance()
     n.clear()
 
 
 def poll_karaoke_state(k: karaoke.Karaoke, n: OnScreenNotification):
+    """Poll karaoke state and emit WebSocket events on changes.
+
+    Runs in a background thread to detect and broadcast state changes
+    for now playing, queue, and notifications.
+
+    Args:
+        k: The Karaoke instance to poll.
+        n: The OnScreenNotification instance.
+    """
     curr_now_playing_hash = None
     curr_queue_hash = None
     curr_notification = None
@@ -141,7 +180,12 @@ def poll_karaoke_state(k: karaoke.Karaoke, n: OnScreenNotification):
                 socketio.emit("notification", notification, namespace="/")
 
 
-def main():
+def main() -> None:
+    """Main entry point for the PiKaraoke application.
+
+    Initializes the Flask server, Karaoke engine, and splash screen.
+    Blocks until the application is terminated.
+    """
     platform = get_platform()
 
     args = parse_pikaraoke_args()

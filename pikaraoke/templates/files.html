@@ -1,137 +1,148 @@
 {% extends 'base.html' %} {% block scripts %}
 <script>
-  $(function () {
-    if ($(window).width() <= 500) {
-      $(document).scroll(function () {
-        var y = $(this).scrollTop();
-        if (y > 100) {
-          $("#alpha-bar").removeClass("mobile-hide");
-          $("#alpha-bar").fadeIn();
-        } else {
-          $("#alpha-bar").fadeOut();
-        }
-      });
-    }
+	$(function () {
+		if ($(window).width() <= 500) {
+			$(document).scroll(function () {
+				var y = $(this).scrollTop();
+				if (y > 100) {
+					$("#alpha-bar").removeClass("mobile-hide");
+					$("#alpha-bar").fadeIn();
+				} else {
+					$("#alpha-bar").fadeOut();
+				}
+			});
+		}
 
-    $("a.add-song-link").click(function (e) {
-      e.preventDefault();
-      setUserCookie();
-      var user = Cookies.get("user");
-      $.get(this.href + encodeURIComponent(user), function (data) {
-        var obj = JSON.parse(data);
-        if (obj.success[0]) {
-          // {# MSG: Notification when a song gets added to the queue.  The song name comes after this string. #}
-          showNotification(obj.success[1], "is-success");
-        } else {
-          // {# MSG: Notification when a song does not get added to the queue.  The song name comes after this string. #}
-          showNotification(obj.success[1], "is-danger");
-        }
-      });
-    });
-  });
+		$("a.add-song-link").click(function (e) {
+			e.preventDefault();
+			setUserCookie();
+			var user = Cookies.get("user");
+			$.get(this.href + encodeURIComponent(user), function (data) {
+				var obj = JSON.parse(data);
+				if (obj.success[0]) {
+					// {# MSG: Notification when a song gets added to the queue.  The song name comes after this string. #}
+					showNotification(obj.success[1], "is-success");
+				} else {
+					// {# MSG: Notification when a song does not get added to the queue.  The song name comes after this string. #}
+					showNotification(obj.success[1], "is-danger");
+				}
+			});
+		});
+	});
 </script>
 
 {% endblock %} {% block header %}
 <h1>
-  {% block title %} {% if letter %} {{title}}: "{{ letter.upper() }}" {% else %}
-  {{title}} {% endif %} {% endblock %}
+	{% block title %} {% if letter %} {{title}}: "{{ letter.upper() }}" {% else %} {{title}} {% endif %} {% endblock %}
 </h1>
 <style>
-  #alpha-bar {
-    padding: 5px 10px;
-    border-radius: 4px;
-    margin-bottom: 10px;
-    position: sticky;
-    display: flex;
-    justify-content: space-between;
-    top: 3px;
-    z-index: 20;
-  }
-  table {
-    width: 100%;
-    table-layout: auto; /* Allows columns to adjust based on content */
-  }
-  td {
-    word-wrap: break-word; /* Ensures long words break to fit within the cell */
-  }
-  .break-word {
-    word-break: break-all; /* Ensures long words break to fit within the cell */
-  }
+	#alpha-bar {
+		padding: 5px 10px;
+		border-radius: 4px;
+		margin-bottom: 10px;
+		position: sticky;
+		display: flex;
+		justify-content: space-between;
+		top: 3px;
+		z-index: 20;
+	}
+	table {
+		width: 100%;
+		table-layout: auto; /* Allows columns to adjust based on content */
+	}
+	td {
+		word-wrap: break-word; /* Ensures long words break to fit within the cell */
+	}
+	.break-word {
+		word-break: break-all; /* Ensures long words break to fit within the cell */
+	}
 
-  @media screen and (max-width: 500px) {
-    #alpha-bar {
-      font-size: 13px;
-      position: fixed;
-      display: flex;
-      align-items: center;
-      right: 8px;
-      top: 15px;
-      flex-direction: column;
-      max-width: 22px;
-      height: 95vh;
-    }
-    .mobile-hide {
-      visibility: hidden;
-    }
-  }
+	@media screen and (max-width: 500px) {
+		#alpha-bar {
+			font-size: 13px;
+			position: fixed;
+			display: flex;
+			align-items: center;
+			right: 8px;
+			top: 15px;
+			flex-direction: column;
+			max-width: 22px;
+			height: 95vh;
+		}
+		.mobile-hide {
+			visibility: hidden;
+		}
+		.batch-edit-btn {
+			position: absolute;
+			top: 10px;
+			right: 10px;
+			font-size: 0.875rem;
+			margin-right: 10px;
+		}
+		.box {
+			position: relative;
+		}
+	}
 </style>
 {% endblock %} {% block content %}
 
-<p>
-  {% if sort_order == "Alphabetical" %} {# MSG: Label which displays that the
-  songs are currently sorted by alphabetical order. #} {% trans %}Sorted
-  Alphabetically{% endtrans %} |
-  <a href="{{ url_for('files.browse') }}?sort=date">
-    {# MSG: Button which changes how the songs are sorted so they become sorted
-    by date. #} {% trans %}Sort by Date{% endtrans %}
-  </a>
-  {% endif %} {% if sort_order == "Date" %} {# MSG: Label which displays that
-  the songs are currently sorted by date. #} {% trans %}Sorted by date{%
-  endtrans %} |
-  <a href="{{ url_for('files.browse') }}">
-    {# MSG: Button which changes how the songs are sorted so they become sorted
-    by name. #} {% trans %}Sort by Alphabetical{% endtrans %}
-  </a>
-  {% endif %}
+<p class="is-flex is-justify-content-space-between">
+	<span class="is-flex-grow-1">
+		{% if sort_order == "Alphabetical" %} {# MSG: Label which displays that the songs are currently sorted by
+		alphabetical order. #} {% trans %}Sorted Alphabetically{% endtrans %} |
+		<a href="{{ url_for('files.browse') }}?sort=date">
+			{# MSG: Button which changes how the songs are sorted so they become sorted by date. #} {% trans %}Sort by
+			Date{% endtrans %}
+		</a>
+		{% endif %} {% if sort_order == "Date" %} {# MSG: Label which displays that the songs are currently sorted by
+		date. #} {% trans %}Sorted by date{% endtrans %} |
+		<a href="{{ url_for('files.browse') }}">
+			{# MSG: Button which changes how the songs are sorted so they become sorted by name. #} {% trans %}Sort by
+			Alphabetical{% endtrans %}
+		</a>
+		{% endif %}
+	</span>
+	{% if admin %}
+	<a class="batch-edit-btn" href="{{ url_for('batch_song_renamer.browse')}}" title="Edit all songs"
+		><i class="icon icon-edit"></i>{# MSG: Button to open the batch song renamer page. #} {% trans %}Edit all songs{%
+		endtrans %}</a
+	>
+	{% endif%}
 </p>
 
-<div id="alpha-bar" class="has-background-dark mobile-hide">
-  <a href="{{ url_for('files.browse') }}?letter=numeric">#</a>
-  {% for letter in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l',
-  'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'] %}
-  <a href="{{ url_for('files.browse') }}?letter={{letter}}"
-    >{{letter.upper()}}</a
-  >
-  {% endfor %}
+<div id="alpha-bar" class="column is-full has-background-dark mobile-hide">
+	<a href="{{ url_for('files.browse') }}?letter=numeric">#</a>
+	{% for letter in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
+	'u', 'v', 'w', 'x', 'y', 'z'] %}
+	<a href="{{ url_for('files.browse') }}?letter={{letter}}">{{letter.upper()}}</a>
+	{% endfor %}
 </div>
 
 {{ pagination.links }} {{ pagination.info }}
 <table>
-  {% for song in songs %}
-  <tr value="{{ song }}">
-    <td style="padding: 5px 0px">{{loop.index + pagination.skip}}</td>
-    <td id="{{filename_from_path(song)[0].lower()}}" style="padding-right: 0">
-      <a
-        class="add-song-link has-text-weight-bold has-text-success"
-        title="Add '{{filename_from_path(song)}}' to queue"
-        href="{{url_for('queue.enqueue')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&user="
-        ><i class="icon icon-list-add"></i>
-      </a>
-    </td>
-    <td class="break-word" style="padding-right: 0">
-      {{filename_from_path(song)}}
-    </td>
-    {% if admin %}
-    <td style="padding-right: 0">
-      <a
-        class="edit-button"
-        href="{{url_for('files.edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}"
-        title="Edit song"
-        ><i class="icon icon-edit-1"></i>
-      </a>
-    </td>
-    {% endif %} {% endfor %}
-  </tr>
+	{% for song in songs %}
+	<tr value="{{ song }}">
+		<td style="padding: 5px 0px">{{loop.index + pagination.skip}}</td>
+		<td id="{{filename_from_path(song)[0].lower()}}" style="padding-right: 0">
+			<a
+				class="add-song-link has-text-weight-bold has-text-success"
+				title="Add '{{filename_from_path(song)}}' to queue"
+				href="{{url_for('queue.enqueue')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&user="
+				><i class="icon icon-list-add"></i>
+			</a>
+		</td>
+		<td class="break-word" style="padding-right: 0">{{filename_from_path(song)}}</td>
+		{% if admin %}
+		<td style="padding-right: 0">
+			<a
+				class="edit-button"
+				href="{{url_for('files.edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}"
+				title="Edit song"
+				><i class="icon icon-edit-1"></i>
+			</a>
+		</td>
+		{% endif %} {% endfor %}
+	</tr>
 </table>
 
 {{ pagination.links }} {% endblock %}
