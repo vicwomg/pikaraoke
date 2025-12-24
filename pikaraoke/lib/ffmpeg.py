@@ -97,7 +97,7 @@ def build_ffmpeg_cmd(
                 hls_fmp4_init_filename=fr.init_filename,
                 hls_segment_filename=fr.segment_pattern,
                 video_bitrate="500k",
-                **{"vsync": "cfr"},  # Force constant frame rate for better A/V sync
+                **{"vsync": "cfr", "avoid_negative_ts": "make_zero"},  # Force constant frame rate and fix negative timestamps
             )
     else:
         video = input.video
@@ -142,7 +142,7 @@ def build_ffmpeg_cmd(
                 hls_fmp4_init_filename=fr.init_filename,
                 hls_segment_filename=fr.segment_pattern,
                 video_bitrate=vbitrate,
-                **{"vsync": "cfr"},  # Force constant frame rate for better A/V sync
+                **{"vsync": "cfr", "avoid_negative_ts": "make_zero"},  # Force constant frame rate and fix negative timestamps
             )
 
     args = output.get_args()
