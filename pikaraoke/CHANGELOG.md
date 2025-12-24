@@ -2,22 +2,35 @@
 
 ## [1.14.2](https://github.com/vicwomg/pikaraoke/compare/1.14.1...1.14.2) (2025-12-23)
 
+### Features
+
+- Styling refresh to latest bulma https://github.com/vicwomg/pikaraoke/commit/405dc4fef17d2d88ac41fd6ec940383c8f422139
+- Updated settings page https://github.com/vicwomg/pikaraoke/commit/405dc4fef17d2d88ac41fd6ec940383c8f422139
+- Edit performance rating from settings page https://github.com/vicwomg/pikaraoke/commit/405dc4fef17d2d88ac41fd6ec940383c8f422139
+- Bulk song name editor https://github.com/vicwomg/pikaraoke/commit/405dc4fef17d2d88ac41fd6ec940383c8f422139
+- Added a default value for the YouTube field to improve user experience. https://github.com/vicwomg/pikaraoke/commit/405dc4fef17d2d88ac41fd6ec940383c8f422139
+- Clicking on the video thumbnail now opens a modal allowing users to preview the video. https://github.com/vicwomg/pikaraoke/commit/405dc4fef17d2d88ac41fd6ec940383c8f422139
 
 ### Bug Fixes
 
-* update api docs job failing ([3bad488](https://github.com/vicwomg/pikaraoke/commit/3bad488e3b929b1afd30d43f6c87ffffafd75ca8))
-
-## [1.14.1](https://github.com/vicwomg/pikaraoke/compare/1.14.0...1.14.1) (2025-11-27)
-
-
-### Bug Fixes
-
-* Update yt-dlp to 2025.11.12, add js runtime support ([#541](https://github.com/vicwomg/pikaraoke/issues/541)) ([#553](https://github.com/vicwomg/pikaraoke/issues/553)) ([127c22b](https://github.com/vicwomg/pikaraoke/commit/127c22be12e6db1fc03e338773d07bd2be995585))
-
+- update api docs job failing ([3bad488](https://github.com/vicwomg/pikaraoke/commit/3bad488e3b929b1afd30d43f6c87ffffafd75ca8))
+- Fix mic icon not showing on splash screen https://github.com/vicwomg/pikaraoke/commit/405dc4fef17d2d88ac41fd6ec940383c8f422139
+- Clear button — when the user selected a song and clicked the clear button, the input field was not being cleared. https://github.com/vicwomg/pikaraoke/commit/405dc4fef17d2d88ac41fd6ec940383c8f422139
+- "Search/Add to queue" button — when the user typed something and then deleted all text, the button was incorrectly switching to "Add to queue". https://github.com/vicwomg/pikaraoke/commit/405dc4fef17d2d88ac41fd6ec940383c8f422139
 
 ### Documentation
 
-* recommend [@lvmasterrj](https://github.com/lvmasterrj) windows install script ([d5bcab7](https://github.com/vicwomg/pikaraoke/commit/d5bcab79e4d754b1d65fcafa0b9cd77418c29f2b))
+- api docs and python project modernization ([d709de32](https://github.com/vicwomg/pikaraoke/commit/d709de328b37d044fb463137847a45ea902476e1))
+
+## [1.14.1](https://github.com/vicwomg/pikaraoke/compare/1.14.0...1.14.1) (2025-11-27)
+
+### Bug Fixes
+
+- Update yt-dlp to 2025.11.12, add js runtime support ([#541](https://github.com/vicwomg/pikaraoke/issues/541)) ([#553](https://github.com/vicwomg/pikaraoke/issues/553)) ([127c22b](https://github.com/vicwomg/pikaraoke/commit/127c22be12e6db1fc03e338773d07bd2be995585))
+
+### Documentation
+
+- recommend [@lvmasterrj](https://github.com/lvmasterrj) windows install script ([d5bcab7](https://github.com/vicwomg/pikaraoke/commit/d5bcab79e4d754b1d65fcafa0b9cd77418c29f2b))
 
 ## [1.14.0](https://github.com/vicwomg/pikaraoke/compare/1.13.0...1.14.0) (2025-11-11)
 
