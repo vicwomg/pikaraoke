@@ -142,7 +142,9 @@ class Karaoke:
         avsync: float = 0,
         config_file_path: str = "config.ini",
         cdg_pixel_scaling: bool = False,
+        streaming_format: str = "hls",
         additional_ytdl_args: str | None = None,
+        socketio=None,
     ) -> None:
         """Initialize the Karaoke instance.
 
@@ -176,7 +178,9 @@ class Karaoke:
             avsync: Audio/video sync adjustment in seconds.
             config_file_path: Path to config.ini file.
             cdg_pixel_scaling: Enable CDG pixel scaling.
+            streaming_format: Video streaming format ('hls' or 'mp4').
             additional_ytdl_args: Additional yt-dlp command arguments.
+            socketio: SocketIO instance for real-time event emission.
         """
         logging.basicConfig(
             format="[%(asctime)s] %(levelname)s: %(message)s",
@@ -232,6 +236,8 @@ class Karaoke:
         )
         self.cdg_pixel_scaling = self.get_user_preference("cdg_pixel_scaling") or cdg_pixel_scaling
         self.avsync = self.get_user_preference("avsync") or avsync
+        self.streaming_format = self.get_user_preference("streaming_format") or streaming_format
+        self.socketio = socketio
         self.url_override = url
         self.url = self.get_url()
 
@@ -660,19 +666,21 @@ class Karaoke:
         logging.debug(f"Requires transcoding: {requires_transcoding}")
 
         try:
-            fr = FileResolver(file_path)
+            fr = FileResolver(file_path, self.streaming_format)
         except Exception as e:
             logging.error("Error resolving file: " + str(e))
             self.queue.pop(0)
             return False
 
-        if self.complete_transcode_before_play or not requires_transcoding:
-            # This route is used for streaming the full video file, and includes more
-            # accurate headers for safari and other browsers
+        # Set stream URL based on format
+        if self.streaming_format == "mp4":
+            stream_url_path = f"/stream/{fr.stream_uid}.mp4"
+        else:  # hls
+            stream_url_path = f"/stream/{fr.stream_uid}.m3u8"
+
+        # For non-transcoded files, still use direct MP4 serving
+        if not requires_transcoding:
             stream_url_path = f"/stream/full/{fr.stream_uid}"
-        else:
-            # This route is used for streaming the video file in chunks, only works on chrome
-            stream_url_path = f"/stream/{fr.stream_uid}"
 
         if not requires_transcoding:
             # simply copy file path to the tmp directory and the stream is ready
@@ -735,10 +743,23 @@ class Karaoke:
                 try:
                     output_file_size = os.path.getsize(fr.output_file)
                     if not self.complete_transcode_before_play:
-                        is_buffering_complete = output_file_size > self.buffer_size * 1000
-                        if is_buffering_complete:
-                            logging.debug(f"Buffering complete. File size: {output_file_size}")
-                            break
+                        if self.streaming_format == "mp4":
+                            # For progressive MP4, check file size
+                            min_buffer_size = 1024 * 1024  # 1MB minimum
+                            if output_file_size >= min_buffer_size:
+                                is_buffering_complete = True
+                                logging.debug(f"Buffering complete. File size: {output_file_size} bytes ({output_file_size / 1024 / 1024:.2f} MB)")
+                                break
+                        else:  # hls
+                            # For HLS, check if playlist has at least 2 segments
+                            if output_file_size > 0:
+                                with open(fr.output_file, 'r') as f:
+                                    playlist_content = f.read()
+                                    segment_count = playlist_content.count('.m4s')
+                                    is_buffering_complete = segment_count >= 2
+                            if is_buffering_complete:
+                                logging.debug(f"Buffering complete. Playlist size: {output_file_size}, Segments: {segment_count}")
+                                break
                 except:
                     pass
                 # Prevent infinite loop if playback never starts
@@ -1125,18 +1146,14 @@ class Karaoke:
         return np
 
     def update_now_playing_hash(self) -> None:
-        """Update the hash of now playing state for change detection."""
-        self.now_playing_hash = hashlib.md5(
-            json.dumps(self.get_now_playing(), sort_keys=True, ensure_ascii=True).encode(
-                "utf-8", "ignore"
-            )
-        ).hexdigest()
+        """Emit now_playing state change via SocketIO."""
+        if self.socketio:
+            self.socketio.emit("now_playing", self.get_now_playing(), namespace="/")
 
     def update_queue_hash(self) -> None:
-        """Update the hash of queue state for change detection."""
-        self.queue_hash = hashlib.md5(
-            json.dumps(self.queue, ensure_ascii=True).encode("utf-8", "ignore")
-        ).hexdigest()
+        """Emit queue_update state change via SocketIO."""
+        if self.socketio:
+            self.socketio.emit("queue_update", namespace="/")
 
     def run(self) -> None:
         """Main run loop - processes queue and plays songs.

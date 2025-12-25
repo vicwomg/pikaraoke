@@ -4,7 +4,7 @@ import argparse
 import logging
 import os
 
-from pikaraoke.lib.get_platform import get_default_dl_dir, get_platform, is_raspberry_pi
+from pikaraoke.lib.get_platform import get_default_dl_dir, get_platform, is_raspberry_pi, should_use_mp4_streaming
 
 
 def arg_path_parse(path: str | list[str] | None) -> str | None:
@@ -286,6 +286,13 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         action="store_true",
         required=False,
     ),
+    parser.add_argument(
+        "--streaming-format",
+        help="Video streaming format: 'hls' (HLS with fMP4 segments - works on Smart TVs, Safari, modern browsers), 'mp4' (progressive MP4 with movflags - for older RPi Chromium), or 'auto' (auto-detect based on hardware). Default is 'auto'.",
+        choices=["hls", "mp4", "auto"],
+        default="auto",
+        required=False,
+    ),
 
     args = parser.parse_args()
 
@@ -313,5 +320,16 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     args.bg_music_path = bg_music_path
     args.bg_video_path = bg_video_path
     args.download_path = dl_path
+
+    # Resolve streaming format
+    if args.streaming_format == "auto":
+        if should_use_mp4_streaming():
+            args.streaming_format = "mp4"
+            print("Auto-detected older Raspberry Pi hardware. Using MP4 streaming format.")
+        else:
+            args.streaming_format = "hls"
+            print("Using HLS streaming format.")
+    else:
+        print(f"Streaming format set to: {args.streaming_format}")
 
     return args

@@ -31,6 +31,8 @@
   const isFirefox = typeof InstallTrigger !== "undefined";
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
+  var videoHasPlayed = false;
+
   var socket = io();
 
   function connectSocket() {
@@ -106,6 +108,7 @@
 		  await startScore("{{ url_for('static', filename='') }}");
       isScoreShown = false;
 	  }
+    videoHasPlayed = false;
     hideVideo();
     socket.emit("end_song", reason);
   }
@@ -303,7 +306,18 @@
         );
         endSong("interaction confirmation required");
       }
-      $("#video-source").attr("src", np.now_playing_url);
+
+      // Use HLS streaming - native support on Safari and Smart TVs
+      const streamUrl = np.now_playing_url;
+      console.log('Loading video:', streamUrl);
+      console.log('User Agent:', navigator.userAgent);
+
+      // Clear the source first to prevent browser from caching old HLS playlist
+      $("#video-source").attr("src", "");
+      video.load();
+
+      // Now set the new source
+      $("#video-source").attr("src", streamUrl);
       video.load();
       if (volume != np.volume) {
         volume = np.volume;
@@ -318,6 +332,9 @@
       } else {
         duration.hide();
       }
+
+      // Stop background music before playing video
+      playBGMusic(false);
 
       video.play();
 
@@ -384,10 +401,20 @@
       $("#current").text(formatTime(video.currentTime));
     });
 
+    $("#video")[0].addEventListener("playing", () => {
+      videoHasPlayed = true;
+    });
+
     $("#video source")[0].addEventListener("error", (e) => {
-      console.log("Error while playing video.");
-      console.log(e);
-      endSong("error while playing");
+      // Only treat errors as fatal if the video has actually started playing
+      // HLS streams can have transient errors during initial buffering
+      if (videoHasPlayed) {
+        console.log("Error while playing video.");
+        console.log(e);
+        endSong("error while playing");
+      } else {
+        console.log("Ignoring error during initial HLS buffering:", e);
+      }
     });
 
     // Load the background music playlist from server
@@ -483,15 +510,20 @@
 
     socket.on('skip', (reason) => {
       const video = getVideoPlayer();
+      const currVolume = video.volume;
       if (isMediaPlaying(video)) {
-        const currVolume = video.volume;
+        // Fade out if currently playing
         $(video).animate({ volume: 0 }, 1000, () => {
             video.pause();
             video.volume = currVolume;
             hideVideo();
           });
-        console.log(`Skip: ${reason}`);
+      } else {
+        // Immediately hide if paused or stopped
+        video.pause();
+        hideVideo();
       }
+	  console.log(`Skip: ${reason}`);
     });
 
     socket.on('volume', (val) => {
@@ -512,8 +544,21 @@
     socket.on('restart', () => {
       console.log(`Restart`);
       const video = getVideoPlayer();
-      video.currentTime = 0;
-      if (video.paused) video.play()
+      const currentSrc = video.src || $("#video-source").attr("src");
+
+      // Fully stop the current stream
+      video.pause();
+      video.src = '';    // Clear source to stop old stream
+      video.load();      // Unload old stream
+
+      // Restart from beginning - wait for metadata before setting time
+      // This works for both MP4 (progressive) and HLS (adaptive) streams
+      video.src = currentSrc;
+      video.addEventListener('loadedmetadata', function onMetadata() {
+        video.currentTime = 0;  // Set to beginning after metadata loads
+        video.play();
+      }, { once: true });
+      video.load();
     });
 
     socket.on("notification", (data) => {
@@ -618,14 +663,14 @@
 </div>
 
 <div id="video-container" class="video-container">
-  <video id="video" disableRemotePlayback>
-    <source id="video-source" type="video/mp4" src="" />
+  <video id="video" disableRemotePlayback style="width: 100%; height: 100%; object-fit: contain;">
+    <source id="video-source" src="" />
   </video>
 </div>
 
 <div id="bg-video-container" class="video-container">
   <video id="bg-video" disableRemotePlayback muted loop style="object-fit: cover">
-    <source id="video-source" type="video/mp4" src="" />
+    <source id="bg-video-source" type="video/mp4" src="" />
   </video>
 </div>
 
