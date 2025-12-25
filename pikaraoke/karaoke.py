@@ -140,6 +140,7 @@ class Karaoke:
         streaming_format: str = "hls",
         additional_ytdl_args: str | None = None,
         socketio=None,
+        preferred_language: str | None = None,
     ) -> None:
         """Initialize the Karaoke instance.
 
@@ -176,6 +177,7 @@ class Karaoke:
             streaming_format: Video streaming format ('hls' or 'mp4').
             additional_ytdl_args: Additional yt-dlp command arguments.
             socketio: SocketIO instance for real-time event emission.
+            preferred_language: Language code for UI (e.g., 'en', 'de_DE').
         """
         logging.basicConfig(
             format="[%(asctime)s] %(levelname)s: %(message)s",
@@ -247,6 +249,11 @@ class Karaoke:
         self.low_score_phrases = self.get_user_preference("low_score_phrases") or ""
         self.mid_score_phrases = self.get_user_preference("mid_score_phrases") or ""
         self.high_score_phrases = self.get_user_preference("high_score_phrases") or ""
+
+        # Set preferred language from command line if provided (persists to config)
+        if preferred_language:
+            self.change_preferences("preferred_language", preferred_language)
+            logging.info(f"Setting preferred language to: {preferred_language}")
 
     def get_url(self):
         """Get the URL for accessing the PiKaraoke web interface.
