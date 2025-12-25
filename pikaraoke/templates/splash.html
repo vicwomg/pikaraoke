@@ -109,6 +109,10 @@
       isScoreShown = false;
 	  }
     videoHasPlayed = false;
+    const video = getVideoPlayer();
+    video.pause();
+    $("#video-source").attr("src", "");
+    video.load();  // Clear the video element completely
     hideVideo();
     socket.emit("end_song", reason);
   }

@@ -1096,6 +1096,7 @@ class Karaoke:
         if self.is_file_playing():
             logging.info("Restarting: " + self.now_playing)
             self.is_paused = False
+            self.update_now_playing_hash()
             return True
         else:
             logging.warning("Tried to restart, but no file is playing!")
