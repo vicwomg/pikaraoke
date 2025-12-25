@@ -143,6 +143,7 @@ class Karaoke:
         config_file_path: str = "config.ini",
         cdg_pixel_scaling: bool = False,
         additional_ytdl_args: str | None = None,
+        preferred_language: str | None = None,
     ) -> None:
         """Initialize the Karaoke instance.
 
@@ -177,6 +178,7 @@ class Karaoke:
             config_file_path: Path to config.ini file.
             cdg_pixel_scaling: Enable CDG pixel scaling.
             additional_ytdl_args: Additional yt-dlp command arguments.
+            preferred_language: Language code for UI (e.g., 'en', 'de_DE').
         """
         logging.basicConfig(
             format="[%(asctime)s] %(levelname)s: %(message)s",
@@ -246,6 +248,11 @@ class Karaoke:
         self.low_score_phrases = self.get_user_preference("low_score_phrases") or ""
         self.mid_score_phrases = self.get_user_preference("mid_score_phrases") or ""
         self.high_score_phrases = self.get_user_preference("high_score_phrases") or ""
+
+        # Set preferred language from command line if provided (persists to config)
+        if preferred_language:
+            self.change_preferences("preferred_language", preferred_language)
+            logging.info(f"Setting preferred language to: {preferred_language}")
 
     def get_url(self):
         if self.is_raspberry_pi:
