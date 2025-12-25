@@ -233,6 +233,7 @@ def main() -> None:
         config_file_path=args.config_file_path,
         cdg_pixel_scaling=args.cdg_pixel_scaling,
         additional_ytdl_args=getattr(args, "ytdl_args", None),
+        preferred_language=args.preferred_language,
     )
 
     # expose karaoke object to the flask app
