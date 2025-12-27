@@ -320,6 +320,10 @@
       const streamUrl = np.now_playing_url;
       console.log('Loading video:', streamUrl);
 
+	  // Clear any direct src from restart handler to prevent conflicts
+      video.src = '';
+      video.removeAttribute('src');
+
       // Clear the source first to prevent browser from caching old HLS playlist
       $("#video-source").attr("src", "");
       video.load();
