@@ -756,6 +756,7 @@ class Karaoke:
                     if not self.complete_transcode_before_play:
                         # Both mp4 and hls modes now use HLS format (init.mp4 + segments)
                         # Check if playlist has at least 2 segments ready for streaming
+                        segment_count = 0  # Initialize to avoid NameError in logging
                         if output_file_size > 0:
                             with open(fr.output_file, 'r') as f:
                                 playlist_content = f.read()
@@ -764,8 +765,22 @@ class Karaoke:
                         if is_buffering_complete:
                             logging.debug(f"Buffering complete. Playlist size: {output_file_size}, Segments: {segment_count}")
                             break
-                except:
+                except FileNotFoundError:
+                    # Expected: FFmpeg hasn't created the playlist file yet
+                    # Continue waiting in the loop
                     pass
+                except (PermissionError, OSError, IOError) as e:
+                    # Unexpected: SD card issues, filesystem problems
+                    logging.warning(f"I/O error while checking buffer status for {fr.output_file}: {e}")
+                    # Continue - may be transient issue
+                except UnicodeDecodeError as e:
+                    # FFmpeg wrote binary data instead of text playlist - error state
+                    logging.error(f"Failed to read playlist as text (FFmpeg may have errored): {e}")
+                    # Continue for now, but this is suspicious
+                except Exception as e:
+                    # Catch-all for truly unexpected errors
+                    logging.error(f"Unexpected error during buffering check: {type(e).__name__}: {e}")
+                    # Continue waiting, don't crash
                 # Prevent infinite loop if playback never starts
                 if transcode_max_retries <= 0:
                     logging.error("Max retries reached trying to play song. Skipping track")
