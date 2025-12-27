@@ -142,7 +142,9 @@ class Karaoke:
         avsync: float = 0,
         config_file_path: str = "config.ini",
         cdg_pixel_scaling: bool = False,
+        streaming_format: str = "hls",
         additional_ytdl_args: str | None = None,
+        socketio=None,
     ) -> None:
         """Initialize the Karaoke instance.
 
@@ -176,7 +178,9 @@ class Karaoke:
             avsync: Audio/video sync adjustment in seconds.
             config_file_path: Path to config.ini file.
             cdg_pixel_scaling: Enable CDG pixel scaling.
+            streaming_format: Video streaming format ('hls' or 'mp4').
             additional_ytdl_args: Additional yt-dlp command arguments.
+            socketio: SocketIO instance for real-time event emission.
         """
         logging.basicConfig(
             format="[%(asctime)s] %(levelname)s: %(message)s",
@@ -232,6 +236,8 @@ class Karaoke:
         )
         self.cdg_pixel_scaling = self.get_user_preference("cdg_pixel_scaling") or cdg_pixel_scaling
         self.avsync = self.get_user_preference("avsync") or avsync
+        self.streaming_format = self.get_user_preference("streaming_format") or streaming_format
+        self.socketio = socketio
         self.url_override = url
         self.url = self.get_url()
 
@@ -248,6 +254,14 @@ class Karaoke:
         self.high_score_phrases = self.get_user_preference("high_score_phrases") or ""
 
     def get_url(self):
+        """Get the URL for accessing the PiKaraoke web interface.
+
+        On Raspberry Pi, retries getting the IP address for up to 30 seconds
+        in case the network is still initializing at startup.
+
+        Returns:
+            URL string in format http://ip:port
+        """
         if self.is_raspberry_pi:
             # retry in case pi is still starting up
             # and doesn't have an IP yet (occurs when launched from /etc/rc.local)
@@ -466,6 +480,9 @@ class Karaoke:
             if self.now_playing_notification != None:
                 return
             self.now_playing_notification = message + "::is-" + color
+            # Emit notification via SocketIO for event-driven architecture
+            if self.socketio:
+                self.socketio.emit("notification", self.now_playing_notification, namespace="/")
 
     def log_and_send(self, message: str, category: str = "info") -> None:
         """Log a message and send it as a notification.
@@ -660,19 +677,21 @@ class Karaoke:
         logging.debug(f"Requires transcoding: {requires_transcoding}")
 
         try:
-            fr = FileResolver(file_path)
+            fr = FileResolver(file_path, self.streaming_format)
         except Exception as e:
             logging.error("Error resolving file: " + str(e))
             self.queue.pop(0)
             return False
 
-        if self.complete_transcode_before_play or not requires_transcoding:
-            # This route is used for streaming the full video file, and includes more
-            # accurate headers for safari and other browsers
+        # Set stream URL based on format
+        if self.streaming_format == "mp4":
+            stream_url_path = f"/stream/{fr.stream_uid}.mp4"
+        else:  # hls
+            stream_url_path = f"/stream/{fr.stream_uid}.m3u8"
+
+        # For non-transcoded files, still use direct MP4 serving
+        if not requires_transcoding:
             stream_url_path = f"/stream/full/{fr.stream_uid}"
-        else:
-            # This route is used for streaming the video file in chunks, only works on chrome
-            stream_url_path = f"/stream/{fr.stream_uid}"
 
         if not requires_transcoding:
             # simply copy file path to the tmp directory and the stream is ready
@@ -735,9 +754,15 @@ class Karaoke:
                 try:
                     output_file_size = os.path.getsize(fr.output_file)
                     if not self.complete_transcode_before_play:
-                        is_buffering_complete = output_file_size > self.buffer_size * 1000
+                        # Both mp4 and hls modes now use HLS format (init.mp4 + segments)
+                        # Check if playlist has at least 2 segments ready for streaming
+                        if output_file_size > 0:
+                            with open(fr.output_file, 'r') as f:
+                                playlist_content = f.read()
+                                segment_count = playlist_content.count('.m4s')
+                                is_buffering_complete = segment_count >= 2
                         if is_buffering_complete:
-                            logging.debug(f"Buffering complete. File size: {output_file_size}")
+                            logging.debug(f"Buffering complete. Playlist size: {output_file_size}, Segments: {segment_count}")
                             break
                 except:
                     pass
@@ -778,10 +803,32 @@ class Karaoke:
                 self.end_song()
 
     def kill_ffmpeg(self) -> None:
-        """Terminate the running FFmpeg process if any."""
-        logging.debug("Killing ffmpeg process")
+        """Terminate the running FFmpeg process gracefully.
+
+        Uses SIGTERM first to allow FFmpeg to clean up resources properly,
+        then SIGKILL if process doesn't terminate within timeout.
+        This is critical for Raspberry Pi to release GPU memory from h264_v4l2m2m encoder.
+        """
         if self.ffmpeg_process:
-            self.ffmpeg_process.kill()
+            logging.debug("Terminating ffmpeg process gracefully")
+            try:
+                # First attempt: graceful termination (SIGTERM)
+                self.ffmpeg_process.terminate()
+                # Wait up to 5 seconds for graceful shutdown
+                self.ffmpeg_process.wait(timeout=5)
+                logging.debug("FFmpeg process terminated gracefully")
+            except subprocess.TimeoutExpired:
+                # Process didn't terminate, force kill (SIGKILL)
+                logging.warning("FFmpeg did not terminate gracefully, forcing kill")
+                self.ffmpeg_process.kill()
+                # Ensure process is fully dead and reaped (prevents zombies)
+                self.ffmpeg_process.wait()
+                logging.debug("FFmpeg process force killed")
+            except Exception as e:
+                # Catch any other errors (process already dead, etc.)
+                logging.debug(f"FFmpeg termination exception: {e}")
+            finally:
+                self.ffmpeg_process = None
 
     def start_song(self) -> None:
         """Mark the current song as actively playing."""
@@ -802,8 +849,11 @@ class Karaoke:
                 self.send_notification(_("Song ended abnormally: %s") % reason, "danger")
         self.reset_now_playing()
         self.kill_ffmpeg()
+        # Small delay to ensure FFmpeg fully terminates and file handles close
+        # Critical on Raspberry Pi with slow SD cards and hardware encoder cleanup
+        time.sleep(0.3)
         delete_tmp_dir()
-        logging.debug("ffmpeg process killed")
+        logging.debug("Cleanup complete")
 
     def transpose_current(self, semitones: int) -> None:
         """Restart the current song with a new transpose value.
@@ -1075,6 +1125,7 @@ class Karaoke:
         if self.is_file_playing():
             logging.info("Restarting: " + self.now_playing)
             self.is_paused = False
+            self.update_now_playing_hash()
             return True
         else:
             logging.warning("Tried to restart, but no file is playing!")
@@ -1125,18 +1176,14 @@ class Karaoke:
         return np
 
     def update_now_playing_hash(self) -> None:
-        """Update the hash of now playing state for change detection."""
-        self.now_playing_hash = hashlib.md5(
-            json.dumps(self.get_now_playing(), sort_keys=True, ensure_ascii=True).encode(
-                "utf-8", "ignore"
-            )
-        ).hexdigest()
+        """Emit now_playing state change via SocketIO."""
+        if self.socketio:
+            self.socketio.emit("now_playing", self.get_now_playing(), namespace="/")
 
     def update_queue_hash(self) -> None:
-        """Update the hash of queue state for change detection."""
-        self.queue_hash = hashlib.md5(
-            json.dumps(self.queue, ensure_ascii=True).encode("utf-8", "ignore")
-        ).hexdigest()
+        """Emit queue_update state change via SocketIO."""
+        if self.socketio:
+            self.socketio.emit("queue_update", namespace="/")
 
     def run(self) -> None:
         """Main run loop - processes queue and plays songs.
