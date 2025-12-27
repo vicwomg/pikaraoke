@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import tempfile
+import time
 import zipfile
 from sys import maxsize
 
@@ -33,7 +34,17 @@ def delete_tmp_dir() -> None:
     """Delete the temporary directory and all its contents."""
     tmp_dir = get_tmp_dir()
     if os.path.exists(tmp_dir):
-        shutil.rmtree(tmp_dir)
+        # On Windows, files may still be locked briefly after process termination
+        # Use error handler to ignore permission errors on individual files
+        def handle_remove_error(func, path, exc_info):
+            """Error handler for shutil.rmtree - ignores permission errors on Windows"""
+            import logging
+            if isinstance(exc_info[1], PermissionError):
+                logging.debug(f"Could not delete {path}: file in use, will be cleaned up on next run")
+            else:
+                logging.warning(f"Error deleting {path}: {exc_info[1]}")
+
+        shutil.rmtree(tmp_dir, onerror=handle_remove_error)
 
 
 def string_to_hash(s: str) -> int:
@@ -89,6 +100,9 @@ class FileResolver:
         tmp_dir: Temporary directory for extracted files.
         stream_uid: Unique identifier for the stream based on file path hash.
         output_file: Path where the transcoded output will be written.
+        segment_pattern: Pattern for HLS segment filenames.
+        init_filename: Filename for HLS initialization segment.
+        streaming_format: Video streaming format ('hls' or 'mp4').
         duration: Duration of the media file in seconds.
     """
 
@@ -96,17 +110,29 @@ class FileResolver:
     cdg_file_path: str | None = None
     file_extension: str | None = None
 
-    def __init__(self, file_path: str) -> None:
+    def __init__(self, file_path: str, streaming_format: str = "hls") -> None:
         """Initialize the FileResolver with a media file path.
 
         Args:
             file_path: Path to the media file to resolve.
+            streaming_format: Video streaming format ('hls' or 'mp4').
         """
         create_tmp_dir()
         self.tmp_dir = get_tmp_dir()
         self.resolved_file_path = self.process_file(file_path)
-        self.stream_uid = string_to_hash(file_path)
-        self.output_file = f"{self.tmp_dir}/{self.stream_uid}.mp4"
+        # Include timestamp to ensure unique stream UIDs for repeated plays
+        unique_string = f"{file_path}_{time.time()}"
+        self.stream_uid = string_to_hash(unique_string)
+        self.streaming_format = streaming_format
+
+        # Set output file extension based on streaming format
+        if streaming_format == "mp4":
+            self.output_file = f"{self.tmp_dir}/{self.stream_uid}.mp4"
+        else:  # hls
+            self.output_file = f"{self.tmp_dir}/{self.stream_uid}.m3u8"
+
+        self.segment_pattern = f"{self.tmp_dir}/{self.stream_uid}_segment_%03d.m4s"
+        self.init_filename = f"{self.stream_uid}_init.mp4"
 
     def handle_zipped_cdg(self, file_path: str) -> None:
         """Extract zipped CDG + MP3 files into a temporary directory.

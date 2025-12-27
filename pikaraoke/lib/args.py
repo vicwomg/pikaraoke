@@ -4,7 +4,7 @@ import argparse
 import logging
 import os
 
-from pikaraoke.lib.get_platform import get_default_dl_dir, get_platform, is_raspberry_pi
+from pikaraoke.lib.get_platform import get_default_dl_dir, get_platform, is_raspberry_pi, should_use_mp4_streaming
 
 
 def arg_path_parse(path: str | list[str] | None) -> str | None:
@@ -284,6 +284,13 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         "--cdg-pixel-scaling",
         help="Enable CDG pixel scaling to improve video rendering of CDG files. This may increase CPU usage and may cause performance issues on slower devices.",
         action="store_true",
+        required=False,
+    ),
+    parser.add_argument(
+        "--streaming-format",
+        help="Video streaming format: 'hls' (HLS with fMP4 segments - for Smart TVs) or 'mp4' (progressive MP4 - for Chrome, Firefox, Safari, RPi). Default is 'mp4'. Smart TV users should use --streaming-format hls.",
+        choices=["hls", "mp4"],
+        default="mp4",
         required=False,
     ),
 
