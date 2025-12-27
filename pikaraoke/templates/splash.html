@@ -419,15 +419,24 @@
     });
 
     $("#video source")[0].addEventListener("error", (e) => {
-      // Only treat errors as fatal if the video has actually started playing
-      // HLS streams can have transient errors during initial buffering
-      if (videoHasPlayed) {
-        console.log("Error while playing video.");
-        console.log(e);
-        endSong("error while playing");
-      } else {
-        console.log("Ignoring error during initial HLS buffering:", e);
-      }
+        // Only treat errors as fatal if the video has actually started playing
+        // HLS streams can have transient errors during initial buffering
+        if (videoHasPlayed) {
+            console.log("Error while playing video.");
+            console.log(e);
+            endSong("error while playing");
+        } else {
+            console.log("Video error during initial buffering:", e);
+            // Still cleanup the video element to free GPU memory
+            // but don't end the song (it never started)
+            const video = getVideoPlayer();
+            video.pause();
+            $("#video-source").attr("src", "");
+            video.load();
+            currentVideoUrl = null;  // Reset URL tracking
+            hideVideo();
+            // The server-side timeout will handle this if playback never starts
+        }
     });
 
     // Load the background music playlist from server
