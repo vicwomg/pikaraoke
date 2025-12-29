@@ -1,7 +1,5 @@
 on:
-  push:
-    branches:
-    - master
+  workflow_dispatch:  # Manual trigger only - go to Actions tab to run
 
 name: release-please
 
