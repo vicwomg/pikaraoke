@@ -61,30 +61,6 @@ def has_js_runtime() -> bool:
     return get_installed_js_runtime() is not None
 
 
-def should_use_mp4_streaming() -> bool:
-    """Determine if MP4 streaming should be used instead of HLS.
-
-    Returns True for older Raspberry Pi models (3B+, 3B, or earlier)
-    where Chromium doesn't support HLS natively.
-
-    Returns:
-        True if MP4 streaming should be used, False otherwise.
-    """
-    if not is_raspberry_pi():
-        return False
-
-    try:
-        with open("/proc/device-tree/model", "r") as file:
-            model = file.read().strip().lower()
-            # Detect RPi 3B+, 3B, or earlier (not 4 or 5)
-            if "raspberry pi 3" in model or "raspberry pi 2" in model or "raspberry pi 1" in model or "raspberry pi zero" in model:
-                return True
-    except FileNotFoundError:
-        pass
-
-    return False
-
-
 def get_platform() -> str:
     """Detect the current operating system/platform.
 
