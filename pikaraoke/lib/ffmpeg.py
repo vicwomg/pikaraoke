@@ -1,6 +1,7 @@
 """FFmpeg utilities for media processing and transcoding."""
 
 import logging
+import platform
 import subprocess
 
 import ffmpeg
@@ -199,17 +200,37 @@ def is_transpose_enabled():
 
 def supports_hardware_h264_encoding():
     """Check if hardware H.264 encoding (h264_v4l2m2m) is available.
+    
+    Only returns True on ARM architecture (Raspberry Pi) where h264_v4l2m2m
+    is actually supported. On x86/Intel systems, returns False to use software encoding.
 
     Returns:
         True if hardware encoding is available, False otherwise.
     """
+    # Check CPU architecture first - h264_v4l2m2m only works on ARM
+    arch = platform.machine().lower()
+    is_arm = any(arm_variant in arch for arm_variant in ["arm", "aarch"])
+    
+    if not is_arm:
+        # Not ARM (probably Intel x86/x64), don't use h264_v4l2m2m
+        logging.debug(f"CPU architecture {arch} is not ARM, using software encoder")
+        return False
+    
+    # On ARM, check if h264_v4l2m2m is available
     try:
         codecs = subprocess.run(["ffmpeg", "-codecs"], capture_output=True)
     except FileNotFoundError:
         return False
     except IndexError:
         return False
-    return "h264_v4l2m2m" in codecs.stdout.decode()
+    
+    has_encoder = "h264_v4l2m2m" in codecs.stdout.decode()
+    if has_encoder:
+        logging.info("ARM platform detected, using h264_v4l2m2m hardware encoder")
+    else:
+        logging.debug("ARM platform but h264_v4l2m2m not available")
+    
+    return has_encoder
 
 
 def is_ffmpeg_installed():
