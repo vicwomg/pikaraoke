@@ -4,7 +4,7 @@ import argparse
 import logging
 import os
 
-from pikaraoke.lib.get_platform import get_default_dl_dir, get_platform, is_raspberry_pi, should_use_mp4_streaming
+from pikaraoke.lib.get_platform import get_default_dl_dir, get_platform, is_raspberry_pi
 
 
 def arg_path_parse(path: str | list[str] | None) -> str | None:
