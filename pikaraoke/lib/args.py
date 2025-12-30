@@ -288,7 +288,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     ),
     parser.add_argument(
         "--streaming-format",
-        help="Video streaming format: 'hls' (HLS with fMP4 segments - for Smart TVs and Safari browser) or 'mp4' (progressive MP4 - for Chrome, Firefox, Chromium-based browsers). Default is 'mp4'. Smart TV users should use --streaming-format hls.",
+        help="Video streaming format: 'hls' (HLS with fMP4 segments - for Smart TVs and Safari browser) or 'mp4' (progressive MP4 - for Chrome, Firefox, Chromium-based browsers). Default is 'mp4'.",
         choices=["hls", "mp4"],
         default="mp4",
         required=False,
