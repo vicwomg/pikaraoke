@@ -1,5 +1,7 @@
 """FFmpeg utilities for media processing and transcoding."""
 
+from __future__ import annotations
+
 import logging
 import platform
 import subprocess
@@ -7,7 +9,7 @@ import subprocess
 import ffmpeg
 
 
-def get_media_duration(file_path):
+def get_media_duration(file_path: str) -> int | None:
     """Get the duration of a media file in seconds.
 
     Args:
@@ -24,13 +26,13 @@ def get_media_duration(file_path):
 
 
 def build_ffmpeg_cmd(
-    fr,
-    semitones=0,
-    normalize_audio=True,
-    buffer_fully_before_playback=False,
-    avsync=0,
-    cdg_pixel_scaling=False,
-):
+    fr: FileResolver,
+    semitones: int = 0,
+    normalize_audio: bool = True,
+    buffer_fully_before_playback: bool = False,
+    avsync: float = 0,
+    cdg_pixel_scaling: bool = False,
+) -> ffmpeg.nodes.OutputStream:
     """Build an ffmpeg command for transcoding media.
 
     Handles video/audio codec selection, pitch shifting, audio normalization,
@@ -124,7 +126,10 @@ def build_ffmpeg_cmd(
             hls_fmp4_init_filename=fr.init_filename,
             hls_segment_filename=fr.segment_pattern,
             video_bitrate="500k",
-            **{"vsync": "cfr", "avoid_negative_ts": "make_zero"},  # Force constant frame rate and fix negative timestamps
+            **{
+                "vsync": "cfr",
+                "avoid_negative_ts": "make_zero",
+            },  # Force constant frame rate and fix negative timestamps
         )
     else:
         video = input.video
@@ -153,7 +158,10 @@ def build_ffmpeg_cmd(
             hls_fmp4_init_filename=fr.init_filename,
             hls_segment_filename=fr.segment_pattern,
             video_bitrate=vbitrate,
-            **{"vsync": "cfr", "avoid_negative_ts": "make_zero"},  # Force constant frame rate and fix negative timestamps
+            **{
+                "vsync": "cfr",
+                "avoid_negative_ts": "make_zero",
+            },  # Force constant frame rate and fix negative timestamps
         )
 
     args = output.get_args()
@@ -161,7 +169,7 @@ def build_ffmpeg_cmd(
     return output
 
 
-def get_ffmpeg_version():
+def get_ffmpeg_version() -> str:
     """Get the installed FFmpeg version string.
 
     Returns:
@@ -183,7 +191,7 @@ def get_ffmpeg_version():
         return "Unable to parse FFmpeg version"
 
 
-def is_transpose_enabled():
+def is_transpose_enabled() -> bool:
     """Check if FFmpeg has the rubberband filter for pitch shifting.
 
     Returns:
@@ -198,9 +206,9 @@ def is_transpose_enabled():
     return "rubberband" in filters.stdout.decode()
 
 
-def supports_hardware_h264_encoding():
+def supports_hardware_h264_encoding() -> bool:
     """Check if hardware H.264 encoding (h264_v4l2m2m) is available.
-    
+
     Only returns True on ARM architecture (Raspberry Pi) where h264_v4l2m2m
     is actually supported. On x86/Intel systems, returns False to use software encoding.
 
@@ -210,12 +218,12 @@ def supports_hardware_h264_encoding():
     # Check CPU architecture first - h264_v4l2m2m only works on ARM
     arch = platform.machine().lower()
     is_arm = any(arm_variant in arch for arm_variant in ["arm", "aarch"])
-    
+
     if not is_arm:
         # Not ARM (probably Intel x86/x64), don't use h264_v4l2m2m
         logging.debug(f"CPU architecture {arch} is not ARM, using software encoder")
         return False
-    
+
     # On ARM, check if h264_v4l2m2m is available
     try:
         codecs = subprocess.run(["ffmpeg", "-codecs"], capture_output=True)
@@ -223,17 +231,17 @@ def supports_hardware_h264_encoding():
         return False
     except IndexError:
         return False
-    
+
     has_encoder = "h264_v4l2m2m" in codecs.stdout.decode()
     if has_encoder:
         logging.info("ARM platform detected, using h264_v4l2m2m hardware encoder")
     else:
         logging.debug("ARM platform but h264_v4l2m2m not available")
-    
+
     return has_encoder
 
 
-def is_ffmpeg_installed():
+def is_ffmpeg_installed() -> bool:
     """Check if FFmpeg is installed and accessible.
 
     Returns:
