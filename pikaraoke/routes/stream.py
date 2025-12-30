@@ -5,7 +5,16 @@ import re
 import time
 
 import flask_babel
-from flask import Blueprint, Response, flash, make_response, redirect, request, send_file, url_for
+from flask import (
+    Blueprint,
+    Response,
+    flash,
+    make_response,
+    redirect,
+    request,
+    send_file,
+    url_for,
+)
 
 from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.file_resolver import get_tmp_dir
@@ -38,7 +47,7 @@ def stream_playlist(id):
 @stream_bp.route("/stream/<filename>.m4s")
 def stream_segment_m4s(filename):
     # Security: prevent directory traversal
-    if '..' in filename or '/' in filename:
+    if ".." in filename or "/" in filename:
         return Response("Invalid segment", status=400)
 
     segment_path = os.path.join(get_tmp_dir(), f"{filename}.m4s")
@@ -53,7 +62,7 @@ def stream_segment_m4s(filename):
 @stream_bp.route("/stream/<filename>_init.mp4")
 def stream_init(filename):
     # Security: prevent directory traversal
-    if '..' in filename or '/' in filename:
+    if ".." in filename or "/" in filename:
         return Response("Invalid init file", status=400)
 
     init_path = os.path.join(get_tmp_dir(), f"{filename}_init.mp4")
@@ -67,7 +76,7 @@ def stream_init(filename):
 @stream_bp.route("/stream/<filename>.ts")
 def stream_segment(filename):
     # Security: prevent directory traversal
-    if '..' in filename or '/' in filename:
+    if ".." in filename or "/" in filename:
         return Response("Invalid segment", status=400)
 
     segment_path = os.path.join(get_tmp_dir(), f"{filename}.ts")
@@ -82,10 +91,10 @@ def stream_segment(filename):
 @stream_bp.route("/stream/<id>")
 def stream_main(id):
     # Check if it's an HLS request (.m3u8) or MP4 request (.mp4)
-    if request.path.endswith('.m3u8'):
-        return stream_playlist(id.replace('.m3u8', ''))
-    elif request.path.endswith('.mp4'):
-        return stream_progressive_mp4(id.replace('.mp4', ''))
+    if request.path.endswith(".m3u8"):
+        return stream_playlist(id.replace(".m3u8", ""))
+    elif request.path.endswith(".mp4"):
+        return stream_progressive_mp4(id.replace(".mp4", ""))
     else:
         # Fallback: try HLS first
         return stream_playlist(id)

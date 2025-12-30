@@ -39,8 +39,11 @@ def delete_tmp_dir() -> None:
         def handle_remove_error(func, path, exc_info):
             """Error handler for shutil.rmtree - ignores permission errors on Windows"""
             import logging
+
             if isinstance(exc_info[1], PermissionError):
-                logging.debug(f"Could not delete {path}: file in use, will be cleaned up on next run")
+                logging.debug(
+                    f"Could not delete {path}: file in use, will be cleaned up on next run"
+                )
             else:
                 logging.warning(f"Error deleting {path}: {exc_info[1]}")
 
