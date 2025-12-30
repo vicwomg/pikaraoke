@@ -1,3 +1,5 @@
+"""Video streaming routes for transcoded media playback."""
+
 import os
 import re
 import time
@@ -182,12 +184,42 @@ def stream_file_path_full(file_path):
 # (Safari compatible, but requires the ffmpeg transcoding to be complete to know file size)
 @stream_bp.route("/stream/full/<id>")
 def stream_full(id):
+    """Stream video with range headers (Safari compatible).
+    ---
+    tags:
+      - Stream
+    parameters:
+      - name: id
+        in: path
+        type: string
+        required: true
+        description: Video stream ID
+    produces:
+      - video/mp4
+    responses:
+      200:
+        description: Full video file
+      206:
+        description: Partial video content (range request)
+    """
     file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
     return stream_file_path_full(file_path)
 
 
 @stream_bp.route("/stream/bg_video")
 def stream_bg_video():
+    """Stream the background video file.
+    ---
+    tags:
+      - Stream
+    produces:
+      - video/mp4
+    responses:
+      200:
+        description: Background video file
+      404:
+        description: Background video not configured
+    """
     k = get_karaoke_instance()
     file_path = k.bg_video_path
     if k.bg_video_path is not None:
