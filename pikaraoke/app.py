@@ -195,7 +195,7 @@ def main() -> None:
         bg_video_path=args.bg_video_path,
         disable_score=args.disable_score,
         limit_user_songs_by=args.limit_user_songs_by,
-        avsync=args.avsync,
+        avsync=float(args.avsync),
         config_file_path=args.config_file_path,
         cdg_pixel_scaling=args.cdg_pixel_scaling,
         streaming_format=args.streaming_format,

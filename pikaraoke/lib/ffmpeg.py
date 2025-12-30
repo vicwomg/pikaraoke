@@ -29,7 +29,7 @@ def build_ffmpeg_cmd(
     fr: FileResolver,
     semitones: int = 0,
     normalize_audio: bool = True,
-    buffer_fully_before_playback: bool = False,
+    force_mp4_encoding: bool = False,
     avsync: float = 0,
     cdg_pixel_scaling: bool = False,
 ) -> ffmpeg.nodes.OutputStream:
@@ -42,7 +42,7 @@ def build_ffmpeg_cmd(
         fr: FileResolver instance with source file information.
         semitones: Number of semitones to shift pitch (0 = no shift).
         normalize_audio: Whether to apply loudness normalization.
-        buffer_fully_before_playback: If True, use faststart for full buffering.
+        force_mp4_encoding: If True, force mp4 encoding.
         avsync: Audio/video sync adjustment in seconds.
         cdg_pixel_scaling: Enable pixel scaling for CDG rendering.
 
@@ -99,70 +99,99 @@ def build_ffmpeg_cmd(
         else:
             video = cdg_input.video.filter("fps", fps=25)
 
-        # Both MP4 and HLS modes use HLS format (init.mp4 + fMP4 segments)
-        # The difference is in how they're served:
-        # - mp4: Stream concatenates init + segments for progressive playback
-        # - hls: Browser requests segments via .m3u8 playlist
-        #
-        # This approach works because:
-        # - Segments are pre-encoded (no real-time streaming pressure)
-        # - Hardware encoding (h264_v4l2m2m) works reliably with discrete segments
-        # - Both Chrome and Smart TVs can use the same encoded output
-        output = ffmpeg.output(
-            audio,
-            video,
-            fr.output_file,
-            vcodec="libx264",
-            acodec="aac",
-            audio_bitrate="192k",  # Explicit quality for AAC
-            ac=2,  # Force stereo (downmix surround sound)
-            ar=48000,  # Standard sample rate for streaming
-            preset="ultrafast",
-            pix_fmt="yuv420p",
-            f="hls",
-            hls_time=3,
-            hls_list_size=0,
-            hls_segment_type="fmp4",
-            hls_fmp4_init_filename=fr.init_filename,
-            hls_segment_filename=fr.segment_pattern,
-            video_bitrate="500k",
-            **{
-                "vsync": "cfr",
-                "avoid_negative_ts": "make_zero",
-            },  # Force constant frame rate and fix negative timestamps
-        )
+        if force_mp4_encoding:
+            output = ffmpeg.output(
+                audio,
+                video,
+                fr.output_file,
+                vcodec="libx264",
+                acodec="aac",
+                preset="ultrafast",
+                pix_fmt="yuv420p",
+                listen=1,
+                f="mp4",
+                video_bitrate="500k",
+                movflags="+faststart",
+            )
+        else:
+            # Both MP4 and HLS modes use HLS format (init.mp4 + fMP4 segments)
+            # The difference is in how they're served:
+            # - mp4: Stream concatenates init + segments for progressive playback
+            # - hls: Browser requests segments via .m3u8 playlist
+            #
+            # This approach works because:
+            # - Segments are pre-encoded (no real-time streaming pressure)
+            # - Hardware encoding (h264_v4l2m2m) works reliably with discrete segments
+            # - Both Chrome and Smart TVs can use the same encoded output
+            output = ffmpeg.output(
+                audio,
+                video,
+                fr.output_file,
+                vcodec="libx264",
+                acodec="aac",
+                audio_bitrate="192k",  # Explicit quality for AAC
+                ac=2,  # Force stereo (downmix surround sound)
+                ar=48000,  # Standard sample rate for streaming
+                preset="ultrafast",
+                pix_fmt="yuv420p",
+                f="hls",
+                hls_time=3,
+                hls_list_size=0,
+                hls_segment_type="fmp4",
+                hls_fmp4_init_filename=fr.init_filename,
+                hls_segment_filename=fr.segment_pattern,
+                video_bitrate="500k",
+                **{
+                    "vsync": "cfr",
+                    "avoid_negative_ts": "make_zero",
+                },  # Force constant frame rate and fix negative timestamps
+            )
     else:
         video = input.video
 
         # For WEBM files, genpts at input level handles timestamp regeneration
         # No additional filters needed - let genpts + avoid_negative_ts do the work
 
-        # Both MP4 and HLS modes use HLS format (init.mp4 + fMP4 segments)
-        # The difference is in how they're served:
-        # - mp4: Stream concatenates init + segments for progressive playback
-        # - hls: Browser requests segments via .m3u8 playlist
-        output = ffmpeg.output(
-            audio,
-            video,
-            fr.output_file,
-            vcodec=vcodec,
-            acodec="aac",  # Force AAC encoding for compatibility
-            audio_bitrate="192k",  # Explicit quality for AAC
-            ac=2,  # Force stereo (downmix surround sound)
-            ar=48000,  # Standard sample rate for streaming
-            preset="ultrafast",
-            f="hls",
-            hls_time=3,
-            hls_list_size=0,
-            hls_segment_type="fmp4",
-            hls_fmp4_init_filename=fr.init_filename,
-            hls_segment_filename=fr.segment_pattern,
-            video_bitrate=vbitrate,
-            **{
-                "vsync": "cfr",
-                "avoid_negative_ts": "make_zero",
-            },  # Force constant frame rate and fix negative timestamps
-        )
+        if force_mp4_encoding:
+            output = ffmpeg.output(
+                audio,
+                video,
+                fr.output_file,
+                vcodec=vcodec,
+                acodec=acodec,
+                preset="ultrafast",
+                listen=1,
+                f="mp4",
+                video_bitrate=vbitrate,
+                movflags="+faststart",
+            )
+        else:
+            # Both MP4 and HLS modes use HLS format (init.mp4 + fMP4 segments)
+            # The difference is in how they're served:
+            # - mp4: Stream concatenates init + segments for progressive playback
+            # - hls: Browser requests segments via .m3u8 playlist
+            output = ffmpeg.output(
+                audio,
+                video,
+                fr.output_file,
+                vcodec=vcodec,
+                acodec="aac",  # Force AAC encoding for compatibility
+                audio_bitrate="192k",  # Explicit quality for AAC
+                ac=2,  # Force stereo (downmix surround sound)
+                ar=48000,  # Standard sample rate for streaming
+                preset="ultrafast",
+                f="hls",
+                hls_time=3,
+                hls_list_size=0,
+                hls_segment_type="fmp4",
+                hls_fmp4_init_filename=fr.init_filename,
+                hls_segment_filename=fr.segment_pattern,
+                video_bitrate=vbitrate,
+                **{
+                    "vsync": "cfr",
+                    "avoid_negative_ts": "make_zero",
+                },  # Force constant frame rate and fix negative timestamps
+            )
 
     args = output.get_args()
     logging.debug(f"COMMAND: ffmpeg " + " ".join(args))

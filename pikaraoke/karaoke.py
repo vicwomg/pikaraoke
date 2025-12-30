@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import configparser
 import contextlib
-import hashlib
 import json
 import logging
 import os
@@ -667,11 +666,14 @@ class Karaoke:
         """
         logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
 
+        is_hls = self.streaming_format == "hls"
+
         requires_transcoding = (
             semitones != 0
             or self.normalize_audio
             or is_transcoding_required(file_path)
             or self.avsync != 0
+            or is_hls
         )
 
         logging.debug(f"Requires transcoding: {requires_transcoding}")
@@ -684,13 +686,13 @@ class Karaoke:
             return False
 
         # Set stream URL based on format
-        if self.streaming_format == "mp4":
-            stream_url_path = f"/stream/{fr.stream_uid}.mp4"
-        else:  # hls
+        if is_hls:
             stream_url_path = f"/stream/{fr.stream_uid}.m3u8"
+        else:
+            stream_url_path = f"/stream/{fr.stream_uid}.mp4"
 
-        # For non-transcoded files, still use direct MP4 serving
-        if not requires_transcoding:
+        # For non-transcoded or complete transcoding files, use direct MP4 serving (except in HLS mode)
+        if (self.complete_transcode_before_play or not requires_transcoding) and not is_hls:
             stream_url_path = f"/stream/full/{fr.stream_uid}"
 
         if not requires_transcoding:
@@ -707,11 +709,13 @@ class Karaoke:
                 logging.debug(f"Copying file failed: {fr.output_file}")
         else:
             self.kill_ffmpeg()
+            # HLS mode will override the complete_transcode_before_play setting
+            force_mp4_encoding = False if is_hls else self.complete_transcode_before_play
             ffmpeg_cmd = build_ffmpeg_cmd(
                 fr,
                 semitones,
                 self.normalize_audio,
-                self.complete_transcode_before_play,
+                force_mp4_encoding,
                 self.avsync,
                 self.cdg_pixel_scaling,
             )
@@ -758,12 +762,17 @@ class Karaoke:
                         # Check if playlist has at least 2 segments ready for streaming
                         segment_count = 0  # Initialize to avoid NameError in logging
                         if output_file_size > 0:
-                            with open(fr.output_file, 'r') as f:
+                            with open(fr.output_file, "r") as f:
                                 playlist_content = f.read()
-                                segment_count = playlist_content.count('.m4s')
-                                is_buffering_complete = segment_count >= 2
+                                segment_count = playlist_content.count(".m4s")
+                                # Convert buffer_size (KB) to segment count
+                                # Each segment ≈ 3 seconds at configured bitrate (roughly 600-800KB)
+                                min_segments = max(2, int(self.buffer_size / 700))
+                                is_buffering_complete = segment_count >= min_segments
                         if is_buffering_complete:
-                            logging.debug(f"Buffering complete. Playlist size: {output_file_size}, Segments: {segment_count}")
+                            logging.debug(
+                                f"Buffering complete. Playlist size: {output_file_size}, Segments: {segment_count}"
+                            )
                             break
                 except FileNotFoundError:
                     # Expected: FFmpeg hasn't created the playlist file yet
@@ -771,7 +780,9 @@ class Karaoke:
                     pass
                 except (PermissionError, OSError, IOError) as e:
                     # Unexpected: SD card issues, filesystem problems
-                    logging.warning(f"I/O error while checking buffer status for {fr.output_file}: {e}")
+                    logging.warning(
+                        f"I/O error while checking buffer status for {fr.output_file}: {e}"
+                    )
                     # Continue - may be transient issue
                 except UnicodeDecodeError as e:
                     # FFmpeg wrote binary data instead of text playlist - error state
@@ -779,7 +790,9 @@ class Karaoke:
                     # Continue for now, but this is suspicious
                 except Exception as e:
                     # Catch-all for truly unexpected errors
-                    logging.error(f"Unexpected error during buffering check: {type(e).__name__}: {e}")
+                    logging.error(
+                        f"Unexpected error during buffering check: {type(e).__name__}: {e}"
+                    )
                     # Continue waiting, don't crash
                 # Prevent infinite loop if playback never starts
                 if transcode_max_retries <= 0:
