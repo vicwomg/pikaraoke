@@ -6,7 +6,6 @@ import configparser
 import contextlib
 import json
 import logging
-import math
 import os
 import random
 import shutil
@@ -735,6 +734,8 @@ class Karaoke:
 
             is_transcoding_complete = False
             is_buffering_complete = False
+            buffer_size = int(self.buffer_size) * 1000  # convert from kb to bytes
+            min_segments = 3  # minimum number of segments ready for streaming
 
             # Transcoding readiness polling loop
             while True:
@@ -750,27 +751,26 @@ class Karaoke:
                         break
                     else:
                         is_transcoding_complete = True
-                        output_file_size = os.path.getsize(fr.output_file)
-                        logging.debug(f"Transcoding complete. File size: {output_file_size}")
+                        output_dir_size = fr.get_tmp_dir_size()
+                        logging.debug(f"Transcoding complete. Output size: {output_dir_size}")
                         break
                 # Check if the file has buffered enough to start playback
                 try:
                     output_file_size = os.path.getsize(fr.output_file)
                     if not self.complete_transcode_before_play:
                         # Both mp4 and hls modes now use HLS format (init.mp4 + segments)
-                        # Check if playlist has at least 2 segments ready for streaming
+                        # Check if playlist has at least min_segments ready for streaming
                         segment_count = 0  # Initialize to avoid NameError in logging
-                        min_segments = max(2, math.ceil(int(self.buffer_size) / 700))
                         if output_file_size > 0:
                             with open(fr.output_file, "r") as f:
                                 playlist_content = f.read()
                                 segment_count = playlist_content.count(".m4s")
-                                # Convert buffer_size (KB) to segment count
-                                # Each segment ≈ 3 seconds at configured bitrate (roughly 600-800KB)
-                                is_buffering_complete = segment_count >= min_segments
+                                is_buffering_complete = (fr.get_tmp_dir_size() >= buffer_size) and (
+                                    segment_count >= min_segments
+                                )
                         if is_buffering_complete:
                             logging.debug(
-                                f"Buffering complete {fr.output_file}. Playlist size: {output_file_size}, Segments: {segment_count}, Min segments: {min_segments}"
+                                f"Buffering complete {fr.output_file}. Playlist size: {fr.get_tmp_dir_size()}, Buffer size: {buffer_size}, Segments: {segment_count}, Min segments: {min_segments}"
                             )
                             break
                 except FileNotFoundError:
