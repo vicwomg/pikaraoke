@@ -137,10 +137,18 @@ class FileResolver:
         self.segment_pattern = f"{self.tmp_dir}/{self.stream_uid}_segment_%03d.m4s"
         self.init_filename = f"{self.stream_uid}_init.mp4"
 
-    def get_tmp_dir_size(self) -> int:
-        """Get the size of the contents of the temporary directory. Primarily used
-        for HLS mode to check if the buffer is full before starting playback."""
-        return sum(os.path.getsize(os.path.join(self.tmp_dir, f)) for f in os.listdir(self.tmp_dir))
+    def get_current_stream_size(self) -> int:
+        """Get the size of files belonging to this stream in the temporary directory.
+
+        Only counts files containing the stream_uid in their filename.
+        Primarily used for HLS mode to check if the buffer is full before starting playback.
+        """
+        stream_uid_str = str(self.stream_uid)
+        return sum(
+            os.path.getsize(os.path.join(self.tmp_dir, f))
+            for f in os.listdir(self.tmp_dir)
+            if stream_uid_str in f
+        )
 
     def handle_zipped_cdg(self, file_path: str) -> None:
         """Extract zipped CDG + MP3 files into a temporary directory.

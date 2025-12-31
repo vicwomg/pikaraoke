@@ -751,8 +751,8 @@ class Karaoke:
                         break
                     else:
                         is_transcoding_complete = True
-                        output_dir_size = fr.get_tmp_dir_size()
-                        logging.debug(f"Transcoding complete. Output size: {output_dir_size}")
+                        stream_size = fr.get_current_stream_size()
+                        logging.debug(f"Transcoding complete. Output size: {stream_size}")
                         break
                 # Check if the file has buffered enough to start playback
                 try:
@@ -761,16 +761,17 @@ class Karaoke:
                         # Both mp4 and hls modes now use HLS format (init.mp4 + segments)
                         # Check if playlist has at least min_segments ready for streaming
                         segment_count = 0  # Initialize to avoid NameError in logging
+                        stream_size = fr.get_current_stream_size()
                         if output_file_size > 0:
                             with open(fr.output_file, "r") as f:
                                 playlist_content = f.read()
                                 segment_count = playlist_content.count(".m4s")
-                                is_buffering_complete = (fr.get_tmp_dir_size() >= buffer_size) and (
+                                is_buffering_complete = (stream_size >= buffer_size) and (
                                     segment_count >= min_segments
                                 )
                         if is_buffering_complete:
                             logging.debug(
-                                f"Buffering complete {fr.output_file}. Playlist size: {fr.get_tmp_dir_size()}, Buffer size: {buffer_size}, Segments: {segment_count}, Min segments: {min_segments}"
+                                f"Buffering complete {fr.output_file}. Playlist stream size: {stream_size}, Buffer size: {buffer_size}, Segments: {segment_count}, Min segments: {min_segments}"
                             )
                             break
                 except FileNotFoundError:
