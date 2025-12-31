@@ -91,10 +91,6 @@ class Karaoke:
     is_paused: bool = True
     volume: float | None = None
 
-    # hashes are used to determine if the client needs to update the now playing or queue
-    now_playing_hash: str | None = None
-    queue_hash: str | None = None
-
     is_playing: bool = False
     process: subprocess.Popen | None = None
     qr_code_path: str | None = None
@@ -818,8 +814,8 @@ class Karaoke:
             self.now_playing_user = self.queue[0]["user"]
             self.is_paused = False
             self.queue.pop(0)
-            self.update_now_playing_hash()
-            self.update_queue_hash()
+            self.update_now_playing_socket()
+            self.update_queue_socket()
             # Pause until the stream is playing
             transcode_max_retries = 100
             while self.is_playing == False and transcode_max_retries > 0:
@@ -983,8 +979,8 @@ class Karaoke:
                     # MSG: Message shown after the song is added to the queue
                     self.log_and_send(_("%s added to the queue: %s") % (user, queue_item["title"]))
                 self.queue.append(queue_item)
-            self.update_queue_hash()
-            self.update_now_playing_hash()
+            self.update_queue_socket()
+            self.update_now_playing_socket()
             return [
                 True,
                 _("Song added to the queue: %s") % (self.filename_from_path(song_path)),
@@ -1023,8 +1019,8 @@ class Karaoke:
         # MSG: Message shown after the queue is cleared
         self.log_and_send(_("Clear queue"), "danger")
         self.queue = []
-        self.update_queue_hash()
-        self.update_now_playing_hash()
+        self.update_queue_socket()
+        self.update_now_playing_socket()
         self.skip(log_action=False)
 
     def queue_edit(self, song_name: str, action: str) -> bool:
@@ -1071,8 +1067,8 @@ class Karaoke:
         else:
             logging.error("Unrecognized direction: " + action)
         if rc:
-            self.update_queue_hash()
-            self.update_now_playing_hash()
+            self.update_queue_socket()
+            self.update_now_playing_socket()
         return rc
 
     def skip(self, log_action: bool = True) -> bool:
@@ -1108,7 +1104,7 @@ class Karaoke:
                 # MSG: Message shown after the song is paused, will be followed by song name
                 self.log_and_send(_("Pause") + f": {self.now_playing}")
             self.is_paused = not self.is_paused
-            self.update_now_playing_hash()
+            self.update_now_playing_socket()
             return True
         else:
             logging.warning("Tried to pause, but no file is playing!")
@@ -1126,7 +1122,7 @@ class Karaoke:
         self.volume = vol_level
         # MSG: Message shown after the volume is changed, will be followed by the volume level
         self.log_and_send(_("Volume: %s") % (int(self.volume * 100)))
-        self.update_now_playing_hash()
+        self.update_now_playing_socket()
         return True
 
     def vol_up(self) -> None:
@@ -1156,7 +1152,7 @@ class Karaoke:
         if self.is_file_playing():
             logging.info("Restarting: " + self.now_playing)
             self.is_paused = False
-            self.update_now_playing_hash()
+            self.update_now_playing_socket()
             return True
         else:
             logging.warning("Tried to restart, but no file is playing!")
@@ -1185,7 +1181,7 @@ class Karaoke:
         self.now_playing_transpose = 0
         self.now_playing_duration = None
         self.ffmpeg_log = None
-        self.update_now_playing_hash()
+        self.update_now_playing_socket()
 
     def get_now_playing(self) -> dict[str, Any]:
         """Get the current playback state.
@@ -1206,12 +1202,12 @@ class Karaoke:
         }
         return np
 
-    def update_now_playing_hash(self) -> None:
+    def update_now_playing_socket(self) -> None:
         """Emit now_playing state change via SocketIO."""
         if self.socketio:
             self.socketio.emit("now_playing", self.get_now_playing(), namespace="/")
 
-    def update_queue_hash(self) -> None:
+    def update_queue_socket(self) -> None:
         """Emit queue_update state change via SocketIO."""
         if self.socketio:
             self.socketio.emit("queue_update", namespace="/")
