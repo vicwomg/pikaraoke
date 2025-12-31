@@ -28,9 +28,10 @@
     return `${formattedMinutes}:${formattedSeconds}`;
   }
 
-  const isFirefox = typeof InstallTrigger !== "undefined";
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
   const isChrome = /chrome/i.test(navigator.userAgent) && !/edg/i.test(navigator.userAgent);
+  const isFirefox = /firefox/i.test(navigator.userAgent);
+  const isSupportedBrowser = isSafari || isChrome || isFirefox;
 
   var socket = io();
 
@@ -496,12 +497,12 @@
 		}
 	 });
 
-    if (isSafari) {
+    if (!isSupportedBrowser) {
       let modalContents = document.getElementById("permissions-modal-content");
       let warningMessage = document.createElement("p");
       warningMessage.classList.add("notification", "is-warning");
       warningMessage.innerHTML =
-        "This browser is not fully supported. You may experience streaming issues unless you enable full playback buffering or HLS streaming format. Please use Chrome for best results.";
+        "This browser is not fully supported. You may experience streaming issues. Please use Chrome/Safari/Firefox for best results.";
       modalContents.prepend(warningMessage);
     }
 
@@ -696,13 +697,13 @@
 </div>
 
 <div id="video-container" class="video-container">
-  <video id="video" disableRemotePlayback style="width: 100%; height: 100%; object-fit: contain;">
+  <video id="video" disableRemotePlayback playsinline webkit-playsinline style="width: 100%; height: 100%; object-fit: contain;">
     <source id="video-source" src="" />
   </video>
 </div>
 
 <div id="bg-video-container" class="video-container">
-  <video id="bg-video" disableRemotePlayback muted loop style="object-fit: cover">
+  <video id="bg-video" disableRemotePlayback playsinline webkit-playsinline muted loop style="object-fit: cover">
     <source id="bg-video-source" type="video/mp4" src="" />
   </video>
 </div>
