@@ -102,7 +102,7 @@ def stream_main(id):
 
 # Progressive MP4 streaming with init.mp4 + segments concatenation
 # This method works with HLS-generated fMP4 segments but serves them as continuous MP4
-# Compatible with Chrome, Firefox, Safari, and RPi with hardware acceleration
+# Compatible with Chrome, Firefox and RPi with hardware acceleration
 @stream_bp.route("/stream/<id>.mp4")
 def stream_progressive_mp4(id):
     tmp_dir = get_tmp_dir()
