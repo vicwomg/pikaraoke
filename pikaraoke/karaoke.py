@@ -681,8 +681,10 @@ class Karaoke:
         try:
             fr = FileResolver(file_path, self.streaming_format)
         except Exception as e:
-            logging.error("Error resolving file: " + str(e))
+            error_message = _("Error resolving file: %s") % str(e)
             self.queue.pop(0)
+            self.end_song(reason=error_message)
+            self.log_and_send(error_message, "danger")
             return False
 
         # Set stream URL based on format

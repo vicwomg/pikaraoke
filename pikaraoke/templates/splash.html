@@ -31,7 +31,6 @@
   const isFirefox = typeof InstallTrigger !== "undefined";
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
-  var videoHasPlayed = false;
 
   var socket = io();
 
@@ -47,12 +46,13 @@
 
   var mouseTimer = null,
     cursorVisible = true;
-
+  // var videoHasStartedPlaying = false;
   var nowPlaying = {};
   var showMenu = false;
   var menuButtonVisible = false;
   var confirmationDismissed = false;
   var volume = 0.85;
+  var playbackStartTimeout = 10000; // 10 seconds
   var isScoreShown = false;
   var hasBgVideo = "{{ has_bg_video }}" == 'True'
   var currentVideoUrl = null;  // Track current video URL to prevent reload loops
@@ -109,7 +109,6 @@
 		  await startScore("{{ url_for('static', filename='') }}");
       isScoreShown = false;
 	  }
-    videoHasPlayed = false;
     currentVideoUrl = null;  // Reset URL tracking when song ends
     const video = getVideoPlayer();
     video.pause();
@@ -360,7 +359,7 @@
         if (!isMediaPlaying(video) && !video.paused) {
           endSong("failed to start");
         }
-      }, 10000);
+      }, playbackStartTimeout);
     }
 
   }
@@ -418,28 +417,17 @@
       $("#current").text(formatTime(video.currentTime));
     });
 
-    $("#video")[0].addEventListener("playing", () => {
-      videoHasPlayed = true;
-    });
-
     $("#video source")[0].addEventListener("error", (e) => {
         // Only treat errors as fatal if the video has actually started playing
         // HLS streams can have transient errors during initial buffering
-        if (videoHasPlayed) {
+        if (isMediaPlaying(video)) {
             console.log("Error while playing video.");
             console.log(e);
             endSong("error while playing");
         } else {
             console.log("Video error during initial buffering:", e);
-            // Still cleanup the video element to free GPU memory
-            // but don't end the song (it never started)
-            const video = getVideoPlayer();
-            video.pause();
-            $("#video-source").attr("src", "");
-            video.load();
-            currentVideoUrl = null;  // Reset URL tracking
-            hideVideo();
-            // The server-side timeout will handle this if playback never starts
+            // Do not call endSong() here, it will cause infinite loops trying to reload the erroneous video.
+            // We'll use the playbackStartTimeout loop to handle it.
         }
     });
 
