@@ -6,6 +6,7 @@ import configparser
 import contextlib
 import json
 import logging
+import math
 import os
 import random
 import shutil
@@ -763,17 +764,17 @@ class Karaoke:
                         # Both mp4 and hls modes now use HLS format (init.mp4 + segments)
                         # Check if playlist has at least 2 segments ready for streaming
                         segment_count = 0  # Initialize to avoid NameError in logging
+                        min_segments = max(2, math.ceil(int(self.buffer_size) / 700))
                         if output_file_size > 0:
                             with open(fr.output_file, "r") as f:
                                 playlist_content = f.read()
                                 segment_count = playlist_content.count(".m4s")
                                 # Convert buffer_size (KB) to segment count
                                 # Each segment ≈ 3 seconds at configured bitrate (roughly 600-800KB)
-                                min_segments = max(2, int(self.buffer_size / 700))
                                 is_buffering_complete = segment_count >= min_segments
                         if is_buffering_complete:
                             logging.debug(
-                                f"Buffering complete. Playlist size: {output_file_size}, Segments: {segment_count}"
+                                f"Buffering complete {fr.output_file}. Playlist size: {output_file_size}, Segments: {segment_count}, Min segments: {min_segments}"
                             )
                             break
                 except FileNotFoundError:
