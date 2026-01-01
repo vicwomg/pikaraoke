@@ -48,7 +48,6 @@
 
   var mouseTimer = null,
     cursorVisible = true;
-  // var videoHasStartedPlaying = false;
   var nowPlaying = {};
   var showMenu = false;
   var menuButtonVisible = false;
@@ -326,10 +325,6 @@
       // Use stream URL from backend (format determined by --streaming-format flag)
       const streamUrl = np.now_playing_url;
       console.log('Loading video:', streamUrl);
-
-	  // Clear any direct src from restart handler to prevent conflicts
-      video.src = '';
-      video.removeAttribute('src');
 
       // Clear the source first to prevent browser from caching old HLS playlist
       $("#video-source").attr("src", "");
