@@ -31,16 +31,16 @@ function getScoreValue() {
 }
 
 // Function that shows the final score value, the review, fireworks and plays the applause sound
-async function showFinalScore(
+async function showFinalScoreWithAudio(
   scoreTextElement,
   scoreValue,
   scoreReviewElement,
-  scoreData
+  scoreData,
+  applauseElement
 ) {
   scoreTextElement.text(String(scoreValue).padStart(2, "0"));
   scoreReviewElement.text(scoreData.review);
   launchFireworkShow(scoreValue);
-  const applauseElement = new Audio("static/sounds/" + scoreData.applause);
   applauseElement.play();
   return new Promise((resolve) => {
     applauseElement.onended = resolve;
@@ -77,9 +77,12 @@ async function startScore(staticPath) {
   const scoreReviewElement = $("#score-review-text");
 
   const scoreValue = getScoreValue();
-  const drums = new Audio(staticPath + "sounds/score-drums.mp3");
-
   const scoreData = getScoreData(scoreValue);
+
+  const drums = new Audio(staticPath + "sounds/score-drums.mp3");
+  // Pre-create applause audio NOW to capture the user activation window
+  // Mobile Safari only allows audio.play() within a brief window after user events
+  const applause = new Audio(staticPath + "sounds/" + scoreData.applause);
 
   scoreElement.show();
   drums.volume = 0.3;
@@ -87,11 +90,12 @@ async function startScore(staticPath) {
   const drumDuration = 4100;
 
   await rotateScore(scoreTextElement, drumDuration);
-  await showFinalScore(
+  await showFinalScoreWithAudio(
     scoreTextElement,
     scoreValue,
     scoreReviewElement,
-    scoreData
+    scoreData,
+    applause
   );
   scoreReviewElement.text("");
   scoreElement.hide();
