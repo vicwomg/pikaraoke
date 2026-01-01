@@ -56,6 +56,7 @@ default_prefer_hostname = False
 default_bg_music_volume = 0.3
 default_buffer_size = 150
 default_config_file_path = "config.ini"
+default_streaming_format = "hls"
 
 default_dl_dir = get_default_dl_dir(platform)
 default_youtubedl_path = "yt-dlp"
@@ -288,9 +289,9 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     ),
     parser.add_argument(
         "--streaming-format",
-        help="Video streaming format: 'hls' (HLS with fMP4 segments - for Smart TVs and Safari browser) or 'mp4' (progressive MP4 - for Chrome, Firefox, Chromium-based browsers). Default is 'mp4'.",
+        help=f"Video streaming format: 'hls' (HLS with fMP4 segments) or 'mp4' (progressive MP4 - legacy format might work better on slow devices). Default is '{default_streaming_format}'.",
         choices=["hls", "mp4"],
-        default="mp4",
+        default=default_streaming_format,
         required=False,
     ),
 

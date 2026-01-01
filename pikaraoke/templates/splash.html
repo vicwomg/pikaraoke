@@ -31,7 +31,8 @@
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
   const isChrome = /chrome/i.test(navigator.userAgent) && !/edg/i.test(navigator.userAgent);
   const isFirefox = /firefox/i.test(navigator.userAgent);
-  const isSupportedBrowser = isSafari || isChrome || isFirefox;
+  const isEdge = /edg/i.test(navigator.userAgent);
+  const isSupportedBrowser = isSafari || isChrome || isFirefox || isEdge;
 
   var socket = io();
 
@@ -57,6 +58,7 @@
   var isScoreShown = false;
   var hasBgVideo = "{{ has_bg_video }}" == 'True'
   var currentVideoUrl = null;  // Track current video URL to prevent reload loops
+  var hlsInstance = null;  // Store hls.js instance for cleanup/restart
 
   const scoreReviews = {
     low:[
@@ -111,6 +113,11 @@
       isScoreShown = false;
 	  }
     currentVideoUrl = null;  // Reset URL tracking when song ends
+    // Clean up hls.js instance if exists
+    if (hlsInstance) {
+      hlsInstance.destroy();
+      hlsInstance = null;
+    }
     const video = getVideoPlayer();
     video.pause();
     $("#video-source").attr("src", "");
@@ -333,19 +340,26 @@
 
       if (streamUrl.endsWith('.m3u8')) {
         // Handle browsers with native HLS support (primarily Safari on iOS/macOS)
-        if (video.canPlayType('application/vnd.apple.mpegurl') && !isChrome) {
+        // Exclude Chrome and Edge - their native HLS is buggy (freezes, seeking issues)
+        const useNativeHLS = video.canPlayType('application/vnd.apple.mpegurl') && !isChrome && !isEdge;
+        if (useNativeHLS) {
           console.log('Native HLS support, proceeding with native playback');
           video.src = streamUrl;
         }
         else {
-          // Chrome 142+ supports native HLS playback, but the implementation is buggy
-          // (freezes mid video), so default to hls.js for playback
-          isChrome ?
-            console.log('Overriding Chrome native HLS playback with hls.js')
+          // Clean up previous hls.js instance if exists
+          if (hlsInstance) {
+            hlsInstance.destroy();
+            hlsInstance = null;
+          }
+          // Chrome/Edge have buggy native HLS (freezes mid video, seeking fails)
+          // Use hls.js for reliable playback
+          (isChrome || isEdge) ?
+            console.log('Overriding Chromium native HLS playback with hls.js')
             : console.log('HLS is not natively supported, using hls.js for playback');
-          var hls = new Hls();
-          hls.loadSource(streamUrl);
-          hls.attachMedia(video);
+          hlsInstance = new Hls();
+          hlsInstance.loadSource(streamUrl);
+          hlsInstance.attachMedia(video);
         }
       }
 
@@ -578,21 +592,8 @@
     socket.on('restart', () => {
       console.log(`Restart`);
       const video = getVideoPlayer();
-      const currentSrc = video.src || $("#video-source").attr("src");
-
-      // Fully stop the current stream
-      video.pause();
-      video.src = '';    // Clear source to stop old stream
-      video.load();      // Unload old stream
-
-      // Restart from beginning - wait for metadata before setting time
-      // This works for both MP4 (progressive) and HLS (adaptive) streams
-      video.src = currentSrc;
-      video.addEventListener('loadedmetadata', function onMetadata() {
-        video.currentTime = 0;  // Set to beginning after metadata loads
-        video.play();
-      }, { once: true });
-      video.load();
+      video.currentTime = 0;
+      if (video.paused) video.play();
     });
 
     socket.on("notification", (data) => {
