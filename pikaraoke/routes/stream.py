@@ -38,7 +38,16 @@ def stream_playlist(id):
         wait_count += 1
 
     if os.path.exists(file_path):
-        return send_file(file_path, mimetype="application/vnd.apple.mpegurl")
+        # Read file content and return with no-cache headers
+        # This is critical for iOS Safari which aggressively caches playlists
+        with open(file_path, "r") as f:
+            content = f.read()
+        response = make_response(content)
+        response.headers["Content-Type"] = "application/vnd.apple.mpegurl"
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
     else:
         return Response("Playlist not found", status=404)
 

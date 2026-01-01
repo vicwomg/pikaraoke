@@ -137,6 +137,7 @@ def build_ffmpeg_cmd(
                 f="hls",
                 hls_time=3,
                 hls_list_size=0,
+                hls_playlist_type="vod",  # Tell Safari this is VOD, not live
                 hls_segment_type="fmp4",
                 hls_fmp4_init_filename=fr.init_filename,
                 hls_segment_filename=fr.segment_pattern,
@@ -183,6 +184,7 @@ def build_ffmpeg_cmd(
                 f="hls",
                 hls_time=3,
                 hls_list_size=0,
+                hls_playlist_type="vod",  # Tell Safari this is VOD, not live
                 hls_segment_type="fmp4",
                 hls_fmp4_init_filename=fr.init_filename,
                 hls_segment_filename=fr.segment_pattern,
