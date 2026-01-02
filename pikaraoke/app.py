@@ -46,9 +46,6 @@ except ImportError:
 
 _ = flask_babel.gettext
 
-import threading
-import time
-
 from gevent.pywsgi import WSGIServer
 
 args = parse_pikaraoke_args()
@@ -76,6 +73,7 @@ app.register_blueprint(stream_bp)
 app.register_blueprint(preferences_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(background_music_bp)
+app.register_blueprint(batch_song_renamer_bp)
 app.register_blueprint(queue_bp)
 app.register_blueprint(images_bp)
 app.register_blueprint(files_bp)
@@ -84,7 +82,6 @@ app.register_blueprint(info_bp)
 app.register_blueprint(splash_bp)
 app.register_blueprint(controller_bp)
 app.register_blueprint(nowplaying_bp)
-app.register_blueprint(batch_song_renamer_bp)
 
 babel.init_app(app)
 socketio.init_app(app)
@@ -147,39 +144,6 @@ def clear_notification():
     n.clear()
 
 
-def poll_karaoke_state(k: karaoke.Karaoke, n: OnScreenNotification):
-    """Poll karaoke state and emit WebSocket events on changes.
-
-    Runs in a background thread to detect and broadcast state changes
-    for now playing, queue, and notifications.
-
-    Args:
-        k: The Karaoke instance to poll.
-        n: The OnScreenNotification instance.
-    """
-    curr_now_playing_hash = None
-    curr_queue_hash = None
-    curr_notification = None
-    poll_interval = 0.5
-    while True:
-        time.sleep(poll_interval)
-        np_hash = k.now_playing_hash
-        if np_hash != curr_now_playing_hash:
-            curr_now_playing_hash = np_hash
-            logging.debug(k.get_now_playing())
-            socketio.emit("now_playing", k.get_now_playing(), namespace="/")
-        q_hash = k.queue_hash
-        if q_hash != curr_queue_hash:
-            curr_queue_hash = q_hash
-            logging.debug(k.queue)
-            socketio.emit("queue_update", namespace="/")
-        notification = n.current_notification
-        if notification != curr_notification:
-            curr_notification = notification
-            if notification:
-                socketio.emit("notification", notification, namespace="/")
-
-
 def main() -> None:
     """Main entry point for the PiKaraoke application.
 
@@ -232,13 +196,17 @@ def main() -> None:
         disable_bg_music=args.disable_bg_music,
         bg_music_volume=args.bg_music_volume,
         bg_music_path=args.bg_music_path,
+        disable_bg_video=args.disable_bg_video,
         bg_video_path=args.bg_video_path,
         disable_score=args.disable_score,
         limit_user_songs_by=args.limit_user_songs_by,
-        avsync=args.avsync,
+        avsync=float(args.avsync),
         config_file_path=args.config_file_path,
         cdg_pixel_scaling=args.cdg_pixel_scaling,
+        streaming_format=args.streaming_format,
         additional_ytdl_args=getattr(args, "ytdl_args", None),
+        socketio=socketio,
+        preferred_language=args.preferred_language,
     )
 
     # expose karaoke object to the flask app
@@ -274,11 +242,6 @@ def main() -> None:
             sys.exit()
     else:
         driver = None
-
-    # Poll karaoke object for now playing updates
-    thread = threading.Thread(target=poll_karaoke_state, args=(k, n))
-    thread.daemon = True
-    thread.start()
 
     # Start the karaoke process
     k.run()

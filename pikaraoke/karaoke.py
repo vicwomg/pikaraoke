@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import configparser
 import contextlib
-import hashlib
 import json
 import logging
 import os
@@ -87,10 +86,6 @@ class Karaoke:
     is_paused: bool = True
     volume: float | None = None
 
-    # hashes are used to determine if the client needs to update the now playing or queue
-    now_playing_hash: str | None = None
-    queue_hash: str | None = None
-
     is_playing: bool = False
     process: subprocess.Popen | None = None
     qr_code_path: str | None = None
@@ -138,7 +133,10 @@ class Karaoke:
         avsync: float = 0,
         config_file_path: str = "config.ini",
         cdg_pixel_scaling: bool = False,
+        streaming_format: str = "hls",
         additional_ytdl_args: str | None = None,
+        socketio=None,
+        preferred_language: str | None = None,
     ) -> None:
         """Initialize the Karaoke instance.
 
@@ -172,7 +170,10 @@ class Karaoke:
             avsync: Audio/video sync adjustment in seconds.
             config_file_path: Path to config.ini file.
             cdg_pixel_scaling: Enable CDG pixel scaling.
+            streaming_format: Video streaming format ('hls' or 'mp4').
             additional_ytdl_args: Additional yt-dlp command arguments.
+            socketio: SocketIO instance for real-time event emission.
+            preferred_language: Language code for UI (e.g., 'en', 'de_DE').
         """
         logging.basicConfig(
             stream=sys.stdout,
@@ -239,6 +240,8 @@ class Karaoke:
         )
         self.cdg_pixel_scaling = self.get_user_preference("cdg_pixel_scaling") or cdg_pixel_scaling
         self.avsync = self.get_user_preference("avsync") or avsync
+        self.streaming_format = self.get_user_preference("streaming_format") or streaming_format
+        self.socketio = socketio
         self.url_override = url
         self.url = self.get_url()
 
@@ -254,7 +257,20 @@ class Karaoke:
         self.mid_score_phrases = self.get_user_preference("mid_score_phrases") or ""
         self.high_score_phrases = self.get_user_preference("high_score_phrases") or ""
 
+        # Set preferred language from command line if provided (persists to config)
+        if preferred_language:
+            self.change_preferences("preferred_language", preferred_language)
+            logging.info(f"Setting preferred language to: {preferred_language}")
+
     def get_url(self):
+        """Get the URL for accessing the PiKaraoke web interface.
+
+        On Raspberry Pi, retries getting the IP address for up to 30 seconds
+        in case the network is still initializing at startup.
+
+        Returns:
+            URL string in format http://ip:port
+        """
         if self.is_raspberry_pi:
             # retry in case pi is still starting up
             # and doesn't have an IP yet (occurs when launched from /etc/rc.local)
@@ -619,29 +635,35 @@ class Karaoke:
         """
         logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
 
+        is_hls = self.streaming_format == "hls"
+
         requires_transcoding = (
             semitones != 0
             or self.normalize_audio
             or is_transcoding_required(file_path)
             or self.avsync != 0
+            or is_hls
         )
 
         logging.debug(f"Requires transcoding: {requires_transcoding}")
 
         try:
-            fr = FileResolver(file_path)
+            fr = FileResolver(file_path, self.streaming_format)
         except Exception as e:
-            logging.error("Error resolving file: " + str(e))
+            error_message = _("Error resolving file: %s") % str(e)
             self.queue.pop(0)
+            self.end_song(reason=error_message)
+            self.notification.log_and_send(error_message, "danger")
             return False
 
-        if self.complete_transcode_before_play or not requires_transcoding:
-            # This route is used for streaming the full video file, and includes more
-            # accurate headers for safari and other browsers
-            stream_url_path = f"/stream/full/{fr.stream_uid}"
-        else:
-            # This route is used for streaming the video file in chunks, only works on chrome
-            stream_url_path = f"/stream/{fr.stream_uid}"
+        # Set stream URL based on format
+        if is_hls:  # ** HLS mode **
+            stream_url_path = f"/stream/{fr.stream_uid}.m3u8"
+        else:  # ** MP4 mode **
+            if self.complete_transcode_before_play or not requires_transcoding:
+                stream_url_path = f"/stream/full/{fr.stream_uid}"
+            else:
+                stream_url_path = f"/stream/{fr.stream_uid}.mp4"
 
         if not requires_transcoding:
             # simply copy file path to the tmp directory and the stream is ready
@@ -657,11 +679,13 @@ class Karaoke:
                 logging.debug(f"Copying file failed: {fr.output_file}")
         else:
             self.kill_ffmpeg()
+            # HLS mode will override the complete_transcode_before_play setting
             ffmpeg_cmd = build_ffmpeg_cmd(
                 fr,
                 semitones,
                 self.normalize_audio,
-                self.complete_transcode_before_play,
+                not is_hls,  # force mp4 encoding
+                self.complete_transcode_before_play,  # buffer fully before playback only relevant for mp4 mode
                 self.avsync,
                 self.cdg_pixel_scaling,
             )
@@ -682,6 +706,7 @@ class Karaoke:
 
             is_transcoding_complete = False
             is_buffering_complete = False
+            buffer_size = int(self.buffer_size) * 1000  # convert from kb to bytes
 
             # Transcoding readiness polling loop
             while True:
@@ -697,19 +722,69 @@ class Karaoke:
                         break
                     else:
                         is_transcoding_complete = True
-                        output_file_size = os.path.getsize(fr.output_file)
-                        logging.debug(f"Transcoding complete. File size: {output_file_size}")
+                        stream_size = fr.get_current_stream_size()
+                        logging.debug(f"Transcoding complete. Output size: {stream_size}")
                         break
-                # Check if the file has buffered enough to start playback
-                try:
-                    output_file_size = os.path.getsize(fr.output_file)
-                    if not self.complete_transcode_before_play:
-                        is_buffering_complete = output_file_size > self.buffer_size * 1000
-                        if is_buffering_complete:
-                            logging.debug(f"Buffering complete. File size: {output_file_size}")
-                            break
-                except:
-                    pass
+
+                if is_hls:  # ** HLS mode **
+                    # Check if the file has buffered enough to start playback
+                    try:
+                        output_file_size = os.path.getsize(fr.output_file)
+                        if not self.complete_transcode_before_play:
+                            # Check if playlist has at least 3 segments to be ready for streaming
+                            segment_count = 0  # Initialize to avoid NameError in logging
+                            stream_size = fr.get_current_stream_size()
+                            if output_file_size > 0:
+                                with open(fr.output_file, "r") as f:
+                                    playlist_content = f.read()
+                                    segment_count = playlist_content.count(".m4s")
+                                    is_buffering_complete = (stream_size >= buffer_size) and (
+                                        segment_count >= 3
+                                    )
+                            if is_buffering_complete:
+                                logging.debug(
+                                    f"Buffering complete {fr.output_file}. Playlist stream size: {stream_size}, Buffer size: {buffer_size}, Segments: {segment_count}, Min segments: {min_segments}"
+                                )
+                                break
+                    except FileNotFoundError:
+                        # Expected: FFmpeg hasn't created the playlist file yet
+                        # Continue waiting in the loop
+                        pass
+                    except (PermissionError, OSError, IOError) as e:
+                        # Unexpected: SD card issues, filesystem problems
+                        logging.warning(
+                            f"I/O error while checking buffer status for {fr.output_file}: {e}"
+                        )
+                        # Continue - may be transient issue
+                    except UnicodeDecodeError as e:
+                        # FFmpeg wrote binary data instead of text playlist - error state
+                        logging.error(
+                            f"Failed to read playlist as text (FFmpeg may have errored): {e}"
+                        )
+                        # Continue for now, but this is suspicious
+                    except Exception as e:
+                        # Catch-all for truly unexpected errors
+                        logging.error(
+                            f"Unexpected error during buffering check: {type(e).__name__}: {e}"
+                        )
+                        # Continue waiting, don't crash
+                else:  # ** MP4 mode **
+                    try:
+                        # Check if the file has buffered enough to start playback
+                        if not self.complete_transcode_before_play:
+                            output_file_size = os.path.getsize(fr.output_file)
+                            if not self.complete_transcode_before_play:
+                                is_buffering_complete = (
+                                    output_file_size > int(self.buffer_size) * 1000
+                                )
+                                if is_buffering_complete:
+                                    logging.debug(
+                                        f"Buffering complete. File size: {output_file_size}"
+                                    )
+                                    break
+                    except:
+                        pass
+
                 # Prevent infinite loop if playback never starts
                 if transcode_max_retries <= 0:
                     logging.error("Max retries reached trying to play song. Skipping track")
@@ -731,8 +806,8 @@ class Karaoke:
             self.now_playing_user = self.queue[0]["user"]
             self.is_paused = False
             self.queue.pop(0)
-            self.update_now_playing_hash()
-            self.update_queue_hash()
+            self.update_now_playing_socket()
+            self.update_queue_socket()
             # Pause until the stream is playing
             transcode_max_retries = 100
             while self.is_playing == False and transcode_max_retries > 0:
@@ -747,10 +822,32 @@ class Karaoke:
                 self.end_song()
 
     def kill_ffmpeg(self) -> None:
-        """Terminate the running FFmpeg process if any."""
-        logging.debug("Killing ffmpeg process")
+        """Terminate the running FFmpeg process gracefully.
+
+        Uses SIGTERM first to allow FFmpeg to clean up resources properly,
+        then SIGKILL if process doesn't terminate within timeout.
+        This is critical for Raspberry Pi to release GPU memory from h264_v4l2m2m encoder.
+        """
         if self.ffmpeg_process:
-            self.ffmpeg_process.kill()
+            logging.debug("Terminating ffmpeg process gracefully")
+            try:
+                # First attempt: graceful termination (SIGTERM)
+                self.ffmpeg_process.terminate()
+                # Wait up to 5 seconds for graceful shutdown
+                self.ffmpeg_process.wait(timeout=5)
+                logging.debug("FFmpeg process terminated gracefully")
+            except subprocess.TimeoutExpired:
+                # Process didn't terminate, force kill (SIGKILL)
+                logging.warning("FFmpeg did not terminate gracefully, forcing kill")
+                self.ffmpeg_process.kill()
+                # Ensure process is fully dead and reaped (prevents zombies)
+                self.ffmpeg_process.wait()
+                logging.debug("FFmpeg process force killed")
+            except Exception as e:
+                # Catch any other errors (process already dead, etc.)
+                logging.debug(f"FFmpeg termination exception: {e}")
+            finally:
+                self.ffmpeg_process = None
 
     def start_song(self) -> None:
         """Mark the current song as actively playing."""
@@ -771,8 +868,11 @@ class Karaoke:
                 self.notification.send(_("Song ended abnormally: %s") % reason, "danger")
         self.reset_now_playing()
         self.kill_ffmpeg()
+        # Small delay to ensure FFmpeg fully terminates and file handles close
+        # Critical on Raspberry Pi with slow SD cards and hardware encoder cleanup
+        time.sleep(0.3)
         delete_tmp_dir()
-        logging.debug("ffmpeg process killed")
+        logging.debug("Cleanup complete")
 
     def transpose_current(self, semitones: int) -> None:
         """Restart the current song with a new transpose value.
@@ -877,8 +977,8 @@ class Karaoke:
                         _("%s added to the queue: %s") % (user, queue_item["title"])
                     )
                 self.queue.append(queue_item)
-            self.update_queue_hash()
-            self.update_now_playing_hash()
+            self.update_queue_socket()
+            self.update_now_playing_socket()
             return [
                 True,
                 _("Song added to the queue: %s") % (self.filename_from_path(song_path)),
@@ -917,8 +1017,8 @@ class Karaoke:
         # MSG: Message shown after the queue is cleared
         self.notification.log_and_send(_("Clear queue"), "danger")
         self.queue = []
-        self.update_queue_hash()
-        self.update_now_playing_hash()
+        self.update_queue_socket()
+        self.update_now_playing_socket()
         self.skip(log_action=False)
 
     def queue_edit(self, song_name: str, action: str) -> bool:
@@ -965,8 +1065,8 @@ class Karaoke:
         else:
             logging.error("Unrecognized direction: " + action)
         if rc:
-            self.update_queue_hash()
-            self.update_now_playing_hash()
+            self.update_queue_socket()
+            self.update_now_playing_socket()
         return rc
 
     def skip(self, log_action: bool = True) -> bool:
@@ -1002,7 +1102,7 @@ class Karaoke:
                 # MSG: Message shown after the song is paused, will be followed by song name
                 self.notification.log_and_send(_("Pause") + f": {self.now_playing}")
             self.is_paused = not self.is_paused
-            self.update_now_playing_hash()
+            self.update_now_playing_socket()
             return True
         else:
             logging.warning("Tried to pause, but no file is playing!")
@@ -1020,7 +1120,7 @@ class Karaoke:
         self.volume = vol_level
         # MSG: Message shown after the volume is changed, will be followed by the volume level
         self.notification.log_and_send(_("Volume: %s") % (int(self.volume * 100)))
-        self.update_now_playing_hash()
+        self.update_now_playing_socket()
         return True
 
     def vol_up(self) -> None:
@@ -1050,6 +1150,7 @@ class Karaoke:
         if self.is_file_playing():
             logging.info("Restarting: " + self.now_playing)
             self.is_paused = False
+            self.update_now_playing_socket()
             return True
         else:
             logging.warning("Tried to restart, but no file is playing!")
@@ -1074,7 +1175,7 @@ class Karaoke:
         self.now_playing_transpose = 0
         self.now_playing_duration = None
         self.ffmpeg_log = None
-        self.update_now_playing_hash()
+        self.update_now_playing_socket()
 
     def get_now_playing(self) -> dict[str, Any]:
         """Get the current playback state.
@@ -1095,19 +1196,15 @@ class Karaoke:
         }
         return np
 
-    def update_now_playing_hash(self) -> None:
-        """Update the hash of now playing state for change detection."""
-        self.now_playing_hash = hashlib.md5(
-            json.dumps(self.get_now_playing(), sort_keys=True, ensure_ascii=True).encode(
-                "utf-8", "ignore"
-            )
-        ).hexdigest()
+    def update_now_playing_socket(self) -> None:
+        """Emit now_playing state change via SocketIO."""
+        if self.socketio:
+            self.socketio.emit("now_playing", self.get_now_playing(), namespace="/")
 
-    def update_queue_hash(self) -> None:
-        """Update the hash of queue state for change detection."""
-        self.queue_hash = hashlib.md5(
-            json.dumps(self.queue, ensure_ascii=True).encode("utf-8", "ignore")
-        ).hexdigest()
+    def update_queue_socket(self) -> None:
+        """Emit queue_update state change via SocketIO."""
+        if self.socketio:
+            self.socketio.emit("queue_update", namespace="/")
 
     def run(self) -> None:
         """Main run loop - processes queue and plays songs.
