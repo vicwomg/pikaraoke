@@ -51,151 +51,111 @@ def build_ffmpeg_cmd(
         ffmpeg OutputStream object ready to execute.
     """
     avsync = float(avsync)
-    # use h/w acceleration on pi
+    is_cdg = fr.cdg_file_path is not None
+    is_transposed = semitones != 0
+
+    # Use h/w acceleration on Pi
     using_hardware_encoder = supports_hardware_h264_encoding()
     default_vcodec = "h264_v4l2m2m" if using_hardware_encoder else "libx264"
-    # just copy the video stream if it's an mp4 file (already H.264 compatible)
-    # webm uses VP8/VP9 which must be transcoded to H.264 for fMP4 containers
-    vcodec = "copy" if fr.file_extension == ".mp4" else default_vcodec
 
-    # Optimize bitrate for Raspberry Pi hardware encoder
-    # Pi 3B+ struggles with 5M bitrate in real-time, 2M provides better stability
-    # while maintaining good quality for karaoke videos
-    if using_hardware_encoder:
-        vbitrate = "2M"  # Optimized for Pi h264_v4l2m2m real-time encoding
+    # CDG always needs encoding; MP4 can copy video stream (already H.264 compatible)
+    # WEBM uses VP8/VP9 which must be transcoded to H.264 for fMP4 containers
+    if is_cdg:
+        vcodec = "libx264"
     else:
-        vbitrate = "5M"  # Higher quality for more powerful hardware
+        vcodec = "copy" if fr.file_extension == ".mp4" else default_vcodec
 
-    # copy the audio stream if no transposition/normalization, otherwise reincode with the aac codec
-    is_transposed = semitones != 0
-    acodec = "aac" if is_transposed or normalize_audio or avsync != 0 else "copy"
+    # Optimize bitrate: CDG is simple graphics (500k), video files need more
+    # Pi 3B+ struggles with 5M in real-time, 2M provides better stability
+    if is_cdg:
+        vbitrate = "500k"
+    elif using_hardware_encoder:
+        vbitrate = "2M"
+    else:
+        vbitrate = "5M"
 
-    # For container formats that may have VFR or timestamp issues, use genpts
-    # This fixes playback issues with AVI, MOV, MKV, and WEBM when streaming
+    # Copy audio if no processing needed, otherwise re-encode with AAC
+    # CDG always re-encodes audio for compatibility
+    acodec = "aac" if is_cdg or is_transposed or normalize_audio or avsync != 0 else "copy"
+
+    # For container formats with VFR or timestamp issues, use genpts
     if fr.file_extension in [".webm", ".avi", ".mov", ".mkv"]:
         input = ffmpeg.input(fr.file_path, **{"fflags": "+genpts"})
     else:
         input = ffmpeg.input(fr.file_path)
     audio = input.audio
 
-    # If avsync is set, delay or trim the audio stream
+    # Audio sync adjustment: delay or trim
     if avsync > 0:
-        audio = audio.filter("adelay", f"{avsync * 1000}|{avsync * 1000}")  # delay
+        audio = audio.filter("adelay", f"{avsync * 1000}|{avsync * 1000}")
     elif avsync < 0:
-        audio = audio.filter("atrim", start=-avsync)  # trim
+        audio = audio.filter("atrim", start=-avsync)
 
-    # The pitch value is (2^x/12), where x represents the number of semitones
-    pitch = 2 ** (semitones / 12)
+    # Pitch shifting: 2^(semitones/12)
+    if is_transposed:
+        audio = audio.filter("rubberband", pitch=2 ** (semitones / 12))
 
-    audio = audio.filter("rubberband", pitch=pitch) if is_transposed else audio
-    # normalize the audio
-    audio = audio.filter("loudnorm", i=-16, tp=-1.5, lra=11) if normalize_audio else audio
-    movflags = "+faststart" if buffer_fully_before_playback else "frag_keyframe+default_base_moof"
+    # Loudness normalization
+    if normalize_audio:
+        audio = audio.filter("loudnorm", i=-16, tp=-1.5, lra=11)
 
-    if fr.cdg_file_path != None:  # handle CDG files
+    # Video source: CDG input or original video stream
+    if is_cdg:
         logging.info("Playing CDG/MP3 file: " + fr.file_path)
-        # copyts helps with sync issues, fps=25 prevents ffmpeg from needlessly encoding cdg at 300fps
         cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
+        video = cdg_input.video.filter("fps", fps=25)
         if cdg_pixel_scaling:
-            video = cdg_input.video.filter("fps", fps=25).filter("scale", -1, 720, flags="neighbor")
-        else:
-            video = cdg_input.video.filter("fps", fps=25)
-
-        if force_mp4_encoding:
-            output = ffmpeg.output(
-                audio,
-                video,
-                fr.output_file,
-                vcodec="libx264",
-                acodec="aac",
-                preset="ultrafast",
-                pix_fmt="yuv420p",
-                listen=1,
-                f="mp4",
-                video_bitrate="500k",
-                movflags=movflags,
-            )
-        else:
-            # Both MP4 and HLS modes use HLS format (init.mp4 + fMP4 segments)
-            # The difference is in how they're served:
-            # - mp4: Stream concatenates init + segments for progressive playback
-            # - hls: Browser requests segments via .m3u8 playlist
-            #
-            # This approach works because:
-            # - Segments are pre-encoded (no real-time streaming pressure)
-            # - Hardware encoding (h264_v4l2m2m) works reliably with discrete segments
-            # - Both Chrome and Smart TVs can use the same encoded output
-            output = ffmpeg.output(
-                audio,
-                video,
-                fr.output_file,
-                vcodec="libx264",
-                acodec="aac",
-                audio_bitrate="192k",  # Explicit quality for AAC
-                ac=2,  # Force stereo (downmix surround sound)
-                ar=48000,  # Standard sample rate for streaming
-                preset="ultrafast",
-                pix_fmt="yuv420p",
-                f="hls",
-                hls_time=3,
-                hls_list_size=0,
-                hls_playlist_type="vod",  # Tell Safari this is VOD, not live
-                hls_segment_type="fmp4",
-                hls_fmp4_init_filename=fr.init_filename,
-                hls_segment_filename=fr.segment_pattern,
-                video_bitrate="500k",
-                **{
-                    "vsync": "cfr",
-                    "avoid_negative_ts": "make_zero",
-                },  # Force constant frame rate and fix negative timestamps
-            )
+            video = video.filter("scale", -1, 720, flags="neighbor")
     else:
         video = input.video
 
-        # For WEBM files, genpts at input level handles timestamp regeneration
-        # No additional filters needed - let genpts + avoid_negative_ts do the work
-
-        if force_mp4_encoding:
-            output = ffmpeg.output(
-                audio,
-                video,
-                fr.output_file,
-                vcodec=vcodec,
-                acodec=acodec,
-                preset="ultrafast",
-                listen=1,
-                f="mp4",
-                video_bitrate=vbitrate,
-                movflags=movflags,
-            )
-        else:
-            # Both MP4 and HLS modes use HLS format (init.mp4 + fMP4 segments)
-            # The difference is in how they're served:
-            # - mp4: Stream concatenates init + segments for progressive playback
-            # - hls: Browser requests segments via .m3u8 playlist
-            output = ffmpeg.output(
-                audio,
-                video,
-                fr.output_file,
-                vcodec=vcodec,
-                acodec="aac",  # Force AAC encoding for compatibility
-                audio_bitrate="192k",  # Explicit quality for AAC
-                ac=2,  # Force stereo (downmix surround sound)
-                ar=48000,  # Standard sample rate for streaming
-                preset="ultrafast",
-                f="hls",
-                hls_time=3,
-                hls_list_size=0,
-                hls_playlist_type="vod",  # Tell Safari this is VOD, not live
-                hls_segment_type="fmp4",
-                hls_fmp4_init_filename=fr.init_filename,
-                hls_segment_filename=fr.segment_pattern,
-                video_bitrate=vbitrate,
-                **{
-                    "vsync": "cfr",
-                    "avoid_negative_ts": "make_zero",
-                },  # Force constant frame rate and fix negative timestamps
-            )
+    # Build output based on format
+    if force_mp4_encoding:
+        movflags = (
+            "+faststart" if buffer_fully_before_playback else "frag_keyframe+default_base_moof"
+        )
+        output = ffmpeg.output(
+            audio,
+            video,
+            fr.output_file,
+            vcodec=vcodec,
+            acodec=acodec,
+            preset="ultrafast",
+            listen=1,
+            f="mp4",
+            video_bitrate=vbitrate,
+            movflags=movflags,
+            **({"pix_fmt": "yuv420p"} if is_cdg else {}),
+        )
+    else:
+        # HLS format with fMP4 segments
+        # Both MP4 and HLS streaming modes use this - difference is in serving:
+        # - mp4: Stream concatenates init + segments for progressive playback
+        # - hls: Browser requests segments via .m3u8 playlist
+        output = ffmpeg.output(
+            audio,
+            video,
+            fr.output_file,
+            vcodec=vcodec,
+            acodec="aac",
+            audio_bitrate="192k",
+            ac=2,  # Force stereo
+            ar=48000,  # Standard sample rate
+            preset="ultrafast",
+            f="hls",
+            hls_time=3,
+            hls_list_size=0,
+            hls_segment_type="fmp4",
+            hls_fmp4_init_filename=fr.init_filename,
+            hls_segment_filename=fr.segment_pattern,
+            video_bitrate=vbitrate,
+            # CDG needs pix_fmt for proper color space
+            **({"pix_fmt": "yuv420p"} if is_cdg else {}),
+            **{
+                "vsync": "cfr",
+                "avoid_negative_ts": "make_zero",
+            },
+        )
 
     args = output.get_args()
     logging.debug(f"COMMAND: ffmpeg " + " ".join(args))

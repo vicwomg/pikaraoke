@@ -29,6 +29,7 @@
   }
 
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  const isMobileSafari = isSafari && (/iPhone|iPad|iPod/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1);
   const isChrome = /chrome/i.test(navigator.userAgent) && !/edg/i.test(navigator.userAgent);
   const isFirefox = /firefox/i.test(navigator.userAgent);
   const isEdge = /edg/i.test(navigator.userAgent);
@@ -336,7 +337,7 @@
       if (streamUrl.endsWith('.m3u8')) {
         // Handle browsers with native HLS support (primarily Safari on iOS/macOS)
         // Exclude Chrome and Edge - their native HLS is buggy (freezes, seeking issues)
-        const useNativeHLS = video.canPlayType('application/vnd.apple.mpegurl') && !isChrome && !isEdge;
+        const useNativeHLS = video.canPlayType('application/vnd.apple.mpegurl') && !isChrome && !isEdge && !isMobileSafari;
         if (useNativeHLS) {
           console.log('Native HLS support, proceeding with native playback');
           video.src = streamUrl;
@@ -348,11 +349,14 @@
             hlsInstance = null;
           }
           // Chrome/Edge have buggy native HLS (freezes mid video, seeking fails)
+          // Mobile Safari starts in the middle without startPosition config
           // Use hls.js for reliable playback
           (isChrome || isEdge) ?
             console.log('Overriding Chromium native HLS playback with hls.js')
             : console.log('HLS is not natively supported, using hls.js for playback');
-          hlsInstance = new Hls();
+          hlsInstance = new Hls({
+            startPosition: 0,  // Force start from beginning (fixes Mobile Safari issue)
+          });
           hlsInstance.loadSource(streamUrl);
           hlsInstance.attachMedia(video);
         }

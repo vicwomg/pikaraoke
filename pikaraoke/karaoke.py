@@ -8,14 +8,11 @@ import json
 import logging
 import os
 import random
-import shutil
 import socket
 import subprocess
 import time
 from pathlib import Path
-from queue import Queue
 from subprocess import check_output
-from threading import Thread
 from typing import Any
 
 import qrcode
@@ -23,34 +20,18 @@ from flask_babel import _
 
 from pikaraoke.lib.download_manager import DownloadManager
 from pikaraoke.lib.ffmpeg import (
-    build_ffmpeg_cmd,
     get_ffmpeg_version,
     is_transpose_enabled,
     supports_hardware_h264_encoding,
 )
-from pikaraoke.lib.file_resolver import (
-    FileResolver,
-    delete_tmp_dir,
-    is_transcoding_required,
-)
+from pikaraoke.lib.file_resolver import delete_tmp_dir
 from pikaraoke.lib.get_platform import get_os_version, get_platform, is_raspberry_pi
+from pikaraoke.lib.stream_manager import StreamManager
 from pikaraoke.lib.youtube_dl import (
     get_youtube_id_from_url,
     get_youtubedl_version,
     upgrade_youtubedl,
 )
-
-
-def enqueue_output(out: Any, queue: Queue) -> None:
-    """Read lines from a stream and put them in a queue without blocking.
-
-    Args:
-        out: File-like object to read from (e.g., subprocess stderr).
-        queue: Queue to put the read lines into.
-    """
-    for line in iter(out.readline, b""):
-        queue.put(line)
-    out.close()
 
 
 class Karaoke:
@@ -100,8 +81,6 @@ class Karaoke:
     default_bg_video_path: str = os.path.join(base_path, "static/video/night_sea.mp4")
     screensaver_timeout: int = 300  # in seconds
 
-    ffmpeg_process: subprocess.Popen | None = None
-    ffmpeg_log: Queue | None = None
     normalize_audio: bool = False
 
     # Download manager for serialized downloads
@@ -261,6 +240,9 @@ class Karaoke:
         # Initialize and start download manager
         self.download_manager = DownloadManager(self)
         self.download_manager.start()
+        
+        # Initialize stream manager for transcoding and playback
+        self.stream_manager = StreamManager(self)
 
     def get_url(self):
         """Get the URL for accessing the PiKaraoke web interface.
@@ -620,17 +602,10 @@ class Karaoke:
         logging.error("No available song found with youtube id: " + youtube_id)
         return None
 
-    def log_ffmpeg_output(self) -> None:
-        """Log any pending FFmpeg output from the queue."""
-        if self.ffmpeg_log != None and self.ffmpeg_log.qsize() > 0:
-            while self.ffmpeg_log.qsize() > 0:
-                output = self.ffmpeg_log.get_nowait()
-                logging.debug("[FFMPEG] " + output.decode("utf-8", "ignore").strip())
-
     def play_file(self, file_path: str, semitones: int = 0) -> bool | None:
         """Start playback of a media file.
 
-        Handles file resolution, transcoding, and stream setup.
+        Delegates to StreamManager for transcoding and stream setup.
 
         Args:
             file_path: Path to the media file to play.
@@ -639,221 +614,11 @@ class Karaoke:
         Returns:
             False if file resolution fails, None otherwise.
         """
-        logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
-
-        is_hls = self.streaming_format == "hls"
-
-        requires_transcoding = (
-            semitones != 0
-            or self.normalize_audio
-            or is_transcoding_required(file_path)
-            or self.avsync != 0
-            or is_hls
-        )
-
-        logging.debug(f"Requires transcoding: {requires_transcoding}")
-
-        try:
-            fr = FileResolver(file_path, self.streaming_format)
-        except Exception as e:
-            error_message = _("Error resolving file: %s") % str(e)
-            self.queue.pop(0)
-            self.end_song(reason=error_message)
-            self.log_and_send(error_message, "danger")
-            return False
-
-        # Set stream URL based on format
-        if is_hls:  # ** HLS mode **
-            stream_url_path = f"/stream/{fr.stream_uid}.m3u8"
-        else:  # ** MP4 mode **
-            if self.complete_transcode_before_play or not requires_transcoding:
-                stream_url_path = f"/stream/full/{fr.stream_uid}"
-            else:
-                stream_url_path = f"/stream/{fr.stream_uid}.mp4"
-
-        if not requires_transcoding:
-            # simply copy file path to the tmp directory and the stream is ready
-            shutil.copy(file_path, fr.output_file)
-            max_retries = 5
-            while max_retries > 0:
-                if os.path.exists(fr.output_file):
-                    is_transcoding_complete = True
-                    break
-                max_retries -= 1
-                time.sleep(1)
-            if max_retries == 0:
-                logging.debug(f"Copying file failed: {fr.output_file}")
-        else:
-            self.kill_ffmpeg()
-            # HLS mode will override the complete_transcode_before_play setting
-            ffmpeg_cmd = build_ffmpeg_cmd(
-                fr,
-                semitones,
-                self.normalize_audio,
-                not is_hls,  # force mp4 encoding
-                self.complete_transcode_before_play,  # buffer fully before playback only relevant for mp4 mode
-                self.avsync,
-                self.cdg_pixel_scaling,
-            )
-            self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
-
-            # ffmpeg outputs everything useful to stderr for some insane reason!
-            # prevent reading stderr from being a blocking action
-            self.ffmpeg_log = Queue()
-            t = Thread(
-                target=enqueue_output,
-                args=(self.ffmpeg_process.stderr, self.ffmpeg_log),
-            )
-            t.daemon = True
-            t.start()
-
-            output_file_size = 0
-            transcode_max_retries = 2500  # Transcode completion max: approx 2 minutes
-
-            is_transcoding_complete = False
-            is_buffering_complete = False
-            buffer_size = int(self.buffer_size) * 1000  # convert from kb to bytes
-
-            # Transcoding readiness polling loop
-            while True:
-                self.log_ffmpeg_output()
-                # Check if the ffmpeg process has exited
-                if self.ffmpeg_process.poll() is not None:
-                    exitcode = self.ffmpeg_process.poll()
-                    if exitcode != 0:
-                        logging.error(
-                            f"FFMPEG transcode exited with nonzero exit code ending: {exitcode}. Skipping track"
-                        )
-                        self.end_song()
-                        break
-                    else:
-                        is_transcoding_complete = True
-                        stream_size = fr.get_current_stream_size()
-                        logging.debug(f"Transcoding complete. Output size: {stream_size}")
-                        break
-
-                if is_hls:  # ** HLS mode **
-                    # Check if the file has buffered enough to start playback
-                    try:
-                        output_file_size = os.path.getsize(fr.output_file)
-                        if not self.complete_transcode_before_play:
-                            # Check if playlist has at least 3 segments to be ready for streaming
-                            segment_count = 0  # Initialize to avoid NameError in logging
-                            stream_size = fr.get_current_stream_size()
-                            if output_file_size > 0:
-                                with open(fr.output_file, "r") as f:
-                                    playlist_content = f.read()
-                                    segment_count = playlist_content.count(".m4s")
-                                    is_buffering_complete = (stream_size >= buffer_size) and (
-                                        segment_count >= 3
-                                    )
-                            if is_buffering_complete:
-                                logging.debug(
-                                    f"Buffering complete {fr.output_file}. Playlist stream size: {stream_size}, Buffer size: {buffer_size}, Segments: {segment_count}, Min segments: {min_segments}"
-                                )
-                                break
-                    except FileNotFoundError:
-                        # Expected: FFmpeg hasn't created the playlist file yet
-                        # Continue waiting in the loop
-                        pass
-                    except (PermissionError, OSError, IOError) as e:
-                        # Unexpected: SD card issues, filesystem problems
-                        logging.warning(
-                            f"I/O error while checking buffer status for {fr.output_file}: {e}"
-                        )
-                        # Continue - may be transient issue
-                    except UnicodeDecodeError as e:
-                        # FFmpeg wrote binary data instead of text playlist - error state
-                        logging.error(
-                            f"Failed to read playlist as text (FFmpeg may have errored): {e}"
-                        )
-                        # Continue for now, but this is suspicious
-                    except Exception as e:
-                        # Catch-all for truly unexpected errors
-                        logging.error(
-                            f"Unexpected error during buffering check: {type(e).__name__}: {e}"
-                        )
-                        # Continue waiting, don't crash
-                else:  # ** MP4 mode **
-                    try:
-                        # Check if the file has buffered enough to start playback
-                        if not self.complete_transcode_before_play:
-                            output_file_size = os.path.getsize(fr.output_file)
-                            if not self.complete_transcode_before_play:
-                                is_buffering_complete = (
-                                    output_file_size > int(self.buffer_size) * 1000
-                                )
-                                if is_buffering_complete:
-                                    logging.debug(
-                                        f"Buffering complete. File size: {output_file_size}"
-                                    )
-                                    break
-                    except:
-                        pass
-
-                # Prevent infinite loop if playback never starts
-                if transcode_max_retries <= 0:
-                    logging.error("Max retries reached trying to play song. Skipping track")
-                    self.end_song()
-                    break
-                transcode_max_retries -= 1
-                time.sleep(0.05)
-
-        # Check if the stream is ready to play. Determined by:
-        # - completed transcoding
-        # - buffered file size being greater than a threshold
-        if is_transcoding_complete or is_buffering_complete:
-            logging.debug(f"Stream ready!")
-            self.now_playing = self.filename_from_path(file_path)
-            self.now_playing_filename = file_path
-            self.now_playing_transpose = semitones
-            self.now_playing_duration = fr.duration
-            self.now_playing_url = stream_url_path
-            self.now_playing_user = self.queue[0]["user"]
-            self.is_paused = False
-            self.queue.pop(0)
-            self.update_now_playing_socket()
-            self.update_queue_socket()
-            # Pause until the stream is playing
-            transcode_max_retries = 100
-            while self.is_playing == False and transcode_max_retries > 0:
-                time.sleep(0.1)  # prevents loop from trying to replay track
-                transcode_max_retries -= 1
-            if self.is_playing:
-                logging.debug("Stream is playing")
-            else:
-                logging.error(
-                    "Stream was not playable! Run with debug logging to see output. Skipping track"
-                )
-                self.end_song()
+        return self.stream_manager.play_file(file_path, semitones)
 
     def kill_ffmpeg(self) -> None:
-        """Terminate the running FFmpeg process gracefully.
-
-        Uses SIGTERM first to allow FFmpeg to clean up resources properly,
-        then SIGKILL if process doesn't terminate within timeout.
-        This is critical for Raspberry Pi to release GPU memory from h264_v4l2m2m encoder.
-        """
-        if self.ffmpeg_process:
-            logging.debug("Terminating ffmpeg process gracefully")
-            try:
-                # First attempt: graceful termination (SIGTERM)
-                self.ffmpeg_process.terminate()
-                # Wait up to 5 seconds for graceful shutdown
-                self.ffmpeg_process.wait(timeout=5)
-                logging.debug("FFmpeg process terminated gracefully")
-            except subprocess.TimeoutExpired:
-                # Process didn't terminate, force kill (SIGKILL)
-                logging.warning("FFmpeg did not terminate gracefully, forcing kill")
-                self.ffmpeg_process.kill()
-                # Ensure process is fully dead and reaped (prevents zombies)
-                self.ffmpeg_process.wait()
-                logging.debug("FFmpeg process force killed")
-            except Exception as e:
-                # Catch any other errors (process already dead, etc.)
-                logging.debug(f"FFmpeg termination exception: {e}")
-            finally:
-                self.ffmpeg_process = None
+        """Terminate the running FFmpeg process gracefully."""
+        self.stream_manager.kill_ffmpeg()
 
     def start_song(self) -> None:
         """Mark the current song as actively playing."""
@@ -1178,7 +943,6 @@ class Karaoke:
         self.is_playing = False
         self.now_playing_transpose = 0
         self.now_playing_duration = None
-        self.ffmpeg_log = None
         self.update_now_playing_socket()
 
     def get_now_playing(self) -> dict[str, Any]:
@@ -1230,7 +994,7 @@ class Karaoke:
                             self.handle_run_loop()
                             i += self.loop_interval
                         self.play_file(self.queue[0]["file"], self.queue[0]["semitones"])
-                self.log_ffmpeg_output()
+                self.stream_manager.log_ffmpeg_output()
                 self.handle_run_loop()
             except KeyboardInterrupt:
                 logging.warning("Keyboard interrupt: Exiting pikaraoke...")
