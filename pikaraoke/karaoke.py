@@ -26,6 +26,7 @@ from pikaraoke.lib.ffmpeg import (
 )
 from pikaraoke.lib.file_resolver import delete_tmp_dir
 from pikaraoke.lib.get_platform import get_os_version, get_platform, is_raspberry_pi
+from pikaraoke.lib.network import get_ip
 from pikaraoke.lib.stream_manager import StreamManager
 from pikaraoke.lib.youtube_dl import (
     get_youtube_id_from_url,
@@ -179,34 +180,90 @@ class Karaoke:
         # Initialize variables
         self.config_file_path = config_file_path
         self.port = port
-        self.hide_url = pref if (pref := self.get_user_preference("hide_url")) is not None else hide_url
-        self.hide_notifications = pref if (pref := self.get_user_preference("hide_notifications")) is not None else hide_notifications
+        self.hide_url = (
+            pref if (pref := self.get_user_preference("hide_url")) is not None else hide_url
+        )
+        self.hide_notifications = (
+            pref
+            if (pref := self.get_user_preference("hide_notifications")) is not None
+            else hide_notifications
+        )
         self.hide_splash_screen = hide_splash_screen
         self.download_path = download_path
-        self.high_quality = pref if (pref := self.get_user_preference("high_quality")) is not None else high_quality
-        self.splash_delay = pref if (pref := self.get_user_preference("splash_delay")) is not None else int(splash_delay)
+        self.high_quality = (
+            pref if (pref := self.get_user_preference("high_quality")) is not None else high_quality
+        )
+        self.splash_delay = (
+            pref
+            if (pref := self.get_user_preference("splash_delay")) is not None
+            else int(splash_delay)
+        )
         self.volume = pref if (pref := self.get_user_preference("volume")) is not None else volume
-        self.normalize_audio = pref if (pref := self.get_user_preference("normalize_audio")) is not None else normalize_audio
-        self.complete_transcode_before_play = pref if (pref := self.get_user_preference("complete_transcode_before_play")) is not None else complete_transcode_before_play
+        self.normalize_audio = (
+            pref
+            if (pref := self.get_user_preference("normalize_audio")) is not None
+            else normalize_audio
+        )
+        self.complete_transcode_before_play = (
+            pref
+            if (pref := self.get_user_preference("complete_transcode_before_play")) is not None
+            else complete_transcode_before_play
+        )
         self.log_level = log_level
-        self.buffer_size = pref if (pref := self.get_user_preference("buffer_size")) is not None else buffer_size
+        self.buffer_size = (
+            pref if (pref := self.get_user_preference("buffer_size")) is not None else buffer_size
+        )
         self.youtubedl_path = youtubedl_path
         self.youtubedl_proxy = youtubedl_proxy
         self.additional_ytdl_args = additional_ytdl_args
         self.logo_path = self.default_logo_path if logo_path == None else logo_path
-        self.hide_overlay = pref if (pref := self.get_user_preference("hide_overlay")) is not None else hide_overlay
-        self.screensaver_timeout = pref if (pref := self.get_user_preference("screensaver_timeout")) is not None else screensaver_timeout
+        self.hide_overlay = (
+            pref if (pref := self.get_user_preference("hide_overlay")) is not None else hide_overlay
+        )
+        self.screensaver_timeout = (
+            pref
+            if (pref := self.get_user_preference("screensaver_timeout")) is not None
+            else screensaver_timeout
+        )
         self.prefer_hostname = prefer_hostname
-        self.disable_bg_music = pref if (pref := self.get_user_preference("disable_bg_music")) is not None else disable_bg_music
-        self.bg_music_volume = pref if (pref := self.get_user_preference("bg_music_volume")) is not None else bg_music_volume
+        self.disable_bg_music = (
+            pref
+            if (pref := self.get_user_preference("disable_bg_music")) is not None
+            else disable_bg_music
+        )
+        self.bg_music_volume = (
+            pref
+            if (pref := self.get_user_preference("bg_music_volume")) is not None
+            else bg_music_volume
+        )
         self.bg_music_path = self.default_bg_music_path if bg_music_path == None else bg_music_path
-        self.disable_bg_video = pref if (pref := self.get_user_preference("disable_bg_video")) is not None else disable_bg_video
+        self.disable_bg_video = (
+            pref
+            if (pref := self.get_user_preference("disable_bg_video")) is not None
+            else disable_bg_video
+        )
         self.bg_video_path = self.default_bg_video_path if bg_video_path == None else bg_video_path
-        self.disable_score = pref if (pref := self.get_user_preference("disable_score")) is not None else disable_score
-        self.limit_user_songs_by = pref if (pref := self.get_user_preference("limit_user_songs_by")) is not None else limit_user_songs_by
-        self.cdg_pixel_scaling = pref if (pref := self.get_user_preference("cdg_pixel_scaling")) is not None else cdg_pixel_scaling
+        self.disable_score = (
+            pref
+            if (pref := self.get_user_preference("disable_score")) is not None
+            else disable_score
+        )
+        self.limit_user_songs_by = (
+            pref
+            if (pref := self.get_user_preference("limit_user_songs_by")) is not None
+            else limit_user_songs_by
+        )
+        self.cdg_pixel_scaling = (
+            pref
+            if (pref := self.get_user_preference("cdg_pixel_scaling")) is not None
+            else cdg_pixel_scaling
+        )
         self.avsync = pref if (pref := self.get_user_preference("avsync")) is not None else avsync
-        self.streaming_format = pref if (pref := self.get_user_preference("streaming_format")) is not None else streaming_format
+        self.streaming_format = (
+            pref
+            if (pref := self.get_user_preference("streaming_format")) is not None
+            else streaming_format
+        )
         self.socketio = socketio
         self.url_override = url
         self.url = self.get_url()
@@ -257,7 +314,7 @@ class Karaoke:
                 else:
                     break
         else:
-            self.ip = self.get_ip()
+            self.ip = get_ip(self.platform)
 
         logging.debug("IP address (for QR code and splash screen): " + self.ip)
 
@@ -355,37 +412,6 @@ class Karaoke:
             return [True, _("Your preferences were cleared successfully")]
         except OSError:
             return [False, _("Something went wrong! Your preferences were not cleared")]
-
-    def get_ip(self) -> str:
-        """Get the local IP address of this machine.
-
-        Returns:
-            IP address string.
-        """
-        # python socket.connect will not work on android, access denied. Workaround: use ifconfig which is installed to termux by default, iirc.
-        if self.platform == "android":
-            # shell command is: ifconfig 2> /dev/null | awk '/wlan0/{flag=1} flag && /inet /{print $2; exit}'
-            IP = (
-                subprocess.check_output(
-                    "ifconfig 2> /dev/null | awk '/wlan0/{flag=1} flag && /inet /{print $2; exit}'",
-                    shell=True,
-                )
-                .decode("utf8")
-                .strip()
-            )
-        else:
-            # Other ip-getting methods are unreliable and sometimes return 125.0.0.1
-            # https://stackoverflow.com/a/28950774
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            try:
-                # doesn't even have to be reachable
-                s.connect(("10.255.255.255", 1))
-                IP = s.getsockname()[0]
-            except Exception:
-                IP = "127.0.0.1"
-            finally:
-                s.close()
-        return IP
 
     def upgrade_youtubedl(self) -> None:
         """Upgrade yt-dlp to the latest version."""
