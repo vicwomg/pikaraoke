@@ -208,6 +208,10 @@ class StreamManager:
     def _check_hls_buffer(self, fr: FileResolver, buffer_size: int) -> bool:
         """Check if HLS buffer is ready for playback.
 
+        Counts segment files directly instead of parsing the playlist.
+        This works with hls_playlist_type=vod (playlist written at end)
+        while still allowing early playback detection.
+
         Args:
             fr: FileResolver instance.
             buffer_size: Minimum buffer size in bytes.
@@ -220,25 +224,26 @@ class StreamManager:
             return False
 
         try:
-            output_file_size = os.path.getsize(fr.output_file)
-            if output_file_size > 0:
+            # Count segment files directly (works even before playlist is written)
+            stream_uid_str = str(fr.stream_uid)
+            segment_files = [
+                f for f in os.listdir(fr.tmp_dir) if stream_uid_str in f and f.endswith(".m4s")
+            ]
+            segment_count = len(segment_files)
+            min_segments = 3
+
+            if segment_count >= min_segments:
                 stream_size = fr.get_current_stream_size()
-                with open(fr.output_file, "r") as f:
-                    playlist_content = f.read()
-                    segment_count = playlist_content.count(".m4s")
-                    min_segments = 3
-                    if stream_size >= buffer_size and segment_count >= min_segments:
-                        logging.debug(
-                            f"Buffering complete. Stream size: {stream_size}, "
-                            f"Segments: {segment_count}"
-                        )
-                        return True
+                if stream_size >= buffer_size:
+                    logging.debug(
+                        f"Buffering complete. Stream size: {stream_size}, "
+                        f"Segments: {segment_count}"
+                    )
+                    return True
         except FileNotFoundError:
-            pass  # FFmpeg hasn't created the file yet
+            pass  # Temp dir doesn't exist yet
         except (PermissionError, OSError, IOError) as e:
             logging.warning(f"I/O error checking buffer: {e}")
-        except UnicodeDecodeError as e:
-            logging.error(f"Failed to read playlist: {e}")
         except Exception as e:
             logging.error(f"Unexpected error during buffering check: {e}")
 
