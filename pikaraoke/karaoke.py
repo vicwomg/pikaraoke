@@ -565,6 +565,7 @@ class Karaoke:
 
         # Build performance index for O(1) YouTube ID lookups
         self._youtube_id_to_path = youtube_id_map
+        logging.debug(f"Indexed {len(self.available_songs)} songs, {len(youtube_id_map)} YouTube IDs")
 
     def delete(self, song_path: str) -> None:
         """Delete a song file and its associated CDG file if present.
@@ -632,6 +633,7 @@ class Karaoke:
             Full path to the song file, or None if not found.
         """
         result = self._youtube_id_to_path.get(youtube_id)
+        logging.debug(f"YouTube ID lookup '{youtube_id}': {'found' if result else 'not found'}")
         if result is None:
             logging.error("No available song found with youtube id: " + youtube_id)
         return result
@@ -713,6 +715,7 @@ class Karaoke:
     def _rebuild_queue_index(self) -> None:
         """Rebuild the queue performance index. Called after external queue modifications."""
         self._queue_paths_set = {item["file"] for item in self.queue}
+        logging.debug(f"Queue index rebuilt: {len(self._queue_paths_set)} songs")
 
     def is_user_limited(self, user: str) -> bool:
         """Check if a user has reached their queue limit.
