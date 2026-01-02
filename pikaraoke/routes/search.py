@@ -1,7 +1,6 @@
 """YouTube search and download routes."""
 
 import json
-import threading
 
 import flask_babel
 from flask import (
@@ -148,23 +147,7 @@ def download():
     else:
         queue = False
 
-    # download in the background since this can take a few minutes
-    t = threading.Thread(target=k.download_video, args=[song, queue, user, title])
-    t.daemon = True
-    t.start()
+    # Queue the download (processed serially by the download worker)
+    k.download_video(song, queue, user, title)
 
-    displayed_title = title if title else song
-    flash_message = (
-        # MSG: Message shown after starting a download. Song title is displayed in the message.
-        _("Download started: %s. This may take a couple of minutes to complete.")
-        % displayed_title
-    )
-
-    if queue:
-        # MSG: Message shown after starting a download that will be adding a song to the queue.
-        flash_message += _("Song will be added to queue.")
-    else:
-        # MSG: Message shown after after starting a download.
-        flash_message += _('Song will appear in the "available songs" list.')
-    flash(flash_message, "is-info")
     return redirect(url_for("search.search"))
