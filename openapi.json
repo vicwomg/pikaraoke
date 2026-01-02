@@ -19,31 +19,6 @@
         ]
       }
     },
-    "/stream/{id}": {
-      "get": {
-        "summary": "Stream transcoded video in chunks (Chrome compatible).",
-        "responses": {
-          "200": {
-            "description": "Chunked video stream"
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "type": "string",
-            "required": true,
-            "description": "Video stream ID"
-          }
-        ],
-        "tags": [
-          "Stream"
-        ],
-        "produces": [
-          "video/mp4"
-        ]
-      }
-    },
     "/stream/full/{id}": {
       "get": {
         "summary": "Stream video with range headers (Safari compatible).",
