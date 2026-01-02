@@ -48,7 +48,7 @@ Pikaraoke is independently developed and maintained. If you want to support this
 
 - Python 3.10 or greater (You can check your current version by running `python --version`): [Python downloads](https://www.python.org/downloads/)
 - FFmpeg: [FFmpeg downloads](https://ffmpeg.org/download.html)
-- Chrome browser (recommended, though Safari and Firefox will work with the `--complete-transcode-before-play` option)
+- A modern, up-to-date browser (Chrome, Safari, Firefox, Edge)
 - A js runtime installed to your PATH (such as Node, Deno, Bun, QuickJS), this is a requirement as of yt-dlp 2025.11.12 otherwise some downloads may not work: https://github.com/yt-dlp/yt-dlp/wiki/EJS . Deno is probably easiest: https://deno.com/
 
 #### Specific install instructions for Raspberry Pi OS / Linux distros with `apt`:
