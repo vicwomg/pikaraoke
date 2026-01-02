@@ -201,6 +201,7 @@ def main() -> None:
         streaming_format=args.streaming_format,
         additional_ytdl_args=getattr(args, "ytdl_args", None),
         socketio=socketio,
+        preferred_language=args.preferred_language,
     )
 
     # expose karaoke object to the flask app
