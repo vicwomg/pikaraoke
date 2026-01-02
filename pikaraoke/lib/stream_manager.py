@@ -86,6 +86,7 @@ class StreamManager:
         except Exception as e:
             error_message = _("Error resolving file: %s") % str(e)
             k.queue.pop(0)
+            k._rebuild_queue_index()  # Update performance index after queue modification
             k.end_song(reason=error_message)
             k.log_and_send(error_message, "danger")
             return False
@@ -299,6 +300,7 @@ class StreamManager:
         k.now_playing_user = k.queue[0]["user"]
         k.is_paused = False
         k.queue.pop(0)
+        k._rebuild_queue_index()  # Update performance index after queue modification
         k.update_now_playing_socket()
         k.update_queue_socket()
 

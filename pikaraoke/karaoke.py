@@ -61,6 +61,10 @@ class Karaoke:
     queue: list[dict[str, Any]] = []
     available_songs: list[str] = []
 
+    # Performance indexes for O(1) lookups
+    _queue_paths_set: set[str] = set()  # Quick queue membership check
+    _youtube_id_to_path: dict[str, str] = {}  # Quick YouTube ID lookup
+
     # These all get sent to the /nowplaying endpoint for client-side polling
     now_playing: str | None = None
     now_playing_filename: str | None = None
@@ -540,15 +544,27 @@ class Karaoke:
         logging.info("Fetching available songs in: " + self.download_path)
         types = [".mp4", ".mp3", ".zip", ".mkv", ".avi", ".webm", ".mov"]
         files_grabbed = []
+        youtube_id_map = {}
+
         P = Path(self.download_path)
         for file in P.rglob("*.*"):
             base, ext = os.path.splitext(file.as_posix())
             if ext.lower() in types:
                 if os.path.isfile(file.as_posix()):
                     logging.debug("adding song: " + file.name)
-                    files_grabbed.append(file.as_posix())
+                    file_path = file.as_posix()
+                    files_grabbed.append(file_path)
+
+                    # Extract YouTube ID if present (pattern: ---VIDEOID at end of filename)
+                    # Example: "Song Name---dQw4w9WgXcQ.mp4"
+                    if "---" in file.name:
+                        youtube_id = file.name.split("---")[-1].split(".")[0]
+                        youtube_id_map[youtube_id] = file_path
 
         self.available_songs = sorted(files_grabbed, key=lambda f: str.lower(os.path.basename(f)))
+
+        # Build performance index for O(1) YouTube ID lookups
+        self._youtube_id_to_path = youtube_id_map
 
     def delete(self, song_path: str) -> None:
         """Delete a song file and its associated CDG file if present.
@@ -607,7 +623,7 @@ class Karaoke:
         return rc
 
     def find_song_by_youtube_id(self, youtube_id: str) -> str | None:
-        """Find a song in available_songs by its YouTube ID.
+        """Find a song in available_songs by its YouTube ID - O(1) lookup.
 
         Args:
             youtube_id: YouTube video ID to search for.
@@ -615,11 +631,10 @@ class Karaoke:
         Returns:
             Full path to the song file, or None if not found.
         """
-        for each in self.available_songs:
-            if youtube_id in each:
-                return each
-        logging.error("No available song found with youtube id: " + youtube_id)
-        return None
+        result = self._youtube_id_to_path.get(youtube_id)
+        if result is None:
+            logging.error("No available song found with youtube id: " + youtube_id)
+        return result
 
     def play_file(self, file_path: str, semitones: int = 0) -> bool | None:
         """Start playback of a media file.
@@ -685,7 +700,7 @@ class Karaoke:
         return self.is_playing
 
     def is_song_in_queue(self, song_path: str) -> bool:
-        """Check if a song is already in the queue.
+        """Check if a song is already in the queue - O(1) lookup.
 
         Args:
             song_path: Path to the song file.
@@ -693,10 +708,11 @@ class Karaoke:
         Returns:
             True if the song is in the queue.
         """
-        for each in self.queue:
-            if each["file"] == song_path:
-                return True
-        return False
+        return song_path in self._queue_paths_set
+
+    def _rebuild_queue_index(self) -> None:
+        """Rebuild the queue performance index. Called after external queue modifications."""
+        self._queue_paths_set = {item["file"] for item in self.queue}
 
     def is_user_limited(self, user: str) -> bool:
         """Check if a user has reached their queue limit.
@@ -761,6 +777,10 @@ class Karaoke:
                     # MSG: Message shown after the song is added to the queue
                     self.log_and_send(_("%s added to the queue: %s") % (user, queue_item["title"]))
                 self.queue.append(queue_item)
+
+            # Update performance index for O(1) queue membership checks
+            self._queue_paths_set.add(song_path)
+
             self.update_queue_socket()
             self.update_now_playing_socket()
             return [
@@ -801,6 +821,8 @@ class Karaoke:
         # MSG: Message shown after the queue is cleared
         self.log_and_send(_("Clear queue"), "danger")
         self.queue = []
+        # Clear performance index
+        self._queue_paths_set = set()
         self.update_queue_socket()
         self.update_now_playing_socket()
         self.skip(log_action=False)
@@ -849,6 +871,8 @@ class Karaoke:
         else:
             logging.error("Unrecognized direction: " + action)
         if rc:
+            # Rebuild performance index after queue modification
+            self._queue_paths_set = {item["file"] for item in self.queue}
             self.update_queue_socket()
             self.update_now_playing_socket()
         return rc
