@@ -240,7 +240,7 @@ class Karaoke:
         # Initialize and start download manager
         self.download_manager = DownloadManager(self)
         self.download_manager.start()
-        
+
         # Initialize stream manager for transcoding and playback
         self.stream_manager = StreamManager(self)
 
