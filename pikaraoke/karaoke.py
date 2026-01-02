@@ -21,6 +21,7 @@ from typing import Any
 import qrcode
 from flask_babel import _
 
+from pikaraoke.lib.download_manager import DownloadManager
 from pikaraoke.lib.ffmpeg import (
     build_ffmpeg_cmd,
     get_ffmpeg_version,
@@ -34,7 +35,6 @@ from pikaraoke.lib.file_resolver import (
 )
 from pikaraoke.lib.get_platform import get_os_version, get_platform, is_raspberry_pi
 from pikaraoke.lib.youtube_dl import (
-    build_ytdl_download_command,
     get_youtube_id_from_url,
     get_youtubedl_version,
     upgrade_youtubedl,
@@ -103,6 +103,9 @@ class Karaoke:
     ffmpeg_process: subprocess.Popen | None = None
     ffmpeg_log: Queue | None = None
     normalize_audio: bool = False
+
+    # Download manager for serialized downloads
+    download_manager: DownloadManager | None = None
 
     config_obj: configparser.ConfigParser = configparser.ConfigParser()
 
@@ -254,6 +257,10 @@ class Karaoke:
         if preferred_language:
             self.change_preferences("preferred_language", preferred_language)
             logging.info(f"Setting preferred language to: {preferred_language}")
+
+        # Initialize and start download manager
+        self.download_manager = DownloadManager(self)
+        self.download_manager.start()
 
     def get_url(self):
         """Get the URL for accessing the PiKaraoke web interface.
@@ -513,54 +520,19 @@ class Karaoke:
         enqueue: bool = False,
         user: str = "Pikaraoke",
         title: str | None = None,
-    ) -> int:
-        """Download a video from YouTube.
+    ) -> None:
+        """Queue a video for download from YouTube.
+
+        Downloads are processed serially to prevent rate limiting and CPU overload.
+        A notification is sent when the download is queued, and another when it starts.
 
         Args:
             video_url: YouTube video URL.
-            enqueue: Whether to add to queue after download.
+            enqueue: Whether to add to playback queue after download.
             user: Username to attribute the download to.
             title: Display title (defaults to URL if not provided).
-
-        Returns:
-            Return code from the download process (0 = success).
         """
-        displayed_title = title if title else video_url
-        # MSG: Message shown after the download is started
-        self.log_and_send(_("Downloading video: %s" % displayed_title))
-        cmd = build_ytdl_download_command(
-            self.youtubedl_path,
-            video_url,
-            self.download_path,
-            self.high_quality,
-            self.youtubedl_proxy,
-            self.additional_ytdl_args,
-        )
-        logging.debug("Youtube-dl command: " + " ".join(cmd))
-        rc = subprocess.call(cmd)
-        if rc != 0:
-            logging.error("Error code while downloading, retrying once...")
-            rc = subprocess.call(cmd)  # retry once. Seems like this can be flaky
-        if rc == 0:
-            if enqueue:
-                # MSG: Message shown after the download is completed and queued
-                self.log_and_send(_("Downloaded and queued: %s" % displayed_title), "success")
-            else:
-                # MSG: Message shown after the download is completed but not queued
-                self.log_and_send(_("Downloaded: %s" % displayed_title), "success")
-            self.get_available_songs()
-            if enqueue:
-                y = get_youtube_id_from_url(video_url)
-                s = self.find_song_by_youtube_id(y)
-                if s:
-                    self.enqueue(s, user, log_action=False)
-                else:
-                    # MSG: Message shown after the download is completed but the adding to queue fails
-                    self.log_and_send(_("Error queueing song: ") + displayed_title, "danger")
-        else:
-            # MSG: Message shown after the download process is completed but the song is not found
-            self.log_and_send(_("Error downloading song: ") + displayed_title, "danger")
-        return rc
+        self.download_manager.queue_download(video_url, enqueue, user, title)
 
     def get_available_songs(self) -> None:
         """Scan the download directory and update the available songs list."""
