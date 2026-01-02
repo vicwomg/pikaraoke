@@ -764,6 +764,7 @@ class Karaoke:
                     # Check if the file has buffered enough to start playback
                     try:
                         output_file_size = os.path.getsize(fr.output_file)
+                        min_segments = 3
                         if not self.complete_transcode_before_play:
                             # Check if playlist has at least 3 segments to be ready for streaming
                             segment_count = 0  # Initialize to avoid NameError in logging
@@ -773,7 +774,7 @@ class Karaoke:
                                     playlist_content = f.read()
                                     segment_count = playlist_content.count(".m4s")
                                     is_buffering_complete = (stream_size >= buffer_size) and (
-                                        segment_count >= 3
+                                        segment_count >= min_segments
                                     )
                             if is_buffering_complete:
                                 logging.debug(
