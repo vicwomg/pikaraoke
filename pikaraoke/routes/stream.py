@@ -122,7 +122,7 @@ def stream_progressive_mp4(id):
         chunk_size = 10240 * 1000 * 25  # Read file in up to 25MB chunks
         with open(file_path, "rb") as file:
             # Keep yielding file chunks as long as ffmpeg process is transcoding
-            while k.ffmpeg_process.poll() is None:
+            while k.stream_manager.ffmpeg_process.poll() is None:
                 file.seek(position)  # Move to the last read position
                 chunk = file.read(chunk_size)
                 if chunk is not None and len(chunk) > 0:
