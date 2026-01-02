@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 import logging
+import platform
 import subprocess
-from typing import TYPE_CHECKING
 
 import ffmpeg
-
-if TYPE_CHECKING:
-    from pikaraoke.lib.file_resolver import FileResolver
 
 
 def get_media_duration(file_path: str) -> int | None:
@@ -24,7 +21,7 @@ def get_media_duration(file_path: str) -> int | None:
     try:
         duration = ffmpeg.probe(file_path)["format"]["duration"]
         return round(float(duration))
-    except (ffmpeg.Error, KeyError, TypeError):
+    except:
         return None
 
 
@@ -32,6 +29,7 @@ def build_ffmpeg_cmd(
     fr: FileResolver,
     semitones: int = 0,
     normalize_audio: bool = True,
+    force_mp4_encoding: bool = False,
     buffer_fully_before_playback: bool = False,
     avsync: float = 0,
     cdg_pixel_scaling: bool = False,
@@ -45,28 +43,39 @@ def build_ffmpeg_cmd(
         fr: FileResolver instance with source file information.
         semitones: Number of semitones to shift pitch (0 = no shift).
         normalize_audio: Whether to apply loudness normalization.
-        buffer_fully_before_playback: If True, use faststart for full buffering.
+        force_mp4_encoding: If True, force mp4 encoding.
         avsync: Audio/video sync adjustment in seconds.
-        cdg_pixel_scaling: Whether to apply pixel scaling for CDG files.
+        cdg_pixel_scaling: Enable pixel scaling for CDG rendering.
 
     Returns:
         ffmpeg OutputStream object ready to execute.
     """
     avsync = float(avsync)
     # use h/w acceleration on pi
-    default_vcodec = "h264_v4l2m2m" if supports_hardware_h264_encoding() else "libx264"
-    # just copy the video stream if it's an mp4 or webm file, since they are supported natively in html5
-    # otherwise use the default h264 codec
-    vcodec = (
-        "copy" if fr.file_extension == ".mp4" or fr.file_extension == ".webm" else default_vcodec
-    )
-    vbitrate = "5M"  # seems to yield best results w/ h264_v4l2m2m on pi, recommended for 720p.
+    using_hardware_encoder = supports_hardware_h264_encoding()
+    default_vcodec = "h264_v4l2m2m" if using_hardware_encoder else "libx264"
+    # just copy the video stream if it's an mp4 file (already H.264 compatible)
+    # webm uses VP8/VP9 which must be transcoded to H.264 for fMP4 containers
+    vcodec = "copy" if fr.file_extension == ".mp4" else default_vcodec
+
+    # Optimize bitrate for Raspberry Pi hardware encoder
+    # Pi 3B+ struggles with 5M bitrate in real-time, 2M provides better stability
+    # while maintaining good quality for karaoke videos
+    if using_hardware_encoder:
+        vbitrate = "2M"  # Optimized for Pi h264_v4l2m2m real-time encoding
+    else:
+        vbitrate = "5M"  # Higher quality for more powerful hardware
 
     # copy the audio stream if no transposition/normalization, otherwise reincode with the aac codec
     is_transposed = semitones != 0
     acodec = "aac" if is_transposed or normalize_audio or avsync != 0 else "copy"
 
-    input = ffmpeg.input(fr.file_path)
+    # For container formats that may have VFR or timestamp issues, use genpts
+    # This fixes playback issues with AVI, MOV, MKV, and WEBM when streaming
+    if fr.file_extension in [".webm", ".avi", ".mov", ".mkv"]:
+        input = ffmpeg.input(fr.file_path, **{"fflags": "+genpts"})
+    else:
+        input = ffmpeg.input(fr.file_path)
     audio = input.audio
 
     # If avsync is set, delay or trim the audio stream
@@ -81,9 +90,6 @@ def build_ffmpeg_cmd(
     audio = audio.filter("rubberband", pitch=pitch) if is_transposed else audio
     # normalize the audio
     audio = audio.filter("loudnorm", i=-16, tp=-1.5, lra=11) if normalize_audio else audio
-
-    # frag_keyframe+default_base_moof is used to set the correct headers for streaming incomplete files,
-    # without it, there's better compatibility for streaming on certain browsers like Firefox
     movflags = "+faststart" if buffer_fully_before_playback else "frag_keyframe+default_base_moof"
 
     if fr.cdg_file_path != None:  # handle CDG files
@@ -95,36 +101,101 @@ def build_ffmpeg_cmd(
         else:
             video = cdg_input.video.filter("fps", fps=25)
 
-        # cdg is very fussy about these flags.
-        # pi ffmpeg needs to encode to aac and cant just copy the mp3 stream
-        # It also appears to have memory issues with hardware acceleration h264_v4l2m2m
-        output = ffmpeg.output(
-            audio,
-            video,
-            fr.output_file,
-            vcodec="libx264",
-            acodec="aac",
-            preset="ultrafast",
-            pix_fmt="yuv420p",
-            listen=1,
-            f="mp4",
-            video_bitrate="500k",
-            movflags=movflags,
-        )
+        if force_mp4_encoding:
+            output = ffmpeg.output(
+                audio,
+                video,
+                fr.output_file,
+                vcodec="libx264",
+                acodec="aac",
+                preset="ultrafast",
+                pix_fmt="yuv420p",
+                listen=1,
+                f="mp4",
+                video_bitrate="500k",
+                movflags=movflags,
+            )
+        else:
+            # Both MP4 and HLS modes use HLS format (init.mp4 + fMP4 segments)
+            # The difference is in how they're served:
+            # - mp4: Stream concatenates init + segments for progressive playback
+            # - hls: Browser requests segments via .m3u8 playlist
+            #
+            # This approach works because:
+            # - Segments are pre-encoded (no real-time streaming pressure)
+            # - Hardware encoding (h264_v4l2m2m) works reliably with discrete segments
+            # - Both Chrome and Smart TVs can use the same encoded output
+            output = ffmpeg.output(
+                audio,
+                video,
+                fr.output_file,
+                vcodec="libx264",
+                acodec="aac",
+                audio_bitrate="192k",  # Explicit quality for AAC
+                ac=2,  # Force stereo (downmix surround sound)
+                ar=48000,  # Standard sample rate for streaming
+                preset="ultrafast",
+                pix_fmt="yuv420p",
+                f="hls",
+                hls_time=3,
+                hls_list_size=0,
+                hls_playlist_type="vod",  # Tell Safari this is VOD, not live
+                hls_segment_type="fmp4",
+                hls_fmp4_init_filename=fr.init_filename,
+                hls_segment_filename=fr.segment_pattern,
+                video_bitrate="500k",
+                **{
+                    "vsync": "cfr",
+                    "avoid_negative_ts": "make_zero",
+                },  # Force constant frame rate and fix negative timestamps
+            )
     else:
         video = input.video
-        output = ffmpeg.output(
-            audio,
-            video,
-            fr.output_file,
-            vcodec=vcodec,
-            acodec=acodec,
-            preset="ultrafast",
-            listen=1,
-            f="mp4",
-            video_bitrate=vbitrate,
-            movflags=movflags,
-        )
+
+        # For WEBM files, genpts at input level handles timestamp regeneration
+        # No additional filters needed - let genpts + avoid_negative_ts do the work
+
+        if force_mp4_encoding:
+            output = ffmpeg.output(
+                audio,
+                video,
+                fr.output_file,
+                vcodec=vcodec,
+                acodec=acodec,
+                preset="ultrafast",
+                listen=1,
+                f="mp4",
+                video_bitrate=vbitrate,
+                movflags=movflags,
+            )
+        else:
+            # Both MP4 and HLS modes use HLS format (init.mp4 + fMP4 segments)
+            # The difference is in how they're served:
+            # - mp4: Stream concatenates init + segments for progressive playback
+            # - hls: Browser requests segments via .m3u8 playlist
+            output = ffmpeg.output(
+                audio,
+                video,
+                fr.output_file,
+                vcodec=vcodec,
+                acodec="aac",  # Force AAC encoding for compatibility
+                audio_bitrate="192k",  # Explicit quality for AAC
+                ac=2,  # Force stereo (downmix surround sound)
+                ar=48000,  # Standard sample rate for streaming
+                preset="ultrafast",
+                f="hls",
+                hls_time=3,
+                hls_list_size=0,
+                hls_playlist_type="vod",  # Tell Safari this is VOD, not live
+                hls_segment_type="fmp4",
+                hls_fmp4_init_filename=fr.init_filename,
+                hls_segment_filename=fr.segment_pattern,
+                video_bitrate=vbitrate,
+                **{
+                    "vsync": "cfr",
+                    "avoid_negative_ts": "make_zero",
+                },  # Force constant frame rate and fix negative timestamps
+            )
 
     args = output.get_args()
     logging.debug(f"COMMAND: ffmpeg " + " ".join(args))
@@ -141,10 +212,7 @@ def get_ffmpeg_version() -> str:
     try:
         # Execute the command 'ffmpeg -version'
         result = subprocess.run(
-            ["ffmpeg", "-version"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
+            ["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
         )
         # Parse the first line to get the version
         first_line = result.stdout.split("\n")[0]
@@ -166,22 +234,44 @@ def is_transpose_enabled() -> bool:
         filters = subprocess.run(["ffmpeg", "-filters"], capture_output=True)
     except FileNotFoundError:
         return False
+    except IndexError:
+        return False
     return "rubberband" in filters.stdout.decode()
 
 
 def supports_hardware_h264_encoding() -> bool:
     """Check if hardware H.264 encoding (h264_v4l2m2m) is available.
 
-    This is typically available on Raspberry Pi devices.
+    Only returns True on ARM architecture (Raspberry Pi) where h264_v4l2m2m
+    is actually supported. On x86/Intel systems, returns False to use software encoding.
 
     Returns:
-        True if h264_v4l2m2m codec is available, False otherwise.
+        True if hardware encoding is available, False otherwise.
     """
+    # Check CPU architecture first - h264_v4l2m2m only works on ARM
+    arch = platform.machine().lower()
+    is_arm = any(arm_variant in arch for arm_variant in ["arm", "aarch"])
+
+    if not is_arm:
+        # Not ARM (probably Intel x86/x64), don't use h264_v4l2m2m
+        logging.debug(f"CPU architecture {arch} is not ARM, using software encoder")
+        return False
+
+    # On ARM, check if h264_v4l2m2m is available
     try:
         codecs = subprocess.run(["ffmpeg", "-codecs"], capture_output=True)
     except FileNotFoundError:
         return False
-    return "h264_v4l2m2m" in codecs.stdout.decode()
+    except IndexError:
+        return False
+
+    has_encoder = "h264_v4l2m2m" in codecs.stdout.decode()
+    if has_encoder:
+        logging.info("ARM platform detected, using h264_v4l2m2m hardware encoder")
+    else:
+        logging.debug("ARM platform but h264_v4l2m2m not available")
+
+    return has_encoder
 
 
 def is_ffmpeg_installed() -> bool:
