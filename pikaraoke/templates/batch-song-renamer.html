@@ -1,0 +1,266 @@
+{% extends 'base.html' %} {% block scripts %}
+
+<script>
+	function fecthSongs(url){
+		$("#results-table").remove();
+		$("#loading").show();
+
+			fetch(url)
+				.then((response) => response.json())
+				.then((data) => {
+					// Esconde loading
+					$("#loading").remove();
+
+					// Mostra tabela e insere os dados
+					$("#content-area").html(data.html);
+				})
+				.catch((error) => {
+					$("#loading").hide();
+					alert("Erro: " + error);
+				});
+	}
+
+	function fecthMoreSongs(url){
+
+		$("#loading").show();
+
+			fetch(url)
+				.then((response) => response.json())
+				.then((data) => {
+
+					// Esconde loading
+					$("#loading").hide();
+
+					// Mostra tabela e insere os dados
+					$("#results-table tbody").append(data.html);
+
+					$("#load-more-songs").attr("data-page", data.page).attr("data-last-song-index", data["song-index"]).show()
+
+				})
+				.catch((error) => {
+					$("#loading").hide();
+					alert("Erro: " + error);
+				});
+	}
+
+
+	$(document).ready(function () {
+		if ({{ show_all_songs|lower }}) {
+			let url = "{{ url_for('batch_song_renamer.get_all_songs') }}?page={{ page }}"
+			fecthSongs(url);
+		} else {
+			let url = "{{ url_for('batch_song_renamer.get_songs_to_rename') }}"
+			fecthSongs(url);
+		}
+
+		$("#content-area").on("click", ".pagination-link", function(e){
+			e.preventDefault();
+			let page = $(this).text().trim();
+			let url = "{{ url_for('batch_song_renamer.get_all_songs') }}?page="+page;
+			fecthSongs(url)
+		})
+
+		$("#content-area").on("click", "#load-more-songs", function(e){
+			$(this).hide()
+			let page = $(this).attr("data-page");
+			let lastSongIndex = $(this).attr("data-last-song-index");
+			let url = "{{ url_for('batch_song_renamer.get_songs_to_rename') }}?page=" + page + "&song-index=" + lastSongIndex
+			fecthMoreSongs(url)
+		})
+
+		$("#content-area").on("click", ".accept-change", function(e){
+			e.preventDefault();
+			let btn = $(this)
+			let newNameField = btn.closest('tr').find('.new-name')
+			let oldNameField = btn.closest('tr').find('.old-name')
+			let newName = newNameField.attr("data-new-name")
+
+			let newNameInputValue = newNameField.val();
+			let oldName = btn.attr("data-old-name");
+
+			$.post("{{ url_for('batch_song_renamer.rename_song') }}", {
+				new_name: newNameInputValue,
+				old_name: oldName,
+			})
+			.done(function(response) {
+				if (!response.success){
+					showNotification(response.message, response.categoryClass)
+				} else {
+					if (newNameInputValue == newName){
+						btn.attr("disabled", true);
+						newNameField.removeClass(["is-danger", "is-warning"]).addClass("is-success")
+					} else {
+						newNameField.addClass("success-border");
+					}
+					btn.attr("data-old-name", response["new_file_name"]);
+					oldNameField.text(newNameInputValue)
+					newNameField.val(newName)
+				}
+			})
+			.fail(function(error) {
+				console.error("Erro:", error);
+			});
+		})
+
+		$("#content-area").on("input", ".new-name", function(e){
+			let btn = $(this).closest('tr').find('.accept-change')
+			let input = $(this)
+
+			if (input.attr("data-new-name") == input.attr("data-old-name")){
+				if (input.val() != input.attr("data-new-name") && input.val() != input.attr("data-old-name")){
+					btn.attr("disabled", false);
+					input.removeClass(["is-success", "is-warning", "success-border"]).addClass("is-warning")
+				} else {
+					btn.attr("disabled", true);
+					input.removeClass(["is-danger", "is-warning"]).addClass("is-success")
+				}
+			}
+
+			if(input.attr("data-new-name") == "N/A" && input.val() != "N/A"){
+				input.removeClass(["is-danger"]).addClass("is-warning")
+				btn.attr("disabled", false);
+			} else if (input.attr("data-new-name") == "N/A"){
+				input.removeClass(["is-warning"]).addClass("is-danger")
+				btn.attr("disabled", true);
+			}
+		})
+
+
+	});
+</script>
+
+{% endblock %} {% block header %} {# MSG: Page title for the page where the user can batch rename songs. #}
+<h1>{% block title %}{% trans %}Batch Song Renamer{% endtrans %}{% endblock %}</h1>
+{% endblock %} {% block content %} {# MSG: Message about the wait for loading the songs #}
+<p class="is-italic has-text-warning">
+	{% trans %}The loading process may take a few seconds, as the song titles are compared online. Loading time may vary
+	based on your internet connection.{% endtrans %}
+</p>
+
+<p>
+	{% if show_all_songs == True %} {# MSG: Label which displays that all songs are being shown #} {% trans %}Showing all
+	songs{% endtrans %} |
+	<a href="{{ url_for('batch_song_renamer.browse') }}">
+		{# MSG: Button which changes to show only the songs to rename #} {% trans %}Show only songs to rename{% endtrans
+		%}
+	</a>
+	{% else %} {# MSG: Label which displays that only songs to rename are being shown. #} {% trans %}Showing only songs
+	to rename{% endtrans %} |
+	<a href="{{ url_for('batch_song_renamer.browse') }}?show_all_songs=true">
+		{# MSG: Button which changes to show all songs #} {% trans %}Show all songs{% endtrans %}
+	</a>
+	{% endif %}
+</p>
+
+<div id="loading" style="">
+	<div class="skeleton-block is-flex is-justify-content-center is-align-items-center mb-3" style="height: 10rem">
+		<p class="has-text-white">
+			{# MSG: Message displaying that the songs are currently being loaded #} {% trans %}Loading songs...{% endtrans
+			%}
+		</p>
+	</div>
+</div>
+
+<div id="content-area"></div>
+
+<style>
+	#alpha-bar {
+		padding: 5px 10px;
+		border-radius: 4px;
+		margin-bottom: 10px;
+		position: sticky;
+		display: flex;
+		justify-content: space-between;
+		top: 3px;
+		z-index: 20;
+	}
+	table {
+		width: 100%;
+		table-layout: auto; /* Allows columns to adjust based on content */
+	}
+	td {
+		word-wrap: break-word; /* Ensures long words break to fit within the cell */
+	}
+	.break-word {
+		word-break: break-all; /* Ensures long words break to fit within the cell */
+	}
+
+	@media screen and (max-width: 500px) {
+		#alpha-bar {
+			font-size: 13px;
+			position: fixed;
+			display: flex;
+			align-items: center;
+			right: 8px;
+			top: 15px;
+			flex-direction: column;
+			max-width: 22px;
+			height: 95vh;
+		}
+		.mobile-hide {
+			visibility: hidden;
+		}
+	}
+
+	@media screen and (max-width: 768px) {
+		.songs-table thead {
+			display: none;
+		}
+
+		.songs-table tr {
+			display: grid;
+			grid-template-columns: 40px 1fr auto; /* Nº | Conteúdo | ícone */
+			gap: 6px;
+			padding: 10px;
+			border: 1px solid #444;
+			border-radius: 6px;
+			margin-bottom: 12px;
+			background: #242424;
+		}
+
+		.songs-table td {
+			display: block;
+			border-bottom: none !important;
+			padding: 0px;
+		}
+
+		/* Número fixo à esquerda */
+		.songs-table td.col-num {
+			font-weight: bold;
+			align-self: center;
+			padding: 0px !important;
+		}
+
+		/* Nome e Corrigido empilhados na mesma coluna (span no grid) */
+		.songs-table td.col-old-name,
+		.songs-table td.col-new-name {
+			grid-column: 2 / span 1;
+			padding: 0px;
+		}
+
+		/* Ações na última coluna alinhado */
+		.songs-table td.col-btn {
+			grid-column: 3;
+			align-self: center;
+			justify-self: end;
+			padding: 0px;
+		}
+	}
+	.vertical-align-middle {
+		vertical-align: middle !important;
+	}
+	.new-name {
+		height: 2rem;
+	}
+	.success-border {
+		border: 2px solid #2ba76f !important;
+	}
+
+	@media screen and (min-width: 769px) {
+		.songs-table td.col-new-name {
+			width: 45%;
+		}
+	}
+</style>
+
+{% endblock %}

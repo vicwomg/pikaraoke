@@ -1,3 +1,5 @@
+"""Song queue management routes."""
+
 import json
 
 import flask_babel
@@ -22,15 +24,52 @@ queue_bp = Blueprint("queue", __name__)
 
 @queue_bp.route("/queue")
 def queue():
+    """Queue management page.
+    ---
+    tags:
+      - Pages
+    responses:
+      200:
+        description: HTML queue management page
+    """
     k = get_karaoke_instance()
     site_name = get_site_name()
     return render_template(
-        "queue.html", queue=k.queue, site_title=site_name, title="Queue", admin=is_admin()
+        "queue.html",
+        queue=k.queue,
+        site_title=site_name,
+        title="Queue",
+        admin=is_admin(),
     )
 
 
 @queue_bp.route("/get_queue")
 def get_queue():
+    """Get the current song queue.
+    ---
+    tags:
+      - Queue
+    responses:
+      200:
+        description: List of songs in queue
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              user:
+                type: string
+                description: User who added the song
+              file:
+                type: string
+                description: File path of the song
+              title:
+                type: string
+                description: Display title of the song
+              semitones:
+                type: integer
+                description: Transpose value in semitones
+    """
     k = get_karaoke_instance()
     if len(k.queue) >= 1:
         return json.dumps(k.queue)
@@ -40,6 +79,20 @@ def get_queue():
 
 @queue_bp.route("/queue/addrandom", methods=["GET"])
 def add_random():
+    """Add random songs to the queue.
+    ---
+    tags:
+      - Queue
+    parameters:
+      - name: amount
+        in: query
+        type: integer
+        required: true
+        description: Number of random songs to add
+    responses:
+      302:
+        description: Redirects to queue page
+    """
     k = get_karaoke_instance()
     amount = int(request.args["amount"])
     rc = k.queue_add_random(amount)
@@ -101,6 +154,40 @@ def queue_edit():
 
 @queue_bp.route("/enqueue", methods=["POST", "GET"])
 def enqueue():
+    """Add a song to the queue.
+    ---
+    tags:
+      - Queue
+    parameters:
+      - name: song
+        in: query
+        type: string
+        description: Path to the song file
+      - name: user
+        in: query
+        type: string
+        description: Name of the user adding the song
+      - name: song-to-add
+        in: formData
+        type: string
+        description: Path to the song file (form data)
+      - name: song-added-by
+        in: formData
+        type: string
+        description: Name of the user (form data)
+    responses:
+      200:
+        description: Result of enqueue operation
+        schema:
+          type: object
+          properties:
+            song:
+              type: string
+              description: Title of the song
+            success:
+              type: boolean
+              description: Whether the song was added
+    """
     k = get_karaoke_instance()
     if "song" in request.args:
         song = request.args["song"]
