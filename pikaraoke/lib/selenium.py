@@ -44,6 +44,32 @@ def launch_splash_screen(
     options.add_argument("--kiosk")
     options.add_argument("--start-maximized")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
+
+    # Raspberry Pi specific optimizations for resource-constrained hardware
+    if karaoke.is_raspberry_pi:
+        # Memory management - critical for Pi's 1GB RAM
+        options.add_argument("--disable-dev-shm-usage")  # Don't use /dev/shm (limited to 50-100MB)
+        options.add_argument(
+            "--disable-features=VizDisplayCompositor"
+        )  # Reduce GPU compositor overhead
+
+        # GPU optimization - free GPU memory for video decode and h264_v4l2m2m encoder
+        options.add_argument("--disable-gpu-compositing")  # Use CPU for UI, GPU for video only
+        options.add_argument(
+            "--disable-software-rasterizer"
+        )  # Force GPU rendering, no CPU fallback
+
+        # Performance tuning - reduce overhead on limited CPU
+        options.add_argument("--disable-gpu-vsync")  # Don't wait for vsync, reduces GPU load
+        options.add_argument("--disable-background-timer-throttling")  # Keep SocketIO responsive
+        options.add_argument(
+            "--disable-backgrounding-occluded-windows"
+        )  # Don't suspend kiosk window
+
+        # Media optimization
+        options.add_argument("--autoplay-policy=no-user-gesture-required")  # Enable autoplay
+        options.add_argument("--use-gl=egl")  # Use EGL (Embedded GL) instead of desktop GL
+
     try:
         driver = webdriver.Chrome(service=service, options=options)
         driver.get(f"{karaoke.url}/splash")
