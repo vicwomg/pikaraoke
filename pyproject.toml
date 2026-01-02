@@ -27,6 +27,7 @@ dependencies = [
   "flask-socketio>=5.5.0",
   "gevent>=24.11.1",
   "flasgger>=0.9.7.1",
+  "Unidecode>=1.3.6",
 ]
 
 [project.optional-dependencies]

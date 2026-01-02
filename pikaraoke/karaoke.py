@@ -21,6 +21,7 @@ from typing import Any
 
 import qrcode
 from flask_babel import _
+from unidecode import unidecode
 
 from pikaraoke.lib.ffmpeg import (
     build_ffmpeg_cmd,
