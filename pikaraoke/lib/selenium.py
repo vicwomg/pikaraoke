@@ -44,6 +44,7 @@ def launch_splash_screen(
     options.add_argument("--kiosk")
     options.add_argument("--start-maximized")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
 
     # Raspberry Pi specific optimizations for resource-constrained hardware
     if karaoke.is_raspberry_pi:

@@ -26,6 +26,7 @@ from pikaraoke.lib.ffmpeg import (
 )
 from pikaraoke.lib.file_resolver import delete_tmp_dir
 from pikaraoke.lib.get_platform import get_os_version, get_platform, is_raspberry_pi
+from pikaraoke.lib.network import get_ip
 from pikaraoke.lib.stream_manager import StreamManager
 from pikaraoke.lib.youtube_dl import (
     get_youtube_id_from_url,
@@ -266,7 +267,7 @@ class Karaoke:
                 else:
                     break
         else:
-            self.ip = self.get_ip()
+            self.ip = get_ip(self.platform)
 
         logging.debug("IP address (for QR code and splash screen): " + self.ip)
 
@@ -362,37 +363,6 @@ class Karaoke:
             return [True, _("Your preferences were cleared successfully")]
         except OSError:
             return [False, _("Something went wrong! Your preferences were not cleared")]
-
-    def get_ip(self) -> str:
-        """Get the local IP address of this machine.
-
-        Returns:
-            IP address string.
-        """
-        # python socket.connect will not work on android, access denied. Workaround: use ifconfig which is installed to termux by default, iirc.
-        if self.platform == "android":
-            # shell command is: ifconfig 2> /dev/null | awk '/wlan0/{flag=1} flag && /inet /{print $2; exit}'
-            IP = (
-                subprocess.check_output(
-                    "ifconfig 2> /dev/null | awk '/wlan0/{flag=1} flag && /inet /{print $2; exit}'",
-                    shell=True,
-                )
-                .decode("utf8")
-                .strip()
-            )
-        else:
-            # Other ip-getting methods are unreliable and sometimes return 125.0.0.1
-            # https://stackoverflow.com/a/28950774
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            try:
-                # doesn't even have to be reachable
-                s.connect(("10.255.255.255", 1))
-                IP = s.getsockname()[0]
-            except Exception:
-                IP = "127.0.0.1"
-            finally:
-                s.close()
-        return IP
 
     def upgrade_youtubedl(self) -> None:
         """Upgrade yt-dlp to the latest version."""
