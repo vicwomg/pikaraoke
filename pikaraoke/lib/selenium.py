@@ -43,6 +43,7 @@ def launch_splash_screen(
 
     options.add_argument("--kiosk")
     options.add_argument("--start-maximized")
+    options.add_argument("--disable-infobars")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option("useAutomationExtension", False)
 
