@@ -114,57 +114,26 @@ def stream_main(id):
 # Compatible with Chrome, Firefox and RPi with hardware acceleration
 @stream_bp.route("/stream/<id>.mp4")
 def stream_progressive_mp4(id):
-    tmp_dir = get_tmp_dir()
+    file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
+    k = get_karaoke_instance()
 
-    def generate_mp4_stream():
-        init_path = os.path.join(tmp_dir, f"{id}_init.mp4")
+    def generate():
+        position = 0  # Initialize the position variable
+        chunk_size = 10240 * 1000 * 25  # Read file in up to 25MB chunks
+        with open(file_path, "rb") as file:
+            # Keep yielding file chunks as long as ffmpeg process is transcoding
+            while k.ffmpeg_process.poll() is None:
+                file.seek(position)  # Move to the last read position
+                chunk = file.read(chunk_size)
+                if chunk is not None and len(chunk) > 0:
+                    yield chunk
+                    position += len(chunk)  # Update the position with the size of the chunk
+                time.sleep(1)  # Wait a bit before checking the file size again
+            chunk = file.read(chunk_size)  # Read the last chunk
+            yield chunk
+            position += len(chunk)  # Update the position with the size of the chunk
 
-        # Wait for init file to be created
-        max_wait = 100  # 10 seconds max
-        wait_count = 0
-        while not os.path.exists(init_path) and wait_count < max_wait:
-            time.sleep(0.1)
-            wait_count += 1
-
-        # Send init.mp4 header first (contains moov atom and codec info)
-        if os.path.exists(init_path):
-            # Read file completely, close handle, then yield data
-            # This ensures file is closed before Windows cleanup attempts deletion
-            with open(init_path, "rb") as f:
-                init_data = f.read()
-            yield init_data
-        else:
-            # Fallback: init file not found, return error
-            return
-
-        # Stream fMP4 segments as they become available
-        seg_idx = 0
-        max_empty_checks = 50  # 5 seconds of no new segments
-        empty_checks = 0
-
-        while empty_checks < max_empty_checks:
-            seg_path = os.path.join(tmp_dir, f"{id}_segment_{seg_idx:03d}.m4s")
-
-            if os.path.exists(seg_path):
-                # Read entire segment into memory, close file, then yield
-                # Prevents Windows file locking issues during cleanup
-                try:
-                    with open(seg_path, "rb") as f:
-                        segment_data = f.read()
-                    # File is now closed, safe to yield data
-                    yield segment_data
-                    seg_idx += 1
-                    empty_checks = 0  # Reset counter when segment found
-                except IOError as e:
-                    # Segment might be in use or deleted, skip it
-                    seg_idx += 1
-                    empty_checks = 0
-            else:
-                # Segment doesn't exist yet, wait briefly
-                time.sleep(0.1)
-                empty_checks += 1
-
-    return Response(generate_mp4_stream(), mimetype="video/mp4")
+    return Response(generate(), mimetype="video/mp4")
 
 
 def stream_file_path_full(file_path):

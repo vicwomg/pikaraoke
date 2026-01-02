@@ -684,14 +684,13 @@ class Karaoke:
             return False
 
         # Set stream URL based on format
-        if is_hls:
+        if is_hls:  # ** HLS mode **
             stream_url_path = f"/stream/{fr.stream_uid}.m3u8"
-        else:
-            stream_url_path = f"/stream/{fr.stream_uid}.mp4"
-
-        # For non-transcoded or complete transcoding files, use direct MP4 serving (except in HLS mode)
-        if (self.complete_transcode_before_play or not requires_transcoding) and not is_hls:
-            stream_url_path = f"/stream/full/{fr.stream_uid}"
+        else:  # ** MP4 mode **
+            if self.complete_transcode_before_play or not requires_transcoding:
+                stream_url_path = f"/stream/full/{fr.stream_uid}"
+            else:
+                stream_url_path = f"/stream/{fr.stream_uid}.mp4"
 
         if not requires_transcoding:
             # simply copy file path to the tmp directory and the stream is ready
@@ -708,12 +707,12 @@ class Karaoke:
         else:
             self.kill_ffmpeg()
             # HLS mode will override the complete_transcode_before_play setting
-            force_mp4_encoding = False if is_hls else self.complete_transcode_before_play
             ffmpeg_cmd = build_ffmpeg_cmd(
                 fr,
                 semitones,
                 self.normalize_audio,
-                force_mp4_encoding,
+                not is_hls,  # force mp4 encoding
+                self.complete_transcode_before_play,  # buffer fully before playback only relevant for mp4 mode
                 self.avsync,
                 self.cdg_pixel_scaling,
             )
@@ -735,7 +734,6 @@ class Karaoke:
             is_transcoding_complete = False
             is_buffering_complete = False
             buffer_size = int(self.buffer_size) * 1000  # convert from kb to bytes
-            min_segments = 3  # minimum number of segments ready for streaming
 
             # Transcoding readiness polling loop
             while True:
@@ -754,46 +752,66 @@ class Karaoke:
                         stream_size = fr.get_current_stream_size()
                         logging.debug(f"Transcoding complete. Output size: {stream_size}")
                         break
-                # Check if the file has buffered enough to start playback
-                try:
-                    output_file_size = os.path.getsize(fr.output_file)
-                    if not self.complete_transcode_before_play:
-                        # Both mp4 and hls modes now use HLS format (init.mp4 + segments)
-                        # Check if playlist has at least min_segments ready for streaming
-                        segment_count = 0  # Initialize to avoid NameError in logging
-                        stream_size = fr.get_current_stream_size()
-                        if output_file_size > 0:
-                            with open(fr.output_file, "r") as f:
-                                playlist_content = f.read()
-                                segment_count = playlist_content.count(".m4s")
-                                is_buffering_complete = (stream_size >= buffer_size) and (
-                                    segment_count >= min_segments
+
+                if is_hls:  # ** HLS mode **
+                    # Check if the file has buffered enough to start playback
+                    try:
+                        output_file_size = os.path.getsize(fr.output_file)
+                        if not self.complete_transcode_before_play:
+                            # Check if playlist has at least 3 segments to be ready for streaming
+                            segment_count = 0  # Initialize to avoid NameError in logging
+                            stream_size = fr.get_current_stream_size()
+                            if output_file_size > 0:
+                                with open(fr.output_file, "r") as f:
+                                    playlist_content = f.read()
+                                    segment_count = playlist_content.count(".m4s")
+                                    is_buffering_complete = (stream_size >= buffer_size) and (
+                                        segment_count >= 3
+                                    )
+                            if is_buffering_complete:
+                                logging.debug(
+                                    f"Buffering complete {fr.output_file}. Playlist stream size: {stream_size}, Buffer size: {buffer_size}, Segments: {segment_count}, Min segments: {min_segments}"
                                 )
-                        if is_buffering_complete:
-                            logging.debug(
-                                f"Buffering complete {fr.output_file}. Playlist stream size: {stream_size}, Buffer size: {buffer_size}, Segments: {segment_count}, Min segments: {min_segments}"
-                            )
-                            break
-                except FileNotFoundError:
-                    # Expected: FFmpeg hasn't created the playlist file yet
-                    # Continue waiting in the loop
-                    pass
-                except (PermissionError, OSError, IOError) as e:
-                    # Unexpected: SD card issues, filesystem problems
-                    logging.warning(
-                        f"I/O error while checking buffer status for {fr.output_file}: {e}"
-                    )
-                    # Continue - may be transient issue
-                except UnicodeDecodeError as e:
-                    # FFmpeg wrote binary data instead of text playlist - error state
-                    logging.error(f"Failed to read playlist as text (FFmpeg may have errored): {e}")
-                    # Continue for now, but this is suspicious
-                except Exception as e:
-                    # Catch-all for truly unexpected errors
-                    logging.error(
-                        f"Unexpected error during buffering check: {type(e).__name__}: {e}"
-                    )
-                    # Continue waiting, don't crash
+                                break
+                    except FileNotFoundError:
+                        # Expected: FFmpeg hasn't created the playlist file yet
+                        # Continue waiting in the loop
+                        pass
+                    except (PermissionError, OSError, IOError) as e:
+                        # Unexpected: SD card issues, filesystem problems
+                        logging.warning(
+                            f"I/O error while checking buffer status for {fr.output_file}: {e}"
+                        )
+                        # Continue - may be transient issue
+                    except UnicodeDecodeError as e:
+                        # FFmpeg wrote binary data instead of text playlist - error state
+                        logging.error(
+                            f"Failed to read playlist as text (FFmpeg may have errored): {e}"
+                        )
+                        # Continue for now, but this is suspicious
+                    except Exception as e:
+                        # Catch-all for truly unexpected errors
+                        logging.error(
+                            f"Unexpected error during buffering check: {type(e).__name__}: {e}"
+                        )
+                        # Continue waiting, don't crash
+                else:  # ** MP4 mode **
+                    try:
+                        # Check if the file has buffered enough to start playback
+                        if not self.complete_transcode_before_play:
+                            output_file_size = os.path.getsize(fr.output_file)
+                            if not self.complete_transcode_before_play:
+                                is_buffering_complete = (
+                                    output_file_size > int(self.buffer_size) * 1000
+                                )
+                                if is_buffering_complete:
+                                    logging.debug(
+                                        f"Buffering complete. File size: {output_file_size}"
+                                    )
+                                    break
+                    except:
+                        pass
+
                 # Prevent infinite loop if playback never starts
                 if transcode_max_retries <= 0:
                     logging.error("Max retries reached trying to play song. Skipping track")

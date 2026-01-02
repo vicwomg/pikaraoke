@@ -30,6 +30,7 @@ def build_ffmpeg_cmd(
     semitones: int = 0,
     normalize_audio: bool = True,
     force_mp4_encoding: bool = False,
+    buffer_fully_before_playback: bool = False,
     avsync: float = 0,
     cdg_pixel_scaling: bool = False,
 ) -> ffmpeg.nodes.OutputStream:
@@ -89,6 +90,7 @@ def build_ffmpeg_cmd(
     audio = audio.filter("rubberband", pitch=pitch) if is_transposed else audio
     # normalize the audio
     audio = audio.filter("loudnorm", i=-16, tp=-1.5, lra=11) if normalize_audio else audio
+    movflags = "+faststart" if buffer_fully_before_playback else "frag_keyframe+default_base_moof"
 
     if fr.cdg_file_path != None:  # handle CDG files
         logging.info("Playing CDG/MP3 file: " + fr.file_path)
@@ -111,7 +113,7 @@ def build_ffmpeg_cmd(
                 listen=1,
                 f="mp4",
                 video_bitrate="500k",
-                movflags="+faststart",
+                movflags=movflags,
             )
         else:
             # Both MP4 and HLS modes use HLS format (init.mp4 + fMP4 segments)
@@ -164,7 +166,7 @@ def build_ffmpeg_cmd(
                 listen=1,
                 f="mp4",
                 video_bitrate=vbitrate,
-                movflags="+faststart",
+                movflags=movflags,
             )
         else:
             # Both MP4 and HLS modes use HLS format (init.mp4 + fMP4 segments)

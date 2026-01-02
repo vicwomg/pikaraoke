@@ -289,7 +289,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     ),
     parser.add_argument(
         "--streaming-format",
-        help=f"Video streaming format: 'hls' (HLS with fMP4 segments) or 'mp4' (progressive MP4 - legacy format might work better on slow devices). Default is '{default_streaming_format}'.",
+        help=f"Video streaming format: 'hls' (HLS with fMP4 segments) or 'mp4' (pushes mp4 directly to the browser - legacy format that might work better on some configurations). Default is '{default_streaming_format}'.",
         choices=["hls", "mp4"],
         default=default_streaming_format,
         required=False,
