@@ -91,7 +91,7 @@
     let prompt = window.prompt(
       "Are you sure you want to clear the ENTIRE queue? Type 'ok' to continue"
     );
-    if (prompt.toLowerCase() === "ok") {
+    if (prompt && prompt.toLowerCase() === "ok") {
       $.get(this.href)
     }
   });
