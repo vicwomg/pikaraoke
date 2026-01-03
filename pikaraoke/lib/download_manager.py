@@ -159,11 +159,11 @@ class DownloadManager:
                 # MSG: Message shown after the download is completed but not queued
                 k.log_and_send(_("Downloaded: %s") % displayed_title, "success")
 
-            k.get_available_songs()
+            # Add the downloaded song to the list without full directory rescan
+            y = get_youtube_id_from_url(video_url)
+            s = k.add_downloaded_song(y)
 
             if enqueue:
-                y = get_youtube_id_from_url(video_url)
-                s = k.find_song_by_youtube_id(y)
                 if s:
                     k.enqueue(s, user, log_action=False)
                 else:

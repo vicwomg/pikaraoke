@@ -11,7 +11,6 @@ import random
 import socket
 import subprocess
 import time
-from pathlib import Path
 from subprocess import check_output
 from typing import Any
 
@@ -27,6 +26,7 @@ from pikaraoke.lib.ffmpeg import (
 from pikaraoke.lib.file_resolver import delete_tmp_dir
 from pikaraoke.lib.get_platform import get_os_version, get_platform, is_raspberry_pi
 from pikaraoke.lib.network import get_ip
+from pikaraoke.lib.song_list import SongList
 from pikaraoke.lib.stream_manager import StreamManager
 from pikaraoke.lib.youtube_dl import (
     get_youtube_id_from_url,
@@ -59,7 +59,7 @@ class Karaoke:
     """
 
     queue: list[dict[str, Any]] = []
-    available_songs: list[str] = []
+    available_songs: SongList
 
     # These all get sent to the /nowplaying endpoint for client-side polling
     now_playing: str | None = None
@@ -271,7 +271,8 @@ class Karaoke:
         # Log the settings to debug level
         self.log_settings_to_debug()
 
-        # get songs from download_path
+        # Initialize song list and load songs from download_path
+        self.available_songs = SongList()
         self.get_available_songs()
 
         self.generate_qr_code()
@@ -537,18 +538,19 @@ class Karaoke:
 
     def get_available_songs(self) -> None:
         """Scan the download directory and update the available songs list."""
-        logging.info("Fetching available songs in: " + self.download_path)
-        types = [".mp4", ".mp3", ".zip", ".mkv", ".avi", ".webm", ".mov"]
-        files_grabbed = []
-        P = Path(self.download_path)
-        for file in P.rglob("*.*"):
-            base, ext = os.path.splitext(file.as_posix())
-            if ext.lower() in types:
-                if os.path.isfile(file.as_posix()):
-                    logging.debug("adding song: " + file.name)
-                    files_grabbed.append(file.as_posix())
+        self.available_songs.scan_directory(self.download_path)
 
-        self.available_songs = sorted(files_grabbed, key=lambda f: str.lower(os.path.basename(f)))
+    def add_downloaded_song(self, youtube_id: str) -> str | None:
+        """Find and add a newly downloaded song by YouTube ID.
+
+        Args:
+            youtube_id: YouTube video ID of the downloaded song.
+
+        Returns:
+            Path to the found song file, or None if not found.
+        """
+        # yt-dlp saves files as: title---youtube_id.ext
+        return self.available_songs.find_and_add(self.download_path, f"*---{youtube_id}.*")
 
     def delete(self, song_path: str) -> None:
         """Delete a song file and its associated CDG file if present.
@@ -565,7 +567,7 @@ class Karaoke:
         if os.path.exists(cdg_file):
             os.remove(cdg_file)
 
-        self.get_available_songs()
+        self.available_songs.remove(song_path)
 
     def rename(self, song_path: str, new_name: str) -> None:
         """Rename a song file and its associated CDG file if present.
@@ -578,12 +580,13 @@ class Karaoke:
         ext = os.path.splitext(song_path)
         if len(ext) == 2:
             new_file_name = new_name + ext[1]
-        os.rename(song_path, self.download_path + new_file_name)
+        new_path = self.download_path + new_file_name
+        os.rename(song_path, new_path)
         # if we have an associated cdg file, rename that too
         cdg_file = song_path.replace(ext[1], ".cdg")
         if os.path.exists(cdg_file):
             os.rename(cdg_file, self.download_path + new_name + ".cdg")
-        self.get_available_songs()
+        self.available_songs.rename(song_path, new_path)
 
     def filename_from_path(self, file_path: str, remove_youtube_id: bool = True) -> str:
         """Extract a clean display name from a file path.
@@ -778,22 +781,30 @@ class Karaoke:
             True if successful, False if ran out of songs.
         """
         logging.info("Adding %d random songs to queue" % amount)
-        songs = list(self.available_songs)  # make a copy
-        if len(songs) == 0:
+
+        if len(self.available_songs) == 0:
             logging.warning("No available songs!")
             return False
-        i = 0
-        while i < amount:
-            r = random.randint(0, len(songs) - 1)
-            if self.is_song_in_queue(songs[r]):
-                logging.warning("Song already in queue, trying another... " + songs[r])
-            else:
-                self.enqueue(songs[r], "Randomizer")
-                i += 1
-            songs.pop(r)
-            if len(songs) == 0:
-                logging.warning("Ran out of songs!")
-                return False
+
+        # Get songs not already in queue
+        queued_paths = {item["file"] for item in self.queue}
+        eligible_songs = [s for s in self.available_songs if s not in queued_paths]
+
+        if len(eligible_songs) == 0:
+            logging.warning("All songs are already in queue!")
+            return False
+
+        # Sample up to 'amount' songs (or all eligible if fewer available)
+        sample_size = min(amount, len(eligible_songs))
+        selected = random.sample(eligible_songs, sample_size)
+
+        for song in selected:
+            self.enqueue(song, "Randomizer")
+
+        if sample_size < amount:
+            logging.warning("Ran out of songs! Only added %d" % sample_size)
+            return False
+
         return True
 
     def queue_clear(self) -> None:
