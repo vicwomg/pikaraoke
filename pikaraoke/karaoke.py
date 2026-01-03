@@ -565,7 +565,9 @@ class Karaoke:
 
         # Build performance index for O(1) YouTube ID lookups
         self._youtube_id_to_path = youtube_id_map
-        logging.debug(f"Indexed {len(self.available_songs)} songs, {len(youtube_id_map)} YouTube IDs")
+        logging.debug(
+            f"Indexed {len(self.available_songs)} songs, {len(youtube_id_map)} YouTube IDs"
+        )
 
     def delete(self, song_path: str) -> None:
         """Delete a song file and its associated CDG file if present.
