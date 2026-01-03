@@ -119,8 +119,10 @@
         const href = $(link).attr('href');
         const $link = $(link);
 
-        // Exclude links with specific classes that indicate they should do full page loads
-        if ($link.hasClass('no-spa') || $link.hasClass('edit-button')) {
+        // Exclude links with specific classes that use AJAX handlers
+        if ($link.hasClass('no-spa') ||
+            $link.hasClass('edit-button') ||
+            $link.hasClass('add-song-link')) {  // Browse page add to queue
             return true;
         }
 
