@@ -86,6 +86,8 @@
     $.get(this.href)
   });
 
+  // Remove any existing handler first to prevent duplicates during SPA navigation
+  $(document).off('click', '.confirm-clear');
   $(document).on('click', '.confirm-clear', function (e) {
     e.preventDefault();
     let prompt = window.prompt(
