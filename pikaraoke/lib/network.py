@@ -17,12 +17,92 @@ def get_ip(platform: str) -> str:
     Returns:
         IP address string, or '127.0.0.1' if detection fails.
     """
-    if platform == "android":
-        return _get_ip_android()
-    elif platform == "windows":
-        return _get_ip_windows()
-    else:
-        return _get_ip_default()
+    try:
+        return _get_ip_via_psutil()
+    except Exception as e:
+        logging.warning(f"psutil method failed: {e}, using platform-specific fallback")
+        # Fall back to platform-specific methods
+        if platform == "android":
+            return _get_ip_android()
+        elif platform == "windows":
+            return _get_ip_windows()
+        else:
+            return _get_ip_default()
+
+
+def _get_ip_via_psutil() -> str:
+    """Get IP address using psutil (cross-platform, filters virtual adapters).
+
+    This method works consistently across Windows, Linux, macOS, Raspberry Pi,
+    and Android by enumerating network interfaces and filtering out virtual adapters.
+
+    Returns:
+        IP address string.
+
+    Raises:
+        Exception: If psutil is not available or no suitable interface found.
+    """
+    import psutil  # Import here to allow graceful fallback if not available
+
+    virtual_prefixes = (
+        "lo",
+        "veth",
+        "docker",
+        "vmnet",
+        "vEthernet",
+        "VirtualBox",
+        "WSL",
+        "Loopback",
+        "utun",
+        "awdl",
+        "bridge",
+    )
+
+    interfaces = psutil.net_if_addrs()
+    interface_stats = psutil.net_if_stats()
+    candidates = []
+
+    for interface_name, addrs in interfaces.items():
+        # Skip virtual/loopback interfaces
+        if interface_name.startswith(virtual_prefixes):
+            continue
+
+        # Check if interface is up
+        if interface_name in interface_stats and not interface_stats[interface_name].isup:
+            continue
+
+        for addr in addrs:
+            if addr.family == socket.AF_INET:  # IPv4
+                ip = addr.address
+
+                # Skip localhost and APIPA addresses
+                if ip.startswith(("127.", "169.254.")):
+                    continue
+
+                # Prioritize: Ethernet > WiFi > Others
+                priority = 0
+                interface_lower = interface_name.lower()
+                if "eth" in interface_lower or "en" in interface_lower:
+                    priority = 3
+                elif (
+                    "wlan" in interface_lower
+                    or "wi-fi" in interface_lower
+                    or "wifi" in interface_lower
+                ):
+                    priority = 2
+                else:
+                    priority = 1
+
+                candidates.append((priority, ip, interface_name))
+
+    if candidates:
+        candidates.sort(reverse=True, key=lambda x: x[0])
+        selected_ip = candidates[0][1]
+        selected_interface = candidates[0][2]
+        logging.debug(f"Selected network interface: {selected_interface} with IP: {selected_ip}")
+        return selected_ip
+
+    raise Exception("No suitable network interface found")
 
 
 def _get_ip_android() -> str:
