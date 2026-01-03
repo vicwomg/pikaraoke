@@ -42,6 +42,9 @@
         // Initialize username change handler
         initUsernameHandler();
 
+        // Initialize queue management handlers
+        initQueueHandlers();
+
         // Mark initial page load
         if (window.history.state === null) {
             window.history.replaceState({ path: currentPath }, '', currentPath);
@@ -91,6 +94,59 @@
                 // Update the displayed name without reloading
                 $("#current-user span").text(name);
             }
+        });
+    }
+
+    /**
+     * Initialize queue management handlers with event delegation
+     * This ensures they work reliably across all page transitions
+     */
+    function initQueueHandlers() {
+        // Remove any existing handlers first to avoid duplicates
+        $(document).off('click', '.confirm-clear');
+        $(document).off('click', '.confirm-delete');
+        $(document).off('click', '.up-button');
+        $(document).off('click', '.down-button');
+        $(document).off('click', '.add-random');
+
+        // Clear queue confirmation
+        $(document).on('click', '.confirm-clear', function(e) {
+            e.preventDefault();
+            let userInput = window.prompt(
+                "Are you sure you want to clear the ENTIRE queue? Type 'ok' to continue"
+            );
+            // Only clear if user typed 'ok' exactly (case insensitive)
+            if (userInput !== null && userInput.toLowerCase() === "ok") {
+                $.get(this.href);
+            }
+        });
+
+        // Delete song from queue confirmation
+        $(document).on('click', '.confirm-delete', function(e) {
+            e.preventDefault();
+            if (window.confirm(`Are you sure you want to delete "${this.title}" from the queue?`)) {
+                $.get(this.href);
+            }
+        });
+
+        // Move song up in queue
+        $(document).on('click', '.up-button', function(e) {
+            e.preventDefault();
+            $.get(this.href);
+        });
+
+        // Move song down in queue
+        $(document).on('click', '.down-button', function(e) {
+            e.preventDefault();
+            $.get(this.href);
+        });
+
+        // Add random songs to queue
+        $(document).on('click', '.add-random', function(e) {
+            e.preventDefault();
+            const amount = $('#randomNumberInput').val();
+            const baseUrl = '/queue/addrandom';
+            $.get(`${baseUrl}?amount=${amount}`);
         });
     }
 
