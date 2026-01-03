@@ -3,15 +3,41 @@
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 from queue import Queue
 from threading import Thread
 from typing import TYPE_CHECKING
 
-from pikaraoke.lib.youtube_dl import (
-    build_ytdl_download_command,
-    get_youtube_id_from_url,
-)
+from pikaraoke.lib.youtube_dl import build_ytdl_download_command
+
+
+def parse_download_path(output: str) -> str | None:
+    """Parse the downloaded file path from yt-dlp output.
+
+    Args:
+        output: Combined stdout/stderr from yt-dlp.
+
+    Returns:
+        Path to the downloaded file, or None if not found.
+    """
+    # Pattern 1: [download] Destination: /path/to/file.ext
+    match = re.search(r"\[download\] Destination: (.+)$", output, re.MULTILINE)
+    if match:
+        return match.group(1).strip()
+
+    # Pattern 2: [download] /path/to/file.ext has already been downloaded
+    match = re.search(r"\[download\] (.+) has already been downloaded", output)
+    if match:
+        return match.group(1).strip()
+
+    # Pattern 3: [Merger] Merging formats into "/path/to/file.ext"
+    match = re.search(r'\[Merger\] Merging formats into "(.+)"', output)
+    if match:
+        return match.group(1).strip()
+
+    return None
+
 
 if TYPE_CHECKING:
     from pikaraoke.karaoke import Karaoke
@@ -146,10 +172,14 @@ class DownloadManager:
         )
         logging.debug("Youtube-dl command: " + " ".join(cmd))
 
-        rc = subprocess.call(cmd)
+        # Capture output to extract the downloaded file path
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        rc = result.returncode
+
         if rc != 0:
             logging.error("Error code while downloading, retrying once...")
-            rc = subprocess.call(cmd)  # retry once. Seems like this can be flaky
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            rc = result.returncode
 
         if rc == 0:
             if enqueue:
@@ -159,18 +189,25 @@ class DownloadManager:
                 # MSG: Message shown after the download is completed but not queued
                 k.log_and_send(_("Downloaded: %s") % displayed_title, "success")
 
-            k.get_available_songs()
+            # Extract the downloaded file path from yt-dlp output
+            output = result.stdout + result.stderr
+            song_path = parse_download_path(output)
+            logging.debug(output)
+
+            if song_path:
+                k.available_songs.add_if_valid(song_path)
+            else:
+                logging.warning("Could not parse download path from yt-dlp output")
 
             if enqueue:
-                y = get_youtube_id_from_url(video_url)
-                s = k.find_song_by_youtube_id(y)
-                if s:
-                    k.enqueue(s, user, log_action=False)
+                if song_path:
+                    k.enqueue(song_path, user, log_action=False)
                 else:
                     # MSG: Message shown after the download is completed but the adding to queue fails
                     k.log_and_send(_("Error queueing song: ") + displayed_title, "danger")
         else:
             # MSG: Message shown after the download process is completed but the song is not found
             k.log_and_send(_("Error downloading song: ") + displayed_title, "danger")
+            logging.error(f"yt-dlp stderr: {result.stderr}")
 
         return rc
