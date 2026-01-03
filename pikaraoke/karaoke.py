@@ -28,11 +28,7 @@ from pikaraoke.lib.get_platform import get_os_version, get_platform, is_raspberr
 from pikaraoke.lib.network import get_ip
 from pikaraoke.lib.song_list import SongList
 from pikaraoke.lib.stream_manager import StreamManager
-from pikaraoke.lib.youtube_dl import (
-    get_youtube_id_from_url,
-    get_youtubedl_version,
-    upgrade_youtubedl,
-)
+from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
 
 
 class Karaoke:
@@ -540,18 +536,6 @@ class Karaoke:
         """Scan the download directory and update the available songs list."""
         self.available_songs.scan_directory(self.download_path)
 
-    def add_downloaded_song(self, youtube_id: str) -> str | None:
-        """Find and add a newly downloaded song by YouTube ID.
-
-        Args:
-            youtube_id: YouTube video ID of the downloaded song.
-
-        Returns:
-            Path to the found song file, or None if not found.
-        """
-        # yt-dlp saves files as: title---youtube_id.ext
-        return self.available_songs.find_and_add(self.download_path, f"*---{youtube_id}.*")
-
     def delete(self, song_path: str) -> None:
         """Delete a song file and its associated CDG file if present.
 
@@ -608,21 +592,6 @@ class Karaoke:
                 # more fun python 3 hacks
                 rc = rc.split("---".encode("utf-8", "ignore"))[0]
         return rc
-
-    def find_song_by_youtube_id(self, youtube_id: str) -> str | None:
-        """Find a song in available_songs by its YouTube ID.
-
-        Args:
-            youtube_id: YouTube video ID to search for.
-
-        Returns:
-            Full path to the song file, or None if not found.
-        """
-        for each in self.available_songs:
-            if youtube_id in each:
-                return each
-        logging.error("No available song found with youtube id: " + youtube_id)
-        return None
 
     def play_file(self, file_path: str, semitones: int = 0) -> bool | None:
         """Start playback of a media file.
@@ -742,7 +711,7 @@ class Karaoke:
             logging.warning("Song is already in queue, will not add: " + song_path)
             return False
         elif self.is_user_limited(user):
-            logging.debug("User limitted by: " + str(self.limit_user_songs_by))
+            logging.debug("User limited by: " + str(self.limit_user_songs_by))
             return [
                 False,
                 _("You reached the limit of %s song(s) from an user in queue!")
