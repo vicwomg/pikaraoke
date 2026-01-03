@@ -9,7 +9,7 @@
     // Configuration
     const config = {
         contentSelector: '.box',
-        navbarSelector: '.navbar-item[href]',
+        linkSelector: 'a[href]', // Intercept all links, not just navbar
         notificationSelector: '#notification-alt',
         scrollBehavior: 'smooth'
     };
@@ -98,10 +98,10 @@
      * Attach click listeners to all navigation links
      */
     function attachNavListeners() {
-        $(document).on('click', config.navbarSelector, function(e) {
+        $(document).on('click', config.linkSelector, function(e) {
             const href = $(this).attr('href');
 
-            // Only intercept internal links
+            // Only intercept internal links that should use SPA navigation
             if (href && !href.startsWith('http') && !href.startsWith('#') && !shouldExcludeLink(this)) {
                 e.preventDefault();
                 navigateTo(href);
@@ -117,6 +117,12 @@
      */
     function shouldExcludeLink(link) {
         const href = $(link).attr('href');
+        const $link = $(link);
+
+        // Exclude links with specific classes that indicate they should do full page loads
+        if ($link.hasClass('no-spa') || $link.hasClass('edit-button')) {
+            return true;
+        }
 
         // Exclude admin action links that perform system operations
         const excludedPaths = [
@@ -129,7 +135,10 @@
             '/refresh',
             '/expand_fs',
             '/clear_preferences',
-            '/auth'
+            '/auth',
+            '/batch-song-renamer', // Edit all songs page
+            '/files/edit', // Edit single song
+            '/files/delete' // Delete song
         ];
 
         // Check if the href matches any excluded path
@@ -249,9 +258,12 @@
 
     /**
      * Update navbar active state highlighting
-     * @param {string} path - The current path
+     * @param {string} url - The current URL (may include query params)
      */
-    function updateNavHighlight(path) {
+    function updateNavHighlight(url) {
+        // Extract base path without query parameters
+        const path = url.split('?')[0];
+
         // Remove all active classes
         $('.navbar-item').removeClass('is-active');
 
@@ -262,7 +274,7 @@
             $('#queue').addClass('is-active');
         } else if (path === '/search') {
             $('#search').addClass('is-active');
-        } else if (path === '/browse') {
+        } else if (path === '/browse' || path.startsWith('/browse')) {
             $('#browse').addClass('is-active');
         } else if (path === '/info') {
             $('#info').addClass('is-active');
