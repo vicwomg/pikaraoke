@@ -99,13 +99,13 @@ msgid "Volume: %s"
 msgstr "Lautstärke: %s"
 
 #: lib/download_manager.py:101
-#, fuzzy, python-format
+#, python-format
 msgid "Download queued (#%d): %s"
 msgstr "Heruntergeladen und in die Warteschlange eingereiht (#%d): %s"
 
 #. Message shown when download is added and will start immediately
 #: lib/download_manager.py:105
-#, fuzzy, python-format
+#, python-format
 msgid "Download starting: %s"
 msgstr "Video wird heruntergeladen: %s"
 
@@ -145,7 +145,6 @@ msgstr ""
 
 #. Message shown after starting the youtube-dl update.
 #: routes/admin.py:65
-#, fuzzy
 msgid "Updating youtube-dl! Should take a minute or two... "
 msgstr "Youtube-DL wird aktualisiert! Dies sollte ein bis zwei Minuten dauern..."
 
@@ -157,7 +156,6 @@ msgstr "Keine Berechtigung, Youtube-DL zu aktualisieren"
 #. Message shown after trying to refresh the song list without admin
 #. permissions.
 #: routes/admin.py:91
-#, fuzzy
 msgid "You don't have permission to refresh the song list"
 msgstr "Keine Berechtigung, das Dateisystem zu ändern"
 
@@ -422,9 +420,8 @@ msgstr ""
 
 #. Message displaying that the songs are currently being loaded
 #: templates/batch-song-renamer.html:158
-#, fuzzy
 msgid "Loading songs..."
-msgstr "Fehler beim Herunterladen des Liedes: "
+msgstr "Lieder werden geladen..."
 
 #. Confirmation prompt when the user deletes a song.
 #: templates/edit.html:29
@@ -469,13 +466,11 @@ msgstr "Dieses Lied löschen"
 #. Label which displays that the songs are currently sorted by
 #. alphabetical order.
 #: templates/files.html:92
-#, fuzzy
 msgid "Sorted Alphabetically"
 msgstr "Alphabetisch sortiert"
 
 #. Button which changes how the songs are sorted so they become sorted by date.
 #: templates/files.html:94
-#, fuzzy
 msgid ""
 "Sort by\n"
 "\t\t\tDate"
@@ -489,7 +484,6 @@ msgstr "Nach Datum sortiert"
 
 #. Button which changes how the songs are sorted so they become sorted by name.
 #: templates/files.html:100
-#, fuzzy
 msgid ""
 "Sort by\n"
 "\t\t\tAlphabetical"
@@ -497,9 +491,8 @@ msgstr "Alphabetisch sortieren"
 
 #. Button to open the batch song renamer page.
 #: templates/files.html:107
-#, fuzzy
 msgid "Edit all songs"
-msgstr "Lied bearbeiten"
+msgstr "Alle Lieder bearbeiten"
 
 #. Message which shows in the "Now Playing" section when there is no song
 #. currently playing
@@ -615,7 +608,6 @@ msgstr "Praktischer URL-QR-Code, um ihn mit einem Freund zu teilen:"
 
 #. Title of the system data section.
 #: templates/info.html:163
-#, fuzzy
 msgid "System Data"
 msgstr "Systemstatistiken"
 
@@ -787,9 +779,8 @@ msgstr ""
 
 #. Title text for the language settings section of preferences
 #: templates/info.html:307
-#, fuzzy
 msgid "Language settings"
-msgstr "Servereinstellungen"
+msgstr "Spracheinstellungen"
 
 #. Label for language selection dropdown
 #: templates/info.html:320
@@ -852,7 +843,6 @@ msgstr ""
 
 #. Help text explaining when videos will be transcoded
 #: templates/info.html:377
-#, fuzzy
 msgid ""
 "* Videos are only transcoded when: normalization is on, audio/video "
 "synchronization not zero, a song is transposed, playing a CDG/MOV/AVI/MKV"
@@ -874,7 +864,6 @@ msgstr "Aktualisierungen"
 
 #. Label for the Refresh the song list on the updates section
 #: templates/info.html:394
-#, fuzzy
 msgid "Refresh the song list"
 msgstr "Liederliste aktualisieren:"
 
@@ -899,7 +888,7 @@ msgstr ""
 
 #. Text explaining why you might want to update youtube-dl.
 #: templates/info.html:416
-#, fuzzy, python-format
+#, python-format
 msgid ""
 "\n"
 "\t\t\t\t\t\tIf downloads or searches stopped working, updating youtube-dl"
@@ -920,13 +909,12 @@ msgstr "Youtube-DL aktualisieren"
 #. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
 #: templates/info.html:426
-#, fuzzy
 msgid ""
 "* This update link above may fail if you don't have proper file "
 "permissions.\n"
 "\t\t\t\t\t\t\tCheck the pikaraoke log for errors."
 msgstr ""
-"Diese Aktualisierung kann ohne die nötigen Dateiberechtigungen "
+"* Diese Aktualisierung kann ohne die nötigen Dateiberechtigungen "
 "fehlschlagen. Pikaraoke-Log auf Fehler überprüfen."
 
 #. Title of the section on shutting down / turning off the machine running
@@ -974,7 +962,6 @@ msgstr "Raspberry Pi-Dateisystem erweitern"
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
 #: templates/info.html:479
-#, fuzzy
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
 "is larger than 4GB,\n"
@@ -1021,7 +1008,6 @@ msgstr ""
 
 #. Link which will let the user log into admin mode.
 #: templates/info.html:534
-#, fuzzy
 msgid "Log in"
 msgstr "Anmelden"
 
@@ -1080,7 +1066,6 @@ msgstr "Erweitert"
 
 #. Help text below the search bar.
 #: templates/search.html:509
-#, fuzzy
 msgid ""
 "- Type a song (title/artist) to search\n"
 "\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to"
@@ -1092,7 +1077,6 @@ msgstr ""
 
 #. Additonal help text below the search bar.
 #: templates/search.html:513
-#, fuzzy
 msgid ""
 "- If the song doesn't appear in\n"
 "\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find "
@@ -1117,7 +1101,6 @@ msgstr "Direktes Herunterladen von einer YouTube-URL:"
 #. Checkbox label which marks the song to be added to the queue after it
 #. finishes downloading.
 #: templates/search.html:552 templates/search.html:618
-#, fuzzy
 msgid "Add to queue once downloaded"
 msgstr "Nach dem Herunterladen zur Warteschlange hinzufügen"
 
@@ -1130,7 +1113,7 @@ msgstr "Herunterladen"
 #. Html text which displays what was searched for, in quotes while the page is
 #. loading.
 #: templates/search.html:579
-#, fuzzy, python-format
+#, python-format
 msgid ""
 "Searching YouTube for\n"
 "\t\t<small><i>'%(search_term)s'</i></small>"
@@ -1138,7 +1121,7 @@ msgstr "Suche auf Youtube nach <small><i>'%(search_term)s'</i></small>"
 
 #. Html text which displays what was searched for, in quotes.
 #: templates/search.html:587
-#, fuzzy, python-format
+#, python-format
 msgid ""
 "Search results for\n"
 "\t\t\t\t<small><i>'%(search_string)s'</i></small>"
@@ -1147,7 +1130,6 @@ msgstr "Suchergebnisse für <small><i>'%(search_string)s'</i></small>"
 #. Help text which explains that the select box above can be operated to select
 #. different search                                         results.
 #: templates/search.html:604
-#, fuzzy
 msgid "Click dropdown to show more results"
 msgstr "Klicke auf das Dropdown-Menü für weitere Ergebnisse"
 
@@ -1250,7 +1232,6 @@ msgstr "Deine Punktzahl"
 
 #. Prompt for interaction in order to enable video autoplay.
 #: templates/splash.html:728
-#, fuzzy
 msgid ""
 "Due to limitations with browser permissions, you must interact\n"
 "      with the page once before it allows autoplay of videos. Pikaraoke "
