@@ -21,18 +21,19 @@ def parse_download_path(output: str) -> str | None:
     Returns:
         Path to the downloaded file, or None if not found.
     """
-    # Pattern 1: [download] Destination: /path/to/file.ext
+
+    # Pattern 1: [Merger] Merging formats into "/path/to/file.ext"
+    match = re.search(r'\[Merger\] Merging formats into "(.+)"', output)
+    if match:
+        return match.group(1).strip()
+
+    # Pattern 2: [download] Destination: /path/to/file.ext
     match = re.search(r"\[download\] Destination: (.+)$", output, re.MULTILINE)
     if match:
         return match.group(1).strip()
 
-    # Pattern 2: [download] /path/to/file.ext has already been downloaded
+    # Pattern 3: [download] /path/to/file.ext has already been downloaded
     match = re.search(r"\[download\] (.+) has already been downloaded", output)
-    if match:
-        return match.group(1).strip()
-
-    # Pattern 3: [Merger] Merging formats into "/path/to/file.ext"
-    match = re.search(r'\[Merger\] Merging formats into "(.+)"', output)
     if match:
         return match.group(1).strip()
 
