@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.15.0](https://github.com/vicwomg/pikaraoke/compare/1.14.3...1.15.0) (2026-01-03)
+
+
+### Features
+
+* enable setting preferred language via CLI [#549](https://github.com/vicwomg/pikaraoke/issues/549) ([#593](https://github.com/vicwomg/pikaraoke/issues/593)) ([e6afe96](https://github.com/vicwomg/pikaraoke/commit/e6afe961283baf9f1196fc45103815d712054ed5))
+* implement HLS streaming option, optimize for pi3 ([#598](https://github.com/vicwomg/pikaraoke/issues/598)) ([f1e54b3](https://github.com/vicwomg/pikaraoke/commit/f1e54b388c0c016b7f7ed591063b856b56b9c1d2))
+* serialize/queue downloads from yt-dlp ([#601](https://github.com/vicwomg/pikaraoke/issues/601)) ([5a2d46b](https://github.com/vicwomg/pikaraoke/commit/5a2d46bdfb0fb4e124ca884a224a7573b6e1b074))
+
+
+### Bug Fixes
+
+* config boolean preferences set to False are ignored ([#609](https://github.com/vicwomg/pikaraoke/issues/609)) ([2930401](https://github.com/vicwomg/pikaraoke/commit/29304011bf83afc3da2c96256ac5ddb45f1cee0b))
+* improve ip detection x-platform with psutil ([#616](https://github.com/vicwomg/pikaraoke/issues/616)) ([0de3455](https://github.com/vicwomg/pikaraoke/commit/0de34558f0b9307dc035fdf523301941e6cf3597))
+* improve windows ip/chromedriver detection ([#610](https://github.com/vicwomg/pikaraoke/issues/610)) ([4dd9509](https://github.com/vicwomg/pikaraoke/commit/4dd9509009634d8a08349ec60d83bd31a5f42aa4))
+* splash screen menu loads page twice ([#614](https://github.com/vicwomg/pikaraoke/issues/614)) ([b19abd8](https://github.com/vicwomg/pikaraoke/commit/b19abd86cbec89e7fc90c725899900169e39af75))
+* use hls.js on mobile safari for better stability ([#604](https://github.com/vicwomg/pikaraoke/issues/604)) ([bd8bb9c](https://github.com/vicwomg/pikaraoke/commit/bd8bb9c48b9cf98289d0b8449d360b9ba53dd096))
+
+
+### Performance Improvements
+
+* hls_playlist_type=event for progressive HLS streaming ([#608](https://github.com/vicwomg/pikaraoke/issues/608)) ([5a3239a](https://github.com/vicwomg/pikaraoke/commit/5a3239a4717904ad7365460a3bdd911885020578))
+* optimize song list editing ([#613](https://github.com/vicwomg/pikaraoke/issues/613)) ([4727550](https://github.com/vicwomg/pikaraoke/commit/4727550365a687e7b3986d27ec47a5a25c985e35))
+
+
+### Documentation
+
+* update readme with current chromium install cmds ([ed418d6](https://github.com/vicwomg/pikaraoke/commit/ed418d6a3e434a5d9fe961a091c3bdac7e0946be))
+
 ## [1.14.3](https://github.com/vicwomg/pikaraoke/compare/1.14.2...1.14.3) (2025-12-24)
 
 
