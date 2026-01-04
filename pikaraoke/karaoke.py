@@ -396,7 +396,7 @@ class Karaoke:
 
             # Special handling: volume-related preferences should always be floats
             # (even if the value looks like an integer, e.g., "1" should become 1.0, not 1)
-            FLOAT_PREFERENCES = {'volume', 'bg_music_volume', 'avsync'}
+            FLOAT_PREFERENCES = {"volume", "bg_music_volume", "avsync"}
 
             if preference in FLOAT_PREFERENCES:
                 try:
@@ -404,7 +404,7 @@ class Karaoke:
                 except ValueError:
                     typed_val = val_str
             # Check for integer first (e.g., "1", "0", "42", "-5")
-            elif val_str.lstrip('-').isdigit():
+            elif val_str.lstrip("-").isdigit():
                 typed_val = int(val_str)
             # Check for boolean strings (excluding "1" and "0" which are handled as numbers)
             elif val_lower in ("true", "yes", "on"):
