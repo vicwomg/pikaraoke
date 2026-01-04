@@ -99,13 +99,13 @@ msgid "Volume: %s"
 msgstr "Volume: %s"
 
 #: lib/download_manager.py:101
-#, fuzzy, python-format
+#, python-format
 msgid "Download queued (#%d): %s"
 msgstr "Música adicionada à fila (#%d): %s"
 
 #. Message shown when download is added and will start immediately
 #: lib/download_manager.py:105
-#, fuzzy, python-format
+#, python-format
 msgid "Download starting: %s"
 msgstr "Baixando vídeo: %s"
 
@@ -424,7 +424,7 @@ msgstr "Mostrar todas as músicas"
 #. Message displaying that the songs are currently being loaded
 #: templates/batch-song-renamer.html:158
 msgid "Loading songs..."
-msgstr "Carregando músicas..."
+msgstr ""
 
 #. Confirmation prompt when the user deletes a song.
 #: templates/edit.html:29
@@ -1245,7 +1245,6 @@ msgstr "Sua nota"
 
 #. Prompt for interaction in order to enable video autoplay.
 #: templates/splash.html:728
-#, fuzzy
 msgid ""
 "Due to limitations with browser permissions, you must interact\n"
 "      with the page once before it allows autoplay of videos. Pikaraoke "

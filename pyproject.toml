@@ -1,6 +1,6 @@
 [project]
 name = "pikaraoke"
-version = "1.15.0"
+version = "1.15.1"
 description = "Youtube-based Karaoke machine for Raspberry Pi, OSX, Windows, and Linux"
 authors = [{name = "Vic Wong"}]
 readme = "docs/README.md"
