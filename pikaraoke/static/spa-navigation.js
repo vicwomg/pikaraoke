@@ -94,6 +94,8 @@
                 // Update the displayed name without reloading
                 $("#current-user span").text(name);
             }
+            // Remove focus from the link to prevent CSS focus styling (black background)
+            $(this).blur();
         });
     }
 
