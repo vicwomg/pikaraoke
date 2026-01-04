@@ -342,34 +342,42 @@ class Karaoke:
         Returns:
             The preference value (auto-converted to bool/int/float if applicable).
         """
-        # Try to read the config file
         try:
             self.config_obj.read(self.config_file_path)
         except FileNotFoundError:
             return default_value
 
-        # Check if the section exists
         if not self.config_obj.has_section("USERPREFERENCES"):
             return default_value
 
-        # Try to get the value
         try:
             pref = self.config_obj.get("USERPREFERENCES", preference)
-            # Handle boolean values (case-insensitive, multiple formats)
-            pref_lower = pref.lower()
-            if pref_lower in ("true", "yes", "1", "on"):
-                return True
-            elif pref_lower in ("false", "no", "0", "off"):
-                return False
-            elif pref.isnumeric():
-                return int(pref)
-            elif pref.replace(".", "", 1).isdigit():
-                return float(pref)
-            else:
-                return pref
-
+            return self._convert_preference_value(pref)
         except (configparser.NoOptionError, ValueError):
             return default_value
+
+    def _convert_preference_value(self, val: Any) -> Any:
+        """Convert a preference value string to the appropriate Python type.
+
+        Args:
+            val: Value to convert (typically a string from HTTP request).
+
+        Returns:
+            Converted value (bool, int, float, or original string).
+        """
+        if not isinstance(val, str):
+            return val
+
+        val_lower = val.lower()
+        if val_lower in ("true", "yes", "on"):
+            return True
+        elif val_lower in ("false", "no", "off"):
+            return False
+        elif val.lstrip("-").isdigit():
+            return int(val)
+        elif val.lstrip("-").replace(".", "", 1).isdigit():
+            return float(val)
+        return val
 
     def change_preferences(self, preference: str, val: Any) -> list[bool | str]:
         """Update a user preference in the config file.
@@ -389,7 +397,10 @@ class Karaoke:
 
             userprefs = self.config_obj["USERPREFERENCES"]
             userprefs[preference] = str(val)
-            setattr(self, preference, val)
+
+            # Convert value to proper type before setting attribute
+            typed_val = self._convert_preference_value(val)
+            setattr(self, preference, typed_val)
             with open(self.config_file_path, "w") as conf:
                 self.config_obj.write(conf)
                 self.changed_preferences = True
