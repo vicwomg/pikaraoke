@@ -388,8 +388,40 @@ class Karaoke:
                 self.config_obj.add_section("USERPREFERENCES")
 
             userprefs = self.config_obj["USERPREFERENCES"]
+
+            # Convert val to the proper type
+            # Note: Check numeric types BEFORE booleans to avoid "1"/"0" being treated as True/False
+            val_str = str(val)
+            val_lower = val_str.lower()
+
+            # Special handling: volume-related preferences should always be floats
+            # (even if the value looks like an integer, e.g., "1" should become 1.0, not 1)
+            FLOAT_PREFERENCES = {'volume', 'bg_music_volume', 'avsync'}
+
+            if preference in FLOAT_PREFERENCES:
+                try:
+                    typed_val = float(val_str)
+                except ValueError:
+                    typed_val = val_str
+            # Check for integer first (e.g., "1", "0", "42", "-5")
+            elif val_str.lstrip('-').isdigit():
+                typed_val = int(val_str)
+            # Check for boolean strings (excluding "1" and "0" which are handled as numbers)
+            elif val_lower in ("true", "yes", "on"):
+                typed_val = True
+            elif val_lower in ("false", "no", "off"):
+                typed_val = False
+            else:
+                # Try float conversion (e.g., "0.5", "-2.3")
+                try:
+                    typed_val = float(val_str)
+                except ValueError:
+                    # Keep as string (e.g., phrases)
+                    typed_val = val_str
+
             userprefs[preference] = str(val)
-            setattr(self, preference, val)
+            setattr(self, preference, typed_val)
+
             with open(self.config_file_path, "w") as conf:
                 self.config_obj.write(conf)
                 self.changed_preferences = True
