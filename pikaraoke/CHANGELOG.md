@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.3](https://github.com/vicwomg/pikaraoke/compare/1.15.2...1.15.3) (2026-01-04)
+
+
+### Bug Fixes
+
+* restore broken release workflow, optimize smoke test ([#629](https://github.com/vicwomg/pikaraoke/issues/629)) ([0ffc6b4](https://github.com/vicwomg/pikaraoke/commit/0ffc6b42bd1a5d933b63e8afb4f6ea8db4b0685e))
+
 ## [1.15.2](https://github.com/vicwomg/pikaraoke/compare/1.15.1...1.15.2) (2026-01-04)
 
 
