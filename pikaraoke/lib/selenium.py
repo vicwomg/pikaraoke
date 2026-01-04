@@ -40,8 +40,15 @@ def launch_splash_screen(
         service = None
     options = Options()
 
+    karaoke_url = f"{karaoke.url}/splash"
+
     if window_size:
         options.add_argument("--window-size=%s" % (window_size))
+        # Option to hide URL bar and title bars for a cleaner UI
+        # Hide URL bar: Use --app to open in minimal UI mode (removes tabs/url/title bar)
+        # Note: --app disables kiosk, so only use if window_size is set (not fullscreen kiosk mode)
+        # If window_size is set, we assume the user wants windowed mode, and hiding chrome is okay
+        options.add_argument("--app=%s" % karaoke_url)
     else:
         options.add_argument("--kiosk")
 
@@ -81,7 +88,7 @@ def launch_splash_screen(
 
     try:
         driver = webdriver.Chrome(service=service, options=options)
-        driver.get(f"{karaoke.url}/splash")
+        driver.get(f"{karaoke_url}")
         driver.add_cookie({"name": "user", "value": "PiKaraoke-Host"})
         # Clicking this counts as an interaction, which will allow the browser to autoplay audio
         wait = WebDriverWait(driver, 60)
