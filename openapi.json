@@ -358,7 +358,7 @@
       }
     },
     "/enqueue": {
-      "post": {
+      "get": {
         "summary": "Add a song to the queue.",
         "responses": {
           "200": {
@@ -408,7 +408,7 @@
           "Queue"
         ]
       },
-      "get": {
+      "post": {
         "summary": "Add a song to the queue.",
         "responses": {
           "200": {
