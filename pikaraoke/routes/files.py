@@ -81,7 +81,7 @@ def browse():
         search=search,
         record_name="songs",
         per_page=results_per_page,
-        display_msg="Showing <b>{start} - {end}</b> of <b>{total}</b> {record_name}"
+        display_msg="Showing <b>{start} - {end}</b> of <b>{total}</b> {record_name}",
     )
     start_index = (page - 1) * results_per_page
     return render_template(
