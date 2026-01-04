@@ -538,7 +538,7 @@
 					{# MSG: Message for the log in user to admin mode button. #}
 					<p>{% trans %}Click here to login as admin.{% endtrans %}</p>
 					{# MSG: Link which will let the user log into admin mode. #}
-					<a class="button is-primary" href="{{ url_for('admin.login') }}">{% trans %}Log in{% endtrans %}</a>
+					<a class="button is-primary" href="{{ url_for('admin.login', next=request.path) }}">{% trans %}Log in{% endtrans %}</a>
 				</div>
 			</div>
 		</div>
