@@ -77,12 +77,9 @@ jobs:
         python3 -m pip install pipx
         python3 -m pipx ensurepath
 
-    - name: Install Poetry
+    - name: Install Pikaraoke
       run: |
-        pipx install poetry
-
-    - name: Install Package
-      run: poetry install --no-interaction --no-ansi
+        pip install --no-cache-dir --prefer-binary --no-compile .
 
     - name: Verify Install
-      run: poetry run pikaraoke --help
+      run: pikaraoke --help
