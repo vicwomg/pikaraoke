@@ -214,8 +214,14 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     ),
     parser.add_argument(
         "--window-size",
-        help="Desired window geometry in pixels for headed mode, specified as width,height",
+        help="Desired window geometry in pixels for headed mode, specified as width,height. Disables kiosk fullscreen mode.",
         default=0,
+        required=False,
+    )
+    parser.add_argument(
+        "--external-monitor",
+        action="store_true",
+        help="Launch the splash screen on an external monitor (positions window at x=1920). Useful for dual-monitor setups.",
         required=False,
     )
     parser.add_argument(

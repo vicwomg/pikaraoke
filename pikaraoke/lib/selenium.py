@@ -17,8 +17,10 @@ if TYPE_CHECKING:
 
 
 def launch_splash_screen(
-    karaoke: Karaoke, window_size: str | None = None
-) -> webdriver.Chrome | bool:
+    karaoke: Karaoke,
+    window_size: str | None = None,
+    external_monitor: bool = False,
+) -> webdriver.Chrome | None:
     """Launch the Chrome browser with the splash screen in kiosk mode.
 
     Opens Chrome to display the karaoke splash screen with QR code
@@ -27,9 +29,10 @@ def launch_splash_screen(
     Args:
         karaoke: Karaoke instance with URL and platform configuration.
         window_size: Optional window geometry as "width,height" string.
+        external_monitor: If True, position window on external monitor (x=1920).
 
     Returns:
-        Chrome WebDriver instance on success, or False on failure.
+        Chrome WebDriver instance on success, or None on failure.
     """
     if karaoke.is_raspberry_pi:
         service = Service(executable_path="/usr/bin/chromedriver")
@@ -39,10 +42,14 @@ def launch_splash_screen(
 
     if window_size:
         options.add_argument("--window-size=%s" % (window_size))
+    else:
+        options.add_argument("--kiosk")
+
+    if external_monitor:
+        options.add_argument("--window-position=2000,0")
+    else:
         options.add_argument("--window-position=0,0")
 
-    options.add_argument("--kiosk")
-    options.add_argument("--start-maximized")
     options.add_argument("--disable-infobars")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option("useAutomationExtension", False)
@@ -86,8 +93,8 @@ def launch_splash_screen(
         print(
             f"\n[ERROR] Error starting splash screen. If you're running headed mode over SSH, you may need to run `export DISPLAY=:0.0` first to target the host machine's screen. Example: `export DISPLAY=:0.0; pikaraoke`\n"
         )
-        return False
+        return None
     except Exception as e:
         print(f"\n[ERROR] Error starting splash screen. See next line for output:`\n")
         print(str(e))
-        return False
+        return None

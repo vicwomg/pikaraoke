@@ -231,7 +231,7 @@ def main() -> None:
 
     # Start the splash screen using selenium
     if not args.hide_splash_screen:
-        driver = launch_splash_screen(k, args.window_size)
+        driver = launch_splash_screen(k, args.window_size, args.external_monitor)
         if not driver:
             sys.exit()
     else:
