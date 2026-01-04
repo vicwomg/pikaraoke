@@ -94,18 +94,18 @@ msgstr ""
 #. Message shown after the volume is changed, will be followed by the volume
 #. level
 #: karaoke.py:886
-#, fuzzy, python-format
+#, python-format
 msgid "Volume: %s"
 msgstr "Ääni kovemmalle: %s"
 
 #: lib/download_manager.py:101
-#, fuzzy, python-format
+#, python-format
 msgid "Download queued (#%d): %s"
 msgstr "Jonoon lisätty kappale (#%d): %s"
 
 #. Message shown when download is added and will start immediately
 #: lib/download_manager.py:105
-#, fuzzy, python-format
+#, python-format
 msgid "Download starting: %s"
 msgstr "Lataa: %s"
 
@@ -156,7 +156,7 @@ msgstr ""
 #. Message shown after trying to refresh the song list without admin
 #. permissions.
 #: routes/admin.py:91
-#, fuzzy
+#,
 msgid "You don't have permission to refresh the song list"
 msgstr "Haluatko varmasti käynnistää karaokelaitteen uudestaan?"
 
@@ -290,7 +290,7 @@ msgstr ""
 
 #. Message shown after trying to clear preferences without admin permissions.
 #: routes/preferences.py:69
-#, fuzzy
+#,
 msgid "You don't have permission to clear preferences"
 msgstr "Haluatko varmasti käynnistää karaokelaitteen uudestaan?"
 
@@ -462,13 +462,13 @@ msgstr "Poista tämä kappale"
 #. Label which displays that the songs are currently sorted by
 #. alphabetical order.
 #: templates/files.html:92
-#, fuzzy
+#,
 msgid "Sorted Alphabetically"
 msgstr "Aakkosjärjestyksessä"
 
 #. Button which changes how the songs are sorted so they become sorted by date.
 #: templates/files.html:94
-#, fuzzy
+#,
 msgid ""
 "Sort by\n"
 "\t\t\tDate"
@@ -482,7 +482,7 @@ msgstr "Päivämääräjärjestyksessä"
 
 #. Button which changes how the songs are sorted so they become sorted by name.
 #: templates/files.html:100
-#, fuzzy
+#,
 msgid ""
 "Sort by\n"
 "\t\t\tAlphabetical"
@@ -490,9 +490,8 @@ msgstr "Aakkosjärjestykseen"
 
 #. Button to open the batch song renamer page.
 #: templates/files.html:107
-#, fuzzy
 msgid "Edit all songs"
-msgstr "Muokkaa kappaletta"
+msgstr ""
 
 #. Message which shows in the "Now Playing" section when there is no song
 #. currently playing
@@ -849,7 +848,7 @@ msgstr "Päivitykset"
 
 #. Label for the Refresh the song list on the updates section
 #: templates/info.html:394
-#, fuzzy
+#,
 msgid "Refresh the song list"
 msgstr "Päivitä kappalelista:"
 
@@ -874,7 +873,7 @@ msgstr ""
 
 #. Text explaining why you might want to update youtube-dl.
 #: templates/info.html:416
-#, fuzzy, python-format
+#,python-format
 msgid ""
 "\n"
 "\t\t\t\t\t\tIf downloads or searches stopped working, updating youtube-dl"
@@ -895,7 +894,7 @@ msgstr "Päivitä youtube-dl"
 #. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
 #: templates/info.html:426
-#, fuzzy
+#,
 msgid ""
 "* This update link above may fail if you don't have proper file "
 "permissions.\n"
@@ -950,7 +949,7 @@ msgstr "Laajenna Raspberry Pi -tiedostojärjestelmää"
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
 #: templates/info.html:479
-#, fuzzy
+#,
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
 "is larger than 4GB,\n"
@@ -998,7 +997,7 @@ msgstr ""
 
 #. Link which will let the user log into admin mode.
 #: templates/info.html:534
-#, fuzzy
+#,
 msgid "Log in"
 msgstr "Kirjaudu sisään"
 
@@ -1057,7 +1056,7 @@ msgstr "Tarkemmat hakuvaihtoehdot"
 
 #. Help text below the search bar.
 #: templates/search.html:509
-#, fuzzy
+#,
 msgid ""
 "- Type a song (title/artist) to search\n"
 "\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to"
@@ -1068,7 +1067,7 @@ msgstr ""
 
 #. Additonal help text below the search bar.
 #: templates/search.html:513
-#, fuzzy
+#,
 msgid ""
 "- If the song doesn't appear in\n"
 "\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find "
@@ -1093,7 +1092,7 @@ msgstr "Lataa suoraan Youtube URL:"
 #. Checkbox label which marks the song to be added to the queue after it
 #. finishes downloading.
 #: templates/search.html:552 templates/search.html:618
-#, fuzzy
+#,
 msgid "Add to queue once downloaded"
 msgstr "Lisää kappalejonoon lataamisen jälkeen."
 
@@ -1106,7 +1105,7 @@ msgstr "Lataa"
 #. Html text which displays what was searched for, in quotes while the page is
 #. loading.
 #: templates/search.html:579
-#, fuzzy, python-format
+#,python-format
 msgid ""
 "Searching YouTube for\n"
 "\t\t<small><i>'%(search_term)s'</i></small>"
@@ -1114,7 +1113,7 @@ msgstr "Etsi Youtubesta <small><i>’%(search_term)s’</i></small>"
 
 #. Html text which displays what was searched for, in quotes.
 #: templates/search.html:587
-#, fuzzy, python-format
+#,python-format
 msgid ""
 "Search results for\n"
 "\t\t\t\t<small><i>'%(search_string)s'</i></small>"
@@ -1123,7 +1122,7 @@ msgstr "Etsi hakutuloksia kohdeelle <small><i>’%(search_string)s’</i></small
 #. Help text which explains that the select box above can be operated to select
 #. different search                                         results.
 #: templates/search.html:604
-#, fuzzy
+#,
 msgid "Click dropdown to show more results"
 msgstr "Napsauta avattavaa valikkoa nähdäksesi lisää tuloksia"
 

@@ -98,13 +98,13 @@ msgid "Volume: %s"
 msgstr "音量：%s"
 
 #: lib/download_manager.py:101
-#, fuzzy, python-format
+#, python-format
 msgid "Download queued (#%d): %s"
 msgstr "成功添加歌曲 (#%d)：%s"
 
 #. Message shown when download is added and will start immediately
 #: lib/download_manager.py:105
-#, fuzzy, python-format
+#, python-format
 msgid "Download starting: %s"
 msgstr "正在下載影片：%s"
 
@@ -409,9 +409,8 @@ msgstr ""
 
 #. Message displaying that the songs are currently being loaded
 #: templates/batch-song-renamer.html:158
-#, fuzzy
 msgid "Loading songs..."
-msgstr "下載歌曲時出錯："
+msgstr ""
 
 #. Confirmation prompt when the user deletes a song.
 #: templates/edit.html:29
@@ -456,13 +455,13 @@ msgstr "刪除此歌曲"
 #. Label which displays that the songs are currently sorted by
 #. alphabetical order.
 #: templates/files.html:92
-#, fuzzy
+#,
 msgid "Sorted Alphabetically"
 msgstr "按字母順序排序"
 
 #. Button which changes how the songs are sorted so they become sorted by date.
 #: templates/files.html:94
-#, fuzzy
+#,
 msgid ""
 "Sort by\n"
 "\t\t\tDate"
@@ -476,7 +475,7 @@ msgstr "按日期排序"
 
 #. Button which changes how the songs are sorted so they become sorted by name.
 #: templates/files.html:100
-#, fuzzy
+#,
 msgid ""
 "Sort by\n"
 "\t\t\tAlphabetical"
@@ -484,9 +483,8 @@ msgstr "按字母順序排序"
 
 #. Button to open the batch song renamer page.
 #: templates/files.html:107
-#, fuzzy
 msgid "Edit all songs"
-msgstr "編輯歌曲"
+msgstr "編輯所有歌曲"
 
 #. Message which shows in the "Now Playing" section when there is no song
 #. currently playing
@@ -598,7 +596,7 @@ msgstr "方便分享給朋友的網址 QR 碼："
 
 #. Title of the system data section.
 #: templates/info.html:163
-#, fuzzy
+#,
 msgid "System Data"
 msgstr "系統統計"
 
@@ -840,7 +838,7 @@ msgstr "更新"
 
 #. Label for the Refresh the song list on the updates section
 #: templates/info.html:394
-#, fuzzy
+#,
 msgid "Refresh the song list"
 msgstr "重新整理歌曲列表："
 
@@ -863,7 +861,7 @@ msgstr ""
 
 #. Text explaining why you might want to update youtube-dl.
 #: templates/info.html:416
-#, fuzzy, python-format
+#, python-format
 msgid ""
 "\n"
 "\t\t\t\t\t\tIf downloads or searches stopped working, updating youtube-dl"
@@ -883,7 +881,7 @@ msgstr "更新 youtube-dl"
 #. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
 #: templates/info.html:426
-#, fuzzy
+#,
 msgid ""
 "* This update link above may fail if you don't have proper file "
 "permissions.\n"
@@ -935,7 +933,7 @@ msgstr "擴展樹莓派檔案系統"
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
 #: templates/info.html:479
-#, fuzzy
+#,
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
 "is larger than 4GB,\n"
@@ -981,7 +979,7 @@ msgstr ""
 
 #. Link which will let the user log into admin mode.
 #: templates/info.html:534
-#, fuzzy
+#,
 msgid "Log in"
 msgstr "登入"
 
@@ -1040,7 +1038,7 @@ msgstr "進階"
 
 #. Help text below the search bar.
 #: templates/search.html:509
-#, fuzzy
+#,
 msgid ""
 "- Type a song (title/artist) to search\n"
 "\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to"
@@ -1052,7 +1050,7 @@ msgstr ""
 
 #. Additonal help text below the search bar.
 #: templates/search.html:513
-#, fuzzy
+#,
 msgid ""
 "- If the song doesn't appear in\n"
 "\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find "
@@ -1078,7 +1076,7 @@ msgstr "直接下載 YouTube 網址："
 #. Checkbox label which marks the song to be added to the queue after it
 #. finishes downloading.
 #: templates/search.html:552 templates/search.html:618
-#, fuzzy
+#,
 msgid "Add to queue once downloaded"
 msgstr ""
 "下載完成後\n"
@@ -1093,7 +1091,7 @@ msgstr "下載"
 #. Html text which displays what was searched for, in quotes while the page is
 #. loading.
 #: templates/search.html:579
-#, fuzzy, python-format
+#, python-format
 msgid ""
 "Searching YouTube for\n"
 "\t\t<small><i>'%(search_term)s'</i></small>"
@@ -1103,7 +1101,7 @@ msgstr ""
 
 #. Html text which displays what was searched for, in quotes.
 #: templates/search.html:587
-#, fuzzy, python-format
+#, python-format
 msgid ""
 "Search results for\n"
 "\t\t\t\t<small><i>'%(search_string)s'</i></small>"
@@ -1114,7 +1112,7 @@ msgstr ""
 #. Help text which explains that the select box above can be operated to select
 #. different search                                         results.
 #: templates/search.html:604
-#, fuzzy
+#,
 msgid "Click dropdown to show more results"
 msgstr ""
 "點擊\n"
@@ -1219,7 +1217,7 @@ msgstr "您的分數"
 
 #. Prompt for interaction in order to enable video autoplay.
 #: templates/splash.html:728
-#, fuzzy
+#,
 msgid ""
 "Due to limitations with browser permissions, you must interact\n"
 "      with the page once before it allows autoplay of videos. Pikaraoke "
