@@ -1,7 +1,6 @@
 on:
-  push:
-    branches:
-    - master #auto-deploy on master branch when release PR is merged
+  release:
+    types: [published]  # Triggers when release-please creates a release after PR merge
 
 name: deploy-release
 
@@ -11,8 +10,6 @@ permissions:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
-    needs: release-please
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
     permissions:
       # IMPORTANT: this permission is mandatory for trusted publishing
       id-token: write
