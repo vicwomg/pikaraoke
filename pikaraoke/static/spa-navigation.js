@@ -268,13 +268,23 @@
 
         isNavigating = true;
 
+        // Close hamburger menu if open
+        $('.navbar-burger').removeClass('is-active');
+        $('.navbar-menu').removeClass('is-active');
+
         try {
-            // Fetch the new page content
-            const response = await fetch(url, {
+            // Fetch the new page content with cache-busting to ensure fresh data
+            const cacheBuster = Date.now();
+            const separator = url.includes('?') ? '&' : '?';
+            const fetchUrl = `${url}${separator}_=${cacheBuster}`;
+
+            const response = await fetch(fetchUrl, {
                 method: 'GET',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'text/html'
+                    'Accept': 'text/html',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
                 }
             });
 
