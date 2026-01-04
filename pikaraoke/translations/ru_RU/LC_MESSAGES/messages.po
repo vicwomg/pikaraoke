@@ -100,15 +100,15 @@ msgid "Volume: %s"
 msgstr "Громкость: %s"
 
 #: lib/download_manager.py:101
-#, fuzzy, python-format
+#, python-format
 msgid "Download queued (#%d): %s"
 msgstr "Скачано и помещено в очередь (#%d): %s"
 
 #. Message shown when download is added and will start immediately
 #: lib/download_manager.py:105
-#, fuzzy, python-format
+#, python-format
 msgid "Download starting: %s"
-msgstr "Загрузка видео: %s"
+msgstr "Начинается загрузка: %s"
 
 #. Message shown when download actually starts (after waiting in queue)
 #: lib/download_manager.py:163
@@ -417,9 +417,8 @@ msgstr ""
 
 #. Message displaying that the songs are currently being loaded
 #: templates/batch-song-renamer.html:158
-#, fuzzy
 msgid "Loading songs..."
-msgstr "Ошибка при скачивании песни: "
+msgstr "Загрузка песен..."
 
 #. Confirmation prompt when the user deletes a song.
 #: templates/edit.html:29
@@ -464,13 +463,11 @@ msgstr "Удалить эту песню"
 #. Label which displays that the songs are currently sorted by
 #. alphabetical order.
 #: templates/files.html:92
-#, fuzzy
 msgid "Sorted Alphabetically"
 msgstr "Отсортировать по алфавиту"
 
 #. Button which changes how the songs are sorted so they become sorted by date.
 #: templates/files.html:94
-#, fuzzy
 msgid ""
 "Sort by\n"
 "\t\t\tDate"
@@ -484,7 +481,6 @@ msgstr "Отсортировано по дате"
 
 #. Button which changes how the songs are sorted so they become sorted by name.
 #: templates/files.html:100
-#, fuzzy
 msgid ""
 "Sort by\n"
 "\t\t\tAlphabetical"
@@ -492,9 +488,8 @@ msgstr "Отсортировано по алфавиту"
 
 #. Button to open the batch song renamer page.
 #: templates/files.html:107
-#, fuzzy
 msgid "Edit all songs"
-msgstr "Редактировать песню"
+msgstr "Редактировать все песни"
 
 #. Message which shows in the "Now Playing" section when there is no song
 #. currently playing
@@ -610,7 +605,6 @@ msgstr "Простой УРЛ QR код чтобы поделиться с др�
 
 #. Title of the system data section.
 #: templates/info.html:163
-#, fuzzy
 msgid "System Data"
 msgstr "Статистика системы"
 
@@ -869,9 +863,8 @@ msgstr "Обновление"
 
 #. Label for the Refresh the song list on the updates section
 #: templates/info.html:394
-#, fuzzy
 msgid "Refresh the song list"
-msgstr "Обновить список песен:"
+msgstr "Обновить список песен"
 
 #. Help text explaining the Rescan song directory link.
 #: templates/info.html:399
@@ -894,7 +887,7 @@ msgstr ""
 
 #. Text explaining why you might want to update youtube-dl.
 #: templates/info.html:416
-#, fuzzy, python-format
+#, python-format
 msgid ""
 "\n"
 "\t\t\t\t\t\tIf downloads or searches stopped working, updating youtube-dl"
@@ -915,7 +908,6 @@ msgstr "Обновить youtube-dl"
 #. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
 #: templates/info.html:426
-#, fuzzy
 msgid ""
 "* This update link above may fail if you don't have proper file "
 "permissions.\n"
@@ -970,7 +962,6 @@ msgstr "Раскрыть файловую систему Raspberry Pi"
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
 #: templates/info.html:479
-#, fuzzy
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
 "is larger than 4GB,\n"
@@ -1018,7 +1009,6 @@ msgstr ""
 
 #. Link which will let the user log into admin mode.
 #: templates/info.html:534
-#, fuzzy
 msgid "Log in"
 msgstr "Логин"
 
@@ -1035,7 +1025,6 @@ msgstr "Очередь пуста"
 #. Button text which picks a given number of random songs from the already
 #. downloaded songs and adds them to the queue.
 #: templates/queue.html:145
-#, fuzzy
 msgid ""
 "Add <input id=\"randomNumberInput\" class=\"input mx-1\" pattern=\"\\d*\""
 " maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" style=\"width: 40px\" "
@@ -1081,7 +1070,6 @@ msgstr "Продвинутое"
 
 #. Help text below the search bar.
 #: templates/search.html:509
-#, fuzzy
 msgid ""
 "- Type a song (title/artist) to search\n"
 "\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to"
@@ -1094,7 +1082,6 @@ msgstr ""
 
 #. Additonal help text below the search bar.
 #: templates/search.html:513
-#, fuzzy
 msgid ""
 "- If the song doesn't appear in\n"
 "\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find "
@@ -1121,11 +1108,8 @@ msgstr "Прямая ссылка на скачивание с YouTube:"
 #. Checkbox label which marks the song to be added to the queue after it
 #. finishes downloading.
 #: templates/search.html:552 templates/search.html:618
-#, fuzzy
 msgid "Add to queue once downloaded"
-msgstr ""
-"Добавить в очеред после\n"
-"          загрузки"
+msgstr "Добавить в очеред после загрузки"
 
 #. Button label for the direct download form's submit button.
 #. Label on the button which starts the download of the selected song.
@@ -1136,7 +1120,7 @@ msgstr "Загрузить"
 #. Html text which displays what was searched for, in quotes while the page is
 #. loading.
 #: templates/search.html:579
-#, fuzzy, python-format
+#, python-format
 msgid ""
 "Searching YouTube for\n"
 "\t\t<small><i>'%(search_term)s'</i></small>"
@@ -1146,7 +1130,7 @@ msgstr ""
 
 #. Html text which displays what was searched for, in quotes.
 #: templates/search.html:587
-#, fuzzy, python-format
+#, python-format
 msgid ""
 "Search results for\n"
 "\t\t\t\t<small><i>'%(search_string)s'</i></small>"
@@ -1157,7 +1141,6 @@ msgstr ""
 #. Help text which explains that the select box above can be operated to select
 #. different search                                         results.
 #: templates/search.html:604
-#, fuzzy
 msgid "Click dropdown to show more results"
 msgstr ""
 "Щелкни\n"
@@ -1262,7 +1245,6 @@ msgstr "Ваши баллы"
 
 #. Prompt for interaction in order to enable video autoplay.
 #: templates/splash.html:728
-#, fuzzy
 msgid ""
 "Due to limitations with browser permissions, you must interact\n"
 "      with the page once before it allows autoplay of videos. Pikaraoke "
