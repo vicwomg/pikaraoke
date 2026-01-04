@@ -2,23 +2,40 @@
 <!-- <meta http-equiv="refresh" content="5" /> -->
 
 <script>
-  var queue = [];
-  var previousQueue;
-  var socket = io();
-
-  function getQueue() {
-    $.get('{{ url_for("queue.get_queue") }}', function (data) {
-      newQueue =  JSON.parse(data);
-      if (!_.isEqual(newQueue, previousQueue)) {
-        queue = newQueue;
-        $("#auto-refresh").html(generateQueueHTML());
-        previousQueue = newQueue;
-      }
-    })
+  // Ensure global socket exists
+  if (typeof window.socket === 'undefined') {
+    window.socket = io();
   }
 
-  function generateQueueHTML() {
+  // Initialize queue state if needed
+  if (typeof window.queuePageState === 'undefined') {
+    window.queuePageState = {
+      queue: [],
+      previousQueue: null
+    };
+  }
+
+  // Define global queue functions (will be called by socket listeners)
+  window.queuePage_getQueue = function() {
+    // Only fetch queue data if we're on the queue page (element exists)
+    // This prevents unnecessary AJAX calls when socket updates fire on other pages
+    if ($('#auto-refresh').length === 0) {
+      return;
+    }
+
+    $.get('{{ url_for("queue.get_queue") }}', function (data) {
+      var newQueue = JSON.parse(data);
+      if (!_.isEqual(newQueue, window.queuePageState.previousQueue)) {
+        window.queuePageState.queue = newQueue;
+        $("#auto-refresh").html(window.queuePage_generateHTML());
+        window.queuePageState.previousQueue = newQueue;
+      }
+    });
+  };
+
+  window.queuePage_generateHTML = function() {
     var html = "";
+    var queue = window.queuePageState.queue;
     if (queue.length > 0) {
       queue.forEach((e, index) => {
         html += `
@@ -55,36 +72,51 @@
               </td>
             {% endif %}
           </tr>
-        `
+        `;
       });
     }
     else {
       // {# MSG: Placeholder text which appears instead of a song when the queue is empty. #}
-      html += `<tr><td><p class="has-text-warning">{{ _('The queue is empty') }}</p></td></tr>`
+      html += `<tr><td><p class="has-text-warning">{{ _('The queue is empty') }}</p></td></tr>`;
     }
     return html;
-  }
+  };
 
   // Queue management click handlers are now in spa-navigation.js
   // This prevents duplicate handlers during SPA navigation
 
-  socket.on("queue_update", getQueue);
+  // Clean up old listeners and attach fresh one
+  window.socket.off("queue_update");
+  window.socket.on("queue_update", window.queuePage_getQueue);
 
-  //on page load
-  $(function () {
-    //first time load
-    getQueue();
+  // Reset previousQueue so first load always updates the DOM
+  // This is critical for SPA navigation where DOM is replaced but data may be the same
+  window.queuePageState.previousQueue = null;
 
-    document.addEventListener("visibilitychange", function() {
-      if (document.visibilityState === 'visible') {
-        getQueue();
-        if (!socket.connected) {
-            console.log('Reconnecting socket...');
-            connectSocket();
-        }
-      }
+  // Initialize queue immediately - works for both initial load and SPA navigation
+  if (document.readyState === 'loading') {
+    // Initial page load - wait for DOM
+    $(function() {
+      window.queuePage_getQueue();
     });
-  });
+  } else {
+    // DOM already ready (SPA navigation) - execute immediately
+    window.queuePage_getQueue();
+  }
+
+  // Handle visibility changes - remove old listener first to prevent duplicates
+  document.removeEventListener("visibilitychange", window.queuePage_visibilityHandler);
+  window.queuePage_visibilityHandler = function() {
+    if (document.visibilityState === 'visible') {
+      window.queuePage_getQueue();
+      if (!window.socket.connected) {
+        console.log('Reconnecting socket...');
+        window.socket = io();
+        window.socket.on("queue_update", window.queuePage_getQueue);
+      }
+    }
+  };
+  document.addEventListener("visibilitychange", window.queuePage_visibilityHandler);
 
   // Add random songs handler is now in spa-navigation.js
 </script>
