@@ -101,6 +101,7 @@ class StreamManager:
 
         if not requires_transcoding:
             is_transcoding_complete = self._copy_file(file_path, fr.output_file)
+            is_buffering_complete = True
         else:
             is_transcoding_complete, is_buffering_complete = self._transcode_file(
                 fr, semitones, is_hls
@@ -153,7 +154,7 @@ class StreamManager:
             k.avsync,
             k.cdg_pixel_scaling,
         )
-        self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
+        self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)  # type: ignore[attr-defined]
 
         # FFmpeg outputs to stderr - prevent blocking reads
         self.ffmpeg_log = Queue()

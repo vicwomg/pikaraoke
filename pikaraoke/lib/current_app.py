@@ -34,7 +34,7 @@ def get_karaoke_instance() -> Karaoke:
     Returns:
         Karaoke: The Karaoke instance stored in the current app's configuration.
     """
-    return current_app.k
+    return current_app.config["KARAOKE_INSTANCE"]
 
 
 def get_admin_password() -> str:
@@ -79,8 +79,9 @@ def delayed_halt(cmd: int) -> None:
             3 = expand rootfs and reboot (Raspberry Pi)
     """
     time.sleep(1.5)
-    current_app.k.queue_clear()
-    current_app.k.stop()
+    k = get_karaoke_instance()
+    k.queue_clear()
+    k.stop()
     if cmd == 0:
         sys.exit()
     if cmd == 1:
