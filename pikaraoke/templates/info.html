@@ -374,6 +374,13 @@
 					</label>
 					</div>
 
+					<div class="user-preference-container is-align-items-center">
+						<input id="pref-browse-per-page" class="user-preference-input input" type="number" min="10" max="1000" step="10" data-pref="browse_results_per_page" data-start-value="{{ browse_results_per_page }}" value="{{ browse_results_per_page }}" />
+						<label class="label" for="pref-browse-per-page">
+							Browse page results per page (10-1000, default 500)
+						</label>
+					</div>
+
 					<p class="mt-3 is-size-7 has-text-warning">{# MSG: Help text explaining when videos will be transcoded  #} {% trans %}* Videos are only transcoded when: normalization is on, audio/video synchronization not zero, a song is transposed, playing a CDG/MOV/AVI/MKV file. Most unmodified MP4 files will not need to be transcoded.{% endtrans %}</p>
 
 					<div style="margin-top: 20px">

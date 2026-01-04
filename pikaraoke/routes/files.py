@@ -71,7 +71,9 @@ def browse():
         songs = available_songs
         sort_order = "Alphabetical"
 
-    results_per_page = 500
+    results_per_page = int(
+        k.get_user_preference("browse_results_per_page", k.browse_results_per_page)
+    )
     pagination = Pagination(
         css_framework="bulma",
         page=page,
