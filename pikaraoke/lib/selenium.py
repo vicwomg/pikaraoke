@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 def launch_splash_screen(
     karaoke: Karaoke, window_size: str | None = None
-) -> webdriver.Chrome | bool:
+) -> webdriver.Chrome | None:
     """Launch the Chrome browser with the splash screen in kiosk mode.
 
     Opens Chrome to display the karaoke splash screen with QR code
@@ -29,12 +29,12 @@ def launch_splash_screen(
         window_size: Optional window geometry as "width,height" string.
 
     Returns:
-        Chrome WebDriver instance on success, or False on failure.
+        Chrome WebDriver instance on success, or None on failure.
     """
     if karaoke.is_raspberry_pi:
         service = Service(executable_path="/usr/bin/chromedriver")
     else:
-        service = None
+        service = Service()
     options = Options()
 
     if window_size:
@@ -86,8 +86,8 @@ def launch_splash_screen(
         print(
             f"\n[ERROR] Error starting splash screen. If you're running headed mode over SSH, you may need to run `export DISPLAY=:0.0` first to target the host machine's screen. Example: `export DISPLAY=:0.0; pikaraoke`\n"
         )
-        return False
+        return None
     except Exception as e:
         print(f"\n[ERROR] Error starting splash screen. See next line for output:`\n")
         print(str(e))
-        return False
+        return None

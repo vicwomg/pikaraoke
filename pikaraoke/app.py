@@ -7,6 +7,7 @@ monkey.patch_all()
 import logging
 import os
 import sys
+from urllib.parse import quote
 
 import flask_babel
 from flasgger import Swagger
@@ -36,11 +37,6 @@ from pikaraoke.routes.queue import queue_bp
 from pikaraoke.routes.search import search_bp
 from pikaraoke.routes.splash import splash_bp
 from pikaraoke.routes.stream import stream_bp
-
-try:
-    from urllib.parse import quote
-except ImportError:
-    from urllib import quote
 
 _ = flask_babel.gettext
 
@@ -206,7 +202,7 @@ def main() -> None:
 
     # expose karaoke object to the flask app
     with app.app_context():
-        app.k = k
+        app.config["KARAOKE_INSTANCE"] = k
 
     # expose shared configuration variables to the flask app
     app.config["ADMIN_PASSWORD"] = args.admin_password

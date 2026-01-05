@@ -66,7 +66,7 @@ class Karaoke:
     now_playing_url: str | None = None
     now_playing_notification: str | None = None
     is_paused: bool = True
-    volume: float | None = None
+    volume: float = 0.85
 
     is_playing: bool = False
     process: subprocess.Popen | None = None
@@ -81,7 +81,7 @@ class Karaoke:
     normalize_audio: bool = False
 
     # Download manager for serialized downloads
-    download_manager: DownloadManager | None = None
+    download_manager: DownloadManager
 
     config_obj: configparser.ConfigParser = configparser.ConfigParser()
 
@@ -441,7 +441,7 @@ class Karaoke:
         qr.make()
         img = qr.make_image()
         self.qr_code_path = os.path.join(self.base_path, "qrcode.png")
-        img.save(self.qr_code_path)
+        img.save(self.qr_code_path)  # type: ignore[arg-type]
 
     def get_search_results(self, textToSearch: str) -> list[list[str]]:
         """Search YouTube for videos matching the query.
@@ -577,6 +577,8 @@ class Karaoke:
         ext = os.path.splitext(song_path)
         if len(ext) == 2:
             new_file_name = new_name + ext[1]
+        else:
+            new_file_name = new_name
         new_path = self.download_path + new_file_name
         os.rename(song_path, new_path)
         # if we have an associated cdg file, rename that too
@@ -597,13 +599,8 @@ class Karaoke:
         """
         rc = os.path.basename(file_path)
         rc = os.path.splitext(rc)[0]
-        rc = rc.split("---")[0]  # removes youtube id if present
         if remove_youtube_id:
-            try:
-                rc = rc.split("---")[0]  # removes youtube id if present
-            except TypeError:
-                # more fun python 3 hacks
-                rc = rc.split("---".encode("utf-8", "ignore"))[0]
+            rc = rc.split("---")[0]  # removes youtube id if present
         return rc
 
     def play_file(self, file_path: str, semitones: int = 0) -> bool | None:
@@ -655,6 +652,9 @@ class Karaoke:
         Args:
             semitones: Number of semitones to transpose.
         """
+        if self.now_playing_filename is None or self.now_playing_user is None:
+            logging.warning("Cannot transpose: no song currently playing")
+            return
         # MSG: Message shown after the song is transposed, first is the semitones and then the song name
         self.log_and_send(_("Transposing by %s semitones: %s") % (semitones, self.now_playing))
         # Insert the same song at the top of the queue with transposition
@@ -818,7 +818,8 @@ class Karaoke:
             else:
                 index += 1
         if song == None:
-            logging.error("Song not found in queue: " + song["file"])
+            logging.error("Song not found in queue: " + song_name)
+            return rc
         if action == "up":
             if index < 1:
                 logging.warning("Song is up next, can't bump up in queue: " + song["file"])
@@ -925,7 +926,7 @@ class Karaoke:
             True if successful, False if nothing playing.
         """
         if self.is_file_playing():
-            logging.info("Restarting: " + self.now_playing)
+            logging.info("Restarting: " + (self.now_playing or "unknown song"))
             self.is_paused = False
             self.update_now_playing_socket()
             return True

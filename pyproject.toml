@@ -57,3 +57,20 @@ package-mode = true
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.7.1"
 pytest = "^8.3.2"
+
+[tool.pyright]
+include = ["src"]
+exclude = ["**/node_modules",
+    "**/__pycache__",
+    "src/experimental",
+    "src/typestubs"
+]
+ignore = ["src/oldstuff"]
+defineConstant = { DEBUG = true }
+stubPath = "src/stubs"
+
+reportMissingImports = "error"
+reportMissingTypeStubs = false
+
+pythonVersion = "3.10"
+pythonPlatform = "Linux"
