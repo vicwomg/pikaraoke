@@ -32,7 +32,16 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pre-commit>=3.7.1",
-  "pytest>=8.3.2",
+  "pytest>=9.0.2",
+  "pytest-cov>=7.0.0",
+
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5.0",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
 ]
 
 [project.scripts]
