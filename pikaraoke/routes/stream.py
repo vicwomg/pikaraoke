@@ -17,7 +17,7 @@ from flask import (
 )
 
 from pikaraoke.lib.current_app import get_karaoke_instance
-from pikaraoke.lib.file_resolver import get_tmp_dir
+from pikaraoke.lib.file_resolver import FileResolver, get_tmp_dir
 
 _ = flask_babel.gettext
 
@@ -213,3 +213,25 @@ def stream_bg_video():
         return send_file(file_path, mimetype="video/mp4")
     else:
         return Response("Background video not found.", status=404)
+
+
+# subtitle .ass
+@stream_bp.route("/subtitle/<id>")
+def stream_subtitle(id):
+    k = get_karaoke_instance()
+    try:
+        original_file_path = k.now_playing_filename
+        if original_file_path and k.now_playing_url and id in k.now_playing_url:
+            fr = FileResolver(original_file_path)
+            ass_file_path = fr.ass_file_path
+            if ass_file_path and os.path.exists(ass_file_path):
+                return send_file(
+                    ass_file_path,
+                    mimetype="text/plain",
+                    as_attachment=False,
+                    download_name=os.path.basename(ass_file_path),
+                )
+    except Exception as e:
+        k.log_and_send(_(f"Failed to stream subtitle: {e}"), "danger")
+        return Response("Subtitle streaming error.", status=500)
+    return Response("Subtitle file not found for this stream ID.", status=404)

@@ -1,13 +1,13 @@
 """File resolution and temporary file management utilities."""
 
 import os
-import re
 import shutil
 import tempfile
 import time
 import zipfile
 from sys import maxsize
 
+from pikaraoke.karaoke import logging
 from pikaraoke.lib.ffmpeg import get_media_duration
 from pikaraoke.lib.get_platform import get_platform
 
@@ -112,6 +112,7 @@ class FileResolver:
     file_path: str | None = None
     cdg_file_path: str | None = None
     file_extension: str | None = None
+    ass_file_path: str | None = None
 
     def __init__(self, file_path: str, streaming_format: str = "hls") -> None:
         """Initialize the FileResolver with a media file path.
@@ -149,6 +150,29 @@ class FileResolver:
             for f in os.listdir(self.tmp_dir)
             if stream_uid_str in f
         )
+
+    def handle_aegissub_subtile(self, file_path: str) -> bool:
+        """Find and set the ASS subtitle file path for an media file.
+
+        Searches for an ASS file with the same base name as the media.
+
+        Args:
+            file_path: Path to the media file.
+
+        Returns:
+            True if ASS file found, False otherwise.
+        """
+        base_name = os.path.splitext(file_path)[0]
+
+        # Check common case variations without listing directory
+        for ext in (".ass", ".ASS", ".Ass"):
+            ass_path = base_name + ext
+            if os.path.exists(ass_path):
+                self.file_path = file_path
+                self.ass_file_path = ass_path
+                logging.debug(f"Subtitle file found: {ass_path}")
+                return True
+        return False
 
     def handle_zipped_cdg(self, file_path: str) -> None:
         """Extract zipped CDG + MP3 files into a temporary directory.
@@ -201,14 +225,14 @@ class FileResolver:
         Raises:
             Exception: If no matching CDG file is found.
         """
-        f = os.path.splitext(os.path.basename(file_path))[0]
-        pattern = f + ".cdg"
-        rule = re.compile(re.escape(pattern), re.IGNORECASE)
-        p = os.path.dirname(file_path)  # get the path, not the filename
-        for n in os.listdir(p):
-            if rule.match(n):
+        base_name = os.path.splitext(file_path)[0]
+
+        # Check common case variations without listing directory
+        for ext in (".cdg", ".CDG", ".Cdg"):
+            cdg_path = base_name + ext
+            if os.path.exists(cdg_path):
                 self.file_path = file_path
-                self.cdg_file_path = file_path.replace(".mp3", ".cdg")
+                self.cdg_file_path = cdg_path
                 return True
 
         raise Exception("No matching .cdg file found for: " + file_path)
@@ -228,6 +252,8 @@ class FileResolver:
             self.handle_mp3_cdg(file_path)
         else:
             self.file_path = file_path
+            # If there is an aegissub subtitle file found, set the path to it
+            self.handle_aegissub_subtile(file_path)
         if not self.file_path:
             raise ValueError("File path is required to process file")
         self.duration = get_media_duration(self.file_path)
