@@ -154,7 +154,7 @@ class StreamManager:
             k.avsync,
             k.cdg_pixel_scaling,
         )
-        self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)  # type: ignore[attr-defined]
+        self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
 
         # FFmpeg outputs to stderr - prevent blocking reads
         self.ffmpeg_log = Queue()
