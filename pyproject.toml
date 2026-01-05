@@ -74,3 +74,12 @@ reportMissingTypeStubs = false
 
 pythonVersion = "3.10"
 pythonPlatform = "Linux"
+
+[tool.coverage.run]
+omit = [
+    "pikaraoke/setup_apt.py",
+    "pikaraoke/constants.py",
+    "pikaraoke/app.py",
+    "pikaraoke/lib/current_app.py",
+    "pikaraoke/lib/args.py",
+]
