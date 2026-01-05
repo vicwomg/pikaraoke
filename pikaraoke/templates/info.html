@@ -102,13 +102,19 @@
 				}
 			});
 
-			$("#expand-link").click(function (e) {
-				e.preventDefault();
-				// {# MSG: Confirmation text when the user wants to expand the filesystem to take the entire SD card. #}
-				if (window.confirm("Are you sure you want to expand the filesystem? This will reboot your raspberry pi.")) {
-					location.href = this.href;
-				}
-			});
+		$("#expand-link").click(function (e) {
+			e.preventDefault();
+			// {# MSG: Confirmation text when the user wants to expand the filesystem to take the entire SD card. #}
+			if (window.confirm("Are you sure you want to expand the filesystem? This will reboot your raspberry pi.")) {
+				location.href = this.href;
+			}
+		});
+
+		// Collapsible card sections
+		$(".collapsible-header").click(function() {
+			$(this).toggleClass("is-collapsed");
+			$(this).next(".collapsible-content").slideToggle(200);
+		});
 
 			$("#save-phrases").click(function (e){
 				e.preventDefault();
@@ -205,17 +211,17 @@
 		<h1>{% trans %}User Preferences{% endtrans %}</h1>
 
 		<div class="card">
-			<header class="card-header py-3 px-5">
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				<div class="media-content">
 					{# MSG: Title text for the splash screen settings section of preferences #}
 					<h3 class="title mb-0">{% trans %}Splash screen settings{% endtrans %}</h3>
 
-					{# MSG: Help text explaining the the need to restart after changing splash screen preferences #}
-					<p class="subtitle has-text-warning mt-1 is-size-6">{% trans %}*You may need to refresh the splash screen for these changes to take effect.{% endtrans %}</p>
 				</div>
 			</header>
-			<div class="card-content">
+			<div class="card-content collapsible-content">
 				<div class="content">
+					{# MSG: Help text explaining the the need to restart after changing splash screen preferences #}
+					<p class="subtitle has-text-warning mt-1 is-size-6">{% trans %}*You may need to refresh the splash screen for these changes to take effect.{% endtrans %}</p>
 					<div class="user-preference-container">
 						<input id="pref-bg-video" class="user-preference-checkbox checkbox" type="checkbox" data-pref="disable_bg_video" {% if disable_bg_video == True %}checked{% endif %} />
 						<label class="label" for="pref-bg-video">{# MSG: Checkbox label which enable/disables background video on the Splash Screen #} {% trans %}Disable background video{% endtrans %}
@@ -274,17 +280,19 @@
 				</div>
 			</div>
 
-			<header class="card-header py-3 px-5">
+			<hr class="my-0">
+
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				<div class="media-content">
 				{# MSG: Title text for the Score Phrases section of preferences #}
 				<h3 class="title m-0">{% trans %}Score phrases{% endtrans %}</h3>
 
-				{# MSG: Help text explaining how to add phrases #}
-				<p class="subtitle has-text-warning mt-1 is-size-6">{% trans %}Add one phrase per line in each box and hit save.{% endtrans %}</p>
-				</div>
-			</header>
-			<div class="card-content">
-				<div class="content">
+			</div>
+		</header>
+		<div class="card-content collapsible-content">
+			<div class="content">
+					{# MSG: Help text explaining how to add phrases #}
+					<p class="subtitle has-text-warning mt-1 is-size-6">{% trans %}Add one phrase per line in each box and hit save.{% endtrans %}</p>
 					{# MSG: Title for LOW Score Phrases #}
 					<h5>{% trans %}LOW Score Phrases (score < 30){% endtrans %}</h5>
 					{# MSG: Placeholder for the low score phrases textarea #}
@@ -303,10 +311,12 @@
 				</div>
 			</div>
 
-			<header class="card-header py-3 px-5">
+			<hr class="my-0">
+
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				<h3 class="m-0">{# MSG: Title text for the language settings section of preferences #}{% trans %}Language settings{% endtrans %}</h3>
 			</header>
-			<div class="card-content">
+			<div class="card-content collapsible-content">
 				<div class="content">
 
 					<div class="user-preference-container is-align-items-center">
@@ -323,10 +333,12 @@
 				</div>
 			</div>
 
-			<header class="card-header py-3 px-5">
+			<hr class="my-0">
+
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				<h3 class="m-0">{# MSG: Title text for the server settings section of preferences #}{% trans %}Server settings{% endtrans %}</h3>
 			</header>
-			<div class="card-content">
+			<div class="card-content collapsible-content">
 				<div class="content">
 
 					<div class="user-preference-container">
@@ -381,8 +393,6 @@
 						</label>
 					</div>
 
-					<p class="mt-3 is-size-7 has-text-warning">{# MSG: Help text explaining when videos will be transcoded  #} {% trans %}* Videos are only transcoded when: normalization is on, audio/video synchronization not zero, a song is transposed, playing a CDG/MOV/AVI/MKV file. Most unmodified MP4 files will not need to be transcoded.{% endtrans %}</p>
-
 					<div style="margin-top: 20px">
 						{# MSG: Text for the link where the user can clear all user preferences #}
 						<a id="clear-preferences-link" class="button is-danger is-outlined" href="{{ url_for('preferences.clear_preferences') }}">{% trans %}Clear preferences{% endtrans %}</a>
@@ -396,11 +406,11 @@
 		<h1>{% trans %}Updates{% endtrans %}</h1>
 
 		<div class="card">
-			<header class="card-header py-3 px-5">
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				{# MSG: Label for the Refresh the song list on the updates section #}
 				<h3 class="title mb-0">{% trans %}Refresh the song list{% endtrans %}</h3>
 			</header>
-			<div class="card-content">
+			<div class="card-content collapsible-content">
 				<div class="content">
 					{# MSG: Help text explaining the Rescan song directory link. #}
 					<p class="">{% trans -%}
@@ -413,11 +423,13 @@
 				</div>
 			</div>
 
-			<header class="card-header py-3 px-5">
+			<hr class="my-0">
+
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				{# MSG: Label for the YT-DLP update on the updates section #}
 				<h3 class="title mb-0">{% trans %}YT-DLP update{% endtrans %}</h3>
 			</header>
-			<div class="card-content">
+			<div class="card-content collapsible-content">
 				<div class="content">
 					{# MSG: Text explaining why you might want to update youtube-dl. #}
 					<p>{% trans %}
@@ -476,11 +488,11 @@
 			<h1>{% trans %}Other{% endtrans %}</h1>
 
 			<div class="card">
-				<header class="card-header py-3 px-5">
+				<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 					{# MSG: Title for section containing a few other options on the Info page. #}
 					<h3 class="title mb-0">{% trans %}Expand Raspberry Pi filesystem{% endtrans %}</h3>
 				</header>
-				<div class="card-content">
+				<div class="card-content collapsible-content">
 					<div class="content">
 						{# MSG: Explainitory text which explains why you might want to expand the filesystem. #}
 						<p>{% trans -%}
@@ -503,13 +515,13 @@
 
 
 			<div class="card">
-				<header class="card-header py-3 px-5">
+				<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 					<div class="media-content">
 						{# MSG: Title for section logout on the Info page. #}
 						<h3 class="title mb-0">{% trans %}Logout{% endtrans %}</h3>
 					</div>
 				</header>
-				<div class="card-content">
+				<div class="card-content collapsible-content">
 					<div class="content">
 						{# MSG: Message for the log out user from admin mode button. #}
 						<p>{% trans %}Click here to logout from admin mode.{% endtrans %}</p>
@@ -527,13 +539,13 @@
 		<h1>{% trans %}Admin{% endtrans %}</h1>
 
 		<div class="card">
-			<header class="card-header py-3 px-5">
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				<div class="media-content">
 					{# MSG: Title for section login on the Info page. #}
 					<h3 class="title mb-0">{% trans %}Login{% endtrans %}</h3>
 				</div>
 			</header>
-			<div class="card-content">
+			<div class="card-content collapsible-content">
 				<div class="content">
 					{# MSG: Message for the log in user to admin mode button. #}
 					<p>{% trans %}Click here to login as admin.{% endtrans %}</p>
@@ -563,6 +575,24 @@
 	}
 	textarea::placeholder {
 		color: #bbb !important;
+	}
+	/* Collapsible sections */
+	.collapsible-header {
+		cursor: pointer;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+	.collapsible-header::after {
+		content: "▲";
+		font-size: 0.8em;
+		transition: transform 0.2s ease;
+	}
+	.collapsible-header.is-collapsed::after {
+		content: "▼";
+	}
+	.collapsible-content {
+		display: none;
 	}
 	</style>
 
