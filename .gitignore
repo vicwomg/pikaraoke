@@ -11,3 +11,4 @@ qrcode.png
 *.ini
 docker-compose.yml
 /.idea/
+.coverage
