@@ -152,12 +152,12 @@ class FileResolver:
         )
 
     def handle_aegissub_subtile(self, file_path: str) -> bool:
-        """Find and set the ASS subtitle file path for an MP4 file.
+        """Find and set the ASS subtitle file path for an media file.
 
-        Searches for an ASS file with the same base name as the MP4.
+        Searches for an ASS file with the same base name as the media.
 
         Args:
-            file_path: Path to the MP4 file.
+            file_path: Path to the media file.
 
         Returns:
             True if ASS file found, False otherwise.
@@ -250,12 +250,10 @@ class FileResolver:
             self.handle_zipped_cdg(file_path)
         elif file_extension == ".mp3":
             self.handle_mp3_cdg(file_path)
-        elif file_extension == ".mp4" or file_extension == ".webm":
+        else:
             self.file_path = file_path
             # If there is an aegissub subtitle file found, set the path to it
             self.handle_aegissub_subtile(file_path)
-        else:
-            self.file_path = file_path
         if not self.file_path:
             raise ValueError("File path is required to process file")
         self.duration = get_media_duration(self.file_path)
