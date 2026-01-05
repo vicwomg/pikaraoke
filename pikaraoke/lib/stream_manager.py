@@ -114,7 +114,7 @@ class StreamManager:
 
         # Check if the stream is ready to play
         if is_transcoding_complete or is_buffering_complete:
-            self._setup_now_playing(k, file_path, fr, semitones, stream_url_path)
+            self._setup_now_playing(k, file_path, fr, semitones, stream_url_path, subtitle_url)
 
     def _copy_file(self, src_path: str, dest_path: str) -> bool:
         """Copy a file that doesn't need transcoding.
@@ -286,6 +286,7 @@ class StreamManager:
         fr: FileResolver,
         semitones: int,
         stream_url_path: str,
+        subtitle_url: str | None,
     ) -> None:
         """Set up the now playing state and wait for playback to start.
 
@@ -295,6 +296,7 @@ class StreamManager:
             fr: FileResolver instance.
             semitones: Transpose value.
             stream_url_path: URL path for the stream.
+            subtitle_url: URL path for the subtitle file.
         """
         logging.debug("Stream ready!")
         k.now_playing = k.filename_from_path(file_path)
@@ -302,6 +304,7 @@ class StreamManager:
         k.now_playing_transpose = semitones
         k.now_playing_duration = fr.duration
         k.now_playing_url = stream_url_path
+        k.now_playing_subtitle_url = subtitle_url
         k.now_playing_user = k.queue[0]["user"]
         k.is_paused = False
         k.queue.pop(0)

@@ -953,6 +953,7 @@ class Karaoke:
         self.now_playing_filename = None
         self.now_playing_user = None
         self.now_playing_url = None
+        self.now_playing_subtitle_url = None
         self.is_paused = True
         self.is_playing = False
         self.now_playing_transpose = 0
