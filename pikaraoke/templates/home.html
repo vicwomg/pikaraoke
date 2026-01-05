@@ -2,7 +2,10 @@
 <script>
 	var volume = 0.85;
 
-	var socket = io();
+	// Ensure global socket exists
+	if (typeof window.socket === 'undefined') {
+		window.socket = io();
+	}
 
 	function loadNowPlaying() {
 		console.log("Loading now playing data");
@@ -156,17 +159,18 @@
 		//for first time load of splash screen
 		loadNowPlaying();
 		//for pushed updates to now playing state
-		socket.on("now_playing", (np) => handleNowPlaying(np));
+		window.socket.on("now_playing", (np) => handleNowPlaying(np));
 
 		document.addEventListener("visibilitychange", function () {
 			console.log("on visibility change");
 
 			if (document.visibilityState === "visible") {
 				loadNowPlaying();
-				console.log(socket);
-				if (!socket.connected) {
+				console.log(window.socket);
+				if (!window.socket.connected) {
 					console.log("Reconnecting socket...");
-					connectSocket();
+					window.socket = io();
+					window.socket.on("now_playing", (np) => handleNowPlaying(np));
 				}
 			}
 		});
