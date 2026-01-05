@@ -74,7 +74,8 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'  # Caches pip dependencies based on pyproject.toml
+        cache: 'pip'
+        cache-dependency-path: 'pyproject.toml'
 
     - name: Install Pikaraoke
       run: pip install --prefer-binary .
