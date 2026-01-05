@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.15.2](https://github.com/vicwomg/pikaraoke/compare/1.15.1...1.15.2) (2026-01-04)
+
+
+### Bug Fixes
+
+* hq video downloads stopped working [#625](https://github.com/vicwomg/pikaraoke/issues/625) ([#626](https://github.com/vicwomg/pikaraoke/issues/626)) ([9cd49d2](https://github.com/vicwomg/pikaraoke/commit/9cd49d21e0e1f98d8c6633783f03b1412fed96ef))
+
+## [1.15.1](https://github.com/vicwomg/pikaraoke/compare/1.15.0...1.15.1) (2026-01-04)
+
+
+### Bug Fixes
+
+* repair broken translations ([#620](https://github.com/vicwomg/pikaraoke/issues/620)) ([d9e2eb3](https://github.com/vicwomg/pikaraoke/commit/d9e2eb3cc1e69b6ad8e49ce7b96daafc54b3b390))
+* settings persistence / broken typecasting ([#621](https://github.com/vicwomg/pikaraoke/issues/621)) ([29fa3aa](https://github.com/vicwomg/pikaraoke/commit/29fa3aa43f10c0868a97e8ccc8145d87361168d7))
+
 ## [1.15.0](https://github.com/vicwomg/pikaraoke/compare/1.14.3...1.15.0) (2026-01-03)
 
 
