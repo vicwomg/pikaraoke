@@ -52,8 +52,12 @@ jobs:
     runs-on: ubuntu-latest
     name: Commitlint
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Required to get all commits for linting
     - name: Run commitlint
-      uses: opensource-nepal/commitlint@v1
+      uses: wagoid/commitlint-github-action@v6
 
   smoketest:
     runs-on: ${{ matrix.os }}
@@ -77,12 +81,9 @@ jobs:
         python3 -m pip install pipx
         python3 -m pipx ensurepath
 
-    - name: Install Poetry
+    - name: Install Pikaraoke
       run: |
-        pipx install poetry
-
-    - name: Install Package
-      run: poetry install --no-interaction --no-ansi
+        pip install --no-cache-dir --prefer-binary --no-compile .
 
     - name: Verify Install
-      run: poetry run pikaraoke --help
+      run: pikaraoke --help

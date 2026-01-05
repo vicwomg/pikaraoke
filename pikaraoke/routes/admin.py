@@ -203,22 +203,33 @@ def auth():
         type: string
         required: true
         description: Admin password
+      - name: next
+        in: formData
+        type: string
+        required: false
+        description: URL to redirect to after successful authentication
     responses:
       302:
-        description: Redirects to home on success, login on failure
+        description: Redirects to next URL on success, login on failure
     """
     d = request.form.to_dict()
     admin_password = get_admin_password()
     p = d["admin-password"]
+    next_url = d.get("next", "/")
+
+    # Validate next_url to prevent open redirect vulnerabilities
+    if not next_url.startswith("/"):
+        next_url = "/"
+
     if p == admin_password:
-        resp = make_response(redirect("/"))
+        resp = make_response(redirect(next_url))
         expire_date = datetime.datetime.now()
         expire_date = expire_date + datetime.timedelta(days=90)
         resp.set_cookie("admin", admin_password, expires=expire_date)
         # MSG: Message shown after logging in as admin successfully
         flash(_("Admin mode granted!"), "is-success")
     else:
-        resp = make_response(redirect(url_for("login")))
+        resp = make_response(redirect(url_for("admin.login", next=next_url)))
         # MSG: Message shown after failing to login as admin
         flash(_("Incorrect admin password!"), "is-danger")
     return resp
