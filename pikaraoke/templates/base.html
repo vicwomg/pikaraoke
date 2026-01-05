@@ -12,6 +12,7 @@
   <script src="{{  url_for('static', filename='js.cookie-2.2.1.min.js') }}"></script>
   <script src="{{  url_for('static', filename='lodash.min.js') }}"></script>
   <script src="{{  url_for('static', filename='socket.io.min.js') }}"></script>
+  <script src="{{  url_for('static', filename='spa-navigation.js') }}"></script>
   <link rel="stylesheet" href="{{  url_for('static', filename='bulma.min.css') }}">
   <link rel="stylesheet" href="{{  url_for('static', filename='bulma-dark.css') }}">
   <link rel="stylesheet" href="{{  url_for('static', filename='custom.css') }}">
@@ -84,13 +85,7 @@
       });
       $("#notification-alt").hide()
 
-      // Check for click events on the navbar burger icon
-      $(".navbar-burger").click(function () {
-        // Toggle the "is-active" class on both the "navbar-burger" and the "navbar-menu"
-        $(".navbar-burger").toggleClass("is-active");
-        $(".navbar-menu").toggleClass("is-active");
-      });
-
+      // Navbar burger menu is handled by spa-navigation.js
 
       // handle highlighting current nav bar location
       var currentPath = window.location.pathname;
@@ -121,21 +116,7 @@
         $("#current-user").removeClass("is-hidden");
       };
 
-      $('#current-user').click(function(e) {
-        e.preventDefault();
-        let name = window.prompt(
-          // Use a javascript format string, so translators only need to see a regular
-          // parametric translation instead of asking them to create valid javascript template.
-          // {# MSG: Prompt when changing the current profile name. #}
-          `{% trans currentUser="${currentUser}" -%}
-            Do you want to change the name of the person using this device? This will show up on queued songs. Current: {{ currentUser }}
-          {%- endtrans %}`
-        );
-        if (name) {
-          Cookies.set("user", name, { expires: 3650 })
-        }
-        location.reload();
-      });
+      // Username change handler is now in spa-navigation.js
 
     });
   </script>

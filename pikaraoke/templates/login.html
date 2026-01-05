@@ -10,6 +10,7 @@
 {% endblock %} {% block content %} {# MSG: Title fo the form to enter the administrator password. #}
 <p>{% trans %}Enter the administrator password{% endtrans %}</p>
 <form action="{{ url_for('admin.auth') }}" method="post">
+	<input type="hidden" name="next" value="{{ request.args.get('next', '/') }}" />
 	<div class="field has-addons mb-2">
 		<div class="control" style="width: 100%; max-width: 350px">
 			<input type="password" name="admin-password" class="input" />

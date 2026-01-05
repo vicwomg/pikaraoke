@@ -120,6 +120,7 @@ class Karaoke:
         additional_ytdl_args: str | None = None,
         socketio=None,
         preferred_language: str | None = None,
+        browse_results_per_page: int = 500,
     ) -> None:
         """Initialize the Karaoke instance.
 
@@ -195,6 +196,7 @@ class Karaoke:
             else int(splash_delay)
         )
         self.volume = pref if (pref := self.get_user_preference("volume")) is not None else volume
+        self.browse_results_per_page = browse_results_per_page
         self.normalize_audio = (
             pref
             if (pref := self.get_user_preference("normalize_audio")) is not None
