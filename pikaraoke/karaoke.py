@@ -64,6 +64,7 @@ class Karaoke:
     now_playing_transpose: int = 0
     now_playing_duration: int | None = None
     now_playing_url: str | None = None
+    now_playing_subtitle_url: str | None = None
     now_playing_notification: str | None = None
     is_paused: bool = True
     volume: float = 0.85
@@ -952,6 +953,7 @@ class Karaoke:
         self.now_playing_filename = None
         self.now_playing_user = None
         self.now_playing_url = None
+        self.now_playing_subtitle_url = None
         self.is_paused = True
         self.is_playing = False
         self.now_playing_transpose = 0
@@ -970,6 +972,7 @@ class Karaoke:
             "now_playing_duration": self.now_playing_duration,
             "now_playing_transpose": self.now_playing_transpose,
             "now_playing_url": self.now_playing_url,
+            "now_playing_subtitle_url": self.now_playing_subtitle_url,
             "up_next": self.queue[0]["title"] if len(self.queue) > 0 else None,
             "next_user": self.queue[0]["user"] if len(self.queue) > 0 else None,
             "is_paused": self.is_paused,
