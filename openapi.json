@@ -194,7 +194,7 @@
         "summary": "Authenticate as admin.",
         "responses": {
           "302": {
-            "description": "Redirects to home on success, login on failure"
+            "description": "Redirects to next URL on success, login on failure"
           }
         },
         "parameters": [
@@ -204,6 +204,13 @@
             "type": "string",
             "required": true,
             "description": "Admin password"
+          },
+          {
+            "name": "next",
+            "in": "formData",
+            "type": "string",
+            "required": false,
+            "description": "URL to redirect to after successful authentication"
           }
         ],
         "tags": [
