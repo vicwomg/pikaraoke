@@ -215,14 +215,14 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--window-size",
-        help="Desired window geometry in pixels for headed mode, specified as width,height. Disables kiosk fullscreen mode.",
+        help="Desired window geometry in pixels for headed mode, specified as width,height (Example: --window-size 800,600). Disables kiosk fullscreen mode. This can be used to open a windowed mode splash screen and move it to an external monitor where it can be fullscreened from the menu or a keyboard shortcut (F11 key, or control+cmd+f on Mac).",
         default=0,
         required=False,
     )
     parser.add_argument(
         "--external-monitor",
         action="store_true",
-        help="Launch the splash screen on an external monitor (positions window at x=1920). Useful for dual-monitor setups.",
+        help="Experimental: Launch the splash screen on an external monitor by positioning window at x=2000. Useful for dual-monitor setups. Doesn't seem to work on all platforms.",
         required=False,
     )
     parser.add_argument(
