@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.16.0](https://github.com/vicwomg/pikaraoke/compare/1.15.3...1.16.0) (2026-01-05)
+
+
+### Features
+
+* collapsable submenus in settings area, style tweaks ([#634](https://github.com/vicwomg/pikaraoke/issues/634)) ([9ecb6af](https://github.com/vicwomg/pikaraoke/commit/9ecb6af1771471667edb3ffb8710ab072208f48f))
+* launch on external display with: --external-monitor ([#624](https://github.com/vicwomg/pikaraoke/issues/624)) ([c2ff91d](https://github.com/vicwomg/pikaraoke/commit/c2ff91d7ca1254fc8672871b4757ecbf458fe21f))
+* optimize web UIs with SPA architecture, add --browse-results-per-page CLI parameter ([#619](https://github.com/vicwomg/pikaraoke/issues/619)) ([c12bee0](https://github.com/vicwomg/pikaraoke/commit/c12bee0d2764458853ff656b5ee35a75c05207d1))
+* support Aegisub subtitle format (thanks [@italozaina](https://github.com/italozaina)) ([#635](https://github.com/vicwomg/pikaraoke/issues/635)) ([1254091](https://github.com/vicwomg/pikaraoke/commit/1254091ba6e45b3c5c95953703e625d29504d593))
+
+
+### Bug Fixes
+
+* shutdown/restart buttons don't show in settings screen for raspberry pi ([#633](https://github.com/vicwomg/pikaraoke/issues/633)) ([2854369](https://github.com/vicwomg/pikaraoke/commit/2854369320256b11989f022e640dbe6ee9623fac))
+
 ## [1.15.3](https://github.com/vicwomg/pikaraoke/compare/1.15.2...1.15.3) (2026-01-04)
 
 
