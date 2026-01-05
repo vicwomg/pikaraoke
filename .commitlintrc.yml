@@ -1,6 +1,9 @@
 # Commitlint configuration
 # See: https://commitlint.js.org/reference/rules.html
 
+extends:
+  - '@commitlint/config-conventional'
+
 rules:
   # Header (first line) max length - default is 100
   header-max-length: [1, always, 150]
@@ -10,4 +13,3 @@ rules:
 
   # Footer line max length - default is 100
   footer-max-line-length: [1, always, 200]
-

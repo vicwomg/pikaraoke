@@ -54,8 +54,10 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Required to get all commits for linting
     - name: Run commitlint
-      uses: opensource-nepal/commitlint@v1
+      uses: wagoid/commitlint-github-action@v6
 
   smoketest:
     runs-on: ${{ matrix.os }}
