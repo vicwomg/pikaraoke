@@ -1,0 +1,67 @@
+name: Update API Documentation
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build-api-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -e .
+
+      - name: Generate OpenAPI spec
+        run: |
+          python -c "
+          import json
+          import sys
+
+          try:
+              # Import app to get all routes registered
+              from pikaraoke.app import app, swagger
+
+              # Get the spec using the swagger object directly
+              with app.app_context():
+                  spec = swagger.get_apispecs()
+
+              # Write formatted JSON
+              with open('openapi.json', 'w') as f:
+                  json.dump(spec, f, indent=2)
+
+          except Exception as e:
+              print(f'Error generating OpenAPI spec: {e}', file=sys.stderr)
+              import traceback
+              traceback.print_exc()
+              sys.exit(1)
+          "
+
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Update OpenAPI spec
+        run: |
+          cp openapi.json gh-pages/openapi.json
+
+      - name: Commit and push to gh-pages
+        run: |
+          cd gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add openapi.json
+          git diff --staged --quiet || git commit -m "Update OpenAPI spec"
+          git push

@@ -1,5 +1,95 @@
 # Changelog
 
+## [1.15.3](https://github.com/vicwomg/pikaraoke/compare/1.15.2...1.15.3) (2026-01-04)
+
+
+### Bug Fixes
+
+* restore broken release workflow, optimize smoke test ([#629](https://github.com/vicwomg/pikaraoke/issues/629)) ([0ffc6b4](https://github.com/vicwomg/pikaraoke/commit/0ffc6b42bd1a5d933b63e8afb4f6ea8db4b0685e))
+
+## [1.15.2](https://github.com/vicwomg/pikaraoke/compare/1.15.1...1.15.2) (2026-01-04)
+
+
+### Bug Fixes
+
+* hq video downloads stopped working [#625](https://github.com/vicwomg/pikaraoke/issues/625) ([#626](https://github.com/vicwomg/pikaraoke/issues/626)) ([9cd49d2](https://github.com/vicwomg/pikaraoke/commit/9cd49d21e0e1f98d8c6633783f03b1412fed96ef))
+
+## [1.15.1](https://github.com/vicwomg/pikaraoke/compare/1.15.0...1.15.1) (2026-01-04)
+
+
+### Bug Fixes
+
+* repair broken translations ([#620](https://github.com/vicwomg/pikaraoke/issues/620)) ([d9e2eb3](https://github.com/vicwomg/pikaraoke/commit/d9e2eb3cc1e69b6ad8e49ce7b96daafc54b3b390))
+* settings persistence / broken typecasting ([#621](https://github.com/vicwomg/pikaraoke/issues/621)) ([29fa3aa](https://github.com/vicwomg/pikaraoke/commit/29fa3aa43f10c0868a97e8ccc8145d87361168d7))
+
+## [1.15.0](https://github.com/vicwomg/pikaraoke/compare/1.14.3...1.15.0) (2026-01-03)
+
+
+### Features
+
+* enable setting preferred language via CLI [#549](https://github.com/vicwomg/pikaraoke/issues/549) ([#593](https://github.com/vicwomg/pikaraoke/issues/593)) ([e6afe96](https://github.com/vicwomg/pikaraoke/commit/e6afe961283baf9f1196fc45103815d712054ed5))
+* implement HLS streaming option, optimize for pi3 ([#598](https://github.com/vicwomg/pikaraoke/issues/598)) ([f1e54b3](https://github.com/vicwomg/pikaraoke/commit/f1e54b388c0c016b7f7ed591063b856b56b9c1d2))
+* serialize/queue downloads from yt-dlp ([#601](https://github.com/vicwomg/pikaraoke/issues/601)) ([5a2d46b](https://github.com/vicwomg/pikaraoke/commit/5a2d46bdfb0fb4e124ca884a224a7573b6e1b074))
+
+
+### Bug Fixes
+
+* config boolean preferences set to False are ignored ([#609](https://github.com/vicwomg/pikaraoke/issues/609)) ([2930401](https://github.com/vicwomg/pikaraoke/commit/29304011bf83afc3da2c96256ac5ddb45f1cee0b))
+* improve ip detection x-platform with psutil ([#616](https://github.com/vicwomg/pikaraoke/issues/616)) ([0de3455](https://github.com/vicwomg/pikaraoke/commit/0de34558f0b9307dc035fdf523301941e6cf3597))
+* improve windows ip/chromedriver detection ([#610](https://github.com/vicwomg/pikaraoke/issues/610)) ([4dd9509](https://github.com/vicwomg/pikaraoke/commit/4dd9509009634d8a08349ec60d83bd31a5f42aa4))
+* splash screen menu loads page twice ([#614](https://github.com/vicwomg/pikaraoke/issues/614)) ([b19abd8](https://github.com/vicwomg/pikaraoke/commit/b19abd86cbec89e7fc90c725899900169e39af75))
+* use hls.js on mobile safari for better stability ([#604](https://github.com/vicwomg/pikaraoke/issues/604)) ([bd8bb9c](https://github.com/vicwomg/pikaraoke/commit/bd8bb9c48b9cf98289d0b8449d360b9ba53dd096))
+
+
+### Performance Improvements
+
+* hls_playlist_type=event for progressive HLS streaming ([#608](https://github.com/vicwomg/pikaraoke/issues/608)) ([5a3239a](https://github.com/vicwomg/pikaraoke/commit/5a3239a4717904ad7365460a3bdd911885020578))
+* optimize song list editing ([#613](https://github.com/vicwomg/pikaraoke/issues/613)) ([4727550](https://github.com/vicwomg/pikaraoke/commit/4727550365a687e7b3986d27ec47a5a25c985e35))
+
+
+### Documentation
+
+* update readme with current chromium install cmds ([ed418d6](https://github.com/vicwomg/pikaraoke/commit/ed418d6a3e434a5d9fe961a091c3bdac7e0946be))
+
+## [1.14.3](https://github.com/vicwomg/pikaraoke/compare/1.14.2...1.14.3) (2025-12-24)
+
+
+### Bug Fixes
+
+* superficial commit to fix build ([225e2fc](https://github.com/vicwomg/pikaraoke/commit/225e2fc824d1456c86427b97107c383052a0d309))
+
+## [1.14.2](https://github.com/vicwomg/pikaraoke/compare/1.14.1...1.14.2) (2025-12-23)
+
+### Features
+
+- Styling refresh to latest bulma https://github.com/vicwomg/pikaraoke/commit/405dc4fef17d2d88ac41fd6ec940383c8f422139
+- Updated settings page https://github.com/vicwomg/pikaraoke/commit/405dc4fef17d2d88ac41fd6ec940383c8f422139
+- Edit performance rating from settings page https://github.com/vicwomg/pikaraoke/commit/405dc4fef17d2d88ac41fd6ec940383c8f422139
+- Bulk song name editor https://github.com/vicwomg/pikaraoke/commit/405dc4fef17d2d88ac41fd6ec940383c8f422139
+- Added a default value for the YouTube field to improve user experience. https://github.com/vicwomg/pikaraoke/commit/405dc4fef17d2d88ac41fd6ec940383c8f422139
+- Clicking on the video thumbnail now opens a modal allowing users to preview the video. https://github.com/vicwomg/pikaraoke/commit/405dc4fef17d2d88ac41fd6ec940383c8f422139
+
+### Bug Fixes
+
+- update api docs job failing ([3bad488](https://github.com/vicwomg/pikaraoke/commit/3bad488e3b929b1afd30d43f6c87ffffafd75ca8))
+- Fix mic icon not showing on splash screen https://github.com/vicwomg/pikaraoke/commit/405dc4fef17d2d88ac41fd6ec940383c8f422139
+- Clear button — when the user selected a song and clicked the clear button, the input field was not being cleared. https://github.com/vicwomg/pikaraoke/commit/405dc4fef17d2d88ac41fd6ec940383c8f422139
+- "Search/Add to queue" button — when the user typed something and then deleted all text, the button was incorrectly switching to "Add to queue". https://github.com/vicwomg/pikaraoke/commit/405dc4fef17d2d88ac41fd6ec940383c8f422139
+
+### Documentation
+
+- api docs and python project modernization ([d709de32](https://github.com/vicwomg/pikaraoke/commit/d709de328b37d044fb463137847a45ea902476e1))
+
+## [1.14.1](https://github.com/vicwomg/pikaraoke/compare/1.14.0...1.14.1) (2025-11-27)
+
+### Bug Fixes
+
+- Update yt-dlp to 2025.11.12, add js runtime support ([#541](https://github.com/vicwomg/pikaraoke/issues/541)) ([#553](https://github.com/vicwomg/pikaraoke/issues/553)) ([127c22b](https://github.com/vicwomg/pikaraoke/commit/127c22be12e6db1fc03e338773d07bd2be995585))
+
+### Documentation
+
+- recommend [@lvmasterrj](https://github.com/lvmasterrj) windows install script ([d5bcab7](https://github.com/vicwomg/pikaraoke/commit/d5bcab79e4d754b1d65fcafa0b9cd77418c29f2b))
+
 ## [1.14.0](https://github.com/vicwomg/pikaraoke/compare/1.13.0...1.14.0) (2025-11-11)
 
 ### Features

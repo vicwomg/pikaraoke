@@ -1,3 +1,5 @@
+"""File management routes for browsing, editing, and deleting songs."""
+
 import os
 
 import flask_babel
@@ -14,6 +16,27 @@ files_bp = Blueprint("files", __name__)
 
 @files_bp.route("/browse", methods=["GET"])
 def browse():
+    """Browse available songs page.
+    ---
+    tags:
+      - Pages
+    parameters:
+      - name: q
+        in: query
+        type: string
+        description: Search query
+      - name: letter
+        in: query
+        type: string
+        description: Filter by first letter (or 'numeric')
+      - name: sort
+        in: query
+        type: string
+        description: Sort order ('date' for date, otherwise alphabetical)
+    responses:
+      200:
+        description: HTML browse page
+    """
     k = get_karaoke_instance()
     site_name = get_site_name()
     search = False
@@ -41,14 +64,16 @@ def browse():
         available_songs = result
 
     if "sort" in request.args and request.args["sort"] == "date":
-        songs = sorted(available_songs, key=lambda x: os.path.getctime(x))
+        songs = sorted(available_songs, key=lambda x: os.path.getmtime(x))
         songs.reverse()
         sort_order = "Date"
     else:
         songs = available_songs
         sort_order = "Alphabetical"
 
-    results_per_page = 500
+    results_per_page = int(
+        k.get_user_preference("browse_results_per_page", k.browse_results_per_page)
+    )
     pagination = Pagination(
         css_framework="bulma",
         page=page,
@@ -56,8 +81,9 @@ def browse():
         search=search,
         record_name="songs",
         per_page=results_per_page,
+        display_msg="Showing <b>{start} - {end}</b> of <b>{total}</b> {record_name}",
     )
-    start_index = (page - 1) * (results_per_page - 1)
+    start_index = (page - 1) * results_per_page
     return render_template(
         "files.html",
         pagination=pagination,
@@ -73,6 +99,20 @@ def browse():
 
 @files_bp.route("/files/delete", methods=["GET"])
 def delete_file():
+    """Delete a song file.
+    ---
+    tags:
+      - Files
+    parameters:
+      - name: song
+        in: query
+        type: string
+        required: true
+        description: Path to the song file to delete
+    responses:
+      302:
+        description: Redirects to browse page
+    """
     k = get_karaoke_instance()
     if "song" in request.args:
         song_path = request.args["song"]

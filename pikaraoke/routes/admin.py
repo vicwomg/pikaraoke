@@ -1,3 +1,5 @@
+"""Admin routes for system control and authentication."""
+
 import datetime
 import os
 import subprocess
@@ -43,6 +45,14 @@ def delayed_halt(cmd: int, k: Karaoke):
 
 @admin_bp.route("/update_ytdl")
 def update_ytdl():
+    """Update yt-dlp to the latest version.
+    ---
+    tags:
+      - Admin
+    responses:
+      302:
+        description: Redirects to home page
+    """
     k = get_karaoke_instance()
 
     def update_youtube_dl():
@@ -65,6 +75,14 @@ def update_ytdl():
 
 @admin_bp.route("/refresh")
 def refresh():
+    """Refresh the available songs list.
+    ---
+    tags:
+      - Admin
+    responses:
+      302:
+        description: Redirects to browse page
+    """
     k = get_karaoke_instance()
     if is_admin():
         k.get_available_songs()
@@ -76,6 +94,14 @@ def refresh():
 
 @admin_bp.route("/quit")
 def quit():
+    """Exit the PiKaraoke application.
+    ---
+    tags:
+      - Admin
+    responses:
+      302:
+        description: Redirects to home page before exit
+    """
     k = get_karaoke_instance()
     if is_admin():
         # MSG: Message shown after quitting pikaraoke.
@@ -92,6 +118,14 @@ def quit():
 
 @admin_bp.route("/shutdown")
 def shutdown():
+    """Shut down the host system.
+    ---
+    tags:
+      - Admin
+    responses:
+      302:
+        description: Redirects to home page before shutdown
+    """
     k = get_karaoke_instance()
     if is_admin():
         # MSG: Message shown after shutting down the system.
@@ -108,6 +142,14 @@ def shutdown():
 
 @admin_bp.route("/reboot")
 def reboot():
+    """Reboot the host system.
+    ---
+    tags:
+      - Admin
+    responses:
+      302:
+        description: Redirects to home page before reboot
+    """
     k = get_karaoke_instance()
     if is_admin():
         # MSG: Message shown after rebooting the system.
@@ -124,6 +166,14 @@ def reboot():
 
 @admin_bp.route("/expand_fs")
 def expand_fs():
+    """Expand filesystem on Raspberry Pi.
+    ---
+    tags:
+      - Admin
+    responses:
+      302:
+        description: Redirects to home page before reboot
+    """
     k = get_karaoke_instance()
     if is_admin() and k.is_raspberry_pi:
         # MSG: Message shown after expanding the filesystem.
@@ -141,18 +191,45 @@ def expand_fs():
 
 @admin_bp.route("/auth", methods=["POST"])
 def auth():
+    """Authenticate as admin.
+    ---
+    tags:
+      - Admin
+    consumes:
+      - application/x-www-form-urlencoded
+    parameters:
+      - name: admin-password
+        in: formData
+        type: string
+        required: true
+        description: Admin password
+      - name: next
+        in: formData
+        type: string
+        required: false
+        description: URL to redirect to after successful authentication
+    responses:
+      302:
+        description: Redirects to next URL on success, login on failure
+    """
     d = request.form.to_dict()
     admin_password = get_admin_password()
     p = d["admin-password"]
+    next_url = d.get("next", "/")
+
+    # Validate next_url to prevent open redirect vulnerabilities
+    if not next_url.startswith("/"):
+        next_url = "/"
+
     if p == admin_password:
-        resp = make_response(redirect("/"))
+        resp = make_response(redirect(next_url))
         expire_date = datetime.datetime.now()
         expire_date = expire_date + datetime.timedelta(days=90)
         resp.set_cookie("admin", admin_password, expires=expire_date)
         # MSG: Message shown after logging in as admin successfully
         flash(_("Admin mode granted!"), "is-success")
     else:
-        resp = make_response(redirect(url_for("login")))
+        resp = make_response(redirect(url_for("admin.login", next=next_url)))
         # MSG: Message shown after failing to login as admin
         flash(_("Incorrect admin password!"), "is-danger")
     return resp
@@ -160,11 +237,27 @@ def auth():
 
 @admin_bp.route("/login")
 def login():
+    """Admin login page.
+    ---
+    tags:
+      - Pages
+    responses:
+      200:
+        description: HTML login page
+    """
     return render_template("login.html")
 
 
 @admin_bp.route("/logout")
 def logout():
+    """Log out of admin mode.
+    ---
+    tags:
+      - Admin
+    responses:
+      302:
+        description: Redirects to home page
+    """
     resp = make_response(redirect("/"))
     resp.set_cookie("admin", "")
     # MSG: Message shown after logging out as admin successfully

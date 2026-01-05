@@ -1,3 +1,5 @@
+"""Flask application entry point and server initialization."""
+
 from gevent import monkey
 
 monkey.patch_all()
@@ -5,8 +7,10 @@ monkey.patch_all()
 import logging
 import os
 import sys
+from urllib.parse import quote
 
 import flask_babel
+from flasgger import Swagger
 from flask import Flask, request, session
 from flask_babel import Babel
 from flask_socketio import SocketIO
@@ -17,10 +21,11 @@ from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
-from pikaraoke.lib.get_platform import get_platform
+from pikaraoke.lib.get_platform import get_platform, has_js_runtime
 from pikaraoke.lib.selenium import launch_splash_screen
 from pikaraoke.routes.admin import admin_bp
 from pikaraoke.routes.background_music import background_music_bp
+from pikaraoke.routes.batch_song_renamer import batch_song_renamer_bp
 from pikaraoke.routes.controller import controller_bp
 from pikaraoke.routes.files import files_bp
 from pikaraoke.routes.home import home_bp
@@ -33,15 +38,7 @@ from pikaraoke.routes.search import search_bp
 from pikaraoke.routes.splash import splash_bp
 from pikaraoke.routes.stream import stream_bp
 
-try:
-    from urllib.parse import quote
-except ImportError:
-    from urllib import quote
-
 _ = flask_babel.gettext
-
-import threading
-import time
 
 from gevent.pywsgi import WSGIServer
 
@@ -55,6 +52,14 @@ app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
+app.config["SWAGGER"] = {
+    "title": "PiKaraoke API",
+    "description": "API for controlling PiKaraoke - a KTV-style karaoke system",
+    "version": "1.0.0",
+    "termsOfService": "",
+    "hide_top_bar": True,
+}
+swagger = Swagger(app)
 
 # Register blueprints for additional routes
 app.register_blueprint(home_bp)
@@ -62,6 +67,7 @@ app.register_blueprint(stream_bp)
 app.register_blueprint(preferences_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(background_music_bp)
+app.register_blueprint(batch_song_renamer_bp)
 app.register_blueprint(queue_bp)
 app.register_blueprint(images_bp)
 app.register_blueprint(files_bp)
@@ -76,15 +82,24 @@ socketio.init_app(app)
 
 
 @babel.localeselector
-def get_locale():
-    """Select the language to display the webpage in based on the Accept-Language header"""
-    # Check config.ini lang settings
-    k = get_karaoke_instance()
-    preferred_lang = k.get_user_preference("preferred_language")
-    if preferred_lang and preferred_lang in LANGUAGES.keys():
-        return preferred_lang
+def get_locale() -> str | None:
+    """Select the language to display based on user preference or Accept-Language header.
+
+    Returns:
+        Language code string (e.g., 'en', 'fr') or None.
+    """
+    # Check config.ini lang settings (if karaoke instance is initialized)
+    try:
+        k = get_karaoke_instance()
+        preferred_lang = k.get_user_preference("preferred_language")
+        if preferred_lang and preferred_lang in LANGUAGES.keys():
+            return preferred_lang
+    except (RuntimeError, AttributeError):
+        # App context not available or karaoke instance not initialized yet
+        pass
+
     # Check URL arguments
-    elif request.args.get("lang"):
+    if request.args.get("lang"):
         session["lang"] = request.args.get("lang")
         locale = session.get("lang", "en")
     # Use browser header
@@ -98,48 +113,36 @@ def get_locale():
 
 
 @socketio.on("end_song")
-def end_song(reason):
+def end_song(reason: str) -> None:
+    """Handle end_song WebSocket event from client.
+
+    Args:
+        reason: Reason for ending the song (e.g., 'complete', 'error').
+    """
     k = get_karaoke_instance()
     k.end_song(reason)
 
 
 @socketio.on("start_song")
-def start_song():
+def start_song() -> None:
+    """Handle start_song WebSocket event when playback begins."""
     k = get_karaoke_instance()
     k.start_song()
 
 
 @socketio.on("clear_notification")
-def clear_notification():
+def clear_notification() -> None:
+    """Handle clear_notification WebSocket event to dismiss notifications."""
     k = get_karaoke_instance()
     k.reset_now_playing_notification()
 
 
-def poll_karaoke_state(k: karaoke.Karaoke):
-    curr_now_playing_hash = None
-    curr_queue_hash = None
-    curr_notification = None
-    poll_interval = 0.5
-    while True:
-        time.sleep(poll_interval)
-        np_hash = k.now_playing_hash
-        if np_hash != curr_now_playing_hash:
-            curr_now_playing_hash = np_hash
-            logging.debug(k.get_now_playing())
-            socketio.emit("now_playing", k.get_now_playing(), namespace="/")
-        q_hash = k.queue_hash
-        if q_hash != curr_queue_hash:
-            curr_queue_hash = q_hash
-            logging.debug(k.queue)
-            socketio.emit("queue_update", namespace="/")
-        notification = k.now_playing_notification
-        if notification != curr_notification:
-            curr_notification = notification
-            if notification:
-                socketio.emit("notification", notification, namespace="/")
+def main() -> None:
+    """Main entry point for the PiKaraoke application.
 
-
-def main():
+    Initializes the Flask server, Karaoke engine, and splash screen.
+    Blocks until the application is terminated.
+    """
     platform = get_platform()
 
     args = parse_pikaraoke_args()
@@ -149,6 +152,11 @@ def main():
             "ffmpeg is not installed, which is required to run PiKaraoke. See: https://www.ffmpeg.org/"
         )
         sys.exit(1)
+
+    if not has_js_runtime():
+        logging.warning(
+            "No js runtime is installed (such as Deno, Bun, Node.js, or QuickJS). This is required to run yt-dlp. Some downloads may not work. See: https://github.com/yt-dlp/yt-dlp/wiki/EJS"
+        )
 
     # setup/create download directory if necessary
     if not os.path.exists(args.download_path):
@@ -179,18 +187,22 @@ def main():
         disable_bg_music=args.disable_bg_music,
         bg_music_volume=args.bg_music_volume,
         bg_music_path=args.bg_music_path,
+        disable_bg_video=args.disable_bg_video,
         bg_video_path=args.bg_video_path,
         disable_score=args.disable_score,
         limit_user_songs_by=args.limit_user_songs_by,
-        avsync=args.avsync,
+        avsync=float(args.avsync),
         config_file_path=args.config_file_path,
         cdg_pixel_scaling=args.cdg_pixel_scaling,
+        streaming_format=args.streaming_format,
         additional_ytdl_args=getattr(args, "ytdl_args", None),
+        socketio=socketio,
+        preferred_language=args.preferred_language,
     )
 
     # expose karaoke object to the flask app
     with app.app_context():
-        app.k = k
+        app.config["KARAOKE_INSTANCE"] = k
 
     # expose shared configuration variables to the flask app
     app.config["ADMIN_PASSWORD"] = args.admin_password
@@ -215,16 +227,11 @@ def main():
 
     # Start the splash screen using selenium
     if not args.hide_splash_screen:
-        driver = launch_splash_screen(k, args.window_size)
+        driver = launch_splash_screen(k, args.window_size, args.external_monitor)
         if not driver:
             sys.exit()
     else:
         driver = None
-
-    # Poll karaoke object for now playing updates
-    thread = threading.Thread(target=poll_karaoke_state, args=(k,))
-    thread.daemon = True
-    thread.start()
 
     # Start the karaoke process
     k.run()

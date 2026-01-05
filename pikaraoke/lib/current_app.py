@@ -1,8 +1,11 @@
+"""Flask application context utilities for PiKaraoke."""
+
 import logging
 import os
 import subprocess
 import sys
 import time
+from typing import Any
 
 from flask import current_app, request
 from flask_socketio import emit
@@ -31,7 +34,7 @@ def get_karaoke_instance() -> Karaoke:
     Returns:
         Karaoke: The Karaoke instance stored in the current app's configuration.
     """
-    return current_app.k
+    return current_app.config["KARAOKE_INSTANCE"]
 
 
 def get_admin_password() -> str:
@@ -52,15 +55,33 @@ def get_site_name() -> str:
     return current_app.config["SITE_NAME"]
 
 
-def broadcast_event(event, data=None):
+def broadcast_event(event: str, data: Any = None) -> None:
+    """Broadcast a SocketIO event to all connected clients.
+
+    Args:
+        event: Name of the event to broadcast.
+        data: Optional data payload to send with the event.
+    """
     logging.debug("Broadcasting event: " + event)
     emit(event, data, namespace="/", broadcast=True)
 
 
-def delayed_halt(cmd):
+def delayed_halt(cmd: int) -> None:
+    """Execute a delayed system halt command.
+
+    Clears the queue, stops the karaoke instance, then executes the command.
+
+    Args:
+        cmd: Command to execute:
+            0 = exit application
+            1 = shutdown system
+            2 = reboot system
+            3 = expand rootfs and reboot (Raspberry Pi)
+    """
     time.sleep(1.5)
-    current_app.k.queue_clear()
-    current_app.k.stop()
+    k = get_karaoke_instance()
+    k.queue_clear()
+    k.stop()
     if cmd == 0:
         sys.exit()
     if cmd == 1:

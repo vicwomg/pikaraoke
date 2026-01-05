@@ -1,43 +1,76 @@
-[tool.poetry]
+[project]
 name = "pikaraoke"
-version = "1.14.0"
+version = "1.15.3"
 description = "Youtube-based Karaoke machine for Raspberry Pi, OSX, Windows, and Linux"
-authors = ["Vic Wong"]
+authors = [{name = "Vic Wong"}]
 readme = "docs/README.md"
-homepage = "https://github.com/vicwomg/pikaraoke"
-repository = "https://github.com/vicwomg/pikaraoke"
+requires-python = ">=3.10"
 keywords = ["karaoke", "ktv", "video", "audio", "youtube", "raspberry-pi", "osx", "windows", "linux"]
 classifiers = [
   "Topic :: Multimedia :: Video",
   "Topic :: Multimedia :: Sound/Audio",
   "Topic :: Games/Entertainment"
 ]
+dependencies = [
+  "CherryPy==18.10.0",
+  "Flask==2.2.5",
+  "qrcode==7.4.2",
+  "psutil==6.0.0",
+  "requests==2.32.4",
+  "flask-paginate==2021.10.29",
+  "jinja2==3.1.6",
+  "Babel==2.9.1",
+  "Flask-Babel==2.0.0",
+  "selenium==4.21.0",
+  "ffmpeg-python==0.2.0",
+  "yt-dlp[default]>=2025.12.8",
+  "flask-socketio>=5.5.0",
+  "gevent>=24.11.1",
+  "flasgger>=0.9.7.1",
+]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-CherryPy = "18.10.0"
-Flask = "2.2.5"
-qrcode = "7.4.2"
-psutil = "6.0.0"
-requests = "2.32.4"
-flask-paginate = "2021.10.29"
-jinja2 = "3.1.6"
-Babel = "2.9.1"
-Flask-Babel = "2.0.0"
-selenium = "4.21.0"
-ffmpeg-python = "0.2.0"
-yt-dlp = ">=2025.10.14"
-flask-socketio = "^5.5.0"
-gevent = "^24.11.1"
+[project.optional-dependencies]
+dev = [
+  "pre-commit>=3.7.1",
+  "pytest>=8.3.2",
+]
 
-[tool.poetry.scripts]
+[project.scripts]
 pikaraoke = "pikaraoke.app:main"
 pikaraoke-setup = "pikaraoke.setup_apt:main"
 
+[project.urls]
+Homepage = "https://github.com/vicwomg/pikaraoke"
+Repository = "https://github.com/vicwomg/pikaraoke"
+
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pikaraoke"]
+
+# Poetry-specific configuration (reads from [project] above)
+[tool.poetry]
+package-mode = true
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.7.1"
 pytest = "^8.3.2"
+
+[tool.pyright]
+include = ["src"]
+exclude = ["**/node_modules",
+    "**/__pycache__",
+    "src/experimental",
+    "src/typestubs"
+]
+ignore = ["src/oldstuff"]
+defineConstant = { DEBUG = true }
+stubPath = "src/stubs"
+
+reportMissingImports = "error"
+reportMissingTypeStubs = false
+
+pythonVersion = "3.10"
+pythonPlatform = "Linux"

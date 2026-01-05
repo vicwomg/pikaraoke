@@ -2,23 +2,40 @@
 <!-- <meta http-equiv="refresh" content="5" /> -->
 
 <script>
-  var queue = [];
-  var previousQueue;
-  var socket = io();
-
-  function getQueue() {
-    $.get('{{ url_for("queue.get_queue") }}', function (data) {
-      newQueue =  JSON.parse(data);
-      if (!_.isEqual(newQueue, previousQueue)) {
-        queue = newQueue;
-        $("#auto-refresh").html(generateQueueHTML());
-        previousQueue = newQueue;
-      }
-    })
+  // Ensure global socket exists
+  if (typeof window.socket === 'undefined') {
+    window.socket = io();
   }
 
-  function generateQueueHTML() {
+  // Initialize queue state if needed
+  if (typeof window.queuePageState === 'undefined') {
+    window.queuePageState = {
+      queue: [],
+      previousQueue: null
+    };
+  }
+
+  // Define global queue functions (will be called by socket listeners)
+  window.queuePage_getQueue = function() {
+    // Only fetch queue data if we're on the queue page (element exists)
+    // This prevents unnecessary AJAX calls when socket updates fire on other pages
+    if ($('#auto-refresh').length === 0) {
+      return;
+    }
+
+    $.get('{{ url_for("queue.get_queue") }}', function (data) {
+      var newQueue = JSON.parse(data);
+      if (!_.isEqual(newQueue, window.queuePageState.previousQueue)) {
+        window.queuePageState.queue = newQueue;
+        $("#auto-refresh").html(window.queuePage_generateHTML());
+        window.queuePageState.previousQueue = newQueue;
+      }
+    });
+  };
+
+  window.queuePage_generateHTML = function() {
     var html = "";
+    var queue = window.queuePageState.queue;
     if (queue.length > 0) {
       queue.forEach((e, index) => {
         html += `
@@ -55,71 +72,53 @@
               </td>
             {% endif %}
           </tr>
-        `
+        `;
       });
     }
     else {
       // {# MSG: Placeholder text which appears instead of a song when the queue is empty. #}
-      html += `<tr><td><p class="has-text-warning">{{ _('The queue is empty') }}</p></td></tr>`
+      html += `<tr><td><p class="has-text-warning">{{ _('The queue is empty') }}</p></td></tr>`;
     }
     return html;
+  };
+
+  // Queue management click handlers are now in spa-navigation.js
+  // This prevents duplicate handlers during SPA navigation
+
+  // Clean up old listeners and attach fresh one
+  window.socket.off("queue_update");
+  window.socket.on("queue_update", window.queuePage_getQueue);
+
+  // Reset previousQueue so first load always updates the DOM
+  // This is critical for SPA navigation where DOM is replaced but data may be the same
+  window.queuePageState.previousQueue = null;
+
+  // Initialize queue immediately - works for both initial load and SPA navigation
+  if (document.readyState === 'loading') {
+    // Initial page load - wait for DOM
+    $(function() {
+      window.queuePage_getQueue();
+    });
+  } else {
+    // DOM already ready (SPA navigation) - execute immediately
+    window.queuePage_getQueue();
   }
 
-  $(document).on('click', '.confirm-delete', function (e) {
-    e.preventDefault();
-      if (
-        window.confirm(
-          `Are you sure you want to delete "${this.title}"" from the queue?`
-        )
-      ) {
-        $.get(this.href)
+  // Handle visibility changes - remove old listener first to prevent duplicates
+  document.removeEventListener("visibilitychange", window.queuePage_visibilityHandler);
+  window.queuePage_visibilityHandler = function() {
+    if (document.visibilityState === 'visible') {
+      window.queuePage_getQueue();
+      if (!window.socket.connected) {
+        console.log('Reconnecting socket...');
+        window.socket = io();
+        window.socket.on("queue_update", window.queuePage_getQueue);
       }
-  });
-
-  $(document).on('click', '.up-button', function (e) {
-    e.preventDefault();
-    $.get(this.href)
-  });
-
-  $(document).on('click', '.down-button', function (e) {
-    e.preventDefault();
-    $.get(this.href)
-  });
-
-  $(document).on('click', '.confirm-clear', function (e) {
-    e.preventDefault();
-    let prompt = window.prompt(
-      "Are you sure you want to clear the ENTIRE queue? Type 'ok' to continue"
-    );
-    if (prompt.toLowerCase() === "ok") {
-      $.get(this.href)
     }
-  });
+  };
+  document.addEventListener("visibilitychange", window.queuePage_visibilityHandler);
 
-  socket.on("queue_update", getQueue);
-
-  //on page load
-  $(function () {
-    //first time load
-    getQueue();
-
-    document.addEventListener("visibilitychange", function() {
-      if (document.visibilityState === 'visible') {
-        getQueue();
-        if (!socket.connected) {
-            console.log('Reconnecting socket...');
-            connectSocket();
-        }
-      }
-    });
-  });
-
-  $(document).on('click', '.add-random', function (e) {
-    e.preventDefault();
-    const amount = $('#randomNumberInput').val();
-    const baseUrl = '/queue/addrandom';
-    $.get(`${baseUrl}?amount=${amount}`);
-  });
+  // Add random songs handler is now in spa-navigation.js
 </script>
 
 {% endblock %}
@@ -137,16 +136,23 @@
 </table>
 
 {% if admin %}
-<a class="add-random has-text-success" href="#"
-  {# MSG: Button text which picks a given number of random songs from the already downloaded songs and adds them to the queue. #}
-  ><i class="icon icon-plus-circled"></i></a
->{% trans %}Add <input id="randomNumberInput" pattern="\d*" maxlength="2" value="3" min="1" max="99" style="width: 40px" /> random songs{% endtrans %}
-<a
-  class="confirm-clear has-text-danger is-pulled-right"
-  href="/queue/edit?action=clear"
-  {# MSG: Text for the button which clears the entire queue. #}
-  ><i class="icon icon-trash-empty"></i>{% trans %}Clear all{% endtrans %}</a
-><br />
+<div class="is-flex is-justify-content-space-between is-align-items-center mb-3">
+	<div class="is-flex is-align-items-center">
+		<a class="add-random has-text-success" href="#"
+			{# MSG: Button text which picks a given number of random songs from the already downloaded songs and adds them to the queue. #}
+			><i class="icon icon-plus-circled is-size-5 mr-1"></i></a>
+			{% trans %}Add <input id="randomNumberInput" class="input mx-2 p-2" pattern="\d*" maxlength="2" value="3" min="1" max="99" style="width: 42px" /> random songs{% endtrans %}
+	</div>
+
+	<div>
+		<a
+		class="button is-danger is-outlined confirm-clear"
+		href="/queue/edit?action=clear"
+		{# MSG: Text for the button which clears the entire queue. #}
+		><i class="icon icon-trash-empty mr-1"></i>{% trans %}Clear all{% endtrans %}</a>
+	</div>
+</div>
+
 
 {% endif %}
 

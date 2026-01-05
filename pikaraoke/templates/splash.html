@@ -29,8 +29,12 @@
     return `${formattedMinutes}:${formattedSeconds}`;
   }
 
-  const isFirefox = typeof InstallTrigger !== "undefined";
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  const isMobileSafari = isSafari && (/iPhone|iPad|iPod/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1);
+  const isChrome = /chrome/i.test(navigator.userAgent) && !/edg/i.test(navigator.userAgent);
+  const isFirefox = /firefox/i.test(navigator.userAgent);
+  const isEdge = /edg/i.test(navigator.userAgent);
+  const isSupportedBrowser = isSafari || isChrome || isFirefox || isEdge;
 
   var socket = io();
 
@@ -46,39 +50,50 @@
 
   var mouseTimer = null,
     cursorVisible = true;
-
   var nowPlaying = {};
   var octopusInstance = null;
   var showMenu = false;
   var menuButtonVisible = false;
   var confirmationDismissed = false;
   var volume = 0.85;
+  var playbackStartTimeout = 10000; // 10 seconds
   var isScoreShown = false;
   var hasBgVideo = "{{ has_bg_video }}" == 'True'
+  var currentVideoUrl = null;  // Track current video URL to prevent reload loops
+  var hlsInstance = null;  // Store hls.js instance for cleanup/restart
 
   const scoreReviews = {
-	low:[
-		"{{ _('Never sing again... ever.') }}", // {# MSG: Score review message #}
-		"{{ _('That was a really good impression of a dying cat!') }}", // {# MSG: Score review message #}
-		"{{ _('Thank God it\'s over.') }}", // {# MSG: Score review message #}
-		"{{ _('Pass the mic, please!') }}", // {# MSG: Score review message #}
-    "{{ _('Well, I\'m sure you\'re very good at your day job.') }}", // {# MSG: Score review message #}
-  ],
-	mid:[
-		"{{ _('I\'ve seen better.') }}", // {# MSG: Score review message #}
-		"{{ _('Ok... just ok.') }}", // {# MSG: Score review message #}
-		"{{ _('Not bad for an amateur.') }}", // {# MSG: Score review message #}
-		"{{ _('You put on a decent show.') }}", // {# MSG: Score review message #}
-    "{{ _('That was... something.') }}", // {# MSG: Score review message #}
-	],
-	high:[
-		"{{ _('Congratulations! That was unbelievable!') }}", // {# MSG: Score review message #}
-		"{{ _('Wow, have you tried auditioning for The Voice?') }}", // {# MSG: Score review message #}
-		"{{ _('Please, sing another one!') }}", // {# MSG: Score review message #}
-		"{{ _('You rock! You know that?!') }}", // {# MSG: Score review message #}
-		"{{ _('Woah, who let Freddie Mercury in here?') }}", // {# MSG: Score review message #}
-	]
-  }
+    low:[
+        "{{ _('Never sing again... ever.') }}", // {# MSG: Score review message #}
+        "{{ _('That was a really good impression of a dying cat!') }}", // {# MSG: Score review message #}
+        "{{ _('Thank God it\'s over.') }}", // {# MSG: Score review message #}
+        "{{ _('Pass the mic, please!') }}", // {# MSG: Score review message #}
+        "{{ _('Well, I\'m sure you\'re very good at your day job.') }}"{{ "," if schore_phrases.low else "" }} // {# MSG: Score review message #}
+        {% for phrase in schore_phrases.low %}
+        ,"{{ _(phrase) }}"
+        {% endfor %}
+    ],
+    mid:[
+        "{{ _('I\'ve seen better.') }}", // {# MSG: Score review message #}
+        "{{ _('Ok... just ok.') }}", // {# MSG: Score review message #}
+        "{{ _('Not bad for an amateur.') }}", // {# MSG: Score review message #}
+        "{{ _('You put on a decent show.') }}", // {# MSG: Score review message #}
+        "{{ _('That was... something.') }}"{{ "," if schore_phrases.mid else "" }} // {# MSG: Score review message #}
+        {% for phrase in schore_phrases.mid %}
+        ,"{{ _(phrase) }}"
+        {% endfor %}
+    ],
+    high:[
+        "{{ _('Congratulations! That was unbelievable!') }}", // {# MSG: Score review message #}
+        "{{ _('Wow, have you tried auditioning for The Voice?') }}", // {# MSG: Score review message #}
+        "{{ _('Please, sing another one!') }}", // {# MSG: Score review message #}
+        "{{ _('You rock! You know that?!') }}", // {# MSG: Score review message #}
+        "{{ _('Woah, who let Freddie Mercury in here?') }}"{{ "," if schore_phrases.high else "" }} // {# MSG: Score review message #}
+        {% for phrase in schore_phrases.high %}
+        ,"{{ _(phrase) }}"
+        {% endfor %}
+    ]
+}
 
   async function handleConfirmation() {
     $('#permissions-modal').removeClass('is-active');
@@ -99,6 +114,16 @@
 		  await startScore("{{ url_for('static', filename='') }}");
       isScoreShown = false;
 	  }
+    currentVideoUrl = null;  // Reset URL tracking when song ends
+    // Clean up hls.js instance if exists
+    if (hlsInstance) {
+      hlsInstance.destroy();
+      hlsInstance = null;
+    }
+    const video = getVideoPlayer();
+    video.pause();
+    $("#video-source").attr("src", "");
+    video.load();  // Clear the video element completely
     hideVideo();
     socket.emit("end_song", reason);
   }
@@ -258,11 +283,13 @@
     }
 
     // Handle the Background music depending on the up_next and nowplaying status
-    if (np.up_next) {
+    // Stop background media when ANY song is playing or queued
+    if (np.now_playing || np.up_next) {
       idleTime = 0; // reset idle timer to clear screensaver
       playBGMusic(false);
       playBGVideo(false);
-    } else if (!np.now_playing) {
+    } else {
+      // Only start background when completely idle (no current song, no queue)
       setTimeout(() => {
         playBGMusic(true);
         playBGVideo(true)
@@ -313,18 +340,58 @@
     }
 
     // Start playback if a valid now_playing_url is provided
-    if (
-      np.now_playing_url &&
-      !isMediaPlaying(video) &&
-      $("#video-container").is(":hidden")
-    ) {
+    // Only load video if URL has changed to prevent reload loops
+    if (np.now_playing_url && np.now_playing_url !== currentVideoUrl) {
       if (!confirmationDismissed) {
         console.log(
           'Browser is unable to play video. User did not confirm interaction prompt.'
         );
         endSong("interaction confirmation required");
+        return;  // Exit early if no confirmation
       }
-      $("#video-source").attr("src", np.now_playing_url);
+
+      // Track current URL to prevent reloading same video
+      currentVideoUrl = np.now_playing_url;
+
+      // Use stream URL from backend (format determined by --streaming-format flag)
+      const streamUrl = np.now_playing_url;
+      console.log('Loading video:', streamUrl);
+
+      // Clear the source first to prevent browser from caching old HLS playlist
+      $("#video-source").attr("src", "");
+      video.load();
+
+      // Now set the new source
+      $("#video-source").attr("src", streamUrl);
+
+      if (streamUrl.endsWith('.m3u8')) {
+        // Handle browsers with native HLS support (primarily Safari on iOS/macOS)
+        // Exclude Chrome and Edge - their native HLS is buggy (freezes, seeking issues)
+        const useNativeHLS = video.canPlayType('application/vnd.apple.mpegurl') && !isChrome && !isEdge && !isMobileSafari;
+        if (useNativeHLS) {
+          console.log('Native HLS support, proceeding with native playback');
+          video.src = streamUrl;
+        }
+        else {
+          // Clean up previous hls.js instance if exists
+          if (hlsInstance) {
+            hlsInstance.destroy();
+            hlsInstance = null;
+          }
+          // Chrome/Edge have buggy native HLS (freezes mid video, seeking fails)
+          // Mobile Safari starts in the middle without startPosition config
+          // Use hls.js for reliable playback
+          (isChrome || isEdge) ?
+            console.log('Overriding Chromium native HLS playback with hls.js')
+            : console.log('HLS is not natively supported, using hls.js for playback');
+          hlsInstance = new Hls({
+            startPosition: 0,  // Force start from beginning (fixes Mobile Safari issue)
+          });
+          hlsInstance.loadSource(streamUrl);
+          hlsInstance.attachMedia(video);
+        }
+      }
+
       video.load();
       if (volume != np.volume) {
         volume = np.volume;
@@ -340,14 +407,22 @@
         duration.hide();
       }
 
-      video.play();
+      // Stop background music before playing video
+      playBGMusic(false);
+
+      // Show video container immediately to prevent race condition
+      $("#video-container").show();
+
+      video.play().catch(err => {
+        console.error('Play failed:', err);
+      });
 
       // handle timeout if video fails to play
       setTimeout(() => {
         if (!isMediaPlaying(video) && !video.paused) {
           endSong("failed to start");
         }
-      }, 10000);
+      }, playbackStartTimeout);
     }
 
   }
@@ -406,9 +481,17 @@
     });
 
     $("#video source")[0].addEventListener("error", (e) => {
-      console.log("Error while playing video.");
-      console.log(e);
-      endSong("error while playing");
+        // Only treat errors as fatal if the video has actually started playing
+        // HLS streams can have transient errors during initial buffering
+        if (isMediaPlaying(video)) {
+            console.log("Error while playing video.");
+            console.log(e);
+            endSong("error while playing");
+        } else {
+            console.log("Video error during initial buffering:", e);
+            // Do not call endSong() here, it will cause infinite loops trying to reload the erroneous video.
+            // We'll use the playbackStartTimeout loop to handle it.
+        }
     });
 
     // Load the background music playlist from server
@@ -450,12 +533,19 @@
       }
     });
 
-    if (isFirefox || isSafari) {
+	 //close menu iframe clicking outside
+	 $('#menu-background').click(function () {
+		if (showMenu) {
+			$(".navbar-burger").click();
+		}
+	 });
+
+    if (!isSupportedBrowser) {
       let modalContents = document.getElementById("permissions-modal-content");
       let warningMessage = document.createElement("p");
       warningMessage.classList.add("notification", "is-warning");
       warningMessage.innerHTML =
-        "This browser is not fully supported. You may experience streaming issues unless you enable full playback buffering. Please use Chrome for best results.";
+        "This browser is not fully supported. You may experience streaming issues. Please use Chrome/Safari/Firefox for best results.";
       modalContents.prepend(warningMessage);
     }
 
@@ -497,15 +587,20 @@
 
     socket.on('skip', (reason) => {
       const video = getVideoPlayer();
+      const currVolume = video.volume;
       if (isMediaPlaying(video)) {
-        const currVolume = video.volume;
+        // Fade out if currently playing
         $(video).animate({ volume: 0 }, 1000, () => {
             video.pause();
             video.volume = currVolume;
             hideVideo();
           });
-        console.log(`Skip: ${reason}`);
+      } else {
+        // Immediately hide if paused or stopped
+        video.pause();
+        hideVideo();
       }
+	  console.log(`Skip: ${reason}`);
     });
 
     socket.on('volume', (val) => {
@@ -527,7 +622,7 @@
       console.log(`Restart`);
       const video = getVideoPlayer();
       video.currentTime = 0;
-      if (video.paused) video.play()
+      if (video.paused) video.play();
     });
 
     socket.on("notification", (data) => {
@@ -558,8 +653,8 @@
   });
 </script>
 {% endblock %} {% block body %}
-
 <div id="top-container" class="overlay">
+<i class="icon icon-mic-1 is-invisible" style="position: absolute" title="Current singer"></i>
   <div
     id="now-playing"
     class="has-text-warning stroke is-size-4 has-text-right"
@@ -571,10 +666,13 @@
       style="margin-bottom: 5px"
     ></p>
     <div class="has-text-success">
-      <span class="timestamp is-size-6">
-        <span id="current">00:00</span><span id="duration">/00:00</span></span></span
-      >&nbsp;&nbsp;<i class="icon icon-mic-1" title="Current singer"></i>&nbsp;
+		</span><i class="icon icon-mic-1" title="Current singer"></i>
       <span id="now-playing-singer"></span>
+		<br />
+		<span class="timestamp is-size-6">
+        <span id="current">00:00</span>
+		  <span id="duration">/00:00</span>
+		</span>
     </div>
   </div>
 </div>
@@ -629,14 +727,14 @@
 </div>
 
 <div id="video-container" class="video-container">
-  <video id="video" disableRemotePlayback>
-    <source id="video-source" type="video/mp4" src="" />
+  <video id="video" disableRemotePlayback playsinline webkit-playsinline style="width: 100%; height: 100%; object-fit: contain;">
+    <source id="video-source" src="" />
   </video>
 </div>
 
 <div id="bg-video-container" class="video-container">
-  <video id="bg-video" disableRemotePlayback muted loop style="object-fit: cover">
-    <source id="video-source" type="video/mp4" src="" />
+  <video id="bg-video" disableRemotePlayback playsinline webkit-playsinline muted loop style="object-fit: cover">
+    <source id="bg-video-source" type="video/mp4" src="" />
   </video>
 </div>
 
@@ -657,10 +755,10 @@
   <div class="modal-content" id="permissions-modal-content">
     <p>
       {# MSG: Prompt for interaction in order to enable video autoplay. #} {%
-      trans %}Due to limititations with browser permissions, you must interact
+      trans %}Due to limitations with browser permissions, you must interact
       with the page once before it allows autoplay of videos. Pikaraoke will not
       play otherwise. Click the button below to
-      <a onClick="handleConfirmation()">confirm</a> .{% endtrans %}
+      <a onClick="handleConfirmation()">confirm</a>.{% endtrans %}
     </p>
     <div class="has-text-centered">
       <button
@@ -690,9 +788,12 @@
     <span aria-hidden="true"></span>
   </a>
 </div>
-<div id="menu-container" class="">
-  <iframe src="/"></iframe>
-</div>
+
+  <div id="menu-background" class="overlay"></div>
+   <div id="menu-container" class="">
+     <iframe></iframe>
+   </div>
+
 
 <!-- Notification code -->
 <div
@@ -728,6 +829,7 @@
 	/>
 </audio>
 
+<script src="{{  url_for('static', filename='hls.min.js') }}"></script>
 <script src="{{  url_for('static', filename='screensaver.js') }}"></script>
 <script src="{{  url_for('static', filename='fireworks.js') }}"></script>
 <script src="{{  url_for('static', filename='score.js') }}"></script>
@@ -808,6 +910,15 @@
     height: 100vh;
     align-items: center;
     justify-content: center;
+  }
+  #menu-background {
+    bottom: 0;
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+	 width: 100vw;
+	 height: 100vh;
   }
   #menu {
     position: absolute;

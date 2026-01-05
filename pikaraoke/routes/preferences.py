@@ -1,3 +1,5 @@
+"""User preferences management routes."""
+
 import flask_babel
 from flask import Blueprint, flash, jsonify, redirect, request, url_for
 
@@ -10,6 +12,27 @@ _ = flask_babel.gettext
 
 @preferences_bp.route("/change_preferences", methods=["GET"])
 def change_preferences():
+    """Change a user preference setting.
+    ---
+    tags:
+      - Preferences
+    parameters:
+      - name: pref
+        in: query
+        type: string
+        required: true
+        description: Preference key to change
+      - name: val
+        in: query
+        type: string
+        required: true
+        description: New value for the preference
+    responses:
+      200:
+        description: JSON result of preference change
+      302:
+        description: Redirects to info page if not admin
+    """
     k = get_karaoke_instance()
     if is_admin():
         preference = request.args["pref"]
@@ -26,6 +49,14 @@ def change_preferences():
 
 @preferences_bp.route("/clear_preferences", methods=["GET"])
 def clear_preferences():
+    """Reset all preferences to defaults.
+    ---
+    tags:
+      - Preferences
+    responses:
+      302:
+        description: Redirects to home page
+    """
     k = get_karaoke_instance()
     if is_admin():
         rc = k.clear_preferences()
