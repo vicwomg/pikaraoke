@@ -37,7 +37,7 @@ def launch_splash_screen(
     if karaoke.is_raspberry_pi:
         service = Service(executable_path="/usr/bin/chromedriver")
     else:
-        service = None
+        service = Service()
     options = Options()
 
     karaoke_url = f"{karaoke.url}/splash"

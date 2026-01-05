@@ -42,12 +42,6 @@
   margin-left: 0;
   font-size: 12px;
 }
-.pagination-page-info b {
-  color: black;
-  background: #6aa6ed;
-  padding-right: 5px;
-  font-size: 150%;
-}
 .pagination-list {
   list-style: none !important;
   margin-top: 0px !important;
