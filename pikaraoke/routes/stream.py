@@ -232,6 +232,6 @@ def stream_subtitle(id):
                     download_name=os.path.basename(ass_file_path),
                 )
     except Exception as e:
-        k.log_and_send(_(f"Failed to stream subtitle: {e}"), "danger")
+        k.log_and_send(_("Failed to stream subtitle: ") + str(e), "danger")
         return Response("Subtitle streaming error.", status=500)
     return Response("Subtitle file not found for this stream ID.", status=404)
