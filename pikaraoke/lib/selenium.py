@@ -17,7 +17,9 @@ if TYPE_CHECKING:
 
 
 def launch_splash_screen(
-    karaoke: Karaoke, window_size: str | None = None
+    karaoke: Karaoke,
+    window_size: str | None = None,
+    external_monitor: bool = False,
 ) -> webdriver.Chrome | None:
     """Launch the Chrome browser with the splash screen in kiosk mode.
 
@@ -27,6 +29,7 @@ def launch_splash_screen(
     Args:
         karaoke: Karaoke instance with URL and platform configuration.
         window_size: Optional window geometry as "width,height" string.
+        external_monitor: If True, position window on external monitor (x=1920).
 
     Returns:
         Chrome WebDriver instance on success, or None on failure.
@@ -37,12 +40,23 @@ def launch_splash_screen(
         service = Service()
     options = Options()
 
+    karaoke_url = f"{karaoke.url}/splash"
+
     if window_size:
         options.add_argument("--window-size=%s" % (window_size))
+        # Option to hide URL bar and title bars for a cleaner UI
+        # Hide URL bar: Use --app to open in minimal UI mode (removes tabs/url/title bar)
+        # Note: --app disables kiosk, so only use if window_size is set (not fullscreen kiosk mode)
+        # If window_size is set, we assume the user wants windowed mode, and hiding chrome is okay
+        options.add_argument("--app=%s" % karaoke_url)
+    else:
+        options.add_argument("--kiosk")
+
+    if external_monitor:
+        options.add_argument("--window-position=2000,0")
+    else:
         options.add_argument("--window-position=0,0")
 
-    options.add_argument("--kiosk")
-    options.add_argument("--start-maximized")
     options.add_argument("--disable-infobars")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option("useAutomationExtension", False)
@@ -74,7 +88,7 @@ def launch_splash_screen(
 
     try:
         driver = webdriver.Chrome(service=service, options=options)
-        driver.get(f"{karaoke.url}/splash")
+        driver.get(f"{karaoke_url}")
         driver.add_cookie({"name": "user", "value": "PiKaraoke-Host"})
         # Clicking this counts as an interaction, which will allow the browser to autoplay audio
         wait = WebDriverWait(driver, 60)
