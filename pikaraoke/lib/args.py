@@ -164,7 +164,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         action="store_true",
         help="Hide all overlays that show on top of video, including current/next song, pikaraoke QR code and IP",
         required=False,
-    ),
+    )
     parser.add_argument(
         "--hide-notifications",
         action="store_true",
@@ -198,21 +198,21 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         default=default_buffer_size,
         type=int,
         required=False,
-    ),
+    )
     parser.add_argument(
         "--logo-path",
         nargs="+",
         help="Path to a custom logo image file for the splash screen. Recommended dimensions ~ 2048x1024px",
         default=None,
         required=False,
-    ),
+    )
     parser.add_argument(
         "-u",
         "--url",
         help="Override the displayed IP address with a supplied URL. This argument should include port, if necessary",
         default=None,
         required=False,
-    ),
+    )
     parser.add_argument(
         "--window-size",
         help="Desired window geometry in pixels for headed mode, specified as width,height",
@@ -224,90 +224,90 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         help="Administrator password, for locking down certain features of the web UI such as queue editing, player controls, song editing, and system shutdown. If unspecified, everyone is an admin.",
         default=None,
         required=False,
-    ),
+    )
     parser.add_argument(
         "--disable-bg-music",
         action="store_true",
         help="Disable background music on splash screen",
         required=False,
-    ),
+    )
     parser.add_argument(
         "--bg-music-volume",
         default=default_bg_music_volume,
         help="Set the volume of background music on splash screen. A value between 0 and 1. (default: %s)"
         % default_bg_music_volume,
         required=False,
-    ),
+    )
     parser.add_argument(
         "--bg-music-path",
         nargs="+",
         help="Path to a custom directory for the splash screen background music. Directory must contain mp3 files which will be randomized in a playlist.",
         default=None,
         required=False,
-    ),
+    )
     parser.add_argument(
         "--bg-video-path",
         nargs="+",
         help="Path to a background video mp4 file. Will play in the background of the splash screen.",
         default=None,
         required=False,
-    ),
+    )
     parser.add_argument(
         "--disable-bg-video",
         action="store_true",
         help="Disable background video on splash screen",
         required=False,
-    ),
+    )
     parser.add_argument(
         "--disable-score",
         help="Disable the score screen after each song",
         action="store_true",
         required=False,
-    ),
+    )
     parser.add_argument(
         "--limit-user-songs-by",
         help="Limit the number of songs a user can add to queue. User name 'Pikaraoke' is always unlimited (default: 0 = unlimited)",
         default="0",
         required=False,
-    ),
+    )
     parser.add_argument(
         "--avsync",
         help="Use avsync (in seconds) if the audio and video streams are out of sync. (negative = advances audio | positive = delays audio)",
         default="0",
         required=False,
-    ),
+    )
     parser.add_argument(
         "--config-file-path",
         help=f"Path to a config file to load settings from. Config file settings are set in the web interface or manually edited and will override command line arguments. Default {default_config_file_path}",
         default=default_config_file_path,
         required=False,
-    ),
+    )
     parser.add_argument(
         "--cdg-pixel-scaling",
         help="Enable CDG pixel scaling to improve video rendering of CDG files. This may increase CPU usage and may cause performance issues on slower devices.",
         action="store_true",
         required=False,
-    ),
+    )
     parser.add_argument(
         "--streaming-format",
         help=f"Video streaming format: 'hls' (HLS with fMP4 segments) or 'mp4' (pushes mp4 directly to the browser - legacy format that might work better on some configurations). Default is '{default_streaming_format}'.",
         choices=["hls", "mp4"],
         default=default_streaming_format,
         required=False,
-    ),
+    )
     parser.add_argument(
         "--preferred-language",
         help="Set the preferred language for the web interface. This will persist across restarts. Available codes: en, de_DE, es_VE, fi_FI, fr_FR, it_IT, ja_JP, ko_KR, nl_NL, no_NO, pt_BR, ru_RU, th_TH, zh_Hans_CN, zh_Hant_TW",
         default=None,
         required=False,
-    ),
+    )
     parser.add_argument(
         "--browse-results-per-page",
         help=f"Number of results to show per page in the Browse section (default: {default_browse_results_per_page})",
         default=default_browse_results_per_page,
         type=int,
         required=False,
-    ),
+    )
 
     args = parser.parse_args()
 
@@ -326,7 +326,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     if bg_video_path is not None and not os.path.isfile(bg_video_path):
         print(f"Background video not found: {bg_video_path}. Setting to None")
 
-    dl_path = os.path.expanduser(arg_path_parse(args.download_path))
+    dl_path = os.path.expanduser(arg_path_parse(args.download_path) or default_dl_dir)
     if not dl_path.endswith("/"):
         dl_path += "/"
 

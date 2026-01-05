@@ -101,6 +101,7 @@ class StreamManager:
 
         if not requires_transcoding:
             is_transcoding_complete = self._copy_file(file_path, fr.output_file)
+            is_buffering_complete = True
         else:
             is_transcoding_complete, is_buffering_complete = self._transcode_file(
                 fr, semitones, is_hls

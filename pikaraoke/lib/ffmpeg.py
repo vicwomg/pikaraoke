@@ -5,8 +5,12 @@ from __future__ import annotations
 import logging
 import platform
 import subprocess
+from typing import TYPE_CHECKING, Any
 
 import ffmpeg
+
+if TYPE_CHECKING:
+    from pikaraoke.lib.file_resolver import FileResolver
 
 
 def get_media_duration(file_path: str) -> int | None:
@@ -33,7 +37,7 @@ def build_ffmpeg_cmd(
     buffer_fully_before_playback: bool = False,
     avsync: float = 0,
     cdg_pixel_scaling: bool = False,
-) -> ffmpeg.nodes.OutputStream:
+) -> Any:
     """Build an ffmpeg command for transcoding media.
 
     Handles video/audio codec selection, pitch shifting, audio normalization,
@@ -48,11 +52,14 @@ def build_ffmpeg_cmd(
         cdg_pixel_scaling: Enable pixel scaling for CDG rendering.
 
     Returns:
-        ffmpeg OutputStream object ready to execute.
+        ffmpeg stream object ready to execute with run_async().
     """
     avsync = float(avsync)
     is_cdg = fr.cdg_file_path is not None
     is_transposed = semitones != 0
+
+    if fr.file_path is None:
+        raise ValueError("File path is required to build ffmpeg command")
 
     # Use h/w acceleration on Pi
     using_hardware_encoder = supports_hardware_h264_encoding()

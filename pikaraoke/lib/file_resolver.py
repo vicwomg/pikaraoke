@@ -181,7 +181,9 @@ class FileResolver:
                 self.file_path = os.path.join(extracted_dir, mp3_file)
                 self.cdg_file_path = os.path.join(extracted_dir, cdg_file)
             else:
-                raise Exception("Zipped .mp3 file did not have a matching .cdg file: " + files)
+                raise Exception(
+                    "Zipped .mp3 file did not have a matching .cdg file: " + ", ".join(files)
+                )
         else:
             raise Exception("No .mp3 or .cdg was found in the zip file: " + file_path)
 
@@ -217,6 +219,7 @@ class FileResolver:
         Args:
             file_path: Path to the media file.
         """
+
         file_extension = os.path.splitext(file_path)[1].casefold()
         self.file_extension = file_extension
         if file_extension == ".zip":
@@ -225,4 +228,6 @@ class FileResolver:
             self.handle_mp3_cdg(file_path)
         else:
             self.file_path = file_path
+        if not self.file_path:
+            raise ValueError("File path is required to process file")
         self.duration = get_media_duration(self.file_path)

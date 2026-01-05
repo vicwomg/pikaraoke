@@ -78,8 +78,9 @@ def get_platform() -> str:
                 model = file.read().strip()
                 if "Raspberry Pi" in model:
                     return model  # Returns something like "Raspberry Pi 4 Model B Rev 1.2"
+                return "Raspberry Pi - unrecognized"
         except FileNotFoundError:
-            return "Rasperry Pi - unrecognized"
+            return "Raspberry Pi - unrecognized"
     elif sys.platform.startswith("linux"):
         return "linux"
     elif sys.platform.startswith("win"):
