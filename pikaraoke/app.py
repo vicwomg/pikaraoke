@@ -150,7 +150,7 @@ def main() -> None:
     # --- LOGGING SETUP ---
     # Optional: Force the log file to go to AppData too, so you can debug installation issues
     # log_path = os.path.join(get_data_directory(), 'pikaraoke.log')
-    # logging.basicConfig(filename=log_path, level=logging.INFO) 
+    # logging.basicConfig(filename=log_path, level=logging.INFO)
 
     if not is_ffmpeg_installed():
         logging.error(
