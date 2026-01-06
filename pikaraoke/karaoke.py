@@ -17,6 +17,7 @@ from typing import Any
 import qrcode
 from flask_babel import _
 
+from pikaraoke.constants import get_data_directory
 from pikaraoke.lib.download_manager import DownloadManager
 from pikaraoke.lib.ffmpeg import (
     get_ffmpeg_version,
@@ -176,7 +177,11 @@ class Karaoke:
         self.is_raspberry_pi = is_raspberry_pi()
 
         # Initialize variables
-        self.config_file_path = config_file_path
+        if not os.path.isabs(config_file_path):
+            self.config_file_path = os.path.join(get_data_directory(), config_file_path)
+        else:
+            self.config_file_path = config_file_path
+
         self.port = port
         self.hide_url = (
             pref if (pref := self.get_user_preference("hide_url")) is not None else hide_url
@@ -441,7 +446,9 @@ class Karaoke:
         qr.add_data(self.url)
         qr.make()
         img = qr.make_image()
-        self.qr_code_path = os.path.join(self.base_path, "qrcode.png")
+        # Use writable data directory instead of program directory
+        data_dir = get_data_directory()
+        self.qr_code_path = os.path.join(data_dir, "qrcode.png")
         img.save(self.qr_code_path)  # type: ignore[arg-type]
 
     def get_search_results(self, textToSearch: str) -> list[list[str]]:
