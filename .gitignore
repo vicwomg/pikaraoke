@@ -5,6 +5,7 @@
 /.vscode/
 __pycache__/
 dist/
+build/
 songs/
 qrcode.png
 .DS_Store

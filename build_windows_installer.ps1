@@ -94,38 +94,78 @@ if ($isccPath) {
 
 Write-Host ""
 
-# Install dependencies
-if (-not $SkipPyInstaller) {
-    Write-Info "Installing PiKaraoke dependencies..."
-    pip install -e .
-    Write-Success "[OK] Dependencies installed"
-    Write-Host ""
-}
+# Install dependencies and GET VERSION
+Write-Info "Installing/Updating PiKaraoke dependencies..."
+pip install -e .
+Write-Success "[OK] Dependencies installed"
 
-# Download FFmpeg (optional)
+# --- VERSION DETECTION LOGIC ---
+Write-Info "Detecting Package Version..."
+try {
+    # Get version from pip show (e.g., "Version: 1.15.3")
+    $pkgVersion = (pip show pikaraoke | Select-String "Version:").ToString().Split(":")[1].Trim()
+    Write-Success "[OK] Detected Version: $pkgVersion"
+} catch {
+    $pkgVersion = "1.0.0"
+    Write-Warning "[!] Could not detect version from pip. Defaulting to 1.0.0"
+}
+Write-Host ""
+
+
+# --- FFmpeg Auto-Download Logic ---
 if (-not $SkipFFmpeg) {
     Write-Info "Checking for FFmpeg..."
     $ffmpegDir = Join-Path $scriptDir "build\ffmpeg"
     $ffmpegExe = Join-Path $ffmpegDir "ffmpeg.exe"
+    
+    # Create build directory if it doesn't exist
+    if (-not (Test-Path $ffmpegDir)) {
+        New-Item -ItemType Directory -Force -Path $ffmpegDir | Out-Null
+    }
 
     if (-not (Test-Path $ffmpegExe)) {
-        Write-Warning "FFmpeg not found in build\ffmpeg"
-        Write-Info "To include FFmpeg in the installer:"
-        Write-Info "1. Download from: https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
-        Write-Info "2. Extract ffmpeg.exe from the 'bin' folder"
-        Write-Info "3. Place it in: $ffmpegDir"
-        Write-Host ""
-
-        $response = Read-Host "Continue without FFmpeg? (y/n)"
-        if ($response -ne "y") {
-            Write-Info "Aborting. Please download FFmpeg and re-run."
+        Write-Warning "FFmpeg not found. Downloading latest release..."
+        
+        $url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+        $zipPath = Join-Path $ffmpegDir "ffmpeg.zip"
+        
+        try {
+            # 1. Download
+            Write-Info "Downloading from $url..."
+            Invoke-WebRequest -Uri $url -OutFile $zipPath
+            
+            # 2. Extract
+            Write-Info "Extracting..."
+            Expand-Archive -Path $zipPath -DestinationPath $ffmpegDir -Force
+            
+            # 3. Move binary and cleanup
+            # The zip usually contains a subfolder like 'ffmpeg-6.0-essentials_build/bin/ffmpeg.exe'
+            $extractedBin = Get-ChildItem -Path $ffmpegDir -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1
+            
+            if ($extractedBin) {
+                Move-Item -Path $extractedBin.FullName -Destination $ffmpegExe -Force
+                Write-Success "[OK] FFmpeg updated to latest version"
+                
+                # Cleanup zip and extra folders
+                Remove-Item $zipPath -Force
+                Get-ChildItem -Path $ffmpegDir -Directory | Remove-Item -Recurse -Force
+            } else {
+                throw "Could not find ffmpeg.exe in the downloaded zip."
+            }
+        } catch {
+            Write-Error "[X] Failed to download FFmpeg: $_"
+            Write-Warning "Please manually place ffmpeg.exe in $ffmpegDir"
             exit 1
         }
-        Write-Warning "Building installer without FFmpeg (minimal installation)"
     } else {
-        Write-Success "[OK] Found: FFmpeg at $ffmpegExe"
+        Write-Success "[OK] Found: FFmpeg (Local copy)"
+        Write-Info "  To force update, delete the 'build\ffmpeg' folder."
+    }
+    
+    # Final verification
+    if (Test-Path $ffmpegExe) {
         $ffmpegSize = (Get-Item $ffmpegExe).Length / 1MB
-        Write-Info "  Size: $([math]::Round($ffmpegSize, 2)) MB"
+        Write-Info "  FFmpeg Size: $([math]::Round($ffmpegSize, 2)) MB"
     }
     Write-Host ""
 }
@@ -163,9 +203,12 @@ if (-not $SkipPyInstaller) {
 # Build installer with Inno Setup
 if (-not $SkipInnoSetup) {
     Write-Info "Building installer with Inno Setup..."
+    Write-Info "Using Version: $pkgVersion"
 
     try {
-        & $isccPath "installer.iss"
+        # Pass the version to Inno Setup via /D flag
+        & $isccPath "/DMyAppVersion=$pkgVersion" "installer.iss"
+        
         Write-Success "[OK] Installer build complete"
 
         # Find the installer

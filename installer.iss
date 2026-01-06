@@ -2,8 +2,14 @@
 ; Inno Setup 6.x required
 ; https://jrsoftware.org/isinfo.php
 
+; --- VERSIONING LOGIC ---
+; This allows the build script to pass the version in via command line (/DMyAppVersion=1.2.3)
+; If no version is passed (manual compile), it defaults to the value below.
+#ifndef MyAppVersion
+  #define MyAppVersion "0.0.0-DEV"
+#endif
+
 #define MyAppName "PiKaraoke"
-#define MyAppVersion "1.15.3"
 #define MyAppPublisher "Vic Wong"
 #define MyAppURL "https://github.com/vicwomg/pikaraoke"
 #define MyAppExeName "pikaraoke.exe"
@@ -22,6 +28,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=dist\installer
+; This will now result in: PiKaraoke-Setup-1.15.3.exe
 OutputBaseFilename=PiKaraoke-Setup-{#MyAppVersion}
 SetupIconFile=pikaraoke\logo.ico
 Compression=lzma2/max
@@ -78,7 +85,6 @@ Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\{#MyAppName}"; Fil
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent shellexec; Parameters: "--download-path ""{code:GetSongsDir}"""
 
 [UninstallDelete]
-; FIXED: Added "Type: files"
 Type: files; Name: "{userappdata}\pikaraoke\*.ini"
 
 [Code]
@@ -110,13 +116,12 @@ begin
   );
 
   // B. Create "Select Songs Directory" Page
-  // We use InfoPage.ID to force it to appear right after the RAM warning
   SongsDirPage := CreateInputDirPage(InfoPage.ID,
     'Select Songs Directory',
     'Where would you like to store your karaoke songs?',
     'Select the folder where PiKaraoke will store your song library, then click Next.',
     False, '');
-  
+
   // Add the input field
   SongsDirPage.Add('');
 
@@ -137,7 +142,7 @@ begin
       if MsgBox('FFmpeg was not included in this installation. ' + #13#10 +
                 'PiKaraoke requires FFmpeg to function properly.' + #13#10 + #13#10 +
                 'Would you like to download FFmpeg now?',
-                 mbConfirmation, MB_YESNO) = IDYES then
+                mbConfirmation, MB_YESNO) = IDYES then
       begin
         ShellExec('open', 'https://www.gyan.dev/ffmpeg/builds/', '', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
       end;
@@ -169,7 +174,6 @@ begin
   end;
 end;
 
-// Function to check if we need to add to PATH (Preserved from your original)
 function NeedsAddPath(Param: string): boolean;
 var
   OrigPath: string;

@@ -20,22 +20,18 @@ ytdlp_datas = collect_data_files('yt_dlp')
 
 # Define data files to include
 datas = [
-    # Flask templates
-    (str(pikaraoke_dir / 'templates'), 'templates'),
+    # 1. Flask templates -> Destination: 'pikaraoke/templates'
+    (str(pikaraoke_dir / 'templates'), 'pikaraoke/templates'),
 
-    # Static assets (CSS, JS, images, fonts, sounds)
-    (str(pikaraoke_dir / 'static'), 'static'),
+    # 2. Static assets -> Destination: 'pikaraoke/static'
+    (str(pikaraoke_dir / 'static'), 'pikaraoke/static'),
 
-    # Translation files (.mo files for 15 languages)
-    (str(pikaraoke_dir / 'translations'), 'translations'),
+    # 3. Translation files -> Destination: 'pikaraoke/translations'
+    (str(pikaraoke_dir / 'translations'), 'pikaraoke/translations'),
 
-    # Logo
+    # 4. Other root-level files (These stay in 'pikaraoke' root)
     (str(pikaraoke_dir / 'logo.png'), 'pikaraoke'),
-
-    # Babel configuration
     (str(pikaraoke_dir / 'babel.cfg'), 'pikaraoke'),
-
-    # Message catalog template
     (str(pikaraoke_dir / 'messages.pot'), 'pikaraoke'),
 ]
 
