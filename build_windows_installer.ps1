@@ -117,7 +117,7 @@ if (-not $SkipFFmpeg) {
     Write-Info "Checking for FFmpeg..."
     $ffmpegDir = Join-Path $scriptDir "build\ffmpeg"
     $ffmpegExe = Join-Path $ffmpegDir "ffmpeg.exe"
-    
+
     # Create build directory if it doesn't exist
     if (-not (Test-Path $ffmpegDir)) {
         New-Item -ItemType Directory -Force -Path $ffmpegDir | Out-Null
@@ -125,27 +125,27 @@ if (-not $SkipFFmpeg) {
 
     if (-not (Test-Path $ffmpegExe)) {
         Write-Warning "FFmpeg not found. Downloading latest release..."
-        
+
         $url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
         $zipPath = Join-Path $ffmpegDir "ffmpeg.zip"
-        
+
         try {
             # 1. Download
             Write-Info "Downloading from $url..."
             Invoke-WebRequest -Uri $url -OutFile $zipPath
-            
+
             # 2. Extract
             Write-Info "Extracting..."
             Expand-Archive -Path $zipPath -DestinationPath $ffmpegDir -Force
-            
+
             # 3. Move binary and cleanup
             # The zip usually contains a subfolder like 'ffmpeg-6.0-essentials_build/bin/ffmpeg.exe'
             $extractedBin = Get-ChildItem -Path $ffmpegDir -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1
-            
+
             if ($extractedBin) {
                 Move-Item -Path $extractedBin.FullName -Destination $ffmpegExe -Force
                 Write-Success "[OK] FFmpeg updated to latest version"
-                
+
                 # Cleanup zip and extra folders
                 Remove-Item $zipPath -Force
                 Get-ChildItem -Path $ffmpegDir -Directory | Remove-Item -Recurse -Force
@@ -161,7 +161,7 @@ if (-not $SkipFFmpeg) {
         Write-Success "[OK] Found: FFmpeg (Local copy)"
         Write-Info "  To force update, delete the 'build\ffmpeg' folder."
     }
-    
+
     # Final verification
     if (Test-Path $ffmpegExe) {
         $ffmpegSize = (Get-Item $ffmpegExe).Length / 1MB
@@ -208,7 +208,7 @@ if (-not $SkipInnoSetup) {
     try {
         # Pass the version to Inno Setup via /D flag
         & $isccPath "/DMyAppVersion=$pkgVersion" "installer.iss"
-        
+
         Write-Success "[OK] Installer build complete"
 
         # Find the installer

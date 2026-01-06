@@ -6,7 +6,7 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    
+
     steps:
     # 1. Check out your code
     - uses: actions/checkout@v4
@@ -15,7 +15,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.10' 
+        python-version: '3.10'
         cache: 'pip'
 
     # 3. Run your PowerShell Build Script
