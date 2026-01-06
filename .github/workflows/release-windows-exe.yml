@@ -19,14 +19,14 @@ jobs:
         cache: 'pip'
 
     # 3. Run your PowerShell Build Script
-    # (Ensure your ps1 script has the auto-download FFmpeg logic I gave you!)
+    # UPDATED: Now pointing to the script in the subdirectory
     - name: Build Installer
       shell: powershell
       run: |
-        .\build_windows_installer.ps1
+        .\build_scripts\windows\build_windows_installer.ps1
 
     # 4. Upload as an Artifact (Instead of a Release)
-    # This stores the file in the "Actions" tab for you to download.
+    # The artifact path remains 'dist/...' because our script outputs to the project root
     - name: Upload Installer Artifact
       uses: actions/upload-artifact@v4
       with:

@@ -1,15 +1,18 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
 PyInstaller spec file for PiKaraoke Windows installer
-This file defines how to bundle PiKaraoke into a standalone Windows executable
+Location: /build_scripts/windows/pikaraoke.spec
 """
 
 import sys
 from pathlib import Path
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
-# Get the project root directory
-project_root = Path(SPECPATH)
+# Get the directory containing this spec file
+spec_dir = Path(SPECPATH).resolve().parent
+
+# Get the project root directory (Up 2 levels: windows -> build_scripts -> root)
+project_root = spec_dir.parent.parent
 pikaraoke_dir = project_root / 'pikaraoke'
 
 # Collect all Flask-Babel translation files
@@ -122,12 +125,11 @@ excludes = [
     'scipy',
     'test',
     'unittest',
-    # Note: distutils and setuptools removed from excludes for Python 3.13 compatibility
 ]
 
 # Analysis: Scan the application
 a = Analysis(
-    ['pikaraoke/app.py'],  # Entry point
+    [str(pikaraoke_dir / 'app.py')],  # Use full path to entry point
     pathex=[str(project_root)],
     binaries=binaries,
     datas=datas,
@@ -137,7 +139,7 @@ a = Analysis(
     runtime_hooks=[],
     excludes=excludes,
     noarchive=False,
-    optimize=0,  # Python optimization level (0=none, 1=basic, 2=aggressive)
+    optimize=0,
 )
 
 # Remove duplicate files
@@ -153,14 +155,14 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,  # Compress with UPX (reduces size by ~30-40%)
-    console=True,  # Show console window (needed for logging and output)
+    upx=True,
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=str(pikaraoke_dir / 'logo.ico'),  # Application icon
+    icon=str(pikaraoke_dir / 'logo.ico'),
 )
 
 # Collect all files into a directory
@@ -173,9 +175,3 @@ coll = COLLECT(
     upx_exclude=[],
     name='pikaraoke',
 )
-
-# Note: Using COLLECT (one-folder mode) instead of one-file mode because:
-# 1. Faster startup time (no extraction needed)
-# 2. Easier to debug
-# 3. Can include external files like ffmpeg.exe separately
-# 4. More reliable with complex apps like Flask

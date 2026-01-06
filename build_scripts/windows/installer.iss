@@ -1,10 +1,8 @@
 ; PiKaraoke Windows Installer Script
 ; Inno Setup 6.x required
-; https://jrsoftware.org/isinfo.php
+; Location: /build_scripts/windows/installer.iss
 
 ; --- VERSIONING LOGIC ---
-; This allows the build script to pass the version in via command line (/DMyAppVersion=1.2.3)
-; If no version is passed (manual compile), it defaults to the value below.
 #ifndef MyAppVersion
   #define MyAppVersion "0.0.0-DEV"
 #endif
@@ -27,10 +25,11 @@ AppUpdatesURL={#MyAppURL}/releases
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 PrivilegesRequiredOverridesAllowed=dialog
-OutputDir=dist\installer
-; This will now result in: PiKaraoke-Setup-1.15.3.exe
+; Output to the main project 'dist' folder (Up 2 levels)
+OutputDir=..\..\dist\installer
 OutputBaseFilename=PiKaraoke-Setup-{#MyAppVersion}
-SetupIconFile=pikaraoke\logo.ico
+; Logo path is relative to the PROJECT ROOT, so go up 2 levels
+SetupIconFile=..\..\pikaraoke\logo.ico
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
@@ -54,34 +53,25 @@ Name: "main"; Description: "PiKaraoke Application"; Types: full minimal custom; 
 Name: "ffmpeg"; Description: "FFmpeg (required for audio/video processing)"; Types: full; ExtraDiskSpaceRequired: 73400320
 
 [Files]
-; Main application files
-Source: "dist\pikaraoke\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: main
+; Look in the PROJECT ROOT's dist folder (Up 2 levels)
+Source: "..\..\dist\pikaraoke\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: main
 
-; FFmpeg binary (if available in build/ffmpeg/ directory)
-Source: "build\ffmpeg\ffmpeg.exe"; DestDir: "{app}\ffmpeg"; Flags: ignoreversion; Components: ffmpeg; Check: FileExists(ExpandConstant('{#SourcePath}\build\ffmpeg\ffmpeg.exe'))
+; Look in the PROJECT ROOT's build folder (Up 2 levels)
+Source: "..\..\build\ffmpeg\ffmpeg.exe"; DestDir: "{app}\ffmpeg"; Flags: ignoreversion; Components: ffmpeg; Check: FileExists(ExpandConstant('{#SourcePath}\..\..\build\ffmpeg\ffmpeg.exe'))
 
 [Dirs]
-; Create config folder in AppData (Standard for settings)
 Name: "{userappdata}\pikaraoke"; Flags: uninsneveruninstall
-
-; Create the songs directory based on USER SELECTION (See Code section)
 Name: "{code:GetSongsDir}"; Flags: uninsneveruninstall
 
 [Icons]
-; Start Menu shortcuts - Using {code:GetSongsDir} to point to the user's chosen folder
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--download-path ""{code:GetSongsDir}"""
 Name: "{group}\{#MyAppName} (Headless Mode)"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--headless --download-path ""{code:GetSongsDir}"""
 Name: "{group}\Open Songs Folder"; Filename: "{code:GetSongsDir}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
-
-; Desktop shortcut
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--download-path ""{code:GetSongsDir}"""; Tasks: desktopicon
-
-; Quick Launch shortcut
 Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--download-path ""{code:GetSongsDir}"""; Tasks: quicklaunchicon
 
 [Run]
-; Launch options after install
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent shellexec; Parameters: "--download-path ""{code:GetSongsDir}"""
 
 [UninstallDelete]
@@ -92,16 +82,16 @@ var
   InfoPage: TOutputMsgMemoWizardPage;
   SongsDirPage: TInputDirWizardPage;
 
-// --- 1. Helper Function to get the path needed by [Dirs], [Icons], and [Run] ---
 function GetSongsDir(Param: String): String;
 begin
-  Result := SongsDirPage.Values[0];
+  if SongsDirPage = nil then
+    Result := ExpandConstant('{userdocs}\pikaraoke-songs')
+  else
+    Result := SongsDirPage.Values[0];
 end;
 
-// --- 2. Initialize Wizard Pages ---
 procedure InitializeWizard;
 begin
-  // A. Create Information Page (RAM Warning + General Info)
   InfoPage := CreateOutputMsgMemoPage(wpWelcome,
     'Installation Information',
     'Please read the following important information before continuing.',
@@ -115,36 +105,33 @@ begin
     '2. Internet connection - For downloading karaoke videos from YouTube'
   );
 
-  // B. Create "Select Songs Directory" Page
-  SongsDirPage := CreateInputDirPage(InfoPage.ID,
+  SongsDirPage := CreateInputDirPage(wpSelectDir,
     'Select Songs Directory',
     'Where would you like to store your karaoke songs?',
     'Select the folder where PiKaraoke will store your song library, then click Next.',
     False, '');
 
-  // Add the input field
   SongsDirPage.Add('');
-
-  // Set default value to Documents\pikaraoke-songs
   SongsDirPage.Values[0] := ExpandConstant('{userdocs}\pikaraoke-songs');
 end;
 
-// --- 3. Check for FFmpeg post-install ---
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
 begin
   if CurStep = ssPostInstall then
   begin
-    // Check if FFmpeg was installed
     if not FileExists(ExpandConstant('{app}\ffmpeg\ffmpeg.exe')) then
     begin
-      if MsgBox('FFmpeg was not included in this installation. ' + #13#10 +
-                'PiKaraoke requires FFmpeg to function properly.' + #13#10 + #13#10 +
-                'Would you like to download FFmpeg now?',
-                mbConfirmation, MB_YESNO) = IDYES then
+      if not WizardSilent then
       begin
-        ShellExec('open', 'https://www.gyan.dev/ffmpeg/builds/', '', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
+        if MsgBox('FFmpeg was not included in this installation. ' + #13#10 +
+                  'PiKaraoke requires FFmpeg to function properly.' + #13#10 + #13#10 +
+                  'Would you like to download FFmpeg now?',
+                   mbConfirmation, MB_YESNO) = IDYES then
+        begin
+          ShellExec('open', 'https://www.gyan.dev/ffmpeg/builds/', '', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
+        end;
       end;
     end;
   end;
@@ -157,17 +144,15 @@ begin
                    mbConfirmation, MB_YESNO) = IDYES;
 end;
 
-// --- 4. Success Message with Dynamic Path Instructions ---
 procedure DeinitializeSetup();
 begin
   if IsUninstaller then Exit;
-  // Only show on successful installation
-  if GetExceptionMessage = '' then
+  if (GetExceptionMessage = '') and (not WizardSilent) then
   begin
     MsgBox('PiKaraoke has been successfully installed!' + #13#10 + #13#10 +
            'QUICK START GUIDELINES:' + #13#10 +
            '1. COPY SONGS: Put your CDG/MP3/MP4 files into:' + #13#10 +
-           '   ' + SongsDirPage.Values[0] + #13#10 + #13#10 +
+           '   ' + GetSongsDir('') + #13#10 + #13#10 +
            '2. LAUNCH: Open PiKaraoke from the Start Menu.' + #13#10 +
            '3. PLAY: Go to http://localhost:5555 to search/queue songs.',
            mbInformation, MB_OK);
