@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import random
+import shutil
 import socket
 import subprocess
 import time
@@ -179,6 +180,22 @@ class Karaoke:
         self.supports_hardware_h264_encoding = supports_hardware_h264_encoding()
         self.youtubedl_version = get_youtubedl_version(youtubedl_path)
         self.is_raspberry_pi = is_raspberry_pi()
+
+        # Migrate config.ini from old default to new
+        # If we are using the default config filename, check if we need to migrate
+        # an existing config file from the current working directory to the data directory.
+        if config_file_path == "config.ini":
+            legacy_config = "config.ini"  # Represents ./config.ini
+            new_config_dir = get_data_directory()
+            new_config_path = os.path.join(new_config_dir, "config.ini")
+
+            # Move only if legacy exists and new one does not (don't overwrite)
+            if os.path.exists(legacy_config) and not os.path.exists(new_config_path):
+                logging.info(f"Migrating legacy config.ini from {os.getcwd()} to {new_config_dir}")
+                try:
+                    shutil.move(legacy_config, new_config_path)
+                except OSError as e:
+                    logging.error(f"Failed to migrate config file: {e}")
 
         # Initialize variables
         if not os.path.isabs(config_file_path):
