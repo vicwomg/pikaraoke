@@ -14,7 +14,7 @@
 #define MyAppDescription "KTV-style karaoke song search and queueing system"
 
 [Setup]
-AppId={{8F7A2B3C-4D5E-6F7A-8B9C-0D1E2F3A4B5C}
+AppId={8F7A2B3C-4D5E-6F7A-8B9C-0D1E2F3A4B5C}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppName} {#MyAppVersion}
@@ -75,7 +75,11 @@ Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\{#MyAppName}"; Fil
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent shellexec; Parameters: "--download-path ""{code:GetSongsDir}"""
 
 [UninstallDelete]
+; Cleanup files generated in AppData during runtime
 Type: files; Name: "{userappdata}\pikaraoke\*.ini"
+Type: files; Name: "{userappdata}\pikaraoke\qrcode.png"
+Type: files; Name: "{userappdata}\pikaraoke\pikaraoke.db"
+Type: files; Name: "{userappdata}\pikaraoke\pikaraoke.log"
 
 [Code]
 var
@@ -140,7 +144,7 @@ end;
 function InitializeUninstall(): Boolean;
 begin
   Result := MsgBox('Are you sure you want to uninstall PiKaraoke?' + #13#10 + #13#10 +
-                   'Your song library and settings will be preserved.',
+                   'Your song library will be preserved.',
                    mbConfirmation, MB_YESNO) = IDYES;
 end;
 
