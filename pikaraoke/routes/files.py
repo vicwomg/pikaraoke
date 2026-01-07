@@ -1,6 +1,7 @@
 """File management routes for browsing, editing, and deleting songs."""
 
 import os
+from urllib.parse import unquote
 
 import flask_babel
 from flask import Blueprint, flash, redirect, render_template, request, url_for
@@ -74,6 +75,16 @@ def browse():
     results_per_page = int(
         k.get_user_preference("browse_results_per_page", k.browse_results_per_page)
     )
+
+    args = request.args.copy()
+    args.pop("_", None)
+
+    page_param = get_page_parameter()
+    args[page_param] = "{0}"
+
+    args_dict = args.to_dict()
+    pagination_href = unquote(url_for("files.browse", **args_dict))  # type: ignore
+
     pagination = Pagination(
         css_framework="bulma",
         page=page,
@@ -82,6 +93,7 @@ def browse():
         record_name="songs",
         per_page=results_per_page,
         display_msg="Showing <b>{start} - {end}</b> of <b>{total}</b> {record_name}",
+        href=pagination_href,
     )
     start_index = (page - 1) * results_per_page
     return render_template(
