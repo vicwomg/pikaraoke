@@ -31,6 +31,15 @@ def is_android() -> bool:
     return os.path.exists("/system/app/") and os.path.exists("/system/priv-app")
 
 
+def is_windows() -> bool:
+    """Check if the current system is Windows.
+
+    Returns:
+        True if running on Windows, False otherwise.
+    """
+    return sys.platform.startswith("win")
+
+
 def get_installed_js_runtime() -> str | None:
     """Get the name of an installed JavaScript runtime.
 
@@ -83,7 +92,7 @@ def get_platform() -> str:
             return "Raspberry Pi - unrecognized"
     elif sys.platform.startswith("linux"):
         return "linux"
-    elif sys.platform.startswith("win"):
+    elif is_windows():
         return "windows"
     else:
         return "unknown"
@@ -103,7 +112,7 @@ def get_default_dl_dir(platform: str) -> str:
     """
     if is_raspberry_pi():
         return "~/pikaraoke-songs"
-    elif platform == "windows":
+    elif is_windows():
         legacy_directory = os.path.expanduser("~\\pikaraoke\\songs")
         if os.path.exists(legacy_directory):
             return legacy_directory
@@ -124,3 +133,30 @@ def get_os_version() -> str:
         OS version string from platform.version().
     """
     return platform.version()
+
+
+def get_data_directory() -> str:
+    """Get the writable data directory for the application.
+
+    Determines the appropriate location for storing application data
+    (config, logs, etc.) based on the operating system.
+
+    Returns:
+        Path to the data directory.
+    """
+    if is_windows():
+        # Windows: %APPDATA%/pikaraoke
+        base_path = os.environ.get("APPDATA")
+        # Fallback if APPDATA is not set (rare, but possible)
+        if not base_path:
+            base_path = os.path.expanduser("~")
+        path = os.path.join(base_path, "pikaraoke")
+    else:
+        # Linux, macOS, Android, Raspberry Pi: ~/.pikaraoke
+        path = os.path.expanduser("~/.pikaraoke")
+
+    # Ensure the directory exists
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    return path

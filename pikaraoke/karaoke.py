@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import random
+import shutil
 import socket
 import subprocess
 import time
@@ -24,7 +25,12 @@ from pikaraoke.lib.ffmpeg import (
     supports_hardware_h264_encoding,
 )
 from pikaraoke.lib.file_resolver import delete_tmp_dir
-from pikaraoke.lib.get_platform import get_os_version, get_platform, is_raspberry_pi
+from pikaraoke.lib.get_platform import (
+    get_data_directory,
+    get_os_version,
+    get_platform,
+    is_raspberry_pi,
+)
 from pikaraoke.lib.network import get_ip
 from pikaraoke.lib.song_list import SongList
 from pikaraoke.lib.stream_manager import StreamManager
@@ -175,8 +181,28 @@ class Karaoke:
         self.youtubedl_version = get_youtubedl_version(youtubedl_path)
         self.is_raspberry_pi = is_raspberry_pi()
 
+        # Migrate config.ini from old default to new
+        # If we are using the default config filename, check if we need to migrate
+        # an existing config file from the current working directory to the data directory.
+        if config_file_path == "config.ini":
+            legacy_config = "config.ini"  # Represents ./config.ini
+            new_config_dir = get_data_directory()
+            new_config_path = os.path.join(new_config_dir, "config.ini")
+
+            # Move only if legacy exists and new one does not (don't overwrite)
+            if os.path.exists(legacy_config) and not os.path.exists(new_config_path):
+                logging.info(f"Migrating legacy config.ini from {os.getcwd()} to {new_config_dir}")
+                try:
+                    shutil.move(legacy_config, new_config_path)
+                except OSError as e:
+                    logging.error(f"Failed to migrate config file: {e}")
+
         # Initialize variables
-        self.config_file_path = config_file_path
+        if not os.path.isabs(config_file_path):
+            self.config_file_path = os.path.join(get_data_directory(), config_file_path)
+        else:
+            self.config_file_path = config_file_path
+
         self.port = port
         self.hide_url = (
             pref if (pref := self.get_user_preference("hide_url")) is not None else hide_url
@@ -441,7 +467,9 @@ class Karaoke:
         qr.add_data(self.url)
         qr.make()
         img = qr.make_image()
-        self.qr_code_path = os.path.join(self.base_path, "qrcode.png")
+        # Use writable data directory instead of program directory
+        data_dir = get_data_directory()
+        self.qr_code_path = os.path.join(data_dir, "qrcode.png")
         img.save(self.qr_code_path)  # type: ignore[arg-type]
 
     def get_search_results(self, textToSearch: str) -> list[list[str]]:

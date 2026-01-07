@@ -21,7 +21,7 @@ from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
-from pikaraoke.lib.get_platform import get_platform, has_js_runtime
+from pikaraoke.lib.get_platform import get_data_directory, get_platform, has_js_runtime
 from pikaraoke.lib.selenium import launch_splash_screen
 from pikaraoke.routes.admin import admin_bp
 from pikaraoke.routes.background_music import background_music_bp
@@ -146,6 +146,11 @@ def main() -> None:
     platform = get_platform()
 
     args = parse_pikaraoke_args()
+
+    # --- LOGGING SETUP ---
+    # Optional: Force the log file to go to AppData too, so you can debug installation issues
+    # log_path = os.path.join(get_data_directory(), 'pikaraoke.log')
+    # logging.basicConfig(filename=log_path, level=logging.INFO)
 
     if not is_ffmpeg_installed():
         logging.error(
