@@ -1,5 +1,6 @@
 """Unit tests for get_platform module."""
 
+import ntpath
 import os
 from unittest.mock import MagicMock, mock_open, patch
 
@@ -163,11 +164,12 @@ class TestGetPlatform:
 
     def test_windows_platform(self):
         """Test Windows detection."""
-        # We simulate is_windows returning True, as get_platform calls it directly
-        with patch("pikaraoke.lib.get_platform.is_windows", return_value=True):
-            with patch("pikaraoke.lib.get_platform.is_android", return_value=False):
-                with patch("pikaraoke.lib.get_platform.is_raspberry_pi", return_value=False):
-                    assert get_platform() == "windows"
+        # Ensure sys.platform is win32 so the 'linux' check in get_platform doesn't catch it early
+        with patch("sys.platform", "win32"):
+            with patch("pikaraoke.lib.get_platform.is_windows", return_value=True):
+                with patch("pikaraoke.lib.get_platform.is_android", return_value=False):
+                    with patch("pikaraoke.lib.get_platform.is_raspberry_pi", return_value=False):
+                        assert get_platform() == "windows"
 
     def test_linux_platform(self):
         """Test Linux detection."""
@@ -259,12 +261,17 @@ class TestGetDataDirectory:
     """Tests for the get_data_directory function."""
 
     def test_windows_path(self):
-        """Test that Windows returns the APPDATA path."""
+        """Test that Windows returns the APPDATA path.
+
+        We mock os.path to be ntpath (Windows path logic) to ensure join
+        uses backslashes even if tests run on Linux.
+        """
         with patch("pikaraoke.lib.get_platform.is_windows", return_value=True):
             with patch.dict(os.environ, {"APPDATA": "C:\\Users\\Test\\AppData\\Roaming"}):
                 with patch("os.path.exists", return_value=True):
-                    result = get_data_directory()
-                    assert result == "C:\\Users\\Test\\AppData\\Roaming\\pikaraoke"
+                    with patch("pikaraoke.lib.get_platform.os.path", ntpath):
+                        result = get_data_directory()
+                        assert result == "C:\\Users\\Test\\AppData\\Roaming\\pikaraoke"
 
     def test_windows_path_creation(self):
         """Test that Windows creates the directory if missing."""
@@ -272,8 +279,10 @@ class TestGetDataDirectory:
             with patch.dict(os.environ, {"APPDATA": "C:\\Users\\Test\\AppData\\Roaming"}):
                 with patch("os.path.exists", return_value=False):
                     with patch("os.makedirs") as mock_makedirs:
-                        get_data_directory()
-                        mock_makedirs.assert_called_once()
+                        # Also need to mock os.path to ntpath for the join call
+                        with patch("pikaraoke.lib.get_platform.os.path", ntpath):
+                            get_data_directory()
+                            mock_makedirs.assert_called_once()
 
     def test_linux_path(self):
         """Test that Linux/Mac returns the home directory path."""
