@@ -17,7 +17,6 @@ from typing import Any
 import qrcode
 from flask_babel import _
 
-from pikaraoke.constants import get_data_directory
 from pikaraoke.lib.download_manager import DownloadManager
 from pikaraoke.lib.ffmpeg import (
     get_ffmpeg_version,
@@ -25,7 +24,12 @@ from pikaraoke.lib.ffmpeg import (
     supports_hardware_h264_encoding,
 )
 from pikaraoke.lib.file_resolver import delete_tmp_dir
-from pikaraoke.lib.get_platform import get_os_version, get_platform, is_raspberry_pi
+from pikaraoke.lib.get_platform import (
+    get_data_directory,
+    get_os_version,
+    get_platform,
+    is_raspberry_pi,
+)
 from pikaraoke.lib.network import get_ip
 from pikaraoke.lib.song_list import SongList
 from pikaraoke.lib.stream_manager import StreamManager

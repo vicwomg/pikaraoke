@@ -124,3 +124,24 @@ def get_os_version() -> str:
         OS version string from platform.version().
     """
     return platform.version()
+
+
+def get_data_directory():
+    """
+    Returns the writable data directory for the application.
+    Windows: %APPDATA%/pikaraoke
+    Linux/Mac: ~/.pikaraoke
+    """
+    if sys.platform == "win32":
+        # Result: C:\Users\Username\AppData\Roaming\pikaraoke
+        base_path = os.environ.get("APPDATA")
+        path = os.path.join(base_path, "pikaraoke")
+    else:
+        # Result: /home/username/.pikaraoke
+        path = os.path.expanduser("~/.pikaraoke")
+
+    # Ensure the directory exists
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    return path

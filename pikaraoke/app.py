@@ -16,12 +16,12 @@ from flask_babel import Babel
 from flask_socketio import SocketIO
 
 from pikaraoke import karaoke
-from pikaraoke.constants import LANGUAGES, get_data_directory
+from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
-from pikaraoke.lib.get_platform import get_platform, has_js_runtime
+from pikaraoke.lib.get_platform import get_data_directory, get_platform, has_js_runtime
 from pikaraoke.lib.selenium import launch_splash_screen
 from pikaraoke.routes.admin import admin_bp
 from pikaraoke.routes.background_music import background_music_bp
