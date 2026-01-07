@@ -261,28 +261,33 @@ class TestGetDataDirectory:
     """Tests for the get_data_directory function."""
 
     def test_windows_path(self):
-        """Test that Windows returns the APPDATA path.
-
-        We mock os.path to be ntpath (Windows path logic) to ensure join
-        uses backslashes even if tests run on Linux.
-        """
+        """Test that Windows returns the APPDATA path."""
         with patch("pikaraoke.lib.get_platform.is_windows", return_value=True):
             with patch.dict(os.environ, {"APPDATA": "C:\\Users\\Test\\AppData\\Roaming"}):
-                with patch("os.path.exists", return_value=True):
-                    with patch("pikaraoke.lib.get_platform.os.path", ntpath):
-                        result = get_data_directory()
-                        assert result == "C:\\Users\\Test\\AppData\\Roaming\\pikaraoke"
+                # Mock os.path to be a MagicMock to avoid real FS interaction and cross-contamination
+                with patch("pikaraoke.lib.get_platform.os.path") as mock_path:
+                    # Configure mock to behave like ntpath (Windows)
+                    mock_path.join.side_effect = ntpath.join
+                    mock_path.exists.return_value = True  # Simulate dir exists
+
+                    result = get_data_directory()
+                    assert result == "C:\\Users\\Test\\AppData\\Roaming\\pikaraoke"
 
     def test_windows_path_creation(self):
         """Test that Windows creates the directory if missing."""
         with patch("pikaraoke.lib.get_platform.is_windows", return_value=True):
             with patch.dict(os.environ, {"APPDATA": "C:\\Users\\Test\\AppData\\Roaming"}):
-                with patch("os.path.exists", return_value=False):
-                    with patch("os.makedirs") as mock_makedirs:
-                        # Also need to mock os.path to ntpath for the join call
-                        with patch("pikaraoke.lib.get_platform.os.path", ntpath):
-                            get_data_directory()
-                            mock_makedirs.assert_called_once()
+                with patch("os.makedirs") as mock_makedirs:
+                    # Mock os.path completely to avoid real FS interaction
+                    with patch("pikaraoke.lib.get_platform.os.path") as mock_path:
+                        # Configure mock to behave like ntpath (Windows)
+                        mock_path.join.side_effect = ntpath.join
+                        mock_path.exists.return_value = False  # Simulate dir MISSING
+
+                        get_data_directory()
+
+                        expected_path = "C:\\Users\\Test\\AppData\\Roaming\\pikaraoke"
+                        mock_makedirs.assert_called_once_with(expected_path)
 
     def test_linux_path(self):
         """Test that Linux/Mac returns the home directory path."""
