@@ -14,7 +14,7 @@ from flask import Flask, request, session
 from flask_babel import Babel
 from flask_socketio import SocketIO
 
-from pikaraoke import karaoke
+from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.current_app import get_karaoke_instance
@@ -52,17 +52,17 @@ app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
 # Initialize Swagger API docs if enabled via CLI flag
+app.config["SWAGGER"] = {
+    "title": "PiKaraoke API",
+    "description": "API for controlling PiKaraoke - a KTV-style karaoke system",
+    "version": VERSION,
+    "termsOfService": "",
+    "hide_top_bar": True,
+}
 if args.enable_swagger:
     try:
         from flasgger import Swagger
 
-        app.config["SWAGGER"] = {
-            "title": "PiKaraoke API",
-            "description": "API for controlling PiKaraoke - a KTV-style karaoke system",
-            "version": "1.0.0",
-            "termsOfService": "",
-            "hide_top_bar": True,
-        }
         Swagger(app)
         logging.info("Swagger API documentation enabled at /apidocs")
     except ImportError:
