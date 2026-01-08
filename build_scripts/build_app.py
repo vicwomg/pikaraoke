@@ -104,6 +104,10 @@ class BuildOrchestrator:
         logging.info(f"Version: {self.config.version}")
         logging.info("=" * 60)
 
+        # Validate FFmpeg early for Windows builds to fail fast
+        if self.config.target_platform == "Windows" and stage in ("all", "package"):
+            self._validate_ffmpeg()
+
         if stage in ("all", "pyinstaller"):
             self._run_pyinstaller()
 
@@ -225,6 +229,32 @@ class BuildOrchestrator:
                     logging.warning(f"Could not remove {dir_path}: {e}")
 
         logging.info("Cleanup completed")
+
+    def _validate_ffmpeg(self):
+        """
+        Validate that FFmpeg is available for Windows builds.
+
+        Raises:
+            RuntimeError: If FFmpeg is not found with instructions for obtaining it
+        """
+        ffmpeg_path = self.config.build_dir / "ffmpeg" / "ffmpeg.exe"
+
+        if not ffmpeg_path.exists():
+            error_msg = (
+                f"FFmpeg not found at {ffmpeg_path}\n\n"
+                "The Windows installer requires FFmpeg to be present in build/ffmpeg/.\n\n"
+                "To fix this issue:\n"
+                "1. Download FFmpeg from: https://www.gyan.dev/ffmpeg/builds/\n"
+                "   (Download the 'ffmpeg-release-essentials.zip' build)\n"
+                "2. Extract ffmpeg.exe from the archive\n"
+                "3. Copy it to: build/ffmpeg/ffmpeg.exe\n\n"
+                "Alternatively, if you have FFmpeg installed on your system:\n"
+                "1. Create the directory: mkdir build\\ffmpeg\n"
+                '2. Copy ffmpeg.exe: copy "C:\\path\\to\\ffmpeg.exe" build\\ffmpeg\\'
+            )
+            raise RuntimeError(error_msg)
+
+        logging.info(f"Validated FFmpeg at {ffmpeg_path}")
 
     def _run_inno_setup(self):
         """Run Inno Setup to create Windows installer."""

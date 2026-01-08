@@ -6,7 +6,10 @@
       "Bash(ls:*)",
       "Bash(find:*)",
       "Bash(mkdir:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(dir /s /b \"c:\\\\Users\\\\Richard\\\\Documents\\\\pikaraoke\\\\build\\\\ffmpeg\")",
+      "Bash(uv run python:*)",
+      "Bash(test:*)"
     ]
   }
 }
