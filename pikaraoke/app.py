@@ -10,12 +10,11 @@ import sys
 from urllib.parse import quote
 
 import flask_babel
-from flasgger import Swagger
 from flask import Flask, request, session
 from flask_babel import Babel
 from flask_socketio import SocketIO
 
-from pikaraoke import karaoke
+from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.current_app import get_karaoke_instance
@@ -46,20 +45,42 @@ args = parse_pikaraoke_args()
 socketio = SocketIO(async_mode="gevent", cors_allowed_origins=args.url)
 babel = Babel()
 
+if getattr(sys, "frozen", False):
+    # If running as a compiled exe, resources are extracted to sys._MEIPASS
+    # The pikaraoke.spec file puts templates in 'pikaraoke/templates' relative to root
+    base_dir = os.path.join(sys._MEIPASS, "pikaraoke")  # pylint: disable=no-member # type: ignore
+    app = Flask(
+        __name__,
+        template_folder=os.path.join(base_dir, "templates"),
+        static_folder=os.path.join(base_dir, "static"),
+    )
+    # Update translation directory for frozen app
+    app.config["BABEL_TRANSLATION_DIRECTORIES"] = os.path.join(base_dir, "translations")
+else:
+    # Standard development/source run
+    app = Flask(__name__)
+    app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 
-app = Flask(__name__)
 app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
+# Initialize Swagger API docs if enabled via CLI flag
 app.config["SWAGGER"] = {
     "title": "PiKaraoke API",
     "description": "API for controlling PiKaraoke - a KTV-style karaoke system",
-    "version": "1.0.0",
+    "version": VERSION,
     "termsOfService": "",
     "hide_top_bar": True,
 }
-swagger = Swagger(app)
+if args.enable_swagger:
+    try:
+        from flasgger import Swagger
+
+        Swagger(app)
+        logging.info("Swagger API documentation enabled at /apidocs")
+    except ImportError:
+        logging.warning("flasgger not installed. Swagger API docs disabled.")
 
 # Register blueprints for additional routes
 app.register_blueprint(home_bp)

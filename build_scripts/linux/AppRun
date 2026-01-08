@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# AppRun script for PiKaraoke AppImage
+# This script sets up the environment and launches the application
+
+SELF=$(readlink -f "$0")
+HERE=${SELF%/*}
+
+# Add our binary directory to PATH
+export PATH="${HERE}/usr/bin:${PATH}"
+
+# Add our library directory to LD_LIBRARY_PATH
+export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+
+# Change to the pikaraoke directory and run the application
+cd "${HERE}/usr/bin/pikaraoke" || exit 1
+exec "${HERE}/usr/bin/pikaraoke/pikaraoke" "$@"
