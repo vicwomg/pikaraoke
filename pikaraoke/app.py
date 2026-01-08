@@ -10,7 +10,6 @@ import sys
 from urllib.parse import quote
 
 import flask_babel
-from flasgger import Swagger
 from flask import Flask, request, session
 from flask_babel import Babel
 from flask_socketio import SocketIO
@@ -52,14 +51,22 @@ app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
-app.config["SWAGGER"] = {
-    "title": "PiKaraoke API",
-    "description": "API for controlling PiKaraoke - a KTV-style karaoke system",
-    "version": "1.0.0",
-    "termsOfService": "",
-    "hide_top_bar": True,
-}
-swagger = Swagger(app)
+# Initialize Swagger API docs if enabled via CLI flag
+if args.enable_swagger:
+    try:
+        from flasgger import Swagger
+
+        app.config["SWAGGER"] = {
+            "title": "PiKaraoke API",
+            "description": "API for controlling PiKaraoke - a KTV-style karaoke system",
+            "version": "1.0.0",
+            "termsOfService": "",
+            "hide_top_bar": True,
+        }
+        Swagger(app)
+        logging.info("Swagger API documentation enabled at /apidocs")
+    except ImportError:
+        logging.warning("flasgger not installed. Swagger API docs disabled.")
 
 # Register blueprints for additional routes
 app.register_blueprint(home_bp)
