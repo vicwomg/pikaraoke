@@ -317,7 +317,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     parser.add_argument(
         "--enable-swagger",
         action="store_true",
-        help="Enable Swagger API documentation at /apidocs. Disabled by default for PyInstaller compatibility.",
+        help="Enable Swagger API documentation at /apidocs.",
         required=False,
     )
 
