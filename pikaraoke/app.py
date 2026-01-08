@@ -63,7 +63,6 @@ else:
 
 app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
-app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
 # Initialize Swagger API docs if enabled via CLI flag
 app.config["SWAGGER"] = {
