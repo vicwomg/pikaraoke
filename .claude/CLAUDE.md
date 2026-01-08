@@ -13,6 +13,28 @@ PiKaraoke is a "KTV"-style karaoke system that runs on Raspberry Pi, Windows, ma
 - **MUST** use 4 spaces for indentation (never tabs)
 - **NEVER** use emoji, or unicode that emulates emoji (e.g. ✓, ✗). The only exception is when writing tests and testing the impact of multibyte characters.
 
+## Type Hinting
+
+- **MUST** use `from __future__ import annotations` at the top of files with type hints
+- **MUST** use modern union syntax (`str | None`) instead of `Union[str, None]`
+- **MUST** include type hints for all function parameters and return values
+- Use `TYPE_CHECKING` to avoid circular imports in type hints
+
+Example:
+
+```python
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pikaraoke.karaoke import Karaoke
+
+
+def process_queue(karaoke: Karaoke) -> str | None:
+    """Process items from the queue."""
+```
+
 ## Documentation
 
 - **MUST** include docstrings for all public functions, classes, and methods
@@ -23,18 +45,14 @@ PiKaraoke is a "KTV"-style karaoke system that runs on Raspberry Pi, Windows, ma
 Example docstring:
 
 ```python
-def calculate_total(items: list[dict], tax_rate: float = 0.0) -> float:
-    """Calculate the total cost of items including tax.
+def scan_directory(self, directory: str) -> int:
+    """Scan a directory for song files and replace the current list.
 
     Args:
-        items: List of item dictionaries with 'price' keys
-        tax_rate: Tax rate as decimal (e.g., 0.08 for 8%)
+        directory: Path to directory to scan.
 
     Returns:
-        Total cost including tax
-
-    Raises:
-        ValueError: If items is empty or tax_rate is negative
+        Number of songs found.
     """
 ```
 
@@ -87,6 +105,8 @@ def calculate_total(items: list[dict], tax_rate: float = 0.0) -> float:
 - **MUST** use context managers (`with` statement) for file/resource management
 - **MUST** use `is` for comparing with `None`, `True`, `False`
 - **MUST** use f-strings for string formatting
+- **EXCEPTION**: Use percent formatting (`%s`, `%d`) with i18n functions (`_()`, `gettext()`) for translation tool compatibility
+  - Example: `_("Volume: %s") % value` instead of `_(f"Volume: {value}")`
 - Use list comprehensions and generator expressions
 - Use `enumerate()` instead of manual counter variables
 
