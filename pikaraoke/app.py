@@ -146,53 +146,6 @@ def clear_notification() -> None:
     k.reset_now_playing_notification()
 
 
-def show_error_dialog(title: str, message: str) -> None:
-    """Show user-facing error dialog on GUI systems.
-
-    Tries tkinter first, then platform-specific dialogs, falls back to logging.
-
-    Args:
-        title: Dialog title
-        message: Error message to display
-    """
-    # Try tkinter (cross-platform)
-    try:
-        import tkinter as tk
-        from tkinter import messagebox
-
-        root = tk.Tk()
-        root.withdraw()
-        messagebox.showerror(title, message)
-        root.destroy()
-        return
-    except Exception:
-        pass
-
-    # Try macOS native dialog
-    if get_platform() == "osx":
-        try:
-            import subprocess
-
-            # Escape double quotes in message for osascript
-            escaped_message = message.replace('"', '\\"')
-            subprocess.run(
-                [
-                    "osascript",
-                    "-e",
-                    f'display dialog "{escaped_message}" with title "{title}" buttons {{"OK"}} with icon stop',
-                ],
-                check=True,
-                capture_output=True,
-                timeout=30,
-            )
-            return
-        except Exception:
-            pass
-
-    # Fallback to logging
-    logging.error(f"{title}: {message}")
-
-
 def main() -> None:
     """Main entry point for the PiKaraoke application.
 
@@ -219,7 +172,6 @@ def main() -> None:
             "Visit https://www.ffmpeg.org/ for more information."
         )
         logging.error(error_msg)
-        show_error_dialog("FFmpeg Not Found", error_msg)
         sys.exit(1)
 
     if not has_js_runtime():
@@ -232,9 +184,6 @@ def main() -> None:
             "Or see: https://github.com/yt-dlp/yt-dlp/wiki/EJS"
         )
         logging.warning(warning_msg)
-        # Only show dialog for compiled apps where user may not see logs
-        if getattr(sys, "frozen", False):
-            show_error_dialog("JavaScript Runtime Not Found", warning_msg)
 
     # setup/create download directory if necessary
     if not os.path.exists(args.download_path):
