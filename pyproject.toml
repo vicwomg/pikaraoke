@@ -34,7 +34,7 @@ dev = [
   "pre-commit>=3.7.1",
   "pytest>=9.0.2",
   "pytest-cov>=7.0.0",
-
+  "tomli>=2.0.1; python_version < '3.11'",
 ]
 
 [dependency-groups]
@@ -92,3 +92,94 @@ omit = [
     "pikaraoke/lib/current_app.py",
     "pikaraoke/lib/args.py",
 ]
+
+# Briefcase configuration for cross-platform packaging
+[tool.briefcase]
+project_name = "PiKaraoke"
+bundle = "com.pikaraoke"
+version = "1.16.0"
+url = "https://github.com/vicwomg/pikaraoke"
+
+[tool.briefcase.app.pikaraoke]
+formal_name = "PiKaraoke"
+description = "Youtube-based Karaoke machine for Raspberry Pi, OSX, Windows, and Linux"
+long_description = """A "KTV"-style karaoke system that provides a web interface for searching YouTube, queuing songs, and playing karaoke videos with pitch shifting and background music."""
+sources = ["pikaraoke"]
+test_sources = ["tests"]
+license.file = "docs/LICENSE"
+
+# Entry point - Briefcase will use pikaraoke/__main__.py
+
+# Icon paths (Briefcase auto-converts to platform-specific formats)
+icon = "pikaraoke/static/icons/logo"
+installer_icon = "pikaraoke/static/icons/logo"
+
+
+# Splash screen (optional)
+# splash = "pikaraoke/static/splash"
+
+requires = [
+    "CherryPy==18.10.0",
+    "Flask==2.2.5",
+    "qrcode==7.4.2",
+    "psutil==6.0.0",
+    "requests==2.32.4",
+    "flask-paginate==2021.10.29",
+    "jinja2==3.1.6",
+    "Babel==2.9.1",
+    "Flask-Babel==2.0.0",
+    "selenium==4.21.0",
+    "ffmpeg-python==0.2.0",
+    "yt-dlp[default]>=2025.12.8",
+    "flask-socketio>=5.5.0",
+    "gevent>=24.11.1",
+    "flasgger>=0.9.7.1",
+]
+
+# macOS-specific configuration
+[tool.briefcase.app.pikaraoke.macOS]
+# Build universal binaries (Intel + Apple Silicon)
+universal_build = true
+
+# Minimum macOS version
+# deployment_target = "10.13"
+
+# Entitlements for macOS sandboxing (optional)
+# entitlement = "pikaraoke/entitlements.plist"
+
+# Info.plist customizations
+[tool.briefcase.app.pikaraoke.macOS.info]
+CFBundleDisplayName = "PiKaraoke"
+NSHighResolutionCapable = true
+LSUIElement = false  # Show in Dock and display window
+
+# macOS system requirements (user must install)
+# FFmpeg is not bundled - users install via Homebrew
+system_requires = []
+
+# Windows-specific configuration
+[tool.briefcase.app.pikaraoke.windows]
+# Require Windows 10 or later
+# system_installer = "NSIS"
+
+# Windows system requirements
+# Note: FFmpeg would need to be bundled or documented as requirement
+system_requires = []
+
+# Console visibility (false = GUI app, true = console app)
+# Set to true to absorb yt-dlp and ffmpeg subprocess console windows
+console_app = true
+
+# Linux-specific configuration
+[tool.briefcase.app.pikaraoke.linux]
+# AppImage format (modern, portable)
+# system_installer = "appimage"
+
+# System packages required (installed by package manager)
+system_requires = [
+    # FFmpeg as system requirement
+    "ffmpeg",
+]
+
+# Desktop entry customizations
+# categories = ["AudioVideo", "Audio"]

@@ -1,20 +1,19 @@
 # Building PiKaraoke
 
-This guide explains how to build PiKaraoke binaries for Windows, macOS, and Linux.
+This guide explains how to build PiKaraoke binaries for Windows, macOS, and Linux using
+Briefcase.
 
 ## Overview
 
-PiKaraoke uses a unified build system based on:
-
-- **PyInstaller** for bundling Python applications
-- **uv** for fast dependency management
-- **Platform-specific packaging tools** for creating installers
+PiKaraoke uses [BeeWare Briefcase](https://briefcase.readthedocs.io/) for cross-platform
+packaging. Briefcase creates native installers for each platform with a simple, unified build
+process.
 
 The build system produces:
 
-- **Windows**: `.exe` installer (via Inno Setup) and portable `.zip`
-- **macOS**: `.dmg` disk image and `.zip` archive
-- **Linux**: `.AppImage` and `.tar.gz` archive
+- **Windows**: `.msi` installer
+- **macOS**: `.dmg` disk image (universal binary for Intel + Apple Silicon)
+- **Linux**: `.AppImage` portable executable
 
 ## Prerequisites
 
@@ -25,41 +24,29 @@ The build system produces:
    ```bash
    # Install uv
    curl -LsSf https://astral.sh/uv/install.sh | sh
+   # or on Windows (PowerShell)
+   irm https://astral.sh/uv/install.ps1 | iex
    ```
-3. **Git** (to clone the repository)
+3. **Git**
+4. **Briefcase**
+   ```bash
+   pip install briefcase
+   # or with uv (faster)
+   uv pip install briefcase
+   ```
 
-### Windows-Specific
+### Platform-Specific Notes
 
-- **Inno Setup 6.x** (for creating installers)
-  - Download from: https://jrsoftware.org/isdl.php
-  - Install to default location
-
-### macOS-Specific
-
-- **Xcode Command Line Tools**
-  ```bash
-  xcode-select --install
-  ```
-- **create-dmg** (optional, for better DMG appearance)
-  ```bash
-  brew install create-dmg
-  ```
-
-### Linux-Specific
-
-- **Standard build tools**
-  ```bash
-  # Ubuntu/Debian
-  sudo apt-get update
-  sudo apt-get install build-essential fuse
-  ```
+- **Windows**: Builds produce MSI installers
+- **macOS**: Builds produce universal binaries (Intel + Apple Silicon)
+- **Linux**: Builds produce AppImages (requires Ubuntu 20.04 or later recommended)
 
 ## Quick Start
 
 ### Clone and Setup
 
 ```bash
-git clone https://github.com/safepay/pikaraoke.git
+git clone https://github.com/vicwomg/pikaraoke.git
 cd pikaraoke
 uv sync
 ```
@@ -67,231 +54,180 @@ uv sync
 ### Build for Your Platform
 
 ```bash
-uv run python build_scripts/build_app.py
+# Create platform scaffold (first time only)
+briefcase create
+
+# Build the application
+briefcase build
+
+# Test the built application (optional)
+briefcase run
+
+# Create distributable package
+briefcase package
 ```
 
-This will:
-
-1. Run PyInstaller to bundle the application
-2. Create platform-specific packages
-3. Automatically clean up intermediate files
-4. Output distributable files to the `dist/` directory
+The distributable installer will be in the `dist/` directory.
 
 ## Build Output
 
-### Automatic Cleanup
-
-The build system **automatically cleans up intermediate directories** after successful packaging. Only distributable files remain in `dist/`.
-
-**Intermediate files removed:**
-
-- `dist/pikaraoke/` - PyInstaller raw output
-- `dist/pikaraoke_portable/` - Windows temporary copy
-- `dist/PiKaraoke.AppDir/` - Linux AppImage build directory
-- `dist/pikaraoke_linux/` - Linux tarball temporary directory
-
-**Final distributable files:**
-
 ### Windows
 
-After building, you will find:
+After `briefcase package windows`:
 
 ```
 dist/
-├── pikaraoke_win_portable.zip          # Portable version (extract and run)
-└── installer/
-    └── PiKaraoke-Setup-{version}.exe   # Installer (recommended)
+└── PiKaraoke-1.16.0.msi
 ```
-
-**Installer Features:**
-
-- Includes FFmpeg (optional component)
-- Creates Start Menu shortcuts
-- Configurable songs directory
-- Automatic updates to PATH
 
 ### macOS
 
-After building, you will find:
+After `briefcase package macOS`:
 
 ```
 dist/
-├── PiKaraoke.app/                      # macOS application bundle
-├── pikaraoke_mac.zip                   # ZIP archive (for sharing)
-└── pikaraoke_mac.dmg                   # DMG disk image (recommended)
+└── PiKaraoke-1.16.0.dmg
 ```
-
-**Installation:**
-
-- Open the DMG
-- Drag PiKaraoke.app to Applications folder
-- First launch: Right-click → Open (to bypass Gatekeeper)
 
 ### Linux
 
-After building, you will find:
+After `briefcase package linux`:
 
 ```
 dist/
-├── pikaraoke-x86_64.AppImage           # AppImage (recommended)
-└── pikaraoke_linux.tar.gz              # Tarball (alternative)
+└── PiKaraoke-1.16.0.AppImage
 ```
 
-**AppImage Usage:**
+## GitHub Actions CI/CD
 
-```bash
-chmod +x pikaraoke-x86_64.AppImage
-./pikaraoke-x86_64.AppImage
-```
-
-**If FUSE is not available:**
-
-```bash
-./pikaraoke-x86_64.AppImage --appimage-extract-and-run
-```
-
-## Advanced Usage
-
-### Build Stages
-
-Build only specific stages:
-
-```bash
-# Only run PyInstaller
-uv run python build_scripts/build_app.py --stage pyinstaller
-
-# Only run packaging (assumes PyInstaller already ran)
-uv run python build_scripts/build_app.py --stage package
-```
-
-### Debug Mode
-
-Enable verbose logging:
-
-```bash
-uv run python build_scripts/build_app.py --debug
-```
-
-### Cross-Platform Considerations
-
-You can only build for your current platform. Cross-compilation is not supported:
-
-- Build Windows binaries on Windows
-- Build macOS binaries on macOS
-- Build Linux binaries on Linux
-
-## Continuous Integration
-
-The project uses GitHub Actions for automated builds. See [.github/workflows/build-all-binaries.yml](../.github/workflows/build-all-binaries.yml).
-
-### Triggering a Build
+### Running the Workflow
 
 1. Go to the **Actions** tab in GitHub
 2. Select **Build All Binaries** workflow
-3. Click **Run workflow**
-4. Wait for builds to complete
-5. Download artifacts from the workflow run
+3. Click **Run workflow** button
+4. Select the branch (usually `master`)
+5. Click **Run workflow**
+6. Wait for builds to complete (15-20 minutes for all platforms)
 
-## Build System Architecture
+### Downloading Artifacts
 
-### Directory Structure
+After the workflow completes:
 
-```
-build_scripts/
-├── build_app.py              # Main build orchestrator
-├── common/
-│   └── pikaraoke.spec        # PyInstaller spec file
-├── macos/
-│   └── create_app_bundle.py  # macOS packaging
-├── linux/
-│   ├── create_appimage.py    # Linux packaging
-│   ├── pikaraoke.desktop     # Desktop entry
-│   └── AppRun                # AppImage launcher
-└── windows/
-    └── installer.iss         # Inno Setup script
-```
+1. Click on the completed workflow run
+2. Scroll down to **Artifacts** section
+3. Download each platform artifact:
+   - `PiKaraoke-windows-latest`
+   - `PiKaraoke-macos-latest`
+   - `PiKaraoke-ubuntu-20.04`
 
-### Build Process
+## Creating a Release
 
-1. **Dependency Installation** (`uv sync`)
+After downloading the workflow artifacts:
 
-   - Installs all Python dependencies from `pyproject.toml`
-   - Uses lockfile for reproducible builds
+### 1. Test the Installers
 
-2. **PyInstaller Build**
+Test each installer on its target platform to ensure it works correctly:
 
-   - Bundles Python interpreter and dependencies
-   - Creates one-directory build (not single-file)
-   - Collects data files (templates, static assets)
-   - Output: `dist/pikaraoke/` directory
+- Launch the app
+- Verify the web interface loads
+- Test basic functionality (search, queue, playback)
+- Check that FFmpeg warning appears if not installed
 
-3. **Platform-Specific Packaging**
+### 2. Create GitHub Release
 
-   - **Windows**: Creates portable ZIP, then runs Inno Setup
-   - **macOS**: Creates .app bundle, signs it, creates DMG
-   - **Linux**: Creates AppImage and tar.gz
+1. Go to **Releases** in your GitHub repository
+2. Click **Draft a new release**
+3. Tag version: `v1.16.0` (match version in pyproject.toml)
+4. Release title: `PiKaraoke 1.16.0`
+5. Add release notes describing changes
+
+### 3. Attach Release Assets
+
+Rename and attach the installers:
+
+- `PiKaraoke-1.16.0-windows.msi` (from Windows artifact)
+- `PiKaraoke-1.16.0-macos.dmg` (from macOS artifact)
+- `PiKaraoke-1.16.0-linux.AppImage` (from Linux artifact)
+
+### 4. Update Documentation
+
+Add download links to:
+
+- Project README.md
+- Wiki download page
+- Release announcement
+
+## FFmpeg Requirements
+
+**Important**: FFmpeg is **NOT bundled** with installers. Users must install it separately.
+
+Include this in all release notes:
+
+### System Requirements
+
+PiKaraoke requires FFmpeg to be installed separately:
+
+- **macOS**: `brew install ffmpeg`
+- **Linux**: `sudo apt install ffmpeg` (or equivalent)
+- **Windows**: Download from [ffmpeg.org](https://ffmpeg.org/) and add to PATH
 
 ## Troubleshooting
 
-### Windows: "Inno Setup not found"
+### Build fails with module not found
 
-Ensure Inno Setup is installed to the default location:
-
-```
-C:\Program Files (x86)\Inno Setup 6\
-```
-
-Or install via Chocolatey:
-
-```powershell
-choco install innosetup
-```
-
-### macOS: "Code signing failed"
-
-This is a warning only. Ad-hoc signing is used for local builds. For distribution, you need:
-
-1. Apple Developer account
-2. Valid signing certificate
-3. Update build script with your identity
-
-### Linux: "appimagetool not found"
-
-The script automatically downloads `appimagetool`. If this fails:
-
-1. Check internet connectivity
-2. Download manually from: https://github.com/AppImage/AppImageKit/releases
-3. Place in `dist/` directory as `appimagetool-x86_64.AppImage`
-4. Make executable: `chmod +x dist/appimagetool-x86_64.AppImage`
-
-### Build Size Too Large
-
-The build includes yt-dlp with 2000+ video extractors. To reduce size:
-
-1. Consider excluding unused extractors in the spec file
-2. Use UPX compression (already enabled)
-3. Review dependencies in `pyproject.toml`
-
-### Missing FFmpeg
-
-**Windows**: The GitHub Actions workflow automatically includes FFmpeg. For local builds:
-
-1. Download from: https://www.gyan.dev/ffmpeg/builds/
-2. Extract `ffmpeg.exe`
-3. Place in `build/ffmpeg/ffmpeg.exe`
-
-**macOS/Linux**: Install FFmpeg via package manager:
+Ensure dependencies are installed:
 
 ```bash
-# macOS
-brew install ffmpeg
-
-# Ubuntu/Debian
-sudo apt-get install ffmpeg
-
-# Fedora
-sudo dnf install ffmpeg
+uv sync
+uv pip install briefcase
 ```
+
+### Windows: MSI not created
+
+Check that the build completed successfully:
+
+```bash
+briefcase package windows -v
+```
+
+The `-v` flag provides verbose output for debugging.
+
+### Windows/macOS: Code signing issues
+
+For local builds without a signing certificate, use ad-hoc signing:
+
+```bash
+# Windows
+briefcase package windows --adhoc-sign
+
+# macOS
+briefcase package macOS --adhoc-sign
+```
+
+For distribution with proper code signing:
+
+1. **Windows**: Obtain a code signing certificate
+2. **macOS**: Need Apple Developer account and signing certificate
+3. Configure signing identity in pyproject.toml
+4. Package without `--adhoc-sign` flag
+
+### Linux: AppImage won't run
+
+Make the AppImage executable:
+
+```bash
+chmod +x PiKaraoke-1.16.0.AppImage
+```
+
+If FUSE is not available:
+
+```bash
+./PiKaraoke-1.16.0.AppImage --appimage-extract-and-run
+```
+
+### App launches but shows FFmpeg error
+
+This is expected. FFmpeg must be installed separately on the user's system.
 
 ## Development Workflow
 
@@ -302,109 +238,117 @@ sudo dnf install ffmpeg
 git add .
 git commit -m "Your changes"
 
-# Build locally
-uv run python build_scripts/build_app.py
+# Build and test locally
+briefcase create
+briefcase build
+briefcase run
 
-# Test the build
-# Windows: Run dist/pikaraoke_portable/pikaraoke.exe
-# macOS: Open dist/PiKaraoke.app
-# Linux: Run dist/pikaraoke-x86_64.AppImage
+# Create package when satisfied
+briefcase package
 ```
 
-### Creating a Release
+### Version Updates
 
-1. Update version in `pyproject.toml`
-2. Commit and tag:
+Before creating a release:
+
+1. Update version in `pyproject.toml` (both `[project]` and `[tool.briefcase]` sections)
+2. Update CHANGELOG or release notes
+3. Commit changes:
    ```bash
    git commit -am "Bump version to X.Y.Z"
    git tag vX.Y.Z
    git push origin master --tags
    ```
-3. Trigger GitHub Actions build
-4. Download artifacts
-5. Create GitHub release with binaries
+4. Trigger GitHub Actions build
 
-## Build Script Reference
+## Configuration
 
-### build_app.py
+All build configuration is in [pyproject.toml](../pyproject.toml) under `[tool.briefcase]`.
 
-Main build orchestrator. Coordinates PyInstaller and platform-specific packaging.
+Key configuration sections:
 
-**Options:**
+- `[tool.briefcase]`: Global settings (version, bundle ID)
+- `[tool.briefcase.app.pikaraoke]`: App-specific settings (name, icon, dependencies)
+- `[tool.briefcase.app.pikaraoke.macOS]`: macOS-specific settings
+- `[tool.briefcase.app.pikaraoke.windows]`: Windows-specific settings
+- `[tool.briefcase.app.pikaraoke.linux]`: Linux-specific settings
 
-- `--platform`: Target platform (auto-detected by default)
-- `--debug`: Enable verbose logging
-- `--stage`: Run specific stage (pyinstaller, package, all)
+## Advanced Usage
 
-**Environment Variables:**
-
-- `SPECPATH`: Set by PyInstaller (path to spec file)
-- `PYTHONPATH`: May need adjustment for imports
-
-### pikaraoke.spec
-
-PyInstaller specification file. Defines:
-
-- Entry point (`pikaraoke/app.py`)
-- Data files to include
-- Hidden imports for runtime
-- Exclusions to reduce size
-
-**Key Sections:**
-
-- `datas`: Static files (templates, CSS, images)
-- `hiddenimports`: Runtime dependencies
-- `excludes`: Packages to skip (tkinter, numpy, etc.)
-
-## Performance Optimization
-
-### Build Time
-
-Typical build times:
-
-- **PyInstaller**: 3-5 minutes
-- **Windows packaging**: 1-2 minutes
-- **macOS packaging**: 2-3 minutes
-- **Linux packaging**: 4-6 minutes (AppImage creation)
-
-### Caching
-
-GitHub Actions caches:
-
-- uv dependencies
-- PyInstaller build cache
-
-Local builds cache:
-
-- `build/` directory (PyInstaller temp files)
-- `.uv/` directory (uv cache)
-
-To clean cache:
+### Verbose Build Output
 
 ```bash
-rm -rf build/ dist/ .uv/
+briefcase package -v
 ```
 
-## Contributing
+### Update Existing Build
 
-When modifying the build system:
+If you've already created a build and want to update it:
 
-1. Test on all three platforms
-2. Update this documentation
-3. Ensure backward compatibility
-4. Run pre-commit hooks:
-   ```bash
-   pre-commit run --all-files
-   ```
+```bash
+briefcase update
+briefcase build
+briefcase package
+```
+
+### Clean Build
+
+To start fresh:
+
+```bash
+rm -rf build/ dist/
+briefcase create
+briefcase package
+```
+
+### Platform-Specific Builds
+
+You can only build for your current platform. To build for all platforms, use the GitHub
+Actions workflow or set up build environments for each platform.
+
+## Performance Notes
+
+Typical build times (after dependencies installed):
+
+- **First-time create**: 5-10 minutes
+- **Build**: 2-3 minutes
+- **Package**: 3-5 minutes
+- **Total**: 10-18 minutes per platform
+
+GitHub Actions builds all three platforms in parallel (~20 minutes total).
+
+## Migrating from PyInstaller
+
+This project previously used PyInstaller for builds. The migration to Briefcase:
+
+- Reduced build code by ~93% (1,400+ lines → 90 lines)
+- Simplified maintenance (single configuration file)
+- Eliminated platform-specific tooling requirements
+- Unified build commands across platforms
+
+For migration details, see [BRIEFCASE_MIGRATION.md](BRIEFCASE_MIGRATION.md).
 
 ## Support
 
 For build issues:
 
 1. Check this documentation
-2. Review GitHub Actions logs
-3. Open an issue: https://github.com/safepay/pikaraoke/issues
+2. Review [Briefcase documentation](https://briefcase.readthedocs.io/)
+3. Check GitHub Actions logs for CI builds
+4. Open an issue: https://github.com/vicwomg/pikaraoke/issues
+
+## Contributing
+
+When modifying the build configuration:
+
+1. Test on your platform locally
+2. Update this documentation
+3. Test via GitHub Actions before merging
+4. Run pre-commit hooks:
+   ```bash
+   pre-commit run --all-files --config code_quality/.pre-commit-config.yaml
+   ```
 
 ## License
 
-The build scripts are part of PiKaraoke and use the same license as the main project.
+The build configuration is part of PiKaraoke and uses the same license as the main project.

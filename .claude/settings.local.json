@@ -7,9 +7,22 @@
       "Bash(find:*)",
       "Bash(mkdir:*)",
       "Bash(cp:*)",
-      "Bash(dir /s /b \"c:\\\\Users\\\\Richard\\\\Documents\\\\pikaraoke\\\\build\\\\ffmpeg\")",
+      "Bash(dir:*)",
       "Bash(uv run python:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(git log:*)",
+      "Bash(python:*)",
+      "Bash(if exist build rmdir /s /q build)",
+      "Bash(cmd /c \"if exist build rmdir /s /q build\")",
+      "Bash(briefcase create:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(cmd /c \"type C:\\\\Users\\\\Richard\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Richard-Documents-pikaraoke\\\\tasks\\\\b70dc05.output 2>nul | more\")",
+      "Bash(if [ -d build ])",
+      "Bash(then rm -rf build)",
+      "Bash(fi)",
+      "Bash(git restore:*)",
+      "Bash(git checkout:*)"
     ]
   }
 }

@@ -80,6 +80,12 @@ def scan_directory(self, directory: str) -> int:
 - Avoid creating additional class functions if they are not necessary
 - Use `@property` for computed attributes
 
+## Maintenance
+
+- **MUST** create code that is easily maintainable by the repository owner
+- Prefer options that are easier to maintain but deliver the required outcomes
+- Avoid overly complex database tables and interations
+
 ## Testing
 
 - **MUST** write unit tests for all new functions and classes
@@ -137,6 +143,77 @@ pre-commit install --config code_quality/.pre-commit-config.yaml
 - **isort**: Sorts imports with black profile
 - **pycln**: Removes unused imports
 - **pylint**: Lints Python code
-- **mdformat**: Formats markdown files
+- **mdformat**: Formats markdown files (with mdformat-black for Python code blocks)
 
 Note: Never commit directly to the `master` branch - the pre-commit hook will prevent this.
+
+## Documentation and Markdown Files
+
+### Python Code in Markdown
+
+When writing Python code examples in markdown files (e.g., implementation plans, READMEs):
+
+- **MUST** ensure all Python code blocks are valid and will pass pre-commit checks
+- **MUST** follow Black formatting (100 char line length) in code blocks
+- **MUST** use proper import organization (stdlib, third-party, local)
+- **MUST** include type hints using modern syntax (`str | None`)
+- **NEVER** leave syntax errors or incomplete code in markdown examples
+
+**Why:** The pre-commit hook runs `mdformat` with `mdformat-black`, which will:
+
+1. Parse Python code blocks in markdown files
+2. Format them using Black's rules
+3. Fail the commit if code is invalid or improperly formatted
+
+**Testing markdown before commit:**
+
+```bash
+# Test markdown formatting (including Python code blocks)
+mdformat --check docs/*.md
+
+# Auto-fix markdown formatting
+mdformat docs/*.md
+```
+
+**Example - CORRECT Python in markdown:**
+
+````markdown
+```python
+from __future__ import annotations
+
+import os
+from typing import TYPE_CHECKING
+
+
+def parse_filename(filename: str) -> dict[str, str | None]:
+    """Parse filename into metadata.
+
+    Args:
+        filename: Song filename.
+
+    Returns:
+        Dict with artist, title, etc.
+    """
+    clean = os.path.splitext(filename)[0]
+    return {"artist": None, "title": clean}
+```
+````
+
+**Example - INCORRECT (will fail pre-commit):**
+
+````markdown
+```python
+# Missing imports, no type hints, incomplete code
+def parse_filename(filename):
+    clean = os.path.splitext(filename)[0]
+    # TODO: finish this
+```
+````
+
+### Markdown Best Practices
+
+- **MUST** use consistent heading levels (no skipping from # to ###)
+- **MUST** use fenced code blocks with language specifiers (`python, `bash, etc.)
+- **NEVER** use tabs for indentation (4 spaces only)
+- **MUST** ensure all links are valid
+- Keep line length reasonable (aim for 100 chars, but not enforced in prose)

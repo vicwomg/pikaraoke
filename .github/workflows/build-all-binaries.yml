@@ -11,20 +11,14 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            platform: Windows
-            artifacts: |
-              dist/pikaraoke_win_portable.zip
-              dist/installer/PiKaraoke-Setup-*.exe
+            platform: windows
+            artifact_pattern: "dist/*.msi"
           - os: macos-latest
-            platform: Darwin
-            artifacts: |
-              dist/pikaraoke_mac.zip
-              dist/pikaraoke_mac.dmg
+            platform: macOS
+            artifact_pattern: "dist/*.dmg"
           - os: ubuntu-20.04
-            platform: Linux
-            artifacts: |
-              dist/pikaraoke-x86_64.AppImage
-              dist/pikaraoke_linux.tar.gz
+            platform: linux
+            artifact_pattern: "dist/*.AppImage"
 
     steps:
       - name: Checkout code
@@ -33,40 +27,23 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v4
 
-      - name: Setup FFmpeg
-        uses: FedericoCarboni/setup-ffmpeg@v3
-        with:
-          ffmpeg-version: release
-          architecture: x64
-
       - name: Install dependencies
         run: uv sync
 
-      - name: Install PyInstaller
-        run: uv pip install pyinstaller
+      - name: Install Briefcase
+        run: uv pip install briefcase
 
-      - name: Install Inno Setup (Windows only)
-        if: matrix.platform == 'Windows'
-        run: choco install innosetup --version 6.2.2
+      - name: Package application (Windows)
+        if: matrix.platform == 'windows'
+        run: uv run briefcase package windows --adhoc-sign
 
-      - name: Copy FFmpeg to build directory (Windows only)
-        if: matrix.platform == 'Windows'
-        shell: pwsh
-        run: |
-          $buildDir = "build\ffmpeg"
-          New-Item -ItemType Directory -Force -Path $buildDir | Out-Null
-
-          $ffmpegSrc = (Get-Command ffmpeg).Source
-          Copy-Item $ffmpegSrc "$buildDir\ffmpeg.exe"
-
-          Write-Host "Copied FFmpeg from $ffmpegSrc to $buildDir\ffmpeg.exe"
-
-      - name: Build application
-        run: uv run python build_scripts/build_app.py --platform ${{ matrix.platform }}
+      - name: Package application (macOS/Linux)
+        if: matrix.platform != 'windows'
+        run: uv run briefcase package ${{ matrix.platform }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: PiKaraoke-${{ matrix.os }}
-          path: ${{ matrix.artifacts }}
+          path: ${{ matrix.artifact_pattern }}
           if-no-files-found: error

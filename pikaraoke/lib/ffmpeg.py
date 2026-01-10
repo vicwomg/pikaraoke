@@ -180,7 +180,10 @@ def get_ffmpeg_version() -> str:
     try:
         # Execute the command 'ffmpeg -version'
         result = subprocess.run(
-            ["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+            ["ffmpeg", "-version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
         )
         # Parse the first line to get the version
         first_line = result.stdout.split("\n")[0]
@@ -199,7 +202,10 @@ def is_transpose_enabled() -> bool:
         True if rubberband filter is available, False otherwise.
     """
     try:
-        filters = subprocess.run(["ffmpeg", "-filters"], capture_output=True)
+        filters = subprocess.run(
+            ["ffmpeg", "-filters"],
+            capture_output=True,
+        )
     except FileNotFoundError:
         return False
     except IndexError:
@@ -227,7 +233,10 @@ def supports_hardware_h264_encoding() -> bool:
 
     # On ARM, check if h264_v4l2m2m is available
     try:
-        codecs = subprocess.run(["ffmpeg", "-codecs"], capture_output=True)
+        codecs = subprocess.run(
+            ["ffmpeg", "-codecs"],
+            capture_output=True,
+        )
     except FileNotFoundError:
         return False
     except IndexError:
@@ -249,7 +258,10 @@ def is_ffmpeg_installed() -> bool:
         True if FFmpeg is installed, False otherwise.
     """
     try:
-        subprocess.run(["ffmpeg", "-version"], capture_output=True)
+        subprocess.run(
+            ["ffmpeg", "-version"],
+            capture_output=True,
+        )
     except FileNotFoundError:
         return False
     return True

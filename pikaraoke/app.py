@@ -45,21 +45,10 @@ args = parse_pikaraoke_args()
 socketio = SocketIO(async_mode="gevent", cors_allowed_origins=args.url)
 babel = Babel()
 
-if getattr(sys, "frozen", False):
-    # If running as a compiled exe, resources are extracted to sys._MEIPASS
-    # The pikaraoke.spec file puts templates in 'pikaraoke/templates' relative to root
-    base_dir = os.path.join(sys._MEIPASS, "pikaraoke")  # pylint: disable=no-member # type: ignore
-    app = Flask(
-        __name__,
-        template_folder=os.path.join(base_dir, "templates"),
-        static_folder=os.path.join(base_dir, "static"),
-    )
-    # Update translation directory for frozen app
-    app.config["BABEL_TRANSLATION_DIRECTORIES"] = os.path.join(base_dir, "translations")
-else:
-    # Standard development/source run
-    app = Flask(__name__)
-    app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
+# Flask automatically finds templates/static folders in the package directory
+# Works for both development and Briefcase-packaged apps
+app = Flask(__name__)
+app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 
 app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
@@ -157,6 +146,53 @@ def clear_notification() -> None:
     k.reset_now_playing_notification()
 
 
+def show_error_dialog(title: str, message: str) -> None:
+    """Show user-facing error dialog on GUI systems.
+
+    Tries tkinter first, then platform-specific dialogs, falls back to logging.
+
+    Args:
+        title: Dialog title
+        message: Error message to display
+    """
+    # Try tkinter (cross-platform)
+    try:
+        import tkinter as tk
+        from tkinter import messagebox
+
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror(title, message)
+        root.destroy()
+        return
+    except Exception:
+        pass
+
+    # Try macOS native dialog
+    if get_platform() == "osx":
+        try:
+            import subprocess
+
+            # Escape double quotes in message for osascript
+            escaped_message = message.replace('"', '\\"')
+            subprocess.run(
+                [
+                    "osascript",
+                    "-e",
+                    f'display dialog "{escaped_message}" with title "{title}" buttons {{"OK"}} with icon stop',
+                ],
+                check=True,
+                capture_output=True,
+                timeout=30,
+            )
+            return
+        except Exception:
+            pass
+
+    # Fallback to logging
+    logging.error(f"{title}: {message}")
+
+
 def main() -> None:
     """Main entry point for the PiKaraoke application.
 
@@ -173,15 +209,32 @@ def main() -> None:
     # logging.basicConfig(filename=log_path, level=logging.INFO)
 
     if not is_ffmpeg_installed():
-        logging.error(
-            "ffmpeg is not installed, which is required to run PiKaraoke. See: https://www.ffmpeg.org/"
+        error_msg = (
+            "FFmpeg is not installed.\n\n"
+            "PiKaraoke requires FFmpeg for audio/video processing.\n\n"
+            "Please install FFmpeg:\n"
+            "- macOS: brew install ffmpeg\n"
+            "- Linux: sudo apt install ffmpeg\n"
+            "- Windows: Download from https://www.ffmpeg.org/\n\n"
+            "Visit https://www.ffmpeg.org/ for more information."
         )
+        logging.error(error_msg)
+        show_error_dialog("FFmpeg Not Found", error_msg)
         sys.exit(1)
 
     if not has_js_runtime():
-        logging.warning(
-            "No js runtime is installed (such as Deno, Bun, Node.js, or QuickJS). This is required to run yt-dlp. Some downloads may not work. See: https://github.com/yt-dlp/yt-dlp/wiki/EJS"
+        warning_msg = (
+            "No JavaScript runtime detected.\n\n"
+            "A JS runtime (Node.js, Deno, Bun, or QuickJS) is required\n"
+            "for YouTube downloads to work properly.\n\n"
+            "PiKaraoke will start, but some downloads may fail.\n\n"
+            "Install Node.js: https://nodejs.org/\n"
+            "Or see: https://github.com/yt-dlp/yt-dlp/wiki/EJS"
         )
+        logging.warning(warning_msg)
+        # Only show dialog for compiled apps where user may not see logs
+        if getattr(sys, "frozen", False):
+            show_error_dialog("JavaScript Runtime Not Found", warning_msg)
 
     # setup/create download directory if necessary
     if not os.path.exists(args.download_path):
