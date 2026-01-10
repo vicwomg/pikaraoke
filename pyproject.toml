@@ -169,6 +169,8 @@ system_requires = []
 # Console visibility (false = GUI app, true = console app)
 # Set to true to absorb yt-dlp and ffmpeg subprocess console windows
 console_app = true
+# Set to true to have the app appear in the Start menu
+install_launcher = true
 
 # Linux-specific configuration
 [tool.briefcase.app.pikaraoke.linux]
