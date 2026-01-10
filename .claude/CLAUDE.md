@@ -6,6 +6,43 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 PiKaraoke is a "KTV"-style karaoke system that runs on Raspberry Pi, Windows, macOS, and Linux. It provides a web interface for searching YouTube, queuing songs, and playing karaoke videos with features like pitch shifting, background music, and real-time streaming.
 
+### Filename Conventions
+
+PiKaraoke uses yt-dlp to download karaoke videos from YouTube. Files follow strict naming patterns:
+
+**PiKaraoke Format (Explicit):**
+
+```
+Song Title---dQw4w9WgXcQ.mp4
+Artist - Song Title---abc123defgh.cdg
+```
+
+**yt-dlp Default Format:**
+
+```
+Song Title [dQw4w9WgXcQ].mp4
+Artist - Song Title [abc123defgh].mkv
+```
+
+**Rules:**
+
+- YouTube IDs are **exactly 11 characters**: `[A-Za-z0-9_-]{11}`
+- PiKaraoke uses **triple dash** (`---`) before the YouTube ID
+- yt-dlp default uses **brackets** (`[]`) around the YouTube ID
+- **NEVER** implement support for hypothetical formats that don't exist from yt-dlp downloads
+- **ONLY** support these two patterns when extracting YouTube IDs from filenames
+
+## Single-Owner Maintainability Philosophy
+
+This project is maintained by a single code owner. All code and documentation decisions prioritize:
+
+- **Self-documenting code over extensive documentation**: Code clarity reduces documentation burden
+- **Simplicity over flexibility**: Solve current problems, not hypothetical future ones
+- **Consolidation over duplication**: One source of truth for each concept
+- **Actionability over completeness**: Documentation must serve immediate practical needs
+
+**Code is the primary documentation.** Written docs supplement code, never duplicate it.
+
 ## Code Style and Formatting
 
 - **MUST** use meaningful, descriptive variable and function names
@@ -37,16 +74,20 @@ def process_queue(karaoke: Karaoke) -> str | None:
 
 ## Documentation
 
+### Code Documentation (Docstrings)
+
 - **MUST** include docstrings for all public functions, classes, and methods
 - **MUST** document function parameters, return values, and exceptions raised
-- Keep comments up-to-date with code changes
-- Include examples in docstrings for complex functions
+- **MUST** keep docstrings concise - explain "why" and "what", not "how"
+- **NEVER** duplicate information that type hints already convey
+- **NEVER** write obvious docstrings that just restate the function name
+- Include examples in docstrings ONLY for non-obvious behavior
 
-Example docstring:
+Good docstring (concise, adds value):
 
 ```python
 def scan_directory(self, directory: str) -> int:
-    """Scan a directory for song files and replace the current list.
+    """Scan directory for song files and replace the current list.
 
     Args:
         directory: Path to directory to scan.
@@ -55,6 +96,90 @@ def scan_directory(self, directory: str) -> int:
         Number of songs found.
     """
 ```
+
+Bad docstring (verbose, obvious):
+
+```python
+def scan_directory(self, directory: str) -> int:
+    """This function scans a directory for song files.
+
+    It will iterate through all files in the provided directory path,
+    check each file to see if it's a valid song file format, and then
+    add those files to the song list, replacing any previously existing
+    song list that was there before.
+
+    Args:
+        directory: This is a string that represents the path to the
+                   directory that you want to scan for song files.
+
+    Returns:
+        An integer representing the total count of how many songs
+        were found during the scanning process.
+    """
+```
+
+### Written Documentation (Markdown Files)
+
+- **MUST** have a single source of truth for each concept
+- **NEVER** duplicate information across multiple markdown files
+- **NEVER** create documentation "just in case" - only document what's actively needed
+- **MUST** delete outdated documentation immediately when code changes
+- **SHOULD** prefer linking to code examples over explaining code in prose
+- **SHOULD** use implementation plans as throwaway artifacts - archive after completion
+
+Documentation hierarchy (single owner):
+
+1. **Code + docstrings** - Primary source of truth
+2. **README.md** - User-facing setup and usage only
+3. **Architecture decisions** - Only when non-obvious patterns exist
+4. **Everything else** - Probably unnecessary
+
+### Documentation Maintenance
+
+When code changes:
+
+- **MUST** update affected docstrings immediately in the same commit
+- **MUST** delete documentation that's no longer accurate
+- **SHOULD** check if README.md sections are still accurate
+- **NEVER** leave outdated docs with "TODO: Update this"
+
+Quarterly documentation review - every 3 months, perform a documentation audit:
+
+1. Delete archived implementation plans from merged features
+2. Remove or consolidate duplicate explanations
+3. Verify README.md reflects current installation/usage
+4. Delete docs/ files that haven't been referenced in 6+ months
+
+**Rule of thumb**: If you can't remember the last time you referenced a doc, delete it.
+
+## Documentation Anti-Patterns
+
+As a single-owner project, avoid these documentation pitfalls:
+
+### NEVER: Tutorial-Style Documentation
+
+- **Bad**: "Step 1: Import the module. Step 2: Create an instance..."
+- **Good**: Working code example with minimal explanation
+
+### NEVER: Duplicate Information
+
+- **Bad**: Explaining the same API in README.md, docs/api.md, and inline comments
+- **Good**: One docstring in code, README links to code
+
+### NEVER: Speculative Documentation
+
+- **Bad**: "In the future, this might support X, Y, Z..."
+- **Good**: Document what exists now
+
+### NEVER: Implementation Plans as Permanent Docs
+
+- **Bad**: Keeping detailed implementation plans in docs/ after feature is built
+- **Good**: Archive or delete plans after merge, let code speak for itself
+
+### PREFER: Self-Documenting Code
+
+- **Better**: Rename `process(d, f)` to `process_song_metadata(data, filename)`
+- **Worse**: Keep vague names and write comments explaining them
 
 ## Error Handling
 
@@ -67,9 +192,20 @@ def scan_directory(self, directory: str) -> int:
 ## Function Design
 
 - **MUST** keep functions focused on a single responsibility
+- **MUST** keep code simple and maintainable by a single code owner
+- **MUST** solve the immediate problem, not hypothetical future problems
 - **NEVER** use mutable objects (lists, dicts) as default argument values
+- **NEVER** add configuration/flexibility that isn't immediately needed
 - Limit function parameters to 5 or fewer
 - Return early to reduce nesting
+- Favor brevity: prefer concise, readable implementations over verbose code
+- Delete dead code immediately - don't comment it out "just in case"
+
+Single-owner mindset:
+
+- If you won't remember why in 6 months, the code isn't clear enough
+- Three similar lines are better than a premature abstraction
+- Add helpers when third duplication appears, not before
 
 ## Class Design
 
@@ -80,27 +216,31 @@ def scan_directory(self, directory: str) -> int:
 - Avoid creating additional class functions if they are not necessary
 - Use `@property` for computed attributes
 
-## Maintenance
-
-- **MUST** create code that is easily maintainable by the repository owner
-- Prefer options that are easier to maintain but deliver the required outcomes
-- Avoid overly complex database tables and interations
-
 ## Testing
 
 - **MUST** write unit tests for all new functions and classes
 - **MUST** mock external dependencies (APIs, databases, file systems)
 - **MUST** use pytest as the testing framework
+- **MUST** test realistic failure scenarios that could actually happen
 - **NEVER** run tests you generate without first saving them as their own discrete file
-- **NEVER** delete files created as a part of testing.
+- **NEVER** delete files created as a part of testing
+- **NEVER** write tests for impossible states or trivial getters/setters
 - Ensure the folder used for test outputs is present in `.gitignore`
 - Follow the Arrange-Act-Assert pattern
 - Do not commit commented-out tests
+
+Single-owner testing priorities:
+
+1. Business logic and data transformations (high value)
+2. Integration points with external systems (high risk)
+3. Complex conditional logic (hard to reason about)
+4. Skip: trivial property access, framework wrappers, obvious code
 
 ## Imports and Dependencies
 
 - **MUST** avoid wildcard imports (`from module import *`)
 - **MUST** document dependencies in `pyproject.toml`
+- **MUST** prefer well-maintained libraries over custom implementations when appropriate
 - Use `uv` for fast package management and dependency resolution
 - Organize imports: standard library, third-party, local imports
 - Use `isort` to automate import formatting
@@ -115,6 +255,40 @@ def scan_directory(self, directory: str) -> int:
   - Example: `_("Volume: %s") % value` instead of `_(f"Volume: {value}")`
 - Use list comprehensions and generator expressions
 - Use `enumerate()` instead of manual counter variables
+
+## Delivery Standards (Single-Owner Context)
+
+### Fully Functional, Not Gold-Plated
+
+- **MUST** deliver working, tested code for the requested feature
+- **MUST** handle realistic error cases (user input, network failures)
+- **NEVER** add error handling for impossible states
+- **NEVER** add features that weren't requested
+- **NEVER** refactor unrelated code "while you're in the area"
+
+### Definition of "Fully Functional"
+
+A feature is complete when:
+
+1. It works for the specified use case
+2. It handles expected error conditions gracefully
+3. It has tests covering core functionality
+4. It follows project conventions (type hints, formatting, etc.)
+5. Related code is updated consistently (no half-migrations)
+
+A feature is NOT complete when:
+
+- It works "most of the time" but fails on edge cases you know about
+- Tests are skipped because "it's obvious it works"
+- New patterns are introduced without updating similar existing code
+
+### What NOT to Include
+
+- Feature flags for stable functionality
+- Backwards compatibility shims for internal refactors
+- Extensive configuration for features with one use case
+- Abstraction layers for single implementations
+- Documentation beyond docstrings and README updates
 
 ## Version Control
 
