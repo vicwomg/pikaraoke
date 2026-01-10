@@ -171,6 +171,7 @@ system_requires = []
 console_app = true
 # Set to true to have the app appear in the Start menu
 install_launcher = true
+post_install_script = "build_scripts/windows/windows_desktop_icon.bat"
 
 # Linux-specific configuration
 [tool.briefcase.app.pikaraoke.linux]
