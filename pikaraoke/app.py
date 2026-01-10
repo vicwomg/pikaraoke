@@ -244,6 +244,9 @@ def main() -> None:
     server = WSGIServer(("0.0.0.0", int(args.port)), app, log=None, error_log=logging.getLogger())
     server.start()
 
+    # Store server reference on karaoke instance for shutdown
+    k.wsgi_server = server
+
     # Handle sigterm, apparently cherrypy won't shut down without explicit handling
     # signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
@@ -257,8 +260,10 @@ def main() -> None:
         driver = launch_splash_screen(k, args.window_size, args.external_monitor)
         if not driver:
             sys.exit()
+        k.selenium_driver = driver
     else:
         driver = None
+        k.selenium_driver = None
 
     # Start the karaoke process
     k.run()

@@ -78,6 +78,8 @@ class Karaoke:
     is_playing: bool = False
     process: subprocess.Popen | None = None
     qr_code_path: str | None = None
+    wsgi_server: Any = None  # Reference to the Gevent WSGIServer
+    selenium_driver: Any = None  # Reference to the Selenium WebDriver
     base_path: str = os.path.dirname(__file__)
     loop_interval: int = 500  # in milliseconds
     default_logo_path: str = os.path.join(base_path, "logo.png")
