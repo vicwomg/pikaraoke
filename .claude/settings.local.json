@@ -2,27 +2,22 @@
   "permissions": {
     "allow": [
       "Bash(cat:*)",
-      "Bash(uv --version:*)",
       "Bash(ls:*)",
       "Bash(find:*)",
       "Bash(mkdir:*)",
       "Bash(cp:*)",
       "Bash(dir:*)",
-      "Bash(uv run python:*)",
+      "Bash(uv:*)",
       "Bash(test:*)",
-      "Bash(git log:*)",
+      "Bash(git:*)",
       "Bash(python:*)",
-      "Bash(if exist build rmdir /s /q build)",
-      "Bash(cmd /c \"if exist build rmdir /s /q build\")",
-      "Bash(briefcase create:*)",
+      "Bash(if)",
+      "Bash(cmd:*",
       "Bash(tasklist:*)",
       "Bash(findstr:*)",
-      "Bash(cmd /c \"type C:\\\\Users\\\\Richard\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Richard-Documents-pikaraoke\\\\tasks\\\\b70dc05.output 2>nul | more\")",
-      "Bash(if [ -d build ])",
-      "Bash(then rm -rf build)",
+      "Bash(then)",
       "Bash(fi)",
-      "Bash(git restore:*)",
-      "Bash(git checkout:*)"
+      "Bash(briefcase:*)",
     ]
   }
 }
