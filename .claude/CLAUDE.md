@@ -122,35 +122,44 @@ def scan_directory(self, directory: str) -> int:
 
 - **MUST** have a single source of truth for each concept
 - **NEVER** duplicate information across multiple markdown files
-- **NEVER** create documentation "just in case" - only document what's actively needed
+- **MUST** keep documentation clear and practical for developers
+- **MUST** include code snippets and examples to illustrate concepts
+- **MUST** update documentation immediately when code changes
 - **MUST** delete outdated documentation immediately when code changes
 - **SHOULD** prefer linking to code examples over explaining code in prose
-- **SHOULD** use implementation plans as throwaway artifacts - archive after completion
 
 Documentation hierarchy (single owner):
 
-1. **Code + docstrings** - Primary source of truth
+1. **Code + docstrings** - Primary source of truth for implementation
 2. **README.md** - User-facing setup and usage only
-3. **Architecture decisions** - Only when non-obvious patterns exist
-4. **Everything else** - Probably unnecessary
+3. **docs/** - Technical documentation, design decisions, implementation guides
+   - Keep planning docs after implementation if they explain "why"
+   - Include code snippets and practical examples
+   - Write for developers who need to understand or extend the system
+4. **Architecture decisions** - Document non-obvious patterns and design choices
 
 ### Documentation Maintenance
 
 When code changes:
 
 - **MUST** update affected docstrings immediately in the same commit
+- **MUST** update technical docs that explain the implementation
 - **MUST** delete documentation that's no longer accurate
 - **SHOULD** check if README.md sections are still accurate
 - **NEVER** leave outdated docs with "TODO: Update this"
 
-Quarterly documentation review - every 3 months, perform a documentation audit:
+Documentation review - periodically perform a documentation audit:
 
-1. Delete archived implementation plans from merged features
-2. Remove or consolidate duplicate explanations
-3. Verify README.md reflects current installation/usage
-4. Delete docs/ files that haven't been referenced in 6+ months
+1. Remove or consolidate duplicate explanations
+2. Verify README.md reflects current installation/usage
+3. Update implementation docs to reflect current state
+4. Delete docs that no longer serve a purpose
 
-**Rule of thumb**: If you can't remember the last time you referenced a doc, delete it.
+**Documentation should help developers understand:**
+- Why design decisions were made
+- How complex systems work
+- What patterns to follow when extending the code
+- Key implementation details that aren't obvious from code alone
 
 ## Documentation Anti-Patterns
 
@@ -171,10 +180,12 @@ As a single-owner project, avoid these documentation pitfalls:
 - **Bad**: "In the future, this might support X, Y, Z..."
 - **Good**: Document what exists now
 
-### NEVER: Implementation Plans as Permanent Docs
+### DO: Keep Useful Implementation Documentation
 
-- **Bad**: Keeping detailed implementation plans in docs/ after feature is built
-- **Good**: Archive or delete plans after merge, let code speak for itself
+- **Good**: Keep planning docs that explain design decisions and rationale
+- **Good**: Include code snippets showing how features work
+- **Bad**: Keep outdated docs that no longer match the implementation
+- **Bad**: Write documentation that just duplicates what's in the code
 
 ### PREFER: Self-Documenting Code
 
