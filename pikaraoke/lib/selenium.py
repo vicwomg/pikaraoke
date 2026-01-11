@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from typing import TYPE_CHECKING
 
 from selenium import webdriver
@@ -35,9 +36,9 @@ def launch_splash_screen(
         Chrome WebDriver instance on success, or None on failure.
     """
     if karaoke.is_raspberry_pi:
-        service = Service(executable_path="/usr/bin/chromedriver")
+        service = Service(executable_path="/usr/bin/chromedriver", log_output=subprocess.DEVNULL)
     else:
-        service = Service()
+        service = Service(log_output=subprocess.DEVNULL)
     options = Options()
 
     karaoke_url = f"{karaoke.url}/splash"
@@ -60,6 +61,9 @@ def launch_splash_screen(
     options.add_argument("--disable-infobars")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option("useAutomationExtension", False)
+
+    # Suppress Chrome console warnings (GCM, TensorFlow, etc.)
+    options.add_argument("--log-level=3")  # Only show fatal errors
 
     # Raspberry Pi specific optimizations for resource-constrained hardware
     if karaoke.is_raspberry_pi:
