@@ -156,6 +156,7 @@ Documentation review - periodically perform a documentation audit:
 4. Delete docs that no longer serve a purpose
 
 **Documentation should help developers understand:**
+
 - Why design decisions were made
 - How complex systems work
 - What patterns to follow when extending the code
@@ -398,7 +399,7 @@ def parse_filename(filename):
 ### Markdown Best Practices
 
 - **MUST** use consistent heading levels (no skipping from # to ###)
-- **MUST** use fenced code blocks with language specifiers (`python, `bash, etc.)
+- **MUST** use fenced code blocks with language specifiers (`python`, `bash`, etc.)
 - **NEVER** use tabs for indentation (4 spaces only)
 - **MUST** ensure all links are valid
 - Keep line length reasonable (aim for 100 chars, but not enforced in prose)
