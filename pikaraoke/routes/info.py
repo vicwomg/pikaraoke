@@ -41,7 +41,9 @@ def info():
 
     # cpu
     try:
-        cpu = str(psutil.cpu_percent(interval=1)) + "%"
+        # sample at interval of 0 seconds. Anything more blocks the server
+        # for the specified interval leading to slow loads downstream
+        cpu = str(psutil.cpu_percent(interval=0)) + "%"
     except:
         cpu = _("CPU usage query unsupported")
 
