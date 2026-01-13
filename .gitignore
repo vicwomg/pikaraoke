@@ -5,6 +5,7 @@
 /.vscode/
 __pycache__/
 dist/
+build/
 songs/
 qrcode.png
 .DS_Store
@@ -13,3 +14,7 @@ docker-compose.yml
 /.idea/
 .coverage
 .claude
+/logs
+
+# Briefcase build artifacts
+*.briefcase.toml
