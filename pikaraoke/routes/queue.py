@@ -225,6 +225,36 @@ def get_current_downloads():
               items:
                 type: object
                 description: Pending download info
+            errors:
+              type: array
+              items:
+                type: object
+                description: Failed download info
     """
     k = get_karaoke_instance()
     return json.dumps(k.download_manager.get_downloads_status())
+
+
+@queue_bp.route("/queue/downloads/errors/<error_id>", methods=["DELETE"])
+def delete_download_error(error_id):
+    """Remove a download error from the list.
+    ---
+    tags:
+      - Queue
+    parameters:
+      - name: error_id
+        in: path
+        type: string
+        required: true
+        description: ID of the error to remove
+    responses:
+      200:
+        description: Error removed successfully
+      404:
+        description: Error not found
+    """
+    k = get_karaoke_instance()
+    if k.download_manager.remove_error(error_id):
+        return json.dumps({"success": True})
+    else:
+        return json.dumps({"success": False, "error": "Error not found"}), 404
