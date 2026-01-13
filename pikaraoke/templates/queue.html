@@ -25,7 +25,7 @@
 
     $.get('{{ url_for("queue.get_queue") }}', function (data) {
       var newQueue = JSON.parse(data);
-      if (!_.isEqual(newQueue, window.queuePageState.previousQueue)) {
+      if (!isEqual(newQueue, window.queuePageState.previousQueue)) {
         window.queuePageState.queue = newQueue;
         $("#auto-refresh").html(window.queuePage_generateHTML());
         window.queuePageState.previousQueue = newQueue;
