@@ -16,7 +16,7 @@
 
     // State management
     let isNavigating = false;
-    let currentPath = window.location.pathname;
+    let currentPath = window.location.pathname + window.location.search;
     let loadedResources = new Set(); // Track loaded external resources
     let isInitialized = false; // Prevent multiple initializations
 
