@@ -2,7 +2,7 @@
 
 import flask_babel
 import psutil
-from flask import Blueprint, render_template
+from flask import Blueprint, jsonify, render_template
 
 from pikaraoke import VERSION
 from pikaraoke.constants import LANGUAGES
@@ -36,30 +36,7 @@ def info():
     admin_password = get_admin_password()
     is_linux = get_platform() == "linux"
 
-    # 獲取當前偏好語言
     preferred_language = k.get_user_preference("preferred_language", "en")
-
-    # cpu
-    try:
-        cpu = str(psutil.cpu_percent(interval=1)) + "%"
-    except:
-        cpu = _("CPU usage query unsupported")
-
-    # mem
-    memory = psutil.virtual_memory()
-    available = round(memory.available / 1024.0 / 1024.0, 1)
-    total = round(memory.total / 1024.0 / 1024.0, 1)
-    memory = (
-        str(available) + "MB free / " + str(total) + "MB total ( " + str(memory.percent) + "% )"
-    )
-
-    # disk
-    disk = psutil.disk_usage("/")
-    # Divide from Bytes -> KB -> MB -> GB
-    free = round(disk.free / 1024.0 / 1024.0 / 1024.0, 1)
-    total = round(disk.total / 1024.0 / 1024.0 / 1024.0, 1)
-    disk = str(free) + "GB free / " + str(total) + "GB total ( " + str(disk.percent) + "% )"
-
     # youtube-dl
     youtubedl_version = k.youtubedl_version
 
@@ -76,9 +53,9 @@ def info():
         is_transpose_enabled=k.is_transpose_enabled,
         youtubedl_version=youtubedl_version,
         pikaraoke_version=VERSION,
-        cpu=cpu,
-        memory=memory,
-        disk=disk,
+        cpu=None,
+        memory=None,
+        disk=None,
         is_pi=k.is_raspberry_pi,
         is_linux=is_linux,
         volume=int(k.volume * 100),
@@ -107,3 +84,37 @@ def info():
             "high": k.high_score_phrases,
         },
     )
+
+
+@info_bp.route("/info/stats")
+def get_system_stats():
+    """Get system statistics (CPU, Memory, Disk).
+
+    Returns:
+        JSON response with system stats.
+    """
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+
+    # cpu
+    try:
+        # We can afford to block a bit here since it is async
+        cpu = str(psutil.cpu_percent(interval=1)) + "%"
+    except:
+        cpu = _("CPU usage query unsupported")
+
+    # mem
+    memory = psutil.virtual_memory()
+    available = round(memory.available / 1024.0 / 1024.0, 1)
+    total = round(memory.total / 1024.0 / 1024.0, 1)
+    memory_str = (
+        str(available) + "MB free / " + str(total) + "MB total ( " + str(memory.percent) + "% )"
+    )
+
+    # disk
+    disk = psutil.disk_usage("/")
+    free = round(disk.free / 1024.0 / 1024.0 / 1024.0, 1)
+    total = round(disk.total / 1024.0 / 1024.0 / 1024.0, 1)
+    disk_str = str(free) + "GB free / " + str(total) + "GB total ( " + str(disk.percent) + "% )"
+
+    return jsonify({"cpu": cpu, "memory": memory_str, "disk": disk_str})
