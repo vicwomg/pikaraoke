@@ -12,3 +12,4 @@ qrcode.png
 docker-compose.yml
 /.idea/
 .coverage
+.claude
