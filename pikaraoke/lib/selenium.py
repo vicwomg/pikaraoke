@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import subprocess
 from typing import TYPE_CHECKING
 
 from selenium import webdriver
@@ -34,10 +36,17 @@ def launch_splash_screen(
     Returns:
         Chrome WebDriver instance on success, or None on failure.
     """
+    # Determine if we should suppress logs based on configured log level
+    # If log level is DEBUG (10) or lower, we want to see selenium logs for debugging.
+    # We cast to int because the argument parser might store it as a string or int.
+    suppress_logs = int(karaoke.log_level) > logging.DEBUG
+
+    log_output = subprocess.DEVNULL if suppress_logs else None
+
     if karaoke.is_raspberry_pi:
-        service = Service(executable_path="/usr/bin/chromedriver")
+        service = Service(executable_path="/usr/bin/chromedriver", log_output=log_output)
     else:
-        service = Service()
+        service = Service(log_output=log_output)
     options = Options()
 
     karaoke_url = f"{karaoke.url}/splash"
@@ -60,6 +69,10 @@ def launch_splash_screen(
     options.add_argument("--disable-infobars")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option("useAutomationExtension", False)
+
+    # Suppress Chrome console warnings (GCM, TensorFlow, etc.) only if not debugging
+    if suppress_logs:
+        options.add_argument("--log-level=3")  # Only show fatal errors
 
     # Raspberry Pi specific optimizations for resource-constrained hardware
     if karaoke.is_raspberry_pi:
