@@ -203,3 +203,28 @@ def enqueue():
     broadcast_event("queue_update")
     song_title = k.filename_from_path(song)
     return json.dumps({"song": song_title, "success": rc})
+
+
+@queue_bp.route("/queue/downloads")
+def get_current_downloads():
+    """Get the status of current and pending downloads.
+    ---
+    tags:
+      - Queue
+    responses:
+      200:
+        description: Status of active and pending downloads
+        schema:
+          type: object
+          properties:
+            active:
+              type: object
+              description: Currently active download info
+            pending:
+              type: array
+              items:
+                type: object
+                description: Pending download info
+    """
+    k = get_karaoke_instance()
+    return json.dumps(k.download_manager.get_downloads_status())
