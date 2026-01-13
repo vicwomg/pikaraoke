@@ -56,7 +56,7 @@ def bg_music(file):
     """
     k = get_karaoke_instance()
     mp3_path = os.path.join(k.bg_music_path, file)
-    return send_file(mp3_path, mimetype="audio/mpeg")
+    return send_file(os.path.abspath(mp3_path), mimetype="audio/mpeg")
 
 
 @background_music_bp.route("/bg_playlist", methods=["GET"])
