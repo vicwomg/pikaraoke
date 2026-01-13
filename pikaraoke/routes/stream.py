@@ -210,7 +210,7 @@ def stream_bg_video():
     k = get_karaoke_instance()
     file_path = k.bg_video_path
     if k.bg_video_path is not None:
-        return send_file(file_path, mimetype="video/mp4")
+        return send_file(os.path.abspath(file_path), mimetype="video/mp4")
     else:
         return Response("Background video not found.", status=404)
 
@@ -226,7 +226,7 @@ def stream_subtitle(id):
             ass_file_path = fr.ass_file_path
             if ass_file_path and os.path.exists(ass_file_path):
                 return send_file(
-                    ass_file_path,
+                    os.path.abspath(ass_file_path),
                     mimetype="text/plain",
                     as_attachment=False,
                     download_name=os.path.basename(ass_file_path),

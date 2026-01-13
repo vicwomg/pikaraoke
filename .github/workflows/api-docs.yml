@@ -30,7 +30,10 @@ jobs:
 
           try:
               # Import app to get all routes registered
-              from pikaraoke.app import app, swagger
+              from pikaraoke.app import app
+              from flasgger import Swagger
+
+              swagger = Swagger(app)
 
               # Get the spec using the swagger object directly
               with app.app_context():
