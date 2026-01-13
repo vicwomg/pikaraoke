@@ -3,7 +3,7 @@
 
 
 # Exlude binary files and CHANGELOGS that are automanaged
-exclude: \.(deb|exe|bat)|^.*\/(CHANGELOG|bug_report|feature_request)\.md$
+exclude: \.(deb|exe|bat)|^.*\/(CHANGELOG|bug_report|feature_request)\.md$|^\.claude\/agents\/
 
 repos:
 
