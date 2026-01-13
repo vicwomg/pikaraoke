@@ -8,10 +8,9 @@
   <title>{{site_title}}</title>
   {% endif %}
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script type=text/javascript src="{{  url_for('static', filename='jquery-3.3.1.min.js') }}"></script>
-  <script src="{{  url_for('static', filename='js.cookie-2.2.1.min.js') }}"></script>
-  <script src="{{  url_for('static', filename='lodash.min.js') }}"></script>
-  <script src="{{  url_for('static', filename='socket.io.min.js') }}"></script>
+  <script type=text/javascript src="{{  url_for('static', filename='jquery-3.7.1.min.js') }}"></script>
+  <script src="{{  url_for('static', filename='js.cookie-3.0.5.min.js') }}"></script>
+  <script src="{{  url_for('static', filename='socket.io-4.8.3.min.js') }}"></script>
   <script src="{{  url_for('static', filename='spa-navigation.js') }}"></script>
   <link rel="stylesheet" href="{{  url_for('static', filename='bulma.min.css') }}">
   <link rel="stylesheet" href="{{  url_for('static', filename='bulma-dark.css') }}">
@@ -37,6 +36,18 @@
       } else {
         return value + " semitones";
       }
+    }
+
+    function isEqual(obj1, obj2) {
+      return JSON.stringify(obj1) === JSON.stringify(obj2);
+    }
+
+    function debounce(func, wait) {
+      let timeout;
+      return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
     }
 
     function connectSocket() {

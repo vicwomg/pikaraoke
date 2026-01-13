@@ -87,7 +87,7 @@
 
 		$("#volume-slider").on(
 			"input",
-			_.debounce(function (event) {
+			debounce(function (event) {
 				const value = this.value;
 				$.get("/volume/" + value);
 			}, 500)
