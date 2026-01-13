@@ -10,18 +10,17 @@ import sys
 from urllib.parse import quote
 
 import flask_babel
-from flasgger import Swagger
 from flask import Flask, request, session
 from flask_babel import Babel
 from flask_socketio import SocketIO
 
-from pikaraoke import karaoke
+from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
-from pikaraoke.lib.get_platform import get_platform, has_js_runtime
+from pikaraoke.lib.get_platform import get_data_directory, get_platform, has_js_runtime
 from pikaraoke.lib.selenium import launch_splash_screen
 from pikaraoke.routes.admin import admin_bp
 from pikaraoke.routes.background_music import background_music_bp
@@ -52,14 +51,22 @@ app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
+# Initialize Swagger API docs if enabled via CLI flag
 app.config["SWAGGER"] = {
     "title": "PiKaraoke API",
     "description": "API for controlling PiKaraoke - a KTV-style karaoke system",
-    "version": "1.0.0",
+    "version": VERSION,
     "termsOfService": "",
     "hide_top_bar": True,
 }
-swagger = Swagger(app)
+if args.enable_swagger:
+    try:
+        from flasgger import Swagger
+
+        Swagger(app)
+        logging.info("Swagger API documentation enabled at /apidocs")
+    except ImportError:
+        logging.warning("flasgger not installed. Swagger API docs disabled.")
 
 # Register blueprints for additional routes
 app.register_blueprint(home_bp)
@@ -146,6 +153,11 @@ def main() -> None:
     platform = get_platform()
 
     args = parse_pikaraoke_args()
+
+    # --- LOGGING SETUP ---
+    # Optional: Force the log file to go to AppData too, so you can debug installation issues
+    # log_path = os.path.join(get_data_directory(), 'pikaraoke.log')
+    # logging.basicConfig(filename=log_path, level=logging.INFO)
 
     if not is_ffmpeg_installed():
         logging.error(
