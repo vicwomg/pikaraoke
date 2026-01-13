@@ -82,9 +82,9 @@ class Karaoke:
     selenium_driver: Any = None  # Reference to the Selenium WebDriver
     base_path: str = os.path.dirname(__file__)
     loop_interval: int = 500  # in milliseconds
-    default_logo_path: str = os.path.join(base_path, "logo.png")
-    default_bg_music_path: str = os.path.join(base_path, "static/music/")
-    default_bg_video_path: str = os.path.join(base_path, "static/video/night_sea.mp4")
+    default_logo_path: str = os.path.join(base_path, "static", "images", "logo.png")
+    default_bg_music_path: str = os.path.join(base_path, "static", "music")
+    default_bg_video_path: str = os.path.join(base_path, "static", "video", "night_sea.mp4")
     screensaver_timeout: int = 300  # in seconds
 
     normalize_audio: bool = False

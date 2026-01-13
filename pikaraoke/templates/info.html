@@ -131,6 +131,19 @@
 
 				updatePhrases(phrases)
 			})
+
+			// Fetch system stats asynchronously
+			$.getJSON("{{ url_for('info.get_system_stats') }}", function(data) {
+				if (data.error) {
+					console.error("Error fetching stats:", data.error);
+					return;
+				}
+				$("#system-cpu").text(data.cpu);
+				$("#system-disk").text(data.disk);
+				$("#system-memory").text(data.memory);
+			}).fail(function() {
+				console.error("Failed to fetch system stats");
+			});
 		});
 	</script>
 {% endblock %}
@@ -197,11 +210,11 @@
 				<div class="content">
 					<ul>
 					{# MSG: The CPU usage of the computer running Pikaraoke. #}
-					<li>{% trans %}CPU: {{ cpu }}{% endtrans %}</li>
+					<li>{% trans %}CPU:{% endtrans %} <span id="system-cpu">{% trans %}Loading...{% endtrans %}</span></li>
 					{# MSG: The disk usage of the computer running Pikaraoke. Used by downloaded songs. #}
-					<li>{% trans %}Disk Usage: {{ disk }}{% endtrans %}</li>
+					<li>{% trans %}Disk Usage:{% endtrans %} <span id="system-disk">{% trans %}Loading...{% endtrans %}</span></li>
 					{# MSG: The memory (RAM) usage of the computer running Pikaraoke. #}
-					<li>{% trans %}Memory: {{ memory }}{% endtrans %}</li>
+					<li>{% trans %}Memory:{% endtrans %} <span id="system-memory">{% trans %}Loading...{% endtrans %}</span></li>
 					</ul>
 				</div>
 			</div>
