@@ -5,11 +5,23 @@ from __future__ import annotations
 import logging
 import re
 import subprocess
+import uuid
 from queue import Queue
 from threading import Thread
 from typing import TYPE_CHECKING
 
 from pikaraoke.lib.youtube_dl import build_ytdl_download_command
+
+
+def _broadcast_helper(app, event):
+    """Helper to broadcast event with app context if available."""
+    from pikaraoke.lib.current_app import broadcast_event
+
+    if app:
+        with app.app_context():
+            broadcast_event(event)
+    else:
+        broadcast_event(event)
 
 
 def parse_download_path(output: str) -> str | None:
@@ -62,14 +74,43 @@ class DownloadManager:
         """
         self.karaoke = karaoke
         self.download_queue: Queue = Queue()
+        self.pending_downloads: list[dict] = []  # Shadow queue for visibility
+        self.download_errors: list[dict] = []  # Track failed downloads
+        self.active_download: dict | None = None
         self._worker_thread: Thread | None = None
         self._is_downloading: bool = False  # Track if a download is currently in progress
+        self.app = None  # Flask app instance for background context
 
     def start(self) -> None:
         """Start the download worker thread."""
         self._worker_thread = Thread(target=self._process_queue, daemon=True)
         self._worker_thread.start()
         logging.debug("Download queue worker started")
+
+    def get_downloads_status(self) -> dict:
+        """Get the status of active and pending downloads.
+
+        Returns:
+            Dict containing 'active' download info and list of 'pending' downloads.
+        """
+        return {
+            "active": self.active_download,
+            "pending": self.pending_downloads,
+            "errors": self.download_errors,
+        }
+
+    def remove_error(self, error_id: str) -> bool:
+        """Remove an error from the list by ID.
+
+        Args:
+            error_id: The ID of the error to remove.
+
+        Returns:
+            True if removed, False if not found.
+        """
+        initial_len = len(self.download_errors)
+        self.download_errors = [e for e in self.download_errors if e["id"] != error_id]
+        return len(self.download_errors) < initial_len
 
     def queue_download(
         self,
@@ -105,15 +146,21 @@ class DownloadManager:
             # MSG: Message shown when download is added and will start immediately
             self.karaoke.log_and_send(_("Download starting: %s") % displayed_title)
 
-        # Add to the download queue
-        self.download_queue.put(
-            {
-                "video_url": video_url,
-                "enqueue": enqueue,
-                "user": user,
-                "title": title,
-            }
-        )
+        # If queue was just started (was not downloading before), emit event
+        if not self._is_downloading and self.download_queue.empty():
+            _broadcast_helper(self.app, "download_started")
+
+        download_data = {
+            "video_url": video_url,
+            "enqueue": enqueue,
+            "user": user,
+            "title": title,
+            "display_title": displayed_title,
+        }
+
+        # Add to the download queue and shadow list
+        self.download_queue.put(download_data)
+        self.pending_downloads.append(download_data)
 
     def _process_queue(self) -> None:
         """Worker thread that processes downloads from the queue serially.
@@ -123,7 +170,27 @@ class DownloadManager:
         """
         while True:
             download_request = self.download_queue.get()
+
+            # Remove from shadow queue
+            # Note: Since this is a single worker thread and append happens on main thread,
+            # we simply pop the first item as it corresponds to FIFO queue.
+            # In a multi-worker scenario, this would need a lock.
+            if self.pending_downloads:
+                self.pending_downloads.pop(0)
+
             self._is_downloading = True
+
+            # Initialize active download state
+            self.active_download = {
+                "title": download_request.get("display_title", download_request["video_url"]),
+                "url": download_request["video_url"],
+                "user": download_request["user"],
+                "progress": 0.0,
+                "status": "starting",
+                "eta": "--:--",
+                "speed": "---",
+            }
+
             try:
                 self._execute_download(
                     download_request["video_url"],
@@ -135,7 +202,12 @@ class DownloadManager:
                 logging.error(f"Error processing download: {e}")
             finally:
                 self._is_downloading = False
+                self.active_download = None
                 self.download_queue.task_done()
+
+                # Check if we are done with all downloads
+                if self.download_queue.empty():
+                    _broadcast_helper(self.app, "download_stopped")
 
     def _execute_download(
         self,
@@ -173,16 +245,67 @@ class DownloadManager:
         )
         logging.debug("Youtube-dl command: " + " ".join(cmd))
 
-        # Capture output to extract the downloaded file path
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        rc = result.returncode
+        # Use Popen to capture output in real-time
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,  # Line buffered
+            universal_newlines=True,
+        )
+
+        output_buffer = []
+
+        # Regex to parse progress from yt-dlp stdout
+        # Example: [download]   0.0% of    4.62MiB at  396.66KiB/s ETA 00:12
+        progress_regex = re.compile(
+            r"\[download\]\s+(\d+\.?\d*)%\s+of\s+[^\s]+\s+at\s+([^\s]+)\s+ETA\s+([^\s]+)"
+        )
+
+        while True:
+            line = process.stdout.readline()
+            if not line and process.poll() is not None:
+                break
+            if line:
+                output_buffer.append(line)
+                match = progress_regex.search(line)
+                if match and self.active_download:
+                    percent = float(match.group(1))
+                    speed = match.group(2)
+                    eta = match.group(3)
+
+                    self.active_download["progress"] = percent
+                    self.active_download["status"] = "downloading"
+                    self.active_download["speed"] = speed
+                    self.active_download["eta"] = eta
+                # Log only non-progress lines to avoid spamming logs, or log everything at debug
+                # logging.debug(line.strip())
+
+        rc = process.poll()
+        output = "".join(output_buffer)
 
         if rc != 0:
-            logging.error("Error code while downloading, retrying once...")
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            rc = result.returncode
+            # Logic removed: We no longer retry synchronously as it blocks the queue.
+            # Failed downloads are now failed fast and logged.
 
-        if rc == 0:
+            # MSG: Message shown after the download process is completed but the song is not found
+            k.log_and_send(_("Error downloading song: ") + displayed_title, "danger")
+            logging.error(f"yt-dlp stderr: {output}")
+            self.download_errors.append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "title": displayed_title,
+                    "url": video_url,
+                    "user": user,
+                    "error": output or "Unknown error",
+                }
+            )
+        else:
+            if self.active_download:
+                self.active_download["progress"] = 100
+                self.active_download["status"] = "complete"
+
             if enqueue:
                 # MSG: Message shown after the download is completed and queued
                 k.log_and_send(_("Downloaded and queued: %s") % displayed_title, "success")
@@ -191,7 +314,6 @@ class DownloadManager:
                 k.log_and_send(_("Downloaded: %s") % displayed_title, "success")
 
             # Extract the downloaded file path from yt-dlp output
-            output = result.stdout + result.stderr
             song_path = parse_download_path(output)
             logging.debug(output)
 
@@ -206,9 +328,5 @@ class DownloadManager:
                 else:
                     # MSG: Message shown after the download is completed but the adding to queue fails
                     k.log_and_send(_("Error queueing song: ") + displayed_title, "danger")
-        else:
-            # MSG: Message shown after the download process is completed but the song is not found
-            k.log_and_send(_("Error downloading song: ") + displayed_title, "danger")
-            logging.error(f"yt-dlp stderr: {result.stderr}")
 
         return rc
