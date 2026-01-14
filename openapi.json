@@ -466,6 +466,67 @@
         ]
       }
     },
+    "/queue/downloads": {
+      "get": {
+        "summary": "Get the status of current and pending downloads.",
+        "responses": {
+          "200": {
+            "description": "Status of active and pending downloads",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "active": {
+                  "type": "object",
+                  "description": "Currently active download info"
+                },
+                "pending": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "description": "Pending download info"
+                  }
+                },
+                "errors": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "description": "Failed download info"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Queue"
+        ]
+      }
+    },
+    "/queue/downloads/errors/{error_id}": {
+      "delete": {
+        "summary": "Remove a download error from the list.",
+        "responses": {
+          "200": {
+            "description": "Error removed successfully"
+          },
+          "404": {
+            "description": "Error not found"
+          }
+        },
+        "parameters": [
+          {
+            "name": "error_id",
+            "in": "path",
+            "type": "string",
+            "required": true,
+            "description": "ID of the error to remove"
+          }
+        ],
+        "tags": [
+          "Queue"
+        ]
+      }
+    },
     "/qrcode": {
       "get": {
         "summary": "Get QR code image for the web interface URL.",
