@@ -119,6 +119,139 @@
   document.addEventListener("visibilitychange", window.queuePage_visibilityHandler);
 
   // Add random songs handler is now in spa-navigation.js
+
+  // Download Progress Polling
+  window.queuePage_getDownloads = function() {
+      // Clean up existing timer if any
+      if (window.downloadPollTimer) {
+          clearTimeout(window.downloadPollTimer);
+      }
+
+      // Stop if we left the page
+      if ($('#downloads-section').length === 0) {
+          return;
+      }
+
+      $.get('{{ url_for("queue.get_current_downloads") }}', function(data) {
+          var status = JSON.parse(data);
+          var html = "";
+
+          if (status.active) {
+              var d = status.active;
+              var progressClass = "is-info";
+              if (d.status === 'complete') progressClass = "is-success";
+              if (d.status === 'error') progressClass = "is-danger";
+
+              html += `
+                  <div class="box mb-4 has-background-dark">
+                      <h4 class="title is-5 mb-2">${d.title}</h4>
+                      <!-- inline style to ensure background visibility if theme overrides it -->
+                      <progress class="progress ${progressClass}" value="${d.progress}" max="100" style="background-color: #dbdbdb;">${d.progress}%</progress>
+                      <div class="level is-mobile is-size-7 mt-1">
+                          <div class="level-left">
+                              <span class="level-item text-muted"><b>Status:</b>&nbsp;${d.status}</span>
+                          </div>
+                          <div class="level-right">
+                              <span class="level-item"><b>Speed:</b>&nbsp;${d.speed}&nbsp;&nbsp;&nbsp;<b>ETA:</b>&nbsp;${d.eta}</span>
+                          </div>
+                      </div>
+                  </div>
+              `;
+          }
+
+          if (status.pending && status.pending.length > 0) {
+              html += `<div class="content"><h5 class="title is-6 mb-2">{{ _('Pending downloads') }}</h5>`;
+              status.pending.forEach(function(d) {
+                  html += `
+                      <div class="box mb-2 p-3 has-background-dark is-flex is-align-items-center">
+                          <span class="has-text-grey">${d.display_title || d.video_url}</span>
+                          <span class="tag is-light is-rounded ml-auto">{{ _('Queued') }}</span>
+                      </div>
+                  `;
+              });
+              html += `</div>`;
+          }
+
+          if (status.errors && status.errors.length > 0) {
+              html += `<div class="content"><h5 class="title is-6 mb-2 has-text-danger">{{ _('Download Errors') }}</h5>`;
+              status.errors.forEach(function(d) {
+                  html += `
+                      <div class="box mb-2 p-3 has-background-white-ter is-flex is-align-items-center" style="border-left: 4px solid #f14668;">
+                          <span class="icon has-text-danger mr-2"><i class="icon-cancel"></i></span>
+                          <div class="is-flex-grow-1" style="min-width: 0;">
+                              <p class="has-text-grey mb-0 is-truncated" title="${d.title || d.url}">${d.title || d.url}</p>
+                              <p class="help is-danger mb-0 is-truncated" title="${d.error}">${d.error}</p>
+                          </div>
+                          <span class="tag is-danger is-light is-rounded ml-2">{{ _('Failed') }}</span>
+                          <button class="delete ml-2" onclick="dismissDownloadError('${d.id}')" title="{{ _('Dismiss') }}"></button>
+                      </div>
+                  `;
+              });
+              html += `</div>`;
+          }
+
+          if (html) {
+              $("#downloads-container").html(html);
+              $("#downloads-section").fadeIn();
+          } else {
+              $("#downloads-section").fadeOut();
+          }
+
+          // Continue polling only if there are active items or pending downloads
+          // Error items don't need constant polling
+          var shouldPoll = status.active || (status.pending && status.pending.length > 0);
+
+          if (shouldPoll && $('#downloads-section').length > 0) {
+              window.downloadPollTimer = setTimeout(window.queuePage_getDownloads, 500);
+          }
+      });
+  };
+
+  window.dismissDownloadError = function(errorId) {
+      $.ajax({
+          url: '{{ url_for("queue.delete_download_error", error_id="ERROR_ID") }}'.replace("ERROR_ID", errorId),
+          type: 'DELETE',
+          success: function(result) {
+              // Refresh immediately since polling might be stopped
+              window.queuePage_getDownloads();
+          }
+      });
+  };
+
+  // Socket listeners for download activity
+  window.socket.off("download_started");
+  window.socket.on("download_started", function() {
+      // Start polling if not already running
+      if (!window.downloadPollTimer) {
+          window.queuePage_getDownloads();
+      }
+  });
+
+  window.socket.off("download_stopped");
+  window.socket.on("download_stopped", function() {
+       // Do one final fetch to show completion/errors then stop
+       // The getDownloads function handles stopping if nothing is active
+       if (window.downloadPollTimer) {
+           clearTimeout(window.downloadPollTimer);
+           window.downloadPollTimer = null;
+       }
+       window.queuePage_getDownloads();
+  });
+
+  // Start polling when page loads (or re-loads in SPA)
+  // We hook into the same visibility/load events as the queue
+  var originalVisibilityHandler = window.queuePage_visibilityHandler;
+  window.queuePage_visibilityHandler = function() {
+      originalVisibilityHandler();
+      if (document.visibilityState === 'visible') {
+         window.queuePage_getDownloads();
+      }
+  };
+
+  // Initial kickoff - check if we need to poll
+  $(function() {
+      window.queuePage_getDownloads();
+  });
 </script>
 
 {% endblock %}
@@ -155,5 +288,10 @@
 
 
 {% endif %}
+
+<div id="downloads-section" style="display:none; margin-top: 30px; border-top: 1px solid #dbdbdb; padding-top: 20px;">
+    <h3 class="title is-4">{{ _('Download queue') }}</h3>
+    <div id="downloads-container"></div>
+</div>
 
 {% endblock %}

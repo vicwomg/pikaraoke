@@ -215,6 +215,8 @@ def main() -> None:
     # expose karaoke object to the flask app
     with app.app_context():
         app.config["KARAOKE_INSTANCE"] = k
+        # Pass app instance to download manager for background thread context
+        k.download_manager.app = app
 
     # expose shared configuration variables to the flask app
     app.config["ADMIN_PASSWORD"] = args.admin_password
