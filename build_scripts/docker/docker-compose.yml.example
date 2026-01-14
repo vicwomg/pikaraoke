@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  pikaraoke:
+    # --- BUILD OPTION ---
+    # To build locally, uncomment the build section:
+    # build:
+    #   context: .
+    #   dockerfile: build_scripts/docker/Dockerfile
+
+    # --- IMAGE OPTION ---
+    # Default: Pulls the pre-built image from Docker Hub
+    image: vicwomg/pikaraoke:latest
+
+    container_name: PiKaraoke
+
+    # --- COMMAND CONFIGURATION ---
+    # -u: Required for the QR code to work on other devices.
+    #     Replace <YOUR_LAN_IP> with your computer's actual IP (e.g., 192.168.1.50)
+    # --config-file-path: Ensures settings are saved to the mounted volume
+    command: >
+      -u http://<YOUR_LAN_IP>:5555
+      --config-file-path /app/config/config.ini
+
+    # --- VOLUMES ---
+    # relative paths (./) are used here for simplicity.
+    # You can change these to absolute paths (e.g., C:/Music or /home/pi/Music)
+    volumes:
+      - ./songs:/app/pikaraoke-songs  # Place your song files in a 'songs' folder next to this file
+      - ./config:/app/config          # Config settings will be saved here
+
+    # --- PORTS ---
+    # Map host port 5555 to container port 5555
+    ports:
+      - "5555:5555"
+
+    restart: unless-stopped
+
+    # Bridge mode is required for cross-platform compatibility (Win/Mac/Linux)
+    network_mode: bridge
+
+    # Logging limits to prevent disk filling
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

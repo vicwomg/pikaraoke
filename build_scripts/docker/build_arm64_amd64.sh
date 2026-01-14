@@ -13,4 +13,4 @@ TAG=$1
 # Shift the arguments so that $2 becomes $1, $3 becomes $2, etc.
 shift
 
-docker buildx build --platform linux/arm64,linux/amd64 . -t $TAG "$@"
+docker buildx build --platform linux/arm64,linux/amd64 -f build_scripts/docker/Dockerfile . -t $TAG "$@"
