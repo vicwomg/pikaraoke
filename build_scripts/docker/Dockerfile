@@ -30,4 +30,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
 
 USER pikaraoke
 
-ENTRYPOINT ["pikaraoke", "-d", "/app/pikaraoke-songs/", "--headless"]
+ENTRYPOINT ["pikaraoke", "-d", "/app/pikaraoke-songs/", "--headless", "--config-file-path /app/config/config.ini"]
