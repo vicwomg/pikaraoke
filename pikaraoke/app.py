@@ -64,7 +64,6 @@ if args.enable_swagger:
         from flasgger import Swagger
 
         Swagger(app)
-        logging.info("Swagger API documentation enabled at /apidocs")
     except ImportError:
         logging.warning("flasgger not installed. Swagger API docs disabled.")
 
@@ -246,6 +245,9 @@ def main() -> None:
             sys.exit()
     else:
         driver = None
+
+    if args.enable_swagger:
+        logging.info(f"Swagger API docs enabled at {k.url}/apidocs")
 
     # Start the karaoke process
     k.run()
