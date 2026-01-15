@@ -133,14 +133,8 @@ The Pikaraoke project utilizes `uv` for dependency management and local developm
 From the pikaraoke directory :
 
 ```sh
-# install dependencies
+# install dependencies and run pikaraoke
 uv run pikaraoke
-```
-
-If you don't want to install `uv`, you can alternately install pikaraoke directly from the source code root:
-
-```sh
-pip install .
 ```
 
 See the [Pikaraoke development guide](https://github.com/vicwomg/pikaraoke/wiki/Pikaraoke-development-guide) for more details.
