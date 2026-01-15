@@ -1023,7 +1023,7 @@ requires-dist = [
     { name = "babel", specifier = "==2.9.1" },
     { name = "cherrypy", specifier = "==18.10.0" },
     { name = "ffmpeg-python", specifier = "==0.2.0" },
-    { name = "flasgger", specifier = ">=0.9.7.1" },
+    { name = "flasgger", specifier = ">=0.9.5" },
     { name = "flask", specifier = "==2.2.5" },
     { name = "flask-babel", specifier = "==2.0.0" },
     { name = "flask-paginate", specifier = "==2021.10.29" },
