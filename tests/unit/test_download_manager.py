@@ -118,7 +118,8 @@ class TestDownloadManagerQueueDownload:
     """Tests for DownloadManager.queue_download method."""
 
     @patch("flask_babel._", side_effect=lambda x: x)
-    def test_queue_download_first_item(self, mock_gettext):
+    @patch("pikaraoke.lib.download_manager._broadcast_helper")
+    def test_queue_download_first_item(self, mock_broadcast, mock_gettext):
         """Test queueing first download shows 'starting' message."""
         mock_karaoke = MockKaraokeForDownload()
         dm = DownloadManager(mock_karaoke)
@@ -129,9 +130,11 @@ class TestDownloadManagerQueueDownload:
         mock_karaoke.log_and_send.assert_called_once()
         call_arg = mock_karaoke.log_and_send.call_args[0][0]
         assert "Download starting" in call_arg
+        mock_broadcast.assert_called_once_with(dm.app, "download_started")
 
     @patch("flask_babel._", side_effect=lambda x: x)
-    def test_queue_download_with_pending(self, mock_gettext):
+    @patch("pikaraoke.lib.download_manager._broadcast_helper")
+    def test_queue_download_with_pending(self, mock_broadcast, mock_gettext):
         """Test queueing when items are pending shows queue position."""
         mock_karaoke = MockKaraokeForDownload()
         dm = DownloadManager(mock_karaoke)
@@ -143,7 +146,8 @@ class TestDownloadManagerQueueDownload:
         assert "Download queued" in call_arg
 
     @patch("flask_babel._", side_effect=lambda x: x)
-    def test_queue_download_with_title(self, mock_gettext):
+    @patch("pikaraoke.lib.download_manager._broadcast_helper")
+    def test_queue_download_with_title(self, mock_broadcast, mock_gettext):
         """Test queueing with custom title uses title in message."""
         mock_karaoke = MockKaraokeForDownload()
         dm = DownloadManager(mock_karaoke)
@@ -158,7 +162,8 @@ class TestDownloadManagerQueueDownload:
         assert "My Custom Title" in call_arg
 
     @patch("flask_babel._", side_effect=lambda x: x)
-    def test_queue_download_stores_request_data(self, mock_gettext):
+    @patch("pikaraoke.lib.download_manager._broadcast_helper")
+    def test_queue_download_stores_request_data(self, mock_broadcast, mock_gettext):
         """Test that queue stores all request data."""
         mock_karaoke = MockKaraokeForDownload()
         dm = DownloadManager(mock_karaoke)
@@ -181,19 +186,23 @@ class TestDownloadManagerExecuteDownload:
     """Tests for DownloadManager._execute_download method."""
 
     @patch("flask_babel._", side_effect=lambda x: x)
-    @patch("subprocess.run")
+    @patch("subprocess.Popen")
     @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
-    def test_execute_download_success(self, mock_build_cmd, mock_run, mock_gettext):
+    def test_execute_download_success(self, mock_build_cmd, mock_popen, mock_gettext):
         """Test successful download execution."""
         mock_karaoke = MockKaraokeForDownload()
         dm = DownloadManager(mock_karaoke)
 
         mock_build_cmd.return_value = ["yt-dlp", "-o", "/songs/", "url"]
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout='[Merger] Merging formats into "/songs/Artist - Song---abc123.mp4"',
-            stderr="",
-        )
+
+        # Mock Popen process
+        mock_process = MagicMock()
+        mock_process.stdout.readline.side_effect = [
+            '[Merger] Merging formats into "/songs/Artist - Song---abc123.mp4"',
+            "",
+        ]
+        mock_process.poll.return_value = 0
+        mock_popen.return_value = mock_process
 
         rc = dm._execute_download("https://youtube.com/watch?v=test", False, "User", "Title")
 
@@ -203,19 +212,23 @@ class TestDownloadManagerExecuteDownload:
         )
 
     @patch("flask_babel._", side_effect=lambda x: x)
-    @patch("subprocess.run")
+    @patch("subprocess.Popen")
     @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
-    def test_execute_download_with_enqueue(self, mock_build_cmd, mock_run, mock_gettext):
+    def test_execute_download_with_enqueue(self, mock_build_cmd, mock_popen, mock_gettext):
         """Test download with enqueue adds to queue."""
         mock_karaoke = MockKaraokeForDownload()
         dm = DownloadManager(mock_karaoke)
 
         mock_build_cmd.return_value = ["yt-dlp", "url"]
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout='[Merger] Merging formats into "/songs/Song---abc.mp4"',
-            stderr="",
-        )
+
+        # Mock Popen process
+        mock_process = MagicMock()
+        mock_process.stdout.readline.side_effect = [
+            '[Merger] Merging formats into "/songs/Song---abc.mp4"',
+            "",
+        ]
+        mock_process.poll.return_value = 0
+        mock_popen.return_value = mock_process
 
         dm._execute_download("https://youtube.com/watch?v=test", True, "TestUser", "Title")
 
@@ -225,38 +238,20 @@ class TestDownloadManagerExecuteDownload:
 
     @patch("flask_babel._", side_effect=lambda x: x)
     @patch("subprocess.run")
-    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
-    def test_execute_download_failure_retries(self, mock_build_cmd, mock_run, mock_gettext):
-        """Test download retries once on failure."""
+    @patch("subprocess.Popen")
+    @patch("pikaraoke.lib.youtube_dl.build_ytdl_download_command")
+    def test_execute_download_failure(self, mock_build_cmd, mock_popen, mock_run, mock_gettext):
+        """Test download failure is handled without retry."""
         mock_karaoke = MockKaraokeForDownload()
         dm = DownloadManager(mock_karaoke)
 
         mock_build_cmd.return_value = ["yt-dlp", "url"]
-        # First call fails, second succeeds
-        mock_run.side_effect = [
-            MagicMock(returncode=1, stdout="", stderr="Error"),
-            MagicMock(
-                returncode=0,
-                stdout="[download] Destination: /songs/Song.mp4",
-                stderr="",
-            ),
-        ]
 
-        rc = dm._execute_download("url", False, "User", "Title")
-
-        assert rc == 0
-        assert mock_run.call_count == 2
-
-    @patch("flask_babel._", side_effect=lambda x: x)
-    @patch("subprocess.run")
-    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
-    def test_execute_download_failure_both_attempts(self, mock_build_cmd, mock_run, mock_gettext):
-        """Test download logs error when both attempts fail."""
-        mock_karaoke = MockKaraokeForDownload()
-        dm = DownloadManager(mock_karaoke)
-
-        mock_build_cmd.return_value = ["yt-dlp", "url"]
-        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="Error message")
+        # First call (Popen) fails
+        mock_process = MagicMock()
+        mock_process.stdout.readline.return_value = ""
+        mock_process.poll.return_value = 1
+        mock_popen.return_value = mock_process
 
         rc = dm._execute_download("url", False, "User", "Title")
 
@@ -265,23 +260,110 @@ class TestDownloadManagerExecuteDownload:
         calls = mock_karaoke.log_and_send.call_args_list
         assert any("Error downloading" in str(call) for call in calls)
 
+        # Should populate download_errors
+        assert len(dm.download_errors) == 1
+        assert dm.download_errors[0]["title"] == "Title"
+        # Error content depends on mock, here likely empty string if not set explicitly, or check length
+        assert "error" in dm.download_errors[0]
+
     @patch("flask_babel._", side_effect=lambda x: x)
-    @patch("subprocess.run")
+    @patch("subprocess.Popen")
     @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
-    def test_execute_download_enqueue_without_path(self, mock_build_cmd, mock_run, mock_gettext):
+    def test_execute_download_enqueue_without_path(self, mock_build_cmd, mock_popen, mock_gettext):
         """Test enqueue fails gracefully when path can't be parsed."""
         mock_karaoke = MockKaraokeForDownload()
         dm = DownloadManager(mock_karaoke)
 
         mock_build_cmd.return_value = ["yt-dlp", "url"]
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="No parseable path in output",
-            stderr="",
-        )
+
+        # Mock Popen process
+        mock_process = MagicMock()
+        mock_process.stdout.readline.side_effect = ["No parseable path in output", ""]
+        mock_process.poll.return_value = 0
+        mock_popen.return_value = mock_process
 
         dm._execute_download("url", True, "User", "Title")
 
         # Should log error about queueing
         calls = mock_karaoke.log_and_send.call_args_list
         assert any("Error queueing" in str(call) for call in calls)
+
+
+class TestDownloadManagerStatus:
+    """Tests for DownloadManager.get_downloads_status method."""
+
+    def test_get_downloads_status_empty(self):
+        """Test status with no downloads."""
+        mock_karaoke = MockKaraokeForDownload()
+        dm = DownloadManager(mock_karaoke)
+
+        status = dm.get_downloads_status()
+
+        assert status["active"] is None
+        assert status["pending"] == []
+
+    @patch("pikaraoke.lib.download_manager._broadcast_helper")
+    def test_get_downloads_status_pending(self, mock_broadcast):
+        """Test status with pending downloads."""
+        mock_karaoke = MockKaraokeForDownload()
+        dm = DownloadManager(mock_karaoke)
+
+        dm.queue_download("http://example.com/1", title="Song 1")
+        dm.queue_download("http://example.com/2", title="Song 2")
+
+        status = dm.get_downloads_status()
+
+        assert status["active"] is None
+        assert len(status["pending"]) == 2
+        assert status["pending"][0]["title"] == "Song 1"
+        assert status["pending"][1]["title"] == "Song 2"
+
+    def test_get_downloads_status_active(self):
+        """Test status with active download."""
+        mock_karaoke = MockKaraokeForDownload()
+        dm = DownloadManager(mock_karaoke)
+
+        # Simulate active download
+        dm.active_download = {"title": "Active Song", "progress": 50.0, "status": "downloading"}
+
+        status = dm.get_downloads_status()
+
+        assert status["active"]["title"] == "Active Song"
+        assert status["active"]["progress"] == 50.0
+
+    def test_get_downloads_status_errors(self):
+        """Test status with download errors."""
+        mock_karaoke = MockKaraokeForDownload()
+        dm = DownloadManager(mock_karaoke)
+
+        dm.download_errors = [
+            {
+                "id": "1234",
+                "title": "Failed Song",
+                "url": "http://example.com/fail",
+                "user": "User",
+                "error": "Error message",
+            }
+        ]
+
+        status = dm.get_downloads_status()
+
+        assert len(status["errors"]) == 1
+        assert status["errors"][0]["title"] == "Failed Song"
+
+    def test_remove_error(self):
+        """Test removing an error by ID."""
+        mock_karaoke = MockKaraokeForDownload()
+        dm = DownloadManager(mock_karaoke)
+
+        dm.download_errors = [{"id": "1234", "title": "Failed Song", "error": "Error"}]
+
+        # Test remove invalid ID
+        result = dm.remove_error("9999")
+        assert result is False
+        assert len(dm.download_errors) == 1
+
+        # Test remove valid ID
+        result = dm.remove_error("1234")
+        assert result is True
+        assert len(dm.download_errors) == 0
