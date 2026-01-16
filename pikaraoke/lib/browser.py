@@ -6,6 +6,7 @@ import logging
 import os
 import shutil
 import subprocess
+import time
 import webbrowser
 from typing import TYPE_CHECKING
 
@@ -101,16 +102,19 @@ class Browser:
         if browser_executable:
             cmd = [browser_executable]
 
+            # Use a persistent profile on desktop platforms to ensure flags are respected
+            # even if Chrome is already open and to preserve cookies (user name).
+            # Skip on Pi (dedicated kiosk device uses default profile).
+            if not self.karaoke.is_raspberry_pi:
+                cmd.append(f"--user-data-dir={self.browser_profile_dir}")
+
             if self.window_size:
+                # Windowed mode: use --app for minimal UI, --new-window to ensure sizing works
+                cmd.append("--new-window")
                 cmd.append(f"--window-size={self.window_size}")
                 cmd.append(f"--app={self.splash_url}")
             else:
                 cmd.append("--kiosk")
-                # Use a persistent profile on desktop platforms to ensure kiosk mode works
-                # even if Chrome is already open and to preserve cookies (user name).
-                # Skip on Pi (dedicated kiosk device uses default profile).
-                if not self.karaoke.is_raspberry_pi:
-                    cmd.append(f"--user-data-dir={self.browser_profile_dir}")
 
             # Flags to bypass interactions and errors
             cmd.extend(
@@ -156,20 +160,28 @@ class Browser:
                 logging.error(f"Error opening system browser: {e}")
 
     def close(self):
-        """
-        Close the browser process.
-        """
+        """Close the browser process and all child processes."""
         if self.browser_process is not None:
             logging.info(f"Terminating browser process {self.browser_process.pid}")
-            # On Windows, terminate() is a hard kill. We must use taskkill to allow Chrome to save cookies.
             if is_windows():
-                subprocess.call(["taskkill", "/PID", str(self.browser_process.pid)])
+                # Signal main process to close (allows Chrome to save cookies)
+                subprocess.call(
+                    ["taskkill", "/PID", str(self.browser_process.pid)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                # Give Chrome time to save cookies and shut down gracefully
+                time.sleep(1)
+                # Force kill any remaining child processes
+                subprocess.call(
+                    ["taskkill", "/F", "/T", "/PID", str(self.browser_process.pid)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
             else:
                 self.browser_process.terminate()
 
             self.browser_process.wait()
             self.browser_process = None
         else:
-            logging.warning(
-                "Browser process cannot be closed by pikaraoke, it must be closed manually."
-            )
+            logging.warning("Browser opened via system default cannot be closed by PiKaraoke.")
