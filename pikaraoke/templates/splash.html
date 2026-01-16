@@ -629,21 +629,18 @@
   <div class="modal-background"></div>
   <div class="modal-content" id="permissions-modal-content">
     <p>
-      {# MSG: Prompt for interaction in order to enable video autoplay. #} {%
-      trans %}Due to limitations with browser permissions, you must interact
-      with the page once before it allows autoplay of videos. Pikaraoke will not
-      play otherwise. Click the button below to
-      <a onClick="handleConfirmation()">confirm</a>.{% endtrans %}
+      {# MSG: Prompt for interaction in order to enable video autoplay. #}
+      {% trans %}Tap to enable video playback.{% endtrans %}
     </p>
     <div class="has-text-centered">
       <button
         id="permissions-button"
-        class="button is-success"
+        class="button is-success is-large"
         style="margin-top: 10px"
         onClick="handleConfirmation()"
       >
-        {# MSG: Button to confirm to enable video autoplay. #} {% trans
-        %}Confirm{% endtrans %}
+        {# MSG: Button to confirm to enable video autoplay. #}
+        {% trans %}Start{% endtrans %}
       </button>
     </div>
   </div>
