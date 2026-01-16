@@ -1,0 +1,6 @@
+# FFmpeg binaries are downloaded during CI build
+# Do not commit actual binaries to the repository
+#
+# Required files (downloaded from https://www.gyan.dev/ffmpeg/builds/):
+# - ffmpeg.exe
+# - ffprobe.exe

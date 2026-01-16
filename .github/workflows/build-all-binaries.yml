@@ -10,19 +10,52 @@ jobs:
     strategy:
       matrix:
         include:
+          # Windows MSI installer (includes bundled FFmpeg)
           - os: windows-latest
             platform: windows
             artifact_pattern: "dist/*.msi"
+
+          # macOS DMG (universal binary: Intel + Apple Silicon)
+          # Note: FFmpeg must be installed separately via Homebrew
           - os: macos-latest
             platform: macOS
             artifact_pattern: "dist/*.dmg"
-          - os: ubuntu-20.04
-            platform: linux
-            artifact_pattern: "dist/*.AppImage"
+
+          # To enable/disable platforms, comment out the relevant matrix entry above.
+          # Linux is not included - Raspberry Pi users should use pip/pipx install.
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Download FFmpeg (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $ffmpegUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+          $zipPath = "ffmpeg.zip"
+          $extractPath = "ffmpeg-temp"
+          $targetPath = "resources/windows"
+
+          Write-Host "Downloading FFmpeg from $ffmpegUrl..."
+          Invoke-WebRequest -Uri $ffmpegUrl -OutFile $zipPath
+
+          Write-Host "Extracting FFmpeg..."
+          Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+
+          # Find the bin directory (it's inside a versioned folder)
+          $binPath = Get-ChildItem -Path $extractPath -Recurse -Directory -Filter "bin" | Select-Object -First 1
+
+          Write-Host "Copying FFmpeg binaries to $targetPath..."
+          Copy-Item -Path "$($binPath.FullName)/ffmpeg.exe" -Destination $targetPath
+          Copy-Item -Path "$($binPath.FullName)/ffprobe.exe" -Destination $targetPath
+
+          # Cleanup
+          Remove-Item -Path $zipPath -Force
+          Remove-Item -Path $extractPath -Recurse -Force
+
+          Write-Host "FFmpeg binaries ready:"
+          Get-ChildItem -Path $targetPath
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -37,9 +70,9 @@ jobs:
         if: matrix.platform == 'windows'
         run: uv run briefcase package windows --adhoc-sign
 
-      - name: Package application (macOS/Linux)
-        if: matrix.platform != 'windows'
-        run: uv run briefcase package ${{ matrix.platform }}
+      - name: Package application (macOS)
+        if: matrix.platform == 'macOS'
+        run: uv run briefcase package macOS
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

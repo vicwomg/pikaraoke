@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import platform
 import subprocess
 from typing import TYPE_CHECKING, Any
@@ -11,6 +12,55 @@ import ffmpeg
 
 if TYPE_CHECKING:
     from pikaraoke.lib.file_resolver import FileResolver
+
+# Cache for FFmpeg path lookup
+_ffmpeg_path: str | None = None
+
+
+def get_ffmpeg_path() -> str:
+    """Get the path to the FFmpeg executable.
+
+    On Windows Briefcase builds, looks for bundled ffmpeg.exe in the app directory.
+    Otherwise returns 'ffmpeg' to use system PATH.
+
+    Returns:
+        Path to ffmpeg executable or 'ffmpeg' for system PATH lookup.
+    """
+    global _ffmpeg_path
+    if _ffmpeg_path is not None:
+        return _ffmpeg_path
+
+    # Check for bundled FFmpeg on Windows (Briefcase package)
+    if platform.system() == "Windows":
+        # In a Briefcase app, __file__ is inside app/pikaraoke/lib/
+        # FFmpeg binaries are in app/windows/ (from resources/windows source)
+        lib_dir = os.path.dirname(os.path.abspath(__file__))
+        pikaraoke_dir = os.path.dirname(lib_dir)
+        app_dir = os.path.dirname(pikaraoke_dir)
+
+        # Check for bundled ffmpeg.exe in the windows resources folder
+        bundled_path = os.path.join(app_dir, "windows", "ffmpeg.exe")
+        if os.path.isfile(bundled_path):
+            logging.info(f"Using bundled FFmpeg: {bundled_path}")
+            _ffmpeg_path = bundled_path
+            return _ffmpeg_path
+
+    # Fall back to system PATH
+    _ffmpeg_path = "ffmpeg"
+    return _ffmpeg_path
+
+
+def get_ffprobe_path() -> str:
+    """Get the path to the FFprobe executable.
+
+    Returns:
+        Path to ffprobe executable or 'ffprobe' for system PATH lookup.
+    """
+    ffmpeg_path = get_ffmpeg_path()
+    if ffmpeg_path == "ffmpeg":
+        return "ffprobe"
+    # Replace ffmpeg.exe with ffprobe.exe for bundled version
+    return ffmpeg_path.replace("ffmpeg.exe", "ffprobe.exe")
 
 
 def get_media_duration(file_path: str) -> int | None:
@@ -23,7 +73,7 @@ def get_media_duration(file_path: str) -> int | None:
         Duration in seconds (rounded), or None if unable to determine.
     """
     try:
-        duration = ffmpeg.probe(file_path)["format"]["duration"]
+        duration = ffmpeg.probe(file_path, cmd=get_ffprobe_path())["format"]["duration"]
         return round(float(duration))
     except:
         return None
@@ -178,16 +228,14 @@ def get_ffmpeg_version() -> str:
         or version cannot be parsed.
     """
     try:
-        # Execute the command 'ffmpeg -version'
         result = subprocess.run(
-            ["ffmpeg", "-version"],
+            [get_ffmpeg_path(), "-version"],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
         )
-        # Parse the first line to get the version
         first_line = result.stdout.split("\n")[0]
-        version_info = first_line.split(" ")[2]  # Assumes the version info is the third element
+        version_info = first_line.split(" ")[2]
         return version_info
     except FileNotFoundError:
         return "FFmpeg is not installed"
@@ -203,7 +251,7 @@ def is_transpose_enabled() -> bool:
     """
     try:
         filters = subprocess.run(
-            ["ffmpeg", "-filters"],
+            [get_ffmpeg_path(), "-filters"],
             capture_output=True,
         )
     except FileNotFoundError:
@@ -234,7 +282,7 @@ def supports_hardware_h264_encoding() -> bool:
     # On ARM, check if h264_v4l2m2m is available
     try:
         codecs = subprocess.run(
-            ["ffmpeg", "-codecs"],
+            [get_ffmpeg_path(), "-codecs"],
             capture_output=True,
         )
     except FileNotFoundError:
@@ -259,7 +307,7 @@ def is_ffmpeg_installed() -> bool:
     """
     try:
         subprocess.run(
-            ["ffmpeg", "-version"],
+            [get_ffmpeg_path(), "-version"],
             capture_output=True,
         )
     except FileNotFoundError:

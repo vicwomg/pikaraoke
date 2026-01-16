@@ -158,19 +158,45 @@ system_requires = []
 
 # Windows-specific configuration
 [tool.briefcase.app.pikaraoke.windows]
-# Require Windows 10 or later
-# system_installer = "NSIS"
-
-# Windows system requirements
-# Note: FFmpeg would need to be bundled or documented as requirement
-system_requires = []
+# Include FFmpeg binaries (downloaded during CI build, added to base sources)
+sources = ["resources/windows"]
 
 # Console visibility (false = GUI app, true = console app)
 # Set to true to absorb yt-dlp and ffmpeg subprocess console windows
 console_app = true
+
 # Set to true to have the app appear in the Start menu
 install_launcher = true
-post_install_script = "build_scripts/windows/windows_desktop_icon.bat"
+
+# Installation scripts (executed from installed location)
+post_install_script = "build_scripts/windows/windows_post_install.bat"
+pre_uninstall_script = "build_scripts/windows/windows_pre_uninstall.bat"
+
+# Installer options presented to user during installation
+[[tool.briefcase.app.pikaraoke.install_option]]
+name = "desktop_shortcut"
+title = "Desktop Shortcut"
+description = "Create a desktop shortcut for PiKaraoke"
+default = true
+
+[[tool.briefcase.app.pikaraoke.install_option]]
+name = "headless_shortcut"
+title = "Headless Shortcut"
+description = "Create a desktop shortcut for PiKaraoke (Headless mode)"
+default = false
+
+# Uninstaller options presented to user during uninstallation
+[[tool.briefcase.app.pikaraoke.uninstall_option]]
+name = "remove_data"
+title = "Remove User Data"
+description = "Delete downloaded songs, logs, and configuration files"
+default = false
+
+[[tool.briefcase.app.pikaraoke.uninstall_option]]
+name = "remove_shortcuts"
+title = "Remove Shortcuts"
+description = "Delete desktop shortcuts created during installation"
+default = true
 
 # Linux-specific configuration
 [tool.briefcase.app.pikaraoke.linux]
