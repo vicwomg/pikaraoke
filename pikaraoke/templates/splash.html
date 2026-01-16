@@ -50,7 +50,6 @@
   var octopusInstance = null;
   var showMenu = false;
   var menuButtonVisible = false;
-  var confirmationDismissed = false;
   var volume = 0.85;
   var playbackStartTimeout = 10000;
   var isScoreShown = false;
@@ -93,7 +92,6 @@
 
   async function handleConfirmation() {
     $('#permissions-modal').removeClass('is-active');
-    confirmationDismissed = true;
     if (hasBgVideo) playBGVideo(true);
     playBGMusic(true);
   }
@@ -273,10 +271,6 @@
     }
 
     if (np.now_playing_url && np.now_playing_url !== currentVideoUrl) {
-      if (!confirmationDismissed) {
-        console.log('Interaction required.');
-      }
-
       currentVideoUrl = np.now_playing_url;
       const streamUrl = np.now_playing_url;
       $("#video-source").attr("src", "");
@@ -426,7 +420,6 @@
     let params = new URLSearchParams(window.location.search);
     if (params.get('confirm') === 'false') {
       $('#permissions-modal').removeClass('is-active');
-      confirmationDismissed = true;
       playBGMusic(true);
       if (hasBgVideo) playBGVideo(true);
     } else {
@@ -447,6 +440,7 @@
           }
         } catch (e) {
           // Autoplay blocked, show modal
+          $('#permissions-modal').addClass('is-active');
         }
       };
       testAutoplay();
@@ -512,6 +506,11 @@
       const categoryClass = notification.length > 1 ? notification[1] : "is-primary";
       flashNotification(message, categoryClass);
       socket.emit("clear_notification");
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('Connection error:', error);
+      flashNotification("Socket connection error. Is the pikaraoke server still running?", "is-danger");
     });
 
     loadNowPlaying();
@@ -626,7 +625,7 @@
 	<canvas id="fireworks"></canvas>
 </div>
 
-<div id="permissions-modal" class="modal is-active">
+<div id="permissions-modal" class="modal">
   <div class="modal-background"></div>
   <div class="modal-content" id="permissions-modal-content">
     <p>
