@@ -317,10 +317,10 @@ The project uses pre-commit hooks defined in `code_quality/.pre-commit-config.ya
 
 ```bash
 # Run all pre-commit checks
-pre-commit run --config code_quality/.pre-commit-config.yaml --all-files
+uv run pre-commit run --config code_quality/.pre-commit-config.yaml --all-files
 
 # Install hooks
-pre-commit install --config code_quality/.pre-commit-config.yaml
+uv run pre-commit install --config code_quality/.pre-commit-config.yaml
 ```
 
 ### Code Formatting & Linting

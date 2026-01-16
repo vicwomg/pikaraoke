@@ -6,6 +6,7 @@ monkey.patch_all()
 
 import logging
 import os
+import subprocess
 import sys
 from urllib.parse import quote
 
@@ -17,11 +18,16 @@ from flask_socketio import SocketIO
 from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
+from pikaraoke.lib.browser import launch_splash_screen
 from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
-from pikaraoke.lib.get_platform import get_data_directory, get_platform, has_js_runtime
-from pikaraoke.lib.selenium import launch_splash_screen
+from pikaraoke.lib.get_platform import (
+    get_data_directory,
+    get_platform,
+    has_js_runtime,
+    is_windows,
+)
 from pikaraoke.routes.admin import admin_bp
 from pikaraoke.routes.background_music import background_music_bp
 from pikaraoke.routes.batch_song_renamer import batch_song_renamer_bp
@@ -237,20 +243,26 @@ def main() -> None:
         args.hide_splash_screen = True
         logging.info("Forced to run headless mode in Android")
 
-    # Start the splash screen using selenium
+    # Start the splash screen browser
     if not args.hide_splash_screen:
-        driver = launch_splash_screen(k, args.window_size, args.external_monitor)
-        if not driver:
+        browser_process = launch_splash_screen(k, args.window_size, args.external_monitor)
+        if not browser_process:
             sys.exit()
     else:
-        driver = None
+        browser_process = None
 
     # Start the karaoke process
     k.run()
 
     # Close running processes when done
-    if driver is not None:
-        driver.close()
+    if browser_process is not None:
+        # On Windows, terminate() is a hard kill. We must use taskkill to allow Chrome to save cookies.
+        if is_windows:
+            subprocess.call(["taskkill", "/PID", str(browser_process.pid)])
+        else:
+            browser_process.terminate()
+
+        browser_process.wait()
 
     delete_tmp_dir()
     sys.exit()
