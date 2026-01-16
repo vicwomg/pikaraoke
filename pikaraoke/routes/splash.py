@@ -6,7 +6,7 @@ import subprocess
 import flask_babel
 from flask import Blueprint, render_template
 
-from pikaraoke.lib.current_app import get_karaoke_instance
+from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
 from pikaraoke.lib.raspi_wifi_config import get_raspi_wifi_text
 
 _ = flask_babel.gettext
@@ -26,6 +26,7 @@ def splash():
         description: HTML splash screen page
     """
     k = get_karaoke_instance()
+    site_name = get_site_name()
     text = ""
     if k.is_raspberry_pi:
         has_iwconfig = shutil.which("iwconfig")
@@ -42,6 +43,7 @@ def splash():
 
     return render_template(
         "splash.html",
+        site_title=site_name,
         blank_page=True,
         url=k.url,
         hostap_info=text,
