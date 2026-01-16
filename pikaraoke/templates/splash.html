@@ -427,14 +427,11 @@
         }
         // Try to resume (some browsers start suspended)
         await ctx.resume();
-        // Safari may silently keep context suspended without throwing an error
-        // Give it a moment to settle, then check state again
-        await new Promise(resolve => setTimeout(resolve, 100));
         if (ctx.state === 'running') {
           ctx.close();
           handleConfirmation();
-        } else {
-          // Context still suspended - autoplay is blocked
+        } else if (ctx.state === 'suspended') {
+          // Context still suspended - autoplay is blocked (Safari may do this silently)
           ctx.close();
           $('#permissions-modal').addClass('is-active');
         }
