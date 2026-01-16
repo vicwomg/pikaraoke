@@ -125,27 +125,16 @@ For more information, [see official Dockerhub repo](https://hub.docker.com/r/vic
 
 ## Developing pikaraoke
 
-The Pikaraoke project utilizes Poetry for dependency management and local development.
+The Pikaraoke project utilizes `uv` for dependency management and local development.
 
-- Install poetry: [Poetry](https://python-poetry.org/docs/#installation)
+- Install [uv](https://github.com/astral-sh/uv)
 - Git clone this repo
 
-From the pikaraoke directory:
+From the pikaraoke directory :
 
 ```sh
-# install dependencies
-poetry install
-```
-
-```sh
-# Run pikaraoke from the local codebase
-poetry run pikaraoke
-```
-
-If you don't want to install poetry, you can alternately install pikaraoke directly from the source code root:
-
-```sh
-pip install .
+# install dependencies and run pikaraoke
+uv run pikaraoke
 ```
 
 See the [Pikaraoke development guide](https://github.com/vicwomg/pikaraoke/wiki/Pikaraoke-development-guide) for more details.
