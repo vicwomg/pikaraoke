@@ -35,6 +35,7 @@
   const isFirefox = /firefox/i.test(navigator.userAgent);
   const isEdge = /edg/i.test(navigator.userAgent);
   const isSupportedBrowser = isSafari || isChrome || isFirefox || isEdge;
+  const isForcePermissionsModalBrowser = isMobileSafari;
 
   var socket = io();
 
@@ -416,8 +417,17 @@
       modalContents.prepend(warningMessage);
     }
 
+    const enablePermissionsModal = () => {
+      $('#permissions-modal').addClass('is-active');
+    }
+
     // Test if autoplay with audio is allowed using a real video file
     const testAutoplay = async () => {
+      if (isForcePermissionsModalBrowser) {
+        // Uses hardcoded unsupported browsers. Use this for browsers that somehow pass the below test but still fail to autoplay
+        enablePermissionsModal();
+        return;
+      }
       try {
         const testVideo = document.createElement('video');
         testVideo.playsInline = true;
@@ -435,14 +445,14 @@
         // Check if browser auto-muted the video (Safari does this)
         if (testVideo.muted) {
           testVideo.pause();
-          $('#permissions-modal').addClass('is-active');
+          enablePermissionsModal();
         } else {
           testVideo.pause();
           handleConfirmation();
         }
       } catch (e) {
         // Autoplay blocked
-        $('#permissions-modal').addClass('is-active');
+        enablePermissionsModal();
       }
     };
     testAutoplay();
@@ -633,12 +643,15 @@
 
 <div id="permissions-modal" class="modal">
   <div class="modal-background"></div>
-  <div class="modal-content has-text-centered" id="permissions-modal-content">
+  <div class="modal-content" id="permissions-modal-content">
     <p>
-      {# MSG: Prompt for interaction in order to enable video autoplay. #}
-      {% trans %}Tap to enable video playback.{% endtrans %}
+      {# MSG: Prompt for interaction in order to enable video autoplay. #} {%
+      trans %}Due to limitations with browser permissions, you must interact
+      with the page once before it allows autoplay of videos. Pikaraoke will not
+      play otherwise. Click the button below to
+      <a onClick="handleConfirmation()">confirm</a>.{% endtrans %}
     </p>
-    <div>
+    <div class="has-text-centered">
       <button
         id="permissions-button"
         class="button is-success is-large"
@@ -646,7 +659,7 @@
         onClick="handleConfirmation()"
       >
         {# MSG: Button to confirm to enable video autoplay. #}
-        {% trans %}Start{% endtrans %}
+        {% trans %}Confirm{% endtrans %}
       </button>
     </div>
   </div>
