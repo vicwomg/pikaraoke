@@ -113,6 +113,7 @@
         // Remove any existing handlers first to avoid duplicates
         $(document).off('click', '.confirm-clear');
         $(document).off('click', '.confirm-delete');
+        $(document).off('click', '.confirm-delete-file');
         $(document).off('click', '.up-button');
         $(document).off('click', '.down-button');
         $(document).off('click', '.add-random');
@@ -134,6 +135,14 @@
             e.preventDefault();
             if (window.confirm(`Are you sure you want to delete "${this.title}" from the queue?`)) {
                 $.get(this.href);
+            }
+        });
+
+        // Delete song file from library confirmation (full page navigation)
+        $(document).on('click', '.confirm-delete-file', function(e) {
+            e.preventDefault();
+            if (window.confirm('Are you sure you want to delete this song from the library?')) {
+                window.location.href = this.href;
             }
         });
 
@@ -224,7 +233,8 @@
             $link.hasClass('edit-button') ||
             $link.hasClass('add-song-link') ||  // Browse page add to queue
             $link.hasClass('confirm-clear') ||   // Clear queue button (has its own handler)
-            $link.hasClass('confirm-delete') ||  // Delete song button (has its own handler)
+            $link.hasClass('confirm-delete') ||  // Delete song from queue (has its own handler)
+            $link.hasClass('confirm-delete-file') ||  // Delete song file from library (has its own handler)
             $link.hasClass('up-button') ||       // Move song up button (has its own handler)
             $link.hasClass('down-button') ||     // Move song down button (has its own handler)
             $link.hasClass('add-random')) {      // Add random songs button (has its own handler)
