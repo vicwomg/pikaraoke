@@ -39,27 +39,8 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Cache Poetry Install
-      id: cache-poetry
-      uses: actions/cache@v4
-      with:
-        path: |
-          /opt/poetry
-          ~/.cache/pypoetry
-          .venv
-        key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}-${{ hashFiles('**/pyproject.toml')
-          }}
-
-    - name: Install Poetry
-      if: steps.cache-poetry.outputs.cache-hit != 'true'
-      run: |
-        export POETRY_HOME=/opt/poetry
-        python3 -m venv $POETRY_HOME
-        $POETRY_HOME/bin/pip install poetry==2.1.3
-        $POETRY_HOME/bin/poetry --version
-
-    - name: Add Poetry to PATH
-      run: echo "/opt/poetry/bin" >> $GITHUB_PATH
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
 
     - name: Extract version number
       id: get_version
@@ -67,11 +48,8 @@ jobs:
         version=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)
         echo "VERSION=$version" >> $GITHUB_ENV
 
-    - name: Install Package
-      run: poetry install --no-interaction --no-ansi
-
     - name: Build Package
-      run: poetry build
+      run: uv build
 
     - name: Publish Python 🐍 distribution 📦 to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
