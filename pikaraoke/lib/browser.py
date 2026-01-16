@@ -37,7 +37,6 @@ class Browser:
         self.browser_process: subprocess.Popen | None = None
         self.browser_profile_dir = os.path.join(get_data_directory(), "browser_profile")
         self.splash_url = f"{self.karaoke.url}/splash"
-        self.splash_no_confirm_url = f"{self.splash_url}?confirm=false"
 
     def launch_splash_screen(self) -> subprocess.Popen | None:
         """Launch the browser with the splash screen in kiosk mode.
@@ -47,8 +46,7 @@ class Browser:
         (such as user name) across restarts. Supports Chrome, Chromium, and Edge
         on Windows, Linux, and macOS.
         """
-        # confirm=false tells the splash page to hide the modal automatically
-        logging.info(f"Launching splash screen: {self.splash_no_confirm_url}")
+        logging.info(f"Launching splash screen: {self.splash_url}")
 
         suppress_logs = int(self.karaoke.log_level) > logging.DEBUG
         stdout_dest = subprocess.DEVNULL if suppress_logs else None
@@ -105,7 +103,7 @@ class Browser:
 
             if self.window_size:
                 cmd.append(f"--window-size={self.window_size}")
-                cmd.append(f"--app={self.splash_no_confirm_url}")
+                cmd.append(f"--app={self.splash_url}")
             else:
                 cmd.append("--kiosk")
                 # Use a persistent profile on desktop platforms to ensure kiosk mode works
@@ -142,7 +140,7 @@ class Browser:
 
             # URL must be last argument for --kiosk mode
             if not self.window_size:
-                cmd.append(self.splash_no_confirm_url)
+                cmd.append(self.splash_url)
 
             logging.info(f"Browser command: {' '.join(cmd)}")
             try:
@@ -161,11 +159,17 @@ class Browser:
         """
         Close the browser process.
         """
-        logging.info(f"Terminating browser process {self.browser_process.pid}")
-        # On Windows, terminate() is a hard kill. We must use taskkill to allow Chrome to save cookies.
-        if is_windows():
-            subprocess.call(["taskkill", "/PID", str(self.browser_process.pid)])
-        else:
-            self.browser_process.terminate()
+        if self.browser_process is not None:
+            logging.info(f"Terminating browser process {self.browser_process.pid}")
+            # On Windows, terminate() is a hard kill. We must use taskkill to allow Chrome to save cookies.
+            if is_windows():
+                subprocess.call(["taskkill", "/PID", str(self.browser_process.pid)])
+            else:
+                self.browser_process.terminate()
 
-        self.browser_process.wait()
+            self.browser_process.wait()
+            self.browser_process = None
+        else:
+            logging.warning(
+                "Browser process cannot be closed by pikaraoke, it must be closed manually."
+            )
