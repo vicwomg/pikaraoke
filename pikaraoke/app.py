@@ -6,7 +6,6 @@ monkey.patch_all()
 
 import logging
 import os
-import subprocess
 import sys
 from urllib.parse import quote
 
@@ -18,7 +17,7 @@ from flask_socketio import SocketIO
 from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
-from pikaraoke.lib.browser import launch_splash_screen
+from pikaraoke.lib.browser import Browser
 from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
@@ -245,24 +244,20 @@ def main() -> None:
 
     # Start the splash screen browser
     if not args.hide_splash_screen:
-        browser_process = launch_splash_screen(k, args.window_size, args.external_monitor)
-        if not browser_process:
+        browser = Browser(k, args.window_size, args.external_monitor)
+        browser.launch_splash_screen()
+        if not browser:
+            logging.error("Failed to launch splash screen browser")
             sys.exit()
     else:
-        browser_process = None
+        browser = None
 
     # Start the karaoke process
     k.run()
 
-    # Close running processes when done
-    if browser_process is not None:
-        # On Windows, terminate() is a hard kill. We must use taskkill to allow Chrome to save cookies.
-        if is_windows:
-            subprocess.call(["taskkill", "/PID", str(browser_process.pid)])
-        else:
-            browser_process.terminate()
-
-        browser_process.wait()
+    # Close running browser when done
+    if browser is not None:
+        browser.close()
 
     delete_tmp_dir()
     sys.exit()
