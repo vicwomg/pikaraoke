@@ -425,6 +425,12 @@
         testVideo.volume = 0.01;
         testVideo.src = "{{ url_for('static', filename='test-autoplay.mp4') }}";
 
+        // Wait for video to be ready
+        await new Promise((resolve, reject) => {
+          testVideo.onloadeddata = resolve;
+          testVideo.onerror = reject;
+        });
+
         await testVideo.play();
         // Check if browser auto-muted the video (Safari does this)
         if (testVideo.muted) {
@@ -627,12 +633,12 @@
 
 <div id="permissions-modal" class="modal">
   <div class="modal-background"></div>
-  <div class="modal-content" id="permissions-modal-content">
+  <div class="modal-content has-text-centered" id="permissions-modal-content">
     <p>
       {# MSG: Prompt for interaction in order to enable video autoplay. #}
       {% trans %}Tap to enable video playback.{% endtrans %}
     </p>
-    <div class="has-text-centered">
+    <div>
       <button
         id="permissions-button"
         class="button is-success is-large"
