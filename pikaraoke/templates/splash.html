@@ -508,6 +508,11 @@
       socket.emit("clear_notification");
     });
 
+    socket.on('connect_error', (error) => {
+      console.error('Connection error:', error);
+      flashNotification("Socket connection error. Is the pikaraoke server still running?", "is-danger");
+    });
+
     loadNowPlaying();
     socket.on("now_playing", np => handleNowPlaying(np));
 
