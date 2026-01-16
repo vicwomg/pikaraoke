@@ -145,7 +145,7 @@
       let audio = getBackgroundMusicPlayer();
       if (bg_playlist.length == 0) return;
       if (!audio.getAttribute('src')) audio.setAttribute('src', getNextBgMusicSong());
-      
+
       if (play == true) {
         if (isMediaPlaying(audio)) return;
         audio.volume = 0;
