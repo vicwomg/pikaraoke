@@ -100,7 +100,7 @@ class Browser:
                 break
 
         # Launch with Chromium flags if browser found
-        if not browser_executable:
+        if browser_executable:
             cmd = [browser_executable]
 
             if self.window_size:
