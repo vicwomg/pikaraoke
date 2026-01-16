@@ -156,7 +156,7 @@ msgstr ""
 #. Message shown after trying to refresh the song list without admin
 #. permissions.
 #: routes/admin.py:91
-#, 
+#,
 msgid "You don't have permission to refresh the song list"
 msgstr "Haluatko varmasti käynnistää karaokelaitteen uudestaan?"
 
@@ -290,7 +290,7 @@ msgstr ""
 
 #. Message shown after trying to clear preferences without admin permissions.
 #: routes/preferences.py:69
-#, 
+#,
 msgid "You don't have permission to clear preferences"
 msgstr "Haluatko varmasti käynnistää karaokelaitteen uudestaan?"
 
@@ -456,13 +456,13 @@ msgstr "Poista tämä kappale"
 #. Label which displays that the songs are currently sorted by
 #. alphabetical order.
 #: templates/files.html:92
-#, 
+#,
 msgid "Sorted Alphabetically"
 msgstr "Aakkosjärjestyksessä"
 
 #. Button which changes how the songs are sorted so they become sorted by date.
 #: templates/files.html:94
-#, 
+#,
 msgid ""
 "Sort by\n"
 "\t\t\tDate"
@@ -476,7 +476,7 @@ msgstr "Päivämääräjärjestyksessä"
 
 #. Button which changes how the songs are sorted so they become sorted by name.
 #: templates/files.html:100
-#, 
+#,
 msgid ""
 "Sort by\n"
 "\t\t\tAlphabetical"
@@ -836,7 +836,7 @@ msgstr "Päivitykset"
 
 #. Label for the Refresh the song list on the updates section
 #: templates/info.html:424
-#, 
+#,
 msgid "Refresh the song list"
 msgstr "Päivitä kappalelista:"
 
@@ -882,7 +882,7 @@ msgstr "Päivitä youtube-dl"
 #. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
 #: templates/info.html:458
-#, 
+#,
 msgid ""
 "* This update link above may fail if you don't have proper file "
 "permissions.\n"
@@ -937,7 +937,7 @@ msgstr "Laajenna Raspberry Pi -tiedostojärjestelmää"
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
 #: templates/info.html:511
-#, 
+#,
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
 "is larger than 4GB,\n"
@@ -985,7 +985,7 @@ msgstr ""
 
 #. Link which will let the user log into admin mode.
 #: templates/info.html:566
-#, 
+#,
 msgid "Log in"
 msgstr "Kirjaudu sisään"
 
@@ -1044,7 +1044,7 @@ msgstr "Tarkemmat hakuvaihtoehdot"
 
 #. Help text below the search bar.
 #: templates/search.html:509
-#, 
+#,
 msgid ""
 "- Type a song (title/artist) to search\n"
 "\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to"
@@ -1055,7 +1055,7 @@ msgstr ""
 
 #. Additonal help text below the search bar.
 #: templates/search.html:513
-#, 
+#,
 msgid ""
 "- If the song doesn't appear in\n"
 "\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find "
@@ -1080,7 +1080,7 @@ msgstr "Lataa suoraan Youtube URL:"
 #. Checkbox label which marks the song to be added to the queue after it
 #. finishes downloading.
 #: templates/search.html:552 templates/search.html:618
-#, 
+#,
 msgid "Add to queue once downloaded"
 msgstr "Lisää kappalejonoon lataamisen jälkeen."
 
@@ -1110,7 +1110,7 @@ msgstr "Etsi hakutuloksia kohdeelle <small><i>’%(search_string)s’</i></small
 #. Help text which explains that the select box above can be operated to select
 #. different search                                         results.
 #: templates/search.html:604
-#, 
+#,
 msgid "Click dropdown to show more results"
 msgstr "Napsauta avattavaa valikkoa nähdäksesi lisää tuloksia"
 

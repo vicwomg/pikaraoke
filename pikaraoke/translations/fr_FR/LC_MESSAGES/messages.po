@@ -158,7 +158,7 @@ msgstr "Vous n'avez pas le droit de mettre à jour youtube-dl"
 #. Message shown after trying to refresh the song list without admin
 #. permissions.
 #: routes/admin.py:91
-#, 
+#,
 msgid "You don't have permission to refresh the song list"
 msgstr "Vous n'avez pas le droit de redimensionner le système de fichiers"
 
@@ -467,7 +467,7 @@ msgstr "Supprimer cette musique"
 #. Label which displays that the songs are currently sorted by
 #. alphabetical order.
 #: templates/files.html:92
-#, 
+#,
 msgid "Sorted Alphabetically"
 msgstr ""
 "Trié\n"
@@ -475,7 +475,7 @@ msgstr ""
 
 #. Button which changes how the songs are sorted so they become sorted by date.
 #: templates/files.html:94
-#, 
+#,
 msgid ""
 "Sort by\n"
 "\t\t\tDate"
@@ -489,7 +489,7 @@ msgstr "Trié par date"
 
 #. Button which changes how the songs are sorted so they become sorted by name.
 #: templates/files.html:100
-#, 
+#,
 msgid ""
 "Sort by\n"
 "\t\t\tAlphabetical"
@@ -614,7 +614,7 @@ msgstr "URL QR code à partager avec un ami :"
 
 #. Title of the system data section.
 #: templates/info.html:182
-#, 
+#,
 msgid "System Data"
 msgstr "Statistiques système :"
 
@@ -788,7 +788,7 @@ msgstr ""
 
 #. Title text for the language settings section of preferences
 #: templates/info.html:330
-#, 
+#,
 msgid "Language settings"
 msgstr "Paramètres du serveur"
 
@@ -864,7 +864,7 @@ msgstr "Mises à jour"
 
 #. Label for the Refresh the song list on the updates section
 #: templates/info.html:424
-#, 
+#,
 msgid "Refresh the song list"
 msgstr "Actualiser la liste des chansons :"
 
@@ -911,7 +911,7 @@ msgstr "Mettre à jour youtube-dl"
 #. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
 #: templates/info.html:458
-#, 
+#,
 msgid ""
 "* This update link above may fail if you don't have proper file "
 "permissions.\n"
@@ -966,7 +966,7 @@ msgstr "Redimensionner le système de fichiers Raspberry Pi"
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
 #: templates/info.html:511
-#, 
+#,
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
 "is larger than 4GB,\n"
@@ -1014,7 +1014,7 @@ msgstr ""
 
 #. Link which will let the user log into admin mode.
 #: templates/info.html:566
-#, 
+#,
 msgid "Log in"
 msgstr "Connexion"
 
@@ -1073,7 +1073,7 @@ msgstr "Avancés"
 
 #. Help text below the search bar.
 #: templates/search.html:509
-#, 
+#,
 msgid ""
 "- Type a song (title/artist) to search\n"
 "\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to"
@@ -1086,7 +1086,7 @@ msgstr ""
 
 #. Additonal help text below the search bar.
 #: templates/search.html:513
-#, 
+#,
 msgid ""
 "- If the song doesn't appear in\n"
 "\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find "
@@ -1113,7 +1113,7 @@ msgstr "Téléchargement direct URL Youtube :"
 #. Checkbox label which marks the song to be added to the queue after it
 #. finishes downloading.
 #: templates/search.html:552 templates/search.html:618
-#, 
+#,
 msgid "Add to queue once downloaded"
 msgstr ""
 "Ajouter à la file d'attente une fois\n"
@@ -1149,7 +1149,7 @@ msgstr ""
 #. Help text which explains that the select box above can be operated to select
 #. different search                                         results.
 #: templates/search.html:604
-#, 
+#,
 msgid "Click dropdown to show more results"
 msgstr ""
 "Cliquez\n"
