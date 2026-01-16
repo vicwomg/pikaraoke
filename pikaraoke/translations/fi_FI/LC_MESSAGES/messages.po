@@ -7,93 +7,93 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: minna.soudunsaari@gmail.com\n"
-"POT-Creation-Date: 2026-01-17 07:06+1100\n"
+"POT-Creation-Date: 2026-01-04 23:52-0800\n"
 "PO-Revision-Date: 2024-05-08 18:57-0300\n"
 "Last-Translator: FULL NAME <minna.soudunsaari@gmail.com>\n"
 "Language: fi_FI\n"
 "Language-Team: fi_FI <LL@li.org>\n"
-"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"Plural-Forms: nplurals=2; plural=(n > 1)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.17.0\n"
+"Generated-By: Babel 2.9.1\n"
 
-#: karaoke.py:436
+#: karaoke.py:410
 msgid "Your preferences were changed successfully"
 msgstr ""
 
-#: karaoke.py:439
+#: karaoke.py:413
 msgid "Something went wrong! Your preferences were not changed"
 msgstr ""
 
-#: karaoke.py:449
+#: karaoke.py:423
 msgid "Your preferences were cleared successfully"
 msgstr ""
 
-#: karaoke.py:451
+#: karaoke.py:425
 msgid "Something went wrong! Your preferences were not cleared"
 msgstr ""
 
 #. Message shown when the song ends abnormally
-#: karaoke.py:669
+#: karaoke.py:641
 #, python-format
 msgid "Song ended abnormally: %s"
 msgstr ""
 
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
-#: karaoke.py:688
+#: karaoke.py:660
 #, python-format
 msgid "Transposing by %s semitones: %s"
 msgstr ""
 
-#: karaoke.py:759
+#: karaoke.py:731
 #, python-format
 msgid "You reached the limit of %s song(s) from an user in queue!"
 msgstr ""
 
 #. Message shown after the song is added to the top of the queue
-#: karaoke.py:771
+#: karaoke.py:743
 #, python-format
 msgid "%s added to top of queue: %s"
 msgstr "%s Jonoon lisätty kappale: %s"
 
 #. Message shown after the song is added to the queue
-#: karaoke.py:776
+#: karaoke.py:748
 #, python-format
 msgid "%s added to the queue: %s"
 msgstr "%s Jonoon lisätty kappale: %s"
 
-#: karaoke.py:782
+#: karaoke.py:754
 #, python-format
 msgid "Song added to the queue: %s"
 msgstr "Jonoon lisätty kappale: %s"
 
 #. Message shown after the queue is cleared
-#: karaoke.py:824
+#: karaoke.py:796
 msgid "Clear queue"
 msgstr ""
 
 #. Message shown after the song is skipped, will be followed by song name
-#: karaoke.py:891
+#: karaoke.py:863
 #, python-format
 msgid "Skip: %s"
 msgstr ""
 
 #. Message shown after the song is resumed, will be followed by song name
-#: karaoke.py:907
+#: karaoke.py:879
 #, python-format
 msgid "Resume: %s"
 msgstr ""
 
 #. Message shown after the song is paused, will be followed by song name
-#: karaoke.py:910
+#: karaoke.py:882
 msgid "Pause"
 msgstr ""
 
 #. Message shown after the volume is changed, will be followed by the volume
 #. level
-#: karaoke.py:929
+#: karaoke.py:901
 #, python-format
 msgid "Volume: %s"
 msgstr "Ääni kovemmalle: %s"
@@ -235,51 +235,51 @@ msgid "Batch Song Renamer"
 msgstr ""
 
 #. Message shown after trying to edit a song that is in the queue.
-#: routes/batch_song_renamer.py:487 routes/files.py:155
+#: routes/batch_song_renamer.py:487 routes/files.py:143
 msgid "Error: Can't edit this song because it is in the current queue: "
 msgstr ""
 
 #. Message shown after trying to rename a file to a name that already exists.
-#: routes/batch_song_renamer.py:498 routes/files.py:183
+#: routes/batch_song_renamer.py:498 routes/files.py:171
 #, python-format
 msgid "Error renaming file: '%s' to '%s', Filename already exists"
 msgstr ""
 
 #. Message shown after trying to edit a song without specifying the filename.
-#: routes/batch_song_renamer.py:512 routes/files.py:196
+#: routes/batch_song_renamer.py:512 routes/files.py:184
 msgid "Error: No filename parameters were specified!"
 msgstr ""
 
 #. Title of the files page.
 #. Navigation link for the page where the user can add existing songs to the
 #. queue.
-#: routes/files.py:106 templates/base.html:205
+#: routes/files.py:94 templates/base.html:194
 msgid "Browse"
 msgstr "Selaa"
 
 #. Message shown after trying to delete a song that is in the queue.
-#: routes/files.py:135
+#: routes/files.py:123
 msgid "Error: Can't delete this song because it is in the current queue"
 msgstr ""
 
 #. Message shown after deleting a song. Followed by the song path
-#: routes/files.py:143
+#: routes/files.py:131
 #, python-format
 msgid "Song deleted: %s"
 msgstr ""
 
 #. Message shown after trying to delete a song without specifying the song.
-#: routes/files.py:146
+#: routes/files.py:134
 msgid "Error: No song specified!"
 msgstr ""
 
 #. Message shown after renaming a file.
-#: routes/files.py:191
+#: routes/files.py:179
 #, python-format
 msgid "Renamed file: %s to %s"
 msgstr ""
 
-#: routes/info.py:104
+#: routes/info.py:46
 msgid "CPU usage query unsupported"
 msgstr ""
 
@@ -351,7 +351,7 @@ msgstr ""
 
 #. Prompt which asks the user their name when they first try to add to the
 #. queue.
-#: templates/base.html:77
+#: templates/base.html:66
 msgid ""
 "Please enter your name. This will show up next to the songs you queue up "
 "from this device."
@@ -360,19 +360,19 @@ msgstr ""
 "jonottamiesikappaleiden vieressä."
 
 #. Navigation link for the home page.
-#: templates/base.html:189
+#: templates/base.html:178
 msgid "Home"
 msgstr "Kotisivu"
 
 #. Navigation link for the queue page.
 #. Title of the page showing the currently queued songs.
-#: templates/base.html:195 templates/queue.html:129
+#: templates/base.html:184 templates/queue.html:129
 msgid "Queue"
 msgstr "Jono"
 
 #. Navigation link for the search page add songs to the queue.
 #. Submit button on the search form for searching YouTube.
-#: templates/base.html:200 templates/search.html:481
+#: templates/base.html:189 templates/search.html:481
 msgid "Search"
 msgstr "Etsi"
 
@@ -583,265 +583,263 @@ msgstr ""
 "jonottavat lataukset saattavat epäonnistua."
 
 #. Title of the information page.
-#: templates/info.html:155
+#: templates/info.html:142
 msgid "Information"
 msgstr "Informaatio."
 
 #. Label which appears before a url which links to the current page.
-#: templates/info.html:167
+#: templates/info.html:154
 #, python-format
 msgid "URL of %(site_title)s:"
 msgstr "URL %(site_title)s:"
 
 #. Label before a QR code which brings a frind (pal) to the main page if
 #. scanned, so they can also add songs. QR code follows this text.
-#: templates/info.html:173
+#: templates/info.html:160
 msgid "Handy URL QR code to share with a pal:"
 msgstr "Kätevä URL QR-koodi kaverille jaettavaksi:"
 
 #. Title of the system data section.
-#: templates/info.html:182
+#: templates/info.html:169
 msgid "System Data"
 msgstr ""
 
 #. Header of the information section about the computer running Pikaraoke.
-#: templates/info.html:187
+#: templates/info.html:174
 msgid "System Info"
 msgstr "Järjestelmän Tiedot"
 
 #. The hardware platform
-#: templates/info.html:193
+#: templates/info.html:180
 msgid "Platform:"
 msgstr ""
 
 #. The os version
-#: templates/info.html:195
+#: templates/info.html:182
 msgid "OS Version:"
 msgstr ""
 
 #. The version of the program "Youtube-dl".
-#: templates/info.html:197
+#: templates/info.html:184
 msgid "Youtube-dl (yt-dlp) version:"
 msgstr "Youtube-dl (yt-dlp) -versio:"
 
 #. The version of the program "ffmpeg".
-#: templates/info.html:199
+#: templates/info.html:186
 msgid "FFmpeg version:"
 msgstr ""
 
 #. The version of Pikaraoke running right now.
-#: templates/info.html:201
+#: templates/info.html:188
 msgid "Pikaraoke version:"
 msgstr ""
 
 #. Header of the information section about the System stats.
-#: templates/info.html:207
+#: templates/info.html:194
 msgid "System stats"
 msgstr ""
 
 #. The CPU usage of the computer running Pikaraoke.
-#: templates/info.html:213
-msgid "CPU:"
-msgstr ""
-
-#: templates/info.html:213 templates/info.html:215 templates/info.html:217
-msgid "Loading..."
-msgstr ""
+#: templates/info.html:200
+#, python-format
+msgid "CPU: %(cpu)s"
+msgstr "CPU: %(cpu)s"
 
 #. The disk usage of the computer running Pikaraoke. Used by downloaded songs.
-#: templates/info.html:215
-#, fuzzy, python-format
-msgid "Disk Usage:"
+#: templates/info.html:202
+#, python-format
+msgid "Disk Usage: %(disk)s"
 msgstr "Levyn käyttö: %(disk)s"
 
 #. The memory (RAM) usage of the computer running Pikaraoke.
-#: templates/info.html:217
-msgid "Memory:"
-msgstr ""
+#: templates/info.html:204
+#, python-format
+msgid "Memory: %(memory)s"
+msgstr "Muisti: %(memory)s"
 
 #. Title of the user preferences section.
-#: templates/info.html:224
+#: templates/info.html:211
 msgid "User Preferences"
 msgstr ""
 
 #. Title text for the splash screen settings section of preferences
-#: templates/info.html:230
+#: templates/info.html:217
 msgid "Splash screen settings"
 msgstr ""
 
 #. Help text explaining the the need to restart after changing splash screen
 #. preferences
-#: templates/info.html:237
+#: templates/info.html:224
 msgid ""
 "*You may need to refresh the splash screen for these changes to take "
 "effect."
 msgstr ""
 
 #. Checkbox label which enable/disables background video on the Splash Screen
-#: templates/info.html:240
+#: templates/info.html:227
 msgid "Disable background video"
 msgstr ""
 
 #. Checkbox label which enable/disables the Score Screen
-#: templates/info.html:246
+#: templates/info.html:233
 msgid "Disable the score screen after each song"
 msgstr ""
 
 #. Checkbox label which enable/disables notifications on the splash screen
-#: templates/info.html:252
+#: templates/info.html:239
 msgid "Hide notifications"
 msgstr ""
 
 #. Checkbox label which enable/disables the URL display
-#: templates/info.html:258
+#: templates/info.html:245
 msgid "Hide the URL and QR code"
 msgstr ""
 
 #. Checkbox label which enable/disables showing overlay data on the splash
 #. screen
-#: templates/info.html:264
+#: templates/info.html:251
 msgid "Hide all overlays, including now playing, up next, and QR code"
 msgstr ""
 
 #. Numberbox label for setting the default video volume
-#: templates/info.html:270
+#: templates/info.html:257
 msgid "Default volume of the videos (min 0, max 100)"
 msgstr ""
 
 #. Numberbox label for setting the background music volume
-#: templates/info.html:276
+#: templates/info.html:263
 msgid "Volume of the background music (min 0, max 100)"
 msgstr ""
 
 #. Numberbox label for setting the inactive delay before showing the
 #. screensaver
-#: templates/info.html:283
+#: templates/info.html:270
 msgid ""
 "The amount of idle time in seconds before the screen saver activates. Set"
 " to 0 to disable it."
 msgstr ""
 
 #. Numberbox label for setting the delay before playing the next song
-#: templates/info.html:290
+#: templates/info.html:277
 msgid "The delay in seconds before starting the next song"
 msgstr ""
 
 #. Title text for the Score Phrases section of preferences
-#: templates/info.html:301
+#: templates/info.html:288
 msgid "Score phrases"
 msgstr ""
 
 #. Help text explaining how to add phrases
-#: templates/info.html:308
+#: templates/info.html:295
 msgid "Add one phrase per line in each box and hit save."
 msgstr ""
 
 #. Title for LOW Score Phrases
-#: templates/info.html:310
+#: templates/info.html:297
 msgid "LOW Score Phrases (score < 30)"
 msgstr ""
 
 #. Placeholder for the low score phrases textarea
-#: templates/info.html:312
+#: templates/info.html:299
 msgid "Could be better..."
 msgstr ""
 
 #. Title for MID Score Phrases
-#: templates/info.html:315
+#: templates/info.html:302
 msgid "MID Score Phrases (30 > score < 60)"
 msgstr ""
 
 #. Placeholder for the MID score phrases textarea
-#: templates/info.html:317
+#: templates/info.html:304
 msgid "That was ok..."
 msgstr ""
 
 #. Title for HIGH Score Phrases
-#: templates/info.html:320
+#: templates/info.html:307
 msgid "HIGH Score Phrases (60 < score)"
 msgstr ""
 
 #. Placeholder for the HIGH score phrases textarea
-#: templates/info.html:322
+#: templates/info.html:309
 msgid "Wonderfull..."
 msgstr ""
 
 #. Title text for the language settings section of preferences
-#: templates/info.html:330
+#: templates/info.html:317
 msgid "Language settings"
 msgstr ""
 
 #. Label for language selection dropdown
-#: templates/info.html:343
+#: templates/info.html:330
 msgid "Preferred language (requires restart)"
 msgstr ""
 
 #. Title text for the server settings section of preferences
-#: templates/info.html:352
+#: templates/info.html:339
 msgid "Server settings"
 msgstr ""
 
 #. Checkbox label which enable/disables audio volume normalization
-#: templates/info.html:359
+#: templates/info.html:346
 msgid "Normalize audio volume"
 msgstr ""
 
 #. Checkbox label which enable/disables high quality video downloads
-#: templates/info.html:365
+#: templates/info.html:352
 msgid "Download high quality videos"
 msgstr ""
 
 #. Checkbox label which enable/disables full transcode before playback
-#: templates/info.html:371
+#: templates/info.html:358
 msgid ""
 "Transcode video completely before playing (better browser compatibility, "
 "slower starts). Buffer size will be ignored.*"
 msgstr ""
 
 #. Checkbox label which enable/disables CDG pixel scaling
-#: templates/info.html:377
+#: templates/info.html:364
 msgid ""
 "Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU"
 " usage)"
 msgstr ""
 
 #. Numberbox label for audio video synchronization
-#: templates/info.html:384
+#: templates/info.html:371
 msgid ""
 "Fix the audio and video synchronization in seconds (negative = advances "
 "audio | positive = delays audio)"
 msgstr ""
 
 #. Numberbox label for limitting the number of songs for each player
-#: templates/info.html:391
+#: templates/info.html:378
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
 msgstr ""
 
 #. Numberbox label for setting the buffer size in kilobytes
-#: templates/info.html:398
+#: templates/info.html:385
 msgid ""
 "Buffer size in kilobytes. Transcode this amount of the video before "
 "sending it to the splash screen. "
 msgstr ""
 
 #. Text for the link where the user can clear all user preferences
-#: templates/info.html:411
+#: templates/info.html:398
 msgid "Clear preferences"
 msgstr ""
 
 #. Title of the updates section.
-#: templates/info.html:419
+#: templates/info.html:406
 msgid "Updates"
 msgstr "Päivitykset"
 
 #. Label for the Refresh the song list on the updates section
-#: templates/info.html:424
+#: templates/info.html:411
 #,
 msgid "Refresh the song list"
 msgstr "Päivitä kappalelista:"
 
 #. Help text explaining the Rescan song directory link.
-#: templates/info.html:429
+#: templates/info.html:416
 msgid ""
 "You should only need to do this if you manually copied files to the "
 "download directory while pikaraoke was running."
@@ -850,17 +848,17 @@ msgstr ""
 "kappaleita latauskansioon pikaraoken ollessa päällä."
 
 #. Text on the link which forces Pikaraoke to rescan and pick up any new songs.
-#: templates/info.html:434
+#: templates/info.html:421
 msgid "Rescan song directory"
 msgstr "Skannaa kappalehakemisto uudelleen"
 
 #. Label for the YT-DLP update on the updates section
-#: templates/info.html:443
+#: templates/info.html:430
 msgid "YT-DLP update"
 msgstr ""
 
 #. Text explaining why you might want to update youtube-dl.
-#: templates/info.html:448
+#: templates/info.html:435
 #, python-format
 msgid ""
 "\n"
@@ -875,13 +873,13 @@ msgstr ""
 
 #. Text for the link which will try and update youtube-dl on the machine
 #. running Pikaraoke.
-#: templates/info.html:454
+#: templates/info.html:441
 msgid "Update youtube-dl"
 msgstr "Päivitä youtube-dl"
 
 #. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
-#: templates/info.html:458
+#: templates/info.html:445
 #,
 msgid ""
 "* This update link above may fail if you don't have proper file "
@@ -894,12 +892,12 @@ msgstr ""
 
 #. Title of the section on shutting down / turning off the machine running
 #. Pikaraoke.
-#: templates/info.html:470
+#: templates/info.html:457
 msgid "Shutdown"
 msgstr "Sammuta"
 
 #. Explainitory text which explains why to use the shutdown link.
-#: templates/info.html:477
+#: templates/info.html:464
 msgid ""
 "Don't just pull the plug! Always shut down your server properly to avoid "
 "data corruption."
@@ -909,34 +907,34 @@ msgstr ""
 
 #. Text for button which turns off Pikaraoke for everyone using it at your
 #. house.
-#: templates/info.html:484
+#: templates/info.html:471
 msgid "Quit Pikaraoke"
 msgstr "Sammuta Pikaraoke"
 
 #. Text for button which reboots the machine running Pikaraoke.
-#: templates/info.html:487
+#: templates/info.html:474
 msgid "Reboot System"
 msgstr "Käynnistä järjestelmä uudelleen"
 
 #. Text for button which turn soff the machine running Pikaraoke.
-#: templates/info.html:490
+#: templates/info.html:477
 msgid "Shutdown System"
 msgstr "Sammuta järjestelmä"
 
 #. Title of the updates section.
-#: templates/info.html:501
+#: templates/info.html:488
 msgid "Other"
 msgstr "Muut"
 
 #. Title for section containing a few other options on the Info page.
 #. Text for button
-#: templates/info.html:506 templates/info.html:518
+#: templates/info.html:493 templates/info.html:505
 msgid "Expand Raspberry Pi filesystem"
 msgstr "Laajenna Raspberry Pi -tiedostojärjestelmää"
 
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
-#: templates/info.html:511
+#: templates/info.html:498
 #,
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
@@ -952,39 +950,39 @@ msgstr ""
 "    Tämä käynnistää järjestelmän uudelleen."
 
 #. Title of the admin section.
-#: templates/info.html:527 templates/info.html:552
+#: templates/info.html:514 templates/info.html:539
 msgid "Admin"
 msgstr ""
 
 #. Title for section logout on the Info page.
-#: templates/info.html:534
+#: templates/info.html:521
 msgid "Logout"
 msgstr ""
 
 #. Message for the log out user from admin mode button.
-#: templates/info.html:540
+#: templates/info.html:527
 msgid "Click here to logout from admin mode."
 msgstr ""
 
 #. Link which will log out the user from admin mode.
-#: templates/info.html:542
+#: templates/info.html:529
 msgid "Log out"
 msgstr ""
 
 #. Title for section login on the Info page.
 #. Title for the log in page for admins.
 #. Text on submit button for the admin login form.
-#: templates/info.html:558 templates/login.html:8 templates/login.html:20
+#: templates/info.html:545 templates/login.html:8 templates/login.html:20
 msgid "Login"
 msgstr "Kirjaudu sisään"
 
 #. Message for the log in user to admin mode button.
-#: templates/info.html:564
+#: templates/info.html:551
 msgid "Click here to login as admin."
 msgstr ""
 
 #. Link which will let the user log into admin mode.
-#: templates/info.html:566
+#: templates/info.html:553
 #,
 msgid "Log in"
 msgstr "Kirjaudu sisään"
@@ -1119,89 +1117,111 @@ msgstr "Napsauta avattavaa valikkoa nähdäksesi lisää tuloksia"
 msgid "Link:"
 msgstr "Linkki:"
 
-#: templates/splash.html:62
+#. Score review message
+#: templates/splash.html:67
 msgid "Never sing again... ever."
 msgstr ""
 
-#: templates/splash.html:63
+#. Score review message
+#: templates/splash.html:68
 msgid "That was a really good impression of a dying cat!"
 msgstr ""
 
-#: templates/splash.html:64
+#. Score review message
+#: templates/splash.html:69
 msgid "Thank God it's over."
 msgstr ""
 
-#: templates/splash.html:65
+#. Score review message
+#: templates/splash.html:70
 msgid "Pass the mic, please!"
 msgstr ""
 
-#: templates/splash.html:66
+#. Score review message
+#: templates/splash.html:71
 msgid "Well, I'm sure you're very good at your day job."
 msgstr ""
 
-#: templates/splash.html:72
+#. Score review message
+#: templates/splash.html:77
 msgid "I've seen better."
 msgstr ""
 
-#: templates/splash.html:73
+#. Score review message
+#: templates/splash.html:78
 msgid "Ok... just ok."
 msgstr ""
 
-#: templates/splash.html:74
+#. Score review message
+#: templates/splash.html:79
 msgid "Not bad for an amateur."
 msgstr ""
 
-#: templates/splash.html:75
+#. Score review message
+#: templates/splash.html:80
 msgid "You put on a decent show."
 msgstr ""
 
-#: templates/splash.html:76
+#. Score review message
+#: templates/splash.html:81
 msgid "That was... something."
 msgstr ""
 
-#: templates/splash.html:82
+#. Score review message
+#: templates/splash.html:87
 msgid "Congratulations! That was unbelievable!"
 msgstr ""
 
-#: templates/splash.html:83
+#. Score review message
+#: templates/splash.html:88
 msgid "Wow, have you tried auditioning for The Voice?"
 msgstr ""
 
-#: templates/splash.html:84
+#. Score review message
+#: templates/splash.html:89
 msgid "Please, sing another one!"
 msgstr ""
 
-#: templates/splash.html:85
+#. Score review message
+#: templates/splash.html:90
 msgid "You rock! You know that?!"
 msgstr ""
 
-#: templates/splash.html:86
+#. Score review message
+#: templates/splash.html:91
 msgid "Woah, who let Freddie Mercury in here?"
 msgstr ""
 
 #. Label for the next song to be played in the queue.
-#: templates/splash.html:590
+#: templates/splash.html:302 templates/splash.html:715
 msgid "Up next:"
 msgstr "Seuraavaksi:"
 
+#. Label of the singer for next song to be played in the queue. (Who added it
+#. to the queue.)
 #. Label for the next singer in the queue.
-#: templates/splash.html:597
+#: templates/splash.html:304 templates/splash.html:722
 msgid "Next singer:"
 msgstr "Seuraava laulaja:"
 
 #. The title of the score screen, telling the user their singing score
-#: templates/splash.html:619
+#: templates/splash.html:744
 msgid "Your Score"
 msgstr ""
 
 #. Prompt for interaction in order to enable video autoplay.
-#: templates/splash.html:633
-msgid "Tap to enable video playback."
+#: templates/splash.html:758
+msgid ""
+"Due to limitations with browser permissions, you must interact\n"
+"      with the page once before it allows autoplay of videos. Pikaraoke "
+"will not\n"
+"      play otherwise. Click the button below to\n"
+"      <a onClick=\"handleConfirmation()\">confirm</a>."
 msgstr ""
 
 #. Button to confirm to enable video autoplay.
-#: templates/splash.html:643
-msgid "Start"
+#: templates/splash.html:770
+msgid "Confirm"
 msgstr ""
 
 #~ msgid "Volume Down"
@@ -1315,23 +1335,5 @@ msgstr ""
 #~ " mx-1\" pattern=\"\\d*\" maxlength=\"2\" "
 #~ "value=\"3\" min=\"1\" max=\"99\" style=\"width: "
 #~ "40px\" /> random songs"
-#~ msgstr ""
-
-#~ msgid "CPU: %(cpu)s"
-#~ msgstr "CPU: %(cpu)s"
-
-#~ msgid "Memory: %(memory)s"
-#~ msgstr "Muisti: %(memory)s"
-
-#~ msgid ""
-#~ "Due to limitations with browser permissions, you must interact\n"
-#~ "      with the page once before it"
-#~ " allows autoplay of videos. Pikaraoke "
-#~ "will not\n"
-#~ "      play otherwise. Click the button below to\n"
-#~ "      <a onClick=\"handleConfirmation()\">confirm</a>."
-#~ msgstr ""
-
-#~ msgid "Confirm"
 #~ msgstr ""
 
