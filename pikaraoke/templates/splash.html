@@ -416,35 +416,29 @@
       modalContents.prepend(warningMessage);
     }
 
-    // AUTOMATIC CONFIRMATION: Skip modal if autoplay is allowed or URL param set
-    let params = new URLSearchParams(window.location.search);
-    if (params.get('confirm') === 'false') {
-      $('#permissions-modal').removeClass('is-active');
-      playBGMusic(true);
-      if (hasBgVideo) playBGVideo(true);
-    } else {
-      // Test if autoplay is allowed by trying to play a silent audio context
-      const testAutoplay = async () => {
-        try {
-          const ctx = new (window.AudioContext || window.webkitAudioContext)();
-          if (ctx.state === 'running') {
-            ctx.close();
-            handleConfirmation();
-            return;
-          }
-          // Try to resume (some browsers start suspended)
-          await ctx.resume();
-          if (ctx.state === 'running') {
-            ctx.close();
-            handleConfirmation();
-          }
-        } catch (e) {
-          // Autoplay blocked, show modal
+    // Test if autoplay is allowed, show modal only if blocked
+    const testAutoplay = async () => {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === 'running') {
+          ctx.close();
+          handleConfirmation();
+          return;
+        }
+        // Try to resume (some browsers start suspended)
+        await ctx.resume();
+        if (ctx.state === 'running') {
+          ctx.close();
+          handleConfirmation();
+        } else {
           $('#permissions-modal').addClass('is-active');
         }
-      };
-      testAutoplay();
-    }
+      } catch (e) {
+        // Autoplay blocked, show modal
+        $('#permissions-modal').addClass('is-active');
+      }
+    };
+    testAutoplay();
 
     socket.on('pause', () => {
       const video = getVideoPlayer();
@@ -510,7 +504,12 @@
 
     socket.on('connect_error', (error) => {
       console.error('Connection error:', error);
-      flashNotification("Socket connection error. Is the pikaraoke server still running?", "is-danger");
+      flashNotification("Connection lost. Is the server still running?", "is-danger");
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.warn('Socket disconnected:', reason);
+      flashNotification("Connection lost. Is the server still running?", "is-danger");
     });
 
     loadNowPlaying();
