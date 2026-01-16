@@ -149,10 +149,10 @@ def launch_splash_screen(
         except OSError as e:
             logging.error(f"Failed to launch browser subprocess: {e}")
 
-    # Fallback: System default browser
+    # Fallback: System default browser (without confirm=false since user can interact)
     try:
         logging.warning("No Kiosk-capable browser found. Opening system default.")
-        webbrowser.open(karaoke_url, new=1, autoraise=True)
+        webbrowser.open(karaoke.url, new=1, autoraise=True)
         return None
     except webbrowser.Error as e:
         logging.error(f"Error opening system browser: {e}")
