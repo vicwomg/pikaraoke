@@ -40,6 +40,24 @@ def is_windows() -> bool:
     return sys.platform.startswith("win")
 
 
+def is_macos() -> bool:
+    """Check if the current system is macOS.
+
+    Returns:
+        True if running on macOS, False otherwise.
+    """
+    return sys.platform == "darwin"
+
+
+def is_linux() -> bool:
+    """Check if the current system is Linux.
+
+    Returns:
+        True if running on Linux, False otherwise.
+    """
+    return sys.platform.startswith("linux")
+
+
 def get_installed_js_runtime() -> str | None:
     """Get the name of an installed JavaScript runtime.
 
@@ -77,7 +95,7 @@ def get_platform() -> str:
         Platform identifier string: 'osx', 'android', 'linux', 'windows',
         'unknown', or the Raspberry Pi model string if on a Pi.
     """
-    if sys.platform == "darwin":
+    if is_macos():
         return "osx"
     elif is_android():
         return "android"
@@ -90,7 +108,7 @@ def get_platform() -> str:
                 return "Raspberry Pi - unrecognized"
         except FileNotFoundError:
             return "Raspberry Pi - unrecognized"
-    elif sys.platform.startswith("linux"):
+    elif is_linux():
         return "linux"
     elif is_windows():
         return "windows"

@@ -88,7 +88,7 @@
           "{{ _('Please enter your name. This will show up next to the songs you queue up from this device.') }}"
         );
         if (name) {
-          Cookies.set("user", name, { expires: 3650 });
+          Cookies.set("user", name, { expires: 3650, path: '/' });
         }
         else {
           Cookies.set("user", `Anon-${generateRandomString(4)}`, { expires: 3650 });
