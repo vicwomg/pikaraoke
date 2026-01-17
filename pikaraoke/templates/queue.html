@@ -102,77 +102,90 @@
     }
   };
 
+  // Column width constants
+  var COL_WIDTH = {
+    number: '35px',
+    drag: '30px',
+    options: '50px'
+  };
+
+  // Generate now-playing row HTML
+  function generateNowPlayingRow(np) {
+    var iconSrc = np.is_paused
+      ? '{{ url_for("static", filename="images/now-playing.png") }}'
+      : '{{ url_for("static", filename="images/now-playing.gif") }}';
+
+    var html = '<tr class="disabled-sort has-background-dark">';
+    html += '<td style="width: ' + COL_WIDTH.number + '; padding: 8px 8px; vertical-align: middle; text-align: center;">';
+    html += '<img src="' + iconSrc + '" alt="Now Playing" style="width: 35px; height: auto;">';
+    html += '</td>';
+
+    if (isAdmin) {
+      html += '<td style="width: ' + COL_WIDTH.drag + '; padding: 5px 0px; vertical-align: middle;"></td>';
+    }
+
+    html += '<td style="padding: 8px 10px; vertical-align: middle;">';
+    html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline">';
+    html += '<span class="has-text-success">' + np.now_playing_user + '</span>';
+    html += '<span class="is-hidden-mobile has-text-grey mx-2">&bull;</span>';
+    html += '<span class="has-text-weight-bold has-text-success is-hidden-mobile">' + np.now_playing + '</span>';
+    html += '<span class="is-size-7 has-text-weight-bold has-text-success is-hidden-tablet" style="width: 100%;">' + np.now_playing + '</span>';
+    html += '</div></td>';
+
+    if (isAdmin) {
+      html += '<td style="width: ' + COL_WIDTH.options + '; vertical-align: middle; text-align: right; padding-right: 10px;">';
+      html += '<a class="button is-small is-text now-playing-options-btn" title="{{ _("Options") }}">';
+      html += '<i class="icon icon-cog is-size-5"></i></a>';
+      html += '</td>';
+    }
+    html += '</tr>';
+    return html;
+  }
+
+  // Generate queue row HTML
+  function generateQueueRow(e, index) {
+    var html = '<tr data-index="' + index + '">';
+    html += '<td style="width: ' + COL_WIDTH.number + '; padding: 8px 8px; vertical-align: middle; text-align: center;">' + (index + 1) + '</td>';
+
+    if (isAdmin) {
+      html += '<td style="width: ' + COL_WIDTH.drag + '; padding: 5px 0px; vertical-align: middle; text-align: center;">';
+      html += '<div class="drag-handle" style="cursor: grab; padding: 8px 5px;" title="{{ _("Drag to reorder") }}">';
+      html += '<i class="icon icon-th-list has-text-grey-light"></i></div>';
+      html += '</td>';
+    }
+
+    html += '<td style="padding: 8px 10px; vertical-align: middle;">';
+    html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline">';
+    html += '<span class="has-text-success">' + e.user + '</span>';
+    html += '<span class="is-hidden-mobile has-text-grey mx-2">&bull;</span>';
+    html += '<span class="has-text-weight-bold is-hidden-mobile">' + e.title + '</span>';
+    html += '<span class="is-size-7 has-text-weight-bold is-hidden-tablet" style="width: 100%;">' + e.title + '</span>';
+    html += '</div></td>';
+
+    if (isAdmin) {
+      html += '<td style="width: ' + COL_WIDTH.options + '; vertical-align: middle; text-align: right; padding-right: 10px;">';
+      html += '<a class="button is-small is-text queue-song-options-btn" data-index="' + index + '" data-file="' + escape(e.file) + '" data-title="' + escape(e.title) + '" title="{{ _("Options") }}">';
+      html += '<i class="icon icon-cog is-size-5"></i></a>';
+      html += '</td>';
+    }
+
+    html += '</tr>';
+    return html;
+  }
+
   window.queuePage_generateHTML = function() {
     var html = "<tbody>";
     var queue = window.queuePageState.queue;
     var np = window.queuePageState.nowPlaying;
     var colSpan = isAdmin ? 4 : 2;
 
-    // Now Playing row (if something is playing)
     if (np && np.now_playing) {
-      html += '<tr class="disabled-sort has-background-dark">';
-      // Show now-playing icon (animated gif when playing, static png when paused)
-      // Image aspect ratio is ~1.73:1 (376x217), so use 35x20 to maintain proportions
-      var iconSrc = np.is_paused ? '{{ url_for("static", filename="images/now-playing.png") }}' : '{{ url_for("static", filename="images/now-playing.gif") }}';
-      html += '<td style="width: 35px; padding: 8px 8px; vertical-align: middle; text-align: center;">';
-      html += '<img src="' + iconSrc + '" alt="Now Playing" style="width: 35px; height: auto;">';
-      html += '</td>';
-
-      if (isAdmin) {
-        // Empty cell for drag handle column (maintains alignment with queue rows)
-        html += '<td style="width: 30px; padding: 5px 0px; vertical-align: middle;"></td>';
-      }
-
-      // Username and song title
-      html += '<td style="padding: 8px 10px; vertical-align: middle;">';
-      html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline">';
-      html += '<span class="has-text-success">' + np.now_playing_user + '</span>';
-      html += '<span class="is-hidden-mobile has-text-grey mx-2">&bull;</span>';
-      html += '<span class="has-text-weight-bold has-text-success is-hidden-mobile">' + np.now_playing + '</span>';
-      html += '<span class="is-size-7 has-text-weight-bold has-text-success is-hidden-tablet" style="width: 100%;">' + np.now_playing + '</span>';
-      html += '</div></td>';
-
-      if (isAdmin) {
-        // Cog button to open now-playing options modal
-        html += '<td style="width: 50px; vertical-align: middle; text-align: right; padding-right: 10px;">';
-        html += '<a class="button is-small is-text now-playing-options-btn" title="{{ _("Options") }}">';
-        html += '<i class="icon icon-cog is-size-5"></i></a>';
-        html += '</td>';
-      }
-      html += '</tr>';
+      html += generateNowPlayingRow(np);
     }
 
-    // Queue rows (numbered starting at 1)
     if (queue.length > 0) {
       queue.forEach(function(e, index) {
-        html += '<tr data-index="' + index + '">';
-        html += '<td style="width: 35px; padding: 8px 8px; vertical-align: middle; text-align: center;">' + (index + 1) + '</td>';
-
-        if (isAdmin) {
-          // Drag handle for queued songs
-          html += '<td style="width: 30px; padding: 5px 0px; vertical-align: middle; text-align: center;">';
-          html += '<div class="drag-handle" style="cursor: grab; padding: 8px 5px;" title="{{ _("Drag to reorder") }}">';
-          html += '<i class="icon icon-th-list has-text-grey-light"></i></div>';
-          html += '</td>';
-        }
-
-        // Username and song title - responsive layout
-        html += '<td style="padding: 8px 10px; vertical-align: middle;">';
-        html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline">';
-        html += '<span class="has-text-success">' + e.user + '</span>';
-        html += '<span class="is-hidden-mobile has-text-grey mx-2">&bull;</span>';
-        html += '<span class="has-text-weight-bold is-hidden-mobile">' + e.title + '</span>';
-        html += '<span class="is-size-7 has-text-weight-bold is-hidden-tablet" style="width: 100%;">' + e.title + '</span>';
-        html += '</div></td>';
-
-        if (isAdmin) {
-          html += '<td style="width: 50px; vertical-align: middle; text-align: right; padding-right: 10px;">';
-          html += '<a class="button is-small is-text queue-song-options-btn" data-index="' + index + '" data-file="' + escape(e.file) + '" data-title="' + escape(e.title) + '" title="{{ _("Options") }}">';
-          html += '<i class="icon icon-cog is-size-5"></i></a>';
-          html += '</td>';
-        }
-
-        html += '</tr>';
+        html += generateQueueRow(e, index);
       });
     } else if (!np || !np.now_playing) {
       // Only show empty message if nothing is playing AND queue is empty
