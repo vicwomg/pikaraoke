@@ -84,9 +84,10 @@
             e.preventDefault();
             // Get the current name from the cookie dynamically
             let currentName = Cookies.get("user");
-            let name = window.prompt(
-                "Do you want to change the name of the person using this device? This will show up on queued songs. Current: " + currentName
-            );
+            var promptMsg = (window.i18n && window.i18n.promptChangeUsername)
+                ? window.i18n.promptChangeUsername.replace('%s', currentName)
+                : "Do you want to change the name of the person using this device? This will show up on queued songs. Current: " + currentName;
+            let name = window.prompt(promptMsg);
             // Only update if user clicked OK and entered a non-empty name
             // null = Cancel clicked, "" = OK with empty input
             if (name !== null && name.trim() !== "") {
@@ -121,9 +122,10 @@
         // Clear queue confirmation
         $(document).on('click', '.confirm-clear', function(e) {
             e.preventDefault();
-            let userInput = window.prompt(
-                "Are you sure you want to clear the ENTIRE queue? Type 'ok' to continue"
-            );
+            var promptMsg = (window.i18n && window.i18n.promptClearQueue)
+                ? window.i18n.promptClearQueue
+                : "Are you sure you want to clear the ENTIRE queue? Type 'ok' to continue";
+            let userInput = window.prompt(promptMsg);
             // Only clear if user typed 'ok' exactly (case insensitive)
             if (userInput !== null && userInput.toLowerCase() === "ok") {
                 $.get(this.href);
@@ -133,7 +135,10 @@
         // Delete song from queue confirmation
         $(document).on('click', '.confirm-delete', function(e) {
             e.preventDefault();
-            if (window.confirm(`Are you sure you want to delete "${this.title}" from the queue?`)) {
+            var msg = (window.i18n && window.i18n.confirmDeleteFromQueue)
+                ? window.i18n.confirmDeleteFromQueue.replace('%s', this.title)
+                : `Are you sure you want to delete "${this.title}" from the queue?`;
+            if (window.confirm(msg)) {
                 $.get(this.href);
             }
         });
@@ -141,7 +146,10 @@
         // Delete song file from library confirmation (full page navigation)
         $(document).on('click', '.confirm-delete-file', function(e) {
             e.preventDefault();
-            if (window.confirm('Are you sure you want to delete this song from the library?')) {
+            var msg = (window.i18n && window.i18n.confirmDeleteFromLibrary)
+                ? window.i18n.confirmDeleteFromLibrary
+                : 'Are you sure you want to delete this song from the library?';
+            if (window.confirm(msg)) {
                 window.location.href = this.href;
             }
         });
