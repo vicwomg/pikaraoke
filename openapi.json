@@ -364,6 +364,54 @@
         ]
       }
     },
+    "/queue/reorder": {
+      "post": {
+        "summary": "Handle drag-and-drop reordering of the queue.",
+        "responses": {
+          "200": {
+            "description": "Result of the reorder operation",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "success": {
+                  "type": "boolean",
+                  "description": "Whether the reorder was successful"
+                },
+                "error": {
+                  "type": "string",
+                  "description": "Error message if failed"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Unauthorized access (admin only)"
+          }
+        },
+        "parameters": [
+          {
+            "name": "old_index",
+            "in": "formData",
+            "type": "integer",
+            "required": true,
+            "description": "The current index of the item to move"
+          },
+          {
+            "name": "new_index",
+            "in": "formData",
+            "type": "integer",
+            "required": true,
+            "description": "The target index to move the item to"
+          }
+        ],
+        "tags": [
+          "Queue"
+        ],
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ]
+      }
+    },
     "/enqueue": {
       "post": {
         "summary": "Add a song to the queue.",
