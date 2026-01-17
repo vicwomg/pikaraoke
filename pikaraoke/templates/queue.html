@@ -107,29 +107,20 @@
     var queue = window.queuePageState.queue;
     var np = window.queuePageState.nowPlaying;
     var colSpan = isAdmin ? 4 : 2;
-    var rowNum = 1;
 
     // Now Playing row (if something is playing)
     if (np && np.now_playing) {
       html += '<tr class="disabled-sort has-background-dark">';
-      html += '<td width="20px" style="padding: 8px 5px; vertical-align: middle;">' + rowNum + '</td>';
+      // Show now-playing icon (animated gif when playing, static png when paused)
+      // Image aspect ratio is ~1.73:1 (376x217), so use 35x20 to maintain proportions
+      var iconSrc = np.is_paused ? '{{ url_for("static", filename="images/now-playing.png") }}' : '{{ url_for("static", filename="images/now-playing.gif") }}';
+      html += '<td style="width: 35px; padding: 8px 8px; vertical-align: middle; text-align: center;">';
+      html += '<img src="' + iconSrc + '" alt="Now Playing" style="width: 35px; height: auto;">';
+      html += '</td>';
 
       if (isAdmin) {
-        // Playback controls for currently playing song
-        html += '<td width="100px" class="has-text-centered" style="padding: 5px 0px; vertical-align: middle;">';
-        html += '<div class="buttons are-small has-addons is-centered" style="margin-bottom: 0;">';
-        html += '<button class="button is-small playback-btn" data-action="restart" title="{{ _("Restart") }}">';
-        html += '<i class="icon icon-to-start"></i></button>';
-        if (np.is_paused) {
-          html += '<button class="button is-small playback-btn" data-action="pause" title="{{ _("Play") }}">';
-          html += '<i class="icon icon-play"></i></button>';
-        } else {
-          html += '<button class="button is-small playback-btn" data-action="pause" title="{{ _("Pause") }}">';
-          html += '<i class="icon icon-pause"></i></button>';
-        }
-        html += '<button class="button is-small playback-btn" data-action="skip" title="{{ _("Skip") }}">';
-        html += '<i class="icon icon-to-end"></i></button>';
-        html += '</div></td>';
+        // Empty cell for drag handle column (maintains alignment with queue rows)
+        html += '<td style="width: 30px; padding: 5px 0px; vertical-align: middle;"></td>';
       }
 
       // Username and song title
@@ -142,22 +133,25 @@
       html += '</div></td>';
 
       if (isAdmin) {
-        html += '<td width="50px"></td>';
+        // Cog button to open now-playing options modal
+        html += '<td style="width: 50px; vertical-align: middle; text-align: right; padding-right: 10px;">';
+        html += '<a class="button is-small is-text now-playing-options-btn" title="{{ _("Options") }}">';
+        html += '<i class="icon icon-cog is-size-5"></i></a>';
+        html += '</td>';
       }
       html += '</tr>';
-      rowNum++;
     }
 
-    // Queue rows
+    // Queue rows (numbered starting at 1)
     if (queue.length > 0) {
       queue.forEach(function(e, index) {
         html += '<tr data-index="' + index + '">';
-        html += '<td width="20px" style="padding: 8px 5px; vertical-align: middle;">' + rowNum + '</td>';
+        html += '<td style="width: 35px; padding: 8px 8px; vertical-align: middle; text-align: center;">' + (index + 1) + '</td>';
 
         if (isAdmin) {
           // Drag handle for queued songs
-          html += '<td width="100px" class="has-text-centered" style="padding: 5px 0px; vertical-align: middle;">';
-          html += '<div class="drag-handle" style="cursor: grab; padding: 7px;" title="{{ _("Drag to reorder") }}">';
+          html += '<td style="width: 30px; padding: 5px 0px; vertical-align: middle; text-align: center;">';
+          html += '<div class="drag-handle" style="cursor: grab; padding: 8px 5px;" title="{{ _("Drag to reorder") }}">';
           html += '<i class="icon icon-th-list has-text-grey-light"></i></div>';
           html += '</td>';
         }
@@ -172,14 +166,13 @@
         html += '</div></td>';
 
         if (isAdmin) {
-          html += '<td width="50px" style="vertical-align: middle; text-align: right; padding-right: 10px;">';
-          html += '<a class="button is-small is-text" data-index="' + index + '" data-file="' + escape(e.file) + '" data-title="' + escape(e.title) + '" title="{{ _("Options") }}">';
+          html += '<td style="width: 50px; vertical-align: middle; text-align: right; padding-right: 10px;">';
+          html += '<a class="button is-small is-text queue-song-options-btn" data-index="' + index + '" data-file="' + escape(e.file) + '" data-title="' + escape(e.title) + '" title="{{ _("Options") }}">';
           html += '<i class="icon icon-cog is-size-5"></i></a>';
           html += '</td>';
         }
 
         html += '</tr>';
-        rowNum++;
       });
     } else if (!np || !np.now_playing) {
       // Only show empty message if nothing is playing AND queue is empty
@@ -259,14 +252,44 @@
   window.queuePageState.previousQueue = null;
   window.queuePageState.previousNowPlaying = null;
 
+  // Open now-playing options modal
+  window.openNowPlayingOptions = function() {
+      var np = window.queuePageState.nowPlaying;
+      if (!np || !np.now_playing) return;
+
+      $('#np-modal-song-title').text(np.now_playing);
+
+      // Update play/pause button based on current state
+      if (np.is_paused) {
+          $('#np-pause-btn').html('<span class="icon mr-2"><i class="icon-play"></i></span>{% trans %}Play{% endtrans %}');
+      } else {
+          $('#np-pause-btn').html('<span class="icon mr-2"><i class="icon-pause"></i></span>{% trans %}Pause{% endtrans %}');
+      }
+
+      $('#now-playing-options-modal').addClass('is-active');
+  };
+
+  window.closeNowPlayingOptions = function() {
+      $('#now-playing-options-modal').removeClass('is-active');
+  };
+
+  // Execute playback action and close modal
+  window.executePlaybackAction = function(action) {
+      $.get('/' + action);
+      window.closeNowPlayingOptions();
+  };
+
   // Initialize
   $(function() {
       window.queuePage_getQueue();
-      // Close modal on background click
-      $('.modal-background').click(window.closeSongOptions);
+      // Close modals on background click
+      $('.modal-background').click(function() {
+          window.closeSongOptions();
+          window.closeNowPlayingOptions();
+      });
 
-      // Use event delegation for menu buttons (handles dynamically generated content)
-      $(document).on('click', '#auto-refresh a.button', function(e) {
+      // Queue song options button (for queued songs)
+      $(document).on('click', '.queue-song-options-btn', function(e) {
           e.preventDefault();
           var $btn = $(this);
           var index = parseInt($btn.data('index'), 10);
@@ -275,7 +298,13 @@
           openSongOptions(index, file, title);
       });
 
-      // Playback controls handler
+      // Now-playing options button
+      $(document).on('click', '.now-playing-options-btn', function(e) {
+          e.preventDefault();
+          openNowPlayingOptions();
+      });
+
+      // Playback controls handler (still used for any inline buttons if needed)
       $(document).on('click', '.playback-btn', function(e) {
           e.preventDefault();
           var action = $(this).data('action');
@@ -338,6 +367,30 @@
         <a id="opt-delete" class="panel-block py-3 has-text-danger" href="#" onclick="executeQueueAction('delete'); return false;">
             <span class="icon mr-2"><i class="icon-trash-empty"></i></span>
             {% trans %}Remove from Queue{% endtrans %}
+        </a>
+    </section>
+  </div>
+</div>
+
+<div class="modal" id="now-playing-options-modal">
+  <div class="modal-background"></div>
+  <div class="modal-card" style="width: 90%; max-width: 400px;">
+    <header class="modal-card-head" style="padding: 15px;">
+      <p class="modal-card-title is-size-6" id="np-modal-song-title">Now Playing</p>
+      <button class="delete" aria-label="close" onclick="closeNowPlayingOptions()"></button>
+    </header>
+    <section class="modal-card-body" style="padding: 0;">
+        <a class="panel-block py-3" href="#" onclick="executePlaybackAction('restart'); return false;">
+            <span class="icon mr-2"><i class="icon-to-start"></i></span>
+            {% trans %}Restart{% endtrans %}
+        </a>
+        <a id="np-pause-btn" class="panel-block py-3" href="#" onclick="executePlaybackAction('pause'); return false;">
+            <span class="icon mr-2"><i class="icon-pause"></i></span>
+            {% trans %}Pause{% endtrans %}
+        </a>
+        <a class="panel-block py-3 has-text-danger" href="#" onclick="executePlaybackAction('skip'); return false;">
+            <span class="icon mr-2"><i class="icon-to-end"></i></span>
+            {% trans %}Skip{% endtrans %}
         </a>
     </section>
   </div>
