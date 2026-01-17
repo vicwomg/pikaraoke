@@ -245,7 +245,8 @@
             '/auth',
             '/batch-song-renamer', // Edit all songs page
             '/files/edit', // Edit single song
-            '/files/delete' // Delete song
+            '/files/delete', // Delete song
+            '/queue/edit' // Queue edit actions (move up/down/top/bottom/delete)
         ];
 
         // Check if the href matches any excluded path

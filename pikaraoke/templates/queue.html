@@ -45,6 +45,14 @@
       if (queueChanged || npChanged) {
         window.queuePageState.queue = newQueue;
         window.queuePageState.nowPlaying = newNowPlaying;
+
+        // Destroy existing Sortable before replacing HTML to avoid errors
+        var table = document.getElementById('auto-refresh');
+        if (table && table.sortableInstance) {
+            table.sortableInstance.destroy();
+            table.sortableInstance = null;
+        }
+
         $("#auto-refresh").html(window.queuePage_generateHTML());
         window.queuePageState.previousQueue = newQueue;
         window.queuePageState.previousNowPlaying = newNowPlaying;
@@ -56,10 +64,12 @@
   };
 
   window.initSortable = function() {
-    var el = document.getElementById('auto-refresh');
-    // Only init if admin (drag handles exist) and not already initialized
-    if ($(".drag-handle").length > 0 && el && !el.sortable) {
-       Sortable.create(el, {
+    var table = document.getElementById('auto-refresh');
+    var tbody = table ? table.querySelector('tbody') : null;
+
+    // Only init if admin (drag handles exist)
+    if ($(".drag-handle").length > 0 && tbody) {
+       table.sortableInstance = Sortable.create(tbody, {
           handle: '.drag-handle', // Only drag using the handle icon
           animation: 150,
           filter: '.disabled-sort', // Cannot drag now-playing row
@@ -89,12 +99,11 @@
              });
           }
       });
-      el.sortable = true;
     }
   };
 
   window.queuePage_generateHTML = function() {
-    var html = "";
+    var html = "<tbody>";
     var queue = window.queuePageState.queue;
     var np = window.queuePageState.nowPlaying;
     var colSpan = isAdmin ? 4 : 2;
@@ -177,25 +186,62 @@
       html += '<tr><td colspan="' + colSpan + '"><p class="has-text-warning">{{ _("The queue is empty") }}</p></td></tr>';
     }
 
+    html += "</tbody>";
     return html;
+  };
+
+  // Store current song info for modal actions
+  window.currentSongOptions = {
+      index: -1,
+      file: '',
+      title: ''
+  };
+
+  // Execute queue edit action via AJAX
+  window.executeQueueAction = function(action) {
+      var file = window.currentSongOptions.file;
+      var url = "/queue/edit?song=" + encodeURIComponent(file) + "&action=" + action;
+
+      $.ajax({
+          url: url,
+          method: 'GET',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      }).done(function(response) {
+          var result = JSON.parse(response);
+          if (!result.success && result.error) {
+              console.error('Queue action failed:', result.error);
+          }
+          // Socket event will trigger queue refresh
+      }).fail(function() {
+          console.error('Queue action request failed');
+      });
+
+      window.closeSongOptions();
   };
 
   // Open the modal menu
   window.openSongOptions = function(index, file, title) {
+      // Store song info for AJAX actions
+      window.currentSongOptions = {
+          index: index,
+          file: file,
+          title: title
+      };
+
       $('#modal-song-title').text(title);
 
-      // Update links with specific file
-      var baseUrl = "/queue/edit?song=" + encodeURIComponent(file);
-      $('#opt-up').attr('href', baseUrl + "&action=up");
-      $('#opt-down').attr('href', baseUrl + "&action=down");
-      $('#opt-top').attr('href', baseUrl + "&action=top");
-      $('#opt-bottom').attr('href', baseUrl + "&action=bottom");
-      $('#opt-delete').attr('href', baseUrl + "&action=delete");
+      // Reset all options to visible first
+      $('#opt-up, #opt-top, #opt-down, #opt-bottom').show();
 
-      // Hide "Up"/"Play Next" if first in queue (index 0), hide "Down"/"Bottom" if last
+      // Hide "Up"/"Play Next" if first in queue (index 0)
+      if (index === 0) {
+          $('#opt-up, #opt-top').hide();
+      }
+      // Hide "Down"/"Bottom" if last in queue
       var queueLen = window.queuePageState.queue.length;
-      (index === 0) ? $('#opt-up, #opt-top').hide() : $('#opt-up, #opt-top').show();
-      (index >= queueLen - 1) ? $('#opt-down, #opt-bottom').hide() : $('#opt-down, #opt-bottom').show();
+      if (index >= queueLen - 1) {
+          $('#opt-down, #opt-bottom').hide();
+      }
 
       $('#song-options-modal').addClass('is-active');
   }
@@ -273,23 +319,23 @@
       <button class="delete" aria-label="close" onclick="closeSongOptions()"></button>
     </header>
     <section class="modal-card-body" style="padding: 0;">
-        <a id="opt-top" class="panel-block py-3">
+        <a id="opt-top" class="panel-block py-3" href="#" onclick="executeQueueAction('top'); return false;">
             <span class="icon has-text-info mr-2"><i class="icon-up-big"></i></span>
             <b>{% trans %}Play Next{% endtrans %}</b>&nbsp;({% trans %}Move to Top{% endtrans %})
         </a>
-        <a id="opt-up" class="panel-block py-3">
+        <a id="opt-up" class="panel-block py-3" href="#" onclick="executeQueueAction('up'); return false;">
             <span class="icon mr-2"><i class="icon-up-circled"></i></span>
             {% trans %}Move Up{% endtrans %}
         </a>
-        <a id="opt-down" class="panel-block py-3">
+        <a id="opt-down" class="panel-block py-3" href="#" onclick="executeQueueAction('down'); return false;">
             <span class="icon mr-2"><i class="icon-down-circled"></i></span>
             {% trans %}Move Down{% endtrans %}
         </a>
-        <a id="opt-bottom" class="panel-block py-3">
+        <a id="opt-bottom" class="panel-block py-3" href="#" onclick="executeQueueAction('bottom'); return false;">
             <span class="icon has-text-info mr-2"><i class="icon-down-big"></i></span>
             {% trans %}Move to Bottom{% endtrans %}
         </a>
-        <a id="opt-delete" class="panel-block py-3 has-text-danger">
+        <a id="opt-delete" class="panel-block py-3 has-text-danger" href="#" onclick="executeQueueAction('delete'); return false;">
             <span class="icon mr-2"><i class="icon-trash-empty"></i></span>
             {% trans %}Remove from Queue{% endtrans %}
         </a>
