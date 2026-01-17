@@ -91,7 +91,7 @@
             // Only update if user clicked OK and entered a non-empty name
             // null = Cancel clicked, "" = OK with empty input
             if (name !== null && name.trim() !== "") {
-                Cookies.set("user", name, { expires: 3650 });
+                Cookies.set("user", name, { expires: 3650, path: '/' });
                 // Update the displayed name without reloading
                 $("#current-user span").text(name);
             }

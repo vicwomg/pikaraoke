@@ -17,11 +17,16 @@ from flask_socketio import SocketIO
 from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
+from pikaraoke.lib.browser import Browser
 from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
-from pikaraoke.lib.get_platform import get_data_directory, get_platform, has_js_runtime
-from pikaraoke.lib.selenium import launch_splash_screen
+from pikaraoke.lib.get_platform import (
+    get_data_directory,
+    get_platform,
+    has_js_runtime,
+    is_windows,
+)
 from pikaraoke.routes.admin import admin_bp
 from pikaraoke.routes.background_music import background_music_bp
 from pikaraoke.routes.batch_song_renamer import batch_song_renamer_bp
@@ -238,13 +243,15 @@ def main() -> None:
         args.hide_splash_screen = True
         logging.info("Forced to run headless mode in Android")
 
-    # Start the splash screen using selenium
+    # Start the splash screen browser
     if not args.hide_splash_screen:
-        driver = launch_splash_screen(k, args.window_size, args.external_monitor)
-        if not driver:
+        browser = Browser(k, args.window_size, args.external_monitor)
+        browser.launch_splash_screen()
+        if not browser:
+            logging.error("Failed to launch splash screen browser")
             sys.exit()
     else:
-        driver = None
+        browser = None
 
     if args.enable_swagger:
         logging.info(f"Swagger API docs enabled at {k.url}/apidocs")
@@ -252,9 +259,9 @@ def main() -> None:
     # Start the karaoke process
     k.run()
 
-    # Close running processes when done
-    if driver is not None:
-        driver.close()
+    # Close running browser when done
+    if browser is not None:
+        browser.close()
 
     delete_tmp_dir()
     sys.exit()
