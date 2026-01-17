@@ -50,11 +50,13 @@ args = parse_pikaraoke_args()
 socketio = SocketIO(async_mode="gevent", cors_allowed_origins=args.url)
 babel = Babel()
 
-
+# Flask automatically finds templates/static folders in the package directory
+# Works for both development and Briefcase-packaged apps
 app = Flask(__name__)
+app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
+
 app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
-app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
 # Initialize Swagger API docs if enabled via CLI flag
 app.config["SWAGGER"] = {
@@ -164,15 +166,28 @@ def main() -> None:
     # logging.basicConfig(filename=log_path, level=logging.INFO)
 
     if not is_ffmpeg_installed():
-        logging.error(
-            "ffmpeg is not installed, which is required to run PiKaraoke. See: https://www.ffmpeg.org/"
+        error_msg = (
+            "FFmpeg is not installed.\n\n"
+            "PiKaraoke requires FFmpeg for audio/video processing.\n\n"
+            "Please install FFmpeg:\n"
+            "- macOS: brew install ffmpeg\n"
+            "- Linux: sudo apt install ffmpeg\n"
+            "- Windows: Download from https://www.ffmpeg.org/\n\n"
+            "Visit https://www.ffmpeg.org/ for more information."
         )
+        logging.error(error_msg)
         sys.exit(1)
 
     if not has_js_runtime():
-        logging.warning(
-            "No js runtime is installed (such as Deno, Bun, Node.js, or QuickJS). This is required to run yt-dlp. Some downloads may not work. See: https://github.com/yt-dlp/yt-dlp/wiki/EJS"
+        warning_msg = (
+            "No JavaScript runtime detected.\n\n"
+            "A JS runtime (Node.js, Deno, Bun, or QuickJS) is required\n"
+            "for YouTube downloads to work properly.\n\n"
+            "PiKaraoke will start, but some downloads may fail.\n\n"
+            "Install Node.js: https://nodejs.org/\n"
+            "Or see: https://github.com/yt-dlp/yt-dlp/wiki/EJS"
         )
+        logging.warning(warning_msg)
 
     # setup/create download directory if necessary
     if not os.path.exists(args.download_path):
@@ -235,6 +250,9 @@ def main() -> None:
     server = WSGIServer(("0.0.0.0", int(args.port)), app, log=None, error_log=logging.getLogger())
     server.start()
 
+    # Store server reference on karaoke instance for shutdown
+    k.wsgi_server = server
+
     # Handle sigterm, apparently cherrypy won't shut down without explicit handling
     # signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
@@ -250,6 +268,7 @@ def main() -> None:
         if not browser:
             logging.error("Failed to launch splash screen browser")
             sys.exit()
+        k.selenium_driver = driver
     else:
         browser = None
 

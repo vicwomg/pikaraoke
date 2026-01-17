@@ -11,7 +11,7 @@ from queue import Queue
 from threading import Thread
 from typing import TYPE_CHECKING, Any
 
-from pikaraoke.lib.ffmpeg import build_ffmpeg_cmd
+from pikaraoke.lib.ffmpeg import build_ffmpeg_cmd, get_ffmpeg_path
 from pikaraoke.lib.file_resolver import FileResolver, is_transcoding_required
 
 if TYPE_CHECKING:
@@ -159,7 +159,16 @@ class StreamManager:
             k.avsync,
             k.cdg_pixel_scaling,
         )
-        self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
+
+        # Build FFmpeg command args and create subprocess
+        # compile() returns ['ffmpeg', ...args], replace with bundled path if available
+        args = ffmpeg_cmd.compile()
+        args[0] = get_ffmpeg_path()
+        self.ffmpeg_process = subprocess.Popen(
+            args,
+            stdin=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
 
         # FFmpeg outputs to stderr - prevent blocking reads
         self.ffmpeg_log = Queue()

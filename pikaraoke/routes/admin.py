@@ -3,7 +3,6 @@
 import datetime
 import os
 import subprocess
-import sys
 import threading
 import time
 
@@ -31,8 +30,20 @@ def delayed_halt(cmd: int, k: Karaoke):
     time.sleep(1.5)
     k.queue_clear()
     k.stop()
+
+    # Stop the web server
+    if k.wsgi_server:
+        k.wsgi_server.stop()
+
+    # Close the Selenium driver (Chrome window)
+    if k.selenium_driver:
+        try:
+            k.selenium_driver.quit()
+        except Exception:
+            pass  # Ignore errors if driver already closed
+
     if cmd == 0:
-        sys.exit()
+        os._exit(0)
     if cmd == 1:
         os.system("shutdown now")
     if cmd == 2:

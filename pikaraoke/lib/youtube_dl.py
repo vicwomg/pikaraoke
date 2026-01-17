@@ -56,7 +56,10 @@ def upgrade_youtubedl(youtubedl_path: str) -> str:
     """
     try:
         output = (
-            subprocess.check_output([youtubedl_path, "-U"], stderr=subprocess.STDOUT)
+            subprocess.check_output(
+                [youtubedl_path, "-U"],
+                stderr=subprocess.STDOUT,
+            )
             .decode("utf8")
             .strip()
         )
@@ -69,14 +72,20 @@ def upgrade_youtubedl(youtubedl_path: str) -> str:
         try:
             logging.info("Attempting youtube-dl upgrade via pip3...")
             output = (
-                subprocess.check_output(["pip3"] + args, stderr=subprocess.STDOUT)
+                subprocess.check_output(
+                    ["pip3"] + args,
+                    stderr=subprocess.STDOUT,
+                )
                 .decode("utf8")
                 .strip()
             )
         except FileNotFoundError:
             logging.info("Attempting youtube-dl upgrade via pip...")
             output = (
-                subprocess.check_output(["pip"] + args, stderr=subprocess.STDOUT)
+                subprocess.check_output(
+                    ["pip"] + args,
+                    stderr=subprocess.STDOUT,
+                )
                 .decode("utf8")
                 .strip()
             )
