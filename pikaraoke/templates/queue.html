@@ -59,6 +59,17 @@
 
         // Initialize Drag and Drop after HTML is rendered
         window.initSortable();
+
+        // Highlight moved row if tracked
+        if (window.highlightAfterRefresh) {
+          var fileToHighlight = window.highlightAfterRefresh;
+          window.highlightAfterRefresh = null;
+          $('a.queue-song-options-btn').each(function() {
+            if (decodeURIComponent($(this).data('file')) === fileToHighlight) {
+              $(this).closest('tr').addClass('row-moved');
+            }
+          });
+        }
       }
     });
   };
@@ -92,6 +103,12 @@
              // Convert DOM indices to queue array indices
              var oldQueueIndex = evt.oldIndex - offset;
              var newQueueIndex = evt.newIndex - offset;
+
+             // Track file for highlight after refresh
+             var movedFile = $(evt.item).find('.queue-song-options-btn').data('file');
+             if (movedFile) {
+                 window.highlightAfterRefresh = decodeURIComponent(movedFile);
+             }
 
              // Immediately update row numbers to reflect new positions
              $('#auto-refresh tbody tr:not(.disabled-sort)').each(function(i) {
@@ -212,10 +229,18 @@
       title: ''
   };
 
+  // Track file to highlight after queue refresh
+  window.highlightAfterRefresh = null;
+
   // Execute queue edit action via AJAX
   window.executeQueueAction = function(action) {
       var file = window.currentSongOptions.file;
       var url = "/queue/edit?song=" + encodeURIComponent(file) + "&action=" + action;
+
+      // Track moved file for highlight (except delete)
+      if (action !== 'delete') {
+          window.highlightAfterRefresh = file;
+      }
 
       $.ajax({
           url: url,
@@ -229,6 +254,7 @@
           // Socket event will trigger queue refresh
       }).fail(function() {
           console.error('Queue action request failed');
+          window.highlightAfterRefresh = null;
       });
 
       window.closeSongOptions();
