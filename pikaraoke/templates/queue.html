@@ -19,7 +19,9 @@
   if (typeof window.queuePageState === 'undefined') {
     window.queuePageState = {
       queue: [],
-      previousQueue: null
+      previousQueue: null,
+      nowPlaying: null,
+      previousNowPlaying: null
     };
   }
 
@@ -29,12 +31,23 @@
       return;
     }
 
-    $.get('{{ url_for("queue.get_queue") }}', function (data) {
-      var newQueue = JSON.parse(data);
-      if (!isEqual(newQueue, window.queuePageState.previousQueue)) {
+    // Fetch both queue and now_playing data
+    $.when(
+      $.get('{{ url_for("queue.get_queue") }}'),
+      $.get('{{ url_for("now_playing.now_playing") }}')
+    ).done(function(queueResp, nowPlayingResp) {
+      var newQueue = JSON.parse(queueResp[0]);
+      var newNowPlaying = nowPlayingResp[0] ? JSON.parse(nowPlayingResp[0]) : null;
+
+      var queueChanged = !isEqual(newQueue, window.queuePageState.previousQueue);
+      var npChanged = !isEqual(newNowPlaying, window.queuePageState.previousNowPlaying);
+
+      if (queueChanged || npChanged) {
         window.queuePageState.queue = newQueue;
-        $("#auto-refresh tbody").html(window.queuePage_generateHTML());
+        window.queuePageState.nowPlaying = newNowPlaying;
+        $("#auto-refresh").html(window.queuePage_generateHTML());
         window.queuePageState.previousQueue = newQueue;
+        window.queuePageState.previousNowPlaying = newNowPlaying;
 
         // Initialize Drag and Drop after HTML is rendered
         window.initSortable();
@@ -43,23 +56,36 @@
   };
 
   window.initSortable = function() {
-    var el = document.getElementById('queue-body');
+    var el = document.getElementById('auto-refresh');
     // Only init if admin (drag handles exist) and not already initialized
     if ($(".drag-handle").length > 0 && el && !el.sortable) {
        Sortable.create(el, {
           handle: '.drag-handle', // Only drag using the handle icon
           animation: 150,
-          filter: '.disabled-sort', // Cannot drag index 0
+          filter: '.disabled-sort', // Cannot drag now-playing row
           onMove: function (evt) {
-             // Prevent moving an item to index 0 (Currently Playing)
+             // Prevent moving an item to the now-playing position
              return evt.related.className.indexOf('disabled-sort') === -1;
           },
           onEnd: function (evt) {
              if (evt.oldIndex === evt.newIndex) return;
-             // Send new order to backend
+
+             // Calculate offset: if now-playing row exists, DOM indices are offset by 1
+             var np = window.queuePageState.nowPlaying;
+             var offset = (np && np.now_playing) ? 1 : 0;
+
+             // Convert DOM indices to queue array indices
+             var oldQueueIndex = evt.oldIndex - offset;
+             var newQueueIndex = evt.newIndex - offset;
+
+             // Send queue indices to backend
              $.post("{{ url_for('queue.reorder') }}", {
-                 old_index: evt.oldIndex,
-                 new_index: evt.newIndex
+                 old_index: oldQueueIndex,
+                 new_index: newQueueIndex
+             }).done(function() {
+                 // Force refresh to update data attributes
+                 window.queuePageState.previousQueue = null;
+                 window.queuePage_getQueue();
              });
           }
       });
@@ -70,47 +96,87 @@
   window.queuePage_generateHTML = function() {
     var html = "";
     var queue = window.queuePageState.queue;
+    var np = window.queuePageState.nowPlaying;
     var colSpan = isAdmin ? 4 : 2;
+    var rowNum = 1;
 
+    // Now Playing row (if something is playing)
+    if (np && np.now_playing) {
+      html += '<tr class="disabled-sort has-background-dark">';
+      html += '<td width="20px" style="padding: 8px 5px; vertical-align: middle;">' + rowNum + '</td>';
+
+      if (isAdmin) {
+        // Playback controls for currently playing song
+        html += '<td width="100px" class="has-text-centered" style="padding: 5px 0px; vertical-align: middle;">';
+        html += '<div class="buttons are-small has-addons is-centered" style="margin-bottom: 0;">';
+        html += '<button class="button is-small playback-btn" data-action="restart" title="{{ _("Restart") }}">';
+        html += '<i class="icon icon-to-start"></i></button>';
+        if (np.is_paused) {
+          html += '<button class="button is-small playback-btn" data-action="pause" title="{{ _("Play") }}">';
+          html += '<i class="icon icon-play"></i></button>';
+        } else {
+          html += '<button class="button is-small playback-btn" data-action="pause" title="{{ _("Pause") }}">';
+          html += '<i class="icon icon-pause"></i></button>';
+        }
+        html += '<button class="button is-small playback-btn" data-action="skip" title="{{ _("Skip") }}">';
+        html += '<i class="icon icon-to-end"></i></button>';
+        html += '</div></td>';
+      }
+
+      // Username and song title
+      html += '<td style="padding: 8px 10px; vertical-align: middle;">';
+      html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline">';
+      html += '<span class="has-text-success">' + np.now_playing_user + '</span>';
+      html += '<span class="is-hidden-mobile has-text-grey mx-2">&bull;</span>';
+      html += '<span class="has-text-weight-bold has-text-success is-hidden-mobile">' + np.now_playing + '</span>';
+      html += '<span class="is-size-7 has-text-weight-bold has-text-success is-hidden-tablet" style="width: 100%;">' + np.now_playing + '</span>';
+      html += '</div></td>';
+
+      if (isAdmin) {
+        html += '<td width="50px"></td>';
+      }
+      html += '</tr>';
+      rowNum++;
+    }
+
+    // Queue rows
     if (queue.length > 0) {
       queue.forEach(function(e, index) {
-        var isPlaying = (index === 0);
-        var rowClass = isPlaying ? "disabled-sort has-background-dark" : "";
-
-        html += '<tr class="' + rowClass + '" data-index="' + index + '">';
-        html += '<td width="20px" style="padding: 12px 5px">' + (index + 1) + '</td>';
+        html += '<tr data-index="' + index + '">';
+        html += '<td width="20px" style="padding: 8px 5px; vertical-align: middle;">' + rowNum + '</td>';
 
         if (isAdmin) {
-          html += '<td width="40px" class="has-text-centered" style="padding: 5px 0px; vertical-align: middle;">';
-          if (isPlaying) {
-            html += '<i class="icon icon-play has-text-success is-size-5"></i>';
-          } else {
-            html += '<div class="drag-handle" style="cursor: grab; padding: 7px;" title="Drag to reorder"><i class="icon icon-th-list has-text-grey-light"></i></div>';
-          }
+          // Drag handle for queued songs
+          html += '<td width="100px" class="has-text-centered" style="padding: 5px 0px; vertical-align: middle;">';
+          html += '<div class="drag-handle" style="cursor: grab; padding: 7px;" title="{{ _("Drag to reorder") }}">';
+          html += '<i class="icon icon-th-list has-text-grey-light"></i></div>';
           html += '</td>';
         }
 
-        html += '<td style="padding-left: 10px; vertical-align: middle;">';
-        html += '<div class="is-flex is-flex-direction-column">';
-        html += '<span class="has-text-weight-bold ' + (isPlaying ? 'has-text-success' : '') + '">' + e.title + '</span>';
-        html += '<span class="is-size-7 has-text-grey">' + e.user + '</span>';
+        // Username and song title - responsive layout
+        html += '<td style="padding: 8px 10px; vertical-align: middle;">';
+        html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline">';
+        html += '<span class="has-text-success">' + e.user + '</span>';
+        html += '<span class="is-hidden-mobile has-text-grey mx-2">&bull;</span>';
+        html += '<span class="has-text-weight-bold is-hidden-mobile">' + e.title + '</span>';
+        html += '<span class="is-size-7 has-text-weight-bold is-hidden-tablet" style="width: 100%;">' + e.title + '</span>';
         html += '</div></td>';
 
         if (isAdmin) {
           html += '<td width="50px" style="vertical-align: middle; text-align: right; padding-right: 10px;">';
-          if (!isPlaying) {
-            html += '<a class="button is-small is-text" data-index="' + index + '" data-file="' + escape(e.file) + '" data-title="' + escape(e.title) + '">';
-            html += '<i class="icon icon-cog is-size-5"></i></a>';
-          }
+          html += '<a class="button is-small is-text" data-index="' + index + '" data-file="' + escape(e.file) + '" data-title="' + escape(e.title) + '" title="{{ _("Options") }}">';
+          html += '<i class="icon icon-cog is-size-5"></i></a>';
           html += '</td>';
         }
 
         html += '</tr>';
+        rowNum++;
       });
-    } else {
-      // MSG: Placeholder text when queue is empty
-      html += '<tr><td colspan="' + colSpan + '"><p class="has-text-warning p-3">{{ _("The queue is empty") }}</p></td></tr>';
+    } else if (!np || !np.now_playing) {
+      // Only show empty message if nothing is playing AND queue is empty
+      html += '<tr><td colspan="' + colSpan + '"><p class="has-text-warning">{{ _("The queue is empty") }}</p></td></tr>';
     }
+
     return html;
   };
 
@@ -126,9 +192,9 @@
       $('#opt-bottom').attr('href', baseUrl + "&action=bottom");
       $('#opt-delete').attr('href', baseUrl + "&action=delete");
 
-      // Hide "Up" if at top (index 1), hide "Down" if at bottom
+      // Hide "Up"/"Play Next" if first in queue (index 0), hide "Down"/"Bottom" if last
       var queueLen = window.queuePageState.queue.length;
-      (index <= 1) ? $('#opt-up, #opt-top').hide() : $('#opt-up, #opt-top').show();
+      (index === 0) ? $('#opt-up, #opt-top').hide() : $('#opt-up, #opt-top').show();
       (index >= queueLen - 1) ? $('#opt-down, #opt-bottom').hide() : $('#opt-down, #opt-bottom').show();
 
       $('#song-options-modal').addClass('is-active');
@@ -139,9 +205,13 @@
   }
 
   // Socket listeners setup (same as before)
+  // Socket listeners - refresh on queue or now_playing changes
   window.socket.off("queue_update");
   window.socket.on("queue_update", window.queuePage_getQueue);
+  window.socket.off("now_playing");
+  window.socket.on("now_playing", window.queuePage_getQueue);
   window.queuePageState.previousQueue = null;
+  window.queuePageState.previousNowPlaying = null;
 
   // Initialize
   $(function() {
@@ -150,13 +220,20 @@
       $('.modal-background').click(window.closeSongOptions);
 
       // Use event delegation for menu buttons (handles dynamically generated content)
-      $(document).on('click', '#queue-body a.button', function(e) {
+      $(document).on('click', '#auto-refresh a.button', function(e) {
           e.preventDefault();
           var $btn = $(this);
           var index = parseInt($btn.data('index'), 10);
           var file = decodeURIComponent($btn.data('file'));
           var title = decodeURIComponent($btn.data('title'));
           openSongOptions(index, file, title);
+      });
+
+      // Playback controls handler
+      $(document).on('click', '.playback-btn', function(e) {
+          e.preventDefault();
+          var action = $(this).data('action');
+          $.get('/' + action);
       });
   });
 
@@ -172,18 +249,8 @@
 
 {% block content %}
 
-<div class="table-container">
-    <table class="table is-fullwidth is-striped is-hoverable" id="auto-refresh" style="margin-bottom: 30px">
-        <thead>
-            <tr>
-                <th width="20px">#</th>
-                {% if admin %}<th width="40px"></th>{% endif %} <th>Song</th>
-                {% if admin %}<th width="50px"></th>{% endif %} </tr>
-        </thead>
-        <tbody id="queue-body">
-            </tbody>
-    </table>
-</div>
+<table class="table is-striped" id="auto-refresh" style="margin-bottom: 30px">
+</table>
 
 {% if admin %}
 <div class="is-flex is-justify-content-space-between is-align-items-center mb-3">

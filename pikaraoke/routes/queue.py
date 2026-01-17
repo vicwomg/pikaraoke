@@ -150,10 +150,6 @@ def reorder():
 
         # Security bounds check
         if 0 <= old_index < len(k.queue) and 0 <= new_index < len(k.queue):
-            # Prevent moving the currently playing song (index 0)
-            if old_index == 0 or new_index == 0:
-                return json.dumps({"success": False, "error": "Cannot move currently playing song"})
-
             item = k.queue.pop(old_index)
             k.queue.insert(new_index, item)
             broadcast_event("queue_update")
@@ -194,10 +190,10 @@ def queue_edit():
                     found_index = i
                     break
 
-            # Move to index 1 (Index 0 is currently playing)
-            if found_index > 1:
+            # Move to index 0 (top of queue = next to play after current song)
+            if found_index > 0:
                 item = k.queue.pop(found_index)
-                k.queue.insert(1, item)
+                k.queue.insert(0, item)
                 flash(
                     _("Moved to top of queue") + ": " + k.filename_from_path(item["file"]),
                     "is-success",
@@ -212,7 +208,7 @@ def queue_edit():
                     found_index = i
                     break
 
-            if found_index > 0 and found_index < len(k.queue) - 1:
+            if found_index >= 0 and found_index < len(k.queue) - 1:
                 item = k.queue.pop(found_index)
                 k.queue.append(item)
                 flash(
