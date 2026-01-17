@@ -1,5 +1,6 @@
 """File resolution and temporary file management utilities."""
 
+import logging
 import os
 import shutil
 import tempfile
@@ -7,7 +8,6 @@ import time
 import zipfile
 from sys import maxsize
 
-from pikaraoke.karaoke import logging
 from pikaraoke.lib.ffmpeg import get_media_duration
 from pikaraoke.lib.get_platform import get_platform
 
