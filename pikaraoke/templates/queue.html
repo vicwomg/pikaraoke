@@ -70,9 +70,13 @@
     // Only init if admin (drag handles exist)
     if ($(".drag-handle").length > 0 && tbody) {
        table.sortableInstance = Sortable.create(tbody, {
-          handle: '.drag-handle', // Only drag using the handle icon
+          handle: '.drag-handle',
           animation: 150,
-          filter: '.disabled-sort', // Cannot drag now-playing row
+          filter: '.disabled-sort',
+          // Touch device settings for better iOS compatibility
+          delay: 100,
+          delayOnTouchOnly: true,
+          touchStartThreshold: 5,
           onMove: function (evt) {
              // Prevent moving an item to the now-playing position
              return evt.related.className.indexOf('disabled-sort') === -1;
@@ -110,7 +114,7 @@
   // Column width constants
   var COL_WIDTH = {
     number: '35px',
-    drag: '30px',
+    drag: '44px',
     options: '50px'
   };
 
@@ -153,9 +157,8 @@
     html += '<td style="width: ' + COL_WIDTH.number + '; padding: 8px 8px; vertical-align: middle; text-align: center;">' + (index + 1) + '</td>';
 
     if (isAdmin) {
-      html += '<td style="width: ' + COL_WIDTH.drag + '; padding: 5px 0px; vertical-align: middle; text-align: center;">';
-      html += '<div class="drag-handle" style="cursor: grab; padding: 8px 5px;" title="{{ _("Drag to reorder") }}">';
-      html += '<i class="icon icon-th-list has-text-grey-light"></i></div>';
+      html += '<td class="drag-handle" style="width: ' + COL_WIDTH.drag + '; vertical-align: middle; text-align: center; cursor: grab; touch-action: none;" title="{{ _("Drag to reorder") }}">';
+      html += '<i class="icon icon-th-list has-text-grey-light"></i>';
       html += '</td>';
     }
 
