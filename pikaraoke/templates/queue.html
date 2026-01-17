@@ -162,7 +162,7 @@
     if (isAdmin) {
       html += '<td style="width: ' + COL_WIDTH.options + '; vertical-align: middle; text-align: right; padding-right: 10px;">';
       html += '<a class="button is-small is-text now-playing-options-btn" title="{{ _("Options") }}">';
-      html += '<i class="icon icon-cog is-size-5"></i></a>';
+      html += '<i class="icon-cog is-size-5"></i></a>';
       html += '</td>';
     }
     html += '</tr>';
@@ -191,7 +191,7 @@
     if (isAdmin) {
       html += '<td style="width: ' + COL_WIDTH.options + '; vertical-align: middle; text-align: right; padding-right: 10px;">';
       html += '<a class="button is-small is-text queue-song-options-btn" data-index="' + index + '" data-file="' + escape(e.file) + '" data-title="' + escape(e.title) + '" title="{{ _("Options") }}">';
-      html += '<i class="icon icon-cog is-size-5"></i></a>';
+      html += '<i class="icon-cog is-size-5"></i></a>';
       html += '</td>';
     }
 
@@ -397,19 +397,19 @@
     </header>
     <section class="modal-card-body" style="padding: 0;">
         <a id="opt-top" class="panel-block py-3" href="#" onclick="executeQueueAction('top'); return false;">
-            <span class="icon has-text-info mr-2"><i class="icon-up-big"></i></span>
+            <span class="icon has-text-info mr-2"><i class="icon-angle-double-up"></i></span>
             <b>{% trans %}Play Next{% endtrans %}</b>&nbsp;({% trans %}Move to Top{% endtrans %})
         </a>
         <a id="opt-up" class="panel-block py-3" href="#" onclick="executeQueueAction('up'); return false;">
-            <span class="icon mr-2"><i class="icon-up-circled"></i></span>
+            <span class="icon mr-2"><i class="icon-angle-up"></i></span>
             {% trans %}Move Up{% endtrans %}
         </a>
         <a id="opt-down" class="panel-block py-3" href="#" onclick="executeQueueAction('down'); return false;">
-            <span class="icon mr-2"><i class="icon-down-circled"></i></span>
+            <span class="icon mr-2"><i class="icon-angle-down"></i></span>
             {% trans %}Move Down{% endtrans %}
         </a>
         <a id="opt-bottom" class="panel-block py-3" href="#" onclick="executeQueueAction('bottom'); return false;">
-            <span class="icon has-text-info mr-2"><i class="icon-down-big"></i></span>
+            <span class="icon has-text-info mr-2"><i class="icon-angle-double-down"></i></span>
             {% trans %}Move to Bottom{% endtrans %}
         </a>
         <a id="opt-delete" class="panel-block py-3 has-text-danger" href="#" onclick="executeQueueAction('delete'); return false;">

@@ -5,8 +5,6 @@
 .icon-right-big:before { content: '\2192'; } /* '→' */
 .icon-down-big:before { content: '\2193'; } /* '↓' */
 .icon-home:before { content: '\2302'; } /* '⌂' */
-.icon-cog:before { content: '\2699'; } /* '⚙' */
-.icon-cog-alt:before { content: '\26ef'; } /* '⛯' */
 .icon-info-circled:before { content: '\e705'; } /* '' */
 .icon-play:before { content: '\e800'; } /* '' */
 .icon-pause:before { content: '\e801'; } /* '' */
@@ -37,6 +35,7 @@
 .icon-list-alt:before { content: '\e81a'; } /* '' */
 .icon-edit:before { content: '\e81b'; } /* '' */
 .icon-ok:before { content: '\e81c'; } /* '' */
+.icon-cog:before { content: '\e81d'; } /* '' */
 .icon-left-circled:before { content: '\f0a8'; } /* '' */
 .icon-right-circled:before { content: '\f0a9'; } /* '' */
 .icon-up-circled:before { content: '\f0aa'; } /* '' */
@@ -46,6 +45,10 @@
 .icon-sort-down:before { content: '\f0dd'; } /* '' */
 .icon-sort-up:before { content: '\f0de'; } /* '' */
 .icon-exchange:before { content: '\f0ec'; } /* '' */
+.icon-angle-double-up:before { content: '\f102'; } /* '' */
+.icon-angle-double-down:before { content: '\f103'; } /* '' */
+.icon-angle-up:before { content: '\f106'; } /* '' */
+.icon-angle-down:before { content: '\f107'; } /* '' */
 .icon-folder-open-empty:before { content: '\f115'; } /* '' */
 .icon-search-2:before { content: '\f50d'; } /* '' */
 .icon-folder-open:before { content: '📂'; } /* '\1f4c2' */
