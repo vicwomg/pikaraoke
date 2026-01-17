@@ -35,17 +35,14 @@
   const isFirefox = /firefox/i.test(navigator.userAgent);
   const isEdge = /edg/i.test(navigator.userAgent);
   const isSupportedBrowser = isSafari || isChrome || isFirefox || isEdge;
+  const isForcePermissionsModalBrowser = isMobileSafari;
 
   var socket = io();
 
   function connectSocket() {
     socket = io();
-    socket.on('connect', function() {
-        console.log('Socket connected');
-    });
-    socket.on('disconnect', function() {
-        console.log('Socket disconnected');
-    });
+    socket.on('connect', function() { console.log('Socket connected'); });
+    socket.on('disconnect', function() { console.log('Socket disconnected'); });
   }
 
   var mouseTimer = null,
@@ -54,53 +51,49 @@
   var octopusInstance = null;
   var showMenu = false;
   var menuButtonVisible = false;
-  var confirmationDismissed = false;
   var volume = 0.85;
-  var playbackStartTimeout = 10000; // 10 seconds
+  var playbackStartTimeout = 10000;
   var isScoreShown = false;
   var hasBgVideo = "{{ has_bg_video }}" == 'True'
-  var currentVideoUrl = null;  // Track current video URL to prevent reload loops
-  var hlsInstance = null;  // Store hls.js instance for cleanup/restart
+  var currentVideoUrl = null;
+  var hlsInstance = null;
 
   const scoreReviews = {
     low:[
-        "{{ _('Never sing again... ever.') }}", // {# MSG: Score review message #}
-        "{{ _('That was a really good impression of a dying cat!') }}", // {# MSG: Score review message #}
-        "{{ _('Thank God it\'s over.') }}", // {# MSG: Score review message #}
-        "{{ _('Pass the mic, please!') }}", // {# MSG: Score review message #}
-        "{{ _('Well, I\'m sure you\'re very good at your day job.') }}"{{ "," if schore_phrases.low else "" }} // {# MSG: Score review message #}
+        "{{ _('Never sing again... ever.') }}",
+        "{{ _('That was a really good impression of a dying cat!') }}",
+        "{{ _('Thank God it\'s over.') }}",
+        "{{ _('Pass the mic, please!') }}",
+        "{{ _('Well, I\'m sure you\'re very good at your day job.') }}"{{ "," if schore_phrases.low else "" }}
         {% for phrase in schore_phrases.low %}
         ,"{{ _(phrase) }}"
         {% endfor %}
     ],
     mid:[
-        "{{ _('I\'ve seen better.') }}", // {# MSG: Score review message #}
-        "{{ _('Ok... just ok.') }}", // {# MSG: Score review message #}
-        "{{ _('Not bad for an amateur.') }}", // {# MSG: Score review message #}
-        "{{ _('You put on a decent show.') }}", // {# MSG: Score review message #}
-        "{{ _('That was... something.') }}"{{ "," if schore_phrases.mid else "" }} // {# MSG: Score review message #}
+        "{{ _('I\'ve seen better.') }}",
+        "{{ _('Ok... just ok.') }}",
+        "{{ _('Not bad for an amateur.') }}",
+        "{{ _('You put on a decent show.') }}",
+        "{{ _('That was... something.') }}"{{ "," if schore_phrases.mid else "" }}
         {% for phrase in schore_phrases.mid %}
         ,"{{ _(phrase) }}"
         {% endfor %}
     ],
     high:[
-        "{{ _('Congratulations! That was unbelievable!') }}", // {# MSG: Score review message #}
-        "{{ _('Wow, have you tried auditioning for The Voice?') }}", // {# MSG: Score review message #}
-        "{{ _('Please, sing another one!') }}", // {# MSG: Score review message #}
-        "{{ _('You rock! You know that?!') }}", // {# MSG: Score review message #}
-        "{{ _('Woah, who let Freddie Mercury in here?') }}"{{ "," if schore_phrases.high else "" }} // {# MSG: Score review message #}
+        "{{ _('Congratulations! That was unbelievable!') }}",
+        "{{ _('Wow, have you tried auditioning for The Voice?') }}",
+        "{{ _('Please, sing another one!') }}",
+        "{{ _('You rock! You know that?!') }}",
+        "{{ _('Woah, who let Freddie Mercury in here?') }}"{{ "," if schore_phrases.high else "" }}
         {% for phrase in schore_phrases.high %}
         ,"{{ _(phrase) }}"
         {% endfor %}
     ]
-}
+  }
 
   async function handleConfirmation() {
     $('#permissions-modal').removeClass('is-active');
-    confirmationDismissed = true;
-    if (hasBgVideo)  {
-      playBGVideo(true);
-    }
+    if (hasBgVideo) playBGVideo(true);
     playBGMusic(true);
   }
 
@@ -114,8 +107,7 @@
 		  await startScore("{{ url_for('static', filename='') }}");
       isScoreShown = false;
 	  }
-    currentVideoUrl = null;  // Reset URL tracking when song ends
-    // Clean up hls.js instance if exists
+    currentVideoUrl = null;
     if (hlsInstance) {
       hlsInstance.destroy();
       hlsInstance = null;
@@ -123,24 +115,17 @@
     const video = getVideoPlayer();
     video.pause();
     $("#video-source").attr("src", "");
-    video.load();  // Clear the video element completely
+    video.load();
     hideVideo();
     socket.emit("end_song", reason);
   }
 
-  function getBackgroundMusicPlayer() {
-    return document.getElementById('background-music');
-  }
+  function getBackgroundMusicPlayer() { return document.getElementById('background-music'); }
+  function getBackgroundVideoPlayer() { return document.getElementById('bg-video'); }
+  function getVideoPlayer() { return $("#video")[0] }
 
-  function getBackgroundVideoPlayer() {
-    return document.getElementById('bg-video');
-  }
-
-  // A global array of the paths to mp3s for the background music playlist
-  // it will be loaded from the /bg_playlist endpoint
   var bg_playlist = []
 
-  // Gets the next song from the playlist, rotating back to the first song if at the end
   function getNextBgMusicSong() {
     let currentSong = getBackgroundMusicPlayer().getAttribute('src');
     let nextSong = bg_playlist[0];
@@ -153,34 +138,21 @@
     return nextSong;
   }
 
-  function getVideoPlayer() {
-    return $("#video")[0]
-  }
-
-  // Plays or pauses the background music
   async function playBGMusic(play) {
-	  let bgMusicVolume = "{{ bg_music_volume }}" *1 //hack to parse string to float;
+	  let bgMusicVolume = "{{ bg_music_volume }}" *1
 	  if ('{{ disable_bg_music }}' == 'False') {
       let audio = getBackgroundMusicPlayer();
-      if (bg_playlist.length == 0) {
-        console.log('No background music playlist loaded');
-        return;
-      }
-      if (!audio.getAttribute('src')) {
-        audio.setAttribute('src', getNextBgMusicSong());
-      }
+      if (bg_playlist.length == 0) return;
+      if (!audio.getAttribute('src')) audio.setAttribute('src', getNextBgMusicSong());
+
       if (play == true) {
-        if (isMediaPlaying(audio)) {
-          return; // already playing
-        }
-        else {
-          audio.volume = 0;
-          if (audio.readyState <= 2) await audio.load(); // load the music first time
-          await audio.play();
-          $(audio).animate({ volume: bgMusicVolume }, 2000); // fade in 1 sec
-        }
+        if (isMediaPlaying(audio)) return;
+        audio.volume = 0;
+        if (audio.readyState <= 2) await audio.load();
+        await audio.play().catch(e => console.log("Autoplay blocked (music)"));
+        $(audio).animate({ volume: bgMusicVolume }, 2000);
       } else {
-        $(audio).animate({ volume: 0 }, 2000, () => audio.pause()); // fade out 1 sec
+        $(audio).animate({ volume: 0 }, 2000, () => audio.pause());
       }
     }
   }
@@ -190,15 +162,11 @@
       let bgVideo = getBackgroundVideoPlayer();
       const bgVideoContainer = $('#bg-video-container');
       if (play == true) {
-        if (isMediaPlaying(bgVideo)) {
-          return; // already playing
-        }
-        else {
-          $("#bg-video").attr("src", "{{ url_for('stream.stream_bg_video') }}");
-          if (bgVideo.readyState <= 2) await bgVideo.load(); // load the video first time
-          bgVideo.play();
-          bgVideoContainer.fadeIn(2000);
-        }
+        if (isMediaPlaying(bgVideo)) return;
+        $("#bg-video").attr("src", "{{ url_for('stream.stream_bg_video') }}");
+        if (bgVideo.readyState <= 2) await bgVideo.load();
+        bgVideo.play().catch(e => console.log("Autoplay blocked (video)"));
+        bgVideoContainer.fadeIn(2000);
       } else {
         if (isMediaPlaying(bgVideo)) {
           bgVideo.pause();
@@ -208,29 +176,21 @@
     }
   }
 
-  // handle showing notifications
   function flashNotification(message, categoryClass) {
     const sn = $("#splash-notification");
-    if (sn.html()) {
-      console.log(sn.html());
-      // dont clobber currently displayed notifications
-      return;
-    } else {
-      sn.html(message);
-      sn.addClass(categoryClass);
-      sn.fadeIn();
+    if (sn.html()) return;
+    sn.html(message);
+    sn.addClass(categoryClass);
+    sn.fadeIn();
+    setTimeout(() => {
+      sn.fadeOut();
       setTimeout(() => {
-        sn.fadeOut();
-        setTimeout(() => {
-          // reset the notification after fade out animation
-          sn.html("");
-          sn.removeClass(categoryClass);
-        }, 450);
-      }, 3000);
-    }
+        sn.html("");
+        sn.removeClass(categoryClass);
+      }, 450);
+    }, 3000);
   }
 
-  //handle screensaver idle loop
   var idleTime = 0;
   var screensaverTimeoutSeconds = parseInt('{{ screensaver_timeout }}') || 0;
   if (screensaverTimeoutSeconds > 0) {
@@ -238,7 +198,7 @@
       let screensaver = document.getElementById('screensaver');
       let video = getVideoPlayer();
       if (isMediaPlaying(video) || cursorVisible) {
-        idleTime = 0; //reset idle timer on playback and mouse move
+        idleTime = 0;
       }
       if (idleTime >= screensaverTimeoutSeconds) {
         if (screensaver.style.visibility == 'hidden') {
@@ -246,17 +206,13 @@
           playBGVideo(false);
           startScreensaver();
         }
-        if (idleTime > screensaverTimeoutSeconds + 36000) {
-          idleTime = screensaverTimeoutSeconds; //prevent overflow
-        }
+        if (idleTime > screensaverTimeoutSeconds + 36000) idleTime = screensaverTimeoutSeconds;
       }
-      else { //stop screensaver
+      else {
         if (screensaver.style.visibility == 'visible') {
           screensaver.style.visibility = 'hidden';
           stopScreensaver();
-          if (!nowPlaying.up_next && !isMediaPlaying(video)) {
-            playBGVideo(true);
-          }
+          if (!nowPlaying.up_next && !isMediaPlaying(video)) playBGVideo(true);
         }
       }
       idleTime++;
@@ -264,44 +220,31 @@
   }
 
   function handleNowPlaying(np) {
-    console.log(np)
     nowPlaying = np;
     if (np.now_playing) {
       var nowPlayingHtml = `<span>${np.now_playing}</span> `;
-
       if (np.now_playing_transpose != 0) {
-        nowPlayingHtml +=
-          `<span class='is-size-6 has-text-success'><b>Key</b>: ${getSemitonesLabel(np.now_playing_transpose)} </span>`
+        nowPlayingHtml += `<span class='is-size-6 has-text-success'><b>Key</b>: ${getSemitonesLabel(np.now_playing_transpose)} </span>`
       }
-
       $("#now-playing-song").html(nowPlayingHtml);
       $("#now-playing-singer").html(np.now_playing_user);
       $("#now-playing").fadeIn();
     } else {
-      // {# MSG: Message which shows in the "Now Playing" section when there is no song currently playing #}
       $("#now-playing").fadeOut();
     }
 
-    // Handle the Background music depending on the up_next and nowplaying status
-    // Stop background media when ANY song is playing or queued
     if (np.now_playing || np.up_next) {
-      idleTime = 0; // reset idle timer to clear screensaver
+      idleTime = 0;
       playBGMusic(false);
       playBGVideo(false);
     } else {
-      // Only start background when completely idle (no current song, no queue)
       setTimeout(() => {
         playBGMusic(true);
         playBGVideo(true)
       }, 2000);
     }
 
-    // render the queue details in top right
     if (np.up_next) {
-      // {# MSG: Label for the next song to be played in the queue. #}
-      up_next_text = "{{ _('Up next:') }}";
-      // {# MSG: Label of the singer for next song to be played in the queue. (Who added it to the queue.) #}
-      next_singer_text = "{{ _('Next singer:') }}";
       $("#up-next-song").html(np.up_next);
       $("#up-next-singer").html(np.next_user);
       $("#up-next").fadeIn();
@@ -310,83 +253,38 @@
     }
 
     const video = getVideoPlayer();
-
-    // SUBTITLESOCTOPUS
     const subtitleUrl = np.now_playing_subtitle_url;
-
     if (octopusInstance) {
         octopusInstance.dispose();
         octopusInstance = null;
     }
-
-    // if have .ass subtitle
     if (subtitleUrl && video) {
-
         var options = {
-                    video: video,
-                    subUrl: subtitleUrl,
-                    fonts: ['{{ url_for("static", filename="fonts/Arial.ttf") }}' ],
-                    debug: true,
-                    workerUrl: '{{ url_for("static", filename="js/subtitles-octopus-worker.js") }}'
+            video: video,
+            subUrl: subtitleUrl,
+            fonts: ['{{ url_for("static", filename="fonts/Arial.ttf") }}' ],
+            debug: true,
+            workerUrl: '{{ url_for("static", filename="js/subtitles-octopus-worker.js") }}'
         };
         try {
             octopusInstance = new SubtitlesOctopus(options);
-            octopusInstance.width = 800;
-            octopusInstance.height = 600;
-            console.log('SubtitlesOctopus initialized for:', octopusInstance);
-        } catch (e) {
-            console.error('Error initializing SubtitlesOctopus:', e);
-        }
+        } catch (e) { console.error(e); }
     }
 
-    // Start playback if a valid now_playing_url is provided
-    // Only load video if URL has changed to prevent reload loops
     if (np.now_playing_url && np.now_playing_url !== currentVideoUrl) {
-      if (!confirmationDismissed) {
-        console.log(
-          'Browser is unable to play video. User did not confirm interaction prompt.'
-        );
-        endSong("interaction confirmation required");
-        return;  // Exit early if no confirmation
-      }
-
-      // Track current URL to prevent reloading same video
       currentVideoUrl = np.now_playing_url;
-
-      // Use stream URL from backend (format determined by --streaming-format flag)
       const streamUrl = np.now_playing_url;
-      console.log('Loading video:', streamUrl);
-
-      // Clear the source first to prevent browser from caching old HLS playlist
       $("#video-source").attr("src", "");
       video.load();
-
-      // Now set the new source
       $("#video-source").attr("src", streamUrl);
 
       if (streamUrl.endsWith('.m3u8')) {
-        // Handle browsers with native HLS support (primarily Safari on iOS/macOS)
-        // Exclude Chrome and Edge - their native HLS is buggy (freezes, seeking issues)
         const useNativeHLS = video.canPlayType('application/vnd.apple.mpegurl') && !isChrome && !isEdge && !isMobileSafari;
         if (useNativeHLS) {
-          console.log('Native HLS support, proceeding with native playback');
           video.src = streamUrl;
-        }
-        else {
-          // Clean up previous hls.js instance if exists
-          if (hlsInstance) {
-            hlsInstance.destroy();
-            hlsInstance = null;
-          }
-          // Chrome/Edge have buggy native HLS (freezes mid video, seeking fails)
-          // Mobile Safari starts in the middle without startPosition config
-          // Use hls.js for reliable playback
-          (isChrome || isEdge) ?
-            console.log('Overriding Chromium native HLS playback with hls.js')
-            : console.log('HLS is not natively supported, using hls.js for playback');
-          hlsInstance = new Hls({
-            startPosition: 0,  // Force start from beginning (fixes Mobile Safari issue)
-          });
+        } else {
+          if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+          hlsInstance = new Hls({ startPosition: 0 });
           hlsInstance.loadSource(streamUrl);
           hlsInstance.attachMedia(video);
         }
@@ -398,7 +296,6 @@
         video.volume = volume;
       }
 
-      // show end time if available
       const duration = $("#duration");
       if (np.now_playing_duration) {
         duration.text(`/${formatTime(np.now_playing_duration)}`);
@@ -407,24 +304,21 @@
         duration.hide();
       }
 
-      // Stop background music before playing video
       playBGMusic(false);
-
-      // Show video container immediately to prevent race condition
       $("#video-container").show();
 
       video.play().catch(err => {
         console.error('Play failed:', err);
+        // Retry once if it was an autoplay block
+        setTimeout(() => video.play(), 1000);
       });
 
-      // handle timeout if video fails to play
       setTimeout(() => {
         if (!isMediaPlaying(video) && !video.paused) {
           endSong("failed to start");
         }
       }, playbackStartTimeout);
     }
-
   }
 
   function loadNowPlaying() {
@@ -433,7 +327,6 @@
     });
   }
 
-  // ** Post page load actions and event handlers **
   $(function () {
     $('#video-container').hide();
 
@@ -442,11 +335,8 @@
       $('#top-container').hide();
     }
 
-    //hide mouse cursor after 2 seconds of inactivity
     document.onmousemove = function () {
-      if (mouseTimer) {
-        window.clearTimeout(mouseTimer);
-      }
+      if (mouseTimer) window.clearTimeout(mouseTimer);
       if (!cursorVisible) {
         document.body.style.cursor = 'default';
         cursorVisible = true;
@@ -464,51 +354,31 @@
       }, 5000);
     };
 
-    //Video status events for communicating state back to server
     const video = getVideoPlayer();
     video.addEventListener("play", () => {
       $("#video-container").show();
-      //Report song start after a slight delay to allow video to load
-      setTimeout(() => {
-        socket.emit("start_song")
-      }, 1200);
+      setTimeout(() => { socket.emit("start_song") }, 1200);
     });
-    video.addEventListener("ended", () => {
-      endSong("complete", true);
-    });
-    video.addEventListener("timeupdate", (e) => {
-      $("#current").text(formatTime(video.currentTime));
-    });
-
+    video.addEventListener("ended", () => { endSong("complete", true); });
+    video.addEventListener("timeupdate", (e) => { $("#current").text(formatTime(video.currentTime)); });
     $("#video source")[0].addEventListener("error", (e) => {
-        // Only treat errors as fatal if the video has actually started playing
-        // HLS streams can have transient errors during initial buffering
         if (isMediaPlaying(video)) {
-            console.log("Error while playing video.");
-            console.log(e);
             endSong("error while playing");
-        } else {
-            console.log("Video error during initial buffering:", e);
-            // Do not call endSong() here, it will cause infinite loops trying to reload the erroneous video.
-            // We'll use the playbackStartTimeout loop to handle it.
         }
     });
 
-    // Load the background music playlist from server
     $.get('{{ url_for("bg_music.bg_playlist") }}', function (data) {
       if (data) bg_playlist = data;
     });
 
-    // Add a listener to the background player to play the next song in the playlist
     const bgMusic = getBackgroundMusicPlayer();
     bgMusic.addEventListener("ended", async () => {
       bgMusic.setAttribute('src', getNextBgMusicSong());
       await bgMusic.load();
-      await setTimeout(() => {}, 2500) // delay between songs
+      await setTimeout(() => {}, 2500)
       await bgMusic.play();
     });
 
-    //make sure we end the song if the user closes the window or leaves page
     window.addEventListener(
       'beforeunload',
       function (event) {
@@ -519,7 +389,6 @@
       true
     );
 
-    //open menu iframe
     $('#menu a').click(function () {
       if (showMenu) {
         $('#menu-container').hide();
@@ -533,7 +402,6 @@
       }
     });
 
-	 //close menu iframe clicking outside
 	 $('#menu-background').click(function () {
 		if (showMenu) {
 			$(".navbar-burger").click();
@@ -549,18 +417,45 @@
       modalContents.prepend(warningMessage);
     }
 
-    let params = new URLSearchParams(window.location.search);
-    let requireConfirmation = params.get('confirm');
-
-    if (requireConfirmation === 'false') {
-      let modal = document.getElementById('permissions-modal');
-      modal.classList.remove('is-active');
-      confirmationDismissed = true;
-      playBGMusic(true);
-      if (hasBgVideo)  {
-        playBGVideo(true);
-      }
+    const enablePermissionsModal = () => {
+      $('#permissions-modal').addClass('is-active');
     }
+
+    // Test if autoplay with audio is allowed using a real video file
+    const testAutoplay = async () => {
+      if (isForcePermissionsModalBrowser) {
+        // Uses hardcoded unsupported browsers. Use this for browsers that somehow pass the below test but still fail to autoplay
+        enablePermissionsModal();
+        return;
+      }
+      try {
+        const testVideo = document.createElement('video');
+        testVideo.playsInline = true;
+        testVideo.muted = false;
+        testVideo.volume = 0.01;
+        testVideo.src = "{{ url_for('static', filename='test-autoplay.mp4') }}";
+
+        // Wait for video to be ready
+        await new Promise((resolve, reject) => {
+          testVideo.onloadeddata = resolve;
+          testVideo.onerror = reject;
+        });
+
+        await testVideo.play();
+        // Check if browser auto-muted the video (Safari does this)
+        if (testVideo.muted) {
+          testVideo.pause();
+          enablePermissionsModal();
+        } else {
+          testVideo.pause();
+          handleConfirmation();
+        }
+      } catch (e) {
+        // Autoplay blocked
+        enablePermissionsModal();
+      }
+    };
+    testAutoplay();
 
     socket.on('pause', () => {
       const video = getVideoPlayer();
@@ -570,7 +465,6 @@
           video.pause();
           video.volume = currVolume;
         });
-        console.log(`Pause`);
       }
     });
 
@@ -581,7 +475,6 @@
         video.play();
         video.volume = 0;
         $(video).animate({ volume: currVolume }, 1000);
-        console.log(`Play`);
       }
     });
 
@@ -589,37 +482,30 @@
       const video = getVideoPlayer();
       const currVolume = video.volume;
       if (isMediaPlaying(video)) {
-        // Fade out if currently playing
         $(video).animate({ volume: 0 }, 1000, () => {
             video.pause();
             video.volume = currVolume;
             hideVideo();
           });
       } else {
-        // Immediately hide if paused or stopped
         video.pause();
         hideVideo();
       }
-	  console.log(`Skip: ${reason}`);
     });
 
     socket.on('volume', (val) => {
       const video = getVideoPlayer();
       if (val == "up") {
-        console.log(`Volume up`);
         video.volume = Math.min(1, video.volume + 0.1);
       } else if (val == "down") {
-        console.log(`Volume down`);
         video.volume = Math.max(0, video.volume - 0.1);
       }
       else {
-        console.log(`Volume: ${video.volume}`);
         video.volume = val;
       }
     });
 
     socket.on('restart', () => {
-      console.log(`Restart`);
       const video = getVideoPlayer();
       video.currentTime = 0;
       if (video.paused) video.play();
@@ -633,18 +519,23 @@
       socket.emit("clear_notification");
     });
 
-    //for first time load of splash screen
-    loadNowPlaying();
+    socket.on('connect_error', (error) => {
+      console.error('Connection error:', error);
+      flashNotification("Connection lost. Is the server still running?", "is-danger");
+    });
 
-    //for socket pushed updates to now playing state
+    socket.on('disconnect', (reason) => {
+      console.warn('Socket disconnected:', reason);
+      flashNotification("Connection lost. Is the server still running?", "is-danger");
+    });
+
+    loadNowPlaying();
     socket.on("now_playing", np => handleNowPlaying(np));
 
-    // reconnect socket / refresh if tab is hidden and then visible
     document.addEventListener("visibilitychange", function() {
       if (document.visibilityState === 'visible') {
         loadNowPlaying();
         if (!socket.connected) {
-            console.log('Reconnecting socket...');
             connectSocket();
         }
       }
@@ -750,7 +641,7 @@
 	<canvas id="fireworks"></canvas>
 </div>
 
-<div id="permissions-modal" class="modal is-active">
+<div id="permissions-modal" class="modal">
   <div class="modal-background"></div>
   <div class="modal-content" id="permissions-modal-content">
     <p>
@@ -763,12 +654,12 @@
     <div class="has-text-centered">
       <button
         id="permissions-button"
-        class="button is-success"
+        class="button is-success is-large"
         style="margin-top: 10px"
         onClick="handleConfirmation()"
       >
-        {# MSG: Button to confirm to enable video autoplay. #} {% trans
-        %}Confirm{% endtrans %}
+        {# MSG: Button to confirm to enable video autoplay. #}
+        {% trans %}Confirm{% endtrans %}
       </button>
     </div>
   </div>
@@ -795,15 +686,13 @@
    </div>
 
 
-<!-- Notification code -->
 <div
   id="splash-notification"
   class="notification overlay"
   style="display: none"
 ></div>
 
-<!-- Screensaver code -->
- <div class="fw-fh-container">
+<div class="fw-fh-container">
   <div id="screensaver" style="visibility: hidden">
     <div id="dvd">
       {% if not hide_url %}
