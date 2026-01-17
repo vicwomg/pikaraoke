@@ -23,13 +23,13 @@
     // Translations for spa-navigation.js (static JS cannot use Jinja2 directly)
     window.i18n = {
       // {# MSG: Prompt to change the username displayed next to queued songs. %s is the current name #}
-      promptChangeUsername: "{{ _('Do you want to change the name of the person using this device? This will show up on queued songs. Current: %s') }}",
+      promptChangeUsername: '{{ _("Do you want to change the name of the person using this device? This will show up on queued songs. Current: %s") }}',
       // {# MSG: Confirmation prompt to clear entire queue. User must type ok to confirm #}
-      promptClearQueue: "{{ _('Are you sure you want to clear the ENTIRE queue? Type \\'ok\\' to continue') }}",
+      promptClearQueue: "{{ _('Are you sure you want to clear the ENTIRE queue? Type ok to continue') }}",
       // {# MSG: Confirmation dialog when removing a song from the queue. %s is the song title #}
-      confirmDeleteFromQueue: "{{ _('Are you sure you want to delete \"%s\" from the queue?') }}",
+      confirmDeleteFromQueue: "{{ _('Are you sure you want to delete %s from the queue?') }}",
       // {# MSG: Confirmation dialog when permanently deleting a song file from the library #}
-      confirmDeleteFromLibrary: "{{ _('Are you sure you want to delete this song from the library?') }}"
+      confirmDeleteFromLibrary: '{{ _("Are you sure you want to delete this song from the library?") }}'
     };
 
     function generateRandomString(length) {
