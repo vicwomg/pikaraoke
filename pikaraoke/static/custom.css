@@ -80,3 +80,19 @@ table {
 body.hide-cursor * {
   cursor: none !important;
 }
+
+/* Drag and drop highlight */
+.drag-chosen {
+  background-color: #3273dc !important;
+  opacity: 0.9;
+}
+
+/* Brief highlight after move action */
+.row-moved {
+  animation: highlight-fade 1.5s ease-out;
+}
+
+@keyframes highlight-fade {
+  0% { background-color: #3273dc; }
+  100% { background-color: transparent; }
+}
