@@ -88,6 +88,11 @@
              var oldQueueIndex = evt.oldIndex - offset;
              var newQueueIndex = evt.newIndex - offset;
 
+             // Immediately update row numbers to reflect new positions
+             $('#auto-refresh tbody tr:not(.disabled-sort)').each(function(i) {
+                 $(this).find('td:first').text(i + 1);
+             });
+
              // Send queue indices to backend
              $.post("{{ url_for('queue.reorder') }}", {
                  old_index: oldQueueIndex,
