@@ -246,3 +246,77 @@ class TestIsUserLimited:
         mock_karaoke.enqueue("/songs/song1---abc.mp4", "User1")
 
         assert mock_karaoke.is_user_limited("User1") is True
+
+
+class TestFairQueuePosition:
+    """Tests for round-robin fair queue insertion."""
+
+    def test_fair_queue_empty_queue(self, mock_karaoke):
+        """Test insertion into empty queue goes to position 0."""
+        pos = mock_karaoke._calculate_fair_queue_position("UserA")
+        assert pos == 0
+
+    def test_fair_queue_first_song_each_user(self, mock_karaoke):
+        """Test that first songs from different users append in order."""
+        mock_karaoke.enqueue("/songs/song1---aaa.mp4", "UserA")
+        mock_karaoke.enqueue("/songs/song2---bbb.mp4", "UserB")
+        mock_karaoke.enqueue("/songs/song3---ccc.mp4", "UserC")
+
+        users = [item["user"] for item in mock_karaoke.queue]
+        assert users == ["UserA", "UserB", "UserC"]
+
+    def test_fair_queue_second_song_goes_after_first_round(self, mock_karaoke):
+        """Test that user's second song goes after all first-round songs."""
+        mock_karaoke.enqueue("/songs/song1---aaa.mp4", "UserA")
+        mock_karaoke.enqueue("/songs/song2---bbb.mp4", "UserB")
+        mock_karaoke.enqueue("/songs/song3---ccc.mp4", "UserA")  # UserA's second
+
+        users = [item["user"] for item in mock_karaoke.queue]
+        assert users == ["UserA", "UserB", "UserA"]
+
+    def test_fair_queue_interleaves_users(self, mock_karaoke):
+        """Test round-robin interleaving: A1, B1, A2, B2 not A1, A2, B1, B2."""
+        mock_karaoke.enqueue("/songs/a1---aaa.mp4", "UserA")
+        mock_karaoke.enqueue("/songs/a2---bbb.mp4", "UserA")
+        mock_karaoke.enqueue("/songs/b1---ccc.mp4", "UserB")
+        mock_karaoke.enqueue("/songs/b2---ddd.mp4", "UserB")
+
+        users = [item["user"] for item in mock_karaoke.queue]
+        # B's first song should slot in after A's first, before A's second
+        assert users == ["UserA", "UserB", "UserA", "UserB"]
+
+    def test_fair_queue_three_users_complex(self, mock_karaoke):
+        """Test fair queuing with three users adding multiple songs."""
+        # UserA adds 3 songs in a row
+        mock_karaoke.enqueue("/songs/a1---a01.mp4", "UserA")
+        mock_karaoke.enqueue("/songs/a2---a02.mp4", "UserA")
+        mock_karaoke.enqueue("/songs/a3---a03.mp4", "UserA")
+        # UserB adds 1 song
+        mock_karaoke.enqueue("/songs/b1---b01.mp4", "UserB")
+        # UserC adds 1 song
+        mock_karaoke.enqueue("/songs/c1---c01.mp4", "UserC")
+
+        users = [item["user"] for item in mock_karaoke.queue]
+        # Expected: A1, B1, C1, A2, A3 (B and C slot into round 0)
+        assert users == ["UserA", "UserB", "UserC", "UserA", "UserA"]
+
+    def test_fair_queue_late_joiner_gets_fair_position(self, mock_karaoke):
+        """Test that a new user joining late gets fair position."""
+        # UserA adds 2 songs
+        mock_karaoke.enqueue("/songs/a1---a01.mp4", "UserA")
+        mock_karaoke.enqueue("/songs/a2---a02.mp4", "UserA")
+        # UserB joins and adds their first song
+        mock_karaoke.enqueue("/songs/b1---b01.mp4", "UserB")
+
+        users = [item["user"] for item in mock_karaoke.queue]
+        # B's first song goes after A's first (round 0), before A's second
+        assert users == ["UserA", "UserB", "UserA"]
+
+    def test_fair_queue_preserves_add_to_front(self, mock_karaoke):
+        """Test that add_to_front bypasses fair queue logic."""
+        mock_karaoke.enqueue("/songs/a1---a01.mp4", "UserA")
+        mock_karaoke.enqueue("/songs/b1---b01.mp4", "UserB")
+        mock_karaoke.enqueue("/songs/a2---a02.mp4", "UserA", add_to_front=True)
+
+        # add_to_front should still put song at position 0
+        assert mock_karaoke.queue[0]["file"] == "/songs/a2---a02.mp4"
