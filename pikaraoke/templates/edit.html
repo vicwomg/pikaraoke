@@ -23,13 +23,6 @@
       new_name = new_name.trim();
       $('#new_file_name').val(new_name);
     });
-    $('.confirm-delete').click(function (e) {
-      e.preventDefault();
-      // {# MSG: Confirmation prompt when the user deletes a song. #}
-      if (window.confirm("{{ _('Are you sure you want to delete this song from the library?') }}")) {
-        location.href = this.href;
-      }
-    });
 
     $("#suggest_results").on("click", ".suggested_item", function () {
       $('#new_file_name').val($(this).text());
@@ -141,7 +134,7 @@
 </div>
 
 <hr>
-<a class="edit-button confirm-delete has-text-danger is-pulled-right"
+<a class="confirm-delete-file has-text-danger is-pulled-right"
   href="{{url_for('files.delete_file')}}?song={{url_escape(song)}}"><i class="icon icon-trash-empty"></i>
   {# MSG: Label on button which deletes the current song. #}
   {%- trans -%}
