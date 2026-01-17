@@ -160,8 +160,8 @@
     html += '</div></td>';
 
     if (isAdmin) {
-      html += '<td style="width: ' + COL_WIDTH.options + '; vertical-align: middle; text-align: right; padding-right: 10px;">';
-      html += '<a class="button is-small is-text now-playing-options-btn" title="{{ _("Options") }}">';
+      html += '<td style="width: ' + COL_WIDTH.options + '; vertical-align: middle; text-align: right;">';
+      html += '<a class="has-text-grey-light is-small is-text now-playing-options-btn" title="{{ _("Options") }}">';
       html += '<i class="icon-cog is-size-5"></i></a>';
       html += '</td>';
     }
@@ -176,7 +176,7 @@
 
     if (isAdmin) {
       html += '<td class="drag-handle" style="width: ' + COL_WIDTH.drag + '; vertical-align: middle; text-align: center; cursor: grab; touch-action: none;" title="{{ _("Drag to reorder") }}">';
-      html += '<i class="icon icon-th-list has-text-grey-light"></i>';
+      html += '<i class="icon icon-braille has-text-grey-light"></i>';
       html += '</td>';
     }
 
@@ -190,7 +190,7 @@
 
     if (isAdmin) {
       html += '<td style="width: ' + COL_WIDTH.options + '; vertical-align: middle; text-align: right; padding-right: 10px;">';
-      html += '<a class="button is-small is-text queue-song-options-btn" data-index="' + index + '" data-file="' + escape(e.file) + '" data-title="' + escape(e.title) + '" title="{{ _("Options") }}">';
+      html += '<a class="has-text-grey-light is-small is-text queue-song-options-btn" data-index="' + index + '" data-file="' + escape(e.file) + '" data-title="' + escape(e.title) + '" title="{{ _("Options") }}">';
       html += '<i class="icon-cog is-size-5"></i></a>';
       html += '</td>';
     }
@@ -392,7 +392,7 @@
   <div class="modal-background"></div>
   <div class="modal-card" style="width: 90%; max-width: 400px;">
     <header class="modal-card-head" style="padding: 15px;">
-      <p class="modal-card-title is-size-6" id="modal-song-title">Song Options</p>
+      <p class="modal-card-title is-size-6" id="modal-song-title" style="max-width: 95%">Song Options</p>
       <button class="delete" aria-label="close" onclick="closeSongOptions()"></button>
     </header>
     <section class="modal-card-body" style="padding: 0;">
@@ -424,7 +424,7 @@
   <div class="modal-background"></div>
   <div class="modal-card" style="width: 90%; max-width: 400px;">
     <header class="modal-card-head" style="padding: 15px;">
-      <p class="modal-card-title is-size-6" id="np-modal-song-title">Now Playing</p>
+      <p class="modal-card-title is-size-6" id="np-modal-song-title" style="max-width: 95%">Now Playing</p>
       <button class="delete" aria-label="close" onclick="closeNowPlayingOptions()"></button>
     </header>
     <section class="modal-card-body" style="padding: 0;">
