@@ -278,6 +278,11 @@ class Karaoke:
             if (pref := self.get_user_preference("limit_user_songs_by")) is not None
             else limit_user_songs_by
         )
+        self.enable_fair_queue = (
+            pref
+            if (pref := self.get_user_preference("enable_fair_queue")) is not None
+            else False
+        )
         self.cdg_pixel_scaling = (
             pref
             if (pref := self.get_user_preference("cdg_pixel_scaling")) is not None
@@ -810,8 +815,11 @@ class Karaoke:
                 if log_action:
                     # MSG: Message shown after the song is added to the queue
                     self.log_and_send(_("%s added to the queue: %s") % (user, queue_item["title"]))
-                insert_pos = self._calculate_fair_queue_position(user)
-                self.queue.insert(insert_pos, queue_item)
+                if self.enable_fair_queue:
+                    insert_pos = self._calculate_fair_queue_position(user)
+                    self.queue.insert(insert_pos, queue_item)
+                else:
+                    self.queue.append(queue_item)
             self.update_queue_socket()
             self.update_now_playing_socket()
             return [
