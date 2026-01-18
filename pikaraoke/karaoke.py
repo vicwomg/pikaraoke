@@ -279,9 +279,7 @@ class Karaoke:
             else limit_user_songs_by
         )
         self.enable_fair_queue = (
-            pref
-            if (pref := self.get_user_preference("enable_fair_queue")) is not None
-            else False
+            pref if (pref := self.get_user_preference("enable_fair_queue")) is not None else False
         )
         self.cdg_pixel_scaling = (
             pref
