@@ -17,6 +17,7 @@ from typing import Any
 
 import qrcode
 from flask_babel import _
+from qrcode.image.pure import PyPNGImage
 
 from pikaraoke.lib.download_manager import DownloadManager
 from pikaraoke.lib.ffmpeg import (
@@ -466,7 +467,7 @@ class Karaoke:
         )
         qr.add_data(self.url)
         qr.make()
-        img = qr.make_image()
+        img = qr.make_image(image_factory=PyPNGImage)
         # Use writable data directory instead of program directory
         data_dir = get_data_directory()
         self.qr_code_path = os.path.join(data_dir, "qrcode.png")
