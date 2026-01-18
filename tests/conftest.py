@@ -29,6 +29,7 @@ class MockKaraoke:
         self.limit_user_songs_by = 0
         self.hide_notifications = True
         self.download_path = "/fake/path"
+        self.enable_fair_queue = True
 
     # Import the actual methods we want to test
     from pikaraoke.karaoke import Karaoke
