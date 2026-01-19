@@ -56,7 +56,6 @@ Pikaraoke is independently developed and maintained. If you want to support this
 ```
 sudo apt-get install ffmpeg -y
 sudo apt-get install chromium -y
-sudo apt-get install chromium-driver -y
 sudo curl -fsSL https://deno.land/x/install/install.sh | sh
 ```
 
