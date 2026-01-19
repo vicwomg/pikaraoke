@@ -30,6 +30,7 @@ class MockKaraokeForStream:
         self.now_playing_user = None
         self.is_paused = True
         self.is_playing = False
+        self.player_connected = True
         self.update_now_playing_socket = MagicMock()
         self.update_queue_socket = MagicMock()
         self.end_song = MagicMock()
