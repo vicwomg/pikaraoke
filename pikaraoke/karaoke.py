@@ -127,7 +127,6 @@ class Karaoke:
         additional_ytdl_args: str | None = None,
         socketio=None,
         preferred_language: str | None = None,
-        browse_results_per_page: int = 500,
     ) -> None:
         """Initialize the Karaoke instance.
 
@@ -223,7 +222,6 @@ class Karaoke:
             else int(splash_delay)
         )
         self.volume = pref if (pref := self.get_user_preference("volume")) is not None else volume
-        self.browse_results_per_page = browse_results_per_page
         self.normalize_audio = (
             pref
             if (pref := self.get_user_preference("normalize_audio")) is not None
@@ -277,6 +275,9 @@ class Karaoke:
             pref
             if (pref := self.get_user_preference("limit_user_songs_by")) is not None
             else limit_user_songs_by
+        )
+        self.enable_fair_queue = (
+            pref if (pref := self.get_user_preference("enable_fair_queue")) is not None else False
         )
         self.cdg_pixel_scaling = (
             pref
@@ -732,6 +733,42 @@ class Karaoke:
         )
         return True if cont >= int(self.limit_user_songs_by) else False
 
+    def _calculate_fair_queue_position(self, user: str) -> int:
+        """Calculate insertion position for round-robin fair queuing.
+
+        Implements Nagle Fair Queuing: users take turns in rounds. A user's Nth
+        song is placed after all other users' Nth songs (or at queue end).
+
+        Args:
+            user: Username adding the song.
+
+        Returns:
+            Queue index where the song should be inserted.
+        """
+        # Count how many songs this user already has in queue
+        user_song_count = sum(1 for item in self.queue if item["user"] == user)
+
+        # Find position after the last song in "round N" where N = user_song_count
+        # Round 0 = first song from each user, Round 1 = second song, etc.
+        target_round = user_song_count
+        songs_seen_per_user: dict[str, int] = {}
+
+        for idx, item in enumerate(self.queue):
+            queue_user = item["user"]
+            songs_seen_per_user[queue_user] = songs_seen_per_user.get(queue_user, 0) + 1
+            # This song is in round (count - 1) for its user
+            song_round = songs_seen_per_user[queue_user] - 1
+            if song_round == target_round:
+                # Found a song in the target round, insert after it
+                # Keep scanning to find the LAST song in this round
+                pass
+            elif song_round > target_round:
+                # We've moved past target round, insert here
+                return idx
+
+        # All songs are in rounds <= target_round, append to end
+        return len(self.queue)
+
     def enqueue(
         self,
         song_path: str,
@@ -777,7 +814,11 @@ class Karaoke:
                 if log_action:
                     # MSG: Message shown after the song is added to the queue
                     self.log_and_send(_("%s added to the queue: %s") % (user, queue_item["title"]))
-                self.queue.append(queue_item)
+                if self.enable_fair_queue:
+                    insert_pos = self._calculate_fair_queue_position(user)
+                    self.queue.insert(insert_pos, queue_item)
+                else:
+                    self.queue.append(queue_item)
             self.update_queue_socket()
             self.update_now_playing_socket()
             return [
