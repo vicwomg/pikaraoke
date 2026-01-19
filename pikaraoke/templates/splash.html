@@ -95,8 +95,7 @@
     $('#permissions-modal').removeClass('is-active');
     autoplayConfirmed = true;
     if (hasBgVideo) playBGVideo(true);
-    console.log("Autoplay confirmed, playing background music");
-    setTimeout(() => { playBGMusic(true); }, 1000);
+    playBGMusic(true);
   }
 
   function hideVideo() {
