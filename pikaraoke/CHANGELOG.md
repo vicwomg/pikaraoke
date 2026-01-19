@@ -1,5 +1,43 @@
 # Changelog
 
+## [1.17.0](https://github.com/vicwomg/pikaraoke/compare/1.16.0...1.17.0) (2026-01-19)
+
+
+### Features
+
+* drag+drop queue reordering, move to top/bottom ([#676](https://github.com/vicwomg/pikaraoke/issues/676)) ([944447a](https://github.com/vicwomg/pikaraoke/commit/944447abecb02c7b2e3d65ef011ce0e06ed77254))
+* fix logging import for file_resolver ([#675](https://github.com/vicwomg/pikaraoke/issues/675)) ([039fedb](https://github.com/vicwomg/pikaraoke/commit/039fedb326e4a70fe33bdfb7fea762c6bce9d3e4))
+* Refactor file storage to use platform-specific data directories ([#643](https://github.com/vicwomg/pikaraoke/issues/643)) ([bcd4c52](https://github.com/vicwomg/pikaraoke/commit/bcd4c526710573421896b48b8aea9d79cb28fd55))
+* Replace Selenium with direct browser subprocess launching ([#670](https://github.com/vicwomg/pikaraoke/issues/670)) ([ac70a27](https://github.com/vicwomg/pikaraoke/commit/ac70a271f4fa519f801bb08c6e5918796224b999))
+* show download queue with realtime progress bar ([#661](https://github.com/vicwomg/pikaraoke/issues/661)) ([233eb4a](https://github.com/vicwomg/pikaraoke/commit/233eb4a3b3ea17201e8bd8c3ff8849f2f5265e80))
+* Smart Queue (Round-Robin Fair Play) ([#677](https://github.com/vicwomg/pikaraoke/issues/677)) ([239b530](https://github.com/vicwomg/pikaraoke/commit/239b53042bebdea77d8d8ad1cbf68b4785e30ff3))
+* Update dependencies ([#679](https://github.com/vicwomg/pikaraoke/issues/679)) ([7c102d0](https://github.com/vicwomg/pikaraoke/commit/7c102d0b6beb179b1dd6700319c140b00cd01c85))
+
+
+### Bug Fixes
+
+* api-docs job failing ([#647](https://github.com/vicwomg/pikaraoke/issues/647)) ([163e59f](https://github.com/vicwomg/pikaraoke/commit/163e59f68ad5ec7b5f12fc2134c8dcee44f619b3))
+* autoplay detection test positive, mobile layout issue ([#688](https://github.com/vicwomg/pikaraoke/issues/688)) ([4836cbe](https://github.com/vicwomg/pikaraoke/commit/4836cbe7c689088be6229657bd9b9f6eb8f659b1))
+* delete file not working since upgrade to SPA architecture ([#673](https://github.com/vicwomg/pikaraoke/issues/673)) ([ecdc730](https://github.com/vicwomg/pikaraoke/commit/ecdc73034bcb14e1afee8660166bb4f3da995594))
+* Docker entrypoint args not separated properly ([#678](https://github.com/vicwomg/pikaraoke/issues/678)) ([ba9d12b](https://github.com/vicwomg/pikaraoke/commit/ba9d12b170011513066d141b79619bde9ccdaada))
+* flasgger incompatibilities, disable by default ([#646](https://github.com/vicwomg/pikaraoke/issues/646)) ([452b847](https://github.com/vicwomg/pikaraoke/commit/452b847a7129f4e0372d1daa4d83dea8151bc500))
+* gitignore for Claude local directory ([#663](https://github.com/vicwomg/pikaraoke/issues/663)) ([0b16065](https://github.com/vicwomg/pikaraoke/commit/0b16065bef07d924eec6848248960da78d99b426))
+* Growing request URL when browsing pages of songs ([#644](https://github.com/vicwomg/pikaraoke/issues/644)) ([0025fb8](https://github.com/vicwomg/pikaraoke/commit/0025fb888d4fc266e694ce513a8c2435fe1e921f))
+* hide chrome warnings unless log level debug ([#649](https://github.com/vicwomg/pikaraoke/issues/649)) ([62fb1e6](https://github.com/vicwomg/pikaraoke/commit/62fb1e6ad7a3f8c2364f43f0a114fdfc29c52baa))
+* make sure title renders correctly on splash page ([#671](https://github.com/vicwomg/pikaraoke/issues/671)) ([69aa7d2](https://github.com/vicwomg/pikaraoke/commit/69aa7d2206b8d1951b2ca5183f0a8c45ce45a5ed))
+* prevent autoplay race condition and improve autoplay detection ([#682](https://github.com/vicwomg/pikaraoke/issues/682)) ([06ea6f1](https://github.com/vicwomg/pikaraoke/commit/06ea6f1875cb4eef41b49d23c92afa2b3522f30a))
+* race conditions on slow hardware causing playback failure ([#680](https://github.com/vicwomg/pikaraoke/issues/680)) ([9abc0dd](https://github.com/vicwomg/pikaraoke/commit/9abc0ddcd7ae728a0a400ba4099484e0847fad7c))
+* slow info.html page load due to CPU check ([#659](https://github.com/vicwomg/pikaraoke/issues/659)) ([f98172f](https://github.com/vicwomg/pikaraoke/commit/f98172fcefd3f1e38e7c36c4579bc38f49398cfd))
+* Splash Page ?confirm=false not working  ([#658](https://github.com/vicwomg/pikaraoke/issues/658)) ([ef99671](https://github.com/vicwomg/pikaraoke/commit/ef9967113a678deb58619d2e96cf9565ce3d7e11))
+* Use absolute paths for .ass, bg video and bg audio ([#652](https://github.com/vicwomg/pikaraoke/issues/652)) ([d65aab9](https://github.com/vicwomg/pikaraoke/commit/d65aab91313687e1750252cc9a5164fb42521788))
+* use flasgger stable version for compatibility ([#668](https://github.com/vicwomg/pikaraoke/issues/668)) ([da9b9be](https://github.com/vicwomg/pikaraoke/commit/da9b9bed3d0d55fa842287de1465a8452d96fc54))
+
+
+### Documentation
+
+* Add Claude Code guidance ([#655](https://github.com/vicwomg/pikaraoke/issues/655)) ([9c566bc](https://github.com/vicwomg/pikaraoke/commit/9c566bc56f1d85b930a581eff78e826d3ed5f7bd))
+* update readme to remove reference to chromedriver ([#683](https://github.com/vicwomg/pikaraoke/issues/683)) ([bfab3dd](https://github.com/vicwomg/pikaraoke/commit/bfab3dd3914cd5468c04c3d2c78166ecca18ecbb))
+
 ## [1.16.0](https://github.com/vicwomg/pikaraoke/compare/1.15.3...1.16.0) (2026-01-05)
 
 
