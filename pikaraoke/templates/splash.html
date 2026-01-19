@@ -51,7 +51,6 @@
   var octopusInstance = null;
   var showMenu = false;
   var menuButtonVisible = false;
-  var autoplayConfirmed = false;
   var volume = 0.85;
   var playbackStartTimeout = 10000;
   var isScoreShown = false;
@@ -94,7 +93,6 @@
 
   async function handleConfirmation() {
     $('#permissions-modal').removeClass('is-active');
-    autoplayConfirmed = true;
     if (hasBgVideo) playBGVideo(true);
     playBGMusic(true);
   }
@@ -143,7 +141,6 @@
   async function playBGMusic(play) {
 	  let bgMusicVolume = "{{ bg_music_volume }}" *1
 	  if ('{{ disable_bg_music }}' == 'False') {
-      if (!autoplayConfirmed) return;
       let audio = getBackgroundMusicPlayer();
       if (bg_playlist.length == 0) return;
       if (!audio.getAttribute('src')) audio.setAttribute('src', getNextBgMusicSong());
@@ -162,7 +159,6 @@
 
   async function playBGVideo(play) {
     if ('{{ disable_bg_video }}' == 'False') {
-      if (!autoplayConfirmed) return;
       let bgVideo = getBackgroundVideoPlayer();
       const bgVideoContainer = $('#bg-video-container');
       if (play == true) {
@@ -435,7 +431,8 @@
       try {
         const testVideo = document.createElement('video');
         testVideo.playsInline = true;
-        testVideo.muted = true;  // Start muted (always allowed)
+        testVideo.muted = false;
+        testVideo.volume = 0.01;
         testVideo.src = "{{ url_for('static', filename='test-autoplay.mp4') }}";
 
         // Wait for video to be ready
@@ -445,14 +442,7 @@
         });
 
         await testVideo.play();
-        // Now try to unmute - this is the real test
-        testVideo.muted = false;
-        testVideo.volume = 0.01;
-
-        // Brief delay to let browser enforce policy
-        await new Promise(resolve => setTimeout(resolve, 50));
-
-        // Check if browser re-muted the video
+        // Check if browser auto-muted the video (Safari does this)
         if (testVideo.muted) {
           testVideo.pause();
           enablePermissionsModal();
