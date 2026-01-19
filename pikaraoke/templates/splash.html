@@ -430,7 +430,7 @@
         const testVideo = document.createElement('video');
         testVideo.playsInline = true;
         testVideo.muted = true;  // Start muted (always allowed)
-        testVideo.src = "{{ url_for('static', filename='video/test-autoplay.mp4') }}";
+        testVideo.src = "{{ url_for('static', filename='video/test_autoplay.mp4') }}";
 
         // Wait for video to be ready
         await new Promise((resolve, reject) => {
@@ -456,6 +456,7 @@
         }
       } catch (e) {
         // Autoplay blocked
+        console.log("Autoplay error thrown", e);
         enablePermissionsModal();
       }
     };
