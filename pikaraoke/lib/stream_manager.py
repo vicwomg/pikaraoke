@@ -230,6 +230,12 @@ class StreamManager:
             return False
 
         try:
+            # Check if the playlist exists and has content
+            if not os.path.exists(fr.output_file):
+                return False
+            if os.path.getsize(fr.output_file) == 0:
+                return False
+
             # Count segment files directly (works even before playlist is written)
             stream_uid_str = str(fr.stream_uid)
             segment_files = [
