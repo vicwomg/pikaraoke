@@ -88,11 +88,7 @@ app.register_blueprint(splash_bp)
 app.register_blueprint(controller_bp)
 app.register_blueprint(nowplaying_bp)
 
-babel.init_app(app)
-socketio.init_app(app)
 
-
-@babel.localeselector
 def get_locale() -> str | None:
     """Select the language to display based on user preference or Accept-Language header.
 
@@ -117,6 +113,10 @@ def get_locale() -> str | None:
     else:
         locale = request.accept_languages.best_match(LANGUAGES.keys())
     return locale
+
+
+babel.init_app(app, locale_selector=get_locale)
+socketio.init_app(app)
 
 
 # Handle all the socketio incoming events here.
