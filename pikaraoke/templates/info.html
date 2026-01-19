@@ -392,6 +392,12 @@
 					</label>
 					</div>
 
+					<div class="user-preference-container">
+					<input id="pref-fair-queue" type="checkbox" class="user-preference-checkbox checkbox" data-pref="enable_fair_queue" {% if enable_fair_queue == True %}checked{% endif %}>
+					<label class="label" for="pref-fair-queue">{# MSG: Checkbox label which enable/disables fair queue (round-robin) mode #} {% trans %}Enable fair queue (round-robin mode ensures users take turns){% endtrans %}
+					</label>
+					</div>
+
 					<div class="user-preference-container is-align-items-center">
 					<input id="pref-buffer-size" class="user-preference-input input" type="number" min="0" max="9999" data-pref="buffer_size" data-start-value="{{ buffer_size }}" value="{{ buffer_size }}" />
 					<label class="label" for="pref-buffer-size">

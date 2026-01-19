@@ -57,7 +57,6 @@ default_bg_music_volume = 0.3
 default_buffer_size = 150
 default_config_file_path = "config.ini"
 default_streaming_format = "hls"
-default_browse_results_per_page = 500
 
 default_dl_dir = get_default_dl_dir(platform)
 default_youtubedl_path = "yt-dlp"
@@ -305,13 +304,6 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         "--preferred-language",
         help="Set the preferred language for the web interface. This will persist across restarts. Available codes: en, de_DE, es_VE, fi_FI, fr_FR, it_IT, ja_JP, ko_KR, nl_NL, no_NO, pt_BR, ru_RU, th_TH, zh_Hans_CN, zh_Hant_TW",
         default=None,
-        required=False,
-    )
-    parser.add_argument(
-        "--browse-results-per-page",
-        help=f"Number of results to show per page in the Browse section (default: {default_browse_results_per_page})",
-        default=default_browse_results_per_page,
-        type=int,
         required=False,
     )
     parser.add_argument(
