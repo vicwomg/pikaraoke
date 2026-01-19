@@ -268,9 +268,14 @@ class TestStreamManagerCheckHlsBuffer:
             segment = tmp_path / f"{stream_uid}_segment_{i:03d}.m4s"
             segment.write_bytes(b"x" * 50000)
 
+        # Create the HLS playlist file (output_file)
+        playlist_file = tmp_path / f"{stream_uid}.m3u8"
+        playlist_file.write_text("#EXTM3U\n#EXT-X-VERSION:7\n")
+
         mock_fr = MagicMock()
         mock_fr.tmp_dir = str(tmp_path)
         mock_fr.stream_uid = stream_uid
+        mock_fr.output_file = str(playlist_file)
         mock_fr.get_current_stream_size.return_value = 200000
 
         result = sm._check_hls_buffer(mock_fr, 150000)
