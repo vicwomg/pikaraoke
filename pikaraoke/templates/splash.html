@@ -373,6 +373,10 @@
 
     $.get('{{ url_for("bg_music.bg_playlist") }}', function (data) {
       if (data) bg_playlist = data;
+      // If autoplay was already confirmed, start BG music now that playlist is loaded
+      if (autoplayConfirmed && !nowPlaying.now_playing && !nowPlaying.up_next) {
+        playBGMusic(true);
+      }
     });
 
     const bgMusic = getBackgroundMusicPlayer();
@@ -428,37 +432,45 @@
     // Test if autoplay with audio is allowed using a real video file
     const testAutoplay = async () => {
       if (isForcePermissionsModalBrowser) {
-        // Uses hardcoded unsupported browsers. Use this for browsers that somehow pass the below test but still fail to autoplay
+        // Browsers that somehow pass the autoplay test but still fail to autoplay
         enablePermissionsModal();
         return;
       }
       try {
         const testVideo = document.createElement('video');
         testVideo.playsInline = true;
-        testVideo.muted = true;  // Start muted (always allowed)
         testVideo.src = "{{ url_for('static', filename='test-autoplay.mp4') }}";
 
-        // Wait for video to be ready
-        await new Promise((resolve, reject) => {
-          testVideo.onloadeddata = resolve;
-          testVideo.onerror = reject;
-        });
-
-        await testVideo.play();
-        // Now try to unmute - this is the real test
-        testVideo.muted = false;
-        testVideo.volume = 0.01;
-
-        // Brief delay to let browser enforce policy
-        await new Promise(resolve => setTimeout(resolve, 50));
-
-        // Check if browser re-muted the video
-        if (testVideo.muted) {
-          testVideo.pause();
-          enablePermissionsModal();
-        } else {
+        if (isSafari) {
+          // Safari: direct unmuted test works correctly
+          testVideo.muted = false;
+          testVideo.volume = 0.01;
+          await new Promise((resolve, reject) => {
+            testVideo.onloadeddata = resolve;
+            testVideo.onerror = reject;
+          });
+          await testVideo.play();
+          // If we got here, autoplay is allowed
           testVideo.pause();
           handleConfirmation();
+        } else {
+          // Chrome/Firefox: muted-then-unmute avoids corrupting autoplay budget
+          testVideo.muted = true;
+          await new Promise((resolve, reject) => {
+            testVideo.onloadeddata = resolve;
+            testVideo.onerror = reject;
+          });
+          await testVideo.play();
+          testVideo.muted = false;
+          testVideo.volume = 0.01;
+          await new Promise(resolve => setTimeout(resolve, 50));
+          if (testVideo.muted) {
+            testVideo.pause();
+            enablePermissionsModal();
+          } else {
+            testVideo.pause();
+            handleConfirmation();
+          }
         }
       } catch (e) {
         // Autoplay blocked
