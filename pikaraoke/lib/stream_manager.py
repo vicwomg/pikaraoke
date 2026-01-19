@@ -314,6 +314,11 @@ class StreamManager:
         # Wait for stream to start playing
         max_retries = 100
         while not k.is_playing and max_retries > 0:
+            # Stop waiting immediately if player disconnected
+            if not k.player_connected:
+                logging.warning("Player disconnected while waiting for playback")
+                k.end_song()
+                return
             time.sleep(0.1)
             max_retries -= 1
 

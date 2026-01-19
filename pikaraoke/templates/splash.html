@@ -95,6 +95,8 @@
     $('#permissions-modal').removeClass('is-active');
     if (hasBgVideo) playBGVideo(true);
     playBGMusic(true);
+    // Notify server that player is ready for playback
+    socket.emit('player_ready');
   }
 
   function hideVideo() {

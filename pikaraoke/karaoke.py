@@ -318,6 +318,9 @@ class Karaoke:
         # Initialize stream manager for transcoding and playback
         self.stream_manager = StreamManager(self)
 
+        # Track whether a player (splash page) is connected and ready
+        self.player_connected = False
+
     def get_url(self):
         """Get the URL for accessing the PiKaraoke web interface.
 
@@ -1032,6 +1035,17 @@ class Karaoke:
                     self.reset_now_playing()
                 if len(self.queue) > 0:
                     if not self.is_file_playing():
+                        # Wait for player to connect before attempting playback
+                        if not self.player_connected:
+                            if not hasattr(self, "_player_wait_logged"):
+                                logging.info(
+                                    f"Queue has songs but no player connected. "
+                                    f"Waiting for player at: {self.url}/splash"
+                                )
+                                self._player_wait_logged = True
+                            self.handle_run_loop()
+                            continue
+                        self._player_wait_logged = False
                         self.reset_now_playing()
                         i = 0
                         while i < (self.splash_delay * 1000):

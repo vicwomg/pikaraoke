@@ -148,6 +148,25 @@ def clear_notification() -> None:
     k.reset_now_playing_notification()
 
 
+@socketio.on("player_ready")
+def player_ready() -> None:
+    """Handle player_ready event when splash page completes initialization."""
+    k = get_karaoke_instance()
+    k.player_connected = True
+    logging.info("Player connected and ready")
+
+
+@socketio.on("disconnect")
+def handle_disconnect() -> None:
+    """Handle socket disconnect - mark player as disconnected."""
+    k = get_karaoke_instance()
+    # Only mark disconnected if player was connected
+    # This prevents control page disconnects from affecting playback
+    if k.player_connected:
+        k.player_connected = False
+        logging.info("Player disconnected")
+
+
 def main() -> None:
     """Main entry point for the PiKaraoke application.
 
