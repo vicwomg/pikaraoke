@@ -135,7 +135,7 @@ class SongList:
         Returns:
             Number of songs found.
         """
-        logging.info(f"Scanning for songs in: {directory}")
+        logging.debug(f"Scanning for songs in: {directory}")
         files_found = []
         for file in Path(directory).rglob("*.*"):
             file_path = file.as_posix()
