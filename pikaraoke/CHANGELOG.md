@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.17.1](https://github.com/vicwomg/pikaraoke/compare/1.17.0...1.17.1) (2026-01-20)
+
+
+### Bug Fixes
+
+* bad merge deleted download status feature ([#690](https://github.com/vicwomg/pikaraoke/issues/690)) ([b57962d](https://github.com/vicwomg/pikaraoke/commit/b57962de30e37042e1f38be9cf3fc1af6c357f85))
+* improve logging: yt-dlp upgrades and pikaraoke version ([#693](https://github.com/vicwomg/pikaraoke/issues/693)) ([3854a4f](https://github.com/vicwomg/pikaraoke/commit/3854a4f57578c8f0477691d35baebde94c5f8290))
+
 ## [1.17.0](https://github.com/vicwomg/pikaraoke/compare/1.16.0...1.17.0) (2026-01-19)
 
 
