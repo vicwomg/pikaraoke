@@ -1,6 +1,6 @@
 {
   "info": {
-    "version": "1.17.0",
+    "version": "1.17.1",
     "title": "PiKaraoke API",
     "description": "API for controlling PiKaraoke - a KTV-style karaoke system",
     "termsOfService": ""
