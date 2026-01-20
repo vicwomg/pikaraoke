@@ -62,10 +62,16 @@ def upgrade_youtubedl(youtubedl_path: str) -> str:
         )
     except subprocess.CalledProcessError as e:
         output = e.output.decode("utf8")
-    latest_version = output.split("Latest version: ")[1].split(" from")[0]
+
+    # Check if already up to date
     if "yt-dlp is up to date" in output:
-        logging.debug("yt-dlp is already up to date: " + latest_version)
+        logging.debug("yt-dlp is already up to date")
+        # Try to extract version from output, otherwise get it directly
+        if "Latest version: " in output:
+            latest_version = output.split("Latest version: ")[1].split(" from")[0]
+            logging.debug("yt-dlp version: " + latest_version)
         return
+
     upgrade_success = False
     if "You installed yt-dlp with pip or using the wheel from PyPi" in output:
         # allow pip to break system packages (probably required if installed without venv)
