@@ -47,7 +47,7 @@ class Browser:
         (such as user name) across restarts. Supports Chrome, Chromium, and Edge
         on Windows, Linux, and macOS.
         """
-        logging.info(f"Launching splash screen: {self.splash_url}")
+        logging.debug(f"Launching splash screen: {self.splash_url}")
 
         suppress_logs = int(self.karaoke.log_level) > logging.DEBUG
         stdout_dest = subprocess.DEVNULL if suppress_logs else None
@@ -146,7 +146,7 @@ class Browser:
             if not self.window_size:
                 cmd.append(self.splash_url)
 
-            logging.info(f"Browser command: {' '.join(cmd)}")
+            logging.debug(f"Browser command: {' '.join(cmd)}")
             try:
                 self.browser_process = subprocess.Popen(cmd, stdout=stdout_dest, stderr=stderr_dest)
             except OSError as e:

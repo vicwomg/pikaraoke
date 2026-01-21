@@ -36,6 +36,7 @@ from pikaraoke.lib.network import get_ip
 from pikaraoke.lib.song_list import SongList
 from pikaraoke.lib.stream_manager import StreamManager
 from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
+from pikaraoke.version import __version__ as VERSION
 
 
 class Karaoke:
@@ -182,6 +183,8 @@ class Karaoke:
         self.supports_hardware_h264_encoding = supports_hardware_h264_encoding()
         self.youtubedl_version = get_youtubedl_version(youtubedl_path)
         self.is_raspberry_pi = is_raspberry_pi()
+
+        logging.info("PiKaraoke version: " + VERSION)
 
         # Migrate config.ini from old default to new
         # If we are using the default config filename, check if we need to migrate
@@ -456,9 +459,10 @@ class Karaoke:
 
     def upgrade_youtubedl(self) -> None:
         """Upgrade yt-dlp to the latest version."""
-        logging.info("Upgrading youtube-dl, current version: %s" % self.youtubedl_version)
+        logging.debug(
+            "Checking if youtube-dl needs upgrading, current version: %s" % self.youtubedl_version
+        )
         self.youtubedl_version = upgrade_youtubedl(self.youtubedl_path)
-        logging.info("Done. Installed version: %s" % self.youtubedl_version)
 
     def generate_qr_code(self) -> None:
         """Generate a QR code image for the web interface URL."""
@@ -1067,7 +1071,7 @@ class Karaoke:
 
         This method blocks until stop() is called or KeyboardInterrupt.
         """
-        logging.info("Starting PiKaraoke!")
+        logging.debug("Starting PiKaraoke run loop")
         logging.info(f"Connect the player host to: {self.url}/splash")
         self.running = True
         while self.running:
