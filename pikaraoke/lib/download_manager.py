@@ -317,13 +317,14 @@ class DownloadManager:
             song_path = parse_download_path(output)
             logging.debug(output)
 
+            song_is_valid = False
             if song_path:
-                k.available_songs.add_if_valid(song_path)
+                song_is_valid = k.available_songs.add_if_valid(song_path)
             else:
                 logging.warning("Could not parse download path from yt-dlp output")
 
             if enqueue:
-                if song_path:
+                if song_is_valid:
                     k.enqueue(song_path, user, log_action=False)
                 else:
                     # MSG: Message shown after the download is completed but the adding to queue fails
