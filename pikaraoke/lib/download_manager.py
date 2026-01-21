@@ -10,7 +10,10 @@ from queue import Queue
 from threading import Thread
 from typing import TYPE_CHECKING
 
-from pikaraoke.lib.youtube_dl import build_ytdl_download_command
+from pikaraoke.lib.youtube_dl import (
+    build_ytdl_download_command,
+    get_youtube_id_from_url,
+)
 
 
 def _broadcast_helper(app, event):
@@ -22,34 +25,6 @@ def _broadcast_helper(app, event):
             broadcast_event(event)
     else:
         broadcast_event(event)
-
-
-def parse_download_path(output: str) -> str | None:
-    """Parse the downloaded file path from yt-dlp output.
-
-    Args:
-        output: Combined stdout/stderr from yt-dlp.
-
-    Returns:
-        Path to the downloaded file, or None if not found.
-    """
-
-    # Pattern 1: [Merger] Merging formats into "/path/to/file.ext"
-    match = re.search(r'\[Merger\] Merging formats into "(.+)"', output)
-    if match:
-        return match.group(1).strip()
-
-    # Pattern 2: [download] Destination: /path/to/file.ext
-    match = re.search(r"\[download\] Destination: (.+)$", output, re.MULTILINE)
-    if match:
-        return match.group(1).strip()
-
-    # Pattern 3: [download] /path/to/file.ext has already been downloaded
-    match = re.search(r"\[download\] (.+) has already been downloaded", output)
-    if match:
-        return match.group(1).strip()
-
-    return None
 
 
 if TYPE_CHECKING:
@@ -262,6 +237,7 @@ class DownloadManager:
         progress_regex = re.compile(
             r"\[download\]\s+(\d+\.?\d*)%\s+of\s+[^\s]+\s+at\s+([^\s]+)\s+ETA\s+([^\s]+)"
         )
+        video_id = get_youtube_id_from_url(video_url)
 
         while True:
             line = process.stdout.readline()
@@ -313,15 +289,21 @@ class DownloadManager:
                 # MSG: Message shown after the download is completed but not queued
                 k.log_and_send(_("Downloaded: %s") % displayed_title, "success")
 
-            # Extract the downloaded file path from yt-dlp output
-            song_path = parse_download_path(output)
-            logging.debug(output)
+            # After download, find the file path by ID
+            song_path = None
+            if video_id:
+                logging.debug(f"Searching for downloaded file by ID: {video_id}")
+                song_path = k.available_songs.find_by_id(k.download_path, video_id)
+            else:
+                logging.warning("No video ID available to find downloaded song")
 
             song_is_valid = False
             if song_path:
                 song_is_valid = k.available_songs.add_if_valid(song_path)
             else:
-                logging.warning("Could not parse download path from yt-dlp output")
+                logging.warning(
+                    f"Could not find downloaded song in {k.download_path} matching ID: {video_id}"
+                )
 
             if enqueue:
                 if song_is_valid:

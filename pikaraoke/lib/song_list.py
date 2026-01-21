@@ -172,6 +172,28 @@ class SongList:
         logging.warning(f"No song found matching pattern: {pattern}")
         return None
 
+    def find_by_id(self, directory: str, video_id: str) -> str | None:
+        """Efficiently find a song by its YouTube ID in a directory (non-recursive).
+
+        Args:
+            directory: The directory to search in.
+            video_id: The YouTube ID to match (searches for "---ID.").
+
+        Returns:
+            The full path to the found song, or None if not found.
+        """
+        id_pattern = f"---{video_id}."
+        try:
+            with os.scandir(directory) as it:
+                for entry in it:
+                    if entry.is_file() and id_pattern in entry.name:
+                        file_path = entry.path
+                        if self.is_valid_song(file_path):
+                            return file_path
+        except Exception as e:
+            logging.error(f"Error searching for song by ID {video_id} in {directory}: {e}")
+        return None
+
     def __contains__(self, song_path: str) -> bool:
         """Check if a song is in the list. O(1) average."""
         return song_path in self._songs
