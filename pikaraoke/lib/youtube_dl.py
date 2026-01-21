@@ -125,7 +125,17 @@ def build_ytdl_download_command(
         if high_quality
         else "mp4"
     )
-    cmd = [youtubedl_path, "-f", file_quality, "-o", dl_path, "-S", "vcodec:h264"]
+    cmd = [
+        youtubedl_path,
+        "-f",
+        file_quality,
+        "-o",
+        dl_path,
+        "-S",
+        "vcodec:h264",
+        "--compat-options",
+        "filename-sanitization",
+    ]
     preferred_js_runtime = get_installed_js_runtime()
     if preferred_js_runtime and preferred_js_runtime != "deno":
         # Deno is automatically assumed by yt-dlp, and does not need specification here

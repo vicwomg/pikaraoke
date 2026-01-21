@@ -94,7 +94,7 @@ class SongList:
         return ext in self.VALID_EXTENSIONS and os.path.isfile(file_path)
 
     def add_if_valid(self, song_path: str) -> bool:
-        """Add a song only if it's a valid song file.
+        """Add a song only if it's a valid song file and exists.
 
         Validates that the file exists and has a valid extension before adding.
 
@@ -104,12 +104,14 @@ class SongList:
         Returns:
             True if the song was added, False if validation failed.
         """
-        if not self.is_valid_song(song_path):
-            return False
 
-        self.add(song_path)
-        logging.debug(f"Added song to list: {song_path}")
-        return True
+        if os.path.exists(song_path) and self.is_valid_song(song_path):
+            self.add(song_path)
+            logging.debug(f"Added song to list: {song_path}")
+            return True
+
+        logging.debug(f"Song not added to list because it doesn't exist or is invalid: {song_path}")
+        return False
 
     def rename(self, old_path: str, new_path: str) -> bool:
         """Update a song's path after a file rename.
