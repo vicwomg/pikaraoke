@@ -138,7 +138,7 @@ class SongList:
         logging.debug(f"Scanning for songs in: {directory}")
         files_found = []
         for file in Path(directory).rglob("*.*"):
-            file_path = file.as_posix()
+            file_path = os.path.normpath(str(file))
             ext = os.path.splitext(file_path)[1].lower()
             if ext in self.VALID_EXTENSIONS and os.path.isfile(file_path):
                 logging.debug(f"Found song: {file.name}")
@@ -160,7 +160,7 @@ class SongList:
             Path to the found and added song, or None if not found.
         """
         for file in Path(directory).rglob(pattern):
-            file_path = file.as_posix()
+            file_path = os.path.normpath(str(file))
             if self.is_valid_song(file_path):
                 if file_path not in self:
                     self.add(file_path)

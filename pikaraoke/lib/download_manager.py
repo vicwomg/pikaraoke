@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import subprocess
 import uuid
@@ -37,17 +38,17 @@ def parse_download_path(output: str) -> str | None:
     # Pattern 1: [Merger] Merging formats into "/path/to/file.ext"
     match = re.search(r'\[Merger\] Merging formats into "(.+)"', output)
     if match:
-        return match.group(1).strip()
+        return os.path.normpath(match.group(1).strip())
 
     # Pattern 2: [download] Destination: /path/to/file.ext
     match = re.search(r"\[download\] Destination: (.+)$", output, re.MULTILINE)
     if match:
-        return match.group(1).strip()
+        return os.path.normpath(match.group(1).strip())
 
     # Pattern 3: [download] /path/to/file.ext has already been downloaded
     match = re.search(r"\[download\] (.+) has already been downloaded", output)
     if match:
-        return match.group(1).strip()
+        return os.path.normpath(match.group(1).strip())
 
     return None
 
