@@ -153,6 +153,7 @@ def reorder():
             item = k.queue.pop(old_index)
             k.queue.insert(new_index, item)
             broadcast_event("queue_update")
+            k.update_now_playing_socket()
             return json.dumps({"success": True})
     except (ValueError, IndexError):
         pass
@@ -264,6 +265,8 @@ def queue_edit():
 
     if success:
         broadcast_event("queue_update")
+        # Ensure splash screen "up next" is updated
+        k.update_now_playing_socket()
 
     if is_ajax:
         return json.dumps({"success": success, "message": message})
