@@ -4,75 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pikaraoke.lib.download_manager import DownloadManager, parse_download_path
-
-
-class TestParseDownloadPath:
-    """Tests for the parse_download_path function."""
-
-    def test_parse_merger_output(self):
-        """Test parsing path from Merger output."""
-        output = '[Merger] Merging formats into "/home/user/songs/Artist - Song---abc123.mp4"'
-        result = parse_download_path(output)
-        assert result == "/home/user/songs/Artist - Song---abc123.mp4"
-
-    def test_parse_download_destination(self):
-        """Test parsing path from download destination output."""
-        output = "[download] Destination: /home/user/songs/Track---xyz789.webm"
-        result = parse_download_path(output)
-        assert result == "/home/user/songs/Track---xyz789.webm"
-
-    def test_parse_already_downloaded(self):
-        """Test parsing path from already downloaded message."""
-        output = "[download] /home/user/songs/Song---def456.mp4 has already been downloaded"
-        result = parse_download_path(output)
-        assert result == "/home/user/songs/Song---def456.mp4"
-
-    def test_parse_multiline_output_with_merger(self):
-        """Test parsing from multiline output with Merger at the end."""
-        output = """[youtube] abc123: Downloading webpage
-[youtube] abc123: Downloading ios player API JSON
-[info] abc123: Downloading 1 format(s)
-[download] Destination: /tmp/Artist - Song---abc123.f137.mp4
-[download] 100% of 50.00MiB
-[download] Destination: /tmp/Artist - Song---abc123.f251.webm
-[download] 100% of 5.00MiB
-[Merger] Merging formats into "/home/user/songs/Artist - Song---abc123.mp4"
-Deleting original file /tmp/Artist - Song---abc123.f137.mp4"""
-        result = parse_download_path(output)
-        assert result == "/home/user/songs/Artist - Song---abc123.mp4"
-
-    def test_parse_multiline_output_destination_only(self):
-        """Test parsing from multiline output with only destination."""
-        output = """[youtube] xyz789: Downloading webpage
-[info] xyz789: Downloading 1 format(s)
-[download] Destination: /home/user/songs/Track---xyz789.mp4
-[download] 100% of 25.00MiB"""
-        result = parse_download_path(output)
-        assert result == "/home/user/songs/Track---xyz789.mp4"
-
-    def test_parse_no_match_returns_none(self):
-        """Test that unrecognized output returns None."""
-        output = "[youtube] abc123: Downloading webpage"
-        result = parse_download_path(output)
-        assert result is None
-
-    def test_parse_empty_string_returns_none(self):
-        """Test that empty string returns None."""
-        result = parse_download_path("")
-        assert result is None
-
-    def test_parse_path_with_spaces(self):
-        """Test parsing path with spaces in filename."""
-        output = '[Merger] Merging formats into "/home/user/My Songs/Artist Name - Song Title---abc123.mp4"'
-        result = parse_download_path(output)
-        assert result == "/home/user/My Songs/Artist Name - Song Title---abc123.mp4"
-
-    def test_parse_windows_style_path(self):
-        """Test parsing Windows-style path."""
-        output = '[Merger] Merging formats into "C:\\Users\\user\\songs\\Track---abc123.mp4"'
-        result = parse_download_path(output)
-        assert result == "C:\\Users\\user\\songs\\Track---abc123.mp4"
+from pikaraoke.lib.download_manager import DownloadManager
 
 
 class MockKaraokeForDownload:
@@ -197,16 +129,17 @@ class TestDownloadManagerExecuteDownload:
 
         # Mock Popen process
         mock_process = MagicMock()
-        mock_process.stdout.readline.side_effect = [
-            '[Merger] Merging formats into "/songs/Artist - Song---abc123.mp4"',
-            "",
-        ]
+        mock_process.stdout.readline.side_effect = ["Starting download...", ""]
         mock_process.poll.return_value = 0
         mock_popen.return_value = mock_process
 
-        rc = dm._execute_download("https://youtube.com/watch?v=test", False, "User", "Title")
+        # Mock find_by_id to return a path
+        mock_karaoke.available_songs.find_by_id.return_value = "/songs/Artist - Song---abc123.mp4"
+
+        rc = dm._execute_download("https://youtube.com/watch?v=abc123", False, "User", "Title")
 
         assert rc == 0
+        mock_karaoke.available_songs.find_by_id.assert_called_once_with("/songs/", "abc123")
         mock_karaoke.available_songs.add_if_valid.assert_called_once_with(
             "/songs/Artist - Song---abc123.mp4"
         )
@@ -223,14 +156,15 @@ class TestDownloadManagerExecuteDownload:
 
         # Mock Popen process
         mock_process = MagicMock()
-        mock_process.stdout.readline.side_effect = [
-            '[Merger] Merging formats into "/songs/Song---abc.mp4"',
-            "",
-        ]
+        mock_process.stdout.readline.side_effect = ["Starting download...", ""]
         mock_process.poll.return_value = 0
         mock_popen.return_value = mock_process
 
-        dm._execute_download("https://youtube.com/watch?v=test", True, "TestUser", "Title")
+        # Mock find_by_id
+        mock_karaoke.available_songs.find_by_id.return_value = "/songs/Song---abc.mp4"
+        mock_karaoke.available_songs.add_if_valid.return_value = True
+
+        dm._execute_download("https://youtube.com/watch?v=abc", True, "TestUser", "Title")
 
         mock_karaoke.enqueue.assert_called_once_with(
             "/songs/Song---abc.mp4", "TestUser", log_action=False
@@ -282,7 +216,10 @@ class TestDownloadManagerExecuteDownload:
         mock_process.poll.return_value = 0
         mock_popen.return_value = mock_process
 
-        dm._execute_download("url", True, "User", "Title")
+        # Mock find_by_id to return None (file not found)
+        mock_karaoke.available_songs.find_by_id.return_value = None
+
+        dm._execute_download("https://youtube.com/watch?v=abc", True, "User", "Title")
 
         # Should log error about queueing
         calls = mock_karaoke.log_and_send.call_args_list
