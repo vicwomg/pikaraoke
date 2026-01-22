@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.17.2](https://github.com/vicwomg/pikaraoke/compare/1.17.1...1.17.2) (2026-01-22)
+
+
+### Bug Fixes
+
+* download + queue broken on windows for songs with special chars ([#702](https://github.com/vicwomg/pikaraoke/issues/702)) ([f399b57](https://github.com/vicwomg/pikaraoke/commit/f399b5773476eb19acddfb3197f30cb386227445))
+* splash up next does not update on new queue reorder actions ([#701](https://github.com/vicwomg/pikaraoke/issues/701)) ([7b3909a](https://github.com/vicwomg/pikaraoke/commit/7b3909a8a2270b43b7773dec878de05f4f227c0e))
+
 ## [1.17.1](https://github.com/vicwomg/pikaraoke/compare/1.17.0...1.17.1) (2026-01-20)
 
 
