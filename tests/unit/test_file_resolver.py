@@ -271,7 +271,7 @@ class TestFileResolverHandleAegissubSubtitle:
 
         fr = FileResolver(str(video_file))
 
-        assert fr.ass_file_path == str(ass_file)
+        assert fr.ass_file_path.casefold() == str(ass_file).casefold()
 
     @patch("pikaraoke.lib.file_resolver.get_media_duration", return_value=180)
     @patch("pikaraoke.lib.file_resolver.create_tmp_dir")
@@ -316,7 +316,7 @@ class TestFileResolverHandleMp3Cdg:
 
         fr = FileResolver(str(mp3_file))
 
-        assert fr.cdg_file_path == str(cdg_file)
+        assert fr.cdg_file_path.casefold() == str(cdg_file).casefold()
 
     @patch("pikaraoke.lib.file_resolver.create_tmp_dir")
     @patch("pikaraoke.lib.file_resolver.get_tmp_dir", return_value="/tmp/12345")

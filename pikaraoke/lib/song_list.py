@@ -94,7 +94,7 @@ class SongList:
         return ext in self.VALID_EXTENSIONS and os.path.isfile(file_path)
 
     def add_if_valid(self, song_path: str) -> bool:
-        """Add a song only if it's a valid song file.
+        """Add a song only if it's a valid song file and exists.
 
         Validates that the file exists and has a valid extension before adding.
 
@@ -104,12 +104,14 @@ class SongList:
         Returns:
             True if the song was added, False if validation failed.
         """
-        if not self.is_valid_song(song_path):
-            return False
 
-        self.add(song_path)
-        logging.debug(f"Added song to list: {song_path}")
-        return True
+        if os.path.exists(song_path) and self.is_valid_song(song_path):
+            self.add(song_path)
+            logging.debug(f"Added song to list: {song_path}")
+            return True
+
+        logging.debug(f"Song not added to list because it doesn't exist or is invalid: {song_path}")
+        return False
 
     def rename(self, old_path: str, new_path: str) -> bool:
         """Update a song's path after a file rename.
@@ -168,6 +170,28 @@ class SongList:
                 return file_path
 
         logging.warning(f"No song found matching pattern: {pattern}")
+        return None
+
+    def find_by_id(self, directory: str, video_id: str) -> str | None:
+        """Efficiently find a song by its YouTube ID in a directory (non-recursive).
+
+        Args:
+            directory: The directory to search in.
+            video_id: The YouTube ID to match (searches for "---ID.").
+
+        Returns:
+            The full path to the found song, or None if not found.
+        """
+        id_pattern = f"---{video_id}."
+        try:
+            with os.scandir(directory) as it:
+                for entry in it:
+                    if entry.is_file() and id_pattern in entry.name:
+                        file_path = entry.path
+                        if self.is_valid_song(file_path):
+                            return file_path
+        except Exception as e:
+            logging.error(f"Error searching for song by ID {video_id} in {directory}: {e}")
         return None
 
     def __contains__(self, song_path: str) -> bool:
