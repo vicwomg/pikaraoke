@@ -9,6 +9,7 @@
 />
 <script src="{{ url_for('static', filename='js/subtitles-octopus.js') }}"></script>
 <script>
+  // Use this config object to pass data from the jinja2 template to the splash.js code
   const PikaraokeConfig = {
     hasBgVideo: "{{ has_bg_video }}" == 'True',
     disableScore: "{{ disable_score }}" == 'True',
@@ -17,6 +18,10 @@
     disableBgVideo: "{{ disable_bg_video }}" == 'True',
     screensaverTimeout: parseInt('{{ screensaver_timeout }}') || 0,
     hideOverlay: "{{ hide_overlay }}" == 'True',
+    translations: {
+      socketConnectionLost: "{{ _('Connection lost. Is the server still running?') }}",
+      unsupportedBrowser: "{{ _('This browser is not fully supported. You may experience streaming issues. Please use Chrome/Safari/Firefox/Edge for best results.') }}",
+    },
     scorePhrases: {
       low: [
         "{{ _('Never sing again... ever.') }}",

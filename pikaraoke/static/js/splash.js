@@ -411,7 +411,7 @@ const handleUnsupportedBrowser = () => {
     let warningMessage = document.createElement("p");
     warningMessage.classList.add("notification", "is-warning");
     warningMessage.innerHTML =
-      "This browser is not fully supported. You may experience streaming issues. Please use Chrome/Safari/Firefox for best results.";
+      PikaraokeConfig.translations.unsupportedBrowser;
     modalContents.prepend(warningMessage);
   }
 }
@@ -420,11 +420,11 @@ const setupSocketEvents = () => {
   socket.on('connect', () => { console.log('Socket connected'); });
   socket.on('connect_error', (error) => {
     console.error('Connection error:', error);
-    flashNotification("Connection lost. Is the server still running?", "is-danger");
+    flashNotification(PikaraokeConfig.translations.socketConnectionLost, "is-danger");
   });
   socket.on('disconnect', (reason) => {
     console.warn('Socket disconnected:', reason);
-    flashNotification("Connection lost. Is the server still running?", "is-danger");
+    flashNotification(PikaraokeConfig.translations.socketConnectionLost, "is-danger");
   });
   socket.on('pause', () => {
     const video = getVideoPlayer();
