@@ -29,7 +29,7 @@
         "{{ _('Thank God it\'s over.') }}",
         "{{ _('Pass the mic, please!') }}",
         "{{ _('Well, I\'m sure you\'re very good at your day job.') }}"
-        {% if schore_phrases.low %}, {% for phrase in schore_phrases.low %}"{{ _(phrase) }}"{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+        {% if score_phrases.low %}, {% for phrase in score_phrases.low %}"{{ _(phrase) }}"{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
       ],
       mid: [
         "{{ _('I\'ve seen better.') }}",
@@ -37,7 +37,7 @@
         "{{ _('Not bad for an amateur.') }}",
         "{{ _('You put on a decent show.') }}",
         "{{ _('That was... something.') }}"
-        {% if schore_phrases.mid %}, {% for phrase in schore_phrases.mid %}"{{ _(phrase) }}"{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+        {% if score_phrases.mid %}, {% for phrase in score_phrases.mid %}"{{ _(phrase) }}"{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
       ],
       high: [
         "{{ _('Congratulations! That was unbelievable!') }}",
@@ -45,7 +45,7 @@
         "{{ _('Please, sing another one!') }}",
         "{{ _('You rock! You know that?!') }}",
         "{{ _('Woah, who let Freddie Mercury in here?') }}"
-        {% if schore_phrases.high %}, {% for phrase in schore_phrases.high %}"{{ _(phrase) }}"{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+        {% if score_phrases.high %}, {% for phrase in score_phrases.high %}"{{ _(phrase) }}"{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
       ]
     }
   };
