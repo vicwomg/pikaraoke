@@ -17,6 +17,7 @@ var idleTime = 0;
 var screensaverTimeoutSeconds = PikaraokeConfig.screensaverTimeout;
 var bg_playlist = []
 const scoreReviews = PikaraokeConfig.scorePhrases;
+var isMaster = false;
 
 // Browser detection
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -90,6 +91,7 @@ const handleConfirmation = async () => {
   autoplayConfirmed = true;
   if (hasBgVideo) playBGVideo(true);
   playBGMusic(true);
+  loadNowPlaying();
 }
 
 const hideVideo = () => {
@@ -112,7 +114,11 @@ const endSong = async (reason = null, showScore = false) => {
   $("#video-source").attr("src", "");
   video.load();
   hideVideo();
-  socket.emit("end_song", reason);
+  if (isMaster) {
+    socket.emit("end_song", reason);
+  } else {
+    console.log("Slave active (read-only): skipping end_song emission");
+  }
 }
 
 const getBackgroundMusicPlayer = () => document.getElementById('background-music');
@@ -311,6 +317,13 @@ const handleNowPlayingUpdate = (np) => {
       setTimeout(() => video.play(), 1000);
     });
 
+    if (np.now_playing_position && isMediaPlaying(video)) {
+      if (Math.abs(video.currentTime - np.now_playing_position) > 2) {
+        console.log("Syncing to server position:", np.now_playing_position);
+        video.currentTime = np.now_playing_position;
+      }
+    }
+
     setTimeout(() => {
       if (!isMediaPlaying(video) && !video.paused) {
         endSong("failed to start");
@@ -372,8 +385,18 @@ const setupVideoPlayer = () => {
   const video = getVideoPlayer();
   video.addEventListener("play", () => {
     $("#video-container").show();
-    setTimeout(() => { socket.emit("start_song") }, 1200);
+    if (isMaster) {
+      setTimeout(() => { socket.emit("start_song") }, 1200);
+    }
   });
+
+  // Master reports playback position to server
+  setInterval(() => {
+    if (isMaster && isMediaPlaying(video)) {
+      socket.emit("playback_position", video.currentTime);
+    }
+  }, 1000);
+
   video.addEventListener("ended", () => { endSong("complete", true); });
   video.addEventListener("timeupdate", (e) => { $("#current").text(formatTime(video.currentTime)); });
   $("#video source")[0].addEventListener("error", (e) => {
@@ -417,7 +440,14 @@ const handleUnsupportedBrowser = () => {
 }
 
 const setupSocketEvents = () => {
-  socket.on('connect', () => { console.log('Socket connected'); });
+  socket.on('connect', () => {
+    console.log('Socket connected');
+    socket.emit("register_splash");
+  });
+  socket.on('splash_role', (role) => {
+    isMaster = (role === "master");
+    console.log("Splash role assigned:", role, isMaster ? "(Master active)" : "(Slave active - read-only)");
+  });
   socket.on('connect_error', (error) => {
     console.error('Connection error:', error);
     flashNotification(PikaraokeConfig.translations.socketConnectionLost, "is-danger");
@@ -480,9 +510,23 @@ const setupSocketEvents = () => {
     const message = notification[0];
     const categoryClass = notification.length > 1 ? notification[1] : "is-primary";
     flashNotification(message, categoryClass);
-    socket.emit("clear_notification");
+    if (isMaster) {
+      socket.emit("clear_notification");
+    }
   });
   socket.on("now_playing", handleNowPlayingUpdate);
+
+  socket.on("playback_position", (position) => {
+    if (!isMaster) {
+      const video = getVideoPlayer();
+      if (isMediaPlaying(video)) {
+        if (Math.abs(video.currentTime - position) > 2) {
+          console.log("Slave drifting, syncing position to:", position);
+          video.currentTime = position;
+        }
+      }
+    }
+  });
 }
 
 const handleSocketRecovery = () => {
@@ -490,7 +534,7 @@ const handleSocketRecovery = () => {
   // Reconnect and configure event listeners when tab becomes visible again
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === 'visible') {
-      loadNowPlaying();
+      autoplayConfirmed && loadNowPlaying();
       if (!socket.connected) {
         socket = io();
         setupSocketEvents();
@@ -508,14 +552,18 @@ $(function () {
   setupVideoPlayer();
   setupBackgroundMusicPlayer();
 
-  // Setup sockets and recovery
-  setupSocketEvents();
-  handleSocketRecovery();
-
   // Handle browser and autoplay test
   handleUnsupportedBrowser();
   testAutoplayCapability();
-
-  // Load now playing data for first time
-  loadNowPlaying();
 });
+
+
+// Setup sockets and recovery outside of document ready to prevent race conditions
+setupSocketEvents();
+handleSocketRecovery();
+
+// Fallback: if socket connected before listeners were attached, register now
+if (socket.connected) {
+  console.log('Socket already connected, registering splash...');
+  socket.emit("register_splash");
+}

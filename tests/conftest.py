@@ -21,6 +21,7 @@ class MockKaraoke:
         self.now_playing_subtitle_url = None
         self.now_playing_transpose = 0
         self.now_playing_duration = None
+        self.now_playing_position = None
         self.is_paused = True
         self.is_playing = False
         self.volume = 0.85
