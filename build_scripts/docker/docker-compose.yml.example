@@ -20,14 +20,13 @@ services:
     # --config-file-path: Ensures settings are saved to the mounted volume
     command: >
       -u http://<YOUR_LAN_IP>:5555
-      --config-file-path /app/config/config.ini
 
     # --- VOLUMES ---
     # relative paths (./) are used here for simplicity.
     # You can change these to absolute paths (e.g., C:/Music or /home/pi/Music)
     volumes:
-      - ./songs:/app/pikaraoke-songs  # Place your song files in a 'songs' folder next to this file
-      - ./config:/app/config          # Config settings will be saved here
+      - ./songs:/app/pikaraoke-songs      # Place your song files in a 'songs' folder next to this file
+      - ./data:/home/pikaraoke/.pikaraoke # Data, including your config, will be saved here
 
     # --- PORTS ---
     # Map host port 5555 to container port 5555
