@@ -15,9 +15,9 @@ from pikaraoke.routes.queue import queue_bp
 @pytest.fixture
 def app():
     """Create a Flask app for testing."""
-    app = Flask(__name__)
-    app.register_blueprint(queue_bp)
-    return app
+    test_app = Flask(__name__)
+    test_app.register_blueprint(queue_bp)
+    return test_app
 
 
 @pytest.fixture
@@ -62,3 +62,108 @@ class TestQueueRoutes:
         response = client.delete("/queue/downloads/errors/999")
         assert response.status_code == 404
         assert json.loads(response.data)["success"] is False
+
+
+class TestQueueApiContract:
+    """Tests that verify the queue API returns expected data structure.
+
+    These tests prevent regressions where API changes break the frontend.
+    The queue and home pages depend on these endpoints returning specific fields.
+    """
+
+    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    def test_get_queue_returns_required_fields(self, mock_get_instance, client):
+        """GET /get_queue must return all fields the frontend expects."""
+        mock_karaoke = MagicMock()
+        mock_karaoke.queue = [
+            {
+                "user": "TestUser",
+                "file": "/songs/Artist - Song---abc123.mp4",
+                "title": "Artist - Song",
+                "semitones": 0,
+            }
+        ]
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/get_queue")
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert isinstance(data, list)
+        assert len(data) == 1
+        # Verify all required fields are present
+        item = data[0]
+        assert "user" in item
+        assert "file" in item
+        assert "title" in item
+        assert "semitones" in item
+
+    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    def test_get_queue_empty_returns_empty_array(self, mock_get_instance, client):
+        """GET /get_queue must return empty array when queue is empty."""
+        mock_karaoke = MagicMock()
+        mock_karaoke.queue = []
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/get_queue")
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data == []
+
+
+class TestQueueEditSocketUpdates:
+    """Tests that queue edit actions emit update_now_playing_socket.
+
+    These tests prevent regressions where queue changes don't update the
+    splash screen's "up next" display. See commit 7b3909a for the original fix.
+    """
+
+    @pytest.fixture
+    def app_with_secret(self):
+        """Create a Flask app with secret key for session support."""
+        app = Flask(__name__)
+        app.secret_key = "test"
+        app.register_blueprint(queue_bp)
+        app.extensions["babel"] = MagicMock()
+        return app
+
+    @pytest.fixture
+    def client_with_session(self, app_with_secret):
+        """Create a test client with session support."""
+        return app_with_secret.test_client()
+
+    @pytest.mark.parametrize(
+        "action,song_param",
+        [
+            ("delete", "&song=/songs/song1.mp4"),
+            ("up", "&song=/songs/song2.mp4"),
+            ("down", "&song=/songs/song1.mp4"),
+            ("clear", ""),
+        ],
+    )
+    @patch("pikaraoke.routes.queue.is_admin", return_value=True)
+    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    @patch("pikaraoke.routes.queue.broadcast_event")
+    @patch("pikaraoke.routes.queue._", side_effect=lambda x: x)
+    def test_queue_edit_updates_now_playing_socket(
+        self,
+        mock_gettext,
+        mock_broadcast,
+        mock_get_instance,
+        mock_is_admin,
+        client_with_session,
+        action,
+        song_param,
+    ):
+        """Queue edit actions must emit update_now_playing_socket for splash screen."""
+        mock_karaoke = MagicMock()
+        mock_karaoke.queue = [{"file": "/songs/song1.mp4"}, {"file": "/songs/song2.mp4"}]
+        mock_karaoke.queue_edit.return_value = True
+        mock_karaoke.filename_from_path.return_value = "song"
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client_with_session.get(f"/queue/edit?action={action}{song_param}")
+
+        assert response.status_code == 302
+        mock_karaoke.update_now_playing_socket.assert_called_once()
