@@ -100,6 +100,7 @@ class TestGetNowPlaying:
 
         assert result["now_playing"] is None
         assert result["now_playing_user"] is None
+        assert result["now_playing_position"] is None
         assert result["up_next"] is None
         assert result["is_paused"] is True
         assert result["volume"] == 0.85
@@ -118,6 +119,7 @@ class TestGetNowPlaying:
         assert result["now_playing"] == "Test Song"
         assert result["now_playing_user"] == "TestUser"
         assert result["now_playing_duration"] == 180
+        assert result["now_playing_position"] is None
         assert result["now_playing_transpose"] == 2
         assert result["is_paused"] is False
         assert result["volume"] == 0.7
@@ -154,6 +156,7 @@ class TestResetNowPlaying:
         assert mock_karaoke.now_playing_url is None
         assert mock_karaoke.now_playing_transpose == 0
         assert mock_karaoke.now_playing_duration is None
+        assert mock_karaoke.now_playing_position is None
         assert mock_karaoke.is_paused is True
         assert mock_karaoke.is_playing is False
 
