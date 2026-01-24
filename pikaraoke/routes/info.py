@@ -79,7 +79,7 @@ def info():
         languages=LANGUAGES,
         preferred_language=preferred_language,  # 傳遞當前偏好語言
         browse_results_per_page=k.get_user_preference("browse_results_per_page", 500),
-        schore_phrases={
+        score_phrases={
             "low": k.low_score_phrases,
             "mid": k.mid_score_phrases,
             "high": k.high_score_phrases,
