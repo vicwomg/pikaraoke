@@ -304,3 +304,49 @@ class TestDownloadManagerStatus:
         result = dm.remove_error("1234")
         assert result is True
         assert len(dm.download_errors) == 0
+
+
+class TestDownloadManagerSpecialCharacters:
+    """Tests for handling special characters in downloaded filenames.
+
+    These tests prevent regressions where special characters in song titles
+    (common in non-English songs) break the enqueue functionality.
+    See commit f399b57 for the original fix.
+    """
+
+    @pytest.mark.parametrize(
+        "video_id,file_path",
+        [
+            ("abc12345678", "/songs/Babymetal - ギミチョコ---abc12345678.mp4"),
+            ("xyz98765432", "/songs/BTS - 봄날---xyz98765432.mp4"),
+            ("def456789ab", "/songs/Tom & Jerry - What's Up---def456789ab.mp4"),
+        ],
+        ids=["japanese", "korean", "special_chars"],
+    )
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.Popen")
+    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
+    def test_execute_download_special_characters_enqueue(
+        self, mock_build_cmd, mock_popen, mock_gettext, video_id, file_path
+    ):
+        """Test enqueue works with special characters in filename."""
+        mock_karaoke = MockKaraokeForDownload()
+        dm = DownloadManager(mock_karaoke)
+
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+        mock_process = MagicMock()
+        mock_process.stdout.readline.side_effect = ["Done", ""]
+        mock_process.poll.return_value = 0
+        mock_popen.return_value = mock_process
+
+        mock_karaoke.available_songs.find_by_id.return_value = file_path
+        mock_karaoke.available_songs.add_if_valid.return_value = True
+
+        dm._execute_download(
+            f"https://youtube.com/watch?v={video_id}",
+            enqueue=True,
+            user="TestUser",
+            title="Test",
+        )
+
+        mock_karaoke.enqueue.assert_called_once_with(file_path, "TestUser", log_action=False)
