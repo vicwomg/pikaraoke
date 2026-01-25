@@ -9,6 +9,7 @@ var menuButtonVisible = false;
 var autoplayConfirmed = false;
 var volume = 0.85;
 var playbackStartTimeout = 10000;
+var bgMediaResumeDelay = 2000;
 var isScoreShown = false;
 var hasBgVideo = PikaraokeConfig.hasBgVideo;
 var currentVideoUrl = null;
@@ -185,34 +186,27 @@ const shouldBackgroundMediaPlay = () => {
     bg_playlist.length > 0;
 };
 
-const scheduleBackgroundMediaResume = (delayMs) => {
-  cancelBackgroundMediaResume();
-  bgMediaResumeTimeout = setTimeout(() => {
-    bgMediaResumeTimeout = null;
-    if (shouldBackgroundMediaPlay()) {
-      playBGMusic(true);
-      if (hasBgVideo) playBGVideo(true);
-    }
-  }, delayMs);
-};
-
-const cancelBackgroundMediaResume = () => {
+const updateBackgroundMediaState = (immediate = false) => {
+  // Clear any pending resume
   if (bgMediaResumeTimeout) {
     clearTimeout(bgMediaResumeTimeout);
     bgMediaResumeTimeout = null;
   }
-};
 
-const updateBackgroundMediaState = (immediate = false) => {
   if (shouldBackgroundMediaPlay()) {
     if (immediate) {
       playBGMusic(true);
       if (hasBgVideo) playBGVideo(true);
     } else {
-      scheduleBackgroundMediaResume(2000);
+      bgMediaResumeTimeout = setTimeout(() => {
+        bgMediaResumeTimeout = null;
+        if (shouldBackgroundMediaPlay()) {
+          playBGMusic(true);
+          if (hasBgVideo) playBGVideo(true);
+        }
+      }, bgMediaResumeDelay);
     }
   } else {
-    cancelBackgroundMediaResume();
     playBGMusic(false);
     playBGVideo(false);
   }
