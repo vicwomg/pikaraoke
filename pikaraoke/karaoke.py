@@ -7,7 +7,6 @@ import contextlib
 import json
 import logging
 import os
-import random
 import shutil
 import socket
 import subprocess
@@ -33,6 +32,7 @@ from pikaraoke.lib.get_platform import (
     is_raspberry_pi,
 )
 from pikaraoke.lib.network import get_ip
+from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_list import SongList
 from pikaraoke.lib.stream_manager import StreamManager
 from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
@@ -62,8 +62,8 @@ class Karaoke:
         volume: Current volume level (0.0 to 1.0).
     """
 
-    queue: list[dict[str, Any]] = []
     available_songs: SongList
+    queue_manager: QueueManager
 
     # These all get sent to the /nowplaying endpoint for client-side polling
     now_playing: str | None = None
@@ -324,6 +324,19 @@ class Karaoke:
         # Initialize stream manager for transcoding and playback
         self.stream_manager = StreamManager(self)
 
+        # Initialize queue manager
+        self.queue_manager = QueueManager(
+            socketio=socketio,
+            get_limit_user_songs_by=lambda: self.limit_user_songs_by,
+            get_enable_fair_queue=lambda: self.enable_fair_queue,
+            get_now_playing_user=lambda: self.now_playing_user,
+            filename_from_path=self.filename_from_path,
+            log_and_send=self.log_and_send,
+            get_available_songs=lambda: self.available_songs,
+            update_now_playing_socket=self.update_now_playing_socket,
+            skip=self.skip,
+        )
+
     def get_url(self):
         """Get the URL for accessing the PiKaraoke web interface.
 
@@ -359,6 +372,24 @@ class Karaoke:
             else:
                 url = f"http://{self.ip}:{self.port}"
         return url
+
+    @property
+    def queue(self) -> list[dict[str, Any]]:
+        """Get the current queue from the queue manager.
+
+        Returns:
+            The current song queue.
+        """
+        return self.queue_manager.queue
+
+    @queue.setter
+    def queue(self, value: list[dict[str, Any]]) -> None:
+        """Set the queue in the queue manager.
+
+        Args:
+            value: New queue value.
+        """
+        self.queue_manager.queue = value
 
     def log_settings_to_debug(self) -> None:
         """Log all current settings at debug level."""
@@ -714,10 +745,7 @@ class Karaoke:
         Returns:
             True if the song is in the queue.
         """
-        for each in self.queue:
-            if each["file"] == song_path:
-                return True
-        return False
+        return self.queue_manager.is_song_in_queue(song_path)
 
     def is_user_limited(self, user: str) -> bool:
         """Check if a user has reached their queue limit.
@@ -728,49 +756,7 @@ class Karaoke:
         Returns:
             True if the user has reached their song limit.
         """
-        # Returns if a user needs to be limited or not if the limitation is on and if the user reached the limit of songs in queue
-        if self.limit_user_songs_by == 0 or user == "Pikaraoke" or user == "Randomizer":
-            return False
-        cont = len([i for i in self.queue if i["user"] == user]) + (
-            1 if self.now_playing_user == user else 0
-        )
-        return True if cont >= int(self.limit_user_songs_by) else False
-
-    def _calculate_fair_queue_position(self, user: str) -> int:
-        """Calculate insertion position for round-robin fair queuing.
-
-        Implements Nagle Fair Queuing: users take turns in rounds. A user's Nth
-        song is placed after all other users' Nth songs (or at queue end).
-
-        Args:
-            user: Username adding the song.
-
-        Returns:
-            Queue index where the song should be inserted.
-        """
-        # Count how many songs this user already has in queue
-        user_song_count = sum(1 for item in self.queue if item["user"] == user)
-
-        # Find position after the last song in "round N" where N = user_song_count
-        # Round 0 = first song from each user, Round 1 = second song, etc.
-        target_round = user_song_count
-        songs_seen_per_user: dict[str, int] = {}
-
-        for idx, item in enumerate(self.queue):
-            queue_user = item["user"]
-            songs_seen_per_user[queue_user] = songs_seen_per_user.get(queue_user, 0) + 1
-            # This song is in round (count - 1) for its user
-            song_round = songs_seen_per_user[queue_user] - 1
-            if song_round == target_round:
-                # Found a song in the target round, insert after it
-                # Keep scanning to find the LAST song in this round
-                pass
-            elif song_round > target_round:
-                # We've moved past target round, insert here
-                return idx
-
-        # All songs are in rounds <= target_round, append to end
-        return len(self.queue)
+        return self.queue_manager.is_user_limited(user)
 
     def enqueue(
         self,
@@ -792,42 +778,7 @@ class Karaoke:
         Returns:
             False if song already in queue, or list of [success, message].
         """
-        if self.is_song_in_queue(song_path):
-            logging.warning("Song is already in queue, will not add: " + song_path)
-            return False
-        elif self.is_user_limited(user):
-            logging.debug("User limited by: " + str(self.limit_user_songs_by))
-            return [
-                False,
-                _("You reached the limit of %s song(s) from an user in queue!")
-                % (str(self.limit_user_songs_by)),
-            ]
-        else:
-            queue_item = {
-                "user": user,
-                "file": song_path,
-                "title": self.filename_from_path(song_path),
-                "semitones": semitones,
-            }
-            if add_to_front:
-                # MSG: Message shown after the song is added to the top of the queue
-                self.log_and_send(_("%s added to top of queue: %s") % (user, queue_item["title"]))
-                self.queue.insert(0, queue_item)
-            else:
-                if log_action:
-                    # MSG: Message shown after the song is added to the queue
-                    self.log_and_send(_("%s added to the queue: %s") % (user, queue_item["title"]))
-                if self.enable_fair_queue:
-                    insert_pos = self._calculate_fair_queue_position(user)
-                    self.queue.insert(insert_pos, queue_item)
-                else:
-                    self.queue.append(queue_item)
-            self.update_queue_socket()
-            self.update_now_playing_socket()
-            return [
-                True,
-                _("Song added to the queue: %s") % (self.filename_from_path(song_path)),
-            ]
+        return self.queue_manager.enqueue(song_path, user, semitones, add_to_front, log_action)
 
     def queue_add_random(self, amount: int) -> bool:
         """Add random songs to the queue.
@@ -838,41 +789,11 @@ class Karaoke:
         Returns:
             True if successful, False if ran out of songs.
         """
-        logging.info("Adding %d random songs to queue" % amount)
-
-        if len(self.available_songs) == 0:
-            logging.warning("No available songs!")
-            return False
-
-        # Get songs not already in queue
-        queued_paths = {item["file"] for item in self.queue}
-        eligible_songs = [s for s in self.available_songs if s not in queued_paths]
-
-        if len(eligible_songs) == 0:
-            logging.warning("All songs are already in queue!")
-            return False
-
-        # Sample up to 'amount' songs (or all eligible if fewer available)
-        sample_size = min(amount, len(eligible_songs))
-        selected = random.sample(eligible_songs, sample_size)
-
-        for song in selected:
-            self.enqueue(song, "Randomizer")
-
-        if sample_size < amount:
-            logging.warning("Ran out of songs! Only added %d" % sample_size)
-            return False
-
-        return True
+        return self.queue_manager.queue_add_random(amount)
 
     def queue_clear(self) -> None:
         """Clear all songs from the queue and skip current song."""
-        # MSG: Message shown after the queue is cleared
-        self.log_and_send(_("Clear queue"), "danger")
-        self.queue = []
-        self.update_queue_socket()
-        self.update_now_playing_socket()
-        self.skip(log_action=False)
+        self.queue_manager.queue_clear()
 
     def queue_edit(self, song_name: str, action: str) -> bool:
         """Edit the queue by moving or removing a song.
@@ -884,44 +805,7 @@ class Karaoke:
         Returns:
             True if the action was successful.
         """
-        index = 0
-        song = None
-        rc = False
-        for each in self.queue:
-            if song_name in each["file"]:
-                song = each
-                break
-            else:
-                index += 1
-        if song == None:
-            logging.error("Song not found in queue: " + song_name)
-            return rc
-        if action == "up":
-            if index < 1:
-                logging.warning("Song is up next, can't bump up in queue: " + song["file"])
-            else:
-                logging.info("Bumping song up in queue: " + song["file"])
-                del self.queue[index]
-                self.queue.insert(index - 1, song)
-                rc = True
-        elif action == "down":
-            if index == len(self.queue) - 1:
-                logging.warning("Song is already last, can't bump down in queue: " + song["file"])
-            else:
-                logging.info("Bumping song down in queue: " + song["file"])
-                del self.queue[index]
-                self.queue.insert(index + 1, song)
-                rc = True
-        elif action == "delete":
-            logging.info("Deleting song from queue: " + song["file"])
-            del self.queue[index]
-            rc = True
-        else:
-            logging.error("Unrecognized direction: " + action)
-        if rc:
-            self.update_queue_socket()
-            self.update_now_playing_socket()
-        return rc
+        return self.queue_manager.queue_edit(song_name, action)
 
     def skip(self, log_action: bool = True) -> bool:
         """Skip the currently playing song.
@@ -1064,8 +948,7 @@ class Karaoke:
 
     def update_queue_socket(self) -> None:
         """Emit queue_update state change via SocketIO."""
-        if self.socketio:
-            self.socketio.emit("queue_update", namespace="/")
+        self.queue_manager.update_queue_socket()
 
     def run(self) -> None:
         """Main run loop - processes queue and plays songs.

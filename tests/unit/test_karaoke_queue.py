@@ -253,7 +253,7 @@ class TestFairQueuePosition:
 
     def test_fair_queue_empty_queue(self, mock_karaoke):
         """Test insertion into empty queue goes to position 0."""
-        pos = mock_karaoke._calculate_fair_queue_position("UserA")
+        pos = mock_karaoke.queue_manager._calculate_fair_queue_position("UserA")
         assert pos == 0
 
     def test_fair_queue_first_song_each_user(self, mock_karaoke):
