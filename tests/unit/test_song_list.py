@@ -269,3 +269,51 @@ class TestSongListCacheInvalidation:
         sl.remove("/songs/a.mp4")
         assert len(list(sl)) == 1
         assert sl[0] == "/songs/b.mp4"
+
+
+class TestSongListFindById:
+    """Tests for find_by_id with special characters in filenames.
+
+    These tests prevent regressions where special characters in song titles
+    (common in non-English songs) break the download and queue functionality.
+    See commit f399b57 for the original fix.
+    """
+
+    @pytest.mark.parametrize(
+        "filename,video_id",
+        [
+            ("Babymetal - ギミチョコ---dQw4w9WgXcQ.mp4", "dQw4w9WgXcQ"),
+            ("노래 제목---abc12345678.mp4", "abc12345678"),
+            ("Tom & Jerry - What's Up---xyz98765432.mp4", "xyz98765432"),
+            ("Song (Official Video) [4K]---qrs11223344.mp4", "qrs11223344"),
+            ("L'Arc~en~Ciel - Ready Steady Go!---mno55667788.mp4", "mno55667788"),
+        ],
+        ids=["japanese", "korean", "quotes_ampersand", "parentheses_brackets", "mixed_unicode"],
+    )
+    def test_find_by_id_special_characters(self, tmp_path, filename, video_id):
+        """Test finding files with special characters in filenames."""
+        sl = SongList()
+        (tmp_path / filename).touch()
+
+        result = sl.find_by_id(str(tmp_path), video_id)
+
+        assert result is not None
+        assert video_id in result
+
+    def test_find_by_id_not_found(self, tmp_path):
+        """Test that find_by_id returns None when ID not found."""
+        sl = SongList()
+        (tmp_path / "Some Song---abc123.mp4").touch()
+
+        result = sl.find_by_id(str(tmp_path), "nonexistent")
+
+        assert result is None
+
+    def test_find_by_id_validates_extension(self, tmp_path):
+        """Test that find_by_id only returns valid song files."""
+        sl = SongList()
+        (tmp_path / "Song---abc123.txt").touch()
+
+        result = sl.find_by_id(str(tmp_path), "abc123")
+
+        assert result is None

@@ -74,6 +74,7 @@ class Karaoke:
     now_playing_url: str | None = None
     now_playing_subtitle_url: str | None = None
     now_playing_notification: str | None = None
+    now_playing_position: float | None = None
     is_paused: bool = True
     volume: float = 0.85
 
@@ -1034,6 +1035,7 @@ class Karaoke:
         self.is_playing = False
         self.now_playing_transpose = 0
         self.now_playing_duration = None
+        self.now_playing_position = None
         self.update_now_playing_socket()
 
     def get_now_playing(self) -> dict[str, Any]:
@@ -1049,6 +1051,7 @@ class Karaoke:
             "now_playing_transpose": self.now_playing_transpose,
             "now_playing_url": self.now_playing_url,
             "now_playing_subtitle_url": self.now_playing_subtitle_url,
+            "now_playing_position": self.now_playing_position,
             "up_next": self.queue[0]["title"] if len(self.queue) > 0 else None,
             "next_user": self.queue[0]["user"] if len(self.queue) > 0 else None,
             "is_paused": self.is_paused,

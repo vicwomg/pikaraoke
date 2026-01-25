@@ -39,6 +39,7 @@ from pikaraoke.routes.now_playing import nowplaying_bp
 from pikaraoke.routes.preferences import preferences_bp
 from pikaraoke.routes.queue import queue_bp
 from pikaraoke.routes.search import search_bp
+from pikaraoke.routes.socket_events import setup_socket_events
 from pikaraoke.routes.splash import splash_bp
 from pikaraoke.routes.stream import stream_bp
 
@@ -119,35 +120,7 @@ def get_locale() -> str | None:
 
 babel.init_app(app, locale_selector=get_locale)
 socketio.init_app(app)
-
-
-# Handle all the socketio incoming events here.
-# TODO: figure out how to move to a blueprint file if this gets out of hand
-
-
-@socketio.on("end_song")
-def end_song(reason: str) -> None:
-    """Handle end_song WebSocket event from client.
-
-    Args:
-        reason: Reason for ending the song (e.g., 'complete', 'error').
-    """
-    k = get_karaoke_instance()
-    k.end_song(reason)
-
-
-@socketio.on("start_song")
-def start_song() -> None:
-    """Handle start_song WebSocket event when playback begins."""
-    k = get_karaoke_instance()
-    k.start_song()
-
-
-@socketio.on("clear_notification")
-def clear_notification() -> None:
-    """Handle clear_notification WebSocket event to dismiss notifications."""
-    k = get_karaoke_instance()
-    k.reset_now_playing_notification()
+setup_socket_events(socketio)
 
 
 def main() -> None:
