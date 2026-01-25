@@ -91,6 +91,7 @@ const handleConfirmation = async () => {
   $('#permissions-modal').removeClass('is-active');
   autoplayConfirmed = true;
   updateBackgroundMediaState(true);
+  loadNowPlaying();
 }
 
 const hideVideo = () => {
@@ -575,7 +576,7 @@ const handleSocketRecovery = () => {
 
 // Document ready procedures
 
-$(async function () {
+$(function () {
   // Setup various features and listeners
   setupScreensaver();
   setupOverlayMenus();
@@ -584,9 +585,6 @@ $(async function () {
 
   // Handle browser compatibility
   handleUnsupportedBrowser();
-
-  // Load queue state FIRST, then test autoplay
-  await loadNowPlaying();
   testAutoplayCapability();
 });
 
