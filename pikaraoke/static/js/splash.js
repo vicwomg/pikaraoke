@@ -88,12 +88,12 @@ const testAutoplayCapability = async () => {
   }
 };
 
-const handleConfirmation = async () => {
+const handleConfirmation = () => {
   $('#permissions-modal').removeClass('is-active');
   autoplayConfirmed = true;
   updateBackgroundMediaState(true);
   loadNowPlaying();
-}
+};
 
 const hideVideo = () => {
   $("#video-container").hide();
