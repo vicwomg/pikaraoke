@@ -42,39 +42,38 @@ Pikaraoke is independently developed and maintained. If you want to support this
 - Windows
 - Linux
 
-## Native installation
+### Quick Install
 
-### Requirements
+For a streamlined installation that handles dependencies (python, ffmpeg, deno, pipx) and installs PiKaraoke, run the following in your terminal:
 
-- Python 3.10 or greater (You can check your current version by running `python --version`): [Python downloads](https://www.python.org/downloads/)
-- FFmpeg: [FFmpeg downloads](https://ffmpeg.org/download.html)
-- Chrome browser (recommended, though Edge, Safari and Firefox will work with the `--headless` option)
-- A js runtime installed to your PATH (such as Node, Deno, Bun, QuickJS), this is a requirement as of yt-dlp 2025.11.12 otherwise some downloads may not work: https://github.com/yt-dlp/yt-dlp/wiki/EJS . Deno is probably easiest: https://deno.com/
-
-#### Specific install instructions for Raspberry Pi OS / Linux distros with `apt`:
-
-```
-sudo apt-get install ffmpeg -y
-sudo apt-get install chromium -y
-sudo curl -fsSL https://deno.land/x/install/install.sh | sh
-```
-
-Chromium/Chromdriver is optional if you're running with the `--headless` option.
-
-#### Windows
-
-You may want to try the install script by @lvmasterrj: https://github.com/lvmasterrj/win-pikaraoke-installer
-
-### Install pikaraoke via pip
-
-Globally or within a virtual env:
+#### Linux & macOS
 
 ```sh
-# Install pikaraoke from PyPi
-pip install pikaraoke
+curl -fsSL https://raw.githubusercontent.com/vicwomg/pikaraoke/main/build_scripts/install/install.sh | bash
 ```
 
-Note: Some OS install `pip` as `pip3`. if you did not use a venv, you may need to add the `--break-system-packages` parameter to ignore the warning and install pikaraoke and its dependencies globally. You may experience package conflicts if you have other python programs installed.
+#### Windows (PowerShell)
+
+```powershell
+irm https://raw.githubusercontent.com/vicwomg/pikaraoke/main/build_scripts/install/install.ps1 | iex
+```
+
+## Manual native installation
+
+### Prerequisites
+
+- A modern web browser (Chrome/Chromium/Edge recommended)
+- Python 3.10 or greater: [Python downloads](https://www.python.org/downloads/)
+- FFmpeg: [FFmpeg downloads](https://ffmpeg.org/download.html)
+- A js runtime installed to your PATH. [Node.js](https://nodejs.org/en/download/) is most common, [Deno](https://deno.com/) is probably easiest for non-developers.
+
+### Install pikaraoke via pipx
+
+We recommend installing pikaraoke via [pipx](https://github.com/pypa/pipx). You may alternately use the standard python `pip` installer if you are familiar with virtual environments.
+
+```sh
+pipx install pikaraoke
+```
 
 ### Run
 
@@ -86,14 +85,12 @@ pikaraoke
 
 This will start pikaraoke in headed mode, and open Chrome browser with the splash screen. You can then connect to the QR code via your mobile device and start downloading and queueing songs.
 
-Virtual env users: note that if you close your terminal between launches, you'll need to reactivate your venv before running pikaraoke.
-
 ### Upgrading
 
 To upgrade to the latest version of pikaraoke, run:
 
 ```sh
-pip install pikaraoke --upgrade
+pipx upgrade pikaraoke
 ```
 
 ### More Options
@@ -102,13 +99,17 @@ See the help command `pikaraoke --help` for available options.
 
 ## Docker instructions
 
-For Docker users, you can get going with one command. The deployed images includes everything you need to run in headless mode:
+For Docker users, you can get going with one command. Note that for best results you should map the port, supply your actual LAN IP, and set some persistence volumes for songs and settings (for simplicity, this example sets them to ~):
 
 ```sh
-docker run vicwomg/pikaraoke:latest
+docker run -p 5555:5555 \
+  -v ~/pikaraoke-songs:/app/pikaraoke-songs \
+  -v ~/.pikaraoke:/home/pikaraoke/.pikaraoke \
+  vicwomg/pikaraoke:latest \
+  -u http://<YOUR_LAN_IP>:5555
 ```
 
-For more information, [see official Dockerhub repo](https://hub.docker.com/r/vicwomg/pikaraoke)
+For more information and a configurable docker-compose example, [see official Dockerhub repo](https://hub.docker.com/r/vicwomg/pikaraoke)
 
 ## Screenshots
 
