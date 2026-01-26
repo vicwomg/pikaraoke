@@ -349,4 +349,6 @@ class TestDownloadManagerSpecialCharacters:
             title="Test",
         )
 
-        mock_karaoke.queue_manager.enqueue.assert_called_once_with(file_path, "TestUser", log_action=False)
+        mock_karaoke.queue_manager.enqueue.assert_called_once_with(
+            file_path, "TestUser", log_action=False
+        )
