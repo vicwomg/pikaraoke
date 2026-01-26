@@ -75,7 +75,7 @@ class TestQueueApiContract:
     def test_get_queue_returns_required_fields(self, mock_get_instance, client):
         """GET /get_queue must return all fields the frontend expects."""
         mock_karaoke = MagicMock()
-        mock_karaoke.queue = [
+        mock_karaoke.queue_manager.queue = [
             {
                 "user": "TestUser",
                 "file": "/songs/Artist - Song---abc123.mp4",
@@ -102,7 +102,7 @@ class TestQueueApiContract:
     def test_get_queue_empty_returns_empty_array(self, mock_get_instance, client):
         """GET /get_queue must return empty array when queue is empty."""
         mock_karaoke = MagicMock()
-        mock_karaoke.queue = []
+        mock_karaoke.queue_manager.queue = []
         mock_get_instance.return_value = mock_karaoke
 
         response = client.get("/get_queue")
@@ -158,8 +158,8 @@ class TestQueueEditSocketUpdates:
     ):
         """Queue edit actions must emit update_now_playing_socket for splash screen."""
         mock_karaoke = MagicMock()
-        mock_karaoke.queue = [{"file": "/songs/song1.mp4"}, {"file": "/songs/song2.mp4"}]
-        mock_karaoke.queue_edit.return_value = True
+        mock_karaoke.queue_manager.queue = [{"file": "/songs/song1.mp4"}, {"file": "/songs/song2.mp4"}]
+        mock_karaoke.queue_manager.queue_edit.return_value = True
         mock_karaoke.filename_from_path.return_value = "song"
         mock_get_instance.return_value = mock_karaoke
 

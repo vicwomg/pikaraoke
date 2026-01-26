@@ -20,7 +20,8 @@ class MockKaraokeForStream:
         self.complete_transcode_before_play = False
         self.buffer_size = 150
         self.cdg_pixel_scaling = False
-        self.queue = [{"user": "TestUser", "file": "/songs/test.mp4"}]
+        self.queue_manager = MagicMock()
+        self.queue_manager.queue = [{"user": "TestUser", "file": "/songs/test.mp4"}]
         self.now_playing = None
         self.now_playing_filename = None
         self.now_playing_transpose = 0
@@ -31,7 +32,6 @@ class MockKaraokeForStream:
         self.is_paused = True
         self.is_playing = False
         self.update_now_playing_socket = MagicMock()
-        self.update_queue_socket = MagicMock()
         self.end_song = MagicMock()
         self.log_and_send = MagicMock()
         self.filename_from_path = lambda x: os.path.basename(x).rsplit(".", 1)[0]
@@ -343,7 +343,7 @@ class TestStreamManagerSetupNowPlaying:
         assert mock_karaoke.now_playing_url == "/stream/123.m3u8"
         assert mock_karaoke.is_paused is False
         mock_karaoke.update_now_playing_socket.assert_called_once()
-        mock_karaoke.update_queue_socket.assert_called_once()
+        mock_karaoke.queue_manager.update_queue_socket.assert_called_once()
 
     def test_calls_end_song_when_not_playing(self):
         """Test that end_song is called when stream doesn't start."""
