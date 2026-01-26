@@ -307,7 +307,7 @@ class DownloadManager:
 
             if enqueue:
                 if song_is_valid:
-                    k.enqueue(song_path, user, log_action=False)
+                    k.queue_manager.enqueue(song_path, user, log_action=False)
                 else:
                     # MSG: Message shown after the download is completed but the adding to queue fails
                     k.log_and_send(_("Error queueing song: ") + displayed_title, "danger")

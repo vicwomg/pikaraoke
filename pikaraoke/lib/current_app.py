@@ -80,7 +80,7 @@ def delayed_halt(cmd: int) -> None:
     """
     time.sleep(1.5)
     k = get_karaoke_instance()
-    k.queue_clear()
+    k.queue_manager.queue_clear()
     k.stop()
     if cmd == 0:
         sys.exit()

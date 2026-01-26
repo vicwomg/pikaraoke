@@ -22,10 +22,10 @@ class TestQueueSocketEmissions:
     def test_update_queue_socket_emits_event(self, karaoke_with_socketio):
         """update_queue_socket emits 'queue_update' with no payload."""
         k = karaoke_with_socketio
-        k.enqueue("/songs/song1---abc.mp4", "User1")
+        k.queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
         k.socketio.emit.reset_mock()
 
-        k.update_queue_socket()
+        k.queue_manager.update_queue_socket()
 
         k.socketio.emit.assert_called_once_with("queue_update", namespace="/")
 
@@ -33,7 +33,7 @@ class TestQueueSocketEmissions:
         """update_queue_socket emits regardless of queue state."""
         k = karaoke_with_socketio
 
-        k.update_queue_socket()
+        k.queue_manager.update_queue_socket()
 
         k.socketio.emit.assert_called_once_with("queue_update", namespace="/")
 
@@ -67,8 +67,8 @@ class TestQueueSocketEmissions:
         """update_now_playing_socket includes first queued song as up_next."""
         k = karaoke_with_socketio
         k.now_playing = "/songs/current---xyz.mp4"
-        k.enqueue("/songs/Next Song---aaa.mp4", "User1")
-        k.enqueue("/songs/Another Song---bbb.mp4", "User2")
+        k.queue_manager.enqueue("/songs/Next Song---aaa.mp4", "User1")
+        k.queue_manager.enqueue("/songs/Another Song---bbb.mp4", "User2")
         k.socketio.emit.reset_mock()
 
         k.update_now_playing_socket()
@@ -81,7 +81,7 @@ class TestQueueSocketEmissions:
         """enqueue triggers queue_update event."""
         k = karaoke_with_socketio
 
-        k.enqueue("/songs/song1---abc.mp4", "User1")
+        k.queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
 
         queue_update_calls = [
             call for call in k.socketio.emit.call_args_list if call[0][0] == "queue_update"
@@ -91,11 +91,11 @@ class TestQueueSocketEmissions:
     def test_queue_edit_delete_triggers_socket_updates(self, karaoke_with_socketio):
         """queue_edit (delete) triggers both queue_update and now_playing events."""
         k = karaoke_with_socketio
-        k.enqueue("/songs/song1---abc.mp4", "User1")
-        k.enqueue("/songs/song2---def.mp4", "User2")
+        k.queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+        k.queue_manager.enqueue("/songs/song2---def.mp4", "User2")
         k.socketio.emit.reset_mock()
 
-        k.queue_edit("song1---abc.mp4", "delete")
+        k.queue_manager.queue_edit("song1---abc.mp4", "delete")
 
         event_names = [call[0][0] for call in k.socketio.emit.call_args_list]
         assert "queue_update" in event_names
@@ -104,15 +104,15 @@ class TestQueueSocketEmissions:
     def test_queue_clear_triggers_socket_updates(self, karaoke_with_socketio):
         """queue_clear triggers both queue_update and now_playing events."""
         k = karaoke_with_socketio
-        k.enqueue("/songs/song1---abc.mp4", "User1")
+        k.queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
         k.socketio.emit.reset_mock()
 
-        k.queue_clear()
+        k.queue_manager.queue_clear()
 
         event_names = [call[0][0] for call in k.socketio.emit.call_args_list]
         assert "queue_update" in event_names
         assert "now_playing" in event_names
-        assert len(k.queue) == 0
+        assert len(k.queue_manager.queue) == 0
 
 
 class TestSocketIOEventFormats:
@@ -121,9 +121,9 @@ class TestSocketIOEventFormats:
     def test_queue_item_has_required_fields(self, karaoke_with_socketio):
         """Queue items contain fields required by frontend."""
         k = karaoke_with_socketio
-        k.enqueue("/songs/Artist - Song---abc123.mp4", "TestUser", semitones=2)
+        k.queue_manager.enqueue("/songs/Artist - Song---abc123.mp4", "TestUser", semitones=2)
 
-        queue_item = k.queue[0]
+        queue_item = k.queue_manager.queue[0]
 
         assert queue_item["file"] == "/songs/Artist - Song---abc123.mp4"
         assert queue_item["user"] == "TestUser"
@@ -141,7 +141,7 @@ class TestSocketIOEventFormats:
         k.now_playing_url = "https://youtube.com/watch?v=abc123"
         k.now_playing_subtitle_url = None
         k.is_paused = False
-        k.enqueue("/songs/Next Song---def456.mp4", "NextUser")
+        k.queue_manager.enqueue("/songs/Next Song---def456.mp4", "NextUser")
         k.socketio.emit.reset_mock()
 
         k.update_now_playing_socket()

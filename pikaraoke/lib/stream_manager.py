@@ -85,7 +85,7 @@ class StreamManager:
             fr = FileResolver(file_path, k.streaming_format)
         except Exception as e:
             error_message = _("Error resolving file: %s") % str(e)
-            k.queue.pop(0)
+            k.queue_manager.queue.pop(0)
             k.end_song(reason=error_message)
             k.log_and_send(error_message, "danger")
             return False
@@ -311,11 +311,11 @@ class StreamManager:
         k.now_playing_duration = fr.duration
         k.now_playing_url = stream_url_path
         k.now_playing_subtitle_url = subtitle_url
-        k.now_playing_user = k.queue[0]["user"]
+        k.now_playing_user = k.queue_manager.queue[0]["user"]
         k.is_paused = False
-        k.queue.pop(0)
+        k.queue_manager.queue.pop(0)
         k.update_now_playing_socket()
-        k.update_queue_socket()
+        k.queue_manager.update_queue_socket()
 
         # Wait for stream to start playing
         max_retries = 100

@@ -2,6 +2,8 @@
 
 import pytest
 
+from pikaraoke.lib.queue_manager import QueueManager
+
 
 class MockKaraoke:
     """Minimal mock of the Karaoke class for testing queue operations.
@@ -11,9 +13,8 @@ class MockKaraoke:
     """
 
     def __init__(self):
-        self.queue = []
         self.available_songs = MockSongList()
-        self.socketio = None
+        self._socketio = None
         self.now_playing = None
         self.now_playing_filename = None
         self.now_playing_user = None
@@ -32,26 +33,42 @@ class MockKaraoke:
         self.download_path = "/fake/path"
         self.enable_fair_queue = True
 
+        # Initialize queue manager
+        self.queue_manager = QueueManager(
+            socketio=self._socketio,
+            get_limit_user_songs_by=lambda: self.limit_user_songs_by,
+            get_enable_fair_queue=lambda: self.enable_fair_queue,
+            get_now_playing_user=lambda: self.now_playing_user,
+            filename_from_path=self.filename_from_path,
+            log_and_send=self.log_and_send,
+            get_available_songs=lambda: self.available_songs,
+            update_now_playing_socket=self.update_now_playing_socket,
+            skip=self.skip,
+        )
+
+    @property
+    def socketio(self):
+        """Get the socketio instance."""
+        return self._socketio
+
+    @socketio.setter
+    def socketio(self, value):
+        """Set the socketio instance and sync with queue_manager."""
+        self._socketio = value
+        self.queue_manager.socketio = value
+
     # Import the actual methods we want to test
     from pikaraoke.karaoke import Karaoke
 
     # Bind the real methods to our mock class
     filename_from_path = Karaoke.filename_from_path
     _convert_preference_value = Karaoke._convert_preference_value
-    is_song_in_queue = Karaoke.is_song_in_queue
-    is_user_limited = Karaoke.is_user_limited
-    _calculate_fair_queue_position = Karaoke._calculate_fair_queue_position
     is_file_playing = Karaoke.is_file_playing
-    enqueue = Karaoke.enqueue
-    queue_edit = Karaoke.queue_edit
-    queue_add_random = Karaoke.queue_add_random
-    queue_clear = Karaoke.queue_clear
     get_now_playing = Karaoke.get_now_playing
     reset_now_playing = Karaoke.reset_now_playing
     send_notification = Karaoke.send_notification
     log_and_send = Karaoke.log_and_send
     update_now_playing_socket = Karaoke.update_now_playing_socket
-    update_queue_socket = Karaoke.update_queue_socket
     skip = Karaoke.skip
     pause = Karaoke.pause
     volume_change = Karaoke.volume_change
