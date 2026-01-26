@@ -373,24 +373,6 @@ class Karaoke:
                 url = f"http://{self.ip}:{self.port}"
         return url
 
-    @property
-    def queue(self) -> list[dict[str, Any]]:
-        """Get the current queue from the queue manager.
-
-        Returns:
-            The current song queue.
-        """
-        return self.queue_manager.queue
-
-    @queue.setter
-    def queue(self, value: list[dict[str, Any]]) -> None:
-        """Set the queue in the queue manager.
-
-        Args:
-            value: New queue value.
-        """
-        self.queue_manager.queue = value
-
     def log_settings_to_debug(self) -> None:
         """Log all current settings at debug level."""
         output = ""
@@ -725,7 +707,9 @@ class Karaoke:
         # MSG: Message shown after the song is transposed, first is the semitones and then the song name
         self.log_and_send(_("Transposing by %s semitones: %s") % (semitones, self.now_playing))
         # Insert the same song at the top of the queue with transposition
-        self.enqueue(self.now_playing_filename, self.now_playing_user, semitones, True)
+        self.queue_manager.enqueue(
+            self.now_playing_filename, self.now_playing_user, semitones, True
+        )
         self.skip(log_action=False)
 
     def is_file_playing(self) -> bool:
@@ -735,77 +719,6 @@ class Karaoke:
             True if a song is playing, False otherwise.
         """
         return self.is_playing
-
-    def is_song_in_queue(self, song_path: str) -> bool:
-        """Check if a song is already in the queue.
-
-        Args:
-            song_path: Path to the song file.
-
-        Returns:
-            True if the song is in the queue.
-        """
-        return self.queue_manager.is_song_in_queue(song_path)
-
-    def is_user_limited(self, user: str) -> bool:
-        """Check if a user has reached their queue limit.
-
-        Args:
-            user: Username to check.
-
-        Returns:
-            True if the user has reached their song limit.
-        """
-        return self.queue_manager.is_user_limited(user)
-
-    def enqueue(
-        self,
-        song_path: str,
-        user: str = "Pikaraoke",
-        semitones: int = 0,
-        add_to_front: bool = False,
-        log_action: bool = True,
-    ) -> bool | list[bool | str]:
-        """Add a song to the queue.
-
-        Args:
-            song_path: Path to the song file.
-            user: Username adding the song.
-            semitones: Transpose value for playback.
-            add_to_front: If True, add to front of queue instead of back.
-            log_action: Whether to log and notify about the action.
-
-        Returns:
-            False if song already in queue, or list of [success, message].
-        """
-        return self.queue_manager.enqueue(song_path, user, semitones, add_to_front, log_action)
-
-    def queue_add_random(self, amount: int) -> bool:
-        """Add random songs to the queue.
-
-        Args:
-            amount: Number of random songs to add.
-
-        Returns:
-            True if successful, False if ran out of songs.
-        """
-        return self.queue_manager.queue_add_random(amount)
-
-    def queue_clear(self) -> None:
-        """Clear all songs from the queue and skip current song."""
-        self.queue_manager.queue_clear()
-
-    def queue_edit(self, song_name: str, action: str) -> bool:
-        """Edit the queue by moving or removing a song.
-
-        Args:
-            song_name: Name/path of the song to edit.
-            action: Action to perform ('up', 'down', 'delete').
-
-        Returns:
-            True if the action was successful.
-        """
-        return self.queue_manager.queue_edit(song_name, action)
 
     def skip(self, log_action: bool = True) -> bool:
         """Skip the currently playing song.
@@ -926,7 +839,9 @@ class Karaoke:
         Returns:
             Dictionary with now playing info, queue preview, and volume.
         """
-        np = {
+        queue = self.queue_manager.queue
+        next_song = queue[0] if queue else None
+        return {
             "now_playing": self.now_playing,
             "now_playing_user": self.now_playing_user,
             "now_playing_duration": self.now_playing_duration,
@@ -934,21 +849,16 @@ class Karaoke:
             "now_playing_url": self.now_playing_url,
             "now_playing_subtitle_url": self.now_playing_subtitle_url,
             "now_playing_position": self.now_playing_position,
-            "up_next": self.queue[0]["title"] if len(self.queue) > 0 else None,
-            "next_user": self.queue[0]["user"] if len(self.queue) > 0 else None,
+            "up_next": next_song["title"] if next_song else None,
+            "next_user": next_song["user"] if next_song else None,
             "is_paused": self.is_paused,
             "volume": self.volume,
         }
-        return np
 
     def update_now_playing_socket(self) -> None:
         """Emit now_playing state change via SocketIO."""
         if self.socketio:
             self.socketio.emit("now_playing", self.get_now_playing(), namespace="/")
-
-    def update_queue_socket(self) -> None:
-        """Emit queue_update state change via SocketIO."""
-        self.queue_manager.update_queue_socket()
 
     def run(self) -> None:
         """Main run loop - processes queue and plays songs.
@@ -962,14 +872,17 @@ class Karaoke:
             try:
                 if not self.is_file_playing() and self.now_playing != None:
                     self.reset_now_playing()
-                if len(self.queue) > 0:
+                if len(self.queue_manager.queue) > 0:
                     if not self.is_file_playing():
                         self.reset_now_playing()
                         i = 0
                         while i < (self.splash_delay * 1000):
                             self.handle_run_loop()
                             i += self.loop_interval
-                        self.play_file(self.queue[0]["file"], self.queue[0]["semitones"])
+                        self.play_file(
+                            self.queue_manager.queue[0]["file"],
+                            self.queue_manager.queue[0]["semitones"],
+                        )
                 self.stream_manager.log_ffmpeg_output()
                 self.handle_run_loop()
             except KeyboardInterrupt:

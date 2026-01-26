@@ -78,52 +78,6 @@ class MockKaraoke:
     stop = Karaoke.stop
     reset_now_playing_notification = Karaoke.reset_now_playing_notification
 
-    # Queue methods delegated to queue_manager
-    @property
-    def queue(self):
-        """Get the current queue from the queue manager."""
-        return self.queue_manager.queue
-
-    @queue.setter
-    def queue(self, value):
-        """Set the queue in the queue manager."""
-        self.queue_manager.queue = value
-
-    def is_song_in_queue(self, song_path: str) -> bool:
-        """Check if a song is already in the queue."""
-        return self.queue_manager.is_song_in_queue(song_path)
-
-    def is_user_limited(self, user: str) -> bool:
-        """Check if a user has reached their queue limit."""
-        return self.queue_manager.is_user_limited(user)
-
-    def enqueue(
-        self,
-        song_path: str,
-        user: str = "Pikaraoke",
-        semitones: int = 0,
-        add_to_front: bool = False,
-        log_action: bool = True,
-    ):
-        """Add a song to the queue."""
-        return self.queue_manager.enqueue(song_path, user, semitones, add_to_front, log_action)
-
-    def queue_edit(self, song_name: str, action: str) -> bool:
-        """Edit the queue by moving or removing a song."""
-        return self.queue_manager.queue_edit(song_name, action)
-
-    def queue_add_random(self, amount: int) -> bool:
-        """Add random songs to the queue."""
-        return self.queue_manager.queue_add_random(amount)
-
-    def queue_clear(self) -> None:
-        """Clear all songs from the queue and skip current song."""
-        self.queue_manager.queue_clear()
-
-    def update_queue_socket(self) -> None:
-        """Emit queue_update state change via SocketIO."""
-        self.queue_manager.update_queue_socket()
-
 
 class MockSongList:
     """Minimal mock of SongList for testing."""

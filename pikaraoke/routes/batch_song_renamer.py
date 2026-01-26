@@ -480,7 +480,7 @@ def rename_song():
         new_name = d["new_name"].strip()
         old_name = d["old_name"]
 
-        if k.is_song_in_queue(old_name):
+        if k.queue_manager.is_song_in_queue(old_name):
             # MSG: Message shown after trying to edit a song that is in the queue.
             queue_error_msg = {
                 "success": False,
