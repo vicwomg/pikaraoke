@@ -36,7 +36,7 @@ class TestQueueReorderSocketUpdates:
         self, mock_gettext, mock_broadcast, mock_get_instance, mock_is_admin, client
     ):
         mock_karaoke = MagicMock()
-        mock_karaoke.queue = [{"file": "song1"}, {"file": "song2"}]
+        mock_karaoke.queue_manager.queue = [{"file": "song1"}, {"file": "song2"}]
         mock_get_instance.return_value = mock_karaoke
 
         response = client.post("/queue/reorder", data={"old_index": 0, "new_index": 1})
@@ -53,7 +53,7 @@ class TestQueueReorderSocketUpdates:
         self, mock_gettext, mock_broadcast, mock_get_instance, mock_is_admin, client
     ):
         mock_karaoke = MagicMock()
-        mock_karaoke.queue = [{"file": "song1"}, {"file": "song2"}]
+        mock_karaoke.queue_manager.queue = [{"file": "song1"}, {"file": "song2"}]
         mock_karaoke.filename_from_path.return_value = "song2"
         mock_get_instance.return_value = mock_karaoke
 
@@ -70,7 +70,7 @@ class TestQueueReorderSocketUpdates:
         self, mock_gettext, mock_broadcast, mock_get_instance, mock_is_admin, client
     ):
         mock_karaoke = MagicMock()
-        mock_karaoke.queue = [{"file": "song1"}, {"file": "song2"}]
+        mock_karaoke.queue_manager.queue = [{"file": "song1"}, {"file": "song2"}]
         mock_karaoke.filename_from_path.return_value = "song1"
         mock_get_instance.return_value = mock_karaoke
 

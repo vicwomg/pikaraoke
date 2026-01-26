@@ -29,7 +29,7 @@ admin_bp = Blueprint("admin", __name__)
 
 def delayed_halt(cmd: int, k: Karaoke):
     time.sleep(1.5)
-    k.queue_clear()
+    k.queue_manager.queue_clear()
     k.stop()
     if cmd == 0:
         sys.exit()

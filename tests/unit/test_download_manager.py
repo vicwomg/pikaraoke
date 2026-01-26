@@ -18,7 +18,7 @@ class MockKaraokeForDownload:
         self.additional_ytdl_args = None
         self.available_songs = MagicMock()
         self.log_and_send = MagicMock()
-        self.enqueue = MagicMock()
+        self.queue_manager = MagicMock()
 
 
 class TestDownloadManagerInit:
@@ -166,7 +166,7 @@ class TestDownloadManagerExecuteDownload:
 
         dm._execute_download("https://youtube.com/watch?v=abc", True, "TestUser", "Title")
 
-        mock_karaoke.enqueue.assert_called_once_with(
+        mock_karaoke.queue_manager.enqueue.assert_called_once_with(
             "/songs/Song---abc.mp4", "TestUser", log_action=False
         )
 
@@ -349,4 +349,6 @@ class TestDownloadManagerSpecialCharacters:
             title="Test",
         )
 
-        mock_karaoke.enqueue.assert_called_once_with(file_path, "TestUser", log_action=False)
+        mock_karaoke.queue_manager.enqueue.assert_called_once_with(
+            file_path, "TestUser", log_action=False
+        )

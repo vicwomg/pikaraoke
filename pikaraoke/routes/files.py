@@ -126,7 +126,7 @@ def delete_file():
     k = get_karaoke_instance()
     if "song" in request.args:
         song_path = request.args["song"]
-        exists = any(item.get("file") == song_path for item in k.queue)
+        exists = any(item.get("file") == song_path for item in k.queue_manager.queue)
         if exists:
             flash(
                 # MSG: Message shown after trying to delete a song that is in the queue.
@@ -169,7 +169,7 @@ def edit_file():
         if "new_file_name" in d and "old_file_name" in d:
             new_name = d["new_file_name"]
             old_name = d["old_file_name"]
-            if k.is_song_in_queue(old_name):
+            if k.queue_manager.is_song_in_queue(old_name):
                 # check one more time just in case someone added it during editing
                 flash(queue_error_msg + old_name, "is-danger")
             else:
