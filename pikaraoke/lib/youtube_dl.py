@@ -15,9 +15,17 @@ def get_youtubedl_version(youtubedl_path: str) -> str:
         youtubedl_path: Path to the yt-dlp executable.
 
     Returns:
-        Version string of the installed yt-dlp.
+        Version string of the installed yt-dlp or an error message.
     """
-    return subprocess.check_output([youtubedl_path, "--version"]).strip().decode("utf8")
+    try:
+        logging.debug(f"Getting yt-dlp version using command: {youtubedl_path} --version")
+        return subprocess.check_output([youtubedl_path, "--version"]).strip().decode("utf8")
+    except (subprocess.CalledProcessError, FileNotFoundError, PermissionError) as e:
+        logging.warning(f"Could not get yt-dlp version: {e}")
+        return "Not found"
+    except Exception as e:
+        logging.error(f"Unexpected error getting yt-dlp version: {e}")
+        return "Error"
 
 
 def get_youtube_id_from_url(url: str) -> str | None:
@@ -63,15 +71,14 @@ def upgrade_youtubedl(youtubedl_path: str) -> str:
         )
     except subprocess.CalledProcessError as e:
         output = e.output.decode("utf8")
+    except (FileNotFoundError, PermissionError) as e:
+        logging.warning(f"Could not run yt-dlp for upgrade: {e}")
+        return get_youtubedl_version(youtubedl_path)
 
     # Check if already up to date
     if "yt-dlp is up to date" in output:
         logging.debug("yt-dlp is already up to date")
-        # Try to extract version from output, otherwise get it directly
-        if "Latest version: " in output:
-            latest_version = output.split("Latest version: ")[1].split(" from")[0]
-            logging.debug("yt-dlp version: " + latest_version)
-        return
+        return get_youtubedl_version(youtubedl_path)
 
     upgrade_success = False
     if "You installed yt-dlp with pip or using the wheel from PyPi" in output:
