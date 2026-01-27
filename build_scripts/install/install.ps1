@@ -128,37 +128,21 @@ try {
         $shortcut.TargetPath = $pikaraokeExe
         $shortcut.WorkingDirectory = [System.IO.Path]::GetDirectoryName($pikaraokeExe)
 
-        # Robust Icon Path resolution
+        # Download Icon from GitHub
+        $iconPath = Join-Path ([System.IO.Path]::GetDirectoryName($pikaraokeExe)) "logo.ico"
+        $iconUrl = "https://raw.githubusercontent.com/vicwomg/pikaraoke/refs/heads/master/pikaraoke/static/icons/logo.ico"
         $iconFound = $false
-        $potentialIconPaths = @()
 
-        # 1. Check relative to script directory (PSScriptRoot is safest)
-        if ($PSScriptRoot) {
-            $potentialIconPaths += Join-Path $PSScriptRoot "..\..\pikaraoke\static\icons\logo.ico"
-        }
-
-        # 2. Check MyInvocation if scriptRoot wasn't enough
-        if ($MyInvocation -and $MyInvocation.MyCommand -and $MyInvocation.MyCommand.Path) {
-            $dir = Split-Path -Parent $MyInvocation.MyCommand.Path
-            $potentialIconPaths += Join-Path $dir "..\..\pikaraoke\static\icons\logo.ico"
-        }
-
-        # 3. Check official pipx venv site-packages path as provided by user
-        $pipxHome = if ($env:PIPX_HOME) { $env:PIPX_HOME } else { Join-Path $env:USERPROFILE "pipx" }
-        if (Test-Path $pipxHome) {
-            $potentialIconPaths += Join-Path $pipxHome "venvs\pikaraoke\Lib\site-packages\pikaraoke\static\icons\logo.ico"
-        }
-        $potentialIconPaths += Join-Path $env:USERPROFILE ".local\pipx\venvs\pikaraoke\Lib\site-packages\pikaraoke\static\icons\logo.ico"
-
-        # 4. Check relative to CWD
-        $potentialIconPaths += Join-Path (Get-Location) "pikaraoke\static\icons\logo.ico"
-
-        foreach ($ip in $potentialIconPaths) {
-            if ($ip -and (Test-Path $ip)) {
-                $shortcut.IconLocation = "$ip,0"
-                $iconFound = $true
-                break
+        try {
+            if (!(Test-Path $iconPath)) {
+                Invoke-WebRequest -Uri $iconUrl -OutFile $iconPath -ErrorAction Stop
             }
+            if (Test-Path $iconPath) {
+                $shortcut.IconLocation = "$iconPath,0"
+                $iconFound = $true
+            }
+        } catch {
+            Write-Host "Could not download icon from GitHub." -ForegroundColor Cyan
         }
 
         $shortcut.Save()
