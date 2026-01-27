@@ -110,13 +110,16 @@ try {
 Write-Host "Creating Desktop Shortcut..." -ForegroundColor Yellow
 try {
     $desktopPath = [System.Environment]::GetFolderPath("Desktop")
+    if ([string]::IsNullOrWhiteSpace($desktopPath)) { throw "Could not resolve Desktop path" }
+
     $shortcutPath = Join-Path $desktopPath "PiKaraoke.lnk"
 
     # Try to find pikaraoke.exe in standard pipx path
     $pikaraokeExe = Join-Path $HOME ".local\bin\pikaraoke.exe"
     if (!(Test-Path $pikaraokeExe)) {
         # Fallback: check if it's in the Path
-        $pikaraokeExe = Get-Command pikaraoke -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
+        $cmd = Get-Command pikaraoke -ErrorAction SilentlyContinue
+        if ($cmd) { $pikaraokeExe = $cmd.Source }
     }
 
     if ($pikaraokeExe -and (Test-Path $pikaraokeExe)) {
@@ -125,11 +128,20 @@ try {
         $shortcut.TargetPath = $pikaraokeExe
         $shortcut.WorkingDirectory = [System.IO.Path]::GetDirectoryName($pikaraokeExe)
 
-        # Set icon - assumes script is run from repo root or build_scripts/install
-        $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-        $iconPath = Join-Path $scriptDir "..\..\pikaraoke\static\icons\logo.ico"
-        if (Test-Path $iconPath) {
-            $shortcut.IconLocation = "$iconPath,0"
+        # Robust Icon Path resolution
+        $iconFound = $false
+
+        # 1. Check relative to script directory
+        $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path -ErrorAction SilentlyContinue }
+        if ($scriptRoot) {
+            $iconPath = Join-Path $scriptRoot "..\..\pikaraoke\static\icons\logo.ico"
+            if (Test-Path $iconPath) { $shortcut.IconLocation = "$iconPath,0"; $iconFound = $true }
+        }
+
+        # 2. Check relative to CWD if not found
+        if (-not $iconFound) {
+            $iconPath = Join-Path (Get-Location) "pikaraoke\static\icons\logo.ico"
+            if (Test-Path $iconPath) { $shortcut.IconLocation = "$iconPath,0"; $iconFound = $true }
         }
 
         $shortcut.Save()
