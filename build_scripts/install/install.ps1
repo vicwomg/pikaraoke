@@ -87,32 +87,27 @@ if (!(Get-Command pipx -ErrorAction SilentlyContinue)) {
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 }
 
-# 4. Install dependencies via pipx
-Write-Host "Installing yt-dlp via pipx..." -ForegroundColor Yellow
+# 4. Install/Upgrade dependencies via pipx
+Write-Host "Installing/Updating yt-dlp via pipx..." -ForegroundColor Yellow
 try {
-    & pipx install yt-dlp
+    & pipx install yt-dlp 2>$null
 } catch {
-    python -m pipx install yt-dlp
+    try { & pipx upgrade yt-dlp } catch { python -m pipx upgrade yt-dlp }
 }
 
-# 5. Install pikaraoke
-Write-Host "Installing pikaraoke via pipx..." -ForegroundColor Yellow
-
-# Try to run pipx, handle path issues
+# 5. Install/Upgrade pikaraoke
+Write-Host "Installing/Updating pikaraoke via pipx..." -ForegroundColor Yellow
 try {
-    & pipx install pikaraoke
+    & pipx install pikaraoke 2>$null
 } catch {
-    Write-Host "pipx call failed directly, trying via python module..."
-    python -m pipx install pikaraoke
+    try { & pipx upgrade pikaraoke } catch { python -m pipx upgrade pikaraoke }
 }
 
 # 6. Create Desktop Shortcut
-Write-Host "Creating Desktop Shortcut..." -ForegroundColor Yellow
+Write-Host "Creating Desktop Shortcuts..." -ForegroundColor Yellow
 try {
     $desktopPath = [System.Environment]::GetFolderPath("Desktop")
     if ([string]::IsNullOrWhiteSpace($desktopPath)) { throw "Could not resolve Desktop path" }
-    $shortcutPath = Join-Path $desktopPath "PiKaraoke.lnk"
-
     # Robust path resolution for pikaraoke.exe
     $pikaraokeExe = ""
     $exePaths = @(
@@ -124,38 +119,44 @@ try {
 
     if ($pikaraokeExe) {
         $WScriptShell = New-Object -ComObject WScript.Shell
-        $shortcut = $WScriptShell.CreateShortcut($shortcutPath)
-        $shortcut.TargetPath = $pikaraokeExe
-        $shortcut.WorkingDirectory = [System.IO.Path]::GetDirectoryName($pikaraokeExe)
 
-        # Download Icon from GitHub
+        # Download Icon from GitHub once if needed
         $iconPath = Join-Path ([System.IO.Path]::GetDirectoryName($pikaraokeExe)) "logo.ico"
-        $iconUrl = "https://raw.githubusercontent.com/vicwomg/pikaraoke/refs/heads/master/pikaraoke/static/icons/logo.ico"
         $iconFound = $false
-
         try {
+            $iconUrl = "https://raw.githubusercontent.com/vicwomg/pikaraoke/refs/heads/master/pikaraoke/static/icons/logo.ico"
             if (!(Test-Path $iconPath)) {
                 Invoke-WebRequest -Uri $iconUrl -OutFile $iconPath -ErrorAction Stop
             }
-            if (Test-Path $iconPath) {
-                $shortcut.IconLocation = "$iconPath,0"
-                $iconFound = $true
-            }
+            if (Test-Path $iconPath) { $iconFound = $true }
         } catch {
             Write-Host "Could not download icon from GitHub." -ForegroundColor Cyan
         }
 
-        $shortcut.Save()
-        if ($iconFound) {
-            Write-Host "Desktop shortcut created with custom icon." -ForegroundColor Green
-        } else {
-            Write-Host "Desktop shortcut created with default icon (custom logo.ico not found)." -ForegroundColor Cyan
+        # Create multiple shortcuts
+        $shortcutConfigs = @(
+            @{ Name = "PiKaraoke"; Args = "" },
+            @{ Name = "PiKaraoke (headless)"; Args = "--headless" }
+        )
+
+        foreach ($config in $shortcutConfigs) {
+            $sName = $config.Name
+            $shortcutPath = Join-Path $desktopPath "$sName.lnk"
+            $shortcut = $WScriptShell.CreateShortcut($shortcutPath)
+            $shortcut.TargetPath = $pikaraokeExe
+            $shortcut.Arguments = $config.Args
+            $shortcut.WorkingDirectory = [System.IO.Path]::GetDirectoryName($pikaraokeExe)
+            if ($iconFound) {
+                $shortcut.IconLocation = "$iconPath,0"
+            }
+            $shortcut.Save()
+            Write-Host "Created shortcut: $sName" -ForegroundColor Green
         }
     } else {
-        Write-Host "Could not find pikaraoke.exe to create shortcut." -ForegroundColor Red
+        Write-Host "Could not find pikaraoke.exe to create shortcuts." -ForegroundColor Red
     }
 } catch {
-    Write-Host "Failed to create desktop shortcut: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Failed to create desktop shortcuts: $($_.Exception.Message)" -ForegroundColor Red
 }
 
 Write-Host "`n--------------------------------------------------------" -ForegroundColor Green
