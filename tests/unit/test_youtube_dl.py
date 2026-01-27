@@ -217,7 +217,36 @@ class TestUpgradeYoutubedl:
             assert result == "2024.02.01"
 
     @patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2024.02.01")
-    def test_fallback_to_pip3_upgrade(self, mock_version):
+    @patch("shutil.which", return_value="/usr/local/bin/pipx")
+    def test_pipx_upgrade(self, mock_which, mock_version):
+        """Test upgrade via pipx when yt-dlp is managed by it."""
+        pip_message = b"You installed yt-dlp with pip or using the wheel from PyPi"
+        error = subprocess.CalledProcessError(1, "yt-dlp", pip_message)
+        error.output = pip_message
+
+        with patch("subprocess.check_output") as mock_check:
+            # 1. yt-dlp -U fails (pip mode)
+            # 2. pipx list shows yt-dlp
+            # 3. pipx upgrade succeeds
+            mock_check.side_effect = [
+                error,
+                b"venvs are in /dir\n  package yt-dlp 2024.01.01, Python 3.11.7\n    - yt-dlp",
+                b"upgraded yt-dlp",
+            ]
+            result = upgrade_youtubedl("yt-dlp")
+
+            assert result == "2024.02.01"
+            assert mock_check.call_count == 3
+            # Verify pipx list was called
+            assert "list" in mock_check.call_args_list[1][0][0]
+            # Verify pipx upgrade was called
+            upgrade_call = mock_check.call_args_list[2][0][0]
+            assert "upgrade" in upgrade_call
+            assert "yt-dlp" in upgrade_call
+
+    @patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2024.02.01")
+    @patch("shutil.which", return_value=None)
+    def test_fallback_to_pip3_upgrade(self, mock_which, mock_version):
         """Test fallback to pip3 when yt-dlp -U suggests pip."""
         pip_message = b"You installed yt-dlp with pip or using the wheel from PyPi"
         error = subprocess.CalledProcessError(1, "yt-dlp", pip_message)
@@ -235,7 +264,8 @@ class TestUpgradeYoutubedl:
             assert "pip3" in second_call_args
 
     @patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2024.02.01")
-    def test_fallback_to_pip_when_pip3_not_found(self, mock_version):
+    @patch("shutil.which", return_value=None)
+    def test_fallback_to_pip_when_pip3_not_found(self, mock_which, mock_version):
         """Test fallback to pip when pip3 is not found."""
         pip_message = b"You installed yt-dlp with pip or using the wheel from PyPi"
         error = subprocess.CalledProcessError(1, "yt-dlp", pip_message)

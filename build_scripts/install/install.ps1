@@ -12,7 +12,7 @@ if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
 }
 
 # Determine packages to install
-$installList = @("pikaraoke (via pipx)")
+$installList = @("pikaraoke (via pipx)", "yt-dlp (via pipx)")
 $skipDeno = $false
 if (Get-Command node -ErrorAction SilentlyContinue) {
     Write-Host "Node.js detected. Skipping Deno installation."
@@ -87,7 +87,15 @@ if (!(Get-Command pipx -ErrorAction SilentlyContinue)) {
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 }
 
-# 4. Install pikaraoke
+# 4. Install dependencies via pipx
+Write-Host "Installing yt-dlp via pipx..." -ForegroundColor Yellow
+try {
+    & pipx install yt-dlp
+} catch {
+    python -m pipx install yt-dlp
+}
+
+# 5. Install pikaraoke
 Write-Host "Installing pikaraoke via pipx..." -ForegroundColor Yellow
 
 # Try to run pipx, handle path issues

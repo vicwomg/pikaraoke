@@ -2,6 +2,7 @@
 
 import logging
 import shlex
+import shutil
 import subprocess
 
 from pikaraoke.lib.get_platform import get_installed_js_runtime
@@ -74,24 +75,35 @@ def upgrade_youtubedl(youtubedl_path: str) -> str:
 
     upgrade_success = False
     if "You installed yt-dlp with pip or using the wheel from PyPi" in output:
-        # allow pip to break system packages (probably required if installed without venv)
-        args = ["install", "--upgrade", "yt-dlp[default]", "--break-system-packages"]
-        try:
-            logging.info("yt-dlp is outdated! Attempting youtube-dl upgrade via pip3...")
-            output = (
+        # Check if installed via pipx first, as it's a cleaner upgrade path
+        if shutil.which("pipx"):
+            try:
+                pipx_list = (
+                    subprocess.check_output(["pipx", "list"], stderr=subprocess.DEVNULL)
+                    .decode("utf8")
+                    .lower()
+                )
+                if "package yt-dlp" in pipx_list:
+                    logging.info("yt-dlp is outdated! Attempting upgrade via pipx...")
+                    subprocess.check_output(["pipx", "upgrade", "yt-dlp"], stderr=subprocess.STDOUT)
+                    upgrade_success = True
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                pass
+
+        if not upgrade_success:
+            # allow pip to break system packages (probably required if installed without venv)
+            args = ["install", "--upgrade", "yt-dlp[default]", "--break-system-packages"]
+            try:
+                logging.info("yt-dlp is outdated! Attempting youtube-dl upgrade via pip3...")
                 subprocess.check_output(["pip3"] + args, stderr=subprocess.STDOUT)
-                .decode("utf8")
-                .strip()
-            )
-            upgrade_success = True
-        except FileNotFoundError:
-            logging.info("yt-dlp is outdated! Attempting youtube-dl upgrade via pip...")
-            output = (
-                subprocess.check_output(["pip"] + args, stderr=subprocess.STDOUT)
-                .decode("utf8")
-                .strip()
-            )
-            upgrade_success = True
+                upgrade_success = True
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                try:
+                    logging.info("yt-dlp is outdated! Attempting youtube-dl upgrade via pip...")
+                    subprocess.check_output(["pip"] + args, stderr=subprocess.STDOUT)
+                    upgrade_success = True
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    logging.error("Failed to upgrade yt-dlp using pip")
     youtubedl_version = get_youtubedl_version(youtubedl_path)
     if upgrade_success:
         logging.info("Done. Installed version: %s" % youtubedl_version)
