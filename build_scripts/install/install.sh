@@ -53,7 +53,7 @@ elif [ "$OS_TYPE" == "Linux" ]; then
 fi
 
 echo "The following packages will be installed/updated: $INSTALL_LIST"
-read -p "Do you want to proceed? (y/n) " -n 1 -r
+read -p "Do you want to proceed? (y/n) " -n 1 -r < /dev/tty
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo "Installation cancelled."
