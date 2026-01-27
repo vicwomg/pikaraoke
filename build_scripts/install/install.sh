@@ -35,7 +35,7 @@ echo "--- PiKaraoke Installer ---"
 echo "Detected OS: $OS_TYPE"
 
 # Determine packages to install
-INSTALL_LIST="pikaraoke (via pipx), yt-dlp (via pipx)"
+INSTALL_LIST="pikaraoke (via pipx)"
 SKIP_DENO=0
 if command -v node &> /dev/null; then
     echo "Node.js detected. Skipping Deno installation."
@@ -129,15 +129,6 @@ fi
 echo "Configuring pipx..."
 pipx ensurepath
 export PATH="$PATH:$HOME/.local/bin"
-
-# Install dependencies via pipx
-echo "Installing yt-dlp via pipx..."
-if pipx list | grep -q "yt-dlp"; then
-    echo "yt-dlp is already installed. Upgrading..."
-    pipx upgrade yt-dlp
-else
-    pipx install yt-dlp
-fi
 
 # Install pikaraoke
 echo "Installing pikaraoke via pipx..."

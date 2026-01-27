@@ -9,8 +9,46 @@ from pikaraoke.lib.youtube_dl import (
     build_ytdl_download_command,
     get_youtube_id_from_url,
     get_youtubedl_version,
+    resolve_youtubedl_path,
     upgrade_youtubedl,
 )
+
+
+class TestResolveYoutubedlPath:
+    """Tests for the resolve_youtubedl_path function."""
+
+    @patch("os.path.isfile", return_value=False)
+    @patch("shutil.which", return_value="/usr/bin/yt-dlp")
+    def test_resolve_standard_path_found(self, mock_which, mock_isfile):
+        """Test resolving 'yt-dlp' when it is in the system path (and not in local env)."""
+        assert resolve_youtubedl_path("yt-dlp") == "yt-dlp"
+
+    @patch("os.path.isfile", return_value=True)
+    @patch("shutil.which", return_value=None)
+    @patch("sys.executable", "/app/bin/python")
+    def test_resolve_local_env_fallback(self, mock_which, mock_isfile):
+        """Test resolving 'yt-dlp' when it is in the local venv path."""
+        # Note: on non-windows it looks for 'yt-dlp' in same dir as python
+        assert resolve_youtubedl_path("yt-dlp") == "/app/bin/yt-dlp"
+
+    @patch("shutil.which", return_value=None)
+    @patch("os.path.isfile", return_value=False)
+    @patch("sys.executable", "/app/bin/python")
+    def test_resolve_not_found_returns_original(self, mock_isfile, mock_which):
+        """Test that original path is returned if not found anywhere."""
+        assert resolve_youtubedl_path("yt-dlp") == "yt-dlp"
+
+    @patch("shutil.which", return_value="/usr/bin/yt-dlp")
+    @patch("os.path.isfile", return_value=True)
+    @patch("sys.executable", "/app/bin/python")
+    def test_resolve_local_priority(self, mock_isfile, mock_which):
+        """Test that local environment path is prioritized over system path."""
+        # Both exist, should return local path
+        assert resolve_youtubedl_path("yt-dlp") == "/app/bin/yt-dlp"
+
+    def test_resolve_custom_path_bypass(self):
+        """Test that custom absolute paths bypass resolution."""
+        assert resolve_youtubedl_path("/custom/path/yt-dlp") == "/custom/path/yt-dlp"
 
 
 class TestGetYoutubeIdFromUrl:
@@ -56,8 +94,9 @@ class TestGetYoutubeIdFromUrl:
 class TestBuildYtdlDownloadCommand:
     """Tests for the build_ytdl_download_command function."""
 
+    @patch("pikaraoke.lib.youtube_dl.resolve_youtubedl_path", return_value="yt-dlp")
     @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
-    def test_basic_command(self, mock_js):
+    def test_basic_command(self, mock_js, mock_resolve):
         """Test building basic download command."""
         cmd = build_ytdl_download_command(
             youtubedl_path="yt-dlp",
@@ -199,7 +238,8 @@ class TestGetYoutubedlVersion:
             result = get_youtubedl_version("yt-dlp")
             assert result == "2024.01.01"
 
-    def test_calls_with_version_flag(self):
+    @patch("pikaraoke.lib.youtube_dl.resolve_youtubedl_path", return_value="/usr/bin/yt-dlp")
+    def test_calls_with_version_flag(self, mock_resolve):
         """Test that --version flag is passed."""
         with patch("subprocess.check_output", return_value=b"2024.01.01") as mock_check:
             get_youtubedl_version("/usr/bin/yt-dlp")

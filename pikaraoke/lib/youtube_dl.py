@@ -1,11 +1,42 @@
-"""YouTube download utilities using yt-dlp."""
-
 import logging
+import os
 import shlex
 import shutil
 import subprocess
+import sys
 
 from pikaraoke.lib.get_platform import get_installed_js_runtime
+
+
+def resolve_youtubedl_path(youtubedl_path: str) -> str:
+    """Resolve the definitive path to the yt-dlp executable.
+
+    If the provided path is the default 'yt-dlp' and is not found in the
+    system PATH, this looks in the same directory as the current Python
+    executable (useful for pipx and virtualenv environments).
+
+    Args:
+        youtubedl_path: The configured path to yt-dlp (e.g. 'yt-dlp').
+
+    Returns:
+        The resolved path string.
+    """
+    if youtubedl_path == "yt-dlp":
+        # Check relative to current python executable (pipx/venv) first
+        python_bin_dir = os.path.dirname(sys.executable)
+        ext = ".exe" if sys.platform.startswith("win") else ""
+        bin_path = os.path.join(python_bin_dir, "yt-dlp" + ext)
+
+        if os.path.isfile(bin_path):
+            logging.debug(f"Found yt-dlp in local environment: {bin_path}")
+            return bin_path
+
+        # Fallback to system path
+        if shutil.which(youtubedl_path):
+            logging.debug(f"Found yt-dlp in system path: {youtubedl_path}")
+            return youtubedl_path
+
+    return youtubedl_path
 
 
 def get_youtubedl_version(youtubedl_path: str) -> str:
@@ -18,8 +49,9 @@ def get_youtubedl_version(youtubedl_path: str) -> str:
         Version string of the installed yt-dlp or an error message.
     """
     try:
-        logging.debug(f"Getting yt-dlp version using command: {youtubedl_path} --version")
-        return subprocess.check_output([youtubedl_path, "--version"]).strip().decode("utf8")
+        resolved_path = resolve_youtubedl_path(youtubedl_path)
+        logging.debug(f"Getting yt-dlp version using command: {resolved_path} --version")
+        return subprocess.check_output([resolved_path, "--version"]).strip().decode("utf8")
     except (subprocess.CalledProcessError, FileNotFoundError, PermissionError) as e:
         logging.warning(f"Could not get yt-dlp version: {e}")
         return "Not found"
@@ -63,9 +95,10 @@ def upgrade_youtubedl(youtubedl_path: str) -> str:
     Returns:
         The new version string after upgrade.
     """
+    resolved_path = resolve_youtubedl_path(youtubedl_path)
     try:
         output = (
-            subprocess.check_output([youtubedl_path, "-U"], stderr=subprocess.STDOUT)
+            subprocess.check_output([resolved_path, "-U"], stderr=subprocess.STDOUT)
             .decode("utf8")
             .strip()
         )
@@ -144,8 +177,9 @@ def build_ytdl_download_command(
         if high_quality
         else "mp4"
     )
+    resolved_path = resolve_youtubedl_path(youtubedl_path)
     cmd = [
-        youtubedl_path,
+        resolved_path,
         "-f",
         file_quality,
         "-o",
