@@ -86,21 +86,31 @@ if (!(Get-Command pipx -ErrorAction SilentlyContinue)) {
     # Reload Path for the current session
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 }
-
 # 4. Install/Upgrade dependencies via pipx
-Write-Host "Installing/Updating yt-dlp via pipx..." -ForegroundColor Yellow
+Write-Host "Checking for existing pipx installations..." -ForegroundColor Yellow
+$pipxPackages = ""
 try {
-    & pipx install yt-dlp 2>$null
+    $pipxPackages = & pipx list 2>$null | Out-String
 } catch {
-    try { & pipx upgrade yt-dlp } catch { python -m pipx upgrade yt-dlp }
+    try { $pipxPackages = python -m pipx list 2>$null | Out-String } catch { }
 }
 
-# 5. Install/Upgrade pikaraoke
-Write-Host "Installing/Updating pikaraoke via pipx..." -ForegroundColor Yellow
-try {
-    & pipx install pikaraoke 2>$null
-} catch {
+# yt-dlp
+if ($pipxPackages -match "package yt-dlp") {
+    Write-Host "Upgrading yt-dlp via pipx..." -ForegroundColor Yellow
+    try { & pipx upgrade yt-dlp } catch { python -m pipx upgrade yt-dlp }
+} else {
+    Write-Host "Installing yt-dlp via pipx..." -ForegroundColor Yellow
+    try { & pipx install yt-dlp } catch { python -m pipx install yt-dlp }
+}
+
+# pikaraoke
+if ($pipxPackages -match "package pikaraoke") {
+    Write-Host "Upgrading pikaraoke via pipx..." -ForegroundColor Yellow
     try { & pipx upgrade pikaraoke } catch { python -m pipx upgrade pikaraoke }
+} else {
+    Write-Host "Installing pikaraoke via pipx..." -ForegroundColor Yellow
+    try { & pipx install pikaraoke } catch { python -m pipx install pikaraoke }
 }
 
 # 6. Create Desktop Shortcut
