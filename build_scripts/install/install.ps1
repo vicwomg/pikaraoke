@@ -106,8 +106,43 @@ try {
     python -m pipx install pikaraoke
 }
 
+# 6. Create Desktop Shortcut
+Write-Host "Creating Desktop Shortcut..." -ForegroundColor Yellow
+try {
+    $desktopPath = [System.Environment]::GetFolderPath("Desktop")
+    $shortcutPath = Join-Path $desktopPath "PiKaraoke.lnk"
+
+    # Try to find pikaraoke.exe in standard pipx path
+    $pikaraokeExe = Join-Path $HOME ".local\bin\pikaraoke.exe"
+    if (!(Test-Path $pikaraokeExe)) {
+        # Fallback: check if it's in the Path
+        $pikaraokeExe = Get-Command pikaraoke -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
+    }
+
+    if ($pikaraokeExe -and (Test-Path $pikaraokeExe)) {
+        $WScriptShell = New-Object -ComObject WScript.Shell
+        $shortcut = $WScriptShell.CreateShortcut($shortcutPath)
+        $shortcut.TargetPath = $pikaraokeExe
+        $shortcut.WorkingDirectory = [System.IO.Path]::GetDirectoryName($pikaraokeExe)
+
+        # Set icon - assumes script is run from repo root or build_scripts/install
+        $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+        $iconPath = Join-Path $scriptDir "..\..\pikaraoke\static\icons\logo.ico"
+        if (Test-Path $iconPath) {
+            $shortcut.IconLocation = "$iconPath,0"
+        }
+
+        $shortcut.Save()
+        Write-Host "Desktop shortcut created successfully." -ForegroundColor Green
+    } else {
+        Write-Host "Could not find pikaraoke.exe to create shortcut." -ForegroundColor Red
+    }
+} catch {
+    Write-Host "Failed to create desktop shortcut: $($_.Exception.Message)" -ForegroundColor Red
+}
+
 Write-Host "`n--------------------------------------------------------" -ForegroundColor Green
 Write-Host "Installation complete!" -ForegroundColor Green
 Write-Host "Please restart your terminal (PowerShell) to ensure all PATH changes are loaded."
-Write-Host "Then, simply run: pikaraoke"
+Write-Host "Then, simply run: `pikaraoke` or launch PiKaraoke from the desktop shortcut."
 Write-Host "--------------------------------------------------------"
