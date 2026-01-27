@@ -87,8 +87,6 @@ def get_youtube_id_from_url(url: str) -> str | None:
 def upgrade_youtubedl(youtubedl_path: str) -> str:
     """Upgrade yt-dlp to the latest version.
 
-    Attempts self-upgrade first, then falls back to pip if needed.
-
     Args:
         youtubedl_path: Path to the yt-dlp executable.
 
@@ -96,58 +94,63 @@ def upgrade_youtubedl(youtubedl_path: str) -> str:
         The new version string after upgrade.
     """
     resolved_path = resolve_youtubedl_path(youtubedl_path)
+    current_version = get_youtubedl_version(youtubedl_path)
+    logging.info(f"Checking for yt-dlp updates... Current version: {current_version}")
+
     try:
-        output = (
-            subprocess.check_output([resolved_path, "-U"], stderr=subprocess.STDOUT)
-            .decode("utf8")
-            .strip()
+        # 1. Try native self-upgrade first
+        logging.debug(f"Attempting native yt-dlp upgrade: {resolved_path} -U")
+        output = subprocess.check_output([resolved_path, "-U"], stderr=subprocess.STDOUT).decode(
+            "utf8"
         )
+        if "yt-dlp is up to date" in output:
+            logging.debug("yt-dlp is already up to date via native upgrade.")
+            return current_version
+        logging.info("yt-dlp upgraded successfully via native upgrade.")
+        return get_youtubedl_version(youtubedl_path)
     except subprocess.CalledProcessError as e:
         output = e.output.decode("utf8")
-    except (FileNotFoundError, PermissionError) as e:
-        logging.warning(f"Could not run yt-dlp for upgrade: {e}")
-        return get_youtubedl_version(youtubedl_path)
+        if "yt-dlp is up to date" in output:
+            return current_version
+        logging.debug(f"Native upgrade failed or not supported: {output.strip()}")
+    except Exception as e:
+        logging.debug(f"Native upgrade failed: {e}")
 
-    # Check if already up to date
-    if "yt-dlp is up to date" in output:
-        logging.debug("yt-dlp is already up to date")
-        return get_youtubedl_version(youtubedl_path)
+    # 2. Identify installation method and upgrade via package manager
+    upgrade_methods = []
 
-    upgrade_success = False
-    if "You installed yt-dlp with pip or using the wheel from PyPi" in output:
-        # Check if installed via pipx first, as it's a cleaner upgrade path
-        if shutil.which("pipx"):
-            try:
-                pipx_list = (
-                    subprocess.check_output(["pipx", "list"], stderr=subprocess.DEVNULL)
-                    .decode("utf8")
-                    .lower()
-                )
-                if "package yt-dlp" in pipx_list:
-                    logging.info("yt-dlp is outdated! Attempting upgrade via pipx...")
-                    subprocess.check_output(["pipx", "upgrade", "yt-dlp"], stderr=subprocess.STDOUT)
-                    upgrade_success = True
-            except (subprocess.CalledProcessError, FileNotFoundError):
-                pass
+    # Check pipx
+    if shutil.which("pipx"):
+        try:
+            pipx_list = (
+                subprocess.check_output(["pipx", "list"], stderr=subprocess.DEVNULL)
+                .decode("utf8")
+                .lower()
+            )
+            if "package yt-dlp" in pipx_list:
+                upgrade_methods.append(["pipx", "upgrade", "yt-dlp"])
+        except Exception:
+            pass
 
-        if not upgrade_success:
-            # allow pip to break system packages (probably required if installed without venv)
-            args = ["install", "--upgrade", "yt-dlp[default]", "--break-system-packages"]
-            try:
-                logging.info("yt-dlp is outdated! Attempting youtube-dl upgrade via pip3...")
-                subprocess.check_output(["pip3"] + args, stderr=subprocess.STDOUT)
-                upgrade_success = True
-            except (subprocess.CalledProcessError, FileNotFoundError):
-                try:
-                    logging.info("yt-dlp is outdated! Attempting youtube-dl upgrade via pip...")
-                    subprocess.check_output(["pip"] + args, stderr=subprocess.STDOUT)
-                    upgrade_success = True
-                except (subprocess.CalledProcessError, FileNotFoundError):
-                    logging.error("Failed to upgrade yt-dlp using pip")
-    youtubedl_version = get_youtubedl_version(youtubedl_path)
-    if upgrade_success:
-        logging.info("Done. Installed version: %s" % youtubedl_version)
-    return youtubedl_version
+    # Fallback to pip3/pip
+    pip_args = ["install", "--upgrade", "yt-dlp[default]", "--break-system-packages"]
+    if shutil.which("pip3"):
+        upgrade_methods.append(["pip3"] + pip_args)
+    if shutil.which("pip"):
+        upgrade_methods.append(["pip"] + pip_args)
+
+    for cmd in upgrade_methods:
+        try:
+            logging.info(f"Attempting yt-dlp upgrade via: {' '.join(cmd)}")
+            subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+            new_version = get_youtubedl_version(youtubedl_path)
+            logging.info(f"yt-dlp upgraded successfully. New version: {new_version}")
+            return new_version
+        except Exception as e:
+            logging.debug(f"Upgrade via {' '.join(cmd)} failed: {e}")
+
+    logging.error("Failed to upgrade yt-dlp using any available method.")
+    return current_version
 
 
 def build_ytdl_download_command(
