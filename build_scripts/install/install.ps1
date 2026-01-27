@@ -111,18 +111,18 @@ Write-Host "Creating Desktop Shortcut..." -ForegroundColor Yellow
 try {
     $desktopPath = [System.Environment]::GetFolderPath("Desktop")
     if ([string]::IsNullOrWhiteSpace($desktopPath)) { throw "Could not resolve Desktop path" }
-
     $shortcutPath = Join-Path $desktopPath "PiKaraoke.lnk"
 
-    # Try to find pikaraoke.exe in standard pipx path
-    $pikaraokeExe = Join-Path $HOME ".local\bin\pikaraoke.exe"
-    if (!(Test-Path $pikaraokeExe)) {
-        # Fallback: check if it's in the Path
-        $cmd = Get-Command pikaraoke -ErrorAction SilentlyContinue
-        if ($cmd) { $pikaraokeExe = $cmd.Source }
-    }
+    # Robust path resolution for pikaraoke.exe
+    $pikaraokeExe = ""
+    $exePaths = @(
+        (Join-Path $HOME ".local\bin\pikaraoke.exe"),
+        (Join-Path $env:USERPROFILE ".local\bin\pikaraoke.exe"),
+        (Get-Command pikaraoke -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)
+    )
+    foreach ($p in $exePaths) { if ($p -and (Test-Path $p)) { $pikaraokeExe = $p; break } }
 
-    if ($pikaraokeExe -and (Test-Path $pikaraokeExe)) {
+    if ($pikaraokeExe) {
         $WScriptShell = New-Object -ComObject WScript.Shell
         $shortcut = $WScriptShell.CreateShortcut($shortcutPath)
         $shortcut.TargetPath = $pikaraokeExe
@@ -130,22 +130,43 @@ try {
 
         # Robust Icon Path resolution
         $iconFound = $false
+        $potentialIconPaths = @()
 
-        # 1. Check relative to script directory
-        $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path -ErrorAction SilentlyContinue }
-        if ($scriptRoot) {
-            $iconPath = Join-Path $scriptRoot "..\..\pikaraoke\static\icons\logo.ico"
-            if (Test-Path $iconPath) { $shortcut.IconLocation = "$iconPath,0"; $iconFound = $true }
+        # 1. Check relative to script directory (PSScriptRoot is safest)
+        if ($PSScriptRoot) {
+            $potentialIconPaths += Join-Path $PSScriptRoot "..\..\pikaraoke\static\icons\logo.ico"
         }
 
-        # 2. Check relative to CWD if not found
-        if (-not $iconFound) {
-            $iconPath = Join-Path (Get-Location) "pikaraoke\static\icons\logo.ico"
-            if (Test-Path $iconPath) { $shortcut.IconLocation = "$iconPath,0"; $iconFound = $true }
+        # 2. Check MyInvocation if scriptRoot wasn't enough
+        if ($MyInvocation -and $MyInvocation.MyCommand -and $MyInvocation.MyCommand.Path) {
+            $dir = Split-Path -Parent $MyInvocation.MyCommand.Path
+            $potentialIconPaths += Join-Path $dir "..\..\pikaraoke\static\icons\logo.ico"
+        }
+
+        # 3. Check official pipx venv site-packages path as provided by user
+        $pipxHome = if ($env:PIPX_HOME) { $env:PIPX_HOME } else { Join-Path $env:USERPROFILE "pipx" }
+        if (Test-Path $pipxHome) {
+            $potentialIconPaths += Join-Path $pipxHome "venvs\pikaraoke\Lib\site-packages\pikaraoke\static\icons\logo.ico"
+        }
+        $potentialIconPaths += Join-Path $env:USERPROFILE ".local\pipx\venvs\pikaraoke\Lib\site-packages\pikaraoke\static\icons\logo.ico"
+
+        # 4. Check relative to CWD
+        $potentialIconPaths += Join-Path (Get-Location) "pikaraoke\static\icons\logo.ico"
+
+        foreach ($ip in $potentialIconPaths) {
+            if ($ip -and (Test-Path $ip)) {
+                $shortcut.IconLocation = "$ip,0"
+                $iconFound = $true
+                break
+            }
         }
 
         $shortcut.Save()
-        Write-Host "Desktop shortcut created successfully." -ForegroundColor Green
+        if ($iconFound) {
+            Write-Host "Desktop shortcut created with custom icon." -ForegroundColor Green
+        } else {
+            Write-Host "Desktop shortcut created with default icon (custom logo.ico not found)." -ForegroundColor Cyan
+        }
     } else {
         Write-Host "Could not find pikaraoke.exe to create shortcut." -ForegroundColor Red
     }
