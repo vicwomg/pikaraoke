@@ -44,7 +44,7 @@ Pikaraoke is independently developed and maintained. If you want to support this
 
 ### Quick Install
 
-For a streamlined installation that handles dependencies (python, ffmpeg, deno, pipx) and installs PiKaraoke, run the following in your terminal:
+For a streamlined installation that handles all dependencies (python, pipx, ffmpeg, deno, yt-dlp) and installs PiKaraoke, run the following in your terminal:
 
 #### Linux & macOS
 
@@ -58,7 +58,7 @@ curl -fsSL https://raw.githubusercontent.com/vicwomg/pikaraoke/main/build_script
 irm https://raw.githubusercontent.com/vicwomg/pikaraoke/main/build_scripts/install/install.ps1 | iex
 ```
 
-## Manual native installation
+## Manual native installation (advanced)
 
 ### Prerequisites
 

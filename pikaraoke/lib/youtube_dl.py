@@ -22,7 +22,12 @@ def resolve_youtubedl_path(youtubedl_path: str) -> str:
         The resolved path string.
     """
     if youtubedl_path == "yt-dlp":
-        # Check relative to current python executable (pipx/venv) first
+        # check system path first
+        if shutil.which(youtubedl_path):
+            logging.debug(f"Found yt-dlp in system path: {youtubedl_path}")
+            return youtubedl_path
+
+        # check relative to current python executable (pipx/venv)
         python_bin_dir = os.path.dirname(sys.executable)
         ext = ".exe" if sys.platform.startswith("win") else ""
         bin_path = os.path.join(python_bin_dir, "yt-dlp" + ext)
@@ -30,11 +35,6 @@ def resolve_youtubedl_path(youtubedl_path: str) -> str:
         if os.path.isfile(bin_path):
             logging.debug(f"Found yt-dlp in local environment: {bin_path}")
             return bin_path
-
-        # Fallback to system path
-        if shutil.which(youtubedl_path):
-            logging.debug(f"Found yt-dlp in system path: {youtubedl_path}")
-            return youtubedl_path
 
     return youtubedl_path
 

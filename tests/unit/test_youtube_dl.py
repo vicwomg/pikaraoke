@@ -17,17 +17,17 @@ from pikaraoke.lib.youtube_dl import (
 class TestResolveYoutubedlPath:
     """Tests for the resolve_youtubedl_path function."""
 
-    @patch("os.path.isfile", return_value=False)
+    @patch("os.path.isfile", return_value=True)
     @patch("shutil.which", return_value="/usr/bin/yt-dlp")
     def test_resolve_standard_path_found(self, mock_which, mock_isfile):
-        """Test resolving 'yt-dlp' when it is in the system path (and not in local env)."""
+        """Test resolving 'yt-dlp' when it is in the system path (even if in local env)."""
         assert resolve_youtubedl_path("yt-dlp") == "yt-dlp"
 
-    @patch("os.path.isfile", return_value=True)
     @patch("shutil.which", return_value=None)
+    @patch("os.path.isfile", return_value=True)
     @patch("sys.executable", "/app/bin/python")
     def test_resolve_local_env_fallback(self, mock_which, mock_isfile):
-        """Test resolving 'yt-dlp' when it is in the local venv path."""
+        """Test resolving 'yt-dlp' fallback to local env when not in system path."""
         # Note: on non-windows it looks for 'yt-dlp' in same dir as python
         assert resolve_youtubedl_path("yt-dlp") == "/app/bin/yt-dlp"
 
@@ -41,10 +41,10 @@ class TestResolveYoutubedlPath:
     @patch("shutil.which", return_value="/usr/bin/yt-dlp")
     @patch("os.path.isfile", return_value=True)
     @patch("sys.executable", "/app/bin/python")
-    def test_resolve_local_priority(self, mock_isfile, mock_which):
-        """Test that local environment path is prioritized over system path."""
-        # Both exist, should return local path
-        assert resolve_youtubedl_path("yt-dlp") == "/app/bin/yt-dlp"
+    def test_resolve_system_priority(self, mock_isfile, mock_which):
+        """Test that system path is prioritized over local environment path."""
+        # Both exist, should return system path (which is just 'yt-dlp' as passed to resolve)
+        assert resolve_youtubedl_path("yt-dlp") == "yt-dlp"
 
     def test_resolve_custom_path_bypass(self):
         """Test that custom absolute paths bypass resolution."""
