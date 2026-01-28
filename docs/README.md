@@ -4,33 +4,20 @@
 
 PiKaraoke is a "KTV"-style karaoke song search and queueing system. It connects to your TV, and shows a QR code for computers and smartphones to connect to a web interface. From there, multiple users can seamlessly search your local track library, queue up songs, add an endless selection of new karaoke tracks from YouTube, and more. Works on Raspberry Pi, OSX, Windows, and Linux!
 
+Features: dedicated player/splash screen, mobile-friendly web interface, song searching/browsing, adding new songs from YouTube, mp3 + cdg support, playback controls, queue management, key change / pitch shifting, filename management, admin mode, headless mode
+
 Pikaraoke is independently developed and maintained. If you want to support this project with a little monetary tip, it's much appreciated: <br/><br/>
 <a href="https://www.buymeacoffee.com/vicwomg" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 
 ## Table of Contents
 
-- [Features](#features)
-- [Supported Devices / OS](#supported-devices--os)
-- [Get Started](#get-started)
+- [Supported Devices / OS / Platforms](#supported-devices--os--platforms)
+- [Quick Install](#quick-install)
+- [Manual Installation](#manual-installation)
+- [Docker](#docker-instructions)
 - [Screenshots](#screenshots)
 - [Developing pikaraoke](#developing-pikaraoke)
 - [Troubleshooting](#troubleshooting)
-
-## Features
-
-| **Feature**                 | **Description**                                               |
-| --------------------------- | ------------------------------------------------------------- |
-| Web Interface               | Multiple users can queue tracks from their smartphones        |
-| Player/Splash Screen        | Connection QR code and song queue metadata                    |
-| Searching/Browsing          | Search and rowse a local song library                         |
-| Adding New Songs            | Add new songs from Youtube                                    |
-| mp3 + cdg Support           | CDG file support, supports compressed .zip bundles            |
-| Playback Controls           | Pause, Skip, Restart, and volume control                      |
-| Queue Management            | Manage the song queue and change the order                    |
-| Key Change / Pitch Shifting | Adjust the pitch of songs                                     |
-| File Management             | Advanced editing of downloaded file names                     |
-| Admin Mode                  | Lock down features with admin mode                            |
-| Headless Mode               | Run a dedicated pikaraoke server and stream to remote browser |
 
 ## Supported Devices / OS / Platforms
 
@@ -42,58 +29,57 @@ Pikaraoke is independently developed and maintained. If you want to support this
 - Windows
 - Linux
 
-## Native installation
+## Quick Install
 
-### Requirements
+For a streamlined installation that handles all dependencies (python, pipx, ffmpeg, deno, yt-dlp) and installs PiKaraoke, run the following in your terminal:
 
-- Python 3.10 or greater (You can check your current version by running `python --version`): [Python downloads](https://www.python.org/downloads/)
-- FFmpeg: [FFmpeg downloads](https://ffmpeg.org/download.html)
-- Chrome browser (recommended, though Edge, Safari and Firefox will work with the `--headless` option)
-- A js runtime installed to your PATH (such as Node, Deno, Bun, QuickJS), this is a requirement as of yt-dlp 2025.11.12 otherwise some downloads may not work: https://github.com/yt-dlp/yt-dlp/wiki/EJS . Deno is probably easiest: https://deno.com/
-
-#### Specific install instructions for Raspberry Pi OS / Linux distros with `apt`:
-
-```
-sudo apt-get install ffmpeg -y
-sudo apt-get install chromium -y
-sudo curl -fsSL https://deno.land/x/install/install.sh | sh
-```
-
-Chromium/Chromdriver is optional if you're running with the `--headless` option.
-
-#### Windows
-
-You may want to try the install script by @lvmasterrj: https://github.com/lvmasterrj/win-pikaraoke-installer
-
-### Install pikaraoke via pip
-
-Globally or within a virtual env:
+### Linux & macOS
 
 ```sh
-# Install pikaraoke from PyPi
-pip install pikaraoke
+curl -fsSL https://raw.githubusercontent.com/vicwomg/pikaraoke/main/build_scripts/install/install.sh | bash
 ```
 
-Note: Some OS install `pip` as `pip3`. if you did not use a venv, you may need to add the `--break-system-packages` parameter to ignore the warning and install pikaraoke and its dependencies globally. You may experience package conflicts if you have other python programs installed.
+### Windows (PowerShell)
 
-### Run
+```powershell
+irm https://raw.githubusercontent.com/vicwomg/pikaraoke/main/build_scripts/install/install.ps1 | iex
+```
 
-Pikaraoke is now installed in the `$PATH` with the command line interface `pikaraoke`. Start by calling the pikaraoke command.
+After installation, you can launch pikaraoke from the command line with `pikaraoke` or from a desktop shortcut (if specified).
+
+You can rerun the above command to update a previous installation also.
+
+## Manual installation (advanced)
+
+### Prerequisites
+
+- A modern web browser (Chrome/Chromium/Edge recommended)
+- Python 3.10 or greater: [Python downloads](https://www.python.org/downloads/)
+- FFmpeg: [FFmpeg downloads](https://ffmpeg.org/download.html)
+- A js runtime installed to your PATH. [Node.js](https://nodejs.org/en/download/) is most common, [Deno](https://deno.com/) is probably easiest for non-developers.
+
+### Install pikaraoke via pipx
+
+We recommend installing pikaraoke via [pipx](https://github.com/pypa/pipx). You may alternately use the standard python `pip` installer if you are familiar with virtual environments or you are not concerned with global package isolation.
+
+```sh
+pipx install pikaraoke
+```
+
+Run pikaraoke with:
 
 ```sh
 pikaraoke
 ```
 
-This will start pikaraoke in headed mode, and open Chrome browser with the splash screen. You can then connect to the QR code via your mobile device and start downloading and queueing songs.
-
-Virtual env users: note that if you close your terminal between launches, you'll need to reactivate your venv before running pikaraoke.
+This will start pikaraoke in headed mode, and open the default browser with the splash screen. You can then connect to the QR code via your mobile device and start downloading and queueing songs.
 
 ### Upgrading
 
 To upgrade to the latest version of pikaraoke, run:
 
 ```sh
-pip install pikaraoke --upgrade
+pipx upgrade pikaraoke
 ```
 
 ### More Options
@@ -102,13 +88,17 @@ See the help command `pikaraoke --help` for available options.
 
 ## Docker instructions
 
-For Docker users, you can get going with one command. The deployed images includes everything you need to run in headless mode:
+For Docker users, you can get going with one command. Note that for best results you should map the port, supply your actual LAN IP, and set some persistence volumes for songs and settings (for simplicity, this example sets them to ~):
 
 ```sh
-docker run vicwomg/pikaraoke:latest
+docker run -p 5555:5555 \
+  -v ~/pikaraoke-songs:/app/pikaraoke-songs \
+  -v ~/.pikaraoke:/home/pikaraoke/.pikaraoke \
+  vicwomg/pikaraoke:latest \
+  -u http://<YOUR_LAN_IP>:5555
 ```
 
-For more information, [see official Dockerhub repo](https://hub.docker.com/r/vicwomg/pikaraoke)
+For more information and a configurable docker-compose example, [see official Dockerhub repo](https://hub.docker.com/r/vicwomg/pikaraoke)
 
 ## Screenshots
 

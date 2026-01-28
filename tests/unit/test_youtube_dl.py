@@ -9,8 +9,46 @@ from pikaraoke.lib.youtube_dl import (
     build_ytdl_download_command,
     get_youtube_id_from_url,
     get_youtubedl_version,
+    resolve_youtubedl_path,
     upgrade_youtubedl,
 )
+
+
+class TestResolveYoutubedlPath:
+    """Tests for the resolve_youtubedl_path function."""
+
+    @patch("os.path.isfile", return_value=True)
+    @patch("shutil.which", return_value="/usr/bin/yt-dlp")
+    def test_resolve_standard_path_found(self, mock_which, mock_isfile):
+        """Test resolving 'yt-dlp' when it is in the system path (even if in local env)."""
+        assert resolve_youtubedl_path("yt-dlp") == "yt-dlp"
+
+    @patch("shutil.which", return_value=None)
+    @patch("os.path.isfile", return_value=True)
+    @patch("sys.executable", "/app/bin/python")
+    def test_resolve_local_env_fallback(self, mock_which, mock_isfile):
+        """Test resolving 'yt-dlp' fallback to local env when not in system path."""
+        # Note: on non-windows it looks for 'yt-dlp' in same dir as python
+        assert resolve_youtubedl_path("yt-dlp") == "/app/bin/yt-dlp"
+
+    @patch("shutil.which", return_value=None)
+    @patch("os.path.isfile", return_value=False)
+    @patch("sys.executable", "/app/bin/python")
+    def test_resolve_not_found_returns_original(self, mock_isfile, mock_which):
+        """Test that original path is returned if not found anywhere."""
+        assert resolve_youtubedl_path("yt-dlp") == "yt-dlp"
+
+    @patch("shutil.which", return_value="/usr/bin/yt-dlp")
+    @patch("os.path.isfile", return_value=True)
+    @patch("sys.executable", "/app/bin/python")
+    def test_resolve_system_priority(self, mock_isfile, mock_which):
+        """Test that system path is prioritized over local environment path."""
+        # Both exist, should return system path (which is just 'yt-dlp' as passed to resolve)
+        assert resolve_youtubedl_path("yt-dlp") == "yt-dlp"
+
+    def test_resolve_custom_path_bypass(self):
+        """Test that custom absolute paths bypass resolution."""
+        assert resolve_youtubedl_path("/custom/path/yt-dlp") == "/custom/path/yt-dlp"
 
 
 class TestGetYoutubeIdFromUrl:
@@ -56,8 +94,9 @@ class TestGetYoutubeIdFromUrl:
 class TestBuildYtdlDownloadCommand:
     """Tests for the build_ytdl_download_command function."""
 
+    @patch("pikaraoke.lib.youtube_dl.resolve_youtubedl_path", return_value="yt-dlp")
     @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
-    def test_basic_command(self, mock_js):
+    def test_basic_command(self, mock_js, mock_resolve):
         """Test building basic download command."""
         cmd = build_ytdl_download_command(
             youtubedl_path="yt-dlp",
@@ -199,7 +238,8 @@ class TestGetYoutubedlVersion:
             result = get_youtubedl_version("yt-dlp")
             assert result == "2024.01.01"
 
-    def test_calls_with_version_flag(self):
+    @patch("pikaraoke.lib.youtube_dl.resolve_youtubedl_path", return_value="/usr/bin/yt-dlp")
+    def test_calls_with_version_flag(self, mock_resolve):
         """Test that --version flag is passed."""
         with patch("subprocess.check_output", return_value=b"2024.01.01") as mock_check:
             get_youtubedl_version("/usr/bin/yt-dlp")
@@ -217,7 +257,36 @@ class TestUpgradeYoutubedl:
             assert result == "2024.02.01"
 
     @patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2024.02.01")
-    def test_fallback_to_pip3_upgrade(self, mock_version):
+    @patch("shutil.which", return_value="/usr/local/bin/pipx")
+    def test_pipx_upgrade(self, mock_which, mock_version):
+        """Test upgrade via pipx when yt-dlp is managed by it."""
+        pip_message = b"You installed yt-dlp with pip or using the wheel from PyPi"
+        error = subprocess.CalledProcessError(1, "yt-dlp", pip_message)
+        error.output = pip_message
+
+        with patch("subprocess.check_output") as mock_check:
+            # 1. yt-dlp -U fails (pip mode)
+            # 2. pipx list shows yt-dlp
+            # 3. pipx upgrade succeeds
+            mock_check.side_effect = [
+                error,
+                b"venvs are in /dir\n  package yt-dlp 2024.01.01, Python 3.11.7\n    - yt-dlp",
+                b"upgraded yt-dlp",
+            ]
+            result = upgrade_youtubedl("yt-dlp")
+
+            assert result == "2024.02.01"
+            assert mock_check.call_count == 3
+            # Verify pipx list was called
+            assert "list" in mock_check.call_args_list[1][0][0]
+            # Verify pipx upgrade was called
+            upgrade_call = mock_check.call_args_list[2][0][0]
+            assert "upgrade" in upgrade_call
+            assert "yt-dlp" in upgrade_call
+
+    @patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2024.02.01")
+    @patch("shutil.which", return_value=None)
+    def test_fallback_to_pip3_upgrade(self, mock_which, mock_version):
         """Test fallback to pip3 when yt-dlp -U suggests pip."""
         pip_message = b"You installed yt-dlp with pip or using the wheel from PyPi"
         error = subprocess.CalledProcessError(1, "yt-dlp", pip_message)
@@ -235,7 +304,8 @@ class TestUpgradeYoutubedl:
             assert "pip3" in second_call_args
 
     @patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2024.02.01")
-    def test_fallback_to_pip_when_pip3_not_found(self, mock_version):
+    @patch("shutil.which", return_value=None)
+    def test_fallback_to_pip_when_pip3_not_found(self, mock_which, mock_version):
         """Test fallback to pip when pip3 is not found."""
         pip_message = b"You installed yt-dlp with pip or using the wheel from PyPi"
         error = subprocess.CalledProcessError(1, "yt-dlp", pip_message)
