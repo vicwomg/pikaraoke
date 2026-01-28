@@ -44,7 +44,6 @@ dev = [
 
 [project.scripts]
 pikaraoke = "pikaraoke.app:main"
-pikaraoke-setup = "pikaraoke.setup_apt:main"
 
 [project.urls]
 Homepage = "https://github.com/vicwomg/pikaraoke"
@@ -83,7 +82,6 @@ pythonPlatform = "Linux"
 
 [tool.coverage.run]
 omit = [
-    "pikaraoke/setup_apt.py",
     "pikaraoke/constants.py",
     "pikaraoke/app.py",
     "pikaraoke/lib/current_app.py",
