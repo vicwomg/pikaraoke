@@ -36,13 +36,13 @@ For a streamlined installation that handles all dependencies (python, pipx, ffmp
 ### Linux & macOS
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/vicwomg/pikaraoke/main/build_scripts/install/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vicwomg/pikaraoke/master/build_scripts/install/install.sh | bash
 ```
 
 ### Windows (PowerShell)
 
 ```powershell
-irm https://raw.githubusercontent.com/vicwomg/pikaraoke/main/build_scripts/install/install.ps1 | iex
+irm https://raw.githubusercontent.com/vicwomg/pikaraoke/master/build_scripts/install/install.ps1 | iex
 ```
 
 After installation, you can launch pikaraoke from the command line with `pikaraoke` or from a desktop shortcut (if specified).
