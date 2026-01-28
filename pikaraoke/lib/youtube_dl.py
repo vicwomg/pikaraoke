@@ -19,7 +19,6 @@ def get_youtubedl_version() -> str:
     """
     try:
         cmd = yt_dlp_cmd + ["--version"]
-        logging.debug(f"Getting yt-dlp version using command: {cmd}")
         return subprocess.check_output(cmd).strip().decode("utf8")
     except (subprocess.CalledProcessError, FileNotFoundError, PermissionError) as e:
         logging.warning(f"Could not get yt-dlp version: {e}")
@@ -98,6 +97,8 @@ def upgrade_youtubedl() -> str:
     youtubedl_version = get_youtubedl_version()
     if upgrade_success:
         logging.info("Done. Installed version: %s" % youtubedl_version)
+    else:
+        logging.error("Failed to upgrade yt-dlp.")
     return youtubedl_version
 
 
