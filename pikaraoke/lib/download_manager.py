@@ -211,7 +211,6 @@ class DownloadManager:
         k.log_and_send(_("Downloading video: %s") % displayed_title)
 
         cmd = build_ytdl_download_command(
-            k.youtubedl_path,
             video_url,
             k.download_path,
             k.high_quality,
