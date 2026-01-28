@@ -134,18 +134,20 @@ def upgrade_youtubedl(youtubedl_path: str) -> str:
             # 1. Use sys.executable to ensure we upgrade the CURRENT python environment.
             # 2. Add --break-system-packages only if we aren't in a venv.
             args = [sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp[default]"]
-            
+
             # Check if we are running in a virtual environment (venv/pipx)
             # If sys.prefix is the same as base_prefix, we are effectively 'root'
             if sys.prefix == sys.base_prefix:
                 args.append("--break-system-packages")
 
             try:
-                logging.info(f"yt-dlp is outdated! Attempting upgrade via {sys.executable} -m pip...")
+                logging.info(
+                    f"yt-dlp is outdated! Attempting upgrade via {sys.executable} -m pip..."
+                )
                 subprocess.check_output(args, stderr=subprocess.STDOUT)
                 upgrade_success = True
             except (subprocess.CalledProcessError, FileNotFoundError) as e:
-                 logging.error(f"Failed to upgrade yt-dlp using pip: {e}")
+                logging.error(f"Failed to upgrade yt-dlp using pip: {e}")
 
     youtubedl_version = get_youtubedl_version(youtubedl_path)
     if upgrade_success:
