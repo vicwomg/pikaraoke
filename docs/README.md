@@ -4,12 +4,13 @@
 
 PiKaraoke is a "KTV"-style karaoke song search and queueing system. It connects to your TV, and shows a QR code for computers and smartphones to connect to a web interface. From there, multiple users can seamlessly search your local track library, queue up songs, add an endless selection of new karaoke tracks from YouTube, and more. Works on Raspberry Pi, OSX, Windows, and Linux!
 
+Features: dedicated player/splash screen, mobile-friendly web interface, song searching/browsing, adding new songs from YouTube, mp3 + cdg support, playback controls, queue management, key change / pitch shifting, filename management, admin mode, headless mode
+
 Pikaraoke is independently developed and maintained. If you want to support this project with a little monetary tip, it's much appreciated: <br/><br/>
 <a href="https://www.buymeacoffee.com/vicwomg" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 
 ## Table of Contents
 
-- [Features](#features)
 - [Supported Devices / OS / Platforms](#supported-devices--os--platforms)
 - [Quick Install](#quick-install)
 - [Manual Installation](#manual-installation)
@@ -17,22 +18,6 @@ Pikaraoke is independently developed and maintained. If you want to support this
 - [Screenshots](#screenshots)
 - [Developing pikaraoke](#developing-pikaraoke)
 - [Troubleshooting](#troubleshooting)
-
-## Features
-
-| **Feature**                 | **Description**                                               |
-| --------------------------- | ------------------------------------------------------------- |
-| Web Interface               | Multiple users can queue tracks from their smartphones        |
-| Player/Splash Screen        | Connection QR code and song queue metadata                    |
-| Searching/Browsing          | Search and rowse a local song library                         |
-| Adding New Songs            | Add new songs from Youtube                                    |
-| mp3 + cdg Support           | CDG file support, supports compressed .zip bundles            |
-| Playback Controls           | Pause, Skip, Restart, and volume control                      |
-| Queue Management            | Manage the song queue and change the order                    |
-| Key Change / Pitch Shifting | Adjust the pitch of songs                                     |
-| File Management             | Advanced editing of downloaded file names                     |
-| Admin Mode                  | Lock down features with admin mode                            |
-| Headless Mode               | Run a dedicated pikaraoke server and stream to remote browser |
 
 ## Supported Devices / OS / Platforms
 
@@ -60,7 +45,7 @@ curl -fsSL https://raw.githubusercontent.com/vicwomg/pikaraoke/main/build_script
 irm https://raw.githubusercontent.com/vicwomg/pikaraoke/main/build_scripts/install/install.ps1 | iex
 ```
 
-After running that, you can launch pikaraoke from the command line with `pikaraoke` or from a desktop shortcut.
+After installation, you can launch pikaraoke from the command line with `pikaraoke` or from a desktop shortcut (if specified).
 
 You can rerun the above command to update a previous installation also.
 
