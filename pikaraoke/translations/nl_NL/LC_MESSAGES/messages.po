@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-01-18 21:53-0800\n"
+"POT-Creation-Date: 2026-01-28 14:13-0800\n"
 "PO-Revision-Date: 2025-01-13 22:56-0800\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: nl_NL\n"
@@ -18,124 +18,122 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.9.1\n"
 
-#: karaoke.py:438
+#: karaoke.py:455
 msgid "Your preferences were changed successfully"
 msgstr ""
 
-#: karaoke.py:441
+#: karaoke.py:458
 msgid "Something went wrong! Your preferences were not changed"
 msgstr ""
 
-#: karaoke.py:451
+#: karaoke.py:468
 msgid "Your preferences were cleared successfully"
 msgstr ""
 
-#: karaoke.py:453
+#: karaoke.py:470
 msgid "Something went wrong! Your preferences were not cleared"
 msgstr ""
 
 #. Message shown when the song ends abnormally
-#: karaoke.py:671
+#: karaoke.py:689
 #, python-format
 msgid "Song ended abnormally: %s"
 msgstr ""
 
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
-#: karaoke.py:690
+#: karaoke.py:708
 #, python-format
 msgid "Transposing by %s semitones: %s"
 msgstr ""
 
-#: karaoke.py:797
-#, python-format
-msgid "You reached the limit of %s song(s) from an user in queue!"
-msgstr ""
-
-#. Message shown after the song is added to the top of the queue
-#: karaoke.py:809
-#, python-format
-msgid "%s added to top of queue: %s"
-msgstr ""
-
-#. Message shown after the song is added to the queue
-#: karaoke.py:814
-#, python-format
-msgid "%s added to the queue: %s"
-msgstr ""
-
-#: karaoke.py:824
-#, python-format
-msgid "Song added to the queue: %s"
-msgstr ""
-
-#. Message shown after the queue is cleared
-#: karaoke.py:866
-msgid "Clear queue"
-msgstr ""
-
 #. Message shown after the song is skipped, will be followed by song name
-#: karaoke.py:933
+#: karaoke.py:735
 #, python-format
 msgid "Skip: %s"
 msgstr ""
 
 #. Message shown after the song is resumed, will be followed by song name
-#: karaoke.py:949
+#: karaoke.py:751
 #, python-format
 msgid "Resume: %s"
 msgstr ""
 
 #. Message shown after the song is paused, will be followed by song name
-#: karaoke.py:952 templates/queue.html:314 templates/queue.html:437
+#: karaoke.py:754 templates/queue.html:434 templates/queue.html:559
 msgid "Pause"
 msgstr ""
 
 #. Message shown after the volume is changed, will be followed by the volume
 #. level
-#: karaoke.py:971
+#: karaoke.py:773
 #, python-format
 msgid "Volume: %s"
 msgstr ""
 
-#: lib/download_manager.py:143
+#: lib/download_manager.py:118
 #, python-format
 msgid "Download queued (#%d): %s"
 msgstr ""
 
 #. Message shown when download is added and will start immediately
-#: lib/download_manager.py:147
+#: lib/download_manager.py:122
 #, python-format
 msgid "Download starting: %s"
 msgstr ""
 
 #. Message shown when download actually starts (after waiting in queue)
-#: lib/download_manager.py:236
+#: lib/download_manager.py:211
 #, python-format
 msgid "Downloading video: %s"
 msgstr ""
 
 #. Message shown after the download process is completed but the song is not
 #. found
-#: lib/download_manager.py:293
+#: lib/download_manager.py:269
 msgid "Error downloading song: "
 msgstr ""
 
 #. Message shown after the download is completed and queued
-#: lib/download_manager.py:311
+#: lib/download_manager.py:287
 #, python-format
 msgid "Downloaded and queued: %s"
 msgstr ""
 
 #. Message shown after the download is completed but not queued
-#: lib/download_manager.py:314
+#: lib/download_manager.py:290
 #, python-format
 msgid "Downloaded: %s"
 msgstr ""
 
 #. Message shown after the download is completed but the adding to queue fails
-#: lib/download_manager.py:330
+#: lib/download_manager.py:313
 msgid "Error queueing song: "
+msgstr ""
+
+#: lib/queue_manager.py:159
+#, python-format
+msgid "You reached the limit of %s song(s) from an user in queue!"
+msgstr ""
+
+#: lib/queue_manager.py:177
+#, python-format
+msgid "%s added to top of queue: %s"
+msgstr ""
+
+#: lib/queue_manager.py:184
+#, python-format
+msgid "%s added to the queue: %s"
+msgstr ""
+
+#: lib/queue_manager.py:196
+#, python-format
+msgid "Song added to the queue: %s"
+msgstr ""
+
+#. Message shown after the queue is cleared
+#: lib/queue_manager.py:245
+msgid "Clear queue"
 msgstr ""
 
 #: lib/stream_manager.py:87
@@ -293,13 +291,13 @@ msgid "You don't have permission to clear preferences"
 msgstr ""
 
 #. Message shown after adding random tracks
-#: routes/queue.py:101
+#: routes/queue.py:98
 #, python-format
 msgid "Added %s random tracks"
 msgstr ""
 
 #. Message shown after running out songs to add during random track addition
-#: routes/queue.py:104
+#: routes/queue.py:101
 msgid "Ran out of songs!"
 msgstr ""
 
@@ -391,7 +389,7 @@ msgid "Home"
 msgstr ""
 
 #. Navigation link for the queue page.
-#: templates/base.html:205 templates/queue.html:370
+#: templates/base.html:205 templates/queue.html:492
 msgid "Queue"
 msgstr ""
 
@@ -992,66 +990,86 @@ msgstr ""
 msgid "Enter the administrator password"
 msgstr ""
 
-#: templates/queue.html:164 templates/queue.html:193
+#: templates/queue.html:164 templates/queue.html:313
 msgid "Options"
 msgstr ""
 
-#: templates/queue.html:178
-msgid "Drag to reorder"
+#: templates/queue.html:213
+msgid "Pending downloads"
 msgstr ""
 
 #: templates/queue.html:218
+msgid "Queued"
+msgstr ""
+
+#: templates/queue.html:226
+msgid "Download Errors"
+msgstr ""
+
+#: templates/queue.html:235
+msgid "Failed"
+msgstr ""
+
+#: templates/queue.html:236
+msgid "Dismiss"
+msgstr ""
+
+#: templates/queue.html:298
+msgid "Drag to reorder"
+msgstr ""
+
+#: templates/queue.html:338
 msgid "The queue is empty"
 msgstr ""
 
-#: templates/queue.html:312
+#: templates/queue.html:432
 msgid "Play"
 msgstr ""
 
-#: templates/queue.html:383
+#: templates/queue.html:505
 msgid ""
 "Add <input id=\"randomNumberInput\" class=\"input mx-2 p-2\" "
 "pattern=\"\\d*\" maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" "
 "style=\"width: 42px\" /> random songs"
 msgstr ""
 
-#: templates/queue.html:387
+#: templates/queue.html:509
 msgid "Clear all"
 msgstr ""
 
-#: templates/queue.html:401
+#: templates/queue.html:523
 msgid "Play Next"
 msgstr ""
 
-#: templates/queue.html:401
+#: templates/queue.html:523
 msgid "Move to Top"
 msgstr ""
 
-#: templates/queue.html:405
+#: templates/queue.html:527
 msgid "Move Up"
 msgstr ""
 
-#: templates/queue.html:409
+#: templates/queue.html:531
 msgid "Move Down"
 msgstr ""
 
-#: templates/queue.html:413
+#: templates/queue.html:535
 msgid "Move to Bottom"
 msgstr ""
 
-#: templates/queue.html:417
+#: templates/queue.html:539
 msgid "Remove from Queue"
 msgstr ""
 
-#: templates/queue.html:433
+#: templates/queue.html:555
 msgid "Restart"
 msgstr ""
 
-#: templates/queue.html:441
+#: templates/queue.html:563
 msgid "Skip"
 msgstr ""
 
-#: templates/queue.html:449
+#: templates/queue.html:571
 msgid "Download queue"
 msgstr ""
 
@@ -1153,83 +1171,93 @@ msgstr ""
 msgid "Link:"
 msgstr ""
 
-#: templates/splash.html:64
+#: templates/splash.html:22
+msgid "Connection lost. Is the server still running?"
+msgstr ""
+
+#: templates/splash.html:23
+msgid ""
+"This browser is not fully supported. You may experience streaming issues."
+" Please use Chrome/Safari/Firefox/Edge for best results."
+msgstr ""
+
+#: templates/splash.html:27
 msgid "Never sing again... ever."
 msgstr ""
 
-#: templates/splash.html:65
+#: templates/splash.html:28
 msgid "That was a really good impression of a dying cat!"
 msgstr ""
 
-#: templates/splash.html:66
+#: templates/splash.html:29
 msgid "Thank God it's over."
 msgstr ""
 
-#: templates/splash.html:67
+#: templates/splash.html:30
 msgid "Pass the mic, please!"
 msgstr ""
 
-#: templates/splash.html:68
+#: templates/splash.html:31
 msgid "Well, I'm sure you're very good at your day job."
 msgstr ""
 
-#: templates/splash.html:74
+#: templates/splash.html:35
 msgid "I've seen better."
 msgstr ""
 
-#: templates/splash.html:75
+#: templates/splash.html:36
 msgid "Ok... just ok."
 msgstr ""
 
-#: templates/splash.html:76
+#: templates/splash.html:37
 msgid "Not bad for an amateur."
 msgstr ""
 
-#: templates/splash.html:77
+#: templates/splash.html:38
 msgid "You put on a decent show."
 msgstr ""
 
-#: templates/splash.html:78
+#: templates/splash.html:39
 msgid "That was... something."
 msgstr ""
 
-#: templates/splash.html:84
+#: templates/splash.html:43
 msgid "Congratulations! That was unbelievable!"
 msgstr ""
 
-#: templates/splash.html:85
+#: templates/splash.html:44
 msgid "Wow, have you tried auditioning for The Voice?"
 msgstr ""
 
-#: templates/splash.html:86
+#: templates/splash.html:45
 msgid "Please, sing another one!"
 msgstr ""
 
-#: templates/splash.html:87
+#: templates/splash.html:46
 msgid "You rock! You know that?!"
 msgstr ""
 
-#: templates/splash.html:88
+#: templates/splash.html:47
 msgid "Woah, who let Freddie Mercury in here?"
 msgstr ""
 
 #. Label for the next song to be played in the queue.
-#: templates/splash.html:616
+#: templates/splash.html:114
 msgid "Up next:"
 msgstr ""
 
 #. Label for the next singer in the queue.
-#: templates/splash.html:623
+#: templates/splash.html:121
 msgid "Next singer:"
 msgstr ""
 
 #. The title of the score screen, telling the user their singing score
-#: templates/splash.html:645
+#: templates/splash.html:143
 msgid "Your Score"
 msgstr ""
 
 #. Prompt for interaction in order to enable video autoplay.
-#: templates/splash.html:659
+#: templates/splash.html:157
 msgid ""
 "Due to limitations with browser permissions, you must interact\n"
 "      with the page once before it allows autoplay of videos. Pikaraoke "
@@ -1239,7 +1267,7 @@ msgid ""
 msgstr ""
 
 #. Button to confirm to enable video autoplay.
-#: templates/splash.html:672
+#: templates/splash.html:170
 msgid "Confirm"
 msgstr ""
 
