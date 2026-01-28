@@ -58,7 +58,7 @@ curl -fsSL https://raw.githubusercontent.com/vicwomg/pikaraoke/main/build_script
 irm https://raw.githubusercontent.com/vicwomg/pikaraoke/main/build_scripts/install/install.ps1 | iex
 ```
 
-## Manual native installation (advanced)
+## Manual installation (advanced)
 
 ### Prerequisites
 
@@ -69,7 +69,7 @@ irm https://raw.githubusercontent.com/vicwomg/pikaraoke/main/build_scripts/insta
 
 ### Install pikaraoke via pipx
 
-We recommend installing pikaraoke via [pipx](https://github.com/pypa/pipx). You may alternately use the standard python `pip` installer if you are familiar with virtual environments.
+We recommend installing pikaraoke via [pipx](https://github.com/pypa/pipx). You may alternately use the standard python `pip` installer if you are familiar with virtual environments or you are not concerned with global package isolation.
 
 ```sh
 pipx install pikaraoke
