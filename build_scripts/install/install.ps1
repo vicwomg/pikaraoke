@@ -163,5 +163,5 @@ try {
 Write-Host "`n--------------------------------------------------------" -ForegroundColor Green
 Write-Host "Installation complete!" -ForegroundColor Green
 Write-Host "Please restart your terminal (PowerShell) to ensure all PATH changes are loaded."
-Write-Host "Then, simply run: `pikaraoke` or launch PiKaraoke from the desktop shortcut."
+Write-Host "Then, simply run: `pikaraoke` or launch PiKaraoke from the desktop shortcuts."
 Write-Host "--------------------------------------------------------"
