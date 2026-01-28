@@ -83,18 +83,21 @@ if [ "$OS_TYPE" == "Darwin" ]; then
     if is_python_compatible; then
         echo "Compatible Python version found. Skipping Python installation."
         if [ $SKIP_DENO -eq 1 ]; then
-            brew install ffmpeg pipx
+            brew install ffmpeg-full pipx
         else
-            brew install ffmpeg deno pipx
+            brew install ffmpeg-full deno pipx
         fi
     else
         echo "Python 3.10+ not found. Installing via Homebrew..."
         if [ $SKIP_DENO -eq 1 ]; then
-            brew install ffmpeg pipx python
+            brew install ffmpeg-full pipx python
         else
-            brew install ffmpeg deno pipx python
+            brew install ffmpeg-full deno pipx python
         fi
     fi
+
+    # link ffmpeg-full to path since it is keg-only
+    brew link ffmpeg-full
 
 elif [ "$OS_TYPE" == "Linux" ]; then
     # Linux (Assumes Debian/Ubuntu/Raspberry Pi OS)
