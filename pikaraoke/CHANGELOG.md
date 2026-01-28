@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.18.0](https://github.com/vicwomg/pikaraoke/compare/1.17.2...1.18.0) (2026-01-28)
+
+
+### Features
+
+* add tests for queue socketio and regression ([#711](https://github.com/vicwomg/pikaraoke/issues/711)) ([40449f4](https://github.com/vicwomg/pikaraoke/commit/40449f4301326fc2478ed41879c25804d2e7041c))
+* centralise background media handling ([#710](https://github.com/vicwomg/pikaraoke/issues/710)) ([a18c4d7](https://github.com/vicwomg/pikaraoke/commit/a18c4d7606ff185dcfaee04dac26303d5557fd5a))
+* multiple splash screen synchronization and master/slave modes ([#708](https://github.com/vicwomg/pikaraoke/issues/708)) ([e71e044](https://github.com/vicwomg/pikaraoke/commit/e71e044b21a152bce26877668bdd629f93475234))
+* one-liner pikaraoke install scripts [#713](https://github.com/vicwomg/pikaraoke/issues/713) ([#714](https://github.com/vicwomg/pikaraoke/issues/714)) ([25d51e3](https://github.com/vicwomg/pikaraoke/commit/25d51e314987b12c3be25ab80d2b6839b706849f))
+* splash screen url scaling ([#715](https://github.com/vicwomg/pikaraoke/issues/715)) ([a04e6a2](https://github.com/vicwomg/pikaraoke/commit/a04e6a2998f8c62ac9c9905dd771277d299b1c0b))
+* update docker files to reflect app data directory ([#709](https://github.com/vicwomg/pikaraoke/issues/709)) ([9ec6d72](https://github.com/vicwomg/pikaraoke/commit/9ec6d72687e8905ee94b786eeecdbb68574a402b))
+* yt-dlp simplify install and launch versions, enable async updates  ([#718](https://github.com/vicwomg/pikaraoke/issues/718)) ([96f23e8](https://github.com/vicwomg/pikaraoke/commit/96f23e89d433c9cdf4cbf433917ada9554a2d3eb))
+
+
+### Bug Fixes
+
+* incorrect install script URLs ([#716](https://github.com/vicwomg/pikaraoke/issues/716)) ([109a918](https://github.com/vicwomg/pikaraoke/commit/109a918cb8f363d2a36c837cfbcd21dbe2992ab7))
+
 ## [1.17.2](https://github.com/vicwomg/pikaraoke/compare/1.17.1...1.17.2) (2026-01-22)
 
 
