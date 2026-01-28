@@ -10,8 +10,9 @@ Pikaraoke is independently developed and maintained. If you want to support this
 ## Table of Contents
 
 - [Features](#features)
-- [Supported Devices / OS](#supported-devices--os)
-- [Get Started](#get-started)
+- [Quick Install](#quick-install)
+- [Manual Installation](#manual-installation)
+- [Docker](#docker-instructions)
 - [Screenshots](#screenshots)
 - [Developing pikaraoke](#developing-pikaraoke)
 - [Troubleshooting](#troubleshooting)
