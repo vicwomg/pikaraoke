@@ -18,6 +18,7 @@ var screensaverTimeoutSeconds = PikaraokeConfig.screensaverTimeout;
 var bg_playlist = []
 const scoreReviews = PikaraokeConfig.scorePhrases;
 var isMaster = false;
+var uiScale = null;
 
 // Browser detection
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -543,10 +544,37 @@ const handleSocketRecovery = () => {
   });
 }
 
+const setupUIScaling = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const rawScale = urlParams.get('scale');
+  if (!rawScale) return;
+  uiScale = Math.max(0.3, Math.min(1, parseFloat(rawScale) || 1));
+
+  const scaleTargets = [
+    { selector: '#logo-container img.logo', origin: null },
+    { selector: '#top-container', origin: 'top right' },
+    { selector: '#ap-container', origin: 'top left' },
+    { selector: '#qr-code', origin: 'bottom left' },
+    { selector: '#up-next', origin: 'bottom right' },
+    { selector: '#dvd', origin: null },
+    { selector: '#score', origin: null },
+    { selector: '#splash-notification', origin: 'top left' },
+  ];
+
+  scaleTargets.forEach(({ selector, origin }) => {
+    const el = document.querySelector(selector);
+    if (el) {
+      el.style.transform = `scale(${uiScale})`;
+      if (origin) el.style.transformOrigin = origin;
+    }
+  });
+}
+
 // Document ready procedures
 
 $(function () {
   // Setup various features and listeners
+  setupUIScaling();
   setupScreensaver();
   setupOverlayMenus();
   setupVideoPlayer();
