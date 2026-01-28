@@ -59,7 +59,6 @@ default_config_file_path = "config.ini"
 default_streaming_format = "hls"
 
 default_dl_dir = get_default_dl_dir(platform)
-default_youtubedl_path = "yt-dlp"
 
 
 def parse_pikaraoke_args() -> argparse.Namespace:
@@ -84,14 +83,6 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         nargs="+",
         help="Desired path for downloaded songs. (default: %s)" % default_dl_dir,
         default=default_dl_dir,
-        required=False,
-    )
-    parser.add_argument(
-        "-y",
-        "--youtubedl-path",
-        nargs="+",
-        help="Path of youtube-dl. (default: %s)" % default_youtubedl_path,
-        default=default_youtubedl_path,
         required=False,
     )
     parser.add_argument(
@@ -322,7 +313,6 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     limit_user_songs_by = int(args.limit_user_songs_by)
     args.limit_user_songs_by = limit_user_songs_by
 
-    youtubedl_path = arg_path_parse(args.youtubedl_path)
     logo_path = arg_path_parse(args.logo_path)
     bg_music_path = arg_path_parse(args.bg_music_path)
     bg_video_path = arg_path_parse(args.bg_video_path)
@@ -334,7 +324,6 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     if not dl_path.endswith("/"):
         dl_path += "/"
 
-    args.youtubedl_path = youtubedl_path
     args.logo_path = logo_path
     args.bg_music_path = bg_music_path
     args.bg_video_path = bg_video_path
