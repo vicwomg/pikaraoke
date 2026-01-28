@@ -178,3 +178,28 @@ def get_data_directory() -> str:
         os.makedirs(path)
 
     return path
+
+
+def get_bin_directory() -> str:
+    """Get the directory for executable binaries (like yt-dlp).
+
+    Returns:
+        Path to the bin directory.
+    """
+    if is_windows():
+        # Windows: %LOCALAPPDATA%/pikaraoke/bin
+        # We use LOCALAPPDATA to keep binaries separate from Roaming config
+        base_path = os.environ.get("LOCALAPPDATA")
+        if not base_path:
+            base_path = os.path.expanduser("~")
+        path = os.path.join(base_path, "pikaraoke", "bin")
+    else:
+        # Linux/macOS: ~/.local/share/pikaraoke/bin
+        # Adheres to XDG Base Directory specification for application data
+        path = os.path.expanduser("~/.local/share/pikaraoke/bin")
+
+    # Ensure the directory exists
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    return path

@@ -1,57 +1,50 @@
+import json
 import logging
 import os
 import shlex
-import shutil
+import stat
 import subprocess
 import sys
+import urllib.request
+from urllib.error import URLError
 
-from pikaraoke.lib.get_platform import get_installed_js_runtime
+from pikaraoke.lib.get_platform import (
+    get_bin_directory,
+    get_installed_js_runtime,
+    is_windows,
+)
 
 
-def resolve_youtubedl_path(youtubedl_path: str) -> str:
-    """Resolve the definitive path to the yt-dlp executable.
+def get_ytdlp_cmd() -> list[str]:
+    """Get the command to run yt-dlp.
 
-    If the provided path is the default 'yt-dlp' and is not found in the
-    system PATH, this looks in the same directory as the current Python
-    executable (useful for pipx and virtualenv environments).
-
-    Args:
-        youtubedl_path: The configured path to yt-dlp (e.g. 'yt-dlp').
+    Checks for a standalone binary in the pikaraoke bin directory first.
+    Falls back to the python module if the binary is missing.
 
     Returns:
-        The resolved path string.
+        List of command strings (e.g. ['/path/to/yt-dlp'] or ['python', '-m', 'yt_dlp'])
     """
-    if youtubedl_path == "yt-dlp":
-        # check system path first
-        if shutil.which(youtubedl_path):
-            logging.debug(f"Found yt-dlp in system path: {youtubedl_path}")
-            return youtubedl_path
+    bin_dir = get_bin_directory()
+    binary_name = "yt-dlp.exe" if is_windows() else "yt-dlp"
+    binary_path = os.path.join(bin_dir, binary_name)
 
-        # check relative to current python executable (pipx/venv)
-        python_bin_dir = os.path.dirname(sys.executable)
-        ext = ".exe" if sys.platform.startswith("win") else ""
-        bin_path = os.path.join(python_bin_dir, "yt-dlp" + ext)
+    if os.path.exists(binary_path):
+        return [binary_path]
 
-        if os.path.isfile(bin_path):
-            logging.debug(f"Found yt-dlp in local environment: {bin_path}")
-            return bin_path
-
-    return youtubedl_path
+    # Fallback to module if binary is not yet downloaded
+    return [sys.executable, "-m", "yt_dlp"]
 
 
-def get_youtubedl_version(youtubedl_path: str) -> str:
+def get_youtubedl_version() -> str:
     """Get the installed yt-dlp version.
 
     Args:
-        youtubedl_path: Path to the yt-dlp executable.
-
     Returns:
         Version string of the installed yt-dlp or an error message.
     """
     try:
-        resolved_path = resolve_youtubedl_path(youtubedl_path)
-        logging.debug(f"Getting yt-dlp version using command: {resolved_path} --version")
-        return subprocess.check_output([resolved_path, "--version"]).strip().decode("utf8")
+        cmd = get_ytdlp_cmd() + ["--version"]
+        return subprocess.check_output(cmd).strip().decode("utf8")
     except (subprocess.CalledProcessError, FileNotFoundError, PermissionError) as e:
         logging.warning(f"Could not get yt-dlp version: {e}")
         return "Not found"
@@ -84,76 +77,50 @@ def get_youtube_id_from_url(url: str) -> str | None:
         return None
 
 
-def upgrade_youtubedl(youtubedl_path: str) -> str:
+def upgrade_youtubedl() -> str:
     """Upgrade yt-dlp to the latest version.
 
-    Attempts self-upgrade first, then falls back to pip if needed.
+    Downloads the latest standalone binary release from GitHub.
 
     Args:
-        youtubedl_path: Path to the yt-dlp executable.
-
     Returns:
         The new version string after upgrade.
     """
-    resolved_path = resolve_youtubedl_path(youtubedl_path)
+    bin_dir = get_bin_directory()
+    binary_name = "yt-dlp.exe" if is_windows() else "yt-dlp"
+    binary_path = os.path.join(bin_dir, binary_name)
+
+    # URL selection based on OS
+    if is_windows():
+        url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
+    else:
+        url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
+
+    logging.info(f"Checking for yt-dlp upgrades (Binary mode)...")
+    logging.debug(f"Target path: {binary_path}")
+
     try:
-        output = (
-            subprocess.check_output([resolved_path, "-U"], stderr=subprocess.STDOUT)
-            .decode("utf8")
-            .strip()
-        )
-    except subprocess.CalledProcessError as e:
-        output = e.output.decode("utf8")
-    except (FileNotFoundError, PermissionError) as e:
-        logging.warning(f"Could not run yt-dlp for upgrade: {e}")
-        return get_youtubedl_version(youtubedl_path)
+        # Download the file
+        logging.info(f"Downloading latest yt-dlp from {url}...")
+        with urllib.request.urlopen(url) as response:
+            with open(binary_path, "wb") as f:
+                f.write(response.read())
 
-    # Check if already up to date
-    if "is up to date" in output.lower():
-        logging.debug("yt-dlp is already up to date")
-        return get_youtubedl_version(youtubedl_path)
+        # Make it executable (Unix only)
+        if not is_windows():
+            st = os.stat(binary_path)
+            os.chmod(binary_path, st.st_mode | stat.S_IEXEC)
 
-    upgrade_success = False
-    if "pip" in output.lower():
-        # Check if installed via pipx first, as it's a cleaner upgrade path
-        if shutil.which("pipx"):
-            try:
-                pipx_list = (
-                    subprocess.check_output(["pipx", "list"], stderr=subprocess.DEVNULL)
-                    .decode("utf8")
-                    .lower()
-                )
-                if "package yt-dlp" in pipx_list:
-                    logging.info("yt-dlp is outdated! Attempting upgrade via pipx...")
-                    subprocess.check_output(["pipx", "upgrade", "yt-dlp"], stderr=subprocess.STDOUT)
-                    upgrade_success = True
-            except (subprocess.CalledProcessError, FileNotFoundError):
-                pass
+        new_version = get_youtubedl_version()
+        logging.info(f"Upgrade complete. Installed version: {new_version}")
+        return new_version
 
-        if not upgrade_success:
-            pip_cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp[default]"]
-
-            # Outside a venv, pip requires --break-system-packages on modern Python
-            if sys.prefix == sys.base_prefix:
-                pip_cmd.append("--break-system-packages")
-
-            try:
-                logging.info(
-                    f"yt-dlp is outdated! Attempting upgrade via {sys.executable} -m pip..."
-                )
-                subprocess.check_output(pip_cmd, stderr=subprocess.STDOUT)
-                upgrade_success = True
-            except (subprocess.CalledProcessError, FileNotFoundError) as e:
-                logging.error(f"Failed to upgrade yt-dlp using pip: {e}")
-
-    youtubedl_version = get_youtubedl_version(youtubedl_path)
-    if upgrade_success:
-        logging.info("Done. Installed version: %s" % youtubedl_version)
-    return youtubedl_version
+    except Exception as e:
+        logging.error(f"Failed to upgrade yt-dlp binary: {e}")
+        return get_youtubedl_version()
 
 
 def build_ytdl_download_command(
-    youtubedl_path: str,
     video_url: str,
     download_path: str,
     high_quality: bool = False,
@@ -163,7 +130,6 @@ def build_ytdl_download_command(
     """Build the yt-dlp command line for downloading a video.
 
     Args:
-        youtubedl_path: Path to the yt-dlp executable.
         video_url: URL of the video to download.
         download_path: Directory path where videos will be saved.
         high_quality: If True, download up to 1080p; otherwise download mp4.
@@ -179,9 +145,7 @@ def build_ytdl_download_command(
         if high_quality
         else "mp4"
     )
-    resolved_path = resolve_youtubedl_path(youtubedl_path)
-    cmd = [
-        resolved_path,
+    args = [
         "-f",
         file_quality,
         "-o",
@@ -191,6 +155,9 @@ def build_ytdl_download_command(
         "--compat-options",
         "filename-sanitization",
     ]
+
+    cmd = get_ytdlp_cmd() + args
+
     preferred_js_runtime = get_installed_js_runtime()
     if preferred_js_runtime and preferred_js_runtime != "deno":
         # Deno is automatically assumed by yt-dlp, and does not need specification here
@@ -201,3 +168,38 @@ def build_ytdl_download_command(
         cmd += shlex.split(additional_args)
     cmd += [video_url]
     return cmd
+
+
+def get_search_results(textToSearch: str) -> list[list[str]]:
+    """Search YouTube for videos matching the query.
+
+    Args:
+        textToSearch: Search query string.
+
+    Returns:
+        List of [title, url, video_id] for each result.
+
+    Raises:
+        Exception: If the search fails.
+    """
+    logging.info("Searching YouTube for: " + textToSearch)
+    num_results = 10
+    yt_search = 'ytsearch%d:"%s"' % (num_results, textToSearch)
+
+    cmd = get_ytdlp_cmd() + ["-j", "--no-playlist", "--flat-playlist", yt_search]
+
+    logging.debug("Youtube-dl search command: " + " ".join(cmd))
+    try:
+        output = subprocess.check_output(cmd).decode("utf-8", "ignore")
+        logging.debug("Search results: " + output)
+        rc = []
+        for each in output.split("\n"):
+            if len(each) > 2:
+                j = json.loads(each)
+                if (not "title" in j) or (not "url" in j):
+                    continue
+                rc.append([j["title"], j["url"], j["id"]])
+        return rc
+    except Exception as e:
+        logging.debug("Error while executing search: " + str(e))
+        raise e

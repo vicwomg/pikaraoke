@@ -180,7 +180,7 @@ class Karaoke:
         self.ffmpeg_version = get_ffmpeg_version()
         self.is_transpose_enabled = is_transpose_enabled()
         self.supports_hardware_h264_encoding = supports_hardware_h264_encoding()
-        self.youtubedl_version = get_youtubedl_version(youtubedl_path)
+        self.youtubedl_version = get_youtubedl_version()
         self.is_raspberry_pi = is_raspberry_pi()
 
         logging.info("PiKaraoke version: " + VERSION)
@@ -474,7 +474,7 @@ class Karaoke:
         logging.debug(
             "Checking if youtube-dl needs upgrading, current version: %s" % self.youtubedl_version
         )
-        self.youtubedl_version = upgrade_youtubedl(self.youtubedl_path)
+        self.youtubedl_version = upgrade_youtubedl()
 
     def generate_qr_code(self) -> None:
         """Generate a QR code image for the web interface URL."""
