@@ -58,6 +58,8 @@ curl -fsSL https://raw.githubusercontent.com/vicwomg/pikaraoke/main/build_script
 irm https://raw.githubusercontent.com/vicwomg/pikaraoke/main/build_scripts/install/install.ps1 | iex
 ```
 
+You can rerun the above command to update a previous installation also.
+
 ## Manual installation (advanced)
 
 ### Prerequisites
@@ -75,15 +77,13 @@ We recommend installing pikaraoke via [pipx](https://github.com/pypa/pipx). You 
 pipx install pikaraoke
 ```
 
-### Run
-
-Pikaraoke is now installed in the `$PATH` with the command line interface `pikaraoke`. Start by calling the pikaraoke command.
+Run pikaraoke with:
 
 ```sh
 pikaraoke
 ```
 
-This will start pikaraoke in headed mode, and open Chrome browser with the splash screen. You can then connect to the QR code via your mobile device and start downloading and queueing songs.
+This will start pikaraoke in headed mode, and open the default browser with the splash screen. You can then connect to the QR code via your mobile device and start downloading and queueing songs.
 
 ### Upgrading
 
