@@ -156,7 +156,6 @@ def main() -> None:
     k = karaoke.Karaoke(
         port=args.port,
         download_path=args.download_path,
-        youtubedl_path=args.youtubedl_path,
         youtubedl_proxy=args.youtubedl_proxy,
         splash_delay=args.splash_delay,
         log_level=args.log_level,

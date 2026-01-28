@@ -12,7 +12,7 @@ if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
 }
 
 # Determine packages to install
-$installList = @("pikaraoke (via pipx)", "yt-dlp (via pipx)")
+$installList = @("pikaraoke (via pipx)")
 $skipDeno = $false
 if (Get-Command node -ErrorAction SilentlyContinue) {
     Write-Host "Node.js detected. Skipping Deno installation."
@@ -93,15 +93,6 @@ try {
     $pipxPackages = & pipx list 2>$null | Out-String
 } catch {
     try { $pipxPackages = python -m pipx list 2>$null | Out-String } catch { }
-}
-
-# yt-dlp
-if ($pipxPackages -match "package yt-dlp") {
-    Write-Host "Upgrading yt-dlp via pipx..." -ForegroundColor Yellow
-    try { & pipx upgrade yt-dlp } catch { python -m pipx upgrade yt-dlp }
-} else {
-    Write-Host "Installing yt-dlp via pipx..." -ForegroundColor Yellow
-    try { & pipx install yt-dlp } catch { python -m pipx install yt-dlp }
 }
 
 # pikaraoke
