@@ -60,6 +60,13 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 1
 fi
 
+read -p "Do you want to install desktop shortcuts? (y/n) " -n 1 -r < /dev/tty
+INSTALL_SHORTCUTS=0
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    INSTALL_SHORTCUTS=1
+fi
+echo
+
 if [ "$OS_TYPE" == "Darwin" ]; then
     # macOS
     if ! command -v brew &> /dev/null; then
@@ -148,9 +155,85 @@ else
     pipx install pikaraoke
 fi
 
+# 6. Create Desktop Shortcuts
+if [ $INSTALL_SHORTCUTS -eq 1 ]; then
+    echo "Creating Desktop Shortcuts..."
+    PIKARAOKE_BIN=$(command -v pikaraoke || echo "$HOME/.local/bin/pikaraoke")
+    SHARE_DIR="$HOME/.local/share/pikaraoke"
+    mkdir -p "$SHARE_DIR"
+    ICON_PATH="$SHARE_DIR/logo.icns"
+    ICON_URL="https://raw.githubusercontent.com/vicwomg/pikaraoke/refs/heads/master/pikaraoke/static/icons/logo.icns"
+    if [ ! -f "$ICON_PATH" ]; then
+        curl -fsSL "$ICON_URL" -o "$ICON_PATH" || echo "Warning: Could not download icon"
+    fi
+
+    if [ "$OS_TYPE" == "Darwin" ]; then
+        # macOS Shortcut creation
+        create_macos_app() {
+            local app_name="$1"
+            local args="$2"
+            local app_path="$HOME/Desktop/$app_name.app"
+
+            # Create a simple app wrapper using AppleScript that launches in Terminal
+            # We use 'do script' to ensure it runs in a shell with user paths (ffmpeg, etc)
+            osacompile -o "$app_path" -e "tell application \"Terminal\"
+                activate
+                do script \"$PIKARAOKE_BIN $args\"
+            end tell"
+
+            if [ -f "$ICON_PATH" ]; then
+                # Set the icon for the app
+                osascript <<EOF
+use framework "Foundation"
+use framework "AppKit"
+
+set filePath to POSIX path of "$app_path"
+set imagePath to POSIX path of "$ICON_PATH"
+
+set theImage to (current application's NSImage's alloc()'s initWithContentsOfFile:imagePath)
+(current application's NSWorkspace's sharedWorkspace()'s setIcon:theImage forFile:filePath options:0)
+EOF
+            fi
+        }
+
+        create_macos_app "PiKaraoke" ""
+        create_macos_app "PiKaraoke (headless)" "--headless"
+        echo "macOS shortcuts created on Desktop."
+
+    elif [ "$OS_TYPE" == "Linux" ]; then
+        # Linux Shortcut creation
+        create_linux_desktop() {
+            local name="$1"
+            local args="$2"
+            local filename="$3"
+            local target="$HOME/Desktop/$filename"
+
+            cat <<EOF > "$target"
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=$name
+Exec=$PIKARAOKE_BIN $args
+Icon=$ICON_PATH
+Terminal=true
+Categories=AudioVideo;Player;
+EOF
+            chmod +x "$target"
+        }
+
+        if [ -d "$HOME/Desktop" ]; then
+            create_linux_desktop "PiKaraoke" "" "PiKaraoke.desktop"
+            create_linux_desktop "PiKaraoke (headless)" "--headless" "PiKaraoke-headless.desktop"
+            echo "Linux shortcuts created on Desktop."
+        else
+            echo "Warning: Desktop directory not found. Skipping shortcut creation."
+        fi
+    fi
+fi
+
 echo ""
 echo "--------------------------------------------------------"
 echo "Installation complete!"
-echo "You may need to restart your terminal or run 'source ~/.bashrc' (or ~/.zshrc) for PATH changes to take effect."
+echo "Please restart your terminal or run 'source ~/.bashrc' (or ~/.zshrc) for PATH changes to take effect."
 echo "Then, simply run: pikaraoke"
 echo "--------------------------------------------------------"
