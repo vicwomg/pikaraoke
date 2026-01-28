@@ -10,6 +10,7 @@ Pikaraoke is independently developed and maintained. If you want to support this
 ## Table of Contents
 
 - [Features](#features)
+- [Supported Devices / OS / Platforms](#supported-devices--os--platforms)
 - [Quick Install](#quick-install)
 - [Manual Installation](#manual-installation)
 - [Docker](#docker-instructions)
@@ -43,21 +44,23 @@ Pikaraoke is independently developed and maintained. If you want to support this
 - Windows
 - Linux
 
-### Quick Install
+## Quick Install
 
 For a streamlined installation that handles all dependencies (python, pipx, ffmpeg, deno, yt-dlp) and installs PiKaraoke, run the following in your terminal:
 
-#### Linux & macOS
+### Linux & macOS
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/vicwomg/pikaraoke/main/build_scripts/install/install.sh | bash
 ```
 
-#### Windows (PowerShell)
+### Windows (PowerShell)
 
 ```powershell
 irm https://raw.githubusercontent.com/vicwomg/pikaraoke/main/build_scripts/install/install.ps1 | iex
 ```
+
+After running that, you can launch pikaraoke from the command line with `pikaraoke` or from a desktop shortcut.
 
 You can rerun the above command to update a previous installation also.
 
