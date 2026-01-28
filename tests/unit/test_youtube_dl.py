@@ -1,7 +1,7 @@
 """Unit tests for youtube_dl module."""
 
 import subprocess
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -23,13 +23,17 @@ class TestResolveYoutubedlPath:
         """Test resolving 'yt-dlp' when it is in the system path (even if in local env)."""
         assert resolve_youtubedl_path("yt-dlp") == "yt-dlp"
 
-    @patch("shutil.which", return_value=None)
-    @patch("os.path.isfile", return_value=True)
-    @patch("sys.executable", "/app/bin/python")
-    def test_resolve_local_env_fallback(self, mock_which, mock_isfile):
+    def test_resolve_local_env_fallback(self):
         """Test resolving 'yt-dlp' fallback to local env when not in system path."""
         # Note: on non-windows it looks for 'yt-dlp' in same dir as python
-        assert resolve_youtubedl_path("yt-dlp") == "/app/bin/yt-dlp"
+        with patch("shutil.which", return_value=None), patch(
+            "os.path.isfile", return_value=True
+        ), patch("pikaraoke.lib.youtube_dl.sys.executable", "/app/bin/python"), patch(
+            "pikaraoke.lib.youtube_dl.sys.platform", "linux"
+        ), patch(
+            "pikaraoke.lib.youtube_dl.os.path.join", side_effect=lambda *args: "/".join(args)
+        ):
+            assert resolve_youtubedl_path("yt-dlp") == "/app/bin/yt-dlp"
 
     @patch("shutil.which", return_value=None)
     @patch("os.path.isfile", return_value=False)
@@ -284,47 +288,59 @@ class TestUpgradeYoutubedl:
             assert "upgrade" in upgrade_call
             assert "yt-dlp" in upgrade_call
 
-    @patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2024.02.01")
-    @patch("shutil.which", return_value=None)
-    def test_fallback_to_pip3_upgrade(self, mock_which, mock_version):
-        """Test fallback to pip3 when yt-dlp -U suggests pip."""
+    def test_fallback_to_pip_upgrade(self):
+        """Test fallback to pip when yt-dlp -U suggests pip (in venv, no --break-system-packages)."""
         pip_message = b"You installed yt-dlp with pip or using the wheel from PyPi"
         error = subprocess.CalledProcessError(1, "yt-dlp", pip_message)
         error.output = pip_message
 
-        with patch("subprocess.check_output") as mock_check:
+        with patch(
+            "pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2024.02.01"
+        ), patch("shutil.which", return_value=None), patch(
+            "subprocess.check_output"
+        ) as mock_check, patch(
+            "pikaraoke.lib.youtube_dl.sys.prefix", "/venv"
+        ), patch(
+            "pikaraoke.lib.youtube_dl.sys.base_prefix", "/different"
+        ):
             # First call raises error suggesting pip, second call succeeds
             mock_check.side_effect = [error, b"Successfully installed yt-dlp"]
             result = upgrade_youtubedl("yt-dlp")
 
             assert result == "2024.02.01"
-            # Check pip3 was called
+            # Check sys.executable -m pip was called (in a venv, no --break-system-packages)
             assert mock_check.call_count == 2
             second_call_args = mock_check.call_args_list[1][0][0]
-            assert "pip3" in second_call_args
+            assert "-m" in second_call_args
+            assert "pip" in second_call_args
+            assert "--break-system-packages" not in second_call_args
 
-    @patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2024.02.01")
-    @patch("shutil.which", return_value=None)
-    def test_fallback_to_pip_when_pip3_not_found(self, mock_which, mock_version):
-        """Test fallback to pip when pip3 is not found."""
+    def test_pip_upgrade_adds_break_system_packages_for_system_install(self):
+        """Test that --break-system-packages is added when in system install."""
         pip_message = b"You installed yt-dlp with pip or using the wheel from PyPi"
         error = subprocess.CalledProcessError(1, "yt-dlp", pip_message)
         error.output = pip_message
 
-        with patch("subprocess.check_output") as mock_check:
-            # First call raises error, second raises FileNotFoundError, third succeeds
-            mock_check.side_effect = [
-                error,
-                FileNotFoundError("pip3 not found"),
-                b"Successfully installed yt-dlp",
-            ]
+        with patch(
+            "pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2024.02.01"
+        ), patch("shutil.which", return_value=None), patch(
+            "subprocess.check_output"
+        ) as mock_check, patch(
+            "pikaraoke.lib.youtube_dl.sys.prefix", "/usr"
+        ), patch(
+            "pikaraoke.lib.youtube_dl.sys.base_prefix", "/usr"
+        ):
+            # First call raises error suggesting pip, second call succeeds
+            mock_check.side_effect = [error, b"Successfully installed yt-dlp"]
             result = upgrade_youtubedl("yt-dlp")
 
             assert result == "2024.02.01"
-            # Check pip was called after pip3 failed
-            assert mock_check.call_count == 3
-            third_call_args = mock_check.call_args_list[2][0][0]
-            assert "pip" in third_call_args
+            # Check --break-system-packages was added for system install
+            assert mock_check.call_count == 2
+            second_call_args = mock_check.call_args_list[1][0][0]
+            assert "-m" in second_call_args
+            assert "pip" in second_call_args
+            assert "--break-system-packages" in second_call_args
 
     @patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2024.01.01")
     def test_returns_version_after_upgrade(self, mock_version):
