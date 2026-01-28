@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import configparser
 import contextlib
-import json
 import logging
 import os
 import shutil
@@ -35,7 +34,11 @@ from pikaraoke.lib.network import get_ip
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_list import SongList
 from pikaraoke.lib.stream_manager import StreamManager
-from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
+from pikaraoke.lib.youtube_dl import (
+    get_search_results,
+    get_youtubedl_version,
+    upgrade_youtubedl,
+)
 from pikaraoke.version import __version__ as VERSION
 
 
@@ -109,7 +112,6 @@ class Karaoke:
         buffer_size: int = 150,
         log_level: int = logging.DEBUG,
         splash_delay: int = 2,
-        youtubedl_path: str = "/usr/local/bin/yt-dlp",
         youtubedl_proxy: str | None = None,
         logo_path: str | None = None,
         hide_overlay: bool = False,
@@ -146,7 +148,6 @@ class Karaoke:
             buffer_size: Transcode buffer size in KB.
             log_level: Logging level (e.g., logging.DEBUG).
             splash_delay: Seconds to wait between songs.
-            youtubedl_path: Path to yt-dlp executable.
             youtubedl_proxy: Proxy URL for yt-dlp.
             logo_path: Custom logo image path.
             hide_overlay: Hide video overlay.
@@ -180,7 +181,7 @@ class Karaoke:
         self.ffmpeg_version = get_ffmpeg_version()
         self.is_transpose_enabled = is_transpose_enabled()
         self.supports_hardware_h264_encoding = supports_hardware_h264_encoding()
-        self.youtubedl_version = get_youtubedl_version(youtubedl_path)
+        self.youtubedl_version = get_youtubedl_version()
         self.is_raspberry_pi = is_raspberry_pi()
 
         logging.info("PiKaraoke version: " + VERSION)
@@ -241,7 +242,6 @@ class Karaoke:
         self.buffer_size = (
             pref if (pref := self.get_user_preference("buffer_size")) is not None else buffer_size
         )
-        self.youtubedl_path = youtubedl_path
         self.youtubedl_proxy = youtubedl_proxy
         self.additional_ytdl_args = additional_ytdl_args
         self.logo_path = self.default_logo_path if logo_path == None else logo_path
@@ -474,7 +474,7 @@ class Karaoke:
         logging.debug(
             "Checking if youtube-dl needs upgrading, current version: %s" % self.youtubedl_version
         )
-        self.youtubedl_version = upgrade_youtubedl(self.youtubedl_path)
+        self.youtubedl_version = upgrade_youtubedl()
 
     def generate_qr_code(self) -> None:
         """Generate a QR code image for the web interface URL."""
@@ -500,29 +500,8 @@ class Karaoke:
 
         Returns:
             List of [title, url, video_id] for each result.
-
-        Raises:
-            Exception: If the search fails.
         """
-        logging.info("Searching YouTube for: " + textToSearch)
-        num_results = 10
-        yt_search = 'ytsearch%d:"%s"' % (num_results, textToSearch)
-        cmd = [self.youtubedl_path, "-j", "--no-playlist", "--flat-playlist", yt_search]
-        logging.debug("Youtube-dl search command: " + " ".join(cmd))
-        try:
-            output = subprocess.check_output(cmd).decode("utf-8", "ignore")
-            logging.debug("Search results: " + output)
-            rc = []
-            for each in output.split("\n"):
-                if len(each) > 2:
-                    j = json.loads(each)
-                    if (not "title" in j) or (not "url" in j):
-                        continue
-                    rc.append([j["title"], j["url"], j["id"]])
-            return rc
-        except Exception as e:
-            logging.debug("Error while executing search: " + str(e))
-            raise e
+        return get_search_results(textToSearch)
 
     def get_karaoke_search_results(self, songTitle: str) -> list[list[str]]:
         """Search YouTube for karaoke versions of a song.
@@ -533,7 +512,7 @@ class Karaoke:
         Returns:
             List of [title, url, video_id] for each result.
         """
-        return self.get_search_results(songTitle + " karaoke")
+        return get_search_results(songTitle + " karaoke")
 
     def send_notification(self, message: str, color: str = "primary") -> None:
         """Send a notification to the web interface.

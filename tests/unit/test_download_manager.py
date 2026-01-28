@@ -11,7 +11,6 @@ class MockKaraokeForDownload:
     """Mock Karaoke instance for DownloadManager tests."""
 
     def __init__(self):
-        self.youtubedl_path = "yt-dlp"
         self.download_path = "/songs/"
         self.high_quality = False
         self.youtubedl_proxy = None

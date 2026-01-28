@@ -12,7 +12,7 @@ if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
 }
 
 # Determine packages to install
-$installList = @("pikaraoke (via pipx)", "yt-dlp (via pipx)")
+$installList = @("pikaraoke (via pipx)")
 $skipDeno = $false
 if (Get-Command node -ErrorAction SilentlyContinue) {
     Write-Host "Node.js detected. Skipping Deno installation."
@@ -95,15 +95,6 @@ try {
     try { $pipxPackages = python -m pipx list 2>$null | Out-String } catch { }
 }
 
-# yt-dlp
-if ($pipxPackages -match "package yt-dlp") {
-    Write-Host "Upgrading yt-dlp via pipx..." -ForegroundColor Yellow
-    try { & pipx upgrade yt-dlp } catch { python -m pipx upgrade yt-dlp }
-} else {
-    Write-Host "Installing yt-dlp via pipx..." -ForegroundColor Yellow
-    try { & pipx install yt-dlp } catch { python -m pipx install yt-dlp }
-}
-
 # pikaraoke
 if ($pipxPackages -match "package pikaraoke") {
     Write-Host "Upgrading pikaraoke via pipx..." -ForegroundColor Yellow
@@ -172,5 +163,5 @@ try {
 Write-Host "`n--------------------------------------------------------" -ForegroundColor Green
 Write-Host "Installation complete!" -ForegroundColor Green
 Write-Host "Please restart your terminal (PowerShell) to ensure all PATH changes are loaded."
-Write-Host "Then, simply run: `pikaraoke` or launch PiKaraoke from the desktop shortcut."
+Write-Host "Then, simply run: `pikaraoke` or launch PiKaraoke from the desktop shortcuts."
 Write-Host "--------------------------------------------------------"

@@ -1,6 +1,6 @@
 """Flask application entry point and server initialization."""
 
-from gevent import monkey
+from gevent import monkey, spawn
 
 monkey.patch_all()
 
@@ -156,7 +156,6 @@ def main() -> None:
     k = karaoke.Karaoke(
         port=args.port,
         download_path=args.download_path,
-        youtubedl_path=args.youtubedl_path,
         youtubedl_proxy=args.youtubedl_proxy,
         splash_delay=args.splash_delay,
         log_level=args.log_level,
@@ -203,7 +202,7 @@ def main() -> None:
     app.jinja_env.globals.update(filename_from_path=k.filename_from_path)
     app.jinja_env.globals.update(url_escape=quote)
 
-    k.upgrade_youtubedl()
+    spawn(k.upgrade_youtubedl)
 
     server = WSGIServer(("0.0.0.0", int(args.port)), app, log=None, error_log=logging.getLogger())
     server.start()

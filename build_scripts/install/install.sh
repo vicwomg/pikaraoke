@@ -35,7 +35,7 @@ echo "--- PiKaraoke Installer ---"
 echo "Detected OS: $OS_TYPE"
 
 # Determine packages to install
-INSTALL_LIST="pikaraoke (via pipx), yt-dlp (via pipx)"
+INSTALL_LIST="pikaraoke (via pipx)"
 SKIP_DENO=0
 if command -v node &> /dev/null; then
     echo "Node.js detected. Skipping Deno installation."
@@ -53,14 +53,14 @@ elif [ "$OS_TYPE" == "Linux" ]; then
 fi
 
 echo "The following packages will be installed/updated: $INSTALL_LIST"
-read -p "Do you want to proceed? (y/n) " -n 1 -r < /dev/tty
+read -p "Do you want to proceed? (y/n) " -r < /dev/tty
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo "Installation cancelled."
     exit 1
 fi
 
-read -p "Do you want to install desktop shortcuts? (y/n) " -n 1 -r < /dev/tty
+read -p "Do you want to install desktop shortcuts? (y/n) " -r < /dev/tty
 INSTALL_SHORTCUTS=0
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     INSTALL_SHORTCUTS=1
@@ -136,15 +136,6 @@ fi
 echo "Configuring pipx..."
 pipx ensurepath
 export PATH="$PATH:$HOME/.local/bin"
-
-# Install dependencies via pipx
-echo "Installing yt-dlp via pipx..."
-if pipx list | grep -q "yt-dlp"; then
-    echo "yt-dlp is already installed. Upgrading..."
-    pipx upgrade yt-dlp
-else
-    pipx install yt-dlp
-fi
 
 # Install pikaraoke
 echo "Installing pikaraoke via pipx..."
@@ -236,4 +227,7 @@ echo "--------------------------------------------------------"
 echo "Installation complete!"
 echo "Please restart your terminal or run 'source ~/.bashrc' (or ~/.zshrc) for PATH changes to take effect."
 echo "Then, simply run: pikaraoke"
+if [ $INSTALL_SHORTCUTS -eq 1 ]; then
+    echo "Or use the shortcuts created on the Desktop."
+fi
 echo "--------------------------------------------------------"
