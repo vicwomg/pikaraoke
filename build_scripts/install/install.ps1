@@ -92,7 +92,7 @@ if (!(Get-Command uv -ErrorAction SilentlyContinue)) {
 # 4. Install/Upgrade dependencies via uv
 Write-Host "Checking for existing uv installations..." -ForegroundColor Yellow
 $uvPackages = ""
-$uvPackages = & uv tool list 2>$null | Out-String
+$uvPackages = uv tool list | Out-String
 
 # pikaraoke
 if ($uvPackages -match "pikaraoke") {
