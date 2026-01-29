@@ -113,7 +113,7 @@ jobs:
             # Check both files for the string
             if (Get-Content output.log, error.log -ErrorAction SilentlyContinue | Select-String "Connect the player host to:") {
               Write-Host "Found expected output"
-              curl http://localhost:5555/splash | Select-String "DOCTYPE"
+              curl.exe http://localhost:5555/splash | Select-String "DOCTYPE"
               Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
               exit 0
             }

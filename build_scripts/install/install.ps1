@@ -98,7 +98,7 @@ $uvPackages = uv tool list | Out-String
 if ($uvPackages -match "pikaraoke") {
     Write-Host "Upgrading pikaraoke via uv..." -ForegroundColor Yellow
     if ($Local) {
-        uv tool upgrade .
+        uv tool install --force .
     } else {
         uv tool upgrade pikaraoke
     }
@@ -119,9 +119,9 @@ try {
     # Robust path resolution for pikaraoke.exe
     $pikaraokeExe = ""
     $exePaths = @(
-        (Join-Path $HOME ".local\bin\pikaraoke.exe"),
-        (Join-Path $env:USERPROFILE ".local\bin\pikaraoke.exe"),
-        (Get-Command pikaraoke -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)
+        (Get-Command pikaraoke -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source),
+        (Join-Path $env:LOCALAPPDATA "uv\bin\pikaraoke.exe"),
+        (Join-Path $HOME ".local\bin\pikaraoke.exe") # uv also uses this on some setups
     )
     foreach ($p in $exePaths) { if ($p -and (Test-Path $p)) { $pikaraokeExe = $p; break } }
 

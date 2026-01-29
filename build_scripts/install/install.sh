@@ -167,9 +167,8 @@ elif [ "$OS_TYPE" == "Linux" ]; then
     if [ $SKIP_UV -eq 0 ] && ! command -v uv &> /dev/null; then
         echo "Installing uv..."
         curl -fsSL https://astral.sh/uv/install.sh | sh
-        # Add uv to PATH for the current session
-        export UV_INSTALL="$HOME/.uv"
-        export PATH="$UV_INSTALL/bin:$PATH"
+        # Add uv to PATH for the current session. Default install is ~/.local/bin or ~/.cargo/bin
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
     fi
 
     if [ $SKIP_DENO -eq 0 ] && ! command -v deno &> /dev/null; then
@@ -196,7 +195,7 @@ echo "Installing pikaraoke via uv..."
 if uv tool list | grep -q "pikaraoke"; then
     echo "PiKaraoke is already installed. Upgrading..."
     if [ "$LOCAL" == "y" ]; then
-        uv tool upgrade .
+        uv tool install --force .
     else
         uv tool upgrade pikaraoke
     fi
