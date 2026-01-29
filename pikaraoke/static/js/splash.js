@@ -581,7 +581,7 @@ const setupUIScaling = () => {
   const urlParams = new URLSearchParams(window.location.search);
   const rawScale = urlParams.get('scale');
   if (!rawScale) return;
-  uiScale = Math.max(0.3, Math.min(1, parseFloat(rawScale) || 1));
+  uiScale = parseFloat(rawScale) || 1;
 
   const scaleTargets = [
     { selector: '#logo-container img.logo', origin: null },
