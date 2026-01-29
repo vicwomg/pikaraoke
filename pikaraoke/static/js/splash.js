@@ -302,6 +302,14 @@ const handleNowPlayingUpdate = (np) => {
     };
     try {
       octopusInstance = new SubtitlesOctopus(options);
+      if (uiScale) {
+        // Find the canvas created by SubtitlesOctopus (sibling of the video)
+        const canvas = video.parentNode.querySelector('canvas');
+        if (canvas) {
+          canvas.style.transform = `scale(${uiScale})`;
+          canvas.style.transformOrigin = 'bottom center';
+        }
+      }
     } catch (e) { console.error(e); }
   }
 
@@ -573,7 +581,7 @@ const setupUIScaling = () => {
   const urlParams = new URLSearchParams(window.location.search);
   const rawScale = urlParams.get('scale');
   if (!rawScale) return;
-  uiScale = Math.max(0.3, Math.min(1, parseFloat(rawScale) || 1));
+  uiScale = parseFloat(rawScale) || 1;
 
   const scaleTargets = [
     { selector: '#logo-container img.logo', origin: null },
@@ -582,7 +590,9 @@ const setupUIScaling = () => {
     { selector: '#qr-code', origin: 'bottom left' },
     { selector: '#up-next', origin: 'bottom right' },
     { selector: '#dvd', origin: null },
-    { selector: '#score', origin: null },
+    { selector: '#your-score-text', origin: null },
+    { selector: '#score-number-text', origin: null },
+    { selector: '#score-review-text', origin: null },
     { selector: '#splash-notification', origin: 'top left' },
   ];
 
