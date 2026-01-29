@@ -83,6 +83,45 @@ jobs:
     - name: Verify Install
       run: pikaraoke --help
 
+    - name: Verify headless mode (Unix)
+      if: runner.os != 'Windows'
+      run: |
+        pikaraoke --headless > output.log 2>&1 &
+        PID=$!
+        for i in {1..30}; do
+          if grep -q "Connect the player host to:" output.log; then
+            echo "Found expected output"
+            kill $PID
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "Timed out waiting for expected output"
+        kill $PID
+        cat output.log
+        exit 1
+
+    - name: Verify headless mode (Windows)
+      if: runner.os == 'Windows'
+      shell: powershell
+      run: |
+        $proc = Start-Process pikaraoke -ArgumentList "--headless" -PassThru -RedirectStandardOutput output.log -RedirectStandardError error.log
+        for ($i=0; $i -lt 30; $i++) {
+          if (Test-Path output.log) {
+            if (Get-Content output.log | Select-String "Connect the player host to:") {
+              Write-Host "Found expected output"
+              Stop-Process -Id $proc.Id -Force
+              exit 0
+            }
+          }
+          Start-Sleep -Seconds 1
+        }
+        Write-Host "Timed out waiting for expected output"
+        Stop-Process -Id $proc.Id -Force
+        if (Test-Path output.log) { Get-Content output.log }
+        if (Test-Path error.log) { Get-Content error.log }
+        exit 1
+
   installer-smoketest:
     runs-on: ${{ matrix.os }}
     name: Installer Smoke Test
