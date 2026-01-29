@@ -83,6 +83,31 @@ jobs:
     - name: Verify Install
       run: pikaraoke --help
 
+  installer-smoketest:
+    runs-on: ${{ matrix.os }}
+    name: Installer Smoke Test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+      fail-fast: false
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Pikaraoke (Unix)
+      if: runner.os != 'Windows'
+      run: ./build_scripts/install/install.sh -y
+
+    - name: Install Pikaraoke (Windows)
+      if: runner.os == 'Windows'
+      run: ./build_scripts/install/install.ps1 -Confirm:$false
+      shell: powershell
+
+    - name: Verify Install
+      run: |
+        ffmpeg -version
+        pikaraoke --help
+
   unit-tests:
     runs-on: ubuntu-latest
     name: Unit Tests

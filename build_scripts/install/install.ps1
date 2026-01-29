@@ -1,5 +1,6 @@
-# PiKaraoke Windows Installer
-# Automated installation of ffmpeg, deno, pipx, and pikaraoke
+Param(
+    [switch]$Confirm = $true
+)
 
 $ErrorActionPreference = "Stop"
 
@@ -39,10 +40,12 @@ function Is-PythonCompatible {
 if (!(Is-PythonCompatible)) { $installList += "python" }
 
 Write-Host "The following packages will be installed/updated: $($installList -join ', ')"
-$confirmation = Read-Host "Do you want to proceed? (y/n)"
-if ($confirmation -notmatch "^[Yy]$") {
-    Write-Host "Installation cancelled."
-    exit 1
+if ($Confirm) {
+    $confirmation = Read-Host "Do you want to proceed? (y/n)"
+    if ($confirmation -notmatch "^[Yy]$") {
+        Write-Host "Installation cancelled."
+        exit 1
+    }
 }
 
 
