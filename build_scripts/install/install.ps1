@@ -1,5 +1,6 @@
 Param(
-    [switch]$Confirm = $true
+    [switch]$Confirm = $true,
+    [switch]$Local = $false
 )
 
 $ErrorActionPreference = "Stop"
@@ -101,10 +102,18 @@ try {
 # pikaraoke
 if ($pipxPackages -match "package pikaraoke") {
     Write-Host "Upgrading pikaraoke via pipx..." -ForegroundColor Yellow
-    try { & pipx upgrade pikaraoke } catch { python -m pipx upgrade pikaraoke }
+    if ($Local) {
+        try { & pipx upgrade . } catch { python -m pipx upgrade . }
+    } else {
+        try { & pipx upgrade pikaraoke } catch { python -m pipx upgrade pikaraoke }
+    }
 } else {
     Write-Host "Installing pikaraoke via pipx..." -ForegroundColor Yellow
-    try { & pipx install pikaraoke } catch { python -m pipx install pikaraoke }
+    if ($Local) {
+        try { & pipx install . } catch { python -m pipx install . }
+    } else {
+        try { & pipx install pikaraoke } catch { python -m pipx install pikaraoke }
+    }
 }
 
 # 6. Create Desktop Shortcut

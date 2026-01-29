@@ -7,9 +7,11 @@ set -e
 
 # Handle flags
 CONFIRM="y"
+LOCAL="n"
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -y|--yes) CONFIRM="n" ;;
+        -l|--local) LOCAL="y" ;; # this installs pikaraoke from local source
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
@@ -157,11 +159,20 @@ export PATH="$PATH:$HOME/.local/bin"
 
 # Install pikaraoke
 echo "Installing pikaraoke via pipx..."
+
 if pipx list | grep -q "pikaraoke"; then
     echo "PiKaraoke is already installed. Upgrading..."
-    pipx upgrade pikaraoke
+    if [ "$LOCAL" == "y" ]; then
+        pipx upgrade .
+    else
+        pipx upgrade pikaraoke
+    fi
 else
-    pipx install pikaraoke
+    if [ "$LOCAL" == "y" ]; then
+        pipx install .
+    else
+        pipx install pikaraoke
+    fi
 fi
 
 # 6. Create Desktop Shortcuts
