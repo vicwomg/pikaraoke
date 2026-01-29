@@ -5,6 +5,18 @@
 
 set -e
 
+# Handle flags
+CONFIRM="y"
+LOCAL="n"
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -y|--yes) CONFIRM="n" ;;
+        -l|--local) LOCAL="y" ;; # this installs pikaraoke from local source
+        *) echo "Unknown parameter passed: $1"; exit 1 ;;
+    esac
+    shift
+done
+
 # Function to check if Python is compatible
 is_python_compatible() {
     local python_cmd
@@ -76,19 +88,27 @@ else
 fi
 
 echo "The following packages will be installed/updated: $INSTALL_LIST"
-read -p "Do you want to proceed? (y/n) " -r < /dev/tty
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "Installation cancelled."
-    exit 1
+if [ "$CONFIRM" == "y" ]; then
+    read -p "Do you want to proceed? (y/n) " -r < /dev/tty
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Installation cancelled."
+        exit 1
+    fi
 fi
 
-read -p "Do you want to install desktop shortcuts? (y/n) " -r < /dev/tty
 INSTALL_SHORTCUTS=0
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    INSTALL_SHORTCUTS=1
+if [ "$CONFIRM" == "y" ]; then
+    read -p "Do you want to install desktop shortcuts? (y/n) " -r < /dev/tty
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        INSTALL_SHORTCUTS=1
+    fi
+    echo
+else
+    # In non-interactive mode, we default to skipping shortcuts to be safe
+    # or we could default to 1 if we want them. Usually CI doesn't need shortcuts.
+    INSTALL_SHORTCUTS=0
 fi
-echo
 
 if [ "$OS_TYPE" == "Darwin" ]; then
     # macOS
@@ -166,11 +186,20 @@ export PATH="$PATH:$HOME/.local/bin"
 
 # Install pikaraoke
 echo "Installing pikaraoke via pipx..."
+
 if pipx list | grep -q "pikaraoke"; then
     echo "PiKaraoke is already installed. Upgrading..."
-    pipx upgrade pikaraoke
+    if [ "$LOCAL" == "y" ]; then
+        pipx upgrade .
+    else
+        pipx upgrade pikaraoke
+    fi
 else
-    pipx install pikaraoke
+    if [ "$LOCAL" == "y" ]; then
+        pipx install .
+    else
+        pipx install pikaraoke
+    fi
 fi
 
 # 6. Create Desktop Shortcuts
