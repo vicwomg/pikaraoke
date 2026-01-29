@@ -14,7 +14,7 @@ if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
 }
 
 # Determine packages to install
-$installList = @("pikaraoke (via pipx)")
+$installList = @("pikaraoke (via uv)")
 $skipDeno = $false
 if (Get-Command node -ErrorAction SilentlyContinue) {
     Write-Host "Node.js detected. Skipping Deno installation."
@@ -71,7 +71,7 @@ if (!$skipDeno) {
     }
 }
 
-# Install Python (Required for pipx)
+# Install Python (Required for pikaraoke)
 if (Is-PythonCompatible) {
     Write-Host "Compatible Python version detected. Skipping Python installation."
 } else {
@@ -80,39 +80,34 @@ if (Is-PythonCompatible) {
     Write-Host "Python installed. You may need to restart your terminal if the next steps fail." -ForegroundColor Magenta
 }
 
-# 3. Install/Configure pipx
-if (!(Get-Command pipx -ErrorAction SilentlyContinue)) {
-    Write-Host "Installing pipx..."
-    # Attempt to install pipx via pip
-    python -m pip install --user pipx
-    python -m pipx ensurepath
+# 3. Install/Configure uv
+if (!(Get-Command uv -ErrorAction SilentlyContinue)) {
+    Write-Host "Installing uv..."
+    # Attempt to install uv via irm
+    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
     # Reload Path for the current session
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 }
-# 4. Install/Upgrade dependencies via pipx
-Write-Host "Checking for existing pipx installations..." -ForegroundColor Yellow
-$pipxPackages = ""
-try {
-    $pipxPackages = & pipx list 2>$null | Out-String
-} catch {
-    try { $pipxPackages = python -m pipx list 2>$null | Out-String } catch { }
-}
+# 4. Install/Upgrade dependencies via uv
+Write-Host "Checking for existing uv installations..." -ForegroundColor Yellow
+$uvPackages = ""
+$uvPackages = & uv tool list 2>$null | Out-String
 
 # pikaraoke
-if ($pipxPackages -match "package pikaraoke") {
-    Write-Host "Upgrading pikaraoke via pipx..." -ForegroundColor Yellow
+if ($uvPackages -match "pikaraoke") {
+    Write-Host "Upgrading pikaraoke via uv..." -ForegroundColor Yellow
     if ($Local) {
-        try { & pipx upgrade . } catch { python -m pipx upgrade . }
+        uv tool upgrade .
     } else {
-        try { & pipx upgrade pikaraoke } catch { python -m pipx upgrade pikaraoke }
+        uv tool upgrade pikaraoke
     }
 } else {
-    Write-Host "Installing pikaraoke via pipx..." -ForegroundColor Yellow
+    Write-Host "Installing pikaraoke via uv..." -ForegroundColor Yellow
     if ($Local) {
-        try { & pipx install . } catch { python -m pipx install . }
+        uv tool install .
     } else {
-        try { & pipx install pikaraoke } catch { python -m pipx install pikaraoke }
+        uv tool install pikaraoke
     }
 }
 
