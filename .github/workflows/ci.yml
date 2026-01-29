@@ -100,6 +100,7 @@ jobs:
         kill $PID || true
         cat output.log
         exit 1
+        curl http://localhost:5555/splasha | grep DOCTYPE
 
     - name: Verify headless mode (Windows)
       if: runner.os == 'Windows'
@@ -123,6 +124,7 @@ jobs:
         if (Test-Path output.log) { Write-Host "--- STDOUT ---"; Get-Content output.log }
         if (Test-Path error.log) { Write-Host "--- STDERR ---"; Get-Content error.log }
         exit 1
+        curl http://localhost:5555/splasha | Select-String "DOCTYPE"
 
   unit-tests:
     runs-on: ubuntu-latest
