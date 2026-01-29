@@ -70,6 +70,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Cache pipx environments
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PIPX_HOME }}
+        key: ${{ runner.os }}-pipx-${{ hashFiles('**/pyproject.toml') }} # Use a relevant file for hashing
+        restore-keys: |
+          ${{ runner.os }}-pipx-
+
     - name: Install Pikaraoke (Unix)
       if: runner.os != 'Windows'
       run: ./build_scripts/install/install.sh -y --local
