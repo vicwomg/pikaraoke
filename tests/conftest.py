@@ -62,7 +62,6 @@ class MockKaraoke:
 
     # Bind the real methods to our mock class
     filename_from_path = Karaoke.filename_from_path
-    _convert_preference_value = Karaoke._convert_preference_value
     is_file_playing = Karaoke.is_file_playing
     get_now_playing = Karaoke.get_now_playing
     reset_now_playing = Karaoke.reset_now_playing

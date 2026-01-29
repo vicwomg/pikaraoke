@@ -72,7 +72,7 @@ def browse():
         songs = available_songs
         sort_order = "Alphabetical"
 
-    results_per_page = int(k.get_user_preference("browse_results_per_page", 500))
+    results_per_page = int(k.preferences.get("browse_results_per_page", 500))
 
     args = request.args.copy()
     args.pop("_", None)
@@ -153,8 +153,7 @@ def edit_file():
     queue_error_msg = _("Error: Can't edit this song because it is in the current queue: ")
     if "song" in request.args:
         song_path = request.args["song"]
-        # print "SONG_PATH" + song_path
-        if song_path in k.queue:
+        if k.queue_manager.is_song_in_queue(song_path):
             flash(queue_error_msg + song_path, "is-danger")
             return redirect(url_for("files.browse"))
         else:

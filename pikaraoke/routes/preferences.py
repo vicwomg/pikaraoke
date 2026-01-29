@@ -1,5 +1,7 @@
 """User preferences management routes."""
 
+import logging
+
 import flask_babel
 from flask import Blueprint, flash, jsonify, redirect, request, url_for
 
@@ -38,9 +40,14 @@ def change_preferences():
         preference = request.args["pref"]
         val = request.args["val"]
 
-        rc = k.change_preferences(preference, val)
+        success, message = k.preferences.set(preference, val)
 
-        return jsonify(rc)
+        # Update the karaoke instance attribute if preference was set successfully
+        if success:
+            typed_val = k.preferences.convert_value(val)
+            setattr(k, preference, typed_val)
+
+        return jsonify([success, message])
     else:
         # MSG: Message shown after trying to change preferences without admin permissions.
         flash(_("You don't have permission to change preferences"), "is-danger")
@@ -59,11 +66,15 @@ def clear_preferences():
     """
     k = get_karaoke_instance()
     if is_admin():
-        rc = k.clear_preferences()
-        if rc[0]:
-            flash(rc[1], "is-success")
+        success, message = k.preferences.clear()
+        if success:
+            # Reload instance attributes from defaults after clearing config file
+            logging.info("Resetting all preferences to defaults")
+            k._load_preferences()  # No CLI overrides - uses PreferenceManager.DEFAULTS
+            k.update_now_playing_socket()
+            flash(message, "is-success")
         else:
-            flash(rc[1], "is-danger")
+            flash(message, "is-danger")
     else:
         # MSG: Message shown after trying to clear preferences without admin permissions.
         flash(_("You don't have permission to clear preferences"), "is-danger")
