@@ -103,8 +103,17 @@ jobs:
       run: ./build_scripts/install/install.ps1 -Confirm:$false
       shell: powershell
 
-    - name: Verify Install
+    - name: Verify Install (Unix)
+      if: runner.os != 'Windows'
       run: |
+        ffmpeg -version
+        pikaraoke --help
+
+    - name: Verify Install (Windows)
+      if: runner.os == 'Windows'
+      shell: powershell
+      run: |
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
         ffmpeg -version
         pikaraoke --help
 
