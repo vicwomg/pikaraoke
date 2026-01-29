@@ -1,5 +1,7 @@
-# PiKaraoke Windows Installer
-# Automated installation of ffmpeg, deno, pipx, and pikaraoke
+Param(
+    [switch]$Confirm = $true,
+    [switch]$Local = $false
+)
 
 $ErrorActionPreference = "Stop"
 
@@ -39,10 +41,12 @@ function Is-PythonCompatible {
 if (!(Is-PythonCompatible)) { $installList += "python" }
 
 Write-Host "The following packages will be installed/updated: $($installList -join ', ')"
-$confirmation = Read-Host "Do you want to proceed? (y/n)"
-if ($confirmation -notmatch "^[Yy]$") {
-    Write-Host "Installation cancelled."
-    exit 1
+if ($Confirm) {
+    $confirmation = Read-Host "Do you want to proceed? (y/n)"
+    if ($confirmation -notmatch "^[Yy]$") {
+        Write-Host "Installation cancelled."
+        exit 1
+    }
 }
 
 
@@ -52,7 +56,7 @@ Write-Host "Installing dependencies (ffmpeg, deno, python)..." -ForegroundColor 
 # Install FFmpeg
 if (!(Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
     Write-Host "Installing ffmpeg..."
-    winget install --id=Gyan.FFmpeg -e --silent
+    winget install --id=Gyan.FFmpeg -e --silent --accept-source-agreements --accept-package-agreements
 } else {
     Write-Host "ffmpeg is already installed."
 }
@@ -61,7 +65,7 @@ if (!(Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
 if (!$skipDeno) {
     if (!(Get-Command deno -ErrorAction SilentlyContinue)) {
         Write-Host "Installing deno..."
-        winget install --id=DenoLand.Deno -e --silent
+        winget install --id=DenoLand.Deno -e --silent --accept-source-agreements --accept-package-agreements
     } else {
         Write-Host "deno is already installed."
     }
@@ -72,7 +76,7 @@ if (Is-PythonCompatible) {
     Write-Host "Compatible Python version detected. Skipping Python installation."
 } else {
     Write-Host "Python 3.10+ not found. Installing via Winget..." -ForegroundColor Yellow
-    winget install --id=Python.Python.3.12 -e --silent
+    winget install --id=Python.Python.3.12 -e --silent --accept-source-agreements --accept-package-agreements
     Write-Host "Python installed. You may need to restart your terminal if the next steps fail." -ForegroundColor Magenta
 }
 
@@ -98,10 +102,18 @@ try {
 # pikaraoke
 if ($pipxPackages -match "package pikaraoke") {
     Write-Host "Upgrading pikaraoke via pipx..." -ForegroundColor Yellow
-    try { & pipx upgrade pikaraoke } catch { python -m pipx upgrade pikaraoke }
+    if ($Local) {
+        try { & pipx upgrade . } catch { python -m pipx upgrade . }
+    } else {
+        try { & pipx upgrade pikaraoke } catch { python -m pipx upgrade pikaraoke }
+    }
 } else {
     Write-Host "Installing pikaraoke via pipx..." -ForegroundColor Yellow
-    try { & pipx install pikaraoke } catch { python -m pipx install pikaraoke }
+    if ($Local) {
+        try { & pipx install . } catch { python -m pipx install . }
+    } else {
+        try { & pipx install pikaraoke } catch { python -m pipx install pikaraoke }
+    }
 }
 
 # 6. Create Desktop Shortcut
