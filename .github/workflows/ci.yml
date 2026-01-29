@@ -90,7 +90,7 @@ jobs:
         PID=$!
         for i in {1..30}; do
           if grep -q "Connect the player host to:" output.log; then
-            echo "Found expected output"
+            echo "Found expected output, confirming splash page loads..."
             curl http://localhost:5555/splash | grep DOCTYPE
             kill $PID || true
             exit 0
@@ -112,7 +112,7 @@ jobs:
           if (Test-Path output.log, error.log) {
             # Check both files for the string
             if (Get-Content output.log, error.log -ErrorAction SilentlyContinue | Select-String "Connect the player host to:") {
-              Write-Host "Found expected output"
+              Write-Host "Found expected output, confirming splash page loads..."
               curl.exe http://localhost:5555/splash | Select-String "DOCTYPE"
               Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
               exit 0
