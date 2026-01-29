@@ -55,7 +55,7 @@ Write-Host "Installing dependencies (ffmpeg, deno, python)..." -ForegroundColor 
 # Install FFmpeg
 if (!(Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
     Write-Host "Installing ffmpeg..."
-    winget install --id=Gyan.FFmpeg -e --silent
+    winget install --id=Gyan.FFmpeg -e --silent --accept-source-agreements --accept-package-agreements
 } else {
     Write-Host "ffmpeg is already installed."
 }
@@ -64,7 +64,7 @@ if (!(Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
 if (!$skipDeno) {
     if (!(Get-Command deno -ErrorAction SilentlyContinue)) {
         Write-Host "Installing deno..."
-        winget install --id=DenoLand.Deno -e --silent
+        winget install --id=DenoLand.Deno -e --silent --accept-source-agreements --accept-package-agreements
     } else {
         Write-Host "deno is already installed."
     }
@@ -75,7 +75,7 @@ if (Is-PythonCompatible) {
     Write-Host "Compatible Python version detected. Skipping Python installation."
 } else {
     Write-Host "Python 3.10+ not found. Installing via Winget..." -ForegroundColor Yellow
-    winget install --id=Python.Python.3.12 -e --silent
+    winget install --id=Python.Python.3.12 -e --silent --accept-source-agreements --accept-package-agreements
     Write-Host "Python installed. You may need to restart your terminal if the next steps fail." -ForegroundColor Magenta
 }
 
