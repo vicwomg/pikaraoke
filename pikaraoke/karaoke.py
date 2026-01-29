@@ -276,10 +276,10 @@ class Karaoke:
             fallback = cli_overrides.get(pref, self.preferences.DEFAULTS[pref])
             setattr(self, pref, self.preferences.get(pref, fallback))
 
-        # Score phrases have no CLI override, just use empty string as fallback
-        self.low_score_phrases = self.preferences.get("low_score_phrases") or ""
-        self.mid_score_phrases = self.preferences.get("mid_score_phrases") or ""
-        self.high_score_phrases = self.preferences.get("high_score_phrases") or ""
+        # Score phrases have no CLI override, use DEFAULTS fallback
+        self.low_score_phrases = self.preferences.get_or_default("low_score_phrases")
+        self.mid_score_phrases = self.preferences.get_or_default("mid_score_phrases")
+        self.high_score_phrases = self.preferences.get_or_default("high_score_phrases")
 
     def get_url(self):
         """Get the URL for accessing the PiKaraoke web interface.
