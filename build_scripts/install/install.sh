@@ -35,21 +35,44 @@ echo "--- PiKaraoke Installer ---"
 echo "Detected OS: $OS_TYPE"
 
 # Determine packages to install
-INSTALL_LIST="pikaraoke (via pipx)"
-SKIP_DENO=0
-if command -v node &> /dev/null; then
-    echo "Node.js detected. Skipping Deno installation."
-    SKIP_DENO=1
+PKGS_TO_INSTALL=()
+DISPLAY_PKGS=()
+
+if [ "$OS_TYPE" == "Darwin" ] && ! command -v brew &> /dev/null; then DISPLAY_PKGS+=("Homebrew"); fi
+
+if ! is_python_compatible; then
+    if [ "$OS_TYPE" == "Darwin" ]; then
+        PKGS_TO_INSTALL+=("python"); DISPLAY_PKGS+=("python")
+    else
+        PKGS_TO_INSTALL+=("python3"); DISPLAY_PKGS+=("python3")
+    fi
 fi
 
-if [ "$OS_TYPE" == "Darwin" ]; then
-    INSTALL_LIST="ffmpeg, pipx, $INSTALL_LIST"
-    if [ $SKIP_DENO -eq 0 ]; then INSTALL_LIST="deno, $INSTALL_LIST"; fi
-    if ! is_python_compatible; then INSTALL_LIST="python, $INSTALL_LIST"; fi
-elif [ "$OS_TYPE" == "Linux" ]; then
-    INSTALL_LIST="ffmpeg, pipx, $INSTALL_LIST"
-    if ! is_python_compatible; then INSTALL_LIST="python3, $INSTALL_LIST"; fi
-    if [ $SKIP_DENO -eq 0 ] && ! command -v deno &> /dev/null; then INSTALL_LIST="deno, $INSTALL_LIST"; fi
+if ! command -v ffmpeg &> /dev/null; then
+    if [ "$OS_TYPE" == "Darwin" ]; then
+        PKGS_TO_INSTALL+=("ffmpeg-full"); DISPLAY_PKGS+=("ffmpeg")
+    else
+        PKGS_TO_INSTALL+=("ffmpeg"); DISPLAY_PKGS+=("ffmpeg")
+    fi
+fi
+
+if ! command -v pipx &> /dev/null; then
+    PKGS_TO_INSTALL+=("pipx"); DISPLAY_PKGS+=("pipx")
+fi
+
+SKIP_DENO=0
+if command -v node &> /dev/null || command -v deno &> /dev/null; then
+    SKIP_DENO=1
+else
+    DISPLAY_PKGS+=("deno")
+    if [ "$OS_TYPE" == "Darwin" ]; then PKGS_TO_INSTALL+=("deno"); fi
+fi
+
+DISPLAY_LIST=$(IFS=", "; echo "${DISPLAY_PKGS[*]}")
+if [ -z "$DISPLAY_LIST" ]; then
+    INSTALL_LIST="pikaraoke (via pipx)"
+else
+    INSTALL_LIST="$DISPLAY_LIST, pikaraoke (via pipx)"
 fi
 
 echo "The following packages will be installed/updated: $INSTALL_LIST"
@@ -80,24 +103,17 @@ if [ "$OS_TYPE" == "Darwin" ]; then
         fi
     fi
 
-    if is_python_compatible; then
-        echo "Compatible Python version found. Skipping Python installation."
-        if [ $SKIP_DENO -eq 1 ]; then
-            brew install ffmpeg-full pipx
-        else
-            brew install ffmpeg-full deno pipx
-        fi
+    if [ ${#PKGS_TO_INSTALL[@]} -gt 0 ]; then
+        echo "Installing dependencies via Homebrew: ${PKGS_TO_INSTALL[*]}"
+        brew install "${PKGS_TO_INSTALL[@]}"
     else
-        echo "Python 3.10+ not found. Installing via Homebrew..."
-        if [ $SKIP_DENO -eq 1 ]; then
-            brew install ffmpeg-full pipx python
-        else
-            brew install ffmpeg-full deno pipx python
-        fi
+        echo "All core dependencies (Python, FFmpeg, Pipx) are already installed."
     fi
 
     # link ffmpeg-full to path since it is keg-only
-    brew link ffmpeg-full
+    if [[ " ${PKGS_TO_INSTALL[*]} " =~ " ffmpeg-full " ]] || ! command -v ffmpeg &> /dev/null; then
+        brew link ffmpeg-full
+    fi
 
 elif [ "$OS_TYPE" == "Linux" ]; then
     # Linux (Assumes Debian/Ubuntu/Raspberry Pi OS)
@@ -106,15 +122,23 @@ elif [ "$OS_TYPE" == "Linux" ]; then
         exit 1
     fi
 
-    echo "Updating package lists..."
-    sudo apt-get update
-
-    if is_python_compatible; then
-        echo "Compatible Python version found. Skipping Python installation."
-        sudo apt-get install -y ffmpeg pipx
+    echo "Checking for missing dependencies..."
+    if [ ${#PKGS_TO_INSTALL[@]} -gt 0 ]; then
+        echo "Updating package lists..."
+        sudo apt-get update
+        echo "Installing dependencies via apt: ${PKGS_TO_INSTALL[*]}"
+        # Special handling for deno if it was in the list but needs curl install
+        APT_PKGS=()
+        for pkg in "${PKGS_TO_INSTALL[@]}"; do
+            if [ "$pkg" != "deno" ]; then
+                APT_PKGS+=("$pkg")
+            fi
+        done
+        if [ ${#APT_PKGS[@]} -gt 0 ]; then
+            sudo apt-get install -y "${APT_PKGS[@]}"
+        fi
     else
-        echo "Python 3.10+ not found. Installing via apt..."
-        sudo apt-get install -y ffmpeg pipx python3
+        echo "All core dependencies (Python, FFmpeg, Pipx) are already installed."
     fi
 
     if [ $SKIP_DENO -eq 0 ] && ! command -v deno &> /dev/null; then
