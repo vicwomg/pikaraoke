@@ -79,7 +79,7 @@ class Karaoke:
     now_playing_notification: str | None = None
     now_playing_position: float | None = None
     is_paused: bool = True
-    volume: float = 0.85
+    volume: float
 
     is_playing: bool = False
     process: subprocess.Popen | None = None
@@ -89,9 +89,9 @@ class Karaoke:
     default_logo_path: str = os.path.join(base_path, "static", "images", "logo.png")
     default_bg_music_path: str = os.path.join(base_path, "static", "music")
     default_bg_video_path: str = os.path.join(base_path, "static", "video", "night_sea.mp4")
-    screensaver_timeout: int = 300  # in seconds
+    screensaver_timeout: int
 
-    normalize_audio: bool = False
+    normalize_audio: bool
 
     # Download manager for serialized downloads
     download_manager: DownloadManager
@@ -104,33 +104,34 @@ class Karaoke:
         self,
         port: int = 5555,
         download_path: str = "/usr/lib/pikaraoke/songs",
-        hide_url: bool = False,
-        hide_notifications: bool = False,
-        hide_splash_screen: bool = False,
-        high_quality: bool = False,
-        volume: float = 0.85,
-        normalize_audio: bool = False,
-        complete_transcode_before_play: bool = False,
-        buffer_size: int = 150,
+        hide_url: bool | None = None,
+        hide_notifications: bool | None = None,
+        hide_splash_screen: bool | None = None,
+        high_quality: bool | None = None,
+        volume: float | None = None,
+        normalize_audio: bool | None = None,
+        complete_transcode_before_play: bool | None = None,
+        buffer_size: int | None = None,
         log_level: int = logging.DEBUG,
-        splash_delay: int = 2,
+        splash_delay: int | None = None,
         youtubedl_proxy: str | None = None,
         logo_path: str | None = None,
-        hide_overlay: bool = False,
-        screensaver_timeout: int = 300,
+        hide_overlay: bool | None = None,
+        screensaver_timeout: int | None = None,
         url: str | None = None,
-        prefer_hostname: bool = True,
-        disable_bg_music: bool = False,
-        bg_music_volume: float = 0.3,
+        prefer_hostname: bool | None = None,
+        disable_bg_music: bool | None = None,
+        bg_music_volume: float | None = None,
         bg_music_path: str | None = None,
         bg_video_path: str | None = None,
-        disable_bg_video: bool = False,
-        disable_score: bool = False,
-        limit_user_songs_by: int = 0,
-        avsync: float = 0,
+        disable_bg_video: bool | None = None,
+        disable_score: bool | None = None,
+        limit_user_songs_by: int | None = None,
+        avsync: float | None = None,
         config_file_path: str = "config.ini",
-        cdg_pixel_scaling: bool = False,
-        streaming_format: str = "hls",
+        cdg_pixel_scaling: bool | None = None,
+        streaming_format: str | None = None,
+        browse_results_per_page: int | None = None,
         additional_ytdl_args: str | None = None,
         socketio=None,
         preferred_language: str | None = None,
@@ -167,6 +168,7 @@ class Karaoke:
             config_file_path: Path to config.ini file.
             cdg_pixel_scaling: Enable CDG pixel scaling.
             streaming_format: Video streaming format ('hls' or 'mp4').
+            browse_results_per_page: Number of search results per page.
             additional_ytdl_args: Additional yt-dlp command arguments.
             socketio: SocketIO instance for real-time event emission.
             preferred_language: Language code for UI (e.g., 'en', 'de_DE').
@@ -271,6 +273,7 @@ class Karaoke:
             "cdg_pixel_scaling",
             "avsync",
             "streaming_format",
+            "browse_results_per_page",
         ]
         for pref in cli_mapped_prefs:
             fallback = cli_overrides.get(pref, self.preferences.DEFAULTS[pref])
