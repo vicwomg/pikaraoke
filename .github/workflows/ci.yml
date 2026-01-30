@@ -124,7 +124,7 @@ jobs:
 
   docker-smoketest-arm64:
     runs-on: ubuntu-latest
-    name: Docker Build Smoketest
+    name: Docker Build Smoketest (arm64)
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
