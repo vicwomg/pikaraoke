@@ -37,7 +37,7 @@ Love PiKaraoke? This project is independently maintained and free for everyone t
 
 ## Quick Install
 
-For a streamlined installation that handles all dependencies (python, uv, ffmpeg, deno, yt-dlp) and installs PiKaraoke, run the following in your terminal:
+For a streamlined installation that handles all dependencies (uv, ffmpeg, deno) and installs PiKaraoke, run the following in your terminal:
 
 ### Linux & macOS
 
