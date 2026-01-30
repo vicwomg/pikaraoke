@@ -57,6 +57,7 @@ Write-Host "Installing dependencies (ffmpeg, deno, python)..." -ForegroundColor 
 if (!(Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
     Write-Host "Installing ffmpeg..."
     winget install --id=Gyan.FFmpeg -e --silent --accept-source-agreements --accept-package-agreements
+    if ($LASTEXITCODE -ne 0) { throw "Failed to install ffmpeg via winget" }
 } else {
     Write-Host "ffmpeg is already installed."
 }
@@ -66,6 +67,7 @@ if (!$skipDeno) {
     if (!(Get-Command deno -ErrorAction SilentlyContinue)) {
         Write-Host "Installing deno..."
         winget install --id=DenoLand.Deno -e --silent --accept-source-agreements --accept-package-agreements
+        if ($LASTEXITCODE -ne 0) { throw "Failed to install deno via winget" }
     } else {
         Write-Host "deno is already installed."
     }
@@ -77,6 +79,7 @@ if (Is-PythonCompatible) {
 } else {
     Write-Host "Python 3.10+ not found. Installing via Winget..." -ForegroundColor Yellow
     winget install --id=Python.Python.3.12 -e --silent --accept-source-agreements --accept-package-agreements
+    if ($LASTEXITCODE -ne 0) { throw "Failed to install Python via winget" }
     Write-Host "Python installed. You may need to restart your terminal if the next steps fail." -ForegroundColor Magenta
 }
 
@@ -85,6 +88,7 @@ if (!(Get-Command uv -ErrorAction SilentlyContinue)) {
     Write-Host "Installing uv..."
     # Attempt to install uv via irm
     powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+    if ($LASTEXITCODE -ne 0) { throw "Failed to install uv" }
 
     # Reload Path for the current session
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
@@ -110,6 +114,7 @@ if ($uvPackages -match "pikaraoke") {
         uv tool install pikaraoke
     }
 }
+if ($LASTEXITCODE -ne 0) { throw "Failed to install/upgrade pikaraoke via uv tool" }
 
 # 6. Create Desktop Shortcut
 Write-Host "Creating Desktop Shortcuts..." -ForegroundColor Yellow

@@ -4,6 +4,7 @@
 # Supports macOS (Homebrew) and Linux (apt-get)
 
 set -e
+set -o pipefail
 
 # Handle flags
 CONFIRM="y"
