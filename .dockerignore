@@ -5,7 +5,6 @@ code_quality
 docker
 Dockerfile*
 docker-compose*.yml
-uv.lock
 __pycache__
 *.pyc
 .venv*
