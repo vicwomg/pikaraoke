@@ -1,19 +1,27 @@
 # PiKaraoke
 
-[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-green.svg)](https://conventionalcommits.org)
+<img width="588" height="339" alt="Image" src="https://github.com/user-attachments/assets/3d688a3f-f5a0-444c-a0b2-9835ef880abd" />
 
-PiKaraoke is a "KTV"-style karaoke song search and queueing system. It connects to your TV, and shows a QR code for computers and smartphones to connect to a web interface. From there, multiple users can seamlessly search your local track library, queue up songs, add an endless selection of new karaoke tracks from YouTube, and more. Works on Raspberry Pi, OSX, Windows, and Linux!
+PiKaraoke is a cross-platform karaoke server that brings the professional "KTV" experience to your home. It transforms your computer or Raspberry Pi into a dedicated karaoke station with a full-screen player and an instant web interface. Guests can join by simply scanning a QR code—no app downloads required—to browse your local library, manage the queue, and access countless karaoke hits from YouTube.
 
-Features: dedicated player/splash screen, mobile-friendly web interface, song searching/browsing, adding new songs from YouTube, mp3 + cdg support, playback controls, queue management, key change / pitch shifting, filename management, admin mode, headless mode
+- 📱 Instant Mobile Remote: Search and queue songs from any smartphone—just scan and sing.
+- 📺 Dedicated Player: High-performance splash screen that can be opened on any web browser for a true karaoke room feel.
+- 🌐 YouTube & Local Media: Play your own files or access more from the web.
+- 🎹 Live Pitch Shifting: Adjust the key of any song to match your vocal range.
+- 🛠️ Admin Control: Manage the queue and settings via a password-protected admin mode.
+- 🐧 Lightweight & Versatile: Runs anywhere from a basic Raspberry Pi to a high-end PC.
 
-Pikaraoke is independently developed and maintained. If you want to support this project with a little monetary tip, it's much appreciated: <br/><br/>
+Love PiKaraoke? This project is independently maintained and free for everyone to enjoy. If PiKaraoke has made your parties better and you'd like to help keep the project alive and growing, feel free to buy me a coffee! <br/><br/>
 <a href="https://www.buymeacoffee.com/vicwomg" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
+
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-green.svg)](https://conventionalcommits.org)
 
 ## Table of Contents
 
 - [Supported Devices / OS / Platforms](#supported-devices--os--platforms)
 - [Quick Install](#quick-install)
 - [Manual Installation](#manual-installation)
+- [Usage](#usage)
 - [Docker](#docker-instructions)
 - [Screenshots](#screenshots)
 - [Developing pikaraoke](#developing-pikaraoke)
@@ -21,17 +29,14 @@ Pikaraoke is independently developed and maintained. If you want to support this
 
 ## Supported Devices / OS / Platforms
 
-- Raspberry Pi
-  - Requires a Raspberry Pi Model 3 or higher
-  - Bookworm Desktop OS required for standalone/headed mode
-  - For Pi 3: overclocking is recommended for smoother playback
 - OSX
 - Windows
 - Linux
+- Raspberry Pi 4 or higher (Pi3 works ok with overclocking)
 
 ## Quick Install
 
-For a streamlined installation that handles all dependencies (python, pipx, ffmpeg, deno, yt-dlp) and installs PiKaraoke, run the following in your terminal:
+For a streamlined installation that handles all dependencies (python, uv, ffmpeg, deno, yt-dlp) and installs PiKaraoke, run the following in your terminal:
 
 ### Linux & macOS
 
@@ -45,54 +50,52 @@ curl -fsSL https://raw.githubusercontent.com/vicwomg/pikaraoke/master/build_scri
 irm https://raw.githubusercontent.com/vicwomg/pikaraoke/master/build_scripts/install/install.ps1 | iex
 ```
 
-After installation, you can launch pikaraoke from the command line with `pikaraoke` or from a desktop shortcut (if specified).
+After installation, you can launch pikaraoke from the command line with `pikaraoke` or from a desktop shortcut. Re-running the above command will update a previous pikaraoke installation to the latest version.
 
-You can rerun the above command to update a previous installation also.
-
-## Manual installation (advanced)
+## Manual installation (advanced users)
 
 ### Prerequisites
 
 - A modern web browser (Chrome/Chromium/Edge recommended)
 - Python 3.10 or greater: [Python downloads](https://www.python.org/downloads/)
-- FFmpeg: [FFmpeg downloads](https://ffmpeg.org/download.html)
+- FFmpeg (preferably a build with lib-rubberband for transposing): [FFmpeg downloads](https://ffmpeg.org/download.html)
 - A js runtime installed to your PATH. [Node.js](https://nodejs.org/en/download/) is most common, [Deno](https://deno.com/) is probably easiest for non-developers.
 
-### Install pikaraoke via pipx
+### Install the pikaraoke package
 
-We recommend installing pikaraoke via [pipx](https://github.com/pypa/pipx). You may alternately use the standard python `pip` installer if you are familiar with virtual environments or you are not concerned with global package isolation.
+We recommend installing pikaraoke via [uv](https://github.com/astral-sh/uv).
 
 ```sh
-pipx install pikaraoke
+uv tool install pikaraoke
 ```
 
-Run pikaraoke with:
+You may alternately use the standard python `pip install pikaraoke` installer if you are familiar with virtual environments or you are not concerned with global package isolation.
+
+## Usage
+
+Run pikaraoke from the command line with:
 
 ```sh
 pikaraoke
 ```
 
-This will start pikaraoke in headed mode, and open the default browser with the splash screen. You can then connect to the QR code via your mobile device and start downloading and queueing songs.
+Launches the player in "headed" mode via your default browser. Scan the QR code to connect mobile remotes. Use `pikaraoke --headless` to run as a background server for external browsers.
 
-### Upgrading
+See the help command `pikaraoke --help` for available options.
 
 To upgrade to the latest version of pikaraoke, run:
 
 ```sh
-pipx upgrade pikaraoke
+uv tool upgrade pikaraoke
 ```
-
-### More Options
-
-See the help command `pikaraoke --help` for available options.
 
 ## Docker instructions
 
-For Docker users, you can get going with one command. Note that for best results you should map the port, supply your actual LAN IP, and set some persistence volumes for songs and settings (for simplicity, this example sets them to ~):
+Run PiKaraoke in Docker using the command below. Note the requirements for port mapping, LAN IP specification, and persistent volume mounts (set to ~/.pikaraoke in the example for simplicity):
 
 ```sh
 docker run -p 5555:5555 \
-  -v ~/pikaraoke-songs:/app/pikaraoke-songs \
+  -v ~/.pikaraoke/pikaraoke-songs:/app/pikaraoke-songs \
   -v ~/.pikaraoke:/home/pikaraoke/.pikaraoke \
   vicwomg/pikaraoke:latest \
   -u http://<YOUR_LAN_IP>:5555
@@ -119,10 +122,10 @@ The Pikaraoke project utilizes `uv` for dependency management and local developm
 - Install [uv](https://github.com/astral-sh/uv)
 - Git clone this repo
 
-From the pikaraoke directory :
+From the pikaraoke directory:
 
 ```sh
-# install dependencies and run pikaraoke
+# install dependencies and run pikaraoke from local code
 uv run pikaraoke
 ```
 
