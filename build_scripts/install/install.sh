@@ -4,6 +4,7 @@
 # Supports macOS (Homebrew) and Linux (apt-get)
 
 set -e
+set -o pipefail
 
 # Handle flags
 CONFIRM="y"
@@ -68,8 +69,11 @@ if ! command -v ffmpeg &> /dev/null; then
     fi
 fi
 
-if ! command -v pipx &> /dev/null; then
-    PKGS_TO_INSTALL+=("pipx"); DISPLAY_PKGS+=("pipx")
+SKIP_UV=0
+if command -v uv &> /dev/null; then
+    SKIP_UV=1
+else
+    PKGS_TO_INSTALL+=("uv"); DISPLAY_PKGS+=("uv")
 fi
 
 SKIP_DENO=0
@@ -82,9 +86,9 @@ fi
 
 DISPLAY_LIST=$(IFS=", "; echo "${DISPLAY_PKGS[*]}")
 if [ -z "$DISPLAY_LIST" ]; then
-    INSTALL_LIST="pikaraoke (via pipx)"
+    INSTALL_LIST="pikaraoke (via uv)"
 else
-    INSTALL_LIST="$DISPLAY_LIST, pikaraoke (via pipx)"
+    INSTALL_LIST="$DISPLAY_LIST, pikaraoke (via uv)"
 fi
 
 echo "The following packages will be installed/updated: $INSTALL_LIST"
@@ -127,7 +131,7 @@ if [ "$OS_TYPE" == "Darwin" ]; then
         echo "Installing dependencies via Homebrew: ${PKGS_TO_INSTALL[*]}"
         brew install "${PKGS_TO_INSTALL[@]}"
     else
-        echo "All core dependencies (Python, FFmpeg, Pipx) are already installed."
+        echo "All core dependencies (Python, FFmpeg, uv) are already installed."
     fi
 
     # link ffmpeg-full to path since it is keg-only
@@ -150,7 +154,7 @@ elif [ "$OS_TYPE" == "Linux" ]; then
         # Special handling for deno if it was in the list but needs curl install
         APT_PKGS=()
         for pkg in "${PKGS_TO_INSTALL[@]}"; do
-            if [ "$pkg" != "deno" ]; then
+            if [ "$pkg" != "deno" ] && [ "$pkg" != "uv" ]; then
                 APT_PKGS+=("$pkg")
             fi
         done
@@ -158,7 +162,14 @@ elif [ "$OS_TYPE" == "Linux" ]; then
             sudo apt-get install -y "${APT_PKGS[@]}"
         fi
     else
-        echo "All core dependencies (Python, FFmpeg, Pipx) are already installed."
+        echo "All core dependencies (Python, FFmpeg) are already installed."
+    fi
+
+    if [ $SKIP_UV -eq 0 ] && ! command -v uv &> /dev/null; then
+        echo "Installing uv..."
+        curl -fsSL https://astral.sh/uv/install.sh | sh
+        # Add uv to PATH for the current session. Default install is ~/.local/bin or ~/.cargo/bin
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
     fi
 
     if [ $SKIP_DENO -eq 0 ] && ! command -v deno &> /dev/null; then
@@ -179,26 +190,21 @@ if ! is_python_compatible; then
     exit 1
 fi
 
-# Ensure pipx is in PATH
-echo "Configuring pipx..."
-pipx ensurepath
-export PATH="$PATH:$HOME/.local/bin"
-
 # Install pikaraoke
-echo "Installing pikaraoke via pipx..."
+echo "Installing pikaraoke via uv..."
 
-if pipx list | grep -q "pikaraoke"; then
+if uv tool list | grep -q "pikaraoke"; then
     echo "PiKaraoke is already installed. Upgrading..."
     if [ "$LOCAL" == "y" ]; then
-        pipx upgrade .
+        uv tool install --force .
     else
-        pipx upgrade pikaraoke
+        uv tool upgrade pikaraoke
     fi
 else
     if [ "$LOCAL" == "y" ]; then
-        pipx install .
+        uv tool install .
     else
-        pipx install pikaraoke
+        uv tool install pikaraoke
     fi
 fi
 
