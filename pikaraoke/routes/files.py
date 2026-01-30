@@ -154,7 +154,7 @@ def edit_file():
     if "song" in request.args:
         song_path = request.args["song"]
         # print "SONG_PATH" + song_path
-        if song_path in k.queue:
+        if song_path in k.queue_manager.queue:
             flash(queue_error_msg + song_path, "is-danger")
             return redirect(url_for("files.browse"))
         else:
