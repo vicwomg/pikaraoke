@@ -95,3 +95,22 @@ jobs:
 
     - name: Run tests
       run: uv run pytest tests/ -v --cov=pikaraoke --cov-report=term-missing --cov-report=xml:coverage.xml
+
+  docker-build:
+    runs-on: ubuntu-latest
+    name: Docker Build Smoketest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: build_scripts/docker/Dockerfile
+        push: false
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
