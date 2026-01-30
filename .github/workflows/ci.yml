@@ -98,27 +98,13 @@ jobs:
 
   docker-smoketest:
     runs-on: ubuntu-latest
-    name: Docker Build Smoketest
+    name: Docker Build Smoketest (amd64)
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-
-    - name: Build Multi-platform
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        file: build_scripts/docker/Dockerfile-alpine
-        platforms: linux/amd64,linux/arm64
-        push: false
-        load: false
-        cache-from: type=gha,scope=docker-build
-        cache-to: type=gha,mode=max,scope=docker-build
 
     - name: Build and Load for Smoketest (amd64)
       uses: docker/build-push-action@v6
@@ -135,6 +121,20 @@ jobs:
       run: |
         ./build_scripts/ci/docker-smoketest.sh pikaraoke-ci-test-amd64:latest pikaraoke-test-amd64
 
+
+  docker-smoketest-arm64:
+    runs-on: ubuntu-latest
+    name: Docker Build Smoketest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
     - name: Build and Load for Smoketest (arm64)
       uses: docker/build-push-action@v6
       with:
@@ -144,8 +144,8 @@ jobs:
         push: false
         load: true
         tags: pikaraoke-ci-test-arm64:latest
-        cache-from: type=gha,scope=docker-build
-        cache-to: type=gha,mode=max,scope=docker-build
+        cache-from: type=gha,scope=docker-build-arm64
+        cache-to: type=gha,mode=max,scope=docker-build-arm64
 
     - name: Verify Runtime (arm64)
       run: |
