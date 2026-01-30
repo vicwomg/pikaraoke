@@ -251,38 +251,15 @@ class Karaoke:
         """Load preference-driven attributes from config file.
 
         Priority: config file > CLI override > PreferenceManager.DEFAULTS
-        """
-        # Preferences that have corresponding CLI arguments
-        cli_mapped_prefs = [
-            "hide_url",
-            "hide_notifications",
-            "high_quality",
-            "splash_delay",
-            "volume",
-            "normalize_audio",
-            "complete_transcode_before_play",
-            "buffer_size",
-            "hide_overlay",
-            "screensaver_timeout",
-            "disable_bg_music",
-            "bg_music_volume",
-            "disable_bg_video",
-            "disable_score",
-            "limit_user_songs_by",
-            "enable_fair_queue",
-            "cdg_pixel_scaling",
-            "avsync",
-            "streaming_format",
-            "browse_results_per_page",
-        ]
-        for pref in cli_mapped_prefs:
-            fallback = cli_overrides.get(pref, self.preferences.DEFAULTS[pref])
-            setattr(self, pref, self.preferences.get(pref, fallback))
 
-        # Score phrases have no CLI override, use DEFAULTS fallback
-        self.low_score_phrases = self.preferences.get_or_default("low_score_phrases")
-        self.mid_score_phrases = self.preferences.get_or_default("mid_score_phrases")
-        self.high_score_phrases = self.preferences.get_or_default("high_score_phrases")
+        Iterates over all preferences defined in PreferenceManager.DEFAULTS,
+        automatically handling both CLI-mapped and web-only preferences.
+        """
+        for pref, default in self.preferences.DEFAULTS.items():
+            # Use CLI value if provided (not None), otherwise use default
+            cli_value = cli_overrides.get(pref)
+            fallback = default if cli_value is None else cli_value
+            setattr(self, pref, self.preferences.get(pref, fallback))
 
     def get_url(self):
         """Get the URL for accessing the PiKaraoke web interface.
