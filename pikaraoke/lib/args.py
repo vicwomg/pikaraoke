@@ -303,6 +303,12 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         default=None,
         required=False,
     )
+    parser.add_argument(
+        "--dolphly",
+        action="store_true",
+        help="Enable top-secret DOLPHLY mode.",
+        required=False,
+    )
 
     args = parser.parse_args()
 
@@ -317,6 +323,12 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     logo_path = arg_path_parse(args.logo_path)
     bg_music_path = arg_path_parse(args.bg_music_path)
     bg_video_path = arg_path_parse(args.bg_video_path)
+
+    if args.dolphly:
+        logo_path = os.path.join(os.path.dirname(__file__), "..", "static", "images", "dolphly.png")
+        bg_video_path = os.path.join(
+            os.path.dirname(__file__), "..", "static", "video", "the_drive_by_visualdon.mp4"
+        )
 
     if bg_video_path is not None and not os.path.isfile(bg_video_path):
         print(f"Background video not found: {bg_video_path}. Setting to None")

@@ -126,8 +126,7 @@ def delete_file():
     k = get_karaoke_instance()
     if "song" in request.args:
         song_path = request.args["song"]
-        exists = any(item.get("file") == song_path for item in k.queue_manager.queue)
-        if exists:
+        if k.queue_manager.is_song_in_queue(song_path):
             flash(
                 # MSG: Message shown after trying to delete a song that is in the queue.
                 _("Error: Can't delete this song because it is in the current queue")

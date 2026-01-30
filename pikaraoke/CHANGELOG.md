@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.18.2](https://github.com/vicwomg/pikaraoke/compare/1.18.1...1.18.2) (2026-01-30)
+
+
+### Bug Fixes
+
+* download status, edit song not working ([#736](https://github.com/vicwomg/pikaraoke/issues/736)) ([d8ef52c](https://github.com/vicwomg/pikaraoke/commit/d8ef52ca18ed5fbcefc4d9789a6a24ab8617079e))
+* relative logo paths don't work ([#738](https://github.com/vicwomg/pikaraoke/issues/738)) ([80dbb04](https://github.com/vicwomg/pikaraoke/commit/80dbb0484096d3b32b52b3fedc6752db03b021d5))
+
+
+### Documentation
+
+* much-needed readme / github pages / logo refresh ([#733](https://github.com/vicwomg/pikaraoke/issues/733)) ([338742e](https://github.com/vicwomg/pikaraoke/commit/338742e186c1b892dcf7442e1cd544d2a05736fb))
+
 ## [1.18.1](https://github.com/vicwomg/pikaraoke/compare/1.18.0...1.18.1) (2026-01-30)
 
 
