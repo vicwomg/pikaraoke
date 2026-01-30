@@ -110,7 +110,7 @@ jobs:
       uses: docker/build-push-action@v6
       with:
         context: .
-        file: build_scripts/docker/Dockerfile-alpine
+        file: build_scripts/docker/Dockerfile
         push: false
         load: true
         tags: pikaraoke-ci-test-amd64:latest
@@ -139,7 +139,7 @@ jobs:
       uses: docker/build-push-action@v6
       with:
         context: .
-        file: build_scripts/docker/Dockerfile-alpine
+        file: build_scripts/docker/Dockerfile
         platforms: linux/arm64
         push: false
         load: true
