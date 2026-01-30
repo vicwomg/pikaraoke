@@ -1,4 +1,5 @@
 """Image serving routes for QR code and logo."""
+import os
 
 import flask_babel
 from flask import Blueprint, send_file
@@ -39,4 +40,4 @@ def logo():
         description: Logo PNG image
     """
     k = get_karaoke_instance()
-    return send_file(k.logo_path, mimetype="image/png")
+    return send_file(os.path.abspath(k.logo_path), mimetype="image/png")
