@@ -78,7 +78,7 @@ def info():
         buffer_size=k.buffer_size,
         languages=LANGUAGES,
         preferred_language=preferred_language,
-        browse_results_per_page=k.preferences.get_or_default("browse_results_per_page"),
+        browse_results_per_page=k.browse_results_per_page,
         score_phrases={
             "low": k.low_score_phrases,
             "mid": k.mid_score_phrases,

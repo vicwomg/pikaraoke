@@ -325,3 +325,70 @@ def test_preference_manager_get_or_default_unknown_key(temp_config_file):
     # Unknown key should return None (not in DEFAULTS)
     result = prefs.get_or_default("unknown_key")
     assert result is None
+
+
+# --- Tests for Karaoke._load_preferences() integration ---
+
+
+class MinimalKaraoke:
+    """Minimal mock for testing _load_preferences() in isolation."""
+
+    def __init__(self, config_file_path: str):
+        self.preferences = PreferenceManager(config_file_path)
+
+    # Import the actual _load_preferences method to test
+    from pikaraoke.karaoke import Karaoke
+
+    _load_preferences = Karaoke._load_preferences
+
+
+def test_load_preferences_sets_all_instance_attributes(temp_config_file):
+    """Test that _load_preferences sets all 23 preference attributes on the instance."""
+    k = MinimalKaraoke(temp_config_file)
+
+    # Call _load_preferences with no CLI overrides
+    k._load_preferences()
+
+    # Verify all DEFAULTS keys become instance attributes with default values
+    for pref, default_value in PreferenceManager.DEFAULTS.items():
+        assert hasattr(k, pref), f"Missing attribute: {pref}"
+        assert getattr(k, pref) == default_value, f"Wrong value for {pref}"
+
+
+def test_load_preferences_cli_overrides_config(temp_config_file):
+    """Test that CLI args override config file values and persist to config."""
+    k = MinimalKaraoke(temp_config_file)
+
+    # Set a value in config file first
+    k.preferences.set("volume", "0.5")
+    k.preferences.set("splash_delay", "10")
+
+    # Call _load_preferences with CLI overrides
+    k._load_preferences(volume=0.9, splash_delay=5)
+
+    # CLI values should override config values
+    assert k.volume == 0.9
+    assert k.splash_delay == 5
+
+    # CLI values should be persisted to config
+    assert k.preferences.get("volume") == 0.9
+    assert k.preferences.get("splash_delay") == 5
+
+
+def test_load_preferences_boolean_flag_handling(temp_config_file):
+    """Test boolean CLI flag handling: True means flag was passed, False means not passed."""
+    k = MinimalKaraoke(temp_config_file)
+
+    # Set boolean preferences in config file
+    k.preferences.set("normalize_audio", "true")
+    k.preferences.set("high_quality", "true")
+
+    # Call with normalize_audio=True (flag passed) and high_quality=False (flag not passed)
+    # For booleans: True = flag was explicitly passed, False = flag was not passed
+    k._load_preferences(normalize_audio=True, high_quality=False)
+
+    # normalize_audio=True means flag was passed, so use CLI value (True)
+    assert k.normalize_audio is True
+
+    # high_quality=False means flag was NOT passed, so use config value (True)
+    assert k.high_quality is True
