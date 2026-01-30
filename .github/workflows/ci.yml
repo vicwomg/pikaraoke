@@ -70,9 +70,9 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Preload ffmpeg on MacOS
+    - name: Preload ffmpeg (MacOS)
       if: runner.os == 'macOS'
-      run: brew install ffmpeg # override ffmpeg-full install for smoke test because it adds minutes to the job
+      run: brew install ffmpeg # override ffmpeg-full install for mac because it adds minutes to the test job
 
     - name: Install Pikaraoke (Unix)
       if: runner.os != 'Windows'
@@ -91,7 +91,12 @@ jobs:
         for i in {1..30}; do
           if grep -q "Connect the player host to:" output.log; then
             echo "Found expected output, confirming splash page loads..."
+            curl http://localhost:5555/ | grep DOCTYPE
             curl http://localhost:5555/splash | grep DOCTYPE
+            curl http://localhost:5555/queue | grep DOCTYPE
+            curl http://localhost:5555/search | grep DOCTYPE
+            curl http://localhost:5555/browse | grep DOCTYPE
+            curl http://localhost:5555/info | grep DOCTYPE
             kill $PID || true
             exit 0
           fi
@@ -113,7 +118,12 @@ jobs:
             # Check both files for the string
             if (Get-Content output.log, error.log -ErrorAction SilentlyContinue | Select-String "Connect the player host to:") {
               Write-Host "Found expected output, confirming splash page loads..."
+              curl.exe http://localhost:5555/ | Select-String "DOCTYPE"
               curl.exe http://localhost:5555/splash | Select-String "DOCTYPE"
+              curl.exe http://localhost:5555/queue | Select-String "DOCTYPE"
+              curl.exe http://localhost:5555/search | Select-String "DOCTYPE"
+              curl.exe http://localhost:5555/browse | Select-String "DOCTYPE"
+              curl.exe http://localhost:5555/info | Select-String "DOCTYPE"
               Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
               exit 0
             }
