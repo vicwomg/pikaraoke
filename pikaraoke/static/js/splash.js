@@ -140,39 +140,41 @@ const getNextBgMusicSong = () => {
 }
 
 const playBGMusic = async (play) => {
-  if (PikaraokeConfig.disableBgMusic) return;
-  if (!autoplayConfirmed) return;
-  if (bg_playlist.length === 0) return;
-
   const audio = getBackgroundMusicPlayer();
-  if (!audio.getAttribute('src')) audio.setAttribute('src', getNextBgMusicSong());
-
   if (play) {
+    if (PikaraokeConfig.disableBgMusic) return;
+    if (!autoplayConfirmed) return;
+    if (bg_playlist.length === 0) return;
+
+    if (!audio.getAttribute('src')) audio.setAttribute('src', getNextBgMusicSong());
+
     if (isMediaPlaying(audio)) return;
     audio.volume = 0;
     if (audio.readyState <= 2) await audio.load();
     await audio.play().catch(e => console.log("Autoplay blocked (music)"));
     $(audio).animate({ volume: PikaraokeConfig.bgMusicVolume }, 2000);
   } else {
-    $(audio).animate({ volume: 0 }, 2000, () => audio.pause());
+    if (audio) {
+      $(audio).animate({ volume: 0 }, 2000, () => audio.pause());
+    }
   }
 }
 
 const playBGVideo = async (play) => {
-  if (PikaraokeConfig.disableBgVideo) return;
-  if (!autoplayConfirmed) return;
-
   const bgVideo = getBackgroundVideoPlayer();
   const bgVideoContainer = $('#bg-video-container');
 
   if (play) {
+    if (PikaraokeConfig.disableBgVideo) return;
+    if (!autoplayConfirmed) return;
+
     if (isMediaPlaying(bgVideo)) return;
     $("#bg-video").attr("src", "/stream/bg_video");
     if (bgVideo.readyState <= 2) await bgVideo.load();
     bgVideo.play().catch(() => console.log("Autoplay blocked (video)"));
     bgVideoContainer.fadeIn(2000);
   } else {
-    if (isMediaPlaying(bgVideo)) {
+    if (bgVideo && isMediaPlaying(bgVideo)) {
       bgVideo.pause();
       bgVideoContainer.fadeOut(2000);
     }
@@ -182,9 +184,7 @@ const playBGVideo = async (play) => {
 const shouldBackgroundMediaPlay = () => {
   return autoplayConfirmed &&
     !nowPlaying.now_playing &&
-    !nowPlaying.up_next &&
-    !PikaraokeConfig.disableBgMusic &&
-    bg_playlist.length > 0;
+    !nowPlaying.up_next;
 };
 
 const updateBackgroundMediaState = (immediate = false) => {
