@@ -74,67 +74,14 @@ jobs:
       if: runner.os == 'macOS'
       run: brew install ffmpeg # override ffmpeg-full install for mac because it adds minutes to the test job
 
-    - name: Install Pikaraoke (Unix)
+    - name: Install and Verify Pikaraoke (Unix)
       if: runner.os != 'Windows'
-      run: ./build_scripts/install/install.sh -y --local
+      run: ./build_scripts/ci/test_headless.sh
 
-    - name: Install Pikaraoke (Windows)
-      if: runner.os == 'Windows'
-      run: ./build_scripts/install/install.ps1 -Confirm:$false -Local:$true
-      shell: powershell
-
-    - name: Verify headless mode (Unix)
-      if: runner.os != 'Windows'
-      run: |
-        pikaraoke --headless > output.log 2>&1 &
-        PID=$!
-        for i in {1..30}; do
-          if grep -q "Connect the player host to:" output.log; then
-            echo "Found expected output, confirming splash page loads..."
-            curl http://localhost:5555/ | grep DOCTYPE
-            curl http://localhost:5555/splash | grep DOCTYPE
-            curl http://localhost:5555/queue | grep DOCTYPE
-            curl http://localhost:5555/search | grep DOCTYPE
-            curl http://localhost:5555/browse | grep DOCTYPE
-            curl http://localhost:5555/info | grep DOCTYPE
-            kill $PID || true
-            exit 0
-          fi
-          sleep 1
-        done
-        echo "Timed out waiting for expected output"
-        kill $PID || true
-        cat output.log
-        exit 1
-
-    - name: Verify headless mode (Windows)
+    - name: Install and Verify Pikaraoke (Windows)
       if: runner.os == 'Windows'
       shell: powershell
-      run: |
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-        $proc = Start-Process pikaraoke -ArgumentList "--headless" -PassThru -RedirectStandardOutput output.log -RedirectStandardError error.log
-        for ($i=0; $i -lt 30; $i++) {
-          if (Test-Path output.log, error.log) {
-            # Check both files for the string
-            if (Get-Content output.log, error.log -ErrorAction SilentlyContinue | Select-String "Connect the player host to:") {
-              Write-Host "Found expected output, confirming splash page loads..."
-              curl.exe http://localhost:5555/ | Select-String "DOCTYPE"
-              curl.exe http://localhost:5555/splash | Select-String "DOCTYPE"
-              curl.exe http://localhost:5555/queue | Select-String "DOCTYPE"
-              curl.exe http://localhost:5555/search | Select-String "DOCTYPE"
-              curl.exe http://localhost:5555/browse | Select-String "DOCTYPE"
-              curl.exe http://localhost:5555/info | Select-String "DOCTYPE"
-              Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-              exit 0
-            }
-          }
-          Start-Sleep -Seconds 1
-        }
-        Write-Host "Timed out waiting for expected output"
-        Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-        if (Test-Path output.log) { Write-Host "--- STDOUT ---"; Get-Content output.log }
-        if (Test-Path error.log) { Write-Host "--- STDERR ---"; Get-Content error.log }
-        exit 1
+      run: ./build_scripts/ci/test_headless.ps1
 
   unit-tests:
     runs-on: ubuntu-latest
