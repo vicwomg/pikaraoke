@@ -392,3 +392,49 @@ def test_load_preferences_boolean_flag_handling(temp_config_file):
 
     # high_quality=False means flag was NOT passed, so use config value (True)
     assert k.high_quality is True
+
+
+def test_set_preserves_existing_preferences_across_instances(temp_config_file):
+    """Regression test: set() should preserve existing preferences when called from new instance.
+
+    Bug scenario (issue #XXX): Running `pikaraoke --hide-url` would wipe all other
+    preferences from config.ini. This happened because hide_url is first in DEFAULTS,
+    and set() didn't read the config file before writing.
+
+    Steps to reproduce:
+    1. Create config with multiple preferences
+    2. Create NEW PreferenceManager instance (simulating app restart)
+    3. Call set() on one preference
+    4. Verify other preferences are preserved
+    """
+    # Setup: Create initial config with multiple preferences
+    prefs1 = PreferenceManager(temp_config_file)
+    prefs1.set("volume", "0.5")
+    prefs1.set("splash_delay", "10")
+    prefs1.set("high_quality", "true")
+
+    # Verify initial state
+    assert prefs1.get("volume") == 0.5
+    assert prefs1.get("splash_delay") == 10
+    assert prefs1.get("high_quality") is True
+
+    # Simulate app restart: create new PreferenceManager instance
+    prefs2 = PreferenceManager(temp_config_file)
+
+    # Set a single preference (this would previously wipe others)
+    prefs2.set("hide_url", "true")
+
+    # Verify the new preference was set
+    assert prefs2.get("hide_url") is True
+
+    # CRITICAL: Verify other preferences are preserved (not wiped)
+    assert prefs2.get("volume") == 0.5, "volume should be preserved"
+    assert prefs2.get("splash_delay") == 10, "splash_delay should be preserved"
+    assert prefs2.get("high_quality") is True, "high_quality should be preserved"
+
+    # Verify persistence: create third instance and check again
+    prefs3 = PreferenceManager(temp_config_file)
+    assert prefs3.get("hide_url") is True
+    assert prefs3.get("volume") == 0.5
+    assert prefs3.get("splash_delay") == 10
+    assert prefs3.get("high_quality") is True

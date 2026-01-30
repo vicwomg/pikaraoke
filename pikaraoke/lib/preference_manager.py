@@ -101,6 +101,9 @@ class PreferenceManager:
         """Update a preference and persist to config file. Returns (success, message)."""
         logging.debug(f"Changing user preference << {preference} >> to {val}")
         try:
+            # Read existing config to preserve other preferences
+            self._config_obj.read(self.config_file_path)
+
             if "USERPREFERENCES" not in self._config_obj:
                 self._config_obj.add_section("USERPREFERENCES")
 
