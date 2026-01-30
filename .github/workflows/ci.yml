@@ -127,10 +127,26 @@ jobs:
         file: build_scripts/docker/Dockerfile-alpine
         push: false
         load: true
-        tags: pikaraoke-ci-test:latest
+        tags: pikaraoke-ci-test-amd64:latest
         cache-from: type=gha,scope=docker-build
         cache-to: type=gha,mode=max,scope=docker-build
 
-    - name: Verify Runtime
+    - name: Verify Runtime (amd64)
       run: |
-        ./build_scripts/ci/docker-smoketest.sh
+        ./build_scripts/ci/docker-smoketest.sh pikaraoke-ci-test-amd64:latest pikaraoke-test-amd64
+
+    - name: Build and Load for Smoketest (arm64)
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: build_scripts/docker/Dockerfile-alpine
+        platforms: linux/arm64
+        push: false
+        load: true
+        tags: pikaraoke-ci-test-arm64:latest
+        cache-from: type=gha,scope=docker-build
+        cache-to: type=gha,mode=max,scope=docker-build
+
+    - name: Verify Runtime (arm64)
+      run: |
+        ./build_scripts/ci/docker-smoketest.sh pikaraoke-ci-test-arm64:latest pikaraoke-test-arm64
