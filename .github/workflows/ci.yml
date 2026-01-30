@@ -74,14 +74,14 @@ jobs:
       if: runner.os == 'macOS'
       run: brew install ffmpeg # override ffmpeg-full install for mac because it adds minutes to the test job
 
-    - name: Install and Verify Pikaraoke (Unix)
+    - name: Install, launch and verify Pikaraoke (Unix)
       if: runner.os != 'Windows'
-      run: ./build_scripts/ci/test_headless.sh
+      run: ./build_scripts/ci/smoketest.sh
 
-    - name: Install and Verify Pikaraoke (Windows)
+    - name: Install, launch and verify Pikaraoke (Windows)
       if: runner.os == 'Windows'
       shell: powershell
-      run: ./build_scripts/ci/test_headless.ps1
+      run: ./build_scripts/ci/smoketest.ps1
 
   unit-tests:
     runs-on: ubuntu-latest
