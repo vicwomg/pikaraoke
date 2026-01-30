@@ -242,6 +242,12 @@
 					</div>
 
 					<div class="user-preference-container">
+						<input id="pref-bg-music" class="user-preference-checkbox checkbox" type="checkbox" data-pref="disable_bg_music" {% if disable_bg_music == True %}checked{% endif %} />
+						<label class="label" for="pref-bg-music">{# MSG: Checkbox label which enable/disables background music on the Splash Screen #} {% trans %}Disable background music{% endtrans %}
+						</label>
+					</div>
+
+					<div class="user-preference-container">
 						<input id="pref-score" type="checkbox" class="user-preference-checkbox checkbox" data-pref="disable_score" {% if disable_score == True %}checked{% endif %}>
 						<label class="label" for="pref-score">{# MSG: Checkbox label which enable/disables the Score Screen #} {% trans %}Disable the score screen after each song{% endtrans %}
 						</label>

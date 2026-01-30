@@ -4,6 +4,7 @@
 # Supports macOS (Homebrew) and Linux (apt-get)
 
 set -e
+set -o pipefail
 
 # Handle flags
 CONFIRM="y"
@@ -47,21 +48,47 @@ echo "--- PiKaraoke Installer ---"
 echo "Detected OS: $OS_TYPE"
 
 # Determine packages to install
-INSTALL_LIST="pikaraoke (via pipx)"
-SKIP_DENO=0
-if command -v node &> /dev/null; then
-    echo "Node.js detected. Skipping Deno installation."
-    SKIP_DENO=1
+PKGS_TO_INSTALL=()
+DISPLAY_PKGS=()
+
+if [ "$OS_TYPE" == "Darwin" ] && ! command -v brew &> /dev/null; then DISPLAY_PKGS+=("Homebrew"); fi
+
+if ! is_python_compatible; then
+    if [ "$OS_TYPE" == "Darwin" ]; then
+        PKGS_TO_INSTALL+=("python"); DISPLAY_PKGS+=("python")
+    else
+        PKGS_TO_INSTALL+=("python3"); DISPLAY_PKGS+=("python3")
+    fi
 fi
 
-if [ "$OS_TYPE" == "Darwin" ]; then
-    INSTALL_LIST="ffmpeg, pipx, $INSTALL_LIST"
-    if [ $SKIP_DENO -eq 0 ]; then INSTALL_LIST="deno, $INSTALL_LIST"; fi
-    if ! is_python_compatible; then INSTALL_LIST="python, $INSTALL_LIST"; fi
-elif [ "$OS_TYPE" == "Linux" ]; then
-    INSTALL_LIST="ffmpeg, pipx, $INSTALL_LIST"
-    if ! is_python_compatible; then INSTALL_LIST="python3, $INSTALL_LIST"; fi
-    if [ $SKIP_DENO -eq 0 ] && ! command -v deno &> /dev/null; then INSTALL_LIST="deno, $INSTALL_LIST"; fi
+if ! command -v ffmpeg &> /dev/null; then
+    if [ "$OS_TYPE" == "Darwin" ]; then
+        PKGS_TO_INSTALL+=("ffmpeg-full"); DISPLAY_PKGS+=("ffmpeg")
+    else
+        PKGS_TO_INSTALL+=("ffmpeg"); DISPLAY_PKGS+=("ffmpeg")
+    fi
+fi
+
+SKIP_UV=0
+if command -v uv &> /dev/null; then
+    SKIP_UV=1
+else
+    PKGS_TO_INSTALL+=("uv"); DISPLAY_PKGS+=("uv")
+fi
+
+SKIP_DENO=0
+if command -v node &> /dev/null || command -v deno &> /dev/null; then
+    SKIP_DENO=1
+else
+    DISPLAY_PKGS+=("deno")
+    if [ "$OS_TYPE" == "Darwin" ]; then PKGS_TO_INSTALL+=("deno"); fi
+fi
+
+DISPLAY_LIST=$(IFS=", "; echo "${DISPLAY_PKGS[*]}")
+if [ -z "$DISPLAY_LIST" ]; then
+    INSTALL_LIST="pikaraoke (via uv)"
+else
+    INSTALL_LIST="$DISPLAY_LIST, pikaraoke (via uv)"
 fi
 
 echo "The following packages will be installed/updated: $INSTALL_LIST"
@@ -100,20 +127,16 @@ if [ "$OS_TYPE" == "Darwin" ]; then
         fi
     fi
 
-    if is_python_compatible; then
-        echo "Compatible Python version found. Skipping Python installation."
-        if [ $SKIP_DENO -eq 1 ]; then
-            brew install ffmpeg pipx
-        else
-            brew install ffmpeg deno pipx
-        fi
+    if [ ${#PKGS_TO_INSTALL[@]} -gt 0 ]; then
+        echo "Installing dependencies via Homebrew: ${PKGS_TO_INSTALL[*]}"
+        brew install "${PKGS_TO_INSTALL[@]}"
     else
-        echo "Python 3.10+ not found. Installing via Homebrew..."
-        if [ $SKIP_DENO -eq 1 ]; then
-            brew install ffmpeg pipx python
-        else
-            brew install ffmpeg deno pipx python
-        fi
+        echo "All core dependencies (Python, FFmpeg, uv) are already installed."
+    fi
+
+    # link ffmpeg-full to path since it is keg-only
+    if [[ " ${PKGS_TO_INSTALL[*]} " =~ " ffmpeg-full " ]] || ! command -v ffmpeg &> /dev/null; then
+        brew link ffmpeg-full
     fi
 
 elif [ "$OS_TYPE" == "Linux" ]; then
@@ -123,15 +146,30 @@ elif [ "$OS_TYPE" == "Linux" ]; then
         exit 1
     fi
 
-    echo "Updating package lists..."
-    sudo apt-get update
-
-    if is_python_compatible; then
-        echo "Compatible Python version found. Skipping Python installation."
-        sudo apt-get install -y ffmpeg pipx
+    echo "Checking for missing dependencies..."
+    if [ ${#PKGS_TO_INSTALL[@]} -gt 0 ]; then
+        echo "Updating package lists..."
+        sudo apt-get update
+        echo "Installing dependencies via apt: ${PKGS_TO_INSTALL[*]}"
+        # Special handling for deno if it was in the list but needs curl install
+        APT_PKGS=()
+        for pkg in "${PKGS_TO_INSTALL[@]}"; do
+            if [ "$pkg" != "deno" ] && [ "$pkg" != "uv" ]; then
+                APT_PKGS+=("$pkg")
+            fi
+        done
+        if [ ${#APT_PKGS[@]} -gt 0 ]; then
+            sudo apt-get install -y "${APT_PKGS[@]}"
+        fi
     else
-        echo "Python 3.10+ not found. Installing via apt..."
-        sudo apt-get install -y ffmpeg pipx python3
+        echo "All core dependencies (Python, FFmpeg) are already installed."
+    fi
+
+    if [ $SKIP_UV -eq 0 ] && ! command -v uv &> /dev/null; then
+        echo "Installing uv..."
+        curl -fsSL https://astral.sh/uv/install.sh | sh
+        # Add uv to PATH for the current session. Default install is ~/.local/bin or ~/.cargo/bin
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
     fi
 
     if [ $SKIP_DENO -eq 0 ] && ! command -v deno &> /dev/null; then
@@ -152,26 +190,21 @@ if ! is_python_compatible; then
     exit 1
 fi
 
-# Ensure pipx is in PATH
-echo "Configuring pipx..."
-pipx ensurepath
-export PATH="$PATH:$HOME/.local/bin"
-
 # Install pikaraoke
-echo "Installing pikaraoke via pipx..."
+echo "Installing pikaraoke via uv..."
 
-if pipx list | grep -q "pikaraoke"; then
+if uv tool list | grep -q "pikaraoke"; then
     echo "PiKaraoke is already installed. Upgrading..."
     if [ "$LOCAL" == "y" ]; then
-        pipx upgrade .
+        uv tool install --force .
     else
-        pipx upgrade pikaraoke
+        uv tool upgrade pikaraoke
     fi
 else
     if [ "$LOCAL" == "y" ]; then
-        pipx install .
+        uv tool install .
     else
-        pipx install pikaraoke
+        uv tool install pikaraoke
     fi
 fi
 
