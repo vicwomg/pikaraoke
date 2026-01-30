@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.18.1](https://github.com/vicwomg/pikaraoke/compare/1.18.0...1.18.1) (2026-01-30)
+
+
+### Bug Fixes
+
+* apply correct scaling to screen saver and subtitles ([#724](https://github.com/vicwomg/pikaraoke/issues/724)) ([2bf2048](https://github.com/vicwomg/pikaraoke/commit/2bf204866f5145a95287662fc79f385b66995ec4))
+* bg music setting also disables bg video, add bg music disable setting to UI ([#731](https://github.com/vicwomg/pikaraoke/issues/731)) ([6e6a2bb](https://github.com/vicwomg/pikaraoke/commit/6e6a2bb7e1bf665d50e933a716b6e6d7f2c7e41f))
+* OSX installer installs ffmpeg that cannot transpose ([#723](https://github.com/vicwomg/pikaraoke/issues/723)) ([9ae4b9f](https://github.com/vicwomg/pikaraoke/commit/9ae4b9f18aa9baaef5b0418c2d31ff81e0e57e22))
+* some browsers flash an ugly grey screen before video starts ([#730](https://github.com/vicwomg/pikaraoke/issues/730)) ([fd2fc4e](https://github.com/vicwomg/pikaraoke/commit/fd2fc4eb59133595bb02d4ee91901b3de66c9a3f))
+* yt-dlp update to 2026.1.29 ([#729](https://github.com/vicwomg/pikaraoke/issues/729)) ([64895b3](https://github.com/vicwomg/pikaraoke/commit/64895b3b9c241d2ca4f6e5420c1a995c9282b994))
+
+
+### Performance Improvements
+
+* use uv tool for installs, improve smoke tests ([#726](https://github.com/vicwomg/pikaraoke/issues/726)) ([c790e9f](https://github.com/vicwomg/pikaraoke/commit/c790e9f61c807119acf0e516585aa6b6e8793736))
+
 ## [1.18.0](https://github.com/vicwomg/pikaraoke/compare/1.17.2...1.18.0) (2026-01-28)
 
 
