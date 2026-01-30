@@ -1,6 +1,6 @@
 # PiKaraoke
 
-<img width="588" height="339" alt="Image" src="https://github.com/user-attachments/assets/3d688a3f-f5a0-444c-a0b2-9835ef880abd" />
+<img width="588" height="339" alt="Image" src="https://i.ibb.co/Z6MTM4wt/pikaraoke-readme.png" />
 
 PiKaraoke is a cross-platform karaoke server that brings the professional "KTV" experience to your home. It transforms your computer or Raspberry Pi into a dedicated karaoke station with a full-screen player and an instant web interface. Guests can join by simply scanning a QR code—no app downloads required—to browse your local library, manage the queue, and access countless karaoke hits from YouTube.
 
@@ -9,9 +9,10 @@ PiKaraoke is a cross-platform karaoke server that brings the professional "KTV" 
 - 🌐 YouTube & Local Media: Play your own files or access more from the web.
 - 🎹 Live Pitch Shifting: Adjust the key of any song to match your vocal range.
 - 🛠️ Admin Control: Manage the queue and settings via a password-protected admin mode.
+- 🎯 Hyper-accurate vocal performance scoring system: (not really, it's random. But kind of fun!)
 - 🐧 Lightweight & Versatile: Runs anywhere from a basic Raspberry Pi to a high-end PC.
 
-Love PiKaraoke? This project is independently maintained and free for everyone to enjoy. If PiKaraoke has made your parties better and you'd like to help keep the project alive and growing, feel free to buy me a coffee! <br/><br/>
+Love PiKaraoke? This project is independently maintained and free for everyone to enjoy. If PiKaraoke has made your parties better and you'd like to help keep the project alive and growing, feel free to [buy me a coffee](https://www.buymeacoffee.com/vicwomg)! <br/><br/>
 <a href="https://www.buymeacoffee.com/vicwomg" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-green.svg)](https://conventionalcommits.org)
@@ -111,9 +112,8 @@ For more information and a configurable docker-compose example, [see official Do
 <img width="250"  alt="pikaraoke-browse" src="https://user-images.githubusercontent.com/4107190/95813182-27787700-0ccc-11eb-82c8-fde7f0a631c1.png">
 <img width="250"  alt="pikaraoke-search1" src="https://user-images.githubusercontent.com/4107190/95813197-2e06ee80-0ccc-11eb-9bf9-ddb24d988332.png">
 <img width="250"  alt="pikaraoke-search2" src="https://user-images.githubusercontent.com/4107190/95813190-2ba49480-0ccc-11eb-84e3-f902cbd489a2.png">
+<img width="400" height="300" alt="pikaraoke-tv2" src="https://user-images.githubusercontent.com/4107190/95813564-019fa200-0ccd-11eb-95e1-57a002c357a3.png">
 </div>
-<img width="400" alt="pikaraoke-tv2" src="https://user-images.githubusercontent.com/4107190/95813564-019fa200-0ccd-11eb-95e1-57a002c357a3.png">
-  </p>
 
 ## Developing pikaraoke
 

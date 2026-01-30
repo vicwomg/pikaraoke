@@ -234,7 +234,7 @@ class DownloadManager:
         # Regex to parse progress from yt-dlp stdout
         # Example: [download]   0.0% of    4.62MiB at  396.66KiB/s ETA 00:12
         progress_regex = re.compile(
-            r"\[download\]\s+(\d+\.?\d*)%\s+of\s+[^\s]+\s+at\s+([^\s]+)\s+ETA\s+([^\s]+)"
+            r"\[download\]\s+(\d+\.?\d*)%\s+of\s+.*?\s+at\s+([^\s]+)\s+ETA\s+([^\s]+)"
         )
         video_id = get_youtube_id_from_url(video_url)
 
