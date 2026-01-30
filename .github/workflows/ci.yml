@@ -96,34 +96,9 @@ jobs:
     - name: Run tests
       run: uv run pytest tests/ -v --cov=pikaraoke --cov-report=term-missing --cov-report=xml:coverage.xml
 
-  docker-build:
+  docker-smoketest:
     runs-on: ubuntu-latest
-    name: Docker Build Smoketest (amd64)
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Build
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        file: build_scripts/docker/Dockerfile-alpine
-        push: false
-        load: true
-        tags: pikaraoke-ci-test:latest
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-
-    - name: Verify Runtime
-      run: |
-        ./build_scripts/ci/docker-smoketest.sh
-
-  docker-build-arm64:
-    runs-on: ubuntu-latest
-    name: Docker Build Smoketest (arm64)
+    name: Docker Build Smoketest
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -134,17 +109,27 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Build
+    - name: Build Multi-platform
       uses: docker/build-push-action@v6
       with:
         context: .
         file: build_scripts/docker/Dockerfile-alpine
-        platforms: linux/arm64
+        platforms: linux/amd64,linux/arm64
+        push: false
+        load: false
+        cache-from: type=gha,scope=docker-build
+        cache-to: type=gha,mode=max,scope=docker-build
+
+    - name: Build and Load for Smoketest (amd64)
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: build_scripts/docker/Dockerfile-alpine
+        push: false
         load: true
         tags: pikaraoke-ci-test:latest
-        push: false
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        cache-from: type=gha,scope=docker-build
+        cache-to: type=gha,mode=max,scope=docker-build
 
     - name: Verify Runtime
       run: |

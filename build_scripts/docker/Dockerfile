@@ -7,6 +7,7 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:0.5.26 /uv /uv/bin/
 ENV PATH="/uv/bin:$PATH"
+ENV UV_BREAK_SYSTEM_PACKAGES=1
 
 # Copy static ffmpeg binaries
 COPY --from=mwader/static-ffmpeg:latest /ffprobe /ffmpeg /usr/local/bin/
@@ -21,12 +22,12 @@ RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh -s -- v
 
 # Copy dependency and metadata files first for better caching
 COPY pyproject.toml uv.lock ./
-COPY docs ./docs
 
-# Install dependencies using uv
+# Install dependencies using uv (this layer is cached)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system --no-cache-dir --no-compile .
+    uv pip install --system --no-cache-dir --no-compile -r pyproject.toml
 
+COPY docs ./docs
 COPY pikaraoke ./pikaraoke
 
 # Re-install with -e and setup environment

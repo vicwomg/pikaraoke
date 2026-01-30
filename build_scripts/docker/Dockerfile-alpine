@@ -5,6 +5,7 @@ WORKDIR /app
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:0.5.26 /uv /uv/bin/
 ENV PATH="/uv/bin:$PATH"
+ENV UV_BREAK_SYSTEM_PACKAGES=1
 
 # Copy static ffmpeg binaries 5.1.1 is a few revisions old, but small and supports librubberband
 COPY --from=mwader/static-ffmpeg:5.1.1 /ffprobe /ffmpeg /usr/local/bin/
@@ -14,13 +15,17 @@ RUN --mount=type=cache,target=/var/cache/apk \
 
 # Copy dependency and metadata files first for better caching
 COPY pyproject.toml uv.lock ./
+
+# Install dependencies using uv (this layer is cached)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system --no-cache-dir -r pyproject.toml
+
 COPY docs ./docs
 COPY pikaraoke ./pikaraoke
 
-# Install pikaraoke with uv and add its bin directory to the PATH
+# Final install of the package itself (fast)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv tool install .
-ENV PATH="/root/.local/bin/:$PATH"
+    uv pip install --system --no-cache-dir --no-deps .
 
 # Set up volumes and ports
 RUN mkdir -p /app/pikaraoke-songs
