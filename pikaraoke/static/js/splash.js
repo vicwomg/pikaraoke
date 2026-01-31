@@ -379,6 +379,7 @@ const setupOverlayMenus = () => {
     $('#bottom-container').hide();
     $('#top-container').hide();
   }
+  $("#menu a").fadeOut(); // start hidden
   document.onmousemove = function () {
     if (mouseTimer) window.clearTimeout(mouseTimer);
     if (!cursorVisible) {
