@@ -193,6 +193,13 @@ class TestResetNowPlaying:
 
     def test_reset_now_playing_resets_volume_to_default_when_no_preference(self, mock_karaoke):
         """Test that reset uses default volume when no preference is set."""
+        # Ensure no volume preference is set (using defaults)
+        # Clear any existing preference that might have been set
+        current_volume_pref = mock_karaoke.preferences.get("volume")
+        if current_volume_pref is not None:
+            # Remove the preference by clearing and reloading defaults
+            mock_karaoke.preferences.clear()
+
         # Change volume during playback
         mock_karaoke.volume = 0.3
 
