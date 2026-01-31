@@ -243,7 +243,6 @@ def test_preference_manager_defaults_exist():
         "enable_fair_queue",
         "cdg_pixel_scaling",
         "avsync",
-        "streaming_format",
         "browse_results_per_page",
         "low_score_phrases",
         "mid_score_phrases",
@@ -282,7 +281,6 @@ def test_preference_manager_defaults_types():
     assert isinstance(defaults["bg_music_volume"], float)
 
     # String preferences
-    assert isinstance(defaults["streaming_format"], str)
     assert isinstance(defaults["low_score_phrases"], str)
     assert isinstance(defaults["mid_score_phrases"], str)
     assert isinstance(defaults["high_score_phrases"], str)
