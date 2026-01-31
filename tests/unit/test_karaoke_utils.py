@@ -178,6 +178,29 @@ class TestResetNowPlaying:
         assert mock_karaoke.is_paused is True
         assert mock_karaoke.is_playing is False
 
+    def test_reset_now_playing_resets_volume_to_preference(self, mock_karaoke):
+        """Test that reset restores volume to user's saved preference."""
+        # Set a custom volume preference
+        mock_karaoke.preferences.set("volume", "0.7")
+
+        # Change volume during playback
+        mock_karaoke.volume = 0.3
+
+        # Reset should restore volume to preference value
+        mock_karaoke.reset_now_playing()
+
+        assert mock_karaoke.volume == 0.7
+
+    def test_reset_now_playing_resets_volume_to_default_when_no_preference(self, mock_karaoke):
+        """Test that reset uses default volume when no preference is set."""
+        # Change volume during playback
+        mock_karaoke.volume = 0.3
+
+        # Reset should restore volume to default (0.85)
+        mock_karaoke.reset_now_playing()
+
+        assert mock_karaoke.volume == 0.85
+
 
 class TestPause:
     """Tests for the pause method."""

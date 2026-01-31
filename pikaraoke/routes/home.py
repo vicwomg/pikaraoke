@@ -30,4 +30,5 @@ def home():
         transpose_value=k.now_playing_transpose,
         admin=is_admin(),
         is_transpose_enabled=k.is_transpose_enabled,
+        volume=k.volume,
     )

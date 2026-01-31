@@ -641,6 +641,7 @@ class Karaoke:
         self.now_playing_transpose = 0
         self.now_playing_duration = None
         self.now_playing_position = None
+        self.volume = self.preferences.get_or_default("volume")
         self.update_now_playing_socket()
 
     def get_now_playing(self) -> dict[str, Any]:
