@@ -47,9 +47,15 @@ class PreferenceManager:
         "high_score_phrases": "",
     }
 
-    def __init__(self, config_file_path: str = "config.ini") -> None:
-        """Initialize with config path (relative paths go in data directory)."""
+    def __init__(self, config_file_path: str = "config.ini", target: object | None = None) -> None:
+        """Initialize with config path and optional target object to sync.
+
+        Args:
+            config_file_path: Path to config.ini (relative paths go in data directory)
+            target: Optional object to sync attributes on when preferences change
+        """
         self._config_obj = configparser.ConfigParser()
+        self._target = target  # Object to sync attributes on
 
         # Migrate config.ini from old default to new data directory
         if config_file_path == "config.ini":
@@ -98,7 +104,10 @@ class PreferenceManager:
         return self.get(preference, self.DEFAULTS.get(preference))
 
     def set(self, preference: str, val: Any) -> tuple[bool, str]:
-        """Update a preference and persist to config file. Returns (success, message)."""
+        """Update a preference, persist to config, and sync target object.
+
+        Returns (success, message) tuple.
+        """
         logging.debug(f"Changing user preference << {preference} >> to {val}")
         try:
             # Read existing config to preserve other preferences
@@ -112,6 +121,11 @@ class PreferenceManager:
 
             with open(self.config_file_path, "w") as conf:
                 self._config_obj.write(conf)
+
+            # Auto-sync target object if registered
+            if self._target is not None:
+                typed_val = self.convert_value(val)
+                setattr(self._target, preference, typed_val)
 
             return (True, _("Your preferences were changed successfully"))
         except Exception as e:
@@ -146,3 +160,43 @@ class PreferenceManager:
         elif val.lstrip("-").replace(".", "", 1).isdigit():
             return float(val)
         return val
+
+    def apply_all(self, **cli_overrides: Any) -> None:
+        """Hydrate target object with all preferences from config/defaults.
+
+        Priority: CLI argument (if provided) > config file > DEFAULTS
+
+        CLI arguments that are explicitly provided are persisted to config
+        so the Web UI reflects the startup flags.
+
+        Args:
+            **cli_overrides: CLI arguments that should override config values
+        """
+        if self._target is None:
+            return
+
+        for pref, default in self.DEFAULTS.items():
+            cli_value = cli_overrides.get(pref)
+
+            # Determine if CLI value was explicitly provided
+            is_bool_pref = isinstance(default, bool)
+            cli_provided = (is_bool_pref and cli_value is True) or (
+                not is_bool_pref and cli_value is not None
+            )
+
+            if cli_provided:
+                setattr(self._target, pref, cli_value)
+                self.set(pref, cli_value)  # Persist CLI arg to config
+            else:
+                setattr(self._target, pref, self.get(pref, default))
+
+    def reset_all(self) -> tuple[bool, str]:
+        """Clear config file and reset target to defaults.
+
+        Returns (success, message) tuple.
+        """
+        success, message = self.clear()
+        if success and self._target is not None:
+            for pref, default in self.DEFAULTS.items():
+                setattr(self._target, pref, default)
+        return success, message

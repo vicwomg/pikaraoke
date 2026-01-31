@@ -334,7 +334,7 @@ class MinimalKaraoke:
     """Minimal mock for testing _load_preferences() in isolation."""
 
     def __init__(self, config_file_path: str):
-        self.preferences = PreferenceManager(config_file_path)
+        self.preferences = PreferenceManager(config_file_path, target=self)
 
     # Import the actual _load_preferences method to test
     from pikaraoke.karaoke import Karaoke
@@ -438,3 +438,172 @@ def test_set_preserves_existing_preferences_across_instances(temp_config_file):
     assert prefs3.get("volume") == 0.5
     assert prefs3.get("splash_delay") == 10
     assert prefs3.get("high_quality") is True
+
+
+# --- Tests for target object synchronization ---
+
+
+class MockTarget:
+    """Mock target object for testing attribute synchronization."""
+
+    pass
+
+
+def test_set_syncs_target_object(temp_config_file):
+    """Test that set() automatically syncs the target object attribute."""
+    target = MockTarget()
+    prefs = PreferenceManager(temp_config_file, target=target)
+
+    # Set a preference
+    success, message = prefs.set("volume", "0.7")
+    assert success is True
+
+    # Verify target object was synced with typed value
+    assert hasattr(target, "volume")
+    assert target.volume == 0.7
+    assert isinstance(target.volume, float)
+
+
+def test_set_without_target_does_not_fail(temp_config_file):
+    """Test that set() works normally when no target is registered."""
+    prefs = PreferenceManager(temp_config_file)  # No target
+
+    success, message = prefs.set("volume", "0.7")
+    assert success is True
+
+    # Preference is still persisted to config
+    assert prefs.get("volume") == 0.7
+
+
+def test_apply_all_hydrates_target(temp_config_file):
+    """Test that apply_all() sets all preferences as attributes on target."""
+    target = MockTarget()
+    prefs = PreferenceManager(temp_config_file, target=target)
+
+    # Set some preferences in config
+    prefs.set("volume", "0.5")
+    prefs.set("splash_delay", "10")
+    prefs.set("high_quality", "true")
+
+    # Create new target and apply all preferences
+    new_target = MockTarget()
+    prefs._target = new_target
+    prefs.apply_all()
+
+    # Verify all DEFAULTS are hydrated on target
+    for pref, default in PreferenceManager.DEFAULTS.items():
+        assert hasattr(new_target, pref), f"Missing attribute: {pref}"
+
+    # Verify config values override defaults
+    assert new_target.volume == 0.5
+    assert new_target.splash_delay == 10
+    assert new_target.high_quality is True
+
+    # Verify other preferences use defaults
+    assert new_target.hide_url is False
+
+
+def test_apply_all_cli_overrides_take_priority(temp_config_file):
+    """Test that CLI arguments override config file values in apply_all()."""
+    target = MockTarget()
+    prefs = PreferenceManager(temp_config_file, target=target)
+
+    # Set values in config file
+    prefs.set("volume", "0.5")
+    prefs.set("splash_delay", "10")
+
+    # Create new target and apply with CLI overrides
+    new_target = MockTarget()
+    prefs._target = new_target
+    prefs.apply_all(volume=0.9, splash_delay=5)
+
+    # CLI values should override config values
+    assert new_target.volume == 0.9
+    assert new_target.splash_delay == 5
+
+    # CLI values should be persisted to config
+    assert prefs.get("volume") == 0.9
+    assert prefs.get("splash_delay") == 5
+
+
+def test_apply_all_boolean_cli_handling(temp_config_file):
+    """Test boolean CLI flag handling in apply_all()."""
+    target = MockTarget()
+    prefs = PreferenceManager(temp_config_file, target=target)
+
+    # Set boolean preferences in config
+    prefs.set("normalize_audio", "true")
+    prefs.set("high_quality", "true")
+
+    # Create new target
+    new_target = MockTarget()
+    prefs._target = new_target
+
+    # Call with normalize_audio=True (flag passed) and high_quality=False (flag not passed)
+    prefs.apply_all(normalize_audio=True, high_quality=False)
+
+    # normalize_audio=True means flag was passed, so use CLI value (True)
+    assert new_target.normalize_audio is True
+
+    # high_quality=False means flag was NOT passed, so use config value (True)
+    assert new_target.high_quality is True
+
+
+def test_apply_all_without_target_does_not_fail(temp_config_file):
+    """Test that apply_all() works gracefully when no target is registered."""
+    prefs = PreferenceManager(temp_config_file)  # No target
+
+    # Should not raise an error (just returns early)
+    prefs.apply_all(volume=0.9)
+
+    # Since there's no target, apply_all() returns early and does nothing
+    # The config is not updated because there's no target to hydrate
+    assert prefs.get("volume") is None
+
+
+def test_reset_all_restores_defaults(temp_config_file):
+    """Test that reset_all() clears config and resets target to defaults."""
+    target = MockTarget()
+    prefs = PreferenceManager(temp_config_file, target=target)
+
+    # Set some custom preferences
+    prefs.set("volume", "0.5")
+    prefs.set("splash_delay", "10")
+    prefs.set("high_quality", "true")
+
+    # Apply to target
+    prefs.apply_all()
+    assert target.volume == 0.5
+    assert target.splash_delay == 10
+    assert target.high_quality is True
+
+    # Reset all
+    success, message = prefs.reset_all()
+    assert success is True
+    assert "successfully" in message.lower()
+
+    # Verify config file is deleted
+    assert not os.path.exists(temp_config_file)
+
+    # Verify target attributes are reset to defaults
+    assert target.volume == 0.85  # Default
+    assert target.splash_delay == 2  # Default
+    assert target.high_quality is False  # Default
+
+
+def test_reset_all_without_target(temp_config_file):
+    """Test that reset_all() works when no target is registered."""
+    prefs = PreferenceManager(temp_config_file)  # No target
+
+    # Set some preferences
+    prefs.set("volume", "0.5")
+
+    # Reset all
+    success, message = prefs.reset_all()
+    assert success is True
+
+    # Config file should be deleted
+    assert not os.path.exists(temp_config_file)
+
+    # Preferences should return defaults
+    assert prefs.get_or_default("volume") == 0.85

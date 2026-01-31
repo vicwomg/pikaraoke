@@ -181,7 +181,7 @@ class Karaoke:
 
         # Initialize event system and preferences (foundation for all components)
         self.events = EventSystem()
-        self.preferences = PreferenceManager(config_file_path)
+        self.preferences = PreferenceManager(config_file_path, target=self)
 
         # Platform-specific initializations
         self.platform = get_platform()
@@ -251,28 +251,8 @@ class Karaoke:
         """Load preference-driven attributes from config file.
 
         Priority: CLI argument (if provided) > config file > PreferenceManager.DEFAULTS
-
-        CLI arguments that are explicitly provided are persisted to config
-        so the Web UI reflects the startup flags.
         """
-        for pref, default in self.preferences.DEFAULTS.items():
-            cli_value = cli_overrides.get(pref)
-
-            # Determine if CLI value was explicitly provided:
-            # - For booleans: True means flag was passed, False means not passed
-            # - For others: not None means explicitly provided
-            is_bool_pref = isinstance(default, bool)
-            cli_provided = (is_bool_pref and cli_value is True) or (
-                not is_bool_pref and cli_value is not None
-            )
-
-            if cli_provided:
-                # CLI value was explicitly provided - use it and persist to config
-                setattr(self, pref, cli_value)
-                self.preferences.set(pref, cli_value)
-            else:
-                # No CLI value - use config file value or default
-                setattr(self, pref, self.preferences.get(pref, default))
+        self.preferences.apply_all(**cli_overrides)
 
     def get_url(self):
         """Get the URL for accessing the PiKaraoke web interface.
