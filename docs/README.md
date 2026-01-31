@@ -96,7 +96,7 @@ Run PiKaraoke in Docker using the command below. Note the requirements for port 
 
 ```sh
 docker run -p 5555:5555 \
-  -v ~/pikaraoke-songs:/home/pikaraoke/pikaraoke-songs \
+  -v ~/pikaraoke-songs:/app/pikaraoke-songs \
   -v ~/.pikaraoke:/home/pikaraoke/.pikaraoke \
   vicwomg/pikaraoke:latest \
   -u http://<YOUR_LAN_IP>:5555

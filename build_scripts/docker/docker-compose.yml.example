@@ -22,10 +22,12 @@ services:
       -u http://<YOUR_LAN_IP>:5555
 
     # --- VOLUMES ---
-    # relative paths (./) are used here for simplicity.
-    # You can change these to absolute paths (e.g., C:/Music or /home/pi/Music)
+    # The <local_directory>:<container_directory> format is used.
+    # You should only need to change <local_directory>
+    # You can change the <local_directory> to an absolute path (e.g., C:/Music or /home/pi/Music)
+    # Relative current directory paths (./) are used here for simplicity.
     volumes:
-      - ./songs:/home/pikaraoke/pikaraoke-songs      # Place your song files in a 'songs' folder next to this file
+      - ./songs:/app/pikaraoke-songs      # Songs will be saved here
       - ./data:/home/pikaraoke/.pikaraoke # Data, including your config, will be saved here
 
     # --- PORTS ---

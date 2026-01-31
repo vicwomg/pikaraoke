@@ -34,18 +34,17 @@ RUN adduser -D -u 1000 pikaraoke
 
 # Directories must exist prior to run, otherwise the local volume persistence won't work
 RUN mkdir -p /home/pikaraoke/.pikaraoke && \
-    chown -R pikaraoke:pikaraoke /app /home/pikaraoke
-RUN mkdir -p /home/pikaraoke/pikaraoke-songs && \
-    chown -R pikaraoke:pikaraoke /home/pikaraoke/pikaraoke-songs
+    mkdir -p /app/pikaraoke-songs && \
+    chown -R pikaraoke:pikaraoke /app/pikaraoke-songs /home/pikaraoke
 
 # Set environment variables for the user
 ENV HOME=/home/pikaraoke
 USER pikaraoke
 
-VOLUME ["/home/pikaraoke/pikaraoke-songs", "/home/pikaraoke/.pikaraoke"]
+VOLUME ["/app/pikaraoke-songs", "/home/pikaraoke/.pikaraoke"]
 EXPOSE 5555
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:5555/ || exit 1
 
-ENTRYPOINT ["pikaraoke", "--headless"]
+ENTRYPOINT ["pikaraoke", "-d", "/app/pikaraoke-songs/", "--headless"]
