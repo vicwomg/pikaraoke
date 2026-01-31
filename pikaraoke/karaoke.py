@@ -10,6 +10,7 @@ import shutil
 import socket
 import subprocess
 import time
+import uuid
 from subprocess import check_output
 from typing import Any
 
@@ -17,6 +18,7 @@ import qrcode
 from flask_babel import _
 from qrcode.image.pure import PyPNGImage
 
+from pikaraoke.lib.database import PlayDatabase
 from pikaraoke.lib.download_manager import DownloadManager
 from pikaraoke.lib.ffmpeg import (
     get_ffmpeg_version,
@@ -84,6 +86,11 @@ class Karaoke:
     is_playing: bool = False
     process: subprocess.Popen | None = None
     qr_code_path: str | None = None
+
+    # Database for play history
+    db: PlayDatabase | None = None
+    session_id: str | None = None
+    _current_play_id: int | None = None
     base_path: str = os.path.dirname(__file__)
     loop_interval: int = 500  # in milliseconds
     default_logo_path: str = os.path.join(base_path, "static", "images", "logo.png")
@@ -132,6 +139,8 @@ class Karaoke:
         additional_ytdl_args: str | None = None,
         socketio=None,
         preferred_language: str | None = None,
+        force_recreate_db: bool = False,
+        db_path: str | None = None,
     ) -> None:
         """Initialize the Karaoke instance.
 
@@ -168,6 +177,8 @@ class Karaoke:
             additional_ytdl_args: Additional yt-dlp command arguments.
             socketio: SocketIO instance for real-time event emission.
             preferred_language: Language code for UI (e.g., 'en', 'de_DE').
+            force_recreate_db: If True, recreate corrupt database instead of exiting.
+            db_path: Path to the play history database file. Defaults to data directory.
         """
         logging.basicConfig(
             format="[%(asctime)s] %(levelname)s: %(message)s",
@@ -336,6 +347,15 @@ class Karaoke:
             update_now_playing_socket=self.update_now_playing_socket,
             skip=self.skip,
         )
+
+        # Initialize play history database
+        db_file_path = db_path or os.path.join(get_data_directory(), "pikaraoke_plays.db")
+        logging.info(f"Play history database: {db_file_path}")
+        PlayDatabase.check_and_recover_db(db_file_path, force_recreate_db)
+        self.db = PlayDatabase(db_file_path)
+        self.session_id = str(uuid.uuid4())
+        self.db.ensure_session(self.session_id)
+        logging.info(f"Session ID: {self.session_id}")
 
     def get_url(self):
         """Get the URL for accessing the PiKaraoke web interface.
@@ -650,9 +670,17 @@ class Karaoke:
         self.stream_manager.kill_ffmpeg()
 
     def start_song(self) -> None:
-        """Mark the current song as actively playing."""
+        """Mark the current song as actively playing and log to database."""
         logging.info(f"Song starting: {self.now_playing}")
         self.is_playing = True
+
+        # Log play to database
+        if self.db and self.now_playing and self.now_playing_user and self.session_id:
+            self._current_play_id = self.db.add_play(
+                song=self.now_playing,
+                user=self.now_playing_user,
+                session_id=self.session_id,
+            )
 
     def end_song(self, reason: str | None = None) -> None:
         """End the current song and clean up resources.
@@ -661,7 +689,14 @@ class Karaoke:
             reason: Optional reason for ending (e.g., 'complete', 'skip').
         """
         logging.info(f"Song ending: {self.now_playing}")
-        if reason != None:
+
+        # Update play record in database before resetting now_playing
+        if self.db and self._current_play_id is not None:
+            completed = reason == "complete"
+            self.db.update_play(self._current_play_id, completed)
+            self._current_play_id = None
+
+        if reason is not None:
             logging.info(f"Reason: {reason}")
             if reason != "complete":
                 # MSG: Message shown when the song ends abnormally

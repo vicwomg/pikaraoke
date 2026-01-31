@@ -95,7 +95,6 @@
   <div id="qr-code">
     <img
       src="{{ url_for('images.qrcode') }}"
-      width="100px"
       style="image-rendering: pixelated"
       alt="qrcode"
     />
@@ -204,11 +203,9 @@
   <div id="screensaver" style="visibility: hidden">
     <div id="dvd">
       {% if not hide_url %}
-      <div>
-        <div style="text-align: right">
-          <img src="{{ url_for('images.qrcode') }}" width="30%" height="30%" />
-        </div>
-        <div>{{ hostap_info[0] }}<br />{{ url }}</div>
+      <div class="qr-container">
+        <img src="{{ url_for('images.qrcode') }}" alt="QR code" />
+        <div class="qr-url">{{ url }}</div>
       </div>
       {% endif %}
     </div>
@@ -267,7 +264,11 @@
     align-items: flex-end;
   }
   #qr-code {
-    max-width: 25%;
+    max-width: 20vw;
+  }
+  #qr-code img {
+    width: 18vw;
+    min-width: 150px;
   }
   #up-next {
     max-width: 75%;

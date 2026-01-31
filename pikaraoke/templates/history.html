@@ -1,0 +1,450 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+<style>
+    /* Calendar session highlighting */
+    .date-with-sessions {
+        background-color: #e8f5e9 !important;
+        border: 2px solid #4caf50 !important;
+    }
+    .session-date-info {
+        display: none;
+        position: absolute;
+        background: #333;
+        color: #fff;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        z-index: 100;
+        white-space: nowrap;
+    }
+    .action-buttons a {
+        margin-right: 0.25rem;
+    }
+</style>
+<script>
+$(function() {
+    // Handle "Add to queue" clicks
+    $("a.add-song-link").click(function(e) {
+        e.preventDefault();
+        setUserCookie();
+        var user = Cookies.get("user") || "History";
+        var songTitle = $(this).data("song-title");
+        $.post("/queue/add_by_title", { song_title: songTitle, user: user }, function(data) {
+            var obj = typeof data === 'string' ? JSON.parse(data) : data;
+            if (obj.success[0]) {
+                showNotification(obj.success[1], "is-success");
+            } else {
+                showNotification(obj.success[1], "is-danger");
+            }
+        });
+    });
+
+    // Handle "Delete play" clicks
+    $("a.delete-play-btn").click(function(e) {
+        e.preventDefault();
+        setUserCookie();
+        var playId = $(this).data("play-id");
+        var displayName = $(this).data("display-name");
+        var user = Cookies.get("user") || "";
+        var row = $(this).closest("tr");
+        if (confirm("{% trans %}Delete this play from history?{% endtrans %}")) {
+            $.ajax({
+                url: "/history/play/" + playId + "?user=" + encodeURIComponent(user),
+                type: "DELETE",
+                success: function(data) {
+                    if (data.success) {
+                        showNotification(data.message, "is-success");
+                        row.fadeOut(300, function() { $(this).remove(); });
+                    } else {
+                        showNotification(data.message, "is-danger");
+                    }
+                },
+                error: function(xhr) {
+                    var msg = xhr.responseJSON ? xhr.responseJSON.message : "Error";
+                    showNotification(msg, "is-danger");
+                }
+            });
+        }
+    });
+
+    // Handle "Edit play" clicks (admin only)
+    $("a.edit-play-btn").click(function(e) {
+        e.preventDefault();
+        var playId = $(this).data("play-id");
+        var currentName = $(this).data("display-name");
+        var newName = prompt("{% trans %}Enter new user/display name:{% endtrans %}", currentName);
+        if (newName && newName.trim() !== currentName) {
+            $.post("/admin/history/plays/" + playId + "/user", { display_name: newName.trim() }, function(data) {
+                if (data.success) {
+                    showNotification(data.message, "is-success");
+                    location.reload();
+                } else {
+                    showNotification(data.message, "is-danger");
+                }
+            }).fail(function(xhr) {
+                var msg = xhr.responseJSON ? xhr.responseJSON.message : "Error";
+                showNotification(msg, "is-danger");
+            });
+        }
+    });
+
+    // Handle filter form submission
+    $("#filter-form").on("submit", function(e) {
+        // Remove empty fields from submission to keep URLs clean
+        $(this).find("input, select").each(function() {
+            if (!$(this).val()) {
+                $(this).attr("disabled", true);
+            }
+        });
+    });
+
+    // Load session dates for calendar highlighting
+    var sessionDates = {};
+    $.get("/history/api/session-dates", function(data) {
+        if (data.success) {
+            sessionDates = data.dates;
+            updateDateInfo();
+        }
+    });
+
+    // Show session info when date inputs change
+    function updateDateInfo() {
+        var dateFrom = $("input[name='date_from']").val();
+        var dateTo = $("input[name='date_to']").val();
+        
+        // Show info for from date
+        if (dateFrom && sessionDates[dateFrom]) {
+            var sessions = sessionDates[dateFrom].join(", ");
+            $(".date-from-info").text("{% trans %}Sessions{% endtrans %}: " + sessions).show();
+        } else {
+            $(".date-from-info").hide();
+        }
+        
+        // Show info for to date
+        if (dateTo && sessionDates[dateTo]) {
+            var sessions = sessionDates[dateTo].join(", ");
+            $(".date-to-info").text("{% trans %}Sessions{% endtrans %}: " + sessions).show();
+        } else {
+            $(".date-to-info").hide();
+        }
+    }
+
+    $("input[name='date_from'], input[name='date_to']").on("change", updateDateInfo);
+});
+</script>
+<style>
+    .history-table {
+        width: 100%;
+        font-size: 0.9rem;
+        table-layout: auto;
+    }
+    .history-table th {
+        cursor: pointer;
+        white-space: nowrap;
+        padding: 0.4rem 0.5rem;
+    }
+    .history-table th:hover {
+        background-color: #f0f0f0;
+    }
+    .history-table td {
+        padding: 0.3rem 0.5rem;
+        vertical-align: middle;
+        line-height: 1.4;
+    }
+    .history-table td a {
+        line-height: inherit;
+    }
+    /* Fixed-width columns for compact display */
+    .history-table .col-datetime {
+        white-space: nowrap;
+        width: 1%;
+    }
+    .history-table .col-session {
+        white-space: nowrap;
+        max-width: 100px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .history-table .col-user {
+        white-space: nowrap;
+        max-width: 120px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .history-table .col-song {
+        /* Song column gets remaining space */
+    }
+    .history-table .col-actions {
+        white-space: nowrap;
+        width: 1%;
+    }
+    /* Compact action buttons */
+    .history-table .action-buttons {
+        display: flex;
+        gap: 0.15rem;
+    }
+    .history-table .action-buttons a {
+        padding: 0.1rem;
+        margin: 0;
+    }
+    .filter-form {
+        margin-bottom: 1rem;
+    }
+    .filter-form .columns {
+        margin-bottom: 0.5rem;
+    }
+    .filter-form .columns:last-of-type {
+        margin-bottom: 0;
+    }
+    .sort-indicator {
+        margin-left: 0.25rem;
+    }
+    /* Skipped song indicator */
+    .skipped-indicator {
+        margin-left: 0.3rem;
+        font-size: 0.85em;
+        cursor: help;
+    }
+</style>
+{% endblock %}
+
+{% block header %}
+<h1>{% block title %}{% trans %}Play History{% endtrans %}{% endblock %}</h1>
+<div class="buttons">
+    <button class="button is-info" disabled>
+        <i class="icon icon-clock"></i>
+        <span>{% trans %}History{% endtrans %}</span>
+    </button>
+    <a href="{{ url_for('history.rankings') }}" class="button is-info is-outlined">
+        <i class="icon icon-sort-up"></i>
+        <span>{% trans %}Rankings{% endtrans %}</span>
+    </a>
+    <a href="{{ url_for('history.performers') }}" class="button is-info is-outlined">
+        <i class="icon icon-mic-1"></i>
+        <span>{% trans %}Performers{% endtrans %}</span>
+    </a>
+    {% if admin %}
+    <a href="{{ url_for('admin_history.admin_history') }}" class="button is-warning is-outlined">
+        <i class="icon icon-cog"></i>
+        <span>{% trans %}Manage{% endtrans %}</span>
+    </a>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+
+{# Filter Form - Rankings-style first row #}
+<div class="box filter-form">
+    <form id="filter-form" method="get" action="{{ url_for('history.history') }}">
+        {# Row 1: Date range, Session, Show, Apply (Rankings pattern) #}
+        <div class="columns">
+            <div class="column">
+                <div class="field">
+                    <label class="label">{% trans %}Date From{% endtrans %}</label>
+                    <div class="control">
+                        <input class="input is-small" type="date" name="date_from" value="{{ date_from }}">
+                    </div>
+                    <p class="help date-from-info has-text-success" style="display:none;"></p>
+                </div>
+            </div>
+            <div class="column">
+                <div class="field">
+                    <label class="label">{% trans %}Date To{% endtrans %}</label>
+                    <div class="control">
+                        <input class="input is-small" type="date" name="date_to" value="{{ date_to }}">
+                    </div>
+                    <p class="help date-to-info has-text-success" style="display:none;"></p>
+                </div>
+            </div>
+            <div class="column">
+                <div class="field">
+                    <label class="label">{% trans %}Session{% endtrans %}</label>
+                    <div class="control">
+                        <div class="select is-small is-fullwidth">
+                            <select name="session_id">
+                                <option value="">{% trans %}All Sessions{% endtrans %}</option>
+                                {% for session in sessions %}
+                                <option value="{{ session.session_id }}" {% if session_id == session.session_id %}selected{% endif %}>{{ session.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="column">
+                <div class="field">
+                    <label class="label">{% trans %}Results{% endtrans %}</label>
+                    <div class="control">
+                        <div class="select is-small is-fullwidth">
+                            <select name="limit">
+                                <option value="20" {% if limit == 20 %}selected{% endif %}>20</option>
+                                <option value="50" {% if limit == 50 %}selected{% endif %}>50</option>
+                                <option value="100" {% if limit == 100 %}selected{% endif %}>100</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="column is-narrow">
+                <div class="field">
+                    <label class="label">&nbsp;</label>
+                    <div class="control">
+                        <a href="{{ url_for('history.history') }}" class="button is-primary is-small">{% trans %}Clear{% endtrans %}</a>
+                    </div>
+                </div>
+            </div>
+            <div class="column is-narrow">
+                <div class="field">
+                    <label class="label">&nbsp;</label>
+                    <div class="control">
+                        <button type="submit" class="button is-primary is-small">{% trans %}Apply{% endtrans %}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {# Row 2: User, Song (full width) #}
+        <div class="columns">
+            <div class="column is-2">
+                <div class="field">
+                    <label class="label">{% trans %}User{% endtrans %}</label>
+                    <div class="control">
+                        <input class="input is-small" type="text" name="user" value="{{ user_filter }}" list="users-list" placeholder="{% trans %}All{% endtrans %}">
+                        <datalist id="users-list">{% for user in distinct_users %}<option value="{{ user }}">{% endfor %}</datalist>
+                    </div>
+                </div>
+            </div>
+            <div class="column">
+                <div class="field">
+                    <label class="label">{% trans %}Song{% endtrans %}</label>
+                    <div class="control">
+                        <input class="input is-small" type="text" name="song" value="{{ song_filter }}" placeholder="{% trans %}Filter by song title{% endtrans %}">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <input type="hidden" name="sort_by" value="{{ sort_by }}">
+        <input type="hidden" name="sort_order" value="{{ sort_order }}">
+    </form>
+</div>
+
+{# Results summary and pagination #}
+{% if pagination %}
+{{ pagination.links }}
+{{ pagination.info }}
+{% endif %}
+
+{# History Table #}
+{% if plays %}
+<table class="history-table">
+    <thead>
+        <tr>
+            {# Sortable headers - clicking toggles sort order #}
+            {% macro sort_header(column, label, css_class='') %}
+            {% set new_order = 'ASC' if sort_by == column and sort_order == 'DESC' else 'DESC' %}
+            <th class="{{ css_class }}">
+                <a href="{{ url_for('history.history', 
+                    date_from=date_from, date_to=date_to, session_id=session_id, 
+                    sessions_count=sessions_count, user=user_filter, song=song_filter, limit=limit,
+                    sort_by=column, sort_order=new_order) }}">
+                    {{ label }}
+                    {% if sort_by == column %}
+                    <span class="sort-indicator">{% if sort_order == 'DESC' %}&#9660;{% else %}&#9650;{% endif %}</span>
+                    {% endif %}
+                </a>
+            </th>
+            {% endmacro %}
+            
+            {{ sort_header('timestamp', _('Date/Time'), 'col-datetime') }}
+            <th class="col-session">{% trans %}Session{% endtrans %}</th>
+            {{ sort_header('canonical_name', _('User'), 'col-user') }}
+            {{ sort_header('song', _('Song'), 'col-song') }}
+            <th class="col-actions">{% trans %}Actions{% endtrans %}</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for play in plays %}
+        <tr>
+            <td class="col-datetime">{{ play.timestamp[:16] if play.timestamp else '' }}</td>
+            <td class="col-session" title="{{ play.session_name or '' }}">
+                <a href="{{ url_for('history.history', 
+                    session_id=play.session_id,
+                    date_from=date_from, date_to=date_to, 
+                    user=user_filter, song=song_filter, limit=limit,
+                    sort_by=sort_by, sort_order=sort_order) }}">
+                    {{ play.session_name or '' }}
+                </a>
+            </td>
+            <td class="col-user" title="{{ play.display_name or play.canonical_name }}">
+                <a href="{{ url_for('history.history', user=play.canonical_name,
+                    date_from=date_from, date_to=date_to, session_id=session_id,
+                    sessions_count=sessions_count, song=song_filter, limit=limit,
+                    sort_by=sort_by, sort_order=sort_order) }}">
+                    {{ play.display_name or play.canonical_name }}
+                </a>
+            </td>
+            <td class="col-song">
+                <a href="{{ url_for('history.history', 
+                    song=play.song,
+                    date_from=date_from, date_to=date_to, 
+                    session_id=session_id, sessions_count=sessions_count,
+                    limit=limit, sort_by=sort_by, sort_order=sort_order) }}">
+                    {{ play.song }}
+                </a>
+                {% if not play.completed %}
+                <i class="icon icon-info-circled has-text-warning skipped-indicator" 
+                   title="{% trans %}Song was skipped{% endtrans %}"></i>
+                {% endif %}
+            </td>
+            <td class="col-actions action-buttons">
+                <a class="add-song-link has-text-success" href="#"
+                   data-song-title="{{ play.song }}"
+                   title="{% trans %}Add to queue{% endtrans %}">
+                    <i class="icon icon-list-add"></i>
+                </a>
+                {% if admin %}
+                <a class="edit-play-btn has-text-info" href="#"
+                   data-play-id="{{ play.id }}"
+                   data-display-name="{{ play.display_name }}"
+                   title="{% trans %}Edit user{% endtrans %}">
+                    <i class="icon icon-edit"></i>
+                </a>
+                {% endif %}
+                <a class="delete-play-btn has-text-danger" href="#"
+                   data-play-id="{{ play.id }}"
+                   data-display-name="{{ play.display_name }}"
+                   title="{% trans %}Delete play{% endtrans %}">
+                    <i class="icon icon-trash"></i>
+                </a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if pagination %}
+{{ pagination.links }}
+{% endif %}
+
+{% else %}
+<div class="notification is-info">
+    {% trans %}No play history found.{% endtrans %}
+    {% if date_from or date_to or session_id or user_filter or song_filter %}
+    <a href="{{ url_for('history.history') }}">{% trans %}Clear filters{% endtrans %}</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if admin %}
+<div class="box">
+    <h2 class="subtitle">{% trans %}Admin Actions{% endtrans %}</h2>
+    <p>
+        <a href="{{ url_for('admin_history.admin_history') }}" class="button is-small">
+            {% trans %}Manage History{% endtrans %}
+        </a>
+    </p>
+</div>
+{% endif %}
+
+{% endblock %}

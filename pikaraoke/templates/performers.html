@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+<style>
+    .alias-tag {
+        margin-right: 0.25rem;
+        margin-bottom: 0.25rem;
+    }
+    .performers-table {
+        width: 100%;
+        table-layout: auto;
+        background-color: transparent;
+        border: none;
+    }
+    .performers-table td,
+    .performers-table th {
+        padding: 5px 0.5rem;
+        vertical-align: middle;
+        border: none;
+    }
+    .performers-table th {
+        font-weight: bold;
+        text-align: left;
+    }
+</style>
+{% endblock %}
+
+{% block header %}
+<h1>{% block title %}{% trans %}Play History{% endtrans %}: {% trans %}Performers{% endtrans %}{% endblock %}</h1>
+<div class="buttons">
+    <a href="{{ url_for('history.history') }}" class="button is-info is-outlined">
+        <i class="icon icon-clock"></i>
+        <span>{% trans %}History{% endtrans %}</span>
+    </a>
+    <a href="{{ url_for('history.rankings') }}" class="button is-info is-outlined">
+        <i class="icon icon-sort-up"></i>
+        <span>{% trans %}Rankings{% endtrans %}</span>
+    </a>
+    <button class="button is-info" disabled>
+        <i class="icon icon-mic-1"></i>
+        <span>{% trans %}Performers{% endtrans %}</span>
+    </button>
+    {% if admin %}
+    <a href="{{ url_for('admin_history.admin_history') }}" class="button is-warning is-outlined">
+        <i class="icon icon-cog"></i>
+        <span>{% trans %}Manage{% endtrans %}</span>
+    </a>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- Filter Form -->
+<div class="box">
+    <form method="GET" action="{{ url_for('history.performers') }}">
+        <div class="columns">
+            <div class="column">
+                <div class="field">
+                    <label class="label">{% trans %}Date From{% endtrans %}</label>
+                    <div class="control">
+                        <input class="input is-small" type="date" name="date_from" value="{{ date_from }}">
+                    </div>
+                </div>
+            </div>
+            <div class="column">
+                <div class="field">
+                    <label class="label">{% trans %}Date To{% endtrans %}</label>
+                    <div class="control">
+                        <input class="input is-small" type="date" name="date_to" value="{{ date_to }}">
+                    </div>
+                </div>
+            </div>
+            <div class="column">
+                <div class="field">
+                    <label class="label">{% trans %}Sort By{% endtrans %}</label>
+                    <div class="control">
+                        <div class="select is-fullwidth">
+                            <select name="sort_by">
+                                <option value="play_count" {% if sort_by == 'play_count' %}selected{% endif %}>{% trans %}Play Count{% endtrans %}</option>
+                                <option value="canonical_name" {% if sort_by == 'canonical_name' %}selected{% endif %}>{% trans %}Name{% endtrans %}</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="column">
+                <div class="field">
+                    <label class="label">{% trans %}Order{% endtrans %}</label>
+                    <div class="control">
+                        <div class="select is-fullwidth">
+                            <select name="sort_order">
+                                <option value="DESC" {% if sort_order == 'DESC' %}selected{% endif %}>{% trans %}Descending{% endtrans %}</option>
+                                <option value="ASC" {% if sort_order == 'ASC' %}selected{% endif %}>{% trans %}Ascending{% endtrans %}</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="column is-narrow">
+                <div class="field">
+                    <label class="label">&nbsp;</label>
+                    <div class="control">
+                        <a href="{{ url_for('history.performers') }}" class="button is-primary is-small">{% trans %}Clear{% endtrans %}</a>
+                    </div>
+                </div>
+            </div>
+            <div class="column is-narrow">
+                <div class="field">
+                    <label class="label">&nbsp;</label>
+                    <div class="control">
+                        <button type="submit" class="button is-primary is-small">{% trans %}Apply{% endtrans %}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+{% if performers %}
+<div class="box">
+    <p class="mb-3">{% trans %}Total{% endtrans %}: <strong>{{ total_count }}</strong> {% trans %}performers{% endtrans %}</p>
+
+    <table class="performers-table">
+        <thead>
+            <tr>
+                <th>{% trans %}Name{% endtrans %}</th>
+                <th>{% trans %}Songs Played{% endtrans %}</th>
+                <th>{% trans %}Aliases{% endtrans %}</th>
+                <th>{% trans %}Actions{% endtrans %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for performer in performers %}
+            <tr>
+                <td>
+                    <a href="{{ url_for('history.history', user=performer.canonical_name, date_from=date_from, date_to=date_to) }}">
+                        {{ performer.canonical_name }}
+                    </a>
+                </td>
+                <td>{{ performer.play_count }}</td>
+                <td>
+                    {% for alias in performer.aliases %}
+                    <a href="{{ url_for('history.history', user=performer.canonical_name, alias=alias, date_from=date_from, date_to=date_to) }}" 
+                       class="tag is-light alias-tag" title="{% trans %}View plays as{% endtrans %} {{ alias }}">
+                        {{ alias }}
+                    </a>
+                    {% endfor %}
+                    {% if not performer.aliases %}
+                    <span class="has-text-grey-light">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{{ url_for('history.history', user=performer.canonical_name, date_from=date_from, date_to=date_to) }}" class="button is-small is-info" title="{% trans %}View history{% endtrans %}">
+                        <i class="icon icon-search-1"></i>
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {{ pagination.links }}
+</div>
+{% else %}
+<div class="notification is-info">
+    {% trans %}No performers found.{% endtrans %}
+</div>
+{% endif %}
+
+
+{% endblock %}

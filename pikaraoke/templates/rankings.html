@@ -1,0 +1,355 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+<style>
+    .ranking-table {
+        margin: 0 auto;
+        width: auto;
+        max-width: 800px;
+        background-color: transparent;
+        border: none;
+    }
+    .ranking-table td {
+        padding: 5px 0.75rem;
+        white-space: nowrap;
+        vertical-align: middle;
+        border: none;
+    }
+    .ranking-table .col-name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 500px;
+        min-width: 200px;
+    }
+    .ranking-table .col-count {
+        text-align: right;
+        white-space: nowrap;
+        min-width: 50px;
+    }
+    .ranking-number {
+        font-weight: bold;
+        width: 2em;
+        text-align: center;
+    }
+    .collapsible-section {
+        margin-bottom: 1px;
+    }
+    .collapsible-section.box {
+        padding: 0.4rem 0.75rem;
+    }
+    .collapsible-header {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        user-select: none;
+        min-height: 0;
+        padding: 0;
+    }
+    .collapsible-header .toggle-btn {
+        margin: 0 0.5rem 0 0;
+        padding: 0.2rem 0.35rem;
+        border: none;
+        background: transparent;
+        line-height: 1;
+        height: auto;
+        min-height: 0;
+        flex-shrink: 0;
+        align-self: center;
+    }
+    .collapsible-header .toggle-btn:hover {
+        background: transparent;
+    }
+    .collapsible-header .collapsible-title {
+        margin: 0;
+        padding: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        line-height: 1.25;
+        align-self: center;
+    }
+    .collapsible-content {
+        margin-top: 0.25rem;
+        margin-bottom: 0;
+        display: flex;
+        justify-content: center;
+    }
+    .toggle-btn i {
+        transition: transform 0.2s ease;
+        display: inline-block;
+    }
+    .toggle-btn.expanded i {
+        transform: rotate(90deg);
+    }
+</style>
+
+<script>
+function toggleSection(header) {
+    const content = header.nextElementSibling;
+    const toggleBtn = header.querySelector('.toggle-btn');
+    
+    if (content.style.display === 'none' || content.style.display === '') {
+        content.style.display = 'flex';
+        toggleBtn.classList.add('expanded');
+    } else {
+        content.style.display = 'none';
+        toggleBtn.classList.remove('expanded');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const showAllBtn = document.getElementById('show-all-btn');
+    const showAllText = "{{ _('Show All') }}";
+    const hideAllText = "{{ _('Hide All') }}";
+    
+    if (showAllBtn) {
+        showAllBtn.addEventListener('click', function() {
+            const allSections = document.querySelectorAll('.collapsible-section');
+            const allExpanded = Array.from(allSections).every(section => {
+                const content = section.querySelector('.collapsible-content');
+                return content.style.display === 'flex';
+            });
+            
+            allSections.forEach(section => {
+                const content = section.querySelector('.collapsible-content');
+                const toggleBtn = section.querySelector('.toggle-btn');
+                
+                if (allExpanded) {
+                    content.style.display = 'none';
+                    toggleBtn.classList.remove('expanded');
+                } else {
+                    content.style.display = 'flex';
+                    toggleBtn.classList.add('expanded');
+                }
+            });
+            
+            // Update button text and icon
+            if (allExpanded) {
+                showAllBtn.querySelector('span').textContent = showAllText;
+                showAllBtn.querySelector('.icon').className = 'icon icon-down-big';
+            } else {
+                showAllBtn.querySelector('span').textContent = hideAllText;
+                showAllBtn.querySelector('.icon').className = 'icon icon-up-big';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+
+{% block header %}
+<h1>{% block title %}{% trans %}Play History{% endtrans %}: {% trans %}Rankings{% endtrans %}{% endblock %}</h1>
+<div class="buttons">
+    <a href="{{ url_for('history.history') }}" class="button is-info is-outlined">
+        <i class="icon icon-clock"></i>
+        <span>{% trans %}History{% endtrans %}</span>
+    </a>
+    <button class="button is-info" disabled>
+        <i class="icon icon-sort-up"></i>
+        <span>{% trans %}Rankings{% endtrans %}</span>
+    </button>
+    <a href="{{ url_for('history.performers') }}" class="button is-info is-outlined">
+        <i class="icon icon-mic-1"></i>
+        <span>{% trans %}Performers{% endtrans %}</span>
+    </a>
+    {% if admin %}
+    <a href="{{ url_for('admin_history.admin_history') }}" class="button is-warning is-outlined">
+        <i class="icon icon-cog"></i>
+        <span>{% trans %}Manage{% endtrans %}</span>
+    </a>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- Filter Form -->
+<div class="box">
+    <form method="GET" action="{{ url_for('history.rankings') }}">
+        <div class="columns">
+            <div class="column">
+                <div class="field">
+                    <label class="label">{% trans %}Date From{% endtrans %}</label>
+                    <div class="control">
+                        <input class="input is-small" type="date" name="date_from" value="{{ date_from }}">
+                    </div>
+                </div>
+            </div>
+            <div class="column">
+                <div class="field">
+                    <label class="label">{% trans %}Date To{% endtrans %}</label>
+                    <div class="control">
+                        <input class="input is-small" type="date" name="date_to" value="{{ date_to }}">
+                    </div>
+                </div>
+            </div>
+            <div class="column">
+                <div class="field">
+                    <label class="label">{% trans %}Last N Sessions{% endtrans %}</label>
+                    <div class="control">
+                        <input class="input is-small" type="number" name="sessions_count" value="{{ sessions_count }}" min="1" placeholder="e.g., 5">
+                    </div>
+                </div>
+            </div>
+            <div class="column">
+                <div class="field">
+                    <label class="label">{% trans %}Results{% endtrans %}</label>
+                    <div class="control">
+                        <input class="input is-small" type="number" name="limit" value="{{ limit }}" min="1" max="100">
+                    </div>
+                </div>
+            </div>
+            <div class="column is-narrow">
+                <div class="field">
+                    <label class="label">&nbsp;</label>
+                    <div class="control">
+                        <a href="{{ url_for('history.rankings') }}" class="button is-primary is-small">{% trans %}Clear{% endtrans %}</a>
+                    </div>
+                </div>
+            </div>
+            <div class="column is-narrow">
+                <div class="field">
+                    <label class="label">&nbsp;</label>
+                    <div class="control">
+                        <button type="submit" class="button is-primary is-small">{% trans %}Apply{% endtrans %}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Show All Button -->
+<div class="box">
+    <button id="show-all-btn" class="button is-primary is-small">
+        <i class="icon icon-down-big"></i>
+        <span>{% trans %}Show All{% endtrans %}</span>
+    </button>
+</div>
+
+<!-- Top Performers -->
+<div class="box collapsible-section">
+    <div class="collapsible-header" onclick="toggleSection(this)">
+        <button class="button is-small is-text toggle-btn">
+            <i class="icon icon-right-big"></i>
+        </button>
+        <span class="collapsible-title">{% trans %}Top Performers{% endtrans %}</span>
+    </div>
+    <div class="collapsible-content" style="display: none;">
+        {% if top_users %}
+        <table class="ranking-table">
+            <tbody>
+                {% for user in top_users %}
+                <tr>
+                    <td class="ranking-number">{{ loop.index }}</td>
+                    <td class="col-name">
+                        <a href="{{ url_for('history.history', user=user.canonical_name, date_from=date_from, date_to=date_to) }}">
+                            {{ user.canonical_name }}
+                        </a>
+                    </td>
+                    <td class="col-count">{{ user.play_count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="has-text-grey">{% trans %}No data available{% endtrans %}</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Most Requested Songs -->
+<div class="box collapsible-section">
+    <div class="collapsible-header" onclick="toggleSection(this)">
+        <button class="button is-small is-text toggle-btn">
+            <i class="icon icon-right-big"></i>
+        </button>
+        <span class="collapsible-title">{% trans %}Most Requested Songs{% endtrans %}</span>
+    </div>
+    <div class="collapsible-content" style="display: none;">
+        {% if top_songs %}
+        <table class="ranking-table">
+            <tbody>
+                {% for song in top_songs %}
+                <tr>
+                    <td class="ranking-number">{{ loop.index }}</td>
+                    <td class="col-name">
+                        <a href="{{ url_for('history.history', song=song.song, date_from=date_from, date_to=date_to) }}">
+                            {{ song.song }}
+                        </a>
+                    </td>
+                    <td class="col-count">{{ song.play_count }}x</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="has-text-grey">{% trans %}No data available{% endtrans %}</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Busiest Sessions -->
+<div class="box collapsible-section">
+    <div class="collapsible-header" onclick="toggleSection(this)">
+        <button class="button is-small is-text toggle-btn">
+            <i class="icon icon-right-big"></i>
+        </button>
+        <span class="collapsible-title">{% trans %}Busiest Sessions{% endtrans %}</span>
+    </div>
+    <div class="collapsible-content" style="display: none;">
+        {% if busiest_sessions %}
+        <table class="ranking-table">
+            <tbody>
+                {% for sess in busiest_sessions %}
+                <tr>
+                    <td class="ranking-number">{{ loop.index }}</td>
+                    <td class="col-name">
+                        <a href="{{ url_for('history.history', session_id=sess.session_id, date_from=date_from, date_to=date_to) }}">
+                            {{ sess.session_name or sess.session_id[:8] }}
+                        </a>
+                    </td>
+                    <td class="col-count">{{ sess.play_count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="has-text-grey">{% trans %}No data available{% endtrans %}</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Busiest Days -->
+<div class="box collapsible-section">
+    <div class="collapsible-header" onclick="toggleSection(this)">
+        <button class="button is-small is-text toggle-btn">
+            <i class="icon icon-right-big"></i>
+        </button>
+        <span class="collapsible-title">{% trans %}Busiest Days{% endtrans %}</span>
+    </div>
+    <div class="collapsible-content" style="display: none;">
+        {% if busiest_days %}
+        <table class="ranking-table">
+            <tbody>
+                {% for day in busiest_days %}
+                <tr>
+                    <td class="ranking-number">{{ loop.index }}</td>
+                    <td class="col-name">
+                        <a href="{{ url_for('history.history', date_from=day.date, date_to=day.date) }}">
+                            {{ day.date }}
+                        </a>
+                    </td>
+                    <td class="col-count">{{ day.play_count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="has-text-grey">{% trans %}No data available{% endtrans %}</p>
+        {% endif %}
+    </div>
+</div>
+
+
+{% endblock %}

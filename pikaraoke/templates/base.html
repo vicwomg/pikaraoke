@@ -122,6 +122,9 @@
       if (currentPath == "/browse") {
         $("#browse").addClass("is-active")
       }
+      if (currentPath.startsWith("/history")) {
+        $("#history").addClass("is-active")
+      }
       if (currentPath == "/info") {
         $("#info").addClass("is-active")
       }
@@ -213,6 +216,11 @@
           <i class="icon icon-folder-open-empty" title="Browse"></i>
           {# MSG: Navigation link for the page where the user can add existing songs to the queue. #}
           <span>{% trans %}Browse{% endtrans %}</span>
+        </a>
+        <a id="history" class="navbar-item" href="{{ url_for('history.history') }}">
+          <i class="icon icon-list-alt" title="History"></i>
+          {# MSG: Navigation link for the play history page. #}
+          <span>{% trans %}History{% endtrans %}</span>
         </a>
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
           <span aria-hidden="true"></span>

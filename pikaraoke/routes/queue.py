@@ -378,3 +378,56 @@ def delete_download_error(error_id):
         return json.dumps({"success": True})
     else:
         return json.dumps({"success": False, "error": "Error not found"}), 404
+
+
+@queue_bp.route("/queue/add_by_title", methods=["POST"])
+def enqueue_by_title():
+    """Add a song to queue by its title (for history re-queue).
+    ---
+    tags:
+      - Queue
+    parameters:
+      - name: song_title
+        in: formData
+        type: string
+        required: true
+        description: Title of the song to add
+      - name: user
+        in: formData
+        type: string
+        required: false
+        description: User who is adding the song
+    responses:
+      200:
+        description: Song added or error message
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            message:
+              type: string
+    """
+    k = get_karaoke_instance()
+    song_title = request.form.get("song_title", "").strip()
+    user = request.form.get("user", "History").strip()
+
+    if not song_title:
+        return json.dumps({"success": [False, _("No song title provided")]})
+
+    # Find available songs matching the title
+    matching_song = None
+    for song_path in k.available_songs:
+        if k.filename_from_path(song_path) == song_title:
+            matching_song = song_path
+            break
+
+    if matching_song:
+        rc = k.queue_manager.enqueue(matching_song, user)
+        broadcast_event("queue_update")
+        return json.dumps({"success": rc})
+    else:
+        # MSG: Message when song from history is not found in available songs
+        return json.dumps(
+            {"success": [False, _("Song '%s' not found in available songs") % song_title]}
+        )
