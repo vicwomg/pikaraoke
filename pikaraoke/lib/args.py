@@ -55,6 +55,7 @@ default_port = 5555
 default_log_level = logging.INFO
 default_prefer_hostname = False
 default_config_file_path = "config.ini"
+default_streaming_format = "hls"
 default_dl_dir = get_default_dl_dir(platform)
 
 # Alias for cleaner help text formatting
@@ -182,6 +183,13 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         help="Enable Swagger API documentation at /apidocs.",
         required=False,
     )
+    parser.add_argument(
+        "--streaming-format",
+        help=f"Video streaming format: 'hls' (HLS with fMP4 segments) or 'mp4' (pushes mp4 directly to the browser - legacy format that might work better on some configurations). (default: {default_streaming_format})",
+        choices=["hls", "mp4"],
+        default=default_streaming_format,
+        required=False,
+    )
 
     # --- Preference arguments (default=None, use PreferenceManager.DEFAULTS for help text) ---
 
@@ -294,13 +302,6 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         "--cdg-pixel-scaling",
         help="Enable CDG pixel scaling to improve video rendering of CDG files. This may increase CPU usage and may cause performance issues on slower devices.",
         action="store_true",
-        required=False,
-    )
-    parser.add_argument(
-        "--streaming-format",
-        help=f"Video streaming format: 'hls' (HLS with fMP4 segments) or 'mp4' (pushes mp4 directly to the browser - legacy format that might work better on some configurations). (default: {_DEFAULTS['streaming_format']})",
-        choices=["hls", "mp4"],
-        default=None,
         required=False,
     )
     parser.add_argument(

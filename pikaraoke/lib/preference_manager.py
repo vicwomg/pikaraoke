@@ -40,7 +40,6 @@ class PreferenceManager:
         "enable_fair_queue": False,
         "cdg_pixel_scaling": False,
         "avsync": 0,
-        "streaming_format": "hls",
         "browse_results_per_page": 500,
         "low_score_phrases": "",
         "mid_score_phrases": "",

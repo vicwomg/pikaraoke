@@ -102,39 +102,41 @@ class Karaoke:
 
     def __init__(
         self,
-        port: int = 5555,
-        download_path: str = "/usr/lib/pikaraoke/songs",
-        hide_url: bool | None = None,
-        hide_notifications: bool | None = None,
-        hide_splash_screen: bool | None = None,
-        high_quality: bool | None = None,
-        volume: float | None = None,
-        normalize_audio: bool | None = None,
-        complete_transcode_before_play: bool | None = None,
-        buffer_size: int | None = None,
-        log_level: int = logging.DEBUG,
-        splash_delay: int | None = None,
-        youtubedl_proxy: str | None = None,
-        logo_path: str | None = None,
-        hide_overlay: bool | None = None,
-        screensaver_timeout: int | None = None,
-        url: str | None = None,
-        prefer_hostname: bool | None = None,
-        disable_bg_music: bool | None = None,
-        bg_music_volume: float | None = None,
+        # Non-preference parameters (keep their own defaults)
+        additional_ytdl_args: str | None = None,
         bg_music_path: str | None = None,
         bg_video_path: str | None = None,
+        config_file_path: str = "config.ini",
+        download_path: str = "/usr/lib/pikaraoke/songs",
+        hide_splash_screen: bool | None = None,
+        log_level: int = logging.DEBUG,
+        logo_path: str | None = None,
+        port: int = 5555,
+        prefer_hostname: bool | None = None,
+        preferred_language: str | None = None,
+        socketio=None,
+        streaming_format: str = "hls",
+        url: str | None = None,
+        youtubedl_proxy: str | None = None,
+        # Preference parameters (defaults from PreferenceManager.DEFAULTS)
+        avsync: float | None = None,
+        bg_music_volume: float | None = None,
+        browse_results_per_page: int | None = None,
+        buffer_size: int | None = None,
+        cdg_pixel_scaling: bool | None = None,
+        complete_transcode_before_play: bool | None = None,
+        disable_bg_music: bool | None = None,
         disable_bg_video: bool | None = None,
         disable_score: bool | None = None,
+        hide_notifications: bool | None = None,
+        hide_overlay: bool | None = None,
+        hide_url: bool | None = None,
+        high_quality: bool | None = None,
         limit_user_songs_by: int | None = None,
-        avsync: float | None = None,
-        config_file_path: str = "config.ini",
-        cdg_pixel_scaling: bool | None = None,
-        streaming_format: str | None = None,
-        browse_results_per_page: int | None = None,
-        additional_ytdl_args: str | None = None,
-        socketio=None,
-        preferred_language: str | None = None,
+        normalize_audio: bool | None = None,
+        screensaver_timeout: int | None = None,
+        splash_delay: int | None = None,
+        volume: float | None = None,
     ) -> None:
         """Initialize the Karaoke instance.
 
@@ -205,6 +207,7 @@ class Karaoke:
         self.prefer_hostname = prefer_hostname
         self.bg_music_path = self.default_bg_music_path if bg_music_path == None else bg_music_path
         self.bg_video_path = self.default_bg_video_path if bg_video_path == None else bg_video_path
+        self.streaming_format = streaming_format
         self.socketio = socketio
         self.url_override = url
         self.url = self.get_url()
