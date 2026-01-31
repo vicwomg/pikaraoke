@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from pikaraoke.lib.get_platform import (
     get_data_directory,
+    get_secondary_monitor_coords,
     is_linux,
     is_macos,
     is_windows,
@@ -134,7 +135,12 @@ class Browser:
             )
 
             if self.external_monitor:
-                cmd.append("--window-position=2000,0")
+                coords = get_secondary_monitor_coords()
+                if coords:
+                    cmd.append(f"--window-position={coords[0]},{coords[1]}")
+                else:
+                    # Fallback: assume secondary monitor is to the right of primary
+                    cmd.append("--window-position=2000,0")
             else:
                 cmd.append("--window-position=0,0")
 

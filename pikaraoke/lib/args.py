@@ -1,5 +1,7 @@
 """Command-line argument parsing for PiKaraoke."""
 
+from __future__ import annotations
+
 import argparse
 import logging
 import os
@@ -212,7 +214,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     parser.add_argument(
         "--external-monitor",
         action="store_true",
-        help="Experimental: Launch the splash screen on an external monitor by positioning window at x=2000. Useful for dual-monitor setups. Only works on Chromium browsers and possibly only windows.",
+        help="Experimental: Launch the splash screen on an external monitor. Detects secondary monitor position automatically with fallback to x=2000. Useful for dual-monitor setups. Requires Chromium-based browser.",
         required=False,
     )
     parser.add_argument(
