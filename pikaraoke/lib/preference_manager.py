@@ -84,17 +84,14 @@ class PreferenceManager:
 
     def get(self, preference: str, default_value: Any = None) -> Any:
         """Get a preference value, auto-converting to bool/int/float."""
-        try:
-            self._config_obj.read(self.config_file_path)
-        except FileNotFoundError:
-            return default_value
+        self._config_obj.read(self.config_file_path)  # Silently ignores missing files
 
         if not self._config_obj.has_section("USERPREFERENCES"):
             return default_value
 
         try:
             pref = self._config_obj.get("USERPREFERENCES", preference)
-            return self.convert_value(pref)
+            return self._convert_value(pref)
         except (configparser.NoOptionError, ValueError):
             return default_value
 
@@ -123,7 +120,7 @@ class PreferenceManager:
 
             # Auto-sync target object if registered
             if self._target is not None:
-                typed_val = self.convert_value(val)
+                typed_val = self._convert_value(val)
                 setattr(self._target, preference, typed_val)
 
             return (True, _("Your preferences were changed successfully"))
@@ -144,7 +141,7 @@ class PreferenceManager:
             logging.error(f"Failed to clear preferences: {e}")
             return (False, _("Something went wrong! Your preferences were not cleared"))
 
-    def convert_value(self, val: Any) -> Any:
+    def _convert_value(self, val: Any) -> Any:
         """Convert a string to bool/int/float if applicable, otherwise return as-is."""
         if not isinstance(val, str):
             return val
@@ -152,12 +149,16 @@ class PreferenceManager:
         val_lower = val.lower()
         if val_lower in ("true", "yes", "on"):
             return True
-        elif val_lower in ("false", "no", "off"):
+        if val_lower in ("false", "no", "off"):
             return False
-        elif val.lstrip("-").isdigit():
+
+        # Try numeric conversion: integer first, then float
+        stripped = val.lstrip("-")
+        if stripped.isdigit():
             return int(val)
-        elif val.lstrip("-").replace(".", "", 1).isdigit():
+        if stripped.replace(".", "", 1).isdigit():
             return float(val)
+
         return val
 
     def apply_all(self, **cli_overrides: Any) -> None:
@@ -177,11 +178,9 @@ class PreferenceManager:
         for pref, default in self.DEFAULTS.items():
             cli_value = cli_overrides.get(pref)
 
-            # Determine if CLI value was explicitly provided
-            is_bool_pref = isinstance(default, bool)
-            cli_provided = (is_bool_pref and cli_value is True) or (
-                not is_bool_pref and cli_value is not None
-            )
+            # CLI is "provided" if: boolean flag is True, or non-boolean has a value
+            # (Boolean flags use store_true, so False means "not passed")
+            cli_provided = cli_value is True if isinstance(default, bool) else cli_value is not None
 
             if cli_provided:
                 setattr(self._target, pref, cli_value)
