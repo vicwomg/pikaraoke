@@ -304,6 +304,18 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         required=False,
     )
     parser.add_argument(
+        "--force-recreate-db",
+        action="store_true",
+        help="If the play history database is corrupt, rename it and create a new one instead of exiting.",
+        required=False,
+    )
+    parser.add_argument(
+        "--db-path",
+        help="Path to the play history database file. (default: <data-directory>/pikaraoke_plays.db)",
+        default=None,
+        required=False,
+    )
+    parser.add_argument(
         "--dolphly",
         action="store_true",
         help="Enable top-secret DOLPHLY mode.",

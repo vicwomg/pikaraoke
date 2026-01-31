@@ -28,10 +28,12 @@ from pikaraoke.lib.get_platform import (
     is_windows,
 )
 from pikaraoke.routes.admin import admin_bp
+from pikaraoke.routes.admin_history import admin_history_bp
 from pikaraoke.routes.background_music import background_music_bp
 from pikaraoke.routes.batch_song_renamer import batch_song_renamer_bp
 from pikaraoke.routes.controller import controller_bp
 from pikaraoke.routes.files import files_bp
+from pikaraoke.routes.history import history_bp
 from pikaraoke.routes.home import home_bp
 from pikaraoke.routes.images import images_bp
 from pikaraoke.routes.info import info_bp
@@ -88,6 +90,8 @@ app.register_blueprint(info_bp)
 app.register_blueprint(splash_bp)
 app.register_blueprint(controller_bp)
 app.register_blueprint(nowplaying_bp)
+app.register_blueprint(history_bp)
+app.register_blueprint(admin_history_bp)
 
 
 def get_locale() -> str | None:
@@ -186,6 +190,8 @@ def main() -> None:
         additional_ytdl_args=getattr(args, "ytdl_args", None),
         socketio=socketio,
         preferred_language=args.preferred_language,
+        force_recreate_db=getattr(args, "force_recreate_db", False),
+        db_path=getattr(args, "db_path", None),
     )
 
     # expose karaoke object to the flask app

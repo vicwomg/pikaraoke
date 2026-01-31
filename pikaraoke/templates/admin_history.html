@@ -1,0 +1,306 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+<script>
+$(function() {
+    // Edit session name
+    $(".edit-session-btn").click(function(e) {
+        e.preventDefault();
+        var sessionId = $(this).data("session-id");
+        var currentName = $(this).data("session-name");
+        var newName = prompt("{% trans %}Enter new session name:{% endtrans %}", currentName);
+        if (newName && newName.trim() !== currentName) {
+            $.post("/admin/history/sessions/" + sessionId + "/name", 
+                { name: newName.trim() },
+                function(data) {
+                    if (data.success) {
+                        showNotification(data.message, "is-success");
+                        location.reload();
+                    } else {
+                        showNotification(data.message, "is-danger");
+                    }
+                }
+            ).fail(function(xhr) {
+                var msg = xhr.responseJSON ? xhr.responseJSON.message : "Error";
+                showNotification(msg, "is-danger");
+            });
+        }
+    });
+
+    // Delete session
+    $(".delete-session-btn").click(function(e) {
+        e.preventDefault();
+        var sessionId = $(this).data("session-id");
+        var sessionName = $(this).data("session-name");
+        if (confirm("{% trans %}Are you sure you want to delete session{% endtrans %} '" + sessionName + "' {% trans %}and all its history?{% endtrans %}")) {
+            $.ajax({
+                url: "/admin/history/sessions/" + sessionId,
+                type: "DELETE",
+                success: function(data) {
+                    if (data.success) {
+                        showNotification(data.message, "is-success");
+                        location.reload();
+                    } else {
+                        showNotification(data.message, "is-danger");
+                    }
+                },
+                error: function(xhr) {
+                    var msg = xhr.responseJSON ? xhr.responseJSON.message : "Error";
+                    showNotification(msg, "is-danger");
+                }
+            });
+        }
+    });
+
+    // Merge sessions form
+    $("#merge-form").submit(function(e) {
+        e.preventDefault();
+        var sourceChecked = $("input.merge-source:checked");
+        if (sourceChecked.length < 1) {
+            showNotification("{% trans %}Select at least one source session{% endtrans %}", "is-warning");
+            return;
+        }
+        var targetSession = $("#merge-target").val();
+        if (!targetSession) {
+            showNotification("{% trans %}Select a target session{% endtrans %}", "is-warning");
+            return;
+        }
+        var sourceIds = [];
+        sourceChecked.each(function() {
+            if ($(this).val() !== targetSession) {
+                sourceIds.push($(this).val());
+            }
+        });
+        if (sourceIds.length < 1) {
+            showNotification("{% trans %}Source and target cannot be the same{% endtrans %}", "is-warning");
+            return;
+        }
+        if (confirm("{% trans %}Merge{% endtrans %} " + sourceIds.length + " {% trans %}sessions into target?{% endtrans %}")) {
+            $.post("/admin/history/sessions/merge", {
+                source_sessions: sourceIds.join(","),
+                target_session: targetSession
+            }, function(data) {
+                if (data.success) {
+                    showNotification(data.message, "is-success");
+                    location.reload();
+                } else {
+                    showNotification(data.message, "is-danger");
+                }
+            }).fail(function(xhr) {
+                var msg = xhr.responseJSON ? xhr.responseJSON.message : "Error";
+                showNotification(msg, "is-danger");
+            });
+        }
+    });
+
+    // Add alias form
+    $("#add-alias-form").submit(function(e) {
+        e.preventDefault();
+        var alias = $(this).find("input[name='alias']").val().trim();
+        var canonicalName = $(this).find("input[name='canonical_name']").val().trim();
+        if (!alias || !canonicalName) {
+            showNotification("{% trans %}Alias and canonical name required{% endtrans %}", "is-warning");
+            return;
+        }
+        $.post("/admin/history/aliases", { alias: alias, canonical_name: canonicalName }, function(data) {
+            if (data.success) {
+                showNotification(data.message, "is-success");
+                location.reload();
+            } else {
+                showNotification(data.message, "is-danger");
+            }
+        }).fail(function(xhr) {
+            var msg = xhr.responseJSON ? xhr.responseJSON.message : "Error";
+            showNotification(msg, "is-danger");
+        });
+    });
+
+    // Delete alias
+    $(".delete-alias-btn").click(function(e) {
+        e.preventDefault();
+        var alias = $(this).data("alias");
+        if (confirm("{% trans %}Remove alias{% endtrans %} '" + alias + "'?")) {
+            $.ajax({
+                url: "/admin/history/aliases/" + encodeURIComponent(alias),
+                type: "DELETE",
+                success: function(data) {
+                    if (data.success) {
+                        showNotification(data.message, "is-success");
+                        location.reload();
+                    } else {
+                        showNotification(data.message, "is-danger");
+                    }
+                },
+                error: function(xhr) {
+                    var msg = xhr.responseJSON ? xhr.responseJSON.message : "Error";
+                    showNotification(msg, "is-danger");
+                }
+            });
+        }
+    });
+});
+</script>
+<style>
+    .session-table td {
+        vertical-align: middle;
+    }
+    .action-buttons a, .action-buttons button {
+        margin-right: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block header %}
+<h1>{% block title %}{% trans %}Manage History{% endtrans %}{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+
+<div class="box">
+    <h2 class="subtitle">{% trans %}Sessions{% endtrans %}</h2>
+    
+    {% if sessions %}
+    <table class="table is-striped is-hoverable is-fullwidth session-table">
+        <thead>
+            <tr>
+                <th>{% trans %}Select{% endtrans %}</th>
+                <th>{% trans %}Name{% endtrans %}</th>
+                <th>{% trans %}Started{% endtrans %}</th>
+                <th>{% trans %}Actions{% endtrans %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for session in sessions %}
+            <tr>
+                <td>
+                    <input type="checkbox" class="merge-source" value="{{ session.session_id }}">
+                </td>
+                <td>{{ session.name }}</td>
+                <td>{{ session.started_at[:16] if session.started_at else '' }}</td>
+                <td class="action-buttons">
+                    <a href="#" class="button is-small is-info edit-session-btn" 
+                       data-session-id="{{ session.session_id }}"
+                       data-session-name="{{ session.name }}"
+                       title="{% trans %}Edit name{% endtrans %}">
+                        <i class="icon icon-edit"></i>
+                    </a>
+                    <a href="#" class="button is-small is-danger delete-session-btn"
+                       data-session-id="{{ session.session_id }}"
+                       data-session-name="{{ session.name }}"
+                       title="{% trans %}Delete session{% endtrans %}">
+                        <i class="icon icon-trash"></i>
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <h3 class="subtitle is-5">{% trans %}Merge Sessions{% endtrans %}</h3>
+    <form id="merge-form">
+        <div class="field">
+            <label class="label">{% trans %}Target Session (merge into){% endtrans %}</label>
+            <div class="control">
+                <div class="select">
+                    <select id="merge-target" name="target_session">
+                        <option value="">{% trans %}Select target...{% endtrans %}</option>
+                        {% for session in sessions %}
+                        <option value="{{ session.session_id }}">{{ session.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <p class="help">{% trans %}Select checkboxes above for source sessions to merge{% endtrans %}</p>
+        </div>
+        <div class="field">
+            <div class="control">
+                <button type="submit" class="button is-warning">
+                    {% trans %}Merge Selected Sessions{% endtrans %}
+                </button>
+            </div>
+        </div>
+    </form>
+    {% else %}
+    <div class="notification is-info">
+        {% trans %}No sessions found.{% endtrans %}
+    </div>
+    {% endif %}
+</div>
+
+<div class="box">
+    <h2 class="subtitle">{% trans %}User Aliases{% endtrans %}</h2>
+    
+    <h3 class="subtitle is-5">{% trans %}Add New Alias{% endtrans %}</h3>
+    <form id="add-alias-form" class="mb-4">
+        <div class="columns">
+            <div class="column">
+                <div class="field">
+                    <label class="label">{% trans %}Alias{% endtrans %}</label>
+                    <div class="control">
+                        <input class="input" type="text" name="alias" placeholder="{% trans %}Alias name{% endtrans %}" required>
+                    </div>
+                </div>
+            </div>
+            <div class="column">
+                <div class="field">
+                    <label class="label">{% trans %}Canonical User{% endtrans %}</label>
+                    <div class="control">
+                        <input class="input" type="text" name="canonical_name" list="user-list" placeholder="{% trans %}Canonical user name{% endtrans %}" required>
+                        <datalist id="user-list">
+                            {% for user in distinct_users %}
+                            <option value="{{ user }}">
+                            {% endfor %}
+                        </datalist>
+                    </div>
+                </div>
+            </div>
+            <div class="column is-narrow">
+                <div class="field">
+                    <label class="label">&nbsp;</label>
+                    <div class="control">
+                        <button type="submit" class="button is-success">{% trans %}Add{% endtrans %}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+    
+    {% if aliases %}
+    <table class="table is-striped is-hoverable is-fullwidth">
+        <thead>
+            <tr>
+                <th>{% trans %}Alias{% endtrans %}</th>
+                <th>{% trans %}Canonical User{% endtrans %}</th>
+                <th>{% trans %}Actions{% endtrans %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in aliases %}
+            <tr>
+                <td>{{ a.alias }}</td>
+                <td>{{ a.canonical_name }}</td>
+                <td class="action-buttons">
+                    <a href="#" class="button is-small is-danger delete-alias-btn"
+                       data-alias="{{ a.alias }}"
+                       title="{% trans %}Remove alias{% endtrans %}">
+                        <i class="icon icon-trash"></i>
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="notification is-info">
+        {% trans %}No aliases defined. When users sign up with different names, you can map them to a canonical user here.{% endtrans %}
+    </div>
+    {% endif %}
+</div>
+
+<p>
+    <a href="{{ url_for('history.history') }}" class="button">
+        {% trans %}Back to History{% endtrans %}
+    </a>
+</p>
+
+{% endblock %}
