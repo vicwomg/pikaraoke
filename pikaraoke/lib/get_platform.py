@@ -194,18 +194,26 @@ def _get_secondary_monitor_linux() -> tuple[int, int] | None:
         (x, y) coordinates of a non-primary monitor, or None if not found.
     """
     output = subprocess.check_output(["xrandr", "--query"], text=True)
+    logger.debug("xrandr output:\n%s", output)
+
     # Pattern: " connected" followed by geometry like "1920x1080+1920+0"
     matches = re.findall(r" connected.*?(\d+)x(\d+)\+(\d+)\+(\d+)", output)
+    logger.debug("Found %d monitor(s): %s", len(matches), matches)
 
     # Return first monitor not at origin (0,0)
     for _, _, x, y in matches:
         x_coord, y_coord = int(x), int(y)
         if x_coord != 0 or y_coord != 0:
+            logger.debug("Selected non-origin monitor at (%d, %d)", x_coord, y_coord)
             return x_coord, y_coord
 
     # Fallback: return second monitor if multiple exist
     if len(matches) >= 2:
-        return int(matches[1][2]), int(matches[1][3])
+        coords = (int(matches[1][2]), int(matches[1][3]))
+        logger.debug("Fallback: using second monitor at %s", coords)
+        return coords
+
+    logger.debug("No secondary monitor found")
     return None
 
 
@@ -238,14 +246,20 @@ def _get_secondary_monitor_windows() -> tuple[int, int] | None:
     callback_func = MONITORENUMPROC(callback)
     ctypes.windll.user32.EnumDisplayMonitors(None, None, callback_func, 0)  # type: ignore[attr-defined]
 
+    logger.debug("Found %d monitor(s): %s", len(monitors), monitors)
+
     # Return first non-origin monitor
     for x, y in monitors:
         if x != 0 or y != 0:
+            logger.debug("Selected non-origin monitor at (%d, %d)", x, y)
             return x, y
 
     # Fallback: return second monitor if multiple exist
     if len(monitors) >= 2:
+        logger.debug("Fallback: using second monitor at %s", monitors[1])
         return monitors[1]
+
+    logger.debug("No secondary monitor found")
     return None
 
 
