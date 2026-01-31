@@ -18,30 +18,6 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-# Function to check if Python is compatible
-is_python_compatible() {
-    local python_cmd
-    if command -v python3 &> /dev/null; then
-        python_cmd="python3"
-    elif command -v python &> /dev/null; then
-        python_cmd="python"
-    else
-        return 1
-    fi
-
-    local version
-    version=$($python_cmd -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
-    local major
-    major=$(echo "$version" | cut -d. -f1)
-    local minor
-    minor=$(echo "$version" | cut -d. -f2)
-
-    if [ "$major" -lt 3 ] || ([ "$major" -eq 3 ] && [ "$minor" -lt 10 ]); then
-        return 1
-    fi
-    return 0
-}
-
 # Detect OS
 OS_TYPE="$(uname -s)"
 echo "--- PiKaraoke Installer ---"
@@ -52,14 +28,6 @@ PKGS_TO_INSTALL=()
 DISPLAY_PKGS=()
 
 if [ "$OS_TYPE" == "Darwin" ] && ! command -v brew &> /dev/null; then DISPLAY_PKGS+=("Homebrew"); fi
-
-if ! is_python_compatible; then
-    if [ "$OS_TYPE" == "Darwin" ]; then
-        PKGS_TO_INSTALL+=("python"); DISPLAY_PKGS+=("python")
-    else
-        PKGS_TO_INSTALL+=("python3"); DISPLAY_PKGS+=("python3")
-    fi
-fi
 
 if ! command -v ffmpeg &> /dev/null; then
     if [ "$OS_TYPE" == "Darwin" ]; then
@@ -131,7 +99,7 @@ if [ "$OS_TYPE" == "Darwin" ]; then
         echo "Installing dependencies via Homebrew: ${PKGS_TO_INSTALL[*]}"
         brew install "${PKGS_TO_INSTALL[@]}"
     else
-        echo "All core dependencies (Python, FFmpeg, uv) are already installed."
+        echo "All core dependencies (FFmpeg, uv) are already installed."
     fi
 
     # link ffmpeg-full to path since it is keg-only
@@ -162,7 +130,7 @@ elif [ "$OS_TYPE" == "Linux" ]; then
             sudo apt-get install -y "${APT_PKGS[@]}"
         fi
     else
-        echo "All core dependencies (Python, FFmpeg) are already installed."
+        echo "All core dependencies (FFmpeg) are already installed."
     fi
 
     if [ $SKIP_UV -eq 0 ] && ! command -v uv &> /dev/null; then
@@ -181,12 +149,6 @@ elif [ "$OS_TYPE" == "Linux" ]; then
     fi
 else
     echo "Error: Unsupported OS ($OS_TYPE)"
-    exit 1
-fi
-
-# Final check
-if ! is_python_compatible; then
-    echo "Error: Failed to find or install a compatible Python version (3.10+)."
     exit 1
 fi
 
