@@ -1,10 +1,17 @@
 """Platform detection utilities for PiKaraoke."""
 
+from __future__ import annotations
+
 import io
+import logging
 import os
 import platform
+import re
 import shutil
+import subprocess
 import sys
+
+logger = logging.getLogger(__name__)
 
 
 def is_raspberry_pi() -> bool:
@@ -178,3 +185,87 @@ def get_data_directory() -> str:
         os.makedirs(path)
 
     return path
+
+
+def _get_secondary_monitor_linux() -> tuple[int, int] | None:
+    """Parse xrandr output for secondary monitor coordinates.
+
+    Returns:
+        (x, y) coordinates of a non-primary monitor, or None if not found.
+    """
+    output = subprocess.check_output(["xrandr", "--query"], text=True)
+    # Pattern: " connected" followed by geometry like "1920x1080+1920+0"
+    matches = re.findall(r" connected.*?(\d+)x(\d+)\+(\d+)\+(\d+)", output)
+
+    # Return first monitor not at origin (0,0)
+    for _, _, x, y in matches:
+        x_coord, y_coord = int(x), int(y)
+        if x_coord != 0 or y_coord != 0:
+            return x_coord, y_coord
+
+    # Fallback: return second monitor if multiple exist
+    if len(matches) >= 2:
+        return int(matches[1][2]), int(matches[1][3])
+    return None
+
+
+def _get_secondary_monitor_windows() -> tuple[int, int] | None:
+    """Use Win32 API to enumerate monitor positions.
+
+    Returns:
+        (x, y) coordinates of a non-primary monitor, or None if not found.
+    """
+    import ctypes
+    import ctypes.wintypes
+
+    monitors: list[tuple[int, int]] = []
+
+    def callback(_hMonitor, _hdcMonitor, lprcMonitor, _dwData):
+        rect = lprcMonitor.contents
+        monitors.append((rect.left, rect.top))
+        return True  # Continue enumeration
+
+    # Define callback type with correct signature
+    MONITORENUMPROC = ctypes.WINFUNCTYPE(  # type: ignore[attr-defined]
+        ctypes.c_bool,
+        ctypes.c_void_p,  # hMonitor
+        ctypes.c_void_p,  # hdcMonitor
+        ctypes.POINTER(ctypes.wintypes.RECT),  # lprcMonitor
+        ctypes.c_void_p,  # dwData (LPARAM)
+    )
+
+    # Keep reference to prevent garbage collection
+    callback_func = MONITORENUMPROC(callback)
+    ctypes.windll.user32.EnumDisplayMonitors(None, None, callback_func, 0)  # type: ignore[attr-defined]
+
+    # Return first non-origin monitor
+    for x, y in monitors:
+        if x != 0 or y != 0:
+            return x, y
+
+    # Fallback: return second monitor if multiple exist
+    if len(monitors) >= 2:
+        return monitors[1]
+    return None
+
+
+def get_secondary_monitor_coords() -> tuple[int, int] | None:
+    """Detect secondary monitor coordinates for splash screen positioning.
+
+    Uses native OS tools to avoid external dependencies.
+    Windows: Win32 EnumDisplayMonitors API
+    Linux: xrandr (X11 only, Wayland falls back to None)
+    macOS: No reliable zero-dependency method, returns None
+
+    Returns:
+        (x, y) of a non-primary monitor, or None if detection fails.
+    """
+    try:
+        if is_linux():
+            return _get_secondary_monitor_linux()
+        elif is_windows():
+            return _get_secondary_monitor_windows()
+        # macOS: No reliable zero-dependency method, use fallback
+    except (subprocess.SubprocessError, FileNotFoundError, OSError) as e:
+        logger.debug("Monitor detection failed: %s", e)
+    return None
