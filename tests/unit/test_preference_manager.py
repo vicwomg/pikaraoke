@@ -222,6 +222,42 @@ def test_preference_manager_empty_string_value(temp_config_file):
     assert isinstance(result, str)
 
 
+def test_preference_manager_unicode_characters(temp_config_file):
+    """Test saving and reading preferences with non-ASCII Unicode characters.
+
+    Regression test for encoding bug where Chinese characters caused:
+    'charmap' codec can't encode characters in position X-Y: character maps to <undefined>
+    """
+    prefs = PreferenceManager(temp_config_file)
+
+    # Test Chinese characters (simplified and traditional)
+    chinese_text = "你好世界! 繁體字測試 12345!"
+    success, message = prefs.set("low_score_phrases", chinese_text)
+    assert success is True
+    assert "successfully" in message.lower()
+
+    result = prefs.get("low_score_phrases")
+    assert result == chinese_text
+
+    # Test emoji and special Unicode characters
+    emoji_text = "Great job! 🎤 🎵 ⭐"
+    prefs.set("high_score_phrases", emoji_text)
+    result = prefs.get("high_score_phrases")
+    assert result == emoji_text
+
+    # Test accented characters
+    accented_text = "Très bien! Excelente! Schön!"
+    prefs.set("mid_score_phrases", accented_text)
+    result = prefs.get("mid_score_phrases")
+    assert result == accented_text
+
+    # Test persistence: create new instance and verify Unicode persists
+    prefs2 = PreferenceManager(temp_config_file)
+    assert prefs2.get("low_score_phrases") == chinese_text
+    assert prefs2.get("high_score_phrases") == emoji_text
+    assert prefs2.get("mid_score_phrases") == accented_text
+
+
 def test_preference_manager_defaults_exist():
     """Test that DEFAULTS dictionary contains all expected preferences."""
     expected_keys = {

@@ -84,7 +84,8 @@ class PreferenceManager:
 
     def get(self, preference: str, default_value: Any = None) -> Any:
         """Get a preference value, auto-converting to bool/int/float."""
-        self._config_obj.read(self.config_file_path)  # Silently ignores missing files
+        # Silently ignores missing files
+        self._config_obj.read(self.config_file_path, encoding="utf-8")
 
         if not self._config_obj.has_section("USERPREFERENCES"):
             return default_value
@@ -107,7 +108,7 @@ class PreferenceManager:
         logging.debug(f"Changing user preference << {preference} >> to {val}")
         try:
             # Read existing config to preserve other preferences
-            self._config_obj.read(self.config_file_path)
+            self._config_obj.read(self.config_file_path, encoding="utf-8")
 
             if "USERPREFERENCES" not in self._config_obj:
                 self._config_obj.add_section("USERPREFERENCES")
@@ -115,7 +116,7 @@ class PreferenceManager:
             userprefs = self._config_obj["USERPREFERENCES"]
             userprefs[preference] = str(val)
 
-            with open(self.config_file_path, "w") as conf:
+            with open(self.config_file_path, "w", encoding="utf-8") as conf:
                 self._config_obj.write(conf)
 
             # Auto-sync target object if registered
