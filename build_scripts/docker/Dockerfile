@@ -11,7 +11,7 @@ ENV UV_BREAK_SYSTEM_PACKAGES=1
 COPY --from=mwader/static-ffmpeg:7.0 /ffprobe /ffmpeg /usr/local/bin/
 
 RUN --mount=type=cache,target=/var/cache/apk \
-    apk add --update-cache python3 deno
+    apk add --update-cache python3 deno curl
 
 # Copy dependency and metadata files first for better caching
 COPY pyproject.toml uv.lock ./
