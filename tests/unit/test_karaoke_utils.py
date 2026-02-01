@@ -47,48 +47,66 @@ class TestFilenameFromPath:
 
 
 class TestConvertPreferenceValue:
-    """Tests for the _convert_preference_value method."""
+    """Tests for the _convert_value method (now in PreferenceManager)."""
 
-    def test_convert_true_values(self, mock_karaoke):
+    def test_convert_true_values(self):
         """Test conversion of truthy string values."""
-        assert mock_karaoke._convert_preference_value("true") is True
-        assert mock_karaoke._convert_preference_value("True") is True
-        assert mock_karaoke._convert_preference_value("TRUE") is True
-        assert mock_karaoke._convert_preference_value("yes") is True
-        assert mock_karaoke._convert_preference_value("on") is True
+        from pikaraoke.lib.preference_manager import PreferenceManager
 
-    def test_convert_false_values(self, mock_karaoke):
+        prefs = PreferenceManager()
+        assert prefs._convert_value("true") is True
+        assert prefs._convert_value("True") is True
+        assert prefs._convert_value("TRUE") is True
+        assert prefs._convert_value("yes") is True
+        assert prefs._convert_value("on") is True
+
+    def test_convert_false_values(self):
         """Test conversion of falsy string values."""
-        assert mock_karaoke._convert_preference_value("false") is False
-        assert mock_karaoke._convert_preference_value("False") is False
-        assert mock_karaoke._convert_preference_value("FALSE") is False
-        assert mock_karaoke._convert_preference_value("no") is False
-        assert mock_karaoke._convert_preference_value("off") is False
+        from pikaraoke.lib.preference_manager import PreferenceManager
 
-    def test_convert_integer_values(self, mock_karaoke):
+        prefs = PreferenceManager()
+        assert prefs._convert_value("false") is False
+        assert prefs._convert_value("False") is False
+        assert prefs._convert_value("FALSE") is False
+        assert prefs._convert_value("no") is False
+        assert prefs._convert_value("off") is False
+
+    def test_convert_integer_values(self):
         """Test conversion of integer string values."""
-        assert mock_karaoke._convert_preference_value("42") == 42
-        assert mock_karaoke._convert_preference_value("0") == 0
-        assert mock_karaoke._convert_preference_value("-5") == -5
+        from pikaraoke.lib.preference_manager import PreferenceManager
 
-    def test_convert_float_values(self, mock_karaoke):
+        prefs = PreferenceManager()
+        assert prefs._convert_value("42") == 42
+        assert prefs._convert_value("0") == 0
+        assert prefs._convert_value("-5") == -5
+
+    def test_convert_float_values(self):
         """Test conversion of float string values."""
-        assert mock_karaoke._convert_preference_value("3.14") == 3.14
-        assert mock_karaoke._convert_preference_value("0.5") == 0.5
-        assert mock_karaoke._convert_preference_value("-2.5") == -2.5
+        from pikaraoke.lib.preference_manager import PreferenceManager
 
-    def test_convert_string_passthrough(self, mock_karaoke):
+        prefs = PreferenceManager()
+        assert prefs._convert_value("3.14") == 3.14
+        assert prefs._convert_value("0.5") == 0.5
+        assert prefs._convert_value("-2.5") == -2.5
+
+    def test_convert_string_passthrough(self):
         """Test that non-special strings pass through unchanged."""
-        assert mock_karaoke._convert_preference_value("hello") == "hello"
-        assert mock_karaoke._convert_preference_value("some text") == "some text"
-        assert mock_karaoke._convert_preference_value("/path/to/file") == "/path/to/file"
+        from pikaraoke.lib.preference_manager import PreferenceManager
 
-    def test_convert_non_string_passthrough(self, mock_karaoke):
+        prefs = PreferenceManager()
+        assert prefs._convert_value("hello") == "hello"
+        assert prefs._convert_value("some text") == "some text"
+        assert prefs._convert_value("/path/to/file") == "/path/to/file"
+
+    def test_convert_non_string_passthrough(self):
         """Test that non-string values pass through unchanged."""
-        assert mock_karaoke._convert_preference_value(42) == 42
-        assert mock_karaoke._convert_preference_value(3.14) == 3.14
-        assert mock_karaoke._convert_preference_value(True) is True
-        assert mock_karaoke._convert_preference_value(None) is None
+        from pikaraoke.lib.preference_manager import PreferenceManager
+
+        prefs = PreferenceManager()
+        assert prefs._convert_value(42) == 42
+        assert prefs._convert_value(3.14) == 3.14
+        assert prefs._convert_value(True) is True
+        assert prefs._convert_value(None) is None
 
 
 class TestGetNowPlaying:
@@ -159,6 +177,36 @@ class TestResetNowPlaying:
         assert mock_karaoke.now_playing_position is None
         assert mock_karaoke.is_paused is True
         assert mock_karaoke.is_playing is False
+
+    def test_reset_now_playing_resets_volume_to_preference(self, mock_karaoke):
+        """Test that reset restores volume to user's saved preference."""
+        # Set a custom volume preference
+        mock_karaoke.preferences.set("volume", "0.7")
+
+        # Change volume during playback
+        mock_karaoke.volume = 0.3
+
+        # Reset should restore volume to preference value
+        mock_karaoke.reset_now_playing()
+
+        assert mock_karaoke.volume == 0.7
+
+    def test_reset_now_playing_resets_volume_to_default_when_no_preference(self, mock_karaoke):
+        """Test that reset uses default volume when no preference is set."""
+        # Ensure no volume preference is set (using defaults)
+        # Clear any existing preference that might have been set
+        current_volume_pref = mock_karaoke.preferences.get("volume")
+        if current_volume_pref is not None:
+            # Remove the preference by clearing and reloading defaults
+            mock_karaoke.preferences.clear()
+
+        # Change volume during playback
+        mock_karaoke.volume = 0.3
+
+        # Reset should restore volume to default (0.85)
+        mock_karaoke.reset_now_playing()
+
+        assert mock_karaoke.volume == 0.85
 
 
 class TestPause:

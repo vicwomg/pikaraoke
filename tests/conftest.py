@@ -2,6 +2,7 @@
 
 import pytest
 
+from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 
 
@@ -15,6 +16,7 @@ class MockKaraoke:
     def __init__(self):
         self.available_songs = MockSongList()
         self._socketio = None
+        self.preferences = PreferenceManager(config_file_path=":memory:", target=self)
         self.now_playing = None
         self.now_playing_filename = None
         self.now_playing_user = None
@@ -62,7 +64,6 @@ class MockKaraoke:
 
     # Bind the real methods to our mock class
     filename_from_path = Karaoke.filename_from_path
-    _convert_preference_value = Karaoke._convert_preference_value
     is_file_playing = Karaoke.is_file_playing
     get_now_playing = Karaoke.get_now_playing
     reset_now_playing = Karaoke.reset_now_playing

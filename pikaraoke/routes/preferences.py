@@ -37,10 +37,8 @@ def change_preferences():
     if is_admin():
         preference = request.args["pref"]
         val = request.args["val"]
-
-        rc = k.change_preferences(preference, val)
-
-        return jsonify(rc)
+        success, message = k.preferences.set(preference, val)
+        return jsonify([success, message])
     else:
         # MSG: Message shown after trying to change preferences without admin permissions.
         flash(_("You don't have permission to change preferences"), "is-danger")
@@ -59,11 +57,10 @@ def clear_preferences():
     """
     k = get_karaoke_instance()
     if is_admin():
-        rc = k.clear_preferences()
-        if rc[0]:
-            flash(rc[1], "is-success")
-        else:
-            flash(rc[1], "is-danger")
+        success, message = k.preferences.reset_all()
+        if success:
+            k.update_now_playing_socket()
+        flash(message, "is-success" if success else "is-danger")
     else:
         # MSG: Message shown after trying to clear preferences without admin permissions.
         flash(_("You don't have permission to clear preferences"), "is-danger")

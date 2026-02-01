@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import configparser
 import contextlib
 import logging
 import os
-import shutil
 import socket
 import subprocess
 import time
@@ -18,6 +16,7 @@ from flask_babel import _
 from qrcode.image.pure import PyPNGImage
 
 from pikaraoke.lib.download_manager import DownloadManager
+from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.ffmpeg import (
     get_ffmpeg_version,
     is_transpose_enabled,
@@ -31,6 +30,7 @@ from pikaraoke.lib.get_platform import (
     is_raspberry_pi,
 )
 from pikaraoke.lib.network import get_ip
+from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_list import SongList
 from pikaraoke.lib.stream_manager import StreamManager
@@ -79,7 +79,7 @@ class Karaoke:
     now_playing_notification: str | None = None
     now_playing_position: float | None = None
     is_paused: bool = True
-    volume: float = 0.85
+    volume: float
 
     is_playing: bool = False
     process: subprocess.Popen | None = None
@@ -89,49 +89,54 @@ class Karaoke:
     default_logo_path: str = os.path.join(base_path, "static", "images", "logo.png")
     default_bg_music_path: str = os.path.join(base_path, "static", "music")
     default_bg_video_path: str = os.path.join(base_path, "static", "video", "night_sea.mp4")
-    screensaver_timeout: int = 300  # in seconds
+    screensaver_timeout: int
 
-    normalize_audio: bool = False
+    normalize_audio: bool
 
     # Download manager for serialized downloads
     download_manager: DownloadManager
 
-    config_obj: configparser.ConfigParser = configparser.ConfigParser()
+    # Event system and preferences
+    events: EventSystem
+    preferences: PreferenceManager
 
     def __init__(
         self,
-        port: int = 5555,
-        download_path: str = "/usr/lib/pikaraoke/songs",
-        hide_url: bool = False,
-        hide_notifications: bool = False,
-        hide_splash_screen: bool = False,
-        high_quality: bool = False,
-        volume: float = 0.85,
-        normalize_audio: bool = False,
-        complete_transcode_before_play: bool = False,
-        buffer_size: int = 150,
-        log_level: int = logging.DEBUG,
-        splash_delay: int = 2,
-        youtubedl_proxy: str | None = None,
-        logo_path: str | None = None,
-        hide_overlay: bool = False,
-        screensaver_timeout: int = 300,
-        url: str | None = None,
-        prefer_hostname: bool = True,
-        disable_bg_music: bool = False,
-        bg_music_volume: float = 0.3,
+        # Non-preference parameters (keep their own defaults)
+        additional_ytdl_args: str | None = None,
         bg_music_path: str | None = None,
         bg_video_path: str | None = None,
-        disable_bg_video: bool = False,
-        disable_score: bool = False,
-        limit_user_songs_by: int = 0,
-        avsync: float = 0,
         config_file_path: str = "config.ini",
-        cdg_pixel_scaling: bool = False,
-        streaming_format: str = "hls",
-        additional_ytdl_args: str | None = None,
-        socketio=None,
+        download_path: str = "/usr/lib/pikaraoke/songs",
+        hide_splash_screen: bool | None = None,
+        log_level: int = logging.DEBUG,
+        logo_path: str | None = None,
+        port: int = 5555,
+        prefer_hostname: bool | None = None,
         preferred_language: str | None = None,
+        socketio=None,
+        streaming_format: str = "hls",
+        url: str | None = None,
+        youtubedl_proxy: str | None = None,
+        # Preference parameters (defaults from PreferenceManager.DEFAULTS)
+        avsync: float | None = None,
+        bg_music_volume: float | None = None,
+        browse_results_per_page: int | None = None,
+        buffer_size: int | None = None,
+        cdg_pixel_scaling: bool | None = None,
+        complete_transcode_before_play: bool | None = None,
+        disable_bg_music: bool | None = None,
+        disable_bg_video: bool | None = None,
+        disable_score: bool | None = None,
+        hide_notifications: bool | None = None,
+        hide_overlay: bool | None = None,
+        hide_url: bool | None = None,
+        high_quality: bool | None = None,
+        limit_user_songs_by: int | None = None,
+        normalize_audio: bool | None = None,
+        screensaver_timeout: int | None = None,
+        splash_delay: int | None = None,
+        volume: float | None = None,
     ) -> None:
         """Initialize the Karaoke instance.
 
@@ -165,6 +170,7 @@ class Karaoke:
             config_file_path: Path to config.ini file.
             cdg_pixel_scaling: Enable CDG pixel scaling.
             streaming_format: Video streaming format ('hls' or 'mp4').
+            browse_results_per_page: Number of search results per page.
             additional_ytdl_args: Additional yt-dlp command arguments.
             socketio: SocketIO instance for real-time event emission.
             preferred_language: Language code for UI (e.g., 'en', 'de_DE').
@@ -174,6 +180,10 @@ class Karaoke:
             datefmt="%Y-%m-%d %H:%M:%S",
             level=int(log_level),
         )
+
+        # Initialize event system and preferences (foundation for all components)
+        self.events = EventSystem()
+        self.preferences = PreferenceManager(config_file_path, target=self)
 
         # Platform-specific initializations
         self.platform = get_platform()
@@ -186,118 +196,25 @@ class Karaoke:
 
         logging.info("PiKaraoke version: " + VERSION)
 
-        # Migrate config.ini from old default to new
-        # If we are using the default config filename, check if we need to migrate
-        # an existing config file from the current working directory to the data directory.
-        if config_file_path == "config.ini":
-            legacy_config = "config.ini"  # Represents ./config.ini
-            new_config_dir = get_data_directory()
-            new_config_path = os.path.join(new_config_dir, "config.ini")
-
-            # Move only if legacy exists and new one does not (don't overwrite)
-            if os.path.exists(legacy_config) and not os.path.exists(new_config_path):
-                logging.info(f"Migrating legacy config.ini from {os.getcwd()} to {new_config_dir}")
-                try:
-                    shutil.move(legacy_config, new_config_path)
-                except OSError as e:
-                    logging.error(f"Failed to migrate config file: {e}")
-
-        # Initialize variables
-        if not os.path.isabs(config_file_path):
-            self.config_file_path = os.path.join(get_data_directory(), config_file_path)
-        else:
-            self.config_file_path = config_file_path
-
+        # Set non-preference attributes (not stored in config)
         self.port = port
-        self.hide_url = (
-            pref if (pref := self.get_user_preference("hide_url")) is not None else hide_url
-        )
-        self.hide_notifications = (
-            pref
-            if (pref := self.get_user_preference("hide_notifications")) is not None
-            else hide_notifications
-        )
         self.hide_splash_screen = hide_splash_screen
         self.download_path = download_path
-        self.high_quality = (
-            pref if (pref := self.get_user_preference("high_quality")) is not None else high_quality
-        )
-        self.splash_delay = (
-            pref
-            if (pref := self.get_user_preference("splash_delay")) is not None
-            else int(splash_delay)
-        )
-        self.volume = pref if (pref := self.get_user_preference("volume")) is not None else volume
-        self.normalize_audio = (
-            pref
-            if (pref := self.get_user_preference("normalize_audio")) is not None
-            else normalize_audio
-        )
-        self.complete_transcode_before_play = (
-            pref
-            if (pref := self.get_user_preference("complete_transcode_before_play")) is not None
-            else complete_transcode_before_play
-        )
         self.log_level = log_level
-        self.buffer_size = (
-            pref if (pref := self.get_user_preference("buffer_size")) is not None else buffer_size
-        )
         self.youtubedl_proxy = youtubedl_proxy
         self.additional_ytdl_args = additional_ytdl_args
         self.logo_path = self.default_logo_path if logo_path == None else logo_path
-        self.hide_overlay = (
-            pref if (pref := self.get_user_preference("hide_overlay")) is not None else hide_overlay
-        )
-        self.screensaver_timeout = (
-            pref
-            if (pref := self.get_user_preference("screensaver_timeout")) is not None
-            else screensaver_timeout
-        )
         self.prefer_hostname = prefer_hostname
-        self.disable_bg_music = (
-            pref
-            if (pref := self.get_user_preference("disable_bg_music")) is not None
-            else disable_bg_music
-        )
-        self.bg_music_volume = (
-            pref
-            if (pref := self.get_user_preference("bg_music_volume")) is not None
-            else bg_music_volume
-        )
         self.bg_music_path = self.default_bg_music_path if bg_music_path == None else bg_music_path
-        self.disable_bg_video = (
-            pref
-            if (pref := self.get_user_preference("disable_bg_video")) is not None
-            else disable_bg_video
-        )
         self.bg_video_path = self.default_bg_video_path if bg_video_path == None else bg_video_path
-        self.disable_score = (
-            pref
-            if (pref := self.get_user_preference("disable_score")) is not None
-            else disable_score
-        )
-        self.limit_user_songs_by = (
-            pref
-            if (pref := self.get_user_preference("limit_user_songs_by")) is not None
-            else limit_user_songs_by
-        )
-        self.enable_fair_queue = (
-            pref if (pref := self.get_user_preference("enable_fair_queue")) is not None else False
-        )
-        self.cdg_pixel_scaling = (
-            pref
-            if (pref := self.get_user_preference("cdg_pixel_scaling")) is not None
-            else cdg_pixel_scaling
-        )
-        self.avsync = pref if (pref := self.get_user_preference("avsync")) is not None else avsync
-        self.streaming_format = (
-            pref
-            if (pref := self.get_user_preference("streaming_format")) is not None
-            else streaming_format
-        )
+        self.streaming_format = streaming_format
         self.socketio = socketio
         self.url_override = url
         self.url = self.get_url()
+
+        # Load all preference-driven attributes from config (with CLI overrides as fallback)
+        cli_args = {k: v for k, v in locals().items() if k != "self"}
+        self._load_preferences(**cli_args)
 
         # Log the settings to debug level
         self.log_settings_to_debug()
@@ -308,13 +225,9 @@ class Karaoke:
 
         self.generate_qr_code()
 
-        self.low_score_phrases = self.get_user_preference("low_score_phrases") or ""
-        self.mid_score_phrases = self.get_user_preference("mid_score_phrases") or ""
-        self.high_score_phrases = self.get_user_preference("high_score_phrases") or ""
-
         # Set preferred language from command line if provided (persists to config)
         if preferred_language:
-            self.change_preferences("preferred_language", preferred_language)
+            self.preferences.set("preferred_language", preferred_language)
             logging.info(f"Setting preferred language to: {preferred_language}")
 
         # Initialize and start download manager
@@ -336,6 +249,13 @@ class Karaoke:
             update_now_playing_socket=self.update_now_playing_socket,
             skip=self.skip,
         )
+
+    def _load_preferences(self, **cli_overrides: Any) -> None:
+        """Load preference-driven attributes from config file.
+
+        Priority: CLI argument (if provided) > config file > PreferenceManager.DEFAULTS
+        """
+        self.preferences.apply_all(**cli_overrides)
 
     def get_url(self):
         """Get the URL for accessing the PiKaraoke web interface.
@@ -379,95 +299,6 @@ class Karaoke:
         for key, value in sorted(vars(self).items()):
             output += f"  {key}: {value}\n"
         logging.debug("\n\n" + output)
-
-    def get_user_preference(self, preference: str, default_value: Any = None) -> Any:
-        """Get a user preference from the config file.
-
-        Args:
-            preference: Name of the preference to retrieve.
-            default_value: Value to return if preference not found.
-
-        Returns:
-            The preference value (auto-converted to bool/int/float if applicable).
-        """
-        try:
-            self.config_obj.read(self.config_file_path)
-        except FileNotFoundError:
-            return default_value
-
-        if not self.config_obj.has_section("USERPREFERENCES"):
-            return default_value
-
-        try:
-            pref = self.config_obj.get("USERPREFERENCES", preference)
-            return self._convert_preference_value(pref)
-        except (configparser.NoOptionError, ValueError):
-            return default_value
-
-    def _convert_preference_value(self, val: Any) -> Any:
-        """Convert a preference value string to the appropriate Python type.
-
-        Args:
-            val: Value to convert (typically a string from HTTP request).
-
-        Returns:
-            Converted value (bool, int, float, or original string).
-        """
-        if not isinstance(val, str):
-            return val
-
-        val_lower = val.lower()
-        if val_lower in ("true", "yes", "on"):
-            return True
-        elif val_lower in ("false", "no", "off"):
-            return False
-        elif val.lstrip("-").isdigit():
-            return int(val)
-        elif val.lstrip("-").replace(".", "", 1).isdigit():
-            return float(val)
-        return val
-
-    def change_preferences(self, preference: str, val: Any) -> list[bool | str]:
-        """Update a user preference in the config file.
-
-        Args:
-            preference: Name of the preference to change.
-            val: New value for the preference.
-
-        Returns:
-            List of [success: bool, message: str].
-        """
-
-        logging.debug("Changing user preference << %s >> to %s" % (preference, val))
-        try:
-            if "USERPREFERENCES" not in self.config_obj:
-                self.config_obj.add_section("USERPREFERENCES")
-
-            userprefs = self.config_obj["USERPREFERENCES"]
-            userprefs[preference] = str(val)
-
-            # Convert value to proper type before setting attribute
-            typed_val = self._convert_preference_value(val)
-            setattr(self, preference, typed_val)
-            with open(self.config_file_path, "w") as conf:
-                self.config_obj.write(conf)
-                self.changed_preferences = True
-            return [True, _("Your preferences were changed successfully")]
-        except Exception as e:
-            logging.debug("Failed to change user preference << %s >>: %s", preference, e)
-            return [False, _("Something went wrong! Your preferences were not changed")]
-
-    def clear_preferences(self) -> list[bool | str]:
-        """Remove all user preferences by deleting the config file.
-
-        Returns:
-            List of [success: bool, message: str].
-        """
-        try:
-            os.remove(self.config_file_path)
-            return [True, _("Your preferences were cleared successfully")]
-        except OSError:
-            return [False, _("Something went wrong! Your preferences were not cleared")]
 
     def upgrade_youtubedl(self) -> None:
         """Upgrade yt-dlp to the latest version."""
@@ -810,6 +641,7 @@ class Karaoke:
         self.now_playing_transpose = 0
         self.now_playing_duration = None
         self.now_playing_position = None
+        self.volume = self.preferences.get_or_default("volume")
         self.update_now_playing_socket()
 
     def get_now_playing(self) -> dict[str, Any]:
