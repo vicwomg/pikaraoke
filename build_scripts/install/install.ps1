@@ -24,22 +24,6 @@ if (Get-Command node -ErrorAction SilentlyContinue) {
 if (!(Get-Command ffmpeg -ErrorAction SilentlyContinue)) { $installList += "ffmpeg" }
 if (!$skipDeno -and !(Get-Command deno -ErrorAction SilentlyContinue)) { $installList += "deno" }
 
-# Helper function defined earlier is needed here, moving it up
-function Is-PythonCompatible {
-    if (!(Get-Command python -ErrorAction SilentlyContinue)) { return $false }
-    try {
-        $pythonVersion = python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
-        $parts = $pythonVersion.Split('.')
-        $major = [int]$parts[0]
-        $minor = [int]$parts[1]
-        return ($major -gt 3 -or ($major -eq 3 -and $minor -ge 10))
-    } catch {
-        return $false
-    }
-}
-
-if (!(Is-PythonCompatible)) { $installList += "python" }
-
 Write-Host "The following packages will be installed/updated: $($installList -join ', ')"
 if ($Confirm) {
     $confirmation = Read-Host "Do you want to proceed? (y/n)"
@@ -49,9 +33,8 @@ if ($Confirm) {
     }
 }
 
-
 # 2. Install Dependencies via Winget
-Write-Host "Installing dependencies (ffmpeg, deno, python)..." -ForegroundColor Yellow
+Write-Host "Installing Winget dependencies..." -ForegroundColor Yellow
 
 # Install FFmpeg
 if (!(Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
@@ -62,7 +45,7 @@ if (!(Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
     Write-Host "ffmpeg is already installed."
 }
 
-# Install Deno
+# 3. Install Deno
 if (!$skipDeno) {
     if (!(Get-Command deno -ErrorAction SilentlyContinue)) {
         Write-Host "Installing deno..."
@@ -73,17 +56,7 @@ if (!$skipDeno) {
     }
 }
 
-# Install Python (Required for pikaraoke)
-if (Is-PythonCompatible) {
-    Write-Host "Compatible Python version detected. Skipping Python installation."
-} else {
-    Write-Host "Python 3.10+ not found. Installing via Winget..." -ForegroundColor Yellow
-    winget install --id=Python.Python.3.12 -e --silent --accept-source-agreements --accept-package-agreements
-    if ($LASTEXITCODE -ne 0) { throw "Failed to install Python via winget" }
-    Write-Host "Python installed. You may need to restart your terminal if the next steps fail." -ForegroundColor Magenta
-}
-
-# 3. Install/Configure uv
+# 4. Install/Configure uv
 if (!(Get-Command uv -ErrorAction SilentlyContinue)) {
     Write-Host "Installing uv..."
     # Attempt to install uv via irm
@@ -93,12 +66,12 @@ if (!(Get-Command uv -ErrorAction SilentlyContinue)) {
     # Reload Path for the current session
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 }
-# 4. Install/Upgrade dependencies via uv
+# 5. Install/Upgrade dependencies via uv
 Write-Host "Checking for existing uv installations..." -ForegroundColor Yellow
 $uvPackages = ""
 $uvPackages = uv tool list | Out-String
 
-# pikaraoke
+# 6. install pikaraoke with uv
 if ($uvPackages -match "pikaraoke") {
     Write-Host "Upgrading pikaraoke via uv..." -ForegroundColor Yellow
     if ($Local) {
@@ -116,7 +89,7 @@ if ($uvPackages -match "pikaraoke") {
 }
 if ($LASTEXITCODE -ne 0) { throw "Failed to install/upgrade pikaraoke via uv tool" }
 
-# 6. Create Desktop Shortcut
+# 7. Create Desktop Shortcut
 Write-Host "Creating Desktop Shortcuts..." -ForegroundColor Yellow
 try {
     $desktopPath = [System.Environment]::GetFolderPath("Desktop")
