@@ -296,7 +296,7 @@ const handleNowPlayingUpdate = (np) => {
     const options = {
       video: video,
       subUrl: subtitleUrl,
-      fonts: ["/static/fonts/Arial.ttf"],
+      fonts: ["/static/fonts/Arial.ttf", "/static/fonts/DroidSansFallback.ttf"],
       debug: true,
       workerUrl: "/static/js/subtitles-octopus-worker.js"
     };
