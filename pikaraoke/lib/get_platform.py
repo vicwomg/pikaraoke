@@ -178,3 +178,8 @@ def get_data_directory() -> str:
         os.makedirs(path)
 
     return path
+
+
+def is_running_in_docker():
+    """Check if we're running in a container using existence of /.dockerenv."""
+    return os.path.exists("/.dockerenv")
