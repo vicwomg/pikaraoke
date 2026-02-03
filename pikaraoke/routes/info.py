@@ -36,7 +36,7 @@ def info():
     admin_password = get_admin_password()
     is_linux = get_platform() == "linux"
 
-    preferred_language = k.get_user_preference("preferred_language", "en")
+    preferred_language = k.preferences.get("preferred_language", "en")
     # youtube-dl
     youtubedl_version = k.youtubedl_version
 
@@ -77,8 +77,8 @@ def info():
         enable_fair_queue=k.enable_fair_queue,
         buffer_size=k.buffer_size,
         languages=LANGUAGES,
-        preferred_language=preferred_language,  # 傳遞當前偏好語言
-        browse_results_per_page=k.get_user_preference("browse_results_per_page", 500),
+        preferred_language=preferred_language,
+        browse_results_per_page=k.browse_results_per_page,
         score_phrases={
             "low": k.low_score_phrases,
             "mid": k.mid_score_phrases,
