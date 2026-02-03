@@ -99,7 +99,7 @@ def get_locale() -> str | None:
     # Check config.ini lang settings (if karaoke instance is initialized)
     try:
         k = get_karaoke_instance()
-        preferred_lang = k.get_user_preference("preferred_language")
+        preferred_lang = k.preferences.get("preferred_language")
         if preferred_lang and preferred_lang in LANGUAGES.keys():
             return preferred_lang
     except (RuntimeError, AttributeError):
@@ -179,7 +179,7 @@ def main() -> None:
         bg_video_path=args.bg_video_path,
         disable_score=args.disable_score,
         limit_user_songs_by=args.limit_user_songs_by,
-        avsync=float(args.avsync),
+        avsync=float(args.avsync) if args.avsync is not None else None,
         config_file_path=args.config_file_path,
         cdg_pixel_scaling=args.cdg_pixel_scaling,
         streaming_format=args.streaming_format,
