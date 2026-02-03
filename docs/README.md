@@ -37,7 +37,7 @@ Love PiKaraoke? This project is independently maintained and free for everyone t
 
 ## Quick Install
 
-For a streamlined installation that handles all dependencies (python, uv, ffmpeg, deno, yt-dlp) and installs PiKaraoke, run the following in your terminal:
+For a streamlined installation that handles all dependencies (uv, ffmpeg, deno) and installs PiKaraoke, run the following in your terminal:
 
 ### Linux & macOS
 
@@ -96,7 +96,7 @@ Run PiKaraoke in Docker using the command below. Note the requirements for port 
 
 ```sh
 docker run -p 5555:5555 \
-  -v ~/.pikaraoke/pikaraoke-songs:/app/pikaraoke-songs \
+  -v ~/pikaraoke-songs:/app/pikaraoke-songs \
   -v ~/.pikaraoke:/home/pikaraoke/.pikaraoke \
   vicwomg/pikaraoke:latest \
   -u http://<YOUR_LAN_IP>:5555

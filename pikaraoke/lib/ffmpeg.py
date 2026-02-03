@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING, Any
 
 import ffmpeg
 
+from pikaraoke.lib.get_platform import is_running_in_docker
+
 if TYPE_CHECKING:
     from pikaraoke.lib.file_resolver import FileResolver
 
@@ -223,6 +225,11 @@ def supports_hardware_h264_encoding() -> bool:
     if not is_arm:
         # Not ARM (probably Intel x86/x64), don't use h264_v4l2m2m
         logging.debug(f"CPU architecture {arch} is not ARM, using software encoder")
+        return False
+
+    if is_running_in_docker():
+        # Docker containers do not have access to the GPU
+        logging.debug("Running in Docker where GPU access is not available, using software encoder")
         return False
 
     # On ARM, check if h264_v4l2m2m is available

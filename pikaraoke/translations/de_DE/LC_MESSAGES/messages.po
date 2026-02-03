@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-01-28 14:13-0800\n"
+"POT-Creation-Date: 2026-02-02 20:09-0800\n"
 "PO-Revision-Date: 2025-01-13 22:53-0800\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: de_DE\n"
@@ -35,38 +35,38 @@ msgid "Something went wrong! Your preferences were not cleared"
 msgstr "Etwas ist schiefgelaufen! Die Einstellungen wurden nicht zurückgesetzt"
 
 #. Message shown when the song ends abnormally
-#: karaoke.py:689
+#: karaoke.py:668
 #, python-format
 msgid "Song ended abnormally: %s"
 msgstr "Lied endete unerwartet: %s"
 
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
-#: karaoke.py:708
+#: karaoke.py:687
 #, python-format
 msgid "Transposing by %s semitones: %s"
 msgstr "Transponieren um %s Halbtöne: %s"
 
 #. Message shown after the song is skipped, will be followed by song name
-#: karaoke.py:735
+#: karaoke.py:714
 #, python-format
 msgid "Skip: %s"
 msgstr "Übersprungen: %s"
 
 #. Message shown after the song is resumed, will be followed by song name
-#: karaoke.py:751
+#: karaoke.py:730
 #, python-format
 msgid "Resume: %s"
 msgstr "Fortsetzen: %s"
 
 #. Message shown after the song is paused, will be followed by song name
-#: karaoke.py:754 templates/queue.html:434 templates/queue.html:559
+#: karaoke.py:733 templates/queue.html:434 templates/queue.html:559
 msgid "Pause"
 msgstr "Pause"
 
 #. Message shown after the volume is changed, will be followed by the volume
 #. level
-#: karaoke.py:773
+#: karaoke.py:752
 #, python-format
 msgid "Volume: %s"
 msgstr "Lautstärke: %s"
@@ -90,24 +90,24 @@ msgstr "Video wird heruntergeladen: %s"
 
 #. Message shown after the download process is completed but the song is not
 #. found
-#: lib/download_manager.py:269
+#: lib/download_manager.py:268
 msgid "Error downloading song: "
 msgstr "Fehler beim Herunterladen des Liedes: "
 
 #. Message shown after the download is completed and queued
-#: lib/download_manager.py:287
+#: lib/download_manager.py:286
 #, python-format
 msgid "Downloaded and queued: %s"
 msgstr "Heruntergeladen und in die Warteschlange eingereiht: %s"
 
 #. Message shown after the download is completed but not queued
-#: lib/download_manager.py:290
+#: lib/download_manager.py:289
 #, python-format
 msgid "Downloaded: %s"
 msgstr "Heruntergeladen: %s"
 
 #. Message shown after the download is completed but the adding to queue fails
-#: lib/download_manager.py:313
+#: lib/download_manager.py:312
 msgid "Error queueing song: "
 msgstr "Fehler beim Hinzufügen des Liedes zur Warteschlange: "
 
@@ -232,14 +232,14 @@ msgid "Batch Song Renamer"
 msgstr ""
 
 #. Message shown after trying to edit a song that is in the queue.
-#: routes/batch_song_renamer.py:487 routes/files.py:153
+#: routes/batch_song_renamer.py:487 routes/files.py:152
 msgid "Error: Can't edit this song because it is in the current queue: "
 msgstr ""
 "Fehler: Dieses Lied kann nicht bearbeitet werden, da es in der aktuellen "
 "Warteschlange ist: "
 
 #. Message shown after trying to rename a file to a name that already exists.
-#: routes/batch_song_renamer.py:498 routes/files.py:181
+#: routes/batch_song_renamer.py:498 routes/files.py:179
 #, python-format
 msgid "Error renaming file: '%s' to '%s', Filename already exists"
 msgstr ""
@@ -247,7 +247,7 @@ msgstr ""
 "bereits"
 
 #. Message shown after trying to edit a song without specifying the filename.
-#: routes/batch_song_renamer.py:512 routes/files.py:194
+#: routes/batch_song_renamer.py:512 routes/files.py:192
 msgid "Error: No filename parameters were specified!"
 msgstr "Fehler: Keine Dateinamenparameter angegeben!"
 
@@ -259,25 +259,25 @@ msgid "Browse"
 msgstr "Durchsuchen"
 
 #. Message shown after trying to delete a song that is in the queue.
-#: routes/files.py:133
+#: routes/files.py:132
 msgid "Error: Can't delete this song because it is in the current queue"
 msgstr ""
 "Fehler: Dieses Lied kann nicht gelöscht werden, da es in der aktuellen "
 "Warteschlange ist"
 
 #. Message shown after deleting a song. Followed by the song path
-#: routes/files.py:141
+#: routes/files.py:140
 #, python-format
 msgid "Song deleted: %s"
 msgstr "Lied gelöscht: %s"
 
 #. Message shown after trying to delete a song without specifying the song.
-#: routes/files.py:144
+#: routes/files.py:143
 msgid "Error: No song specified!"
 msgstr "Fehler: Kein Lied angegeben!"
 
 #. Message shown after renaming a file.
-#: routes/files.py:189
+#: routes/files.py:187
 #, python-format
 msgid "Renamed file: %s to %s"
 msgstr "Datei umbenannt: %s in %s"
@@ -711,42 +711,48 @@ msgstr ""
 msgid "Disable background video"
 msgstr "Hintergrundvideo deaktivieren"
 
-#. Checkbox label which enable/disables the Score Screen
+#. Checkbox label which enable/disables background music on the Splash Screen
 #: templates/info.html:246
+#, fuzzy
+msgid "Disable background music"
+msgstr "Hintergrundvideo deaktivieren"
+
+#. Checkbox label which enable/disables the Score Screen
+#: templates/info.html:252
 msgid "Disable the score screen after each song"
 msgstr "Bewertungsbildschirm nach jedem Lied deaktivieren"
 
 #. Checkbox label which enable/disables notifications on the splash screen
-#: templates/info.html:252
+#: templates/info.html:258
 msgid "Hide notifications"
 msgstr "Benachrichtigungen ausblenden"
 
 #. Checkbox label which enable/disables the URL display
-#: templates/info.html:258
+#: templates/info.html:264
 msgid "Hide the URL and QR code"
 msgstr "URL und QR-Code ausblenden"
 
 #. Checkbox label which enable/disables showing overlay data on the splash
 #. screen
-#: templates/info.html:264
+#: templates/info.html:270
 msgid "Hide all overlays, including now playing, up next, and QR code"
 msgstr ""
 "Alle Overlays ausblenden, einschließlich 'Jetzt läuft', 'Als Nächstes' "
 "und QR-Code"
 
 #. Numberbox label for setting the default video volume
-#: templates/info.html:270
+#: templates/info.html:276
 msgid "Default volume of the videos (min 0, max 100)"
 msgstr "Standardlautstärke der Videos (min 0, max 100)"
 
 #. Numberbox label for setting the background music volume
-#: templates/info.html:276
+#: templates/info.html:282
 msgid "Volume of the background music (min 0, max 100)"
 msgstr "Lautstärke der Hintergrundmusik (min 0, max 100)"
 
 #. Numberbox label for setting the inactive delay before showing the
 #. screensaver
-#: templates/info.html:283
+#: templates/info.html:289
 msgid ""
 "The amount of idle time in seconds before the screen saver activates. Set"
 " to 0 to disable it."
@@ -755,77 +761,77 @@ msgstr ""
 "auf 0 setzen."
 
 #. Numberbox label for setting the delay before playing the next song
-#: templates/info.html:290
+#: templates/info.html:296
 msgid "The delay in seconds before starting the next song"
 msgstr "Die Verzögerung in Sekunden vor dem Start des nächsten Liedes"
 
 #. Title text for the Score Phrases section of preferences
-#: templates/info.html:301
+#: templates/info.html:307
 msgid "Score phrases"
 msgstr ""
 
 #. Help text explaining how to add phrases
-#: templates/info.html:308
+#: templates/info.html:314
 msgid "Add one phrase per line in each box and hit save."
 msgstr ""
 
 #. Title for LOW Score Phrases
-#: templates/info.html:310
+#: templates/info.html:316
 msgid "LOW Score Phrases (score < 30)"
 msgstr ""
 
 #. Placeholder for the low score phrases textarea
-#: templates/info.html:312
+#: templates/info.html:318
 msgid "Could be better..."
 msgstr ""
 
 #. Title for MID Score Phrases
-#: templates/info.html:315
+#: templates/info.html:321
 msgid "MID Score Phrases (30 > score < 60)"
 msgstr ""
 
 #. Placeholder for the MID score phrases textarea
-#: templates/info.html:317
+#: templates/info.html:323
 msgid "That was ok..."
 msgstr ""
 
 #. Title for HIGH Score Phrases
-#: templates/info.html:320
+#: templates/info.html:326
 msgid "HIGH Score Phrases (60 < score)"
 msgstr ""
 
 #. Placeholder for the HIGH score phrases textarea
-#: templates/info.html:322
+#: templates/info.html:328
 msgid "Wonderfull..."
 msgstr ""
 
 #. Title text for the language settings section of preferences
-#: templates/info.html:330
+#: templates/info.html:336
 msgid "Language settings"
 msgstr "Spracheinstellungen"
 
 #. Label for language selection dropdown
-#: templates/info.html:343
+#: templates/info.html:349
 msgid "Preferred language (requires restart)"
 msgstr ""
 
 #. Title text for the server settings section of preferences
-#: templates/info.html:352
+#: templates/info.html:358
 msgid "Server settings"
 msgstr "Servereinstellungen"
 
 #. Checkbox label which enable/disables audio volume normalization
-#: templates/info.html:359
+#: templates/info.html:365
 msgid "Normalize audio volume"
 msgstr "Audio-Lautstärke normalisieren"
 
 #. Checkbox label which enable/disables high quality video downloads
-#: templates/info.html:365
+#: templates/info.html:371
 msgid "Download high quality videos"
 msgstr "Videos in hoher Qualität herunterladen"
 
 #. Checkbox label which enable/disables full transcode before playback
-#: templates/info.html:371
+#: templates/info.html:377
 msgid ""
 "Transcode video completely before playing (better browser compatibility, "
 "slower starts). Buffer size will be ignored.*"
@@ -834,33 +840,33 @@ msgstr ""
 "Kompatibilität, langsamerer Liedstart). Puffergröße wird ignoriert."
 
 #. Checkbox label which enable/disables CDG pixel scaling
-#: templates/info.html:377
+#: templates/info.html:383
 msgid ""
 "Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU"
 " usage)"
 msgstr ""
 
 #. Numberbox label for audio video synchronization
-#: templates/info.html:384
+#: templates/info.html:390
 msgid ""
 "Fix the audio and video synchronization in seconds (negative = advances "
 "audio | positive = delays audio)"
 msgstr ""
 
 #. Numberbox label for limitting the number of songs for each player
-#: templates/info.html:391
+#: templates/info.html:397
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
 msgstr ""
 "Limit an Liedern, die ein Benutzer zur Warteschlange hinzufügen kann (0 ="
 " unbegrenzt)"
 
 #. Checkbox label which enable/disables fair queue (round-robin) mode
-#: templates/info.html:397
+#: templates/info.html:403
 msgid "Enable fair queue (round-robin mode ensures users take turns)"
 msgstr ""
 
 #. Numberbox label for setting the buffer size in kilobytes
-#: templates/info.html:404
+#: templates/info.html:410
 msgid ""
 "Buffer size in kilobytes. Transcode this amount of the video before "
 "sending it to the splash screen. "
@@ -869,22 +875,22 @@ msgstr ""
 "abgespielt wird."
 
 #. Text for the link where the user can clear all user preferences
-#: templates/info.html:417
+#: templates/info.html:423
 msgid "Clear preferences"
 msgstr "Einstellungen löschen"
 
 #. Title of the updates section.
-#: templates/info.html:425
+#: templates/info.html:431
 msgid "Updates"
 msgstr "Aktualisierungen"
 
 #. Label for the Refresh the song list on the updates section
-#: templates/info.html:430
+#: templates/info.html:436
 msgid "Refresh the song list"
 msgstr "Liederliste aktualisieren:"
 
 #. Help text explaining the Rescan song directory link.
-#: templates/info.html:435
+#: templates/info.html:441
 msgid ""
 "You should only need to do this if you manually copied files to the "
 "download directory while pikaraoke was running."
@@ -893,17 +899,17 @@ msgstr ""
 "während Pikaraoke aktiv ist."
 
 #. Text on the link which forces Pikaraoke to rescan and pick up any new songs.
-#: templates/info.html:440
+#: templates/info.html:446
 msgid "Rescan song directory"
 msgstr "Liederverzeichnis erneut scannen"
 
 #. Label for the YT-DLP update on the updates section
-#: templates/info.html:449
+#: templates/info.html:455
 msgid "YT-DLP update"
 msgstr ""
 
 #. Text explaining why you might want to update youtube-dl.
-#: templates/info.html:454
+#: templates/info.html:460
 #, python-format
 msgid ""
 "\n"
@@ -918,13 +924,13 @@ msgstr ""
 
 #. Text for the link which will try and update youtube-dl on the machine
 #. running Pikaraoke.
-#: templates/info.html:460
+#: templates/info.html:466
 msgid "Update youtube-dl"
 msgstr "Youtube-DL aktualisieren"
 
 #. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
-#: templates/info.html:464
+#: templates/info.html:470
 msgid ""
 "* This update link above may fail if you don't have proper file "
 "permissions.\n"
@@ -935,12 +941,12 @@ msgstr ""
 
 #. Title of the section on shutting down / turning off the machine running
 #. Pikaraoke.
-#: templates/info.html:476
+#: templates/info.html:482
 msgid "Shutdown"
 msgstr "Herunterfahren"
 
 #. Explainitory text which explains why to use the shutdown link.
-#: templates/info.html:483
+#: templates/info.html:489
 msgid ""
 "Don't just pull the plug! Always shut down your server properly to avoid "
 "data corruption."
@@ -950,34 +956,34 @@ msgstr ""
 
 #. Text for button which turns off Pikaraoke for everyone using it at your
 #. house.
-#: templates/info.html:490
+#: templates/info.html:496
 msgid "Quit Pikaraoke"
 msgstr "Pikaraoke beenden"
 
 #. Text for button which reboots the machine running Pikaraoke.
-#: templates/info.html:493
+#: templates/info.html:499
 msgid "Reboot System"
 msgstr "System neustarten"
 
 #. Text for button which turn soff the machine running Pikaraoke.
-#: templates/info.html:496
+#: templates/info.html:502
 msgid "Shutdown System"
 msgstr "System herunterfahren"
 
 #. Title of the updates section.
-#: templates/info.html:507
+#: templates/info.html:513
 msgid "Other"
 msgstr "Sonstiges"
 
 #. Title for section containing a few other options on the Info page.
 #. Text for button
-#: templates/info.html:512 templates/info.html:524
+#: templates/info.html:518 templates/info.html:530
 msgid "Expand Raspberry Pi filesystem"
 msgstr "Raspberry Pi-Dateisystem erweitern"
 
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
-#: templates/info.html:517
+#: templates/info.html:523
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
 "is larger than 4GB,\n"
@@ -991,39 +997,39 @@ msgstr ""
 "machen. Das System startet hierzu neu."
 
 #. Title of the admin section.
-#: templates/info.html:533 templates/info.html:558
+#: templates/info.html:539 templates/info.html:564
 msgid "Admin"
 msgstr ""
 
 #. Title for section logout on the Info page.
-#: templates/info.html:540
+#: templates/info.html:546
 msgid "Logout"
 msgstr ""
 
 #. Message for the log out user from admin mode button.
-#: templates/info.html:546
+#: templates/info.html:552
 msgid "Click here to logout from admin mode."
 msgstr ""
 
 #. Link which will log out the user from admin mode.
-#: templates/info.html:548
+#: templates/info.html:554
 msgid "Log out"
 msgstr ""
 
 #. Title for section login on the Info page.
 #. Title for the log in page for admins.
 #. Text on submit button for the admin login form.
-#: templates/info.html:564 templates/login.html:8 templates/login.html:20
+#: templates/info.html:570 templates/login.html:8 templates/login.html:20
 msgid "Login"
 msgstr "Anmelden"
 
 #. Message for the log in user to admin mode button.
-#: templates/info.html:570
+#: templates/info.html:576
 msgid "Click here to login as admin."
 msgstr ""
 
 #. Link which will let the user log into admin mode.
-#: templates/info.html:572
+#: templates/info.html:578
 msgid "Log in"
 msgstr "Anmelden"
 
@@ -1046,7 +1052,7 @@ msgid "Queued"
 msgstr "Warteschlange"
 
 #: templates/queue.html:226
-#, fuzzy, python-format
+#, fuzzy
 msgid "Download Errors"
 msgstr "Heruntergeladen: %s"
 
