@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.18.3](https://github.com/vicwomg/pikaraoke/compare/1.18.2...1.18.3) (2026-02-03)
+
+
+### Bug Fixes
+
+* correctly allow or block editing of files ([#742](https://github.com/vicwomg/pikaraoke/issues/742)) ([385dffb](https://github.com/vicwomg/pikaraoke/commit/385dffb4f4222c3f086adf34d135ef527ce7b19c))
+* Menu icon doesn't auto-hide on some browsers ([#744](https://github.com/vicwomg/pikaraoke/issues/744)) ([ada0d0c](https://github.com/vicwomg/pikaraoke/commit/ada0d0cd354f3fb61fee218083c1195d4f7dc6a4))
+* **splash:** add CJK/Cyrillic/Thai subtitle support ([#750](https://github.com/vicwomg/pikaraoke/issues/750)) ([ba116f1](https://github.com/vicwomg/pikaraoke/commit/ba116f18cfac8227e8cff8b52043e7966141bff7)), closes [#748](https://github.com/vicwomg/pikaraoke/issues/748)
+* **splash:** start screensaver idle timer on initialization ([#749](https://github.com/vicwomg/pikaraoke/issues/749)) ([c275bfa](https://github.com/vicwomg/pikaraoke/commit/c275bfad565c3b399a04aef7ee25fb7bc1c2841c))
+* upgrade yt-dlp to 2026.1.31 ([#752](https://github.com/vicwomg/pikaraoke/issues/752)) ([9db210a](https://github.com/vicwomg/pikaraoke/commit/9db210a120f07c2d5cc8e209905c30bbe0de9b15))
+
+
+### Performance Improvements
+
+* improve docker build speed, image size, and add smoke test ([#741](https://github.com/vicwomg/pikaraoke/issues/741)) ([b5450b5](https://github.com/vicwomg/pikaraoke/commit/b5450b5f198cdab8be8f1131017528d959bb18b5))
+* remove python handling from installer, uv takes care of it ([#740](https://github.com/vicwomg/pikaraoke/issues/740)) ([e605368](https://github.com/vicwomg/pikaraoke/commit/e605368e610ee1f364e0506447556c2c144227b1))
+
 ## [1.18.2](https://github.com/vicwomg/pikaraoke/compare/1.18.1...1.18.2) (2026-01-30)
 
 
