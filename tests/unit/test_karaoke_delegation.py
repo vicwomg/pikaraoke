@@ -57,9 +57,9 @@ class TestKaraokeQueueInterface:
         result = mock_karaoke.queue_manager.is_user_limited("TestUser")
         assert isinstance(result, bool)
 
-    def test_update_queue_socket_is_callable(self, mock_karaoke):
-        """update_queue_socket() should be callable without error."""
-        mock_karaoke.queue_manager.update_queue_socket()
+    def test_events_system_is_accessible(self, mock_karaoke):
+        """QueueManager should have an accessible EventSystem."""
+        assert mock_karaoke.queue_manager._events is not None
 
 
 class TestKaraokeQueueBehavior:
@@ -96,7 +96,7 @@ class TestKaraokeQueueBehavior:
 
     def test_enqueue_returns_list_when_user_limited(self, mock_karaoke):
         """User limit rejection returns [False, message]."""
-        mock_karaoke.limit_user_songs_by = 1
+        mock_karaoke.preferences.set("limit_user_songs_by", 1)
         mock_karaoke.queue_manager.enqueue("/songs/test1---abc.mp4", "User1")
 
         result = mock_karaoke.queue_manager.enqueue("/songs/test2---def.mp4", "User1")
@@ -132,7 +132,7 @@ class TestKaraokeQueueIntegration:
 
     def test_fair_queue_interleaves_users(self, mock_karaoke):
         """Fair queue should interleave songs from different users."""
-        mock_karaoke.enable_fair_queue = True
+        mock_karaoke.preferences.set("enable_fair_queue", True)
 
         mock_karaoke.queue_manager.enqueue("/songs/a1---aaa.mp4", "UserA")
         mock_karaoke.queue_manager.enqueue("/songs/a2---bbb.mp4", "UserA")
@@ -143,7 +143,7 @@ class TestKaraokeQueueIntegration:
 
     def test_user_limit_blocks_excess_songs(self, mock_karaoke):
         """User limit should reject songs beyond the limit."""
-        mock_karaoke.limit_user_songs_by = 2
+        mock_karaoke.preferences.set("limit_user_songs_by", 2)
 
         mock_karaoke.queue_manager.enqueue("/songs/song1---abc.mp4", "LimitedUser")
         mock_karaoke.queue_manager.enqueue("/songs/song2---def.mp4", "LimitedUser")

@@ -42,7 +42,7 @@ class TestEnqueue:
 
     def test_enqueue_user_limit_enforced(self, mock_karaoke):
         """Test that user song limit is enforced."""
-        mock_karaoke.limit_user_songs_by = 2
+        mock_karaoke.preferences.set("limit_user_songs_by", 2)
 
         mock_karaoke.queue_manager.enqueue("/songs/song1---abc.mp4", "LimitedUser")
         mock_karaoke.queue_manager.enqueue("/songs/song2---def.mp4", "LimitedUser")
@@ -53,7 +53,7 @@ class TestEnqueue:
 
     def test_enqueue_user_limit_not_applied_to_pikaraoke(self, mock_karaoke):
         """Test that Pikaraoke user bypasses song limit."""
-        mock_karaoke.limit_user_songs_by = 1
+        mock_karaoke.preferences.set("limit_user_songs_by", 1)
 
         mock_karaoke.queue_manager.enqueue("/songs/song1---abc.mp4", "Pikaraoke")
         result = mock_karaoke.queue_manager.enqueue("/songs/song2---def.mp4", "Pikaraoke")
@@ -63,7 +63,7 @@ class TestEnqueue:
 
     def test_enqueue_user_limit_not_applied_to_randomizer(self, mock_karaoke):
         """Test that Randomizer user bypasses song limit."""
-        mock_karaoke.limit_user_songs_by = 1
+        mock_karaoke.preferences.set("limit_user_songs_by", 1)
 
         mock_karaoke.queue_manager.enqueue("/songs/song1---abc.mp4", "Randomizer")
         result = mock_karaoke.queue_manager.enqueue("/songs/song2---def.mp4", "Randomizer")
@@ -220,7 +220,7 @@ class TestIsUserLimited:
 
     def test_is_user_limited_disabled(self, mock_karaoke):
         """Test that limit of 0 means no limit."""
-        mock_karaoke.limit_user_songs_by = 0
+        mock_karaoke.preferences.set("limit_user_songs_by", 0)
         mock_karaoke.queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
         mock_karaoke.queue_manager.enqueue("/songs/song2---def.mp4", "User1")
 
@@ -228,14 +228,14 @@ class TestIsUserLimited:
 
     def test_is_user_limited_under_limit(self, mock_karaoke):
         """Test user under the limit."""
-        mock_karaoke.limit_user_songs_by = 3
+        mock_karaoke.preferences.set("limit_user_songs_by", 3)
         mock_karaoke.queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
 
         assert mock_karaoke.queue_manager.is_user_limited("User1") is False
 
     def test_is_user_limited_at_limit(self, mock_karaoke):
         """Test user at the limit."""
-        mock_karaoke.limit_user_songs_by = 2
+        mock_karaoke.preferences.set("limit_user_songs_by", 2)
         mock_karaoke.queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
         mock_karaoke.queue_manager.enqueue("/songs/song2---def.mp4", "User1")
 
@@ -243,7 +243,7 @@ class TestIsUserLimited:
 
     def test_is_user_limited_counts_now_playing(self, mock_karaoke):
         """Test that currently playing song counts toward limit."""
-        mock_karaoke.limit_user_songs_by = 2
+        mock_karaoke.preferences.set("limit_user_songs_by", 2)
         mock_karaoke.now_playing_user = "User1"
         mock_karaoke.queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
 

@@ -4,42 +4,38 @@ These tests verify the QueueManager class independently of the Karaoke class,
 ensuring queue logic is correct and maintainable.
 """
 
-from unittest.mock import MagicMock
-
 import pytest
 
+from pikaraoke.lib.events import EventSystem
+from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 
 
 @pytest.fixture
-def mock_callbacks():
-    """Create mocked callback functions for QueueManager."""
-    return {
-        "get_now_playing_user": MagicMock(return_value=None),
-        "filename_from_path": MagicMock(
-            side_effect=lambda path, *args: path.split("/")[-1].split("---")[0]
-        ),
-        "log_and_send": MagicMock(),
-        "get_available_songs": MagicMock(
-            return_value=[
-                "/songs/song1---abc.mp4",
-                "/songs/song2---def.mp4",
-                "/songs/song3---ghi.mp4",
-            ]
-        ),
-        "update_now_playing_socket": MagicMock(),
-        "skip": MagicMock(return_value=True),
-    }
+def events():
+    """Create an EventSystem instance."""
+    return EventSystem()
 
 
 @pytest.fixture
-def queue_manager(mock_callbacks):
-    """Create a QueueManager instance with mocked dependencies."""
+def preferences(tmp_path):
+    """Create a PreferenceManager with a temporary config file."""
+    return PreferenceManager(config_file_path=str(tmp_path / "config.ini"))
+
+
+@pytest.fixture
+def queue_manager(preferences, events):
+    """Create a QueueManager instance with real dependencies."""
     return QueueManager(
-        socketio=MagicMock(),
-        get_limit_user_songs_by=lambda: 0,
-        get_enable_fair_queue=lambda: False,
-        **mock_callbacks,
+        preferences=preferences,
+        events=events,
+        get_now_playing_user=lambda: None,
+        filename_from_path=lambda path, *args: path.split("/")[-1].split("---")[0],
+        get_available_songs=lambda: [
+            "/songs/song1---abc.mp4",
+            "/songs/song2---def.mp4",
+            "/songs/song3---ghi.mp4",
+        ],
     )
 
 
@@ -49,17 +45,6 @@ class TestQueueManagerInitialization:
     def test_initializes_with_empty_queue(self, queue_manager):
         """QueueManager should start with an empty queue."""
         assert queue_manager.queue == []
-
-    def test_stores_socketio_reference(self, mock_callbacks):
-        """QueueManager should store the socketio instance."""
-        socketio = MagicMock()
-        qm = QueueManager(
-            socketio=socketio,
-            get_limit_user_songs_by=lambda: 0,
-            get_enable_fair_queue=lambda: False,
-            **mock_callbacks,
-        )
-        assert qm.socketio == socketio
 
 
 class TestQueueManagerEnqueue:
@@ -83,13 +68,15 @@ class TestQueueManagerEnqueue:
         assert result is False
         assert len(queue_manager.queue) == 1
 
-    def test_enqueue_respects_user_limit(self, mock_callbacks):
+    def test_enqueue_respects_user_limit(self, preferences, events):
         """Enqueuing should fail when user limit is reached."""
+        preferences.set("limit_user_songs_by", 2)
         qm = QueueManager(
-            socketio=MagicMock(),
-            get_limit_user_songs_by=lambda: 2,
-            get_enable_fair_queue=lambda: False,
-            **mock_callbacks,
+            preferences=preferences,
+            events=events,
+            get_now_playing_user=lambda: None,
+            filename_from_path=lambda path, *args: path.split("/")[-1].split("---")[0],
+            get_available_songs=lambda: [],
         )
 
         qm.enqueue("/songs/song1---abc.mp4", "LimitedUser")
@@ -115,23 +102,35 @@ class TestQueueManagerEnqueue:
 
         assert queue_manager.queue[0]["semitones"] == 3
 
-    def test_enqueue_triggers_socket_update(self, queue_manager):
+    def test_enqueue_emits_queue_update(self, queue_manager):
         """Enqueuing should emit queue_update event."""
+        captured = []
+        queue_manager._events.on("queue_update", lambda: captured.append(True))
         queue_manager.enqueue("/songs/test---abc.mp4", "User1")
 
-        queue_manager.socketio.emit.assert_called_with("queue_update", namespace="/")
+        assert len(captured) == 1
+
+    def test_enqueue_emits_now_playing_update(self, queue_manager):
+        """Enqueuing should emit now_playing_update event."""
+        captured = []
+        queue_manager._events.on("now_playing_update", lambda: captured.append(True))
+        queue_manager.enqueue("/songs/test---abc.mp4", "User1")
+
+        assert len(captured) == 1
 
 
 class TestQueueManagerFairQueue:
     """Test fair queue algorithm."""
 
-    def test_fair_queue_interleaves_users(self, mock_callbacks):
+    def test_fair_queue_interleaves_users(self, preferences, events):
         """Fair queue should interleave songs from different users."""
+        preferences.set("enable_fair_queue", True)
         qm = QueueManager(
-            socketio=MagicMock(),
-            get_limit_user_songs_by=lambda: 0,
-            get_enable_fair_queue=lambda: True,
-            **mock_callbacks,
+            preferences=preferences,
+            events=events,
+            get_now_playing_user=lambda: None,
+            filename_from_path=lambda path, *args: path.split("/")[-1].split("---")[0],
+            get_available_songs=lambda: [],
         )
 
         qm.enqueue("/songs/a1---aaa.mp4", "UserA")
@@ -141,13 +140,15 @@ class TestQueueManagerFairQueue:
         users = [item["user"] for item in qm.queue]
         assert users == ["UserA", "UserB", "UserA"]
 
-    def test_fair_queue_handles_multiple_users(self, mock_callbacks):
+    def test_fair_queue_handles_multiple_users(self, preferences, events):
         """Fair queue should work with multiple users adding multiple songs."""
+        preferences.set("enable_fair_queue", True)
         qm = QueueManager(
-            socketio=MagicMock(),
-            get_limit_user_songs_by=lambda: 0,
-            get_enable_fair_queue=lambda: True,
-            **mock_callbacks,
+            preferences=preferences,
+            events=events,
+            get_now_playing_user=lambda: None,
+            filename_from_path=lambda path, *args: path.split("/")[-1].split("---")[0],
+            get_available_songs=lambda: [],
         )
 
         qm.enqueue("/songs/a1---aaa.mp4", "UserA")
@@ -207,6 +208,21 @@ class TestQueueManagerEdit:
         assert result is False
         assert len(queue_manager.queue) == 1
 
+    def test_queue_edit_emits_events(self, queue_manager):
+        """Successful queue edit should emit queue_update and now_playing_update."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+        queue_manager.enqueue("/songs/song2---def.mp4", "User2")
+
+        queue_updates = []
+        now_playing_updates = []
+        queue_manager._events.on("queue_update", lambda: queue_updates.append(True))
+        queue_manager._events.on("now_playing_update", lambda: now_playing_updates.append(True))
+
+        queue_manager.queue_edit("song1---abc.mp4", "delete")
+
+        assert len(queue_updates) == 1
+        assert len(now_playing_updates) == 1
+
 
 class TestQueueManagerClear:
     """Test queue clearing."""
@@ -220,19 +236,25 @@ class TestQueueManagerClear:
 
         assert len(queue_manager.queue) == 0
 
-    def test_queue_clear_triggers_skip(self, mock_callbacks):
-        """Clearing the queue should trigger skip callback."""
-        qm = QueueManager(
-            socketio=MagicMock(),
-            get_limit_user_songs_by=lambda: 0,
-            get_enable_fair_queue=lambda: False,
-            **mock_callbacks,
-        )
-        qm.enqueue("/songs/song1---abc.mp4", "User1")
+    def test_queue_clear_emits_skip_requested(self, queue_manager):
+        """Clearing the queue should emit skip_requested event."""
+        captured = []
+        queue_manager._events.on("skip_requested", lambda: captured.append(True))
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
 
-        qm.queue_clear()
+        queue_manager.queue_clear()
 
-        mock_callbacks["skip"].assert_called_once_with(False)
+        assert len(captured) == 1
+
+    def test_queue_clear_emits_queue_update(self, queue_manager):
+        """Clearing the queue should emit queue_update event."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+        captured = []
+        queue_manager._events.on("queue_update", lambda: captured.append(True))
+
+        queue_manager.queue_clear()
+
+        assert len(captured) == 1
 
 
 class TestQueueManagerRandom:
@@ -256,17 +278,17 @@ class TestQueueManagerRandom:
         assert len(files) == 3
         assert len(set(files)) == 3  # No duplicates
 
-    def test_queue_add_random_with_insufficient_songs(self, mock_callbacks):
+    def test_queue_add_random_with_insufficient_songs(self, preferences, events):
         """Adding more random songs than available should return False."""
-        mock_callbacks["get_available_songs"].return_value = [
-            "/songs/song1---abc.mp4",
-            "/songs/song2---def.mp4",
-        ]
         qm = QueueManager(
-            socketio=MagicMock(),
-            get_limit_user_songs_by=lambda: 0,
-            get_enable_fair_queue=lambda: False,
-            **mock_callbacks,
+            preferences=preferences,
+            events=events,
+            get_now_playing_user=lambda: None,
+            filename_from_path=lambda path, *args: path.split("/")[-1].split("---")[0],
+            get_available_songs=lambda: [
+                "/songs/song1---abc.mp4",
+                "/songs/song2---def.mp4",
+            ],
         )
 
         result = qm.queue_add_random(5)
@@ -288,26 +310,29 @@ class TestQueueManagerHelpers:
         """is_song_in_queue should return False for non-queued songs."""
         assert queue_manager.is_song_in_queue("/songs/test---abc.mp4") is False
 
-    def test_is_user_limited_returns_false_for_pikaraoke_user(self, mock_callbacks):
+    def test_is_user_limited_returns_false_for_pikaraoke_user(self, preferences, events):
         """Pikaraoke system user should never be limited."""
+        preferences.set("limit_user_songs_by", 1)
         qm = QueueManager(
-            socketio=MagicMock(),
-            get_limit_user_songs_by=lambda: 1,
-            get_enable_fair_queue=lambda: False,
-            **mock_callbacks,
+            preferences=preferences,
+            events=events,
+            get_now_playing_user=lambda: None,
+            filename_from_path=lambda path, *args: path.split("/")[-1].split("---")[0],
+            get_available_songs=lambda: [],
         )
 
         assert qm.is_user_limited("Pikaraoke") is False
         assert qm.is_user_limited("Randomizer") is False
 
-    def test_is_user_limited_respects_limit(self, mock_callbacks):
+    def test_is_user_limited_respects_limit(self, preferences, events):
         """is_user_limited should respect the configured limit."""
-        mock_callbacks["get_now_playing_user"].return_value = None
+        preferences.set("limit_user_songs_by", 2)
         qm = QueueManager(
-            socketio=MagicMock(),
-            get_limit_user_songs_by=lambda: 2,
-            get_enable_fair_queue=lambda: False,
-            **mock_callbacks,
+            preferences=preferences,
+            events=events,
+            get_now_playing_user=lambda: None,
+            filename_from_path=lambda path, *args: path.split("/")[-1].split("---")[0],
+            get_available_songs=lambda: [],
         )
 
         qm.enqueue("/songs/song1---abc.mp4", "LimitedUser")
@@ -316,37 +341,16 @@ class TestQueueManagerHelpers:
         qm.enqueue("/songs/song2---def.mp4", "LimitedUser")
         assert qm.is_user_limited("LimitedUser") is True
 
-    def test_is_user_limited_includes_now_playing(self, mock_callbacks):
+    def test_is_user_limited_includes_now_playing(self, preferences, events):
         """is_user_limited should count currently playing song."""
-        mock_callbacks["get_now_playing_user"].return_value = "LimitedUser"
+        preferences.set("limit_user_songs_by", 2)
         qm = QueueManager(
-            socketio=MagicMock(),
-            get_limit_user_songs_by=lambda: 2,
-            get_enable_fair_queue=lambda: False,
-            **mock_callbacks,
+            preferences=preferences,
+            events=events,
+            get_now_playing_user=lambda: "LimitedUser",
+            filename_from_path=lambda path, *args: path.split("/")[-1].split("---")[0],
+            get_available_songs=lambda: [],
         )
 
         qm.enqueue("/songs/song1---abc.mp4", "LimitedUser")
         assert qm.is_user_limited("LimitedUser") is True
-
-
-class TestQueueManagerSocketIO:
-    """Test SocketIO integration."""
-
-    def test_update_queue_socket_emits_event(self, queue_manager):
-        """update_queue_socket should emit queue_update event."""
-        queue_manager.update_queue_socket()
-
-        queue_manager.socketio.emit.assert_called_with("queue_update", namespace="/")
-
-    def test_update_queue_socket_handles_none_socketio(self, mock_callbacks):
-        """update_queue_socket should not crash with None socketio."""
-        qm = QueueManager(
-            socketio=None,
-            get_limit_user_songs_by=lambda: 0,
-            get_enable_fair_queue=lambda: False,
-            **mock_callbacks,
-        )
-
-        # Should not raise an exception
-        qm.update_queue_socket()

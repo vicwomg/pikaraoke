@@ -237,17 +237,23 @@ class Karaoke:
         # Initialize stream manager for transcoding and playback
         self.stream_manager = StreamManager(self)
 
-        # Initialize queue manager
+        # Temporary: these handlers bridge QueueManager events to Karaoke methods.
+        # They will move into dedicated managers as they are refactored.
+        self.events.on("notification", self.log_and_send)
+        self.events.on(
+            "queue_update",
+            lambda: self.socketio.emit("queue_update", namespace="/") if self.socketio else None,
+        )
+        self.events.on("now_playing_update", self.update_now_playing_socket)
+        self.events.on("skip_requested", lambda: self.skip(False))
+
+        # Initialize queue manager (remaining callbacks will be refactored out in future PRs)
         self.queue_manager = QueueManager(
-            socketio=socketio,
-            get_limit_user_songs_by=lambda: self.limit_user_songs_by,
-            get_enable_fair_queue=lambda: self.enable_fair_queue,
+            preferences=self.preferences,
+            events=self.events,
             get_now_playing_user=lambda: self.now_playing_user,
             filename_from_path=self.filename_from_path,
-            log_and_send=self.log_and_send,
             get_available_songs=lambda: self.available_songs,
-            update_now_playing_socket=self.update_now_playing_socket,
-            skip=self.skip,
         )
 
     def _load_preferences(self, **cli_overrides: Any) -> None:
