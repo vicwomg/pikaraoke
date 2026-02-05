@@ -65,7 +65,9 @@ class TestQueueManagerEnqueue:
         queue_manager.enqueue("/songs/test---abc.mp4", "User1")
         result = queue_manager.enqueue("/songs/test---abc.mp4", "User2")
 
-        assert result is False
+        assert isinstance(result, list)
+        assert result[0] is False
+        assert "already in" in result[1].lower()
         assert len(queue_manager.queue) == 1
 
     def test_enqueue_respects_user_limit(self, preferences, events):
@@ -219,6 +221,88 @@ class TestQueueManagerEdit:
         queue_manager._events.on("now_playing_update", lambda: now_playing_updates.append(True))
 
         queue_manager.queue_edit("song1---abc.mp4", "delete")
+
+        assert len(queue_updates) == 1
+        assert len(now_playing_updates) == 1
+
+
+class TestQueueManagerReorder:
+    """Test queue reordering functionality."""
+
+    def test_reorder_moves_song_forward(self, queue_manager):
+        """Reordering should move a song from later position to earlier position."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+        queue_manager.enqueue("/songs/song2---def.mp4", "User2")
+        queue_manager.enqueue("/songs/song3---ghi.mp4", "User3")
+
+        result = queue_manager.reorder(2, 0)
+
+        assert result is True
+        assert queue_manager.queue[0]["file"] == "/songs/song3---ghi.mp4"
+        assert queue_manager.queue[1]["file"] == "/songs/song1---abc.mp4"
+        assert queue_manager.queue[2]["file"] == "/songs/song2---def.mp4"
+
+    def test_reorder_moves_song_backward(self, queue_manager):
+        """Reordering should move a song from earlier position to later position."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+        queue_manager.enqueue("/songs/song2---def.mp4", "User2")
+        queue_manager.enqueue("/songs/song3---ghi.mp4", "User3")
+
+        result = queue_manager.reorder(0, 2)
+
+        assert result is True
+        assert queue_manager.queue[0]["file"] == "/songs/song2---def.mp4"
+        assert queue_manager.queue[1]["file"] == "/songs/song3---ghi.mp4"
+        assert queue_manager.queue[2]["file"] == "/songs/song1---abc.mp4"
+
+    def test_reorder_same_index_succeeds(self, queue_manager):
+        """Reordering to the same index should succeed without changes."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+        queue_manager.enqueue("/songs/song2---def.mp4", "User2")
+
+        result = queue_manager.reorder(1, 1)
+
+        assert result is True
+        assert queue_manager.queue[0]["file"] == "/songs/song1---abc.mp4"
+        assert queue_manager.queue[1]["file"] == "/songs/song2---def.mp4"
+
+    def test_reorder_invalid_old_index(self, queue_manager):
+        """Reordering with invalid old_index should return False."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+
+        result = queue_manager.reorder(5, 0)
+
+        assert result is False
+        assert len(queue_manager.queue) == 1
+
+    def test_reorder_invalid_new_index(self, queue_manager):
+        """Reordering with invalid new_index should return False."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+
+        result = queue_manager.reorder(0, 5)
+
+        assert result is False
+        assert len(queue_manager.queue) == 1
+
+    def test_reorder_negative_index(self, queue_manager):
+        """Reordering with negative index should return False."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+
+        result = queue_manager.reorder(-1, 0)
+
+        assert result is False
+
+    def test_reorder_emits_events(self, queue_manager):
+        """Successful reorder should emit queue_update and now_playing_update."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+        queue_manager.enqueue("/songs/song2---def.mp4", "User2")
+
+        queue_updates = []
+        now_playing_updates = []
+        queue_manager._events.on("queue_update", lambda: queue_updates.append(True))
+        queue_manager._events.on("now_playing_update", lambda: now_playing_updates.append(True))
+
+        queue_manager.reorder(1, 0)
 
         assert len(queue_updates) == 1
         assert len(now_playing_updates) == 1

@@ -88,11 +88,13 @@ class TestKaraokeQueueBehavior:
         assert isinstance(result[1], str)
 
     def test_enqueue_returns_false_for_duplicate(self, mock_karaoke):
-        """Duplicate song enqueue returns False."""
+        """Duplicate song enqueue returns [False, message]."""
         mock_karaoke.queue_manager.enqueue("/songs/test---abc.mp4", "User1")
 
         result = mock_karaoke.queue_manager.enqueue("/songs/test---abc.mp4", "User1")
-        assert result is False
+        assert isinstance(result, list)
+        assert result[0] is False
+        assert isinstance(result[1], str)
 
     def test_enqueue_returns_list_when_user_limited(self, mock_karaoke):
         """User limit rejection returns [False, message]."""

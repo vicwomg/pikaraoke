@@ -28,7 +28,9 @@ class TestEnqueue:
         mock_karaoke.queue_manager.enqueue("/songs/test---abc123.mp4", "User1")
         result = mock_karaoke.queue_manager.enqueue("/songs/test---abc123.mp4", "User2")
 
-        assert result is False
+        assert isinstance(result, list)
+        assert result[0] is False
+        assert isinstance(result[1], str)
         assert len(mock_karaoke.queue_manager.queue) == 1
 
     def test_enqueue_add_to_front(self, mock_karaoke):

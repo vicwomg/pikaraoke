@@ -17,14 +17,7 @@ from pikaraoke.lib.preference_manager import PreferenceManager
 
 
 class QueueManager:
-    """Manages the song queue and queue operations.
-
-    This class handles all queue-related operations including adding songs,
-    removing songs, reordering, and implementing fair queue logic.
-
-    Attributes:
-        queue: List of queued songs with metadata (user, file, title, semitones).
-    """
+    """Manages the song queue: enqueueing, editing, reordering, and fair queue logic."""
 
     def __init__(
         self,
@@ -34,15 +27,6 @@ class QueueManager:
         filename_from_path: Callable[[str, bool], str] | None = None,
         get_available_songs: Callable[[], Any] | None = None,
     ) -> None:
-        """Initialize the QueueManager.
-
-        Args:
-            preferences: PreferenceManager for reading user settings.
-            events: EventSystem for emitting state-change events.
-            get_now_playing_user: Callback to get current playing user.
-            filename_from_path: Callback to extract clean filename from path.
-            get_available_songs: Callback to get available songs list.
-        """
         self.queue: list[dict[str, Any]] = []
         self._preferences = preferences
         self._events = events
@@ -51,25 +35,11 @@ class QueueManager:
         self._get_available_songs = get_available_songs
 
     def is_song_in_queue(self, song_path: str) -> bool:
-        """Check if a song is already in the queue.
-
-        Args:
-            song_path: Path to the song file.
-
-        Returns:
-            True if the song is in the queue.
-        """
+        """Check if a song is already in the queue."""
         return any(item["file"] == song_path for item in self.queue)
 
     def is_user_limited(self, user: str) -> bool:
-        """Check if a user has reached their queue limit.
-
-        Args:
-            user: Username to check.
-
-        Returns:
-            True if the user has reached their song limit.
-        """
+        """Check if a user has reached their queue limit."""
         limit = self._preferences.get_or_default("limit_user_songs_by")
         if limit == 0 or user in ("Pikaraoke", "Randomizer"):
             return False
@@ -80,17 +50,17 @@ class QueueManager:
         )
         return count >= int(limit)
 
+    def _resolve_title(self, song_path: str) -> str:
+        """Get a display title from a song path."""
+        if self._filename_from_path:
+            return self._filename_from_path(song_path, True)
+        return song_path
+
     def _calculate_fair_queue_position(self, user: str) -> int:
-        """Calculate insertion position for round-robin fair queuing.
+        """Calculate insertion position using Nagle Fair Queuing.
 
-        Implements Nagle Fair Queuing: users take turns in rounds. A user's Nth
-        song is placed after all other users' Nth songs (or at queue end).
-
-        Args:
-            user: Username adding the song.
-
-        Returns:
-            Queue index where the song should be inserted.
+        Users take turns in rounds: a user's Nth song is placed after all
+        other users' Nth songs (or at queue end).
         """
         # Count how many songs this user already has in queue
         user_song_count = sum(1 for item in self.queue if item["user"] == user)
@@ -123,22 +93,16 @@ class QueueManager:
         semitones: int = 0,
         add_to_front: bool = False,
         log_action: bool = True,
-    ) -> bool | list[bool | str]:
-        """Add a song to the queue.
+    ) -> list[bool | str]:
+        """Add a song to the queue. Returns [success, message]."""
+        title = self._resolve_title(song_path)
 
-        Args:
-            song_path: Path to the song file.
-            user: Username adding the song.
-            semitones: Transpose value for playback.
-            add_to_front: If True, add to front of queue instead of back.
-            log_action: Whether to log and notify about the action.
-
-        Returns:
-            False if song already in queue, or list of [success, message].
-        """
         if self.is_song_in_queue(song_path):
             logging.warning("Song is already in queue, will not add: " + song_path)
-            return False
+            return [
+                False,
+                _("Song is already in the queue: %s") % title,
+            ]
 
         if self.is_user_limited(user):
             limit = self._preferences.get_or_default("limit_user_songs_by")
@@ -147,11 +111,6 @@ class QueueManager:
                 False,
                 _("You reached the limit of %s song(s) from an user in queue!") % (str(limit)),
             ]
-
-        if self._filename_from_path:
-            title = self._filename_from_path(song_path, True)
-        else:
-            title = song_path
 
         queue_item = {
             "user": user,
@@ -188,14 +147,7 @@ class QueueManager:
         ]
 
     def queue_add_random(self, amount: int) -> bool:
-        """Add random songs to the queue.
-
-        Args:
-            amount: Number of random songs to add.
-
-        Returns:
-            True if successful, False if ran out of songs.
-        """
+        """Add random songs to the queue. Returns False if ran out of songs."""
         logging.info("Adding %d random songs to queue" % amount)
 
         if not self._get_available_songs:
@@ -204,7 +156,7 @@ class QueueManager:
 
         available_songs = self._get_available_songs()
 
-        if len(available_songs) == 0:
+        if not available_songs:
             logging.warning("No available songs!")
             return False
 
@@ -212,7 +164,7 @@ class QueueManager:
         queued_paths = {item["file"] for item in self.queue}
         eligible_songs = [s for s in available_songs if s not in queued_paths]
 
-        if len(eligible_songs) == 0:
+        if not eligible_songs:
             logging.warning("All songs are already in queue!")
             return False
 
@@ -238,16 +190,26 @@ class QueueManager:
         self._events.emit("now_playing_update")
         self._events.emit("skip_requested")
 
+    def reorder(self, old_index: int, new_index: int) -> bool:
+        """Move a song from old_index to new_index. Returns False if indices are invalid."""
+        if not (0 <= old_index < len(self.queue) and 0 <= new_index < len(self.queue)):
+            logging.error(
+                f"Invalid reorder indices: old={old_index}, new={new_index}, queue_len={len(self.queue)}"
+            )
+            return False
+
+        if old_index == new_index:
+            return True
+
+        item = self.queue.pop(old_index)
+        self.queue.insert(new_index, item)
+        logging.info(f"Reordered queue: moved index {old_index} to {new_index}")
+        self._events.emit("queue_update")
+        self._events.emit("now_playing_update")
+        return True
+
     def queue_edit(self, song_name: str, action: str) -> bool:
-        """Edit the queue by moving or removing a song.
-
-        Args:
-            song_name: Name/path of the song to edit.
-            action: Action to perform ('up', 'down', 'delete').
-
-        Returns:
-            True if the action was successful.
-        """
+        """Move or remove a song in the queue. Action: 'up', 'down', or 'delete'."""
         song = None
         index = 0
         for idx, item in enumerate(self.queue):
