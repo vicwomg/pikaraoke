@@ -18,14 +18,6 @@ _ = flask_babel.gettext
 queue_bp = Blueprint("queue", __name__)
 
 
-def _find_song_index(queue: list, song_name: str) -> int:
-    """Find a song's index in the queue by partial filename match. Returns -1 if not found."""
-    for i, item in enumerate(queue):
-        if song_name in item["file"]:
-            return i
-    return -1
-
-
 @queue_bp.route("/queue")
 def queue():
     """Queue management page.
@@ -95,7 +87,7 @@ def add_random():
         description: Redirects to queue page
     """
     k = get_karaoke_instance()
-    amount = int(request.args["amount"])
+    amount = request.args.get("amount", default=1, type=int)
     rc = k.queue_manager.queue_add_random(amount)
     if rc:
         # MSG: Message shown after adding random tracks
@@ -186,37 +178,33 @@ def queue_edit():
         song = unquote(request.args["song"])
         song_title = k.filename_from_path(song)
 
+        # MSG labels for each action
+        success_labels = {
+            "top": _("Moved to top of queue"),
+            "bottom": _("Moved to bottom of queue"),
+            "up": _("Moved up in queue"),
+            "down": _("Moved down in queue"),
+            "delete": _("Deleted from queue"),
+        }
+        error_labels = {
+            "top": _("Error moving to top of queue"),
+            "bottom": _("Error moving to bottom of queue"),
+            "up": _("Error moving up in queue"),
+            "down": _("Error moving down in queue"),
+            "delete": _("Error deleting from queue"),
+        }
+
         if action == "top":
-            found_index = _find_song_index(k.queue_manager.queue, song)
-            if found_index > 0:
-                success = k.queue_manager.reorder(found_index, 0)
-                if success:
-                    message = _("Moved to top of queue") + ": " + song_title
-
+            success = k.queue_manager.move_to_top(song)
         elif action == "bottom":
-            found_index = _find_song_index(k.queue_manager.queue, song)
-            if 0 <= found_index < len(k.queue_manager.queue) - 1:
-                success = k.queue_manager.reorder(found_index, len(k.queue_manager.queue) - 1)
-                if success:
-                    message = _("Moved to bottom of queue") + ": " + song_title
-
-        elif action in ("up", "down", "delete"):
-            # MSG labels for each action
-            success_labels = {
-                "up": _("Moved up in queue"),
-                "down": _("Moved down in queue"),
-                "delete": _("Deleted from queue"),
-            }
-            error_labels = {
-                "up": _("Error moving up in queue"),
-                "down": _("Error moving down in queue"),
-                "delete": _("Error deleting from queue"),
-            }
+            success = k.queue_manager.move_to_bottom(song)
+        else:
             success = k.queue_manager.queue_edit(song, action)
-            if success:
-                message = success_labels[action] + ": " + song_title
-            else:
-                message = error_labels[action] + ": " + song_title
+
+        if action in success_labels:
+            message = (
+                (success_labels[action] if success else error_labels[action]) + ": " + song_title
+            )
 
         if message and not is_ajax:
             flash(message, "is-success" if success else "is-danger")
@@ -325,5 +313,4 @@ def delete_download_error(error_id):
     k = get_karaoke_instance()
     if k.download_manager.remove_error(error_id):
         return json.dumps({"success": True})
-    else:
-        return json.dumps({"success": False, "error": "Error not found"}), 404
+    return json.dumps({"success": False, "error": "Error not found"}), 404

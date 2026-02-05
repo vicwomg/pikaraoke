@@ -56,6 +56,13 @@ class QueueManager:
             return self._filename_from_path(song_path, True)
         return song_path
 
+    def _find_song_index(self, song_path: str) -> int:
+        """Find a song's index in the queue by exact path match. Returns -1 if not found."""
+        for idx, item in enumerate(self.queue):
+            if song_path == item["file"]:
+                return idx
+        return -1
+
     def _calculate_fair_queue_position(self, user: str) -> int:
         """Calculate insertion position using Nagle Fair Queuing.
 
@@ -208,30 +215,49 @@ class QueueManager:
         self._events.emit("now_playing_update")
         return True
 
-    def queue_edit(self, song_name: str, action: str) -> bool:
+    def move_to_top(self, song_path: str) -> bool:
+        """Move a song to the top of the queue (index 0). Returns False if not found or already at top."""
+        index = self._find_song_index(song_path)
+        if index < 1:  # Not found (-1) or already at top (0)
+            if index == -1:
+                logging.error("Song not found in queue: " + song_path)
+            else:
+                logging.warning("Song is already at top of queue: " + song_path)
+            return False
+        return self.reorder(index, 0)
+
+    def move_to_bottom(self, song_path: str) -> bool:
+        """Move a song to the bottom of the queue. Returns False if not found or already at bottom."""
+        index = self._find_song_index(song_path)
+        if index < 0:
+            logging.error("Song not found in queue: " + song_path)
+            return False
+        if index >= len(self.queue) - 1:
+            logging.warning("Song is already at bottom of queue: " + song_path)
+            return False
+        return self.reorder(index, len(self.queue) - 1)
+
+    def queue_edit(self, song_path: str, action: str) -> bool:
         """Move or remove a song in the queue. Action: 'up', 'down', or 'delete'."""
-        index = next(
-            (idx for idx, item in enumerate(self.queue) if song_name in item["file"]),
-            -1,
-        )
+        index = self._find_song_index(song_path)
         if index == -1:
-            logging.error("Song not found in queue: " + song_name)
+            logging.error("Song not found in queue: " + song_path)
             return False
 
         if action == "up":
             if index < 1:
-                logging.warning("Song is up next, can't bump up in queue: " + song_name)
+                logging.warning("Song is up next, can't bump up in queue: " + song_path)
                 return False
             return self.reorder(index, index - 1)
 
         if action == "down":
             if index == len(self.queue) - 1:
-                logging.warning("Song is already last, can't bump down in queue: " + song_name)
+                logging.warning("Song is already last, can't bump down in queue: " + song_path)
                 return False
             return self.reorder(index, index + 1)
 
         if action == "delete":
-            logging.info("Deleting song from queue: " + song_name)
+            logging.info("Deleting song from queue: " + song_path)
             del self.queue[index]
             self._events.emit("queue_update")
             self._events.emit("now_playing_update")

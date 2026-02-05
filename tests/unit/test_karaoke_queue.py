@@ -83,7 +83,7 @@ class TestQueueEdit:
         mock_karaoke.queue_manager.enqueue("/songs/song2---def.mp4", "User2")
         mock_karaoke.queue_manager.enqueue("/songs/song3---ghi.mp4", "User3")
 
-        result = mock_karaoke.queue_manager.queue_edit("song3---ghi.mp4", "up")
+        result = mock_karaoke.queue_manager.queue_edit("/songs/song3---ghi.mp4", "up")
 
         assert result is True
         assert mock_karaoke.queue_manager.queue[1]["file"] == "/songs/song3---ghi.mp4"
@@ -94,7 +94,7 @@ class TestQueueEdit:
         mock_karaoke.queue_manager.enqueue("/songs/song2---def.mp4", "User2")
         mock_karaoke.queue_manager.enqueue("/songs/song3---ghi.mp4", "User3")
 
-        result = mock_karaoke.queue_manager.queue_edit("song1---abc.mp4", "down")
+        result = mock_karaoke.queue_manager.queue_edit("/songs/song1---abc.mp4", "down")
 
         assert result is True
         assert mock_karaoke.queue_manager.queue[1]["file"] == "/songs/song1---abc.mp4"
@@ -104,7 +104,7 @@ class TestQueueEdit:
         mock_karaoke.queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
         mock_karaoke.queue_manager.enqueue("/songs/song2---def.mp4", "User2")
 
-        result = mock_karaoke.queue_manager.queue_edit("song1---abc.mp4", "delete")
+        result = mock_karaoke.queue_manager.queue_edit("/songs/song1---abc.mp4", "delete")
 
         assert result is True
         assert len(mock_karaoke.queue_manager.queue) == 1
@@ -115,7 +115,7 @@ class TestQueueEdit:
         mock_karaoke.queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
         mock_karaoke.queue_manager.enqueue("/songs/song2---def.mp4", "User2")
 
-        result = mock_karaoke.queue_manager.queue_edit("song1---abc.mp4", "up")
+        result = mock_karaoke.queue_manager.queue_edit("/songs/song1---abc.mp4", "up")
 
         assert result is False
         assert mock_karaoke.queue_manager.queue[0]["file"] == "/songs/song1---abc.mp4"
@@ -125,7 +125,7 @@ class TestQueueEdit:
         mock_karaoke.queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
         mock_karaoke.queue_manager.enqueue("/songs/song2---def.mp4", "User2")
 
-        result = mock_karaoke.queue_manager.queue_edit("song2---def.mp4", "down")
+        result = mock_karaoke.queue_manager.queue_edit("/songs/song2---def.mp4", "down")
 
         assert result is False
         assert mock_karaoke.queue_manager.queue[1]["file"] == "/songs/song2---def.mp4"

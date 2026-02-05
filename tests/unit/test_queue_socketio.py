@@ -95,7 +95,7 @@ class TestQueueSocketEmissions:
         k.queue_manager.enqueue("/songs/song2---def.mp4", "User2")
         k.socketio.emit.reset_mock()
 
-        k.queue_manager.queue_edit("song1---abc.mp4", "delete")
+        k.queue_manager.queue_edit("/songs/song1---abc.mp4", "delete")
 
         event_names = [call[0][0] for call in k.socketio.emit.call_args_list]
         assert "queue_update" in event_names

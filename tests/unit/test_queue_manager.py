@@ -11,6 +11,11 @@ from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 
 
+def extract_title(path: str, *args) -> str:
+    """Extract title from song path for testing."""
+    return path.split("/")[-1].split("---")[0]
+
+
 @pytest.fixture
 def events():
     """Create an EventSystem instance."""
@@ -30,7 +35,7 @@ def queue_manager(preferences, events):
         preferences=preferences,
         events=events,
         get_now_playing_user=lambda: None,
-        filename_from_path=lambda path, *args: path.split("/")[-1].split("---")[0],
+        filename_from_path=extract_title,
         get_available_songs=lambda: [
             "/songs/song1---abc.mp4",
             "/songs/song2---def.mp4",
@@ -77,7 +82,7 @@ class TestQueueManagerEnqueue:
             preferences=preferences,
             events=events,
             get_now_playing_user=lambda: None,
-            filename_from_path=lambda path, *args: path.split("/")[-1].split("---")[0],
+            filename_from_path=extract_title,
             get_available_songs=lambda: [],
         )
 
@@ -131,7 +136,7 @@ class TestQueueManagerFairQueue:
             preferences=preferences,
             events=events,
             get_now_playing_user=lambda: None,
-            filename_from_path=lambda path, *args: path.split("/")[-1].split("---")[0],
+            filename_from_path=extract_title,
             get_available_songs=lambda: [],
         )
 
@@ -149,7 +154,7 @@ class TestQueueManagerFairQueue:
             preferences=preferences,
             events=events,
             get_now_playing_user=lambda: None,
-            filename_from_path=lambda path, *args: path.split("/")[-1].split("---")[0],
+            filename_from_path=extract_title,
             get_available_songs=lambda: [],
         )
 
@@ -172,7 +177,7 @@ class TestQueueManagerEdit:
         queue_manager.enqueue("/songs/song2---def.mp4", "User2")
         queue_manager.enqueue("/songs/song3---ghi.mp4", "User3")
 
-        result = queue_manager.queue_edit("song3---ghi.mp4", "up")
+        result = queue_manager.queue_edit("/songs/song3---ghi.mp4", "up")
 
         assert result is True
         assert queue_manager.queue[1]["file"] == "/songs/song3---ghi.mp4"
@@ -184,7 +189,7 @@ class TestQueueManagerEdit:
         queue_manager.enqueue("/songs/song2---def.mp4", "User2")
         queue_manager.enqueue("/songs/song3---ghi.mp4", "User3")
 
-        result = queue_manager.queue_edit("song1---abc.mp4", "down")
+        result = queue_manager.queue_edit("/songs/song1---abc.mp4", "down")
 
         assert result is True
         assert queue_manager.queue[0]["file"] == "/songs/song2---def.mp4"
@@ -195,7 +200,7 @@ class TestQueueManagerEdit:
         queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
         queue_manager.enqueue("/songs/song2---def.mp4", "User2")
 
-        result = queue_manager.queue_edit("song1---abc.mp4", "delete")
+        result = queue_manager.queue_edit("/songs/song1---abc.mp4", "delete")
 
         assert result is True
         assert len(queue_manager.queue) == 1
@@ -205,10 +210,26 @@ class TestQueueManagerEdit:
         """Editing a nonexistent song should return False."""
         queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
 
-        result = queue_manager.queue_edit("nonexistent---xyz.mp4", "delete")
+        result = queue_manager.queue_edit("/songs/nonexistent---xyz.mp4", "delete")
 
         assert result is False
         assert len(queue_manager.queue) == 1
+
+    def test_queue_edit_requires_exact_match(self, queue_manager):
+        """Queue edit should require exact path match, not partial match."""
+        queue_manager.enqueue("/songs/love---abc.mp4", "User1")
+        queue_manager.enqueue("/songs/love_shack---def.mp4", "User2")
+
+        # Partial match should fail - "love" should not match "love_shack"
+        result = queue_manager.queue_edit("love", "delete")
+        assert result is False
+        assert len(queue_manager.queue) == 2
+
+        # Exact match should succeed
+        result = queue_manager.queue_edit("/songs/love---abc.mp4", "delete")
+        assert result is True
+        assert len(queue_manager.queue) == 1
+        assert queue_manager.queue[0]["file"] == "/songs/love_shack---def.mp4"
 
     def test_queue_edit_emits_events(self, queue_manager):
         """Successful queue edit should emit queue_update and now_playing_update."""
@@ -220,7 +241,103 @@ class TestQueueManagerEdit:
         queue_manager._events.on("queue_update", lambda: queue_updates.append(True))
         queue_manager._events.on("now_playing_update", lambda: now_playing_updates.append(True))
 
-        queue_manager.queue_edit("song1---abc.mp4", "delete")
+        queue_manager.queue_edit("/songs/song1---abc.mp4", "delete")
+
+        assert len(queue_updates) == 1
+        assert len(now_playing_updates) == 1
+
+
+class TestQueueManagerMoveToTopBottom:
+    """Test move_to_top and move_to_bottom functionality."""
+
+    def test_move_to_top_moves_song_to_front(self, queue_manager):
+        """Moving a song to top should place it at index 0."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+        queue_manager.enqueue("/songs/song2---def.mp4", "User2")
+        queue_manager.enqueue("/songs/song3---ghi.mp4", "User3")
+
+        result = queue_manager.move_to_top("/songs/song3---ghi.mp4")
+
+        assert result is True
+        assert queue_manager.queue[0]["file"] == "/songs/song3---ghi.mp4"
+        assert queue_manager.queue[1]["file"] == "/songs/song1---abc.mp4"
+        assert queue_manager.queue[2]["file"] == "/songs/song2---def.mp4"
+
+    def test_move_to_top_fails_if_already_at_top(self, queue_manager):
+        """Moving first song to top should return False."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+        queue_manager.enqueue("/songs/song2---def.mp4", "User2")
+
+        result = queue_manager.move_to_top("/songs/song1---abc.mp4")
+
+        assert result is False
+        assert queue_manager.queue[0]["file"] == "/songs/song1---abc.mp4"
+
+    def test_move_to_top_fails_if_not_found(self, queue_manager):
+        """Moving nonexistent song to top should return False."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+
+        result = queue_manager.move_to_top("/songs/nonexistent---xyz.mp4")
+
+        assert result is False
+
+    def test_move_to_bottom_moves_song_to_end(self, queue_manager):
+        """Moving a song to bottom should place it at last index."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+        queue_manager.enqueue("/songs/song2---def.mp4", "User2")
+        queue_manager.enqueue("/songs/song3---ghi.mp4", "User3")
+
+        result = queue_manager.move_to_bottom("/songs/song1---abc.mp4")
+
+        assert result is True
+        assert queue_manager.queue[0]["file"] == "/songs/song2---def.mp4"
+        assert queue_manager.queue[1]["file"] == "/songs/song3---ghi.mp4"
+        assert queue_manager.queue[2]["file"] == "/songs/song1---abc.mp4"
+
+    def test_move_to_bottom_fails_if_already_at_bottom(self, queue_manager):
+        """Moving last song to bottom should return False."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+        queue_manager.enqueue("/songs/song2---def.mp4", "User2")
+
+        result = queue_manager.move_to_bottom("/songs/song2---def.mp4")
+
+        assert result is False
+        assert queue_manager.queue[1]["file"] == "/songs/song2---def.mp4"
+
+    def test_move_to_bottom_fails_if_not_found(self, queue_manager):
+        """Moving nonexistent song to bottom should return False."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+
+        result = queue_manager.move_to_bottom("/songs/nonexistent---xyz.mp4")
+
+        assert result is False
+
+    def test_move_to_top_emits_events(self, queue_manager):
+        """Successful move_to_top should emit queue_update and now_playing_update."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+        queue_manager.enqueue("/songs/song2---def.mp4", "User2")
+
+        queue_updates = []
+        now_playing_updates = []
+        queue_manager._events.on("queue_update", lambda: queue_updates.append(True))
+        queue_manager._events.on("now_playing_update", lambda: now_playing_updates.append(True))
+
+        queue_manager.move_to_top("/songs/song2---def.mp4")
+
+        assert len(queue_updates) == 1
+        assert len(now_playing_updates) == 1
+
+    def test_move_to_bottom_emits_events(self, queue_manager):
+        """Successful move_to_bottom should emit queue_update and now_playing_update."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+        queue_manager.enqueue("/songs/song2---def.mp4", "User2")
+
+        queue_updates = []
+        now_playing_updates = []
+        queue_manager._events.on("queue_update", lambda: queue_updates.append(True))
+        queue_manager._events.on("now_playing_update", lambda: now_playing_updates.append(True))
+
+        queue_manager.move_to_bottom("/songs/song1---abc.mp4")
 
         assert len(queue_updates) == 1
         assert len(now_playing_updates) == 1
@@ -368,7 +485,7 @@ class TestQueueManagerRandom:
             preferences=preferences,
             events=events,
             get_now_playing_user=lambda: None,
-            filename_from_path=lambda path, *args: path.split("/")[-1].split("---")[0],
+            filename_from_path=extract_title,
             get_available_songs=lambda: [
                 "/songs/song1---abc.mp4",
                 "/songs/song2---def.mp4",
@@ -401,7 +518,7 @@ class TestQueueManagerHelpers:
             preferences=preferences,
             events=events,
             get_now_playing_user=lambda: None,
-            filename_from_path=lambda path, *args: path.split("/")[-1].split("---")[0],
+            filename_from_path=extract_title,
             get_available_songs=lambda: [],
         )
 
@@ -415,7 +532,7 @@ class TestQueueManagerHelpers:
             preferences=preferences,
             events=events,
             get_now_playing_user=lambda: None,
-            filename_from_path=lambda path, *args: path.split("/")[-1].split("---")[0],
+            filename_from_path=extract_title,
             get_available_songs=lambda: [],
         )
 
@@ -432,7 +549,7 @@ class TestQueueManagerHelpers:
             preferences=preferences,
             events=events,
             get_now_playing_user=lambda: "LimitedUser",
-            filename_from_path=lambda path, *args: path.split("/")[-1].split("---")[0],
+            filename_from_path=extract_title,
             get_available_songs=lambda: [],
         )
 

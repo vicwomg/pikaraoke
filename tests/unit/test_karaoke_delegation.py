@@ -73,7 +73,7 @@ class TestKaraokeQueueBehavior:
         assert len(mock_karaoke.queue_manager.queue) == 2
         assert mock_karaoke.queue_manager.queue[0]["file"] == "/songs/song1---abc.mp4"
 
-        mock_karaoke.queue_manager.queue_edit("song1---abc.mp4", "delete")
+        mock_karaoke.queue_manager.queue_edit("/songs/song1---abc.mp4", "delete")
 
         assert len(mock_karaoke.queue_manager.queue) == 1
         assert mock_karaoke.queue_manager.queue[0]["file"] == "/songs/song2---def.mp4"
