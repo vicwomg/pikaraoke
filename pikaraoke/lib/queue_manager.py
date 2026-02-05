@@ -210,41 +210,32 @@ class QueueManager:
 
     def queue_edit(self, song_name: str, action: str) -> bool:
         """Move or remove a song in the queue. Action: 'up', 'down', or 'delete'."""
-        song = None
-        index = 0
-        for idx, item in enumerate(self.queue):
-            if song_name in item["file"]:
-                song = item
-                index = idx
-                break
-        if song is None:
+        index = next(
+            (idx for idx, item in enumerate(self.queue) if song_name in item["file"]),
+            -1,
+        )
+        if index == -1:
             logging.error("Song not found in queue: " + song_name)
             return False
 
-        rc = False
         if action == "up":
             if index < 1:
-                logging.warning("Song is up next, can't bump up in queue: " + song["file"])
-            else:
-                logging.info("Bumping song up in queue: " + song["file"])
-                del self.queue[index]
-                self.queue.insert(index - 1, song)
-                rc = True
-        elif action == "down":
+                logging.warning("Song is up next, can't bump up in queue: " + song_name)
+                return False
+            return self.reorder(index, index - 1)
+
+        if action == "down":
             if index == len(self.queue) - 1:
-                logging.warning("Song is already last, can't bump down in queue: " + song["file"])
-            else:
-                logging.info("Bumping song down in queue: " + song["file"])
-                del self.queue[index]
-                self.queue.insert(index + 1, song)
-                rc = True
-        elif action == "delete":
-            logging.info("Deleting song from queue: " + song["file"])
+                logging.warning("Song is already last, can't bump down in queue: " + song_name)
+                return False
+            return self.reorder(index, index + 1)
+
+        if action == "delete":
+            logging.info("Deleting song from queue: " + song_name)
             del self.queue[index]
-            rc = True
-        else:
-            logging.error("Unrecognized direction: " + action)
-        if rc:
             self._events.emit("queue_update")
             self._events.emit("now_playing_update")
-        return rc
+            return True
+
+        logging.error("Unrecognized action: " + action)
+        return False
