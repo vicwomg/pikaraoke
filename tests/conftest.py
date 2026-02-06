@@ -88,7 +88,7 @@ class MockKaraoke:
             lambda: self._socketio.emit("queue_update", namespace="/") if self._socketio else None,
         )
         self.events.on("now_playing_update", self.update_now_playing_socket)
-        self.events.on("skip_requested", lambda: self.skip(False))
+        self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
 
         # Initialize queue manager
         self.queue_manager = QueueManager(
@@ -114,14 +114,11 @@ class MockKaraoke:
 
     # Bind the real methods to our mock class
     filename_from_path = Karaoke.filename_from_path
-    is_file_playing = Karaoke.is_file_playing
     get_now_playing = Karaoke.get_now_playing
     reset_now_playing = Karaoke.reset_now_playing
     send_notification = Karaoke.send_notification
     log_and_send = Karaoke.log_and_send
     update_now_playing_socket = Karaoke.update_now_playing_socket
-    skip = Karaoke.skip
-    pause = Karaoke.pause
     volume_change = Karaoke.volume_change
     vol_up = Karaoke.vol_up
     vol_down = Karaoke.vol_down

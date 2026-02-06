@@ -234,7 +234,7 @@ class Karaoke:
         self.events.on("now_playing_update", self.update_now_playing_socket)
         self.events.on("playback_started", self.update_now_playing_socket)
         self.events.on("song_ended", self.update_now_playing_socket)
-        self.events.on("skip_requested", lambda: self.skip(False))
+        self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
 
         # Initialize queue manager (remaining callbacks will be refactored out in future PRs)
         self.queue_manager = QueueManager(
@@ -460,21 +460,6 @@ class Karaoke:
             rc = rc.split("---")[0]  # removes youtube id if present
         return rc
 
-    def start_song(self) -> None:
-        """Mark the current song as actively playing.
-
-        Called by Flask route when client connects to stream.
-        """
-        self.playback_controller.start_song()
-
-    def end_song(self, reason: str | None = None) -> None:
-        """End the current song and clean up resources.
-
-        Args:
-            reason: Optional reason for ending (e.g., 'complete', 'skip').
-        """
-        self.playback_controller.end_song(reason)
-
     def transpose_current(self, semitones: int) -> None:
         """Restart the current song with a new transpose value.
 
@@ -492,34 +477,7 @@ class Karaoke:
         self.log_and_send(_("Transposing by %s semitones: %s") % (semitones, now_playing))
         # Insert the same song at the top of the queue with transposition
         self.queue_manager.enqueue(filename, user, semitones, True)
-        self.skip(log_action=False)
-
-    def is_file_playing(self) -> bool:
-        """Check if a file is currently playing.
-
-        Returns:
-            True if a song is playing, False otherwise.
-        """
-        return self.playback_controller.is_playing
-
-    def skip(self, log_action: bool = True) -> bool:
-        """Skip the currently playing song.
-
-        Args:
-            log_action: Whether to log and notify about the skip.
-
-        Returns:
-            True if a song was skipped, False if nothing playing.
-        """
-        return self.playback_controller.skip(log_action)
-
-    def pause(self) -> bool:
-        """Toggle pause state of the current song.
-
-        Returns:
-            True if successful, False if nothing playing.
-        """
-        return self.playback_controller.pause()
+        self.playback_controller.skip(log_action=False)
 
     def volume_change(self, vol_level: float) -> bool:
         """Set the volume level.
@@ -554,7 +512,7 @@ class Karaoke:
         Returns:
             True if successful, False if nothing playing.
         """
-        if self.is_file_playing():
+        if self.playback_controller.is_playing:
             now_playing = self.playback_controller.now_playing
             logging.info("Restarting: " + (now_playing or "unknown song"))
             self.playback_controller.is_paused = False
@@ -617,11 +575,14 @@ class Karaoke:
         while self.running:
             try:
                 # Clean up if playback ended but state wasn't reset
-                if not self.is_file_playing() and self.playback_controller.now_playing is not None:
+                if (
+                    not self.playback_controller.is_playing
+                    and self.playback_controller.now_playing is not None
+                ):
                     self.reset_now_playing()
 
                 # Start next song from queue if not currently playing
-                if len(self.queue_manager.queue) > 0 and not self.is_file_playing():
+                if len(self.queue_manager.queue) > 0 and not self.playback_controller.is_playing:
                     self.reset_now_playing()
                     # Splash delay between songs
                     splash_delay = self.preferences.get_or_default("splash_delay")

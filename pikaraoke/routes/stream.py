@@ -32,7 +32,7 @@ def stream_playlist(id):
 
     # Mark song as started when client connects (idempotent)
     if not k.playback_controller.is_playing:
-        k.start_song()
+        k.playback_controller.start_song()
 
     # Wait for playlist file to exist
     max_wait = 50  # 5 seconds max
@@ -123,7 +123,7 @@ def stream_progressive_mp4(id):
 
     # Mark song as started when client connects (idempotent)
     if not k.playback_controller.is_playing:
-        k.start_song()
+        k.playback_controller.start_song()
 
     # Wait for output file to exist
     max_wait = 50  # 5 seconds max
@@ -211,7 +211,7 @@ def stream_full(id):
 
     # Mark song as started when client connects (idempotent)
     if not k.playback_controller.is_playing:
-        k.start_song()
+        k.playback_controller.start_song()
 
     file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
     return stream_file_path_full(file_path)

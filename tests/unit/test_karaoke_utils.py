@@ -221,7 +221,7 @@ class TestPause:
         pc.is_paused = False
         pc.now_playing = "Test Song"
 
-        result = mock_karaoke.pause()
+        result = pc.pause()
 
         assert result is True
         assert pc.is_paused is True
@@ -233,7 +233,7 @@ class TestPause:
         pc.is_paused = True
         pc.now_playing = "Test Song"
 
-        result = mock_karaoke.pause()
+        result = pc.pause()
 
         assert result is True
         assert pc.is_paused is False
@@ -242,7 +242,7 @@ class TestPause:
         """Test pause returns False when nothing is playing."""
         mock_karaoke.playback_controller.is_playing = False
 
-        result = mock_karaoke.pause()
+        result = mock_karaoke.playback_controller.pause()
 
         assert result is False
 

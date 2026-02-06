@@ -23,7 +23,7 @@ def skip():
     """
     k = get_karaoke_instance()
     broadcast_event("skip", "user command")
-    k.skip()
+    k.playback_controller.skip()
     return redirect(url_for("home.home"))
 
 
@@ -42,7 +42,7 @@ def pause():
         broadcast_event("play")
     else:
         broadcast_event("pause")
-    k.pause()
+    k.playback_controller.pause()
     return redirect(url_for("home.home"))
 
 

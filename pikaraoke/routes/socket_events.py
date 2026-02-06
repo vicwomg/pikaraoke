@@ -26,13 +26,13 @@ def setup_socket_events(socketio):
             reason: Reason for ending the song (e.g., 'complete', 'error').
         """
         k = get_karaoke_instance()
-        k.end_song(reason)
+        k.playback_controller.end_song(reason)
 
     @socketio.on("start_song")
     def start_song() -> None:
         """Handle start_song WebSocket event when playback begins."""
         k = get_karaoke_instance()
-        k.start_song()
+        k.playback_controller.start_song()
 
     @socketio.on("clear_notification")
     def clear_notification() -> None:
