@@ -86,8 +86,6 @@ class StreamManager:
         """
         from flask_babel import _
 
-        logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
-
         streaming_format = self.streaming_format
         normalize_audio = self.preferences.get_or_default("normalize_audio")
         avsync = self.preferences.get_or_default("avsync")

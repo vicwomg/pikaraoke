@@ -125,9 +125,11 @@ class PlaybackController:
         """Mark the current song as actively playing.
 
         Called by Flask route when client connects to stream.
+        Idempotent - safe to call multiple times.
         """
-        logging.info(f"Song starting: {self.now_playing}")
-        self.is_playing = True
+        if not self.is_playing:
+            logging.info(f"Song starting: {self.now_playing}")
+            self.is_playing = True
 
     def end_song(self, reason: str | None = None) -> None:
         """End the current song and clean up resources.
