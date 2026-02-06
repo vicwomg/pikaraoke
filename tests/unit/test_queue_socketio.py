@@ -40,12 +40,13 @@ class TestQueueSocketEmissions:
     def test_update_now_playing_socket_emits_state(self, karaoke_with_socketio):
         """update_now_playing_socket emits current playback state."""
         k = karaoke_with_socketio
-        k.now_playing = "/songs/current---xyz.mp4"
-        k.now_playing_user = "CurrentUser"
-        k.now_playing_transpose = 2
-        k.now_playing_duration = 180
-        k.now_playing_position = 45
-        k.is_paused = False
+        pc = k.playback_controller
+        pc.now_playing = "/songs/current---xyz.mp4"
+        pc.now_playing_user = "CurrentUser"
+        pc.now_playing_transpose = 2
+        pc.now_playing_duration = 180
+        pc.now_playing_position = 45
+        pc.is_paused = False
 
         k.update_now_playing_socket()
 
@@ -66,7 +67,7 @@ class TestQueueSocketEmissions:
     def test_update_now_playing_socket_includes_up_next(self, karaoke_with_socketio):
         """update_now_playing_socket includes first queued song as up_next."""
         k = karaoke_with_socketio
-        k.now_playing = "/songs/current---xyz.mp4"
+        k.playback_controller.now_playing = "/songs/current---xyz.mp4"
         k.queue_manager.enqueue("/songs/Next Song---aaa.mp4", "User1")
         k.queue_manager.enqueue("/songs/Another Song---bbb.mp4", "User2")
         k.socketio.emit.reset_mock()
@@ -133,14 +134,15 @@ class TestSocketIOEventFormats:
     def test_now_playing_payload_has_required_fields(self, karaoke_with_socketio):
         """now_playing event payload contains all fields required by frontend."""
         k = karaoke_with_socketio
-        k.now_playing = "/songs/Artist - Song---abc123.mp4"
-        k.now_playing_user = "TestUser"
-        k.now_playing_transpose = 0
-        k.now_playing_duration = 240
-        k.now_playing_position = 30
-        k.now_playing_url = "https://youtube.com/watch?v=abc123"
-        k.now_playing_subtitle_url = None
-        k.is_paused = False
+        pc = k.playback_controller
+        pc.now_playing = "/songs/Artist - Song---abc123.mp4"
+        pc.now_playing_user = "TestUser"
+        pc.now_playing_transpose = 0
+        pc.now_playing_duration = 240
+        pc.now_playing_position = 30
+        pc.now_playing_url = "https://youtube.com/watch?v=abc123"
+        pc.now_playing_subtitle_url = None
+        pc.is_paused = False
         k.queue_manager.enqueue("/songs/Next Song---def456.mp4", "NextUser")
         k.socketio.emit.reset_mock()
 

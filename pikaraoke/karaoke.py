@@ -8,7 +8,6 @@ import os
 import socket
 import subprocess
 import time
-from subprocess import check_output
 from typing import Any
 
 import qrcode
@@ -22,7 +21,6 @@ from pikaraoke.lib.ffmpeg import (
     is_transpose_enabled,
     supports_hardware_h264_encoding,
 )
-from pikaraoke.lib.file_resolver import delete_tmp_dir
 from pikaraoke.lib.get_platform import (
     get_data_directory,
     get_os_version,
@@ -30,10 +28,10 @@ from pikaraoke.lib.get_platform import (
     is_raspberry_pi,
 )
 from pikaraoke.lib.network import get_ip
+from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_list import SongList
-from pikaraoke.lib.stream_manager import StreamManager
 from pikaraoke.lib.youtube_dl import (
     get_search_results,
     get_youtubedl_version,
@@ -48,40 +46,24 @@ class Karaoke:
     This class handles all core karaoke functionality including:
     - Song queue management
     - YouTube video downloading
-    - FFmpeg transcoding and playback
+    - Playback coordination via PlaybackController
     - User preferences
     - QR code generation
 
     Attributes:
-        queue: List of songs in the playback queue.
         available_songs: List of available song file paths.
-        now_playing: Title of the currently playing song.
-        now_playing_filename: File path of the currently playing song.
-        now_playing_user: User who queued the current song.
-        now_playing_transpose: Semitones to transpose current song.
-        now_playing_duration: Duration of current song in seconds.
-        now_playing_url: Stream URL for current song.
-        is_paused: Whether playback is paused.
+        queue_manager: Queue management for songs.
+        playback_controller: Playback state and stream coordination.
         volume: Current volume level (0.0 to 1.0).
     """
 
     available_songs: SongList
     queue_manager: QueueManager
+    playback_controller: PlaybackController
 
-    # These all get sent to the /nowplaying endpoint for client-side polling
-    now_playing: str | None = None
-    now_playing_filename: str | None = None
-    now_playing_user: str | None = None
-    now_playing_transpose: int = 0
-    now_playing_duration: int | None = None
-    now_playing_url: str | None = None
-    now_playing_subtitle_url: str | None = None
     now_playing_notification: str | None = None
-    now_playing_position: float | None = None
-    is_paused: bool = True
     volume: float
 
-    is_playing: bool = False
     process: subprocess.Popen | None = None
     qr_code_path: str | None = None
     base_path: str = os.path.dirname(__file__)
@@ -203,10 +185,10 @@ class Karaoke:
         self.log_level = log_level
         self.youtubedl_proxy = youtubedl_proxy
         self.additional_ytdl_args = additional_ytdl_args
-        self.logo_path = self.default_logo_path if logo_path == None else logo_path
+        self.logo_path = self.default_logo_path if logo_path is None else logo_path
         self.prefer_hostname = prefer_hostname
-        self.bg_music_path = self.default_bg_music_path if bg_music_path == None else bg_music_path
-        self.bg_video_path = self.default_bg_video_path if bg_video_path == None else bg_video_path
+        self.bg_music_path = self.default_bg_music_path if bg_music_path is None else bg_music_path
+        self.bg_video_path = self.default_bg_video_path if bg_video_path is None else bg_video_path
         self.streaming_format = streaming_format
         self.socketio = socketio
         self.url_override = url
@@ -234,10 +216,15 @@ class Karaoke:
         self.download_manager = DownloadManager(self)
         self.download_manager.start()
 
-        # Initialize stream manager for transcoding and playback
-        self.stream_manager = StreamManager(self)
+        # Initialize playback controller for video playback and FFmpeg coordination
+        self.playback_controller = PlaybackController(
+            preferences=self.preferences,
+            events=self.events,
+            filename_from_path=self.filename_from_path,
+            streaming_format=self.streaming_format,
+        )
 
-        # Temporary: these handlers bridge QueueManager events to Karaoke methods.
+        # Temporary: these handlers bridge events to Karaoke methods.
         # They will move into dedicated managers as they are refactored.
         self.events.on("notification", self.log_and_send)
         self.events.on(
@@ -245,13 +232,15 @@ class Karaoke:
             lambda: self.socketio.emit("queue_update", namespace="/") if self.socketio else None,
         )
         self.events.on("now_playing_update", self.update_now_playing_socket)
+        self.events.on("playback_started", self.update_now_playing_socket)
+        self.events.on("song_ended", self.update_now_playing_socket)
         self.events.on("skip_requested", lambda: self.skip(False))
 
         # Initialize queue manager (remaining callbacks will be refactored out in future PRs)
         self.queue_manager = QueueManager(
             preferences=self.preferences,
             events=self.events,
-            get_now_playing_user=lambda: self.now_playing_user,
+            get_now_playing_user=lambda: self.playback_controller.now_playing_user,
             filename_from_path=self.filename_from_path,
             get_available_songs=lambda: self.available_songs,
         )
@@ -277,7 +266,9 @@ class Karaoke:
             # and doesn't have an IP yet (occurs when launched from /etc/rc.local)
             end_time = int(time.time()) + 30
             while int(time.time()) < end_time:
-                addresses_str = check_output(["hostname", "-I"]).strip().decode("utf-8", "ignore")
+                addresses_str = (
+                    subprocess.check_output(["hostname", "-I"]).strip().decode("utf-8", "ignore")
+                )
                 addresses = addresses_str.split(" ")
                 self.ip = addresses[0]
                 if len(self.ip) < 7:
@@ -359,7 +350,8 @@ class Karaoke:
             color: Bulma color class (primary, warning, success, danger).
         """
         # Color should be bulma compatible: primary, warning, success, danger
-        if not self.hide_notifications:
+        hide_notifications = self.preferences.get_or_default("hide_notifications")
+        if not hide_notifications:
             # don't allow new messages to clobber existing commands, one message at a time
             # other commands have a higher priority
             if self.now_playing_notification != None:
@@ -468,28 +460,12 @@ class Karaoke:
             rc = rc.split("---")[0]  # removes youtube id if present
         return rc
 
-    def play_file(self, file_path: str, semitones: int = 0) -> bool | None:
-        """Start playback of a media file.
-
-        Delegates to StreamManager for transcoding and stream setup.
-
-        Args:
-            file_path: Path to the media file to play.
-            semitones: Number of semitones to transpose (0 = no change).
-
-        Returns:
-            False if file resolution fails, None otherwise.
-        """
-        return self.stream_manager.play_file(file_path, semitones)
-
-    def kill_ffmpeg(self) -> None:
-        """Terminate the running FFmpeg process gracefully."""
-        self.stream_manager.kill_ffmpeg()
-
     def start_song(self) -> None:
-        """Mark the current song as actively playing."""
-        logging.info(f"Song starting: {self.now_playing}")
-        self.is_playing = True
+        """Mark the current song as actively playing.
+
+        Called by Flask route when client connects to stream.
+        """
+        self.playback_controller.start_song()
 
     def end_song(self, reason: str | None = None) -> None:
         """End the current song and clean up resources.
@@ -497,19 +473,7 @@ class Karaoke:
         Args:
             reason: Optional reason for ending (e.g., 'complete', 'skip').
         """
-        logging.info(f"Song ending: {self.now_playing}")
-        if reason != None:
-            logging.info(f"Reason: {reason}")
-            if reason != "complete":
-                # MSG: Message shown when the song ends abnormally
-                self.send_notification(_("Song ended abnormally: %s") % reason, "danger")
-        self.reset_now_playing()
-        self.kill_ffmpeg()
-        # Small delay to ensure FFmpeg fully terminates and file handles close
-        # Critical on Raspberry Pi with slow SD cards and hardware encoder cleanup
-        time.sleep(0.3)
-        delete_tmp_dir()
-        logging.debug("Cleanup complete")
+        self.playback_controller.end_song(reason)
 
     def transpose_current(self, semitones: int) -> None:
         """Restart the current song with a new transpose value.
@@ -517,15 +481,17 @@ class Karaoke:
         Args:
             semitones: Number of semitones to transpose.
         """
-        if self.now_playing_filename is None or self.now_playing_user is None:
+        filename = self.playback_controller.now_playing_filename
+        user = self.playback_controller.now_playing_user
+        now_playing = self.playback_controller.now_playing
+
+        if filename is None or user is None:
             logging.warning("Cannot transpose: no song currently playing")
             return
         # MSG: Message shown after the song is transposed, first is the semitones and then the song name
-        self.log_and_send(_("Transposing by %s semitones: %s") % (semitones, self.now_playing))
+        self.log_and_send(_("Transposing by %s semitones: %s") % (semitones, now_playing))
         # Insert the same song at the top of the queue with transposition
-        self.queue_manager.enqueue(
-            self.now_playing_filename, self.now_playing_user, semitones, True
-        )
+        self.queue_manager.enqueue(filename, user, semitones, True)
         self.skip(log_action=False)
 
     def is_file_playing(self) -> bool:
@@ -534,7 +500,7 @@ class Karaoke:
         Returns:
             True if a song is playing, False otherwise.
         """
-        return self.is_playing
+        return self.playback_controller.is_playing
 
     def skip(self, log_action: bool = True) -> bool:
         """Skip the currently playing song.
@@ -545,15 +511,7 @@ class Karaoke:
         Returns:
             True if a song was skipped, False if nothing playing.
         """
-        if self.is_file_playing():
-            if log_action:
-                # MSG: Message shown after the song is skipped, will be followed by song name
-                self.log_and_send(_("Skip: %s") % self.now_playing)
-            self.end_song()
-            return True
-        else:
-            logging.warning("Tried to skip, but no file is playing!")
-            return False
+        return self.playback_controller.skip(log_action)
 
     def pause(self) -> bool:
         """Toggle pause state of the current song.
@@ -561,19 +519,7 @@ class Karaoke:
         Returns:
             True if successful, False if nothing playing.
         """
-        if self.is_file_playing():
-            if self.is_paused:
-                # MSG: Message shown after the song is resumed, will be followed by song name
-                self.log_and_send(_("Resume: %s") % self.now_playing)
-            else:
-                # MSG: Message shown after the song is paused, will be followed by song name
-                self.log_and_send(_("Pause") + f": {self.now_playing}")
-            self.is_paused = not self.is_paused
-            self.update_now_playing_socket()
-            return True
-        else:
-            logging.warning("Tried to pause, but no file is playing!")
-            return False
+        return self.playback_controller.pause()
 
     def volume_change(self, vol_level: float) -> bool:
         """Set the volume level.
@@ -592,19 +538,13 @@ class Karaoke:
 
     def vol_up(self) -> None:
         """Increase volume by 10%."""
-        if self.volume > 1.0:
-            new_vol = self.volume = 1.0
-            logging.debug("max volume reached.")
-        new_vol = self.volume + 0.1
+        new_vol = min(self.volume + 0.1, 1.0)
         self.volume_change(new_vol)
         logging.debug(f"Increasing volume by 10%: {self.volume}")
 
     def vol_down(self) -> None:
         """Decrease volume by 10%."""
-        if self.volume < 0.1:
-            new_vol = self.volume = 0.0
-            logging.debug("min volume reached.")
-        new_vol = self.volume - 0.1
+        new_vol = max(self.volume - 0.1, 0.0)
         self.volume_change(new_vol)
         logging.debug(f"Decreasing volume by 10%: {self.volume}")
 
@@ -615,8 +555,9 @@ class Karaoke:
             True if successful, False if nothing playing.
         """
         if self.is_file_playing():
-            logging.info("Restarting: " + (self.now_playing or "unknown song"))
-            self.is_paused = False
+            now_playing = self.playback_controller.now_playing
+            logging.info("Restarting: " + (now_playing or "unknown song"))
+            self.playback_controller.is_paused = False
             self.update_now_playing_socket()
             return True
         else:
@@ -637,16 +578,7 @@ class Karaoke:
 
     def reset_now_playing(self) -> None:
         """Reset all now playing state to defaults."""
-        self.now_playing = None
-        self.now_playing_filename = None
-        self.now_playing_user = None
-        self.now_playing_url = None
-        self.now_playing_subtitle_url = None
-        self.is_paused = True
-        self.is_playing = False
-        self.now_playing_transpose = 0
-        self.now_playing_duration = None
-        self.now_playing_position = None
+        self.playback_controller.reset_now_playing()
         self.volume = self.preferences.get_or_default("volume")
         self.update_now_playing_socket()
 
@@ -658,17 +590,14 @@ class Karaoke:
         """
         queue = self.queue_manager.queue
         next_song = queue[0] if queue else None
+
+        # Get playback state from PlaybackController
+        playback_state = self.playback_controller.get_now_playing()
+
         return {
-            "now_playing": self.now_playing,
-            "now_playing_user": self.now_playing_user,
-            "now_playing_duration": self.now_playing_duration,
-            "now_playing_transpose": self.now_playing_transpose,
-            "now_playing_url": self.now_playing_url,
-            "now_playing_subtitle_url": self.now_playing_subtitle_url,
-            "now_playing_position": self.now_playing_position,
+            **playback_state,
             "up_next": next_song["title"] if next_song else None,
             "next_user": next_song["user"] if next_song else None,
-            "is_paused": self.is_paused,
             "volume": self.volume,
         }
 
@@ -687,20 +616,31 @@ class Karaoke:
         self.running = True
         while self.running:
             try:
-                if not self.is_file_playing() and self.now_playing != None:
+                # Clean up if playback ended but state wasn't reset
+                if not self.is_file_playing() and self.playback_controller.now_playing is not None:
                     self.reset_now_playing()
-                if len(self.queue_manager.queue) > 0:
-                    if not self.is_file_playing():
-                        self.reset_now_playing()
-                        i = 0
-                        while i < (self.splash_delay * 1000):
-                            self.handle_run_loop()
-                            i += self.loop_interval
-                        self.play_file(
-                            self.queue_manager.queue[0]["file"],
-                            self.queue_manager.queue[0]["semitones"],
-                        )
-                self.stream_manager.log_ffmpeg_output()
+
+                # Start next song from queue if not currently playing
+                if len(self.queue_manager.queue) > 0 and not self.is_file_playing():
+                    self.reset_now_playing()
+                    # Splash delay between songs
+                    splash_delay = self.preferences.get_or_default("splash_delay")
+                    i = 0
+                    while i < (splash_delay * 1000):
+                        self.handle_run_loop()
+                        i += self.loop_interval
+
+                    # Pop song from queue and attempt playback
+                    song = self.queue_manager.queue.pop(0)
+                    self.events.emit("queue_update")
+                    result = self.playback_controller.play_file(
+                        song["file"], song["user"], song["semitones"]
+                    )
+
+                    if not result.success and result.error:
+                        self.log_and_send(result.error, "danger")
+
+                self.playback_controller.log_output()
                 self.handle_run_loop()
             except KeyboardInterrupt:
                 logging.warning("Keyboard interrupt: Exiting pikaraoke...")

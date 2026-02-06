@@ -38,7 +38,7 @@ def pause():
         description: Redirects to home page
     """
     k = get_karaoke_instance()
-    if k.is_paused:
+    if k.playback_controller.is_paused:
         broadcast_event("play")
     else:
         broadcast_event("pause")

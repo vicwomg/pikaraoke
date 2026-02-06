@@ -125,11 +125,12 @@ class TestGetNowPlaying:
 
     def test_get_now_playing_with_song(self, mock_karaoke):
         """Test now playing state with active song."""
-        mock_karaoke.now_playing = "Test Song"
-        mock_karaoke.now_playing_user = "TestUser"
-        mock_karaoke.now_playing_duration = 180
-        mock_karaoke.now_playing_transpose = 2
-        mock_karaoke.is_paused = False
+        pc = mock_karaoke.playback_controller
+        pc.now_playing = "Test Song"
+        pc.now_playing_user = "TestUser"
+        pc.now_playing_duration = 180
+        pc.now_playing_transpose = 2
+        pc.is_paused = False
         mock_karaoke.volume = 0.7
 
         result = mock_karaoke.get_now_playing()
@@ -157,26 +158,27 @@ class TestResetNowPlaying:
 
     def test_reset_now_playing(self, mock_karaoke):
         """Test that reset clears all now playing state."""
-        mock_karaoke.now_playing = "Test Song"
-        mock_karaoke.now_playing_filename = "/songs/test.mp4"
-        mock_karaoke.now_playing_user = "TestUser"
-        mock_karaoke.now_playing_url = "http://localhost/stream"
-        mock_karaoke.now_playing_transpose = 3
-        mock_karaoke.now_playing_duration = 200
-        mock_karaoke.is_paused = False
-        mock_karaoke.is_playing = True
+        pc = mock_karaoke.playback_controller
+        pc.now_playing = "Test Song"
+        pc.now_playing_filename = "/songs/test.mp4"
+        pc.now_playing_user = "TestUser"
+        pc.now_playing_url = "http://localhost/stream"
+        pc.now_playing_transpose = 3
+        pc.now_playing_duration = 200
+        pc.is_paused = False
+        pc.is_playing = True
 
         mock_karaoke.reset_now_playing()
 
-        assert mock_karaoke.now_playing is None
-        assert mock_karaoke.now_playing_filename is None
-        assert mock_karaoke.now_playing_user is None
-        assert mock_karaoke.now_playing_url is None
-        assert mock_karaoke.now_playing_transpose == 0
-        assert mock_karaoke.now_playing_duration is None
-        assert mock_karaoke.now_playing_position is None
-        assert mock_karaoke.is_paused is True
-        assert mock_karaoke.is_playing is False
+        assert pc.now_playing is None
+        assert pc.now_playing_filename is None
+        assert pc.now_playing_user is None
+        assert pc.now_playing_url is None
+        assert pc.now_playing_transpose == 0
+        assert pc.now_playing_duration is None
+        assert pc.now_playing_position is None
+        assert pc.is_paused is True
+        assert pc.is_playing is False
 
     def test_reset_now_playing_resets_volume_to_preference(self, mock_karaoke):
         """Test that reset restores volume to user's saved preference."""
@@ -214,29 +216,31 @@ class TestPause:
 
     def test_pause_when_playing(self, mock_karaoke):
         """Test pausing when a song is playing."""
-        mock_karaoke.is_playing = True
-        mock_karaoke.is_paused = False
-        mock_karaoke.now_playing = "Test Song"
+        pc = mock_karaoke.playback_controller
+        pc.is_playing = True
+        pc.is_paused = False
+        pc.now_playing = "Test Song"
 
         result = mock_karaoke.pause()
 
         assert result is True
-        assert mock_karaoke.is_paused is True
+        assert pc.is_paused is True
 
     def test_resume_when_paused(self, mock_karaoke):
         """Test resuming when a song is paused."""
-        mock_karaoke.is_playing = True
-        mock_karaoke.is_paused = True
-        mock_karaoke.now_playing = "Test Song"
+        pc = mock_karaoke.playback_controller
+        pc.is_playing = True
+        pc.is_paused = True
+        pc.now_playing = "Test Song"
 
         result = mock_karaoke.pause()
 
         assert result is True
-        assert mock_karaoke.is_paused is False
+        assert pc.is_paused is False
 
     def test_pause_when_nothing_playing(self, mock_karaoke):
         """Test pause returns False when nothing is playing."""
-        mock_karaoke.is_playing = False
+        mock_karaoke.playback_controller.is_playing = False
 
         result = mock_karaoke.pause()
 
@@ -280,12 +284,12 @@ class TestVolUp:
         assert mock_karaoke.volume == 0.6
 
     def test_increase_near_max(self, mock_karaoke):
-        """Test increasing volume near maximum."""
+        """Test increasing volume is clamped to 1.0."""
         mock_karaoke.volume = 0.95
 
         mock_karaoke.vol_up()
 
-        assert mock_karaoke.volume == 1.05  # Goes slightly over but allowed
+        assert mock_karaoke.volume == 1.0
 
 
 class TestVolDown:
@@ -300,13 +304,12 @@ class TestVolDown:
         assert mock_karaoke.volume == 0.4
 
     def test_decrease_near_min(self, mock_karaoke):
-        """Test decreasing volume near minimum."""
+        """Test decreasing volume is clamped to 0.0."""
         mock_karaoke.volume = 0.05
 
         mock_karaoke.vol_down()
 
-        # When volume < 0.1, it's set to 0 then decremented by 0.1
-        assert mock_karaoke.volume == -0.1
+        assert mock_karaoke.volume == 0.0
 
 
 class TestRestart:
@@ -314,18 +317,19 @@ class TestRestart:
 
     def test_restart_when_playing(self, mock_karaoke):
         """Test restarting when a song is playing."""
-        mock_karaoke.is_playing = True
-        mock_karaoke.is_paused = True
-        mock_karaoke.now_playing = "Test Song"
+        pc = mock_karaoke.playback_controller
+        pc.is_playing = True
+        pc.is_paused = True
+        pc.now_playing = "Test Song"
 
         result = mock_karaoke.restart()
 
         assert result is True
-        assert mock_karaoke.is_paused is False
+        assert pc.is_paused is False
 
     def test_restart_when_nothing_playing(self, mock_karaoke):
         """Test restart returns False when nothing is playing."""
-        mock_karaoke.is_playing = False
+        mock_karaoke.playback_controller.is_playing = False
 
         result = mock_karaoke.restart()
 

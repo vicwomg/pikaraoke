@@ -67,7 +67,7 @@ def setup_socket_events(socketio):
         sid = request.sid
         if sid == master_splash_id:
             k = get_karaoke_instance()
-            k.now_playing_position = position
+            k.playback_controller.now_playing_position = position
             # Broadcast position to all other splash screens (slaves)
             socketio.emit("playback_position", position, include_self=False)
 

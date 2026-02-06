@@ -30,6 +30,10 @@ def stream_playlist(id):
     file_path = os.path.join(get_tmp_dir(), f"{id}.m3u8")
     k = get_karaoke_instance()
 
+    # Mark song as started when client connects (idempotent)
+    if not k.playback_controller.is_playing:
+        k.start_song()
+
     # Wait for playlist file to exist
     max_wait = 50  # 5 seconds max
     wait_count = 0
@@ -117,12 +121,26 @@ def stream_progressive_mp4(id):
     file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
     k = get_karaoke_instance()
 
+    # Mark song as started when client connects (idempotent)
+    if not k.playback_controller.is_playing:
+        k.start_song()
+
+    # Wait for output file to exist
+    max_wait = 50  # 5 seconds max
+    wait_count = 0
+    while not os.path.exists(file_path) and wait_count < max_wait:
+        time.sleep(0.1)
+        wait_count += 1
+
+    if not os.path.exists(file_path):
+        return Response("Stream file not ready", status=404)
+
     def generate():
         position = 0  # Initialize the position variable
         chunk_size = 10240 * 1000 * 25  # Read file in up to 25MB chunks
         with open(file_path, "rb") as file:
             # Keep yielding file chunks as long as ffmpeg process is transcoding
-            while k.stream_manager.ffmpeg_process.poll() is None:
+            while k.playback_controller.ffmpeg_process.poll() is None:
                 file.seek(position)  # Move to the last read position
                 chunk = file.read(chunk_size)
                 if chunk is not None and len(chunk) > 0:
@@ -189,6 +207,12 @@ def stream_full(id):
       206:
         description: Partial video content (range request)
     """
+    k = get_karaoke_instance()
+
+    # Mark song as started when client connects (idempotent)
+    if not k.playback_controller.is_playing:
+        k.start_song()
+
     file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
     return stream_file_path_full(file_path)
 
@@ -220,8 +244,9 @@ def stream_bg_video():
 def stream_subtitle(id):
     k = get_karaoke_instance()
     try:
-        original_file_path = k.now_playing_filename
-        if original_file_path and k.now_playing_url and id in k.now_playing_url:
+        original_file_path = k.playback_controller.now_playing_filename
+        now_playing_url = k.playback_controller.now_playing_url
+        if original_file_path and now_playing_url and id in now_playing_url:
             fr = FileResolver(original_file_path)
             ass_file_path = fr.ass_file_path
             if ass_file_path and os.path.exists(ass_file_path):
