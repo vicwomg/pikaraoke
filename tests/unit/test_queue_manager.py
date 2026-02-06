@@ -448,15 +448,19 @@ class TestQueueManagerPopNext:
         assert song is None
         assert len(queue_manager.queue) == 0
 
-    def test_pop_next_emits_queue_update(self, queue_manager):
-        """Popping next should emit queue_update event."""
+    def test_pop_next_does_not_emit_queue_update(self, queue_manager):
+        """Popping next should NOT emit queue_update to avoid UI flicker.
+
+        Queue updates during playback transitions are handled by the now_playing
+        event from the playback controller.
+        """
         queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
         captured = []
         queue_manager._events.on("queue_update", lambda: captured.append(True))
 
         queue_manager.pop_next()
 
-        assert len(captured) == 1
+        assert len(captured) == 0
 
     def test_pop_next_preserves_song_data(self, queue_manager):
         """Popping next should preserve all song data."""
