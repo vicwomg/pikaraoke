@@ -425,6 +425,52 @@ class TestQueueManagerReorder:
         assert len(now_playing_updates) == 1
 
 
+class TestQueueManagerPopNext:
+    """Test pop_next functionality."""
+
+    def test_pop_next_returns_first_song(self, queue_manager):
+        """Popping next should return the first song in queue."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+        queue_manager.enqueue("/songs/song2---def.mp4", "User2")
+
+        song = queue_manager.pop_next()
+
+        assert song is not None
+        assert song["file"] == "/songs/song1---abc.mp4"
+        assert song["user"] == "User1"
+        assert len(queue_manager.queue) == 1
+        assert queue_manager.queue[0]["file"] == "/songs/song2---def.mp4"
+
+    def test_pop_next_from_empty_queue(self, queue_manager):
+        """Popping from empty queue should return None."""
+        song = queue_manager.pop_next()
+
+        assert song is None
+        assert len(queue_manager.queue) == 0
+
+    def test_pop_next_emits_queue_update(self, queue_manager):
+        """Popping next should emit queue_update event."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+        captured = []
+        queue_manager._events.on("queue_update", lambda: captured.append(True))
+
+        queue_manager.pop_next()
+
+        assert len(captured) == 1
+
+    def test_pop_next_preserves_song_data(self, queue_manager):
+        """Popping next should preserve all song data."""
+        queue_manager.enqueue("/songs/test---abc.mp4", "TestUser", semitones=5)
+
+        song = queue_manager.pop_next()
+
+        assert song is not None
+        assert song["file"] == "/songs/test---abc.mp4"
+        assert song["user"] == "TestUser"
+        assert song["semitones"] == 5
+        assert song["title"] == "test"
+
+
 class TestQueueManagerClear:
     """Test queue clearing."""
 

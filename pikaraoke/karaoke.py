@@ -631,8 +631,9 @@ class Karaoke:
                         i += self.loop_interval
 
                     # Pop song from queue and attempt playback
-                    song = self.queue_manager.queue.pop(0)
-                    self.events.emit("queue_update")
+                    song = self.queue_manager.pop_next()
+                    if not song:
+                        continue
                     result = self.playback_controller.play_file(
                         song["file"], song["user"], song["semitones"]
                     )

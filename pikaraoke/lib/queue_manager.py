@@ -237,6 +237,16 @@ class QueueManager:
             return False
         return self.reorder(index, len(self.queue) - 1)
 
+    def pop_next(self) -> dict[str, Any] | None:
+        """Remove and return the next song from the queue. Returns None if queue is empty."""
+        if not self.queue:
+            return None
+
+        song = self.queue.pop(0)
+        logging.info(f"Popped song from queue: {song['title']}")
+        self._events.emit("queue_update")
+        return song
+
     def queue_edit(self, song_path: str, action: str) -> bool:
         """Move or remove a song in the queue. Action: 'up', 'down', or 'delete'."""
         index = self._find_song_index(song_path)
