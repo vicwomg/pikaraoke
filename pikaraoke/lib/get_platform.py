@@ -283,3 +283,8 @@ def get_secondary_monitor_coords() -> tuple[int, int] | None:
     except (subprocess.SubprocessError, FileNotFoundError, OSError) as e:
         logger.debug("Monitor detection failed: %s", e)
     return None
+
+
+def is_running_in_docker():
+    """Check if we're running in a container using existence of /.dockerenv."""
+    return os.path.exists("/.dockerenv")

@@ -1,7 +1,7 @@
 // Global variables
 var socket = io();
 var mouseTimer = null,
-  cursorVisible = true;
+  cursorVisible = false;
 var nowPlaying = {};
 var octopusInstance = null;
 var showMenu = false;
@@ -296,7 +296,7 @@ const handleNowPlayingUpdate = (np) => {
     const options = {
       video: video,
       subUrl: subtitleUrl,
-      fonts: ["/static/fonts/Arial.ttf"],
+      fonts: ["/static/fonts/Arial.ttf", "/static/fonts/DroidSansFallback.ttf"],
       debug: true,
       workerUrl: "/static/js/subtitles-octopus-worker.js"
     };
@@ -380,6 +380,14 @@ const setupOverlayMenus = () => {
     $('#top-container').hide();
   }
   $("#menu a").fadeOut(); // start hidden
+  const triggerInactivity = () => {
+    mouseTimer = null;
+    document.body.style.cursor = 'none';
+    cursorVisible = false;
+    $("#menu a").fadeOut();
+    menuButtonVisible = false;
+  };
+
   document.onmousemove = function () {
     if (mouseTimer) window.clearTimeout(mouseTimer);
     if (!cursorVisible) {
@@ -390,14 +398,11 @@ const setupOverlayMenus = () => {
       $("#menu a").fadeIn();
       menuButtonVisible = true;
     }
-    mouseTimer = window.setTimeout(() => {
-      mouseTimer = null;
-      document.body.style.cursor = 'none';
-      cursorVisible = false;
-      $("#menu a").fadeOut();
-      menuButtonVisible = false;
-    }, 5000);
+    mouseTimer = window.setTimeout(triggerInactivity, 5000);
   };
+
+  // Set initial state to hidden
+  triggerInactivity();
   $('#menu a').click(function () {
     if (showMenu) {
       $('#menu-container').hide();
