@@ -224,8 +224,7 @@ class Karaoke:
             streaming_format=self.streaming_format,
         )
 
-        # Temporary: these handlers bridge events to Karaoke methods.
-        # They will move into dedicated managers as they are refactored.
+        # Event bridging: the coordinator wires manager events to the UI (SocketIO/notifications).
         self.events.on("notification", self.log_and_send)
         self.events.on(
             "queue_update",
