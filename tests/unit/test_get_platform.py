@@ -2,16 +2,17 @@
 
 import ntpath
 import os
-from unittest.mock import MagicMock, mock_open, patch
-
-import pytest
+import subprocess
+from unittest.mock import mock_open, patch
 
 from pikaraoke.lib.get_platform import (
+    _get_secondary_monitor_linux,
     get_data_directory,
     get_default_dl_dir,
     get_installed_js_runtime,
     get_os_version,
     get_platform,
+    get_secondary_monitor_coords,
     has_js_runtime,
     is_android,
     is_raspberry_pi,
@@ -229,7 +230,7 @@ class TestGetDefaultDlDir:
                     with patch(
                         "os.path.expanduser", return_value="C:\\Users\\test\\pikaraoke\\songs"
                     ):
-                        result = get_default_dl_dir("windows")
+                        result = get_default_dl_dir("placeholder")
                         assert "pikaraoke\\songs" in result
 
     def test_linux_default(self):
@@ -237,7 +238,7 @@ class TestGetDefaultDlDir:
         with patch("pikaraoke.lib.get_platform.is_raspberry_pi", return_value=False):
             with patch("pikaraoke.lib.get_platform.is_windows", return_value=False):
                 with patch("os.path.exists", return_value=False):
-                    result = get_default_dl_dir("linux")
+                    result = get_default_dl_dir("placeholder")
                     assert result == "~/pikaraoke-songs"
 
     def test_linux_legacy_exists(self):
@@ -245,7 +246,7 @@ class TestGetDefaultDlDir:
         with patch("pikaraoke.lib.get_platform.is_raspberry_pi", return_value=False):
             with patch("pikaraoke.lib.get_platform.is_windows", return_value=False):
                 with patch("os.path.exists", return_value=True):
-                    result = get_default_dl_dir("linux")
+                    result = get_default_dl_dir("placeholder")
                     assert result == "~/pikaraoke/songs"
 
     def test_osx_default(self):
@@ -253,7 +254,7 @@ class TestGetDefaultDlDir:
         with patch("pikaraoke.lib.get_platform.is_raspberry_pi", return_value=False):
             with patch("pikaraoke.lib.get_platform.is_windows", return_value=False):
                 with patch("os.path.exists", return_value=False):
-                    result = get_default_dl_dir("osx")
+                    result = get_default_dl_dir("placeholder")
                     assert result == "~/pikaraoke-songs"
 
 
@@ -315,3 +316,143 @@ class TestGetOsVersion:
         with patch("platform.version", return_value="5.15.0-generic"):
             result = get_os_version()
             assert result == "5.15.0-generic"
+
+
+class TestGetSecondaryMonitorLinux:
+    """Tests for _get_secondary_monitor_linux function."""
+
+    def test_detects_secondary_monitor_to_right(self):
+        """Test detection when secondary monitor is to the right of primary."""
+        xrandr_output = """Screen 0: minimum 8 x 8, current 3840 x 1080, maximum 32767 x 32767
+HDMI-0 connected primary 1920x1080+0+0 (normal left inverted right x axis y axis) 527mm x 296mm
+   1920x1080     60.00*+
+DP-0 connected 1920x1080+1920+0 (normal left inverted right x axis y axis) 527mm x 296mm
+   1920x1080     60.00*+
+"""
+        with patch(
+            "subprocess.check_output",
+            return_value=xrandr_output,
+        ):
+            result = _get_secondary_monitor_linux()
+            assert result == (1920, 0)
+
+    def test_detects_secondary_monitor_to_left(self):
+        """Test detection when secondary monitor is to the left (negative-ish coords)."""
+        # In xrandr, left monitor would actually be at 0,0 and primary offset
+        xrandr_output = """Screen 0: minimum 8 x 8, current 3840 x 1080, maximum 32767 x 32767
+HDMI-0 connected 1920x1080+0+0 (normal left inverted right x axis y axis) 527mm x 296mm
+   1920x1080     60.00*+
+DP-0 connected primary 1920x1080+1920+0 (normal left inverted right x axis y axis) 527mm x 296mm
+   1920x1080     60.00*+
+"""
+        with patch(
+            "subprocess.check_output",
+            return_value=xrandr_output,
+        ):
+            # First non-origin monitor found is at 1920,0 (the primary in this case)
+            result = _get_secondary_monitor_linux()
+            assert result == (1920, 0)
+
+    def test_detects_secondary_monitor_above(self):
+        """Test detection when secondary monitor is above primary."""
+        xrandr_output = """Screen 0: minimum 8 x 8, current 1920 x 2160, maximum 32767 x 32767
+HDMI-0 connected primary 1920x1080+0+1080 (normal left inverted right x axis y axis) 527mm x 296mm
+   1920x1080     60.00*+
+DP-0 connected 1920x1080+0+0 (normal left inverted right x axis y axis) 527mm x 296mm
+   1920x1080     60.00*+
+"""
+        with patch(
+            "subprocess.check_output",
+            return_value=xrandr_output,
+        ):
+            # Primary is at 0,1080, secondary at 0,0 - first non-origin is primary
+            result = _get_secondary_monitor_linux()
+            assert result == (0, 1080)
+
+    def test_single_monitor_returns_none(self):
+        """Test that single monitor setup returns None."""
+        xrandr_output = """Screen 0: minimum 8 x 8, current 1920 x 1080, maximum 32767 x 32767
+HDMI-0 connected primary 1920x1080+0+0 (normal left inverted right x axis y axis) 527mm x 296mm
+   1920x1080     60.00*+
+DP-0 disconnected (normal left inverted right x axis y axis)
+"""
+        with patch(
+            "subprocess.check_output",
+            return_value=xrandr_output,
+        ):
+            result = _get_secondary_monitor_linux()
+            assert result is None
+
+    def test_fallback_to_second_monitor_when_both_at_origin(self):
+        """Test fallback when multiple monitors both report 0,0 (edge case)."""
+        # This is an unlikely but possible xrandr output
+        xrandr_output = """Screen 0: minimum 8 x 8, current 1920 x 1080, maximum 32767 x 32767
+HDMI-0 connected 1920x1080+0+0 (normal left inverted right x axis y axis) 527mm x 296mm
+   1920x1080     60.00*+
+DP-0 connected 1920x1080+0+0 (normal left inverted right x axis y axis) 527mm x 296mm
+   1920x1080     60.00*+
+"""
+        with patch(
+            "subprocess.check_output",
+            return_value=xrandr_output,
+        ):
+            # Should return second monitor's coords as fallback
+            result = _get_secondary_monitor_linux()
+            assert result == (0, 0)
+
+
+class TestGetSecondaryMonitorCoords:
+    """Tests for get_secondary_monitor_coords function."""
+
+    def test_linux_calls_linux_helper(self):
+        """Test that Linux platform calls the Linux helper."""
+        with patch("pikaraoke.lib.get_platform.is_linux", return_value=True):
+            with patch("pikaraoke.lib.get_platform.is_windows", return_value=False):
+                with patch(
+                    "pikaraoke.lib.get_platform._get_secondary_monitor_linux",
+                    return_value=(1920, 0),
+                ) as mock_linux:
+                    result = get_secondary_monitor_coords()
+                    mock_linux.assert_called_once()
+                    assert result == (1920, 0)
+
+    def test_windows_calls_windows_helper(self):
+        """Test that Windows platform calls the Windows helper."""
+        with patch("pikaraoke.lib.get_platform.is_linux", return_value=False):
+            with patch("pikaraoke.lib.get_platform.is_windows", return_value=True):
+                with patch(
+                    "pikaraoke.lib.get_platform._get_secondary_monitor_windows",
+                    return_value=(1920, 0),
+                ) as mock_windows:
+                    result = get_secondary_monitor_coords()
+                    mock_windows.assert_called_once()
+                    assert result == (1920, 0)
+
+    def test_macos_returns_none(self):
+        """Test that macOS returns None (no detection implemented)."""
+        with patch("pikaraoke.lib.get_platform.is_linux", return_value=False):
+            with patch("pikaraoke.lib.get_platform.is_windows", return_value=False):
+                result = get_secondary_monitor_coords()
+                assert result is None
+
+    def test_linux_xrandr_not_found_returns_none(self):
+        """Test graceful handling when xrandr is not installed."""
+        with patch("pikaraoke.lib.get_platform.is_linux", return_value=True):
+            with patch("pikaraoke.lib.get_platform.is_windows", return_value=False):
+                with patch(
+                    "pikaraoke.lib.get_platform._get_secondary_monitor_linux",
+                    side_effect=FileNotFoundError("xrandr not found"),
+                ):
+                    result = get_secondary_monitor_coords()
+                    assert result is None
+
+    def test_subprocess_error_returns_none(self):
+        """Test graceful handling of subprocess errors."""
+        with patch("pikaraoke.lib.get_platform.is_linux", return_value=True):
+            with patch("pikaraoke.lib.get_platform.is_windows", return_value=False):
+                with patch(
+                    "pikaraoke.lib.get_platform._get_secondary_monitor_linux",
+                    side_effect=subprocess.SubprocessError("xrandr failed"),
+                ):
+                    result = get_secondary_monitor_coords()
+                    assert result is None
