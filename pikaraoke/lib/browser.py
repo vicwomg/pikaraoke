@@ -103,11 +103,20 @@ class Browser:
         if browser_executable:
             cmd = [browser_executable]
 
+            # Check if browser is snap-installed (confined by AppArmor)
+            is_snap_browser = "/snap/" in browser_executable
+
             # Use a persistent profile on desktop platforms to ensure flags are respected
             # even if Chrome is already open and to preserve cookies (user name).
             # Skip on Pi (dedicated kiosk device uses default profile).
             if not self.karaoke.is_raspberry_pi:
-                cmd.append(f"--user-data-dir={self.browser_profile_dir}")
+                if is_snap_browser:
+                    # Snap Chromium is confined - use snap-accessible profile location
+                    snap_profile = os.path.expanduser("~/snap/chromium/common/pikaraoke-profile")
+                    cmd.append(f"--user-data-dir={snap_profile}")
+                    logging.debug(f"Detected snap Chromium, using profile: {snap_profile}")
+                else:
+                    cmd.append(f"--user-data-dir={self.browser_profile_dir}")
 
             if self.window_size:
                 # Windowed mode: use --app for minimal UI, --new-window to ensure sizing works
