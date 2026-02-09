@@ -2,6 +2,7 @@
 
 import pytest
 
+from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 
@@ -13,10 +14,13 @@ class MockKaraoke:
     filesystem, network, subprocess (ffmpeg, yt-dlp), etc.
     """
 
-    def __init__(self):
+    def __init__(self, tmp_path):
         self.available_songs = MockSongList()
         self._socketio = None
-        self.preferences = PreferenceManager(config_file_path=":memory:", target=self)
+        self.events = EventSystem()
+        self.preferences = PreferenceManager(
+            config_file_path=str(tmp_path / "config.ini"), target=self
+        )
         self.now_playing = None
         self.now_playing_filename = None
         self.now_playing_user = None
@@ -30,22 +34,28 @@ class MockKaraoke:
         self.volume = 0.85
         self.running = True
         self.now_playing_notification = None
-        self.limit_user_songs_by = 0
         self.hide_notifications = True
         self.download_path = "/fake/path"
-        self.enable_fair_queue = True
+
+        # Set preferences that differ from defaults
+        self.preferences.set("enable_fair_queue", True)
+
+        # Wire event handlers (mirrors karaoke.py wiring)
+        self.events.on("notification", self.log_and_send)
+        self.events.on(
+            "queue_update",
+            lambda: self._socketio.emit("queue_update", namespace="/") if self._socketio else None,
+        )
+        self.events.on("now_playing_update", self.update_now_playing_socket)
+        self.events.on("skip_requested", lambda: self.skip(False))
 
         # Initialize queue manager
         self.queue_manager = QueueManager(
-            socketio=self._socketio,
-            get_limit_user_songs_by=lambda: self.limit_user_songs_by,
-            get_enable_fair_queue=lambda: self.enable_fair_queue,
+            preferences=self.preferences,
+            events=self.events,
             get_now_playing_user=lambda: self.now_playing_user,
             filename_from_path=self.filename_from_path,
-            log_and_send=self.log_and_send,
             get_available_songs=lambda: self.available_songs,
-            update_now_playing_socket=self.update_now_playing_socket,
-            skip=self.skip,
         )
 
     @property
@@ -55,9 +65,8 @@ class MockKaraoke:
 
     @socketio.setter
     def socketio(self, value):
-        """Set the socketio instance and sync with queue_manager."""
+        """Set the socketio instance."""
         self._socketio = value
-        self.queue_manager.socketio = value
 
     # Import the actual methods we want to test
     from pikaraoke.karaoke import Karaoke
@@ -103,15 +112,15 @@ class MockSongList:
 
 
 @pytest.fixture
-def mock_karaoke():
+def mock_karaoke(tmp_path):
     """Create a MockKaraoke instance for testing."""
-    return MockKaraoke()
+    return MockKaraoke(tmp_path)
 
 
 @pytest.fixture
-def mock_karaoke_with_songs():
+def mock_karaoke_with_songs(tmp_path):
     """Create a MockKaraoke instance with pre-populated songs."""
-    k = MockKaraoke()
+    k = MockKaraoke(tmp_path)
     songs = [
         "/songs/Artist - Song One---abc123.mp4",
         "/songs/Artist - Song Two---def456.mp4",

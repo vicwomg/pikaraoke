@@ -316,10 +316,10 @@
 					data: $("#queue-form").serialize(),
 					success: function (data) {
 						var obj = JSON.parse(data);
-						if (obj.success) {
-							showNotification("Added song to queue: " + obj.song, "is-success");
+						if (obj.success[0]) {
+							showNotification(obj.success[1], "is-success");
 						} else {
-							showNotification("Song is already in the queue: " + obj.song, "is-danger");
+							showNotification(obj.success[1], "is-danger");
 						}
 						$select[0].selectize.clear();
 					},

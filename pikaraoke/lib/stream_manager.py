@@ -11,6 +11,7 @@ from queue import Queue
 from threading import Thread
 from typing import TYPE_CHECKING, Any
 
+from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.ffmpeg import build_ffmpeg_cmd
 from pikaraoke.lib.file_resolver import FileResolver, is_transcoding_required
 
@@ -315,7 +316,7 @@ class StreamManager:
         k.is_paused = False
         k.queue_manager.queue.pop(0)
         k.update_now_playing_socket()
-        k.queue_manager.update_queue_socket()
+        k.events.emit("queue_update")
 
         # Wait for stream to start playing
         max_retries = 100

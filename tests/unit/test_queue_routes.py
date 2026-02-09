@@ -9,6 +9,9 @@ from flask import Flask
 if not hasattr(werkzeug, "__version__"):
     werkzeug.__version__ = "3.0.0"
 
+from pikaraoke.lib.events import EventSystem
+from pikaraoke.lib.preference_manager import PreferenceManager
+from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.routes.queue import queue_bp
 
 
@@ -112,11 +115,17 @@ class TestQueueApiContract:
         assert data == []
 
 
-class TestQueueEditSocketUpdates:
-    """Tests that queue edit actions emit update_now_playing_socket.
+def _make_queue_item(n: int) -> dict:
+    """Create a queue item dict for testing."""
+    return {"file": f"/songs/song{n}.mp4", "title": f"Song {n}", "user": f"User{n}", "semitones": 0}
 
-    These tests prevent regressions where queue changes don't update the
-    splash screen's "up next" display. See commit 7b3909a for the original fix.
+
+class TestQueueEditSocketUpdates:
+    """Tests that queue edit actions call appropriate QueueManager methods.
+
+    These tests prevent regressions where queue changes don't trigger updates.
+    QueueManager methods emit events (queue_update, now_playing_update) which
+    update the splash screen's "up next" display. See commit 7b3909a for context.
     """
 
     @pytest.fixture
@@ -133,6 +142,33 @@ class TestQueueEditSocketUpdates:
         """Create a test client with session support."""
         return app_with_secret.test_client()
 
+    @pytest.fixture
+    def queue_env(self, tmp_path):
+        """Create a QueueManager with event tracking and mock karaoke instance.
+
+        Returns (queue_manager, mock_karaoke, queue_updates, now_playing_updates).
+        """
+        events = EventSystem()
+        preferences = PreferenceManager(config_file_path=str(tmp_path / "config.ini"))
+        qm = QueueManager(
+            preferences=preferences,
+            events=events,
+            get_now_playing_user=lambda: None,
+            filename_from_path=lambda path, *args: path.split("/")[-1],
+            get_available_songs=lambda: [],
+        )
+
+        queue_updates = []
+        now_playing_updates = []
+        events.on("queue_update", lambda: queue_updates.append(True))
+        events.on("now_playing_update", lambda: now_playing_updates.append(True))
+
+        mock_karaoke = MagicMock()
+        mock_karaoke.queue_manager = qm
+        mock_karaoke.filename_from_path.return_value = "song"
+
+        return qm, mock_karaoke, queue_updates, now_playing_updates
+
     @pytest.mark.parametrize(
         "action,song_param",
         [
@@ -146,7 +182,7 @@ class TestQueueEditSocketUpdates:
     @patch("pikaraoke.routes.queue.get_karaoke_instance")
     @patch("pikaraoke.routes.queue.broadcast_event")
     @patch("pikaraoke.routes.queue._", side_effect=lambda x: x)
-    def test_queue_edit_updates_now_playing_socket(
+    def test_queue_edit_emits_events(
         self,
         mock_gettext,
         mock_broadcast,
@@ -155,18 +191,69 @@ class TestQueueEditSocketUpdates:
         client_with_session,
         action,
         song_param,
+        queue_env,
     ):
-        """Queue edit actions must emit update_now_playing_socket for splash screen."""
-        mock_karaoke = MagicMock()
-        mock_karaoke.queue_manager.queue = [
-            {"file": "/songs/song1.mp4"},
-            {"file": "/songs/song2.mp4"},
-        ]
-        mock_karaoke.queue_manager.queue_edit.return_value = True
-        mock_karaoke.filename_from_path.return_value = "song"
+        """Queue edit actions emit queue_update and now_playing_update events."""
+        qm, mock_karaoke, queue_updates, now_playing_updates = queue_env
+        qm.queue = [_make_queue_item(1), _make_queue_item(2)]
         mock_get_instance.return_value = mock_karaoke
 
         response = client_with_session.get(f"/queue/edit?action={action}{song_param}")
 
         assert response.status_code == 302
-        mock_karaoke.update_now_playing_socket.assert_called_once()
+        assert len(queue_updates) >= 1, "queue_update event should be emitted"
+        assert len(now_playing_updates) >= 1, "now_playing_update event should be emitted"
+
+    @pytest.mark.parametrize(
+        "action,song_param,expected_new_index",
+        [
+            ("top", "&song=/songs/song2.mp4", 0),
+            ("bottom", "&song=/songs/song1.mp4", 2),
+        ],
+    )
+    @patch("pikaraoke.routes.queue.is_admin", return_value=True)
+    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    @patch("pikaraoke.routes.queue._", side_effect=lambda x: x)
+    def test_queue_edit_top_bottom_emits_events(
+        self,
+        mock_gettext,
+        mock_get_instance,
+        mock_is_admin,
+        client_with_session,
+        action,
+        song_param,
+        expected_new_index,
+        queue_env,
+    ):
+        """Top/Bottom actions use QueueManager.reorder() which emits events."""
+        qm, mock_karaoke, queue_updates, now_playing_updates = queue_env
+        qm.queue = [_make_queue_item(1), _make_queue_item(2), _make_queue_item(3)]
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client_with_session.get(f"/queue/edit?action={action}{song_param}")
+
+        assert response.status_code == 302
+        assert qm.queue[expected_new_index]["file"] in song_param.split("=")[1]
+        assert len(queue_updates) == 1, "queue_update event should be emitted once"
+        assert len(now_playing_updates) == 1, "now_playing_update event should be emitted once"
+
+    @patch("pikaraoke.routes.queue.is_admin", return_value=True)
+    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    def test_queue_reorder_drag_drop_emits_events(
+        self, mock_get_instance, mock_is_admin, client_with_session, queue_env
+    ):
+        """Drag-and-drop reorder uses QueueManager.reorder() which emits events."""
+        qm, mock_karaoke, queue_updates, now_playing_updates = queue_env
+        qm.queue = [_make_queue_item(n) for n in range(1, 5)]
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client_with_session.post(
+            "/queue/reorder", data={"old_index": "1", "new_index": "3"}
+        )
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["success"] is True
+        assert qm.queue[3]["file"] == "/songs/song2.mp4"
+        assert len(queue_updates) == 1, "queue_update event should be emitted once"
+        assert len(now_playing_updates) == 1, "now_playing_update event should be emitted once"
