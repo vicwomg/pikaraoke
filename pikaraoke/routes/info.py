@@ -64,6 +64,7 @@ def info():
         disable_bg_video=k.disable_bg_video,
         disable_score=k.disable_score,
         hide_notifications=k.hide_notifications,
+        hide_splash_clock=k.hide_splash_clock,
         hide_url=k.hide_url,
         hide_overlay=k.hide_overlay,
         screensaver_timeout=k.screensaver_timeout,

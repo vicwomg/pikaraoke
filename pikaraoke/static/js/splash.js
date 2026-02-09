@@ -385,6 +385,11 @@ const setupOverlayMenus = () => {
     document.body.style.cursor = 'none';
     cursorVisible = false;
     $("#menu a").fadeOut();
+    if (!PikaraokeConfig.hideSplashClock) {
+      setTimeout(() => {
+        if (!cursorVisible) $("#clock").fadeIn();
+      }, 1000);
+    }
     menuButtonVisible = false;
   };
 
@@ -396,6 +401,7 @@ const setupOverlayMenus = () => {
     }
     if (!menuButtonVisible) {
       $("#menu a").fadeIn();
+      $("#clock").hide();
       menuButtonVisible = true;
     }
     mouseTimer = window.setTimeout(triggerInactivity, 5000);
@@ -477,6 +483,22 @@ const handleUnsupportedBrowser = () => {
     warningMessage.innerHTML =
       PikaraokeConfig.translations.unsupportedBrowser;
     modalContents.prepend(warningMessage);
+  }
+}
+
+const updateClock = () => {
+  const clockElement = document.getElementById('clock');
+  if (clockElement) {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    clockElement.textContent = timeString;
+  }
+}
+
+const setupClock = () => {
+  if (!PikaraokeConfig.hideSplashClock) {
+    updateClock();
+    setInterval(updateClock, 1000);
   }
 }
 
@@ -600,6 +622,7 @@ const setupUIScaling = () => {
     { selector: '#score-number-text', origin: null },
     { selector: '#score-review-text', origin: null },
     { selector: '#splash-notification', origin: 'top left' },
+    { selector: '#clock', origin: 'top left' },
   ];
 
   scaleTargets.forEach(({ selector, origin }) => {
@@ -616,6 +639,7 @@ const setupUIScaling = () => {
 $(function () {
   // Setup various features and listeners
   setupUIScaling();
+  setupClock();
   setupScreensaver();
   setupOverlayMenus();
   setupVideoPlayer();
