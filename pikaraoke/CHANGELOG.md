@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.18.4](https://github.com/vicwomg/pikaraoke/compare/1.18.3...1.18.4) (2026-02-09)
+
+
+### Bug Fixes
+
+* docker yt-dlp upgrade fails, bump yt-dlp version ([#764](https://github.com/vicwomg/pikaraoke/issues/764)) ([b2d3d9b](https://github.com/vicwomg/pikaraoke/commit/b2d3d9bf122e393a49e3578f903324d4aac13673))
+* installation on windows to include C++ distributable ([#763](https://github.com/vicwomg/pikaraoke/issues/763)) ([a02f14f](https://github.com/vicwomg/pikaraoke/commit/a02f14fc45d8ee349544f78becd90c9f4a97db58))
+
 ## [1.18.3](https://github.com/vicwomg/pikaraoke/compare/1.18.2...1.18.3) (2026-02-03)
 
 
