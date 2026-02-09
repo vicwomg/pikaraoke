@@ -56,9 +56,10 @@ Only support these two patterns.
 
 ## Testing
 
-- pytest with mocked external dependencies
+- pytest with mocked external I/O and subprocess operations only
 - Test business logic and integration points
 - Skip trivial getters/setters
+- Use real `EventSystem` and `PreferenceManager` instances (they're lightweight)
 
 ## Code Quality
 

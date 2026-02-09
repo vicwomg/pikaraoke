@@ -19,21 +19,21 @@ def karaoke_with_socketio(mock_karaoke):
 class TestQueueSocketEmissions:
     """Verify queue operations emit correct SocketIO events."""
 
-    def test_update_queue_socket_emits_event(self, karaoke_with_socketio):
-        """update_queue_socket emits 'queue_update' with no payload."""
+    def test_queue_update_event_emits_socketio(self, karaoke_with_socketio):
+        """queue_update event triggers SocketIO 'queue_update' emission."""
         k = karaoke_with_socketio
         k.queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
         k.socketio.emit.reset_mock()
 
-        k.queue_manager.update_queue_socket()
+        k.events.emit("queue_update")
 
         k.socketio.emit.assert_called_once_with("queue_update", namespace="/")
 
-    def test_update_queue_socket_works_with_empty_queue(self, karaoke_with_socketio):
-        """update_queue_socket emits regardless of queue state."""
+    def test_queue_update_event_works_with_empty_queue(self, karaoke_with_socketio):
+        """queue_update event emits SocketIO regardless of queue state."""
         k = karaoke_with_socketio
 
-        k.queue_manager.update_queue_socket()
+        k.events.emit("queue_update")
 
         k.socketio.emit.assert_called_once_with("queue_update", namespace="/")
 
@@ -95,7 +95,7 @@ class TestQueueSocketEmissions:
         k.queue_manager.enqueue("/songs/song2---def.mp4", "User2")
         k.socketio.emit.reset_mock()
 
-        k.queue_manager.queue_edit("song1---abc.mp4", "delete")
+        k.queue_manager.queue_edit("/songs/song1---abc.mp4", "delete")
 
         event_names = [call[0][0] for call in k.socketio.emit.call_args_list]
         assert "queue_update" in event_names

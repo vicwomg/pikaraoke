@@ -1,6 +1,7 @@
 """Song queue management routes."""
 
 import json
+from urllib.parse import unquote
 
 import flask_babel
 from flask import Blueprint, flash, redirect, render_template, request, url_for
@@ -11,11 +12,6 @@ from pikaraoke.lib.current_app import (
     get_site_name,
     is_admin,
 )
-
-try:
-    from urllib.parse import unquote
-except ImportError:
-    from urllib import unquote
 
 _ = flask_babel.gettext
 
@@ -91,7 +87,7 @@ def add_random():
         description: Redirects to queue page
     """
     k = get_karaoke_instance()
-    amount = int(request.args["amount"])
+    amount = request.args.get("amount", default=1, type=int)
     rc = k.queue_manager.queue_add_random(amount)
     if rc:
         # MSG: Message shown after adding random tracks
@@ -145,15 +141,8 @@ def reorder():
         old_index = int(request.form["old_index"])
         new_index = int(request.form["new_index"])
 
-        # Security bounds check
-        if 0 <= old_index < len(k.queue_manager.queue) and 0 <= new_index < len(
-            k.queue_manager.queue
-        ):
-            item = k.queue_manager.queue.pop(old_index)
-            k.queue_manager.queue.insert(new_index, item)
-            broadcast_event("queue_update")
-            k.update_now_playing_socket()
-            return json.dumps({"success": True})
+        success = k.queue_manager.reorder(old_index, new_index)
+        return json.dumps({"success": success})
     except (ValueError, IndexError):
         pass
 
@@ -186,86 +175,42 @@ def queue_edit():
         broadcast_event("skip", "clear queue")
         success = True
     else:
-        song = request.args["song"]
-        song = unquote(song)
+        song = unquote(request.args["song"])
+        song_title = k.filename_from_path(song)
 
-        # Handle "Move to Top" (Play Next) locally to avoid modifying karaoke.py
+        # MSG labels for each action
+        success_labels = {
+            "top": _("Moved to top of queue"),
+            "bottom": _("Moved to bottom of queue"),
+            "up": _("Moved up in queue"),
+            "down": _("Moved down in queue"),
+            "delete": _("Deleted from queue"),
+        }
+        error_labels = {
+            "top": _("Error moving to top of queue"),
+            "bottom": _("Error moving to bottom of queue"),
+            "up": _("Error moving up in queue"),
+            "down": _("Error moving down in queue"),
+            "delete": _("Error deleting from queue"),
+        }
+
         if action == "top":
-            found_index = -1
-            for i, item in enumerate(k.queue_manager.queue):
-                if song in item["file"]:
-                    found_index = i
-                    break
-
-            # Move to index 0 (top of queue = next to play after current song)
-            if found_index > 0:
-                item = k.queue_manager.queue.pop(found_index)
-                k.queue_manager.queue.insert(0, item)
-                message = _("Moved to top of queue") + ": " + k.filename_from_path(item["file"])
-                if not is_ajax:
-                    flash(message, "is-success")
-                success = True
-
-        # Handle "Move to Bottom" locally
+            success = k.queue_manager.move_to_top(song)
         elif action == "bottom":
-            found_index = -1
-            for i, item in enumerate(k.queue_manager.queue):
-                if song in item["file"]:
-                    found_index = i
-                    break
+            success = k.queue_manager.move_to_bottom(song)
+        else:
+            success = k.queue_manager.queue_edit(song, action)
 
-            if found_index >= 0 and found_index < len(k.queue_manager.queue) - 1:
-                item = k.queue_manager.queue.pop(found_index)
-                k.queue_manager.queue.append(item)
-                message = _("Moved to bottom of queue") + ": " + k.filename_from_path(item["file"])
-                if not is_ajax:
-                    flash(message, "is-success")
-                success = True
+        if action in success_labels:
+            message = (
+                (success_labels[action] if success else error_labels[action]) + ": " + song_title
+            )
 
-        elif action == "down":
-            result = k.queue_manager.queue_edit(song, "down")
-            if result:
-                message = _("Moved down in queue") + ": " + k.filename_from_path(song)
-                if not is_ajax:
-                    # MSG: Message shown after moving a song down in the queue
-                    flash(message, "is-success")
-                success = True
-            else:
-                message = _("Error moving down in queue") + ": " + k.filename_from_path(song)
-                if not is_ajax:
-                    # MSG: Message shown after failing to move a song down in the queue
-                    flash(message, "is-danger")
-        elif action == "up":
-            result = k.queue_manager.queue_edit(song, "up")
-            if result:
-                message = _("Moved up in queue") + ": " + k.filename_from_path(song)
-                if not is_ajax:
-                    # MSG: Message shown after moving a song up in the queue
-                    flash(message, "is-success")
-                success = True
-            else:
-                message = _("Error moving up in queue") + ": " + k.filename_from_path(song)
-                if not is_ajax:
-                    # MSG: Message shown after failing to move a song up in the queue
-                    flash(message, "is-danger")
-        elif action == "delete":
-            result = k.queue_manager.queue_edit(song, "delete")
-            if result:
-                message = _("Deleted from queue") + ": " + k.filename_from_path(song)
-                if not is_ajax:
-                    # MSG: Message shown after deleting a song from the queue
-                    flash(message, "is-success")
-                success = True
-            else:
-                message = _("Error deleting from queue") + ": " + k.filename_from_path(song)
-                if not is_ajax:
-                    # MSG: Message shown after failing to delete a song from the queue
-                    flash(message, "is-danger")
+        if message and not is_ajax:
+            flash(message, "is-success" if success else "is-danger")
 
-    if success:
-        broadcast_event("queue_update")
-        # Ensure splash screen "up next" is updated
-        k.update_now_playing_socket()
+    # Note: No need to manually emit events here - all QueueManager methods
+    # (queue_clear, queue_edit, reorder) already emit queue_update and now_playing_update events
 
     if is_ajax:
         return json.dumps({"success": success, "message": message})
@@ -309,16 +254,8 @@ def enqueue():
               description: Whether the song was added
     """
     k = get_karaoke_instance()
-    if "song" in request.args:
-        song = request.args["song"]
-    else:
-        d = request.form.to_dict()
-        song = d["song-to-add"]
-    if "user" in request.args:
-        user = request.args["user"]
-    else:
-        d = request.form.to_dict()
-        user = d["song-added-by"]
+    song = request.args.get("song") or request.form["song-to-add"]
+    user = request.args.get("user") or request.form["song-added-by"]
     rc = k.queue_manager.enqueue(song, user)
     broadcast_event("queue_update")
     song_title = k.filename_from_path(song)
@@ -376,5 +313,4 @@ def delete_download_error(error_id):
     k = get_karaoke_instance()
     if k.download_manager.remove_error(error_id):
         return json.dumps({"success": True})
-    else:
-        return json.dumps({"success": False, "error": "Error not found"}), 404
+    return json.dumps({"success": False, "error": "Error not found"}), 404
