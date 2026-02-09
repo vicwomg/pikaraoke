@@ -36,6 +36,10 @@ if ($Confirm) {
 # 2. Install Dependencies via Winget
 Write-Host "Installing Winget dependencies..." -ForegroundColor Yellow
 
+# Install Visual C++ Redistributable (Required for gevent/greenlet)
+Write-Host "Installing Visual C++ Redistributable..."
+winget install --id "Microsoft.VCRedist.2015+.x64" -e --silent --accept-source-agreements --accept-package-agreements
+
 # Install FFmpeg
 if (!(Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
     Write-Host "Installing ffmpeg..."
