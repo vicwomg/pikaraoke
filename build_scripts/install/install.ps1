@@ -159,4 +159,5 @@ Write-Host "`n--------------------------------------------------------" -Foregro
 Write-Host "Installation complete!" -ForegroundColor Green
 Write-Host "Please restart your terminal (PowerShell) to ensure all PATH changes are loaded."
 Write-Host "Then, simply run: `pikaraoke` or launch PiKaraoke from the desktop shortcuts."
+Write-Host "`nTIP: Put your karaoke files in: $(Join-Path $HOME 'pikaraoke-songs')" -ForegroundColor Cyan
 Write-Host "--------------------------------------------------------"
