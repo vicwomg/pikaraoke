@@ -1,6 +1,6 @@
 [project]
 name = "pikaraoke"
-version = "1.18.3"
+version = "1.18.4"
 description = "Youtube-based Karaoke machine for Raspberry Pi, OSX, Windows, and Linux"
 authors = [{name = "Vic Wong"}]
 readme = "docs/README.md"
@@ -21,7 +21,7 @@ dependencies = [
   "Babel==2.17.0",
   "Flask-Babel==4.0.0",
   "ffmpeg-python==0.2.0",
-  "yt-dlp[default]>=2026.1.31",
+  "yt-dlp[default]>=2026.02.04",
   "flask-socketio>=5.5.0",
   "gevent>=24.11.1",
   "flasgger>=0.9.5",

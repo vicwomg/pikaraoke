@@ -235,7 +235,7 @@ class Karaoke:
         self.events.on("song_ended", self.update_now_playing_socket)
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
 
-        # Initialize queue manager (remaining callbacks will be refactored out in future PRs)
+        # Initialize queue manager
         self.queue_manager = QueueManager(
             preferences=self.preferences,
             events=self.events,

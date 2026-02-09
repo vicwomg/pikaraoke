@@ -36,6 +36,16 @@ if ($Confirm) {
 # 2. Install Dependencies via Winget
 Write-Host "Installing Winget dependencies..." -ForegroundColor Yellow
 
+# Install Visual C++ Redistributable (Required for gevent/greenlet)
+Write-Host "Checking Visual C++ Redistributable..."
+winget list -e --id "Microsoft.VCRedist.2015+.x64" | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Installing Visual C++ Redistributable (x64)..."
+    winget install --id "Microsoft.VCRedist.2015+.x64" -e --silent --accept-source-agreements --accept-package-agreements
+} else {
+    Write-Host "Visual C++ Redistributable is already installed."
+}
+
 # Install FFmpeg
 if (!(Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
     Write-Host "Installing ffmpeg..."
@@ -149,4 +159,5 @@ Write-Host "`n--------------------------------------------------------" -Foregro
 Write-Host "Installation complete!" -ForegroundColor Green
 Write-Host "Please restart your terminal (PowerShell) to ensure all PATH changes are loaded."
 Write-Host "Then, simply run: `pikaraoke` or launch PiKaraoke from the desktop shortcuts."
+Write-Host "`nTIP: Put your karaoke files in: $(Join-Path $HOME 'pikaraoke-songs')" -ForegroundColor Cyan
 Write-Host "--------------------------------------------------------"
