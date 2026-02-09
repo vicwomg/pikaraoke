@@ -590,7 +590,7 @@ class Karaoke:
                         self.handle_run_loop()
                         i += self.loop_interval
 
-                    # Pop song before playback to avoid UI flicker (re-queue on failure)
+                    # Pop song before playback to avoid UI flicker
                     song = self.queue_manager.pop_next()
                     if not song:
                         continue
@@ -598,12 +598,8 @@ class Karaoke:
                         song["file"], song["user"], song["semitones"]
                     )
 
-                    if not result.success:
-                        # Re-insert song at front of queue so user doesn't lose it
-                        self.queue_manager.queue.insert(0, song)
-                        self.events.emit("now_playing_update")
-                        if result.error:
-                            self.log_and_send(result.error, "danger")
+                    if not result.success and result.error:
+                        self.log_and_send(result.error, "danger")
 
                 self.playback_controller.log_output()
                 self.handle_run_loop()
