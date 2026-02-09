@@ -37,8 +37,14 @@ if ($Confirm) {
 Write-Host "Installing Winget dependencies..." -ForegroundColor Yellow
 
 # Install Visual C++ Redistributable (Required for gevent/greenlet)
-Write-Host "Installing Visual C++ Redistributable..."
-winget install --id "Microsoft.VCRedist.2015+.x64" -e --silent --accept-source-agreements --accept-package-agreements
+Write-Host "Checking Visual C++ Redistributable..."
+winget list -e --id "Microsoft.VCRedist.2015+.x64" | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Installing Visual C++ Redistributable (x64)..."
+    winget install --id "Microsoft.VCRedist.2015+.x64" -e --silent --accept-source-agreements --accept-package-agreements
+} else {
+    Write-Host "Visual C++ Redistributable is already installed."
+}
 
 # Install FFmpeg
 if (!(Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
