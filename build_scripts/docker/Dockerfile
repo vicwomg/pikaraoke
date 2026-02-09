@@ -18,14 +18,21 @@ COPY pyproject.toml uv.lock ./
 
 # Install dependencies using uv (this layer is cached)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system --no-cache-dir -r pyproject.toml
+    uv venv /app/.venv && \
+    uv pip install --no-cache-dir -r pyproject.toml
+
+ENV VIRTUAL_ENV=/app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Install pip into the venv so that python -m pip works for yt-dlp self-upgrade
+RUN uv pip install pip
 
 COPY docs ./docs
 COPY pikaraoke ./pikaraoke
 
 # Final install of the package itself (fast)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system --no-cache-dir --no-deps .
+    uv pip install --no-cache-dir --no-deps .
 
 # Set up volumes and ports
 
@@ -35,7 +42,7 @@ RUN adduser -D -u 1000 pikaraoke
 # Directories must exist prior to run, otherwise the local volume persistence won't work
 RUN mkdir -p /home/pikaraoke/.pikaraoke && \
     mkdir -p /app/pikaraoke-songs && \
-    chown -R pikaraoke:pikaraoke /app/pikaraoke-songs /home/pikaraoke
+    chown -R pikaraoke:pikaraoke /app/pikaraoke-songs /home/pikaraoke /app/.venv
 
 # Set environment variables for the user
 ENV HOME=/home/pikaraoke
