@@ -445,11 +445,11 @@ class Karaoke:
             new_file_name = new_name + ext[1]
         else:
             new_file_name = new_name
-        new_path = self.download_path + new_file_name
+        new_path = os.path.join(self.download_path, new_file_name)
         os.rename(song_path, new_path)
         for companion in companions:
             companion_ext = os.path.splitext(companion)[1]
-            os.rename(companion, self.download_path + new_name + companion_ext)
+            os.rename(companion, os.path.join(self.download_path, new_name + companion_ext))
         self.available_songs.rename(song_path, new_path)
 
     def filename_from_path(self, file_path: str, remove_youtube_id: bool = True) -> str:
