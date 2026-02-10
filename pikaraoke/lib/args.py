@@ -335,8 +335,6 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         print(f"Background video not found: {bg_video_path}. Setting to None")
 
     dl_path = os.path.expanduser(arg_path_parse(args.download_path) or default_dl_dir)
-    if not dl_path.endswith("/"):
-        dl_path += "/"
 
     args.logo_path = logo_path
     args.bg_music_path = bg_music_path
