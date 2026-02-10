@@ -7,16 +7,34 @@ import os
 import shutil
 import subprocess
 import time
+from dataclasses import dataclass
 from queue import Queue
 from threading import Thread
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.ffmpeg import build_ffmpeg_cmd
 from pikaraoke.lib.file_resolver import FileResolver, is_transcoding_required
+from pikaraoke.lib.preference_manager import PreferenceManager
 
-if TYPE_CHECKING:
-    from pikaraoke.karaoke import Karaoke
+
+@dataclass
+class PlaybackResult:
+    """Result of a playback operation.
+
+    Attributes:
+        success: Whether playback started successfully.
+        stream_url: URL path for the video stream.
+        subtitle_url: URL path for subtitles (if present).
+        duration: Video duration in seconds.
+        error: Error message if playback failed.
+    """
+
+    success: bool
+    stream_url: str | None = None
+    subtitle_url: str | None = None
+    duration: int | None = None
+    error: str | None = None
 
 
 def enqueue_output(out: Any, queue: Queue) -> None:
@@ -38,22 +56,24 @@ class StreamManager:
     for both HLS and progressive MP4 streaming formats.
 
     Attributes:
-        karaoke: Reference to the Karaoke instance.
+        preferences: PreferenceManager for configuration.
         ffmpeg_process: Currently running FFmpeg subprocess.
         ffmpeg_log: Queue for FFmpeg stderr output.
     """
 
-    def __init__(self, karaoke: Karaoke) -> None:
+    def __init__(self, preferences: PreferenceManager, streaming_format: str = "hls") -> None:
         """Initialize the stream manager.
 
         Args:
-            karaoke: Reference to the Karaoke instance for config and callbacks.
+            preferences: PreferenceManager instance for configuration.
+            streaming_format: Video streaming format ('hls' or 'mp4').
         """
-        self.karaoke = karaoke
+        self.preferences = preferences
+        self.streaming_format = streaming_format
         self.ffmpeg_process = None
         self.ffmpeg_log: Queue | None = None
 
-    def play_file(self, file_path: str, semitones: int = 0) -> bool | None:
+    def play_file(self, file_path: str, semitones: int = 0) -> PlaybackResult:
         """Start playback of a media file.
 
         Handles file resolution, transcoding, and stream setup.
@@ -63,39 +83,41 @@ class StreamManager:
             semitones: Number of semitones to transpose (0 = no change).
 
         Returns:
-            False if file resolution fails, None otherwise.
+            PlaybackResult with success status and stream information.
         """
         from flask_babel import _
 
-        k = self.karaoke
-        logging.info(f"Playing file: {file_path} transposed {semitones} semitones")
+        streaming_format = self.streaming_format
+        normalize_audio = self.preferences.get_or_default("normalize_audio")
+        avsync = self.preferences.get_or_default("avsync")
+        complete_transcode_before_play = self.preferences.get_or_default(
+            "complete_transcode_before_play"
+        )
 
-        is_hls = k.streaming_format == "hls"
+        is_hls = streaming_format == "hls"
 
         requires_transcoding = (
             semitones != 0
-            or k.normalize_audio
+            or normalize_audio
             or is_transcoding_required(file_path)
-            or k.avsync != 0
+            or avsync != 0
             or is_hls
         )
 
         logging.debug(f"Requires transcoding: {requires_transcoding}")
 
         try:
-            fr = FileResolver(file_path, k.streaming_format)
+            fr = FileResolver(file_path, streaming_format)
         except Exception as e:
             error_message = _("Error resolving file: %s") % str(e)
-            k.queue_manager.queue.pop(0)
-            k.end_song(reason=error_message)
-            k.log_and_send(error_message, "danger")
-            return False
+            logging.error(error_message)
+            return PlaybackResult(success=False, error=error_message)
 
         # Set stream URL based on format
         if is_hls:
             stream_url_path = f"/stream/{fr.stream_uid}.m3u8"
         else:
-            if k.complete_transcode_before_play or not requires_transcoding:
+            if complete_transcode_before_play or not requires_transcoding:
                 stream_url_path = f"/stream/full/{fr.stream_uid}"
             else:
                 stream_url_path = f"/stream/{fr.stream_uid}.mp4"
@@ -115,7 +137,17 @@ class StreamManager:
 
         # Check if the stream is ready to play
         if is_transcoding_complete or is_buffering_complete:
-            self._setup_now_playing(k, file_path, fr, semitones, stream_url_path, subtitle_url)
+            logging.debug("Stream ready!")
+            return PlaybackResult(
+                success=True,
+                stream_url=stream_url_path,
+                subtitle_url=subtitle_url,
+                duration=fr.duration,
+            )
+        else:
+            error_message = _("Failed to prepare stream")
+            logging.error(error_message)
+            return PlaybackResult(success=False, error=error_message)
 
     def _copy_file(self, src_path: str, dest_path: str) -> bool:
         """Copy a file that doesn't need transcoding.
@@ -148,17 +180,24 @@ class StreamManager:
         Returns:
             Tuple of (is_transcoding_complete, is_buffering_complete).
         """
-        k = self.karaoke
         self.kill_ffmpeg()
+
+        normalize_audio = self.preferences.get_or_default("normalize_audio")
+        complete_transcode_before_play = self.preferences.get_or_default(
+            "complete_transcode_before_play"
+        )
+        avsync = self.preferences.get_or_default("avsync")
+        cdg_pixel_scaling = self.preferences.get_or_default("cdg_pixel_scaling")
+        buffer_size = int(self.preferences.get_or_default("buffer_size")) * 1000
 
         ffmpeg_cmd = build_ffmpeg_cmd(
             fr,
             semitones,
-            k.normalize_audio,
+            normalize_audio,
             not is_hls,  # force mp4 encoding
-            k.complete_transcode_before_play,
-            k.avsync,
-            k.cdg_pixel_scaling,
+            complete_transcode_before_play,
+            avsync,
+            cdg_pixel_scaling,
         )
         self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
 
@@ -174,7 +213,6 @@ class StreamManager:
         transcode_max_retries = 2500  # ~2 minutes max
         is_transcoding_complete = False
         is_buffering_complete = False
-        buffer_size = int(k.buffer_size) * 1000
 
         # Transcoding readiness polling loop
         while True:
@@ -184,8 +222,7 @@ class StreamManager:
             if self.ffmpeg_process.poll() is not None:
                 exitcode = self.ffmpeg_process.poll()
                 if exitcode != 0:
-                    logging.error(f"FFmpeg exited with code {exitcode}. Skipping track")
-                    k.end_song()
+                    logging.error(f"FFmpeg exited with code {exitcode}")
                     break
                 else:
                     is_transcoding_complete = True
@@ -204,8 +241,7 @@ class StreamManager:
 
             # Prevent infinite loop
             if transcode_max_retries <= 0:
-                logging.error("Max retries reached trying to play song. Skipping track")
-                k.end_song()
+                logging.error("Max retries reached trying to play song")
                 break
             transcode_max_retries -= 1
             time.sleep(0.05)
@@ -226,8 +262,10 @@ class StreamManager:
         Returns:
             True if buffer is ready, False otherwise.
         """
-        k = self.karaoke
-        if k.complete_transcode_before_play:
+        complete_transcode_before_play = self.preferences.get_or_default(
+            "complete_transcode_before_play"
+        )
+        if complete_transcode_before_play:
             return False
 
         try:
@@ -255,7 +293,7 @@ class StreamManager:
                     return True
         except FileNotFoundError:
             pass  # Temp dir doesn't exist yet
-        except (PermissionError, OSError, IOError) as e:
+        except OSError as e:
             logging.warning(f"I/O error checking buffer: {e}")
         except Exception as e:
             logging.error(f"Unexpected error during buffering check: {e}")
@@ -272,8 +310,10 @@ class StreamManager:
         Returns:
             True if buffer is ready, False otherwise.
         """
-        k = self.karaoke
-        if k.complete_transcode_before_play:
+        complete_transcode_before_play = self.preferences.get_or_default(
+            "complete_transcode_before_play"
+        )
+        if complete_transcode_before_play:
             return False
 
         try:
@@ -286,56 +326,13 @@ class StreamManager:
 
         return False
 
-    def _setup_now_playing(
-        self,
-        k: Karaoke,
-        file_path: str,
-        fr: FileResolver,
-        semitones: int,
-        stream_url_path: str,
-        subtitle_url: str | None,
-    ) -> None:
-        """Set up the now playing state and wait for playback to start.
-
-        Args:
-            k: Karaoke instance.
-            file_path: Path to the media file.
-            fr: FileResolver instance.
-            semitones: Transpose value.
-            stream_url_path: URL path for the stream.
-            subtitle_url: URL path for the subtitle file.
-        """
-        logging.debug("Stream ready!")
-        k.now_playing = k.filename_from_path(file_path)
-        k.now_playing_filename = file_path
-        k.now_playing_transpose = semitones
-        k.now_playing_duration = fr.duration
-        k.now_playing_url = stream_url_path
-        k.now_playing_subtitle_url = subtitle_url
-        k.now_playing_user = k.queue_manager.queue[0]["user"]
-        k.is_paused = False
-        k.queue_manager.queue.pop(0)
-        k.update_now_playing_socket()
-        k.events.emit("queue_update")
-
-        # Wait for stream to start playing
-        max_retries = 100
-        while not k.is_playing and max_retries > 0:
-            time.sleep(0.1)
-            max_retries -= 1
-
-        if k.is_playing:
-            logging.debug("Stream is playing")
-        else:
-            logging.error("Stream was not playable! Skipping track")
-            k.end_song()
-
     def log_ffmpeg_output(self) -> None:
         """Log any pending FFmpeg output from the queue."""
-        if self.ffmpeg_log is not None and self.ffmpeg_log.qsize() > 0:
-            while self.ffmpeg_log.qsize() > 0:
-                output = self.ffmpeg_log.get_nowait()
-                logging.debug("[FFMPEG] " + output.decode("utf-8", "ignore").strip())
+        if self.ffmpeg_log is None:
+            return
+        while self.ffmpeg_log.qsize() > 0:
+            output = self.ffmpeg_log.get_nowait()
+            logging.debug("[FFMPEG] " + output.decode("utf-8", "ignore").strip())
 
     def kill_ffmpeg(self) -> None:
         """Terminate the running FFmpeg process gracefully.

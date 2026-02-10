@@ -1,41 +1,19 @@
 """Unit tests for stream_manager module."""
 
-import os
 import subprocess
 from queue import Queue
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pikaraoke.lib.stream_manager import StreamManager, enqueue_output
+from pikaraoke.lib.preference_manager import PreferenceManager
+from pikaraoke.lib.stream_manager import PlaybackResult, StreamManager, enqueue_output
 
 
-class MockKaraokeForStream:
-    """Mock Karaoke instance for StreamManager tests."""
-
-    def __init__(self):
-        self.streaming_format = "hls"
-        self.normalize_audio = False
-        self.avsync = 0
-        self.complete_transcode_before_play = False
-        self.buffer_size = 150
-        self.cdg_pixel_scaling = False
-        self.queue_manager = MagicMock()
-        self.queue_manager.queue = [{"user": "TestUser", "file": "/songs/test.mp4"}]
-        self.now_playing = None
-        self.now_playing_filename = None
-        self.now_playing_transpose = 0
-        self.now_playing_duration = None
-        self.now_playing_url = None
-        self.now_playing_subtitle_url = None
-        self.now_playing_user = None
-        self.is_paused = True
-        self.is_playing = False
-        self.events = MagicMock()
-        self.update_now_playing_socket = MagicMock()
-        self.end_song = MagicMock()
-        self.log_and_send = MagicMock()
-        self.filename_from_path = lambda x: os.path.basename(x).rsplit(".", 1)[0]
+@pytest.fixture
+def test_prefs():
+    """Create a PreferenceManager for testing."""
+    return PreferenceManager("/nonexistent/test_config.ini")
 
 
 class TestEnqueueOutput:
@@ -68,12 +46,11 @@ class TestEnqueueOutput:
 class TestStreamManagerInit:
     """Tests for StreamManager initialization."""
 
-    def test_init_sets_attributes(self):
+    def test_init_sets_attributes(self, test_prefs):
         """Test that init sets expected attributes."""
-        mock_karaoke = MockKaraokeForStream()
-        sm = StreamManager(mock_karaoke)
+        sm = StreamManager(test_prefs)
 
-        assert sm.karaoke == mock_karaoke
+        assert sm.preferences == test_prefs
         assert sm.ffmpeg_process is None
         assert sm.ffmpeg_log is None
 
@@ -81,10 +58,9 @@ class TestStreamManagerInit:
 class TestStreamManagerLogFfmpegOutput:
     """Tests for StreamManager.log_ffmpeg_output method."""
 
-    def test_log_output_when_queue_has_items(self):
+    def test_log_output_when_queue_has_items(self, test_prefs):
         """Test logging when queue has output."""
-        mock_karaoke = MockKaraokeForStream()
-        sm = StreamManager(mock_karaoke)
+        sm = StreamManager(test_prefs)
         sm.ffmpeg_log = Queue()
         sm.ffmpeg_log.put(b"Processing frame 1\n")
         sm.ffmpeg_log.put(b"Processing frame 2\n")
@@ -93,20 +69,18 @@ class TestStreamManagerLogFfmpegOutput:
             sm.log_ffmpeg_output()
             assert mock_logging.debug.call_count == 2
 
-    def test_no_log_when_queue_empty(self):
+    def test_no_log_when_queue_empty(self, test_prefs):
         """Test no logging when queue is empty."""
-        mock_karaoke = MockKaraokeForStream()
-        sm = StreamManager(mock_karaoke)
+        sm = StreamManager(test_prefs)
         sm.ffmpeg_log = Queue()
 
         with patch("pikaraoke.lib.stream_manager.logging") as mock_logging:
             sm.log_ffmpeg_output()
             mock_logging.debug.assert_not_called()
 
-    def test_no_log_when_queue_is_none(self):
+    def test_no_log_when_queue_is_none(self, test_prefs):
         """Test no error when ffmpeg_log is None."""
-        mock_karaoke = MockKaraokeForStream()
-        sm = StreamManager(mock_karaoke)
+        sm = StreamManager(test_prefs)
         sm.ffmpeg_log = None
 
         # Should not raise
@@ -116,20 +90,18 @@ class TestStreamManagerLogFfmpegOutput:
 class TestStreamManagerKillFfmpeg:
     """Tests for StreamManager.kill_ffmpeg method."""
 
-    def test_kill_ffmpeg_when_no_process(self):
+    def test_kill_ffmpeg_when_no_process(self, test_prefs):
         """Test kill_ffmpeg does nothing when no process."""
-        mock_karaoke = MockKaraokeForStream()
-        sm = StreamManager(mock_karaoke)
+        sm = StreamManager(test_prefs)
         sm.ffmpeg_process = None
 
         # Should not raise
         sm.kill_ffmpeg()
         assert sm.ffmpeg_process is None
 
-    def test_kill_ffmpeg_graceful_termination(self):
+    def test_kill_ffmpeg_graceful_termination(self, test_prefs):
         """Test graceful termination of FFmpeg process."""
-        mock_karaoke = MockKaraokeForStream()
-        sm = StreamManager(mock_karaoke)
+        sm = StreamManager(test_prefs)
         mock_process = MagicMock()
         sm.ffmpeg_process = mock_process
 
@@ -139,10 +111,9 @@ class TestStreamManagerKillFfmpeg:
         mock_process.wait.assert_called()
         assert sm.ffmpeg_process is None
 
-    def test_kill_ffmpeg_force_kill_on_timeout(self):
+    def test_kill_ffmpeg_force_kill_on_timeout(self, test_prefs):
         """Test force kill when graceful termination times out."""
-        mock_karaoke = MockKaraokeForStream()
-        sm = StreamManager(mock_karaoke)
+        sm = StreamManager(test_prefs)
         mock_process = MagicMock()
         mock_process.wait.side_effect = [subprocess.TimeoutExpired("ffmpeg", 5), None]
         sm.ffmpeg_process = mock_process
@@ -152,10 +123,9 @@ class TestStreamManagerKillFfmpeg:
         mock_process.terminate.assert_called_once()
         mock_process.kill.assert_called_once()
 
-    def test_kill_ffmpeg_handles_exception(self):
+    def test_kill_ffmpeg_handles_exception(self, test_prefs):
         """Test that exceptions during termination are handled."""
-        mock_karaoke = MockKaraokeForStream()
-        sm = StreamManager(mock_karaoke)
+        sm = StreamManager(test_prefs)
         mock_process = MagicMock()
         mock_process.terminate.side_effect = Exception("Process error")
         sm.ffmpeg_process = mock_process
@@ -168,10 +138,9 @@ class TestStreamManagerKillFfmpeg:
 class TestStreamManagerCopyFile:
     """Tests for StreamManager._copy_file method."""
 
-    def test_copy_file_success(self, tmp_path):
+    def test_copy_file_success(self, tmp_path, test_prefs):
         """Test successful file copy."""
-        mock_karaoke = MockKaraokeForStream()
-        sm = StreamManager(mock_karaoke)
+        sm = StreamManager(test_prefs)
 
         src_file = tmp_path / "source.mp4"
         src_file.write_bytes(b"video content")
@@ -183,15 +152,28 @@ class TestStreamManagerCopyFile:
         assert dest_file.exists()
         assert dest_file.read_bytes() == b"video content"
 
+    @patch("pikaraoke.lib.stream_manager.time")
+    @patch("pikaraoke.lib.stream_manager.os.path.exists", return_value=False)
+    @patch("pikaraoke.lib.stream_manager.shutil")
+    def test_copy_file_returns_false_when_dest_never_appears(
+        self, mock_shutil, mock_exists, mock_time, test_prefs
+    ):
+        """Test _copy_file returns False when destination never appears after copy."""
+        sm = StreamManager(test_prefs)
+
+        result = sm._copy_file("/src/file.mp4", "/dest/file.mp4")
+
+        assert result is False
+        mock_shutil.copy.assert_called_once()
+
 
 class TestStreamManagerCheckMp4Buffer:
     """Tests for StreamManager._check_mp4_buffer method."""
 
-    def test_returns_false_when_complete_transcode_enabled(self):
+    def test_returns_false_when_complete_transcode_enabled(self, test_prefs):
         """Test returns False when complete_transcode_before_play is True."""
-        mock_karaoke = MockKaraokeForStream()
-        mock_karaoke.complete_transcode_before_play = True
-        sm = StreamManager(mock_karaoke)
+        test_prefs.set("complete_transcode_before_play", True)
+        sm = StreamManager(test_prefs)
 
         mock_fr = MagicMock()
         mock_fr.output_file = "/tmp/test.mp4"
@@ -200,10 +182,9 @@ class TestStreamManagerCheckMp4Buffer:
 
         assert result is False
 
-    def test_returns_true_when_buffer_full(self, tmp_path):
+    def test_returns_true_when_buffer_full(self, tmp_path, test_prefs):
         """Test returns True when file size exceeds buffer."""
-        mock_karaoke = MockKaraokeForStream()
-        sm = StreamManager(mock_karaoke)
+        sm = StreamManager(test_prefs)
 
         output_file = tmp_path / "output.mp4"
         output_file.write_bytes(b"x" * 200000)
@@ -215,10 +196,9 @@ class TestStreamManagerCheckMp4Buffer:
 
         assert result is True
 
-    def test_returns_false_when_buffer_not_full(self, tmp_path):
+    def test_returns_false_when_buffer_not_full(self, tmp_path, test_prefs):
         """Test returns False when file size is below buffer."""
-        mock_karaoke = MockKaraokeForStream()
-        sm = StreamManager(mock_karaoke)
+        sm = StreamManager(test_prefs)
 
         output_file = tmp_path / "output.mp4"
         output_file.write_bytes(b"x" * 100000)
@@ -230,10 +210,9 @@ class TestStreamManagerCheckMp4Buffer:
 
         assert result is False
 
-    def test_returns_false_when_file_not_found(self):
+    def test_returns_false_when_file_not_found(self, test_prefs):
         """Test returns False when output file doesn't exist."""
-        mock_karaoke = MockKaraokeForStream()
-        sm = StreamManager(mock_karaoke)
+        sm = StreamManager(test_prefs)
 
         mock_fr = MagicMock()
         mock_fr.output_file = "/nonexistent/file.mp4"
@@ -246,168 +225,336 @@ class TestStreamManagerCheckMp4Buffer:
 class TestStreamManagerCheckHlsBuffer:
     """Tests for StreamManager._check_hls_buffer method."""
 
-    def test_returns_false_when_complete_transcode_enabled(self):
-        """Test returns False when complete_transcode_before_play is True."""
-        mock_karaoke = MockKaraokeForStream()
-        mock_karaoke.complete_transcode_before_play = True
-        sm = StreamManager(mock_karaoke)
+    STREAM_UID = 12345
 
+    def _create_segments(self, tmp_path, count=4):
+        """Create HLS segment files in tmp_path."""
+        for i in range(count):
+            segment = tmp_path / f"{self.STREAM_UID}_segment_{i:03d}.m4s"
+            segment.write_bytes(b"x" * 50000)
+
+    def _make_mock_fr(self, tmp_path, playlist_content=None):
+        """Create a mock FileResolver for HLS buffer tests.
+
+        When playlist_content is provided, a playlist file is created and
+        mock_fr.output_file is set to its path.
+        """
         mock_fr = MagicMock()
+        mock_fr.tmp_dir = str(tmp_path)
+        mock_fr.stream_uid = self.STREAM_UID
+        if playlist_content is not None:
+            playlist_file = tmp_path / f"{self.STREAM_UID}.m3u8"
+            playlist_file.write_text(playlist_content)
+            mock_fr.output_file = str(playlist_file)
+        return mock_fr
 
-        result = sm._check_hls_buffer(mock_fr, 150000)
+    def test_returns_false_when_complete_transcode_enabled(self, test_prefs):
+        """Test returns False when complete_transcode_before_play is True."""
+        test_prefs.set("complete_transcode_before_play", True)
+        sm = StreamManager(test_prefs)
+
+        result = sm._check_hls_buffer(MagicMock(), 150000)
 
         assert result is False
 
-    def test_returns_true_when_segments_ready(self, tmp_path):
+    def test_returns_true_when_segments_ready(self, tmp_path, test_prefs):
         """Test returns True when enough segments and buffer size."""
-        mock_karaoke = MockKaraokeForStream()
-        sm = StreamManager(mock_karaoke)
-
-        stream_uid = 12345
-        # Create segment files
-        for i in range(4):
-            segment = tmp_path / f"{stream_uid}_segment_{i:03d}.m4s"
-            segment.write_bytes(b"x" * 50000)
-
-        # Create the HLS playlist file (output_file)
-        playlist_file = tmp_path / f"{stream_uid}.m3u8"
-        playlist_file.write_text("#EXTM3U\n#EXT-X-VERSION:7\n")
-
-        mock_fr = MagicMock()
-        mock_fr.tmp_dir = str(tmp_path)
-        mock_fr.stream_uid = stream_uid
-        mock_fr.output_file = str(playlist_file)
+        sm = StreamManager(test_prefs)
+        self._create_segments(tmp_path)
+        mock_fr = self._make_mock_fr(tmp_path, "#EXTM3U\n#EXT-X-VERSION:7\n")
         mock_fr.get_current_stream_size.return_value = 200000
 
         result = sm._check_hls_buffer(mock_fr, 150000)
 
         assert result is True
 
-    def test_returns_false_when_not_enough_segments(self, tmp_path):
+    def test_returns_false_when_not_enough_segments(self, tmp_path, test_prefs):
         """Test returns False when fewer than min segments."""
-        mock_karaoke = MockKaraokeForStream()
-        sm = StreamManager(mock_karaoke)
-
-        stream_uid = 12345
-        # Create only 2 segments (need 3)
-        for i in range(2):
-            segment = tmp_path / f"{stream_uid}_segment_{i:03d}.m4s"
-            segment.write_bytes(b"x" * 50000)
-
-        mock_fr = MagicMock()
-        mock_fr.tmp_dir = str(tmp_path)
-        mock_fr.stream_uid = stream_uid
+        sm = StreamManager(test_prefs)
+        self._create_segments(tmp_path, count=2)
+        mock_fr = self._make_mock_fr(tmp_path)
 
         result = sm._check_hls_buffer(mock_fr, 150000)
 
         assert result is False
 
-    def test_returns_false_when_tmp_dir_not_found(self):
+    def test_returns_false_when_tmp_dir_not_found(self, test_prefs):
         """Test returns False when temp directory doesn't exist."""
-        mock_karaoke = MockKaraokeForStream()
-        sm = StreamManager(mock_karaoke)
+        sm = StreamManager(test_prefs)
 
         mock_fr = MagicMock()
         mock_fr.tmp_dir = "/nonexistent/dir"
-        mock_fr.stream_uid = 12345
+        mock_fr.stream_uid = self.STREAM_UID
+
+        result = sm._check_hls_buffer(mock_fr, 150000)
+
+        assert result is False
+
+    def test_returns_false_when_playlist_empty(self, tmp_path, test_prefs):
+        """Test returns False when playlist file exists but is empty."""
+        sm = StreamManager(test_prefs)
+        mock_fr = self._make_mock_fr(tmp_path, "")
+
+        result = sm._check_hls_buffer(mock_fr, 150000)
+
+        assert result is False
+
+    @pytest.mark.parametrize(
+        "error",
+        [OSError("Disk error"), RuntimeError("Unexpected")],
+        ids=["os_error", "unexpected_error"],
+    )
+    def test_returns_false_on_stream_size_error(self, tmp_path, test_prefs, error):
+        """Test returns False when get_current_stream_size raises an exception."""
+        sm = StreamManager(test_prefs)
+        self._create_segments(tmp_path)
+        mock_fr = self._make_mock_fr(tmp_path, "#EXTM3U\n")
+        mock_fr.get_current_stream_size.side_effect = error
 
         result = sm._check_hls_buffer(mock_fr, 150000)
 
         assert result is False
 
 
-class TestStreamManagerSetupNowPlaying:
-    """Tests for StreamManager._setup_now_playing method."""
+class TestStreamManagerTranscodeFile:
+    """Tests for StreamManager._transcode_file method."""
 
-    def test_sets_now_playing_state(self):
-        """Test that now playing state is set correctly."""
-        mock_karaoke = MockKaraokeForStream()
-        mock_karaoke.is_playing = True  # Simulate playback starting
-        sm = StreamManager(mock_karaoke)
-
+    def _make_mock_fr(self):
+        """Create a mock FileResolver for transcoding tests."""
         mock_fr = MagicMock()
+        mock_fr.stream_uid = 12345
+        mock_fr.output_file = "/tmp/12345.mp4"
         mock_fr.duration = 180
+        mock_fr.tmp_dir = "/tmp"
+        mock_fr.get_current_stream_size.return_value = 500000
+        return mock_fr
 
-        sm._setup_now_playing(
-            mock_karaoke,
-            "/songs/Artist - Song.mp4",
-            mock_fr,
-            semitones=2,
-            stream_url_path="/stream/123.m3u8",
-            subtitle_url=None,
+    def _make_mock_ffmpeg(self, mock_build_cmd, poll_return: int | None = 0):
+        """Create mock FFmpeg command and process, wired to build_ffmpeg_cmd."""
+        mock_process = MagicMock()
+        mock_process.poll.return_value = poll_return
+        mock_cmd = MagicMock()
+        mock_cmd.run_async.return_value = mock_process
+        mock_build_cmd.return_value = mock_cmd
+        return mock_cmd, mock_process
+
+    @patch("pikaraoke.lib.stream_manager.Thread")
+    @patch("pikaraoke.lib.stream_manager.build_ffmpeg_cmd")
+    def test_transcode_success(self, mock_build_cmd, mock_thread, test_prefs):
+        """Test successful transcoding when FFmpeg exits with code 0."""
+        sm = StreamManager(test_prefs)
+        mock_cmd, _ = self._make_mock_ffmpeg(mock_build_cmd, poll_return=0)
+
+        is_complete, is_buffered = sm._transcode_file(
+            self._make_mock_fr(), semitones=2, is_hls=False
         )
 
-        assert mock_karaoke.now_playing == "Artist - Song"
-        assert mock_karaoke.now_playing_filename == "/songs/Artist - Song.mp4"
-        assert mock_karaoke.now_playing_transpose == 2
-        assert mock_karaoke.now_playing_duration == 180
-        assert mock_karaoke.now_playing_url == "/stream/123.m3u8"
-        assert mock_karaoke.is_paused is False
-        mock_karaoke.update_now_playing_socket.assert_called_once()
-        mock_karaoke.events.emit.assert_called_once_with("queue_update")
+        assert is_complete is True
+        mock_build_cmd.assert_called_once()
+        mock_cmd.run_async.assert_called_once_with(pipe_stderr=True, pipe_stdin=True)
 
-    def test_calls_end_song_when_not_playing(self):
-        """Test that end_song is called when stream doesn't start."""
-        mock_karaoke = MockKaraokeForStream()
-        mock_karaoke.is_playing = False  # Never starts playing
-        sm = StreamManager(mock_karaoke)
+    @patch("pikaraoke.lib.stream_manager.Thread")
+    @patch("pikaraoke.lib.stream_manager.build_ffmpeg_cmd")
+    def test_transcode_ffmpeg_error(self, mock_build_cmd, mock_thread, test_prefs):
+        """Test transcoding failure when FFmpeg exits with non-zero code."""
+        sm = StreamManager(test_prefs)
+        self._make_mock_ffmpeg(mock_build_cmd, poll_return=1)
 
-        mock_fr = MagicMock()
-        mock_fr.duration = 180
+        is_complete, is_buffered = sm._transcode_file(
+            self._make_mock_fr(), semitones=0, is_hls=False
+        )
 
-        # Use a short timeout by mocking time.sleep
-        with patch("pikaraoke.lib.stream_manager.time.sleep"):
-            sm._setup_now_playing(
-                mock_karaoke,
-                "/songs/test.mp4",
-                mock_fr,
-                semitones=0,
-                stream_url_path="/stream/123.m3u8",
-                subtitle_url=None,
+        assert is_complete is False
+        assert is_buffered is False
+
+    @patch("pikaraoke.lib.stream_manager.Thread")
+    @patch("pikaraoke.lib.stream_manager.build_ffmpeg_cmd")
+    def test_transcode_buffering_complete_before_finish(
+        self, mock_build_cmd, mock_thread, test_prefs
+    ):
+        """Test that buffering can complete before transcoding finishes."""
+        sm = StreamManager(test_prefs)
+        self._make_mock_ffmpeg(mock_build_cmd, poll_return=None)
+
+        with patch.object(sm, "_check_mp4_buffer", return_value=True):
+            is_complete, is_buffered = sm._transcode_file(
+                self._make_mock_fr(), semitones=0, is_hls=False
             )
 
-        mock_karaoke.end_song.assert_called_once()
+        assert is_complete is False
+        assert is_buffered is True
+
+    @patch("pikaraoke.lib.stream_manager.Thread")
+    @patch("pikaraoke.lib.stream_manager.build_ffmpeg_cmd")
+    def test_transcode_hls_buffering(self, mock_build_cmd, mock_thread, test_prefs):
+        """Test HLS buffering check is used when is_hls=True."""
+        sm = StreamManager(test_prefs)
+        self._make_mock_ffmpeg(mock_build_cmd, poll_return=None)
+
+        with patch.object(sm, "_check_hls_buffer", return_value=True) as mock_hls:
+            is_complete, is_buffered = sm._transcode_file(
+                self._make_mock_fr(), semitones=0, is_hls=True
+            )
+
+        mock_hls.assert_called()
+        assert is_buffered is True
+
+    @patch("pikaraoke.lib.stream_manager.time")
+    @patch("pikaraoke.lib.stream_manager.Thread")
+    @patch("pikaraoke.lib.stream_manager.build_ffmpeg_cmd")
+    def test_transcode_max_retries_exceeded(
+        self, mock_build_cmd, mock_thread, mock_time, test_prefs
+    ):
+        """Test that max retries limit prevents infinite loop."""
+        sm = StreamManager(test_prefs)
+        self._make_mock_ffmpeg(mock_build_cmd, poll_return=None)
+
+        with patch.object(sm, "_check_mp4_buffer", return_value=False):
+            is_complete, is_buffered = sm._transcode_file(
+                self._make_mock_fr(), semitones=0, is_hls=False
+            )
+
+        assert is_complete is False
+        assert is_buffered is False
+
+    @patch("pikaraoke.lib.stream_manager.Thread")
+    @patch("pikaraoke.lib.stream_manager.build_ffmpeg_cmd")
+    def test_transcode_kills_existing_ffmpeg(self, mock_build_cmd, mock_thread, test_prefs):
+        """Test that _transcode_file kills any existing FFmpeg process first."""
+        sm = StreamManager(test_prefs)
+        self._make_mock_ffmpeg(mock_build_cmd, poll_return=0)
+
+        with patch.object(sm, "kill_ffmpeg") as mock_kill:
+            sm._transcode_file(self._make_mock_fr(), semitones=0, is_hls=False)
+
+        mock_kill.assert_called_once()
 
 
 class TestStreamManagerPlayFile:
     """Tests for StreamManager.play_file method."""
 
+    def _setup_resolver(
+        self, mock_resolver_class, output_ext="mp4", duration=200, ass_file_path=None
+    ):
+        """Configure mock FileResolver with standard play_file test attributes."""
+        mock_fr = MagicMock()
+        mock_fr.stream_uid = 12345
+        mock_fr.output_file = f"/tmp/12345.{output_ext}"
+        mock_fr.duration = duration
+        mock_fr.ass_file_path = ass_file_path
+        mock_resolver_class.return_value = mock_fr
+        return mock_fr
+
     @patch("flask_babel._", side_effect=lambda x: x)
     @patch("pikaraoke.lib.stream_manager.FileResolver")
-    def test_play_file_returns_false_on_resolve_error(self, mock_resolver_class, mock_gettext):
-        """Test play_file returns False when FileResolver fails."""
-        mock_karaoke = MockKaraokeForStream()
-        sm = StreamManager(mock_karaoke)
-
+    def test_play_file_returns_error_result_on_resolve_error(
+        self, mock_resolver_class, mock_gettext, test_prefs
+    ):
+        """Test play_file returns error PlaybackResult when FileResolver fails."""
+        sm = StreamManager(test_prefs)
         mock_resolver_class.side_effect = Exception("File not found")
 
         result = sm.play_file("/songs/nonexistent.mp4")
 
-        assert result is False
-        mock_karaoke.end_song.assert_called_once()
-        mock_karaoke.log_and_send.assert_called_once()
+        assert isinstance(result, PlaybackResult)
+        assert result.success is False
+        assert result.error is not None
 
     @patch("flask_babel._", side_effect=lambda x: x)
     @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
     @patch("pikaraoke.lib.stream_manager.FileResolver")
     def test_play_file_copies_when_no_transcoding_needed(
-        self, mock_resolver_class, mock_transcode_check, mock_gettext
+        self, mock_resolver_class, mock_transcode_check, mock_gettext, test_prefs
     ):
         """Test play_file copies file when no transcoding required."""
-        mock_karaoke = MockKaraokeForStream()
-        mock_karaoke.streaming_format = "mp4"
-        mock_karaoke.is_playing = True
-        sm = StreamManager(mock_karaoke)
-
-        mock_fr = MagicMock()
-        mock_fr.stream_uid = 12345
-        mock_fr.output_file = "/tmp/12345.mp4"
-        mock_fr.duration = 180
-        mock_fr.ass_file_path = None
-        mock_resolver_class.return_value = mock_fr
+        sm = StreamManager(test_prefs, streaming_format="mp4")
+        self._setup_resolver(mock_resolver_class, duration=180)
 
         with patch.object(sm, "_copy_file", return_value=True) as mock_copy:
-            with patch("pikaraoke.lib.stream_manager.time.sleep"):
-                sm.play_file("/songs/test.mp4")
+            result = sm.play_file("/songs/test.mp4")
 
         mock_copy.assert_called_once()
+        assert isinstance(result, PlaybackResult)
+        assert result.success is True
+        assert result.duration == 180
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
+    @patch("pikaraoke.lib.stream_manager.FileResolver")
+    def test_play_file_hls_stream_url(
+        self, mock_resolver_class, mock_transcode_check, mock_gettext, test_prefs
+    ):
+        """Test play_file produces HLS stream URL when format is hls."""
+        sm = StreamManager(test_prefs, streaming_format="hls")
+        self._setup_resolver(mock_resolver_class, output_ext="m3u8")
+
+        with patch.object(sm, "_transcode_file", return_value=(True, False)):
+            result = sm.play_file("/songs/test.mp4")
+
+        assert result.success is True
+        assert result.stream_url == "/stream/12345.m3u8"
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=True)
+    @patch("pikaraoke.lib.stream_manager.FileResolver")
+    def test_play_file_mp4_progressive_stream_url(
+        self, mock_resolver_class, mock_transcode_check, mock_gettext, test_prefs
+    ):
+        """Test play_file produces progressive MP4 URL when buffering."""
+        sm = StreamManager(test_prefs, streaming_format="mp4")
+        self._setup_resolver(mock_resolver_class)
+
+        with patch.object(sm, "_transcode_file", return_value=(False, True)):
+            result = sm.play_file("/songs/test.mp4")
+
+        assert result.success is True
+        assert result.stream_url == "/stream/12345.mp4"
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=True)
+    @patch("pikaraoke.lib.stream_manager.FileResolver")
+    def test_play_file_mp4_full_transcode_url(
+        self, mock_resolver_class, mock_transcode_check, mock_gettext, test_prefs
+    ):
+        """Test play_file produces full transcode URL when setting enabled."""
+        test_prefs.set("complete_transcode_before_play", True)
+        sm = StreamManager(test_prefs, streaming_format="mp4")
+        self._setup_resolver(mock_resolver_class)
+
+        with patch.object(sm, "_transcode_file", return_value=(True, False)):
+            result = sm.play_file("/songs/test.mp4")
+
+        assert result.success is True
+        assert result.stream_url == "/stream/full/12345"
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
+    @patch("pikaraoke.lib.stream_manager.FileResolver")
+    def test_play_file_includes_subtitle_url(
+        self, mock_resolver_class, mock_transcode_check, mock_gettext, test_prefs
+    ):
+        """Test play_file includes subtitle URL when subtitle file exists."""
+        sm = StreamManager(test_prefs, streaming_format="mp4")
+        self._setup_resolver(mock_resolver_class, duration=180, ass_file_path="/tmp/12345.ass")
+
+        with patch.object(sm, "_copy_file", return_value=True):
+            result = sm.play_file("/songs/test.mp4")
+
+        assert result.success is True
+        assert result.subtitle_url == "/subtitle/12345"
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=True)
+    @patch("pikaraoke.lib.stream_manager.FileResolver")
+    def test_play_file_returns_failure_when_stream_not_ready(
+        self, mock_resolver_class, mock_transcode_check, mock_gettext, test_prefs
+    ):
+        """Test play_file returns failure when neither transcoding nor buffering completes."""
+        sm = StreamManager(test_prefs, streaming_format="mp4")
+        self._setup_resolver(mock_resolver_class)
+
+        with patch.object(sm, "_transcode_file", return_value=(False, False)):
+            result = sm.play_file("/songs/test.mp4")
+
+        assert result.success is False
+        assert result.error is not None

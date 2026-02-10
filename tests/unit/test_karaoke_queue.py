@@ -246,7 +246,7 @@ class TestIsUserLimited:
     def test_is_user_limited_counts_now_playing(self, mock_karaoke):
         """Test that currently playing song counts toward limit."""
         mock_karaoke.preferences.set("limit_user_songs_by", 2)
-        mock_karaoke.now_playing_user = "User1"
+        mock_karaoke.playback_controller.now_playing_user = "User1"
         mock_karaoke.queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
 
         assert mock_karaoke.queue_manager.is_user_limited("User1") is True
