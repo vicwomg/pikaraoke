@@ -237,6 +237,21 @@ class QueueManager:
             return False
         return self.reorder(index, len(self.queue) - 1)
 
+    def pop_next(self) -> dict[str, Any] | None:
+        """Remove and return the next song from the queue.
+
+        Does not emit queue_update to avoid UI flicker during song transitions.
+        The playback system emits now_playing events which trigger queue UI updates.
+
+        Returns None if queue is empty.
+        """
+        if not self.queue:
+            return None
+
+        song = self.queue.pop(0)
+        logging.info(f"Popped song from queue: {song['title']}")
+        return song
+
     def queue_edit(self, song_path: str, action: str) -> bool:
         """Move or remove a song in the queue. Action: 'up', 'down', or 'delete'."""
         index = self._find_song_index(song_path)

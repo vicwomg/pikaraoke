@@ -7,6 +7,57 @@ from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 
 
+class MockPlaybackController:
+    """Minimal mock of PlaybackController for testing queue operations."""
+
+    now_playing: str | None = None
+    now_playing_filename: str | None = None
+    now_playing_user: str | None = None
+    now_playing_transpose: int = 0
+    now_playing_duration: int | None = None
+    now_playing_url: str | None = None
+    now_playing_subtitle_url: str | None = None
+    now_playing_position: float | None = None
+    is_paused: bool = True
+    is_playing: bool = False
+
+    def skip(self, log_action: bool = True) -> bool:
+        if self.is_playing:
+            self.reset_now_playing()
+            return True
+        return False
+
+    def pause(self) -> bool:
+        if self.is_playing:
+            self.is_paused = not self.is_paused
+            return True
+        return False
+
+    def reset_now_playing(self) -> None:
+        self.now_playing = None
+        self.now_playing_filename = None
+        self.now_playing_user = None
+        self.now_playing_url = None
+        self.now_playing_subtitle_url = None
+        self.is_paused = True
+        self.is_playing = False
+        self.now_playing_transpose = 0
+        self.now_playing_duration = None
+        self.now_playing_position = None
+
+    def get_now_playing(self) -> dict:
+        return {
+            "now_playing": self.now_playing,
+            "now_playing_user": self.now_playing_user,
+            "now_playing_duration": self.now_playing_duration,
+            "now_playing_transpose": self.now_playing_transpose,
+            "now_playing_url": self.now_playing_url,
+            "now_playing_subtitle_url": self.now_playing_subtitle_url,
+            "now_playing_position": self.now_playing_position,
+            "is_paused": self.is_paused,
+        }
+
+
 class MockKaraoke:
     """Minimal mock of the Karaoke class for testing queue operations.
 
@@ -21,20 +72,10 @@ class MockKaraoke:
         self.preferences = PreferenceManager(
             config_file_path=str(tmp_path / "config.ini"), target=self
         )
-        self.now_playing = None
-        self.now_playing_filename = None
-        self.now_playing_user = None
-        self.now_playing_url = None
-        self.now_playing_subtitle_url = None
-        self.now_playing_transpose = 0
-        self.now_playing_duration = None
-        self.now_playing_position = None
-        self.is_paused = True
-        self.is_playing = False
+        self.playback_controller = MockPlaybackController()
         self.volume = 0.85
         self.running = True
         self.now_playing_notification = None
-        self.hide_notifications = True
         self.download_path = "/fake/path"
 
         # Set preferences that differ from defaults
@@ -47,13 +88,13 @@ class MockKaraoke:
             lambda: self._socketio.emit("queue_update", namespace="/") if self._socketio else None,
         )
         self.events.on("now_playing_update", self.update_now_playing_socket)
-        self.events.on("skip_requested", lambda: self.skip(False))
+        self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
 
         # Initialize queue manager
         self.queue_manager = QueueManager(
             preferences=self.preferences,
             events=self.events,
-            get_now_playing_user=lambda: self.now_playing_user,
+            get_now_playing_user=lambda: self.playback_controller.now_playing_user,
             filename_from_path=self.filename_from_path,
             get_available_songs=lambda: self.available_songs,
         )
@@ -73,14 +114,11 @@ class MockKaraoke:
 
     # Bind the real methods to our mock class
     filename_from_path = Karaoke.filename_from_path
-    is_file_playing = Karaoke.is_file_playing
     get_now_playing = Karaoke.get_now_playing
     reset_now_playing = Karaoke.reset_now_playing
     send_notification = Karaoke.send_notification
     log_and_send = Karaoke.log_and_send
     update_now_playing_socket = Karaoke.update_now_playing_socket
-    skip = Karaoke.skip
-    pause = Karaoke.pause
     volume_change = Karaoke.volume_change
     vol_up = Karaoke.vol_up
     vol_down = Karaoke.vol_down

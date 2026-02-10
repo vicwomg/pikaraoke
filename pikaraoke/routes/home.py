@@ -27,7 +27,7 @@ def home():
         "home.html",
         site_title=site_name,
         title="Home",
-        transpose_value=k.now_playing_transpose,
+        transpose_value=k.playback_controller.now_playing_transpose,
         admin=is_admin(),
         is_transpose_enabled=k.is_transpose_enabled,
         volume=k.volume,

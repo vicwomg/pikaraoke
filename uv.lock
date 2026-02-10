@@ -862,7 +862,7 @@ wheels = [
 
 [[package]]
 name = "pikaraoke"
-version = "1.18.3"
+version = "1.18.4"
 source = { editable = "." }
 dependencies = [
     { name = "babel" },
@@ -911,7 +911,7 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=7.0.0" },
     { name = "qrcode", extras = ["png"], specifier = "==8.2" },
     { name = "requests", specifier = "==2.32.5" },
-    { name = "yt-dlp", extras = ["default"], specifier = ">=2026.1.31" },
+    { name = "yt-dlp", extras = ["default"], specifier = ">=2026.2.4" },
 ]
 provides-extras = ["dev"]
 
@@ -1532,11 +1532,11 @@ wheels = [
 
 [[package]]
 name = "yt-dlp"
-version = "2026.1.31"
+version = "2026.2.4"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/93/b3/025d41aa2b5b814c0898a4c5b2a9aa210192f616738aac5a86ef5780f0f6/yt_dlp-2026.1.31.tar.gz", hash = "sha256:16767a3172cbb7183199f4db19e34b77b19e030ab7101b8f26d6c9e6af6f42ae", size = 3099993, upload-time = "2026-02-01T00:12:20.886Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/16/be/8e099f3f34bac6851490525fb1a8b62d525a95fcb5af082e8c52ba884fb5/yt_dlp-2026.2.4.tar.gz", hash = "sha256:24733ef081116f29d8ee6eae7a48127101e6c56eb7aa228dd604a60654760022", size = 3100305, upload-time = "2026-02-04T00:49:27.043Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/98/67/d76cddb63710f88fb53f287b713f268579a85bfc81caacbb1b6048b60b85/yt_dlp-2026.1.31-py3-none-any.whl", hash = "sha256:81f8e70c0d111b9572420cfea0ba9b4c2ae783fa1a4237fa767eeb777d4c5a58", size = 3298976, upload-time = "2026-02-01T00:12:18.835Z" },
+    { url = "https://files.pythonhosted.org/packages/96/38/b17cbeaf6712a4c1b97f7f9ec3a55f3a8ddee678cc88742af47dca0315b7/yt_dlp-2026.2.4-py3-none-any.whl", hash = "sha256:d6ea83257e8127a0097b1d37ee36201f99a292067e4616b2e5d51ab153b3dbb9", size = 3299165, upload-time = "2026-02-04T00:49:25.31Z" },
 ]
 
 [package.optional-dependencies]
