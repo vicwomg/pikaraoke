@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import shlex
 import subprocess
 import sys
@@ -121,7 +122,7 @@ def build_ytdl_download_command(
     Returns:
         List of command-line arguments for subprocess execution.
     """
-    dl_path = download_path + "%(title)s---%(id)s.%(ext)s"
+    dl_path = os.path.join(download_path, "%(title)s---%(id)s.%(ext)s")
     file_quality = (
         "bestvideo[ext!=webm][height<=1080]+bestaudio[ext!=webm]/best[ext!=webm]"
         if high_quality
