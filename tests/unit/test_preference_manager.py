@@ -283,6 +283,7 @@ def test_preference_manager_defaults_exist():
         "low_score_phrases",
         "mid_score_phrases",
         "high_score_phrases",
+        "show_splash_clock",
     }
 
     assert set(PreferenceManager.DEFAULTS.keys()) == expected_keys
@@ -377,7 +378,7 @@ class MinimalKaraoke:
 
 
 def test_load_preferences_sets_all_instance_attributes(temp_config_file):
-    """Test that _load_preferences sets all 23 preference attributes on the instance."""
+    """Test that _load_preferences sets all preference attributes on the instance."""
     k = MinimalKaraoke(temp_config_file)
 
     # Call _load_preferences with no CLI overrides
