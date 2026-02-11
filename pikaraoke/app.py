@@ -169,7 +169,7 @@ def main() -> None:
         high_quality=args.high_quality,
         logo_path=args.logo_path,
         hide_overlay=args.hide_overlay,
-        screensaver_timeout=args.screensaver_timeout,
+        show_splash_clock=args.show_splash_clock,
         url=args.url,
         prefer_hostname=args.prefer_hostname,
         disable_bg_music=args.disable_bg_music,

@@ -74,6 +74,7 @@ class Karaoke:
     screensaver_timeout: int
 
     normalize_audio: bool
+    show_splash_clock: bool
 
     # Download manager for serialized downloads
     download_manager: DownloadManager
@@ -117,6 +118,7 @@ class Karaoke:
         limit_user_songs_by: int | None = None,
         normalize_audio: bool | None = None,
         screensaver_timeout: int | None = None,
+        show_splash_clock: bool | None = None,
         splash_delay: int | None = None,
         volume: float | None = None,
     ) -> None:

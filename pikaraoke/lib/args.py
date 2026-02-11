@@ -242,6 +242,12 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         required=False,
     )
     parser.add_argument(
+        "--show-splash-clock",
+        action="store_true",
+        help="Show the digital clock on the splash screen.",
+        required=False,
+    )
+    parser.add_argument(
         "--high-quality",
         action="store_true",
         help="Download higher quality video. May cause CPU, download speed, and other performance issues",

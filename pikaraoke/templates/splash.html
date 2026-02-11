@@ -16,6 +16,7 @@
     bgMusicVolume: "{{ bg_music_volume }}" * 1,
     disableBgMusic: "{{ disable_bg_music }}" == 'True',
     disableBgVideo: "{{ disable_bg_video }}" == 'True',
+    showSplashClock: "{{ show_splash_clock }}" == 'True',
     screensaverTimeout: parseInt('{{ screensaver_timeout }}') || 0,
     hideOverlay: "{{ hide_overlay }}" == 'True',
     translations: {
@@ -82,7 +83,8 @@
   </div>
 </div>
 
-<div id="ap-container">
+<div id="ap-container" class="overlay">
+  <div id="clock" class="stroke has-text-white is-size-4" style="display: none;"></div>
   <div class="is-size-6 stroke">
     <div id="hostap">
       {% for line in hostap_info %}{{ line }}<br />{% endfor %}
@@ -322,6 +324,13 @@
     z-index: 5;
     top: 10px;
     left: 20px;
+  }
+  #clock {
+    text-align: left;
+    font-family: monospace;
+    font-weight: bold;
+    line-height: 1;
+    margin-bottom: 10px;
   }
   #menu-container {
     position: absolute;
