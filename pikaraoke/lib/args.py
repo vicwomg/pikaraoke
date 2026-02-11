@@ -242,9 +242,9 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         required=False,
     )
     parser.add_argument(
-        "--hide-splash-clock",
+        "--show-splash-clock",
         action="store_true",
-        help="Hide the digital clock from the splash screen.",
+        help="Show the digital clock on the splash screen.",
         required=False,
     )
     parser.add_argument(

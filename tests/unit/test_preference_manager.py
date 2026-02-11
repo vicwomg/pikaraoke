@@ -283,7 +283,7 @@ def test_preference_manager_defaults_exist():
         "low_score_phrases",
         "mid_score_phrases",
         "high_score_phrases",
-        "hide_splash_clock",
+        "show_splash_clock",
     }
 
     assert set(PreferenceManager.DEFAULTS.keys()) == expected_keys

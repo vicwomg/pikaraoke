@@ -496,7 +496,7 @@ const updateClock = () => {
 }
 
 const setupClock = () => {
-  if (!PikaraokeConfig.hideSplashClock) {
+  if (PikaraokeConfig.showSplashClock) {
     updateClock();
     setInterval(updateClock, 1000);
   }
