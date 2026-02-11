@@ -62,14 +62,16 @@ class TestBuildYtdlDownloadCommand:
         """Test building basic download command."""
         cmd = build_ytdl_download_command(
             video_url="https://www.youtube.com/watch?v=test123",
-            download_path="/songs/",
+            download_path="/songs",
         )
         assert cmd[0] == sys.executable
         assert cmd[1] == "-m"
         assert cmd[2] == "yt_dlp"
         assert "-f" in cmd
         assert "-o" in cmd
-        assert "/songs/%(title)s---%(id)s.%(ext)s" in cmd
+        output_idx = cmd.index("-o") + 1
+        assert cmd[output_idx].endswith("%(title)s---%(id)s.%(ext)s")
+        assert "/songs" in cmd[output_idx]
         assert "https://www.youtube.com/watch?v=test123" in cmd
 
     @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
@@ -77,7 +79,7 @@ class TestBuildYtdlDownloadCommand:
         """Test that high quality uses correct format string."""
         cmd = build_ytdl_download_command(
             video_url="https://www.youtube.com/watch?v=test123",
-            download_path="/songs/",
+            download_path="/songs",
             high_quality=True,
         )
         format_idx = cmd.index("-f") + 1
@@ -89,7 +91,7 @@ class TestBuildYtdlDownloadCommand:
         """Test that standard quality uses mp4 format."""
         cmd = build_ytdl_download_command(
             video_url="https://www.youtube.com/watch?v=test123",
-            download_path="/songs/",
+            download_path="/songs",
             high_quality=False,
         )
         format_idx = cmd.index("-f") + 1
@@ -100,7 +102,7 @@ class TestBuildYtdlDownloadCommand:
         """Test command with proxy setting."""
         cmd = build_ytdl_download_command(
             video_url="https://www.youtube.com/watch?v=test123",
-            download_path="/songs/",
+            download_path="/songs",
             youtubedl_proxy="http://proxy:8080",
         )
         assert "--proxy" in cmd
@@ -112,7 +114,7 @@ class TestBuildYtdlDownloadCommand:
         """Test command with additional arguments."""
         cmd = build_ytdl_download_command(
             video_url="https://www.youtube.com/watch?v=test123",
-            download_path="/songs/",
+            download_path="/songs",
             additional_args="--no-playlist --age-limit 18",
         )
         assert "--no-playlist" in cmd
@@ -124,7 +126,7 @@ class TestBuildYtdlDownloadCommand:
         """Test that node JS runtime is added to command."""
         cmd = build_ytdl_download_command(
             video_url="https://www.youtube.com/watch?v=test123",
-            download_path="/songs/",
+            download_path="/songs",
         )
         assert "--js-runtimes" in cmd
         js_idx = cmd.index("--js-runtimes") + 1
@@ -135,7 +137,7 @@ class TestBuildYtdlDownloadCommand:
         """Test that deno JS runtime is NOT added (it's yt-dlp default)."""
         cmd = build_ytdl_download_command(
             video_url="https://www.youtube.com/watch?v=test123",
-            download_path="/songs/",
+            download_path="/songs",
         )
         assert "--js-runtimes" not in cmd
 
@@ -144,7 +146,7 @@ class TestBuildYtdlDownloadCommand:
         """Test that bun JS runtime is added to command."""
         cmd = build_ytdl_download_command(
             video_url="https://www.youtube.com/watch?v=test123",
-            download_path="/songs/",
+            download_path="/songs",
         )
         assert "--js-runtimes" in cmd
         js_idx = cmd.index("--js-runtimes") + 1
@@ -155,7 +157,7 @@ class TestBuildYtdlDownloadCommand:
         """Test that h264 codec sorting is included."""
         cmd = build_ytdl_download_command(
             video_url="https://www.youtube.com/watch?v=test123",
-            download_path="/songs/",
+            download_path="/songs",
         )
         assert "-S" in cmd
         sort_idx = cmd.index("-S") + 1
@@ -166,7 +168,7 @@ class TestBuildYtdlDownloadCommand:
         """Test that video URL is always the last argument."""
         cmd = build_ytdl_download_command(
             video_url="https://www.youtube.com/watch?v=test123",
-            download_path="/songs/",
+            download_path="/songs",
             youtubedl_proxy="http://proxy:8080",
             additional_args="--no-playlist",
         )

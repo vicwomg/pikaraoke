@@ -11,7 +11,7 @@ class MockKaraokeForDownload:
     """Mock Karaoke instance for DownloadManager tests."""
 
     def __init__(self):
-        self.download_path = "/songs/"
+        self.download_path = "/songs"
         self.high_quality = False
         self.youtubedl_proxy = None
         self.additional_ytdl_args = None
@@ -138,7 +138,7 @@ class TestDownloadManagerExecuteDownload:
         rc = dm._execute_download("https://youtube.com/watch?v=abc123", False, "User", "Title")
 
         assert rc == 0
-        mock_karaoke.available_songs.find_by_id.assert_called_once_with("/songs/", "abc123")
+        mock_karaoke.available_songs.find_by_id.assert_called_once_with("/songs", "abc123")
         mock_karaoke.available_songs.add_if_valid.assert_called_once_with(
             "/songs/Artist - Song---abc123.mp4"
         )
