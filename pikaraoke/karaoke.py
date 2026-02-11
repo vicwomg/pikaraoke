@@ -408,42 +408,51 @@ class Karaoke:
         """Scan the download directory and update the available songs list."""
         self.available_songs.scan_directory(self.download_path)
 
+    def _get_companion_files(self, song_path: str) -> list[str]:
+        """Return paths to companion files (.cdg, .ass) that exist alongside a song."""
+        base = os.path.splitext(song_path)[0]
+        companions = []
+        for ext in (".cdg", ".ass"):
+            path = base + ext
+            if os.path.exists(path):
+                companions.append(path)
+        return companions
+
     def delete(self, song_path: str) -> None:
-        """Delete a song file and its associated CDG file if present.
+        """Delete a song file and its associated companion files if present.
 
         Args:
             song_path: Full path to the song file.
         """
         logging.info("Deleting song: " + song_path)
+        companions = self._get_companion_files(song_path)
         with contextlib.suppress(FileNotFoundError):
             os.remove(song_path)
-        ext = os.path.splitext(song_path)
-        # if we have an associated cdg file, delete that too
-        cdg_file = song_path.replace(ext[1], ".cdg")
-        if os.path.exists(cdg_file):
-            os.remove(cdg_file)
+        for companion in companions:
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(companion)
 
         self.available_songs.remove(song_path)
 
     def rename(self, song_path: str, new_name: str) -> None:
-        """Rename a song file and its associated CDG file if present.
+        """Rename a song file and its associated companion files if present.
 
         Args:
             song_path: Full path to the current song file.
             new_name: New filename (without extension).
         """
         logging.info("Renaming song: '" + song_path + "' to: " + new_name)
+        companions = self._get_companion_files(song_path)
         ext = os.path.splitext(song_path)
         if len(ext) == 2:
             new_file_name = new_name + ext[1]
         else:
             new_file_name = new_name
-        new_path = self.download_path + new_file_name
+        new_path = os.path.join(self.download_path, new_file_name)
         os.rename(song_path, new_path)
-        # if we have an associated cdg file, rename that too
-        cdg_file = song_path.replace(ext[1], ".cdg")
-        if os.path.exists(cdg_file):
-            os.rename(cdg_file, self.download_path + new_name + ".cdg")
+        for companion in companions:
+            companion_ext = os.path.splitext(companion)[1]
+            os.rename(companion, os.path.join(self.download_path, new_name + companion_ext))
         self.available_songs.rename(song_path, new_path)
 
     def filename_from_path(self, file_path: str, remove_youtube_id: bool = True) -> str:
