@@ -399,6 +399,9 @@ class Karaoke:
             user: Username to attribute the download to.
             title: Display title (defaults to URL if not provided).
         """
+        if "&list=" in video_url:
+            # if this is a part of a playlist, strip URL so we don't download the whole playlist
+            video_url = video_url.split("&list=")[0]
         self.download_manager.queue_download(video_url, enqueue, user, title)
 
     def get_available_songs(self) -> None:
