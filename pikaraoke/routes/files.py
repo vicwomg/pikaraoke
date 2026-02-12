@@ -164,6 +164,7 @@ def edit_file():
             )
     else:
         d = request.form.to_dict()
+        referrer = d.get("referrer") or url_for("files.browse")
         if "new_file_name" in d and "old_file_name" in d:
             new_name = d["new_file_name"]
             old_name = d["old_file_name"]
@@ -190,4 +191,4 @@ def edit_file():
         else:
             # MSG: Message shown after trying to edit a song without specifying the filename.
             flash(_("Error: No filename parameters were specified!"), "is-danger")
-        return redirect(url_for("files.browse"))
+        return redirect(referrer)

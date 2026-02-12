@@ -107,6 +107,7 @@
       <p class='has-text-warning'>{{ filename_from_path(song.decode('utf-8', 'ignore')) }} </p>
     </div>
     <input value="{{ song.decode('utf-8', 'ignore') }}" type="hidden" name='old_file_name'>
+    <input type="hidden" name="referrer" value="{{ request.referrer }}">
     {# MSG: Label on the control to edit the song's name #}
     <label class="label">{% trans %}Edit Song Name{% endtrans %}</label>
     <div class="field">
@@ -124,11 +125,18 @@
         <span id="suggest_results"></span>
       </li>
     </ul>
-    <div class="field">
-      <button class="button is-primary" id="search-button" type="submit">
-        {# MSG: Label on button which saves the changes. #}
-        {%- trans %}Save{% endtrans -%}
-      </button>
+    <div class="field is-grouped">
+      <div class="control">
+        <button class="button is-primary" id="search-button" type="submit">
+          {# MSG: Label on button which saves the changes. #}
+          {%- trans %}Save{% endtrans -%}
+        </button>
+      </div>
+      <div class="control">
+        <a class="button is-light" href="{{ request.referrer or url_for('files.browse') }}">
+          {%- trans %}Cancel{% endtrans -%}
+        </a>
+      </div>
     </div>
   </form>
 </div>
