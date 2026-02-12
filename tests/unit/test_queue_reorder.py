@@ -80,7 +80,7 @@ class TestQueueReorderSocketUpdates:
         client,
         queue_with_events,
     ):
-        queue_with_events.filename_from_path.return_value = "song2"
+        queue_with_events.song_manager.filename_from_path.return_value = "song2"
         mock_get_instance.return_value = queue_with_events
 
         response = client.get("/queue/edit?action=top&song=song2")
@@ -101,7 +101,7 @@ class TestQueueReorderSocketUpdates:
         client,
         queue_with_events,
     ):
-        queue_with_events.filename_from_path.return_value = "song1"
+        queue_with_events.song_manager.filename_from_path.return_value = "song1"
         mock_get_instance.return_value = queue_with_events
 
         response = client.get("/queue/edit?action=bottom&song=song1")

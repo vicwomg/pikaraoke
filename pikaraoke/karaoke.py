@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import contextlib
 import logging
 import os
 import socket
@@ -31,7 +30,7 @@ from pikaraoke.lib.network import get_ip
 from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
-from pikaraoke.lib.song_list import SongList
+from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.youtube_dl import (
     get_search_results,
     get_youtubedl_version,
@@ -57,7 +56,7 @@ class Karaoke:
         volume: Current volume level (0.0 to 1.0).
     """
 
-    available_songs: SongList
+    song_manager: SongManager
     queue_manager: QueueManager
     playback_controller: PlaybackController
 
@@ -201,9 +200,9 @@ class Karaoke:
         # Log the settings to debug level
         self.log_settings_to_debug()
 
-        # Initialize song list and load songs from download_path
-        self.available_songs = SongList()
-        self.get_available_songs()
+        # Initialize song manager and load songs from download_path
+        self.song_manager = SongManager(self.download_path)
+        self.song_manager.refresh_songs()
 
         self.generate_qr_code()
 
@@ -220,7 +219,7 @@ class Karaoke:
         self.playback_controller = PlaybackController(
             preferences=self.preferences,
             events=self.events,
-            filename_from_path=self.filename_from_path,
+            filename_from_path=SongManager.filename_from_path,
             streaming_format=self.streaming_format,
         )
 
@@ -240,8 +239,8 @@ class Karaoke:
             preferences=self.preferences,
             events=self.events,
             get_now_playing_user=lambda: self.playback_controller.now_playing_user,
-            filename_from_path=self.filename_from_path,
-            get_available_songs=lambda: self.available_songs,
+            filename_from_path=SongManager.filename_from_path,
+            get_available_songs=lambda: self.song_manager.songs,
         )
 
     def _load_preferences(self, **cli_overrides: Any) -> None:
@@ -403,73 +402,6 @@ class Karaoke:
             # if this is a part of a playlist, strip URL so we don't download the whole playlist
             video_url = video_url.split("&list=")[0]
         self.download_manager.queue_download(video_url, enqueue, user, title)
-
-    def get_available_songs(self) -> None:
-        """Scan the download directory and update the available songs list."""
-        self.available_songs.scan_directory(self.download_path)
-
-    def _get_companion_files(self, song_path: str) -> list[str]:
-        """Return paths to companion files (.cdg, .ass) that exist alongside a song."""
-        base = os.path.splitext(song_path)[0]
-        companions = []
-        for ext in (".cdg", ".ass"):
-            path = base + ext
-            if os.path.exists(path):
-                companions.append(path)
-        return companions
-
-    def delete(self, song_path: str) -> None:
-        """Delete a song file and its associated companion files if present.
-
-        Args:
-            song_path: Full path to the song file.
-        """
-        logging.info("Deleting song: " + song_path)
-        companions = self._get_companion_files(song_path)
-        with contextlib.suppress(FileNotFoundError):
-            os.remove(song_path)
-        for companion in companions:
-            with contextlib.suppress(FileNotFoundError):
-                os.remove(companion)
-
-        self.available_songs.remove(song_path)
-
-    def rename(self, song_path: str, new_name: str) -> None:
-        """Rename a song file and its associated companion files if present.
-
-        Args:
-            song_path: Full path to the current song file.
-            new_name: New filename (without extension).
-        """
-        logging.info("Renaming song: '" + song_path + "' to: " + new_name)
-        companions = self._get_companion_files(song_path)
-        ext = os.path.splitext(song_path)
-        if len(ext) == 2:
-            new_file_name = new_name + ext[1]
-        else:
-            new_file_name = new_name
-        new_path = os.path.join(self.download_path, new_file_name)
-        os.rename(song_path, new_path)
-        for companion in companions:
-            companion_ext = os.path.splitext(companion)[1]
-            os.rename(companion, os.path.join(self.download_path, new_name + companion_ext))
-        self.available_songs.rename(song_path, new_path)
-
-    def filename_from_path(self, file_path: str, remove_youtube_id: bool = True) -> str:
-        """Extract a clean display name from a file path.
-
-        Args:
-            file_path: Full path to the file.
-            remove_youtube_id: Strip YouTube ID suffix if present.
-
-        Returns:
-            Clean filename without extension or YouTube ID.
-        """
-        rc = os.path.basename(file_path)
-        rc = os.path.splitext(rc)[0]
-        if remove_youtube_id:
-            rc = rc.split("---")[0]  # removes youtube id if present
-        return rc
 
     def transpose_current(self, semitones: int) -> None:
         """Restart the current song with a new transpose value.

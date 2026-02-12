@@ -46,7 +46,7 @@ def browse():
         search = True
     page = request.args.get(get_page_parameter(), type=int, default=1)
 
-    available_songs = k.available_songs
+    available_songs = k.song_manager.songs
 
     letter = request.args.get("letter")
 
@@ -54,12 +54,12 @@ def browse():
         result = []
         if letter == "numeric":
             for song in available_songs:
-                f = k.filename_from_path(song)[0]
+                f = k.song_manager.filename_from_path(song)[0]
                 if f.isnumeric():
                     result.append(song)
         else:
             for song in available_songs:
-                f = k.filename_from_path(song).lower()
+                f = k.song_manager.filename_from_path(song).lower()
                 if f.startswith(letter.lower()):
                     result.append(song)
         available_songs = result
@@ -135,9 +135,11 @@ def delete_file():
                 "is-danger",
             )
         else:
-            k.delete(song_path)
+            k.song_manager.delete(song_path)
             # MSG: Message shown after deleting a song. Followed by the song path
-            flash(_("Song deleted: %s") % k.filename_from_path(song_path), "is-warning")
+            flash(
+                _("Song deleted: %s") % k.song_manager.filename_from_path(song_path), "is-warning"
+            )
     else:
         # MSG: Message shown after trying to delete a song without specifying the song.
         flash(_("Error: No song specified!"), "is-danger")
@@ -173,7 +175,9 @@ def edit_file():
             else:
                 # check if new_name already exist
                 file_extension = os.path.splitext(old_name)[1]
-                if os.path.isfile(os.path.join(k.download_path, new_name + file_extension)):
+                if os.path.isfile(
+                    os.path.join(k.song_manager.download_path, new_name + file_extension)
+                ):
                     flash(
                         # MSG: Message shown after trying to rename a file to a name that already exists.
                         _("Error renaming file: '%s' to '%s', Filename already exists")
@@ -181,7 +185,7 @@ def edit_file():
                         "is-danger",
                     )
                 else:
-                    k.rename(old_name, new_name)
+                    k.song_manager.rename(old_name, new_name)
                     flash(
                         # MSG: Message shown after renaming a file.
                         _("Renamed file: %s to %s") % (old_name, new_name),

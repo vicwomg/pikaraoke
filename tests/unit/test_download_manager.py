@@ -15,7 +15,7 @@ class MockKaraokeForDownload:
         self.high_quality = False
         self.youtubedl_proxy = None
         self.additional_ytdl_args = None
-        self.available_songs = MagicMock()
+        self.song_manager = MagicMock()
         self.log_and_send = MagicMock()
         self.queue_manager = MagicMock()
 
@@ -133,13 +133,15 @@ class TestDownloadManagerExecuteDownload:
         mock_popen.return_value = mock_process
 
         # Mock find_by_id to return a path
-        mock_karaoke.available_songs.find_by_id.return_value = "/songs/Artist - Song---abc123.mp4"
+        mock_karaoke.song_manager.songs.find_by_id.return_value = (
+            "/songs/Artist - Song---abc123.mp4"
+        )
 
         rc = dm._execute_download("https://youtube.com/watch?v=abc123", False, "User", "Title")
 
         assert rc == 0
-        mock_karaoke.available_songs.find_by_id.assert_called_once_with("/songs", "abc123")
-        mock_karaoke.available_songs.add_if_valid.assert_called_once_with(
+        mock_karaoke.song_manager.songs.find_by_id.assert_called_once_with("/songs", "abc123")
+        mock_karaoke.song_manager.songs.add_if_valid.assert_called_once_with(
             "/songs/Artist - Song---abc123.mp4"
         )
 
@@ -160,8 +162,8 @@ class TestDownloadManagerExecuteDownload:
         mock_popen.return_value = mock_process
 
         # Mock find_by_id
-        mock_karaoke.available_songs.find_by_id.return_value = "/songs/Song---abc.mp4"
-        mock_karaoke.available_songs.add_if_valid.return_value = True
+        mock_karaoke.song_manager.songs.find_by_id.return_value = "/songs/Song---abc.mp4"
+        mock_karaoke.song_manager.songs.add_if_valid.return_value = True
 
         dm._execute_download("https://youtube.com/watch?v=abc", True, "TestUser", "Title")
 
@@ -216,7 +218,7 @@ class TestDownloadManagerExecuteDownload:
         mock_popen.return_value = mock_process
 
         # Mock find_by_id to return None (file not found)
-        mock_karaoke.available_songs.find_by_id.return_value = None
+        mock_karaoke.song_manager.songs.find_by_id.return_value = None
 
         dm._execute_download("https://youtube.com/watch?v=abc", True, "User", "Title")
 
@@ -338,8 +340,8 @@ class TestDownloadManagerSpecialCharacters:
         mock_process.poll.return_value = 0
         mock_popen.return_value = mock_process
 
-        mock_karaoke.available_songs.find_by_id.return_value = file_path
-        mock_karaoke.available_songs.add_if_valid.return_value = True
+        mock_karaoke.song_manager.songs.find_by_id.return_value = file_path
+        mock_karaoke.song_manager.songs.add_if_valid.return_value = True
 
         dm._execute_download(
             f"https://youtube.com/watch?v={video_id}",

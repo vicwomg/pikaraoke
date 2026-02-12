@@ -5,6 +5,7 @@ import pytest
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
+from pikaraoke.lib.song_manager import SongManager
 
 
 class MockPlaybackController:
@@ -58,6 +59,16 @@ class MockPlaybackController:
         }
 
 
+class MockSongManager:
+    """Minimal mock of SongManager for testing."""
+
+    def __init__(self, songs=None):
+        self.songs = MockSongList(songs)
+        self.download_path = "/fake/path"
+
+    filename_from_path = SongManager.filename_from_path
+
+
 class MockKaraoke:
     """Minimal mock of the Karaoke class for testing queue operations.
 
@@ -66,7 +77,7 @@ class MockKaraoke:
     """
 
     def __init__(self, tmp_path):
-        self.available_songs = MockSongList()
+        self.song_manager = MockSongManager()
         self._socketio = None
         self.events = EventSystem()
         self.preferences = PreferenceManager(
@@ -76,7 +87,6 @@ class MockKaraoke:
         self.volume = 0.85
         self.running = True
         self.now_playing_notification = None
-        self.download_path = "/fake/path"
 
         # Set preferences that differ from defaults
         self.preferences.set("enable_fair_queue", True)
@@ -95,8 +105,8 @@ class MockKaraoke:
             preferences=self.preferences,
             events=self.events,
             get_now_playing_user=lambda: self.playback_controller.now_playing_user,
-            filename_from_path=self.filename_from_path,
-            get_available_songs=lambda: self.available_songs,
+            filename_from_path=SongManager.filename_from_path,
+            get_available_songs=lambda: self.song_manager.songs,
         )
 
     @property
@@ -113,7 +123,6 @@ class MockKaraoke:
     from pikaraoke.karaoke import Karaoke
 
     # Bind the real methods to our mock class
-    filename_from_path = Karaoke.filename_from_path
     get_now_playing = Karaoke.get_now_playing
     reset_now_playing = Karaoke.reset_now_playing
     send_notification = Karaoke.send_notification
@@ -166,5 +175,5 @@ def mock_karaoke_with_songs(tmp_path):
         "/songs/Another Artist - Track---jkl012.mp4",
         "/songs/Band - Hit Song---mno345.mp4",
     ]
-    k.available_songs = MockSongList(songs)
+    k.song_manager = MockSongManager(songs)
     return k
