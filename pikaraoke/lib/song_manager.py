@@ -35,11 +35,10 @@ class SongManager:
         Returns:
             Clean filename without extension or YouTube ID.
         """
-        rc = os.path.basename(file_path)
-        rc = os.path.splitext(rc)[0]
+        name = os.path.splitext(os.path.basename(file_path))[0]
         if remove_youtube_id:
-            rc = rc.split("---")[0]
-        return rc
+            name = name.split("---")[0]
+        return name
 
     def _get_companion_files(self, song_path: str) -> list[str]:
         """Return paths to companion files (.cdg, .ass) that exist alongside a song."""
@@ -53,7 +52,7 @@ class SongManager:
 
     def delete(self, song_path: str) -> None:
         """Delete a song file and its associated companion files if present."""
-        logging.info("Deleting song: " + song_path)
+        logging.info(f"Deleting song: {song_path}")
         companions = self._get_companion_files(song_path)
         with contextlib.suppress(FileNotFoundError):
             os.remove(song_path)
@@ -69,14 +68,10 @@ class SongManager:
             song_path: Full path to the current song file.
             new_name: New filename (without extension).
         """
-        logging.info("Renaming song: '" + song_path + "' to: " + new_name)
+        logging.info(f"Renaming song: '{song_path}' to: {new_name}")
         companions = self._get_companion_files(song_path)
-        ext = os.path.splitext(song_path)
-        if len(ext) == 2:
-            new_file_name = new_name + ext[1]
-        else:
-            new_file_name = new_name
-        new_path = os.path.join(self.download_path, new_file_name)
+        _, ext = os.path.splitext(song_path)
+        new_path = os.path.join(self.download_path, new_name + ext)
         os.rename(song_path, new_path)
         for companion in companions:
             companion_ext = os.path.splitext(companion)[1]
