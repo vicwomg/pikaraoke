@@ -141,7 +141,8 @@ def delete_file():
     else:
         # MSG: Message shown after trying to delete a song without specifying the song.
         flash(_("Error: No song specified!"), "is-danger")
-    return redirect(url_for("files.browse"))
+    referrer = request.args.get("referrer") or url_for("files.browse")
+    return redirect(referrer)
 
 
 @files_bp.route("/files/edit", methods=["GET", "POST"])
