@@ -5,8 +5,20 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
+import re
 
+from pikaraoke.lib.get_platform import is_windows
 from pikaraoke.lib.song_list import SongList
+
+# Characters illegal in Windows filenames
+_WINDOWS_ILLEGAL_CHARS = re.compile(r'[<>:"/\\|?*]')
+
+
+def sanitize_filename(name: str) -> str:
+    """Remove characters that are illegal in filenames on the current platform."""
+    if is_windows():
+        name = _WINDOWS_ILLEGAL_CHARS.sub("-", name)
+    return name.strip()
 
 
 class SongManager:
@@ -68,6 +80,7 @@ class SongManager:
             song_path: Full path to the current song file.
             new_name: New filename (without extension).
         """
+        new_name = sanitize_filename(new_name)
         logging.info(f"Renaming song: '{song_path}' to: {new_name}")
         companions = self._get_companion_files(song_path)
         _, ext = os.path.splitext(song_path)

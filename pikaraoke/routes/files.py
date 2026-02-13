@@ -1,5 +1,6 @@
 """File management routes for browsing, editing, and deleting songs."""
 
+import logging
 import os
 import unicodedata
 from urllib.parse import unquote
@@ -189,12 +190,20 @@ def edit_file():
                         "is-danger",
                     )
                 else:
-                    k.song_manager.rename(old_name, new_name)
-                    flash(
-                        # MSG: Message shown after renaming a file.
-                        _("Renamed file: %s to %s") % (old_name, new_name),
-                        "is-warning",
-                    )
+                    try:
+                        k.song_manager.rename(old_name, new_name)
+                    except OSError as e:
+                        logging.error(f"Error renaming file: {e}")
+                        flash(
+                            _("Error renaming file: '%s' to '%s', %s") % (old_name, new_name, e),
+                            "is-danger",
+                        )
+                    else:
+                        flash(
+                            # MSG: Message shown after renaming a file.
+                            _("Renamed file: %s to %s") % (old_name, new_name),
+                            "is-warning",
+                        )
         else:
             # MSG: Message shown after trying to edit a song without specifying the filename.
             flash(_("Error: No filename parameters were specified!"), "is-danger")
