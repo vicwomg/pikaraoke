@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import fnmatch
 import logging
 import os
+import unicodedata
 from collections.abc import Iterator
-from pathlib import Path
 
 
 class SongList:
@@ -39,7 +40,18 @@ class SongList:
         """
         self._songs: set[str] = set()
         self._sorted_cache: list[str] | None = None
-        self._sort_key = sort_key or (lambda f: os.path.basename(f).lower())
+        self._sort_key = sort_key or (lambda f: self._normalize_sort_key(f))
+
+    @staticmethod
+    def _normalize_sort_key(file_path: str) -> str:
+        """Generate a sort key that treats accented characters like their base letter.
+
+        Uses Unicode NFD normalization to decompose characters (e.g. e + accent),
+        then strips combining marks so "Celine" sorts next to "ce" not after "z".
+        """
+        name = os.path.basename(file_path).lower()
+        decomposed = unicodedata.normalize("NFD", name)
+        return "".join(c for c in decomposed if unicodedata.category(c) != "Mn")
 
     def _invalidate_cache(self) -> None:
         """Mark the sorted cache as stale."""
@@ -131,6 +143,9 @@ class SongList:
     def scan_directory(self, directory: str) -> int:
         """Scan a directory for song files and replace the current list.
 
+        Uses os.walk instead of Path.rglob for reliable handling of
+        filenames with special/Unicode characters on Windows.
+
         Args:
             directory: Path to directory to scan.
 
@@ -139,12 +154,14 @@ class SongList:
         """
         logging.debug(f"Scanning for songs in: {directory}")
         files_found = []
-        for file in Path(directory).rglob("*.*"):
-            file_path = file.as_posix()
-            ext = os.path.splitext(file_path)[1].lower()
-            if ext in self.VALID_EXTENSIONS and os.path.isfile(file_path):
-                logging.debug(f"Found song: {file.name}")
-                files_found.append(file_path)
+        for dirpath, _dirnames, filenames in os.walk(directory):
+            for filename in filenames:
+                ext = os.path.splitext(filename)[1].lower()
+                if ext in self.VALID_EXTENSIONS:
+                    file_path = os.path.join(dirpath, filename)
+                    if os.path.isfile(file_path):
+                        logging.debug(f"Found song: {filename}")
+                        files_found.append(file_path)
 
         self.update(files_found)
         return len(files_found)
@@ -152,7 +169,8 @@ class SongList:
     def find_and_add(self, directory: str, pattern: str) -> str | None:
         """Find a file matching a glob pattern and add it to the list.
 
-        Useful for adding newly downloaded files by YouTube ID pattern.
+        Uses os.walk with fnmatch instead of Path.rglob for reliable handling
+        of filenames with special/Unicode characters on Windows.
 
         Args:
             directory: Directory to search in.
@@ -161,13 +179,15 @@ class SongList:
         Returns:
             Path to the found and added song, or None if not found.
         """
-        for file in Path(directory).rglob(pattern):
-            file_path = file.as_posix()
-            if self.is_valid_song(file_path):
-                if file_path not in self:
-                    self.add(file_path)
-                    logging.debug(f"Added song to list: {file_path}")
-                return file_path
+        for dirpath, _dirnames, filenames in os.walk(directory):
+            for filename in filenames:
+                if fnmatch.fnmatch(filename, pattern):
+                    file_path = os.path.join(dirpath, filename)
+                    if self.is_valid_song(file_path):
+                        if file_path not in self:
+                            self.add(file_path)
+                            logging.debug(f"Added song to list: {file_path}")
+                        return file_path
 
         logging.warning(f"No song found matching pattern: {pattern}")
         return None

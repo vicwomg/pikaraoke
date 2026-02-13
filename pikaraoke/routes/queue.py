@@ -176,7 +176,7 @@ def queue_edit():
         success = True
     else:
         song = unquote(request.args["song"])
-        song_title = k.filename_from_path(song)
+        song_title = k.song_manager.filename_from_path(song)
 
         # MSG labels for each action
         success_labels = {
@@ -258,7 +258,7 @@ def enqueue():
     user = request.args.get("user") or request.form["song-added-by"]
     rc = k.queue_manager.enqueue(song, user)
     broadcast_event("queue_update")
-    song_title = k.filename_from_path(song)
+    song_title = k.song_manager.filename_from_path(song)
     return json.dumps({"song": song_title, "success": rc})
 
 

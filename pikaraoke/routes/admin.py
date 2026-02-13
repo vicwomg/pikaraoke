@@ -85,7 +85,7 @@ def refresh():
     """
     k = get_karaoke_instance()
     if is_admin():
-        k.get_available_songs()
+        k.song_manager.refresh_songs()
     else:
         # MSG: Message shown after trying to refresh the song list without admin permissions.
         flash(_("You don't have permission to refresh the song list"), "is-danger")

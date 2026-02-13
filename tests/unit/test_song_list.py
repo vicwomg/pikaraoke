@@ -158,6 +158,34 @@ class TestSongListIteration:
         sl.add("/songs/a.mp4")
         assert sl[0:2] == ["/songs/a.mp4", "/songs/b.mp4"]
 
+    def test_sort_accented_characters_near_base_letter(self):
+        """Test that accented characters sort next to their base letter, not at the end."""
+        sl = SongList()
+        sl.add("/songs/Céline Dion - Song.mp4")
+        sl.add("/songs/Cat Stevens - Song.mp4")
+        sl.add("/songs/David Bowie - Song.mp4")
+        songs = list(sl)
+        assert songs == [
+            "/songs/Cat Stevens - Song.mp4",
+            "/songs/Céline Dion - Song.mp4",
+            "/songs/David Bowie - Song.mp4",
+        ]
+
+    def test_sort_various_accented_characters(self):
+        """Test sorting with various Unicode accented characters."""
+        sl = SongList()
+        sl.add("/songs/Édith Piaf - Song.mp4")
+        sl.add("/songs/Alpha.mp4")
+        sl.add("/songs/Über Cool.mp4")
+        sl.add("/songs/Zeta.mp4")
+        songs = list(sl)
+        assert songs == [
+            "/songs/Alpha.mp4",
+            "/songs/Édith Piaf - Song.mp4",
+            "/songs/Über Cool.mp4",
+            "/songs/Zeta.mp4",
+        ]
+
     def test_bool_empty(self):
         """Test bool conversion for empty list."""
         sl = SongList()
@@ -246,6 +274,26 @@ class TestSongListScanDirectory:
         sl.scan_directory(str(tmp_path))
 
         assert "/old/song.mp4" not in sl
+        assert len(sl) == 1
+
+    @pytest.mark.parametrize(
+        "filename",
+        [
+            "Céline Dion - My Heart Will Go On---abc12345678.mp4",
+            "Babymetal - ギミチョコ---dQw4w9WgXcQ.mp4",
+            "노래 제목---xyz98765432.mp3",
+            "Édith Piaf - La Vie en Rose---mno55667788.mkv",
+        ],
+        ids=["french_accents", "japanese", "korean", "mixed_accents"],
+    )
+    def test_scan_directory_special_characters(self, tmp_path, filename):
+        """Test scanning finds files with special/Unicode characters in names."""
+        sl = SongList()
+        (tmp_path / filename).touch()
+
+        count = sl.scan_directory(str(tmp_path))
+
+        assert count == 1
         assert len(sl) == 1
 
 
