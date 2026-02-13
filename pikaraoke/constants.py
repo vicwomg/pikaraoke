@@ -4,6 +4,7 @@ LANGUAGES = {
     "es_VE": "Spanish (Venezuela)",
     "fi_FI": "Finnish",
     "fr_FR": "French",
+    "id_ID": "Indonesian",
     "it_IT": "Italian",
     "ja_JP": "Japanese",
     "ko_KR": "Korean",
