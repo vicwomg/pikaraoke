@@ -1,6 +1,7 @@
 """File management routes for browsing, editing, and deleting songs."""
 
 import os
+import unicodedata
 from urllib.parse import unquote
 
 import flask_babel
@@ -60,7 +61,10 @@ def browse():
         else:
             for song in available_songs:
                 f = k.song_manager.filename_from_path(song).lower()
-                if f.startswith(letter.lower()):
+                # Normalize accented characters so e.g. "Édith" matches "e"
+                normalized = unicodedata.normalize("NFD", f)
+                base_char = normalized[0] if normalized else ""
+                if base_char == letter.lower():
                     result.append(song)
         available_songs = result
 
@@ -162,7 +166,7 @@ def edit_file():
                 "edit.html",
                 site_title=site_name,
                 title="Song File Edit",
-                song=song_path.encode("utf-8", "ignore"),
+                song=song_path,
             )
     else:
         d = request.form.to_dict()
