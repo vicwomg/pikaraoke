@@ -1,50 +1,5 @@
 """Unit tests for Karaoke utility methods."""
 
-import pytest
-
-
-class TestFilenameFromPath:
-    """Tests for the filename_from_path method."""
-
-    def test_filename_from_path_basic(self, mock_karaoke):
-        """Test basic filename extraction."""
-        result = mock_karaoke.filename_from_path("/songs/My Song.mp4")
-        assert result == "My Song"
-
-    def test_filename_from_path_with_youtube_id(self, mock_karaoke):
-        """Test that YouTube ID is removed by default."""
-        result = mock_karaoke.filename_from_path("/songs/Artist - Song Title---dQw4w9WgXcQ.mp4")
-        assert result == "Artist - Song Title"
-
-    def test_filename_from_path_keep_youtube_id(self, mock_karaoke):
-        """Test keeping YouTube ID when requested."""
-        result = mock_karaoke.filename_from_path(
-            "/songs/Artist - Song---dQw4w9WgXcQ.mp4", remove_youtube_id=False
-        )
-        assert result == "Artist - Song---dQw4w9WgXcQ"
-
-    def test_filename_from_path_nested_directory(self, mock_karaoke):
-        """Test with deeply nested path."""
-        result = mock_karaoke.filename_from_path(
-            "/home/user/music/karaoke/songs/Track---abc123.mp4"
-        )
-        assert result == "Track"
-
-    def test_filename_from_path_multiple_dashes(self, mock_karaoke):
-        """Test filename with multiple dash separators."""
-        result = mock_karaoke.filename_from_path("/songs/Artist - Song - Live Version---xyz789.mp4")
-        assert result == "Artist - Song - Live Version"
-
-    def test_filename_from_path_no_extension(self, mock_karaoke):
-        """Test path without file extension."""
-        result = mock_karaoke.filename_from_path("/songs/SongName")
-        assert result == "SongName"
-
-    def test_filename_from_path_cdg_zip(self, mock_karaoke):
-        """Test with CDG zip file."""
-        result = mock_karaoke.filename_from_path("/songs/Karaoke Track---abc.zip")
-        assert result == "Karaoke Track"
-
 
 class TestConvertPreferenceValue:
     """Tests for the _convert_value method (now in PreferenceManager)."""

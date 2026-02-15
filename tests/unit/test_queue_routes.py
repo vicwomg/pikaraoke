@@ -165,7 +165,7 @@ class TestQueueEditSocketUpdates:
 
         mock_karaoke = MagicMock()
         mock_karaoke.queue_manager = qm
-        mock_karaoke.filename_from_path.return_value = "song"
+        mock_karaoke.song_manager.filename_from_path.return_value = "song"
 
         return qm, mock_karaoke, queue_updates, now_playing_updates
 

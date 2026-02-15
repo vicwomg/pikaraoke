@@ -292,13 +292,13 @@ class DownloadManager:
             song_path = None
             if video_id:
                 logging.debug(f"Searching for downloaded file by ID: {video_id}")
-                song_path = k.available_songs.find_by_id(k.download_path, video_id)
+                song_path = k.song_manager.songs.find_by_id(k.download_path, video_id)
             else:
                 logging.warning("No video ID available to find downloaded song")
 
             song_is_valid = False
             if song_path:
-                song_is_valid = k.available_songs.add_if_valid(song_path)
+                song_is_valid = k.song_manager.songs.add_if_valid(song_path)
             else:
                 logging.warning(
                     f"Could not find downloaded song in {k.download_path} matching ID: {video_id}"
