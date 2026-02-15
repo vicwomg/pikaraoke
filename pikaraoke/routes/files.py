@@ -77,6 +77,8 @@ def browse():
     args = request.args.copy()
     args.pop("_", None)
 
+    current_url = url_for("files.browse", **args.to_dict())
+
     page_param = get_page_parameter()
     args[page_param] = "{0}"
 
@@ -104,6 +106,7 @@ def browse():
         title=_("Browse"),
         songs=songs[start_index : start_index + results_per_page],
         admin=is_admin(),
+        current_url=current_url,
     )
 
 
@@ -153,15 +156,17 @@ def edit_file():
     queue_error_msg = _("Error: Can't edit this song because it is in the current queue: ")
     if "song" in request.args:
         song_path = request.args["song"]
+        referrer = request.args.get("referrer") or url_for("files.browse")
         if k.queue_manager.is_song_in_queue(song_path):
             flash(queue_error_msg + song_path, "is-danger")
-            return redirect(url_for("files.browse"))
+            return redirect(referrer)
         else:
             return render_template(
                 "edit.html",
                 site_title=site_name,
                 title="Song File Edit",
                 song=song_path.encode("utf-8", "ignore"),
+                referrer=referrer,
             )
     else:
         d = request.form.to_dict()

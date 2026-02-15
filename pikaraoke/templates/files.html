@@ -137,7 +137,7 @@
 		<td style="padding-right: 0">
 			<a
 				class="edit-button"
-				href="{{url_for('files.edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}"
+				href="{{url_for('files.edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&referrer={{url_escape(current_url)}}"
 				title="Edit song"
 				><i class="icon icon-edit-1"></i>
 			</a>

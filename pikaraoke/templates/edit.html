@@ -107,7 +107,7 @@
       <p class='has-text-warning'>{{ filename_from_path(song.decode('utf-8', 'ignore')) }} </p>
     </div>
     <input value="{{ song.decode('utf-8', 'ignore') }}" type="hidden" name='old_file_name'>
-    <input type="hidden" name="referrer" value="{{ request.referrer }}">
+    <input type="hidden" name="referrer" value="{{ referrer }}">
     {# MSG: Label on the control to edit the song's name #}
     <label class="label">{% trans %}Edit Song Name{% endtrans %}</label>
     <div class="field">
@@ -133,7 +133,7 @@
         </button>
       </div>
       <div class="control">
-        <a class="button is-light" href="{{ request.referrer or url_for('files.browse') }}">
+        <a class="button is-light" href="{{ referrer }}">
           {%- trans %}Cancel{% endtrans -%}
         </a>
       </div>
@@ -143,7 +143,7 @@
 
 <hr>
 <a class="confirm-delete-file has-text-danger is-pulled-right"
-  href="{{url_for('files.delete_file')}}?song={{url_escape(song)}}&referrer={{url_escape(request.referrer or url_for('files.browse'))}}"><i class="icon icon-trash-empty"></i>
+  href="{{url_for('files.delete_file')}}?song={{url_escape(song)}}&referrer={{url_escape(referrer)}}"><i class="icon icon-trash-empty"></i>
   {# MSG: Label on button which deletes the current song. #}
   {%- trans -%}
     Delete this song
