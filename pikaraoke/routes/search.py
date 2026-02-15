@@ -54,7 +54,7 @@ def search():
         "search.html",
         site_title=site_name,
         title="Search",
-        songs=k.available_songs,
+        songs=k.song_manager.songs,
         search_results=search_results,
         search_string=search_string,
     )
@@ -93,12 +93,12 @@ def autocomplete():
     k = get_karaoke_instance()
     q = request.args.get("q").lower()
     result = []
-    for each in k.available_songs:
+    for each in k.song_manager.songs:
         if q in each.lower():
             result.append(
                 {
                     "path": each,
-                    "fileName": k.filename_from_path(each),
+                    "fileName": k.song_manager.filename_from_path(each),
                     "type": "autocomplete",
                 }
             )

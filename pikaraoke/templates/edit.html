@@ -104,15 +104,15 @@
 <div class="field">
   <form action="{{ url_for('files.edit_file') }}" method="post">
     <div class="field">
-      <p class='has-text-warning'>{{ filename_from_path(song.decode('utf-8', 'ignore')) }} </p>
+      <p class='has-text-warning'>{{ filename_from_path(song) }} </p>
     </div>
-    <input value="{{ song.decode('utf-8', 'ignore') }}" type="hidden" name='old_file_name'>
+    <input value="{{ song }}" type="hidden" name='old_file_name'>
     <input type="hidden" name="referrer" value="{{ referrer }}">
     {# MSG: Label on the control to edit the song's name #}
     <label class="label">{% trans %}Edit Song Name{% endtrans %}</label>
     <div class="field">
       <input autocomplete="off" id="new_file_name" class="input" type="text" name="new_file_name"
-        value="{{ filename_from_path(song.decode('utf-8', 'ignore')) }}"></input>
+        value="{{ filename_from_path(song) }}"></input>
     </div>
     <ul>
       {# MSG: Label on button which auto formats the song's title. #}

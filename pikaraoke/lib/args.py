@@ -173,7 +173,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--preferred-language",
-        help="Set the preferred language for the web interface. This will persist across restarts. Available codes: en, de_DE, es_VE, fi_FI, fr_FR, it_IT, ja_JP, ko_KR, nl_NL, no_NO, pt_BR, ru_RU, th_TH, zh_Hans_CN, zh_Hant_TW",
+        help="Set the preferred language for the web interface. This will persist across restarts. Available codes: en, de_DE, es_VE, fi_FI, fr_FR, id_ID,it_IT, ja_JP, ko_KR, nl_NL, no_NO, pt_BR, ru_RU, th_TH, zh_Hans_CN, zh_Hant_TW",
         default=None,
         required=False,
     )
@@ -239,6 +239,12 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         "--hide-notifications",
         action="store_true",
         help="Hide notifications from the splash screen.",
+        required=False,
+    )
+    parser.add_argument(
+        "--show-splash-clock",
+        action="store_true",
+        help="Show the digital clock on the splash screen.",
         required=False,
     )
     parser.add_argument(

@@ -27,6 +27,7 @@ from pikaraoke.lib.get_platform import (
     has_js_runtime,
     is_windows,
 )
+from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.routes.admin import admin_bp
 from pikaraoke.routes.background_music import background_music_bp
 from pikaraoke.routes.batch_song_renamer import batch_song_renamer_bp
@@ -169,7 +170,7 @@ def main() -> None:
         high_quality=args.high_quality,
         logo_path=args.logo_path,
         hide_overlay=args.hide_overlay,
-        screensaver_timeout=args.screensaver_timeout,
+        show_splash_clock=args.show_splash_clock,
         url=args.url,
         prefer_hostname=args.prefer_hostname,
         disable_bg_music=args.disable_bg_music,
@@ -199,7 +200,7 @@ def main() -> None:
     app.config["SITE_NAME"] = "PiKaraoke"
 
     # Expose some functions to jinja templates
-    app.jinja_env.globals.update(filename_from_path=k.filename_from_path)
+    app.jinja_env.globals.update(filename_from_path=SongManager.filename_from_path)
     app.jinja_env.globals.update(url_escape=quote)
 
     spawn(k.upgrade_youtubedl)
