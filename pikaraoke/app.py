@@ -28,6 +28,7 @@ from pikaraoke.lib.get_platform import (
     is_windows,
 )
 from pikaraoke.lib.song_manager import SongManager
+from pikaraoke.lib.youtube_dl import upgrade_youtubedl
 from pikaraoke.routes.admin import admin_bp
 from pikaraoke.routes.background_music import background_music_bp
 from pikaraoke.routes.batch_song_renamer import batch_song_renamer_bp
@@ -192,8 +193,19 @@ def main() -> None:
     # expose karaoke object to the flask app
     with app.app_context():
         app.config["KARAOKE_INSTANCE"] = k
-        # Pass app instance to download manager for background thread context
-        k.download_manager.app = app
+
+    # Wire download events to SocketIO broadcasts with app context
+    from pikaraoke.lib.current_app import broadcast_event
+
+    def _broadcast_in_context(event_name):
+        def handler():
+            with app.app_context():
+                broadcast_event(event_name)
+
+        return handler
+
+    k.events.on("download_started", _broadcast_in_context("download_started"))
+    k.events.on("download_stopped", _broadcast_in_context("download_stopped"))
 
     # expose shared configuration variables to the flask app
     app.config["ADMIN_PASSWORD"] = args.admin_password
@@ -203,7 +215,7 @@ def main() -> None:
     app.jinja_env.globals.update(filename_from_path=SongManager.filename_from_path)
     app.jinja_env.globals.update(url_escape=quote)
 
-    spawn(k.upgrade_youtubedl)
+    spawn(upgrade_youtubedl)
 
     server = WSGIServer(("0.0.0.0", int(args.port)), app, log=None, error_log=logging.getLogger())
     server.start()

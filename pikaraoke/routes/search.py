@@ -14,6 +14,7 @@ from flask import (
 )
 
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
+from pikaraoke.lib.youtube_dl import get_search_results
 
 _ = flask_babel.gettext
 
@@ -44,9 +45,9 @@ def search():
     if "search_string" in request.args:
         search_string = request.args["search_string"]
         if "non_karaoke" in request.args and request.args["non_karaoke"] == "true":
-            search_results = k.get_search_results(search_string)
+            search_results = get_search_results(search_string)
         else:
-            search_results = k.get_karaoke_search_results(search_string)
+            search_results = get_search_results(search_string + " karaoke")
     else:
         search_string = None
         search_results = None
@@ -148,6 +149,6 @@ def download():
         queue = False
 
     # Queue the download (processed serially by the download worker)
-    k.download_video(song, queue, user, title)
+    k.download_manager.queue_download(song, queue, user, title)
 
     return redirect(url_for("search.search"))
