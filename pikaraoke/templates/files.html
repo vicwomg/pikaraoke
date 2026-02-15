@@ -111,6 +111,7 @@
 </p>
 
 <div id="alpha-bar" class="column is-full has-background-dark mobile-hide">
+	<a href="{{ url_for('files.browse') }}" title="Show all"><i class="icon icon-list-bullet"></i></a>
 	<a href="{{ url_for('files.browse') }}?letter=numeric">#</a>
 	{% for letter in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
 	'u', 'v', 'w', 'x', 'y', 'z'] %}
@@ -136,7 +137,7 @@
 		<td style="padding-right: 0">
 			<a
 				class="edit-button"
-				href="{{url_for('files.edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}"
+				href="{{url_for('files.edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&referrer={{url_escape(current_url)}}"
 				title="Edit song"
 				><i class="icon icon-edit-1"></i>
 			</a>
