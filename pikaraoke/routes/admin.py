@@ -71,7 +71,7 @@ def update_ytdl():
     else:
         # MSG: Message shown after trying to update youtube-dl without admin permissions.
         flash(_("You don't have permission to update youtube-dl"), "is-danger")
-    return redirect(url_for("home.home"))
+    return redirect(url_for("info.info"))
 
 
 @admin_bp.route("/refresh")
