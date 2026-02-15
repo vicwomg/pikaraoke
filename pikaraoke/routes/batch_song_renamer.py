@@ -400,7 +400,7 @@ def get_all_songs():
     skip = page * results_per_page - results_per_page
 
     k = get_karaoke_instance()
-    available_songs = k.available_songs
+    available_songs = k.song_manager.songs
 
     songs = []
 
@@ -414,7 +414,7 @@ def get_all_songs():
     )
 
     for song in available_songs[start_index : start_index + results_per_page]:
-        song_name = k.filename_from_path(song)
+        song_name = k.song_manager.filename_from_path(song)
         correct_name = get_song_correct_name(song_name)
         songs.append({"file": song, "correct_name": correct_name})
 
@@ -439,7 +439,7 @@ def get_songs_to_rename():
     page = int(request.args.get("page") or 0)
 
     k = get_karaoke_instance()
-    available_songs = k.available_songs
+    available_songs = k.song_manager.songs
 
     songs = []
 
@@ -451,7 +451,7 @@ def get_songs_to_rename():
         if song_index >= len(available_songs):
             break
         song = available_songs[song_index]
-        song_name = k.filename_from_path(song)
+        song_name = k.song_manager.filename_from_path(song)
         correct_name = get_song_correct_name(song_name)
         if song_name == correct_name:
             song_index += 1
@@ -491,7 +491,9 @@ def rename_song():
         else:
             # check if new_name already exist
             file_extension = os.path.splitext(old_name)[1]
-            if os.path.isfile(os.path.join(k.download_path, new_name + file_extension)):
+            if os.path.isfile(
+                os.path.join(k.song_manager.download_path, new_name + file_extension)
+            ):
                 # MSG: Message shown after trying to rename a file to a name that already exists.
                 queue_error_msg = {
                     "success": False,
@@ -501,8 +503,8 @@ def rename_song():
                 }
             else:
                 ext = os.path.splitext(old_name)
-                k.rename(old_name, new_name)
-                new_file_full_path = os.path.join(k.download_path, new_name + ext[1])
+                k.song_manager.rename(old_name, new_name)
+                new_file_full_path = os.path.join(k.song_manager.download_path, new_name + ext[1])
                 queue_error_msg = {"success": True, "new_file_name": new_file_full_path}
     else:
         # MSG: Message shown after trying to edit a song without specifying the filename.
