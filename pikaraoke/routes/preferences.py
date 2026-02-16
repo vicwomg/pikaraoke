@@ -64,4 +64,4 @@ def clear_preferences():
     else:
         # MSG: Message shown after trying to clear preferences without admin permissions.
         flash(_("You don't have permission to clear preferences"), "is-danger")
-    return redirect(url_for("home.home"))
+    return redirect(url_for("info.info"))
