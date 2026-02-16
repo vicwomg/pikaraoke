@@ -1,7 +1,8 @@
 """Playback control routes for skip, pause, volume, and transpose."""
 
 import flask_babel
-from flask import Blueprint, redirect, request, url_for
+from flask import redirect, request, url_for
+from flask_smorest import Blueprint
 
 from pikaraoke.lib.current_app import broadcast_event, get_karaoke_instance
 
@@ -11,32 +12,18 @@ _ = flask_babel.gettext
 controller_bp = Blueprint("controller", __name__)
 
 
-@controller_bp.route("/skip")
+@controller_bp.route("/skip", doc=False)
 def skip():
-    """Skip the currently playing song.
-    ---
-    tags:
-      - Playback
-    responses:
-      302:
-        description: Redirects to home page
-    """
+    """Skip the currently playing song."""
     k = get_karaoke_instance()
     broadcast_event("skip", "user command")
     k.playback_controller.skip()
     return redirect(url_for("home.home"))
 
 
-@controller_bp.route("/pause")
+@controller_bp.route("/pause", doc=False)
 def pause():
-    """Toggle pause/resume playback.
-    ---
-    tags:
-      - Playback
-    responses:
-      302:
-        description: Redirects to home page
-    """
+    """Toggle pause/resume playback."""
     k = get_karaoke_instance()
     if k.playback_controller.is_paused:
         broadcast_event("play")
@@ -46,92 +33,45 @@ def pause():
     return redirect(url_for("home.home"))
 
 
-@controller_bp.route("/transpose/<semitones>", methods=["GET"])
+@controller_bp.route("/transpose/<semitones>", methods=["GET"], doc=False)
 def transpose(semitones):
-    """Transpose (pitch shift) the current song.
-    ---
-    tags:
-      - Playback
-    parameters:
-      - name: semitones
-        in: path
-        type: integer
-        required: true
-        description: Semitones to transpose (-12 to 12)
-    responses:
-      302:
-        description: Redirects to home page
-    """
+    """Transpose (pitch shift) the current song."""
     k = get_karaoke_instance()
     broadcast_event("skip", "transpose current")
     k.transpose_current(int(semitones))
     return redirect(url_for("home.home"))
 
 
-@controller_bp.route("/restart")
+@controller_bp.route("/restart", doc=False)
 def restart():
-    """Restart the current song from the beginning.
-    ---
-    tags:
-      - Playback
-    responses:
-      302:
-        description: Redirects to home page
-    """
+    """Restart the current song from the beginning."""
     k = get_karaoke_instance()
     broadcast_event("restart")
     k.restart()
     return redirect(url_for("home.home"))
 
 
-@controller_bp.route("/volume/<volume>")
+@controller_bp.route("/volume/<volume>", doc=False)
 def volume(volume):
-    """Set the playback volume.
-    ---
-    tags:
-      - Playback
-    parameters:
-      - name: volume
-        in: path
-        type: number
-        required: true
-        description: Volume level (0.0 to 1.0)
-    responses:
-      302:
-        description: Redirects to home page
-    """
+    """Set the playback volume."""
     k = get_karaoke_instance()
     broadcast_event("volume", volume)
     k.volume_change(float(volume))
     return redirect(url_for("home.home"))
 
 
-@controller_bp.route("/vol_up")
+@controller_bp.route("/vol_up", doc=False)
 def vol_up():
-    """Increase volume by 10%.
-    ---
-    tags:
-      - Playback
-    responses:
-      302:
-        description: Redirects to home page
-    """
+    """Increase volume by 10%."""
     k = get_karaoke_instance()
     broadcast_event("volume", "up")
     k.vol_up()
     return redirect(url_for("home.home"))
 
 
-@controller_bp.route("/vol_down")
+@controller_bp.route("/vol_down", doc=False)
 def vol_down():
-    """Decrease volume by 10%.
-    ---
-    tags:
-      - Playback
-    responses:
-      302:
-        description: Redirects to home page
-    """
+    """Decrease volume by 10%."""
     k = get_karaoke_instance()
     broadcast_event("volume", "down")
     k.vol_down()

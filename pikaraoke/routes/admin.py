@@ -8,15 +8,8 @@ import threading
 import time
 
 import flask_babel
-from flask import (
-    Blueprint,
-    flash,
-    make_response,
-    redirect,
-    render_template,
-    request,
-    url_for,
-)
+from flask import flash, make_response, redirect, render_template, request, url_for
+from flask_smorest import Blueprint
 
 from pikaraoke.karaoke import Karaoke
 from pikaraoke.lib.current_app import get_admin_password, get_karaoke_instance, is_admin
@@ -44,16 +37,9 @@ def delayed_halt(cmd: int, k: Karaoke):
         os.system("reboot")
 
 
-@admin_bp.route("/update_ytdl")
+@admin_bp.route("/update_ytdl", doc=False)
 def update_ytdl():
-    """Update yt-dlp to the latest version.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to home page
-    """
+    """Update yt-dlp to the latest version."""
     k = get_karaoke_instance()
 
     def update_youtube_dl():
@@ -74,16 +60,9 @@ def update_ytdl():
     return redirect(url_for("info.info"))
 
 
-@admin_bp.route("/refresh")
+@admin_bp.route("/refresh", doc=False)
 def refresh():
-    """Refresh the available songs list.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to browse page
-    """
+    """Refresh the available songs list."""
     k = get_karaoke_instance()
     if is_admin():
         k.song_manager.refresh_songs()
@@ -93,16 +72,9 @@ def refresh():
     return redirect(url_for("files.browse"))
 
 
-@admin_bp.route("/quit")
+@admin_bp.route("/quit", doc=False)
 def quit():
-    """Exit the PiKaraoke application.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to home page before exit
-    """
+    """Exit the PiKaraoke application."""
     k = get_karaoke_instance()
     if is_admin():
         # MSG: Message shown after quitting pikaraoke.
@@ -117,16 +89,9 @@ def quit():
     return redirect(url_for("home.home"))
 
 
-@admin_bp.route("/shutdown")
+@admin_bp.route("/shutdown", doc=False)
 def shutdown():
-    """Shut down the host system.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to home page before shutdown
-    """
+    """Shut down the host system."""
     k = get_karaoke_instance()
     if is_admin():
         # MSG: Message shown after shutting down the system.
@@ -141,16 +106,9 @@ def shutdown():
     return redirect(url_for("home.home"))
 
 
-@admin_bp.route("/reboot")
+@admin_bp.route("/reboot", doc=False)
 def reboot():
-    """Reboot the host system.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to home page before reboot
-    """
+    """Reboot the host system."""
     k = get_karaoke_instance()
     if is_admin():
         # MSG: Message shown after rebooting the system.
@@ -165,16 +123,9 @@ def reboot():
     return redirect(url_for("home.home"))
 
 
-@admin_bp.route("/expand_fs")
+@admin_bp.route("/expand_fs", doc=False)
 def expand_fs():
-    """Expand filesystem on Raspberry Pi.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to home page before reboot
-    """
+    """Expand filesystem on Raspberry Pi."""
     k = get_karaoke_instance()
     if is_admin() and k.is_raspberry_pi:
         # MSG: Message shown after expanding the filesystem.
@@ -190,29 +141,9 @@ def expand_fs():
     return redirect(url_for("home.home"))
 
 
-@admin_bp.route("/auth", methods=["POST"])
+@admin_bp.route("/auth", methods=["POST"], doc=False)
 def auth():
-    """Authenticate as admin.
-    ---
-    tags:
-      - Admin
-    consumes:
-      - application/x-www-form-urlencoded
-    parameters:
-      - name: admin-password
-        in: formData
-        type: string
-        required: true
-        description: Admin password
-      - name: next
-        in: formData
-        type: string
-        required: false
-        description: URL to redirect to after successful authentication
-    responses:
-      302:
-        description: Redirects to next URL on success, login on failure
-    """
+    """Authenticate as admin."""
     d = request.form.to_dict()
     admin_password = get_admin_password()
     p = d["admin-password"]
@@ -236,29 +167,15 @@ def auth():
     return resp
 
 
-@admin_bp.route("/login")
+@admin_bp.route("/login", doc=False)
 def login():
-    """Admin login page.
-    ---
-    tags:
-      - Pages
-    responses:
-      200:
-        description: HTML login page
-    """
+    """Admin login page."""
     return render_template("login.html")
 
 
-@admin_bp.route("/logout")
+@admin_bp.route("/logout", doc=False)
 def logout():
-    """Log out of admin mode.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to home page
-    """
+    """Log out of admin mode."""
     resp = make_response(redirect("/"))
     resp.set_cookie("admin", "")
     # MSG: Message shown after logging out as admin successfully

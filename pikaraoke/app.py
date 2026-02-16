@@ -59,37 +59,45 @@ app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
-# Initialize Swagger API docs if enabled via CLI flag
-app.config["SWAGGER"] = {
-    "title": "PiKaraoke API",
-    "description": "API for controlling PiKaraoke - a KTV-style karaoke system",
-    "version": VERSION,
-    "termsOfService": "",
-    "hide_top_bar": True,
-}
-if args.enable_swagger:
-    try:
-        from flasgger import Swagger
 
-        Swagger(app)
+# Initialize Swagger API docs if enabled via CLI flag
+api = None
+if args.enable_swagger:
+    app.config["API_TITLE"] = "PiKaraoke API"
+    app.config["API_VERSION"] = VERSION
+    app.config["OPENAPI_VERSION"] = "3.0.2"
+    app.config["OPENAPI_URL_PREFIX"] = "/"
+    app.config["OPENAPI_SWAGGER_UI_PATH"] = "/apidocs"
+    app.config["OPENAPI_SWAGGER_UI_URL"] = "https://cdn.jsdelivr.net/npm/swagger-ui-dist/"
+    try:
+        from flask_smorest import Api
+
+        api = Api(app)
     except ImportError:
-        logging.warning("flasgger not installed. Swagger API docs disabled.")
+        logging.warning("flask-smorest not installed. Swagger API docs disabled.")
 
 # Register blueprints for additional routes
-app.register_blueprint(home_bp)
-app.register_blueprint(stream_bp)
-app.register_blueprint(preferences_bp)
-app.register_blueprint(admin_bp)
-app.register_blueprint(background_music_bp)
-app.register_blueprint(batch_song_renamer_bp)
-app.register_blueprint(queue_bp)
-app.register_blueprint(images_bp)
-app.register_blueprint(files_bp)
-app.register_blueprint(search_bp)
-app.register_blueprint(info_bp)
-app.register_blueprint(splash_bp)
-app.register_blueprint(controller_bp)
-app.register_blueprint(nowplaying_bp)
+_blueprints = [
+    home_bp,
+    stream_bp,
+    preferences_bp,
+    admin_bp,
+    background_music_bp,
+    batch_song_renamer_bp,
+    queue_bp,
+    images_bp,
+    files_bp,
+    search_bp,
+    info_bp,
+    splash_bp,
+    controller_bp,
+    nowplaying_bp,
+]
+for bp in _blueprints:
+    if api is not None:
+        api.register_blueprint(bp)
+    else:
+        app.register_blueprint(bp)
 
 
 def get_locale() -> str | None:

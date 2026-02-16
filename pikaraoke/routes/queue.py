@@ -4,7 +4,8 @@ import json
 from urllib.parse import unquote
 
 import flask_babel
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import flash, redirect, render_template, request, url_for
+from flask_smorest import Blueprint
 
 from pikaraoke.lib.current_app import (
     broadcast_event,
@@ -18,16 +19,9 @@ _ = flask_babel.gettext
 queue_bp = Blueprint("queue", __name__)
 
 
-@queue_bp.route("/queue")
+@queue_bp.route("/queue", doc=False)
 def queue():
-    """Queue management page.
-    ---
-    tags:
-      - Pages
-    responses:
-      200:
-        description: HTML queue management page
-    """
+    """Queue management page."""
     k = get_karaoke_instance()
     site_name = get_site_name()
     return render_template(
@@ -41,51 +35,14 @@ def queue():
 
 @queue_bp.route("/get_queue")
 def get_queue():
-    """Get the current song queue.
-    ---
-    tags:
-      - Queue
-    responses:
-      200:
-        description: List of songs in queue
-        schema:
-          type: array
-          items:
-            type: object
-            properties:
-              user:
-                type: string
-                description: User who added the song
-              file:
-                type: string
-                description: File path of the song
-              title:
-                type: string
-                description: Display title of the song
-              semitones:
-                type: integer
-                description: Transpose value in semitones
-    """
+    """Get the current song queue."""
     k = get_karaoke_instance()
     return json.dumps(k.queue_manager.queue)
 
 
-@queue_bp.route("/queue/addrandom", methods=["GET"])
+@queue_bp.route("/queue/addrandom", methods=["GET"], doc=False)
 def add_random():
-    """Add random songs to the queue.
-    ---
-    tags:
-      - Queue
-    parameters:
-      - name: amount
-        in: query
-        type: integer
-        required: true
-        description: Number of random songs to add
-    responses:
-      302:
-        description: Redirects to queue page
-    """
+    """Add random songs to the queue."""
     k = get_karaoke_instance()
     amount = request.args.get("amount", default=1, type=int)
     rc = k.queue_manager.queue_add_random(amount)
@@ -101,38 +58,7 @@ def add_random():
 
 @queue_bp.route("/queue/reorder", methods=["POST"])
 def reorder():
-    """Handle drag-and-drop reordering of the queue.
-    ---
-    tags:
-      - Queue
-    consumes:
-      - application/x-www-form-urlencoded
-    parameters:
-      - name: old_index
-        in: formData
-        type: integer
-        required: true
-        description: The current index of the item to move
-      - name: new_index
-        in: formData
-        type: integer
-        required: true
-        description: The target index to move the item to
-    responses:
-      200:
-        description: Result of the reorder operation
-        schema:
-          type: object
-          properties:
-            success:
-              type: boolean
-              description: Whether the reorder was successful
-            error:
-              type: string
-              description: Error message if failed
-      403:
-        description: Unauthorized access (admin only)
-    """
+    """Handle drag-and-drop reordering of the queue."""
     if not is_admin():
         return json.dumps({"success": False, "error": "Unauthorized"}), 403
 
@@ -149,7 +75,7 @@ def reorder():
     return json.dumps({"success": False})
 
 
-@queue_bp.route("/queue/edit", methods=["GET"])
+@queue_bp.route("/queue/edit", methods=["GET"], doc=False)
 def queue_edit():
     """Edit queue items (admin only)."""
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
@@ -219,40 +145,7 @@ def queue_edit():
 
 @queue_bp.route("/enqueue", methods=["POST", "GET"])
 def enqueue():
-    """Add a song to the queue.
-    ---
-    tags:
-      - Queue
-    parameters:
-      - name: song
-        in: query
-        type: string
-        description: Path to the song file
-      - name: user
-        in: query
-        type: string
-        description: Name of the user adding the song
-      - name: song-to-add
-        in: formData
-        type: string
-        description: Path to the song file (form data)
-      - name: song-added-by
-        in: formData
-        type: string
-        description: Name of the user (form data)
-    responses:
-      200:
-        description: Result of enqueue operation
-        schema:
-          type: object
-          properties:
-            song:
-              type: string
-              description: Title of the song
-            success:
-              type: boolean
-              description: Whether the song was added
-    """
+    """Add a song to the queue."""
     k = get_karaoke_instance()
     song = request.args.get("song") or request.form["song-to-add"]
     user = request.args.get("user") or request.form["song-added-by"]
@@ -264,52 +157,14 @@ def enqueue():
 
 @queue_bp.route("/queue/downloads")
 def get_current_downloads():
-    """Get the status of current and pending downloads.
-    ---
-    tags:
-      - Queue
-    responses:
-      200:
-        description: Status of active and pending downloads
-        schema:
-          type: object
-          properties:
-            active:
-              type: object
-              description: Currently active download info
-            pending:
-              type: array
-              items:
-                type: object
-                description: Pending download info
-            errors:
-              type: array
-              items:
-                type: object
-                description: Failed download info
-    """
+    """Get the status of current and pending downloads."""
     k = get_karaoke_instance()
     return json.dumps(k.download_manager.get_downloads_status())
 
 
 @queue_bp.route("/queue/downloads/errors/<error_id>", methods=["DELETE"])
 def delete_download_error(error_id):
-    """Remove a download error from the list.
-    ---
-    tags:
-      - Queue
-    parameters:
-      - name: error_id
-        in: path
-        type: string
-        required: true
-        description: ID of the error to remove
-    responses:
-      200:
-        description: Error removed successfully
-      404:
-        description: Error not found
-    """
+    """Remove a download error from the list."""
     k = get_karaoke_instance()
     if k.download_manager.remove_error(error_id):
         return json.dumps({"success": True})

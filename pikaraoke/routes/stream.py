@@ -5,16 +5,8 @@ import re
 import time
 
 import flask_babel
-from flask import (
-    Blueprint,
-    Response,
-    flash,
-    make_response,
-    redirect,
-    request,
-    send_file,
-    url_for,
-)
+from flask import Response, flash, make_response, redirect, request, send_file, url_for
+from flask_smorest import Blueprint
 
 from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.file_resolver import FileResolver, get_tmp_dir
@@ -25,7 +17,7 @@ stream_bp = Blueprint("stream", __name__)
 
 
 # Serves HLS playlist file - explicit .m3u8 extension
-@stream_bp.route("/stream/<id>.m3u8")
+@stream_bp.route("/stream/<id>.m3u8", doc=False)
 def stream_playlist(id):
     file_path = os.path.join(get_tmp_dir(), f"{id}.m3u8")
     k = get_karaoke_instance()
@@ -60,7 +52,7 @@ def stream_playlist(id):
 
 
 # Serves HLS segment files - .m4s (fragmented MP4) extension
-@stream_bp.route("/stream/<filename>.m4s")
+@stream_bp.route("/stream/<filename>.m4s", doc=False)
 def stream_segment_m4s(filename):
     # Security: prevent directory traversal
     if ".." in filename or "/" in filename:
@@ -75,7 +67,7 @@ def stream_segment_m4s(filename):
 
 
 # Serves init.mp4 header file for fMP4 (with unique filenames per stream)
-@stream_bp.route("/stream/<filename>_init.mp4")
+@stream_bp.route("/stream/<filename>_init.mp4", doc=False)
 def stream_init(filename):
     # Security: prevent directory traversal
     if ".." in filename or "/" in filename:
@@ -89,7 +81,7 @@ def stream_init(filename):
 
 
 # Legacy .ts support for backward compatibility
-@stream_bp.route("/stream/<filename>.ts")
+@stream_bp.route("/stream/<filename>.ts", doc=False)
 def stream_segment(filename):
     # Security: prevent directory traversal
     if ".." in filename or "/" in filename:
@@ -104,7 +96,7 @@ def stream_segment(filename):
 
 
 # Main streaming route - serves HLS or progressive MP4 based on file extension
-@stream_bp.route("/stream/<id>")
+@stream_bp.route("/stream/<id>", doc=False)
 def stream_main(id):
     # Check if it's an HLS request (.m3u8) or MP4 request (.mp4)
     if request.path.endswith(".m3u8"):
@@ -119,7 +111,7 @@ def stream_main(id):
 # Progressive MP4 streaming with init.mp4 + segments concatenation
 # This method works with HLS-generated fMP4 segments but serves them as continuous MP4
 # Compatible with Chrome, Firefox and RPi with hardware acceleration
-@stream_bp.route("/stream/<id>.mp4")
+@stream_bp.route("/stream/<id>.mp4", doc=False)
 def stream_progressive_mp4(id):
     file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
     k = get_karaoke_instance()
@@ -193,26 +185,9 @@ def stream_file_path_full(file_path):
 
 # Streams the file in full with proper range headers
 # (Safari compatible, but requires the ffmpeg transcoding to be complete to know file size)
-@stream_bp.route("/stream/full/<id>")
+@stream_bp.route("/stream/full/<id>", doc=False)
 def stream_full(id):
-    """Stream video with range headers (Safari compatible).
-    ---
-    tags:
-      - Stream
-    parameters:
-      - name: id
-        in: path
-        type: string
-        required: true
-        description: Video stream ID
-    produces:
-      - video/mp4
-    responses:
-      200:
-        description: Full video file
-      206:
-        description: Partial video content (range request)
-    """
+    """Stream video with range headers (Safari compatible)."""
     k = get_karaoke_instance()
 
     # Mark song as started when client connects (idempotent)
@@ -226,20 +201,9 @@ def stream_full(id):
     return stream_file_path_full(file_path)
 
 
-@stream_bp.route("/stream/bg_video")
+@stream_bp.route("/stream/bg_video", doc=False)
 def stream_bg_video():
-    """Stream the background video file.
-    ---
-    tags:
-      - Stream
-    produces:
-      - video/mp4
-    responses:
-      200:
-        description: Background video file
-      404:
-        description: Background video not configured
-    """
+    """Stream the background video file."""
     k = get_karaoke_instance()
     file_path = k.bg_video_path
     if k.bg_video_path is not None:
@@ -249,7 +213,7 @@ def stream_bg_video():
 
 
 # subtitle .ass
-@stream_bp.route("/subtitle/<id>")
+@stream_bp.route("/subtitle/<id>", doc=False)
 def stream_subtitle(id):
     k = get_karaoke_instance()
     try:

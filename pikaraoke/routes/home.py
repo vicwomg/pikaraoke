@@ -1,7 +1,8 @@
 """Home page route."""
 
 import flask_babel
-from flask import Blueprint, render_template
+from flask import render_template
+from flask_smorest import Blueprint
 
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
 
@@ -11,16 +12,9 @@ _ = flask_babel.gettext
 home_bp = Blueprint("home", __name__)
 
 
-@home_bp.route("/")
+@home_bp.route("/", doc=False)
 def home():
-    """Home page with now playing info and controls.
-    ---
-    tags:
-      - Pages
-    responses:
-      200:
-        description: HTML home page
-    """
+    """Home page with now playing info and controls."""
     k = get_karaoke_instance()
     site_name = get_site_name()
     return render_template(
