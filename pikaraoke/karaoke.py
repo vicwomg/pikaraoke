@@ -63,7 +63,6 @@ class Karaoke:
     now_playing_notification: str | None = None
     volume: float
 
-    process: subprocess.Popen | None = None
     qr_code_path: str | None = None
     base_path: str = os.path.dirname(__file__)
     loop_interval: int = 500  # in milliseconds
@@ -213,10 +212,6 @@ class Karaoke:
             self.preferences.set("preferred_language", preferred_language)
             logging.info(f"Setting preferred language to: {preferred_language}")
 
-        # Initialize and start download manager
-        self.download_manager = DownloadManager(self)
-        self.download_manager.start()
-
         # Initialize playback controller for video playback and FFmpeg coordination
         self.playback_controller = PlaybackController(
             preferences=self.preferences,
@@ -244,6 +239,18 @@ class Karaoke:
             filename_from_path=SongManager.filename_from_path,
             get_available_songs=lambda: self.song_manager.songs,
         )
+
+        # Initialize and start download manager
+        self.download_manager = DownloadManager(
+            events=self.events,
+            preferences=self.preferences,
+            song_manager=self.song_manager,
+            queue_manager=self.queue_manager,
+            download_path=self.download_path,
+            youtubedl_proxy=self.youtubedl_proxy,
+            additional_ytdl_args=self.additional_ytdl_args,
+        )
+        self.download_manager.start()
 
     def _load_preferences(self, **cli_overrides: Any) -> None:
         """Load preference-driven attributes from config file.
@@ -297,13 +304,6 @@ class Karaoke:
             output += f"  {key}: {value}\n"
         logging.debug("\n\n" + output)
 
-    def upgrade_youtubedl(self) -> None:
-        """Upgrade yt-dlp to the latest version."""
-        logging.debug(
-            "Checking if youtube-dl needs upgrading, current version: %s" % self.youtubedl_version
-        )
-        self.youtubedl_version = upgrade_youtubedl()
-
     def generate_qr_code(self) -> None:
         """Generate a QR code image for the web interface URL."""
         logging.debug("Generating URL QR code")
@@ -319,28 +319,6 @@ class Karaoke:
         data_dir = get_data_directory()
         self.qr_code_path = os.path.join(data_dir, "qrcode.png")
         img.save(self.qr_code_path)  # type: ignore[arg-type]
-
-    def get_search_results(self, textToSearch: str) -> list[list[str]]:
-        """Search YouTube for videos matching the query.
-
-        Args:
-            textToSearch: Search query string.
-
-        Returns:
-            List of [title, url, video_id] for each result.
-        """
-        return get_search_results(textToSearch)
-
-    def get_karaoke_search_results(self, songTitle: str) -> list[list[str]]:
-        """Search YouTube for karaoke versions of a song.
-
-        Args:
-            songTitle: Song title to search for.
-
-        Returns:
-            List of [title, url, video_id] for each result.
-        """
-        return get_search_results(songTitle + " karaoke")
 
     def send_notification(self, message: str, color: str = "primary") -> None:
         """Send a notification to the web interface.
@@ -381,29 +359,6 @@ class Karaoke:
         else:
             logging.info(message)
             self.send_notification(message, "primary")
-
-    def download_video(
-        self,
-        video_url: str,
-        enqueue: bool = False,
-        user: str = "Pikaraoke",
-        title: str | None = None,
-    ) -> None:
-        """Queue a video for download from YouTube.
-
-        Downloads are processed serially to prevent rate limiting and CPU overload.
-        A notification is sent when the download is queued, and another when it starts.
-
-        Args:
-            video_url: YouTube video URL.
-            enqueue: Whether to add to playback queue after download.
-            user: Username to attribute the download to.
-            title: Display title (defaults to URL if not provided).
-        """
-        if "&list=" in video_url:
-            # if this is a part of a playlist, strip URL so we don't download the whole playlist
-            video_url = video_url.split("&list=")[0]
-        self.download_manager.queue_download(video_url, enqueue, user, title)
 
     def transpose_current(self, semitones: int) -> None:
         """Restart the current song with a new transpose value.
