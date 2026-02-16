@@ -154,12 +154,12 @@ def test_preference_manager_clear_resets_to_defaults(temp_config_file):
 
     # Change some preferences from their defaults
     prefs.set("volume", "0.5")  # Default is 0.85
-    prefs.set("browse_results_per_page", "100")  # Default is 500
+    prefs.set("browse_results_per_page", "50")  # Default is 100
     prefs.set("splash_delay", "10")  # Default is 2
 
     # Verify non-default values are stored
     assert prefs.get("volume") == 0.5
-    assert prefs.get("browse_results_per_page") == 100
+    assert prefs.get("browse_results_per_page") == 50
     assert prefs.get("splash_delay") == 10
 
     # Clear preferences
@@ -168,7 +168,7 @@ def test_preference_manager_clear_resets_to_defaults(temp_config_file):
 
     # Verify preferences reset to defaults (using get_or_default)
     assert prefs.get_or_default("volume") == 0.85
-    assert prefs.get_or_default("browse_results_per_page") == 500
+    assert prefs.get_or_default("browse_results_per_page") == 100
     assert prefs.get_or_default("splash_delay") == 2
 
 

@@ -107,6 +107,7 @@
       <p class='has-text-warning'>{{ filename_from_path(song) }} </p>
     </div>
     <input value="{{ song }}" type="hidden" name='old_file_name'>
+    <input type="hidden" name="referrer" value="{{ referrer }}">
     {# MSG: Label on the control to edit the song's name #}
     <label class="label">{% trans %}Edit Song Name{% endtrans %}</label>
     <div class="field">
@@ -124,18 +125,25 @@
         <span id="suggest_results"></span>
       </li>
     </ul>
-    <div class="field">
-      <button class="button is-primary" id="search-button" type="submit">
-        {# MSG: Label on button which saves the changes. #}
-        {%- trans %}Save{% endtrans -%}
-      </button>
+    <div class="field is-grouped">
+      <div class="control">
+        <button class="button is-primary" id="search-button" type="submit">
+          {# MSG: Label on button which saves the changes. #}
+          {%- trans %}Save{% endtrans -%}
+        </button>
+      </div>
+      <div class="control">
+        <a class="button is-light" href="{{ referrer }}">
+          {%- trans %}Cancel{% endtrans -%}
+        </a>
+      </div>
     </div>
   </form>
 </div>
 
 <hr>
 <a class="confirm-delete-file has-text-danger is-pulled-right"
-  href="{{url_for('files.delete_file')}}?song={{url_escape(song)}}"><i class="icon icon-trash-empty"></i>
+  href="{{url_for('files.delete_file')}}?song={{url_escape(song)}}&referrer={{url_escape(referrer)}}"><i class="icon icon-trash-empty"></i>
   {# MSG: Label on button which deletes the current song. #}
   {%- trans -%}
     Delete this song
