@@ -20,6 +20,7 @@ from flask import (
 
 from pikaraoke.karaoke import Karaoke
 from pikaraoke.lib.current_app import get_admin_password, get_karaoke_instance, is_admin
+from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
 
 _ = flask_babel.gettext
 
@@ -57,7 +58,7 @@ def update_ytdl():
 
     def update_youtube_dl():
         time.sleep(3)
-        k.upgrade_youtubedl()
+        k.youtubedl_version = upgrade_youtubedl()
 
     if is_admin():
         flash(
@@ -70,7 +71,7 @@ def update_ytdl():
     else:
         # MSG: Message shown after trying to update youtube-dl without admin permissions.
         flash(_("You don't have permission to update youtube-dl"), "is-danger")
-    return redirect(url_for("home.home"))
+    return redirect(url_for("info.info"))
 
 
 @admin_bp.route("/refresh")

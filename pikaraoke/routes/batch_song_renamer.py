@@ -1,4 +1,11 @@
+from __future__ import annotations
+
+import logging
 import os
+import re
+import time
+import unicodedata
+from functools import lru_cache
 
 import flask_babel
 import requests
@@ -17,27 +24,97 @@ from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_ad
 
 _ = flask_babel.gettext
 
-import re
-
 batch_song_renamer_bp = Blueprint("batch_song_renamer", __name__)
 
-results_per_page = 10
+RESULTS_PER_PAGE = 10
 
-api_key = "058c382f5fd686b4146f6028961c14da"
-url = "http://ws.audioscrobbler.com/2.0/"
+LASTFM_API_KEY = "058c382f5fd686b4146f6028961c14da"
+LASTFM_API_URL = "http://ws.audioscrobbler.com/2.0/"
+# Last.fm rate limit: approximately 5 requests/second (conservative estimate)
+# Adjust this if you experience rate limiting errors (increase value to slow down)
+LASTFM_RATE_LIMIT = 0.2  # seconds between requests (5 req/sec)
+
+# Track last API request time for rate limiting
+_last_api_request_time = 0.0
+
+EMOJI_PATTERN = re.compile(
+    "["
+    "\U0001F1E0-\U0001F1FF"
+    "\U0001F300-\U0001F5FF"
+    "\U0001F600-\U0001F64F"
+    "\U0001F680-\U0001F6FF"
+    "\U0001F700-\U0001F77F"
+    "\U0001F780-\U0001F7FF"
+    "\U0001F800-\U0001F8FF"
+    "\U0001F900-\U0001F9FF"
+    "\U0001FA00-\U0001FA6F"
+    "\U0001FA70-\U0001FAFF"
+    "\U00002702-\U000027B0"
+    "\U000024C2-\U0001F251"
+    "]+"
+)
+
+NOISE_WORDS = [
+    r"\bofficial\b",
+    r"\bmusic\b",
+    r"\bvideo\b",
+    r"\baudio\b",
+    r"\blyrics?\b",
+    r"\bkaraoke\b",
+    r"\bkaraokê\b",
+    r"\bcomplete\b",
+    r"\bcompleto\b",
+    r"\bao vivo\b",
+    r"\blive\b",
+    r"\bremix\b",
+    r"\bversion\b",
+    r"\bfeat\.?\b",
+    r"\bft\.?\b",
+    r"\bremaster\b",
+    r"\bas popularized by\b",
+    r"\blyrics\b",
+    r"\bkarafun\b",
+    r"\binstrumental\b",
+    r"\bminus one\b",
+    r"\bminusone\b",
+    r"\bmade famous by\b",
+    r"\bby\b",
+    r"\bkaraoke version\b",
+    r"\bhd\b",
+    r"\bhq\b",
+    r"\bcoversph\b",
+    r"\bsingkaraoke\b",
+    r"\bin the style of\b",
+    r"\bno lead vocal\b",
+    r"\bwith lyrics\b",
+    r"\bcc\b",
+]
+
+SPECIAL_VERSION_KEYWORDS = [
+    " - ",
+    "ao vivo",
+    "live",
+    "remix",
+    "version",
+    "karaoke",
+    "acoustic",
+    "instrumental",
+    "cover",
+    "radio edit",
+    "extended",
+]
 
 # ---- Template HTML as string ----
 table_lines_template = """
 
 {% for song in songs %}
-{% set equal = (song.correct_name == filename_from_path(song.file)) %}
 <tr>
     <td class="vertical-align-middle col-num px-2">{{ loop.index + skip }}</td>
     <td class="vertical-align-middle col-old-name px-1 old-name">{{ filename_from_path(song.file) }}</td>
     <td class="vertical-align-middle col-new-name pr-0"><input class="input new-name
-        {% if song.correct_name and song.correct_name == filename_from_path(song.file) %}
+        {% if song.correct_name and song.is_equal %}
             is-success
-        {% elif song.correct_name and song.correct_name != filename_from_path(song.file) %}
+        {% elif song.correct_name and not song.is_equal %}
             is-warning
         {% else %}
             is-danger
@@ -47,16 +124,9 @@ table_lines_template = """
 		  <a class="accept-change button has-text-weight-bold has-text-success is-small "
     			href="#" data-old-name="{{ song.file }}"
 				title="{% trans %}Accept suggested name{% endtrans %}"
-            {{ 'disabled' if equal or song.correct_name == none else '' }}>
+            {{ 'disabled' if song.is_equal or song.correct_name == none else '' }}>
 			  <i class="icon icon-ok"></i>
         </a>
-        <!--
-        <a class="button is-small has-text-success"
-           href="{{ url_for('files.edit_file') }}?song={{ song.file|urlencode }}"
-           title="Edit song">
-           <i class="icon icon-edit-1"></i>
-        </a>
-        -->
         </div>
     </td>
 </tr>
@@ -108,261 +178,359 @@ songs_to_rename_template = """
 """
 
 
-def clean_search_query(song_name):
-    # Remove emojis
-    emoji_pattern = re.compile(
-        "["
-        "\U0001F1E0-\U0001F1FF"  # flags (iOS)
-        "\U0001F300-\U0001F5FF"  # symbols & pictographs
-        "\U0001F600-\U0001F64F"  # emoticons
-        "\U0001F680-\U0001F6FF"  # transport & map symbols
-        "\U0001F700-\U0001F77F"  # alchemical symbols
-        "\U0001F780-\U0001F7FF"  # Geometric Shapes Extended
-        "\U0001F800-\U0001F8FF"  # Supplemental Arrows-C
-        "\U0001F900-\U0001F9FF"  # Supplemental Symbols and Pictographs
-        "\U0001FA00-\U0001FA6F"  # Chess Symbols
-        "\U0001FA70-\U0001FAFF"  # Symbols and Pictographs Extended-A
-        "\U00002702-\U000027B0"  # Dingbats
-        "\U000024C2-\U0001F251"
-        "]+"
-    )
-    song_name = emoji_pattern.sub("", song_name)
+def _remove_accents(text: str) -> str:
+    """Strip diacritical marks for accent-insensitive comparison."""
+    return "".join(c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn")
 
-    # Remove common suffixes that interfere with the search
-    removals = [
-        r"\bofficial\b",
-        r"\bmusic\b",
-        r"\bvideo\b",
-        r"\baudio\b",
-        r"\blyrics?\b",
-        r"\bkaraoke\b",
-        r"\bkaraokê\b",
-        r"\bcomplete\b",
-        r"\bcompleto\b",
-        r"\bao vivo\b",
-        r"\blive\b",
-        r"\bremix\b",
-        r"\bversion\b",
-        r"\bfeat\.?\b",
-        r"\bft\.?\b",
-        r"\bremaster\b",
-        r"\bas popularized by\b",
-        r"\blyrics\b",
-        r"\bkarafun\b",
-        r"\binstrumental\b",
-        r"\bminus one\b",
-        r"\bminusone\b",
-        r"\bmade famous by\b",
-        r"\bby\b",
-        r"\bkaraoke version\b",
-        r"\bhd\b",
-        r"\bhq\b",
-        r"\bcoversph\b",
-        r"\bsingkaraoke\b",
-        r"\bin the style of\b",
-        r"\bno lead vocal\b",
-        r"\bwith lyrics\b",
-        r"\bcc\b",
-    ]
 
-    # Remove underscore
+def _split_query_parts(query: str) -> tuple[str, str]:
+    """Split a query like 'Artist - Title' into its two parts.
+
+    Tries splitting with surrounding spaces first, then without.
+    Returns (part1, part2) where part2 is empty if no separator found.
+    """
+    query_lower = query.lower()
+
+    # Try to split by " - " or " | " (with spaces)
+    parts = re.split(r"\s+[-\|\uff5c]\s+", query_lower)
+
+    # Fall back to splitting without spaces around separator
+    if len(parts) < 2:
+        parts = re.split(r"\s*[-\|\uff5c]\s*", query_lower)
+
+    if len(parts) >= 2:
+        return parts[0].strip(), parts[1].strip()
+    return query_lower.strip(), ""
+
+
+def _match_score(query_part: str, track_title: str) -> int:
+    """Score how well a query part matches a track title."""
+    if query_part == track_title:
+        return 100
+    if query_part in track_title:
+        return 50
+    return 0
+
+
+def _word_match_score(query_part: str, track_title: str) -> int:
+    """Score based on individual significant words matching."""
+    has_match = any(word in track_title for word in query_part.split() if len(word) > 3)
+    return 20 if has_match else 0
+
+
+def clean_search_query(song_name: str) -> str:
+    """Strip noise words, brackets, and emoji to isolate the core song identity."""
+    song_name = EMOJI_PATTERN.sub("", song_name)
     song_name = song_name.replace("_", " ")
-
-    # Remove content between parentheses and brackets
     song_name = re.sub(r"\([^)]*\)", "", song_name)
     song_name = re.sub(r"\[[^\]]*\]", "", song_name)
 
-    for pattern in removals:
+    for pattern in NOISE_WORDS:
         song_name = re.sub(pattern, "", song_name, flags=re.IGNORECASE)
 
-    return song_name.strip()
+    # Normalize whitespace: strip and collapse multiple spaces
+    song_name = re.sub(r"\s+", " ", song_name.strip())
+
+    return song_name
 
 
-def score_result(result, original_query):
+def score_result(result: dict, original_query: str) -> int:
+    """Score a Last.fm result against the original query for relevance."""
     score = 0
 
-    # Check if the song name or the artist name is written entirely in uppercase and penalize
     if result.get("name", "").isupper() or result.get("artist", "").isupper():
         score -= 10
 
     track_name = result.get("name", "").lower()
     artist_name = result.get("artist", "").lower()
 
-    # Remove acentos para comparação mais flexível
-    import unicodedata
+    part1, part2 = _split_query_parts(original_query)
 
-    def remove_accents(text):
-        return "".join(
-            c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn"
-        )
+    part1_normalized = clean_search_query(_remove_accents(part1))
+    part2_normalized = clean_search_query(_remove_accents(part2))
+    track_normalized = _remove_accents(track_name)
+    artist_normalized = _remove_accents(artist_name)
 
-    # Extract the parts of the query
-    # 1st - Try to split by " - " or "  " (with spaces)
-    query_parts = re.split(r"\s+[-|｜]\s+", original_query.lower())
+    score += _score_query_match(
+        part1_normalized, part2_normalized, track_normalized, artist_normalized
+    )
+    score += _score_penalties(
+        track_name, artist_name, artist_normalized, part1_normalized, part2_normalized
+    )
 
-    # 2nd - If there are not 2 parts, try to split by "-" or "" without spaces
-    if len(query_parts) < 2:
-        query_parts = re.split(r"\s*[-|｜]\s*", original_query.lower())
-
-    # Take the first two parts (ignoring the third such as "album1")
-    if len(query_parts) >= 2:
-        part1 = query_parts[0].strip()
-        part2 = query_parts[1].strip()
-    else:
-        part1 = original_query.lower().strip()
-        part2 = ""
-
-    # Normalize everything
-    part1_normalized = clean_search_query(remove_accents(part1))
-    part2_normalized = clean_search_query(remove_accents(part2))
-    track_title_normalized = remove_accents(track_name)
-    artist_name_normalized = remove_accents(artist_name)
-
-    # MAIN SCORING: Check both combinations
-    matched = False
-
-    # Case 1: part1 is title, part2 is artist (e.g., "Viva La Vida - Coldplay")
-    if part2:
-        if (
-            part1_normalized == track_title_normalized
-            and part2_normalized == artist_name_normalized
-        ):
-            score += 100
-            matched = True
-        elif (
-            part1_normalized == track_title_normalized or part1_normalized in track_title_normalized
-        ):
-            score += 50
-            matched = True
-
-    # Case 2: part1 is artist, part2 is title (ex: "Coldplay - Viva La Vida")
-    if part2 and not matched:
-        if (
-            part2_normalized == track_title_normalized
-            and part1_normalized == artist_name_normalized
-        ):
-            score += 100
-            matched = True
-        elif (
-            part2_normalized == track_title_normalized or part2_normalized in track_title_normalized
-        ):
-            score += 50
-            matched = True
-
-    # Case 3: has just one part
-    if not part2 and not matched:
-        if part1_normalized == track_title_normalized:
-            score += 100
-            matched = True
-        elif part1_normalized in track_title_normalized:
-            score += 50
-            matched = True
-
-    # If none of the combinations worked, try matching by words
-    if not matched:
-        # Try with part1
-        words_match = any(
-            word in track_title_normalized for word in part1_normalized.split() if len(word) > 3
-        )
-        if words_match:
-            score += 20
-            matched = True
-
-        # Try with part2
-        if part2 and not matched:
-            words_match = any(
-                word in track_title_normalized for word in part2_normalized.split() if len(word) > 3
-            )
-            if words_match:
-                score += 20
-                matched = True
-
-    # If there is no relation at all, penalize heavily
-    if not matched:
-        score -= 1000
-
-    # Check if there is no artist in part 1 or part 2 for penalization
-    if (
-        artist_name_normalized not in part1_normalized
-        and artist_name_normalized not in part2_normalized
-    ):
-        score -= 100
-
-    # Penalize duplicated name (e.g., "Viva La Vida - Coldplay" by the artist "Coldplay")
-    if artist_name in track_name.lower():
-        score -= 50
-
-    # Penalize special versions (we want the original)
-    bad_keywords = [
-        " - ",
-        "ao vivo",
-        "live",
-        "remix",
-        "version",
-        "karaoke",
-        "acoustic",
-        "instrumental",
-        "cover",
-        "radio edit",
-        "extended",
-    ]
-    for keyword in bad_keywords:
-        if keyword in track_name.lower():
-            score -= 30
-            break
-
-    # Penalize very long titles
-    if len(track_name) > 60:
-        score -= 20
-
-    # BONUS if it has MBID (usually more reliable)
     if result.get("mbid"):
         score += 5
 
     return score
 
 
-def get_best_result(results, original_query):
+def _score_query_match(part1: str, part2: str, track: str, artist: str) -> int:
+    """Score how well the query parts match the track and artist."""
+    if part2:
+        # Case 1: part1=title, part2=artist
+        if part1 == track and part2 == artist:
+            return 100
+        # Case 2: part1=artist, part2=title
+        if part2 == track and part1 == artist:
+            return 100
+        # Partial match on part1 as title
+        part1_score = _match_score(part1, track)
+        if part1_score > 0:
+            return part1_score
+        # Partial match on part2 as title
+        part2_score = _match_score(part2, track)
+        if part2_score > 0:
+            return part2_score
+    else:
+        # Single-part query
+        single_score = _match_score(part1, track)
+        if single_score > 0:
+            return single_score
+
+    # Fall back to word-level matching
+    word_score = _word_match_score(part1, track)
+    if word_score > 0:
+        return word_score
+    if part2:
+        word_score = _word_match_score(part2, track)
+        if word_score > 0:
+            return word_score
+
+    # No relation at all
+    return -1000
+
+
+def _score_penalties(
+    track_name: str,
+    artist_name: str,
+    artist_normalized: str,
+    part1_normalized: str,
+    part2_normalized: str,
+) -> int:
+    """Apply penalty deductions for undesirable result attributes."""
+    penalty = 0
+
+    if artist_normalized not in part1_normalized and artist_normalized not in part2_normalized:
+        penalty -= 100
+
+    if artist_name in track_name:
+        penalty -= 50
+
+    for keyword in SPECIAL_VERSION_KEYWORDS:
+        if keyword in track_name:
+            penalty -= 30
+            break
+
+    if len(track_name) > 60:
+        penalty -= 20
+
+    return penalty
+
+
+def _detect_artist_first(original_query: str, artist: str, title: str) -> bool:
+    """Detect if the original query uses 'Artist - Title' format."""
+    query_parts = re.split(r"\s+[-\|\uff5c]\s+", original_query.lower())
+    if len(query_parts) < 2:
+        query_parts = re.split(r"\s*[-\|\uff5c]\s*", original_query.lower())
+    if len(query_parts) < 2:
+        return False
+
+    def normalize(text: str) -> str:
+        return _remove_accents(clean_search_query(text.strip().lower()))
+
+    def is_similar(a: str, b: str) -> bool:
+        return bool(a) and bool(b) and (a == b or a in b or b in a)
+
+    part1 = normalize(query_parts[0])
+    part2 = normalize(query_parts[1])
+    artist_norm = normalize(artist)
+    title_norm = normalize(title)
+
+    part1_is_artist = is_similar(part1, artist_norm)
+    part1_is_title = is_similar(part1, title_norm)
+    part2_is_artist = is_similar(part2, artist_norm)
+    part2_is_title = is_similar(part2, title_norm)
+
+    # Both parts match their expected positions
+    if part1_is_artist and part2_is_title:
+        return True
+    if part1_is_title and part2_is_artist:
+        return False
+
+    # Single-part matches on part1
+    if part1_is_artist and not part1_is_title:
+        return True
+    if part1_is_title and not part1_is_artist:
+        return False
+
+    # Cross-reference with part2
+    if part2_is_title and not part2_is_artist:
+        return True
+    if part2_is_artist and not part2_is_title:
+        return False
+
+    return False
+
+
+def _normalize_for_comparison(text: str) -> str:
+    """Normalize text for artist/track comparison by removing punctuation."""
+    # Remove common punctuation that might differ (e.g., "a-ha" vs "a ha")
+    normalized = re.sub(r"[._\-']", " ", text.lower())
+    # Collapse multiple spaces
+    normalized = re.sub(r"\s+", " ", normalized)
+    return normalized.strip()
+
+
+def _strip_artist_from_track(track_name: str, artist_name: str) -> str:
+    """Remove artist name from track title if it's embedded.
+
+    Last.fm sometimes returns track names like 'Artist - Title' or 'Artist-Title'.
+    Handles variations like "a-ha" vs "A ha" where punctuation differs.
+    """
+    # Normalize both for fuzzy comparison (handles "a-ha" vs "a ha")
+    track_normalized = _normalize_for_comparison(track_name)
+    artist_normalized = _normalize_for_comparison(artist_name)
+
+    # Check if track starts with artist name (normalized)
+    if track_normalized.startswith(artist_normalized + " "):
+        # Find the separator in the original track name
+        # Look for pattern: [artist-like-text] [separator] [title]
+        separator_pattern = r"^.{0,50}?(?:\s*[-–—|:]\s*|\s+/\s+)(.+)$"
+        match = re.match(separator_pattern, track_name)
+
+        if match:
+            # Verify the part before separator matches the artist (normalized)
+            before_separator = track_name[: match.start(1)].strip()
+            # Remove the separator
+            before_separator = re.sub(r"\s*[-–—|:/]\s*$", "", before_separator)
+
+            if _normalize_for_comparison(before_separator) == artist_normalized:
+                return match.group(1)
+
+    return track_name
+
+
+def _preserve_original_artist(original_name: str, lastfm_artist: str) -> str | None:
+    """Use the original artist from filename when Last.fm returned a subset.
+
+    Last.fm only returns a single primary artist, but the original filename
+    may credit multiple artists (e.g., 'Elton John & Kiki Dee'). If the
+    Last.fm artist appears within the original artist part, preserve the original.
+    """
+    parts = re.split(r"\s+[-|]\s+", original_name, maxsplit=1)
+    if len(parts) < 2:
+        return None
+
+    original_artist = parts[0].strip()
+    lastfm_lower = lastfm_artist.lower()
+    original_lower = original_artist.lower()
+
+    has_multi_artist = any(sep in original_lower for sep in [" & ", " and ", ", "])
+    if has_multi_artist and lastfm_lower in original_lower and lastfm_lower != original_lower:
+        return original_artist
+
+    return None
+
+
+def get_best_result(
+    results: list[dict] | None, original_query: str, original_name: str | None = None
+) -> str | None:
+    """Select the highest-scoring result and format to match the input convention."""
     if not results:
         return None
 
-    scored_results = []
+    best = max(results, key=lambda r: score_result(r, original_query))
 
-    for result in results:
-        score = score_result(result, original_query)
-        scored_results.append((score, result))
+    # Strip parenthetical extras like "(feat. ...)" or "(Single 2014)" from track names
+    clean_track_name = re.sub(r"\s*\([^)]*\)", "", best["name"])
 
-    # Sort by score (highest first)
-    scored_results.sort(reverse=True, key=lambda x: x[0])
+    # Strip artist from track name if it's duplicated
+    clean_track_name = _strip_artist_from_track(clean_track_name, best["artist"])
 
-    best = scored_results[0][1]
+    # Preserve multi-artist credits from the original filename
+    artist = best["artist"]
+    if original_name:
+        preserved = _preserve_original_artist(original_name, artist)
+        if preserved:
+            artist = preserved
 
-    return f"{best['name']} - {best['artist']}"
+    format_query = original_name or original_query
+    if _detect_artist_first(format_query, best["artist"], clean_track_name):
+        return f"{artist} - {clean_track_name}"
+
+    return f"{clean_track_name} - {artist}"
 
 
-def get_song_correct_name(song):
+@lru_cache(maxsize=500)
+def get_song_correct_name(song: str) -> str | None:
+    """Look up the canonical song name via the Last.fm API.
+
+    Results are cached to avoid repeated API calls for the same song.
+    Cache persists for the lifetime of the process.
+    Respects Last.fm's rate limit of 1 request per second.
+    """
+    global _last_api_request_time
+
     cleaned_query = clean_search_query(song)
+
+    # Rate limiting: ensure at least 1 second between API requests
+    elapsed = time.time() - _last_api_request_time
+    if elapsed < LASTFM_RATE_LIMIT:
+        time.sleep(LASTFM_RATE_LIMIT - elapsed)
 
     params = {
         "method": "track.search",
         "track": cleaned_query,
-        "api_key": api_key,
+        "api_key": LASTFM_API_KEY,
         "format": "json",
-        #  'limit': 10
     }
 
-    response = requests.get(url, params=params)
+    response = requests.get(LASTFM_API_URL, params=params)
+    _last_api_request_time = time.time()
 
     if response.status_code != 200:
+        logging.warning(
+            f"Last.fm API returned status {response.status_code} for query: {cleaned_query}"
+        )
         return None
 
-    data = response.json()
+    try:
+        data = response.json()
+    except requests.exceptions.JSONDecodeError:
+        logging.error(f"Last.fm API returned invalid JSON for query: {cleaned_query}")
+        logging.error(f"Response text: {response.text[:200]}")
+        return None
+
     results = data.get("results", {}).get("trackmatches", {}).get("track", [])
 
     if not results:
         return None
 
-    return get_best_result(results, cleaned_query)
+    return get_best_result(results, cleaned_query, original_name=song)
+
+
+def _normalize_name_for_comparison(name: str) -> str:
+    """Normalize a song name for comparison purposes.
+
+    Handles different dash characters, whitespace, and case to detect
+    when two names are effectively identical.
+    """
+    if not name:
+        return ""
+
+    # Normalize all dash-like characters to standard hyphen
+    # U+002D hyphen-minus, U+2013 en dash, U+2014 em dash, U+2212 minus sign
+    name = re.sub(r"[-–—−]", "-", name)
+
+    # Normalize whitespace: strip and collapse multiple spaces
+    name = re.sub(r"\s+", " ", name.strip())
+
+    # Lowercase for case-insensitive comparison
+    return name.lower()
+
+
+def _error_response(message: str) -> dict:
+    return {"success": False, "message": message, "categoryClass": "is-danger"}
 
 
 @batch_song_renamer_bp.route("/batch-song-renamer", methods=["GET", "POST"])
@@ -371,9 +539,7 @@ def browse():
         return redirect(url_for("files.browse"))
 
     site_name = get_site_name()
-
-    show_all_songs = "show_all_songs" in request.args and request.args["show_all_songs"] == "true"
-
+    show_all_songs = request.args.get("show_all_songs") == "true"
     page = request.args.get(get_page_parameter(), type=int, default=1)
 
     # MSG: Title of the button to accept the suggested name
@@ -395,39 +561,36 @@ def get_all_songs():
         return redirect(url_for("files.browse"))
 
     page = request.args.get(get_page_parameter(), type=int, default=1)
-    start_index = (page - 1) * results_per_page
-
-    skip = page * results_per_page - results_per_page
+    start_index = (page - 1) * RESULTS_PER_PAGE
 
     k = get_karaoke_instance()
     available_songs = k.song_manager.songs
-
-    songs = []
 
     pagination = Pagination(
         css_framework="bulma",
         page=page,
         total=len(available_songs),
         record_name="songs",
-        per_page=results_per_page,
+        per_page=RESULTS_PER_PAGE,
         href="batch-song-renamer?show_all_songs=true&page={0}",
     )
 
-    for song in available_songs[start_index : start_index + results_per_page]:
+    songs = []
+    for song in available_songs[start_index : start_index + RESULTS_PER_PAGE]:
         song_name = k.song_manager.filename_from_path(song)
         correct_name = get_song_correct_name(song_name)
-        songs.append({"file": song, "correct_name": correct_name})
+        # Compare normalized versions to detect effectively identical names
+        is_equal = _normalize_name_for_comparison(song_name) == _normalize_name_for_comparison(
+            correct_name or ""
+        )
+        songs.append({"file": song, "correct_name": correct_name, "is_equal": is_equal})
 
-    table_lines_html = render_template_string(table_lines_template, songs=songs, skip=skip)
+    table_lines_html = render_template_string(table_lines_template, songs=songs, skip=start_index)
     html = render_template_string(
         all_songs_template, pagination=pagination, table_lines=table_lines_html
     )
 
-    return jsonify(
-        {
-            "html": html,
-        }
-    )
+    return jsonify({"html": html})
 
 
 @batch_song_renamer_bp.route("/batch-song-renamer/get-songs-to-rename", methods=["GET"])
@@ -442,23 +605,25 @@ def get_songs_to_rename():
     available_songs = k.song_manager.songs
 
     songs = []
+    skip = page * RESULTS_PER_PAGE
 
-    i = 0
-    max = 10
-    skip = page * max
-
-    while i < max:
-        if song_index >= len(available_songs):
-            break
+    # Keep searching until we find RESULTS_PER_PAGE songs that need renaming
+    collected = 0
+    while collected < RESULTS_PER_PAGE and song_index < len(available_songs):
         song = available_songs[song_index]
         song_name = k.song_manager.filename_from_path(song)
         correct_name = get_song_correct_name(song_name)
-        if song_name == correct_name:
-            song_index += 1
-            continue
-        songs.append({"file": song, "correct_name": correct_name})
         song_index += 1
-        i += 1
+
+        # Skip if names are effectively identical (normalized comparison)
+        if _normalize_name_for_comparison(song_name) == _normalize_name_for_comparison(
+            correct_name or ""
+        ):
+            continue
+
+        is_equal = False  # By definition, not equal if we got here
+        songs.append({"file": song, "correct_name": correct_name, "is_equal": is_equal})
+        collected += 1
 
     table_lines_html = render_template_string(table_lines_template, songs=songs, skip=skip)
     html = render_template_string(
@@ -471,49 +636,47 @@ def get_songs_to_rename():
 @batch_song_renamer_bp.route("/batch-song-renamer/rename-song", methods=["POST"])
 def rename_song():
     k = get_karaoke_instance()
+    form_data = request.form.to_dict()
 
-    d = request.form.to_dict()
-
-    queue_error_msg = ()
-
-    if "new_name" in d and "old_name" in d:
-        new_name = d["new_name"].strip()
-        old_name = d["old_name"]
-
-        if k.queue_manager.is_song_in_queue(old_name):
-            # MSG: Message shown after trying to edit a song that is in the queue.
-            queue_error_msg = {
-                "success": False,
-                "message": _("Error: Can't edit this song because it is in the current queue: ")
-                + old_name,
-                "categoryClass": "is-danger",
-            }
-        else:
-            # check if new_name already exist
-            file_extension = os.path.splitext(old_name)[1]
-            if os.path.isfile(
-                os.path.join(k.song_manager.download_path, new_name + file_extension)
-            ):
-                # MSG: Message shown after trying to rename a file to a name that already exists.
-                queue_error_msg = {
-                    "success": False,
-                    "message": _("Error renaming file: '%s' to '%s', Filename already exists")
-                    % (old_name, new_name + file_extension),
-                    "categoryClass": "is-danger",
-                }
-            else:
-                ext = os.path.splitext(old_name)
-                k.song_manager.rename(old_name, new_name)
-                new_file_full_path = os.path.join(k.song_manager.download_path, new_name + ext[1])
-                queue_error_msg = {"success": True, "new_file_name": new_file_full_path}
-    else:
+    if "new_name" not in form_data or "old_name" not in form_data:
         # MSG: Message shown after trying to edit a song without specifying the filename.
+        return jsonify(_error_response(_("Error: No filename parameters were specified!")))
+
+    new_name = form_data["new_name"].strip()
+    old_name = form_data["old_name"]
+
+    if k.queue_manager.is_song_in_queue(old_name):
+        # MSG: Message shown after trying to edit a song that is in the queue.
         return jsonify(
-            {
-                "success": False,
-                "message": _("Error: No filename parameters were specified!"),
-                "categoryClass": "is-danger",
-            }
+            _error_response(
+                _("Error: Can't edit this song because it is in the current queue: ") + old_name
+            )
         )
 
-    return jsonify(queue_error_msg)
+    file_extension = os.path.splitext(old_name)[1]
+    old_name_only = k.song_manager.filename_from_path(old_name, remove_youtube_id=False)
+    new_full_path = os.path.join(k.song_manager.download_path, new_name + file_extension)
+
+    # Check if new file already exists (but not a case-only rename)
+    if os.path.isfile(new_full_path):
+        # Allow case-only renames on case-insensitive filesystems
+        if old_name_only.lower() != new_name.lower():
+            # MSG: Message shown after trying to rename a file to a name that already exists.
+            return jsonify(
+                _error_response(
+                    _("Error renaming file: '%s' to '%s', Filename already exists")
+                    % (old_name, new_name + file_extension)
+                )
+            )
+
+    # Handle case-only renames on Windows (case-insensitive filesystem)
+    if old_name_only.lower() == new_name.lower() and old_name_only != new_name:
+        # Two-step rename: old -> temp -> new
+        temp_name = f"{new_name}_temp_{int(time.time() * 1000)}"
+        k.song_manager.rename(old_name, temp_name)
+        temp_path = os.path.join(k.song_manager.download_path, temp_name + file_extension)
+        k.song_manager.rename(temp_path, new_name)
+    else:
+        k.song_manager.rename(old_name, new_name)
+
+    return jsonify({"success": True, "new_file_name": new_full_path})

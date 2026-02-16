@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from pikaraoke.routes.batch_song_renamer import (
+    _detect_artist_first,
     clean_search_query,
     get_best_result,
     get_song_correct_name,
@@ -240,6 +241,40 @@ class TestScoreResult:
         assert isinstance(score, int)
 
 
+class TestDetectArtistFirst:
+    """Tests for the _detect_artist_first format detection function."""
+
+    def test_detects_artist_first(self):
+        assert _detect_artist_first("Coldplay - Viva La Vida", "Coldplay", "Viva La Vida") is True
+
+    def test_detects_title_first(self):
+        assert _detect_artist_first("Viva La Vida - Coldplay", "Coldplay", "Viva La Vida") is False
+
+    def test_no_separator_returns_false(self):
+        assert _detect_artist_first("Bohemian Rhapsody", "Queen", "Bohemian Rhapsody") is False
+
+    def test_handles_accented_characters(self):
+        assert _detect_artist_first("Beyonce - Halo", "Beyonc\u00e9", "Halo") is True
+
+    def test_partial_artist_match(self):
+        assert _detect_artist_first("Coldplay Band - Song", "Coldplay", "Song") is True
+
+    def test_cross_references_part2_when_part1_ambiguous(self):
+        """When part1 doesn't match, part2 matching title confirms Artist - Title."""
+        assert _detect_artist_first("AC DC - Back In Black", "AC/DC", "Back in Black") is True
+
+    def test_cross_references_part2_for_title_first(self):
+        """When part1 doesn't match, part2 matching artist confirms Title - Artist."""
+        assert _detect_artist_first("Back In Black - AC DC", "AC/DC", "Back in Black") is False
+
+    def test_no_space_separator(self):
+        """Fallback regex handles separators without surrounding spaces."""
+        assert _detect_artist_first("Artist-Song Title", "Artist", "Song Title") is True
+
+    def test_fullwidth_pipe_separator(self):
+        assert _detect_artist_first("Artist \uff5c Song", "Artist", "Song") is True
+
+
 class TestGetBestResult:
     """Tests for the get_best_result function."""
 
@@ -251,10 +286,16 @@ class TestGetBestResult:
         """Test that None results return None."""
         assert get_best_result(None, "Artist - Song") is None
 
-    def test_returns_formatted_string(self):
-        """Test that result is formatted as 'name - artist'."""
+    def test_preserves_artist_first_format(self):
+        """Test that 'Artist - Title' input format is preserved in output."""
         results = [{"name": "Song Title", "artist": "Artist Name"}]
         result = get_best_result(results, "Artist Name - Song Title")
+        assert result == "Artist Name - Song Title"
+
+    def test_preserves_title_first_format(self):
+        """Test that 'Title - Artist' input format is preserved in output."""
+        results = [{"name": "Song Title", "artist": "Artist Name"}]
+        result = get_best_result(results, "Song Title - Artist Name")
         assert result == "Song Title - Artist Name"
 
     def test_selects_best_match(self):
@@ -311,7 +352,7 @@ class TestGetSongCorrectName:
             }
         }
         result = get_song_correct_name("Coldplay - Viva La Vida")
-        assert result == "Viva La Vida - Coldplay"
+        assert result == "Coldplay - Viva La Vida"
 
     @patch("pikaraoke.routes.batch_song_renamer.requests.get")
     def test_cleans_query_before_search(self, mock_get):
@@ -324,6 +365,22 @@ class TestGetSongCorrectName:
         params = call_args[1]["params"]
         assert "karaoke" not in params["track"].lower()
         assert "official" not in params["track"].lower()
+
+    @patch("pikaraoke.routes.batch_song_renamer.requests.get")
+    def test_preserves_format_from_original_filename(self, mock_get):
+        """Test that format detection uses the original filename, not the cleaned query."""
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = {
+            "results": {
+                "trackmatches": {
+                    "track": [
+                        {"name": "Song Title", "artist": "Artist Name"},
+                    ]
+                }
+            }
+        }
+        result = get_song_correct_name("Artist Name - Song Title (Official Video) karaoke")
+        assert result == "Artist Name - Song Title"
 
     @patch("pikaraoke.routes.batch_song_renamer.requests.get")
     def test_returns_none_on_missing_trackmatches(self, mock_get):
