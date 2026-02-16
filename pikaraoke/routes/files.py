@@ -82,6 +82,8 @@ def browse():
     args = request.args.copy()
     args.pop("_", None)
 
+    current_url = url_for("files.browse", **args.to_dict())
+
     page_param = get_page_parameter()
     args[page_param] = "{0}"
 
@@ -109,6 +111,7 @@ def browse():
         title=_("Browse"),
         songs=songs[start_index : start_index + results_per_page],
         admin=is_admin(),
+        current_url=current_url,
     )
 
 
@@ -148,7 +151,8 @@ def delete_file():
     else:
         # MSG: Message shown after trying to delete a song without specifying the song.
         flash(_("Error: No song specified!"), "is-danger")
-    return redirect(url_for("files.browse"))
+    referrer = request.args.get("referrer") or url_for("files.browse")
+    return redirect(referrer)
 
 
 @files_bp.route("/files/edit", methods=["GET", "POST"])
@@ -159,18 +163,21 @@ def edit_file():
     queue_error_msg = _("Error: Can't edit this song because it is in the current queue: ")
     if "song" in request.args:
         song_path = request.args["song"]
+        referrer = request.args.get("referrer") or url_for("files.browse")
         if k.queue_manager.is_song_in_queue(song_path):
             flash(queue_error_msg + song_path, "is-danger")
-            return redirect(url_for("files.browse"))
+            return redirect(referrer)
         else:
             return render_template(
                 "edit.html",
                 site_title=site_name,
                 title="Song File Edit",
                 song=song_path,
+                referrer=referrer,
             )
     else:
         d = request.form.to_dict()
+        referrer = d.get("referrer") or url_for("files.browse")
         if "new_file_name" in d and "old_file_name" in d:
             new_name = d["new_file_name"]
             old_name = d["old_file_name"]
@@ -207,4 +214,4 @@ def edit_file():
         else:
             # MSG: Message shown after trying to edit a song without specifying the filename.
             flash(_("Error: No filename parameters were specified!"), "is-danger")
-        return redirect(url_for("files.browse"))
+        return redirect(referrer)
