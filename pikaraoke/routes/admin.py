@@ -10,9 +10,8 @@ import threading
 import time
 
 import flask_babel
-from flask import flash, make_response, redirect, render_template, url_for
+from flask import flash, make_response, redirect, render_template, request, url_for
 from flask_smorest import Blueprint
-from marshmallow import Schema, fields
 
 from pikaraoke.karaoke import Karaoke
 from pikaraoke.lib.current_app import get_admin_password, get_karaoke_instance, is_admin
@@ -21,16 +20,6 @@ from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
 _ = flask_babel.gettext
 
 admin_bp = Blueprint("admin", __name__)
-
-
-class AuthForm(Schema):
-    admin_password = fields.String(
-        required=True, metadata={"description": "Admin password for authentication"}
-    )
-    next = fields.String(
-        load_default="/",
-        metadata={"description": "URL to redirect to after successful authentication"},
-    )
 
 
 def delayed_halt(cmd: int, k: Karaoke):
@@ -154,12 +143,11 @@ def expand_fs():
 
 
 @admin_bp.route("/auth", methods=["POST"])
-@admin_bp.arguments(AuthForm, location="form")
-def auth(form):
+def auth():
     """Authenticate as admin."""
     admin_password = get_admin_password()
-    p = form["admin_password"]
-    next_url = form["next"]
+    p = request.form.get("admin_password", "")
+    next_url = request.form.get("next", "/")
 
     # Validate next_url to prevent open redirect vulnerabilities
     if not next_url.startswith("/"):

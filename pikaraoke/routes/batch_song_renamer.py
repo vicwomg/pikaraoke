@@ -24,15 +24,6 @@ _ = flask_babel.gettext
 batch_song_renamer_bp = Blueprint("batch_song_renamer", __name__)
 
 
-class BatchRenamerQuery(Schema):
-    show_all_songs = fields.String(
-        metadata={
-            "description": "Set to 'true' to show all songs instead of only those needing renaming"
-        }
-    )
-    page = fields.Integer(load_default=1, metadata={"description": "Page number for pagination"})
-
-
 class GetAllSongsQuery(Schema):
     page = fields.Integer(load_default=1, metadata={"description": "Page number for pagination"})
 
@@ -394,17 +385,16 @@ def get_song_correct_name(song):
 
 
 @batch_song_renamer_bp.route("/batch-song-renamer", methods=["GET", "POST"])
-@batch_song_renamer_bp.arguments(BatchRenamerQuery, location="query")
-def browse(query):
+def browse():
     """Batch song renamer page."""
     if not is_admin():
         return redirect(url_for("files.browse"))
 
     site_name = get_site_name()
 
-    show_all_songs = query.get("show_all_songs") == "true"
+    show_all_songs = request.args.get("show_all_songs") == "true"
 
-    page = query.get("page", 1)
+    page = int(request.args.get("page", 1))
 
     # MSG: Title of the button to accept the suggested name
     _("Accept suggested name")

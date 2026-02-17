@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 import flask_babel
-from flask import current_app, flash, redirect, render_template, url_for
+from flask import current_app, flash, redirect, render_template, request, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
@@ -15,13 +15,6 @@ from pikaraoke.lib.youtube_dl import get_search_results
 _ = flask_babel.gettext
 
 search_bp = Blueprint("search", __name__)
-
-
-class SearchQuery(Schema):
-    search_string = fields.String(metadata={"description": "YouTube search query"})
-    non_karaoke = fields.String(
-        metadata={"description": "Set to 'true' to search without appending 'karaoke' to query"}
-    )
 
 
 class AutocompleteQuery(Schema):
@@ -40,14 +33,13 @@ class DownloadForm(Schema):
 
 
 @search_bp.route("/search", methods=["GET"])
-@search_bp.arguments(SearchQuery, location="query")
-def search(query):
+def search():
     """YouTube search page."""
     k = get_karaoke_instance()
     site_name = get_site_name()
-    search_string = query.get("search_string")
+    search_string = request.args.get("search_string")
     if search_string:
-        non_karaoke = query.get("non_karaoke") == "true"
+        non_karaoke = request.args.get("non_karaoke") == "true"
         if non_karaoke:
             search_results = get_search_results(search_string)
         else:

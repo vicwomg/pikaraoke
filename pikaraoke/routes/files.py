@@ -21,23 +21,9 @@ _ = flask_babel.gettext
 files_bp = Blueprint("files", __name__)
 
 
-class BrowseQuery(Schema):
-    q = fields.String(metadata={"description": "Search filter query"})
-    page = fields.Integer(load_default=1, metadata={"description": "Page number for pagination"})
-    letter = fields.String(metadata={"description": "Filter songs by first letter (or 'numeric')"})
-    sort = fields.String(
-        metadata={"description": "Sort order ('date' for newest first, omit for alphabetical)"}
-    )
-
-
-class DeleteFileQuery(Schema):
-    song = fields.String(metadata={"description": "Path to the song file to delete"})
-    referrer = fields.String(metadata={"description": "URL to redirect back to after deletion"})
-
-
-class EditFileQuery(Schema):
-    song = fields.String(metadata={"description": "Path to the song file to edit"})
-    referrer = fields.String(metadata={"description": "URL to redirect back to after editing"})
+class SongReferrerQuery(Schema):
+    song = fields.String(metadata={"description": "Path to the song file"})
+    referrer = fields.String(metadata={"description": "URL to redirect back to"})
 
 
 class EditFileForm(Schema):
@@ -47,20 +33,19 @@ class EditFileForm(Schema):
 
 
 @files_bp.route("/browse", methods=["GET"])
-@files_bp.arguments(BrowseQuery, location="query")
-def browse(query):
+def browse():
     """Browse available songs page."""
     k = get_karaoke_instance()
     site_name = get_site_name()
     search = False
-    q = query.get("q")
+    q = request.args.get("q")
     if q:
         search = True
-    page = query.get("page", 1)
+    page = int(request.args.get("page", 1))
 
     available_songs = k.song_manager.songs
 
-    letter = query.get("letter")
+    letter = request.args.get("letter")
 
     if letter:
         result = []
@@ -79,7 +64,7 @@ def browse(query):
                     result.append(song)
         available_songs = result
 
-    if query.get("sort") == "date":
+    if request.args.get("sort") == "date":
         songs = sorted(available_songs, key=lambda x: os.path.getmtime(x))
         songs.reverse()
         sort_order = "Date"
@@ -126,7 +111,7 @@ def browse(query):
 
 
 @files_bp.route("/files/delete", methods=["GET"])
-@files_bp.arguments(DeleteFileQuery, location="query")
+@files_bp.arguments(SongReferrerQuery, location="query")
 def delete_file(query):
     """Delete a song file."""
     k = get_karaoke_instance()
@@ -154,7 +139,7 @@ def delete_file(query):
 
 
 @files_bp.route("/files/edit", methods=["GET", "POST"])
-@files_bp.arguments(EditFileQuery, location="query")
+@files_bp.arguments(SongReferrerQuery, location="query")
 @files_bp.arguments(EditFileForm, location="form")
 def edit_file(query, form):
     """Edit a song filename."""
