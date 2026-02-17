@@ -37,6 +37,11 @@ class ReorderForm(Schema):
     )
 
 
+class EnqueueQuery(Schema):
+    song = fields.String(metadata={"description": "Path to the song file"})
+    user = fields.String(metadata={"description": "Name of the user adding the song"})
+
+
 class QueueEditQuery(Schema):
     action = fields.String(required=True, metadata={"description": "Queue edit action to perform"})
     song = fields.String(
@@ -169,11 +174,12 @@ def queue_edit(query):
 
 
 @queue_bp.route("/enqueue", methods=["POST", "GET"])
-def enqueue():
+@queue_bp.arguments(EnqueueQuery, location="query")
+def enqueue(query):
     """Add a song to the queue."""
     k = get_karaoke_instance()
-    song = request.args.get("song") or request.form["song_to_add"]
-    user = request.args.get("user") or request.form["song_added_by"]
+    song = query.get("song") or request.form["song_to_add"]
+    user = query.get("user") or request.form["song_added_by"]
     rc = k.queue_manager.enqueue(song, user)
     broadcast_event("queue_update")
     song_title = k.song_manager.filename_from_path(song)

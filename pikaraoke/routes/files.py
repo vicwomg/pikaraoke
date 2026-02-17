@@ -35,6 +35,17 @@ class DeleteFileQuery(Schema):
     referrer = fields.String(metadata={"description": "URL to redirect back to after deletion"})
 
 
+class EditFileQuery(Schema):
+    song = fields.String(metadata={"description": "Path to the song file to edit"})
+    referrer = fields.String(metadata={"description": "URL to redirect back to after editing"})
+
+
+class EditFileForm(Schema):
+    new_file_name = fields.String(metadata={"description": "New filename (without extension)"})
+    old_file_name = fields.String(metadata={"description": "Current full path of the song file"})
+    referrer = fields.String(metadata={"description": "URL to redirect back to after editing"})
+
+
 @files_bp.route("/browse", methods=["GET"])
 @files_bp.arguments(BrowseQuery, location="query")
 def browse(query):
@@ -143,15 +154,17 @@ def delete_file(query):
 
 
 @files_bp.route("/files/edit", methods=["GET", "POST"])
-def edit_file():
+@files_bp.arguments(EditFileQuery, location="query")
+@files_bp.arguments(EditFileForm, location="form")
+def edit_file(query, form):
     """Edit a song filename."""
     k = get_karaoke_instance()
     site_name = get_site_name()
     # MSG: Message shown after trying to edit a song that is in the queue.
     queue_error_msg = _("Error: Can't edit this song because it is in the current queue: ")
-    if "song" in request.args:
-        song_path = request.args["song"]
-        referrer = request.args.get("referrer") or url_for("files.browse")
+    if "song" in query:
+        song_path = query["song"]
+        referrer = query.get("referrer") or url_for("files.browse")
         if k.queue_manager.is_song_in_queue(song_path):
             flash(queue_error_msg + song_path, "is-danger")
             return redirect(referrer)
@@ -164,11 +177,10 @@ def edit_file():
                 referrer=referrer,
             )
     else:
-        d = request.form.to_dict()
-        referrer = d.get("referrer") or url_for("files.browse")
-        if "new_file_name" in d and "old_file_name" in d:
-            new_name = d["new_file_name"]
-            old_name = d["old_file_name"]
+        referrer = form.get("referrer") or url_for("files.browse")
+        if "new_file_name" in form and "old_file_name" in form:
+            new_name = form["new_file_name"]
+            old_name = form["old_file_name"]
             if k.queue_manager.is_song_in_queue(old_name):
                 # check one more time just in case someone added it during editing
                 flash(queue_error_msg + old_name, "is-danger")

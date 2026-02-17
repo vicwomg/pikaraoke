@@ -80,19 +80,19 @@ _api_blueprints = [
     files_bp,
     preferences_bp,
     admin_bp,
-    batch_song_renamer_bp,
     controller_bp,
+    background_music_bp,
+    images_bp,
+    nowplaying_bp,
 ]
 
-# Blueprints hidden from /apidocs (path-params-only or internal UI routes)
+# Blueprints hidden from /apidocs (internal UI routes)
 _internal_blueprints = [
     home_bp,
     info_bp,
     splash_bp,
-    nowplaying_bp,
     stream_bp,
-    background_music_bp,
-    images_bp,
+    batch_song_renamer_bp,
 ]
 
 for bp in _api_blueprints:
