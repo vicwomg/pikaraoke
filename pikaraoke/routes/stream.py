@@ -5,13 +5,13 @@ import re
 import time
 
 import flask_babel
-from flask import Response, flash, make_response, redirect, request, send_file, url_for
+from flask import Response, make_response, request, send_file
 from flask_smorest import Blueprint
+
+_ = flask_babel.gettext
 
 from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.file_resolver import FileResolver, get_tmp_dir
-
-_ = flask_babel.gettext
 
 stream_bp = Blueprint("stream", __name__)
 
@@ -184,9 +184,7 @@ def stream_file_path_full(file_path):
         }
         return Response(data, status=status_code, headers=headers)
     except IOError:
-        # MSG: Message shown after trying to stream a file that does not exist.
-        flash(_("File not found."), "is-danger")
-        return redirect(url_for("home.home"))
+        return Response("File not found.", status=404)
 
 
 # Streams the file in full with proper range headers

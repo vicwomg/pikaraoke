@@ -86,6 +86,7 @@ _api_blueprints = [
     background_music_bp,
     images_bp,
     nowplaying_bp,
+    stream_bp,
 ]
 
 # Blueprints hidden from /apidocs (internal UI routes)
@@ -93,7 +94,6 @@ _internal_blueprints = [
     home_bp,
     info_bp,
     splash_bp,
-    stream_bp,
     batch_song_renamer_bp,
 ]
 
