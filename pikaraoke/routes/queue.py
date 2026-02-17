@@ -37,6 +37,20 @@ class ReorderForm(Schema):
     )
 
 
+class EnqueueQuery(Schema):
+    song = fields.String(required=True, metadata={"description": "Path to the song file"})
+    user = fields.String(
+        load_default="", metadata={"description": "Name of the user adding the song"}
+    )
+
+
+class EnqueueForm(Schema):
+    song_to_add = fields.String(required=True, metadata={"description": "Path to the song file"})
+    song_added_by = fields.String(
+        load_default="", metadata={"description": "Name of the user adding the song"}
+    )
+
+
 class QueueEditQuery(Schema):
     action = fields.String(required=True, metadata={"description": "Queue edit action to perform"})
     song = fields.String(
@@ -168,22 +182,26 @@ def queue_edit(query):
     return redirect(url_for("queue.queue"))
 
 
-@queue_bp.route("/enqueue", methods=["POST", "GET"])
-def enqueue():
-    """Add a song to the queue."""
+def _do_enqueue(song: str, user: str) -> str:
     k = get_karaoke_instance()
-    if request.method == "POST":
-        song = request.form.get("song_to_add")
-        user = request.form.get("song_added_by", "")
-    else:
-        song = request.args.get("song")
-        user = request.args.get("user", "")
-    if not song:
-        return json.dumps({"song": None, "success": False}), 400
     rc = k.queue_manager.enqueue(song, user)
     broadcast_event("queue_update")
     song_title = k.song_manager.filename_from_path(song)
     return json.dumps({"song": song_title, "success": rc})
+
+
+@queue_bp.route("/enqueue", methods=["GET"])
+@queue_bp.arguments(EnqueueQuery, location="query")
+def enqueue_get(query):
+    """Add a song to the queue (used by the file browser)."""
+    return _do_enqueue(query["song"], query["user"])
+
+
+@queue_bp.route("/enqueue", methods=["POST"])
+@queue_bp.arguments(EnqueueForm, location="form")
+def enqueue_post(form):
+    """Add a song to the queue (used by the search page)."""
+    return _do_enqueue(form["song_to_add"], form["song_added_by"])
 
 
 @queue_bp.route("/queue/downloads")
