@@ -192,14 +192,14 @@ def _do_enqueue(song: str, user: str) -> str:
 
 @queue_bp.route("/enqueue", methods=["GET"])
 @queue_bp.arguments(EnqueueQuery, location="query")
-def enqueue_get(query):
+def enqueue(query):
     """Add a song to the queue (used by the file browser)."""
     return _do_enqueue(query["song"], query["user"])
 
 
 @queue_bp.route("/enqueue", methods=["POST"])
 @queue_bp.arguments(EnqueueForm, location="form")
-def enqueue_post(form):
+def enqueue_form(form):
     """Add a song to the queue (used by the search page)."""
     return _do_enqueue(form["song_to_add"], form["song_added_by"])
 
