@@ -108,7 +108,7 @@ def test_preference_manager_type_conversion_string(temp_config_file):
 
 
 def test_preference_manager_clear(temp_config_file):
-    """Test clearing all preferences."""
+    """Test clearing user preferences removes [USERPREFERENCES] section."""
     prefs = PreferenceManager(temp_config_file)
 
     # Set some preferences
@@ -124,8 +124,8 @@ def test_preference_manager_clear(temp_config_file):
     assert success is True
     assert "successfully" in message.lower()
 
-    # Verify config file is deleted
-    assert not os.path.exists(temp_config_file)
+    # Config file should still exist (not deleted)
+    assert os.path.exists(temp_config_file)
 
     # Critical: verify cached values are cleared and defaults are returned
     assert prefs.get("pref1", "default1") == "default1"
@@ -617,8 +617,8 @@ def test_reset_all_restores_defaults(temp_config_file):
     assert success is True
     assert "successfully" in message.lower()
 
-    # Verify config file is deleted
-    assert not os.path.exists(temp_config_file)
+    # Config file should still exist (section removed, not file deleted)
+    assert os.path.exists(temp_config_file)
 
     # Verify target attributes are reset to defaults
     assert target.volume == 0.85  # Default
@@ -637,8 +637,70 @@ def test_reset_all_without_target(temp_config_file):
     success, message = prefs.reset_all()
     assert success is True
 
-    # Config file should be deleted
-    assert not os.path.exists(temp_config_file)
+    # Config file should still exist (section removed, not file deleted)
+    assert os.path.exists(temp_config_file)
 
     # Preferences should return defaults
     assert prefs.get_or_default("volume") == 0.85
+
+
+# --- Tests for multi-section support ---
+
+
+def test_get_and_set_custom_section(temp_config_file):
+    """Test get/set with a non-default section name."""
+    prefs = PreferenceManager(temp_config_file)
+
+    # Set a value in a custom section
+    success, _ = prefs.set("my_key", "my_value", section="CUSTOM")
+    assert success is True
+
+    # Retrieve from the custom section
+    assert prefs.get("my_key", section="CUSTOM") == "my_value"
+
+    # Default section should not have this key
+    assert prefs.get("my_key") is None
+
+
+def test_clear_preserves_other_sections(temp_config_file):
+    """Test that clear() removes USERPREFERENCES but preserves other sections."""
+    prefs = PreferenceManager(temp_config_file)
+
+    # Set values in both USERPREFERENCES and a custom section
+    prefs.set("volume", "0.5")
+    prefs.set("api_key", "secret123", section="API_KEYS")
+
+    # Verify both exist
+    assert prefs.get("volume") == 0.5
+    assert prefs.get("api_key", section="API_KEYS") == "secret123"
+
+    # Clear (should only remove USERPREFERENCES)
+    success, _ = prefs.clear()
+    assert success is True
+
+    # USERPREFERENCES values should be gone
+    assert prefs.get("volume", "default") == "default"
+
+    # Custom section should be preserved
+    assert prefs.get("api_key", section="API_KEYS") == "secret123"
+
+
+def test_reset_all_preserves_other_sections(temp_config_file):
+    """Test that reset_all() only clears USERPREFERENCES, not other sections."""
+    target = MockTarget()
+    prefs = PreferenceManager(temp_config_file, target=target)
+
+    # Set values in USERPREFERENCES and a custom section
+    prefs.set("volume", "0.5")
+    prefs.set("db_path", "/data/db.sqlite", section="ADMIN")
+    prefs.apply_all()
+
+    # Reset all user preferences
+    success, _ = prefs.reset_all()
+    assert success is True
+
+    # Target should have defaults
+    assert target.volume == 0.85
+
+    # Admin section should survive the reset
+    assert prefs.get("db_path", section="ADMIN") == "/data/db.sqlite"
