@@ -126,7 +126,7 @@ def queue_edit(query):
         broadcast_event("skip", "clear queue")
         success = True
     else:
-        song = unquote(query["song"])
+        song = unquote(query.get("song", ""))
         song_title = k.song_manager.filename_from_path(song)
 
         # MSG labels for each action

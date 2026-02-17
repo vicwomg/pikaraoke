@@ -60,18 +60,20 @@ app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
 
-# Initialize Swagger API docs if enabled via CLI flag
-api = None
-if args.enable_swagger:
-    from flask_smorest import Api
+# Always initialize flask-smorest Api for error handling (@bp.arguments validation).
+# Only expose the Swagger UI when --enable-swagger is passed.
+from flask_smorest import Api
 
-    app.config["API_TITLE"] = "PiKaraoke API"
-    app.config["API_VERSION"] = VERSION
-    app.config["OPENAPI_VERSION"] = "3.0.2"
-    app.config["OPENAPI_URL_PREFIX"] = "/"
+app.config["API_TITLE"] = "PiKaraoke API"
+app.config["API_VERSION"] = VERSION
+app.config["OPENAPI_VERSION"] = "3.0.2"
+app.config["OPENAPI_URL_PREFIX"] = "/"
+
+if args.enable_swagger:
     app.config["OPENAPI_SWAGGER_UI_PATH"] = "/apidocs"
     app.config["OPENAPI_SWAGGER_UI_URL"] = "https://cdn.jsdelivr.net/npm/swagger-ui-dist/"
-    api = Api(app)
+
+api = Api(app)
 
 # Blueprints shown in /apidocs when swagger is enabled
 _api_blueprints = [
@@ -96,10 +98,7 @@ _internal_blueprints = [
 ]
 
 for bp in _api_blueprints:
-    if api is not None:
-        api.register_blueprint(bp)
-    else:
-        app.register_blueprint(bp)
+    api.register_blueprint(bp)
 
 for bp in _internal_blueprints:
     app.register_blueprint(bp)
