@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 
 import flask_babel
 import requests
@@ -19,8 +20,6 @@ from marshmallow import Schema, fields
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
 
 _ = flask_babel.gettext
-
-import re
 
 batch_song_renamer_bp = Blueprint("batch_song_renamer", __name__)
 

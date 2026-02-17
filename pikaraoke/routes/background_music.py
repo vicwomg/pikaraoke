@@ -10,9 +10,9 @@ from flask_smorest import Blueprint
 
 from pikaraoke.lib.current_app import get_karaoke_instance
 
-background_music_bp = Blueprint("bg_music", __name__)
-
 _ = flask_babel.gettext
+
+background_music_bp = Blueprint("bg_music", __name__)
 
 
 def create_randomized_playlist(input_directory, base_url, max_songs=50):

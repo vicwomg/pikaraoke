@@ -16,6 +16,11 @@ from marshmallow import Schema, fields
 
 from pikaraoke.karaoke import Karaoke
 from pikaraoke.lib.current_app import get_admin_password, get_karaoke_instance, is_admin
+from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
+
+_ = flask_babel.gettext
+
+admin_bp = Blueprint("admin", __name__)
 
 
 class AuthForm(Schema):
@@ -26,14 +31,6 @@ class AuthForm(Schema):
         load_default="/",
         metadata={"description": "URL to redirect to after successful authentication"},
     )
-
-
-from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
-
-_ = flask_babel.gettext
-
-
-admin_bp = Blueprint("admin", __name__)
 
 
 def delayed_halt(cmd: int, k: Karaoke):

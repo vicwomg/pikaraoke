@@ -9,9 +9,9 @@ from marshmallow import Schema, fields
 
 from pikaraoke.lib.current_app import get_karaoke_instance, is_admin
 
-preferences_bp = Blueprint("preferences", __name__)
-
 _ = flask_babel.gettext
+
+preferences_bp = Blueprint("preferences", __name__)
 
 
 class ChangePreferenceQuery(Schema):

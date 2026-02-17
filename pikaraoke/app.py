@@ -63,18 +63,15 @@ app.config["JSON_SORT_KEYS"] = False
 # Initialize Swagger API docs if enabled via CLI flag
 api = None
 if args.enable_swagger:
+    from flask_smorest import Api
+
     app.config["API_TITLE"] = "PiKaraoke API"
     app.config["API_VERSION"] = VERSION
     app.config["OPENAPI_VERSION"] = "3.0.2"
     app.config["OPENAPI_URL_PREFIX"] = "/"
     app.config["OPENAPI_SWAGGER_UI_PATH"] = "/apidocs"
     app.config["OPENAPI_SWAGGER_UI_URL"] = "https://cdn.jsdelivr.net/npm/swagger-ui-dist/"
-    try:
-        from flask_smorest import Api
-
-        api = Api(app)
-    except ImportError:
-        logging.warning("flask-smorest not installed. Swagger API docs disabled.")
+    api = Api(app)
 
 # Blueprints shown in /apidocs when swagger is enabled
 _api_blueprints = [
