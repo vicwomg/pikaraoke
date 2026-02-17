@@ -1,5 +1,7 @@
 """Admin routes for system control and authentication."""
 
+from __future__ import annotations
+
 import datetime
 import os
 import subprocess
@@ -8,11 +10,24 @@ import threading
 import time
 
 import flask_babel
-from flask import flash, make_response, redirect, render_template, request, url_for
+from flask import flash, make_response, redirect, render_template, url_for
 from flask_smorest import Blueprint
+from marshmallow import Schema, fields
 
 from pikaraoke.karaoke import Karaoke
 from pikaraoke.lib.current_app import get_admin_password, get_karaoke_instance, is_admin
+
+
+class AuthForm(Schema):
+    admin_password = fields.String(
+        required=True, metadata={"description": "Admin password for authentication"}
+    )
+    next = fields.String(
+        load_default="/",
+        metadata={"description": "URL to redirect to after successful authentication"},
+    )
+
+
 from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
 
 _ = flask_babel.gettext
@@ -142,29 +157,12 @@ def expand_fs():
 
 
 @admin_bp.route("/auth", methods=["POST"])
-@admin_bp.doc(
-    parameters=[
-        {
-            "name": "admin-password",
-            "in": "formData",
-            "schema": {"type": "string"},
-            "required": True,
-            "description": "Admin password for authentication",
-        },
-        {
-            "name": "next",
-            "in": "formData",
-            "schema": {"type": "string", "default": "/"},
-            "description": "URL to redirect to after successful authentication",
-        },
-    ]
-)
-def auth():
+@admin_bp.arguments(AuthForm, location="form")
+def auth(form):
     """Authenticate as admin."""
-    d = request.form.to_dict()
     admin_password = get_admin_password()
-    p = d["admin-password"]
-    next_url = d.get("next", "/")
+    p = form["admin_password"]
+    next_url = form["next"]
 
     # Validate next_url to prevent open redirect vulnerabilities
     if not next_url.startswith("/"):

@@ -1,10 +1,13 @@
 """YouTube search and download routes."""
 
+from __future__ import annotations
+
 import json
 
 import flask_babel
-from flask import current_app, flash, redirect, render_template, request, url_for
+from flask import current_app, flash, redirect, render_template, url_for
 from flask_smorest import Blueprint
+from marshmallow import Schema, fields
 
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
 from pikaraoke.lib.youtube_dl import get_search_results
@@ -14,30 +17,38 @@ _ = flask_babel.gettext
 search_bp = Blueprint("search", __name__)
 
 
+class SearchQuery(Schema):
+    search_string = fields.String(metadata={"description": "YouTube search query"})
+    non_karaoke = fields.String(
+        metadata={"description": "Set to 'true' to search without appending 'karaoke' to query"}
+    )
+
+
+class AutocompleteQuery(Schema):
+    q = fields.String(required=True, metadata={"description": "Search query for autocomplete"})
+
+
+class DownloadForm(Schema):
+    song_url = fields.String(required=True, metadata={"description": "YouTube URL to download"})
+    song_added_by = fields.String(
+        required=True, metadata={"description": "Name of the user requesting the download"}
+    )
+    song_title = fields.String(
+        required=True, metadata={"description": "Display title for the song"}
+    )
+    queue = fields.String(metadata={"description": "Set to 'on' to queue the song after download"})
+
+
 @search_bp.route("/search", methods=["GET"])
-@search_bp.doc(
-    parameters=[
-        {
-            "name": "search_string",
-            "in": "query",
-            "schema": {"type": "string"},
-            "description": "YouTube search query",
-        },
-        {
-            "name": "non_karaoke",
-            "in": "query",
-            "schema": {"type": "string"},
-            "description": "Set to 'true' to search without appending 'karaoke' to query",
-        },
-    ]
-)
-def search():
+@search_bp.arguments(SearchQuery, location="query")
+def search(query):
     """YouTube search page."""
     k = get_karaoke_instance()
     site_name = get_site_name()
-    if "search_string" in request.args:
-        search_string = request.args["search_string"]
-        if "non_karaoke" in request.args and request.args["non_karaoke"] == "true":
+    search_string = query.get("search_string")
+    if search_string:
+        non_karaoke = query.get("non_karaoke") == "true"
+        if non_karaoke:
             search_results = get_search_results(search_string)
         else:
             search_results = get_search_results(search_string + " karaoke")
@@ -55,21 +66,11 @@ def search():
 
 
 @search_bp.route("/autocomplete")
-@search_bp.doc(
-    parameters=[
-        {
-            "name": "q",
-            "in": "query",
-            "schema": {"type": "string"},
-            "required": True,
-            "description": "Search query for autocomplete",
-        },
-    ]
-)
-def autocomplete():
+@search_bp.arguments(AutocompleteQuery, location="query")
+def autocomplete(query):
     """Search available songs for autocomplete."""
     k = get_karaoke_instance()
-    q = request.args.get("q").lower()
+    q = query["q"].lower()
     result = []
     for each in k.song_manager.songs:
         if q in each.lower():
@@ -85,48 +86,14 @@ def autocomplete():
 
 
 @search_bp.route("/download", methods=["POST"])
-@search_bp.doc(
-    parameters=[
-        {
-            "name": "song-url",
-            "in": "formData",
-            "schema": {"type": "string"},
-            "required": True,
-            "description": "YouTube URL to download",
-        },
-        {
-            "name": "song-added-by",
-            "in": "formData",
-            "schema": {"type": "string"},
-            "required": True,
-            "description": "Name of the user requesting the download",
-        },
-        {
-            "name": "song-title",
-            "in": "formData",
-            "schema": {"type": "string"},
-            "required": True,
-            "description": "Display title for the song",
-        },
-        {
-            "name": "queue",
-            "in": "formData",
-            "schema": {"type": "string"},
-            "description": "Set to 'on' to queue the song after download",
-        },
-    ]
-)
-def download():
+@search_bp.arguments(DownloadForm, location="form")
+def download(form):
     """Download a video from YouTube."""
     k = get_karaoke_instance()
-    d = request.form.to_dict()
-    song = d["song-url"]
-    user = d["song-added-by"]
-    title = d["song-title"]
-    if "queue" in d and d["queue"] == "on":
-        queue = True
-    else:
-        queue = False
+    song = form["song_url"]
+    user = form["song_added_by"]
+    title = form["song_title"]
+    queue = form.get("queue") == "on"
 
     # Queue the download (processed serially by the download worker)
     k.download_manager.queue_download(song, queue, user, title)

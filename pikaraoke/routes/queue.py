@@ -1,11 +1,14 @@
 """Song queue management routes."""
 
+from __future__ import annotations
+
 import json
 from urllib.parse import unquote
 
 import flask_babel
 from flask import flash, redirect, render_template, request, url_for
 from flask_smorest import Blueprint
+from marshmallow import Schema, fields
 
 from pikaraoke.lib.current_app import (
     broadcast_event,
@@ -17,6 +20,28 @@ from pikaraoke.lib.current_app import (
 _ = flask_babel.gettext
 
 queue_bp = Blueprint("queue", __name__)
+
+
+class AddRandomQuery(Schema):
+    amount = fields.Integer(
+        load_default=1, metadata={"description": "Number of random songs to add"}
+    )
+
+
+class ReorderForm(Schema):
+    old_index = fields.Integer(
+        required=True, metadata={"description": "Current index of the item to move"}
+    )
+    new_index = fields.Integer(
+        required=True, metadata={"description": "Target index to move the item to"}
+    )
+
+
+class QueueEditQuery(Schema):
+    action = fields.String(required=True, metadata={"description": "Queue edit action to perform"})
+    song = fields.String(
+        metadata={"description": "Path to the song file (required unless action is 'clear')"}
+    )
 
 
 @queue_bp.route("/queue")
@@ -41,20 +66,11 @@ def get_queue():
 
 
 @queue_bp.route("/queue/addrandom", methods=["GET"])
-@queue_bp.doc(
-    parameters=[
-        {
-            "name": "amount",
-            "in": "query",
-            "schema": {"type": "integer", "default": 1},
-            "description": "Number of random songs to add",
-        },
-    ]
-)
-def add_random():
+@queue_bp.arguments(AddRandomQuery, location="query")
+def add_random(query):
     """Add random songs to the queue."""
     k = get_karaoke_instance()
-    amount = request.args.get("amount", default=1, type=int)
+    amount = query["amount"]
     rc = k.queue_manager.queue_add_random(amount)
     if rc:
         # MSG: Message shown after adding random tracks
@@ -67,35 +83,15 @@ def add_random():
 
 
 @queue_bp.route("/queue/reorder", methods=["POST"])
-@queue_bp.doc(
-    parameters=[
-        {
-            "name": "old_index",
-            "in": "formData",
-            "schema": {"type": "integer"},
-            "required": True,
-            "description": "The current index of the item to move",
-        },
-        {
-            "name": "new_index",
-            "in": "formData",
-            "schema": {"type": "integer"},
-            "required": True,
-            "description": "The target index to move the item to",
-        },
-    ]
-)
-def reorder():
+@queue_bp.arguments(ReorderForm, location="form")
+def reorder(form):
     """Handle drag-and-drop reordering of the queue."""
     if not is_admin():
         return json.dumps({"success": False, "error": "Unauthorized"}), 403
 
     k = get_karaoke_instance()
     try:
-        old_index = int(request.form["old_index"])
-        new_index = int(request.form["new_index"])
-
-        success = k.queue_manager.reorder(old_index, new_index)
+        success = k.queue_manager.reorder(form["old_index"], form["new_index"])
         return json.dumps({"success": success})
     except (ValueError, IndexError):
         pass
@@ -104,27 +100,8 @@ def reorder():
 
 
 @queue_bp.route("/queue/edit", methods=["GET"])
-@queue_bp.doc(
-    parameters=[
-        {
-            "name": "action",
-            "in": "query",
-            "schema": {
-                "type": "string",
-                "enum": ["clear", "top", "bottom", "up", "down", "delete"],
-            },
-            "required": True,
-            "description": "Queue edit action to perform",
-        },
-        {
-            "name": "song",
-            "in": "query",
-            "schema": {"type": "string"},
-            "description": "Path to the song file (required unless action is 'clear')",
-        },
-    ]
-)
-def queue_edit():
+@queue_bp.arguments(QueueEditQuery, location="query")
+def queue_edit(query):
     """Edit queue items (admin only)."""
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
@@ -136,7 +113,7 @@ def queue_edit():
         return redirect(url_for("queue.queue"))
 
     k = get_karaoke_instance()
-    action = request.args["action"]
+    action = query["action"]
     success = False
     message = ""
 
@@ -149,7 +126,7 @@ def queue_edit():
         broadcast_event("skip", "clear queue")
         success = True
     else:
-        song = unquote(request.args["song"])
+        song = unquote(query["song"])
         song_title = k.song_manager.filename_from_path(song)
 
         # MSG labels for each action
@@ -192,39 +169,11 @@ def queue_edit():
 
 
 @queue_bp.route("/enqueue", methods=["POST", "GET"])
-@queue_bp.doc(
-    parameters=[
-        {
-            "name": "song",
-            "in": "query",
-            "schema": {"type": "string"},
-            "description": "Path to the song file",
-        },
-        {
-            "name": "user",
-            "in": "query",
-            "schema": {"type": "string"},
-            "description": "Name of the user adding the song",
-        },
-        {
-            "name": "song-to-add",
-            "in": "formData",
-            "schema": {"type": "string"},
-            "description": "Path to the song file (form data)",
-        },
-        {
-            "name": "song-added-by",
-            "in": "formData",
-            "schema": {"type": "string"},
-            "description": "Name of the user (form data)",
-        },
-    ]
-)
 def enqueue():
     """Add a song to the queue."""
     k = get_karaoke_instance()
-    song = request.args.get("song") or request.form["song-to-add"]
-    user = request.args.get("user") or request.form["song-added-by"]
+    song = request.args.get("song") or request.form["song_to_add"]
+    user = request.args.get("user") or request.form["song_added_by"]
     rc = k.queue_manager.enqueue(song, user)
     broadcast_event("queue_update")
     song_title = k.song_manager.filename_from_path(song)
