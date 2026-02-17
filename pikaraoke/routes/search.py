@@ -15,6 +15,22 @@ search_bp = Blueprint("search", __name__)
 
 
 @search_bp.route("/search", methods=["GET"])
+@search_bp.doc(
+    parameters=[
+        {
+            "name": "search_string",
+            "in": "query",
+            "schema": {"type": "string"},
+            "description": "YouTube search query",
+        },
+        {
+            "name": "non_karaoke",
+            "in": "query",
+            "schema": {"type": "string"},
+            "description": "Set to 'true' to search without appending 'karaoke' to query",
+        },
+    ]
+)
 def search():
     """YouTube search page."""
     k = get_karaoke_instance()
@@ -39,6 +55,17 @@ def search():
 
 
 @search_bp.route("/autocomplete")
+@search_bp.doc(
+    parameters=[
+        {
+            "name": "q",
+            "in": "query",
+            "schema": {"type": "string"},
+            "required": True,
+            "description": "Search query for autocomplete",
+        },
+    ]
+)
 def autocomplete():
     """Search available songs for autocomplete."""
     k = get_karaoke_instance()
@@ -58,6 +85,37 @@ def autocomplete():
 
 
 @search_bp.route("/download", methods=["POST"])
+@search_bp.doc(
+    parameters=[
+        {
+            "name": "song-url",
+            "in": "formData",
+            "schema": {"type": "string"},
+            "required": True,
+            "description": "YouTube URL to download",
+        },
+        {
+            "name": "song-added-by",
+            "in": "formData",
+            "schema": {"type": "string"},
+            "required": True,
+            "description": "Name of the user requesting the download",
+        },
+        {
+            "name": "song-title",
+            "in": "formData",
+            "schema": {"type": "string"},
+            "required": True,
+            "description": "Display title for the song",
+        },
+        {
+            "name": "queue",
+            "in": "formData",
+            "schema": {"type": "string"},
+            "description": "Set to 'on' to queue the song after download",
+        },
+    ]
+)
 def download():
     """Download a video from YouTube."""
     k = get_karaoke_instance()

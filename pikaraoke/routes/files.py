@@ -19,6 +19,34 @@ files_bp = Blueprint("files", __name__)
 
 
 @files_bp.route("/browse", methods=["GET"])
+@files_bp.doc(
+    parameters=[
+        {
+            "name": "q",
+            "in": "query",
+            "schema": {"type": "string"},
+            "description": "Search filter query",
+        },
+        {
+            "name": "page",
+            "in": "query",
+            "schema": {"type": "integer", "default": 1},
+            "description": "Page number for pagination",
+        },
+        {
+            "name": "letter",
+            "in": "query",
+            "schema": {"type": "string"},
+            "description": "Filter songs by first letter (or 'numeric')",
+        },
+        {
+            "name": "sort",
+            "in": "query",
+            "schema": {"type": "string", "enum": ["date"]},
+            "description": "Sort order ('date' for newest first, omit for alphabetical)",
+        },
+    ]
+)
 def browse():
     """Browse available songs page."""
     k = get_karaoke_instance()
@@ -97,6 +125,22 @@ def browse():
 
 
 @files_bp.route("/files/delete", methods=["GET"])
+@files_bp.doc(
+    parameters=[
+        {
+            "name": "song",
+            "in": "query",
+            "schema": {"type": "string"},
+            "description": "Path to the song file to delete",
+        },
+        {
+            "name": "referrer",
+            "in": "query",
+            "schema": {"type": "string"},
+            "description": "URL to redirect back to after deletion",
+        },
+    ]
+)
 def delete_file():
     """Delete a song file."""
     k = get_karaoke_instance()
@@ -124,6 +168,34 @@ def delete_file():
 
 
 @files_bp.route("/files/edit", methods=["GET", "POST"])
+@files_bp.doc(
+    parameters=[
+        {
+            "name": "song",
+            "in": "query",
+            "schema": {"type": "string"},
+            "description": "Path to the song file to edit (GET)",
+        },
+        {
+            "name": "referrer",
+            "in": "query",
+            "schema": {"type": "string"},
+            "description": "URL to redirect back to after editing",
+        },
+        {
+            "name": "new_file_name",
+            "in": "formData",
+            "schema": {"type": "string"},
+            "description": "New filename for the song (POST)",
+        },
+        {
+            "name": "old_file_name",
+            "in": "formData",
+            "schema": {"type": "string"},
+            "description": "Current filename of the song (POST)",
+        },
+    ]
+)
 def edit_file():
     """Edit a song filename."""
     k = get_karaoke_instance()

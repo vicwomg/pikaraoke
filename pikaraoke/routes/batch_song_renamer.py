@@ -366,6 +366,22 @@ def get_song_correct_name(song):
 
 
 @batch_song_renamer_bp.route("/batch-song-renamer", methods=["GET", "POST"])
+@batch_song_renamer_bp.doc(
+    parameters=[
+        {
+            "name": "show_all_songs",
+            "in": "query",
+            "schema": {"type": "string"},
+            "description": "Set to 'true' to show all songs instead of only those needing renaming",
+        },
+        {
+            "name": "page",
+            "in": "query",
+            "schema": {"type": "integer", "default": 1},
+            "description": "Page number for pagination",
+        },
+    ]
+)
 def browse():
     """Batch song renamer page."""
     if not is_admin():
@@ -391,6 +407,16 @@ def browse():
 
 
 @batch_song_renamer_bp.route("/batch-song-renamer/get-all-songs", methods=["GET"])
+@batch_song_renamer_bp.doc(
+    parameters=[
+        {
+            "name": "page",
+            "in": "query",
+            "schema": {"type": "integer", "default": 1},
+            "description": "Page number for pagination",
+        },
+    ]
+)
 def get_all_songs():
     """Get all songs with suggested renames."""
     if not is_admin():
@@ -433,6 +459,22 @@ def get_all_songs():
 
 
 @batch_song_renamer_bp.route("/batch-song-renamer/get-songs-to-rename", methods=["GET"])
+@batch_song_renamer_bp.doc(
+    parameters=[
+        {
+            "name": "song-index",
+            "in": "query",
+            "schema": {"type": "integer"},
+            "description": "Starting song index to process from",
+        },
+        {
+            "name": "page",
+            "in": "query",
+            "schema": {"type": "integer"},
+            "description": "Current page number for display offset",
+        },
+    ]
+)
 def get_songs_to_rename():
     """Get songs that have rename suggestions different from their current name."""
     if not is_admin():
@@ -472,6 +514,24 @@ def get_songs_to_rename():
 
 
 @batch_song_renamer_bp.route("/batch-song-renamer/rename-song", methods=["POST"])
+@batch_song_renamer_bp.doc(
+    parameters=[
+        {
+            "name": "new_name",
+            "in": "formData",
+            "schema": {"type": "string"},
+            "required": True,
+            "description": "New name for the song file",
+        },
+        {
+            "name": "old_name",
+            "in": "formData",
+            "schema": {"type": "string"},
+            "required": True,
+            "description": "Full path of the song file to rename",
+        },
+    ]
+)
 def rename_song():
     """Rename a song file."""
     k = get_karaoke_instance()

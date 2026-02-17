@@ -142,6 +142,23 @@ def expand_fs():
 
 
 @admin_bp.route("/auth", methods=["POST"])
+@admin_bp.doc(
+    parameters=[
+        {
+            "name": "admin-password",
+            "in": "formData",
+            "schema": {"type": "string"},
+            "required": True,
+            "description": "Admin password for authentication",
+        },
+        {
+            "name": "next",
+            "in": "formData",
+            "schema": {"type": "string", "default": "/"},
+            "description": "URL to redirect to after successful authentication",
+        },
+    ]
+)
 def auth():
     """Authenticate as admin."""
     d = request.form.to_dict()

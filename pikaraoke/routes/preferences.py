@@ -12,6 +12,24 @@ _ = flask_babel.gettext
 
 
 @preferences_bp.route("/change_preferences", methods=["GET"])
+@preferences_bp.doc(
+    parameters=[
+        {
+            "name": "pref",
+            "in": "query",
+            "schema": {"type": "string"},
+            "required": True,
+            "description": "Name of the preference to change",
+        },
+        {
+            "name": "val",
+            "in": "query",
+            "schema": {"type": "string"},
+            "required": True,
+            "description": "New value for the preference",
+        },
+    ]
+)
 def change_preferences():
     """Change a user preference setting."""
     k = get_karaoke_instance()

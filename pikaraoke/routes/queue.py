@@ -41,6 +41,16 @@ def get_queue():
 
 
 @queue_bp.route("/queue/addrandom", methods=["GET"])
+@queue_bp.doc(
+    parameters=[
+        {
+            "name": "amount",
+            "in": "query",
+            "schema": {"type": "integer", "default": 1},
+            "description": "Number of random songs to add",
+        },
+    ]
+)
 def add_random():
     """Add random songs to the queue."""
     k = get_karaoke_instance()
@@ -57,6 +67,24 @@ def add_random():
 
 
 @queue_bp.route("/queue/reorder", methods=["POST"])
+@queue_bp.doc(
+    parameters=[
+        {
+            "name": "old_index",
+            "in": "formData",
+            "schema": {"type": "integer"},
+            "required": True,
+            "description": "The current index of the item to move",
+        },
+        {
+            "name": "new_index",
+            "in": "formData",
+            "schema": {"type": "integer"},
+            "required": True,
+            "description": "The target index to move the item to",
+        },
+    ]
+)
 def reorder():
     """Handle drag-and-drop reordering of the queue."""
     if not is_admin():
@@ -76,6 +104,26 @@ def reorder():
 
 
 @queue_bp.route("/queue/edit", methods=["GET"])
+@queue_bp.doc(
+    parameters=[
+        {
+            "name": "action",
+            "in": "query",
+            "schema": {
+                "type": "string",
+                "enum": ["clear", "top", "bottom", "up", "down", "delete"],
+            },
+            "required": True,
+            "description": "Queue edit action to perform",
+        },
+        {
+            "name": "song",
+            "in": "query",
+            "schema": {"type": "string"},
+            "description": "Path to the song file (required unless action is 'clear')",
+        },
+    ]
+)
 def queue_edit():
     """Edit queue items (admin only)."""
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
@@ -144,6 +192,34 @@ def queue_edit():
 
 
 @queue_bp.route("/enqueue", methods=["POST", "GET"])
+@queue_bp.doc(
+    parameters=[
+        {
+            "name": "song",
+            "in": "query",
+            "schema": {"type": "string"},
+            "description": "Path to the song file",
+        },
+        {
+            "name": "user",
+            "in": "query",
+            "schema": {"type": "string"},
+            "description": "Name of the user adding the song",
+        },
+        {
+            "name": "song-to-add",
+            "in": "formData",
+            "schema": {"type": "string"},
+            "description": "Path to the song file (form data)",
+        },
+        {
+            "name": "song-added-by",
+            "in": "formData",
+            "schema": {"type": "string"},
+            "description": "Name of the user (form data)",
+        },
+    ]
+)
 def enqueue():
     """Add a song to the queue."""
     k = get_karaoke_instance()

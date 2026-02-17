@@ -76,28 +76,36 @@ if args.enable_swagger:
     except ImportError:
         logging.warning("flask-smorest not installed. Swagger API docs disabled.")
 
-# Register blueprints for additional routes
-_blueprints = [
-    home_bp,
-    stream_bp,
+# Blueprints shown in /apidocs when swagger is enabled
+_api_blueprints = [
+    queue_bp,
+    search_bp,
+    files_bp,
     preferences_bp,
     admin_bp,
-    background_music_bp,
     batch_song_renamer_bp,
-    queue_bp,
-    images_bp,
-    files_bp,
-    search_bp,
+    controller_bp,
+]
+
+# Blueprints hidden from /apidocs (path-params-only or internal UI routes)
+_internal_blueprints = [
+    home_bp,
     info_bp,
     splash_bp,
-    controller_bp,
     nowplaying_bp,
+    stream_bp,
+    background_music_bp,
+    images_bp,
 ]
-for bp in _blueprints:
+
+for bp in _api_blueprints:
     if api is not None:
         api.register_blueprint(bp)
     else:
         app.register_blueprint(bp)
+
+for bp in _internal_blueprints:
+    app.register_blueprint(bp)
 
 
 def get_locale() -> str | None:
