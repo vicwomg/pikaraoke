@@ -21,7 +21,7 @@ _ = flask_babel.gettext
 info_bp = Blueprint("info", __name__)
 
 
-@info_bp.route("/info", doc=False)
+@info_bp.route("/info")
 def info():
     """System information and settings page."""
     k = get_karaoke_instance()

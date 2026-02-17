@@ -26,7 +26,7 @@ def change_preferences():
     return redirect(url_for("info.info"))
 
 
-@preferences_bp.route("/clear_preferences", methods=["GET"], doc=False)
+@preferences_bp.route("/clear_preferences", methods=["GET"])
 def clear_preferences():
     """Reset all preferences to defaults."""
     k = get_karaoke_instance()

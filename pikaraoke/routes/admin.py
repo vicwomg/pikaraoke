@@ -37,7 +37,7 @@ def delayed_halt(cmd: int, k: Karaoke):
         os.system("reboot")
 
 
-@admin_bp.route("/update_ytdl", doc=False)
+@admin_bp.route("/update_ytdl")
 def update_ytdl():
     """Update yt-dlp to the latest version."""
     k = get_karaoke_instance()
@@ -60,7 +60,7 @@ def update_ytdl():
     return redirect(url_for("info.info"))
 
 
-@admin_bp.route("/refresh", doc=False)
+@admin_bp.route("/refresh")
 def refresh():
     """Refresh the available songs list."""
     k = get_karaoke_instance()
@@ -72,7 +72,7 @@ def refresh():
     return redirect(url_for("files.browse"))
 
 
-@admin_bp.route("/quit", doc=False)
+@admin_bp.route("/quit")
 def quit():
     """Exit the PiKaraoke application."""
     k = get_karaoke_instance()
@@ -89,7 +89,7 @@ def quit():
     return redirect(url_for("home.home"))
 
 
-@admin_bp.route("/shutdown", doc=False)
+@admin_bp.route("/shutdown")
 def shutdown():
     """Shut down the host system."""
     k = get_karaoke_instance()
@@ -106,7 +106,7 @@ def shutdown():
     return redirect(url_for("home.home"))
 
 
-@admin_bp.route("/reboot", doc=False)
+@admin_bp.route("/reboot")
 def reboot():
     """Reboot the host system."""
     k = get_karaoke_instance()
@@ -123,7 +123,7 @@ def reboot():
     return redirect(url_for("home.home"))
 
 
-@admin_bp.route("/expand_fs", doc=False)
+@admin_bp.route("/expand_fs")
 def expand_fs():
     """Expand filesystem on Raspberry Pi."""
     k = get_karaoke_instance()
@@ -141,7 +141,7 @@ def expand_fs():
     return redirect(url_for("home.home"))
 
 
-@admin_bp.route("/auth", methods=["POST"], doc=False)
+@admin_bp.route("/auth", methods=["POST"])
 def auth():
     """Authenticate as admin."""
     d = request.form.to_dict()
@@ -167,13 +167,13 @@ def auth():
     return resp
 
 
-@admin_bp.route("/login", doc=False)
+@admin_bp.route("/login")
 def login():
     """Admin login page."""
     return render_template("login.html")
 
 
-@admin_bp.route("/logout", doc=False)
+@admin_bp.route("/logout")
 def logout():
     """Log out of admin mode."""
     resp = make_response(redirect("/"))

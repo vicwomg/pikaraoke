@@ -14,7 +14,7 @@ _ = flask_babel.gettext
 search_bp = Blueprint("search", __name__)
 
 
-@search_bp.route("/search", methods=["GET"], doc=False)
+@search_bp.route("/search", methods=["GET"])
 def search():
     """YouTube search page."""
     k = get_karaoke_instance()
@@ -57,7 +57,7 @@ def autocomplete():
     return response
 
 
-@search_bp.route("/download", methods=["POST"], doc=False)
+@search_bp.route("/download", methods=["POST"])
 def download():
     """Download a video from YouTube."""
     k = get_karaoke_instance()

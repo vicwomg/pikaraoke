@@ -18,7 +18,7 @@ _ = flask_babel.gettext
 files_bp = Blueprint("files", __name__)
 
 
-@files_bp.route("/browse", methods=["GET"], doc=False)
+@files_bp.route("/browse", methods=["GET"])
 def browse():
     """Browse available songs page."""
     k = get_karaoke_instance()
@@ -96,7 +96,7 @@ def browse():
     )
 
 
-@files_bp.route("/files/delete", methods=["GET"], doc=False)
+@files_bp.route("/files/delete", methods=["GET"])
 def delete_file():
     """Delete a song file."""
     k = get_karaoke_instance()
@@ -123,8 +123,9 @@ def delete_file():
     return redirect(referrer)
 
 
-@files_bp.route("/files/edit", methods=["GET", "POST"], doc=False)
+@files_bp.route("/files/edit", methods=["GET", "POST"])
 def edit_file():
+    """Edit a song filename."""
     k = get_karaoke_instance()
     site_name = get_site_name()
     # MSG: Message shown after trying to edit a song that is in the queue.

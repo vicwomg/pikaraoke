@@ -16,7 +16,7 @@ _ = flask_babel.gettext
 splash_bp = Blueprint("splash", __name__)
 
 
-@splash_bp.route("/splash", doc=False)
+@splash_bp.route("/splash")
 def splash():
     """Splash screen / player display for TV output."""
     k = get_karaoke_instance()

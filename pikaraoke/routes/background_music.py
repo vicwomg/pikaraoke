@@ -37,7 +37,7 @@ def create_randomized_playlist(input_directory, base_url, max_songs=50):
     return playlist
 
 
-@background_music_bp.route("/bg_music/<file>", methods=["GET"], doc=False)
+@background_music_bp.route("/bg_music/<file>", methods=["GET"])
 def bg_music(file):
     """Stream a background music file."""
     k = get_karaoke_instance()

@@ -12,7 +12,7 @@ _ = flask_babel.gettext
 home_bp = Blueprint("home", __name__)
 
 
-@home_bp.route("/", doc=False)
+@home_bp.route("/")
 def home():
     """Home page with now playing info and controls."""
     k = get_karaoke_instance()

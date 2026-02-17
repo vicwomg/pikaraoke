@@ -12,7 +12,7 @@ _ = flask_babel.gettext
 controller_bp = Blueprint("controller", __name__)
 
 
-@controller_bp.route("/skip", doc=False)
+@controller_bp.route("/skip")
 def skip():
     """Skip the currently playing song."""
     k = get_karaoke_instance()
@@ -21,7 +21,7 @@ def skip():
     return redirect(url_for("home.home"))
 
 
-@controller_bp.route("/pause", doc=False)
+@controller_bp.route("/pause")
 def pause():
     """Toggle pause/resume playback."""
     k = get_karaoke_instance()
@@ -33,7 +33,7 @@ def pause():
     return redirect(url_for("home.home"))
 
 
-@controller_bp.route("/transpose/<semitones>", methods=["GET"], doc=False)
+@controller_bp.route("/transpose/<semitones>", methods=["GET"])
 def transpose(semitones):
     """Transpose (pitch shift) the current song."""
     k = get_karaoke_instance()
@@ -42,7 +42,7 @@ def transpose(semitones):
     return redirect(url_for("home.home"))
 
 
-@controller_bp.route("/restart", doc=False)
+@controller_bp.route("/restart")
 def restart():
     """Restart the current song from the beginning."""
     k = get_karaoke_instance()
@@ -51,7 +51,7 @@ def restart():
     return redirect(url_for("home.home"))
 
 
-@controller_bp.route("/volume/<volume>", doc=False)
+@controller_bp.route("/volume/<volume>")
 def volume(volume):
     """Set the playback volume."""
     k = get_karaoke_instance()
@@ -60,7 +60,7 @@ def volume(volume):
     return redirect(url_for("home.home"))
 
 
-@controller_bp.route("/vol_up", doc=False)
+@controller_bp.route("/vol_up")
 def vol_up():
     """Increase volume by 10%."""
     k = get_karaoke_instance()
@@ -69,7 +69,7 @@ def vol_up():
     return redirect(url_for("home.home"))
 
 
-@controller_bp.route("/vol_down", doc=False)
+@controller_bp.route("/vol_down")
 def vol_down():
     """Decrease volume by 10%."""
     k = get_karaoke_instance()

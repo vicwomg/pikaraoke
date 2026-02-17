@@ -19,7 +19,7 @@ _ = flask_babel.gettext
 queue_bp = Blueprint("queue", __name__)
 
 
-@queue_bp.route("/queue", doc=False)
+@queue_bp.route("/queue")
 def queue():
     """Queue management page."""
     k = get_karaoke_instance()
@@ -40,7 +40,7 @@ def get_queue():
     return json.dumps(k.queue_manager.queue)
 
 
-@queue_bp.route("/queue/addrandom", methods=["GET"], doc=False)
+@queue_bp.route("/queue/addrandom", methods=["GET"])
 def add_random():
     """Add random songs to the queue."""
     k = get_karaoke_instance()
@@ -75,7 +75,7 @@ def reorder():
     return json.dumps({"success": False})
 
 
-@queue_bp.route("/queue/edit", methods=["GET"], doc=False)
+@queue_bp.route("/queue/edit", methods=["GET"])
 def queue_edit():
     """Edit queue items (admin only)."""
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"

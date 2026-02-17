@@ -12,14 +12,14 @@ _ = flask_babel.gettext
 images_bp = Blueprint("images", __name__)
 
 
-@images_bp.route("/qrcode", doc=False)
+@images_bp.route("/qrcode")
 def qrcode():
     """Get QR code image for the web interface URL."""
     k = get_karaoke_instance()
     return send_file(k.qr_code_path, mimetype="image/png")
 
 
-@images_bp.route("/logo", doc=False)
+@images_bp.route("/logo")
 def logo():
     """Get the PiKaraoke logo image."""
     k = get_karaoke_instance()

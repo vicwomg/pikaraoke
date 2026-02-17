@@ -365,8 +365,9 @@ def get_song_correct_name(song):
     return get_best_result(results, cleaned_query)
 
 
-@batch_song_renamer_bp.route("/batch-song-renamer", methods=["GET", "POST"], doc=False)
+@batch_song_renamer_bp.route("/batch-song-renamer", methods=["GET", "POST"])
 def browse():
+    """Batch song renamer page."""
     if not is_admin():
         return redirect(url_for("files.browse"))
 
@@ -389,8 +390,9 @@ def browse():
     )
 
 
-@batch_song_renamer_bp.route("/batch-song-renamer/get-all-songs", methods=["GET"], doc=False)
+@batch_song_renamer_bp.route("/batch-song-renamer/get-all-songs", methods=["GET"])
 def get_all_songs():
+    """Get all songs with suggested renames."""
     if not is_admin():
         return redirect(url_for("files.browse"))
 
@@ -430,8 +432,9 @@ def get_all_songs():
     )
 
 
-@batch_song_renamer_bp.route("/batch-song-renamer/get-songs-to-rename", methods=["GET"], doc=False)
+@batch_song_renamer_bp.route("/batch-song-renamer/get-songs-to-rename", methods=["GET"])
 def get_songs_to_rename():
+    """Get songs that have rename suggestions different from their current name."""
     if not is_admin():
         return redirect(url_for("files.browse"))
 
@@ -468,8 +471,9 @@ def get_songs_to_rename():
     return jsonify({"html": html, "page": page + 1, "song-index": song_index})
 
 
-@batch_song_renamer_bp.route("/batch-song-renamer/rename-song", methods=["POST"], doc=False)
+@batch_song_renamer_bp.route("/batch-song-renamer/rename-song", methods=["POST"])
 def rename_song():
+    """Rename a song file."""
     k = get_karaoke_instance()
 
     d = request.form.to_dict()
