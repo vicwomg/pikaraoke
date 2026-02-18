@@ -21,6 +21,11 @@ _ = flask_babel.gettext
 files_bp = Blueprint("files", __name__)
 
 
+class DeleteFileQuery(Schema):
+    song = fields.String(required=True, metadata={"description": "Path to the song file"})
+    referrer = fields.String(metadata={"description": "URL to redirect back to"})
+
+
 class SongReferrerQuery(Schema):
     song = fields.String(metadata={"description": "Path to the song file"})
     referrer = fields.String(metadata={"description": "URL to redirect back to"})
@@ -111,29 +116,23 @@ def browse():
 
 
 @files_bp.route("/files/delete", methods=["GET"])
-@files_bp.arguments(SongReferrerQuery, location="query")
+@files_bp.arguments(DeleteFileQuery, location="query")
 def delete_file(query):
     """Delete a song file."""
     k = get_karaoke_instance()
-    if "song" in query:
-        song_path = query["song"]
-        if k.queue_manager.is_song_in_queue(song_path):
-            flash(
-                # MSG: Message shown after trying to delete a song that is in the queue.
-                _("Error: Can't delete this song because it is in the current queue")
-                + ": "
-                + song_path,
-                "is-danger",
-            )
-        else:
-            k.song_manager.delete(song_path)
-            # MSG: Message shown after deleting a song. Followed by the song path
-            flash(
-                _("Song deleted: %s") % k.song_manager.filename_from_path(song_path), "is-warning"
-            )
+    song_path = query["song"]
+    if k.queue_manager.is_song_in_queue(song_path):
+        flash(
+            # MSG: Message shown after trying to delete a song that is in the queue.
+            _("Error: Can't delete this song because it is in the current queue")
+            + ": "
+            + song_path,
+            "is-danger",
+        )
     else:
-        # MSG: Message shown after trying to delete a song without specifying the song.
-        flash(_("Error: No song specified!"), "is-danger")
+        k.song_manager.delete(song_path)
+        # MSG: Message shown after deleting a song. Followed by the song path
+        flash(_("Song deleted: %s") % k.song_manager.filename_from_path(song_path), "is-warning")
     referrer = query.get("referrer") or url_for("files.browse")
     return redirect(referrer)
 
