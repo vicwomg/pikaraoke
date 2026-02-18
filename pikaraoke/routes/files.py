@@ -21,19 +21,18 @@ _ = flask_babel.gettext
 files_bp = Blueprint("files", __name__)
 
 
-class DeleteFileQuery(Schema):
+class SongReferrerQuery(Schema):
     song = fields.String(required=True, metadata={"description": "Path to the song file"})
     referrer = fields.String(metadata={"description": "URL to redirect back to"})
 
 
-class SongReferrerQuery(Schema):
-    song = fields.String(metadata={"description": "Path to the song file"})
-    referrer = fields.String(metadata={"description": "URL to redirect back to"})
-
-
 class EditFileForm(Schema):
-    new_file_name = fields.String(metadata={"description": "New filename (without extension)"})
-    old_file_name = fields.String(metadata={"description": "Current full path of the song file"})
+    new_file_name = fields.String(
+        required=True, metadata={"description": "New filename (without extension)"}
+    )
+    old_file_name = fields.String(
+        required=True, metadata={"description": "Current full path of the song file"}
+    )
     referrer = fields.String(metadata={"description": "URL to redirect back to after editing"})
 
 
@@ -116,7 +115,7 @@ def browse():
 
 
 @files_bp.route("/files/delete", methods=["GET"])
-@files_bp.arguments(DeleteFileQuery, location="query")
+@files_bp.arguments(SongReferrerQuery, location="query")
 def delete_file(query):
     """Delete a song file."""
     k = get_karaoke_instance()
@@ -137,65 +136,67 @@ def delete_file(query):
     return redirect(referrer)
 
 
-@files_bp.route("/files/edit", methods=["GET", "POST"])
+@files_bp.route("/files/edit", methods=["GET"])
 @files_bp.arguments(SongReferrerQuery, location="query")
-@files_bp.arguments(EditFileForm, location="form")
-def edit_file(query, form):
-    """Edit a song filename."""
+def edit_file(query):
+    """Show the song rename page."""
     k = get_karaoke_instance()
     site_name = get_site_name()
-    # MSG: Message shown after trying to edit a song that is in the queue.
-    queue_error_msg = _("Error: Can't edit this song because it is in the current queue: ")
-    if "song" in query:
-        song_path = query["song"]
-        referrer = query.get("referrer") or url_for("files.browse")
-        if k.queue_manager.is_song_in_queue(song_path):
-            flash(queue_error_msg + song_path, "is-danger")
-            return redirect(referrer)
-        else:
-            return render_template(
-                "edit.html",
-                site_title=site_name,
-                title="Song File Edit",
-                song=song_path,
-                referrer=referrer,
-            )
-    else:
-        referrer = form.get("referrer") or url_for("files.browse")
-        if "new_file_name" in form and "old_file_name" in form:
-            new_name = form["new_file_name"]
-            old_name = form["old_file_name"]
-            if k.queue_manager.is_song_in_queue(old_name):
-                # check one more time just in case someone added it during editing
-                flash(queue_error_msg + old_name, "is-danger")
-            else:
-                # check if new_name already exist
-                file_extension = os.path.splitext(old_name)[1]
-                if os.path.isfile(
-                    os.path.join(k.song_manager.download_path, new_name + file_extension)
-                ):
-                    flash(
-                        # MSG: Message shown after trying to rename a file to a name that already exists.
-                        _("Error renaming file: '%s' to '%s', Filename already exists")
-                        % (old_name, new_name + file_extension),
-                        "is-danger",
-                    )
-                else:
-                    try:
-                        k.song_manager.rename(old_name, new_name)
-                    except OSError as e:
-                        logging.error(f"Error renaming file: {e}")
-                        flash(
-                            _("Error renaming file: '%s' to '%s', %s") % (old_name, new_name, e),
-                            "is-danger",
-                        )
-                    else:
-                        flash(
-                            # MSG: Message shown after renaming a file.
-                            _("Renamed file: %s to %s") % (old_name, new_name),
-                            "is-warning",
-                        )
-        else:
-            # MSG: Message shown after trying to edit a song without specifying the filename.
-            flash(_("Error: No filename parameters were specified!"), "is-danger")
+    song_path = query["song"]
+    referrer = query.get("referrer") or url_for("files.browse")
+    if k.queue_manager.is_song_in_queue(song_path):
+        # MSG: Message shown after trying to edit a song that is in the queue.
+        flash(
+            _("Error: Can't edit this song because it is in the current queue: ") + song_path,
+            "is-danger",
+        )
         return redirect(referrer)
+    return render_template(
+        "edit.html",
+        site_title=site_name,
+        title="Song File Edit",
+        song=song_path,
+        referrer=referrer,
+    )
+
+
+@files_bp.route("/files/edit", methods=["POST"])
+@files_bp.arguments(EditFileForm, location="form")
+def rename_file(form):
+    """Process a song rename."""
+    k = get_karaoke_instance()
+    referrer = form.get("referrer") or url_for("files.browse")
+    new_name = form["new_file_name"]
+    old_name = form["old_file_name"]
+    if k.queue_manager.is_song_in_queue(old_name):
+        # check one more time just in case someone added it during editing
+        # MSG: Message shown after trying to edit a song that is in the queue.
+        flash(
+            _("Error: Can't edit this song because it is in the current queue: ") + old_name,
+            "is-danger",
+        )
+    else:
+        file_extension = os.path.splitext(old_name)[1]
+        if os.path.isfile(os.path.join(k.song_manager.download_path, new_name + file_extension)):
+            flash(
+                # MSG: Message shown after trying to rename a file to a name that already exists.
+                _("Error renaming file: '%s' to '%s', Filename already exists")
+                % (old_name, new_name + file_extension),
+                "is-danger",
+            )
+        else:
+            try:
+                k.song_manager.rename(old_name, new_name)
+            except OSError as e:
+                logging.error(f"Error renaming file: {e}")
+                flash(
+                    _("Error renaming file: '%s' to '%s', %s") % (old_name, new_name, e),
+                    "is-danger",
+                )
+            else:
+                flash(
+                    # MSG: Message shown after renaming a file.
+                    _("Renamed file: %s to %s") % (old_name, new_name),
+                    "is-warning",
+                )
+    return redirect(referrer)
