@@ -22,12 +22,6 @@ _ = flask_babel.gettext
 queue_bp = Blueprint("queue", __name__)
 
 
-class AddRandomQuery(Schema):
-    amount = fields.Integer(
-        load_default=1, metadata={"description": "Number of random songs to add"}
-    )
-
-
 class ReorderForm(Schema):
     old_index = fields.Integer(
         required=True, metadata={"description": "Current index of the item to move"}
@@ -79,12 +73,10 @@ def get_queue():
     return json.dumps(k.queue_manager.queue)
 
 
-@queue_bp.route("/queue/addrandom", methods=["GET"])
-@queue_bp.arguments(AddRandomQuery, location="query")
-def add_random(query):
+@queue_bp.route("/queue/addrandom/<int:amount>", methods=["GET"])
+def add_random(amount):
     """Add random songs to the queue."""
     k = get_karaoke_instance()
-    amount = query["amount"]
     rc = k.queue_manager.queue_add_random(amount)
     if rc:
         # MSG: Message shown after adding random tracks

@@ -24,10 +24,6 @@ _ = flask_babel.gettext
 batch_song_renamer_bp = Blueprint("batch_song_renamer", __name__)
 
 
-class GetAllSongsQuery(Schema):
-    page = fields.Integer(load_default=1, metadata={"description": "Page number for pagination"})
-
-
 class GetSongsToRenameQuery(Schema):
     song_index = fields.Integer(load_default=0, metadata={"description": "Starting song index"})
     page = fields.Integer(load_default=0, metadata={"description": "Current page number"})
@@ -409,14 +405,12 @@ def browse():
     )
 
 
-@batch_song_renamer_bp.route("/batch-song-renamer/get-all-songs", methods=["GET"])
-@batch_song_renamer_bp.arguments(GetAllSongsQuery, location="query")
-def get_all_songs(query):
+@batch_song_renamer_bp.route("/batch-song-renamer/get-all-songs/<int:page>", methods=["GET"])
+def get_all_songs(page):
     """Get all songs with suggested renames."""
     if not is_admin():
         return redirect(url_for("files.browse"))
 
-    page = query.get("page", 1)
     start_index = (page - 1) * results_per_page
 
     skip = page * results_per_page - results_per_page
