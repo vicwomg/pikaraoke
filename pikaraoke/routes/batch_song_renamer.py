@@ -380,7 +380,7 @@ def get_song_correct_name(song):
     return get_best_result(results, cleaned_query)
 
 
-@batch_song_renamer_bp.route("/batch-song-renamer", methods=["GET", "POST"])
+@batch_song_renamer_bp.route("/batch-song-renamer", methods=["GET"])
 def browse():
     """Batch song renamer page."""
     if not is_admin():
