@@ -72,7 +72,6 @@ NOISE_WORDS = [
     r"\bft\.?\b",
     r"\bremaster\b",
     r"\bas popularized by\b",
-    r"\blyrics\b",
     r"\bkarafun\b",
     r"\binstrumental\b",
     r"\bminus one\b",
@@ -89,6 +88,8 @@ NOISE_WORDS = [
     r"\bwith lyrics\b",
     r"\bcc\b",
 ]
+# Single compiled pattern for all noise words — avoids re-scanning the string 30+ times
+NOISE_PATTERN = re.compile("|".join(NOISE_WORDS), flags=re.IGNORECASE)
 
 SPECIAL_VERSION_KEYWORDS = [
     " - ",
@@ -225,10 +226,7 @@ def clean_search_query(song_name: str) -> str:
     song_name = re.sub(r"\([^)]*\)", "", song_name)
     song_name = re.sub(r"\[[^\]]*\]", "", song_name)
 
-    for pattern in NOISE_WORDS:
-        song_name = re.sub(pattern, "", song_name, flags=re.IGNORECASE)
-
-    # Normalize whitespace: strip and collapse multiple spaces
+    song_name = NOISE_PATTERN.sub("", song_name)
     song_name = re.sub(r"\s+", " ", song_name.strip())
 
     return song_name
@@ -265,7 +263,14 @@ def score_result(result: dict, original_query: str) -> int:
 
 
 def _score_query_match(part1: str, part2: str, track: str, artist: str) -> int:
-    """Score how well the query parts match the track and artist."""
+    """Score how well the query parts match the track and artist.
+
+    Uses early-exit on partial title matches intentionally: a partial match
+    (score 50) combined with the -30 variant keyword penalty produces 20,
+    which loses to a clean exact match (100). Aggregating title + artist scores
+    would boost partial matches to 150, overwhelming those penalties.
+    Artist correctness is instead enforced via the -100 penalty in _score_penalties.
+    """
     if part2:
         # Case 1: part1=title, part2=artist
         if part1 == track and part2 == artist:
@@ -329,10 +334,8 @@ def _score_penalties(
 
 def _detect_artist_first(original_query: str, artist: str, title: str) -> bool:
     """Detect if the original query uses 'Artist - Title' format."""
-    query_parts = re.split(r"\s+[-\|\uff5c]\s+", original_query.lower())
-    if len(query_parts) < 2:
-        query_parts = re.split(r"\s*[-\|\uff5c]\s*", original_query.lower())
-    if len(query_parts) < 2:
+    part1_raw, part2_raw = _split_query_parts(original_query)
+    if not part2_raw:
         return False
 
     def normalize(text: str) -> str:
@@ -341,8 +344,8 @@ def _detect_artist_first(original_query: str, artist: str, title: str) -> bool:
     def is_similar(a: str, b: str) -> bool:
         return bool(a) and bool(b) and (a == b or a in b or b in a)
 
-    part1 = normalize(query_parts[0])
-    part2 = normalize(query_parts[1])
+    part1 = normalize(part1_raw)
+    part2 = normalize(part2_raw)
     artist_norm = normalize(artist)
     title_norm = normalize(title)
 
@@ -374,9 +377,7 @@ def _detect_artist_first(original_query: str, artist: str, title: str) -> bool:
 
 def _normalize_for_comparison(text: str) -> str:
     """Normalize text for artist/track comparison by removing punctuation."""
-    # Remove common punctuation that might differ (e.g., "a-ha" vs "a ha")
     normalized = re.sub(r"[._\-']", " ", text.lower())
-    # Collapse multiple spaces
     normalized = re.sub(r"\s+", " ", normalized)
     return normalized.strip()
 
@@ -387,22 +388,16 @@ def _strip_artist_from_track(track_name: str, artist_name: str) -> str:
     Last.fm sometimes returns track names like 'Artist - Title' or 'Artist-Title'.
     Handles variations like "a-ha" vs "A ha" where punctuation differs.
     """
-    # Normalize both for fuzzy comparison (handles "a-ha" vs "a ha")
     track_normalized = _normalize_for_comparison(track_name)
     artist_normalized = _normalize_for_comparison(artist_name)
 
-    # Check if track starts with artist name (normalized)
     if track_normalized.startswith(artist_normalized + " "):
-        # Find the separator in the original track name
-        # Look for pattern: [artist-like-text] [separator] [title]
-        separator_pattern = r"^.{0,50}?(?:\s*[-–—|:]\s*|\s+/\s+)(.+)$"
+        separator_pattern = r"^.{0,50}?(?:\s*[-\u2013\u2014|:]\s*|\s+/\s+)(.+)$"
         match = re.match(separator_pattern, track_name)
 
         if match:
-            # Verify the part before separator matches the artist (normalized)
             before_separator = track_name[: match.start(1)].strip()
-            # Remove the separator
-            before_separator = re.sub(r"\s*[-–—|:/]\s*$", "", before_separator)
+            before_separator = re.sub(r"\s*[-\u2013\u2014|:/]\s*$", "", before_separator)
 
             if _normalize_for_comparison(before_separator) == artist_normalized:
                 return match.group(1)
@@ -467,13 +462,11 @@ def get_song_correct_name(song: str) -> str | None:
 
     Results are cached to avoid repeated API calls for the same song.
     Cache persists for the lifetime of the process.
-    Respects Last.fm's rate limit of 1 request per second.
     """
     global _last_api_request_time
 
     cleaned_query = clean_search_query(song)
 
-    # Rate limiting: ensure at least 1 second between API requests
     elapsed = time.time() - _last_api_request_time
     if elapsed < LASTFM_RATE_LIMIT:
         time.sleep(LASTFM_RATE_LIMIT - elapsed)
@@ -485,8 +478,16 @@ def get_song_correct_name(song: str) -> str | None:
         "format": "json",
     }
 
-    response = requests.get(LASTFM_API_URL, params=params)
-    _last_api_request_time = time.time()
+    try:
+        response = requests.get(LASTFM_API_URL, params=params, timeout=5)
+    except requests.exceptions.Timeout:
+        logging.warning(f"Last.fm API request timed out for query: {cleaned_query}")
+        return None
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Last.fm API request failed for query: {cleaned_query}: {e}")
+        return None
+    finally:
+        _last_api_request_time = time.time()
 
     if response.status_code != 200:
         logging.warning(
@@ -499,6 +500,18 @@ def get_song_correct_name(song: str) -> str | None:
     except requests.exceptions.JSONDecodeError:
         logging.error(f"Last.fm API returned invalid JSON for query: {cleaned_query}")
         logging.error(f"Response text: {response.text[:200]}")
+        return None
+
+    # Last.fm returns HTTP 200 even for API-level errors; check the error field
+    if "error" in data:
+        error_code = data.get("error")
+        error_msg = data.get("message", "Unknown error")
+        if error_code == 29:
+            logging.warning(f"Last.fm rate limit exceeded for query: {cleaned_query}")
+        else:
+            logging.warning(
+                f"Last.fm API error {error_code} ({error_msg}) for query: {cleaned_query}"
+            )
         return None
 
     results = data.get("results", {}).get("trackmatches", {}).get("track", [])
@@ -518,15 +531,16 @@ def _normalize_name_for_comparison(name: str) -> str:
     if not name:
         return ""
 
-    # Normalize all dash-like characters to standard hyphen
-    # U+002D hyphen-minus, U+2013 en dash, U+2014 em dash, U+2212 minus sign
-    name = re.sub(r"[-–—−]", "-", name)
-
-    # Normalize whitespace: strip and collapse multiple spaces
+    name = re.sub(r"[-\u2013\u2014\u2212]", "-", name)
     name = re.sub(r"\s+", " ", name.strip())
-
-    # Lowercase for case-insensitive comparison
     return name.lower()
+
+
+def _names_match(name: str, correct_name: str | None) -> bool:
+    """Check if a song name and its corrected version are effectively identical."""
+    return _normalize_name_for_comparison(name) == _normalize_name_for_comparison(
+        correct_name or ""
+    )
 
 
 def _error_response(message: str) -> dict:
@@ -579,10 +593,7 @@ def get_all_songs():
     for song in available_songs[start_index : start_index + RESULTS_PER_PAGE]:
         song_name = k.song_manager.filename_from_path(song)
         correct_name = get_song_correct_name(song_name)
-        # Compare normalized versions to detect effectively identical names
-        is_equal = _normalize_name_for_comparison(song_name) == _normalize_name_for_comparison(
-            correct_name or ""
-        )
+        is_equal = _names_match(song_name, correct_name)
         songs.append({"file": song, "correct_name": correct_name, "is_equal": is_equal})
 
     table_lines_html = render_template_string(table_lines_template, songs=songs, skip=start_index)
@@ -615,14 +626,10 @@ def get_songs_to_rename():
         correct_name = get_song_correct_name(song_name)
         song_index += 1
 
-        # Skip if names are effectively identical (normalized comparison)
-        if _normalize_name_for_comparison(song_name) == _normalize_name_for_comparison(
-            correct_name or ""
-        ):
+        if _names_match(song_name, correct_name):
             continue
 
-        is_equal = False  # By definition, not equal if we got here
-        songs.append({"file": song, "correct_name": correct_name, "is_equal": is_equal})
+        songs.append({"file": song, "correct_name": correct_name, "is_equal": False})
         collected += 1
 
     table_lines_html = render_template_string(table_lines_template, songs=songs, skip=skip)
