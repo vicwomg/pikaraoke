@@ -5,7 +5,6 @@ import os
 import re
 import time
 import unicodedata
-from functools import lru_cache
 
 import flask_babel
 import requests
@@ -33,6 +32,11 @@ LASTFM_API_URL = "http://ws.audioscrobbler.com/2.0/"
 # Last.fm rate limit: approximately 5 requests/second (conservative estimate)
 # Adjust this if you experience rate limiting errors (increase value to slow down)
 LASTFM_RATE_LIMIT = 0.2  # seconds between requests (5 req/sec)
+_MAX_RETRIES = 3
+_BACKOFF_BASE = 1.0  # seconds: retries at 1s, 2s
+
+# Sentinel distinguishing "rate limited" (transient) from "no results" (definitive)
+_RATE_LIMITED = object()
 
 # Track last API request time for rate limiting
 _last_api_request_time = 0.0
@@ -461,20 +465,13 @@ def get_best_result(
     return f"{clean_track_name} - {artist}"
 
 
-@lru_cache(maxsize=500)
-def get_song_correct_name(song: str) -> str | None:
-    """Look up the canonical song name via the Last.fm API.
+def _lastfm_track_search(cleaned_query: str) -> list[dict] | object:
+    """Call Last.fm track.search with rate limiting and retry on rate limit errors.
 
-    Results are cached to avoid repeated API calls for the same song.
-    Cache persists for the lifetime of the process.
+    Returns track list on success, empty list on definitive failure (no results,
+    network error), or _RATE_LIMITED sentinel when all retries are exhausted.
     """
     global _last_api_request_time
-
-    cleaned_query = clean_search_query(song)
-
-    elapsed = time.time() - _last_api_request_time
-    if elapsed < LASTFM_RATE_LIMIT:
-        time.sleep(LASTFM_RATE_LIMIT - elapsed)
 
     params = {
         "method": "track.search",
@@ -483,48 +480,95 @@ def get_song_correct_name(song: str) -> str | None:
         "format": "json",
     }
 
-    try:
-        response = requests.get(LASTFM_API_URL, params=params, timeout=5)
-    except requests.exceptions.Timeout:
-        logging.warning(f"Last.fm API request timed out for query: {cleaned_query}")
-        return None
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Last.fm API request failed for query: {cleaned_query}: {e}")
-        return None
-    finally:
-        _last_api_request_time = time.time()
+    for attempt in range(_MAX_RETRIES):
+        if attempt > 0:
+            backoff = _BACKOFF_BASE * (2 ** (attempt - 1))
+            logging.info(
+                f"Rate limited by Last.fm, retrying in {backoff:.1f}s "
+                f"(attempt {attempt + 1}/{_MAX_RETRIES})"
+            )
+            time.sleep(backoff)
 
-    if response.status_code != 200:
-        logging.warning(
-            f"Last.fm API returned status {response.status_code} for query: {cleaned_query}"
-        )
-        return None
+        elapsed = time.time() - _last_api_request_time
+        if elapsed < LASTFM_RATE_LIMIT:
+            time.sleep(LASTFM_RATE_LIMIT - elapsed)
 
-    try:
-        data = response.json()
-    except requests.exceptions.JSONDecodeError:
-        logging.error(f"Last.fm API returned invalid JSON for query: {cleaned_query}")
-        logging.error(f"Response text: {response.text[:200]}")
-        return None
+        try:
+            response = requests.get(LASTFM_API_URL, params=params, timeout=5)
+        except requests.exceptions.Timeout:
+            logging.warning(f"Last.fm API request timed out for query: {cleaned_query}")
+            return []
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Last.fm API request failed for query: {cleaned_query}: {e}")
+            return []
+        finally:
+            _last_api_request_time = time.time()
 
-    # Last.fm returns HTTP 200 even for API-level errors; check the error field
-    if "error" in data:
-        error_code = data.get("error")
-        error_msg = data.get("message", "Unknown error")
-        if error_code == 29:
-            logging.warning(f"Last.fm rate limit exceeded for query: {cleaned_query}")
-        else:
+        if response.status_code == 429:
+            logging.warning(f"Last.fm returned HTTP 429 for query: {cleaned_query}")
+            continue
+
+        if response.status_code != 200:
+            logging.warning(
+                f"Last.fm API returned status {response.status_code} for query: {cleaned_query}"
+            )
+            return []
+
+        try:
+            data = response.json()
+        except requests.exceptions.JSONDecodeError:
+            logging.error(f"Last.fm API returned invalid JSON for query: {cleaned_query}")
+            logging.error(f"Response text: {response.text[:200]}")
+            return []
+
+        # Last.fm returns HTTP 200 even for API-level errors; check the error field
+        if "error" in data:
+            error_code = data.get("error")
+            error_msg = data.get("message", "Unknown error")
+            if error_code == 29:
+                logging.warning(f"Last.fm rate limit exceeded for query: {cleaned_query}")
+                continue
             logging.warning(
                 f"Last.fm API error {error_code} ({error_msg}) for query: {cleaned_query}"
             )
+            return []
+
+        return data.get("results", {}).get("trackmatches", {}).get("track", [])
+
+    logging.warning(f"Last.fm rate limit retries exhausted for query: {cleaned_query}")
+    return _RATE_LIMITED
+
+
+# Cache for get_song_correct_name: maps song filename -> corrected name.
+# Uses a plain dict instead of lru_cache so that rate-limited None results
+# are not cached (they should be retried on next request).
+_song_name_cache: dict[str, str | None] = {}
+
+
+def clear_song_name_cache() -> None:
+    """Clear the song name lookup cache."""
+    _song_name_cache.clear()
+
+
+def get_song_correct_name(song: str) -> str | None:
+    """Look up the canonical song name via the Last.fm API.
+
+    Definitive results (including genuine "no results") are cached for the
+    lifetime of the process. Rate-limited failures are NOT cached so the
+    lookup is retried on the next request.
+    """
+    if song in _song_name_cache:
+        return _song_name_cache[song]
+
+    cleaned_query = clean_search_query(song)
+    results = _lastfm_track_search(cleaned_query)
+
+    if not isinstance(results, list):
         return None
 
-    results = data.get("results", {}).get("trackmatches", {}).get("track", [])
-
-    if not results:
-        return None
-
-    return get_best_result(results, cleaned_query, original_name=song)
+    result = get_best_result(results, cleaned_query, original_name=song) if results else None
+    _song_name_cache[song] = result
+    return result
 
 
 def _normalize_name_for_comparison(name: str) -> str:
