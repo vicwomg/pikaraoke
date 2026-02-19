@@ -424,6 +424,11 @@ def _preserve_original_artist(original_name: str, lastfm_artist: str) -> str | N
     if has_multi_artist and lastfm_lower in original_lower and lastfm_lower != original_lower:
         return original_artist
 
+    # Preserve original artist when Last.fm returned the accent-stripped equivalent
+    # e.g. original "Céline Dion" should not be downgraded to Last.fm's "Celine Dion"
+    if _remove_accents(original_lower) == _remove_accents(lastfm_lower):
+        return original_artist
+
     return None
 
 
@@ -525,15 +530,15 @@ def get_song_correct_name(song: str) -> str | None:
 def _normalize_name_for_comparison(name: str) -> str:
     """Normalize a song name for comparison purposes.
 
-    Handles different dash characters, whitespace, and case to detect
-    when two names are effectively identical.
+    Handles different dash characters, whitespace, case, and diacritical marks
+    to detect when two names are effectively identical (e.g. 'Céline' == 'Celine').
     """
     if not name:
         return ""
 
     name = re.sub(r"[-\u2013\u2014\u2212]", "-", name)
     name = re.sub(r"\s+", " ", name.strip())
-    return name.lower()
+    return _remove_accents(name).lower()
 
 
 def _names_match(name: str, correct_name: str | None) -> bool:
