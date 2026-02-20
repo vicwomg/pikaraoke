@@ -38,7 +38,6 @@ _BACKOFF_BASE = 1.0  # seconds: retries at 1s, 2s
 # Sentinel distinguishing "rate limited" (transient) from "no results" (definitive)
 _RATE_LIMITED = object()
 
-# Track last API request time for rate limiting
 _last_api_request_time = 0.0
 
 EMOJI_PATTERN = re.compile(
@@ -92,7 +91,6 @@ NOISE_WORDS = [
     r"\bwith lyrics\b",
     r"\bcc\b",
 ]
-# Single compiled pattern for all noise words — avoids re-scanning the string 30+ times
 NOISE_PATTERN = re.compile("|".join(NOISE_WORDS), flags=re.IGNORECASE)
 
 SPECIAL_VERSION_KEYWORDS = [
@@ -109,7 +107,6 @@ SPECIAL_VERSION_KEYWORDS = [
     "extended",
 ]
 
-# ---- Template HTML as string ----
 table_lines_template = """
 
 {% for song in songs %}
@@ -139,7 +136,6 @@ table_lines_template = """
 
 """
 
-# ---- Template HTML as string ----
 all_songs_template = """
 {{ pagination.links }} {{ pagination.info }}
 <div id="loading" style="display:none">
@@ -157,7 +153,6 @@ all_songs_template = """
 {{ pagination.links }}
 """
 
-# ---- Template HTML as string ----
 songs_to_rename_template = """
 {% if page|int == 1 %}
 <table id="results-table" class="songs-table">
@@ -336,27 +331,31 @@ def _score_penalties(
     return penalty
 
 
+def _normalize_for_detection(text: str) -> str:
+    """Normalize text for artist/title format detection."""
+    return _remove_accents(clean_search_query(text.strip().lower()))
+
+
+def _is_similar(a: str, b: str) -> bool:
+    """Check if two strings are similar (exact or substring match)."""
+    return bool(a) and bool(b) and (a == b or a in b or b in a)
+
+
 def _detect_artist_first(original_query: str, artist: str, title: str) -> bool:
     """Detect if the original query uses 'Artist - Title' format."""
     part1_raw, part2_raw = _split_query_parts(original_query)
     if not part2_raw:
         return False
 
-    def normalize(text: str) -> str:
-        return _remove_accents(clean_search_query(text.strip().lower()))
+    part1 = _normalize_for_detection(part1_raw)
+    part2 = _normalize_for_detection(part2_raw)
+    artist_norm = _normalize_for_detection(artist)
+    title_norm = _normalize_for_detection(title)
 
-    def is_similar(a: str, b: str) -> bool:
-        return bool(a) and bool(b) and (a == b or a in b or b in a)
-
-    part1 = normalize(part1_raw)
-    part2 = normalize(part2_raw)
-    artist_norm = normalize(artist)
-    title_norm = normalize(title)
-
-    part1_is_artist = is_similar(part1, artist_norm)
-    part1_is_title = is_similar(part1, title_norm)
-    part2_is_artist = is_similar(part2, artist_norm)
-    part2_is_title = is_similar(part2, title_norm)
+    part1_is_artist = _is_similar(part1, artist_norm)
+    part1_is_title = _is_similar(part1, title_norm)
+    part2_is_artist = _is_similar(part2, artist_norm)
+    part2_is_title = _is_similar(part2, title_norm)
 
     # Both parts match their expected positions
     if part1_is_artist and part2_is_title:
@@ -469,7 +468,8 @@ def _lastfm_track_search(cleaned_query: str) -> list[dict] | object:
     """Call Last.fm track.search with rate limiting and retry on rate limit errors.
 
     Returns track list on success, empty list on definitive failure (no results,
-    network error), or _RATE_LIMITED sentinel when all retries are exhausted.
+    API error), or _RATE_LIMITED sentinel on transient failures (timeout, network
+    error, rate limiting).
     """
     global _last_api_request_time
 
@@ -497,10 +497,10 @@ def _lastfm_track_search(cleaned_query: str) -> list[dict] | object:
             response = requests.get(LASTFM_API_URL, params=params, timeout=5)
         except requests.exceptions.Timeout:
             logging.warning(f"Last.fm API request timed out for query: {cleaned_query}")
-            return []
+            return _RATE_LIMITED
         except requests.exceptions.RequestException as e:
             logging.error(f"Last.fm API request failed for query: {cleaned_query}: {e}")
-            return []
+            return _RATE_LIMITED
         finally:
             _last_api_request_time = time.time()
 
@@ -572,14 +572,9 @@ def get_song_correct_name(song: str) -> str | None:
 
 
 def _normalize_name_for_comparison(name: str) -> str:
-    """Normalize a song name for comparison purposes.
-
-    Handles different dash characters, whitespace, case, and diacritical marks
-    to detect when two names are effectively identical (e.g. 'Céline' == 'Celine').
-    """
+    """Normalize for comparison: unify dashes, whitespace, case, and diacritics."""
     if not name:
         return ""
-
     name = re.sub(r"[-\u2013\u2014\u2212]", "-", name)
     name = re.sub(r"\s+", " ", name.strip())
     return _remove_accents(name).lower()
@@ -587,9 +582,9 @@ def _normalize_name_for_comparison(name: str) -> str:
 
 def _names_match(name: str, correct_name: str | None) -> bool:
     """Check if a song name and its corrected version are effectively identical."""
-    return _normalize_name_for_comparison(name) == _normalize_name_for_comparison(
-        correct_name or ""
-    )
+    normalized_name = _normalize_name_for_comparison(name)
+    normalized_correct = _normalize_name_for_comparison(correct_name or "")
+    return normalized_name == normalized_correct
 
 
 def _error_response(message: str) -> dict:
@@ -665,11 +660,9 @@ def get_songs_to_rename():
     available_songs = k.song_manager.songs
 
     songs = []
-    skip = page * RESULTS_PER_PAGE
+    display_offset = page * RESULTS_PER_PAGE
 
-    # Keep searching until we find RESULTS_PER_PAGE songs that need renaming
-    collected = 0
-    while collected < RESULTS_PER_PAGE and song_index < len(available_songs):
+    while len(songs) < RESULTS_PER_PAGE and song_index < len(available_songs):
         song = available_songs[song_index]
         song_name = k.song_manager.filename_from_path(song)
         correct_name = get_song_correct_name(song_name)
@@ -679,9 +672,10 @@ def get_songs_to_rename():
             continue
 
         songs.append({"file": song, "correct_name": correct_name, "is_equal": False})
-        collected += 1
 
-    table_lines_html = render_template_string(table_lines_template, songs=songs, skip=skip)
+    table_lines_html = render_template_string(
+        table_lines_template, songs=songs, skip=display_offset
+    )
     html = render_template_string(
         songs_to_rename_template, table_lines=table_lines_html, page=page + 1, song_index=song_index
     )
@@ -710,24 +704,22 @@ def rename_song():
         )
 
     file_extension = os.path.splitext(old_name)[1]
-    old_name_only = k.song_manager.filename_from_path(old_name, remove_youtube_id=False)
+    old_filename = k.song_manager.filename_from_path(old_name, remove_youtube_id=False)
     new_full_path = os.path.join(k.song_manager.download_path, new_name + file_extension)
+    is_case_only_rename = old_filename.lower() == new_name.lower() and old_filename != new_name
 
-    # Check if new file already exists (but not a case-only rename)
-    if os.path.isfile(new_full_path):
-        # Allow case-only renames on case-insensitive filesystems
-        if old_name_only.lower() != new_name.lower():
-            # MSG: Message shown after trying to rename a file to a name that already exists.
-            return jsonify(
-                _error_response(
-                    _("Error renaming file: '%s' to '%s', Filename already exists")
-                    % (old_name, new_name + file_extension)
-                )
+    # Block renaming to an existing file (unless it's just a case change)
+    if os.path.isfile(new_full_path) and not is_case_only_rename:
+        # MSG: Message shown after trying to rename a file to a name that already exists.
+        return jsonify(
+            _error_response(
+                _("Error renaming file: '%s' to '%s', Filename already exists")
+                % (old_name, new_name + file_extension)
             )
+        )
 
-    # Handle case-only renames on Windows (case-insensitive filesystem)
-    if old_name_only.lower() == new_name.lower() and old_name_only != new_name:
-        # Two-step rename: old -> temp -> new
+    if is_case_only_rename:
+        # Two-step rename for case-insensitive filesystems (e.g. Windows)
         temp_name = f"{new_name}_temp_{int(time.time() * 1000)}"
         k.song_manager.rename(old_name, temp_name)
         temp_path = os.path.join(k.song_manager.download_path, temp_name + file_extension)
