@@ -34,7 +34,7 @@
 					// Mostra tabela e insere os dados
 					$("#results-table tbody").append(data.html);
 
-					$("#load-more-songs").attr("data-page", data.page).attr("data-last-song-index", data["song-index"]).show()
+					$("#load-more-songs").attr("data-page", data.page).attr("data-last-song-index", data["song_index"]).show()
 
 				})
 				.catch((error) => {
@@ -64,7 +64,7 @@
 			$(this).hide()
 			let page = $(this).attr("data-page");
 			let lastSongIndex = $(this).attr("data-last-song-index");
-			let url = "{{ url_for('batch_song_renamer.get_songs_to_rename') }}?page=" + page + "&song-index=" + lastSongIndex
+			let url = "{{ url_for('batch_song_renamer.get_songs_to_rename') }}?page=" + page + "&song_index=" + lastSongIndex
 			fecthMoreSongs(url)
 		})
 

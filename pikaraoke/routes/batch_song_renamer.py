@@ -591,14 +591,14 @@ def _error_response(message: str) -> dict:
     return {"success": False, "message": message, "categoryClass": "is-danger"}
 
 
-@batch_song_renamer_bp.route("/batch-song-renamer", methods=["GET", "POST"])
+@batch_song_renamer_bp.route("/batch-song-renamer", methods=["GET"])
 def browse():
     if not is_admin():
         return redirect(url_for("files.browse"))
 
     site_name = get_site_name()
     show_all_songs = request.args.get("show_all_songs") == "true"
-    page = request.args.get(get_page_parameter(), type=int, default=1)
+    page = int(request.args.get("page", 1))
 
     # MSG: Title of the button to accept the suggested name
     _("Accept suggested name")
@@ -653,7 +653,7 @@ def get_songs_to_rename():
     if not is_admin():
         return redirect(url_for("files.browse"))
 
-    song_index = int(request.args.get("song-index") or 0)
+    song_index = int(request.args.get("song_index") or 0)
     page = int(request.args.get("page") or 0)
 
     k = get_karaoke_instance()
@@ -680,7 +680,7 @@ def get_songs_to_rename():
         songs_to_rename_template, table_lines=table_lines_html, page=page + 1, song_index=song_index
     )
 
-    return jsonify({"html": html, "page": page + 1, "song-index": song_index})
+    return jsonify({"html": html, "page": page + 1, "song_index": song_index})
 
 
 @batch_song_renamer_bp.route("/batch-song-renamer/rename-song", methods=["POST"])
