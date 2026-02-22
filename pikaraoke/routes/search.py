@@ -1,17 +1,13 @@
 """YouTube search and download routes."""
 
+from __future__ import annotations
+
 import json
 
 import flask_babel
-from flask import (
-    Blueprint,
-    current_app,
-    flash,
-    redirect,
-    render_template,
-    request,
-    url_for,
-)
+from flask import current_app, flash, redirect, render_template, request, url_for
+from flask_smorest import Blueprint
+from marshmallow import Schema, fields
 
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
 from pikaraoke.lib.youtube_dl import get_search_results
@@ -21,30 +17,30 @@ _ = flask_babel.gettext
 search_bp = Blueprint("search", __name__)
 
 
+class AutocompleteQuery(Schema):
+    q = fields.String(required=True, metadata={"description": "Search query for autocomplete"})
+
+
+class DownloadForm(Schema):
+    song_url = fields.String(required=True, metadata={"description": "YouTube URL to download"})
+    song_added_by = fields.String(
+        required=True, metadata={"description": "Name of the user requesting the download"}
+    )
+    song_title = fields.String(
+        required=True, metadata={"description": "Display title for the song"}
+    )
+    queue = fields.String(metadata={"description": "Set to 'on' to queue the song after download"})
+
+
 @search_bp.route("/search", methods=["GET"])
 def search():
-    """YouTube search page.
-    ---
-    tags:
-      - Pages
-    parameters:
-      - name: search_string
-        in: query
-        type: string
-        description: YouTube search query
-      - name: non_karaoke
-        in: query
-        type: string
-        description: Set to 'true' to include non-karaoke results
-    responses:
-      200:
-        description: HTML search page with results
-    """
+    """YouTube search page."""
     k = get_karaoke_instance()
     site_name = get_site_name()
-    if "search_string" in request.args:
-        search_string = request.args["search_string"]
-        if "non_karaoke" in request.args and request.args["non_karaoke"] == "true":
+    search_string = request.args.get("search_string")
+    if search_string:
+        non_karaoke = request.args.get("non_karaoke") == "true"
+        if non_karaoke:
             search_results = get_search_results(search_string)
         else:
             search_results = get_search_results(search_string + " karaoke")
@@ -62,37 +58,11 @@ def search():
 
 
 @search_bp.route("/autocomplete")
-def autocomplete():
-    """Search available songs for autocomplete.
-    ---
-    tags:
-      - Search
-    parameters:
-      - name: q
-        in: query
-        type: string
-        required: true
-        description: Search query string
-    responses:
-      200:
-        description: List of matching songs
-        schema:
-          type: array
-          items:
-            type: object
-            properties:
-              path:
-                type: string
-                description: File path of the song
-              fileName:
-                type: string
-                description: Display name of the song
-              type:
-                type: string
-                description: Result type (autocomplete)
-    """
+@search_bp.arguments(AutocompleteQuery, location="query")
+def autocomplete(query):
+    """Search available songs for autocomplete."""
     k = get_karaoke_instance()
-    q = request.args.get("q").lower()
+    q = query["q"].lower()
     result = []
     for each in k.song_manager.songs:
         if q in each.lower():
@@ -108,45 +78,14 @@ def autocomplete():
 
 
 @search_bp.route("/download", methods=["POST"])
-def download():
-    """Download a video from YouTube.
-    ---
-    tags:
-      - Search
-    consumes:
-      - application/x-www-form-urlencoded
-    parameters:
-      - name: song-url
-        in: formData
-        type: string
-        required: true
-        description: YouTube video URL
-      - name: song-added-by
-        in: formData
-        type: string
-        required: true
-        description: Username initiating download
-      - name: song-title
-        in: formData
-        type: string
-        description: Display title for the song
-      - name: queue
-        in: formData
-        type: string
-        description: Set to 'on' to add to queue after download
-    responses:
-      302:
-        description: Redirects to search page
-    """
+@search_bp.arguments(DownloadForm, location="form")
+def download(form):
+    """Download a video from YouTube."""
     k = get_karaoke_instance()
-    d = request.form.to_dict()
-    song = d["song-url"]
-    user = d["song-added-by"]
-    title = d["song-title"]
-    if "queue" in d and d["queue"] == "on":
-        queue = True
-    else:
-        queue = False
+    song = form["song_url"]
+    user = form["song_added_by"]
+    title = form["song_title"]
+    queue = form.get("queue") == "on"
 
     # Queue the download (processed serially by the download worker)
     k.download_manager.queue_download(song, queue, user, title)

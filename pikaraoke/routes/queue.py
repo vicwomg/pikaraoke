@@ -1,10 +1,14 @@
 """Song queue management routes."""
 
+from __future__ import annotations
+
 import json
 from urllib.parse import unquote
 
 import flask_babel
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import flash, redirect, render_template, request, url_for
+from flask_smorest import Blueprint
+from marshmallow import Schema, fields
 
 from pikaraoke.lib.current_app import (
     broadcast_event,
@@ -18,16 +22,39 @@ _ = flask_babel.gettext
 queue_bp = Blueprint("queue", __name__)
 
 
+class ReorderForm(Schema):
+    old_index = fields.Integer(
+        required=True, metadata={"description": "Current index of the item to move"}
+    )
+    new_index = fields.Integer(
+        required=True, metadata={"description": "Target index to move the item to"}
+    )
+
+
+class EnqueueQuery(Schema):
+    song = fields.String(required=True, metadata={"description": "Path to the song file"})
+    user = fields.String(
+        load_default="", metadata={"description": "Name of the user adding the song"}
+    )
+
+
+class EnqueueForm(Schema):
+    song_to_add = fields.String(required=True, metadata={"description": "Path to the song file"})
+    song_added_by = fields.String(
+        load_default="", metadata={"description": "Name of the user adding the song"}
+    )
+
+
+class QueueEditQuery(Schema):
+    action = fields.String(required=True, metadata={"description": "Queue edit action to perform"})
+    song = fields.String(
+        metadata={"description": "Path to the song file (required unless action is 'clear')"}
+    )
+
+
 @queue_bp.route("/queue")
 def queue():
-    """Queue management page.
-    ---
-    tags:
-      - Pages
-    responses:
-      200:
-        description: HTML queue management page
-    """
+    """Queue management page."""
     k = get_karaoke_instance()
     site_name = get_site_name()
     return render_template(
@@ -41,53 +68,15 @@ def queue():
 
 @queue_bp.route("/get_queue")
 def get_queue():
-    """Get the current song queue.
-    ---
-    tags:
-      - Queue
-    responses:
-      200:
-        description: List of songs in queue
-        schema:
-          type: array
-          items:
-            type: object
-            properties:
-              user:
-                type: string
-                description: User who added the song
-              file:
-                type: string
-                description: File path of the song
-              title:
-                type: string
-                description: Display title of the song
-              semitones:
-                type: integer
-                description: Transpose value in semitones
-    """
+    """Get the current song queue."""
     k = get_karaoke_instance()
     return json.dumps(k.queue_manager.queue)
 
 
-@queue_bp.route("/queue/addrandom", methods=["GET"])
-def add_random():
-    """Add random songs to the queue.
-    ---
-    tags:
-      - Queue
-    parameters:
-      - name: amount
-        in: query
-        type: integer
-        required: true
-        description: Number of random songs to add
-    responses:
-      302:
-        description: Redirects to queue page
-    """
+@queue_bp.route("/queue/addrandom/<int:amount>", methods=["GET"])
+def add_random(amount):
+    """Add random songs to the queue."""
     k = get_karaoke_instance()
-    amount = request.args.get("amount", default=1, type=int)
     rc = k.queue_manager.queue_add_random(amount)
     if rc:
         # MSG: Message shown after adding random tracks
@@ -100,48 +89,15 @@ def add_random():
 
 
 @queue_bp.route("/queue/reorder", methods=["POST"])
-def reorder():
-    """Handle drag-and-drop reordering of the queue.
-    ---
-    tags:
-      - Queue
-    consumes:
-      - application/x-www-form-urlencoded
-    parameters:
-      - name: old_index
-        in: formData
-        type: integer
-        required: true
-        description: The current index of the item to move
-      - name: new_index
-        in: formData
-        type: integer
-        required: true
-        description: The target index to move the item to
-    responses:
-      200:
-        description: Result of the reorder operation
-        schema:
-          type: object
-          properties:
-            success:
-              type: boolean
-              description: Whether the reorder was successful
-            error:
-              type: string
-              description: Error message if failed
-      403:
-        description: Unauthorized access (admin only)
-    """
+@queue_bp.arguments(ReorderForm, location="form")
+def reorder(form):
+    """Handle drag-and-drop reordering of the queue."""
     if not is_admin():
         return json.dumps({"success": False, "error": "Unauthorized"}), 403
 
     k = get_karaoke_instance()
     try:
-        old_index = int(request.form["old_index"])
-        new_index = int(request.form["new_index"])
-
-        success = k.queue_manager.reorder(old_index, new_index)
+        success = k.queue_manager.reorder(form["old_index"], form["new_index"])
         return json.dumps({"success": success})
     except (ValueError, IndexError):
         pass
@@ -150,7 +106,8 @@ def reorder():
 
 
 @queue_bp.route("/queue/edit", methods=["GET"])
-def queue_edit():
+@queue_bp.arguments(QueueEditQuery, location="query")
+def queue_edit(query):
     """Edit queue items (admin only)."""
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
@@ -162,7 +119,7 @@ def queue_edit():
         return redirect(url_for("queue.queue"))
 
     k = get_karaoke_instance()
-    action = request.args["action"]
+    action = query["action"]
     success = False
     message = ""
 
@@ -175,7 +132,7 @@ def queue_edit():
         broadcast_event("skip", "clear queue")
         success = True
     else:
-        song = unquote(request.args["song"])
+        song = unquote(query.get("song", ""))
         song_title = k.song_manager.filename_from_path(song)
 
         # MSG labels for each action
@@ -217,99 +174,38 @@ def queue_edit():
     return redirect(url_for("queue.queue"))
 
 
-@queue_bp.route("/enqueue", methods=["POST", "GET"])
-def enqueue():
-    """Add a song to the queue.
-    ---
-    tags:
-      - Queue
-    parameters:
-      - name: song
-        in: query
-        type: string
-        description: Path to the song file
-      - name: user
-        in: query
-        type: string
-        description: Name of the user adding the song
-      - name: song-to-add
-        in: formData
-        type: string
-        description: Path to the song file (form data)
-      - name: song-added-by
-        in: formData
-        type: string
-        description: Name of the user (form data)
-    responses:
-      200:
-        description: Result of enqueue operation
-        schema:
-          type: object
-          properties:
-            song:
-              type: string
-              description: Title of the song
-            success:
-              type: boolean
-              description: Whether the song was added
-    """
+def _do_enqueue(song: str, user: str) -> str:
     k = get_karaoke_instance()
-    song = request.args.get("song") or request.form["song-to-add"]
-    user = request.args.get("user") or request.form["song-added-by"]
     rc = k.queue_manager.enqueue(song, user)
     broadcast_event("queue_update")
     song_title = k.song_manager.filename_from_path(song)
     return json.dumps({"song": song_title, "success": rc})
 
 
+@queue_bp.route("/enqueue", methods=["GET"])
+@queue_bp.arguments(EnqueueQuery, location="query")
+def enqueue(query):
+    """Add a song to the queue (used by the file browser)."""
+    return _do_enqueue(query["song"], query["user"])
+
+
+@queue_bp.route("/enqueue", methods=["POST"])
+@queue_bp.arguments(EnqueueForm, location="form")
+def enqueue_form(form):
+    """Add a song to the queue (used by the search page)."""
+    return _do_enqueue(form["song_to_add"], form["song_added_by"])
+
+
 @queue_bp.route("/queue/downloads")
 def get_current_downloads():
-    """Get the status of current and pending downloads.
-    ---
-    tags:
-      - Queue
-    responses:
-      200:
-        description: Status of active and pending downloads
-        schema:
-          type: object
-          properties:
-            active:
-              type: object
-              description: Currently active download info
-            pending:
-              type: array
-              items:
-                type: object
-                description: Pending download info
-            errors:
-              type: array
-              items:
-                type: object
-                description: Failed download info
-    """
+    """Get the status of current and pending downloads."""
     k = get_karaoke_instance()
     return json.dumps(k.download_manager.get_downloads_status())
 
 
 @queue_bp.route("/queue/downloads/errors/<error_id>", methods=["DELETE"])
 def delete_download_error(error_id):
-    """Remove a download error from the list.
-    ---
-    tags:
-      - Queue
-    parameters:
-      - name: error_id
-        in: path
-        type: string
-        required: true
-        description: ID of the error to remove
-    responses:
-      200:
-        description: Error removed successfully
-      404:
-        description: Error not found
-    """
+    """Remove a download error from the list."""
     k = get_karaoke_instance()
     if k.download_manager.remove_error(error_id):
         return json.dumps({"success": True})

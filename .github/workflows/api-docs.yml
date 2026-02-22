@@ -28,18 +28,19 @@ jobs:
           import json
           import sys
 
+          # Inject --enable-swagger so module-level arg parsing enables the Api
+          sys.argv = ['pikaraoke', '--enable-swagger']
+
           try:
-              # Import app to get all routes registered
-              from pikaraoke.app import app
-              from flasgger import Swagger
+              from pikaraoke.app import api, app
 
-              swagger = Swagger(app)
+              if api is None:
+                  print('flask-smorest Api not initialized. Is --enable-swagger missing?', file=sys.stderr)
+                  sys.exit(1)
 
-              # Get the spec using the swagger object directly
               with app.app_context():
-                  spec = swagger.get_apispecs()
+                  spec = api.spec.to_dict()
 
-              # Write formatted JSON
               with open('openapi.json', 'w') as f:
                   json.dump(spec, f, indent=2)
 

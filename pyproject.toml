@@ -12,19 +12,18 @@ classifiers = [
   "Topic :: Games/Entertainment"
 ]
 dependencies = [
-  "Flask==2.2.5",
+  "Flask>=3.1.0,<4",
   "qrcode[png]==8.2",
   "psutil==7.2.1",
   "requests==2.32.5",
   "flask-paginate==2024.4.12",
-  "jinja2==3.1.6",
+  "flask-smorest>=0.46.0",
   "Babel==2.17.0",
   "Flask-Babel==4.0.0",
   "ffmpeg-python==0.2.0",
   "yt-dlp[default]>=2026.02.04",
   "flask-socketio>=5.5.0",
   "gevent>=24.11.1",
-  "flasgger>=0.9.5",
 ]
 
 [project.optional-dependencies]

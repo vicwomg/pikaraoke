@@ -4,7 +4,8 @@ import shutil
 import subprocess
 
 import flask_babel
-from flask import Blueprint, render_template
+from flask import render_template
+from flask_smorest import Blueprint
 
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
 from pikaraoke.lib.raspi_wifi_config import get_raspi_wifi_text
@@ -17,14 +18,7 @@ splash_bp = Blueprint("splash", __name__)
 
 @splash_bp.route("/splash")
 def splash():
-    """Splash screen / player display for TV output.
-    ---
-    tags:
-      - Pages
-    responses:
-      200:
-        description: HTML splash screen page
-    """
+    """Splash screen / player display for TV output."""
     k = get_karaoke_instance()
     site_name = get_site_name()
     text = ""

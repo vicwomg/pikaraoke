@@ -2,7 +2,8 @@
 
 import flask_babel
 import psutil
-from flask import Blueprint, jsonify, render_template
+from flask import jsonify, render_template
+from flask_smorest import Blueprint
 
 from pikaraoke import VERSION
 from pikaraoke.constants import LANGUAGES
@@ -22,14 +23,7 @@ info_bp = Blueprint("info", __name__)
 
 @info_bp.route("/info")
 def info():
-    """System information and settings page.
-    ---
-    tags:
-      - Pages
-    responses:
-      200:
-        description: HTML page with system info and settings
-    """
+    """System information and settings page."""
     k = get_karaoke_instance()
     site_name = get_site_name()
     url = k.url

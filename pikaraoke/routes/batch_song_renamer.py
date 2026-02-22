@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import os
+import re
 
 import flask_babel
 import requests
 from flask import (
-    Blueprint,
     jsonify,
     redirect,
     render_template,
@@ -12,14 +14,27 @@ from flask import (
     url_for,
 )
 from flask_paginate import Pagination, get_page_parameter
+from flask_smorest import Blueprint
+from marshmallow import Schema, fields
 
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
 
 _ = flask_babel.gettext
 
-import re
-
 batch_song_renamer_bp = Blueprint("batch_song_renamer", __name__)
+
+
+class GetSongsToRenameQuery(Schema):
+    song_index = fields.Integer(load_default=0, metadata={"description": "Starting song index"})
+    page = fields.Integer(load_default=0, metadata={"description": "Current page number"})
+
+
+class RenameSongForm(Schema):
+    new_name = fields.String(required=True, metadata={"description": "New name for the song file"})
+    old_name = fields.String(
+        required=True, metadata={"description": "Full path of the song file to rename"}
+    )
+
 
 results_per_page = 10
 
@@ -365,16 +380,17 @@ def get_song_correct_name(song):
     return get_best_result(results, cleaned_query)
 
 
-@batch_song_renamer_bp.route("/batch-song-renamer", methods=["GET", "POST"])
+@batch_song_renamer_bp.route("/batch-song-renamer", methods=["GET"])
 def browse():
+    """Batch song renamer page."""
     if not is_admin():
         return redirect(url_for("files.browse"))
 
     site_name = get_site_name()
 
-    show_all_songs = "show_all_songs" in request.args and request.args["show_all_songs"] == "true"
+    show_all_songs = request.args.get("show_all_songs") == "true"
 
-    page = request.args.get(get_page_parameter(), type=int, default=1)
+    page = int(request.args.get("page", 1))
 
     # MSG: Title of the button to accept the suggested name
     _("Accept suggested name")
@@ -389,12 +405,12 @@ def browse():
     )
 
 
-@batch_song_renamer_bp.route("/batch-song-renamer/get-all-songs", methods=["GET"])
-def get_all_songs():
+@batch_song_renamer_bp.route("/batch-song-renamer/get-all-songs/<int:page>", methods=["GET"])
+def get_all_songs(page):
+    """Get all songs with suggested renames."""
     if not is_admin():
         return redirect(url_for("files.browse"))
 
-    page = request.args.get(get_page_parameter(), type=int, default=1)
     start_index = (page - 1) * results_per_page
 
     skip = page * results_per_page - results_per_page
@@ -431,12 +447,14 @@ def get_all_songs():
 
 
 @batch_song_renamer_bp.route("/batch-song-renamer/get-songs-to-rename", methods=["GET"])
-def get_songs_to_rename():
+@batch_song_renamer_bp.arguments(GetSongsToRenameQuery, location="query")
+def get_songs_to_rename(query):
+    """Get songs that have rename suggestions different from their current name."""
     if not is_admin():
         return redirect(url_for("files.browse"))
 
-    song_index = int(request.args.get("song-index") or 0)
-    page = int(request.args.get("page") or 0)
+    song_index = query["song_index"]
+    page = query["page"]
 
     k = get_karaoke_instance()
     available_songs = k.song_manager.songs
@@ -465,14 +483,16 @@ def get_songs_to_rename():
         songs_to_rename_template, table_lines=table_lines_html, page=page + 1, song_index=song_index
     )
 
-    return jsonify({"html": html, "page": page + 1, "song-index": song_index})
+    return jsonify({"html": html, "page": page + 1, "song_index": song_index})
 
 
 @batch_song_renamer_bp.route("/batch-song-renamer/rename-song", methods=["POST"])
-def rename_song():
+@batch_song_renamer_bp.arguments(RenameSongForm, location="form")
+def rename_song(form):
+    """Rename a song file."""
     k = get_karaoke_instance()
 
-    d = request.form.to_dict()
+    d = form
 
     queue_error_msg = ()
 

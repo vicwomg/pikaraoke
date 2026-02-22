@@ -1,5 +1,7 @@
 """Admin routes for system control and authentication."""
 
+from __future__ import annotations
+
 import datetime
 import os
 import subprocess
@@ -8,15 +10,9 @@ import threading
 import time
 
 import flask_babel
-from flask import (
-    Blueprint,
-    flash,
-    make_response,
-    redirect,
-    render_template,
-    request,
-    url_for,
-)
+from flask import flash, make_response, redirect, render_template, url_for
+from flask_smorest import Blueprint
+from marshmallow import Schema, fields
 
 from pikaraoke.karaoke import Karaoke
 from pikaraoke.lib.current_app import get_admin_password, get_karaoke_instance, is_admin
@@ -24,8 +20,14 @@ from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
 
 _ = flask_babel.gettext
 
-
 admin_bp = Blueprint("admin", __name__)
+
+
+class AuthForm(Schema):
+    admin_password = fields.String(load_default="", metadata={"description": "Admin password"})
+    next = fields.String(
+        load_default="/", metadata={"description": "URL to redirect to after login"}
+    )
 
 
 def delayed_halt(cmd: int, k: Karaoke):
@@ -46,14 +48,7 @@ def delayed_halt(cmd: int, k: Karaoke):
 
 @admin_bp.route("/update_ytdl")
 def update_ytdl():
-    """Update yt-dlp to the latest version.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to home page
-    """
+    """Update yt-dlp to the latest version."""
     k = get_karaoke_instance()
 
     def update_youtube_dl():
@@ -76,14 +71,7 @@ def update_ytdl():
 
 @admin_bp.route("/refresh")
 def refresh():
-    """Refresh the available songs list.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to browse page
-    """
+    """Refresh the available songs list."""
     k = get_karaoke_instance()
     if is_admin():
         k.song_manager.refresh_songs()
@@ -95,14 +83,7 @@ def refresh():
 
 @admin_bp.route("/quit")
 def quit():
-    """Exit the PiKaraoke application.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to home page before exit
-    """
+    """Exit the PiKaraoke application."""
     k = get_karaoke_instance()
     if is_admin():
         # MSG: Message shown after quitting pikaraoke.
@@ -119,14 +100,7 @@ def quit():
 
 @admin_bp.route("/shutdown")
 def shutdown():
-    """Shut down the host system.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to home page before shutdown
-    """
+    """Shut down the host system."""
     k = get_karaoke_instance()
     if is_admin():
         # MSG: Message shown after shutting down the system.
@@ -143,14 +117,7 @@ def shutdown():
 
 @admin_bp.route("/reboot")
 def reboot():
-    """Reboot the host system.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to home page before reboot
-    """
+    """Reboot the host system."""
     k = get_karaoke_instance()
     if is_admin():
         # MSG: Message shown after rebooting the system.
@@ -167,14 +134,7 @@ def reboot():
 
 @admin_bp.route("/expand_fs")
 def expand_fs():
-    """Expand filesystem on Raspberry Pi.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to home page before reboot
-    """
+    """Expand filesystem on Raspberry Pi."""
     k = get_karaoke_instance()
     if is_admin() and k.is_raspberry_pi:
         # MSG: Message shown after expanding the filesystem.
@@ -191,32 +151,12 @@ def expand_fs():
 
 
 @admin_bp.route("/auth", methods=["POST"])
-def auth():
-    """Authenticate as admin.
-    ---
-    tags:
-      - Admin
-    consumes:
-      - application/x-www-form-urlencoded
-    parameters:
-      - name: admin-password
-        in: formData
-        type: string
-        required: true
-        description: Admin password
-      - name: next
-        in: formData
-        type: string
-        required: false
-        description: URL to redirect to after successful authentication
-    responses:
-      302:
-        description: Redirects to next URL on success, login on failure
-    """
-    d = request.form.to_dict()
+@admin_bp.arguments(AuthForm, location="form")
+def auth(form):
+    """Authenticate as admin."""
     admin_password = get_admin_password()
-    p = d["admin-password"]
-    next_url = d.get("next", "/")
+    p = form["admin_password"]
+    next_url = form["next"]
 
     # Validate next_url to prevent open redirect vulnerabilities
     if not next_url.startswith("/"):
@@ -238,27 +178,13 @@ def auth():
 
 @admin_bp.route("/login")
 def login():
-    """Admin login page.
-    ---
-    tags:
-      - Pages
-    responses:
-      200:
-        description: HTML login page
-    """
+    """Admin login page."""
     return render_template("login.html")
 
 
 @admin_bp.route("/logout")
 def logout():
-    """Log out of admin mode.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to home page
-    """
+    """Log out of admin mode."""
     resp = make_response(redirect("/"))
     resp.set_cookie("admin", "")
     # MSG: Message shown after logging out as admin successfully
