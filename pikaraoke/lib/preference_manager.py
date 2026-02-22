@@ -83,16 +83,18 @@ class PreferenceManager:
             except OSError as e:
                 logging.error(f"Failed to migrate config file: {e}")
 
-    def get(self, preference: str, default_value: Any = None) -> Any:
+    def get(
+        self, preference: str, default_value: Any = None, section: str = "USERPREFERENCES"
+    ) -> Any:
         """Get a preference value, auto-converting to bool/int/float."""
         # Silently ignores missing files
         self._config_obj.read(self.config_file_path, encoding="utf-8")
 
-        if not self._config_obj.has_section("USERPREFERENCES"):
+        if not self._config_obj.has_section(section):
             return default_value
 
         try:
-            pref = self._config_obj.get("USERPREFERENCES", preference)
+            pref = self._config_obj.get(section, preference)
             return self._convert_value(pref)
         except (configparser.NoOptionError, ValueError):
             return default_value
@@ -101,21 +103,21 @@ class PreferenceManager:
         """Get a preference value, falling back to DEFAULTS if not set."""
         return self.get(preference, self.DEFAULTS.get(preference))
 
-    def set(self, preference: str, val: Any) -> tuple[bool, str]:
+    def set(self, preference: str, val: Any, section: str = "USERPREFERENCES") -> tuple[bool, str]:
         """Update a preference, persist to config, and sync target object.
 
         Returns (success, message) tuple.
         """
-        logging.debug(f"Changing user preference << {preference} >> to {val}")
+        logging.debug(f"Changing preference [{section}] << {preference} >> to {val}")
         try:
             # Read existing config to preserve other preferences
             self._config_obj.read(self.config_file_path, encoding="utf-8")
 
-            if "USERPREFERENCES" not in self._config_obj:
-                self._config_obj.add_section("USERPREFERENCES")
+            if section not in self._config_obj:
+                self._config_obj.add_section(section)
 
-            userprefs = self._config_obj["USERPREFERENCES"]
-            userprefs[preference] = str(val)
+            prefs = self._config_obj[section]
+            prefs[preference] = str(val)
 
             with open(self.config_file_path, "w", encoding="utf-8") as conf:
                 self._config_obj.write(conf)
@@ -126,20 +128,27 @@ class PreferenceManager:
                 setattr(self._target, preference, typed_val)
 
             return (True, _("Your preferences were changed successfully"))
-        except Exception as e:
+        except (OSError, configparser.Error) as e:
             logging.debug(f"Failed to change user preference << {preference} >>: {e}")
             return (False, _("Something went wrong! Your preferences were not changed"))
 
     def clear(self) -> tuple[bool, str]:
-        """Remove all user preferences by deleting the config file. Returns (success, message)."""
+        """Remove only USERPREFERENCES section, preserving other config sections."""
         try:
-            if os.path.exists(self.config_file_path):
-                os.remove(self.config_file_path)
-                logging.info(f"Cleared preferences: deleted {self.config_file_path}")
-            # Clear cached config object to prevent stale values from persisting
-            self._config_obj.clear()
+            self._config_obj.read(self.config_file_path, encoding="utf-8")
+
+            if self._config_obj.has_section("USERPREFERENCES"):
+                self._config_obj.remove_section("USERPREFERENCES")
+
+                with open(self.config_file_path, "w", encoding="utf-8") as conf:
+                    self._config_obj.write(conf)
+
+                logging.info(f"Cleared [USERPREFERENCES] from {self.config_file_path}")
+            else:
+                logging.info("No [USERPREFERENCES] section found to clear.")
+
             return (True, _("Your preferences were cleared successfully"))
-        except OSError as e:
+        except (OSError, configparser.Error) as e:
             logging.error(f"Failed to clear preferences: {e}")
             return (False, _("Something went wrong! Your preferences were not cleared"))
 

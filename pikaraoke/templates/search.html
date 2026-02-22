@@ -183,7 +183,7 @@
 		$("#add-queue-link").hide();
 		$("#add-queue-link").attr("disabled", "true");
 		$("#search-link").attr("disabled", "true");
-		var $select = $("#song-to-add").selectize({
+		var $select = $("#song_to_add").selectize({
 			valueField: "path",
 			labelField: "fileName",
 			searchField: ["fileName"],
@@ -278,14 +278,14 @@
 		const urlParams = new URLSearchParams(window.location.search);
 		const qSearchString = urlParams.get("search_string");
 		if (qSearchString) {
-			$("#song-to-add-selectized").val(qSearchString);
-			$("#song-to-add-selectized").width("100%");
+			$("#song_to_add-selectized").val(qSearchString);
+			$("#song_to_add-selectized").width("100%");
 		}
 
 		$("#clear-search").on("click", function (e) {
 			e.preventDefault();
 			$select[0].selectize.clear();
-			$("#song-to-add-selectized").val("");
+			$("#song_to_add-selectized").val("");
 		});
 
 		$("#search-link").on("click", function (e) {
@@ -373,7 +373,7 @@
 
 		setUserCookie(); // Don't reload page after setting cookie
 
-		$(".song-added-by").val(getUserCookie());
+		$(".song_added_by").val(getUserCookie());
 
 		// Restore checkbox states from cookies
 		restoreCheckboxStates();
@@ -399,7 +399,7 @@
 			item.querySelector("button").addEventListener("click", () => {
 				const index = item.getAttribute("data-index");
 				const title = item.getAttribute("data-ytTitle");
-				$("#song-title").val(title);
+				$("#song_title").val(title);
 				document.querySelector("#search_result_selector").selectedIndex = index;
 				document.querySelector("#download-button").click();
 			})
@@ -471,7 +471,7 @@
 		<form id="queue-form">
 			<div id="search-field" class="field has-addons mb-1">
 				<div class="control is-expanded">
-					<select id="song-to-add" class="search-selectize is-size-7" name="song-to-add">
+					<select id="song_to_add" class="search-selectize is-size-7" name="song_to_add">
 						{# TODO MSG: Label #}
 						<optgroup label="{{ _('Available Songs') }}" id="available-songs"></optgroup>
 					</select>
@@ -483,7 +483,7 @@
 					the queue. #}
 					<a class="button is-info" id="add-queue-link">{% trans %}Add to queue{% endtrans %}</a>
 				</div>
-				<input class="song-added-by" type="hidden" name="song-added-by" />
+				<input class="song_added_by" type="hidden" name="song_added_by" />
 			</div>
 			<div class="control is-flex is-justify-content-flex-end is-align-items-center mb-2">
 				<a id="clear-search" class="has-text-danger" style="margin-right: 15px">
@@ -540,11 +540,11 @@
 						class="input"
 						id="direct-download-url"
 						type="text"
-						name="song-url"
+						name="song_url"
 						value="https://www.youtube.com/watch?v="
 					/>
-					<input class="song-added-by" type="hidden" name="song-added-by" />
-					<input class="song-title" type="hidden" name="song-title" value="" />
+					<input class="song_added_by" type="hidden" name="song_added_by" />
+					<input class="song_title" type="hidden" name="song_title" value="" />
 					<div class="field" style="margin-top: 5px">
 						<label class="checkbox is-flex is-align-items-center">
 							<input type="checkbox" class="checkbox" checked name="queue" id="add-to-queue-direct" />
@@ -591,14 +591,14 @@
 			</label>
 			<div class="is-hidden">
 				<div class="field select">
-					<select id="search_result_selector" name="song-url">
+					<select id="search_result_selector" name="song_url">
 						> {% for title,url,id in search_results %}
 						<option data-ytID="{{id}}" data-ytTitle="{{title}}" value="{{url}}">{{title}}</option>
 						{% endfor %}
 					</select>
 				</div>
-				<input class="song-added-by" type="hidden" name="song-added-by" />
-				<input id="song-title" type="hidden" name="song-title" />
+				<input class="song_added_by" type="hidden" name="song_added_by" />
+				<input id="song_title" type="hidden" name="song_title" />
 				<p class="help">
 					{# MSG: Help text which explains that the select box above can be operated to select different search
 					results. #} {% trans %}Click dropdown to show more results{% endtrans %}

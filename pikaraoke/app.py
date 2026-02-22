@@ -59,37 +59,49 @@ app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
-# Initialize Swagger API docs if enabled via CLI flag
-app.config["SWAGGER"] = {
-    "title": "PiKaraoke API",
-    "description": "API for controlling PiKaraoke - a KTV-style karaoke system",
-    "version": VERSION,
-    "termsOfService": "",
-    "hide_top_bar": True,
-}
+
+# Always initialize flask-smorest Api for error handling (@bp.arguments validation).
+# Only expose the Swagger UI when --enable-swagger is passed.
+from flask_smorest import Api
+
+app.config["API_TITLE"] = "PiKaraoke API"
+app.config["API_VERSION"] = VERSION
+app.config["OPENAPI_VERSION"] = "3.0.2"
+app.config["OPENAPI_URL_PREFIX"] = "/"
+
 if args.enable_swagger:
-    try:
-        from flasgger import Swagger
+    app.config["OPENAPI_SWAGGER_UI_PATH"] = "/apidocs"
+    app.config["OPENAPI_SWAGGER_UI_URL"] = "https://cdn.jsdelivr.net/npm/swagger-ui-dist/"
 
-        Swagger(app)
-    except ImportError:
-        logging.warning("flasgger not installed. Swagger API docs disabled.")
+api = Api(app)
 
-# Register blueprints for additional routes
-app.register_blueprint(home_bp)
-app.register_blueprint(stream_bp)
-app.register_blueprint(preferences_bp)
-app.register_blueprint(admin_bp)
-app.register_blueprint(background_music_bp)
-app.register_blueprint(batch_song_renamer_bp)
-app.register_blueprint(queue_bp)
-app.register_blueprint(images_bp)
-app.register_blueprint(files_bp)
-app.register_blueprint(search_bp)
-app.register_blueprint(info_bp)
-app.register_blueprint(splash_bp)
-app.register_blueprint(controller_bp)
-app.register_blueprint(nowplaying_bp)
+# Blueprints shown in /apidocs when swagger is enabled
+_api_blueprints = [
+    queue_bp,
+    search_bp,
+    files_bp,
+    preferences_bp,
+    admin_bp,
+    controller_bp,
+    background_music_bp,
+    images_bp,
+    nowplaying_bp,
+    stream_bp,
+]
+
+# Blueprints hidden from /apidocs (internal UI routes)
+_internal_blueprints = [
+    home_bp,
+    info_bp,
+    splash_bp,
+    batch_song_renamer_bp,
+]
+
+for bp in _api_blueprints:
+    api.register_blueprint(bp)
+
+for bp in _internal_blueprints:
+    app.register_blueprint(bp)
 
 
 def get_locale() -> str | None:
