@@ -207,7 +207,7 @@
             e.preventDefault();
             const amount = $('#randomNumberInput').val();
             const baseUrl = '/queue/addrandom';
-            $.get(`${baseUrl}?amount=${amount}`);
+            $.get(`${baseUrl}/${amount}`);
         });
     }
 
