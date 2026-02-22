@@ -72,6 +72,10 @@ Tools: Black (100 char), isort, pycln, pylint, mdformat.
 
 Never commit to `master` directly.
 
+## Pull Requests
+
+PRs must include a test plan: a minimal checklist targeting only the changes made, enabling quick manual verification.
+
 ## What NOT to Do
 
 - Add unrequested features
