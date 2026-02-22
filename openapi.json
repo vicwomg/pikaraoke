@@ -1,970 +1,1186 @@
 {
-  "info": {
-    "version": "1.18.4",
-    "title": "PiKaraoke API",
-    "description": "API for controlling PiKaraoke - a KTV-style karaoke system",
-    "termsOfService": ""
-  },
   "paths": {
-    "/": {
-      "get": {
-        "summary": "Home page with now playing info and controls.",
-        "responses": {
-          "200": {
-            "description": "HTML home page"
-          }
-        },
-        "tags": [
-          "Pages"
-        ]
-      }
-    },
-    "/stream/full/{id}": {
-      "get": {
-        "summary": "Stream video with range headers (Safari compatible).",
-        "responses": {
-          "200": {
-            "description": "Full video file"
-          },
-          "206": {
-            "description": "Partial video content (range request)"
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "type": "string",
-            "required": true,
-            "description": "Video stream ID"
-          }
-        ],
-        "tags": [
-          "Stream"
-        ],
-        "produces": [
-          "video/mp4"
-        ]
-      }
-    },
-    "/stream/bg_video": {
-      "get": {
-        "summary": "Stream the background video file.",
-        "responses": {
-          "200": {
-            "description": "Background video file"
-          },
-          "404": {
-            "description": "Background video not configured"
-          }
-        },
-        "tags": [
-          "Stream"
-        ],
-        "produces": [
-          "video/mp4"
-        ]
-      }
-    },
-    "/change_preferences": {
-      "get": {
-        "summary": "Change a user preference setting.",
-        "responses": {
-          "200": {
-            "description": "JSON result of preference change"
-          },
-          "302": {
-            "description": "Redirects to info page if not admin"
-          }
-        },
-        "parameters": [
-          {
-            "name": "pref",
-            "in": "query",
-            "type": "string",
-            "required": true,
-            "description": "Preference key to change"
-          },
-          {
-            "name": "val",
-            "in": "query",
-            "type": "string",
-            "required": true,
-            "description": "New value for the preference"
-          }
-        ],
-        "tags": [
-          "Preferences"
-        ]
-      }
-    },
-    "/clear_preferences": {
-      "get": {
-        "summary": "Reset all preferences to defaults.",
-        "responses": {
-          "302": {
-            "description": "Redirects to home page"
-          }
-        },
-        "tags": [
-          "Preferences"
-        ]
-      }
-    },
-    "/update_ytdl": {
-      "get": {
-        "summary": "Update yt-dlp to the latest version.",
-        "responses": {
-          "302": {
-            "description": "Redirects to home page"
-          }
-        },
-        "tags": [
-          "Admin"
-        ]
-      }
-    },
-    "/refresh": {
-      "get": {
-        "summary": "Refresh the available songs list.",
-        "responses": {
-          "302": {
-            "description": "Redirects to browse page"
-          }
-        },
-        "tags": [
-          "Admin"
-        ]
-      }
-    },
-    "/quit": {
-      "get": {
-        "summary": "Exit the PiKaraoke application.",
-        "responses": {
-          "302": {
-            "description": "Redirects to home page before exit"
-          }
-        },
-        "tags": [
-          "Admin"
-        ]
-      }
-    },
-    "/shutdown": {
-      "get": {
-        "summary": "Shut down the host system.",
-        "responses": {
-          "302": {
-            "description": "Redirects to home page before shutdown"
-          }
-        },
-        "tags": [
-          "Admin"
-        ]
-      }
-    },
-    "/reboot": {
-      "get": {
-        "summary": "Reboot the host system.",
-        "responses": {
-          "302": {
-            "description": "Redirects to home page before reboot"
-          }
-        },
-        "tags": [
-          "Admin"
-        ]
-      }
-    },
-    "/expand_fs": {
-      "get": {
-        "summary": "Expand filesystem on Raspberry Pi.",
-        "responses": {
-          "302": {
-            "description": "Redirects to home page before reboot"
-          }
-        },
-        "tags": [
-          "Admin"
-        ]
-      }
-    },
-    "/auth": {
-      "post": {
-        "summary": "Authenticate as admin.",
-        "responses": {
-          "302": {
-            "description": "Redirects to next URL on success, login on failure"
-          }
-        },
-        "parameters": [
-          {
-            "name": "admin-password",
-            "in": "formData",
-            "type": "string",
-            "required": true,
-            "description": "Admin password"
-          },
-          {
-            "name": "next",
-            "in": "formData",
-            "type": "string",
-            "required": false,
-            "description": "URL to redirect to after successful authentication"
-          }
-        ],
-        "tags": [
-          "Admin"
-        ],
-        "consumes": [
-          "application/x-www-form-urlencoded"
-        ]
-      }
-    },
-    "/login": {
-      "get": {
-        "summary": "Admin login page.",
-        "responses": {
-          "200": {
-            "description": "HTML login page"
-          }
-        },
-        "tags": [
-          "Pages"
-        ]
-      }
-    },
-    "/logout": {
-      "get": {
-        "summary": "Log out of admin mode.",
-        "responses": {
-          "302": {
-            "description": "Redirects to home page"
-          }
-        },
-        "tags": [
-          "Admin"
-        ]
-      }
-    },
-    "/bg_music/{file}": {
-      "get": {
-        "summary": "Stream a background music file.",
-        "responses": {
-          "200": {
-            "description": "Audio file stream"
-          }
-        },
-        "parameters": [
-          {
-            "name": "file",
-            "in": "path",
-            "type": "string",
-            "required": true,
-            "description": "Filename of the music file"
-          }
-        ],
-        "tags": [
-          "Background Music"
-        ],
-        "produces": [
-          "audio/mpeg"
-        ]
-      }
-    },
-    "/bg_playlist": {
-      "get": {
-        "summary": "Get a randomized background music playlist.",
-        "responses": {
-          "200": {
-            "description": "List of background music URLs",
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "description": "URL to a background music file"
-              }
-            }
-          }
-        },
-        "tags": [
-          "Background Music"
-        ]
-      }
-    },
     "/queue": {
       "get": {
-        "summary": "Queue management page.",
         "responses": {
-          "200": {
-            "description": "HTML queue management page"
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
+        "summary": "Queue management page.",
         "tags": [
-          "Pages"
+          "queue"
         ]
       }
     },
     "/get_queue": {
       "get": {
-        "summary": "Get the current song queue.",
         "responses": {
-          "200": {
-            "description": "List of songs in queue",
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "user": {
-                    "type": "string",
-                    "description": "User who added the song"
-                  },
-                  "file": {
-                    "type": "string",
-                    "description": "File path of the song"
-                  },
-                  "title": {
-                    "type": "string",
-                    "description": "Display title of the song"
-                  },
-                  "semitones": {
-                    "type": "integer",
-                    "description": "Transpose value in semitones"
-                  }
-                }
-              }
-            }
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
+        "summary": "Get the current song queue.",
         "tags": [
-          "Queue"
+          "queue"
         ]
       }
     },
-    "/queue/addrandom": {
+    "/queue/addrandom/{amount}": {
       "get": {
-        "summary": "Add random songs to the queue.",
         "responses": {
-          "302": {
-            "description": "Redirects to queue page"
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
-        "parameters": [
-          {
-            "name": "amount",
-            "in": "query",
-            "type": "integer",
-            "required": true,
-            "description": "Number of random songs to add"
-          }
-        ],
+        "summary": "Add random songs to the queue.",
         "tags": [
-          "Queue"
+          "queue"
         ]
-      }
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "amount",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      ]
     },
     "/queue/reorder": {
       "post": {
-        "summary": "Handle drag-and-drop reordering of the queue.",
         "responses": {
-          "200": {
-            "description": "Result of the reorder operation",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "success": {
-                  "type": "boolean",
-                  "description": "Whether the reorder was successful"
-                },
-                "error": {
-                  "type": "string",
-                  "description": "Error message if failed"
-                }
-              }
-            }
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
           },
-          "403": {
-            "description": "Unauthorized access (admin only)"
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderForm"
+              }
+            }
+          }
+        },
+        "summary": "Handle drag-and-drop reordering of the queue.",
+        "tags": [
+          "queue"
+        ]
+      }
+    },
+    "/queue/edit": {
+      "get": {
         "parameters": [
           {
-            "name": "old_index",
-            "in": "formData",
-            "type": "integer",
-            "required": true,
-            "description": "The current index of the item to move"
+            "in": "query",
+            "name": "action",
+            "description": "Queue edit action to perform",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
           },
           {
-            "name": "new_index",
-            "in": "formData",
-            "type": "integer",
-            "required": true,
-            "description": "The target index to move the item to"
+            "in": "query",
+            "name": "song",
+            "description": "Path to the song file (required unless action is 'clear')",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
           }
         ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Edit queue items (admin only).",
         "tags": [
-          "Queue"
-        ],
-        "consumes": [
-          "application/x-www-form-urlencoded"
+          "queue"
         ]
       }
     },
     "/enqueue": {
       "get": {
-        "summary": "Add a song to the queue.",
-        "responses": {
-          "200": {
-            "description": "Result of enqueue operation",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "song": {
-                  "type": "string",
-                  "description": "Title of the song"
-                },
-                "success": {
-                  "type": "boolean",
-                  "description": "Whether the song was added"
-                }
-              }
-            }
-          }
-        },
         "parameters": [
           {
+            "in": "query",
             "name": "song",
-            "in": "query",
-            "type": "string",
-            "description": "Path to the song file"
+            "description": "Path to the song file",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
           },
           {
+            "in": "query",
             "name": "user",
-            "in": "query",
-            "type": "string",
-            "description": "Name of the user adding the song"
-          },
-          {
-            "name": "song-to-add",
-            "in": "formData",
-            "type": "string",
-            "description": "Path to the song file (form data)"
-          },
-          {
-            "name": "song-added-by",
-            "in": "formData",
-            "type": "string",
-            "description": "Name of the user (form data)"
+            "description": "Name of the user adding the song",
+            "schema": {
+              "type": "string",
+              "default": ""
+            },
+            "required": false
           }
         ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Add a song to the queue (used by the file browser).",
         "tags": [
-          "Queue"
+          "queue"
         ]
       },
       "post": {
-        "summary": "Add a song to the queue.",
         "responses": {
-          "200": {
-            "description": "Result of enqueue operation",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "song": {
-                  "type": "string",
-                  "description": "Title of the song"
-                },
-                "success": {
-                  "type": "boolean",
-                  "description": "Whether the song was added"
-                }
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/EnqueueForm"
               }
             }
           }
         },
-        "parameters": [
-          {
-            "name": "song",
-            "in": "query",
-            "type": "string",
-            "description": "Path to the song file"
-          },
-          {
-            "name": "user",
-            "in": "query",
-            "type": "string",
-            "description": "Name of the user adding the song"
-          },
-          {
-            "name": "song-to-add",
-            "in": "formData",
-            "type": "string",
-            "description": "Path to the song file (form data)"
-          },
-          {
-            "name": "song-added-by",
-            "in": "formData",
-            "type": "string",
-            "description": "Name of the user (form data)"
-          }
-        ],
+        "summary": "Add a song to the queue (used by the search page).",
         "tags": [
-          "Queue"
+          "queue"
         ]
       }
     },
     "/queue/downloads": {
       "get": {
-        "summary": "Get the status of current and pending downloads.",
         "responses": {
-          "200": {
-            "description": "Status of active and pending downloads",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "active": {
-                  "type": "object",
-                  "description": "Currently active download info"
-                },
-                "pending": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "description": "Pending download info"
-                  }
-                },
-                "errors": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "description": "Failed download info"
-                  }
-                }
-              }
-            }
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
+        "summary": "Get the status of current and pending downloads.",
         "tags": [
-          "Queue"
+          "queue"
         ]
       }
     },
     "/queue/downloads/errors/{error_id}": {
       "delete": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
         "summary": "Remove a download error from the list.",
-        "responses": {
-          "200": {
-            "description": "Error removed successfully"
-          },
-          "404": {
-            "description": "Error not found"
-          }
-        },
-        "parameters": [
-          {
-            "name": "error_id",
-            "in": "path",
-            "type": "string",
-            "required": true,
-            "description": "ID of the error to remove"
-          }
-        ],
         "tags": [
-          "Queue"
+          "queue"
         ]
-      }
-    },
-    "/qrcode": {
-      "get": {
-        "summary": "Get QR code image for the web interface URL.",
-        "responses": {
-          "200": {
-            "description": "QR code PNG image"
-          }
-        },
-        "tags": [
-          "Images"
-        ],
-        "produces": [
-          "image/png"
-        ]
-      }
-    },
-    "/logo": {
-      "get": {
-        "summary": "Get the PiKaraoke logo image.",
-        "responses": {
-          "200": {
-            "description": "Logo PNG image"
-          }
-        },
-        "tags": [
-          "Images"
-        ],
-        "produces": [
-          "image/png"
-        ]
-      }
-    },
-    "/browse": {
-      "get": {
-        "summary": "Browse available songs page.",
-        "responses": {
-          "200": {
-            "description": "HTML browse page"
-          }
-        },
-        "parameters": [
-          {
-            "name": "q",
-            "in": "query",
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "error_id",
+          "required": true,
+          "schema": {
             "type": "string",
-            "description": "Search query"
-          },
-          {
-            "name": "letter",
-            "in": "query",
-            "type": "string",
-            "description": "Filter by first letter (or 'numeric')"
-          },
-          {
-            "name": "sort",
-            "in": "query",
-            "type": "string",
-            "description": "Sort order ('date' for date, otherwise alphabetical)"
+            "minLength": 1
           }
-        ],
-        "tags": [
-          "Pages"
-        ]
-      }
-    },
-    "/files/delete": {
-      "get": {
-        "summary": "Delete a song file.",
-        "responses": {
-          "302": {
-            "description": "Redirects to browse page"
-          }
-        },
-        "parameters": [
-          {
-            "name": "song",
-            "in": "query",
-            "type": "string",
-            "required": true,
-            "description": "Path to the song file to delete"
-          }
-        ],
-        "tags": [
-          "Files"
-        ]
-      }
+        }
+      ]
     },
     "/search": {
       "get": {
-        "summary": "YouTube search page.",
         "responses": {
-          "200": {
-            "description": "HTML search page with results"
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
-        "parameters": [
-          {
-            "name": "search_string",
-            "in": "query",
-            "type": "string",
-            "description": "YouTube search query"
-          },
-          {
-            "name": "non_karaoke",
-            "in": "query",
-            "type": "string",
-            "description": "Set to 'true' to include non-karaoke results"
-          }
-        ],
+        "summary": "YouTube search page.",
         "tags": [
-          "Pages"
+          "search"
         ]
       }
     },
     "/autocomplete": {
       "get": {
-        "summary": "Search available songs for autocomplete.",
-        "responses": {
-          "200": {
-            "description": "List of matching songs",
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "path": {
-                    "type": "string",
-                    "description": "File path of the song"
-                  },
-                  "fileName": {
-                    "type": "string",
-                    "description": "Display name of the song"
-                  },
-                  "type": {
-                    "type": "string",
-                    "description": "Result type (autocomplete)"
-                  }
-                }
-              }
-            }
-          }
-        },
         "parameters": [
           {
-            "name": "q",
             "in": "query",
-            "type": "string",
-            "required": true,
-            "description": "Search query string"
+            "name": "q",
+            "description": "Search query for autocomplete",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
           }
         ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Search available songs for autocomplete.",
         "tags": [
-          "Search"
+          "search"
         ]
       }
     },
     "/download": {
       "post": {
-        "summary": "Download a video from YouTube.",
         "responses": {
-          "302": {
-            "description": "Redirects to search page"
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadForm"
+              }
+            }
+          }
+        },
+        "summary": "Download a video from YouTube.",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/browse": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Browse available songs page.",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/files/delete": {
+      "get": {
         "parameters": [
           {
-            "name": "song-url",
-            "in": "formData",
-            "type": "string",
-            "required": true,
-            "description": "YouTube video URL"
+            "in": "query",
+            "name": "song",
+            "description": "Path to the song file",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
           },
           {
-            "name": "song-added-by",
-            "in": "formData",
-            "type": "string",
-            "required": true,
-            "description": "Username initiating download"
-          },
-          {
-            "name": "song-title",
-            "in": "formData",
-            "type": "string",
-            "description": "Display title for the song"
-          },
-          {
-            "name": "queue",
-            "in": "formData",
-            "type": "string",
-            "description": "Set to 'on' to add to queue after download"
+            "in": "query",
+            "name": "referrer",
+            "description": "URL to redirect back to",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
           }
         ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Delete a song file.",
         "tags": [
-          "Search"
-        ],
-        "consumes": [
-          "application/x-www-form-urlencoded"
+          "files"
         ]
       }
     },
-    "/info": {
+    "/files/edit": {
       "get": {
-        "summary": "System information and settings page.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "song",
+            "description": "Path to the song file",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "referrer",
+            "description": "URL to redirect back to",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
         "responses": {
-          "200": {
-            "description": "HTML page with system info and settings"
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
+        "summary": "Show the song rename page.",
         "tags": [
-          "Pages"
+          "files"
+        ]
+      },
+      "post": {
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/EditFileForm"
+              }
+            }
+          }
+        },
+        "summary": "Process a song rename.",
+        "tags": [
+          "files"
         ]
       }
     },
-    "/splash": {
+    "/change_preferences": {
       "get": {
-        "summary": "Splash screen / player display for TV output.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pref",
+            "description": "Name of the preference to change",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "val",
+            "description": "New value for the preference",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
         "responses": {
-          "200": {
-            "description": "HTML splash screen page"
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
+        "summary": "Change a user preference setting.",
         "tags": [
-          "Pages"
+          "preferences"
+        ]
+      }
+    },
+    "/clear_preferences": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Reset all preferences to defaults.",
+        "tags": [
+          "preferences"
+        ]
+      }
+    },
+    "/update_ytdl": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Update yt-dlp to the latest version.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/refresh": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Refresh the available songs list.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/quit": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Exit the PiKaraoke application.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/shutdown": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Shut down the host system.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/reboot": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Reboot the host system.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/expand_fs": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Expand filesystem on Raspberry Pi.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/auth": {
+      "post": {
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthForm"
+              }
+            }
+          }
+        },
+        "summary": "Authenticate as admin.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/login": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Admin login page.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/logout": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Log out of admin mode.",
+        "tags": [
+          "admin"
         ]
       }
     },
     "/skip": {
       "get": {
-        "summary": "Skip the currently playing song.",
         "responses": {
-          "302": {
-            "description": "Redirects to home page"
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
+        "summary": "Skip the currently playing song.",
         "tags": [
-          "Playback"
+          "controller"
         ]
       }
     },
     "/pause": {
       "get": {
-        "summary": "Toggle pause/resume playback.",
         "responses": {
-          "302": {
-            "description": "Redirects to home page"
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
+        "summary": "Toggle pause/resume playback.",
         "tags": [
-          "Playback"
+          "controller"
         ]
       }
     },
     "/transpose/{semitones}": {
       "get": {
-        "summary": "Transpose (pitch shift) the current song.",
         "responses": {
-          "302": {
-            "description": "Redirects to home page"
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
-        "parameters": [
-          {
-            "name": "semitones",
-            "in": "path",
-            "type": "integer",
-            "required": true,
-            "description": "Semitones to transpose (-12 to 12)"
-          }
-        ],
+        "summary": "Transpose (pitch shift) the current song.",
         "tags": [
-          "Playback"
+          "controller"
         ]
-      }
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "semitones",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ]
     },
     "/restart": {
       "get": {
-        "summary": "Restart the current song from the beginning.",
         "responses": {
-          "302": {
-            "description": "Redirects to home page"
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
+        "summary": "Restart the current song from the beginning.",
         "tags": [
-          "Playback"
+          "controller"
         ]
       }
     },
     "/volume/{volume}": {
       "get": {
-        "summary": "Set the playback volume.",
         "responses": {
-          "302": {
-            "description": "Redirects to home page"
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
-        "parameters": [
-          {
-            "name": "volume",
-            "in": "path",
-            "type": "number",
-            "required": true,
-            "description": "Volume level (0.0 to 1.0)"
-          }
-        ],
+        "summary": "Set the playback volume.",
         "tags": [
-          "Playback"
+          "controller"
         ]
-      }
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "volume",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ]
     },
     "/vol_up": {
       "get": {
-        "summary": "Increase volume by 10%.",
         "responses": {
-          "302": {
-            "description": "Redirects to home page"
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
+        "summary": "Increase volume by 10%.",
         "tags": [
-          "Playback"
+          "controller"
         ]
       }
     },
     "/vol_down": {
       "get": {
-        "summary": "Decrease volume by 10%.",
         "responses": {
-          "302": {
-            "description": "Redirects to home page"
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
+        "summary": "Decrease volume by 10%.",
         "tags": [
-          "Playback"
+          "controller"
+        ]
+      }
+    },
+    "/bg_music/{file}": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Stream a background music file.",
+        "tags": [
+          "bg_music"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "file",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ]
+    },
+    "/bg_playlist": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Get a randomized background music playlist.",
+        "tags": [
+          "bg_music"
+        ]
+      }
+    },
+    "/qrcode": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Get QR code image for the web interface URL.",
+        "tags": [
+          "images"
+        ]
+      }
+    },
+    "/logo": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Get the PiKaraoke logo image.",
+        "tags": [
+          "images"
         ]
       }
     },
     "/now_playing": {
       "get": {
-        "summary": "Get current playback status.",
         "responses": {
-          "200": {
-            "description": "Current playback state",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "now_playing": {
-                  "type": "string",
-                  "description": "Title of current song (null if none)"
-                },
-                "now_playing_user": {
-                  "type": "string",
-                  "description": "User who queued the song"
-                },
-                "now_playing_duration": {
-                  "type": "integer",
-                  "description": "Song duration in seconds"
-                },
-                "now_playing_transpose": {
-                  "type": "integer",
-                  "description": "Current transpose value"
-                },
-                "now_playing_url": {
-                  "type": "string",
-                  "description": "Stream URL for the song"
-                },
-                "up_next": {
-                  "type": "string",
-                  "description": "Title of next song in queue"
-                },
-                "next_user": {
-                  "type": "string",
-                  "description": "User who queued the next song"
-                },
-                "is_paused": {
-                  "type": "boolean",
-                  "description": "Whether playback is paused"
-                },
-                "volume": {
-                  "type": "number",
-                  "description": "Current volume (0.0-1.0)"
-                }
-              }
-            }
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
+        "summary": "Get current playback status.",
         "tags": [
-          "Status"
+          "now_playing"
         ]
       }
+    },
+    "/stream/{id}.m3u8": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Serve HLS playlist file.",
+        "tags": [
+          "stream"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ]
+    },
+    "/stream/{filename}.m4s": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Serve HLS segment file (fragmented MP4).",
+        "tags": [
+          "stream"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "filename",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ]
+    },
+    "/stream/{filename}_init.mp4": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Serve init.mp4 header file for fragmented MP4 streams.",
+        "tags": [
+          "stream"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "filename",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ]
+    },
+    "/stream/{filename}.ts": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Serve HLS segment file (MPEG-TS).",
+        "tags": [
+          "stream"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "filename",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ]
+    },
+    "/stream/{id}": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Route streaming request to HLS or progressive MP4.",
+        "tags": [
+          "stream"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ]
+    },
+    "/stream/{id}.mp4": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Stream progressive MP4 from HLS-generated segments.",
+        "tags": [
+          "stream"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ]
+    },
+    "/stream/full/{id}": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Stream video with range headers (Safari compatible).",
+        "tags": [
+          "stream"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ]
+    },
+    "/stream/bg_video": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Stream the background video file.",
+        "tags": [
+          "stream"
+        ]
+      }
+    },
+    "/subtitle/{id}": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Serve subtitle file for the current song.",
+        "tags": [
+          "stream"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ]
     }
   },
-  "definitions": {},
-  "swagger": "2.0"
+  "info": {
+    "title": "PiKaraoke API",
+    "version": "1.18.4"
+  },
+  "tags": [
+    {
+      "name": "queue",
+      "description": ""
+    },
+    {
+      "name": "search",
+      "description": ""
+    },
+    {
+      "name": "files",
+      "description": ""
+    },
+    {
+      "name": "preferences",
+      "description": ""
+    },
+    {
+      "name": "admin",
+      "description": ""
+    },
+    {
+      "name": "controller",
+      "description": ""
+    },
+    {
+      "name": "bg_music",
+      "description": ""
+    },
+    {
+      "name": "images",
+      "description": ""
+    },
+    {
+      "name": "now_playing",
+      "description": ""
+    },
+    {
+      "name": "stream",
+      "description": ""
+    }
+  ],
+  "openapi": "3.0.2",
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "description": "Error code"
+          },
+          "status": {
+            "type": "string",
+            "description": "Error name"
+          },
+          "message": {
+            "type": "string",
+            "description": "Error message"
+          },
+          "errors": {
+            "type": "object",
+            "description": "Errors",
+            "additionalProperties": {}
+          }
+        },
+        "additionalProperties": false
+      },
+      "PaginationMetadata": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer"
+          },
+          "total_pages": {
+            "type": "integer"
+          },
+          "first_page": {
+            "type": "integer"
+          },
+          "last_page": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "previous_page": {
+            "type": "integer"
+          },
+          "next_page": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReorderForm": {
+        "type": "object",
+        "properties": {
+          "old_index": {
+            "type": "integer",
+            "description": "Current index of the item to move"
+          },
+          "new_index": {
+            "type": "integer",
+            "description": "Target index to move the item to"
+          }
+        },
+        "required": [
+          "new_index",
+          "old_index"
+        ],
+        "additionalProperties": false
+      },
+      "EnqueueForm": {
+        "type": "object",
+        "properties": {
+          "song_to_add": {
+            "type": "string",
+            "description": "Path to the song file"
+          },
+          "song_added_by": {
+            "type": "string",
+            "default": "",
+            "description": "Name of the user adding the song"
+          }
+        },
+        "required": [
+          "song_to_add"
+        ],
+        "additionalProperties": false
+      },
+      "DownloadForm": {
+        "type": "object",
+        "properties": {
+          "song_url": {
+            "type": "string",
+            "description": "YouTube URL to download"
+          },
+          "song_added_by": {
+            "type": "string",
+            "description": "Name of the user requesting the download"
+          },
+          "song_title": {
+            "type": "string",
+            "description": "Display title for the song"
+          },
+          "queue": {
+            "type": "string",
+            "description": "Set to 'on' to queue the song after download"
+          }
+        },
+        "required": [
+          "song_added_by",
+          "song_title",
+          "song_url"
+        ],
+        "additionalProperties": false
+      },
+      "EditFileForm": {
+        "type": "object",
+        "properties": {
+          "new_file_name": {
+            "type": "string",
+            "description": "New filename (without extension)"
+          },
+          "old_file_name": {
+            "type": "string",
+            "description": "Current full path of the song file"
+          },
+          "referrer": {
+            "type": "string",
+            "description": "URL to redirect back to after editing"
+          }
+        },
+        "required": [
+          "new_file_name",
+          "old_file_name"
+        ],
+        "additionalProperties": false
+      },
+      "AuthForm": {
+        "type": "object",
+        "properties": {
+          "admin_password": {
+            "type": "string",
+            "default": "",
+            "description": "Admin password"
+          },
+          "next": {
+            "type": "string",
+            "default": "/",
+            "description": "URL to redirect to after login"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "responses": {
+      "DEFAULT_ERROR": {
+        "description": "Default error response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "UNPROCESSABLE_ENTITY": {
+        "description": "Unprocessable Entity",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  }
 }
