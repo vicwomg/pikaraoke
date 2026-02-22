@@ -4,9 +4,10 @@ import shutil
 import subprocess
 
 import flask_babel
-from flask import render_template
+from flask import jsonify, render_template
 from flask_smorest import Blueprint
 
+from pikaraoke.karaoke import Karaoke
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
 from pikaraoke.lib.raspi_wifi_config import get_raspi_wifi_text
 
@@ -14,6 +15,57 @@ _ = flask_babel.gettext
 
 
 splash_bp = Blueprint("splash", __name__)
+
+
+def _default_score_phrases() -> dict[str, list[str]]:
+    """Translated built-in phrases, used when the user has not set custom ones."""
+    return {
+        "low": [
+            _("Never sing again... ever."),
+            _("That was a really good impression of a dying cat!"),
+            _("Thank God it's over."),
+            _("Pass the mic, please!"),
+            _("Well, I'm sure you're very good at your day job."),
+        ],
+        "mid": [
+            _("I've seen better."),
+            _("Ok... just ok."),
+            _("Not bad for an amateur."),
+            _("You put on a decent show."),
+            _("That was... something."),
+        ],
+        "high": [
+            _("Congratulations! That was unbelievable!"),
+            _("Wow, have you tried auditioning for The Voice?"),
+            _("Please, sing another one!"),
+            _("You rock! You know that?!"),
+            _("Woah, who let Freddie Mercury in here?"),
+        ],
+    }
+
+
+def _get_active_score_phrases(k: Karaoke) -> dict[str, list[str]]:
+    """Custom phrases if configured; translated built-in defaults otherwise.
+
+    Handles backward compatibility: if stored value uses legacy newline
+    separators (no | present), splits on \\n instead.
+    """
+    defaults = _default_score_phrases()
+    result = {}
+    for tier in ("low", "mid", "high"):
+        stored = getattr(k, f"{tier}_score_phrases")
+        if not stored:
+            result[tier] = defaults[tier]
+        else:
+            sep = "|" if "|" in stored else "\n"
+            result[tier] = [p.strip() for p in stored.split(sep) if p.strip()] or defaults[tier]
+    return result
+
+
+@splash_bp.route("/splash/score_phrases")
+def get_score_phrases():
+    """Active score phrases as JSON — translated defaults or user-defined custom phrases."""
+    return jsonify(_get_active_score_phrases(get_karaoke_instance()))
 
 
 @splash_bp.route("/splash")
@@ -50,11 +102,4 @@ def splash():
         disable_score=k.disable_score,
         bg_music_volume=k.bg_music_volume,
         has_bg_video=k.bg_video_path is not None,
-        score_phrases={
-            "low": [phrase.strip() for phrase in k.low_score_phrases.split("\n") if phrase.strip()],
-            "mid": [phrase.strip() for phrase in k.mid_score_phrases.split("\n") if phrase.strip()],
-            "high": [
-                phrase.strip() for phrase in k.high_score_phrases.split("\n") if phrase.strip()
-            ],
-        },
     )

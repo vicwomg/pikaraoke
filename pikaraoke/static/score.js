@@ -72,6 +72,13 @@ async function rotateScore(scoreTextElement, duration) {
 
 // Function that starts the score animation
 async function startScore(staticPath) {
+  try {
+    const r = await fetch(PikaraokeConfig.scorePhrasesUrl);
+    scoreReviews = await r.json();
+  } catch (_e) {
+    // Network failure — keep the last successfully fetched phrases (or JS fallback)
+  }
+
   const scoreElement = $("#score");
   const scoreTextElement = $("#score-number-text");
   const scoreReviewElement = $("#score-review-text");

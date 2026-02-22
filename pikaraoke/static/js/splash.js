@@ -18,7 +18,11 @@ var idleTime = 0;
 var screensaverTimeoutSeconds = PikaraokeConfig.screensaverTimeout;
 var bg_playlist = [];
 var bgMediaResumeTimeout = null;
-const scoreReviews = PikaraokeConfig.scorePhrases;
+var scoreReviews = {
+  low: ["Better luck next time!"],
+  mid: ["Not bad!"],
+  high: ["Great job!"]
+};
 var isMaster = false;
 var uiScale = null;
 
