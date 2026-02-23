@@ -158,7 +158,8 @@ def get_search_results(textToSearch: str) -> list[list[str]]:
         textToSearch: Search query string.
 
     Returns:
-        List of [title, url, video_id] for each result.
+        List of [title, url, video_id, channel, duration] for each result.
+        Duration is formatted as M:SS; channel and duration may be empty strings.
 
     Raises:
         Exception: If the search fails.
@@ -177,8 +178,48 @@ def get_search_results(textToSearch: str) -> list[list[str]]:
                 j = json.loads(each)
                 if (not "title" in j) or (not "url" in j):
                     continue
-                rc.append([j["title"], j["url"], j["id"]])
+                channel = j.get("channel") or j.get("uploader") or ""
+                duration_raw = j.get("duration")
+                duration_str = ""
+                if isinstance(duration_raw, (int, float)):
+                    duration_str = f"{int(duration_raw) // 60}:{int(duration_raw) % 60:02d}"
+                rc.append([j["title"], j["url"], j["id"], channel, duration_str])
         return rc
     except Exception as e:
         logging.debug("Error while executing search: " + str(e))
         raise e
+
+
+def get_stream_url(video_url: str) -> str | None:
+    """Get a direct stream URL for a YouTube video without downloading it.
+
+    Args:
+        video_url: YouTube video URL.
+
+    Returns:
+        Direct playable stream URL, or None if yt-dlp failed.
+    """
+    cmd = yt_dlp_cmd + ["-g", "-f", "worst[ext=mp4]/worst"]
+    preferred_js_runtime = get_installed_js_runtime()
+    if preferred_js_runtime and preferred_js_runtime != "deno":
+        cmd += ["--js-runtimes", preferred_js_runtime]
+    cmd += [video_url]
+    logging.debug("yt-dlp get stream URL command: " + " ".join(cmd))
+    try:
+        result = subprocess.run(cmd, capture_output=True, timeout=15)
+        if result.returncode != 0:
+            logging.warning(
+                f"yt-dlp stream URL failed for {video_url}: {result.stderr.decode('utf-8', 'ignore')}"
+            )
+            return None
+        output = result.stdout.decode("utf-8").strip()
+        if not output:
+            logging.warning(f"yt-dlp returned empty output for: {video_url}")
+            return None
+        return output.splitlines()[0]
+    except subprocess.TimeoutExpired:
+        logging.error(f"yt-dlp stream URL timed out for: {video_url}")
+        return None
+    except (FileNotFoundError, PermissionError) as e:
+        logging.error(f"Could not run yt-dlp: {e}")
+        return None

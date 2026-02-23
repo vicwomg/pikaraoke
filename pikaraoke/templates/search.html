@@ -8,7 +8,6 @@
 
 	.row {
 		display: flex;
-		/* equal height of the children */
 		border-bottom: 1px solid #cccccc;
 	}
 
@@ -21,10 +20,6 @@
 		font-size: 120%;
 	}
 
-	#youtube-link {
-		font-size: 80%;
-	}
-
 	.selectize-input {
 		height: 40px;
 		border-top-right-radius: 0;
@@ -32,55 +27,69 @@
 		font-size: 1rem;
 	}
 
+	/* --- Search result list ---------------------------------- */
 	ul.search_result_items {
 		list-style: none;
 		padding: 0;
 		margin: 0;
 	}
 	ul.search_result_items li {
-		text-align: center;
-		margin-bottom: 1rem;
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0.75rem;
+		padding: 0.75rem;
 	}
 	ul.search_result_items li:nth-child(odd) {
 		background-color: rgb(50, 55, 55);
 	}
+	@media screen and (min-width: 768px) {
+		ul.search_result_items li {
+			flex-direction: row;
+			align-items: center;
+		}
+	}
+
+	/* Thumbnail: full width on mobile, fixed 200px on desktop */
+	#search-results .img-wrapper {
+		position: relative;
+		cursor: pointer;
+		width: 100%;
+		flex-shrink: 0;
+	}
+	@media screen and (min-width: 768px) {
+		#search-results .img-wrapper {
+			width: 200px;
+		}
+	}
+	#search-results .img-frame {
+		position: relative;
+		overflow: hidden;
+		aspect-ratio: 16 / 9;
+	}
+	#search-results .img-wrapper img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		transition: opacity 0.3s ease;
+	}
+
+	/* Meta: title fills space, button pinned right */
 	.search_result_items_meta {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-		padding: 0 1rem 1rem 1rem;
+		gap: 1rem;
+		flex: 1;
+		min-width: 0;
 		text-align: left;
-		margin: 0 .75rem .75rem .75rem;
+	}
+	.search_result_items_meta > div:first-child {
+		flex: 1;
+		min-width: 0;
 	}
 	.search_result_items_download {
-		margin-left: 1rem;
-	}
-	@media screen and (min-width: 768px) {
-		{# ul.search_result_items img {
-			width: 30%;
-		} #}
-		ul.search_result_items li {
-			display: flex;
-		}
-		.search_result_items_meta {
-			align-items: start;
-			flex: 1;
-			margin: .75rem;
-			padding-top: 1rem;
-		}
-	}
-
-	/* Wrapper da imagem */
-	#search-results .img-wrapper {
-		position: relative;
-		display: inline-block;
-		cursor: pointer;
-	}
-
-	#search-results .img-wrapper img {
-		display: block;
-		transition: opacity 0.3s ease;
-		width: 100%;
+		flex-shrink: 0;
 	}
 
 	#search-results .img-wrapper:hover img {
@@ -88,7 +97,7 @@
 		box-shadow: 0px 0px 3px 1px #878787;
 	}
 
-	/* Círculo de fundo */
+	/* Semi-transparent circle behind the play icon */
 	#search-results .img-wrapper::before {
 		content: "";
 		position: absolute;
@@ -99,13 +108,13 @@
 		height: 80px;
 		background-color: rgba(0, 0, 0, 0.6);
 		border-radius: 50%;
-		opacity: 0;
+		opacity: 0.7;
 		transition: opacity 0.3s ease;
 		pointer-events: none;
 		z-index: 1;
 	}
 
-	/* Ícone de play do Fontello */
+	/* Fontello play icon overlay */
 	#search-results .img-wrapper::after {
 		font-family: "fontello";
 		content: "\e800";
@@ -115,36 +124,75 @@
 		transform: translate(-50%, -50%);
 		font-size: 2rem;
 		color: white;
-		opacity: 0;
+		opacity: 0.9;
 		transition: all 0.3s ease;
 		text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
 		pointer-events: none;
 		z-index: 2;
 	}
 
-	/* Mostra o play ao passar o mouse */
-	#search-results .img-wrapper:hover::before,
-	#search-results .img-wrapper:hover::after {
+	/* Hover: full opacity and slight scale on desktop */
+	#search-results .img-wrapper:hover::before {
 		opacity: 1;
 	}
 
 	#search-results .img-wrapper:hover::after {
+		opacity: 1;
 		transform: translate(-50%, -50%) scale(1.2);
 	}
 
 	.video-container {
-		position: relative;
-		padding-bottom: 56.25%; /* Proporção 16:9 */
-		height: 0;
-		overflow: hidden;
+		aspect-ratio: 16 / 9;
 	}
-
-	.video-container iframe {
-		position: absolute;
-		top: 0;
-		left: 0;
+	.video-container video {
 		width: 100%;
 		height: 100%;
+	}
+
+	.duration-badge {
+		position: absolute;
+		bottom: 4px;
+		right: 4px;
+		background: rgba(0, 0, 0, 0.8);
+		color: #fff;
+		font-size: 0.75rem;
+		padding: 2px 4px;
+		border-radius: 3px;
+		pointer-events: none;
+		z-index: 3; /* above the play-icon overlays (z-index 1 and 2) */
+	}
+
+	/* Loading overlay for the video preview modal.
+	   Bulma's is-loading only styles buttons/controls, not arbitrary divs,
+	   so we define the spinner here for .modal-content. */
+	.modal-content.is-loading {
+		position: relative;
+	}
+	.modal-content.is-loading::before {
+		content: "";
+		position: absolute;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.6);
+		z-index: 10;
+	}
+	.modal-content.is-loading::after {
+		content: "";
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 2.5rem;
+		height: 2.5rem;
+		margin-top: -1.25rem;
+		margin-left: -1.25rem;
+		border: 3px solid rgba(255, 255, 255, 0.3);
+		border-top-color: #fff;
+		border-radius: 50%;
+		animation: spinAround 0.6s linear infinite;
+		z-index: 11;
+	}
+	@keyframes spinAround {
+		from { transform: rotate(0deg); }
+		to { transform: rotate(360deg); }
 	}
 </style>
 <script>
@@ -410,24 +458,52 @@
 		$("#search-results").on("click", ".img-wrapper", function () {
 			const modal = document.getElementById("modal-js-example");
 			const modalVideo = document.getElementById("modal-video");
-
+			const modalContent = modal.querySelector(".modal-content");
 			const videoUrl = $(this).data("url");
-			const embedUrl = videoUrl.replace("watch?v=", "embed/")  + "?autoplay=1";
 
-			modalVideo.src = embedUrl;
 			modal.classList.add("is-active");
+			modalContent.classList.add("is-loading");
+
+			// Unlock autoplay on iOS/mobile: briefly play the empty video element
+			// synchronously inside the click handler so Safari associates it with
+			// a user gesture. Without this, the async AJAX callback's .play() is blocked.
+			modalVideo.play().then(function () { modalVideo.pause(); }).catch(function () {});
 
 			const closeButton = modal.querySelector(".modal-close");
 			closeButton.focus();
 
+			// Remove the spinner when the video starts playing or errors — not when
+			// the AJAX returns, since the video still has to buffer after src is set.
+			const stopLoading = function () {
+				modalContent.classList.remove("is-loading");
+			};
+			modalVideo.addEventListener("playing", stopLoading, { once: true });
+			modalVideo.addEventListener("error", stopLoading, { once: true });
+
 			const closeModal = function () {
 				modal.classList.remove("is-active");
-				// Limpa o vídeo ao fechar para parar a reprodução
+				modalContent.classList.remove("is-loading");
+				modalVideo.pause();
 				modalVideo.src = "";
 			};
 
 			closeButton.onclick = closeModal;
 			modal.querySelector(".modal-background").onclick = closeModal;
+
+			$.ajax({
+				url: "{{ url_for('search.preview') }}" + "?url=" + encodeURIComponent(videoUrl),
+				type: "get",
+				success: function (data) {
+					if (modal.classList.contains("is-active")) {
+						modalVideo.src = data.stream_url;
+						modalVideo.load();
+						modalVideo.play().catch(function () {});
+					}
+				},
+				error: function () {
+					closeModal();
+				},
+			});
 		});
 	});
 
@@ -592,7 +668,7 @@
 			<div class="is-hidden">
 				<div class="field select">
 					<select id="search_result_selector" name="song_url">
-						> {% for title,url,id in search_results %}
+						> {% for title,url,id,channel,duration in search_results %}
 						<option data-ytID="{{id}}" data-ytTitle="{{title}}" value="{{url}}">{{title}}</option>
 						{% endfor %}
 					</select>
@@ -626,16 +702,21 @@
 			</div>
 		</form>
 		<ul id="search-results" class="search_result_items">
-			{% for title,url,id in search_results %}
+			{% for title,url,id,channel,duration in search_results %}
 			<li data-ytID="{{id}}" data-ytTitle="{{title}}" value="{{url}}" data-index="{{loop.index0}}">
-				<div class="columns">
-					<div class="img-wrapper column is-one-third" data-url="{{url}}">
-						<img src="https://img.youtube.com/vi/{{id}}/0.jpg" />
+				<div class="img-wrapper" data-url="{{url}}">
+					<div class="img-frame">
+						<img src="https://img.youtube.com/vi/{{id}}/mqdefault.jpg" />
+						{% if duration %}<span class="duration-badge">{{ duration }}</span>{% endif %}
 					</div>
-					<div class="search_result_items_meta column">
+				</div>
+				<div class="search_result_items_meta">
+					<div>
 						{{title}}
-						<button class="button search_result_items_download">Download</button>
+						{% if channel %}<div class="is-size-7 has-text-grey">{{ channel }}</div>{% endif %}
+						<a href="{{url}}" target="_blank" rel="noopener noreferrer" class="is-size-7 has-text-info">YouTube ↗</a>
 					</div>
+					<button class="button search_result_items_download">Download</button>
 				</div>
 			</li>
 			{% endfor %}
@@ -644,16 +725,7 @@
 			<div class="modal-background"></div>
 			<div class="modal-content">
 				<div class="video-container">
-					<iframe
-						id="modal-video"
-						width="100%"
-						height="100%"
-						src=""
-						frameborder="0"
-						allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-						allowfullscreen
-					>
-					</iframe>
+					<video id="modal-video" controls></video>
 				</div>
 			</div>
 			<button class="modal-close is-large" aria-label="close"></button>
