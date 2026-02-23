@@ -1,30 +1,30 @@
-// Global variables
-var socket = io();
-var mouseTimer = null,
-  cursorVisible = false;
-var nowPlaying = {};
-var octopusInstance = null;
-var showMenu = false;
-var menuButtonVisible = false;
-var autoplayConfirmed = false;
-var volume = 0.85;
-var playbackStartTimeout = 10000;
-var bgMediaResumeDelay = 2000;
-var isScoreShown = false;
-var hasBgVideo = PikaraokeConfig.hasBgVideo;
-var currentVideoUrl = null;
-var hlsInstance = null;
-var idleTime = 0;
-var screensaverTimeoutSeconds = PikaraokeConfig.screensaverTimeout;
-var bg_playlist = [];
-var bgMediaResumeTimeout = null;
-var scoreReviews = {
+let socket = io();
+let mouseTimer = null;
+let cursorVisible = false;
+let nowPlaying = {};
+let octopusInstance = null;
+let showMenu = false;
+let menuButtonVisible = false;
+let autoplayConfirmed = false;
+let volume = 0.85;
+const playbackStartTimeout = 10000;
+const bgMediaResumeDelay = 2000;
+let isScoreShown = false;
+const hasBgVideo = PikaraokeConfig.hasBgVideo;
+let currentVideoUrl = null;
+let hlsInstance = null;
+let idleTime = 0;
+let screensaverTimeoutSeconds = PikaraokeConfig.screensaverTimeout;
+let bg_playlist = [];
+let bgMediaResumeTimeout = null;
+let scoreReviews = {
   low: ["Better luck next time!"],
   mid: ["Not bad!"],
-  high: ["Great job!"]
+  high: ["Great job!"],
 };
-var isMaster = false;
-var uiScale = null;
+let isMaster = false;
+let uiScale = null;
+let clockIntervalId = null;
 
 // Browser detection
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -33,8 +33,6 @@ const isChrome = /chrome/i.test(navigator.userAgent) && !/edg/i.test(navigator.u
 const isFirefox = /firefox/i.test(navigator.userAgent);
 const isEdge = /edg/i.test(navigator.userAgent);
 const isSupportedBrowser = isSafari || isChrome || isFirefox || isEdge;
-
-// Support functions below
 
 const isMediaPlaying = (media) =>
   !!(
@@ -389,7 +387,7 @@ const setupOverlayMenus = () => {
     document.body.style.cursor = 'none';
     cursorVisible = false;
     $("#menu a").fadeOut();
-    if (!PikaraokeConfig.hideSplashClock) {
+    if (PikaraokeConfig.showSplashClock) {
       setTimeout(() => {
         if (!cursorVisible) $("#clock").fadeIn();
       }, 1000);
@@ -499,10 +497,100 @@ const updateClock = () => {
   }
 }
 
+const startClock = () => {
+  if (!clockIntervalId) {
+    updateClock();
+    clockIntervalId = setInterval(updateClock, 1000);
+  }
+}
+
+const stopClock = () => {
+  if (clockIntervalId) {
+    clearInterval(clockIntervalId);
+    clockIntervalId = null;
+  }
+}
+
 const setupClock = () => {
   if (PikaraokeConfig.showSplashClock) {
-    updateClock();
-    setInterval(updateClock, 1000);
+    startClock();
+  }
+}
+
+const applyPreferenceUpdate = (data) => {
+  const key = data.key;
+  const value = typeof data.value === "string"
+    ? (data.value === "True" ? true : data.value === "False" ? false : data.value)
+    : data.value;
+
+  const handlers = {
+    disable_bg_video: () => {
+      PikaraokeConfig.disableBgVideo = value;
+      if (value) {
+        playBGVideo(false);
+      } else if (shouldBackgroundMediaPlay()) {
+        playBGVideo(true);
+      }
+    },
+    disable_bg_music: () => {
+      PikaraokeConfig.disableBgMusic = value;
+      if (value) {
+        playBGMusic(false);
+      } else if (shouldBackgroundMediaPlay()) {
+        playBGMusic(true);
+      }
+    },
+    disable_score: () => {
+      PikaraokeConfig.disableScore = value;
+    },
+    show_splash_clock: () => {
+      PikaraokeConfig.showSplashClock = value;
+      if (value) {
+        startClock();
+      } else {
+        stopClock();
+        $("#clock").hide();
+      }
+    },
+    hide_overlay: () => {
+      PikaraokeConfig.hideOverlay = value;
+      if (value) {
+        $("#bottom-container").hide();
+        $("#top-container").hide();
+      } else {
+        $("#bottom-container").show();
+        $("#top-container").show();
+      }
+    },
+    hide_url: () => {
+      if (value) {
+        $("#qr-code").hide();
+        $("#screensaver-qr").hide();
+      } else {
+        $("#qr-code").show();
+        $("#screensaver-qr").show();
+      }
+    },
+    bg_music_volume: () => {
+      const vol = parseFloat(value);
+      PikaraokeConfig.bgMusicVolume = vol;
+      const audio = getBackgroundMusicPlayer();
+      if (isMediaPlaying(audio)) {
+        $(audio).animate({ volume: vol }, 1000);
+      }
+    },
+    screensaver_timeout: () => {
+      screensaverTimeoutSeconds = parseInt(value) || 0;
+      PikaraokeConfig.screensaverTimeout = screensaverTimeoutSeconds;
+    },
+  };
+
+  if (handlers[key]) handlers[key]();
+}
+
+const applyPreferencesReset = (defaults) => {
+  for (const key in defaults) {
+    applyPreferenceUpdate({ key: key, value: defaults[key] });
   }
 }
 
@@ -581,6 +669,9 @@ const setupSocketEvents = () => {
     }
   });
   socket.on("now_playing", handleNowPlayingUpdate);
+  socket.on("preferences_update", applyPreferenceUpdate);
+  socket.on("preferences_reset", applyPreferencesReset);
+  socket.on("score_phrases_update", (phrases) => { scoreReviews = phrases; });
 
   socket.on("playback_position", (position) => {
     if (!isMaster) {

@@ -9,7 +9,6 @@
 						val: phrases[phraseRange]
 				})
 
-				// se o Python retornar False, para o loop
 				if (!returnData[0]) break
 			}
 
@@ -233,8 +232,6 @@
 			</header>
 			<div class="card-content collapsible-content">
 				<div class="content">
-					{# MSG: Help text explaining the the need to restart after changing splash screen preferences #}
-					<p class="subtitle has-text-warning mt-1 is-size-6">{% trans %}*You may need to refresh the splash screen for these changes to take effect.{% endtrans %}</p>
 					<div class="user-preference-container">
 						<input id="pref-bg-video" class="user-preference-checkbox checkbox" type="checkbox" data-pref="disable_bg_video" {% if disable_bg_video == True %}checked{% endif %} />
 						<label class="label" for="pref-bg-video">{# MSG: Checkbox label which enable/disables background video on the Splash Screen #} {% trans %}Disable background video{% endtrans %}

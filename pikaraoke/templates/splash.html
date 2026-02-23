@@ -68,8 +68,7 @@
 </div>
 
 <div id="bottom-container" class="overlay">
-  {% if not hide_url %}
-  <div id="qr-code">
+  <div id="qr-code"{% if hide_url %} style="display: none"{% endif %}>
     <img
       src="{{ url_for('images.qrcode') }}"
       width="100px"
@@ -80,7 +79,6 @@
       <div>&nbsp;{{ url }}</div>
     </div>
   </div>
-  {% endif %}
   <div></div>
   <div
     id="up-next"
@@ -180,14 +178,12 @@
 <div class="fw-fh-container">
   <div id="screensaver" style="visibility: hidden">
     <div id="dvd">
-      {% if not hide_url %}
-      <div>
+      <div id="screensaver-qr"{% if hide_url %} style="display: none"{% endif %}>
         <div style="text-align: right">
           <img src="{{ url_for('images.qrcode') }}" width="30%" height="30%" />
         </div>
         <div>{{ hostap_info[0] }}<br />{{ url }}</div>
       </div>
-      {% endif %}
     </div>
   </div>
 </div>

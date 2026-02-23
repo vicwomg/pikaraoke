@@ -44,21 +44,19 @@ def _default_score_phrases() -> dict[str, list[str]]:
     }
 
 
-def _get_active_score_phrases(k: Karaoke) -> dict[str, list[str]]:
-    """Custom phrases if configured; translated built-in defaults otherwise.
+def _parse_stored_phrases(stored: str) -> list[str]:
+    """Split a stored phrase string on '|' (preferred) or '\\n' (legacy)."""
+    sep = "|" if "|" in stored else "\n"
+    return [p.strip() for p in stored.split(sep) if p.strip()]
 
-    Handles backward compatibility: if stored value uses legacy newline
-    separators (no | present), splits on \\n instead.
-    """
+
+def _get_active_score_phrases(k: Karaoke) -> dict[str, list[str]]:
+    """Custom phrases if configured; translated built-in defaults otherwise."""
     defaults = _default_score_phrases()
     result = {}
     for tier in ("low", "mid", "high"):
         stored = getattr(k, f"{tier}_score_phrases")
-        if not stored:
-            result[tier] = defaults[tier]
-        else:
-            sep = "|" if "|" in stored else "\n"
-            result[tier] = [p.strip() for p in stored.split(sep) if p.strip()] or defaults[tier]
+        result[tier] = (_parse_stored_phrases(stored) if stored else []) or defaults[tier]
     return result
 
 
