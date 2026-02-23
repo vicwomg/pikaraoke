@@ -3,17 +3,21 @@
 		async function updatePhrases(phrases) {
 			let returnData = null
 
-			for (const phraseRange in phrases) {
-				returnData = await $.get("{{ url_for('preferences.change_preferences') }}", {
-						pref: phraseRange,
-						val: phrases[phraseRange]
-				})
+			try {
+				for (const phraseRange in phrases) {
+					returnData = await $.get("{{ url_for('preferences.change_preferences') }}", {
+							pref: phraseRange,
+							val: phrases[phraseRange]
+					})
 
-				if (!returnData[0]) break
+					if (!returnData[0]) break
+				}
+
+				if (returnData[0]) showNotification(returnData[1], "is-success");
+				else showNotification(returnData[1], "is-danger");
+			} catch (_e) {
+				showNotification("{{ _('Something went wrong! Your preferences were not changed') }}", "is-danger");
 			}
-
-			if (returnData[0]) showNotification(returnData[1], "is-success");
-			else showNotification(returnData[1], "is-danger");
 		}
 
 		$(function () {
