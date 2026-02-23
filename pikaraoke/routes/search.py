@@ -5,15 +5,7 @@ from __future__ import annotations
 import json
 
 import flask_babel
-from flask import (
-    current_app,
-    flash,
-    jsonify,
-    redirect,
-    render_template,
-    request,
-    url_for,
-)
+from flask import current_app, jsonify, render_template, request, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
@@ -33,7 +25,7 @@ class PreviewQuery(Schema):
     url = fields.String(required=True, metadata={"description": "YouTube video URL to preview"})
 
 
-class DownloadForm(Schema):
+class DownloadBody(Schema):
     song_url = fields.String(required=True, metadata={"description": "YouTube URL to download"})
     song_added_by = fields.String(
         required=True, metadata={"description": "Name of the user requesting the download"}
@@ -41,7 +33,9 @@ class DownloadForm(Schema):
     song_title = fields.String(
         required=True, metadata={"description": "Display title for the song"}
     )
-    queue = fields.String(metadata={"description": "Set to 'on' to queue the song after download"})
+    queue = fields.Boolean(
+        load_default=False, metadata={"description": "Whether to queue the song after download"}
+    )
 
 
 @search_bp.route("/search", methods=["GET"])
@@ -100,16 +94,16 @@ def preview(query):
 
 
 @search_bp.route("/download", methods=["POST"])
-@search_bp.arguments(DownloadForm, location="form")
+@search_bp.arguments(DownloadBody, location="json")
 def download(form):
     """Download a video from YouTube."""
     k = get_karaoke_instance()
     song = form["song_url"]
     user = form["song_added_by"]
     title = form["song_title"]
-    queue = form.get("queue") == "on"
+    queue = form.get("queue", False)
 
     # Queue the download (processed serially by the download worker)
     k.download_manager.queue_download(song, queue, user, title)
 
-    return redirect(url_for("search.search"))
+    return jsonify({"status": "ok"})

@@ -205,10 +205,10 @@
 			}
 		});
 
-		$("#download-button").click(function () {
-			if (!$("#download-button").is("[disabled=disabled]")) {
-				$("#download-button").addClass("is-loading");
-			}
+		$("#direct-download-button").click(function () {
+			var url = $("#direct-download-url").val();
+			if (!url) return;
+			downloadSong(url, "", this);
 		});
 
 		$("#add-queue-link").click(function () {});
@@ -442,14 +442,46 @@
 			$("#add-to-queue-direct, #add-to-queue-search").prop("checked", isChecked);
 		});
 
+		function downloadSong(songUrl, songTitle, button) {
+			var $btn = $(button);
+			var originalText = $btn.html();
+			$btn.css("min-width", $btn.outerWidth() + "px");
+			$btn.addClass("is-loading").attr("disabled", true);
+			$.ajax({
+				url: "{{ url_for('search.download') }}",
+				type: "POST",
+				contentType: "application/json",
+				data: JSON.stringify({
+					song_url: songUrl,
+					song_title: songTitle || "",
+					song_added_by: getUserCookie() || "",
+					queue: $("#add-to-queue-search").is(":checked"),
+				}),
+				success: function () {
+					$btn.removeClass("is-loading").addClass("is-success")
+						.html('<i class="icon icon-ok"></i>');
+					setTimeout(function () {
+						$btn.removeClass("is-success").html(originalText)
+							.removeAttr("disabled").css("min-width", "");
+					}, 3000);
+				},
+				error: function () {
+					$btn.removeClass("is-loading").addClass("is-danger")
+						.text("!");
+					setTimeout(function () {
+						$btn.removeClass("is-danger").html(originalText)
+							.removeAttr("disabled").css("min-width", "");
+					}, 3000);
+				},
+			});
+		}
+
 		const items = document.querySelectorAll(".search_result_items li");
 		items.forEach((item) =>
-			item.querySelector("button").addEventListener("click", () => {
-				const index = item.getAttribute("data-index");
+			item.querySelector("button").addEventListener("click", function () {
+				const url = item.getAttribute("value");
 				const title = item.getAttribute("data-ytTitle");
-				$("#song_title").val(title);
-				document.querySelector("#search_result_selector").selectedIndex = index;
-				document.querySelector("#download-button").click();
+				downloadSong(url, title, this);
 			})
 		);
 
@@ -611,30 +643,27 @@
 					{# MSG: Label for an input which takes a YouTube url directly instead of searching titles. #} {% trans
 					%}Direct download YouTube url:{% endtrans %}
 				</div>
-				<form action="{{ url_for('search.download') }}" method="post">
+				<div>
 					<input
 						class="input"
 						id="direct-download-url"
 						type="text"
-						name="song_url"
 						value="https://www.youtube.com/watch?v="
 					/>
-					<input class="song_added_by" type="hidden" name="song_added_by" />
-					<input class="song_title" type="hidden" name="song_title" value="" />
 					<div class="field" style="margin-top: 5px">
 						<label class="checkbox is-flex is-align-items-center">
-							<input type="checkbox" class="checkbox" checked name="queue" id="add-to-queue-direct" />
+							<input type="checkbox" class="checkbox" checked id="add-to-queue-direct" />
 							{# MSG: Checkbox label which marks the song to be added to the queue after it finishes downloading.
 							#} {% trans %}Add to queue once downloaded{% endtrans %}
 						</label>
 					</div>
 					<div class="has-text-right" style="margin-top: 5px">
-						<button class="button is-rounded is-primary" disabled id="direct-download-button" type="submit">
+						<button class="button is-rounded is-primary" disabled id="direct-download-button">
 							{# MSG: Button label for the direct download form's submit button. #} {% trans %}Download{%
 							endtrans %}
 						</button>
 					</div>
-				</form>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -658,49 +687,19 @@
 	</div>
 	{% if search_results %}
 	<div class="field" id="container_search_result">
-		<form action="{{ url_for('search.download') }}" method="post">
-			<label class="label">
-				{# MSG: Html text which displays what was searched for, in quotes. #} {% trans search_term=search_string -%}
-				Search results for
-				<small><i>'{{search_string}}'</i></small>
-				{%- endtrans %}
+		<label class="label">
+			{# MSG: Html text which displays what was searched for, in quotes. #} {% trans search_term=search_string -%}
+			Search results for
+			<small><i>'{{search_string}}'</i></small>
+			{%- endtrans %}
+		</label>
+		<div class="field">
+			<label class="checkbox is-flex is-align-items-center">
+				<input type="checkbox" checked id="add-to-queue-search" class="checkbox" />
+				{# MSG: Checkbox label which marks the song to be added to the queue after it finishes downloading. #} {%
+				trans %}Add to queue once downloaded{% endtrans %}
 			</label>
-			<div class="is-hidden">
-				<div class="field select">
-					<select id="search_result_selector" name="song_url">
-						> {% for title,url,id,channel,duration in search_results %}
-						<option data-ytID="{{id}}" data-ytTitle="{{title}}" value="{{url}}">{{title}}</option>
-						{% endfor %}
-					</select>
-				</div>
-				<input class="song_added_by" type="hidden" name="song_added_by" />
-				<input id="song_title" type="hidden" name="song_title" />
-				<p class="help">
-					{# MSG: Help text which explains that the select box above can be operated to select different search
-					results. #} {% trans %}Click dropdown to show more results{% endtrans %}
-				</p>
-				<p>
-					{# MSG: Label displayed before the YouTube url for the chosen search result. #} {% trans %}Link:{%
-					endtrans %}
-					<a target="_blank" id="youtube-link" href=""></a>
-				</p>
-				<p class="has-text-centered-mobile"><img id="youtube-thumb" /></p>
-			</div>
-
-			<div class="field">
-				<label class="checkbox is-flex is-align-items-center">
-					<input type="checkbox" checked name="queue" id="add-to-queue-search" class="checkbox" />
-					{# MSG: Checkbox label which marks the song to be added to the queue after it finishes downloading. #} {%
-					trans %}Add to queue once downloaded{% endtrans %}
-				</label>
-			</div>
-			<div class="field is-hidden">
-				<button class="button is-success is-rounded" id="download-button" type="submit">
-					{# MSG: Label on the button which starts the download of the selected song. #} {%- trans %}Download{%
-					endtrans -%}
-				</button>
-			</div>
-		</form>
+		</div>
 		<ul id="search-results" class="search_result_items">
 			{% for title,url,id,channel,duration in search_results %}
 			<li data-ytID="{{id}}" data-ytTitle="{{title}}" value="{{url}}" data-index="{{loop.index0}}">
