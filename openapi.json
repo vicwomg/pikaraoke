@@ -250,6 +250,33 @@
         ]
       }
     },
+    "/preview": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "url",
+            "description": "YouTube video URL to preview",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Get a direct stream URL for previewing a YouTube video.",
+        "tags": [
+          "search"
+        ]
+      }
+    },
     "/download": {
       "post": {
         "responses": {
@@ -263,9 +290,9 @@
         "requestBody": {
           "required": true,
           "content": {
-            "application/x-www-form-urlencoded": {
+            "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DownloadForm"
+                "$ref": "#/components/schemas/DownloadBody"
               }
             }
           }
@@ -1094,7 +1121,7 @@
         ],
         "additionalProperties": false
       },
-      "DownloadForm": {
+      "DownloadBody": {
         "type": "object",
         "properties": {
           "song_url": {
@@ -1110,8 +1137,9 @@
             "description": "Display title for the song"
           },
           "queue": {
-            "type": "string",
-            "description": "Set to 'on' to queue the song after download"
+            "type": "boolean",
+            "default": false,
+            "description": "Whether to queue the song after download"
           }
         },
         "required": [
