@@ -105,7 +105,6 @@ class DownloadManager:
         """Queue a video for download.
 
         Downloads are processed serially to prevent rate limiting and CPU overload.
-        A notification is sent when the download is queued, and another when it starts.
 
         Args:
             video_url: YouTube video URL.
