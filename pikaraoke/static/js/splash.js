@@ -488,111 +488,67 @@ const handleUnsupportedBrowser = () => {
   }
 }
 
-const updateClock = () => {
-  const clockElement = document.getElementById('clock');
-  if (clockElement) {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-    clockElement.textContent = timeString;
-  }
-}
-
 const startClock = () => {
-  if (!clockIntervalId) {
-    updateClock();
-    clockIntervalId = setInterval(updateClock, 1000);
-  }
+  if (clockIntervalId) return;
+  const update = () => {
+    const el = document.getElementById('clock');
+    if (el) el.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+  };
+  update();
+  clockIntervalId = setInterval(update, 1000);
 }
 
 const stopClock = () => {
-  if (clockIntervalId) {
-    clearInterval(clockIntervalId);
-    clockIntervalId = null;
-  }
+  if (!clockIntervalId) return;
+  clearInterval(clockIntervalId);
+  clockIntervalId = null;
 }
 
-const setupClock = () => {
-  if (PikaraokeConfig.showSplashClock) {
-    startClock();
-  }
-}
+const toggleBGMedia = (configKey, playFn, disabled) => {
+  PikaraokeConfig[configKey] = disabled;
+  disabled ? playFn(false) : shouldBackgroundMediaPlay() && playFn(true);
+};
+
+const PREFERENCE_EFFECTS = {
+  disable_bg_video:    (v) => toggleBGMedia("disableBgVideo", playBGVideo, v),
+  disable_bg_music:    (v) => toggleBGMedia("disableBgMusic", playBGMusic, v),
+  disable_score:       (v) => { PikaraokeConfig.disableScore = v; },
+  show_splash_clock:   (v) => {
+    PikaraokeConfig.showSplashClock = v;
+    v ? startClock() : (stopClock(), $("#clock").hide());
+  },
+  hide_overlay:        (v) => {
+    PikaraokeConfig.hideOverlay = v;
+    $("#bottom-container, #top-container").toggle(!v);
+  },
+  hide_url:            (v) => { $("#qr-code, #screensaver-qr").toggle(!v); },
+  bg_music_volume:     (v) => {
+    PikaraokeConfig.bgMusicVolume = v;
+    const player = getBackgroundMusicPlayer();
+    if (isMediaPlaying(player)) $(player).animate({ volume: v }, 1000);
+  },
+  screensaver_timeout: (v) => {
+    screensaverTimeoutSeconds = v;
+    PikaraokeConfig.screensaverTimeout = v;
+  },
+};
+
+const parsePreferenceValue = (value) => {
+  if (typeof value !== "string") return value;
+  if (value === "True") return true;
+  if (value === "False") return false;
+  const num = Number(value);
+  return !isNaN(num) && value.trim() !== "" ? num : value;
+};
 
 const applyPreferenceUpdate = (data) => {
-  const key = data.key;
-  const value = typeof data.value === "string"
-    ? (data.value === "True" ? true : data.value === "False" ? false : data.value)
-    : data.value;
-
-  const handlers = {
-    disable_bg_video: () => {
-      PikaraokeConfig.disableBgVideo = value;
-      if (value) {
-        playBGVideo(false);
-      } else if (shouldBackgroundMediaPlay()) {
-        playBGVideo(true);
-      }
-    },
-    disable_bg_music: () => {
-      PikaraokeConfig.disableBgMusic = value;
-      if (value) {
-        playBGMusic(false);
-      } else if (shouldBackgroundMediaPlay()) {
-        playBGMusic(true);
-      }
-    },
-    disable_score: () => {
-      PikaraokeConfig.disableScore = value;
-    },
-    show_splash_clock: () => {
-      PikaraokeConfig.showSplashClock = value;
-      if (value) {
-        startClock();
-      } else {
-        stopClock();
-        $("#clock").hide();
-      }
-    },
-    hide_overlay: () => {
-      PikaraokeConfig.hideOverlay = value;
-      if (value) {
-        $("#bottom-container").hide();
-        $("#top-container").hide();
-      } else {
-        $("#bottom-container").show();
-        $("#top-container").show();
-      }
-    },
-    hide_url: () => {
-      if (value) {
-        $("#qr-code").hide();
-        $("#screensaver-qr").hide();
-      } else {
-        $("#qr-code").show();
-        $("#screensaver-qr").show();
-      }
-    },
-    bg_music_volume: () => {
-      const vol = parseFloat(value);
-      PikaraokeConfig.bgMusicVolume = vol;
-      const audio = getBackgroundMusicPlayer();
-      if (isMediaPlaying(audio)) {
-        $(audio).animate({ volume: vol }, 1000);
-      }
-    },
-    screensaver_timeout: () => {
-      screensaverTimeoutSeconds = parseInt(value) || 0;
-      PikaraokeConfig.screensaverTimeout = screensaverTimeoutSeconds;
-    },
-  };
-
-  if (handlers[key]) handlers[key]();
-}
+  const effect = PREFERENCE_EFFECTS[data.key];
+  if (effect) effect(parsePreferenceValue(data.value));
+};
 
 const applyPreferencesReset = (defaults) => {
-  for (const key in defaults) {
-    applyPreferenceUpdate({ key: key, value: defaults[key] });
-  }
-}
+  Object.entries(defaults).forEach(([key, value]) => applyPreferenceUpdate({ key, value }));
+};
 
 const setupSocketEvents = () => {
   socket.on('connect', () => {
@@ -734,7 +690,7 @@ const setupUIScaling = () => {
 $(function () {
   // Setup various features and listeners
   setupUIScaling();
-  setupClock();
+  if (PikaraokeConfig.showSplashClock) startClock();
   setupScreensaver();
   setupOverlayMenus();
   setupVideoPlayer();
