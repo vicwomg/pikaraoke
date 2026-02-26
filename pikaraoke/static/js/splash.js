@@ -1,26 +1,30 @@
-// Global variables
-var socket = io();
-var mouseTimer = null,
-  cursorVisible = false;
-var nowPlaying = {};
-var octopusInstance = null;
-var showMenu = false;
-var menuButtonVisible = false;
-var autoplayConfirmed = false;
-var volume = 0.85;
-var playbackStartTimeout = 10000;
-var bgMediaResumeDelay = 2000;
-var isScoreShown = false;
-var hasBgVideo = PikaraokeConfig.hasBgVideo;
-var currentVideoUrl = null;
-var hlsInstance = null;
-var idleTime = 0;
-var screensaverTimeoutSeconds = PikaraokeConfig.screensaverTimeout;
-var bg_playlist = [];
-var bgMediaResumeTimeout = null;
-const scoreReviews = PikaraokeConfig.scorePhrases;
-var isMaster = false;
-var uiScale = null;
+let socket = io();
+let mouseTimer = null;
+let cursorVisible = false;
+let nowPlaying = {};
+let octopusInstance = null;
+let showMenu = false;
+let menuButtonVisible = false;
+let autoplayConfirmed = false;
+let volume = 0.85;
+const playbackStartTimeout = 10000;
+const bgMediaResumeDelay = 2000;
+let isScoreShown = false;
+const hasBgVideo = PikaraokeConfig.hasBgVideo;
+let currentVideoUrl = null;
+let hlsInstance = null;
+let idleTime = 0;
+let screensaverTimeoutSeconds = PikaraokeConfig.screensaverTimeout;
+let bg_playlist = [];
+let bgMediaResumeTimeout = null;
+let scoreReviews = {
+  low: ["Better luck next time!"],
+  mid: ["Not bad!"],
+  high: ["Great job!"],
+};
+let isMaster = false;
+let uiScale = null;
+let clockIntervalId = null;
 
 // Browser detection
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -29,8 +33,6 @@ const isChrome = /chrome/i.test(navigator.userAgent) && !/edg/i.test(navigator.u
 const isFirefox = /firefox/i.test(navigator.userAgent);
 const isEdge = /edg/i.test(navigator.userAgent);
 const isSupportedBrowser = isSafari || isChrome || isFirefox || isEdge;
-
-// Support functions below
 
 const isMediaPlaying = (media) =>
   !!(
@@ -385,7 +387,7 @@ const setupOverlayMenus = () => {
     document.body.style.cursor = 'none';
     cursorVisible = false;
     $("#menu a").fadeOut();
-    if (!PikaraokeConfig.hideSplashClock) {
+    if (PikaraokeConfig.showSplashClock) {
       setTimeout(() => {
         if (!cursorVisible) $("#clock").fadeIn();
       }, 1000);
@@ -486,21 +488,67 @@ const handleUnsupportedBrowser = () => {
   }
 }
 
-const updateClock = () => {
-  const clockElement = document.getElementById('clock');
-  if (clockElement) {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-    clockElement.textContent = timeString;
-  }
+const startClock = () => {
+  if (clockIntervalId) return;
+  const update = () => {
+    const el = document.getElementById('clock');
+    if (el) el.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+  };
+  update();
+  clockIntervalId = setInterval(update, 1000);
 }
 
-const setupClock = () => {
-  if (PikaraokeConfig.showSplashClock) {
-    updateClock();
-    setInterval(updateClock, 1000);
-  }
+const stopClock = () => {
+  if (!clockIntervalId) return;
+  clearInterval(clockIntervalId);
+  clockIntervalId = null;
 }
+
+const toggleBGMedia = (configKey, playFn, disabled) => {
+  PikaraokeConfig[configKey] = disabled;
+  disabled ? playFn(false) : shouldBackgroundMediaPlay() && playFn(true);
+};
+
+const PREFERENCE_EFFECTS = {
+  disable_bg_video:    (v) => toggleBGMedia("disableBgVideo", playBGVideo, v),
+  disable_bg_music:    (v) => toggleBGMedia("disableBgMusic", playBGMusic, v),
+  disable_score:       (v) => { PikaraokeConfig.disableScore = v; },
+  show_splash_clock:   (v) => {
+    PikaraokeConfig.showSplashClock = v;
+    v ? startClock() : (stopClock(), $("#clock").hide());
+  },
+  hide_overlay:        (v) => {
+    PikaraokeConfig.hideOverlay = v;
+    $("#bottom-container, #top-container").toggle(!v);
+  },
+  hide_url:            (v) => { $("#qr-code, #screensaver-qr").toggle(!v); },
+  bg_music_volume:     (v) => {
+    PikaraokeConfig.bgMusicVolume = v;
+    const player = getBackgroundMusicPlayer();
+    if (isMediaPlaying(player)) $(player).animate({ volume: v }, 1000);
+  },
+  screensaver_timeout: (v) => {
+    screensaverTimeoutSeconds = v;
+    PikaraokeConfig.screensaverTimeout = v;
+  },
+};
+
+const parsePreferenceValue = (value) => {
+  if (typeof value !== "string") return value;
+  if (value === "True") return true;
+  if (value === "False") return false;
+  const num = Number(value);
+  return !isNaN(num) && value.trim() !== "" ? num : value;
+};
+
+const applyPreferenceUpdate = (data) => {
+  const effect = PREFERENCE_EFFECTS[data.key];
+  if (effect) effect(parsePreferenceValue(data.value));
+};
+
+const applyPreferencesReset = (defaults) => {
+  Object.entries(defaults).forEach(([key, value]) => applyPreferenceUpdate({ key, value }));
+};
 
 const setupSocketEvents = () => {
   socket.on('connect', () => {
@@ -577,6 +625,9 @@ const setupSocketEvents = () => {
     }
   });
   socket.on("now_playing", handleNowPlayingUpdate);
+  socket.on("preferences_update", applyPreferenceUpdate);
+  socket.on("preferences_reset", applyPreferencesReset);
+  socket.on("score_phrases_update", (phrases) => { scoreReviews = phrases; });
 
   socket.on("playback_position", (position) => {
     if (!isMaster) {
@@ -639,7 +690,7 @@ const setupUIScaling = () => {
 $(function () {
   // Setup various features and listeners
   setupUIScaling();
-  setupClock();
+  if (PikaraokeConfig.showSplashClock) startClock();
   setupScreensaver();
   setupOverlayMenus();
   setupVideoPlayer();

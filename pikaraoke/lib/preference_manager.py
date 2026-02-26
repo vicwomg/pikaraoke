@@ -95,6 +95,8 @@ class PreferenceManager:
 
         try:
             pref = self._config_obj.get(section, preference)
+            if isinstance(default_value, str):
+                return pref
             return self._convert_value(pref)
         except (configparser.NoOptionError, ValueError):
             return default_value
@@ -124,7 +126,8 @@ class PreferenceManager:
 
             # Auto-sync target object if registered
             if self._target is not None:
-                typed_val = self._convert_value(val)
+                default = self.DEFAULTS.get(preference)
+                typed_val = str(val) if isinstance(default, str) else self._convert_value(val)
                 setattr(self._target, preference, typed_val)
 
             return (True, _("Your preferences were changed successfully"))

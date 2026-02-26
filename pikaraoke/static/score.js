@@ -1,28 +1,17 @@
-// Function that returns the applause sound and one of the reviews, based on the score value.
-// The scoreReviews comes from the splash.html so that it can be translated.
 function getScoreData(scoreValue) {
+  function randomPhrase(phrases) {
+    return phrases[Math.floor(Math.random() * phrases.length)];
+  }
+
   if (scoreValue < 30) {
-    return {
-      applause: "applause-l.mp3",
-      review:
-        scoreReviews.low[Math.floor(Math.random() * scoreReviews.low.length)],
-    };
+    return { applause: "applause-l.mp3", review: randomPhrase(scoreReviews.low) };
   } else if (scoreValue < 60) {
-    return {
-      applause: "applause-m.mp3",
-      review:
-        scoreReviews.mid[Math.floor(Math.random() * scoreReviews.mid.length)],
-    };
+    return { applause: "applause-m.mp3", review: randomPhrase(scoreReviews.mid) };
   } else {
-    return {
-      applause: "applause-h.mp3",
-      review:
-        scoreReviews.high[Math.floor(Math.random() * scoreReviews.high.length)],
-    };
+    return { applause: "applause-h.mp3", review: randomPhrase(scoreReviews.high) };
   }
 }
 
-// Function that creates a random score biased towards 99
 function getScoreValue() {
   const random = Math.random();
   const bias = 2; // adjust this value to control the bias
@@ -30,7 +19,6 @@ function getScoreValue() {
   return Math.floor(scoreValue);
 }
 
-// Function that shows the final score value, the review, fireworks and plays the applause sound
 async function showFinalScoreWithAudio(
   scoreTextElement,
   scoreValue,
@@ -47,9 +35,8 @@ async function showFinalScoreWithAudio(
   });
 }
 
-// Function that shows random numbers for the score suspense
 async function rotateScore(scoreTextElement, duration) {
-  interval = 100;
+  const interval = 100;
   const startTime = performance.now();
 
   while (true) {
@@ -70,8 +57,14 @@ async function rotateScore(scoreTextElement, duration) {
   }
 }
 
-// Function that starts the score animation
 async function startScore(staticPath) {
+  try {
+    const r = await fetch(PikaraokeConfig.scorePhrasesUrl);
+    scoreReviews = await r.json();
+  } catch (_e) {
+    // Network failure: keep the last successfully fetched phrases
+  }
+
   const scoreElement = $("#score");
   const scoreTextElement = $("#score-number-text");
   const scoreReviewElement = $("#score-review-text");
