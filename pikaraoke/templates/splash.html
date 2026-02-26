@@ -23,32 +23,7 @@
       socketConnectionLost: "{{ _('Connection lost. Is the server still running?') }}",
       unsupportedBrowser: "{{ _('This browser is not fully supported. You may experience streaming issues. Please use Chrome/Safari/Firefox/Edge for best results.') }}",
     },
-    scorePhrases: {
-      low: [
-        "{{ _('Never sing again... ever.') }}",
-        "{{ _('That was a really good impression of a dying cat!') }}",
-        "{{ _('Thank God it\'s over.') }}",
-        "{{ _('Pass the mic, please!') }}",
-        "{{ _('Well, I\'m sure you\'re very good at your day job.') }}"
-        {% if score_phrases.low %}, {% for phrase in score_phrases.low %}"{{ phrase }}"{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
-      ],
-      mid: [
-        "{{ _('I\'ve seen better.') }}",
-        "{{ _('Ok... just ok.') }}",
-        "{{ _('Not bad for an amateur.') }}",
-        "{{ _('You put on a decent show.') }}",
-        "{{ _('That was... something.') }}"
-        {% if score_phrases.mid %}, {% for phrase in score_phrases.mid %}"{{ phrase }}"{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
-      ],
-      high: [
-        "{{ _('Congratulations! That was unbelievable!') }}",
-        "{{ _('Wow, have you tried auditioning for The Voice?') }}",
-        "{{ _('Please, sing another one!') }}",
-        "{{ _('You rock! You know that?!') }}",
-        "{{ _('Woah, who let Freddie Mercury in here?') }}"
-        {% if score_phrases.high %}, {% for phrase in score_phrases.high %}"{{ phrase }}"{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
-      ]
-    }
+    scorePhrasesUrl: "{{ url_for('splash.get_score_phrases') }}",
   };
 </script>
 <script src="{{ url_for('static', filename='js/splash.js') }}"></script>
@@ -93,8 +68,7 @@
 </div>
 
 <div id="bottom-container" class="overlay">
-  {% if not hide_url %}
-  <div id="qr-code">
+  <div id="qr-code"{% if hide_url %} style="display: none"{% endif %}>
     <img
       src="{{ url_for('images.qrcode') }}"
       width="100px"
@@ -105,7 +79,6 @@
       <div>&nbsp;{{ url }}</div>
     </div>
   </div>
-  {% endif %}
   <div></div>
   <div
     id="up-next"
@@ -205,14 +178,12 @@
 <div class="fw-fh-container">
   <div id="screensaver" style="visibility: hidden">
     <div id="dvd">
-      {% if not hide_url %}
-      <div>
+      <div id="screensaver-qr"{% if hide_url %} style="display: none"{% endif %}>
         <div style="text-align: right">
           <img src="{{ url_for('images.qrcode') }}" width="30%" height="30%" />
         </div>
         <div>{{ hostap_info[0] }}<br />{{ url }}</div>
       </div>
-      {% endif %}
     </div>
   </div>
 </div>

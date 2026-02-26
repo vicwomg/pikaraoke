@@ -35,7 +35,7 @@ PiKaraoke is a karaoke system for Raspberry Pi, Windows, macOS, and Linux. Web i
 ## Code Style
 
 - PEP 8, 4 spaces, meaningful names
-- Type hints required: `from __future__ import annotations`, modern syntax (`str | None`)
+- Type hints required: modern syntax (`str | None`) — Python 3.10+ is the minimum, no `from __future__ import annotations` needed
 - Concise docstrings for public APIs - explain "why", not "how"
 - No emoji or unicode emoji substitutes
 
@@ -71,6 +71,10 @@ uv run pre-commit run --config code_quality/.pre-commit-config.yaml --all-files
 Tools: Black (100 char), isort, pycln, pylint, mdformat.
 
 Never commit to `master` directly.
+
+## Pull Requests
+
+PRs must include a test plan: a minimal checklist targeting only the changes made, enabling quick manual verification.
 
 ## What NOT to Do
 
