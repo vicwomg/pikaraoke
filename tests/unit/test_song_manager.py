@@ -42,6 +42,20 @@ class TestFilenameFromPath:
     def test_cdg_zip(self):
         assert SongManager.filename_from_path("/songs/Karaoke Track---abc.zip") == "Karaoke Track"
 
+    def test_bracket_format_youtube_id(self):
+        result = SongManager.filename_from_path("/songs/Artist - Song [dQw4w9WgXcQ].mp4")
+        assert result == "Artist - Song"
+
+    def test_bracket_format_keep_id(self):
+        result = SongManager.filename_from_path(
+            "/songs/Artist - Song [dQw4w9WgXcQ].mp4", remove_youtube_id=False
+        )
+        assert result == "Artist - Song [dQw4w9WgXcQ]"
+
+    def test_bracket_format_short_id_not_stripped(self):
+        result = SongManager.filename_from_path("/songs/Song [short].mp4")
+        assert result == "Song [short]"
+
 
 class TestRefreshSongs:
     def test_scans_directory(self, tmp_path):
