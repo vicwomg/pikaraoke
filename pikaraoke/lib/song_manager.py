@@ -50,6 +50,7 @@ class SongManager:
         name = os.path.splitext(os.path.basename(file_path))[0]
         if remove_youtube_id:
             name = name.split("---")[0]
+            name = re.sub(r"\s*\[[A-Za-z0-9_-]{11}\]$", "", name)
         return name
 
     def _get_companion_files(self, song_path: str) -> list[str]:
