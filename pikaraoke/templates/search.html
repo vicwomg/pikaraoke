@@ -194,8 +194,40 @@
 		from { transform: rotate(0deg); }
 		to { transform: rotate(360deg); }
 	}
+
+	/* KJ singer history dropdown */
+	.kj-history-item {
+		border-bottom: 1px solid #333;
+	}
+	.kj-track-list {
+		list-style-type: circle;
+	}
+	.kj-track-list > li:hover {
+		text-decoration: underline;
+	}
 </style>
 <script>
+	var isAdmin = JSON.parse('{{ admin | tojson }}');
+	var kjMemoryEnabled = isAdmin && JSON.parse('{{ enable_kj_memory | tojson }}');
+
+	function getKjHistory() {
+		var history = localStorage.getItem("kj_singer_history");
+		return history ? JSON.parse(history) : {};
+	}
+
+	function saveToKjHistory(singerName, songTitle, songUrl) {
+		if (!singerName || !songTitle) return;
+		var history = getKjHistory();
+		if (!history[singerName]) {
+			history[singerName] = [];
+		}
+		var exists = history[singerName].some(function(song) { return song.url === songUrl; });
+		if (!exists) {
+			history[singerName].push({ title: songTitle, url: songUrl });
+			localStorage.setItem("kj_singer_history", JSON.stringify(history));
+		}
+	}
+
 	$(function () {
 		$("#search_result_selector").focus();
 
@@ -214,8 +246,6 @@
 		$("#add-queue-link").click(function () {});
 
 		//START SELECTIZE CHANGES
-
-		//if enter key press, by default search button is click
 		$(document).keypress(function (event) {
 			if (event.which == "13") {
 				event.preventDefault();
@@ -286,8 +316,6 @@
 				if (!text) {
 					console.log("no text");
 					$("#search-link").attr("disabled", "true");
-					{# $("#add-queue-link").show();
-					$("#search-link").hide(); #}
 				} else {
 					console.log("has text: " + text);
 					$("#search-link").removeAttr("disabled");
@@ -442,11 +470,193 @@
 			$("#add-to-queue-direct, #add-to-queue-search").prop("checked", isChecked);
 		});
 
+		// ------------- KJ MEMORY LOGIC -------------
+		if (kjMemoryEnabled) {
+			$("#kj_override_container").show();
+
+			var activeKjName = sessionStorage.getItem("active_kj_singer");
+			if (activeKjName) {
+				$("#kj_singer_override").val(activeKjName);
+				$(".song_added_by").val(activeKjName);
+			}
+
+			$("#kj_singer_override").on("input", function() {
+				var currentVal = $(this).val();
+				var lowerVal = currentVal.toLowerCase();
+				sessionStorage.setItem("active_kj_singer", currentVal);
+
+				var history = getKjHistory();
+				var $dropdown = $("#singer_history_dropdown");
+				var $list = $("#singer_history_list");
+
+				$list.empty();
+
+				if (!currentVal) {
+					$dropdown.hide();
+					$(".song_added_by").val(getUserCookie());
+					return;
+				}
+
+				$(".song_added_by").val(currentVal);
+				var matches = Object.keys(history).filter(function(name) {
+					return name.toLowerCase().includes(lowerVal);
+				});
+
+				if (matches.length === 0) {
+					$dropdown.hide();
+					return;
+				}
+
+				matches.forEach(function(name) {
+					var songs = history[name] || [];
+					var recentSongs = songs.slice().reverse();
+					var displaySongs = recentSongs.slice(0, 5);
+					var extraCount = recentSongs.length - 5;
+
+					var $li = $("<li>").addClass("p-2 kj-history-item");
+
+					var $nameDiv = $("<div>")
+						.addClass("has-text-warning has-text-weight-bold is-clickable pb-1")
+						.text(name);
+
+					$nameDiv.on("click", function() {
+						selectSinger(name);
+						$dropdown.hide();
+					});
+
+					$li.append($nameDiv);
+
+					if (displaySongs.length > 0) {
+						var $songUl = $("<ul>").addClass("kj-track-list is-size-7 has-text-grey-light ml-4");
+
+						displaySongs.forEach(function(song) {
+							var $songLi = $("<li>").addClass("is-clickable py-1").text(song.title);
+							attachSongClick($songLi, song, name);
+							$songUl.append($songLi);
+						});
+
+						if (extraCount > 0) {
+							var $moreLi = $("<li>")
+								.addClass("is-clickable has-text-link is-italic pt-1")
+								.text("+ " + extraCount + " older tracks (click to expand)");
+
+							var $hiddenUl = $("<ul>").addClass("kj-track-list has-text-grey");
+
+							recentSongs.slice(5).forEach(function(song) {
+								var $hiddenSongLi = $("<li>").addClass("is-clickable py-1").text(song.title);
+								attachSongClick($hiddenSongLi, song, name);
+								$hiddenUl.append($hiddenSongLi);
+							});
+
+							$moreLi.on("click", function(e) {
+								e.stopPropagation();
+								$(this).hide();
+								$hiddenUl.slideDown("fast");
+							});
+
+							$songUl.append($moreLi).append($hiddenUl);
+						}
+						$li.append($songUl);
+					} else {
+						$li.append($("<div>").addClass("is-size-7 has-text-grey ml-4").text("No track history"));
+					}
+
+					$list.append($li);
+				});
+				$dropdown.show();
+			});
+
+			$(document).on("click", function(e) {
+				if (!$(e.target).closest("#kj_override_container").length) {
+					$("#singer_history_dropdown").hide();
+				}
+			});
+
+			$("#btn_export_history").on("click", function(e) {
+				e.preventDefault();
+				var data = localStorage.getItem("kj_singer_history") || "{}";
+				var blob = new Blob([data], {type: "application/json"});
+				var url = window.URL.createObjectURL(blob);
+				var a = document.createElement("a");
+				a.style.display = "none";
+				a.href = url;
+				var d = new Date();
+				a.download = "kj_history_" + d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate() + ".json";
+				document.body.appendChild(a);
+				a.click();
+				setTimeout(function() {
+					document.body.removeChild(a);
+					window.URL.revokeObjectURL(url);
+				}, 100);
+			});
+
+			$("#btn_import_history").on("click", function(e) {
+				e.preventDefault();
+				$("#file_import_history").click();
+			});
+
+			$("#file_import_history").on("change", function(e) {
+				var file = e.target.files[0];
+				if (!file) return;
+				var reader = new FileReader();
+				reader.onload = function(event) {
+					try {
+						var json = JSON.parse(event.target.result);
+						localStorage.setItem("kj_singer_history", JSON.stringify(json));
+						alert("KJ history successfully imported.");
+						window.location.reload();
+					} catch (err) {
+						alert("Error: Invalid JSON file.");
+					}
+				};
+				reader.readAsText(file);
+				$(this).val("");
+			});
+		}
+
+		function selectSinger(name) {
+			$("#kj_singer_override").val(name);
+			sessionStorage.setItem("active_kj_singer", name);
+			$(".song_added_by").val(name);
+		}
+
+		function attachSongClick($el, song, name) {
+			$el.on("click", function(e) {
+				e.stopPropagation();
+				selectSinger(name);
+				$("#singer_history_dropdown").hide();
+
+				if (!confirm("Instantly queue '" + song.title + "' for " + name + "?")) return;
+
+				$.ajax({
+					type: "POST",
+					url: "{{ url_for('search.download') }}",
+					contentType: "application/json",
+					data: JSON.stringify({
+						song_url: song.url,
+						song_title: song.title,
+						song_added_by: name,
+						queue: $("#add-to-queue-search").is(":checked")
+					}),
+					success: function() {
+						saveToKjHistory(name, song.title, song.url);
+						showNotification("Queued '" + song.title + "' for " + name, "is-success");
+					},
+					error: function() {
+						showNotification("Failed to queue. Please add manually.", "is-danger");
+					}
+				});
+			});
+		}
+
 		function downloadSong(songUrl, songTitle, button) {
 			var $btn = $(button);
 			var originalText = $btn.html();
 			$btn.css("min-width", $btn.outerWidth() + "px");
 			$btn.addClass("is-loading").attr("disabled", true);
+
+			var singerName = $(".song_added_by").val() || getUserCookie() || "";
+
 			$.ajax({
 				url: "{{ url_for('search.download') }}",
 				type: "POST",
@@ -454,10 +664,14 @@
 				data: JSON.stringify({
 					song_url: songUrl,
 					song_title: songTitle || "",
-					song_added_by: getUserCookie() || "",
+					song_added_by: singerName,
 					queue: $("#add-to-queue-search").is(":checked"),
 				}),
 				success: function () {
+					if (kjMemoryEnabled && singerName && songTitle) {
+						saveToKjHistory(singerName, songTitle, songUrl);
+					}
+
 					$btn.removeClass("is-loading").addClass("is-success")
 						.html('<i class="icon icon-ok"></i>');
 					setTimeout(function () {
@@ -485,8 +699,6 @@
 			})
 		);
 
-
-
 		$("#search-results").on("click", ".img-wrapper", function () {
 			const modal = document.getElementById("modal-js-example");
 			const modalVideo = document.getElementById("modal-video");
@@ -496,16 +708,12 @@
 			modal.classList.add("is-active");
 			modalContent.classList.add("is-loading");
 
-			// Unlock autoplay on iOS/mobile: briefly play the empty video element
-			// synchronously inside the click handler so Safari associates it with
-			// a user gesture. Without this, the async AJAX callback's .play() is blocked.
+			// Unlock autoplay on iOS/mobile
 			modalVideo.play().then(function () { modalVideo.pause(); }).catch(function () {});
 
 			const closeButton = modal.querySelector(".modal-close");
 			closeButton.focus();
 
-			// Remove the spinner when the video starts playing or errors — not when
-			// the AJAX returns, since the video still has to buffer after src is set.
 			const stopLoading = function () {
 				modalContent.classList.remove("is-loading");
 			};
@@ -573,6 +781,28 @@
 {% endblock %} {% block header %} {# MSG: Title for the search page. #}
 <h1>{% block title %}{% trans %}Search / Add New{% endtrans %}{% endblock %}</h1>
 {% endblock %} {% block content %}
+
+{% if admin and enable_kj_memory %}
+<div id="kj_override_container" class="field mb-3" style="position: relative; display: none;">
+	<div class="is-flex is-justify-content-space-between is-align-items-flex-end">
+		<label class="label is-small has-text-warning">KJ Override: Singer Name</label>
+		<div>
+			<span id="btn_export_history" class="is-size-7 has-text-info has-text-weight-bold is-clickable mr-2">[Export]</span>
+			<span id="btn_import_history" class="is-size-7 has-text-info has-text-weight-bold is-clickable">[Import]</span>
+		</div>
+	</div>
+	<div class="control has-icons-left">
+		<input class="input is-medium" type="text" id="kj_singer_override" placeholder="Enter singer to view history or queue..." autocomplete="off">
+		<span class="icon is-left">
+			<i class="icon icon-mic-1"></i>
+		</span>
+	</div>
+	<div id="singer_history_dropdown" class="box has-background-black-ter" style="display: none; position: absolute; z-index: 100; width: 100%; max-height: 250px; overflow-y: auto; padding: 0; margin-top: 2px;">
+		<ul id="singer_history_list" style="list-style: none; margin: 0; padding: 0;"></ul>
+	</div>
+	<input type="file" id="file_import_history" accept=".json" style="display: none;">
+</div>
+{% endif %}
 
 <div>
 	<div class="field" id="container_queue_form">
@@ -730,5 +960,7 @@
 			<button class="modal-close is-large" aria-label="close"></button>
 		</div>
 	</div>
+	{% else %}
+	{% endif %}
 </div>
-{% else %} {% endif %} {% endblock %}
+{% endblock %}
