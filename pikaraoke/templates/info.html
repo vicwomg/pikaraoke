@@ -410,6 +410,12 @@
 					</label>
 					</div>
 
+					<div class="user-preference-container">
+					<input id="pref-kj-memory" type="checkbox" class="user-preference-checkbox checkbox" data-pref="enable_kj_memory" {% if enable_kj_memory == True %}checked{% endif %}>
+					<label class="label" for="pref-kj-memory">{# MSG: Checkbox label which enable/disables the KJ singer memory on the search page #} {% trans %}Enable KJ singer memory (track singer history and quick-queue from search){% endtrans %}
+					</label>
+					</div>
+
 					<div class="user-preference-container is-align-items-center">
 					<input id="pref-buffer-size" class="user-preference-input input" type="number" min="0" max="9999" data-pref="buffer_size" data-start-value="{{ buffer_size }}" value="{{ buffer_size }}" />
 					<label class="label" for="pref-buffer-size">

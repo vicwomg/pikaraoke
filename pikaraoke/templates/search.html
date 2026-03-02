@@ -194,16 +194,22 @@
 		from { transform: rotate(0deg); }
 		to { transform: rotate(360deg); }
 	}
+
+	/* KJ singer history dropdown */
+	.kj-history-item {
+		border-bottom: 1px solid #333;
+	}
+	.kj-track-list {
+		list-style-type: circle;
+	}
+	.kj-track-list > li:hover {
+		text-decoration: underline;
+	}
 </style>
 <script>
-	// Capture admin state safely. Using maintainer's requested {{ admin }} tag, 
-	// plus a localhost fallback if when backend doesn't pass the admin state to search.html
-	var isServerAdmin = "{{ admin }}".toLowerCase() === "true";
-	var isCookieAdmin = Cookies.get("admin") === "true";
-	var isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-	var isKjSession = isServerAdmin || isCookieAdmin || isLocalhost;
+	var isAdmin = JSON.parse('{{ admin | tojson }}');
+	var kjMemoryEnabled = isAdmin && JSON.parse('{{ enable_kj_memory | tojson }}');
 
-	// KJ Memory System Functions
 	function getKjHistory() {
 		var history = localStorage.getItem("kj_singer_history");
 		return history ? JSON.parse(history) : {};
@@ -215,7 +221,7 @@
 		if (!history[singerName]) {
 			history[singerName] = [];
 		}
-		var exists = history[singerName].some(song => song.url === songUrl);
+		var exists = history[singerName].some(function(song) { return song.url === songUrl; });
 		if (!exists) {
 			history[singerName].push({ title: songTitle, url: songUrl });
 			localStorage.setItem("kj_singer_history", JSON.stringify(history));
@@ -465,28 +471,26 @@
 		});
 
 		// ------------- KJ MEMORY LOGIC -------------
-		if (isKjSession) {
+		if (kjMemoryEnabled) {
 			$("#kj_override_container").show();
 
-			// Restore the active override name and update standard UI hidden field
 			var activeKjName = sessionStorage.getItem("active_kj_singer");
 			if (activeKjName) {
 				$("#kj_singer_override").val(activeKjName);
 				$(".song_added_by").val(activeKjName);
 			}
 
-			// Handle unified input for Singer Override
 			$("#kj_singer_override").on("input", function() {
 				var currentVal = $(this).val();
 				var lowerVal = currentVal.toLowerCase();
 				sessionStorage.setItem("active_kj_singer", currentVal);
-				
+
 				var history = getKjHistory();
 				var $dropdown = $("#singer_history_dropdown");
 				var $list = $("#singer_history_list");
-				
+
 				$list.empty();
-				
+
 				if (!currentVal) {
 					$dropdown.hide();
 					$(".song_added_by").val(getUserCookie());
@@ -494,124 +498,82 @@
 				}
 
 				$(".song_added_by").val(currentVal);
-				var matches = Object.keys(history).filter(name => name.toLowerCase().includes(lowerVal));
+				var matches = Object.keys(history).filter(function(name) {
+					return name.toLowerCase().includes(lowerVal);
+				});
 
-				if (matches.length > 0) {
-					matches.forEach(name => {
-						var songs = history[name] || [];
-						var recentSongs = [...songs].reverse();
-						var displaySongs = recentSongs.slice(0, 5);
-						var extraCount = recentSongs.length - 5;
-
-						var $li = $("<li>").addClass("p-2").css({"border-bottom": "1px solid #333"});
-
-						// Clickable Singer Name Header
-						var $nameDiv = $("<div>")
-							.css({"cursor": "pointer", "font-weight": "bold", "color": "#ffdd57", "padding-bottom": "4px"})
-							.text(name);
-
-						$nameDiv.on("click", function() {
-							$("#kj_singer_override").val(name);
-							sessionStorage.setItem("active_kj_singer", name);
-							$(".song_added_by").val(name);
-							$dropdown.hide();
-						});
-						
-						$li.append($nameDiv);
-
-						// Song Selection Logic
-						function attachSongClick($el, song) {
-							$el.on("click", function(e) {
-								e.stopPropagation(); 
-								
-								$("#kj_singer_override").val(name);
-								sessionStorage.setItem("active_kj_singer", name);
-								$(".song_added_by").val(name);
-								$dropdown.hide();
-
-								if (confirm("Instantly queue '" + song.title + "' for " + name + "?")) {
-									$("#kj_singer_override").addClass("has-background-warning-light");
-
-									// Route directly to standard download backend
-									$.ajax({
-										type: "POST",
-										url: "{{ url_for('search.download') }}",
-										contentType: "application/json",
-										data: JSON.stringify({
-											song_url: song.url,
-											song_title: song.title,
-											song_added_by: name,
-											queue: true
-										}),
-										success: function(response) {
-											$("#kj_singer_override").removeClass("has-background-warning-light").addClass("has-background-success-light");
-											setTimeout(function() {
-												window.location.reload();
-											}, 600);
-										},
-										error: function() {
-											alert("Queue endpoint rejected the request. Please add manually.");
-											$("#kj_singer_override").removeClass("has-background-warning-light");
-										}
-									});
-								}
-							});
-						}
-
-						if (displaySongs.length > 0) {
-							var $songUl = $("<ul>").css({"list-style-type": "circle", "margin-left": "20px", "font-size": "0.85rem", "color": "#b5b5b5"});
-
-							displaySongs.forEach(function(song) {
-								var $songLi = $("<li>").css({"cursor": "pointer", "padding": "2px 0"}).text(song.title);
-								attachSongClick($songLi, song);
-								$songUl.append($songLi);
-							});
-
-							if (extraCount > 0) {
-								var $moreLi = $("<li>")
-									.css({"cursor": "pointer", "color": "#3273dc", "font-style": "italic", "padding-top": "4px", "list-style-type": "none", "margin-left": "-20px"})
-									.text("+ " + extraCount + " older tracks (click to expand)");
-
-								var $hiddenUl = $("<ul>").css({"display": "none", "list-style-type": "circle", "margin-left": "0", "margin-top": "4px"});
-
-								recentSongs.slice(5).forEach(function(song) {
-									var $hiddenSongLi = $("<li>").css({"cursor": "pointer", "padding": "2px 0", "color": "#666"}).text(song.title);
-									attachSongClick($hiddenSongLi, song);
-									$hiddenUl.append($hiddenSongLi);
-								});
-
-								$moreLi.on("click", function(e) {
-									e.stopPropagation();
-									$(this).hide();
-									$hiddenUl.slideDown("fast");
-								});
-
-								$songUl.append($moreLi).append($hiddenUl);
-							}
-							$li.append($songUl);
-						} else {
-							$li.append($("<div>").addClass("is-size-7 has-text-grey ml-4").text("No track history"));
-						}
-						
-						$list.append($li);
-					});
-					$dropdown.show();
-				} else {
+				if (matches.length === 0) {
 					$dropdown.hide();
+					return;
 				}
+
+				matches.forEach(function(name) {
+					var songs = history[name] || [];
+					var recentSongs = songs.slice().reverse();
+					var displaySongs = recentSongs.slice(0, 5);
+					var extraCount = recentSongs.length - 5;
+
+					var $li = $("<li>").addClass("p-2 kj-history-item");
+
+					var $nameDiv = $("<div>")
+						.addClass("has-text-warning has-text-weight-bold is-clickable pb-1")
+						.text(name);
+
+					$nameDiv.on("click", function() {
+						selectSinger(name);
+						$dropdown.hide();
+					});
+
+					$li.append($nameDiv);
+
+					if (displaySongs.length > 0) {
+						var $songUl = $("<ul>").addClass("kj-track-list is-size-7 has-text-grey-light ml-4");
+
+						displaySongs.forEach(function(song) {
+							var $songLi = $("<li>").addClass("is-clickable py-1").text(song.title);
+							attachSongClick($songLi, song, name);
+							$songUl.append($songLi);
+						});
+
+						if (extraCount > 0) {
+							var $moreLi = $("<li>")
+								.addClass("is-clickable has-text-link is-italic pt-1")
+								.text("+ " + extraCount + " older tracks (click to expand)");
+
+							var $hiddenUl = $("<ul>").addClass("kj-track-list has-text-grey");
+
+							recentSongs.slice(5).forEach(function(song) {
+								var $hiddenSongLi = $("<li>").addClass("is-clickable py-1").text(song.title);
+								attachSongClick($hiddenSongLi, song, name);
+								$hiddenUl.append($hiddenSongLi);
+							});
+
+							$moreLi.on("click", function(e) {
+								e.stopPropagation();
+								$(this).hide();
+								$hiddenUl.slideDown("fast");
+							});
+
+							$songUl.append($moreLi).append($hiddenUl);
+						}
+						$li.append($songUl);
+					} else {
+						$li.append($("<div>").addClass("is-size-7 has-text-grey ml-4").text("No track history"));
+					}
+
+					$list.append($li);
+				});
+				$dropdown.show();
 			});
 
-			// Hide the dropdown if the user clicks anywhere else on the page
 			$(document).on("click", function(e) {
 				if (!$(e.target).closest("#kj_override_container").length) {
 					$("#singer_history_dropdown").hide();
 				}
 			});
 
-			// KJ Memory Export - Delegated Event
-			$(document).on("click", "#btn_export_history", function(e) {
-				e.preventDefault(); 
-				e.stopPropagation(); 
+			$("#btn_export_history").on("click", function(e) {
+				e.preventDefault();
 				var data = localStorage.getItem("kj_singer_history") || "{}";
 				var blob = new Blob([data], {type: "application/json"});
 				var url = window.URL.createObjectURL(blob);
@@ -619,11 +581,7 @@
 				a.style.display = "none";
 				a.href = url;
 				var d = new Date();
-				var dateString = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
-				a.download = "kj_history_" + dateString + ".json"; 
-				a.addEventListener("click", function(event) {
-					event.stopPropagation();
-				});
+				a.download = "kj_history_" + d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate() + ".json";
 				document.body.appendChild(a);
 				a.click();
 				setTimeout(function() {
@@ -632,15 +590,12 @@
 				}, 100);
 			});
 
-			// KJ Memory Import - Delegated Event
-			$(document).on("click", "#btn_import_history", function(e) {
+			$("#btn_import_history").on("click", function(e) {
 				e.preventDefault();
-				e.stopPropagation();
 				$("#file_import_history").click();
 			});
 
-			// KJ Memory File Reader - Delegated Event
-			$(document).on("change", "#file_import_history", function(e) {
+			$("#file_import_history").on("change", function(e) {
 				var file = e.target.files[0];
 				if (!file) return;
 				var reader = new FileReader();
@@ -649,14 +604,48 @@
 						var json = JSON.parse(event.target.result);
 						localStorage.setItem("kj_singer_history", JSON.stringify(json));
 						alert("KJ history successfully imported.");
-						$("#file_import_history").val(''); 
-						window.location.reload(); 
+						window.location.reload();
 					} catch (err) {
 						alert("Error: Invalid JSON file.");
-						$("#file_import_history").val(''); 
 					}
 				};
 				reader.readAsText(file);
+				$(this).val("");
+			});
+		}
+
+		function selectSinger(name) {
+			$("#kj_singer_override").val(name);
+			sessionStorage.setItem("active_kj_singer", name);
+			$(".song_added_by").val(name);
+		}
+
+		function attachSongClick($el, song, name) {
+			$el.on("click", function(e) {
+				e.stopPropagation();
+				selectSinger(name);
+				$("#singer_history_dropdown").hide();
+
+				if (!confirm("Instantly queue '" + song.title + "' for " + name + "?")) return;
+
+				$.ajax({
+					type: "POST",
+					url: "{{ url_for('search.download') }}",
+					contentType: "application/json",
+					data: JSON.stringify({
+						song_url: song.url,
+						song_title: song.title,
+						song_added_by: name,
+						queue: $("#add-to-queue-search").is(":checked")
+					}),
+					success: function() {
+						saveToKjHistory(name, song.title, song.url);
+						showNotification("Queued '" + song.title + "' for " + name, "is-success");
+					},
+					error: function() {
+						showNotification("Failed to queue. Please add manually.", "is-danger");
+					}
+				});
 			});
 		}
 
@@ -665,12 +654,8 @@
 			var originalText = $btn.html();
 			$btn.css("min-width", $btn.outerWidth() + "px");
 			$btn.addClass("is-loading").attr("disabled", true);
-			
-			// Priority check for singer attribution
-			var overrideInput = $("#kj_singer_override").length ? $("#kj_singer_override").val() : "";
-			var overrideName = overrideInput ? overrideInput.trim() : "";
-			var standardInput = $(".song_added_by").val(); 
-			var finalSingerName = overrideName || standardInput || getUserCookie() || "KJ";
+
+			var singerName = $(".song_added_by").val() || getUserCookie() || "";
 
 			$.ajax({
 				url: "{{ url_for('search.download') }}",
@@ -679,13 +664,12 @@
 				data: JSON.stringify({
 					song_url: songUrl,
 					song_title: songTitle || "",
-					song_added_by: finalSingerName,
+					song_added_by: singerName,
 					queue: $("#add-to-queue-search").is(":checked"),
 				}),
 				success: function () {
-					// Save to history if we have an active KJ session and valid inputs
-					if (isKjSession && overrideName && songTitle) {
-						saveToKjHistory(overrideName, songTitle, songUrl);
+					if (kjMemoryEnabled && singerName && songTitle) {
+						saveToKjHistory(singerName, songTitle, songUrl);
 					}
 
 					$btn.removeClass("is-loading").addClass("is-success")
@@ -798,12 +782,13 @@
 <h1>{% block title %}{% trans %}Search / Add New{% endtrans %}{% endblock %}</h1>
 {% endblock %} {% block content %}
 
+{% if admin and enable_kj_memory %}
 <div id="kj_override_container" class="field mb-3" style="position: relative; display: none;">
 	<div class="is-flex is-justify-content-space-between is-align-items-flex-end">
 		<label class="label is-small has-text-warning">KJ Override: Singer Name</label>
 		<div>
-			<span id="btn_export_history" class="is-size-7 has-text-info mr-2" style="cursor:pointer; font-weight:bold;">[Export]</span>
-			<span id="btn_import_history" class="is-size-7 has-text-info" style="cursor:pointer; font-weight:bold;">[Import]</span>
+			<span id="btn_export_history" class="is-size-7 has-text-info has-text-weight-bold is-clickable mr-2">[Export]</span>
+			<span id="btn_import_history" class="is-size-7 has-text-info has-text-weight-bold is-clickable">[Import]</span>
 		</div>
 	</div>
 	<div class="control has-icons-left">
@@ -812,11 +797,12 @@
 			<i class="icon icon-mic-1"></i>
 		</span>
 	</div>
-	<div id="singer_history_dropdown" class="box has-background-black-ter" style="display:none; position:absolute; z-index:100; width:100%; max-height: 250px; overflow-y:auto; padding:0; border: 1px solid #4a4a4a; margin-top: 2px;">
-		<ul id="singer_history_list" class="search_result_items" style="list-style: none; margin: 0; padding: 0;"></ul>
+	<div id="singer_history_dropdown" class="box has-background-black-ter" style="display: none; position: absolute; z-index: 100; width: 100%; max-height: 250px; overflow-y: auto; padding: 0; margin-top: 2px;">
+		<ul id="singer_history_list" style="list-style: none; margin: 0; padding: 0;"></ul>
 	</div>
-	<input type="file" id="file_import_history" accept=".json" style="display:none;">
+	<input type="file" id="file_import_history" accept=".json" style="display: none;">
 </div>
+{% endif %}
 
 <div>
 	<div class="field" id="container_queue_form">
@@ -974,7 +960,7 @@
 			<button class="modal-close is-large" aria-label="close"></button>
 		</div>
 	</div>
-	{% else %} 
-	{% endif %} 
+	{% else %}
+	{% endif %}
 </div>
 {% endblock %}

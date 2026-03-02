@@ -9,7 +9,7 @@ from flask import current_app, jsonify, render_template, request, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
-from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
+from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
 from pikaraoke.lib.youtube_dl import get_search_results, get_stream_url
 
 _ = flask_babel.gettext
@@ -60,6 +60,8 @@ def search():
         songs=k.song_manager.songs,
         search_results=search_results,
         search_string=search_string,
+        admin=is_admin(),
+        enable_kj_memory=k.enable_kj_memory,
     )
 
 

@@ -108,6 +108,7 @@ class Karaoke:
         complete_transcode_before_play: bool | None = None,
         disable_bg_music: bool | None = None,
         disable_bg_video: bool | None = None,
+        enable_kj_memory: bool | None = None,
         disable_score: bool | None = None,
         hide_notifications: bool | None = None,
         hide_overlay: bool | None = None,
