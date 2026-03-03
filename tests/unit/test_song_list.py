@@ -1,5 +1,6 @@
 """Unit tests for SongList class."""
 
+import threading
 
 import pytest
 
@@ -365,3 +366,34 @@ class TestSongListFindById:
         result = sl.find_by_id(str(tmp_path), "abc123")
 
         assert result is None
+
+
+class TestSongListThreadSafety:
+    """Tests that concurrent update() and iteration do not raise."""
+
+    def test_concurrent_update_and_iteration_does_not_raise(self):
+        """Concurrent update() from one thread and iteration from another must not raise."""
+        sl = SongList()
+        sl.update([f"/songs/song{i}.mp4" for i in range(100)])
+
+        errors: list[Exception] = []
+
+        def updater():
+            for i in range(200):
+                sl.update([f"/songs/batch{i}_{j}.mp4" for j in range(50)])
+
+        def reader():
+            for _ in range(200):
+                try:
+                    list(sl)
+                except Exception as e:
+                    errors.append(e)
+
+        t1 = threading.Thread(target=updater)
+        t2 = threading.Thread(target=reader)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        assert errors == [], f"Exceptions raised during concurrent access: {errors}"

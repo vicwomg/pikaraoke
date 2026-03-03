@@ -5,6 +5,7 @@ from __future__ import annotations
 import fnmatch
 import logging
 import os
+import threading
 import unicodedata
 from collections.abc import Iterator
 
@@ -41,6 +42,7 @@ class SongList:
         self._songs: set[str] = set()
         self._sorted_cache: list[str] | None = None
         self._sort_key = sort_key or (lambda f: self._normalize_sort_key(f))
+        self._lock = threading.Lock()
 
     @staticmethod
     def _normalize_sort_key(file_path: str) -> str:
@@ -65,33 +67,38 @@ class SongList:
 
     def add(self, song_path: str) -> None:
         """Add a song to the list. O(1) average."""
-        if song_path not in self._songs:
-            self._songs.add(song_path)
-            self._invalidate_cache()
+        with self._lock:
+            if song_path not in self._songs:
+                self._songs.add(song_path)
+                self._invalidate_cache()
 
     def remove(self, song_path: str) -> None:
         """Remove a song from the list. O(1) average."""
-        try:
-            self._songs.remove(song_path)
-            self._invalidate_cache()
-        except KeyError:
-            logging.warning(f"Song not found in list: {song_path}")
+        with self._lock:
+            try:
+                self._songs.remove(song_path)
+                self._invalidate_cache()
+            except KeyError:
+                logging.warning(f"Song not found in list: {song_path}")
 
     def discard(self, song_path: str) -> None:
         """Remove a song if present, no error if not. O(1) average."""
-        if song_path in self._songs:
-            self._songs.discard(song_path)
-            self._invalidate_cache()
+        with self._lock:
+            if song_path in self._songs:
+                self._songs.discard(song_path)
+                self._invalidate_cache()
 
     def clear(self) -> None:
         """Remove all songs."""
-        self._songs.clear()
-        self._invalidate_cache()
+        with self._lock:
+            self._songs.clear()
+            self._invalidate_cache()
 
     def update(self, songs: list[str]) -> None:
         """Replace all songs with a new list."""
-        self._songs = set(songs)
-        self._invalidate_cache()
+        with self._lock:
+            self._songs = set(songs)
+            self._invalidate_cache()
 
     def is_valid_song(self, file_path: str) -> bool:
         """Check if a file path is a valid song file.
@@ -137,6 +144,7 @@ class SongList:
         Returns:
             True if successful, False if new path is invalid.
         """
+        # remove and add_if_valid each acquire the lock independently
         self.remove(old_path)
         return self.add_if_valid(new_path)
 
@@ -216,24 +224,30 @@ class SongList:
 
     def __contains__(self, song_path: str) -> bool:
         """Check if a song is in the list. O(1) average."""
-        return song_path in self._songs
+        with self._lock:
+            return song_path in self._songs
 
     def __len__(self) -> int:
         """Return the number of songs. O(1)."""
-        return len(self._songs)
+        with self._lock:
+            return len(self._songs)
 
     def __iter__(self) -> Iterator[str]:
-        """Iterate over songs in sorted order."""
-        return iter(self._ensure_sorted())
+        """Iterate over songs in sorted order. Returns iterator over a snapshot."""
+        with self._lock:
+            return iter(list(self._ensure_sorted()))
 
     def __getitem__(self, index: int | slice) -> str | list[str]:
         """Get song(s) by index or slice from sorted list."""
-        return self._ensure_sorted()[index]
+        with self._lock:
+            return self._ensure_sorted()[index]
 
     def __bool__(self) -> bool:
         """Return True if there are any songs."""
-        return bool(self._songs)
+        with self._lock:
+            return bool(self._songs)
 
     def copy(self) -> list[str]:
         """Return a copy of the sorted song list."""
-        return list(self._ensure_sorted())
+        with self._lock:
+            return list(self._ensure_sorted())

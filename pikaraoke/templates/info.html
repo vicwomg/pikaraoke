@@ -147,6 +147,36 @@
 			}).fail(function() {
 				console.error("Failed to fetch system stats");
 			});
+
+			// Song library stats
+			$.getJSON("{{ url_for('admin.library_stats') }}", function(data) {
+				if (!data.error) {
+					$("#library-song-count").text(data.song_count);
+				}
+			});
+
+			// Sync Now button
+			$("#sync-library-btn").click(function() {
+				var $btn = $(this);
+				$btn.addClass("is-loading").prop("disabled", true);
+				$.getJSON("{{ url_for('admin.sync_library') }}", function(data) {
+					if (data.status !== "already_syncing") return;
+					// stays disabled -- sync_finished will re-enable
+				}).fail(function() {
+					$btn.removeClass("is-loading").prop("disabled", false);
+				});
+			});
+
+			// SocketIO: manage Sync Now button state
+			socket.on("sync_started", function() {
+				$("#sync-library-btn").addClass("is-loading").prop("disabled", true);
+			});
+			socket.on("sync_finished", function() {
+				$("#sync-library-btn").removeClass("is-loading").prop("disabled", false);
+				$.getJSON("{{ url_for('admin.library_stats') }}", function(data) {
+					if (!data.error) $("#library-song-count").text(data.song_count);
+				});
+			});
 		});
 	</script>
 {% endblock %}
@@ -433,29 +463,36 @@
 			</div>
 		</div>
 
+		{# MSG: Title of the song library section. #}
+		<h1>{% trans %}Song Library{% endtrans %}</h1>
+
+		<div class="card">
+			<header class="card-header py-3 px-5">
+				{# MSG: Header of the song library management section. #}
+				<h3 class="m-0">{% trans %}Library{% endtrans %}</h3>
+			</header>
+			<div class="card-content">
+				<div class="content">
+					<p>
+						{# MSG: Song count display in the library card. #}
+						{% trans %}Songs in library:{% endtrans %} <strong id="library-song-count">...</strong>
+					</p>
+					<button id="sync-library-btn" class="button is-primary is-inverted">
+						{# MSG: Button to trigger a background library scan. #}
+						{% trans %}Sync Now{% endtrans %}
+					</button>
+					<p class="is-size-7 has-text-warning mt-3">
+						{# MSG: Help text explaining what Sync Now does. #}
+						{% trans %}Reconciles the library with the song directory in the background.{% endtrans %}
+					</p>
+				</div>
+			</div>
+		</div>
+
 		{# MSG: Title of the updates section. #}
 		<h1>{% trans %}Updates{% endtrans %}</h1>
 
 		<div class="card">
-			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
-				{# MSG: Label for the Refresh the song list on the updates section #}
-				<h3 class="title mb-0">{% trans %}Refresh the song list{% endtrans %}</h3>
-			</header>
-			<div class="card-content collapsible-content">
-				<div class="content">
-					{# MSG: Help text explaining the Rescan song directory link. #}
-					<p class="">{% trans -%}
-						You should only need to do this if you manually copied files to the download directory while pikaraoke was running.
-					{%- endtrans %}</p>
-					<a class="button is-primary is-inverted" href="{{ url_for('admin.refresh') }}"
-						{# MSG: Text on the link which forces Pikaraoke to rescan and pick up any new songs. #}
-							>{% trans %}Rescan song directory{% endtrans %}</a
-						>
-				</div>
-			</div>
-
-			<hr class="my-0">
-
 			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				{# MSG: Label for the YT-DLP update on the updates section #}
 				<h3 class="title mb-0">{% trans %}YT-DLP update{% endtrans %}</h3>
