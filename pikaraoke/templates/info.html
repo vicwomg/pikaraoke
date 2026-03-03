@@ -209,46 +209,52 @@
 		</div>
 	</div>
 
-	{% if admin %}
-
-		{# MSG: Title of the system data section. #}
-		<h1>{% trans %}System Data{% endtrans %}</h1>
+	{% if not admin and admin_password != none %}
+		{# MSG: Title of the admin section. #}
+		<h1>{% trans %}Admin{% endtrans %}</h1>
 
 		<div class="card">
-			<header class="card-header py-3 px-5">
-					{# MSG: Header of the information section about the computer running Pikaraoke. #}
-					<h3 class="m-0">{% trans %}System Info{% endtrans %}</h3>
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				<div class="media-content">
+					{# MSG: Title for section login on the Info page. #}
+					<h3 class="title mb-0">{% trans %}Login{% endtrans %}</h3>
+				</div>
 			</header>
-			<div class="card-content">
+			<div class="card-content collapsible-content">
 				<div class="content">
-					<ul>
-					{# MSG: The hardware platform  #}
-					<li><u>{% trans %}Platform:{% endtrans %}</u> {{ platform }}</li>
-					{# MSG: The os version  #}
-					<li><u>{% trans %}OS Version:{% endtrans %}</u> {{ os_version }}</li>
-					{# MSG: The version of the program "Youtube-dl". #}
-					<li><u>{% trans %}Youtube-dl (yt-dlp) version:{% endtrans %}</u> {{ youtubedl_version }}</li>
-					{# MSG: The version of the program "ffmpeg". #}
-					<li><u>{% trans %}FFmpeg version:{% endtrans %}</u> {{ ffmpeg_version }} {% if not is_transpose_enabled %} (missing lib-rubberband, pitch shift is not supported) {% endif %}</li>
-					{# MSG: The version of Pikaraoke running right now. #}
-					<li><u>{% trans %}Pikaraoke version:{% endtrans %}</u> {{ pikaraoke_version }}</li>
-					</ul>
+					{# MSG: Message for the log in user to admin mode button. #}
+					<p>{% trans %}Click here to login as admin.{% endtrans %}</p>
+					{# MSG: Link which will let the user log into admin mode. #}
+					<a class="button is-primary" href="{{ url_for('admin.login', next=request.path) }}">{% trans %}Log in{% endtrans %}</a>
 				</div>
 			</div>
-			<header class="card-header py-3 px-5">
-					{# MSG: Header of the information section about the System stats. #}
-					<h3 class="m-0">{% trans %}System stats{% endtrans %}</h3>
+		</div>
+	{% endif %}
+
+	{% if admin %}
+
+		{# MSG: Title of the song library section. #}
+		<h1>{% trans %}Song Library{% endtrans %}</h1>
+
+		<div class="card">
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				{# MSG: Header of the song library management section. #}
+				<h3 class="m-0">{% trans %}Library{% endtrans %}</h3>
 			</header>
-			<div class="card-content">
+			<div class="card-content collapsible-content">
 				<div class="content">
-					<ul>
-					{# MSG: The CPU usage of the computer running Pikaraoke. #}
-					<li>{% trans %}CPU:{% endtrans %} <span id="system-cpu">{% trans %}Loading...{% endtrans %}</span></li>
-					{# MSG: The disk usage of the computer running Pikaraoke. Used by downloaded songs. #}
-					<li>{% trans %}Disk Usage:{% endtrans %} <span id="system-disk">{% trans %}Loading...{% endtrans %}</span></li>
-					{# MSG: The memory (RAM) usage of the computer running Pikaraoke. #}
-					<li>{% trans %}Memory:{% endtrans %} <span id="system-memory">{% trans %}Loading...{% endtrans %}</span></li>
-					</ul>
+					<p>
+						{# MSG: Song count display in the library card. #}
+						{% trans %}Songs in library:{% endtrans %} <strong id="library-song-count">...</strong>
+					</p>
+					<button id="sync-library-btn" class="button is-primary is-inverted">
+						{# MSG: Button to trigger a background library scan. #}
+						{% trans %}Sync Now{% endtrans %}
+					</button>
+					<p class="is-size-7 has-text-warning mt-3">
+						{# MSG: Help text explaining what Sync Now does. #}
+						{% trans %}Reconciles the library with the song directory in the background.{% endtrans %}
+					</p>
 				</div>
 			</div>
 		</div>
@@ -463,28 +469,44 @@
 			</div>
 		</div>
 
-		{# MSG: Title of the song library section. #}
-		<h1>{% trans %}Song Library{% endtrans %}</h1>
+		{# MSG: Title of the system data section. #}
+		<h1>{% trans %}System Data{% endtrans %}</h1>
 
 		<div class="card">
 			<header class="card-header py-3 px-5">
-				{# MSG: Header of the song library management section. #}
-				<h3 class="m-0">{% trans %}Library{% endtrans %}</h3>
+					{# MSG: Header of the information section about the computer running Pikaraoke. #}
+					<h3 class="m-0">{% trans %}System Info{% endtrans %}</h3>
 			</header>
 			<div class="card-content">
 				<div class="content">
-					<p>
-						{# MSG: Song count display in the library card. #}
-						{% trans %}Songs in library:{% endtrans %} <strong id="library-song-count">...</strong>
-					</p>
-					<button id="sync-library-btn" class="button is-primary is-inverted">
-						{# MSG: Button to trigger a background library scan. #}
-						{% trans %}Sync Now{% endtrans %}
-					</button>
-					<p class="is-size-7 has-text-warning mt-3">
-						{# MSG: Help text explaining what Sync Now does. #}
-						{% trans %}Reconciles the library with the song directory in the background.{% endtrans %}
-					</p>
+					<ul>
+					{# MSG: The hardware platform  #}
+					<li><u>{% trans %}Platform:{% endtrans %}</u> {{ platform }}</li>
+					{# MSG: The os version  #}
+					<li><u>{% trans %}OS Version:{% endtrans %}</u> {{ os_version }}</li>
+					{# MSG: The version of the program "Youtube-dl". #}
+					<li><u>{% trans %}Youtube-dl (yt-dlp) version:{% endtrans %}</u> {{ youtubedl_version }}</li>
+					{# MSG: The version of the program "ffmpeg". #}
+					<li><u>{% trans %}FFmpeg version:{% endtrans %}</u> {{ ffmpeg_version }} {% if not is_transpose_enabled %} (missing lib-rubberband, pitch shift is not supported) {% endif %}</li>
+					{# MSG: The version of Pikaraoke running right now. #}
+					<li><u>{% trans %}Pikaraoke version:{% endtrans %}</u> {{ pikaraoke_version }}</li>
+					</ul>
+				</div>
+			</div>
+			<header class="card-header py-3 px-5">
+					{# MSG: Header of the information section about the System stats. #}
+					<h3 class="m-0">{% trans %}System stats{% endtrans %}</h3>
+			</header>
+			<div class="card-content">
+				<div class="content">
+					<ul>
+					{# MSG: The CPU usage of the computer running Pikaraoke. #}
+					<li>{% trans %}CPU:{% endtrans %} <span id="system-cpu">{% trans %}Loading...{% endtrans %}</span></li>
+					{# MSG: The disk usage of the computer running Pikaraoke. Used by downloaded songs. #}
+					<li>{% trans %}Disk Usage:{% endtrans %} <span id="system-disk">{% trans %}Loading...{% endtrans %}</span></li>
+					{# MSG: The memory (RAM) usage of the computer running Pikaraoke. #}
+					<li>{% trans %}Memory:{% endtrans %} <span id="system-memory">{% trans %}Loading...{% endtrans %}</span></li>
+					</ul>
 				</div>
 			</div>
 		</div>
@@ -515,37 +537,6 @@
 							Check the pikaraoke log for errors.
 						{%- endtrans %}
 					</p>
-				</div>
-			</div>
-		</div>
-
-
-
-		{# MSG: Title of the section on shutting down / turning off the machine running Pikaraoke. #}
-		<h1>{% trans %}Shutdown{% endtrans %}</h1>
-
-		<div class="card">
-			<div class="card-content">
-				<div class="content">
-					<p>
-						{# MSG: Explainitory text which explains why to use the shutdown link. #}
-						{% trans -%}
-							Don't just pull the plug! Always shut down your server properly to avoid data corruption.
-						{%- endtrans %}
-					</p>
-
-					<div class="buttons">
-						{# MSG: Text for button which turns off Pikaraoke for everyone using it at your house. #}
-						<a id="quit-link" class="button is-primary" href="{{ url_for('admin.quit') }}">{% trans %}Quit Pikaraoke{% endtrans %}</a>
-						{% if is_pi or is_linux %}
-							{# MSG: Text for button which reboots the machine running Pikaraoke. #}
-							<a id="restart-link" class="button is-primary" href="{{ url_for('admin.reboot') }}">{% trans %}Reboot System{% endtrans %}</a>
-
-							{# MSG: Text for button which turn soff the machine running Pikaraoke. #}
-							<a id="shutdown-link" class="button is-primary" href="{{ url_for('admin.shutdown') }}">{% trans %}Shutdown System{% endtrans %}</a>
-						{% endif %}
-					</div>
-
 				</div>
 			</div>
 		</div>
@@ -581,7 +572,6 @@
 			{# MSG: Title of the admin section. #}
 			<h1>{% trans %}Admin{% endtrans %}</h1>
 
-
 			<div class="card">
 				<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 					<div class="media-content">
@@ -598,30 +588,37 @@
 					</div>
 				</div>
 			</div>
-
-
 		{% endif %}
 
-	{% else %} {# from if admin #}
-		{# MSG: Title of the admin section. #}
-		<h1>{% trans %}Admin{% endtrans %}</h1>
+		{# MSG: Title of the section on shutting down / turning off the machine running Pikaraoke. #}
+		<h1>{% trans %}Shutdown{% endtrans %}</h1>
 
 		<div class="card">
-			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
-				<div class="media-content">
-					{# MSG: Title for section login on the Info page. #}
-					<h3 class="title mb-0">{% trans %}Login{% endtrans %}</h3>
-				</div>
-			</header>
-			<div class="card-content collapsible-content">
+			<div class="card-content">
 				<div class="content">
-					{# MSG: Message for the log in user to admin mode button. #}
-					<p>{% trans %}Click here to login as admin.{% endtrans %}</p>
-					{# MSG: Link which will let the user log into admin mode. #}
-					<a class="button is-primary" href="{{ url_for('admin.login', next=request.path) }}">{% trans %}Log in{% endtrans %}</a>
+					<p>
+						{# MSG: Explainitory text which explains why to use the shutdown link. #}
+						{% trans -%}
+							Don't just pull the plug! Always shut down your server properly to avoid data corruption.
+						{%- endtrans %}
+					</p>
+
+					<div class="buttons">
+						{# MSG: Text for button which turns off Pikaraoke for everyone using it at your house. #}
+						<a id="quit-link" class="button is-primary" href="{{ url_for('admin.quit') }}">{% trans %}Quit Pikaraoke{% endtrans %}</a>
+						{% if is_pi or is_linux %}
+							{# MSG: Text for button which reboots the machine running Pikaraoke. #}
+							<a id="restart-link" class="button is-primary" href="{{ url_for('admin.reboot') }}">{% trans %}Reboot System{% endtrans %}</a>
+
+							{# MSG: Text for button which turn soff the machine running Pikaraoke. #}
+							<a id="shutdown-link" class="button is-primary" href="{{ url_for('admin.shutdown') }}">{% trans %}Shutdown System{% endtrans %}</a>
+						{% endif %}
+					</div>
+
 				</div>
 			</div>
 		</div>
+
 	{% endif %}
 
 	<style>
