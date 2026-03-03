@@ -984,6 +984,67 @@
           }
         }
       ]
+    },
+    "/metadata/tidy-name": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "filename",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Apply regex-based cleanup to a song filename.",
+        "tags": [
+          "metadata"
+        ]
+      }
+    },
+    "/metadata/suggest-names": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "filename",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 5
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Search Last.fm for track suggestions matching a filename.",
+        "tags": [
+          "metadata"
+        ]
+      }
     }
   },
   "info": {
@@ -1029,6 +1090,10 @@
     },
     {
       "name": "stream",
+      "description": ""
+    },
+    {
+      "name": "metadata",
       "description": ""
     }
   ],
