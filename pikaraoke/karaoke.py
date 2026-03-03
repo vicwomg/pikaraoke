@@ -208,7 +208,7 @@ class Karaoke:
         self.db = KaraokeDatabase()
         self.song_manager = SongManager(self.download_path, db=self.db)
         self._scanner = LibraryScanner(self.db)
-        self._sync_in_progress = False
+        self._sync_lock = threading.Lock()
 
         self.generate_qr_code()
 
@@ -310,9 +310,8 @@ class Karaoke:
         Used for both warm startup reconciliation and admin 'Sync Now'.
         Returns False if a sync is already in progress.
         """
-        if self._sync_in_progress:
+        if not self._sync_lock.acquire(blocking=False):
             return False
-        self._sync_in_progress = True
         self.events.emit("sync_started")
         thread = threading.Thread(target=self._background_sync, daemon=True)
         thread.start()
@@ -323,7 +322,7 @@ class Karaoke:
             result = self._scanner.scan(self.download_path)
             self._apply_scan_result(result)
         finally:
-            self._sync_in_progress = False
+            self._sync_lock.release()
             self.events.emit("sync_finished")
 
     def _load_preferences(self, **cli_overrides: Any) -> None:

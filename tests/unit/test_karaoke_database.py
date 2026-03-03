@@ -4,7 +4,11 @@ import os
 
 import pytest
 
-from pikaraoke.lib.karaoke_database import KaraokeDatabase
+from pikaraoke.lib.karaoke_database import (
+    KaraokeDatabase,
+    _extract_youtube_id,
+    build_song_record,
+)
 
 
 @pytest.fixture
@@ -47,7 +51,7 @@ class TestGetAllSongPaths:
     def test_returns_empty_list_when_no_songs(self, db):
         assert db.get_all_song_paths() == []
 
-    def test_sorted_by_filename_case_insensitive(self, db):
+    def test_returns_all_inserted_paths(self, db):
         db.insert_songs(
             [
                 {"file_path": "/songs/zebra.mp4", "youtube_id": None, "format": "mp4"},
@@ -55,9 +59,8 @@ class TestGetAllSongPaths:
                 {"file_path": "/songs/Mango.mp4", "youtube_id": None, "format": "mp4"},
             ]
         )
-        paths = db.get_all_song_paths()
-        basenames = [os.path.basename(p) for p in paths]
-        assert basenames == ["apple.mp4", "Mango.mp4", "zebra.mp4"]
+        paths = set(db.get_all_song_paths())
+        assert paths == {"/songs/zebra.mp4", "/songs/apple.mp4", "/songs/Mango.mp4"}
 
 
 class TestInsertSongs:
@@ -129,55 +132,55 @@ class TestUpdatePaths:
 
 
 class TestBuildSongRecord:
-    def test_mp4_format(self, db, tmp_path):
+    def test_mp4_format(self, tmp_path):
         song = tmp_path / "Song---dQw4w9WgXcQ.mp4"
         song.touch()
-        record = db.build_song_record(str(song))
+        record = build_song_record(str(song))
         assert record["format"] == "mp4"
         assert record["youtube_id"] == "dQw4w9WgXcQ"
 
-    def test_cdg_pair_detected(self, db, tmp_path):
+    def test_cdg_pair_detected(self, tmp_path):
         mp3 = tmp_path / "Track---abc1234567x.mp3"
         cdg = tmp_path / "Track---abc1234567x.cdg"
         mp3.touch()
         cdg.touch()
-        record = db.build_song_record(str(mp3))
+        record = build_song_record(str(mp3))
         assert record["format"] == "cdg"
 
-    def test_mp4_ass_pair_detected(self, db, tmp_path):
+    def test_mp4_ass_pair_detected(self, tmp_path):
         mp4 = tmp_path / "Song---abc1234567x.mp4"
         ass = tmp_path / "Song---abc1234567x.ass"
         mp4.touch()
         ass.touch()
-        record = db.build_song_record(str(mp4))
+        record = build_song_record(str(mp4))
         assert record["format"] == "ass"
 
-    def test_zip_format(self, db, tmp_path):
+    def test_zip_format(self, tmp_path):
         zf = tmp_path / "Song---abc1234567x.zip"
         zf.touch()
-        record = db.build_song_record(str(zf))
+        record = build_song_record(str(zf))
         assert record["format"] == "zip"
 
-    def test_standalone_mp3(self, db, tmp_path):
+    def test_standalone_mp3(self, tmp_path):
         mp3 = tmp_path / "Song.mp3"
         mp3.touch()
-        record = db.build_song_record(str(mp3))
+        record = build_song_record(str(mp3))
         assert record["format"] == "mp3"
 
 
 class TestExtractYoutubeId:
     def test_pikaraoke_format(self):
-        assert KaraokeDatabase._extract_youtube_id("Song---dQw4w9WgXcQ.mp4") == "dQw4w9WgXcQ"
+        assert _extract_youtube_id("Song---dQw4w9WgXcQ.mp4") == "dQw4w9WgXcQ"
 
     def test_ytdlp_format(self):
-        assert KaraokeDatabase._extract_youtube_id("Song [dQw4w9WgXcQ].mp4") == "dQw4w9WgXcQ"
+        assert _extract_youtube_id("Song [dQw4w9WgXcQ].mp4") == "dQw4w9WgXcQ"
 
     def test_no_id(self):
-        assert KaraokeDatabase._extract_youtube_id("Just A Song.mp4") is None
+        assert _extract_youtube_id("Just A Song.mp4") is None
 
     def test_pikaraoke_preferred_over_ytdlp(self):
         # PiKaraoke format takes priority
-        result = KaraokeDatabase._extract_youtube_id("Song [AAAAAAAAAAA]---BBBBBBBBBBB.mp4")
+        result = _extract_youtube_id("Song [AAAAAAAAAAA]---BBBBBBBBBBB.mp4")
         assert result == "BBBBBBBBBBB"
 
 

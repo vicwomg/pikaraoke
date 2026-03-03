@@ -8,7 +8,7 @@ import os
 import re
 
 from pikaraoke.lib.get_platform import is_windows
-from pikaraoke.lib.karaoke_database import KaraokeDatabase
+from pikaraoke.lib.karaoke_database import KaraokeDatabase, build_song_record
 from pikaraoke.lib.song_list import SongList
 
 # Characters illegal in Windows filenames
@@ -98,4 +98,4 @@ class SongManager:
         """Register a newly downloaded song in SongList and DB."""
         self.songs.add_if_valid(song_path)
         if self._db:
-            self._db.insert_songs([self._db.build_song_record(song_path)])
+            self._db.insert_songs([build_song_record(song_path)])

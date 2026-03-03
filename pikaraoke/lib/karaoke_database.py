@@ -37,12 +37,52 @@ CREATE INDEX IF NOT EXISTS idx_metadata_status ON songs(metadata_status);
 """
 
 
+def build_song_record(file_path: str) -> dict:
+    """Construct a song dict ready for KaraokeDatabase.insert_songs().
+
+    Inspects the file's directory for companion files (.cdg, .ass) to
+    determine the correct format.
+    """
+    basename = os.path.basename(file_path)
+    dirpath = os.path.dirname(file_path)
+    try:
+        files_in_dir = set(os.listdir(dirpath))
+    except OSError:
+        files_in_dir = set()
+    return {
+        "file_path": file_path,
+        "youtube_id": _extract_youtube_id(basename),
+        "format": _detect_format(file_path, files_in_dir),
+    }
+
+
+def _extract_youtube_id(filename: str) -> str | None:
+    """Extract YouTube ID from PiKaraoke (---ID) or yt-dlp ([ID]) format."""
+    m = _PIKARAOKE_ID_RE.search(filename)
+    if m:
+        return m.group(1)
+    m = _YTDLP_ID_RE.search(filename)
+    if m:
+        return m.group(1)
+    return None
+
+
+def _detect_format(file_path: str, files_in_dir: set[str]) -> str:
+    """Detect the song format, checking for companion files (.cdg, .ass)."""
+    base, ext = os.path.splitext(os.path.basename(file_path))
+    ext = ext.lower()
+    if ext == ".mp3" and (base + ".cdg") in files_in_dir:
+        return "cdg"
+    if ext == ".mp4" and (base + ".ass") in files_in_dir:
+        return "ass"
+    return ext.lstrip(".")
+
+
 class KaraokeDatabase:
     """Persistent song library backed by SQLite.
 
-    Pure data layer: no filesystem operations beyond what is needed to
-    inspect companion files at insert time. All paths are stored as native
-    OS strings (str(path), never as_posix()).
+    Pure data layer with no filesystem operations. All paths are stored as
+    native OS strings (str(path), never as_posix()).
     """
 
     def __init__(self, db_path: str | None = None) -> None:
@@ -67,9 +107,9 @@ class KaraokeDatabase:
     # ------------------------------------------------------------------
 
     def get_all_song_paths(self) -> list[str]:
-        """Return all song file paths, sorted by filename (case-insensitive)."""
+        """Return all song file paths (unsorted; SongList handles sort order)."""
         rows = self._conn.execute("SELECT file_path FROM songs").fetchall()
-        return sorted((row[0] for row in rows), key=lambda p: os.path.basename(p).lower())
+        return [row[0] for row in rows]
 
     def get_song_count(self) -> int:
         """Return the total number of songs in the library."""
@@ -114,24 +154,6 @@ class KaraokeDatabase:
     # Single-record write operations (used by UI-triggered CRUD)
     # ------------------------------------------------------------------
 
-    def build_song_record(self, file_path: str) -> dict:
-        """Construct a song dict ready for insert_songs().
-
-        Inspects the file's directory for companion files (.cdg, .ass) to
-        determine the correct format.
-        """
-        basename = os.path.basename(file_path)
-        dirpath = os.path.dirname(file_path)
-        try:
-            files_in_dir = set(os.listdir(dirpath))
-        except OSError:
-            files_in_dir = set()
-        return {
-            "file_path": file_path,
-            "youtube_id": self._extract_youtube_id(basename),
-            "format": self._detect_format(file_path, files_in_dir),
-        }
-
     def delete_by_path(self, file_path: str) -> None:
         """Delete a single song by file path (UI-triggered delete)."""
         self._conn.execute("DELETE FROM songs WHERE file_path = ?", (file_path,))
@@ -157,29 +179,3 @@ class KaraokeDatabase:
     def close(self) -> None:
         """Close the database connection."""
         self._conn.close()
-
-    # ------------------------------------------------------------------
-    # Private helpers
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _extract_youtube_id(filename: str) -> str | None:
-        """Extract YouTube ID from PiKaraoke (---ID) or yt-dlp ([ID]) format."""
-        m = _PIKARAOKE_ID_RE.search(filename)
-        if m:
-            return m.group(1)
-        m = _YTDLP_ID_RE.search(filename)
-        if m:
-            return m.group(1)
-        return None
-
-    @staticmethod
-    def _detect_format(file_path: str, files_in_dir: set[str]) -> str:
-        """Detect the song format, checking for companion files (.cdg, .ass)."""
-        base, ext = os.path.splitext(os.path.basename(file_path))
-        ext = ext.lower()
-        if ext == ".mp3" and (base + ".cdg") in files_in_dir:
-            return "cdg"
-        if ext == ".mp4" and (base + ".ass") in files_in_dir:
-            return "ass"
-        return ext.lstrip(".")

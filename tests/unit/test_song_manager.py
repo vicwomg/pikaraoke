@@ -144,15 +144,9 @@ class TestDBCoordination:
         )
 
     def test_register_download_adds_to_songs_and_db(self, tmp_path):
-        song = tmp_path / "New---xyz.mp4"
+        song = tmp_path / "New---xyz12345678.mp4"
         song.write_text("fake")
         mock_db = MagicMock()
-        mock_db.build_song_record.return_value = {
-            "file_path": _native(song),
-            "filename": "New---xyz.mp4",
-            "youtube_id": "xyz",
-            "format": "mp4",
-        }
         sm = SongManager(str(tmp_path), db=mock_db)
         sm.register_download(_native(song))
         assert _native(song) in sm.songs

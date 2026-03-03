@@ -4,7 +4,7 @@ import logging
 import os
 from dataclasses import dataclass
 
-from pikaraoke.lib.karaoke_database import KaraokeDatabase
+from pikaraoke.lib.karaoke_database import KaraokeDatabase, build_song_record
 from pikaraoke.lib.song_list import SongList
 
 _VALID_EXTENSIONS = SongList.VALID_EXTENSIONS
@@ -61,7 +61,7 @@ class LibraryScanner:
             logging.info(f"Scan: moved {len(moves)} song(s)")
 
         if to_insert:
-            records = [self._db.build_song_record(p) for p in to_insert]
+            records = [build_song_record(p) for p in to_insert]
             self._db.insert_songs(records)
             logging.info(f"Scan: added {len(to_insert)} song(s)")
 
