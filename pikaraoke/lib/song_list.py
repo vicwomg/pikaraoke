@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import fnmatch
 import logging
 import os
 import threading
@@ -81,19 +80,6 @@ class SongList:
             except KeyError:
                 logging.warning(f"Song not found in list: {song_path}")
 
-    def discard(self, song_path: str) -> None:
-        """Remove a song if present, no error if not. O(1) average."""
-        with self._lock:
-            if song_path in self._songs:
-                self._songs.discard(song_path)
-                self._invalidate_cache()
-
-    def clear(self) -> None:
-        """Remove all songs."""
-        with self._lock:
-            self._songs.clear()
-            self._invalidate_cache()
-
     def update(self, songs: list[str]) -> None:
         """Replace all songs with a new list."""
         with self._lock:
@@ -148,58 +134,6 @@ class SongList:
         self.remove(old_path)
         return self.add_if_valid(new_path)
 
-    def scan_directory(self, directory: str) -> int:
-        """Scan a directory for song files and replace the current list.
-
-        Uses os.walk instead of Path.rglob for reliable handling of
-        filenames with special/Unicode characters on Windows.
-
-        Args:
-            directory: Path to directory to scan.
-
-        Returns:
-            Number of songs found.
-        """
-        logging.debug(f"Scanning for songs in: {directory}")
-        files_found = []
-        for dirpath, _dirnames, filenames in os.walk(directory):
-            for filename in filenames:
-                ext = os.path.splitext(filename)[1].lower()
-                if ext in self.VALID_EXTENSIONS:
-                    file_path = os.path.join(dirpath, filename)
-                    if os.path.isfile(file_path):
-                        logging.debug(f"Found song: {filename}")
-                        files_found.append(file_path)
-
-        self.update(files_found)
-        return len(files_found)
-
-    def find_and_add(self, directory: str, pattern: str) -> str | None:
-        """Find a file matching a glob pattern and add it to the list.
-
-        Uses os.walk with fnmatch instead of Path.rglob for reliable handling
-        of filenames with special/Unicode characters on Windows.
-
-        Args:
-            directory: Directory to search in.
-            pattern: Glob pattern to match (e.g., "*---dQw4w9WgXcQ.*").
-
-        Returns:
-            Path to the found and added song, or None if not found.
-        """
-        for dirpath, _dirnames, filenames in os.walk(directory):
-            for filename in filenames:
-                if fnmatch.fnmatch(filename, pattern):
-                    file_path = os.path.join(dirpath, filename)
-                    if self.is_valid_song(file_path):
-                        if file_path not in self:
-                            self.add(file_path)
-                            logging.debug(f"Added song to list: {file_path}")
-                        return file_path
-
-        logging.warning(f"No song found matching pattern: {pattern}")
-        return None
-
     def find_by_id(self, directory: str, video_id: str) -> str | None:
         """Efficiently find a song by its YouTube ID in a directory (non-recursive).
 
@@ -246,8 +180,3 @@ class SongList:
         """Return True if there are any songs."""
         with self._lock:
             return bool(self._songs)
-
-    def copy(self) -> list[str]:
-        """Return a copy of the sorted song list."""
-        with self._lock:
-            return list(self._ensure_sorted())
