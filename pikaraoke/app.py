@@ -37,6 +37,7 @@ from pikaraoke.routes.files import files_bp
 from pikaraoke.routes.home import home_bp
 from pikaraoke.routes.images import images_bp
 from pikaraoke.routes.info import info_bp
+from pikaraoke.routes.metadata_api import metadata_bp
 from pikaraoke.routes.now_playing import nowplaying_bp
 from pikaraoke.routes.preferences import preferences_bp
 from pikaraoke.routes.queue import queue_bp
@@ -87,6 +88,7 @@ _api_blueprints = [
     images_bp,
     nowplaying_bp,
     stream_bp,
+    metadata_bp,
 ]
 
 # Blueprints hidden from /apidocs (internal UI routes)

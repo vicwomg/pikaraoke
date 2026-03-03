@@ -5,16 +5,34 @@
   $(function () {
 
     $('#remove-karaoke').click(function (e) {
-      var new_name = clean_title($('#new_file_name').val());
-      $('#new_file_name').val(new_name);
+      var filename = $('#new_file_name').val();
+      if (!$.trim(filename)) return;
+      $.getJSON('/metadata/tidy-name', { filename: filename }, function (data) {
+        if (data.tidied) {
+          $('#new_file_name').val(data.tidied);
+        }
+      });
     });
 
     $('#suggest-title').click(function (e) {
-      if ($.trim($('#new_file_name').val()) != "") {
-        var format_name = clean_title($('#new_file_name').val(), title_case = true);
-        var search_string = format_name;
-        suggest_title(clean_title(search_string), "#suggest_results");
-      }
+      var filename = $.trim($('#new_file_name').val());
+      if (!filename) return;
+      $('.suggest_loader').removeClass("is-hidden");
+      $("#suggest_results").html("");
+      $.getJSON('/metadata/suggest-names', { filename: filename, limit: 5 }, function (data) {
+        var suggestions = "";
+        if (data.suggestions && data.suggestions.length > 0) {
+          $.each(data.suggestions, function (i, item) {
+            suggestions += "<li><a class='suggested_item is-warning'>" + item.name + " - " + item.artist + "</a></li>";
+          });
+        } else {
+          // {# MSG: Warning when no suggested tracks are found for a search. #}
+          suggestions = "<li>{{ _('No suggestion!') }}</li>";
+        }
+        $("#suggest_results").html("<ul>" + suggestions + "</ul>");
+      }).always(function () {
+        $('.suggest_loader').addClass("is-hidden");
+      });
     });
 
     $('#swap-order').click(function (e) {
@@ -29,67 +47,6 @@
     });
 
   });
-
-
-  function clean_title(search_str, title_case = false) {
-    var new_name = $('#new_file_name').val();
-    new_name = new_name.replace(/\[+([^\][]+)]+/g, "($1)"); //replace brackets with parenthesis
-    new_name = new_name.replace(/[^\x20-\x7E]+/g, "");//Remove all non printable and all non ASCII characters
-    new_name = new_name.replace(/\\|\//g, " ");//remove slashes
-
-    //source: https://stackoverflow.com/questions/49655135/javascript-regex-remove-multiple-words-from-string
-    var uselessWordsArray =
-      [
-        "as popularized by", "lyrics", "karafun", "instrumental", "minus one", "minusone", "made famous by", " by ",
-        "karaoke version", "karaoke", "hd", "hq", "coversph", "singkaraoke", "in the style of",
-        "no lead vocal", "with lyrics", "cc"
-      ];
-    var expStr = uselessWordsArray.join("|");
-    new_name = new_name.replace(new RegExp('\\b(' + expStr + ')\\b', 'gi'), ' ').replace(/\s{2,}/g, ' ');
-
-    if (title_case == true) {
-      new_name = new_name.toLowerCase().replace(/\b[a-z]/g, function (letter) {
-        return letter.toUpperCase();
-      });
-    }
-
-    new_name = new_name.replace(/\([\s&\-.)]*\)/g, "");//remove empty parenthesis
-    new_name = new_name.replace(/\_/g, '-');//replace _ to dash
-    new_name = new_name.replace(/\b\-\b/g, ' - ');//add space before and after dash
-    new_name = new_name.replace("&Amp;", "&");
-    new_name = new_name.replace(/\&/g, 'and');//replace & to and
-    new_name = new_name.replace(/\s\s+/g, " "); //remove white spaces
-    return new_name.trim();
-  }
-
-  function suggest_title(search_str, results_div, max_suggestion = 5) {
-    $('.suggest_loader').removeClass("is-hidden");
-    var API_KEY = "058c382f5fd686b4146f6028961c14da";
-    var max_suggestion = max_suggestion;
-    var url = "https://ws.audioscrobbler.com/2.0/?method=track.search&track=" + search_str + "&limit=" + max_suggestion + "&page=1&api_key=" + API_KEY + "&format=json";
-    $(results_div).html("");
-
-    $.getJSON(url, function (json) {
-      data = json.results.trackmatches.track;
-      suggestions = "";
-      if (data.length != 0) {
-        $.each(data, function (i, item) {
-          suggestions += "<li><a class='suggested_item is-warning'>" + item.name + " - " + item.artist + "</a></li>";
-          return i < max_suggestion - 1;
-        });
-      }
-      else {
-        // {# MSG: Warning when no suggested tracks are found for a search. #}
-        suggestions = "<li>{{ _('No suggestion!') }}</li>";
-        console.log("No suggestion!")
-      }
-      $(results_div).html("<ul>" + suggestions + "</ul>");
-    }).always(function () {
-      $('.suggest_loader').addClass("is-hidden");
-    });
-  }
-
-
 </script>
 {% endblock %}
 
