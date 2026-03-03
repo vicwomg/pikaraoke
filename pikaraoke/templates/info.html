@@ -215,18 +215,22 @@
 		<h1>{% trans %}Admin{% endtrans %}</h1>
 
 		<div class="card">
-			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
-				<div class="media-content">
-					{# MSG: Title for section login on the Info page. #}
-					<h3 class="title mb-0">{% trans %}Login{% endtrans %}</h3>
-				</div>
-			</header>
-			<div class="card-content collapsible-content">
+			<div class="card-content">
 				<div class="content">
-					{# MSG: Message for the log in user to admin mode button. #}
-					<p>{% trans %}Click here to login as admin.{% endtrans %}</p>
-					{# MSG: Link which will let the user log into admin mode. #}
-					<a class="button is-primary" href="{{ url_for('admin.login', next=request.path) }}">{% trans %}Log in{% endtrans %}</a>
+					{# MSG: Title fo the form to enter the administrator password. #}
+					<p>{% trans %}Enter the administrator password{% endtrans %}</p>
+					<form action="{{ url_for('admin.auth') }}" method="post">
+						<input type="hidden" name="next" value="{{ request.path }}" />
+						<div class="field has-addons mb-2">
+							<div class="control" style="width: 100%; max-width: 350px">
+								<input type="password" name="admin_password" class="input" />
+							</div>
+							<div class="control">
+								{# MSG: Text on submit button for the admin login form. #}
+								<button class="button is-rounded is-primary">{% trans %}Login{% endtrans %}</button>
+							</div>
+						</div>
+					</form>
 				</div>
 			</div>
 		</div>
@@ -574,18 +578,12 @@
 			<h1>{% trans %}Admin{% endtrans %}</h1>
 
 			<div class="card">
-				<header class="card-header py-3 px-5 collapsible-header is-collapsed">
-					<div class="media-content">
-						{# MSG: Title for section logout on the Info page. #}
-						<h3 class="title mb-0">{% trans %}Logout{% endtrans %}</h3>
-					</div>
-				</header>
-				<div class="card-content collapsible-content">
+				<div class="card-content">
 					<div class="content">
 						{# MSG: Message for the log out user from admin mode button. #}
 						<p>{% trans %}Click here to logout from admin mode.{% endtrans %}</p>
 						{# MSG: Link which will log out the user from admin mode. #}
-						<a class="button is-primary"  href="{{ url_for('admin.logout') }}">{% trans %}Log out{% endtrans %}</a>
+						<a class="button is-primary" href="{{ url_for('admin.logout') }}">{% trans %}Log out{% endtrans %}</a>
 					</div>
 				</div>
 			</div>
@@ -631,7 +629,7 @@
 		min-width: 80px;
 		margin-right: 8px;
 	}
-	.input {
+	.user-preference-container .input {
 		width: 80px;
 	}
 	.user-preference-checkbox {

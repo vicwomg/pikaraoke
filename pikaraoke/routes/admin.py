@@ -10,7 +10,7 @@ import threading
 import time
 
 import flask_babel
-from flask import flash, jsonify, make_response, redirect, render_template, url_for
+from flask import flash, jsonify, make_response, redirect, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
@@ -185,16 +185,10 @@ def auth(form):
     return resp
 
 
-@admin_bp.route("/login")
-def login():
-    """Admin login page."""
-    return render_template("login.html")
-
-
 @admin_bp.route("/logout")
 def logout():
     """Log out of admin mode."""
-    resp = make_response(redirect("/"))
+    resp = make_response(redirect(url_for("info.info")))
     resp.set_cookie("admin", "")
     # MSG: Message shown after logging out as admin successfully
     flash(_("Logged out of admin mode!"), "is-success")
