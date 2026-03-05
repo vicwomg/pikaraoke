@@ -269,8 +269,10 @@ class Karaoke:
         # Song library startup: warm cache from DB or blocking cold scan
         if self.db.get_song_count() > 0:
             self.song_manager.songs.update(self.db.get_all_song_paths())
+            logging.info("Loaded songs from database, syncing in the background")
             self.sync_library()
         else:
+            logging.info("No existing database found, scanning song directory")
             result = self._scanner.scan(self.download_path)
             self._apply_scan_result(result)
 
@@ -319,6 +321,7 @@ class Karaoke:
 
     def _background_sync(self) -> None:
         try:
+            logging.info("Background library scan starting")
             result = self._scanner.scan(self.download_path)
             self._apply_scan_result(result)
         finally:
