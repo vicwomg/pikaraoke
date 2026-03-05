@@ -1,5 +1,6 @@
 """Unit tests for SongList class."""
 
+import threading
 
 import pytest
 
@@ -36,26 +37,6 @@ class TestSongListBasicOperations:
         sl = SongList()
         sl.remove("/songs/nonexistent.mp4")
         assert "not found" in caplog.text.lower()
-
-    def test_discard_song(self):
-        """Test discarding a song (no error if not present)."""
-        sl = SongList()
-        sl.add("/songs/test.mp4")
-        sl.discard("/songs/test.mp4")
-        assert "/songs/test.mp4" not in sl
-
-    def test_discard_nonexistent_no_error(self):
-        """Test that discarding nonexistent song doesn't raise error."""
-        sl = SongList()
-        sl.discard("/songs/nonexistent.mp4")  # Should not raise
-
-    def test_clear(self):
-        """Test clearing all songs."""
-        sl = SongList()
-        sl.add("/songs/song1.mp4")
-        sl.add("/songs/song2.mp4")
-        sl.clear()
-        assert len(sl) == 0
 
     def test_update(self):
         """Test replacing all songs with a new list."""
@@ -197,14 +178,6 @@ class TestSongListIteration:
         sl.add("/songs/test.mp4")
         assert bool(sl) is True
 
-    def test_copy(self):
-        """Test creating a copy of the song list."""
-        sl = SongList()
-        sl.add("/songs/test.mp4")
-        copy = sl.copy()
-        assert copy == ["/songs/test.mp4"]
-        assert isinstance(copy, list)
-
 
 class TestSongListRename:
     """Tests for SongList rename operation."""
@@ -235,66 +208,6 @@ class TestSongListRename:
 
         assert result is False
         assert str(old_file) not in sl  # Old path removed
-
-
-class TestSongListScanDirectory:
-    """Tests for SongList scan_directory operation."""
-
-    def test_scan_directory_finds_songs(self, tmp_path):
-        """Test scanning directory finds valid song files."""
-        sl = SongList()
-        (tmp_path / "song1.mp4").touch()
-        (tmp_path / "song2.webm").touch()
-        (tmp_path / "song3.mp3").touch()
-        (tmp_path / "readme.txt").touch()
-
-        count = sl.scan_directory(str(tmp_path))
-
-        assert count == 3
-        assert len(sl) == 3
-
-    def test_scan_directory_recursive(self, tmp_path):
-        """Test scanning finds songs in subdirectories."""
-        sl = SongList()
-        subdir = tmp_path / "subdir"
-        subdir.mkdir()
-        (tmp_path / "song1.mp4").touch()
-        (subdir / "song2.mp4").touch()
-
-        count = sl.scan_directory(str(tmp_path))
-
-        assert count == 2
-
-    def test_scan_directory_replaces_existing(self, tmp_path):
-        """Test that scanning replaces existing songs."""
-        sl = SongList()
-        sl.add("/old/song.mp4")
-        (tmp_path / "new.mp4").touch()
-
-        sl.scan_directory(str(tmp_path))
-
-        assert "/old/song.mp4" not in sl
-        assert len(sl) == 1
-
-    @pytest.mark.parametrize(
-        "filename",
-        [
-            "Céline Dion - My Heart Will Go On---abc12345678.mp4",
-            "Babymetal - ギミチョコ---dQw4w9WgXcQ.mp4",
-            "노래 제목---xyz98765432.mp3",
-            "Édith Piaf - La Vie en Rose---mno55667788.mkv",
-        ],
-        ids=["french_accents", "japanese", "korean", "mixed_accents"],
-    )
-    def test_scan_directory_special_characters(self, tmp_path, filename):
-        """Test scanning finds files with special/Unicode characters in names."""
-        sl = SongList()
-        (tmp_path / filename).touch()
-
-        count = sl.scan_directory(str(tmp_path))
-
-        assert count == 1
-        assert len(sl) == 1
 
 
 class TestSongListCacheInvalidation:
@@ -365,3 +278,34 @@ class TestSongListFindById:
         result = sl.find_by_id(str(tmp_path), "abc123")
 
         assert result is None
+
+
+class TestSongListThreadSafety:
+    """Tests that concurrent update() and iteration do not raise."""
+
+    def test_concurrent_update_and_iteration_does_not_raise(self):
+        """Concurrent update() from one thread and iteration from another must not raise."""
+        sl = SongList()
+        sl.update([f"/songs/song{i}.mp4" for i in range(100)])
+
+        errors: list[Exception] = []
+
+        def updater():
+            for i in range(200):
+                sl.update([f"/songs/batch{i}_{j}.mp4" for j in range(50)])
+
+        def reader():
+            for _ in range(200):
+                try:
+                    list(sl)
+                except Exception as e:
+                    errors.append(e)
+
+        t1 = threading.Thread(target=updater)
+        t2 = threading.Thread(target=reader)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        assert errors == [], f"Exceptions raised during concurrent access: {errors}"

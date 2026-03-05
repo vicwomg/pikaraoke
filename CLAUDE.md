@@ -17,7 +17,7 @@ PiKaraoke is a karaoke system for Raspberry Pi, Windows, macOS, and Linux. Web i
 - Extract classes when a module has multiple responsibilities (like `Browser` was extracted from utilities)
 - Extract functions when logic is repeated or a function exceeds ~50 lines
 - Rename unclear variables/functions immediately
-- Delete dead code - never comment it out
+- Delete dead code - never comment it out. When new code supersedes existing methods, remove the old methods and their tests in the same commit
 - Update related code consistently (no half-migrations)
 
 **When to refactor:**

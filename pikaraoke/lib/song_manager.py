@@ -8,6 +8,7 @@ import os
 import re
 
 from pikaraoke.lib.get_platform import is_windows
+from pikaraoke.lib.karaoke_database import KaraokeDatabase, build_song_record
 from pikaraoke.lib.song_list import SongList
 
 # Characters illegal in Windows filenames
@@ -28,13 +29,10 @@ class SongManager:
     delete, rename, and display name operations.
     """
 
-    def __init__(self, download_path: str) -> None:
+    def __init__(self, download_path: str, db: KaraokeDatabase | None = None) -> None:
         self.download_path = download_path
         self.songs = SongList()
-
-    def refresh_songs(self) -> None:
-        """Scan the download directory and update the song list."""
-        self.songs.scan_directory(self.download_path)
+        self._db = db
 
     @staticmethod
     def filename_from_path(file_path: str, remove_youtube_id: bool = True) -> str:
@@ -64,7 +62,7 @@ class SongManager:
         return companions
 
     def delete(self, song_path: str) -> None:
-        """Delete a song file and its associated companion files if present."""
+        """Delete a song from disk, SongList, and DB."""
         logging.info(f"Deleting song: {song_path}")
         companions = self._get_companion_files(song_path)
         with contextlib.suppress(FileNotFoundError):
@@ -73,9 +71,11 @@ class SongManager:
             with contextlib.suppress(FileNotFoundError):
                 os.remove(companion)
         self.songs.remove(song_path)
+        if self._db:
+            self._db.delete_by_path(song_path)
 
-    def rename(self, song_path: str, new_name: str) -> None:
-        """Rename a song file and its associated companion files if present.
+    def rename(self, song_path: str, new_name: str) -> str:
+        """Rename a song on disk, in SongList, and in DB. Returns new path.
 
         Args:
             song_path: Full path to the current song file.
@@ -91,3 +91,12 @@ class SongManager:
             companion_ext = os.path.splitext(companion)[1]
             os.rename(companion, os.path.join(self.download_path, new_name + companion_ext))
         self.songs.rename(song_path, new_path)
+        if self._db:
+            self._db.update_path(song_path, new_path)
+        return new_path
+
+    def register_download(self, song_path: str) -> None:
+        """Register a newly downloaded song in SongList and DB."""
+        self.songs.add_if_valid(song_path)
+        if self._db:
+            self._db.insert_songs([build_song_record(song_path)])

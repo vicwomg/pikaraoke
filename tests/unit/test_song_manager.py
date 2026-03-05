@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 from pikaraoke.lib.song_manager import SongManager
 
@@ -57,27 +58,12 @@ class TestFilenameFromPath:
         assert result == "Song [short]"
 
 
-class TestRefreshSongs:
-    def test_scans_directory(self, tmp_path):
-        (tmp_path / "song.mp4").write_text("fake")
-        sm = SongManager(str(tmp_path))
-        sm.refresh_songs()
-        assert len(sm.songs) == 1
-
-    def test_ignores_non_song_files(self, tmp_path):
-        (tmp_path / "readme.txt").write_text("not a song")
-        (tmp_path / "song.mp4").write_text("fake")
-        sm = SongManager(str(tmp_path))
-        sm.refresh_songs()
-        assert len(sm.songs) == 1
-
-
 class TestDelete:
     def test_removes_file_and_updates_songs(self, tmp_path):
         song = tmp_path / "Test---abc.mp4"
         song.write_text("fake")
         sm = SongManager(str(tmp_path))
-        sm.refresh_songs()
+        sm.songs.add_if_valid(_native(song))
         sm.delete(_native(song))
         assert not song.exists()
         assert len(sm.songs) == 0
@@ -88,7 +74,7 @@ class TestDelete:
         song.write_text("fake")
         cdg.write_text("fake")
         sm = SongManager(str(tmp_path))
-        sm.refresh_songs()
+        sm.songs.add_if_valid(_native(song))
         sm.delete(_native(song))
         assert not cdg.exists()
 
@@ -98,7 +84,7 @@ class TestDelete:
         song.write_text("fake")
         ass.write_text("fake")
         sm = SongManager(str(tmp_path))
-        sm.refresh_songs()
+        sm.songs.add_if_valid(_native(song))
         sm.delete(_native(song))
         assert not ass.exists()
 
@@ -112,7 +98,7 @@ class TestRename:
         song = tmp_path / "Old Name---abc.mp4"
         song.write_text("fake")
         sm = SongManager(str(tmp_path))
-        sm.refresh_songs()
+        sm.songs.add_if_valid(_native(song))
         sm.rename(_native(song), "New Name---abc")
         assert not song.exists()
         assert (tmp_path / "New Name---abc.mp4").exists()
@@ -123,7 +109,7 @@ class TestRename:
         song.write_text("fake")
         cdg.write_text("fake")
         sm = SongManager(str(tmp_path))
-        sm.refresh_songs()
+        sm.songs.add_if_valid(_native(song))
         sm.rename(_native(song), "New---abc")
         assert (tmp_path / "New---abc.cdg").exists()
         assert not cdg.exists()
@@ -134,7 +120,62 @@ class TestRename:
         song.write_text("fake")
         ass.write_text("fake")
         sm = SongManager(str(tmp_path))
-        sm.refresh_songs()
+        sm.songs.add_if_valid(_native(song))
         sm.rename(_native(song), "New---abc")
         assert (tmp_path / "New---abc.ass").exists()
         assert not ass.exists()
+
+    def test_returns_new_path(self, tmp_path):
+        song = tmp_path / "Old---abc.mp4"
+        song.write_text("fake")
+        sm = SongManager(str(tmp_path))
+        sm.songs.add_if_valid(_native(song))
+        result = sm.rename(_native(song), "New---abc")
+        assert result == _native(tmp_path / "New---abc.mp4")
+
+
+class TestDBCoordination:
+    """Tests that SongManager coordinates with KaraokeDatabase when provided."""
+
+    def test_delete_calls_db_delete(self, tmp_path):
+        song = tmp_path / "Test---abc.mp4"
+        song.write_text("fake")
+        mock_db = MagicMock()
+        sm = SongManager(str(tmp_path), db=mock_db)
+        sm.songs.add_if_valid(_native(song))
+        sm.delete(_native(song))
+        mock_db.delete_by_path.assert_called_once_with(_native(song))
+
+    def test_rename_calls_db_update_path(self, tmp_path):
+        song = tmp_path / "Old---abc.mp4"
+        song.write_text("fake")
+        mock_db = MagicMock()
+        sm = SongManager(str(tmp_path), db=mock_db)
+        sm.songs.add_if_valid(_native(song))
+        sm.rename(_native(song), "New---abc")
+        mock_db.update_path.assert_called_once_with(
+            _native(song), _native(tmp_path / "New---abc.mp4")
+        )
+
+    def test_register_download_adds_to_songs_and_db(self, tmp_path):
+        song = tmp_path / "New---xyz12345678.mp4"
+        song.write_text("fake")
+        mock_db = MagicMock()
+        sm = SongManager(str(tmp_path), db=mock_db)
+        sm.register_download(_native(song))
+        assert _native(song) in sm.songs
+        mock_db.insert_songs.assert_called_once()
+
+    def test_delete_without_db_no_error(self, tmp_path):
+        song = tmp_path / "Test---abc.mp4"
+        song.write_text("fake")
+        sm = SongManager(str(tmp_path))  # no db
+        sm.songs.add_if_valid(_native(song))
+        sm.delete(_native(song))  # should not raise
+
+    def test_rename_without_db_no_error(self, tmp_path):
+        song = tmp_path / "Old---abc.mp4"
+        song.write_text("fake")
+        sm = SongManager(str(tmp_path))  # no db
+        sm.songs.add_if_valid(_native(song))
+        sm.rename(_native(song), "New---abc")  # should not raise
