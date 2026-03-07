@@ -122,17 +122,18 @@
 {{ pagination.links }} {{ pagination.info }}
 <table>
 	{% for song in songs %}
+	{% set display_name = filename_from_path(song) %}
 	<tr value="{{ song }}">
 		<td style="padding: 5px 0px">{{loop.index + pagination.skip}}</td>
-		<td id="{{filename_from_path(song)[0].lower()}}" style="padding-right: 0">
+		<td id="{{display_name[0].lower()}}" style="padding-right: 0">
 			<a
 				class="add-song-link has-text-weight-bold has-text-success"
-				title="Add '{{filename_from_path(song)}}' to queue"
+				title="Add '{{display_name}}' to queue"
 				href="{{url_for('queue.enqueue')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&user="
 				><i class="icon icon-list-add"></i>
 			</a>
 		</td>
-		<td class="break-word" style="padding-right: 0">{{filename_from_path(song)}}</td>
+		<td class="break-word" style="padding-right: 0">{{display_name}}</td>
 		{% if admin %}
 		<td style="padding-right: 0">
 			<a

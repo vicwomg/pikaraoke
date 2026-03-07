@@ -29,18 +29,23 @@ class TestFilenameFromPath:
         assert result == "Artist - Song---dQw4w9WgXcQ"
 
     def test_nested_directory(self):
-        result = SongManager.filename_from_path("/home/user/music/karaoke/songs/Track---abc123.mp4")
+        result = SongManager.filename_from_path(
+            "/home/user/music/karaoke/songs/Track---dQw4w9WgXcQ.mp4"
+        )
         assert result == "Track"
 
     def test_multiple_dashes(self):
-        result = SongManager.filename_from_path("/songs/Artist - Song - Live Version---xyz789.mp4")
+        result = SongManager.filename_from_path(
+            "/songs/Artist - Song - Live Version---dQw4w9WgXcQ.mp4"
+        )
         assert result == "Artist - Song - Live Version"
 
     def test_no_extension(self):
         assert SongManager.filename_from_path("/songs/SongName") == "SongName"
 
     def test_cdg_zip(self):
-        assert SongManager.filename_from_path("/songs/Karaoke Track---abc.zip") == "Karaoke Track"
+        """CDG+ZIP files have no YouTube ID, so the name is returned as-is."""
+        assert SongManager.filename_from_path("/songs/Karaoke Track.zip") == "Karaoke Track"
 
     def test_bracket_format_youtube_id(self):
         result = SongManager.filename_from_path("/songs/Artist - Song [dQw4w9WgXcQ].mp4")
@@ -53,8 +58,46 @@ class TestFilenameFromPath:
         assert result == "Artist - Song [dQw4w9WgXcQ]"
 
     def test_bracket_format_short_id_not_stripped(self):
+        """Non-YouTube files are not tidied, so short bracket text is preserved."""
         result = SongManager.filename_from_path("/songs/Song [short].mp4")
         assert result == "Song [short]"
+
+    # --- regex_tidy integration: noise word stripping ---
+
+    def test_strips_karaoke_noise_words(self):
+        result = SongManager.filename_from_path(
+            "/songs/Queen - Bohemian Rhapsody Karaoke Version HD---dQw4w9WgXcQ.mp4"
+        )
+        assert result == "Queen - Bohemian Rhapsody"
+
+    def test_strips_instrumental_suffix(self):
+        result = SongManager.filename_from_path(
+            "/songs/Artist - Song Instrumental---dQw4w9WgXcQ.mp4"
+        )
+        assert result == "Artist - Song"
+
+    def test_strips_lyrics_suffix(self):
+        result = SongManager.filename_from_path(
+            "/songs/Artist - Song With Lyrics---dQw4w9WgXcQ.mp4"
+        )
+        assert result == "Artist - Song"
+
+    def test_underscores_replaced_with_spaces(self):
+        result = SongManager.filename_from_path("/songs/Artist_-_Song_Title---dQw4w9WgXcQ.mp4")
+        assert result == "Artist - Song Title"
+
+    def test_all_noise_fallback_preserves_original(self):
+        """When regex_tidy strips everything, fall back to the pre-tidy name."""
+        result = SongManager.filename_from_path("/songs/Karaoke Track---dQw4w9WgXcQ.mp4")
+        assert result == "Karaoke Track"
+
+    def test_tidy_not_applied_when_keeping_youtube_id(self):
+        """remove_youtube_id=False skips tidying (used by batch renamer for raw stems)."""
+        result = SongManager.filename_from_path(
+            "/songs/Artist - Song_Title Karaoke---dQw4w9WgXcQ.mp4",
+            remove_youtube_id=False,
+        )
+        assert result == "Artist - Song_Title Karaoke---dQw4w9WgXcQ"
 
 
 class TestRefreshSongs:

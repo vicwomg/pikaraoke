@@ -602,19 +602,26 @@ def regex_tidy(filename: str) -> str:
     return name
 
 
-def has_youtube_id(filename: str) -> bool:
-    """Detect if a filename contains a YouTube ID in PiKaraoke or yt-dlp format.
+def youtube_id_suffix(file_path: str) -> str:
+    """Extract the YouTube ID suffix from a filename.
 
-    Checks the raw filename including extension.
+    Returns the suffix string (e.g. '---dQw4w9WgXcQ' or ' [dQw4w9WgXcQ]')
+    or empty string if no YouTube ID is present. Operates on the stem
+    (without extension) of the basename.
     """
-    basename = os.path.basename(filename)
-    # PiKaraoke format: Title---xxxxxxxxxxx.ext
-    if re.search(r"---[A-Za-z0-9_-]{11}\.[^.]+$", basename):
-        return True
-    # yt-dlp format: Title [xxxxxxxxxxx].ext
-    if re.search(r"\[[A-Za-z0-9_-]{11}\]\.[^.]+$", basename):
-        return True
-    return False
+    stem = os.path.splitext(os.path.basename(file_path))[0]
+    match = re.search(r"(---[A-Za-z0-9_-]{11})$", stem)
+    if match:
+        return match.group(1)
+    match = re.search(r"(\s*\[[A-Za-z0-9_-]{11}\])$", stem)
+    if match:
+        return match.group(1)
+    return ""
+
+
+def has_youtube_id(filename: str) -> bool:
+    """Detect if a filename contains a YouTube ID in PiKaraoke or yt-dlp format."""
+    return bool(youtube_id_suffix(filename))
 
 
 def has_artist_title_separator(name: str) -> bool:
