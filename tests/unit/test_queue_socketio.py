@@ -68,8 +68,8 @@ class TestQueueSocketEmissions:
         """update_now_playing_socket includes first queued song as up_next."""
         k = karaoke_with_socketio
         k.playback_controller.now_playing = "/songs/current---xyz.mp4"
-        k.queue_manager.enqueue("/songs/Next Song---aaa.mp4", "User1")
-        k.queue_manager.enqueue("/songs/Another Song---bbb.mp4", "User2")
+        k.queue_manager.enqueue("/songs/Next Song---dQw4w9WgXcQ.mp4", "User1")
+        k.queue_manager.enqueue("/songs/Another Song---xYz1234AbCd.mp4", "User2")
         k.socketio.emit.reset_mock()
 
         k.update_now_playing_socket()
@@ -122,11 +122,11 @@ class TestSocketIOEventFormats:
     def test_queue_item_has_required_fields(self, karaoke_with_socketio):
         """Queue items contain fields required by frontend."""
         k = karaoke_with_socketio
-        k.queue_manager.enqueue("/songs/Artist - Song---abc123.mp4", "TestUser", semitones=2)
+        k.queue_manager.enqueue("/songs/Artist - Song---dQw4w9WgXcQ.mp4", "TestUser", semitones=2)
 
         queue_item = k.queue_manager.queue[0]
 
-        assert queue_item["file"] == "/songs/Artist - Song---abc123.mp4"
+        assert queue_item["file"] == "/songs/Artist - Song---dQw4w9WgXcQ.mp4"
         assert queue_item["user"] == "TestUser"
         assert queue_item["title"] == "Artist - Song"
         assert queue_item["semitones"] == 2
@@ -135,15 +135,15 @@ class TestSocketIOEventFormats:
         """now_playing event payload contains all fields required by frontend."""
         k = karaoke_with_socketio
         pc = k.playback_controller
-        pc.now_playing = "/songs/Artist - Song---abc123.mp4"
+        pc.now_playing = "/songs/Artist - Song---dQw4w9WgXcQ.mp4"
         pc.now_playing_user = "TestUser"
         pc.now_playing_transpose = 0
         pc.now_playing_duration = 240
         pc.now_playing_position = 30
-        pc.now_playing_url = "https://youtube.com/watch?v=abc123"
+        pc.now_playing_url = "https://youtube.com/watch?v=dQw4w9WgXcQ"
         pc.now_playing_subtitle_url = None
         pc.is_paused = False
-        k.queue_manager.enqueue("/songs/Next Song---def456.mp4", "NextUser")
+        k.queue_manager.enqueue("/songs/Next Song---xYz1234AbCd.mp4", "NextUser")
         k.socketio.emit.reset_mock()
 
         k.update_now_playing_socket()

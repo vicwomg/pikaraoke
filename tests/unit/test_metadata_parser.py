@@ -16,6 +16,7 @@ from pikaraoke.lib.metadata_parser import (
     regex_tidy,
     score_result,
     search_lastfm_tracks,
+    youtube_id_suffix,
 )
 
 
@@ -516,6 +517,22 @@ class TestRegexTidy:
 
     def test_no_change_when_clean(self):
         assert regex_tidy("Artist - Song Title") == "Artist - Song Title"
+
+
+class TestYoutubeIdSuffix:
+    """Tests for the youtube_id_suffix function."""
+
+    def test_pikaraoke_format(self):
+        assert youtube_id_suffix("/songs/Artist - Song---dQw4w9WgXcQ.mp4") == "---dQw4w9WgXcQ"
+
+    def test_ytdlp_bracket_format(self):
+        assert youtube_id_suffix("/songs/Artist - Song [dQw4w9WgXcQ].mp4") == " [dQw4w9WgXcQ]"
+
+    def test_no_youtube_id(self):
+        assert youtube_id_suffix("/songs/My Song.mp4") == ""
+
+    def test_short_bracket_not_matched(self):
+        assert youtube_id_suffix("/songs/Song [short].mp4") == ""
 
 
 class TestHasYoutubeId:
