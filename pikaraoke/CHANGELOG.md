@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.19.0](https://github.com/vicwomg/pikaraoke/compare/1.18.4...1.19.0) (2026-03-11)
+
+
+### Features
+
+* indonesian translation (via [@funkyfone](https://github.com/funkyfone)) ([#773](https://github.com/vicwomg/pikaraoke/issues/773)) ([0846e94](https://github.com/vicwomg/pikaraoke/commit/0846e94e97b21068aa93e29776888a1d6ae80861))
+* live splash preference updates, fix custom score phrases ([#784](https://github.com/vicwomg/pikaraoke/issues/784)) ([393e82b](https://github.com/vicwomg/pikaraoke/commit/393e82b866eff2dc4adb3613f25a07ff174144e6))
+* option to show clock on splash screen ([#767](https://github.com/vicwomg/pikaraoke/issues/767)) ([0985978](https://github.com/vicwomg/pikaraoke/commit/098597818fe2c9d43ff5a6acd021826911b579c7))
+* YouTube preview streaming and improved search result cards ([#785](https://github.com/vicwomg/pikaraoke/issues/785)) ([e49d4b8](https://github.com/vicwomg/pikaraoke/commit/e49d4b811d0be6264486194423a48504859166b7))
+
+
+### Bug Fixes
+
+* batch song renamer and prepare for centralised song editing ([#783](https://github.com/vicwomg/pikaraoke/issues/783)) ([3d9989e](https://github.com/vicwomg/pikaraoke/commit/3d9989e3f3f2f1ee6afe8126b2ab86ab88f24f65))
+* browser and edit page navigation improvements ([#772](https://github.com/vicwomg/pikaraoke/issues/772)) ([61d4ca6](https://github.com/vicwomg/pikaraoke/commit/61d4ca65fd2b8928e440cce70216f7c74a80dfb8))
+* centralise edit and batch song renamer functions ([#791](https://github.com/vicwomg/pikaraoke/issues/791)) ([f1fecc5](https://github.com/vicwomg/pikaraoke/commit/f1fecc5b99b8a86cc47b3165857a19814dd41b69))
+* exception when opening splash screen ([#788](https://github.com/vicwomg/pikaraoke/issues/788)) ([38f2582](https://github.com/vicwomg/pikaraoke/commit/38f2582eb52d61dff1258cd0d82b90652fd556d7))
+* handle .ass subtitle files in delete and rename operations ([#769](https://github.com/vicwomg/pikaraoke/issues/769)) ([e476c40](https://github.com/vicwomg/pikaraoke/commit/e476c40f44ade0daaf807c62539c36e6220cc8eb))
+* prevent direct download from downloading playlists ([#766](https://github.com/vicwomg/pikaraoke/issues/766)) ([38f38f8](https://github.com/vicwomg/pikaraoke/commit/38f38f88fb78a986d1c878ce9252834f05876d41))
+* support multiple sections in the config file ([#776](https://github.com/vicwomg/pikaraoke/issues/776)) ([f08b766](https://github.com/vicwomg/pikaraoke/commit/f08b766733fcf5654ebe8dd4e180223132cc7b19))
+* update yt-dlp to 2026.02.21 ([#789](https://github.com/vicwomg/pikaraoke/issues/789)) ([66e365e](https://github.com/vicwomg/pikaraoke/commit/66e365e9545c5b1c385fb6606e0a92760bdf146f))
+* upgrade yt-dlp to 2026.03.03 ([#798](https://github.com/vicwomg/pikaraoke/issues/798)) ([ee7cf31](https://github.com/vicwomg/pikaraoke/commit/ee7cf3164b04666c7467f584a82996f36f5dd437))
+* use os.path.join for download path instead of trailing slash hack ([#770](https://github.com/vicwomg/pikaraoke/issues/770)) ([ee1ce2f](https://github.com/vicwomg/pikaraoke/commit/ee1ce2f6c010d948f690991abe8f7d36e7bb8f9a))
+
 ## [1.18.4](https://github.com/vicwomg/pikaraoke/compare/1.18.3...1.18.4) (2026-02-09)
 
 
