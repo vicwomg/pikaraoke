@@ -1,8 +1,8 @@
-"""Server-side microphone manager.
+"""Server-side microphone and audio output manager.
 
-Enumerates system audio input devices and manages passthrough from
-microphone inputs to the default audio output. Uses PulseAudio/PipeWire
-on Linux (via pactl) and sounddevice (PortAudio) on Windows/macOS.
+Enumerates system audio input/output devices and manages passthrough from
+microphone inputs to audio outputs. Uses PulseAudio/PipeWire on Linux
+(via pactl) and sounddevice (PortAudio) on Windows/macOS.
 """
 
 import json
@@ -29,11 +29,62 @@ if not _HAS_PACTL:
             "sounddevice not available (missing PortAudio?). Microphone support disabled."
         )
 
+_MAX_GAIN = 2.0
+_DEFAULT_LATENCY_MS = 50
+_MIN_LATENCY_MS = 10
+_MAX_LATENCY_MS = 200
+
 # Windows virtual/alias device names that duplicate real devices
-_VIRTUAL_DEVICE_NAMES = {
+_VIRTUAL_INPUT_DEVICE_NAMES = {
     "Microsoft Sound Mapper - Input",
     "Primary Sound Capture Driver",
 }
+_VIRTUAL_OUTPUT_DEVICE_NAMES = {
+    "Microsoft Sound Mapper - Output",
+    "Primary Sound Driver",
+}
+
+
+def _pactl_list_sinks() -> list[dict]:
+    """List PulseAudio/PipeWire output sinks with descriptions."""
+    try:
+        result = subprocess.run(
+            ["pactl", "list", "sinks"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode != 0:
+            return []
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return []
+
+    sinks: list[dict] = []
+    current: dict[str, str] = {}
+    for line in result.stdout.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("Sink #"):
+            if current.get("name"):
+                sinks.append(current)
+            current = {"sinkId": stripped.split("#", 1)[1]}
+        name_match = re.match(r"Name:\s+(.+)", stripped)
+        if name_match:
+            current["name"] = name_match.group(1)
+        desc_match = re.match(r"Description:\s+(.+)", stripped)
+        if desc_match:
+            current["description"] = desc_match.group(1)
+
+    if current.get("name"):
+        sinks.append(current)
+
+    return [
+        {
+            "sinkId": s["sinkId"],
+            "label": s.get("description", s["name"]),
+            "paSink": s["name"],
+        }
+        for s in sinks
+    ]
 
 
 def _pactl_list_sources() -> list[dict]:
@@ -88,11 +139,13 @@ class _ActiveMic:
         loopback_module_id: str | None,
         stream=None,
         mic_state: list[float] | None = None,
+        echo_module_id: str | None = None,
     ) -> None:
         self.device_id = device_id
         self.loopback_module_id = loopback_module_id
         self.stream = stream
         self.mic_state = mic_state
+        self.echo_module_id = echo_module_id
 
 
 class MicManager:
@@ -107,6 +160,7 @@ class MicManager:
         self._events = events
         self._active_mics: dict[str, _ActiveMic] = {}
         self._device_list: list[dict] = []
+        self._output_device_list: list[dict] = []
 
     @property
     def available(self) -> bool:
@@ -153,7 +207,7 @@ class MicManager:
         for i, dev in enumerate(devices):
             if dev["max_input_channels"] <= 0:
                 continue
-            if dev["name"] in _VIRTUAL_DEVICE_NAMES:
+            if dev["name"] in _VIRTUAL_INPUT_DEVICE_NAMES:
                 continue
             if preferred_hostapi is not None and dev["hostapi"] != preferred_hostapi:
                 continue
@@ -182,6 +236,163 @@ class MicManager:
             )
         return enriched
 
+    def enumerate_output_devices(self) -> list[dict]:
+        """Query system audio output devices."""
+        if _HAS_PACTL:
+            self._output_device_list = _pactl_list_sinks()
+            logging.info(
+                f"Output devices enumerated (pactl): "
+                f"{[d['label'] for d in self._output_device_list]}"
+            )
+        elif _SOUNDDEVICE_AVAILABLE:
+            self._output_device_list = self._enumerate_output_sounddevice()
+        else:
+            self._output_device_list = []
+        return self._output_device_list
+
+    def _enumerate_output_sounddevice(self) -> list[dict]:
+        """Enumerate output devices via sounddevice (Windows/macOS).
+
+        Filters to the same host API as the default output device to avoid
+        showing duplicate entries (MME, DirectSound, WASAPI, etc.).
+        """
+        try:
+            devices = sd.query_devices()
+        except sd.PortAudioError as e:
+            logging.error(f"Failed to query audio devices: {e}")
+            return []
+
+        preferred_hostapi = None
+        try:
+            default_out = sd.query_devices(kind="output")
+            preferred_hostapi = default_out["hostapi"]
+        except (sd.PortAudioError, ValueError):
+            pass
+
+        outputs = []
+        for i, dev in enumerate(devices):
+            if dev["max_output_channels"] <= 0:
+                continue
+            if dev["name"] in _VIRTUAL_OUTPUT_DEVICE_NAMES:
+                continue
+            if preferred_hostapi is not None and dev["hostapi"] != preferred_hostapi:
+                continue
+            outputs.append({"deviceId": str(i), "label": dev["name"]})
+
+        logging.info(f"Output devices enumerated (sounddevice): {[d['label'] for d in outputs]}")
+        return outputs
+
+    def get_output_devices_state(self) -> dict:
+        """Return output device list and currently selected output."""
+        return {
+            "devices": self._output_device_list,
+            "selected": self.get_selected_output(),
+        }
+
+    def get_selected_output(self) -> str | None:
+        """Get the saved output device identifier, or None for system default."""
+        settings = self.load_settings()
+        return settings.get("_output_device")
+
+    def set_output_device(self, output_id: str | None) -> bool:
+        """Set the system default audio output device.
+
+        On Linux, uses pactl set-default-sink. Persists the choice in preferences.
+        Returns True if the change was applied successfully.
+        """
+        settings = self.load_settings()
+        if output_id:
+            settings["_output_device"] = output_id
+        else:
+            settings.pop("_output_device", None)
+        self.save_settings(settings)
+
+        if not _HAS_PACTL:
+            logging.info(
+                f"Output device preference saved: {output_id or 'system default'} "
+                "(non-Linux; no system-level routing applied)"
+            )
+            return True
+
+        if not output_id:
+            logging.info("Output device reset to system default")
+            return True
+
+        # Find the paSink name for this output_id
+        sink_name = None
+        for dev in self._output_device_list:
+            if dev["paSink"] == output_id:
+                sink_name = output_id
+                break
+        if not sink_name:
+            logging.error(f"Output device not found: {output_id}")
+            return False
+
+        try:
+            result = subprocess.run(
+                ["pactl", "set-default-sink", sink_name],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode != 0:
+                logging.error(f"pactl set-default-sink failed: {result.stderr.strip()}")
+                return False
+        except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+            logging.error(f"Failed to set default sink: {e}")
+            return False
+
+        logging.info(f"Default audio output set to: {sink_name}")
+        return True
+
+    def get_latency_ms(self) -> int:
+        """Get the configured mic loopback latency in milliseconds."""
+        settings = self.load_settings()
+        return int(settings.get("_latency_ms", _DEFAULT_LATENCY_MS))
+
+    def set_latency_ms(self, latency_ms: int) -> None:
+        """Set mic loopback latency and restart active mics to apply it."""
+        latency_ms = max(_MIN_LATENCY_MS, min(_MAX_LATENCY_MS, latency_ms))
+        settings = self.load_settings()
+        settings["_latency_ms"] = latency_ms
+        self.save_settings(settings)
+        logging.info(f"Mic latency set to {latency_ms}ms")
+        self._restart_active_mics()
+
+    def get_echo_cancel(self) -> bool:
+        """Whether echo cancellation is enabled for mic loopback (Linux only)."""
+        settings = self.load_settings()
+        return bool(settings.get("_echo_cancel", False))
+
+    def set_echo_cancel(self, enabled: bool) -> None:
+        """Enable or disable echo cancellation and restart active mics."""
+        settings = self.load_settings()
+        settings["_echo_cancel"] = enabled
+        self.save_settings(settings)
+        logging.info(f"Echo cancellation {'enabled' if enabled else 'disabled'}")
+        self._restart_active_mics()
+
+    def _restart_active_mics(self) -> None:
+        """Deactivate and re-activate all active mics to apply changed settings."""
+        active_snapshot = [
+            (mic.device_id, self._get_active_volume(mic)) for mic in self._active_mics.values()
+        ]
+        self.stop()
+        for device_id, volume in active_snapshot:
+            self.activate(device_id, volume)
+
+    def _get_active_volume(self, mic: _ActiveMic) -> float:
+        """Read the current volume from an active mic."""
+        if mic.mic_state is not None:
+            return mic.mic_state[0]
+        # For pactl mics, look up saved volume from settings
+        dev = self._find_device(mic.device_id)
+        if dev:
+            settings = self.load_settings()
+            saved = settings.get(dev["label"], {})
+            return saved.get("volume", 1.0)
+        return 1.0
+
     def activate(self, device_id: str, volume: float) -> bool:
         """Start audio passthrough for a microphone device."""
         if device_id in self._active_mics:
@@ -195,23 +406,34 @@ class MicManager:
         return False
 
     def _activate_pactl(self, device_id: str, volume: float) -> bool:
-        """Activate mic passthrough via PulseAudio module-loopback."""
+        """Activate mic passthrough via PulseAudio module-loopback.
+
+        When echo cancellation is enabled, loads module-echo-cancel first
+        to create a processed source, then loops that through to speakers.
+        """
         dev = self._find_device(device_id)
         if dev is None:
             logging.error(f"Device {device_id} not found in device list")
             return False
 
         source_name = dev.get("paSource", dev["label"])
-        vol_percent = int(min(volume, 1.0) * 100)
+        vol_percent = int(min(volume, _MAX_GAIN) * 100)
+        echo_module_id = None
+
+        # Optionally load echo cancellation
+        if self.get_echo_cancel():
+            echo_module_id = self._load_echo_cancel_module(source_name)
+            if echo_module_id:
+                source_name = f"{source_name}.echo-cancel"
 
         try:
             result = subprocess.run(
                 [
                     "pactl",
                     "load-module",
-                    "module-loopback",
+                    "module-echo-cancel" if False else "module-loopback",
                     f"source={source_name}",
-                    "latency_msec=50",
+                    f"latency_msec={self.get_latency_ms()}",
                 ],
                 capture_output=True,
                 text=True,
@@ -219,10 +441,12 @@ class MicManager:
             )
             if result.returncode != 0:
                 logging.error(f"pactl load-module failed: {result.stderr.strip()}")
+                self._unload_module(echo_module_id)
                 return False
             module_id = result.stdout.strip()
         except (subprocess.TimeoutExpired, FileNotFoundError) as e:
             logging.error(f"Failed to load loopback module: {e}")
+            self._unload_module(echo_module_id)
             return False
 
         # Set source volume
@@ -236,6 +460,7 @@ class MicManager:
             pass
 
         active = _ActiveMic(device_id=device_id, loopback_module_id=module_id)
+        active.echo_module_id = echo_module_id
         self._active_mics[device_id] = active
         logging.info(f"Mic activated (pactl loopback module {module_id}): {dev['label']}")
         return True
@@ -273,7 +498,7 @@ class MicManager:
         in_channels = min(dev_info["max_input_channels"], 2)
         out_channels = min(out_info["max_output_channels"], 2)
         samplerate = int(dev_info["default_samplerate"])
-        gain = min(volume, 1.0)
+        gain = min(volume, _MAX_GAIN)
         mono_to_stereo = in_channels == 1 and out_channels == 2
 
         # Mutable container so the callback can read updated gain values
@@ -288,15 +513,10 @@ class MicManager:
                 outdata[:] = b"\x00" * len(outdata)
                 return
 
-            if current_gain >= 1.0:
+            if current_gain == 1.0:
                 source = indata
             else:
-                n_samples = len(indata) // 2
-                samples = struct.unpack(f"<{n_samples}h", indata)
-                source = struct.pack(
-                    f"<{n_samples}h",
-                    *(max(-32768, min(32767, int(s * current_gain))) for s in samples),
-                )
+                source = _apply_gain(indata, current_gain)
 
             if mono_to_stereo:
                 # Duplicate each mono sample for left and right channels
@@ -333,6 +553,46 @@ class MicManager:
         )
         return True
 
+    def _load_echo_cancel_module(self, source_name: str) -> str | None:
+        """Load PulseAudio module-echo-cancel for a source. Returns module ID or None."""
+        try:
+            result = subprocess.run(
+                [
+                    "pactl",
+                    "load-module",
+                    "module-echo-cancel",
+                    f"source_name={source_name}.echo-cancel",
+                    f"source_master={source_name}",
+                    "aec_method=webrtc",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode != 0:
+                logging.warning(
+                    f"Echo cancel module failed (continuing without): {result.stderr.strip()}"
+                )
+                return None
+            logging.info(f"Echo cancellation loaded for source: {source_name}")
+            return result.stdout.strip()
+        except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+            logging.warning(f"Echo cancel module unavailable: {e}")
+            return None
+
+    def _unload_module(self, module_id: str | None) -> None:
+        """Unload a PulseAudio module by ID, if set."""
+        if not module_id:
+            return
+        try:
+            subprocess.run(
+                ["pactl", "unload-module", module_id],
+                capture_output=True,
+                timeout=5,
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+            logging.warning(f"Failed to unload module {module_id}: {e}")
+
     def deactivate(self, device_id: str) -> None:
         """Stop audio passthrough for a microphone device."""
         active = self._active_mics.pop(device_id, None)
@@ -340,14 +600,8 @@ class MicManager:
             return
 
         if active.loopback_module_id is not None:
-            try:
-                subprocess.run(
-                    ["pactl", "unload-module", active.loopback_module_id],
-                    capture_output=True,
-                    timeout=5,
-                )
-            except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-                logging.warning(f"Failed to unload loopback module: {e}")
+            self._unload_module(active.loopback_module_id)
+            self._unload_module(active.echo_module_id)
         elif active.stream is not None:
             try:
                 active.stream.stop()
@@ -363,7 +617,7 @@ class MicManager:
         if not active:
             return
 
-        gain = min(volume, 1.0)
+        gain = min(volume, _MAX_GAIN)
 
         if active.loopback_module_id is not None:
             # Update volume via pactl
@@ -387,12 +641,20 @@ class MicManager:
     def refresh(self) -> list[dict]:
         """Re-enumerate devices and return enriched list."""
         self.enumerate_devices()
+        self.enumerate_output_devices()
         return self.get_enriched_devices()
 
     def start(self) -> None:
-        """Enumerate devices and restore previously enabled mics from preferences."""
+        """Enumerate devices, restore output selection, and re-enable saved mics."""
         self.enumerate_devices()
+        self.enumerate_output_devices()
+
         settings = self.load_settings()
+
+        # Restore saved output device selection
+        saved_output = settings.get("_output_device")
+        if saved_output:
+            self.set_output_device(saved_output)
         for dev in self._device_list:
             label = dev["label"]
             saved = settings.get(label, {})
@@ -425,6 +687,18 @@ class MicManager:
     def save_settings(self, settings: dict) -> None:
         """Persist mic settings to preferences."""
         self._preferences.set("mic_settings", json.dumps(settings))
+
+
+def _apply_gain(data: bytes, gain: float) -> bytes:
+    """Apply gain to int16 PCM audio data with clipping protection."""
+    import struct
+
+    n_samples = len(data) // 2
+    samples = struct.unpack(f"<{n_samples}h", data)
+    return struct.pack(
+        f"<{n_samples}h",
+        *(max(-32768, min(32767, int(s * gain))) for s in samples),
+    )
 
 
 def _reinit_portaudio() -> None:

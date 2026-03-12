@@ -140,6 +140,41 @@
 			window.socket = io();
 		}
 
+		// Output device dropdown
+		window.socket.on("output_devices_state", function(state) {
+			var select = $("#output-device-select");
+			select.empty();
+			select.append('<option value="">{{ _("System default") }}</option>');
+			state.devices.forEach(function(dev) {
+				var escaped = $('<span>').text(dev.label).html();
+				var val = dev.paSink || dev.deviceId;
+				select.append('<option value="' + val + '"' +
+					(val === state.selected ? ' selected' : '') + '>' + escaped + '</option>');
+			});
+		});
+
+		$("#output-device-select").on("change", function() {
+			window.socket.emit("output_device_change", {outputDevice: $(this).val()});
+		});
+
+		// Mic settings (latency, echo cancel)
+		window.socket.on("mic_settings_state", function(state) {
+			$("#mic-latency").val(state.latency_ms);
+			$("#mic-latency-value").text(state.latency_ms + "ms");
+			$("#mic-echo-cancel").prop("checked", state.echo_cancel);
+		});
+
+		$(document).on("input", "#mic-latency", debounce(function() {
+			var val = parseInt($(this).val());
+			$("#mic-latency-value").text(val + "ms");
+			window.socket.emit("mic_latency_change", {latency_ms: val});
+		}, 500));
+
+		$(document).on("change", "#mic-echo-cancel", function() {
+			window.socket.emit("mic_echo_cancel_change", {enabled: $(this).is(":checked")});
+		});
+
+		// Mic device list
 		window.socket.on("mic_devices_state", function(devices) {
 			var list = $("#mic-list");
 			list.empty();
@@ -157,7 +192,7 @@
 								(dev.enabled ? 'checked' : '') + ' />' +
 							'<span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + escaped + '</span>' +
 						'</label>' +
-						'<input type="range" min="0" max="1" step="0.05" value="' + dev.volume + '" ' +
+						'<input type="range" min="0" max="2" step="0.05" value="' + dev.volume + '" ' +
 							'class="mic-volume" data-device-id="' + dev.deviceId + '" data-label="' + escaped + '" ' +
 							'style="width: 100px; margin-left: 8px;" ' + (!dev.enabled ? 'disabled' : '') + ' />' +
 					'</div>'
@@ -214,8 +249,10 @@
 			}, 3000);
 		});
 
-		// Request current mic list on page load
+		// Request current state on page load
 		window.socket.emit("request_mic_devices");
+		window.socket.emit("request_output_devices");
+		window.socket.emit("request_mic_settings");
 
 		// Fetch system stats asynchronously
 			$.getJSON("{{ url_for('info.get_system_stats') }}", function(data) {
@@ -391,18 +428,45 @@
 
 			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				<div class="media-content">
-					<h3 class="title mb-0">{% trans %}Microphones{% endtrans %}</h3>
+					<h3 class="title mb-0">{% trans %}Audio{% endtrans %}</h3>
 				</div>
 			</header>
 			<div class="card-content collapsible-content">
 				<div class="content">
 					{% if mic_available %}
-					<p class="is-size-7 has-text-grey mb-3">
+					<h5 class="mb-2">{% trans %}Audio output{% endtrans %}</h5>
+					<p class="is-size-7 has-text-grey mb-2">
+						{% trans %}Select which audio device plays karaoke audio. On a dedicated device, this changes the system default output.{% endtrans %}
+					</p>
+					<div class="select is-small mb-4" style="width: 100%;">
+						<select id="output-device-select" style="width: 100%;">
+							<option value="">{% trans %}System default{% endtrans %}</option>
+						</select>
+					</div>
+
+					<h5 class="mb-2">{% trans %}Microphones{% endtrans %}</h5>
+					<p class="is-size-7 has-text-grey mb-2">
 						{% trans %}Microphones detected on the server. Audio is routed directly to speakers.{% endtrans %}
 					</p>
 					<div id="mic-list">
 						<p class="has-text-grey">{% trans %}No microphones detected. Connect a USB or Bluetooth mic and click Refresh.{% endtrans %}</p>
 					</div>
+
+					<div class="is-flex mt-3 mb-2" style="align-items: center;">
+						<label class="label mr-2 mb-0" style="white-space: nowrap; font-size: 0.85rem;">{% trans %}Latency{% endtrans %}</label>
+						<input type="range" id="mic-latency" min="10" max="200" step="10" value="50" style="flex: 1;" />
+						<span id="mic-latency-value" class="ml-2 is-size-7" style="min-width: 45px;">50ms</span>
+					</div>
+					{% if is_linux %}
+					<div class="is-flex mb-2" style="align-items: center;">
+						<label class="checkbox" style="font-size: 0.85rem;">
+							<input type="checkbox" id="mic-echo-cancel" class="mr-1" />
+							{% trans %}Echo cancellation{% endtrans %}
+						</label>
+						<span class="is-size-7 has-text-grey ml-2">{% trans %}(reduces feedback, adds latency){% endtrans %}</span>
+					</div>
+					{% endif %}
+
 					<button id="mic-refresh" class="button is-small is-primary is-outlined mt-3">{% trans %}Refresh{% endtrans %}</button>
 					{% else %}
 					<p class="has-text-warning">
