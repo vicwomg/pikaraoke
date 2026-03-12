@@ -139,7 +139,6 @@ def delete_file(query):
             _("Song deleted: %s") % k.song_manager.filename_from_path(song_path),
             "is-warning",
         )
-    referrer = query.get("referrer") or url_for("files.browse")
     return redirect(referrer)
 
 
@@ -178,6 +177,9 @@ def rename_file(form):
     referrer = form.get("referrer") or url_for("files.browse")
     new_name = form["new_file_name"]
     old_name = form["old_file_name"]
+    if not is_admin():
+        flash(_("You don't have permission to edit songs"), "is-danger")
+        return redirect(referrer)
     if k.queue_manager.is_song_in_queue(old_name):
         # check one more time just in case someone added it during editing
         # MSG: Message shown after trying to edit a song that is in the queue.
