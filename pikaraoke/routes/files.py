@@ -120,6 +120,10 @@ def delete_file(query):
     """Delete a song file."""
     k = get_karaoke_instance()
     song_path = query["song"]
+    referrer = query.get("referrer") or url_for("files.browse")
+    if not is_admin():
+        flash(_("You don't have permission to delete songs"), "is-danger")
+        return redirect(referrer)
     if k.queue_manager.is_song_in_queue(song_path):
         flash(
             # MSG: Message shown after trying to delete a song that is in the queue.
@@ -131,7 +135,10 @@ def delete_file(query):
     else:
         k.song_manager.delete(song_path)
         # MSG: Message shown after deleting a song. Followed by the song path
-        flash(_("Song deleted: %s") % k.song_manager.filename_from_path(song_path), "is-warning")
+        flash(
+            _("Song deleted: %s") % k.song_manager.filename_from_path(song_path),
+            "is-warning",
+        )
     referrer = query.get("referrer") or url_for("files.browse")
     return redirect(referrer)
 
@@ -144,6 +151,9 @@ def edit_file(query):
     site_name = get_site_name()
     song_path = query["song"]
     referrer = query.get("referrer") or url_for("files.browse")
+    if not is_admin():
+        flash(_("You don't have permission to edit songs"), "is-danger")
+        return redirect(referrer)
     if k.queue_manager.is_song_in_queue(song_path):
         # MSG: Message shown after trying to edit a song that is in the queue.
         flash(
