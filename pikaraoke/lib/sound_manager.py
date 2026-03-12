@@ -39,10 +39,6 @@ _VIRTUAL_INPUT_DEVICE_NAMES = {
     "Microsoft Sound Mapper - Input",
     "Primary Sound Capture Driver",
 }
-_VIRTUAL_OUTPUT_DEVICE_NAMES = {
-    "Microsoft Sound Mapper - Output",
-    "Primary Sound Driver",
-}
 
 
 def _pactl_list_sinks() -> list[dict]:
@@ -148,7 +144,7 @@ class _ActiveMic:
         self.echo_module_id = echo_module_id
 
 
-class MicManager:
+class SoundManager:
     """Manages microphone enumeration and audio passthrough.
 
     On Linux (with PulseAudio or PipeWire), uses pactl module-loopback for
@@ -236,51 +232,22 @@ class MicManager:
             )
         return enriched
 
+    @property
+    def output_selection_available(self) -> bool:
+        """Whether audio output device selection is supported on this platform."""
+        return _HAS_PACTL
+
     def enumerate_output_devices(self) -> list[dict]:
-        """Query system audio output devices."""
+        """Query system audio output devices (Linux only via pactl)."""
         if _HAS_PACTL:
             self._output_device_list = _pactl_list_sinks()
             logging.info(
                 f"Output devices enumerated (pactl): "
                 f"{[d['label'] for d in self._output_device_list]}"
             )
-        elif _SOUNDDEVICE_AVAILABLE:
-            self._output_device_list = self._enumerate_output_sounddevice()
         else:
             self._output_device_list = []
         return self._output_device_list
-
-    def _enumerate_output_sounddevice(self) -> list[dict]:
-        """Enumerate output devices via sounddevice (Windows/macOS).
-
-        Filters to the same host API as the default output device to avoid
-        showing duplicate entries (MME, DirectSound, WASAPI, etc.).
-        """
-        try:
-            devices = sd.query_devices()
-        except sd.PortAudioError as e:
-            logging.error(f"Failed to query audio devices: {e}")
-            return []
-
-        preferred_hostapi = None
-        try:
-            default_out = sd.query_devices(kind="output")
-            preferred_hostapi = default_out["hostapi"]
-        except (sd.PortAudioError, ValueError):
-            pass
-
-        outputs = []
-        for i, dev in enumerate(devices):
-            if dev["max_output_channels"] <= 0:
-                continue
-            if dev["name"] in _VIRTUAL_OUTPUT_DEVICE_NAMES:
-                continue
-            if preferred_hostapi is not None and dev["hostapi"] != preferred_hostapi:
-                continue
-            outputs.append({"deviceId": str(i), "label": dev["name"]})
-
-        logging.info(f"Output devices enumerated (sounddevice): {[d['label'] for d in outputs]}")
-        return outputs
 
     def get_output_devices_state(self) -> dict:
         """Return output device list and currently selected output."""
@@ -295,10 +262,9 @@ class MicManager:
         return settings.get("_output_device")
 
     def set_output_device(self, output_id: str | None) -> bool:
-        """Set the system default audio output device.
+        """Set the system default audio output device via pactl set-default-sink.
 
-        On Linux, uses pactl set-default-sink. Persists the choice in preferences.
-        Returns True if the change was applied successfully.
+        Persists the choice in preferences. Only functional on Linux.
         """
         settings = self.load_settings()
         if output_id:
@@ -308,11 +274,7 @@ class MicManager:
         self.save_settings(settings)
 
         if not _HAS_PACTL:
-            logging.info(
-                f"Output device preference saved: {output_id or 'system default'} "
-                "(non-Linux; no system-level routing applied)"
-            )
-            return True
+            return False
 
         if not output_id:
             logging.info("Output device reset to system default")

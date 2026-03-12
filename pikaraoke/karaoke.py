@@ -26,12 +26,12 @@ from pikaraoke.lib.get_platform import (
     get_platform,
     is_raspberry_pi,
 )
-from pikaraoke.lib.mic_manager import MicManager
 from pikaraoke.lib.network import get_ip
 from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
+from pikaraoke.lib.sound_manager import SoundManager
 from pikaraoke.lib.youtube_dl import (
     get_search_results,
     get_youtubedl_version,
@@ -79,7 +79,7 @@ class Karaoke:
     download_manager: DownloadManager
 
     # Microphone manager for server-side mic passthrough
-    mic_manager: MicManager
+    sound_manager: SoundManager
 
     # Event system and preferences
     events: EventSystem
@@ -236,11 +236,11 @@ class Karaoke:
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
 
         # Initialize microphone manager for server-side mic passthrough
-        self.mic_manager = MicManager(
+        self.sound_manager = SoundManager(
             preferences=self.preferences,
             events=self.events,
         )
-        self.mic_manager.start()
+        self.sound_manager.start()
 
         # Initialize queue manager
         self.queue_manager = QueueManager(
@@ -435,7 +435,7 @@ class Karaoke:
 
     def stop(self) -> None:
         """Stop the karaoke run loop."""
-        self.mic_manager.stop()
+        self.sound_manager.stop()
         self.running = False
 
     def handle_run_loop(self) -> None:
