@@ -563,6 +563,9 @@ def _strip_attribution_and_noise(name: str) -> str:
         while prev != name:
             prev = name
             name = noise_pat.sub("", name)
+    # Strip dangling separator left by noise removal (e.g. "Title -")
+    # before the caller composes "Title - Artist"
+    name = re.sub(r"\s*-\s*$", "", name)
     return name.strip()
 
 

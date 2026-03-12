@@ -515,6 +515,10 @@ class TestRegexTidy:
     def test_strips_karaoke_by_source(self):
         assert regex_tidy("Artist - Song - Karaoke by Stingray") == "Artist - Song"
 
+    def test_no_dangling_separator_after_noise_and_attribution_removal(self):
+        result = regex_tidy("Fernando - KARAOKE VERSION - as popularized by ABBA")
+        assert result == "Fernando - ABBA"
+
     def test_no_change_when_clean(self):
         assert regex_tidy("Artist - Song Title") == "Artist - Song Title"
 
