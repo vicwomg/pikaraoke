@@ -26,6 +26,7 @@ from pikaraoke.lib.get_platform import (
     get_platform,
     is_raspberry_pi,
 )
+from pikaraoke.lib.mic_manager import MicManager
 from pikaraoke.lib.network import get_ip
 from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
@@ -76,6 +77,9 @@ class Karaoke:
 
     # Download manager for serialized downloads
     download_manager: DownloadManager
+
+    # Microphone manager for server-side mic passthrough
+    mic_manager: MicManager
 
     # Event system and preferences
     events: EventSystem
@@ -230,6 +234,13 @@ class Karaoke:
         self.events.on("playback_started", self.update_now_playing_socket)
         self.events.on("song_ended", self.update_now_playing_socket)
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
+
+        # Initialize microphone manager for server-side mic passthrough
+        self.mic_manager = MicManager(
+            preferences=self.preferences,
+            events=self.events,
+        )
+        self.mic_manager.start()
 
         # Initialize queue manager
         self.queue_manager = QueueManager(
@@ -424,6 +435,7 @@ class Karaoke:
 
     def stop(self) -> None:
         """Stop the karaoke run loop."""
+        self.mic_manager.stop()
         self.running = False
 
     def handle_run_loop(self) -> None:

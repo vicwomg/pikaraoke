@@ -79,6 +79,7 @@ def info():
             "mid": k.mid_score_phrases,
             "high": k.high_score_phrases,
         },
+        mic_available=k.mic_manager.available,
     )
 
 

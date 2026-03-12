@@ -135,7 +135,89 @@
 				updatePhrases(phrases)
 			})
 
-			// Fetch system stats asynchronously
+		// Microphone management via SocketIO
+		if (typeof window.socket === 'undefined') {
+			window.socket = io();
+		}
+
+		window.socket.on("mic_devices_state", function(devices) {
+			var list = $("#mic-list");
+			list.empty();
+			if (devices.length === 0) {
+				list.html('<p class="has-text-grey">{{ _("No microphones detected. Connect a USB or Bluetooth mic and click Refresh.") }}</p>');
+				return;
+			}
+			devices.forEach(function(dev) {
+				var escaped = $('<span>').text(dev.label).html();
+				list.append(
+					'<div class="is-flex mb-2" style="align-items: center;">' +
+						'<label class="checkbox" style="flex: 1; display: flex; align-items: center; min-width: 0;">' +
+							'<input type="checkbox" class="mic-toggle mr-2" ' +
+								'data-device-id="' + dev.deviceId + '" data-label="' + escaped + '" ' +
+								(dev.enabled ? 'checked' : '') + ' />' +
+							'<span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + escaped + '</span>' +
+						'</label>' +
+						'<input type="range" min="0" max="1" step="0.05" value="' + dev.volume + '" ' +
+							'class="mic-volume" data-device-id="' + dev.deviceId + '" data-label="' + escaped + '" ' +
+							'style="width: 100px; margin-left: 8px;" ' + (!dev.enabled ? 'disabled' : '') + ' />' +
+					'</div>'
+				);
+			});
+		});
+
+		window.socket.on("mic_update", function(data) {
+			var toggle = $(".mic-toggle").filter(function() {
+				return $(this).data("device-id") === data.deviceId;
+			});
+			if (toggle.length) {
+				toggle.prop("checked", data.enabled);
+				var slider = $(".mic-volume").filter(function() {
+					return $(this).data("device-id") === data.deviceId;
+				});
+				slider.val(data.volume);
+				slider.prop("disabled", !data.enabled);
+			}
+		});
+
+		$(document).on("change", ".mic-toggle", function() {
+			var deviceId = $(this).data("device-id");
+			var label = $(this).data("label");
+			var enabled = $(this).is(":checked");
+			var slider = $(".mic-volume").filter(function() {
+				return $(this).data("device-id") === deviceId;
+			});
+			var volume = parseFloat(slider.val());
+			slider.prop("disabled", !enabled);
+			window.socket.emit("mic_update", {
+				deviceId: deviceId, label: label, enabled: enabled, volume: volume
+			});
+		});
+
+		$(document).on("input", ".mic-volume", debounce(function() {
+			var deviceId = $(this).data("device-id");
+			var label = $(this).data("label");
+			var volume = parseFloat($(this).val());
+			var enabled = $(".mic-toggle").filter(function() {
+				return $(this).data("device-id") === deviceId;
+			}).is(":checked");
+			window.socket.emit("mic_update", {
+				deviceId: deviceId, label: label, enabled: enabled, volume: volume
+			});
+		}, 300));
+
+		$("#mic-refresh").click(function(e) {
+			e.preventDefault();
+			window.socket.emit("mic_refresh");
+			$(this).prop("disabled", true).text("{{ _('Scanning...') }}");
+			setTimeout(function() {
+				$("#mic-refresh").prop("disabled", false).text("{{ _('Refresh') }}");
+			}, 3000);
+		});
+
+		// Request current mic list on page load
+		window.socket.emit("request_mic_devices");
+
+		// Fetch system stats asynchronously
 			$.getJSON("{{ url_for('info.get_system_stats') }}", function(data) {
 				if (data.error) {
 					console.error("Error fetching stats:", data.error);
@@ -302,6 +384,36 @@
 							{# MSG: Numberbox label for setting the delay before playing the next song #} {% trans %}The delay in seconds before starting the next song{% endtrans %}
 						</label>
 					</div>
+				</div>
+			</div>
+
+			<hr class="my-0">
+
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				<div class="media-content">
+					<h3 class="title mb-0">{% trans %}Microphones{% endtrans %}</h3>
+				</div>
+			</header>
+			<div class="card-content collapsible-content">
+				<div class="content">
+					{% if mic_available %}
+					<p class="is-size-7 has-text-grey mb-3">
+						{% trans %}Microphones detected on the server. Audio is routed directly to speakers.{% endtrans %}
+					</p>
+					<div id="mic-list">
+						<p class="has-text-grey">{% trans %}No microphones detected. Connect a USB or Bluetooth mic and click Refresh.{% endtrans %}</p>
+					</div>
+					<button id="mic-refresh" class="button is-small is-primary is-outlined mt-3">{% trans %}Refresh{% endtrans %}</button>
+					{% else %}
+					<p class="has-text-warning">
+						{% trans %}Microphone support is unavailable. Required audio tools are not installed.{% endtrans %}
+					</p>
+					<p class="is-size-7 has-text-grey">
+						{% trans %}On Linux / Raspberry Pi, install it with:{% endtrans %}
+						<code>sudo apt install pulseaudio-utils</code>
+						{% trans %}and restart PiKaraoke.{% endtrans %}
+					</p>
+					{% endif %}
 				</div>
 			</div>
 

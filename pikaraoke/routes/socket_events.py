@@ -88,3 +88,45 @@ def setup_socket_events(socketio):
                     master_splash_id = new_master
                     socketio.emit("splash_role", "master", room=new_master)
                     logging.info(f"New master splash elected: {new_master}")
+
+    @socketio.on("request_mic_devices")
+    def handle_request_mic_devices() -> None:
+        """Client requests the current mic device list from the server."""
+        k = get_karaoke_instance()
+        socketio.emit("mic_devices_state", k.mic_manager.get_enriched_devices(), room=request.sid)
+
+    @socketio.on("mic_refresh")
+    def handle_mic_refresh() -> None:
+        """Re-enumerate mic devices server-side and broadcast updated list."""
+        k = get_karaoke_instance()
+        enriched = k.mic_manager.refresh()
+        socketio.emit("mic_devices_state", enriched)
+
+    @socketio.on("mic_update")
+    def handle_mic_update(data: dict) -> None:
+        """Handle mic configuration change from control UI.
+
+        Persists settings and activates/deactivates mic server-side.
+        """
+        k = get_karaoke_instance()
+        label = data.get("label", "")
+        device_id = str(data.get("deviceId", ""))
+        enabled = data.get("enabled", False)
+        volume = data.get("volume", 1.0)
+
+        if label:
+            settings = k.mic_manager.load_settings()
+            new_state = {"enabled": enabled, "volume": volume}
+            if settings.get(label) == new_state:
+                return
+            settings[label] = new_state
+            k.mic_manager.save_settings(settings)
+
+        # Activate or deactivate the mic stream server-side
+        if enabled:
+            k.mic_manager.activate(device_id, volume)
+        else:
+            k.mic_manager.deactivate(device_id)
+
+        logging.info(f"Mic update: {label} enabled={enabled} volume={volume}")
+        socketio.emit("mic_update", data)
