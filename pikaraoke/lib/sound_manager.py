@@ -9,6 +9,7 @@ import json
 import logging
 import re
 import shutil
+import struct
 import subprocess
 
 from pikaraoke.lib.events import EventSystem
@@ -189,6 +190,14 @@ class SoundManager:
             )
         return enriched
 
+    def get_mic_settings_state(self) -> dict:
+        """Return latency and echo-cancel state from a single settings load."""
+        settings = self.load_settings()
+        return {
+            "latency_ms": int(settings.get("_latency_ms", _DEFAULT_LATENCY_MS)),
+            "echo_cancel": bool(settings.get("_echo_cancel", False)),
+        }
+
     def get_latency_ms(self) -> int:
         """Get the configured mic loopback latency in milliseconds."""
         settings = self.load_settings()
@@ -218,21 +227,24 @@ class SoundManager:
 
     def _restart_active_mics(self) -> None:
         """Deactivate and re-activate all active mics to apply changed settings."""
+        settings = self.load_settings()
         active_snapshot = [
-            (mic.device_id, self._get_active_volume(mic)) for mic in self._active_mics.values()
+            (mic.device_id, self._get_active_volume(mic, settings))
+            for mic in self._active_mics.values()
         ]
         self.stop()
         for device_id, volume in active_snapshot:
             self.activate(device_id, volume)
 
-    def _get_active_volume(self, mic: _ActiveMic) -> float:
+    def _get_active_volume(self, mic: _ActiveMic, settings: dict | None = None) -> float:
         """Read the current volume from an active mic."""
         if mic.mic_state is not None:
             return mic.mic_state[0]
         # For pactl mics, look up saved volume from settings
         dev = self._find_device(mic.device_id)
         if dev:
-            settings = self.load_settings()
+            if settings is None:
+                settings = self.load_settings()
             saved = settings.get(dev["label"], {})
             return saved.get("volume", 1.0)
         return 1.0
@@ -275,7 +287,7 @@ class SoundManager:
                 [
                     "pactl",
                     "load-module",
-                    "module-echo-cancel" if False else "module-loopback",
+                    "module-loopback",
                     f"source={source_name}",
                     f"latency_msec={self.get_latency_ms()}",
                 ],
@@ -315,8 +327,6 @@ class SoundManager:
         Uses a duplex RawStream with separate input/output channel counts
         to handle mono mics routed to stereo outputs.
         """
-        import struct
-
         idx = int(device_id)
         try:
             dev_info = sd.query_devices(idx)
@@ -529,7 +539,6 @@ class SoundManager:
 
 def _apply_gain(data: bytes, gain: float) -> bytes:
     """Apply gain to int16 PCM audio data with clipping protection."""
-    import struct
 
     n_samples = len(data) // 2
     samples = struct.unpack(f"<{n_samples}h", data)

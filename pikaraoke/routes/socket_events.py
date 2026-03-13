@@ -99,35 +99,13 @@ def setup_socket_events(socketio):
             room=request.sid,
         )
 
-    @socketio.on("request_output_devices")
-    def handle_request_output_devices() -> None:
-        """Client requests the current audio output device list."""
-        k = get_karaoke_instance()
-        socketio.emit(
-            "output_devices_state",
-            k.sound_manager.get_output_devices_state(),
-            room=request.sid,
-        )
-
-    @socketio.on("output_device_change")
-    def handle_output_device_change(data: dict) -> None:
-        """Handle audio output device selection from control UI."""
-        k = get_karaoke_instance()
-        output_id = data.get("outputDevice") or None
-        k.sound_manager.set_output_device(output_id)
-        logging.info(f"Output device changed: {output_id or 'system default'}")
-        socketio.emit("output_devices_state", k.sound_manager.get_output_devices_state())
-
     @socketio.on("request_mic_settings")
     def handle_request_mic_settings() -> None:
         """Client requests current mic global settings (latency, echo cancel)."""
         k = get_karaoke_instance()
         socketio.emit(
             "mic_settings_state",
-            {
-                "latency_ms": k.sound_manager.get_latency_ms(),
-                "echo_cancel": k.sound_manager.get_echo_cancel(),
-            },
+            k.sound_manager.get_mic_settings_state(),
             room=request.sid,
         )
 
@@ -137,13 +115,7 @@ def setup_socket_events(socketio):
         k = get_karaoke_instance()
         latency_ms = int(data.get("latency_ms", 50))
         k.sound_manager.set_latency_ms(latency_ms)
-        socketio.emit(
-            "mic_settings_state",
-            {
-                "latency_ms": k.sound_manager.get_latency_ms(),
-                "echo_cancel": k.sound_manager.get_echo_cancel(),
-            },
-        )
+        socketio.emit("mic_settings_state", k.sound_manager.get_mic_settings_state())
 
     @socketio.on("mic_echo_cancel_change")
     def handle_mic_echo_cancel_change(data: dict) -> None:
@@ -151,13 +123,7 @@ def setup_socket_events(socketio):
         k = get_karaoke_instance()
         enabled = bool(data.get("enabled", False))
         k.sound_manager.set_echo_cancel(enabled)
-        socketio.emit(
-            "mic_settings_state",
-            {
-                "latency_ms": k.sound_manager.get_latency_ms(),
-                "echo_cancel": k.sound_manager.get_echo_cancel(),
-            },
-        )
+        socketio.emit("mic_settings_state", k.sound_manager.get_mic_settings_state())
 
     @socketio.on("mic_refresh")
     def handle_mic_refresh() -> None:
@@ -165,7 +131,6 @@ def setup_socket_events(socketio):
         k = get_karaoke_instance()
         enriched = k.sound_manager.refresh()
         socketio.emit("mic_devices_state", enriched)
-        socketio.emit("output_devices_state", k.sound_manager.get_output_devices_state())
 
     @socketio.on("mic_update")
     def handle_mic_update(data: dict) -> None:
