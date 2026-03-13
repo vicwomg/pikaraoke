@@ -163,8 +163,10 @@
 			list.empty();
 			if (devices.length === 0) {
 				list.html('<p class="has-text-grey">{{ _("No microphones detected. Connect a USB or Bluetooth mic and click Refresh.") }}</p>');
+				$("#mic-settings-panel").hide();
 				return;
 			}
+			$("#mic-settings-panel").show();
 			devices.forEach(function(dev) {
 				var escaped = $('<span>').text(dev.label).html();
 				list.append(
@@ -424,6 +426,7 @@
 						<p class="has-text-grey">{% trans %}No microphones detected. Connect a USB or Bluetooth mic and click Refresh.{% endtrans %}</p>
 					</div>
 
+					<div id="mic-settings-panel" style="display: none;">
 					<div class="is-flex mt-3 mb-2" style="align-items: center;">
 						<label class="label mr-2 mb-0" style="white-space: nowrap; font-size: 0.85rem;">{% trans %}Latency{% endtrans %}</label>
 						<input type="range" id="mic-latency" min="10" max="200" step="10" value="50" style="flex: 1;" />
@@ -438,6 +441,7 @@
 						<span class="is-size-7 has-text-grey ml-2">{% trans %}(reduces feedback, adds latency){% endtrans %}</span>
 					</div>
 					{% endif %}
+					</div>
 
 					<button id="mic-refresh" class="button is-small is-primary is-outlined mt-3">{% trans %}Refresh{% endtrans %}</button>
 					{% else %}
