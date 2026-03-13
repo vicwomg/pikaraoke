@@ -140,23 +140,6 @@
 			window.socket = io();
 		}
 
-		// Output device dropdown
-		window.socket.on("output_devices_state", function(state) {
-			var select = $("#output-device-select");
-			select.empty();
-			select.append('<option value="">{{ _("System default") }}</option>');
-			state.devices.forEach(function(dev) {
-				var escaped = $('<span>').text(dev.label).html();
-				var val = dev.paSink || dev.deviceId;
-				select.append('<option value="' + val + '"' +
-					(val === state.selected ? ' selected' : '') + '>' + escaped + '</option>');
-			});
-		});
-
-		$("#output-device-select").on("change", function() {
-			window.socket.emit("output_device_change", {outputDevice: $(this).val()});
-		});
-
 		// Mic settings (latency, echo cancel)
 		window.socket.on("mic_settings_state", function(state) {
 			$("#mic-latency").val(state.latency_ms);
@@ -251,7 +234,6 @@
 
 		// Request current state on page load
 		window.socket.emit("request_mic_devices");
-		window.socket.emit("request_output_devices");
 		window.socket.emit("request_mic_settings");
 
 		// Fetch system stats asynchronously
@@ -434,18 +416,6 @@
 			<div class="card-content collapsible-content">
 				<div class="content">
 					{% if mic_available %}
-					{% if output_selection_available %}
-					<h5 class="mb-2">{% trans %}Audio output{% endtrans %}</h5>
-					<p class="is-size-7 has-text-grey mb-2">
-						{% trans %}Select which audio device plays karaoke audio. On a dedicated device, this changes the system default output.{% endtrans %}
-					</p>
-					<div class="select is-small mb-4" style="width: 100%;">
-						<select id="output-device-select" style="width: 100%;">
-							<option value="">{% trans %}System default{% endtrans %}</option>
-						</select>
-					</div>
-					{% endif %}
-
 					<h5 class="mb-2">{% trans %}Microphones{% endtrans %}</h5>
 					<p class="is-size-7 has-text-grey mb-2">
 						{% trans %}Microphones detected on the server. Audio is routed directly to speakers.{% endtrans %}

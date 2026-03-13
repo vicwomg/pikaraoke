@@ -1,7 +1,7 @@
-"""Server-side microphone and audio output manager.
+"""Server-side microphone passthrough manager.
 
-Enumerates system audio input/output devices and manages passthrough from
-microphone inputs to audio outputs. Uses PulseAudio/PipeWire on Linux
+Enumerates system audio input devices and manages passthrough from
+microphone inputs to speakers. Uses PulseAudio/PipeWire on Linux
 (via pactl) and sounddevice (PortAudio) on Windows/macOS.
 """
 
@@ -39,48 +39,6 @@ _VIRTUAL_INPUT_DEVICE_NAMES = {
     "Microsoft Sound Mapper - Input",
     "Primary Sound Capture Driver",
 }
-
-
-def _pactl_list_sinks() -> list[dict]:
-    """List PulseAudio/PipeWire output sinks with descriptions."""
-    try:
-        result = subprocess.run(
-            ["pactl", "list", "sinks"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if result.returncode != 0:
-            return []
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return []
-
-    sinks: list[dict] = []
-    current: dict[str, str] = {}
-    for line in result.stdout.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("Sink #"):
-            if current.get("name"):
-                sinks.append(current)
-            current = {"sinkId": stripped.split("#", 1)[1]}
-        name_match = re.match(r"Name:\s+(.+)", stripped)
-        if name_match:
-            current["name"] = name_match.group(1)
-        desc_match = re.match(r"Description:\s+(.+)", stripped)
-        if desc_match:
-            current["description"] = desc_match.group(1)
-
-    if current.get("name"):
-        sinks.append(current)
-
-    return [
-        {
-            "sinkId": s["sinkId"],
-            "label": s.get("description", s["name"]),
-            "paSink": s["name"],
-        }
-        for s in sinks
-    ]
 
 
 def _pactl_list_sources() -> list[dict]:
@@ -156,7 +114,6 @@ class SoundManager:
         self._events = events
         self._active_mics: dict[str, _ActiveMic] = {}
         self._device_list: list[dict] = []
-        self._output_device_list: list[dict] = []
 
     @property
     def available(self) -> bool:
@@ -231,81 +188,6 @@ class SoundManager:
                 }
             )
         return enriched
-
-    @property
-    def output_selection_available(self) -> bool:
-        """Whether audio output device selection is supported on this platform."""
-        return _HAS_PACTL
-
-    def enumerate_output_devices(self) -> list[dict]:
-        """Query system audio output devices (Linux only via pactl)."""
-        if _HAS_PACTL:
-            self._output_device_list = _pactl_list_sinks()
-            logging.info(
-                f"Output devices enumerated (pactl): "
-                f"{[d['label'] for d in self._output_device_list]}"
-            )
-        else:
-            self._output_device_list = []
-        return self._output_device_list
-
-    def get_output_devices_state(self) -> dict:
-        """Return output device list and currently selected output."""
-        return {
-            "devices": self._output_device_list,
-            "selected": self.get_selected_output(),
-        }
-
-    def get_selected_output(self) -> str | None:
-        """Get the saved output device identifier, or None for system default."""
-        settings = self.load_settings()
-        return settings.get("_output_device")
-
-    def set_output_device(self, output_id: str | None) -> bool:
-        """Set the system default audio output device via pactl set-default-sink.
-
-        Persists the choice in preferences. Only functional on Linux.
-        """
-        settings = self.load_settings()
-        if output_id:
-            settings["_output_device"] = output_id
-        else:
-            settings.pop("_output_device", None)
-        self.save_settings(settings)
-
-        if not _HAS_PACTL:
-            return False
-
-        if not output_id:
-            logging.info("Output device reset to system default")
-            return True
-
-        # Find the paSink name for this output_id
-        sink_name = None
-        for dev in self._output_device_list:
-            if dev["paSink"] == output_id:
-                sink_name = output_id
-                break
-        if not sink_name:
-            logging.error(f"Output device not found: {output_id}")
-            return False
-
-        try:
-            result = subprocess.run(
-                ["pactl", "set-default-sink", sink_name],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode != 0:
-                logging.error(f"pactl set-default-sink failed: {result.stderr.strip()}")
-                return False
-        except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-            logging.error(f"Failed to set default sink: {e}")
-            return False
-
-        logging.info(f"Default audio output set to: {sink_name}")
-        return True
 
     def get_latency_ms(self) -> int:
         """Get the configured mic loopback latency in milliseconds."""
@@ -603,20 +485,14 @@ class SoundManager:
     def refresh(self) -> list[dict]:
         """Re-enumerate devices and return enriched list."""
         self.enumerate_devices()
-        self.enumerate_output_devices()
         return self.get_enriched_devices()
 
     def start(self) -> None:
-        """Enumerate devices, restore output selection, and re-enable saved mics."""
+        """Enumerate devices and re-enable saved mics."""
         self.enumerate_devices()
-        self.enumerate_output_devices()
 
         settings = self.load_settings()
 
-        # Restore saved output device selection
-        saved_output = settings.get("_output_device")
-        if saved_output:
-            self.set_output_device(saved_output)
         for dev in self._device_list:
             label = dev["label"]
             saved = settings.get(label, {})

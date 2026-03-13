@@ -80,7 +80,6 @@ def info():
             "high": k.high_score_phrases,
         },
         mic_available=k.sound_manager.available,
-        output_selection_available=k.sound_manager.output_selection_available,
     )
 
 

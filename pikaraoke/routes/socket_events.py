@@ -93,14 +93,20 @@ def setup_socket_events(socketio):
     def handle_request_mic_devices() -> None:
         """Client requests the current mic device list from the server."""
         k = get_karaoke_instance()
-        socketio.emit("mic_devices_state", k.sound_manager.get_enriched_devices(), room=request.sid)
+        socketio.emit(
+            "mic_devices_state",
+            k.sound_manager.get_enriched_devices(),
+            room=request.sid,
+        )
 
     @socketio.on("request_output_devices")
     def handle_request_output_devices() -> None:
         """Client requests the current audio output device list."""
         k = get_karaoke_instance()
         socketio.emit(
-            "output_devices_state", k.sound_manager.get_output_devices_state(), room=request.sid
+            "output_devices_state",
+            k.sound_manager.get_output_devices_state(),
+            room=request.sid,
         )
 
     @socketio.on("output_device_change")
