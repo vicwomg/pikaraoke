@@ -311,16 +311,15 @@ class DownloadManager:
             else:
                 logging.warning("No video ID available to find downloaded song")
 
-            song_is_valid = False
             if song_path:
-                song_is_valid = self._song_manager.songs.add_if_valid(song_path)
+                self._events.emit("song_downloaded", song_path)
             else:
                 logging.warning(
                     f"Could not find downloaded song in {self._download_path} matching ID: {video_id}"
                 )
 
             if enqueue:
-                if song_is_valid and song_path:
+                if song_path:
                     self._queue_manager.enqueue(song_path, user, log_action=False)
                 else:
                     # MSG: Message shown after the download is completed but the adding to queue fails
