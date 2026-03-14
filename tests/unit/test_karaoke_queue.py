@@ -8,10 +8,10 @@ class TestEnqueue:
 
     def test_enqueue_adds_song_to_queue(self, mock_karaoke):
         """Test that enqueue adds a song to the queue."""
-        result = mock_karaoke.queue_manager.enqueue("/songs/test---abc123.mp4", "TestUser")
+        result = mock_karaoke.queue_manager.enqueue("/songs/test---dQw4w9WgXcQ.mp4", "TestUser")
 
         assert len(mock_karaoke.queue_manager.queue) == 1
-        assert mock_karaoke.queue_manager.queue[0]["file"] == "/songs/test---abc123.mp4"
+        assert mock_karaoke.queue_manager.queue[0]["file"] == "/songs/test---dQw4w9WgXcQ.mp4"
         assert mock_karaoke.queue_manager.queue[0]["user"] == "TestUser"
         assert mock_karaoke.queue_manager.queue[0]["title"] == "test"
         assert mock_karaoke.queue_manager.queue[0]["semitones"] == 0

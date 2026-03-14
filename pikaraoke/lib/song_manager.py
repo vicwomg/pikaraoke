@@ -1,7 +1,5 @@
 """Song library management: scan, delete, rename, and display name operations."""
 
-from __future__ import annotations
-
 import contextlib
 import logging
 import os
@@ -9,6 +7,7 @@ import re
 
 from pikaraoke.lib.get_platform import is_windows
 from pikaraoke.lib.karaoke_database import KaraokeDatabase, build_song_record
+from pikaraoke.lib.metadata_parser import regex_tidy, youtube_id_suffix
 from pikaraoke.lib.song_list import SongList
 
 # Characters illegal in Windows filenames
@@ -35,20 +34,27 @@ class SongManager:
         self._db = db
 
     @staticmethod
-    def filename_from_path(file_path: str, remove_youtube_id: bool = True) -> str:
-        """Extract a clean display name from a file path.
+    def filename_from_path(
+        file_path: str, remove_youtube_id: bool = True, tidy: bool = True
+    ) -> str:
+        """Extract a display name from a file path.
 
         Args:
             file_path: Full path to the file.
             remove_youtube_id: Strip YouTube ID suffix if present.
+            tidy: Apply regex_tidy() to strip noise words and normalize.
 
         Returns:
-            Clean filename without extension or YouTube ID.
+            Filename without extension, optionally cleaned.
         """
         name = os.path.splitext(os.path.basename(file_path))[0]
-        if remove_youtube_id:
-            name = name.split("---")[0]
-            name = re.sub(r"\s*\[[A-Za-z0-9_-]{11}\]$", "", name)
+        suffix = youtube_id_suffix(file_path)
+        if remove_youtube_id and suffix:
+            name = name[: -len(suffix)]
+        if tidy and suffix and remove_youtube_id:
+            tidied = regex_tidy(name)
+            if tidied:
+                name = tidied
         return name
 
     def _get_companion_files(self, song_path: str) -> list[str]:
