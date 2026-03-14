@@ -36,10 +36,11 @@ class LibraryScanner:
         Algorithm:
         1. Walk disk to collect current paths.
         2. Diff against DB paths to find new and gone files.
-        3. Circuit-breaker check: if >50% of DB songs are gone, skip deletes.
-        4. Filename-based move detection: unambiguous basename matches are
+        3. Filename-based move detection: unambiguous basename matches are
            treated as moves rather than delete+insert.
-        5. Apply inserts, path updates (moves), and deletes to the DB.
+        4. Circuit-breaker check: if >50% of truly missing songs (after
+           accounting for moves), skip deletes.
+        5. Apply path updates (moves), inserts, and deletes to the DB.
         """
         disk_paths = self._walk_disk(songs_dir)
         db_paths = set(self._db.get_all_song_paths())
@@ -47,14 +48,16 @@ class LibraryScanner:
         new_on_disk = disk_paths - db_paths
         gone_from_disk = db_paths - disk_paths
 
-        circuit_tripped = self._check_circuit_breaker(len(gone_from_disk), len(db_paths))
-
         moves = self._detect_moves(gone_from_disk, new_on_disk)
         moved_old = {old for old, _ in moves}
         moved_new = {new for _, new in moves}
 
         to_insert = new_on_disk - moved_new
         to_delete = gone_from_disk - moved_old
+
+        # Circuit breaker evaluates truly missing songs (after move detection),
+        # so relocated files don't falsely trigger it.
+        circuit_tripped = self._check_circuit_breaker(len(to_delete), len(db_paths))
 
         if moves:
             self._db.update_paths(moves)

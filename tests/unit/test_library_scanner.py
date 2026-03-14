@@ -168,6 +168,22 @@ class TestCircuitBreaker:
         assert result.added == 2
         assert result.deleted == 0
 
+    def test_moved_songs_do_not_trip_breaker(self, scanner, db, tmp_path):
+        """All songs relocated to a subdirectory should not trip the breaker."""
+        songs = self._seed_songs(tmp_path)
+        scanner.scan(str(tmp_path))
+
+        # Move all songs to a subdirectory (100% of paths change)
+        subdir = tmp_path / "moved"
+        subdir.mkdir()
+        for s in songs:
+            s.rename(subdir / s.name)
+
+        result = scanner.scan(str(tmp_path))
+        assert result.circuit_tripped is False
+        assert result.moved == 10
+        assert result.deleted == 0
+
     def test_no_trip_when_db_empty(self, scanner, db, tmp_path):
         result = scanner.scan(str(tmp_path))
         assert result.circuit_tripped is False

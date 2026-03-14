@@ -278,19 +278,6 @@ class Karaoke:
 
     def _apply_scan_result(self, result: ScanResult) -> None:
         """Update SongList and emit notifications after a scan."""
-        if result.circuit_tripped:
-            logging.error(
-                f"Circuit breaker tripped: >50% of songs missing. "
-                f"Drive may be unmounted: {self.download_path}"
-            )
-            self.events.emit(
-                "notification",
-                f"Song scan halted: too many songs missing. "
-                f"Check your song directory: {self.download_path}. "
-                "Click 'Sync Now' to retry after fixing.",
-                "danger",
-            )
-
         if result.added or result.moved or result.deleted:
             self.song_manager.songs.update(self.db.get_all_song_paths())
             parts = [
@@ -303,6 +290,20 @@ class Karaoke:
                 if count
             ]
             self.events.emit("notification", f"Library updated: {', '.join(parts)}", "success")
+
+        if result.circuit_tripped:
+            logging.error(
+                f"Circuit breaker tripped: >50% of songs missing. "
+                f"Drive may be unmounted: {self.download_path}"
+            )
+            self.events.emit(
+                "notification",
+                f"Song scan halted: too many songs missing. "
+                f"Check your song directory: {self.download_path}. "
+                "Click 'Sync Now' to retry after fixing.",
+                "danger",
+            )
+            return
 
         logging.info(f"Scan complete: {result}")
 
