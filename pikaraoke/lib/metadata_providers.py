@@ -16,6 +16,7 @@ import urllib3.util.ssl_
 from pikaraoke.lib.metadata_parser import (
     SPECIAL_VERSION_KEYWORDS,
     _normalize_for_comparison,
+    _remove_accents,
     regex_tidy,
 )
 
@@ -201,7 +202,7 @@ def _normalize_for_matching(text: str) -> str:
     - Dotted-letter collapse: 'D.I.V.O.R.C.E.' -> 'divorce', 'S.O.S.' -> 'sos'
     - Conjunction normalization: 'Simon And Garfunkel' matches 'Simon & Garfunkel'
     """
-    normalized = _normalize_for_comparison(text)
+    normalized = _remove_accents(_normalize_for_comparison(text))
     normalized = normalized.replace(",", "")
     # Collapse single-letter sequences separated by spaces (from dotted acronyms
     # like "D.I.V.O.R.C.E." which _normalize_for_comparison turns into "d i v o r c e")
