@@ -22,6 +22,9 @@ from pikaraoke.lib.metadata_parser import (
 # iTunes rate limit: ~20 requests/minute (~3s per request)
 ITUNES_RATE_LIMIT = 3.0
 ITUNES_SEARCH_URL = "https://itunes.apple.com/search"
+ITUNES_MAX_RETRIES = 3
+ITUNES_BACKOFF_BASE = 2.0
+_RETRYABLE_STATUS_CODES = {403, 429, 500, 502, 503, 504}
 
 
 def _fix_ssl_recursion() -> None:
@@ -71,6 +74,18 @@ class ITunesProvider:
     def _record_request(self) -> None:
         ITunesProvider._last_request_time = time.time()
 
+    def _backoff(self, attempt: int, query: str, reason: str) -> None:
+        """Sleep with exponential backoff before retrying."""
+        delay = ITUNES_RATE_LIMIT + ITUNES_BACKOFF_BASE ** (attempt + 1)
+        logging.info(
+            "iTunes retry %d for query '%s' (%s), backing off %.1fs",
+            attempt + 1,
+            query,
+            reason,
+            delay,
+        )
+        time.sleep(delay)
+
     def _parse_result(self, item: dict) -> dict:
         release_date = item.get("releaseDate", "")
         year = release_date[:4] if len(release_date) >= 4 else ""
@@ -82,42 +97,69 @@ class ITunesProvider:
             "source": "itunes",
         }
 
-    def search(self, query: str, limit: int = 5) -> list[dict]:
-        """Search iTunes for tracks matching a query."""
-        self._enforce_rate_limit()
-        try:
-            response = requests.get(
-                ITUNES_SEARCH_URL,
-                params={"term": query, "media": "music", "entity": "song", "limit": limit},
-                timeout=10,
-            )
-        except requests.exceptions.Timeout:
-            logging.warning("iTunes API request timed out for query: %s", query)
-            return []
-        except requests.exceptions.RequestException as e:
-            logging.error("iTunes API request failed for query: %s: %s", query, e)
-            return []
-        finally:
-            self._record_request()
+    def search(self, query: str, limit: int = 5, max_retries: int = 0) -> list[dict]:
+        """Search iTunes for tracks matching a query.
 
-        if response.status_code != 200:
-            logging.warning(
-                "iTunes API returned status %d for query: %s", response.status_code, query
-            )
-            return []
+        Args:
+            max_retries: Number of retry attempts for transient failures (timeouts,
+                rate limits, server errors). Use 0 for interactive contexts (edit page)
+                and ITUNES_MAX_RETRIES for background enrichment.
+        """
+        for attempt in range(max_retries + 1):
+            self._enforce_rate_limit()
+            try:
+                response = requests.get(
+                    ITUNES_SEARCH_URL,
+                    params={"term": query, "media": "music", "entity": "song", "limit": limit},
+                    timeout=10,
+                )
+            except requests.exceptions.Timeout:
+                logging.warning("iTunes API request timed out for query: %s", query)
+                if attempt < max_retries:
+                    self._backoff(attempt, query, "timeout")
+                    continue
+                return []
+            except requests.exceptions.RequestException as e:
+                logging.error("iTunes API request failed for query: %s: %s", query, e)
+                return []
+            finally:
+                self._record_request()
 
-        try:
-            data = response.json()
-        except requests.exceptions.JSONDecodeError:
-            logging.error("iTunes API returned invalid JSON for query: %s", query)
-            return []
+            if response.status_code in _RETRYABLE_STATUS_CODES:
+                logging.warning(
+                    "iTunes API returned status %d for query: %s", response.status_code, query
+                )
+                if attempt < max_retries:
+                    self._backoff(attempt, query, f"HTTP {response.status_code}")
+                    continue
+                return []
 
-        results = data.get("results", [])
-        return [self._parse_result(item) for item in results if item.get("wrapperType") == "track"]
+            if response.status_code != 200:
+                logging.warning(
+                    "iTunes API returned status %d for query: %s", response.status_code, query
+                )
+                return []
 
-    def lookup(self, artist: str, title: str) -> dict | None:
-        """Single best match for a known artist/title pair."""
-        results = self.search(f"{artist} {title}", limit=5)
+            try:
+                data = response.json()
+            except requests.exceptions.JSONDecodeError:
+                logging.error("iTunes API returned invalid JSON for query: %s", query)
+                return []
+
+            results = data.get("results", [])
+            return [
+                self._parse_result(item) for item in results if item.get("wrapperType") == "track"
+            ]
+
+        return []
+
+    def lookup(self, artist: str, title: str, max_retries: int = ITUNES_MAX_RETRIES) -> dict | None:
+        """Single best match for a known artist/title pair.
+
+        Defaults to ITUNES_MAX_RETRIES since lookup is typically called from
+        background enrichment where latency is not a concern.
+        """
+        results = self.search(f"{artist} {title}", limit=5, max_retries=max_retries)
         if not results:
             return None
 

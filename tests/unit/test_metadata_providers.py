@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from pikaraoke.lib.metadata_providers import (
+    ITUNES_MAX_RETRIES,
     ITunesProvider,
     get_provider,
     suggest_metadata,
@@ -209,6 +210,89 @@ class TestITunesProviderLookup:
         provider = ITunesProvider()
         result = provider.lookup("Nobody", "Nothing")
         assert result is None
+
+
+class TestITunesProviderRetry:
+    """Tests for ITunesProvider retry behavior."""
+
+    @patch("pikaraoke.lib.metadata_providers.time.sleep")
+    @patch("pikaraoke.lib.metadata_providers.requests.get")
+    def test_retries_on_timeout(self, mock_get, mock_sleep, provider):
+        import requests as req
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = ITUNES_RESPONSE
+        mock_get.side_effect = [req.exceptions.Timeout(), mock_response]
+        results = provider.search("Queen", max_retries=1)
+        assert len(results) == 2
+        assert mock_get.call_count == 2
+
+    @patch("pikaraoke.lib.metadata_providers.time.sleep")
+    @patch("pikaraoke.lib.metadata_providers.requests.get")
+    def test_retries_on_retryable_status(self, mock_get, mock_sleep, provider):
+        fail_response = MagicMock()
+        fail_response.status_code = 503
+        ok_response = MagicMock()
+        ok_response.status_code = 200
+        ok_response.json.return_value = ITUNES_RESPONSE
+        mock_get.side_effect = [fail_response, ok_response]
+        results = provider.search("Queen", max_retries=1)
+        assert len(results) == 2
+
+    @patch("pikaraoke.lib.metadata_providers.time.sleep")
+    @patch("pikaraoke.lib.metadata_providers.requests.get")
+    def test_no_retry_on_non_retryable_status(self, mock_get, mock_sleep, provider):
+        mock_get.return_value.status_code = 400
+        results = provider.search("Queen", max_retries=3)
+        assert results == []
+        assert mock_get.call_count == 1
+
+    @patch("pikaraoke.lib.metadata_providers.time.sleep")
+    @patch("pikaraoke.lib.metadata_providers.requests.get")
+    def test_no_retry_on_connection_error(self, mock_get, mock_sleep, provider):
+        import requests as req
+
+        mock_get.side_effect = req.exceptions.ConnectionError()
+        results = provider.search("Queen", max_retries=3)
+        assert results == []
+        assert mock_get.call_count == 1
+
+    @patch("pikaraoke.lib.metadata_providers.time.sleep")
+    @patch("pikaraoke.lib.metadata_providers.requests.get")
+    def test_gives_up_after_max_retries(self, mock_get, mock_sleep, provider):
+        mock_get.return_value.status_code = 429
+        results = provider.search("Queen", max_retries=2)
+        assert results == []
+        assert mock_get.call_count == 3  # initial + 2 retries
+
+    @patch("pikaraoke.lib.metadata_providers.time.sleep")
+    @patch("pikaraoke.lib.metadata_providers.requests.get")
+    def test_backoff_delay_increases(self, mock_get, mock_sleep, provider):
+        mock_get.return_value.status_code = 503
+        provider.search("Queen", max_retries=2)
+        # _backoff is called with attempt 0 and 1; delay = 3.0 + 2.0^(attempt+1)
+        backoff_sleeps = [
+            c.args[0] for c in mock_sleep.call_args_list if c.args and c.args[0] > 3.0
+        ]
+        assert len(backoff_sleeps) == 2
+        assert backoff_sleeps[1] > backoff_sleeps[0]
+
+    @patch("pikaraoke.lib.metadata_providers.time.sleep")
+    @patch("pikaraoke.lib.metadata_providers.requests.get")
+    def test_search_default_no_retries(self, mock_get, mock_sleep, provider):
+        mock_get.return_value.status_code = 503
+        results = provider.search("Queen")
+        assert results == []
+        assert mock_get.call_count == 1
+
+    @patch("pikaraoke.lib.metadata_providers.time.sleep")
+    @patch("pikaraoke.lib.metadata_providers.requests.get")
+    def test_lookup_defaults_to_max_retries(self, mock_get, mock_sleep, provider):
+        mock_get.return_value.status_code = 429
+        provider.lookup("Queen", "Under Pressure")
+        # initial + ITUNES_MAX_RETRIES retries
+        assert mock_get.call_count == ITUNES_MAX_RETRIES + 1
 
 
 class TestGetProvider:
