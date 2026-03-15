@@ -8,6 +8,8 @@ import pytest
 from pikaraoke.lib.metadata_providers import (
     ITUNES_MAX_RETRIES,
     ITunesProvider,
+    _normalize_for_matching,
+    _suggestion_score,
     get_provider,
     suggest_metadata,
 )
@@ -363,3 +365,55 @@ class TestSuggestMetadata:
         results = suggest_metadata("X - Y", provider=mock_provider)
         assert results[0]["source"] == "custom"
         mock_provider.search.assert_called_once()
+
+
+class TestNormalizeForMatching:
+    """Tests for _normalize_for_matching edge cases."""
+
+    def test_strips_commas(self):
+        assert _normalize_for_matching("Commodores, The") == "commodores the"
+
+    def test_collapses_dotted_acronyms(self):
+        assert _normalize_for_matching("D.I.V.O.R.C.E.") == "divorce"
+
+    def test_collapses_sos(self):
+        assert _normalize_for_matching("S.O.S.") == "sos"
+
+    def test_normalizes_ampersand_to_and(self):
+        assert _normalize_for_matching("Simon & Garfunkel") == "simon and garfunkel"
+
+    def test_leaves_normal_text_unchanged(self):
+        assert _normalize_for_matching("Dolly Parton") == "dolly parton"
+
+
+class TestSuggestionScoring:
+    """Tests for _suggestion_score ranking edge cases."""
+
+    def test_correct_artist_beats_artist_name_in_wrong_title(self):
+        """'Dolly Parton - DIVORCE' should rank Dolly Parton's D.I.V.O.R.C.E.
+        above a track that merely contains 'Dolly Parton' in its title."""
+        correct = {"artist": "Dolly Parton", "title": "D.I.V.O.R.C.E.", "genre": "Country"}
+        wrong = {
+            "artist": "David Liebe Hart",
+            "title": "Dolly Parton + Beer Cereal Divorce",
+            "genre": "Comedy",
+        }
+        query = "Dolly Parton - DIVORCE"
+        assert _suggestion_score(correct, query) > _suggestion_score(wrong, query)
+
+    def test_comma_inverted_artist_matches(self):
+        """'Commodores, The - Three Times A Lady' should rank The Commodores
+        above Kenny Rogers."""
+        correct = {"artist": "The Commodores", "title": "Three Times a Lady", "genre": "Soul"}
+        wrong = {"artist": "Kenny Rogers", "title": "Three Times a Lady", "genre": "Country"}
+        query = "Commodores, The - Three Times A Lady"
+        assert _suggestion_score(correct, query) > _suggestion_score(wrong, query)
+
+    def test_cross_field_bonus_not_applied_to_single_part_query(self):
+        """Single-part queries should not get the cross-field bonus."""
+        result = {"artist": "Queen", "title": "Bohemian Rhapsody", "genre": "Rock"}
+        # Single-part query: no " - " separator
+        score = _suggestion_score(result, "Queen Bohemian Rhapsody")
+        # Same result with two-part query should score higher due to cross-field
+        score_two_part = _suggestion_score(result, "Queen - Bohemian Rhapsody")
+        assert score_two_part > score

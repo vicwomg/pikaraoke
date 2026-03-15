@@ -184,13 +184,29 @@ def get_provider(preferences) -> MetadataProvider:
     return ITunesProvider()
 
 
+# Matches 3+ single letters separated by spaces (e.g. "d i v o r c e" from "D.I.V.O.R.C.E.")
+_SINGLE_LETTER_SEQ_RE = re.compile(r"\b([a-z](?:\s[a-z]){2,})\b")
+
+
+def _collapse_single_letters(match: re.Match) -> str:
+    """Collapse 'd i v o r c e' into 'divorce'."""
+    return match.group(1).replace(" ", "")
+
+
 def _normalize_for_matching(text: str) -> str:
     """Normalize text for fuzzy matching: punctuation, case, and conjunctions.
 
-    Extends _normalize_for_comparison (which handles punctuation and case)
-    with conjunction normalization so 'Simon And Garfunkel' matches 'Simon & Garfunkel'.
+    Extends _normalize_for_comparison (which handles punctuation and case) with:
+    - Comma stripping: 'Commodores, The' matches 'The Commodores'
+    - Dotted-letter collapse: 'D.I.V.O.R.C.E.' -> 'divorce', 'S.O.S.' -> 'sos'
+    - Conjunction normalization: 'Simon And Garfunkel' matches 'Simon & Garfunkel'
     """
     normalized = _normalize_for_comparison(text)
+    normalized = normalized.replace(",", "")
+    # Collapse single-letter sequences separated by spaces (from dotted acronyms
+    # like "D.I.V.O.R.C.E." which _normalize_for_comparison turns into "d i v o r c e")
+    normalized = _SINGLE_LETTER_SEQ_RE.sub(_collapse_single_letters, normalized)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
     return normalized.replace(" & ", " and ")
 
 
@@ -212,6 +228,11 @@ def _fuzzy_match(a: str, b: str) -> bool:
     return len(overlap) >= max(2, smaller - 1)
 
 
+def _matches_field(part_norm: str, field_norm: str) -> bool:
+    """Check if a normalized query part matches a normalized field value."""
+    return part_norm == field_norm or _fuzzy_match(part_norm, field_norm) or part_norm in field_norm
+
+
 def _suggestion_score(result: dict, query: str, featuring: str = "") -> int:
     """Score a suggestion result for relevance, version quality, and genre."""
     score = 0
@@ -226,16 +247,36 @@ def _suggestion_score(result: dict, query: str, featuring: str = "") -> int:
 
     # Query relevance: split "artist - title" and match against result fields
     parts = [p.strip() for p in query.lower().split(" - ", 1)]
+    artist_matched = False
+    title_matched = False
     for part in parts:
         if not part:
             continue
         part_norm = _normalize_for_matching(part)
-        if part_norm == artist_norm or part == title_lower or part == title_base:
-            score += 50
-        elif _fuzzy_match(part_norm, artist_norm) or _fuzzy_match(part_norm, title_norm):
-            score += 40
-        elif part_norm in artist_norm or part_norm in title_norm:
-            score += 25
+        matched_artist = _matches_field(part_norm, artist_norm)
+        matched_title = (
+            part == title_lower or part == title_base or _matches_field(part_norm, title_norm)
+        )
+        if matched_artist:
+            artist_matched = True
+        if matched_title:
+            title_matched = True
+        best = max(
+            50 if (part_norm == artist_norm or part == title_lower or part == title_base) else 0,
+            40
+            if (_fuzzy_match(part_norm, artist_norm) or _fuzzy_match(part_norm, title_norm))
+            else 0,
+            25 if (part_norm in artist_norm or part_norm in title_norm) else 0,
+        )
+        score += best
+
+    # Cross-field bonus: when one query part matched the artist and another
+    # matched the title, the result aligns with the query's structure.
+    # Without this, a result where both parts coincidentally appear in the
+    # title (e.g. a track titled "Dolly Parton + Beer Cereal Divorce" by
+    # David Liebe Hart) could outscore a result with the correct artist.
+    if len(parts) >= 2 and artist_matched and title_matched:
+        score += 30
 
     # Bonus if the featuring artist appears in the result title
     if featuring and featuring.lower() in title_lower:
