@@ -46,6 +46,7 @@ class PreferenceManager:
         "high_score_phrases": "",
         "show_splash_clock": False,
         "enable_title_tidy": False,
+        "metadata_provider": "itunes",
     }
 
     def __init__(self, config_file_path: str = "config.ini", target: object | None = None) -> None:

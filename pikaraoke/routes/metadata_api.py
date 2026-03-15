@@ -1,9 +1,11 @@
-"""API endpoints for song metadata: tidy names and Last.fm suggestions."""
+"""API endpoints for song metadata: tidy names and iTunes suggestions."""
 
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
-from pikaraoke.lib.metadata_parser import regex_tidy, search_lastfm_tracks
+from pikaraoke.lib.current_app import get_karaoke_instance
+from pikaraoke.lib.metadata_parser import regex_tidy
+from pikaraoke.lib.metadata_providers import get_provider, suggest_metadata
 
 metadata_bp = Blueprint("metadata", __name__)
 
@@ -27,6 +29,8 @@ def tidy_name(query):
 @metadata_bp.route("/metadata/suggest-names")
 @metadata_bp.arguments(SuggestNamesQuery, location="query")
 def suggest_names(query):
-    """Search Last.fm for track suggestions matching a filename."""
-    results = search_lastfm_tracks(query["filename"], limit=query["limit"])
+    """Search for track suggestions matching a filename."""
+    k = get_karaoke_instance()
+    provider = get_provider(k.preferences)
+    results = suggest_metadata(query["filename"], provider=provider, limit=query["limit"])
     return {"suggestions": results}
