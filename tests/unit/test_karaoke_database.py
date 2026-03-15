@@ -184,6 +184,29 @@ class TestExtractYoutubeId:
         assert result == "BBBBBBBBBBB"
 
 
+class TestMetadata:
+    def test_get_returns_none_when_unset(self, db):
+        assert db.get_metadata("nonexistent") is None
+
+    def test_set_and_get_round_trip(self, db):
+        db.set_metadata("scan_dir", "/songs")
+        assert db.get_metadata("scan_dir") == "/songs"
+
+    def test_set_overwrites_existing(self, db):
+        db.set_metadata("scan_dir", "/old")
+        db.set_metadata("scan_dir", "/new")
+        assert db.get_metadata("scan_dir") == "/new"
+
+    def test_metadata_table_exists(self, db):
+        tables = {
+            row[0]
+            for row in db._conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        assert "metadata" in tables
+
+
 class TestIntegrityCheck:
     def test_ok_on_fresh_db(self, db):
         ok, msg = db.check_integrity()

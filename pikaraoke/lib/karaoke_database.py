@@ -34,6 +34,11 @@ CREATE INDEX IF NOT EXISTS idx_youtube_id ON songs(youtube_id);
 CREATE INDEX IF NOT EXISTS idx_artist ON songs(artist);
 CREATE INDEX IF NOT EXISTS idx_title ON songs(title);
 CREATE INDEX IF NOT EXISTS idx_metadata_status ON songs(metadata_status);
+
+CREATE TABLE IF NOT EXISTS metadata (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
 """
 
 
@@ -164,6 +169,23 @@ class KaraokeDatabase:
         self._conn.execute(
             "UPDATE songs SET file_path = ?, updated_at = CURRENT_TIMESTAMP WHERE file_path = ?",
             (new_path, old_path),
+        )
+        self._conn.commit()
+
+    # ------------------------------------------------------------------
+    # Metadata (app-level key-value store)
+    # ------------------------------------------------------------------
+
+    def get_metadata(self, key: str) -> str | None:
+        """Return the value for a metadata key, or None if not set."""
+        row = self._conn.execute("SELECT value FROM metadata WHERE key = ?", (key,)).fetchone()
+        return row[0] if row else None
+
+    def set_metadata(self, key: str, value: str) -> None:
+        """Set a metadata key-value pair (upsert)."""
+        self._conn.execute(
+            "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+            (key, value),
         )
         self._conn.commit()
 

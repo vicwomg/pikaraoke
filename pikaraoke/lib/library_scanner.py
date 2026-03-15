@@ -26,6 +26,7 @@ class LibraryScanner:
     """
 
     CIRCUIT_BREAKER_THRESHOLD = 0.5
+    _METADATA_KEY = "last_scan_directory"
 
     def __init__(self, db: KaraokeDatabase) -> None:
         self._db = db
@@ -39,10 +40,15 @@ class LibraryScanner:
         3. Filename-based move detection: unambiguous basename matches are
            treated as moves rather than delete+insert.
         4. Circuit-breaker check: if >50% of truly missing songs (after
-           accounting for moves), skip deletes.
+           accounting for moves), skip deletes — unless the scan directory
+           changed, in which case the breaker is bypassed.
         5. Apply path updates (moves), inserts, and deletes to the DB.
         """
+        last_dir = self._db.get_metadata(self._METADATA_KEY)
+        directory_changed = last_dir is not None and last_dir != songs_dir
+
         disk_paths = self._walk_disk(songs_dir)
+        logging.info(f"Scan: found {len(disk_paths)} song(s) on disk")
         db_paths = set(self._db.get_all_song_paths())
 
         new_on_disk = disk_paths - db_paths
@@ -57,7 +63,16 @@ class LibraryScanner:
 
         # Circuit breaker evaluates truly missing songs (after move detection),
         # so relocated files don't falsely trigger it.
-        circuit_tripped = self._check_circuit_breaker(len(to_delete), len(db_paths))
+        # Bypass when the scan directory changed — the user intentionally moved.
+        if directory_changed:
+            circuit_tripped = False
+            if to_delete:
+                logging.info(
+                    f"Scan directory changed ({last_dir} -> {songs_dir}), "
+                    f"bypassing circuit breaker for {len(to_delete)} deletion(s)"
+                )
+        else:
+            circuit_tripped = self._check_circuit_breaker(len(to_delete), len(db_paths))
 
         if moves:
             self._db.update_paths(moves)
@@ -73,6 +88,9 @@ class LibraryScanner:
             self._db.delete_by_paths(list(to_delete))
             deleted = len(to_delete)
             logging.info(f"Scan: deleted {deleted} song(s)")
+
+        if last_dir != songs_dir:
+            self._db.set_metadata(self._METADATA_KEY, songs_dir)
 
         return ScanResult(
             added=len(to_insert),

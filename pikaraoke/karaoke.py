@@ -322,7 +322,7 @@ class Karaoke:
 
     def _background_sync(self) -> None:
         try:
-            logging.info("Background library scan starting")
+            logging.info(f"Background library scan starting: {self.download_path}")
             result = self._scanner.scan(self.download_path)
             self._apply_scan_result(result)
         finally:

@@ -24,6 +24,16 @@ def _make_song(directory, name="Song---dQw4w9WgXcQ.mp4"):
     return path
 
 
+def _seed_songs(directory, count=10):
+    """Create numbered song files and return their paths."""
+    songs = []
+    for i in range(count):
+        s = directory / f"Song{i}---{'a' * 10}{i}.mp4"
+        s.write_text("fake")
+        songs.append(s)
+    return songs
+
+
 class TestScanEmptyDirectory:
     def test_empty_dir_returns_zero_counts(self, scanner, tmp_path):
         result = scanner.scan(str(tmp_path))
@@ -117,18 +127,8 @@ class TestMoveDetection:
 
 
 class TestCircuitBreaker:
-    @staticmethod
-    def _seed_songs(tmp_path, count=10):
-        """Create song files and return their paths."""
-        songs = []
-        for i in range(count):
-            s = tmp_path / f"Song{i}---{'a' * 10}{i}.mp4"
-            s.write_text("fake")
-            songs.append(s)
-        return songs
-
     def test_trips_when_over_half_missing(self, scanner, db, tmp_path):
-        songs = self._seed_songs(tmp_path)
+        songs = _seed_songs(tmp_path)
         scanner.scan(str(tmp_path))
 
         # Delete 6 out of 10 (60% > 50% threshold)
@@ -141,7 +141,7 @@ class TestCircuitBreaker:
         assert db.get_song_count() == 10  # nothing deleted
 
     def test_does_not_trip_below_threshold(self, scanner, db, tmp_path):
-        songs = self._seed_songs(tmp_path)
+        songs = _seed_songs(tmp_path)
         scanner.scan(str(tmp_path))
 
         # Delete 4 out of 10 (40% < 50% threshold)
@@ -154,7 +154,7 @@ class TestCircuitBreaker:
         assert db.get_song_count() == 6
 
     def test_adds_still_proceed_when_tripped(self, scanner, db, tmp_path):
-        songs = self._seed_songs(tmp_path)
+        songs = _seed_songs(tmp_path)
         scanner.scan(str(tmp_path))
 
         # Delete 6 (trips circuit), and add 2 new
@@ -170,7 +170,7 @@ class TestCircuitBreaker:
 
     def test_moved_songs_do_not_trip_breaker(self, scanner, db, tmp_path):
         """All songs relocated to a subdirectory should not trip the breaker."""
-        songs = self._seed_songs(tmp_path)
+        songs = _seed_songs(tmp_path)
         scanner.scan(str(tmp_path))
 
         # Move all songs to a subdirectory (100% of paths change)
@@ -187,3 +187,61 @@ class TestCircuitBreaker:
     def test_no_trip_when_db_empty(self, scanner, db, tmp_path):
         result = scanner.scan(str(tmp_path))
         assert result.circuit_tripped is False
+
+
+class TestDirectoryChange:
+    def test_bypasses_circuit_breaker_on_directory_change(self, scanner, db, tmp_path):
+        """When scan directory changes, all old songs should be deleted."""
+        old_dir = tmp_path / "old"
+        new_dir = tmp_path / "new"
+        old_dir.mkdir()
+        new_dir.mkdir()
+
+        _seed_songs(old_dir)
+        scanner.scan(str(old_dir))
+        assert db.get_song_count() == 10
+
+        # Use distinct basenames so move detection doesn't match old songs
+        for i in range(2):
+            (new_dir / f"NewSong{i}---{'b' * 10}{i}.mp4").write_text("fake")
+        result = scanner.scan(str(new_dir))
+
+        assert result.circuit_tripped is False
+        assert result.deleted == 10
+        assert result.added == 2
+        assert db.get_song_count() == 2
+
+    def test_circuit_breaker_still_active_when_same_directory(self, scanner, db, tmp_path):
+        """When scanning the same directory, circuit breaker should still work."""
+        songs = _seed_songs(tmp_path)
+        scanner.scan(str(tmp_path))
+
+        # Delete 6 out of 10 (60% > 50% threshold)
+        for s in songs[:6]:
+            s.unlink()
+
+        result = scanner.scan(str(tmp_path))
+        assert result.circuit_tripped is True
+        assert result.deleted == 0
+        assert db.get_song_count() == 10
+
+    def test_move_detection_across_directory_change(self, scanner, db, tmp_path):
+        """Songs with matching basenames should be detected as moves."""
+        old_dir = tmp_path / "old"
+        new_dir = tmp_path / "new"
+        old_dir.mkdir()
+        new_dir.mkdir()
+
+        _seed_songs(old_dir, count=3)
+        scanner.scan(str(old_dir))
+
+        # Move one song to new dir, leave others behind
+        (old_dir / "Song0---aaaaaaaaaa0.mp4").rename(new_dir / "Song0---aaaaaaaaaa0.mp4")
+
+        result = scanner.scan(str(new_dir))
+        assert result.moved == 1
+
+    def test_persists_scan_directory(self, scanner, db, tmp_path):
+        """Scan directory should be stored in DB metadata after scan."""
+        scanner.scan(str(tmp_path))
+        assert db.get_metadata(LibraryScanner._METADATA_KEY) == str(tmp_path)
