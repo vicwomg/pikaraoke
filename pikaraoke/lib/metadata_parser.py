@@ -563,9 +563,9 @@ def _strip_attribution_and_noise(name: str) -> str:
         while prev != name:
             prev = name
             name = noise_pat.sub("", name)
-    # Strip dangling separator left by noise removal (e.g. "Title -")
-    # before the caller composes "Title - Artist"
-    name = re.sub(r"\s*-\s*$", "", name)
+    # Strip dangling separator or open paren/bracket left by noise removal
+    # (e.g. "Title -" or "Title (") before the caller composes "Title - Artist"
+    name = re.sub(r"\s*[-(\[]\s*$", "", name)
     return name.strip()
 
 
@@ -587,8 +587,8 @@ def regex_tidy(filename: str) -> str:
         name = f"{title} - {artist}"
     else:
         # Strip trailing parenthesised/bracketed content
-        name = re.sub(r"\s*\([^)]*\)\s*$", "", name)
-        name = re.sub(r"\s*\[[^\]]*\]\s*$", "", name)
+        name = re.sub(r"\s*\([^)]*\)\s*$", "", name, flags=re.IGNORECASE)
+        name = re.sub(r"\s*\[[^\]]*\]\s*$", "", name, flags=re.IGNORECASE)
         # Iteratively strip trailing noise patterns
         for noise_pat in TRAILING_NOISE_PATTERNS:
             prev = None
@@ -596,6 +596,8 @@ def regex_tidy(filename: str) -> str:
                 prev = name
                 name = noise_pat.sub("", name)
 
+    # Strip dangling open paren/bracket left by noise removal (e.g. "Title (")
+    name = re.sub(r"\s*[\(\[]\s*$", "", name)
     # Normalize separators: en-dash/em-dash -> " - "
     name = re.sub(r"\s*[\u2013\u2014]\s*", " - ", name)
     # Collapse whitespace

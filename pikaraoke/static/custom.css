@@ -96,3 +96,29 @@ body.hide-cursor * {
   0% { background-color: #3273dc; }
   100% { background-color: transparent; }
 }
+
+/* Suggestion results on edit page */
+.suggested_item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--dark-text-light);
+  border-radius: 4px;
+  padding: 0.5em 0.75em;
+  margin-bottom: 2px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.suggest-text {
+  flex: 1;
+  min-width: 0;
+}
+.suggest-meta {
+  color: var(--dark-text-muted);
+}
+.suggest-score {
+  flex-shrink: 0;
+  margin-left: 1em;
+  color: var(--dark-text-muted);
+  font-size: 0.8rem;
+}

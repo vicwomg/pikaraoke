@@ -169,6 +169,7 @@ def edit_file(query):
         song=song_path,
         raw_stem=raw_stem,
         referrer=referrer,
+        is_youtube=bool(youtube_id_suffix(song_path)),
     )
 
 

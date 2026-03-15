@@ -14,36 +14,59 @@
       });
     });
 
-    $('#suggest-title').click(function (e) {
+    function fetchSuggestions() {
       var filename = $.trim($('#new_file_name').val());
       if (!filename) return;
-      $('.suggest_loader').removeClass("is-hidden");
+      var $btn = $('#suggest-title');
+      $btn.addClass("is-loading");
       $("#suggest_results").html("");
       $.getJSON('/metadata/suggest-names', { filename: filename, limit: 5 }, function (data) {
-        var suggestions = "";
+        var $container = $("#suggest_results").empty();
         if (data.suggestions && data.suggestions.length > 0) {
           $.each(data.suggestions, function (i, item) {
-            suggestions += "<li><a class='suggested_item is-warning'>" + item.name + " - " + item.artist + "</a></li>";
+            var display = item.display || (item.title + " - " + item.artist);
+            var $text = $('<span class="suggest-text">').text(display);
+            if (item.year || item.genre) {
+              var parts = [];
+              if (item.year) parts.push(item.year);
+              if (item.genre) parts.push(item.genre);
+              $text.append($('<span class="suggest-meta">').text(" (" + parts.join(", ") + ")"));
+            }
+            var score = item.score != null ? item.score : "";
+            var $score = $('<span class="suggest-score">').append('<i class="icon-ok"></i> ').append(document.createTextNode(score));
+            $('<a class="suggested_item has-background-grey-dark">').data('name', display).append($text).append($score).appendTo($container);
           });
         } else {
           // {# MSG: Warning when no suggested tracks are found for a search. #}
-          suggestions = "<li>{{ _('No suggestion!') }}</li>";
+          $container.html('<span class="has-text-grey-light">{{ _("No suggestion!") }}</span>');
         }
-        $("#suggest_results").html("<ul>" + suggestions + "</ul>");
       }).always(function () {
-        $('.suggest_loader').addClass("is-hidden");
+        $btn.removeClass("is-loading");
       });
+    }
+
+    $('#suggest-title').click(function (e) {
+      fetchSuggestions();
+    });
+
+    $('#new_file_name').keydown(function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        fetchSuggestions();
+      }
     });
 
     $('#swap-order').click(function (e) {
-      var split_name = $('#new_file_name').val().split(' - ');
-      var new_name = split_name[1] + " - " + split_name[0];
-      new_name = new_name.trim();
-      $('#new_file_name').val(new_name);
+      var val = $('#new_file_name').val();
+      var idx = val.indexOf(' - ');
+      if (idx === -1) return;
+      var part1 = val.substring(0, idx);
+      var part2 = val.substring(idx + 3);
+      $('#new_file_name').val(part2 + ' - ' + part1);
     });
 
     $("#suggest_results").on("click", ".suggested_item", function () {
-      $('#new_file_name').val($(this).text());
+      $('#new_file_name').val($(this).data('name'));
     });
 
   });
@@ -57,7 +80,6 @@
 
 {% block content %}
 
-
 <div class="field">
   <form action="{{ url_for('files.edit_file') }}" method="post">
     <div class="field">
@@ -69,19 +91,28 @@
     <label class="label">{% trans %}Edit Song Name{% endtrans %}</label>
     <div class="field">
       <input autocomplete="off" id="new_file_name" class="input" type="text" name="new_file_name"
-        value="{{ raw_stem }}"></input>
+        value="{{ raw_stem }}">
     </div>
-    <ul>
-      {# MSG: Label on button which auto formats the song's title. #}
-      <li><a id='remove-karaoke'>{% trans %}Auto-format{% endtrans %}</a></li>
+    <div class="buttons are-small mb-4">
+      {% if is_youtube %}
+      {# MSG: Label on button which strips karaoke noise words from the song title. #}
+      <button type="button" class="button is-rounded" id="remove-karaoke">
+        <span class="icon"><i class="icon-pencil"></i></span>
+        <span>{% trans %}Clean name{% endtrans %}</span>
+      </button>
+      {% endif %}
       {# MSG: Label on button which swaps the order of the artist and song in the title. #}
-      <li><a id='swap-order'>{% trans %}Swap artist/song order{% endtrans %}</a></li>
-      {# MSG: Label on button which loads results from the website Last.fm and suggests titles based on matches there. #}
-      <li><a id='suggest-title'>Suggest from Last.fm</a>
-        <span class="button is-loading is-hidden suggest_loader" style="border:0;background-color:transparent;"></span>
-        <span id="suggest_results"></span>
-      </li>
-    </ul>
+      <button type="button" class="button is-rounded" id="swap-order">
+        <span class="icon"><i class="icon-exchange"></i></span>
+        <span>{% trans %}Swap order{% endtrans %}</span>
+      </button>
+      {# MSG: Label on button which searches for track suggestions from iTunes. #}
+      <button type="button" class="button is-rounded" id="suggest-title">
+        <span class="icon"><i class="icon-search-1"></i></span>
+        <span>{% trans %}Auto Suggest{% endtrans %}</span>
+      </button>
+    </div>
+    <div id="suggest_results" class="mb-4"></div>
     <div class="field is-grouped">
       <div class="control">
         <button class="button is-primary" id="search-button" type="submit">

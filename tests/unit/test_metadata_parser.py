@@ -519,6 +519,21 @@ class TestRegexTidy:
         result = regex_tidy("Fernando - KARAOKE VERSION - as popularized by ABBA")
         assert result == "Fernando - ABBA"
 
+    def test_no_dangling_open_paren_after_noise_removal(self):
+        result = regex_tidy(
+            "Paul Kelly - Firewood and Candles (Karaoke Version) with Lyrics HD Vocal-Star Karaoke"
+        )
+        assert result == "Paul Kelly - Firewood and Candles"
+
+    def test_strips_feat_parenthetical(self):
+        assert regex_tidy("Artist - Song (feat. Other)") == "Artist - Song"
+
+    def test_strips_ft_parenthetical(self):
+        assert regex_tidy("Artist - Song (ft. Other Artist)") == "Artist - Song"
+
+    def test_strips_feat_bracketed(self):
+        assert regex_tidy("Artist - Song [feat. Other]") == "Artist - Song"
+
     def test_no_change_when_clean(self):
         assert regex_tidy("Artist - Song Title") == "Artist - Song Title"
 
