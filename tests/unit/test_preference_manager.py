@@ -284,6 +284,7 @@ def test_preference_manager_defaults_exist():
         "mid_score_phrases",
         "high_score_phrases",
         "show_splash_clock",
+        "metadata_provider",
     }
 
     assert set(PreferenceManager.DEFAULTS.keys()) == expected_keys
