@@ -45,11 +45,21 @@ class LibraryScanner:
         5. Apply path updates (moves), inserts, and deletes to the DB.
         """
         last_dir = self._db.get_metadata(self._METADATA_KEY)
-        directory_changed = last_dir is not None and last_dir != songs_dir
 
         disk_paths = self._walk_disk(songs_dir)
         logging.info(f"Scan: found {len(disk_paths)} song(s) on disk")
         db_paths = set(self._db.get_all_song_paths())
+
+        # Detect directory change. If metadata exists, compare directly.
+        # If not (first scan after upgrade), infer from whether any DB paths
+        # fall under the current scan directory.
+        if last_dir is not None:
+            directory_changed = os.path.normcase(last_dir) != os.path.normcase(songs_dir)
+        elif db_paths:
+            prefix = os.path.normcase(songs_dir + os.sep)
+            directory_changed = not any(os.path.normcase(p).startswith(prefix) for p in db_paths)
+        else:
+            directory_changed = False
 
         new_on_disk = disk_paths - db_paths
         gone_from_disk = db_paths - disk_paths

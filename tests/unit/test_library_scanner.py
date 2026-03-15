@@ -245,3 +245,36 @@ class TestDirectoryChange:
         """Scan directory should be stored in DB metadata after scan."""
         scanner.scan(str(tmp_path))
         assert db.get_metadata(LibraryScanner._METADATA_KEY) == str(tmp_path)
+
+    def test_bypasses_breaker_when_no_metadata_and_paths_outside_scan_dir(
+        self, scanner, db, tmp_path
+    ):
+        """First scan after upgrade: no metadata stored yet, but DB has songs
+        from a different directory. Should bypass the circuit breaker."""
+        old_dir = tmp_path / "old"
+        new_dir = tmp_path / "new"
+        old_dir.mkdir()
+        new_dir.mkdir()
+
+        # Seed songs directly into DB (simulating pre-upgrade state with no metadata)
+        records = [
+            {
+                "file_path": str(old_dir / f"Song{i}---{'a' * 10}{i}.mp4"),
+                "youtube_id": None,
+                "format": "mp4",
+            }
+            for i in range(10)
+        ]
+        db.insert_songs(records)
+        assert db.get_song_count() == 10
+
+        # Scan new directory — no metadata exists, all DB paths are outside new_dir
+        for i in range(2):
+            (new_dir / f"NewSong{i}---{'b' * 10}{i}.mp4").write_text("fake")
+
+        result = scanner.scan(str(new_dir))
+
+        assert result.circuit_tripped is False
+        assert result.deleted == 10
+        assert result.added == 2
+        assert db.get_song_count() == 2
