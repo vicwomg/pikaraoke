@@ -280,7 +280,8 @@ def _suggestion_score(result: dict, query: str, featuring: str = "") -> int:
         score += 30
 
     # Bonus if the featuring artist appears in the result title
-    if featuring and featuring.lower() in title_lower:
+    # Normalize both sides so "and" matches "&" and accents are ignored
+    if featuring and _normalize_for_matching(featuring) in _normalize_for_matching(title_lower):
         score += 15
 
     # Bonus when query artist part has extra names that appear in the result's
