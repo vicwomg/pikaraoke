@@ -48,7 +48,7 @@ def run_report(songs_dir: str) -> None:
     filenames = collect_unique_songs(songs_dir)
     total = len(filenames)
     print(f"Found {total} unique songs in {songs_dir}")
-    print(f"Estimated time: ~{total * 3 // 60} minutes\n")
+    print(f"Estimated time: ~{total * 3 // 60} minutes\n")  # ~3s effective (2s limit + RTT)
 
     provider = ITunesProvider()
     csv_path = os.path.join(os.path.dirname(__file__), "itunes_report.csv")
@@ -78,7 +78,7 @@ def run_report(songs_dir: str) -> None:
             suffix = youtube_id_suffix(filename)
             clean_stem = stem[: -len(suffix)] if suffix else stem
             tidied = regex_tidy(clean_stem)
-            eta_min = (total - i) * 3 / 60
+            eta_min = (total - i) * 3 / 60  # ~3s effective per song
 
             try:
                 suggestions = suggest_metadata(clean_stem, provider=provider, limit=5)
