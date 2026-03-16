@@ -27,20 +27,18 @@ DEFAULT_SONGS_DIR = None
 
 
 def collect_unique_songs(songs_dir: str) -> list[str]:
-    """Get unique filenames from the songs directory, filtered to valid media."""
+    """Get unique filenames from the songs directory tree, filtered to valid media."""
     seen: set[str] = set()
     filenames: list[str] = []
-    for entry in sorted(os.listdir(songs_dir)):
-        path = os.path.join(songs_dir, entry)
-        if not os.path.isfile(path):
-            continue
-        ext = os.path.splitext(entry)[1].lower()
-        if ext not in VALID_EXTENSIONS:
-            continue
-        stem = os.path.splitext(entry)[0]
-        if stem not in seen:
-            seen.add(stem)
-            filenames.append(entry)
+    for _, _, entries in os.walk(songs_dir):
+        for entry in sorted(entries):
+            ext = os.path.splitext(entry)[1].lower()
+            if ext not in VALID_EXTENSIONS:
+                continue
+            stem = os.path.splitext(entry)[0]
+            if stem not in seen:
+                seen.add(stem)
+                filenames.append(entry)
     return filenames
 
 
