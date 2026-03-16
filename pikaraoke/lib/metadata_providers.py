@@ -212,6 +212,25 @@ def _normalize_for_matching(text: str) -> str:
     return normalized
 
 
+def _words_near_match(w1: str, w2: str) -> bool:
+    """Check if two words differ by at most 1 edit (substitution, insertion, or deletion)."""
+    if len(w1) < 3 or len(w2) < 3:
+        return False
+    if abs(len(w1) - len(w2)) > 1:
+        return False
+    if len(w1) == len(w2):
+        return sum(c1 != c2 for c1, c2 in zip(w1, w2)) <= 1
+    shorter, longer = (w1, w2) if len(w1) < len(w2) else (w2, w1)
+    diffs = 0
+    si = 0
+    for li in range(len(longer)):
+        if si < len(shorter) and shorter[si] == longer[li]:
+            si += 1
+        else:
+            diffs += 1
+    return diffs <= 1
+
+
 def _fuzzy_match(a: str, b: str) -> bool:
     """Check if two normalized strings match: exact, substring, or high word overlap.
 
@@ -224,14 +243,17 @@ def _fuzzy_match(a: str, b: str) -> bool:
     a_compact, b_compact = a.replace(" ", ""), b.replace(" ", "")
     if a_compact == b_compact or a_compact in b_compact or b_compact in a_compact:
         return True
-    # Significant-word overlap (skip short conjunctions)
-    words_a = {w for w in a.split() if len(w) > 2}
-    words_b = {w for w in b.split() if len(w) > 2}
+    # Significant-word overlap, allowing near-matches for typos
+    words_a = [w for w in a.split() if len(w) > 2]
+    words_b = [w for w in b.split() if len(w) > 2]
     if not words_a or not words_b:
         return False
-    overlap = words_a & words_b
+    matched = 0
+    for wa in words_a:
+        if any(wa == wb or _words_near_match(wa, wb) for wb in words_b):
+            matched += 1
     smaller = min(len(words_a), len(words_b))
-    return len(overlap) >= max(2, smaller - 1)
+    return matched >= max(2, smaller - 1)
 
 
 def _matches_field(part_norm: str, field_norm: str) -> bool:
