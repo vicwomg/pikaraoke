@@ -65,6 +65,11 @@ NOISE_WORDS = [
 ]
 NOISE_PATTERN = re.compile("|".join(NOISE_WORDS), flags=re.IGNORECASE)
 
+# Matches parenthesised content EXCEPT featuring credits like "(feat. X)" / "(ft. X)"
+_FEAT_LOOKAHEAD = r"(?!\s*(?:feat(?:uring)?|ft)\.?\s)"
+_PAREN_NOT_FEAT = re.compile(rf"\s*\({_FEAT_LOOKAHEAD}[^)]*\)", flags=re.IGNORECASE)
+_PAREN_NOT_FEAT_TRAILING = re.compile(rf"\s*\({_FEAT_LOOKAHEAD}[^)]*\)\s*$", flags=re.IGNORECASE)
+
 SPECIAL_VERSION_KEYWORDS = [
     " - ",
     "ao vivo",
@@ -404,8 +409,8 @@ def get_best_result(
 
     best = max(results, key=lambda r: score_result(r, original_query))
 
-    # Strip parenthetical extras like "(feat. ...)" or "(Single 2014)" from track names
-    clean_track_name = re.sub(r"\s*\([^)]*\)", "", best["name"])
+    # Strip parenthetical extras like "(Single 2014)" but preserve featuring credits
+    clean_track_name = _PAREN_NOT_FEAT.sub("", best["name"])
 
     # Strip artist from track name if it's duplicated
     clean_track_name = _strip_artist_from_track(clean_track_name, best["artist"])
@@ -556,8 +561,9 @@ def _strip_attribution_and_noise(name: str) -> str:
     """Remove the matched attribution phrase and trailing noise from the title."""
     for pattern in ATTRIBUTION_PATTERNS:
         name = pattern.sub("", name)
-    # Strip remaining trailing bracketed/parenthesised content
-    name = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]\s*$", "", name)
+    # Strip remaining trailing bracketed/parenthesised content, preserving featuring credits
+    name = re.sub(r"\s*\[[^\]]*\]\s*$", "", name)
+    name = _PAREN_NOT_FEAT_TRAILING.sub("", name)
     for noise_pat in TRAILING_NOISE_PATTERNS:
         prev = None
         while prev != name:
@@ -586,8 +592,8 @@ def regex_tidy(filename: str) -> str:
         title = _strip_attribution_and_noise(name)
         name = f"{title} - {artist}"
     else:
-        # Strip trailing parenthesised/bracketed content
-        name = re.sub(r"\s*\([^)]*\)\s*$", "", name, flags=re.IGNORECASE)
+        # Strip trailing parenthesised/bracketed content, but preserve featuring credits
+        name = _PAREN_NOT_FEAT_TRAILING.sub("", name)
         name = re.sub(r"\s*\[[^\]]*\]\s*$", "", name, flags=re.IGNORECASE)
         # Iteratively strip trailing noise patterns
         for noise_pat in TRAILING_NOISE_PATTERNS:

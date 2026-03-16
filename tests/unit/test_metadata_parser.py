@@ -525,11 +525,11 @@ class TestRegexTidy:
         )
         assert result == "Paul Kelly - Firewood and Candles"
 
-    def test_strips_feat_parenthetical(self):
-        assert regex_tidy("Artist - Song (feat. Other)") == "Artist - Song"
+    def test_preserves_feat_parenthetical(self):
+        assert regex_tidy("Artist - Song (feat. Other)") == "Artist - Song (feat. Other)"
 
-    def test_strips_ft_parenthetical(self):
-        assert regex_tidy("Artist - Song (ft. Other Artist)") == "Artist - Song"
+    def test_preserves_ft_parenthetical(self):
+        assert regex_tidy("Artist - Song (ft. Other Artist)") == "Artist - Song (ft. Other Artist)"
 
     def test_strips_feat_bracketed(self):
         assert regex_tidy("Artist - Song [feat. Other]") == "Artist - Song"
