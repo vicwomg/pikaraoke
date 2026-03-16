@@ -346,7 +346,8 @@ def _detect_artist_first(original_query: str, artist: str, title: str) -> bool:
 
 def _normalize_for_comparison(text: str) -> str:
     """Normalize text for artist/track comparison by removing punctuation."""
-    normalized = re.sub(r"[._\-']", " ", text.lower())
+    normalized = text.lower().replace("&", " and ")
+    normalized = re.sub(r"[^\w\s]", " ", normalized)
     normalized = re.sub(r"\s+", " ", normalized)
     return normalized.strip()
 
