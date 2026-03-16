@@ -90,9 +90,10 @@ class ITunesProvider:
     def _parse_result(self, item: dict) -> dict:
         release_date = item.get("releaseDate", "")
         year = release_date[:4] if len(release_date) >= 4 else ""
+        title = _BRACKET_CONTENT_RE.sub("", item.get("trackName", "")).strip()
         return {
             "artist": item.get("artistName", ""),
-            "title": item.get("trackName", ""),
+            "title": title,
             "year": year,
             "genre": item.get("primaryGenreName", ""),
             "source": "itunes",
@@ -208,7 +209,7 @@ def _normalize_for_matching(text: str) -> str:
     # like "D.I.V.O.R.C.E." which _normalize_for_comparison turns into "d i v o r c e")
     normalized = _SINGLE_LETTER_SEQ_RE.sub(_collapse_single_letters, normalized)
     normalized = re.sub(r"\s+", " ", normalized).strip()
-    return normalized.replace(" & ", " and ")
+    return normalized
 
 
 def _fuzzy_match(a: str, b: str) -> bool:
@@ -218,6 +219,10 @@ def _fuzzy_match(a: str, b: str) -> bool:
     substring matching fails but most words still match.
     """
     if a == b or a in b or b in a:
+        return True
+    # Spaceless comparison: "acdc" matches "ac dc" (handles AC/DC vs ACDC, etc.)
+    a_compact, b_compact = a.replace(" ", ""), b.replace(" ", "")
+    if a_compact == b_compact or a_compact in b_compact or b_compact in a_compact:
         return True
     # Significant-word overlap (skip short conjunctions)
     words_a = {w for w in a.split() if len(w) > 2}
@@ -291,7 +296,7 @@ def _suggestion_score(result: dict, query: str, featuring: str = "") -> int:
     # as featuring keywords (which would break genuine duos).
     if len(parts) >= 2 and title_base != title_lower:
         query_artist_norm = _normalize_for_matching(parts[0])
-        parens_text = " ".join(_PAREN_EXTRACT_RE.findall(title_lower))
+        parens_text = _extract_qualifier_text(title_lower)
         if parens_text and artist_norm != query_artist_norm:
             # Extract the extra part of the query artist beyond the result artist
             extra = query_artist_norm.replace(artist_norm, "").strip()
@@ -353,9 +358,19 @@ _FEATURING_PATTERN = re.compile(
     r"\s+(?:ft\.?|feat\.?|featuring)\s+(?P<name>.*?)(?=\s+-\s+|$)", re.IGNORECASE
 )
 
+# Strip square-bracket qualifiers from iTunes titles ([Deluxe Edition], [Remastered], etc.)
+_BRACKET_CONTENT_RE = re.compile(r"\s*\[[^\]]*\]")
+
 # Pre-compiled patterns used in _suggestion_score
-_PAREN_CONTENT_RE = re.compile(r"\s*\([^)]*\)")
-_PAREN_EXTRACT_RE = re.compile(r"\(([^)]*)\)")
+_PAREN_CONTENT_RE = re.compile(r"\s*(?:\([^)]*\)|\[[^\]]*\])")
+_PAREN_EXTRACT_RE = re.compile(r"(?:\(([^)]*)\)|\[([^\]]*)\])")
+
+
+def _extract_qualifier_text(text: str) -> str:
+    """Extract all parenthetical and bracketed content as a single string."""
+    return " ".join(g for groups in _PAREN_EXTRACT_RE.findall(text) for g in groups if g)
+
+
 _LEADING_CONJUNCTION_RE = re.compile(r"^(?:and|with)\s+", re.IGNORECASE)
 
 
