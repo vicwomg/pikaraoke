@@ -24,10 +24,10 @@ VALID_EXTENSIONS = {".mp4", ".mp3", ".zip", ".mkv", ".avi", ".webm", ".mov"}
 DEFAULT_SONGS_DIR = r"C:\Users\mannr\pikaraoke-songs"
 
 
-def collect_unique_stems(songs_dir: str) -> list[str]:
-    """Get unique file stems from the songs directory, filtered to valid media."""
+def collect_unique_songs(songs_dir: str) -> list[str]:
+    """Get unique filenames from the songs directory, filtered to valid media."""
     seen: set[str] = set()
-    stems: list[str] = []
+    filenames: list[str] = []
     for entry in sorted(os.listdir(songs_dir)):
         path = os.path.join(songs_dir, entry)
         if not os.path.isfile(path):
@@ -38,14 +38,15 @@ def collect_unique_stems(songs_dir: str) -> list[str]:
         stem = os.path.splitext(entry)[0]
         if stem not in seen:
             seen.add(stem)
-            stems.append(stem)
-    return stems
+            filenames.append(entry)
+    return filenames
 
 
 def run_report(songs_dir: str) -> None:
-    stems = collect_unique_stems(songs_dir)
-    print(f"Found {len(stems)} unique songs in {songs_dir}")
-    print(f"Estimated time: ~{len(stems) * 3 // 60} minutes\n")
+    filenames = collect_unique_songs(songs_dir)
+    total = len(filenames)
+    print(f"Found {total} unique songs in {songs_dir}")
+    print(f"Estimated time: ~{total * 3 // 60} minutes\n")
 
     provider = ITunesProvider()
     csv_path = os.path.join(os.path.dirname(__file__), "itunes_report.csv")
@@ -68,17 +69,19 @@ def run_report(songs_dir: str) -> None:
             ]
         )
 
-        for i, stem in enumerate(stems, 1):
-            # Strip YouTube ID suffix, matching what the edit page does
-            suffix = youtube_id_suffix(stem)
+        for i, filename in enumerate(filenames, 1):
+            # Replicate edit page: filename_from_path(path, tidy=False)
+            # Pass full filename so youtube_id_suffix handles dots correctly
+            stem = os.path.splitext(filename)[0]
+            suffix = youtube_id_suffix(filename)
             clean_stem = stem[: -len(suffix)] if suffix else stem
             tidied = regex_tidy(clean_stem)
-            eta_min = (len(stems) - i) * 3 / 60
+            eta_min = (total - i) * 3 / 60
 
             try:
                 suggestions = suggest_metadata(clean_stem, provider=provider, limit=5)
             except Exception as e:
-                print(f"  [{i}/{len(stems)}] ERROR: {stem} -> {e}")
+                print(f"  [{i}/{total}] ERROR: {stem} -> {e}")
                 writer.writerow([stem, tidied, "ERROR", "", "", "", "", ""])
                 results.append({"stem": stem, "score": None})
                 continue
@@ -98,7 +101,7 @@ def run_report(songs_dir: str) -> None:
                 }
                 status = "OK" if score >= 100 else "LOW"
                 print(
-                    f"  [{i}/{len(stems)}] {status} ({score:>4}) "
+                    f"  [{i}/{total}] {status} ({score:>4}) "
                     f"{stem[:50]:<50} -> {row['display'][:50]}"
                     f"  (ETA: {eta_min:.0f}m)"
                 )
@@ -115,7 +118,7 @@ def run_report(songs_dir: str) -> None:
                     ]
                 )
             else:
-                print(f"  [{i}/{len(stems)}] NONE {stem[:50]:<50}  (ETA: {eta_min:.0f}m)")
+                print(f"  [{i}/{total}] NONE {stem[:50]:<50}  (ETA: {eta_min:.0f}m)")
                 row = {"stem": stem, "score": 0}
                 writer.writerow([stem, tidied, 0, "", "", "", "", ""])
 
@@ -123,26 +126,26 @@ def run_report(songs_dir: str) -> None:
 
     # Summary
     scores = [r["score"] for r in results if r.get("score") is not None]
-    total = len(scores)
+    queried = len(scores)
     elapsed_total = time.time() - start_time
 
     print(f"\n{'=' * 60}")
     print(f"RESULTS SUMMARY")
     print(f"{'=' * 60}")
-    print(f"Total unique songs scanned: {len(stems)}")
-    print(f"Successfully queried:       {total}")
-    print(f"Errors:                     {len(stems) - total}")
+    print(f"Total unique songs scanned: {total}")
+    print(f"Successfully queried:       {queried}")
+    print(f"Errors:                     {total - queried}")
     print(f"Time elapsed:               {elapsed_total / 60:.1f} minutes")
     print()
 
     thresholds = [120, 100, 80, 50, 0]
     for thresh in thresholds:
         count = sum(1 for s in scores if s >= thresh)
-        pct = count / total * 100 if total else 0
-        print(f"  Score >= {thresh:>3}: {count:>4} / {total}  ({pct:5.1f}%)")
+        pct = count / queried * 100 if queried else 0
+        print(f"  Score >= {thresh:>3}: {count:>4} / {queried}  ({pct:5.1f}%)")
 
     neg = sum(1 for s in scores if s < 0)
-    print(f"  Score <   0: {neg:>4} / {total}  ({neg / total * 100:5.1f}%)")
+    print(f"  Score <   0: {neg:>4} / {queried}  ({neg / queried * 100:5.1f}%)")
 
     print(f"\nFull results saved to: {csv_path}")
 

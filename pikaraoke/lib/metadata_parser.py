@@ -82,6 +82,13 @@ SPECIAL_VERSION_KEYWORDS = [
     "cover",
     "radio edit",
     "extended",
+    "re-recorded",
+    "rerecorded",
+    "remastered",
+    "encore",
+    "deluxe",
+    "bonus track",
+    "demo",
 ]
 
 LASTFM_API_KEY = "058c382f5fd686b4146f6028961c14da"
@@ -347,6 +354,8 @@ def _detect_artist_first(original_query: str, artist: str, title: str) -> bool:
 def _normalize_for_comparison(text: str) -> str:
     """Normalize text for artist/track comparison by removing punctuation."""
     normalized = text.lower().replace("&", " and ")
+    # Strip apostrophes entirely (possessives/contractions aren't word boundaries)
+    normalized = normalized.replace("'", "").replace("\u2019", "")
     normalized = re.sub(r"[^\w\s]", " ", normalized)
     normalized = re.sub(r"\s+", " ", normalized)
     return normalized.strip()
