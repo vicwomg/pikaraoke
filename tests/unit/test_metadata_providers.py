@@ -417,3 +417,19 @@ class TestSuggestionScoring:
         # Same result with two-part query should score higher due to cross-field
         score_two_part = _suggestion_score(result, "Queen - Bohemian Rhapsody")
         assert score_two_part > score
+
+    def test_featuring_with_ampersand_matches_and(self):
+        """'Ft Sia And Fetty Wap' should prefer result with both featured artists."""
+        both = {
+            "artist": "David Guetta",
+            "title": "Bang My Head (feat. Sia & Fetty Wap)",
+            "genre": "Dance",
+        }
+        one = {
+            "artist": "David Guetta",
+            "title": "Bang My Head (feat. Sia)",
+            "genre": "Dance",
+        }
+        query = "David Guetta - Bang My Head"
+        featuring = "Sia And Fetty Wap"
+        assert _suggestion_score(both, query, featuring) > _suggestion_score(one, query, featuring)
