@@ -15,9 +15,9 @@ import urllib3.util.ssl_
 
 from pikaraoke.lib.metadata_parser import (
     SPECIAL_VERSION_KEYWORDS,
-    _normalize_for_comparison,
-    _remove_accents,
+    normalize_for_comparison,
     regex_tidy,
+    remove_accents,
 )
 
 # iTunes rate limit: ~20 requests/minute (~3s per request)
@@ -198,15 +198,15 @@ def _collapse_single_letters(match: re.Match) -> str:
 def _normalize_for_matching(text: str) -> str:
     """Normalize text for fuzzy matching: punctuation, case, and conjunctions.
 
-    Extends _normalize_for_comparison (which handles punctuation and case) with:
+    Extends normalize_for_comparison (which handles punctuation and case) with:
     - Comma stripping: 'Commodores, The' matches 'The Commodores'
     - Dotted-letter collapse: 'D.I.V.O.R.C.E.' -> 'divorce', 'S.O.S.' -> 'sos'
     - Conjunction normalization: 'Simon And Garfunkel' matches 'Simon & Garfunkel'
     """
-    normalized = _remove_accents(_normalize_for_comparison(text))
+    normalized = remove_accents(normalize_for_comparison(text))
     normalized = normalized.replace(",", "")
     # Collapse single-letter sequences separated by spaces (from dotted acronyms
-    # like "D.I.V.O.R.C.E." which _normalize_for_comparison turns into "d i v o r c e")
+    # like "D.I.V.O.R.C.E." which normalize_for_comparison turns into "d i v o r c e")
     normalized = _SINGLE_LETTER_SEQ_RE.sub(_collapse_single_letters, normalized)
     normalized = re.sub(r"\s+", " ", normalized).strip()
     return normalized
@@ -261,7 +261,14 @@ def _matches_field(part_norm: str, field_norm: str) -> bool:
     return part_norm == field_norm or _fuzzy_match(part_norm, field_norm) or part_norm in field_norm
 
 
-def _suggestion_score(result: dict, query: str, featuring: str = "") -> int:
+def _suggestion_score(
+    result: dict,
+    query: str,
+    featuring: str = "",
+    *,
+    _featuring_norm: str | None = None,
+    _query_parts_norm: list[tuple[str, str]] | None = None,
+) -> int:
     """Score a suggestion result for relevance, version quality, and genre."""
     score = 0
     title_lower = result.get("title", "").lower()
@@ -274,13 +281,18 @@ def _suggestion_score(result: dict, query: str, featuring: str = "") -> int:
     title_norm = _normalize_for_matching(title_base)
 
     # Query relevance: split "artist - title" and match against result fields
-    parts = [p.strip() for p in query.lower().split(" - ", 1)]
+    if _query_parts_norm is None:
+        _query_parts_norm = [
+            (p.strip(), _normalize_for_matching(p.strip()))
+            for p in query.lower().split(" - ", 1)
+            if p.strip()
+        ]
+    if _featuring_norm is None:
+        _featuring_norm = _normalize_for_matching(featuring) if featuring else ""
+
     artist_matched = False
     title_matched = False
-    for part in parts:
-        if not part:
-            continue
-        part_norm = _normalize_for_matching(part)
+    for part, part_norm in _query_parts_norm:
         matched_artist = _matches_field(part_norm, artist_norm)
         matched_title = (
             part == title_lower or part == title_base or _matches_field(part_norm, title_norm)
@@ -303,12 +315,12 @@ def _suggestion_score(result: dict, query: str, featuring: str = "") -> int:
     # Without this, a result where both parts coincidentally appear in the
     # title (e.g. a track titled "Dolly Parton + Beer Cereal Divorce" by
     # David Liebe Hart) could outscore a result with the correct artist.
-    if len(parts) >= 2 and artist_matched and title_matched:
+    if len(_query_parts_norm) >= 2 and artist_matched and title_matched:
         score += 30
 
     # Bonus if the featuring artist appears in the result title
     # Normalize both sides so "and" matches "&" and accents are ignored
-    if featuring and _normalize_for_matching(featuring) in _normalize_for_matching(title_lower):
+    if _featuring_norm and _featuring_norm in _normalize_for_matching(title_lower):
         score += 15
 
     # Bonus when query artist part has extra names that appear in the result's
@@ -316,8 +328,8 @@ def _suggestion_score(result: dict, query: str, featuring: str = "") -> int:
     # title "Everything Has Changed (feat. Ed Sheeran)").
     # This handles "and"/"&"/"with" collaborator names without treating them
     # as featuring keywords (which would break genuine duos).
-    if len(parts) >= 2 and title_base != title_lower:
-        query_artist_norm = _normalize_for_matching(parts[0])
+    if len(_query_parts_norm) >= 2 and title_base != title_lower:
+        query_artist_norm = _query_parts_norm[0][1]
         parens_text = _extract_qualifier_text(title_lower)
         if parens_text and artist_norm != query_artist_norm:
             # Extract the extra part of the query artist beyond the result artist
@@ -352,10 +364,24 @@ def _deduplicate_suggestions(
 
     Returns (score, result) tuples sorted by score descending.
     """
+    # Precompute query-derived normalizations once for the batch
+    query_parts_norm = [
+        (p.strip(), _normalize_for_matching(p.strip()))
+        for p in query.lower().split(" - ", 1)
+        if p.strip()
+    ]
+    featuring_norm = _normalize_for_matching(featuring) if featuring else ""
+
     best: dict[tuple[str, str], tuple[int, dict]] = {}
     for r in results:
         key = (r.get("artist", "").lower(), r.get("title", "").lower())
-        s = _suggestion_score(r, query, featuring)
+        s = _suggestion_score(
+            r,
+            query,
+            featuring,
+            _featuring_norm=featuring_norm,
+            _query_parts_norm=query_parts_norm,
+        )
         if key not in best or s > best[key][0]:
             best[key] = (s, r)
     scored = sorted(best.values(), key=lambda x: x[0], reverse=True)
