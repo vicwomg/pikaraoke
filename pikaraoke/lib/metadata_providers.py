@@ -20,8 +20,10 @@ from pikaraoke.lib.metadata_parser import (
     remove_accents,
 )
 
-# iTunes rate limit: ~20 requests/minute (~3s per request)
-ITUNES_RATE_LIMIT = 3.0
+# iTunes nominally allows ~20 requests/minute.  A 2s floor between requests
+# keeps us under the limit (HTTP round-trip adds ~0.5-1s on top) while the
+# retry/backoff logic handles occasional 429s gracefully.
+ITUNES_RATE_LIMIT = 2.0
 ITUNES_SEARCH_URL = "https://itunes.apple.com/search"
 ITUNES_MAX_RETRIES = 3
 ITUNES_BACKOFF_BASE = 2.0
