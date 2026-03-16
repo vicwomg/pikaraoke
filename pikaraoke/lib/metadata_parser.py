@@ -136,7 +136,7 @@ TRAILING_NOISE_PATTERNS = [
 # ---------------------------------------------------------------------------
 
 
-def _remove_accents(text: str) -> str:
+def remove_accents(text: str) -> str:
     """Strip diacritical marks for accent-insensitive comparison."""
     return "".join(c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn")
 
@@ -211,10 +211,10 @@ def score_result(result: dict, original_query: str) -> int:
 
     part1, part2 = _split_query_parts(original_query)
 
-    part1_normalized = clean_search_query(_remove_accents(part1))
-    part2_normalized = clean_search_query(_remove_accents(part2))
-    track_normalized = _remove_accents(track_name)
-    artist_normalized = _remove_accents(artist_name)
+    part1_normalized = clean_search_query(remove_accents(part1))
+    part2_normalized = clean_search_query(remove_accents(part2))
+    track_normalized = remove_accents(track_name)
+    artist_normalized = remove_accents(artist_name)
 
     score += _score_query_match(
         part1_normalized, part2_normalized, track_normalized, artist_normalized
@@ -306,7 +306,7 @@ def _score_penalties(
 
 def _normalize_for_detection(text: str) -> str:
     """Normalize text for artist/title format detection."""
-    return _remove_accents(clean_search_query(text.strip().lower()))
+    return remove_accents(clean_search_query(text.strip().lower()))
 
 
 def _is_similar(a: str, b: str) -> bool:
@@ -351,7 +351,7 @@ def _detect_artist_first(original_query: str, artist: str, title: str) -> bool:
     return False
 
 
-def _normalize_for_comparison(text: str) -> str:
+def normalize_for_comparison(text: str) -> str:
     """Normalize text for artist/track comparison by removing punctuation."""
     normalized = text.lower().replace("&", " and ")
     # Strip apostrophes entirely (possessives/contractions aren't word boundaries)
@@ -367,8 +367,8 @@ def _strip_artist_from_track(track_name: str, artist_name: str) -> str:
     Last.fm sometimes returns track names like 'Artist - Title' or 'Artist-Title'.
     Handles variations like "a-ha" vs "A ha" where punctuation differs.
     """
-    track_normalized = _normalize_for_comparison(track_name)
-    artist_normalized = _normalize_for_comparison(artist_name)
+    track_normalized = normalize_for_comparison(track_name)
+    artist_normalized = normalize_for_comparison(artist_name)
 
     if track_normalized.startswith(artist_normalized + " "):
         separator_pattern = r"^.{0,50}?(?:\s*[-\u2013\u2014|:]\s*|\s+/\s+)(.+)$"
@@ -378,7 +378,7 @@ def _strip_artist_from_track(track_name: str, artist_name: str) -> str:
             before_separator = track_name[: match.start(1)].strip()
             before_separator = re.sub(r"\s*[-\u2013\u2014|:/]\s*$", "", before_separator)
 
-            if _normalize_for_comparison(before_separator) == artist_normalized:
+            if normalize_for_comparison(before_separator) == artist_normalized:
                 return match.group(1)
 
     return track_name
@@ -404,7 +404,7 @@ def _preserve_original_artist(original_name: str, lastfm_artist: str) -> str | N
         return original_artist
 
     # Preserve original artist when Last.fm returned the accent-stripped equivalent
-    if _remove_accents(original_lower) == _remove_accents(lastfm_lower):
+    if remove_accents(original_lower) == remove_accents(lastfm_lower):
         return original_artist
 
     return None

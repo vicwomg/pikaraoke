@@ -5,7 +5,7 @@ suggest_metadata() pipeline used by the "Auto Suggest" button on the edit page.
 Outputs a CSV and a console summary showing score distribution.
 
 Usage:
-    uv run python scripts/itunes_bulk_report.py [SONGS_DIR]
+    uv run python scripts/itunes_bulk_report.py SONGS_DIR
 """
 
 import csv
@@ -17,11 +17,13 @@ from pathlib import Path
 # Add project root to path so we can import pikaraoke modules
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import requests
+
 from pikaraoke.lib.metadata_parser import regex_tidy, youtube_id_suffix
 from pikaraoke.lib.metadata_providers import ITunesProvider, suggest_metadata
 
 VALID_EXTENSIONS = {".mp4", ".mp3", ".zip", ".mkv", ".avi", ".webm", ".mov"}
-DEFAULT_SONGS_DIR = r"C:\Users\mannr\pikaraoke-songs"
+DEFAULT_SONGS_DIR = None
 
 
 def collect_unique_songs(songs_dir: str) -> list[str]:
@@ -80,7 +82,7 @@ def run_report(songs_dir: str) -> None:
 
             try:
                 suggestions = suggest_metadata(clean_stem, provider=provider, limit=5)
-            except Exception as e:
+            except (requests.exceptions.RequestException, ValueError, KeyError) as e:
                 print(f"  [{i}/{total}] ERROR: {stem} -> {e}")
                 writer.writerow([stem, tidied, "ERROR", "", "", "", "", ""])
                 results.append({"stem": stem, "score": None})
@@ -151,7 +153,10 @@ def run_report(songs_dir: str) -> None:
 
 
 if __name__ == "__main__":
-    songs_dir = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_SONGS_DIR
+    if len(sys.argv) < 2:
+        print(f"Usage: {sys.argv[0]} SONGS_DIR")
+        sys.exit(1)
+    songs_dir = sys.argv[1]
     if not os.path.isdir(songs_dir):
         print(f"Error: directory not found: {songs_dir}")
         sys.exit(1)
