@@ -2,12 +2,70 @@
 
 import logging
 import os
+import re
+from collections import defaultdict
 from dataclasses import dataclass
 
-from pikaraoke.lib.karaoke_database import KaraokeDatabase, build_song_record
+from pikaraoke.lib.karaoke_database import KaraokeDatabase
+from pikaraoke.lib.metadata_parser import youtube_id_suffix
 from pikaraoke.lib.song_list import SongList
 
 _VALID_EXTENSIONS = SongList.VALID_EXTENSIONS
+
+# Case variants matching FileResolver's companion file checks
+_CDG_VARIANTS = (".cdg", ".CDG", ".Cdg")
+_ASS_VARIANTS = (".ass", ".ASS", ".Ass")
+
+
+def build_song_record(file_path: str, files_in_dir: set[str] | None = None) -> dict:
+    """Construct a song dict ready for KaraokeDatabase.insert_songs().
+
+    Inspects the file's directory for companion files (.cdg, .ass) to
+    determine the correct format.
+
+    Args:
+        file_path: Full path to the song file.
+        files_in_dir: Pre-cached directory listing. When None, os.listdir
+            is called (convenient for single-file registration).
+    """
+    if files_in_dir is None:
+        try:
+            files_in_dir = set(os.listdir(os.path.dirname(file_path)))
+        except OSError:
+            files_in_dir = set()
+    return {
+        "file_path": file_path,
+        "youtube_id": _extract_youtube_id(file_path),
+        "format": _detect_format(file_path, files_in_dir),
+    }
+
+
+def _extract_youtube_id(file_path: str) -> str | None:
+    """Extract YouTube ID from PiKaraoke (---ID) or yt-dlp ([ID]) format."""
+    suffix = youtube_id_suffix(file_path)
+    if not suffix:
+        return None
+    # suffix is '---<ID>' or ' [<ID>]'; extract the 11-char ID after delimiter
+    match = re.search(r"(?:---|\[)([A-Za-z0-9_-]{11})", suffix)
+    return match.group(1) if match else None
+
+
+def _detect_format(file_path: str, files_in_dir: set[str]) -> str:
+    """Detect the song format, checking for companion files (.cdg, .ass).
+
+    Checks multiple case variants to handle case-sensitive filesystems (Linux).
+    """
+    base, ext = os.path.splitext(os.path.basename(file_path))
+    ext = ext.lower()
+    if ext == ".mp3":
+        for variant in _CDG_VARIANTS:
+            if (base + variant) in files_in_dir:
+                return "cdg"
+    if ext == ".mp4":
+        for variant in _ASS_VARIANTS:
+            if (base + variant) in files_in_dir:
+                return "ass"
+    return ext.lstrip(".")
 
 
 @dataclass
@@ -84,7 +142,22 @@ class LibraryScanner:
         else:
             circuit_tripped = self._check_circuit_breaker(len(to_delete), len(db_paths))
 
-        records = [build_song_record(p) for p in to_insert] if to_insert else []
+        # Cache directory listings so os.listdir is called once per directory
+        # instead of once per file (companion file detection needs the listing).
+        if to_insert:
+            by_dir: dict[str, list[str]] = defaultdict(list)
+            for p in to_insert:
+                by_dir[os.path.dirname(p)].append(p)
+            records = []
+            for dirpath, paths in by_dir.items():
+                try:
+                    files_in_dir = set(os.listdir(dirpath))
+                except OSError:
+                    files_in_dir = set()
+                for p in paths:
+                    records.append(build_song_record(p, files_in_dir))
+        else:
+            records = []
         deletes = list(to_delete) if to_delete and not circuit_tripped else []
 
         self._db.apply_scan_diff(moves, records, deletes)

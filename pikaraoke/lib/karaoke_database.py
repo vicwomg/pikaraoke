@@ -1,12 +1,10 @@
 """SQLite database layer for persistent song library storage."""
 
 import os
-import re
 import sqlite3
 import threading
 
 from pikaraoke.lib.get_platform import get_data_directory
-from pikaraoke.lib.metadata_parser import youtube_id_suffix
 
 _SCHEMA = """
 PRAGMA journal_mode = WAL;
@@ -38,46 +36,6 @@ CREATE TABLE IF NOT EXISTS metadata (
     value TEXT
 );
 """
-
-
-def build_song_record(file_path: str) -> dict:
-    """Construct a song dict ready for KaraokeDatabase.insert_songs().
-
-    Inspects the file's directory for companion files (.cdg, .ass) to
-    determine the correct format.
-    """
-    basename = os.path.basename(file_path)
-    dirpath = os.path.dirname(file_path)
-    try:
-        files_in_dir = set(os.listdir(dirpath))
-    except OSError:
-        files_in_dir = set()
-    return {
-        "file_path": file_path,
-        "youtube_id": _extract_youtube_id(file_path),
-        "format": _detect_format(file_path, files_in_dir),
-    }
-
-
-def _extract_youtube_id(file_path: str) -> str | None:
-    """Extract YouTube ID from PiKaraoke (---ID) or yt-dlp ([ID]) format."""
-    suffix = youtube_id_suffix(file_path)
-    if not suffix:
-        return None
-    # suffix is '---<ID>' or ' [<ID>]'; extract the 11-char ID after delimiter
-    match = re.search(r"(?:---|\[)([A-Za-z0-9_-]{11})", suffix)
-    return match.group(1) if match else None
-
-
-def _detect_format(file_path: str, files_in_dir: set[str]) -> str:
-    """Detect the song format, checking for companion files (.cdg, .ass)."""
-    base, ext = os.path.splitext(os.path.basename(file_path))
-    ext = ext.lower()
-    if ext == ".mp3" and (base + ".cdg") in files_in_dir:
-        return "cdg"
-    if ext == ".mp4" and (base + ".ass") in files_in_dir:
-        return "ass"
-    return ext.lstrip(".")
 
 
 class KaraokeDatabase:

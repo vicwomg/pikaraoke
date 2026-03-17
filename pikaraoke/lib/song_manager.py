@@ -6,7 +6,8 @@ import os
 import re
 
 from pikaraoke.lib.get_platform import is_windows
-from pikaraoke.lib.karaoke_database import KaraokeDatabase, build_song_record
+from pikaraoke.lib.karaoke_database import KaraokeDatabase
+from pikaraoke.lib.library_scanner import build_song_record
 from pikaraoke.lib.metadata_parser import regex_tidy, youtube_id_suffix
 from pikaraoke.lib.song_list import SongList
 
@@ -58,12 +59,19 @@ class SongManager:
         return name
 
     def _get_companion_files(self, song_path: str) -> list[str]:
-        """Return paths to companion files (.cdg, .ass) that exist alongside a song."""
+        """Return paths to companion files (.cdg, .ass) that exist alongside a song.
+
+        Checks multiple case variants to handle case-sensitive filesystems.
+        On case-insensitive systems, deduplicates via normcase.
+        """
         base = os.path.splitext(song_path)[0]
+        seen: set[str] = set()
         companions = []
-        for ext in (".cdg", ".ass"):
+        for ext in (".cdg", ".CDG", ".Cdg", ".ass", ".ASS", ".Ass"):
             path = base + ext
-            if os.path.exists(path):
+            normalized = os.path.normcase(path)
+            if normalized not in seen and os.path.exists(path):
+                seen.add(normalized)
                 companions.append(path)
         return companions
 

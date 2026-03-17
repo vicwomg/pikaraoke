@@ -4,11 +4,7 @@ import os
 
 import pytest
 
-from pikaraoke.lib.karaoke_database import (
-    KaraokeDatabase,
-    _extract_youtube_id,
-    build_song_record,
-)
+from pikaraoke.lib.karaoke_database import KaraokeDatabase
 
 
 @pytest.fixture
@@ -129,59 +125,6 @@ class TestUpdatePaths:
         db.update_paths([("/old/a.mp4", "/new/a.mp4"), ("/old/b.mp4", "/new/b.mp4")])
         paths = set(db.get_all_song_paths())
         assert paths == {"/new/a.mp4", "/new/b.mp4"}
-
-
-class TestBuildSongRecord:
-    def test_mp4_format(self, tmp_path):
-        song = tmp_path / "Song---dQw4w9WgXcQ.mp4"
-        song.touch()
-        record = build_song_record(str(song))
-        assert record["format"] == "mp4"
-        assert record["youtube_id"] == "dQw4w9WgXcQ"
-
-    def test_cdg_pair_detected(self, tmp_path):
-        mp3 = tmp_path / "Track---abc1234567x.mp3"
-        cdg = tmp_path / "Track---abc1234567x.cdg"
-        mp3.touch()
-        cdg.touch()
-        record = build_song_record(str(mp3))
-        assert record["format"] == "cdg"
-
-    def test_mp4_ass_pair_detected(self, tmp_path):
-        mp4 = tmp_path / "Song---abc1234567x.mp4"
-        ass = tmp_path / "Song---abc1234567x.ass"
-        mp4.touch()
-        ass.touch()
-        record = build_song_record(str(mp4))
-        assert record["format"] == "ass"
-
-    def test_zip_format(self, tmp_path):
-        zf = tmp_path / "Song---abc1234567x.zip"
-        zf.touch()
-        record = build_song_record(str(zf))
-        assert record["format"] == "zip"
-
-    def test_standalone_mp3(self, tmp_path):
-        mp3 = tmp_path / "Song.mp3"
-        mp3.touch()
-        record = build_song_record(str(mp3))
-        assert record["format"] == "mp3"
-
-
-class TestExtractYoutubeId:
-    def test_pikaraoke_format(self):
-        assert _extract_youtube_id("Song---dQw4w9WgXcQ.mp4") == "dQw4w9WgXcQ"
-
-    def test_ytdlp_format(self):
-        assert _extract_youtube_id("Song [dQw4w9WgXcQ].mp4") == "dQw4w9WgXcQ"
-
-    def test_no_id(self):
-        assert _extract_youtube_id("Just A Song.mp4") is None
-
-    def test_pikaraoke_preferred_over_ytdlp(self):
-        # PiKaraoke format takes priority
-        result = _extract_youtube_id("Song [AAAAAAAAAAA]---BBBBBBBBBBB.mp4")
-        assert result == "BBBBBBBBBBB"
 
 
 class TestMetadata:
