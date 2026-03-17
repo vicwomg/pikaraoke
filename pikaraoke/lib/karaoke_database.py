@@ -3,12 +3,10 @@
 import os
 import re
 import sqlite3
+import threading
 
 from pikaraoke.lib.get_platform import get_data_directory
-
-# YouTube ID is exactly 11 chars: letters, digits, underscores, hyphens
-_PIKARAOKE_ID_RE = re.compile(r"---([A-Za-z0-9_-]{11})(?:\.|$)")
-_YTDLP_ID_RE = re.compile(r"\[([A-Za-z0-9_-]{11})\](?:\.[^.]+)?$")
+from pikaraoke.lib.metadata_parser import youtube_id_suffix
 
 _SCHEMA = """
 PRAGMA journal_mode = WAL;
@@ -56,20 +54,19 @@ def build_song_record(file_path: str) -> dict:
         files_in_dir = set()
     return {
         "file_path": file_path,
-        "youtube_id": _extract_youtube_id(basename),
+        "youtube_id": _extract_youtube_id(file_path),
         "format": _detect_format(file_path, files_in_dir),
     }
 
 
-def _extract_youtube_id(filename: str) -> str | None:
+def _extract_youtube_id(file_path: str) -> str | None:
     """Extract YouTube ID from PiKaraoke (---ID) or yt-dlp ([ID]) format."""
-    m = _PIKARAOKE_ID_RE.search(filename)
-    if m:
-        return m.group(1)
-    m = _YTDLP_ID_RE.search(filename)
-    if m:
-        return m.group(1)
-    return None
+    suffix = youtube_id_suffix(file_path)
+    if not suffix:
+        return None
+    # suffix is '---<ID>' or ' [<ID>]'; extract the 11-char ID after delimiter
+    match = re.search(r"(?:---|\[)([A-Za-z0-9_-]{11})", suffix)
+    return match.group(1) if match else None
 
 
 def _detect_format(file_path: str, files_in_dir: set[str]) -> str:
@@ -94,6 +91,7 @@ class KaraokeDatabase:
         if db_path is None:
             db_path = os.path.join(get_data_directory(), "pikaraoke.db")
         self._db_path = db_path
+        self._lock = threading.Lock()
         self._conn = self._connect()
         self._create_schema()
 
@@ -113,12 +111,14 @@ class KaraokeDatabase:
 
     def get_all_song_paths(self) -> list[str]:
         """Return all song file paths (unsorted; SongList handles sort order)."""
-        rows = self._conn.execute("SELECT file_path FROM songs").fetchall()
-        return [row[0] for row in rows]
+        with self._lock:
+            rows = self._conn.execute("SELECT file_path FROM songs").fetchall()
+            return [row[0] for row in rows]
 
     def get_song_count(self) -> int:
         """Return the total number of songs in the library."""
-        return self._conn.execute("SELECT COUNT(*) FROM songs").fetchone()[0]
+        with self._lock:
+            return self._conn.execute("SELECT COUNT(*) FROM songs").fetchone()[0]
 
     # ------------------------------------------------------------------
     # Batch write operations (used by LibraryScanner)
@@ -126,14 +126,15 @@ class KaraokeDatabase:
 
     def insert_songs(self, songs: list[dict]) -> None:
         """Batch-insert song records. Silently ignores duplicate file_paths."""
-        self._conn.executemany(
-            """
-            INSERT OR IGNORE INTO songs (file_path, youtube_id, format)
-            VALUES (:file_path, :youtube_id, :format)
-            """,
-            songs,
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.executemany(
+                """
+                INSERT OR IGNORE INTO songs (file_path, youtube_id, format)
+                VALUES (:file_path, :youtube_id, :format)
+                """,
+                songs,
+            )
+            self._conn.commit()
 
     def update_paths(self, moves: list[tuple[str, str]]) -> None:
         """Batch-update file paths for moved songs.
@@ -141,36 +142,61 @@ class KaraokeDatabase:
         Args:
             moves: List of (old_path, new_path) tuples.
         """
-        self._conn.executemany(
-            "UPDATE songs SET file_path = ?, updated_at = CURRENT_TIMESTAMP WHERE file_path = ?",
-            [(new, old) for old, new in moves],
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.executemany(
+                "UPDATE songs SET file_path = ?, updated_at = CURRENT_TIMESTAMP WHERE file_path = ?",
+                [(new, old) for old, new in moves],
+            )
+            self._conn.commit()
 
     def delete_by_paths(self, file_paths: list[str]) -> None:
         """Batch-delete songs by file path."""
-        self._conn.executemany(
-            "DELETE FROM songs WHERE file_path = ?",
-            [(p,) for p in file_paths],
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.executemany(
+                "DELETE FROM songs WHERE file_path = ?",
+                [(p,) for p in file_paths],
+            )
+            self._conn.commit()
+
+    def apply_scan_diff(
+        self,
+        moves: list[tuple[str, str]],
+        inserts: list[dict],
+        deletes: list[str],
+    ) -> None:
+        """Apply a complete scan diff atomically in a single transaction."""
+        with self._lock:
+            if moves:
+                self._conn.executemany(
+                    "UPDATE songs SET file_path = ?, updated_at = CURRENT_TIMESTAMP WHERE file_path = ?",
+                    [(new, old) for old, new in moves],
+                )
+            if inserts:
+                self._conn.executemany(
+                    """
+                    INSERT OR IGNORE INTO songs (file_path, youtube_id, format)
+                    VALUES (:file_path, :youtube_id, :format)
+                    """,
+                    inserts,
+                )
+            if deletes:
+                self._conn.executemany(
+                    "DELETE FROM songs WHERE file_path = ?",
+                    [(p,) for p in deletes],
+                )
+            self._conn.commit()
 
     # ------------------------------------------------------------------
-    # Single-record write operations (used by UI-triggered CRUD)
+    # Single-record write operations (delegate to batch methods)
     # ------------------------------------------------------------------
 
     def delete_by_path(self, file_path: str) -> None:
         """Delete a single song by file path (UI-triggered delete)."""
-        self._conn.execute("DELETE FROM songs WHERE file_path = ?", (file_path,))
-        self._conn.commit()
+        self.delete_by_paths([file_path])
 
     def update_path(self, old_path: str, new_path: str) -> None:
         """Update a single song's file path (UI-triggered rename)."""
-        self._conn.execute(
-            "UPDATE songs SET file_path = ?, updated_at = CURRENT_TIMESTAMP WHERE file_path = ?",
-            (new_path, old_path),
-        )
-        self._conn.commit()
+        self.update_paths([(old_path, new_path)])
 
     # ------------------------------------------------------------------
     # Metadata (app-level key-value store)
@@ -178,16 +204,18 @@ class KaraokeDatabase:
 
     def get_metadata(self, key: str) -> str | None:
         """Return the value for a metadata key, or None if not set."""
-        row = self._conn.execute("SELECT value FROM metadata WHERE key = ?", (key,)).fetchone()
-        return row[0] if row else None
+        with self._lock:
+            row = self._conn.execute("SELECT value FROM metadata WHERE key = ?", (key,)).fetchone()
+            return row[0] if row else None
 
     def set_metadata(self, key: str, value: str) -> None:
         """Set a metadata key-value pair (upsert)."""
-        self._conn.execute(
-            "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
-            (key, value),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+                (key, value),
+            )
+            self._conn.commit()
 
     # ------------------------------------------------------------------
     # Maintenance
@@ -195,9 +223,11 @@ class KaraokeDatabase:
 
     def check_integrity(self) -> tuple[bool, str]:
         """Run PRAGMA integrity_check. Returns (ok, message)."""
-        result = self._conn.execute("PRAGMA integrity_check").fetchone()[0]
-        return result == "ok", result
+        with self._lock:
+            result = self._conn.execute("PRAGMA integrity_check").fetchone()[0]
+            return result == "ok", result
 
     def close(self) -> None:
         """Close the database connection."""
-        self._conn.close()
+        with self._lock:
+            self._conn.close()

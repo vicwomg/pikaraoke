@@ -84,19 +84,17 @@ class LibraryScanner:
         else:
             circuit_tripped = self._check_circuit_breaker(len(to_delete), len(db_paths))
 
+        records = [build_song_record(p) for p in to_insert] if to_insert else []
+        deletes = list(to_delete) if to_delete and not circuit_tripped else []
+
+        self._db.apply_scan_diff(moves, records, deletes)
+
         if moves:
-            self._db.update_paths(moves)
             logging.info(f"Scan: moved {len(moves)} song(s)")
-
         if to_insert:
-            records = [build_song_record(p) for p in to_insert]
-            self._db.insert_songs(records)
             logging.info(f"Scan: added {len(to_insert)} song(s)")
-
-        deleted = 0
-        if to_delete and not circuit_tripped:
-            self._db.delete_by_paths(list(to_delete))
-            deleted = len(to_delete)
+        deleted = len(deletes)
+        if deleted:
             logging.info(f"Scan: deleted {deleted} song(s)")
 
         if last_dir != songs_dir:

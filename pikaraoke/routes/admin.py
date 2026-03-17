@@ -1,7 +1,5 @@
 """Admin routes for system control and authentication."""
 
-from __future__ import annotations
-
 import datetime
 import os
 import subprocess

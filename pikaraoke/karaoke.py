@@ -1,7 +1,5 @@
 """Core karaoke engine for managing songs, queue, and playback."""
 
-from __future__ import annotations
-
 import logging
 import os
 import socket

@@ -28,7 +28,7 @@ class SongManager:
     delete, rename, and display name operations.
     """
 
-    def __init__(self, download_path: str, db: KaraokeDatabase | None = None) -> None:
+    def __init__(self, download_path: str, db: KaraokeDatabase) -> None:
         self.download_path = download_path
         self.songs = SongList()
         self._db = db
@@ -77,8 +77,7 @@ class SongManager:
             with contextlib.suppress(FileNotFoundError):
                 os.remove(companion)
         self.songs.remove(song_path)
-        if self._db:
-            self._db.delete_by_path(song_path)
+        self._db.delete_by_path(song_path)
 
     def rename(self, song_path: str, new_name: str) -> str:
         """Rename a song on disk, in SongList, and in DB. Returns new path.
@@ -97,12 +96,10 @@ class SongManager:
             companion_ext = os.path.splitext(companion)[1]
             os.rename(companion, os.path.join(self.download_path, new_name + companion_ext))
         self.songs.rename(song_path, new_path)
-        if self._db:
-            self._db.update_path(song_path, new_path)
+        self._db.update_path(song_path, new_path)
         return new_path
 
     def register_download(self, song_path: str) -> None:
         """Register a newly downloaded song in SongList and DB."""
         self.songs.add_if_valid(song_path)
-        if self._db:
-            self._db.insert_songs([build_song_record(song_path)])
+        self._db.insert_songs([build_song_record(song_path)])
