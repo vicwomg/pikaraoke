@@ -150,6 +150,43 @@ class TestMetadata:
         assert "metadata" in tables
 
 
+class TestApplyScanDiff:
+    def test_applies_moves_inserts_deletes_atomically(self, db):
+        db.insert_songs(
+            [
+                {"file_path": "/songs/old.mp4", "youtube_id": None, "format": "mp4"},
+                {"file_path": "/songs/remove.mp4", "youtube_id": None, "format": "mp4"},
+            ]
+        )
+        db.apply_scan_diff(
+            moves=[("/songs/old.mp4", "/songs/new.mp4")],
+            inserts=[{"file_path": "/songs/added.mp4", "youtube_id": None, "format": "mp4"}],
+            deletes=["/songs/remove.mp4"],
+        )
+        paths = set(db.get_all_song_paths())
+        assert paths == {"/songs/new.mp4", "/songs/added.mp4"}
+
+    def test_rolls_back_on_error(self, db):
+        db.insert_songs(
+            [
+                {"file_path": "/songs/a.mp4", "youtube_id": None, "format": "mp4"},
+                {"file_path": "/songs/b.mp4", "youtube_id": None, "format": "mp4"},
+                {"file_path": "/songs/c.mp4", "youtube_id": None, "format": "mp4"},
+            ]
+        )
+        # Moving two rows to the same path violates UNIQUE on file_path.
+        # The entire transaction (including the delete) should roll back.
+        with pytest.raises(Exception):
+            db.apply_scan_diff(
+                moves=[("/songs/a.mp4", "/songs/clash.mp4"), ("/songs/b.mp4", "/songs/clash.mp4")],
+                inserts=[],
+                deletes=["/songs/c.mp4"],
+            )
+        # All 3 original songs should remain untouched
+        assert db.get_song_count() == 3
+        assert set(db.get_all_song_paths()) == {"/songs/a.mp4", "/songs/b.mp4", "/songs/c.mp4"}
+
+
 class TestIntegrityCheck:
     def test_ok_on_fresh_db(self, db):
         ok, msg = db.check_integrity()

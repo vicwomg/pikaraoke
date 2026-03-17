@@ -49,6 +49,11 @@ class KaraokeDatabase:
         if db_path is None:
             db_path = os.path.join(get_data_directory(), "pikaraoke.db")
         self._db_path = db_path
+        # All operations (including reads) share a single connection, so the
+        # lock is required for thread safety -- Python's sqlite3.Connection is
+        # not thread-safe even with check_same_thread=False. WAL mode benefits
+        # crash recovery and write performance; Python-level read concurrency
+        # would require separate connections per reader.
         self._lock = threading.Lock()
         self._conn = self._connect()
         self._create_schema()
@@ -60,8 +65,8 @@ class KaraokeDatabase:
 
     def _create_schema(self) -> None:
         self._conn.executescript(_SCHEMA)
-        self._conn.execute("PRAGMA user_version = 1")
-        self._conn.commit()
+        with self._conn:
+            self._conn.execute("PRAGMA user_version = 1")
 
     # ------------------------------------------------------------------
     # Read operations
@@ -84,7 +89,7 @@ class KaraokeDatabase:
 
     def insert_songs(self, songs: list[dict]) -> None:
         """Batch-insert song records. Silently ignores duplicate file_paths."""
-        with self._lock:
+        with self._lock, self._conn:
             self._conn.executemany(
                 """
                 INSERT OR IGNORE INTO songs (file_path, youtube_id, format)
@@ -92,7 +97,6 @@ class KaraokeDatabase:
                 """,
                 songs,
             )
-            self._conn.commit()
 
     def update_paths(self, moves: list[tuple[str, str]]) -> None:
         """Batch-update file paths for moved songs.
@@ -100,21 +104,19 @@ class KaraokeDatabase:
         Args:
             moves: List of (old_path, new_path) tuples.
         """
-        with self._lock:
+        with self._lock, self._conn:
             self._conn.executemany(
                 "UPDATE songs SET file_path = ?, updated_at = CURRENT_TIMESTAMP WHERE file_path = ?",
                 [(new, old) for old, new in moves],
             )
-            self._conn.commit()
 
     def delete_by_paths(self, file_paths: list[str]) -> None:
         """Batch-delete songs by file path."""
-        with self._lock:
+        with self._lock, self._conn:
             self._conn.executemany(
                 "DELETE FROM songs WHERE file_path = ?",
                 [(p,) for p in file_paths],
             )
-            self._conn.commit()
 
     def apply_scan_diff(
         self,
@@ -123,7 +125,7 @@ class KaraokeDatabase:
         deletes: list[str],
     ) -> None:
         """Apply a complete scan diff atomically in a single transaction."""
-        with self._lock:
+        with self._lock, self._conn:
             if moves:
                 self._conn.executemany(
                     "UPDATE songs SET file_path = ?, updated_at = CURRENT_TIMESTAMP WHERE file_path = ?",
@@ -142,7 +144,6 @@ class KaraokeDatabase:
                     "DELETE FROM songs WHERE file_path = ?",
                     [(p,) for p in deletes],
                 )
-            self._conn.commit()
 
     # ------------------------------------------------------------------
     # Single-record write operations (delegate to batch methods)
@@ -168,12 +169,11 @@ class KaraokeDatabase:
 
     def set_metadata(self, key: str, value: str) -> None:
         """Set a metadata key-value pair (upsert)."""
-        with self._lock:
+        with self._lock, self._conn:
             self._conn.execute(
                 "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
                 (key, value),
             )
-            self._conn.commit()
 
     # ------------------------------------------------------------------
     # Maintenance

@@ -12,10 +12,6 @@ from pikaraoke.lib.song_list import SongList
 
 _VALID_EXTENSIONS = SongList.VALID_EXTENSIONS
 
-# Case variants matching FileResolver's companion file checks
-_CDG_VARIANTS = (".cdg", ".CDG", ".Cdg")
-_ASS_VARIANTS = (".ass", ".ASS", ".Ass")
-
 
 def build_song_record(file_path: str, files_in_dir: set[str] | None = None) -> dict:
     """Construct a song dict ready for KaraokeDatabase.insert_songs().
@@ -51,20 +47,14 @@ def _extract_youtube_id(file_path: str) -> str | None:
 
 
 def _detect_format(file_path: str, files_in_dir: set[str]) -> str:
-    """Detect the song format, checking for companion files (.cdg, .ass).
-
-    Checks multiple case variants to handle case-sensitive filesystems (Linux).
-    """
+    """Detect the song format, checking for companion files (.cdg, .ass)."""
     base, ext = os.path.splitext(os.path.basename(file_path))
     ext = ext.lower()
-    if ext == ".mp3":
-        for variant in _CDG_VARIANTS:
-            if (base + variant) in files_in_dir:
-                return "cdg"
-    if ext == ".mp4":
-        for variant in _ASS_VARIANTS:
-            if (base + variant) in files_in_dir:
-                return "ass"
+    dir_lower = {f.lower(): f for f in files_in_dir}
+    if ext == ".mp3" and (base.lower() + ".cdg") in dir_lower:
+        return "cdg"
+    if ext == ".mp4" and (base.lower() + ".ass") in dir_lower:
+        return "ass"
     return ext.lstrip(".")
 
 
@@ -190,21 +180,24 @@ class LibraryScanner:
         return found
 
     def _detect_moves(self, gone: set[str], new: set[str]) -> list[tuple[str, str]]:
-        """Match gone paths to new paths by basename.
+        """Match gone paths to new paths by basename (strict 1:1 only).
 
-        A match is only accepted when exactly one new path shares the basename
-        of the gone path (no ambiguity). Karaoke filenames embed YouTube IDs
-        so collisions are extremely rare in practice.
+        A match is only accepted when exactly one old path and exactly one new
+        path share the same basename. Karaoke filenames embed YouTube IDs so
+        collisions are extremely rare in practice.
         """
         new_by_basename: dict[str, list[str]] = {}
         for path in new:
             new_by_basename.setdefault(os.path.basename(path), []).append(path)
+        old_by_basename: dict[str, list[str]] = {}
+        for path in gone:
+            old_by_basename.setdefault(os.path.basename(path), []).append(path)
 
         moves: list[tuple[str, str]] = []
-        for old_path in gone:
-            candidates = new_by_basename.get(os.path.basename(old_path), [])
-            if len(candidates) == 1:
-                moves.append((old_path, candidates[0]))
+        for basename, old_paths in old_by_basename.items():
+            new_paths = new_by_basename.get(basename, [])
+            if len(old_paths) == 1 and len(new_paths) == 1:
+                moves.append((old_paths[0], new_paths[0]))
         return moves
 
     def _check_circuit_breaker(self, gone_count: int, db_count: int) -> bool:

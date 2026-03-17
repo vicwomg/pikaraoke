@@ -59,20 +59,19 @@ class SongManager:
         return name
 
     def _get_companion_files(self, song_path: str) -> list[str]:
-        """Return paths to companion files (.cdg, .ass) that exist alongside a song.
-
-        Checks multiple case variants to handle case-sensitive filesystems.
-        On case-insensitive systems, deduplicates via normcase.
-        """
-        base = os.path.splitext(song_path)[0]
-        seen: set[str] = set()
+        """Return paths to companion files (.cdg, .ass) that exist alongside a song."""
+        dirpath = os.path.dirname(song_path)
+        base = os.path.splitext(os.path.basename(song_path))[0]
+        try:
+            files = os.listdir(dirpath)
+        except OSError:
+            return []
+        base_lower = base.lower()
         companions = []
-        for ext in (".cdg", ".CDG", ".Cdg", ".ass", ".ASS", ".Ass"):
-            path = base + ext
-            normalized = os.path.normcase(path)
-            if normalized not in seen and os.path.exists(path):
-                seen.add(normalized)
-                companions.append(path)
+        for f in files:
+            f_base, f_ext = os.path.splitext(f)
+            if f_base.lower() == base_lower and f_ext.lower() in (".cdg", ".ass"):
+                companions.append(os.path.join(dirpath, f))
         return companions
 
     def delete(self, song_path: str) -> None:

@@ -129,6 +129,33 @@ class TestMoveDetection:
         assert result.added == 2
         assert result.deleted == 1
 
+    def test_duplicate_old_basename_no_move(self, scanner, db, tmp_path):
+        """Two old paths with the same basename and one new path: no move match."""
+        dir_a = tmp_path / "a"
+        dir_b = tmp_path / "b"
+        dir_c = tmp_path / "c"
+        dir_a.mkdir()
+        dir_b.mkdir()
+        dir_c.mkdir()
+        # Seed 3 stable songs to stay below circuit breaker
+        for i in range(3):
+            (tmp_path / f"Stable{i}---{'s' * 10}{i}.mp4").write_text("fake")
+        (dir_a / "Song---dQw4w9WgXcQ.mp4").write_text("fake")
+        (dir_b / "Song---dQw4w9WgXcQ.mp4").write_text("fake")
+        scanner.scan(str(tmp_path))
+        assert db.get_song_count() == 5
+
+        # Remove both, add one new with same basename
+        (dir_a / "Song---dQw4w9WgXcQ.mp4").unlink()
+        (dir_b / "Song---dQw4w9WgXcQ.mp4").unlink()
+        (dir_c / "Song---dQw4w9WgXcQ.mp4").write_text("fake")
+
+        result = scanner.scan(str(tmp_path))
+        # Ambiguous old side -> no move, treated as 2 deletes + 1 insert
+        assert result.moved == 0
+        assert result.deleted == 2
+        assert result.added == 1
+
 
 class TestCircuitBreaker:
     def test_trips_when_over_half_missing(self, scanner, db, tmp_path):
