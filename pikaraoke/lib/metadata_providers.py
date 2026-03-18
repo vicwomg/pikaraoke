@@ -6,6 +6,7 @@ Pure library module -- no Flask imports.
 import logging
 import re
 import ssl
+import sys
 import time
 from typing import Protocol
 
@@ -29,6 +30,24 @@ ITUNES_MAX_RETRIES = 3
 ITUNES_BACKOFF_BASE = 2.0
 _RETRYABLE_STATUS_CODES = {403, 429, 500, 502, 503, 504}
 
+_FEATURING_PATTERN = re.compile(
+    r"\s+(?:ft\.?|feat\.?|featuring)\s+(?P<name>.*?)(?=\s+-\s+|$)", re.IGNORECASE
+)
+
+# Strip square-bracket qualifiers from iTunes titles ([Deluxe Edition], [Remastered], etc.)
+_BRACKET_CONTENT_RE = re.compile(r"\s*\[[^\]]*\]")
+
+# Pre-compiled patterns used in _suggestion_score
+_PAREN_CONTENT_RE = re.compile(r"\s*(?:\([^)]*\)|\[[^\]]*\])")
+_PAREN_EXTRACT_RE = re.compile(r"(?:\(([^)]*)\)|\[([^\]]*)\])")
+
+_LEADING_CONJUNCTION_RE = re.compile(r"^(?:and|with)\s+", re.IGNORECASE)
+
+# Matches 3+ single letters separated by spaces (e.g. "d i v o r c e" from "D.I.V.O.R.C.E.")
+_SINGLE_LETTER_SEQ_RE = re.compile(r"\b([a-z](?:\s[a-z]){2,})\b")
+
+_WHITESPACE_RE = re.compile(r"\s+")
+
 
 def _fix_ssl_recursion() -> None:
     """Fix CPython 3.13 ssl.SSLContext.minimum_version RecursionError.
@@ -51,7 +70,8 @@ def _fix_ssl_recursion() -> None:
     urllib3.connection.create_urllib3_context = _safe_create_urllib3_context
 
 
-_fix_ssl_recursion()
+if sys.version_info >= (3, 13):
+    _fix_ssl_recursion()
 
 
 class MetadataProvider(Protocol):
@@ -188,10 +208,6 @@ def get_provider(preferences) -> MetadataProvider:
     return ITunesProvider()
 
 
-# Matches 3+ single letters separated by spaces (e.g. "d i v o r c e" from "D.I.V.O.R.C.E.")
-_SINGLE_LETTER_SEQ_RE = re.compile(r"\b([a-z](?:\s[a-z]){2,})\b")
-
-
 def _collapse_single_letters(match: re.Match) -> str:
     """Collapse 'd i v o r c e' into 'divorce'."""
     return match.group(1).replace(" ", "")
@@ -210,7 +226,7 @@ def _normalize_for_matching(text: str) -> str:
     # Collapse single-letter sequences separated by spaces (from dotted acronyms
     # like "D.I.V.O.R.C.E." which normalize_for_comparison turns into "d i v o r c e")
     normalized = _SINGLE_LETTER_SEQ_RE.sub(_collapse_single_letters, normalized)
-    normalized = re.sub(r"\s+", " ", normalized).strip()
+    normalized = _WHITESPACE_RE.sub(" ", normalized).strip()
     return normalized
 
 
@@ -263,13 +279,19 @@ def _matches_field(part_norm: str, field_norm: str) -> bool:
     return part_norm == field_norm or _fuzzy_match(part_norm, field_norm) or part_norm in field_norm
 
 
+def _normalize_query_parts(query: str) -> list[tuple[str, str]]:
+    """Split and normalize a query into (raw, normalized) pairs."""
+    return [
+        (p.strip(), _normalize_for_matching(p.strip()))
+        for p in query.lower().split(" - ", 1)
+        if p.strip()
+    ]
+
+
 def _suggestion_score(
     result: dict,
     query: str,
     featuring: str = "",
-    *,
-    _featuring_norm: str | None = None,
-    _query_parts_norm: list[tuple[str, str]] | None = None,
 ) -> int:
     """Score a suggestion result for relevance, version quality, and genre."""
     score = 0
@@ -281,20 +303,14 @@ def _suggestion_score(
     # Normalize conjunctions for matching ("and"/"&"/etc.)
     artist_norm = _normalize_for_matching(artist_lower)
     title_norm = _normalize_for_matching(title_base)
+    title_full_norm = _normalize_for_matching(title_lower)
 
-    # Query relevance: split "artist - title" and match against result fields
-    if _query_parts_norm is None:
-        _query_parts_norm = [
-            (p.strip(), _normalize_for_matching(p.strip()))
-            for p in query.lower().split(" - ", 1)
-            if p.strip()
-        ]
-    if _featuring_norm is None:
-        _featuring_norm = _normalize_for_matching(featuring) if featuring else ""
+    query_parts_norm = _normalize_query_parts(query)
+    featuring_norm = _normalize_for_matching(featuring) if featuring else ""
 
     artist_matched = False
     title_matched = False
-    for part, part_norm in _query_parts_norm:
+    for part, part_norm in query_parts_norm:
         matched_artist = _matches_field(part_norm, artist_norm)
         matched_title = (
             part == title_lower or part == title_base or _matches_field(part_norm, title_norm)
@@ -317,12 +333,12 @@ def _suggestion_score(
     # Without this, a result where both parts coincidentally appear in the
     # title (e.g. a track titled "Dolly Parton + Beer Cereal Divorce" by
     # David Liebe Hart) could outscore a result with the correct artist.
-    if len(_query_parts_norm) >= 2 and artist_matched and title_matched:
+    if len(query_parts_norm) >= 2 and artist_matched and title_matched:
         score += 30
 
     # Bonus if the featuring artist appears in the result title
     # Normalize both sides so "and" matches "&" and accents are ignored
-    if _featuring_norm and _featuring_norm in _normalize_for_matching(title_lower):
+    if featuring_norm and featuring_norm in title_full_norm:
         score += 15
 
     # Bonus when query artist part has extra names that appear in the result's
@@ -330,8 +346,8 @@ def _suggestion_score(
     # title "Everything Has Changed (feat. Ed Sheeran)").
     # This handles "and"/"&"/"with" collaborator names without treating them
     # as featuring keywords (which would break genuine duos).
-    if len(_query_parts_norm) >= 2 and title_base != title_lower:
-        query_artist_norm = _query_parts_norm[0][1]
+    if len(query_parts_norm) >= 2 and title_base != title_lower:
+        query_artist_norm = query_parts_norm[0][1]
         parens_text = _extract_qualifier_text(title_lower)
         if parens_text and artist_norm != query_artist_norm:
             # Extract the extra part of the query artist beyond the result artist
@@ -366,24 +382,10 @@ def _deduplicate_suggestions(
 
     Returns (score, result) tuples sorted by score descending.
     """
-    # Precompute query-derived normalizations once for the batch
-    query_parts_norm = [
-        (p.strip(), _normalize_for_matching(p.strip()))
-        for p in query.lower().split(" - ", 1)
-        if p.strip()
-    ]
-    featuring_norm = _normalize_for_matching(featuring) if featuring else ""
-
     best: dict[tuple[str, str], tuple[int, dict]] = {}
     for r in results:
         key = (r.get("artist", "").lower(), r.get("title", "").lower())
-        s = _suggestion_score(
-            r,
-            query,
-            featuring,
-            _featuring_norm=featuring_norm,
-            _query_parts_norm=query_parts_norm,
-        )
+        s = _suggestion_score(r, query, featuring)
         if key not in best or s > best[key][0]:
             best[key] = (s, r)
     scored = sorted(best.values(), key=lambda x: x[0], reverse=True)
@@ -404,24 +406,9 @@ def _detect_query_artist_first(query: str, results: list[dict]) -> bool:
     return _fuzzy_match(first_part, artist)
 
 
-_FEATURING_PATTERN = re.compile(
-    r"\s+(?:ft\.?|feat\.?|featuring)\s+(?P<name>.*?)(?=\s+-\s+|$)", re.IGNORECASE
-)
-
-# Strip square-bracket qualifiers from iTunes titles ([Deluxe Edition], [Remastered], etc.)
-_BRACKET_CONTENT_RE = re.compile(r"\s*\[[^\]]*\]")
-
-# Pre-compiled patterns used in _suggestion_score
-_PAREN_CONTENT_RE = re.compile(r"\s*(?:\([^)]*\)|\[[^\]]*\])")
-_PAREN_EXTRACT_RE = re.compile(r"(?:\(([^)]*)\)|\[([^\]]*)\])")
-
-
 def _extract_qualifier_text(text: str) -> str:
     """Extract all parenthetical and bracketed content as a single string."""
     return " ".join(g for groups in _PAREN_EXTRACT_RE.findall(text) for g in groups if g)
-
-
-_LEADING_CONJUNCTION_RE = re.compile(r"^(?:and|with)\s+", re.IGNORECASE)
 
 
 def suggest_metadata(
@@ -442,14 +429,12 @@ def suggest_metadata(
     scored = _deduplicate_suggestions(results, search_query, featuring)
     truncated = scored[:limit]
 
-    # Add display and score fields using pre-computed scores
-    out = [r for _, r in truncated]
-    artist_first = _detect_query_artist_first(search_query, out)
+    # Build output dicts with display and score fields (don't mutate originals)
+    artist_first = _detect_query_artist_first(search_query, [r for _, r in truncated])
+    out = []
     for score, r in truncated:
-        if artist_first:
-            r["display"] = f"{r['artist']} - {r['title']}"
-        else:
-            r["display"] = f"{r['title']} - {r['artist']}"
-        r["score"] = score
-
+        display = (
+            f"{r['artist']} - {r['title']}" if artist_first else f"{r['title']} - {r['artist']}"
+        )
+        out.append({**r, "display": display, "score": score})
     return out

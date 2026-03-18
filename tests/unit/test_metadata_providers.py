@@ -130,12 +130,12 @@ class TestITunesProvider:
     def test_rate_limiting_enforced(self, mock_get, mock_time, mock_sleep, provider):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {"resultCount": 0, "results": []}
-        # First call at t=100, second at t=101 (only 1s elapsed, needs 3s gap)
-        mock_time.side_effect = [100.0, 100.0, 101.0, 101.0]
+        # First call at t=100, second at t=100.5 (only 0.5s elapsed, needs 2s gap)
+        mock_time.side_effect = [100.0, 100.0, 100.5, 100.5]
         provider.search("first")
         provider.search("second")
-        # Should have slept for the remaining 2s
-        mock_sleep.assert_called_once_with(pytest.approx(2.0, abs=0.1))
+        # Should have slept for the remaining 1.5s
+        mock_sleep.assert_called_once_with(pytest.approx(1.5, abs=0.1))
 
     @patch("pikaraoke.lib.metadata_providers.requests.get")
     def test_search_handles_missing_release_date(self, mock_get, provider):
