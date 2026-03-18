@@ -4,16 +4,6 @@
 <script>
   $(function () {
 
-    $('#remove-karaoke').click(function (e) {
-      var filename = $('#new_file_name').val();
-      if (!$.trim(filename)) return;
-      $.getJSON('/metadata/tidy-name', { filename: filename }, function (data) {
-        if (data.tidied) {
-          $('#new_file_name').val(data.tidied);
-        }
-      });
-    });
-
     function fetchSuggestions() {
       var filename = $.trim($('#new_file_name').val());
       if (!filename) return;
@@ -89,27 +79,24 @@
     <input type="hidden" name="referrer" value="{{ referrer }}">
     {# MSG: Label on the control to edit the song's name #}
     <label class="label">{% trans %}Edit Song Name{% endtrans %}</label>
-    <div class="field">
-      <input autocomplete="off" id="new_file_name" class="input" type="text" name="new_file_name"
-        value="{{ raw_stem }}">
+    <div class="field has-addons">
+      <div class="control is-expanded">
+        <input autocomplete="off" id="new_file_name" class="input" type="text" name="new_file_name"
+          value="{{ raw_stem }}">
+      </div>
+      <div class="control">
+        {# MSG: Label on button which searches for track suggestions from iTunes. #}
+        <button type="button" class="button is-info" id="suggest-title">
+          <span class="icon"><i class="icon-search-1"></i></span>
+          <span>{% trans %}Auto Suggest{% endtrans %}</span>
+        </button>
+      </div>
     </div>
     <div class="buttons are-small mb-4">
-      {% if is_youtube %}
-      {# MSG: Label on button which strips karaoke noise words from the song title. #}
-      <button type="button" class="button is-rounded" id="remove-karaoke">
-        <span class="icon"><i class="icon-pencil"></i></span>
-        <span>{% trans %}Clean name{% endtrans %}</span>
-      </button>
-      {% endif %}
       {# MSG: Label on button which swaps the order of the artist and song in the title. #}
-      <button type="button" class="button is-rounded" id="swap-order">
+      <button type="button" class="button is-rounded is-link" id="swap-order">
         <span class="icon"><i class="icon-exchange"></i></span>
         <span>{% trans %}Swap order{% endtrans %}</span>
-      </button>
-      {# MSG: Label on button which searches for track suggestions from iTunes. #}
-      <button type="button" class="button is-rounded" id="suggest-title">
-        <span class="icon"><i class="icon-search-1"></i></span>
-        <span>{% trans %}Auto Suggest{% endtrans %}</span>
       </button>
     </div>
     <div id="suggest_results" class="mb-4"></div>
@@ -127,15 +114,15 @@
       </div>
     </div>
   </form>
+  <div class="has-text-right mt-4">
+    <a class="confirm-delete-file has-text-danger"
+      href="{{url_for('files.delete_file')}}?song={{url_escape(song)}}&referrer={{url_escape(referrer)}}"><i class="icon icon-trash-empty"></i>
+      {# MSG: Label on button which deletes the current song. #}
+      {%- trans -%}
+        Delete this song
+      {%- endtrans -%}
+    </a>
+  </div>
 </div>
-
-<hr>
-<a class="confirm-delete-file has-text-danger is-pulled-right"
-  href="{{url_for('files.delete_file')}}?song={{url_escape(song)}}&referrer={{url_escape(referrer)}}"><i class="icon icon-trash-empty"></i>
-  {# MSG: Label on button which deletes the current song. #}
-  {%- trans -%}
-    Delete this song
-  {%- endtrans -%}
-</a><br>
 
 {% endblock %}
