@@ -73,7 +73,7 @@ def library_stats():
     if not is_admin():
         return jsonify({"error": "Unauthorized"}), 403
     k = get_karaoke_instance()
-    return jsonify({"song_count": k.db.get_song_count()})
+    return jsonify({"song_count": len(k.song_manager.songs)})
 
 
 @admin_bp.route("/sync_library")

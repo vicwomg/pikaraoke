@@ -198,7 +198,7 @@ class TestSongListRename:
         assert str(new_file) in sl
 
     def test_rename_to_invalid_fails(self, tmp_path):
-        """Test renaming to invalid path fails."""
+        """Test renaming to invalid path preserves the old entry."""
         sl = SongList()
         old_file = tmp_path / "old.mp4"
         old_file.touch()
@@ -207,7 +207,7 @@ class TestSongListRename:
         result = sl.rename(str(old_file), "/nonexistent/new.mp4")
 
         assert result is False
-        assert str(old_file) not in sl  # Old path removed
+        assert str(old_file) in sl  # Old path preserved on failure
 
 
 class TestSongListCacheInvalidation:

@@ -265,8 +265,9 @@ class Karaoke:
         self.download_manager.start()
 
         # Song library startup: warm cache from DB or blocking cold scan
-        if self.db.get_song_count() > 0:
-            self.song_manager.songs.update(self.db.get_all_song_paths())
+        paths = self.db.get_all_song_paths()
+        if paths:
+            self.song_manager.songs.update(paths)
             logging.info("Loaded songs from database, syncing in the background")
             self.sync_library()
         else:

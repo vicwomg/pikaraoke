@@ -119,7 +119,8 @@ class SongList:
     def rename(self, old_path: str, new_path: str) -> bool:
         """Update a song's path after a file rename.
 
-        Removes the old path and adds the new path with validation.
+        Validates the new path then swaps atomically under a single lock
+        so other threads never see the song as absent.
 
         Args:
             old_path: Current path of the song file.
@@ -128,9 +129,13 @@ class SongList:
         Returns:
             True if successful, False if new path is invalid.
         """
-        # remove and add_if_valid each acquire the lock independently
-        self.remove(old_path)
-        return self.add_if_valid(new_path)
+        if not self.is_valid_song(new_path):
+            return False
+        with self._lock:
+            self._songs.discard(old_path)
+            self._songs.add(new_path)
+            self._invalidate_cache()
+        return True
 
     def find_by_id(self, directory: str, video_id: str) -> str | None:
         """Efficiently find a song by its YouTube ID in a directory (non-recursive).
