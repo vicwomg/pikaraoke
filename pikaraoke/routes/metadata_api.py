@@ -1,29 +1,17 @@
-"""API endpoints for song metadata: tidy names and iTunes suggestions."""
+"""API endpoints for song metadata: iTunes suggestions."""
 
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.lib.current_app import get_karaoke_instance
-from pikaraoke.lib.metadata_parser import regex_tidy
 from pikaraoke.lib.metadata_providers import get_provider, suggest_metadata
 
 metadata_bp = Blueprint("metadata", __name__)
 
 
-class TidyNameQuery(Schema):
-    filename = fields.String(required=True)
-
-
 class SuggestNamesQuery(Schema):
     filename = fields.String(required=True)
     limit = fields.Integer(load_default=5)
-
-
-@metadata_bp.route("/metadata/tidy-name")
-@metadata_bp.arguments(TidyNameQuery, location="query")
-def tidy_name(query):
-    """Apply regex-based cleanup to a song filename."""
-    return {"tidied": regex_tidy(query["filename"])}
 
 
 @metadata_bp.route("/metadata/suggest-names")
