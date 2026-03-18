@@ -18,6 +18,8 @@ from pathlib import Path
 import polib
 from deep_translator import GoogleTranslator
 
+from pikaraoke.constants import LANGUAGES
+
 # Project paths
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PIKARAOKE_DIR = PROJECT_ROOT / "pikaraoke"
@@ -43,6 +45,11 @@ LOCALE_TO_GOOGLE = {
     "zh_Hans_CN": "zh-CN",
     "zh_Hant_TW": "zh-TW",
 }
+
+# Validate mapping covers all supported locales
+_missing = set(LANGUAGES) - {"en"} - set(LOCALE_TO_GOOGLE)
+if _missing:
+    raise ValueError(f"LOCALE_TO_GOOGLE missing locales from constants.py: {_missing}")
 
 AUTO_TRANSLATED_COMMENT = "auto-translated"
 

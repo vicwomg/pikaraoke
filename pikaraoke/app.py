@@ -1,12 +1,15 @@
 """Flask application entry point and server initialization."""
 
+import subprocess as _stdlib_subprocess  # Before monkey patching
+
+_stdlib_subprocess_run = _stdlib_subprocess.run
+
 from gevent import monkey, spawn
 
 monkey.patch_all()
 
 import logging
 import os
-import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import quote
@@ -140,7 +143,11 @@ setup_socket_events(socketio)
 
 
 def compile_translations() -> None:
-    """Compile .po translation files to .mo binary format if needed."""
+    """Compile .po translation files to .mo binary format if needed.
+
+    Uses _stdlib_subprocess_run (saved before monkey patching) because this runs
+    before the gevent event loop is active — the patched version deadlocks here.
+    """
     translations_dir = Path(__file__).parent / "translations"
     if not translations_dir.exists():
         return
@@ -156,8 +163,8 @@ def compile_translations() -> None:
     if not needs_compile:
         return
 
-    logging.info("Compiling translation files...")
-    result = subprocess.run(
+    print("Compiling translation files...")
+    result = _stdlib_subprocess_run(
         [
             sys.executable,
             "-m",
@@ -171,9 +178,9 @@ def compile_translations() -> None:
         text=True,
     )
     if result.returncode != 0:
-        logging.warning("Failed to compile translations: %s", result.stderr)
+        print(f"Failed to compile translations: {result.stderr}")
     else:
-        logging.info("Translations compiled successfully")
+        print("Translations compiled successfully")
 
 
 def main() -> None:
