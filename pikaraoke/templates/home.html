@@ -174,61 +174,61 @@
 				}
 			}
 		});
-	});
 
-	{% if admin %}
-	// Mic volume controls (live adjustment for enabled mics)
-	window.socket.on("mic_devices_state", function(devices) {
-		var enabled = devices.filter(function(d) { return d.enabled; });
-		if (enabled.length === 0) {
-			$("#mic-live-panel").hide();
-			return;
-		}
-		var list = $("#mic-live-list");
-		list.empty();
-		enabled.forEach(function(dev) {
-			var escaped = $('<span>').text(dev.label).html();
-			list.append(
-				'<div class="is-flex mb-1" style="align-items: center;">' +
-					'<i class="icon icon-mic-1 mr-1"></i>' +
-					'<span class="is-size-7 mr-2" style="min-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + escaped + '</span>' +
-					'<input type="range" min="0" max="1" step="0.05" value="' + dev.volume + '" ' +
-						'class="mic-live-volume" data-device-id="' + dev.deviceId + '" data-label="' + escaped + '" ' +
-						'style="width: 100px;" />' +
-				'</div>'
-			);
-		});
-		$("#mic-live-panel").show();
-	});
-
-	window.socket.on("mic_update", function(data) {
-		if (!data.enabled) {
-			$(".mic-live-volume").filter(function() {
-				return $(this).data("device-id") === data.deviceId;
-			}).closest("div").remove();
-			if ($("#mic-live-list").children().length === 0) {
+		{% if admin %}
+		// Mic volume controls (live adjustment for enabled mics)
+		window.socket.on("mic_devices_state", function(devices) {
+			var enabled = devices.filter(function(d) { return d.enabled; });
+			if (enabled.length === 0) {
 				$("#mic-live-panel").hide();
+				return;
 			}
-		} else {
-			var slider = $(".mic-live-volume").filter(function() {
-				return $(this).data("device-id") === data.deviceId;
+			var list = $("#mic-live-list");
+			list.empty();
+			enabled.forEach(function(dev) {
+				var escaped = $('<span>').text(dev.label).html();
+				list.append(
+					'<div class="is-flex mb-1" style="align-items: center;">' +
+						'<i class="icon icon-mic-1 mr-1"></i>' +
+						'<span class="is-size-7 mr-2" style="min-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + escaped + '</span>' +
+						'<input type="range" min="0" max="1" step="0.05" value="' + dev.volume + '" ' +
+							'class="mic-live-volume" data-device-id="' + dev.deviceId + '" data-label="' + escaped + '" ' +
+							'style="width: 100px;" />' +
+					'</div>'
+				);
 			});
-			if (slider.length) slider.val(data.volume);
-		}
-	});
-
-	$(document).on("input", ".mic-live-volume", debounce(function() {
-		var deviceId = $(this).data("device-id");
-		var label = $(this).data("label");
-		var volume = parseFloat($(this).val());
-		window.socket.emit("mic_update", {
-			deviceId: deviceId, label: label, enabled: true, volume: volume
+			$("#mic-live-panel").show();
 		});
-	}, 300));
 
-	// Request mic state on load
-	window.socket.emit("request_mic_devices");
-	{% endif %}
+		window.socket.on("mic_update", function(data) {
+			if (!data.enabled) {
+				$(".mic-live-volume").filter(function() {
+					return $(this).data("device-id") === data.deviceId;
+				}).closest("div").remove();
+				if ($("#mic-live-list").children().length === 0) {
+					$("#mic-live-panel").hide();
+				}
+			} else {
+				var slider = $(".mic-live-volume").filter(function() {
+					return $(this).data("device-id") === data.deviceId;
+				});
+				if (slider.length) slider.val(data.volume);
+			}
+		});
+
+		$(document).on("input", ".mic-live-volume", debounce(function() {
+			var deviceId = $(this).data("device-id");
+			var label = $(this).data("label");
+			var volume = parseFloat($(this).val());
+			window.socket.emit("mic_update", {
+				deviceId: deviceId, label: label, enabled: true, volume: volume
+			});
+		}, 300));
+
+		// Request mic state on load
+		window.socket.emit("request_mic_devices");
+		{% endif %}
+	});
 </script>
 {% endblock %} {% block header %}
 <h1>

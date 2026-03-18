@@ -115,6 +115,7 @@ class SoundManager:
         self._events = events
         self._active_mics: dict[str, _ActiveMic] = {}
         self._device_list: list[dict] = []
+        self._device_index: dict[str, dict] = {}
 
     @property
     def available(self) -> bool:
@@ -131,6 +132,7 @@ class SoundManager:
     def _enumerate_pactl(self) -> list[dict]:
         """Enumerate mic devices via pactl."""
         self._device_list = _pactl_list_sources()
+        self._device_index = {d["deviceId"]: d for d in self._device_list}
         logging.info(f"Mic devices enumerated (pactl): {[m['label'] for m in self._device_list]}")
         return self._device_list
 
@@ -168,6 +170,7 @@ class SoundManager:
             mics.append({"deviceId": str(i), "label": dev["name"]})
 
         self._device_list = mics
+        self._device_index = {d["deviceId"]: d for d in mics}
         logging.info(f"Mic devices enumerated (sounddevice): {[m['label'] for m in mics]}")
         return mics
 
@@ -192,49 +195,56 @@ class SoundManager:
 
     def get_mic_settings_state(self) -> dict:
         """Return latency and echo-cancel state from a single settings load."""
-        settings = self.load_settings()
-        return {
-            "latency_ms": int(settings.get("_latency_ms", _DEFAULT_LATENCY_MS)),
-            "echo_cancel": bool(settings.get("_echo_cancel", False)),
-        }
+        return _extract_mic_settings_state(self.load_settings())
 
     def get_latency_ms(self) -> int:
         """Get the configured mic loopback latency in milliseconds."""
         settings = self.load_settings()
         return int(settings.get("_latency_ms", _DEFAULT_LATENCY_MS))
 
-    def set_latency_ms(self, latency_ms: int) -> None:
-        """Set mic loopback latency and restart active mics to apply it."""
+    def set_latency_ms(self, latency_ms: int) -> dict:
+        """Set mic loopback latency and restart active mics to apply it.
+
+        Returns the updated mic settings state dict.
+        """
         latency_ms = max(_MIN_LATENCY_MS, min(_MAX_LATENCY_MS, latency_ms))
         settings = self.load_settings()
         settings["_latency_ms"] = latency_ms
         self.save_settings(settings)
         logging.info(f"Mic latency set to {latency_ms}ms")
-        self._restart_active_mics()
+        self._restart_active_mics(settings)
+        return _extract_mic_settings_state(settings)
 
     def get_echo_cancel(self) -> bool:
         """Whether echo cancellation is enabled for mic loopback (Linux only)."""
         settings = self.load_settings()
         return bool(settings.get("_echo_cancel", False))
 
-    def set_echo_cancel(self, enabled: bool) -> None:
-        """Enable or disable echo cancellation and restart active mics."""
+    def set_echo_cancel(self, enabled: bool) -> dict:
+        """Enable or disable echo cancellation and restart active mics.
+
+        Returns the updated mic settings state dict.
+        """
         settings = self.load_settings()
         settings["_echo_cancel"] = enabled
         self.save_settings(settings)
         logging.info(f"Echo cancellation {'enabled' if enabled else 'disabled'}")
-        self._restart_active_mics()
+        self._restart_active_mics(settings)
+        return _extract_mic_settings_state(settings)
 
-    def _restart_active_mics(self) -> None:
+    def _restart_active_mics(self, settings: dict | None = None) -> None:
         """Deactivate and re-activate all active mics to apply changed settings."""
-        settings = self.load_settings()
+        if settings is None:
+            settings = self.load_settings()
+        echo_cancel = bool(settings.get("_echo_cancel", False))
+        latency_ms = int(settings.get("_latency_ms", _DEFAULT_LATENCY_MS))
         active_snapshot = [
             (mic.device_id, self._get_active_volume(mic, settings))
             for mic in self._active_mics.values()
         ]
         self.stop()
         for device_id, volume in active_snapshot:
-            self.activate(device_id, volume)
+            self._activate_with_settings(device_id, volume, echo_cancel, latency_ms)
 
     def _get_active_volume(self, mic: _ActiveMic, settings: dict | None = None) -> float:
         """Read the current volume from an active mic."""
@@ -256,12 +266,36 @@ class SoundManager:
             return True
 
         if _HAS_PACTL:
-            return self._activate_pactl(device_id, volume)
+            settings = self.load_settings()
+            return self._activate_pactl(
+                device_id,
+                volume,
+                echo_cancel=bool(settings.get("_echo_cancel", False)),
+                latency_ms=int(settings.get("_latency_ms", _DEFAULT_LATENCY_MS)),
+            )
         if _SOUNDDEVICE_AVAILABLE:
             return self._activate_sounddevice(device_id, volume)
         return False
 
-    def _activate_pactl(self, device_id: str, volume: float) -> bool:
+    def _activate_with_settings(
+        self, device_id: str, volume: float, echo_cancel: bool, latency_ms: int
+    ) -> bool:
+        """Activate a mic with pre-loaded settings (avoids redundant settings loads)."""
+        if device_id in self._active_mics:
+            self.update_volume(device_id, volume)
+            return True
+
+        if _HAS_PACTL:
+            return self._activate_pactl(
+                device_id, volume, echo_cancel=echo_cancel, latency_ms=latency_ms
+            )
+        if _SOUNDDEVICE_AVAILABLE:
+            return self._activate_sounddevice(device_id, volume)
+        return False
+
+    def _activate_pactl(
+        self, device_id: str, volume: float, *, echo_cancel: bool, latency_ms: int
+    ) -> bool:
         """Activate mic passthrough via PulseAudio module-loopback.
 
         When echo cancellation is enabled, loads module-echo-cancel first
@@ -277,7 +311,7 @@ class SoundManager:
         echo_module_id = None
 
         # Optionally load echo cancellation
-        if self.get_echo_cancel():
+        if echo_cancel:
             echo_module_id = self._load_echo_cancel_module(source_name)
             if echo_module_id:
                 source_name = f"{source_name}.echo-cancel"
@@ -289,7 +323,7 @@ class SoundManager:
                     "load-module",
                     "module-loopback",
                     f"source={source_name}",
-                    f"latency_msec={self.get_latency_ms()}",
+                    f"latency_msec={latency_ms}",
                 ],
                 capture_output=True,
                 text=True,
@@ -518,10 +552,7 @@ class SoundManager:
 
     def _find_device(self, device_id: str) -> dict | None:
         """Find a device dict by its ID."""
-        for dev in self._device_list:
-            if dev["deviceId"] == device_id:
-                return dev
-        return None
+        return self._device_index.get(device_id)
 
     def load_settings(self) -> dict:
         """Load and parse mic settings from preferences."""
@@ -535,6 +566,14 @@ class SoundManager:
     def save_settings(self, settings: dict) -> None:
         """Persist mic settings to preferences."""
         self._preferences.set("mic_settings", json.dumps(settings))
+
+
+def _extract_mic_settings_state(settings: dict) -> dict:
+    """Extract latency and echo-cancel state from a settings dict."""
+    return {
+        "latency_ms": int(settings.get("_latency_ms", _DEFAULT_LATENCY_MS)),
+        "echo_cancel": bool(settings.get("_echo_cancel", False)),
+    }
 
 
 def _apply_gain(data: bytes, gain: float) -> bytes:

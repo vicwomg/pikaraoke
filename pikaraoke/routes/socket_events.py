@@ -114,16 +114,16 @@ def setup_socket_events(socketio):
         """Handle mic latency change from control UI."""
         k = get_karaoke_instance()
         latency_ms = int(data.get("latency_ms", 50))
-        k.sound_manager.set_latency_ms(latency_ms)
-        socketio.emit("mic_settings_state", k.sound_manager.get_mic_settings_state())
+        state = k.sound_manager.set_latency_ms(latency_ms)
+        socketio.emit("mic_settings_state", state)
 
     @socketio.on("mic_echo_cancel_change")
     def handle_mic_echo_cancel_change(data: dict) -> None:
         """Handle echo cancellation toggle from control UI."""
         k = get_karaoke_instance()
         enabled = bool(data.get("enabled", False))
-        k.sound_manager.set_echo_cancel(enabled)
-        socketio.emit("mic_settings_state", k.sound_manager.get_mic_settings_state())
+        state = k.sound_manager.set_echo_cancel(enabled)
+        socketio.emit("mic_settings_state", state)
 
     @socketio.on("mic_refresh")
     def handle_mic_refresh() -> None:
