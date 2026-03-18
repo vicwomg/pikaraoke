@@ -58,10 +58,17 @@ python build_scripts/update_translations.py --extract-po-only
 
 # Translate + compile only (skip extract/update, useful for retrying)
 python build_scripts/update_translations.py --translate-only
+
+# Full cycle but keep obsolete (#~) entries in .po files
+python build_scripts/update_translations.py --keep-obsolete
 ```
 
 Auto-translated entries are marked with an `# auto-translated` translator
 comment. Search for this comment to find entries that need human review.
+
+Obsolete entries (`#~` prefixed, left behind when a `msgid` is removed or
+changed beyond recognition) are pruned automatically during the update step.
+Pass `--keep-obsolete` to retain them.
 
 ## .mo files
 

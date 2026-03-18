@@ -102,6 +102,25 @@ def update() -> None:
     )
 
 
+def prune_obsolete() -> None:
+    """Remove obsolete (#~) entries from all .po files."""
+    print("\n--- Prune obsolete entries ---")
+    for locale in LOCALE_TO_GOOGLE:
+        po_path = TRANSLATIONS_DIR / locale / "LC_MESSAGES" / "messages.po"
+        if not po_path.exists():
+            continue
+
+        po = polib.pofile(str(po_path))
+        obsolete = po.obsolete_entries()
+        if not obsolete:
+            continue
+
+        for entry in obsolete:
+            po.remove(entry)
+        po.save(str(po_path))
+        print(f"  {locale}: removed {len(obsolete)} obsolete entries")
+
+
 def translate_entry(entry: polib.POEntry, translator: GoogleTranslator) -> str | None:
     """Translate a single PO entry. Returns translated text or None on failure."""
     source = entry.msgid
@@ -191,6 +210,11 @@ def main() -> None:
         action="store_true",
         help="Skip extract/update, only translate and compile",
     )
+    parser.add_argument(
+        "--keep-obsolete",
+        action="store_true",
+        help="Keep obsolete (#~) entries in .po files",
+    )
     args = parser.parse_args()
 
     if args.extract_po_only and args.translate_only:
@@ -199,6 +223,8 @@ def main() -> None:
     if not args.translate_only:
         extract()
         update()
+        if not args.keep_obsolete:
+            prune_obsolete()
 
     if not args.extract_po_only:
         auto_translate()
