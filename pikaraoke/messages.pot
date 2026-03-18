@@ -8,14 +8,14 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-10 22:42-0700\n"
+"POT-Creation-Date: 2026-03-19 08:39+1100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.9.1\n"
+"Generated-By: Babel 2.17.0\n"
 
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
@@ -245,12 +245,12 @@ msgstr ""
 msgid "Error: No filename parameters were specified!"
 msgstr ""
 
-#: routes/batch_song_renamer.py:245 routes/files.py:150 routes/files.py:175
+#: routes/batch_song_renamer.py:245 routes/files.py:160 routes/files.py:191
 msgid "Error: Can't edit this song because it is in the current queue: "
 msgstr ""
 
 #. Message shown after trying to rename a file to a name that already exists.
-#: routes/batch_song_renamer.py:259 routes/files.py:183
+#: routes/batch_song_renamer.py:259 routes/files.py:201
 #, python-format
 msgid "Error renaming file: '%s' to '%s', Filename already exists"
 msgstr ""
@@ -258,28 +258,35 @@ msgstr ""
 #. Title of the files page.
 #. Navigation link for the page where the user can add existing songs to the
 #. queue.
-#: routes/files.py:110 templates/base.html:215
+#: routes/files.py:111 templates/base.html:215
 msgid "Browse"
 msgstr ""
 
-#. Message shown after trying to delete a song that is in the queue.
 #: routes/files.py:126
+msgid "You don't have permission to delete songs"
+msgstr ""
+
+#. Message shown after trying to delete a song that is in the queue.
+#: routes/files.py:131
 msgid "Error: Can't delete this song because it is in the current queue"
 msgstr ""
 
-#. Message shown after deleting a song. Followed by the song path
-#: routes/files.py:134
+#: routes/files.py:140
 #, python-format
 msgid "Song deleted: %s"
 msgstr ""
 
-#: routes/files.py:193
+#: routes/files.py:155 routes/files.py:184
+msgid "You don't have permission to edit songs"
+msgstr ""
+
+#: routes/files.py:211
 #, python-format
 msgid "Error renaming file: '%s' to '%s', %s"
 msgstr ""
 
 #. Message shown after renaming a file.
-#: routes/files.py:199
+#: routes/files.py:217
 #, python-format
 msgid "Renamed file: %s to %s"
 msgstr ""
@@ -298,63 +305,67 @@ msgstr ""
 msgid "You don't have permission to clear preferences"
 msgstr ""
 
+#: routes/queue.py:80
+msgid "You don't have permission to add random songs"
+msgstr ""
+
 #. Message shown after adding random tracks
-#: routes/queue.py:83
+#: routes/queue.py:86
 #, python-format
 msgid "Added %s random tracks"
 msgstr ""
 
 #. Message shown after running out songs to add during random track addition
-#: routes/queue.py:86
+#: routes/queue.py:89
 msgid "Ran out of songs!"
 msgstr ""
 
 #. Message shown when non-admin tries to edit queue
-#: routes/queue.py:118
+#: routes/queue.py:121
 msgid "Unauthorized"
 msgstr ""
 
-#: routes/queue.py:128
+#: routes/queue.py:131
 msgid "Cleared the queue!"
 msgstr ""
 
-#: routes/queue.py:140
+#: routes/queue.py:143
 msgid "Moved to top of queue"
 msgstr ""
 
-#: routes/queue.py:141
+#: routes/queue.py:144
 msgid "Moved to bottom of queue"
 msgstr ""
 
-#: routes/queue.py:142
+#: routes/queue.py:145
 msgid "Moved up in queue"
 msgstr ""
 
-#: routes/queue.py:143
+#: routes/queue.py:146
 msgid "Moved down in queue"
 msgstr ""
 
-#: routes/queue.py:144
+#: routes/queue.py:147
 msgid "Deleted from queue"
 msgstr ""
 
-#: routes/queue.py:147
+#: routes/queue.py:150
 msgid "Error moving to top of queue"
 msgstr ""
 
-#: routes/queue.py:148
+#: routes/queue.py:151
 msgid "Error moving to bottom of queue"
 msgstr ""
 
-#: routes/queue.py:149
+#: routes/queue.py:152
 msgid "Error moving up in queue"
 msgstr ""
 
-#: routes/queue.py:150
+#: routes/queue.py:153
 msgid "Error moving down in queue"
 msgstr ""
 
-#: routes/queue.py:151
+#: routes/queue.py:154
 msgid "Error deleting from queue"
 msgstr ""
 

@@ -40,10 +40,37 @@ when translating.
 </script>
 ```
 
-## Rebuilding translations
+## Automated translation workflow
 
-After modifying the templates or code and marking new strings for translation,
-from the ./pikaraoke subdirectory, run
+A script automates the full extract/update/translate/compile cycle. It uses
+Google Translate (via `deep-translator`) for untranslated and fuzzy entries,
+and marks them with an `# auto-translated` comment for human review.
+
+```shell
+# Install translation dependencies
+uv sync --group translations
+
+# Full cycle: extract, update, auto-translate, compile
+python build_scripts/update_translations.py
+
+# Extract + update .po files only (no auto-translation)
+python build_scripts/update_translations.py --extract-po-only
+
+# Translate + compile only (skip extract/update, useful for retrying)
+python build_scripts/update_translations.py --translate-only
+```
+
+Auto-translated entries are marked with an `# auto-translated` translator
+comment. Search for this comment to find entries that need human review.
+
+## .mo files
+
+Compiled `.mo` files are gitignored. They are generated automatically at
+app startup when any `.po` file is newer than its `.mo` counterpart.
+
+## Manual rebuilding
+
+You can also run the pybabel steps manually from the `./pikaraoke` subdirectory:
 
 ```shell
 $ pybabel extract -F babel.cfg -o messages.pot --add-comments="MSG:" --strip-comment-tags  --sort-by-file .
