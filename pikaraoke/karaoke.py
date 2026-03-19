@@ -1,11 +1,10 @@
 """Core karaoke engine for managing songs, queue, and playback."""
 
-from __future__ import annotations
-
 import logging
 import os
 import socket
 import subprocess
+import threading
 import time
 from typing import Any
 
@@ -26,6 +25,8 @@ from pikaraoke.lib.get_platform import (
     get_platform,
     is_raspberry_pi,
 )
+from pikaraoke.lib.karaoke_database import KaraokeDatabase
+from pikaraoke.lib.library_scanner import LibraryScanner, ScanResult
 from pikaraoke.lib.network import get_ip
 from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
@@ -201,9 +202,11 @@ class Karaoke:
         # Log the settings to debug level
         self.log_settings_to_debug()
 
-        # Initialize song manager and load songs from download_path
-        self.song_manager = SongManager(self.download_path)
-        self.song_manager.refresh_songs()
+        # Initialize database, scanner, and song manager (startup runs at end of __init__)
+        self.db = KaraokeDatabase()
+        self.song_manager = SongManager(self.download_path, db=self.db)
+        self._scanner = LibraryScanner(self.db)
+        self._sync_lock = threading.Lock()
 
         self.generate_qr_code()
 
@@ -230,6 +233,15 @@ class Karaoke:
         self.events.on("playback_started", self.update_now_playing_socket)
         self.events.on("song_ended", self.update_now_playing_socket)
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
+        self.events.on("song_downloaded", self.song_manager.register_download)
+        self.events.on(
+            "sync_started",
+            lambda: self.socketio.emit("sync_started", namespace="/") if self.socketio else None,
+        )
+        self.events.on(
+            "sync_finished",
+            lambda: self.socketio.emit("sync_finished", namespace="/") if self.socketio else None,
+        )
 
         # Initialize queue manager
         self.queue_manager = QueueManager(
@@ -251,6 +263,70 @@ class Karaoke:
             additional_ytdl_args=self.additional_ytdl_args,
         )
         self.download_manager.start()
+
+        # Song library startup: warm cache from DB or blocking cold scan
+        paths = self.db.get_all_song_paths()
+        if paths:
+            self.song_manager.songs.update(paths)
+            logging.info("Loaded songs from database, syncing in the background")
+            self.sync_library()
+        else:
+            logging.info("No existing database found, scanning song directory")
+            result = self._scanner.scan(self.download_path)
+            self._apply_scan_result(result)
+
+    def _apply_scan_result(self, result: ScanResult) -> None:
+        """Update SongList and emit notifications after a scan."""
+        if result.added or result.moved or result.deleted:
+            self.song_manager.songs.update(self.db.get_all_song_paths())
+            parts = [
+                label
+                for count, label in [
+                    (result.added, f"{result.added} added"),
+                    (result.moved, f"{result.moved} moved"),
+                    (result.deleted, f"{result.deleted} removed"),
+                ]
+                if count
+            ]
+            self.events.emit("notification", f"Library updated: {', '.join(parts)}", "success")
+
+        if result.circuit_tripped:
+            logging.error(
+                f"Circuit breaker tripped: >50% of songs missing. "
+                f"Drive may be unmounted: {self.download_path}"
+            )
+            self.events.emit(
+                "notification",
+                f"Song scan halted: too many songs missing. "
+                f"Check your song directory: {self.download_path}. "
+                "Click 'Sync Now' to retry after fixing.",
+                "danger",
+            )
+            return
+
+        logging.info(f"Scan complete: {result}")
+
+    def sync_library(self) -> bool:
+        """Trigger a background library scan.
+
+        Used for both warm startup reconciliation and admin 'Sync Now'.
+        Returns False if a sync is already in progress.
+        """
+        if not self._sync_lock.acquire(blocking=False):
+            return False
+        self.events.emit("sync_started")
+        thread = threading.Thread(target=self._background_sync, daemon=True)
+        thread.start()
+        return True
+
+    def _background_sync(self) -> None:
+        try:
+            logging.info(f"Background library scan starting: {self.download_path}")
+            result = self._scanner.scan(self.download_path)
+            self._apply_scan_result(result)
+        finally:
+            self._sync_lock.release()
+            self.events.emit("sync_finished")
 
     def _load_preferences(self, **cli_overrides: Any) -> None:
         """Load preference-driven attributes from config file.
