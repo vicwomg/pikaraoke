@@ -176,16 +176,16 @@ msgid "Failed to prepare stream"
 msgstr "Striimin valmistelu epäonnistui"
 
 # auto-translated
-#. Message shown after starting the youtube-dl update.
+#. Message shown after starting the yt-dlp update.
 #: routes/admin.py:59
-msgid "Updating youtube-dl! Should take a minute or two... "
-msgstr "Päivitetään youtube-dl! Pitäisi kestää minuutti tai kaksi..."
+msgid "Updating yt-dlp! Should take a minute or two... "
+msgstr "Päivitetään yt-dlp! Pitäisi kestää minuutti tai kaksi..."
 
 # auto-translated
-#. Message shown after trying to update youtube-dl without admin permissions.
+#. Message shown after trying to update yt-dlp without admin permissions.
 #: routes/admin.py:66
-msgid "You don't have permission to update youtube-dl"
-msgstr "Sinulla ei ole lupaa päivittää youtube-dl:ää"
+msgid "You don't have permission to update yt-dlp"
+msgstr "Sinulla ei ole lupaa päivittää yt-dlp:ää"
 
 #. Message shown after quitting pikaraoke.
 #: routes/admin.py:97
@@ -772,13 +772,13 @@ msgstr "Haluatko varmasti käynnistää karaokelaitteen uudestaan?"
 msgid "Are you sure you want to reboot?"
 msgstr "Haluatko varmasti käynnistää karaokelaitteen uudestaan?"
 
-#. Confirmation text whe the user asks to update the Youtube-dl tool.
+#. Confirmation text whe the user asks to update the yt-dlp tool.
 #: templates/info.html:101
 msgid ""
-"Are you sure you want to update Youtube-dl right now? Current and pending"
+"Are you sure you want to update yt-dlp right now? Current and pending"
 " downloads may fail."
 msgstr ""
-"Haluatko varmasti päivittää 'Youtube-dl':n juuri nyt? Tämänhetkiset ja "
+"Haluatko varmasti päivittää 'yt-dlp':n juuri nyt? Tämänhetkiset ja "
 "jonottavat lataukset saattavat epäonnistua."
 
 # auto-translated
@@ -1100,10 +1100,10 @@ msgstr "Alusta:"
 msgid "OS Version:"
 msgstr "Käyttöjärjestelmän versio:"
 
-#. The version of the program "Youtube-dl".
+#. The version of the program "yt-dlp".
 #: templates/info.html:493
-msgid "Youtube-dl (yt-dlp) version:"
-msgstr "Youtube-dl (yt-dlp) -versio:"
+msgid "yt-dlp version:"
+msgstr "yt-dlp -versio:"
 
 # auto-translated
 #. The version of the program "ffmpeg".
@@ -1157,27 +1157,27 @@ msgstr "Päivitykset"
 msgid "YT-DLP update"
 msgstr "YT-DLP päivitys"
 
-#. Text explaining why you might want to update youtube-dl.
+#. Text explaining why you might want to update yt-dlp.
 #: templates/info.html:530
 #, python-format
 msgid ""
 "\n"
-"\t\t\t\t\t\tIf downloads or searches stopped working, updating youtube-dl"
+"\t\t\t\t\t\tIf downloads or searches stopped working, updating yt-dlp"
 " will probably fix it.<br/>\n"
 "\t\t\t\t\t\tThe current installed version is: \"%(youtubedl_version)s\".\n"
 "\t\t\t\t\t"
 msgstr ""
 "Jos lataukset tai haut lakkasivat toimimasta, ongelman voi "
-"todennäköisesti korjatapäivittämällä 'youtube-dl':n.\n"
+"todennäköisesti korjatapäivittämällä 'yt-dlp':n.\n"
 "   Tämänhetkinen asennettu versio: \"%(youtubedl_version)s\""
 
-#. Text for the link which will try and update youtube-dl on the machine
+#. Text for the link which will try and update yt-dlp on the machine
 #. running Pikaraoke.
 #: templates/info.html:536
-msgid "Update youtube-dl"
-msgstr "Päivitä youtube-dl"
+msgid "Update yt-dlp"
+msgstr "Päivitä yt-dlp"
 
-#. Help text which explains why updating youtube-dl can fail. The log is a file
+#. Help text which explains why updating yt-dlp can fail. The log is a file
 #. on the machine running Pikaraoke.
 #: templates/info.html:540
 msgid ""

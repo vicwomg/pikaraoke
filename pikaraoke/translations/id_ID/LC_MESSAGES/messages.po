@@ -160,14 +160,14 @@ msgstr "Gagal membaca file: %s"
 msgid "Failed to prepare stream"
 msgstr "Gagal menyiapkan streaming"
 
-#. Message shown after starting the youtube-dl update.
+#. Message shown after starting the yt-dlp update.
 #: routes/admin.py:59
-msgid "Updating youtube-dl! Should take a minute or two... "
+msgid "Updating yt-dlp! Should take a minute or two... "
 msgstr "Sedang memperbarui yt-dlp! Mohon tunggu 1–2 menit..."
 
-#. Message shown after trying to update youtube-dl without admin permissions.
+#. Message shown after trying to update yt-dlp without admin permissions.
 #: routes/admin.py:66
-msgid "You don't have permission to update youtube-dl"
+msgid "You don't have permission to update yt-dlp"
 msgstr "Anda tidak memiliki izin untuk memperbarui yt-dlp"
 
 #. Message shown after quitting pikaraoke.
@@ -704,10 +704,10 @@ msgstr "Yakin ingin menghapus semua pengaturan Anda?"
 msgid "Are you sure you want to reboot?"
 msgstr "Yakin ingin merestart perangkat?"
 
-#. Confirmation text whe the user asks to update the Youtube-dl tool.
+#. Confirmation text whe the user asks to update the yt-dlp tool.
 #: templates/info.html:101
 msgid ""
-"Are you sure you want to update Youtube-dl right now? Current and pending"
+"Are you sure you want to update yt-dlp right now? Current and pending"
 " downloads may fail."
 msgstr ""
 "Yakin ingin memperbarui yt-dlp sekarang? Download yang sedang berjalan "
@@ -993,9 +993,9 @@ msgstr "Platform:"
 msgid "OS Version:"
 msgstr "Versi OS:"
 
-#. The version of the program "Youtube-dl".
+#. The version of the program "yt-dlp".
 #: templates/info.html:493
-msgid "Youtube-dl (yt-dlp) version:"
+msgid "yt-dlp version:"
 msgstr "Versi yt-dlp:"
 
 #. The version of the program "ffmpeg".
@@ -1044,28 +1044,28 @@ msgid "YT-DLP update"
 msgstr "Perbarui yt-dlp"
 
 # auto-translated
-#. Text explaining why you might want to update youtube-dl.
+#. Text explaining why you might want to update yt-dlp.
 #: templates/info.html:530
 #, python-format
 msgid ""
 "\n"
-"\t\t\t\t\t\tIf downloads or searches stopped working, updating youtube-dl"
+"\t\t\t\t\t\tIf downloads or searches stopped working, updating yt-dlp"
 " will probably fix it.<br/>\n"
 "\t\t\t\t\t\tThe current installed version is: \"%(youtubedl_version)s\".\n"
 "\t\t\t\t\t"
 msgstr ""
-"Jika unduhan atau penelusuran berhenti berfungsi, memperbarui youtube-dl "
+"Jika unduhan atau penelusuran berhenti berfungsi, memperbarui yt-dlp "
 "mungkin akan memperbaikinya.<br/>\n"
 "\t\t\t\t\t\tVersi terinstal saat ini adalah: \"%(youtubedl_version)s\"."
 
-#. Text for the link which will try and update youtube-dl on the machine
+#. Text for the link which will try and update yt-dlp on the machine
 #. running Pikaraoke.
 #: templates/info.html:536
-msgid "Update youtube-dl"
+msgid "Update yt-dlp"
 msgstr "Perbarui yt-dlp"
 
 # auto-translated
-#. Help text which explains why updating youtube-dl can fail. The log is a file
+#. Help text which explains why updating yt-dlp can fail. The log is a file
 #. on the machine running Pikaraoke.
 #: templates/info.html:540
 msgid ""

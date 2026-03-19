@@ -31,7 +31,7 @@ def info():
     is_linux = get_platform() == "linux"
 
     preferred_language = k.preferences.get("preferred_language", "en")
-    # youtube-dl
+    # yt-dlp
     youtubedl_version = k.youtubedl_version
 
     return render_template(
