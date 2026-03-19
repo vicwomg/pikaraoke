@@ -2,6 +2,8 @@
 
 import pytest
 
+pytest.importorskip("polib", reason="polib is only in the 'translations' dependency group")
+
 from build_scripts.update_translations import (
     _protect_placeholders,
     _restore_placeholders,
