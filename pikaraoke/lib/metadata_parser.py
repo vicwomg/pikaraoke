@@ -364,8 +364,9 @@ def normalize_for_comparison(text: str) -> str:
 def _strip_artist_from_track(track_name: str, artist_name: str) -> str:
     """Remove artist name from track title if it's embedded.
 
-    Last.fm sometimes returns track names like 'Artist - Title' or 'Artist-Title'.
-    Handles variations like "a-ha" vs "A ha" where punctuation differs.
+    Metadata APIs sometimes return track names like 'Artist - Title' or
+    'Artist-Title'. Handles variations like "a-ha" vs "A ha" where
+    punctuation differs.
     """
     track_normalized = normalize_for_comparison(track_name)
     artist_normalized = normalize_for_comparison(artist_name)

@@ -24,9 +24,11 @@
               $text.append($('<span class="suggest-meta">').text(" (" + parts.join(", ") + ")"));
             }
             var score = item.score != null ? item.score : "";
-            var $score = $('<span class="suggest-score">').append('<i class="icon-ok"></i> ').append(document.createTextNode(score));
+            var $score = $('<span class="suggest-score">').text(score);
             $('<a class="suggested_item has-background-grey-dark">').data('name', display).append($text).append($score).appendTo($container);
           });
+          // {# MSG: Help text explaining that clicking a suggestion copies it to the filename input. #}
+          $container.append('<p class="is-size-7 has-text-grey-light mt-2">{{ _("Click a suggestion to use it as the new filename.") }}</p>');
         } else {
           // {# MSG: Warning when no suggested tracks are found for a search. #}
           $container.html('<span class="has-text-grey-light">{{ _("No suggestion!") }}</span>');
@@ -74,16 +76,24 @@
 <div class="field">
   <form action="{{ url_for('files.edit_file') }}" method="post">
     <div class="field">
-      <p class='has-text-warning'>{{ raw_stem }} </p>
+      {# MSG: Label showing the original filename on disk before editing. #}
+      <label class="label">
+        {% trans %}Current filename{% endtrans %}
+        {% if format_icon %}
+        <img src="{{ url_for('static', filename='images/formats/' + format_icon + '.png') }}"
+          alt="{{ format_icon }}" class="format-badge">
+        {% endif %}
+      </label>
+      <p class="has-text-grey-light is-size-7 break-word">{{ raw_stem }}</p>
     </div>
     <input value="{{ song }}" type="hidden" name='old_file_name'>
     <input type="hidden" name="referrer" value="{{ referrer }}">
-    {# MSG: Label on the control to edit the song's name #}
-    <label class="label">{% trans %}Edit Song Name{% endtrans %}</label>
+    {# MSG: Label for the input where the user types the new filename for the song. #}
+    <label class="label">{% trans %}New filename{% endtrans %}</label>
     <div class="field has-addons">
       <div class="control is-expanded">
         <input autocomplete="off" id="new_file_name" class="input" type="text" name="new_file_name"
-          value="{{ raw_stem }}">
+          value="{{ suggested_stem }}">
       </div>
       <div class="control">
         <div class="select">
@@ -95,18 +105,18 @@
         </div>
       </div>
       <div class="control">
-        {# MSG: Label on button which searches for track suggestions from iTunes. #}
+        {# MSG: Label on button which searches for track name suggestions from a metadata provider. #}
         <button type="button" class="button is-info" id="suggest-title">
           <span class="icon"><i class="icon-search-1"></i></span>
-          <span>{% trans %}Auto Suggest{% endtrans %}</span>
+          <span>{% trans %}Search{% endtrans %}</span>
         </button>
       </div>
     </div>
     <div class="buttons are-small mb-4">
-      {# MSG: Label on button which swaps the order of the artist and song in the title. #}
+      {# MSG: Label on button which swaps the artist and title around the dash separator. #}
       <button type="button" class="button is-rounded is-link" id="swap-order">
         <span class="icon"><i class="icon-exchange"></i></span>
-        <span>{% trans %}Swap order{% endtrans %}</span>
+        <span>{% trans %}Swap Artist/Title{% endtrans %}</span>
       </button>
     </div>
     <div id="suggest_results" class="mb-4"></div>

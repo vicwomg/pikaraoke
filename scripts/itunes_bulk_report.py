@@ -23,7 +23,6 @@ from pikaraoke.lib.metadata_parser import regex_tidy, youtube_id_suffix
 from pikaraoke.lib.metadata_providers import ITunesProvider, suggest_metadata
 
 VALID_EXTENSIONS = {".mp4", ".mp3", ".zip", ".mkv", ".avi", ".webm", ".mov"}
-DEFAULT_SONGS_DIR = None
 
 
 def collect_unique_songs(songs_dir: str) -> list[str]:
@@ -130,7 +129,7 @@ def run_report(songs_dir: str) -> None:
     elapsed_total = time.time() - start_time
 
     print(f"\n{'=' * 60}")
-    print(f"RESULTS SUMMARY")
+    print("RESULTS SUMMARY")
     print(f"{'=' * 60}")
     print(f"Total unique songs scanned: {total}")
     print(f"Successfully queried:       {queried}")
@@ -145,7 +144,8 @@ def run_report(songs_dir: str) -> None:
         print(f"  Score >= {thresh:>3}: {count:>4} / {queried}  ({pct:5.1f}%)")
 
     neg = sum(1 for s in scores if s < 0)
-    print(f"  Score <   0: {neg:>4} / {queried}  ({neg / queried * 100:5.1f}%)")
+    neg_pct = neg / queried * 100 if queried else 0
+    print(f"  Score <   0: {neg:>4} / {queried}  ({neg_pct:5.1f}%)")
 
     print(f"\nFull results saved to: {csv_path}")
 
