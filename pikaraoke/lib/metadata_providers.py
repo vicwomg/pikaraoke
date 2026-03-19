@@ -1,4 +1,4 @@
-"""Metadata providers for song enrichment: iTunes now, pluggable for Spotify later.
+"""Metadata providers for song enrichment.
 
 Pure library module -- no Flask imports.
 """
@@ -207,10 +207,6 @@ class ITunesProvider:
 def get_provider(preferences, country: str | None = None) -> MetadataProvider:
     """Resolve the active metadata provider from admin preferences.
 
-    Currently only supports iTunes. The preference key and factory pattern
-    exist so that Spotify (or other providers) can be added by extending
-    the if/elif chain -- no pipeline or route changes needed.
-
     Args:
         country: Optional country override (e.g. from the edit page dropdown).
             When None, falls back to the saved preference.
@@ -291,7 +287,7 @@ def _fuzzy_match(a: str, b: str) -> bool:
 
 def _matches_field(part_norm: str, field_norm: str) -> bool:
     """Check if a normalized query part matches a normalized field value."""
-    return part_norm == field_norm or _fuzzy_match(part_norm, field_norm) or part_norm in field_norm
+    return part_norm == field_norm or _fuzzy_match(part_norm, field_norm)
 
 
 def _normalize_query_parts(query: str) -> list[tuple[str, str]]:
@@ -330,18 +326,17 @@ def _suggestion_score(
         matched_title = (
             part == title_lower or part == title_base or _matches_field(part_norm, title_norm)
         )
-        if matched_artist:
-            artist_matched = True
-        if matched_title:
-            title_matched = True
-        best = max(
-            50 if (part_norm == artist_norm or part == title_lower or part == title_base) else 0,
-            40
-            if (_fuzzy_match(part_norm, artist_norm) or _fuzzy_match(part_norm, title_norm))
-            else 0,
-            25 if (part_norm in artist_norm or part_norm in title_norm) else 0,
-        )
-        score += best
+        artist_matched |= matched_artist
+        title_matched |= matched_title
+        exact_match = part_norm == artist_norm or part == title_lower or part == title_base
+        fuzzy = _fuzzy_match(part_norm, artist_norm) or _fuzzy_match(part_norm, title_norm)
+        substring = part_norm in artist_norm or part_norm in title_norm
+        if exact_match:
+            score += 50
+        elif fuzzy:
+            score += 40
+        elif substring:
+            score += 25
 
     # Cross-field bonus: when one query part matched the artist and another
     # matched the title, the result aligns with the query's structure.
@@ -411,13 +406,12 @@ def _deduplicate_suggestions(
 _OVERFETCH_FACTOR = 3
 
 
-def _detect_query_artist_first(query: str, results: list[dict]) -> bool:
-    """Detect if the query uses 'Artist - Title' order by checking the first result."""
-    if " - " not in query or not results:
+def _detect_query_artist_first(query: str, top_result: dict) -> bool:
+    """Detect if the query uses 'Artist - Title' order by checking the top result."""
+    if " - " not in query:
         return False
     first_part = _normalize_for_matching(query.split(" - ", 1)[0])
-    top = results[0]
-    artist = _normalize_for_matching(top.get("artist", ""))
+    artist = _normalize_for_matching(top_result.get("artist", ""))
     return _fuzzy_match(first_part, artist)
 
 
@@ -435,7 +429,7 @@ def suggest_metadata(
     if provider is None:
         provider = ITunesProvider()
     tidied = regex_tidy(display_name)
-    # Strip "ft"/"feat" — clutters both iTunes search and scoring,
+    # Strip "ft"/"feat" -- clutters search and scoring,
     # but extract the featuring artist name for a bonus signal
     feat_match = _FEATURING_PATTERN.search(tidied)
     featuring = feat_match.group("name").strip() if feat_match else ""
@@ -444,8 +438,11 @@ def suggest_metadata(
     scored = _deduplicate_suggestions(results, search_query, featuring)
     truncated = scored[:limit]
 
+    if not truncated:
+        return []
+
     # Build output dicts with display and score fields (don't mutate originals)
-    artist_first = _detect_query_artist_first(search_query, [r for _, r in truncated])
+    artist_first = _detect_query_artist_first(search_query, truncated[0][1])
     out = []
     for score, r in truncated:
         display = (
