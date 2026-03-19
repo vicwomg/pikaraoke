@@ -474,14 +474,27 @@
         ]
       }
     },
-    "/refresh": {
+    "/library_stats": {
       "get": {
         "responses": {
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
-        "summary": "Refresh the available songs list.",
+        "summary": "Return song count for the admin dashboard.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/sync_library": {
+      "get": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Trigger a background library scan.",
         "tags": [
           "admin"
         ]
@@ -560,19 +573,6 @@
           }
         },
         "summary": "Authenticate as admin.",
-        "tags": [
-          "admin"
-        ]
-      }
-    },
-    "/login": {
-      "get": {
-        "responses": {
-          "default": {
-            "$ref": "#/components/responses/DEFAULT_ERROR"
-          }
-        },
-        "summary": "Admin login page.",
         "tags": [
           "admin"
         ]
