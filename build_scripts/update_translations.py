@@ -162,25 +162,32 @@ def auto_translate() -> None:
         translator = GoogleTranslator(source="en", target=google_code)
         translated_count = 0
 
-        for entry in entries_to_translate:
-            result = translate_entry(entry, translator)
-            if result is None:
-                continue
+        try:
+            for entry in entries_to_translate:
+                result = translate_entry(entry, translator)
+                if result is None:
+                    continue
 
-            entry.msgstr = result
-            # Remove fuzzy flag if present
-            if "fuzzy" in entry.flags:
-                entry.flags.remove("fuzzy")
-            # Add auto-translated comment for human review
-            if AUTO_TRANSLATED_COMMENT not in (entry.comment or ""):
-                existing = entry.comment or ""
-                entry.comment = (
-                    f"{existing}\n{AUTO_TRANSLATED_COMMENT}"
-                    if existing
-                    else AUTO_TRANSLATED_COMMENT
-                )
-            translated_count += 1
+                entry.msgstr = result
+                # Remove fuzzy flag if present
+                if "fuzzy" in entry.flags:
+                    entry.flags.remove("fuzzy")
+                # Add auto-translated comment for human review
+                if AUTO_TRANSLATED_COMMENT not in (entry.comment or ""):
+                    existing = entry.comment or ""
+                    entry.comment = (
+                        f"{existing}\n{AUTO_TRANSLATED_COMMENT}"
+                        if existing
+                        else AUTO_TRANSLATED_COMMENT
+                    )
+                translated_count += 1
+                print(".", end="", flush=True)
+        except KeyboardInterrupt:
+            print(f"\n  {locale}: interrupted, saving {translated_count} completed translations")
+            po.save(str(po_path))
+            raise
 
+        print()  # newline after dots
         po.save(str(po_path))
         print(f"  {locale}: translated {translated_count}/{len(entries_to_translate)} entries")
 

@@ -70,6 +70,10 @@ Obsolete entries (`#~` prefixed, left behind when a `msgid` is removed or
 changed beyond recognition) are pruned automatically during the update step.
 Pass `--keep-obsolete` to retain them.
 
+Existing translations are never overwritten. To force re-translation of a
+specific entry, clear its `msgstr` or add `#, fuzzy` above it, then re-run
+with `--translate-only`.
+
 ## .mo files
 
 Compiled `.mo` files are gitignored. They are generated automatically at

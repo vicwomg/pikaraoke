@@ -7,421 +7,431 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-10 22:42-0700\n"
+"POT-Creation-Date: 2026-03-19 15:32+1100\n"
 "PO-Revision-Date: 2025-01-13 22:55-0800\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ko_KR\n"
 "Language-Team: ko_KR <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.9.1\n"
+"Generated-By: Babel 2.17.0\n"
 
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
-#: karaoke.py:377
+#: karaoke.py:453
 #, python-format
 msgid "Transposing by %s semitones: %s"
-msgstr ""
+msgstr "%s 반음씩 조옮김: %s"
 
 #. Message shown after the volume is changed, will be followed by the volume
 #. level
-#: karaoke.py:393
+#: karaoke.py:469
 #, python-format
 msgid "Volume: %s"
-msgstr ""
+msgstr "볼륨: %s"
 
 #: lib/download_manager.py:130
 #, python-format
 msgid "Download queued (#%d): %s"
-msgstr ""
+msgstr "다운로드 대기 중(#%d): %s"
 
 #. Message shown when download is added and will start immediately
 #: lib/download_manager.py:134
 #, python-format
 msgid "Download starting: %s"
-msgstr ""
+msgstr "다운로드 시작: %s"
 
 #. Message shown when download actually starts (after waiting in queue)
 #: lib/download_manager.py:222
 #, python-format
 msgid "Downloading video: %s"
-msgstr ""
+msgstr "비디오 다운로드 중: %s"
 
 #: lib/download_manager.py:280
 msgid "Error downloading song: "
-msgstr ""
+msgstr "노래 다운로드 중 오류 발생:"
 
 #: lib/download_manager.py:300
 #, python-format
 msgid "Downloaded and queued: %s"
-msgstr ""
+msgstr "다운로드되어 대기 중: %s"
 
 #. Message shown after the download is completed but not queued
 #: lib/download_manager.py:304
 #, python-format
 msgid "Downloaded: %s"
-msgstr ""
+msgstr "다운로드됨: %s"
 
-#: lib/download_manager.py:328
+#: lib/download_manager.py:327
 msgid "Error queueing song: "
-msgstr ""
+msgstr "노래를 대기열에 추가하는 중에 오류가 발생했습니다."
 
-#: lib/playback_controller.py:116
+#: lib/playback_controller.py:89
+#, python-format
+msgid "Song file not found: %s"
+msgstr "노래 파일을 찾을 수 없습니다: %s"
+
+#: lib/playback_controller.py:120
 msgid "Stream was not playable! Skipping track"
-msgstr ""
+msgstr "스트림을 재생할 수 없습니다! 트랙 건너뛰기"
 
 #. Message shown when the song ends abnormally
-#: lib/playback_controller.py:145
+#: lib/playback_controller.py:149
 #, python-format
 msgid "Song ended abnormally: %s"
-msgstr ""
+msgstr "노래가 비정상적으로 종료되었습니다: %s"
 
 #. Message shown after the song is skipped, will be followed by song name
-#: lib/playback_controller.py:169
+#: lib/playback_controller.py:173
 #, python-format
 msgid "Skip: %s"
-msgstr ""
+msgstr "건너뛰기: %s"
 
 #. Message shown after the song is resumed, will be followed by song name
-#: lib/playback_controller.py:185
+#: lib/playback_controller.py:189
 #, python-format
 msgid "Resume: %s"
-msgstr ""
+msgstr "이력서: %s"
 
 #. Message shown after the song is paused, will be followed by song name
-#: lib/playback_controller.py:188
+#: lib/playback_controller.py:192
 #, python-format
 msgid "Pause: %s"
-msgstr ""
+msgstr "일시중지: %s"
 
 #: lib/preference_manager.py:133
 msgid "Your preferences were changed successfully"
-msgstr ""
+msgstr "환경설정이 성공적으로 변경되었습니다."
 
 #: lib/preference_manager.py:136 templates/info.html:19
 msgid "Something went wrong! Your preferences were not changed"
-msgstr ""
+msgstr "문제가 발생했습니다. 환경설정이 변경되지 않았습니다."
 
 #: lib/preference_manager.py:153
 msgid "Your preferences were cleared successfully"
-msgstr ""
+msgstr "환경설정이 삭제되었습니다."
 
 #: lib/preference_manager.py:156
 msgid "Something went wrong! Your preferences were not cleared"
-msgstr ""
+msgstr "문제가 발생했습니다. 환경설정이 삭제되지 않았습니다."
 
 #: lib/queue_manager.py:111
 #, python-format
 msgid "Song is already in the queue: %s"
-msgstr ""
+msgstr "노래가 이미 대기열에 있습니다: %s"
 
 #: lib/queue_manager.py:119
 #, python-format
 msgid "You reached the limit of %s song(s) from an user in queue!"
-msgstr ""
+msgstr "대기열에 있는 사용자의 노래 한도인 %s곡에 도달했습니다!"
 
 #: lib/queue_manager.py:132
 #, python-format
 msgid "%s added to top of queue: %s"
-msgstr ""
+msgstr "%s이(가) 대기열 맨 위에 추가되었습니다: %s"
 
 #: lib/queue_manager.py:141
 #, python-format
 msgid "%s added to the queue: %s"
-msgstr ""
+msgstr "%s이(가) 대기열에 추가되었습니다: %s"
 
 #: lib/queue_manager.py:153
 #, python-format
 msgid "Song added to the queue: %s"
-msgstr ""
+msgstr "대기열에 추가된 노래: %s"
 
 #. Message shown after the queue is cleared
 #: lib/queue_manager.py:194
 msgid "Clear queue"
-msgstr ""
+msgstr "대기열 지우기"
 
 #: lib/stream_manager.py:112
 #, python-format
 msgid "Error resolving file: %s"
-msgstr ""
+msgstr "파일을 해결하는 중 오류 발생: %s"
 
 #: lib/stream_manager.py:148
 msgid "Failed to prepare stream"
-msgstr ""
+msgstr "스트림을 준비하지 못했습니다."
 
 #. Message shown after starting the youtube-dl update.
-#: routes/admin.py:61
+#: routes/admin.py:59
 msgid "Updating youtube-dl! Should take a minute or two... "
-msgstr ""
+msgstr "youtube-dl 업데이트 중! 1~2분 정도 걸릴 것 같아요..."
 
 #. Message shown after trying to update youtube-dl without admin permissions.
-#: routes/admin.py:68
+#: routes/admin.py:66
 msgid "You don't have permission to update youtube-dl"
-msgstr ""
-
-#. Message shown after trying to refresh the song list without admin
-#. permissions.
-#: routes/admin.py:80
-msgid "You don't have permission to refresh the song list"
-msgstr ""
+msgstr "youtube-dl을 업데이트할 권한이 없습니다."
 
 #. Message shown after quitting pikaraoke.
-#: routes/admin.py:90
+#: routes/admin.py:97
 msgid "Exiting pikaraoke now!"
-msgstr ""
+msgstr "이제 피노래방에서 나가세요!"
 
 #. Message shown after trying to quit pikaraoke without admin permissions.
-#: routes/admin.py:97
+#: routes/admin.py:104
 msgid "You don't have permission to quit"
-msgstr ""
+msgstr "종료할 권한이 없습니다."
 
 #. Message shown after shutting down the system.
-#: routes/admin.py:107
+#: routes/admin.py:114
 msgid "Shutting down system now!"
-msgstr ""
+msgstr "지금 시스템을 종료합니다!"
 
 #. Message shown after trying to shut down the system without admin
 #. permissions.
-#: routes/admin.py:114
+#: routes/admin.py:121
 msgid "You don't have permission to shut down"
-msgstr ""
+msgstr "종료할 권한이 없습니다."
 
 #. Message shown after rebooting the system.
-#: routes/admin.py:124
+#: routes/admin.py:131
 msgid "Rebooting system now!"
-msgstr ""
+msgstr "지금 시스템을 재부팅하세요!"
 
 #. Message shown after trying to reboot the system without admin permissions.
-#: routes/admin.py:131
+#: routes/admin.py:138
 msgid "You don't have permission to Reboot"
-msgstr ""
+msgstr "재부팅할 권한이 없습니다."
 
 #. Message shown after expanding the filesystem.
-#: routes/admin.py:141
+#: routes/admin.py:148
 msgid "Expanding filesystem and rebooting system now!"
-msgstr ""
+msgstr "지금 파일 시스템을 확장하고 시스템을 재부팅하세요!"
 
 #. Message shown after trying to expand the filesystem on a non-raspberry pi
 #. device.
-#: routes/admin.py:146
+#: routes/admin.py:153
 msgid "Cannot expand fs on non-raspberry pi devices!"
-msgstr ""
+msgstr "라즈베리 파이가 아닌 장치에서는 fs를 확장할 수 없습니다!"
 
 #. Message shown after trying to expand the filesystem without admin
 #. permissions
-#: routes/admin.py:149
+#: routes/admin.py:156
 msgid "You don't have permission to resize the filesystem"
-msgstr ""
+msgstr "파일 시스템 크기를 조정할 권한이 없습니다."
 
 #. Message shown after logging in as admin successfully
-#: routes/admin.py:171
+#: routes/admin.py:178
 msgid "Admin mode granted!"
-msgstr ""
+msgstr "관리자 모드가 부여되었습니다!"
 
 #. Message shown after failing to login as admin
-#: routes/admin.py:175
+#: routes/admin.py:182
 msgid "Incorrect admin password!"
-msgstr ""
+msgstr "잘못된 관리자 비밀번호입니다!"
 
 #. Message shown after logging out as admin successfully
-#: routes/admin.py:191
+#: routes/admin.py:192
 msgid "Logged out of admin mode!"
-msgstr ""
+msgstr "관리자 모드에서 로그아웃했습니다!"
 
 #. Title of the button to accept the suggested name
 #: routes/batch_song_renamer.py:144
 msgid "Accept suggested name"
-msgstr ""
+msgstr "제안된 이름 수락"
 
 #. Title of the files page.
 #. Page title for the page where the user can batch rename songs.
 #: routes/batch_song_renamer.py:152 templates/batch-song-renamer.html:133
 msgid "Batch Song Renamer"
-msgstr ""
+msgstr "일괄 노래 이름 바꾸기"
 
 #. Message shown after trying to edit a song without specifying the filename.
 #: routes/batch_song_renamer.py:236
 msgid "Error: No filename parameters were specified!"
-msgstr ""
+msgstr "오류: 파일 이름 매개변수가 지정되지 않았습니다!"
 
-#: routes/batch_song_renamer.py:245 routes/files.py:150 routes/files.py:175
+#: routes/batch_song_renamer.py:245 routes/files.py:160 routes/files.py:191
 msgid "Error: Can't edit this song because it is in the current queue: "
-msgstr ""
+msgstr "오류: 이 노래는 현재 대기열에 있으므로 편집할 수 없습니다."
 
 #. Message shown after trying to rename a file to a name that already exists.
-#: routes/batch_song_renamer.py:259 routes/files.py:183
+#: routes/batch_song_renamer.py:259 routes/files.py:201
 #, python-format
 msgid "Error renaming file: '%s' to '%s', Filename already exists"
-msgstr ""
+msgstr "파일 이름을 바꾸는 중 오류 발생: '%s'을(를) '%s'(으)로 변경, 파일 이름이 이미 존재합니다."
 
 #. Title of the files page.
 #. Navigation link for the page where the user can add existing songs to the
 #. queue.
-#: routes/files.py:110 templates/base.html:215
+#: routes/files.py:111 templates/base.html:217
 msgid "Browse"
-msgstr ""
+msgstr "먹다"
+
+#: routes/files.py:126
+msgid "You don't have permission to delete songs"
+msgstr "노래를 삭제할 권한이 없습니다."
 
 #. Message shown after trying to delete a song that is in the queue.
-#: routes/files.py:126
+#: routes/files.py:131
 msgid "Error: Can't delete this song because it is in the current queue"
-msgstr ""
+msgstr "오류: 이 노래는 현재 대기열에 있으므로 삭제할 수 없습니다."
 
-#. Message shown after deleting a song. Followed by the song path
-#: routes/files.py:134
+#: routes/files.py:140
 #, python-format
 msgid "Song deleted: %s"
-msgstr ""
+msgstr "삭제된 노래: %s"
 
-#: routes/files.py:193
+#: routes/files.py:155 routes/files.py:184
+msgid "You don't have permission to edit songs"
+msgstr "노래를 편집할 권한이 없습니다."
+
+#: routes/files.py:211
 #, python-format
 msgid "Error renaming file: '%s' to '%s', %s"
-msgstr ""
+msgstr "파일 이름을 바꾸는 중 오류 발생: '%s'을(를) '%s', %s(으)로"
 
 #. Message shown after renaming a file.
-#: routes/files.py:199
+#: routes/files.py:217
 #, python-format
 msgid "Renamed file: %s to %s"
-msgstr ""
+msgstr "파일 이름이 변경되었습니다: %s에서 %s(으)로"
 
 #: routes/info.py:100
 msgid "CPU usage query unsupported"
-msgstr ""
+msgstr "CPU 사용량 쿼리가 지원되지 않습니다."
 
 #. Message shown after trying to change preferences without admin permissions.
 #: routes/preferences.py:42
 msgid "You don't have permission to change preferences"
-msgstr ""
+msgstr "환경설정을 변경할 권한이 없습니다."
 
 #. Message shown after trying to clear preferences without admin permissions.
 #: routes/preferences.py:59
 msgid "You don't have permission to clear preferences"
-msgstr ""
+msgstr "환경설정을 삭제할 권한이 없습니다."
+
+#: routes/queue.py:80
+msgid "You don't have permission to add random songs"
+msgstr "임의의 노래를 추가할 권한이 없습니다."
 
 #. Message shown after adding random tracks
-#: routes/queue.py:83
+#: routes/queue.py:86
 #, python-format
 msgid "Added %s random tracks"
-msgstr ""
+msgstr "%s개의 무작위 트랙을 추가했습니다."
 
 #. Message shown after running out songs to add during random track addition
-#: routes/queue.py:86
+#: routes/queue.py:89
 msgid "Ran out of songs!"
-msgstr ""
+msgstr "노래가 부족해요!"
 
 #. Message shown when non-admin tries to edit queue
-#: routes/queue.py:118
+#: routes/queue.py:121
 msgid "Unauthorized"
-msgstr ""
+msgstr "승인되지 않은"
 
-#: routes/queue.py:128
+#: routes/queue.py:131
 msgid "Cleared the queue!"
-msgstr ""
-
-#: routes/queue.py:140
-msgid "Moved to top of queue"
-msgstr ""
-
-#: routes/queue.py:141
-msgid "Moved to bottom of queue"
-msgstr ""
-
-#: routes/queue.py:142
-msgid "Moved up in queue"
-msgstr ""
+msgstr "대기열을 삭제했습니다!"
 
 #: routes/queue.py:143
-msgid "Moved down in queue"
-msgstr ""
+msgid "Moved to top of queue"
+msgstr "대기열의 맨 위로 이동됨"
 
 #: routes/queue.py:144
-msgid "Deleted from queue"
-msgstr ""
+msgid "Moved to bottom of queue"
+msgstr "대기열 맨 아래로 이동됨"
+
+#: routes/queue.py:145
+msgid "Moved up in queue"
+msgstr "대기열에서 위로 이동됨"
+
+#: routes/queue.py:146
+msgid "Moved down in queue"
+msgstr "대기열에서 아래로 이동됨"
 
 #: routes/queue.py:147
-msgid "Error moving to top of queue"
-msgstr ""
-
-#: routes/queue.py:148
-msgid "Error moving to bottom of queue"
-msgstr ""
-
-#: routes/queue.py:149
-msgid "Error moving up in queue"
-msgstr ""
+msgid "Deleted from queue"
+msgstr "대기열에서 삭제됨"
 
 #: routes/queue.py:150
-msgid "Error moving down in queue"
-msgstr ""
+msgid "Error moving to top of queue"
+msgstr "대기열의 맨 위로 이동하는 중에 오류가 발생했습니다."
 
 #: routes/queue.py:151
+msgid "Error moving to bottom of queue"
+msgstr "대기열 맨 아래로 이동하는 중에 오류가 발생했습니다."
+
+#: routes/queue.py:152
+msgid "Error moving up in queue"
+msgstr "대기열에서 위로 이동하는 중에 오류가 발생했습니다."
+
+#: routes/queue.py:153
+msgid "Error moving down in queue"
+msgstr "대기열에서 아래로 이동하는 중에 오류가 발생했습니다."
+
+#: routes/queue.py:154
 msgid "Error deleting from queue"
-msgstr ""
+msgstr "대기열에서 삭제하는 중에 오류가 발생했습니다."
 
 #: routes/splash.py:24
 msgid "Never sing again... ever."
-msgstr ""
+msgstr "다시는 노래하지 마세요... 절대."
 
 #: routes/splash.py:25
 msgid "That was a really good impression of a dying cat!"
-msgstr ""
+msgstr "죽어가는 고양이에 대한 정말 좋은 인상이었습니다!"
 
 #: routes/splash.py:26
 msgid "Thank God it's over."
-msgstr ""
+msgstr "끝났습니다."
 
 #: routes/splash.py:27
 msgid "Pass the mic, please!"
-msgstr ""
+msgstr "마이크를 넘겨주세요!"
 
 #: routes/splash.py:28
 msgid "Well, I'm sure you're very good at your day job."
-msgstr ""
+msgstr "글쎄, 나는 당신이 본업을 매우 잘 수행할 것이라고 확신합니다."
 
 #: routes/splash.py:31
 msgid "I've seen better."
-msgstr ""
+msgstr "나는 더 나은 것을 보았다."
 
 #: routes/splash.py:32
 msgid "Ok... just ok."
-msgstr ""
+msgstr "알았어... 알았어."
 
 #: routes/splash.py:33
 msgid "Not bad for an amateur."
-msgstr ""
+msgstr "아마추어에게는 나쁘지 않습니다."
 
 #: routes/splash.py:34
 msgid "You put on a decent show."
-msgstr ""
+msgstr "괜찮은 쇼를 보여주셨네요."
 
 #: routes/splash.py:35
 msgid "That was... something."
-msgstr ""
+msgstr "그거... 뭔가요."
 
 #: routes/splash.py:38
 msgid "Congratulations! That was unbelievable!"
-msgstr ""
+msgstr "축하해요! 정말 믿을 수가 없었어요!"
 
 #: routes/splash.py:39
 msgid "Wow, have you tried auditioning for The Voice?"
-msgstr ""
+msgstr "와, The Voice 오디션을 보신 적이 있나요?"
 
 #: routes/splash.py:40
 msgid "Please, sing another one!"
-msgstr ""
+msgstr "한 곡 더 불러주세요!"
 
 #: routes/splash.py:41
 msgid "You rock! You know that?!"
-msgstr ""
+msgstr "당신은 바위! 그거 알아?!"
 
 #: routes/splash.py:42
 msgid "Woah, who let Freddie Mercury in here?"
-msgstr ""
+msgstr "와, 누가 프레디 머큐리를 여기에 들여보냈나요?"
 
 #: routes/stream.py:238
 msgid "Failed to stream subtitle: "
-msgstr ""
+msgstr "자막 스트리밍 실패:"
 
 #. Prompt to change the username displayed next to queued songs. CURRENT_NAME
 #. is replaced with the name
@@ -429,23 +439,23 @@ msgstr ""
 msgid ""
 "Do you want to change the name of the person using this device? This will"
 " show up on queued songs. Current: CURRENT_NAME"
-msgstr ""
+msgstr "이 장치를 사용하는 사람의 이름을 변경하시겠습니까? 이는 대기 중인 노래에 표시됩니다. 현재: CURRENT_NAME"
 
 #. Confirmation prompt to clear entire queue. User must type ok to confirm
 #: templates/base.html:27
 msgid "Are you sure you want to clear the ENTIRE queue? Type ok to continue"
-msgstr ""
+msgstr "대기열 전체를 삭제하시겠습니까? 계속하려면 확인을 입력하세요."
 
 #. Confirmation dialog when removing a song from the queue. SONG_TITLE is
 #. replaced with the title
 #: templates/base.html:29
 msgid "Are you sure you want to delete SONG_TITLE from the queue?"
-msgstr ""
+msgstr "대기열에서 SONG_TITLE을 삭제하시겠습니까?"
 
 #. Confirmation dialog when permanently deleting a song file from the library
 #: templates/base.html:31
 msgid "Are you sure you want to delete this song from the library?"
-msgstr ""
+msgstr "정말로 이 노래를 라이브러리에서 삭제하시겠습니까?"
 
 #. Prompt which asks the user their name when they first try to add to the
 #. queue.
@@ -453,23 +463,23 @@ msgstr ""
 msgid ""
 "Please enter your name. This will show up next to the songs you queue up "
 "from this device."
-msgstr ""
+msgstr "이름을 입력해주세요. 이 장치에서 대기열에 추가한 노래 옆에 표시됩니다."
 
 #. Navigation link for the home page.
-#: templates/base.html:199
+#: templates/base.html:201
 msgid "Home"
-msgstr ""
+msgstr "집"
 
 #. Navigation link for the queue page.
-#: templates/base.html:205 templates/queue.html:492
+#: templates/base.html:207 templates/queue.html:492
 msgid "Queue"
-msgstr ""
+msgstr "대기줄"
 
 #. Navigation link for the search page add songs to the queue.
 #. Submit button on the search form for searching YouTube.
-#: templates/base.html:210 templates/search.html:589
+#: templates/base.html:212 templates/search.html:589
 msgid "Search"
-msgstr ""
+msgstr "찾다"
 
 #. Message about the wait for loading the songs
 #: templates/batch-song-renamer.html:136
@@ -478,6 +488,8 @@ msgid ""
 "compared online. Loading time may vary\n"
 "\tbased on your internet connection."
 msgstr ""
+"노래 제목이 온라인에서 비교되므로 로딩 프로세스는 몇 초 정도 걸릴 수 있습니다. 로딩 시간은 다를 수 있습니다\n"
+"\t인터넷 연결을 기반으로 합니다."
 
 #. Label which displays that all songs are being shown
 #: templates/batch-song-renamer.html:141
@@ -485,11 +497,13 @@ msgid ""
 "Showing all\n"
 "\tsongs"
 msgstr ""
+"모두 표시\n"
+"\t노래"
 
 #. Button which changes to show only the songs to rename
 #: templates/batch-song-renamer.html:144
 msgid "Show only songs to rename"
-msgstr ""
+msgstr "이름을 바꿀 노래만 표시"
 
 #. Label which displays that only songs to rename are being shown.
 #: templates/batch-song-renamer.html:147
@@ -497,61 +511,63 @@ msgid ""
 "Showing only songs\n"
 "\tto rename"
 msgstr ""
+"노래만 표시\n"
+"\t이름을 바꾸다"
 
 #. Button which changes to show all songs
 #: templates/batch-song-renamer.html:150
 msgid "Show all songs"
-msgstr ""
+msgstr "모든 노래 표시"
 
 #. Message displaying that the songs are currently being loaded
 #: templates/batch-song-renamer.html:158
 msgid "Loading songs..."
-msgstr ""
+msgstr "노래 로드 중..."
 
 #. Warning when no suggested tracks are found for a search.
 #: templates/edit.html:30
 msgid "No suggestion!"
-msgstr ""
+msgstr "제안이 없습니다!"
 
 #. Page title for the page where a song can be edited.
 #: templates/edit.html:55
 msgid "Edit Song"
-msgstr ""
+msgstr "노래 편집"
 
 #. Label on the control to edit the song's name
 #: templates/edit.html:69
 msgid "Edit Song Name"
-msgstr ""
+msgstr "노래 이름 편집"
 
 #. Label on button which auto formats the song's title.
 #: templates/edit.html:76
 msgid "Auto-format"
-msgstr ""
+msgstr "자동 포맷"
 
 #. Label on button which swaps the order of the artist and song in the title.
 #: templates/edit.html:78
 msgid "Swap artist/song order"
-msgstr ""
+msgstr "아티스트/노래 순서 교체"
 
 #. Label on button which saves the changes.
 #: templates/edit.html:89
 msgid "Save"
-msgstr ""
+msgstr "구하다"
 
 #: templates/edit.html:94
 msgid "Cancel"
-msgstr ""
+msgstr "취소"
 
 #. Label on button which deletes the current song.
 #: templates/edit.html:105
 msgid "Delete this song"
-msgstr ""
+msgstr "이 노래 삭제"
 
 #. Label which displays that the songs are currently sorted by
 #. alphabetical order.
 #: templates/files.html:92
 msgid "Sorted Alphabetically"
-msgstr ""
+msgstr "알파벳순으로 정렬"
 
 #. Button which changes how the songs are sorted so they become sorted by date.
 #: templates/files.html:94
@@ -559,12 +575,14 @@ msgid ""
 "Sort by\n"
 "\t\t\tDate"
 msgstr ""
+"정렬 기준\n"
+"\t\t\t날짜"
 
 #. Label which displays that the songs are currently sorted by
 #. date.
 #: templates/files.html:98
 msgid "Sorted by date"
-msgstr ""
+msgstr "날짜별로 정렬"
 
 #. Button which changes how the songs are sorted so they become sorted by name.
 #: templates/files.html:100
@@ -572,385 +590,416 @@ msgid ""
 "Sort by\n"
 "\t\t\tAlphabetical"
 msgstr ""
+"정렬 기준\n"
+"\t\t\t알파벳순"
 
 #. Button to open the batch song renamer page.
 #: templates/files.html:107
 msgid "Edit all songs"
-msgstr ""
+msgstr "모든 노래 편집"
 
 #. Message which shows in the "Now Playing" section when there is no song
 #. currently playing
 #: templates/home.html:35
 msgid "Nothing is playing right now."
-msgstr ""
+msgstr "지금은 재생 중인 항목이 없습니다."
 
 #. Title text for the icon marking the next person to sing.
 #: templates/home.html:43
 msgid "Next singer"
-msgstr ""
+msgstr "다음 가수"
 
 #. Alternative text for the "Up next" section if no more songs are queued up.
 #: templates/home.html:46
 msgid "No song is queued."
-msgstr ""
+msgstr "대기 중인 노래가 없습니다."
 
 #. Confirmation message when clicking a button to skip a track.
 #: templates/home.html:134
 msgid ""
 "Are you sure you want to skip this track? If you didn't add this song, "
 "ask permission first!"
-msgstr ""
+msgstr "이 트랙을 건너뛰시겠습니까? 이 노래를 추가하지 않았다면 먼저 권한을 요청하세요!"
 
 #. Header showing the currently playing song.
 #: templates/home.html:181
 msgid "Now Playing"
-msgstr ""
+msgstr "지금 재생 중"
 
 #. Title for the section displaying the next song to be played.
 #: templates/home.html:194
 msgid "Next Song"
-msgstr ""
+msgstr "다음 노래"
 
 #. Title of the box with controls such as pause and skip.
 #: templates/home.html:201
 msgid "Player Control"
-msgstr ""
+msgstr "플레이어 제어"
 
 #. Title attribute on the button to play or pause the current song.
 #: templates/home.html:205
 msgid "Restart Song"
-msgstr ""
+msgstr "노래 다시 시작"
 
 #. Title attribute on the button to skip to the next song.
 #: templates/home.html:207
 msgid "Play/Pause"
-msgstr ""
+msgstr "재생/일시 정지"
 
 #: templates/home.html:209
 msgid "Stop Current Song"
-msgstr ""
+msgstr "현재 노래 중지"
 
 #. Title of a control to change the key/pitch of the playing song.
 #: templates/home.html:231
 msgid "Change Key"
-msgstr ""
+msgstr "키 변경"
 
 #. Label on the button to confirm the change in key/pitch of the playing song.
 #: templates/home.html:251
 msgid "Change"
-msgstr ""
+msgstr "변화"
 
 #. Confirmation text whe the user selects quit.
 #: templates/info.html:67
 msgid "Are you sure you want to quit?"
-msgstr ""
+msgstr "정말 그만두시겠어요?"
 
 #. Confirmation text whe the user starts to turn off the machine running
 #. Pikaraoke.
 #: templates/info.html:75
 msgid "Are you sure you want to shut down?"
-msgstr ""
+msgstr "정말로 종료하시겠습니까?"
 
 #. Confirmation text whe the user clears preferences.
 #: templates/info.html:83
 msgid "Are you sure you want to clear your preferences?"
-msgstr ""
+msgstr "기본 설정을 삭제하시겠습니까?"
 
 #. Confirmation text whe the user starts to reboot the machine running
 #. Pikaraoke.
 #: templates/info.html:91
 msgid "Are you sure you want to reboot?"
-msgstr ""
+msgstr "재부팅하시겠습니까?"
 
 #. Confirmation text whe the user asks to update the Youtube-dl tool.
 #: templates/info.html:101
 msgid ""
 "Are you sure you want to update Youtube-dl right now? Current and pending"
 " downloads may fail."
-msgstr ""
+msgstr "지금 Youtube-dl을 업데이트하시겠습니까? 현재 및 보류 중인 다운로드가 실패할 수 있습니다."
+
+#. Confirmation text when the user wants to expand the filesystem to take the
+#. entire SD card.
+#: templates/info.html:179
+msgid "Library sync complete"
+msgstr "라이브러리 동기화 완료"
 
 #. Title of the information page.
-#: templates/info.html:158
+#: templates/info.html:189
 msgid "Information"
-msgstr ""
+msgstr "정보"
 
 #. Label which appears before a url which links to the current page.
-#: templates/info.html:170
+#: templates/info.html:201
 #, python-format
 msgid "URL of %(site_title)s:"
-msgstr ""
+msgstr "%(site_title)s의 URL:"
 
 #. Label before a QR code which brings a frind (pal) to the main page if
 #. scanned, so they can also add songs. QR code follows this text.
-#: templates/info.html:176
+#: templates/info.html:207
 msgid "Handy URL QR code to share with a pal:"
-msgstr ""
+msgstr "친구와 공유할 수 있는 편리한 URL QR 코드:"
 
-#. Title of the system data section.
-#: templates/info.html:185
-msgid "System Data"
-msgstr ""
+#. Title of the admin section.
+#: templates/info.html:215 templates/info.html:578
+msgid "Admin"
+msgstr "관리자"
 
-#. Header of the information section about the computer running Pikaraoke.
-#: templates/info.html:190
-msgid "System Info"
-msgstr ""
+#. Title fo the form to enter the administrator password.
+#: templates/info.html:221
+msgid "Enter the administrator password"
+msgstr "관리자 비밀번호를 입력하세요"
 
-#. The hardware platform
-#: templates/info.html:196
-msgid "Platform:"
-msgstr ""
+#. Text on submit button for the admin login form.
+#: templates/info.html:230
+msgid "Login"
+msgstr "로그인"
 
-#. The os version
-#: templates/info.html:198
-msgid "OS Version:"
-msgstr ""
+#. Title of the song library section.
+#: templates/info.html:242
+msgid "Song Library"
+msgstr "노래 라이브러리"
 
-#. The version of the program "Youtube-dl".
-#: templates/info.html:200
-msgid "Youtube-dl (yt-dlp) version:"
-msgstr ""
+#. Header of the song library management section.
+#: templates/info.html:247
+msgid "Library"
+msgstr "도서관"
 
-#. The version of the program "ffmpeg".
-#: templates/info.html:202
-msgid "FFmpeg version:"
-msgstr ""
+#. Song count display in the library card.
+#: templates/info.html:253
+msgid "Songs in library:"
+msgstr "라이브러리에 있는 노래:"
 
-#. The version of Pikaraoke running right now.
-#: templates/info.html:204
-msgid "Pikaraoke version:"
-msgstr ""
+#. Button to trigger a background library scan.
+#: templates/info.html:257
+msgid "Sync Now"
+msgstr "지금 동기화"
 
-#. Header of the information section about the System stats.
-#: templates/info.html:210
-msgid "System stats"
-msgstr ""
-
-#. The CPU usage of the computer running Pikaraoke.
-#: templates/info.html:216
-msgid "CPU:"
-msgstr ""
-
-#: templates/info.html:216 templates/info.html:218 templates/info.html:220
-msgid "Loading..."
-msgstr ""
-
-#. The disk usage of the computer running Pikaraoke. Used by downloaded songs.
-#: templates/info.html:218
-msgid "Disk Usage:"
-msgstr ""
-
-#. The memory (RAM) usage of the computer running Pikaraoke.
-#: templates/info.html:220
-msgid "Memory:"
-msgstr ""
+#. Help text explaining what Sync Now does.
+#: templates/info.html:261
+msgid "Reconciles the library with the song directory in the background."
+msgstr "백그라운드에서 노래 디렉토리와 라이브러리를 조정합니다."
 
 #. Title of the user preferences section.
-#: templates/info.html:227
+#: templates/info.html:268
 msgid "User Preferences"
-msgstr ""
+msgstr "사용자 환경설정"
 
 #. Title text for the splash screen settings section of preferences
-#: templates/info.html:233
+#: templates/info.html:274
 msgid "Splash screen settings"
-msgstr ""
+msgstr "스플래시 화면 설정"
 
 #. Checkbox label which enable/disables background video on the Splash Screen
-#: templates/info.html:241
+#: templates/info.html:282
 msgid "Disable background video"
-msgstr ""
+msgstr "배경 비디오 비활성화"
 
 #. Checkbox label which enable/disables background music on the Splash Screen
-#: templates/info.html:247
+#: templates/info.html:288
 msgid "Disable background music"
-msgstr ""
+msgstr "배경 음악 비활성화"
 
 #. Checkbox label which enable/disables the Score Screen
-#: templates/info.html:253
+#: templates/info.html:294
 msgid "Disable the score screen after each song"
-msgstr ""
+msgstr "각 노래가 끝난 후 점수 화면을 비활성화합니다."
 
 #. Checkbox label which enable/disables notifications on the splash screen
-#: templates/info.html:259
+#: templates/info.html:300
 msgid "Hide notifications"
-msgstr ""
+msgstr "알림 숨기기"
 
 #. Checkbox label which enable/disables the digital clock on the splash screen
-#: templates/info.html:265
+#: templates/info.html:306
 msgid "Show splash clock"
-msgstr ""
+msgstr "스플래시 시계 표시"
 
 #. Checkbox label which enable/disables the URL display
-#: templates/info.html:270
+#: templates/info.html:311
 msgid "Hide the URL and QR code"
-msgstr ""
+msgstr "URL 및 QR 코드 숨기기"
 
 #. Checkbox label which enable/disables showing overlay data on the splash
 #. screen
-#: templates/info.html:276
+#: templates/info.html:317
 msgid "Hide all overlays, including now playing, up next, and QR code"
-msgstr ""
+msgstr "지금 재생 중, 다음 동영상, QR 코드를 포함한 모든 오버레이 숨기기"
 
 #. Numberbox label for setting the default video volume
-#: templates/info.html:282
+#: templates/info.html:323
 msgid "Default volume of the videos (min 0, max 100)"
-msgstr ""
+msgstr "동영상 기본 볼륨(최소 0, 최대 100)"
 
 #. Numberbox label for setting the background music volume
-#: templates/info.html:288
+#: templates/info.html:329
 msgid "Volume of the background music (min 0, max 100)"
-msgstr ""
+msgstr "배경음악 볼륨 (최소 0, 최대 100)"
 
 #. Numberbox label for setting the inactive delay before showing the
 #. screensaver
-#: templates/info.html:295
+#: templates/info.html:336
 msgid ""
 "The amount of idle time in seconds before the screen saver activates. Set"
 " to 0 to disable it."
-msgstr ""
+msgstr "화면 보호기가 활성화되기 전의 유휴 시간(초)입니다. 비활성화하려면 0으로 설정합니다."
 
 #. Numberbox label for setting the delay before playing the next song
-#: templates/info.html:302
+#: templates/info.html:343
 msgid "The delay in seconds before starting the next song"
-msgstr ""
+msgstr "다음 노래를 시작하기까지의 지연 시간(초)"
 
 #. Title text for the Score Phrases section of preferences
-#: templates/info.html:313
+#: templates/info.html:354
 msgid "Score phrases"
-msgstr ""
+msgstr "점수 문구"
 
 #. Help text explaining how to add phrases
-#: templates/info.html:320
+#: templates/info.html:361
 msgid "Add one phrase per line in each box and hit save."
-msgstr ""
+msgstr "각 상자에 한 줄에 하나의 문구를 추가하고 저장을 누르세요."
 
 #. Title for LOW Score Phrases
-#: templates/info.html:322
+#: templates/info.html:363
 msgid "LOW Score Phrases (score < 30)"
-msgstr ""
+msgstr "낮은 점수 문구(점수 < 30)"
 
 #. Placeholder for the low score phrases textarea
-#: templates/info.html:324
+#: templates/info.html:365
 msgid "Could be better..."
-msgstr ""
+msgstr "더 좋을 수도..."
 
 #. Title for MID Score Phrases
-#: templates/info.html:327
+#: templates/info.html:368
 msgid "MID Score Phrases (30 > score < 60)"
-msgstr ""
+msgstr "MID 점수 구문(30 > 점수 < 60)"
 
 #. Placeholder for the MID score phrases textarea
-#: templates/info.html:329
+#: templates/info.html:370
 msgid "That was ok..."
-msgstr ""
+msgstr "괜찮았어..."
 
 #. Title for HIGH Score Phrases
-#: templates/info.html:332
+#: templates/info.html:373
 msgid "HIGH Score Phrases (60 < score)"
-msgstr ""
+msgstr "높은 점수 문구 (60 < 점수)"
 
 #. Placeholder for the HIGH score phrases textarea
-#: templates/info.html:334
+#: templates/info.html:375
 msgid "Wonderfull..."
-msgstr ""
+msgstr "훌륭해요..."
 
 #. Title text for the language settings section of preferences
-#: templates/info.html:342
+#: templates/info.html:383
 msgid "Language settings"
-msgstr ""
+msgstr "언어 설정"
 
 #. Label for language selection dropdown
-#: templates/info.html:355
+#: templates/info.html:396
 msgid "Preferred language (requires restart)"
-msgstr ""
+msgstr "기본 언어(다시 시작해야 함)"
 
 #. Title text for the server settings section of preferences
-#: templates/info.html:364
+#: templates/info.html:405
 msgid "Server settings"
-msgstr ""
+msgstr "서버 설정"
 
 #. Checkbox label which enable/disables audio volume normalization
-#: templates/info.html:371
+#: templates/info.html:412
 msgid "Normalize audio volume"
-msgstr ""
+msgstr "오디오 볼륨 표준화"
 
 #. Checkbox label which enable/disables high quality video downloads
-#: templates/info.html:377
+#: templates/info.html:418
 msgid "Download high quality videos"
-msgstr ""
+msgstr "고품질 비디오 다운로드"
 
 #. Checkbox label which enable/disables full transcode before playback
-#: templates/info.html:383
+#: templates/info.html:424
 msgid ""
 "Transcode video completely before playing (better browser compatibility, "
 "slower starts). Buffer size will be ignored.*"
-msgstr ""
+msgstr "재생하기 전에 비디오를 완전히 트랜스코딩합니다(브라우저 호환성 향상, 시작 속도 저하). 버퍼 크기는 무시됩니다.*"
 
 #. Checkbox label which enable/disables CDG pixel scaling
-#: templates/info.html:389
+#: templates/info.html:430
 msgid ""
 "Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU"
 " usage)"
-msgstr ""
+msgstr "CDG 픽셀 스케일링 활성화(CDG 파일의 시각적 효과가 더욱 선명해지며 CPU 사용량이 증가할 수 있음)"
 
 #. Numberbox label for audio video synchronization
-#: templates/info.html:396
+#: templates/info.html:437
 msgid ""
 "Fix the audio and video synchronization in seconds (negative = advances "
 "audio | positive = delays audio)"
-msgstr ""
+msgstr "몇 초 만에 오디오 및 비디오 동기화 수정(음수 = 오디오 진행 | 양수 = 오디오 지연)"
 
 #. Numberbox label for limitting the number of songs for each player
-#: templates/info.html:403
+#: templates/info.html:444
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
-msgstr ""
+msgstr "개별 사용자가 대기열에 추가할 수 있는 노래 제한(0 = 무제한)"
 
 #. Checkbox label which enable/disables fair queue (round-robin) mode
-#: templates/info.html:409
+#: templates/info.html:450
 msgid "Enable fair queue (round-robin mode ensures users take turns)"
-msgstr ""
+msgstr "공정한 대기열 활성화(라운드 로빈 모드로 사용자가 차례대로 진행되도록 보장)"
 
 #. Numberbox label for setting the buffer size in kilobytes
-#: templates/info.html:416
+#: templates/info.html:457
 msgid ""
 "Buffer size in kilobytes. Transcode this amount of the video before "
 "sending it to the splash screen. "
-msgstr ""
+msgstr "버퍼 크기(KB)입니다. 스플래시 화면으로 보내기 전에 이 정도의 비디오를 트랜스코딩합니다."
 
 #. Text for the link where the user can clear all user preferences
-#: templates/info.html:429
+#: templates/info.html:470
 msgid "Clear preferences"
-msgstr ""
+msgstr "환경설정 지우기"
+
+#. Title of the system data section.
+#: templates/info.html:478
+msgid "System Data"
+msgstr "시스템 데이터"
+
+#. Header of the information section about the computer running Pikaraoke.
+#: templates/info.html:483
+msgid "System Info"
+msgstr "시스템 정보"
+
+#. The hardware platform
+#: templates/info.html:489
+msgid "Platform:"
+msgstr "플랫폼:"
+
+#. The os version
+#: templates/info.html:491
+msgid "OS Version:"
+msgstr "운영체제 버전:"
+
+#. The version of the program "Youtube-dl".
+#: templates/info.html:493
+msgid "Youtube-dl (yt-dlp) version:"
+msgstr "Youtube-dl(yt-dlp) 버전:"
+
+#. The version of the program "ffmpeg".
+#: templates/info.html:495
+msgid "FFmpeg version:"
+msgstr "FFmpeg 버전:"
+
+#. The version of Pikaraoke running right now.
+#: templates/info.html:497
+msgid "Pikaraoke version:"
+msgstr "피카라오케 버전:"
+
+#. Header of the information section about the System stats.
+#: templates/info.html:503
+msgid "System stats"
+msgstr "시스템 통계"
+
+#. The CPU usage of the computer running Pikaraoke.
+#: templates/info.html:509
+msgid "CPU:"
+msgstr "CPU:"
+
+#: templates/info.html:509 templates/info.html:511 templates/info.html:513
+msgid "Loading..."
+msgstr "로드 중..."
+
+#. The disk usage of the computer running Pikaraoke. Used by downloaded songs.
+#: templates/info.html:511
+msgid "Disk Usage:"
+msgstr "디스크 사용량:"
+
+#. The memory (RAM) usage of the computer running Pikaraoke.
+#: templates/info.html:513
+msgid "Memory:"
+msgstr "메모리:"
 
 #. Title of the updates section.
-#: templates/info.html:437
+#: templates/info.html:520
 msgid "Updates"
-msgstr ""
-
-#. Label for the Refresh the song list on the updates section
-#: templates/info.html:442
-msgid "Refresh the song list"
-msgstr ""
-
-#. Help text explaining the Rescan song directory link.
-#: templates/info.html:447
-msgid ""
-"You should only need to do this if you manually copied files to the "
-"download directory while pikaraoke was running."
-msgstr ""
-
-#. Text on the link which forces Pikaraoke to rescan and pick up any new songs.
-#: templates/info.html:452
-msgid "Rescan song directory"
-msgstr ""
+msgstr "업데이트"
 
 #. Label for the YT-DLP update on the updates section
-#: templates/info.html:461
+#: templates/info.html:525
 msgid "YT-DLP update"
-msgstr ""
+msgstr "YT-DLP 업데이트"
 
 #. Text explaining why you might want to update youtube-dl.
-#: templates/info.html:466
+#: templates/info.html:530
 #, python-format
 msgid ""
 "\n"
@@ -959,65 +1008,40 @@ msgid ""
 "\t\t\t\t\t\tThe current installed version is: \"%(youtubedl_version)s\".\n"
 "\t\t\t\t\t"
 msgstr ""
+"다운로드나 검색이 작동하지 않는 경우 youtube-dl을 업데이트하면 문제가 해결될 것입니다.<br/>\n"
+"\t\t\t\t\t\t현재 설치된 버전은 \"%(youtubedl_version)s\"입니다."
 
 #. Text for the link which will try and update youtube-dl on the machine
 #. running Pikaraoke.
-#: templates/info.html:472
+#: templates/info.html:536
 msgid "Update youtube-dl"
-msgstr ""
+msgstr "YouTube-DL 업데이트"
 
 #. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
-#: templates/info.html:476
+#: templates/info.html:540
 msgid ""
 "* This update link above may fail if you don't have proper file "
 "permissions.\n"
 "\t\t\t\t\t\t\tCheck the pikaraoke log for errors."
 msgstr ""
-
-#. Title of the section on shutting down / turning off the machine running
-#. Pikaraoke.
-#: templates/info.html:488
-msgid "Shutdown"
-msgstr ""
-
-#. Explainitory text which explains why to use the shutdown link.
-#: templates/info.html:495
-msgid ""
-"Don't just pull the plug! Always shut down your server properly to avoid "
-"data corruption."
-msgstr ""
-
-#. Text for button which turns off Pikaraoke for everyone using it at your
-#. house.
-#: templates/info.html:502
-msgid "Quit Pikaraoke"
-msgstr ""
-
-#. Text for button which reboots the machine running Pikaraoke.
-#: templates/info.html:505
-msgid "Reboot System"
-msgstr ""
-
-#. Text for button which turn soff the machine running Pikaraoke.
-#: templates/info.html:508
-msgid "Shutdown System"
-msgstr ""
+"* 위의 업데이트 링크는 적절한 파일 권한이 없을 경우 실패할 수 있습니다.\n"
+"\t\t\t\t\t\t\t피노래방 로그에서 오류를 확인하세요."
 
 #. Title of the updates section.
-#: templates/info.html:519
+#: templates/info.html:552
 msgid "Other"
-msgstr ""
+msgstr "다른"
 
 #. Title for section containing a few other options on the Info page.
 #. Text for button
-#: templates/info.html:524 templates/info.html:536
+#: templates/info.html:557 templates/info.html:569
 msgid "Expand Raspberry Pi filesystem"
-msgstr ""
+msgstr "Raspberry Pi 파일 시스템 확장"
 
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
-#: templates/info.html:529
+#: templates/info.html:562
 msgid ""
 "If you just installed the pre-built pikaraoke pi image and your SD card "
 "is larger than 4GB,\n"
@@ -1025,88 +1049,88 @@ msgid ""
 "remaining space. You only need to do this once.\n"
 "\t\t\t\t\t\t\tThis will reboot the system."
 msgstr ""
-
-#. Title of the admin section.
-#: templates/info.html:545 templates/info.html:570
-msgid "Admin"
-msgstr ""
-
-#. Title for section logout on the Info page.
-#: templates/info.html:552
-msgid "Logout"
-msgstr ""
+"사전 구축된 피노래방 파이 이미지를 방금 설치했고 SD 카드가 4GB보다 큰 경우,\n"
+"\t\t\t\t\t\t\t남은 공간을 활용하기 위해 파일 시스템을 확장할 수도 있습니다. 이 작업은 한 번만 수행하면 됩니다.\n"
+"\t\t\t\t\t\t\t그러면 시스템이 재부팅됩니다."
 
 #. Message for the log out user from admin mode button.
-#: templates/info.html:558
+#: templates/info.html:584
 msgid "Click here to logout from admin mode."
-msgstr ""
+msgstr "관리자 모드에서 로그아웃하려면 여기를 클릭하세요."
 
 #. Link which will log out the user from admin mode.
-#: templates/info.html:560
+#: templates/info.html:586
 msgid "Log out"
-msgstr ""
+msgstr "로그아웃"
 
-#. Title for section login on the Info page.
-#. Title for the log in page for admins.
-#. Text on submit button for the admin login form.
-#: templates/info.html:576 templates/login.html:8 templates/login.html:20
-msgid "Login"
-msgstr ""
+#. Title of the section on shutting down / turning off the machine running
+#. Pikaraoke.
+#: templates/info.html:593
+msgid "Shutdown"
+msgstr "일시 휴업"
 
-#. Message for the log in user to admin mode button.
-#: templates/info.html:582
-msgid "Click here to login as admin."
-msgstr ""
+#. Explainitory text which explains why to use the shutdown link.
+#: templates/info.html:600
+msgid ""
+"Don't just pull the plug! Always shut down your server properly to avoid "
+"data corruption."
+msgstr "플러그만 뽑지 마세요! 데이터 손상을 방지하려면 항상 서버를 올바르게 종료하십시오."
 
-#. Link which will let the user log into admin mode.
-#: templates/info.html:584
-msgid "Log in"
-msgstr ""
+#. Text for button which turns off Pikaraoke for everyone using it at your
+#. house.
+#: templates/info.html:607
+msgid "Quit Pikaraoke"
+msgstr "피카라오케 종료"
 
-#. Title fo the form to enter the administrator password.
-#: templates/login.html:11
-msgid "Enter the administrator password"
-msgstr ""
+#. Text for button which reboots the machine running Pikaraoke.
+#: templates/info.html:610
+msgid "Reboot System"
+msgstr "시스템 재부팅"
+
+#. Text for button which turn soff the machine running Pikaraoke.
+#: templates/info.html:613
+msgid "Shutdown System"
+msgstr "셧다운 시스템"
 
 #: templates/queue.html:164 templates/queue.html:313
 msgid "Options"
-msgstr ""
+msgstr "옵션"
 
 #: templates/queue.html:213
 msgid "Pending downloads"
-msgstr ""
+msgstr "다운로드 대기 중"
 
 #: templates/queue.html:218
 msgid "Queued"
-msgstr ""
+msgstr "대기 중"
 
 #: templates/queue.html:226
 msgid "Download Errors"
-msgstr ""
+msgstr "다운로드 오류"
 
 #: templates/queue.html:235
 msgid "Failed"
-msgstr ""
+msgstr "실패한"
 
 #: templates/queue.html:236
 msgid "Dismiss"
-msgstr ""
+msgstr "해고하다"
 
 #: templates/queue.html:298
 msgid "Drag to reorder"
-msgstr ""
+msgstr "드래그하여 재정렬하세요."
 
 #: templates/queue.html:338
 msgid "The queue is empty"
-msgstr ""
+msgstr "대기열이 비어 있습니다."
 
 #: templates/queue.html:432
 msgid "Play"
-msgstr ""
+msgstr "놀다"
 
 #: templates/queue.html:434 templates/queue.html:559
 msgid "Pause"
-msgstr ""
+msgstr "정지시키다"
 
 #: templates/queue.html:505
 msgid ""
@@ -1114,75 +1138,78 @@ msgid ""
 "pattern=\"\\d*\" maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" "
 "style=\"width: 42px\" /> random songs"
 msgstr ""
+"<input id=\"randomNumberInput\" class=\"input mx-2 p-2\" Pattern=\"\\d*\""
+" maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" style=\"width: 42px\" "
+"/> 임의 노래 추가"
 
 #: templates/queue.html:509
 msgid "Clear all"
-msgstr ""
+msgstr "모두 지우기"
 
 #: templates/queue.html:523
 msgid "Play Next"
-msgstr ""
+msgstr "다음 플레이"
 
 #: templates/queue.html:523
 msgid "Move to Top"
-msgstr ""
+msgstr "맨 위로 이동"
 
 #: templates/queue.html:527
 msgid "Move Up"
-msgstr ""
+msgstr "위로 이동"
 
 #: templates/queue.html:531
 msgid "Move Down"
-msgstr ""
+msgstr "아래로 이동"
 
 #: templates/queue.html:535
 msgid "Move to Bottom"
-msgstr ""
+msgstr "맨 아래로 이동"
 
 #: templates/queue.html:539
 msgid "Remove from Queue"
-msgstr ""
+msgstr "대기열에서 제거"
 
 #: templates/queue.html:555
 msgid "Restart"
-msgstr ""
+msgstr "다시 시작"
 
 #: templates/queue.html:563
 msgid "Skip"
-msgstr ""
+msgstr "건너뛰다"
 
 #: templates/queue.html:571
 msgid "Download queue"
-msgstr ""
+msgstr "대기열 다운로드"
 
 #: templates/search.html:242
 msgid "Available songs in local library"
-msgstr ""
+msgstr "로컬 라이브러리에서 사용 가능한 노래"
 
 #. Title for the search page.
 #: templates/search.html:574
 msgid "Search / Add New"
-msgstr ""
+msgstr "검색/새로 추가"
 
 #: templates/search.html:584
 msgid "Available Songs"
-msgstr ""
+msgstr "사용 가능한 노래"
 
 #. Submit button on the search form when selecting a locally downloaded song.
 #. The button adds it to                                         the queue.
 #: templates/search.html:592
 msgid "Add to queue"
-msgstr ""
+msgstr "대기열에 추가"
 
 #. Link which clears the text from the search box.
 #: templates/search.html:598
 msgid "Clear"
-msgstr ""
+msgstr "분명한"
 
 #. Checkbox label which enables more options when searching.
 #: templates/search.html:602
 msgid "Advanced"
-msgstr ""
+msgstr "고급의"
 
 #. Help text below the search bar.
 #: templates/search.html:617
@@ -1191,6 +1218,8 @@ msgid ""
 "\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to"
 " the queue."
 msgstr ""
+"- 검색할 노래(제목/아티스트)를 입력하세요.\n"
+"\t\t\t\t\t\t\t\t사용 가능한 노래를 선택하고 '대기열에 추가'를 클릭하여 대기열에 추가하세요."
 
 #. Additonal help text below the search bar.
 #: templates/search.html:621
@@ -1199,30 +1228,32 @@ msgid ""
 "\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find "
 "it on Youtube"
 msgstr ""
+"- 노래가 나오지 않는 경우\n"
+"\t\t\t\t\t\t\t\t\"사용 가능한 노래\" 드롭다운에서 '검색'을 클릭하여 YouTube에서 찾으세요."
 
 #. Checkbox label which enables matching songs which are not karaoke versions
 #. (i.e. the songs still                                         have a singer
 #. and are not just instrumentals.)
 #: templates/search.html:637
 msgid "Include non-karaoke matches"
-msgstr ""
+msgstr "노래방이 아닌 경기 포함"
 
 #. Label for an input which takes a YouTube url directly instead of searching
 #. titles.
 #: templates/search.html:643
 msgid "Direct download YouTube url:"
-msgstr ""
+msgstr "직접 다운로드 YouTube URL:"
 
 #. Checkbox label which marks the song to be added to the queue after it
 #. finishes downloading.
 #: templates/search.html:657 templates/search.html:700
 msgid "Add to queue once downloaded"
-msgstr ""
+msgstr "다운로드 후 대기열에 추가"
 
 #. Button label for the direct download form's submit button.
 #: templates/search.html:662
 msgid "Download"
-msgstr ""
+msgstr "다운로드"
 
 #. Html text which displays what was searched for, in quotes while the page is
 #. loading.
@@ -1232,6 +1263,8 @@ msgid ""
 "Searching YouTube for\n"
 "\t\t<small><i>'%(search_term)s'</i></small>"
 msgstr ""
+"YouTube에서 검색하는 내용\n"
+"\t\t<small><i>'%(search_term)s'</i></small>"
 
 #. Html text which displays what was searched for, in quotes.
 #: templates/search.html:691
@@ -1240,31 +1273,35 @@ msgid ""
 "Search results for\n"
 "\t\t\t<small><i>'%(search_string)s'</i></small>"
 msgstr ""
+"다음에 대한 검색 결과\n"
+"\t\t\t<small><i>'%(search_string)s'</i></small>"
 
 #: templates/splash.html:23
 msgid "Connection lost. Is the server still running?"
-msgstr ""
+msgstr "연결이 끊겼습니다. 서버가 아직 실행 중인가요?"
 
 #: templates/splash.html:24
 msgid ""
 "This browser is not fully supported. You may experience streaming issues."
 " Please use Chrome/Safari/Firefox/Edge for best results."
 msgstr ""
+"이 브라우저는 완전히 지원되지 않습니다. 스트리밍 문제가 발생할 수 있습니다. 최상의 결과를 얻으려면 "
+"Chrome/Safari/Firefox/Edge를 사용하십시오."
 
 #. Label for the next song to be played in the queue.
 #: templates/splash.html:89
 msgid "Up next:"
-msgstr ""
+msgstr "다음 단계:"
 
 #. Label for the next singer in the queue.
 #: templates/splash.html:96
 msgid "Next singer:"
-msgstr ""
+msgstr "다음 가수:"
 
 #. The title of the score screen, telling the user their singing score
 #: templates/splash.html:118
 msgid "Your Score"
-msgstr ""
+msgstr "당신의 점수"
 
 #. Prompt for interaction in order to enable video autoplay.
 #: templates/splash.html:132
@@ -1275,203 +1312,13 @@ msgid ""
 "      play otherwise. Click the button below to\n"
 "      <a onClick=\"handleConfirmation()\">confirm</a>."
 msgstr ""
+"브라우저 권한 제한으로 인해 상호 작용해야 합니다.\n"
+"      동영상 자동 재생을 허용하기 전에 페이지를 한 번만 사용하세요. 피카라오케는 안 돼요\n"
+"      그렇지 않으면 플레이하십시오. 아래 버튼을 클릭하시면\n"
+"      <a onClick=\"handleConfirmation()\">확인</a>."
 
 #. Button to confirm to enable video autoplay.
 #: templates/splash.html:145
 msgid "Confirm"
-msgstr ""
-
-#~ msgid ""
-#~ "* Videos are only transcoded when: "
-#~ "normalization is on, a song is "
-#~ "transposed, playing a CDG/MOV/AVI/MKV file."
-#~ " Most unmodified MP4 files will not"
-#~ " need to be transcoded."
-#~ msgstr ""
-
-#~ msgid "Add 3 random songs"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Add <input id=\"randomNumberInput\" type=\"number\""
-#~ " value=\"3\" min=\"1\" max=\"100\" style=\"width:"
-#~ " 50px\" /> random songs"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Sorted\n"
-#~ "  Alphabetically"
-#~ msgstr ""
-
-#~ msgid "Sort by Date"
-#~ msgstr ""
-
-#~ msgid "Sort by Alphabetical"
-#~ msgstr ""
-
-#~ msgid "Disable background music"
-#~ msgstr ""
-
-#~ msgid "Refresh the song list:"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "If downloads or searches stopped "
-#~ "working, updating youtube-dl will "
-#~ "probably fix it.\n"
-#~ "   The current installed version is: \"%(youtubedl_version)s\""
-#~ msgstr ""
-
-#~ msgid ""
-#~ "This update link above may fail if"
-#~ " you don't have proper file "
-#~ "permissions.\n"
-#~ "    Check the pikaraoke log for errors."
-#~ msgstr ""
-
-#~ msgid ""
-#~ "If you just installed the pre-"
-#~ "built pikaraoke pi image and your "
-#~ "SD card is larger than 4GB,\n"
-#~ "    you may want to expand the "
-#~ "filesystem to utilize the remaining "
-#~ "space. You only need to do this"
-#~ " once.\n"
-#~ "    This will reboot the system."
-#~ msgstr ""
-
-#~ msgid "Disable admin mode: <a href=\"%(logout_url)s\">Log out</a>"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "\n"
-#~ "    Enable admin mode: <a href=\"%(login_url)s\">Log in</a>\n"
-#~ "  "
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Add <input id=\"randomNumberInput\" pattern=\"\\d*\""
-#~ " maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\""
-#~ " style=\"width: 40px\" /> random songs"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Type a song\n"
-#~ "          (title/artist) to search the "
-#~ "available songs and click 'Add to "
-#~ "queue'\n"
-#~ "          to add it to the queue."
-#~ msgstr ""
-
-#~ msgid ""
-#~ "If\n"
-#~ "          the song doesn't appear in "
-#~ "the \"Available Songs\" dropdown, click\n"
-#~ ""
-#~ "          'Search' to find it on Youtube"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Add to queue\n"
-#~ "              once downloaded"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Searching YouTube for\n"
-#~ "    <small><i>'%(search_term)s'</i></small>"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Search results for\n"
-#~ "        <small><i>'%(search_string)s'</i></small>"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Click\n"
-#~ "          dropdown to show more results"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Add to queue once\n"
-#~ "          downloaded"
-#~ msgstr ""
-
-#~ msgid "Accept suggested name"
-#~ msgstr ""
-
-#~ msgid "Download started: %s. This may take a couple of minutes to complete."
-#~ msgstr ""
-
-#~ msgid "Song will be added to queue."
-#~ msgstr ""
-
-#~ msgid "Song will appear in the \"available songs\" list."
-#~ msgstr ""
-
-#~ msgid "HIGH Score Phrases (score > 60)"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Due to limititations with browser permissions, you must interact\n"
-#~ "      with the page once before it"
-#~ " allows autoplay of videos. Pikaraoke "
-#~ "will not\n"
-#~ "      play otherwise. Click the button below to\n"
-#~ "      <a onClick=\"handleConfirmation()\">confirm</a> ."
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Do you want to change the name "
-#~ "of the person using this device? "
-#~ "This will show up on queued songs."
-#~ " Current: %(currentUser)s"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "* Videos are only transcoded when: "
-#~ "normalization is on, audio/video "
-#~ "synchronization not zero, a song is "
-#~ "transposed, playing a CDG/MOV/AVI/MKV file."
-#~ " Most unmodified MP4 files will not"
-#~ " need to be transcoded."
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Add <input id=\"randomNumberInput\" class=\"input"
-#~ " mx-1\" pattern=\"\\d*\" maxlength=\"2\" "
-#~ "value=\"3\" min=\"1\" max=\"99\" style=\"width: "
-#~ "40px\" /> random songs"
-#~ msgstr ""
-
-#~ msgid "CPU: %(cpu)s"
-#~ msgstr ""
-
-#~ msgid "Disk Usage: %(disk)s"
-#~ msgstr ""
-
-#~ msgid "Memory: %(memory)s"
-#~ msgstr ""
-
-#~ msgid "Error: No song specified!"
-#~ msgstr ""
-
-#~ msgid "File not found."
-#~ msgstr ""
-
-#~ msgid ""
-#~ "*You may need to refresh the "
-#~ "splash screen for these changes to "
-#~ "take effect."
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Search results for\n"
-#~ "\t\t\t\t<small><i>'%(search_string)s'</i></small>"
-#~ msgstr ""
-
-#~ msgid "Click dropdown to show more results"
-#~ msgstr ""
-
-#~ msgid "Link:"
-#~ msgstr ""
+msgstr "확인하다"
 

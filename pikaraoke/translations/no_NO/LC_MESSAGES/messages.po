@@ -7,445 +7,459 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-10 22:42-0700\n"
+"POT-Creation-Date: 2026-03-19 15:32+1100\n"
 "PO-Revision-Date: 2025-01-14 10:27-0800\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language: nb_NO\n"
 "Language-Team: nb_NO <LL@li.org>\n"
-"Plural-Forms: nplurals=2; plural=(n != 1)\n"
+"Language: nb_NO\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.9.1\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.17.0\n"
 
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
-#: karaoke.py:377
+#: karaoke.py:453
 #, python-format
 msgid "Transposing by %s semitones: %s"
-msgstr ""
+msgstr "Transponering med %s halvtoner: %s"
 
 #. Message shown after the volume is changed, will be followed by the volume
 #. level
-#: karaoke.py:393
+#: karaoke.py:469
 #, python-format
 msgid "Volume: %s"
-msgstr ""
+msgstr "Volum: %s"
 
 #: lib/download_manager.py:130
 #, python-format
 msgid "Download queued (#%d): %s"
-msgstr ""
+msgstr "Nedlastingskø (#%d): %s"
 
 #. Message shown when download is added and will start immediately
 #: lib/download_manager.py:134
 #, python-format
 msgid "Download starting: %s"
-msgstr ""
+msgstr "Nedlasting starter: %s"
 
 #. Message shown when download actually starts (after waiting in queue)
 #: lib/download_manager.py:222
 #, python-format
 msgid "Downloading video: %s"
-msgstr ""
+msgstr "Laster ned video: %s"
 
 #: lib/download_manager.py:280
 msgid "Error downloading song: "
-msgstr ""
+msgstr "Feil ved nedlasting av sang:"
 
 #: lib/download_manager.py:300
 #, python-format
 msgid "Downloaded and queued: %s"
-msgstr ""
+msgstr "Lastet ned og satt i kø: %s"
 
 #. Message shown after the download is completed but not queued
 #: lib/download_manager.py:304
 #, python-format
 msgid "Downloaded: %s"
-msgstr ""
+msgstr "Lastet ned: %s"
 
-#: lib/download_manager.py:328
+#: lib/download_manager.py:327
 msgid "Error queueing song: "
-msgstr ""
+msgstr "Feil ved å sette sang i kø:"
 
-#: lib/playback_controller.py:116
+#: lib/playback_controller.py:89
+#, python-format
+msgid "Song file not found: %s"
+msgstr "Sangfil ikke funnet: %s"
+
+#: lib/playback_controller.py:120
 msgid "Stream was not playable! Skipping track"
-msgstr ""
+msgstr "Strømmen var ikke spillbar! Hopp over sporet"
 
 #. Message shown when the song ends abnormally
-#: lib/playback_controller.py:145
+#: lib/playback_controller.py:149
 #, python-format
 msgid "Song ended abnormally: %s"
-msgstr ""
+msgstr "Sangen avsluttet unormalt: %s"
 
 #. Message shown after the song is skipped, will be followed by song name
-#: lib/playback_controller.py:169
+#: lib/playback_controller.py:173
 #, python-format
 msgid "Skip: %s"
-msgstr ""
+msgstr "Hopp over: %s"
 
 #. Message shown after the song is resumed, will be followed by song name
-#: lib/playback_controller.py:185
+#: lib/playback_controller.py:189
 #, python-format
 msgid "Resume: %s"
-msgstr ""
+msgstr "Fortsett: %s"
 
 #. Message shown after the song is paused, will be followed by song name
-#: lib/playback_controller.py:188
+#: lib/playback_controller.py:192
 #, python-format
 msgid "Pause: %s"
-msgstr ""
+msgstr "Pause: %s"
 
 #: lib/preference_manager.py:133
 msgid "Your preferences were changed successfully"
-msgstr ""
+msgstr "Preferansene dine ble endret"
 
 #: lib/preference_manager.py:136 templates/info.html:19
 msgid "Something went wrong! Your preferences were not changed"
-msgstr ""
+msgstr "Noe gikk galt! Preferansene dine ble ikke endret"
 
 #: lib/preference_manager.py:153
 msgid "Your preferences were cleared successfully"
-msgstr ""
+msgstr "Preferansene dine ble slettet"
 
 #: lib/preference_manager.py:156
 msgid "Something went wrong! Your preferences were not cleared"
-msgstr ""
+msgstr "Noe gikk galt! Preferansene dine ble ikke slettet"
 
 #: lib/queue_manager.py:111
 #, python-format
 msgid "Song is already in the queue: %s"
-msgstr ""
+msgstr "Sangen er allerede i køen: %s"
 
 #: lib/queue_manager.py:119
 #, python-format
 msgid "You reached the limit of %s song(s) from an user in queue!"
-msgstr ""
+msgstr "Du har nådd grensen på %s sang(er) fra en bruker i kø!"
 
 #: lib/queue_manager.py:132
 #, python-format
 msgid "%s added to top of queue: %s"
-msgstr ""
+msgstr "%s lagt til øverst i køen: %s"
 
 #: lib/queue_manager.py:141
 #, python-format
 msgid "%s added to the queue: %s"
-msgstr ""
+msgstr "%s lagt til i køen: %s"
 
 #: lib/queue_manager.py:153
 #, python-format
 msgid "Song added to the queue: %s"
-msgstr ""
+msgstr "Sang lagt til i køen: %s"
 
 #. Message shown after the queue is cleared
 #: lib/queue_manager.py:194
 msgid "Clear queue"
-msgstr ""
+msgstr "Fjern kø"
 
 #: lib/stream_manager.py:112
 #, python-format
 msgid "Error resolving file: %s"
-msgstr ""
+msgstr "Feil ved løsning av fil: %s"
 
 #: lib/stream_manager.py:148
 msgid "Failed to prepare stream"
-msgstr ""
+msgstr "Kunne ikke forberede strømmen"
 
 #. Message shown after starting the youtube-dl update.
-#: routes/admin.py:61
+#: routes/admin.py:59
 msgid "Updating youtube-dl! Should take a minute or two... "
-msgstr ""
+msgstr "Oppdaterer youtube-dl! Burde ta et minutt eller to..."
 
 #. Message shown after trying to update youtube-dl without admin permissions.
-#: routes/admin.py:68
+#: routes/admin.py:66
 msgid "You don't have permission to update youtube-dl"
-msgstr ""
-
-#. Message shown after trying to refresh the song list without admin
-#. permissions.
-#: routes/admin.py:80
-msgid "You don't have permission to refresh the song list"
-msgstr ""
+msgstr "Du har ikke tillatelse til å oppdatere youtube-dl"
 
 #. Message shown after quitting pikaraoke.
-#: routes/admin.py:90
+#: routes/admin.py:97
 msgid "Exiting pikaraoke now!"
-msgstr ""
+msgstr "Avslutter pikaraoke nå!"
 
 #. Message shown after trying to quit pikaraoke without admin permissions.
-#: routes/admin.py:97
+#: routes/admin.py:104
 msgid "You don't have permission to quit"
-msgstr ""
+msgstr "Du har ikke tillatelse til å slutte"
 
 #. Message shown after shutting down the system.
-#: routes/admin.py:107
+#: routes/admin.py:114
 msgid "Shutting down system now!"
-msgstr ""
+msgstr "Slår av systemet nå!"
 
 #. Message shown after trying to shut down the system without admin
 #. permissions.
-#: routes/admin.py:114
+#: routes/admin.py:121
 msgid "You don't have permission to shut down"
-msgstr ""
+msgstr "Du har ikke tillatelse til å stenge"
 
 #. Message shown after rebooting the system.
-#: routes/admin.py:124
+#: routes/admin.py:131
 msgid "Rebooting system now!"
-msgstr ""
+msgstr "Starter systemet på nytt nå!"
 
 #. Message shown after trying to reboot the system without admin permissions.
-#: routes/admin.py:131
+#: routes/admin.py:138
 msgid "You don't have permission to Reboot"
-msgstr ""
+msgstr "Du har ikke tillatelse til å starte på nytt"
 
 #. Message shown after expanding the filesystem.
-#: routes/admin.py:141
+#: routes/admin.py:148
 msgid "Expanding filesystem and rebooting system now!"
-msgstr ""
+msgstr "Utvider filsystemet og starter systemet på nytt nå!"
 
 #. Message shown after trying to expand the filesystem on a non-raspberry pi
 #. device.
-#: routes/admin.py:146
+#: routes/admin.py:153
 msgid "Cannot expand fs on non-raspberry pi devices!"
-msgstr ""
+msgstr "Kan ikke utvide fs på ikke-raspberry pi-enheter!"
 
 #. Message shown after trying to expand the filesystem without admin
 #. permissions
-#: routes/admin.py:149
+#: routes/admin.py:156
 msgid "You don't have permission to resize the filesystem"
-msgstr ""
+msgstr "Du har ikke tillatelse til å endre størrelse på filsystemet"
 
 #. Message shown after logging in as admin successfully
-#: routes/admin.py:171
+#: routes/admin.py:178
 msgid "Admin mode granted!"
-msgstr ""
+msgstr "Administrasjonsmodus gitt!"
 
 #. Message shown after failing to login as admin
-#: routes/admin.py:175
+#: routes/admin.py:182
 msgid "Incorrect admin password!"
-msgstr ""
+msgstr "Feil administratorpassord!"
 
 #. Message shown after logging out as admin successfully
-#: routes/admin.py:191
+#: routes/admin.py:192
 msgid "Logged out of admin mode!"
-msgstr ""
+msgstr "Logget ut av admin-modus!"
 
 #. Title of the button to accept the suggested name
 #: routes/batch_song_renamer.py:144
 msgid "Accept suggested name"
-msgstr ""
+msgstr "Godta foreslåtte navn"
 
 #. Title of the files page.
 #. Page title for the page where the user can batch rename songs.
 #: routes/batch_song_renamer.py:152 templates/batch-song-renamer.html:133
 msgid "Batch Song Renamer"
-msgstr ""
+msgstr "Batch Song Renamer"
 
 #. Message shown after trying to edit a song without specifying the filename.
 #: routes/batch_song_renamer.py:236
 msgid "Error: No filename parameters were specified!"
-msgstr ""
+msgstr "Feil: Ingen filnavnparametere ble spesifisert!"
 
-#: routes/batch_song_renamer.py:245 routes/files.py:150 routes/files.py:175
+#: routes/batch_song_renamer.py:245 routes/files.py:160 routes/files.py:191
 msgid "Error: Can't edit this song because it is in the current queue: "
-msgstr ""
+msgstr "Feil: Kan ikke redigere denne sangen fordi den er i gjeldende kø:"
 
 #. Message shown after trying to rename a file to a name that already exists.
-#: routes/batch_song_renamer.py:259 routes/files.py:183
+#: routes/batch_song_renamer.py:259 routes/files.py:201
 #, python-format
 msgid "Error renaming file: '%s' to '%s', Filename already exists"
 msgstr ""
+"Feil ved å gi nytt navn til filen: '%s' til '%s', filnavnet eksisterer "
+"allerede"
 
 #. Title of the files page.
 #. Navigation link for the page where the user can add existing songs to the
 #. queue.
-#: routes/files.py:110 templates/base.html:215
+#: routes/files.py:111 templates/base.html:217
 msgid "Browse"
-msgstr ""
+msgstr "Bla gjennom"
+
+#: routes/files.py:126
+msgid "You don't have permission to delete songs"
+msgstr "Du har ikke tillatelse til å slette sanger"
 
 #. Message shown after trying to delete a song that is in the queue.
-#: routes/files.py:126
+#: routes/files.py:131
 msgid "Error: Can't delete this song because it is in the current queue"
-msgstr ""
+msgstr "Feil: Kan ikke slette denne sangen fordi den er i gjeldende kø"
 
-#. Message shown after deleting a song. Followed by the song path
-#: routes/files.py:134
+#: routes/files.py:140
 #, python-format
 msgid "Song deleted: %s"
-msgstr ""
+msgstr "Sang slettet: %s"
 
-#: routes/files.py:193
+#: routes/files.py:155 routes/files.py:184
+msgid "You don't have permission to edit songs"
+msgstr "Du har ikke tillatelse til å redigere sanger"
+
+#: routes/files.py:211
 #, python-format
 msgid "Error renaming file: '%s' to '%s', %s"
-msgstr ""
+msgstr "Feil ved å gi nytt navn til filen: '%s' til '%s', %s"
 
 #. Message shown after renaming a file.
-#: routes/files.py:199
+#: routes/files.py:217
 #, python-format
 msgid "Renamed file: %s to %s"
-msgstr ""
+msgstr "Omdøpt fil: %s til %s"
 
 #: routes/info.py:100
 msgid "CPU usage query unsupported"
-msgstr ""
+msgstr "CPU-bruk-spørring støttes ikke"
 
 #. Message shown after trying to change preferences without admin permissions.
 #: routes/preferences.py:42
 msgid "You don't have permission to change preferences"
-msgstr ""
+msgstr "Du har ikke tillatelse til å endre preferanser"
 
 #. Message shown after trying to clear preferences without admin permissions.
 #: routes/preferences.py:59
 msgid "You don't have permission to clear preferences"
-msgstr ""
+msgstr "Du har ikke tillatelse til å slette preferanser"
+
+#: routes/queue.py:80
+msgid "You don't have permission to add random songs"
+msgstr "Du har ikke tillatelse til å legge til tilfeldige sanger"
 
 #. Message shown after adding random tracks
-#: routes/queue.py:83
+#: routes/queue.py:86
 #, python-format
 msgid "Added %s random tracks"
-msgstr ""
+msgstr "Lagt til %s tilfeldige spor"
 
 #. Message shown after running out songs to add during random track addition
-#: routes/queue.py:86
+#: routes/queue.py:89
 msgid "Ran out of songs!"
-msgstr ""
+msgstr "Gikk tom for sanger!"
 
 #. Message shown when non-admin tries to edit queue
-#: routes/queue.py:118
+#: routes/queue.py:121
 msgid "Unauthorized"
-msgstr ""
+msgstr "Uautorisert"
 
-#: routes/queue.py:128
+#: routes/queue.py:131
 msgid "Cleared the queue!"
-msgstr ""
-
-#: routes/queue.py:140
-msgid "Moved to top of queue"
-msgstr ""
-
-#: routes/queue.py:141
-msgid "Moved to bottom of queue"
-msgstr ""
-
-#: routes/queue.py:142
-msgid "Moved up in queue"
-msgstr ""
+msgstr "Tømte køen!"
 
 #: routes/queue.py:143
-msgid "Moved down in queue"
-msgstr ""
+msgid "Moved to top of queue"
+msgstr "Flyttet til toppen av køen"
 
 #: routes/queue.py:144
-msgid "Deleted from queue"
-msgstr ""
+msgid "Moved to bottom of queue"
+msgstr "Flyttet til bunnen av køen"
+
+#: routes/queue.py:145
+msgid "Moved up in queue"
+msgstr "Flyttet opp i køen"
+
+#: routes/queue.py:146
+msgid "Moved down in queue"
+msgstr "Flyttet ned i køen"
 
 #: routes/queue.py:147
-msgid "Error moving to top of queue"
-msgstr ""
-
-#: routes/queue.py:148
-msgid "Error moving to bottom of queue"
-msgstr ""
-
-#: routes/queue.py:149
-msgid "Error moving up in queue"
-msgstr ""
+msgid "Deleted from queue"
+msgstr "Slettet fra køen"
 
 #: routes/queue.py:150
-msgid "Error moving down in queue"
-msgstr ""
+msgid "Error moving to top of queue"
+msgstr "Feil ved flytting til toppen av køen"
 
 #: routes/queue.py:151
+msgid "Error moving to bottom of queue"
+msgstr "Feil ved flytting til bunnen av køen"
+
+#: routes/queue.py:152
+msgid "Error moving up in queue"
+msgstr "Feil ved å flytte opp i køen"
+
+#: routes/queue.py:153
+msgid "Error moving down in queue"
+msgstr "Feil ved flytting ned i køen"
+
+#: routes/queue.py:154
 msgid "Error deleting from queue"
-msgstr ""
+msgstr "Feil ved sletting fra køen"
 
 #: routes/splash.py:24
 msgid "Never sing again... ever."
-msgstr ""
+msgstr "Aldri syng igjen... aldri."
 
 #: routes/splash.py:25
 msgid "That was a really good impression of a dying cat!"
-msgstr ""
+msgstr "Det var et veldig godt inntrykk av en døende katt!"
 
 #: routes/splash.py:26
 msgid "Thank God it's over."
-msgstr ""
+msgstr "Takk gud for at det er over."
 
 #: routes/splash.py:27
 msgid "Pass the mic, please!"
-msgstr ""
+msgstr "Send mikrofonen, takk!"
 
 #: routes/splash.py:28
 msgid "Well, I'm sure you're very good at your day job."
-msgstr ""
+msgstr "Vel, jeg er sikker på at du er veldig god i hverdagen din."
 
 #: routes/splash.py:31
 msgid "I've seen better."
-msgstr ""
+msgstr "Jeg har sett bedre."
 
 #: routes/splash.py:32
 msgid "Ok... just ok."
-msgstr ""
+msgstr "Ok... bare ok."
 
 #: routes/splash.py:33
 msgid "Not bad for an amateur."
-msgstr ""
+msgstr "Ikke verst for en amatør."
 
 #: routes/splash.py:34
 msgid "You put on a decent show."
-msgstr ""
+msgstr "Du satte opp et anstendig show."
 
 #: routes/splash.py:35
 msgid "That was... something."
-msgstr ""
+msgstr "Det var... noe."
 
 #: routes/splash.py:38
 msgid "Congratulations! That was unbelievable!"
-msgstr ""
+msgstr "Gratulerer! Det var utrolig!"
 
 #: routes/splash.py:39
 msgid "Wow, have you tried auditioning for The Voice?"
-msgstr ""
+msgstr "Wow, har du prøvd å gå på audition for The Voice?"
 
 #: routes/splash.py:40
 msgid "Please, sing another one!"
-msgstr ""
+msgstr "Vær så snill, syng en annen!"
 
 #: routes/splash.py:41
 msgid "You rock! You know that?!"
-msgstr ""
+msgstr "Du rocker! Vet du det?!"
 
 #: routes/splash.py:42
 msgid "Woah, who let Freddie Mercury in here?"
-msgstr ""
+msgstr "Woah, hvem lot Freddie Mercury komme inn her?"
 
 #: routes/stream.py:238
 msgid "Failed to stream subtitle: "
-msgstr ""
+msgstr "Kunne ikke strømme undertekst:"
 
 #. Prompt to change the username displayed next to queued songs. CURRENT_NAME
 #. is replaced with the name
 #: templates/base.html:25
 msgid ""
-"Do you want to change the name of the person using this device? This will"
-" show up on queued songs. Current: CURRENT_NAME"
+"Do you want to change the name of the person using this device? This will "
+"show up on queued songs. Current: CURRENT_NAME"
 msgstr ""
+"Vil du endre navnet på personen som bruker denne enheten? Dette vil vises på"
+" sanger i kø. Nåværende: CURRENT_NAME"
 
 #. Confirmation prompt to clear entire queue. User must type ok to confirm
 #: templates/base.html:27
 msgid "Are you sure you want to clear the ENTIRE queue? Type ok to continue"
-msgstr ""
+msgstr "Er du sikker på at du vil tømme HELE køen? Skriv ok for å fortsette"
 
 #. Confirmation dialog when removing a song from the queue. SONG_TITLE is
 #. replaced with the title
 #: templates/base.html:29
 msgid "Are you sure you want to delete SONG_TITLE from the queue?"
-msgstr ""
+msgstr "Er du sikker på at du vil slette SONG_TITLE fra køen?"
 
 #. Confirmation dialog when permanently deleting a song file from the library
 #: templates/base.html:31
 msgid "Are you sure you want to delete this song from the library?"
-msgstr ""
+msgstr "Er du sikker på at du vil slette denne sangen fra biblioteket?"
 
 #. Prompt which asks the user their name when they first try to add to the
 #. queue.
@@ -454,30 +468,33 @@ msgid ""
 "Please enter your name. This will show up next to the songs you queue up "
 "from this device."
 msgstr ""
+"Vennligst skriv inn navnet ditt. Dette vil vises ved siden av sangene du "
+"setter i kø fra denne enheten."
 
 #. Navigation link for the home page.
-#: templates/base.html:199
+#: templates/base.html:201
 msgid "Home"
-msgstr ""
+msgstr "Hjem"
 
 #. Navigation link for the queue page.
-#: templates/base.html:205 templates/queue.html:492
+#: templates/base.html:207 templates/queue.html:492
 msgid "Queue"
-msgstr ""
+msgstr "Kø"
 
 #. Navigation link for the search page add songs to the queue.
 #. Submit button on the search form for searching YouTube.
-#: templates/base.html:210 templates/search.html:589
+#: templates/base.html:212 templates/search.html:589
 msgid "Search"
-msgstr ""
+msgstr "Søk"
 
 #. Message about the wait for loading the songs
 #: templates/batch-song-renamer.html:136
 msgid ""
-"The loading process may take a few seconds, as the song titles are "
-"compared online. Loading time may vary\n"
+"The loading process may take a few seconds, as the song titles are compared online. Loading time may vary\n"
 "\tbased on your internet connection."
 msgstr ""
+"Lasteprosessen kan ta noen sekunder, ettersom sangtitlene sammenlignes på nettet. Lastetiden kan variere\n"
+"\tbasert på internettforbindelsen din."
 
 #. Label which displays that all songs are being shown
 #: templates/batch-song-renamer.html:141
@@ -485,11 +502,13 @@ msgid ""
 "Showing all\n"
 "\tsongs"
 msgstr ""
+"Viser alle\n"
+"\tsanger"
 
 #. Button which changes to show only the songs to rename
 #: templates/batch-song-renamer.html:144
 msgid "Show only songs to rename"
-msgstr ""
+msgstr "Vis bare sanger som skal gis nytt navn"
 
 #. Label which displays that only songs to rename are being shown.
 #: templates/batch-song-renamer.html:147
@@ -497,732 +516,765 @@ msgid ""
 "Showing only songs\n"
 "\tto rename"
 msgstr ""
+"Viser bare sanger\n"
+"\tå gi nytt navn"
 
 #. Button which changes to show all songs
 #: templates/batch-song-renamer.html:150
 msgid "Show all songs"
-msgstr ""
+msgstr "Vis alle sangene"
 
 #. Message displaying that the songs are currently being loaded
 #: templates/batch-song-renamer.html:158
 msgid "Loading songs..."
-msgstr ""
+msgstr "Laster inn sanger ..."
 
 #. Warning when no suggested tracks are found for a search.
 #: templates/edit.html:30
 msgid "No suggestion!"
-msgstr ""
+msgstr "Ingen forslag!"
 
 #. Page title for the page where a song can be edited.
 #: templates/edit.html:55
 msgid "Edit Song"
-msgstr ""
+msgstr "Rediger sang"
 
 #. Label on the control to edit the song's name
 #: templates/edit.html:69
 msgid "Edit Song Name"
-msgstr ""
+msgstr "Rediger sangnavn"
 
 #. Label on button which auto formats the song's title.
 #: templates/edit.html:76
 msgid "Auto-format"
-msgstr ""
+msgstr "Automatisk formatering"
 
 #. Label on button which swaps the order of the artist and song in the title.
 #: templates/edit.html:78
 msgid "Swap artist/song order"
-msgstr ""
+msgstr "Bytt artist/låtrekkefølge"
 
 #. Label on button which saves the changes.
 #: templates/edit.html:89
 msgid "Save"
-msgstr ""
+msgstr "Spare"
 
 #: templates/edit.html:94
 msgid "Cancel"
-msgstr ""
+msgstr "Kansellere"
 
 #. Label on button which deletes the current song.
 #: templates/edit.html:105
 msgid "Delete this song"
-msgstr ""
+msgstr "Slett denne sangen"
 
 #. Label which displays that the songs are currently sorted by
 #. alphabetical order.
 #: templates/files.html:92
 msgid "Sorted Alphabetically"
-msgstr ""
+msgstr "Sortert alfabetisk"
 
-#. Button which changes how the songs are sorted so they become sorted by date.
+#. Button which changes how the songs are sorted so they become sorted by
+#. date.
 #: templates/files.html:94
 msgid ""
 "Sort by\n"
 "\t\t\tDate"
 msgstr ""
+"Sorter etter\n"
+"\t\t\tDato"
 
 #. Label which displays that the songs are currently sorted by
 #. date.
 #: templates/files.html:98
 msgid "Sorted by date"
-msgstr ""
+msgstr "Sortert etter dato"
 
-#. Button which changes how the songs are sorted so they become sorted by name.
+#. Button which changes how the songs are sorted so they become sorted by
+#. name.
 #: templates/files.html:100
 msgid ""
 "Sort by\n"
 "\t\t\tAlphabetical"
 msgstr ""
+"Sorter etter\n"
+"\t\t\tAlfabetisk"
 
 #. Button to open the batch song renamer page.
 #: templates/files.html:107
 msgid "Edit all songs"
-msgstr ""
+msgstr "Rediger alle sangene"
 
 #. Message which shows in the "Now Playing" section when there is no song
 #. currently playing
 #: templates/home.html:35
 msgid "Nothing is playing right now."
-msgstr ""
+msgstr "Ingenting spiller akkurat nå."
 
 #. Title text for the icon marking the next person to sing.
 #: templates/home.html:43
 msgid "Next singer"
-msgstr ""
+msgstr "Neste sanger"
 
 #. Alternative text for the "Up next" section if no more songs are queued up.
 #: templates/home.html:46
 msgid "No song is queued."
-msgstr ""
+msgstr "Ingen sang står i kø."
 
 #. Confirmation message when clicking a button to skip a track.
 #: templates/home.html:134
 msgid ""
-"Are you sure you want to skip this track? If you didn't add this song, "
-"ask permission first!"
+"Are you sure you want to skip this track? If you didn't add this song, ask "
+"permission first!"
 msgstr ""
+"Er du sikker på at du vil hoppe over dette sporet? Hvis du ikke har lagt til"
+" denne sangen, spør om tillatelse først!"
 
 #. Header showing the currently playing song.
 #: templates/home.html:181
 msgid "Now Playing"
-msgstr ""
+msgstr "Spiller nå"
 
 #. Title for the section displaying the next song to be played.
 #: templates/home.html:194
 msgid "Next Song"
-msgstr ""
+msgstr "Neste sang"
 
 #. Title of the box with controls such as pause and skip.
 #: templates/home.html:201
 msgid "Player Control"
-msgstr ""
+msgstr "Spillerkontroll"
 
 #. Title attribute on the button to play or pause the current song.
 #: templates/home.html:205
 msgid "Restart Song"
-msgstr ""
+msgstr "Start sangen på nytt"
 
 #. Title attribute on the button to skip to the next song.
 #: templates/home.html:207
 msgid "Play/Pause"
-msgstr ""
+msgstr "Spill av/pause"
 
 #: templates/home.html:209
 msgid "Stop Current Song"
-msgstr ""
+msgstr "Stopp gjeldende sang"
 
 #. Title of a control to change the key/pitch of the playing song.
 #: templates/home.html:231
 msgid "Change Key"
-msgstr ""
+msgstr "Endre nøkkel"
 
 #. Label on the button to confirm the change in key/pitch of the playing song.
 #: templates/home.html:251
 msgid "Change"
-msgstr ""
+msgstr "Endre"
 
 #. Confirmation text whe the user selects quit.
 #: templates/info.html:67
 msgid "Are you sure you want to quit?"
-msgstr ""
+msgstr "Er du sikker på at du vil slutte?"
 
 #. Confirmation text whe the user starts to turn off the machine running
 #. Pikaraoke.
 #: templates/info.html:75
 msgid "Are you sure you want to shut down?"
-msgstr ""
+msgstr "Er du sikker på at du vil avslutte?"
 
 #. Confirmation text whe the user clears preferences.
 #: templates/info.html:83
 msgid "Are you sure you want to clear your preferences?"
-msgstr ""
+msgstr "Er du sikker på at du vil slette innstillingene dine?"
 
 #. Confirmation text whe the user starts to reboot the machine running
 #. Pikaraoke.
 #: templates/info.html:91
 msgid "Are you sure you want to reboot?"
-msgstr ""
+msgstr "Er du sikker på at du vil starte på nytt?"
 
 #. Confirmation text whe the user asks to update the Youtube-dl tool.
 #: templates/info.html:101
 msgid ""
-"Are you sure you want to update Youtube-dl right now? Current and pending"
-" downloads may fail."
+"Are you sure you want to update Youtube-dl right now? Current and pending "
+"downloads may fail."
 msgstr ""
+"Er du sikker på at du vil oppdatere Youtube-dl akkurat nå? Gjeldende og "
+"ventende nedlastinger kan mislykkes."
+
+#. Confirmation text when the user wants to expand the filesystem to take the
+#. entire SD card.
+#: templates/info.html:179
+msgid "Library sync complete"
+msgstr "Biblioteksynkronisering fullført"
 
 #. Title of the information page.
-#: templates/info.html:158
+#: templates/info.html:189
 msgid "Information"
-msgstr ""
+msgstr "Informasjon"
 
 #. Label which appears before a url which links to the current page.
-#: templates/info.html:170
+#: templates/info.html:201
 #, python-format
 msgid "URL of %(site_title)s:"
-msgstr ""
+msgstr "URL til %(site_title)s:"
 
 #. Label before a QR code which brings a frind (pal) to the main page if
 #. scanned, so they can also add songs. QR code follows this text.
-#: templates/info.html:176
+#: templates/info.html:207
 msgid "Handy URL QR code to share with a pal:"
-msgstr ""
+msgstr "Praktisk URL QR-kode for å dele med en venn:"
 
-#. Title of the system data section.
-#: templates/info.html:185
-msgid "System Data"
-msgstr ""
+#. Title of the admin section.
+#: templates/info.html:215 templates/info.html:578
+msgid "Admin"
+msgstr "Admin"
 
-#. Header of the information section about the computer running Pikaraoke.
-#: templates/info.html:190
-msgid "System Info"
-msgstr ""
+#. Title fo the form to enter the administrator password.
+#: templates/info.html:221
+msgid "Enter the administrator password"
+msgstr "Skriv inn administratorpassordet"
 
-#. The hardware platform
-#: templates/info.html:196
-msgid "Platform:"
-msgstr ""
+#. Text on submit button for the admin login form.
+#: templates/info.html:230
+msgid "Login"
+msgstr "Logg inn"
 
-#. The os version
-#: templates/info.html:198
-msgid "OS Version:"
-msgstr ""
+#. Title of the song library section.
+#: templates/info.html:242
+msgid "Song Library"
+msgstr "Sangbibliotek"
 
-#. The version of the program "Youtube-dl".
-#: templates/info.html:200
-msgid "Youtube-dl (yt-dlp) version:"
-msgstr ""
+#. Header of the song library management section.
+#: templates/info.html:247
+msgid "Library"
+msgstr "Bibliotek"
 
-#. The version of the program "ffmpeg".
-#: templates/info.html:202
-msgid "FFmpeg version:"
-msgstr ""
+#. Song count display in the library card.
+#: templates/info.html:253
+msgid "Songs in library:"
+msgstr "Sanger i biblioteket:"
 
-#. The version of Pikaraoke running right now.
-#: templates/info.html:204
-msgid "Pikaraoke version:"
-msgstr ""
+#. Button to trigger a background library scan.
+#: templates/info.html:257
+msgid "Sync Now"
+msgstr "Synkroniser nå"
 
-#. Header of the information section about the System stats.
-#: templates/info.html:210
-msgid "System stats"
-msgstr ""
-
-#. The CPU usage of the computer running Pikaraoke.
-#: templates/info.html:216
-msgid "CPU:"
-msgstr ""
-
-#: templates/info.html:216 templates/info.html:218 templates/info.html:220
-msgid "Loading..."
-msgstr ""
-
-#. The disk usage of the computer running Pikaraoke. Used by downloaded songs.
-#: templates/info.html:218
-msgid "Disk Usage:"
-msgstr ""
-
-#. The memory (RAM) usage of the computer running Pikaraoke.
-#: templates/info.html:220
-msgid "Memory:"
-msgstr ""
+#. Help text explaining what Sync Now does.
+#: templates/info.html:261
+msgid "Reconciles the library with the song directory in the background."
+msgstr "Avstemmer biblioteket med sangkatalogen i bakgrunnen."
 
 #. Title of the user preferences section.
-#: templates/info.html:227
+#: templates/info.html:268
 msgid "User Preferences"
-msgstr ""
+msgstr "Brukerinnstillinger"
 
 #. Title text for the splash screen settings section of preferences
-#: templates/info.html:233
+#: templates/info.html:274
 msgid "Splash screen settings"
-msgstr ""
+msgstr "Splash-skjerminnstillinger"
 
 #. Checkbox label which enable/disables background video on the Splash Screen
-#: templates/info.html:241
+#: templates/info.html:282
 msgid "Disable background video"
-msgstr ""
+msgstr "Deaktiver bakgrunnsvideo"
 
 #. Checkbox label which enable/disables background music on the Splash Screen
-#: templates/info.html:247
+#: templates/info.html:288
 msgid "Disable background music"
-msgstr ""
+msgstr "Deaktiver bakgrunnsmusikk"
 
 #. Checkbox label which enable/disables the Score Screen
-#: templates/info.html:253
+#: templates/info.html:294
 msgid "Disable the score screen after each song"
-msgstr ""
+msgstr "Deaktiver partiturskjermen etter hver sang"
 
 #. Checkbox label which enable/disables notifications on the splash screen
-#: templates/info.html:259
+#: templates/info.html:300
 msgid "Hide notifications"
-msgstr ""
+msgstr "Skjul varsler"
 
 #. Checkbox label which enable/disables the digital clock on the splash screen
-#: templates/info.html:265
+#: templates/info.html:306
 msgid "Show splash clock"
-msgstr ""
+msgstr "Vis sprutklokke"
 
 #. Checkbox label which enable/disables the URL display
-#: templates/info.html:270
+#: templates/info.html:311
 msgid "Hide the URL and QR code"
-msgstr ""
+msgstr "Skjul URL-en og QR-koden"
 
 #. Checkbox label which enable/disables showing overlay data on the splash
 #. screen
-#: templates/info.html:276
+#: templates/info.html:317
 msgid "Hide all overlays, including now playing, up next, and QR code"
-msgstr ""
+msgstr "Skjul alle overlegg, inkludert nå som spilles, opp neste og QR-kode"
 
 #. Numberbox label for setting the default video volume
-#: templates/info.html:282
+#: templates/info.html:323
 msgid "Default volume of the videos (min 0, max 100)"
-msgstr ""
+msgstr "Standardvolum for videoene (min 0, maks 100)"
 
 #. Numberbox label for setting the background music volume
-#: templates/info.html:288
+#: templates/info.html:329
 msgid "Volume of the background music (min 0, max 100)"
-msgstr ""
+msgstr "Volum på bakgrunnsmusikken (min 0, maks 100)"
 
 #. Numberbox label for setting the inactive delay before showing the
 #. screensaver
-#: templates/info.html:295
+#: templates/info.html:336
 msgid ""
-"The amount of idle time in seconds before the screen saver activates. Set"
-" to 0 to disable it."
+"The amount of idle time in seconds before the screen saver activates. Set to"
+" 0 to disable it."
 msgstr ""
+"Mengden hviletid i sekunder før skjermspareren aktiveres. Sett til 0 for å "
+"deaktivere den."
 
 #. Numberbox label for setting the delay before playing the next song
-#: templates/info.html:302
+#: templates/info.html:343
 msgid "The delay in seconds before starting the next song"
-msgstr ""
+msgstr "Forsinkelsen i sekunder før du starter neste sang"
 
 #. Title text for the Score Phrases section of preferences
-#: templates/info.html:313
+#: templates/info.html:354
 msgid "Score phrases"
-msgstr ""
+msgstr "Score setninger"
 
 #. Help text explaining how to add phrases
-#: templates/info.html:320
+#: templates/info.html:361
 msgid "Add one phrase per line in each box and hit save."
-msgstr ""
+msgstr "Legg til én setning per linje i hver boks og trykk på lagre."
 
 #. Title for LOW Score Phrases
-#: templates/info.html:322
+#: templates/info.html:363
 msgid "LOW Score Phrases (score < 30)"
-msgstr ""
+msgstr "setninger med lav poengsum (score < 30)"
 
 #. Placeholder for the low score phrases textarea
-#: templates/info.html:324
+#: templates/info.html:365
 msgid "Could be better..."
-msgstr ""
+msgstr "Kunne vært bedre..."
 
 #. Title for MID Score Phrases
-#: templates/info.html:327
+#: templates/info.html:368
 msgid "MID Score Phrases (30 > score < 60)"
-msgstr ""
+msgstr "MID-poengsetninger (30 > score < 60)"
 
 #. Placeholder for the MID score phrases textarea
-#: templates/info.html:329
+#: templates/info.html:370
 msgid "That was ok..."
-msgstr ""
+msgstr "Det var ok..."
 
 #. Title for HIGH Score Phrases
-#: templates/info.html:332
+#: templates/info.html:373
 msgid "HIGH Score Phrases (60 < score)"
-msgstr ""
+msgstr "HIGH Score-setninger (60 < poengsum)"
 
 #. Placeholder for the HIGH score phrases textarea
-#: templates/info.html:334
+#: templates/info.html:375
 msgid "Wonderfull..."
-msgstr ""
+msgstr "Fantastisk..."
 
 #. Title text for the language settings section of preferences
-#: templates/info.html:342
+#: templates/info.html:383
 msgid "Language settings"
-msgstr ""
+msgstr "Språkinnstillinger"
 
 #. Label for language selection dropdown
-#: templates/info.html:355
+#: templates/info.html:396
 msgid "Preferred language (requires restart)"
-msgstr ""
+msgstr "Foretrukket språk (krever omstart)"
 
 #. Title text for the server settings section of preferences
-#: templates/info.html:364
+#: templates/info.html:405
 msgid "Server settings"
-msgstr ""
+msgstr "Serverinnstillinger"
 
 #. Checkbox label which enable/disables audio volume normalization
-#: templates/info.html:371
+#: templates/info.html:412
 msgid "Normalize audio volume"
-msgstr ""
+msgstr "Normaliser lydvolumet"
 
 #. Checkbox label which enable/disables high quality video downloads
-#: templates/info.html:377
+#: templates/info.html:418
 msgid "Download high quality videos"
-msgstr ""
+msgstr "Last ned videoer av høy kvalitet"
 
 #. Checkbox label which enable/disables full transcode before playback
-#: templates/info.html:383
+#: templates/info.html:424
 msgid ""
 "Transcode video completely before playing (better browser compatibility, "
 "slower starts). Buffer size will be ignored.*"
 msgstr ""
+"Transkode video fullstendig før avspilling (bedre nettleserkompatibilitet, "
+"tregere start). Bufferstørrelse vil bli ignorert.*"
 
 #. Checkbox label which enable/disables CDG pixel scaling
-#: templates/info.html:389
+#: templates/info.html:430
 msgid ""
-"Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU"
-" usage)"
+"Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU "
+"usage)"
 msgstr ""
+"Aktiver CDG-pikselskalering (klarere bilder for CDG-filer, kan øke CPU-"
+"bruken)"
 
 #. Numberbox label for audio video synchronization
-#: templates/info.html:396
+#: templates/info.html:437
 msgid ""
 "Fix the audio and video synchronization in seconds (negative = advances "
 "audio | positive = delays audio)"
 msgstr ""
+"Fiks lyd- og videosynkroniseringen på sekunder (negativ = fremmer lyd | "
+"positiv = forsinker lyd)"
 
 #. Numberbox label for limitting the number of songs for each player
-#: templates/info.html:403
+#: templates/info.html:444
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
 msgstr ""
+"Begrensning av sanger en individuell bruker kan legge til i køen (0 = "
+"ubegrenset)"
 
 #. Checkbox label which enable/disables fair queue (round-robin) mode
-#: templates/info.html:409
+#: templates/info.html:450
 msgid "Enable fair queue (round-robin mode ensures users take turns)"
-msgstr ""
+msgstr "Aktiver rettferdig kø (round-robin-modus sikrer at brukerne bytter)"
 
 #. Numberbox label for setting the buffer size in kilobytes
-#: templates/info.html:416
+#: templates/info.html:457
 msgid ""
-"Buffer size in kilobytes. Transcode this amount of the video before "
-"sending it to the splash screen. "
+"Buffer size in kilobytes. Transcode this amount of the video before sending "
+"it to the splash screen. "
 msgstr ""
+"Bufferstørrelse i kilobyte. Transkode denne mengden av videoen før du sender"
+" den til splash-skjermen."
 
 #. Text for the link where the user can clear all user preferences
-#: templates/info.html:429
+#: templates/info.html:470
 msgid "Clear preferences"
-msgstr ""
+msgstr "Tydelige preferanser"
+
+#. Title of the system data section.
+#: templates/info.html:478
+msgid "System Data"
+msgstr "Systemdata"
+
+#. Header of the information section about the computer running Pikaraoke.
+#: templates/info.html:483
+msgid "System Info"
+msgstr "Systeminfo"
+
+#. The hardware platform
+#: templates/info.html:489
+msgid "Platform:"
+msgstr "Plattform:"
+
+#. The os version
+#: templates/info.html:491
+msgid "OS Version:"
+msgstr "OS-versjon:"
+
+#. The version of the program "Youtube-dl".
+#: templates/info.html:493
+msgid "Youtube-dl (yt-dlp) version:"
+msgstr "Youtube-dl (yt-dlp) versjon:"
+
+#. The version of the program "ffmpeg".
+#: templates/info.html:495
+msgid "FFmpeg version:"
+msgstr "FFmpeg versjon:"
+
+#. The version of Pikaraoke running right now.
+#: templates/info.html:497
+msgid "Pikaraoke version:"
+msgstr "Pikaraoke versjon:"
+
+#. Header of the information section about the System stats.
+#: templates/info.html:503
+msgid "System stats"
+msgstr "Systemstatistikk"
+
+#. The CPU usage of the computer running Pikaraoke.
+#: templates/info.html:509
+msgid "CPU:"
+msgstr "CPU:"
+
+#: templates/info.html:509 templates/info.html:511 templates/info.html:513
+msgid "Loading..."
+msgstr "Laster inn..."
+
+#. The disk usage of the computer running Pikaraoke. Used by downloaded songs.
+#: templates/info.html:511
+msgid "Disk Usage:"
+msgstr "Diskbruk:"
+
+#. The memory (RAM) usage of the computer running Pikaraoke.
+#: templates/info.html:513
+msgid "Memory:"
+msgstr "Hukommelse:"
 
 #. Title of the updates section.
-#: templates/info.html:437
+#: templates/info.html:520
 msgid "Updates"
-msgstr ""
-
-#. Label for the Refresh the song list on the updates section
-#: templates/info.html:442
-msgid "Refresh the song list"
-msgstr ""
-
-#. Help text explaining the Rescan song directory link.
-#: templates/info.html:447
-msgid ""
-"You should only need to do this if you manually copied files to the "
-"download directory while pikaraoke was running."
-msgstr ""
-
-#. Text on the link which forces Pikaraoke to rescan and pick up any new songs.
-#: templates/info.html:452
-msgid "Rescan song directory"
-msgstr ""
+msgstr "Oppdateringer"
 
 #. Label for the YT-DLP update on the updates section
-#: templates/info.html:461
+#: templates/info.html:525
 msgid "YT-DLP update"
-msgstr ""
+msgstr "YT-DLP-oppdatering"
 
 #. Text explaining why you might want to update youtube-dl.
-#: templates/info.html:466
+#: templates/info.html:530
 #, python-format
 msgid ""
 "\n"
-"\t\t\t\t\t\tIf downloads or searches stopped working, updating youtube-dl"
-" will probably fix it.<br/>\n"
+"\t\t\t\t\t\tIf downloads or searches stopped working, updating youtube-dl will probably fix it.<br/>\n"
 "\t\t\t\t\t\tThe current installed version is: \"%(youtubedl_version)s\".\n"
 "\t\t\t\t\t"
 msgstr ""
+"Hvis nedlastinger eller søk sluttet å virke, vil oppdatering av youtube-dl sannsynligvis fikse det.<br/>\n"
+"\t\t\t\t\t\tDen nåværende installerte versjonen er: \"%(youtubedl_version)s\"."
 
 #. Text for the link which will try and update youtube-dl on the machine
 #. running Pikaraoke.
-#: templates/info.html:472
+#: templates/info.html:536
 msgid "Update youtube-dl"
-msgstr ""
+msgstr "Oppdater youtube-dl"
 
-#. Help text which explains why updating youtube-dl can fail. The log is a file
+#. Help text which explains why updating youtube-dl can fail. The log is a
+#. file
 #. on the machine running Pikaraoke.
-#: templates/info.html:476
+#: templates/info.html:540
 msgid ""
-"* This update link above may fail if you don't have proper file "
-"permissions.\n"
+"* This update link above may fail if you don't have proper file permissions.\n"
 "\t\t\t\t\t\t\tCheck the pikaraoke log for errors."
 msgstr ""
+"* Denne oppdateringslenken ovenfor kan mislykkes hvis du ikke har riktige filtillatelser.\n"
+"\t\t\t\t\t\t\tSjekk pikaraoke-loggen for feil."
+
+#. Title of the updates section.
+#: templates/info.html:552
+msgid "Other"
+msgstr "Annen"
+
+#. Title for section containing a few other options on the Info page.
+#. Text for button
+#: templates/info.html:557 templates/info.html:569
+msgid "Expand Raspberry Pi filesystem"
+msgstr "Utvid Raspberry Pi-filsystemet"
+
+#. Explainitory text which explains why you might want to expand the
+#. filesystem.
+#: templates/info.html:562
+msgid ""
+"If you just installed the pre-built pikaraoke pi image and your SD card is larger than 4GB,\n"
+"\t\t\t\t\t\t\tyou may want to expand the filesystem to utilize the remaining space. You only need to do this once.\n"
+"\t\t\t\t\t\t\tThis will reboot the system."
+msgstr ""
+"Hvis du nettopp installerte det forhåndsbygde pikaraoke pi-bildet og SD-kortet ditt er større enn 4 GB,\n"
+"\t\t\t\t\t\t\tDet kan være lurt å utvide filsystemet for å utnytte den gjenværende plassen. Du trenger bare å gjøre dette én gang.\n"
+"\t\t\t\t\t\t\tDette vil starte systemet på nytt."
+
+#. Message for the log out user from admin mode button.
+#: templates/info.html:584
+msgid "Click here to logout from admin mode."
+msgstr "Klikk her for å logge ut fra admin-modus."
+
+#. Link which will log out the user from admin mode.
+#: templates/info.html:586
+msgid "Log out"
+msgstr "Logg ut"
 
 #. Title of the section on shutting down / turning off the machine running
 #. Pikaraoke.
-#: templates/info.html:488
+#: templates/info.html:593
 msgid "Shutdown"
-msgstr ""
+msgstr "Avslutning"
 
 #. Explainitory text which explains why to use the shutdown link.
-#: templates/info.html:495
+#: templates/info.html:600
 msgid ""
 "Don't just pull the plug! Always shut down your server properly to avoid "
 "data corruption."
 msgstr ""
+"Ikke bare trekk ut støpselet! Slå alltid av serveren på riktig måte for å "
+"unngå datakorrupsjon."
 
 #. Text for button which turns off Pikaraoke for everyone using it at your
 #. house.
-#: templates/info.html:502
+#: templates/info.html:607
 msgid "Quit Pikaraoke"
-msgstr ""
+msgstr "Avslutt Pikaraoke"
 
 #. Text for button which reboots the machine running Pikaraoke.
-#: templates/info.html:505
+#: templates/info.html:610
 msgid "Reboot System"
-msgstr ""
+msgstr "Start systemet på nytt"
 
 #. Text for button which turn soff the machine running Pikaraoke.
-#: templates/info.html:508
+#: templates/info.html:613
 msgid "Shutdown System"
-msgstr ""
-
-#. Title of the updates section.
-#: templates/info.html:519
-msgid "Other"
-msgstr ""
-
-#. Title for section containing a few other options on the Info page.
-#. Text for button
-#: templates/info.html:524 templates/info.html:536
-msgid "Expand Raspberry Pi filesystem"
-msgstr ""
-
-#. Explainitory text which explains why you might want to expand the
-#. filesystem.
-#: templates/info.html:529
-msgid ""
-"If you just installed the pre-built pikaraoke pi image and your SD card "
-"is larger than 4GB,\n"
-"\t\t\t\t\t\t\tyou may want to expand the filesystem to utilize the "
-"remaining space. You only need to do this once.\n"
-"\t\t\t\t\t\t\tThis will reboot the system."
-msgstr ""
-
-#. Title of the admin section.
-#: templates/info.html:545 templates/info.html:570
-msgid "Admin"
-msgstr ""
-
-#. Title for section logout on the Info page.
-#: templates/info.html:552
-msgid "Logout"
-msgstr ""
-
-#. Message for the log out user from admin mode button.
-#: templates/info.html:558
-msgid "Click here to logout from admin mode."
-msgstr ""
-
-#. Link which will log out the user from admin mode.
-#: templates/info.html:560
-msgid "Log out"
-msgstr ""
-
-#. Title for section login on the Info page.
-#. Title for the log in page for admins.
-#. Text on submit button for the admin login form.
-#: templates/info.html:576 templates/login.html:8 templates/login.html:20
-msgid "Login"
-msgstr ""
-
-#. Message for the log in user to admin mode button.
-#: templates/info.html:582
-msgid "Click here to login as admin."
-msgstr ""
-
-#. Link which will let the user log into admin mode.
-#: templates/info.html:584
-msgid "Log in"
-msgstr ""
-
-#. Title fo the form to enter the administrator password.
-#: templates/login.html:11
-msgid "Enter the administrator password"
-msgstr ""
+msgstr "Slå av systemet"
 
 #: templates/queue.html:164 templates/queue.html:313
 msgid "Options"
-msgstr ""
+msgstr "Alternativer"
 
 #: templates/queue.html:213
 msgid "Pending downloads"
-msgstr ""
+msgstr "Venter på nedlastinger"
 
 #: templates/queue.html:218
 msgid "Queued"
-msgstr ""
+msgstr "I kø"
 
 #: templates/queue.html:226
 msgid "Download Errors"
-msgstr ""
+msgstr "Last ned feil"
 
 #: templates/queue.html:235
 msgid "Failed"
-msgstr ""
+msgstr "Mislyktes"
 
 #: templates/queue.html:236
 msgid "Dismiss"
-msgstr ""
+msgstr "Avskjedige"
 
 #: templates/queue.html:298
 msgid "Drag to reorder"
-msgstr ""
+msgstr "Dra for å omorganisere"
 
 #: templates/queue.html:338
 msgid "The queue is empty"
-msgstr ""
+msgstr "Køen er tom"
 
 #: templates/queue.html:432
 msgid "Play"
-msgstr ""
+msgstr "Spille"
 
 #: templates/queue.html:434 templates/queue.html:559
 msgid "Pause"
-msgstr ""
+msgstr "Pause"
 
+#. auto-translated
 #: templates/queue.html:505
 msgid ""
 "Add <input id=\"randomNumberInput\" class=\"input mx-2 p-2\" "
 "pattern=\"\\d*\" maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" "
 "style=\"width: 42px\" /> random songs"
 msgstr ""
+"Legg til <input id=\"randomNumberInput\" class=\"input mx-2 p-2\" "
+"pattern=\"\\d*\" maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" "
+"style=\"width: 42px\" /> tilfeldige sanger"
 
 #: templates/queue.html:509
 msgid "Clear all"
-msgstr ""
+msgstr "Fjern alle"
 
 #: templates/queue.html:523
 msgid "Play Next"
-msgstr ""
+msgstr "Spill Neste"
 
 #: templates/queue.html:523
 msgid "Move to Top"
-msgstr ""
+msgstr "Flytt til toppen"
 
 #: templates/queue.html:527
 msgid "Move Up"
-msgstr ""
+msgstr "Flytt opp"
 
 #: templates/queue.html:531
 msgid "Move Down"
-msgstr ""
+msgstr "Flytt ned"
 
 #: templates/queue.html:535
 msgid "Move to Bottom"
-msgstr ""
+msgstr "Flytt til bunnen"
 
 #: templates/queue.html:539
 msgid "Remove from Queue"
-msgstr ""
+msgstr "Fjern fra køen"
 
 #: templates/queue.html:555
 msgid "Restart"
-msgstr ""
+msgstr "Start på nytt"
 
 #: templates/queue.html:563
 msgid "Skip"
-msgstr ""
+msgstr "Hopp over"
 
 #: templates/queue.html:571
 msgid "Download queue"
-msgstr ""
+msgstr "Last ned kø"
 
 #: templates/search.html:242
 msgid "Available songs in local library"
-msgstr ""
+msgstr "Tilgjengelige sanger i lokalbiblioteket"
 
 #. Title for the search page.
 #: templates/search.html:574
 msgid "Search / Add New"
-msgstr ""
+msgstr "Søk / Legg til ny"
 
 #: templates/search.html:584
 msgid "Available Songs"
-msgstr ""
+msgstr "Tilgjengelige sanger"
 
 #. Submit button on the search form when selecting a locally downloaded song.
 #. The button adds it to                                         the queue.
 #: templates/search.html:592
 msgid "Add to queue"
-msgstr ""
+msgstr "Legg til i kø"
 
 #. Link which clears the text from the search box.
 #: templates/search.html:598
 msgid "Clear"
-msgstr ""
+msgstr "Klar"
 
 #. Checkbox label which enables more options when searching.
 #: templates/search.html:602
 msgid "Advanced"
-msgstr ""
+msgstr "Avansert"
 
 #. Help text below the search bar.
 #: templates/search.html:617
 msgid ""
 "- Type a song (title/artist) to search\n"
-"\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to"
-" the queue."
+"\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to the queue."
 msgstr ""
+"- Skriv inn en sang (tittel/artist) for å søke\n"
+"\t\t\t\t\t\t\t\tde tilgjengelige sangene og klikk \"Legg til i kø\" for å legge den til i køen."
 
 #. Additonal help text below the search bar.
 #: templates/search.html:621
 msgid ""
 "- If the song doesn't appear in\n"
-"\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find "
-"it on Youtube"
+"\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find it on Youtube"
 msgstr ""
+"- Hvis sangen ikke vises i\n"
+"\t\t\t\t\t\t\t\trullegardinmenyen \"Tilgjengelige sanger\", klikk på \"Søk\" for å finne den på Youtube"
 
 #. Checkbox label which enables matching songs which are not karaoke versions
 #. (i.e. the songs still                                         have a singer
 #. and are not just instrumentals.)
 #: templates/search.html:637
 msgid "Include non-karaoke matches"
-msgstr ""
+msgstr "Inkluder ikke-karaoke-kamper"
 
 #. Label for an input which takes a YouTube url directly instead of searching
 #. titles.
 #: templates/search.html:643
 msgid "Direct download YouTube url:"
-msgstr ""
+msgstr "YouTube-nettadresse for direkte nedlasting:"
 
 #. Checkbox label which marks the song to be added to the queue after it
 #. finishes downloading.
 #: templates/search.html:657 templates/search.html:700
 msgid "Add to queue once downloaded"
-msgstr ""
+msgstr "Legg til i køen når den er lastet ned"
 
 #. Button label for the direct download form's submit button.
 #: templates/search.html:662
 msgid "Download"
-msgstr ""
+msgstr "Last ned"
 
 #. Html text which displays what was searched for, in quotes while the page is
 #. loading.
@@ -1232,6 +1284,8 @@ msgid ""
 "Searching YouTube for\n"
 "\t\t<small><i>'%(search_term)s'</i></small>"
 msgstr ""
+"Søker på YouTube etter\n"
+"\t\t<small><i>'%(search_term)s'</i></small>"
 
 #. Html text which displays what was searched for, in quotes.
 #: templates/search.html:691
@@ -1240,238 +1294,50 @@ msgid ""
 "Search results for\n"
 "\t\t\t<small><i>'%(search_string)s'</i></small>"
 msgstr ""
+"Søkeresultater for\n"
+"\t\t\t<small><i>'%(search_string)s'</i></small>"
 
 #: templates/splash.html:23
 msgid "Connection lost. Is the server still running?"
-msgstr ""
+msgstr "Forbindelsen mistet. Kjører serveren fortsatt?"
 
 #: templates/splash.html:24
 msgid ""
-"This browser is not fully supported. You may experience streaming issues."
-" Please use Chrome/Safari/Firefox/Edge for best results."
+"This browser is not fully supported. You may experience streaming issues. "
+"Please use Chrome/Safari/Firefox/Edge for best results."
 msgstr ""
+"Denne nettleseren støttes ikke fullt ut. Du kan oppleve problemer med "
+"strømming. Bruk Chrome/Safari/Firefox/Edge for best resultat."
 
 #. Label for the next song to be played in the queue.
 #: templates/splash.html:89
 msgid "Up next:"
-msgstr ""
+msgstr "Neste:"
 
 #. Label for the next singer in the queue.
 #: templates/splash.html:96
 msgid "Next singer:"
-msgstr ""
+msgstr "Neste sanger:"
 
 #. The title of the score screen, telling the user their singing score
 #: templates/splash.html:118
 msgid "Your Score"
-msgstr ""
+msgstr "Poengsummen din"
 
 #. Prompt for interaction in order to enable video autoplay.
 #: templates/splash.html:132
 msgid ""
 "Due to limitations with browser permissions, you must interact\n"
-"      with the page once before it allows autoplay of videos. Pikaraoke "
-"will not\n"
+"      with the page once before it allows autoplay of videos. Pikaraoke will not\n"
 "      play otherwise. Click the button below to\n"
 "      <a onClick=\"handleConfirmation()\">confirm</a>."
 msgstr ""
+"På grunn av begrensninger med nettlesertillatelser, må du samhandle\n"
+"      med siden én gang før den tillater autoavspilling av videoer. Pikaraoke vil ikke\n"
+"      spille ellers. Klikk på knappen nedenfor for å\n"
+"      <a onClick=\"handleConfirmation()\">bekreft</a>."
 
 #. Button to confirm to enable video autoplay.
 #: templates/splash.html:145
 msgid "Confirm"
-msgstr ""
-
-#~ msgid ""
-#~ "* Videos are only transcoded when: "
-#~ "normalization is on, a song is "
-#~ "transposed, playing a CDG/MOV/AVI/MKV file."
-#~ " Most unmodified MP4 files will not"
-#~ " need to be transcoded."
-#~ msgstr ""
-
-#~ msgid "Add 3 random songs"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Add <input id=\"randomNumberInput\" type=\"number\""
-#~ " value=\"3\" min=\"1\" max=\"100\" style=\"width:"
-#~ " 50px\" /> random songs"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Sorted\n"
-#~ "  Alphabetically"
-#~ msgstr ""
-
-#~ msgid "Sort by Date"
-#~ msgstr ""
-
-#~ msgid "Sort by Alphabetical"
-#~ msgstr ""
-
-#~ msgid "Disable background music"
-#~ msgstr ""
-
-#~ msgid "Refresh the song list:"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "If downloads or searches stopped "
-#~ "working, updating youtube-dl will "
-#~ "probably fix it.\n"
-#~ "   The current installed version is: \"%(youtubedl_version)s\""
-#~ msgstr ""
-
-#~ msgid ""
-#~ "This update link above may fail if"
-#~ " you don't have proper file "
-#~ "permissions.\n"
-#~ "    Check the pikaraoke log for errors."
-#~ msgstr ""
-
-#~ msgid ""
-#~ "If you just installed the pre-"
-#~ "built pikaraoke pi image and your "
-#~ "SD card is larger than 4GB,\n"
-#~ "    you may want to expand the "
-#~ "filesystem to utilize the remaining "
-#~ "space. You only need to do this"
-#~ " once.\n"
-#~ "    This will reboot the system."
-#~ msgstr ""
-
-#~ msgid "Disable admin mode: <a href=\"%(logout_url)s\">Log out</a>"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "\n"
-#~ "    Enable admin mode: <a href=\"%(login_url)s\">Log in</a>\n"
-#~ "  "
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Add <input id=\"randomNumberInput\" pattern=\"\\d*\""
-#~ " maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\""
-#~ " style=\"width: 40px\" /> random songs"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Type a song\n"
-#~ "          (title/artist) to search the "
-#~ "available songs and click 'Add to "
-#~ "queue'\n"
-#~ "          to add it to the queue."
-#~ msgstr ""
-
-#~ msgid ""
-#~ "If\n"
-#~ "          the song doesn't appear in "
-#~ "the \"Available Songs\" dropdown, click\n"
-#~ ""
-#~ "          'Search' to find it on Youtube"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Add to queue\n"
-#~ "              once downloaded"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Searching YouTube for\n"
-#~ "    <small><i>'%(search_term)s'</i></small>"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Search results for\n"
-#~ "        <small><i>'%(search_string)s'</i></small>"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Click\n"
-#~ "          dropdown to show more results"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Add to queue once\n"
-#~ "          downloaded"
-#~ msgstr ""
-
-#~ msgid "Accept suggested name"
-#~ msgstr ""
-
-#~ msgid "Download started: %s. This may take a couple of minutes to complete."
-#~ msgstr ""
-
-#~ msgid "Song will be added to queue."
-#~ msgstr ""
-
-#~ msgid "Song will appear in the \"available songs\" list."
-#~ msgstr ""
-
-#~ msgid "HIGH Score Phrases (score > 60)"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Due to limititations with browser permissions, you must interact\n"
-#~ "      with the page once before it"
-#~ " allows autoplay of videos. Pikaraoke "
-#~ "will not\n"
-#~ "      play otherwise. Click the button below to\n"
-#~ "      <a onClick=\"handleConfirmation()\">confirm</a> ."
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Do you want to change the name "
-#~ "of the person using this device? "
-#~ "This will show up on queued songs."
-#~ " Current: %(currentUser)s"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "* Videos are only transcoded when: "
-#~ "normalization is on, audio/video "
-#~ "synchronization not zero, a song is "
-#~ "transposed, playing a CDG/MOV/AVI/MKV file."
-#~ " Most unmodified MP4 files will not"
-#~ " need to be transcoded."
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Add <input id=\"randomNumberInput\" class=\"input"
-#~ " mx-1\" pattern=\"\\d*\" maxlength=\"2\" "
-#~ "value=\"3\" min=\"1\" max=\"99\" style=\"width: "
-#~ "40px\" /> random songs"
-#~ msgstr ""
-
-#~ msgid "CPU: %(cpu)s"
-#~ msgstr ""
-
-#~ msgid "Disk Usage: %(disk)s"
-#~ msgstr ""
-
-#~ msgid "Memory: %(memory)s"
-#~ msgstr ""
-
-#~ msgid "Error: No song specified!"
-#~ msgstr ""
-
-#~ msgid "File not found."
-#~ msgstr ""
-
-#~ msgid ""
-#~ "*You may need to refresh the "
-#~ "splash screen for these changes to "
-#~ "take effect."
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Search results for\n"
-#~ "\t\t\t\t<small><i>'%(search_string)s'</i></small>"
-#~ msgstr ""
-
-#~ msgid "Click dropdown to show more results"
-#~ msgstr ""
-
-#~ msgid "Link:"
-#~ msgstr ""
-
+msgstr "Bekrefte"
