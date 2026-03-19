@@ -172,7 +172,7 @@ class TestDownloadManagerExecuteDownload:
 
         assert rc == 0
         song_manager.songs.find_by_id.assert_called_once_with("/songs", "abc123")
-        song_manager.songs.add_if_valid.assert_called_once_with("/songs/Artist - Song---abc123.mp4")
+        # add_if_valid is no longer called directly; a "song_downloaded" event is emitted instead
         assert any("Downloaded" in n for n in notifications)
 
     @patch("flask_babel._", side_effect=lambda x: x)

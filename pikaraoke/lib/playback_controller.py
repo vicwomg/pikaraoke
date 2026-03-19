@@ -1,8 +1,7 @@
 """Playback controller for managing video playback state and coordination."""
 
-from __future__ import annotations
-
 import logging
+import os
 import time
 from typing import TYPE_CHECKING, Callable
 
@@ -69,7 +68,7 @@ class PlaybackController:
         self.stream_manager = StreamManager(preferences, streaming_format)
 
     @property
-    def ffmpeg_process(self) -> subprocess.Popen | None:
+    def ffmpeg_process(self) -> "subprocess.Popen | None":
         """Get the current FFmpeg process."""
         return self.stream_manager.ffmpeg_process
 
@@ -86,6 +85,11 @@ class PlaybackController:
         Returns:
             PlaybackResult with success status and stream information.
         """
+        if not os.path.isfile(file_path):
+            error_msg = _("Song file not found: %s") % file_path
+            logging.warning(error_msg)
+            return PlaybackResult(success=False, error=error_msg)
+
         logging.info(
             f"Playing file: {file_path} for user: {user}, transposed {semitones} semitones"
         )

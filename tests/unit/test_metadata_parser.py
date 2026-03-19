@@ -16,6 +16,7 @@ from pikaraoke.lib.metadata_parser import (
     regex_tidy,
     score_result,
     search_lastfm_tracks,
+    youtube_id_suffix,
 )
 
 
@@ -514,8 +515,28 @@ class TestRegexTidy:
     def test_strips_karaoke_by_source(self):
         assert regex_tidy("Artist - Song - Karaoke by Stingray") == "Artist - Song"
 
+    def test_no_dangling_separator_after_noise_and_attribution_removal(self):
+        result = regex_tidy("Fernando - KARAOKE VERSION - as popularized by ABBA")
+        assert result == "Fernando - ABBA"
+
     def test_no_change_when_clean(self):
         assert regex_tidy("Artist - Song Title") == "Artist - Song Title"
+
+
+class TestYoutubeIdSuffix:
+    """Tests for the youtube_id_suffix function."""
+
+    def test_pikaraoke_format(self):
+        assert youtube_id_suffix("/songs/Artist - Song---dQw4w9WgXcQ.mp4") == "---dQw4w9WgXcQ"
+
+    def test_ytdlp_bracket_format(self):
+        assert youtube_id_suffix("/songs/Artist - Song [dQw4w9WgXcQ].mp4") == " [dQw4w9WgXcQ]"
+
+    def test_no_youtube_id(self):
+        assert youtube_id_suffix("/songs/My Song.mp4") == ""
+
+    def test_short_bracket_not_matched(self):
+        assert youtube_id_suffix("/songs/Song [short].mp4") == ""
 
 
 class TestHasYoutubeId:

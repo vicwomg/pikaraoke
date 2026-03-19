@@ -76,6 +76,9 @@ def get_queue():
 @queue_bp.route("/queue/addrandom/<int:amount>", methods=["GET"])
 def add_random(amount):
     """Add random songs to the queue."""
+    if not is_admin():
+        flash(_("You don't have permission to add random songs"), "is-danger")
+        return redirect(url_for("queue.queue"))
     k = get_karaoke_instance()
     rc = k.queue_manager.queue_add_random(amount)
     if rc:

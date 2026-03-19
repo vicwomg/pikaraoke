@@ -100,7 +100,7 @@ class TestGetNowPlaying:
 
     def test_get_now_playing_with_queue(self, mock_karaoke):
         """Test now playing shows up_next from queue."""
-        mock_karaoke.queue_manager.enqueue("/songs/Next Song---abc.mp4", "NextUser")
+        mock_karaoke.queue_manager.enqueue("/songs/Next Song---dQw4w9WgXcQ.mp4", "NextUser")
 
         result = mock_karaoke.get_now_playing()
 

@@ -14,6 +14,7 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
+from pikaraoke.lib.metadata_parser import youtube_id_suffix
 
 _ = flask_babel.gettext
 
@@ -120,6 +121,10 @@ def delete_file(query):
     """Delete a song file."""
     k = get_karaoke_instance()
     song_path = query["song"]
+    referrer = query.get("referrer") or url_for("files.browse")
+    if not is_admin():
+        flash(_("You don't have permission to delete songs"), "is-danger")
+        return redirect(referrer)
     if k.queue_manager.is_song_in_queue(song_path):
         flash(
             # MSG: Message shown after trying to delete a song that is in the queue.
@@ -131,8 +136,10 @@ def delete_file(query):
     else:
         k.song_manager.delete(song_path)
         # MSG: Message shown after deleting a song. Followed by the song path
-        flash(_("Song deleted: %s") % k.song_manager.filename_from_path(song_path), "is-warning")
-    referrer = query.get("referrer") or url_for("files.browse")
+        flash(
+            _("Song deleted: %s") % k.song_manager.filename_from_path(song_path),
+            "is-warning",
+        )
     return redirect(referrer)
 
 
@@ -144,6 +151,9 @@ def edit_file(query):
     site_name = get_site_name()
     song_path = query["song"]
     referrer = query.get("referrer") or url_for("files.browse")
+    if not is_admin():
+        flash(_("You don't have permission to edit songs"), "is-danger")
+        return redirect(referrer)
     if k.queue_manager.is_song_in_queue(song_path):
         # MSG: Message shown after trying to edit a song that is in the queue.
         flash(
@@ -151,11 +161,13 @@ def edit_file(query):
             "is-danger",
         )
         return redirect(referrer)
+    raw_stem = k.song_manager.filename_from_path(song_path, tidy=False)
     return render_template(
         "edit.html",
         site_title=site_name,
         title="Song File Edit",
         song=song_path,
+        raw_stem=raw_stem,
         referrer=referrer,
     )
 
@@ -168,6 +180,10 @@ def rename_file(form):
     referrer = form.get("referrer") or url_for("files.browse")
     new_name = form["new_file_name"]
     old_name = form["old_file_name"]
+    if not is_admin():
+        flash(_("You don't have permission to edit songs"), "is-danger")
+    yt_suffix = youtube_id_suffix(old_name)
+    new_name_full = new_name + yt_suffix
     if k.queue_manager.is_song_in_queue(old_name):
         # check one more time just in case someone added it during editing
         # MSG: Message shown after trying to edit a song that is in the queue.
@@ -177,26 +193,28 @@ def rename_file(form):
         )
     else:
         file_extension = os.path.splitext(old_name)[1]
-        if os.path.isfile(os.path.join(k.song_manager.download_path, new_name + file_extension)):
+        if os.path.isfile(
+            os.path.join(k.song_manager.download_path, new_name_full + file_extension)
+        ):
             flash(
                 # MSG: Message shown after trying to rename a file to a name that already exists.
                 _("Error renaming file: '%s' to '%s', Filename already exists")
-                % (old_name, new_name + file_extension),
+                % (old_name, new_name_full + file_extension),
                 "is-danger",
             )
         else:
             try:
-                k.song_manager.rename(old_name, new_name)
+                k.song_manager.rename(old_name, new_name_full)
             except OSError as e:
                 logging.error(f"Error renaming file: {e}")
                 flash(
-                    _("Error renaming file: '%s' to '%s', %s") % (old_name, new_name, e),
+                    _("Error renaming file: '%s' to '%s', %s") % (old_name, new_name_full, e),
                     "is-danger",
                 )
             else:
                 flash(
                     # MSG: Message shown after renaming a file.
-                    _("Renamed file: %s to %s") % (old_name, new_name),
+                    _("Renamed file: %s to %s") % (old_name, new_name_full),
                     "is-warning",
                 )
     return redirect(referrer)
