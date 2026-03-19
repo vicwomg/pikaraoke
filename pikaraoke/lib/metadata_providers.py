@@ -89,6 +89,9 @@ class ITunesProvider:
 
     _last_request_time = 0.0
 
+    def __init__(self, country: str = "US") -> None:
+        self.country = country
+
     def _enforce_rate_limit(self) -> None:
         elapsed = time.time() - ITunesProvider._last_request_time
         if elapsed < ITUNES_RATE_LIMIT:
@@ -134,7 +137,13 @@ class ITunesProvider:
             try:
                 response = requests.get(
                     ITUNES_SEARCH_URL,
-                    params={"term": query, "media": "music", "entity": "song", "limit": limit},
+                    params={
+                        "term": query,
+                        "media": "music",
+                        "entity": "song",
+                        "limit": limit,
+                        "country": self.country,
+                    },
                     timeout=10,
                 )
             except requests.exceptions.Timeout:
@@ -195,17 +204,23 @@ class ITunesProvider:
         return results[0]
 
 
-def get_provider(preferences) -> MetadataProvider:
+def get_provider(preferences, country: str | None = None) -> MetadataProvider:
     """Resolve the active metadata provider from admin preferences.
 
     Currently only supports iTunes. The preference key and factory pattern
     exist so that Spotify (or other providers) can be added by extending
     the if/elif chain -- no pipeline or route changes needed.
+
+    Args:
+        country: Optional country override (e.g. from the edit page dropdown).
+            When None, falls back to the saved preference.
     """
     provider_name = preferences.get("metadata_provider", "itunes")
     if provider_name != "itunes":
         logging.warning("Unknown metadata provider '%s', falling back to iTunes", provider_name)
-    return ITunesProvider()
+    if country is None:
+        country = preferences.get("itunes_search_country", "US")
+    return ITunesProvider(country=country)
 
 
 def _collapse_single_letters(match: re.Match) -> str:

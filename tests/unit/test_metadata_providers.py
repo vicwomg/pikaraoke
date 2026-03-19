@@ -138,6 +138,23 @@ class TestITunesProvider:
         mock_sleep.assert_called_once_with(pytest.approx(1.5, abs=0.1))
 
     @patch("pikaraoke.lib.metadata_providers.requests.get")
+    def test_search_passes_country_param(self, mock_get):
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = {"resultCount": 0, "results": []}
+        provider = ITunesProvider(country="JP")
+        provider.search("test")
+        params = mock_get.call_args[1]["params"]
+        assert params["country"] == "JP"
+
+    @patch("pikaraoke.lib.metadata_providers.requests.get")
+    def test_search_defaults_country_to_us(self, mock_get, provider):
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = {"resultCount": 0, "results": []}
+        provider.search("test")
+        params = mock_get.call_args[1]["params"]
+        assert params["country"] == "US"
+
+    @patch("pikaraoke.lib.metadata_providers.requests.get")
     def test_search_handles_missing_release_date(self, mock_get, provider):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {
@@ -300,19 +317,37 @@ class TestITunesProviderRetry:
 class TestGetProvider:
     """Tests for get_provider factory."""
 
-    def test_default_returns_itunes(self):
+    @staticmethod
+    def _make_prefs(metadata_provider="itunes", itunes_search_country="US"):
         prefs = MagicMock()
-        prefs.get.return_value = "itunes"
-        provider = get_provider(prefs)
+        store = {
+            "metadata_provider": metadata_provider,
+            "itunes_search_country": itunes_search_country,
+        }
+        prefs.get.side_effect = lambda key, default=None: store.get(key, default)
+        return prefs
+
+    def test_default_returns_itunes(self):
+        provider = get_provider(self._make_prefs())
         assert isinstance(provider, ITunesProvider)
 
     def test_unknown_provider_falls_back_to_itunes(self, caplog):
-        prefs = MagicMock()
-        prefs.get.return_value = "spotify"
         with caplog.at_level(logging.WARNING):
-            provider = get_provider(prefs)
+            provider = get_provider(self._make_prefs(metadata_provider="spotify"))
         assert isinstance(provider, ITunesProvider)
         assert "Unknown metadata provider" in caplog.text
+
+    def test_passes_country_to_provider(self):
+        provider = get_provider(self._make_prefs(itunes_search_country="JP"))
+        assert provider.country == "JP"
+
+    def test_defaults_country_to_us(self):
+        provider = get_provider(self._make_prefs())
+        assert provider.country == "US"
+
+    def test_country_override_takes_precedence(self):
+        provider = get_provider(self._make_prefs(itunes_search_country="GB"), country="JP")
+        assert provider.country == "JP"
 
 
 class TestSuggestMetadata:
