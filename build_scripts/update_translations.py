@@ -10,9 +10,11 @@ Usage:
 """
 
 import argparse
+import re
 import subprocess
 import sys
 import time
+from collections import Counter
 from pathlib import Path
 
 import polib
@@ -121,14 +123,58 @@ def prune_obsolete() -> None:
         print(f"  {locale}: removed {len(obsolete)} obsolete entries")
 
 
+# Matches printf-style placeholders: %s, %d, %(name)s, %(name)d, etc.
+# Also matches HTML tags: <b>, </b>, <a href="...">, etc.
+_PLACEHOLDER_RE = re.compile(
+    r"%(?:\([^)]+\))?[sdifFeEgGcrboxXn%]"  # printf: %s, %d, %(name)s, %%
+    r"|<[^>]+>"  # HTML tags
+)
+
+
+def _protect_placeholders(text: str) -> tuple[str, list[str]]:
+    """Replace placeholders/HTML with numbered tokens before translation.
+
+    Returns the protected text and the list of original tokens for restoration.
+    """
+    tokens: list[str] = []
+
+    def _replace(match: re.Match) -> str:
+        index = len(tokens)
+        tokens.append(match.group())
+        return f"<x{index}>"
+
+    return _PLACEHOLDER_RE.sub(_replace, text), tokens
+
+
+def _restore_placeholders(text: str, tokens: list[str]) -> str:
+    """Swap numbered tokens back to original placeholders."""
+    for i, original in enumerate(tokens):
+        text = text.replace(f"<x{i}>", original)
+    return text
+
+
+def _validate_placeholders(source: str, translated: str) -> bool:
+    """Check that the translated string contains all source placeholders with correct counts."""
+    source_counts = Counter(_PLACEHOLDER_RE.findall(source))
+    translated_counts = Counter(_PLACEHOLDER_RE.findall(translated))
+    return all(translated_counts[ph] >= count for ph, count in source_counts.items())
+
+
 def translate_entry(entry: polib.POEntry, translator: GoogleTranslator) -> str | None:
     """Translate a single PO entry. Returns translated text or None on failure."""
     source = entry.msgid
     if not source.strip():
         return None
     try:
-        translated = translator.translate(source)
+        protected, tokens = _protect_placeholders(source)
+        raw = translator.translate(protected)
         time.sleep(REQUEST_DELAY)
+        translated = _restore_placeholders(raw, tokens)
+
+        if not _validate_placeholders(source, translated):
+            print(f"    Placeholder mismatch, skipping: '{source[:60]}'")
+            return None
+
         return translated
     except Exception as e:
         print(f"    Failed to translate '{source[:50]}...': {e}")

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-19 18:22+1100\n"
+"POT-Creation-Date: 2026-03-20 08:10+1100\n"
 "PO-Revision-Date: 2025-01-13 22:56-0800\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: nl_NL <LL@li.org>\n"
@@ -38,7 +38,7 @@ msgstr "Volume: %s"
 #: lib/download_manager.py:130
 #, python-format
 msgid "Download queued (#%d): %s"
-msgstr "Download in wachtrij (#%d): %s"
+msgstr "Downloaden in wachtrij (#%d): %s"
 
 # auto-translated
 #. Message shown when download is added and will start immediately
@@ -147,7 +147,7 @@ msgstr "Nummer staat al in de wachtrij: %s"
 #, python-format
 msgid "You reached the limit of %s song(s) from an user in queue!"
 msgstr ""
-"Je hebt de limiet van %s nummer(s) bereikt van een gebruiker in de wachtrij!"
+"Je hebt de limiet van %s nummer(s) van een gebruiker in de wachtrij bereikt!"
 
 # auto-translated
 #: lib/queue_manager.py:132
@@ -188,13 +188,13 @@ msgstr "Kan stream niet voorbereiden"
 #. Message shown after starting the yt-dlp update.
 #: routes/admin.py:59
 msgid "Updating yt-dlp! Should take a minute or two... "
-msgstr "yt-dlp bijwerken! Het zou een minuut of twee moeten duren..."
+msgstr "Yt-dlp bijwerken! Het zou een minuut of twee moeten duren..."
 
 # auto-translated
 #. Message shown after trying to update yt-dlp without admin permissions.
 #: routes/admin.py:66
 msgid "You don't have permission to update yt-dlp"
-msgstr "Je hebt geen toestemming om yt-dlp te updaten"
+msgstr "Je hebt geen toestemming om yt-dlp bij te werken"
 
 # auto-translated
 #. Message shown after quitting pikaraoke.
@@ -303,7 +303,7 @@ msgstr ""
 #, python-format
 msgid "Error renaming file: '%s' to '%s', Filename already exists"
 msgstr ""
-"Fout bij hernoemen van bestand: '%s' naar '%s'. Bestandsnaam bestaat al"
+"Fout bij hernoemen van bestand: '%s' naar '%s', bestandsnaam bestaat al"
 
 # auto-translated
 #. Title of the files page.
@@ -887,8 +887,8 @@ msgid ""
 "Are you sure you want to update yt-dlp right now? Current and pending "
 "downloads may fail."
 msgstr ""
-"Weet je zeker dat je yt-dlp nu wilt updaten? Huidige en in behandeling "
-"zijnde downloads kunnen mislukken."
+"Weet je zeker dat je yt-dlp nu meteen wilt updaten? Huidige en in "
+"behandeling zijnde downloads kunnen mislukken."
 
 # auto-translated
 #. Confirmation text when the user wants to expand the filesystem to take the
@@ -1218,7 +1218,7 @@ msgstr "OS-versie:"
 #. The version of the program "yt-dlp".
 #: templates/info.html:493
 msgid "yt-dlp version:"
-msgstr "yt-dlp versie:"
+msgstr "yt-dlp-versie:"
 
 # auto-translated
 #. The version of the program "ffmpeg".
@@ -1283,7 +1283,7 @@ msgid ""
 "\t\t\t\t\t\tThe current installed version is: \"%(youtubedl_version)s\".\n"
 "\t\t\t\t\t"
 msgstr ""
-"Als downloads of zoekopdrachten niet meer werken, kan het updaten van yt-dlp dit waarschijnlijk oplossen.<br/>\n"
+"Als downloads of zoekopdrachten niet meer werken, zal het updaten van yt-dlp dit waarschijnlijk oplossen.<br/>\n"
 "\t\t\t\t\t\tDe huidige geïnstalleerde versie is: \"%(youtubedl_version)s\"."
 
 # auto-translated
@@ -1436,7 +1436,7 @@ msgid ""
 "style=\"width: 42px\" /> random songs"
 msgstr ""
 "Voeg <input id=\"randomNumberInput\" class=\"input mx-2 p-2\" "
-"patroon=\"\\d*\" maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" "
+"pattern=\"\\d*\" maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" "
 "style=\"width: 42px\" /> willekeurige nummers toe"
 
 # auto-translated
@@ -1582,7 +1582,7 @@ msgid ""
 "\t\t<small><i>'%(search_term)s'</i></small>"
 msgstr ""
 "YouTube zoekt\n"
-"\t\t<small><i>'%(zoekterm)s'</i></small>"
+"\t\t<small><i>'%(search_term)s'</i></small>"
 
 # auto-translated
 #. Html text which displays what was searched for, in quotes.

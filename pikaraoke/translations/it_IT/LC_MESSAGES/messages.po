@@ -7,15 +7,15 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-19 18:22+1100\n"
+"POT-Creation-Date: 2026-03-20 08:10+1100\n"
 "PO-Revision-Date: 2024-10-30 14:44-0300\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: it_IT <LL@li.org>\n"
 "Language: it_IT\n"
+"Language-Team: it_IT <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "Generated-By: Babel 2.17.0\n"
 
 #. Message shown after the song is transposed, first is the semitones and then
@@ -212,8 +212,7 @@ msgstr "Espansione del file system e riavvio del sistema in corso!"
 #. device.
 #: routes/admin.py:153
 msgid "Cannot expand fs on non-raspberry pi devices!"
-msgstr ""
-"Impossibile espandere file system su dispositivi diversi da Raspberry Pi!"
+msgstr "Impossibile espandere file system su dispositivi diversi da Raspberry Pi!"
 
 #. Message shown after trying to expand the filesystem without admin
 #. permissions
@@ -256,16 +255,15 @@ msgstr "Errore: non sono stati specificati parametri per il nome file!"
 
 #: routes/batch_song_renamer.py:245 routes/files.py:160 routes/files.py:191
 msgid "Error: Can't edit this song because it is in the current queue: "
-msgstr ""
-"Errore: Impossibile modificare questo brano perché è nella coda corrente:"
+msgstr "Errore: Impossibile modificare questo brano perché è nella coda corrente:"
 
 #. Message shown after trying to rename a file to a name that already exists.
 #: routes/batch_song_renamer.py:259 routes/files.py:201
 #, python-format
 msgid "Error renaming file: '%s' to '%s', Filename already exists"
 msgstr ""
-"Errore durante la ridenominazione del file: '%s' in '%s', il nome del file "
-"esiste già"
+"Errore durante la ridenominazione del file: '%s' in '%s', il nome del "
+"file esiste già"
 
 #. Title of the files page.
 #. Navigation link for the page where the user can add existing songs to the
@@ -282,8 +280,7 @@ msgstr "Non hai l'autorizzazione per eliminare brani"
 #. Message shown after trying to delete a song that is in the queue.
 #: routes/files.py:131
 msgid "Error: Can't delete this song because it is in the current queue"
-msgstr ""
-"Errore: Impossibile eliminare questo brano perché è nella coda corrente"
+msgstr "Errore: Impossibile eliminare questo brano perché è nella coda corrente"
 
 #: routes/files.py:140
 #, python-format
@@ -461,18 +458,17 @@ msgstr "Impossibile eseguire lo streaming dei sottotitoli:"
 #. is replaced with the name
 #: templates/base.html:25
 msgid ""
-"Do you want to change the name of the person using this device? This will "
-"show up on queued songs. Current: CURRENT_NAME"
+"Do you want to change the name of the person using this device? This will"
+" show up on queued songs. Current: CURRENT_NAME"
 msgstr ""
-"Vuoi cambiare il nome della persona che utilizza questo dispositivo? Questo "
-"verrà visualizzato sui brani in coda. Attuale: CURRENT_NAME"
+"Vuoi cambiare il nome della persona che utilizza questo dispositivo? "
+"Questo verrà visualizzato sui brani in coda. Attuale: CURRENT_NAME"
 
 # auto-translated
 #. Confirmation prompt to clear entire queue. User must type ok to confirm
 #: templates/base.html:27
 msgid "Are you sure you want to clear the ENTIRE queue? Type ok to continue"
-msgstr ""
-"Sei sicuro di voler cancellare l'INTERA coda? Digita ok per continuare"
+msgstr "Sei sicuro di voler cancellare l'INTERA coda? Digita ok per continuare"
 
 # auto-translated
 #. Confirmation dialog when removing a song from the queue. SONG_TITLE is
@@ -494,8 +490,7 @@ msgid "SEMITONE_VALUE semitones"
 msgstr "SEMITONE_VALUE semitoni"
 
 # auto-translated
-#. Confirmation dialog when changing the key/pitch of a song. SEMITONE_LABEL
-#. is
+#. Confirmation dialog when changing the key/pitch of a song. SEMITONE_LABEL is
 #. replaced with a label like "+3 semitones".
 #: templates/base.html:35
 msgid "Transpose this song: SEMITONE_LABEL?"
@@ -511,12 +506,13 @@ msgstr "Sei sicuro di voler riavviare questa traccia?"
 #. Informational tooltip explaining what a semitone is.
 #: templates/base.html:39
 msgid ""
-"A semitone is also known as a half-step. It is the smallest interval used in"
-" classical Western music, equal to a twelfth of an octave or half a tone."
+"A semitone is also known as a half-step. It is the smallest interval used"
+" in classical Western music, equal to a twelfth of an octave or half a "
+"tone."
 msgstr ""
 "Un semitono è noto anche come mezzo passo. È l'intervallo più piccolo "
-"utilizzato nella musica classica occidentale, pari a un dodicesimo di ottava"
-" o mezzo tono."
+"utilizzato nella musica classica occidentale, pari a un dodicesimo di "
+"ottava o mezzo tono."
 
 # auto-translated
 #. Confirmation dialog when expanding the filesystem on Raspberry Pi, which
@@ -542,8 +538,8 @@ msgid ""
 "Please enter your name. This will show up next to the songs you queue up "
 "from this device."
 msgstr ""
-"Inserisci il tuo nome. Questo verrà visualizzato accanto alle canzoni che "
-"metti in coda da questo dispositivo."
+"Inserisci il tuo nome. Questo verrà visualizzato accanto alle canzoni che"
+" metti in coda da questo dispositivo."
 
 #. Navigation link for the home page.
 #: templates/base.html:210
@@ -565,10 +561,13 @@ msgstr "Cerca"
 #. Message about the wait for loading the songs
 #: templates/batch-song-renamer.html:136
 msgid ""
-"The loading process may take a few seconds, as the song titles are compared online. Loading time may vary\n"
+"The loading process may take a few seconds, as the song titles are "
+"compared online. Loading time may vary\n"
 "\tbased on your internet connection."
 msgstr ""
-"Il processo di caricamento potrebbe richiedere alcuni secondi, poiché i titoli dei brani vengono confrontati online. Il tempo di caricamento può variare\n"
+"Il processo di caricamento potrebbe richiedere alcuni secondi, poiché i "
+"titoli dei brani vengono confrontati online. Il tempo di caricamento può "
+"variare\n"
 "\tin base alla tua connessione Internet."
 
 # auto-translated
@@ -663,8 +662,7 @@ msgstr ""
 "Ordinato\n"
 " Alfabeticamente"
 
-#. Button which changes how the songs are sorted so they become sorted by
-#. date.
+#. Button which changes how the songs are sorted so they become sorted by date.
 #: templates/files.html:94
 msgid ""
 "Sort by\n"
@@ -677,8 +675,7 @@ msgstr "Ordinato per data"
 msgid "Sorted by date"
 msgstr "Ordinato per data"
 
-#. Button which changes how the songs are sorted so they become sorted by
-#. name.
+#. Button which changes how the songs are sorted so they become sorted by name.
 #: templates/files.html:100
 msgid ""
 "Sort by\n"
@@ -709,8 +706,8 @@ msgstr "Nessun'altra canzone in coda."
 #. Confirmation message when clicking a button to skip a track.
 #: templates/home.html:134
 msgid ""
-"Are you sure you want to skip this track? If you didn't add this song, ask "
-"permission first!"
+"Are you sure you want to skip this track? If you didn't add this song, "
+"ask permission first!"
 msgstr ""
 "Sei sicuro di voler saltare questo brano? Se non hai aggiunto questa "
 "canzone, chiedi prima il permesso!"
@@ -919,11 +916,11 @@ msgstr "Volume della musica di sottofondo (min 0, max 100)"
 #. screensaver
 #: templates/info.html:336
 msgid ""
-"The amount of idle time in seconds before the screen saver activates. Set to"
-" 0 to disable it."
+"The amount of idle time in seconds before the screen saver activates. Set"
+" to 0 to disable it."
 msgstr ""
-"Tempo di inattività in secondi prima che si attivi lo screen saver. Imposta "
-"su 0 per disattivarlo."
+"Tempo di inattività in secondi prima che si attivi lo screen saver. "
+"Imposta su 0 per disattivarlo."
 
 #. Numberbox label for setting the delay before playing the next song
 #: templates/info.html:343
@@ -1019,11 +1016,11 @@ msgstr ""
 #. Checkbox label which enable/disables CDG pixel scaling
 #: templates/info.html:430
 msgid ""
-"Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU "
-"usage)"
+"Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU"
+" usage)"
 msgstr ""
-"Abilita il ridimensionamento dei pixel CDG (visualizzazioni più nitide per i"
-" file CDG, possono aumentare l'utilizzo della CPU)"
+"Abilita il ridimensionamento dei pixel CDG (visualizzazioni più nitide "
+"per i file CDG, possono aumentare l'utilizzo della CPU)"
 
 # auto-translated
 #. Numberbox label for audio video synchronization
@@ -1047,17 +1044,17 @@ msgstr ""
 #: templates/info.html:450
 msgid "Enable fair queue (round-robin mode ensures users take turns)"
 msgstr ""
-"Abilita coda corretta (la modalità round-robin garantisce che gli utenti si "
-"alternino)"
+"Abilita coda corretta (la modalità round-robin garantisce che gli utenti "
+"si alternino)"
 
 #. Numberbox label for setting the buffer size in kilobytes
 #: templates/info.html:457
 msgid ""
-"Buffer size in kilobytes. Transcode this amount of the video before sending "
-"it to the splash screen. "
+"Buffer size in kilobytes. Transcode this amount of the video before "
+"sending it to the splash screen. "
 msgstr ""
-"Dimensione del buffer in kilobytes. Transcodifica questa quantità di video "
-"prima di inviarlo allo schermo. "
+"Dimensione del buffer in kilobytes. Transcodifica questa quantità di "
+"video prima di inviarlo allo schermo. "
 
 #. Text for the link where the user can clear all user preferences
 #: templates/info.html:470
@@ -1143,11 +1140,13 @@ msgstr "Aggiornamento YT-DLP"
 #, python-format
 msgid ""
 "\n"
-"\t\t\t\t\t\tIf downloads or searches stopped working, updating yt-dlp will probably fix it.<br/>\n"
+"\t\t\t\t\t\tIf downloads or searches stopped working, updating yt-dlp "
+"will probably fix it.<br/>\n"
 "\t\t\t\t\t\tThe current installed version is: \"%(youtubedl_version)s\".\n"
 "\t\t\t\t\t"
 msgstr ""
-"Se i download o le ricerche hanno smesso di funzionare, l'aggiornamento di yt-dlp probabilmente risolverà il problema.\n"
+"Se i download o le ricerche hanno smesso di funzionare, l'aggiornamento "
+"di yt-dlp probabilmente risolverà il problema.\n"
 " La versione attualmente installata è: \"%(youtubedl_version)s\""
 
 #. Text for the link which will try and update yt-dlp on the machine running
@@ -1160,10 +1159,12 @@ msgstr "Aggiorna yt-dlp"
 #. the machine running Pikaraoke.
 #: templates/info.html:540
 msgid ""
-"* This update link above may fail if you don't have proper file permissions.\n"
+"* This update link above may fail if you don't have proper file "
+"permissions.\n"
 "\t\t\t\t\t\t\tCheck the pikaraoke log for errors."
 msgstr ""
-"Il link d'aggiornamento potrebbe non funzionare se non hai i permessi file adeguati.\n"
+"Il link d'aggiornamento potrebbe non funzionare se non hai i permessi "
+"file adeguati.\n"
 " Controlla i log di pikaraoke per eventuali errori."
 
 #. Title of the updates section.
@@ -1181,12 +1182,16 @@ msgstr "Espandi il file system del Raspberry Pi"
 #. filesystem.
 #: templates/info.html:562
 msgid ""
-"If you just installed the pre-built pikaraoke pi image and your SD card is larger than 4GB,\n"
-"\t\t\t\t\t\t\tyou may want to expand the filesystem to utilize the remaining space. You only need to do this once.\n"
+"If you just installed the pre-built pikaraoke pi image and your SD card "
+"is larger than 4GB,\n"
+"\t\t\t\t\t\t\tyou may want to expand the filesystem to utilize the "
+"remaining space. You only need to do this once.\n"
 "\t\t\t\t\t\t\tThis will reboot the system."
 msgstr ""
-"Se hai appena installato l'immagine pre-costruita di pikaraoke pi e la tua scheda SD è più grande di 4 GB,\n"
-" potresti voler espandere il file system per utilizzare lo spazio rimanente. Devi farlo solo una volta.\n"
+"Se hai appena installato l'immagine pre-costruita di pikaraoke pi e la "
+"tua scheda SD è più grande di 4 GB,\n"
+" potresti voler espandere il file system per utilizzare lo spazio "
+"rimanente. Devi farlo solo una volta.\n"
 " Questo riavvierà il sistema."
 
 # auto-translated
@@ -1373,17 +1378,20 @@ msgstr "Avanzate"
 #: templates/search.html:617
 msgid ""
 "- Type a song (title/artist) to search\n"
-"\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to the queue."
+"\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to"
+" the queue."
 msgstr ""
 "Digita una canzone\n"
-" (titolo/artista) per cercare le canzoni disponibili e clicca su 'Aggiungi alla coda'\n"
+" (titolo/artista) per cercare le canzoni disponibili e clicca su "
+"'Aggiungi alla coda'\n"
 " per aggiungerla alla coda."
 
 #. Additonal help text below the search bar.
 #: templates/search.html:621
 msgid ""
 "- If the song doesn't appear in\n"
-"\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find it on Youtube"
+"\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find "
+"it on Youtube"
 msgstr ""
 "Se\n"
 " la canzone non appare nel menu a discesa \"Brani disponibili\", clicca\n"
@@ -1445,12 +1453,12 @@ msgstr "Connessione persa. Il server è ancora in esecuzione?"
 # auto-translated
 #: templates/splash.html:24
 msgid ""
-"This browser is not fully supported. You may experience streaming issues. "
-"Please use Chrome/Safari/Firefox/Edge for best results."
+"This browser is not fully supported. You may experience streaming issues."
+" Please use Chrome/Safari/Firefox/Edge for best results."
 msgstr ""
-"Questo browser non è completamente supportato. Potresti riscontrare problemi"
-" di streaming. Utilizza Chrome/Safari/Firefox/Edge per ottenere i migliori "
-"risultati."
+"Questo browser non è completamente supportato. Potresti riscontrare "
+"problemi di streaming. Utilizza Chrome/Safari/Firefox/Edge per ottenere i"
+" migliori risultati."
 
 #. Label for the next song to be played in the queue.
 #: templates/splash.html:89
@@ -1471,12 +1479,14 @@ msgstr "Il tuo punteggio"
 #: templates/splash.html:132
 msgid ""
 "Due to limitations with browser permissions, you must interact\n"
-"      with the page once before it allows autoplay of videos. Pikaraoke will not\n"
+"      with the page once before it allows autoplay of videos. Pikaraoke "
+"will not\n"
 "      play otherwise. Click the button below to\n"
 "      <a onClick=\"handleConfirmation()\">confirm</a>."
 msgstr ""
 "A causa delle limitazioni con i permessi del browser, devi interagire\n"
-" con la pagina una volta prima che consenta la riproduzione automatica dei video. Pikaraoke non\n"
+" con la pagina una volta prima che consenta la riproduzione automatica "
+"dei video. Pikaraoke non\n"
 " verrà riprodotto in caso contrario. Fai clic sul pulsante in basso per\n"
 " <a onClick=\"handleConfirmation()\">conferma</a> ."
 
@@ -1484,3 +1494,4 @@ msgstr ""
 #: templates/splash.html:145
 msgid "Confirm"
 msgstr "Conferma"
+

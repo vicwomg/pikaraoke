@@ -4,17 +4,17 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: 1.1.1\n"
+"Project-Id-Version:  1.1.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-19 18:22+1100\n"
+"POT-Creation-Date: 2026-03-20 08:10+1100\n"
 "PO-Revision-Date: 2024-08-28 10:09-0400\n"
 "Last-Translator: \n"
-"Language-Team: zh_hant_TW <LL@li.org>\n"
 "Language: zh_TW\n"
+"Language-Team: zh_hant_TW <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.17.0\n"
 
 #. Message shown after the song is transposed, first is the semitones and then
@@ -293,7 +293,7 @@ msgstr "您沒有編輯歌曲的權限"
 #: routes/files.py:211
 #, python-format
 msgid "Error renaming file: '%s' to '%s', %s"
-msgstr "將檔案重新命名為“%s”時出錯，%s"
+msgstr "將檔案 '%s' 重新命名為 '%s' 時出錯，%s"
 
 #. Message shown after renaming a file.
 #: routes/files.py:217
@@ -455,8 +455,8 @@ msgstr "無法傳輸字幕："
 #. is replaced with the name
 #: templates/base.html:25
 msgid ""
-"Do you want to change the name of the person using this device? This will "
-"show up on queued songs. Current: CURRENT_NAME"
+"Do you want to change the name of the person using this device? This will"
+" show up on queued songs. Current: CURRENT_NAME"
 msgstr "您要更改使用此設備的人的姓名嗎？這將顯示在排隊的歌曲上。目前：CURRENT_NAME"
 
 # auto-translated
@@ -485,8 +485,7 @@ msgid "SEMITONE_VALUE semitones"
 msgstr "SEMITONE_VALUE 半音"
 
 # auto-translated
-#. Confirmation dialog when changing the key/pitch of a song. SEMITONE_LABEL
-#. is
+#. Confirmation dialog when changing the key/pitch of a song. SEMITONE_LABEL is
 #. replaced with a label like "+3 semitones".
 #: templates/base.html:35
 msgid "Transpose this song: SEMITONE_LABEL?"
@@ -502,8 +501,9 @@ msgstr "您確定要重新開始該曲目嗎？"
 #. Informational tooltip explaining what a semitone is.
 #: templates/base.html:39
 msgid ""
-"A semitone is also known as a half-step. It is the smallest interval used in"
-" classical Western music, equal to a twelfth of an octave or half a tone."
+"A semitone is also known as a half-step. It is the smallest interval used"
+" in classical Western music, equal to a twelfth of an octave or half a "
+"tone."
 msgstr "半音也稱為半音。它是西方古典音樂中使用的最小音程，等於十二個八度或半個音。"
 
 # auto-translated
@@ -549,7 +549,8 @@ msgstr "搜尋"
 #. Message about the wait for loading the songs
 #: templates/batch-song-renamer.html:136
 msgid ""
-"The loading process may take a few seconds, as the song titles are compared online. Loading time may vary\n"
+"The loading process may take a few seconds, as the song titles are "
+"compared online. Loading time may vary\n"
 "\tbased on your internet connection."
 msgstr ""
 "由於歌曲名稱是在線比較的，加載過程可能需要幾秒鐘。載入時間可能會有所不同\n"
@@ -645,8 +646,7 @@ msgstr "刪除此歌曲"
 msgid "Sorted Alphabetically"
 msgstr "按字母順序排序"
 
-#. Button which changes how the songs are sorted so they become sorted by
-#. date.
+#. Button which changes how the songs are sorted so they become sorted by date.
 #: templates/files.html:94
 msgid ""
 "Sort by\n"
@@ -659,8 +659,7 @@ msgstr "按日期排序"
 msgid "Sorted by date"
 msgstr "按日期排序"
 
-#. Button which changes how the songs are sorted so they become sorted by
-#. name.
+#. Button which changes how the songs are sorted so they become sorted by name.
 #: templates/files.html:100
 msgid ""
 "Sort by\n"
@@ -691,8 +690,8 @@ msgstr "沒有排隊的歌曲。"
 #. Confirmation message when clicking a button to skip a track.
 #: templates/home.html:134
 msgid ""
-"Are you sure you want to skip this track? If you didn't add this song, ask "
-"permission first!"
+"Are you sure you want to skip this track? If you didn't add this song, "
+"ask permission first!"
 msgstr "您確定要跳過這首歌嗎？如果您不是添加這首歌的人，請先徵求許可！"
 
 #. Header showing the currently playing song.
@@ -895,8 +894,8 @@ msgstr "背景音樂的音量（最小 0，最大 100）"
 #. screensaver
 #: templates/info.html:336
 msgid ""
-"The amount of idle time in seconds before the screen saver activates. Set to"
-" 0 to disable it."
+"The amount of idle time in seconds before the screen saver activates. Set"
+" to 0 to disable it."
 msgstr "螢幕保護程式啟動前的閒置時間（秒）。設為 0 可停用。"
 
 #. Numberbox label for setting the delay before playing the next song
@@ -988,8 +987,8 @@ msgstr "在播放前完全轉碼影片（更好的瀏覽器相容性，較慢的
 #. Checkbox label which enable/disables CDG pixel scaling
 #: templates/info.html:430
 msgid ""
-"Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU "
-"usage)"
+"Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU"
+" usage)"
 msgstr "啟用 CDG 像素縮放（CDG 檔案的視覺效果更清晰，可能會增加 CPU 使用率）"
 
 # auto-translated
@@ -1014,8 +1013,8 @@ msgstr "啟用公平隊列（循環模式確保用戶輪流）"
 #. Numberbox label for setting the buffer size in kilobytes
 #: templates/info.html:457
 msgid ""
-"Buffer size in kilobytes. Transcode this amount of the video before sending "
-"it to the splash screen. "
+"Buffer size in kilobytes. Transcode this amount of the video before "
+"sending it to the splash screen. "
 msgstr "緩衝區大小（KB）。在將影片發送到啟動畫面之前，轉碼這個數量的影片。"
 
 #. Text for the link where the user can clear all user preferences
@@ -1102,7 +1101,8 @@ msgstr "YT-DLP 更新"
 #, python-format
 msgid ""
 "\n"
-"\t\t\t\t\t\tIf downloads or searches stopped working, updating yt-dlp will probably fix it.<br/>\n"
+"\t\t\t\t\t\tIf downloads or searches stopped working, updating yt-dlp "
+"will probably fix it.<br/>\n"
 "\t\t\t\t\t\tThe current installed version is: \"%(youtubedl_version)s\".\n"
 "\t\t\t\t\t"
 msgstr ""
@@ -1119,7 +1119,8 @@ msgstr "更新 yt-dlp"
 #. the machine running Pikaraoke.
 #: templates/info.html:540
 msgid ""
-"* This update link above may fail if you don't have proper file permissions.\n"
+"* This update link above may fail if you don't have proper file "
+"permissions.\n"
 "\t\t\t\t\t\t\tCheck the pikaraoke log for errors."
 msgstr ""
 "如果您沒有適當的檔案權限，上面的更新連結可能會失敗。\n"
@@ -1140,8 +1141,10 @@ msgstr "擴展樹莓派檔案系統"
 #. filesystem.
 #: templates/info.html:562
 msgid ""
-"If you just installed the pre-built pikaraoke pi image and your SD card is larger than 4GB,\n"
-"\t\t\t\t\t\t\tyou may want to expand the filesystem to utilize the remaining space. You only need to do this once.\n"
+"If you just installed the pre-built pikaraoke pi image and your SD card "
+"is larger than 4GB,\n"
+"\t\t\t\t\t\t\tyou may want to expand the filesystem to utilize the "
+"remaining space. You only need to do this once.\n"
 "\t\t\t\t\t\t\tThis will reboot the system."
 msgstr ""
 "如果您剛剛安裝了預建的卡拉OK派樹莓派映像，且您的 SD 卡大於 4GB，\n"
@@ -1244,9 +1247,9 @@ msgid ""
 "pattern=\"\\d*\" maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" "
 "style=\"width: 42px\" /> random songs"
 msgstr ""
-"加 <input id=\"randomNumberInput\" class=\"input mx-2 p-2\" pattern=\"\\d*\" "
-"maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" style=\"width: 42px\" /> "
-"隨機歌曲"
+"加 <input id=\"randomNumberInput\" class=\"input mx-2 p-2\" "
+"pattern=\"\\d*\" maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" "
+"style=\"width: 42px\" /> 隨機歌曲"
 
 #: templates/queue.html:509
 msgid "Clear all"
@@ -1330,7 +1333,8 @@ msgstr "進階"
 #: templates/search.html:617
 msgid ""
 "- Type a song (title/artist) to search\n"
-"\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to the queue."
+"\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to"
+" the queue."
 msgstr ""
 "輸入歌曲\n"
 "          （標題/歌手）以搜尋可用歌曲，並點擊「添加到播放列表」\n"
@@ -1340,7 +1344,8 @@ msgstr ""
 #: templates/search.html:621
 msgid ""
 "- If the song doesn't appear in\n"
-"\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find it on Youtube"
+"\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find "
+"it on Youtube"
 msgstr ""
 "如果\n"
 "          歌曲未出現在「可用歌曲」下拉選單中，點擊\n"
@@ -1402,8 +1407,8 @@ msgstr "連線遺失。伺服器還在運作嗎？"
 # auto-translated
 #: templates/splash.html:24
 msgid ""
-"This browser is not fully supported. You may experience streaming issues. "
-"Please use Chrome/Safari/Firefox/Edge for best results."
+"This browser is not fully supported. You may experience streaming issues."
+" Please use Chrome/Safari/Firefox/Edge for best results."
 msgstr "該瀏覽器不完全支援。您可能會遇到串流媒體問題。請使用 Chrome/Safari/Firefox/Edge 以獲得最佳效果。"
 
 #. Label for the next song to be played in the queue.
@@ -1425,7 +1430,8 @@ msgstr "您的分數"
 #: templates/splash.html:132
 msgid ""
 "Due to limitations with browser permissions, you must interact\n"
-"      with the page once before it allows autoplay of videos. Pikaraoke will not\n"
+"      with the page once before it allows autoplay of videos. Pikaraoke "
+"will not\n"
 "      play otherwise. Click the button below to\n"
 "      <a onClick=\"handleConfirmation()\">confirm</a>."
 msgstr ""
@@ -1438,3 +1444,4 @@ msgstr ""
 #: templates/splash.html:145
 msgid "Confirm"
 msgstr "確認"
+
