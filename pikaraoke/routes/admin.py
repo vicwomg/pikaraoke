@@ -1,7 +1,5 @@
 """Admin routes for system control and authentication."""
 
-from __future__ import annotations
-
 import datetime
 import os
 import subprocess
@@ -10,7 +8,7 @@ import threading
 import time
 
 import flask_babel
-from flask import flash, make_response, redirect, render_template, url_for
+from flask import flash, jsonify, make_response, redirect, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
@@ -69,16 +67,25 @@ def update_ytdl():
     return redirect(url_for("info.info"))
 
 
-@admin_bp.route("/refresh")
-def refresh():
-    """Refresh the available songs list."""
+@admin_bp.route("/library_stats")
+def library_stats():
+    """Return song count for the admin dashboard."""
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
     k = get_karaoke_instance()
-    if is_admin():
-        k.song_manager.refresh_songs()
-    else:
-        # MSG: Message shown after trying to refresh the song list without admin permissions.
-        flash(_("You don't have permission to refresh the song list"), "is-danger")
-    return redirect(url_for("files.browse"))
+    return jsonify({"song_count": len(k.song_manager.songs)})
+
+
+@admin_bp.route("/sync_library")
+def sync_library():
+    """Trigger a background library scan."""
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    k = get_karaoke_instance()
+    started = k.sync_library()
+    if started:
+        return jsonify({"status": "started"})
+    return jsonify({"status": "already_syncing"})
 
 
 @admin_bp.route("/quit")
@@ -176,16 +183,10 @@ def auth(form):
     return resp
 
 
-@admin_bp.route("/login")
-def login():
-    """Admin login page."""
-    return render_template("login.html")
-
-
 @admin_bp.route("/logout")
 def logout():
     """Log out of admin mode."""
-    resp = make_response(redirect("/"))
+    resp = make_response(redirect(url_for("info.info")))
     resp.set_cookie("admin", "")
     # MSG: Message shown after logging out as admin successfully
     flash(_("Logged out of admin mode!"), "is-success")
