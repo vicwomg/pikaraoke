@@ -7,17 +7,18 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-19 15:32+1100\n"
+"POT-Creation-Date: 2026-03-19 16:45+1100\n"
 "PO-Revision-Date: 2025-01-14 10:20-0800\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: th_TH <LL@li.org>\n"
 "Language: th_TH\n"
+"Language-Team: th_TH <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.17.0\n"
 
+# auto-translated
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
 #: karaoke.py:453
@@ -25,6 +26,7 @@ msgstr ""
 msgid "Transposing by %s semitones: %s"
 msgstr "ย้ายตาม %s ครึ่งเสียง: %s"
 
+# auto-translated
 #. Message shown after the volume is changed, will be followed by the volume
 #. level
 #: karaoke.py:469
@@ -32,229 +34,274 @@ msgstr "ย้ายตาม %s ครึ่งเสียง: %s"
 msgid "Volume: %s"
 msgstr "ปริมาณ: %s"
 
+# auto-translated
 #: lib/download_manager.py:130
 #, python-format
 msgid "Download queued (#%d): %s"
 msgstr "ดาวน์โหลดอยู่ในคิว (#%d): %s"
 
+# auto-translated
 #. Message shown when download is added and will start immediately
 #: lib/download_manager.py:134
 #, python-format
 msgid "Download starting: %s"
 msgstr "เริ่มดาวน์โหลด: %s"
 
+# auto-translated
 #. Message shown when download actually starts (after waiting in queue)
 #: lib/download_manager.py:222
 #, python-format
 msgid "Downloading video: %s"
 msgstr "กำลังดาวน์โหลดวิดีโอ: %s"
 
+# auto-translated
 #: lib/download_manager.py:280
 msgid "Error downloading song: "
 msgstr "เกิดข้อผิดพลาดในการดาวน์โหลดเพลง:"
 
+# auto-translated
 #: lib/download_manager.py:300
 #, python-format
 msgid "Downloaded and queued: %s"
 msgstr "ดาวน์โหลดและเข้าคิวแล้ว: %s"
 
+# auto-translated
 #. Message shown after the download is completed but not queued
 #: lib/download_manager.py:304
 #, python-format
 msgid "Downloaded: %s"
 msgstr "ดาวน์โหลดแล้ว: %s"
 
+# auto-translated
 #: lib/download_manager.py:327
 msgid "Error queueing song: "
 msgstr "เกิดข้อผิดพลาดในการเข้าคิวเพลง:"
 
+# auto-translated
 #: lib/playback_controller.py:89
 #, python-format
 msgid "Song file not found: %s"
 msgstr "ไม่พบไฟล์เพลง: %s"
 
+# auto-translated
 #: lib/playback_controller.py:120
 msgid "Stream was not playable! Skipping track"
 msgstr "ไม่สามารถเล่นสตรีมได้! ข้ามแทร็ก"
 
+# auto-translated
 #. Message shown when the song ends abnormally
 #: lib/playback_controller.py:149
 #, python-format
 msgid "Song ended abnormally: %s"
 msgstr "เพลงจบลงอย่างผิดปกติ: %s"
 
+# auto-translated
 #. Message shown after the song is skipped, will be followed by song name
 #: lib/playback_controller.py:173
 #, python-format
 msgid "Skip: %s"
 msgstr "ข้าม: %s"
 
+# auto-translated
 #. Message shown after the song is resumed, will be followed by song name
 #: lib/playback_controller.py:189
 #, python-format
 msgid "Resume: %s"
 msgstr "ดำเนินการต่อ: %s"
 
+# auto-translated
 #. Message shown after the song is paused, will be followed by song name
 #: lib/playback_controller.py:192
 #, python-format
 msgid "Pause: %s"
 msgstr "หยุดชั่วคราว: %s"
 
+# auto-translated
 #: lib/preference_manager.py:133
 msgid "Your preferences were changed successfully"
 msgstr "การเปลี่ยนแปลงการตั้งค่าของคุณสำเร็จแล้ว"
 
+# auto-translated
 #: lib/preference_manager.py:136 templates/info.html:19
 msgid "Something went wrong! Your preferences were not changed"
 msgstr "มีบางอย่างผิดพลาด! การตั้งค่าของคุณไม่เปลี่ยนแปลง"
 
+# auto-translated
 #: lib/preference_manager.py:153
 msgid "Your preferences were cleared successfully"
 msgstr "การตั้งค่าของคุณถูกล้างเรียบร้อยแล้ว"
 
+# auto-translated
 #: lib/preference_manager.py:156
 msgid "Something went wrong! Your preferences were not cleared"
 msgstr "มีบางอย่างผิดพลาด! การตั้งค่าของคุณไม่ได้รับการล้าง"
 
+# auto-translated
 #: lib/queue_manager.py:111
 #, python-format
 msgid "Song is already in the queue: %s"
 msgstr "เพลงอยู่ในคิวแล้ว: %s"
 
+# auto-translated
 #: lib/queue_manager.py:119
 #, python-format
 msgid "You reached the limit of %s song(s) from an user in queue!"
 msgstr "คุณถึงขีดจำกัด %s เพลงจากผู้ใช้ในคิวแล้ว!"
 
+# auto-translated
 #: lib/queue_manager.py:132
 #, python-format
 msgid "%s added to top of queue: %s"
 msgstr "เพิ่ม %s ที่ด้านบนของคิว: %s"
 
+# auto-translated
 #: lib/queue_manager.py:141
 #, python-format
 msgid "%s added to the queue: %s"
 msgstr "%s ถูกเพิ่มเข้าไปในคิว: %s"
 
+# auto-translated
 #: lib/queue_manager.py:153
 #, python-format
 msgid "Song added to the queue: %s"
 msgstr "เพิ่มเพลงในคิว: %s"
 
+# auto-translated
 #. Message shown after the queue is cleared
 #: lib/queue_manager.py:194
 msgid "Clear queue"
 msgstr "เคลียร์คิว"
 
+# auto-translated
 #: lib/stream_manager.py:112
 #, python-format
 msgid "Error resolving file: %s"
 msgstr "เกิดข้อผิดพลาดในการแก้ไขไฟล์: %s"
 
+# auto-translated
 #: lib/stream_manager.py:148
 msgid "Failed to prepare stream"
 msgstr "ไม่สามารถเตรียมสตรีมได้"
 
+# auto-translated
 #. Message shown after starting the youtube-dl update.
 #: routes/admin.py:59
 msgid "Updating youtube-dl! Should take a minute or two... "
 msgstr "กำลังอัปเดต youtube-dl! ควรใช้เวลาหนึ่งหรือสองนาที..."
 
+# auto-translated
 #. Message shown after trying to update youtube-dl without admin permissions.
 #: routes/admin.py:66
 msgid "You don't have permission to update youtube-dl"
 msgstr "คุณไม่ได้รับอนุญาตให้อัปเดต youtube-dl"
 
+# auto-translated
 #. Message shown after quitting pikaraoke.
 #: routes/admin.py:97
 msgid "Exiting pikaraoke now!"
 msgstr "ออกจากพิคาราโอเกะแล้ว!"
 
+# auto-translated
 #. Message shown after trying to quit pikaraoke without admin permissions.
 #: routes/admin.py:104
 msgid "You don't have permission to quit"
 msgstr "คุณไม่ได้รับอนุญาตให้ออก"
 
+# auto-translated
 #. Message shown after shutting down the system.
 #: routes/admin.py:114
 msgid "Shutting down system now!"
 msgstr "ขณะนี้กำลังปิดระบบ!"
 
+# auto-translated
 #. Message shown after trying to shut down the system without admin
 #. permissions.
 #: routes/admin.py:121
 msgid "You don't have permission to shut down"
 msgstr "คุณไม่ได้รับอนุญาตให้ปิดระบบ"
 
+# auto-translated
 #. Message shown after rebooting the system.
 #: routes/admin.py:131
 msgid "Rebooting system now!"
 msgstr "กำลังรีบูตระบบทันที!"
 
+# auto-translated
 #. Message shown after trying to reboot the system without admin permissions.
 #: routes/admin.py:138
 msgid "You don't have permission to Reboot"
 msgstr "คุณไม่ได้รับอนุญาตให้รีบูต"
 
+# auto-translated
 #. Message shown after expanding the filesystem.
 #: routes/admin.py:148
 msgid "Expanding filesystem and rebooting system now!"
 msgstr "กำลังขยายระบบไฟล์และระบบรีบูตทันที!"
 
+# auto-translated
 #. Message shown after trying to expand the filesystem on a non-raspberry pi
 #. device.
 #: routes/admin.py:153
 msgid "Cannot expand fs on non-raspberry pi devices!"
 msgstr "ไม่สามารถขยาย fs บนอุปกรณ์ที่ไม่ใช่ Raspberry pi ได้!"
 
+# auto-translated
 #. Message shown after trying to expand the filesystem without admin
 #. permissions
 #: routes/admin.py:156
 msgid "You don't have permission to resize the filesystem"
 msgstr "คุณไม่ได้รับอนุญาตให้ปรับขนาดระบบไฟล์"
 
+# auto-translated
 #. Message shown after logging in as admin successfully
 #: routes/admin.py:178
 msgid "Admin mode granted!"
 msgstr "อนุญาตโหมดผู้ดูแลระบบแล้ว!"
 
+# auto-translated
 #. Message shown after failing to login as admin
 #: routes/admin.py:182
 msgid "Incorrect admin password!"
 msgstr "รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง!"
 
+# auto-translated
 #. Message shown after logging out as admin successfully
 #: routes/admin.py:192
 msgid "Logged out of admin mode!"
 msgstr "ออกจากระบบโหมดผู้ดูแลระบบ!"
 
+# auto-translated
 #. Title of the button to accept the suggested name
 #: routes/batch_song_renamer.py:144
 msgid "Accept suggested name"
 msgstr "ยอมรับชื่อที่แนะนำ"
 
+# auto-translated
 #. Title of the files page.
 #. Page title for the page where the user can batch rename songs.
 #: routes/batch_song_renamer.py:152 templates/batch-song-renamer.html:133
 msgid "Batch Song Renamer"
 msgstr "การเปลี่ยนชื่อเพลงเป็นชุด"
 
+# auto-translated
 #. Message shown after trying to edit a song without specifying the filename.
 #: routes/batch_song_renamer.py:236
 msgid "Error: No filename parameters were specified!"
 msgstr "ข้อผิดพลาด: ไม่ได้ระบุพารามิเตอร์ชื่อไฟล์!"
 
+# auto-translated
 #: routes/batch_song_renamer.py:245 routes/files.py:160 routes/files.py:191
 msgid "Error: Can't edit this song because it is in the current queue: "
 msgstr "ข้อผิดพลาด: ไม่สามารถแก้ไขเพลงนี้ได้เนื่องจากอยู่ในคิวปัจจุบัน:"
 
+# auto-translated
 #. Message shown after trying to rename a file to a name that already exists.
 #: routes/batch_song_renamer.py:259 routes/files.py:201
 #, python-format
 msgid "Error renaming file: '%s' to '%s', Filename already exists"
 msgstr "เกิดข้อผิดพลาดในการเปลี่ยนชื่อไฟล์: '%s' เป็น '%s' มีชื่อไฟล์อยู่แล้ว"
 
+# auto-translated
 #. Title of the files page.
 #. Navigation link for the page where the user can add existing songs to the
 #. queue.
@@ -262,204 +309,248 @@ msgstr "เกิดข้อผิดพลาดในการเปลี่
 msgid "Browse"
 msgstr "เรียกดู"
 
+# auto-translated
 #: routes/files.py:126
 msgid "You don't have permission to delete songs"
 msgstr "คุณไม่ได้รับอนุญาตให้ลบเพลง"
 
+# auto-translated
 #. Message shown after trying to delete a song that is in the queue.
 #: routes/files.py:131
 msgid "Error: Can't delete this song because it is in the current queue"
 msgstr "ข้อผิดพลาด: ไม่สามารถลบเพลงนี้ได้เนื่องจากอยู่ในคิวปัจจุบัน"
 
+# auto-translated
 #: routes/files.py:140
 #, python-format
 msgid "Song deleted: %s"
 msgstr "เพลงที่ถูกลบ: %s"
 
+# auto-translated
 #: routes/files.py:155 routes/files.py:184
 msgid "You don't have permission to edit songs"
 msgstr "คุณไม่ได้รับอนุญาตให้แก้ไขเพลง"
 
+# auto-translated
 #: routes/files.py:211
 #, python-format
 msgid "Error renaming file: '%s' to '%s', %s"
 msgstr "เกิดข้อผิดพลาดในการเปลี่ยนชื่อไฟล์: '%s' เป็น '%s', %s"
 
+# auto-translated
 #. Message shown after renaming a file.
 #: routes/files.py:217
 #, python-format
 msgid "Renamed file: %s to %s"
 msgstr "เปลี่ยนชื่อไฟล์: %s เป็น %s"
 
+# auto-translated
 #: routes/info.py:100
 msgid "CPU usage query unsupported"
 msgstr "ไม่รองรับแบบสอบถามการใช้งาน CPU"
 
+# auto-translated
 #. Message shown after trying to change preferences without admin permissions.
 #: routes/preferences.py:42
 msgid "You don't have permission to change preferences"
 msgstr "คุณไม่ได้รับอนุญาตให้เปลี่ยนการตั้งค่า"
 
+# auto-translated
 #. Message shown after trying to clear preferences without admin permissions.
 #: routes/preferences.py:59
 msgid "You don't have permission to clear preferences"
 msgstr "คุณไม่ได้รับอนุญาตให้ล้างค่ากำหนด"
 
+# auto-translated
 #: routes/queue.py:80
 msgid "You don't have permission to add random songs"
 msgstr "คุณไม่ได้รับอนุญาตให้เพิ่มเพลงแบบสุ่ม"
 
+# auto-translated
 #. Message shown after adding random tracks
 #: routes/queue.py:86
 #, python-format
 msgid "Added %s random tracks"
 msgstr "เพิ่ม %s แทร็กแบบสุ่ม"
 
+# auto-translated
 #. Message shown after running out songs to add during random track addition
 #: routes/queue.py:89
 msgid "Ran out of songs!"
 msgstr "เพลงหมด!"
 
+# auto-translated
 #. Message shown when non-admin tries to edit queue
 #: routes/queue.py:121
 msgid "Unauthorized"
 msgstr "ไม่ได้รับอนุญาต"
 
+# auto-translated
 #: routes/queue.py:131
 msgid "Cleared the queue!"
 msgstr "เคลียร์คิว!"
 
+# auto-translated
 #: routes/queue.py:143
 msgid "Moved to top of queue"
 msgstr "ย้ายไปอยู่ด้านบนของคิว"
 
+# auto-translated
 #: routes/queue.py:144
 msgid "Moved to bottom of queue"
 msgstr "ย้ายไปอยู่ด้านล่างสุดของคิว"
 
+# auto-translated
 #: routes/queue.py:145
 msgid "Moved up in queue"
 msgstr "ขยับขึ้นไปตามคิว."
 
+# auto-translated
 #: routes/queue.py:146
 msgid "Moved down in queue"
 msgstr "เลื่อนลงมาตามคิว."
 
+# auto-translated
 #: routes/queue.py:147
 msgid "Deleted from queue"
 msgstr "ลบออกจากคิวแล้ว"
 
+# auto-translated
 #: routes/queue.py:150
 msgid "Error moving to top of queue"
 msgstr "เกิดข้อผิดพลาดในการย้ายไปอยู่ด้านบนสุดของคิว"
 
+# auto-translated
 #: routes/queue.py:151
 msgid "Error moving to bottom of queue"
 msgstr "เกิดข้อผิดพลาดในการย้ายไปที่ด้านล่างของคิว"
 
+# auto-translated
 #: routes/queue.py:152
 msgid "Error moving up in queue"
 msgstr "เกิดข้อผิดพลาดในการเลื่อนขึ้นในคิว"
 
+# auto-translated
 #: routes/queue.py:153
 msgid "Error moving down in queue"
 msgstr "เกิดข้อผิดพลาดในการย้ายลงในคิว"
 
-#. auto-translated
+# auto-translated
 #: routes/queue.py:154
 msgid "Error deleting from queue"
 msgstr "เกิดข้อผิดพลาดในการลบออกจากคิว"
 
+# auto-translated
 #: routes/splash.py:24
 msgid "Never sing again... ever."
 msgstr "อย่าร้องเพลงอีกเลย...เคย"
 
+# auto-translated
 #: routes/splash.py:25
 msgid "That was a really good impression of a dying cat!"
 msgstr "นั่นเป็นความประทับใจที่ดีจริงๆ กับแมวที่กำลังจะตาย!"
 
+# auto-translated
 #: routes/splash.py:26
 msgid "Thank God it's over."
 msgstr "ขอบคุณพระเจ้า มันจบแล้ว"
 
+# auto-translated
 #: routes/splash.py:27
 msgid "Pass the mic, please!"
 msgstr "กรุณาส่งไมค์หน่อย!"
 
+# auto-translated
 #: routes/splash.py:28
 msgid "Well, I'm sure you're very good at your day job."
 msgstr "ฉันแน่ใจว่าคุณเก่งในงานประจำวันมาก"
 
+# auto-translated
 #: routes/splash.py:31
 msgid "I've seen better."
 msgstr "ฉันได้เห็นดีขึ้น"
 
+# auto-translated
 #: routes/splash.py:32
 msgid "Ok... just ok."
 msgstr "โอเค...ก็แค่โอเค"
 
+# auto-translated
 #: routes/splash.py:33
 msgid "Not bad for an amateur."
 msgstr "ไม่เลวสำหรับมือสมัครเล่น"
 
+# auto-translated
 #: routes/splash.py:34
 msgid "You put on a decent show."
 msgstr "คุณแสดงได้เหมาะสม"
 
+# auto-translated
 #: routes/splash.py:35
 msgid "That was... something."
 msgstr "นั่นคือ... บางสิ่งบางอย่าง"
 
+# auto-translated
 #: routes/splash.py:38
 msgid "Congratulations! That was unbelievable!"
 msgstr "ยินดีด้วย! นั่นมันเหลือเชื่อมาก!"
 
+# auto-translated
 #: routes/splash.py:39
 msgid "Wow, have you tried auditioning for The Voice?"
 msgstr "ว้าว ได้ลองออดิชั่นรายการ The Voice แล้วหรือยัง?"
 
+# auto-translated
 #: routes/splash.py:40
 msgid "Please, sing another one!"
 msgstr "ได้โปรดร้องเพลงอีกอัน!"
 
+# auto-translated
 #: routes/splash.py:41
 msgid "You rock! You know that?!"
 msgstr "คุณร็อค! คุณรู้ไหม!"
 
+# auto-translated
 #: routes/splash.py:42
 msgid "Woah, who let Freddie Mercury in here?"
 msgstr "ว้าว ใครปล่อยให้เฟรดดี้ เมอร์คิวรี่มาที่นี่?"
 
+# auto-translated
 #: routes/stream.py:238
 msgid "Failed to stream subtitle: "
 msgstr "ไม่สามารถสตรีมคำบรรยายได้:"
 
+# auto-translated
 #. Prompt to change the username displayed next to queued songs. CURRENT_NAME
 #. is replaced with the name
 #: templates/base.html:25
 msgid ""
-"Do you want to change the name of the person using this device? This will "
-"show up on queued songs. Current: CURRENT_NAME"
+"Do you want to change the name of the person using this device? This will"
+" show up on queued songs. Current: CURRENT_NAME"
 msgstr ""
 "คุณต้องการเปลี่ยนชื่อบุคคลที่ใช้อุปกรณ์นี้หรือไม่? "
 "สิ่งนี้จะปรากฏในเพลงที่อยู่ในคิว ปัจจุบัน: CURRENT_NAME"
 
+# auto-translated
 #. Confirmation prompt to clear entire queue. User must type ok to confirm
 #: templates/base.html:27
 msgid "Are you sure you want to clear the ENTIRE queue? Type ok to continue"
 msgstr "คุณแน่ใจหรือไม่ว่าต้องการล้างคิวทั้งหมด พิมพ์ตกลงเพื่อดำเนินการต่อ"
 
+# auto-translated
 #. Confirmation dialog when removing a song from the queue. SONG_TITLE is
 #. replaced with the title
 #: templates/base.html:29
 msgid "Are you sure you want to delete SONG_TITLE from the queue?"
 msgstr "คุณแน่ใจหรือไม่ว่าต้องการลบ SONG_TITLE ออกจากคิว"
 
+# auto-translated
 #. Confirmation dialog when permanently deleting a song file from the library
 #: templates/base.html:31
 msgid "Are you sure you want to delete this song from the library?"
 msgstr "คุณแน่ใจหรือไม่ว่าต้องการลบเพลงนี้ออกจากห้องสมุด"
 
+# auto-translated
 #. Prompt which asks the user their name when they first try to add to the
 #. queue.
 #: templates/base.html:87
@@ -468,31 +559,39 @@ msgid ""
 "from this device."
 msgstr "กรุณากรอกชื่อของคุณ ซึ่งจะแสดงถัดจากเพลงที่คุณจัดคิวจากอุปกรณ์นี้"
 
+# auto-translated
 #. Navigation link for the home page.
 #: templates/base.html:201
 msgid "Home"
 msgstr "บ้าน"
 
+# auto-translated
 #. Navigation link for the queue page.
 #: templates/base.html:207 templates/queue.html:492
 msgid "Queue"
 msgstr "คิว"
 
+# auto-translated
 #. Navigation link for the search page add songs to the queue.
 #. Submit button on the search form for searching YouTube.
 #: templates/base.html:212 templates/search.html:589
 msgid "Search"
 msgstr "ค้นหา"
 
+# auto-translated
 #. Message about the wait for loading the songs
 #: templates/batch-song-renamer.html:136
 msgid ""
-"The loading process may take a few seconds, as the song titles are compared online. Loading time may vary\n"
+"The loading process may take a few seconds, as the song titles are "
+"compared online. Loading time may vary\n"
 "\tbased on your internet connection."
 msgstr ""
-"กระบวนการโหลดอาจใช้เวลาสักครู่ เนื่องจากมีการเปรียบเทียบชื่อเพลงทางออนไลน์ เวลาในการโหลดอาจแตกต่างกันไป\n"
+"กระบวนการโหลดอาจใช้เวลาสักครู่ "
+"เนื่องจากมีการเปรียบเทียบชื่อเพลงทางออนไลน์ เวลาในการโหลดอาจแตกต่างกันไป"
+"\n"
 "\tขึ้นอยู่กับการเชื่อมต่ออินเทอร์เน็ตของคุณ"
 
+# auto-translated
 #. Label which displays that all songs are being shown
 #: templates/batch-song-renamer.html:141
 msgid ""
@@ -502,11 +601,13 @@ msgstr ""
 "แสดงทั้งหมด\n"
 "\tเพลง"
 
+# auto-translated
 #. Button which changes to show only the songs to rename
 #: templates/batch-song-renamer.html:144
 msgid "Show only songs to rename"
 msgstr "แสดงเฉพาะเพลงที่จะเปลี่ยนชื่อ"
 
+# auto-translated
 #. Label which displays that only songs to rename are being shown.
 #: templates/batch-song-renamer.html:147
 msgid ""
@@ -516,63 +617,74 @@ msgstr ""
 "แสดงเฉพาะเพลงเท่านั้น\n"
 "\tเพื่อเปลี่ยนชื่อ"
 
+# auto-translated
 #. Button which changes to show all songs
 #: templates/batch-song-renamer.html:150
 msgid "Show all songs"
 msgstr "แสดงเพลงทั้งหมด"
 
+# auto-translated
 #. Message displaying that the songs are currently being loaded
 #: templates/batch-song-renamer.html:158
 msgid "Loading songs..."
 msgstr "กำลังโหลดเพลง..."
 
+# auto-translated
 #. Warning when no suggested tracks are found for a search.
 #: templates/edit.html:30
 msgid "No suggestion!"
 msgstr "ไม่มีข้อเสนอแนะ!"
 
+# auto-translated
 #. Page title for the page where a song can be edited.
 #: templates/edit.html:55
 msgid "Edit Song"
 msgstr "แก้ไขเพลง"
 
+# auto-translated
 #. Label on the control to edit the song's name
 #: templates/edit.html:69
 msgid "Edit Song Name"
 msgstr "แก้ไขชื่อเพลง"
 
+# auto-translated
 #. Label on button which auto formats the song's title.
 #: templates/edit.html:76
 msgid "Auto-format"
 msgstr "จัดรูปแบบอัตโนมัติ"
 
+# auto-translated
 #. Label on button which swaps the order of the artist and song in the title.
 #: templates/edit.html:78
 msgid "Swap artist/song order"
 msgstr "สลับลำดับศิลปิน/เพลง"
 
+# auto-translated
 #. Label on button which saves the changes.
 #: templates/edit.html:89
 msgid "Save"
 msgstr "บันทึก"
 
+# auto-translated
 #: templates/edit.html:94
 msgid "Cancel"
 msgstr "ยกเลิก"
 
+# auto-translated
 #. Label on button which deletes the current song.
 #: templates/edit.html:105
 msgid "Delete this song"
 msgstr "ลบเพลงนี้"
 
+# auto-translated
 #. Label which displays that the songs are currently sorted by
 #. alphabetical order.
 #: templates/files.html:92
 msgid "Sorted Alphabetically"
 msgstr "เรียงตามตัวอักษร"
 
-#. Button which changes how the songs are sorted so they become sorted by
-#. date.
+# auto-translated
+#. Button which changes how the songs are sorted so they become sorted by date.
 #: templates/files.html:94
 msgid ""
 "Sort by\n"
@@ -581,14 +693,15 @@ msgstr ""
 "เรียงตาม\n"
 "\t\t\tวันที่"
 
+# auto-translated
 #. Label which displays that the songs are currently sorted by
 #. date.
 #: templates/files.html:98
 msgid "Sorted by date"
 msgstr "เรียงตามวันที่"
 
-#. Button which changes how the songs are sorted so they become sorted by
-#. name.
+# auto-translated
+#. Button which changes how the songs are sorted so they become sorted by name.
 #: templates/files.html:100
 msgid ""
 "Sort by\n"
@@ -597,493 +710,585 @@ msgstr ""
 "เรียงตาม\n"
 "\t\t\tตามตัวอักษร"
 
+# auto-translated
 #. Button to open the batch song renamer page.
 #: templates/files.html:107
 msgid "Edit all songs"
 msgstr "แก้ไขเพลงทั้งหมด"
 
+# auto-translated
 #. Message which shows in the "Now Playing" section when there is no song
 #. currently playing
 #: templates/home.html:35
 msgid "Nothing is playing right now."
 msgstr "ไม่มีอะไรกำลังเล่นอยู่ในขณะนี้"
 
+# auto-translated
 #. Title text for the icon marking the next person to sing.
 #: templates/home.html:43
 msgid "Next singer"
 msgstr "นักร้องคนต่อไป"
 
+# auto-translated
 #. Alternative text for the "Up next" section if no more songs are queued up.
 #: templates/home.html:46
 msgid "No song is queued."
 msgstr "ไม่มีเพลงอยู่ในคิว"
 
+# auto-translated
 #. Confirmation message when clicking a button to skip a track.
 #: templates/home.html:134
 msgid ""
-"Are you sure you want to skip this track? If you didn't add this song, ask "
-"permission first!"
-msgstr ""
-"คุณแน่ใจหรือไม่ว่าต้องการข้ามแทร็กนี้ ใครไม่ได้แอดเพลงนี้ต้องขออนุญาตก่อน!"
+"Are you sure you want to skip this track? If you didn't add this song, "
+"ask permission first!"
+msgstr "คุณแน่ใจหรือไม่ว่าต้องการข้ามแทร็กนี้ ใครไม่ได้แอดเพลงนี้ต้องขออนุญาตก่อน!"
 
+# auto-translated
 #. Header showing the currently playing song.
 #: templates/home.html:181
 msgid "Now Playing"
 msgstr "กำลังเล่นอยู่"
 
+# auto-translated
 #. Title for the section displaying the next song to be played.
 #: templates/home.html:194
 msgid "Next Song"
 msgstr "เพลงถัดไป"
 
+# auto-translated
 #. Title of the box with controls such as pause and skip.
 #: templates/home.html:201
 msgid "Player Control"
 msgstr "การควบคุมผู้เล่น"
 
+# auto-translated
 #. Title attribute on the button to play or pause the current song.
 #: templates/home.html:205
 msgid "Restart Song"
 msgstr "รีสตาร์ทเพลง"
 
+# auto-translated
 #. Title attribute on the button to skip to the next song.
 #: templates/home.html:207
 msgid "Play/Pause"
 msgstr "เล่น/หยุดชั่วคราว"
 
+# auto-translated
 #: templates/home.html:209
 msgid "Stop Current Song"
 msgstr "หยุดเพลงปัจจุบัน"
 
+# auto-translated
 #. Title of a control to change the key/pitch of the playing song.
 #: templates/home.html:231
 msgid "Change Key"
 msgstr "เปลี่ยนคีย์"
 
+# auto-translated
 #. Label on the button to confirm the change in key/pitch of the playing song.
 #: templates/home.html:251
 msgid "Change"
 msgstr "เปลี่ยน"
 
+# auto-translated
 #. Confirmation text whe the user selects quit.
 #: templates/info.html:67
 msgid "Are you sure you want to quit?"
 msgstr "คุณแน่ใจหรือว่าต้องการเลิก?"
 
+# auto-translated
 #. Confirmation text whe the user starts to turn off the machine running
 #. Pikaraoke.
 #: templates/info.html:75
 msgid "Are you sure you want to shut down?"
 msgstr "คุณแน่ใจหรือไม่ว่าต้องการปิดระบบ?"
 
+# auto-translated
 #. Confirmation text whe the user clears preferences.
 #: templates/info.html:83
 msgid "Are you sure you want to clear your preferences?"
 msgstr "คุณแน่ใจหรือไม่ว่าต้องการล้างค่ากำหนดของคุณ?"
 
+# auto-translated
 #. Confirmation text whe the user starts to reboot the machine running
 #. Pikaraoke.
 #: templates/info.html:91
 msgid "Are you sure you want to reboot?"
 msgstr "คุณแน่ใจหรือไม่ว่าต้องการรีบูต?"
 
+# auto-translated
 #. Confirmation text whe the user asks to update the Youtube-dl tool.
 #: templates/info.html:101
 msgid ""
-"Are you sure you want to update Youtube-dl right now? Current and pending "
-"downloads may fail."
+"Are you sure you want to update Youtube-dl right now? Current and pending"
+" downloads may fail."
 msgstr ""
-"Are you sure you want to update Youtube-dl right now? "
+"คุณแน่ใจหรือไม่ว่าต้องการอัปเดต Youtube-dl ตอนนี้ "
 "การดาวน์โหลดปัจจุบันและรอดำเนินการอาจล้มเหลว"
 
+# auto-translated
 #. Confirmation text when the user wants to expand the filesystem to take the
 #. entire SD card.
 #: templates/info.html:179
 msgid "Library sync complete"
 msgstr "การซิงค์ไลบรารีเสร็จสมบูรณ์"
 
+# auto-translated
 #. Title of the information page.
 #: templates/info.html:189
 msgid "Information"
 msgstr "ข้อมูล"
 
+# auto-translated
 #. Label which appears before a url which links to the current page.
 #: templates/info.html:201
 #, python-format
 msgid "URL of %(site_title)s:"
 msgstr "URL ของ %(site_title)s:"
 
+# auto-translated
 #. Label before a QR code which brings a frind (pal) to the main page if
 #. scanned, so they can also add songs. QR code follows this text.
 #: templates/info.html:207
 msgid "Handy URL QR code to share with a pal:"
 msgstr "รหัส QR URL ที่มีประโยชน์เพื่อแบ่งปันกับเพื่อน:"
 
+# auto-translated
 #. Title of the admin section.
 #: templates/info.html:215 templates/info.html:578
 msgid "Admin"
 msgstr "ผู้ดูแลระบบ"
 
+# auto-translated
 #. Title fo the form to enter the administrator password.
 #: templates/info.html:221
 msgid "Enter the administrator password"
 msgstr "ป้อนรหัสผ่านผู้ดูแลระบบ"
 
+# auto-translated
 #. Text on submit button for the admin login form.
 #: templates/info.html:230
 msgid "Login"
 msgstr "เข้าสู่ระบบ"
 
+# auto-translated
 #. Title of the song library section.
 #: templates/info.html:242
 msgid "Song Library"
 msgstr "ห้องสมุดเพลง"
 
+# auto-translated
 #. Header of the song library management section.
 #: templates/info.html:247
 msgid "Library"
 msgstr "ห้องสมุด"
 
+# auto-translated
 #. Song count display in the library card.
 #: templates/info.html:253
 msgid "Songs in library:"
 msgstr "เพลงในห้องสมุด:"
 
+# auto-translated
 #. Button to trigger a background library scan.
 #: templates/info.html:257
 msgid "Sync Now"
 msgstr "ซิงค์ทันที"
 
+# auto-translated
 #. Help text explaining what Sync Now does.
 #: templates/info.html:261
 msgid "Reconciles the library with the song directory in the background."
 msgstr "กระทบยอดไลบรารีกับไดเร็กทอรีเพลงในเบื้องหลัง"
 
+# auto-translated
 #. Title of the user preferences section.
 #: templates/info.html:268
 msgid "User Preferences"
 msgstr "การตั้งค่าผู้ใช้"
 
+# auto-translated
 #. Title text for the splash screen settings section of preferences
 #: templates/info.html:274
 msgid "Splash screen settings"
 msgstr "การตั้งค่าหน้าจอสแปลช"
 
+# auto-translated
 #. Checkbox label which enable/disables background video on the Splash Screen
 #: templates/info.html:282
 msgid "Disable background video"
 msgstr "ปิดการใช้งานวิดีโอพื้นหลัง"
 
+# auto-translated
 #. Checkbox label which enable/disables background music on the Splash Screen
 #: templates/info.html:288
 msgid "Disable background music"
 msgstr "ปิดการใช้งานเพลงพื้นหลัง"
 
+# auto-translated
 #. Checkbox label which enable/disables the Score Screen
 #: templates/info.html:294
 msgid "Disable the score screen after each song"
 msgstr "ปิดการใช้งานหน้าจอคะแนนหลังจากแต่ละเพลง"
 
+# auto-translated
 #. Checkbox label which enable/disables notifications on the splash screen
 #: templates/info.html:300
 msgid "Hide notifications"
 msgstr "ซ่อนการแจ้งเตือน"
 
+# auto-translated
 #. Checkbox label which enable/disables the digital clock on the splash screen
 #: templates/info.html:306
 msgid "Show splash clock"
 msgstr "แสดงนาฬิกาสาด"
 
+# auto-translated
 #. Checkbox label which enable/disables the URL display
 #: templates/info.html:311
 msgid "Hide the URL and QR code"
 msgstr "ซ่อน URL และโค้ด QR"
 
+# auto-translated
 #. Checkbox label which enable/disables showing overlay data on the splash
 #. screen
 #: templates/info.html:317
 msgid "Hide all overlays, including now playing, up next, and QR code"
 msgstr "ซ่อนโอเวอร์เลย์ทั้งหมด รวมถึงกำลังเล่น ถัดไป และโค้ด QR"
 
+# auto-translated
 #. Numberbox label for setting the default video volume
 #: templates/info.html:323
 msgid "Default volume of the videos (min 0, max 100)"
 msgstr "ปริมาณเริ่มต้นของวิดีโอ (ขั้นต่ำ 0, สูงสุด 100)"
 
+# auto-translated
 #. Numberbox label for setting the background music volume
 #: templates/info.html:329
 msgid "Volume of the background music (min 0, max 100)"
 msgstr "ระดับเสียงเพลงประกอบ (ต่ำสุด 0, สูงสุด 100)"
 
+# auto-translated
 #. Numberbox label for setting the inactive delay before showing the
 #. screensaver
 #: templates/info.html:336
 msgid ""
-"The amount of idle time in seconds before the screen saver activates. Set to"
-" 0 to disable it."
+"The amount of idle time in seconds before the screen saver activates. Set"
+" to 0 to disable it."
 msgstr ""
-"จำนวนเวลาว่างในหน่วยวินาทีก่อนที่โปรแกรมรักษาหน้าจอจะเปิดใช้งาน ตั้งค่าเป็น "
-"0 เพื่อปิดใช้งาน"
+"จำนวนเวลาว่างในหน่วยวินาทีก่อนที่โปรแกรมรักษาหน้าจอจะเปิดใช้งาน "
+"ตั้งค่าเป็น 0 เพื่อปิดใช้งาน"
 
+# auto-translated
 #. Numberbox label for setting the delay before playing the next song
 #: templates/info.html:343
 msgid "The delay in seconds before starting the next song"
 msgstr "ดีเลย์เป็นวินาทีก่อนเริ่มเพลงถัดไป"
 
+# auto-translated
 #. Title text for the Score Phrases section of preferences
 #: templates/info.html:354
 msgid "Score phrases"
 msgstr "คะแนนวลี"
 
+# auto-translated
 #. Help text explaining how to add phrases
 #: templates/info.html:361
 msgid "Add one phrase per line in each box and hit save."
 msgstr "เพิ่มหนึ่งวลีต่อบรรทัดในแต่ละช่องแล้วกดบันทึก"
 
+# auto-translated
 #. Title for LOW Score Phrases
 #: templates/info.html:363
 msgid "LOW Score Phrases (score < 30)"
 msgstr "วลีคะแนนต่ำ (คะแนน < 30)"
 
+# auto-translated
 #. Placeholder for the low score phrases textarea
 #: templates/info.html:365
 msgid "Could be better..."
 msgstr "อาจจะดีกว่านี้..."
 
+# auto-translated
 #. Title for MID Score Phrases
 #: templates/info.html:368
 msgid "MID Score Phrases (30 > score < 60)"
 msgstr "วลีคะแนน MID (30 > คะแนน < 60)"
 
+# auto-translated
 #. Placeholder for the MID score phrases textarea
 #: templates/info.html:370
 msgid "That was ok..."
 msgstr "นั่นก็โอเค..."
 
+# auto-translated
 #. Title for HIGH Score Phrases
 #: templates/info.html:373
 msgid "HIGH Score Phrases (60 < score)"
 msgstr "วลีคะแนนสูง (60 < คะแนน)"
 
+# auto-translated
 #. Placeholder for the HIGH score phrases textarea
 #: templates/info.html:375
 msgid "Wonderfull..."
 msgstr "มหัศจรรย์..."
 
+# auto-translated
 #. Title text for the language settings section of preferences
 #: templates/info.html:383
 msgid "Language settings"
 msgstr "การตั้งค่าภาษา"
 
+# auto-translated
 #. Label for language selection dropdown
 #: templates/info.html:396
 msgid "Preferred language (requires restart)"
 msgstr "ภาษาที่ต้องการ (ต้องรีสตาร์ท)"
 
+# auto-translated
 #. Title text for the server settings section of preferences
 #: templates/info.html:405
 msgid "Server settings"
 msgstr "การตั้งค่าเซิร์ฟเวอร์"
 
+# auto-translated
 #. Checkbox label which enable/disables audio volume normalization
 #: templates/info.html:412
 msgid "Normalize audio volume"
 msgstr "ปรับระดับเสียงให้เป็นปกติ"
 
+# auto-translated
 #. Checkbox label which enable/disables high quality video downloads
 #: templates/info.html:418
 msgid "Download high quality videos"
 msgstr "ดาวน์โหลดวิดีโอคุณภาพสูง"
 
+# auto-translated
 #. Checkbox label which enable/disables full transcode before playback
 #: templates/info.html:424
 msgid ""
 "Transcode video completely before playing (better browser compatibility, "
 "slower starts). Buffer size will be ignored.*"
 msgstr ""
-"แปลงรหัสวิดีโอให้สมบูรณ์ก่อนที่จะเล่น (ความเข้ากันได้ของเบราว์เซอร์ที่ดีขึ้น"
-" เริ่มช้าลง) ขนาดบัฟเฟอร์จะถูกละเว้น*"
+"แปลงรหัสวิดีโอให้สมบูรณ์ก่อนที่จะเล่น "
+"(ความเข้ากันได้ของเบราว์เซอร์ที่ดีขึ้น เริ่มช้าลง) "
+"ขนาดบัฟเฟอร์จะถูกละเว้น*"
 
+# auto-translated
 #. Checkbox label which enable/disables CDG pixel scaling
 #: templates/info.html:430
 msgid ""
-"Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU "
-"usage)"
+"Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU"
+" usage)"
 msgstr ""
 "เปิดใช้งานการปรับขนาดพิกเซลของ CDG (ภาพที่คมชัดยิ่งขึ้นสำหรับไฟล์ CDG "
 "อาจเพิ่มการใช้งาน CPU)"
 
+# auto-translated
 #. Numberbox label for audio video synchronization
 #: templates/info.html:437
 msgid ""
 "Fix the audio and video synchronization in seconds (negative = advances "
 "audio | positive = delays audio)"
 msgstr ""
-"แก้ไขการซิงโครไนซ์เสียงและวิดีโอในไม่กี่วินาที (ลบ = เสียงก้าวหน้า | บวก = "
-"เสียงล่าช้า)"
+"แก้ไขการซิงโครไนซ์เสียงและวิดีโอในไม่กี่วินาที (ลบ = เสียงก้าวหน้า | บวก "
+"= เสียงล่าช้า)"
 
+# auto-translated
 #. Numberbox label for limitting the number of songs for each player
 #: templates/info.html:444
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
 msgstr "ขีดจำกัดของเพลงที่ผู้ใช้แต่ละรายสามารถเพิ่มลงในคิวได้ (0 = ไม่จำกัด)"
 
+# auto-translated
 #. Checkbox label which enable/disables fair queue (round-robin) mode
 #: templates/info.html:450
 msgid "Enable fair queue (round-robin mode ensures users take turns)"
-msgstr ""
-"เปิดใช้งานคิวที่ยุติธรรม (โหมด Round-Robin ช่วยให้มั่นใจว่าผู้ใช้ผลัดกัน)"
+msgstr "เปิดใช้งานคิวที่ยุติธรรม (โหมด Round-Robin ช่วยให้มั่นใจว่าผู้ใช้ผลัดกัน)"
 
+# auto-translated
 #. Numberbox label for setting the buffer size in kilobytes
 #: templates/info.html:457
 msgid ""
-"Buffer size in kilobytes. Transcode this amount of the video before sending "
-"it to the splash screen. "
+"Buffer size in kilobytes. Transcode this amount of the video before "
+"sending it to the splash screen. "
 msgstr ""
 "ขนาดบัฟเฟอร์เป็นกิโลไบต์ "
 "แปลงรหัสวิดีโอจำนวนเท่านี้ก่อนที่จะส่งไปที่หน้าจอเริ่มต้น"
 
+# auto-translated
 #. Text for the link where the user can clear all user preferences
 #: templates/info.html:470
 msgid "Clear preferences"
 msgstr "ล้างค่ากำหนด"
 
+# auto-translated
 #. Title of the system data section.
 #: templates/info.html:478
 msgid "System Data"
 msgstr "ข้อมูลระบบ"
 
+# auto-translated
 #. Header of the information section about the computer running Pikaraoke.
 #: templates/info.html:483
 msgid "System Info"
 msgstr "ข้อมูลระบบ"
 
+# auto-translated
 #. The hardware platform
 #: templates/info.html:489
 msgid "Platform:"
 msgstr "แพลตฟอร์ม:"
 
+# auto-translated
 #. The os version
 #: templates/info.html:491
 msgid "OS Version:"
 msgstr "เวอร์ชันระบบปฏิบัติการ:"
 
+# auto-translated
 #. The version of the program "Youtube-dl".
 #: templates/info.html:493
 msgid "Youtube-dl (yt-dlp) version:"
 msgstr "เวอร์ชัน Youtube-dl (yt-dlp):"
 
+# auto-translated
 #. The version of the program "ffmpeg".
 #: templates/info.html:495
 msgid "FFmpeg version:"
 msgstr "เวอร์ชัน FFmpeg:"
 
+# auto-translated
 #. The version of Pikaraoke running right now.
 #: templates/info.html:497
 msgid "Pikaraoke version:"
 msgstr "เวอร์ชั่นปิคาราโอเกะ:"
 
+# auto-translated
 #. Header of the information section about the System stats.
 #: templates/info.html:503
 msgid "System stats"
 msgstr "สถิติของระบบ"
 
+# auto-translated
 #. The CPU usage of the computer running Pikaraoke.
 #: templates/info.html:509
 msgid "CPU:"
 msgstr "ซีพียู:"
 
+# auto-translated
 #: templates/info.html:509 templates/info.html:511 templates/info.html:513
 msgid "Loading..."
 msgstr "กำลังโหลด..."
 
+# auto-translated
 #. The disk usage of the computer running Pikaraoke. Used by downloaded songs.
 #: templates/info.html:511
 msgid "Disk Usage:"
 msgstr "การใช้ดิสก์:"
 
+# auto-translated
 #. The memory (RAM) usage of the computer running Pikaraoke.
 #: templates/info.html:513
 msgid "Memory:"
 msgstr "หน่วยความจำ:"
 
+# auto-translated
 #. Title of the updates section.
 #: templates/info.html:520
 msgid "Updates"
 msgstr "อัพเดท"
 
+# auto-translated
 #. Label for the YT-DLP update on the updates section
 #: templates/info.html:525
 msgid "YT-DLP update"
 msgstr "อัปเดต YT-DLP"
 
+# auto-translated
 #. Text explaining why you might want to update youtube-dl.
 #: templates/info.html:530
 #, python-format
 msgid ""
 "\n"
-"\t\t\t\t\t\tIf downloads or searches stopped working, updating youtube-dl will probably fix it.<br/>\n"
+"\t\t\t\t\t\tIf downloads or searches stopped working, updating youtube-dl"
+" will probably fix it.<br/>\n"
 "\t\t\t\t\t\tThe current installed version is: \"%(youtubedl_version)s\".\n"
 "\t\t\t\t\t"
 msgstr ""
-"หากการดาวน์โหลดหรือการค้นหาหยุดทำงาน การอัปเดต youtube-dl อาจจะช่วยได้<br/>\n"
+"หากการดาวน์โหลดหรือการค้นหาหยุดทำงาน การอัปเดต youtube-dl "
+"อาจจะช่วยได้<br/>\n"
 "\t\t\t\t\t\tเวอร์ชันที่ติดตั้งปัจจุบันคือ: \"%(youtubedl_version)s\""
 
+# auto-translated
 #. Text for the link which will try and update youtube-dl on the machine
 #. running Pikaraoke.
 #: templates/info.html:536
 msgid "Update youtube-dl"
 msgstr "อัพเดต youtube-dl"
 
-#. Help text which explains why updating youtube-dl can fail. The log is a
-#. file
+# auto-translated
+#. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
 #: templates/info.html:540
 msgid ""
-"* This update link above may fail if you don't have proper file permissions.\n"
+"* This update link above may fail if you don't have proper file "
+"permissions.\n"
 "\t\t\t\t\t\t\tCheck the pikaraoke log for errors."
 msgstr ""
 "* ลิงก์อัปเดตด้านบนนี้อาจล้มเหลวหากคุณไม่มีสิทธิ์อนุญาตไฟล์ที่เหมาะสม\n"
 "\t\t\t\t\t\t\tตรวจสอบบันทึก pikaraoke เพื่อดูข้อผิดพลาด"
 
+# auto-translated
 #. Title of the updates section.
 #: templates/info.html:552
 msgid "Other"
 msgstr "อื่น"
 
+# auto-translated
 #. Title for section containing a few other options on the Info page.
 #. Text for button
 #: templates/info.html:557 templates/info.html:569
 msgid "Expand Raspberry Pi filesystem"
 msgstr "ขยายระบบไฟล์ Raspberry Pi"
 
+# auto-translated
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
 #: templates/info.html:562
 msgid ""
-"If you just installed the pre-built pikaraoke pi image and your SD card is larger than 4GB,\n"
-"\t\t\t\t\t\t\tyou may want to expand the filesystem to utilize the remaining space. You only need to do this once.\n"
+"If you just installed the pre-built pikaraoke pi image and your SD card "
+"is larger than 4GB,\n"
+"\t\t\t\t\t\t\tyou may want to expand the filesystem to utilize the "
+"remaining space. You only need to do this once.\n"
 "\t\t\t\t\t\t\tThis will reboot the system."
 msgstr ""
-"หากคุณเพิ่งติดตั้งอิมเมจ pikaraoke pi ที่สร้างไว้ล่วงหน้าและการ์ด SD ของคุณมีขนาดใหญ่กว่า 4GB\n"
-"\t\t\t\t\t\t\tคุณอาจต้องการขยายระบบไฟล์เพื่อใช้พื้นที่ที่เหลืออยู่ คุณต้องทำสิ่งนี้เพียงครั้งเดียว\n"
+"หากคุณเพิ่งติดตั้งอิมเมจ pikaraoke pi ที่สร้างไว้ล่วงหน้าและการ์ด SD "
+"ของคุณมีขนาดใหญ่กว่า 4GB\n"
+"\t\t\t\t\t\t\tคุณอาจต้องการขยายระบบไฟล์เพื่อใช้พื้นที่ที่เหลืออยู่ "
+"คุณต้องทำสิ่งนี้เพียงครั้งเดียว\n"
 "\t\t\t\t\t\t\tนี่จะเป็นการรีบูตระบบ"
 
+# auto-translated
 #. Message for the log out user from admin mode button.
 #: templates/info.html:584
 msgid "Click here to logout from admin mode."
 msgstr "คลิกที่นี่เพื่อออกจากระบบโหมดผู้ดูแลระบบ"
 
+# auto-translated
 #. Link which will log out the user from admin mode.
 #: templates/info.html:586
 msgid "Log out"
 msgstr "ออกจากระบบ"
 
+# auto-translated
 #. Title of the section on shutting down / turning off the machine running
 #. Pikaraoke.
 #: templates/info.html:593
 msgid "Shutdown"
 msgstr "ปิดเครื่อง"
 
+# auto-translated
 #. Explainitory text which explains why to use the shutdown link.
 #: templates/info.html:600
 msgid ""
@@ -1093,62 +1298,76 @@ msgstr ""
 "อย่าเพิ่งดึงปลั๊ก! "
 "ปิดเซิร์ฟเวอร์ของคุณอย่างเหมาะสมเสมอเพื่อหลีกเลี่ยงความเสียหายของข้อมูล"
 
+# auto-translated
 #. Text for button which turns off Pikaraoke for everyone using it at your
 #. house.
 #: templates/info.html:607
 msgid "Quit Pikaraoke"
 msgstr "เลิกปิ๊กคาราโอเกะ"
 
+# auto-translated
 #. Text for button which reboots the machine running Pikaraoke.
 #: templates/info.html:610
 msgid "Reboot System"
 msgstr "รีบูตระบบ"
 
+# auto-translated
 #. Text for button which turn soff the machine running Pikaraoke.
 #: templates/info.html:613
 msgid "Shutdown System"
 msgstr "ระบบปิดเครื่อง"
 
+# auto-translated
 #: templates/queue.html:164 templates/queue.html:313
 msgid "Options"
 msgstr "ตัวเลือก"
 
+# auto-translated
 #: templates/queue.html:213
 msgid "Pending downloads"
 msgstr "รอการดาวน์โหลด"
 
+# auto-translated
 #: templates/queue.html:218
 msgid "Queued"
 msgstr "เข้าคิว"
 
+# auto-translated
 #: templates/queue.html:226
 msgid "Download Errors"
 msgstr "ดาวน์โหลดข้อผิดพลาด"
 
+# auto-translated
 #: templates/queue.html:235
 msgid "Failed"
 msgstr "ล้มเหลว"
 
+# auto-translated
 #: templates/queue.html:236
 msgid "Dismiss"
 msgstr "อนุญาตให้ออกไป"
 
+# auto-translated
 #: templates/queue.html:298
 msgid "Drag to reorder"
 msgstr "ลากเพื่อเรียงลำดับใหม่"
 
+# auto-translated
 #: templates/queue.html:338
 msgid "The queue is empty"
 msgstr "คิวว่างแล้ว"
 
+# auto-translated
 #: templates/queue.html:432
 msgid "Play"
 msgstr "เล่น"
 
+# auto-translated
 #: templates/queue.html:434 templates/queue.html:559
 msgid "Pause"
 msgstr "หยุดชั่วคราว"
 
+# auto-translated
 #: templates/queue.html:505
 msgid ""
 "Add <input id=\"randomNumberInput\" class=\"input mx-2 p-2\" "
@@ -1159,93 +1378,115 @@ msgstr ""
 "pattern=\"\\d*\" maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" "
 "style=\"width: 42px\" /> เพลงสุ่ม"
 
+# auto-translated
 #: templates/queue.html:509
 msgid "Clear all"
 msgstr "เคลียร์ทั้งหมด"
 
+# auto-translated
 #: templates/queue.html:523
 msgid "Play Next"
 msgstr "เล่นถัดไป"
 
+# auto-translated
 #: templates/queue.html:523
 msgid "Move to Top"
 msgstr "ย้ายไปด้านบน"
 
+# auto-translated
 #: templates/queue.html:527
 msgid "Move Up"
 msgstr "เลื่อนขึ้น"
 
+# auto-translated
 #: templates/queue.html:531
 msgid "Move Down"
 msgstr "เลื่อนลง"
 
+# auto-translated
 #: templates/queue.html:535
 msgid "Move to Bottom"
 msgstr "ย้ายไปด้านล่าง"
 
+# auto-translated
 #: templates/queue.html:539
 msgid "Remove from Queue"
 msgstr "ลบออกจากคิว"
 
+# auto-translated
 #: templates/queue.html:555
 msgid "Restart"
 msgstr "รีสตาร์ท"
 
+# auto-translated
 #: templates/queue.html:563
 msgid "Skip"
 msgstr "ข้าม"
 
+# auto-translated
 #: templates/queue.html:571
 msgid "Download queue"
 msgstr "คิวดาวน์โหลด"
 
+# auto-translated
 #: templates/search.html:242
 msgid "Available songs in local library"
 msgstr "เพลงที่มีอยู่ในห้องสมุดท้องถิ่น"
 
+# auto-translated
 #. Title for the search page.
 #: templates/search.html:574
 msgid "Search / Add New"
 msgstr "ค้นหา / เพิ่มใหม่"
 
+# auto-translated
 #: templates/search.html:584
 msgid "Available Songs"
 msgstr "เพลงที่มีอยู่"
 
+# auto-translated
 #. Submit button on the search form when selecting a locally downloaded song.
 #. The button adds it to                                         the queue.
 #: templates/search.html:592
 msgid "Add to queue"
 msgstr "เพิ่มเข้าคิว"
 
+# auto-translated
 #. Link which clears the text from the search box.
 #: templates/search.html:598
 msgid "Clear"
 msgstr "ชัดเจน"
 
+# auto-translated
 #. Checkbox label which enables more options when searching.
 #: templates/search.html:602
 msgid "Advanced"
 msgstr "ขั้นสูง"
 
+# auto-translated
 #. Help text below the search bar.
 #: templates/search.html:617
 msgid ""
 "- Type a song (title/artist) to search\n"
-"\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to the queue."
+"\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to"
+" the queue."
 msgstr ""
 "- พิมพ์เพลง (ชื่อเพลง/ศิลปิน) เพื่อค้นหา\n"
 "\t\t\t\t\t\t\t\tเพลงที่มีอยู่แล้วคลิก 'เพิ่มลงในคิว' เพื่อเพิ่มลงในคิว"
 
+# auto-translated
 #. Additonal help text below the search bar.
 #: templates/search.html:621
 msgid ""
 "- If the song doesn't appear in\n"
-"\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find it on Youtube"
+"\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find "
+"it on Youtube"
 msgstr ""
 "- หากเพลงไม่ปรากฏ\n"
-"\t\t\t\t\t\t\t\tเมนูแบบเลื่อนลง \"เพลงที่มีอยู่\" คลิก 'ค้นหา' เพื่อค้นหาบน Youtube"
+"\t\t\t\t\t\t\t\tเมนูแบบเลื่อนลง \"เพลงที่มีอยู่\" คลิก 'ค้นหา' "
+"เพื่อค้นหาบน Youtube"
 
+# auto-translated
 #. Checkbox label which enables matching songs which are not karaoke versions
 #. (i.e. the songs still                                         have a singer
 #. and are not just instrumentals.)
@@ -1253,23 +1494,27 @@ msgstr ""
 msgid "Include non-karaoke matches"
 msgstr "รวมการแข่งขันที่ไม่ใช่คาราโอเกะ"
 
+# auto-translated
 #. Label for an input which takes a YouTube url directly instead of searching
 #. titles.
 #: templates/search.html:643
 msgid "Direct download YouTube url:"
 msgstr "ดาวน์โหลด URL YouTube โดยตรง:"
 
+# auto-translated
 #. Checkbox label which marks the song to be added to the queue after it
 #. finishes downloading.
 #: templates/search.html:657 templates/search.html:700
 msgid "Add to queue once downloaded"
 msgstr "เพิ่มลงในคิวเมื่อดาวน์โหลดแล้ว"
 
+# auto-translated
 #. Button label for the direct download form's submit button.
 #: templates/search.html:662
 msgid "Download"
 msgstr "ดาวน์โหลด"
 
+# auto-translated
 #. Html text which displays what was searched for, in quotes while the page is
 #. loading.
 #: templates/search.html:684
@@ -1281,6 +1526,7 @@ msgstr ""
 "กำลังค้นหา YouTube\n"
 "\t\t<small><i>'%(search_term)s'</i></small>"
 
+# auto-translated
 #. Html text which displays what was searched for, in quotes.
 #: templates/search.html:691
 #, python-format
@@ -1291,47 +1537,57 @@ msgstr ""
 "ผลการค้นหาสำหรับ\n"
 "\t\t\t<small><i>'%(search_string)s'</i></small>"
 
+# auto-translated
 #: templates/splash.html:23
 msgid "Connection lost. Is the server still running?"
 msgstr "การเชื่อมต่อขาดหายไป เซิร์ฟเวอร์ยังคงทำงานอยู่หรือไม่?"
 
+# auto-translated
 #: templates/splash.html:24
 msgid ""
-"This browser is not fully supported. You may experience streaming issues. "
-"Please use Chrome/Safari/Firefox/Edge for best results."
+"This browser is not fully supported. You may experience streaming issues."
+" Please use Chrome/Safari/Firefox/Edge for best results."
 msgstr ""
 "เบราว์เซอร์นี้ไม่รองรับอย่างสมบูรณ์ คุณอาจประสบปัญหาการสตรีม โปรดใช้ "
 "Chrome/Safari/Firefox/Edge เพื่อผลลัพธ์ที่ดีที่สุด"
 
+# auto-translated
 #. Label for the next song to be played in the queue.
 #: templates/splash.html:89
 msgid "Up next:"
 msgstr "ถัดไป:"
 
+# auto-translated
 #. Label for the next singer in the queue.
 #: templates/splash.html:96
 msgid "Next singer:"
 msgstr "นักร้องคนต่อไป:"
 
+# auto-translated
 #. The title of the score screen, telling the user their singing score
 #: templates/splash.html:118
 msgid "Your Score"
 msgstr "คะแนนของคุณ"
 
+# auto-translated
 #. Prompt for interaction in order to enable video autoplay.
 #: templates/splash.html:132
 msgid ""
 "Due to limitations with browser permissions, you must interact\n"
-"      with the page once before it allows autoplay of videos. Pikaraoke will not\n"
+"      with the page once before it allows autoplay of videos. Pikaraoke "
+"will not\n"
 "      play otherwise. Click the button below to\n"
 "      <a onClick=\"handleConfirmation()\">confirm</a>."
 msgstr ""
 "เนื่องจากข้อจำกัดในการอนุญาตเบราว์เซอร์ คุณต้องโต้ตอบ\n"
-"      ด้วยหน้าเว็บหนึ่งครั้งก่อนที่จะอนุญาตให้เล่นวิดีโออัตโนมัติ ปิคาราโอเกะจะไม่\n"
+"      ด้วยหน้าเว็บหนึ่งครั้งก่อนที่จะอนุญาตให้เล่นวิดีโออัตโนมัติ "
+"ปิคาราโอเกะจะไม่\n"
 "      เล่นเป็นอย่างอื่น คลิกปุ่มด้านล่างเพื่อ\n"
 "      <a onClick=\"handleConfirmation()\">ยืนยัน</a>"
 
+# auto-translated
 #. Button to confirm to enable video autoplay.
 #: templates/splash.html:145
 msgid "Confirm"
 msgstr "ยืนยัน"
+

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: minna.soudunsaari@gmail.com\n"
-"POT-Creation-Date: 2026-03-19 15:32+1100\n"
+"POT-Creation-Date: 2026-03-19 16:45+1100\n"
 "PO-Revision-Date: 2024-05-08 18:57-0300\n"
 "Last-Translator: FULL NAME <minna.soudunsaari@gmail.com>\n"
 "Language: fi_FI\n"
@@ -18,6 +18,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
+# auto-translated
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
 #: karaoke.py:453
@@ -43,12 +44,14 @@ msgstr "Jonoon lisätty kappale (#%d): %s"
 msgid "Download starting: %s"
 msgstr "Lataa: %s"
 
+# auto-translated
 #. Message shown when download actually starts (after waiting in queue)
 #: lib/download_manager.py:222
 #, python-format
 msgid "Downloading video: %s"
 msgstr "Ladataan videota: %s"
 
+# auto-translated
 #: lib/download_manager.py:280
 msgid "Error downloading song: "
 msgstr "Virhe kappaleen lataamisessa:"
@@ -64,64 +67,77 @@ msgstr "Jonoon lisätty kappale: %s"
 msgid "Downloaded: %s"
 msgstr "Lataa: %s"
 
+# auto-translated
 #: lib/download_manager.py:327
 msgid "Error queueing song: "
 msgstr "Virhe kappaleen jonossa:"
 
+# auto-translated
 #: lib/playback_controller.py:89
 #, python-format
 msgid "Song file not found: %s"
 msgstr "Kappaletiedostoa ei löydy: %s"
 
+# auto-translated
 #: lib/playback_controller.py:120
 msgid "Stream was not playable! Skipping track"
 msgstr "Streamia ei voitu toistaa! Jäljen ohittaminen"
 
+# auto-translated
 #. Message shown when the song ends abnormally
 #: lib/playback_controller.py:149
 #, python-format
 msgid "Song ended abnormally: %s"
 msgstr "Kappale päättyi epänormaalisti: %s"
 
+# auto-translated
 #. Message shown after the song is skipped, will be followed by song name
 #: lib/playback_controller.py:173
 #, python-format
 msgid "Skip: %s"
 msgstr "Ohita: %s"
 
+# auto-translated
 #. Message shown after the song is resumed, will be followed by song name
 #: lib/playback_controller.py:189
 #, python-format
 msgid "Resume: %s"
 msgstr "Jatka: %s"
 
+# auto-translated
 #. Message shown after the song is paused, will be followed by song name
 #: lib/playback_controller.py:192
 #, python-format
 msgid "Pause: %s"
 msgstr "Tauko: %s"
 
+# auto-translated
 #: lib/preference_manager.py:133
 msgid "Your preferences were changed successfully"
 msgstr "Asetuksesi muutettiin onnistuneesti"
 
+# auto-translated
 #: lib/preference_manager.py:136 templates/info.html:19
 msgid "Something went wrong! Your preferences were not changed"
 msgstr "Jotain meni pieleen! Asetuksiasi ei muutettu"
 
+# auto-translated
 #: lib/preference_manager.py:153
 msgid "Your preferences were cleared successfully"
 msgstr "Asetuksesi tyhjennettiin onnistuneesti"
 
+# auto-translated
 #: lib/preference_manager.py:156
 msgid "Something went wrong! Your preferences were not cleared"
 msgstr "Jotain meni pieleen! Asetuksiasi ei tyhjennetty"
 
+# auto-translated
 #: lib/queue_manager.py:111
 #, python-format
 msgid "Song is already in the queue: %s"
 msgstr "Kappale on jo jonossa: %s"
 
+# auto-translated
 #: lib/queue_manager.py:119
 #, python-format
 msgid "You reached the limit of %s song(s) from an user in queue!"
@@ -142,25 +158,30 @@ msgstr "%s Jonoon lisätty kappale: %s"
 msgid "Song added to the queue: %s"
 msgstr "Jonoon lisätty kappale: %s"
 
+# auto-translated
 #. Message shown after the queue is cleared
 #: lib/queue_manager.py:194
 msgid "Clear queue"
 msgstr "Tyhjennä jono"
 
+# auto-translated
 #: lib/stream_manager.py:112
 #, python-format
 msgid "Error resolving file: %s"
 msgstr "Virhe ratkaistaessa tiedostoa: %s"
 
+# auto-translated
 #: lib/stream_manager.py:148
 msgid "Failed to prepare stream"
 msgstr "Striimin valmistelu epäonnistui"
 
+# auto-translated
 #. Message shown after starting the youtube-dl update.
 #: routes/admin.py:59
 msgid "Updating youtube-dl! Should take a minute or two... "
 msgstr "Päivitetään youtube-dl! Pitäisi kestää minuutti tai kaksi..."
 
+# auto-translated
 #. Message shown after trying to update youtube-dl without admin permissions.
 #: routes/admin.py:66
 msgid "You don't have permission to update youtube-dl"
@@ -171,6 +192,7 @@ msgstr "Sinulla ei ole lupaa päivittää youtube-dl:ää"
 msgid "Exiting pikaraoke now!"
 msgstr "Sammuta Pikaraoke"
 
+# auto-translated
 #. Message shown after trying to quit pikaraoke without admin permissions.
 #: routes/admin.py:104
 msgid "You don't have permission to quit"
@@ -181,6 +203,7 @@ msgstr "Sinulla ei ole lupaa lopettaa"
 msgid "Shutting down system now!"
 msgstr "Sammuta järjestelmä"
 
+# auto-translated
 #. Message shown after trying to shut down the system without admin
 #. permissions.
 #: routes/admin.py:121
@@ -192,22 +215,26 @@ msgstr "Sinulla ei ole lupaa sulkea"
 msgid "Rebooting system now!"
 msgstr "Käynnistä järjestelmä uudelleen"
 
+# auto-translated
 #. Message shown after trying to reboot the system without admin permissions.
 #: routes/admin.py:138
 msgid "You don't have permission to Reboot"
 msgstr "Sinulla ei ole lupaa käynnistää uudelleen"
 
+# auto-translated
 #. Message shown after expanding the filesystem.
 #: routes/admin.py:148
 msgid "Expanding filesystem and rebooting system now!"
 msgstr "Laajenna tiedostojärjestelmää ja käynnistä järjestelmä uudelleen nyt!"
 
+# auto-translated
 #. Message shown after trying to expand the filesystem on a non-raspberry pi
 #. device.
 #: routes/admin.py:153
 msgid "Cannot expand fs on non-raspberry pi devices!"
 msgstr "Fs:ää ei voi laajentaa muissa kuin Raspberry pi -laitteissa!"
 
+# auto-translated
 #. Message shown after trying to expand the filesystem without admin
 #. permissions
 #: routes/admin.py:156
@@ -224,31 +251,37 @@ msgstr "Järjestelmänvalvojan valtuudet myönnetty!"
 msgid "Incorrect admin password!"
 msgstr "Väärä järjestelmänvalvoja-salasana!"
 
+# auto-translated
 #. Message shown after logging out as admin successfully
 #: routes/admin.py:192
 msgid "Logged out of admin mode!"
 msgstr "Kirjautunut ulos järjestelmänvalvojatilasta!"
 
+# auto-translated
 #. Title of the button to accept the suggested name
 #: routes/batch_song_renamer.py:144
 msgid "Accept suggested name"
 msgstr "Hyväksy ehdotettu nimi"
 
+# auto-translated
 #. Title of the files page.
 #. Page title for the page where the user can batch rename songs.
 #: routes/batch_song_renamer.py:152 templates/batch-song-renamer.html:133
 msgid "Batch Song Renamer"
 msgstr "Eräkappaleen uudelleennimeäjä"
 
+# auto-translated
 #. Message shown after trying to edit a song without specifying the filename.
 #: routes/batch_song_renamer.py:236
 msgid "Error: No filename parameters were specified!"
 msgstr "Virhe: Tiedostonimen parametreja ei määritetty!"
 
+# auto-translated
 #: routes/batch_song_renamer.py:245 routes/files.py:160 routes/files.py:191
 msgid "Error: Can't edit this song because it is in the current queue: "
 msgstr "Virhe: Tätä kappaletta ei voi muokata, koska se on nykyisessä jonossa:"
 
+# auto-translated
 #. Message shown after trying to rename a file to a name that already exists.
 #: routes/batch_song_renamer.py:259 routes/files.py:201
 #, python-format
@@ -264,41 +297,49 @@ msgstr ""
 msgid "Browse"
 msgstr "Selaa"
 
+# auto-translated
 #: routes/files.py:126
-#,
+#, 
 msgid "You don't have permission to delete songs"
 msgstr "Sinulla ei ole lupaa poistaa kappaleita"
 
+# auto-translated
 #. Message shown after trying to delete a song that is in the queue.
 #: routes/files.py:131
 msgid "Error: Can't delete this song because it is in the current queue"
 msgstr "Virhe: Tätä kappaletta ei voi poistaa, koska se on nykyisessä jonossa"
 
+# auto-translated
 #: routes/files.py:140
 #, python-format
 msgid "Song deleted: %s"
 msgstr "Kappale poistettu: %s"
 
+# auto-translated
 #: routes/files.py:155 routes/files.py:184
-#,
+#, 
 msgid "You don't have permission to edit songs"
 msgstr "Sinulla ei ole lupaa muokata kappaleita"
 
+# auto-translated
 #: routes/files.py:211
 #, python-format
 msgid "Error renaming file: '%s' to '%s', %s"
 msgstr "Virhe nimettäessä tiedostoa '%s' uudelleen '%s', %s"
 
+# auto-translated
 #. Message shown after renaming a file.
 #: routes/files.py:217
 #, python-format
 msgid "Renamed file: %s to %s"
 msgstr "Nimetty tiedosto uudelleen: %s nimeksi %s"
 
+# auto-translated
 #: routes/info.py:100
 msgid "CPU usage query unsupported"
 msgstr "Suorittimen käyttökyselyä ei tueta"
 
+# auto-translated
 #. Message shown after trying to change preferences without admin permissions.
 #: routes/preferences.py:42
 msgid "You don't have permission to change preferences"
@@ -309,8 +350,9 @@ msgstr "Sinulla ei ole lupaa muuttaa asetuksia"
 msgid "You don't have permission to clear preferences"
 msgstr "Haluatko varmasti käynnistää karaokelaitteen uudestaan?"
 
+# auto-translated
 #: routes/queue.py:80
-#,
+#, 
 msgid "You don't have permission to add random songs"
 msgstr "Sinulla ei ole lupaa lisätä satunnaisia ​​kappaleita"
 
@@ -320,124 +362,154 @@ msgstr "Sinulla ei ole lupaa lisätä satunnaisia ​​kappaleita"
 msgid "Added %s random tracks"
 msgstr "Valitse %s kappaletta satunnaisesti"
 
+# auto-translated
 #. Message shown after running out songs to add during random track addition
 #: routes/queue.py:89
 msgid "Ran out of songs!"
 msgstr "Kappaleet loppuivat!"
 
+# auto-translated
 #. Message shown when non-admin tries to edit queue
 #: routes/queue.py:121
 msgid "Unauthorized"
 msgstr "Luvaton"
 
+# auto-translated
 #: routes/queue.py:131
 msgid "Cleared the queue!"
 msgstr "Tyhjennetty jono!"
 
+# auto-translated
 #: routes/queue.py:143
 msgid "Moved to top of queue"
 msgstr "Siirretty jonon alkuun"
 
+# auto-translated
 #: routes/queue.py:144
 msgid "Moved to bottom of queue"
 msgstr "Siirretty jonon loppuun"
 
+# auto-translated
 #: routes/queue.py:145
 msgid "Moved up in queue"
 msgstr "Siirretty ylös jonossa"
 
+# auto-translated
 #: routes/queue.py:146
 msgid "Moved down in queue"
 msgstr "Siirretty alas jonossa"
 
+# auto-translated
 #: routes/queue.py:147
 msgid "Deleted from queue"
 msgstr "Poistettu jonosta"
 
+# auto-translated
 #: routes/queue.py:150
 msgid "Error moving to top of queue"
 msgstr "Virhe siirrettäessä jonon alkuun"
 
+# auto-translated
 #: routes/queue.py:151
 msgid "Error moving to bottom of queue"
 msgstr "Virhe siirrettäessä jonon loppuun"
 
+# auto-translated
 #: routes/queue.py:152
 msgid "Error moving up in queue"
 msgstr "Virhe siirrettäessä ylöspäin jonossa"
 
+# auto-translated
 #: routes/queue.py:153
 msgid "Error moving down in queue"
 msgstr "Virhe siirrettäessä alas jonossa"
 
+# auto-translated
 #: routes/queue.py:154
 msgid "Error deleting from queue"
 msgstr "Virhe poistettaessa jonosta"
 
+# auto-translated
 #: routes/splash.py:24
 msgid "Never sing again... ever."
 msgstr "Älä koskaan laula enää... koskaan."
 
+# auto-translated
 #: routes/splash.py:25
 msgid "That was a really good impression of a dying cat!"
 msgstr "Se oli todella hyvä vaikutelma kuolevasta kissasta!"
 
+# auto-translated
 #: routes/splash.py:26
 msgid "Thank God it's over."
 msgstr "Luojan kiitos se on ohi."
 
+# auto-translated
 #: routes/splash.py:27
 msgid "Pass the mic, please!"
 msgstr "Anna mikrofoni, kiitos!"
 
+# auto-translated
 #: routes/splash.py:28
 msgid "Well, I'm sure you're very good at your day job."
 msgstr "Olen varma, että olet erittäin hyvä päivätyössäsi."
 
+# auto-translated
 #: routes/splash.py:31
 msgid "I've seen better."
 msgstr "Olen nähnyt parempaakin."
 
+# auto-translated
 #: routes/splash.py:32
 msgid "Ok... just ok."
 msgstr "Ok... vain ok."
 
+# auto-translated
 #: routes/splash.py:33
 msgid "Not bad for an amateur."
 msgstr "Ei paha amatöörille."
 
+# auto-translated
 #: routes/splash.py:34
 msgid "You put on a decent show."
 msgstr "Esitit kunnon esityksen."
 
+# auto-translated
 #: routes/splash.py:35
 msgid "That was... something."
 msgstr "Se oli... jotain."
 
+# auto-translated
 #: routes/splash.py:38
 msgid "Congratulations! That was unbelievable!"
 msgstr "Onnittelut! Se oli uskomatonta!"
 
+# auto-translated
 #: routes/splash.py:39
 msgid "Wow, have you tried auditioning for The Voice?"
 msgstr "Vau, oletko kokeillut The Voicen koe-esiintymistä?"
 
+# auto-translated
 #: routes/splash.py:40
 msgid "Please, sing another one!"
 msgstr "Ole kiltti ja laula toinen!"
 
+# auto-translated
 #: routes/splash.py:41
 msgid "You rock! You know that?!"
 msgstr "Sinä rokkaat! Tiedätkö sen?!"
 
+# auto-translated
 #: routes/splash.py:42
 msgid "Woah, who let Freddie Mercury in here?"
 msgstr "Vau, kuka päästi Freddie Mercuryn tänne?"
 
+# auto-translated
 #: routes/stream.py:238
 msgid "Failed to stream subtitle: "
 msgstr "Tekstityksen suoratoisto epäonnistui:"
 
+# auto-translated
 #. Prompt to change the username displayed next to queued songs. CURRENT_NAME
 #. is replaced with the name
 #: templates/base.html:25
@@ -448,11 +520,13 @@ msgstr ""
 "Haluatko muuttaa tätä laitetta käyttävän henkilön nimeä? Tämä näkyy "
 "jonossa olevissa kappaleissa. Nykyinen: CURRENT_NAME"
 
+# auto-translated
 #. Confirmation prompt to clear entire queue. User must type ok to confirm
 #: templates/base.html:27
 msgid "Are you sure you want to clear the ENTIRE queue? Type ok to continue"
 msgstr "Haluatko varmasti tyhjentää KOKO jonon? Kirjoita ok jatkaaksesi"
 
+# auto-translated
 #. Confirmation dialog when removing a song from the queue. SONG_TITLE is
 #. replaced with the title
 #: templates/base.html:29
@@ -490,6 +564,7 @@ msgstr "Jono"
 msgid "Search"
 msgstr "Etsi"
 
+# auto-translated
 #. Message about the wait for loading the songs
 #: templates/batch-song-renamer.html:136
 msgid ""
@@ -501,6 +576,7 @@ msgstr ""
 "verrataan verkossa. Latausaika voi vaihdella\n"
 "\tInternet-yhteytesi perusteella."
 
+# auto-translated
 #. Label which displays that all songs are being shown
 #: templates/batch-song-renamer.html:141
 msgid ""
@@ -510,11 +586,13 @@ msgstr ""
 "Näytetään kaikki\n"
 "\tkappaleita"
 
+# auto-translated
 #. Button which changes to show only the songs to rename
 #: templates/batch-song-renamer.html:144
 msgid "Show only songs to rename"
 msgstr "Näytä vain uudelleennimettävät kappaleet"
 
+# auto-translated
 #. Label which displays that only songs to rename are being shown.
 #: templates/batch-song-renamer.html:147
 msgid ""
@@ -524,11 +602,13 @@ msgstr ""
 "Näytetään vain kappaleet\n"
 "\tnimetä uudelleen"
 
+# auto-translated
 #. Button which changes to show all songs
 #: templates/batch-song-renamer.html:150
 msgid "Show all songs"
 msgstr "Näytä kaikki kappaleet"
 
+# auto-translated
 #. Message displaying that the songs are currently being loaded
 #: templates/batch-song-renamer.html:158
 msgid "Loading songs..."
@@ -564,6 +644,7 @@ msgstr "Vaihda artisti/kappale paikat"
 msgid "Save"
 msgstr "Tallenna"
 
+# auto-translated
 #: templates/edit.html:94
 msgid "Cancel"
 msgstr "Peruuttaa"
@@ -599,6 +680,7 @@ msgid ""
 "\t\t\tAlphabetical"
 msgstr "Aakkosjärjestykseen"
 
+# auto-translated
 #. Button to open the batch song renamer page.
 #: templates/files.html:107
 msgid "Edit all songs"
@@ -699,6 +781,7 @@ msgstr ""
 "Haluatko varmasti päivittää 'Youtube-dl':n juuri nyt? Tämänhetkiset ja "
 "jonottavat lataukset saattavat epäonnistua."
 
+# auto-translated
 #. Confirmation text when the user wants to expand the filesystem to take the
 #. entire SD card.
 #: templates/info.html:179
@@ -722,6 +805,7 @@ msgstr "URL %(site_title)s:"
 msgid "Handy URL QR code to share with a pal:"
 msgstr "Kätevä URL QR-koodi kaverille jaettavaksi:"
 
+# auto-translated
 #. Title of the admin section.
 #: templates/info.html:215 templates/info.html:578
 msgid "Admin"
@@ -737,71 +821,85 @@ msgstr "Kirjoita järjestelmänvalvojan salasana\""
 msgid "Login"
 msgstr "Kirjaudu sisään"
 
+# auto-translated
 #. Title of the song library section.
 #: templates/info.html:242
 msgid "Song Library"
 msgstr "Laulukirjasto"
 
+# auto-translated
 #. Header of the song library management section.
 #: templates/info.html:247
 msgid "Library"
 msgstr "Kirjasto"
 
+# auto-translated
 #. Song count display in the library card.
 #: templates/info.html:253
 msgid "Songs in library:"
 msgstr "Kirjastossa olevat kappaleet:"
 
+# auto-translated
 #. Button to trigger a background library scan.
 #: templates/info.html:257
 msgid "Sync Now"
 msgstr "Synkronoi nyt"
 
+# auto-translated
 #. Help text explaining what Sync Now does.
 #: templates/info.html:261
 msgid "Reconciles the library with the song directory in the background."
 msgstr "Täsmentää kirjaston taustalla olevan kappalehakemiston kanssa."
 
+# auto-translated
 #. Title of the user preferences section.
 #: templates/info.html:268
 msgid "User Preferences"
 msgstr "Käyttäjäasetukset"
 
+# auto-translated
 #. Title text for the splash screen settings section of preferences
 #: templates/info.html:274
 msgid "Splash screen settings"
 msgstr "Aloitusnäytön asetukset"
 
+# auto-translated
 #. Checkbox label which enable/disables background video on the Splash Screen
 #: templates/info.html:282
 msgid "Disable background video"
 msgstr "Poista taustavideo käytöstä"
 
+# auto-translated
 #. Checkbox label which enable/disables background music on the Splash Screen
 #: templates/info.html:288
 msgid "Disable background music"
 msgstr "Poista taustamusiikki käytöstä"
 
+# auto-translated
 #. Checkbox label which enable/disables the Score Screen
 #: templates/info.html:294
 msgid "Disable the score screen after each song"
 msgstr "Poista tulosnäyttö käytöstä jokaisen kappaleen jälkeen"
 
+# auto-translated
 #. Checkbox label which enable/disables notifications on the splash screen
 #: templates/info.html:300
 msgid "Hide notifications"
 msgstr "Piilota ilmoitukset"
 
+# auto-translated
 #. Checkbox label which enable/disables the digital clock on the splash screen
 #: templates/info.html:306
 msgid "Show splash clock"
 msgstr "Näytä splash kello"
 
+# auto-translated
 #. Checkbox label which enable/disables the URL display
 #: templates/info.html:311
 msgid "Hide the URL and QR code"
 msgstr "Piilota URL-osoite ja QR-koodi"
 
+# auto-translated
 #. Checkbox label which enable/disables showing overlay data on the splash
 #. screen
 #: templates/info.html:317
@@ -810,16 +908,19 @@ msgstr ""
 "Piilota kaikki peittokuvat, mukaan lukien nyt toistettava, seuraavaksi ja"
 " QR-koodi"
 
+# auto-translated
 #. Numberbox label for setting the default video volume
 #: templates/info.html:323
 msgid "Default volume of the videos (min 0, max 100)"
 msgstr "Videoiden oletusäänenvoimakkuus (min 0, max 100)"
 
+# auto-translated
 #. Numberbox label for setting the background music volume
 #: templates/info.html:329
 msgid "Volume of the background music (min 0, max 100)"
 msgstr "Taustamusiikin äänenvoimakkuus (min 0, max 100)"
 
+# auto-translated
 #. Numberbox label for setting the inactive delay before showing the
 #. screensaver
 #: templates/info.html:336
@@ -830,76 +931,91 @@ msgstr ""
 "Joutokäyntiaika sekunteina, ennen kuin näytönsäästäjä aktivoituu. Aseta "
 "arvoksi 0 poistaaksesi sen käytöstä."
 
+# auto-translated
 #. Numberbox label for setting the delay before playing the next song
 #: templates/info.html:343
 msgid "The delay in seconds before starting the next song"
 msgstr "Viive sekunneissa ennen seuraavan kappaleen aloittamista"
 
+# auto-translated
 #. Title text for the Score Phrases section of preferences
 #: templates/info.html:354
 msgid "Score phrases"
 msgstr "Pisteet lauseita"
 
+# auto-translated
 #. Help text explaining how to add phrases
 #: templates/info.html:361
 msgid "Add one phrase per line in each box and hit save."
 msgstr "Lisää yksi lause jokaiselle riville kuhunkin ruutuun ja paina Tallenna."
 
+# auto-translated
 #. Title for LOW Score Phrases
 #: templates/info.html:363
 msgid "LOW Score Phrases (score < 30)"
 msgstr "MATALAPISTEET -lauseet (pisteet < 30)"
 
+# auto-translated
 #. Placeholder for the low score phrases textarea
 #: templates/info.html:365
 msgid "Could be better..."
 msgstr "Voisi olla parempi..."
 
+# auto-translated
 #. Title for MID Score Phrases
 #: templates/info.html:368
 msgid "MID Score Phrases (30 > score < 60)"
 msgstr "Pistelauseet (30 > pisteet < 60)"
 
+# auto-translated
 #. Placeholder for the MID score phrases textarea
 #: templates/info.html:370
 msgid "That was ok..."
 msgstr "Se oli ok..."
 
+# auto-translated
 #. Title for HIGH Score Phrases
 #: templates/info.html:373
 msgid "HIGH Score Phrases (60 < score)"
 msgstr "Korkeat pisteet -lauseet (60 < pisteet)"
 
+# auto-translated
 #. Placeholder for the HIGH score phrases textarea
 #: templates/info.html:375
 msgid "Wonderfull..."
 msgstr "Ihanaa..."
 
+# auto-translated
 #. Title text for the language settings section of preferences
 #: templates/info.html:383
 msgid "Language settings"
 msgstr "Kieliasetukset"
 
+# auto-translated
 #. Label for language selection dropdown
 #: templates/info.html:396
 msgid "Preferred language (requires restart)"
 msgstr "Ensisijainen kieli (vaatii uudelleenkäynnistyksen)"
 
+# auto-translated
 #. Title text for the server settings section of preferences
 #: templates/info.html:405
 msgid "Server settings"
 msgstr "Palvelimen asetukset"
 
+# auto-translated
 #. Checkbox label which enable/disables audio volume normalization
 #: templates/info.html:412
 msgid "Normalize audio volume"
 msgstr "Normalisoi äänenvoimakkuus"
 
+# auto-translated
 #. Checkbox label which enable/disables high quality video downloads
 #: templates/info.html:418
 msgid "Download high quality videos"
 msgstr "Lataa korkealaatuisia videoita"
 
+# auto-translated
 #. Checkbox label which enable/disables full transcode before playback
 #: templates/info.html:424
 msgid ""
@@ -909,6 +1025,7 @@ msgstr ""
 "Transkoodaa video kokonaan ennen toistoa (parempi selainyhteensopivuus, "
 "hitaammat käynnistykset). Puskurin koko jätetään huomioimatta.*"
 
+# auto-translated
 #. Checkbox label which enable/disables CDG pixel scaling
 #: templates/info.html:430
 msgid ""
@@ -918,6 +1035,7 @@ msgstr ""
 "Ota CDG-pikselin skaalaus käyttöön (terävämpi kuva CDG-tiedostoille, "
 "saattaa lisätä suorittimen käyttöä)"
 
+# auto-translated
 #. Numberbox label for audio video synchronization
 #: templates/info.html:437
 msgid ""
@@ -927,6 +1045,7 @@ msgstr ""
 "Korjaa äänen ja videon synkronointi sekunneissa (negatiivinen = siirtää "
 "ääntä eteenpäin | positiivinen = viivästää ääntä)"
 
+# auto-translated
 #. Numberbox label for limitting the number of songs for each player
 #: templates/info.html:444
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
@@ -934,6 +1053,7 @@ msgstr ""
 "Raja kappaleita, joita yksittäinen käyttäjä voi lisätä jonoon (0 = "
 "rajoittamaton)"
 
+# auto-translated
 #. Checkbox label which enable/disables fair queue (round-robin) mode
 #: templates/info.html:450
 msgid "Enable fair queue (round-robin mode ensures users take turns)"
@@ -941,6 +1061,7 @@ msgstr ""
 "Ota reilu jono käyttöön (kierrostila varmistaa, että käyttäjät "
 "vuorottelevat)"
 
+# auto-translated
 #. Numberbox label for setting the buffer size in kilobytes
 #: templates/info.html:457
 msgid ""
@@ -950,11 +1071,13 @@ msgstr ""
 "Puskurin koko kilotavuina. Transkoodaa tämä määrä videota ennen sen "
 "lähettämistä aloitusnäytölle."
 
+# auto-translated
 #. Text for the link where the user can clear all user preferences
 #: templates/info.html:470
 msgid "Clear preferences"
 msgstr "Tyhjennä asetukset"
 
+# auto-translated
 #. Title of the system data section.
 #: templates/info.html:478
 msgid "System Data"
@@ -965,11 +1088,13 @@ msgstr "Järjestelmätiedot"
 msgid "System Info"
 msgstr "Järjestelmän Tiedot"
 
+# auto-translated
 #. The hardware platform
 #: templates/info.html:489
 msgid "Platform:"
 msgstr "Alusta:"
 
+# auto-translated
 #. The os version
 #: templates/info.html:491
 msgid "OS Version:"
@@ -980,35 +1105,42 @@ msgstr "Käyttöjärjestelmän versio:"
 msgid "Youtube-dl (yt-dlp) version:"
 msgstr "Youtube-dl (yt-dlp) -versio:"
 
+# auto-translated
 #. The version of the program "ffmpeg".
 #: templates/info.html:495
 msgid "FFmpeg version:"
 msgstr "FFmpeg-versio:"
 
+# auto-translated
 #. The version of Pikaraoke running right now.
 #: templates/info.html:497
 msgid "Pikaraoke version:"
 msgstr "Pikaraoke versio:"
 
+# auto-translated
 #. Header of the information section about the System stats.
 #: templates/info.html:503
 msgid "System stats"
 msgstr "Järjestelmän tilastot"
 
+# auto-translated
 #. The CPU usage of the computer running Pikaraoke.
 #: templates/info.html:509
 msgid "CPU:"
 msgstr "CPU:"
 
+# auto-translated
 #: templates/info.html:509 templates/info.html:511 templates/info.html:513
 msgid "Loading..."
 msgstr "Ladataan..."
 
+# auto-translated
 #. The disk usage of the computer running Pikaraoke. Used by downloaded songs.
 #: templates/info.html:511
 msgid "Disk Usage:"
 msgstr "Levyn käyttö:"
 
+# auto-translated
 #. The memory (RAM) usage of the computer running Pikaraoke.
 #: templates/info.html:513
 msgid "Memory:"
@@ -1019,6 +1151,7 @@ msgstr "Muisti:"
 msgid "Updates"
 msgstr "Päivitykset"
 
+# auto-translated
 #. Label for the YT-DLP update on the updates section
 #: templates/info.html:525
 msgid "YT-DLP update"
@@ -1083,11 +1216,13 @@ msgstr ""
 "jäljellä olevan tilan. Sinun tarvitsee tehdä tämä vain kerran.\n"
 "    Tämä käynnistää järjestelmän uudelleen."
 
+# auto-translated
 #. Message for the log out user from admin mode button.
 #: templates/info.html:584
 msgid "Click here to logout from admin mode."
 msgstr "Napsauta tätä kirjautuaksesi ulos järjestelmänvalvojatilasta."
 
+# auto-translated
 #. Link which will log out the user from admin mode.
 #: templates/info.html:586
 msgid "Log out"
@@ -1124,30 +1259,37 @@ msgstr "Käynnistä järjestelmä uudelleen"
 msgid "Shutdown System"
 msgstr "Sammuta järjestelmä"
 
+# auto-translated
 #: templates/queue.html:164 templates/queue.html:313
 msgid "Options"
 msgstr "Vaihtoehdot"
 
+# auto-translated
 #: templates/queue.html:213
 msgid "Pending downloads"
 msgstr "Odottavat lataukset"
 
+# auto-translated
 #: templates/queue.html:218
 msgid "Queued"
 msgstr "Jonossa"
 
+# auto-translated
 #: templates/queue.html:226
 msgid "Download Errors"
 msgstr "Latausvirheet"
 
+# auto-translated
 #: templates/queue.html:235
 msgid "Failed"
 msgstr "Epäonnistui"
 
+# auto-translated
 #: templates/queue.html:236
 msgid "Dismiss"
 msgstr "Hylkää"
 
+# auto-translated
 #: templates/queue.html:298
 msgid "Drag to reorder"
 msgstr "Järjestä uudelleen vetämällä"
@@ -1156,14 +1298,17 @@ msgstr "Järjestä uudelleen vetämällä"
 msgid "The queue is empty"
 msgstr "Jono on tyhjä"
 
+# auto-translated
 #: templates/queue.html:432
 msgid "Play"
 msgstr "Pelata"
 
+# auto-translated
 #: templates/queue.html:434 templates/queue.html:559
 msgid "Pause"
 msgstr "Tauko"
 
+# auto-translated
 #: templates/queue.html:505
 msgid ""
 "Add <input id=\"randomNumberInput\" class=\"input mx-2 p-2\" "
@@ -1178,38 +1323,47 @@ msgstr ""
 msgid "Clear all"
 msgstr "Tyhjennä kappalejono"
 
+# auto-translated
 #: templates/queue.html:523
 msgid "Play Next"
 msgstr "Pelaa seuraavaksi"
 
+# auto-translated
 #: templates/queue.html:523
 msgid "Move to Top"
 msgstr "Siirrä alkuun"
 
+# auto-translated
 #: templates/queue.html:527
 msgid "Move Up"
 msgstr "Siirrä ylös"
 
+# auto-translated
 #: templates/queue.html:531
 msgid "Move Down"
 msgstr "Siirrä alas"
 
+# auto-translated
 #: templates/queue.html:535
 msgid "Move to Bottom"
 msgstr "Siirrä alas"
 
+# auto-translated
 #: templates/queue.html:539
 msgid "Remove from Queue"
 msgstr "Poista jonosta"
 
+# auto-translated
 #: templates/queue.html:555
 msgid "Restart"
 msgstr "Käynnistä uudelleen"
 
+# auto-translated
 #: templates/queue.html:563
 msgid "Skip"
 msgstr "Ohita"
 
+# auto-translated
 #: templates/queue.html:571
 msgid "Download queue"
 msgstr "Latausjono"
@@ -1296,6 +1450,7 @@ msgid ""
 "\t\t<small><i>'%(search_term)s'</i></small>"
 msgstr "Etsi Youtubesta <small><i>’%(search_term)s’</i></small>"
 
+# auto-translated
 #. Html text which displays what was searched for, in quotes.
 #: templates/search.html:691
 #, python-format
@@ -1306,10 +1461,12 @@ msgstr ""
 "Hakutulokset haulle\n"
 "\t\t\t<small><i>'%(search_string)s'</i></small>"
 
+# auto-translated
 #: templates/splash.html:23
 msgid "Connection lost. Is the server still running?"
 msgstr "Yhteys katkesi. Onko palvelin vielä käynnissä?"
 
+# auto-translated
 #: templates/splash.html:24
 msgid ""
 "This browser is not fully supported. You may experience streaming issues."
@@ -1328,11 +1485,13 @@ msgstr "Seuraavaksi:"
 msgid "Next singer:"
 msgstr "Seuraava laulaja:"
 
+# auto-translated
 #. The title of the score screen, telling the user their singing score
 #: templates/splash.html:118
 msgid "Your Score"
 msgstr "Sinun pisteesi"
 
+# auto-translated
 #. Prompt for interaction in order to enable video autoplay.
 #: templates/splash.html:132
 msgid ""
@@ -1349,6 +1508,7 @@ msgstr ""
 "      pelata toisin. Napsauta alla olevaa painiketta\n"
 "      <a onClick=\"handleConfirmation()\">vahvista</a>."
 
+# auto-translated
 #. Button to confirm to enable video autoplay.
 #: templates/splash.html:145
 msgid "Confirm"

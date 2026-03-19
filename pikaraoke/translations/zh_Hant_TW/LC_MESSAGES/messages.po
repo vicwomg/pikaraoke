@@ -4,17 +4,17 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: 1.1.1\n"
+"Project-Id-Version:  1.1.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-19 15:32+1100\n"
+"POT-Creation-Date: 2026-03-19 16:45+1100\n"
 "PO-Revision-Date: 2024-08-28 10:09-0400\n"
 "Last-Translator: \n"
-"Language-Team: zh_hant_TW <LL@li.org>\n"
 "Language: zh_TW\n"
+"Language-Team: zh_hant_TW <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.17.0\n"
 
 #. Message shown after the song is transposed, first is the semitones and then
@@ -67,11 +67,13 @@ msgstr "下載：%s"
 msgid "Error queueing song: "
 msgstr "添加歌曲到播放列表時出錯："
 
+# auto-translated
 #: lib/playback_controller.py:89
 #, python-format
 msgid "Song file not found: %s"
 msgstr "未找到歌曲檔案：%s"
 
+# auto-translated
 #: lib/playback_controller.py:120
 msgid "Stream was not playable! Skipping track"
 msgstr "串流無法播放！跳軌"
@@ -94,6 +96,7 @@ msgstr "跳過：%s"
 msgid "Resume: %s"
 msgstr "繼續播放：%s"
 
+# auto-translated
 #. Message shown after the song is paused, will be followed by song name
 #: lib/playback_controller.py:192
 #, python-format
@@ -116,6 +119,7 @@ msgstr "您的偏好設定已成功清除"
 msgid "Something went wrong! Your preferences were not cleared"
 msgstr "發生錯誤！您的偏好設定未被清除"
 
+# auto-translated
 #: lib/queue_manager.py:111
 #, python-format
 msgid "Song is already in the queue: %s"
@@ -146,11 +150,13 @@ msgstr "成功添加歌曲到播放列表：%s"
 msgid "Clear queue"
 msgstr "清空播放列表"
 
+# auto-translated
 #: lib/stream_manager.py:112
 #, python-format
 msgid "Error resolving file: %s"
 msgstr "解析檔案時發生錯誤：%s"
 
+# auto-translated
 #: lib/stream_manager.py:148
 msgid "Failed to prepare stream"
 msgstr "準備流失敗"
@@ -228,11 +234,13 @@ msgstr "管理員密碼不正確！"
 msgid "Logged out of admin mode!"
 msgstr "已登出管理員模式！"
 
+# auto-translated
 #. Title of the button to accept the suggested name
 #: routes/batch_song_renamer.py:144
 msgid "Accept suggested name"
 msgstr "接受建議的名稱"
 
+# auto-translated
 #. Title of the files page.
 #. Page title for the page where the user can batch rename songs.
 #: routes/batch_song_renamer.py:152 templates/batch-song-renamer.html:133
@@ -261,6 +269,7 @@ msgstr "重命名檔案時出錯：'%s' 到 '%s'，檔案名已存在"
 msgid "Browse"
 msgstr "瀏覽"
 
+# auto-translated
 #: routes/files.py:126
 msgid "You don't have permission to delete songs"
 msgstr "您無權刪除歌曲"
@@ -275,10 +284,12 @@ msgstr "錯誤：無法刪除此歌曲，因為它在當前播放列表中"
 msgid "Song deleted: %s"
 msgstr "歌曲已刪除：%s"
 
+# auto-translated
 #: routes/files.py:155 routes/files.py:184
 msgid "You don't have permission to edit songs"
 msgstr "您沒有編輯歌曲的權限"
 
+# auto-translated
 #: routes/files.py:211
 #, python-format
 msgid "Error renaming file: '%s' to '%s', %s"
@@ -304,6 +315,7 @@ msgstr "您沒有權限更改偏好設定"
 msgid "You don't have permission to clear preferences"
 msgstr "您沒有權限清除偏好設定"
 
+# auto-translated
 #: routes/queue.py:80
 msgid "You don't have permission to add random songs"
 msgstr "您無權添加隨機歌曲"
@@ -319,6 +331,7 @@ msgstr "已添加 %s 首隨機歌曲"
 msgid "Ran out of songs!"
 msgstr "歌曲已用完！"
 
+# auto-translated
 #. Message shown when non-admin tries to edit queue
 #: routes/queue.py:121
 msgid "Unauthorized"
@@ -328,10 +341,12 @@ msgstr "未經授權"
 msgid "Cleared the queue!"
 msgstr "已清空播放列表！"
 
+# auto-translated
 #: routes/queue.py:143
 msgid "Moved to top of queue"
 msgstr "移至隊列頂部"
 
+# auto-translated
 #: routes/queue.py:144
 msgid "Moved to bottom of queue"
 msgstr "移至隊列底部"
@@ -348,11 +363,12 @@ msgstr "在播放列表中下移"
 msgid "Deleted from queue"
 msgstr "已從播放列表中刪除"
 
+# auto-translated
 #: routes/queue.py:150
 msgid "Error moving to top of queue"
 msgstr "移至佇列頂部時出錯"
 
-#. auto-translated
+# auto-translated
 #: routes/queue.py:151
 msgid "Error moving to bottom of queue"
 msgstr "移至佇列底部時出錯"
@@ -429,26 +445,29 @@ msgstr "你太棒了！你知道嗎？！"
 msgid "Woah, who let Freddie Mercury in here?"
 msgstr "哇，誰讓佛萊迪·默丘里進來了？"
 
+# auto-translated
 #: routes/stream.py:238
 msgid "Failed to stream subtitle: "
 msgstr "無法傳輸字幕："
 
+# auto-translated
 #. Prompt to change the username displayed next to queued songs. CURRENT_NAME
 #. is replaced with the name
 #: templates/base.html:25
 msgid ""
-"Do you want to change the name of the person using this device? This will "
-"show up on queued songs. Current: CURRENT_NAME"
+"Do you want to change the name of the person using this device? This will"
+" show up on queued songs. Current: CURRENT_NAME"
 msgstr "您要更改使用此設備的人的姓名嗎？這將顯示在排隊的歌曲上。目前：CURRENT_NAME"
 
+# auto-translated
 #. Confirmation prompt to clear entire queue. User must type ok to confirm
 #: templates/base.html:27
 msgid "Are you sure you want to clear the ENTIRE queue? Type ok to continue"
 msgstr "您確定要清除整個佇列嗎？輸入“確定”繼續"
 
+# auto-translated
 #. Confirmation dialog when removing a song from the queue. SONG_TITLE is
 #. replaced with the title
-#. auto-translated
 #: templates/base.html:29
 msgid "Are you sure you want to delete SONG_TITLE from the queue?"
 msgstr "您確定要從佇列中刪除 SONG_TITLE 嗎？"
@@ -482,15 +501,18 @@ msgstr "播放列表"
 msgid "Search"
 msgstr "搜尋"
 
+# auto-translated
 #. Message about the wait for loading the songs
 #: templates/batch-song-renamer.html:136
 msgid ""
-"The loading process may take a few seconds, as the song titles are compared online. Loading time may vary\n"
+"The loading process may take a few seconds, as the song titles are "
+"compared online. Loading time may vary\n"
 "\tbased on your internet connection."
 msgstr ""
 "由於歌曲名稱是在線比較的，加載過程可能需要幾秒鐘。載入時間可能會有所不同\n"
 "\t基於您的網路連線。"
 
+# auto-translated
 #. Label which displays that all songs are being shown
 #: templates/batch-song-renamer.html:141
 msgid ""
@@ -500,11 +522,13 @@ msgstr ""
 "顯示全部\n"
 "\t歌曲"
 
+# auto-translated
 #. Button which changes to show only the songs to rename
 #: templates/batch-song-renamer.html:144
 msgid "Show only songs to rename"
 msgstr "僅顯示要重新命名的歌曲"
 
+# auto-translated
 #. Label which displays that only songs to rename are being shown.
 #: templates/batch-song-renamer.html:147
 msgid ""
@@ -514,11 +538,13 @@ msgstr ""
 "僅顯示歌曲\n"
 "\t重新命名"
 
+# auto-translated
 #. Button which changes to show all songs
 #: templates/batch-song-renamer.html:150
 msgid "Show all songs"
 msgstr "顯示所有歌曲"
 
+# auto-translated
 #. Message displaying that the songs are currently being loaded
 #: templates/batch-song-renamer.html:158
 msgid "Loading songs..."
@@ -554,6 +580,7 @@ msgstr "交換歌手/歌曲順序"
 msgid "Save"
 msgstr "儲存"
 
+# auto-translated
 #: templates/edit.html:94
 msgid "Cancel"
 msgstr "取消"
@@ -569,8 +596,7 @@ msgstr "刪除此歌曲"
 msgid "Sorted Alphabetically"
 msgstr "按字母順序排序"
 
-#. Button which changes how the songs are sorted so they become sorted by
-#. date.
+#. Button which changes how the songs are sorted so they become sorted by date.
 #: templates/files.html:94
 msgid ""
 "Sort by\n"
@@ -583,8 +609,7 @@ msgstr "按日期排序"
 msgid "Sorted by date"
 msgstr "按日期排序"
 
-#. Button which changes how the songs are sorted so they become sorted by
-#. name.
+#. Button which changes how the songs are sorted so they become sorted by name.
 #: templates/files.html:100
 msgid ""
 "Sort by\n"
@@ -615,8 +640,8 @@ msgstr "沒有排隊的歌曲。"
 #. Confirmation message when clicking a button to skip a track.
 #: templates/home.html:134
 msgid ""
-"Are you sure you want to skip this track? If you didn't add this song, ask "
-"permission first!"
+"Are you sure you want to skip this track? If you didn't add this song, "
+"ask permission first!"
 msgstr "您確定要跳過這首歌嗎？如果您不是添加這首歌的人，請先徵求許可！"
 
 #. Header showing the currently playing song.
@@ -683,10 +708,11 @@ msgstr "您確定要重新啟動嗎？"
 #. Confirmation text whe the user asks to update the Youtube-dl tool.
 #: templates/info.html:101
 msgid ""
-"Are you sure you want to update Youtube-dl right now? Current and pending "
-"downloads may fail."
+"Are you sure you want to update Youtube-dl right now? Current and pending"
+" downloads may fail."
 msgstr "您確定要立即更新 Youtube-dl 嗎？當前和待處理的下載可能會失敗。"
 
+# auto-translated
 #. Confirmation text when the user wants to expand the filesystem to take the
 #. entire SD card.
 #: templates/info.html:179
@@ -710,6 +736,7 @@ msgstr "%(site_title)s 的網址："
 msgid "Handy URL QR code to share with a pal:"
 msgstr "方便分享給朋友的網址 QR 碼："
 
+# auto-translated
 #. Title of the admin section.
 #: templates/info.html:215 templates/info.html:578
 msgid "Admin"
@@ -725,26 +752,31 @@ msgstr "輸入管理員密碼"
 msgid "Login"
 msgstr "登入"
 
+# auto-translated
 #. Title of the song library section.
 #: templates/info.html:242
 msgid "Song Library"
 msgstr "歌庫"
 
+# auto-translated
 #. Header of the song library management section.
 #: templates/info.html:247
 msgid "Library"
 msgstr "圖書館"
 
+# auto-translated
 #. Song count display in the library card.
 #: templates/info.html:253
 msgid "Songs in library:"
 msgstr "庫裡的歌曲："
 
+# auto-translated
 #. Button to trigger a background library scan.
 #: templates/info.html:257
 msgid "Sync Now"
 msgstr "立即同步"
 
+# auto-translated
 #. Help text explaining what Sync Now does.
 #: templates/info.html:261
 msgid "Reconciles the library with the song directory in the background."
@@ -765,6 +797,7 @@ msgstr "啟動畫面設定"
 msgid "Disable background video"
 msgstr "停用背景影片"
 
+# auto-translated
 #. Checkbox label which enable/disables background music on the Splash Screen
 #: templates/info.html:288
 msgid "Disable background music"
@@ -780,6 +813,7 @@ msgstr "停用每首歌曲後的分數畫面"
 msgid "Hide notifications"
 msgstr "隱藏通知"
 
+# auto-translated
 #. Checkbox label which enable/disables the digital clock on the splash screen
 #: templates/info.html:306
 msgid "Show splash clock"
@@ -810,8 +844,8 @@ msgstr "背景音樂的音量（最小 0，最大 100）"
 #. screensaver
 #: templates/info.html:336
 msgid ""
-"The amount of idle time in seconds before the screen saver activates. Set to"
-" 0 to disable it."
+"The amount of idle time in seconds before the screen saver activates. Set"
+" to 0 to disable it."
 msgstr "螢幕保護程式啟動前的閒置時間（秒）。設為 0 可停用。"
 
 #. Numberbox label for setting the delay before playing the next song
@@ -819,41 +853,49 @@ msgstr "螢幕保護程式啟動前的閒置時間（秒）。設為 0 可停用
 msgid "The delay in seconds before starting the next song"
 msgstr "開始下一首歌曲前的延遲時間（秒）"
 
+# auto-translated
 #. Title text for the Score Phrases section of preferences
 #: templates/info.html:354
 msgid "Score phrases"
 msgstr "給短語評分"
 
+# auto-translated
 #. Help text explaining how to add phrases
 #: templates/info.html:361
 msgid "Add one phrase per line in each box and hit save."
 msgstr "在每個框中每行新增一個短語，然後點擊「儲存」。"
 
+# auto-translated
 #. Title for LOW Score Phrases
 #: templates/info.html:363
 msgid "LOW Score Phrases (score < 30)"
 msgstr "低分短語（分數 < 30）"
 
+# auto-translated
 #. Placeholder for the low score phrases textarea
 #: templates/info.html:365
 msgid "Could be better..."
 msgstr "可能會更好..."
 
+# auto-translated
 #. Title for MID Score Phrases
 #: templates/info.html:368
 msgid "MID Score Phrases (30 > score < 60)"
 msgstr "MID 得分短語 (30 > 分數 < 60)"
 
+# auto-translated
 #. Placeholder for the MID score phrases textarea
 #: templates/info.html:370
 msgid "That was ok..."
 msgstr "那就可以了..."
 
+# auto-translated
 #. Title for HIGH Score Phrases
 #: templates/info.html:373
 msgid "HIGH Score Phrases (60 < score)"
 msgstr "高分短語（60 < 分數）"
 
+# auto-translated
 #. Placeholder for the HIGH score phrases textarea
 #: templates/info.html:375
 msgid "Wonderfull..."
@@ -891,13 +933,15 @@ msgid ""
 "slower starts). Buffer size will be ignored.*"
 msgstr "在播放前完全轉碼影片（更好的瀏覽器相容性，較慢的啟動）。緩衝區大小將被忽略。*"
 
+# auto-translated
 #. Checkbox label which enable/disables CDG pixel scaling
 #: templates/info.html:430
 msgid ""
-"Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU "
-"usage)"
+"Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU"
+" usage)"
 msgstr "啟用 CDG 像素縮放（CDG 檔案的視覺效果更清晰，可能會增加 CPU 使用率）"
 
+# auto-translated
 #. Numberbox label for audio video synchronization
 #: templates/info.html:437
 msgid ""
@@ -910,8 +954,8 @@ msgstr "在幾秒鐘內修復音訊和視訊同步（負=提前音訊|正=延遲
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
 msgstr "個別使用者可以添加到播放列表的歌曲數量限制（0 = 無限制）"
 
+# auto-translated
 #. Checkbox label which enable/disables fair queue (round-robin) mode
-#. auto-translated
 #: templates/info.html:450
 msgid "Enable fair queue (round-robin mode ensures users take turns)"
 msgstr "啟用公平隊列（循環模式確保用戶輪流）"
@@ -919,8 +963,8 @@ msgstr "啟用公平隊列（循環模式確保用戶輪流）"
 #. Numberbox label for setting the buffer size in kilobytes
 #: templates/info.html:457
 msgid ""
-"Buffer size in kilobytes. Transcode this amount of the video before sending "
-"it to the splash screen. "
+"Buffer size in kilobytes. Transcode this amount of the video before "
+"sending it to the splash screen. "
 msgstr "緩衝區大小（KB）。在將影片發送到啟動畫面之前，轉碼這個數量的影片。"
 
 #. Text for the link where the user can clear all user preferences
@@ -968,21 +1012,24 @@ msgstr "卡拉OK派版本："
 msgid "System stats"
 msgstr "系統統計"
 
+# auto-translated
 #. The CPU usage of the computer running Pikaraoke.
 #: templates/info.html:509
 msgid "CPU:"
 msgstr "中央處理器："
 
+# auto-translated
 #: templates/info.html:509 templates/info.html:511 templates/info.html:513
 msgid "Loading..."
 msgstr "載入中..."
 
+# auto-translated
 #. The disk usage of the computer running Pikaraoke. Used by downloaded songs.
-#. auto-translated
 #: templates/info.html:511
 msgid "Disk Usage:"
 msgstr "磁碟使用情況："
 
+# auto-translated
 #. The memory (RAM) usage of the computer running Pikaraoke.
 #: templates/info.html:513
 msgid "Memory:"
@@ -993,6 +1040,7 @@ msgstr "記憶："
 msgid "Updates"
 msgstr "更新"
 
+# auto-translated
 #. Label for the YT-DLP update on the updates section
 #: templates/info.html:525
 msgid "YT-DLP update"
@@ -1003,7 +1051,8 @@ msgstr "YT-DLP 更新"
 #, python-format
 msgid ""
 "\n"
-"\t\t\t\t\t\tIf downloads or searches stopped working, updating youtube-dl will probably fix it.<br/>\n"
+"\t\t\t\t\t\tIf downloads or searches stopped working, updating youtube-dl"
+" will probably fix it.<br/>\n"
 "\t\t\t\t\t\tThe current installed version is: \"%(youtubedl_version)s\".\n"
 "\t\t\t\t\t"
 msgstr ""
@@ -1016,12 +1065,12 @@ msgstr ""
 msgid "Update youtube-dl"
 msgstr "更新 youtube-dl"
 
-#. Help text which explains why updating youtube-dl can fail. The log is a
-#. file
+#. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
 #: templates/info.html:540
 msgid ""
-"* This update link above may fail if you don't have proper file permissions.\n"
+"* This update link above may fail if you don't have proper file "
+"permissions.\n"
 "\t\t\t\t\t\t\tCheck the pikaraoke log for errors."
 msgstr ""
 "如果您沒有適當的檔案權限，上面的更新連結可能會失敗。\n"
@@ -1042,19 +1091,23 @@ msgstr "擴展樹莓派檔案系統"
 #. filesystem.
 #: templates/info.html:562
 msgid ""
-"If you just installed the pre-built pikaraoke pi image and your SD card is larger than 4GB,\n"
-"\t\t\t\t\t\t\tyou may want to expand the filesystem to utilize the remaining space. You only need to do this once.\n"
+"If you just installed the pre-built pikaraoke pi image and your SD card "
+"is larger than 4GB,\n"
+"\t\t\t\t\t\t\tyou may want to expand the filesystem to utilize the "
+"remaining space. You only need to do this once.\n"
 "\t\t\t\t\t\t\tThis will reboot the system."
 msgstr ""
 "如果您剛剛安裝了預建的卡拉OK派樹莓派映像，且您的 SD 卡大於 4GB，\n"
 "    您可能想要擴展檔案系統以利用剩餘空間。您只需執行一次。\n"
 "    這將重新啟動系統。"
 
+# auto-translated
 #. Message for the log out user from admin mode button.
 #: templates/info.html:584
 msgid "Click here to logout from admin mode."
 msgstr "按一下此處從管理模式登出。"
 
+# auto-translated
 #. Link which will log out the user from admin mode.
 #: templates/info.html:586
 msgid "Log out"
@@ -1089,30 +1142,37 @@ msgstr "重新啟動系統"
 msgid "Shutdown System"
 msgstr "關閉系統"
 
+# auto-translated
 #: templates/queue.html:164 templates/queue.html:313
 msgid "Options"
 msgstr "選項"
 
+# auto-translated
 #: templates/queue.html:213
 msgid "Pending downloads"
 msgstr "待下載"
 
+# auto-translated
 #: templates/queue.html:218
 msgid "Queued"
 msgstr "排隊"
 
+# auto-translated
 #: templates/queue.html:226
 msgid "Download Errors"
 msgstr "下載錯誤"
 
+# auto-translated
 #: templates/queue.html:235
 msgid "Failed"
 msgstr "失敗的"
 
+# auto-translated
 #: templates/queue.html:236
 msgid "Dismiss"
 msgstr "解僱"
 
+# auto-translated
 #: templates/queue.html:298
 msgid "Drag to reorder"
 msgstr "拖曳以重新排序"
@@ -1121,6 +1181,7 @@ msgstr "拖曳以重新排序"
 msgid "The queue is empty"
 msgstr "播放列表是空的"
 
+# auto-translated
 #: templates/queue.html:432
 msgid "Play"
 msgstr "玩"
@@ -1129,52 +1190,62 @@ msgstr "玩"
 msgid "Pause"
 msgstr "暫停"
 
+# auto-translated
 #: templates/queue.html:505
 msgid ""
 "Add <input id=\"randomNumberInput\" class=\"input mx-2 p-2\" "
 "pattern=\"\\d*\" maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" "
 "style=\"width: 42px\" /> random songs"
 msgstr ""
-"加 <input id=\"randomNumberInput\" class=\"input mx-2 p-2\" pattern=\"\\d*\" "
-"maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" style=\"width: 42px\" /> "
-"隨機歌曲"
+"加 <input id=\"randomNumberInput\" class=\"input mx-2 p-2\" "
+"pattern=\"\\d*\" maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" "
+"style=\"width: 42px\" /> 隨機歌曲"
 
 #: templates/queue.html:509
 msgid "Clear all"
 msgstr "清除全部"
 
+# auto-translated
 #: templates/queue.html:523
 msgid "Play Next"
 msgstr "播放下一個"
 
+# auto-translated
 #: templates/queue.html:523
 msgid "Move to Top"
 msgstr "移至頂部"
 
+# auto-translated
 #: templates/queue.html:527
 msgid "Move Up"
 msgstr "向上移動"
 
+# auto-translated
 #: templates/queue.html:531
 msgid "Move Down"
 msgstr "下移"
 
+# auto-translated
 #: templates/queue.html:535
 msgid "Move to Bottom"
 msgstr "移至底部"
 
+# auto-translated
 #: templates/queue.html:539
 msgid "Remove from Queue"
 msgstr "從佇列中刪除"
 
+# auto-translated
 #: templates/queue.html:555
 msgid "Restart"
 msgstr "重新啟動"
 
+# auto-translated
 #: templates/queue.html:563
 msgid "Skip"
 msgstr "跳過"
 
+# auto-translated
 #: templates/queue.html:571
 msgid "Download queue"
 msgstr "下載隊列"
@@ -1212,7 +1283,8 @@ msgstr "進階"
 #: templates/search.html:617
 msgid ""
 "- Type a song (title/artist) to search\n"
-"\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to the queue."
+"\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to"
+" the queue."
 msgstr ""
 "輸入歌曲\n"
 "          （標題/歌手）以搜尋可用歌曲，並點擊「添加到播放列表」\n"
@@ -1222,7 +1294,8 @@ msgstr ""
 #: templates/search.html:621
 msgid ""
 "- If the song doesn't appear in\n"
-"\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find it on Youtube"
+"\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find "
+"it on Youtube"
 msgstr ""
 "如果\n"
 "          歌曲未出現在「可用歌曲」下拉選單中，點擊\n"
@@ -1265,6 +1338,7 @@ msgstr ""
 "在 YouTube 上搜尋\n"
 "    <small><i>'%(search_term)s'</i></small>"
 
+# auto-translated
 #. Html text which displays what was searched for, in quotes.
 #: templates/search.html:691
 #, python-format
@@ -1275,14 +1349,16 @@ msgstr ""
 "搜尋結果\n"
 "\t\t\t<small><i>'%(search_string)s'</i></small>"
 
+# auto-translated
 #: templates/splash.html:23
 msgid "Connection lost. Is the server still running?"
 msgstr "連線遺失。伺服器還在運作嗎？"
 
+# auto-translated
 #: templates/splash.html:24
 msgid ""
-"This browser is not fully supported. You may experience streaming issues. "
-"Please use Chrome/Safari/Firefox/Edge for best results."
+"This browser is not fully supported. You may experience streaming issues."
+" Please use Chrome/Safari/Firefox/Edge for best results."
 msgstr "該瀏覽器不完全支援。您可能會遇到串流媒體問題。請使用 Chrome/Safari/Firefox/Edge 以獲得最佳效果。"
 
 #. Label for the next song to be played in the queue.
@@ -1304,7 +1380,8 @@ msgstr "您的分數"
 #: templates/splash.html:132
 msgid ""
 "Due to limitations with browser permissions, you must interact\n"
-"      with the page once before it allows autoplay of videos. Pikaraoke will not\n"
+"      with the page once before it allows autoplay of videos. Pikaraoke "
+"will not\n"
 "      play otherwise. Click the button below to\n"
 "      <a onClick=\"handleConfirmation()\">confirm</a>."
 msgstr ""
@@ -1317,3 +1394,4 @@ msgstr ""
 #: templates/splash.html:145
 msgid "Confirm"
 msgstr "確認"
+

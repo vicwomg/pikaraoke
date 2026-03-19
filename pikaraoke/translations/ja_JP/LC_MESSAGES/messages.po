@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-19 15:32+1100\n"
+"POT-Creation-Date: 2026-03-19 16:45+1100\n"
 "PO-Revision-Date: 2025-01-13 22:54-0800\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja_JP\n"
@@ -18,6 +18,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
+# auto-translated
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
 #: karaoke.py:453
@@ -25,6 +26,7 @@ msgstr ""
 msgid "Transposing by %s semitones: %s"
 msgstr "%s 半音ずつ移調します: %s"
 
+# auto-translated
 #. Message shown after the volume is changed, will be followed by the volume
 #. level
 #: karaoke.py:469
@@ -32,229 +34,274 @@ msgstr "%s 半音ずつ移調します: %s"
 msgid "Volume: %s"
 msgstr "ボリューム: %s"
 
+# auto-translated
 #: lib/download_manager.py:130
 #, python-format
 msgid "Download queued (#%d): %s"
 msgstr "ダウンロードがキューに入れられました (#%d): %s"
 
+# auto-translated
 #. Message shown when download is added and will start immediately
 #: lib/download_manager.py:134
 #, python-format
 msgid "Download starting: %s"
 msgstr "ダウンロード開始: %s"
 
+# auto-translated
 #. Message shown when download actually starts (after waiting in queue)
 #: lib/download_manager.py:222
 #, python-format
 msgid "Downloading video: %s"
 msgstr "ビデオをダウンロード中: %s"
 
+# auto-translated
 #: lib/download_manager.py:280
 msgid "Error downloading song: "
 msgstr "曲のダウンロード中にエラーが発生しました:"
 
+# auto-translated
 #: lib/download_manager.py:300
 #, python-format
 msgid "Downloaded and queued: %s"
 msgstr "ダウンロードされキューに登録されました: %s"
 
+# auto-translated
 #. Message shown after the download is completed but not queued
 #: lib/download_manager.py:304
 #, python-format
 msgid "Downloaded: %s"
 msgstr "ダウンロード済み: %s"
 
+# auto-translated
 #: lib/download_manager.py:327
 msgid "Error queueing song: "
 msgstr "曲のキュー中にエラーが発生しました:"
 
+# auto-translated
 #: lib/playback_controller.py:89
 #, python-format
 msgid "Song file not found: %s"
 msgstr "ソング ファイルが見つかりません: %s"
 
+# auto-translated
 #: lib/playback_controller.py:120
 msgid "Stream was not playable! Skipping track"
 msgstr "ストリームは再生できませんでした。トラックをスキップする"
 
+# auto-translated
 #. Message shown when the song ends abnormally
 #: lib/playback_controller.py:149
 #, python-format
 msgid "Song ended abnormally: %s"
 msgstr "曲が異常終了しました: %s"
 
+# auto-translated
 #. Message shown after the song is skipped, will be followed by song name
 #: lib/playback_controller.py:173
 #, python-format
 msgid "Skip: %s"
 msgstr "スキップ: %s"
 
+# auto-translated
 #. Message shown after the song is resumed, will be followed by song name
 #: lib/playback_controller.py:189
 #, python-format
 msgid "Resume: %s"
 msgstr "再開: %s"
 
+# auto-translated
 #. Message shown after the song is paused, will be followed by song name
 #: lib/playback_controller.py:192
 #, python-format
 msgid "Pause: %s"
 msgstr "一時停止: %s"
 
+# auto-translated
 #: lib/preference_manager.py:133
 msgid "Your preferences were changed successfully"
 msgstr "設定は正常に変更されました"
 
+# auto-translated
 #: lib/preference_manager.py:136 templates/info.html:19
 msgid "Something went wrong! Your preferences were not changed"
 msgstr "何か問題が発生しました!あなたの設定は変更されませんでした"
 
+# auto-translated
 #: lib/preference_manager.py:153
 msgid "Your preferences were cleared successfully"
 msgstr "設定は正常にクリアされました"
 
+# auto-translated
 #: lib/preference_manager.py:156
 msgid "Something went wrong! Your preferences were not cleared"
 msgstr "何か問題が発生しました!あなたの設定はクリアされませんでした"
 
+# auto-translated
 #: lib/queue_manager.py:111
 #, python-format
 msgid "Song is already in the queue: %s"
 msgstr "曲はすでにキューにあります: %s"
 
+# auto-translated
 #: lib/queue_manager.py:119
 #, python-format
 msgid "You reached the limit of %s song(s) from an user in queue!"
 msgstr "キュー内のユーザーからの %s 曲の制限に達しました!"
 
+# auto-translated
 #: lib/queue_manager.py:132
 #, python-format
 msgid "%s added to top of queue: %s"
 msgstr "%s がキューの先頭に追加されました: %s"
 
+# auto-translated
 #: lib/queue_manager.py:141
 #, python-format
 msgid "%s added to the queue: %s"
 msgstr "%s がキューに追加されました: %s"
 
+# auto-translated
 #: lib/queue_manager.py:153
 #, python-format
 msgid "Song added to the queue: %s"
 msgstr "曲がキューに追加されました: %s"
 
+# auto-translated
 #. Message shown after the queue is cleared
 #: lib/queue_manager.py:194
 msgid "Clear queue"
 msgstr "キューをクリアする"
 
+# auto-translated
 #: lib/stream_manager.py:112
 #, python-format
 msgid "Error resolving file: %s"
 msgstr "ファイル解決エラー: %s"
 
+# auto-translated
 #: lib/stream_manager.py:148
 msgid "Failed to prepare stream"
 msgstr "ストリームの準備に失敗しました"
 
+# auto-translated
 #. Message shown after starting the youtube-dl update.
 #: routes/admin.py:59
 msgid "Updating youtube-dl! Should take a minute or two... "
 msgstr "youtube-dlを更新中！ 1 ～ 2 分かかるはずです..."
 
+# auto-translated
 #. Message shown after trying to update youtube-dl without admin permissions.
 #: routes/admin.py:66
 msgid "You don't have permission to update youtube-dl"
 msgstr "YouTube-DL を更新する権限がありません"
 
+# auto-translated
 #. Message shown after quitting pikaraoke.
 #: routes/admin.py:97
 msgid "Exiting pikaraoke now!"
 msgstr "ピカカラオケを終了します!"
 
+# auto-translated
 #. Message shown after trying to quit pikaraoke without admin permissions.
 #: routes/admin.py:104
 msgid "You don't have permission to quit"
 msgstr "終了する許可がありません"
 
+# auto-translated
 #. Message shown after shutting down the system.
 #: routes/admin.py:114
 msgid "Shutting down system now!"
 msgstr "システムをただちにシャットダウンします!"
 
+# auto-translated
 #. Message shown after trying to shut down the system without admin
 #. permissions.
 #: routes/admin.py:121
 msgid "You don't have permission to shut down"
 msgstr "シャットダウンする権限がありません"
 
+# auto-translated
 #. Message shown after rebooting the system.
 #: routes/admin.py:131
 msgid "Rebooting system now!"
 msgstr "システムを再起動中です!"
 
+# auto-translated
 #. Message shown after trying to reboot the system without admin permissions.
 #: routes/admin.py:138
 msgid "You don't have permission to Reboot"
 msgstr "再起動する権限がありません"
 
+# auto-translated
 #. Message shown after expanding the filesystem.
 #: routes/admin.py:148
 msgid "Expanding filesystem and rebooting system now!"
 msgstr "ファイルシステムを拡張してシステムを再起動しています!"
 
+# auto-translated
 #. Message shown after trying to expand the filesystem on a non-raspberry pi
 #. device.
 #: routes/admin.py:153
 msgid "Cannot expand fs on non-raspberry pi devices!"
 msgstr "Raspberry Pi 以外のデバイスでは fs を拡張できません。"
 
+# auto-translated
 #. Message shown after trying to expand the filesystem without admin
 #. permissions
 #: routes/admin.py:156
 msgid "You don't have permission to resize the filesystem"
 msgstr "ファイルシステムのサイズを変更する権限がありません"
 
+# auto-translated
 #. Message shown after logging in as admin successfully
 #: routes/admin.py:178
 msgid "Admin mode granted!"
 msgstr "管理者モードが許可されました!"
 
+# auto-translated
 #. Message shown after failing to login as admin
 #: routes/admin.py:182
 msgid "Incorrect admin password!"
 msgstr "管理者パスワードが間違っています!"
 
+# auto-translated
 #. Message shown after logging out as admin successfully
 #: routes/admin.py:192
 msgid "Logged out of admin mode!"
 msgstr "管理者モードからログアウトしました!"
 
+# auto-translated
 #. Title of the button to accept the suggested name
 #: routes/batch_song_renamer.py:144
 msgid "Accept suggested name"
 msgstr "提案された名前を受け入れる"
 
+# auto-translated
 #. Title of the files page.
 #. Page title for the page where the user can batch rename songs.
 #: routes/batch_song_renamer.py:152 templates/batch-song-renamer.html:133
 msgid "Batch Song Renamer"
 msgstr "バッチソングリネーム機能"
 
+# auto-translated
 #. Message shown after trying to edit a song without specifying the filename.
 #: routes/batch_song_renamer.py:236
 msgid "Error: No filename parameters were specified!"
 msgstr "エラー: ファイル名パラメーターが指定されていません。"
 
+# auto-translated
 #: routes/batch_song_renamer.py:245 routes/files.py:160 routes/files.py:191
 msgid "Error: Can't edit this song because it is in the current queue: "
 msgstr "エラー: この曲は現在のキューにあるため編集できません:"
 
+# auto-translated
 #. Message shown after trying to rename a file to a name that already exists.
 #: routes/batch_song_renamer.py:259 routes/files.py:201
 #, python-format
 msgid "Error renaming file: '%s' to '%s', Filename already exists"
 msgstr "ファイル名変更エラー: '%s' から '%s'、ファイル名はすでに存在します"
 
+# auto-translated
 #. Title of the files page.
 #. Navigation link for the page where the user can add existing songs to the
 #. queue.
@@ -262,177 +309,218 @@ msgstr "ファイル名変更エラー: '%s' から '%s'、ファイル名はす
 msgid "Browse"
 msgstr "ブラウズ"
 
+# auto-translated
 #: routes/files.py:126
 msgid "You don't have permission to delete songs"
 msgstr "曲を削除する権限がありません"
 
+# auto-translated
 #. Message shown after trying to delete a song that is in the queue.
 #: routes/files.py:131
 msgid "Error: Can't delete this song because it is in the current queue"
 msgstr "エラー: この曲は現在のキューにあるため削除できません"
 
+# auto-translated
 #: routes/files.py:140
 #, python-format
 msgid "Song deleted: %s"
 msgstr "削除された曲: %s"
 
+# auto-translated
 #: routes/files.py:155 routes/files.py:184
 msgid "You don't have permission to edit songs"
 msgstr "曲を編集する権限がありません"
 
+# auto-translated
 #: routes/files.py:211
 #, python-format
 msgid "Error renaming file: '%s' to '%s', %s"
 msgstr "ファイルの名前変更エラー: '%s' から '%s'、%s"
 
+# auto-translated
 #. Message shown after renaming a file.
 #: routes/files.py:217
 #, python-format
 msgid "Renamed file: %s to %s"
 msgstr "ファイル名を変更しました: %s から %s"
 
+# auto-translated
 #: routes/info.py:100
 msgid "CPU usage query unsupported"
 msgstr "CPU使用率クエリはサポートされていません"
 
+# auto-translated
 #. Message shown after trying to change preferences without admin permissions.
 #: routes/preferences.py:42
 msgid "You don't have permission to change preferences"
 msgstr "設定を変更する権限がありません"
 
+# auto-translated
 #. Message shown after trying to clear preferences without admin permissions.
 #: routes/preferences.py:59
 msgid "You don't have permission to clear preferences"
 msgstr "設定をクリアする権限がありません"
 
+# auto-translated
 #: routes/queue.py:80
 msgid "You don't have permission to add random songs"
 msgstr "ランダムな曲を追加する権限がありません"
 
+# auto-translated
 #. Message shown after adding random tracks
 #: routes/queue.py:86
 #, python-format
 msgid "Added %s random tracks"
 msgstr "%s ランダム トラックを追加しました"
 
+# auto-translated
 #. Message shown after running out songs to add during random track addition
 #: routes/queue.py:89
 msgid "Ran out of songs!"
 msgstr "曲がなくなった！"
 
+# auto-translated
 #. Message shown when non-admin tries to edit queue
 #: routes/queue.py:121
 msgid "Unauthorized"
 msgstr "無許可"
 
+# auto-translated
 #: routes/queue.py:131
 msgid "Cleared the queue!"
 msgstr "行列を一掃しました！"
 
+# auto-translated
 #: routes/queue.py:143
 msgid "Moved to top of queue"
 msgstr "キューの先頭に移動しました"
 
+# auto-translated
 #: routes/queue.py:144
 msgid "Moved to bottom of queue"
 msgstr "キューの最後に移動しました"
 
+# auto-translated
 #: routes/queue.py:145
 msgid "Moved up in queue"
 msgstr "キュー内で上に移動しました"
 
+# auto-translated
 #: routes/queue.py:146
 msgid "Moved down in queue"
 msgstr "キューの下に移動しました"
 
+# auto-translated
 #: routes/queue.py:147
 msgid "Deleted from queue"
 msgstr "キューから削除されました"
 
+# auto-translated
 #: routes/queue.py:150
 msgid "Error moving to top of queue"
 msgstr "キューの先頭に移動中にエラーが発生しました"
 
+# auto-translated
 #: routes/queue.py:151
 msgid "Error moving to bottom of queue"
 msgstr "キューの最後に移動中にエラーが発生しました"
 
+# auto-translated
 #: routes/queue.py:152
 msgid "Error moving up in queue"
 msgstr "キューを上に移動中にエラーが発生しました"
 
+# auto-translated
 #: routes/queue.py:153
 msgid "Error moving down in queue"
 msgstr "キューを下位に移動中にエラーが発生しました"
 
+# auto-translated
 #: routes/queue.py:154
 msgid "Error deleting from queue"
 msgstr "キューから削除中にエラーが発生しました"
 
+# auto-translated
 #: routes/splash.py:24
 msgid "Never sing again... ever."
 msgstr "二度と歌わないでください...二度と。"
 
+# auto-translated
 #: routes/splash.py:25
 msgid "That was a really good impression of a dying cat!"
 msgstr "瀕死の猫、とても好印象でした！"
 
+# auto-translated
 #: routes/splash.py:26
 msgid "Thank God it's over."
 msgstr "神様に感謝します、もう終わりです。"
 
+# auto-translated
 #: routes/splash.py:27
 msgid "Pass the mic, please!"
 msgstr "マイクを渡してください！"
 
+# auto-translated
 #: routes/splash.py:28
 msgid "Well, I'm sure you're very good at your day job."
 msgstr "まあ、あなたは日々の仕事をとてもうまくやっていると思います。"
 
+# auto-translated
 #: routes/splash.py:31
 msgid "I've seen better."
 msgstr "もっとよく見えてきました。"
 
+# auto-translated
 #: routes/splash.py:32
 msgid "Ok... just ok."
 msgstr "わかりました...大丈夫です。"
 
+# auto-translated
 #: routes/splash.py:33
 msgid "Not bad for an amateur."
 msgstr "素人としては悪くない。"
 
+# auto-translated
 #: routes/splash.py:34
 msgid "You put on a decent show."
 msgstr "まともなショーを見せてくれました。"
 
+# auto-translated
 #: routes/splash.py:35
 msgid "That was... something."
 msgstr "それは...何かでした。"
 
+# auto-translated
 #: routes/splash.py:38
 msgid "Congratulations! That was unbelievable!"
 msgstr "おめでとう！それは信じられないことでした！"
 
+# auto-translated
 #: routes/splash.py:39
 msgid "Wow, have you tried auditioning for The Voice?"
 msgstr "わあ、The Voice のオーディションを受けてみたことはありますか?"
 
+# auto-translated
 #: routes/splash.py:40
 msgid "Please, sing another one!"
 msgstr "もう一曲歌ってください！"
 
+# auto-translated
 #: routes/splash.py:41
 msgid "You rock! You know that?!"
 msgstr "ロックだよ！それを知っていますか？"
 
+# auto-translated
 #: routes/splash.py:42
 msgid "Woah, who let Freddie Mercury in here?"
 msgstr "うわー、誰がフレディ・マーキュリーをここに入れたの？"
 
+# auto-translated
 #: routes/stream.py:238
 msgid "Failed to stream subtitle: "
 msgstr "字幕のストリーミングに失敗しました:"
 
+# auto-translated
 #. Prompt to change the username displayed next to queued songs. CURRENT_NAME
 #. is replaced with the name
 #: templates/base.html:25
@@ -441,22 +529,26 @@ msgid ""
 " show up on queued songs. Current: CURRENT_NAME"
 msgstr "このデバイスを使用している人の名前を変更しますか?これはキューに入れられた曲に表示されます。現在: CURRENT_NAME"
 
+# auto-translated
 #. Confirmation prompt to clear entire queue. User must type ok to confirm
 #: templates/base.html:27
 msgid "Are you sure you want to clear the ENTIRE queue? Type ok to continue"
 msgstr "キュー全体をクリアしてもよろしいですか?続行するには「ok」と入力してください"
 
+# auto-translated
 #. Confirmation dialog when removing a song from the queue. SONG_TITLE is
 #. replaced with the title
 #: templates/base.html:29
 msgid "Are you sure you want to delete SONG_TITLE from the queue?"
 msgstr "SONG_TITLE をキューから削除してもよろしいですか?"
 
+# auto-translated
 #. Confirmation dialog when permanently deleting a song file from the library
 #: templates/base.html:31
 msgid "Are you sure you want to delete this song from the library?"
 msgstr "この曲をライブラリから削除してもよろしいですか?"
 
+# auto-translated
 #. Prompt which asks the user their name when they first try to add to the
 #. queue.
 #: templates/base.html:87
@@ -465,22 +557,26 @@ msgid ""
 "from this device."
 msgstr "お名前を入力してください。これは、このデバイスからキューに追加した曲の隣に表示されます。"
 
+# auto-translated
 #. Navigation link for the home page.
 #: templates/base.html:201
 msgid "Home"
 msgstr "家"
 
+# auto-translated
 #. Navigation link for the queue page.
 #: templates/base.html:207 templates/queue.html:492
 msgid "Queue"
 msgstr "列"
 
+# auto-translated
 #. Navigation link for the search page add songs to the queue.
 #. Submit button on the search form for searching YouTube.
 #: templates/base.html:212 templates/search.html:589
 msgid "Search"
 msgstr "検索"
 
+# auto-translated
 #. Message about the wait for loading the songs
 #: templates/batch-song-renamer.html:136
 msgid ""
@@ -491,6 +587,7 @@ msgstr ""
 "曲のタイトルはオンラインで比較されるため、読み込みプロセスには数秒かかる場合があります。ロード時間は異なる場合があります\n"
 "\tインターネット接続に基づいて。"
 
+# auto-translated
 #. Label which displays that all songs are being shown
 #: templates/batch-song-renamer.html:141
 msgid ""
@@ -500,11 +597,13 @@ msgstr ""
 "すべて表示\n"
 "\t歌"
 
+# auto-translated
 #. Button which changes to show only the songs to rename
 #: templates/batch-song-renamer.html:144
 msgid "Show only songs to rename"
 msgstr "名前を変更する曲のみを表示"
 
+# auto-translated
 #. Label which displays that only songs to rename are being shown.
 #: templates/batch-song-renamer.html:147
 msgid ""
@@ -514,61 +613,73 @@ msgstr ""
 "曲のみを表示\n"
 "\t名前を変更する"
 
+# auto-translated
 #. Button which changes to show all songs
 #: templates/batch-song-renamer.html:150
 msgid "Show all songs"
 msgstr "すべての曲を表示"
 
+# auto-translated
 #. Message displaying that the songs are currently being loaded
 #: templates/batch-song-renamer.html:158
 msgid "Loading songs..."
 msgstr "曲をロード中..."
 
+# auto-translated
 #. Warning when no suggested tracks are found for a search.
 #: templates/edit.html:30
 msgid "No suggestion!"
 msgstr "提案はありません！"
 
+# auto-translated
 #. Page title for the page where a song can be edited.
 #: templates/edit.html:55
 msgid "Edit Song"
 msgstr "曲を編集する"
 
+# auto-translated
 #. Label on the control to edit the song's name
 #: templates/edit.html:69
 msgid "Edit Song Name"
 msgstr "曲名の編集"
 
+# auto-translated
 #. Label on button which auto formats the song's title.
 #: templates/edit.html:76
 msgid "Auto-format"
 msgstr "自動フォーマット"
 
+# auto-translated
 #. Label on button which swaps the order of the artist and song in the title.
 #: templates/edit.html:78
 msgid "Swap artist/song order"
 msgstr "アーティスト/曲順を入れ替える"
 
+# auto-translated
 #. Label on button which saves the changes.
 #: templates/edit.html:89
 msgid "Save"
 msgstr "保存"
 
+# auto-translated
 #: templates/edit.html:94
 msgid "Cancel"
 msgstr "キャンセル"
 
+# auto-translated
 #. Label on button which deletes the current song.
 #: templates/edit.html:105
 msgid "Delete this song"
 msgstr "この曲を削除"
 
+# auto-translated
 #. Label which displays that the songs are currently sorted by
 #. alphabetical order.
 #: templates/files.html:92
 msgid "Sorted Alphabetically"
 msgstr "アルファベット順に並べ替え"
 
+# auto-translated
 #. Button which changes how the songs are sorted so they become sorted by date.
 #: templates/files.html:94
 msgid ""
@@ -578,12 +689,14 @@ msgstr ""
 "並べ替え順\n"
 "\t\t\t日付"
 
+# auto-translated
 #. Label which displays that the songs are currently sorted by
 #. date.
 #: templates/files.html:98
 msgid "Sorted by date"
 msgstr "日付順に並べ替え"
 
+# auto-translated
 #. Button which changes how the songs are sorted so they become sorted by name.
 #: templates/files.html:100
 msgid ""
@@ -593,27 +706,32 @@ msgstr ""
 "並べ替え順\n"
 "\t\t\tアルファベット順"
 
+# auto-translated
 #. Button to open the batch song renamer page.
 #: templates/files.html:107
 msgid "Edit all songs"
 msgstr "すべての曲を編集する"
 
+# auto-translated
 #. Message which shows in the "Now Playing" section when there is no song
 #. currently playing
 #: templates/home.html:35
 msgid "Nothing is playing right now."
 msgstr "現在何も再生されていません。"
 
+# auto-translated
 #. Title text for the icon marking the next person to sing.
 #: templates/home.html:43
 msgid "Next singer"
 msgstr "次の歌手"
 
+# auto-translated
 #. Alternative text for the "Up next" section if no more songs are queued up.
 #: templates/home.html:46
 msgid "No song is queued."
 msgstr "キューに登録されている曲はありません。"
 
+# auto-translated
 #. Confirmation message when clicking a button to skip a track.
 #: templates/home.html:134
 msgid ""
@@ -621,67 +739,80 @@ msgid ""
 "ask permission first!"
 msgstr "このトラックをスキップしてもよろしいですか?この曲を追加していない場合は、まず許可を求めてください。"
 
+# auto-translated
 #. Header showing the currently playing song.
 #: templates/home.html:181
 msgid "Now Playing"
 msgstr "プレイ中"
 
+# auto-translated
 #. Title for the section displaying the next song to be played.
 #: templates/home.html:194
 msgid "Next Song"
 msgstr "次の曲"
 
+# auto-translated
 #. Title of the box with controls such as pause and skip.
 #: templates/home.html:201
 msgid "Player Control"
-msgstr "プレーヤーコントロール"
+msgstr "プレーヤーのコントロール"
 
+# auto-translated
 #. Title attribute on the button to play or pause the current song.
 #: templates/home.html:205
 msgid "Restart Song"
 msgstr "リスタートソング"
 
+# auto-translated
 #. Title attribute on the button to skip to the next song.
 #: templates/home.html:207
 msgid "Play/Pause"
 msgstr "再生/一時停止"
 
+# auto-translated
 #: templates/home.html:209
 msgid "Stop Current Song"
 msgstr "現在の曲を停止"
 
+# auto-translated
 #. Title of a control to change the key/pitch of the playing song.
 #: templates/home.html:231
 msgid "Change Key"
 msgstr "キーの変更"
 
+# auto-translated
 #. Label on the button to confirm the change in key/pitch of the playing song.
 #: templates/home.html:251
 msgid "Change"
 msgstr "変化"
 
+# auto-translated
 #. Confirmation text whe the user selects quit.
 #: templates/info.html:67
 msgid "Are you sure you want to quit?"
 msgstr "本当に辞めてもよろしいですか？"
 
+# auto-translated
 #. Confirmation text whe the user starts to turn off the machine running
 #. Pikaraoke.
 #: templates/info.html:75
 msgid "Are you sure you want to shut down?"
 msgstr "シャットダウンしてもよろしいですか?"
 
+# auto-translated
 #. Confirmation text whe the user clears preferences.
 #: templates/info.html:83
 msgid "Are you sure you want to clear your preferences?"
 msgstr "設定をクリアしてもよろしいですか?"
 
+# auto-translated
 #. Confirmation text whe the user starts to reboot the machine running
 #. Pikaraoke.
 #: templates/info.html:91
 msgid "Are you sure you want to reboot?"
 msgstr "再起動してもよろしいですか?"
 
+# auto-translated
 #. Confirmation text whe the user asks to update the Youtube-dl tool.
 #: templates/info.html:101
 msgid ""
@@ -689,125 +820,149 @@ msgid ""
 " downloads may fail."
 msgstr "今すぐ Youtube-dl を更新してもよろしいですか?現在および保留中のダウンロードは失敗する可能性があります。"
 
+# auto-translated
 #. Confirmation text when the user wants to expand the filesystem to take the
 #. entire SD card.
 #: templates/info.html:179
 msgid "Library sync complete"
 msgstr "ライブラリの同期が完了しました"
 
+# auto-translated
 #. Title of the information page.
 #: templates/info.html:189
 msgid "Information"
 msgstr "情報"
 
+# auto-translated
 #. Label which appears before a url which links to the current page.
 #: templates/info.html:201
 #, python-format
 msgid "URL of %(site_title)s:"
 msgstr "%(site_title)s の URL:"
 
+# auto-translated
 #. Label before a QR code which brings a frind (pal) to the main page if
 #. scanned, so they can also add songs. QR code follows this text.
 #: templates/info.html:207
 msgid "Handy URL QR code to share with a pal:"
 msgstr "友達と共有するのに便利な URL QR コード:"
 
+# auto-translated
 #. Title of the admin section.
 #: templates/info.html:215 templates/info.html:578
 msgid "Admin"
 msgstr "管理者"
 
+# auto-translated
 #. Title fo the form to enter the administrator password.
 #: templates/info.html:221
 msgid "Enter the administrator password"
 msgstr "管理者パスワードを入力してください"
 
+# auto-translated
 #. Text on submit button for the admin login form.
 #: templates/info.html:230
 msgid "Login"
 msgstr "ログイン"
 
+# auto-translated
 #. Title of the song library section.
 #: templates/info.html:242
 msgid "Song Library"
 msgstr "ソングライブラリ"
 
+# auto-translated
 #. Header of the song library management section.
 #: templates/info.html:247
 msgid "Library"
 msgstr "図書館"
 
+# auto-translated
 #. Song count display in the library card.
 #: templates/info.html:253
 msgid "Songs in library:"
 msgstr "ライブラリ内の曲:"
 
+# auto-translated
 #. Button to trigger a background library scan.
 #: templates/info.html:257
 msgid "Sync Now"
 msgstr "今すぐ同期"
 
+# auto-translated
 #. Help text explaining what Sync Now does.
 #: templates/info.html:261
 msgid "Reconciles the library with the song directory in the background."
 msgstr "バックグラウンドでライブラリと曲ディレクトリを調整します。"
 
+# auto-translated
 #. Title of the user preferences section.
 #: templates/info.html:268
 msgid "User Preferences"
 msgstr "ユーザー設定"
 
+# auto-translated
 #. Title text for the splash screen settings section of preferences
 #: templates/info.html:274
 msgid "Splash screen settings"
 msgstr "スプラッシュスクリーンの設定"
 
+# auto-translated
 #. Checkbox label which enable/disables background video on the Splash Screen
 #: templates/info.html:282
 msgid "Disable background video"
 msgstr "バックグラウンドビデオを無効にする"
 
+# auto-translated
 #. Checkbox label which enable/disables background music on the Splash Screen
 #: templates/info.html:288
 msgid "Disable background music"
 msgstr "バックグラウンドミュージックを無効にする"
 
+# auto-translated
 #. Checkbox label which enable/disables the Score Screen
 #: templates/info.html:294
 msgid "Disable the score screen after each song"
 msgstr "各曲の後にスコア画面を無効にする"
 
+# auto-translated
 #. Checkbox label which enable/disables notifications on the splash screen
 #: templates/info.html:300
 msgid "Hide notifications"
 msgstr "通知を非表示にする"
 
+# auto-translated
 #. Checkbox label which enable/disables the digital clock on the splash screen
 #: templates/info.html:306
 msgid "Show splash clock"
 msgstr "スプラッシュクロックを表示"
 
+# auto-translated
 #. Checkbox label which enable/disables the URL display
 #: templates/info.html:311
 msgid "Hide the URL and QR code"
 msgstr "URLとQRコードを非表示にする"
 
+# auto-translated
 #. Checkbox label which enable/disables showing overlay data on the splash
 #. screen
 #: templates/info.html:317
 msgid "Hide all overlays, including now playing, up next, and QR code"
 msgstr "現在再生中、次の再生、QR コードを含むすべてのオーバーレイを非表示にします"
 
+# auto-translated
 #. Numberbox label for setting the default video volume
 #: templates/info.html:323
 msgid "Default volume of the videos (min 0, max 100)"
 msgstr "ビデオのデフォルトの音量 (最小 0、最大 100)"
 
+# auto-translated
 #. Numberbox label for setting the background music volume
 #: templates/info.html:329
 msgid "Volume of the background music (min 0, max 100)"
 msgstr "BGM の音量 (最小 0、最大 100)"
 
+# auto-translated
 #. Numberbox label for setting the inactive delay before showing the
 #. screensaver
 #: templates/info.html:336
@@ -816,76 +971,91 @@ msgid ""
 " to 0 to disable it."
 msgstr "スクリーン セーバーがアクティブになるまでのアイドル時間 (秒単位)。無効にするには 0 に設定します。"
 
+# auto-translated
 #. Numberbox label for setting the delay before playing the next song
 #: templates/info.html:343
 msgid "The delay in seconds before starting the next song"
 msgstr "次の曲が始まるまでの遅延秒数"
 
+# auto-translated
 #. Title text for the Score Phrases section of preferences
 #: templates/info.html:354
 msgid "Score phrases"
 msgstr "スコアフレーズ"
 
+# auto-translated
 #. Help text explaining how to add phrases
 #: templates/info.html:361
 msgid "Add one phrase per line in each box and hit save."
 msgstr "各ボックスに 1 行に 1 つのフレーズを追加し、保存をクリックします。"
 
+# auto-translated
 #. Title for LOW Score Phrases
 #: templates/info.html:363
 msgid "LOW Score Phrases (score < 30)"
 msgstr "低スコアのフレーズ (スコア < 30)"
 
+# auto-translated
 #. Placeholder for the low score phrases textarea
 #: templates/info.html:365
 msgid "Could be better..."
 msgstr "もっと良いかもしれない..."
 
+# auto-translated
 #. Title for MID Score Phrases
 #: templates/info.html:368
 msgid "MID Score Phrases (30 > score < 60)"
 msgstr "MID スコア フレーズ (30 > スコア < 60)"
 
+# auto-translated
 #. Placeholder for the MID score phrases textarea
 #: templates/info.html:370
 msgid "That was ok..."
 msgstr "それは大丈夫でした..."
 
+# auto-translated
 #. Title for HIGH Score Phrases
 #: templates/info.html:373
 msgid "HIGH Score Phrases (60 < score)"
 msgstr "高スコアのフレーズ (60 < スコア)"
 
+# auto-translated
 #. Placeholder for the HIGH score phrases textarea
 #: templates/info.html:375
 msgid "Wonderfull..."
 msgstr "素晴らしい..."
 
+# auto-translated
 #. Title text for the language settings section of preferences
 #: templates/info.html:383
 msgid "Language settings"
 msgstr "言語設定"
 
+# auto-translated
 #. Label for language selection dropdown
 #: templates/info.html:396
 msgid "Preferred language (requires restart)"
 msgstr "優先言語 (再起動が必要)"
 
+# auto-translated
 #. Title text for the server settings section of preferences
 #: templates/info.html:405
 msgid "Server settings"
 msgstr "サーバー設定"
 
+# auto-translated
 #. Checkbox label which enable/disables audio volume normalization
 #: templates/info.html:412
 msgid "Normalize audio volume"
 msgstr "オーディオの音量を正規化する"
 
+# auto-translated
 #. Checkbox label which enable/disables high quality video downloads
 #: templates/info.html:418
 msgid "Download high quality videos"
 msgstr "高品質のビデオをダウンロードする"
 
+# auto-translated
 #. Checkbox label which enable/disables full transcode before playback
 #: templates/info.html:424
 msgid ""
@@ -893,6 +1063,7 @@ msgid ""
 "slower starts). Buffer size will be ignored.*"
 msgstr "再生前にビデオを完全にトランスコードします (ブラウザーの互換性が向上し、起動が遅くなります)。バッファサイズは無視されます。*"
 
+# auto-translated
 #. Checkbox label which enable/disables CDG pixel scaling
 #: templates/info.html:430
 msgid ""
@@ -900,6 +1071,7 @@ msgid ""
 " usage)"
 msgstr "CDG ピクセル スケーリングを有効にする (CDG ファイルのビジュアルがより鮮明になり、CPU 使用率が増加する可能性があります)"
 
+# auto-translated
 #. Numberbox label for audio video synchronization
 #: templates/info.html:437
 msgid ""
@@ -907,16 +1079,19 @@ msgid ""
 "audio | positive = delays audio)"
 msgstr "音声とビデオの同期を数秒で修正します (負 = 音声を進める | 正 = 音声を遅らせる)"
 
+# auto-translated
 #. Numberbox label for limitting the number of songs for each player
 #: templates/info.html:444
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
 msgstr "個々のユーザーがキューに追加できる曲の制限 (0 = 無制限)"
 
+# auto-translated
 #. Checkbox label which enable/disables fair queue (round-robin) mode
 #: templates/info.html:450
 msgid "Enable fair queue (round-robin mode ensures users take turns)"
 msgstr "公平なキューを有効にする (ラウンドロビン モードにより、ユーザーが順番に交代できるようになります)"
 
+# auto-translated
 #. Numberbox label for setting the buffer size in kilobytes
 #: templates/info.html:457
 msgid ""
@@ -924,80 +1099,96 @@ msgid ""
 "sending it to the splash screen. "
 msgstr "キロバイト単位のバッファ サイズ。スプラッシュ画面に送信する前に、この量のビデオをトランスコードします。"
 
+# auto-translated
 #. Text for the link where the user can clear all user preferences
 #: templates/info.html:470
 msgid "Clear preferences"
 msgstr "設定をクリアする"
 
+# auto-translated
 #. Title of the system data section.
 #: templates/info.html:478
 msgid "System Data"
 msgstr "システムデータ"
 
+# auto-translated
 #. Header of the information section about the computer running Pikaraoke.
 #: templates/info.html:483
 msgid "System Info"
 msgstr "システム情報"
 
+# auto-translated
 #. The hardware platform
 #: templates/info.html:489
 msgid "Platform:"
 msgstr "プラットフォーム:"
 
+# auto-translated
 #. The os version
 #: templates/info.html:491
 msgid "OS Version:"
 msgstr "OSバージョン:"
 
+# auto-translated
 #. The version of the program "Youtube-dl".
 #: templates/info.html:493
 msgid "Youtube-dl (yt-dlp) version:"
 msgstr "Youtube-dl (yt-dlp) バージョン:"
 
+# auto-translated
 #. The version of the program "ffmpeg".
 #: templates/info.html:495
 msgid "FFmpeg version:"
 msgstr "FFmpegのバージョン:"
 
+# auto-translated
 #. The version of Pikaraoke running right now.
 #: templates/info.html:497
 msgid "Pikaraoke version:"
 msgstr "ピカオケバージョン："
 
+# auto-translated
 #. Header of the information section about the System stats.
 #: templates/info.html:503
 msgid "System stats"
 msgstr "システム統計"
 
+# auto-translated
 #. The CPU usage of the computer running Pikaraoke.
 #: templates/info.html:509
 msgid "CPU:"
 msgstr "CPU："
 
+# auto-translated
 #: templates/info.html:509 templates/info.html:511 templates/info.html:513
 msgid "Loading..."
 msgstr "読み込み中..."
 
+# auto-translated
 #. The disk usage of the computer running Pikaraoke. Used by downloaded songs.
 #: templates/info.html:511
 msgid "Disk Usage:"
 msgstr "ディスク使用量:"
 
+# auto-translated
 #. The memory (RAM) usage of the computer running Pikaraoke.
 #: templates/info.html:513
 msgid "Memory:"
 msgstr "メモリ："
 
+# auto-translated
 #. Title of the updates section.
 #: templates/info.html:520
 msgid "Updates"
 msgstr "アップデート"
 
+# auto-translated
 #. Label for the YT-DLP update on the updates section
 #: templates/info.html:525
 msgid "YT-DLP update"
 msgstr "YT-DLP アップデート"
 
+# auto-translated
 #. Text explaining why you might want to update youtube-dl.
 #: templates/info.html:530
 #, python-format
@@ -1011,12 +1202,14 @@ msgstr ""
 "ダウンロードや検索が機能しなくなった場合は、youtube-dl を更新すると修正される可能性があります。<br/>\n"
 "\t\t\t\t\t\t現在インストールされているバージョンは「%(youtubedl_version)s」です。"
 
+# auto-translated
 #. Text for the link which will try and update youtube-dl on the machine
 #. running Pikaraoke.
 #: templates/info.html:536
 msgid "Update youtube-dl"
 msgstr "YouTube-DL を更新する"
 
+# auto-translated
 #. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
 #: templates/info.html:540
@@ -1028,17 +1221,20 @@ msgstr ""
 "* 適切なファイル権限がない場合、上記の更新リンクは失敗する可能性があります。\n"
 "\t\t\t\t\t\t\tピカロケのログでエラーを確認してください。"
 
+# auto-translated
 #. Title of the updates section.
 #: templates/info.html:552
 msgid "Other"
 msgstr "他の"
 
+# auto-translated
 #. Title for section containing a few other options on the Info page.
 #. Text for button
 #: templates/info.html:557 templates/info.html:569
 msgid "Expand Raspberry Pi filesystem"
 msgstr "Raspberry Pi ファイルシステムを拡張する"
 
+# auto-translated
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
 #: templates/info.html:562
@@ -1053,22 +1249,26 @@ msgstr ""
 "\t\t\t\t\t\t\t残りのスペースを利用するためにファイルシステムを拡張することもできます。これを行う必要があるのは 1 回だけです。\n"
 "\t\t\t\t\t\t\tこれによりシステムが再起動されます。"
 
+# auto-translated
 #. Message for the log out user from admin mode button.
 #: templates/info.html:584
 msgid "Click here to logout from admin mode."
 msgstr "管理者モードからログアウトするには、ここをクリックしてください。"
 
+# auto-translated
 #. Link which will log out the user from admin mode.
 #: templates/info.html:586
 msgid "Log out"
 msgstr "ログアウト"
 
+# auto-translated
 #. Title of the section on shutting down / turning off the machine running
 #. Pikaraoke.
 #: templates/info.html:593
 msgid "Shutdown"
 msgstr "シャットダウン"
 
+# auto-translated
 #. Explainitory text which explains why to use the shutdown link.
 #: templates/info.html:600
 msgid ""
@@ -1076,62 +1276,76 @@ msgid ""
 "data corruption."
 msgstr "ただプラグを抜くのはやめてください！データの破損を避けるために、サーバーを常に適切にシャットダウンしてください。"
 
+# auto-translated
 #. Text for button which turns off Pikaraoke for everyone using it at your
 #. house.
 #: templates/info.html:607
 msgid "Quit Pikaraoke"
 msgstr "ピカカラオケをやめる"
 
+# auto-translated
 #. Text for button which reboots the machine running Pikaraoke.
 #: templates/info.html:610
 msgid "Reboot System"
 msgstr "システムを再起動します"
 
+# auto-translated
 #. Text for button which turn soff the machine running Pikaraoke.
 #: templates/info.html:613
 msgid "Shutdown System"
 msgstr "シャットダウンシステム"
 
+# auto-translated
 #: templates/queue.html:164 templates/queue.html:313
 msgid "Options"
 msgstr "オプション"
 
+# auto-translated
 #: templates/queue.html:213
 msgid "Pending downloads"
 msgstr "保留中のダウンロード"
 
+# auto-translated
 #: templates/queue.html:218
 msgid "Queued"
 msgstr "キューに入れられました"
 
+# auto-translated
 #: templates/queue.html:226
 msgid "Download Errors"
 msgstr "ダウンロードエラー"
 
+# auto-translated
 #: templates/queue.html:235
 msgid "Failed"
 msgstr "失敗した"
 
+# auto-translated
 #: templates/queue.html:236
 msgid "Dismiss"
 msgstr "却下する"
 
+# auto-translated
 #: templates/queue.html:298
 msgid "Drag to reorder"
 msgstr "ドラッグして並べ替えます"
 
+# auto-translated
 #: templates/queue.html:338
 msgid "The queue is empty"
 msgstr "キューは空です"
 
+# auto-translated
 #: templates/queue.html:432
 msgid "Play"
 msgstr "遊ぶ"
 
+# auto-translated
 #: templates/queue.html:434 templates/queue.html:559
 msgid "Pause"
 msgstr "一時停止"
 
+# auto-translated
 #: templates/queue.html:505
 msgid ""
 "Add <input id=\"randomNumberInput\" class=\"input mx-2 p-2\" "
@@ -1142,75 +1356,92 @@ msgstr ""
 " maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" style=\"width: 42px\" "
 "/> ランダムな曲を追加します"
 
+# auto-translated
 #: templates/queue.html:509
 msgid "Clear all"
 msgstr "すべてクリア"
 
+# auto-translated
 #: templates/queue.html:523
 msgid "Play Next"
 msgstr "次にプレイ"
 
+# auto-translated
 #: templates/queue.html:523
 msgid "Move to Top"
 msgstr "先頭に移動"
 
+# auto-translated
 #: templates/queue.html:527
 msgid "Move Up"
 msgstr "上に移動"
 
+# auto-translated
 #: templates/queue.html:531
 msgid "Move Down"
 msgstr "下に移動"
 
+# auto-translated
 #: templates/queue.html:535
 msgid "Move to Bottom"
 msgstr "一番下に移動"
 
+# auto-translated
 #: templates/queue.html:539
 msgid "Remove from Queue"
 msgstr "キューから削除"
 
+# auto-translated
 #: templates/queue.html:555
 msgid "Restart"
 msgstr "再起動"
 
+# auto-translated
 #: templates/queue.html:563
 msgid "Skip"
 msgstr "スキップ"
 
+# auto-translated
 #: templates/queue.html:571
 msgid "Download queue"
 msgstr "ダウンロードキュー"
 
+# auto-translated
 #: templates/search.html:242
 msgid "Available songs in local library"
 msgstr "ローカルライブラリで利用可能な曲"
 
+# auto-translated
 #. Title for the search page.
 #: templates/search.html:574
 msgid "Search / Add New"
 msgstr "検索/新規追加"
 
+# auto-translated
 #: templates/search.html:584
 msgid "Available Songs"
 msgstr "利用可能な曲"
 
+# auto-translated
 #. Submit button on the search form when selecting a locally downloaded song.
 #. The button adds it to                                         the queue.
 #: templates/search.html:592
 msgid "Add to queue"
 msgstr "キューに追加"
 
+# auto-translated
 #. Link which clears the text from the search box.
 #: templates/search.html:598
 msgid "Clear"
 msgstr "クリア"
 
+# auto-translated
 #. Checkbox label which enables more options when searching.
 #: templates/search.html:602
 msgid "Advanced"
 msgstr "高度な"
 
+# auto-translated
 #. Help text below the search bar.
 #: templates/search.html:617
 msgid ""
@@ -1221,6 +1452,7 @@ msgstr ""
 "- 曲（タイトル/アーティスト）を入力して検索します\n"
 "\t\t\t\t\t\t\t\t利用可能な曲を選択し、「キューに追加」をクリックしてキューに追加します。"
 
+# auto-translated
 #. Additonal help text below the search bar.
 #: templates/search.html:621
 msgid ""
@@ -1231,6 +1463,7 @@ msgstr ""
 "- 曲が表示されない場合\n"
 "\t\t\t\t\t\t\t\t「利用可能な曲」ドロップダウンで「検索」をクリックして YouTube で曲を見つけます"
 
+# auto-translated
 #. Checkbox label which enables matching songs which are not karaoke versions
 #. (i.e. the songs still                                         have a singer
 #. and are not just instrumentals.)
@@ -1238,23 +1471,27 @@ msgstr ""
 msgid "Include non-karaoke matches"
 msgstr "カラオケ以外の試合も含める"
 
+# auto-translated
 #. Label for an input which takes a YouTube url directly instead of searching
 #. titles.
 #: templates/search.html:643
 msgid "Direct download YouTube url:"
 msgstr "YouTube の URL を直接ダウンロード:"
 
+# auto-translated
 #. Checkbox label which marks the song to be added to the queue after it
 #. finishes downloading.
 #: templates/search.html:657 templates/search.html:700
 msgid "Add to queue once downloaded"
 msgstr "ダウンロードしたらキューに追加"
 
+# auto-translated
 #. Button label for the direct download form's submit button.
 #: templates/search.html:662
 msgid "Download"
 msgstr "ダウンロード"
 
+# auto-translated
 #. Html text which displays what was searched for, in quotes while the page is
 #. loading.
 #: templates/search.html:684
@@ -1266,6 +1503,7 @@ msgstr ""
 "YouTube を検索すると、\n"
 "\t\t<small><i>'%(search_term)s'</i></small>"
 
+# auto-translated
 #. Html text which displays what was searched for, in quotes.
 #: templates/search.html:691
 #, python-format
@@ -1276,10 +1514,12 @@ msgstr ""
 "の検索結果\n"
 "\t\t\t<small><i>'%(search_string)s'</i></small>"
 
+# auto-translated
 #: templates/splash.html:23
 msgid "Connection lost. Is the server still running?"
 msgstr "接続が失われました。サーバーはまだ稼働していますか?"
 
+# auto-translated
 #: templates/splash.html:24
 msgid ""
 "This browser is not fully supported. You may experience streaming issues."
@@ -1288,21 +1528,25 @@ msgstr ""
 "このブラウザは完全にはサポートされていません。ストリーミングの問題が発生する可能性があります。最良の結果を得るには、Chrome/Safari/Firefox/Edge"
 " を使用してください。"
 
+# auto-translated
 #. Label for the next song to be played in the queue.
 #: templates/splash.html:89
 msgid "Up next:"
 msgstr "次は:"
 
+# auto-translated
 #. Label for the next singer in the queue.
 #: templates/splash.html:96
 msgid "Next singer:"
 msgstr "次の歌手:"
 
+# auto-translated
 #. The title of the score screen, telling the user their singing score
 #: templates/splash.html:118
 msgid "Your Score"
 msgstr "あなたのスコア"
 
+# auto-translated
 #. Prompt for interaction in order to enable video autoplay.
 #: templates/splash.html:132
 msgid ""
@@ -1317,6 +1561,7 @@ msgstr ""
 "      それ以外の場合はプレイしてください。下のボタンをクリックしてください\n"
 "      <a onClick=\"handleconfirmation()\">確認</a>します。"
 
+# auto-translated
 #. Button to confirm to enable video autoplay.
 #: templates/splash.html:145
 msgid "Confirm"

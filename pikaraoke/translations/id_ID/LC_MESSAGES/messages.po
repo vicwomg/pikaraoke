@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version:  1.1.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-19 15:32+1100\n"
+"POT-Creation-Date: 2026-03-19 16:45+1100\n"
 "PO-Revision-Date: 2026-02-13 11:48+0700\n"
 "Last-Translator: birudanoranye@gmail.com\n"
 "Language: id_ID\n"
@@ -67,11 +67,13 @@ msgstr "Telah diunduh: %s"
 msgid "Error queueing song: "
 msgstr "Gagal menambahkan lagu ke antrian: "
 
+# auto-translated
 #: lib/playback_controller.py:89
 #, python-format
 msgid "Song file not found: %s"
 msgstr "File lagu tidak ditemukan: %s"
 
+# auto-translated
 #: lib/playback_controller.py:120
 msgid "Stream was not playable! Skipping track"
 msgstr "Streaming tidak dapat diputar! Melewati jalur"
@@ -94,6 +96,7 @@ msgstr "Lewati: %s"
 msgid "Resume: %s"
 msgstr "Lanjutkan: %s"
 
+# auto-translated
 #. Message shown after the song is paused, will be followed by song name
 #: lib/playback_controller.py:192
 #, python-format
@@ -116,6 +119,7 @@ msgstr "Pengaturan berhasil dihapus"
 msgid "Something went wrong! Your preferences were not cleared"
 msgstr "Terjadi kesalahan! Pengaturan tidak berhasil dihapus"
 
+# auto-translated
 #: lib/queue_manager.py:111
 #, python-format
 msgid "Song is already in the queue: %s"
@@ -151,6 +155,7 @@ msgstr "Kosongkan antrian"
 msgid "Error resolving file: %s"
 msgstr "Gagal membaca file: %s"
 
+# auto-translated
 #: lib/stream_manager.py:148
 msgid "Failed to prepare stream"
 msgstr "Gagal menyiapkan streaming"
@@ -261,6 +266,7 @@ msgstr "Gagal mengganti nama: '%s' → '%s', nama file sudah ada"
 msgid "Browse"
 msgstr "Jelajahi"
 
+# auto-translated
 #: routes/files.py:126
 msgid "You don't have permission to delete songs"
 msgstr "Anda tidak memiliki izin untuk menghapus lagu"
@@ -275,6 +281,7 @@ msgstr "Gagal menghapus: lagu ini sedang ada di antrian"
 msgid "Song deleted: %s"
 msgstr "Lagu dihapus: %s"
 
+# auto-translated
 #: routes/files.py:155 routes/files.py:184
 msgid "You don't have permission to edit songs"
 msgstr "Anda tidak memiliki izin untuk mengedit lagu"
@@ -304,6 +311,7 @@ msgstr "Anda tidak memiliki izin mengubah pengaturan"
 msgid "You don't have permission to clear preferences"
 msgstr "Anda tidak memiliki izin menghapus pengaturan"
 
+# auto-translated
 #: routes/queue.py:80
 msgid "You don't have permission to add random songs"
 msgstr "Anda tidak memiliki izin untuk menambahkan lagu secara acak"
@@ -348,10 +356,12 @@ msgstr "Turun satu posisi dalam antrian"
 msgid "Deleted from queue"
 msgstr "Dihapus dari antrian"
 
+# auto-translated
 #: routes/queue.py:150
 msgid "Error moving to top of queue"
 msgstr "Terjadi kesalahan saat berpindah ke antrean teratas"
 
+# auto-translated
 #: routes/queue.py:151
 msgid "Error moving to bottom of queue"
 msgstr "Terjadi kesalahan saat berpindah ke antrean terbawah"
@@ -484,6 +494,7 @@ msgstr "Antrian"
 msgid "Search"
 msgstr "Cari"
 
+# auto-translated
 #. Message about the wait for loading the songs
 #: templates/batch-song-renamer.html:136
 msgid ""
@@ -495,6 +506,7 @@ msgstr ""
 "dibandingkan secara online. Waktu pemuatan mungkin berbeda\n"
 "\tberdasarkan koneksi internet Anda."
 
+# auto-translated
 #. Label which displays that all songs are being shown
 #: templates/batch-song-renamer.html:141
 msgid ""
@@ -509,6 +521,7 @@ msgstr ""
 msgid "Show only songs to rename"
 msgstr "Tampilkan hanya lagu yang perlu diganti nama"
 
+# auto-translated
 #. Label which displays that only songs to rename are being shown.
 #: templates/batch-song-renamer.html:147
 msgid ""
@@ -558,6 +571,7 @@ msgstr "Tukar urutan artis/judul"
 msgid "Save"
 msgstr "Simpan"
 
+# auto-translated
 #: templates/edit.html:94
 msgid "Cancel"
 msgstr "Membatalkan"
@@ -573,6 +587,7 @@ msgstr "Hapus lagu ini"
 msgid "Sorted Alphabetically"
 msgstr "Diurutkan berdasarkan abjad"
 
+# auto-translated
 #. Button which changes how the songs are sorted so they become sorted by date.
 #: templates/files.html:94
 msgid ""
@@ -588,6 +603,7 @@ msgstr ""
 msgid "Sorted by date"
 msgstr "Diurutkan berdasarkan tanggal"
 
+# auto-translated
 #. Button which changes how the songs are sorted so they become sorted by name.
 #: templates/files.html:100
 msgid ""
@@ -697,6 +713,7 @@ msgstr ""
 "Yakin ingin memperbarui yt-dlp sekarang? Download yang sedang berjalan "
 "atau menunggu bisa gagal."
 
+# auto-translated
 #. Confirmation text when the user wants to expand the filesystem to take the
 #. entire SD card.
 #: templates/info.html:179
@@ -735,26 +752,31 @@ msgstr "Masukkan kata sandi administrator"
 msgid "Login"
 msgstr "Masuk"
 
+# auto-translated
 #. Title of the song library section.
 #: templates/info.html:242
 msgid "Song Library"
 msgstr "Perpustakaan Lagu"
 
+# auto-translated
 #. Header of the song library management section.
 #: templates/info.html:247
 msgid "Library"
 msgstr "Perpustakaan"
 
+# auto-translated
 #. Song count display in the library card.
 #: templates/info.html:253
 msgid "Songs in library:"
 msgstr "Lagu di perpustakaan:"
 
+# auto-translated
 #. Button to trigger a background library scan.
 #: templates/info.html:257
 msgid "Sync Now"
 msgstr "Sinkronkan Sekarang"
 
+# auto-translated
 #. Help text explaining what Sync Now does.
 #: templates/info.html:261
 msgid "Reconciles the library with the song directory in the background."
@@ -790,6 +812,7 @@ msgstr "Nonaktifkan layar skor setelah setiap lagu"
 msgid "Hide notifications"
 msgstr "Sembunyikan notifikasi"
 
+# auto-translated
 #. Checkbox label which enable/disables the digital clock on the splash screen
 #: templates/info.html:306
 msgid "Show splash clock"
@@ -995,6 +1018,7 @@ msgstr "Statistik Sistem"
 msgid "CPU:"
 msgstr "CPU:"
 
+# auto-translated
 #: templates/info.html:509 templates/info.html:511 templates/info.html:513
 msgid "Loading..."
 msgstr "Memuat..."
@@ -1019,6 +1043,7 @@ msgstr "Pembaruan"
 msgid "YT-DLP update"
 msgstr "Perbarui yt-dlp"
 
+# auto-translated
 #. Text explaining why you might want to update youtube-dl.
 #: templates/info.html:530
 #, python-format
@@ -1039,6 +1064,7 @@ msgstr ""
 msgid "Update youtube-dl"
 msgstr "Perbarui yt-dlp"
 
+# auto-translated
 #. Help text which explains why updating youtube-dl can fail. The log is a file
 #. on the machine running Pikaraoke.
 #: templates/info.html:540
@@ -1062,6 +1088,7 @@ msgstr "Lainnya"
 msgid "Expand Raspberry Pi filesystem"
 msgstr "Perluas partisi Raspberry Pi"
 
+# auto-translated
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
 #: templates/info.html:562
@@ -1239,6 +1266,7 @@ msgstr "Hapus"
 msgid "Advanced"
 msgstr "Lanjutan"
 
+# auto-translated
 #. Help text below the search bar.
 #: templates/search.html:617
 msgid ""
@@ -1250,6 +1278,7 @@ msgstr ""
 "\t\t\t\t\t\t\t\tlagu yang tersedia dan klik 'Tambahkan ke antrian' untuk "
 "menambahkannya ke antrian."
 
+# auto-translated
 #. Additonal help text below the search bar.
 #: templates/search.html:621
 msgid ""
@@ -1285,6 +1314,7 @@ msgstr "Tambahkan ke antrian setelah selesai diunduh"
 msgid "Download"
 msgstr "Unduh"
 
+# auto-translated
 #. Html text which displays what was searched for, in quotes while the page is
 #. loading.
 #: templates/search.html:684
@@ -1296,6 +1326,7 @@ msgstr ""
 "Mencari YouTube untuk\n"
 "\t\t<small><i>'%(search_term)s'</i></small>"
 
+# auto-translated
 #. Html text which displays what was searched for, in quotes.
 #: templates/search.html:691
 #, python-format
@@ -1334,6 +1365,7 @@ msgstr "Penyanyi berikutnya:"
 msgid "Your Score"
 msgstr "Skor Anda"
 
+# auto-translated
 #. Prompt for interaction in order to enable video autoplay.
 #: templates/splash.html:132
 msgid ""

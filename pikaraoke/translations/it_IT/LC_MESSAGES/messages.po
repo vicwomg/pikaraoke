@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-19 15:32+1100\n"
+"POT-Creation-Date: 2026-03-19 16:45+1100\n"
 "PO-Revision-Date: 2024-10-30 14:44-0300\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: it_IT <LL@li.org>\n"
@@ -68,11 +68,13 @@ msgstr "Scaricato: %s"
 msgid "Error queueing song: "
 msgstr "Errore durante l'aggiunta del brano alla coda: "
 
+# auto-translated
 #: lib/playback_controller.py:89
 #, python-format
 msgid "Song file not found: %s"
 msgstr "File del brano non trovato: %s"
 
+# auto-translated
 #: lib/playback_controller.py:120
 msgid "Stream was not playable! Skipping track"
 msgstr "Lo streaming non era riproducibile! Salto traccia"
@@ -95,6 +97,7 @@ msgstr "Salta: %s"
 msgid "Resume: %s"
 msgstr "Riprendere: %s"
 
+# auto-translated
 #. Message shown after the song is paused, will be followed by song name
 #: lib/playback_controller.py:192
 #, python-format
@@ -117,6 +120,7 @@ msgstr "Le tue preferenze sono state cancellate con successo"
 msgid "Something went wrong! Your preferences were not cleared"
 msgstr "Qualcosa è andato storto! Le tue preferenze non sono state cancellate"
 
+# auto-translated
 #: lib/queue_manager.py:111
 #, python-format
 msgid "Song is already in the queue: %s"
@@ -147,11 +151,13 @@ msgstr "Brano aggiunto alla coda: %s"
 msgid "Clear queue"
 msgstr "Coda ripulita"
 
+# auto-translated
 #: lib/stream_manager.py:112
 #, python-format
 msgid "Error resolving file: %s"
 msgstr "Errore durante la risoluzione del file: %s"
 
+# auto-translated
 #: lib/stream_manager.py:148
 msgid "Failed to prepare stream"
 msgstr "Impossibile preparare lo streaming"
@@ -230,11 +236,13 @@ msgstr "Password admin errata!"
 msgid "Logged out of admin mode!"
 msgstr "Sloggato da modalità admin!"
 
+# auto-translated
 #. Title of the button to accept the suggested name
 #: routes/batch_song_renamer.py:144
 msgid "Accept suggested name"
 msgstr "Accetta il nome suggerito"
 
+# auto-translated
 #. Title of the files page.
 #. Page title for the page where the user can batch rename songs.
 #: routes/batch_song_renamer.py:152 templates/batch-song-renamer.html:133
@@ -266,6 +274,7 @@ msgstr ""
 msgid "Browse"
 msgstr "Sfoglia"
 
+# auto-translated
 #: routes/files.py:126
 msgid "You don't have permission to delete songs"
 msgstr "Non hai l'autorizzazione per eliminare brani"
@@ -281,10 +290,12 @@ msgstr ""
 msgid "Song deleted: %s"
 msgstr "Canzone eliminata: %s"
 
+# auto-translated
 #: routes/files.py:155 routes/files.py:184
 msgid "You don't have permission to edit songs"
 msgstr "Non hai l'autorizzazione per modificare i brani"
 
+# auto-translated
 #: routes/files.py:211
 #, python-format
 msgid "Error renaming file: '%s' to '%s', %s"
@@ -310,6 +321,7 @@ msgstr "Non hai l'autorizzazione per modificare le preferenze"
 msgid "You don't have permission to clear preferences"
 msgstr "Non hai l'autorizzazione per cancellare le preferenze"
 
+# auto-translated
 #: routes/queue.py:80
 msgid "You don't have permission to add random songs"
 msgstr "Non hai l'autorizzazione per aggiungere brani casuali"
@@ -325,6 +337,7 @@ msgstr "Aggiunte %s tracce casuali"
 msgid "Ran out of songs!"
 msgstr "Ho finito le canzoni!"
 
+# auto-translated
 #. Message shown when non-admin tries to edit queue
 #: routes/queue.py:121
 msgid "Unauthorized"
@@ -334,10 +347,12 @@ msgstr "Non autorizzato"
 msgid "Cleared the queue!"
 msgstr "Coda cancellata!"
 
+# auto-translated
 #: routes/queue.py:143
 msgid "Moved to top of queue"
 msgstr "Spostato in cima alla coda"
 
+# auto-translated
 #: routes/queue.py:144
 msgid "Moved to bottom of queue"
 msgstr "Spostato in fondo alla coda"
@@ -354,10 +369,12 @@ msgstr "Spostato in basso nella coda"
 msgid "Deleted from queue"
 msgstr "Eliminato dalla coda"
 
+# auto-translated
 #: routes/queue.py:150
 msgid "Error moving to top of queue"
 msgstr "Errore durante lo spostamento in cima alla coda"
 
+# auto-translated
 #: routes/queue.py:151
 msgid "Error moving to bottom of queue"
 msgstr "Errore durante lo spostamento in fondo alla coda"
@@ -434,10 +451,12 @@ msgstr "Sei fantastico! Lo sai?!"
 msgid "Woah, who let Freddie Mercury in here?"
 msgstr "Wow, chi ha fatto entrare Freddie Mercury qui?"
 
+# auto-translated
 #: routes/stream.py:238
 msgid "Failed to stream subtitle: "
 msgstr "Impossibile eseguire lo streaming dei sottotitoli:"
 
+# auto-translated
 #. Prompt to change the username displayed next to queued songs. CURRENT_NAME
 #. is replaced with the name
 #: templates/base.html:25
@@ -448,12 +467,14 @@ msgstr ""
 "Vuoi cambiare il nome della persona che utilizza questo dispositivo? Questo "
 "verrà visualizzato sui brani in coda. Attuale: CURRENT_NAME"
 
+# auto-translated
 #. Confirmation prompt to clear entire queue. User must type ok to confirm
 #: templates/base.html:27
 msgid "Are you sure you want to clear the ENTIRE queue? Type ok to continue"
 msgstr ""
 "Sei sicuro di voler cancellare l'INTERA coda? Digita ok per continuare"
 
+# auto-translated
 #. Confirmation dialog when removing a song from the queue. SONG_TITLE is
 #. replaced with the title
 #: templates/base.html:29
@@ -491,6 +512,7 @@ msgstr "Coda"
 msgid "Search"
 msgstr "Cerca"
 
+# auto-translated
 #. Message about the wait for loading the songs
 #: templates/batch-song-renamer.html:136
 msgid ""
@@ -500,6 +522,7 @@ msgstr ""
 "Il processo di caricamento potrebbe richiedere alcuni secondi, poiché i titoli dei brani vengono confrontati online. Il tempo di caricamento può variare\n"
 "\tin base alla tua connessione Internet."
 
+# auto-translated
 #. Label which displays that all songs are being shown
 #: templates/batch-song-renamer.html:141
 msgid ""
@@ -509,11 +532,13 @@ msgstr ""
 "Mostrando tutto\n"
 "\tcanzoni"
 
+# auto-translated
 #. Button which changes to show only the songs to rename
 #: templates/batch-song-renamer.html:144
 msgid "Show only songs to rename"
 msgstr "Mostra solo i brani da rinominare"
 
+# auto-translated
 #. Label which displays that only songs to rename are being shown.
 #: templates/batch-song-renamer.html:147
 msgid ""
@@ -523,11 +548,13 @@ msgstr ""
 "Visualizzazione solo dei brani\n"
 "\trinominare"
 
+# auto-translated
 #. Button which changes to show all songs
 #: templates/batch-song-renamer.html:150
 msgid "Show all songs"
 msgstr "Mostra tutte le canzoni"
 
+# auto-translated
 #. Message displaying that the songs are currently being loaded
 #: templates/batch-song-renamer.html:158
 msgid "Loading songs..."
@@ -563,6 +590,7 @@ msgstr "Cambia l'ordine degli artisti/brani"
 msgid "Save"
 msgstr "Salva"
 
+# auto-translated
 #: templates/edit.html:94
 msgid "Cancel"
 msgstr "Cancellare"
@@ -702,6 +730,7 @@ msgstr ""
 "Sei sicuro di voler aggiornare Youtube-dl adesso? I download in corso e in "
 "sospeso potrebbero fallire."
 
+# auto-translated
 #. Confirmation text when the user wants to expand the filesystem to take the
 #. entire SD card.
 #: templates/info.html:179
@@ -725,6 +754,7 @@ msgstr "\"URL di %(site_title)s:\""
 msgid "Handy URL QR code to share with a pal:"
 msgstr "Codice QR URL utile da condividere con un amico:"
 
+# auto-translated
 #. Title of the admin section.
 #: templates/info.html:215 templates/info.html:578
 msgid "Admin"
@@ -740,26 +770,31 @@ msgstr "Inserisci la password di amministrazione"
 msgid "Login"
 msgstr "Login"
 
+# auto-translated
 #. Title of the song library section.
 #: templates/info.html:242
 msgid "Song Library"
 msgstr "Libreria di brani"
 
+# auto-translated
 #. Header of the song library management section.
 #: templates/info.html:247
 msgid "Library"
 msgstr "Biblioteca"
 
+# auto-translated
 #. Song count display in the library card.
 #: templates/info.html:253
 msgid "Songs in library:"
 msgstr "Canzoni in libreria:"
 
+# auto-translated
 #. Button to trigger a background library scan.
 #: templates/info.html:257
 msgid "Sync Now"
 msgstr "Sincronizza ora"
 
+# auto-translated
 #. Help text explaining what Sync Now does.
 #: templates/info.html:261
 msgid "Reconciles the library with the song directory in the background."
@@ -780,6 +815,7 @@ msgstr "Impostazioni della schermata iniziale"
 msgid "Disable background video"
 msgstr "Disattiva video in sottofondo"
 
+# auto-translated
 #. Checkbox label which enable/disables background music on the Splash Screen
 #: templates/info.html:288
 msgid "Disable background music"
@@ -795,6 +831,7 @@ msgstr "Disattiva la schermata del punteggio dopo ogni canzone"
 msgid "Hide notifications"
 msgstr "Nascondi notifiche"
 
+# auto-translated
 #. Checkbox label which enable/disables the digital clock on the splash screen
 #: templates/info.html:306
 msgid "Show splash clock"
@@ -838,52 +875,61 @@ msgstr ""
 msgid "The delay in seconds before starting the next song"
 msgstr "Il ritardo in secondi prima dell'inizio del brano successivo"
 
+# auto-translated
 #. Title text for the Score Phrases section of preferences
 #: templates/info.html:354
 msgid "Score phrases"
 msgstr "Punteggio delle frasi"
 
+# auto-translated
 #. Help text explaining how to add phrases
 #: templates/info.html:361
 msgid "Add one phrase per line in each box and hit save."
 msgstr "Aggiungi una frase per riga in ogni casella e premi Salva."
 
+# auto-translated
 #. Title for LOW Score Phrases
 #: templates/info.html:363
 msgid "LOW Score Phrases (score < 30)"
 msgstr "Frasi con punteggio BASSO (punteggio < 30)"
 
+# auto-translated
 #. Placeholder for the low score phrases textarea
 #: templates/info.html:365
 msgid "Could be better..."
 msgstr "Potrebbe essere migliore..."
 
+# auto-translated
 #. Title for MID Score Phrases
 #: templates/info.html:368
 msgid "MID Score Phrases (30 > score < 60)"
 msgstr "Frasi con punteggio MID (30 > punteggio < 60)"
 
+# auto-translated
 #. Placeholder for the MID score phrases textarea
 #: templates/info.html:370
 msgid "That was ok..."
 msgstr "Era ok..."
 
+# auto-translated
 #. Title for HIGH Score Phrases
 #: templates/info.html:373
 msgid "HIGH Score Phrases (60 < score)"
 msgstr "Frasi con punteggio ALTO (60 < punteggio)"
 
+# auto-translated
 #. Placeholder for the HIGH score phrases textarea
 #: templates/info.html:375
 msgid "Wonderfull..."
 msgstr "Meraviglioso..."
 
+# auto-translated
 #. Title text for the language settings section of preferences
-#. auto-translated
 #: templates/info.html:383
 msgid "Language settings"
 msgstr "Impostazioni della lingua"
 
+# auto-translated
 #. Label for language selection dropdown
 #: templates/info.html:396
 msgid "Preferred language (requires restart)"
@@ -914,6 +960,7 @@ msgstr ""
 "compatibilità con i browser, avvii più lenti). La dimensione del buffer "
 "verrà ignorata.*"
 
+# auto-translated
 #. Checkbox label which enable/disables CDG pixel scaling
 #: templates/info.html:430
 msgid ""
@@ -923,6 +970,7 @@ msgstr ""
 "Abilita il ridimensionamento dei pixel CDG (visualizzazioni più nitide per i"
 " file CDG, possono aumentare l'utilizzo della CPU)"
 
+# auto-translated
 #. Numberbox label for audio video synchronization
 #: templates/info.html:437
 msgid ""
@@ -939,6 +987,7 @@ msgstr ""
 "Limite di brani che un singolo utente può aggiungere alla coda (0 = "
 "illimitato)"
 
+# auto-translated
 #. Checkbox label which enable/disables fair queue (round-robin) mode
 #: templates/info.html:450
 msgid "Enable fair queue (round-robin mode ensures users take turns)"
@@ -1000,20 +1049,24 @@ msgstr "Pikaraoke versione:"
 msgid "System stats"
 msgstr "Statistiche di sistema"
 
+# auto-translated
 #. The CPU usage of the computer running Pikaraoke.
 #: templates/info.html:509
 msgid "CPU:"
 msgstr "PROCESSORE:"
 
+# auto-translated
 #: templates/info.html:509 templates/info.html:511 templates/info.html:513
 msgid "Loading..."
 msgstr "Caricamento..."
 
+# auto-translated
 #. The disk usage of the computer running Pikaraoke. Used by downloaded songs.
 #: templates/info.html:511
 msgid "Disk Usage:"
 msgstr "Utilizzo del disco:"
 
+# auto-translated
 #. The memory (RAM) usage of the computer running Pikaraoke.
 #: templates/info.html:513
 msgid "Memory:"
@@ -1024,6 +1077,7 @@ msgstr "Memoria:"
 msgid "Updates"
 msgstr "Aggiornamenti"
 
+# auto-translated
 #. Label for the YT-DLP update on the updates section
 #: templates/info.html:525
 msgid "YT-DLP update"
@@ -1081,11 +1135,13 @@ msgstr ""
 " potresti voler espandere il file system per utilizzare lo spazio rimanente. Devi farlo solo una volta.\n"
 " Questo riavvierà il sistema."
 
+# auto-translated
 #. Message for the log out user from admin mode button.
 #: templates/info.html:584
 msgid "Click here to logout from admin mode."
 msgstr "Fare clic qui per uscire dalla modalità amministratore."
 
+# auto-translated
 #. Link which will log out the user from admin mode.
 #: templates/info.html:586
 msgid "Log out"
@@ -1122,30 +1178,37 @@ msgstr "Riavvia il sistema"
 msgid "Shutdown System"
 msgstr "Spegni il sistema"
 
+# auto-translated
 #: templates/queue.html:164 templates/queue.html:313
 msgid "Options"
 msgstr "Opzioni"
 
+# auto-translated
 #: templates/queue.html:213
 msgid "Pending downloads"
 msgstr "Download in sospeso"
 
+# auto-translated
 #: templates/queue.html:218
 msgid "Queued"
 msgstr "In coda"
 
+# auto-translated
 #: templates/queue.html:226
 msgid "Download Errors"
 msgstr "Scarica errori"
 
+# auto-translated
 #: templates/queue.html:235
 msgid "Failed"
 msgstr "Fallito"
 
+# auto-translated
 #: templates/queue.html:236
 msgid "Dismiss"
 msgstr "Congedare"
 
+# auto-translated
 #: templates/queue.html:298
 msgid "Drag to reorder"
 msgstr "Trascina per riordinare"
@@ -1154,6 +1217,7 @@ msgstr "Trascina per riordinare"
 msgid "The queue is empty"
 msgstr "La coda è vuota"
 
+# auto-translated
 #: templates/queue.html:432
 msgid "Play"
 msgstr "Giocare"
@@ -1162,6 +1226,7 @@ msgstr "Giocare"
 msgid "Pause"
 msgstr "Pausa"
 
+# auto-translated
 #: templates/queue.html:505
 msgid ""
 "Add <input id=\"randomNumberInput\" class=\"input mx-2 p-2\" "
@@ -1176,38 +1241,47 @@ msgstr ""
 msgid "Clear all"
 msgstr "Elimina intera coda"
 
+# auto-translated
 #: templates/queue.html:523
 msgid "Play Next"
 msgstr "Gioca al prossimo"
 
+# auto-translated
 #: templates/queue.html:523
 msgid "Move to Top"
 msgstr "Sposta in alto"
 
+# auto-translated
 #: templates/queue.html:527
 msgid "Move Up"
 msgstr "Spostati in alto"
 
+# auto-translated
 #: templates/queue.html:531
 msgid "Move Down"
 msgstr "Sposta giù"
 
+# auto-translated
 #: templates/queue.html:535
 msgid "Move to Bottom"
 msgstr "Sposta in basso"
 
+# auto-translated
 #: templates/queue.html:539
 msgid "Remove from Queue"
 msgstr "Rimuovi dalla coda"
 
+# auto-translated
 #: templates/queue.html:555
 msgid "Restart"
 msgstr "Ricomincia"
 
+# auto-translated
 #: templates/queue.html:563
 msgid "Skip"
 msgstr "Saltare"
 
+# auto-translated
 #: templates/queue.html:571
 msgid "Download queue"
 msgstr "Coda di download"
@@ -1298,6 +1372,7 @@ msgstr ""
 "Ricerca su YouTube per\n"
 "    <small><i>'%(search_term)s'</i></small>"
 
+# auto-translated
 #. Html text which displays what was searched for, in quotes.
 #: templates/search.html:691
 #, python-format
@@ -1308,10 +1383,12 @@ msgstr ""
 "Risultati della ricerca per\n"
 "\t\t\t<small><i>'%(search_string)s'</i></small>"
 
+# auto-translated
 #: templates/splash.html:23
 msgid "Connection lost. Is the server still running?"
 msgstr "Connessione persa. Il server è ancora in esecuzione?"
 
+# auto-translated
 #: templates/splash.html:24
 msgid ""
 "This browser is not fully supported. You may experience streaming issues. "

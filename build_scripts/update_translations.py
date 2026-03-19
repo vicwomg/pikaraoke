@@ -172,10 +172,10 @@ def auto_translate() -> None:
                 # Remove fuzzy flag if present
                 if "fuzzy" in entry.flags:
                     entry.flags.remove("fuzzy")
-                # Add auto-translated comment for human review
-                if AUTO_TRANSLATED_COMMENT not in (entry.comment or ""):
-                    existing = entry.comment or ""
-                    entry.comment = (
+                # Add auto-translated comment for human review (tcomment survives pybabel update)
+                if AUTO_TRANSLATED_COMMENT not in (entry.tcomment or ""):
+                    existing = entry.tcomment or ""
+                    entry.tcomment = (
                         f"{existing}\n{AUTO_TRANSLATED_COMMENT}"
                         if existing
                         else AUTO_TRANSLATED_COMMENT
