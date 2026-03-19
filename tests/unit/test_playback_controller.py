@@ -67,8 +67,9 @@ class TestPlaybackControllerInit:
 class TestPlaybackControllerPlayFile:
     """Tests for PlaybackController.play_file method."""
 
+    @patch("pikaraoke.lib.playback_controller.os.path.isfile", return_value=True)
     @patch("pikaraoke.lib.playback_controller.time.sleep")
-    def test_play_file_success(self, mock_sleep, test_prefs):
+    def test_play_file_success(self, mock_sleep, mock_isfile, test_prefs):
         """Test successful playback."""
         events = EventSystem()
         filename_fn = lambda x, remove_youtube_id=True: "Test Song"
@@ -97,9 +98,10 @@ class TestPlaybackControllerPlayFile:
         assert pc.now_playing_duration == 180
         assert pc.is_paused is False
 
+    @patch("pikaraoke.lib.playback_controller.os.path.isfile", return_value=True)
     @patch("pikaraoke.lib.playback_controller.time.sleep")
     @patch("flask_babel._", side_effect=lambda x: x)
-    def test_play_file_timeout(self, mock_gettext, mock_sleep, test_prefs):
+    def test_play_file_timeout(self, mock_gettext, mock_sleep, mock_isfile, test_prefs):
         """Test playback timeout when client never connects."""
         events = EventSystem()
         filename_fn = lambda x, remove_youtube_id=True: "Test Song"
@@ -122,7 +124,8 @@ class TestPlaybackControllerPlayFile:
         assert result.success is False
         assert result.error is not None
 
-    def test_play_file_stream_failure(self, test_prefs):
+    @patch("pikaraoke.lib.playback_controller.os.path.isfile", return_value=True)
+    def test_play_file_stream_failure(self, mock_isfile, test_prefs):
         """Test playback when stream setup fails."""
         events = EventSystem()
         filename_fn = lambda x, remove_youtube_id=True: "Test Song"
@@ -130,13 +133,50 @@ class TestPlaybackControllerPlayFile:
         pc = PlaybackController(test_prefs, events, filename_fn)
 
         # Mock StreamManager.play_file to return failure
-        mock_result = PlaybackResult(success=False, error="File not found")
+        mock_result = PlaybackResult(success=False, error="Stream error")
         pc.stream_manager.play_file = MagicMock(return_value=mock_result)
 
-        result = pc.play_file("/songs/nonexistent.mp4", "TestUser")
+        result = pc.play_file("/songs/test.mp4", "TestUser")
 
         assert result.success is False
-        assert result.error == "File not found"
+        assert result.error == "Stream error"
+
+
+class TestPlaybackControllerMissingFile:
+    """Tests for file-existence guard in play_file."""
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    def test_returns_error_for_nonexistent_file(self, mock_gettext, test_prefs):
+        events = EventSystem()
+        filename_fn = lambda x, remove_youtube_id=True: x
+
+        pc = PlaybackController(test_prefs, events, filename_fn)
+        pc.stream_manager.play_file = MagicMock()
+
+        result = pc.play_file("/nonexistent/song.mp4", "TestUser")
+
+        assert result.success is False
+        assert "not found" in result.error
+        pc.stream_manager.play_file.assert_not_called()
+
+    @patch("pikaraoke.lib.playback_controller.time.sleep")
+    def test_existing_file_proceeds_normally(self, mock_sleep, test_prefs, tmp_path):
+        events = EventSystem()
+        filename_fn = lambda x, remove_youtube_id=True: "Test Song"
+
+        pc = PlaybackController(test_prefs, events, filename_fn)
+
+        song = tmp_path / "song.mp4"
+        song.write_text("fake")
+
+        mock_result = PlaybackResult(success=True, stream_url="/stream/123.m3u8", duration=180)
+        pc.stream_manager.play_file = MagicMock(return_value=mock_result)
+        pc.is_playing = True
+
+        result = pc.play_file(str(song), "TestUser")
+
+        assert result.success is True
+        pc.stream_manager.play_file.assert_called_once()
 
 
 class TestPlaybackControllerStartSong:
