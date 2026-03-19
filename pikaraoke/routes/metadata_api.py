@@ -12,6 +12,7 @@ metadata_bp = Blueprint("metadata", __name__)
 class SuggestNamesQuery(Schema):
     filename = fields.String(required=True)
     limit = fields.Integer(load_default=5)
+    country = fields.String(load_default=None)
 
 
 @metadata_bp.route("/metadata/suggest-names")
@@ -19,6 +20,6 @@ class SuggestNamesQuery(Schema):
 def suggest_names(query):
     """Search for track suggestions matching a filename."""
     k = get_karaoke_instance()
-    provider = get_provider(k.preferences)
+    provider = get_provider(k.preferences, country=query["country"])
     results = suggest_metadata(query["filename"], provider=provider, limit=query["limit"])
     return {"suggestions": results}

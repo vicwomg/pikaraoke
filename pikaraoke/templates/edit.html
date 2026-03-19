@@ -10,7 +10,8 @@
       var $btn = $('#suggest-title');
       $btn.addClass("is-loading");
       $("#suggest_results").html("");
-      $.getJSON('/metadata/suggest-names', { filename: filename, limit: 5 }, function (data) {
+      var country = $('#itunes-country').val();
+      $.getJSON('/metadata/suggest-names', { filename: filename, limit: 5, country: country }, function (data) {
         var $container = $("#suggest_results").empty();
         if (data.suggestions && data.suggestions.length > 0) {
           $.each(data.suggestions, function (i, item) {
@@ -83,6 +84,15 @@
       <div class="control is-expanded">
         <input autocomplete="off" id="new_file_name" class="input" type="text" name="new_file_name"
           value="{{ raw_stem }}">
+      </div>
+      <div class="control">
+        <div class="select">
+          <select id="itunes-country" title="{% trans %}iTunes search country{% endtrans %}">
+            {% for code, name in itunes_countries.items() %}
+            <option value="{{ code }}" {% if itunes_search_country == code %}selected{% endif %}>{{ code }}</option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
       <div class="control">
         {# MSG: Label on button which searches for track suggestions from iTunes. #}

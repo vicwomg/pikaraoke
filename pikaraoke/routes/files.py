@@ -13,6 +13,7 @@ from flask_paginate import Pagination, get_page_parameter
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
+from pikaraoke.constants import ITUNES_COUNTRIES
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
 from pikaraoke.lib.metadata_parser import youtube_id_suffix
 
@@ -162,6 +163,7 @@ def edit_file(query):
         )
         return redirect(referrer)
     raw_stem = k.song_manager.filename_from_path(song_path, tidy=False)
+    itunes_search_country = k.preferences.get_or_default("itunes_search_country")
     return render_template(
         "edit.html",
         site_title=site_name,
@@ -169,6 +171,8 @@ def edit_file(query):
         song=song_path,
         raw_stem=raw_stem,
         referrer=referrer,
+        itunes_countries=ITUNES_COUNTRIES,
+        itunes_search_country=itunes_search_country,
     )
 
 
