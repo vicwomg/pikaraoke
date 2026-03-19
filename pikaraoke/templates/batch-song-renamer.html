@@ -16,7 +16,7 @@
 				})
 				.catch((error) => {
 					$("#loading").hide();
-					alert("Erro: " + error);
+					alert(window.translations.errorLabel + ": " + error);
 				});
 	}
 
@@ -39,7 +39,7 @@
 				})
 				.catch((error) => {
 					$("#loading").hide();
-					alert("Erro: " + error);
+					alert(window.translations.errorLabel + ": " + error);
 				});
 	}
 

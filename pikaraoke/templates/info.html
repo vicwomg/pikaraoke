@@ -108,7 +108,7 @@
 		$("#expand-link").click(function (e) {
 			e.preventDefault();
 			// {# MSG: Confirmation text when the user wants to expand the filesystem to take the entire SD card. #}
-			if (window.confirm("Are you sure you want to expand the filesystem? This will reboot your raspberry pi.")) {
+			if (window.confirm(window.translations.confirmExpandFilesystem)) {
 				location.href = this.href;
 			}
 		});

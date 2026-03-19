@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-19 16:45+1100\n"
+"POT-Creation-Date: 2026-03-19 18:22+1100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -257,7 +257,7 @@ msgstr ""
 #. Title of the files page.
 #. Navigation link for the page where the user can add existing songs to the
 #. queue.
-#: routes/files.py:111 templates/base.html:217
+#: routes/files.py:111 templates/base.html:226
 msgid "Browse"
 msgstr ""
 
@@ -456,27 +456,65 @@ msgstr ""
 msgid "Are you sure you want to delete this song from the library?"
 msgstr ""
 
+#. Label showing the number of semitones for pitch shift. SEMITONE_VALUE is
+#. replaced with a number like +3 or -2.
+#: templates/base.html:33
+msgid "SEMITONE_VALUE semitones"
+msgstr ""
+
+#. Confirmation dialog when changing the key/pitch of a song. SEMITONE_LABEL is
+#. replaced with a label like "+3 semitones".
+#: templates/base.html:35
+msgid "Transpose this song: SEMITONE_LABEL?"
+msgstr ""
+
+#. Confirmation dialog when restarting the currently playing track.
+#: templates/base.html:37
+msgid "Are you sure you want to restart this track?"
+msgstr ""
+
+#. Informational tooltip explaining what a semitone is.
+#: templates/base.html:39
+msgid ""
+"A semitone is also known as a half-step. It is the smallest interval used"
+" in classical Western music, equal to a twelfth of an octave or half a "
+"tone."
+msgstr ""
+
+#. Confirmation dialog when expanding the filesystem on Raspberry Pi, which
+#. triggers a reboot.
+#: templates/base.html:41
+msgid ""
+"Are you sure you want to expand the filesystem? This will reboot your "
+"raspberry pi."
+msgstr ""
+
+#. Generic error prefix shown before an error message.
+#: templates/base.html:43
+msgid "Error"
+msgstr ""
+
 #. Prompt which asks the user their name when they first try to add to the
 #. queue.
-#: templates/base.html:87
+#: templates/base.html:96
 msgid ""
 "Please enter your name. This will show up next to the songs you queue up "
 "from this device."
 msgstr ""
 
 #. Navigation link for the home page.
-#: templates/base.html:201
+#: templates/base.html:210
 msgid "Home"
 msgstr ""
 
 #. Navigation link for the queue page.
-#: templates/base.html:207 templates/queue.html:492
+#: templates/base.html:216 templates/queue.html:492
 msgid "Queue"
 msgstr ""
 
 #. Navigation link for the search page add songs to the queue.
 #. Submit button on the search form for searching YouTube.
-#: templates/base.html:212 templates/search.html:589
+#: templates/base.html:221 templates/search.html:589
 msgid "Search"
 msgstr ""
 
@@ -542,17 +580,22 @@ msgstr ""
 msgid "Swap artist/song order"
 msgstr ""
 
+#. Label on button which suggests song titles from the website Last.fm.
+#: templates/edit.html:81
+msgid "Suggest from Last.fm"
+msgstr ""
+
 #. Label on button which saves the changes.
-#: templates/edit.html:89
+#: templates/edit.html:90
 msgid "Save"
 msgstr ""
 
-#: templates/edit.html:94
+#: templates/edit.html:95
 msgid "Cancel"
 msgstr ""
 
 #. Label on button which deletes the current song.
-#: templates/edit.html:105
+#: templates/edit.html:106
 msgid "Delete this song"
 msgstr ""
 
@@ -674,8 +717,8 @@ msgstr ""
 #. Confirmation text whe the user asks to update yt-dlp.
 #: templates/info.html:101
 msgid ""
-"Are you sure you want to update yt-dlp right now? Current and pending"
-" downloads may fail."
+"Are you sure you want to update yt-dlp right now? Current and pending "
+"downloads may fail."
 msgstr ""
 
 #. Confirmation text when the user wants to expand the filesystem to take the
@@ -992,20 +1035,20 @@ msgstr ""
 #, python-format
 msgid ""
 "\n"
-"\t\t\t\t\t\tIf downloads or searches stopped working, updating yt-dlp"
-" will probably fix it.<br/>\n"
+"\t\t\t\t\t\tIf downloads or searches stopped working, updating yt-dlp "
+"will probably fix it.<br/>\n"
 "\t\t\t\t\t\tThe current installed version is: \"%(youtubedl_version)s\".\n"
 "\t\t\t\t\t"
 msgstr ""
 
-#. Text for the link which will try and update yt-dlp on the machine
-#. running Pikaraoke.
+#. Text for the link which will try and update yt-dlp on the machine running
+#. Pikaraoke.
 #: templates/info.html:536
 msgid "Update yt-dlp"
 msgstr ""
 
-#. Help text which explains why updating yt-dlp can fail. The log is a file
-#. on the machine running Pikaraoke.
+#. Help text which explains why updating yt-dlp can fail. The log is a file on
+#. the machine running Pikaraoke.
 #: templates/info.html:540
 msgid ""
 "* This update link above may fail if you don't have proper file "

@@ -4,17 +4,17 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version:  1.1.1\n"
+"Project-Id-Version: 1.1.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-19 16:45+1100\n"
+"POT-Creation-Date: 2026-03-19 18:22+1100\n"
 "PO-Revision-Date: 2026-02-13 11:48+0700\n"
 "Last-Translator: birudanoranye@gmail.com\n"
-"Language: id_ID\n"
 "Language-Team: Indonesian <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Language: id_ID\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.17.0\n"
 
 #. Message shown after the song is transposed, first is the semitones and then
@@ -262,7 +262,7 @@ msgstr "Gagal mengganti nama: '%s' → '%s', nama file sudah ada"
 #. Title of the files page.
 #. Navigation link for the page where the user can add existing songs to the
 #. queue.
-#: routes/files.py:111 templates/base.html:217
+#: routes/files.py:111 templates/base.html:226
 msgid "Browse"
 msgstr "Jelajahi"
 
@@ -446,8 +446,8 @@ msgstr "Gagal memutar subtitle: "
 #. is replaced with the name
 #: templates/base.html:25
 msgid ""
-"Do you want to change the name of the person using this device? This will"
-" show up on queued songs. Current: CURRENT_NAME"
+"Do you want to change the name of the person using this device? This will "
+"show up on queued songs. Current: CURRENT_NAME"
 msgstr ""
 "Apakah Anda ingin mengganti nama pengguna perangkat ini? Nama ini akan "
 "muncul di samping lagu yang diantrikan. Nama saat ini: CURRENT_NAME"
@@ -468,29 +468,78 @@ msgstr "Yakin ingin menghapus SONG_TITLE dari antrian?"
 msgid "Are you sure you want to delete this song from the library?"
 msgstr "Yakin ingin menghapus lagu ini dari pustaka?"
 
+# auto-translated
+#. Label showing the number of semitones for pitch shift. SEMITONE_VALUE is
+#. replaced with a number like +3 or -2.
+#: templates/base.html:33
+msgid "SEMITONE_VALUE semitones"
+msgstr "SEMITONE_VALUE seminada"
+
+# auto-translated
+#. Confirmation dialog when changing the key/pitch of a song. SEMITONE_LABEL
+#. is
+#. replaced with a label like "+3 semitones".
+#: templates/base.html:35
+msgid "Transpose this song: SEMITONE_LABEL?"
+msgstr "Ubah urutan lagu ini: SEMITONE_LABEL?"
+
+# auto-translated
+#. Confirmation dialog when restarting the currently playing track.
+#: templates/base.html:37
+msgid "Are you sure you want to restart this track?"
+msgstr "Apakah Anda yakin ingin memulai ulang trek ini?"
+
+# auto-translated
+#. Informational tooltip explaining what a semitone is.
+#: templates/base.html:39
+msgid ""
+"A semitone is also known as a half-step. It is the smallest interval used in"
+" classical Western music, equal to a twelfth of an octave or half a tone."
+msgstr ""
+"Seminada juga dikenal sebagai setengah langkah. Ini adalah interval terkecil"
+" yang digunakan dalam musik klasik Barat, sama dengan seperdua belas oktaf "
+"atau setengah nada."
+
+# auto-translated
+#. Confirmation dialog when expanding the filesystem on Raspberry Pi, which
+#. triggers a reboot.
+#: templates/base.html:41
+msgid ""
+"Are you sure you want to expand the filesystem? This will reboot your "
+"raspberry pi."
+msgstr ""
+"Apakah Anda yakin ingin memperluas sistem file? Ini akan me-reboot raspberry"
+" pi Anda."
+
+# auto-translated
+#. Generic error prefix shown before an error message.
+#: templates/base.html:43
+msgid "Error"
+msgstr "Kesalahan"
+
 #. Prompt which asks the user their name when they first try to add to the
 #. queue.
-#: templates/base.html:87
+#: templates/base.html:96
 msgid ""
 "Please enter your name. This will show up next to the songs you queue up "
 "from this device."
 msgstr ""
-"Masukkan nama Anda. Nama ini akan muncul di samping lagu yang Anda "
-"masukkan ke antrian dari perangkat ini."
+"Masukkan nama Anda. Nama ini akan muncul di samping lagu yang Anda masukkan "
+"ke antrian dari perangkat ini."
 
 #. Navigation link for the home page.
-#: templates/base.html:201
+#: templates/base.html:210
 msgid "Home"
 msgstr "Beranda"
 
 #. Navigation link for the queue page.
-#: templates/base.html:207 templates/queue.html:492
+#: templates/base.html:216 templates/queue.html:492
 msgid "Queue"
 msgstr "Antrian"
 
 #. Navigation link for the search page add songs to the queue.
 #. Submit button on the search form for searching YouTube.
-#: templates/base.html:212 templates/search.html:589
+#: templates/base.html:221 templates/search.html:589
 msgid "Search"
 msgstr "Cari"
 
@@ -498,12 +547,10 @@ msgstr "Cari"
 #. Message about the wait for loading the songs
 #: templates/batch-song-renamer.html:136
 msgid ""
-"The loading process may take a few seconds, as the song titles are "
-"compared online. Loading time may vary\n"
+"The loading process may take a few seconds, as the song titles are compared online. Loading time may vary\n"
 "\tbased on your internet connection."
 msgstr ""
-"Proses pemuatan mungkin memakan waktu beberapa detik karena judul lagu "
-"dibandingkan secara online. Waktu pemuatan mungkin berbeda\n"
+"Proses pemuatan mungkin memakan waktu beberapa detik karena judul lagu dibandingkan secara online. Waktu pemuatan mungkin berbeda\n"
 "\tberdasarkan koneksi internet Anda."
 
 # auto-translated
@@ -566,18 +613,24 @@ msgstr "Format otomatis"
 msgid "Swap artist/song order"
 msgstr "Tukar urutan artis/judul"
 
+# auto-translated
+#. Label on button which suggests song titles from the website Last.fm.
+#: templates/edit.html:81
+msgid "Suggest from Last.fm"
+msgstr "Sarankan dari Last.fm"
+
 #. Label on button which saves the changes.
-#: templates/edit.html:89
+#: templates/edit.html:90
 msgid "Save"
 msgstr "Simpan"
 
 # auto-translated
-#: templates/edit.html:94
+#: templates/edit.html:95
 msgid "Cancel"
 msgstr "Membatalkan"
 
 #. Label on button which deletes the current song.
-#: templates/edit.html:105
+#: templates/edit.html:106
 msgid "Delete this song"
 msgstr "Hapus lagu ini"
 
@@ -588,7 +641,8 @@ msgid "Sorted Alphabetically"
 msgstr "Diurutkan berdasarkan abjad"
 
 # auto-translated
-#. Button which changes how the songs are sorted so they become sorted by date.
+#. Button which changes how the songs are sorted so they become sorted by
+#. date.
 #: templates/files.html:94
 msgid ""
 "Sort by\n"
@@ -604,7 +658,8 @@ msgid "Sorted by date"
 msgstr "Diurutkan berdasarkan tanggal"
 
 # auto-translated
-#. Button which changes how the songs are sorted so they become sorted by name.
+#. Button which changes how the songs are sorted so they become sorted by
+#. name.
 #: templates/files.html:100
 msgid ""
 "Sort by\n"
@@ -637,11 +692,11 @@ msgstr "Belum ada lagu di antrian."
 #. Confirmation message when clicking a button to skip a track.
 #: templates/home.html:134
 msgid ""
-"Are you sure you want to skip this track? If you didn't add this song, "
-"ask permission first!"
+"Are you sure you want to skip this track? If you didn't add this song, ask "
+"permission first!"
 msgstr ""
-"Yakin ingin melewati lagu ini? Jika bukan Anda yang menambahkannya, "
-"mintalah izin terlebih dahulu!"
+"Yakin ingin melewati lagu ini? Jika bukan Anda yang menambahkannya, mintalah"
+" izin terlebih dahulu!"
 
 #. Header showing the currently playing song.
 #: templates/home.html:181
@@ -704,14 +759,14 @@ msgstr "Yakin ingin menghapus semua pengaturan Anda?"
 msgid "Are you sure you want to reboot?"
 msgstr "Yakin ingin merestart perangkat?"
 
-#. Confirmation text whe the user asks to update the yt-dlp tool.
+#. Confirmation text whe the user asks to update yt-dlp.
 #: templates/info.html:101
 msgid ""
-"Are you sure you want to update yt-dlp right now? Current and pending"
-" downloads may fail."
+"Are you sure you want to update yt-dlp right now? Current and pending "
+"downloads may fail."
 msgstr ""
-"Yakin ingin memperbarui yt-dlp sekarang? Download yang sedang berjalan "
-"atau menunggu bisa gagal."
+"Yakin ingin memperbarui yt-dlp sekarang? Download yang sedang berjalan atau "
+"menunggu bisa gagal."
 
 # auto-translated
 #. Confirmation text when the user wants to expand the filesystem to take the
@@ -843,11 +898,11 @@ msgstr "Volume musik latar belakang (min 0, maks 100)"
 #. screensaver
 #: templates/info.html:336
 msgid ""
-"The amount of idle time in seconds before the screen saver activates. Set"
-" to 0 to disable it."
+"The amount of idle time in seconds before the screen saver activates. Set to"
+" 0 to disable it."
 msgstr ""
-"Lama waktu tidak aktif (dalam detik) sebelum screensaver aktif. Isi 0 "
-"untuk menonaktifkan."
+"Lama waktu tidak aktif (dalam detik) sebelum screensaver aktif. Isi 0 untuk "
+"menonaktifkan."
 
 #. Numberbox label for setting the delay before playing the next song
 #: templates/info.html:343
@@ -925,15 +980,14 @@ msgid ""
 "Transcode video completely before playing (better browser compatibility, "
 "slower starts). Buffer size will be ignored.*"
 msgstr ""
-"Lakukan transcode video sepenuhnya sebelum diputar (kompatibilitas "
-"browser lebih baik, tapi mulai lebih lambat). Ukuran buffer akan "
-"diabaikan.*"
+"Lakukan transcode video sepenuhnya sebelum diputar (kompatibilitas browser "
+"lebih baik, tapi mulai lebih lambat). Ukuran buffer akan diabaikan.*"
 
 #. Checkbox label which enable/disables CDG pixel scaling
 #: templates/info.html:430
 msgid ""
-"Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU"
-" usage)"
+"Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU "
+"usage)"
 msgstr ""
 "Aktifkan penskalaan piksel CDG (gambar lebih tajam untuk file CDG, bisa "
 "meningkatkan penggunaan CPU)"
@@ -944,26 +998,26 @@ msgid ""
 "Fix the audio and video synchronization in seconds (negative = advances "
 "audio | positive = delays audio)"
 msgstr ""
-"Atur sinkronisasi audio dan video (dalam detik). Nilai negatif = percepat"
-" audio | positif = tunda audio"
+"Atur sinkronisasi audio dan video (dalam detik). Nilai negatif = percepat "
+"audio | positif = tunda audio"
 
 #. Numberbox label for limitting the number of songs for each player
 #: templates/info.html:444
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
 msgstr ""
-"Batas lagu yang boleh ditambahkan satu pengguna ke antrian (0 = tanpa "
-"batas)"
+"Batas lagu yang boleh ditambahkan satu pengguna ke antrian (0 = tanpa batas)"
 
 #. Checkbox label which enable/disables fair queue (round-robin) mode
 #: templates/info.html:450
 msgid "Enable fair queue (round-robin mode ensures users take turns)"
-msgstr "Aktifkan antrian yang adil (mode round-robin memastikan giliran pengguna)"
+msgstr ""
+"Aktifkan antrian yang adil (mode round-robin memastikan giliran pengguna)"
 
 #. Numberbox label for setting the buffer size in kilobytes
 #: templates/info.html:457
 msgid ""
-"Buffer size in kilobytes. Transcode this amount of the video before "
-"sending it to the splash screen. "
+"Buffer size in kilobytes. Transcode this amount of the video before sending "
+"it to the splash screen. "
 msgstr ""
 "Ukuran buffer (kilobyte). Sebelum dikirim ke layar pembuka, video akan "
 "ditranscode sebanyak ukuran ini."
@@ -1049,32 +1103,28 @@ msgstr "Perbarui yt-dlp"
 #, python-format
 msgid ""
 "\n"
-"\t\t\t\t\t\tIf downloads or searches stopped working, updating yt-dlp"
-" will probably fix it.<br/>\n"
+"\t\t\t\t\t\tIf downloads or searches stopped working, updating yt-dlp will probably fix it.<br/>\n"
 "\t\t\t\t\t\tThe current installed version is: \"%(youtubedl_version)s\".\n"
 "\t\t\t\t\t"
 msgstr ""
-"Jika unduhan atau penelusuran berhenti berfungsi, memperbarui yt-dlp "
-"mungkin akan memperbaikinya.<br/>\n"
+"Jika unduhan atau penelusuran berhenti berfungsi, memperbarui yt-dlp mungkin akan memperbaikinya.<br/>\n"
 "\t\t\t\t\t\tVersi terinstal saat ini adalah: \"%(youtubedl_version)s\"."
 
-#. Text for the link which will try and update yt-dlp on the machine
-#. running Pikaraoke.
+#. Text for the link which will try and update yt-dlp on the machine running
+#. Pikaraoke.
 #: templates/info.html:536
 msgid "Update yt-dlp"
 msgstr "Perbarui yt-dlp"
 
 # auto-translated
-#. Help text which explains why updating yt-dlp can fail. The log is a file
-#. on the machine running Pikaraoke.
+#. Help text which explains why updating yt-dlp can fail. The log is a file on
+#. the machine running Pikaraoke.
 #: templates/info.html:540
 msgid ""
-"* This update link above may fail if you don't have proper file "
-"permissions.\n"
+"* This update link above may fail if you don't have proper file permissions.\n"
 "\t\t\t\t\t\t\tCheck the pikaraoke log for errors."
 msgstr ""
-"* Tautan pembaruan di atas mungkin gagal jika Anda tidak memiliki izin "
-"file yang tepat.\n"
+"* Tautan pembaruan di atas mungkin gagal jika Anda tidak memiliki izin file yang tepat.\n"
 "\t\t\t\t\t\t\tPeriksa log pikaraoke untuk kesalahan."
 
 #. Title of the updates section.
@@ -1093,17 +1143,12 @@ msgstr "Perluas partisi Raspberry Pi"
 #. filesystem.
 #: templates/info.html:562
 msgid ""
-"If you just installed the pre-built pikaraoke pi image and your SD card "
-"is larger than 4GB,\n"
-"\t\t\t\t\t\t\tyou may want to expand the filesystem to utilize the "
-"remaining space. You only need to do this once.\n"
+"If you just installed the pre-built pikaraoke pi image and your SD card is larger than 4GB,\n"
+"\t\t\t\t\t\t\tyou may want to expand the filesystem to utilize the remaining space. You only need to do this once.\n"
 "\t\t\t\t\t\t\tThis will reboot the system."
 msgstr ""
-"Jika Anda baru saja memasang gambar pikaraoke pi bawaan dan kartu SD Anda"
-" lebih besar dari 4 GB,\n"
-"\t\t\t\t\t\t\tAnda mungkin ingin memperluas sistem file untuk "
-"memanfaatkan ruang yang tersisa. Anda hanya perlu melakukan ini sekali "
-"saja.\n"
+"Jika Anda baru saja memasang gambar pikaraoke pi bawaan dan kartu SD Anda lebih besar dari 4 GB,\n"
+"\t\t\t\t\t\t\tAnda mungkin ingin memperluas sistem file untuk memanfaatkan ruang yang tersisa. Anda hanya perlu melakukan ini sekali saja.\n"
 "\t\t\t\t\t\t\tIni akan me-reboot sistem."
 
 #. Message for the log out user from admin mode button.
@@ -1128,8 +1173,8 @@ msgid ""
 "Don't just pull the plug! Always shut down your server properly to avoid "
 "data corruption."
 msgstr ""
-"Jangan langsung mencabut kabel! Matikan server dengan benar agar data "
-"tidak rusak."
+"Jangan langsung mencabut kabel! Matikan server dengan benar agar data tidak "
+"rusak."
 
 #. Text for button which turns off Pikaraoke for everyone using it at your
 #. house.
@@ -1271,24 +1316,20 @@ msgstr "Lanjutan"
 #: templates/search.html:617
 msgid ""
 "- Type a song (title/artist) to search\n"
-"\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to"
-" the queue."
+"\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to the queue."
 msgstr ""
 "- Ketikkan lagu (judul/artis) yang akan dicari\n"
-"\t\t\t\t\t\t\t\tlagu yang tersedia dan klik 'Tambahkan ke antrian' untuk "
-"menambahkannya ke antrian."
+"\t\t\t\t\t\t\t\tlagu yang tersedia dan klik 'Tambahkan ke antrian' untuk menambahkannya ke antrian."
 
 # auto-translated
 #. Additonal help text below the search bar.
 #: templates/search.html:621
 msgid ""
 "- If the song doesn't appear in\n"
-"\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find "
-"it on Youtube"
+"\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find it on Youtube"
 msgstr ""
 "- Jika lagunya tidak muncul di\n"
-"\t\t\t\t\t\t\t\ttarik-turun \"Lagu yang Tersedia\", klik 'Cari' untuk "
-"menemukannya di Youtube"
+"\t\t\t\t\t\t\t\ttarik-turun \"Lagu yang Tersedia\", klik 'Cari' untuk menemukannya di Youtube"
 
 #. Checkbox label which enables matching songs which are not karaoke versions
 #. (i.e. the songs still                                         have a singer
@@ -1343,12 +1384,11 @@ msgstr "Koneksi terputus. Apakah server masih berjalan?"
 
 #: templates/splash.html:24
 msgid ""
-"This browser is not fully supported. You may experience streaming issues."
-" Please use Chrome/Safari/Firefox/Edge for best results."
+"This browser is not fully supported. You may experience streaming issues. "
+"Please use Chrome/Safari/Firefox/Edge for best results."
 msgstr ""
 "Browser ini tidak sepenuhnya didukung. Anda mungkin mengalami masalah "
-"streaming. Gunakan Chrome, Safari, Firefox, atau Edge untuk hasil "
-"terbaik."
+"streaming. Gunakan Chrome, Safari, Firefox, atau Edge untuk hasil terbaik."
 
 #. Label for the next song to be played in the queue.
 #: templates/splash.html:89
@@ -1370,14 +1410,12 @@ msgstr "Skor Anda"
 #: templates/splash.html:132
 msgid ""
 "Due to limitations with browser permissions, you must interact\n"
-"      with the page once before it allows autoplay of videos. Pikaraoke "
-"will not\n"
+"      with the page once before it allows autoplay of videos. Pikaraoke will not\n"
 "      play otherwise. Click the button below to\n"
 "      <a onClick=\"handleConfirmation()\">confirm</a>."
 msgstr ""
 "Karena keterbatasan izin browser, Anda harus berinteraksi\n"
-"      dengan halaman satu kali sebelum mengizinkan pemutaran otomatis "
-"video. Pikaraoke tidak akan melakukannya\n"
+"      dengan halaman satu kali sebelum mengizinkan pemutaran otomatis video. Pikaraoke tidak akan melakukannya\n"
 "      bermain sebaliknya. Klik tombol di bawah untuk\n"
 "      <a onClick=\"handleConfirmation()\">konfirmasi</a>."
 
@@ -1385,4 +1423,3 @@ msgstr ""
 #: templates/splash.html:145
 msgid "Confirm"
 msgstr "Konfirmasi"
-

@@ -7,15 +7,15 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: minna.soudunsaari@gmail.com\n"
-"POT-Creation-Date: 2026-03-19 16:45+1100\n"
+"POT-Creation-Date: 2026-03-19 18:22+1100\n"
 "PO-Revision-Date: 2024-05-08 18:57-0300\n"
 "Last-Translator: FULL NAME <minna.soudunsaari@gmail.com>\n"
-"Language: fi_FI\n"
 "Language-Team: fi_FI <LL@li.org>\n"
-"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"Language: fi_FI\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
 "Generated-By: Babel 2.17.0\n"
 
 # auto-translated
@@ -279,7 +279,8 @@ msgstr "Virhe: Tiedostonimen parametreja ei määritetty!"
 # auto-translated
 #: routes/batch_song_renamer.py:245 routes/files.py:160 routes/files.py:191
 msgid "Error: Can't edit this song because it is in the current queue: "
-msgstr "Virhe: Tätä kappaletta ei voi muokata, koska se on nykyisessä jonossa:"
+msgstr ""
+"Virhe: Tätä kappaletta ei voi muokata, koska se on nykyisessä jonossa:"
 
 # auto-translated
 #. Message shown after trying to rename a file to a name that already exists.
@@ -293,13 +294,12 @@ msgstr ""
 #. Title of the files page.
 #. Navigation link for the page where the user can add existing songs to the
 #. queue.
-#: routes/files.py:111 templates/base.html:217
+#: routes/files.py:111 templates/base.html:226
 msgid "Browse"
 msgstr "Selaa"
 
 # auto-translated
 #: routes/files.py:126
-#, 
 msgid "You don't have permission to delete songs"
 msgstr "Sinulla ei ole lupaa poistaa kappaleita"
 
@@ -317,7 +317,6 @@ msgstr "Kappale poistettu: %s"
 
 # auto-translated
 #: routes/files.py:155 routes/files.py:184
-#, 
 msgid "You don't have permission to edit songs"
 msgstr "Sinulla ei ole lupaa muokata kappaleita"
 
@@ -352,7 +351,6 @@ msgstr "Haluatko varmasti käynnistää karaokelaitteen uudestaan?"
 
 # auto-translated
 #: routes/queue.py:80
-#, 
 msgid "You don't have permission to add random songs"
 msgstr "Sinulla ei ole lupaa lisätä satunnaisia ​​kappaleita"
 
@@ -514,11 +512,11 @@ msgstr "Tekstityksen suoratoisto epäonnistui:"
 #. is replaced with the name
 #: templates/base.html:25
 msgid ""
-"Do you want to change the name of the person using this device? This will"
-" show up on queued songs. Current: CURRENT_NAME"
+"Do you want to change the name of the person using this device? This will "
+"show up on queued songs. Current: CURRENT_NAME"
 msgstr ""
-"Haluatko muuttaa tätä laitetta käyttävän henkilön nimeä? Tämä näkyy "
-"jonossa olevissa kappaleissa. Nykyinen: CURRENT_NAME"
+"Haluatko muuttaa tätä laitetta käyttävän henkilön nimeä? Tämä näkyy jonossa "
+"olevissa kappaleissa. Nykyinen: CURRENT_NAME"
 
 # auto-translated
 #. Confirmation prompt to clear entire queue. User must type ok to confirm
@@ -538,9 +536,58 @@ msgstr "Haluatko varmasti poistaa kappaleen SONG_TITLE jonosta?"
 msgid "Are you sure you want to delete this song from the library?"
 msgstr "Oletko varma että haluat poistaa tämän kappaleen karaokelaitteelta?"
 
+# auto-translated
+#. Label showing the number of semitones for pitch shift. SEMITONE_VALUE is
+#. replaced with a number like +3 or -2.
+#: templates/base.html:33
+msgid "SEMITONE_VALUE semitones"
+msgstr "SEMITONE_VALUE puolisäveltä"
+
+# auto-translated
+#. Confirmation dialog when changing the key/pitch of a song. SEMITONE_LABEL
+#. is
+#. replaced with a label like "+3 semitones".
+#: templates/base.html:35
+msgid "Transpose this song: SEMITONE_LABEL?"
+msgstr "Transponoidaanko tämä kappale: SEMITONE_LABEL?"
+
+# auto-translated
+#. Confirmation dialog when restarting the currently playing track.
+#: templates/base.html:37
+msgid "Are you sure you want to restart this track?"
+msgstr "Oletko varma, että haluat aloittaa tämän kappaleen uudelleen?"
+
+# auto-translated
+#. Informational tooltip explaining what a semitone is.
+#: templates/base.html:39
+msgid ""
+"A semitone is also known as a half-step. It is the smallest interval used in"
+" classical Western music, equal to a twelfth of an octave or half a tone."
+msgstr ""
+"Puolisäveltä kutsutaan myös puoliaskeleeksi. Se on pienin klassisessa "
+"länsimaisessa musiikissa käytetty intervalli, joka vastaa oktaavin "
+"kahdestoistaosaa tai puolisäveltä."
+
+# auto-translated
+#. Confirmation dialog when expanding the filesystem on Raspberry Pi, which
+#. triggers a reboot.
+#: templates/base.html:41
+msgid ""
+"Are you sure you want to expand the filesystem? This will reboot your "
+"raspberry pi."
+msgstr ""
+"Haluatko varmasti laajentaa tiedostojärjestelmää? Tämä käynnistää raspberry "
+"pi -laitteen uudelleen."
+
+# auto-translated
+#. Generic error prefix shown before an error message.
+#: templates/base.html:43
+msgid "Error"
+msgstr "Virhe"
+
 #. Prompt which asks the user their name when they first try to add to the
 #. queue.
-#: templates/base.html:87
+#: templates/base.html:96
 msgid ""
 "Please enter your name. This will show up next to the songs you queue up "
 "from this device."
@@ -549,18 +596,18 @@ msgstr ""
 "jonottamiesikappaleiden vieressä."
 
 #. Navigation link for the home page.
-#: templates/base.html:201
+#: templates/base.html:210
 msgid "Home"
 msgstr "Kotisivu"
 
 #. Navigation link for the queue page.
-#: templates/base.html:207 templates/queue.html:492
+#: templates/base.html:216 templates/queue.html:492
 msgid "Queue"
 msgstr "Jono"
 
 #. Navigation link for the search page add songs to the queue.
 #. Submit button on the search form for searching YouTube.
-#: templates/base.html:212 templates/search.html:589
+#: templates/base.html:221 templates/search.html:589
 msgid "Search"
 msgstr "Etsi"
 
@@ -568,12 +615,10 @@ msgstr "Etsi"
 #. Message about the wait for loading the songs
 #: templates/batch-song-renamer.html:136
 msgid ""
-"The loading process may take a few seconds, as the song titles are "
-"compared online. Loading time may vary\n"
+"The loading process may take a few seconds, as the song titles are compared online. Loading time may vary\n"
 "\tbased on your internet connection."
 msgstr ""
-"Latausprosessi voi kestää muutaman sekunnin, koska kappaleiden nimiä "
-"verrataan verkossa. Latausaika voi vaihdella\n"
+"Latausprosessi voi kestää muutaman sekunnin, koska kappaleiden nimiä verrataan verkossa. Latausaika voi vaihdella\n"
 "\tInternet-yhteytesi perusteella."
 
 # auto-translated
@@ -639,18 +684,24 @@ msgstr "Automaattinen muokkaus"
 msgid "Swap artist/song order"
 msgstr "Vaihda artisti/kappale paikat"
 
+# auto-translated
+#. Label on button which suggests song titles from the website Last.fm.
+#: templates/edit.html:81
+msgid "Suggest from Last.fm"
+msgstr "Ehdota Last.fm:stä"
+
 #. Label on button which saves the changes.
-#: templates/edit.html:89
+#: templates/edit.html:90
 msgid "Save"
 msgstr "Tallenna"
 
 # auto-translated
-#: templates/edit.html:94
+#: templates/edit.html:95
 msgid "Cancel"
 msgstr "Peruuttaa"
 
 #. Label on button which deletes the current song.
-#: templates/edit.html:105
+#: templates/edit.html:106
 msgid "Delete this song"
 msgstr "Poista tämä kappale"
 
@@ -660,7 +711,8 @@ msgstr "Poista tämä kappale"
 msgid "Sorted Alphabetically"
 msgstr "Aakkosjärjestyksessä"
 
-#. Button which changes how the songs are sorted so they become sorted by date.
+#. Button which changes how the songs are sorted so they become sorted by
+#. date.
 #: templates/files.html:94
 msgid ""
 "Sort by\n"
@@ -673,7 +725,8 @@ msgstr "Päivämääräjärjestyksessä"
 msgid "Sorted by date"
 msgstr "Päivämääräjärjestyksessä"
 
-#. Button which changes how the songs are sorted so they become sorted by name.
+#. Button which changes how the songs are sorted so they become sorted by
+#. name.
 #: templates/files.html:100
 msgid ""
 "Sort by\n"
@@ -705,8 +758,8 @@ msgstr "Ei jonosso olevia kappaleita."
 #. Confirmation message when clicking a button to skip a track.
 #: templates/home.html:134
 msgid ""
-"Are you sure you want to skip this track? If you didn't add this song, "
-"ask permission first!"
+"Are you sure you want to skip this track? If you didn't add this song, ask "
+"permission first!"
 msgstr ""
 "Haluatko varmasti skipata tämän kappaleen? Jos kappale ei ole itse "
 "lisäämäsi, kysythän ensin luvan!"
@@ -772,11 +825,11 @@ msgstr "Haluatko varmasti käynnistää karaokelaitteen uudestaan?"
 msgid "Are you sure you want to reboot?"
 msgstr "Haluatko varmasti käynnistää karaokelaitteen uudestaan?"
 
-#. Confirmation text whe the user asks to update the yt-dlp tool.
+#. Confirmation text whe the user asks to update yt-dlp.
 #: templates/info.html:101
 msgid ""
-"Are you sure you want to update yt-dlp right now? Current and pending"
-" downloads may fail."
+"Are you sure you want to update yt-dlp right now? Current and pending "
+"downloads may fail."
 msgstr ""
 "Haluatko varmasti päivittää 'yt-dlp':n juuri nyt? Tämänhetkiset ja "
 "jonottavat lataukset saattavat epäonnistua."
@@ -905,8 +958,8 @@ msgstr "Piilota URL-osoite ja QR-koodi"
 #: templates/info.html:317
 msgid "Hide all overlays, including now playing, up next, and QR code"
 msgstr ""
-"Piilota kaikki peittokuvat, mukaan lukien nyt toistettava, seuraavaksi ja"
-" QR-koodi"
+"Piilota kaikki peittokuvat, mukaan lukien nyt toistettava, seuraavaksi ja "
+"QR-koodi"
 
 # auto-translated
 #. Numberbox label for setting the default video volume
@@ -925,8 +978,8 @@ msgstr "Taustamusiikin äänenvoimakkuus (min 0, max 100)"
 #. screensaver
 #: templates/info.html:336
 msgid ""
-"The amount of idle time in seconds before the screen saver activates. Set"
-" to 0 to disable it."
+"The amount of idle time in seconds before the screen saver activates. Set to"
+" 0 to disable it."
 msgstr ""
 "Joutokäyntiaika sekunteina, ennen kuin näytönsäästäjä aktivoituu. Aseta "
 "arvoksi 0 poistaaksesi sen käytöstä."
@@ -947,7 +1000,8 @@ msgstr "Pisteet lauseita"
 #. Help text explaining how to add phrases
 #: templates/info.html:361
 msgid "Add one phrase per line in each box and hit save."
-msgstr "Lisää yksi lause jokaiselle riville kuhunkin ruutuun ja paina Tallenna."
+msgstr ""
+"Lisää yksi lause jokaiselle riville kuhunkin ruutuun ja paina Tallenna."
 
 # auto-translated
 #. Title for LOW Score Phrases
@@ -1029,11 +1083,11 @@ msgstr ""
 #. Checkbox label which enable/disables CDG pixel scaling
 #: templates/info.html:430
 msgid ""
-"Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU"
-" usage)"
+"Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU "
+"usage)"
 msgstr ""
-"Ota CDG-pikselin skaalaus käyttöön (terävämpi kuva CDG-tiedostoille, "
-"saattaa lisätä suorittimen käyttöä)"
+"Ota CDG-pikselin skaalaus käyttöön (terävämpi kuva CDG-tiedostoille, saattaa"
+" lisätä suorittimen käyttöä)"
 
 # auto-translated
 #. Numberbox label for audio video synchronization
@@ -1065,8 +1119,8 @@ msgstr ""
 #. Numberbox label for setting the buffer size in kilobytes
 #: templates/info.html:457
 msgid ""
-"Buffer size in kilobytes. Transcode this amount of the video before "
-"sending it to the splash screen. "
+"Buffer size in kilobytes. Transcode this amount of the video before sending "
+"it to the splash screen. "
 msgstr ""
 "Puskurin koko kilotavuina. Transkoodaa tämä määrä videota ennen sen "
 "lähettämistä aloitusnäytölle."
@@ -1162,31 +1216,27 @@ msgstr "YT-DLP päivitys"
 #, python-format
 msgid ""
 "\n"
-"\t\t\t\t\t\tIf downloads or searches stopped working, updating yt-dlp"
-" will probably fix it.<br/>\n"
+"\t\t\t\t\t\tIf downloads or searches stopped working, updating yt-dlp will probably fix it.<br/>\n"
 "\t\t\t\t\t\tThe current installed version is: \"%(youtubedl_version)s\".\n"
 "\t\t\t\t\t"
 msgstr ""
-"Jos lataukset tai haut lakkasivat toimimasta, ongelman voi "
-"todennäköisesti korjatapäivittämällä 'yt-dlp':n.\n"
+"Jos lataukset tai haut lakkasivat toimimasta, ongelman voi todennäköisesti korjatapäivittämällä 'yt-dlp':n.\n"
 "   Tämänhetkinen asennettu versio: \"%(youtubedl_version)s\""
 
-#. Text for the link which will try and update yt-dlp on the machine
-#. running Pikaraoke.
+#. Text for the link which will try and update yt-dlp on the machine running
+#. Pikaraoke.
 #: templates/info.html:536
 msgid "Update yt-dlp"
 msgstr "Päivitä yt-dlp"
 
-#. Help text which explains why updating yt-dlp can fail. The log is a file
-#. on the machine running Pikaraoke.
+#. Help text which explains why updating yt-dlp can fail. The log is a file on
+#. the machine running Pikaraoke.
 #: templates/info.html:540
 msgid ""
-"* This update link above may fail if you don't have proper file "
-"permissions.\n"
+"* This update link above may fail if you don't have proper file permissions.\n"
 "\t\t\t\t\t\t\tCheck the pikaraoke log for errors."
 msgstr ""
-"Ylläoleva päivityslinkki saattaa epäonnistua, jos sinulla ei ole "
-"tarvittavia tiedoston käyttöoikeuksia.\n"
+"Ylläoleva päivityslinkki saattaa epäonnistua, jos sinulla ei ole tarvittavia tiedoston käyttöoikeuksia.\n"
 "    Tarkista pikaraoke-log virheet."
 
 #. Title of the updates section.
@@ -1204,16 +1254,12 @@ msgstr "Laajenna Raspberry Pi -tiedostojärjestelmää"
 #. filesystem.
 #: templates/info.html:562
 msgid ""
-"If you just installed the pre-built pikaraoke pi image and your SD card "
-"is larger than 4GB,\n"
-"\t\t\t\t\t\t\tyou may want to expand the filesystem to utilize the "
-"remaining space. You only need to do this once.\n"
+"If you just installed the pre-built pikaraoke pi image and your SD card is larger than 4GB,\n"
+"\t\t\t\t\t\t\tyou may want to expand the filesystem to utilize the remaining space. You only need to do this once.\n"
 "\t\t\t\t\t\t\tThis will reboot the system."
 msgstr ""
-"Jos asensit juuri valmiin Pikaraoke pi-imagen   ja SD-korttisi on "
-"suurempi kuin 4 Gt,\n"
-"    voit halutessasi laajentaa tiedostojärjestelmää hyödyntääksesi "
-"jäljellä olevan tilan. Sinun tarvitsee tehdä tämä vain kerran.\n"
+"Jos asensit juuri valmiin Pikaraoke pi-imagen   ja SD-korttisi on suurempi kuin 4 Gt,\n"
+"    voit halutessasi laajentaa tiedostojärjestelmää hyödyntääksesi jäljellä olevan tilan. Sinun tarvitsee tehdä tämä vain kerran.\n"
 "    Tämä käynnistää järjestelmän uudelleen."
 
 # auto-translated
@@ -1240,8 +1286,8 @@ msgid ""
 "Don't just pull the plug! Always shut down your server properly to avoid "
 "data corruption."
 msgstr ""
-"Älä vain vedä pistokkeesta! Sammuta karaokelaite (=server) aina huolella,"
-" jotta tiedostot eivät vioitu."
+"Älä vain vedä pistokkeesta! Sammuta karaokelaite (=server) aina huolella, "
+"jotta tiedostot eivät vioitu."
 
 #. Text for button which turns off Pikaraoke for everyone using it at your
 #. house.
@@ -1401,21 +1447,19 @@ msgstr "Tarkemmat hakuvaihtoehdot"
 #: templates/search.html:617
 msgid ""
 "- Type a song (title/artist) to search\n"
-"\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to"
-" the queue."
+"\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to the queue."
 msgstr ""
-"Kirjoita kappale (kappale/artisti) nähdäksesi tarjolla olevat kappaleet "
-"ja paina 'Lisää Jonoon'-nappia."
+"Kirjoita kappale (kappale/artisti) nähdäksesi tarjolla olevat kappaleet ja "
+"paina 'Lisää Jonoon'-nappia."
 
 #. Additonal help text below the search bar.
 #: templates/search.html:621
 msgid ""
 "- If the song doesn't appear in\n"
-"\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find "
-"it on Youtube"
+"\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find it on Youtube"
 msgstr ""
-"Jos kappaleesi ei näy \"Saatavilla olevat kappaleet\", avattavassa "
-"valikossa klikkaa \"Etsi\" tarkistaaksesi Youtuben tarjonnan."
+"Jos kappaleesi ei näy \"Saatavilla olevat kappaleet\", avattavassa valikossa"
+" klikkaa \"Etsi\" tarkistaaksesi Youtuben tarjonnan."
 
 #. Checkbox label which enables matching songs which are not karaoke versions
 #. (i.e. the songs still                                         have a singer
@@ -1469,8 +1513,8 @@ msgstr "Yhteys katkesi. Onko palvelin vielä käynnissä?"
 # auto-translated
 #: templates/splash.html:24
 msgid ""
-"This browser is not fully supported. You may experience streaming issues."
-" Please use Chrome/Safari/Firefox/Edge for best results."
+"This browser is not fully supported. You may experience streaming issues. "
+"Please use Chrome/Safari/Firefox/Edge for best results."
 msgstr ""
 "Tätä selainta ei tueta täysin. Saatat kohdata suoratoistoongelmia. Käytä "
 "Chromea/Safaria/Firefoxia/Edgeä saadaksesi parhaat tulokset."
@@ -1496,15 +1540,12 @@ msgstr "Sinun pisteesi"
 #: templates/splash.html:132
 msgid ""
 "Due to limitations with browser permissions, you must interact\n"
-"      with the page once before it allows autoplay of videos. Pikaraoke "
-"will not\n"
+"      with the page once before it allows autoplay of videos. Pikaraoke will not\n"
 "      play otherwise. Click the button below to\n"
 "      <a onClick=\"handleConfirmation()\">confirm</a>."
 msgstr ""
-"Selaimen käyttöoikeuksiin liittyvien rajoitusten vuoksi sinun on oltava "
-"vuorovaikutuksessa\n"
-"      sivulla kerran ennen kuin se sallii videoiden automaattisen "
-"toiston. Pikaraoke ei tule\n"
+"Selaimen käyttöoikeuksiin liittyvien rajoitusten vuoksi sinun on oltava vuorovaikutuksessa\n"
+"      sivulla kerran ennen kuin se sallii videoiden automaattisen toiston. Pikaraoke ei tule\n"
 "      pelata toisin. Napsauta alla olevaa painiketta\n"
 "      <a onClick=\"handleConfirmation()\">vahvista</a>."
 
@@ -1513,4 +1554,3 @@ msgstr ""
 #: templates/splash.html:145
 msgid "Confirm"
 msgstr "Vahvistaa"
-

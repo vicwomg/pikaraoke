@@ -7,15 +7,15 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-19 16:45+1100\n"
+"POT-Creation-Date: 2026-03-19 18:22+1100\n"
 "PO-Revision-Date: 2025-01-13 22:56-0800\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language: nl_NL\n"
 "Language-Team: nl_NL <LL@li.org>\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language: nl_NL\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "Generated-By: Babel 2.17.0\n"
 
 # auto-translated
@@ -147,8 +147,7 @@ msgstr "Nummer staat al in de wachtrij: %s"
 #, python-format
 msgid "You reached the limit of %s song(s) from an user in queue!"
 msgstr ""
-"Je hebt de limiet van %s nummer(s) bereikt van een gebruiker in de "
-"wachtrij!"
+"Je hebt de limiet van %s nummer(s) bereikt van een gebruiker in de wachtrij!"
 
 # auto-translated
 #: lib/queue_manager.py:132
@@ -252,7 +251,8 @@ msgstr "Kan fs niet uitbreiden op niet-Raspberry Pi-apparaten!"
 #. permissions
 #: routes/admin.py:156
 msgid "You don't have permission to resize the filesystem"
-msgstr "U heeft geen toestemming om de grootte van het bestandssysteem te wijzigen"
+msgstr ""
+"U heeft geen toestemming om de grootte van het bestandssysteem te wijzigen"
 
 # auto-translated
 #. Message shown after logging in as admin successfully
@@ -294,20 +294,22 @@ msgstr "Fout: Er zijn geen bestandsnaamparameters opgegeven!"
 # auto-translated
 #: routes/batch_song_renamer.py:245 routes/files.py:160 routes/files.py:191
 msgid "Error: Can't edit this song because it is in the current queue: "
-msgstr "Fout: Kan dit nummer niet bewerken omdat het in de huidige wachtrij staat:"
+msgstr ""
+"Fout: Kan dit nummer niet bewerken omdat het in de huidige wachtrij staat:"
 
 # auto-translated
 #. Message shown after trying to rename a file to a name that already exists.
 #: routes/batch_song_renamer.py:259 routes/files.py:201
 #, python-format
 msgid "Error renaming file: '%s' to '%s', Filename already exists"
-msgstr "Fout bij hernoemen van bestand: '%s' naar '%s'. Bestandsnaam bestaat al"
+msgstr ""
+"Fout bij hernoemen van bestand: '%s' naar '%s'. Bestandsnaam bestaat al"
 
 # auto-translated
 #. Title of the files page.
 #. Navigation link for the page where the user can add existing songs to the
 #. queue.
-#: routes/files.py:111 templates/base.html:217
+#: routes/files.py:111 templates/base.html:226
 msgid "Browse"
 msgstr "Blader"
 
@@ -321,8 +323,7 @@ msgstr "Je hebt geen toestemming om nummers te verwijderen"
 #: routes/files.py:131
 msgid "Error: Can't delete this song because it is in the current queue"
 msgstr ""
-"Fout: Kan dit nummer niet verwijderen omdat het in de huidige wachtrij "
-"staat"
+"Fout: Kan dit nummer niet verwijderen omdat het in de huidige wachtrij staat"
 
 # auto-translated
 #: routes/files.py:140
@@ -529,17 +530,18 @@ msgstr "Kan ondertiteling niet streamen:"
 #. is replaced with the name
 #: templates/base.html:25
 msgid ""
-"Do you want to change the name of the person using this device? This will"
-" show up on queued songs. Current: CURRENT_NAME"
+"Do you want to change the name of the person using this device? This will "
+"show up on queued songs. Current: CURRENT_NAME"
 msgstr ""
-"Wilt u de naam wijzigen van de persoon die dit apparaat gebruikt? Dit "
-"wordt weergegeven bij nummers in de wachtrij. Huidig: CURRENT_NAME"
+"Wilt u de naam wijzigen van de persoon die dit apparaat gebruikt? Dit wordt "
+"weergegeven bij nummers in de wachtrij. Huidig: CURRENT_NAME"
 
 # auto-translated
 #. Confirmation prompt to clear entire queue. User must type ok to confirm
 #: templates/base.html:27
 msgid "Are you sure you want to clear the ENTIRE queue? Type ok to continue"
-msgstr "Weet u zeker dat u de HELE wachtrij wilt wissen? Typ ok om door te gaan"
+msgstr ""
+"Weet u zeker dat u de HELE wachtrij wilt wissen? Typ ok om door te gaan"
 
 # auto-translated
 #. Confirmation dialog when removing a song from the queue. SONG_TITLE is
@@ -555,9 +557,58 @@ msgid "Are you sure you want to delete this song from the library?"
 msgstr "Weet je zeker dat je dit nummer uit de bibliotheek wilt verwijderen?"
 
 # auto-translated
+#. Label showing the number of semitones for pitch shift. SEMITONE_VALUE is
+#. replaced with a number like +3 or -2.
+#: templates/base.html:33
+msgid "SEMITONE_VALUE semitones"
+msgstr "SEMITONE_VALUE halve tonen"
+
+# auto-translated
+#. Confirmation dialog when changing the key/pitch of a song. SEMITONE_LABEL
+#. is
+#. replaced with a label like "+3 semitones".
+#: templates/base.html:35
+msgid "Transpose this song: SEMITONE_LABEL?"
+msgstr "Dit nummer transponeren: SEMITONE_LABEL?"
+
+# auto-translated
+#. Confirmation dialog when restarting the currently playing track.
+#: templates/base.html:37
+msgid "Are you sure you want to restart this track?"
+msgstr "Weet je zeker dat je dit nummer opnieuw wilt starten?"
+
+# auto-translated
+#. Informational tooltip explaining what a semitone is.
+#: templates/base.html:39
+msgid ""
+"A semitone is also known as a half-step. It is the smallest interval used in"
+" classical Western music, equal to a twelfth of an octave or half a tone."
+msgstr ""
+"Een halve toon wordt ook wel een halve toon genoemd. Het is het kleinste "
+"interval dat in de klassieke westerse muziek wordt gebruikt, gelijk aan een "
+"twaalfde van een octaaf of een halve toon."
+
+# auto-translated
+#. Confirmation dialog when expanding the filesystem on Raspberry Pi, which
+#. triggers a reboot.
+#: templates/base.html:41
+msgid ""
+"Are you sure you want to expand the filesystem? This will reboot your "
+"raspberry pi."
+msgstr ""
+"Weet u zeker dat u het bestandssysteem wilt uitbreiden? Hiermee wordt je "
+"Raspberry Pi opnieuw opgestart."
+
+# auto-translated
+#. Generic error prefix shown before an error message.
+#: templates/base.html:43
+msgid "Error"
+msgstr "Fout"
+
+# auto-translated
 #. Prompt which asks the user their name when they first try to add to the
 #. queue.
-#: templates/base.html:87
+#: templates/base.html:96
 msgid ""
 "Please enter your name. This will show up next to the songs you queue up "
 "from this device."
@@ -567,20 +618,20 @@ msgstr ""
 
 # auto-translated
 #. Navigation link for the home page.
-#: templates/base.html:201
+#: templates/base.html:210
 msgid "Home"
 msgstr "Thuis"
 
 # auto-translated
 #. Navigation link for the queue page.
-#: templates/base.html:207 templates/queue.html:492
+#: templates/base.html:216 templates/queue.html:492
 msgid "Queue"
 msgstr "Wachtrij"
 
 # auto-translated
 #. Navigation link for the search page add songs to the queue.
 #. Submit button on the search form for searching YouTube.
-#: templates/base.html:212 templates/search.html:589
+#: templates/base.html:221 templates/search.html:589
 msgid "Search"
 msgstr "Zoekopdracht"
 
@@ -588,12 +639,10 @@ msgstr "Zoekopdracht"
 #. Message about the wait for loading the songs
 #: templates/batch-song-renamer.html:136
 msgid ""
-"The loading process may take a few seconds, as the song titles are "
-"compared online. Loading time may vary\n"
+"The loading process may take a few seconds, as the song titles are compared online. Loading time may vary\n"
 "\tbased on your internet connection."
 msgstr ""
-"Het laadproces kan enkele seconden duren, omdat de titels van de nummers "
-"online worden vergeleken. De laadtijd kan variëren\n"
+"Het laadproces kan enkele seconden duren, omdat de titels van de nummers online worden vergeleken. De laadtijd kan variëren\n"
 "\top basis van uw internetverbinding."
 
 # auto-translated
@@ -665,19 +714,25 @@ msgid "Swap artist/song order"
 msgstr "Wissel de volgorde van artiest/nummer"
 
 # auto-translated
+#. Label on button which suggests song titles from the website Last.fm.
+#: templates/edit.html:81
+msgid "Suggest from Last.fm"
+msgstr "Suggestie van Last.fm"
+
+# auto-translated
 #. Label on button which saves the changes.
-#: templates/edit.html:89
+#: templates/edit.html:90
 msgid "Save"
 msgstr "Redden"
 
 # auto-translated
-#: templates/edit.html:94
+#: templates/edit.html:95
 msgid "Cancel"
 msgstr "Annuleren"
 
 # auto-translated
 #. Label on button which deletes the current song.
-#: templates/edit.html:105
+#: templates/edit.html:106
 msgid "Delete this song"
 msgstr "Verwijder dit nummer"
 
@@ -689,7 +744,8 @@ msgid "Sorted Alphabetically"
 msgstr "Alfabetisch gesorteerd"
 
 # auto-translated
-#. Button which changes how the songs are sorted so they become sorted by date.
+#. Button which changes how the songs are sorted so they become sorted by
+#. date.
 #: templates/files.html:94
 msgid ""
 "Sort by\n"
@@ -706,7 +762,8 @@ msgid "Sorted by date"
 msgstr "Gesorteerd op datum"
 
 # auto-translated
-#. Button which changes how the songs are sorted so they become sorted by name.
+#. Button which changes how the songs are sorted so they become sorted by
+#. name.
 #: templates/files.html:100
 msgid ""
 "Sort by\n"
@@ -744,11 +801,11 @@ msgstr "Er staat geen nummer in de wachtrij."
 #. Confirmation message when clicking a button to skip a track.
 #: templates/home.html:134
 msgid ""
-"Are you sure you want to skip this track? If you didn't add this song, "
-"ask permission first!"
+"Are you sure you want to skip this track? If you didn't add this song, ask "
+"permission first!"
 msgstr ""
-"Weet je zeker dat je dit nummer wilt overslaan? Als je dit nummer niet "
-"hebt toegevoegd, vraag dan eerst toestemming!"
+"Weet je zeker dat je dit nummer wilt overslaan? Als je dit nummer niet hebt "
+"toegevoegd, vraag dan eerst toestemming!"
 
 # auto-translated
 #. Header showing the currently playing song.
@@ -824,14 +881,14 @@ msgid "Are you sure you want to reboot?"
 msgstr "Weet je zeker dat je opnieuw wilt opstarten?"
 
 # auto-translated
-#. Confirmation text whe the user asks to update the yt-dlp tool.
+#. Confirmation text whe the user asks to update yt-dlp.
 #: templates/info.html:101
 msgid ""
-"Are you sure you want to update yt-dlp right now? Current and pending"
-" downloads may fail."
+"Are you sure you want to update yt-dlp right now? Current and pending "
+"downloads may fail."
 msgstr ""
-"Weet je zeker dat je yt-dlp nu wilt updaten? Huidige en in "
-"behandeling zijnde downloads kunnen mislukken."
+"Weet je zeker dat je yt-dlp nu wilt updaten? Huidige en in behandeling "
+"zijnde downloads kunnen mislukken."
 
 # auto-translated
 #. Confirmation text when the user wants to expand the filesystem to take the
@@ -980,11 +1037,11 @@ msgstr "Volume van de achtergrondmuziek (min 0, max 100)"
 #. screensaver
 #: templates/info.html:336
 msgid ""
-"The amount of idle time in seconds before the screen saver activates. Set"
-" to 0 to disable it."
+"The amount of idle time in seconds before the screen saver activates. Set to"
+" 0 to disable it."
 msgstr ""
-"De hoeveelheid inactieve tijd in seconden voordat de schermbeveiliging "
-"wordt geactiveerd. Stel deze in op 0 om deze uit te schakelen."
+"De hoeveelheid inactieve tijd in seconden voordat de schermbeveiliging wordt"
+" geactiveerd. Stel deze in op 0 om deze uit te schakelen."
 
 # auto-translated
 #. Numberbox label for setting the delay before playing the next song
@@ -1085,11 +1142,11 @@ msgstr ""
 #. Checkbox label which enable/disables CDG pixel scaling
 #: templates/info.html:430
 msgid ""
-"Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU"
-" usage)"
+"Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU "
+"usage)"
 msgstr ""
-"Schakel CDG-pixelschaling in (scherpere beelden voor CDG-bestanden, kan "
-"het CPU-gebruik verhogen)"
+"Schakel CDG-pixelschaling in (scherpere beelden voor CDG-bestanden, kan het "
+"CPU-gebruik verhogen)"
 
 # auto-translated
 #. Numberbox label for audio video synchronization
@@ -1098,8 +1155,8 @@ msgid ""
 "Fix the audio and video synchronization in seconds (negative = advances "
 "audio | positive = delays audio)"
 msgstr ""
-"Herstel de audio- en videosynchronisatie in seconden (negatief = zet "
-"audio vooruit | positief = vertraagt ​​audio)"
+"Herstel de audio- en videosynchronisatie in seconden (negatief = zet audio "
+"vooruit | positief = vertraagt ​​audio)"
 
 # auto-translated
 #. Numberbox label for limitting the number of songs for each player
@@ -1114,18 +1171,18 @@ msgstr ""
 #: templates/info.html:450
 msgid "Enable fair queue (round-robin mode ensures users take turns)"
 msgstr ""
-"Schakel eerlijke wachtrij in (round-robin-modus zorgt ervoor dat "
-"gebruikers om beurten spelen)"
+"Schakel eerlijke wachtrij in (round-robin-modus zorgt ervoor dat gebruikers "
+"om beurten spelen)"
 
 # auto-translated
 #. Numberbox label for setting the buffer size in kilobytes
 #: templates/info.html:457
 msgid ""
-"Buffer size in kilobytes. Transcode this amount of the video before "
-"sending it to the splash screen. "
+"Buffer size in kilobytes. Transcode this amount of the video before sending "
+"it to the splash screen. "
 msgstr ""
-"Buffergrootte in kilobytes. Transcodeer dit deel van de video voordat u "
-"deze naar het startscherm verzendt."
+"Buffergrootte in kilobytes. Transcodeer dit deel van de video voordat u deze"
+" naar het startscherm verzendt."
 
 # auto-translated
 #. Text for the link where the user can clear all user preferences
@@ -1222,34 +1279,29 @@ msgstr "YT-DLP-update"
 #, python-format
 msgid ""
 "\n"
-"\t\t\t\t\t\tIf downloads or searches stopped working, updating yt-dlp"
-" will probably fix it.<br/>\n"
+"\t\t\t\t\t\tIf downloads or searches stopped working, updating yt-dlp will probably fix it.<br/>\n"
 "\t\t\t\t\t\tThe current installed version is: \"%(youtubedl_version)s\".\n"
 "\t\t\t\t\t"
 msgstr ""
-"Als downloads of zoekopdrachten niet meer werken, kan het updaten van "
-"yt-dlp dit waarschijnlijk oplossen.<br/>\n"
-"\t\t\t\t\t\tDe huidige geïnstalleerde versie is: "
-"\"%(youtubedl_version)s\"."
+"Als downloads of zoekopdrachten niet meer werken, kan het updaten van yt-dlp dit waarschijnlijk oplossen.<br/>\n"
+"\t\t\t\t\t\tDe huidige geïnstalleerde versie is: \"%(youtubedl_version)s\"."
 
 # auto-translated
-#. Text for the link which will try and update yt-dlp on the machine
-#. running Pikaraoke.
+#. Text for the link which will try and update yt-dlp on the machine running
+#. Pikaraoke.
 #: templates/info.html:536
 msgid "Update yt-dlp"
 msgstr "Update yt-dlp"
 
 # auto-translated
-#. Help text which explains why updating yt-dlp can fail. The log is a file
-#. on the machine running Pikaraoke.
+#. Help text which explains why updating yt-dlp can fail. The log is a file on
+#. the machine running Pikaraoke.
 #: templates/info.html:540
 msgid ""
-"* This update link above may fail if you don't have proper file "
-"permissions.\n"
+"* This update link above may fail if you don't have proper file permissions.\n"
 "\t\t\t\t\t\t\tCheck the pikaraoke log for errors."
 msgstr ""
-"*Deze updatelink hierboven mislukt mogelijk als u niet over de juiste "
-"bestandsrechten beschikt.\n"
+"*Deze updatelink hierboven mislukt mogelijk als u niet over de juiste bestandsrechten beschikt.\n"
 "\t\t\t\t\t\t\tControleer het pikaraoke-logboek op fouten."
 
 # auto-translated
@@ -1270,16 +1322,12 @@ msgstr "Vouw het Raspberry Pi-bestandssysteem uit"
 #. filesystem.
 #: templates/info.html:562
 msgid ""
-"If you just installed the pre-built pikaraoke pi image and your SD card "
-"is larger than 4GB,\n"
-"\t\t\t\t\t\t\tyou may want to expand the filesystem to utilize the "
-"remaining space. You only need to do this once.\n"
+"If you just installed the pre-built pikaraoke pi image and your SD card is larger than 4GB,\n"
+"\t\t\t\t\t\t\tyou may want to expand the filesystem to utilize the remaining space. You only need to do this once.\n"
 "\t\t\t\t\t\t\tThis will reboot the system."
 msgstr ""
-"Als je zojuist de vooraf gebouwde pikaraoke pi-image hebt geïnstalleerd "
-"en je SD-kaart groter is dan 4 GB,\n"
-"\t\t\t\t\t\t\tMisschien wilt u het bestandssysteem uitbreiden om de "
-"resterende ruimte te benutten. U hoeft dit slechts één keer te doen.\n"
+"Als je zojuist de vooraf gebouwde pikaraoke pi-image hebt geïnstalleerd en je SD-kaart groter is dan 4 GB,\n"
+"\t\t\t\t\t\t\tMisschien wilt u het bestandssysteem uitbreiden om de resterende ruimte te benutten. U hoeft dit slechts één keer te doen.\n"
 "\t\t\t\t\t\t\tHierdoor wordt het systeem opnieuw opgestart."
 
 # auto-translated
@@ -1308,8 +1356,8 @@ msgid ""
 "Don't just pull the plug! Always shut down your server properly to avoid "
 "data corruption."
 msgstr ""
-"Trek niet zomaar de stekker uit het stopcontact! Sluit uw server altijd "
-"op de juiste manier af om gegevenscorruptie te voorkomen."
+"Trek niet zomaar de stekker uit het stopcontact! Sluit uw server altijd op "
+"de juiste manier af om gegevenscorruptie te voorkomen."
 
 # auto-translated
 #. Text for button which turns off Pikaraoke for everyone using it at your
@@ -1481,24 +1529,20 @@ msgstr "Geavanceerd"
 #: templates/search.html:617
 msgid ""
 "- Type a song (title/artist) to search\n"
-"\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to"
-" the queue."
+"\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to the queue."
 msgstr ""
 "- Typ een nummer (titel/artiest) om te zoeken\n"
-"\t\t\t\t\t\t\t\tde beschikbare nummers en klik op 'Toevoegen aan "
-"wachtrij' om deze aan de wachtrij toe te voegen."
+"\t\t\t\t\t\t\t\tde beschikbare nummers en klik op 'Toevoegen aan wachtrij' om deze aan de wachtrij toe te voegen."
 
 # auto-translated
 #. Additonal help text below the search bar.
 #: templates/search.html:621
 msgid ""
 "- If the song doesn't appear in\n"
-"\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find "
-"it on Youtube"
+"\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find it on Youtube"
 msgstr ""
 "- Als het nummer niet verschijnt in\n"
-"\t\t\t\t\t\t\t\tin de vervolgkeuzelijst 'Beschikbare nummers' en klik op "
-"'Zoeken' om het op YouTube te vinden"
+"\t\t\t\t\t\t\t\tin de vervolgkeuzelijst 'Beschikbare nummers' en klik op 'Zoeken' om het op YouTube te vinden"
 
 # auto-translated
 #. Checkbox label which enables matching songs which are not karaoke versions
@@ -1559,8 +1603,8 @@ msgstr "Verbinding verbroken. Draait de server nog?"
 # auto-translated
 #: templates/splash.html:24
 msgid ""
-"This browser is not fully supported. You may experience streaming issues."
-" Please use Chrome/Safari/Firefox/Edge for best results."
+"This browser is not fully supported. You may experience streaming issues. "
+"Please use Chrome/Safari/Firefox/Edge for best results."
 msgstr ""
 "Deze browser wordt niet volledig ondersteund. Mogelijk ondervind je "
 "streamingproblemen. Gebruik Chrome/Safari/Firefox/Edge voor het beste "
@@ -1589,14 +1633,12 @@ msgstr "Jouw score"
 #: templates/splash.html:132
 msgid ""
 "Due to limitations with browser permissions, you must interact\n"
-"      with the page once before it allows autoplay of videos. Pikaraoke "
-"will not\n"
+"      with the page once before it allows autoplay of videos. Pikaraoke will not\n"
 "      play otherwise. Click the button below to\n"
 "      <a onClick=\"handleConfirmation()\">confirm</a>."
 msgstr ""
 "Vanwege beperkingen met browsermachtigingen moet u communiceren\n"
-"      met de pagina één keer voordat video's automatisch worden "
-"afgespeeld. Picaraoke zal dat niet doen\n"
+"      met de pagina één keer voordat video's automatisch worden afgespeeld. Picaraoke zal dat niet doen\n"
 "      anders spelen. Klik op onderstaande knop om\n"
 "      <a onClick=\"handleConfirmation()\">bevestigen</a>."
 
@@ -1605,4 +1647,3 @@ msgstr ""
 #: templates/splash.html:145
 msgid "Confirm"
 msgstr "Bevestigen"
-
