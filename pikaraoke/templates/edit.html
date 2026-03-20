@@ -92,8 +92,8 @@
     </div>
     <input value="{{ song }}" type="hidden" name='old_file_name'>
     <input type="hidden" name="referrer" value="{{ referrer }}">
-    {# MSG: Label for the input where the user types the new filename for the song. #}
-    <label class="label">{% trans %}New filename{% endtrans %}</label>
+    {# MSG: Label for the input where the user types the new filename or search term. #}
+    <label class="label">{% trans %}New filename / search term{% endtrans %}</label>
     <div class="field has-addons">
       <div class="control is-expanded">
         <input autocomplete="off" id="new_file_name" class="input" type="text" name="new_file_name"
