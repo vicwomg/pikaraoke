@@ -77,14 +77,18 @@
   <form action="{{ url_for('files.edit_file') }}" method="post">
     <div class="field">
       {# MSG: Label showing the original filename on disk before editing. #}
-      <label class="label">
-        {% trans %}Current filename{% endtrans %}
-        {% if format_icon %}
-        <img src="{{ url_for('static', filename='images/formats/' + format_icon + '.png') }}"
-          alt="{{ format_icon }}" class="format-badge">
-        {% endif %}
-      </label>
-      <p class="has-text-grey-light is-size-7 break-word">{{ raw_stem }}</p>
+      <label class="label">{% trans %}Current filename{% endtrans %}</label>
+      <div class="card">
+        <div class="card-content py-3 px-4">
+          <div class="is-flex is-align-items-center">
+            {% if format_icon %}
+            <img src="{{ url_for('static', filename='images/formats/' + format_icon + '.png') }}"
+              alt="{{ format_icon }}" class="format-badge mr-3">
+            {% endif %}
+            <span class="break-word">{{ raw_stem }}</span>
+          </div>
+        </div>
+      </div>
     </div>
     <input value="{{ song }}" type="hidden" name='old_file_name'>
     <input type="hidden" name="referrer" value="{{ referrer }}">
