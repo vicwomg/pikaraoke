@@ -99,8 +99,10 @@ body.hide-cursor * {
 
 /* Format badge on edit page */
 .format-badge {
-  height: 1.5em;
+  height: 1.2em;
   vertical-align: middle;
+  opacity: 0.6;
+  flex-shrink: 0;
 }
 
 /* Suggestion results on edit page */
