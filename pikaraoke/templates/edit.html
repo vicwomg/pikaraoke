@@ -79,13 +79,13 @@
       {# MSG: Label showing the original filename on disk before editing. #}
       <label class="label">{% trans %}Current filename{% endtrans %}</label>
       <div class="card">
-        <div class="card-content py-3 px-4">
+        <div class="card-content py-2 px-3">
           <div class="is-flex is-align-items-center">
+            <span class="break-word">{{ raw_stem }}</span>
             {% if format_icon %}
             <img src="{{ url_for('static', filename='images/formats/' + format_icon + '.png') }}"
-              alt="{{ format_icon }}" class="format-badge mr-3">
+              alt="{{ format_icon }}" class="format-badge ml-3">
             {% endif %}
-            <span class="break-word">{{ raw_stem }}</span>
           </div>
         </div>
       </div>
