@@ -168,7 +168,7 @@ def _split_query_parts(query: str) -> tuple[str, str]:
 
 def clean_search_query(song_name: str) -> str:
     """Strip noise words, brackets, and emoji to isolate the core song identity."""
-    song_name = EMOJI_PATTERN.sub("", song_name)
+    song_name = EMOJI_PATTERN.sub(" ", song_name)
     song_name = song_name.replace("_", " ")
     song_name = re.sub(r"\([^)]*\)", "", song_name)
     song_name = re.sub(r"\[[^\]]*\]", "", song_name)
@@ -594,7 +594,7 @@ def regex_tidy(filename: str) -> str:
     3. Otherwise strip trailing noise
     4. Normalize separators and whitespace
     """
-    name = EMOJI_PATTERN.sub("", filename)
+    name = EMOJI_PATTERN.sub(" ", filename)
     name = name.replace("_", " ")
 
     # Try to extract artist from attribution phrases

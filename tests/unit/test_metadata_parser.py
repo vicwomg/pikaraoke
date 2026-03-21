@@ -88,6 +88,10 @@ class TestCleanSearchQuery:
         assert "\U0001f3a4" not in result
         assert "\U0001f3b5" not in result
 
+    def test_emoji_removal_preserves_word_boundaries(self):
+        result = clean_search_query("I Will Survive\U0001f3a4HQ")
+        assert result == "I Will Survive"
+
     def test_strips_whitespace(self):
         result = clean_search_query("  Artist - Song  ")
         assert not result.startswith(" ")
@@ -471,6 +475,10 @@ class TestRegexTidy:
     def test_removes_emoji(self):
         result = regex_tidy("Artist - Song \U0001f3a4")
         assert "\U0001f3a4" not in result
+
+    def test_emoji_removal_preserves_word_boundaries(self):
+        result = regex_tidy("CAKE _ I Will Survive\U0001f3a4HQ Karaoke\U0001f3a4")
+        assert result == "CAKE I Will Survive"
 
     def test_normalizes_em_dash(self):
         assert regex_tidy("Artist \u2014 Song") == "Artist - Song"
