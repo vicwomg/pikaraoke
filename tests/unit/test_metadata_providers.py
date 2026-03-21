@@ -444,14 +444,19 @@ class TestSuggestionScoring:
         query = "Commodores, The - Three Times A Lady"
         assert _suggestion_score(correct, query) > _suggestion_score(wrong, query)
 
-    def test_cross_field_bonus_not_applied_to_single_part_query(self):
-        """Single-part queries should not get the cross-field bonus."""
+    def test_two_part_query_scores_higher_than_single_part(self):
+        """Explicit separator should score higher than separator-less decomposition."""
         result = {"artist": "Queen", "title": "Bohemian Rhapsody", "genre": "Rock"}
-        # Single-part query: no " - " separator
         score = _suggestion_score(result, "Queen Bohemian Rhapsody")
-        # Same result with two-part query should score higher due to cross-field
         score_two_part = _suggestion_score(result, "Queen - Bohemian Rhapsody")
         assert score_two_part > score
+
+    def test_single_part_query_prefers_matching_artist(self):
+        """'CAKE I Will Survive' should rank CAKE above Gloria Gaynor."""
+        cake = {"artist": "CAKE", "title": "I Will Survive", "genre": "Rock"}
+        gloria = {"artist": "Gloria Gaynor", "title": "I Will Survive", "genre": "Pop"}
+        query = "CAKE I Will Survive"
+        assert _suggestion_score(cake, query) > _suggestion_score(gloria, query)
 
     def test_featuring_with_ampersand_matches_and(self):
         """'Ft Sia And Fetty Wap' should prefer result with both featured artists."""
