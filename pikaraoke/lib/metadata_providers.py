@@ -346,6 +346,19 @@ def _suggestion_score(
     if len(query_parts_norm) >= 2 and artist_matched and title_matched:
         score += 30
 
+    # Single-part decomposition: when the query has no separator but can be
+    # split into artist + title, score each confirmed field independently.
+    if len(query_parts_norm) == 1 and artist_matched and title_matched:
+        part_norm = query_parts_norm[0][1]
+        # Strip artist -> does remainder match title?
+        artist_remainder = part_norm.replace(artist_norm, "", 1).strip()
+        if artist_remainder and _matches_field(artist_remainder, title_norm):
+            score += 40
+        # Strip title -> does remainder match artist?
+        title_remainder = part_norm.replace(title_norm, "", 1).strip()
+        if title_remainder and _matches_field(title_remainder, artist_norm):
+            score += 40
+
     # Bonus if the featuring artist appears in the result title
     # Normalize both sides so "and" matches "&" and accents are ignored
     if featuring_norm and featuring_norm in title_full_norm:
