@@ -9,10 +9,19 @@ from pikaraoke.lib.metadata_providers import (
     ITUNES_MAX_RETRIES,
     ITunesProvider,
     _normalize_for_matching,
+    _normalize_query_parts,
     _suggestion_score,
     get_provider,
     suggest_metadata,
 )
+
+
+def _score(result: dict, query: str, featuring: str = "") -> int:
+    """Test helper: wraps _suggestion_score with pre-normalization."""
+    parts = _normalize_query_parts(query)
+    feat_norm = _normalize_for_matching(featuring) if featuring else ""
+    return _suggestion_score(result, parts, feat_norm)
+
 
 ITUNES_RESPONSE = {
     "resultCount": 2,
@@ -434,7 +443,7 @@ class TestSuggestionScoring:
             "genre": "Comedy",
         }
         query = "Dolly Parton - DIVORCE"
-        assert _suggestion_score(correct, query) > _suggestion_score(wrong, query)
+        assert _score(correct, query) > _score(wrong, query)
 
     def test_comma_inverted_artist_matches(self):
         """'Commodores, The - Three Times A Lady' should rank The Commodores
@@ -442,13 +451,13 @@ class TestSuggestionScoring:
         correct = {"artist": "The Commodores", "title": "Three Times a Lady", "genre": "Soul"}
         wrong = {"artist": "Kenny Rogers", "title": "Three Times a Lady", "genre": "Country"}
         query = "Commodores, The - Three Times A Lady"
-        assert _suggestion_score(correct, query) > _suggestion_score(wrong, query)
+        assert _score(correct, query) > _score(wrong, query)
 
     def test_two_part_query_scores_higher_than_single_part(self):
         """Explicit separator should score higher than separator-less decomposition."""
         result = {"artist": "Queen", "title": "Bohemian Rhapsody", "genre": "Rock"}
-        score = _suggestion_score(result, "Queen Bohemian Rhapsody")
-        score_two_part = _suggestion_score(result, "Queen - Bohemian Rhapsody")
+        score = _score(result, "Queen Bohemian Rhapsody")
+        score_two_part = _score(result, "Queen - Bohemian Rhapsody")
         assert score_two_part > score
 
     def test_single_part_query_prefers_matching_artist(self):
@@ -456,7 +465,7 @@ class TestSuggestionScoring:
         cake = {"artist": "CAKE", "title": "I Will Survive", "genre": "Rock"}
         gloria = {"artist": "Gloria Gaynor", "title": "I Will Survive", "genre": "Pop"}
         query = "CAKE I Will Survive"
-        assert _suggestion_score(cake, query) > _suggestion_score(gloria, query)
+        assert _score(cake, query) > _score(gloria, query)
 
     def test_featuring_with_ampersand_matches_and(self):
         """'Ft Sia And Fetty Wap' should prefer result with both featured artists."""
@@ -472,4 +481,4 @@ class TestSuggestionScoring:
         }
         query = "David Guetta - Bang My Head"
         featuring = "Sia And Fetty Wap"
-        assert _suggestion_score(both, query, featuring) > _suggestion_score(one, query, featuring)
+        assert _score(both, query, featuring) > _score(one, query, featuring)

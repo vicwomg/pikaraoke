@@ -42,6 +42,11 @@ _PAREN_EXTRACT_RE = re.compile(r"(?:\(([^)]*)\)|\[([^\]]*)\])")
 
 _LEADING_CONJUNCTION_RE = re.compile(r"^(?:and|with)\s+", re.IGNORECASE)
 
+# SPECIAL_VERSION_KEYWORDS includes " - " for Last.fm embedded-artist detection,
+# but iTunes titles are already split into separate artist/title fields, so
+# a dash in the title doesn't indicate a special version.
+_ITUNES_VERSION_KEYWORDS = [kw for kw in SPECIAL_VERSION_KEYWORDS if kw != " - "]
+
 # Matches 3+ single letters separated by spaces (e.g. "d i v o r c e" from "D.I.V.O.R.C.E.")
 _SINGLE_LETTER_SEQ_RE = re.compile(r"\b([a-z](?:\s[a-z]){2,})\b")
 
@@ -298,10 +303,15 @@ def _normalize_query_parts(query: str) -> list[tuple[str, str]]:
 
 def _suggestion_score(
     result: dict,
-    query: str,
-    featuring: str = "",
+    query_parts_norm: list[tuple[str, str]],
+    featuring_norm: str = "",
 ) -> int:
-    """Score a suggestion result for relevance, version quality, and genre."""
+    """Score a suggestion result for relevance, version quality, and genre.
+
+    Args:
+        query_parts_norm: Pre-computed (raw, normalized) pairs from _normalize_query_parts.
+        featuring_norm: Pre-normalized featuring artist string.
+    """
     score = 0
     title_lower = result.get("title", "").lower()
     artist_lower = result.get("artist", "").lower()
@@ -311,10 +321,6 @@ def _suggestion_score(
     # Normalize conjunctions for matching ("and"/"&"/etc.)
     artist_norm = _normalize_for_matching(artist_lower)
     title_norm = _normalize_for_matching(title_base)
-    title_full_norm = _normalize_for_matching(title_lower)
-
-    query_parts_norm = _normalize_query_parts(query)
-    featuring_norm = _normalize_for_matching(featuring) if featuring else ""
 
     artist_matched = False
     title_matched = False
@@ -358,8 +364,10 @@ def _suggestion_score(
 
     # Bonus if the featuring artist appears in the result title
     # Normalize both sides so "and" matches "&" and accents are ignored
-    if featuring_norm and featuring_norm in title_full_norm:
-        score += 15
+    if featuring_norm:
+        title_full_norm = _normalize_for_matching(title_lower)
+        if featuring_norm in title_full_norm:
+            score += 15
 
     # Bonus when query artist part has extra names that appear in the result's
     # parenthetical (e.g. query "Taylor Swift and Ed Sheeran" matches
@@ -381,7 +389,7 @@ def _suggestion_score(
         score -= 10
 
     # Penalize special versions (live, remix, etc.)
-    for keyword in SPECIAL_VERSION_KEYWORDS:
+    for keyword in _ITUNES_VERSION_KEYWORDS:
         if keyword in title_lower:
             score -= 30
             break
@@ -402,10 +410,12 @@ def _deduplicate_suggestions(
 
     Returns (score, result) tuples sorted by score descending.
     """
+    query_parts_norm = _normalize_query_parts(query)
+    featuring_norm = _normalize_for_matching(featuring) if featuring else ""
     best: dict[tuple[str, str], tuple[int, dict]] = {}
     for r in results:
         key = (r.get("artist", "").lower(), r.get("title", "").lower())
-        s = _suggestion_score(r, query, featuring)
+        s = _suggestion_score(r, query_parts_norm, featuring_norm)
         if key not in best or s > best[key][0]:
             best[key] = (s, r)
     scored = sorted(best.values(), key=lambda x: x[0], reverse=True)
