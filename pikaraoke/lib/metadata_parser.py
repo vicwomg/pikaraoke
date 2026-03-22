@@ -139,7 +139,7 @@ ATTRIBUTION_PATTERNS = [
 
 # Leading noise: "KARAOKE - Title" or "Official Video | Title" etc.
 _LEADING_NOISE = re.compile(
-    r"^(?:karaoke|karaokê|instrumental|official\s+(?:music\s+)?video)\s*[-|:]\s*",
+    r"^(?:karaoke|karaokê|カラオケ|instrumental|official\s+(?:music\s+)?video)\s*[-|:】》」]\s*",
     re.IGNORECASE,
 )
 
