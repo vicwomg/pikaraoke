@@ -88,6 +88,18 @@ class TestCleanSearchQuery:
         assert "\U0001f3a4" not in result
         assert "\U0001f3b5" not in result
 
+    def test_preserves_cjk_characters(self):
+        result = clean_search_query("\u5bb9\u6613\u53d7\u50b7\u7684\u5973\u4eba KARAOKE")
+        assert "\u5bb9\u6613\u53d7\u50b7\u7684\u5973\u4eba" in result
+
+    def test_preserves_japanese_characters(self):
+        result = clean_search_query("\u30ab\u30e9\u30aa\u30b1 \u30bd\u30f3\u30b0")
+        assert "\u30ab\u30e9\u30aa\u30b1" in result
+
+    def test_preserves_hangul(self):
+        result = clean_search_query("\uac00\ub098\ub2e4\ub77c - \ub178\ub798")
+        assert "\uac00\ub098\ub2e4\ub77c" in result
+
     def test_strips_whitespace(self):
         result = clean_search_query("  Artist - Song  ")
         assert not result.startswith(" ")
@@ -518,6 +530,13 @@ class TestRegexTidy:
     def test_no_dangling_separator_after_noise_and_attribution_removal(self):
         result = regex_tidy("Fernando - KARAOKE VERSION - as popularized by ABBA")
         assert result == "Fernando - ABBA"
+
+    def test_preserves_cjk_title(self):
+        result = regex_tidy(
+            "\u5bb9\u6613\u53d7\u50b7\u7684\u5973\u4eba-\u738b\u9756\u96ef-\u4f34\u594f KARAOKE"
+        )
+        assert "\u5bb9\u6613\u53d7\u50b7\u7684\u5973\u4eba" in result
+        assert "\u738b\u9756\u96ef" in result
 
     def test_no_change_when_clean(self):
         assert regex_tidy("Artist - Song Title") == "Artist - Song Title"

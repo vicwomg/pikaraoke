@@ -23,7 +23,9 @@ EMOJI_PATTERN = re.compile(
     "\U0001FA00-\U0001FA6F"
     "\U0001FA70-\U0001FAFF"
     "\U00002702-\U000027B0"
-    "\U000024C2-\U0001F251"
+    "\U000024C2-\U000024FF"  # enclosed alphanumerics
+    "\U00002600-\U000026FF"  # miscellaneous symbols
+    "\U0001F200-\U0001F251"  # enclosed ideographic supplement
     "]+"
 )
 
