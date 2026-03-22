@@ -137,6 +137,12 @@ ATTRIBUTION_PATTERNS = [
     ),
 ]
 
+# Leading noise: "KARAOKE - Title" or "Official Video | Title" etc.
+_LEADING_NOISE = re.compile(
+    r"^(?:karaoke|karaokê|instrumental|official\s+(?:music\s+)?video)\s*[-|:]\s*",
+    re.IGNORECASE,
+)
+
 TRAILING_NOISE_PATTERNS = [
     # "karaoke" at the trailing end means everything after it is noise
     # (source channels, version labels, etc.) — no need to enumerate them
