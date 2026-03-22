@@ -1127,25 +1127,32 @@
         "type": "object",
         "properties": {
           "total": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Total number of items."
           },
           "total_pages": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Total number of pages."
           },
           "first_page": {
-            "type": "integer"
+            "type": "integer",
+            "description": "First available page number."
           },
           "last_page": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Last available page number."
           },
           "page": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Current page number."
           },
           "previous_page": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Previous page number."
           },
           "next_page": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Next page number."
           }
         },
         "additionalProperties": false
