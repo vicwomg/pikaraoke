@@ -162,7 +162,16 @@ _CJK_DASH_RE = re.compile(rf"(?<=[{_CJK}])\s*-\s*|\s*-\s*(?=[{_CJK}])")
 # 【lenticular brackets】 contain metadata labels in karaoke filenames — strip entirely
 _CJK_LABEL_RE = re.compile(r"\s*【[^】]*】")
 # 《double angle brackets》 wrap song/album titles in CJK convention — unwrap (keep content)
+# unless the content is noise (KTV, karaoke labels), in which case strip entirely.
 _CJK_TITLE_RE = re.compile(r"《([^》]*)》")
+_CJK_TITLE_NOISE_RE = re.compile(r"karaoke|KTV|卡拉OK|カラオケ", re.IGNORECASE)
+
+
+def _replace_cjk_title_bracket(match: re.Match) -> str:
+    content = match.group(1)
+    if _CJK_TITLE_NOISE_RE.search(content):
+        return " "
+    return f" {content} "
 
 
 # ---------------------------------------------------------------------------
@@ -636,7 +645,7 @@ def regex_tidy(filename: str) -> str:
 
     # Strip CJK metadata labels 【...】; unwrap CJK title brackets 《...》
     name = _CJK_LABEL_RE.sub(" ", name)
-    name = _CJK_TITLE_RE.sub(r" \1 ", name)
+    name = _CJK_TITLE_RE.sub(_replace_cjk_title_bracket, name)
 
     # Normalize CJK dashes early so downstream patterns (noise, attribution) see " - "
     name = _CJK_DASH_RE.sub(" - ", name)
