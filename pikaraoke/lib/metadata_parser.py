@@ -123,7 +123,7 @@ ATTRIBUTION_PATTERNS = [
 
 # Leading noise: "KARAOKE - Title" or "Official Video | Title" etc.
 _LEADING_NOISE = re.compile(
-    r"^(?:karaoke|karaokê|instrumental|official\s+(?:music\s+)?video)\s*[-|:]\s*",
+    r"^(?:karaoke|karaokê|カラオケ|instrumental|official\s+(?:music\s+)?video)\s*[-|:】》」]\s*",
     re.IGNORECASE,
 )
 
@@ -656,8 +656,8 @@ def regex_tidy(filename: str) -> str:
 
     # Strip dangling open paren/bracket left by noise removal (e.g. "Title (")
     name = re.sub(r"\s*[\(\[]\s*$", "", name)
-    # Normalize separators: en-dash/em-dash -> " - "
-    name = re.sub(r"\s*[\u2013\u2014]\s*", " - ", name)
+    # Normalize separators: en-dash, em-dash, big solidus, fullwidth solidus -> " - "
+    name = re.sub(r"\s*[\u2013\u2014\u29f8\uff0f]\s*", " - ", name)
     # Collapse whitespace
     name = re.sub(r"\s+", " ", name).strip()
     # Strip trailing dash left over from noise removal
