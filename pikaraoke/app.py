@@ -1,5 +1,9 @@
 """Flask application entry point and server initialization."""
 
+import subprocess as _stdlib_subprocess  # Before monkey patching
+
+_stdlib_subprocess_run = _stdlib_subprocess.run
+
 from gevent import monkey, spawn
 
 monkey.patch_all()
@@ -7,6 +11,7 @@ monkey.patch_all()
 import logging
 import os
 import sys
+from pathlib import Path
 from urllib.parse import quote
 
 import flask_babel
@@ -137,12 +142,54 @@ socketio.init_app(app)
 setup_socket_events(socketio)
 
 
+def compile_translations() -> None:
+    """Compile .po translation files to .mo binary format if needed.
+
+    Uses _stdlib_subprocess_run (saved before monkey patching) because this runs
+    before the gevent event loop is active — the patched version deadlocks here.
+    """
+    translations_dir = Path(__file__).parent / "translations"
+    if not translations_dir.exists():
+        return
+
+    # Check if any .po file is newer than its .mo counterpart
+    needs_compile = False
+    for po_file in translations_dir.rglob("*.po"):
+        mo_file = po_file.with_suffix(".mo")
+        if not mo_file.exists() or po_file.stat().st_mtime > mo_file.stat().st_mtime:
+            needs_compile = True
+            break
+
+    if not needs_compile:
+        return
+
+    print("Compiling translation files...")
+    result = _stdlib_subprocess_run(
+        [
+            sys.executable,
+            "-m",
+            "babel.messages.frontend",
+            "compile",
+            "-f",
+            "-d",
+            str(translations_dir),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(f"Failed to compile translations: {result.stderr}")
+    else:
+        print("Translations compiled successfully")
+
+
 def main() -> None:
     """Main entry point for the PiKaraoke application.
 
     Initializes the Flask server, Karaoke engine, and splash screen.
     Blocks until the application is terminated.
     """
+    compile_translations()
     platform = get_platform()
 
     args = parse_pikaraoke_args()

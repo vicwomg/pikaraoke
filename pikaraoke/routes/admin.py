@@ -55,15 +55,15 @@ def update_ytdl():
 
     if is_admin():
         flash(
-            # MSG: Message shown after starting the youtube-dl update.
-            _("Updating youtube-dl! Should take a minute or two... "),
+            # MSG: Message shown after starting the yt-dlp update.
+            _("Updating yt-dlp! Should take a minute or two... "),
             "is-warning",
         )
         th = threading.Thread(target=update_youtube_dl)
         th.start()
     else:
-        # MSG: Message shown after trying to update youtube-dl without admin permissions.
-        flash(_("You don't have permission to update youtube-dl"), "is-danger")
+        # MSG: Message shown after trying to update yt-dlp without admin permissions.
+        flash(_("You don't have permission to update yt-dlp"), "is-danger")
     return redirect(url_for("info.info"))
 
 

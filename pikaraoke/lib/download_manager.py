@@ -228,7 +228,7 @@ class DownloadManager:
             self._youtubedl_proxy,
             self._additional_ytdl_args,
         )
-        logging.debug("Youtube-dl command: " + " ".join(cmd))
+        logging.debug("yt-dlp command: " + " ".join(cmd))
 
         # Use Popen to capture output in real-time
         process = subprocess.Popen(
