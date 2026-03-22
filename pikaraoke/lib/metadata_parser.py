@@ -159,8 +159,10 @@ TRAILING_NOISE_PATTERNS = [
 _CJK = r"\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff"
 _CJK_DASH_RE = re.compile(rf"(?<=[{_CJK}])\s*-\s*|\s*-\s*(?=[{_CJK}])")
 
-# CJK bracket pairs: 【lenticular】, 《double angle》 — always metadata in karaoke filenames
-_CJK_BRACKETS_RE = re.compile(r"\s*(?:【[^】]*】|《[^》]*》)")
+# 【lenticular brackets】 contain metadata labels in karaoke filenames — strip entirely
+_CJK_LABEL_RE = re.compile(r"\s*【[^】]*】")
+# 《double angle brackets》 wrap song/album titles in CJK convention — unwrap (keep content)
+_CJK_TITLE_RE = re.compile(r"《([^》]*)》")
 
 
 # ---------------------------------------------------------------------------
@@ -632,8 +634,9 @@ def regex_tidy(filename: str) -> str:
     # Strip leading noise labels like "KARAOKE - Title"
     name = _LEADING_NOISE.sub("", name)
 
-    # Strip CJK bracket content before noise patterns can see inside them
-    name = _CJK_BRACKETS_RE.sub("", name)
+    # Strip CJK metadata labels 【...】; unwrap CJK title brackets 《...》
+    name = _CJK_LABEL_RE.sub(" ", name)
+    name = _CJK_TITLE_RE.sub(r" \1 ", name)
 
     # Normalize CJK dashes early so downstream patterns (noise, attribution) see " - "
     name = _CJK_DASH_RE.sub(" - ", name)
