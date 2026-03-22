@@ -542,6 +542,19 @@ class TestRegexTidy:
     def test_strips_feat_bracketed(self):
         assert regex_tidy("Artist - Song [feat. Other]") == "Artist - Song"
 
+    def test_strips_leading_karaoke_label(self):
+        result = regex_tidy("KARAOKE - Cry Me a River by Julie London")
+        assert result == "Cry Me a River by Julie London"
+
+    def test_strips_leading_instrumental_label(self):
+        assert regex_tidy("Instrumental - Artist - Song") == "Artist - Song"
+
+    def test_strips_leading_official_video_with_pipe(self):
+        assert regex_tidy("Official Video | Artist - Song") == "Artist - Song"
+
+    def test_strips_leading_official_music_video(self):
+        assert regex_tidy("Official Music Video - Artist - Song") == "Artist - Song"
+
     def test_no_change_when_clean(self):
         assert regex_tidy("Artist - Song Title") == "Artist - Song Title"
 

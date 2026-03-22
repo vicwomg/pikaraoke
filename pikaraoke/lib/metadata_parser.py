@@ -119,6 +119,12 @@ ATTRIBUTION_PATTERNS = [
     ),
 ]
 
+# Leading noise: "KARAOKE - Title" or "Official Video | Title" etc.
+_LEADING_NOISE = re.compile(
+    r"^(?:karaoke|karaokê|instrumental|official\s+(?:music\s+)?video)\s*[-|:]\s*",
+    re.IGNORECASE,
+)
+
 TRAILING_NOISE_PATTERNS = [
     # "karaoke" at the trailing end means everything after it is noise
     # (source channels, version labels, etc.) — no need to enumerate them
@@ -596,6 +602,9 @@ def regex_tidy(filename: str) -> str:
     """
     name = EMOJI_PATTERN.sub(" ", filename)
     name = name.replace("_", " ")
+
+    # Strip leading noise labels like "KARAOKE - Title"
+    name = _LEADING_NOISE.sub("", name)
 
     # Try to extract artist from attribution phrases
     artist = _extract_attribution_artist(name)
