@@ -284,20 +284,20 @@ class TestGetBestResult:
 class TestLookupLastfm:
     """Tests for the lookup_lastfm function (pure Last.fm path)."""
 
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_returns_none_on_api_error(self, mock_get):
         mock_get.return_value.status_code = 500
         result = lookup_lastfm("Artist - Song")
         assert result is None
 
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_returns_none_on_empty_results(self, mock_get):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {"results": {"trackmatches": {"track": []}}}
         result = lookup_lastfm("Unknown Song That Doesn't Exist")
         assert result is None
 
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_returns_best_match(self, mock_get):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {
@@ -312,7 +312,7 @@ class TestLookupLastfm:
         result = lookup_lastfm("Coldplay - Viva La Vida")
         assert result == "Coldplay - Viva La Vida"
 
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_cleans_query_before_search(self, mock_get):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {"results": {"trackmatches": {"track": []}}}
@@ -322,7 +322,7 @@ class TestLookupLastfm:
         assert "karaoke" not in params["track"].lower()
         assert "official" not in params["track"].lower()
 
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_preserves_format_from_original_filename(self, mock_get):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {
@@ -337,7 +337,7 @@ class TestLookupLastfm:
         result = lookup_lastfm("Artist Name - Song Title (Official Video) karaoke")
         assert result == "Artist Name - Song Title"
 
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_returns_none_on_missing_trackmatches(self, mock_get):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {"results": {}}
@@ -356,7 +356,7 @@ class TestRateLimiting:
     """Tests for Last.fm rate limiting, retry, and cache-skip behavior."""
 
     @patch("pikaraoke.lib.metadata_parser.time.sleep")
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_error_29_triggers_retry_and_succeeds(self, mock_get, mock_sleep):
         rate_limit_resp = MagicMock(status_code=200)
         rate_limit_resp.json.return_value = RATE_LIMIT_RESPONSE
@@ -371,7 +371,7 @@ class TestRateLimiting:
         assert mock_get.call_count == 2
 
     @patch("pikaraoke.lib.metadata_parser.time.sleep")
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_http_429_triggers_retry_and_succeeds(self, mock_get, mock_sleep):
         http_429_resp = MagicMock(status_code=429)
 
@@ -384,7 +384,7 @@ class TestRateLimiting:
         assert "Viva La Vida" in result
 
     @patch("pikaraoke.lib.metadata_parser.time.sleep")
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_rate_limited_result_not_cached(self, mock_get, mock_sleep):
         rate_limit_resp = MagicMock(status_code=200)
         rate_limit_resp.json.return_value = RATE_LIMIT_RESPONSE
@@ -401,7 +401,7 @@ class TestRateLimiting:
         assert "Viva La Vida" in result
 
     @patch("pikaraoke.lib.metadata_parser.time.sleep")
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_genuine_no_results_is_cached(self, mock_get, mock_sleep):
         ok_resp = MagicMock(status_code=200)
         ok_resp.json.return_value = {"results": {"trackmatches": {"track": []}}}
@@ -414,7 +414,7 @@ class TestRateLimiting:
         assert mock_get.call_count == 1
 
     @patch("pikaraoke.lib.metadata_parser.time.sleep")
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_max_retries_exhausted(self, mock_get, mock_sleep):
         rate_limit_resp = MagicMock(status_code=200)
         rate_limit_resp.json.return_value = RATE_LIMIT_RESPONSE
@@ -424,7 +424,7 @@ class TestRateLimiting:
         assert result is None
         assert mock_get.call_count == 3
 
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     @patch("pikaraoke.lib.metadata_parser.time.sleep")
     def test_backoff_timing(self, mock_sleep, mock_get):
         rate_limit_resp = MagicMock(status_code=200)
@@ -577,7 +577,7 @@ class TestHasArtistTitleSeparator:
 class TestSearchLastfmTracks:
     """Tests for the search_lastfm_tracks function."""
 
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_returns_formatted_results(self, mock_get):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {
@@ -593,7 +593,7 @@ class TestSearchLastfmTracks:
         assert results == [{"name": "Song", "artist": "Artist"}]
 
     @patch("pikaraoke.lib.metadata_parser.time.sleep")
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_returns_empty_on_rate_limit(self, mock_get, mock_sleep):
         rate_limit_resp = MagicMock(status_code=200)
         rate_limit_resp.json.return_value = RATE_LIMIT_RESPONSE
@@ -602,7 +602,7 @@ class TestSearchLastfmTracks:
         results = search_lastfm_tracks("Artist - Song")
         assert results == []
 
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_passes_limit_param(self, mock_get):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {"results": {"trackmatches": {"track": []}}}
