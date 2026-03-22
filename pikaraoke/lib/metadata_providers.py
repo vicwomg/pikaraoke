@@ -6,7 +6,6 @@ Pure library module -- no Flask imports.
 import logging
 import re
 import ssl
-import sys
 import time
 from typing import Protocol
 
@@ -50,13 +49,12 @@ _WHITESPACE_RE = re.compile(r"\s+")
 
 
 def _fix_ssl_recursion() -> None:
-    """Fix CPython 3.13 ssl.SSLContext.minimum_version RecursionError.
+    """Fix ssl.SSLContext.minimum_version RecursionError.
 
-    On Python 3.13, ssl.SSLContext.minimum_version's setter can infinitely
-    recurse. gevent's monkey.patch_all() makes this worse by leaving urllib3
-    with a reference to the unpatched (broken) ssl module. We wrap urllib3's
-    create_urllib3_context to catch the RecursionError and return a safe
-    default context instead.
+    On some Python/macOS/OpenSSL combinations, ssl.SSLContext.minimum_version's
+    setter can infinitely recurse (observed on Python 3.11 and 3.13). We wrap
+    urllib3's create_urllib3_context to catch the RecursionError and return a
+    safe default context instead. On unaffected environments this is a no-op.
     """
     original = urllib3.util.ssl_.create_urllib3_context
 
@@ -70,8 +68,7 @@ def _fix_ssl_recursion() -> None:
     urllib3.connection.create_urllib3_context = _safe_create_urllib3_context
 
 
-if sys.version_info >= (3, 13):
-    _fix_ssl_recursion()
+_fix_ssl_recursion()
 
 
 class MetadataProvider(Protocol):
