@@ -19,8 +19,8 @@
   <link rel="stylesheet" href="{{  url_for('static', filename='fontello/css/fontello.css') }}?v=2">
 
   <script>
-    // Translations for spa-navigation.js (static JS cannot use Jinja2 directly)
-    window.i18n = {
+    // Translations for JS (static JS cannot use Jinja2 directly)
+    window.translations = {
       // {# MSG: Prompt to change the username displayed next to queued songs. CURRENT_NAME is replaced with the name #}
       promptChangeUsername: "{{ _('Do you want to change the name of the person using this device? This will show up on queued songs. Current: CURRENT_NAME') }}",
       // {# MSG: Confirmation prompt to clear entire queue. User must type ok to confirm #}
