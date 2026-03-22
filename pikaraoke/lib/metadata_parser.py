@@ -10,8 +10,6 @@ import re
 import time
 import unicodedata
 
-import requests
-
 EMOJI_PATTERN = re.compile(
     "["
     "\U0001F1E0-\U0001F1FF"
@@ -446,6 +444,8 @@ def _lastfm_track_search(cleaned_query: str, limit: int | None = None) -> list[d
     }
     if limit is not None:
         params["limit"] = str(limit)
+
+    import requests
 
     for attempt in range(_MAX_RETRIES):
         if attempt > 0:
