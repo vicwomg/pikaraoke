@@ -6,7 +6,7 @@ from flask import jsonify, render_template
 from flask_smorest import Blueprint
 
 from pikaraoke import VERSION
-from pikaraoke.constants import LANGUAGES
+from pikaraoke.constants import ITUNES_COUNTRIES, LANGUAGES
 from pikaraoke.lib.current_app import (
     get_admin_password,
     get_karaoke_instance,
@@ -31,6 +31,7 @@ def info():
     is_linux = get_platform() == "linux"
 
     preferred_language = k.preferences.get("preferred_language", "en")
+    itunes_search_country = k.preferences.get_or_default("itunes_search_country")
     # youtube-dl
     youtubedl_version = k.youtubedl_version
 
@@ -73,6 +74,8 @@ def info():
         buffer_size=k.buffer_size,
         languages=LANGUAGES,
         preferred_language=preferred_language,
+        itunes_countries=ITUNES_COUNTRIES,
+        itunes_search_country=itunes_search_country,
         browse_results_per_page=k.browse_results_per_page,
         score_phrases={
             "low": k.low_score_phrases,

@@ -88,6 +88,10 @@ class TestCleanSearchQuery:
         assert "\U0001f3a4" not in result
         assert "\U0001f3b5" not in result
 
+    def test_emoji_removal_preserves_word_boundaries(self):
+        result = clean_search_query("I Will Survive\U0001f3a4HQ")
+        assert result == "I Will Survive"
+
     def test_strips_whitespace(self):
         result = clean_search_query("  Artist - Song  ")
         assert not result.startswith(" ")
@@ -472,6 +476,10 @@ class TestRegexTidy:
         result = regex_tidy("Artist - Song \U0001f3a4")
         assert "\U0001f3a4" not in result
 
+    def test_emoji_removal_preserves_word_boundaries(self):
+        result = regex_tidy("CAKE _ I Will Survive\U0001f3a4HQ Karaoke\U0001f3a4")
+        assert result == "CAKE I Will Survive"
+
     def test_normalizes_em_dash(self):
         assert regex_tidy("Artist \u2014 Song") == "Artist - Song"
 
@@ -518,6 +526,34 @@ class TestRegexTidy:
     def test_no_dangling_separator_after_noise_and_attribution_removal(self):
         result = regex_tidy("Fernando - KARAOKE VERSION - as popularized by ABBA")
         assert result == "Fernando - ABBA"
+
+    def test_no_dangling_open_paren_after_noise_removal(self):
+        result = regex_tidy(
+            "Paul Kelly - Firewood and Candles (Karaoke Version) with Lyrics HD Vocal-Star Karaoke"
+        )
+        assert result == "Paul Kelly - Firewood and Candles"
+
+    def test_preserves_feat_parenthetical(self):
+        assert regex_tidy("Artist - Song (feat. Other)") == "Artist - Song (feat. Other)"
+
+    def test_preserves_ft_parenthetical(self):
+        assert regex_tidy("Artist - Song (ft. Other Artist)") == "Artist - Song (ft. Other Artist)"
+
+    def test_strips_feat_bracketed(self):
+        assert regex_tidy("Artist - Song [feat. Other]") == "Artist - Song"
+
+    def test_strips_leading_karaoke_label(self):
+        result = regex_tidy("KARAOKE - Cry Me a River by Julie London")
+        assert result == "Cry Me a River by Julie London"
+
+    def test_strips_leading_instrumental_label(self):
+        assert regex_tidy("Instrumental - Artist - Song") == "Artist - Song"
+
+    def test_strips_leading_official_video_with_pipe(self):
+        assert regex_tidy("Official Video | Artist - Song") == "Artist - Song"
+
+    def test_strips_leading_official_music_video(self):
+        assert regex_tidy("Official Music Video - Artist - Song") == "Artist - Song"
 
     def test_no_change_when_clean(self):
         assert regex_tidy("Artist - Song Title") == "Artist - Song Title"

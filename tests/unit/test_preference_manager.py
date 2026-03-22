@@ -284,6 +284,8 @@ def test_preference_manager_defaults_exist():
         "mid_score_phrases",
         "high_score_phrases",
         "show_splash_clock",
+        "metadata_provider",
+        "itunes_search_country",
     }
 
     assert set(PreferenceManager.DEFAULTS.keys()) == expected_keys
@@ -321,6 +323,7 @@ def test_preference_manager_defaults_types():
     assert isinstance(defaults["low_score_phrases"], str)
     assert isinstance(defaults["mid_score_phrases"], str)
     assert isinstance(defaults["high_score_phrases"], str)
+    assert isinstance(defaults["itunes_search_country"], str)
 
 
 def test_preference_manager_get_or_default_returns_default(temp_config_file):

@@ -12,18 +12,20 @@ import unicodedata
 
 EMOJI_PATTERN = re.compile(
     "["
-    "\U0001F1E0-\U0001F1FF"
-    "\U0001F300-\U0001F5FF"
-    "\U0001F600-\U0001F64F"
-    "\U0001F680-\U0001F6FF"
-    "\U0001F700-\U0001F77F"
-    "\U0001F780-\U0001F7FF"
-    "\U0001F800-\U0001F8FF"
-    "\U0001F900-\U0001F9FF"
-    "\U0001FA00-\U0001FA6F"
-    "\U0001FA70-\U0001FAFF"
-    "\U00002702-\U000027B0"
-    "\U000024C2-\U0001F251"
+    "\U0001f1e0-\U0001f1ff"
+    "\U0001f300-\U0001f5ff"
+    "\U0001f600-\U0001f64f"
+    "\U0001f680-\U0001f6ff"
+    "\U0001f700-\U0001f77f"
+    "\U0001f780-\U0001f7ff"
+    "\U0001f800-\U0001f8ff"
+    "\U0001f900-\U0001f9ff"
+    "\U0001fa00-\U0001fa6f"
+    "\U0001fa70-\U0001faff"
+    "\U00002702-\U000027b0"
+    "\U000024c2-\U000024ff"  # enclosed alphanumerics
+    "\U00002600-\U000026ff"  # miscellaneous symbols
+    "\U0001f200-\U0001f251"  # enclosed ideographic supplement
     "]+"
 )
 
@@ -63,6 +65,11 @@ NOISE_WORDS = [
 ]
 NOISE_PATTERN = re.compile("|".join(NOISE_WORDS), flags=re.IGNORECASE)
 
+# Matches parenthesised content EXCEPT featuring credits like "(feat. X)" / "(ft. X)"
+_FEAT_LOOKAHEAD = r"(?!\s*(?:feat(?:uring)?|ft)\.?\s)"
+_PAREN_NOT_FEAT = re.compile(rf"\s*\({_FEAT_LOOKAHEAD}[^)]*\)", flags=re.IGNORECASE)
+_PAREN_NOT_FEAT_TRAILING = re.compile(rf"\s*\({_FEAT_LOOKAHEAD}[^)]*\)\s*$", flags=re.IGNORECASE)
+
 SPECIAL_VERSION_KEYWORDS = [
     " - ",
     "ao vivo",
@@ -75,6 +82,13 @@ SPECIAL_VERSION_KEYWORDS = [
     "cover",
     "radio edit",
     "extended",
+    "re-recorded",
+    "rerecorded",
+    "remastered",
+    "encore",
+    "deluxe",
+    "bonus track",
+    "demo",
 ]
 
 LASTFM_API_KEY = "058c382f5fd686b4146f6028961c14da"
@@ -105,6 +119,12 @@ ATTRIBUTION_PATTERNS = [
     ),
 ]
 
+# Leading noise: "KARAOKE - Title" or "Official Video | Title" etc.
+_LEADING_NOISE = re.compile(
+    r"^(?:karaoke|karaokê|カラオケ|卡拉OK|KTV|instrumental|official\s+(?:music\s+)?video)\s*[-|:】》」]\s*",
+    re.IGNORECASE,
+)
+
 TRAILING_NOISE_PATTERNS = [
     # "karaoke" at the trailing end means everything after it is noise
     # (source channels, version labels, etc.) — no need to enumerate them
@@ -114,7 +134,42 @@ TRAILING_NOISE_PATTERNS = [
         r"|hd|hq|instrumental|with\s+lyrics|no\s+lead\s+vocal|cc)\b[\s.!]*$",
         re.IGNORECASE,
     ),
+    # CJK noise words (Traditional/Simplified pairs where they differ)
+    re.compile(
+        r"\s*(?:伴奏|卡拉OK|KTV"
+        r"|純音樂|纯音乐"  # pure music / instrumental
+        r"|無人聲|无人声"  # no vocals
+        r"|導唱|导唱"  # guide vocal
+        r"|消音"  # vocal removed
+        r"|翻唱"  # cover
+        r"|現場|现场"  # live
+        r"|高清"  # HD
+        r"|歌詞|歌词"  # lyrics
+        r"|MV"  # music video
+        r"|原版"  # original version
+        r")[\s.!]*$",
+        re.IGNORECASE,
+    ),
 ]
+
+# A dash adjacent to a CJK character is always a separator (never a hyphen within a word).
+# Uses lookaround so the replacement is just the dash itself, not the surrounding characters.
+_CJK = r"\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff"
+_CJK_DASH_RE = re.compile(rf"(?<=[{_CJK}])\s*-\s*|\s*-\s*(?=[{_CJK}])")
+
+# 【lenticular brackets】 contain metadata labels in karaoke filenames — strip entirely
+_CJK_LABEL_RE = re.compile(r"\s*【[^】]*】")
+# 《double angle brackets》 wrap song/album titles in CJK convention — unwrap (keep content)
+# unless the content is noise (KTV, karaoke labels), in which case strip entirely.
+_CJK_TITLE_RE = re.compile(r"《([^》]*)》")
+_CJK_TITLE_NOISE_RE = re.compile(r"karaoke|KTV|卡拉OK|カラオケ", re.IGNORECASE)
+
+
+def _replace_cjk_title_bracket(match: re.Match) -> str:
+    content = match.group(1)
+    if _CJK_TITLE_NOISE_RE.search(content):
+        return " "
+    return f" {content} "
 
 
 # ---------------------------------------------------------------------------
@@ -122,7 +177,7 @@ TRAILING_NOISE_PATTERNS = [
 # ---------------------------------------------------------------------------
 
 
-def _remove_accents(text: str) -> str:
+def remove_accents(text: str) -> str:
     """Strip diacritical marks for accent-insensitive comparison."""
     return "".join(c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn")
 
@@ -154,7 +209,7 @@ def _split_query_parts(query: str) -> tuple[str, str]:
 
 def clean_search_query(song_name: str) -> str:
     """Strip noise words, brackets, and emoji to isolate the core song identity."""
-    song_name = EMOJI_PATTERN.sub("", song_name)
+    song_name = EMOJI_PATTERN.sub(" ", song_name)
     song_name = song_name.replace("_", " ")
     song_name = re.sub(r"\([^)]*\)", "", song_name)
     song_name = re.sub(r"\[[^\]]*\]", "", song_name)
@@ -197,10 +252,10 @@ def score_result(result: dict, original_query: str) -> int:
 
     part1, part2 = _split_query_parts(original_query)
 
-    part1_normalized = clean_search_query(_remove_accents(part1))
-    part2_normalized = clean_search_query(_remove_accents(part2))
-    track_normalized = _remove_accents(track_name)
-    artist_normalized = _remove_accents(artist_name)
+    part1_normalized = clean_search_query(remove_accents(part1))
+    part2_normalized = clean_search_query(remove_accents(part2))
+    track_normalized = remove_accents(track_name)
+    artist_normalized = remove_accents(artist_name)
 
     score += _score_query_match(
         part1_normalized, part2_normalized, track_normalized, artist_normalized
@@ -292,7 +347,7 @@ def _score_penalties(
 
 def _normalize_for_detection(text: str) -> str:
     """Normalize text for artist/title format detection."""
-    return _remove_accents(clean_search_query(text.strip().lower()))
+    return remove_accents(clean_search_query(text.strip().lower()))
 
 
 def _is_similar(a: str, b: str) -> bool:
@@ -337,9 +392,12 @@ def _detect_artist_first(original_query: str, artist: str, title: str) -> bool:
     return False
 
 
-def _normalize_for_comparison(text: str) -> str:
+def normalize_for_comparison(text: str) -> str:
     """Normalize text for artist/track comparison by removing punctuation."""
-    normalized = re.sub(r"[._\-']", " ", text.lower())
+    normalized = text.lower().replace("&", " and ")
+    # Strip apostrophes entirely (possessives/contractions aren't word boundaries)
+    normalized = normalized.replace("'", "").replace("\u2019", "")
+    normalized = re.sub(r"[^\w\s]", " ", normalized)
     normalized = re.sub(r"\s+", " ", normalized)
     return normalized.strip()
 
@@ -347,11 +405,12 @@ def _normalize_for_comparison(text: str) -> str:
 def _strip_artist_from_track(track_name: str, artist_name: str) -> str:
     """Remove artist name from track title if it's embedded.
 
-    Last.fm sometimes returns track names like 'Artist - Title' or 'Artist-Title'.
-    Handles variations like "a-ha" vs "A ha" where punctuation differs.
+    Metadata APIs sometimes return track names like 'Artist - Title' or
+    'Artist-Title'. Handles variations like "a-ha" vs "A ha" where
+    punctuation differs.
     """
-    track_normalized = _normalize_for_comparison(track_name)
-    artist_normalized = _normalize_for_comparison(artist_name)
+    track_normalized = normalize_for_comparison(track_name)
+    artist_normalized = normalize_for_comparison(artist_name)
 
     if track_normalized.startswith(artist_normalized + " "):
         separator_pattern = r"^.{0,50}?(?:\s*[-\u2013\u2014|:]\s*|\s+/\s+)(.+)$"
@@ -361,7 +420,7 @@ def _strip_artist_from_track(track_name: str, artist_name: str) -> str:
             before_separator = track_name[: match.start(1)].strip()
             before_separator = re.sub(r"\s*[-\u2013\u2014|:/]\s*$", "", before_separator)
 
-            if _normalize_for_comparison(before_separator) == artist_normalized:
+            if normalize_for_comparison(before_separator) == artist_normalized:
                 return match.group(1)
 
     return track_name
@@ -387,7 +446,7 @@ def _preserve_original_artist(original_name: str, lastfm_artist: str) -> str | N
         return original_artist
 
     # Preserve original artist when Last.fm returned the accent-stripped equivalent
-    if _remove_accents(original_lower) == _remove_accents(lastfm_lower):
+    if remove_accents(original_lower) == remove_accents(lastfm_lower):
         return original_artist
 
     return None
@@ -402,8 +461,8 @@ def get_best_result(
 
     best = max(results, key=lambda r: score_result(r, original_query))
 
-    # Strip parenthetical extras like "(feat. ...)" or "(Single 2014)" from track names
-    clean_track_name = re.sub(r"\s*\([^)]*\)", "", best["name"])
+    # Strip parenthetical extras like "(Single 2014)" but preserve featuring credits
+    clean_track_name = _PAREN_NOT_FEAT.sub("", best["name"])
 
     # Strip artist from track name if it's duplicated
     clean_track_name = _strip_artist_from_track(clean_track_name, best["artist"])
@@ -556,16 +615,17 @@ def _strip_attribution_and_noise(name: str) -> str:
     """Remove the matched attribution phrase and trailing noise from the title."""
     for pattern in ATTRIBUTION_PATTERNS:
         name = pattern.sub("", name)
-    # Strip remaining trailing bracketed/parenthesised content
-    name = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]\s*$", "", name)
+    # Strip remaining trailing bracketed/parenthesised content, preserving featuring credits
+    name = re.sub(r"\s*\[[^\]]*\]\s*$", "", name)
+    name = _PAREN_NOT_FEAT_TRAILING.sub("", name)
     for noise_pat in TRAILING_NOISE_PATTERNS:
         prev = None
         while prev != name:
             prev = name
             name = noise_pat.sub("", name)
-    # Strip dangling separator left by noise removal (e.g. "Title -")
-    # before the caller composes "Title - Artist"
-    name = re.sub(r"\s*-\s*$", "", name)
+    # Strip dangling separator or open paren/bracket left by noise removal
+    # (e.g. "Title -" or "Title (") before the caller composes "Title - Artist"
+    name = re.sub(r"\s*[-(\[]\s*$", "", name)
     return name.strip()
 
 
@@ -577,8 +637,18 @@ def regex_tidy(filename: str) -> str:
     3. Otherwise strip trailing noise
     4. Normalize separators and whitespace
     """
-    name = EMOJI_PATTERN.sub("", filename)
+    name = EMOJI_PATTERN.sub(" ", filename)
     name = name.replace("_", " ")
+
+    # Strip leading noise labels like "KARAOKE - Title"
+    name = _LEADING_NOISE.sub("", name)
+
+    # Strip CJK metadata labels 【...】; unwrap CJK title brackets 《...》
+    name = _CJK_LABEL_RE.sub(" ", name)
+    name = _CJK_TITLE_RE.sub(_replace_cjk_title_bracket, name)
+
+    # Normalize CJK dashes early so downstream patterns (noise, attribution) see " - "
+    name = _CJK_DASH_RE.sub(" - ", name)
 
     # Try to extract artist from attribution phrases
     artist = _extract_attribution_artist(name)
@@ -586,9 +656,9 @@ def regex_tidy(filename: str) -> str:
         title = _strip_attribution_and_noise(name)
         name = f"{title} - {artist}"
     else:
-        # Strip trailing parenthesised/bracketed content
-        name = re.sub(r"\s*\([^)]*\)\s*$", "", name)
-        name = re.sub(r"\s*\[[^\]]*\]\s*$", "", name)
+        # Strip trailing parenthesised/bracketed content, but preserve featuring credits
+        name = _PAREN_NOT_FEAT_TRAILING.sub("", name)
+        name = re.sub(r"\s*\[[^\]]*\]\s*$", "", name, flags=re.IGNORECASE)
         # Iteratively strip trailing noise patterns
         for noise_pat in TRAILING_NOISE_PATTERNS:
             prev = None
@@ -596,8 +666,10 @@ def regex_tidy(filename: str) -> str:
                 prev = name
                 name = noise_pat.sub("", name)
 
-    # Normalize separators: en-dash/em-dash -> " - "
-    name = re.sub(r"\s*[\u2013\u2014]\s*", " - ", name)
+    # Strip dangling open paren/bracket left by noise removal (e.g. "Title (")
+    name = re.sub(r"\s*[\(\[]\s*$", "", name)
+    # Normalize separators: en-dash, em-dash, big solidus, fullwidth solidus -> " - "
+    name = re.sub(r"\s*[\u2013\u2014\u29f8\uff0f]\s*", " - ", name)
     # Collapse whitespace
     name = re.sub(r"\s+", " ", name).strip()
     # Strip trailing dash left over from noise removal

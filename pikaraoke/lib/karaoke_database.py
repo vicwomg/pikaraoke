@@ -83,6 +83,14 @@ class KaraokeDatabase:
         with self._lock:
             return self._conn.execute("SELECT COUNT(*) FROM songs").fetchone()[0]
 
+    def get_format(self, file_path: str) -> str | None:
+        """Return the format string for a song, or None if not found."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT format FROM songs WHERE file_path = ?", (file_path,)
+            ).fetchone()
+            return row[0] if row else None
+
     # ------------------------------------------------------------------
     # Batch write operations (used by LibraryScanner)
     # ------------------------------------------------------------------

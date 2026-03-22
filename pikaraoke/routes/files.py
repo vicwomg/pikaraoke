@@ -13,10 +13,28 @@ from flask_paginate import Pagination, get_page_parameter
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
+from pikaraoke.constants import ITUNES_COUNTRIES
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
 from pikaraoke.lib.metadata_parser import youtube_id_suffix
 
 _ = flask_babel.gettext
+
+# DB format values that have a matching icon in static/images/formats/
+_FORMAT_ICONS = {"mp4", "avi", "mkv", "mov", "webm", "cdg", "ass"}
+# Zipped CDG+MP3 packages are stored as "zip" in the DB but use the CDG icon
+_FORMAT_ALIASES = {"zip": "cdg"}
+
+
+def _format_icon(song_path: str, db_format: str | None) -> str | None:
+    """Return the format icon filename (without extension) for a song, or None."""
+    if youtube_id_suffix(song_path):
+        return "youtube"
+    if db_format:
+        if db_format in _FORMAT_ICONS:
+            return db_format
+        if db_format in _FORMAT_ALIASES:
+            return _FORMAT_ALIASES[db_format]
+    return None
 
 
 files_bp = Blueprint("files", __name__)
@@ -162,13 +180,20 @@ def edit_file(query):
         )
         return redirect(referrer)
     raw_stem = k.song_manager.filename_from_path(song_path, tidy=False)
+    suggested_stem = k.song_manager.filename_from_path(song_path, tidy=True)
+    format_icon = _format_icon(song_path, k.db.get_format(song_path))
+    itunes_search_country = k.preferences.get_or_default("itunes_search_country")
     return render_template(
         "edit.html",
         site_title=site_name,
         title="Song File Edit",
         song=song_path,
         raw_stem=raw_stem,
+        suggested_stem=suggested_stem,
+        format_icon=format_icon,
         referrer=referrer,
+        itunes_countries=ITUNES_COUNTRIES,
+        itunes_search_country=itunes_search_country,
     )
 
 
