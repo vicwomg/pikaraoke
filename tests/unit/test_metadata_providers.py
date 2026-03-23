@@ -482,3 +482,48 @@ class TestSuggestionScoring:
         query = "David Guetta - Bang My Head"
         featuring = "Sia And Fetty Wap"
         assert _score(both, query, featuring) > _score(one, query, featuring)
+
+    def test_version_keyword_uses_word_boundaries(self):
+        """'Oliver's Army' should not be penalized for containing 'live'."""
+        result = {
+            "artist": "Elvis Costello & The Attractions",
+            "title": "Oliver's Army",
+            "genre": "Rock",
+        }
+        query = "Elvis Costello & The Attractions - Olivers Army"
+        score = _score(result, query)
+        live_result = {
+            "artist": "Elvis Costello & The Attractions",
+            "title": "Oliver's Army (Live)",
+            "genre": "Rock",
+        }
+        score_live = _score(live_result, query)
+        assert score > score_live
+
+    def test_version_keyword_still_penalizes_actual_live(self):
+        """'Oliver's Army (Live)' should be penalized for 'live' as a standalone word."""
+        result = {
+            "artist": "Elvis Costello & The Attractions",
+            "title": "Oliver's Army (Live)",
+            "genre": "Rock",
+        }
+        query = "Elvis Costello & The Attractions - Olivers Army"
+        score_live = _score(result, query)
+        clean = {
+            "artist": "Elvis Costello & The Attractions",
+            "title": "Oliver's Army",
+            "genre": "Rock",
+        }
+        score_clean = _score(clean, query)
+        assert score_clean > score_live
+
+    def test_apostrophe_difference_still_scores_exact(self):
+        """Query 'Olivers Army' (no apostrophe) should exact-match title 'Oliver's Army'."""
+        result = {
+            "artist": "Elvis Costello & The Attractions",
+            "title": "Oliver's Army",
+            "genre": "Rock",
+        }
+        no_apos = _score(result, "Elvis Costello & The Attractions - Olivers Army")
+        with_apos = _score(result, "Elvis Costello & The Attractions - Oliver's Army")
+        assert no_apos == with_apos

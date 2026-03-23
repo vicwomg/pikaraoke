@@ -14,7 +14,7 @@ import urllib3.connection
 import urllib3.util.ssl_
 
 from pikaraoke.lib.metadata_parser import (
-    SPECIAL_VERSION_KEYWORDS,
+    _SPECIAL_VERSION_RE,
     normalize_for_comparison,
     regex_tidy,
     remove_accents,
@@ -42,10 +42,6 @@ _PAREN_EXTRACT_RE = re.compile(r"(?:\(([^)]*)\)|\[([^\]]*)\])")
 
 _LEADING_CONJUNCTION_RE = re.compile(r"^(?:and|with)\s+", re.IGNORECASE)
 
-# SPECIAL_VERSION_KEYWORDS includes " - " for Last.fm embedded-artist detection,
-# but iTunes titles are already split into separate artist/title fields, so
-# a dash in the title doesn't indicate a special version.
-_ITUNES_VERSION_KEYWORDS = [kw for kw in SPECIAL_VERSION_KEYWORDS if kw != " - "]
 
 # Matches 3+ single letters separated by spaces (e.g. "d i v o r c e" from "D.I.V.O.R.C.E.")
 _SINGLE_LETTER_SEQ_RE = re.compile(r"\b([a-z](?:\s[a-z]){2,})\b")
@@ -331,7 +327,12 @@ def _suggestion_score(
         )
         artist_matched |= matched_artist
         title_matched |= matched_title
-        exact_match = part_norm == artist_norm or part == title_lower or part == title_base
+        exact_match = (
+            part_norm == artist_norm
+            or part_norm == title_norm
+            or part == title_lower
+            or part == title_base
+        )
         fuzzy = _fuzzy_match(part_norm, artist_norm) or _fuzzy_match(part_norm, title_norm)
         substring = part_norm in artist_norm or part_norm in title_norm
         if exact_match:
@@ -389,10 +390,8 @@ def _suggestion_score(
         score -= 10
 
     # Penalize special versions (live, remix, etc.)
-    for keyword in _ITUNES_VERSION_KEYWORDS:
-        if keyword in title_lower:
-            score -= 30
-            break
+    if _SPECIAL_VERSION_RE.search(title_lower):
+        score -= 30
     if len(title_lower) > 60:
         score -= 20
 
