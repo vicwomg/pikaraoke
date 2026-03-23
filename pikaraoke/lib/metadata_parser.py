@@ -137,9 +137,17 @@ ATTRIBUTION_PATTERNS = [
     ),
 ]
 
+# Karaoke-related keywords shared across leading/trailing/bracket noise patterns.
+_KARAOKE_KEYWORDS = r"karaoke|karaokê|カラオケ|卡拉OK|KTV|노래방"
+
 # Leading noise: "KARAOKE - Title" or "Official Video | Title" etc.
 _LEADING_NOISE = re.compile(
-    r"^(?:karaoke|karaokê|カラオケ|卡拉OK|KTV|instrumental|official\s+(?:music\s+)?video)\s*[-|:】》」]\s*",
+    rf"^(?:{_KARAOKE_KEYWORDS}|instrumental|official\s+(?:music\s+)?video)\s*[-|:】》」』]\s*",
+    re.IGNORECASE,
+)
+# Leading [square brackets] containing a karaoke keyword — strip entirely.
+_LEADING_BRACKET_NOISE_RE = re.compile(
+    rf"^\s*\[[^\]]*?(?:{_KARAOKE_KEYWORDS})[^\]]*?\]\s*",
     re.IGNORECASE,
 )
 
