@@ -107,7 +107,7 @@ msgstr "건너뛰기: %s"
 #: lib/playback_controller.py:189
 #, python-format
 msgid "Resume: %s"
-msgstr "이력서: %s"
+msgstr "재개: %s"
 
 # auto-translated
 #. Message shown after the song is paused, will be followed by song name
@@ -199,7 +199,7 @@ msgstr "yt-dlp을 업데이트할 권한이 없습니다."
 #. Message shown after quitting pikaraoke.
 #: routes/admin.py:97
 msgid "Exiting pikaraoke now!"
-msgstr "이제 피노래방에서 나가세요!"
+msgstr "피카라오케를 종료합니다!"
 
 # auto-translated
 #. Message shown after trying to quit pikaraoke without admin permissions.
@@ -224,7 +224,7 @@ msgstr "종료할 권한이 없습니다."
 #. Message shown after rebooting the system.
 #: routes/admin.py:131
 msgid "Rebooting system now!"
-msgstr "지금 시스템을 재부팅하세요!"
+msgstr "지금 시스템을 재부팅합니다!"
 
 # auto-translated
 #. Message shown after trying to reboot the system without admin permissions.
@@ -236,7 +236,7 @@ msgstr "재부팅할 권한이 없습니다."
 #. Message shown after expanding the filesystem.
 #: routes/admin.py:148
 msgid "Expanding filesystem and rebooting system now!"
-msgstr "지금 파일 시스템을 확장하고 시스템을 재부팅하세요!"
+msgstr "지금 파일 시스템을 확장하고 시스템을 재부팅합니다!"
 
 # auto-translated
 #. Message shown after trying to expand the filesystem on a non-raspberry pi
@@ -307,7 +307,7 @@ msgstr "파일 이름을 바꾸는 중 오류 발생: '%s'을(를) '%s'(으)로 
 #. queue.
 #: routes/files.py:111 templates/base.html:226
 msgid "Browse"
-msgstr "먹다"
+msgstr "탐색"
 
 # auto-translated
 #: routes/files.py:126
@@ -508,7 +508,7 @@ msgstr "한 곡 더 불러주세요!"
 # auto-translated
 #: routes/splash.py:41
 msgid "You rock! You know that?!"
-msgstr "당신은 바위! 그거 알아?!"
+msgstr "정말 대단해요! 알고 계셨나요?!"
 
 # auto-translated
 #: routes/splash.py:42

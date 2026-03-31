@@ -40,7 +40,7 @@ msgstr "成功添加歌曲 (#%d)：%s"
 #: lib/download_manager.py:134
 #, python-format
 msgid "Download starting: %s"
-msgstr "正在下載影片：%s"
+msgstr "開始下載：%s"
 
 #. Message shown when download actually starts (after waiting in queue)
 #: lib/download_manager.py:222
@@ -76,7 +76,7 @@ msgstr "未找到歌曲檔案：%s"
 # auto-translated
 #: lib/playback_controller.py:120
 msgid "Stream was not playable! Skipping track"
-msgstr "串流無法播放！跳軌"
+msgstr "串流無法播放！跳過曲目"
 
 #. Message shown when the song ends abnormally
 #: lib/playback_controller.py:149

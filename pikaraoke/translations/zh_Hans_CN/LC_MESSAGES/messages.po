@@ -82,7 +82,7 @@ msgstr "未找到歌曲文件：%s"
 # auto-translated
 #: lib/playback_controller.py:120
 msgid "Stream was not playable! Skipping track"
-msgstr "串流无法播放！跳轨"
+msgstr "串流无法播放！跳过曲目"
 
 # auto-translated
 #. Message shown when the song ends abnormally
@@ -147,7 +147,7 @@ msgstr "您已达到队列中用户 %s 首歌曲的限制！"
 #: lib/queue_manager.py:132
 #, python-format
 msgid "%s added to top of queue: %s"
-msgstr "%s 成功添加歌曲： %s"
+msgstr "%s 已添加到队列顶部：%s"
 
 #: lib/queue_manager.py:141
 #, python-format
