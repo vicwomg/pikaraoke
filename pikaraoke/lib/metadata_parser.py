@@ -110,9 +110,10 @@ ATTRIBUTION_PATTERNS = [
 ]
 
 TRAILING_NOISE_PATTERNS = [
-    # "karaoke" at the trailing end means everything after it is noise
-    # (source channels, version labels, etc.) — no need to enumerate them
-    re.compile(r"\s*\bkaraoke\b.*$", re.IGNORECASE),
+    # Strip bracketed karaoke anywhere
+    re.compile(r"\s*[\(\[]\s*\bkaraoke\b[^\)\]]*[\)\]]", re.IGNORECASE),
+    # Strip trailing karaoke (only if nothing significant follows it besides noise)
+    re.compile(r"\s+\bkaraoke\b(?:\s*version)?[\s.!]*$", re.IGNORECASE),
     re.compile(
         r"\s*\b(?:official\s+(?:music\s+)?video|lyrics?"
         r"|hd|hq|instrumental|with\s+lyrics|no\s+lead\s+vocal|cc)\b[\s.!]*$",
