@@ -4,6 +4,7 @@ import contextlib
 import logging
 import os
 import re
+from collections.abc import Callable
 
 from pikaraoke.lib.get_platform import is_windows
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
@@ -29,10 +30,16 @@ class SongManager:
     delete, rename, and display name operations.
     """
 
-    def __init__(self, download_path: str, db: KaraokeDatabase) -> None:
+    def __init__(
+        self,
+        download_path: str,
+        db: KaraokeDatabase,
+        get_title_tidy: Callable[[], bool] | None = None,
+    ) -> None:
         self.download_path = download_path
         self.songs = SongList()
         self._db = db
+        self._get_title_tidy = get_title_tidy
 
     @staticmethod
     def filename_from_path(
@@ -57,6 +64,11 @@ class SongManager:
             if tidied:
                 name = tidied
         return name
+
+    def display_name_from_path(self, file_path: str, remove_youtube_id: bool = True) -> str:
+        """Extract display name from path, respecting the enable_title_tidy preference."""
+        tidy = self._get_title_tidy() if self._get_title_tidy else True
+        return self.filename_from_path(file_path, remove_youtube_id=remove_youtube_id, tidy=tidy)
 
     def _get_companion_files(self, song_path: str) -> list[str]:
         """Return paths to companion files (.cdg, .ass) that exist alongside a song."""

@@ -136,7 +136,7 @@ def queue_edit(query):
         success = True
     else:
         song = unquote(query.get("song", ""))
-        song_title = k.song_manager.filename_from_path(song)
+        song_title = k.song_manager.display_name_from_path(song)
 
         # MSG labels for each action
         success_labels = {
@@ -181,7 +181,7 @@ def _do_enqueue(song: str, user: str) -> str:
     k = get_karaoke_instance()
     rc = k.queue_manager.enqueue(song, user)
     broadcast_event("queue_update")
-    song_title = k.song_manager.filename_from_path(song)
+    song_title = k.song_manager.display_name_from_path(song)
     return json.dumps({"song": song_title, "success": rc})
 
 

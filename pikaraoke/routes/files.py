@@ -56,12 +56,12 @@ def browse():
         result = []
         if letter == "numeric":
             for song in available_songs:
-                f = k.song_manager.filename_from_path(song)[0]
+                f = k.song_manager.display_name_from_path(song)[0]
                 if f.isnumeric():
                     result.append(song)
         else:
             for song in available_songs:
-                f = k.song_manager.filename_from_path(song).lower()
+                f = k.song_manager.display_name_from_path(song).lower()
                 # Normalize accented characters so e.g. "Édith" matches "e"
                 normalized = unicodedata.normalize("NFD", f)
                 base_char = normalized[0] if normalized else ""
@@ -137,7 +137,7 @@ def delete_file(query):
         k.song_manager.delete(song_path)
         # MSG: Message shown after deleting a song. Followed by the song path
         flash(
-            _("Song deleted: %s") % k.song_manager.filename_from_path(song_path),
+            _("Song deleted: %s") % k.song_manager.display_name_from_path(song_path),
             "is-warning",
         )
     return redirect(referrer)
