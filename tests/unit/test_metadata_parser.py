@@ -88,6 +88,10 @@ class TestCleanSearchQuery:
         assert "\U0001f3a4" not in result
         assert "\U0001f3b5" not in result
 
+    def test_emoji_removal_preserves_word_boundaries(self):
+        result = clean_search_query("I Will Survive\U0001f3a4HQ")
+        assert result == "I Will Survive"
+
     def test_preserves_cjk_characters(self):
         result = clean_search_query("\u5bb9\u6613\u53d7\u50b7\u7684\u5973\u4eba KARAOKE")
         assert "\u5bb9\u6613\u53d7\u50b7\u7684\u5973\u4eba" in result
@@ -189,6 +193,14 @@ class TestScoreResult:
         score_live = score_result(result_live, "Artist - Song")
         score_normal = score_result(result_normal, "Artist - Song")
         assert score_live < score_normal
+
+    def test_version_keyword_uses_word_boundaries(self):
+        """'Oliver's Army' should not be penalized for containing 'live'."""
+        result = {"name": "Oliver's Army", "artist": "Elvis Costello"}
+        score = score_result(result, "Elvis Costello - Oliver's Army")
+        result_live = {"name": "Oliver's Army - Live", "artist": "Elvis Costello"}
+        score_live = score_result(result_live, "Elvis Costello - Oliver's Army")
+        assert score > score_live
 
     def test_bad_keyword_penalization_remix(self):
         result = {"name": "Song remix", "artist": "Artist"}
@@ -296,20 +308,20 @@ class TestGetBestResult:
 class TestLookupLastfm:
     """Tests for the lookup_lastfm function (pure Last.fm path)."""
 
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_returns_none_on_api_error(self, mock_get):
         mock_get.return_value.status_code = 500
         result = lookup_lastfm("Artist - Song")
         assert result is None
 
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_returns_none_on_empty_results(self, mock_get):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {"results": {"trackmatches": {"track": []}}}
         result = lookup_lastfm("Unknown Song That Doesn't Exist")
         assert result is None
 
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_returns_best_match(self, mock_get):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {
@@ -324,7 +336,7 @@ class TestLookupLastfm:
         result = lookup_lastfm("Coldplay - Viva La Vida")
         assert result == "Coldplay - Viva La Vida"
 
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_cleans_query_before_search(self, mock_get):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {"results": {"trackmatches": {"track": []}}}
@@ -334,7 +346,7 @@ class TestLookupLastfm:
         assert "karaoke" not in params["track"].lower()
         assert "official" not in params["track"].lower()
 
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_preserves_format_from_original_filename(self, mock_get):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {
@@ -349,7 +361,7 @@ class TestLookupLastfm:
         result = lookup_lastfm("Artist Name - Song Title (Official Video) karaoke")
         assert result == "Artist Name - Song Title"
 
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_returns_none_on_missing_trackmatches(self, mock_get):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {"results": {}}
@@ -368,7 +380,7 @@ class TestRateLimiting:
     """Tests for Last.fm rate limiting, retry, and cache-skip behavior."""
 
     @patch("pikaraoke.lib.metadata_parser.time.sleep")
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_error_29_triggers_retry_and_succeeds(self, mock_get, mock_sleep):
         rate_limit_resp = MagicMock(status_code=200)
         rate_limit_resp.json.return_value = RATE_LIMIT_RESPONSE
@@ -383,7 +395,7 @@ class TestRateLimiting:
         assert mock_get.call_count == 2
 
     @patch("pikaraoke.lib.metadata_parser.time.sleep")
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_http_429_triggers_retry_and_succeeds(self, mock_get, mock_sleep):
         http_429_resp = MagicMock(status_code=429)
 
@@ -396,7 +408,7 @@ class TestRateLimiting:
         assert "Viva La Vida" in result
 
     @patch("pikaraoke.lib.metadata_parser.time.sleep")
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_rate_limited_result_not_cached(self, mock_get, mock_sleep):
         rate_limit_resp = MagicMock(status_code=200)
         rate_limit_resp.json.return_value = RATE_LIMIT_RESPONSE
@@ -413,7 +425,7 @@ class TestRateLimiting:
         assert "Viva La Vida" in result
 
     @patch("pikaraoke.lib.metadata_parser.time.sleep")
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_genuine_no_results_is_cached(self, mock_get, mock_sleep):
         ok_resp = MagicMock(status_code=200)
         ok_resp.json.return_value = {"results": {"trackmatches": {"track": []}}}
@@ -426,7 +438,7 @@ class TestRateLimiting:
         assert mock_get.call_count == 1
 
     @patch("pikaraoke.lib.metadata_parser.time.sleep")
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_max_retries_exhausted(self, mock_get, mock_sleep):
         rate_limit_resp = MagicMock(status_code=200)
         rate_limit_resp.json.return_value = RATE_LIMIT_RESPONSE
@@ -436,7 +448,7 @@ class TestRateLimiting:
         assert result is None
         assert mock_get.call_count == 3
 
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     @patch("pikaraoke.lib.metadata_parser.time.sleep")
     def test_backoff_timing(self, mock_sleep, mock_get):
         rate_limit_resp = MagicMock(status_code=200)
@@ -483,6 +495,10 @@ class TestRegexTidy:
     def test_removes_emoji(self):
         result = regex_tidy("Artist - Song \U0001f3a4")
         assert "\U0001f3a4" not in result
+
+    def test_emoji_removal_preserves_word_boundaries(self):
+        result = regex_tidy("CAKE _ I Will Survive\U0001f3a4HQ Karaoke\U0001f3a4")
+        assert result == "CAKE I Will Survive"
 
     def test_normalizes_em_dash(self):
         assert regex_tidy("Artist \u2014 Song") == "Artist - Song"
@@ -538,8 +554,129 @@ class TestRegexTidy:
         assert "\u5bb9\u6613\u53d7\u50b7\u7684\u5973\u4eba" in result
         assert "\u738b\u9756\u96ef" in result
 
+    def test_no_dangling_open_paren_after_noise_removal(self):
+        result = regex_tidy(
+            "Paul Kelly - Firewood and Candles (Karaoke Version) with Lyrics HD Vocal-Star Karaoke"
+        )
+        assert result == "Paul Kelly - Firewood and Candles"
+
+    def test_preserves_feat_parenthetical(self):
+        assert regex_tidy("Artist - Song (feat. Other)") == "Artist - Song (feat. Other)"
+
+    def test_preserves_ft_parenthetical(self):
+        assert regex_tidy("Artist - Song (ft. Other Artist)") == "Artist - Song (ft. Other Artist)"
+
+    def test_strips_feat_bracketed(self):
+        assert regex_tidy("Artist - Song [feat. Other]") == "Artist - Song"
+
+    def test_strips_leading_karaoke_label(self):
+        result = regex_tidy("KARAOKE - Cry Me a River by Julie London")
+        assert result == "Cry Me a River by Julie London"
+
+    def test_strips_leading_instrumental_label(self):
+        assert regex_tidy("Instrumental - Artist - Song") == "Artist - Song"
+
+    def test_strips_leading_official_video_with_pipe(self):
+        assert regex_tidy("Official Video | Artist - Song") == "Artist - Song"
+
+    def test_strips_leading_official_music_video(self):
+        assert regex_tidy("Official Music Video - Artist - Song") == "Artist - Song"
+
     def test_no_change_when_clean(self):
         assert regex_tidy("Artist - Song Title") == "Artist - Song Title"
+
+    # -- CJK dash normalization (Kana / Hangul) --------------------------------
+
+    def test_cjk_dash_normalizes_katakana(self):
+        assert regex_tidy("アーティスト-曲名") == "アーティスト - 曲名"
+
+    def test_cjk_dash_normalizes_hangul(self):
+        assert regex_tidy("가수-노래제목") == "가수 - 노래제목"
+
+    def test_cjk_dash_normalizes_hiragana(self):
+        assert regex_tidy("あいみょん-マリーゴールド") == "あいみょん - マリーゴールド"
+
+    # -- Japanese corner brackets ----------------------------------------------
+
+    def test_strips_corner_bracket_label(self):
+        assert regex_tidy("Song Title「カラオケ」") == "Song Title"
+
+    def test_strips_corner_bracket_with_content(self):
+        assert regex_tidy("曲名「歌ってみた」- Artist") == "曲名 - Artist"
+
+    def test_unwraps_white_corner_bracket_title(self):
+        assert regex_tidy("Singer -『Song Title』") == "Singer - Song Title"
+
+    def test_strips_white_corner_bracket_noise(self):
+        assert regex_tidy("Song Title『カラオケ』") == "Song Title"
+
+    def test_strips_white_corner_bracket_ktv(self):
+        assert regex_tidy("Song Title『KTV』") == "Song Title"
+
+    # -- Japanese trailing noise -----------------------------------------------
+
+    def test_strips_trailing_uttemita(self):
+        assert regex_tidy("Artist - Song 歌ってみた") == "Artist - Song"
+
+    def test_strips_trailing_off_vocal_ja(self):
+        assert regex_tidy("Artist - Song オフボーカル") == "Artist - Song"
+
+    def test_strips_trailing_vocaloid(self):
+        assert regex_tidy("Artist - Song ボカロ") == "Artist - Song"
+
+    def test_strips_trailing_cover_ja(self):
+        assert regex_tidy("Artist - Song カバー") == "Artist - Song"
+
+    # -- Korean trailing noise -------------------------------------------------
+
+    def test_strips_trailing_noraebang(self):
+        assert regex_tidy("Artist - Song 노래방") == "Artist - Song"
+
+    def test_strips_trailing_keumyoung(self):
+        assert regex_tidy("Artist - Song 금영") == "Artist - Song"
+
+    def test_strips_trailing_taejin(self):
+        assert regex_tidy("Artist - Song 태진") == "Artist - Song"
+
+    def test_strips_trailing_tj(self):
+        assert regex_tidy("Artist - Song TJ") == "Artist - Song"
+
+    def test_strips_trailing_mr(self):
+        assert regex_tidy("Artist - Song MR") == "Artist - Song"
+
+    # -- Korean leading noise --------------------------------------------------
+
+    def test_strips_leading_noraebang(self):
+        assert regex_tidy("노래방 - Song Title") == "Song Title"
+
+    def test_strips_leading_bracket_tj_noraebang(self):
+        assert regex_tidy("[TJ노래방] APT. - Artist") == "APT. - Artist"
+
+    def test_strips_leading_bracket_karaoke(self):
+        assert regex_tidy("[Karaoke] Artist - Song") == "Artist - Song"
+
+    # -- Bracket noise detection with Korean -----------------------------------
+
+    def test_strips_angle_bracket_noraebang(self):
+        assert regex_tidy("Song Title《노래방》") == "Song Title"
+
+    def test_strips_white_corner_bracket_noraebang(self):
+        assert regex_tidy("Song Title『노래방』") == "Song Title"
+
+    # -- Realistic CJK integration tests ---------------------------------------
+
+    def test_japanese_karaoke_filename(self):
+        assert regex_tidy("YOASOBI-夜に駆ける「カラオケ」歌ってみた") == "YOASOBI - 夜に駆ける"
+
+    def test_korean_karaoke_filename(self):
+        assert regex_tidy("BTS - Dynamite 노래방 MR") == "BTS - Dynamite"
+
+    def test_korean_tj_noraebang_full(self):
+        result = regex_tidy("[TJ노래방] APT. - 로제(ROSE),Bruno Mars _ TJ Karaoke")
+        assert result == "APT. - 로제(ROSE),Bruno Mars"
+
+    def test_chinese_title_in_white_corner_brackets(self):
+        assert regex_tidy("周杰倫 -『稻香』") == "周杰倫 - 稻香"
 
 
 class TestYoutubeIdSuffix:
@@ -596,7 +733,7 @@ class TestHasArtistTitleSeparator:
 class TestSearchLastfmTracks:
     """Tests for the search_lastfm_tracks function."""
 
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_returns_formatted_results(self, mock_get):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {
@@ -612,7 +749,7 @@ class TestSearchLastfmTracks:
         assert results == [{"name": "Song", "artist": "Artist"}]
 
     @patch("pikaraoke.lib.metadata_parser.time.sleep")
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_returns_empty_on_rate_limit(self, mock_get, mock_sleep):
         rate_limit_resp = MagicMock(status_code=200)
         rate_limit_resp.json.return_value = RATE_LIMIT_RESPONSE
@@ -621,7 +758,7 @@ class TestSearchLastfmTracks:
         results = search_lastfm_tracks("Artist - Song")
         assert results == []
 
-    @patch("pikaraoke.lib.metadata_parser.requests.get")
+    @patch("requests.get")
     def test_passes_limit_param(self, mock_get):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {"results": {"trackmatches": {"track": []}}}
