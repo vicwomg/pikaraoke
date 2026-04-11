@@ -8,28 +8,29 @@ import threading
 import time
 
 import flask_babel
-from flask import (
-    Blueprint,
-    flash,
-    make_response,
-    redirect,
-    render_template,
-    request,
-    url_for,
-)
+from flask import flash, jsonify, make_response, redirect, url_for
+from flask_smorest import Blueprint
+from marshmallow import Schema, fields
 
 from pikaraoke.karaoke import Karaoke
 from pikaraoke.lib.current_app import get_admin_password, get_karaoke_instance, is_admin
+from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
 
 _ = flask_babel.gettext
-
 
 admin_bp = Blueprint("admin", __name__)
 
 
+class AuthForm(Schema):
+    admin_password = fields.String(load_default="", metadata={"description": "Admin password"})
+    next = fields.String(
+        load_default="/", metadata={"description": "URL to redirect to after login"}
+    )
+
+
 def delayed_halt(cmd: int, k: Karaoke):
     time.sleep(1.5)
-    k.queue_clear()
+    k.queue_manager.queue_clear()
     k.stop()
     if cmd == 0:
         sys.exit()
@@ -45,19 +46,12 @@ def delayed_halt(cmd: int, k: Karaoke):
 
 @admin_bp.route("/update_ytdl")
 def update_ytdl():
-    """Update yt-dlp to the latest version.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to home page
-    """
+    """Update yt-dlp to the latest version."""
     k = get_karaoke_instance()
 
     def update_youtube_dl():
         time.sleep(3)
-        k.upgrade_youtubedl()
+        k.youtubedl_version = upgrade_youtubedl()
 
     if is_admin():
         flash(
@@ -70,38 +64,33 @@ def update_ytdl():
     else:
         # MSG: Message shown after trying to update youtube-dl without admin permissions.
         flash(_("You don't have permission to update youtube-dl"), "is-danger")
-    return redirect(url_for("home.home"))
+    return redirect(url_for("info.info"))
 
 
-@admin_bp.route("/refresh")
-def refresh():
-    """Refresh the available songs list.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to browse page
-    """
+@admin_bp.route("/library_stats")
+def library_stats():
+    """Return song count for the admin dashboard."""
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
     k = get_karaoke_instance()
-    if is_admin():
-        k.get_available_songs()
-    else:
-        # MSG: Message shown after trying to refresh the song list without admin permissions.
-        flash(_("You don't have permission to refresh the song list"), "is-danger")
-    return redirect(url_for("files.browse"))
+    return jsonify({"song_count": len(k.song_manager.songs)})
+
+
+@admin_bp.route("/sync_library")
+def sync_library():
+    """Trigger a background library scan."""
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    k = get_karaoke_instance()
+    started = k.sync_library()
+    if started:
+        return jsonify({"status": "started"})
+    return jsonify({"status": "already_syncing"})
 
 
 @admin_bp.route("/quit")
 def quit():
-    """Exit the PiKaraoke application.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to home page before exit
-    """
+    """Exit the PiKaraoke application."""
     k = get_karaoke_instance()
     if is_admin():
         # MSG: Message shown after quitting pikaraoke.
@@ -118,14 +107,7 @@ def quit():
 
 @admin_bp.route("/shutdown")
 def shutdown():
-    """Shut down the host system.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to home page before shutdown
-    """
+    """Shut down the host system."""
     k = get_karaoke_instance()
     if is_admin():
         # MSG: Message shown after shutting down the system.
@@ -142,14 +124,7 @@ def shutdown():
 
 @admin_bp.route("/reboot")
 def reboot():
-    """Reboot the host system.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to home page before reboot
-    """
+    """Reboot the host system."""
     k = get_karaoke_instance()
     if is_admin():
         # MSG: Message shown after rebooting the system.
@@ -166,14 +141,7 @@ def reboot():
 
 @admin_bp.route("/expand_fs")
 def expand_fs():
-    """Expand filesystem on Raspberry Pi.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to home page before reboot
-    """
+    """Expand filesystem on Raspberry Pi."""
     k = get_karaoke_instance()
     if is_admin() and k.is_raspberry_pi:
         # MSG: Message shown after expanding the filesystem.
@@ -190,64 +158,35 @@ def expand_fs():
 
 
 @admin_bp.route("/auth", methods=["POST"])
-def auth():
-    """Authenticate as admin.
-    ---
-    tags:
-      - Admin
-    consumes:
-      - application/x-www-form-urlencoded
-    parameters:
-      - name: admin-password
-        in: formData
-        type: string
-        required: true
-        description: Admin password
-    responses:
-      302:
-        description: Redirects to home on success, login on failure
-    """
-    d = request.form.to_dict()
+@admin_bp.arguments(AuthForm, location="form")
+def auth(form):
+    """Authenticate as admin."""
     admin_password = get_admin_password()
-    p = d["admin-password"]
+    p = form["admin_password"]
+    next_url = form["next"]
+
+    # Validate next_url to prevent open redirect vulnerabilities
+    if not next_url.startswith("/"):
+        next_url = "/"
+
     if p == admin_password:
-        resp = make_response(redirect("/"))
+        resp = make_response(redirect(next_url))
         expire_date = datetime.datetime.now()
         expire_date = expire_date + datetime.timedelta(days=90)
         resp.set_cookie("admin", admin_password, expires=expire_date)
         # MSG: Message shown after logging in as admin successfully
         flash(_("Admin mode granted!"), "is-success")
     else:
-        resp = make_response(redirect(url_for("login")))
+        resp = make_response(redirect(url_for("admin.login", next=next_url)))
         # MSG: Message shown after failing to login as admin
         flash(_("Incorrect admin password!"), "is-danger")
     return resp
 
 
-@admin_bp.route("/login")
-def login():
-    """Admin login page.
-    ---
-    tags:
-      - Pages
-    responses:
-      200:
-        description: HTML login page
-    """
-    return render_template("login.html")
-
-
 @admin_bp.route("/logout")
 def logout():
-    """Log out of admin mode.
-    ---
-    tags:
-      - Admin
-    responses:
-      302:
-        description: Redirects to home page
-    """
-    resp = make_response(redirect("/"))
+    """Log out of admin mode."""
+    resp = make_response(redirect(url_for("info.info")))
     resp.set_cookie("admin", "")
     # MSG: Message shown after logging out as admin successfully
     flash(_("Logged out of admin mode!"), "is-success")

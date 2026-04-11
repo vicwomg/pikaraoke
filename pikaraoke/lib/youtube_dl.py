@@ -1,22 +1,43 @@
-"""YouTube download utilities using yt-dlp."""
+from __future__ import annotations
 
+import json
 import logging
+import os
 import shlex
 import subprocess
+import sys
+
+from unidecode import unidecode
 
 from pikaraoke.lib.get_platform import get_installed_js_runtime
 
+yt_dlp_cmd = [sys.executable, "-m", "yt_dlp"]
 
-def get_youtubedl_version(youtubedl_path: str) -> str:
+
+def _js_runtime_args() -> list[str]:
+    """Return yt-dlp args to select the preferred JS runtime, if any."""
+    runtime = get_installed_js_runtime()
+    if runtime and runtime != "deno":
+        # Deno is automatically assumed by yt-dlp, and does not need specification here
+        return ["--js-runtimes", runtime]
+    return []
+
+
+def get_youtubedl_version() -> str:
     """Get the installed yt-dlp version.
 
-    Args:
-        youtubedl_path: Path to the yt-dlp executable.
-
     Returns:
-        Version string of the installed yt-dlp.
+        Version string of the installed yt-dlp or an error message.
     """
-    return subprocess.check_output([youtubedl_path, "--version"]).strip().decode("utf8")
+    try:
+        cmd = yt_dlp_cmd + ["--version"]
+        return subprocess.check_output(cmd).strip().decode("utf8")
+    except (subprocess.CalledProcessError, FileNotFoundError, PermissionError) as e:
+        logging.warning(f"Could not get yt-dlp version: {e}")
+        return "Not found"
+    except Exception as e:
+        logging.error(f"Unexpected error getting yt-dlp version: {e}")
+        return "Error"
 
 
 def get_youtube_id_from_url(url: str) -> str | None:
@@ -39,54 +60,59 @@ def get_youtube_id_from_url(url: str) -> str | None:
             s[1] = s[1][0 : s[1].index("?")]
         return s[1]
     else:
-        logging.error("Error parsing youtube id from url: " + url)
+        logging.error(f"Error parsing youtube id from url: {url}")
         return None
 
 
-def upgrade_youtubedl(youtubedl_path: str) -> str:
+def upgrade_youtubedl() -> str:
     """Upgrade yt-dlp to the latest version.
 
     Attempts self-upgrade first, then falls back to pip if needed.
-
-    Args:
-        youtubedl_path: Path to the yt-dlp executable.
 
     Returns:
         The new version string after upgrade.
     """
     try:
         output = (
-            subprocess.check_output([youtubedl_path, "-U"], stderr=subprocess.STDOUT)
+            subprocess.check_output(yt_dlp_cmd + ["-U"], stderr=subprocess.STDOUT)
             .decode("utf8")
             .strip()
         )
     except subprocess.CalledProcessError as e:
         output = e.output.decode("utf8")
-    logging.info(output)
-    if "You installed yt-dlp with pip or using the wheel from PyPi" in output:
-        # allow pip to break system packages (probably required if installed without venv)
-        args = ["install", "--upgrade", "yt-dlp[default]", "--break-system-packages"]
-        try:
-            logging.info("Attempting youtube-dl upgrade via pip3...")
-            output = (
-                subprocess.check_output(["pip3"] + args, stderr=subprocess.STDOUT)
-                .decode("utf8")
-                .strip()
-            )
-        except FileNotFoundError:
-            logging.info("Attempting youtube-dl upgrade via pip...")
-            output = (
-                subprocess.check_output(["pip"] + args, stderr=subprocess.STDOUT)
-                .decode("utf8")
-                .strip()
-            )
-    youtubedl_version = get_youtubedl_version(youtubedl_path)
+    except (FileNotFoundError, PermissionError) as e:
+        logging.warning(f"Could not run yt-dlp for upgrade: {e}")
+        return get_youtubedl_version()
 
+    # Check if already up to date
+    if "is up to date" in output.lower():
+        logging.debug("yt-dlp is already up to date")
+        return get_youtubedl_version()
+
+    upgrade_success = False
+    if "pip" in output.lower():
+        pip_cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp"]
+
+        # Outside a venv, pip requires --break-system-packages on modern Python
+        if sys.prefix == sys.base_prefix:
+            pip_cmd.append("--break-system-packages")
+
+        try:
+            logging.info(f"yt-dlp is outdated! Attempting upgrade via {pip_cmd}...")
+            subprocess.check_output(pip_cmd, stderr=subprocess.STDOUT)
+            upgrade_success = True
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            logging.error(f"Failed to upgrade yt-dlp using pip: {e}")
+
+    youtubedl_version = get_youtubedl_version()
+    if upgrade_success:
+        logging.info(f"Done. Installed version: {youtubedl_version}")
+    else:
+        logging.error("Failed to upgrade yt-dlp.")
     return youtubedl_version
 
 
 def build_ytdl_download_command(
-    youtubedl_path: str,
     video_url: str,
     download_path: str,
     high_quality: bool = False,
@@ -96,7 +122,6 @@ def build_ytdl_download_command(
     """Build the yt-dlp command line for downloading a video.
 
     Args:
-        youtubedl_path: Path to the yt-dlp executable.
         video_url: URL of the video to download.
         download_path: Directory path where videos will be saved.
         high_quality: If True, download up to 1080p; otherwise download mp4.
@@ -106,17 +131,23 @@ def build_ytdl_download_command(
     Returns:
         List of command-line arguments for subprocess execution.
     """
-    dl_path = download_path + "%(title)s---%(id)s.%(ext)s"
+    dl_path = os.path.join(download_path, "%(title)s---%(id)s.%(ext)s")
     file_quality = (
         "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4]/best"
         if high_quality
         else "best[ext=mp4]/best"
     )
-    cmd = [youtubedl_path, "-f", file_quality, "-o", dl_path, "-S", "vcodec:h264"]
-    preferred_js_runtime = get_installed_js_runtime()
-    if preferred_js_runtime and preferred_js_runtime != "deno":
-        # Deno is automatically assumed by yt-dlp, and does not need specification here
-        cmd += ["--js-runtimes", preferred_js_runtime]
+    args = [
+        "-f",
+        file_quality,
+        "-o",
+        dl_path,
+        "-S",
+        "vcodec:h264",
+        "--compat-options",
+        "filename-sanitization",
+    ]
+    cmd = yt_dlp_cmd + args + _js_runtime_args()
     if youtubedl_proxy:
         cmd += ["--proxy", youtubedl_proxy]
     if additional_args:
@@ -124,3 +155,76 @@ def build_ytdl_download_command(
     cmd += [video_url]
     return cmd
 
+
+
+def get_search_results(query: str) -> list[list[str]]:
+    """Search YouTube for videos matching the query.
+
+    Args:
+        query: Search query string.
+
+    Returns:
+        List of [title, url, video_id, channel, duration] for each result.
+        Duration is formatted as M:SS; channel and duration may be empty strings.
+    """
+    logging.info(f"Searching YouTube for: {query}")
+    num_results = 10
+    # Use unidecode for non-Korean queries to improve search results
+    contains_korean = any("\uac00" <= char <= "\ud7af" for char in query)
+    search_query = query if contains_korean else unidecode(query)
+    yt_search = f'ytsearch{num_results}:"{search_query}"'
+    cmd = yt_dlp_cmd + ["-j", "--no-playlist", "--flat-playlist", yt_search]
+    logging.debug(f"yt-dlp search command: {' '.join(cmd)}")
+    try:
+        output = subprocess.check_output(cmd).decode("utf-8", "ignore")
+        logging.debug(f"Search results: {output}")
+        results = []
+        for line in output.split("\n"):
+            if len(line) <= 2:
+                continue
+            j = json.loads(line)
+            if "title" not in j or "url" not in j:
+                continue
+            channel = j.get("channel") or j.get("uploader") or ""
+            duration_raw = j.get("duration")
+            duration_str = ""
+            if isinstance(duration_raw, (int, float)):
+                seconds = int(duration_raw)
+                duration_str = f"{seconds // 60}:{seconds % 60:02d}"
+            results.append([j["title"], j["url"], j["id"], channel, duration_str])
+        return results
+    except subprocess.CalledProcessError as e:
+        logging.debug(f"Error while executing search: {e}")
+        raise
+
+
+def get_stream_url(video_url: str) -> str | None:
+    """Get a direct stream URL for a YouTube video without downloading it.
+
+    Args:
+        video_url: YouTube video URL.
+
+    Returns:
+        Direct playable stream URL, or None if yt-dlp failed.
+    """
+    cmd = yt_dlp_cmd + ["-g", "-f", "worst[ext=mp4]/worst"] + _js_runtime_args()
+    cmd += [video_url]
+    logging.debug(f"yt-dlp get stream URL command: {' '.join(cmd)}")
+    try:
+        result = subprocess.run(cmd, capture_output=True, timeout=15)
+        if result.returncode != 0:
+            logging.warning(
+                f"yt-dlp stream URL failed for {video_url}: {result.stderr.decode('utf-8', 'ignore')}"
+            )
+            return None
+        output = result.stdout.decode("utf-8").strip()
+        if not output:
+            logging.warning(f"yt-dlp returned empty output for: {video_url}")
+            return None
+        return output.splitlines()[0]
+    except subprocess.TimeoutExpired:
+        logging.error(f"yt-dlp stream URL timed out for: {video_url}")
+        return None
+    except (FileNotFoundError, PermissionError) as e:
+        logging.error(f"Could not run yt-dlp: {e}")
+        return None

@@ -1,9 +1,10 @@
 """File resolution and temporary file management utilities."""
 
+import logging
 import os
-import re
 import shutil
 import tempfile
+import time
 import zipfile
 from sys import maxsize
 
@@ -33,7 +34,20 @@ def delete_tmp_dir() -> None:
     """Delete the temporary directory and all its contents."""
     tmp_dir = get_tmp_dir()
     if os.path.exists(tmp_dir):
-        shutil.rmtree(tmp_dir)
+        # On Windows, files may still be locked briefly after process termination
+        # Use error handler to ignore permission errors on individual files
+        def handle_remove_error(func, path, exc_info):
+            """Error handler for shutil.rmtree - ignores permission errors on Windows"""
+            import logging
+
+            if isinstance(exc_info[1], PermissionError):
+                logging.debug(
+                    f"Could not delete {path}: file in use, will be cleaned up on next run"
+                )
+            else:
+                logging.warning(f"Error deleting {path}: {exc_info[1]}")
+
+        shutil.rmtree(tmp_dir, onerror=handle_remove_error)
 
 
 def string_to_hash(s: str) -> int:
@@ -89,24 +103,76 @@ class FileResolver:
         tmp_dir: Temporary directory for extracted files.
         stream_uid: Unique identifier for the stream based on file path hash.
         output_file: Path where the transcoded output will be written.
+        segment_pattern: Pattern for HLS segment filenames.
+        init_filename: Filename for HLS initialization segment.
+        streaming_format: Video streaming format ('hls' or 'mp4').
         duration: Duration of the media file in seconds.
     """
 
     file_path: str | None = None
     cdg_file_path: str | None = None
     file_extension: str | None = None
+    ass_file_path: str | None = None
 
-    def __init__(self, file_path: str) -> None:
+    def __init__(self, file_path: str, streaming_format: str = "hls") -> None:
         """Initialize the FileResolver with a media file path.
 
         Args:
             file_path: Path to the media file to resolve.
+            streaming_format: Video streaming format ('hls' or 'mp4').
         """
         create_tmp_dir()
         self.tmp_dir = get_tmp_dir()
         self.resolved_file_path = self.process_file(file_path)
-        self.stream_uid = string_to_hash(file_path)
-        self.output_file = f"{self.tmp_dir}/{self.stream_uid}.mp4"
+        # Include timestamp to ensure unique stream UIDs for repeated plays
+        unique_string = f"{file_path}_{time.time()}"
+        self.stream_uid = string_to_hash(unique_string)
+        self.streaming_format = streaming_format
+
+        # Set output file extension based on streaming format
+        if streaming_format == "mp4":
+            self.output_file = f"{self.tmp_dir}/{self.stream_uid}.mp4"
+        else:  # hls
+            self.output_file = f"{self.tmp_dir}/{self.stream_uid}.m3u8"
+
+        self.segment_pattern = f"{self.tmp_dir}/{self.stream_uid}_segment_%03d.m4s"
+        self.init_filename = f"{self.stream_uid}_init.mp4"
+
+    def get_current_stream_size(self) -> int:
+        """Get the size of files belonging to this stream in the temporary directory.
+
+        Only counts files containing the stream_uid in their filename.
+        Primarily used for HLS mode to check if the buffer is full before starting playback.
+        """
+        stream_uid_str = str(self.stream_uid)
+        return sum(
+            os.path.getsize(os.path.join(self.tmp_dir, f))
+            for f in os.listdir(self.tmp_dir)
+            if stream_uid_str in f
+        )
+
+    def handle_aegissub_subtile(self, file_path: str) -> bool:
+        """Find and set the ASS subtitle file path for an media file.
+
+        Searches for an ASS file with the same base name as the media.
+
+        Args:
+            file_path: Path to the media file.
+
+        Returns:
+            True if ASS file found, False otherwise.
+        """
+        base_name = os.path.splitext(file_path)[0]
+
+        # Check common case variations without listing directory
+        for ext in (".ass", ".ASS", ".Ass"):
+            ass_path = base_name + ext
+            if os.path.exists(ass_path):
+                self.file_path = file_path
+                self.ass_file_path = ass_path
+                logging.debug(f"Subtitle file found: {ass_path}")
+                return True
+        return False
 
     def handle_zipped_cdg(self, file_path: str) -> None:
         """Extract zipped CDG + MP3 files into a temporary directory.
@@ -139,7 +205,9 @@ class FileResolver:
                 self.file_path = os.path.join(extracted_dir, mp3_file)
                 self.cdg_file_path = os.path.join(extracted_dir, cdg_file)
             else:
-                raise Exception("Zipped .mp3 file did not have a matching .cdg file: " + files)
+                raise Exception(
+                    "Zipped .mp3 file did not have a matching .cdg file: " + ", ".join(files)
+                )
         else:
             raise Exception("No .mp3 or .cdg was found in the zip file: " + file_path)
 
@@ -157,14 +225,14 @@ class FileResolver:
         Raises:
             Exception: If no matching CDG file is found.
         """
-        f = os.path.splitext(os.path.basename(file_path))[0]
-        pattern = f + ".cdg"
-        rule = re.compile(re.escape(pattern), re.IGNORECASE)
-        p = os.path.dirname(file_path)  # get the path, not the filename
-        for n in os.listdir(p):
-            if rule.match(n):
+        base_name = os.path.splitext(file_path)[0]
+
+        # Check common case variations without listing directory
+        for ext in (".cdg", ".CDG", ".Cdg"):
+            cdg_path = base_name + ext
+            if os.path.exists(cdg_path):
                 self.file_path = file_path
-                self.cdg_file_path = file_path.replace(".mp3", ".cdg")
+                self.cdg_file_path = cdg_path
                 return True
 
         raise Exception("No matching .cdg file found for: " + file_path)
@@ -175,6 +243,7 @@ class FileResolver:
         Args:
             file_path: Path to the media file.
         """
+
         file_extension = os.path.splitext(file_path)[1].casefold()
         self.file_extension = file_extension
         if file_extension == ".zip":
@@ -183,4 +252,8 @@ class FileResolver:
             self.handle_mp3_cdg(file_path)
         else:
             self.file_path = file_path
+            # If there is an aegissub subtitle file found, set the path to it
+            self.handle_aegissub_subtile(file_path)
+        if not self.file_path:
+            raise ValueError("File path is required to process file")
         self.duration = get_media_duration(self.file_path)

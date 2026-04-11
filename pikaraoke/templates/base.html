@@ -8,18 +8,28 @@
   <title>{{site_title}}</title>
   {% endif %}
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script type=text/javascript src="{{  url_for('static', filename='jquery-3.3.1.min.js') }}"></script>
-  <script src="{{  url_for('static', filename='js.cookie-2.2.1.min.js') }}"></script>
-  <script src="{{  url_for('static', filename='lodash.min.js') }}"></script>
-  <script src="{{  url_for('static', filename='socket.io.min.js') }}"></script>
+  <script type=text/javascript src="{{  url_for('static', filename='jquery-3.7.1.min.js') }}"></script>
+  <script src="{{  url_for('static', filename='js.cookie-3.0.5.min.js') }}"></script>
+  <script src="{{  url_for('static', filename='socket.io-4.8.3.min.js') }}"></script>
+  <script src="{{  url_for('static', filename='spa-navigation.js') }}"></script>
   <link rel="stylesheet" href="{{  url_for('static', filename='bulma.min.css') }}">
   <link rel="stylesheet" href="{{  url_for('static', filename='bulma-dark.css') }}">
   <link rel="stylesheet" href="{{  url_for('static', filename='custom.css') }}">
   <link rel="icon" type="image/png" href="{{  url_for('static', filename='images/microphone.png') }}">
-  <!-- <link rel="stylesheet" href="{{  url_for('static', filename='fontello/css/fontello.css') }}"> -->
-  <link rel="stylesheet" href="/static/fontello/css/fontello.css?cachebust=1">
+  <link rel="stylesheet" href="{{  url_for('static', filename='fontello/css/fontello.css') }}?v=2">
 
   <script>
+    // Translations for spa-navigation.js (static JS cannot use Jinja2 directly)
+    window.i18n = {
+      // {# MSG: Prompt to change the username displayed next to queued songs. CURRENT_NAME is replaced with the name #}
+      promptChangeUsername: "{{ _('Do you want to change the name of the person using this device? This will show up on queued songs. Current: CURRENT_NAME') }}",
+      // {# MSG: Confirmation prompt to clear entire queue. User must type ok to confirm #}
+      promptClearQueue: "{{ _('Are you sure you want to clear the ENTIRE queue? Type ok to continue') }}",
+      // {# MSG: Confirmation dialog when removing a song from the queue. SONG_TITLE is replaced with the title #}
+      confirmDeleteFromQueue: "{{ _('Are you sure you want to delete SONG_TITLE from the queue?') }}",
+      // {# MSG: Confirmation dialog when permanently deleting a song file from the library #}
+      confirmDeleteFromLibrary: '{{ _("Are you sure you want to delete this song from the library?") }}'
+    };
 
     function generateRandomString(length) {
       const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -38,12 +48,24 @@
       }
     }
 
+    function isEqual(obj1, obj2) {
+      return JSON.stringify(obj1) === JSON.stringify(obj2);
+    }
+
+    function debounce(func, wait) {
+      let timeout;
+      return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+    }
+
     function connectSocket() {
-      socket = io();
-      socket.on('connect', function() {
+      window.socket = io();
+      window.socket.on('connect', function() {
           console.log('Socket connected');
       });
-      socket.on('disconnect', function() {
+      window.socket.on('disconnect', function() {
           console.log('Socket disconnected');
       });
     }
@@ -65,7 +87,7 @@
           "{{ _('Please enter your name. This will show up next to the songs you queue up from this device.') }}"
         );
         if (name) {
-          Cookies.set("user", name, { expires: 3650 });
+          Cookies.set("user", name, { expires: 3650, path: '/' });
         }
         else {
           Cookies.set("user", `Anon-${generateRandomString(4)}`, { expires: 3650 });
@@ -79,18 +101,14 @@
     }
 
     $(function () {
+      connectSocket();
+
       $("#notification-close").click(function () {
         $(".notification").hide();
       });
       $("#notification-alt").hide()
 
-      // Check for click events on the navbar burger icon
-      $(".navbar-burger").click(function () {
-        // Toggle the "is-active" class on both the "navbar-burger" and the "navbar-menu"
-        $(".navbar-burger").toggleClass("is-active");
-        $(".navbar-menu").toggleClass("is-active");
-      });
-
+      // Navbar burger menu is handled by spa-navigation.js
 
       // handle highlighting current nav bar location
       var currentPath = window.location.pathname;
@@ -121,21 +139,7 @@
         $("#current-user").removeClass("is-hidden");
       };
 
-      $('#current-user').click(function(e) {
-        e.preventDefault();
-        let name = window.prompt(
-          // Use a javascript format string, so translators only need to see a regular
-          // parametric translation instead of asking them to create valid javascript template.
-          // {# MSG: Prompt when changing the current profile name. #}
-          `{% trans currentUser="${currentUser}" -%}
-            Do you want to change the name of the person using this device? This will show up on queued songs. Current: {{ currentUser }}
-          {%- endtrans %}`
-        );
-        if (name) {
-          Cookies.set("user", name, { expires: 3650 })
-        }
-        location.reload();
-      });
+      // Username change handler is now in spa-navigation.js
 
     });
   </script>

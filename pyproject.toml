@@ -1,6 +1,6 @@
 [project]
 name = "pikaraoke"
-version = "1.14.3"
+version = "1.19.0"
 description = "Youtube-based Karaoke machine for Raspberry Pi, OSX, Windows, and Linux"
 authors = [{name = "Vic Wong"}]
 readme = "docs/README.md"
@@ -12,33 +12,38 @@ classifiers = [
   "Topic :: Games/Entertainment"
 ]
 dependencies = [
-  "CherryPy==18.10.0",
-  "Flask==2.2.5",
-  "qrcode==7.4.2",
-  "psutil==6.0.0",
-  "requests==2.32.4",
-  "flask-paginate==2021.10.29",
-  "jinja2==3.1.6",
-  "Babel==2.9.1",
-  "Flask-Babel==2.0.0",
-  "selenium==4.21.0",
+  "Flask>=3.1.0,<3.1.3",  # 3.1.3 breaks flask-socketio; remove cap when fixed
+  "qrcode[png]==8.2",
+  "psutil==7.2.1",
+  "requests==2.32.5",
+  "flask-paginate==2024.4.12",
+  "flask-smorest>=0.46.0",
+  "Babel==2.17.0",
+  "Flask-Babel==4.0.0",
   "ffmpeg-python==0.2.0",
-  "yt-dlp[default]>=2025.12.8",
+  "yt-dlp[default]>=2026.03.03",
   "flask-socketio>=5.5.0",
   "gevent>=24.11.1",
-  "flasgger>=0.9.7.1",
   "Unidecode>=1.3.6",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pre-commit>=3.7.1",
-  "pytest>=8.3.2",
+  "pytest>=9.0.2",
+  "pytest-cov>=7.0.0",
+
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5.0",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
 ]
 
 [project.scripts]
 pikaraoke = "pikaraoke.app:main"
-pikaraoke-setup = "pikaraoke.setup_apt:main"
 
 [project.urls]
 Homepage = "https://github.com/vicwomg/pikaraoke"
@@ -57,4 +62,28 @@ package-mode = true
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.7.1"
-pytest = "^8.3.2"
+
+[tool.pyright]
+include = ["src"]
+exclude = ["**/node_modules",
+    "**/__pycache__",
+    "src/experimental",
+    "src/typestubs"
+]
+ignore = ["src/oldstuff"]
+defineConstant = { DEBUG = true }
+stubPath = "src/stubs"
+
+reportMissingImports = "error"
+reportMissingTypeStubs = false
+
+pythonVersion = "3.10"
+pythonPlatform = "Linux"
+
+[tool.coverage.run]
+omit = [
+    "pikaraoke/constants.py",
+    "pikaraoke/app.py",
+    "pikaraoke/lib/current_app.py",
+    "pikaraoke/lib/args.py",
+]

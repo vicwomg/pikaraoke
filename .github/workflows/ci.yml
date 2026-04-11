@@ -52,8 +52,12 @@ jobs:
     runs-on: ubuntu-latest
     name: Commitlint
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Required to get all commits for linting
     - name: Run commitlint
-      uses: opensource-nepal/commitlint@v1
+      uses: wagoid/commitlint-github-action@v6
 
   smoketest:
     runs-on: ${{ matrix.os }}
@@ -66,23 +70,80 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - name: Preload ffmpeg (MacOS)
+      if: runner.os == 'macOS'
+      run: brew install ffmpeg # override ffmpeg-full install for mac because it adds minutes to the test job
+
+    - name: Install, launch and verify Pikaraoke (Unix)
+      if: runner.os != 'Windows'
+      run: ./build_scripts/ci/smoketest.sh
+
+    - name: Install, launch and verify Pikaraoke (Windows)
+      if: runner.os == 'Windows'
+      shell: powershell
+      run: ./build_scripts/ci/smoketest.ps1
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    name: Unit Tests
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+
+    - name: Run tests
+      run: uv run pytest tests/ -v --cov=pikaraoke --cov-report=term-missing --cov-report=xml:coverage.xml
+
+  docker-smoketest:
+    runs-on: ubuntu-latest
+    name: Docker Build Smoketest (amd64)
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build and Load for Smoketest (amd64)
+      uses: docker/build-push-action@v6
       with:
-        python-version: ${{ env.PYTHON_VERSION }}
+        context: .
+        file: build_scripts/docker/Dockerfile
+        push: false
+        load: true
+        tags: pikaraoke-ci-test-amd64:latest
+        cache-from: type=gha,scope=docker-build
+        cache-to: type=gha,mode=max,scope=docker-build
 
-    - name: Install pipx
+    - name: Verify Runtime (amd64)
       run: |
-        python3 -m pip install --upgrade pip
-        python3 -m pip install pipx
-        python3 -m pipx ensurepath
+        ./build_scripts/ci/docker-smoketest.sh pikaraoke-ci-test-amd64:latest pikaraoke-test-amd64
 
-    - name: Install Poetry
+
+  docker-smoketest-arm64:
+    runs-on: ubuntu-22.04-arm
+    name: Docker Build Smoketest (arm64)
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build and Load for Smoketest (arm64)
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: build_scripts/docker/Dockerfile
+        platforms: linux/arm64
+        push: false
+        load: true
+        tags: pikaraoke-ci-test-arm64:latest
+        cache-from: type=gha,scope=docker-build-arm64
+        cache-to: type=gha,mode=max,scope=docker-build-arm64
+
+    - name: Verify Runtime (arm64)
       run: |
-        pipx install poetry
-
-    - name: Install Package
-      run: poetry install --no-interaction --no-ansi
-
-    - name: Verify Install
-      run: poetry run pikaraoke --help
+        ./build_scripts/ci/docker-smoketest.sh pikaraoke-ci-test-arm64:latest pikaraoke-test-arm64

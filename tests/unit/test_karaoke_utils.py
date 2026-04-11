@@ -1,0 +1,315 @@
+"""Unit tests for Karaoke utility methods."""
+
+
+class TestConvertPreferenceValue:
+    """Tests for the _convert_value method (now in PreferenceManager)."""
+
+    def test_convert_true_values(self):
+        """Test conversion of truthy string values."""
+        from pikaraoke.lib.preference_manager import PreferenceManager
+
+        prefs = PreferenceManager()
+        assert prefs._convert_value("true") is True
+        assert prefs._convert_value("True") is True
+        assert prefs._convert_value("TRUE") is True
+        assert prefs._convert_value("yes") is True
+        assert prefs._convert_value("on") is True
+
+    def test_convert_false_values(self):
+        """Test conversion of falsy string values."""
+        from pikaraoke.lib.preference_manager import PreferenceManager
+
+        prefs = PreferenceManager()
+        assert prefs._convert_value("false") is False
+        assert prefs._convert_value("False") is False
+        assert prefs._convert_value("FALSE") is False
+        assert prefs._convert_value("no") is False
+        assert prefs._convert_value("off") is False
+
+    def test_convert_integer_values(self):
+        """Test conversion of integer string values."""
+        from pikaraoke.lib.preference_manager import PreferenceManager
+
+        prefs = PreferenceManager()
+        assert prefs._convert_value("42") == 42
+        assert prefs._convert_value("0") == 0
+        assert prefs._convert_value("-5") == -5
+
+    def test_convert_float_values(self):
+        """Test conversion of float string values."""
+        from pikaraoke.lib.preference_manager import PreferenceManager
+
+        prefs = PreferenceManager()
+        assert prefs._convert_value("3.14") == 3.14
+        assert prefs._convert_value("0.5") == 0.5
+        assert prefs._convert_value("-2.5") == -2.5
+
+    def test_convert_string_passthrough(self):
+        """Test that non-special strings pass through unchanged."""
+        from pikaraoke.lib.preference_manager import PreferenceManager
+
+        prefs = PreferenceManager()
+        assert prefs._convert_value("hello") == "hello"
+        assert prefs._convert_value("some text") == "some text"
+        assert prefs._convert_value("/path/to/file") == "/path/to/file"
+
+    def test_convert_non_string_passthrough(self):
+        """Test that non-string values pass through unchanged."""
+        from pikaraoke.lib.preference_manager import PreferenceManager
+
+        prefs = PreferenceManager()
+        assert prefs._convert_value(42) == 42
+        assert prefs._convert_value(3.14) == 3.14
+        assert prefs._convert_value(True) is True
+        assert prefs._convert_value(None) is None
+
+
+class TestGetNowPlaying:
+    """Tests for the get_now_playing method."""
+
+    def test_get_now_playing_empty(self, mock_karaoke):
+        """Test now playing state when nothing is playing."""
+        result = mock_karaoke.get_now_playing()
+
+        assert result["now_playing"] is None
+        assert result["now_playing_user"] is None
+        assert result["now_playing_position"] is None
+        assert result["up_next"] is None
+        assert result["is_paused"] is True
+        assert result["volume"] == 0.85
+
+    def test_get_now_playing_with_song(self, mock_karaoke):
+        """Test now playing state with active song."""
+        pc = mock_karaoke.playback_controller
+        pc.now_playing = "Test Song"
+        pc.now_playing_user = "TestUser"
+        pc.now_playing_duration = 180
+        pc.now_playing_transpose = 2
+        pc.is_paused = False
+        mock_karaoke.volume = 0.7
+
+        result = mock_karaoke.get_now_playing()
+
+        assert result["now_playing"] == "Test Song"
+        assert result["now_playing_user"] == "TestUser"
+        assert result["now_playing_duration"] == 180
+        assert result["now_playing_position"] is None
+        assert result["now_playing_transpose"] == 2
+        assert result["is_paused"] is False
+        assert result["volume"] == 0.7
+
+    def test_get_now_playing_with_queue(self, mock_karaoke):
+        """Test now playing shows up_next from queue."""
+        mock_karaoke.queue_manager.enqueue("/songs/Next Song---dQw4w9WgXcQ.mp4", "NextUser")
+
+        result = mock_karaoke.get_now_playing()
+
+        assert result["up_next"] == "Next Song"
+        assert result["next_user"] == "NextUser"
+
+
+class TestResetNowPlaying:
+    """Tests for the reset_now_playing method."""
+
+    def test_reset_now_playing(self, mock_karaoke):
+        """Test that reset clears all now playing state."""
+        pc = mock_karaoke.playback_controller
+        pc.now_playing = "Test Song"
+        pc.now_playing_filename = "/songs/test.mp4"
+        pc.now_playing_user = "TestUser"
+        pc.now_playing_url = "http://localhost/stream"
+        pc.now_playing_transpose = 3
+        pc.now_playing_duration = 200
+        pc.is_paused = False
+        pc.is_playing = True
+
+        mock_karaoke.reset_now_playing()
+
+        assert pc.now_playing is None
+        assert pc.now_playing_filename is None
+        assert pc.now_playing_user is None
+        assert pc.now_playing_url is None
+        assert pc.now_playing_transpose == 0
+        assert pc.now_playing_duration is None
+        assert pc.now_playing_position is None
+        assert pc.is_paused is True
+        assert pc.is_playing is False
+
+    def test_reset_now_playing_resets_volume_to_preference(self, mock_karaoke):
+        """Test that reset restores volume to user's saved preference."""
+        # Set a custom volume preference
+        mock_karaoke.preferences.set("volume", "0.7")
+
+        # Change volume during playback
+        mock_karaoke.volume = 0.3
+
+        # Reset should restore volume to preference value
+        mock_karaoke.reset_now_playing()
+
+        assert mock_karaoke.volume == 0.7
+
+    def test_reset_now_playing_resets_volume_to_default_when_no_preference(self, mock_karaoke):
+        """Test that reset uses default volume when no preference is set."""
+        # Ensure no volume preference is set (using defaults)
+        # Clear any existing preference that might have been set
+        current_volume_pref = mock_karaoke.preferences.get("volume")
+        if current_volume_pref is not None:
+            # Remove the preference by clearing and reloading defaults
+            mock_karaoke.preferences.clear()
+
+        # Change volume during playback
+        mock_karaoke.volume = 0.3
+
+        # Reset should restore volume to default (0.85)
+        mock_karaoke.reset_now_playing()
+
+        assert mock_karaoke.volume == 0.85
+
+
+class TestPause:
+    """Tests for the pause method."""
+
+    def test_pause_when_playing(self, mock_karaoke):
+        """Test pausing when a song is playing."""
+        pc = mock_karaoke.playback_controller
+        pc.is_playing = True
+        pc.is_paused = False
+        pc.now_playing = "Test Song"
+
+        result = pc.pause()
+
+        assert result is True
+        assert pc.is_paused is True
+
+    def test_resume_when_paused(self, mock_karaoke):
+        """Test resuming when a song is paused."""
+        pc = mock_karaoke.playback_controller
+        pc.is_playing = True
+        pc.is_paused = True
+        pc.now_playing = "Test Song"
+
+        result = pc.pause()
+
+        assert result is True
+        assert pc.is_paused is False
+
+    def test_pause_when_nothing_playing(self, mock_karaoke):
+        """Test pause returns False when nothing is playing."""
+        mock_karaoke.playback_controller.is_playing = False
+
+        result = mock_karaoke.playback_controller.pause()
+
+        assert result is False
+
+
+class TestVolumeChange:
+    """Tests for the volume_change method."""
+
+    def test_set_volume(self, mock_karaoke):
+        """Test setting volume to a specific level."""
+        result = mock_karaoke.volume_change(0.5)
+
+        assert result is True
+        assert mock_karaoke.volume == 0.5
+
+    def test_set_volume_max(self, mock_karaoke):
+        """Test setting volume to maximum."""
+        result = mock_karaoke.volume_change(1.0)
+
+        assert result is True
+        assert mock_karaoke.volume == 1.0
+
+    def test_set_volume_min(self, mock_karaoke):
+        """Test setting volume to minimum."""
+        result = mock_karaoke.volume_change(0.0)
+
+        assert result is True
+        assert mock_karaoke.volume == 0.0
+
+
+class TestVolUp:
+    """Tests for the vol_up method."""
+
+    def test_increase_volume(self, mock_karaoke):
+        """Test increasing volume by 10%."""
+        mock_karaoke.volume = 0.5
+
+        mock_karaoke.vol_up()
+
+        assert mock_karaoke.volume == 0.6
+
+    def test_increase_near_max(self, mock_karaoke):
+        """Test increasing volume is clamped to 1.0."""
+        mock_karaoke.volume = 0.95
+
+        mock_karaoke.vol_up()
+
+        assert mock_karaoke.volume == 1.0
+
+
+class TestVolDown:
+    """Tests for the vol_down method."""
+
+    def test_decrease_volume(self, mock_karaoke):
+        """Test decreasing volume by 10%."""
+        mock_karaoke.volume = 0.5
+
+        mock_karaoke.vol_down()
+
+        assert mock_karaoke.volume == 0.4
+
+    def test_decrease_near_min(self, mock_karaoke):
+        """Test decreasing volume is clamped to 0.0."""
+        mock_karaoke.volume = 0.05
+
+        mock_karaoke.vol_down()
+
+        assert mock_karaoke.volume == 0.0
+
+
+class TestRestart:
+    """Tests for the restart method."""
+
+    def test_restart_when_playing(self, mock_karaoke):
+        """Test restarting when a song is playing."""
+        pc = mock_karaoke.playback_controller
+        pc.is_playing = True
+        pc.is_paused = True
+        pc.now_playing = "Test Song"
+
+        result = mock_karaoke.restart()
+
+        assert result is True
+        assert pc.is_paused is False
+
+    def test_restart_when_nothing_playing(self, mock_karaoke):
+        """Test restart returns False when nothing is playing."""
+        mock_karaoke.playback_controller.is_playing = False
+
+        result = mock_karaoke.restart()
+
+        assert result is False
+
+
+class TestStop:
+    """Tests for the stop method."""
+
+    def test_stop_sets_running_false(self, mock_karaoke):
+        """Test that stop sets running to False."""
+        mock_karaoke.running = True
+
+        mock_karaoke.stop()
+
+        assert mock_karaoke.running is False
+
+
+class TestResetNowPlayingNotification:
+    """Tests for the reset_now_playing_notification method."""
+
+    def test_reset_notification(self, mock_karaoke):
+        """Test that notification is reset to None."""
+        mock_karaoke.now_playing_notification = "Some notification"
+
+        mock_karaoke.reset_now_playing_notification()
+
+        assert mock_karaoke.now_playing_notification is None

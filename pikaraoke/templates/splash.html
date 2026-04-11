@@ -7,542 +7,26 @@
   rel="stylesheet"
   href="{{  url_for('static', filename='score.css') }}"
 />
+<script src="{{ url_for('static', filename='js/subtitles-octopus.js') }}"></script>
 <script>
-  const isMediaPlaying = (media) =>
-    !!(
-      media.currentTime > 0 &&
-      !media.paused &&
-      !media.ended &&
-      media.readyState > 2
-    );
-
-  function formatTime(seconds) {
-    if (isNaN(seconds)) {
-      return "00:00";
-    }
-    const totalSeconds = Math.floor(seconds);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const secs = totalSeconds % 60;
-    const formattedMinutes = String(minutes).padStart(2, "0");
-    const formattedSeconds = String(secs).padStart(2, "0");
-    return `${formattedMinutes}:${formattedSeconds}`;
-  }
-
-  const isFirefox = typeof InstallTrigger !== "undefined";
-  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-
-  var socket = io();
-
-  function connectSocket() {
-    socket = io();
-    socket.on('connect', function() {
-        console.log('Socket connected');
-    });
-    socket.on('disconnect', function() {
-        console.log('Socket disconnected');
-    });
-  }
-
-  var mouseTimer = null,
-    cursorVisible = true;
-
-  var nowPlaying = {};
-  var showMenu = false;
-  var menuButtonVisible = false;
-  var confirmationDismissed = false;
-  var volume = 0.85;
-  var isScoreShown = false;
-  var hasBgVideo = "{{ has_bg_video }}" == 'True'
-
-  const scoreReviews = {
-    low:[
-        "{{ _('Never sing again... ever.') }}", // {# MSG: Score review message #}
-        "{{ _('That was a really good impression of a dying cat!') }}", // {# MSG: Score review message #}
-        "{{ _('Thank God it\'s over.') }}", // {# MSG: Score review message #}
-        "{{ _('Pass the mic, please!') }}", // {# MSG: Score review message #}
-        "{{ _('Well, I\'m sure you\'re very good at your day job.') }}"{{ "," if schore_phrases.low else "" }} // {# MSG: Score review message #}
-        {% for phrase in schore_phrases.low %}
-        ,"{{ _(phrase) }}"
-        {% endfor %}
-    ],
-    mid:[
-        "{{ _('I\'ve seen better.') }}", // {# MSG: Score review message #}
-        "{{ _('Ok... just ok.') }}", // {# MSG: Score review message #}
-        "{{ _('Not bad for an amateur.') }}", // {# MSG: Score review message #}
-        "{{ _('You put on a decent show.') }}", // {# MSG: Score review message #}
-        "{{ _('That was... something.') }}"{{ "," if schore_phrases.mid else "" }} // {# MSG: Score review message #}
-        {% for phrase in schore_phrases.mid %}
-        ,"{{ _(phrase) }}"
-        {% endfor %}
-    ],
-    high:[
-        "{{ _('Congratulations! That was unbelievable!') }}", // {# MSG: Score review message #}
-        "{{ _('Wow, have you tried auditioning for The Voice?') }}", // {# MSG: Score review message #}
-        "{{ _('Please, sing another one!') }}", // {# MSG: Score review message #}
-        "{{ _('You rock! You know that?!') }}", // {# MSG: Score review message #}
-        "{{ _('Woah, who let Freddie Mercury in here?') }}"{{ "," if schore_phrases.high else "" }} // {# MSG: Score review message #}
-        {% for phrase in schore_phrases.high %}
-        ,"{{ _(phrase) }}"
-        {% endfor %}
-    ]
-}
-
-  async function handleConfirmation() {
-    $('#permissions-modal').removeClass('is-active');
-    confirmationDismissed = true;
-    if (hasBgVideo)  {
-      playBGVideo(true);
-    }
-    playBGMusic(true);
-  }
-
-  function hideVideo() {
-    $("#video-container").hide();
-  }
-
-  async function endSong(reason=null, showScore=false) {
-    if (showScore && '{{ disable_score }}' == 'False') {
-      isScoreShown = true;
-		  await startScore("{{ url_for('static', filename='') }}");
-      isScoreShown = false;
-	  }
-    hideVideo();
-    socket.emit("end_song", reason);
-  }
-
-  function getBackgroundMusicPlayer() {
-    return document.getElementById('background-music');
-  }
-
-  function getBackgroundVideoPlayer() {
-    return document.getElementById('bg-video');
-  }
-
-  // A global array of the paths to mp3s for the background music playlist
-  // it will be loaded from the /bg_playlist endpoint
-  var bg_playlist = []
-
-  // Gets the next song from the playlist, rotating back to the first song if at the end
-  function getNextBgMusicSong() {
-    let currentSong = getBackgroundMusicPlayer().getAttribute('src');
-    let nextSong = bg_playlist[0];
-    if (currentSong) {
-      let currentIndex = bg_playlist.indexOf(currentSong);
-      if (currentIndex >= 0 && currentIndex < bg_playlist.length - 1) {
-        nextSong = bg_playlist[currentIndex + 1];
-      }
-    }
-    return nextSong;
-  }
-
-  function getVideoPlayer() {
-    return $("#video")[0]
-  }
-
-  // Plays or pauses the background music
-  async function playBGMusic(play) {
-	  let bgMusicVolume = "{{ bg_music_volume }}" *1 //hack to parse string to float;
-	  if ('{{ disable_bg_music }}' == 'False') {
-      let audio = getBackgroundMusicPlayer();
-      if (bg_playlist.length == 0) {
-        console.log('No background music playlist loaded');
-        return;
-      }
-      if (!audio.getAttribute('src')) {
-        audio.setAttribute('src', getNextBgMusicSong());
-      }
-      if (play == true) {
-        if (isMediaPlaying(audio)) {
-          return; // already playing
-        }
-        else {
-          audio.volume = 0;
-          if (audio.readyState <= 2) await audio.load(); // load the music first time
-          await audio.play();
-          $(audio).animate({ volume: bgMusicVolume }, 2000); // fade in 1 sec
-        }
-      } else {
-        $(audio).animate({ volume: 0 }, 2000, () => audio.pause()); // fade out 1 sec
-      }
-    }
-  }
-
-  async function playBGVideo(play) {
-    if ('{{ disable_bg_video }}' == 'False') {
-      let bgVideo = getBackgroundVideoPlayer();
-      const bgVideoContainer = $('#bg-video-container');
-      if (play == true) {
-        if (isMediaPlaying(bgVideo)) {
-          return; // already playing
-        }
-        else {
-          $("#bg-video").attr("src", "{{ url_for('stream.stream_bg_video') }}");
-          if (bgVideo.readyState <= 2) await bgVideo.load(); // load the video first time
-          bgVideo.play();
-          bgVideoContainer.fadeIn(2000);
-        }
-      } else {
-        if (isMediaPlaying(bgVideo)) {
-          bgVideo.pause();
-          bgVideoContainer.fadeOut(2000);
-        }
-      }
-    }
-  }
-
-  // handle showing notifications
-  function flashNotification(message, categoryClass) {
-    const sn = $("#splash-notification");
-    if (sn.html()) {
-      console.log(sn.html());
-      // dont clobber currently displayed notifications
-      return;
-    } else {
-      sn.html(message);
-      sn.addClass(categoryClass);
-      sn.fadeIn();
-      setTimeout(() => {
-        sn.fadeOut();
-        setTimeout(() => {
-          // reset the notification after fade out animation
-          sn.html("");
-          sn.removeClass(categoryClass);
-        }, 450);
-      }, 3000);
-    }
-  }
-
-  //handle screensaver idle loop
-  var idleTime = 0;
-  var screensaverTimeoutSeconds = parseInt('{{ screensaver_timeout }}') || 0;
-  if (screensaverTimeoutSeconds > 0) {
-    setInterval(() => {
-      let screensaver = document.getElementById('screensaver');
-      let video = getVideoPlayer();
-      if (isMediaPlaying(video) || cursorVisible) {
-        idleTime = 0; //reset idle timer on playback and mouse move
-      }
-      if (idleTime >= screensaverTimeoutSeconds) {
-        if (screensaver.style.visibility == 'hidden') {
-          screensaver.style.visibility = 'visible';
-          playBGVideo(false);
-          startScreensaver();
-        }
-        if (idleTime > screensaverTimeoutSeconds + 36000) {
-          idleTime = screensaverTimeoutSeconds; //prevent overflow
-        }
-      }
-      else { //stop screensaver
-        if (screensaver.style.visibility == 'visible') {
-          screensaver.style.visibility = 'hidden';
-          stopScreensaver();
-          if (!nowPlaying.up_next && !isMediaPlaying(video)) {
-            playBGVideo(true);
-          }
-        }
-      }
-      idleTime++;
-    }, 1000)
-  }
-
-  function handleNowPlaying(np) {
-    console.log(np)
-    nowPlaying = np;
-    if (np.now_playing) {
-      var nowPlayingHtml = `<span>${np.now_playing}</span> `;
-
-      if (np.now_playing_transpose != 0) {
-        nowPlayingHtml +=
-          `<span class='is-size-6 has-text-success'><b>Key</b>: ${getSemitonesLabel(np.now_playing_transpose)} </span>`
-      }
-
-      $("#now-playing-song").html(nowPlayingHtml);
-      $("#now-playing-singer").html(np.now_playing_user);
-      $("#now-playing").fadeIn();
-    } else {
-      // {# MSG: Message which shows in the "Now Playing" section when there is no song currently playing #}
-      $("#now-playing").fadeOut();
-    }
-
-    // Handle the Background music depending on the up_next and nowplaying status
-    if (np.up_next) {
-      idleTime = 0; // reset idle timer to clear screensaver
-      playBGMusic(false);
-      playBGVideo(false);
-    } else if (!np.now_playing) {
-      setTimeout(() => {
-        playBGMusic(true);
-        playBGVideo(true)
-      }, 2000);
-    }
-
-    // render the queue details in top right
-    if (np.up_next) {
-      // {# MSG: Label for the next song to be played in the queue. #}
-      up_next_text = "{{ _('Up next:') }}";
-      // {# MSG: Label of the singer for next song to be played in the queue. (Who added it to the queue.) #}
-      next_singer_text = "{{ _('Next singer:') }}";
-      $("#up-next-song").html(np.up_next);
-      $("#up-next-singer").html(np.next_user);
-      $("#up-next").fadeIn();
-    } else {
-      $("#up-next").fadeOut();
-    }
-
-    const video = getVideoPlayer();
-
-    // Start playback if a valid now_playing_url is provided
-    if (
-      np.now_playing_url &&
-      !isMediaPlaying(video) &&
-      $("#video-container").is(":hidden")
-    ) {
-      if (!confirmationDismissed) {
-        console.log(
-          'Browser is unable to play video. User did not confirm interaction prompt.'
-        );
-        //endSong("interaction confirmation required");
-      }
-      $("#video-source").attr("src", np.now_playing_url);
-      video.load();
-      if (volume != np.volume) {
-        volume = np.volume;
-        video.volume = volume;
-      }
-
-      // show end time if available
-      const duration = $("#duration");
-      if (np.now_playing_duration) {
-        duration.text(`/${formatTime(np.now_playing_duration)}`);
-        duration.show();
-      } else {
-        duration.hide();
-      }
-
-      video.play();
-
-      // handle timeout if video fails to play
-      setTimeout(() => {
-        if (!isMediaPlaying(video) && !video.paused) {
-          endSong("failed to start");
-        }
-      }, 10000);
-    }
-
-  }
-
-  function loadNowPlaying() {
-    $.get('{{ url_for("now_playing.now_playing") }}', function (data) {
-      handleNowPlaying(JSON.parse(data));
-    });
-  }
-
-  // ** Post page load actions and event handlers **
-  $(function () {
-    $('#video-container').hide();
-
-    if ('{{ hide_overlay }}' == 'True') {
-      $('#bottom-container').hide();
-      $('#top-container').hide();
-    }
-
-    //hide mouse cursor after 2 seconds of inactivity
-    document.onmousemove = function () {
-      if (mouseTimer) {
-        window.clearTimeout(mouseTimer);
-      }
-      if (!cursorVisible) {
-        document.body.style.cursor = 'default';
-        cursorVisible = true;
-      }
-      if (!menuButtonVisible) {
-        $("#menu a").fadeIn();
-        menuButtonVisible = true;
-      }
-      mouseTimer = window.setTimeout(() => {
-        mouseTimer = null;
-        document.body.style.cursor = 'none';
-        cursorVisible = false;
-        $("#menu a").fadeOut();
-        menuButtonVisible = false;
-      }, 5000);
-    };
-
-    //Video status events for communicating state back to server
-    const video = getVideoPlayer();
-    video.addEventListener("play", () => {
-      $("#video-container").show();
-      //Report song start after a slight delay to allow video to load
-      setTimeout(() => {
-        socket.emit("start_song")
-      }, 1200);
-    });
-    video.addEventListener("ended", () => {
-      endSong("complete", true);
-    });
-    video.addEventListener("timeupdate", (e) => {
-      $("#current").text(formatTime(video.currentTime));
-    });
-
-    $("#video source")[0].addEventListener("error", (e) => {
-      console.log("Error while playing video.");
-      console.log(e);
-      endSong("error while playing");
-    });
-
-    // Load the background music playlist from server
-    $.get('{{ url_for("bg_music.bg_playlist") }}', function (data) {
-      if (data) bg_playlist = data;
-    });
-
-    // Add a listener to the background player to play the next song in the playlist
-    const bgMusic = getBackgroundMusicPlayer();
-    bgMusic.addEventListener("ended", async () => {
-      bgMusic.setAttribute('src', getNextBgMusicSong());
-      await bgMusic.load();
-      await setTimeout(() => {}, 2500) // delay between songs
-      await bgMusic.play();
-    });
-
-    //make sure we end the song if the user closes the window or leaves page
-    window.addEventListener(
-      'beforeunload',
-      function (event) {
-        if (isMediaPlaying(video)) {
-          endSong("splash screen closed");
-        }
-      },
-      true
-    );
-
-    //open menu iframe
-    $('#menu a').click(function () {
-      if (showMenu) {
-        $('#menu-container').hide();
-        $('#menu-container iframe').attr('src', '');
-        showMenu = false;
-      } else {
-        setUserCookie();
-        $("#menu-container").show();
-        $("#menu-container iframe").attr("src", "/");
-        showMenu = true;
-      }
-    });
-
-	 //close menu iframe clicking outside
-	 $('#menu-background').click(function () {
-		if (showMenu) {
-			$(".navbar-burger").click();
-		}
-	 });
-
-    if (isFirefox || isSafari) {
-      let modalContents = document.getElementById("permissions-modal-content");
-      let warningMessage = document.createElement("p");
-      warningMessage.classList.add("notification", "is-warning");
-      warningMessage.innerHTML =
-        "This browser is not fully supported. You may experience streaming issues unless you enable full playback buffering. Please use Chrome for best results.";
-      modalContents.prepend(warningMessage);
-    }
-
-    let params = new URLSearchParams(window.location.search);
-    let requireConfirmation = params.get('confirm');
-
-    if (requireConfirmation === 'false') {
-      let modal = document.getElementById('permissions-modal');
-      modal.classList.remove('is-active');
-      confirmationDismissed = true;
-      playBGMusic(true);
-      if (hasBgVideo)  {
-        playBGVideo(true);
-      }
-    }
-
-    socket.on('pause', () => {
-      const video = getVideoPlayer();
-      const currVolume = video.volume;
-      if (!video.paused) {
-        $(video).animate({ volume: 0 }, 1000, () => {
-          video.pause();
-          video.volume = currVolume;
-        });
-        console.log(`Pause`);
-      }
-    });
-
-    socket.on('play', () => {
-      const video = getVideoPlayer();
-      const currVolume = video.volume;
-      if (video.paused) {
-        video.play();
-        video.volume = 0;
-        $(video).animate({ volume: currVolume }, 1000);
-        console.log(`Play`);
-      }
-    });
-
-    socket.on('skip', (reason) => {
-      const video = getVideoPlayer();
-      if (isMediaPlaying(video)) {
-        const currVolume = video.volume;
-        $(video).animate({ volume: 0 }, 1000, () => {
-            video.pause();
-            video.volume = currVolume;
-            hideVideo();
-          });
-        console.log(`Skip: ${reason}`);
-      }
-    });
-
-    socket.on('volume', (val) => {
-      const video = getVideoPlayer();
-      if (val == "up") {
-        console.log(`Volume up`);
-        video.volume = Math.min(1, video.volume + 0.1);
-      } else if (val == "down") {
-        console.log(`Volume down`);
-        video.volume = Math.max(0, video.volume - 0.1);
-      }
-      else {
-        console.log(`Volume: ${video.volume}`);
-        video.volume = val;
-      }
-    });
-
-    socket.on('restart', () => {
-      console.log(`Restart`);
-      const video = getVideoPlayer();
-      video.currentTime = 0;
-      if (video.paused) video.play()
-    });
-
-    socket.on("notification", (data) => {
-      const notification = data.split("::");
-      const message = notification[0];
-      const categoryClass = notification.length > 1 ? notification[1] : "is-primary";
-      flashNotification(message, categoryClass);
-      socket.emit("clear_notification");
-    });
-
-    //for first time load of splash screen
-    loadNowPlaying();
-
-    //for socket pushed updates to now playing state
-    socket.on("now_playing", np => handleNowPlaying(np));
-
-    // reconnect socket / refresh if tab is hidden and then visible
-    document.addEventListener("visibilitychange", function() {
-      if (document.visibilityState === 'visible') {
-        loadNowPlaying();
-        if (!socket.connected) {
-            console.log('Reconnecting socket...');
-            connectSocket();
-        }
-      }
-    });
-
-  });
+  // Use this config object to pass data from the jinja2 template to the splash.js code
+  const PikaraokeConfig = {
+    hasBgVideo: "{{ has_bg_video }}" == 'True',
+    disableScore: "{{ disable_score }}" == 'True',
+    bgMusicVolume: "{{ bg_music_volume }}" * 1,
+    disableBgMusic: "{{ disable_bg_music }}" == 'True',
+    disableBgVideo: "{{ disable_bg_video }}" == 'True',
+    showSplashClock: "{{ show_splash_clock }}" == 'True',
+    screensaverTimeout: parseInt('{{ screensaver_timeout }}') || 0,
+    hideOverlay: "{{ hide_overlay }}" == 'True',
+    translations: {
+      socketConnectionLost: "{{ _('Connection lost. Is the server still running?') }}",
+      unsupportedBrowser: "{{ _('This browser is not fully supported. You may experience streaming issues. Please use Chrome/Safari/Firefox/Edge for best results.') }}",
+    },
+    scorePhrasesUrl: "{{ url_for('splash.get_score_phrases') }}",
+  };
 </script>
+<script src="{{ url_for('static', filename='js/splash.js') }}"></script>
 {% endblock %} {% block body %}
 <div id="top-container" class="overlay">
 <i class="icon icon-mic-1 is-invisible" style="position: absolute" title="Current singer"></i>
@@ -574,7 +58,8 @@
   </div>
 </div>
 
-<div id="ap-container">
+<div id="ap-container" class="overlay">
+  <div id="clock" class="stroke has-text-white is-size-4" style="display: none;"></div>
   <div class="is-size-6 stroke">
     <div id="hostap">
       {% for line in hostap_info %}{{ line }}<br />{% endfor %}
@@ -583,8 +68,7 @@
 </div>
 
 <div id="bottom-container" class="overlay">
-  {% if not hide_url %}
-  <div id="qr-code">
+  <div id="qr-code"{% if hide_url %} style="display: none"{% endif %}>
     <img
       src="{{ url_for('images.qrcode') }}"
       width="100px"
@@ -595,7 +79,6 @@
       <div>&nbsp;{{ url }}</div>
     </div>
   </div>
-  {% endif %}
   <div></div>
   <div
     id="up-next"
@@ -618,14 +101,14 @@
 </div>
 
 <div id="video-container" class="video-container">
-  <video id="video" disableRemotePlayback>
-    <source id="video-source" type="video/mp4" src="" />
+  <video id="video" poster="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" disableRemotePlayback playsinline webkit-playsinline style="width: 100%; height: 100%; object-fit: contain;">
+    <source id="video-source" src="" />
   </video>
 </div>
 
 <div id="bg-video-container" class="video-container">
-  <video id="bg-video" disableRemotePlayback muted loop style="object-fit: cover">
-    <source id="video-source" type="video/mp4" src="" />
+  <video id="bg-video" poster="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" disableRemotePlayback playsinline webkit-playsinline muted loop style="object-fit: cover">
+    <source id="bg-video-source" type="video/mp4" src="" />
   </video>
 </div>
 
@@ -641,25 +124,25 @@
 	<canvas id="fireworks"></canvas>
 </div>
 
-<div id="permissions-modal" class="modal is-active">
+<div id="permissions-modal" class="modal">
   <div class="modal-background"></div>
-  <div class="modal-content" id="permissions-modal-content">
+  <div class="modal-content p-3" id="permissions-modal-content" >
     <p>
       {# MSG: Prompt for interaction in order to enable video autoplay. #} {%
-      trans %}Due to limititations with browser permissions, you must interact
+      trans %}Due to limitations with browser permissions, you must interact
       with the page once before it allows autoplay of videos. Pikaraoke will not
       play otherwise. Click the button below to
-      <a onClick="handleConfirmation()">confirm</a> .{% endtrans %}
+      <a onClick="handleConfirmation()">confirm</a>.{% endtrans %}
     </p>
-    <div class="has-text-centered">
+    <div class="has-text-centered mt-4">
       <button
         id="permissions-button"
-        class="button is-success"
+        class="button is-success is-large"
         style="margin-top: 10px"
         onClick="handleConfirmation()"
       >
-        {# MSG: Button to confirm to enable video autoplay. #} {% trans
-        %}Confirm{% endtrans %}
+        {# MSG: Button to confirm to enable video autoplay. #}
+        {% trans %}Confirm{% endtrans %}
       </button>
     </div>
   </div>
@@ -682,29 +165,25 @@
 
   <div id="menu-background" class="overlay"></div>
    <div id="menu-container" class="">
-     <iframe src="/"></iframe>
+     <iframe></iframe>
    </div>
 
 
-<!-- Notification code -->
 <div
   id="splash-notification"
   class="notification overlay"
-  style="display: none"
+  style="display: none; border: 2px solid black;"
 ></div>
 
-<!-- Screensaver code -->
- <div class="fw-fh-container">
+<div class="fw-fh-container">
   <div id="screensaver" style="visibility: hidden">
     <div id="dvd">
-      {% if not hide_url %}
-      <div>
+      <div id="screensaver-qr"{% if hide_url %} style="display: none"{% endif %}>
         <div style="text-align: right">
           <img src="{{ url_for('images.qrcode') }}" width="30%" height="30%" />
         </div>
         <div>{{ hostap_info[0] }}<br />{{ url }}</div>
       </div>
-      {% endif %}
     </div>
   </div>
 </div>
@@ -720,6 +199,7 @@
 	/>
 </audio>
 
+<script src="{{  url_for('static', filename='hls-1.6.15.min.js') }}"></script>
 <script src="{{  url_for('static', filename='screensaver.js') }}"></script>
 <script src="{{  url_for('static', filename='fireworks.js') }}"></script>
 <script src="{{  url_for('static', filename='score.js') }}"></script>
@@ -816,6 +296,13 @@
     top: 10px;
     left: 20px;
   }
+  #clock {
+    text-align: left;
+    font-family: monospace;
+    font-weight: bold;
+    line-height: 1;
+    margin-bottom: 10px;
+  }
   #menu-container {
     position: absolute;
     z-index: 3;
@@ -827,6 +314,11 @@
   #menu-container iframe {
     width: 600px;
     height: 75vh;
+  }
+  @media (max-width: 650px) {
+    #menu-container iframe {
+      width: 90vw;
+    }
   }
   .visible {
     visibility: visible;

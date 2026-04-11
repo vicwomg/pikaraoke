@@ -1,58 +1,43 @@
 """Core karaoke engine for managing songs, queue, and playback."""
 
-from __future__ import annotations
-
-import configparser
-import contextlib
-import hashlib
-import json
 import logging
 import os
-import random
-import shutil
 import socket
 import subprocess
+import threading
 import time
-from pathlib import Path
-from queue import Queue
-from subprocess import check_output
-from threading import Thread
 from typing import Any
 
 import qrcode
 from flask_babel import _
-from unidecode import unidecode
+from qrcode.image.pure import PyPNGImage
 
+from pikaraoke.lib.download_manager import DownloadManager
+from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.ffmpeg import (
-    build_ffmpeg_cmd,
     get_ffmpeg_version,
     is_transpose_enabled,
     supports_hardware_h264_encoding,
 )
-from pikaraoke.lib.file_resolver import (
-    FileResolver,
-    delete_tmp_dir,
-    is_transcoding_required,
+from pikaraoke.lib.get_platform import (
+    get_data_directory,
+    get_os_version,
+    get_platform,
+    is_raspberry_pi,
 )
-from pikaraoke.lib.get_platform import get_os_version, get_platform, is_raspberry_pi
+from pikaraoke.lib.karaoke_database import KaraokeDatabase
+from pikaraoke.lib.library_scanner import LibraryScanner, ScanResult
+from pikaraoke.lib.network import get_ip
+from pikaraoke.lib.playback_controller import PlaybackController
+from pikaraoke.lib.preference_manager import PreferenceManager
+from pikaraoke.lib.queue_manager import QueueManager
+from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.youtube_dl import (
-    build_ytdl_download_command,
-    get_youtube_id_from_url,
+    get_search_results,
     get_youtubedl_version,
     upgrade_youtubedl,
 )
-
-
-def enqueue_output(out: Any, queue: Queue) -> None:
-    """Read lines from a stream and put them in a queue without blocking.
-
-    Args:
-        out: File-like object to read from (e.g., subprocess stderr).
-        queue: Queue to put the read lines into.
-    """
-    for line in iter(out.readline, b""):
-        queue.put(line)
-    out.close()
+from pikaraoke.version import __version__ as VERSION
 
 
 class Karaoke:
@@ -61,89 +46,80 @@ class Karaoke:
     This class handles all core karaoke functionality including:
     - Song queue management
     - YouTube video downloading
-    - FFmpeg transcoding and playback
+    - Playback coordination via PlaybackController
     - User preferences
     - QR code generation
 
     Attributes:
-        queue: List of songs in the playback queue.
         available_songs: List of available song file paths.
-        now_playing: Title of the currently playing song.
-        now_playing_filename: File path of the currently playing song.
-        now_playing_user: User who queued the current song.
-        now_playing_transpose: Semitones to transpose current song.
-        now_playing_duration: Duration of current song in seconds.
-        now_playing_url: Stream URL for current song.
-        is_paused: Whether playback is paused.
+        queue_manager: Queue management for songs.
+        playback_controller: Playback state and stream coordination.
         volume: Current volume level (0.0 to 1.0).
     """
 
-    queue: list[dict[str, Any]] = []
-    available_songs: list[str] = []
+    song_manager: SongManager
+    queue_manager: QueueManager
+    playback_controller: PlaybackController
 
-    # These all get sent to the /nowplaying endpoint for client-side polling
-    now_playing: str | None = None
-    now_playing_filename: str | None = None
-    now_playing_user: str | None = None
-    now_playing_transpose: int = 0
-    now_playing_duration: int | None = None
-    now_playing_url: str | None = None
     now_playing_notification: str | None = None
-    is_paused: bool = True
-    volume: float | None = None
+    volume: float
 
-    # hashes are used to determine if the client needs to update the now playing or queue
-    now_playing_hash: str | None = None
-    queue_hash: str | None = None
-
-    is_playing: bool = False
-    process: subprocess.Popen | None = None
     qr_code_path: str | None = None
     base_path: str = os.path.dirname(__file__)
     loop_interval: int = 500  # in milliseconds
-    default_logo_path: str = os.path.join(base_path, "logo.png")
-    default_bg_music_path: str = os.path.join(base_path, "static/music/")
-    default_bg_video_path: str = os.path.join(base_path, "static/video/night_sea.mp4")
-    screensaver_timeout: int = 300  # in seconds
+    default_logo_path: str = os.path.join(base_path, "static", "images", "logo.png")
+    default_bg_music_path: str = os.path.join(base_path, "static", "music")
+    default_bg_video_path: str = os.path.join(base_path, "static", "video", "night_sea.mp4")
+    screensaver_timeout: int
 
-    ffmpeg_process: subprocess.Popen | None = None
-    ffmpeg_log: Queue | None = None
-    normalize_audio: bool = False
+    normalize_audio: bool
+    show_splash_clock: bool
 
-    config_obj: configparser.ConfigParser = configparser.ConfigParser()
+    # Download manager for serialized downloads
+    download_manager: DownloadManager
+
+    # Event system and preferences
+    events: EventSystem
+    preferences: PreferenceManager
 
     def __init__(
         self,
-        port: int = 5555,
-        download_path: str = "/usr/lib/pikaraoke/songs",
-        hide_url: bool = False,
-        hide_notifications: bool = False,
-        hide_splash_screen: bool = False,
-        high_quality: bool = False,
-        volume: float = 0.85,
-        normalize_audio: bool = False,
-        complete_transcode_before_play: bool = False,
-        buffer_size: int = 150,
-        log_level: int = logging.DEBUG,
-        splash_delay: int = 2,
-        youtubedl_path: str = "/usr/local/bin/yt-dlp",
-        youtubedl_proxy: str | None = None,
-        logo_path: str | None = None,
-        hide_overlay: bool = False,
-        screensaver_timeout: int = 300,
-        url: str | None = None,
-        prefer_hostname: bool = True,
-        disable_bg_music: bool = False,
-        bg_music_volume: float = 0.3,
+        # Non-preference parameters (keep their own defaults)
+        additional_ytdl_args: str | None = None,
         bg_music_path: str | None = None,
         bg_video_path: str | None = None,
-        disable_bg_video: bool = False,
-        disable_score: bool = False,
-        limit_user_songs_by: int = 0,
-        avsync: float = 0,
         config_file_path: str = "config.ini",
-        cdg_pixel_scaling: bool = False,
-        additional_ytdl_args: str | None = None,
+        download_path: str = "/usr/lib/pikaraoke/songs",
+        hide_splash_screen: bool | None = None,
+        log_level: int = logging.DEBUG,
+        logo_path: str | None = None,
+        port: int = 5555,
+        prefer_hostname: bool | None = None,
+        preferred_language: str | None = None,
+        socketio=None,
+        streaming_format: str = "hls",
+        url: str | None = None,
+        youtubedl_proxy: str | None = None,
+        # Preference parameters (defaults from PreferenceManager.DEFAULTS)
+        avsync: float | None = None,
+        bg_music_volume: float | None = None,
+        browse_results_per_page: int | None = None,
+        buffer_size: int | None = None,
+        cdg_pixel_scaling: bool | None = None,
+        complete_transcode_before_play: bool | None = None,
+        disable_bg_music: bool | None = None,
+        disable_bg_video: bool | None = None,
+        disable_score: bool | None = None,
+        hide_notifications: bool | None = None,
+        hide_overlay: bool | None = None,
+        hide_url: bool | None = None,
+        high_quality: bool | None = None,
+        limit_user_songs_by: int | None = None,
+        normalize_audio: bool | None = None,
+        screensaver_timeout: int | None = None,
+        show_splash_clock: bool | None = None,
+        splash_delay: int | None = None,
+        volume: float | None = None,
     ) -> None:
         """Initialize the Karaoke instance.
 
@@ -160,7 +136,6 @@ class Karaoke:
             buffer_size: Transcode buffer size in KB.
             log_level: Logging level (e.g., logging.DEBUG).
             splash_delay: Seconds to wait between songs.
-            youtubedl_path: Path to yt-dlp executable.
             youtubedl_proxy: Proxy URL for yt-dlp.
             logo_path: Custom logo image path.
             hide_overlay: Hide video overlay.
@@ -177,7 +152,11 @@ class Karaoke:
             avsync: Audio/video sync adjustment in seconds.
             config_file_path: Path to config.ini file.
             cdg_pixel_scaling: Enable CDG pixel scaling.
+            streaming_format: Video streaming format ('hls' or 'mp4').
+            browse_results_per_page: Number of search results per page.
             additional_ytdl_args: Additional yt-dlp command arguments.
+            socketio: SocketIO instance for real-time event emission.
+            preferred_language: Language code for UI (e.g., 'en', 'de_DE').
         """
         logging.basicConfig(
             format="[%(asctime)s] %(levelname)s: %(message)s",
@@ -185,76 +164,194 @@ class Karaoke:
             level=int(log_level),
         )
 
+        # Initialize event system and preferences (foundation for all components)
+        self.events = EventSystem()
+        self.preferences = PreferenceManager(config_file_path, target=self)
+
         # Platform-specific initializations
         self.platform = get_platform()
         self.os_version = get_os_version()
         self.ffmpeg_version = get_ffmpeg_version()
         self.is_transpose_enabled = is_transpose_enabled()
         self.supports_hardware_h264_encoding = supports_hardware_h264_encoding()
-        self.youtubedl_version = get_youtubedl_version(youtubedl_path)
+        self.youtubedl_version = get_youtubedl_version()
         self.is_raspberry_pi = is_raspberry_pi()
 
-        # Initialize variables
-        self.config_file_path = config_file_path
+        logging.info("PiKaraoke version: " + VERSION)
+
+        # Set non-preference attributes (not stored in config)
         self.port = port
-        self.hide_url = self.get_user_preference("hide_url") or hide_url
-        self.hide_notifications = (
-            self.get_user_preference("hide_notifications") or hide_notifications
-        )
         self.hide_splash_screen = hide_splash_screen
         self.download_path = download_path
-        self.high_quality = high_quality
-        self.splash_delay = self.get_user_preference("splash_delay") or int(splash_delay)
-        self.volume = self.get_user_preference("volume") or volume
-        self.normalize_audio = self.get_user_preference("normalize_audio") or normalize_audio
-        self.complete_transcode_before_play = (
-            self.get_user_preference("complete_transcode_before_play")
-            or complete_transcode_before_play
-        )
         self.log_level = log_level
-        self.buffer_size = self.get_user_preference("buffer_size") or buffer_size
-        self.youtubedl_path = youtubedl_path
         self.youtubedl_proxy = youtubedl_proxy
         self.additional_ytdl_args = additional_ytdl_args
-        self.logo_path = self.default_logo_path if logo_path == None else logo_path
-        self.hide_overlay = self.get_user_preference("hide_overlay") or hide_overlay
-        self.screensaver_timeout = (
-            self.get_user_preference("screensaver_timeout") or screensaver_timeout
-        )
+        self.logo_path = self.default_logo_path if logo_path is None else logo_path
         self.prefer_hostname = prefer_hostname
-        self.disable_bg_music = self.get_user_preference("disable_bg_music") or disable_bg_music
-        self.bg_music_volume = self.get_user_preference("bg_music_volume") or bg_music_volume
-        self.bg_music_path = self.default_bg_music_path if bg_music_path == None else bg_music_path
-        self.disable_bg_video = self.get_user_preference("disable_bg_video") or disable_bg_video
-        self.bg_video_path = self.default_bg_video_path if bg_video_path == None else bg_video_path
-        self.disable_score = self.get_user_preference("disable_score") or disable_score
-        self.limit_user_songs_by = (
-            self.get_user_preference("limit_user_songs_by") or limit_user_songs_by
-        )
-        self.cdg_pixel_scaling = self.get_user_preference("cdg_pixel_scaling") or cdg_pixel_scaling
-        self.avsync = self.get_user_preference("avsync") or avsync
+        self.bg_music_path = self.default_bg_music_path if bg_music_path is None else bg_music_path
+        self.bg_video_path = self.default_bg_video_path if bg_video_path is None else bg_video_path
+        self.streaming_format = streaming_format
+        self.socketio = socketio
         self.url_override = url
         self.url = self.get_url()
+
+        # Load all preference-driven attributes from config (with CLI overrides as fallback)
+        cli_args = {k: v for k, v in locals().items() if k != "self"}
+        self._load_preferences(**cli_args)
 
         # Log the settings to debug level
         self.log_settings_to_debug()
 
-        # get songs from download_path
-        self.get_available_songs()
+        # Initialize database, scanner, and song manager (startup runs at end of __init__)
+        self.db = KaraokeDatabase()
+        self.song_manager = SongManager(self.download_path, db=self.db)
+        self._scanner = LibraryScanner(self.db)
+        self._sync_lock = threading.Lock()
 
         self.generate_qr_code()
 
-        self.low_score_phrases = self.get_user_preference("low_score_phrases") or ""
-        self.mid_score_phrases = self.get_user_preference("mid_score_phrases") or ""
-        self.high_score_phrases = self.get_user_preference("high_score_phrases") or ""
+        # Set preferred language from command line if provided (persists to config)
+        if preferred_language:
+            self.preferences.set("preferred_language", preferred_language)
+            logging.info(f"Setting preferred language to: {preferred_language}")
+
+        # Initialize playback controller for video playback and FFmpeg coordination
+        self.playback_controller = PlaybackController(
+            preferences=self.preferences,
+            events=self.events,
+            filename_from_path=SongManager.filename_from_path,
+            streaming_format=self.streaming_format,
+        )
+
+        # Event bridging: the coordinator wires manager events to the UI (SocketIO/notifications).
+        self.events.on("notification", self.log_and_send)
+        self.events.on(
+            "queue_update",
+            lambda: self.socketio.emit("queue_update", namespace="/") if self.socketio else None,
+        )
+        self.events.on("now_playing_update", self.update_now_playing_socket)
+        self.events.on("playback_started", self.update_now_playing_socket)
+        self.events.on("song_ended", self.update_now_playing_socket)
+        self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
+        self.events.on("song_downloaded", self.song_manager.register_download)
+        self.events.on(
+            "sync_started",
+            lambda: self.socketio.emit("sync_started", namespace="/") if self.socketio else None,
+        )
+        self.events.on(
+            "sync_finished",
+            lambda: self.socketio.emit("sync_finished", namespace="/") if self.socketio else None,
+        )
+
+        # Initialize queue manager
+        self.queue_manager = QueueManager(
+            preferences=self.preferences,
+            events=self.events,
+            get_now_playing_user=lambda: self.playback_controller.now_playing_user,
+            filename_from_path=SongManager.filename_from_path,
+            get_available_songs=lambda: self.song_manager.songs,
+        )
+
+        # Initialize and start download manager
+        self.download_manager = DownloadManager(
+            events=self.events,
+            preferences=self.preferences,
+            song_manager=self.song_manager,
+            queue_manager=self.queue_manager,
+            download_path=self.download_path,
+            youtubedl_proxy=self.youtubedl_proxy,
+            additional_ytdl_args=self.additional_ytdl_args,
+        )
+        self.download_manager.start()
+
+        # Song library startup: warm cache from DB or blocking cold scan
+        paths = self.db.get_all_song_paths()
+        if paths:
+            self.song_manager.songs.update(paths)
+            logging.info("Loaded songs from database, syncing in the background")
+            self.sync_library()
+        else:
+            logging.info("No existing database found, scanning song directory")
+            result = self._scanner.scan(self.download_path)
+            self._apply_scan_result(result)
+
+    def _apply_scan_result(self, result: ScanResult) -> None:
+        """Update SongList and emit notifications after a scan."""
+        if result.added or result.moved or result.deleted:
+            self.song_manager.songs.update(self.db.get_all_song_paths())
+            parts = [
+                label
+                for count, label in [
+                    (result.added, f"{result.added} added"),
+                    (result.moved, f"{result.moved} moved"),
+                    (result.deleted, f"{result.deleted} removed"),
+                ]
+                if count
+            ]
+            self.events.emit("notification", f"Library updated: {', '.join(parts)}", "success")
+
+        if result.circuit_tripped:
+            logging.error(
+                f"Circuit breaker tripped: >50% of songs missing. "
+                f"Drive may be unmounted: {self.download_path}"
+            )
+            self.events.emit(
+                "notification",
+                f"Song scan halted: too many songs missing. "
+                f"Check your song directory: {self.download_path}. "
+                "Click 'Sync Now' to retry after fixing.",
+                "danger",
+            )
+            return
+
+        logging.info(f"Scan complete: {result}")
+
+    def sync_library(self) -> bool:
+        """Trigger a background library scan.
+
+        Used for both warm startup reconciliation and admin 'Sync Now'.
+        Returns False if a sync is already in progress.
+        """
+        if not self._sync_lock.acquire(blocking=False):
+            return False
+        self.events.emit("sync_started")
+        thread = threading.Thread(target=self._background_sync, daemon=True)
+        thread.start()
+        return True
+
+    def _background_sync(self) -> None:
+        try:
+            logging.info(f"Background library scan starting: {self.download_path}")
+            result = self._scanner.scan(self.download_path)
+            self._apply_scan_result(result)
+        finally:
+            self._sync_lock.release()
+            self.events.emit("sync_finished")
+
+    def _load_preferences(self, **cli_overrides: Any) -> None:
+        """Load preference-driven attributes from config file.
+
+        Priority: CLI argument (if provided) > config file > PreferenceManager.DEFAULTS
+        """
+        self.preferences.apply_all(**cli_overrides)
 
     def get_url(self):
+        """Get the URL for accessing the PiKaraoke web interface.
+
+        On Raspberry Pi, retries getting the IP address for up to 30 seconds
+        in case the network is still initializing at startup.
+
+        Returns:
+            URL string in format http://ip:port
+        """
         if self.is_raspberry_pi:
             # retry in case pi is still starting up
             # and doesn't have an IP yet (occurs when launched from /etc/rc.local)
             end_time = int(time.time()) + 30
             while int(time.time()) < end_time:
-                addresses_str = check_output(["hostname", "-I"]).strip().decode("utf-8", "ignore")
+                addresses_str = (
+                    subprocess.check_output(["hostname", "-I"]).strip().decode("utf-8", "ignore")
+                )
                 addresses = addresses_str.split(" ")
                 self.ip = addresses[0]
                 if len(self.ip) < 7:
@@ -262,7 +359,7 @@ class Karaoke:
                 else:
                     break
         else:
-            self.ip = self.get_ip()
+            self.ip = get_ip(self.platform)
 
         logging.debug("IP address (for QR code and splash screen): " + self.ip)
 
@@ -283,119 +380,6 @@ class Karaoke:
             output += f"  {key}: {value}\n"
         logging.debug("\n\n" + output)
 
-    def get_user_preference(self, preference: str, default_value: Any = False) -> Any:
-        """Get a user preference from the config file.
-
-        Args:
-            preference: Name of the preference to retrieve.
-            default_value: Value to return if preference not found.
-
-        Returns:
-            The preference value (auto-converted to bool/int/float if applicable).
-        """
-        # Try to read the config file
-        try:
-            self.config_obj.read(self.config_file_path)
-        except FileNotFoundError:
-            return default_value
-
-        # Check if the section exists
-        if not self.config_obj.has_section("USERPREFERENCES"):
-            return default_value
-
-        # Try to get the value
-        try:
-            pref = self.config_obj.get("USERPREFERENCES", preference)
-            if pref == "True":
-                return True
-            elif pref == "False":
-                return False
-            elif pref.isnumeric():
-                return int(pref)
-            elif pref.replace(".", "", 1).isdigit():
-                return float(pref)
-            else:
-                return pref
-
-        except (configparser.NoOptionError, ValueError):
-            return default_value
-
-    def change_preferences(self, preference: str, val: Any) -> list[bool | str]:
-        """Update a user preference in the config file.
-
-        Args:
-            preference: Name of the preference to change.
-            val: New value for the preference.
-
-        Returns:
-            List of [success: bool, message: str].
-        """
-
-        logging.debug("Changing user preference << %s >> to %s" % (preference, val))
-        try:
-            if "USERPREFERENCES" not in self.config_obj:
-                self.config_obj.add_section("USERPREFERENCES")
-
-            userprefs = self.config_obj["USERPREFERENCES"]
-            userprefs[preference] = str(val)
-            setattr(self, preference, val)
-            with open(self.config_file_path, "w") as conf:
-                self.config_obj.write(conf)
-                self.changed_preferences = True
-            return [True, _("Your preferences were changed successfully")]
-        except Exception as e:
-            logging.debug("Failed to change user preference << %s >>: %s", preference, e)
-            return [False, _("Something went wrong! Your preferences were not changed")]
-
-    def clear_preferences(self) -> list[bool | str]:
-        """Remove all user preferences by deleting the config file.
-
-        Returns:
-            List of [success: bool, message: str].
-        """
-        try:
-            os.remove(self.config_file_path)
-            return [True, _("Your preferences were cleared successfully")]
-        except OSError:
-            return [False, _("Something went wrong! Your preferences were not cleared")]
-
-    def get_ip(self) -> str:
-        """Get the local IP address of this machine.
-
-        Returns:
-            IP address string.
-        """
-        # python socket.connect will not work on android, access denied. Workaround: use ifconfig which is installed to termux by default, iirc.
-        if self.platform == "android":
-            # shell command is: ifconfig 2> /dev/null | awk '/wlan0/{flag=1} flag && /inet /{print $2; exit}'
-            IP = (
-                subprocess.check_output(
-                    "ifconfig 2> /dev/null | awk '/wlan0/{flag=1} flag && /inet /{print $2; exit}'",
-                    shell=True,
-                )
-                .decode("utf8")
-                .strip()
-            )
-        else:
-            # Other ip-getting methods are unreliable and sometimes return 125.0.0.1
-            # https://stackoverflow.com/a/28950774
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            try:
-                # doesn't even have to be reachable
-                s.connect(("10.255.255.255", 1))
-                IP = s.getsockname()[0]
-            except Exception:
-                IP = "127.0.0.1"
-            finally:
-                s.close()
-        return IP
-
-    def upgrade_youtubedl(self) -> None:
-        """Upgrade yt-dlp to the latest version."""
-        logging.info("Upgrading youtube-dl, current version: %s" % self.youtubedl_version)
-        self.youtubedl_version = upgrade_youtubedl(self.youtubedl_path)
-        logging.info("Done. Installed version: %s" % self.youtubedl_version)
-
     def generate_qr_code(self) -> None:
         """Generate a QR code image for the web interface URL."""
         logging.debug("Generating URL QR code")
@@ -406,67 +390,11 @@ class Karaoke:
         )
         qr.add_data(self.url)
         qr.make()
-        img = qr.make_image()
-        self.qr_code_path = os.path.join(self.base_path, "qrcode.png")
-        img.save(self.qr_code_path)
-
-    def get_search_results(self, textToSearch: str) -> list[list[str]]:
-        """Search YouTube for videos matching the query.
-
-        Args:
-            textToSearch: Search query string.
-
-        Returns:
-            List of [title, url, video_id] for each result.
-
-        Raises:
-            Exception: If the search fails.
-        """
-        logging.info("Searching YouTube for: " + textToSearch)
-        num_results = 10
-
-        # Check if the search string contains Korean characters
-        contains_korean = any("\uac00" <= char <= "\ud7af" for char in textToSearch)
-
-        # Use unidecode only if the text does not contain Korean characters
-        if contains_korean:
-            yt_search = f'ytsearch{num_results}:"{textToSearch}"'
-        else:
-            yt_search = f'ytsearch{num_results}:"{unidecode(textToSearch)}"'
-
-        cmd = [self.youtubedl_path, "-j", "--no-playlist", "--flat-playlist", yt_search]
-        logging.debug("Youtube-dl search command: " + " ".join(cmd))
-
-        try:
-            output = subprocess.check_output(cmd).decode("utf-8", "ignore")
-            logging.debug("Search results: " + output)
-            rc = []
-
-            for each in output.split("\n"):
-                if len(each) > 2:
-                    j = json.loads(each)
-                    if "title" not in j or "url" not in j:
-                        continue
-                    rc.append([j["title"], j["url"], j["id"]])
-
-            return rc
-        except Exception as e:
-            logging.debug("Error while executing search: " + str(e))
-            raise e
-
-    def get_karaoke_search_results(self, songTitle: str) -> list[list[str]]:
-        """Search YouTube for karaoke versions of a song.
-
-        Args:
-            songTitle: Song title to search for.
-
-        Returns:
-            List of [title, url, video_id] for each result.
-        """
-        return self.get_search_results(songTitle + " karaoke")
-    
-    def get_noraebang_search_results(self, songTitle):
-        return self.get_search_results(songTitle + " 노래방")
+        img = qr.make_image(image_factory=PyPNGImage)
+        # Use writable data directory instead of program directory
+        data_dir = get_data_directory()
+        self.qr_code_path = os.path.join(data_dir, "qrcode.png")
+        img.save(self.qr_code_path)  # type: ignore[arg-type]
 
     def send_notification(self, message: str, color: str = "primary") -> None:
         """Send a notification to the web interface.
@@ -476,12 +404,16 @@ class Karaoke:
             color: Bulma color class (primary, warning, success, danger).
         """
         # Color should be bulma compatible: primary, warning, success, danger
-        if not self.hide_notifications:
+        hide_notifications = self.preferences.get_or_default("hide_notifications")
+        if not hide_notifications:
             # don't allow new messages to clobber existing commands, one message at a time
             # other commands have a higher priority
             if self.now_playing_notification != None:
                 return
             self.now_playing_notification = message + "::is-" + color
+            # Emit notification via SocketIO for event-driven architecture
+            if self.socketio:
+                self.socketio.emit("notification", self.now_playing_notification, namespace="/")
 
     def log_and_send(self, message: str, category: str = "info") -> None:
         """Log a message and send it as a notification.
@@ -830,227 +762,18 @@ class Karaoke:
         Args:
             semitones: Number of semitones to transpose.
         """
+        filename = self.playback_controller.now_playing_filename
+        user = self.playback_controller.now_playing_user
+        now_playing = self.playback_controller.now_playing
+
+        if filename is None or user is None:
+            logging.warning("Cannot transpose: no song currently playing")
+            return
         # MSG: Message shown after the song is transposed, first is the semitones and then the song name
-        self.log_and_send(_("Transposing by %s semitones: %s") % (semitones, self.now_playing))
+        self.log_and_send(_("Transposing by %s semitones: %s") % (semitones, now_playing))
         # Insert the same song at the top of the queue with transposition
-        self.enqueue(self.now_playing_filename, self.now_playing_user, semitones, True)
-        self.skip(log_action=False)
-
-    def is_file_playing(self) -> bool:
-        """Check if a file is currently playing.
-
-        Returns:
-            True if a song is playing, False otherwise.
-        """
-        return self.is_playing
-
-    def is_song_in_queue(self, song_path: str) -> bool:
-        """Check if a song is already in the queue.
-
-        Args:
-            song_path: Path to the song file.
-
-        Returns:
-            True if the song is in the queue.
-        """
-        for each in self.queue:
-            if each["file"] == song_path:
-                return True
-        return False
-
-    def is_user_limited(self, user: str) -> bool:
-        """Check if a user has reached their queue limit.
-
-        Args:
-            user: Username to check.
-
-        Returns:
-            True if the user has reached their song limit.
-        """
-        # Returns if a user needs to be limited or not if the limitation is on and if the user reached the limit of songs in queue
-        if self.limit_user_songs_by == 0 or user == "Pikaraoke" or user == "Randomizer":
-            return False
-        cont = len([i for i in self.queue if i["user"] == user]) + (
-            1 if self.now_playing_user == user else 0
-        )
-        return True if cont >= int(self.limit_user_songs_by) else False
-
-    def enqueue(
-        self,
-        song_path: str,
-        user: str = "Pikaraoke",
-        semitones: int = 0,
-        add_to_front: bool = False,
-        log_action: bool = True,
-    ) -> bool | list[bool | str]:
-        """Add a song to the queue.
-
-        Args:
-            song_path: Path to the song file.
-            user: Username adding the song.
-            semitones: Transpose value for playback.
-            add_to_front: If True, add to front of queue instead of back.
-            log_action: Whether to log and notify about the action.
-
-        Returns:
-            False if song already in queue, or list of [success, message].
-        """
-        if self.is_song_in_queue(song_path):
-            logging.warning("Song is already in queue, will not add: " + song_path)
-            return False
-        elif self.is_user_limited(user):
-            logging.debug("User limitted by: " + str(self.limit_user_songs_by))
-            return [
-                False,
-                _("You reached the limit of %s song(s) from an user in queue!")
-                % (str(self.limit_user_songs_by)),
-            ]
-        else:
-            queue_item = {
-                "user": user,
-                "file": song_path,
-                "title": self.filename_from_path(song_path),
-                "semitones": semitones,
-            }
-            if add_to_front:
-                # MSG: Message shown after the song is added to the top of the queue
-                self.log_and_send(_("%s added to top of queue: %s") % (user, queue_item["title"]))
-                self.queue.insert(0, queue_item)
-            else:
-                if log_action:
-                    # MSG: Message shown after the song is added to the queue
-                    self.log_and_send(_("%s added to the queue: %s") % (user, queue_item["title"]))
-                self.queue.append(queue_item)
-            self.update_queue_hash()
-            self.update_now_playing_hash()
-            return [
-                True,
-                _("Song added to the queue: %s") % (self.filename_from_path(song_path)),
-            ]
-
-    def queue_add_random(self, amount: int) -> bool:
-        """Add random songs to the queue.
-
-        Args:
-            amount: Number of random songs to add.
-
-        Returns:
-            True if successful, False if ran out of songs.
-        """
-        logging.info("Adding %d random songs to queue" % amount)
-        songs = list(self.available_songs)  # make a copy
-        if len(songs) == 0:
-            logging.warning("No available songs!")
-            return False
-        i = 0
-        while i < amount:
-            r = random.randint(0, len(songs) - 1)
-            if self.is_song_in_queue(songs[r]):
-                logging.warning("Song already in queue, trying another... " + songs[r])
-            else:
-                self.enqueue(songs[r], "Randomizer")
-                i += 1
-            songs.pop(r)
-            if len(songs) == 0:
-                logging.warning("Ran out of songs!")
-                return False
-        return True
-
-    def queue_clear(self) -> None:
-        """Clear all songs from the queue and skip current song."""
-        # MSG: Message shown after the queue is cleared
-        self.log_and_send(_("Clear queue"), "danger")
-        self.queue = []
-        self.update_queue_hash()
-        self.update_now_playing_hash()
-        self.skip(log_action=False)
-
-    def queue_edit(self, song_name: str, action: str) -> bool:
-        """Edit the queue by moving or removing a song.
-
-        Args:
-            song_name: Name/path of the song to edit.
-            action: Action to perform ('up', 'down', 'delete').
-
-        Returns:
-            True if the action was successful.
-        """
-        index = 0
-        song = None
-        rc = False
-        for each in self.queue:
-            if song_name in each["file"]:
-                song = each
-                break
-            else:
-                index += 1
-        if song == None:
-            logging.error("Song not found in queue: " + song["file"])
-        if action == "up":
-            if index < 1:
-                logging.warning("Song is up next, can't bump up in queue: " + song["file"])
-            else:
-                logging.info("Bumping song up in queue: " + song["file"])
-                del self.queue[index]
-                self.queue.insert(index - 1, song)
-                rc = True
-        elif action == "down":
-            if index == len(self.queue) - 1:
-                logging.warning("Song is already last, can't bump down in queue: " + song["file"])
-            else:
-                logging.info("Bumping song down in queue: " + song["file"])
-                del self.queue[index]
-                self.queue.insert(index + 1, song)
-                rc = True
-        elif action == "delete":
-            logging.info("Deleting song from queue: " + song["file"])
-            del self.queue[index]
-            rc = True
-        else:
-            logging.error("Unrecognized direction: " + action)
-        if rc:
-            self.update_queue_hash()
-            self.update_now_playing_hash()
-        return rc
-
-    def skip(self, log_action: bool = True) -> bool:
-        """Skip the currently playing song.
-
-        Args:
-            log_action: Whether to log and notify about the skip.
-
-        Returns:
-            True if a song was skipped, False if nothing playing.
-        """
-        if self.is_file_playing():
-            if log_action:
-                # MSG: Message shown after the song is skipped, will be followed by song name
-                self.log_and_send(_("Skip: %s") % self.now_playing)
-            self.end_song()
-            return True
-        else:
-            logging.warning("Tried to skip, but no file is playing!")
-            return False
-
-    def pause(self) -> bool:
-        """Toggle pause state of the current song.
-
-        Returns:
-            True if successful, False if nothing playing.
-        """
-        if self.is_file_playing():
-            if self.is_paused:
-                # MSG: Message shown after the song is resumed, will be followed by song name
-                self.log_and_send(_("Resume: %s") % self.now_playing)
-            else:
-                # MSG: Message shown after the song is paused, will be followed by song name
-                self.log_and_send(_("Pause") + f": {self.now_playing}")
-            self.is_paused = not self.is_paused
-            self.update_now_playing_hash()
-            return True
-        else:
-            logging.warning("Tried to pause, but no file is playing!")
-            return False
+        self.queue_manager.enqueue(filename, user, semitones, True)
+        self.playback_controller.skip(log_action=False)
 
     def volume_change(self, vol_level: float) -> bool:
         """Set the volume level.
@@ -1064,24 +787,18 @@ class Karaoke:
         self.volume = vol_level
         # MSG: Message shown after the volume is changed, will be followed by the volume level
         self.log_and_send(_("Volume: %s") % (int(self.volume * 100)))
-        self.update_now_playing_hash()
+        self.update_now_playing_socket()
         return True
 
     def vol_up(self) -> None:
         """Increase volume by 10%."""
-        if self.volume > 1.0:
-            new_vol = self.volume = 1.0
-            logging.debug("max volume reached.")
-        new_vol = self.volume + 0.1
+        new_vol = min(self.volume + 0.1, 1.0)
         self.volume_change(new_vol)
         logging.debug(f"Increasing volume by 10%: {self.volume}")
 
     def vol_down(self) -> None:
         """Decrease volume by 10%."""
-        if self.volume < 0.1:
-            new_vol = self.volume = 0.0
-            logging.debug("min volume reached.")
-        new_vol = self.volume - 0.1
+        new_vol = max(self.volume - 0.1, 0.0)
         self.volume_change(new_vol)
         logging.debug(f"Decreasing volume by 10%: {self.volume}")
 
@@ -1091,9 +808,11 @@ class Karaoke:
         Returns:
             True if successful, False if nothing playing.
         """
-        if self.is_file_playing():
-            logging.info("Restarting: " + self.now_playing)
-            self.is_paused = False
+        if self.playback_controller.is_playing:
+            now_playing = self.playback_controller.now_playing
+            logging.info("Restarting: " + (now_playing or "unknown song"))
+            self.playback_controller.is_paused = False
+            self.update_now_playing_socket()
             return True
         else:
             logging.warning("Tried to restart, but no file is playing!")
@@ -1113,16 +832,9 @@ class Karaoke:
 
     def reset_now_playing(self) -> None:
         """Reset all now playing state to defaults."""
-        self.now_playing = None
-        self.now_playing_filename = None
-        self.now_playing_user = None
-        self.now_playing_url = None
-        self.is_paused = True
-        self.is_playing = False
-        self.now_playing_transpose = 0
-        self.now_playing_duration = None
-        self.ffmpeg_log = None
-        self.update_now_playing_hash()
+        self.playback_controller.reset_now_playing()
+        self.volume = self.preferences.get_or_default("volume")
+        self.update_now_playing_socket()
 
     def get_now_playing(self) -> dict[str, Any]:
         """Get the current playback state.
@@ -1130,54 +842,63 @@ class Karaoke:
         Returns:
             Dictionary with now playing info, queue preview, and volume.
         """
-        np = {
-            "now_playing": self.now_playing,
-            "now_playing_user": self.now_playing_user,
-            "now_playing_duration": self.now_playing_duration,
-            "now_playing_transpose": self.now_playing_transpose,
-            "now_playing_url": self.now_playing_url,
-            "up_next": self.queue[0]["title"] if len(self.queue) > 0 else None,
-            "next_user": self.queue[0]["user"] if len(self.queue) > 0 else None,
-            "is_paused": self.is_paused,
+        queue = self.queue_manager.queue
+        next_song = queue[0] if queue else None
+
+        # Get playback state from PlaybackController
+        playback_state = self.playback_controller.get_now_playing()
+
+        return {
+            **playback_state,
+            "up_next": next_song["title"] if next_song else None,
+            "next_user": next_song["user"] if next_song else None,
             "volume": self.volume,
         }
-        return np
 
-    def update_now_playing_hash(self) -> None:
-        """Update the hash of now playing state for change detection."""
-        self.now_playing_hash = hashlib.md5(
-            json.dumps(self.get_now_playing(), sort_keys=True, ensure_ascii=True).encode(
-                "utf-8", "ignore"
-            )
-        ).hexdigest()
-
-    def update_queue_hash(self) -> None:
-        """Update the hash of queue state for change detection."""
-        self.queue_hash = hashlib.md5(
-            json.dumps(self.queue, ensure_ascii=True).encode("utf-8", "ignore")
-        ).hexdigest()
+    def update_now_playing_socket(self) -> None:
+        """Emit now_playing state change via SocketIO."""
+        if self.socketio:
+            self.socketio.emit("now_playing", self.get_now_playing(), namespace="/")
 
     def run(self) -> None:
         """Main run loop - processes queue and plays songs.
 
         This method blocks until stop() is called or KeyboardInterrupt.
         """
-        logging.info("Starting PiKaraoke!")
+        logging.debug("Starting PiKaraoke run loop")
         logging.info(f"Connect the player host to: {self.url}/splash")
         self.running = True
         while self.running:
             try:
-                if not self.is_file_playing() and self.now_playing != None:
+                # Clean up if playback ended but state wasn't reset
+                if (
+                    not self.playback_controller.is_playing
+                    and self.playback_controller.now_playing is not None
+                ):
                     self.reset_now_playing()
-                if len(self.queue) > 0:
-                    if not self.is_file_playing():
-                        self.reset_now_playing()
-                        i = 0
-                        while i < (self.splash_delay * 1000):
-                            self.handle_run_loop()
-                            i += self.loop_interval
-                        self.play_file(self.queue[0]["file"], self.queue[0]["semitones"])
-                self.log_ffmpeg_output()
+
+                # Start next song from queue if not currently playing
+                if len(self.queue_manager.queue) > 0 and not self.playback_controller.is_playing:
+                    self.reset_now_playing()
+                    # Splash delay between songs
+                    splash_delay = self.preferences.get_or_default("splash_delay")
+                    i = 0
+                    while i < (splash_delay * 1000):
+                        self.handle_run_loop()
+                        i += self.loop_interval
+
+                    # Pop song before playback to avoid UI flicker
+                    song = self.queue_manager.pop_next()
+                    if not song:
+                        continue
+                    result = self.playback_controller.play_file(
+                        song["file"], song["user"], song["semitones"]
+                    )
+
+                    if not result.success and result.error:
+                        self.log_and_send(result.error, "danger")
+
+                self.playback_controller.log_output()
                 self.handle_run_loop()
             except KeyboardInterrupt:
                 logging.warning("Keyboard interrupt: Exiting pikaraoke...")

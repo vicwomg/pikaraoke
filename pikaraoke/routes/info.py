@@ -2,7 +2,8 @@
 
 import flask_babel
 import psutil
-from flask import Blueprint, render_template
+from flask import jsonify, render_template
+from flask_smorest import Blueprint
 
 from pikaraoke import VERSION
 from pikaraoke.constants import LANGUAGES
@@ -22,44 +23,14 @@ info_bp = Blueprint("info", __name__)
 
 @info_bp.route("/info")
 def info():
-    """System information and settings page.
-    ---
-    tags:
-      - Pages
-    responses:
-      200:
-        description: HTML page with system info and settings
-    """
+    """System information and settings page."""
     k = get_karaoke_instance()
     site_name = get_site_name()
     url = k.url
     admin_password = get_admin_password()
     is_linux = get_platform() == "linux"
 
-    # 獲取當前偏好語言
-    preferred_language = k.get_user_preference("preferred_language", "en")
-
-    # cpu
-    try:
-        cpu = str(psutil.cpu_percent(interval=1)) + "%"
-    except:
-        cpu = _("CPU usage query unsupported")
-
-    # mem
-    memory = psutil.virtual_memory()
-    available = round(memory.available / 1024.0 / 1024.0, 1)
-    total = round(memory.total / 1024.0 / 1024.0, 1)
-    memory = (
-        str(available) + "MB free / " + str(total) + "MB total ( " + str(memory.percent) + "% )"
-    )
-
-    # disk
-    disk = psutil.disk_usage("/")
-    # Divide from Bytes -> KB -> MB -> GB
-    free = round(disk.free / 1024.0 / 1024.0 / 1024.0, 1)
-    total = round(disk.total / 1024.0 / 1024.0 / 1024.0, 1)
-    disk = str(free) + "GB free / " + str(total) + "GB total ( " + str(disk.percent) + "% )"
-
+    preferred_language = k.preferences.get("preferred_language", "en")
     # youtube-dl
     youtubedl_version = k.youtubedl_version
 
@@ -76,9 +47,10 @@ def info():
         is_transpose_enabled=k.is_transpose_enabled,
         youtubedl_version=youtubedl_version,
         pikaraoke_version=VERSION,
-        cpu=cpu,
-        memory=memory,
-        disk=disk,
+        cpu=None,
+        memory=None,
+        disk=None,
+        is_pi=k.is_raspberry_pi,
         is_linux=is_linux,
         volume=int(k.volume * 100),
         bg_music_volume=int(k.bg_music_volume * 100),
@@ -86,6 +58,7 @@ def info():
         disable_bg_video=k.disable_bg_video,
         disable_score=k.disable_score,
         hide_notifications=k.hide_notifications,
+        show_splash_clock=k.show_splash_clock,
         hide_url=k.hide_url,
         hide_overlay=k.hide_overlay,
         screensaver_timeout=k.screensaver_timeout,
@@ -96,12 +69,48 @@ def info():
         complete_transcode_before_play=k.complete_transcode_before_play,
         avsync=k.avsync,
         limit_user_songs_by=k.limit_user_songs_by,
+        enable_fair_queue=k.enable_fair_queue,
         buffer_size=k.buffer_size,
         languages=LANGUAGES,
-        preferred_language=preferred_language,  # 傳遞當前偏好語言
-        schore_phrases={
+        preferred_language=preferred_language,
+        browse_results_per_page=k.browse_results_per_page,
+        score_phrases={
             "low": k.low_score_phrases,
             "mid": k.mid_score_phrases,
             "high": k.high_score_phrases,
         },
     )
+
+
+@info_bp.route("/info/stats")
+def get_system_stats():
+    """Get system statistics (CPU, Memory, Disk).
+
+    Returns:
+        JSON response with system stats.
+    """
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+
+    # cpu
+    try:
+        # We can afford to block a bit here since it is async
+        cpu = str(psutil.cpu_percent(interval=1)) + "%"
+    except:
+        cpu = _("CPU usage query unsupported")
+
+    # mem
+    memory = psutil.virtual_memory()
+    available = round(memory.available / 1024.0 / 1024.0, 1)
+    total = round(memory.total / 1024.0 / 1024.0, 1)
+    memory_str = (
+        str(available) + "MB free / " + str(total) + "MB total ( " + str(memory.percent) + "% )"
+    )
+
+    # disk
+    disk = psutil.disk_usage("/")
+    free = round(disk.free / 1024.0 / 1024.0 / 1024.0, 1)
+    total = round(disk.total / 1024.0 / 1024.0 / 1024.0, 1)
+    disk_str = str(free) + "GB free / " + str(total) + "GB total ( " + str(disk.percent) + "% )"
+
+    return jsonify({"cpu": cpu, "memory": memory_str, "disk": disk_str})

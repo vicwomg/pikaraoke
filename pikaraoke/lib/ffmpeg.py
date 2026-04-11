@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import logging
+import platform
 import subprocess
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import ffmpeg
+
+from pikaraoke.lib.get_platform import is_running_in_docker
 
 if TYPE_CHECKING:
     from pikaraoke.lib.file_resolver import FileResolver
@@ -24,7 +27,7 @@ def get_media_duration(file_path: str) -> int | None:
     try:
         duration = ffmpeg.probe(file_path)["format"]["duration"]
         return round(float(duration))
-    except (ffmpeg.Error, KeyError, TypeError):
+    except:
         return None
 
 
@@ -32,10 +35,11 @@ def build_ffmpeg_cmd(
     fr: FileResolver,
     semitones: int = 0,
     normalize_audio: bool = True,
+    force_mp4_encoding: bool = False,
     buffer_fully_before_playback: bool = False,
     avsync: float = 0,
     cdg_pixel_scaling: bool = False,
-) -> ffmpeg.nodes.OutputStream:
+) -> Any:
     """Build an ffmpeg command for transcoding media.
 
     Handles video/audio codec selection, pitch shifting, audio normalization,
@@ -45,74 +49,80 @@ def build_ffmpeg_cmd(
         fr: FileResolver instance with source file information.
         semitones: Number of semitones to shift pitch (0 = no shift).
         normalize_audio: Whether to apply loudness normalization.
-        buffer_fully_before_playback: If True, use faststart for full buffering.
+        force_mp4_encoding: If True, force mp4 encoding.
         avsync: Audio/video sync adjustment in seconds.
-        cdg_pixel_scaling: Whether to apply pixel scaling for CDG files.
+        cdg_pixel_scaling: Enable pixel scaling for CDG rendering.
 
     Returns:
-        ffmpeg OutputStream object ready to execute.
+        ffmpeg stream object ready to execute with run_async().
     """
     avsync = float(avsync)
-    # use h/w acceleration on pi
-    default_vcodec = "h264_v4l2m2m" if supports_hardware_h264_encoding() else "libx264"
-    # just copy the video stream if it's an mp4 or webm file, since they are supported natively in html5
-    # otherwise use the default h264 codec
-    vcodec = (
-        "copy" if fr.file_extension == ".mp4" or fr.file_extension == ".webm" else default_vcodec
-    )
-    vbitrate = "5M"  # seems to yield best results w/ h264_v4l2m2m on pi, recommended for 720p.
-
-    # copy the audio stream if no transposition/normalization, otherwise reincode with the aac codec
+    is_cdg = fr.cdg_file_path is not None
     is_transposed = semitones != 0
-    acodec = "aac" if is_transposed or normalize_audio or avsync != 0 else "copy"
 
-    input = ffmpeg.input(fr.file_path)
+    if fr.file_path is None:
+        raise ValueError("File path is required to build ffmpeg command")
+
+    # Use h/w acceleration on Pi
+    using_hardware_encoder = supports_hardware_h264_encoding()
+    default_vcodec = "h264_v4l2m2m" if using_hardware_encoder else "libx264"
+
+    # CDG always needs encoding; MP4 can copy video stream (already H.264 compatible)
+    # WEBM uses VP8/VP9 which must be transcoded to H.264 for fMP4 containers
+    if is_cdg:
+        vcodec = "libx264"
+    else:
+        vcodec = "copy" if fr.file_extension == ".mp4" else default_vcodec
+
+    # Optimize bitrate: CDG is simple graphics (500k), video files need more
+    # Pi 3B+ struggles with 5M in real-time, 2M provides better stability
+    if is_cdg:
+        vbitrate = "500k"
+    elif using_hardware_encoder:
+        vbitrate = "2M"
+    else:
+        vbitrate = "5M"
+
+    # Copy audio if no processing needed, otherwise re-encode with AAC
+    # CDG always re-encodes audio for compatibility
+    acodec = "aac" if is_cdg or is_transposed or normalize_audio or avsync != 0 else "copy"
+
+    # For container formats with VFR or timestamp issues, use genpts
+    if fr.file_extension in [".webm", ".avi", ".mov", ".mkv"]:
+        input = ffmpeg.input(fr.file_path, **{"fflags": "+genpts"})
+    else:
+        input = ffmpeg.input(fr.file_path)
     audio = input.audio
 
-    # If avsync is set, delay or trim the audio stream
+    # Audio sync adjustment: delay or trim
     if avsync > 0:
-        audio = audio.filter("adelay", f"{avsync * 1000}|{avsync * 1000}")  # delay
+        audio = audio.filter("adelay", f"{avsync * 1000}|{avsync * 1000}")
     elif avsync < 0:
-        audio = audio.filter("atrim", start=-avsync)  # trim
+        audio = audio.filter("atrim", start=-avsync)
 
-    # The pitch value is (2^x/12), where x represents the number of semitones
-    pitch = 2 ** (semitones / 12)
+    # Pitch shifting: 2^(semitones/12)
+    if is_transposed:
+        audio = audio.filter("rubberband", pitch=2 ** (semitones / 12))
 
-    audio = audio.filter("rubberband", pitch=pitch) if is_transposed else audio
-    # normalize the audio
-    audio = audio.filter("loudnorm", i=-16, tp=-1.5, lra=11) if normalize_audio else audio
+    # Loudness normalization
+    if normalize_audio:
+        audio = audio.filter("loudnorm", i=-16, tp=-1.5, lra=11)
 
-    # frag_keyframe+default_base_moof is used to set the correct headers for streaming incomplete files,
-    # without it, there's better compatibility for streaming on certain browsers like Firefox
-    movflags = "+faststart" if buffer_fully_before_playback else "frag_keyframe+default_base_moof"
-
-    if fr.cdg_file_path != None:  # handle CDG files
+    # Video source: CDG input or original video stream
+    if is_cdg:
         logging.info("Playing CDG/MP3 file: " + fr.file_path)
-        # copyts helps with sync issues, fps=25 prevents ffmpeg from needlessly encoding cdg at 300fps
         cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
+        video = cdg_input.video.filter("fps", fps=25)
         if cdg_pixel_scaling:
-            video = cdg_input.video.filter("fps", fps=25).filter("scale", -1, 720, flags="neighbor")
-        else:
-            video = cdg_input.video.filter("fps", fps=25)
-
-        # cdg is very fussy about these flags.
-        # pi ffmpeg needs to encode to aac and cant just copy the mp3 stream
-        # It also appears to have memory issues with hardware acceleration h264_v4l2m2m
-        output = ffmpeg.output(
-            audio,
-            video,
-            fr.output_file,
-            vcodec="libx264",
-            acodec="aac",
-            preset="ultrafast",
-            pix_fmt="yuv420p",
-            listen=1,
-            f="mp4",
-            video_bitrate="500k",
-            movflags=movflags,
-        )
+            video = video.filter("scale", -1, 720, flags="neighbor")
     else:
         video = input.video
+
+    # Build output based on format
+    if force_mp4_encoding:
+        movflags = (
+            "+faststart" if buffer_fully_before_playback else "frag_keyframe+default_base_moof"
+        )
         output = ffmpeg.output(
             audio,
             video,
@@ -124,6 +134,37 @@ def build_ffmpeg_cmd(
             f="mp4",
             video_bitrate=vbitrate,
             movflags=movflags,
+            **({"pix_fmt": "yuv420p"} if is_cdg else {}),
+        )
+    else:
+        # HLS format with fMP4 segments
+        # Both MP4 and HLS streaming modes use this - difference is in serving:
+        # - mp4: Stream concatenates init + segments for progressive playback
+        # - hls: Browser requests segments via .m3u8 playlist
+        output = ffmpeg.output(
+            audio,
+            video,
+            fr.output_file,
+            vcodec=vcodec,
+            acodec="aac",
+            audio_bitrate="192k",
+            ac=2,  # Force stereo
+            ar=48000,  # Standard sample rate
+            preset="ultrafast",
+            f="hls",
+            hls_time=3,
+            hls_list_size=0,
+            hls_playlist_type="event",
+            hls_segment_type="fmp4",
+            hls_fmp4_init_filename=fr.init_filename,
+            hls_segment_filename=fr.segment_pattern,
+            video_bitrate=vbitrate,
+            # CDG needs pix_fmt for proper color space
+            **({"pix_fmt": "yuv420p"} if is_cdg else {}),
+            **{
+                "vsync": "cfr",
+                "avoid_negative_ts": "make_zero",
+            },
         )
 
     args = output.get_args()
@@ -141,10 +182,7 @@ def get_ffmpeg_version() -> str:
     try:
         # Execute the command 'ffmpeg -version'
         result = subprocess.run(
-            ["ffmpeg", "-version"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
+            ["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
         )
         # Parse the first line to get the version
         first_line = result.stdout.split("\n")[0]
@@ -166,22 +204,49 @@ def is_transpose_enabled() -> bool:
         filters = subprocess.run(["ffmpeg", "-filters"], capture_output=True)
     except FileNotFoundError:
         return False
+    except IndexError:
+        return False
     return "rubberband" in filters.stdout.decode()
 
 
 def supports_hardware_h264_encoding() -> bool:
     """Check if hardware H.264 encoding (h264_v4l2m2m) is available.
 
-    This is typically available on Raspberry Pi devices.
+    Only returns True on ARM architecture (Raspberry Pi) where h264_v4l2m2m
+    is actually supported. On x86/Intel systems, returns False to use software encoding.
 
     Returns:
-        True if h264_v4l2m2m codec is available, False otherwise.
+        True if hardware encoding is available, False otherwise.
     """
+    # Check CPU architecture first - h264_v4l2m2m only works on ARM
+    arch = platform.machine().lower()
+    is_arm = any(arm_variant in arch for arm_variant in ["arm", "aarch"])
+
+    if not is_arm:
+        # Not ARM (probably Intel x86/x64), don't use h264_v4l2m2m
+        logging.debug(f"CPU architecture {arch} is not ARM, using software encoder")
+        return False
+
+    if is_running_in_docker():
+        # Docker containers do not have access to the GPU
+        logging.debug("Running in Docker where GPU access is not available, using software encoder")
+        return False
+
+    # On ARM, check if h264_v4l2m2m is available
     try:
         codecs = subprocess.run(["ffmpeg", "-codecs"], capture_output=True)
     except FileNotFoundError:
         return False
-    return "h264_v4l2m2m" in codecs.stdout.decode()
+    except IndexError:
+        return False
+
+    has_encoder = "h264_v4l2m2m" in codecs.stdout.decode()
+    if has_encoder:
+        logging.info("ARM platform detected, using h264_v4l2m2m hardware encoder")
+    else:
+        logging.debug("ARM platform but h264_v4l2m2m not available")
+
+    return has_encoder
 
 
 def is_ffmpeg_installed() -> bool:

@@ -5,16 +5,34 @@
   $(function () {
 
     $('#remove-karaoke').click(function (e) {
-      var new_name = clean_title($('#new_file_name').val());
-      $('#new_file_name').val(new_name);
+      var filename = $('#new_file_name').val();
+      if (!$.trim(filename)) return;
+      $.getJSON('/metadata/tidy-name', { filename: filename }, function (data) {
+        if (data.tidied) {
+          $('#new_file_name').val(data.tidied);
+        }
+      });
     });
 
     $('#suggest-title').click(function (e) {
-      if ($.trim($('#new_file_name').val()) != "") {
-        var format_name = clean_title($('#new_file_name').val(), title_case = true);
-        var search_string = format_name;
-        suggest_title(clean_title(search_string), "#suggest_results");
-      }
+      var filename = $.trim($('#new_file_name').val());
+      if (!filename) return;
+      $('.suggest_loader').removeClass("is-hidden");
+      $("#suggest_results").html("");
+      $.getJSON('/metadata/suggest-names', { filename: filename, limit: 5 }, function (data) {
+        var suggestions = "";
+        if (data.suggestions && data.suggestions.length > 0) {
+          $.each(data.suggestions, function (i, item) {
+            suggestions += "<li><a class='suggested_item is-warning'>" + item.name + " - " + item.artist + "</a></li>";
+          });
+        } else {
+          // {# MSG: Warning when no suggested tracks are found for a search. #}
+          suggestions = "<li>{{ _('No suggestion!') }}</li>";
+        }
+        $("#suggest_results").html("<ul>" + suggestions + "</ul>");
+      }).always(function () {
+        $('.suggest_loader').addClass("is-hidden");
+      });
     });
 
     $('#swap-order').click(function (e) {
@@ -23,80 +41,12 @@
       new_name = new_name.trim();
       $('#new_file_name').val(new_name);
     });
-    $('.confirm-delete').click(function (e) {
-      e.preventDefault();
-      // {# MSG: Confirmation prompt when the user deletes a song. #}
-      if (window.confirm("{{ _('Are you sure you want to delete this song from the library?') }}")) {
-        location.href = this.href;
-      }
-    });
 
     $("#suggest_results").on("click", ".suggested_item", function () {
       $('#new_file_name').val($(this).text());
     });
 
   });
-
-
-  function clean_title(search_str, title_case = false) {
-    var new_name = $('#new_file_name').val();
-    new_name = new_name.replace(/\[+([^\][]+)]+/g, "($1)"); //replace brackets with parenthesis
-    new_name = new_name.replace(/[^\x20-\x7E]+/g, "");//Remove all non printable and all non ASCII characters
-    new_name = new_name.replace(/\\|\//g, " ");//remove slashes
-
-    //source: https://stackoverflow.com/questions/49655135/javascript-regex-remove-multiple-words-from-string
-    var uselessWordsArray =
-      [
-        "as popularized by", "lyrics", "karafun", "instrumental", "minus one", "minusone", "made famous by", " by ",
-        "karaoke version", "karaoke", "hd", "hq", "coversph", "singkaraoke", "in the style of",
-        "no lead vocal", "with lyrics", "cc"
-      ];
-    var expStr = uselessWordsArray.join("|");
-    new_name = new_name.replace(new RegExp('\\b(' + expStr + ')\\b', 'gi'), ' ').replace(/\s{2,}/g, ' ');
-
-    if (title_case == true) {
-      new_name = new_name.toLowerCase().replace(/\b[a-z]/g, function (letter) {
-        return letter.toUpperCase();
-      });
-    }
-
-    new_name = new_name.replace(/\([\s&\-.)]*\)/g, "");//remove empty parenthesis
-    new_name = new_name.replace(/\_/g, '-');//replace _ to dash
-    new_name = new_name.replace(/\b\-\b/g, ' - ');//add space before and after dash
-    new_name = new_name.replace("&Amp;", "&");
-    new_name = new_name.replace(/\&/g, 'and');//replace & to and
-    new_name = new_name.replace(/\s\s+/g, " "); //remove white spaces
-    return new_name.trim();
-  }
-
-  function suggest_title(search_str, results_div, max_suggestion = 5) {
-    $('.suggest_loader').removeClass("is-hidden");
-    var API_KEY = "058c382f5fd686b4146f6028961c14da";
-    var max_suggestion = max_suggestion;
-    var url = "https://ws.audioscrobbler.com/2.0/?method=track.search&track=" + search_str + "&limit=" + max_suggestion + "&page=1&api_key=" + API_KEY + "&format=json";
-    $(results_div).html("");
-
-    $.getJSON(url, function (json) {
-      data = json.results.trackmatches.track;
-      suggestions = "";
-      if (data.length != 0) {
-        $.each(data, function (i, item) {
-          suggestions += "<li><a class='suggested_item is-warning'>" + item.name + " - " + item.artist + "</a></li>";
-          return i < max_suggestion - 1;
-        });
-      }
-      else {
-        // {# MSG: Warning when no suggested tracks are found for a search. #}
-        suggestions = "<li>{{ _('No suggestion!') }}</li>";
-        console.log("No suggestion!")
-      }
-      $(results_div).html("<ul>" + suggestions + "</ul>");
-    }).always(function () {
-      $('.suggest_loader').addClass("is-hidden");
-    });
-  }
-
-
 </script>
 {% endblock %}
 
@@ -111,14 +61,15 @@
 <div class="field">
   <form action="{{ url_for('files.edit_file') }}" method="post">
     <div class="field">
-      <p class='has-text-warning'>{{ filename_from_path(song.decode('utf-8', 'ignore')) }} </p>
+      <p class='has-text-warning'>{{ raw_stem }} </p>
     </div>
-    <input value="{{ song.decode('utf-8', 'ignore') }}" type="hidden" name='old_file_name'>
+    <input value="{{ song }}" type="hidden" name='old_file_name'>
+    <input type="hidden" name="referrer" value="{{ referrer }}">
     {# MSG: Label on the control to edit the song's name #}
     <label class="label">{% trans %}Edit Song Name{% endtrans %}</label>
     <div class="field">
       <input autocomplete="off" id="new_file_name" class="input" type="text" name="new_file_name"
-        value="{{ filename_from_path(song.decode('utf-8', 'ignore')) }}"></input>
+        value="{{ raw_stem }}"></input>
     </div>
     <ul>
       {# MSG: Label on button which auto formats the song's title. #}
@@ -131,18 +82,25 @@
         <span id="suggest_results"></span>
       </li>
     </ul>
-    <div class="field">
-      <button class="button is-primary" id="search-button" type="submit">
-        {# MSG: Label on button which saves the changes. #}
-        {%- trans %}Save{% endtrans -%}
-      </button>
+    <div class="field is-grouped">
+      <div class="control">
+        <button class="button is-primary" id="search-button" type="submit">
+          {# MSG: Label on button which saves the changes. #}
+          {%- trans %}Save{% endtrans -%}
+        </button>
+      </div>
+      <div class="control">
+        <a class="button is-light" href="{{ referrer }}">
+          {%- trans %}Cancel{% endtrans -%}
+        </a>
+      </div>
     </div>
   </form>
 </div>
 
 <hr>
-<a class="edit-button confirm-delete has-text-danger is-pulled-right"
-  href="{{url_for('files.delete_file')}}?song={{url_escape(song)}}"><i class="icon icon-trash-empty"></i>
+<a class="confirm-delete-file has-text-danger is-pulled-right"
+  href="{{url_for('files.delete_file')}}?song={{url_escape(song)}}&referrer={{url_escape(referrer)}}"><i class="icon icon-trash-empty"></i>
   {# MSG: Label on button which deletes the current song. #}
   {%- trans -%}
     Delete this song

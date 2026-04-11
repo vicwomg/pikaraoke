@@ -1,0 +1,18 @@
+# Commitlint configuration
+# See: https://commitlint.js.org/reference/rules.html
+
+extends:
+  - '@commitlint/config-conventional'
+
+rules:
+  # Header (first line) max length - default is 100
+  header-max-length: [1, always, 150]
+
+  # Body line max length - default is 100
+  body-max-line-length: [1, always, 1000]
+
+  # Footer line max length - default is 100
+  footer-max-line-length: [1, always, 200]
+
+  # Disable subject case enforcement (allow any casing)
+  subject-case: [0]

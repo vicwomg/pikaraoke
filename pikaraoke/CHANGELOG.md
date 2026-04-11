@@ -1,5 +1,226 @@
 # Changelog
 
+## [1.19.0](https://github.com/vicwomg/pikaraoke/compare/1.18.4...1.19.0) (2026-03-11)
+
+
+### Features
+
+* indonesian translation (via [@funkyfone](https://github.com/funkyfone)) ([#773](https://github.com/vicwomg/pikaraoke/issues/773)) ([0846e94](https://github.com/vicwomg/pikaraoke/commit/0846e94e97b21068aa93e29776888a1d6ae80861))
+* live splash preference updates, fix custom score phrases ([#784](https://github.com/vicwomg/pikaraoke/issues/784)) ([393e82b](https://github.com/vicwomg/pikaraoke/commit/393e82b866eff2dc4adb3613f25a07ff174144e6))
+* option to show clock on splash screen ([#767](https://github.com/vicwomg/pikaraoke/issues/767)) ([0985978](https://github.com/vicwomg/pikaraoke/commit/098597818fe2c9d43ff5a6acd021826911b579c7))
+* YouTube preview streaming and improved search result cards ([#785](https://github.com/vicwomg/pikaraoke/issues/785)) ([e49d4b8](https://github.com/vicwomg/pikaraoke/commit/e49d4b811d0be6264486194423a48504859166b7))
+
+
+### Bug Fixes
+
+* batch song renamer and prepare for centralised song editing ([#783](https://github.com/vicwomg/pikaraoke/issues/783)) ([3d9989e](https://github.com/vicwomg/pikaraoke/commit/3d9989e3f3f2f1ee6afe8126b2ab86ab88f24f65))
+* browser and edit page navigation improvements ([#772](https://github.com/vicwomg/pikaraoke/issues/772)) ([61d4ca6](https://github.com/vicwomg/pikaraoke/commit/61d4ca65fd2b8928e440cce70216f7c74a80dfb8))
+* centralise edit and batch song renamer functions ([#791](https://github.com/vicwomg/pikaraoke/issues/791)) ([f1fecc5](https://github.com/vicwomg/pikaraoke/commit/f1fecc5b99b8a86cc47b3165857a19814dd41b69))
+* exception when opening splash screen ([#788](https://github.com/vicwomg/pikaraoke/issues/788)) ([38f2582](https://github.com/vicwomg/pikaraoke/commit/38f2582eb52d61dff1258cd0d82b90652fd556d7))
+* handle .ass subtitle files in delete and rename operations ([#769](https://github.com/vicwomg/pikaraoke/issues/769)) ([e476c40](https://github.com/vicwomg/pikaraoke/commit/e476c40f44ade0daaf807c62539c36e6220cc8eb))
+* prevent direct download from downloading playlists ([#766](https://github.com/vicwomg/pikaraoke/issues/766)) ([38f38f8](https://github.com/vicwomg/pikaraoke/commit/38f38f88fb78a986d1c878ce9252834f05876d41))
+* support multiple sections in the config file ([#776](https://github.com/vicwomg/pikaraoke/issues/776)) ([f08b766](https://github.com/vicwomg/pikaraoke/commit/f08b766733fcf5654ebe8dd4e180223132cc7b19))
+* update yt-dlp to 2026.02.21 ([#789](https://github.com/vicwomg/pikaraoke/issues/789)) ([66e365e](https://github.com/vicwomg/pikaraoke/commit/66e365e9545c5b1c385fb6606e0a92760bdf146f))
+* upgrade yt-dlp to 2026.03.03 ([#798](https://github.com/vicwomg/pikaraoke/issues/798)) ([ee7cf31](https://github.com/vicwomg/pikaraoke/commit/ee7cf3164b04666c7467f584a82996f36f5dd437))
+* use os.path.join for download path instead of trailing slash hack ([#770](https://github.com/vicwomg/pikaraoke/issues/770)) ([ee1ce2f](https://github.com/vicwomg/pikaraoke/commit/ee1ce2f6c010d948f690991abe8f7d36e7bb8f9a))
+
+## [1.18.4](https://github.com/vicwomg/pikaraoke/compare/1.18.3...1.18.4) (2026-02-09)
+
+
+### Bug Fixes
+
+* docker yt-dlp upgrade fails, bump yt-dlp version ([#764](https://github.com/vicwomg/pikaraoke/issues/764)) ([b2d3d9b](https://github.com/vicwomg/pikaraoke/commit/b2d3d9bf122e393a49e3578f903324d4aac13673))
+* installation on windows to include C++ distributable ([#763](https://github.com/vicwomg/pikaraoke/issues/763)) ([a02f14f](https://github.com/vicwomg/pikaraoke/commit/a02f14fc45d8ee349544f78becd90c9f4a97db58))
+
+## [1.18.3](https://github.com/vicwomg/pikaraoke/compare/1.18.2...1.18.3) (2026-02-03)
+
+
+### Bug Fixes
+
+* correctly allow or block editing of files ([#742](https://github.com/vicwomg/pikaraoke/issues/742)) ([385dffb](https://github.com/vicwomg/pikaraoke/commit/385dffb4f4222c3f086adf34d135ef527ce7b19c))
+* Menu icon doesn't auto-hide on some browsers ([#744](https://github.com/vicwomg/pikaraoke/issues/744)) ([ada0d0c](https://github.com/vicwomg/pikaraoke/commit/ada0d0cd354f3fb61fee218083c1195d4f7dc6a4))
+* **splash:** add CJK/Cyrillic/Thai subtitle support ([#750](https://github.com/vicwomg/pikaraoke/issues/750)) ([ba116f1](https://github.com/vicwomg/pikaraoke/commit/ba116f18cfac8227e8cff8b52043e7966141bff7)), closes [#748](https://github.com/vicwomg/pikaraoke/issues/748)
+* **splash:** start screensaver idle timer on initialization ([#749](https://github.com/vicwomg/pikaraoke/issues/749)) ([c275bfa](https://github.com/vicwomg/pikaraoke/commit/c275bfad565c3b399a04aef7ee25fb7bc1c2841c))
+* upgrade yt-dlp to 2026.1.31 ([#752](https://github.com/vicwomg/pikaraoke/issues/752)) ([9db210a](https://github.com/vicwomg/pikaraoke/commit/9db210a120f07c2d5cc8e209905c30bbe0de9b15))
+
+
+### Performance Improvements
+
+* improve docker build speed, image size, and add smoke test ([#741](https://github.com/vicwomg/pikaraoke/issues/741)) ([b5450b5](https://github.com/vicwomg/pikaraoke/commit/b5450b5f198cdab8be8f1131017528d959bb18b5))
+* remove python handling from installer, uv takes care of it ([#740](https://github.com/vicwomg/pikaraoke/issues/740)) ([e605368](https://github.com/vicwomg/pikaraoke/commit/e605368e610ee1f364e0506447556c2c144227b1))
+
+
+### Documentation
+
+* **translation:** update translation files ([#754](https://github.com/vicwomg/pikaraoke/issues/754)) ([c42bcdc](https://github.com/vicwomg/pikaraoke/commit/c42bcdc633168afa87e52af6facb62cc5772ffe7))
+
+## [1.18.2](https://github.com/vicwomg/pikaraoke/compare/1.18.1...1.18.2) (2026-01-30)
+
+
+### Bug Fixes
+
+* download status, edit song not working ([#736](https://github.com/vicwomg/pikaraoke/issues/736)) ([d8ef52c](https://github.com/vicwomg/pikaraoke/commit/d8ef52ca18ed5fbcefc4d9789a6a24ab8617079e))
+* relative logo paths don't work ([#738](https://github.com/vicwomg/pikaraoke/issues/738)) ([80dbb04](https://github.com/vicwomg/pikaraoke/commit/80dbb0484096d3b32b52b3fedc6752db03b021d5))
+
+
+### Documentation
+
+* much-needed readme / github pages / logo refresh ([#733](https://github.com/vicwomg/pikaraoke/issues/733)) ([338742e](https://github.com/vicwomg/pikaraoke/commit/338742e186c1b892dcf7442e1cd544d2a05736fb))
+
+## [1.18.1](https://github.com/vicwomg/pikaraoke/compare/1.18.0...1.18.1) (2026-01-30)
+
+
+### Bug Fixes
+
+* apply correct scaling to screen saver and subtitles ([#724](https://github.com/vicwomg/pikaraoke/issues/724)) ([2bf2048](https://github.com/vicwomg/pikaraoke/commit/2bf204866f5145a95287662fc79f385b66995ec4))
+* bg music setting also disables bg video, add bg music disable setting to UI ([#731](https://github.com/vicwomg/pikaraoke/issues/731)) ([6e6a2bb](https://github.com/vicwomg/pikaraoke/commit/6e6a2bb7e1bf665d50e933a716b6e6d7f2c7e41f))
+* OSX installer installs ffmpeg that cannot transpose ([#723](https://github.com/vicwomg/pikaraoke/issues/723)) ([9ae4b9f](https://github.com/vicwomg/pikaraoke/commit/9ae4b9f18aa9baaef5b0418c2d31ff81e0e57e22))
+* some browsers flash an ugly grey screen before video starts ([#730](https://github.com/vicwomg/pikaraoke/issues/730)) ([fd2fc4e](https://github.com/vicwomg/pikaraoke/commit/fd2fc4eb59133595bb02d4ee91901b3de66c9a3f))
+* yt-dlp update to 2026.1.29 ([#729](https://github.com/vicwomg/pikaraoke/issues/729)) ([64895b3](https://github.com/vicwomg/pikaraoke/commit/64895b3b9c241d2ca4f6e5420c1a995c9282b994))
+
+
+### Performance Improvements
+
+* use uv tool for installs, improve smoke tests ([#726](https://github.com/vicwomg/pikaraoke/issues/726)) ([c790e9f](https://github.com/vicwomg/pikaraoke/commit/c790e9f61c807119acf0e516585aa6b6e8793736))
+
+## [1.18.0](https://github.com/vicwomg/pikaraoke/compare/1.17.2...1.18.0) (2026-01-28)
+
+
+### Features
+
+* add tests for queue socketio and regression ([#711](https://github.com/vicwomg/pikaraoke/issues/711)) ([40449f4](https://github.com/vicwomg/pikaraoke/commit/40449f4301326fc2478ed41879c25804d2e7041c))
+* centralise background media handling ([#710](https://github.com/vicwomg/pikaraoke/issues/710)) ([a18c4d7](https://github.com/vicwomg/pikaraoke/commit/a18c4d7606ff185dcfaee04dac26303d5557fd5a))
+* multiple splash screen synchronization and master/slave modes ([#708](https://github.com/vicwomg/pikaraoke/issues/708)) ([e71e044](https://github.com/vicwomg/pikaraoke/commit/e71e044b21a152bce26877668bdd629f93475234))
+* one-liner pikaraoke install scripts [#713](https://github.com/vicwomg/pikaraoke/issues/713) ([#714](https://github.com/vicwomg/pikaraoke/issues/714)) ([25d51e3](https://github.com/vicwomg/pikaraoke/commit/25d51e314987b12c3be25ab80d2b6839b706849f))
+* splash screen url scaling ([#715](https://github.com/vicwomg/pikaraoke/issues/715)) ([a04e6a2](https://github.com/vicwomg/pikaraoke/commit/a04e6a2998f8c62ac9c9905dd771277d299b1c0b))
+* update docker files to reflect app data directory ([#709](https://github.com/vicwomg/pikaraoke/issues/709)) ([9ec6d72](https://github.com/vicwomg/pikaraoke/commit/9ec6d72687e8905ee94b786eeecdbb68574a402b))
+* yt-dlp simplify install and launch versions, enable async updates  ([#718](https://github.com/vicwomg/pikaraoke/issues/718)) ([96f23e8](https://github.com/vicwomg/pikaraoke/commit/96f23e89d433c9cdf4cbf433917ada9554a2d3eb))
+
+
+### Bug Fixes
+
+* incorrect install script URLs ([#716](https://github.com/vicwomg/pikaraoke/issues/716)) ([109a918](https://github.com/vicwomg/pikaraoke/commit/109a918cb8f363d2a36c837cfbcd21dbe2992ab7))
+
+## [1.17.2](https://github.com/vicwomg/pikaraoke/compare/1.17.1...1.17.2) (2026-01-22)
+
+
+### Bug Fixes
+
+* download + queue broken on windows for songs with special chars ([#702](https://github.com/vicwomg/pikaraoke/issues/702)) ([f399b57](https://github.com/vicwomg/pikaraoke/commit/f399b5773476eb19acddfb3197f30cb386227445))
+* splash up next does not update on new queue reorder actions ([#701](https://github.com/vicwomg/pikaraoke/issues/701)) ([7b3909a](https://github.com/vicwomg/pikaraoke/commit/7b3909a8a2270b43b7773dec878de05f4f227c0e))
+
+## [1.17.1](https://github.com/vicwomg/pikaraoke/compare/1.17.0...1.17.1) (2026-01-20)
+
+
+### Bug Fixes
+
+* bad merge deleted download status feature ([#690](https://github.com/vicwomg/pikaraoke/issues/690)) ([b57962d](https://github.com/vicwomg/pikaraoke/commit/b57962de30e37042e1f38be9cf3fc1af6c357f85))
+* improve logging: yt-dlp upgrades and pikaraoke version ([#693](https://github.com/vicwomg/pikaraoke/issues/693)) ([3854a4f](https://github.com/vicwomg/pikaraoke/commit/3854a4f57578c8f0477691d35baebde94c5f8290))
+
+## [1.17.0](https://github.com/vicwomg/pikaraoke/compare/1.16.0...1.17.0) (2026-01-19)
+
+
+### Features
+
+* drag+drop queue reordering, move to top/bottom ([#676](https://github.com/vicwomg/pikaraoke/issues/676)) ([944447a](https://github.com/vicwomg/pikaraoke/commit/944447abecb02c7b2e3d65ef011ce0e06ed77254))
+* fix logging import for file_resolver ([#675](https://github.com/vicwomg/pikaraoke/issues/675)) ([039fedb](https://github.com/vicwomg/pikaraoke/commit/039fedb326e4a70fe33bdfb7fea762c6bce9d3e4))
+* Refactor file storage to use platform-specific data directories ([#643](https://github.com/vicwomg/pikaraoke/issues/643)) ([bcd4c52](https://github.com/vicwomg/pikaraoke/commit/bcd4c526710573421896b48b8aea9d79cb28fd55))
+* Replace Selenium with direct browser subprocess launching ([#670](https://github.com/vicwomg/pikaraoke/issues/670)) ([ac70a27](https://github.com/vicwomg/pikaraoke/commit/ac70a271f4fa519f801bb08c6e5918796224b999))
+* show download queue with realtime progress bar ([#661](https://github.com/vicwomg/pikaraoke/issues/661)) ([233eb4a](https://github.com/vicwomg/pikaraoke/commit/233eb4a3b3ea17201e8bd8c3ff8849f2f5265e80))
+* Smart Queue (Round-Robin Fair Play) ([#677](https://github.com/vicwomg/pikaraoke/issues/677)) ([239b530](https://github.com/vicwomg/pikaraoke/commit/239b53042bebdea77d8d8ad1cbf68b4785e30ff3))
+* Update dependencies ([#679](https://github.com/vicwomg/pikaraoke/issues/679)) ([7c102d0](https://github.com/vicwomg/pikaraoke/commit/7c102d0b6beb179b1dd6700319c140b00cd01c85))
+
+
+### Bug Fixes
+
+* api-docs job failing ([#647](https://github.com/vicwomg/pikaraoke/issues/647)) ([163e59f](https://github.com/vicwomg/pikaraoke/commit/163e59f68ad5ec7b5f12fc2134c8dcee44f619b3))
+* autoplay detection test positive, mobile layout issue ([#688](https://github.com/vicwomg/pikaraoke/issues/688)) ([4836cbe](https://github.com/vicwomg/pikaraoke/commit/4836cbe7c689088be6229657bd9b9f6eb8f659b1))
+* delete file not working since upgrade to SPA architecture ([#673](https://github.com/vicwomg/pikaraoke/issues/673)) ([ecdc730](https://github.com/vicwomg/pikaraoke/commit/ecdc73034bcb14e1afee8660166bb4f3da995594))
+* Docker entrypoint args not separated properly ([#678](https://github.com/vicwomg/pikaraoke/issues/678)) ([ba9d12b](https://github.com/vicwomg/pikaraoke/commit/ba9d12b170011513066d141b79619bde9ccdaada))
+* flasgger incompatibilities, disable by default ([#646](https://github.com/vicwomg/pikaraoke/issues/646)) ([452b847](https://github.com/vicwomg/pikaraoke/commit/452b847a7129f4e0372d1daa4d83dea8151bc500))
+* gitignore for Claude local directory ([#663](https://github.com/vicwomg/pikaraoke/issues/663)) ([0b16065](https://github.com/vicwomg/pikaraoke/commit/0b16065bef07d924eec6848248960da78d99b426))
+* Growing request URL when browsing pages of songs ([#644](https://github.com/vicwomg/pikaraoke/issues/644)) ([0025fb8](https://github.com/vicwomg/pikaraoke/commit/0025fb888d4fc266e694ce513a8c2435fe1e921f))
+* hide chrome warnings unless log level debug ([#649](https://github.com/vicwomg/pikaraoke/issues/649)) ([62fb1e6](https://github.com/vicwomg/pikaraoke/commit/62fb1e6ad7a3f8c2364f43f0a114fdfc29c52baa))
+* make sure title renders correctly on splash page ([#671](https://github.com/vicwomg/pikaraoke/issues/671)) ([69aa7d2](https://github.com/vicwomg/pikaraoke/commit/69aa7d2206b8d1951b2ca5183f0a8c45ce45a5ed))
+* prevent autoplay race condition and improve autoplay detection ([#682](https://github.com/vicwomg/pikaraoke/issues/682)) ([06ea6f1](https://github.com/vicwomg/pikaraoke/commit/06ea6f1875cb4eef41b49d23c92afa2b3522f30a))
+* race conditions on slow hardware causing playback failure ([#680](https://github.com/vicwomg/pikaraoke/issues/680)) ([9abc0dd](https://github.com/vicwomg/pikaraoke/commit/9abc0ddcd7ae728a0a400ba4099484e0847fad7c))
+* slow info.html page load due to CPU check ([#659](https://github.com/vicwomg/pikaraoke/issues/659)) ([f98172f](https://github.com/vicwomg/pikaraoke/commit/f98172fcefd3f1e38e7c36c4579bc38f49398cfd))
+* Splash Page ?confirm=false not working  ([#658](https://github.com/vicwomg/pikaraoke/issues/658)) ([ef99671](https://github.com/vicwomg/pikaraoke/commit/ef9967113a678deb58619d2e96cf9565ce3d7e11))
+* Use absolute paths for .ass, bg video and bg audio ([#652](https://github.com/vicwomg/pikaraoke/issues/652)) ([d65aab9](https://github.com/vicwomg/pikaraoke/commit/d65aab91313687e1750252cc9a5164fb42521788))
+* use flasgger stable version for compatibility ([#668](https://github.com/vicwomg/pikaraoke/issues/668)) ([da9b9be](https://github.com/vicwomg/pikaraoke/commit/da9b9bed3d0d55fa842287de1465a8452d96fc54))
+
+
+### Documentation
+
+* Add Claude Code guidance ([#655](https://github.com/vicwomg/pikaraoke/issues/655)) ([9c566bc](https://github.com/vicwomg/pikaraoke/commit/9c566bc56f1d85b930a581eff78e826d3ed5f7bd))
+* update readme to remove reference to chromedriver ([#683](https://github.com/vicwomg/pikaraoke/issues/683)) ([bfab3dd](https://github.com/vicwomg/pikaraoke/commit/bfab3dd3914cd5468c04c3d2c78166ecca18ecbb))
+
+## [1.16.0](https://github.com/vicwomg/pikaraoke/compare/1.15.3...1.16.0) (2026-01-05)
+
+
+### Features
+
+* collapsable submenus in settings area, style tweaks ([#634](https://github.com/vicwomg/pikaraoke/issues/634)) ([9ecb6af](https://github.com/vicwomg/pikaraoke/commit/9ecb6af1771471667edb3ffb8710ab072208f48f))
+* launch on external display with: --external-monitor ([#624](https://github.com/vicwomg/pikaraoke/issues/624)) ([c2ff91d](https://github.com/vicwomg/pikaraoke/commit/c2ff91d7ca1254fc8672871b4757ecbf458fe21f))
+* optimize web UIs with SPA architecture, add --browse-results-per-page CLI parameter ([#619](https://github.com/vicwomg/pikaraoke/issues/619)) ([c12bee0](https://github.com/vicwomg/pikaraoke/commit/c12bee0d2764458853ff656b5ee35a75c05207d1))
+* support Aegisub subtitle format (thanks [@italozaina](https://github.com/italozaina)) ([#635](https://github.com/vicwomg/pikaraoke/issues/635)) ([1254091](https://github.com/vicwomg/pikaraoke/commit/1254091ba6e45b3c5c95953703e625d29504d593))
+
+
+### Bug Fixes
+
+* shutdown/restart buttons don't show in settings screen for raspberry pi ([#633](https://github.com/vicwomg/pikaraoke/issues/633)) ([2854369](https://github.com/vicwomg/pikaraoke/commit/2854369320256b11989f022e640dbe6ee9623fac))
+
+## [1.15.3](https://github.com/vicwomg/pikaraoke/compare/1.15.2...1.15.3) (2026-01-04)
+
+
+### Bug Fixes
+
+* restore broken release workflow, optimize smoke test ([#629](https://github.com/vicwomg/pikaraoke/issues/629)) ([0ffc6b4](https://github.com/vicwomg/pikaraoke/commit/0ffc6b42bd1a5d933b63e8afb4f6ea8db4b0685e))
+
+## [1.15.2](https://github.com/vicwomg/pikaraoke/compare/1.15.1...1.15.2) (2026-01-04)
+
+
+### Bug Fixes
+
+* hq video downloads stopped working [#625](https://github.com/vicwomg/pikaraoke/issues/625) ([#626](https://github.com/vicwomg/pikaraoke/issues/626)) ([9cd49d2](https://github.com/vicwomg/pikaraoke/commit/9cd49d21e0e1f98d8c6633783f03b1412fed96ef))
+
+## [1.15.1](https://github.com/vicwomg/pikaraoke/compare/1.15.0...1.15.1) (2026-01-04)
+
+
+### Bug Fixes
+
+* repair broken translations ([#620](https://github.com/vicwomg/pikaraoke/issues/620)) ([d9e2eb3](https://github.com/vicwomg/pikaraoke/commit/d9e2eb3cc1e69b6ad8e49ce7b96daafc54b3b390))
+* settings persistence / broken typecasting ([#621](https://github.com/vicwomg/pikaraoke/issues/621)) ([29fa3aa](https://github.com/vicwomg/pikaraoke/commit/29fa3aa43f10c0868a97e8ccc8145d87361168d7))
+
+## [1.15.0](https://github.com/vicwomg/pikaraoke/compare/1.14.3...1.15.0) (2026-01-03)
+
+
+### Features
+
+* enable setting preferred language via CLI [#549](https://github.com/vicwomg/pikaraoke/issues/549) ([#593](https://github.com/vicwomg/pikaraoke/issues/593)) ([e6afe96](https://github.com/vicwomg/pikaraoke/commit/e6afe961283baf9f1196fc45103815d712054ed5))
+* implement HLS streaming option, optimize for pi3 ([#598](https://github.com/vicwomg/pikaraoke/issues/598)) ([f1e54b3](https://github.com/vicwomg/pikaraoke/commit/f1e54b388c0c016b7f7ed591063b856b56b9c1d2))
+* serialize/queue downloads from yt-dlp ([#601](https://github.com/vicwomg/pikaraoke/issues/601)) ([5a2d46b](https://github.com/vicwomg/pikaraoke/commit/5a2d46bdfb0fb4e124ca884a224a7573b6e1b074))
+
+
+### Bug Fixes
+
+* config boolean preferences set to False are ignored ([#609](https://github.com/vicwomg/pikaraoke/issues/609)) ([2930401](https://github.com/vicwomg/pikaraoke/commit/29304011bf83afc3da2c96256ac5ddb45f1cee0b))
+* improve ip detection x-platform with psutil ([#616](https://github.com/vicwomg/pikaraoke/issues/616)) ([0de3455](https://github.com/vicwomg/pikaraoke/commit/0de34558f0b9307dc035fdf523301941e6cf3597))
+* improve windows ip/chromedriver detection ([#610](https://github.com/vicwomg/pikaraoke/issues/610)) ([4dd9509](https://github.com/vicwomg/pikaraoke/commit/4dd9509009634d8a08349ec60d83bd31a5f42aa4))
+* splash screen menu loads page twice ([#614](https://github.com/vicwomg/pikaraoke/issues/614)) ([b19abd8](https://github.com/vicwomg/pikaraoke/commit/b19abd86cbec89e7fc90c725899900169e39af75))
+* use hls.js on mobile safari for better stability ([#604](https://github.com/vicwomg/pikaraoke/issues/604)) ([bd8bb9c](https://github.com/vicwomg/pikaraoke/commit/bd8bb9c48b9cf98289d0b8449d360b9ba53dd096))
+
+
+### Performance Improvements
+
+* hls_playlist_type=event for progressive HLS streaming ([#608](https://github.com/vicwomg/pikaraoke/issues/608)) ([5a3239a](https://github.com/vicwomg/pikaraoke/commit/5a3239a4717904ad7365460a3bdd911885020578))
+* optimize song list editing ([#613](https://github.com/vicwomg/pikaraoke/issues/613)) ([4727550](https://github.com/vicwomg/pikaraoke/commit/4727550365a687e7b3986d27ec47a5a25c985e35))
+
+
+### Documentation
+
+* update readme with current chromium install cmds ([ed418d6](https://github.com/vicwomg/pikaraoke/commit/ed418d6a3e434a5d9fe961a091c3bdac7e0946be))
+
 ## [1.14.3](https://github.com/vicwomg/pikaraoke/compare/1.14.2...1.14.3) (2025-12-24)
 
 

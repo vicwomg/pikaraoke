@@ -1,0 +1,10 @@
+.git
+.github
+.vscode
+code_quality
+docker
+Dockerfile*
+docker-compose*.yml
+__pycache__
+*.pyc
+.venv*

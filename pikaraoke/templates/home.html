@@ -1,8 +1,11 @@
 {% extends 'base.html' %} {% block scripts %}
 <script>
-	var volume = 0.85;
+	var volume = {{ volume|default(0.85) }};
 
-	var socket = io();
+	// Ensure global socket exists
+	if (typeof window.socket === 'undefined') {
+		window.socket = io();
+	}
 
 	function loadNowPlaying() {
 		console.log("Loading now playing data");
@@ -84,10 +87,9 @@
 
 		$("#volume-slider").on(
 			"input",
-			_.debounce(function (event) {
+			debounce(function (event) {
 				const value = this.value;
 				$.get("/volume/" + value);
-				refreshNowPlaying();
 			}, 500)
 		);
 
@@ -109,17 +111,14 @@
 		$("#pause-resume").click(function () {
 			$.get("/pause");
 			togglePausePlayButton();
-			refreshNowPlaying();
 		});
 
 		$("#vol-up").click(function () {
 			$.get("/vol_up");
-			refreshNowPlaying();
 		});
 
 		$("#vol-down").click(function () {
 			$.get("/vol_down");
-			refreshNowPlaying();
 		});
 
 		$("#restart").click(function () {
@@ -160,17 +159,18 @@
 		//for first time load of splash screen
 		loadNowPlaying();
 		//for pushed updates to now playing state
-		socket.on("now_playing", (np) => handleNowPlaying(np));
+		window.socket.on("now_playing", (np) => handleNowPlaying(np));
 
 		document.addEventListener("visibilitychange", function () {
 			console.log("on visibility change");
 
 			if (document.visibilityState === "visible") {
 				loadNowPlaying();
-				console.log(socket);
-				if (!socket.connected) {
+				console.log(window.socket);
+				if (!window.socket.connected) {
 					console.log("Reconnecting socket...");
-					connectSocket();
+					window.socket = io();
+					window.socket.on("now_playing", (np) => handleNowPlaying(np));
 				}
 			}
 		});
@@ -214,7 +214,7 @@
 				type="range"
 				min="0"
 				max="1"
-				value="0.85"
+				value="{{ volume|default(0.85) }}"
 				step="0.025"
 				id="volume-slider"
 				style="margin: 0 8px 0px 5px; width: 100px"
