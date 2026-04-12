@@ -38,7 +38,7 @@ Write-Host "Installing Winget dependencies..." -ForegroundColor Yellow
 
 # Install Visual C++ Redistributable (Required for gevent/greenlet)
 Write-Host "Checking Visual C++ Redistributable..."
-winget list -e --id "Microsoft.VCRedist.2015+.x64" | Out-Null
+winget list -e --id "Microsoft.VCRedist.2015+.x64" --accept-source-agreements
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Installing Visual C++ Redistributable (x64)..."
     winget install --id "Microsoft.VCRedist.2015+.x64" -e --silent --accept-source-agreements --accept-package-agreements
