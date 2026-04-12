@@ -75,7 +75,7 @@ def autocomplete(query):
             result.append(
                 {
                     "path": each,
-                    "fileName": k.song_manager.filename_from_path(each),
+                    "fileName": k.song_manager.display_name_from_path(each),
                     "type": "autocomplete",
                 }
             )

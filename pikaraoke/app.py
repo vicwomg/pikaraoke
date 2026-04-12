@@ -226,7 +226,7 @@ def main() -> None:
     app.config["SITE_NAME"] = "PiKaraoke"
 
     # Expose some functions to jinja templates
-    app.jinja_env.globals.update(filename_from_path=SongManager.filename_from_path)
+    app.jinja_env.globals.update(filename_from_path=k.song_manager.display_name_from_path)
     app.jinja_env.globals.update(url_escape=quote)
 
     spawn(upgrade_youtubedl)
