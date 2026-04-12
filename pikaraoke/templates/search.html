@@ -197,6 +197,31 @@
 </style>
 <script>
 	$(function () {
+		let lastCommittedSearchTerm = "";
+
+		function normalizeSearchTerm(value) {
+			return (value || "").trim();
+		}
+
+		function setLastCommittedSearchTerm(value) {
+			lastCommittedSearchTerm = normalizeSearchTerm(value);
+			return lastCommittedSearchTerm;
+		}
+
+		function getRestorableSearchTerm(selectize) {
+			return (
+				lastCommittedSearchTerm ||
+				normalizeSearchTerm(selectize.$control_input.val()) ||
+				normalizeSearchTerm(selectize.currentResults && selectize.currentResults.query)
+			);
+		}
+
+		function bindSearchTextboxTracking(selectize) {
+			selectize.$control_input.on("input change compositionend", function () {
+				setLastCommittedSearchTerm(this.value);
+			});
+		}
+
 		$("#search_result_selector").focus();
 
 		$("#search-link").click(function () {
@@ -250,6 +275,8 @@
 			onInitialize: function () {
 				var that = this;
 
+				bindSearchTextboxTracking(this);
+
 				this.$control.on("click", function () {
 					that.ignoreFocusOpen = true;
 					setTimeout(function () {
@@ -267,7 +294,7 @@
 				}
 			},
 			onBlur: function () {
-				this.setTextboxValue(this.currentResults.query);
+				this.setTextboxValue(getRestorableSearchTerm(this));
 			},
 			onChange: function (id) {
 				if (!id) {
@@ -328,17 +355,20 @@
 		if (qSearchString) {
 			$("#song_to_add-selectized").val(qSearchString);
 			$("#song_to_add-selectized").width("100%");
+			setLastCommittedSearchTerm(qSearchString);
 		}
 
 		$("#clear-search").on("click", function (e) {
 			e.preventDefault();
 			$select[0].selectize.clear();
 			$("#song_to_add-selectized").val("");
+			setLastCommittedSearchTerm("");
 		});
 
 		$("#search-link").on("click", function (e) {
 			e.preventDefault();
-			var search_term = $(".search-selectize .selectize-input input").val();
+			var search_term =
+				lastCommittedSearchTerm || normalizeSearchTerm($(".search-selectize .selectize-input input").val());
 			var include_non_karaoke = $("#include-non-karaoke").is(":checked");
 			if (search_term) {
 				$("#searching_loader").removeClass("is-hidden");
