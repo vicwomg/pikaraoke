@@ -84,8 +84,8 @@
             e.preventDefault();
             // Get the current name from the cookie dynamically
             let currentName = Cookies.get("user");
-            var promptMsg = (window.i18n && window.i18n.promptChangeUsername)
-                ? window.i18n.promptChangeUsername.replace('CURRENT_NAME', currentName)
+            var promptMsg = (window.translations && window.translations.promptChangeUsername)
+                ? window.translations.promptChangeUsername.replace('CURRENT_NAME', currentName)
                 : "Do you want to change the name of the person using this device? This will show up on queued songs. Current: " + currentName;
             let name = window.prompt(promptMsg);
             // Only update if user clicked OK and entered a non-empty name
@@ -122,8 +122,8 @@
         // Clear queue confirmation
         $(document).on('click', '.confirm-clear', function(e) {
             e.preventDefault();
-            var promptMsg = (window.i18n && window.i18n.promptClearQueue)
-                ? window.i18n.promptClearQueue
+            var promptMsg = (window.translations && window.translations.promptClearQueue)
+                ? window.translations.promptClearQueue
                 : "Are you sure you want to clear the ENTIRE queue? Type 'ok' to continue";
             let userInput = window.prompt(promptMsg);
             // Only clear if user typed 'ok' exactly (case insensitive)
@@ -135,8 +135,8 @@
         // Delete song from queue confirmation
         $(document).on('click', '.confirm-delete', function(e) {
             e.preventDefault();
-            var msg = (window.i18n && window.i18n.confirmDeleteFromQueue)
-                ? window.i18n.confirmDeleteFromQueue.replace('SONG_TITLE', this.title)
+            var msg = (window.translations && window.translations.confirmDeleteFromQueue)
+                ? window.translations.confirmDeleteFromQueue.replace('SONG_TITLE', this.title)
                 : `Are you sure you want to delete "${this.title}" from the queue?`;
             if (window.confirm(msg)) {
                 $.get(this.href);
@@ -146,8 +146,8 @@
         // Delete song file from library confirmation (full page navigation)
         $(document).on('click', '.confirm-delete-file', function(e) {
             e.preventDefault();
-            var msg = (window.i18n && window.i18n.confirmDeleteFromLibrary)
-                ? window.i18n.confirmDeleteFromLibrary
+            var msg = (window.translations && window.translations.confirmDeleteFromLibrary)
+                ? window.translations.confirmDeleteFromLibrary
                 : 'Are you sure you want to delete this song from the library?';
             if (window.confirm(msg)) {
                 window.location.href = this.href;

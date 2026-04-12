@@ -90,12 +90,12 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--youtubedl-proxy",
-        help="Proxy server to use for youtube-dl, in case blocked by a firewall",
+        help="Proxy server to use for yt-dlp, in case blocked by a firewall",
         required=False,
     )
     parser.add_argument(
         "--ytdl-args",
-        help="Additional arguments to pass to youtube-dl/yt-dlp (as a single string)",
+        help="Additional arguments to pass to yt-dlp (as a single string)",
         required=False,
     )
     parser.add_argument(
