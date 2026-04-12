@@ -77,7 +77,8 @@
       {# MSG: Label on button which swaps the order of the artist and song in the title. #}
       <li><a id='swap-order'>{% trans %}Swap artist/song order{% endtrans %}</a></li>
       {# MSG: Label on button which loads results from the website Last.fm and suggests titles based on matches there. #}
-      <li><a id='suggest-title'>Suggest from Last.fm</a>
+      {# MSG: Label on button which suggests song titles from the website Last.fm. #}
+      <li><a id='suggest-title'>{% trans %}Suggest from Last.fm{% endtrans %}</a>
         <span class="button is-loading is-hidden suggest_loader" style="border:0;background-color:transparent;"></span>
         <span id="suggest_results"></span>
       </li>
