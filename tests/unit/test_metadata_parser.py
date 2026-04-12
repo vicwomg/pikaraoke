@@ -88,6 +88,22 @@ class TestCleanSearchQuery:
         assert "\U0001f3a4" not in result
         assert "\U0001f3b5" not in result
 
+    def test_emoji_removal_preserves_word_boundaries(self):
+        result = clean_search_query("I Will Survive\U0001f3a4HQ")
+        assert result == "I Will Survive"
+
+    def test_preserves_cjk_characters(self):
+        result = clean_search_query("\u5bb9\u6613\u53d7\u50b7\u7684\u5973\u4eba KARAOKE")
+        assert "\u5bb9\u6613\u53d7\u50b7\u7684\u5973\u4eba" in result
+
+    def test_preserves_japanese_characters(self):
+        result = clean_search_query("\u30ab\u30e9\u30aa\u30b1 \u30bd\u30f3\u30b0")
+        assert "\u30ab\u30e9\u30aa\u30b1" in result
+
+    def test_preserves_hangul(self):
+        result = clean_search_query("\uac00\ub098\ub2e4\ub77c - \ub178\ub798")
+        assert "\uac00\ub098\ub2e4\ub77c" in result
+
     def test_strips_whitespace(self):
         result = clean_search_query("  Artist - Song  ")
         assert not result.startswith(" ")
@@ -177,6 +193,14 @@ class TestScoreResult:
         score_live = score_result(result_live, "Artist - Song")
         score_normal = score_result(result_normal, "Artist - Song")
         assert score_live < score_normal
+
+    def test_version_keyword_uses_word_boundaries(self):
+        """'Oliver's Army' should not be penalized for containing 'live'."""
+        result = {"name": "Oliver's Army", "artist": "Elvis Costello"}
+        score = score_result(result, "Elvis Costello - Oliver's Army")
+        result_live = {"name": "Oliver's Army - Live", "artist": "Elvis Costello"}
+        score_live = score_result(result_live, "Elvis Costello - Oliver's Army")
+        assert score > score_live
 
     def test_bad_keyword_penalization_remix(self):
         result = {"name": "Song remix", "artist": "Artist"}
@@ -472,6 +496,10 @@ class TestRegexTidy:
         result = regex_tidy("Artist - Song \U0001f3a4")
         assert "\U0001f3a4" not in result
 
+    def test_emoji_removal_preserves_word_boundaries(self):
+        result = regex_tidy("CAKE _ I Will Survive\U0001f3a4HQ Karaoke\U0001f3a4")
+        assert result == "CAKE I Will Survive"
+
     def test_normalizes_em_dash(self):
         assert regex_tidy("Artist \u2014 Song") == "Artist - Song"
 
@@ -519,8 +547,136 @@ class TestRegexTidy:
         result = regex_tidy("Fernando - KARAOKE VERSION - as popularized by ABBA")
         assert result == "Fernando - ABBA"
 
+    def test_preserves_cjk_title(self):
+        result = regex_tidy(
+            "\u5bb9\u6613\u53d7\u50b7\u7684\u5973\u4eba-\u738b\u9756\u96ef-\u4f34\u594f KARAOKE"
+        )
+        assert "\u5bb9\u6613\u53d7\u50b7\u7684\u5973\u4eba" in result
+        assert "\u738b\u9756\u96ef" in result
+
+    def test_no_dangling_open_paren_after_noise_removal(self):
+        result = regex_tidy(
+            "Paul Kelly - Firewood and Candles (Karaoke Version) with Lyrics HD Vocal-Star Karaoke"
+        )
+        assert result == "Paul Kelly - Firewood and Candles"
+
+    def test_preserves_feat_parenthetical(self):
+        assert regex_tidy("Artist - Song (feat. Other)") == "Artist - Song (feat. Other)"
+
+    def test_preserves_ft_parenthetical(self):
+        assert regex_tidy("Artist - Song (ft. Other Artist)") == "Artist - Song (ft. Other Artist)"
+
+    def test_strips_feat_bracketed(self):
+        assert regex_tidy("Artist - Song [feat. Other]") == "Artist - Song"
+
+    def test_strips_leading_karaoke_label(self):
+        result = regex_tidy("KARAOKE - Cry Me a River by Julie London")
+        assert result == "Cry Me a River by Julie London"
+
+    def test_strips_leading_instrumental_label(self):
+        assert regex_tidy("Instrumental - Artist - Song") == "Artist - Song"
+
+    def test_strips_leading_official_video_with_pipe(self):
+        assert regex_tidy("Official Video | Artist - Song") == "Artist - Song"
+
+    def test_strips_leading_official_music_video(self):
+        assert regex_tidy("Official Music Video - Artist - Song") == "Artist - Song"
+
     def test_no_change_when_clean(self):
         assert regex_tidy("Artist - Song Title") == "Artist - Song Title"
+
+    # -- CJK dash normalization (Kana / Hangul) --------------------------------
+
+    def test_cjk_dash_normalizes_katakana(self):
+        assert regex_tidy("アーティスト-曲名") == "アーティスト - 曲名"
+
+    def test_cjk_dash_normalizes_hangul(self):
+        assert regex_tidy("가수-노래제목") == "가수 - 노래제목"
+
+    def test_cjk_dash_normalizes_hiragana(self):
+        assert regex_tidy("あいみょん-マリーゴールド") == "あいみょん - マリーゴールド"
+
+    # -- Japanese corner brackets ----------------------------------------------
+
+    def test_strips_corner_bracket_label(self):
+        assert regex_tidy("Song Title「カラオケ」") == "Song Title"
+
+    def test_strips_corner_bracket_with_content(self):
+        assert regex_tidy("曲名「歌ってみた」- Artist") == "曲名 - Artist"
+
+    def test_unwraps_white_corner_bracket_title(self):
+        assert regex_tidy("Singer -『Song Title』") == "Singer - Song Title"
+
+    def test_strips_white_corner_bracket_noise(self):
+        assert regex_tidy("Song Title『カラオケ』") == "Song Title"
+
+    def test_strips_white_corner_bracket_ktv(self):
+        assert regex_tidy("Song Title『KTV』") == "Song Title"
+
+    # -- Japanese trailing noise -----------------------------------------------
+
+    def test_strips_trailing_uttemita(self):
+        assert regex_tidy("Artist - Song 歌ってみた") == "Artist - Song"
+
+    def test_strips_trailing_off_vocal_ja(self):
+        assert regex_tidy("Artist - Song オフボーカル") == "Artist - Song"
+
+    def test_strips_trailing_vocaloid(self):
+        assert regex_tidy("Artist - Song ボカロ") == "Artist - Song"
+
+    def test_strips_trailing_cover_ja(self):
+        assert regex_tidy("Artist - Song カバー") == "Artist - Song"
+
+    # -- Korean trailing noise -------------------------------------------------
+
+    def test_strips_trailing_noraebang(self):
+        assert regex_tidy("Artist - Song 노래방") == "Artist - Song"
+
+    def test_strips_trailing_keumyoung(self):
+        assert regex_tidy("Artist - Song 금영") == "Artist - Song"
+
+    def test_strips_trailing_taejin(self):
+        assert regex_tidy("Artist - Song 태진") == "Artist - Song"
+
+    def test_strips_trailing_tj(self):
+        assert regex_tidy("Artist - Song TJ") == "Artist - Song"
+
+    def test_strips_trailing_mr(self):
+        assert regex_tidy("Artist - Song MR") == "Artist - Song"
+
+    # -- Korean leading noise --------------------------------------------------
+
+    def test_strips_leading_noraebang(self):
+        assert regex_tidy("노래방 - Song Title") == "Song Title"
+
+    def test_strips_leading_bracket_tj_noraebang(self):
+        assert regex_tidy("[TJ노래방] APT. - Artist") == "APT. - Artist"
+
+    def test_strips_leading_bracket_karaoke(self):
+        assert regex_tidy("[Karaoke] Artist - Song") == "Artist - Song"
+
+    # -- Bracket noise detection with Korean -----------------------------------
+
+    def test_strips_angle_bracket_noraebang(self):
+        assert regex_tidy("Song Title《노래방》") == "Song Title"
+
+    def test_strips_white_corner_bracket_noraebang(self):
+        assert regex_tidy("Song Title『노래방』") == "Song Title"
+
+    # -- Realistic CJK integration tests ---------------------------------------
+
+    def test_japanese_karaoke_filename(self):
+        assert regex_tidy("YOASOBI-夜に駆ける「カラオケ」歌ってみた") == "YOASOBI - 夜に駆ける"
+
+    def test_korean_karaoke_filename(self):
+        assert regex_tidy("BTS - Dynamite 노래방 MR") == "BTS - Dynamite"
+
+    def test_korean_tj_noraebang_full(self):
+        result = regex_tidy("[TJ노래방] APT. - 로제(ROSE),Bruno Mars _ TJ Karaoke")
+        assert result == "APT. - 로제(ROSE),Bruno Mars"
+
+    def test_chinese_title_in_white_corner_brackets(self):
+        assert regex_tidy("周杰倫 -『稻香』") == "周杰倫 - 稻香"
 
 
 class TestYoutubeIdSuffix:

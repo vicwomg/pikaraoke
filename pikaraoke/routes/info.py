@@ -74,6 +74,7 @@ def info():
         languages=LANGUAGES,
         preferred_language=preferred_language,
         browse_results_per_page=k.browse_results_per_page,
+        enable_title_tidy=k.enable_title_tidy,
         score_phrases={
             "low": k.low_score_phrases,
             "mid": k.mid_score_phrases,

@@ -431,6 +431,12 @@
 					</label>
 					</div>
 
+					<div class="user-preference-container">
+					<input id="pref-enable-title-tidy" type="checkbox" class="user-preference-checkbox checkbox" data-pref="enable_title_tidy" {% if enable_title_tidy == True %}checked{% endif %}>
+					<label class="label" for="pref-enable-title-tidy">{# MSG: Checkbox label which enables automatic cleanup of YouTube song titles #} {% trans %}Enable automatic YouTube title cleanup (strips noise words like "Karaoke Version HD"){% endtrans %}
+					</label>
+					</div>
+
 					<div class="user-preference-container is-align-items-center">
 					<input id="pref-avsync" class="user-preference-input input" type="number" step="0.1" min="-10" max="10" data-pref="avsync" data-start-value="{{ avsync }}" value="{{ avsync }}" />
 					<label class="label" for="pref-avsync">
