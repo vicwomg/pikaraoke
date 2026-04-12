@@ -107,18 +107,43 @@ _RATE_LIMITED = object()
 
 _last_api_request_time = 0.0
 
-# Attribution phrases that embed the artist name in karaoke filenames
-# Karaoke-related keywords shared across leading/trailing/bracket noise patterns.
-_KARAOKE_KEYWORDS = r"karaoke|karaokê|カラオケ|卡拉OK|KTV|노래방"
+# All words/phrases meaning "this is a karaoke/instrumental track."
+# Adding a new language = adding strings to this list. Nothing else changes.
+_KARAOKE_KEYWORDS = [
+    # Global
+    "karaoke",
+    "karaokê",
+    "instrumental",
+    # Chinese (Traditional + Simplified)
+    "卡拉OK",  # karaoke
+    "KTV",
+    "伴奏",  # accompaniment
+    "純音樂",  # pure music / instrumental (trad)
+    "纯音乐",  # pure music / instrumental (simp)
+    "無人聲",  # no vocals (trad)
+    "无人声",  # no vocals (simp)
+    "導唱",  # guide vocal (trad)
+    "导唱",  # guide vocal (simp)
+    "消音",  # vocal removed
+    # Japanese
+    "カラオケ",
+    "オフボーカル",  # off vocal
+    "ボカロ",  # vocaloid
+    # Korean
+    "노래방",  # noraebang
+    "금영",  # Keumyoung karaoke brand
+    "태진",  # Taejin karaoke brand
+]
+_KARAOKE_KEYWORDS_ALT = "|".join(re.escape(kw) for kw in _KARAOKE_KEYWORDS)
 
 # Leading noise: "KARAOKE - Title" or "Official Video | Title" etc.
 _LEADING_NOISE = re.compile(
-    rf"^(?:{_KARAOKE_KEYWORDS}|instrumental|official\s+(?:music\s+)?video)\s*[-|:】》」』]\s*",
+    rf"^(?:{_KARAOKE_KEYWORDS_ALT}|official\s+(?:music\s+)?video)\s*[-|:】》」』]\s*",
     re.IGNORECASE,
 )
 # Leading [square brackets] containing a karaoke keyword — strip entirely.
 _LEADING_BRACKET_NOISE_RE = re.compile(
-    rf"^\s*\[[^\]]*?(?:{_KARAOKE_KEYWORDS})[^\]]*?\]\s*",
+    rf"^\s*\[[^\]]*?(?:{_KARAOKE_KEYWORDS_ALT})[^\]]*?\]\s*",
     re.IGNORECASE,
 )
 
@@ -138,35 +163,18 @@ ATTRIBUTION_PATTERNS = [
 ]
 
 TRAILING_NOISE_PATTERNS = [
-    # "karaoke" at the trailing end means everything after it is noise
-    # (source channels, version labels, etc.) — no need to enumerate them
-    re.compile(r"\s*\bkaraoke\b.*$", re.IGNORECASE),
+    # Any karaoke keyword = nuke everything from that word to end of string.
+    # Covers all languages via _KARAOKE_KEYWORDS — no per-language patterns needed.
+    re.compile(rf"\s*(?:{_KARAOKE_KEYWORDS_ALT}).*$", re.IGNORECASE),
+    # Production/metadata labels (any language) — strip at end of string only.
+    # These are NOT karaoke synonyms, just generic video/audio labels.
     re.compile(
-        r"\s*\b(?:official\s+(?:music\s+)?video|lyrics?"
-        r"|hd|hq|instrumental|with\s+lyrics|no\s+lead\s+vocal|cc)\b[\s.!]*$",
-        re.IGNORECASE,
-    ),
-    # CJK noise words (Chinese Traditional/Simplified, Japanese, Korean)
-    re.compile(
-        r"\s*(?:伴奏|卡拉OK|KTV"
-        r"|純音樂|纯音乐"  # pure music / instrumental (zh)
-        r"|無人聲|无人声"  # no vocals (zh)
-        r"|導唱|导唱"  # guide vocal (zh)
-        r"|消音"  # vocal removed (zh)
-        r"|翻唱"  # cover (zh)
-        r"|現場|现场"  # live (zh)
-        r"|高清"  # HD (zh)
-        r"|歌詞|歌词"  # lyrics (zh)
-        r"|MV"  # music video
-        r"|原版"  # original version (zh)
-        r"|歌ってみた"  # "tried singing" / cover (ja)
-        r"|オフボーカル"  # off vocal (ja)
-        r"|ボカロ"  # vocaloid (ja)
-        r"|カバー"  # cover (ja)
-        r"|노래방"  # noraebang / karaoke (ko)
-        r"|금영"  # Keumyoung karaoke brand (ko)
-        r"|태진|TJ"  # Taejin karaoke brand (ko)
-        r"|MR"  # accompaniment track (ko)
+        r"\s*(?:"
+        r"official\s+(?:music\s+)?video|lyrics?|hd|hq"
+        r"|with\s+lyrics|no\s+lead\s+vocal|cc"  # English
+        r"|翻唱|現場|现场|高清|歌詞|歌词|MV|原版"  # Chinese
+        r"|歌ってみた|カバー"  # Japanese
+        r"|TJ|MR"  # Korean
         r")[\s.!]*$",
         re.IGNORECASE,
     ),
@@ -192,7 +200,7 @@ _CJK_STRIP_LABEL_RE = re.compile(r"\s*(?:【[^】]*】|「[^」]*」)")
 # 《double angle》and『white corner』brackets wrap titles — unwrap (keep content)
 # unless the content is noise (KTV, karaoke labels), in which case strip entirely.
 _CJK_UNWRAP_TITLE_RE = re.compile(r"[《『]([^》』]*)[》』]")
-_CJK_TITLE_NOISE_RE = re.compile(_KARAOKE_KEYWORDS, re.IGNORECASE)
+_CJK_TITLE_NOISE_RE = re.compile(_KARAOKE_KEYWORDS_ALT, re.IGNORECASE)
 
 
 def _replace_cjk_title_bracket(match: re.Match) -> str:
@@ -657,44 +665,42 @@ def _strip_attribution_and_noise(name: str) -> str:
     return name.strip()
 
 
-def regex_tidy(filename: str) -> str:
-    """Clean a song filename using regex-only heuristics (no API calls).
+def _step_strip_emoji_and_underscores(name: str) -> str:
+    name = EMOJI_PATTERN.sub(" ", name)
+    return name.replace("_", " ")
 
-    1. Strip emoji, replace underscores
-    2. Extract attribution artist if present -> restructure as "Title - Artist"
-    3. Otherwise strip trailing noise
-    4. Normalize separators and whitespace
-    """
-    name = EMOJI_PATTERN.sub(" ", filename)
-    name = name.replace("_", " ")
 
-    # Strip leading noise labels like "KARAOKE - Title" or "[TJ노래방] Title"
+def _step_strip_leading_noise(name: str) -> str:
     name = _LEADING_NOISE.sub("", name)
-    name = _LEADING_BRACKET_NOISE_RE.sub("", name)
+    return _LEADING_BRACKET_NOISE_RE.sub("", name)
 
-    # Strip CJK metadata labels 【...】「...」; unwrap title brackets 《...》『...』
+
+def _step_normalize_cjk_brackets(name: str) -> str:
     name = _CJK_STRIP_LABEL_RE.sub(" ", name)
-    name = _CJK_UNWRAP_TITLE_RE.sub(_replace_cjk_title_bracket, name)
+    return _CJK_UNWRAP_TITLE_RE.sub(_replace_cjk_title_bracket, name)
 
-    # Normalize CJK dashes early so downstream patterns (noise, attribution) see " - "
-    name = _CJK_DASH_RE.sub(" - ", name)
 
-    # Try to extract artist from attribution phrases
+def _step_normalize_cjk_dashes(name: str) -> str:
+    return _CJK_DASH_RE.sub(" - ", name)
+
+
+def _step_extract_attribution_or_strip_noise(name: str) -> str:
     artist = _extract_attribution_artist(name)
     if artist:
         title = _strip_attribution_and_noise(name)
-        name = f"{title} - {artist}"
-    else:
-        # Strip trailing parenthesised/bracketed content, but preserve featuring credits
-        name = _PAREN_NOT_FEAT_TRAILING.sub("", name)
-        name = re.sub(r"\s*\[[^\]]*\]\s*$", "", name, flags=re.IGNORECASE)
-        # Iteratively strip trailing noise patterns
-        for noise_pat in TRAILING_NOISE_PATTERNS:
-            prev = None
-            while prev != name:
-                prev = name
-                name = noise_pat.sub("", name)
+        return f"{title} - {artist}"
+    # No attribution — strip trailing parenthesised/bracketed content + noise
+    name = _PAREN_NOT_FEAT_TRAILING.sub("", name)
+    name = re.sub(r"\s*\[[^\]]*\]\s*$", "", name, flags=re.IGNORECASE)
+    for noise_pat in TRAILING_NOISE_PATTERNS:
+        prev = None
+        while prev != name:
+            prev = name
+            name = noise_pat.sub("", name)
+    return name
 
+
+def _step_normalize_separators_and_whitespace(name: str) -> str:
     # Strip dangling open paren/bracket left by noise removal (e.g. "Title (")
     name = re.sub(r"\s*[\(\[]\s*$", "", name)
     # Normalize separators: en-dash, em-dash, big solidus, fullwidth solidus -> " - "
@@ -702,8 +708,17 @@ def regex_tidy(filename: str) -> str:
     # Collapse whitespace
     name = re.sub(r"\s+", " ", name).strip()
     # Strip trailing dash left over from noise removal
-    name = re.sub(r"\s*-\s*$", "", name)
-    return name
+    return re.sub(r"\s*-\s*$", "", name)
+
+
+def regex_tidy(filename: str) -> str:
+    """Clean a song filename using regex-only heuristics (no API calls)."""
+    name = _step_strip_emoji_and_underscores(filename)
+    name = _step_strip_leading_noise(name)
+    name = _step_normalize_cjk_brackets(name)
+    name = _step_normalize_cjk_dashes(name)
+    name = _step_extract_attribution_or_strip_noise(name)
+    return _step_normalize_separators_and_whitespace(name)
 
 
 def youtube_id_suffix(file_path: str) -> str:
