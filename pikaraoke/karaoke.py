@@ -124,6 +124,7 @@ class Karaoke:
         show_splash_clock: bool | None = None,
         splash_delay: int | None = None,
         volume: float | None = None,
+        enable_title_tidy: bool | None = None,
     ) -> None:
         """Initialize the Karaoke instance.
 
@@ -208,7 +209,9 @@ class Karaoke:
 
         # Initialize database, scanner, and song manager (startup runs at end of __init__)
         self.db = KaraokeDatabase()
-        self.song_manager = SongManager(self.download_path, db=self.db)
+        self.song_manager = SongManager(
+            self.download_path, db=self.db, get_title_tidy=lambda: self.enable_title_tidy
+        )
         self._scanner = LibraryScanner(self.db)
         self._sync_lock = threading.Lock()
 
@@ -223,7 +226,7 @@ class Karaoke:
         self.playback_controller = PlaybackController(
             preferences=self.preferences,
             events=self.events,
-            filename_from_path=SongManager.filename_from_path,
+            filename_from_path=self.song_manager.display_name_from_path,
             streaming_format=self.streaming_format,
         )
 
@@ -259,7 +262,7 @@ class Karaoke:
             preferences=self.preferences,
             events=self.events,
             get_now_playing_user=lambda: self.playback_controller.now_playing_user,
-            filename_from_path=SongManager.filename_from_path,
+            filename_from_path=self.song_manager.display_name_from_path,
             get_available_songs=lambda: self.song_manager.songs,
         )
 

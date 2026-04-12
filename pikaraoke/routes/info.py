@@ -31,7 +31,7 @@ def info():
     is_linux_platform = is_linux()
 
     preferred_language = k.preferences.get("preferred_language", "en")
-    # youtube-dl
+    # yt-dlp
     youtubedl_version = k.youtubedl_version
 
     return render_template(
@@ -74,6 +74,7 @@ def info():
         languages=LANGUAGES,
         preferred_language=preferred_language,
         browse_results_per_page=k.browse_results_per_page,
+        enable_title_tidy=k.enable_title_tidy,
         score_phrases={
             "low": k.low_score_phrases,
             "mid": k.mid_score_phrases,

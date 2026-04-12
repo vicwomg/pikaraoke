@@ -97,8 +97,8 @@
 				e.preventDefault();
 				if (
 					window.confirm(
-						// {# MSG: Confirmation text whe the user asks to update the Youtube-dl tool. #}
-						"{{ _('Are you sure you want to update Youtube-dl right now? Current and pending downloads may fail.') }}"
+						// {# MSG: Confirmation text whe the user asks to update yt-dlp. #}
+						"{{ _('Are you sure you want to update yt-dlp right now? Current and pending downloads may fail.') }}"
 					)
 				) {
 					location.href = this.href;
@@ -108,7 +108,7 @@
 		$("#expand-link").click(function (e) {
 			e.preventDefault();
 			// {# MSG: Confirmation text when the user wants to expand the filesystem to take the entire SD card. #}
-			if (window.confirm("Are you sure you want to expand the filesystem? This will reboot your raspberry pi.")) {
+			if (window.confirm(window.translations.confirmExpandFilesystem)) {
 				location.href = this.href;
 			}
 		});
@@ -584,6 +584,12 @@
 					</label>
 					</div>
 
+					<div class="user-preference-container">
+					<input id="pref-enable-title-tidy" type="checkbox" class="user-preference-checkbox checkbox" data-pref="enable_title_tidy" {% if enable_title_tidy == True %}checked{% endif %}>
+					<label class="label" for="pref-enable-title-tidy">{# MSG: Checkbox label which enables automatic cleanup of YouTube song titles #} {% trans %}Enable automatic YouTube title cleanup (strips noise words like "Karaoke Version HD"){% endtrans %}
+					</label>
+					</div>
+
 					<div class="user-preference-container is-align-items-center">
 					<input id="pref-avsync" class="user-preference-input input" type="number" step="0.1" min="-10" max="10" data-pref="avsync" data-start-value="{{ avsync }}" value="{{ avsync }}" />
 					<label class="label" for="pref-avsync">
@@ -642,8 +648,8 @@
 					<li><u>{% trans %}Platform:{% endtrans %}</u> {{ platform }}</li>
 					{# MSG: The os version  #}
 					<li><u>{% trans %}OS Version:{% endtrans %}</u> {{ os_version }}</li>
-					{# MSG: The version of the program "Youtube-dl". #}
-					<li><u>{% trans %}Youtube-dl (yt-dlp) version:{% endtrans %}</u> {{ youtubedl_version }}</li>
+					{# MSG: The version of the program "yt-dlp". #}
+					<li><u>{% trans %}yt-dlp version:{% endtrans %}</u> {{ youtubedl_version }}</li>
 					{# MSG: The version of the program "ffmpeg". #}
 					<li><u>{% trans %}FFmpeg version:{% endtrans %}</u> {{ ffmpeg_version }} {% if not is_transpose_enabled %} (missing lib-rubberband, pitch shift is not supported) {% endif %}</li>
 					{# MSG: The version of Pikaraoke running right now. #}
@@ -679,17 +685,17 @@
 			</header>
 			<div class="card-content collapsible-content">
 				<div class="content">
-					{# MSG: Text explaining why you might want to update youtube-dl. #}
+					{# MSG: Text explaining why you might want to update yt-dlp. #}
 					<p>{% trans %}
-						If downloads or searches stopped working, updating youtube-dl will probably fix it.<br/>
+						If downloads or searches stopped working, updating yt-dlp will probably fix it.<br/>
 						The current installed version is: "{{ youtubedl_version }}".
 					{% endtrans %}</p>
 					<a id="update-ytdl-link" class="button is-primary is-inverted" href="{{ url_for('admin.update_ytdl') }}"
-						{# MSG: Text for the link which will try and update youtube-dl on the machine running Pikaraoke. #}
-							>{% trans %}Update youtube-dl{% endtrans %}</a
+						{# MSG: Text for the link which will try and update yt-dlp on the machine running Pikaraoke. #}
+							>{% trans %}Update yt-dlp{% endtrans %}</a
 						>
 					<p class="mt-3 is-size-7 has-text-warning">
-						{# MSG: Help text which explains why updating youtube-dl can fail. The log is a file on the machine running Pikaraoke. #}
+						{# MSG: Help text which explains why updating yt-dlp can fail. The log is a file on the machine running Pikaraoke. #}
 						{% trans -%}
 							* This update link above may fail if you don't have proper file permissions.
 							Check the pikaraoke log for errors.

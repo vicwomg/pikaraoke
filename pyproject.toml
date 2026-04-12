@@ -41,6 +41,10 @@ dev = [
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
 ]
+translations = [
+    "deep-translator>=1.11.4",
+    "polib>=1.2.0",
+]
 
 [project.scripts]
 pikaraoke = "pikaraoke.app:main"
