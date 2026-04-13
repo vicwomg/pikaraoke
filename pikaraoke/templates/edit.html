@@ -42,11 +42,16 @@
       fetchSuggestions();
     });
 
-    $('#new_file_name').keydown(function (e) {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        fetchSuggestions();
-      }
+    $('#auto-format').click(function () {
+      var $btn = $(this);
+      var filename = $.trim($('#new_file_name').val());
+      if (!filename) return;
+      $btn.addClass("is-loading");
+      $.getJSON('/metadata/auto-format', { filename: filename }, function (data) {
+        if (data.formatted_name) $('#new_file_name').val(data.formatted_name);
+      }).always(function () {
+        $btn.removeClass("is-loading");
+      });
     });
 
     $('#swap-order').click(function (e) {
@@ -92,36 +97,43 @@
     </div>
     <input value="{{ song }}" type="hidden" name='old_file_name'>
     <input type="hidden" name="referrer" value="{{ referrer }}">
-    {# MSG: Label for the input where the user types the new filename or search term. #}
-    <label class="label">{% trans %}New filename / search term{% endtrans %}</label>
-    <div class="field has-addons">
-      <div class="control is-expanded">
+    {# MSG: Label for the input where the user types the new filename. #}
+    <label class="label">{% trans %}New filename{% endtrans %}</label>
+    <div class="field">
+      <div class="control">
         <input autocomplete="off" id="new_file_name" class="input" type="text" name="new_file_name"
-          value="{{ suggested_stem }}">
-      </div>
-      <div class="control">
-        <div class="select">
-          <select id="itunes-country" title="{% trans %}iTunes search country{% endtrans %}">
-            {% for code, name in itunes_countries.items() %}
-            <option value="{{ code }}" {% if itunes_search_country == code %}selected{% endif %}>{{ code }}</option>
-            {% endfor %}
-          </select>
-        </div>
-      </div>
-      <div class="control">
-        {# MSG: Label on button which searches for track name suggestions from a metadata provider. #}
-        <button type="button" class="button is-info" id="suggest-title">
-          <span class="icon"><i class="icon-search-1"></i></span>
-          <span>{% trans %}Search{% endtrans %}</span>
-        </button>
+          value="{{ raw_stem }}">
       </div>
     </div>
     <div class="buttons are-small mb-4">
+      {# MSG: Label on button which applies automatic formatting to tidy the filename. #}
+      <button type="button" class="button is-rounded is-link" id="auto-format">
+        <span class="icon"><i class="icon-pencil"></i></span>
+        <span>{% trans %}Auto Format{% endtrans %}</span>
+      </button>
       {# MSG: Label on button which swaps the artist and title around the dash separator. #}
       <button type="button" class="button is-rounded is-link" id="swap-order">
         <span class="icon"><i class="icon-exchange"></i></span>
         <span>{% trans %}Swap Artist/Title{% endtrans %}</span>
       </button>
+      <div class="field has-addons mb-0">
+        <div class="control">
+          {# MSG: Label on button which searches for track name suggestions from iTunes. #}
+          <button type="button" class="button is-small is-info" id="suggest-title">
+            <span class="icon"><i class="icon-search-1"></i></span>
+            <span>{% trans %}Suggest from iTunes{% endtrans %}</span>
+          </button>
+        </div>
+        <div class="control">
+          <div class="select is-small">
+            <select id="itunes-country" title="{% trans %}iTunes search country{% endtrans %}">
+              {% for code, name in itunes_countries.items() %}
+              <option value="{{ code }}" {% if itunes_search_country == code %}selected{% endif %}>{{ name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
     </div>
     <div id="suggest_results" class="mb-4"></div>
     <div class="field is-grouped">

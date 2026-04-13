@@ -180,7 +180,6 @@ def edit_file(query):
         )
         return redirect(referrer)
     raw_stem = k.song_manager.filename_from_path(song_path, tidy=False)
-    suggested_stem = k.song_manager.filename_from_path(song_path, tidy=True)
     format_icon = _format_icon(song_path, k.db.get_format(song_path))
     itunes_search_country = k.preferences.get_or_default("itunes_search_country")
     return render_template(
@@ -189,7 +188,6 @@ def edit_file(query):
         title="Song File Edit",
         song=song_path,
         raw_stem=raw_stem,
-        suggested_stem=suggested_stem,
         format_icon=format_icon,
         referrer=referrer,
         itunes_countries=ITUNES_COUNTRIES,

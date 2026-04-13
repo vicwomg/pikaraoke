@@ -4,15 +4,28 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.lib.current_app import get_karaoke_instance
+from pikaraoke.lib.metadata_parser import regex_tidy
 from pikaraoke.lib.metadata_providers import get_provider, suggest_metadata
 
 metadata_bp = Blueprint("metadata", __name__)
+
+
+class AutoFormatQuery(Schema):
+    filename = fields.String(required=True)
 
 
 class SuggestNamesQuery(Schema):
     filename = fields.String(required=True)
     limit = fields.Integer(load_default=5)
     country = fields.String(load_default=None)
+
+
+@metadata_bp.route("/metadata/auto-format")
+@metadata_bp.arguments(AutoFormatQuery, location="query")
+def auto_format(query):
+    """Apply regex_tidy to a filename and return the formatted result."""
+    formatted = regex_tidy(query["filename"])
+    return {"formatted_name": formatted or query["filename"]}
 
 
 @metadata_bp.route("/metadata/suggest-names")
