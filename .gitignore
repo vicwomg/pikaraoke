@@ -21,3 +21,6 @@ docker-compose.yml
 
 # Briefcase build artifacts
 *.briefcase.toml
+
+# Script output
+scripts/itunes_report.csv

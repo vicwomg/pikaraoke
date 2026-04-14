@@ -396,6 +396,18 @@
 						<label class="label" for="pref-language">{# MSG: Label for language selection dropdown #} {% trans %}Preferred language (requires restart){% endtrans %}
 						</label>
 					</div>
+
+					<div class="user-preference-container is-align-items-center">
+						<div class="select">
+							<select id="pref-itunes-country" class="user-preference-input" data-pref="itunes_search_country" data-start-value="{{ itunes_search_country }}">
+								{% for code, name in itunes_countries.items() %}
+								<option value="{{ code }}" {% if itunes_search_country == code %}selected{% endif %}>{{ name }}</option>
+								{% endfor %}
+							</select>
+						</div>
+						<label class="label" for="pref-itunes-country">{# MSG: Label for iTunes search country dropdown #} {% trans %}iTunes search country{% endtrans %}
+						</label>
+					</div>
 				</div>
 			</div>
 

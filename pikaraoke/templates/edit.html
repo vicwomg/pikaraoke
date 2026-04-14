@@ -4,46 +4,67 @@
 <script>
   $(function () {
 
-    $('#remove-karaoke').click(function (e) {
-      var filename = $('#new_file_name').val();
-      if (!$.trim(filename)) return;
-      $.getJSON('/metadata/tidy-name', { filename: filename }, function (data) {
-        if (data.tidied) {
-          $('#new_file_name').val(data.tidied);
-        }
-      });
-    });
-
-    $('#suggest-title').click(function (e) {
+    function fetchSuggestions() {
       var filename = $.trim($('#new_file_name').val());
       if (!filename) return;
-      $('.suggest_loader').removeClass("is-hidden");
+      var $btn = $('#suggest-title');
+      $btn.addClass("is-loading");
       $("#suggest_results").html("");
-      $.getJSON('/metadata/suggest-names', { filename: filename, limit: 5 }, function (data) {
-        var suggestions = "";
+      var country = $('#itunes-country').val();
+      $.getJSON('/metadata/suggest-names', { filename: filename, limit: 5, country: country }, function (data) {
+        var $container = $("#suggest_results").empty();
         if (data.suggestions && data.suggestions.length > 0) {
           $.each(data.suggestions, function (i, item) {
-            suggestions += "<li><a class='suggested_item is-warning'>" + item.name + " - " + item.artist + "</a></li>";
+            var display = item.display || (item.title + " - " + item.artist);
+            var $text = $('<span class="suggest-text">').text(display);
+            if (item.year || item.genre) {
+              var parts = [];
+              if (item.year) parts.push(item.year);
+              if (item.genre) parts.push(item.genre);
+              $text.append($('<span class="suggest-meta">').text(" (" + parts.join(", ") + ")"));
+            }
+            var score = item.score != null ? item.score : "";
+            var $score = $('<span class="suggest-score">').text(score);
+            $('<a class="suggested_item has-background-grey-dark">').data('name', display).append($text).append($score).appendTo($container);
           });
+          // {# MSG: Help text explaining that clicking a suggestion copies it to the filename input. #}
+          $container.append('<p class="is-size-7 has-text-grey-light mt-2">{{ _("Click a suggestion to use it as the new filename.") }}</p>');
         } else {
           // {# MSG: Warning when no suggested tracks are found for a search. #}
-          suggestions = "<li>{{ _('No suggestion!') }}</li>";
+          $container.html('<span class="has-text-grey-light">{{ _("No suggestion!") }}</span>');
         }
-        $("#suggest_results").html("<ul>" + suggestions + "</ul>");
       }).always(function () {
-        $('.suggest_loader').addClass("is-hidden");
+        $btn.removeClass("is-loading");
+      });
+    }
+
+    $('#suggest-title').click(function (e) {
+      fetchSuggestions();
+    });
+
+    $('#auto-format').click(function () {
+      var $btn = $(this);
+      var filename = $.trim($('#new_file_name').val());
+      if (!filename) return;
+      $btn.addClass("is-loading");
+      $.getJSON('/metadata/auto-format', { filename: filename }, function (data) {
+        if (data.formatted_name) $('#new_file_name').val(data.formatted_name);
+      }).always(function () {
+        $btn.removeClass("is-loading");
       });
     });
 
     $('#swap-order').click(function (e) {
-      var split_name = $('#new_file_name').val().split(' - ');
-      var new_name = split_name[1] + " - " + split_name[0];
-      new_name = new_name.trim();
-      $('#new_file_name').val(new_name);
+      var val = $('#new_file_name').val();
+      var idx = val.indexOf(' - ');
+      if (idx === -1) return;
+      var part1 = val.substring(0, idx);
+      var part2 = val.substring(idx + 3);
+      $('#new_file_name').val(part2 + ' - ' + part1);
     });
 
     $("#suggest_results").on("click", ".suggested_item", function () {
-      $('#new_file_name').val($(this).text());
+      $('#new_file_name').val($(this).data('name'));
     });
 
   });
@@ -57,32 +78,64 @@
 
 {% block content %}
 
-
 <div class="field">
   <form action="{{ url_for('files.edit_file') }}" method="post">
     <div class="field">
-      <p class='has-text-warning'>{{ raw_stem }} </p>
+      {# MSG: Label showing the original filename on disk before editing. #}
+      <label class="label">{% trans %}Current filename{% endtrans %}</label>
+      <div class="card">
+        <div class="card-content py-2 px-3">
+          <div class="is-flex is-align-items-center">
+            <span class="break-word">{{ raw_stem }}</span>
+            {% if format_icon %}
+            <img src="{{ url_for('static', filename='images/formats/' + format_icon + '.png') }}"
+              alt="{{ format_icon }}" class="format-badge ml-3">
+            {% endif %}
+          </div>
+        </div>
+      </div>
     </div>
     <input value="{{ song }}" type="hidden" name='old_file_name'>
     <input type="hidden" name="referrer" value="{{ referrer }}">
-    {# MSG: Label on the control to edit the song's name #}
-    <label class="label">{% trans %}Edit Song Name{% endtrans %}</label>
+    {# MSG: Label for the input where the user types the new filename. #}
+    <label class="label">{% trans %}New filename{% endtrans %}</label>
     <div class="field">
-      <input autocomplete="off" id="new_file_name" class="input" type="text" name="new_file_name"
-        value="{{ raw_stem }}"></input>
+      <div class="control">
+        <input autocomplete="off" id="new_file_name" class="input" type="text" name="new_file_name"
+          value="{{ raw_stem }}">
+      </div>
     </div>
-    <ul>
-      {# MSG: Label on button which auto formats the song's title. #}
-      <li><a id='remove-karaoke'>{% trans %}Auto-format{% endtrans %}</a></li>
-      {# MSG: Label on button which swaps the order of the artist and song in the title. #}
-      <li><a id='swap-order'>{% trans %}Swap artist/song order{% endtrans %}</a></li>
-      {# MSG: Label on button which loads results from the website Last.fm and suggests titles based on matches there. #}
-      {# MSG: Label on button which suggests song titles from the website Last.fm. #}
-      <li><a id='suggest-title'>{% trans %}Suggest from Last.fm{% endtrans %}</a>
-        <span class="button is-loading is-hidden suggest_loader" style="border:0;background-color:transparent;"></span>
-        <span id="suggest_results"></span>
-      </li>
-    </ul>
+    <div class="buttons are-small mb-4">
+      {# MSG: Label on button which applies automatic formatting to tidy the filename. #}
+      <button type="button" class="button is-rounded is-link" id="auto-format">
+        <span class="icon"><i class="icon-pencil"></i></span>
+        <span>{% trans %}Auto Format{% endtrans %}</span>
+      </button>
+      {# MSG: Label on button which swaps the artist and title around the dash separator. #}
+      <button type="button" class="button is-rounded is-link" id="swap-order">
+        <span class="icon"><i class="icon-exchange"></i></span>
+        <span>{% trans %}Swap Artist/Title{% endtrans %}</span>
+      </button>
+      <div class="field has-addons mb-0">
+        <div class="control">
+          {# MSG: Label on button which searches for track name suggestions from iTunes. #}
+          <button type="button" class="button is-small is-info" id="suggest-title">
+            <span class="icon"><i class="icon-search-1"></i></span>
+            <span>{% trans %}Suggest from iTunes{% endtrans %}</span>
+          </button>
+        </div>
+        <div class="control">
+          <div class="select is-small">
+            <select id="itunes-country" title="{% trans %}iTunes search country{% endtrans %}">
+              {% for code, name in itunes_countries.items() %}
+              <option value="{{ code }}" {% if itunes_search_country == code %}selected{% endif %}>{{ name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="suggest_results" class="mb-4"></div>
     <div class="field is-grouped">
       <div class="control">
         <button class="button is-primary" id="search-button" type="submit">
@@ -97,15 +150,15 @@
       </div>
     </div>
   </form>
+  <div class="has-text-right mt-4">
+    <a class="confirm-delete-file has-text-danger"
+      href="{{url_for('files.delete_file')}}?song={{url_escape(song)}}&referrer={{url_escape(referrer)}}"><i class="icon icon-trash-empty"></i>
+      {# MSG: Label on button which deletes the current song. #}
+      {%- trans -%}
+        Delete this song
+      {%- endtrans -%}
+    </a>
+  </div>
 </div>
-
-<hr>
-<a class="confirm-delete-file has-text-danger is-pulled-right"
-  href="{{url_for('files.delete_file')}}?song={{url_escape(song)}}&referrer={{url_escape(referrer)}}"><i class="icon icon-trash-empty"></i>
-  {# MSG: Label on button which deletes the current song. #}
-  {%- trans -%}
-    Delete this song
-  {%- endtrans -%}
-</a><br>
 
 {% endblock %}
