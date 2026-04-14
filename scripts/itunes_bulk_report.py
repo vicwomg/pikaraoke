@@ -5,9 +5,10 @@ suggest_metadata() pipeline used by the "Auto Suggest" button on the edit page.
 Outputs a CSV and a console summary showing score distribution.
 
 Usage:
-    uv run python scripts/itunes_bulk_report.py SONGS_DIR
+    uv run python scripts/itunes_bulk_report.py SONGS_DIR [--country XX]
 """
 
+import argparse
 import csv
 import os
 import sys
@@ -41,13 +42,14 @@ def collect_unique_songs(songs_dir: str) -> list[str]:
     return filenames
 
 
-def run_report(songs_dir: str) -> None:
+def run_report(songs_dir: str, country: str = "US") -> None:
     filenames = collect_unique_songs(songs_dir)
     total = len(filenames)
     print(f"Found {total} unique songs in {songs_dir}")
+    print(f"iTunes country: {country}")
     print(f"Estimated time: ~{total * 3 // 60} minutes\n")  # ~3s effective (2s limit + RTT)
 
-    provider = ITunesProvider()
+    provider = ITunesProvider(country=country)
     csv_path = os.path.join(os.path.dirname(__file__), "itunes_report.csv")
 
     results: list[dict] = []
@@ -151,11 +153,15 @@ def run_report(songs_dir: str) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print(f"Usage: {sys.argv[0]} SONGS_DIR")
+    parser = argparse.ArgumentParser(description="Bulk iTunes metadata suggestion report.")
+    parser.add_argument("songs_dir", help="Directory containing song files")
+    parser.add_argument(
+        "--country",
+        default="US",
+        help="iTunes store country code (default: US)",
+    )
+    args = parser.parse_args()
+    if not os.path.isdir(args.songs_dir):
+        print(f"Error: directory not found: {args.songs_dir}")
         sys.exit(1)
-    songs_dir = sys.argv[1]
-    if not os.path.isdir(songs_dir):
-        print(f"Error: directory not found: {songs_dir}")
-        sys.exit(1)
-    run_report(songs_dir)
+    run_report(args.songs_dir, country=args.country)
