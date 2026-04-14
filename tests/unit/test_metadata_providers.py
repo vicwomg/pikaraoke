@@ -426,6 +426,12 @@ class TestNormalizeForMatching:
     def test_normalizes_ampersand_to_and(self):
         assert _normalize_for_matching("Simon & Garfunkel") == "simon and garfunkel"
 
+    def test_stylized_exclamation_as_i(self):
+        assert _normalize_for_matching("P!nk") == "pink"
+
+    def test_stylized_dollar_as_s(self):
+        assert _normalize_for_matching("Ke$ha") == "kesha"
+
     def test_leaves_normal_text_unchanged(self):
         assert _normalize_for_matching("Dolly Parton") == "dolly parton"
 
@@ -516,6 +522,20 @@ class TestSuggestionScoring:
         }
         score_clean = _score(clean, query)
         assert score_clean > score_live
+
+    def test_stylized_artist_pink_matches_itunes(self):
+        """'P!nk - Raise Your Glass' should match iTunes result with artist 'Pink'."""
+        result = {"artist": "Pink", "title": "Raise Your Glass", "genre": "Pop"}
+        query = "P!nk - Raise Your Glass"
+        score = _score(result, query)
+        assert score > 0
+
+    def test_stylized_artist_kesha_matches_itunes(self):
+        """'Ke$ha - TiK ToK' should match iTunes result with artist 'Kesha'."""
+        result = {"artist": "Kesha", "title": "TiK ToK", "genre": "Pop"}
+        query = "Ke$ha - TiK ToK"
+        score = _score(result, query)
+        assert score > 0
 
     def test_apostrophe_difference_still_scores_exact(self):
         """Query 'Olivers Army' (no apostrophe) should exact-match title 'Oliver's Army'."""

@@ -48,6 +48,9 @@ _SINGLE_LETTER_SEQ_RE = re.compile(r"\b([a-z](?:\s[a-z]){2,})\b")
 
 _WHITESPACE_RE = re.compile(r"\s+")
 
+# Stylized character substitutions used by artists (P!nk -> Pink, Ke$ha -> Kesha)
+_STYLIZED_CHARS = str.maketrans({"!": "i", "$": "s"})
+
 
 def _fix_ssl_recursion() -> None:
     """Fix ssl.SSLContext.minimum_version RecursionError.
@@ -230,6 +233,7 @@ def _normalize_for_matching(text: str) -> str:
     - Dotted-letter collapse: 'D.I.V.O.R.C.E.' -> 'divorce', 'S.O.S.' -> 'sos'
     - Conjunction normalization: 'Simon And Garfunkel' matches 'Simon & Garfunkel'
     """
+    text = text.translate(_STYLIZED_CHARS)
     normalized = remove_accents(normalize_for_comparison(text))
     normalized = normalized.replace(",", "")
     # Collapse single-letter sequences separated by spaces (from dotted acronyms
