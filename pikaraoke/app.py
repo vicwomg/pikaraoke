@@ -5,7 +5,7 @@ import subprocess as _stdlib_subprocess  # Before monkey patching
 _stdlib_subprocess_run = _stdlib_subprocess.run
 
 # PRE-IMPORT sounddevice on MacOS before gevent monkey patches the standard library.
-if sys.platform in ("darwin"):
+if sys.platform in ("darwin", "win32"):
     try:
         import sounddevice
     except (ImportError, OSError):
