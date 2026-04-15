@@ -32,6 +32,7 @@ from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
+from pikaraoke.lib.sound_manager import SoundManager
 from pikaraoke.lib.youtube_dl import (
     get_search_results,
     get_youtubedl_version,
@@ -77,6 +78,9 @@ class Karaoke:
 
     # Download manager for serialized downloads
     download_manager: DownloadManager
+
+    # Microphone manager for server-side mic passthrough
+    sound_manager: SoundManager
 
     # Event system and preferences
     events: EventSystem
@@ -245,6 +249,13 @@ class Karaoke:
             "sync_finished",
             lambda: self.socketio.emit("sync_finished", namespace="/") if self.socketio else None,
         )
+
+        # Initialize microphone manager for server-side mic passthrough
+        self.sound_manager = SoundManager(
+            preferences=self.preferences,
+            events=self.events,
+        )
+        self.sound_manager.start()
 
         # Initialize queue manager
         self.queue_manager = QueueManager(
@@ -503,6 +514,7 @@ class Karaoke:
 
     def stop(self) -> None:
         """Stop the karaoke run loop."""
+        self.sound_manager.stop()
         self.running = False
 
     def handle_run_loop(self) -> None:

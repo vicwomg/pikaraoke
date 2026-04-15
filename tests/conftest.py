@@ -69,6 +69,13 @@ class MockSongManager:
     filename_from_path = SongManager.filename_from_path
 
 
+class MockSoundManager:
+    """Minimal mock of SoundManager for testing."""
+
+    def stop(self):
+        pass
+
+
 class MockKaraoke:
     """Minimal mock of the Karaoke class for testing queue operations.
 
@@ -78,6 +85,7 @@ class MockKaraoke:
 
     def __init__(self, tmp_path):
         self.song_manager = MockSongManager()
+        self.sound_manager = MockSoundManager()
         self._socketio = None
         self.events = EventSystem()
         self.preferences = PreferenceManager(
