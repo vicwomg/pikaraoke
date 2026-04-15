@@ -104,6 +104,8 @@ docker run -p 5555:5555 \
 
 For more information and a configurable docker-compose example, [see official Dockerhub repo](https://hub.docker.com/r/vicwomg/pikaraoke)
 
+To run behind a reverse proxy under a path prefix, add `--base-path /your-path` and set `-u` to the public origin. Example: `--base-path /karaoke -u https://example.com`. PiKaraoke will generate links under `/karaoke` automatically. The proxy must forward both HTTP and WebSocket traffic for that path to PiKaraoke, and path-based nginx-proxy setups typically also need `VIRTUAL_PATH=/karaoke` with `VIRTUAL_DEST=/`.
+
 ## Screenshots
 
 <div style="display: flex; flex-wrap: wrap;">

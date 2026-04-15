@@ -19,6 +19,12 @@
   <link rel="stylesheet" href="{{  url_for('static', filename='fontello/css/fontello.css') }}?v=2">
 
   <script>
+    window.pikaraokeConfig = {
+      basePath: "{{ base_path }}",
+      cookiePath: "{{ cookie_path }}",
+      socketioPath: "{{ socketio_path }}"
+    };
+
     // Translations for JS (static JS cannot use Jinja2 directly)
     window.translations = {
       // {# MSG: Prompt to change the username displayed next to queued songs. CURRENT_NAME is replaced with the name #}
@@ -70,7 +76,7 @@
     }
 
     function connectSocket() {
-      window.socket = io();
+      window.socket = io({ path: window.pikaraokeConfig.socketioPath });
       window.socket.on('connect', function() {
           console.log('Socket connected');
       });
@@ -96,7 +102,7 @@
           "{{ _('Please enter your name. This will show up next to the songs you queue up from this device.') }}"
         );
         if (name) {
-          Cookies.set("user", name, { expires: 3650, path: '/' });
+          Cookies.set("user", name, { expires: 3650, path: window.pikaraokeConfig.cookiePath });
         }
         else {
           Cookies.set("user", `Anon-${generateRandomString(4)}`, { expires: 3650 });

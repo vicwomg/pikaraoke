@@ -4,7 +4,7 @@
 
 	// Ensure global socket exists
 	if (typeof window.socket === 'undefined') {
-		window.socket = io();
+		window.socket = io({ path: window.pikaraokeConfig.socketioPath });
 	}
 
 	function loadNowPlaying() {
@@ -89,7 +89,7 @@
 			"input",
 			debounce(function (event) {
 				const value = this.value;
-				$.get("/volume/" + value);
+				$.get(window.pikaraokeConfig.basePath + "/volume/" + value);
 			}, 500)
 		);
 
@@ -102,29 +102,29 @@
 			}
 			r = confirm(window.translations.confirmTranspose.replace("SEMITONE_LABEL", getSemitonesLabel(value)));
 			if (r) {
-				$.get("/transpose/" + value);
+				$.get(window.pikaraokeConfig.basePath + "/transpose/" + value);
 			}
 			slider.value = 0;
 			output.innerHTML = getSemitonesLabel(slider.value);
 		});
 
 		$("#pause-resume").click(function () {
-			$.get("/pause");
+			$.get(window.pikaraokeConfig.basePath + "/pause");
 			togglePausePlayButton();
 		});
 
 		$("#vol-up").click(function () {
-			$.get("/vol_up");
+			$.get(window.pikaraokeConfig.basePath + "/vol_up");
 		});
 
 		$("#vol-down").click(function () {
-			$.get("/vol_down");
+			$.get(window.pikaraokeConfig.basePath + "/vol_down");
 		});
 
 		$("#restart").click(function () {
 			r = confirm(window.translations.confirmRestartTrack);
 			if (r) {
-				$.get("/restart");
+				$.get(window.pikaraokeConfig.basePath + "/restart");
 			}
 		});
 
@@ -134,7 +134,7 @@
 				`{{ _("Are you sure you want to skip this track? If you didn't add this song, ask permission first!") }}`
 			);
 			if (r) {
-				$.get("/skip");
+				$.get(window.pikaraokeConfig.basePath + "/skip");
 			}
 		});
 
@@ -169,7 +169,7 @@
 				console.log(window.socket);
 				if (!window.socket.connected) {
 					console.log("Reconnecting socket...");
-					window.socket = io();
+					window.socket = io({ path: window.pikaraokeConfig.socketioPath });
 					window.socket.on("now_playing", (np) => handleNowPlaying(np));
 				}
 			}

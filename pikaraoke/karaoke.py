@@ -7,6 +7,7 @@ import subprocess
 import threading
 import time
 from typing import Any
+from urllib.parse import urlsplit
 
 import qrcode
 from flask_babel import _
@@ -32,6 +33,7 @@ from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
+from pikaraoke.lib.url_prefix import append_base_path_to_url
 from pikaraoke.lib.youtube_dl import (
     get_search_results,
     get_youtubedl_version,
@@ -99,6 +101,7 @@ class Karaoke:
         socketio=None,
         streaming_format: str = "hls",
         url: str | None = None,
+        url_base_path: str = "",
         youtubedl_proxy: str | None = None,
         # Preference parameters (defaults from PreferenceManager.DEFAULTS)
         avsync: float | None = None,
@@ -194,6 +197,7 @@ class Karaoke:
         self.streaming_format = streaming_format
         self.socketio = socketio
         self.url_override = url
+        self.url_base_path = url_base_path
         self.url = self.get_url()
 
         # Load all preference-driven attributes from config (with CLI overrides as fallback)
@@ -224,6 +228,7 @@ class Karaoke:
             events=self.events,
             filename_from_path=self.song_manager.display_name_from_path,
             streaming_format=self.streaming_format,
+            base_path=self.url_base_path,
         )
 
         # Event bridging: the coordinator wires manager events to the UI (SocketIO/notifications).
@@ -374,7 +379,14 @@ class Karaoke:
                 url = f"http://{socket.getfqdn().lower()}:{self.port}"
             else:
                 url = f"http://{self.ip}:{self.port}"
-        return url
+
+        if self.url_override is None:
+            return append_base_path_to_url(url, self.url_base_path)
+
+        split_url = urlsplit(url)
+        if split_url.path not in ("", "/"):
+            return url
+        return append_base_path_to_url(url, self.url_base_path)
 
     def log_settings_to_debug(self) -> None:
         """Log all current settings at debug level."""
