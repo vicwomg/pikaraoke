@@ -1,6 +1,7 @@
 """Flask application entry point and server initialization."""
 
 import subprocess as _stdlib_subprocess  # Before monkey patching
+import sys
 
 _stdlib_subprocess_run = _stdlib_subprocess.run
 
@@ -17,7 +18,6 @@ monkey.patch_all()
 
 import logging
 import os
-import sys
 from pathlib import Path
 from urllib.parse import quote
 
