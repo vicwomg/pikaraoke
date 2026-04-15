@@ -4,6 +4,13 @@ import subprocess as _stdlib_subprocess  # Before monkey patching
 
 _stdlib_subprocess_run = _stdlib_subprocess.run
 
+# PRE-IMPORT sounddevice before gevent monkey patches the standard library.
+# This prevents deadlocks with PortAudio's native C threads.
+try:
+    import sounddevice
+except (ImportError, OSError):
+    pass  # It's fine if it's missing or fails; sound_manager.py handles the fallback
+
 from gevent import monkey, spawn
 
 monkey.patch_all()
