@@ -26,9 +26,7 @@ if not _HAS_PACTL:
 
         _SOUNDDEVICE_AVAILABLE = True
     except (ImportError, OSError):
-        logging.warning(
-            "sounddevice not available (missing PortAudio?). Microphone support disabled."
-        )
+        pass
 
 _MAX_GAIN = 2.0
 _DEFAULT_LATENCY_MS = 50
@@ -116,6 +114,11 @@ class SoundManager:
         self._active_mics: dict[str, _ActiveMic] = {}
         self._device_list: list[dict] = []
         self._device_index: dict[str, dict] = {}
+
+        if not _HAS_PACTL and not _SOUNDDEVICE_AVAILABLE:
+            logging.warning(
+                "sounddevice not available (missing PortAudio?). Microphone support disabled."
+            )
 
     @property
     def available(self) -> bool:
@@ -432,7 +435,10 @@ class SoundManager:
             return False
 
         active = _ActiveMic(
-            device_id=device_id, loopback_module_id=None, stream=stream, mic_state=mic_state
+            device_id=device_id,
+            loopback_module_id=None,
+            stream=stream,
+            mic_state=mic_state,
         )
         self._active_mics[device_id] = active
         logging.info(
