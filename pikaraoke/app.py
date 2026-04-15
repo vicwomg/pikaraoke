@@ -1,16 +1,8 @@
 """Flask application entry point and server initialization."""
 
 import subprocess as _stdlib_subprocess  # Before monkey patching
-import sys
 
 _stdlib_subprocess_run = _stdlib_subprocess.run
-
-# PRE-IMPORT sounddevice on MacOS before gevent monkey patches the standard library.
-if sys.platform in ("darwin", "win32"):
-    try:
-        import sounddevice
-    except (ImportError, OSError):
-        pass
 
 from gevent import monkey, spawn
 
@@ -18,6 +10,7 @@ monkey.patch_all()
 
 import logging
 import os
+import sys
 from pathlib import Path
 from urllib.parse import quote
 
