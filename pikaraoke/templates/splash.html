@@ -176,7 +176,7 @@
 ></div>
 
 <div class="fw-fh-container">
-  <div id="screensaver" style="visibility: hidden">
+  <div id="screensaver" style="visibility: hidden; --pikaraoke-logo-url: url('{{ url_for("images.logo") }}');">
     <div id="dvd">
       <div id="screensaver-qr"{% if hide_url %} style="display: none"{% endif %}>
         <div style="text-align: right">

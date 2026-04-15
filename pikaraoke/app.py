@@ -33,6 +33,7 @@ from pikaraoke.lib.get_platform import (
     is_windows,
 )
 from pikaraoke.lib.song_manager import SongManager
+from pikaraoke.lib.url_prefix import BasePathMiddleware
 from pikaraoke.lib.youtube_dl import upgrade_youtubedl
 from pikaraoke.routes.admin import admin_bp
 from pikaraoke.routes.background_music import background_music_bp
@@ -65,6 +66,13 @@ app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
+app.config["APPLICATION_ROOT"] = args.base_path or "/"
+app.config["SESSION_COOKIE_PATH"] = args.base_path or "/"
+app.config["PIKARAOKE_BASE_PATH"] = args.base_path
+app.config["PIKARAOKE_SOCKETIO_PATH"] = (
+    f"{args.base_path}/socket.io" if args.base_path else "/socket.io"
+)
+app.wsgi_app = BasePathMiddleware(app.wsgi_app, args.base_path)
 
 # Always initialize flask-smorest Api for error handling (@bp.arguments validation).
 # Only expose the Swagger UI when --enable-swagger is passed.
@@ -135,6 +143,16 @@ def get_locale() -> str | None:
     else:
         locale = request.accept_languages.best_match(LANGUAGES.keys())
     return locale
+
+
+@app.context_processor
+def inject_path_config() -> dict[str, str]:
+    """Expose path-prefix settings to templates."""
+    return {
+        "base_path": app.config["PIKARAOKE_BASE_PATH"],
+        "socketio_path": app.config["PIKARAOKE_SOCKETIO_PATH"],
+        "cookie_path": app.config["SESSION_COOKIE_PATH"],
+    }
 
 
 babel.init_app(app, locale_selector=get_locale)
@@ -249,6 +267,7 @@ def main() -> None:
         additional_ytdl_args=getattr(args, "ytdl_args", None),
         socketio=socketio,
         preferred_language=args.preferred_language,
+        url_base_path=args.base_path,
     )
 
     # expose karaoke object to the flask app

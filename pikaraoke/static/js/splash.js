@@ -1,4 +1,5 @@
-let socket = io();
+const withBasePath = (path) => `${window.pikaraokeConfig.basePath}${path}`;
+let socket = io({ path: window.pikaraokeConfig.socketioPath });
 let mouseTimer = null;
 let cursorVisible = false;
 let nowPlaying = {};
@@ -60,7 +61,7 @@ const testAutoplayCapability = async () => {
     const testVideo = document.createElement('video');
     testVideo.playsInline = true;
     testVideo.muted = true;  // Start muted (always allowed)
-    testVideo.src = "/static/video/test_autoplay.mp4";
+    testVideo.src = withBasePath("/static/video/test_autoplay.mp4");
 
     // Wait for video to be ready
     await new Promise((resolve, reject) => {
@@ -105,7 +106,7 @@ const hideVideo = () => {
 const endSong = async (reason = null, showScore = false) => {
   if (showScore && !PikaraokeConfig.disableScore) {
     isScoreShown = true;
-    await startScore("/static/");
+    await startScore(withBasePath("/static/"));
     isScoreShown = false;
   }
   currentVideoUrl = null;
@@ -171,7 +172,7 @@ const playBGVideo = async (play) => {
     if (!autoplayConfirmed) return;
 
     if (isMediaPlaying(bgVideo)) return;
-    $("#bg-video").attr("src", "/stream/bg_video");
+    $("#bg-video").attr("src", withBasePath("/stream/bg_video"));
     if (bgVideo.readyState <= 2) await bgVideo.load();
     bgVideo.play().catch(() => console.log("Autoplay blocked (video)"));
     bgVideoContainer.fadeIn(2000);
@@ -298,9 +299,12 @@ const handleNowPlayingUpdate = (np) => {
     const options = {
       video: video,
       subUrl: subtitleUrl,
-      fonts: ["/static/fonts/Arial.ttf", "/static/fonts/DroidSansFallback.ttf"],
+      fonts: [
+        withBasePath("/static/fonts/Arial.ttf"),
+        withBasePath("/static/fonts/DroidSansFallback.ttf"),
+      ],
       debug: true,
-      workerUrl: "/static/js/subtitles-octopus-worker.js"
+      workerUrl: withBasePath("/static/js/subtitles-octopus-worker.js")
     };
     try {
       octopusInstance = new SubtitlesOctopus(options);
@@ -372,7 +376,7 @@ const handleNowPlayingUpdate = (np) => {
 }
 
 async function loadNowPlaying() {
-  const data = await $.get("/now_playing");
+  const data = await $.get(withBasePath("/now_playing"));
   handleNowPlayingUpdate(JSON.parse(data));
 }
 
@@ -419,7 +423,7 @@ const setupOverlayMenus = () => {
     } else {
       setUserCookie();
       $("#menu-container").show();
-      $("#menu-container iframe").attr("src", "/");
+      $("#menu-container iframe").attr("src", withBasePath("/"));
       showMenu = true;
     }
   });
@@ -466,7 +470,7 @@ const setupVideoPlayer = () => {
 }
 
 const setupBackgroundMusicPlayer = () => {
-  $.get("/bg_playlist", function (data) {
+  $.get(withBasePath("/bg_playlist"), function (data) {
     if (data) bg_playlist = data;
   });
   const bgMusic = getBackgroundMusicPlayer();
@@ -649,7 +653,7 @@ const handleSocketRecovery = () => {
     if (document.visibilityState === 'visible') {
       autoplayConfirmed && loadNowPlaying();
       if (!socket.connected) {
-        socket = io();
+        socket = io({ path: window.pikaraokeConfig.socketioPath });
         setupSocketEvents();
       }
     }

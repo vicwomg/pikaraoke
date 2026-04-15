@@ -5,7 +5,7 @@ import random
 import urllib
 
 import flask_babel
-from flask import jsonify, send_file
+from flask import jsonify, send_file, url_for
 from flask_smorest import Blueprint
 
 from pikaraoke.lib.current_app import get_karaoke_instance
@@ -51,5 +51,6 @@ def bg_playlist():
     k = get_karaoke_instance()
     if (k.bg_music_path == None) or (not os.path.exists(k.bg_music_path)):
         return jsonify([])
-    playlist = create_randomized_playlist(k.bg_music_path, "/bg_music", 50)
+    base_url = url_for("bg_music.bg_music", file="").rstrip("/")
+    playlist = create_randomized_playlist(k.bg_music_path, base_url, 50)
     return jsonify(playlist)

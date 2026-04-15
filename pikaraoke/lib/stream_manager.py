@@ -16,6 +16,7 @@ from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.ffmpeg import build_ffmpeg_cmd
 from pikaraoke.lib.file_resolver import FileResolver, is_transcoding_required
 from pikaraoke.lib.preference_manager import PreferenceManager
+from pikaraoke.lib.url_prefix import normalize_url_base_path
 
 
 @dataclass
@@ -61,17 +62,28 @@ class StreamManager:
         ffmpeg_log: Queue for FFmpeg stderr output.
     """
 
-    def __init__(self, preferences: PreferenceManager, streaming_format: str = "hls") -> None:
+    def __init__(
+        self,
+        preferences: PreferenceManager,
+        streaming_format: str = "hls",
+        base_path: str = "",
+    ) -> None:
         """Initialize the stream manager.
 
         Args:
             preferences: PreferenceManager instance for configuration.
             streaming_format: Video streaming format ('hls' or 'mp4').
+            base_path: URL path prefix when PiKaraoke is hosted under a subpath.
         """
         self.preferences = preferences
         self.streaming_format = streaming_format
         self.ffmpeg_process = None
         self.ffmpeg_log: Queue | None = None
+        self.base_path = normalize_url_base_path(base_path)
+
+    def _with_base_path(self, path: str) -> str:
+        """Prefix relative app paths when PiKaraoke is mounted under a subpath."""
+        return f"{self.base_path}{path}" if self.base_path else path
 
     def play_file(self, file_path: str, semitones: int = 0) -> PlaybackResult:
         """Start playback of a media file.
@@ -115,12 +127,12 @@ class StreamManager:
 
         # Set stream URL based on format
         if is_hls:
-            stream_url_path = f"/stream/{fr.stream_uid}.m3u8"
+            stream_url_path = self._with_base_path(f"/stream/{fr.stream_uid}.m3u8")
         else:
             if complete_transcode_before_play or not requires_transcoding:
-                stream_url_path = f"/stream/full/{fr.stream_uid}"
+                stream_url_path = self._with_base_path(f"/stream/full/{fr.stream_uid}")
             else:
-                stream_url_path = f"/stream/{fr.stream_uid}.mp4"
+                stream_url_path = self._with_base_path(f"/stream/{fr.stream_uid}.mp4")
 
         if not requires_transcoding:
             is_transcoding_complete = self._copy_file(file_path, fr.output_file)
@@ -132,7 +144,7 @@ class StreamManager:
 
         subtitle_url = None
         if fr.ass_file_path:
-            subtitle_url = f"/subtitle/{fr.stream_uid}"
+            subtitle_url = self._with_base_path(f"/subtitle/{fr.stream_uid}")
             logging.debug(f"Subtitle file found: {fr.ass_file_path}. URL: {subtitle_url}")
 
         # Check if the stream is ready to play
