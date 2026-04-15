@@ -404,7 +404,7 @@
         // Extract base path without query parameters
         const fullPath = url.split('?')[0];
         const basePath = window.pikaraokeConfig.basePath;
-        
+
         // Remove base path to get the relative path for comparison
         let path = fullPath;
         if (basePath && fullPath.startsWith(basePath)) {

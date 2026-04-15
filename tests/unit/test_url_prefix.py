@@ -80,22 +80,25 @@ def test_static_file_urls_work_with_base_path():
 
     response = client.get("/hello")
     data = response.get_json()
-    
+
     # Verify that static URLs include the base path
     assert data["static_url"] == "/karaoke/static/app.js"
-    
+
     # Test that the URL generation works correctly by checking the generated URL
     # The actual file access would require setting up static files in the test app
     # but we can verify the URL format is correct
     assert data["static_url"].startswith("/karaoke/")
-    
+
     # Verify that our CSS file doesn't have hardcoded absolute paths
     # by reading it directly from the filesystem
     import os
-    css_path = os.path.join(os.path.dirname(__file__), "..", "..", "pikaraoke", "static", "score.css")
-    with open(css_path, 'r') as f:
+
+    css_path = os.path.join(
+        os.path.dirname(__file__), "..", "..", "pikaraoke", "static", "score.css"
+    )
+    with open(css_path, "r") as f:
         css_content = f.read()
-    
+
     # The CSS should use relative paths, not absolute ones starting with /
     assert 'url("/static/' not in css_content, "CSS should not have hardcoded /static/ paths"
     assert 'url("/' not in css_content, "CSS should not have hardcoded absolute paths"
