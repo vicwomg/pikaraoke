@@ -16,6 +16,19 @@ from pikaraoke.lib.file_resolver import FileResolver, get_tmp_dir
 stream_bp = Blueprint("stream", __name__)
 
 
+def _wait_for_file(path: str, max_wait_tenths: int = 50) -> bool:
+    """Poll for a file to exist, up to ~max_wait_tenths/10 seconds.
+
+    hls.js requests segment N+1 the moment segment N plays; ffmpeg may still
+    be encoding it. Without this wait, a 404 here is fatal — hls.js stalls.
+    """
+    wait_count = 0
+    while not os.path.exists(path) and wait_count < max_wait_tenths:
+        time.sleep(0.1)
+        wait_count += 1
+    return os.path.exists(path)
+
+
 @stream_bp.route("/stream/<stream_id>/<stem>.<ext>")
 def stream_stem_audio(stream_id: str, stem: str, ext: str):
     """Tail a stem audio file (vocals/instrumental) for client-side mixing.
@@ -93,14 +106,7 @@ def stream_playlist(id):
         if now_playing_url and id in now_playing_url:
             k.playback_controller.start_song()
 
-    # Wait for playlist file to exist
-    max_wait = 50  # 5 seconds max
-    wait_count = 0
-    while not os.path.exists(file_path) and wait_count < max_wait:
-        time.sleep(0.1)
-        wait_count += 1
-
-    if os.path.exists(file_path):
+    if _wait_for_file(file_path):
         # Read file content and return with no-cache headers
         # This is critical for iOS Safari which aggressively caches playlists
         with open(file_path, "r") as f:
@@ -125,10 +131,9 @@ def stream_segment_m4s(filename):
 
     segment_path = os.path.join(get_tmp_dir(), f"{filename}.m4s")
 
-    if os.path.exists(segment_path):
+    if _wait_for_file(segment_path):
         return send_file(segment_path, mimetype="video/mp4")
-    else:
-        return Response(f"Segment not found: {filename}.m4s", status=404)
+    return Response(f"Segment not found: {filename}.m4s", status=404)
 
 
 # Serves init.mp4 header file for fMP4 (with unique filenames per stream)
@@ -140,10 +145,9 @@ def stream_init(filename):
         return Response("Invalid init file", status=400)
 
     init_path = os.path.join(get_tmp_dir(), f"{filename}_init.mp4")
-    if os.path.exists(init_path):
+    if _wait_for_file(init_path):
         return send_file(init_path, mimetype="video/mp4")
-    else:
-        return Response("Init file not found", status=404)
+    return Response("Init file not found", status=404)
 
 
 # Legacy .ts support for backward compatibility
@@ -156,10 +160,9 @@ def stream_segment(filename):
 
     segment_path = os.path.join(get_tmp_dir(), f"{filename}.ts")
 
-    if os.path.exists(segment_path):
+    if _wait_for_file(segment_path):
         return send_file(segment_path, mimetype="video/mp2t")
-    else:
-        return Response(f"Segment not found: {filename}.ts", status=404)
+    return Response(f"Segment not found: {filename}.ts", status=404)
 
 
 # Main streaming route - serves HLS or progressive MP4 based on file extension
