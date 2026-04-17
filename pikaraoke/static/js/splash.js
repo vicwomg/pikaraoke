@@ -744,6 +744,17 @@ const setupSocketEvents = () => {
     }
   });
   socket.on("now_playing", handleNowPlayingUpdate);
+  // Lightweight live stem volume updates during slider drag. Applies the
+  // new gain directly without triggering the full now_playing refresh.
+  socket.on("stem_volume", (data) => {
+    if (!stemNodes) return;
+    if (typeof data.vocal_volume === "number") {
+      stemNodes.vocals.gain.gain.value = data.vocal_volume;
+    }
+    if (typeof data.instrumental_volume === "number") {
+      stemNodes.instrumental.gain.gain.value = data.instrumental_volume;
+    }
+  });
   socket.on("preferences_update", applyPreferenceUpdate);
   socket.on("preferences_reset", applyPreferencesReset);
   socket.on("score_phrases_update", (phrases) => { scoreReviews = phrases; });

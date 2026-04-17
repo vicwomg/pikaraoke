@@ -116,25 +116,35 @@
 			}, 500)
 		);
 
+		// Live stem sliders — emit over websocket continuously during drag.
+		// No debounce: stem_volume server handler is lightweight and other
+		// clients update their gain directly without refetching now_playing.
 		$("#vocal-slider").on("input", function () {
-			$("#vocal-slider-label").text(Math.round(this.value * 100) + "%");
+			const v = parseFloat(this.value);
+			vocalVolume = v;
+			$("#vocal-slider-label").text(Math.round(v * 100) + "%");
+			window.socket.emit("vocal_volume", v);
 		});
-		$("#vocal-slider").on(
-			"change",
-			debounce(function () {
-				$.get("/vocal_volume/" + this.value);
-			}, 400)
-		);
-
 		$("#instrumental-slider").on("input", function () {
-			$("#instrumental-slider-label").text(Math.round(this.value * 100) + "%");
+			const v = parseFloat(this.value);
+			instrumentalVolume = v;
+			$("#instrumental-slider-label").text(Math.round(v * 100) + "%");
+			window.socket.emit("instrumental_volume", v);
 		});
-		$("#instrumental-slider").on(
-			"change",
-			debounce(function () {
-				$.get("/instrumental_volume/" + this.value);
-			}, 400)
-		);
+
+		// Sync sliders when a different pilot moves them.
+		window.socket.on("stem_volume", (data) => {
+			if (typeof data.vocal_volume === "number") {
+				vocalVolume = data.vocal_volume;
+				$("#vocal-slider").val(vocalVolume);
+				$("#vocal-slider-label").text(Math.round(vocalVolume * 100) + "%");
+			}
+			if (typeof data.instrumental_volume === "number") {
+				instrumentalVolume = data.instrumental_volume;
+				$("#instrumental-slider").val(instrumentalVolume);
+				$("#instrumental-slider-label").text(Math.round(instrumentalVolume * 100) + "%");
+			}
+		});
 
 		$("#submit-transpose").click(function () {
 			var value;

@@ -56,6 +56,33 @@ def setup_socket_events(socketio):
             socketio.emit("splash_role", "slave", room=sid)
             logging.info(f"Slave splash screens assigned: {sid}")
 
+    def _clamp(v: float) -> float:
+        return max(0.0, min(1.0, float(v)))
+
+    @socketio.on("vocal_volume")
+    def handle_vocal_volume(volume: float) -> None:
+        """Live vocal stem volume update. Fired many times during slider drag.
+
+        Persists the preference and broadcasts a lightweight stem_volume
+        event to other clients (splash applies it to the Web Audio gain,
+        other pilots sync their sliders). Heavy now_playing broadcast is
+        skipped to avoid flooding during drag.
+        """
+        v = _clamp(volume)
+        k = get_karaoke_instance()
+        k.vocal_volume = v
+        k.preferences.set("vocal_volume", v)
+        socketio.emit("stem_volume", {"vocal_volume": v}, include_self=False)
+
+    @socketio.on("instrumental_volume")
+    def handle_instrumental_volume(volume: float) -> None:
+        """Live instrumental stem volume update (same semantics as vocal)."""
+        v = _clamp(volume)
+        k = get_karaoke_instance()
+        k.instrumental_volume = v
+        k.preferences.set("instrumental_volume", v)
+        socketio.emit("stem_volume", {"instrumental_volume": v}, include_self=False)
+
     @socketio.on("playback_position")
     def handle_playback_position(position: float) -> None:
         """Handle playback_position WebSocket event from the master splash screen.
