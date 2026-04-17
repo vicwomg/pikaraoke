@@ -44,6 +44,8 @@ class PlaybackController:
     now_playing_url: str | None = None
     now_playing_subtitle_url: str | None = None
     now_playing_position: float | None = None
+    demucs_processed: float | None = None
+    demucs_total: float | None = None
     is_paused: bool = True
     is_playing: bool = False
 
@@ -65,7 +67,13 @@ class PlaybackController:
         self.preferences = preferences
         self.events = events
         self.filename_from_path = filename_from_path
-        self.stream_manager = StreamManager(preferences, streaming_format)
+        self.stream_manager = StreamManager(preferences, streaming_format, events=events)
+        events.on("demucs_progress", self._on_demucs_progress)
+
+    def _on_demucs_progress(self, data: dict) -> None:
+        """Update local state when StreamManager reports Demucs progress."""
+        self.demucs_processed = float(data.get("processed", 0))
+        self.demucs_total = float(data.get("total", 0))
 
     @property
     def ffmpeg_process(self) -> "subprocess.Popen | None":
@@ -211,6 +219,8 @@ class PlaybackController:
             "now_playing_url": self.now_playing_url,
             "now_playing_subtitle_url": self.now_playing_subtitle_url,
             "now_playing_position": self.now_playing_position,
+            "demucs_processed": self.demucs_processed,
+            "demucs_total": self.demucs_total,
             "is_paused": self.is_paused,
         }
 
@@ -226,6 +236,8 @@ class PlaybackController:
         self.now_playing_transpose = 0
         self.now_playing_duration = None
         self.now_playing_position = None
+        self.demucs_processed = None
+        self.demucs_total = None
 
     def log_output(self) -> None:
         """Log any pending FFmpeg output."""

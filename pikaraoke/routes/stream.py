@@ -41,6 +41,11 @@ def stream_stem_audio(stream_id: str, stem: str, ext: str):
     done_event = stems.done_event
     mimetype = "audio/wav" if ext == "wav" else "audio/mpeg"
 
+    # Fully-written files (cache hit, or Demucs completed mid-song) — serve
+    # with range support so the browser can seek via HTTP byte ranges.
+    if done_event.is_set() and not path.endswith(".partial"):
+        return send_file(path, mimetype=mimetype, conditional=True)
+
     def generate():
         with open(path, "rb") as f:
             while True:
@@ -57,7 +62,7 @@ def stream_stem_audio(stream_id: str, stem: str, ext: str):
                 time.sleep(0.1)
 
     response = Response(stream_with_context(generate()), mimetype=mimetype)
-    # Disallow range — we're streaming a growing file and don't support seeks
+    # Live Demucs — file is growing, range requests would be inconsistent.
     response.headers["Accept-Ranges"] = "none"
     response.headers["Cache-Control"] = "no-cache, no-store"
     return response

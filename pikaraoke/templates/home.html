@@ -4,9 +4,40 @@
 	var vocalVolume = {{ vocal_volume|default(0.3) }};
 	var instrumentalVolume = {{ instrumental_volume|default(1.0) }};
 
+	// Seek slider state
+	var seekDuration = 0;       // total song length in seconds (from now_playing)
+	var seekBuffered = null;    // seconds processed by demucs; null = no limit (no vocal_removal or cache hit)
+	var seekDragging = false;   // suppress incoming position updates while user drags
+
 	// Ensure global socket exists
 	if (typeof window.socket === 'undefined') {
 		window.socket = io();
+	}
+
+	function formatSeekTime(s) {
+		if (!isFinite(s) || s < 0) s = 0;
+		var m = Math.floor(s / 60);
+		var sec = Math.floor(s % 60);
+		return m + ":" + (sec < 10 ? "0" + sec : sec);
+	}
+
+	function updateSeekBufferedVisual() {
+		var slider = document.getElementById("seek-slider");
+		if (!slider) return;
+		if (seekDuration <= 0) {
+			slider.style.background = "";
+			return;
+		}
+		var bufferedPct;
+		if (seekBuffered === null) {
+			bufferedPct = 100;
+		} else {
+			bufferedPct = Math.max(0, Math.min(100, (seekBuffered / seekDuration) * 100));
+		}
+		// Fill up to buffered with bright color, remainder dimmed/disabled look.
+		slider.style.background =
+			"linear-gradient(to right, hsl(171, 100%, 41%) 0%, hsl(171, 100%, 41%) " +
+			bufferedPct + "%, hsl(0, 0%, 30%) " + bufferedPct + "%, hsl(0, 0%, 30%) 100%)";
 	}
 
 	function loadNowPlaying() {
@@ -93,6 +124,38 @@
 			$("#pause-resume").addClass("icon-pause");
 			$(".playing_gif").attr("src", "{{  url_for('static', filename='images/now-playing.gif') }}");
 		}
+
+		// Seek slider: reset duration, buffered state, and current label from payload
+		var duration = Number(np.now_playing_duration) || 0;
+		var slider = document.getElementById("seek-slider");
+		if (np.now_playing && duration > 0) {
+			seekDuration = duration;
+			if (slider) {
+				slider.max = duration;
+				if (!seekDragging) {
+					slider.value = Number(np.now_playing_position) || 0;
+				}
+			}
+			$("#seek-duration").text(formatSeekTime(duration));
+			$("#seek-current").text(formatSeekTime(Number(np.now_playing_position) || 0));
+			if (np.vocal_removal) {
+				// If server knows demucs progress, reflect it; otherwise assume full (cache hit expected).
+				if (typeof np.demucs_processed === "number" && typeof np.demucs_total === "number"
+					&& np.demucs_total > 0 && np.demucs_processed < np.demucs_total) {
+					seekBuffered = np.demucs_processed;
+				} else {
+					seekBuffered = null;
+				}
+			} else {
+				seekBuffered = null;
+			}
+			updateSeekBufferedVisual();
+			$("#seek-control").show();
+		} else {
+			seekDuration = 0;
+			seekBuffered = null;
+			$("#seek-control").hide();
+		}
 	}
 
 	$(function () {
@@ -152,6 +215,49 @@
 				$("#instrumental-slider").val(instrumentalVolume);
 				$("#instrumental-slider-label").text(Math.round(instrumentalVolume * 100) + "%");
 			}
+		});
+
+		// Seek slider: live position from master splash, clamp drag to demucs buffer.
+		var seekSlider = document.getElementById("seek-slider");
+		if (seekSlider) {
+			var clampToBuffered = function (v) {
+				if (seekBuffered !== null && v > seekBuffered) return seekBuffered;
+				return v;
+			};
+			seekSlider.addEventListener("pointerdown", function () { seekDragging = true; });
+			seekSlider.addEventListener("touchstart", function () { seekDragging = true; }, { passive: true });
+			seekSlider.addEventListener("input", function () {
+				seekDragging = true;
+				var v = clampToBuffered(Number(this.value));
+				if (v !== Number(this.value)) this.value = v;
+				$("#seek-current").text(formatSeekTime(v));
+			});
+			seekSlider.addEventListener("change", function () {
+				var v = clampToBuffered(Number(this.value));
+				this.value = v;
+				window.socket.emit("seek", v);
+				seekDragging = false;
+			});
+		}
+		window.socket.on("playback_position", function (pos) {
+			if (seekDragging) return;
+			if (seekSlider) seekSlider.value = pos;
+			$("#seek-current").text(formatSeekTime(pos));
+		});
+		window.socket.on("seek", function (pos) {
+			if (seekDragging) return;
+			if (seekSlider) seekSlider.value = pos;
+			$("#seek-current").text(formatSeekTime(pos));
+		});
+		window.socket.on("demucs_progress", function (data) {
+			if (!data || typeof data.processed !== "number" || typeof data.total !== "number") return;
+			if (data.total <= 0) return;
+			if (data.processed >= data.total - 0.05) {
+				seekBuffered = null; // fully processed — unlock whole slider
+			} else {
+				seekBuffered = data.processed;
+			}
+			updateSeekBufferedVisual();
 		});
 
 		$("#submit-transpose").click(function () {
@@ -281,6 +387,14 @@
 				style="margin: 0 8px 0px 5px; width: 100px"
 			/>
 			<i id="vol-up" class="icon icon-volume-up"></i>
+		</div>
+	</div>
+
+	<div id="seek-control" style="display: none; margin-top: 10px">
+		<div class="is-flex" style="align-items: center; gap: 8px">
+			<span id="seek-current" style="min-width: 44px; font-size: 0.85em">0:00</span>
+			<input type="range" min="0" max="100" value="0" step="0.1" id="seek-slider" style="flex: 1" />
+			<span id="seek-duration" style="min-width: 44px; font-size: 0.85em; text-align: right; opacity: 0.8">0:00</span>
 		</div>
 	</div>
 
