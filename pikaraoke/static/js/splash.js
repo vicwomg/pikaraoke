@@ -339,13 +339,41 @@ const setupStemAudio = (np, video) => {
 
   video.addEventListener("play", playAll);
   video.addEventListener("pause", pauseAll);
-  video.addEventListener("seeking", syncAll);
-  video.addEventListener("seeked", syncAll);
-  // Periodic drift correction while playing
-  video.addEventListener("timeupdate", () => {
-    if (video.paused) return;
+  // On HLS seek the video stalls (0.5–2s) and may land on a fresh segment;
+  // the stem stream cannot guarantee a seek to the target position (for live
+  // Demucs the data may not be written; for non-range chunked streams some
+  // browsers restart the decoder). We pause stems during `seeking` so they
+  // don't play free, then on `seeked` attempt to re-sync. If a stem cannot
+  // reach the target within tolerance we leave it paused — silent audio is
+  // better than a 0.3s loop of whatever the decoder lands on.
+  video.addEventListener("seeking", pauseAll);
+  video.addEventListener("seeked", () => {
+    const target = video.currentTime;
     for (const k of ["vocals", "instrumental"]) {
       const a = stemNodes[k].el;
+      try { a.currentTime = target; } catch (e) {}
+    }
+    if (video.paused) return;
+    // Give the decoder a moment to land, then verify and resume only stems
+    // that actually made it. Unsyncable stems stay paused; drift correction
+    // skips them.
+    setTimeout(() => {
+      for (const k of ["vocals", "instrumental"]) {
+        const a = stemNodes[k].el;
+        if (Math.abs(a.currentTime - video.currentTime) < 0.5) {
+          a.play().catch(() => {});
+        }
+      }
+    }, 120);
+  });
+  // Periodic drift correction while playing. Skip during seeking, and skip
+  // stems we've already given up on (paused) — don't loop-retry a seek that
+  // the source stream can't service.
+  video.addEventListener("timeupdate", () => {
+    if (video.paused || video.seeking) return;
+    for (const k of ["vocals", "instrumental"]) {
+      const a = stemNodes[k].el;
+      if (a.paused) continue;
       const drift = a.currentTime - video.currentTime;
       if (Math.abs(drift) > 0.2) {
         try { a.currentTime = video.currentTime; } catch (e) {}
@@ -776,6 +804,14 @@ const setupSocketEvents = () => {
     const video = getVideoPlayer();
     video.currentTime = 0;
     if (video.paused) video.play();
+  });
+  socket.on('seek', (position) => {
+    if (!isFinite(position)) return;
+    const video = getVideoPlayer();
+    if (video.readyState === 0) return;
+    const duration = isFinite(video.duration) && video.duration > 0 ? video.duration : position;
+    video.currentTime = Math.max(0, Math.min(duration, position));
+    // Stem audio elements follow via the 'seeking'/'seeked' listeners in setupStemAudio.
   });
   socket.on("notification", (data) => {
     const notification = data.split("::");
