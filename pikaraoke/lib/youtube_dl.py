@@ -144,6 +144,17 @@ def build_ytdl_download_command(
         "vcodec:h264",
         "--compat-options",
         "filename-sanitization",
+        "--write-info-json",
+        # Manual subs only. `--write-auto-subs` pulls YouTube's ~200
+        # machine-translated caption tracks (codes like `pl-en-<id>`), which
+        # trips HTTP 429 rate limits. Manual uploads are higher quality for
+        # lyrics anyway; LRCLib covers the gap when manual subs are missing.
+        "--write-subs",
+        "--sub-langs",
+        "all,-live_chat",
+        "--convert-subs",
+        "vtt",
+        "--embed-metadata",
     ]
     cmd = yt_dlp_cmd + args + _js_runtime_args()
     if youtubedl_proxy:

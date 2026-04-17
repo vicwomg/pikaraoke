@@ -27,6 +27,7 @@ from pikaraoke.lib.get_platform import (
 )
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.library_scanner import LibraryScanner, ScanResult
+from pikaraoke.lib.lyrics import LyricsService
 from pikaraoke.lib.network import get_ip
 from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
@@ -38,6 +39,25 @@ from pikaraoke.lib.youtube_dl import (
     upgrade_youtubedl,
 )
 from pikaraoke.version import __version__ as VERSION
+
+
+def _build_lyrics_aligner():
+    """Return a WhisperXAligner when WHISPERX_MODEL is set, else None.
+
+    Kept at module level so Karaoke.__init__ stays uncluttered and the import
+    of whisperx only happens when the user explicitly opts in.
+    """
+    model = os.environ.get("WHISPERX_MODEL", "off").strip().lower()
+    if model in ("", "off", "none", "false", "0"):
+        return None
+    try:
+        from pikaraoke.lib.lyrics_align import WhisperXAligner
+    except ImportError:
+        logging.info("whisperx not installed; using line-level lyrics only")
+        return None
+    device = os.environ.get("WHISPERX_DEVICE", "cpu")
+    logging.info(f"whisperx alignment enabled (model={model}, device={device})")
+    return WhisperXAligner(model_size=model, device=device)
 
 
 class Karaoke:
@@ -90,7 +110,6 @@ class Karaoke:
         bg_video_path: str | None = None,
         config_file_path: str = "config.ini",
         download_path: str = "/usr/lib/pikaraoke/songs",
-        hide_splash_screen: bool | None = None,
         log_level: int = logging.DEBUG,
         logo_path: str | None = None,
         port: int = 5555,
@@ -129,7 +148,6 @@ class Karaoke:
             download_path: Directory path for downloaded songs.
             hide_url: Hide URL and QR code on splash screen.
             hide_notifications: Disable notification popups.
-            hide_splash_screen: Run in headless mode.
             high_quality: Download higher quality videos (up to 1080p).
             volume: Default volume level (0.0 to 1.0).
             normalize_audio: Apply loudness normalization.
@@ -182,7 +200,6 @@ class Karaoke:
 
         # Set non-preference attributes (not stored in config)
         self.port = port
-        self.hide_splash_screen = hide_splash_screen
         self.download_path = download_path
         self.log_level = log_level
         self.youtubedl_proxy = youtubedl_proxy
@@ -213,6 +230,14 @@ class Karaoke:
 
         self.generate_qr_code()
 
+        # Clean up half-written Demucs stems from any previous run.
+        try:
+            from pikaraoke.lib.demucs_processor import cleanup_stale_partials
+
+            cleanup_stale_partials()
+        except Exception:
+            logging.exception("Failed to clean up stale Demucs partials")
+
         # Set preferred language from command line if provided (persists to config)
         if preferred_language:
             self.preferences.set("preferred_language", preferred_language)
@@ -226,6 +251,13 @@ class Karaoke:
             streaming_format=self.streaming_format,
         )
 
+        # Lyrics auto-fetch from LRCLib; optional per-word forced alignment via whisperx.
+        self.lyrics_service = LyricsService(
+            download_path=self.download_path,
+            events=self.events,
+            aligner=_build_lyrics_aligner(),
+        )
+
         # Event bridging: the coordinator wires manager events to the UI (SocketIO/notifications).
         self.events.on("notification", self.log_and_send)
         self.events.on(
@@ -237,6 +269,7 @@ class Karaoke:
         self.events.on("song_ended", self.update_now_playing_socket)
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
         self.events.on("song_downloaded", self.song_manager.register_download)
+        self.events.on("song_downloaded", self.lyrics_service.fetch_and_convert)
         self.events.on(
             "sync_started",
             lambda: self.socketio.emit("sync_started", namespace="/") if self.socketio else None,
@@ -244,6 +277,20 @@ class Karaoke:
         self.events.on(
             "sync_finished",
             lambda: self.socketio.emit("sync_finished", namespace="/") if self.socketio else None,
+        )
+        self.events.on(
+            "demucs_progress",
+            lambda data: (
+                self.socketio.emit("demucs_progress", data, namespace="/")
+                if self.socketio
+                else None
+            ),
+        )
+        self.events.on(
+            "stems_ready",
+            lambda data: (
+                self.socketio.emit("stems_ready", data, namespace="/") if self.socketio else None
+            ),
         )
 
         # Initialize queue manager
@@ -473,6 +520,24 @@ class Karaoke:
         self.update_now_playing_socket()
         return True
 
+    def vocal_volume_change(self, vol_level: float) -> bool:
+        """Set the vocal stem volume. Applied client-side via Web Audio."""
+        vol_level = max(0.0, min(1.0, float(vol_level)))
+        self.preferences.set("vocal_volume", vol_level)
+        self.vocal_volume = vol_level
+        self.log_and_send(_("Vocal volume: %s") % (int(vol_level * 100)))
+        self.update_now_playing_socket()
+        return True
+
+    def instrumental_volume_change(self, vol_level: float) -> bool:
+        """Set the instrumental stem volume. Applied client-side via Web Audio."""
+        vol_level = max(0.0, min(1.0, float(vol_level)))
+        self.preferences.set("instrumental_volume", vol_level)
+        self.instrumental_volume = vol_level
+        self.log_and_send(_("Instrumental volume: %s") % (int(vol_level * 100)))
+        self.update_now_playing_socket()
+        return True
+
     def vol_up(self) -> None:
         """Increase volume by 10%."""
         new_vol = min(self.volume + 0.1, 1.0)
@@ -517,6 +582,8 @@ class Karaoke:
         """Reset all now playing state to defaults."""
         self.playback_controller.reset_now_playing()
         self.volume = self.preferences.get_or_default("volume")
+        self.vocal_volume = self.preferences.get_or_default("vocal_volume")
+        self.instrumental_volume = self.preferences.get_or_default("instrumental_volume")
         self.update_now_playing_socket()
 
     def get_now_playing(self) -> dict[str, Any]:
@@ -531,11 +598,31 @@ class Karaoke:
         # Get playback state from PlaybackController
         playback_state = self.playback_controller.get_now_playing()
 
+        # Expose per-stem audio URLs only once stems are actually playable
+        # (first segment on disk for live Demucs, always true for cache hits).
+        # Frontend also gets the same URLs via the `stems_ready` socket event —
+        # this poll path is the reconnect/initial-load fallback.
+        vocals_url = None
+        instrumental_url = None
+        stream_url = playback_state.get("now_playing_url")
+        if stream_url:
+            stream_uid = stream_url.rsplit("/", 1)[-1].split(".", 1)[0]
+            stems = self.playback_controller.stream_manager.active_stems.get(stream_uid)
+            if stems and stems.ready_event.is_set():
+                ext = stems.format  # "wav" or "mp3"
+                vocals_url = f"/stream/{stream_uid}/vocals.{ext}"
+                instrumental_url = f"/stream/{stream_uid}/instrumental.{ext}"
+
         return {
             **playback_state,
             "up_next": next_song["title"] if next_song else None,
             "next_user": next_song["user"] if next_song else None,
             "volume": self.volume,
+            "vocal_removal": bool(self.preferences.get_or_default("vocal_removal")),
+            "vocal_volume": float(self.vocal_volume),
+            "instrumental_volume": float(self.instrumental_volume),
+            "vocals_url": vocals_url,
+            "instrumental_url": instrumental_url,
         }
 
     def update_now_playing_socket(self) -> None:
@@ -559,6 +646,14 @@ class Karaoke:
                     and self.playback_controller.now_playing is not None
                 ):
                     self.reset_now_playing()
+
+                # Prewarm Demucs cache for the next queued song so
+                # _prepare_stems hits the cache-hit path. Idempotent: the
+                # prewarm function deduplicates by path.
+                if self.preferences.get_or_default("vocal_removal") and self.queue_manager.queue:
+                    from pikaraoke.lib.demucs_processor import prewarm
+
+                    prewarm(self.queue_manager.queue[0]["file"])
 
                 # Start next song from queue if not currently playing
                 if len(self.queue_manager.queue) > 0 and not self.playback_controller.is_playing:

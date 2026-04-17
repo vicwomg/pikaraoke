@@ -119,8 +119,10 @@ def get_platform() -> str:
 def get_default_dl_dir(platform: str) -> str:
     """Get the default download directory for the given platform.
 
-    Checks for legacy directory locations and returns those if they exist,
-    otherwise returns the new default location.
+    Songs live under the data directory (~/.pikaraoke/songs on non-Windows,
+    %APPDATA%/pikaraoke/songs on Windows) so all app state is colocated.
+    Legacy locations are returned verbatim when they already exist so
+    existing libraries keep working without a data migration.
 
     Args:
         platform: Platform identifier from get_platform().
@@ -128,20 +130,24 @@ def get_default_dl_dir(platform: str) -> str:
     Returns:
         Path string for the default download directory.
     """
-    if is_raspberry_pi():
-        return "~/pikaraoke-songs"
-    elif is_windows():
-        legacy_directory = os.path.expanduser("~\\pikaraoke\\songs")
-        if os.path.exists(legacy_directory):
-            return legacy_directory
-        else:
-            return "~\\pikaraoke-songs"
-    else:
-        legacy_directory = "~/pikaraoke/songs"
-        if os.path.exists(legacy_directory):
-            return legacy_directory
-        else:
-            return "~/pikaraoke-songs"
+    if is_windows():
+        legacy_dirs = (
+            os.path.expanduser("~\\pikaraoke-songs"),
+            os.path.expanduser("~\\pikaraoke\\songs"),
+        )
+        for directory in legacy_dirs:
+            if os.path.exists(directory):
+                return directory
+        appdata = os.environ.get("APPDATA") or os.path.expanduser("~")
+        return os.path.join(appdata, "pikaraoke", "songs")
+    legacy_dirs = (
+        os.path.expanduser("~/pikaraoke-songs"),
+        os.path.expanduser("~/pikaraoke/songs"),
+    )
+    for directory in legacy_dirs:
+        if os.path.exists(directory):
+            return directory
+    return os.path.expanduser("~/.pikaraoke/songs")
 
 
 def get_os_version() -> str:
@@ -183,3 +189,24 @@ def get_data_directory() -> str:
 def is_running_in_docker():
     """Check if we're running in a container using existence of /.dockerenv."""
     return os.path.exists("/.dockerenv")
+
+
+def has_torch_gpu() -> bool:
+    """Return True when torch can use CUDA or Apple Silicon MPS.
+
+    Used to decide whether Demucs vocal separation is worth enabling by
+    default — on CPU it's too slow for real-time karaoke. Torch is an
+    optional dep; missing imports degrade to False.
+    """
+    try:
+        import torch  # heavy import, gated behind this function
+    except ImportError:
+        return False
+    try:
+        if torch.cuda.is_available():
+            return True
+        if torch.backends.mps.is_available():
+            return True
+    except (RuntimeError, AttributeError):
+        pass
+    return False

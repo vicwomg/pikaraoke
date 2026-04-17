@@ -54,4 +54,4 @@ EXPOSE 5555
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:5555/ || exit 1
 
-ENTRYPOINT ["pikaraoke", "-d", "/app/pikaraoke-songs/", "--headless"]
+ENTRYPOINT ["pikaraoke", "-d", "/app/pikaraoke-songs/"]

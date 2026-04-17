@@ -164,6 +164,25 @@ class TestBuildYtdlDownloadCommand:
         assert cmd[sort_idx] == "vcodec:h264"
 
     @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
+    def test_writes_info_json(self, mock_js):
+        """Test that --write-info-json is included for lyrics metadata."""
+        cmd = build_ytdl_download_command(
+            video_url="https://www.youtube.com/watch?v=test123",
+            download_path="/songs",
+        )
+        assert "--write-info-json" in cmd
+
+    @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
+    def test_skips_auto_subs(self, mock_js):
+        """Auto-subs pull YouTube machine-translations and trigger HTTP 429."""
+        cmd = build_ytdl_download_command(
+            video_url="https://www.youtube.com/watch?v=test123",
+            download_path="/songs",
+        )
+        assert "--write-subs" in cmd
+        assert "--write-auto-subs" not in cmd
+
+    @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
     def test_url_is_last_argument(self, mock_js):
         """Test that video URL is always the last argument."""
         cmd = build_ytdl_download_command(

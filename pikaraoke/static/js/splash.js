@@ -1,4 +1,6 @@
-let socket = io();
+// Socket is initialized in handleConfirmation() so nothing connects before the
+// user clicks Start (or testAutoplayCapability auto-confirms).
+let socket = null;
 let mouseTimer = null;
 let cursorVisible = false;
 let nowPlaying = {};
@@ -13,6 +15,16 @@ let isScoreShown = false;
 const hasBgVideo = PikaraokeConfig.hasBgVideo;
 let currentVideoUrl = null;
 let hlsInstance = null;
+
+// Client-side stem mixing state. When vocal_removal is on, the server strips
+// audio from the video stream and serves vocals/instrumental stems via
+// /stream/<id>/<stem>.<ext>. We load both stems as HTMLAudioElements, route
+// them through Web Audio gain nodes, and sync them to video playback.
+let stemAudioCtx = null;
+let stemNodes = null; // { vocals: {el, gain}, instrumental: {el, gain}, urls: {vocals, instrumental} }
+// Stems data for the current song if AudioContext wasn't running when
+// stems_ready arrived. Applied when the context becomes running.
+let pendingStemsData = null;
 let idleTime = 0;
 let screensaverTimeoutSeconds = PikaraokeConfig.screensaverTimeout;
 let bg_playlist = [];
@@ -92,8 +104,18 @@ const testAutoplayCapability = async () => {
 };
 
 const handleConfirmation = () => {
-  $('#permissions-modal').removeClass('is-active');
+  if (autoplayConfirmed) return;
   autoplayConfirmed = true;
+  $('#permissions-modal').removeClass('is-active');
+
+  socket = io();
+  setupSocketEvents();
+  handleSocketRecovery();
+  if (socket.connected) socket.emit("register_splash");
+
+  setupBackgroundMusicPlayer();
+
+  ensureAudioContextRunning();
   updateBackgroundMediaState(true);
   loadNowPlaying();
 };
@@ -113,7 +135,9 @@ const endSong = async (reason = null, showScore = false) => {
     hlsInstance.destroy();
     hlsInstance = null;
   }
+  teardownStemAudio();
   const video = getVideoPlayer();
+  video.muted = false;
   video.pause();
   $("#video-source").attr("src", "");
   video.load();
@@ -257,8 +281,237 @@ const setupScreensaver = () => {
   }
 }
 
+const ensureAudioContextRunning = () => {
+  if (!stemAudioCtx) {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) {
+      console.warn("Web Audio API not available; stem mixing disabled");
+      return Promise.resolve();
+    }
+    stemAudioCtx = new Ctor();
+  }
+  if (stemAudioCtx.state === "suspended") return stemAudioCtx.resume();
+  return Promise.resolve();
+};
+
+// Sets up stems and crossfades from video audio. Bails if the context
+// isn't running so the video keeps its audio instead of going silent —
+// stems are re-tried when a gesture resumes the context.
+const applyPendingStems = () => {
+  if (!pendingStemsData) return;
+  const data = pendingStemsData;
+  const video = getVideoPlayer();
+  const currentUid = currentVideoUrl ? extractStreamUid(currentVideoUrl) : null;
+  if (data.stream_uid !== currentUid) {
+    pendingStemsData = null;  // song changed
+    return;
+  }
+  if (stemNodes) {
+    pendingStemsData = null;  // already set up (cache hit path)
+    return;
+  }
+  if (!stemAudioCtx || stemAudioCtx.state !== "running") return;
+  pendingStemsData = null;
+
+  const np = {
+    ...nowPlaying,
+    vocals_url: data.vocals_url,
+    instrumental_url: data.instrumental_url,
+  };
+  setupStemAudio(np, video);
+  if (!stemNodes) return;
+  for (const k of ["vocals", "instrumental"]) {
+    try { stemNodes[k].el.currentTime = video.currentTime; } catch (e) {}
+    stemNodes[k].el.play().catch(() => {});
+  }
+  // 300ms crossfade: video audio down to 0 as stem gains ramp up.
+  const fadeMs = 300;
+  $(video).animate({ volume: 0 }, fadeMs, () => {
+    video.muted = true;
+  });
+  fadeStems(stemTargets(), fadeMs);
+};
+
+// Extracts the stream_uid from a /stream/<uid>.<ext> URL so stems_ready
+// events can be matched against the song that's actually playing.
+const extractStreamUid = (url) => {
+  if (!url) return null;
+  const match = url.match(/\/stream\/([^/.]+)/);
+  return match ? match[1] : null;
+};
+
+// Chrome/Edge block AudioContext.resume() until a user gesture happens.
+// First click/keydown/touch triggers resume so stems can play when they
+// become ready, even if the user never clicked the permissions modal
+// (testAutoplayCapability skips it when autoplay is already allowed).
+// Also applies any stems_ready that arrived while suspended.
+const resumeOnFirstGesture = () => {
+  ensureAudioContextRunning().then(applyPendingStems);
+};
+document.addEventListener("click", resumeOnFirstGesture);
+document.addEventListener("keydown", resumeOnFirstGesture);
+document.addEventListener("touchstart", resumeOnFirstGesture);
+
+const teardownStemAudio = () => {
+  if (!stemNodes) return;
+  // Detach listeners BEFORE nulling stemNodes — otherwise stale handlers
+  // fire on subsequent video events and throw "Cannot read properties of
+  // null" because they close over the module-level `stemNodes`.
+  if (stemNodes._handlers && stemNodes._video) {
+    for (const [evt, fn] of Object.entries(stemNodes._handlers)) {
+      stemNodes._video.removeEventListener(evt, fn);
+    }
+  }
+  for (const key of ["vocals", "instrumental"]) {
+    const node = stemNodes[key];
+    if (!node) continue;
+    try { node.el.pause(); } catch (e) {}
+    try { node.source.disconnect(); } catch (e) {}
+    try { node.gain.disconnect(); } catch (e) {}
+    node.el.removeAttribute("src");
+    try { node.el.load(); } catch (e) {}
+    node.el.remove();
+  }
+  stemNodes = null;
+};
+
+const setupStemAudio = (np, video) => {
+  // Fresh setup every song — URLs contain stream_uid so they're per-song.
+  teardownStemAudio();
+  ensureAudioContextRunning();
+  if (!stemAudioCtx) return;
+
+  const makeStem = (url, initialGain) => {
+    const el = new Audio();
+    el.crossOrigin = "anonymous";
+    el.preload = "auto";
+    el.src = url;
+    const source = stemAudioCtx.createMediaElementSource(el);
+    const gain = stemAudioCtx.createGain();
+    gain.gain.value = initialGain;
+    source.connect(gain).connect(stemAudioCtx.destination);
+    return { el, source, gain };
+  };
+
+  stemNodes = {
+    vocals: makeStem(np.vocals_url, np.vocal_volume ?? 0.3),
+    instrumental: makeStem(np.instrumental_url, np.instrumental_volume ?? 1.0),
+    urls: { vocals: np.vocals_url, instrumental: np.instrumental_url },
+  };
+
+  // Sync stems to video. Any drift > 150ms is corrected.
+  const syncAll = () => {
+    if (!stemNodes) return;
+    for (const k of ["vocals", "instrumental"]) {
+      const a = stemNodes[k].el;
+      if (Math.abs(a.currentTime - video.currentTime) > 0.15) {
+        try { a.currentTime = video.currentTime; } catch (e) {}
+      }
+    }
+  };
+  const playAll = () => {
+    if (!stemNodes) return;
+    syncAll();
+    for (const k of ["vocals", "instrumental"]) {
+      stemNodes[k].el.play().catch(() => {});
+    }
+  };
+  const pauseAll = () => {
+    if (!stemNodes) return;
+    for (const k of ["vocals", "instrumental"]) {
+      try { stemNodes[k].el.pause(); } catch (e) {}
+    }
+  };
+  // On HLS seek the video stalls (0.5–2s) and may land on a fresh segment;
+  // the stem stream cannot guarantee a seek to the target position (for live
+  // Demucs the data may not be written; for non-range chunked streams some
+  // browsers restart the decoder). We pause stems during `seeking` so they
+  // don't play free, then on `seeked` attempt to re-sync. If a stem cannot
+  // reach the target within tolerance we leave it paused — silent audio is
+  // better than a 0.3s loop of whatever the decoder lands on.
+  const seekedHandler = () => {
+    if (!stemNodes) return;
+    const target = video.currentTime;
+    for (const k of ["vocals", "instrumental"]) {
+      const a = stemNodes[k].el;
+      try { a.currentTime = target; } catch (e) {}
+    }
+    if (video.paused) return;
+    setTimeout(() => {
+      if (!stemNodes) return;
+      for (const k of ["vocals", "instrumental"]) {
+        const a = stemNodes[k].el;
+        if (Math.abs(a.currentTime - video.currentTime) < 0.5) {
+          a.play().catch(() => {});
+        }
+      }
+    }, 120);
+  };
+  // Periodic drift correction while playing. Skip during seeking, and skip
+  // stems we've already given up on (paused) — don't loop-retry a seek that
+  // the source stream can't service.
+  const driftHandler = () => {
+    if (!stemNodes) return;
+    if (video.paused || video.seeking) return;
+    for (const k of ["vocals", "instrumental"]) {
+      const a = stemNodes[k].el;
+      if (a.paused) continue;
+      const drift = a.currentTime - video.currentTime;
+      if (Math.abs(drift) > 0.2) {
+        try { a.currentTime = video.currentTime; } catch (e) {}
+      }
+    }
+  };
+
+  const handlers = {
+    play: playAll,
+    pause: pauseAll,
+    seeking: pauseAll,
+    seeked: seekedHandler,
+    timeupdate: driftHandler,
+  };
+  for (const [evt, fn] of Object.entries(handlers)) {
+    video.addEventListener(evt, fn);
+  }
+  stemNodes._handlers = handlers;
+  stemNodes._video = video;
+};
+
+const applyStemVolumes = (np) => {
+  if (!stemNodes) return;
+  if (typeof np.vocal_volume === "number") {
+    stemNodes.vocals.gain.gain.value = np.vocal_volume;
+  }
+  if (typeof np.instrumental_volume === "number") {
+    stemNodes.instrumental.gain.gain.value = np.instrumental_volume;
+  }
+};
+
+// Smooth fades on the stem gain nodes, mirroring the video.volume jQuery
+// animations in the non-stem path so pause/play feels the same either way.
+const fadeStems = (targets, durationMs) => {
+  if (!stemNodes || !stemAudioCtx) return false;
+  const now = stemAudioCtx.currentTime;
+  const dur = durationMs / 1000;
+  for (const key of ["vocals", "instrumental"]) {
+    const g = stemNodes[key].gain.gain;
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(g.value, now);
+    g.linearRampToValueAtTime(targets[key], now + dur);
+  }
+  return true;
+};
+
+const stemTargets = () => ({
+  vocals: typeof nowPlaying.vocal_volume === "number" ? nowPlaying.vocal_volume : 0.3,
+  instrumental: typeof nowPlaying.instrumental_volume === "number" ? nowPlaying.instrumental_volume : 1.0,
+});
+
 const handleNowPlayingUpdate = (np) => {
   nowPlaying = np;
+  // Apply stem volume updates on every poll/socket update so home-page slider
+  // changes take effect mid-song. Safe when stemNodes is null.
+  applyStemVolumes(np);
   if (np.now_playing) {
 
     // Handle updating now playing HTML
@@ -318,23 +571,46 @@ const handleNowPlayingUpdate = (np) => {
   if (np.now_playing_url && np.now_playing_url !== currentVideoUrl) {
     currentVideoUrl = np.now_playing_url;
     const streamUrl = np.now_playing_url;
-    $("#video-source").attr("src", "");
-    video.load();
-    $("#video-source").attr("src", streamUrl);
+    // Tear down any previous HLS instance before we touch the element.
+    // hls.destroy() revokes the old MediaSource blob; calling video.load()
+    // or leaving the old blob on video.src after that would trigger
+    // ERR_FILE_NOT_FOUND on the revoked URL.
+    if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
 
-    if (streamUrl.endsWith('.m3u8')) {
-      const useNativeHLS = video.canPlayType('application/vnd.apple.mpegurl') && !isChrome && !isEdge && !isMobileSafari;
-      if (useNativeHLS) {
-        video.src = streamUrl;
-      } else {
-        if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
-        hlsInstance = new Hls({ startPosition: 0 });
-        hlsInstance.loadSource(streamUrl);
-        hlsInstance.attachMedia(video);
-      }
+    const isHls = streamUrl.endsWith('.m3u8');
+    const useNativeHLS = isHls && video.canPlayType('application/vnd.apple.mpegurl') &&
+      !isChrome && !isEdge && !isMobileSafari;
+
+    if (isHls && !useNativeHLS) {
+      // hls.js owns the media element: creates a MediaSource, sets
+      // video.src to its blob, feeds segments in. We must NOT call
+      // video.load() here — it would close the MediaSource.
+      $("#video-source").attr("src", "");
+      hlsInstance = new Hls({ startPosition: 0 });
+      hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+        console.warn("hls.js error:", data.type, data.details, "fatal:", data.fatal, data);
+      });
+      hlsInstance.loadSource(streamUrl);
+      hlsInstance.attachMedia(video);
+    } else {
+      $("#video-source").attr("src", streamUrl);
+      if (useNativeHLS) video.src = streamUrl;
+      video.load();
     }
 
-    video.load();
+    // Video starts with its original audio. If stems are already ready
+    // (cache hit, or a reconnect mid-song) we set them up and mute the
+    // video immediately — otherwise wait for the `stems_ready` socket
+    // event which will crossfade from video audio to stems.
+    teardownStemAudio();
+    if (np.vocals_url && np.instrumental_url) {
+      setupStemAudio(np, video);
+      video.muted = true;
+      video.volume = 0;
+    } else {
+      video.muted = false;
+    }
+
     if (volume !== np.volume) {
       volume = np.volume;
       video.volume = volume;
@@ -569,8 +845,14 @@ const setupSocketEvents = () => {
   });
   socket.on('pause', () => {
     const video = getVideoPlayer();
-    const currVolume = video.volume;
-    if (!video.paused) {
+    if (video.paused) return;
+    if (stemNodes) {
+      // Stems carry the real audio; fade them, then pause (video.pause fires
+      // the listener that pauses the Audio elements).
+      fadeStems({ vocals: 0, instrumental: 0 }, 1000);
+      setTimeout(() => video.pause(), 1000);
+    } else {
+      const currVolume = video.volume;
       $(video).animate({ volume: 0 }, 1000, () => {
         video.pause();
         video.volume = currVolume;
@@ -579,8 +861,20 @@ const setupSocketEvents = () => {
   });
   socket.on('play', () => {
     const video = getVideoPlayer();
-    const currVolume = video.volume;
-    if (video.paused) {
+    if (!video.paused) return;
+    if (stemNodes && stemAudioCtx) {
+      // Silence gains, start playback (video.play fires playAll on stems),
+      // then ramp gains back to the user's target values.
+      const now = stemAudioCtx.currentTime;
+      for (const key of ["vocals", "instrumental"]) {
+        const g = stemNodes[key].gain.gain;
+        g.cancelScheduledValues(now);
+        g.setValueAtTime(0, now);
+      }
+      video.play();
+      fadeStems(stemTargets(), 1000);
+    } else {
+      const currVolume = video.volume;
       video.play();
       video.volume = 0;
       $(video).animate({ volume: currVolume }, 1000);
@@ -588,13 +882,18 @@ const setupSocketEvents = () => {
   });
   socket.on('skip', (reason) => {
     const video = getVideoPlayer();
-    const currVolume = video.volume;
     if (isMediaPlaying(video)) {
-      $(video).animate({ volume: 0 }, 1000, () => {
-        video.pause();
-        video.volume = currVolume;
-        hideVideo();
-      });
+      if (stemNodes) {
+        fadeStems({ vocals: 0, instrumental: 0 }, 1000);
+        setTimeout(() => { video.pause(); hideVideo(); }, 1000);
+      } else {
+        const currVolume = video.volume;
+        $(video).animate({ volume: 0 }, 1000, () => {
+          video.pause();
+          video.volume = currVolume;
+          hideVideo();
+        });
+      }
     } else {
       video.pause();
       hideVideo();
@@ -615,6 +914,14 @@ const setupSocketEvents = () => {
     video.currentTime = 0;
     if (video.paused) video.play();
   });
+  socket.on('seek', (position) => {
+    if (!isFinite(position)) return;
+    const video = getVideoPlayer();
+    if (video.readyState === 0) return;
+    const duration = isFinite(video.duration) && video.duration > 0 ? video.duration : position;
+    video.currentTime = Math.max(0, Math.min(duration, position));
+    // Stem audio elements follow via the 'seeking'/'seeked' listeners in setupStemAudio.
+  });
   socket.on("notification", (data) => {
     const notification = data.split("::");
     const message = notification[0];
@@ -625,6 +932,24 @@ const setupSocketEvents = () => {
     }
   });
   socket.on("now_playing", handleNowPlayingUpdate);
+  // Live Demucs fires this once the first segment for both stems is on
+  // disk. Video has been playing with its original audio; crossfade to the
+  // stems so the user gets the karaoke mix (vocals ducked per slider).
+  socket.on("stems_ready", (data) => {
+    pendingStemsData = data;
+    ensureAudioContextRunning().then(applyPendingStems);
+  });
+  // Lightweight live stem volume updates during slider drag. Applies the
+  // new gain directly without triggering the full now_playing refresh.
+  socket.on("stem_volume", (data) => {
+    if (!stemNodes) return;
+    if (typeof data.vocal_volume === "number") {
+      stemNodes.vocals.gain.gain.value = data.vocal_volume;
+    }
+    if (typeof data.instrumental_volume === "number") {
+      stemNodes.instrumental.gain.gain.value = data.instrumental_volume;
+    }
+  });
   socket.on("preferences_update", applyPreferenceUpdate);
   socket.on("preferences_reset", applyPreferencesReset);
   socket.on("score_phrases_update", (phrases) => { scoreReviews = phrases; });
@@ -688,26 +1013,15 @@ const setupUIScaling = () => {
 // Document ready procedures
 
 $(function () {
-  // Setup various features and listeners
+  // Setup various features and listeners. Nothing here opens a socket, fetches
+  // a playlist, or starts playback - those live in handleConfirmation().
   setupUIScaling();
   if (PikaraokeConfig.showSplashClock) startClock();
   setupScreensaver();
   setupOverlayMenus();
   setupVideoPlayer();
-  setupBackgroundMusicPlayer();
 
   // Handle browser compatibility
   handleUnsupportedBrowser();
   testAutoplayCapability();
 });
-
-
-// Setup sockets and recovery outside of document ready to prevent race conditions
-setupSocketEvents();
-handleSocketRecovery();
-
-// Fallback: if socket connected before listeners were attached, register now
-if (socket.connected) {
-  console.log('Socket already connected, registering splash...');
-  socket.emit("register_splash");
-}

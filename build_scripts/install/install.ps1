@@ -132,7 +132,7 @@ try {
         # Create multiple shortcuts
         $shortcutConfigs = @(
             @{ Name = "PiKaraoke"; Args = "" },
-            @{ Name = "PiKaraoke (headless)"; Args = "--headless" }
+            @{ Name = "PiKaraoke (kiosk)"; Args = "--launch-browser" }
         )
 
         foreach ($config in $shortcutConfigs) {

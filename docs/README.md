@@ -80,7 +80,7 @@ Run pikaraoke from the command line with:
 pikaraoke
 ```
 
-Launches the player in "headed" mode via your default browser. Scan the QR code to connect mobile remotes. Use `pikaraoke --headless` to run as a background server for external browsers.
+Starts the PiKaraoke server. Open the printed URL (e.g. `http://<host>:5555/splash`) in a browser on the machine you want to use as the karaoke screen, and scan the QR code to connect mobile remotes. Pass `--launch-browser` to auto-launch a Chromium browser in kiosk mode on startup.
 
 See the help command `pikaraoke --help` for available options.
 

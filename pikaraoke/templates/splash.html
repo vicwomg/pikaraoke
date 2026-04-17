@@ -126,23 +126,51 @@
 
 <div id="permissions-modal" class="modal">
   <div class="modal-background"></div>
-  <div class="modal-content p-3" id="permissions-modal-content" >
-    <p>
-      {# MSG: Prompt for interaction in order to enable video autoplay. #} {%
-      trans %}Due to limitations with browser permissions, you must interact
-      with the page once before it allows autoplay of videos. Pikaraoke will not
-      play otherwise. Click the button below to
-      <a onClick="handleConfirmation()">confirm</a>.{% endtrans %}
+  <div class="modal-content p-5 has-text-centered" id="permissions-modal-content">
+    <div style="font-size: 5rem; line-height: 1;">
+      <i class="icon icon-mic-circled has-text-success"></i>
+    </div>
+    <h1 class="is-size-2 has-text-white mt-3 mb-2">
+      {# MSG: Title of the splash intro screen. #}
+      {% trans %}Karaoke Screen{% endtrans %}
+    </h1>
+    <p class="is-size-5 has-text-grey-light mb-4">
+      {# MSG: Subtitle explaining what this browser tab is for. #}
+      {% trans %}This tab is your karaoke display.{% endtrans %}
     </p>
-    <div class="has-text-centered mt-4">
+    <ul class="intro-list has-text-left is-size-5 has-text-white" style="display: inline-block; margin: 0 auto;">
+      <li>
+        <i class="icon icon-play has-text-success"></i>
+        {# MSG: Intro bullet - what will be shown here (music video). #}
+        {% trans %}Music video for the current song{% endtrans %}
+      </li>
+      <li>
+        <i class="icon icon-mic-1 has-text-success"></i>
+        {# MSG: Intro bullet - what will be shown here (lyrics). #}
+        {% trans %}Lyrics to sing along{% endtrans %}
+      </li>
+      <li>
+        <i class="icon icon-list-numbered has-text-success"></i>
+        {# MSG: Intro bullet - what will be shown here (queue and score). #}
+        {% trans %}Queue and score{% endtrans %}
+      </li>
+    </ul>
+    <p class="is-size-6 has-text-grey-light mt-4">
+      {# MSG: Instruction to place this window on an audience-facing monitor. #}
+      {% trans %}Open this tab on the monitor your audience can see.{% endtrans %}
+    </p>
+    <p class="is-size-7 has-text-grey mt-2">
+      {# MSG: Small note explaining why a click is required (browser autoplay policy). #}
+      {% trans %}Your browser requires a click before it allows autoplay.{% endtrans %}
+    </p>
+    <div class="mt-5">
       <button
         id="permissions-button"
         class="button is-success is-large"
-        style="margin-top: 10px"
         onClick="handleConfirmation()"
       >
-        {# MSG: Button to confirm to enable video autoplay. #}
-        {% trans %}Confirm{% endtrans %}
+        {# MSG: Button to start the karaoke splash screen. #}
+        {% trans %}Start Karaoke{% endtrans %}
       </button>
     </div>
   </div>

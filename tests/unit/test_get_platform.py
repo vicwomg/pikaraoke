@@ -208,53 +208,52 @@ class TestGetDefaultDlDir:
     """Tests for the get_default_dl_dir function."""
 
     def test_raspberry_pi_default(self):
-        """Test default download dir on Raspberry Pi."""
-        with patch("pikaraoke.lib.get_platform.is_raspberry_pi", return_value=True):
-            result = get_default_dl_dir("Raspberry Pi 4")
-            assert result == "~/pikaraoke-songs"
+        """Pi defaults to the data dir, same as other unix platforms."""
+        with patch("pikaraoke.lib.get_platform.is_windows", return_value=False):
+            with patch("os.path.exists", return_value=False):
+                result = get_default_dl_dir("Raspberry Pi 4")
+                assert result == os.path.expanduser("~/.pikaraoke/songs")
 
     def test_windows_default(self):
-        """Test default download dir on Windows (no legacy)."""
-        with patch("pikaraoke.lib.get_platform.is_raspberry_pi", return_value=False):
-            with patch("pikaraoke.lib.get_platform.is_windows", return_value=True):
-                with patch("os.path.exists", return_value=False):
+        """Windows default lives under %APPDATA%."""
+        with patch("pikaraoke.lib.get_platform.is_windows", return_value=True):
+            with patch("os.path.exists", return_value=False):
+                with patch.dict(os.environ, {"APPDATA": "C:\\Users\\Test\\AppData\\Roaming"}):
                     result = get_default_dl_dir("windows")
-                    assert result == "~\\pikaraoke-songs"
+                    assert result == os.path.join(
+                        "C:\\Users\\Test\\AppData\\Roaming", "pikaraoke", "songs"
+                    )
 
     def test_windows_legacy_exists(self):
-        """Test Windows uses legacy dir if it exists."""
-        with patch("pikaraoke.lib.get_platform.is_raspberry_pi", return_value=False):
-            with patch("pikaraoke.lib.get_platform.is_windows", return_value=True):
-                with patch("os.path.exists", return_value=True):
-                    with patch(
-                        "os.path.expanduser", return_value="C:\\Users\\test\\pikaraoke\\songs"
-                    ):
-                        result = get_default_dl_dir("windows")
-                        assert "pikaraoke\\songs" in result
+        """Windows uses legacy dir if it exists."""
+        with patch("pikaraoke.lib.get_platform.is_windows", return_value=True):
+            with patch("os.path.exists", return_value=True):
+                with patch(
+                    "os.path.expanduser", return_value="C:\\Users\\test\\pikaraoke-songs"
+                ):
+                    result = get_default_dl_dir("windows")
+                    assert "pikaraoke-songs" in result
 
     def test_linux_default(self):
-        """Test default download dir on Linux (no legacy)."""
-        with patch("pikaraoke.lib.get_platform.is_raspberry_pi", return_value=False):
-            with patch("pikaraoke.lib.get_platform.is_windows", return_value=False):
-                with patch("os.path.exists", return_value=False):
-                    result = get_default_dl_dir("linux")
-                    assert result == "~/pikaraoke-songs"
+        """Linux default lives under ~/.pikaraoke."""
+        with patch("pikaraoke.lib.get_platform.is_windows", return_value=False):
+            with patch("os.path.exists", return_value=False):
+                result = get_default_dl_dir("linux")
+                assert result == os.path.expanduser("~/.pikaraoke/songs")
 
     def test_linux_legacy_exists(self):
-        """Test Linux uses legacy dir if it exists."""
-        with patch("pikaraoke.lib.get_platform.is_raspberry_pi", return_value=False):
-            with patch("pikaraoke.lib.get_platform.is_windows", return_value=False):
-                with patch("os.path.exists", return_value=True):
-                    result = get_default_dl_dir("linux")
-                    assert result == "~/pikaraoke/songs"
+        """Linux returns a legacy dir when one is present."""
+        with patch("pikaraoke.lib.get_platform.is_windows", return_value=False):
+            with patch("os.path.exists", return_value=True):
+                result = get_default_dl_dir("linux")
+                assert result == os.path.expanduser("~/pikaraoke-songs")
 
     def test_osx_default(self):
-        """Test default download dir on macOS."""
-        with patch("pikaraoke.lib.get_platform.is_raspberry_pi", return_value=False):
-            with patch("pikaraoke.lib.get_platform.is_windows", return_value=False):
-                with patch("os.path.exists", return_value=False):
-                    result = get_default_dl_dir("osx")
-                    assert result == "~/pikaraoke-songs"
+        """macOS default lives under ~/.pikaraoke."""
+        with patch("pikaraoke.lib.get_platform.is_windows", return_value=False):
+            with patch("os.path.exists", return_value=False):
+                result = get_default_dl_dir("osx")
+                assert result == os.path.expanduser("~/.pikaraoke/songs")
 
 
 class TestGetDataDirectory:

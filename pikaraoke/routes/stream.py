@@ -5,7 +5,7 @@ import re
 import time
 
 import flask_babel
-from flask import Response, make_response, request, send_file
+from flask import Response, make_response, request, send_file, stream_with_context
 from flask_smorest import Blueprint
 
 _ = flask_babel.gettext
@@ -14,6 +14,121 @@ from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.file_resolver import FileResolver, get_tmp_dir
 
 stream_bp = Blueprint("stream", __name__)
+
+
+def _wait_for_file(path: str, max_wait_tenths: int = 50) -> bool:
+    """Poll for a file to exist, up to ~max_wait_tenths/10 seconds.
+
+    hls.js requests segment N+1 the moment segment N plays; ffmpeg may still
+    be encoding it. Without this wait, a 404 here is fatal — hls.js stalls.
+    """
+    wait_count = 0
+    while not os.path.exists(path) and wait_count < max_wait_tenths:
+        time.sleep(0.1)
+        wait_count += 1
+    return os.path.exists(path)
+
+
+def _wait_for_m3u8_ready(path: str, min_segments: int = 2, max_wait_tenths: int = 50) -> bool:
+    """Wait for HLS playlist to exist and reference at least min_segments.
+
+    Serving an m3u8 with only a single segment and no ENDLIST is fragile:
+    hls.js plays the one segment, then the buffer drains before it has
+    polled for playlist updates. Waiting for two segments (or ENDLIST)
+    ensures there's always enough buffered content for hls.js to carry
+    on while fetching more.
+    """
+    wait_count = 0
+    while wait_count < max_wait_tenths:
+        if os.path.exists(path):
+            try:
+                with open(path, "r") as f:
+                    content = f.read()
+                if "#EXT-X-ENDLIST" in content or content.count("#EXTINF:") >= min_segments:
+                    return True
+            except OSError:
+                pass
+        time.sleep(0.1)
+        wait_count += 1
+    return os.path.exists(path)
+
+
+@stream_bp.route("/stream/<stream_id>/<stem>.<ext>")
+def stream_stem_audio(stream_id: str, stem: str, ext: str):
+    """Tail a stem audio file (vocals/instrumental) for client-side mixing.
+
+    Reads the file in the cache directory that StreamManager has registered
+    for this stream. When Demucs is still writing (tier 3), the generator
+    sleeps until new bytes are appended, then yields them, stopping when the
+    done_event is set. When the file is fully cached (tier 1/2), it streams
+    normally and exits at EOF.
+    """
+    if stem not in ("vocals", "instrumental") or ext not in ("wav", "mp3"):
+        return Response("Invalid stem or format", status=400)
+
+    k = get_karaoke_instance()
+    stems = k.playback_controller.stream_manager.active_stems.get(stream_id)
+    if stems is None:
+        return Response("Stream not active", status=404)
+
+    path = stems.vocals_path if stem == "vocals" else stems.instrumental_path
+    # Grace period: live Demucs registers the stream before its bg thread
+    # has created the .partial file. Wait up to ~15s for it to appear.
+    if path and not os.path.exists(path):
+        for _ in range(150):
+            time.sleep(0.1)
+            if os.path.exists(path):
+                break
+            # Path may have been swapped to the final .wav mid-wait.
+            path = stems.vocals_path if stem == "vocals" else stems.instrumental_path
+            if os.path.exists(path):
+                break
+    # Race: encode_mp3_in_background replaces .wav with .mp3 on disk while
+    # ActiveStems still points to the .wav. Fall back to the sibling mp3
+    # (or vice versa) and update ActiveStems so future fetches find it.
+    if path and not os.path.exists(path):
+        alt = path[:-4] + ".mp3" if path.endswith(".wav") else path[:-4] + ".wav"
+        if os.path.exists(alt):
+            path = alt
+            if stem == "vocals":
+                stems.vocals_path = alt
+            else:
+                stems.instrumental_path = alt
+            stems.format = "mp3" if alt.endswith(".mp3") else "wav"
+    if not path or not os.path.exists(path):
+        return Response("Stem file missing", status=404)
+
+    done_event = stems.done_event
+    # Serve with the mimetype of the file we actually have on disk, not the
+    # URL extension — otherwise the fallback above (wav URL -> mp3 file)
+    # ships MP3 bytes as audio/wav and some browsers reject it.
+    mimetype = "audio/mpeg" if path.endswith(".mp3") else "audio/wav"
+
+    # Fully-written files (cache hit, or Demucs completed mid-song) — serve
+    # with range support so the browser can seek via HTTP byte ranges.
+    if done_event.is_set() and not path.endswith(".partial"):
+        return send_file(path, mimetype=mimetype, conditional=True)
+
+    def generate():
+        with open(path, "rb") as f:
+            while True:
+                chunk = f.read(64 * 1024)
+                if chunk:
+                    yield chunk
+                    continue
+                if done_event.is_set():
+                    # Drain anything appended between our last read and the set
+                    tail = f.read()
+                    if tail:
+                        yield tail
+                    return
+                time.sleep(0.1)
+
+    response = Response(stream_with_context(generate()), mimetype=mimetype)
+    # Live Demucs — file is growing, range requests would be inconsistent.
+    response.headers["Accept-Ranges"] = "none"
+    response.headers["Cache-Control"] = "no-cache, no-store"
+    return response
 
 
 # Serves HLS playlist file - explicit .m3u8 extension
@@ -30,14 +145,7 @@ def stream_playlist(id):
         if now_playing_url and id in now_playing_url:
             k.playback_controller.start_song()
 
-    # Wait for playlist file to exist
-    max_wait = 50  # 5 seconds max
-    wait_count = 0
-    while not os.path.exists(file_path) and wait_count < max_wait:
-        time.sleep(0.1)
-        wait_count += 1
-
-    if os.path.exists(file_path):
+    if _wait_for_m3u8_ready(file_path):
         # Read file content and return with no-cache headers
         # This is critical for iOS Safari which aggressively caches playlists
         with open(file_path, "r") as f:
@@ -62,10 +170,9 @@ def stream_segment_m4s(filename):
 
     segment_path = os.path.join(get_tmp_dir(), f"{filename}.m4s")
 
-    if os.path.exists(segment_path):
+    if _wait_for_file(segment_path):
         return send_file(segment_path, mimetype="video/mp4")
-    else:
-        return Response(f"Segment not found: {filename}.m4s", status=404)
+    return Response(f"Segment not found: {filename}.m4s", status=404)
 
 
 # Serves init.mp4 header file for fMP4 (with unique filenames per stream)
@@ -77,10 +184,9 @@ def stream_init(filename):
         return Response("Invalid init file", status=400)
 
     init_path = os.path.join(get_tmp_dir(), f"{filename}_init.mp4")
-    if os.path.exists(init_path):
+    if _wait_for_file(init_path):
         return send_file(init_path, mimetype="video/mp4")
-    else:
-        return Response("Init file not found", status=404)
+    return Response("Init file not found", status=404)
 
 
 # Legacy .ts support for backward compatibility
@@ -93,10 +199,9 @@ def stream_segment(filename):
 
     segment_path = os.path.join(get_tmp_dir(), f"{filename}.ts")
 
-    if os.path.exists(segment_path):
+    if _wait_for_file(segment_path):
         return send_file(segment_path, mimetype="video/mp2t")
-    else:
-        return Response(f"Segment not found: {filename}.ts", status=404)
+    return Response(f"Segment not found: {filename}.ts", status=404)
 
 
 # Main streaming route - serves HLS or progressive MP4 based on file extension

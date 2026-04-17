@@ -212,7 +212,7 @@ EOF
         }
 
         create_macos_app "PiKaraoke" ""
-        create_macos_app "PiKaraoke (headless)" "--headless"
+        create_macos_app "PiKaraoke (kiosk)" "--launch-browser"
         echo "macOS shortcuts created on Desktop."
 
     elif [ "$OS_TYPE" == "Linux" ]; then
@@ -238,7 +238,7 @@ EOF
 
         if [ -d "$HOME/Desktop" ]; then
             create_linux_desktop "PiKaraoke" "" "PiKaraoke.desktop"
-            create_linux_desktop "PiKaraoke (headless)" "--headless" "PiKaraoke-headless.desktop"
+            create_linux_desktop "PiKaraoke (kiosk)" "--launch-browser" "PiKaraoke-kiosk.desktop"
             echo "Linux shortcuts created on Desktop."
         else
             echo "Warning: Desktop directory not found. Skipping shortcut creation."

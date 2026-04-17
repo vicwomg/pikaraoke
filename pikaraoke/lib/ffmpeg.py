@@ -39,6 +39,8 @@ def build_ffmpeg_cmd(
     buffer_fully_before_playback: bool = False,
     avsync: float = 0,
     cdg_pixel_scaling: bool = False,
+    alternate_audio: str | None = None,
+    strip_audio: bool = False,
 ) -> Any:
     """Build an ffmpeg command for transcoding media.
 
@@ -92,21 +94,27 @@ def build_ffmpeg_cmd(
         input = ffmpeg.input(fr.file_path, **{"fflags": "+genpts"})
     else:
         input = ffmpeg.input(fr.file_path)
-    audio = input.audio
 
-    # Audio sync adjustment: delay or trim
-    if avsync > 0:
-        audio = audio.filter("adelay", f"{avsync * 1000}|{avsync * 1000}")
-    elif avsync < 0:
-        audio = audio.filter("atrim", start=-avsync)
+    # Audio source: omitted entirely when stems are mixed client-side,
+    # otherwise alternate input or the original track.
+    if strip_audio:
+        audio = None
+    elif alternate_audio:
+        audio = ffmpeg.input(alternate_audio).audio
+    else:
+        audio = input.audio
 
-    # Pitch shifting: 2^(semitones/12)
-    if is_transposed:
-        audio = audio.filter("rubberband", pitch=2 ** (semitones / 12))
+    if audio is not None:
+        if avsync > 0:
+            audio = audio.filter("adelay", f"{avsync * 1000}|{avsync * 1000}")
+        elif avsync < 0:
+            audio = audio.filter("atrim", start=-avsync)
 
-    # Loudness normalization
-    if normalize_audio:
-        audio = audio.filter("loudnorm", i=-16, tp=-1.5, lra=11)
+        if is_transposed:
+            audio = audio.filter("rubberband", pitch=2 ** (semitones / 12))
+
+        if normalize_audio:
+            audio = audio.filter("loudnorm", i=-16, tp=-1.5, lra=11)
 
     # Video source: CDG input or original video stream
     if is_cdg:
@@ -118,17 +126,15 @@ def build_ffmpeg_cmd(
     else:
         video = input.video
 
-    # Build output based on format
+    # Streams fed to the output: video alone when stems are mixed client-side.
+    streams = (video,) if audio is None else (audio, video)
+
     if force_mp4_encoding:
         movflags = (
             "+faststart" if buffer_fully_before_playback else "frag_keyframe+default_base_moof"
         )
-        output = ffmpeg.output(
-            audio,
-            video,
-            fr.output_file,
+        output_kwargs = dict(
             vcodec=vcodec,
-            acodec=acodec,
             preset="ultrafast",
             listen=1,
             f="mp4",
@@ -136,20 +142,14 @@ def build_ffmpeg_cmd(
             movflags=movflags,
             **({"pix_fmt": "yuv420p"} if is_cdg else {}),
         )
+        if audio is not None:
+            output_kwargs["acodec"] = acodec
+        output = ffmpeg.output(*streams, fr.output_file, **output_kwargs)
     else:
-        # HLS format with fMP4 segments
-        # Both MP4 and HLS streaming modes use this - difference is in serving:
-        # - mp4: Stream concatenates init + segments for progressive playback
-        # - hls: Browser requests segments via .m3u8 playlist
-        output = ffmpeg.output(
-            audio,
-            video,
-            fr.output_file,
+        # HLS with fMP4 segments. Audio block is omitted entirely when
+        # streaming stems separately to the client.
+        output_kwargs = dict(
             vcodec=vcodec,
-            acodec="aac",
-            audio_bitrate="192k",
-            ac=2,  # Force stereo
-            ar=48000,  # Standard sample rate
             preset="ultrafast",
             f="hls",
             hls_time=3,
@@ -159,13 +159,20 @@ def build_ffmpeg_cmd(
             hls_fmp4_init_filename=fr.init_filename,
             hls_segment_filename=fr.segment_pattern,
             video_bitrate=vbitrate,
-            # CDG needs pix_fmt for proper color space
             **({"pix_fmt": "yuv420p"} if is_cdg else {}),
             **{
                 "vsync": "cfr",
                 "avoid_negative_ts": "make_zero",
             },
         )
+        if audio is not None:
+            output_kwargs.update(
+                acodec="aac",
+                audio_bitrate="192k",
+                ac=2,
+                ar=48000,
+            )
+        output = ffmpeg.output(*streams, fr.output_file, **output_kwargs)
 
     args = output.get_args()
     logging.debug(f"COMMAND: ffmpeg " + " ".join(args))

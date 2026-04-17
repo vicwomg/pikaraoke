@@ -6,6 +6,7 @@ import logging
 import os
 import shutil
 import subprocess
+import threading
 import time
 from dataclasses import dataclass
 from queue import Queue
@@ -16,6 +17,22 @@ from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.ffmpeg import build_ffmpeg_cmd
 from pikaraoke.lib.file_resolver import FileResolver, is_transcoding_required
 from pikaraoke.lib.preference_manager import PreferenceManager
+
+
+@dataclass
+class ActiveStems:
+    """In-progress or cached stems for the currently playing song.
+
+    Held by StreamManager so the HTTP tail route can locate files by stream_uid.
+    """
+
+    vocals_path: str
+    instrumental_path: str
+    format: str  # "wav" or "mp3"
+    done_event: threading.Event  # set when stem files are fully written
+    ready_event: threading.Event  # set when the first segment is on disk
+    processed_seconds: float = 0.0
+    total_seconds: float = 0.0
 
 
 @dataclass
@@ -61,17 +78,27 @@ class StreamManager:
         ffmpeg_log: Queue for FFmpeg stderr output.
     """
 
-    def __init__(self, preferences: PreferenceManager, streaming_format: str = "hls") -> None:
+    def __init__(
+        self,
+        preferences: PreferenceManager,
+        streaming_format: str = "hls",
+        events: EventSystem | None = None,
+    ) -> None:
         """Initialize the stream manager.
 
         Args:
             preferences: PreferenceManager instance for configuration.
             streaming_format: Video streaming format ('hls' or 'mp4').
+            events: Optional EventSystem to emit 'demucs_progress' events on.
         """
         self.preferences = preferences
         self.streaming_format = streaming_format
+        self.events = events
         self.ffmpeg_process = None
         self.ffmpeg_log: Queue | None = None
+        # Map of stream_uid -> ActiveStems, for the HTTP tail routes that
+        # serve vocals/instrumental audio to the browser.
+        self.active_stems: dict[str, ActiveStems] = {}
 
     def play_file(self, file_path: str, semitones: int = 0) -> PlaybackResult:
         """Start playback of a media file.
@@ -90,6 +117,7 @@ class StreamManager:
         streaming_format = self.streaming_format
         normalize_audio = self.preferences.get_or_default("normalize_audio")
         avsync = self.preferences.get_or_default("avsync")
+        vocal_removal = self.preferences.get_or_default("vocal_removal")
         complete_transcode_before_play = self.preferences.get_or_default(
             "complete_transcode_before_play"
         )
@@ -102,6 +130,7 @@ class StreamManager:
             or is_transcoding_required(file_path)
             or avsync != 0
             or is_hls
+            or vocal_removal
         )
 
         logging.debug(f"Requires transcoding: {requires_transcoding}")
@@ -183,12 +212,19 @@ class StreamManager:
         self.kill_ffmpeg()
 
         normalize_audio = self.preferences.get_or_default("normalize_audio")
+        vocal_removal = self.preferences.get_or_default("vocal_removal")
         complete_transcode_before_play = self.preferences.get_or_default(
             "complete_transcode_before_play"
         )
         avsync = self.preferences.get_or_default("avsync")
         cdg_pixel_scaling = self.preferences.get_or_default("cdg_pixel_scaling")
         buffer_size = int(self.preferences.get_or_default("buffer_size")) * 1000
+
+        # Run Demucs stem separation if enabled. Video keeps its original
+        # audio track so playback can start immediately — the frontend
+        # crossfades to stems when the `stems_ready` socket event arrives.
+        if vocal_removal and fr.file_path:
+            self._prepare_stems(fr)
 
         ffmpeg_cmd = build_ffmpeg_cmd(
             fr,
@@ -198,6 +234,7 @@ class StreamManager:
             complete_transcode_before_play,
             avsync,
             cdg_pixel_scaling,
+            strip_audio=False,
         )
         self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
 
@@ -281,7 +318,9 @@ class StreamManager:
                 f for f in os.listdir(fr.tmp_dir) if stream_uid_str in f and f.endswith(".m4s")
             ]
             segment_count = len(segment_files)
-            min_segments = 3
+            # One ~3s segment is enough to start playback; FFmpeg keeps
+            # appending segments as the browser consumes them.
+            min_segments = 1
 
             if segment_count >= min_segments:
                 stream_size = fr.get_current_stream_size()
@@ -326,6 +365,155 @@ class StreamManager:
 
         return False
 
+    def _prepare_stems(self, fr: FileResolver) -> bool:
+        """Register stems for the current song, returning immediately.
+
+        Order of preference:
+          1. MP3 cache — register, emit stems_ready, return (no Demucs).
+          2. WAV cache — register, emit stems_ready, kick off MP3 encode bg.
+          3. Live Demucs — register .partial paths, run ffmpeg extract +
+             separation in a background thread. stems_ready fires when the
+             first segment is on disk. Frontend starts video with original
+             audio and crossfades to stems when the event arrives.
+
+        Returns True if stems are registered (or will be). False only on
+        unrecoverable errors before any registration.
+        """
+        from pikaraoke.lib.demucs_processor import (
+            encode_mp3_in_background,
+            finalize_partial_stems,
+            get_cache_key,
+            get_cached_stems,
+            partial_stem_paths,
+            separate_stems,
+        )
+
+        stream_uid = str(fr.stream_uid)
+        total_seconds = float(fr.duration or 0)
+
+        # Cache key is a hash of the source file's bytes — cheap enough to
+        # compute inline (single-pass read, no decode).
+        cache_key = get_cache_key(fr.file_path)
+        cached = get_cached_stems(cache_key)
+
+        if cached:
+            vocals_path, instrumental_path, fmt = cached
+            done = threading.Event()
+            done.set()
+            ready = threading.Event()
+            ready.set()
+            self.active_stems[stream_uid] = ActiveStems(
+                vocals_path=vocals_path,
+                instrumental_path=instrumental_path,
+                format=fmt,
+                done_event=done,
+                ready_event=ready,
+                processed_seconds=total_seconds,
+                total_seconds=total_seconds,
+            )
+            self._emit_demucs_progress(total_seconds, total_seconds)
+            self._emit_stems_ready(stream_uid)
+            # WAV cache → encode MP3 in background so the next play is smaller.
+            if fmt == "wav":
+                encode_mp3_in_background(cache_key)
+            return True
+
+        input_wav = os.path.join(fr.tmp_dir, "demucs_input.wav")
+        logging.info(f"Demucs: extracting audio from {fr.file_path}")
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-i", fr.file_path, "-f", "wav", "-ar", "44100", input_wav],
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            logging.error(f"FFmpeg audio extraction failed: {result.stderr.decode()}")
+            return False
+
+        # Tier 3: live Demucs. Register .partial paths immediately; the HTTP
+        # tail route has a grace period that waits for the file to appear.
+        partial_v, partial_i = partial_stem_paths(cache_key)
+        ready_event = threading.Event()
+        done_event = threading.Event()
+
+        self.active_stems[stream_uid] = ActiveStems(
+            vocals_path=partial_v,
+            instrumental_path=partial_i,
+            format="wav",
+            done_event=done_event,
+            ready_event=ready_event,
+            processed_seconds=0.0,
+            total_seconds=total_seconds,
+        )
+
+        # Lock synchronizes the bg-thread rename (.partial → .wav via
+        # finalize_partial_stems) with any path reads on the entry.
+        finalize_lock = threading.Lock()
+        last_emit = [0.0]  # [timestamp] — throttle broadcasts to ~1/s
+
+        def progress_cb(processed: float, total: float) -> None:
+            entry = self.active_stems.get(stream_uid)
+            if entry is not None:
+                entry.processed_seconds = processed
+                entry.total_seconds = total
+            now = time.monotonic()
+            if processed >= total or (now - last_emit[0]) >= 1.0:
+                last_emit[0] = now
+                self._emit_demucs_progress(processed, total)
+
+        def _separate_and_finalize() -> None:
+            try:
+                ok = separate_stems(input_wav, partial_v, partial_i, ready_event, progress_cb)
+                if ok:
+                    with finalize_lock:
+                        final_v, final_i = finalize_partial_stems(cache_key)
+                        entry = self.active_stems.get(stream_uid)
+                        if entry is not None:
+                            entry.vocals_path = final_v
+                            entry.instrumental_path = final_i
+                    encode_mp3_in_background(cache_key)
+            finally:
+                done_event.set()
+
+        def _notify_when_ready() -> None:
+            # Wait for the first segment, then tell the frontend it can
+            # switch from video audio to stem audio.
+            if ready_event.wait(timeout=120):
+                logging.info("Demucs: first segment ready")
+                self._emit_stems_ready(stream_uid)
+
+        threading.Thread(target=_separate_and_finalize, daemon=True).start()
+        threading.Thread(target=_notify_when_ready, daemon=True).start()
+
+        return True
+
+    def _emit_stems_ready(self, stream_uid: str) -> None:
+        if self.events is None:
+            return
+        entry = self.active_stems.get(stream_uid)
+        if entry is None:
+            return
+        ext = entry.format  # "wav" or "mp3"
+        try:
+            self.events.emit(
+                "stems_ready",
+                {
+                    "stream_uid": stream_uid,
+                    "vocals_url": f"/stream/{stream_uid}/vocals.{ext}",
+                    "instrumental_url": f"/stream/{stream_uid}/instrumental.{ext}",
+                },
+            )
+        except Exception:
+            logging.exception("Failed to emit stems_ready event")
+
+    def _emit_demucs_progress(self, processed: float, total: float) -> None:
+        if self.events is None:
+            return
+        try:
+            self.events.emit(
+                "demucs_progress", {"processed": float(processed), "total": float(total)}
+            )
+        except Exception:
+            logging.exception("Failed to emit demucs_progress event")
+
     def log_ffmpeg_output(self) -> None:
         """Log any pending FFmpeg output from the queue."""
         if self.ffmpeg_log is None:
@@ -333,6 +521,16 @@ class StreamManager:
         while self.ffmpeg_log.qsize() > 0:
             output = self.ffmpeg_log.get_nowait()
             logging.debug("[FFMPEG] " + output.decode("utf-8", "ignore").strip())
+        if self.ffmpeg_process is not None:
+            rc = self.ffmpeg_process.poll()
+            if rc is not None and getattr(self, "_ffmpeg_exit_logged", None) != id(
+                self.ffmpeg_process
+            ):
+                if rc != 0:
+                    logging.error(f"[FFMPEG] process exited with code {rc}")
+                else:
+                    logging.debug(f"[FFMPEG] process exited cleanly (code 0)")
+                self._ffmpeg_exit_logged = id(self.ffmpeg_process)
 
     def kill_ffmpeg(self) -> None:
         """Terminate the running FFmpeg process gracefully.
