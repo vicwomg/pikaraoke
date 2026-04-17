@@ -18,6 +18,10 @@ from pikaraoke.lib.ffmpeg import build_ffmpeg_cmd
 from pikaraoke.lib.file_resolver import FileResolver, is_transcoding_required
 from pikaraoke.lib.preference_manager import PreferenceManager
 
+# Mirror of hls_time in build_ffmpeg_cmd. Each .m4s segment covers roughly
+# this many seconds of source video — close enough for a buffered-seek UI.
+HLS_SEGMENT_DURATION = 3.0
+
 
 @dataclass
 class ActiveStems:
@@ -246,6 +250,11 @@ class StreamManager:
             daemon=True,
         )
         t.start()
+
+        # Surface segment-write progress to the UI for as long as ffmpeg runs,
+        # so the seek slider can reflect "how much has been prepared".
+        if is_hls:
+            self._start_ffmpeg_progress_monitor(fr)
 
         transcode_max_retries = 2500  # ~2 minutes max
         is_transcoding_complete = False
@@ -513,6 +522,59 @@ class StreamManager:
             )
         except Exception:
             logging.exception("Failed to emit demucs_progress event")
+
+    def _start_ffmpeg_progress_monitor(self, fr: FileResolver) -> None:
+        """Watch HLS segments on disk until ffmpeg exits; emit ffmpeg_progress.
+
+        Segment count x HLS_SEGMENT_DURATION is a lower bound on how many
+        seconds of video are ready to seek into — clients use it to clamp
+        the seek slider to the prepared range.
+        """
+        proc = self.ffmpeg_process
+        if proc is None or self.events is None:
+            return
+        total_seconds = float(fr.duration or 0)
+        if total_seconds <= 0:
+            return
+        tmp_dir = fr.tmp_dir
+        stream_uid_str = str(fr.stream_uid)
+
+        def _poll() -> None:
+            last_emitted = -1.0
+            while True:
+                rc = proc.poll()
+                exited = rc is not None
+                try:
+                    count = sum(
+                        1
+                        for f in os.listdir(tmp_dir)
+                        if stream_uid_str in f and f.endswith(".m4s")
+                    )
+                except (FileNotFoundError, OSError):
+                    count = 0
+                processed = min(count * HLS_SEGMENT_DURATION, total_seconds)
+                # Clean exit means the whole file is transcoded; unlock the
+                # rest of the slider even if segment accounting under-counted.
+                if exited and rc == 0:
+                    processed = total_seconds
+                if processed != last_emitted:
+                    last_emitted = processed
+                    self._emit_ffmpeg_progress(processed, total_seconds)
+                if exited:
+                    return
+                time.sleep(1.0)
+
+        threading.Thread(target=_poll, daemon=True).start()
+
+    def _emit_ffmpeg_progress(self, processed: float, total: float) -> None:
+        if self.events is None:
+            return
+        try:
+            self.events.emit(
+                "ffmpeg_progress", {"processed": float(processed), "total": float(total)}
+            )
+        except Exception:
+            logging.exception("Failed to emit ffmpeg_progress event")
 
     def log_ffmpeg_output(self) -> None:
         """Log any pending FFmpeg output from the queue."""

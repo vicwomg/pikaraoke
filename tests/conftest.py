@@ -95,6 +95,8 @@ class MockKaraoke:
         )
         self.playback_controller = MockPlaybackController()
         self.volume = 0.85
+        self.vocal_volume = 0.3
+        self.instrumental_volume = 1.0
         self.running = True
         self.now_playing_notification = None
 

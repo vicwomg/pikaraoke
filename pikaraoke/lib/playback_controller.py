@@ -46,6 +46,8 @@ class PlaybackController:
     now_playing_position: float | None = None
     demucs_processed: float | None = None
     demucs_total: float | None = None
+    ffmpeg_processed: float | None = None
+    ffmpeg_total: float | None = None
     is_paused: bool = True
     is_playing: bool = False
 
@@ -69,11 +71,17 @@ class PlaybackController:
         self.filename_from_path = filename_from_path
         self.stream_manager = StreamManager(preferences, streaming_format, events=events)
         events.on("demucs_progress", self._on_demucs_progress)
+        events.on("ffmpeg_progress", self._on_ffmpeg_progress)
 
     def _on_demucs_progress(self, data: dict) -> None:
         """Update local state when StreamManager reports Demucs progress."""
         self.demucs_processed = float(data.get("processed", 0))
         self.demucs_total = float(data.get("total", 0))
+
+    def _on_ffmpeg_progress(self, data: dict) -> None:
+        """Update local state when StreamManager reports ffmpeg segment progress."""
+        self.ffmpeg_processed = float(data.get("processed", 0))
+        self.ffmpeg_total = float(data.get("total", 0))
 
     @property
     def ffmpeg_process(self) -> "subprocess.Popen | None":
@@ -222,6 +230,8 @@ class PlaybackController:
             "now_playing_position": self.now_playing_position,
             "demucs_processed": self.demucs_processed,
             "demucs_total": self.demucs_total,
+            "ffmpeg_processed": self.ffmpeg_processed,
+            "ffmpeg_total": self.ffmpeg_total,
             "is_paused": self.is_paused,
         }
 
@@ -239,6 +249,8 @@ class PlaybackController:
         self.now_playing_position = None
         self.demucs_processed = None
         self.demucs_total = None
+        self.ffmpeg_processed = None
+        self.ffmpeg_total = None
 
     def log_output(self) -> None:
         """Log any pending FFmpeg output."""
