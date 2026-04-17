@@ -14,6 +14,12 @@
 		window.socket = io();
 	}
 
+	function setStemSlidersDisabled(disabled) {
+		$("#vocal-slider").prop("disabled", disabled);
+		$("#instrumental-slider").prop("disabled", disabled);
+		$("#stem-controls").css("opacity", disabled ? 0.5 : 1);
+	}
+
 	function formatSeekTime(s) {
 		if (!isFinite(s) || s < 0) s = 0;
 		var m = Math.floor(s / 60);
@@ -110,6 +116,11 @@
 				$("#instrumental-slider").val(instrumentalVolume);
 				$("#instrumental-slider-label").text(Math.round(instrumentalVolume * 100) + "%");
 			}
+			// Sliders have no audible effect while video is still playing its
+			// original audio. Enable them only once stems are ready (backend
+			// sets vocals_url/instrumental_url on the now_playing payload at
+			// the same moment it emits stems_ready on the socket).
+			setStemSlidersDisabled(!(np.now_playing && np.vocals_url && np.instrumental_url));
 		} else {
 			$("#stem-controls").hide();
 			$("#main-volume-control").show();
@@ -201,6 +212,12 @@
 			instrumentalVolume = v;
 			$("#instrumental-slider-label").text(Math.round(v * 100) + "%");
 			window.socket.emit("instrumental_volume", v);
+		});
+
+		// Enable stem sliders the moment stems become audible, without
+		// waiting for the next now_playing poll.
+		window.socket.on("stems_ready", () => {
+			setStemSlidersDisabled(false);
 		});
 
 		// Sync sliders when a different pilot moves them.
