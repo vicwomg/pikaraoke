@@ -19,6 +19,7 @@
     data: null,
     transposePending: 0,
     transposeTimer: null,
+    seekDragging: false,
   };
 
   function init(opts = {}) {
@@ -38,6 +39,16 @@
     el.fullPauseIcon = el.full.querySelector('[data-pk-pause-icon]');
     el.fullTranspose = el.full.querySelector('[data-pk-transpose]');
     el.fullVolume = el.full.querySelector('[data-pk-volume]');
+    el.volumeTool = el.full.querySelector('[data-pk-volume-tool]');
+    el.stemTools = el.full.querySelectorAll('[data-pk-stem-tool]');
+    el.vocalSlider = el.full.querySelector('[data-pk-vocal-volume]');
+    el.instSlider = el.full.querySelector('[data-pk-inst-volume]');
+    el.vocalVal = el.full.querySelector('[data-pk-vocal-val]');
+    el.instVal = el.full.querySelector('[data-pk-inst-val]');
+    el.seekSection = el.full.querySelector('[data-pk-seek-section]');
+    el.seekSlider = el.full.querySelector('[data-pk-seek]');
+    el.seekCurrent = el.full.querySelector('[data-pk-seek-current]');
+    el.seekDuration = el.full.querySelector('[data-pk-seek-duration]');
 
     if (!state.isAdmin) {
       el.full.querySelectorAll('[data-admin]').forEach((n) => (n.hidden = true));
@@ -94,27 +105,69 @@
     el.mini.hidden = false;
     document.body.classList.add('pk-has-mini-player');
 
-    el.miniTitle.textContent = data.now_playing;
+    const cleanTitle = window.stripQuotes ? window.stripQuotes(data.now_playing) : data.now_playing;
+    el.miniTitle.textContent = cleanTitle;
     el.miniMeta.innerHTML = data.now_playing_user
       ? `<i class="icon icon-mic-1"></i><span class="pk-mini-singer">${escapeHtml(data.now_playing_user)}</span>`
       : '';
     setPauseIcon(el.miniPauseIcon, data.is_paused);
 
-    el.fullTitle.textContent = data.now_playing;
+    el.fullTitle.textContent = cleanTitle;
     el.fullSinger.textContent = data.now_playing_user || '';
     el.fullTranspose.textContent = formatSemitones(data.now_playing_transpose || 0);
     setPauseIcon(el.fullPauseIcon, data.is_paused);
 
-    // Volume (one-way bind; don't clobber a slider the user is actively dragging)
-    if (data.volume != null && el.fullVolume && document.activeElement !== el.fullVolume) {
+    // Volume / stem controls: show one or the other depending on vocal_removal
+    const stemsOn = !!data.vocal_removal;
+    if (el.volumeTool) el.volumeTool.hidden = stemsOn;
+    el.stemTools.forEach((t) => (t.hidden = !stemsOn));
+
+    if (!stemsOn && data.volume != null && el.fullVolume && document.activeElement !== el.fullVolume) {
       el.fullVolume.value = data.volume;
     }
 
+    if (stemsOn) {
+      const stemsReady = !!(data.vocals_url && data.instrumental_url);
+      if (el.vocalSlider) {
+        el.vocalSlider.disabled = !stemsReady;
+        if (document.activeElement !== el.vocalSlider && typeof data.vocal_volume === 'number') {
+          el.vocalSlider.value = data.vocal_volume;
+          if (el.vocalVal) el.vocalVal.textContent = Math.round(data.vocal_volume * 100) + '%';
+        }
+      }
+      if (el.instSlider) {
+        el.instSlider.disabled = !stemsReady;
+        if (document.activeElement !== el.instSlider && typeof data.instrumental_volume === 'number') {
+          el.instSlider.value = data.instrumental_volume;
+          if (el.instVal) el.instVal.textContent = Math.round(data.instrumental_volume * 100) + '%';
+        }
+      }
+    }
+
+    // Seek slider + timecodes
+    const dur = Number(data.now_playing_duration) || 0;
+    if (el.seekSection && dur > 0) {
+      el.seekSection.hidden = false;
+      el.seekSlider.max = dur;
+      if (!state.seekDragging) el.seekSlider.value = Number(data.now_playing_position) || 0;
+      el.seekCurrent.textContent = fmtTime(Number(data.now_playing_position) || 0);
+      el.seekDuration.textContent = fmtTime(dur);
+    } else if (el.seekSection) {
+      el.seekSection.hidden = true;
+    }
+
     // Progress fill on mini-player underline
-    if (data.now_playing_duration > 0) {
-      const pct = Math.min(100, Math.max(0, (data.now_playing_position / data.now_playing_duration) * 100));
+    if (dur > 0) {
+      const pct = Math.min(100, Math.max(0, (data.now_playing_position / dur) * 100));
       el.mini.style.setProperty('--pk-progress', pct + '%');
     }
+  }
+
+  function fmtTime(s) {
+    s = Math.max(0, Math.floor(s || 0));
+    const m = Math.floor(s / 60);
+    const ss = s % 60;
+    return m + ':' + (ss < 10 ? '0' + ss : ss);
   }
 
   function setPauseIcon(iconEl, isPaused) {
@@ -146,6 +199,37 @@
       el.fullVolume.addEventListener('input', debounce(() => {
         fetch('/volume/' + el.fullVolume.value);
       }, 400));
+    }
+
+    // Stem sliders — live over socket (upstream convention)
+    if (el.vocalSlider) {
+      el.vocalSlider.addEventListener('input', () => {
+        const v = parseFloat(el.vocalSlider.value);
+        if (el.vocalVal) el.vocalVal.textContent = Math.round(v * 100) + '%';
+        if (window.socket) window.socket.emit('vocal_volume', v);
+      });
+    }
+    if (el.instSlider) {
+      el.instSlider.addEventListener('input', () => {
+        const v = parseFloat(el.instSlider.value);
+        if (el.instVal) el.instVal.textContent = Math.round(v * 100) + '%';
+        if (window.socket) window.socket.emit('instrumental_volume', v);
+      });
+    }
+
+    // Seek slider — emit 'seek' on change (release), not on input (dragging).
+    if (el.seekSlider) {
+      const startDrag = () => { state.seekDragging = true; };
+      const endDrag = () => {
+        state.seekDragging = false;
+        if (window.socket) window.socket.emit('seek', parseFloat(el.seekSlider.value));
+      };
+      el.seekSlider.addEventListener('input', () => {
+        if (el.seekCurrent) el.seekCurrent.textContent = fmtTime(parseFloat(el.seekSlider.value));
+      });
+      el.seekSlider.addEventListener('mousedown', startDrag);
+      el.seekSlider.addEventListener('touchstart', startDrag);
+      el.seekSlider.addEventListener('change', endDrag);
     }
   }
 

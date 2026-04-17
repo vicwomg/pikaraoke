@@ -182,6 +182,17 @@ def edit_file(query):
         )
         return redirect(referrer)
     raw_stem = k.song_manager.filename_from_path(song_path, tidy=False)
+
+    def _artist(song):
+        name = k.song_manager.display_name_from_path(song)
+        parts = name.split(" - ", 1)
+        return parts[0].strip() if len(parts) == 2 else ""
+
+    artists = sorted(
+        {_artist(s) for s in k.song_manager.songs if _artist(s)},
+        key=str.lower,
+    )
+
     return render_template(
         "edit.html",
         site_title=site_name,
@@ -189,6 +200,7 @@ def edit_file(query):
         song=song_path,
         raw_stem=raw_stem,
         referrer=referrer,
+        artists=artists,
     )
 
 

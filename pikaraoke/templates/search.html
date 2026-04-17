@@ -49,6 +49,13 @@
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
   }
+  @media (max-width: 520px) {
+    .pk-results { grid-template-columns: 1fr; gap: 14px; }
+    .pk-result-title { font-size: 14.5px; }
+    .pk-result-channel { font-size: 12.5px; }
+    .pk-result-actions .pk-btn { width: 40px; height: 40px; }
+    .pk-result-actions .pk-btn i.icon { font-size: 16px; }
+  }
   .pk-result-card {
     display: flex;
     flex-direction: column;
@@ -161,8 +168,11 @@
   }
   .pk-result-actions .pk-btn i.icon { font-size: 13px; margin: 0; }
   .pk-result-actions .pk-btn-yt {
-    font-weight: 600;
     color: var(--pk-ink-3);
+  }
+  .pk-result-actions .pk-btn-yt:hover {
+    color: #ff0000;
+    border-color: var(--pk-border-strong);
   }
   .pk-result-duration { font-size: 10px; padding: 1px 5px; }
   .pk-result-play { width: 32px; height: 32px; }
@@ -593,7 +603,11 @@
         {% if channel %}<p class="pk-result-channel">{{ channel }}</p>{% endif %}
       </div>
       <div class="pk-result-actions">
-        <a href="{{ url }}" target="_blank" rel="noopener noreferrer" class="pk-btn is-ghost pk-btn-yt" aria-label="YouTube" title="Otwórz na YouTube">↗</a>
+        <a href="{{ url }}" target="_blank" rel="noopener noreferrer" class="pk-btn is-ghost pk-btn-yt" aria-label="YouTube" title="Otwórz na YouTube">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+            <path d="M21.58 7.19a2.51 2.51 0 0 0-1.77-1.78C18.25 5 12 5 12 5s-6.25 0-7.81.41A2.51 2.51 0 0 0 2.42 7.2 26.29 26.29 0 0 0 2 12a26.29 26.29 0 0 0 .42 4.81 2.51 2.51 0 0 0 1.77 1.78C5.75 19 12 19 12 19s6.25 0 7.81-.41a2.51 2.51 0 0 0 1.77-1.78A26.29 26.29 0 0 0 22 12a26.29 26.29 0 0 0-.42-4.81zM10 15V9l5.2 3L10 15z"/>
+          </svg>
+        </a>
         <button type="button" class="pk-btn is-primary pk-result-download" aria-label="Pobierz" title="Pobierz">
           <i class="icon icon-down-big"></i>
         </button>

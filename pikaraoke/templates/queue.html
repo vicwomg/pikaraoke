@@ -371,7 +371,7 @@
     // Now playing card
     if (np && np.now_playing) {
       $now.hidden = false;
-      $now.querySelector('[data-pk-np-title]').textContent = np.now_playing;
+      $now.querySelector('[data-pk-np-title]').textContent = stripQuotes(np.now_playing);
       $now.querySelector('[data-pk-np-singer]').textContent = np.now_playing_user || '';
     } else {
       $now.hidden = true;
@@ -400,8 +400,8 @@
             ${dragHandle}
             <div class="pk-queue-n">${i + 1}</div>
             <div class="pk-queue-body">
-              <div class="pk-queue-title-r">${escHtml(item.title)}</div>
-              <div class="pk-queue-singer-r">{% trans %}sings{% endtrans %} <span class="singer">${escHtml(item.user || '')}</span></div>
+              <div class="pk-queue-title-r">${escHtml(stripQuotes(item.title))}</div>
+              <div class="pk-queue-singer-r">śpiewa <span class="singer">${escHtml(item.user || '')}</span></div>
             </div>
             ${cog}
           </div>`;
@@ -700,9 +700,9 @@
 
 <div id="pk-queue-now" class="pk-queue-now" hidden>
   <div>
-    <div class="pk-queue-now-label">{% trans %}now playing{% endtrans %}</div>
+    <div class="pk-queue-now-label">gra teraz</div>
     <div class="pk-queue-now-title" data-pk-np-title></div>
-    <div class="pk-queue-now-singer">{% trans %}sings{% endtrans %} <span class="singer" data-pk-np-singer></span></div>
+    <div class="pk-queue-now-singer">śpiewa <span class="singer" data-pk-np-singer></span></div>
   </div>
   {% if admin %}
   <button type="button" class="pk-queue-now-options" aria-label="Opcje">

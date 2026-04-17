@@ -478,6 +478,10 @@ $(function () {
       <input class="user-preference-checkbox" type="checkbox" data-pref="enable_title_tidy" {% if enable_title_tidy %}checked{% endif %}>
     </div>
     <div class="pk-pref-row">
+      <span class="pk-pref-label">Usuwanie wokalu (AI — wolne bez GPU)</span>
+      <input class="user-preference-checkbox" type="checkbox" data-pref="vocal_removal" {% if vocal_removal %}checked{% endif %}>
+    </div>
+    <div class="pk-pref-row">
       <span class="pk-pref-label">{% trans %}Audio/video sync (s; negative advances audio){% endtrans %}</span>
       <input class="user-preference-input" type="number" step="0.1" min="-10" max="10" data-pref="avsync" data-start-value="{{ avsync }}" value="{{ avsync }}">
     </div>

@@ -1,15 +1,10 @@
-{% extends 'base.html' %} {% block scripts %}
-<link
-  rel="stylesheet"
-  href="{{  url_for('static', filename='screensaver.css') }}"
-/>
-<link
-  rel="stylesheet"
-  href="{{  url_for('static', filename='score.css') }}"
-/>
+{% extends 'base.html' %}
+
+{% block scripts %}
+<link rel="stylesheet" href="{{ url_for('static', filename='screensaver.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='score.css') }}" />
 <script src="{{ url_for('static', filename='js/subtitles-octopus.js') }}"></script>
 <script>
-  // Use this config object to pass data from the jinja2 template to the splash.js code
   const PikaraokeConfig = {
     hasBgVideo: "{{ has_bg_video }}" == 'True',
     disableScore: "{{ disable_score }}" == 'True',
@@ -20,189 +15,151 @@
     screensaverTimeout: parseInt('{{ screensaver_timeout }}') || 0,
     hideOverlay: "{{ hide_overlay }}" == 'True',
     translations: {
-      socketConnectionLost: "{{ _('Connection lost. Is the server still running?') }}",
-      unsupportedBrowser: "{{ _('This browser is not fully supported. You may experience streaming issues. Please use Chrome/Safari/Firefox/Edge for best results.') }}",
+      socketConnectionLost: "Utracono połączenie. Serwer jeszcze działa?",
+      unsupportedBrowser: "Ta przeglądarka może nie działać w pełni. Używaj Chrome/Safari/Firefox/Edge.",
     },
     scorePhrasesUrl: "{{ url_for('splash.get_score_phrases') }}",
   };
 </script>
 <script src="{{ url_for('static', filename='js/splash.js') }}"></script>
-{% endblock %} {% block body %}
-<div id="top-container" class="overlay">
-<i class="icon icon-mic-1 is-invisible" style="position: absolute" title="Current singer"></i>
-  <div
-    id="now-playing"
-    class="has-text-warning stroke is-size-4 has-text-right"
-    style="display: none"
-  >
-    <p
-      id="now-playing-song"
-      class="has-text-white"
-      style="margin-bottom: 5px"
-    ></p>
-    <div class="has-text-success">
-		</span><i class="icon icon-mic-1" title="Current singer"></i>
-      <span id="now-playing-singer"></span>
-		<br />
-		<span class="timestamp is-size-6">
-        <span id="current">00:00</span>
-		  <span id="duration">/00:00</span>
-		</span>
+<script>
+  // Strip surrounding quotes from song titles rendered by splash.js.
+  // splash.js sets #now-playing-song and #up-next-song via $().html() —
+  // observe their text changes and rewrite.
+  (function () {
+    function stripQuotes(s) {
+      return String(s == null ? '' : s).replace(/^['"]+|['"]+$/g, '');
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+      ['now-playing-song', 'up-next-song'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        new MutationObserver(function () {
+          const t = el.textContent;
+          const cleaned = stripQuotes(t);
+          if (cleaned !== t) el.textContent = cleaned;
+        }).observe(el, { childList: true, characterData: true, subtree: true });
+      });
+    });
+  })();
+</script>
+{% endblock %}
+
+{% block body %}
+
+{# ==== Now playing (top right) ==== #}
+<div id="top-container" class="sp-overlay sp-now" style="display: none">
+  <div class="sp-now-label">teraz gra</div>
+  <div id="now-playing" style="display: none">
+    <p id="now-playing-song" class="sp-now-title"></p>
+    <div class="sp-now-singer">
+      <span class="sp-singer-name" id="now-playing-singer"></span>
+    </div>
+    <div class="sp-now-time">
+      <span id="current">00:00</span>
+      <span class="sp-time-sep">/</span>
+      <span id="duration">00:00</span>
     </div>
   </div>
 </div>
 
+{# ==== Logo (center when idle) ==== #}
 <div id="logo-container">
-  <div>
-    <img class="logo" src="{{ url_for('images.logo') }}" width="500px" alt="logo" />
+  <div class="sp-brand-stack">
+    <div class="sp-brand-line1">PiKaraoke</div>
+    <div class="sp-brand-line2">Karaoke</div>
   </div>
 </div>
 
-<div id="ap-container" class="overlay">
-  <div id="clock" class="stroke has-text-white is-size-4" style="display: none;"></div>
-  <div class="is-size-6 stroke">
-    <div id="hostap">
-      {% for line in hostap_info %}{{ line }}<br />{% endfor %}
-    </div>
+{# ==== AP info + clock (top left) ==== #}
+<div id="ap-container" class="sp-overlay">
+  <div id="clock" class="sp-clock" style="display: none;"></div>
+  <div id="hostap" class="sp-hostap">
+    {% for line in hostap_info %}<div>{{ line }}</div>{% endfor %}
   </div>
 </div>
 
-<div id="bottom-container" class="overlay">
-  <div id="qr-code"{% if hide_url %} style="display: none"{% endif %}>
-    <img
-      src="{{ url_for('images.qrcode') }}"
-      width="100px"
-      style="image-rendering: pixelated"
-      alt="qrcode"
-    />
-    <div class="is-size-6 stroke">
-      <div>&nbsp;{{ url }}</div>
-    </div>
+{# ==== Bottom strip: QR + up next ==== #}
+<div id="bottom-container" class="sp-overlay">
+  <div id="qr-code" class="sp-qr"{% if hide_url %} style="display: none"{% endif %}>
+    <img src="{{ url_for('images.qrcode') }}" class="sp-qr-img" alt="QR">
+    <div class="sp-qr-url">{{ url }}</div>
   </div>
   <div></div>
-  <div
-    id="up-next"
-    class="has-text-warning is-size-5 stroke has-text-right"
-    style="display: none"
-  >
-    <b class="has-text-white"
-      >{# MSG: Label for the next song to be played in the queue. #} {% trans
-      %}Up next:{% endtrans %}
-    </b>
-    <span id="up-next-song"></span>
-    <div class="has-text-success">
-      <b class="has-text-white"
-        >{# MSG: Label for the next singer in the queue. #}
-        {% trans %}Next singer:{% endtrans %} </b
-      >&nbsp;<i class="icon icon-mic-1" title="Next singer"></i
-      ><span id="up-next-singer"></span>
+  <div id="up-next" class="sp-upnext" style="display: none">
+    <div class="sp-upnext-label">dalej</div>
+    <span id="up-next-song" class="sp-upnext-song"></span>
+    <div class="sp-upnext-singer">
+      <span class="sp-caveat">śpiewa</span>
+      <span id="up-next-singer" class="sp-singer-name"></span>
     </div>
   </div>
 </div>
 
+{# ==== Video players ==== #}
 <div id="video-container" class="video-container">
-  <video id="video" poster="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" disableRemotePlayback playsinline webkit-playsinline style="width: 100%; height: 100%; object-fit: contain;">
+  <video id="video" poster="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" disableRemotePlayback playsinline webkit-playsinline>
     <source id="video-source" src="" />
   </video>
 </div>
 
 <div id="bg-video-container" class="video-container">
-  <video id="bg-video" poster="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" disableRemotePlayback playsinline webkit-playsinline muted loop style="object-fit: cover">
+  <video id="bg-video" poster="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" disableRemotePlayback playsinline webkit-playsinline muted loop>
     <source id="bg-video-source" type="video/mp4" src="" />
   </video>
 </div>
 
+{# ==== Score screen ==== #}
 <div id="score" style="display: none">
-	<div id="your-score-text">
-    {# MSG: The title of the score screen, telling the user their singing score #}
-		{% trans %}Your Score{% endtrans %}
-	</div>
-	<div id="score-number-text">
-	</div>
-	<div id="score-review-text">
-	</div>
-	<canvas id="fireworks"></canvas>
+  <div id="your-score-text">Wynik</div>
+  <div id="score-number-text"></div>
+  <div id="score-review-text"></div>
+  <canvas id="fireworks"></canvas>
 </div>
 
-<div id="permissions-modal" class="modal">
-  <div class="modal-background"></div>
-  <div class="modal-content p-5 has-text-centered" id="permissions-modal-content">
-    <div style="font-size: 5rem; line-height: 1;">
-      <i class="icon icon-mic-circled has-text-success"></i>
+{# ==== Intro modal (click-to-start) ==== #}
+<div id="permissions-modal" class="sp-intro">
+  <div class="sp-intro-inner">
+    <div class="sp-intro-mic">
+      <svg viewBox="0 0 64 64" width="72" height="72" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="22" y="8" width="20" height="32" rx="10"/>
+        <path d="M14 30 A 18 18 0 0 0 50 30"/>
+        <line x1="32" y1="48" x2="32" y2="56"/>
+        <line x1="22" y1="56" x2="42" y2="56"/>
+      </svg>
     </div>
-    <h1 class="is-size-2 has-text-white mt-3 mb-2">
-      {# MSG: Title of the splash intro screen. #}
-      {% trans %}Karaoke Screen{% endtrans %}
+    <h1 class="sp-intro-title">
+      <span class="sp-intro-brand">PiKaraoke</span>
+      <span class="sp-intro-brand-2">Karaoke</span>
     </h1>
-    <p class="is-size-5 has-text-grey-light mb-4">
-      {# MSG: Subtitle explaining what this browser tab is for. #}
-      {% trans %}This tab is your karaoke display.{% endtrans %}
-    </p>
-    <ul class="intro-list has-text-left is-size-5 has-text-white" style="display: inline-block; margin: 0 auto;">
-      <li>
-        <i class="icon icon-play has-text-success"></i>
-        {# MSG: Intro bullet - what will be shown here (music video). #}
-        {% trans %}Music video for the current song{% endtrans %}
-      </li>
-      <li>
-        <i class="icon icon-mic-1 has-text-success"></i>
-        {# MSG: Intro bullet - what will be shown here (lyrics). #}
-        {% trans %}Lyrics to sing along{% endtrans %}
-      </li>
-      <li>
-        <i class="icon icon-list-numbered has-text-success"></i>
-        {# MSG: Intro bullet - what will be shown here (queue and score). #}
-        {% trans %}Queue and score{% endtrans %}
-      </li>
+    <p class="sp-intro-sub">Ten ekran to Twój widok karaoke</p>
+    <ul class="sp-intro-list">
+      <li><span class="sp-intro-dot"></span>Teledysk aktualnej piosenki</li>
+      <li><span class="sp-intro-dot"></span>Napisy do śpiewania</li>
+      <li><span class="sp-intro-dot"></span>Kolejka i wynik</li>
     </ul>
-    <p class="is-size-6 has-text-grey-light mt-4">
-      {# MSG: Instruction to place this window on an audience-facing monitor. #}
-      {% trans %}Open this tab on the monitor your audience can see.{% endtrans %}
-    </p>
-    <p class="is-size-7 has-text-grey mt-2">
-      {# MSG: Small note explaining why a click is required (browser autoplay policy). #}
-      {% trans %}Your browser requires a click before it allows autoplay.{% endtrans %}
-    </p>
-    <div class="mt-5">
-      <button
-        id="permissions-button"
-        class="button is-success is-large"
-        onClick="handleConfirmation()"
-      >
-        {# MSG: Button to start the karaoke splash screen. #}
-        {% trans %}Start Karaoke{% endtrans %}
-      </button>
-    </div>
+    <p class="sp-intro-hint">Otwórz ten ekran na telewizorze lub projektorze, żeby wszyscy widzieli.</p>
+    <p class="sp-intro-note">Przeglądarka wymaga jednego kliknięcia, żeby odtwarzać wideo automatycznie.</p>
+    <button id="permissions-button" class="sp-intro-btn" onClick="handleConfirmation()">Zaczynamy!</button>
   </div>
 </div>
 
+{# ==== Menu (hamburger) ==== #}
 <div id="menu">
-  <a
-    role="button"
-    class="navbar-burger"
-    aria-label="menu"
-    aria-expanded="false"
-    data-target="navbarBasicExample"
-    style="display: block; width: 20px; height: 30px"
-  >
+  <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
     <span aria-hidden="true"></span>
     <span aria-hidden="true"></span>
     <span aria-hidden="true"></span>
   </a>
 </div>
 
-  <div id="menu-background" class="overlay"></div>
-   <div id="menu-container" class="">
-     <iframe></iframe>
-   </div>
+<div id="menu-background" class="overlay"></div>
+<div id="menu-container"><iframe></iframe></div>
 
+{# ==== Flash notification ==== #}
+<div id="splash-notification" class="sp-notice" style="display: none;"></div>
 
-<div
-  id="splash-notification"
-  class="notification overlay"
-  style="display: none; border: 2px solid black;"
-></div>
-
+{# ==== Screensaver ==== #}
 <div class="fw-fh-container">
   <div id="screensaver" style="visibility: hidden">
     <div id="dvd">
@@ -221,10 +178,7 @@
 </audio>
 
 <audio id="score-drums">
-	<source
-	  src="{{  url_for('static', filename='sounds/score-drums.mp3') }}"
-	  type="audio/mp3"
-	/>
+  <source src="{{  url_for('static', filename='sounds/score-drums.mp3') }}" type="audio/mp3"/>
 </audio>
 
 <script src="{{  url_for('static', filename='hls-1.6.15.min.js') }}"></script>
@@ -233,148 +187,414 @@
 <script src="{{  url_for('static', filename='score.js') }}"></script>
 
 <style>
-  html {
-    overflow-y: hidden;
-  }
+  html { overflow-y: hidden; }
   body {
-    background-color: black;
+    background:
+      radial-gradient(ellipse at 85% 10%, rgba(242, 157, 63, 0.28), transparent 50%),
+      radial-gradient(ellipse at 15% 90%, rgba(78, 148, 181, 0.18), transparent 50%),
+      var(--pk-bg);
+    color: var(--pk-ink);
+    font-family: var(--pk-font-body);
   }
-  #top-container,
-  #ap-container,
-  #bottom-container {
+
+  /* ===== Brand (centered logo when idle) ===== */
+  #logo-container {
     position: absolute;
     z-index: 1;
-    padding: 10px 20px;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
   }
-  #top-container {
-    top: 0px;
-    right: 0px;
-    max-width: 75%;
-  }
-  #ap-container {
-    top: 0px;
-    left: 0px;
-    max-width: 50%;
+  .sp-brand-stack {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
   }
-  #bottom-container {
-    bottom: 0px;
-    left: 0px;
-    width: 100%;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
+  .sp-brand-line1 {
+    font-family: var(--pk-font-display);
+    font-variation-settings: "opsz" 144, "SOFT" 60, "WONK" 1;
+    font-weight: 400;
+    font-size: clamp(56px, 10vw, 140px);
+    line-height: 0.9;
+    letter-spacing: -0.03em;
+    color: var(--pk-ink);
   }
-  #qr-code {
-    max-width: 25%;
+  .sp-brand-line2 {
+    font-family: var(--pk-font-hand);
+    font-size: clamp(80px, 14vw, 200px);
+    line-height: 0.8;
+    color: var(--pk-amber);
+    transform: rotate(-4deg);
+    margin-top: -8px;
   }
-  #up-next {
-    max-width: 75%;
+
+  /* ===== Overlays common ===== */
+  .sp-overlay {
+    position: absolute;
+    z-index: 3;
+    padding: 18px 24px;
   }
   .video-container {
     position: absolute;
     z-index: 2;
-    top: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: black;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background:
+      radial-gradient(ellipse at 85% 10%, rgba(242, 157, 63, 0.28), transparent 50%),
+      radial-gradient(ellipse at 15% 90%, rgba(78, 148, 181, 0.18), transparent 50%),
+      var(--pk-bg);
     display: flex;
     align-items: center;
   }
   #bg-video-container {
     z-index: 0;
-    width: 100vw;
-    height: 100vh;
+    width: 100vw; height: 100vh;
   }
-  video {
-    height: 100%;
-    width: 100%;
-    object-fit: contain;
+  video { height: 100%; width: 100%; object-fit: contain; }
+  #bg-video { object-fit: cover; }
+  .fw-fh-container { height: 100vh; width: 100vw; }
+
+  /* ===== Now playing (top right) ===== */
+  #top-container {
+    top: 0; right: 0;
+    max-width: 60%;
+    text-align: right;
+    padding: 22px 28px;
+    background: linear-gradient(225deg, rgba(0,0,0,0.55), transparent 70%);
   }
-  body {
-    background-color: black;
-  }
-  .fw-fh-container {
-    height: 100vh;
-    width: 100vw;
-  }
-  #logo-container {
-    position: absolute;
-    z-index: 1;
-    display: flex;
-    width: 100vw;
-    height: 100vh;
+  .sp-now-label {
+    font-family: var(--pk-font-hand);
+    font-size: clamp(22px, 2vw, 30px);
+    color: var(--pk-lime);
+    line-height: 1;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
+    gap: 10px;
   }
-  #menu-background {
-    bottom: 0;
-    left: 0;
-    position: absolute;
-    right: 0;
-    top: 0;
-	 width: 100vw;
-	 height: 100vh;
+  .sp-now-label::before {
+    content: '';
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--pk-lime);
+    box-shadow: 0 0 10px var(--pk-lime);
+    animation: pk-pulse 1.6s infinite;
   }
+  .sp-now-title {
+    font-family: var(--pk-font-display);
+    font-variation-settings: "opsz" 144, "SOFT" 60;
+    font-weight: 500;
+    font-size: clamp(28px, 3.5vw, 54px);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: #fff;
+    margin: 4px 0 2px;
+    text-shadow: 0 2px 16px rgba(0,0,0,0.8);
+  }
+  .sp-now-singer {
+    font-family: var(--pk-font-hand);
+    font-size: clamp(22px, 2.2vw, 32px);
+    color: var(--pk-amber);
+    line-height: 1;
+    margin-top: 2px;
+  }
+  .sp-singer-name { color: var(--pk-amber); }
+  .sp-now-time {
+    font-family: var(--pk-font-mono);
+    font-size: clamp(14px, 1.3vw, 20px);
+    color: rgba(255,255,255,0.7);
+    margin-top: 6px;
+    letter-spacing: 0.04em;
+  }
+  .sp-time-sep { opacity: 0.5; margin: 0 4px; }
+
+  /* ===== Hostap + clock (top left) ===== */
+  #ap-container {
+    top: 0; left: 0;
+    max-width: 50%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .sp-clock {
+    font-family: var(--pk-font-mono);
+    font-size: clamp(20px, 2vw, 28px);
+    color: #fff;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.7);
+  }
+  .sp-hostap {
+    font-family: var(--pk-font-mono);
+    font-size: clamp(13px, 1.1vw, 16px);
+    color: rgba(255,255,255,0.8);
+    letter-spacing: 0.04em;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.7);
+  }
+  .sp-hostap div { line-height: 1.5; }
+
+  /* ===== Bottom strip ===== */
+  #bottom-container {
+    bottom: 0; left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 20px;
+    padding: 22px 28px;
+    background: linear-gradient(0deg, rgba(0,0,0,0.5), transparent);
+  }
+  .sp-qr {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: 35%;
+  }
+  .sp-qr-img {
+    width: 90px;
+    height: 90px;
+    border-radius: 6px;
+    background: #fff;
+    padding: 4px;
+    image-rendering: pixelated;
+  }
+  .sp-qr-url {
+    font-family: var(--pk-font-mono);
+    font-size: clamp(13px, 1.2vw, 18px);
+    color: var(--pk-amber-2);
+    font-weight: 500;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.7);
+    letter-spacing: 0.02em;
+  }
+
+  .sp-upnext {
+    max-width: 55%;
+    text-align: right;
+    color: #fff;
+  }
+  .sp-upnext-label {
+    font-family: var(--pk-font-hand);
+    font-size: clamp(20px, 1.8vw, 28px);
+    color: var(--pk-amber);
+    line-height: 1;
+  }
+  .sp-upnext-song {
+    font-family: var(--pk-font-display);
+    font-variation-settings: "opsz" 72, "SOFT" 40;
+    font-weight: 500;
+    font-size: clamp(22px, 2.4vw, 36px);
+    line-height: 1.1;
+    color: #fff;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.7);
+    display: block;
+    margin-top: 4px;
+  }
+  .sp-upnext-singer {
+    font-size: clamp(14px, 1.2vw, 20px);
+    color: rgba(255,255,255,0.75);
+    margin-top: 4px;
+  }
+  .sp-upnext-singer .sp-caveat {
+    font-family: var(--pk-font-hand);
+    color: rgba(255,255,255,0.6);
+  }
+  .sp-upnext-singer .sp-singer-name {
+    font-family: var(--pk-font-hand);
+    font-size: clamp(18px, 1.5vw, 24px);
+    color: var(--pk-amber-2);
+    margin-left: 4px;
+  }
+
+  /* ===== Intro modal ===== */
+  .sp-intro {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background:
+      radial-gradient(ellipse at 50% 30%, rgba(242, 157, 63, 0.18), transparent 55%),
+      radial-gradient(ellipse at 50% 90%, rgba(78, 148, 181, 0.15), transparent 55%),
+      #0c0a07;
+    padding: 40px;
+    display: none;
+  }
+  .sp-intro.is-active {
+    display: grid;
+    place-items: center;
+  }
+  .sp-intro-inner {
+    max-width: 640px;
+    text-align: center;
+    color: #fff;
+  }
+  .sp-intro-mic {
+    color: var(--pk-amber);
+    display: inline-block;
+    margin-bottom: 14px;
+  }
+  .sp-intro-title {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    margin: 0 0 12px;
+  }
+  .sp-intro-brand {
+    font-family: var(--pk-font-display);
+    font-variation-settings: "opsz" 144, "SOFT" 60, "WONK" 1;
+    font-weight: 400;
+    font-size: clamp(44px, 7vw, 84px);
+    line-height: 0.9;
+    letter-spacing: -0.03em;
+    color: #fff;
+  }
+  .sp-intro-brand-2 {
+    font-family: var(--pk-font-hand);
+    font-size: clamp(64px, 10vw, 124px);
+    line-height: 0.85;
+    color: var(--pk-amber);
+    transform: rotate(-3deg);
+    margin-top: -4px;
+  }
+  .sp-intro-sub {
+    font-family: var(--pk-font-display);
+    font-style: italic;
+    font-size: clamp(18px, 1.6vw, 22px);
+    color: rgba(255,255,255,0.8);
+    margin: 8px 0 20px;
+  }
+  .sp-intro-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 auto 24px;
+    display: inline-flex;
+    flex-direction: column;
+    gap: 10px;
+    text-align: left;
+    font-size: clamp(16px, 1.4vw, 20px);
+    color: rgba(255,255,255,0.9);
+  }
+  .sp-intro-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .sp-intro-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--pk-amber);
+    flex-shrink: 0;
+  }
+  .sp-intro-hint {
+    font-size: 15px;
+    color: rgba(255,255,255,0.65);
+    margin: 0 0 4px;
+  }
+  .sp-intro-note {
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+    font-family: var(--pk-font-mono);
+    letter-spacing: 0.06em;
+    margin-bottom: 26px;
+  }
+  .sp-intro-btn {
+    display: inline-block;
+    padding: 16px 40px;
+    background: var(--pk-amber);
+    color: #0c0a07;
+    border: 0;
+    border-radius: 100px;
+    font-family: var(--pk-font-hand);
+    font-size: clamp(24px, 2vw, 30px);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    box-shadow: 0 12px 32px -8px rgba(242, 157, 63, 0.5);
+    transition: transform 0.15s var(--pk-ease), box-shadow 0.2s var(--pk-ease);
+  }
+  .sp-intro-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 18px 40px -8px rgba(242, 157, 63, 0.6);
+  }
+  .sp-intro-btn:active {
+    transform: translateY(0);
+  }
+
+  /* ===== Hamburger menu ===== */
   #menu {
     position: absolute;
     z-index: 5;
-    top: 10px;
-    left: 20px;
+    top: 12px;
+    left: 24px;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    opacity: 0.4;
+    transition: opacity 0.2s;
   }
-  #clock {
-    text-align: left;
-    font-family: monospace;
-    font-weight: bold;
-    line-height: 1;
-    margin-bottom: 10px;
+  #menu:hover { opacity: 1; }
+  #menu .navbar-burger {
+    position: relative;
+    display: block;
+    width: 28px;
+    height: 28px;
+  }
+  #menu .navbar-burger span {
+    position: absolute;
+    height: 2px;
+    width: 18px;
+    left: 5px;
+    background: #fff;
+    transition: all 0.2s;
+  }
+  #menu .navbar-burger span:nth-child(1) { top: 10px; }
+  #menu .navbar-burger span:nth-child(2) { top: 15px; }
+  #menu .navbar-burger span:nth-child(3) { top: 20px; }
+  #menu-background {
+    position: absolute;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 3;
   }
   #menu-container {
     position: absolute;
-    z-index: 3;
-    top: 40px;
-    left: 20px;
+    z-index: 4;
+    top: 50px;
+    left: 24px;
     display: none;
+    border-radius: 12px;
     overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
   }
   #menu-container iframe {
     width: 600px;
     height: 75vh;
+    border: 0;
   }
   @media (max-width: 650px) {
-    #menu-container iframe {
-      width: 90vw;
-    }
+    #menu-container iframe { width: 90vw; }
   }
-  .visible {
-    visibility: visible;
-    opacity: 1;
-    transition: opacity 0.5s linear;
-  }
-  .hidden {
-    visibility: hidden;
-    opacity: 0;
-    transition: visibility 0s 0.5s, opacity 0.5s linear;
-  }
-  .overlay {
-    z-index: 3 !important;
-  }
-  .stroke {
-    text-shadow: 2px 0.75px black;
-  }
-  .timestamp {
-    font-family: monospace;
-  }
-  #splash-notification {
+
+  /* ===== Notification ===== */
+  .sp-notice {
     position: absolute;
-    top: 15px;
-    left: 50px;
+    top: 18px;
+    left: 62px;
     z-index: 6;
-    padding: 5px 10px;
+    padding: 10px 16px;
+    background: var(--pk-surface-2);
+    color: var(--pk-ink);
+    border-radius: 10px;
     max-width: 450px;
+    font-size: 14px;
+    box-shadow: var(--pk-shadow-elev);
+    border-left: 3px solid var(--pk-amber);
   }
+
+  /* Visibility transitions for JS */
+  .visible { visibility: visible; opacity: 1; transition: opacity 0.5s linear; }
+  .hidden { visibility: hidden; opacity: 0; transition: visibility 0s 0.5s, opacity 0.5s linear; }
 </style>
 
 {% endblock %}

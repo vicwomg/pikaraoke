@@ -270,7 +270,7 @@ $(function() {
     {% endif %}
 
     <div class="pk-library-row">
-      <div class="pk-library-title">{{ _title }}</div>
+      <div class="pk-library-title">{{ _title.strip('\'"') }}</div>
       {{ action_buttons(song) }}
     </div>
   {% endfor %}
@@ -282,10 +282,10 @@ $(function() {
     <div class="pk-library-row">
       <div class="pk-library-title">
         {%- if _parts|length == 2 -%}
-        {{ _parts[1]|trim }}
+        {{ _parts[1].strip().strip('\'"') }}
         <span class="pk-lib-artist">{{ _parts[0]|trim }}</span>
         {%- else -%}
-        {{ _name }}
+        {{ _name.strip('\'"') }}
         {%- endif -%}
       </div>
       {{ action_buttons(song) }}

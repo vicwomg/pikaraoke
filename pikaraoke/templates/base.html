@@ -70,6 +70,12 @@
       transposeTitle: "Zmienić tonację?"
     };
 
+    // Strip leading/trailing ASCII quotes from titles ('Niemożliwe' → Niemożliwe).
+    function stripQuotes(s) {
+      return String(s == null ? '' : s).replace(/^['"]+|['"]+$/g, '');
+    }
+    window.stripQuotes = stripQuotes;
+
     function generateRandomString(length) {
       const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
       let result = '';
@@ -329,6 +335,15 @@
       </div>
     </div>
 
+    {# Seek slider — shown only when song has a known duration #}
+    <div class="pk-player-seek" data-pk-seek-section hidden>
+      <input type="range" min="0" max="100" step="1" value="0" data-pk-seek class="pk-seek-slider">
+      <div class="pk-seek-times">
+        <span data-pk-seek-current>0:00</span>
+        <span data-pk-seek-duration>0:00</span>
+      </div>
+    </div>
+
     <div class="pk-player-controls">
       <button class="pk-pc-btn" data-pk-action="restart" data-admin aria-label="Restart">
         <i class="icon icon-to-start"></i>
@@ -358,10 +373,22 @@
         </div>
       </div>
       {% endif %}
-      <div class="pk-tool pk-tool-slider">
+      <div class="pk-tool pk-tool-slider" data-pk-volume-tool>
         <i class="icon icon-volume-down"></i>
         <input type="range" min="0" max="1" step="0.025" data-pk-volume aria-label="Volume">
         <i class="icon icon-volume-up"></i>
+      </div>
+
+      {# Stem controls — shown only when vocal_removal is on #}
+      <div class="pk-tool pk-tool-stem" data-pk-stem-tool hidden>
+        <span class="pk-tool-label">wokal</span>
+        <input type="range" min="0" max="1" step="0.025" data-pk-vocal-volume>
+        <span class="pk-tool-stem-val" data-pk-vocal-val>100%</span>
+      </div>
+      <div class="pk-tool pk-tool-stem" data-pk-stem-tool hidden>
+        <span class="pk-tool-label">muzyka</span>
+        <input type="range" min="0" max="1" step="0.025" data-pk-inst-volume>
+        <span class="pk-tool-stem-val" data-pk-inst-val>100%</span>
       </div>
     </div>
   </div>

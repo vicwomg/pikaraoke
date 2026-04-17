@@ -1,111 +1,303 @@
 {% extends 'base.html' %}
+{% set use_new_shell = true %}
 
 {% block scripts %}
+<style>
+  .pk-edit {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .pk-edit-label {
+    font-family: var(--pk-font-mono);
+    font-size: 10.5px;
+    color: var(--pk-ink-3);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .pk-edit-input {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--pk-bg);
+    border: 1px solid var(--pk-border);
+    border-radius: var(--pk-r-md);
+    color: var(--pk-ink);
+    font-family: var(--pk-font-body);
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s var(--pk-ease), box-shadow 0.2s var(--pk-ease);
+  }
+  .pk-edit-input:focus {
+    border-color: var(--pk-amber);
+    box-shadow: 0 0 0 3px var(--pk-amber-glow);
+  }
+  .pk-edit-original {
+    font-family: var(--pk-font-display);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--pk-ink-3);
+    padding: 10px 14px;
+    background: var(--pk-surface-2);
+    border-radius: var(--pk-r-sm);
+  }
+  .pk-edit-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .pk-edit-tool {
+    padding: 6px 10px;
+    background: var(--pk-surface);
+    border: 1px dashed var(--pk-wood-dark);
+    border-radius: var(--pk-r-pill);
+    font-family: var(--pk-font-hand);
+    font-size: 15px;
+    color: var(--pk-ink-2);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pk-edit-tool:hover {
+    color: var(--pk-amber-2);
+  }
+  .pk-edit-tool-sp { margin-left: 4px; color: var(--pk-amber-2); font-size: 13px; display: none; }
+  .pk-edit-tool-sp.is-loading { display: inline; }
+  .pk-edit-suggest {
+    list-style: none;
+    margin-top: 6px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .pk-edit-suggest li {
+    padding: 8px 12px;
+    background: var(--pk-bg);
+    border: 1px solid var(--pk-border);
+    border-radius: var(--pk-r-sm);
+    font-size: 13.5px;
+    color: var(--pk-ink);
+    cursor: pointer;
+  }
+  .pk-edit-suggest li:hover { border-color: var(--pk-amber); }
+
+  .pk-edit-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .pk-edit-actions .pk-btn { flex: 1; justify-content: center; }
+
+  .pk-edit-danger {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px dotted var(--pk-ink-4);
+  }
+
+  .pk-ac-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    background: var(--pk-bg);
+    border: 1px solid var(--pk-border);
+    border-radius: var(--pk-r-md);
+    box-shadow: var(--pk-shadow-elev);
+    z-index: 10;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .pk-ac-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--pk-ink);
+    border-bottom: 1px solid var(--pk-border);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pk-ac-item:last-child { border-bottom: 0; }
+  .pk-ac-item:hover,
+  .pk-ac-item.is-active {
+    background: var(--pk-surface);
+    color: var(--pk-amber-2);
+  }
+  .pk-ac-item mark {
+    background: transparent;
+    color: var(--pk-amber-2);
+    font-weight: 600;
+  }
+</style>
+
 <script>
-  $(function () {
+(function () {
+  'use strict';
 
-    $('#remove-karaoke').click(function (e) {
-      var filename = $('#new_file_name').val();
-      if (!$.trim(filename)) return;
-      $.getJSON('/metadata/tidy-name', { filename: filename }, function (data) {
-        if (data.tidied) {
-          $('#new_file_name').val(data.tidied);
-        }
-      });
+  const ARTISTS = {{ artists|tojson }};
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const $artist = document.getElementById('pk-edit-artist');
+    const $title = document.getElementById('pk-edit-title');
+    const $hidden = document.getElementById('pk-edit-name');
+    const $sugg = document.getElementById('pk-artist-suggest');
+    if (!$artist || !$title || !$hidden || !$sugg) return;
+
+    function rebuildFilename() {
+      const a = ($artist.value || '').trim();
+      const t = ($title.value || '').trim();
+      $hidden.value = a && t ? `${a} - ${t}` : (t || a);
+    }
+
+    $artist.addEventListener('input', () => {
+      rebuildFilename();
+      refreshSuggestions();
+    });
+    $title.addEventListener('input', rebuildFilename);
+    rebuildFilename();
+
+    // ----- Autocomplete (artist) -----
+    let activeIndex = -1;
+    let currentItems = [];
+
+    function refreshSuggestions() {
+      const q = ($artist.value || '').trim().toLowerCase();
+      if (!q) return hideSuggestions();
+
+      currentItems = ARTISTS
+        .filter((a) => a.toLowerCase().includes(q) && a.toLowerCase() !== q)
+        .slice(0, 8);
+
+      if (currentItems.length === 0) return hideSuggestions();
+
+      $sugg.innerHTML = currentItems
+        .map((a, i) => `<div class="pk-ac-item" data-idx="${i}">${highlightMatch(a, q)}</div>`)
+        .join('');
+      $sugg.hidden = false;
+      activeIndex = -1;
+    }
+
+    function hideSuggestions() {
+      $sugg.hidden = true;
+      $sugg.innerHTML = '';
+      currentItems = [];
+      activeIndex = -1;
+    }
+
+    function highlightMatch(text, q) {
+      const idx = text.toLowerCase().indexOf(q);
+      if (idx < 0) return escHtml(text);
+      return escHtml(text.slice(0, idx))
+        + '<mark>' + escHtml(text.slice(idx, idx + q.length)) + '</mark>'
+        + escHtml(text.slice(idx + q.length));
+    }
+
+    function selectByIndex(i) {
+      const item = currentItems[i];
+      if (!item) return;
+      $artist.value = item;
+      rebuildFilename();
+      hideSuggestions();
+      $title.focus();
+    }
+
+    function setActive(i) {
+      const rows = $sugg.querySelectorAll('.pk-ac-item');
+      rows.forEach((r, k) => r.classList.toggle('is-active', k === i));
+      activeIndex = i;
+      const active = rows[i];
+      if (active) active.scrollIntoView({ block: 'nearest' });
+    }
+
+    $sugg.addEventListener('mousedown', (e) => {
+      // mousedown, not click — fires before blur, keeps suggestion live
+      const row = e.target.closest('.pk-ac-item');
+      if (!row) return;
+      e.preventDefault();
+      selectByIndex(parseInt(row.dataset.idx, 10));
     });
 
-    $('#suggest-title').click(function (e) {
-      var filename = $.trim($('#new_file_name').val());
-      if (!filename) return;
-      $('.suggest_loader').removeClass("is-hidden");
-      $("#suggest_results").html("");
-      $.getJSON('/metadata/suggest-names', { filename: filename, limit: 5 }, function (data) {
-        var suggestions = "";
-        if (data.suggestions && data.suggestions.length > 0) {
-          $.each(data.suggestions, function (i, item) {
-            suggestions += "<li><a class='suggested_item is-warning'>" + item.name + " - " + item.artist + "</a></li>";
-          });
-        } else {
-          // {# MSG: Warning when no suggested tracks are found for a search. #}
-          suggestions = "<li>{{ _('No suggestion!') }}</li>";
-        }
-        $("#suggest_results").html("<ul>" + suggestions + "</ul>");
-      }).always(function () {
-        $('.suggest_loader').addClass("is-hidden");
-      });
+    $artist.addEventListener('keydown', (e) => {
+      if ($sugg.hidden || currentItems.length === 0) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActive(Math.min(activeIndex + 1, currentItems.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActive(Math.max(activeIndex - 1, 0));
+      } else if (e.key === 'Enter' && activeIndex >= 0) {
+        e.preventDefault();
+        selectByIndex(activeIndex);
+      } else if (e.key === 'Escape') {
+        hideSuggestions();
+      }
     });
 
-    $('#swap-order').click(function (e) {
-      var split_name = $('#new_file_name').val().split(' - ');
-      var new_name = split_name[1] + " - " + split_name[0];
-      new_name = new_name.trim();
-      $('#new_file_name').val(new_name);
+    $artist.addEventListener('focus', refreshSuggestions);
+    $artist.addEventListener('blur', () => {
+      // delay so click/mousedown in dropdown can fire first
+      setTimeout(hideSuggestions, 150);
     });
 
-    $("#suggest_results").on("click", ".suggested_item", function () {
-      $('#new_file_name').val($(this).text());
-    });
-
+    function escHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = String(s);
+      return d.innerHTML;
+    }
   });
+})();
 </script>
-{% endblock %}
-
-{% block header %}
-{# MSG: Page title for the page where a song can be edited. #}
-<h1>{% block title %}{% trans %}Edit Song{% endtrans %}{% endblock %}</h1>
 {% endblock %}
 
 {% block content %}
 
+<h1 class="pk-view-title">Edycja utworu</h1>
 
-<div class="field">
-  <form action="{{ url_for('files.edit_file') }}" method="post">
-    <div class="field">
-      <p class='has-text-warning'>{{ raw_stem }} </p>
+{% set _parts = raw_stem.split(' - ', 1) %}
+{% if _parts|length == 2 %}
+  {% set _artist = _parts[0]|trim %}
+  {% set _title = _parts[1]|trim %}
+{% else %}
+  {% set _artist = '' %}
+  {% set _title = raw_stem %}
+{% endif %}
+
+<form action="{{ url_for('files.edit_file') }}" method="post" class="pk-edit">
+
+  <div class="pk-edit-original">
+    Obecnie: {{ raw_stem }}
+  </div>
+
+  <input value="{{ song }}" type="hidden" name="old_file_name">
+  <input type="hidden" name="referrer" value="{{ referrer }}">
+  <input type="hidden" name="new_file_name" id="pk-edit-name">
+
+  <div>
+    <div class="pk-edit-label">Wykonawca</div>
+    <div style="position: relative;">
+      <input id="pk-edit-artist" class="pk-edit-input" type="text" autocomplete="off"
+             value="{{ _artist }}" placeholder="np. Perfect">
+      <div id="pk-artist-suggest" class="pk-ac-dropdown" hidden></div>
     </div>
-    <input value="{{ song }}" type="hidden" name='old_file_name'>
-    <input type="hidden" name="referrer" value="{{ referrer }}">
-    {# MSG: Label on the control to edit the song's name #}
-    <label class="label">{% trans %}Edit Song Name{% endtrans %}</label>
-    <div class="field">
-      <input autocomplete="off" id="new_file_name" class="input" type="text" name="new_file_name"
-        value="{{ raw_stem }}"></input>
-    </div>
-    <ul>
-      {# MSG: Label on button which auto formats the song's title. #}
-      <li><a id='remove-karaoke'>{% trans %}Auto-format{% endtrans %}</a></li>
-      {# MSG: Label on button which swaps the order of the artist and song in the title. #}
-      <li><a id='swap-order'>{% trans %}Swap artist/song order{% endtrans %}</a></li>
-      {# MSG: Label on button which loads results from the website Last.fm and suggests titles based on matches there. #}
-      {# MSG: Label on button which suggests song titles from the website Last.fm. #}
-      <li><a id='suggest-title'>{% trans %}Suggest from Last.fm{% endtrans %}</a>
-        <span class="button is-loading is-hidden suggest_loader" style="border:0;background-color:transparent;"></span>
-        <span id="suggest_results"></span>
-      </li>
-    </ul>
-    <div class="field is-grouped">
-      <div class="control">
-        <button class="button is-primary" id="search-button" type="submit">
-          {# MSG: Label on button which saves the changes. #}
-          {%- trans %}Save{% endtrans -%}
-        </button>
-      </div>
-      <div class="control">
-        <a class="button is-light" href="{{ referrer }}">
-          {%- trans %}Cancel{% endtrans -%}
-        </a>
-      </div>
-    </div>
-  </form>
+  </div>
+
+  <div>
+    <div class="pk-edit-label">Tytuł</div>
+    <input id="pk-edit-title" class="pk-edit-input" type="text" autocomplete="off"
+           value="{{ _title }}" placeholder="np. Autobiografia">
+  </div>
+
+  <div class="pk-edit-actions">
+    <button class="pk-btn is-primary" type="submit">Zapisz</button>
+    <a class="pk-btn" href="{{ referrer }}">Anuluj</a>
+  </div>
+</form>
+
+<div class="pk-edit-danger">
+  <a class="pk-btn is-danger confirm-delete-file is-full"
+     href="{{ url_for('files.delete_file') }}?song={{ url_escape(song) }}&referrer={{ url_escape(referrer) }}">
+    <i class="icon icon-trash-empty"></i>
+    Usuń z biblioteki
+  </a>
 </div>
-
-<hr>
-<a class="confirm-delete-file has-text-danger is-pulled-right"
-  href="{{url_for('files.delete_file')}}?song={{url_escape(song)}}&referrer={{url_escape(referrer)}}"><i class="icon icon-trash-empty"></i>
-  {# MSG: Label on button which deletes the current song. #}
-  {%- trans -%}
-    Delete this song
-  {%- endtrans -%}
-</a><br>
 
 {% endblock %}

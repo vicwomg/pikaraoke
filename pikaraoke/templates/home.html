@@ -193,7 +193,7 @@
             <div class="pk-queue-row">
               <div class="pk-queue-idx">${i + 1}</div>
               <div class="pk-queue-body">
-                <div class="pk-queue-title">${escHtml(item.title)}</div>
+                <div class="pk-queue-title">${escHtml(stripQuotes(item.title))}</div>
                 <div class="pk-queue-singer">śpiewa <span class="singer">${escHtml(item.user || '')}</span></div>
               </div>
             </div>`
