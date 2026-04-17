@@ -27,13 +27,13 @@ class TestWordLevelLyricsStatus:
         assert "pip install" in status["fix"]
 
     def test_env_unset_auto_enables_with_default_model(self, no_env):
-        # whisperx installed + env unset -> auto-enable with "base" model.
+        # whisperx installed + env unset -> auto-enable with "small" model.
         with patch("pikaraoke.karaoke._is_whisperx_installed", return_value=True), patch(
             "pikaraoke.karaoke._auto_whisperx_device", return_value="cpu"
         ):
             status = word_level_lyrics_status()
         assert status["enabled"] is True
-        assert status["model"] == "base"
+        assert status["model"] == "small"
         assert status["device"] == "cpu"
         assert status["explicit_opt_out"] is False
 
@@ -47,13 +47,13 @@ class TestWordLevelLyricsStatus:
         assert status["fix"] is None
 
     def test_explicit_model_overrides_default(self, monkeypatch):
-        monkeypatch.setenv("WHISPERX_MODEL", "small")
+        monkeypatch.setenv("WHISPERX_MODEL", "medium")
         with patch("pikaraoke.karaoke._is_whisperx_installed", return_value=True), patch(
             "pikaraoke.karaoke._auto_whisperx_device", return_value="cpu"
         ):
             status = word_level_lyrics_status()
         assert status["enabled"] is True
-        assert status["model"] == "small"
+        assert status["model"] == "medium"
 
     def test_explicit_device_overrides_autodetect(self, monkeypatch):
         monkeypatch.setenv("WHISPERX_DEVICE", "cuda")
@@ -71,7 +71,7 @@ class TestWordLevelLyricsStatus:
         ):
             status = word_level_lyrics_status()
         assert status["enabled"] is True
-        assert status["model"] == "base"
+        assert status["model"] == "base"  # explicit override preserves casing/value
 
 
 class TestBuildLyricsAligner:
@@ -98,7 +98,7 @@ class TestBuildLyricsAligner:
             aligner = _build_lyrics_aligner()
         assert aligner is fake_aligner
         mock_warn.assert_not_called()
-        mock_cls.assert_called_once_with(model_size="base", device="cpu")
+        mock_cls.assert_called_once_with(model_size="small", device="cpu")
 
     def test_silent_when_explicitly_opted_out(self, monkeypatch):
         monkeypatch.setenv("WHISPERX_MODEL", "off")

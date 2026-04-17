@@ -43,10 +43,12 @@ from pikaraoke.version import __version__ as VERSION
 
 _WHISPERX_OPT_OUT = {"off", "none", "false", "0"}
 
-# Sweet spot for CPU alignment: ~142 MB, a few seconds per minute of audio on
-# modern hardware, and transcription accuracy is not the bottleneck (LRCLib
-# provides the reference text that timings are mapped onto).
-_DEFAULT_WHISPERX_MODEL = "base"
+# "small" (~466 MB, ~6x realtime on modern CPU): solid multi-language
+# transcription that produces reliable word anchors for alignment. Higher RAM
+# footprint than "base" but worth it - karaoke often features non-English
+# tracks, and transcription quality directly affects how well LRCLib reference
+# lyrics map onto whisper's word timings via SequenceMatcher.
+_DEFAULT_WHISPERX_MODEL = "small"
 
 
 def word_level_lyrics_status() -> dict:
