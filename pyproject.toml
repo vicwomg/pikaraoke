@@ -42,6 +42,7 @@ dev = [
     "pre-commit>=4.5.0",
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
+    "watchfiles>=0.21",
 ]
 translations = [
     "deep-translator>=1.11.4",
@@ -50,6 +51,7 @@ translations = [
 
 [project.scripts]
 pikaraoke = "pikaraoke.app:main"
+pikaraoke-dev = "pikaraoke.dev:main"
 
 [project.urls]
 Homepage = "https://github.com/vicwomg/pikaraoke"
