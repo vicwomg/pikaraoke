@@ -30,6 +30,7 @@ class ActiveStems:
     instrumental_path: str
     format: str  # "wav" or "mp3"
     done_event: threading.Event  # set when stem files are fully written
+    ready_event: threading.Event  # set when the first segment is on disk
     processed_seconds: float = 0.0
     total_seconds: float = 0.0
 
@@ -219,13 +220,11 @@ class StreamManager:
         cdg_pixel_scaling = self.preferences.get_or_default("cdg_pixel_scaling")
         buffer_size = int(self.preferences.get_or_default("buffer_size")) * 1000
 
-        # Run Demucs stem separation if enabled. Audio is stripped from the
-        # FFmpeg output; the browser loads the stems via /stream/<id>/<stem>.*
-        # and mixes them client-side for zero-latency volume control.
-        strip_audio = False
+        # Run Demucs stem separation if enabled. Video keeps its original
+        # audio track so playback can start immediately — the frontend
+        # crossfades to stems when the `stems_ready` socket event arrives.
         if vocal_removal and fr.file_path:
-            if self._prepare_stems(fr):
-                strip_audio = True
+            self._prepare_stems(fr)
 
         ffmpeg_cmd = build_ffmpeg_cmd(
             fr,
@@ -235,7 +234,7 @@ class StreamManager:
             complete_transcode_before_play,
             avsync,
             cdg_pixel_scaling,
-            strip_audio=strip_audio,
+            strip_audio=False,
         )
         self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
 
@@ -319,7 +318,9 @@ class StreamManager:
                 f for f in os.listdir(fr.tmp_dir) if stream_uid_str in f and f.endswith(".m4s")
             ]
             segment_count = len(segment_files)
-            min_segments = 3
+            # One ~3s segment is enough to start playback; FFmpeg keeps
+            # appending segments as the browser consumes them.
+            min_segments = 1
 
             if segment_count >= min_segments:
                 stream_size = fr.get_current_stream_size()
@@ -365,18 +366,18 @@ class StreamManager:
         return False
 
     def _prepare_stems(self, fr: FileResolver) -> bool:
-        """Ensure stems are available for the current song and register them.
+        """Register stems for the current song, returning immediately.
 
         Order of preference:
-          1. MP3 cache — register and return (no Demucs).
-          2. WAV cache — register and kick off MP3 encode in background.
-          3. Live Demucs — write to <cache>/vocals.wav.partial progressively,
-             register the .partial paths. The HTTP tail route serves the
-             growing files. On completion, .partial is renamed to .wav and
-             MP3 encoding starts in the background.
+          1. MP3 cache — register, emit stems_ready, return (no Demucs).
+          2. WAV cache — register, emit stems_ready, kick off MP3 encode bg.
+          3. Live Demucs — register .partial paths, run ffmpeg extract +
+             separation in a background thread. stems_ready fires when the
+             first segment is on disk. Frontend starts video with original
+             audio and crossfades to stems when the event arrives.
 
-        Returns True if stems are registered (audio should be stripped from
-        the FFmpeg video output), False on failure (fall back to normal audio).
+        Returns True if stems are registered (or will be). False only on
+        unrecoverable errors before any registration.
         """
         from pikaraoke.lib.demucs_processor import (
             encode_mp3_in_background,
@@ -387,54 +388,57 @@ class StreamManager:
             separate_stems,
         )
 
-        input_wav = os.path.join(fr.tmp_dir, "demucs_input.wav")
-
-        logging.info(f"Demucs: extracting audio from {fr.file_path}")
-        result = subprocess.run(
-            ["ffmpeg", "-y", "-i", fr.file_path, "-f", "wav", "-ar", "44100", input_wav],
-            capture_output=True,
-        )
-        if result.returncode != 0:
-            logging.error(f"FFmpeg audio extraction failed: {result.stderr.decode()}")
-            return False
-
-        cache_key = get_cache_key(input_wav)
         stream_uid = str(fr.stream_uid)
-        cached = get_cached_stems(cache_key)
         total_seconds = float(fr.duration or 0)
+
+        # Cache key is a hash of the source file's bytes — cheap enough to
+        # run on the main thread (single-pass read, no decode).
+        cache_key = get_cache_key(fr.file_path)
+        cached = get_cached_stems(cache_key)
 
         if cached:
             vocals_path, instrumental_path, fmt = cached
             done = threading.Event()
             done.set()
+            ready = threading.Event()
+            ready.set()
             self.active_stems[stream_uid] = ActiveStems(
                 vocals_path=vocals_path,
                 instrumental_path=instrumental_path,
                 format=fmt,
                 done_event=done,
+                ready_event=ready,
                 processed_seconds=total_seconds,
                 total_seconds=total_seconds,
             )
             self._emit_demucs_progress(total_seconds, total_seconds)
+            self._emit_stems_ready(stream_uid)
             # WAV cache → encode MP3 in background so the next play is smaller.
             if fmt == "wav":
                 encode_mp3_in_background(cache_key)
             return True
 
-        # Tier 3: live Demucs. Write .partial files directly into the cache
-        # directory; the HTTP tail route reads them as they grow.
+        # Tier 3: live Demucs. Register .partial paths immediately; the HTTP
+        # tail route has a grace period that waits for the file to appear.
         partial_v, partial_i = partial_stem_paths(cache_key)
         ready_event = threading.Event()
         done_event = threading.Event()
 
-        # Lock synchronizes the bg-thread rename (.partial → .wav via
-        # finalize_partial_stems) with the main thread's path registration.
-        # Without it, a fast separation (short song) can rename before main
-        # checks os.path.exists(partial_v) → false negative "output files not
-        # created", song plays without stems.
-        finalize_lock = threading.Lock()
-        finalized = [False]
+        self.active_stems[stream_uid] = ActiveStems(
+            vocals_path=partial_v,
+            instrumental_path=partial_i,
+            format="wav",
+            done_event=done_event,
+            ready_event=ready_event,
+            processed_seconds=0.0,
+            total_seconds=total_seconds,
+        )
 
+        # Lock synchronizes the bg-thread rename (.partial → .wav via
+        # finalize_partial_stems) with any path reads on the entry. Without
+        # it, a fast separation (short song) can rename while a caller holds
+        # a stale .partial path.
+        finalize_lock = threading.Lock()
         last_emit = [0.0]  # [timestamp] — throttle broadcasts to ~1/s
 
         def progress_cb(processed: float, total: float) -> None:
@@ -447,13 +451,24 @@ class StreamManager:
                 last_emit[0] = now
                 self._emit_demucs_progress(processed, total)
 
-        def _separate_and_finalize() -> None:
+        def _extract_and_separate() -> None:
             try:
+                input_wav = os.path.join(fr.tmp_dir, "demucs_input.wav")
+                logging.info(f"Demucs: extracting audio from {fr.file_path}")
+                result = subprocess.run(
+                    ["ffmpeg", "-y", "-i", fr.file_path, "-f", "wav", "-ar", "44100", input_wav],
+                    capture_output=True,
+                )
+                if result.returncode != 0:
+                    logging.error(f"FFmpeg audio extraction failed: {result.stderr.decode()}")
+                    # Drop registration so stale 404s don't linger forever.
+                    self.active_stems.pop(stream_uid, None)
+                    return
+
                 ok = separate_stems(input_wav, partial_v, partial_i, ready_event, progress_cb)
                 if ok:
                     with finalize_lock:
                         final_v, final_i = finalize_partial_stems(cache_key)
-                        finalized[0] = True
                         entry = self.active_stems.get(stream_uid)
                         if entry is not None:
                             entry.vocals_path = final_v
@@ -462,35 +477,36 @@ class StreamManager:
             finally:
                 done_event.set()
 
-        threading.Thread(target=_separate_and_finalize, daemon=True).start()
+        def _notify_when_ready() -> None:
+            # Wait for the first segment, then tell the frontend it can
+            # switch from video audio to stem audio.
+            if ready_event.wait(timeout=120):
+                logging.info("Demucs: first segment ready")
+                self._emit_stems_ready(stream_uid)
 
-        logging.info("Demucs: waiting for first segment...")
-        ready_event.wait(timeout=120)
+        threading.Thread(target=_extract_and_separate, daemon=True).start()
+        threading.Thread(target=_notify_when_ready, daemon=True).start()
 
-        with finalize_lock:
-            if finalized[0]:
-                # Bg thread already renamed partial → final before we got here.
-                vocals_path = partial_v[: -len(".partial")]
-                instrumental_path = partial_i[: -len(".partial")]
-            else:
-                vocals_path = partial_v
-                instrumental_path = partial_i
-
-            if not (os.path.isfile(vocals_path) and os.path.isfile(instrumental_path)):
-                logging.error("Demucs: output files not created")
-                return False
-
-            self.active_stems[stream_uid] = ActiveStems(
-                vocals_path=vocals_path,
-                instrumental_path=instrumental_path,
-                format="wav",
-                done_event=done_event,
-                processed_seconds=0.0,
-                total_seconds=total_seconds,
-            )
-
-        logging.info("Demucs: first segment ready")
         return True
+
+    def _emit_stems_ready(self, stream_uid: str) -> None:
+        if self.events is None:
+            return
+        entry = self.active_stems.get(stream_uid)
+        if entry is None:
+            return
+        ext = entry.format  # "wav" or "mp3"
+        try:
+            self.events.emit(
+                "stems_ready",
+                {
+                    "stream_uid": stream_uid,
+                    "vocals_url": f"/stream/{stream_uid}/vocals.{ext}",
+                    "instrumental_url": f"/stream/{stream_uid}/instrumental.{ext}",
+                },
+            )
+        except Exception:
+            logging.exception("Failed to emit stems_ready event")
 
     def _emit_demucs_progress(self, processed: float, total: float) -> None:
         if self.events is None:

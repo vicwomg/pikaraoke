@@ -35,6 +35,17 @@ def stream_stem_audio(stream_id: str, stem: str, ext: str):
         return Response("Stream not active", status=404)
 
     path = stems.vocals_path if stem == "vocals" else stems.instrumental_path
+    # Grace period: live Demucs registers the stream before its bg thread
+    # has created the .partial file. Wait up to ~15s for it to appear.
+    if path and not os.path.exists(path):
+        for _ in range(150):
+            time.sleep(0.1)
+            if os.path.exists(path):
+                break
+            # Path may have been swapped to the final .wav mid-wait.
+            path = stems.vocals_path if stem == "vocals" else stems.instrumental_path
+            if os.path.exists(path):
+                break
     if not path or not os.path.exists(path):
         return Response("Stem file missing", status=404)
 

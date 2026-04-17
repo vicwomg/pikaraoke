@@ -289,6 +289,14 @@ class Karaoke:
                 else None
             ),
         )
+        self.events.on(
+            "stems_ready",
+            lambda data: (
+                self.socketio.emit("stems_ready", data, namespace="/")
+                if self.socketio
+                else None
+            ),
+        )
 
         # Initialize queue manager
         self.queue_manager = QueueManager(
@@ -595,15 +603,17 @@ class Karaoke:
         # Get playback state from PlaybackController
         playback_state = self.playback_controller.get_now_playing()
 
-        # Expose per-stem audio URLs when vocal_removal is active for the
-        # currently playing song, so the splash player can mix client-side.
+        # Expose per-stem audio URLs only once stems are actually playable
+        # (first segment on disk for live Demucs, always true for cache hits).
+        # Frontend also gets the same URLs via the `stems_ready` socket event —
+        # this poll path is the reconnect/initial-load fallback.
         vocals_url = None
         instrumental_url = None
         stream_url = playback_state.get("now_playing_url")
         if stream_url:
             stream_uid = stream_url.rsplit("/", 1)[-1].split(".", 1)[0]
             stems = self.playback_controller.stream_manager.active_stems.get(stream_uid)
-            if stems:
+            if stems and stems.ready_event.is_set():
                 ext = stems.format  # "wav" or "mp3"
                 vocals_url = f"/stream/{stream_uid}/vocals.{ext}"
                 instrumental_url = f"/stream/{stream_uid}/instrumental.{ext}"
