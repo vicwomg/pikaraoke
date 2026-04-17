@@ -1,6 +1,6 @@
-# PiKaraoke Headless Mode Verification Script (Windows)
-# This script starts PiKaraoke in headless mode, waits for initialization,
-# and verifies that key web endpoints are serving content.
+# PiKaraoke Server Verification Script (Windows)
+# Starts PiKaraoke (no browser auto-launch by default), waits for
+# initialization, and verifies that key web endpoints are serving content.
 
 $ErrorActionPreference = "Stop"
 
@@ -13,8 +13,8 @@ Write-Host "Installing PiKaraoke for CI..."
 # Reload path again just in case installer updated it
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
-Write-Host "Starting PiKaraoke in headless mode..."
-$proc = Start-Process pikaraoke -ArgumentList "--headless" -PassThru -RedirectStandardOutput output.log -RedirectStandardError error.log
+Write-Host "Starting PiKaraoke server..."
+$proc = Start-Process pikaraoke -PassThru -RedirectStandardOutput output.log -RedirectStandardError error.log
 
 try {
     Write-Host "Waiting for PiKaraoke to initialize (max 30s)..."
@@ -61,7 +61,7 @@ try {
         exit 1
     }
 
-    Write-Host "Headless mode verification successful!"
+    Write-Host "Server verification successful!"
     exit 0
 
 } finally {

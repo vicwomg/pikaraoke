@@ -113,10 +113,9 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         required=False,
     )
     parser.add_argument(
-        "--hide-splash-screen",
-        "--headless",
+        "--launch-browser",
         action="store_true",
-        help="Headless mode. Don't launch the splash screen/player on the pikaraoke server",
+        help="Auto-launch a Chromium browser in kiosk mode on the splash screen URL. Off by default; open the splash URL in your own browser instead.",
         required=False,
     )
     parser.add_argument(
@@ -135,14 +134,14 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--window-size",
-        help="Desired window geometry in pixels for headed mode, specified as width,height (Example: --window-size 800,600). Only works on Chromium browsers. Disables kiosk fullscreen mode. This can be used to open a windowed mode splash screen and move it to an external monitor where it can be fullscreened from the menu or a keyboard shortcut (F11 key, or control+cmd+f on Mac).",
+        help="Only used with --launch-browser. Desired window geometry in pixels, specified as width,height (Example: --window-size 800,600). Disables kiosk fullscreen mode.",
         default=0,
         required=False,
     )
     parser.add_argument(
         "--external-monitor",
         action="store_true",
-        help="Experimental: Launch the splash screen on an external monitor by positioning window at x=2000. Useful for dual-monitor setups. Only works on Chromium browsers and possibly only windows.",
+        help="Only used with --launch-browser. Experimental: launches the splash screen on an external monitor by positioning window at x=2000. Useful for dual-monitor setups.",
         required=False,
     )
     parser.add_argument(

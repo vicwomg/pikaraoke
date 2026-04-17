@@ -26,12 +26,7 @@ from pikaraoke.lib.browser import Browser
 from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
-from pikaraoke.lib.get_platform import (
-    get_data_directory,
-    get_platform,
-    has_js_runtime,
-    is_windows,
-)
+from pikaraoke.lib.get_platform import get_data_directory, has_js_runtime, is_windows
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.youtube_dl import upgrade_youtubedl
 from pikaraoke.routes.admin import admin_bp
@@ -190,7 +185,6 @@ def main() -> None:
     Blocks until the application is terminated.
     """
     compile_translations()
-    platform = get_platform()
 
     args = parse_pikaraoke_args()
 
@@ -228,7 +222,6 @@ def main() -> None:
         buffer_size=args.buffer_size,
         hide_url=args.hide_url,
         hide_notifications=args.hide_notifications,
-        hide_splash_screen=args.hide_splash_screen,
         high_quality=args.high_quality,
         logo_path=args.logo_path,
         hide_overlay=args.hide_overlay,
@@ -284,18 +277,11 @@ def main() -> None:
     # Handle sigterm, apparently cherrypy won't shut down without explicit handling
     # signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
-    # force headless mode when on Android
-    if (platform == "android") and not args.hide_splash_screen:
-        args.hide_splash_screen = True
-        logging.info("Forced to run headless mode in Android")
-
-    # Start the splash screen browser
-    if not args.hide_splash_screen:
+    # Start the splash screen browser only when opted in. By default the user
+    # opens the splash URL in their own browser.
+    if args.launch_browser:
         browser = Browser(k, args.window_size, args.external_monitor)
         browser.launch_splash_screen()
-        if not browser:
-            logging.error("Failed to launch splash screen browser")
-            sys.exit()
     else:
         browser = None
 
