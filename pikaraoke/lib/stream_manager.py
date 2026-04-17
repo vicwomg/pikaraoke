@@ -390,8 +390,10 @@ class StreamManager:
         Returns True if stems are registered (or will be). False only on
         unrecoverable errors before any registration.
         """
+        import gevent
+
         from pikaraoke.lib.demucs_processor import (
-            encode_mp3_in_background,
+            encode_mp3_sync,
             finalize_partial_stems,
             get_cache_key,
             get_cached_stems,
@@ -425,8 +427,10 @@ class StreamManager:
             self._emit_demucs_progress(total_seconds, total_seconds)
             self._emit_stems_ready(stream_uid)
             # WAV cache → encode MP3 in background so the next play is smaller.
+            # Spawn on the main hub; gevent-patched subprocess yields during
+            # ffmpeg so other greenlets keep running.
             if fmt == "wav":
-                encode_mp3_in_background(cache_key)
+                gevent.spawn(encode_mp3_sync, cache_key)
             return True
 
         # Extract audio on the main greenlet. gevent-patched subprocess only
@@ -486,7 +490,6 @@ class StreamManager:
                         if entry is not None:
                             entry.vocals_path = final_v
                             entry.instrumental_path = final_i
-                    encode_mp3_in_background(cache_key)
             finally:
                 done_event.set()
 
@@ -497,14 +500,29 @@ class StreamManager:
                 logging.info("Demucs: first segment ready")
                 self._emit_stems_ready(stream_uid)
 
+        def _encode_when_done() -> None:
+            # Runs on the main hub. Waits for the pool worker to finish, then
+            # invokes ffmpeg via gevent-patched subprocess (which only works
+            # from the default loop — not from threadpool workers).
+            if not done_event.wait(timeout=600):
+                return
+            final_v = os.path.join(
+                os.path.dirname(partial_v), os.path.basename(partial_v).replace(".partial", "")
+            )
+            final_i = os.path.join(
+                os.path.dirname(partial_i), os.path.basename(partial_i).replace(".partial", "")
+            )
+            if os.path.isfile(final_v) and os.path.isfile(final_i):
+                encode_mp3_sync(cache_key)
+
         # Demucs runs PyTorch inference that holds the GIL for seconds at a
         # time. Under gevent monkey-patching `threading.Thread` is a greenlet,
         # so a non-yielding worker freezes the whole event loop. Use
-        # gevent.threadpool for a real OS thread — no subprocess calls happen
-        # in the pool (extraction is already done above), so the gevent-hub
-        # restriction doesn't apply.
+        # gevent.threadpool for a real OS thread for the inference itself,
+        # and schedule the (subprocess-using) MP3 encode on the main hub.
         self._get_demucs_pool().spawn(_separate_and_finalize)
         threading.Thread(target=_notify_when_ready, daemon=True).start()
+        gevent.spawn(_encode_when_done)
 
         return True
 
