@@ -1,16 +1,10 @@
 """Flask application entry point and server initialization."""
 
-import subprocess as _stdlib_subprocess  # Before monkey patching
-
-_stdlib_subprocess_run = _stdlib_subprocess.run
-
-from gevent import monkey, spawn
-
-monkey.patch_all()
-
 import logging
 import os
+import subprocess
 import sys
+import threading
 from pathlib import Path
 from urllib.parse import quote
 
@@ -48,10 +42,8 @@ from pikaraoke.routes.stream import stream_bp
 
 _ = flask_babel.gettext
 
-from gevent.pywsgi import WSGIServer
-
 args = parse_pikaraoke_args()
-socketio = SocketIO(async_mode="gevent", cors_allowed_origins=args.url)
+socketio = SocketIO(async_mode="threading", cors_allowed_origins=args.url)
 babel = Babel()
 
 
@@ -138,11 +130,7 @@ setup_socket_events(socketio)
 
 
 def compile_translations() -> None:
-    """Compile .po translation files to .mo binary format if needed.
-
-    Uses _stdlib_subprocess_run (saved before monkey patching) because this runs
-    before the gevent event loop is active — the patched version deadlocks here.
-    """
+    """Compile .po translation files to .mo binary format if needed."""
     translations_dir = Path(__file__).parent / "translations"
     if not translations_dir.exists():
         return
@@ -159,7 +147,7 @@ def compile_translations() -> None:
         return
 
     print("Compiling translation files...")
-    result = _stdlib_subprocess_run(
+    result = subprocess.run(
         [
             sys.executable,
             "-m",
@@ -269,10 +257,21 @@ def main() -> None:
     app.jinja_env.globals.update(filename_from_path=k.song_manager.display_name_from_path)
     app.jinja_env.globals.update(url_escape=quote)
 
-    spawn(upgrade_youtubedl)
+    threading.Thread(target=upgrade_youtubedl, daemon=True).start()
 
-    server = WSGIServer(("0.0.0.0", int(args.port)), app, log=None, error_log=logging.getLogger())
-    server.start()
+    # Werkzeug's threaded dev server handles WebSockets via simple-websocket.
+    # It blocks, so run it on a daemon thread; the karaoke loop stays on the
+    # main thread where it can catch KeyboardInterrupt.
+    def _serve() -> None:
+        socketio.run(
+            app,
+            host="0.0.0.0",
+            port=int(args.port),
+            allow_unsafe_werkzeug=True,
+            log_output=False,
+        )
+
+    threading.Thread(target=_serve, daemon=True).start()
 
     # Handle sigterm, apparently cherrypy won't shut down without explicit handling
     # signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
