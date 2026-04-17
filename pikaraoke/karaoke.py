@@ -292,9 +292,7 @@ class Karaoke:
         self.events.on(
             "stems_ready",
             lambda data: (
-                self.socketio.emit("stems_ready", data, namespace="/")
-                if self.socketio
-                else None
+                self.socketio.emit("stems_ready", data, namespace="/") if self.socketio else None
             ),
         )
 
