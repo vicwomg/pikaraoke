@@ -20,11 +20,6 @@ import soundfile as sf
 import torch
 from tqdm import tqdm
 
-# tqdm spawns a monitor thread whose lock is gevent-patched; during
-# atexit the hub is torn down and the join deadlocks / raises on Ctrl+C.
-# monitor_interval=0 disables that thread entirely.
-tqdm.monitor_interval = 0
-
 CACHE_DIR = os.path.expanduser("~/.pikaraoke-cache")
 
 # Global model cache — loaded once, reused across calls
@@ -170,15 +165,11 @@ def cleanup_stale_partials() -> None:
                     pass
 
 
-def encode_mp3_sync(cache_key: str, bitrate: str = "320k") -> None:
-    """Encode cached WAVs to MP3, then delete the WAVs.
+def encode_mp3_in_background(cache_key: str, bitrate: str = "320k") -> None:
+    """Encode cached WAVs to MP3 in a background thread, then delete WAVs.
 
-    Must be called from the main gevent greenlet: uses gevent-patched
-    subprocess, which requires the default event loop. gevent yields
-    during the ffmpeg wait so other greenlets (SocketIO, Flask) keep
-    running. No-op if MP3s already exist or WAVs are missing. On Unix
-    the WAV delete does not affect in-flight HTTP tail responses (open
-    fds keep reading).
+    No-op if MP3s already exist or WAVs are missing. On Unix the WAV delete
+    does not affect in-flight HTTP tail responses (open fds keep reading).
     """
     import subprocess as sp
 
@@ -193,54 +184,57 @@ def encode_mp3_sync(cache_key: str, bitrate: str = "320k") -> None:
     if not (os.path.isfile(wav_v) and os.path.isfile(wav_i)):
         return  # nothing to encode
 
-    for wav, mp3 in [(wav_v, mp3_v), (wav_i, mp3_i)]:
-        if os.path.isfile(mp3):
-            continue
-        tmp = mp3 + ".partial"
-        try:
-            sp.run(
-                [
-                    "ffmpeg",
-                    "-y",
-                    "-hide_banner",
-                    "-loglevel",
-                    "error",
-                    "-i",
-                    wav,
-                    "-c:a",
-                    "libmp3lame",
-                    "-b:a",
-                    bitrate,
-                    "-f",
-                    "mp3",
-                    tmp,
-                ],
-                check=True,
-                capture_output=True,
-            )
-            os.replace(tmp, mp3)
-        except sp.CalledProcessError as e:
-            stderr = e.stderr.decode(errors="replace") if e.stderr else ""
-            logging.error(f"MP3 encode failed for {wav} (exit {e.returncode}): {stderr}")
+    def run() -> None:
+        for wav, mp3 in [(wav_v, mp3_v), (wav_i, mp3_i)]:
+            if os.path.isfile(mp3):
+                continue
+            tmp = mp3 + ".partial"
             try:
-                os.remove(tmp)
+                sp.run(
+                    [
+                        "ffmpeg",
+                        "-y",
+                        "-hide_banner",
+                        "-loglevel",
+                        "error",
+                        "-i",
+                        wav,
+                        "-c:a",
+                        "libmp3lame",
+                        "-b:a",
+                        bitrate,
+                        "-f",
+                        "mp3",
+                        tmp,
+                    ],
+                    check=True,
+                    capture_output=True,
+                )
+                os.replace(tmp, mp3)
+            except sp.CalledProcessError as e:
+                stderr = e.stderr.decode(errors="replace") if e.stderr else ""
+                logging.error(f"MP3 encode failed for {wav} (exit {e.returncode}): {stderr}")
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+                return
+            except OSError:
+                logging.exception(f"MP3 encode failed for {wav}")
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+                return
+        # Both MP3s ready — remove WAVs. Unix keeps existing fds alive.
+        for wav in (wav_v, wav_i):
+            try:
+                os.remove(wav)
             except OSError:
                 pass
-            return
-        except OSError:
-            logging.exception(f"MP3 encode failed for {wav}")
-            try:
-                os.remove(tmp)
-            except OSError:
-                pass
-            return
-    # Both MP3s ready — remove WAVs. Unix keeps existing fds alive.
-    for wav in (wav_v, wav_i):
-        try:
-            os.remove(wav)
-        except OSError:
-            pass
-    logging.info(f"MP3 cache ready, WAVs removed: {cache_key[:12]}...")
+        logging.info(f"MP3 cache ready, WAVs removed: {cache_key[:12]}...")
+
+    threading.Thread(target=run, daemon=True).start()
 
 
 # --- Separation ---
