@@ -1,12 +1,23 @@
 """Unit tests for download_manager module."""
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pikaraoke.lib.download_manager import DownloadManager
+from pikaraoke.lib.download_manager import (
+    DownloadManager,
+    _merge_metadata_into_info_json,
+)
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
+
+
+@pytest.fixture(autouse=True)
+def _stub_metadata_lookup():
+    """Block real iTunes HTTP calls from every download test by default."""
+    with patch("pikaraoke.lib.download_manager.resolve_metadata", return_value=None) as stub:
+        yield stub
 
 
 @pytest.fixture
@@ -384,3 +395,164 @@ class TestDownloadManagerSpecialCharacters:
         )
 
         queue_manager.enqueue.assert_called_once_with(file_path, "TestUser", log_action=False)
+
+
+class TestMergeMetadataIntoInfoJson:
+    """Tests for the enrichment helper that merges iTunes results into info.json."""
+
+    def test_fills_missing_fields(self, tmp_path):
+        info = tmp_path / "Song---abc.info.json"
+        info.write_text(json.dumps({"title": "noisy title", "duration": 180}))
+        song_path = str(tmp_path / "Song---abc.mp4")
+
+        _merge_metadata_into_info_json(song_path, {"artist": "Eminem", "track": "Stan"})
+
+        data = json.loads(info.read_text())
+        assert data["artist"] == "Eminem"
+        assert data["track"] == "Stan"
+        assert data["title"] == "noisy title"
+        assert data["duration"] == 180
+
+    def test_preserves_existing_non_empty_fields(self, tmp_path):
+        info = tmp_path / "Song---abc.info.json"
+        info.write_text(json.dumps({"artist": "KeepMe", "track": "KeepMeToo"}))
+        song_path = str(tmp_path / "Song---abc.mp4")
+
+        _merge_metadata_into_info_json(song_path, {"artist": "Other", "track": "Other"})
+
+        data = json.loads(info.read_text())
+        assert data["artist"] == "KeepMe"
+        assert data["track"] == "KeepMeToo"
+
+    def test_fills_only_empty_field(self, tmp_path):
+        info = tmp_path / "Song---abc.info.json"
+        info.write_text(json.dumps({"artist": "KeepMe", "track": ""}))
+        song_path = str(tmp_path / "Song---abc.mp4")
+
+        _merge_metadata_into_info_json(song_path, {"artist": "Other", "track": "Filled"})
+
+        data = json.loads(info.read_text())
+        assert data["artist"] == "KeepMe"
+        assert data["track"] == "Filled"
+
+    def test_no_meta_is_noop(self, tmp_path):
+        info = tmp_path / "Song---abc.info.json"
+        info.write_text(json.dumps({"title": "x"}))
+        song_path = str(tmp_path / "Song---abc.mp4")
+
+        _merge_metadata_into_info_json(song_path, None)
+
+        assert json.loads(info.read_text()) == {"title": "x"}
+
+    def test_missing_info_json_is_swallowed(self, tmp_path):
+        song_path = str(tmp_path / "Song---abc.mp4")
+        # Must not raise.
+        _merge_metadata_into_info_json(song_path, {"artist": "A", "track": "T"})
+
+    def test_malformed_info_json_is_swallowed(self, tmp_path):
+        info = tmp_path / "Song---abc.info.json"
+        info.write_text("not json {")
+        song_path = str(tmp_path / "Song---abc.mp4")
+        # Must not raise; leave file untouched.
+        _merge_metadata_into_info_json(song_path, {"artist": "A", "track": "T"})
+        assert info.read_text() == "not json {"
+
+
+class TestParallelMetadataEnrichment:
+    """Tests that _execute_download integrates enrichment with the download flow."""
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.Popen")
+    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
+    def test_enrichment_merged_into_info_json(
+        self,
+        mock_build_cmd,
+        mock_popen,
+        mock_gettext,
+        download_manager,
+        song_manager,
+        tmp_path,
+        _stub_metadata_lookup,
+    ):
+        _stub_metadata_lookup.return_value = {"artist": "Eminem", "track": "Stan"}
+
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+        mock_process = MagicMock()
+        mock_process.stdout.readline.side_effect = ["ok", ""]
+        mock_process.poll.return_value = 0
+        mock_popen.return_value = mock_process
+
+        song_path = tmp_path / "Song---abc12345678.mp4"
+        song_path.write_text("")
+        info = tmp_path / "Song---abc12345678.info.json"
+        info.write_text(json.dumps({"title": "Eminem - Stan (Long Version) ft. Dido"}))
+        song_manager.songs.find_by_id.return_value = str(song_path)
+
+        download_manager._execute_download(
+            "https://youtube.com/watch?v=abc12345678", False, "User", "noisy title"
+        )
+
+        data = json.loads(info.read_text())
+        assert data["artist"] == "Eminem"
+        assert data["track"] == "Stan"
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.Popen")
+    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
+    def test_enrichment_none_leaves_info_json_untouched(
+        self,
+        mock_build_cmd,
+        mock_popen,
+        mock_gettext,
+        download_manager,
+        song_manager,
+        tmp_path,
+    ):
+        # resolver stub returns None via autouse fixture.
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+        mock_process = MagicMock()
+        mock_process.stdout.readline.side_effect = ["ok", ""]
+        mock_process.poll.return_value = 0
+        mock_popen.return_value = mock_process
+
+        song_path = tmp_path / "Song---abc12345678.mp4"
+        song_path.write_text("")
+        info = tmp_path / "Song---abc12345678.info.json"
+        original = json.dumps({"title": "Something"})
+        info.write_text(original)
+        song_manager.songs.find_by_id.return_value = str(song_path)
+
+        download_manager._execute_download(
+            "https://youtube.com/watch?v=abc12345678", False, "User", "Title"
+        )
+
+        assert info.read_text() == original
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.Popen")
+    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
+    def test_download_succeeds_even_if_resolver_raises(
+        self,
+        mock_build_cmd,
+        mock_popen,
+        mock_gettext,
+        download_manager,
+        song_manager,
+        tmp_path,
+        _stub_metadata_lookup,
+    ):
+        _stub_metadata_lookup.side_effect = RuntimeError("boom")
+
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+        mock_process = MagicMock()
+        mock_process.stdout.readline.side_effect = ["ok", ""]
+        mock_process.poll.return_value = 0
+        mock_popen.return_value = mock_process
+
+        song_manager.songs.find_by_id.return_value = str(tmp_path / "Song---x.mp4")
+
+        rc = download_manager._execute_download(
+            "https://youtube.com/watch?v=abc12345678", False, "User", "Title"
+        )
+
+        assert rc == 0

@@ -548,6 +548,66 @@ class TestLyricsServiceNewFlow:
         assert not (tmp_path / "Foo---abc.ass").exists()
         assert not (tmp_path / "Foo---abc.info.json").exists()
 
+    def test_itunes_fallback_when_lrclib_misses(self, tmp_path):
+        # info.json has noisy fields; first LRCLib call fails. iTunes returns
+        # canonical metadata; second LRCLib call (with clean fields) succeeds.
+        song = tmp_path / "Foo---abc.mp4"
+        song.write_text("fake")
+        (tmp_path / "Foo---abc.info.json").write_text(
+            json.dumps(
+                {
+                    "track": "Stan (Long Version) ft. Dido",
+                    "artist": "Eminem",
+                    "duration": 489,
+                }
+            )
+        )
+        service = LyricsService(str(tmp_path), EventSystem())
+        with patch(
+            "pikaraoke.lib.lyrics._fetch_lrclib",
+            side_effect=[None, "[00:01.00]clean line"],
+        ) as mock_fetch, patch(
+            "pikaraoke.lib.lyrics.resolve_metadata",
+            return_value={"artist": "Eminem", "track": "Stan (feat. Dido)"},
+        ) as mock_resolve:
+            service.fetch_and_convert(str(song))
+        assert mock_fetch.call_count == 2
+        # Second call uses canonical fields from iTunes.
+        second_call_args = mock_fetch.call_args_list[1].args
+        assert second_call_args[0] == "Stan (feat. Dido)"
+        assert second_call_args[1] == "Eminem"
+        mock_resolve.assert_called_once()
+        ass = (tmp_path / "Foo---abc.ass").read_text(encoding="utf-8")
+        assert "clean line" in ass
+
+    def test_itunes_fallback_skipped_when_lrclib_hits(self, tmp_path):
+        song = tmp_path / "Foo---abc.mp4"
+        song.write_text("fake")
+        (tmp_path / "Foo---abc.info.json").write_text(
+            json.dumps({"track": "T", "artist": "A", "duration": 180})
+        )
+        service = LyricsService(str(tmp_path), EventSystem())
+        with patch(
+            "pikaraoke.lib.lyrics._fetch_lrclib",
+            return_value="[00:01.00]first hit",
+        ), patch("pikaraoke.lib.lyrics.resolve_metadata") as mock_resolve:
+            service.fetch_and_convert(str(song))
+            mock_resolve.assert_not_called()
+
+    def test_itunes_fallback_returns_none(self, tmp_path):
+        # LRCLib misses; iTunes also misses -> no .ass written from LRC.
+        song = tmp_path / "Foo---abc.mp4"
+        song.write_text("fake")
+        (tmp_path / "Foo---abc.info.json").write_text(
+            json.dumps({"track": "T", "artist": "A", "duration": 180})
+        )
+        service = LyricsService(str(tmp_path), EventSystem())
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=None), patch(
+            "pikaraoke.lib.lyrics.resolve_metadata", return_value=None
+        ):
+            service.fetch_and_convert(str(song))
+        assert not (tmp_path / "Foo---abc.ass").exists()
+
     def test_aligner_only_runs_when_lrclib_hit(self, tmp_path):
         song = self._setup(tmp_path, with_vtt=True, with_info=True)
         aligner = MagicMock()
