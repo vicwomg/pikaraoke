@@ -444,6 +444,8 @@ class TestStreamManagerPlayFile:
         mock_fr.output_file = f"/tmp/12345.{output_ext}"
         mock_fr.duration = duration
         mock_fr.ass_file_path = ass_file_path
+        # Plain string so can_serve_* predicates don't blow up on the Mock.
+        mock_fr.file_path = "/songs/test.mp4"
         mock_resolver_class.return_value = mock_fr
         return mock_fr
 
@@ -464,12 +466,14 @@ class TestStreamManagerPlayFile:
 
     @patch("flask_babel._", side_effect=lambda x: x)
     @patch("pikaraoke.lib.stream_manager.can_serve_directly", return_value=False)
+    @patch("pikaraoke.lib.stream_manager.can_serve_video_directly", return_value=False)
     @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
     @patch("pikaraoke.lib.stream_manager.FileResolver")
     def test_play_file_copies_when_no_transcoding_needed(
         self,
         mock_resolver_class,
         mock_transcode_check,
+        mock_can_video,
         mock_can_direct,
         mock_gettext,
         test_prefs,
@@ -488,12 +492,14 @@ class TestStreamManagerPlayFile:
 
     @patch("flask_babel._", side_effect=lambda x: x)
     @patch("pikaraoke.lib.stream_manager.can_serve_directly", return_value=True)
+    @patch("pikaraoke.lib.stream_manager.can_serve_video_directly", return_value=True)
     @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
     @patch("pikaraoke.lib.stream_manager.FileResolver")
     def test_play_file_direct_mp4_serves_source(
         self,
         mock_resolver_class,
         mock_transcode_check,
+        mock_can_video,
         mock_can_direct,
         mock_gettext,
         test_prefs,
@@ -513,7 +519,71 @@ class TestStreamManagerPlayFile:
         mock_transcode.assert_not_called()
         assert result.success is True
         assert result.stream_url == "/stream/video/12345.mp4"
+        assert result.audio_track_url is None
         assert sm.active_sources["12345"] == "/songs/test.mp4"
+        assert "12345" not in sm.active_audio
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("pikaraoke.lib.stream_manager.can_serve_directly", return_value=True)
+    @patch("pikaraoke.lib.stream_manager.can_serve_video_directly", return_value=True)
+    @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
+    @patch("pikaraoke.lib.stream_manager.FileResolver")
+    def test_play_file_direct_video_plus_audio_pipe(
+        self,
+        mock_resolver_class,
+        mock_transcode_check,
+        mock_can_video,
+        mock_can_direct,
+        mock_gettext,
+        test_prefs,
+    ):
+        """Pitch shift on native mp4 keeps video direct but adds audio pipe route."""
+        sm = StreamManager(test_prefs, streaming_format="mp4")
+        mock_fr = self._setup_resolver(mock_resolver_class, duration=180)
+        mock_fr.file_path = "/songs/test.mp4"
+
+        with (
+            patch.object(sm, "_copy_file") as mock_copy,
+            patch.object(sm, "_transcode_file") as mock_transcode,
+        ):
+            result = sm.play_file("/songs/test.mp4", semitones=2)
+
+        mock_copy.assert_not_called()
+        mock_transcode.assert_not_called()
+        assert result.stream_url == "/stream/video/12345.mp4"
+        assert result.audio_track_url == "/stream/audio/12345/track.wav"
+        assert sm.active_audio["12345"].semitones == 2
+        assert sm.active_audio["12345"].source_path == "/songs/test.mp4"
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("pikaraoke.lib.stream_manager.can_serve_directly", return_value=True)
+    @patch("pikaraoke.lib.stream_manager.can_serve_video_directly", return_value=True)
+    @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
+    @patch("pikaraoke.lib.stream_manager.FileResolver")
+    def test_play_file_avsync_goes_to_client_on_direct_path(
+        self,
+        mock_resolver_class,
+        mock_transcode_check,
+        mock_can_video,
+        mock_can_direct,
+        mock_gettext,
+        test_prefs,
+    ):
+        """avsync is forwarded to the client rather than folded into ffmpeg."""
+        test_prefs.set("avsync", 0.25)
+        sm = StreamManager(test_prefs, streaming_format="mp4")
+        mock_fr = self._setup_resolver(mock_resolver_class, duration=180)
+        mock_fr.file_path = "/songs/test.mp4"
+
+        with (
+            patch.object(sm, "_copy_file") as mock_copy,
+            patch.object(sm, "_transcode_file") as mock_transcode,
+        ):
+            result = sm.play_file("/songs/test.mp4")
+
+        mock_copy.assert_not_called()
+        mock_transcode.assert_not_called()
+        assert result.avsync_offset_ms == 250
 
     @patch("flask_babel._", side_effect=lambda x: x)
     @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
@@ -582,12 +652,14 @@ class TestStreamManagerPlayFile:
 
     @patch("flask_babel._", side_effect=lambda x: x)
     @patch("pikaraoke.lib.stream_manager.can_serve_directly", return_value=False)
+    @patch("pikaraoke.lib.stream_manager.can_serve_video_directly", return_value=False)
     @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
     @patch("pikaraoke.lib.stream_manager.FileResolver")
     def test_play_file_vocal_removal_only_skips_transcode(
         self,
         mock_resolver_class,
         mock_transcode_check,
+        mock_can_video,
         mock_can_direct,
         mock_gettext,
         test_prefs,
@@ -596,7 +668,6 @@ class TestStreamManagerPlayFile:
         test_prefs.set("vocal_removal", True)
         sm = StreamManager(test_prefs, streaming_format="mp4")
         mock_fr = self._setup_resolver(mock_resolver_class)
-        mock_fr.file_path = "/songs/test.mp4"
 
         with (
             patch.object(sm, "_prepare_stems") as mock_prep,

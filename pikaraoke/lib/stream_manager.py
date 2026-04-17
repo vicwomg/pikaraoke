@@ -13,9 +13,15 @@ from queue import Queue
 from threading import Thread
 from typing import Any
 
+from pikaraoke.lib.audio_processor import AudioTrackConfig
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.ffmpeg import build_ffmpeg_cmd
-from pikaraoke.lib.file_resolver import FileResolver, can_serve_directly, is_transcoding_required
+from pikaraoke.lib.file_resolver import (
+    FileResolver,
+    can_serve_directly,
+    can_serve_video_directly,
+    is_transcoding_required,
+)
 from pikaraoke.lib.preference_manager import PreferenceManager
 
 # Mirror of hls_time in build_ffmpeg_cmd. Each .m4s segment covers roughly
@@ -47,6 +53,11 @@ class PlaybackResult:
         success: Whether playback started successfully.
         stream_url: URL path for the video stream.
         subtitle_url: URL path for subtitles (if present).
+        audio_track_url: URL path for a separately-served audio track, when
+            the video stream is muted and audio is piped from a second
+            process (direct-video + on-the-fly transforms).
+        avsync_offset_ms: Client-side audio offset in milliseconds. Applied
+            as audioElement.currentTime = video.currentTime + offset/1000.
         duration: Video duration in seconds.
         error: Error message if playback failed.
     """
@@ -54,6 +65,8 @@ class PlaybackResult:
     success: bool
     stream_url: str | None = None
     subtitle_url: str | None = None
+    audio_track_url: str | None = None
+    avsync_offset_ms: int = 0
     duration: int | None = None
     error: str | None = None
 
@@ -106,6 +119,9 @@ class StreamManager:
         # Map of stream_uid -> source file path, for the direct-mp4 route
         # that serves the original file with HTTP byte-range seeking.
         self.active_sources: dict[str, str] = {}
+        # Map of stream_uid -> AudioTrackConfig for the on-the-fly audio
+        # pipeline route (transforms applied per-request via ffmpeg).
+        self.active_audio: dict[str, AudioTrackConfig] = {}
 
     def play_file(self, file_path: str, semitones: int = 0) -> PlaybackResult:
         """Start playback of a media file.
@@ -130,16 +146,17 @@ class StreamManager:
         )
 
         is_hls = streaming_format == "hls"
-
+        needs_audio_transforms = semitones != 0 or normalize_audio
+        # avsync moves to the client on the direct path; server-side filters
+        # remain on the HLS fallback (see _transcode_file).
         requires_transcoding = (
-            semitones != 0
-            or normalize_audio
-            or is_transcoding_required(file_path)
-            or avsync != 0
+            is_transcoding_required(file_path)
             or is_hls
+            or avsync != 0
+            or needs_audio_transforms
         )
 
-        logging.debug(f"Requires transcoding: {requires_transcoding}")
+        logging.debug(f"Requires transcoding (pre-direct check): {requires_transcoding}")
 
         try:
             fr = FileResolver(file_path, streaming_format)
@@ -154,34 +171,52 @@ class StreamManager:
         if vocal_removal and fr.file_path:
             self._prepare_stems(fr)
 
-        # Direct-serve path: vanilla h264/aac mp4 with no transforms. Skip
-        # the tmp-dir copy entirely and stream the source with native
-        # HTTP byte-range seeking.
-        can_direct = (
-            not requires_transcoding
+        # Direct-video path: h264 mp4 source. If audio needs transforms or
+        # is codec-incompatible, spin up a separate audio pipe route;
+        # otherwise let the <video> element use its native audio track.
+        can_direct_video = (
+            not is_hls
+            and not is_transcoding_required(file_path)
             and fr.file_path is not None
-            and can_serve_directly(fr.file_path)
+            and can_serve_video_directly(fr.file_path)
         )
 
-        # Set stream URL based on format
-        if can_direct:
-            stream_url_path = f"/stream/video/{fr.stream_uid}.mp4"
-        elif is_hls:
-            stream_url_path = f"/stream/{fr.stream_uid}.m3u8"
-        else:
-            if complete_transcode_before_play or not requires_transcoding:
-                stream_url_path = f"/stream/full/{fr.stream_uid}"
-            else:
-                stream_url_path = f"/stream/{fr.stream_uid}.mp4"
+        stream_url_path: str
+        audio_track_url: str | None = None
+        avsync_offset_ms = 0
 
-        if can_direct:
-            self.active_sources[str(fr.stream_uid)] = fr.file_path  # type: ignore[assignment]
+        if can_direct_video:
+            uid = str(fr.stream_uid)
+            stream_url_path = f"/stream/video/{fr.stream_uid}.mp4"
+            self.active_sources[uid] = fr.file_path  # type: ignore[assignment]
+            # Pipe audio if transforms are set or the native track isn't
+            # browser-compatible (non-aac in the mp4 container).
+            needs_audio_pipe = needs_audio_transforms or not can_serve_directly(fr.file_path)
+            if needs_audio_pipe:
+                self.active_audio[uid] = AudioTrackConfig(
+                    source_path=fr.file_path,  # type: ignore[arg-type]
+                    duration_sec=float(fr.duration or 0),
+                    semitones=semitones,
+                    normalize=normalize_audio,
+                )
+                audio_track_url = f"/stream/audio/{fr.stream_uid}/track.wav"
+            avsync_offset_ms = int(avsync * 1000)
             is_transcoding_complete = True
             is_buffering_complete = True
+        elif is_hls:
+            stream_url_path = f"/stream/{fr.stream_uid}.m3u8"
+            is_transcoding_complete, is_buffering_complete = self._transcode_file(
+                fr, semitones, is_hls
+            )
         elif not requires_transcoding:
+            stream_url_path = f"/stream/full/{fr.stream_uid}"
             is_transcoding_complete = self._copy_file(file_path, fr.output_file)
             is_buffering_complete = True
         else:
+            if complete_transcode_before_play:
+                stream_url_path = f"/stream/full/{fr.stream_uid}"
+            else:
+                stream_url_path = f"/stream/{fr.stream_uid}.mp4"
             is_transcoding_complete, is_buffering_complete = self._transcode_file(
                 fr, semitones, is_hls
             )
@@ -198,6 +233,8 @@ class StreamManager:
                 success=True,
                 stream_url=stream_url_path,
                 subtitle_url=subtitle_url,
+                audio_track_url=audio_track_url,
+                avsync_offset_ms=avsync_offset_ms,
                 duration=fr.duration,
             )
         else:
@@ -623,6 +660,10 @@ class StreamManager:
     def clear_active_sources(self) -> None:
         """Drop all registered direct-mp4 source paths."""
         self.active_sources.clear()
+
+    def clear_active_audio(self) -> None:
+        """Drop all registered audio pipe configs."""
+        self.active_audio.clear()
 
     def kill_ffmpeg(self) -> None:
         """Terminate the running FFmpeg process gracefully.

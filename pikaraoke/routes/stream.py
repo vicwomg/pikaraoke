@@ -131,6 +131,29 @@ def stream_stem_audio(stream_id: str, stem: str, ext: str):
     return response
 
 
+@stream_bp.route("/stream/audio/<stream_uid>/track.wav")
+def stream_audio_track(stream_uid: str):
+    """Serve the per-request WAV audio for the direct-video pipeline.
+
+    The generator pipes source audio through ffmpeg (optional rubberband
+    pitch + loudnorm) and emits a virtual WAV whose byte length matches
+    the song's duration; HTTP Range requests land on integer-second
+    ffmpeg seeks and the leading sub-second bytes are discarded inside
+    the generator for exact byte fidelity.
+    """
+    from pikaraoke.lib.audio_processor import stream_wav_range
+
+    k = get_karaoke_instance()
+    config = k.playback_controller.stream_manager.active_audio.get(stream_uid)
+    if config is None:
+        return Response("Audio track not active", status=404)
+
+    generate, status, headers, _total = stream_wav_range(
+        config, request.headers.get("Range")
+    )
+    return Response(stream_with_context(generate()), status=status, headers=headers)
+
+
 @stream_bp.route("/stream/video/<stream_uid>.mp4")
 def stream_source_mp4(stream_uid: str):
     """Serve the original source mp4 with HTTP byte-range seeking.

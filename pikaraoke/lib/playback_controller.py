@@ -43,6 +43,8 @@ class PlaybackController:
     now_playing_duration: int | None = None
     now_playing_url: str | None = None
     now_playing_subtitle_url: str | None = None
+    now_playing_audio_track_url: str | None = None
+    now_playing_avsync_offset_ms: int = 0
     now_playing_position: float | None = None
     demucs_processed: float | None = None
     demucs_total: float | None = None
@@ -122,6 +124,8 @@ class PlaybackController:
         self.now_playing_duration = result.duration
         self.now_playing_url = result.stream_url
         self.now_playing_subtitle_url = result.subtitle_url
+        self.now_playing_audio_track_url = result.audio_track_url
+        self.now_playing_avsync_offset_ms = result.avsync_offset_ms
         self.is_paused = False
 
         self.events.emit("playback_started")
@@ -168,6 +172,7 @@ class PlaybackController:
         self.stream_manager.kill_ffmpeg()
         self.stream_manager.clear_active_stems()
         self.stream_manager.clear_active_sources()
+        self.stream_manager.clear_active_audio()
         # Small delay to ensure FFmpeg fully terminates and file handles close
         # Critical on Raspberry Pi with slow SD cards and hardware encoder cleanup
         time.sleep(0.3)
@@ -228,6 +233,8 @@ class PlaybackController:
             "now_playing_transpose": self.now_playing_transpose,
             "now_playing_url": self.now_playing_url,
             "now_playing_subtitle_url": self.now_playing_subtitle_url,
+            "now_playing_audio_track_url": self.now_playing_audio_track_url,
+            "now_playing_avsync_offset_ms": self.now_playing_avsync_offset_ms,
             "now_playing_position": self.now_playing_position,
             "demucs_processed": self.demucs_processed,
             "demucs_total": self.demucs_total,
@@ -243,6 +250,8 @@ class PlaybackController:
         self.now_playing_user = None
         self.now_playing_url = None
         self.now_playing_subtitle_url = None
+        self.now_playing_audio_track_url = None
+        self.now_playing_avsync_offset_ms = 0
         self.is_paused = True
         self.is_playing = False
         self.now_playing_transpose = 0
