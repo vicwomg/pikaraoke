@@ -183,6 +183,18 @@ class TestBuildYtdlDownloadCommand:
         assert "--write-auto-subs" not in cmd
 
     @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
+    def test_faststart_postprocessor_arg(self, mock_js):
+        """Merged mp4s must get +faststart so browsers can play before full download."""
+        cmd = build_ytdl_download_command(
+            video_url="https://www.youtube.com/watch?v=test123",
+            download_path="/songs",
+            high_quality=True,
+        )
+        assert "--postprocessor-args" in cmd
+        idx = cmd.index("--postprocessor-args") + 1
+        assert cmd[idx] == "merger+ffmpeg_o:-movflags +faststart"
+
+    @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
     def test_url_is_last_argument(self, mock_js):
         """Test that video URL is always the last argument."""
         cmd = build_ytdl_download_command(

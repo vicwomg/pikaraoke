@@ -144,6 +144,11 @@ def build_ytdl_download_command(
         "vcodec:h264",
         "--compat-options",
         "filename-sanitization",
+        # Faststart: move the `moov` atom to the head of merged mp4s so the
+        # browser can begin playback before the full file has downloaded.
+        # Only fires on yt-dlp's merger path (high-quality video+audio).
+        "--postprocessor-args",
+        "merger+ffmpeg_o:-movflags +faststart",
         "--write-info-json",
         # Manual subs only. `--write-auto-subs` pulls YouTube's ~200
         # machine-translated caption tracks (codes like `pl-en-<id>`), which
