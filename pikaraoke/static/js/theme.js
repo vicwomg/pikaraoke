@@ -15,12 +15,18 @@
   const THEMES = ['mazury', 'late-show'];
   const DEFAULT = 'mazury';
 
+  // Server-provided default via <html data-theme="..."> (from --theme CLI arg).
+  function serverDefault() {
+    const v = document.documentElement.getAttribute('data-theme');
+    return THEMES.includes(v) ? v : DEFAULT;
+  }
+
   function get() {
     try {
       const v = localStorage.getItem(KEY);
-      return THEMES.includes(v) ? v : DEFAULT;
+      return THEMES.includes(v) ? v : serverDefault();
     } catch (_) {
-      return DEFAULT;
+      return serverDefault();
     }
   }
 

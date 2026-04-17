@@ -133,7 +133,15 @@ setup_socket_events(socketio)
 def inject_shell_vars() -> dict:
     """Vars required by base.html shell on every render (shell renders even
     when route-level context is thin, e.g. /search or admin-only views)."""
-    result = {"pk_admin": False, "pk_is_transpose_enabled": False}
+    site_title = app.config.get("SITE_NAME", "PiKaraoke")
+    brand_parts = site_title.split(" ", 1)
+    result = {
+        "pk_admin": False,
+        "pk_is_transpose_enabled": False,
+        "pk_default_theme": app.config.get("DEFAULT_THEME", "mazury"),
+        "pk_brand_1": brand_parts[0],
+        "pk_brand_2": brand_parts[1] if len(brand_parts) == 2 else "",
+    }
     try:
         k = get_karaoke_instance()
         result["pk_admin"] = is_admin()
@@ -265,7 +273,8 @@ def main() -> None:
 
     # expose shared configuration variables to the flask app
     app.config["ADMIN_PASSWORD"] = args.admin_password
-    app.config["SITE_NAME"] = "PiKaraoke"
+    app.config["SITE_NAME"] = args.site_title
+    app.config["DEFAULT_THEME"] = args.theme
 
     # Expose some functions to jinja templates
     app.jinja_env.globals.update(filename_from_path=k.song_manager.display_name_from_path)

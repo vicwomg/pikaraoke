@@ -81,6 +81,19 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         required=False,
     )
     parser.add_argument(
+        "--site-title",
+        help="Brand name shown in the UI and browser tab (default: PiKaraoke)",
+        default="PiKaraoke",
+        required=False,
+    )
+    parser.add_argument(
+        "--theme",
+        help="Default UI theme (mazury = cream day, late-show = dark warm). Users can still toggle in-app.",
+        default="mazury",
+        choices=["mazury", "late-show"],
+        required=False,
+    )
+    parser.add_argument(
         "-d",
         "--download-path",
         nargs="+",

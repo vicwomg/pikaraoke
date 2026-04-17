@@ -66,8 +66,8 @@
 {# ==== Logo (center when idle) ==== #}
 <div id="logo-container">
   <div class="sp-brand-stack">
-    <div class="sp-brand-line1">PiKaraoke</div>
-    <div class="sp-brand-line2">Karaoke</div>
+    <div class="sp-brand-line1">{{ pk_brand_1 }}</div>
+    {% if pk_brand_2 %}<div class="sp-brand-line2">{{ pk_brand_2 }}</div>{% endif %}
   </div>
 </div>
 
@@ -129,8 +129,8 @@
       </svg>
     </div>
     <h1 class="sp-intro-title">
-      <span class="sp-intro-brand">PiKaraoke</span>
-      <span class="sp-intro-brand-2">Karaoke</span>
+      <span class="sp-intro-brand">{{ pk_brand_1 }}</span>
+      {% if pk_brand_2 %}<span class="sp-intro-brand-2">{{ pk_brand_2 }}</span>{% endif %}
     </h1>
     <p class="sp-intro-sub">Ten ekran to Twój widok karaoke</p>
     <ul class="sp-intro-list">

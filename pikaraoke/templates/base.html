@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html data-theme="mazury">
+<html data-theme="{{ pk_default_theme|default('mazury') }}">
 
 <head>
   <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
@@ -210,8 +210,8 @@
   {# ===== Top bar ===== #}
   <header class="pk-topbar">
     <a class="pk-brand" href="{{ url_for('home.home') }}">
-      <span class="pk-brand-1">PiKaraoke</span>
-      <span class="pk-brand-2">Karaoke</span>
+      <span class="pk-brand-1">{{ pk_brand_1 }}</span>
+      {% if pk_brand_2 %}<span class="pk-brand-2">{{ pk_brand_2 }}</span>{% endif %}
     </a>
     <div style="display: flex; align-items: center; gap: 8px;">
       <button type="button" id="pk-theme-btn" class="pk-icon-btn pk-theme-toggle" style="width: 36px; height: 36px;" aria-label="{% trans %}Switch theme{% endtrans %}">
