@@ -173,17 +173,14 @@ class TestBuildYtdlDownloadCommand:
         assert "--write-info-json" in cmd
 
     @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
-    def test_sub_langs_excludes_all(self, mock_js):
-        """Sub-langs whitelists source languages; `all` triggers YouTube HTTP 429."""
+    def test_skips_auto_subs(self, mock_js):
+        """Auto-subs pull YouTube machine-translations and trigger HTTP 429."""
         cmd = build_ytdl_download_command(
             video_url="https://www.youtube.com/watch?v=test123",
             download_path="/songs",
         )
-        sub_idx = cmd.index("--sub-langs") + 1
-        langs = cmd[sub_idx]
-        assert "all" not in langs
-        assert "en.*" in langs
-        assert "pl.*" in langs
+        assert "--write-subs" in cmd
+        assert "--write-auto-subs" not in cmd
 
     @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
     def test_url_is_last_argument(self, mock_js):
