@@ -427,6 +427,14 @@ class StreamManager:
         ready_event = threading.Event()
         done_event = threading.Event()
 
+        # Lock synchronizes the bg-thread rename (.partial → .wav via
+        # finalize_partial_stems) with the main thread's path registration.
+        # Without it, a fast separation (short song) can rename before main
+        # checks os.path.exists(partial_v) → false negative "output files not
+        # created", song plays without stems.
+        finalize_lock = threading.Lock()
+        finalized = [False]
+
         last_emit = [0.0]  # [timestamp] — throttle broadcasts to ~1/s
 
         def progress_cb(processed: float, total: float) -> None:
@@ -443,11 +451,13 @@ class StreamManager:
             try:
                 ok = separate_stems(input_wav, partial_v, partial_i, ready_event, progress_cb)
                 if ok:
-                    final_v, final_i = finalize_partial_stems(cache_key)
-                    entry = self.active_stems.get(stream_uid)
-                    if entry is not None:
-                        entry.vocals_path = final_v
-                        entry.instrumental_path = final_i
+                    with finalize_lock:
+                        final_v, final_i = finalize_partial_stems(cache_key)
+                        finalized[0] = True
+                        entry = self.active_stems.get(stream_uid)
+                        if entry is not None:
+                            entry.vocals_path = final_v
+                            entry.instrumental_path = final_i
                     encode_mp3_in_background(cache_key)
             finally:
                 done_event.set()
@@ -457,18 +467,28 @@ class StreamManager:
         logging.info("Demucs: waiting for first segment...")
         ready_event.wait(timeout=120)
 
-        if not (os.path.exists(partial_v) and os.path.exists(partial_i)):
-            logging.error("Demucs: output files not created")
-            return False
+        with finalize_lock:
+            if finalized[0]:
+                # Bg thread already renamed partial → final before we got here.
+                vocals_path = partial_v[: -len(".partial")]
+                instrumental_path = partial_i[: -len(".partial")]
+            else:
+                vocals_path = partial_v
+                instrumental_path = partial_i
 
-        self.active_stems[stream_uid] = ActiveStems(
-            vocals_path=partial_v,
-            instrumental_path=partial_i,
-            format="wav",
-            done_event=done_event,
-            processed_seconds=0.0,
-            total_seconds=total_seconds,
-        )
+            if not (os.path.isfile(vocals_path) and os.path.isfile(instrumental_path)):
+                logging.error("Demucs: output files not created")
+                return False
+
+            self.active_stems[stream_uid] = ActiveStems(
+                vocals_path=vocals_path,
+                instrumental_path=instrumental_path,
+                format="wav",
+                done_event=done_event,
+                processed_seconds=0.0,
+                total_seconds=total_seconds,
+            )
+
         logging.info("Demucs: first segment ready")
         return True
 
