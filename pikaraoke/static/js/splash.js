@@ -101,6 +101,7 @@ const testAutoplayCapability = async () => {
 const handleConfirmation = () => {
   $('#permissions-modal').removeClass('is-active');
   autoplayConfirmed = true;
+  ensureAudioContextRunning();
   updateBackgroundMediaState(true);
   loadNowPlaying();
 };
@@ -266,8 +267,48 @@ const setupScreensaver = () => {
   }
 }
 
+const ensureAudioContextRunning = () => {
+  if (!stemAudioCtx) {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) {
+      console.warn("Web Audio API not available; stem mixing disabled");
+      return Promise.resolve();
+    }
+    stemAudioCtx = new Ctor();
+  }
+  if (stemAudioCtx.state === "suspended") return stemAudioCtx.resume();
+  return Promise.resolve();
+};
+
+// Extracts the stream_uid from a /stream/<uid>.<ext> URL so stems_ready
+// events can be matched against the song that's actually playing.
+const extractStreamUid = (url) => {
+  if (!url) return null;
+  const match = url.match(/\/stream\/([^/.]+)/);
+  return match ? match[1] : null;
+};
+
+// Chrome/Edge block AudioContext.resume() until a user gesture happens.
+// First click/keydown/touch triggers resume so stems can play when they
+// become ready, even if the user never clicked the permissions modal
+// (testAutoplayCapability skips it when autoplay is already allowed).
+const resumeOnFirstGesture = () => {
+  ensureAudioContextRunning();
+};
+document.addEventListener("click", resumeOnFirstGesture);
+document.addEventListener("keydown", resumeOnFirstGesture);
+document.addEventListener("touchstart", resumeOnFirstGesture);
+
 const teardownStemAudio = () => {
   if (!stemNodes) return;
+  // Detach listeners BEFORE nulling stemNodes — otherwise stale handlers
+  // fire on subsequent video events and throw "Cannot read properties of
+  // null" because they close over the module-level `stemNodes`.
+  if (stemNodes._handlers && stemNodes._video) {
+    for (const [evt, fn] of Object.entries(stemNodes._handlers)) {
+      stemNodes._video.removeEventListener(evt, fn);
+    }
+  }
   for (const key of ["vocals", "instrumental"]) {
     const node = stemNodes[key];
     if (!node) continue;
@@ -284,15 +325,8 @@ const teardownStemAudio = () => {
 const setupStemAudio = (np, video) => {
   // Fresh setup every song — URLs contain stream_uid so they're per-song.
   teardownStemAudio();
-  if (!stemAudioCtx) {
-    const Ctor = window.AudioContext || window.webkitAudioContext;
-    if (!Ctor) {
-      console.warn("Web Audio API not available; stem mixing disabled");
-      return;
-    }
-    stemAudioCtx = new Ctor();
-  }
-  if (stemAudioCtx.state === "suspended") stemAudioCtx.resume();
+  ensureAudioContextRunning();
+  if (!stemAudioCtx) return;
 
   const makeStem = (url, initialGain) => {
     const el = new Audio();
@@ -312,12 +346,9 @@ const setupStemAudio = (np, video) => {
     urls: { vocals: np.vocals_url, instrumental: np.instrumental_url },
   };
 
-  // Video is silent; all audible sound comes from stems.
-  video.muted = true;
-  video.volume = 0;
-
   // Sync stems to video. Any drift > 150ms is corrected.
   const syncAll = () => {
+    if (!stemNodes) return;
     for (const k of ["vocals", "instrumental"]) {
       const a = stemNodes[k].el;
       if (Math.abs(a.currentTime - video.currentTime) > 0.15) {
@@ -326,19 +357,18 @@ const setupStemAudio = (np, video) => {
     }
   };
   const playAll = () => {
+    if (!stemNodes) return;
     syncAll();
     for (const k of ["vocals", "instrumental"]) {
       stemNodes[k].el.play().catch(() => {});
     }
   };
   const pauseAll = () => {
+    if (!stemNodes) return;
     for (const k of ["vocals", "instrumental"]) {
       try { stemNodes[k].el.pause(); } catch (e) {}
     }
   };
-
-  video.addEventListener("play", playAll);
-  video.addEventListener("pause", pauseAll);
   // On HLS seek the video stalls (0.5–2s) and may land on a fresh segment;
   // the stem stream cannot guarantee a seek to the target position (for live
   // Demucs the data may not be written; for non-range chunked streams some
@@ -346,18 +376,16 @@ const setupStemAudio = (np, video) => {
   // don't play free, then on `seeked` attempt to re-sync. If a stem cannot
   // reach the target within tolerance we leave it paused — silent audio is
   // better than a 0.3s loop of whatever the decoder lands on.
-  video.addEventListener("seeking", pauseAll);
-  video.addEventListener("seeked", () => {
+  const seekedHandler = () => {
+    if (!stemNodes) return;
     const target = video.currentTime;
     for (const k of ["vocals", "instrumental"]) {
       const a = stemNodes[k].el;
       try { a.currentTime = target; } catch (e) {}
     }
     if (video.paused) return;
-    // Give the decoder a moment to land, then verify and resume only stems
-    // that actually made it. Unsyncable stems stay paused; drift correction
-    // skips them.
     setTimeout(() => {
+      if (!stemNodes) return;
       for (const k of ["vocals", "instrumental"]) {
         const a = stemNodes[k].el;
         if (Math.abs(a.currentTime - video.currentTime) < 0.5) {
@@ -365,11 +393,12 @@ const setupStemAudio = (np, video) => {
         }
       }
     }, 120);
-  });
+  };
   // Periodic drift correction while playing. Skip during seeking, and skip
   // stems we've already given up on (paused) — don't loop-retry a seek that
   // the source stream can't service.
-  video.addEventListener("timeupdate", () => {
+  const driftHandler = () => {
+    if (!stemNodes) return;
     if (video.paused || video.seeking) return;
     for (const k of ["vocals", "instrumental"]) {
       const a = stemNodes[k].el;
@@ -379,7 +408,20 @@ const setupStemAudio = (np, video) => {
         try { a.currentTime = video.currentTime; } catch (e) {}
       }
     }
-  });
+  };
+
+  const handlers = {
+    play: playAll,
+    pause: pauseAll,
+    seeking: pauseAll,
+    seeked: seekedHandler,
+    timeupdate: driftHandler,
+  };
+  for (const [evt, fn] of Object.entries(handlers)) {
+    video.addEventListener(evt, fn);
+  }
+  stemNodes._handlers = handlers;
+  stemNodes._video = video;
 };
 
 const applyStemVolumes = (np) => {
@@ -494,11 +536,16 @@ const handleNowPlayingUpdate = (np) => {
 
     video.load();
 
-    // Set up stem audio mixing for vocal_removal songs, or tear down for normal ones.
+    // Video starts with its original audio. If stems are already ready
+    // (cache hit, or a reconnect mid-song) we set them up and mute the
+    // video immediately — otherwise wait for the `stems_ready` socket
+    // event which will crossfade from video audio to stems.
+    teardownStemAudio();
     if (np.vocals_url && np.instrumental_url) {
       setupStemAudio(np, video);
+      video.muted = true;
+      video.volume = 0;
     } else {
-      teardownStemAudio();
       video.muted = false;
     }
 
@@ -823,6 +870,34 @@ const setupSocketEvents = () => {
     }
   });
   socket.on("now_playing", handleNowPlayingUpdate);
+  // Live Demucs fires this once the first segment for both stems is on
+  // disk. Video has been playing with its original audio; crossfade to the
+  // stems so the user gets the karaoke mix (vocals ducked per slider).
+  socket.on("stems_ready", (data) => {
+    const video = getVideoPlayer();
+    const currentUid = currentVideoUrl ? extractStreamUid(currentVideoUrl) : null;
+    if (data.stream_uid !== currentUid) return;  // stale event from a previous song
+    if (stemNodes) return;  // already set up (cache hit path)
+    ensureAudioContextRunning().then(() => {
+      const np = {
+        ...nowPlaying,
+        vocals_url: data.vocals_url,
+        instrumental_url: data.instrumental_url,
+      };
+      setupStemAudio(np, video);
+      if (!stemNodes) return;
+      for (const k of ["vocals", "instrumental"]) {
+        try { stemNodes[k].el.currentTime = video.currentTime; } catch (e) {}
+        stemNodes[k].el.play().catch(() => {});
+      }
+      // 300ms crossfade: video audio down to 0 as stem gains ramp up.
+      const fadeMs = 300;
+      $(video).animate({ volume: 0 }, fadeMs, () => {
+        video.muted = true;
+      });
+      fadeStems(stemTargets(), fadeMs);
+    });
+  });
   // Lightweight live stem volume updates during slider drag. Applies the
   // new gain directly without triggering the full now_playing refresh.
   socket.on("stem_volume", (data) => {
