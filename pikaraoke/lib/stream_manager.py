@@ -99,6 +99,17 @@ class StreamManager:
         # Map of stream_uid -> ActiveStems, for the HTTP tail routes that
         # serve vocals/instrumental audio to the browser.
         self.active_stems: dict[str, ActiveStems] = {}
+        # Real-OS-thread pool for Demucs inference. threading.Thread is
+        # monkey-patched to a greenlet, which would freeze the gevent event
+        # loop during PyTorch compute. Lazy import keeps test setup fast.
+        self._demucs_pool = None
+
+    def _get_demucs_pool(self):
+        if self._demucs_pool is None:
+            from gevent.threadpool import ThreadPool
+
+            self._demucs_pool = ThreadPool(maxsize=1)
+        return self._demucs_pool
 
     def play_file(self, file_path: str, semitones: int = 0) -> PlaybackResult:
         """Start playback of a media file.
@@ -484,7 +495,14 @@ class StreamManager:
                 logging.info("Demucs: first segment ready")
                 self._emit_stems_ready(stream_uid)
 
-        threading.Thread(target=_extract_and_separate, daemon=True).start()
+        # Demucs runs PyTorch inference that holds the GIL for seconds at a
+        # time. Under gevent monkey-patching `threading.Thread` is a greenlet,
+        # so a non-yielding worker freezes the whole event loop (SocketIO,
+        # Flask, every other greenlet). Use gevent.threadpool to get a real
+        # OS thread instead — the GIL still blocks Python execution briefly
+        # but cross-thread primitives (threading.Event under monkey-patch)
+        # wake greenlets correctly once the pool thread yields.
+        self._get_demucs_pool().spawn(_extract_and_separate)
         threading.Thread(target=_notify_when_ready, daemon=True).start()
 
         return True
