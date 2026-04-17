@@ -182,8 +182,11 @@ def encode_mp3_in_background(cache_key: str, bitrate: str = "320k") -> None:
 
     # gevent's patched subprocess attaches a child watcher to the default
     # event loop, which only exists on the main greenlet. This helper runs
-    # ffmpeg from an OS thread, so use the unpatched subprocess.run.
-    _run = monkey.get_original("subprocess", "run")
+    # ffmpeg from an OS thread, so we must bypass the patched subprocess.
+    # get_original("subprocess", "run") alone isn't enough: the stdlib run()
+    # looks up Popen via module globals at call time — which are patched.
+    # Grab Popen directly instead.
+    _Popen = monkey.get_original("subprocess", "Popen")
 
     d = _cache_dir(cache_key)
     wav_v = os.path.join(d, "vocals.wav")
@@ -202,7 +205,7 @@ def encode_mp3_in_background(cache_key: str, bitrate: str = "320k") -> None:
                 continue
             tmp = mp3 + ".partial"
             try:
-                _run(
+                with _Popen(
                     [
                         "ffmpeg",
                         "-y",
@@ -219,18 +222,21 @@ def encode_mp3_in_background(cache_key: str, bitrate: str = "320k") -> None:
                         "mp3",
                         tmp,
                     ],
-                    check=True,
-                    capture_output=True,
-                )
+                    stdout=sp.PIPE,
+                    stderr=sp.PIPE,
+                ) as proc:
+                    _out, err = proc.communicate()
+                    if proc.returncode != 0:
+                        stderr = err.decode(errors="replace") if err else ""
+                        logging.error(
+                            f"MP3 encode failed for {wav} (exit {proc.returncode}): {stderr}"
+                        )
+                        try:
+                            os.remove(tmp)
+                        except OSError:
+                            pass
+                        return
                 os.replace(tmp, mp3)
-            except sp.CalledProcessError as e:
-                stderr = e.stderr.decode(errors="replace") if e.stderr else ""
-                logging.error(f"MP3 encode failed for {wav} (exit {e.returncode}): {stderr}")
-                try:
-                    os.remove(tmp)
-                except OSError:
-                    pass
-                return
             except OSError:
                 logging.exception(f"MP3 encode failed for {wav}")
                 try:
