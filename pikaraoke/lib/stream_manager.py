@@ -134,7 +134,6 @@ class StreamManager:
             or is_transcoding_required(file_path)
             or avsync != 0
             or is_hls
-            or vocal_removal
         )
 
         logging.debug(f"Requires transcoding: {requires_transcoding}")
@@ -145,6 +144,12 @@ class StreamManager:
             error_message = _("Error resolving file: %s") % str(e)
             logging.error(error_message)
             return PlaybackResult(success=False, error=error_message)
+
+        # Demucs runs alongside (not inside) video transcoding. Video uses
+        # the original audio track; splash.js crossfades to stems when the
+        # `stems_ready` event arrives.
+        if vocal_removal and fr.file_path:
+            self._prepare_stems(fr)
 
         # Set stream URL based on format
         if is_hls:
@@ -216,19 +221,12 @@ class StreamManager:
         self.kill_ffmpeg()
 
         normalize_audio = self.preferences.get_or_default("normalize_audio")
-        vocal_removal = self.preferences.get_or_default("vocal_removal")
         complete_transcode_before_play = self.preferences.get_or_default(
             "complete_transcode_before_play"
         )
         avsync = self.preferences.get_or_default("avsync")
         cdg_pixel_scaling = self.preferences.get_or_default("cdg_pixel_scaling")
         buffer_size = int(self.preferences.get_or_default("buffer_size")) * 1000
-
-        # Run Demucs stem separation if enabled. Video keeps its original
-        # audio track so playback can start immediately — the frontend
-        # crossfades to stems when the `stems_ready` socket event arrives.
-        if vocal_removal and fr.file_path:
-            self._prepare_stems(fr)
 
         ffmpeg_cmd = build_ffmpeg_cmd(
             fr,

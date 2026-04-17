@@ -546,6 +546,30 @@ class TestStreamManagerPlayFile:
         assert result.subtitle_url == "/subtitle/12345"
 
     @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
+    @patch("pikaraoke.lib.stream_manager.FileResolver")
+    def test_play_file_vocal_removal_only_skips_transcode(
+        self, mock_resolver_class, mock_transcode_check, mock_gettext, test_prefs
+    ):
+        """Vocal removal alone runs Demucs but does not transcode a vanilla mp4."""
+        test_prefs.set("vocal_removal", True)
+        sm = StreamManager(test_prefs, streaming_format="mp4")
+        mock_fr = self._setup_resolver(mock_resolver_class)
+        mock_fr.file_path = "/songs/test.mp4"
+
+        with (
+            patch.object(sm, "_prepare_stems") as mock_prep,
+            patch.object(sm, "_copy_file", return_value=True) as mock_copy,
+            patch.object(sm, "_transcode_file") as mock_transcode,
+        ):
+            result = sm.play_file("/songs/test.mp4")
+
+        mock_prep.assert_called_once_with(mock_fr)
+        mock_copy.assert_called_once()
+        mock_transcode.assert_not_called()
+        assert result.success is True
+
+    @patch("flask_babel._", side_effect=lambda x: x)
     @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=True)
     @patch("pikaraoke.lib.stream_manager.FileResolver")
     def test_play_file_returns_failure_when_stream_not_ready(
