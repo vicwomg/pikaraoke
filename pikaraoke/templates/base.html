@@ -1,46 +1,73 @@
 <!DOCTYPE html>
-<html data-theme="dark">
+<html data-theme="mazury">
 
 <head>
+  <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
   {% if title %}
   <title>{{site_title}} - {{ title }}</title>
   {% else %}
   <title>{{site_title}}</title>
   {% endif %}
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script type=text/javascript src="{{  url_for('static', filename='jquery-3.7.1.min.js') }}"></script>
-  <script src="{{  url_for('static', filename='js.cookie-3.0.5.min.js') }}"></script>
-  <script src="{{  url_for('static', filename='socket.io-4.8.3.min.js') }}"></script>
-  <script src="{{  url_for('static', filename='spa-navigation.js') }}"></script>
-  <link rel="stylesheet" href="{{  url_for('static', filename='bulma.min.css') }}">
-  <link rel="stylesheet" href="{{  url_for('static', filename='bulma-dark.css') }}">
-  <link rel="stylesheet" href="{{  url_for('static', filename='custom.css') }}">
-  <link rel="icon" type="image/png" href="{{  url_for('static', filename='images/microphone.png') }}">
-  <link rel="stylesheet" href="{{  url_for('static', filename='fontello/css/fontello.css') }}?v=2">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f5ecd4">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <script src="{{ url_for('static', filename='jquery-3.7.1.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js.cookie-3.0.5.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='socket.io-4.8.3.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='spa-navigation.js') }}"></script>
+
+  {# Legacy CSS — loaded until per-view migration is complete. #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='bulma.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='bulma-dark.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='custom.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='fontello/css/fontello.css') }}?v=2">
+
+  {# Design system. #}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..700,0..100,0..1;1,9..144,300..700,0..100,0..1&family=DM+Sans:wght@400;500;600;700&family=Caveat:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/now-playing.css') }}">
+
+  <script src="{{ url_for('static', filename='js/dialog.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/now-playing-bar.js') }}"></script>
+
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/microphone.png') }}">
 
   <script>
     // Translations for JS (static JS cannot use Jinja2 directly)
     window.translations = {
-      // {# MSG: Prompt to change the username displayed next to queued songs. CURRENT_NAME is replaced with the name #}
-      promptChangeUsername: "{{ _('Do you want to change the name of the person using this device? This will show up on queued songs. Current: CURRENT_NAME') }}",
-      // {# MSG: Confirmation prompt to clear entire queue. User must type ok to confirm #}
-      promptClearQueue: "{{ _('Are you sure you want to clear the ENTIRE queue? Type ok to continue') }}",
-      // {# MSG: Confirmation dialog when removing a song from the queue. SONG_TITLE is replaced with the title #}
-      confirmDeleteFromQueue: "{{ _('Are you sure you want to delete SONG_TITLE from the queue?') }}",
-      // {# MSG: Confirmation dialog when permanently deleting a song file from the library #}
-      confirmDeleteFromLibrary: '{{ _("Are you sure you want to delete this song from the library?") }}',
-      // {# MSG: Label showing the number of semitones for pitch shift. SEMITONE_VALUE is replaced with a number like +3 or -2. #}
-      semitonesLabel: '{{ _("SEMITONE_VALUE semitones") }}',
-      // {# MSG: Confirmation dialog when changing the key/pitch of a song. SEMITONE_LABEL is replaced with a label like "+3 semitones". #}
-      confirmTranspose: '{{ _("Transpose this song: SEMITONE_LABEL?") }}',
-      // {# MSG: Confirmation dialog when restarting the currently playing track. #}
-      confirmRestartTrack: '{{ _("Are you sure you want to restart this track?") }}',
-      // {# MSG: Informational tooltip explaining what a semitone is. #}
-      semitonesInfo: '{{ _("A semitone is also known as a half-step. It is the smallest interval used in classical Western music, equal to a twelfth of an octave or half a tone.") }}',
-      // {# MSG: Confirmation dialog when expanding the filesystem on Raspberry Pi, which triggers a reboot. #}
-      confirmExpandFilesystem: '{{ _("Are you sure you want to expand the filesystem? This will reboot your raspberry pi.") }}',
-      // {# MSG: Generic error prefix shown before an error message. #}
-      errorLabel: '{{ _("Error") }}'
+      promptChangeUsername: "Zmienić imię używane na tym telefonie? Pokaże się przy utworach w kolejce. Obecnie: CURRENT_NAME",
+      promptClearQueue: "Wyczyścić całą kolejkę?",
+      confirmDeleteFromQueue: "Usunąć SONG_TITLE z kolejki?",
+      confirmDeleteFromLibrary: "Usunąć tę piosenkę z biblioteki?",
+      semitonesLabel: "SEMITONE_VALUE półtonów",
+      confirmTranspose: "Zmienić tonację: SEMITONE_LABEL?",
+      confirmRestartTrack: "Odtworzyć ten utwór od początku?",
+      confirmSkip: "Pominąć ten utwór? Jeśli nie Ty go dodałeś, zapytaj najpierw!",
+      semitonesInfo: "Półton to najmniejszy interwał w muzyce zachodniej — jedna dwunasta oktawy.",
+      confirmExpandFilesystem: "Rozszerzyć partycję? Raspberry Pi się zrestartuje.",
+      errorLabel: "Błąd",
+      cancelBtn: "Anuluj",
+      saveBtn: "Zapisz",
+      clearBtn: "Wyczyść",
+      removeBtn: "Usuń",
+      deleteBtn: "Usuń",
+      skipBtn: "Pomiń",
+      restartBtn: "Od początku",
+      applyBtn: "Zastosuj",
+      changeNameTitle: "Zmień imię",
+      changeNameMessage: "Pokaże się przy utworach z tego telefonu.",
+      namePlaceholder: "imię lub ksywka",
+      clearQueueTitle: "Wyczyścić kolejkę?",
+      removeFromQueueTitle: "Usunąć z kolejki?",
+      deleteFromLibraryTitle: "Usunąć z biblioteki?",
+      skipTitle: "Pominąć ten utwór?",
+      restartTitle: "Od początku?",
+      transposeTitle: "Zmienić tonację?"
     };
 
     function generateRandomString(length) {
@@ -79,30 +106,32 @@
       });
     }
 
-
     function showNotification(message, categoryClass, timeout=3000) {
-      $("#notification-alt").addClass(categoryClass)
-      $("#notification-alt div").text(message)
-      $("#notification-alt").fadeIn()
-      setTimeout(function () {$("#notification-alt").fadeOut()}, timeout)
-      setTimeout(function () {$("#notification-alt").removeClass(categoryClass)}, timeout + 750)
+      var $n = $("#notification-alt");
+      $n.addClass(categoryClass);
+      $n.find(".flash").text(message);
+      $n.removeAttr("hidden").hide().fadeIn();
+      setTimeout(function () { $n.fadeOut(); }, timeout);
+      setTimeout(function () { $n.removeClass(categoryClass); }, timeout + 750);
     }
 
-    function setUserCookie(reload=false) {
-      var user = Cookies.get("user");
-      if (!user) {
-        let name = window.prompt(
-          // {# MSG: Prompt which asks the user their name when they first try to add to the queue. #}
-          "{{ _('Please enter your name. This will show up next to the songs you queue up from this device.') }}"
-        );
-        if (name) {
-          Cookies.set("user", name, { expires: 3650, path: '/' });
-        }
-        else {
-          Cookies.set("user", `Anon-${generateRandomString(4)}`, { expires: 3650 });
-        }
-        reload && location.reload();
+    async function setUserCookie(reload=false) {
+      if (Cookies.get("user")) return;
+      const name = await PK.dialog.prompt({
+        title: "Twoje imię",
+        message: "Pokaże się przy utworach, które dodasz z tego telefonu.",
+        placeholder: "imię lub ksywka",
+        confirmText: "Zapisz",
+        cancelText: "Pomiń",
+      });
+      const trimmed = (name || '').trim();
+      if (trimmed) {
+        Cookies.set("user", trimmed, { expires: 3650, path: '/' });
+        $("#current-user .pk-user-name").text(trimmed);
+      } else {
+        Cookies.set("user", `Anon-${generateRandomString(4)}`, { expires: 3650 });
       }
+      if (reload) location.reload();
     }
 
     function getUserCookie() {
@@ -113,169 +142,235 @@
       connectSocket();
 
       $("#notification-close").click(function () {
-        $(".notification").hide();
+        $(this).closest(".pk-notification, .notification").fadeOut();
       });
-      $("#notification-alt").hide()
 
-      // Navbar burger menu is handled by spa-navigation.js
+      // Auto-close flashed messages
+      setTimeout(function () { $(".pk-flash").fadeOut(); }, 3000);
 
-      // handle highlighting current nav bar location
-      var currentPath = window.location.pathname;
-      if (currentPath == "/") {
-        $("#home").addClass("is-active")
-      }
-      if (currentPath == "/queue") {
-        $("#queue").addClass("is-active")
-      }
-      if (currentPath == "/search") {
-        $("#search").addClass("is-active")
-      }
-      if (currentPath == "/browse") {
-        $("#browse").addClass("is-active")
-      }
-      if (currentPath == "/info") {
-        $("#info").addClass("is-active")
-      }
-
-      // handle auto-close flash notifications
-      setTimeout(function() { $("#notification").fadeOut()}, 3000);
-
-      // handle current user display
+      // Current user chip
       var currentUser = Cookies.get("user");
-
       if (currentUser) {
-        $("#current-user span").text(currentUser)
-        $("#current-user").removeClass("is-hidden");
-      };
+        $("#current-user .pk-user-name").text(currentUser);
+      }
 
-      // Username change handler is now in spa-navigation.js
+      // Highlight active tab
+      var path = window.location.pathname;
+      var activeTab = path === '/' ? '#tab-home'
+        : path === '/queue' ? '#tab-queue'
+        : path === '/search' ? '#tab-search'
+        : path.indexOf('/browse') === 0 ? '#tab-browse'
+        : null;
+      if (activeTab) $(activeTab).addClass('is-active');
 
+      // Initialize global now-playing bar
+      if (window.PK && window.PK.NowPlaying) {
+        window.PK.NowPlaying.init({ isAdmin: {{ pk_admin|tojson }} });
+      }
+
+      // Theme toggle
+      $("#pk-theme-btn").on("click", function () {
+        if (window.PK && window.PK.theme) window.PK.theme.toggle();
+      });
     });
   </script>
-  {% block scripts %}
-  {% endblock %}
-</head>
 
-<style>
-  .navbar-item > i {
-    margin-right: 2px;
-  }
-  .base-notification {
-    position: fixed;
-    width: 500px;
-    bottom: 5px;
-    left: 50%;
-    margin-left: -250px;
-    z-index: 20;
-  }
-  .current-user {
-    position: fixed;
-    padding: 3px;
-    bottom: 5px;
-    right: 10px;
-  }
-  tr:nth-child(even) {
-    background-color: rgb(50, 55, 55);
-  }
-  @media screen and (max-width: 1088px) {
-    .navbar-brand > .navbar-item > span {
-      display: none;
-    }
-    .base-notification {
-      position: fixed;
-      width: 100%;
-      bottom: 5px;
-      left: 0px;
-      margin-left: 0px;
-    }
-    body {
-      min-height: 120vh;
-    }
-    .navbar-menu.is-active {
-      position: absolute;
-      right: 0px;
-    }
-  }
-</style>
+  {% block scripts %}{% endblock %}
+</head>
 
 <body>
 
-  {% if not blank_page %}
-  <div class="container" style="padding: 5px; max-width: 900px;">
-    <nav class="navbar" role="navigation" aria-label="main navigation">
-      <div class="navbar-brand" id="brand" style="padding-left: 10px">
-        <a id="home" class="navbar-item" href="{{ url_for('home.home') }}">
-          <i class="icon icon-home-2" title="Home"></i>
-          {# MSG: Navigation link for the home page. #}
-          <span>{% trans %}Home{% endtrans %}</span>
-        </a>
+{% if not blank_page %}
 
-        <a id="queue" class="navbar-item" href="{{ url_for('queue.queue') }}">
-          <i class="icon icon-list-numbered" title="Queue"></i>
-          {# MSG: Navigation link for the queue page. #}
-          <span>{% trans %}Queue{% endtrans %}</span>
-        </a>
-        <a id="search" class="navbar-item" href="{{ url_for('search.search') }}">
-          <i class="icon icon-search-1" title="Search"></i>
-          {# MSG: Navigation link for the search page add songs to the queue. #}
-          <span>{% trans %}Search{% endtrans %}</span>
-        </a>
-        <a id="browse" class="navbar-item" href="{{ url_for('files.browse') }}">
-          <i class="icon icon-folder-open-empty" title="Browse"></i>
-          {# MSG: Navigation link for the page where the user can add existing songs to the queue. #}
-          <span>{% trans %}Browse{% endtrans %}</span>
-        </a>
-        <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
-          <span aria-hidden="true"></span>
-          <span aria-hidden="true"></span>
-          <span aria-hidden="true"></span>
-        </a>
-      </div>
-      <div class="navbar-menu" id="menu">
-        <div class="navbar-end">
-          <a id="current-user" class="navbar-item is-hidden" href="#">
-            <i class="icon  icon-mic-1" title="Current user"></i>
-            <span></span>
-          </a>
-          <a id="info" class="navbar-item" href="{{ url_for('info.info') }}">
-            <i class="icon icon-info-circled-1" title="Info"></i>
-            <span>Pikaraoke</span>&nbsp;&nbsp;
-          </a>
+<div class="pk-app">
+
+  {# ===== String lights (Mazury) ===== #}
+  <div class="pk-lights" aria-hidden="true">
+    <svg viewBox="0 0 390 32" preserveAspectRatio="xMidYMid meet">
+      <path d="M 10 5 Q 100 24, 195 17 T 380 5" fill="none" stroke="#8a6a3b" stroke-width="1"/>
+      <line x1="50" y1="13" x2="50" y2="18" stroke="#8a6a3b" stroke-width="0.7"/>
+      <circle cx="50" cy="21" r="3.5" fill="#f29d3f"/>
+      <line x1="100" y1="18" x2="100" y2="23" stroke="#8a6a3b" stroke-width="0.7"/>
+      <circle cx="100" cy="26" r="3.5" fill="#d76a2c"/>
+      <line x1="150" y1="21" x2="150" y2="26" stroke="#8a6a3b" stroke-width="0.7"/>
+      <circle cx="150" cy="29" r="3.5" fill="#f29d3f"/>
+      <line x1="200" y1="20" x2="200" y2="25" stroke="#8a6a3b" stroke-width="0.7"/>
+      <circle cx="200" cy="28" r="3.5" fill="#8ca25a"/>
+      <line x1="250" y1="16" x2="250" y2="21" stroke="#8a6a3b" stroke-width="0.7"/>
+      <circle cx="250" cy="24" r="3.5" fill="#4e94b5"/>
+      <line x1="300" y1="12" x2="300" y2="17" stroke="#8a6a3b" stroke-width="0.7"/>
+      <circle cx="300" cy="20" r="3.5" fill="#d76a2c"/>
+      <line x1="345" y1="8" x2="345" y2="13" stroke="#8a6a3b" stroke-width="0.7"/>
+      <circle cx="345" cy="16" r="3.5" fill="#f29d3f"/>
+    </svg>
+  </div>
+
+  {# ===== Top bar ===== #}
+  <header class="pk-topbar">
+    <a class="pk-brand" href="{{ url_for('home.home') }}">
+      <span class="pk-brand-1">PiKaraoke</span>
+      <span class="pk-brand-2">Karaoke</span>
+    </a>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <button type="button" id="pk-theme-btn" class="pk-icon-btn pk-theme-toggle" style="width: 36px; height: 36px;" aria-label="{% trans %}Switch theme{% endtrans %}">
+        <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true">
+          <circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M10 2 A 8 8 0 0 1 10 18 Z" fill="currentColor"/>
+        </svg>
+      </button>
+      <a class="pk-icon-btn" href="{{ url_for('info.info') }}" style="width: 36px; height: 36px;" aria-label="Info">
+        <i class="icon icon-info-circled-1"></i>
+      </a>
+      <a id="current-user" class="pk-singer-chip" href="#">
+        <i class="pk-dot" aria-hidden="true"></i>
+        <span class="pk-user-name">&mdash;</span>
+      </a>
+    </div>
+  </header>
+
+  {# ===== Content =====
+     Unmigrated views use the Bulma .box wrapper — which is also the SPA
+     navigation swap target (see spa-navigation.js `contentSelector`).
+     Migrated views set `use_new_shell = true` at the top of the template
+     and fill {% block content %} directly. #}
+  {% set _legacy_wrap = use_new_shell is not defined or not use_new_shell %}
+  <main class="pk-content">
+  {% if _legacy_wrap %}
+    <div class="pk-legacy-wrap">
+      <div class="box">
+        {% if self.header() | trim %}
+        <header class="title">{% block header %}{% endblock %}</header>
+        {% endif %}
+        <div class="content">
+  {% endif %}
+
+          {% block content %}{% endblock %}
+
+  {% if _legacy_wrap %}
         </div>
       </div>
-    </nav>
-
-    {% if get_flashed_messages() %}
-    {% for category, message in get_flashed_messages(with_categories=true) %}
-    <div id="notification" class="notification base-notification {{category}}">
-      <button id="notification-close" class="delete"></button>
-      <div class="flash">{{ message }}</div>
     </div>
-    {% endfor %}
-    {% endif %}
+  {% endif %}
+  </main>
 
-    <!-- Alternate notification for js-fired notifications using showNotification -->
-    <div id="notification-alt" class="notification base-notification" style="display: none">
-      <button id="notification-close" class="delete"></button>
-      <div class="flash"></div>
+  {# ===== Flash notifications ===== #}
+  {% if get_flashed_messages() %}
+  {% for category, message in get_flashed_messages(with_categories=true) %}
+  <div id="notification" class="pk-notification pk-flash {{category}}">
+    <div class="flash">{{ message }}</div>
+    <button id="notification-close" class="delete" aria-label="Close">&times;</button>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  <div id="notification-alt" class="pk-notification" hidden>
+    <div class="flash"></div>
+    <button id="notification-close" class="delete" aria-label="Close">&times;</button>
+  </div>
+
+  {# ===== Mini-player (populated by now-playing-bar.js) ===== #}
+  <div id="pk-mini-player" class="pk-mini-player" hidden>
+    <div class="pk-mini-thumb">
+      <i class="icon icon-music" style="color: var(--pk-amber); font-size: 20px;"></i>
+      <span class="pk-live-dot"></span>
+    </div>
+    <div class="pk-mini-info">
+      <div class="pk-mini-title" data-pk-mini-title></div>
+      <div class="pk-mini-meta" data-pk-mini-meta></div>
+    </div>
+    <button class="pk-mini-play" data-pk-mini-play aria-label="Pause">
+      <i class="icon icon-pause" data-pk-mini-pause-icon></i>
+    </button>
+  </div>
+
+  {# ===== Bottom tab bar ===== #}
+  <nav class="pk-tabbar" role="navigation">
+    <a id="tab-home" class="pk-tab" href="{{ url_for('home.home') }}">
+      <i class="icon icon-home-2"></i>
+      {# MSG: Bottom-tab label for the start / home view. #}
+      <span class="pk-tab-label">start</span>
+    </a>
+    <a id="tab-queue" class="pk-tab" href="{{ url_for('queue.queue') }}">
+      <i class="icon icon-list-numbered"></i>
+      <span class="pk-tab-label">kolejka</span>
+    </a>
+    <a id="tab-search" class="pk-tab" href="{{ url_for('search.search') }}">
+      <i class="icon icon-search-1"></i>
+      <span class="pk-tab-label">szukaj</span>
+    </a>
+    <a id="tab-browse" class="pk-tab" href="{{ url_for('files.browse') }}">
+      <i class="icon icon-folder-open-empty"></i>
+      <span class="pk-tab-label">biblioteka</span>
+    </a>
+  </nav>
+
+  {# ===== Fullscreen expanded player ===== #}
+  <div id="pk-player-full" class="pk-player-full" hidden>
+    <div class="pk-player-topbar">
+      <button class="pk-icon-btn" data-pk-action="close" aria-label="Close">
+        <i class="icon icon-angle-down"></i>
+      </button>
+      {# MSG: Live indicator shown in the expanded now-playing view. #}
+      <span class="pk-player-eyebrow">{% trans %}Live{% endtrans %}</span>
+      <span style="width: 40px;" aria-hidden="true"></span>
     </div>
 
-    <div class="box" style="margin-top: 5px;">
-      <header class="title">
-        {% block header %}{% endblock %}
-      </header>
-      <div class="content">
-        {% block content %}
-        {% endblock %}
+    <div class="pk-player-cover-wrap">
+      <div class="pk-player-cover" data-pk-cover>
+        <i class="icon icon-music" style="font-size: 96px; color: var(--pk-amber); display: grid; place-items: center; height: 100%;"></i>
+      </div>
+    </div>
+
+    <div class="pk-player-track">
+      <h2 class="pk-player-title" data-pk-title></h2>
+      <div class="pk-player-singer">
+        <i class="icon icon-mic-1"></i>
+        <span data-pk-singer></span>
+      </div>
+    </div>
+
+    <div class="pk-player-controls">
+      <button class="pk-pc-btn" data-pk-action="restart" data-admin aria-label="Restart">
+        <i class="icon icon-to-start"></i>
+      </button>
+      <button class="pk-pc-btn is-primary" data-pk-action="pause" data-admin aria-label="Pause">
+        <i class="icon icon-pause" data-pk-pause-icon></i>
+      </button>
+      <button class="pk-pc-btn" data-pk-action="skip" data-admin aria-label="Skip">
+        <i class="icon icon-to-end"></i>
+      </button>
+      <button class="pk-pc-btn" data-pk-action="queue" aria-label="Queue">
+        <i class="icon icon-list-numbered"></i>
+      </button>
+    </div>
+
+    <div class="pk-player-tools" data-admin>
+      {% if pk_is_transpose_enabled %}
+      <div class="pk-tool">
+        <div>
+          {# MSG: Label for the key/pitch transpose control in the expanded player. #}
+          <span class="pk-tool-label">{% trans %}Key{% endtrans %}</span>
+          <span class="pk-tool-value" data-pk-transpose>0</span>
+        </div>
+        <div class="pk-tool-steppers">
+          <button class="pk-tool-step" data-pk-action="transpose-down" aria-label="Transpose down">&minus;</button>
+          <button class="pk-tool-step" data-pk-action="transpose-up" aria-label="Transpose up">+</button>
+        </div>
+      </div>
+      {% endif %}
+      <div class="pk-tool pk-tool-slider">
+        <i class="icon icon-volume-down"></i>
+        <input type="range" min="0" max="1" step="0.025" data-pk-volume aria-label="Volume">
+        <i class="icon icon-volume-up"></i>
       </div>
     </div>
   </div>
-  {% endif %}
 
+</div>
 
-  {% block body %}
-  {% endblock %}
+{% endif %}
+
+{% block body %}{% endblock %}
 
 </body>
-
 </html>

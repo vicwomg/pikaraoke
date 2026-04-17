@@ -1,0 +1,89 @@
+/* Design tokens. Mazury (default) + Late Show (dark alt).
+   Switched via <html data-theme="…"> — see js/theme.js. */
+
+:root,
+[data-theme="mazury"] {
+  /* Mazury — papier, drewno, jezioro, trzcina. Letni domek. */
+  --pk-bg: #f5ecd4;             /* ciepły papier */
+  --pk-surface: #efe1bf;        /* deeper paper */
+  --pk-surface-2: #e6d4a5;      /* deepest paper */
+  --pk-surface-3: #d9c89a;      /* wood-tinted */
+  --pk-border: #d4c29a;         /* paper grain edge */
+  --pk-border-strong: #8a6a3b;  /* wood-dark */
+  --pk-wood: #c8a36a;
+  --pk-wood-dark: #8a6a3b;
+  --pk-ink: #3b2a17;            /* old wood dark */
+  --pk-ink-2: #6c5334;          /* dusty brown */
+  --pk-ink-3: #94825e;          /* faded pencil */
+  --pk-ink-4: #bfae86;
+  --pk-ink-5: #dccfa3;
+  --pk-amber: #3a86ad;          /* primary accent = lake */
+  --pk-amber-2: #17567c;        /* deeper lake */
+  --pk-amber-glow: rgba(58, 134, 173, 0.22);
+  --pk-sky: #8dc2da;
+  --pk-lime: #6a9080;           /* reed — live/success */
+  --pk-lime-glow: rgba(106, 144, 128, 0.22);
+  --pk-sun: #e8a25a;            /* warm pop */
+  --pk-sun-deep: #bf723a;
+  --pk-danger: #9c402a;         /* ember */
+  --pk-success: #6a9080;
+  --pk-ambient-1: rgba(242, 157, 63, 0.32);
+  --pk-ambient-2: rgba(78, 148, 181, 0.18);
+  --pk-shadow-elev: 0 10px 22px -10px rgba(75, 50, 25, 0.28);
+  --pk-shadow-strong: 0 28px 52px -18px rgba(75, 50, 25, 0.4);
+  --pk-backdrop: rgba(59, 42, 23, 0.55);
+  --pk-scheme: light;
+}
+
+[data-theme="late-show"] {
+  /* Late Show — warm dark, ciepły wieczorny alternatyw dla nocy. */
+  --pk-bg: #0c0a07;
+  --pk-surface: #17120b;
+  --pk-surface-2: #1f1911;
+  --pk-surface-3: #241e15;
+  --pk-border: #29211a;
+  --pk-border-strong: #3a3022;
+  --pk-wood: #3a3022;
+  --pk-wood-dark: #5a4a35;
+  --pk-ink: #f5ede0;
+  --pk-ink-2: #cdc2ae;
+  --pk-ink-3: #a29680;
+  --pk-ink-4: #665a4b;
+  --pk-ink-5: #3a3329;
+  --pk-amber: #ff7a45;
+  --pk-amber-2: #ffa875;
+  --pk-amber-glow: rgba(255, 122, 69, 0.22);
+  --pk-sky: #9ec5ea;
+  --pk-lime: #d5ff5e;
+  --pk-lime-glow: rgba(213, 255, 94, 0.18);
+  --pk-sun: #ffa875;
+  --pk-sun-deep: #ff7a45;
+  --pk-danger: #ff4d8f;
+  --pk-success: #9eff6e;
+  --pk-ambient-1: rgba(255, 122, 69, 0.06);
+  --pk-ambient-2: rgba(213, 255, 94, 0.04);
+  --pk-shadow-elev: 0 12px 24px -8px rgba(0,0,0,0.5);
+  --pk-shadow-strong: 0 40px 80px -20px rgba(0,0,0,0.7);
+  --pk-backdrop: rgba(0, 0, 0, 0.65);
+  --pk-scheme: dark;
+}
+
+:root {
+  --pk-font-display: 'Fraunces', 'Times New Roman', serif;
+  --pk-font-body: 'DM Sans', 'Instrument Sans', system-ui, sans-serif;
+  --pk-font-hand: 'Caveat', cursive;
+  --pk-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --pk-r-sm: 6px;
+  --pk-r-md: 12px;
+  --pk-r-lg: 20px;
+  --pk-r-pill: 100px;
+
+  --pk-ease: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --pk-topbar-h: 56px;
+  --pk-tabbar-h: 64px;
+  --pk-miniplayer-h: 68px;
+}
+
+html { color-scheme: var(--pk-scheme); }

@@ -80,23 +80,24 @@
         $(document).off('click', '#current-user');
 
         // Bind with event delegation
-        $(document).on('click', '#current-user', function(e) {
+        $(document).on('click', '#current-user', async function(e) {
             e.preventDefault();
-            // Get the current name from the cookie dynamically
-            let currentName = Cookies.get("user");
-            var promptMsg = (window.translations && window.translations.promptChangeUsername)
-                ? window.translations.promptChangeUsername.replace('CURRENT_NAME', currentName)
-                : "Do you want to change the name of the person using this device? This will show up on queued songs. Current: " + currentName;
-            let name = window.prompt(promptMsg);
-            // Only update if user clicked OK and entered a non-empty name
-            // null = Cancel clicked, "" = OK with empty input
-            if (name !== null && name.trim() !== "") {
-                Cookies.set("user", name, { expires: 3650, path: '/' });
-                // Update the displayed name without reloading
-                $("#current-user span").text(name);
-            }
-            // Remove focus from the link to prevent CSS focus styling (black background)
             $(this).blur();
+            const currentName = Cookies.get("user") || "";
+            const t = window.translations || {};
+            const name = await PK.dialog.prompt({
+                title: t.changeNameTitle || "Change your name",
+                message: t.changeNameMessage || ("Shown next to songs you queue. Current: " + currentName),
+                defaultValue: currentName,
+                placeholder: t.namePlaceholder || "Name or nickname",
+                confirmText: t.saveBtn || "Save",
+                cancelText: t.cancelBtn || "Cancel",
+            });
+            const trimmed = (name || '').trim();
+            if (trimmed) {
+                Cookies.set("user", trimmed, { expires: 3650, path: '/' });
+                $("#current-user .pk-user-name").text(trimmed);
+            }
         });
     }
 
@@ -120,38 +121,49 @@
         $(document).off('click', '.add-random');
 
         // Clear queue confirmation
-        $(document).on('click', '.confirm-clear', function(e) {
+        $(document).on('click', '.confirm-clear', async function(e) {
             e.preventDefault();
-            var promptMsg = (window.translations && window.translations.promptClearQueue)
-                ? window.translations.promptClearQueue
-                : "Are you sure you want to clear the ENTIRE queue? Type 'ok' to continue";
-            let userInput = window.prompt(promptMsg);
-            // Only clear if user typed 'ok' exactly (case insensitive)
-            if (userInput !== null && userInput.toLowerCase() === "ok") {
-                $.get(this.href);
-            }
+            const href = this.href;
+            const t = window.translations || {};
+            const ok = await PK.dialog.confirm({
+                title: t.clearQueueTitle || "Clear queue?",
+                message: t.promptClearQueue || "All songs in the queue will be removed.",
+                destructive: true,
+                confirmText: t.clearBtn || "Clear",
+                cancelText: t.cancelBtn || "Cancel",
+            });
+            if (ok) $.get(href);
         });
 
         // Delete song from queue confirmation
-        $(document).on('click', '.confirm-delete', function(e) {
+        $(document).on('click', '.confirm-delete', async function(e) {
             e.preventDefault();
-            var msg = (window.translations && window.translations.confirmDeleteFromQueue)
-                ? window.translations.confirmDeleteFromQueue.replace('SONG_TITLE', this.title)
-                : `Are you sure you want to delete "${this.title}" from the queue?`;
-            if (window.confirm(msg)) {
-                $.get(this.href);
-            }
+            const href = this.href;
+            const title = this.title;
+            const t = window.translations || {};
+            const ok = await PK.dialog.confirm({
+                title: t.removeFromQueueTitle || "Remove from queue?",
+                message: title,
+                destructive: true,
+                confirmText: t.removeBtn || "Remove",
+                cancelText: t.cancelBtn || "Cancel",
+            });
+            if (ok) $.get(href);
         });
 
         // Delete song file from library confirmation (full page navigation)
-        $(document).on('click', '.confirm-delete-file', function(e) {
+        $(document).on('click', '.confirm-delete-file', async function(e) {
             e.preventDefault();
-            var msg = (window.translations && window.translations.confirmDeleteFromLibrary)
-                ? window.translations.confirmDeleteFromLibrary
-                : 'Are you sure you want to delete this song from the library?';
-            if (window.confirm(msg)) {
-                window.location.href = this.href;
-            }
+            const href = this.href;
+            const t = window.translations || {};
+            const ok = await PK.dialog.confirm({
+                title: t.deleteFromLibraryTitle || "Delete song from library?",
+                message: t.confirmDeleteFromLibrary || "This cannot be undone.",
+                destructive: true,
+                confirmText: t.deleteBtn || "Delete",
+                cancelText: t.cancelBtn || "Cancel",
+            });
+            if (ok) window.location.href = href;
         });
 
         // Move song up in queue
@@ -326,7 +338,9 @@
             const newStylesheets = doc.querySelectorAll('link[rel="stylesheet"]');
             const newInlineStyles = doc.querySelectorAll('style');
 
-            if (newContent) {
+            const currentContent = document.querySelector(config.contentSelector);
+
+            if (newContent && currentContent) {
                 // Cleanup old scripts and event handlers
                 cleanupOldPage();
 
@@ -365,9 +379,11 @@
                 // showNotification('Page loaded', 'is-success', 500);
 
             } else {
-                console.error('Could not find content container in response');
-                // Fallback to normal navigation
+                // One of the pages doesn't use the legacy .box shell (e.g. a migrated
+                // view) — fall through to full navigation so migrated pages can mount
+                // their own event handlers cleanly.
                 window.location.href = url;
+                return;
             }
 
         } catch (error) {

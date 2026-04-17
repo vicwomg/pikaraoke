@@ -1,669 +1,585 @@
-{% extends 'base.html' %} {% block scripts %}
-	<script>
-		async function updatePhrases(phrases) {
-			let returnData = null
+{% extends 'base.html' %}
+{% set use_new_shell = true %}
 
-			try {
-				for (const phraseRange in phrases) {
-					returnData = await $.get("{{ url_for('preferences.change_preferences') }}", {
-							pref: phraseRange,
-							val: phrases[phraseRange]
-					})
+{% block scripts %}
+<style>
+  .pk-qr-card {
+    padding: 20px 16px;
+    background: var(--pk-surface);
+    border: 1px solid var(--pk-border);
+    border-radius: var(--pk-r-md);
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .pk-qr-label {
+    font-family: var(--pk-font-mono);
+    font-size: 10.5px;
+    color: var(--pk-ink-3);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .pk-qr-url {
+    font-family: var(--pk-font-mono);
+    font-size: 14px;
+    color: var(--pk-amber);
+    font-weight: 500;
+    word-break: break-all;
+    margin-bottom: 14px;
+  }
+  .pk-qr-img {
+    width: min(240px, 70vw);
+    height: auto;
+    image-rendering: pixelated;
+    background: white;
+    border-radius: var(--pk-r-sm);
+    padding: 8px;
+  }
 
-					if (!returnData[0]) break
-				}
+  .pk-pref-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--pk-border);
+  }
+  .pk-pref-row:last-child { border-bottom: 0; }
+  .pk-pref-row .pk-pref-label {
+    flex: 1;
+    font-size: 13.5px;
+    color: var(--pk-ink-2);
+    line-height: 1.4;
+  }
+  .pk-pref-row input[type=number],
+  .pk-pref-row select {
+    width: 80px;
+    padding: 8px 10px;
+    background: var(--pk-surface-2);
+    border: 1px solid var(--pk-border);
+    border-radius: 8px;
+    color: var(--pk-ink);
+    font-family: var(--pk-font-mono);
+    font-size: 14px;
+    text-align: center;
+    outline: 0;
+  }
+  .pk-pref-row select { width: auto; text-align: left; padding-right: 28px; }
 
-				if (returnData[0]) showNotification(returnData[1], "is-success");
-				else showNotification(returnData[1], "is-danger");
-			} catch (_e) {
-				showNotification("{{ _('Something went wrong! Your preferences were not changed') }}", "is-danger");
-			}
-		}
+  .pk-pref-row input[type=checkbox] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 42px;
+    height: 24px;
+    border-radius: 100px;
+    background: var(--pk-surface-3);
+    border: 1px solid var(--pk-border-strong);
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s var(--pk-ease), border-color 0.2s var(--pk-ease);
+  }
+  .pk-pref-row input[type=checkbox]::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--pk-ink-3);
+    transition: transform 0.2s var(--pk-ease), background 0.2s var(--pk-ease);
+  }
+  .pk-pref-row input[type=checkbox]:checked {
+    background: var(--pk-amber);
+    border-color: var(--pk-amber);
+  }
+  .pk-pref-row input[type=checkbox]:checked::after {
+    transform: translateX(18px);
+    background: var(--pk-bg);
+  }
 
-		$(function () {
-			$(".user-preference-input").change(function() {
-				let val = $(this).val();
-				let pref = $(this).attr("data-pref");
-				let startVal = $(this).attr("data-start-value");
-				let $this = $(this);
+  .pk-pref-help {
+    font-size: 12px;
+    color: var(--pk-ink-3);
+    padding: 2px 0 10px;
+    line-height: 1.4;
+    border-bottom: 1px solid var(--pk-border);
+    margin-bottom: 10px;
+  }
 
-				if (val == startVal) return;
+  .pk-sysinfo {
+    background: var(--pk-surface);
+    border: 1px solid var(--pk-border);
+    border-radius: var(--pk-r-md);
+    padding: 6px 14px;
+  }
+  .pk-sysinfo dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px 14px;
+    margin: 0;
+    padding: 8px 0;
+  }
+  .pk-sysinfo dt {
+    font-family: var(--pk-font-mono);
+    font-size: 10.5px;
+    color: var(--pk-ink-4);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    align-self: center;
+  }
+  .pk-sysinfo dd {
+    margin: 0;
+    font-size: 13px;
+    color: var(--pk-ink);
+    text-align: right;
+    word-break: break-word;
+  }
 
-				let timeoutId = setTimeout(function() {
-					$this.attr("data-start-value", val);
+  .pk-danger-zone {
+    margin-top: 28px;
+    padding: 18px 16px;
+    border: 1px solid color-mix(in srgb, var(--pk-danger) 40%, var(--pk-border));
+    border-radius: var(--pk-r-md);
+    background: color-mix(in srgb, var(--pk-danger) 4%, var(--pk-surface));
+  }
+  .pk-danger-title {
+    font-family: var(--pk-font-mono);
+    font-size: 10.5px;
+    color: var(--pk-danger);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+  .pk-danger-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .pk-danger-actions .pk-btn {
+    flex: 1 1 auto;
+  }
 
-					if (pref == "bg_music_volume" || pref == "volume") {
-						val = val / 100;
-					}
-					changePreferences(pref, val);
-				}, 1000);
+  .pk-score-phrases textarea {
+    width: 100%;
+    min-height: 90px;
+    padding: 10px 12px;
+    background: var(--pk-surface-2);
+    border: 1px solid var(--pk-border);
+    border-radius: var(--pk-r-sm);
+    color: var(--pk-ink);
+    font-family: var(--pk-font-body);
+    font-size: 14px;
+    outline: 0;
+    resize: vertical;
+    margin-top: 6px;
+  }
+  .pk-score-phrases textarea:focus {
+    border-color: var(--pk-amber);
+  }
+  .pk-score-phrases h5 {
+    margin: 14px 0 0;
+    font-size: 13px;
+    color: var(--pk-ink-2);
+  }
+</style>
 
-				// If the user changes the value again before the daly expires, cancel the timeout
-				$(this).one("change", function() {
-					clearTimeout(timeoutId);
-				});
-			})
-			$(".user-preference-checkbox").click(function() {
-				let val = $(this).is(":checked") ? "True" : "False";
-				let pref = $(this).attr("data-pref");
+<script>
+$(function () {
+  // Prefs plumbing
+  function changePreferences(pref, val) {
+    $.get('{{ url_for("preferences.change_preferences") }}', { pref: pref, val: val })
+      .done(function (data) {
+        if (data && data[0]) showNotification(data[1], 'is-success');
+        else if (data) showNotification(data[1], 'is-danger');
+      });
+  }
 
-				changePreferences(pref, val);
-			})
+  $('.user-preference-input').on('change', function () {
+    const $el = $(this);
+    let val = $el.val();
+    const pref = $el.data('pref');
+    const start = $el.attr('data-start-value');
+    if (String(val) === String(start)) return;
+    $el.attr('data-start-value', val);
+    if (pref === 'bg_music_volume' || pref === 'volume') val = val / 100;
+    changePreferences(pref, val);
+  });
 
-			function changePreferences(pref, val) {
-				$.get("{{ url_for('preferences.change_preferences') }}", {
-					"pref": pref,
-					"val": val
-				})
-				.done(function(data) {
-					if (data[0]) showNotification(data[1], "is-success");
-					else showNotification(data[1], "is-danger")
-				});
-			}
+  $('.user-preference-checkbox').on('change', function () {
+    const val = $(this).is(':checked') ? 'True' : 'False';
+    changePreferences($(this).data('pref'), val);
+  });
 
-			$("#quit-link").click(function (e) {
-				e.preventDefault();
-				// {# MSG: Confirmation text whe the user selects quit. #}
-				if (window.confirm("{{ _('Are you sure you want to quit?') }}")) {
-					location.href = this.href;
-				}
-			});
+  // Destructive confirms use PK.dialog
+  async function danger(href, opts) {
+    const ok = await PK.dialog.confirm({
+      title: opts.title,
+      message: opts.message,
+      destructive: true,
+      confirmText: opts.confirmText || 'OK',
+      cancelText: opts.cancelText || '{% trans %}Cancel{% endtrans %}',
+    });
+    if (ok) window.location.href = href;
+  }
 
-			$("#shutdown-link").click(function (e) {
-				e.preventDefault();
-				// {# MSG: Confirmation text whe the user starts to turn off the machine running Pikaraoke. #}
-				if (window.confirm("{{ _('Are you sure you want to shut down?') }}")) {
-					location.href = this.href;
-				}
-			});
+  $('#pk-quit').on('click', function (e) {
+    e.preventDefault();
+    danger(this.href, {
+      title: '{% trans %}Quit PiKaraoke?{% endtrans %}',
+      message: "{{ _('Are you sure you want to quit?') }}",
+      confirmText: '{% trans %}Quit{% endtrans %}',
+    });
+  });
 
-			$("#clear-preferences-link").click(function (e) {
-				e.preventDefault();
-				// {# MSG: Confirmation text whe the user clears preferences. #}
-				if (window.confirm("{{ _('Are you sure you want to clear your preferences?') }}")) {
-					location.href = this.href;
-				}
-			});
+  $('#pk-reboot').on('click', function (e) {
+    e.preventDefault();
+    danger(this.href, {
+      title: '{% trans %}Reboot?{% endtrans %}',
+      message: "{{ _('Are you sure you want to reboot?') }}",
+      confirmText: '{% trans %}Reboot{% endtrans %}',
+    });
+  });
 
-			$("#restart-link").click(function (e) {
-				e.preventDefault();
-				// {# MSG: Confirmation text whe the user starts to reboot the machine running Pikaraoke. #}
-				if (window.confirm("{{ _('Are you sure you want to reboot?') }}")) {
-					location.href = this.href;
-				}
-			});
+  $('#pk-shutdown').on('click', function (e) {
+    e.preventDefault();
+    danger(this.href, {
+      title: '{% trans %}Shut down?{% endtrans %}',
+      message: "{{ _('Are you sure you want to shut down?') }}",
+      confirmText: '{% trans %}Shut down{% endtrans %}',
+    });
+  });
 
-			$("#update-ytdl-link").click(function (e) {
-				e.preventDefault();
-				if (
-					window.confirm(
-						// {# MSG: Confirmation text whe the user asks to update yt-dlp. #}
-						"{{ _('Are you sure you want to update yt-dlp right now? Current and pending downloads may fail.') }}"
-					)
-				) {
-					location.href = this.href;
-				}
-			});
+  $('#pk-clear-prefs').on('click', function (e) {
+    e.preventDefault();
+    danger(this.href, {
+      title: '{% trans %}Clear preferences?{% endtrans %}',
+      message: "{{ _('Are you sure you want to clear your preferences?') }}",
+      confirmText: '{% trans %}Clear{% endtrans %}',
+    });
+  });
 
-		$("#expand-link").click(function (e) {
-			e.preventDefault();
-			// {# MSG: Confirmation text when the user wants to expand the filesystem to take the entire SD card. #}
-			if (window.confirm(window.translations.confirmExpandFilesystem)) {
-				location.href = this.href;
-			}
-		});
+  $('#pk-update-ytdl').on('click', function (e) {
+    e.preventDefault();
+    danger(this.href, {
+      title: '{% trans %}Update yt-dlp?{% endtrans %}',
+      message: "{{ _('Are you sure you want to update yt-dlp right now? Current and pending downloads may fail.') }}",
+      confirmText: '{% trans %}Update{% endtrans %}',
+    });
+  });
 
-		// Collapsible card sections
-		$(".collapsible-header").click(function() {
-			$(this).toggleClass("is-collapsed");
-			$(this).next(".collapsible-content").slideToggle(200);
-		});
+  $('#pk-expand-fs').on('click', function (e) {
+    e.preventDefault();
+    danger(this.href, {
+      title: '{% trans %}Expand filesystem?{% endtrans %}',
+      message: window.translations.confirmExpandFilesystem,
+      confirmText: '{% trans %}Expand{% endtrans %}',
+    });
+  });
 
-			function serializePhrases(textareaValue) {
-				return textareaValue.split("\n").map(s => s.trim().replace(/[|]/g, "")).filter(s => s).join("|");
-			}
+  // Save score phrases
+  $('#pk-save-phrases').on('click', async function (e) {
+    e.preventDefault();
+    function serialize(v) {
+      return v.split('\n').map((s) => s.trim().replace(/[|]/g, '')).filter(Boolean).join('|');
+    }
+    const payload = {
+      low_score_phrases: serialize($('#pk-low-phrases').val()),
+      mid_score_phrases: serialize($('#pk-mid-phrases').val()),
+      high_score_phrases: serialize($('#pk-high-phrases').val()),
+    };
+    let last = null;
+    for (const k of Object.keys(payload)) {
+      last = await $.get('{{ url_for("preferences.change_preferences") }}', { pref: k, val: payload[k] });
+      if (!last[0]) break;
+    }
+    if (last && last[0]) showNotification(last[1], 'is-success');
+    else if (last) showNotification(last[1], 'is-danger');
+    else showNotification("{{ _('Something went wrong! Your preferences were not changed') }}", 'is-danger');
+  });
 
-			$("#save-phrases").click(function (e){
-				e.preventDefault();
+  // System stats
+  $.getJSON('{{ url_for("info.get_system_stats") }}', function (data) {
+    if (data.error) return;
+    $('#pk-cpu').text(data.cpu);
+    $('#pk-disk').text(data.disk);
+    $('#pk-memory').text(data.memory);
+  });
 
-				let phrases = {
-					"low_score_phrases": serializePhrases($("#low-score-phrases").val()),
-					"mid_score_phrases": serializePhrases($("#mid-score-phrases").val()),
-					"high_score_phrases": serializePhrases($("#high-score-phrases").val())
-				}
+  // Library stats + sync
+  function refreshLibraryCount() {
+    $.getJSON('{{ url_for("admin.library_stats") }}', function (data) {
+      if (!data.error) $('#pk-song-count').text(data.song_count);
+    });
+  }
+  refreshLibraryCount();
 
-				updatePhrases(phrases)
-			})
-
-			// Fetch system stats asynchronously
-			$.getJSON("{{ url_for('info.get_system_stats') }}", function(data) {
-				if (data.error) {
-					console.error("Error fetching stats:", data.error);
-					return;
-				}
-				$("#system-cpu").text(data.cpu);
-				$("#system-disk").text(data.disk);
-				$("#system-memory").text(data.memory);
-			}).fail(function() {
-				console.error("Failed to fetch system stats");
-			});
-
-			// Song library stats
-			$.getJSON("{{ url_for('admin.library_stats') }}", function(data) {
-				if (!data.error) {
-					$("#library-song-count").text(data.song_count);
-				}
-			});
-
-			// Sync Now button
-			$("#sync-library-btn").click(function() {
-				var $btn = $(this);
-				$btn.addClass("is-loading").prop("disabled", true);
-				$.getJSON("{{ url_for('admin.sync_library') }}", function(data) {
-					if (data.status !== "already_syncing") return;
-					// stays disabled -- sync_finished will re-enable
-				}).fail(function() {
-					$btn.removeClass("is-loading").prop("disabled", false);
-				});
-			});
-
-			// SocketIO: manage Sync Now button state
-			window.socket.on("sync_started", function() {
-				$("#sync-library-btn").addClass("is-loading").prop("disabled", true);
-			});
-			window.socket.on("sync_finished", function() {
-				$("#sync-library-btn").removeClass("is-loading").prop("disabled", false);
-				$.getJSON("{{ url_for('admin.library_stats') }}", function(data) {
-					if (!data.error) $("#library-song-count").text(data.song_count);
-				});
-				showNotification("{{ _('Library sync complete') }}", "is-success");
-			});
-		});
-	</script>
-{% endblock %}
-
-{% block header %}
-	<h1>
-		{% block title %}
-			{# MSG: Title of the information page. #}
-			{% trans %}Information{% endtrans %}
-		{% endblock %}
-	</h1>
+  $('#pk-sync-lib').on('click', function () {
+    const $btn = $(this);
+    $btn.prop('disabled', true).addClass('is-loading');
+    $.getJSON('{{ url_for("admin.sync_library") }}');
+  });
+  if (window.socket) {
+    window.socket.on('sync_started', function () {
+      $('#pk-sync-lib').prop('disabled', true).addClass('is-loading');
+    });
+    window.socket.on('sync_finished', function () {
+      $('#pk-sync-lib').prop('disabled', false).removeClass('is-loading');
+      refreshLibraryCount();
+      showNotification("{{ _('Library sync complete') }}", 'is-success');
+    });
+  }
+});
+</script>
 {% endblock %}
 
 {% block content %}
 
-	<div class="card">
-		<div class="card-content">
-			<div class="content has-text-centered">
-				<p>
-					{# MSG: Label which appears before a url which links to the current page. #}
-					{%- trans -%}
-						URL of {{site_title}}:
-					{%- endtrans -%}
-				</p>
-				<p class="is-size-4 has-text-warning has-text-centered">{{ url }}</p>
-				{# MSG: Label before a QR code which brings a frind (pal) to the main page if scanned, so they can also add songs. QR code follows this text. #}
-				<p>{% trans %}Handy URL QR code to share with a pal:{% endtrans %}</p>
-				<img id="qr-img" width="300px" src="{{ url_for('images.qrcode') }}" style="image-rendering: pixelated" />
-			</div>
-		</div>
-	</div>
+<h1 class="pk-view-title">Info</h1>
+<p class="pk-view-sub">{% trans %}Share the URL, tweak settings or check system status.{% endtrans %}</p>
 
-	{% if not admin and admin_password != none %}
-		{# MSG: Title of the admin section. #}
-		<h1>{% trans %}Admin{% endtrans %}</h1>
+<div class="pk-qr-card">
+  <div class="pk-qr-label">{% trans %}Scan to join{% endtrans %}</div>
+  <div class="pk-qr-url">{{ url }}</div>
+  <img class="pk-qr-img" src="{{ url_for('images.qrcode') }}" alt="QR">
+</div>
 
-		<div class="card">
-			<div class="card-content">
-				<div class="content">
-					{# MSG: Title fo the form to enter the administrator password. #}
-					<p>{% trans %}Enter the administrator password{% endtrans %}</p>
-					<form action="{{ url_for('admin.auth') }}" method="post">
-						<input type="hidden" name="next" value="{{ request.path }}" />
-						<div class="field has-addons mb-2">
-							<div class="control" style="width: 100%; max-width: 350px">
-								<input type="password" name="admin_password" class="input" />
-							</div>
-							<div class="control">
-								{# MSG: Text on submit button for the admin login form. #}
-								<button class="button is-rounded is-primary">{% trans %}Login{% endtrans %}</button>
-							</div>
-						</div>
-					</form>
-				</div>
-			</div>
-		</div>
-	{% endif %}
+{% if not admin and admin_password != none %}
+<form action="{{ url_for('admin.auth') }}" method="post" style="margin-bottom: 20px;">
+  <label class="pk-qr-label" style="display: block; margin-bottom: 8px;">
+    {% trans %}Administrator{% endtrans %}
+  </label>
+  <input type="hidden" name="next" value="{{ request.path }}">
+  <div style="display: flex; gap: 8px;">
+    <input type="password" name="admin_password" class="pk-input" placeholder="{% trans %}Password{% endtrans %}" style="flex: 1;">
+    <button class="pk-btn is-primary" type="submit">{% trans %}Login{% endtrans %}</button>
+  </div>
+</form>
+{% endif %}
 
-	{% if admin %}
+{% if admin %}
 
-		{# MSG: Title of the song library section. #}
-		<h1>{% trans %}Song Library{% endtrans %}</h1>
+<div class="pk-section-label"><span>{% trans %}Library{% endtrans %}</span></div>
+<div style="background: var(--pk-surface); border: 1px solid var(--pk-border); border-radius: var(--pk-r-md); padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px;">
+  <div>
+    <div style="font-family: var(--pk-font-mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--pk-ink-4);">
+      {% trans %}Songs in library{% endtrans %}
+    </div>
+    <div style="font-family: var(--pk-font-display); font-variation-settings: 'opsz' 72, 'SOFT' 40; font-weight: 400; font-size: 26px; color: var(--pk-ink); letter-spacing: -0.02em;" id="pk-song-count">…</div>
+  </div>
+  <button type="button" id="pk-sync-lib" class="pk-btn is-sm">
+    <i class="icon icon-exchange"></i>
+    <span>{% trans %}Sync now{% endtrans %}</span>
+  </button>
+</div>
 
-		<div class="card">
-			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
-				{# MSG: Header of the song library management section. #}
-				<h3 class="m-0">{% trans %}Library{% endtrans %}</h3>
-			</header>
-			<div class="card-content collapsible-content">
-				<div class="content">
-					<p>
-						{# MSG: Song count display in the library card. #}
-						{% trans %}Songs in library:{% endtrans %} <strong id="library-song-count">...</strong>
-					</p>
-					<button id="sync-library-btn" class="button is-primary is-inverted">
-						{# MSG: Button to trigger a background library scan. #}
-						{% trans %}Sync Now{% endtrans %}
-					</button>
-					<p class="is-size-7 has-text-warning mt-3">
-						{# MSG: Help text explaining what Sync Now does. #}
-						{% trans %}Reconciles the library with the song directory in the background.{% endtrans %}
-					</p>
-				</div>
-			</div>
-		</div>
+<details class="pk-details">
+  <summary>{% trans %}Splash screen settings{% endtrans %}</summary>
+  <div class="pk-details-body">
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Disable background video{% endtrans %}</span>
+      <input id="pref-bg-video" class="user-preference-checkbox" type="checkbox" data-pref="disable_bg_video" {% if disable_bg_video %}checked{% endif %}>
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Disable background music{% endtrans %}</span>
+      <input class="user-preference-checkbox" type="checkbox" data-pref="disable_bg_music" {% if disable_bg_music %}checked{% endif %}>
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Disable the score screen after each song{% endtrans %}</span>
+      <input class="user-preference-checkbox" type="checkbox" data-pref="disable_score" {% if disable_score %}checked{% endif %}>
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Hide notifications{% endtrans %}</span>
+      <input class="user-preference-checkbox" type="checkbox" data-pref="hide_notifications" {% if hide_notifications %}checked{% endif %}>
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Show splash clock{% endtrans %}</span>
+      <input class="user-preference-checkbox" type="checkbox" data-pref="show_splash_clock" {% if show_splash_clock %}checked{% endif %}>
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Hide the URL and QR code{% endtrans %}</span>
+      <input class="user-preference-checkbox" type="checkbox" data-pref="hide_url" {% if hide_url %}checked{% endif %}>
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Hide all overlays (now playing, up next, QR){% endtrans %}</span>
+      <input class="user-preference-checkbox" type="checkbox" data-pref="hide_overlay" {% if hide_overlay %}checked{% endif %}>
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Default video volume (0–100){% endtrans %}</span>
+      <input class="user-preference-input" type="number" min="0" max="100" step="5" data-pref="volume" data-start-value="{{ volume }}" value="{{ volume }}">
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Background music volume (0–100){% endtrans %}</span>
+      <input class="user-preference-input" type="number" min="0" max="100" step="5" data-pref="bg_music_volume" data-start-value="{{ bg_music_volume }}" value="{{ bg_music_volume }}">
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Screensaver timeout (s, 0 = off){% endtrans %}</span>
+      <input class="user-preference-input" type="number" min="0" max="999" data-pref="screensaver_timeout" data-start-value="{{ screensaver_timeout }}" value="{{ screensaver_timeout }}">
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Delay before next song (s){% endtrans %}</span>
+      <input class="user-preference-input" type="number" min="0" max="99" data-pref="splash_delay" data-start-value="{{ splash_delay }}" value="{{ splash_delay }}">
+    </div>
+  </div>
+</details>
 
-		{# MSG: Title of the user preferences section. #}
-		<h1>{% trans %}User Preferences{% endtrans %}</h1>
+<details class="pk-details pk-score-phrases">
+  <summary>{% trans %}Score phrases{% endtrans %}</summary>
+  <div class="pk-details-body">
+    <div class="pk-pref-help">{% trans %}Add one phrase per line in each box and tap Save.{% endtrans %}</div>
+    <h5>{% trans %}LOW (score < 30){% endtrans %}</h5>
+    <textarea id="pk-low-phrases" placeholder="{% trans %}Could be better...{% endtrans %}">{{ score_phrases.low | replace('|', '\n') }}</textarea>
+    <h5>{% trans %}MID (30 – 60){% endtrans %}</h5>
+    <textarea id="pk-mid-phrases" placeholder="{% trans %}That was ok...{% endtrans %}">{{ score_phrases.mid | replace('|', '\n') }}</textarea>
+    <h5>{% trans %}HIGH (60+){% endtrans %}</h5>
+    <textarea id="pk-high-phrases" placeholder="{% trans %}Wonderful...{% endtrans %}">{{ score_phrases.high | replace('|', '\n') }}</textarea>
+    <button id="pk-save-phrases" type="button" class="pk-btn is-primary is-full" style="margin-top: 14px;">
+      {% trans %}Save phrases{% endtrans %}
+    </button>
+  </div>
+</details>
 
-		<div class="card">
-			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
-				<div class="media-content">
-					{# MSG: Title text for the splash screen settings section of preferences #}
-					<h3 class="title mb-0">{% trans %}Splash screen settings{% endtrans %}</h3>
+<details class="pk-details">
+  <summary>{% trans %}Language{% endtrans %}</summary>
+  <div class="pk-details-body">
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Preferred language (requires restart){% endtrans %}</span>
+      <select class="user-preference-input" data-pref="preferred_language" data-start-value="{{ preferred_language }}">
+        {% for code, name in languages.items() %}
+        <option value="{{ code }}" {% if preferred_language == code %}selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+</details>
 
-				</div>
-			</header>
-			<div class="card-content collapsible-content">
-				<div class="content">
-					<div class="user-preference-container">
-						<input id="pref-bg-video" class="user-preference-checkbox checkbox" type="checkbox" data-pref="disable_bg_video" {% if disable_bg_video == True %}checked{% endif %} />
-						<label class="label" for="pref-bg-video">{# MSG: Checkbox label which enable/disables background video on the Splash Screen #} {% trans %}Disable background video{% endtrans %}
-						</label>
-					</div>
+<details class="pk-details">
+  <summary>{% trans %}Server &amp; playback{% endtrans %}</summary>
+  <div class="pk-details-body">
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Normalize audio volume{% endtrans %}</span>
+      <input class="user-preference-checkbox" type="checkbox" data-pref="normalize_audio" {% if normalize_audio %}checked{% endif %}>
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Download high quality videos{% endtrans %}</span>
+      <input class="user-preference-checkbox" type="checkbox" data-pref="high_quality" {% if high_quality %}checked{% endif %}>
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Transcode video fully before playing (slower starts, better compatibility){% endtrans %}</span>
+      <input class="user-preference-checkbox" type="checkbox" data-pref="complete_transcode_before_play" {% if complete_transcode_before_play %}checked{% endif %}>
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}CDG pixel scaling (crisper CDG visuals, more CPU){% endtrans %}</span>
+      <input class="user-preference-checkbox" type="checkbox" data-pref="cdg_pixel_scaling" {% if cdg_pixel_scaling %}checked{% endif %}>
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Auto-clean YouTube titles{% endtrans %}</span>
+      <input class="user-preference-checkbox" type="checkbox" data-pref="enable_title_tidy" {% if enable_title_tidy %}checked{% endif %}>
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Audio/video sync (s; negative advances audio){% endtrans %}</span>
+      <input class="user-preference-input" type="number" step="0.1" min="-10" max="10" data-pref="avsync" data-start-value="{{ avsync }}" value="{{ avsync }}">
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Songs per user limit (0 = unlimited){% endtrans %}</span>
+      <input class="user-preference-input" type="number" min="0" max="99" data-pref="limit_user_songs_by" data-start-value="{{ limit_user_songs_by }}" value="{{ limit_user_songs_by }}">
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Fair queue (round-robin){% endtrans %}</span>
+      <input class="user-preference-checkbox" type="checkbox" data-pref="enable_fair_queue" {% if enable_fair_queue %}checked{% endif %}>
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Buffer size (kB){% endtrans %}</span>
+      <input class="user-preference-input" type="number" min="0" max="9999" data-pref="buffer_size" data-start-value="{{ buffer_size }}" value="{{ buffer_size }}">
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Browse results per page (10–1000){% endtrans %}</span>
+      <input class="user-preference-input" type="number" min="10" max="1000" step="10" data-pref="browse_results_per_page" data-start-value="{{ browse_results_per_page }}" value="{{ browse_results_per_page }}">
+    </div>
+    <div style="padding: 14px 0 0;">
+      <a id="pk-clear-prefs" class="pk-btn is-danger is-sm" href="{{ url_for('preferences.clear_preferences') }}">
+        <i class="icon icon-trash-empty"></i>
+        {% trans %}Reset all preferences{% endtrans %}
+      </a>
+    </div>
+  </div>
+</details>
 
-					<div class="user-preference-container">
-						<input id="pref-bg-music" class="user-preference-checkbox checkbox" type="checkbox" data-pref="disable_bg_music" {% if disable_bg_music == True %}checked{% endif %} />
-						<label class="label" for="pref-bg-music">{# MSG: Checkbox label which enable/disables background music on the Splash Screen #} {% trans %}Disable background music{% endtrans %}
-						</label>
-					</div>
+{% endif %}{# end admin preferences #}
 
-					<div class="user-preference-container">
-						<input id="pref-score" type="checkbox" class="user-preference-checkbox checkbox" data-pref="disable_score" {% if disable_score == True %}checked{% endif %}>
-						<label class="label" for="pref-score">{# MSG: Checkbox label which enable/disables the Score Screen #} {% trans %}Disable the score screen after each song{% endtrans %}
-						</label>
-					</div>
+<div class="pk-section-label" style="margin-top: 28px;"><span>{% trans %}System{% endtrans %}</span></div>
+<div class="pk-sysinfo">
+  <dl>
+    <dt>{% trans %}Platform{% endtrans %}</dt><dd>{{ platform }}</dd>
+    <dt>{% trans %}OS{% endtrans %}</dt><dd>{{ os_version }}</dd>
+    <dt>yt-dlp</dt><dd>{{ youtubedl_version }}</dd>
+    <dt>FFmpeg</dt><dd>{{ ffmpeg_version }}{% if not is_transpose_enabled %} <span style="color:var(--pk-ink-4); font-size: 11px;">({% trans %}no pitch shift{% endtrans %})</span>{% endif %}</dd>
+    <dt>PiKaraoke</dt><dd>{{ pikaraoke_version }}</dd>
+    {% if admin %}
+    <dt>CPU</dt><dd id="pk-cpu">{% trans %}Loading…{% endtrans %}</dd>
+    <dt>{% trans %}Disk{% endtrans %}</dt><dd id="pk-disk">{% trans %}Loading…{% endtrans %}</dd>
+    <dt>{% trans %}Memory{% endtrans %}</dt><dd id="pk-memory">{% trans %}Loading…{% endtrans %}</dd>
+    {% endif %}
+  </dl>
+</div>
 
-					<div class="user-preference-container">
-						<input id="pref-notifications" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_notifications" {% if hide_notifications == True %}checked{% endif %}>
-						<label class="label" for="pref-notifications">{# MSG: Checkbox label which enable/disables notifications on the splash screen #} {% trans %}Hide notifications{% endtrans %}
-						</label>
-					</div>
+{% if admin %}
+<details class="pk-details">
+  <summary>{% trans %}Updates{% endtrans %}</summary>
+  <div class="pk-details-body">
+    <p class="pk-pref-help" style="border-bottom: 0; padding-bottom: 4px;">
+      {% trans %}If downloads or searches stop working, updating yt-dlp usually fixes it.{% endtrans %}
+    </p>
+    <a id="pk-update-ytdl" class="pk-btn is-primary" href="{{ url_for('admin.update_ytdl') }}">
+      <i class="icon icon-exchange"></i>
+      {% trans %}Update yt-dlp{% endtrans %}
+    </a>
+  </div>
+</details>
 
-					<div class="user-preference-container">
-						<input id="pref-splash-clock" type="checkbox" class="user-preference-checkbox checkbox" data-pref="show_splash_clock" {% if show_splash_clock == True %}checked{% endif %}>
-						<label class="label" for="pref-splash-clock">{# MSG: Checkbox label which enable/disables the digital clock on the splash screen #} {% trans %}Show splash clock{% endtrans %}
-						</label>
-					</div>
-					<div class="user-preference-container">
-						<input id="pref-qr-code" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_url" {% if hide_url == True %}checked{% endif %}>
-						<label class="label" for="pref-qr-code">{# MSG: Checkbox label which enable/disables the URL display #} {% trans %}Hide the URL and QR code{% endtrans %}
-						</label>
-					</div>
+{% if is_pi %}
+<details class="pk-details">
+  <summary>{% trans %}Raspberry Pi{% endtrans %}</summary>
+  <div class="pk-details-body">
+    <p class="pk-pref-help" style="border-bottom: 0; padding-bottom: 4px;">
+      {% trans %}Expand the filesystem to use the full SD card. This reboots the Pi.{% endtrans %}
+    </p>
+    <a id="pk-expand-fs" class="pk-btn" href="{{ url_for('admin.expand_fs') }}">
+      <i class="icon icon-exchange"></i>
+      {% trans %}Expand filesystem{% endtrans %}
+    </a>
+  </div>
+</details>
+{% endif %}
 
-					<div class="user-preference-container">
-						<input id="pref-overlay" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_overlay" {% if hide_overlay == True %}checked{% endif %}>
-						<label class="label" for="pref-overlay">{# MSG: Checkbox label which enable/disables showing overlay data on the splash screen #} {% trans %}Hide all overlays, including now playing, up next, and QR code{% endtrans %}
-						</label>
-					</div>
+<div class="pk-danger-zone">
+  <div class="pk-danger-title">{% trans %}Danger zone{% endtrans %}</div>
+  <p style="font-size: 13px; color: var(--pk-ink-3); margin-bottom: 12px;">
+    {% trans %}Always shut down properly to avoid data corruption.{% endtrans %}
+  </p>
+  <div class="pk-danger-actions">
+    <a id="pk-quit" class="pk-btn is-danger" href="{{ url_for('admin.quit') }}">
+      {% trans %}Quit{% endtrans %}
+    </a>
+    {% if is_pi or is_linux %}
+    <a id="pk-reboot" class="pk-btn is-danger" href="{{ url_for('admin.reboot') }}">
+      {% trans %}Reboot{% endtrans %}
+    </a>
+    <a id="pk-shutdown" class="pk-btn is-danger" href="{{ url_for('admin.shutdown') }}">
+      {% trans %}Shut down{% endtrans %}
+    </a>
+    {% endif %}
+  </div>
+  {% if admin_password != none %}
+  <div style="margin-top: 14px;">
+    <a class="pk-btn is-ghost is-sm" href="{{ url_for('admin.logout') }}">
+      {% trans %}Log out of admin{% endtrans %}
+    </a>
+  </div>
+  {% endif %}
+</div>
 
-					<div class="user-preference-container is-align-items-center">
-						<input id="pref-volume" class="user-preference-input input" type="number" min="0" max="100" step="5" data-pref="volume" data-start-value="{{ volume }}" value="{{ volume }}" />
-						<label class="label" for="pref-volume">{# MSG: Numberbox label for setting the default video volume#} {% trans %}Default volume of the videos (min 0, max 100){% endtrans %}
-						</label>
-					</div>
-
-					<div class="user-preference-container is-align-items-center">
-						<input id="bg-music-volume" class="user-preference-input input" type="number" min="0" max="100" step="5" data-pref="bg_music_volume" data-start-value="{{ bg_music_volume }}" value="{{ bg_music_volume }}" />
-						<label class="label" for="bg-music-volume">{# MSG: Numberbox label for setting the background music volume#} {% trans %}Volume of the background music (min 0, max 100){% endtrans %}
-						</label>
-					</div>
-
-					<div class="user-preference-container is-align-items-center">
-						<input id="pref-screensaver-timeout" class="user-preference-input input" type="number" min="0" max="999" data-pref="screensaver_timeout" data-start-value="{{ screensaver_timeout }}" value="{{ screensaver_timeout }}" />
-						<label class="label" for="pref-screensaver-timeout">
-							{# MSG: Numberbox label for setting the inactive delay before showing the screensaver  #} {% trans %}The amount of idle time in seconds before the screen saver activates. Set to 0 to disable it.{% endtrans %}
-						</label>
-					</div>
-
-					<div class="user-preference-container is-align-items-center">
-						<input id="pref-splash-delay" class="user-preference-input input" type="number" min="0" max="99" data-pref="splash_delay" data-start-value="{{ splash_delay }}" value="{{ splash_delay }}" />
-						<label class="label" for="pref-splash-delay">
-							{# MSG: Numberbox label for setting the delay before playing the next song #} {% trans %}The delay in seconds before starting the next song{% endtrans %}
-						</label>
-					</div>
-				</div>
-			</div>
-
-			<hr class="my-0">
-
-			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
-				<div class="media-content">
-				{# MSG: Title text for the Score Phrases section of preferences #}
-				<h3 class="title m-0">{% trans %}Score phrases{% endtrans %}</h3>
-
-			</div>
-		</header>
-		<div class="card-content collapsible-content">
-			<div class="content">
-					{# MSG: Help text explaining how to add phrases #}
-					<p class="subtitle has-text-warning mt-1 is-size-6">{% trans %}Add one phrase per line in each box and hit save.{% endtrans %}</p>
-					{# MSG: Title for LOW Score Phrases #}
-					<h5>{% trans %}LOW Score Phrases (score < 30){% endtrans %}</h5>
-					{# MSG: Placeholder for the low score phrases textarea #}
-					<textarea id="low-score-phrases" class="textarea" placeholder="{% trans %}Could be better...{% endtrans %}">{{ score_phrases.low | replace('|', '\n') }}</textarea>
-					<hr>
-					{# MSG: Title for MID Score Phrases #}
-					<h5>{% trans %}MID Score Phrases (30 > score < 60){% endtrans %}</h5>
-					{# MSG: Placeholder for the MID score phrases textarea #}
-					<textarea id="mid-score-phrases" class="textarea" placeholder="{% trans %}That was ok...{% endtrans %}">{{ score_phrases.mid | replace('|', '\n') }}</textarea>
-					<hr>
-					{# MSG: Title for HIGH Score Phrases #}
-					<h5>{% trans %}HIGH Score Phrases (60 < score){% endtrans %}</h5>
-					{# MSG: Placeholder for the HIGH score phrases textarea #}
-					<textarea id="high-score-phrases" class="textarea" placeholder="{% trans %}Wonderfull...{% endtrans %}">{{ score_phrases.high | replace('|', '\n') }}</textarea>
-					<a id="save-phrases" class="button is-fullwidth is-primary mt-5">Save phrases</a>
-				</div>
-			</div>
-
-			<hr class="my-0">
-
-			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
-				<h3 class="m-0">{# MSG: Title text for the language settings section of preferences #}{% trans %}Language settings{% endtrans %}</h3>
-			</header>
-			<div class="card-content collapsible-content">
-				<div class="content">
-
-					<div class="user-preference-container is-align-items-center">
-						<div class="select">
-							<select id="pref-language" class="user-preference-input" data-pref="preferred_language" data-start-value="{{ preferred_language }}">
-								{% for lang_code, lang_name in languages.items() %}
-								<option value="{{ lang_code }}" {% if preferred_language == lang_code %}selected{% endif %}>{{ lang_name }}</option>
-								{% endfor %}
-							</select>
-						</div>
-						<label class="label" for="pref-language">{# MSG: Label for language selection dropdown #} {% trans %}Preferred language (requires restart){% endtrans %}
-						</label>
-					</div>
-				</div>
-			</div>
-
-			<hr class="my-0">
-
-			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
-				<h3 class="m-0">{# MSG: Title text for the server settings section of preferences #}{% trans %}Server settings{% endtrans %}</h3>
-			</header>
-			<div class="card-content collapsible-content">
-				<div class="content">
-
-					<div class="user-preference-container">
-						<input id="pref-normalize" type="checkbox" class="user-preference-checkbox checkbox" data-pref="normalize_audio" {% if normalize_audio == True %}checked{% endif %}>
-						<label class="label" for="pref-normalize">{# MSG: Checkbox label which enable/disables audio volume normalization #} {% trans %}Normalize audio volume{% endtrans %}
-						</label>
-					</div>
-
-					<div class="user-preference-container">
-					<input id="pref-high-quality" type="checkbox" class="user-preference-checkbox checkbox" data-pref="high_quality" {% if high_quality == True  %}checked{% endif %}>
-					<label class="label" for="pref-high-quality">{# MSG: Checkbox label which enable/disables high quality video downloads #} {% trans %}Download high quality videos{% endtrans %}
-					</label>
-					</div>
-
-					<div class="user-preference-container">
-					<input id="pref-complete_transcode_before_play" type="checkbox" class="user-preference-checkbox checkbox" data-pref="complete_transcode_before_play" {% if complete_transcode_before_play == True %}checked{% endif %}>
-					<label class="label" for="pref-complete_transcode_before_play">{# MSG: Checkbox label which enable/disables full transcode before playback #} {% trans %}Transcode video completely before playing (better browser compatibility, slower starts). Buffer size will be ignored.*{% endtrans %}
-					</label>
-					</div>
-
-					<div class="user-preference-container">
-					<input id="pref-cdg-scaling" type="checkbox" class="user-preference-checkbox checkbox" data-pref="cdg_pixel_scaling" {% if cdg_pixel_scaling == True %}checked{% endif %}>
-					<label class="label" for="pref-cdg-scaling">{# MSG: Checkbox label which enable/disables CDG pixel scaling #} {% trans %}Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU usage){% endtrans %}
-					</label>
-					</div>
-
-					<div class="user-preference-container">
-					<input id="pref-enable-title-tidy" type="checkbox" class="user-preference-checkbox checkbox" data-pref="enable_title_tidy" {% if enable_title_tidy == True %}checked{% endif %}>
-					<label class="label" for="pref-enable-title-tidy">{# MSG: Checkbox label which enables automatic cleanup of YouTube song titles #} {% trans %}Enable automatic YouTube title cleanup (strips noise words like "Karaoke Version HD"){% endtrans %}
-					</label>
-					</div>
-
-					<div class="user-preference-container is-align-items-center">
-					<input id="pref-avsync" class="user-preference-input input" type="number" step="0.1" min="-10" max="10" data-pref="avsync" data-start-value="{{ avsync }}" value="{{ avsync }}" />
-					<label class="label" for="pref-avsync">
-							{# MSG: Numberbox label for audio video synchronization #} {% trans %}Fix the audio and video synchronization in seconds (negative = advances audio | positive = delays audio){% endtrans %}
-					</label>
-					</div>
-
-					<div class="user-preference-container is-align-items-center">
-					<input id="pref-limit-user-songs-by" class="user-preference-input input" type="number" min="0" max="99" data-pref="limit_user_songs_by" data-start-value="{{ limit_user_songs_by }}" value="{{ limit_user_songs_by }}" />
-					<label class="label" for="pref-limit-user-songs-by">
-							{# MSG: Numberbox label for limitting the number of songs for each player #} {% trans %}Limit of songs an individual user can add to the queue (0 = unlimited){% endtrans %}
-					</label>
-					</div>
-
-					<div class="user-preference-container">
-					<input id="pref-fair-queue" type="checkbox" class="user-preference-checkbox checkbox" data-pref="enable_fair_queue" {% if enable_fair_queue == True %}checked{% endif %}>
-					<label class="label" for="pref-fair-queue">{# MSG: Checkbox label which enable/disables fair queue (round-robin) mode #} {% trans %}Enable fair queue (round-robin mode ensures users take turns){% endtrans %}
-					</label>
-					</div>
-
-					<div class="user-preference-container is-align-items-center">
-					<input id="pref-buffer-size" class="user-preference-input input" type="number" min="0" max="9999" data-pref="buffer_size" data-start-value="{{ buffer_size }}" value="{{ buffer_size }}" />
-					<label class="label" for="pref-buffer-size">
-							{# MSG: Numberbox label for setting the buffer size in kilobytes  #} {% trans %}Buffer size in kilobytes. Transcode this amount of the video before sending it to the splash screen. {% endtrans %}
-					</label>
-					</div>
-
-					<div class="user-preference-container is-align-items-center">
-						<input id="pref-browse-per-page" class="user-preference-input input" type="number" min="10" max="1000" step="10" data-pref="browse_results_per_page" data-start-value="{{ browse_results_per_page }}" value="{{ browse_results_per_page }}" />
-						<label class="label" for="pref-browse-per-page">
-							Browse page results per page (10-1000, default 500)
-						</label>
-					</div>
-
-					<div style="margin-top: 20px">
-						{# MSG: Text for the link where the user can clear all user preferences #}
-						<a id="clear-preferences-link" class="button is-danger is-outlined" href="{{ url_for('preferences.clear_preferences') }}">{% trans %}Clear preferences{% endtrans %}</a>
-					</div>
-
-				</div>
-			</div>
-		</div>
-
-		{# MSG: Title of the system data section. #}
-		<h1>{% trans %}System Data{% endtrans %}</h1>
-
-		<div class="card">
-			<header class="card-header py-3 px-5">
-					{# MSG: Header of the information section about the computer running Pikaraoke. #}
-					<h3 class="m-0">{% trans %}System Info{% endtrans %}</h3>
-			</header>
-			<div class="card-content">
-				<div class="content">
-					<ul>
-					{# MSG: The hardware platform  #}
-					<li><u>{% trans %}Platform:{% endtrans %}</u> {{ platform }}</li>
-					{# MSG: The os version  #}
-					<li><u>{% trans %}OS Version:{% endtrans %}</u> {{ os_version }}</li>
-					{# MSG: The version of the program "yt-dlp". #}
-					<li><u>{% trans %}yt-dlp version:{% endtrans %}</u> {{ youtubedl_version }}</li>
-					{# MSG: The version of the program "ffmpeg". #}
-					<li><u>{% trans %}FFmpeg version:{% endtrans %}</u> {{ ffmpeg_version }} {% if not is_transpose_enabled %} (missing lib-rubberband, pitch shift is not supported) {% endif %}</li>
-					{# MSG: The version of Pikaraoke running right now. #}
-					<li><u>{% trans %}Pikaraoke version:{% endtrans %}</u> {{ pikaraoke_version }}</li>
-					</ul>
-				</div>
-			</div>
-			<header class="card-header py-3 px-5">
-					{# MSG: Header of the information section about the System stats. #}
-					<h3 class="m-0">{% trans %}System stats{% endtrans %}</h3>
-			</header>
-			<div class="card-content">
-				<div class="content">
-					<ul>
-					{# MSG: The CPU usage of the computer running Pikaraoke. #}
-					<li>{% trans %}CPU:{% endtrans %} <span id="system-cpu">{% trans %}Loading...{% endtrans %}</span></li>
-					{# MSG: The disk usage of the computer running Pikaraoke. Used by downloaded songs. #}
-					<li>{% trans %}Disk Usage:{% endtrans %} <span id="system-disk">{% trans %}Loading...{% endtrans %}</span></li>
-					{# MSG: The memory (RAM) usage of the computer running Pikaraoke. #}
-					<li>{% trans %}Memory:{% endtrans %} <span id="system-memory">{% trans %}Loading...{% endtrans %}</span></li>
-					</ul>
-				</div>
-			</div>
-		</div>
-
-		{# MSG: Title of the updates section. #}
-		<h1>{% trans %}Updates{% endtrans %}</h1>
-
-		<div class="card">
-			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
-				{# MSG: Label for the YT-DLP update on the updates section #}
-				<h3 class="title mb-0">{% trans %}YT-DLP update{% endtrans %}</h3>
-			</header>
-			<div class="card-content collapsible-content">
-				<div class="content">
-					{# MSG: Text explaining why you might want to update yt-dlp. #}
-					<p>{% trans %}
-						If downloads or searches stopped working, updating yt-dlp will probably fix it.<br/>
-						The current installed version is: "{{ youtubedl_version }}".
-					{% endtrans %}</p>
-					<a id="update-ytdl-link" class="button is-primary is-inverted" href="{{ url_for('admin.update_ytdl') }}"
-						{# MSG: Text for the link which will try and update yt-dlp on the machine running Pikaraoke. #}
-							>{% trans %}Update yt-dlp{% endtrans %}</a
-						>
-					<p class="mt-3 is-size-7 has-text-warning">
-						{# MSG: Help text which explains why updating yt-dlp can fail. The log is a file on the machine running Pikaraoke. #}
-						{% trans -%}
-							* This update link above may fail if you don't have proper file permissions.
-							Check the pikaraoke log for errors.
-						{%- endtrans %}
-					</p>
-				</div>
-			</div>
-		</div>
-
-		{% if is_pi %}
-
-			{# MSG: Title of the updates section. #}
-			<h1>{% trans %}Other{% endtrans %}</h1>
-
-			<div class="card">
-				<header class="card-header py-3 px-5 collapsible-header is-collapsed">
-					{# MSG: Title for section containing a few other options on the Info page. #}
-					<h3 class="title mb-0">{% trans %}Expand Raspberry Pi filesystem{% endtrans %}</h3>
-				</header>
-				<div class="card-content collapsible-content">
-					<div class="content">
-						{# MSG: Explainitory text which explains why you might want to expand the filesystem. #}
-						<p>{% trans -%}
-							If you just installed the pre-built pikaraoke pi image and your SD card is larger than 4GB,
-							you may want to expand the filesystem to utilize the remaining space. You only need to do this once.
-							This will reboot the system.
-						{%- endtrans %}</p>
-						<a id="expand-link"  class="button is-primary is-inverted" href="{{ url_for('admin.expand_fs') }}">
-							{# MSG: Text for button#}
-							{% trans %}Expand Raspberry Pi filesystem{% endtrans %}</a>
-					</div>
-				</div>
-			</div>
-
-		{% endif %}
-
-		{% if admin_password != none %}
-			{# MSG: Title of the admin section. #}
-			<h1>{% trans %}Admin{% endtrans %}</h1>
-
-			<div class="card">
-				<div class="card-content">
-					<div class="content">
-						{# MSG: Message for the log out user from admin mode button. #}
-						<p>{% trans %}Click here to logout from admin mode.{% endtrans %}</p>
-						{# MSG: Link which will log out the user from admin mode. #}
-						<a class="button is-primary" href="{{ url_for('admin.logout') }}">{% trans %}Log out{% endtrans %}</a>
-					</div>
-				</div>
-			</div>
-		{% endif %}
-
-		{# MSG: Title of the section on shutting down / turning off the machine running Pikaraoke. #}
-		<h1>{% trans %}Shutdown{% endtrans %}</h1>
-
-		<div class="card">
-			<div class="card-content">
-				<div class="content">
-					<p>
-						{# MSG: Explainitory text which explains why to use the shutdown link. #}
-						{% trans -%}
-							Don't just pull the plug! Always shut down your server properly to avoid data corruption.
-						{%- endtrans %}
-					</p>
-
-					<div class="buttons">
-						{# MSG: Text for button which turns off Pikaraoke for everyone using it at your house. #}
-						<a id="quit-link" class="button is-primary" href="{{ url_for('admin.quit') }}">{% trans %}Quit Pikaraoke{% endtrans %}</a>
-						{% if is_pi or is_linux %}
-							{# MSG: Text for button which reboots the machine running Pikaraoke. #}
-							<a id="restart-link" class="button is-primary" href="{{ url_for('admin.reboot') }}">{% trans %}Reboot System{% endtrans %}</a>
-
-							{# MSG: Text for button which turn soff the machine running Pikaraoke. #}
-							<a id="shutdown-link" class="button is-primary" href="{{ url_for('admin.shutdown') }}">{% trans %}Shutdown System{% endtrans %}</a>
-						{% endif %}
-					</div>
-
-				</div>
-			</div>
-		</div>
-
-	{% endif %}
-
-	<style>
-	.user-preference-container {
-		display: flex;
-		margin-bottom: 8px;
-	}
-	.user-preference-input {
-		min-width: 80px;
-		margin-right: 8px;
-	}
-	.user-preference-container .input {
-		width: 80px;
-	}
-	.user-preference-checkbox {
-		accent-color: hsl(141, 71%, 48%);
-		margin-right: 8px;
-		min-width: 20px;
-	}
-	textarea::placeholder {
-		color: #bbb !important;
-	}
-	/* Collapsible sections */
-	.collapsible-header {
-		cursor: pointer;
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-	.collapsible-header::after {
-		content: "▲";
-		font-size: 0.8em;
-		transition: transform 0.2s ease;
-	}
-	.collapsible-header.is-collapsed::after {
-		content: "▼";
-	}
-	.collapsible-content {
-		display: none;
-	}
-	</style>
+{% endif %}{# end admin system #}
 
 {% endblock %}

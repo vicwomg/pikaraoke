@@ -69,13 +69,20 @@ def browse():
                     result.append(song)
         available_songs = result
 
-    if request.args.get("sort") == "date":
-        songs = sorted(available_songs, key=lambda x: os.path.getmtime(x))
-        songs.reverse()
-        sort_order = "Date"
+    def _split(song):
+        name = k.song_manager.display_name_from_path(song)
+        parts = name.split(" - ", 1)
+        if len(parts) == 2:
+            return parts[0].strip().lower(), parts[1].strip().lower(), name.lower()
+        return "", name.strip().lower(), name.lower()
+
+    sort = request.args.get("sort", "title")
+    if sort == "artist":
+        songs = sorted(available_songs, key=lambda x: (_split(x)[0], _split(x)[1]))
+        sort_order = "Artist"
     else:
-        songs = available_songs
-        sort_order = "Alphabetical"
+        songs = sorted(available_songs, key=lambda x: (_split(x)[1], _split(x)[0]))
+        sort_order = "Title"
 
     results_per_page = k.browse_results_per_page
 
@@ -101,6 +108,18 @@ def browse():
         href=pagination_href,
     )
     start_index = (page - 1) * results_per_page
+
+    # All unique artists in the library — used for autocomplete in inline edit.
+    def _artist_orig(song):
+        name = k.song_manager.display_name_from_path(song)
+        parts = name.split(" - ", 1)
+        return parts[0].strip() if len(parts) == 2 else ""
+
+    artists = sorted(
+        {_artist_orig(s) for s in k.song_manager.songs if _artist_orig(s)},
+        key=str.lower,
+    )
+
     return render_template(
         "files.html",
         pagination=pagination,
@@ -112,6 +131,7 @@ def browse():
         songs=songs[start_index : start_index + results_per_page],
         admin=is_admin(),
         current_url=current_url,
+        artists=artists,
     )
 
 

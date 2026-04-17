@@ -1,575 +1,720 @@
-{% extends 'base.html' %} {% block scripts %}
+{% extends 'base.html' %}
+{% set use_new_shell = true %}
+
+{% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+<style>
+  .pk-queue-toolbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .pk-queue-toolbar .pk-random {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--pk-surface);
+    border: 1px solid var(--pk-border);
+    border-radius: var(--pk-r-md);
+    padding: 2px 6px 2px 12px;
+    font-size: 13px;
+    color: var(--pk-ink-2);
+  }
+  .pk-queue-toolbar .pk-random input {
+    width: 44px;
+    height: 30px;
+    border: 0;
+    background: var(--pk-surface-2);
+    color: var(--pk-ink);
+    border-radius: 6px;
+    text-align: center;
+    font-family: var(--pk-font-mono);
+    font-size: 13px;
+    padding: 0 4px;
+  }
+  .pk-queue-toolbar .pk-random button {
+    background: transparent;
+    border: 0;
+    color: var(--pk-amber);
+    cursor: pointer;
+    padding: 4px 6px;
+    font-size: 16px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .pk-queue-now {
+    position: relative;
+    padding: 14px 14px 14px 48px;
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--pk-amber) 22%, var(--pk-surface)),
+      var(--pk-surface));
+    border: 1px solid var(--pk-border-strong);
+    border-radius: var(--pk-r-md);
+    margin-bottom: 10px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 10px;
+  }
+  .pk-queue-now::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--pk-amber);
+    box-shadow: 0 0 0 4px var(--pk-amber-glow);
+    animation: pk-pulse 2.2s infinite;
+  }
+  .pk-queue-now-label {
+    font-family: var(--pk-font-hand);
+    font-size: 16px;
+    color: var(--pk-lime);
+    font-weight: 600;
+    margin-bottom: 2px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    line-height: 1;
+  }
+  .pk-queue-now-label::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--pk-lime);
+    border-radius: 50%;
+    box-shadow: 0 0 5px var(--pk-lime);
+  }
+  .pk-queue-now-title {
+    font-family: var(--pk-font-display);
+    font-variation-settings: "opsz" 72, "SOFT" 40;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--pk-ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: -0.01em;
+    margin-top: 2px;
+  }
+  .pk-queue-now-singer {
+    font-family: var(--pk-font-body);
+    font-size: 11.5px;
+    color: var(--pk-ink-2);
+    margin-top: 1px;
+  }
+  .pk-queue-now-singer i.icon { display: none; }
+  .pk-queue-now-singer .singer {
+    font-family: var(--pk-font-hand);
+    font-size: 14.5px;
+    color: var(--pk-amber-2);
+    font-weight: 600;
+    margin-left: 2px;
+  }
+  .pk-queue-now-options {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: transparent;
+    border: 1px solid var(--pk-border-strong);
+    color: var(--pk-ink-2);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pk-queue-now-options i.icon { font-size: 15px; }
+
+  .pk-queue-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .pk-queue-row {
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--pk-bg);
+    border: 1px solid var(--pk-border);
+    border-left: 3px solid var(--pk-amber);
+    border-radius: 10px;
+    box-shadow: 0 3px 8px -5px rgba(75, 50, 25, 0.22);
+    cursor: pointer;
+    position: relative;
+    transition: background 0.15s var(--pk-ease);
+  }
+  .pk-queue-row:nth-child(4n+1) { border-left-color: var(--pk-amber-2); transform: rotate(-0.25deg); }
+  .pk-queue-row:nth-child(4n+2) { border-left-color: var(--pk-sky); transform: rotate(0.3deg); }
+  .pk-queue-row:nth-child(4n+3) { border-left-color: var(--pk-sun); transform: rotate(-0.2deg); }
+  .pk-queue-row:nth-child(4n)   { border-left-color: var(--pk-lime); transform: rotate(0.2deg); }
+  .pk-queue-row.is-drag-handle { grid-template-columns: 24px 32px 1fr auto; }
+  .pk-queue-row.is-chosen {
+    background: color-mix(in srgb, var(--pk-amber) 20%, var(--pk-surface));
+    box-shadow: var(--pk-shadow-elev);
+    border-radius: var(--pk-r-sm);
+  }
+  .pk-queue-row.is-moved {
+    animation: pk-highlight-fade 1.5s ease-out;
+  }
+  @keyframes pk-highlight-fade {
+    0% { background-color: color-mix(in srgb, var(--pk-amber) 30%, transparent); }
+    100% { background-color: transparent; }
+  }
+
+  .pk-queue-drag {
+    display: grid;
+    place-items: center;
+    color: var(--pk-ink-4);
+    cursor: grab;
+    touch-action: none;
+    font-size: 18px;
+    user-select: none;
+  }
+  .pk-queue-drag:active { cursor: grabbing; }
+
+  .pk-queue-n {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--pk-surface);
+    font-family: var(--pk-font-hand);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--pk-ink);
+  }
+  .pk-queue-row:nth-child(4n+1) .pk-queue-n { background: color-mix(in srgb, var(--pk-amber-2) 20%, var(--pk-surface)); color: var(--pk-amber-2); }
+  .pk-queue-row:nth-child(4n+2) .pk-queue-n { background: color-mix(in srgb, var(--pk-sky) 45%, var(--pk-surface)); }
+  .pk-queue-row:nth-child(4n+3) .pk-queue-n { background: color-mix(in srgb, var(--pk-sun) 28%, var(--pk-surface)); }
+  .pk-queue-row:nth-child(4n)   .pk-queue-n { background: color-mix(in srgb, var(--pk-lime) 28%, var(--pk-surface)); }
+
+  .pk-queue-body { min-width: 0; }
+  .pk-queue-title-r {
+    font-family: var(--pk-font-display);
+    font-variation-settings: "opsz" 72, "SOFT" 40;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--pk-ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: -0.005em;
+    line-height: 1.15;
+  }
+  .pk-queue-singer-r {
+    font-family: var(--pk-font-body);
+    font-size: 11.5px;
+    color: var(--pk-ink-2);
+    margin-top: 2px;
+  }
+  .pk-queue-singer-r i.icon { display: none; }
+  .pk-queue-singer-r .singer {
+    font-family: var(--pk-font-hand);
+    font-size: 14.5px;
+    color: var(--pk-amber-2);
+    font-weight: 600;
+    margin-left: 2px;
+  }
+
+  .pk-queue-cog {
+    color: var(--pk-ink-4);
+    padding: 6px 4px;
+    display: grid;
+    place-items: center;
+    font-size: 16px;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Download progress */
+  .pk-download {
+    padding: 14px 16px;
+    background: var(--pk-surface);
+    border: 1px solid var(--pk-border);
+    border-radius: var(--pk-r-md);
+    margin-bottom: 10px;
+  }
+  .pk-download-title {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--pk-ink);
+    margin-bottom: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pk-download-bar {
+    height: 6px;
+    background: var(--pk-surface-3);
+    border-radius: 100px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  .pk-download-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--pk-amber), var(--pk-amber-2));
+    border-radius: 100px;
+    transition: width 0.3s var(--pk-ease);
+  }
+  .pk-download-bar-fill.is-success { background: var(--pk-lime); }
+  .pk-download-bar-fill.is-error { background: var(--pk-danger); }
+  .pk-download-meta {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--pk-font-mono);
+    font-size: 10.5px;
+    color: var(--pk-ink-3);
+    letter-spacing: 0.04em;
+  }
+
+  .pk-download-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--pk-surface);
+    border: 1px solid var(--pk-border);
+    border-radius: var(--pk-r-md);
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+  .pk-download-row-title {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--pk-ink-2);
+  }
+  .pk-download-tag {
+    font-family: var(--pk-font-mono);
+    font-size: 9.5px;
+    padding: 3px 8px;
+    border-radius: 100px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .pk-download-tag.is-pending { background: var(--pk-surface-3); color: var(--pk-ink-3); }
+  .pk-download-tag.is-error { background: color-mix(in srgb, var(--pk-danger) 22%, var(--pk-bg)); color: var(--pk-danger); }
+  .pk-download-dismiss {
+    background: transparent;
+    border: 0;
+    color: var(--pk-ink-3);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 4px 6px;
+  }
+
+  /* Bottom sheet with options */
+  .pk-opt-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 0;
+    color: var(--pk-ink);
+    text-decoration: none;
+    cursor: pointer;
+    border-bottom: 1px solid var(--pk-border);
+    font-size: 14.5px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pk-opt-row:last-child { border-bottom: 0; }
+  .pk-opt-row i.icon { width: 24px; text-align: center; color: var(--pk-ink-3); font-size: 15px; }
+  .pk-opt-row.is-danger { color: var(--pk-danger); }
+  .pk-opt-row.is-danger i.icon { color: var(--pk-danger); }
+  .pk-opt-row[hidden] { display: none !important; }
+
+  .pk-empty-queue {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--pk-ink-3);
+    font-family: var(--pk-font-display);
+    font-style: italic;
+    font-variation-settings: "opsz" 14, "SOFT" 60;
+  }
+</style>
 
 <script>
-  // Pass admin status from server to JavaScript
-  var isAdmin = JSON.parse('{{ admin | tojson }}');
+(function () {
+  'use strict';
 
-  // Escape strings for safe use in HTML attributes
-  function escape(str) {
-    return encodeURIComponent(str);
+  const isAdmin = {{ pk_admin|tojson }};
+  let queueState = { queue: [], nowPlaying: null };
+  let sortableInstance = null;
+  let highlightFile = null;
+  let downloadTimer = null;
+
+  if (typeof window.socket === 'undefined') window.socket = io();
+
+  function escHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = String(s == null ? '' : s);
+    return d.innerHTML;
   }
 
-  // Ensure global socket exists
-  if (typeof window.socket === 'undefined') {
-    window.socket = io();
-  }
+  function renderQueue() {
+    const $list = document.getElementById('pk-queue-list');
+    const $now = document.getElementById('pk-queue-now');
+    const $empty = document.getElementById('pk-queue-empty');
+    const np = queueState.nowPlaying;
+    const q = queueState.queue;
 
-  // Initialize queue state if needed
-  if (typeof window.queuePageState === 'undefined') {
-    window.queuePageState = {
-      queue: [],
-      previousQueue: null,
-      nowPlaying: null,
-      previousNowPlaying: null
-    };
-  }
-
-  // Define global queue functions
-  window.queuePage_getQueue = function() {
-    if ($('#auto-refresh').length === 0) {
-      return;
+    // Now playing card
+    if (np && np.now_playing) {
+      $now.hidden = false;
+      $now.querySelector('[data-pk-np-title]').textContent = np.now_playing;
+      $now.querySelector('[data-pk-np-singer]').textContent = np.now_playing_user || '';
+    } else {
+      $now.hidden = true;
     }
 
-    // Fetch both queue and now_playing data
+    // Empty state
+    if (!q.length && !(np && np.now_playing)) {
+      $empty.hidden = false;
+      $list.innerHTML = '';
+      return;
+    }
+    $empty.hidden = true;
+
+    // Queue list
+    $list.innerHTML = q
+      .map((item, i) => {
+        const dragHandle = isAdmin
+          ? `<div class="pk-queue-drag drag-handle" title="Przeciągnij aby zmienić kolejność"><i class="icon icon-braille"></i></div>`
+          : '';
+        const cog = isAdmin
+          ? `<button type="button" class="pk-queue-cog pk-queue-opts" data-idx="${i}" data-file="${encodeURIComponent(item.file)}" data-title="${encodeURIComponent(item.title)}" aria-label="Opcje"><i class="icon icon-cog"></i></button>`
+          : '';
+        const cls = 'pk-queue-row' + (isAdmin ? ' is-drag-handle' : '');
+        return `
+          <div class="${cls}" data-index="${i}" data-file="${encodeURIComponent(item.file)}">
+            ${dragHandle}
+            <div class="pk-queue-n">${i + 1}</div>
+            <div class="pk-queue-body">
+              <div class="pk-queue-title-r">${escHtml(item.title)}</div>
+              <div class="pk-queue-singer-r">{% trans %}sings{% endtrans %} <span class="singer">${escHtml(item.user || '')}</span></div>
+            </div>
+            ${cog}
+          </div>`;
+      })
+      .join('');
+
+    initSortable();
+
+    if (highlightFile) {
+      const rows = $list.querySelectorAll('.pk-queue-row');
+      rows.forEach((r) => {
+        if (decodeURIComponent(r.dataset.file) === highlightFile) r.classList.add('is-moved');
+      });
+      highlightFile = null;
+    }
+  }
+
+  function initSortable() {
+    if (!isAdmin) return;
+    const $list = document.getElementById('pk-queue-list');
+    if (!$list) return;
+    if (sortableInstance) {
+      sortableInstance.destroy();
+      sortableInstance = null;
+    }
+    if (!$list.querySelectorAll('.drag-handle').length) return;
+    sortableInstance = Sortable.create($list, {
+      handle: '.drag-handle',
+      animation: 150,
+      chosenClass: 'is-chosen',
+      delay: 100,
+      delayOnTouchOnly: true,
+      touchStartThreshold: 5,
+      onEnd(evt) {
+        if (evt.oldIndex === evt.newIndex) return;
+        const movedFile = decodeURIComponent(evt.item.dataset.file);
+        highlightFile = movedFile;
+        // Update visual numbers immediately
+        $list.querySelectorAll('.pk-queue-row .pk-queue-n').forEach((n, i) => {
+          n.textContent = String(i + 1).padStart(2, '0');
+        });
+        $.post('{{ url_for("queue.reorder") }}', {
+          old_index: evt.oldIndex,
+          new_index: evt.newIndex,
+        });
+      },
+    });
+  }
+
+  function refreshQueue() {
     $.when(
       $.get('{{ url_for("queue.get_queue") }}'),
       $.get('{{ url_for("now_playing.now_playing") }}')
-    ).done(function(queueResp, nowPlayingResp) {
-      var newQueue = JSON.parse(queueResp[0]);
-      var newNowPlaying = nowPlayingResp[0] ? JSON.parse(nowPlayingResp[0]) : null;
-
-      var queueChanged = !isEqual(newQueue, window.queuePageState.previousQueue);
-      var npChanged = !isEqual(newNowPlaying, window.queuePageState.previousNowPlaying);
-
-      if (queueChanged || npChanged) {
-        window.queuePageState.queue = newQueue;
-        window.queuePageState.nowPlaying = newNowPlaying;
-
-        // Destroy existing Sortable before replacing HTML to avoid errors
-        var table = document.getElementById('auto-refresh');
-        if (table && table.sortableInstance) {
-            table.sortableInstance.destroy();
-            table.sortableInstance = null;
+    ).done(function (qResp, npResp) {
+      try {
+        const newQ = JSON.parse(qResp[0]);
+        const newNp = npResp[0] ? JSON.parse(npResp[0]) : null;
+        if (!isEqual(newQ, queueState.queue) || !isEqual(newNp, queueState.nowPlaying)) {
+          queueState.queue = newQ;
+          queueState.nowPlaying = newNp;
+          renderQueue();
         }
+      } catch (_) {}
+    });
+  }
 
-        $("#auto-refresh").html(window.queuePage_generateHTML());
-        window.queuePageState.previousQueue = newQueue;
-        window.queuePageState.previousNowPlaying = newNowPlaying;
+  // Downloads polling
+  function renderDownloads(status) {
+    const $box = document.getElementById('pk-downloads');
+    if (!status || (!status.active && !(status.pending && status.pending.length) && !(status.errors && status.errors.length))) {
+      $box.innerHTML = '';
+      $box.hidden = true;
+      return;
+    }
+    let html = '';
+    if (status.active) {
+      const d = status.active;
+      let barCls = '';
+      if (d.status === 'complete') barCls = 'is-success';
+      if (d.status === 'error') barCls = 'is-error';
+      html += `
+        <div class="pk-download">
+          <div class="pk-download-title">${escHtml(d.title)}</div>
+          <div class="pk-download-bar"><div class="pk-download-bar-fill ${barCls}" style="width: ${d.progress}%"></div></div>
+          <div class="pk-download-meta">
+            <span>${escHtml(d.status)}</span>
+            <span>${escHtml(d.speed)} · ETA ${escHtml(d.eta)}</span>
+          </div>
+        </div>`;
+    }
+    (status.pending || []).forEach((d) => {
+      html += `
+        <div class="pk-download-row">
+          <span class="pk-download-row-title">${escHtml(d.display_title || d.video_url)}</span>
+          <span class="pk-download-tag is-pending">w kolejce</span>
+        </div>`;
+    });
+    (status.errors || []).forEach((d) => {
+      html += `
+        <div class="pk-download-row">
+          <span class="pk-download-row-title" title="${escHtml(d.error)}">${escHtml(d.title || d.url)}</span>
+          <span class="pk-download-tag is-error">błąd</span>
+          <button type="button" class="pk-download-dismiss" data-err-id="${escHtml(d.id)}" aria-label="Odrzuć">&times;</button>
+        </div>`;
+    });
 
-        // Initialize Drag and Drop after HTML is rendered
-        window.initSortable();
+    $box.innerHTML = html;
+    $box.hidden = false;
+  }
 
-        // Highlight moved row if tracked
-        if (window.highlightAfterRefresh) {
-          var fileToHighlight = window.highlightAfterRefresh;
-          window.highlightAfterRefresh = null;
-          $('a.queue-song-options-btn').each(function() {
-            if (decodeURIComponent($(this).data('file')) === fileToHighlight) {
-              $(this).closest('tr').addClass('row-moved');
-            }
-          });
+  function pollDownloads() {
+    if (downloadTimer) clearTimeout(downloadTimer);
+    $.get('{{ url_for("queue.get_current_downloads") }}').done(function (data) {
+      try {
+        const status = JSON.parse(data);
+        renderDownloads(status);
+        if (status.active || (status.pending && status.pending.length)) {
+          downloadTimer = setTimeout(pollDownloads, 500);
         }
+      } catch (_) {}
+    });
+  }
+
+  // Event bindings
+  $(function () {
+    refreshQueue();
+    pollDownloads();
+
+    window.socket.off('queue_update');
+    window.socket.on('queue_update', refreshQueue);
+    window.socket.off('now_playing');
+    window.socket.on('now_playing', refreshQueue);
+    window.socket.off('download_started');
+    window.socket.on('download_started', pollDownloads);
+    window.socket.off('download_stopped');
+    window.socket.on('download_stopped', pollDownloads);
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        refreshQueue();
+        pollDownloads();
       }
     });
-  };
 
-  window.initSortable = function() {
-    var table = document.getElementById('auto-refresh');
-    var tbody = table ? table.querySelector('tbody') : null;
+    // Queue row options
+    $(document).off('click.pk-q-opts').on('click.pk-q-opts', '.pk-queue-opts', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = parseInt(this.dataset.idx, 10);
+      const file = decodeURIComponent(this.dataset.file);
+      const title = decodeURIComponent(this.dataset.title);
+      openQueueOptions(idx, file, title);
+    });
 
-    // Only init if admin (drag handles exist)
-    if ($(".drag-handle").length > 0 && tbody) {
-       table.sortableInstance = Sortable.create(tbody, {
-          handle: '.drag-handle',
-          animation: 150,
-          filter: '.disabled-sort',
-          chosenClass: 'drag-chosen',
-          // Touch device settings for better iOS compatibility
-          delay: 100,
-          delayOnTouchOnly: true,
-          touchStartThreshold: 5,
-          onMove: function (evt) {
-             // Prevent moving an item to the now-playing position
-             return evt.related.className.indexOf('disabled-sort') === -1;
-          },
-          onEnd: function (evt) {
-             if (evt.oldIndex === evt.newIndex) return;
+    // Now playing options
+    $(document).off('click.pk-np-opts').on('click.pk-np-opts', '.pk-queue-now-options', function (e) {
+      e.preventDefault();
+      openNpOptions();
+    });
 
-             // Calculate offset: if now-playing row exists, DOM indices are offset by 1
-             var np = window.queuePageState.nowPlaying;
-             var offset = (np && np.now_playing) ? 1 : 0;
-
-             // Convert DOM indices to queue array indices
-             var oldQueueIndex = evt.oldIndex - offset;
-             var newQueueIndex = evt.newIndex - offset;
-
-             // Track file for highlight after refresh
-             var movedFile = $(evt.item).find('.queue-song-options-btn').data('file');
-             if (movedFile) {
-                 window.highlightAfterRefresh = decodeURIComponent(movedFile);
-             }
-
-             // Immediately update row numbers to reflect new positions
-             $('#auto-refresh tbody tr:not(.disabled-sort)').each(function(i) {
-                 $(this).find('td:first').text(i + 1);
-             });
-
-             // Send queue indices to backend
-             $.post("{{ url_for('queue.reorder') }}", {
-                 old_index: oldQueueIndex,
-                 new_index: newQueueIndex
-             }).done(function() {
-                 // Force refresh to update data attributes
-                 window.queuePageState.previousQueue = null;
-                 window.queuePage_getQueue();
-             });
-          }
-      });
-    }
-  };
-
-  // Column width constants
-  var COL_WIDTH = {
-    number: '35px',
-    drag: '44px',
-    options: '50px'
-  };
-
-  // Generate now-playing row HTML
-  function generateNowPlayingRow(np) {
-    var iconSrc = np.is_paused
-      ? '{{ url_for("static", filename="images/now-playing.png") }}'
-      : '{{ url_for("static", filename="images/now-playing.gif") }}';
-
-    var html = '<tr class="disabled-sort has-background-dark">';
-    html += '<td style="width: ' + COL_WIDTH.number + '; padding: 8px 8px; vertical-align: middle; text-align: center;">';
-    html += '<img src="' + iconSrc + '" alt="Now Playing" style="width: 35px; height: auto;">';
-    html += '</td>';
-
-    if (isAdmin) {
-      html += '<td style="width: ' + COL_WIDTH.drag + '; padding: 5px 0px; vertical-align: middle;"></td>';
-    }
-
-    html += '<td style="padding: 8px 10px; vertical-align: middle;">';
-    html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline">';
-    html += '<span class="has-text-success">' + np.now_playing_user + '</span>';
-    html += '<span class="is-hidden-mobile has-text-grey mx-2">&bull;</span>';
-    html += '<span class="has-text-weight-bold has-text-success is-hidden-mobile">' + np.now_playing + '</span>';
-    html += '<span class="is-size-7 has-text-weight-bold has-text-success is-hidden-tablet" style="width: 100%;">' + np.now_playing + '</span>';
-    html += '</div></td>';
-
-    if (isAdmin) {
-      html += '<td style="width: ' + COL_WIDTH.options + '; vertical-align: middle; text-align: right;">';
-      html += '<a class="has-text-grey-light is-small is-text now-playing-options-btn" title="{{ _("Options") }}">';
-      html += '<i class="icon-cog is-size-5"></i></a>';
-      html += '</td>';
-    }
-    html += '</tr>';
-    return html;
-  }
-
-
-  // Download Progress Polling
-  window.queuePage_getDownloads = function() {
-      // Clean up existing timer if any
-      if (window.downloadPollTimer) {
-          clearTimeout(window.downloadPollTimer);
-      }
-
-      // Stop if we left the page
-      if ($('#downloads-section').length === 0) {
-          return;
-      }
-
-      $.get('{{ url_for("queue.get_current_downloads") }}', function(data) {
-          var status = JSON.parse(data);
-          var html = "";
-
-          if (status.active) {
-              var d = status.active;
-              var progressClass = "is-info";
-              if (d.status === 'complete') progressClass = "is-success";
-              if (d.status === 'error') progressClass = "is-danger";
-
-              html += `
-                  <div class="box mb-4 has-background-dark">
-                      <h4 class="title is-5 mb-2">${d.title}</h4>
-                      <!-- inline style to ensure background visibility if theme overrides it -->
-                      <progress class="progress ${progressClass}" value="${d.progress}" max="100" style="background-color: #dbdbdb;">${d.progress}%</progress>
-                      <div class="level is-mobile is-size-7 mt-1">
-                          <div class="level-left">
-                              <span class="level-item text-muted"><b>Status:</b>&nbsp;${d.status}</span>
-                          </div>
-                          <div class="level-right">
-                              <span class="level-item"><b>Speed:</b>&nbsp;${d.speed}&nbsp;&nbsp;&nbsp;<b>ETA:</b>&nbsp;${d.eta}</span>
-                          </div>
-                      </div>
-                  </div>
-              `;
-          }
-
-          if (status.pending && status.pending.length > 0) {
-              html += `<div class="content"><h5 class="title is-6 mb-2">{{ _('Pending downloads') }}</h5>`;
-              status.pending.forEach(function(d) {
-                  html += `
-                      <div class="box mb-2 p-3 has-background-dark is-flex is-align-items-center">
-                          <span class="has-text-grey">${d.display_title || d.video_url}</span>
-                          <span class="tag is-light is-rounded ml-auto">{{ _('Queued') }}</span>
-                      </div>
-                  `;
-              });
-              html += `</div>`;
-          }
-
-          if (status.errors && status.errors.length > 0) {
-              html += `<div class="content"><h5 class="title is-6 mb-2 has-text-danger">{{ _('Download Errors') }}</h5>`;
-              status.errors.forEach(function(d) {
-                  html += `
-                      <div class="box mb-2 p-3 has-background-white-ter is-flex is-align-items-center" style="border-left: 4px solid #f14668;">
-                          <span class="icon has-text-danger mr-2"><i class="icon-cancel"></i></span>
-                          <div class="is-flex-grow-1" style="min-width: 0;">
-                              <p class="has-text-grey mb-0 is-truncated" title="${d.title || d.url}">${d.title || d.url}</p>
-                              <p class="help is-danger mb-0 is-truncated" title="${d.error}">${d.error}</p>
-                          </div>
-                          <span class="tag is-danger is-light is-rounded ml-2">{{ _('Failed') }}</span>
-                          <button class="delete ml-2" onclick="dismissDownloadError('${d.id}')" title="{{ _('Dismiss') }}"></button>
-                      </div>
-                  `;
-              });
-              html += `</div>`;
-          }
-
-          if (html) {
-              $("#downloads-container").html(html);
-              $("#downloads-section").fadeIn();
-          } else {
-              $("#downloads-section").fadeOut();
-          }
-
-          // Continue polling only if there are active items or pending downloads
-          // Error items don't need constant polling
-          var shouldPoll = status.active || (status.pending && status.pending.length > 0);
-
-          if (shouldPoll && $('#downloads-section').length > 0) {
-              window.downloadPollTimer = setTimeout(window.queuePage_getDownloads, 500);
-          }
-      });
-  };
-
-  window.dismissDownloadError = function(errorId) {
+    // Dismiss download error
+    $(document).on('click', '.pk-download-dismiss', function () {
+      const id = this.dataset.errId;
       $.ajax({
-          url: '{{ url_for("queue.delete_download_error", error_id="ERROR_ID") }}'.replace("ERROR_ID", errorId),
-          type: 'DELETE',
-          success: function(result) {
-              // Refresh immediately since polling might be stopped
-              window.queuePage_getDownloads();
-          }
-      });
-  };
-
-   // Socket listeners for download activity
-  window.socket.off("download_started");
-  window.socket.on("download_started", function() {
-      // Start polling if not already running
-      if (!window.downloadPollTimer) {
-          window.queuePage_getDownloads();
-      }
+        url: '/queue/downloads/errors/' + encodeURIComponent(id),
+        method: 'DELETE',
+      }).always(pollDownloads);
+    });
   });
 
-  window.socket.off("download_stopped");
-  window.socket.on("download_stopped", function() {
-       // Do one final fetch to show completion/errors then stop
-       // The getDownloads function handles stopping if nothing is active
-       if (window.downloadPollTimer) {
-           clearTimeout(window.downloadPollTimer);
-           window.downloadPollTimer = null;
-       }
-       window.queuePage_getDownloads();
-  });
+  // ----- Queue row options sheet -----
+  async function openQueueOptions(idx, file, title) {
+    const t = window.translations || {};
+    const sheet = buildOptionsSheet(title, [
+      { id: 'top', label: 'Następny', icon: 'icon-angle-double-up', hideFirst: true },
+      { id: 'up', label: 'Wyżej', icon: 'icon-angle-up', hideFirst: true },
+      { id: 'down', label: 'Niżej', icon: 'icon-angle-down', hideLast: true },
+      { id: 'bottom', label: 'Na koniec', icon: 'icon-angle-double-down', hideLast: true },
+      { id: 'delete', label: 'Usuń z kolejki', icon: 'icon-trash-empty', danger: true },
+    ], { idx, queueLen: queueState.queue.length });
 
+    const action = await sheet;
+    if (!action) return;
 
-  // Generate queue row HTML
-  function generateQueueRow(e, index) {
-    var html = '<tr data-index="' + index + '">';
-    html += '<td style="width: ' + COL_WIDTH.number + '; padding: 8px 8px; vertical-align: middle; text-align: center;">' + (index + 1) + '</td>';
-
-    if (isAdmin) {
-      html += '<td class="drag-handle" style="width: ' + COL_WIDTH.drag + '; vertical-align: middle; text-align: center; cursor: grab; touch-action: none;" title="{{ _("Drag to reorder") }}">';
-      html += '<i class="icon icon-braille has-text-grey-light"></i>';
-      html += '</td>';
+    if (action === 'delete') {
+      const ok = await PK.dialog.confirm({
+        title: t.removeFromQueueTitle || 'Remove from queue?',
+        message: title,
+        destructive: true,
+        confirmText: t.removeBtn || 'Remove',
+        cancelText: t.cancelBtn || 'Cancel',
+      });
+      if (!ok) return;
     }
 
-    html += '<td style="padding: 8px 10px; vertical-align: middle;">';
-    html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline">';
-    html += '<span class="has-text-success">' + e.user + '</span>';
-    html += '<span class="is-hidden-mobile has-text-grey mx-2">&bull;</span>';
-    html += '<span class="has-text-weight-bold is-hidden-mobile">' + e.title + '</span>';
-    html += '<span class="is-size-7 has-text-weight-bold is-hidden-tablet" style="width: 100%;">' + e.title + '</span>';
-    html += '</div></td>';
-
-    if (isAdmin) {
-      html += '<td style="width: ' + COL_WIDTH.options + '; vertical-align: middle; text-align: right; padding-right: 10px;">';
-      html += '<a class="has-text-grey-light is-small is-text queue-song-options-btn" data-index="' + index + '" data-file="' + escape(e.file) + '" data-title="' + escape(e.title) + '" title="{{ _("Options") }}">';
-      html += '<i class="icon-cog is-size-5"></i></a>';
-      html += '</td>';
-    }
-
-    html += '</tr>';
-    return html;
+    highlightFile = (action !== 'delete') ? file : null;
+    $.get('/queue/edit?song=' + encodeURIComponent(file) + '&action=' + action);
   }
 
-  window.queuePage_generateHTML = function() {
-    var html = "<tbody>";
-    var queue = window.queuePageState.queue;
-    var np = window.queuePageState.nowPlaying;
-    var colSpan = isAdmin ? 4 : 2;
+  async function openNpOptions() {
+    const np = queueState.nowPlaying;
+    if (!np || !np.now_playing) return;
+    const t = window.translations || {};
+    const pauseLabel = np.is_paused ? 'Wznów' : 'Pauza';
+    const pauseIcon = np.is_paused ? 'icon-play' : 'icon-pause';
 
-    if (np && np.now_playing) {
-      html += generateNowPlayingRow(np);
-    }
+    const action = await buildOptionsSheet(np.now_playing, [
+      { id: 'restart', label: 'Od początku', icon: 'icon-to-start' },
+      { id: 'pause', label: pauseLabel, icon: pauseIcon },
+      { id: 'skip', label: 'Pomiń', icon: 'icon-to-end', danger: true },
+    ], {});
 
-    if (queue.length > 0) {
-      queue.forEach(function(e, index) {
-        html += generateQueueRow(e, index);
+    if (!action) return;
+
+    if (action === 'skip') {
+      const ok = await PK.dialog.confirm({
+        title: t.skipTitle || 'Skip this track?',
+        message: t.confirmSkip,
+        destructive: true,
+        confirmText: t.skipBtn || 'Skip',
+        cancelText: t.cancelBtn || 'Cancel',
       });
-    } else if (!np || !np.now_playing) {
-      // Only show empty message if nothing is playing AND queue is empty
-      html += '<tr><td colspan="' + colSpan + '"><p class="has-text-warning">{{ _("The queue is empty") }}</p></td></tr>';
+      if (!ok) return;
     }
-
-    html += "</tbody>";
-    return html;
-  };
-
-  // Store current song info for modal actions
-  window.currentSongOptions = {
-      index: -1,
-      file: '',
-      title: ''
-  };
-
-  // Track file to highlight after queue refresh
-  window.highlightAfterRefresh = null;
-
-  // Execute queue edit action via AJAX
-  window.executeQueueAction = function(action) {
-      var file = window.currentSongOptions.file;
-      var url = "/queue/edit?song=" + encodeURIComponent(file) + "&action=" + action;
-
-      // Track moved file for highlight (except delete)
-      if (action !== 'delete') {
-          window.highlightAfterRefresh = file;
-      }
-
-      $.ajax({
-          url: url,
-          method: 'GET',
-          headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      }).done(function(response) {
-          var result = JSON.parse(response);
-          if (!result.success && result.error) {
-              console.error('Queue action failed:', result.error);
-          }
-          // Socket event will trigger queue refresh
-      }).fail(function() {
-          console.error('Queue action request failed');
-          window.highlightAfterRefresh = null;
-      });
-
-      window.closeSongOptions();
-  };
-
-  // Open the modal menu
-  window.openSongOptions = function(index, file, title) {
-      // Store song info for AJAX actions
-      window.currentSongOptions = {
-          index: index,
-          file: file,
-          title: title
-      };
-
-      $('#modal-song-title').text(title);
-
-      // Reset all options to visible first
-      $('#opt-up, #opt-top, #opt-down, #opt-bottom').show();
-
-      // Hide "Up"/"Play Next" if first in queue (index 0)
-      if (index === 0) {
-          $('#opt-up, #opt-top').hide();
-      }
-      // Hide "Down"/"Bottom" if last in queue
-      var queueLen = window.queuePageState.queue.length;
-      if (index >= queueLen - 1) {
-          $('#opt-down, #opt-bottom').hide();
-      }
-
-      $('#song-options-modal').addClass('is-active');
+    $.get('/' + action);
   }
 
-  window.closeSongOptions = function() {
-      $('#song-options-modal').removeClass('is-active');
-  }
+  function buildOptionsSheet(title, items, ctx) {
+    return new Promise((resolve) => {
+      const $backdrop = document.createElement('div');
+      $backdrop.className = 'pk-sheet-backdrop';
+      const $sheet = document.createElement('div');
+      $sheet.className = 'pk-sheet';
 
-  // Socket listeners setup (same as before)
-  // Socket listeners - refresh on queue or now_playing changes
-  window.socket.off("queue_update");
-  window.socket.on("queue_update", window.queuePage_getQueue);
-  window.socket.off("now_playing");
-  window.socket.on("now_playing", window.queuePage_getQueue);
-  window.queuePageState.previousQueue = null;
-  window.queuePageState.previousNowPlaying = null;
+      const rows = items.map((it) => {
+        if (it.hideFirst && ctx.idx === 0) return '';
+        if (it.hideLast && ctx.queueLen && ctx.idx >= ctx.queueLen - 1) return '';
+        return `<a class="pk-opt-row ${it.danger ? 'is-danger' : ''}" data-action="${it.id}"><i class="icon ${it.icon}"></i>${escHtml(it.label)}</a>`;
+      }).join('');
 
-  // Open now-playing options modal
-  window.openNowPlayingOptions = function() {
-      var np = window.queuePageState.nowPlaying;
-      if (!np || !np.now_playing) return;
+      $sheet.innerHTML = `
+        <div class="pk-sheet-grabber"></div>
+        <div class="pk-sheet-head">
+          <span class="pk-sheet-title">${escHtml(title)}</span>
+          <button type="button" class="pk-btn is-ghost is-sm" data-close>Zamknij</button>
+        </div>
+        <div class="pk-sheet-body">${rows}</div>`;
 
-      $('#np-modal-song-title').text(np.now_playing);
+      document.body.appendChild($backdrop);
+      document.body.appendChild($sheet);
+      requestAnimationFrame(() => {
+        $backdrop.classList.add('is-open');
+        $sheet.classList.add('is-open');
+      });
 
-      // Update play/pause button based on current state
-      if (np.is_paused) {
-          $('#np-pause-btn').html('<span class="icon mr-2"><i class="icon-play"></i></span>{% trans %}Play{% endtrans %}');
-      } else {
-          $('#np-pause-btn').html('<span class="icon mr-2"><i class="icon-pause"></i></span>{% trans %}Pause{% endtrans %}');
+      function cleanup(result) {
+        $backdrop.classList.remove('is-open');
+        $sheet.classList.remove('is-open');
+        setTimeout(() => {
+          $backdrop.remove();
+          $sheet.remove();
+        }, 350);
+        resolve(result);
       }
 
-      $('#now-playing-options-modal').addClass('is-active');
-  };
-
-  window.closeNowPlayingOptions = function() {
-      $('#now-playing-options-modal').removeClass('is-active');
-  };
-
-  // Execute playback action and close modal
-  window.executePlaybackAction = function(action) {
-      $.get('/' + action);
-      window.closeNowPlayingOptions();
-  };
-
-  // Initialize
-  $(function() {
-    window.queuePage_getDownloads();
-    window.queuePage_getQueue();
-
-      // Close modals on background click
-      $('.modal-background').click(function() {
-          window.closeSongOptions();
-          window.closeNowPlayingOptions();
-      });
-
-      // Queue song options button (for queued songs)
-      $(document).on('click', '.queue-song-options-btn', function(e) {
+      $backdrop.addEventListener('click', () => cleanup(null));
+      $sheet.querySelector('[data-close]').addEventListener('click', () => cleanup(null));
+      $sheet.querySelectorAll('.pk-opt-row').forEach((row) => {
+        row.addEventListener('click', (e) => {
           e.preventDefault();
-          var $btn = $(this);
-          var index = parseInt($btn.data('index'), 10);
-          var file = decodeURIComponent($btn.data('file'));
-          var title = decodeURIComponent($btn.data('title'));
-          openSongOptions(index, file, title);
+          cleanup(row.dataset.action);
+        });
       });
-
-      // Now-playing options button
-      $(document).on('click', '.now-playing-options-btn', function(e) {
-          e.preventDefault();
-          openNowPlayingOptions();
-      });
-
-      // Playback controls handler (still used for any inline buttons if needed)
-      $(document).on('click', '.playback-btn', function(e) {
-          e.preventDefault();
-          var action = $(this).data('action');
-          $.get('/' + action);
-      });
-  });
-
-  // Visibility handler (same as before)
-  // ... (Keep existing visibility logic here if needed) ...
+    });
+  }
+})();
 </script>
-
-{% endblock %}
-
-{% block header %}
-<h1 class>{% block title %}{% trans %}Queue{% endtrans %}{% endblock %}</h1>
 {% endblock %}
 
 {% block content %}
 
-<table class="table is-striped" id="auto-refresh" style="margin-bottom: 30px">
-</table>
+<div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+  <h1 class="pk-view-title" style="margin-bottom: 0;">Kolejka</h1>
+</div>
 
 {% if admin %}
-<div class="is-flex is-justify-content-space-between is-align-items-center mb-3">
-	<div class="is-flex is-align-items-center">
-		<a class="add-random has-text-success" href="#"
-			><i class="icon icon-plus-circled is-size-5 mr-1"></i></a>
-			{% trans %}Add <input id="randomNumberInput" class="input mx-2 p-2" pattern="\d*" maxlength="2" value="3" min="1" max="99" style="width: 42px" /> random songs{% endtrans %}
-	</div>
-	<div>
-		<a class="button is-danger is-outlined confirm-clear" href="/queue/edit?action=clear">
-		<i class="icon icon-trash-empty mr-1"></i>{% trans %}Clear all{% endtrans %}</a>
-	</div>
-</div>
-
-<div class="modal" id="song-options-modal">
-  <div class="modal-background"></div>
-  <div class="modal-card" style="width: 90%; max-width: 400px;">
-    <header class="modal-card-head" style="padding: 15px;">
-      <p class="modal-card-title is-size-6" id="modal-song-title" style="max-width: 95%">Song Options</p>
-      <button class="delete" aria-label="close" onclick="closeSongOptions()"></button>
-    </header>
-    <section class="modal-card-body" style="padding: 0;">
-        <a id="opt-top" class="panel-block py-3" href="#" onclick="executeQueueAction('top'); return false;">
-            <span class="icon has-text-info mr-2"><i class="icon-angle-double-up"></i></span>
-            <b>{% trans %}Play Next{% endtrans %}</b>&nbsp;({% trans %}Move to Top{% endtrans %})
-        </a>
-        <a id="opt-up" class="panel-block py-3" href="#" onclick="executeQueueAction('up'); return false;">
-            <span class="icon mr-2"><i class="icon-angle-up"></i></span>
-            {% trans %}Move Up{% endtrans %}
-        </a>
-        <a id="opt-down" class="panel-block py-3" href="#" onclick="executeQueueAction('down'); return false;">
-            <span class="icon mr-2"><i class="icon-angle-down"></i></span>
-            {% trans %}Move Down{% endtrans %}
-        </a>
-        <a id="opt-bottom" class="panel-block py-3" href="#" onclick="executeQueueAction('bottom'); return false;">
-            <span class="icon has-text-info mr-2"><i class="icon-angle-double-down"></i></span>
-            {% trans %}Move to Bottom{% endtrans %}
-        </a>
-        <a id="opt-delete" class="panel-block py-3 has-text-danger" href="#" onclick="executeQueueAction('delete'); return false;">
-            <span class="icon mr-2"><i class="icon-trash-empty"></i></span>
-            {% trans %}Remove from Queue{% endtrans %}
-        </a>
-    </section>
-  </div>
-</div>
-
-<div class="modal" id="now-playing-options-modal">
-  <div class="modal-background"></div>
-  <div class="modal-card" style="width: 90%; max-width: 400px;">
-    <header class="modal-card-head" style="padding: 15px;">
-      <p class="modal-card-title is-size-6" id="np-modal-song-title" style="max-width: 95%">Now Playing</p>
-      <button class="delete" aria-label="close" onclick="closeNowPlayingOptions()"></button>
-    </header>
-    <section class="modal-card-body" style="padding: 0;">
-        <a class="panel-block py-3" href="#" onclick="executePlaybackAction('restart'); return false;">
-            <span class="icon mr-2"><i class="icon-to-start"></i></span>
-            {% trans %}Restart{% endtrans %}
-        </a>
-        <a id="np-pause-btn" class="panel-block py-3" href="#" onclick="executePlaybackAction('pause'); return false;">
-            <span class="icon mr-2"><i class="icon-pause"></i></span>
-            {% trans %}Pause{% endtrans %}
-        </a>
-        <a class="panel-block py-3 has-text-danger" href="#" onclick="executePlaybackAction('skip'); return false;">
-            <span class="icon mr-2"><i class="icon-to-end"></i></span>
-            {% trans %}Skip{% endtrans %}
-        </a>
-    </section>
-  </div>
+<div class="pk-queue-toolbar">
+  <a class="pk-btn is-sm is-danger confirm-clear" href="/queue/edit?action=clear" style="margin-left: auto;">
+    <i class="icon icon-trash-empty"></i>
+    Wyczyść
+  </a>
 </div>
 {% endif %}
 
-<div id="downloads-section" style="display:none; margin-top: 30px; border-top: 1px solid #dbdbdb; padding-top: 20px;">
-    <h3 class="title is-4">{{ _('Download queue') }}</h3>
-    <div id="downloads-container"></div>
+<div id="pk-downloads" hidden></div>
+
+<div id="pk-queue-now" class="pk-queue-now" hidden>
+  <div>
+    <div class="pk-queue-now-label">{% trans %}now playing{% endtrans %}</div>
+    <div class="pk-queue-now-title" data-pk-np-title></div>
+    <div class="pk-queue-now-singer">{% trans %}sings{% endtrans %} <span class="singer" data-pk-np-singer></span></div>
+  </div>
+  {% if admin %}
+  <button type="button" class="pk-queue-now-options" aria-label="Opcje">
+    <i class="icon icon-cog"></i>
+  </button>
+  {% endif %}
 </div>
+
+<div id="pk-queue-list" class="pk-queue-list"></div>
+
+<p id="pk-queue-empty" class="pk-empty-queue" hidden>
+  Kolejka pusta. Dodaj pierwszy utwór.
+</p>
 
 {% endblock %}

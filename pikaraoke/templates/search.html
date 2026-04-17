@@ -1,764 +1,624 @@
-{% extends 'base.html' %} {% block scripts %}
-<link href="{{  url_for('static', filename='selectize.min.css') }}" rel="stylesheet" />
-<script src="{{  url_for('static', filename='selectize-0.12.6.min.js') }}"></script>
+{% extends 'base.html' %}
+{% set use_new_shell = true %}
+
+{% block scripts %}
 <style>
-	.optgroup-header {
-		font-weight: bold;
-	}
+  .pk-search-field {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: var(--pk-surface);
+    border: 1px solid var(--pk-border);
+    border-radius: var(--pk-r-md);
+    padding: 0 12px;
+    transition: border-color 0.2s var(--pk-ease), box-shadow 0.2s var(--pk-ease);
+  }
+  .pk-search-field:focus-within {
+    border-color: var(--pk-amber);
+    box-shadow: 0 0 0 3px var(--pk-amber-glow);
+  }
+  .pk-search-field > i.icon {
+    color: var(--pk-ink-3);
+    font-size: 18px;
+    margin-right: 4px;
+  }
+  .pk-search-field input {
+    flex: 1;
+    padding: 14px 4px;
+    background: transparent;
+    border: 0;
+    color: var(--pk-ink);
+    font-size: 16px;
+    outline: 0;
+    min-width: 0;
+  }
+  .pk-search-field input::placeholder { color: var(--pk-ink-4); }
+  .pk-search-clear {
+    background: none;
+    border: 0;
+    padding: 4px;
+    color: var(--pk-ink-3);
+    cursor: pointer;
+    font-size: 18px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pk-search-clear[hidden] { display: none; }
 
-	.row {
-		display: flex;
-		border-bottom: 1px solid #cccccc;
-	}
+  .pk-results {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .pk-result-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--pk-surface);
+    border: 1px solid var(--pk-border);
+    border-radius: var(--pk-r-md);
+    overflow: hidden;
+    min-width: 0;
+  }
+  .pk-result-thumb {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    width: 100%;
+    overflow: hidden;
+    cursor: pointer;
+    background: var(--pk-surface-3);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pk-result-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: opacity 0.2s var(--pk-ease);
+  }
+  .pk-result-thumb:active img { opacity: 0.7; }
+  .pk-result-thumb::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0.5) 0, transparent 60%);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s var(--pk-ease);
+  }
+  .pk-result-thumb:hover::after { opacity: 1; }
+  .pk-result-play {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.7);
+    color: var(--pk-ink);
+    display: grid;
+    place-items: center;
+    backdrop-filter: blur(4px);
+  }
+  .pk-result-play i.icon { font-size: 14px; }
+  .pk-result-duration {
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    padding: 2px 6px;
+    background: rgba(0,0,0,0.85);
+    color: var(--pk-ink);
+    font-family: var(--pk-font-mono);
+    font-size: 10.5px;
+    border-radius: 3px;
+    letter-spacing: 0.02em;
+  }
+  .pk-result-content {
+    padding: 9px 10px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+  }
+  .pk-result-body { min-width: 0; flex: 1; }
+  .pk-result-title {
+    font-family: var(--pk-font-display);
+    font-variation-settings: "opsz" 72, "SOFT" 40;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--pk-ink);
+    line-height: 1.2;
+    letter-spacing: -0.005em;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin: 0 0 2px;
+  }
+  .pk-result-channel {
+    font-size: 11px;
+    color: var(--pk-ink-3);
+    font-family: var(--pk-font-display);
+    font-style: italic;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pk-result-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  .pk-result-actions .pk-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    font-size: 12px;
+  }
+  .pk-result-actions .pk-btn i.icon { font-size: 13px; margin: 0; }
+  .pk-result-actions .pk-btn-yt {
+    font-weight: 600;
+    color: var(--pk-ink-3);
+  }
+  .pk-result-duration { font-size: 10px; padding: 1px 5px; }
+  .pk-result-play { width: 32px; height: 32px; }
+  .pk-result-play i.icon { font-size: 11px; }
 
-	.col-icon {
-		padding-left: 1px;
-	}
+  .pk-preview-video {
+    aspect-ratio: 16 / 9;
+    border-radius: var(--pk-r-md);
+    overflow: hidden;
+    background: #000;
+  }
+  .pk-preview-video video {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
 
-	.col-text {
-		padding-left: 2px;
-		font-size: 120%;
-	}
+  .pk-direct-row {
+    display: flex;
+    gap: 8px;
+  }
+  .pk-direct-row .pk-input { flex: 1; min-width: 0; }
 
-	.selectize-input {
-		height: 40px;
-		border-top-right-radius: 0;
-		border-bottom-right-radius: 0;
-		font-size: 1rem;
-	}
+  .pk-hint-muted {
+    font-size: 13px;
+    color: var(--pk-ink-3);
+    line-height: 1.5;
+  }
 
-	/* --- Search result list ---------------------------------- */
-	ul.search_result_items {
-		list-style: none;
-		padding: 0;
-		margin: 0;
-	}
-	ul.search_result_items li {
-		display: flex;
-		flex-direction: column;
-		align-items: stretch;
-		gap: 0.75rem;
-		padding: 0.75rem;
-	}
-	ul.search_result_items li:nth-child(odd) {
-		background-color: rgb(50, 55, 55);
-	}
-	@media screen and (min-width: 768px) {
-		ul.search_result_items li {
-			flex-direction: row;
-			align-items: center;
-		}
-	}
-
-	/* Thumbnail: full width on mobile, fixed 200px on desktop */
-	#search-results .img-wrapper {
-		position: relative;
-		cursor: pointer;
-		width: 100%;
-		flex-shrink: 0;
-	}
-	@media screen and (min-width: 768px) {
-		#search-results .img-wrapper {
-			width: 200px;
-		}
-	}
-	#search-results .img-frame {
-		position: relative;
-		overflow: hidden;
-		aspect-ratio: 16 / 9;
-	}
-	#search-results .img-wrapper img {
-		display: block;
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		transition: opacity 0.3s ease;
-	}
-
-	/* Meta: title fills space, button pinned right */
-	.search_result_items_meta {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		flex: 1;
-		min-width: 0;
-		text-align: left;
-	}
-	.search_result_items_meta > div:first-child {
-		flex: 1;
-		min-width: 0;
-	}
-	.search_result_items_download {
-		flex-shrink: 0;
-	}
-
-	#search-results .img-wrapper:hover img {
-		opacity: 0.7;
-		box-shadow: 0px 0px 3px 1px #878787;
-	}
-
-	/* Semi-transparent circle behind the play icon */
-	#search-results .img-wrapper::before {
-		content: "";
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		width: 80px;
-		height: 80px;
-		background-color: rgba(0, 0, 0, 0.6);
-		border-radius: 50%;
-		opacity: 0.7;
-		transition: opacity 0.3s ease;
-		pointer-events: none;
-		z-index: 1;
-	}
-
-	/* Fontello play icon overlay */
-	#search-results .img-wrapper::after {
-		font-family: "fontello";
-		content: "\e800";
-		position: absolute;
-		top: 50%;
-		left: 51%;
-		transform: translate(-50%, -50%);
-		font-size: 2rem;
-		color: white;
-		opacity: 0.9;
-		transition: all 0.3s ease;
-		text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
-		pointer-events: none;
-		z-index: 2;
-	}
-
-	/* Hover: full opacity and slight scale on desktop */
-	#search-results .img-wrapper:hover::before {
-		opacity: 1;
-	}
-
-	#search-results .img-wrapper:hover::after {
-		opacity: 1;
-		transform: translate(-50%, -50%) scale(1.2);
-	}
-
-	.video-container {
-		aspect-ratio: 16 / 9;
-	}
-	.video-container video {
-		width: 100%;
-		height: 100%;
-	}
-
-	.duration-badge {
-		position: absolute;
-		bottom: 4px;
-		right: 4px;
-		background: rgba(0, 0, 0, 0.8);
-		color: #fff;
-		font-size: 0.75rem;
-		padding: 2px 4px;
-		border-radius: 3px;
-		pointer-events: none;
-		z-index: 3; /* above the play-icon overlays (z-index 1 and 2) */
-	}
-
-	/* Loading overlay for the video preview modal.
-	   Bulma's is-loading only styles buttons/controls, not arbitrary divs,
-	   so we define the spinner here for .modal-content. */
-	.modal-content.is-loading {
-		position: relative;
-	}
-	.modal-content.is-loading::before {
-		content: "";
-		position: absolute;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.6);
-		z-index: 10;
-	}
-	.modal-content.is-loading::after {
-		content: "";
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		width: 2.5rem;
-		height: 2.5rem;
-		margin-top: -1.25rem;
-		margin-left: -1.25rem;
-		border: 3px solid rgba(255, 255, 255, 0.3);
-		border-top-color: #fff;
-		border-radius: 50%;
-		animation: spinAround 0.6s linear infinite;
-		z-index: 11;
-	}
-	@keyframes spinAround {
-		from { transform: rotate(0deg); }
-		to { transform: rotate(360deg); }
-	}
+  /* Slimmer "Advanced" disclosure on search page */
+  details.pk-details {
+    margin-top: 10px;
+    border: 0;
+    background: transparent;
+    overflow: visible;
+  }
+  details.pk-details[open] { background: transparent; }
+  details.pk-details > summary {
+    padding: 4px 8px;
+    font-family: var(--pk-font-body);
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--pk-ink-3);
+    justify-content: flex-end;
+    gap: 4px;
+  }
+  details.pk-details > summary::after {
+    width: 6px; height: 6px;
+    border-width: 1.2px;
+  }
+  details.pk-details[open] .pk-details-body {
+    background: var(--pk-surface);
+    border: 1px solid var(--pk-border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-top: 6px;
+  }
 </style>
+
 <script>
-	$(function () {
-		let lastCommittedSearchTerm = "";
+(function () {
+  'use strict';
 
-		function normalizeSearchTerm(value) {
-			return (value || "").trim();
-		}
+  document.addEventListener('DOMContentLoaded', init);
 
-		function setLastCommittedSearchTerm(value) {
-			lastCommittedSearchTerm = normalizeSearchTerm(value);
-			return lastCommittedSearchTerm;
-		}
+  function init() {
+    const $input = document.getElementById('pk-search-input');
+    if (!$input) return;
+    const $clear = document.getElementById('pk-search-clear');
+    const $ac = document.getElementById('pk-autocomplete');
+    const $ytBtn = document.getElementById('pk-search-yt');
+    const $form = document.getElementById('pk-search-form');
+    const $nonKaraoke = document.getElementById('pk-non-karaoke');
+    const $includeNK = document.getElementById('pk-include-non-karaoke');
+    const $directUrl = document.getElementById('pk-direct-url');
+    const $directBtn = document.getElementById('pk-direct-download');
+    const $addQueueSearch = document.getElementById('pk-add-to-queue-search');
+    const $addQueueDirect = document.getElementById('pk-add-to-queue-direct');
 
-		function getRestorableSearchTerm(selectize) {
-			return (
-				lastCommittedSearchTerm ||
-				normalizeSearchTerm(selectize.$control_input.val()) ||
-				normalizeSearchTerm(selectize.currentResults && selectize.currentResults.query)
-			);
-		}
+    // Ensure user cookie is set before any queue action
+    setUserCookie();
 
-		function bindSearchTextboxTracking(selectize) {
-			selectize.$control_input.on("input change compositionend", function () {
-				setLastCommittedSearchTerm(this.value);
-			});
-		}
+    // Restore preferences
+    if (Cookies.get('include-non-karaoke') === 'true') {
+      $includeNK.checked = true;
+      $nonKaraoke.value = 'true';
+    }
+    const addQ = Cookies.get('add-to-queue-on-download');
+    if (addQ !== undefined) {
+      const v = addQ === 'true';
+      if ($addQueueSearch) $addQueueSearch.checked = v;
+      if ($addQueueDirect) $addQueueDirect.checked = v;
+    }
 
-		$("#search_result_selector").focus();
+    $includeNK.addEventListener('change', () => {
+      Cookies.set('include-non-karaoke', $includeNK.checked, { expires: 365 });
+      $nonKaraoke.value = $includeNK.checked ? 'true' : 'false';
+    });
 
-		$("#search-link").click(function () {
-			if (!$("#search-link").is("[disabled=disabled]")) {
-				$("#search-link").addClass("is-loading");
-			}
-		});
+    [$addQueueSearch, $addQueueDirect].filter(Boolean).forEach((cb) => {
+      cb.addEventListener('change', () => {
+        const v = cb.checked;
+        Cookies.set('add-to-queue-on-download', v, { expires: 365 });
+        [$addQueueSearch, $addQueueDirect].filter(Boolean).forEach((x) => (x.checked = v));
+      });
+    });
 
-		$("#direct-download-button").click(function () {
-			var url = $("#direct-download-url").val();
-			if (!url) return;
-			downloadSong(url, "", this);
-		});
+    if (!$input.value) $input.focus();
+    if ($input.value) $clear.hidden = false;
 
-		$("#add-queue-link").click(function () {});
+    // ---- Input + autocomplete ----
+    let acTimer = null;
+    $input.addEventListener('input', () => {
+      const v = $input.value.trim();
+      $clear.hidden = !v;
 
-		//START SELECTIZE CHANGES
+      if (v.length < 2) {
+        hideAutocomplete();
+        $ytBtn.hidden = true;
+        return;
+      }
+      $ytBtn.hidden = false;
 
-		//if enter key press, by default search button is click
-		$(document).keypress(function (event) {
-			if (event.which == "13") {
-				event.preventDefault();
+      clearTimeout(acTimer);
+      acTimer = setTimeout(() => fetchAutocomplete(v), 200);
+    });
 
-				if ($(".search-selectize .selectize-input input").val()) {
-					$("#search-link").trigger("click");
-				} else if ($(".search-selectize").find(":selected").text()) {
-					$("#add-queue-link").trigger("click");
-				}
-			}
-		});
+    $input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if ($input.value.trim().length >= 2) submitSearch();
+      } else if (e.key === 'Escape') {
+        hideAutocomplete();
+      }
+    });
 
-		$("#add-queue-link").hide();
-		$("#add-queue-link").attr("disabled", "true");
-		$("#search-link").attr("disabled", "true");
-		var $select = $("#song_to_add").selectize({
-			valueField: "path",
-			labelField: "fileName",
-			searchField: ["fileName"],
-			optgroupField: "type",
-			optgroups: [
-				{
-					value: "autocomplete",
-					label: '{{ _("Available songs in local library") }}',
-				},
-			],
-			createOnBlur: true,
-			openOnFocus: false,
-			createFilter: function (input) {
-				return input.length >= 2;
-			},
-			onInitialize: function () {
-				var that = this;
+    $ytBtn.addEventListener('click', submitSearch);
 
-				bindSearchTextboxTracking(this);
+    function submitSearch() {
+      if ($input.value.trim().length < 2) return;
+      $ytBtn.classList.add('is-loading');
+      $ytBtn.disabled = true;
+      $input.setAttribute('readonly', 'readonly');
+      hideAutocomplete();
+      $form.submit();
+    }
 
-				this.$control.on("click", function () {
-					that.ignoreFocusOpen = true;
-					setTimeout(function () {
-						that.ignoreFocusOpen = false;
-					}, 50);
-				});
-			},
+    $clear.addEventListener('click', () => {
+      $input.value = '';
+      $clear.hidden = true;
+      $ytBtn.hidden = true;
+      hideAutocomplete();
+      $input.focus();
+    });
 
-			onFocus: function () {
-				if ($(window).width() <= 500 && $(window).height() <= 740) {
-					document.getElementById("search-field").scrollIntoView();
-				}
-				if (!this.ignoreFocusOpen) {
-					this.open();
-				}
-			},
-			onBlur: function () {
-				this.setTextboxValue(getRestorableSearchTerm(this));
-			},
-			onChange: function (id) {
-				if (!id) {
-					$("#add-queue-link").attr("disabled", "true");
-					$("#search-link").attr("disabled", "true");
-					$("#add-queue-link").hide();
-					$("#search-link").show();
-				} else {
-					$("#add-queue-link").removeAttr("disabled");
-					$("#search-link").removeAttr("disabled");
-					$("#add-queue-link").show();
-					$("#search-link").hide();
-				}
-			},
-			onType: function (text) {
-				if (!text) {
-					console.log("no text");
-					$("#search-link").attr("disabled", "true");
-					{# $("#add-queue-link").show();
-					$("#search-link").hide(); #}
-				} else {
-					console.log("has text: " + text);
-					$("#search-link").removeAttr("disabled");
-					$("#add-queue-link").hide();
-					$("#search-link").show();
-				}
-			},
-			render: {
-				option: function (item, escape) {
-					return (
-						'<div class="row">' +
-						'<div class="col-icon"><i class="icon icon-music has-text-info"></i></div>' +
-						'<div class="col-text">' +
-						escape(item.fileName) +
-						"</div>" +
-						"</div>"
-					);
-				},
-				optgroup_header: function (data, escape) {
-					return '<div class="optgroup-header">' + escape(data.label) + "</div>";
-				},
-			},
-			load: function (query, callback) {
-				if (query.length < 2) return callback;
-				$.ajax({
-					url: "{{ url_for('search.autocomplete') }}" + "?q=" + query,
-					type: "get",
-					success: function (data) {
-						callback(data);
-					},
-				});
-			},
-		});
+    function fetchAutocomplete(q) {
+      fetch('{{ url_for("search.autocomplete") }}?q=' + encodeURIComponent(q))
+        .then((r) => r.json())
+        .then((items) => {
+          if (!items || items.length === 0) return hideAutocomplete();
+          renderAutocomplete(items.slice(0, 8));
+        })
+        .catch(hideAutocomplete);
+    }
 
-		// re-populate the search field with previous search term
-		const urlParams = new URLSearchParams(window.location.search);
-		const qSearchString = urlParams.get("search_string");
-		if (qSearchString) {
-			$("#song_to_add-selectized").val(qSearchString);
-			$("#song_to_add-selectized").width("100%");
-			setLastCommittedSearchTerm(qSearchString);
-		}
+    function renderAutocomplete(items) {
+      $ac.innerHTML = items
+        .map(
+          (it, i) => `
+            <div class="pk-list-row" data-idx="${i}">
+              <div class="pk-list-row-icon"><i class="icon icon-music"></i></div>
+              <div class="pk-list-row-body">
+                <div class="pk-list-row-title">${escHtml(it.fileName)}</div>
+                <div class="pk-list-row-meta">w bibliotece</div>
+              </div>
+              <i class="icon icon-plus-circled" style="color: var(--pk-amber); font-size: 20px;"></i>
+            </div>`
+        )
+        .join('');
+      $ac._items = items;
+      $ac.hidden = false;
+    }
 
-		$("#clear-search").on("click", function (e) {
-			e.preventDefault();
-			$select[0].selectize.clear();
-			$("#song_to_add-selectized").val("");
-			setLastCommittedSearchTerm("");
-		});
+    function hideAutocomplete() {
+      $ac.hidden = true;
+      $ac.innerHTML = '';
+      $ac._items = null;
+    }
 
-		$("#search-link").on("click", function (e) {
-			e.preventDefault();
-			var search_term =
-				lastCommittedSearchTerm || normalizeSearchTerm($(".search-selectize .selectize-input input").val());
-			var include_non_karaoke = $("#include-non-karaoke").is(":checked");
-			if (search_term) {
-				$("#searching_loader").removeClass("is-hidden");
-				$("#searching_loader #search_term").text(search_term);
-				$("#search-link").attr("disabled", "true");
-				$("#search_string").val(search_term);
-				$("#non_karaoke").val(include_non_karaoke);
-				$("#container_search_result").hide();
-				$("#container_search_form form").submit();
-			}
-		});
-		$("#add-queue-link").on("click", function (e) {
-			e.preventDefault();
-			if ($(".search-selectize").find(":selected").text()) {
-				$("#add-queue-link").attr("disabled", "true");
-				$("#add-queue-link").addClass("is-loading");
-				setTimeout(function () {
-					$("#add-queue-link").removeClass("is-loading");
-				}, 1000);
-				$.ajax({
-					url: "{{ url_for('queue.enqueue') }}",
-					type: "post",
-					data: $("#queue-form").serialize(),
-					success: function (data) {
-						var obj = JSON.parse(data);
-						if (obj.success[0]) {
-							showNotification(obj.success[1], "is-success");
-						} else {
-							showNotification(obj.success[1], "is-danger");
-						}
-						$select[0].selectize.clear();
-					},
-				});
-			}
-		});
+    $ac.addEventListener('click', (e) => {
+      const row = e.target.closest('.pk-list-row');
+      if (!row) return;
+      const idx = parseInt(row.dataset.idx, 10);
+      const items = $ac._items || [];
+      const item = items[idx];
+      if (!item) return;
+      row.style.opacity = '0.5';
+      enqueueLocal(item.path, item.fileName);
+    });
 
-		//END SELECTIZE CHANGES
+    function enqueueLocal(path, fileName) {
+      const body = new URLSearchParams();
+      body.append('song_to_add', path);
+      body.append('song_added_by', getUserCookie() || '');
+      fetch('{{ url_for("queue.enqueue_form") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+      })
+        .then((r) => r.text())
+        .then((t) => {
+          try {
+            const obj = JSON.parse(t);
+            const ok = !!(obj.success && obj.success[0]);
+            const msg = (obj.success && obj.success[1]) || fileName;
+            showNotification(msg, ok ? 'is-success' : 'is-danger');
+            if (ok) {
+              $input.value = '';
+              $clear.hidden = true;
+              $ytBtn.hidden = true;
+              hideAutocomplete();
+            }
+          } catch (_) {
+            /* ignore */
+          }
+        })
+        .catch(() => {
+          showNotification(window.translations.errorLabel, 'is-danger');
+        });
+    }
 
-		$("#youtube-link").attr("href", $("#search_result_selector").val());
-		$("#youtube-link").text($("#search_result_selector").val());
+    // ---- Direct YT URL download ----
+    $directUrl.addEventListener('input', () => {
+      $directBtn.disabled = !isYoutubeUrl($directUrl.value);
+    });
 
-		//get youtube thumbnail based on ID
-		i = -1;
-		changeImage();
+    $directBtn.addEventListener('click', () => {
+      const url = $directUrl.value;
+      if (!isYoutubeUrl(url)) return;
+      downloadSong(url, '', $directBtn, !!$addQueueDirect.checked);
+    });
 
-		$(document).on("change", "#search_result_selector", function () {
-			var url = $("#search_result_selector").val();
-			$("#youtube-link").attr("href", url);
-			$("#youtube-link").text(url);
-			changeImage();
-		});
-		//alow click of images
-		$("#youtube-thumb").click(function (e) {
-			changeImage();
-		});
-		setInterval(function () {
-			$("#youtube-thumb").trigger("click");
-		}, 2000);
+    function isYoutubeUrl(s) {
+      if (!s || typeof s !== 'string') return false;
+      if (!s.includes('http')) return false;
+      return s.includes('youtube.com/watch?v=') || s.includes('youtube.com/v/') || s.includes('youtu.be/');
+    }
 
-		$("#advanced-settings").hide();
+    // ---- Search result downloads ----
+    document.querySelectorAll('.pk-result-download').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const card = btn.closest('.pk-result-card');
+        const queue = $addQueueSearch ? $addQueueSearch.checked : true;
+        downloadSong(card.dataset.url, card.dataset.title, btn, queue);
+      });
+    });
 
-		// handle show advanced state
-		$("#show-advanced").on("change", function () {
-			if ($("#show-advanced").is(":checked")) {
-				$("#advanced-settings").show();
-			} else {
-				$("#advanced-settings").hide();
-			}
-		});
+    function downloadSong(url, title, btn, queue) {
+      const original = btn.innerHTML;
+      const originalWidth = btn.offsetWidth;
+      btn.style.minWidth = originalWidth + 'px';
+      btn.disabled = true;
+      btn.innerHTML = '…';
+      fetch('{{ url_for("search.download") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          song_url: url,
+          song_title: title || '',
+          song_added_by: getUserCookie() || '',
+          queue: !!queue,
+        }),
+      })
+        .then(() => {
+          btn.innerHTML = '<i class="icon icon-ok"></i>';
+          btn.classList.add('is-success');
+          setTimeout(() => reset(), 2500);
+        })
+        .catch(() => {
+          btn.innerHTML = '!';
+          btn.classList.add('is-danger');
+          setTimeout(() => reset(), 2500);
+        });
 
-		// handle direct download url input change
-		$("#direct-download-url").on("input", function () {
-			var v = $("#direct-download-url").val();
-			if (isYoutubeURL(v)) {
-				$("#direct-download-button").removeAttr("disabled");
-			} else {
-				$("#direct-download-button").attr("disabled", true);
-			}
-		});
+      function reset() {
+        btn.innerHTML = original;
+        btn.classList.remove('is-success', 'is-danger');
+        btn.disabled = false;
+        btn.style.minWidth = '';
+      }
+    }
 
-		setUserCookie(); // Don't reload page after setting cookie
+    // ---- Preview bottom sheet ----
+    const $sheet = document.getElementById('pk-preview-sheet');
+    const $backdrop = document.getElementById('pk-preview-backdrop');
+    const $video = document.getElementById('pk-preview-video');
+    const $closeBtn = document.getElementById('pk-preview-close');
 
-		$(".song_added_by").val(getUserCookie());
+    document.querySelectorAll('.pk-result-thumb').forEach((thumb) => {
+      thumb.addEventListener('click', () => {
+        const card = thumb.closest('.pk-result-card');
+        openPreview(card.dataset.url);
+      });
+    });
 
-		// Restore checkbox states from cookies
-		restoreCheckboxStates();
+    function openPreview(url) {
+      $sheet.hidden = false;
+      requestAnimationFrame(() => {
+        $backdrop.classList.add('is-open');
+        $sheet.classList.add('is-open');
+      });
+      // iOS autoplay gesture association
+      $video.play().then(() => $video.pause()).catch(() => {});
 
-		// Save checkbox states when they change
-		$("#include-non-karaoke").change(function () {
-			Cookies.set("include-non-karaoke", $(this).is(":checked"), {
-				expires: 365,
-			});
-		});
+      fetch('{{ url_for("search.preview") }}?url=' + encodeURIComponent(url))
+        .then((r) => r.json())
+        .then((data) => {
+          if (!data || !data.stream_url) throw new Error('no stream');
+          $video.src = data.stream_url;
+          $video.load();
+          $video.play().catch(() => {});
+        })
+        .catch(() => closePreview());
+    }
 
-		$("#add-to-queue-direct, #add-to-queue-search").change(function () {
-			Cookies.set("add-to-queue-on-download", $(this).is(":checked"), {
-				expires: 365,
-			});
-			// Sync both checkboxes to have the same state
-			var isChecked = $(this).is(":checked");
-			$("#add-to-queue-direct, #add-to-queue-search").prop("checked", isChecked);
-		});
+    function closePreview() {
+      $sheet.classList.remove('is-open');
+      $backdrop.classList.remove('is-open');
+      $video.pause();
+      $video.src = '';
+      setTimeout(() => ($sheet.hidden = true), 400);
+    }
 
-		function downloadSong(songUrl, songTitle, button) {
-			var $btn = $(button);
-			var originalText = $btn.html();
-			$btn.css("min-width", $btn.outerWidth() + "px");
-			$btn.addClass("is-loading").attr("disabled", true);
-			$.ajax({
-				url: "{{ url_for('search.download') }}",
-				type: "POST",
-				contentType: "application/json",
-				data: JSON.stringify({
-					song_url: songUrl,
-					song_title: songTitle || "",
-					song_added_by: getUserCookie() || "",
-					queue: $("#add-to-queue-search").is(":checked"),
-				}),
-				success: function () {
-					$btn.removeClass("is-loading").addClass("is-success")
-						.html('<i class="icon icon-ok"></i>');
-					setTimeout(function () {
-						$btn.removeClass("is-success").html(originalText)
-							.removeAttr("disabled").css("min-width", "");
-					}, 3000);
-				},
-				error: function () {
-					$btn.removeClass("is-loading").addClass("is-danger")
-						.text("!");
-					setTimeout(function () {
-						$btn.removeClass("is-danger").html(originalText)
-							.removeAttr("disabled").css("min-width", "");
-					}, 3000);
-				},
-			});
-		}
+    $closeBtn && $closeBtn.addEventListener('click', closePreview);
+    $backdrop && $backdrop.addEventListener('click', closePreview);
 
-		const items = document.querySelectorAll(".search_result_items li");
-		items.forEach((item) =>
-			item.querySelector("button").addEventListener("click", function () {
-				const url = item.getAttribute("value");
-				const title = item.getAttribute("data-ytTitle");
-				downloadSong(url, title, this);
-			})
-		);
-
-
-
-		$("#search-results").on("click", ".img-wrapper", function () {
-			const modal = document.getElementById("modal-js-example");
-			const modalVideo = document.getElementById("modal-video");
-			const modalContent = modal.querySelector(".modal-content");
-			const videoUrl = $(this).data("url");
-
-			modal.classList.add("is-active");
-			modalContent.classList.add("is-loading");
-
-			// Unlock autoplay on iOS/mobile: briefly play the empty video element
-			// synchronously inside the click handler so Safari associates it with
-			// a user gesture. Without this, the async AJAX callback's .play() is blocked.
-			modalVideo.play().then(function () { modalVideo.pause(); }).catch(function () {});
-
-			const closeButton = modal.querySelector(".modal-close");
-			closeButton.focus();
-
-			// Remove the spinner when the video starts playing or errors — not when
-			// the AJAX returns, since the video still has to buffer after src is set.
-			const stopLoading = function () {
-				modalContent.classList.remove("is-loading");
-			};
-			modalVideo.addEventListener("playing", stopLoading, { once: true });
-			modalVideo.addEventListener("error", stopLoading, { once: true });
-
-			const closeModal = function () {
-				modal.classList.remove("is-active");
-				modalContent.classList.remove("is-loading");
-				modalVideo.pause();
-				modalVideo.src = "";
-			};
-
-			closeButton.onclick = closeModal;
-			modal.querySelector(".modal-background").onclick = closeModal;
-
-			$.ajax({
-				url: "{{ url_for('search.preview') }}" + "?url=" + encodeURIComponent(videoUrl),
-				type: "get",
-				success: function (data) {
-					if (modal.classList.contains("is-active")) {
-						modalVideo.src = data.stream_url;
-						modalVideo.load();
-						modalVideo.play().catch(function () {});
-					}
-				},
-				error: function () {
-					closeModal();
-				},
-			});
-		});
-	});
-
-	function isYoutubeURL(s) {
-		if (s.includes("http")) {
-			return s.includes("youtube.com/watch?v=") || s.includes("youtube.com/v/") || s.includes("youtu.be/");
-		} else {
-			return false;
-		}
-	}
-
-	function changeImage() {
-		var next = ++i % 4;
-		var youtube_id = $("#search_result_selector").find(":selected").data("ytid");
-		var fn = next == 0 ? "default" : next;
-		var img_src = "https://img.youtube.com/vi/" + youtube_id + "/mq" + fn + ".jpg";
-		$("#youtube-thumb").attr("src", img_src);
-	}
-
-	function restoreCheckboxStates() {
-		// Restore "Include non-karaoke matches" checkbox state
-		var includeNonKaraoke = Cookies.get("include-non-karaoke");
-		if (includeNonKaraoke !== undefined) {
-			$("#include-non-karaoke").prop("checked", includeNonKaraoke === "true");
-		}
-
-		// Restore "Add to queue once downloaded" checkbox state
-		var addToQueue = Cookies.get("add-to-queue-on-download");
-		if (addToQueue !== undefined) {
-			var shouldCheck = addToQueue === "true";
-			$("#add-to-queue-direct, #add-to-queue-search").prop("checked", shouldCheck);
-		}
-	}
+    function escHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = String(s);
+      return d.innerHTML;
+    }
+  }
+})();
 </script>
-{% endblock %} {% block header %} {# MSG: Title for the search page. #}
-<h1>{% block title %}{% trans %}Search / Add New{% endtrans %}{% endblock %}</h1>
-{% endblock %} {% block content %}
+{% endblock %}
 
-<div>
-	<div class="field" id="container_queue_form">
-		<form id="queue-form">
-			<div id="search-field" class="field has-addons mb-1">
-				<div class="control is-expanded">
-					<select id="song_to_add" class="search-selectize is-size-7" name="song_to_add">
-						{# TODO MSG: Label #}
-						<optgroup label="{{ _('Available Songs') }}" id="available-songs"></optgroup>
-					</select>
-				</div>
-				<div class="control">
-					{# MSG: Submit button on the search form for searching YouTube. #}
-					<a class="button is-warning" id="search-link">{% trans %}Search{% endtrans %}</a>
-					{# MSG: Submit button on the search form when selecting a locally downloaded song. The button adds it to
-					the queue. #}
-					<a class="button is-info" id="add-queue-link">{% trans %}Add to queue{% endtrans %}</a>
-				</div>
-				<input class="song_added_by" type="hidden" name="song_added_by" />
-			</div>
-			<div class="control is-flex is-justify-content-flex-end is-align-items-center mb-2">
-				<a id="clear-search" class="has-text-danger" style="margin-right: 15px">
-					{# MSG: Link which clears the text from the search box. #} {% trans %}Clear{% endtrans %}</a
-				>
-				<label class="checkbox is-flex is-align-items-center">
-					<input type="checkbox" id="show-advanced" class="checkbox" name="show-advanced" />
-					{# MSG: Checkbox label which enables more options when searching. #} {% trans %}Advanced{% endtrans %}
-				</label>
-			</div>
+{% block content %}
 
-			<article class="message">
-				<div class="message-body">
-					<div class="columns is-vcentered is-mobile">
-						<div class="column is-narrow">
-							<span class="icon has-text-warning">
-								{# MSG: Info icon at the start of the help text below the search bar. #}
-								<i class="icon icon-info-circled-1 is-size-4" title="Info"></i>
-							</span>
-						</div>
-						<div class="column has-text-warning-light">
-							<p class="mb-1 is-italic">
-								{# MSG: Help text below the search bar. #} {% trans -%}- Type a song (title/artist) to search
-								the available songs and click 'Add to queue' to add it to the queue. {%- endtrans %}
-							</p>
-							<p class="is-italic">
-								{# MSG: Additonal help text below the search bar. #} {% trans -%}- If the song doesn't appear in
-								the "Available Songs" dropdown, click 'Search' to find it on Youtube {%- endtrans %}
-							</p>
-						</div>
-					</div>
-				</div>
-			</article>
-		</form>
-	</div>
+<h1 class="pk-view-title">Szukaj</h1>
+<p class="pk-view-sub">W bibliotece albo z YouTube — co chcecie.</p>
 
-	<div>
-		<div id="advanced-settings" class="box has-background-black-bis" style="margin-top: 10px; display: none">
-			<div class="control">
-				<label class="checkbox is-flex is-align-items-center">
-					<input type="checkbox" class="checkbox" id="include-non-karaoke" name="include-non-karaoke" />
-					{# MSG: Checkbox label which enables matching songs which are not karaoke versions (i.e. the songs still
-					have a singer and are not just instrumentals.) #} {% trans %}Include non-karaoke matches{% endtrans %}
-				</label>
-			</div>
-			<hr />
-			<div class="control">
-				<div class="label">
-					{# MSG: Label for an input which takes a YouTube url directly instead of searching titles. #} {% trans
-					%}Direct download YouTube url:{% endtrans %}
-				</div>
-				<div>
-					<input
-						class="input"
-						id="direct-download-url"
-						type="text"
-						value="https://www.youtube.com/watch?v="
-					/>
-					<div class="field" style="margin-top: 5px">
-						<label class="checkbox is-flex is-align-items-center">
-							<input type="checkbox" class="checkbox" checked id="add-to-queue-direct" />
-							{# MSG: Checkbox label which marks the song to be added to the queue after it finishes downloading.
-							#} {% trans %}Add to queue once downloaded{% endtrans %}
-						</label>
-					</div>
-					<div class="has-text-right" style="margin-top: 5px">
-						<button class="button is-rounded is-primary" disabled id="direct-download-button">
-							{# MSG: Button label for the direct download form's submit button. #} {% trans %}Download{%
-							endtrans %}
-						</button>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
+<form id="pk-search-form" action="{{ url_for('search.search') }}" method="get" autocomplete="off">
+  <div class="pk-search-field">
+    <i class="icon icon-search-1"></i>
+    <input
+      type="text"
+      id="pk-search-input"
+      name="search_string"
+      placeholder="tytuł, wykonawca lub link z YT"
+      value="{{ search_string or '' }}"
+      autocomplete="off">
+    <button type="button" id="pk-search-clear" class="pk-search-clear" hidden aria-label="Wyczyść">
+      <i class="icon icon-cancel-circled-1"></i>
+    </button>
+  </div>
+  <input type="hidden" name="non_karaoke" id="pk-non-karaoke" value="false">
+</form>
 
-	<hr />
+<div id="pk-autocomplete" class="pk-list" hidden style="margin-top: 10px;"></div>
 
-	<div class="field is-hidden" id="container_search_form">
-		<form action="{{ url_for('search.search') }}" method="get">
-			<input id="search_string" type="text" name="search_string" />
-			<input type="text" id="non_karaoke" name="non_karaoke" />
-		</form>
-	</div>
+<button type="button" id="pk-search-yt" class="pk-btn is-primary is-full" style="margin-top: 12px;" hidden>
+  <i class="icon icon-search-1"></i>
+  <span>Szukaj na YouTube</span>
+</button>
 
-	<div id="searching_loader" class="control is-loading is-hidden">
-		{% set placeholder_search_term %}
-		<span id="search_term"></span>
-		{% endset %} {# MSG: Html text which displays what was searched for, in quotes while the page is loading. #} {%
-		trans search_term=placeholder_search_term -%} Searching YouTube for
-		<small><i>'{{ search_term }}'</i></small>
-		{%- endtrans %}
-	</div>
-	{% if search_results %}
-	<div class="field" id="container_search_result">
-		<label class="label">
-			{# MSG: Html text which displays what was searched for, in quotes. #} {% trans search_term=search_string -%}
-			Search results for
-			<small><i>'{{search_string}}'</i></small>
-			{%- endtrans %}
-		</label>
-		<div class="field">
-			<label class="checkbox is-flex is-align-items-center">
-				<input type="checkbox" checked id="add-to-queue-search" class="checkbox" />
-				{# MSG: Checkbox label which marks the song to be added to the queue after it finishes downloading. #} {%
-				trans %}Add to queue once downloaded{% endtrans %}
-			</label>
-		</div>
-		<ul id="search-results" class="search_result_items">
-			{% for title,url,id,channel,duration in search_results %}
-			<li data-ytID="{{id}}" data-ytTitle="{{title}}" value="{{url}}" data-index="{{loop.index0}}">
-				<div class="img-wrapper" data-url="{{url}}">
-					<div class="img-frame">
-						<img src="https://img.youtube.com/vi/{{id}}/mqdefault.jpg" />
-						{% if duration %}<span class="duration-badge">{{ duration }}</span>{% endif %}
-					</div>
-				</div>
-				<div class="search_result_items_meta">
-					<div>
-						{{title}}
-						{% if channel %}<div class="is-size-7 has-text-grey">{{ channel }}</div>{% endif %}
-						<a href="{{url}}" target="_blank" rel="noopener noreferrer" class="is-size-7 has-text-info">YouTube ↗</a>
-					</div>
-					<button class="button search_result_items_download">Download</button>
-				</div>
-			</li>
-			{% endfor %}
-		</ul>
-		<div id="modal-js-example" class="modal">
-			<div class="modal-background"></div>
-			<div class="modal-content">
-				<div class="video-container">
-					<video id="modal-video" controls></video>
-				</div>
-			</div>
-			<button class="modal-close is-large" aria-label="close"></button>
-		</div>
-	</div>
+<details class="pk-details">
+  <summary>Zaawansowane</summary>
+  <div class="pk-details-body">
+    <label class="pk-check">
+      <input type="checkbox" id="pk-include-non-karaoke">
+      <span>Uwzględnij wersje nie-karaoke</span>
+    </label>
+    <div>
+      <label class="pk-hint-muted" style="display: block; margin-bottom: 8px;">
+        Bezpośredni link z YouTube
+      </label>
+      <div class="pk-direct-row">
+        <input type="url" id="pk-direct-url" class="pk-input" placeholder="https://youtube.com/watch?v=...">
+        <button type="button" id="pk-direct-download" class="pk-btn is-primary" disabled>
+          Pobierz
+        </button>
+      </div>
+    </div>
+    <label class="pk-check">
+      <input type="checkbox" id="pk-add-to-queue-direct" checked>
+      <span>Dodaj do kolejki po pobraniu</span>
+    </label>
+  </div>
+</details>
+
+{% if search_results is not none %}
+<div class="pk-section-label">
+  <span>Wyniki dla "{{ search_string }}"</span>
+  <span class="pk-count">{{ search_results|length }}</span>
 </div>
-{% else %} {% endif %} {% endblock %}
+
+<label class="pk-check" style="margin-bottom: 14px;">
+  <input type="checkbox" id="pk-add-to-queue-search" checked>
+  <span>Dodaj do kolejki po pobraniu</span>
+</label>
+
+{% if search_results|length == 0 %}
+<p class="pk-hint-muted" style="padding: 16px; text-align: center;">
+  Brak wyników. Spróbuj innych słów.
+</p>
+{% else %}
+<div class="pk-results">
+  {% for title, url, id, channel, duration in search_results %}
+  <div class="pk-result-card" data-url="{{ url }}" data-title="{{ title }}">
+    <div class="pk-result-thumb">
+      <img src="https://img.youtube.com/vi/{{ id }}/mqdefault.jpg" alt="" loading="lazy">
+      {% if duration %}<span class="pk-result-duration">{{ duration }}</span>{% endif %}
+      <div class="pk-result-play"><i class="icon icon-play"></i></div>
+    </div>
+    <div class="pk-result-content">
+      <div class="pk-result-body">
+        <h3 class="pk-result-title">{{ title }}</h3>
+        {% if channel %}<p class="pk-result-channel">{{ channel }}</p>{% endif %}
+      </div>
+      <div class="pk-result-actions">
+        <a href="{{ url }}" target="_blank" rel="noopener noreferrer" class="pk-btn is-ghost pk-btn-yt" aria-label="YouTube" title="Otwórz na YouTube">↗</a>
+        <button type="button" class="pk-btn is-primary pk-result-download" aria-label="Pobierz" title="Pobierz">
+          <i class="icon icon-down-big"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+
+<div class="pk-sheet-backdrop" id="pk-preview-backdrop"></div>
+<div class="pk-sheet" id="pk-preview-sheet" hidden>
+  <div class="pk-sheet-grabber"></div>
+  <div class="pk-sheet-head">
+    <span class="pk-sheet-title">Podgląd</span>
+    <button type="button" id="pk-preview-close" class="pk-btn is-ghost is-sm">
+      Zamknij
+    </button>
+  </div>
+  <div class="pk-sheet-body">
+    <div class="pk-preview-video">
+      <video id="pk-preview-video" controls playsinline></video>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

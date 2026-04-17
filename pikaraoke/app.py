@@ -23,7 +23,7 @@ from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.browser import Browser
-from pikaraoke.lib.current_app import get_karaoke_instance
+from pikaraoke.lib.current_app import get_karaoke_instance, is_admin
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
 from pikaraoke.lib.get_platform import (
@@ -140,6 +140,20 @@ def get_locale() -> str | None:
 babel.init_app(app, locale_selector=get_locale)
 socketio.init_app(app)
 setup_socket_events(socketio)
+
+
+@app.context_processor
+def inject_shell_vars() -> dict:
+    """Vars required by base.html shell on every render (shell renders even
+    when route-level context is thin, e.g. /search or admin-only views)."""
+    result = {"pk_admin": False, "pk_is_transpose_enabled": False}
+    try:
+        k = get_karaoke_instance()
+        result["pk_admin"] = is_admin()
+        result["pk_is_transpose_enabled"] = k.is_transpose_enabled
+    except (RuntimeError, AttributeError):
+        pass
+    return result
 
 
 def compile_translations() -> None:

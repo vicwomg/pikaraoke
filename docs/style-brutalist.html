@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PIKARAOKE — Brutalist mock</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Archivo:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --paper: #f2f0ec;
+  --ink: #0a0a0a;
+  --rule: #0a0a0a;
+  --ink-2: #3a3a3a;
+  --ink-3: #7a7a7a;
+  --signal: #ff2e00;
+  --strike: #111;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--paper); color: var(--ink); font-family: 'Space Mono', monospace; font-size: 14px; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+.stage { display: grid; place-items: center; min-height: 100vh; padding: 40px 24px; background: repeating-linear-gradient(0deg, var(--paper) 0, var(--paper) 39px, rgba(0,0,0,0.04) 39px, rgba(0,0,0,0.04) 40px); }
+.stage-label { position: fixed; top: 16px; left: 16px; font-family: 'Space Mono', monospace; font-weight: 700; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; z-index: 1000; color: var(--ink); }
+
+.phone { width: 420px; min-height: 860px; position: relative; background: var(--paper); border: 3px solid var(--ink); overflow: hidden; display: flex; flex-direction: column; }
+
+/* ===== Masthead ===== */
+.mast {
+  border-bottom: 3px solid var(--ink);
+  padding: 16px 18px 14px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: baseline;
+}
+.mast-brand {
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 38px;
+  line-height: 0.9;
+  letter-spacing: -0.035em;
+  text-transform: uppercase;
+}
+.mast-sub {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-top: 2px;
+  color: var(--ink-2);
+}
+.mast-date {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-align: right;
+  color: var(--ink-2);
+}
+.mast-date .sig { display: inline-block; margin-top: 4px; padding: 2px 6px; background: var(--signal); color: var(--paper); }
+
+/* ===== Barcode-like divider ===== */
+.barcode {
+  height: 24px;
+  display: flex;
+  gap: 2px;
+  padding: 6px 18px;
+  border-bottom: 1px solid var(--ink);
+  align-items: stretch;
+}
+.barcode span { flex: 1; background: var(--ink); }
+.barcode span:nth-child(3n) { flex: 2; }
+.barcode span:nth-child(4n) { background: transparent; }
+.barcode span:nth-child(5n) { flex: 0.5; }
+
+/* ===== Hero ===== */
+.hero {
+  padding: 22px 18px 14px;
+  border-bottom: 3px solid var(--ink);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 18px;
+  align-items: start;
+}
+.hero-n {
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 80px;
+  line-height: 0.8;
+  letter-spacing: -0.05em;
+}
+.hero-body {}
+.hero-tag {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  display: inline-block;
+  padding: 3px 8px;
+  background: var(--ink);
+  color: var(--paper);
+  margin-bottom: 10px;
+}
+.hero-title {
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 42px;
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+}
+.hero-title .dot { color: var(--signal); }
+.hero-sub {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  margin-top: 10px;
+  color: var(--ink-2);
+  max-width: 220px;
+  line-height: 1.5;
+}
+
+/* ===== Search bar ===== */
+.search {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  border-bottom: 3px solid var(--ink);
+  padding: 12px 18px;
+  gap: 10px;
+}
+.search-label {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.search-placeholder {
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.search-caret { background: var(--ink); color: var(--paper); padding: 6px 10px; font-weight: 700; font-size: 14px; }
+
+/* ===== Section title ===== */
+.section {
+  padding: 18px 18px 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid var(--ink);
+}
+.section-n {
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+.section-n .dot { color: var(--signal); }
+.section-meta { font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+
+/* ===== Queue ===== */
+.q-row {
+  display: grid;
+  grid-template-columns: 54px 1fr auto;
+  gap: 14px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--ink);
+  align-items: baseline;
+}
+.q-row:last-of-type { border-bottom: 3px solid var(--ink); }
+.q-idx {
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 36px;
+  line-height: 0.8;
+  letter-spacing: -0.04em;
+}
+.q-title {
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 18px;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  text-transform: uppercase;
+}
+.q-meta {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-top: 4px;
+  color: var(--ink-2);
+}
+.q-meta .singer { color: var(--signal); }
+.q-time {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+}
+.q-row:nth-child(3n) .q-idx { color: var(--signal); }
+
+/* ===== Now playing ===== */
+.np {
+  margin-top: auto;
+  padding: 16px 18px;
+  background: var(--ink);
+  color: var(--paper);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  border-top: 3px solid var(--ink);
+}
+.np-label {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--signal);
+  margin-bottom: 6px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.np-label .dot { width: 8px; height: 8px; background: var(--signal); display: inline-block; }
+.np-title {
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+.np-meta {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-top: 5px;
+}
+.np-meta .time { color: var(--signal); }
+.np-play {
+  width: 60px; height: 60px;
+  background: var(--signal);
+  color: var(--ink);
+  border: 2px solid var(--paper);
+  display: grid; place-items: center;
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 22px;
+  cursor: pointer;
+  padding-left: 4px;
+}
+
+/* ===== Tabs ===== */
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 3px solid var(--paper);
+  background: var(--ink);
+}
+.tab {
+  padding: 16px 0 18px;
+  text-align: center;
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--paper);
+  text-transform: uppercase;
+  border-right: 2px solid var(--paper);
+  cursor: pointer;
+}
+.tab:last-child { border-right: 0; }
+.tab.active { background: var(--signal); color: var(--ink); }
+.tab-n {
+  display: block;
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  margin-bottom: 4px;
+  opacity: 0.6;
+}
+
+@media (max-width: 440px) { body { padding: 0; } .phone { width: 100vw; min-height: 100vh; border: 0; } .stage { padding: 0; } .stage-label { display: none; } }
+</style>
+</head>
+<body>
+
+<div class="stage-label">// STYLE // BRUTALIST</div>
+
+<div class="stage">
+  <div class="phone">
+
+    <div class="mast">
+      <div>
+        <div class="mast-brand">PiKaraoke<br>Karaoke.</div>
+        <div class="mast-sub">Wieczór nr. 47 — 17.04.2026</div>
+      </div>
+      <div class="mast-date">
+        22:47<br>
+        <span class="sig">LIVE</span>
+      </div>
+    </div>
+
+    <div class="barcode">
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+
+    <div class="hero">
+      <div class="hero-n">01</div>
+      <div class="hero-body">
+        <span class="hero-tag">Section / Szukaj</span>
+        <h1 class="hero-title">Znajdź<br>utwór<span class="dot">.</span></h1>
+        <p class="hero-sub">W bibliotece lub na YouTube. Działaj bez ceregieli.</p>
+      </div>
+    </div>
+
+    <div class="search">
+      <span class="search-label">Q:</span>
+      <span class="search-placeholder">Tytuł lub link</span>
+      <span class="search-caret">GO →</span>
+    </div>
+
+    <div class="section">
+      <div class="section-n">02 / Kolejka<span class="dot">.</span></div>
+      <div class="section-meta">05 &middot; 19 min</div>
+    </div>
+
+    <div class="q-row">
+      <div class="q-idx">01</div>
+      <div>
+        <div class="q-title">Wonderwall</div>
+        <div class="q-meta">Oasis &middot; Śpiewa: <span class="singer">Kasia</span></div>
+      </div>
+      <div class="q-time">4:18</div>
+    </div>
+    <div class="q-row">
+      <div class="q-idx">02</div>
+      <div>
+        <div class="q-title">Mr. Brightside</div>
+        <div class="q-meta">The Killers &middot; Śpiewa: <span class="singer">Tomek</span></div>
+      </div>
+      <div class="q-time">3:42</div>
+    </div>
+    <div class="q-row">
+      <div class="q-idx">03</div>
+      <div>
+        <div class="q-title">Kocham wolność</div>
+        <div class="q-meta">Chłopcy z PB &middot; Śpiewa: <span class="singer">Goście</span></div>
+      </div>
+      <div class="q-time">5:24</div>
+    </div>
+
+    <div class="np">
+      <div>
+        <div class="np-label"><span class="dot"></span>Teraz gra</div>
+        <div class="np-title">Autobiografia</div>
+        <div class="np-meta">Perfect &middot; Ania &middot; <span class="time">02:14 / 06:12</span></div>
+      </div>
+      <button class="np-play">▶</button>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active"><span class="tab-n">01</span>Start</div>
+      <div class="tab"><span class="tab-n">02</span>Kolejka</div>
+      <div class="tab"><span class="tab-n">03</span>Szukaj</div>
+      <div class="tab"><span class="tab-n">04</span>Bibl.</div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

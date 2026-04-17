@@ -1,261 +1,244 @@
-{% extends 'base.html' %} {% block scripts %}
+{% extends 'base.html' %}
+{% set use_new_shell = true %}
+
+{% block scripts %}
+<style>
+  .pk-cta-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    background: var(--pk-surface);
+    border: 1px solid var(--pk-border);
+    border-radius: var(--pk-r-md);
+    text-decoration: none;
+    color: var(--pk-ink);
+    transition: border-color 0.2s var(--pk-ease), transform 0.1s var(--pk-ease);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pk-cta-card:hover { border-color: var(--pk-amber); }
+  .pk-cta-card:active { transform: scale(0.99); }
+  .pk-cta-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--pk-amber);
+    color: var(--pk-bg);
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    box-shadow: 0 8px 16px -6px var(--pk-amber-glow);
+  }
+  .pk-cta-icon i.icon { font-size: 18px; }
+  .pk-cta-body { flex: 1; min-width: 0; }
+  .pk-cta-title {
+    font-weight: 600;
+    font-size: 15.5px;
+    color: var(--pk-ink);
+    letter-spacing: -0.005em;
+  }
+  .pk-cta-sub {
+    font-size: 12.5px;
+    color: var(--pk-ink-3);
+    margin-top: 1px;
+  }
+  .pk-cta-arrow {
+    color: var(--pk-ink-4);
+    font-size: 16px;
+  }
+
+  .pk-queue-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .pk-queue-row {
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--pk-bg);
+    border: 1px solid var(--pk-border);
+    border-left: 3px solid var(--pk-amber);
+    border-radius: 10px;
+    box-shadow: 0 3px 8px -5px rgba(75, 50, 25, 0.22);
+  }
+  .pk-queue-row:nth-child(1) { transform: rotate(-0.3deg); border-left-color: var(--pk-amber-2); }
+  .pk-queue-row:nth-child(2) { transform: rotate(0.3deg); border-left-color: var(--pk-sky); }
+  .pk-queue-row:nth-child(3) { transform: rotate(-0.2deg); border-left-color: var(--pk-sun); }
+  .pk-queue-row:nth-child(4) { transform: rotate(0.2deg); border-left-color: var(--pk-lime); }
+  .pk-queue-row:nth-child(5) { transform: rotate(-0.2deg); border-left-color: var(--pk-amber); }
+  .pk-queue-idx {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--pk-surface);
+    font-family: var(--pk-font-hand);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--pk-ink);
+  }
+  .pk-queue-row:nth-child(1) .pk-queue-idx { background: color-mix(in srgb, var(--pk-amber-2) 20%, var(--pk-surface)); color: var(--pk-amber-2); }
+  .pk-queue-row:nth-child(2) .pk-queue-idx { background: color-mix(in srgb, var(--pk-sky) 45%, var(--pk-surface)); }
+  .pk-queue-row:nth-child(3) .pk-queue-idx { background: color-mix(in srgb, var(--pk-sun) 28%, var(--pk-surface)); }
+  .pk-queue-row:nth-child(4) .pk-queue-idx { background: color-mix(in srgb, var(--pk-lime) 28%, var(--pk-surface)); }
+  .pk-queue-body { min-width: 0; }
+  .pk-queue-title {
+    font-family: var(--pk-font-display);
+    font-variation-settings: "opsz" 72, "SOFT" 40;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--pk-ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: -0.005em;
+    line-height: 1.15;
+  }
+  .pk-queue-singer {
+    font-family: var(--pk-font-body);
+    font-size: 11.5px;
+    color: var(--pk-ink-2);
+    margin-top: 2px;
+  }
+  .pk-queue-singer i.icon { display: none; }
+  .pk-queue-singer .singer {
+    font-family: var(--pk-font-hand);
+    font-size: 14.5px;
+    color: var(--pk-amber-2);
+    font-weight: 600;
+    margin-left: 2px;
+  }
+
+  .pk-empty {
+    padding: 24px 16px;
+    text-align: center;
+    color: var(--pk-ink-3);
+    font-size: 14px;
+    font-family: var(--pk-font-display);
+    font-style: italic;
+    font-variation-settings: "opsz" 14, "SOFT" 60;
+  }
+
+  .pk-home-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .pk-home-actions .pk-btn { text-align: center; justify-content: center; }
+
+  .pk-queue-more {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--pk-amber);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 10px;
+  }
+</style>
+
 <script>
-	var volume = {{ volume|default(0.85) }};
+(function () {
+  'use strict';
 
-	// Ensure global socket exists
-	if (typeof window.socket === 'undefined') {
-		window.socket = io();
-	}
+  document.addEventListener('DOMContentLoaded', init);
 
-	function loadNowPlaying() {
-		console.log("Loading now playing data");
-		$.get('{{ url_for("now_playing.now_playing") }}', function (data) {
-			handleNowPlaying(JSON.parse(data));
-		});
-	}
+  function init() {
+    const $wrap = document.getElementById('pk-home-queue');
+    if (!$wrap) return;
+    const $count = document.getElementById('pk-home-queue-count');
 
-	function handleNowPlaying(np) {
-		console.log(np);
-		if (np.now_playing) {
-			var nowPlayingHtml = `<p style="margin-bottom: 5px">${np.now_playing}</p>
-          <p class="has-text-success" style="margin-bottom: 5px"><i class="icon icon-mic-1" title="Current singer"></i>${np.now_playing_user}</p>`;
+    refresh();
+    if (window.socket) {
+      window.socket.on('queue_update', refresh);
+      window.socket.on('now_playing', refresh);
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refresh();
+    });
 
-			if (np.now_playing_transpose != 0) {
-				nowPlayingHtml +=
-					// {# MSG: Label for display of how many semitones the song has been shifted. #}
-					"<span class='is-size-6 has-text-success'><b>Key</b>: " +
-					getSemitonesLabel(np.now_playing_transpose) +
-					"<span>";
-			}
+    function refresh() {
+      Promise.all([
+        fetch('{{ url_for("queue.get_queue") }}').then((r) => r.text()),
+        fetch('{{ url_for("now_playing.now_playing") }}').then((r) => r.text()),
+      ]).then(([qt, npt]) => {
+        try {
+          const queue = JSON.parse(qt);
+          const np = npt ? JSON.parse(npt) : null;
+          render(queue, np);
+        } catch (_) {}
+      });
+    }
 
-			$("#now-playing").html(nowPlayingHtml);
-			$(".control-box").show();
-		} else {
-			// {# MSG: Message which shows in the "Now Playing" section when there is no song currently playing #}
-			$("#now-playing").html("{{ _('Nothing is playing right now.') }}");
-			$(".control-box").hide();
-		}
+    function render(queue, np) {
+      const n = queue.length;
+      $count.textContent = n ? `${n}` : '';
+      const playing = !!(np && np.now_playing);
 
-		if (np.up_next) {
-			$("#up-next").html(`<p style="margin-bottom: 5px">${np.up_next}</p>
-          <p class="has-text-success">
-            {# MSG: Title text for the icon marking the next person to sing. #}
-            <i class="icon icon-mic-1" title="{{ _('Next singer') }}"></i>${np.next_user}</p>`);
-		} else {
-			// {# MSG: Alternative text for the "Up next" section if no more songs are queued up. #}
-			$("#up-next").html("{{ _('No song is queued.') }}");
-		}
+      if (n === 0) {
+        $wrap.innerHTML = playing
+          ? `<p class="pk-empty">Po tym utworze — cisza. Dorzuć coś do kolejki.</p>`
+          : `<p class="pk-empty">Kolejka pusta. Dodaj pierwszy utwór.</p>`;
+        return;
+      }
 
-		if (np.now_playing_transpose != 0) {
-			$("#transpose").val(np.now_playing_transpose);
-			$("#semitones-label").html(getSemitonesLabel(np.now_playing_transpose));
-		} else {
-			$("#transpose").val(0);
-			$("#semitones-label").html(getSemitonesLabel(np.now_playing_transpose));
-		}
+      const preview = queue.slice(0, 5);
+      let html = preview
+        .map(
+          (item, i) => `
+            <div class="pk-queue-row">
+              <div class="pk-queue-idx">${i + 1}</div>
+              <div class="pk-queue-body">
+                <div class="pk-queue-title">${escHtml(item.title)}</div>
+                <div class="pk-queue-singer">śpiewa <span class="singer">${escHtml(item.user || '')}</span></div>
+              </div>
+            </div>`
+        )
+        .join('');
 
-		// set the volume slider to the current volume
-		if (np.volume != volume) {
-			volume = np.volume;
-			console.log("setting volume to " + volume);
-			$("#volume-slider").val(volume);
-		}
+      if (n > 5) {
+        html += `<a class="pk-queue-more" href="{{ url_for('queue.queue') }}">Zobacz wszystkie (+${n - 5})</a>`;
+      }
 
-		if (np.is_paused) {
-			$("#pause-resume").removeClass("icon-pause");
-			$("#pause-resume").addClass("icon-play");
-			$(".playing_gif").attr("src", "{{  url_for('static', filename='images/now-playing.png') }}");
-		} else {
-			$("#pause-resume").removeClass("icon-play");
-			$("#pause-resume").addClass("icon-pause");
-			$(".playing_gif").attr("src", "{{  url_for('static', filename='images/now-playing.gif') }}");
-		}
-	}
+      $wrap.innerHTML = html;
+    }
 
-	$(function () {
-		$(".control-box").hide();
-
-		var slider = document.getElementById("transpose");
-		var output = document.getElementById("semitones-label");
-		if (slider && output) {
-			output.innerHTML = getSemitonesLabel(slider.value);
-			// Update the current slider value (each time you drag the slider handle)
-			slider.oninput = function () {
-				output.innerHTML = getSemitonesLabel(slider.value);
-			};
-		}
-
-		$("#volume-slider").on(
-			"input",
-			debounce(function (event) {
-				const value = this.value;
-				$.get("/volume/" + value);
-			}, 500)
-		);
-
-		$("#submit-transpose").click(function () {
-			var value;
-			if (slider) {
-				value = slider.value;
-			} else {
-				value = 0;
-			}
-			r = confirm(window.translations.confirmTranspose.replace("SEMITONE_LABEL", getSemitonesLabel(value)));
-			if (r) {
-				$.get("/transpose/" + value);
-			}
-			slider.value = 0;
-			output.innerHTML = getSemitonesLabel(slider.value);
-		});
-
-		$("#pause-resume").click(function () {
-			$.get("/pause");
-			togglePausePlayButton();
-		});
-
-		$("#vol-up").click(function () {
-			$.get("/vol_up");
-		});
-
-		$("#vol-down").click(function () {
-			$.get("/vol_down");
-		});
-
-		$("#restart").click(function () {
-			r = confirm(window.translations.confirmRestartTrack);
-			if (r) {
-				$.get("/restart");
-			}
-		});
-
-		$("#skip").click(function () {
-			r = confirm(
-				// {# MSG: Confirmation message when clicking a button to skip a track. #}
-				`{{ _("Are you sure you want to skip this track? If you didn't add this song, ask permission first!") }}`
-			);
-			if (r) {
-				$.get("/skip");
-			}
-		});
-
-		$("#semitones-info").click(function () {
-			showNotification(
-				window.translations.semitonesInfo,
-				"is-info",
-				10000
-			);
-		});
-
-		function togglePausePlayButton() {
-			if ($("#pause-resume").hasClass("icon-pause")) {
-				$("#pause-resume").removeClass("icon-pause");
-				$("#pause-resume").addClass("icon-play");
-			} else {
-				$("#pause-resume").removeClass("icon-play");
-				$("#pause-resume").addClass("icon-pause");
-			}
-		}
-
-		//for first time load of splash screen
-		loadNowPlaying();
-		//for pushed updates to now playing state
-		window.socket.on("now_playing", (np) => handleNowPlaying(np));
-
-		document.addEventListener("visibilitychange", function () {
-			console.log("on visibility change");
-
-			if (document.visibilityState === "visible") {
-				loadNowPlaying();
-				console.log(window.socket);
-				if (!window.socket.connected) {
-					console.log("Reconnecting socket...");
-					window.socket = io();
-					window.socket.on("now_playing", (np) => handleNowPlaying(np));
-				}
-			}
-		});
-	});
+    function escHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = String(s || '');
+      return d.innerHTML;
+    }
+  }
+})();
 </script>
-{% endblock %} {% block header %}
-<h1>
-	{% block title %} {# MSG: Header showing the currently playing song. #} {% trans %}Now Playing{% endtrans %}
-	<img
-		style="display: none"
-		class="playing_gif control-box"
-		width="40"
-		src="{{  url_for('static', filename='images/now-playing.png') }}"
-	/>{% endblock %}
-</h1>
-{% endblock %} {% block content %}
+{% endblock %}
 
-<p class="is-size-4 has-text-warning" id="now-playing">&nbsp;</p>
+{% block content %}
 
-<hr />
-<h3>{# MSG: Title for the section displaying the next song to be played. #} {% trans %}Next Song{% endtrans %}</h3>
-<p id="up-next" class="has-text-warning"></p>
-<hr />
-
-{% if admin %}
-<div class="has-background-black-bis box control-box" style="max-width: 500px; display: none">
-	{# MSG: Title of the box with controls such as pause and skip. #}
-	<h4>{% trans %}Player Control{% endtrans %}</h4>
-	<div class="is-size-3" style="display: flex; justify-content: space-between">
-		<div class="is-size-3">
-			{# MSG: Title attribute on the button to restart the current song. #}
-			<a title="{{ _('Restart Song') }}" id="restart"><i class="icon icon-to-start"></i> </a>&nbsp;&nbsp; {# MSG:
-			Title attribute on the button to play or pause the current song. #}
-			<a title="{{ _('Play/Pause') }}"><i id="pause-resume" class="icon icon-pause"></i> </a>&nbsp;&nbsp; {# MSG:
-			Title attribute on the button to skip to the next song. #}
-			<a title="{{ _('Stop Current Song') }}" id="skip"><i class="icon icon-to-end"></i> </a>
-		</div>
-		<div class="is-size-3" style="display: flex; align-items: center">
-			<i id="vol-down" class="icon icon-volume-down"></i>
-			<input
-				type="range"
-				min="0"
-				max="1"
-				value="{{ volume|default(0.85) }}"
-				step="0.025"
-				id="volume-slider"
-				style="margin: 0 8px 0px 5px; width: 100px"
-			/>
-			<i id="vol-up" class="icon icon-volume-up"></i>
-		</div>
-	</div>
-	<hr />
-
-	{% if is_transpose_enabled %}
-	<div class="is-flex" style="justify-content: space-between">
-		<div>
-			{# MSG: Title of a control to change the key/pitch of the playing song. #}
-			<h4>{% trans %}Change Key{% endtrans %}</h4>
-		</div>
-		<div class="is-flex">
-			<h4 id="semitones-label"></h4>
-			<a id="semitones-info"> <i class="icon icon-info-circled-1" title="Info"></i></a>
-		</div>
-	</div>
-	<div style="width: 100%">
-		<div class="is-flex">
-			<input
-				type="range"
-				min="-12"
-				max="12"
-				value="0"
-				width="300px"
-				class="transpose-slider"
-				id="transpose"
-				style="width: 100%"
-			/>
-			<button id="submit-transpose" class="button is-rounded is-small" style="margin-left: 10px">
-				{# MSG: Label on the button to confirm the change in key/pitch of the playing song. #} {% trans %}Change{%
-				endtrans %}
-			</button>
-		</div>
-	</div>
-	{% endif %}
+<div class="pk-home-hero">
+  <h1 class="pk-view-title" style="text-align: center; margin-top: 10px;">Dziś <em>śpiewamy</em></h1>
+  <div class="pk-view-eyebrow" style="display: block; text-align: center; transform: rotate(0); margin: 6px 0 12px;">~ nad jeziorem ~</div>
 </div>
-{% endif %}
 
-<div></div>
+<a class="pk-cta-card" href="{{ url_for('search.search') }}">
+  <span class="pk-cta-icon"><i class="icon icon-search-1"></i></span>
+  <span class="pk-cta-body">
+    <span class="pk-cta-title">Znajdź piosenkę</span>
+  </span>
+  <i class="icon icon-right-big pk-cta-arrow"></i>
+</a>
+
+<div class="pk-section-label">
+  <span>Następne w kolejce</span>
+  <span class="pk-count" id="pk-home-queue-count"></span>
+</div>
+
+<div class="pk-queue-preview" id="pk-home-queue">
+  <p class="pk-empty">Ładowanie…</p>
+</div>
+
 {% endblock %}

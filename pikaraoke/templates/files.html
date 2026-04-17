@@ -1,150 +1,301 @@
-{% extends 'base.html' %} {% block scripts %}
-<script>
-	$(function () {
-		if ($(window).width() <= 500) {
-			$(document).scroll(function () {
-				var y = $(this).scrollTop();
-				if (y > 100) {
-					$("#alpha-bar").removeClass("mobile-hide");
-					$("#alpha-bar").fadeIn();
-				} else {
-					$("#alpha-bar").fadeOut();
-				}
-			});
-		}
+{% extends 'base.html' %}
+{% set use_new_shell = true %}
 
-		$("a.add-song-link").click(function (e) {
-			e.preventDefault();
-			setUserCookie();
-			var user = Cookies.get("user");
-			$.get(this.href + encodeURIComponent(user), function (data) {
-				var obj = JSON.parse(data);
-				if (obj.success[0]) {
-					// {# MSG: Notification when a song gets added to the queue.  The song name comes after this string. #}
-					showNotification(obj.success[1], "is-success");
-				} else {
-					// {# MSG: Notification when a song does not get added to the queue.  The song name comes after this string. #}
-					showNotification(obj.success[1], "is-danger");
-				}
-			});
-		});
-	});
-</script>
-
-{% endblock %} {% block header %}
-<h1>
-	{% block title %} {% if letter %} {{title}}: "{{ letter.upper() }}" {% else %} {{title}} {% endif %} {% endblock %}
-</h1>
+{% block scripts %}
 <style>
-	#alpha-bar {
-		padding: 5px 10px;
-		border-radius: 4px;
-		margin-bottom: 10px;
-		position: sticky;
-		display: flex;
-		justify-content: space-between;
-		top: 3px;
-		z-index: 20;
-	}
-	table {
-		width: 100%;
-		table-layout: auto; /* Allows columns to adjust based on content */
-	}
-	td {
-		word-wrap: break-word; /* Ensures long words break to fit within the cell */
-	}
-	.break-word {
-		word-break: break-all; /* Ensures long words break to fit within the cell */
-	}
+  .pk-library-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
 
-	@media screen and (max-width: 500px) {
-		#alpha-bar {
-			font-size: 13px;
-			position: fixed;
-			display: flex;
-			align-items: center;
-			right: 8px;
-			top: 15px;
-			flex-direction: column;
-			max-width: 22px;
-			height: 95vh;
-		}
-		.mobile-hide {
-			visibility: hidden;
-		}
-		.batch-edit-btn {
-			position: absolute;
-			top: 10px;
-			right: 10px;
-			font-size: 0.875rem;
-			margin-right: 10px;
-		}
-		.box {
-			position: relative;
-		}
-	}
+  .pk-sort-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .pk-sort-label {
+    font-size: 10.5px;
+    color: var(--pk-ink-4);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    font-family: var(--pk-font-mono);
+  }
+  .pk-sort-chip {
+    padding: 5px 10px;
+    background: var(--pk-surface);
+    border: 1px solid var(--pk-border);
+    border-radius: var(--pk-r-pill);
+    font-size: 12.5px;
+    color: var(--pk-ink-2);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .pk-sort-chip.is-active {
+    background: var(--pk-amber);
+    color: var(--pk-bg);
+    border-color: var(--pk-amber);
+  }
+
+  .pk-alpha {
+    display: flex;
+    gap: 2px;
+    overflow-x: auto;
+    padding: 6px 0 8px;
+    margin: 8px -4px 12px;
+    scrollbar-width: none;
+  }
+  .pk-alpha::-webkit-scrollbar { display: none; }
+  .pk-alpha a {
+    padding: 6px 9px;
+    font-size: 13px;
+    color: var(--pk-ink-3);
+    text-decoration: none;
+    border-radius: 6px;
+    min-width: 28px;
+    text-align: center;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pk-alpha a:hover { color: var(--pk-ink); }
+  .pk-alpha a.is-active {
+    color: var(--pk-amber);
+    background: var(--pk-surface);
+  }
+  .pk-alpha a i.icon { font-size: 13px; }
+
+  .pk-lib-artist-header {
+    font-family: var(--pk-font-hand);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--pk-amber-2);
+    letter-spacing: -0.01em;
+    line-height: 1;
+    padding: 16px 4px 6px;
+    margin-bottom: 2px;
+    border-bottom: 1px dotted var(--pk-ink-4);
+    transform: rotate(-0.4deg);
+  }
+  .pk-lib-artist-header:first-of-type { padding-top: 6px; }
+
+  .pk-library-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 4px;
+    border-bottom: 1px solid var(--pk-border);
+  }
+  .pk-library-row:last-child { border-bottom: 0; }
+  .pk-library-title {
+    font-size: 14.5px;
+    color: var(--pk-ink);
+    font-weight: 500;
+    word-break: break-word;
+    line-height: 1.3;
+    letter-spacing: -0.005em;
+  }
+  .pk-library-title .pk-lib-artist {
+    display: block;
+    font-size: 12.5px;
+    color: var(--pk-ink-3);
+    font-weight: 400;
+    font-family: var(--pk-font-display);
+    font-style: italic;
+    font-variation-settings: "opsz" 14, "SOFT" 60;
+    margin-top: 2px;
+  }
+  .pk-library-actions { display: flex; gap: 6px; }
+  .pk-library-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: var(--pk-surface-2);
+    border: 1px solid var(--pk-border);
+    display: grid;
+    place-items: center;
+    color: var(--pk-amber);
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: border-color 0.15s var(--pk-ease), transform 0.1s var(--pk-ease);
+  }
+  .pk-library-btn.is-edit { color: var(--pk-ink-3); }
+  .pk-library-btn:hover { border-color: var(--pk-amber); }
+  .pk-library-btn:active { transform: scale(0.95); }
+  .pk-library-btn.is-busy { opacity: 0.4; pointer-events: none; }
+  .pk-library-btn i.icon { font-size: 15px; }
+
+  /* flask-paginate Bulma output — restyled to match */
+  .pk-pagination { margin: 18px 0 8px; display: flex; justify-content: center; }
+  .pagination {
+    display: flex; gap: 6px; justify-content: center; align-items: center;
+    padding: 0; margin: 0;
+  }
+  .pagination-list {
+    display: flex; gap: 4px; align-items: center;
+    list-style: none; padding: 0; margin: 0;
+    flex-wrap: wrap;
+  }
+  .pagination-list li { margin: 0; }
+  .pagination-list a,
+  .pagination-previous,
+  .pagination-next,
+  .pagination a {
+    display: grid; place-items: center;
+    min-width: 34px; height: 34px; padding: 0 10px;
+    background: var(--pk-surface);
+    border: 1px solid var(--pk-border);
+    border-radius: var(--pk-r-sm);
+    color: var(--pk-ink-2);
+    text-decoration: none;
+    font-size: 13px;
+    font-family: var(--pk-font-mono);
+  }
+  .pagination-list a.is-current,
+  .pagination-list .is-current a,
+  .pagination .is-current a {
+    background: var(--pk-amber);
+    color: var(--pk-bg);
+    border-color: var(--pk-amber);
+  }
+  .pagination-ellipsis { color: var(--pk-ink-4); padding: 0 4px; }
+  .pagination-page-info {
+    text-align: center;
+    font-size: 12px;
+    color: var(--pk-ink-3);
+    margin: 8px 0 0;
+  }
+  .pagination-page-info b { color: var(--pk-ink); font-weight: 600; }
 </style>
-{% endblock %} {% block content %}
 
-<p class="is-flex is-justify-content-space-between">
-	<span class="is-flex-grow-1">
-		{% if sort_order == "Alphabetical" %} {# MSG: Label which displays that the songs are currently sorted by
-		alphabetical order. #} {% trans %}Sorted Alphabetically{% endtrans %} |
-		<a href="{{ url_for('files.browse') }}?sort=date">
-			{# MSG: Button which changes how the songs are sorted so they become sorted by date. #} {% trans %}Sort by
-			Date{% endtrans %}
-		</a>
-		{% endif %} {% if sort_order == "Date" %} {# MSG: Label which displays that the songs are currently sorted by
-		date. #} {% trans %}Sorted by date{% endtrans %} |
-		<a href="{{ url_for('files.browse') }}">
-			{# MSG: Button which changes how the songs are sorted so they become sorted by name. #} {% trans %}Sort by
-			Alphabetical{% endtrans %}
-		</a>
-		{% endif %}
-	</span>
-	{% if admin %}
-	<a class="batch-edit-btn" href="{{ url_for('batch_song_renamer.browse')}}" title="Edit all songs"
-		><i class="icon icon-edit"></i>{# MSG: Button to open the batch song renamer page. #} {% trans %}Edit all songs{%
-		endtrans %}</a
-	>
-	{% endif%}
-</p>
+<script>
+$(function() {
+  // Delegated handler; works across SPA swaps and pagination
+  $(document).off('click.pk-browse-add').on('click.pk-browse-add', 'a.add-song-link', function(e) {
+    e.preventDefault();
+    var $btn = $(this);
+    if ($btn.hasClass('is-busy')) return;
+    setUserCookie().then ? null : null;
+    var user = Cookies.get('user') || '';
+    var href = this.href;
 
-<div id="alpha-bar" class="column is-full has-background-dark mobile-hide">
-	<a href="{{ url_for('files.browse') }}" title="Show all"><i class="icon icon-list-bullet"></i></a>
-	<a href="{{ url_for('files.browse') }}?letter=numeric">#</a>
-	{% for letter in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
-	'u', 'v', 'w', 'x', 'y', 'z'] %}
-	<a href="{{ url_for('files.browse') }}?letter={{letter}}">{{letter.upper()}}</a>
-	{% endfor %}
+    // If cookie not yet set, wait briefly for setUserCookie promise
+    if (!user) {
+      setUserCookie().then(function() {
+        fire($btn, href, Cookies.get('user') || '');
+      });
+    } else {
+      fire($btn, href, user);
+    }
+
+    function fire($btn, href, user) {
+      $btn.addClass('is-busy');
+      $.get(href + encodeURIComponent(user)).done(function(data) {
+        try {
+          var obj = JSON.parse(data);
+          var ok = obj.success && obj.success[0];
+          var msg = (obj.success && obj.success[1]) || '';
+          showNotification(msg, ok ? 'is-success' : 'is-danger');
+        } catch (_) {}
+      }).always(function() {
+        $btn.removeClass('is-busy');
+      });
+    }
+  });
+});
+</script>
+{% endblock %}
+
+{% block content %}
+
+<h1 class="pk-view-title">
+  {% if letter %}Biblioteka <em>· {{ letter.upper() }}</em>{% else %}Biblioteka{% endif %}
+</h1>
+<p class="pk-view-sub">Utwory już pobrane do domku.</p>
+
+<div class="pk-library-top">
+  <div class="pk-sort-row">
+    <span class="pk-sort-label">Sortuj</span>
+    <a href="{{ url_for('files.browse') }}" class="pk-sort-chip {% if sort_order == 'Title' %}is-active{% endif %}">
+      Tytuł
+    </a>
+    <a href="{{ url_for('files.browse') }}?sort=artist" class="pk-sort-chip {% if sort_order == 'Artist' %}is-active{% endif %}">
+      Wykonawca
+    </a>
+  </div>
 </div>
 
-{{ pagination.links }} {{ pagination.info }}
-<table>
-	{% for song in songs %}
-	{% set display_name = filename_from_path(song) %}
-	<tr value="{{ song }}">
-		<td style="padding: 5px 0px">{{loop.index + pagination.skip}}</td>
-		<td id="{{display_name[0].lower()}}" style="padding-right: 0">
-			<a
-				class="add-song-link has-text-weight-bold has-text-success"
-				title="Add '{{display_name}}' to queue"
-				href="{{url_for('queue.enqueue')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&user="
-				><i class="icon icon-list-add"></i>
-			</a>
-		</td>
-		<td class="break-word" style="padding-right: 0">{{display_name}}</td>
-		{% if admin %}
-		<td style="padding-right: 0">
-			<a
-				class="edit-button"
-				href="{{url_for('files.edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&referrer={{url_escape(current_url)}}"
-				title="Edit song"
-				><i class="icon icon-edit-1"></i>
-			</a>
-		</td>
-		{% endif %} {% endfor %}
-	</tr>
-</table>
+{% macro action_buttons(song) %}
+<div class="pk-library-actions">
+  {% if admin %}
+  <a class="pk-library-btn is-edit edit-button"
+     href="{{ url_for('files.edit_file') }}?song={{ url_escape(song.encode('utf-8','surrogateescape')) }}&referrer={{ url_escape(current_url) }}"
+     title="Edytuj"
+     aria-label="Edytuj">
+    <i class="icon icon-edit-1"></i>
+  </a>
+  {% endif %}
+  <a class="pk-library-btn add-song-link"
+     href="{{ url_for('queue.enqueue') }}?song={{ url_escape(song.encode('utf-8','surrogateescape')) }}&user="
+     title="Dodaj do kolejki"
+     aria-label="Dodaj do kolejki">
+    <i class="icon icon-list-add"></i>
+  </a>
+</div>
+{% endmacro %}
 
-{{ pagination.links }} {% endblock %}
+{% if songs|length == 0 %}
+<p class="pk-empty">Jeszcze nic tu nie ma.</p>
+{% elif sort_order == 'Artist' %}
+  {# Group by artist — inline headers between rows. #}
+  {% set ns = namespace(prev_key='__none__') %}
+  {% for song in songs %}
+    {% set _name = filename_from_path(song) %}
+    {% set _parts = _name.split(' - ', 1) %}
+    {% if _parts|length == 2 %}
+      {% set _artist = _parts[0]|trim %}
+      {% set _title = _parts[1]|trim %}
+    {% else %}
+      {% set _artist = '' %}
+      {% set _title = _name %}
+    {% endif %}
+    {% set _key = _artist|lower %}
+
+    {% if _key != ns.prev_key %}
+      <div class="pk-lib-artist-header">{{ _artist or 'Inne' }}</div>
+      {% set ns.prev_key = _key %}
+    {% endif %}
+
+    <div class="pk-library-row">
+      <div class="pk-library-title">{{ _title }}</div>
+      {{ action_buttons(song) }}
+    </div>
+  {% endfor %}
+{% else %}
+  {# Title sort: flat list sorted alphabetically by title, artist as secondary. #}
+  {% for song in songs %}
+    {% set _name = filename_from_path(song) %}
+    {% set _parts = _name.split(' - ', 1) %}
+    <div class="pk-library-row">
+      <div class="pk-library-title">
+        {%- if _parts|length == 2 -%}
+        {{ _parts[1]|trim }}
+        <span class="pk-lib-artist">{{ _parts[0]|trim }}</span>
+        {%- else -%}
+        {{ _name }}
+        {%- endif -%}
+      </div>
+      {{ action_buttons(song) }}
+    </div>
+  {% endfor %}
+{% endif %}
+
+{% if songs|length > 0 %}
+<div class="pk-pagination">{{ pagination.links | safe }}</div>
+<div class="pagination-page-info">{{ pagination.info | safe }}</div>
+{% endif %}
+
+{% endblock %}
