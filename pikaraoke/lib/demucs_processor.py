@@ -84,10 +84,16 @@ def _write_wav_header(f, sr: int, channels: int, total_samples: int) -> None:
 # files from a crashed run are purged.
 
 
-def get_cache_key(wav_path: str) -> str:
-    """Compute SHA256 of decoded PCM WAV content. Metadata-invariant."""
+def get_cache_key(file_path: str) -> str:
+    """Compute SHA256 of the source media file's bytes.
+
+    Content-addressable so re-encoded files (different container, same audio)
+    still hit cache when bytes match. Reading the mp4 directly is ~10x cheaper
+    than extracting WAV first, and lets the caller kick off the pipeline
+    without a synchronous ffmpeg extract step on the main thread.
+    """
     h = hashlib.sha256()
-    with open(wav_path, "rb") as f:
+    with open(file_path, "rb") as f:
         while True:
             chunk = f.read(1 << 20)  # 1MB chunks
             if not chunk:
