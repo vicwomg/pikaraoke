@@ -2,6 +2,7 @@
 
 import logging
 import os
+import signal
 import subprocess
 import sys
 import threading
@@ -298,8 +299,9 @@ def main() -> None:
 
     threading.Thread(target=_serve, daemon=True).start()
 
-    # Handle sigterm, apparently cherrypy won't shut down without explicit handling
-    # signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
+    # SIGTERM must trigger k.stop() so the karaoke loop exits, subprocesses
+    # (ffmpeg, chromium) are killed, and delete_tmp_dir() below runs.
+    signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
 
     # Start the splash screen browser only when opted in. By default the user
     # opens the splash URL in their own browser.

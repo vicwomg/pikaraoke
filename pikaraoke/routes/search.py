@@ -10,6 +10,7 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
+from pikaraoke.lib.music_metadata import search_itunes
 from pikaraoke.lib.youtube_dl import get_search_results, get_stream_url
 
 _ = flask_babel.gettext
@@ -19,6 +20,12 @@ search_bp = Blueprint("search", __name__)
 
 class AutocompleteQuery(Schema):
     q = fields.String(required=True, metadata={"description": "Search query for autocomplete"})
+
+
+class SuggestQuery(Schema):
+    q = fields.String(
+        required=True, metadata={"description": "Search query for iTunes music suggestions"}
+    )
 
 
 class PreviewQuery(Schema):
@@ -85,6 +92,24 @@ def autocomplete(query):
             )
     response = current_app.response_class(response=json.dumps(result), mimetype="application/json")
     return response
+
+
+@search_bp.route("/suggest")
+@search_bp.arguments(SuggestQuery, location="query")
+def suggest(query):
+    """iTunes-backed music suggestions for the search box."""
+    hits = search_itunes(query["q"], limit=8)
+    # `path` is Selectize's unique key (valueField); prefix so it can't collide
+    # with a real song file path used by /autocomplete entries.
+    result = [
+        {
+            "path": f"itunes:{hit['artist']} - {hit['track']}",
+            "fileName": f"{hit['artist']} - {hit['track']}",
+            "type": "itunes",
+        }
+        for hit in hits
+    ]
+    return current_app.response_class(response=json.dumps(result), mimetype="application/json")
 
 
 @search_bp.route("/preview")

@@ -8,6 +8,13 @@ from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
 
 
+class _MockStreamManager:
+    """Minimal stand-in for StreamManager — only exposes active_stems."""
+
+    def __init__(self) -> None:
+        self.active_stems: dict = {}
+
+
 class MockPlaybackController:
     """Minimal mock of PlaybackController for testing queue operations."""
 
@@ -21,6 +28,9 @@ class MockPlaybackController:
     now_playing_position: float | None = None
     is_paused: bool = True
     is_playing: bool = False
+
+    def __init__(self) -> None:
+        self.stream_manager = _MockStreamManager()
 
     def skip(self, log_action: bool = True) -> bool:
         if self.is_playing:
@@ -85,6 +95,8 @@ class MockKaraoke:
         )
         self.playback_controller = MockPlaybackController()
         self.volume = 0.85
+        self.vocal_volume = 0.3
+        self.instrumental_volume = 1.0
         self.running = True
         self.now_playing_notification = None
 

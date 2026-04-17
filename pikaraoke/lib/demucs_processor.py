@@ -466,6 +466,7 @@ def separate_stems(
 # stems_ready instantly instead of waiting on a live Demucs run.
 
 _prewarm_in_progress: set[str] = set()
+_prewarm_done: set[str] = set()
 _prewarm_lock = threading.Lock()
 
 
@@ -473,20 +474,22 @@ def prewarm(file_path: str) -> None:
     """Fire-and-forget: populate the Demucs cache for file_path.
 
     Idempotent. Deduplicates by path so the main run loop can poll-call
-    it without flooding threads. No-op if the cache is already warm.
+    it without flooding threads. No-op if already warmed this session.
     """
     with _prewarm_lock:
-        if file_path in _prewarm_in_progress:
+        if file_path in _prewarm_done or file_path in _prewarm_in_progress:
             return
         _prewarm_in_progress.add(file_path)
 
     def _run() -> None:
+        success = False
         try:
             # SHA256 of a 200 MB mp4 is ~1 s — would block the main loop
             # if computed under the dedup lock. Path-keyed dedup is good
             # enough (two distinct paths w/ identical bytes is harmless).
             cache_key = get_cache_key(file_path)
             if get_cached_stems(cache_key):
+                success = True
                 return
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 input_wav = tmp.name
@@ -510,6 +513,7 @@ def prewarm(file_path: str) -> None:
                 if separate_stems(input_wav, partial_v, partial_i):
                     finalize_partial_stems(cache_key)
                     encode_mp3_in_background(cache_key)
+                    success = True
             finally:
                 try:
                     os.remove(input_wav)
@@ -520,5 +524,7 @@ def prewarm(file_path: str) -> None:
         finally:
             with _prewarm_lock:
                 _prewarm_in_progress.discard(file_path)
+                if success:
+                    _prewarm_done.add(file_path)
 
     threading.Thread(target=_run, daemon=True).start()

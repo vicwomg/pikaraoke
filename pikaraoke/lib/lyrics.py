@@ -24,6 +24,7 @@ from typing import Protocol
 import requests
 
 from pikaraoke.lib.events import EventSystem
+from pikaraoke.lib.music_metadata import resolve_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +103,20 @@ class LyricsService:
         lrc = None
         if info:
             lrc = _fetch_lrclib(info["track"], info["artist"], info["duration"])
+            if not lrc:
+                # Fallback: iTunes canonicalizes the noisy YouTube-derived fields.
+                clean = resolve_metadata(f"{info['artist']} - {info['track']}")
+                if clean:
+                    logger.info(
+                        "iTunes canonicalized %r / %r -> %r / %r",
+                        info["artist"],
+                        info["track"],
+                        clean["artist"],
+                        clean["track"],
+                    )
+                    lrc = _fetch_lrclib(clean["track"], clean["artist"], info["duration"])
+                    if lrc:
+                        info = {**info, "artist": clean["artist"], "track": clean["track"]}
         if lrc:
             ass = _lrc_to_ass_line_level(lrc)
             if ass:
