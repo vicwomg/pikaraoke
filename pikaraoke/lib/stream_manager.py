@@ -532,6 +532,16 @@ class StreamManager:
                     logging.debug(f"[FFMPEG] process exited cleanly (code 0)")
                 self._ffmpeg_exit_logged = id(self.ffmpeg_process)
 
+    def clear_active_stems(self) -> None:
+        """Drop all registered stem entries.
+
+        In-flight stream generators already hold their own references to the
+        ActiveStems object, so clearing here doesn't interrupt them — it just
+        prevents the dict from growing unboundedly across songs and ensures
+        late requests for a finished song get 404 instead of stale data.
+        """
+        self.active_stems.clear()
+
     def kill_ffmpeg(self) -> None:
         """Terminate the running FFmpeg process gracefully.
 
