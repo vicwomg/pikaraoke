@@ -198,16 +198,22 @@ class StreamManager:
             self.active_sources[uid] = fr.file_path  # type: ignore[assignment]
             # Pipe audio if transforms are set, avsync is nonzero (we need a
             # separate <audio> element to apply the client-side offset to),
-            # or the native track isn't browser-compatible. Skip entirely
-            # when vocal_removal is on — stems carry the audio, and
-            # transforms on stems aren't supported in this pipeline yet
+            # or the native track isn't browser-compatible, or the video is
+            # silent with a sibling audio file (parallel-download pipeline).
+            # Skip entirely when vocal_removal is on — stems carry the audio,
+            # and transforms on stems aren't supported in this pipeline yet
             # (stems would play unpitched, matching pre-Phase-4 behavior).
+            has_audio_sibling = fr.audio_sibling_path is not None
             needs_audio_pipe = not vocal_removal and (
-                needs_audio_transforms or avsync != 0 or not can_serve_directly(fr.file_path)
+                has_audio_sibling
+                or needs_audio_transforms
+                or avsync != 0
+                or not can_serve_directly(fr.file_path)
             )
             if needs_audio_pipe:
+                audio_source = fr.audio_sibling_path or fr.file_path
                 self.active_audio[uid] = AudioTrackConfig(
-                    source_path=fr.file_path,  # type: ignore[arg-type]
+                    source_path=audio_source,  # type: ignore[arg-type]
                     duration_sec=float(fr.duration or 0),
                     semitones=semitones,
                     normalize=normalize_audio,
@@ -466,9 +472,12 @@ class StreamManager:
         stream_uid = str(fr.stream_uid)
         total_seconds = float(fr.duration or 0)
 
-        # Cache key is a hash of the source file's bytes — cheap enough to
-        # compute inline (single-pass read, no decode).
-        cache_key = get_cache_key(fr.file_path)
+        # Prefer the sibling audio file (parallel-download pipeline) when
+        # present — hashing and decoding audio is cheaper than the muxed
+        # mp4, and the key stays stable between prewarm (download time)
+        # and play time.
+        audio_source = fr.audio_sibling_path or fr.file_path
+        cache_key = get_cache_key(audio_source)
         cached = get_cached_stems(cache_key)
 
         if cached:
@@ -494,9 +503,9 @@ class StreamManager:
             return True
 
         input_wav = os.path.join(fr.tmp_dir, "demucs_input.wav")
-        logging.info(f"Demucs: extracting audio from {fr.file_path}")
+        logging.info(f"Demucs: extracting audio from {audio_source}")
         result = subprocess.run(
-            ["ffmpeg", "-y", "-i", fr.file_path, "-f", "wav", "-ar", "44100", input_wav],
+            ["ffmpeg", "-y", "-i", audio_source, "-f", "wav", "-ar", "44100", input_wav],
             capture_output=True,
         )
         if result.returncode != 0:

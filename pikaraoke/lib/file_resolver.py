@@ -161,6 +161,7 @@ class FileResolver:
     cdg_file_path: str | None = None
     file_extension: str | None = None
     ass_file_path: str | None = None
+    audio_sibling_path: str | None = None
 
     def __init__(self, file_path: str, streaming_format: str = "hls") -> None:
         """Initialize the FileResolver with a media file path.
@@ -304,4 +305,19 @@ class FileResolver:
             self.handle_aegissub_subtile(file_path)
         if not self.file_path:
             raise ValueError("File path is required to process file")
+        self._detect_audio_sibling()
         self.duration = get_media_duration(self.file_path)
+
+    def _detect_audio_sibling(self) -> None:
+        """Populate audio_sibling_path when a `<basename>.m4a` exists.
+
+        Siblings are written by the parallel-download path (vocal removal
+        enabled). Their presence also implies the main video file is
+        silent: callers route audio through the sibling instead of the
+        mp4's native track.
+        """
+        if not self.file_path or self.file_extension != ".mp4":
+            return
+        sibling = f"{os.path.splitext(self.file_path)[0]}.m4a"
+        if os.path.isfile(sibling):
+            self.audio_sibling_path = sibling

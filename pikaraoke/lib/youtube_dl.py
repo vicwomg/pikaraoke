@@ -170,6 +170,84 @@ def build_ytdl_download_command(
     return cmd
 
 
+def build_ytdl_video_only_command(
+    video_url: str,
+    download_path: str,
+    youtubedl_proxy: str | None = None,
+    additional_args: str | None = None,
+) -> list[str]:
+    """Build the yt-dlp command for a silent HQ h264/mp4 video stream.
+
+    Used by the parallel-download path (vocal removal enabled) so the video
+    can land on disk while a sibling audio-only yt-dlp feeds Demucs in
+    parallel. Owns info.json + subtitles; the audio sibling does not.
+    """
+    dl_path = os.path.join(download_path, "%(title)s---%(id)s.%(ext)s")
+    args = [
+        "-f",
+        "bestvideo[ext=mp4][height<=1080]/bestvideo[height<=1080]/bestvideo",
+        "-o",
+        dl_path,
+        "-S",
+        "vcodec:h264",
+        "--compat-options",
+        "filename-sanitization",
+        # Video-only streams aren't merged, so merger+ffmpeg_o is a no-op.
+        # Re-run faststart via the generic ffmpeg postprocessor instead so
+        # the browser can begin playback before the full file is on disk.
+        "--postprocessor-args",
+        "ffmpeg:-movflags +faststart",
+        "--write-info-json",
+        "--write-subs",
+        "--sub-langs",
+        "all,-live_chat",
+        "--convert-subs",
+        "vtt",
+        "--embed-metadata",
+    ]
+    cmd = yt_dlp_cmd + args + _js_runtime_args()
+    if youtubedl_proxy:
+        cmd += ["--proxy", youtubedl_proxy]
+    if additional_args:
+        cmd += shlex.split(additional_args)
+    cmd += [video_url]
+    return cmd
+
+
+def build_ytdl_audio_only_command(
+    video_url: str,
+    download_path: str,
+    youtubedl_proxy: str | None = None,
+    additional_args: str | None = None,
+) -> list[str]:
+    """Build the yt-dlp command for an audio-only m4a download.
+
+    Sibling to `build_ytdl_video_only_command`. `-x --audio-format m4a`
+    forces consistent `.m4a` output even if bestaudio returns opus/webm;
+    for YouTube the container usually already matches and no re-encode
+    runs.
+    """
+    dl_path = os.path.join(download_path, "%(title)s---%(id)s.%(ext)s")
+    args = [
+        "-f",
+        "bestaudio[ext=m4a]/bestaudio",
+        "-x",
+        "--audio-format",
+        "m4a",
+        "-o",
+        dl_path,
+        "--compat-options",
+        "filename-sanitization",
+    ]
+    cmd = yt_dlp_cmd + args + _js_runtime_args()
+    if youtubedl_proxy:
+        cmd += ["--proxy", youtubedl_proxy]
+    if additional_args:
+        cmd += shlex.split(additional_args)
+    cmd += [video_url]
+    return cmd
+
+
 def get_search_results(query: str) -> list[list[str]]:
     """Search YouTube for videos matching the query.
 

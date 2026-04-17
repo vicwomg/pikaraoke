@@ -27,9 +27,17 @@ def events():
 
 
 @pytest.fixture
-def preferences():
-    """Create a real PreferenceManager instance for testing."""
-    return PreferenceManager()
+def preferences(tmp_path):
+    """Create a real PreferenceManager instance for testing.
+
+    Pins ``vocal_removal`` off so tests target the merged-download path by
+    default (its value is host-dependent — defaults to True on machines
+    with a torch-capable GPU). Tests that exercise the split-download
+    pipeline flip it back on explicitly.
+    """
+    prefs = PreferenceManager(config_file_path=str(tmp_path / "config.ini"))
+    prefs.set("vocal_removal", False)
+    return prefs
 
 
 @pytest.fixture
@@ -456,6 +464,146 @@ class TestMergeMetadataIntoInfoJson:
         # Must not raise; leave file untouched.
         _merge_metadata_into_info_json(song_path, {"artist": "A", "track": "T"})
         assert info.read_text() == "not json {"
+
+
+class TestSplitDownload:
+    """Tests for the parallel audio + silent-video pipeline (vocal_removal on)."""
+
+    @staticmethod
+    def _make_popen(returncode: int = 0, lines: list[str] | None = None):
+        """Return a MagicMock that behaves like a finished subprocess.Popen.
+
+        ``readline`` drains ``lines`` and then returns ``""`` indefinitely,
+        matching real stream-closed behaviour so our reader loop exits
+        instead of raising StopIteration.
+        """
+        import itertools
+
+        proc = MagicMock()
+        queued = list(lines or [])
+        proc.stdout.readline.side_effect = itertools.chain(queued, itertools.repeat(""))
+        proc.poll.return_value = returncode
+        return proc
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.Popen")
+    def test_split_download_spawns_both_streams(
+        self,
+        mock_popen,
+        mock_gettext,
+        download_manager,
+        preferences,
+        song_manager,
+        tmp_path,
+    ):
+        """vocal_removal on → parallel video + audio yt-dlp."""
+        preferences.set("vocal_removal", True)
+        download_manager._download_path = str(tmp_path)
+
+        # Drop an m4a so _prewarm_audio_sibling has a file to operate on.
+        (tmp_path / "Song---abc12345678.m4a").write_text("")
+        (tmp_path / "Song---abc12345678.mp4").write_text("")
+        song_manager.songs.find_by_id.return_value = str(tmp_path / "Song---abc12345678.mp4")
+
+        mock_popen.side_effect = [self._make_popen(0), self._make_popen(0)]
+
+        with patch("pikaraoke.lib.demucs_processor.prewarm") as mock_prewarm:
+            rc = download_manager._execute_download(
+                "https://youtube.com/watch?v=abc12345678",
+                enqueue=False,
+                user="User",
+                title="Title",
+            )
+
+        assert rc == 0
+        # Two Popens — one video, one audio.
+        assert mock_popen.call_count == 2
+        commands = [call.args[0] for call in mock_popen.call_args_list]
+        joined = [" ".join(c) for c in commands]
+        assert any("bestvideo" in c for c in joined)
+        assert any("bestaudio" in c for c in joined)
+        # Demucs prewarm fired on the m4a sibling.
+        mock_prewarm.assert_called_once()
+        assert mock_prewarm.call_args.args[0].endswith(".m4a")
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.Popen")
+    def test_split_download_audio_failure_cleans_up_orphans(
+        self,
+        mock_popen,
+        mock_gettext,
+        download_manager,
+        preferences,
+        tmp_path,
+    ):
+        """Audio stream failure invalidates the download and removes siblings."""
+        preferences.set("vocal_removal", True)
+        download_manager._download_path = str(tmp_path)
+
+        mp4 = tmp_path / "Song---abc12345678.mp4"
+        info = tmp_path / "Song---abc12345678.info.json"
+        mp4.write_text("")
+        info.write_text("{}")
+
+        # Video succeeds (rc=0), audio fails (rc=1). Order matters less than
+        # which file each returns — side_effect serves them in sequence.
+        mock_popen.side_effect = [self._make_popen(0), self._make_popen(1)]
+
+        rc = download_manager._execute_download(
+            "https://youtube.com/watch?v=abc12345678",
+            enqueue=False,
+            user="User",
+            title="Title",
+        )
+
+        assert rc != 0
+        # Silent video and info.json are swept up so the library doesn't
+        # index an unplayable song.
+        assert not mp4.exists()
+        assert not info.exists()
+        assert len(download_manager.download_errors) == 1
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.Popen")
+    def test_split_download_progress_is_averaged(
+        self,
+        mock_popen,
+        mock_gettext,
+        download_manager,
+        preferences,
+        tmp_path,
+    ):
+        """active_download.progress tracks the mean of the two streams."""
+        preferences.set("vocal_removal", True)
+        download_manager._download_path = str(tmp_path)
+        download_manager.active_download = {
+            "title": "t",
+            "progress": 0.0,
+            "status": "starting",
+            "speed": "",
+            "eta": "",
+        }
+
+        # Video at 80%, audio at 40% → averaged 60%. Mock stdout emits one
+        # progress line each so _read_ytdlp_stdout sees something to parse.
+        video_proc = self._make_popen(
+            0,
+            lines=[
+                "[download]  80.0% of   10.00MiB at 1.00MiB/s ETA 00:05\n",
+            ],
+        )
+        audio_proc = self._make_popen(
+            0,
+            lines=[
+                "[download]  40.0% of    1.00MiB at 500KiB/s ETA 00:01\n",
+            ],
+        )
+        mock_popen.side_effect = [video_proc, audio_proc]
+
+        download_manager._run_split_download("https://youtube.com/watch?v=abc", "abc12345678")
+
+        # Both progress lines landed; progress is the mean.
+        assert download_manager.active_download["progress"] == pytest.approx(60.0, abs=0.01)
 
 
 class TestParallelMetadataEnrichment:

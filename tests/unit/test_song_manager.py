@@ -136,6 +136,17 @@ class TestDelete:
         sm.delete(_native(song))
         assert not ass.exists()
 
+    def test_deletes_m4a_sibling(self, tmp_path, mock_db):
+        """Parallel-download songs leave an .m4a next to the silent .mp4."""
+        song = tmp_path / "Test---abc.mp4"
+        m4a = tmp_path / "Test---abc.m4a"
+        song.write_text("fake")
+        m4a.write_text("fake")
+        sm = SongManager(str(tmp_path), db=mock_db)
+        sm.songs.add_if_valid(_native(song))
+        sm.delete(_native(song))
+        assert not m4a.exists()
+
     def test_nonexistent_file_no_error(self, tmp_path, mock_db):
         sm = SongManager(str(tmp_path), db=mock_db)
         sm.delete(_native(tmp_path / "nonexistent.mp4"))
@@ -172,6 +183,17 @@ class TestRename:
         sm.rename(_native(song), "New---abc")
         assert (tmp_path / "New---abc.ass").exists()
         assert not ass.exists()
+
+    def test_renames_m4a_sibling(self, tmp_path, mock_db):
+        song = tmp_path / "Old---abc.mp4"
+        m4a = tmp_path / "Old---abc.m4a"
+        song.write_text("fake")
+        m4a.write_text("fake")
+        sm = SongManager(str(tmp_path), db=mock_db)
+        sm.songs.add_if_valid(_native(song))
+        sm.rename(_native(song), "New---abc")
+        assert (tmp_path / "New---abc.m4a").exists()
+        assert not m4a.exists()
 
     def test_returns_new_path(self, tmp_path, mock_db):
         song = tmp_path / "Old---abc.mp4"

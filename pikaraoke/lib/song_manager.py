@@ -71,7 +71,12 @@ class SongManager:
         return self.filename_from_path(file_path, remove_youtube_id=remove_youtube_id, tidy=tidy)
 
     def _get_companion_files(self, song_path: str) -> list[str]:
-        """Return paths to companion files (.cdg, .ass) that exist alongside a song."""
+        """Return paths to companion files (.cdg, .ass, .m4a) alongside a song.
+
+        .m4a siblings are produced by the parallel-download pipeline (vocal
+        removal): the main .mp4 is silent and the audio lives next to it.
+        Deleting or renaming a song has to move them together.
+        """
         dirpath = os.path.dirname(song_path)
         base = os.path.splitext(os.path.basename(song_path))[0]
         try:
@@ -82,7 +87,7 @@ class SongManager:
         companions = []
         for f in files:
             f_base, f_ext = os.path.splitext(f)
-            if f_base.lower() == base_lower and f_ext.lower() in (".cdg", ".ass"):
+            if f_base.lower() == base_lower and f_ext.lower() in (".cdg", ".ass", ".m4a"):
                 companions.append(os.path.join(dirpath, f))
         return companions
 

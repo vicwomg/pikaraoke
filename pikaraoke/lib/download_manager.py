@@ -17,8 +17,16 @@ from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.youtube_dl import (
+    build_ytdl_audio_only_command,
     build_ytdl_download_command,
+    build_ytdl_video_only_command,
     get_youtube_id_from_url,
+)
+
+# yt-dlp download progress line:
+# [download]   0.0% of    4.62MiB at  396.66KiB/s ETA 00:12
+_YTDLP_PROGRESS_RE = re.compile(
+    r"\[download\]\s+(\d+\.?\d*)%\s+of\s+.*?\s+at\s+([^\s]+)\s+ETA\s+([^\s]+)"
 )
 
 _METADATA_LOOKUP_TIMEOUT_S = 2.0
@@ -210,6 +218,13 @@ class DownloadManager:
     ) -> int:
         """Execute a video download.
 
+        Dispatches to either the merged (single mp4) pipeline or the split
+        (parallel audio + silent video) pipeline based on the
+        ``vocal_removal`` preference. The split pipeline lets Demucs start
+        processing audio as soon as yt-dlp finishes the audio stream,
+        saving the wall time that would otherwise be spent waiting for
+        video + the yt-dlp merge step.
+
         Args:
             video_url: YouTube video URL.
             enqueue: Whether to add to queue after download.
@@ -226,15 +241,6 @@ class DownloadManager:
         # MSG: Message shown when download actually starts (after waiting in queue)
         self._events.emit("notification", _("Downloading video: %s") % displayed_title)
 
-        cmd = build_ytdl_download_command(
-            video_url,
-            self._download_path,
-            self._preferences.get_or_default("high_quality"),
-            self._youtubedl_proxy,
-            self._additional_ytdl_args,
-        )
-        logging.debug("yt-dlp command: " + " ".join(cmd))
-
         # Kick off iTunes metadata resolution in parallel with yt-dlp.
         # Result is merged into info.json after yt-dlp finishes so LyricsService
         # sees canonical artist/track when it queries LRCLib.
@@ -247,46 +253,13 @@ class DownloadManager:
         )
         metadata_thread.start()
 
-        # Use Popen to capture output in real-time
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,  # Line buffered
-            universal_newlines=True,
-        )
-
-        output_buffer = []
-
-        # Regex to parse progress from yt-dlp stdout
-        # Example: [download]   0.0% of    4.62MiB at  396.66KiB/s ETA 00:12
-        progress_regex = re.compile(
-            r"\[download\]\s+(\d+\.?\d*)%\s+of\s+.*?\s+at\s+([^\s]+)\s+ETA\s+([^\s]+)"
-        )
         video_id = get_youtube_id_from_url(video_url)
+        vocal_removal = bool(self._preferences.get_or_default("vocal_removal"))
 
-        while True:
-            line = process.stdout.readline()
-            if not line and process.poll() is not None:
-                break
-            if line:
-                output_buffer.append(line)
-                match = progress_regex.search(line)
-                if match and self.active_download:
-                    percent = float(match.group(1))
-                    speed = match.group(2)
-                    eta = match.group(3)
-
-                    self.active_download["progress"] = percent
-                    self.active_download["status"] = "downloading"
-                    self.active_download["speed"] = speed
-                    self.active_download["eta"] = eta
-                # Log only non-progress lines to avoid spamming logs, or log everything at debug
-                # logging.debug(line.strip())
-
-        rc = process.poll()
-        output = "".join(output_buffer)
+        if vocal_removal:
+            rc, output = self._run_split_download(video_url, video_id)
+        else:
+            rc, output = self._run_merged_download(video_url)
 
         if rc != 0:
             # Logic removed: We no longer retry synchronously as it blocks the queue.
@@ -348,12 +321,198 @@ class DownloadManager:
 
         return rc
 
+    def _run_merged_download(self, video_url: str) -> tuple[int | None, str]:
+        """Run the upstream single-process yt-dlp (merged mp4) pipeline.
+
+        Returns (return_code, combined stdout+stderr).
+        """
+        cmd = build_ytdl_download_command(
+            video_url,
+            self._download_path,
+            self._preferences.get_or_default("high_quality"),
+            self._youtubedl_proxy,
+            self._additional_ytdl_args,
+        )
+        logging.debug("yt-dlp command: " + " ".join(cmd))
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            universal_newlines=True,
+        )
+        output_buffer: list[str] = []
+
+        def on_progress(pct: float, speed: str, eta: str) -> None:
+            if self.active_download:
+                self.active_download["progress"] = pct
+                self.active_download["status"] = "downloading"
+                self.active_download["speed"] = speed
+                self.active_download["eta"] = eta
+
+        _read_ytdlp_stdout(process, output_buffer, on_progress)
+        return process.poll(), "".join(output_buffer)
+
+    def _run_split_download(self, video_url: str, video_id: str | None) -> tuple[int | None, str]:
+        """Run audio-only and video-only yt-dlp in parallel.
+
+        Demucs prewarm is triggered the moment the audio process exits
+        cleanly, so separation starts before the video finishes
+        downloading. The video return code decides overall success;
+        audio failure invalidates the download (the resulting video is
+        silent with no sibling to play back).
+
+        Returns (return_code, combined stdout+stderr of both processes).
+        """
+        video_cmd = build_ytdl_video_only_command(
+            video_url, self._download_path, self._youtubedl_proxy, self._additional_ytdl_args
+        )
+        audio_cmd = build_ytdl_audio_only_command(
+            video_url, self._download_path, self._youtubedl_proxy, self._additional_ytdl_args
+        )
+        logging.debug("yt-dlp video-only: " + " ".join(video_cmd))
+        logging.debug("yt-dlp audio-only: " + " ".join(audio_cmd))
+
+        pcts = {"audio": 0.0, "video": 0.0}
+
+        def make_on_progress(which: str):
+            def on_progress(pct: float, speed: str, eta: str) -> None:
+                pcts[which] = pct
+                if self.active_download:
+                    # Average across the two streams. Audio typically finishes
+                    # well before video, so after ~50% the dial tracks the
+                    # video stream's progress alone.
+                    self.active_download["progress"] = (pcts["audio"] + pcts["video"]) / 2
+                    self.active_download["status"] = "downloading"
+                    self.active_download["speed"] = speed
+                    self.active_download["eta"] = eta
+
+            return on_progress
+
+        audio_state: dict = {"rc": None, "output": ""}
+        video_state: dict = {"rc": None, "output": ""}
+
+        def run_audio() -> None:
+            proc = subprocess.Popen(
+                audio_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                universal_newlines=True,
+            )
+            buf: list[str] = []
+            _read_ytdlp_stdout(proc, buf, make_on_progress("audio"))
+            audio_state["rc"] = proc.poll()
+            audio_state["output"] = "".join(buf)
+            if audio_state["rc"] == 0 and video_id:
+                self._prewarm_audio_sibling(video_id)
+
+        def run_video() -> None:
+            proc = subprocess.Popen(
+                video_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                universal_newlines=True,
+            )
+            buf: list[str] = []
+            _read_ytdlp_stdout(proc, buf, make_on_progress("video"))
+            video_state["rc"] = proc.poll()
+            video_state["output"] = "".join(buf)
+
+        at = Thread(target=run_audio, name="yt-dlp-audio", daemon=True)
+        vt = Thread(target=run_video, name="yt-dlp-video", daemon=True)
+        at.start()
+        vt.start()
+        at.join()
+        vt.join()
+
+        combined_output = video_state["output"] + audio_state["output"]
+
+        # If either stream failed, the download isn't usable: a silent
+        # video with no audio sibling can't play, and an m4a without a
+        # matching video isn't a song. Remove any orphan files and
+        # surface a non-zero rc so the caller's error path runs.
+        if video_state["rc"] != 0 or audio_state["rc"] != 0:
+            if video_id:
+                self._cleanup_split_orphans(video_id)
+            rc = video_state["rc"] if video_state["rc"] not in (0, None) else audio_state["rc"]
+            return rc, combined_output
+
+        return 0, combined_output
+
+    def _prewarm_audio_sibling(self, video_id: str) -> None:
+        """Fire Demucs prewarm on the just-downloaded `.m4a` for video_id."""
+        m4a = _find_file_by_id(self._download_path, video_id, ".m4a")
+        if not m4a:
+            logging.warning(
+                "Audio download reported success but no sibling .m4a found for %s", video_id
+            )
+            return
+        try:
+            from pikaraoke.lib.demucs_processor import prewarm
+
+            prewarm(m4a)
+        except Exception:  # pragma: no cover - defensive
+            logging.exception("Demucs prewarm dispatch failed for %s", m4a)
+
+    def _cleanup_split_orphans(self, video_id: str) -> None:
+        """Delete any partial video/audio files from a failed split download."""
+        for ext in (".mp4", ".m4a", ".info.json"):
+            path = _find_file_by_id(self._download_path, video_id, ext)
+            if path:
+                try:
+                    os.remove(path)
+                    logging.info("Removed orphan %s", path)
+                except OSError as e:
+                    logging.warning("Could not remove orphan %s: %s", path, e)
+
     @staticmethod
     def _resolve_metadata_async(title: str, holder: dict) -> None:
         try:
             holder["meta"] = resolve_metadata(title)
         except Exception:  # pragma: no cover - defensive, resolver catches its own
             logging.warning("metadata lookup crashed for %r", title, exc_info=True)
+
+
+def _read_ytdlp_stdout(
+    process: subprocess.Popen,
+    output_buffer: list[str],
+    on_progress,
+) -> None:
+    """Drain a yt-dlp subprocess stdout, parsing progress lines as they arrive.
+
+    `on_progress(pct, speed, eta)` is invoked for each matching download
+    line; non-progress lines are appended to ``output_buffer`` only (kept
+    for error logging). Returns when the process exits and stdout is
+    drained.
+    """
+    while True:
+        line = process.stdout.readline()
+        if not line and process.poll() is not None:
+            break
+        if not line:
+            continue
+        output_buffer.append(line)
+        match = _YTDLP_PROGRESS_RE.search(line)
+        if match:
+            on_progress(float(match.group(1)), match.group(2), match.group(3))
+
+
+def _find_file_by_id(directory: str, video_id: str, ext: str) -> str | None:
+    """Locate ``<anything>---<video_id><ext>`` in ``directory`` (non-recursive)."""
+    needle = f"---{video_id}{ext}"
+    try:
+        with os.scandir(directory) as it:
+            for entry in it:
+                if entry.is_file() and entry.name.endswith(needle):
+                    return entry.path
+    except OSError:
+        return None
+    return None
 
 
 def _merge_metadata_into_info_json(song_path: str, meta: dict | None) -> None:

@@ -496,3 +496,49 @@ class TestFileResolverProcessFile:
 
         assert fr.file_extension == ".mkv"
         assert fr.file_path == str(video_file)
+
+
+class TestFileResolverAudioSibling:
+    """Parallel-download pipeline leaves a silent .mp4 plus a sibling .m4a.
+
+    FileResolver surfaces the sibling so StreamManager can pipe it as the
+    audio track.
+    """
+
+    @patch("pikaraoke.lib.file_resolver.get_media_duration", return_value=180)
+    @patch("pikaraoke.lib.file_resolver.create_tmp_dir")
+    @patch("pikaraoke.lib.file_resolver.get_tmp_dir", return_value="/tmp/12345")
+    def test_detects_m4a_sibling(self, mock_tmp, mock_create, mock_duration, tmp_path):
+        video_file = tmp_path / "song.mp4"
+        audio_file = tmp_path / "song.m4a"
+        video_file.touch()
+        audio_file.touch()
+
+        fr = FileResolver(str(video_file))
+
+        assert fr.audio_sibling_path == str(audio_file)
+
+    @patch("pikaraoke.lib.file_resolver.get_media_duration", return_value=180)
+    @patch("pikaraoke.lib.file_resolver.create_tmp_dir")
+    @patch("pikaraoke.lib.file_resolver.get_tmp_dir", return_value="/tmp/12345")
+    def test_no_sibling_leaves_field_none(self, mock_tmp, mock_create, mock_duration, tmp_path):
+        video_file = tmp_path / "song.mp4"
+        video_file.touch()
+
+        fr = FileResolver(str(video_file))
+
+        assert fr.audio_sibling_path is None
+
+    @patch("pikaraoke.lib.file_resolver.get_media_duration", return_value=180)
+    @patch("pikaraoke.lib.file_resolver.create_tmp_dir")
+    @patch("pikaraoke.lib.file_resolver.get_tmp_dir", return_value="/tmp/12345")
+    def test_non_mp4_ignores_sibling(self, mock_tmp, mock_create, mock_duration, tmp_path):
+        """Sibling detection is scoped to mp4 inputs; webm doesn't pair with m4a."""
+        video_file = tmp_path / "song.webm"
+        audio_file = tmp_path / "song.m4a"
+        video_file.touch()
+        audio_file.touch()
+
+        fr = FileResolver(str(video_file))
+
+        assert fr.audio_sibling_path is None

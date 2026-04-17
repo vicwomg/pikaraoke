@@ -7,7 +7,9 @@ from unittest.mock import MagicMock, PropertyMock, patch
 import pytest
 
 from pikaraoke.lib.youtube_dl import (
+    build_ytdl_audio_only_command,
     build_ytdl_download_command,
+    build_ytdl_video_only_command,
     get_youtube_id_from_url,
     get_youtubedl_version,
     upgrade_youtubedl,
@@ -204,6 +206,69 @@ class TestBuildYtdlDownloadCommand:
             additional_args="--no-playlist",
         )
         assert cmd[-1] == "https://www.youtube.com/watch?v=test123"
+
+
+class TestBuildSplitCommands:
+    """Audio-only and video-only yt-dlp builders used by vocal_removal path."""
+
+    @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
+    def test_video_only_is_hq_h264_mp4(self, mock_js):
+        cmd = build_ytdl_video_only_command(
+            video_url="https://www.youtube.com/watch?v=t", download_path="/songs"
+        )
+        fmt = cmd[cmd.index("-f") + 1]
+        assert "bestvideo" in fmt
+        assert "1080" in fmt
+        assert cmd[cmd.index("-S") + 1] == "vcodec:h264"
+        assert "--write-info-json" in cmd
+        assert cmd[-1] == "https://www.youtube.com/watch?v=t"
+
+    @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
+    def test_video_only_faststart(self, mock_js):
+        cmd = build_ytdl_video_only_command(
+            video_url="https://www.youtube.com/watch?v=t", download_path="/songs"
+        )
+        assert "--postprocessor-args" in cmd
+        idx = cmd.index("--postprocessor-args") + 1
+        assert "faststart" in cmd[idx]
+
+    @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
+    def test_audio_only_forces_m4a(self, mock_js):
+        cmd = build_ytdl_audio_only_command(
+            video_url="https://www.youtube.com/watch?v=t", download_path="/songs"
+        )
+        assert "bestaudio" in cmd[cmd.index("-f") + 1]
+        assert "-x" in cmd
+        assert cmd[cmd.index("--audio-format") + 1] == "m4a"
+        # Audio side must not duplicate info.json/subs - the video side owns those.
+        assert "--write-info-json" not in cmd
+        assert "--write-subs" not in cmd
+
+    @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
+    def test_split_commands_share_output_template(self, mock_js):
+        v = build_ytdl_video_only_command(
+            video_url="https://www.youtube.com/watch?v=t", download_path="/songs"
+        )
+        a = build_ytdl_audio_only_command(
+            video_url="https://www.youtube.com/watch?v=t", download_path="/songs"
+        )
+        v_out = v[v.index("-o") + 1]
+        a_out = a[a.index("-o") + 1]
+        assert v_out.endswith("%(title)s---%(id)s.%(ext)s")
+        assert a_out.endswith("%(title)s---%(id)s.%(ext)s")
+        # Same naming template ensures siblings land next to each other on disk.
+        assert v_out == a_out
+
+    @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
+    def test_split_commands_accept_proxy_and_extras(self, mock_js):
+        cmd = build_ytdl_video_only_command(
+            video_url="https://www.youtube.com/watch?v=t",
+            download_path="/songs",
+            youtubedl_proxy="http://proxy:8080",
+            additional_args="--no-playlist",
+        )
+        assert "--proxy" in cmd
+        assert "--no-playlist" in cmd
 
 
 class TestGetYoutubedlVersion:

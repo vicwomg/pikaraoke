@@ -470,11 +470,30 @@ _prewarm_done: set[str] = set()
 _prewarm_lock = threading.Lock()
 
 
+def resolve_audio_source(media_path: str) -> str:
+    """Return the audio path to hash and feed into ffmpeg.
+
+    When a sibling ``<basename>.m4a`` exists next to a video file, prefer
+    it: playing from the audio-only stream makes both the cache key and
+    the ffmpeg extract step stable and fast (no video demux). When the
+    input is already an audio file, return it unchanged.
+    """
+    base, ext = os.path.splitext(media_path)
+    if ext.lower() in (".m4a", ".mp3", ".wav", ".flac", ".ogg", ".opus"):
+        return media_path
+    sibling = f"{base}.m4a"
+    if os.path.isfile(sibling):
+        return sibling
+    return media_path
+
+
 def prewarm(file_path: str) -> None:
     """Fire-and-forget: populate the Demucs cache for file_path.
 
     Idempotent. Deduplicates by path so the main run loop can poll-call
     it without flooding threads. No-op if already warmed this session.
+    Prefers a sibling ``.m4a`` audio file when one exists — that keeps the
+    cache key stable across the silent-video pipeline.
     """
     with _prewarm_lock:
         if file_path in _prewarm_done or file_path in _prewarm_in_progress:
@@ -484,10 +503,11 @@ def prewarm(file_path: str) -> None:
     def _run() -> None:
         success = False
         try:
+            audio_source = resolve_audio_source(file_path)
             # SHA256 of a 200 MB mp4 is ~1 s — would block the main loop
             # if computed under the dedup lock. Path-keyed dedup is good
             # enough (two distinct paths w/ identical bytes is harmless).
-            cache_key = get_cache_key(file_path)
+            cache_key = get_cache_key(audio_source)
             if get_cached_stems(cache_key):
                 success = True
                 return
@@ -499,7 +519,7 @@ def prewarm(file_path: str) -> None:
                         "ffmpeg",
                         "-y",
                         "-i",
-                        file_path,
+                        audio_source,
                         "-f",
                         "wav",
                         "-ar",

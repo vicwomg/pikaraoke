@@ -436,7 +436,12 @@ class TestStreamManagerPlayFile:
     """Tests for StreamManager.play_file method."""
 
     def _setup_resolver(
-        self, mock_resolver_class, output_ext="mp4", duration=200, ass_file_path=None
+        self,
+        mock_resolver_class,
+        output_ext="mp4",
+        duration=200,
+        ass_file_path=None,
+        audio_sibling_path=None,
     ):
         """Configure mock FileResolver with standard play_file test attributes."""
         mock_fr = MagicMock()
@@ -446,6 +451,9 @@ class TestStreamManagerPlayFile:
         mock_fr.ass_file_path = ass_file_path
         # Plain string so can_serve_* predicates don't blow up on the Mock.
         mock_fr.file_path = "/songs/test.mp4"
+        # Default to None so MagicMock's auto-truthy attribute doesn't
+        # spuriously trigger the silent-video audio-pipe branch.
+        mock_fr.audio_sibling_path = audio_sibling_path
         mock_resolver_class.return_value = mock_fr
         return mock_fr
 
