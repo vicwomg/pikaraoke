@@ -21,6 +21,19 @@ from pikaraoke.lib.preference_manager import PreferenceManager
 
 
 @dataclass
+class ActiveStems:
+    """In-progress or cached stems for the currently playing song.
+
+    Held by StreamManager so the HTTP tail route can locate files by stream_uid.
+    """
+
+    vocals_path: str
+    instrumental_path: str
+    format: str  # "wav" or "mp3"
+    done_event: threading.Event  # set when stem files are fully written
+
+
+@dataclass
 class PlaybackResult:
     """Result of a playback operation.
 
@@ -74,12 +87,9 @@ class StreamManager:
         self.streaming_format = streaming_format
         self.ffmpeg_process = None
         self.ffmpeg_log: Queue | None = None
-        # Current playback context — used to restart FFmpeg with new volumes
-        self._current_fr: FileResolver | None = None
-        self._current_semitones: int = 0
-        self._current_is_hls: bool = False
-        self._current_vocals_wav: str | None = None
-        self._current_instrumental_wav: str | None = None
+        # Map of stream_uid -> ActiveStems, for the HTTP tail routes that
+        # serve vocals/instrumental audio to the browser.
+        self.active_stems: dict[str, ActiveStems] = {}
 
     def play_file(self, file_path: str, semitones: int = 0) -> PlaybackResult:
         """Start playback of a media file.
@@ -201,23 +211,13 @@ class StreamManager:
         cdg_pixel_scaling = self.preferences.get_or_default("cdg_pixel_scaling")
         buffer_size = int(self.preferences.get_or_default("buffer_size")) * 1000
 
-        # Run Demucs stem separation if enabled
-        vocals_wav = None
-        instrumental_wav = None
+        # Run Demucs stem separation if enabled. Audio is stripped from the
+        # FFmpeg output; the browser loads the stems via /stream/<id>/<stem>.*
+        # and mixes them client-side for zero-latency volume control.
+        strip_audio = False
         if vocal_removal and fr.file_path:
-            stems = self._run_demucs(fr)
-            if stems:
-                vocals_wav, instrumental_wav = stems
-
-        vocal_volume = float(self.preferences.get_or_default("vocal_volume"))
-        instrumental_volume = float(self.preferences.get_or_default("instrumental_volume"))
-
-        # Cache playback context for volume-change restarts
-        self._current_fr = fr
-        self._current_semitones = semitones
-        self._current_is_hls = is_hls
-        self._current_vocals_wav = vocals_wav
-        self._current_instrumental_wav = instrumental_wav
+            if self._prepare_stems(fr):
+                strip_audio = True
 
         ffmpeg_cmd = build_ffmpeg_cmd(
             fr,
@@ -227,10 +227,7 @@ class StreamManager:
             complete_transcode_before_play,
             avsync,
             cdg_pixel_scaling,
-            vocals_audio=vocals_wav,
-            instrumental_audio=instrumental_wav,
-            vocal_volume=vocal_volume,
-            instrumental_volume=instrumental_volume,
+            strip_audio=strip_audio,
         )
         self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
 
@@ -359,29 +356,31 @@ class StreamManager:
 
         return False
 
-    def _run_demucs(self, fr: FileResolver) -> tuple[str, str] | None:
-        """Run Demucs stem separation (or reuse cached stems).
+    def _prepare_stems(self, fr: FileResolver) -> bool:
+        """Ensure stems are available for the current song and register them.
 
-        Extracts audio to WAV, computes a metadata-invariant cache key from
-        the decoded PCM, and either returns cached stems or runs streaming
-        Demucs separation producing both vocals.wav and instrumental.wav.
+        Order of preference:
+          1. MP3 cache — register and return (no Demucs).
+          2. WAV cache — register and kick off MP3 encode in background.
+          3. Live Demucs — write to <cache>/vocals.wav.partial progressively,
+             register the .partial paths. The HTTP tail route serves the
+             growing files. On completion, .partial is renamed to .wav and
+             MP3 encoding starts in the background.
 
-        Args:
-            fr: FileResolver instance with file information.
-
-        Returns:
-            (vocals_wav_path, instrumental_wav_path), or None on failure.
+        Returns True if stems are registered (audio should be stripped from
+        the FFmpeg video output), False on failure (fall back to normal audio).
         """
         from pikaraoke.lib.demucs_processor import (
-            cache_stems,
+            encode_mp3_in_background,
+            finalize_partial_stems,
             get_cache_key,
             get_cached_stems,
+            partial_stem_paths,
             separate_stems,
         )
 
         input_wav = os.path.join(fr.tmp_dir, "demucs_input.wav")
 
-        # Extract audio to WAV (needed both for hashing and as Demucs input)
         logging.info(f"Demucs: extracting audio from {fr.file_path}")
         result = subprocess.run(
             ["ffmpeg", "-y", "-i", fr.file_path, "-f", "wav", "-ar", "44100", input_wav],
@@ -389,110 +388,62 @@ class StreamManager:
         )
         if result.returncode != 0:
             logging.error(f"FFmpeg audio extraction failed: {result.stderr.decode()}")
-            return None
+            return False
 
-        # Metadata-invariant cache key from the decoded PCM
         cache_key = get_cache_key(input_wav)
+        stream_uid = str(fr.stream_uid)
         cached = get_cached_stems(cache_key)
+
         if cached:
-            return cached
+            vocals_path, instrumental_path, fmt = cached
+            done = threading.Event()
+            done.set()
+            self.active_stems[stream_uid] = ActiveStems(
+                vocals_path=vocals_path,
+                instrumental_path=instrumental_path,
+                format=fmt,
+                done_event=done,
+            )
+            # WAV cache → encode MP3 in background so the next play is smaller.
+            if fmt == "wav":
+                encode_mp3_in_background(cache_key)
+            return True
 
-        vocals_wav = os.path.join(fr.tmp_dir, "demucs_vocals.wav")
-        instrumental_wav = os.path.join(fr.tmp_dir, "demucs_instrumental.wav")
+        # Tier 3: live Demucs. Write .partial files directly into the cache
+        # directory; the HTTP tail route reads them as they grow.
+        partial_v, partial_i = partial_stem_paths(cache_key)
         ready_event = threading.Event()
+        done_event = threading.Event()
 
-        def _separate_and_cache() -> None:
-            ok = separate_stems(input_wav, vocals_wav, instrumental_wav, ready_event)
-            if ok:
-                try:
-                    cache_stems(cache_key, vocals_wav, instrumental_wav)
-                except Exception:
-                    logging.exception("Failed to cache Demucs stems")
+        def _separate_and_finalize() -> None:
+            try:
+                ok = separate_stems(input_wav, partial_v, partial_i, ready_event)
+                if ok:
+                    final_v, final_i = finalize_partial_stems(cache_key)
+                    entry = self.active_stems.get(stream_uid)
+                    if entry is not None:
+                        entry.vocals_path = final_v
+                        entry.instrumental_path = final_i
+                    encode_mp3_in_background(cache_key)
+            finally:
+                done_event.set()
 
-        demucs_thread = threading.Thread(target=_separate_and_cache, daemon=True)
-        demucs_thread.start()
+        threading.Thread(target=_separate_and_finalize, daemon=True).start()
 
         logging.info("Demucs: waiting for first segment...")
         ready_event.wait(timeout=120)
 
-        if not (os.path.exists(vocals_wav) and os.path.exists(instrumental_wav)):
+        if not (os.path.exists(partial_v) and os.path.exists(partial_i)):
             logging.error("Demucs: output files not created")
-            demucs_thread.join(timeout=5)
-            return None
-
-        logging.info("Demucs: first segment ready, starting FFmpeg")
-        self._demucs_thread = demucs_thread
-        return vocals_wav, instrumental_wav
-
-    def restart_with_new_volumes(self) -> bool:
-        """Restart FFmpeg for the current song with updated stem volumes.
-
-        Only has effect when stem separation is active (both vocals_wav and
-        instrumental_wav are set for the current playback). The new volumes
-        are read from preferences. The client is expected to reload the
-        stream and seek to the previously-saved position.
-
-        Returns:
-            True if a restart was issued, False if no eligible stream is active.
-        """
-        if not (self._current_fr and self._current_vocals_wav and self._current_instrumental_wav):
             return False
 
-        fr = self._current_fr
-        is_hls = self._current_is_hls
-        semitones = self._current_semitones
-
-        normalize_audio = self.preferences.get_or_default("normalize_audio")
-        complete_transcode_before_play = self.preferences.get_or_default(
-            "complete_transcode_before_play"
+        self.active_stems[stream_uid] = ActiveStems(
+            vocals_path=partial_v,
+            instrumental_path=partial_i,
+            format="wav",
+            done_event=done_event,
         )
-        avsync = self.preferences.get_or_default("avsync")
-        cdg_pixel_scaling = self.preferences.get_or_default("cdg_pixel_scaling")
-        vocal_volume = float(self.preferences.get_or_default("vocal_volume"))
-        instrumental_volume = float(self.preferences.get_or_default("instrumental_volume"))
-
-        logging.info(
-            f"Restarting FFmpeg with vocal_volume={vocal_volume} "
-            f"instrumental_volume={instrumental_volume}"
-        )
-        self.kill_ffmpeg()
-
-        # Clear stale HLS segments / mp4 output so ffmpeg starts fresh
-        try:
-            if is_hls:
-                stream_uid_str = str(fr.stream_uid)
-                for name in os.listdir(fr.tmp_dir):
-                    if stream_uid_str in name and (name.endswith(".m4s") or name.endswith(".m3u8")):
-                        try:
-                            os.remove(os.path.join(fr.tmp_dir, name))
-                        except OSError:
-                            pass
-            elif os.path.exists(fr.output_file):
-                os.remove(fr.output_file)
-        except Exception:
-            logging.exception("Failed to clean previous stream outputs before restart")
-
-        ffmpeg_cmd = build_ffmpeg_cmd(
-            fr,
-            semitones,
-            normalize_audio,
-            not is_hls,
-            complete_transcode_before_play,
-            avsync,
-            cdg_pixel_scaling,
-            vocals_audio=self._current_vocals_wav,
-            instrumental_audio=self._current_instrumental_wav,
-            vocal_volume=vocal_volume,
-            instrumental_volume=instrumental_volume,
-        )
-        self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
-        self.ffmpeg_log = Queue()
-        t = Thread(
-            target=enqueue_output,
-            args=(self.ffmpeg_process.stderr, self.ffmpeg_log),
-            daemon=True,
-        )
-        t.start()
+        logging.info("Demucs: first segment ready")
         return True
 
     def log_ffmpeg_output(self) -> None:

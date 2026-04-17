@@ -213,6 +213,13 @@ class Karaoke:
 
         self.generate_qr_code()
 
+        # Clean up half-written Demucs stems from any previous run.
+        try:
+            from pikaraoke.lib.demucs_processor import cleanup_stale_partials
+            cleanup_stale_partials()
+        except Exception:
+            logging.exception("Failed to clean up stale Demucs partials")
+
         # Set preferred language from command line if provided (persists to config)
         if preferred_language:
             self.preferences.set("preferred_language", preferred_language)
@@ -474,21 +481,19 @@ class Karaoke:
         return True
 
     def vocal_volume_change(self, vol_level: float) -> bool:
-        """Set the vocal stem volume (used when vocal_removal is active)."""
+        """Set the vocal stem volume. Applied client-side via Web Audio."""
         vol_level = max(0.0, min(1.0, float(vol_level)))
         self.preferences.set("vocal_volume", vol_level)
         self.vocal_volume = vol_level
-        self.playback_controller.stream_manager.restart_with_new_volumes()
         self.log_and_send(_("Vocal volume: %s") % (int(vol_level * 100)))
         self.update_now_playing_socket()
         return True
 
     def instrumental_volume_change(self, vol_level: float) -> bool:
-        """Set the instrumental stem volume (used when vocal_removal is active)."""
+        """Set the instrumental stem volume. Applied client-side via Web Audio."""
         vol_level = max(0.0, min(1.0, float(vol_level)))
         self.preferences.set("instrumental_volume", vol_level)
         self.instrumental_volume = vol_level
-        self.playback_controller.stream_manager.restart_with_new_volumes()
         self.log_and_send(_("Instrumental volume: %s") % (int(vol_level * 100)))
         self.update_now_playing_socket()
         return True
@@ -553,6 +558,19 @@ class Karaoke:
         # Get playback state from PlaybackController
         playback_state = self.playback_controller.get_now_playing()
 
+        # Expose per-stem audio URLs when vocal_removal is active for the
+        # currently playing song, so the splash player can mix client-side.
+        vocals_url = None
+        instrumental_url = None
+        stream_url = playback_state.get("now_playing_url")
+        if stream_url:
+            stream_uid = stream_url.rsplit("/", 1)[-1].split(".", 1)[0]
+            stems = self.playback_controller.stream_manager.active_stems.get(stream_uid)
+            if stems:
+                ext = stems.format  # "wav" or "mp3"
+                vocals_url = f"/stream/{stream_uid}/vocals.{ext}"
+                instrumental_url = f"/stream/{stream_uid}/instrumental.{ext}"
+
         return {
             **playback_state,
             "up_next": next_song["title"] if next_song else None,
@@ -561,6 +579,8 @@ class Karaoke:
             "vocal_removal": bool(self.preferences.get_or_default("vocal_removal")),
             "vocal_volume": float(self.vocal_volume),
             "instrumental_volume": float(self.instrumental_volume),
+            "vocals_url": vocals_url,
+            "instrumental_url": instrumental_url,
         }
 
     def update_now_playing_socket(self) -> None:

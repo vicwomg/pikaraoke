@@ -13,6 +13,13 @@ let isScoreShown = false;
 const hasBgVideo = PikaraokeConfig.hasBgVideo;
 let currentVideoUrl = null;
 let hlsInstance = null;
+
+// Client-side stem mixing state. When vocal_removal is on, the server strips
+// audio from the video stream and serves vocals/instrumental stems via
+// /stream/<id>/<stem>.<ext>. We load both stems as HTMLAudioElements, route
+// them through Web Audio gain nodes, and sync them to video playback.
+let stemAudioCtx = null;
+let stemNodes = null; // { vocals: {el, gain}, instrumental: {el, gain}, urls: {vocals, instrumental} }
 let idleTime = 0;
 let screensaverTimeoutSeconds = PikaraokeConfig.screensaverTimeout;
 let bg_playlist = [];
@@ -113,7 +120,9 @@ const endSong = async (reason = null, showScore = false) => {
     hlsInstance.destroy();
     hlsInstance = null;
   }
+  teardownStemAudio();
   const video = getVideoPlayer();
+  video.muted = false;
   video.pause();
   $("#video-source").attr("src", "");
   video.load();
@@ -257,8 +266,109 @@ const setupScreensaver = () => {
   }
 }
 
+const teardownStemAudio = () => {
+  if (!stemNodes) return;
+  for (const key of ["vocals", "instrumental"]) {
+    const node = stemNodes[key];
+    if (!node) continue;
+    try { node.el.pause(); } catch (e) {}
+    try { node.source.disconnect(); } catch (e) {}
+    try { node.gain.disconnect(); } catch (e) {}
+    node.el.removeAttribute("src");
+    try { node.el.load(); } catch (e) {}
+    node.el.remove();
+  }
+  stemNodes = null;
+};
+
+const setupStemAudio = (np, video) => {
+  // Fresh setup every song — URLs contain stream_uid so they're per-song.
+  teardownStemAudio();
+  if (!stemAudioCtx) {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) {
+      console.warn("Web Audio API not available; stem mixing disabled");
+      return;
+    }
+    stemAudioCtx = new Ctor();
+  }
+  if (stemAudioCtx.state === "suspended") stemAudioCtx.resume();
+
+  const makeStem = (url, initialGain) => {
+    const el = new Audio();
+    el.crossOrigin = "anonymous";
+    el.preload = "auto";
+    el.src = url;
+    const source = stemAudioCtx.createMediaElementSource(el);
+    const gain = stemAudioCtx.createGain();
+    gain.gain.value = initialGain;
+    source.connect(gain).connect(stemAudioCtx.destination);
+    return { el, source, gain };
+  };
+
+  stemNodes = {
+    vocals: makeStem(np.vocals_url, np.vocal_volume ?? 0.3),
+    instrumental: makeStem(np.instrumental_url, np.instrumental_volume ?? 1.0),
+    urls: { vocals: np.vocals_url, instrumental: np.instrumental_url },
+  };
+
+  // Video is silent; all audible sound comes from stems.
+  video.muted = true;
+  video.volume = 0;
+
+  // Sync stems to video. Any drift > 150ms is corrected.
+  const syncAll = () => {
+    for (const k of ["vocals", "instrumental"]) {
+      const a = stemNodes[k].el;
+      if (Math.abs(a.currentTime - video.currentTime) > 0.15) {
+        try { a.currentTime = video.currentTime; } catch (e) {}
+      }
+    }
+  };
+  const playAll = () => {
+    syncAll();
+    for (const k of ["vocals", "instrumental"]) {
+      stemNodes[k].el.play().catch(() => {});
+    }
+  };
+  const pauseAll = () => {
+    for (const k of ["vocals", "instrumental"]) {
+      try { stemNodes[k].el.pause(); } catch (e) {}
+    }
+  };
+
+  video.addEventListener("play", playAll);
+  video.addEventListener("pause", pauseAll);
+  video.addEventListener("seeking", syncAll);
+  video.addEventListener("seeked", syncAll);
+  // Periodic drift correction while playing
+  video.addEventListener("timeupdate", () => {
+    if (video.paused) return;
+    for (const k of ["vocals", "instrumental"]) {
+      const a = stemNodes[k].el;
+      const drift = a.currentTime - video.currentTime;
+      if (Math.abs(drift) > 0.2) {
+        try { a.currentTime = video.currentTime; } catch (e) {}
+      }
+    }
+  });
+};
+
+const applyStemVolumes = (np) => {
+  if (!stemNodes) return;
+  if (typeof np.vocal_volume === "number") {
+    stemNodes.vocals.gain.gain.value = np.vocal_volume;
+  }
+  if (typeof np.instrumental_volume === "number") {
+    stemNodes.instrumental.gain.gain.value = np.instrumental_volume;
+  }
+};
+
 const handleNowPlayingUpdate = (np) => {
   nowPlaying = np;
+  // Apply stem volume updates on every poll/socket update so home-page slider
+  // changes take effect mid-song. Safe when stemNodes is null.
+  applyStemVolumes(np);
   if (np.now_playing) {
 
     // Handle updating now playing HTML
@@ -335,6 +445,15 @@ const handleNowPlayingUpdate = (np) => {
     }
 
     video.load();
+
+    // Set up stem audio mixing for vocal_removal songs, or tear down for normal ones.
+    if (np.vocals_url && np.instrumental_url) {
+      setupStemAudio(np, video);
+    } else {
+      teardownStemAudio();
+      video.muted = false;
+    }
+
     if (volume !== np.volume) {
       volume = np.volume;
       video.volume = volume;
