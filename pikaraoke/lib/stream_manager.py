@@ -429,6 +429,22 @@ class StreamManager:
                 encode_mp3_in_background(cache_key)
             return True
 
+        # Extract audio on the main greenlet. gevent-patched subprocess only
+        # works from the default hub; threadpool workers have their own hub
+        # and raise "child watchers are only available on the default loop".
+        # This blocks the main greenlet briefly (~1-3s for a 4-min song) but
+        # gevent still yields during subprocess wait, so other greenlets
+        # (SocketIO, Flask) keep running.
+        input_wav = os.path.join(fr.tmp_dir, "demucs_input.wav")
+        logging.info(f"Demucs: extracting audio from {fr.file_path}")
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-i", fr.file_path, "-f", "wav", "-ar", "44100", input_wav],
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            logging.error(f"FFmpeg audio extraction failed: {result.stderr.decode()}")
+            return False
+
         # Tier 3: live Demucs. Register .partial paths immediately; the HTTP
         # tail route has a grace period that waits for the file to appear.
         partial_v, partial_i = partial_stem_paths(cache_key)
@@ -446,9 +462,7 @@ class StreamManager:
         )
 
         # Lock synchronizes the bg-thread rename (.partial → .wav via
-        # finalize_partial_stems) with any path reads on the entry. Without
-        # it, a fast separation (short song) can rename while a caller holds
-        # a stale .partial path.
+        # finalize_partial_stems) with any path reads on the entry.
         finalize_lock = threading.Lock()
         last_emit = [0.0]  # [timestamp] — throttle broadcasts to ~1/s
 
@@ -462,20 +476,8 @@ class StreamManager:
                 last_emit[0] = now
                 self._emit_demucs_progress(processed, total)
 
-        def _extract_and_separate() -> None:
+        def _separate_and_finalize() -> None:
             try:
-                input_wav = os.path.join(fr.tmp_dir, "demucs_input.wav")
-                logging.info(f"Demucs: extracting audio from {fr.file_path}")
-                result = subprocess.run(
-                    ["ffmpeg", "-y", "-i", fr.file_path, "-f", "wav", "-ar", "44100", input_wav],
-                    capture_output=True,
-                )
-                if result.returncode != 0:
-                    logging.error(f"FFmpeg audio extraction failed: {result.stderr.decode()}")
-                    # Drop registration so stale 404s don't linger forever.
-                    self.active_stems.pop(stream_uid, None)
-                    return
-
                 ok = separate_stems(input_wav, partial_v, partial_i, ready_event, progress_cb)
                 if ok:
                     with finalize_lock:
@@ -497,12 +499,11 @@ class StreamManager:
 
         # Demucs runs PyTorch inference that holds the GIL for seconds at a
         # time. Under gevent monkey-patching `threading.Thread` is a greenlet,
-        # so a non-yielding worker freezes the whole event loop (SocketIO,
-        # Flask, every other greenlet). Use gevent.threadpool to get a real
-        # OS thread instead — the GIL still blocks Python execution briefly
-        # but cross-thread primitives (threading.Event under monkey-patch)
-        # wake greenlets correctly once the pool thread yields.
-        self._get_demucs_pool().spawn(_extract_and_separate)
+        # so a non-yielding worker freezes the whole event loop. Use
+        # gevent.threadpool for a real OS thread — no subprocess calls happen
+        # in the pool (extraction is already done above), so the gevent-hub
+        # restriction doesn't apply.
+        self._get_demucs_pool().spawn(_separate_and_finalize)
         threading.Thread(target=_notify_when_ready, daemon=True).start()
 
         return True
