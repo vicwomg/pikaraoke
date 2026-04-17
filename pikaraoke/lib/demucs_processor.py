@@ -12,6 +12,8 @@ import hashlib
 import logging
 import os
 import struct
+import subprocess
+import tempfile
 import threading
 from typing import Callable
 
@@ -332,7 +334,8 @@ def separate_stems(
         _write_wav_header(f_instrumental, sr, channels, length)
 
         written_up_to = 0
-        first_segment_written = False
+        segments_written = 0
+        min_ready_segments = 2
 
         scale = float(format(stride / sr, ".2f"))
         progress_bar = tqdm(total=len(offsets), unit_scale=scale, ncols=120, unit="seconds")
@@ -397,12 +400,13 @@ def separate_stems(
                 f_instrumental.flush()
 
                 written_up_to = safe_up_to
+                segments_written += 1
 
-                if not first_segment_written:
-                    first_segment_written = True
-                    if ready_event:
-                        ready_event.set()
-                    logging.info(f"Demucs: first segment ready ({written_up_to / sr:.1f}s)")
+                if segments_written == min_ready_segments and ready_event:
+                    ready_event.set()
+                    logging.info(
+                        f"Demucs: {segments_written} segments ready ({written_up_to / sr:.1f}s)"
+                    )
 
                 if progress_callback:
                     try:
@@ -435,6 +439,11 @@ def separate_stems(
 
         f_vocals.close()
         f_instrumental.close()
+        # Short files (fewer than min_ready_segments) never hit the in-loop
+        # set; fire here so the frontend never hangs waiting.
+        if ready_event and not ready_event.is_set():
+            ready_event.set()
+            logging.info("Demucs: end of stream, stems ready")
         logging.info("Demucs: separation complete")
         if progress_callback:
             try:
@@ -448,3 +457,68 @@ def separate_stems(
         if ready_event:
             ready_event.set()
         return False
+
+
+# --- Prewarm ---
+#
+# Called from the main run loop with queue[0] — start Demucs on the next song
+# before play_file runs, so _prepare_stems hits the cache-hit path and emits
+# stems_ready instantly instead of waiting on a live Demucs run.
+
+_prewarm_in_progress: set[str] = set()
+_prewarm_lock = threading.Lock()
+
+
+def prewarm(file_path: str) -> None:
+    """Fire-and-forget: populate the Demucs cache for file_path.
+
+    Idempotent. Deduplicates by path so the main run loop can poll-call
+    it without flooding threads. No-op if the cache is already warm.
+    """
+    with _prewarm_lock:
+        if file_path in _prewarm_in_progress:
+            return
+        _prewarm_in_progress.add(file_path)
+
+    def _run() -> None:
+        try:
+            # SHA256 of a 200 MB mp4 is ~1 s — would block the main loop
+            # if computed under the dedup lock. Path-keyed dedup is good
+            # enough (two distinct paths w/ identical bytes is harmless).
+            cache_key = get_cache_key(file_path)
+            if get_cached_stems(cache_key):
+                return
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                input_wav = tmp.name
+            try:
+                subprocess.run(
+                    [
+                        "ffmpeg",
+                        "-y",
+                        "-i",
+                        file_path,
+                        "-f",
+                        "wav",
+                        "-ar",
+                        "44100",
+                        input_wav,
+                    ],
+                    capture_output=True,
+                    check=True,
+                )
+                partial_v, partial_i = partial_stem_paths(cache_key)
+                if separate_stems(input_wav, partial_v, partial_i):
+                    finalize_partial_stems(cache_key)
+                    encode_mp3_in_background(cache_key)
+            finally:
+                try:
+                    os.remove(input_wav)
+                except OSError:
+                    pass
+        except Exception:
+            logging.exception(f"Demucs prewarm failed for {file_path}")
+        finally:
+            with _prewarm_lock:
+                _prewarm_in_progress.discard(file_path)
+
+    threading.Thread(target=_run, daemon=True).start()
