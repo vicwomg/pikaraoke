@@ -660,6 +660,7 @@
 
 	<div>
 		<div id="advanced-settings" class="box has-background-black-bis" style="margin-top: 10px; display: none">
+			{% if not vocal_removal %}
 			<div class="control">
 				<label class="checkbox is-flex is-align-items-center">
 					<input type="checkbox" class="checkbox" id="include-non-karaoke" name="include-non-karaoke" />
@@ -668,6 +669,7 @@
 				</label>
 			</div>
 			<hr />
+			{% endif %}
 			<div class="control">
 				<div class="label">
 					{# MSG: Label for an input which takes a YouTube url directly instead of searching titles. #} {% trans
