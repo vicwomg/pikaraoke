@@ -529,23 +529,28 @@ const handleNowPlayingUpdate = (np) => {
   if (np.now_playing_url && np.now_playing_url !== currentVideoUrl) {
     currentVideoUrl = np.now_playing_url;
     const streamUrl = np.now_playing_url;
+    // Tear down the previous HLS instance before touching the element so
+    // load() doesn't close a MediaSource that hls.js still owns.
+    if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
     $("#video-source").attr("src", "");
     video.load();
-    $("#video-source").attr("src", streamUrl);
 
-    if (streamUrl.endsWith('.m3u8')) {
-      const useNativeHLS = video.canPlayType('application/vnd.apple.mpegurl') && !isChrome && !isEdge && !isMobileSafari;
-      if (useNativeHLS) {
-        video.src = streamUrl;
-      } else {
-        if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
-        hlsInstance = new Hls({ startPosition: 0 });
-        hlsInstance.loadSource(streamUrl);
-        hlsInstance.attachMedia(video);
-      }
+    const isHls = streamUrl.endsWith('.m3u8');
+    const useNativeHLS = isHls && video.canPlayType('application/vnd.apple.mpegurl') &&
+      !isChrome && !isEdge && !isMobileSafari;
+
+    if (isHls && !useNativeHLS) {
+      // hls.js attaches a MediaSource blob to video.src. Leaving an .m3u8
+      // on the <source> element or calling video.load() here would close
+      // the MediaSource and break playback.
+      hlsInstance = new Hls({ startPosition: 0 });
+      hlsInstance.loadSource(streamUrl);
+      hlsInstance.attachMedia(video);
+    } else {
+      $("#video-source").attr("src", streamUrl);
+      if (useNativeHLS) video.src = streamUrl;
+      video.load();
     }
-
-    video.load();
 
     // Video starts with its original audio. If stems are already ready
     // (cache hit, or a reconnect mid-song) we set them up and mute the
