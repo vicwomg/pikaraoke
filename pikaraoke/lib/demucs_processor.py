@@ -19,7 +19,6 @@ import soundfile as sf
 import torch
 from tqdm import tqdm
 
-
 CACHE_DIR = os.path.expanduser("~/.pikaraoke-cache")
 
 # Global model cache — loaded once, reused across calls
@@ -185,12 +184,35 @@ def encode_mp3_in_background(cache_key: str, bitrate: str = "320k") -> None:
             tmp = mp3 + ".partial"
             try:
                 sp.run(
-                    ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-                     "-i", wav, "-c:a", "libmp3lame", "-b:a", bitrate, tmp],
-                    check=True, capture_output=True,
+                    [
+                        "ffmpeg",
+                        "-y",
+                        "-hide_banner",
+                        "-loglevel",
+                        "error",
+                        "-i",
+                        wav,
+                        "-c:a",
+                        "libmp3lame",
+                        "-b:a",
+                        bitrate,
+                        "-f",
+                        "mp3",
+                        tmp,
+                    ],
+                    check=True,
+                    capture_output=True,
                 )
                 os.replace(tmp, mp3)
-            except Exception:
+            except sp.CalledProcessError as e:
+                stderr = e.stderr.decode(errors="replace") if e.stderr else ""
+                logging.error(f"MP3 encode failed for {wav} (exit {e.returncode}): {stderr}")
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+                return
+            except OSError:
                 logging.exception(f"MP3 encode failed for {wav}")
                 try:
                     os.remove(tmp)
@@ -209,6 +231,7 @@ def encode_mp3_in_background(cache_key: str, bitrate: str = "320k") -> None:
 
 
 # --- Separation ---
+
 
 def separate_stems(
     input_wav: str,
@@ -245,12 +268,17 @@ def separate_stems(
             wav = torch.from_numpy(audio.T)
 
         inner_models = bag_model.models if hasattr(bag_model, "models") else [bag_model]
-        model_weights_list = bag_model.weights if hasattr(bag_model, "weights") else [[1.0] * len(inner_models[0].sources)]
+        model_weights_list = (
+            bag_model.weights
+            if hasattr(bag_model, "weights")
+            else [[1.0] * len(inner_models[0].sources)]
+        )
         model_sr = inner_models[0].samplerate
         source_names = inner_models[0].sources
 
         if sr != model_sr:
             import librosa
+
             logging.info(f"Demucs: resampling {sr} -> {model_sr}")
             wav = torch.from_numpy(librosa.resample(wav.numpy(), orig_sr=sr, target_sr=model_sr))
             sr = model_sr
@@ -273,10 +301,12 @@ def separate_stems(
         stride = int((1 - overlap) * segment_length)
         offsets = list(range(0, length, stride))
 
-        weight = torch.cat([
-            torch.arange(1, segment_length // 2 + 1, device="cpu"),
-            torch.arange(segment_length - segment_length // 2, 0, -1, device="cpu"),
-        ])
+        weight = torch.cat(
+            [
+                torch.arange(1, segment_length // 2 + 1, device="cpu"),
+                torch.arange(segment_length - segment_length // 2, 0, -1, device="cpu"),
+            ]
+        )
         weight = (weight / weight.max()) ** transition_power
 
         out = torch.zeros(len(source_names), channels, length)
@@ -326,13 +356,17 @@ def separate_stems(
             chunk_out = chunk_out_acc[0]
             chunk_len = chunk_out.shape[-1]
 
-            out[..., offset:offset + chunk_len] += weight[:chunk_len] * chunk_out
-            sum_weight[offset:offset + chunk_len] += weight[:chunk_len]
+            out[..., offset : offset + chunk_len] += weight[:chunk_len] * chunk_out
+            sum_weight[offset : offset + chunk_len] += weight[:chunk_len]
 
-            safe_up_to = min(offset + stride, length) if offset + segment_length < length else length
+            safe_up_to = (
+                min(offset + stride, length) if offset + segment_length < length else length
+            )
 
             if safe_up_to > written_up_to and sum_weight[written_up_to:safe_up_to].min() > 0:
-                finalized = out[..., written_up_to:safe_up_to] / sum_weight[written_up_to:safe_up_to]
+                finalized = (
+                    out[..., written_up_to:safe_up_to] / sum_weight[written_up_to:safe_up_to]
+                )
                 finalized = finalized * std + mean
 
                 # Vocals
@@ -342,8 +376,12 @@ def separate_stems(
                 f_vocals.flush()
 
                 # Instrumental (sum of all non-vocal stems)
-                instrumental_data = sum(finalized[i].numpy() for i in range(len(source_names)) if i != vocals_idx).T
-                instrumental_int16 = np.clip(instrumental_data * 32767, -32768, 32767).astype(np.int16)
+                instrumental_data = sum(
+                    finalized[i].numpy() for i in range(len(source_names)) if i != vocals_idx
+                ).T
+                instrumental_int16 = np.clip(instrumental_data * 32767, -32768, 32767).astype(
+                    np.int16
+                )
                 f_instrumental.write(instrumental_int16.tobytes())
                 f_instrumental.flush()
 
@@ -361,7 +399,9 @@ def separate_stems(
 
         # Write remaining samples
         if written_up_to < length:
-            remaining = out[..., written_up_to:length] / sum_weight[written_up_to:length].clamp(min=1e-8)
+            remaining = out[..., written_up_to:length] / sum_weight[written_up_to:length].clamp(
+                min=1e-8
+            )
             remaining = remaining * std + mean
 
             vocal_rem = remaining[vocals_idx].numpy().T
@@ -369,7 +409,9 @@ def separate_stems(
             f_vocals.write(vocal_int16.tobytes())
             f_vocals.flush()
 
-            instrumental_rem = sum(remaining[i].numpy() for i in range(len(source_names)) if i != vocals_idx).T
+            instrumental_rem = sum(
+                remaining[i].numpy() for i in range(len(source_names)) if i != vocals_idx
+            ).T
             instrumental_int16 = np.clip(instrumental_rem * 32767, -32768, 32767).astype(np.int16)
             f_instrumental.write(instrumental_int16.tobytes())
             f_instrumental.flush()
