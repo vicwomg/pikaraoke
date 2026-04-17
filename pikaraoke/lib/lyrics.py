@@ -17,6 +17,7 @@ import logging
 import os
 import re
 import tempfile
+import time
 from dataclasses import dataclass
 from threading import Thread
 from typing import Protocol
@@ -135,6 +136,8 @@ class LyricsService:
 
         # Per-word forced alignment requires reference lyrics text.
         if self._aligner and lrc:
+            # Eagerly kick off Demucs so the aligner gets vocals, not the raw mix.
+            _prewarm_stems(song_path)
             Thread(
                 target=self._upgrade_to_word_level,
                 args=(song_path, lrc),
@@ -146,14 +149,19 @@ class LyricsService:
         if self._aligner is None:
             return
         try:
+            audio_path = _wait_for_alignment_audio(song_path)
             plain = _lrc_plain_text(lrc)
-            words = self._aligner.align(song_path, plain)
+            words = self._aligner.align(audio_path, plain)
             if not words:
                 return
             ass = _words_to_ass_with_k_tags(words, lrc)
             if ass:
                 _write_ass_atomic(song_path, ass)
-                logger.info("Upgraded to per-word .ass for %s", song_path)
+                logger.info(
+                    "Upgraded to per-word .ass for %s (audio=%s)",
+                    song_path,
+                    "vocals stem" if audio_path != song_path else "raw mix",
+                )
         except Exception:
             logger.warning(
                 "word-level alignment failed for %s, keeping line-level",
@@ -215,6 +223,7 @@ class LyricsService:
                 "reprocess: LRCLib had no match for %r / %r", meta["artist"], meta["track"]
             )
             return
+        _prewarm_stems(song_path)
         self._upgrade_to_word_level(song_path, lrc)
 
 
@@ -411,28 +420,68 @@ def _format_ass_time(seconds: float) -> str:
 
 _LAST_LINE_HOLD_S = 5.0
 
+# Multi-line context window: show up to 2 past lines + current + up to 2 future
+# lines per Dialogue, with the future cap limited to 5s so a long pause between
+# verses doesn't leak spoilers onto the screen.
+_CONTEXT_BEFORE = 2
+_CONTEXT_AFTER = 2
+_CONTEXT_FORWARD_WINDOW_S = 5.0
+
+
+def _context_window_texts(entries: list[tuple[float, str]], i: int) -> tuple[list[str], list[str]]:
+    """Pick the past / future lines visible alongside ``entries[i]``."""
+    past = [text for _t, text in entries[max(0, i - _CONTEXT_BEFORE) : i]]
+    start_t = entries[i][0]
+    future: list[str] = []
+    for j in range(i + 1, min(i + 1 + _CONTEXT_AFTER, len(entries))):
+        t_j, text_j = entries[j]
+        if t_j - start_t > _CONTEXT_FORWARD_WINDOW_S:
+            break
+        future.append(text_j)
+    return past, future
+
+
+def _render_context_block(past_ass: list[str], current_ass: str, future_ass: list[str]) -> str:
+    """Compose the centered multi-line Dialogue body.
+
+    Current line is opaque + bold; past/future are dimmed (alpha 0x80). Middle-
+    center alignment (``\\an5``) stacks the block vertically on-screen. Callers
+    pass already-escaped / ``\\k``-tagged strings so this helper never re-escapes.
+    """
+    dim = r"{\alpha&H80&\b0}"
+    hot = r"{\alpha&H00&\b1}"
+    segments = [f"{dim}{t}" for t in past_ass]
+    segments.append(f"{hot}{current_ass}")
+    segments.extend(f"{dim}{t}" for t in future_ass)
+    return r"{\an5}" + r"\N".join(segments)
+
 
 def _lrc_to_ass_line_level(lrc: str) -> str | None:
-    """Convert LRC to ASS with one Dialogue per line, no highlighting."""
+    """Convert LRC to ASS with a centered 5-line context window per entry."""
     entries = _parse_lrc(lrc)
     if not entries:
         return None
     out = [_ass_header()]
     for i, (start, text) in enumerate(entries):
         end = entries[i + 1][0] if i + 1 < len(entries) else start + _LAST_LINE_HOLD_S
+        past_raw, future_raw = _context_window_texts(entries, i)
+        body = _render_context_block(
+            [_escape_ass(t) for t in past_raw],
+            _escape_ass(text),
+            [_escape_ass(t) for t in future_raw],
+        )
         out.append(
             f"Dialogue: 0,{_format_ass_time(start)},{_format_ass_time(end)},"
-            f"Default,,0,0,0,,{_escape_ass(text)}\n"
+            f"Default,,0,0,0,,{body}\n"
         )
     return "".join(out)
 
 
 def _words_to_ass_with_k_tags(words: list[Word], lrc: str) -> str | None:
-    """Rebuild ASS using LRC line boundaries but add \\k tags from word timings.
+    """Rebuild ASS with \\k tags on the current line, plain text on context lines.
 
-    For each line: select words falling within its time window and render
-    `{\\k<centiseconds>}word` tokens. Lines without matching words fall back
-    to plain text.
+    Past / future are plain LRC text - their timing comes from LRC entries, not
+    whisper words, so they render as static (dimmed) context without highlights.
     """
     entries = _parse_lrc(lrc)
     if not entries:
@@ -442,13 +491,18 @@ def _words_to_ass_with_k_tags(words: list[Word], lrc: str) -> str | None:
         end = entries[i + 1][0] if i + 1 < len(entries) else start + _LAST_LINE_HOLD_S
         line_words = [w for w in words if start <= w.start < end]
         if line_words:
-            tokens = [_k_token(w) for w in line_words]
-            ass_text = " ".join(tokens)
+            current_ass = " ".join(_k_token(w) for w in line_words)
         else:
-            ass_text = _escape_ass(text)
+            current_ass = _escape_ass(text)
+        past_raw, future_raw = _context_window_texts(entries, i)
+        body = _render_context_block(
+            [_escape_ass(t) for t in past_raw],
+            current_ass,
+            [_escape_ass(t) for t in future_raw],
+        )
         out.append(
             f"Dialogue: 0,{_format_ass_time(start)},{_format_ass_time(end)},"
-            f"Default,,0,0,0,,{ass_text}\n"
+            f"Default,,0,0,0,,{body}\n"
         )
     return "".join(out)
 
@@ -626,3 +680,58 @@ def _cleanup_yt_subs_and_info(song_path: str) -> None:
             except OSError as e:
                 logger.warning("failed to remove %s: %s", name, e)
     _cleanup_info_json(song_path)
+
+
+# ----- Demucs stem coupling -----
+#
+# Whisper alignment quality improves materially when fed clean vocals instead
+# of the full mix. When whisper is configured, LyricsService triggers a Demucs
+# prewarm at download time (see `_prewarm_stems`) and waits briefly for the
+# vocals stem to appear before running the aligner.
+
+_STEM_WAIT_TIMEOUT_S = 120.0
+_STEM_WAIT_POLL_S = 2.0
+
+
+def _alignment_audio_path(song_path: str) -> str:
+    """Return vocals stem path when Demucs has cached it, else the song path."""
+    try:
+        from pikaraoke.lib.demucs_processor import get_cache_key, get_cached_stems
+
+        cached = get_cached_stems(get_cache_key(song_path))
+    except Exception as e:
+        logger.warning("stem lookup failed for %s: %s", song_path, e)
+        return song_path
+    if not cached:
+        return song_path
+    vocals_path, _instr_path, _fmt = cached
+    return vocals_path
+
+
+def _wait_for_alignment_audio(song_path: str) -> str:
+    """Poll for a cached vocals stem up to `_STEM_WAIT_TIMEOUT_S`, else fall back."""
+    audio_path = _alignment_audio_path(song_path)
+    if audio_path != song_path:
+        return audio_path
+    deadline = time.monotonic() + _STEM_WAIT_TIMEOUT_S
+    while time.monotonic() < deadline:
+        time.sleep(_STEM_WAIT_POLL_S)
+        audio_path = _alignment_audio_path(song_path)
+        if audio_path != song_path:
+            return audio_path
+    logger.info(
+        "stems not ready within %.0fs for %s; aligning on raw mix",
+        _STEM_WAIT_TIMEOUT_S,
+        os.path.basename(song_path),
+    )
+    return song_path
+
+
+def _prewarm_stems(song_path: str) -> None:
+    """Fire-and-forget Demucs prewarm so alignment has vocals ready."""
+    try:
+        from pikaraoke.lib.demucs_processor import prewarm
+
+        prewarm(song_path)
+    except Exception as e:
+        logger.warning("Demucs prewarm failed for %s: %s", song_path, e)

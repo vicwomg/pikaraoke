@@ -305,7 +305,11 @@ class TestLyricsServiceFetchAndConvert:
         with patch(
             "pikaraoke.lib.lyrics._fetch_lrclib",
             return_value="[00:01.00]hello",
-        ), patch("pikaraoke.lib.lyrics.Thread") as mock_thread:
+        ), patch("pikaraoke.lib.lyrics.Thread") as mock_thread, patch(
+            "pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p
+        ), patch(
+            "pikaraoke.lib.lyrics._prewarm_stems"
+        ):
             service.fetch_and_convert(song_and_info)
             mock_thread.assert_called_once()
             # Run the target synchronously to verify upgrade path
@@ -712,6 +716,10 @@ class TestReprocessLibrary:
         ), patch(
             "pikaraoke.lib.lyrics._fetch_lrclib",
             return_value="[00:01.00]hello world",
+        ), patch(
+            "pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p
+        ), patch(
+            "pikaraoke.lib.lyrics._prewarm_stems"
         ):
             service._reprocess_one(song)
         ass_text = (tmp_path / "Eminem - Stan---abcdefghij1.ass").read_text()
@@ -766,3 +774,248 @@ class TestReprocessLibrary:
         with patch("pikaraoke.lib.lyrics.resolve_metadata") as mock_resolve:
             service._reprocess_one(str(song))
             mock_resolve.assert_not_called()
+
+
+# ----- Multi-line context window rendering -----
+
+
+from pikaraoke.lib.lyrics import (  # noqa: E402
+    _alignment_audio_path,
+    _context_window_texts,
+    _prewarm_stems,
+    _render_context_block,
+    _wait_for_alignment_audio,
+)
+
+
+class TestContextWindowTexts:
+    def _entries(self, *pairs):
+        return list(pairs)
+
+    def test_middle_of_list_full_window(self):
+        entries = self._entries((0.0, "a"), (1.0, "b"), (2.0, "c"), (3.0, "d"), (4.0, "e"))
+        past, future = _context_window_texts(entries, 2)
+        assert past == ["a", "b"]
+        assert future == ["d", "e"]
+
+    def test_start_of_list_has_no_past(self):
+        entries = self._entries((0.0, "a"), (1.0, "b"), (2.0, "c"))
+        past, future = _context_window_texts(entries, 0)
+        assert past == []
+        assert future == ["b", "c"]
+
+    def test_end_of_list_has_no_future(self):
+        entries = self._entries((0.0, "a"), (1.0, "b"), (2.0, "c"))
+        past, future = _context_window_texts(entries, 2)
+        assert past == ["a", "b"]
+        assert future == []
+
+    def test_forward_window_5s_inclusive(self):
+        # lines exactly 5.0s ahead are kept; >5s ahead are cut off.
+        entries = self._entries((0.0, "a"), (2.5, "b"), (5.0, "c"), (5.01, "d"))
+        past, future = _context_window_texts(entries, 0)
+        assert past == []
+        assert future == ["b", "c"]  # d excluded (>5.0s), c included (==5.0s)
+
+    def test_forward_window_cutoff_stops_iteration(self):
+        # If line j is beyond the window, later lines are not considered.
+        entries = self._entries((0.0, "a"), (10.0, "b"), (10.5, "c"))
+        past, future = _context_window_texts(entries, 0)
+        assert future == []  # b is beyond window; break before considering c
+
+
+class TestRenderContextBlock:
+    def test_current_only(self):
+        body = _render_context_block([], "hello", [])
+        assert body.startswith(r"{\an5}")
+        assert r"{\alpha&H00&\b1}hello" in body
+        assert r"\N" not in body
+
+    def test_past_and_future_dimmed(self):
+        body = _render_context_block(["a"], "b", ["c"])
+        # Order: past, current, future, separated by \N
+        assert body == (
+            r"{\an5}" r"{\alpha&H80&\b0}a\N" r"{\alpha&H00&\b1}b\N" r"{\alpha&H80&\b0}c"
+        )
+
+    def test_does_not_reescape_current(self):
+        # Caller's responsibility to escape; helper passes through.
+        body = _render_context_block([], r"{\k50}word", [])
+        assert r"{\k50}word" in body
+
+
+class TestLrcToAssLineLevelContextBlock:
+    def test_middle_dialogue_shows_prev_and_next(self):
+        lrc = "[00:01.00]a\n[00:02.00]b\n[00:03.00]c"
+        ass = _lrc_to_ass_line_level(lrc)
+        assert ass is not None
+        lines = [ln for ln in ass.splitlines() if ln.startswith("Dialogue:")]
+        # Middle dialogue's body should contain "a" (past) and "c" (future).
+        middle = lines[1]
+        assert "a" in middle and "b" in middle and "c" in middle
+        assert r"{\an5}" in middle
+
+    def test_first_dialogue_has_no_past(self):
+        lrc = "[00:01.00]first\n[00:02.00]second"
+        ass = _lrc_to_ass_line_level(lrc)
+        first = [ln for ln in ass.splitlines() if ln.startswith("Dialogue:")][0]
+        # First line has empty past; current + future only.
+        # So no {\alpha&H80&\b0} prefix before "first".
+        # Splitting on \N: first segment starts with \alpha&H00 (current).
+        idx_first = first.index("first")
+        idx_second = first.index("second")
+        assert idx_first < idx_second
+        # Current line's override prefix appears immediately before "first".
+        assert r"{\alpha&H00&\b1}first" in first
+
+    def test_dialogue_count_unchanged(self):
+        ass = _lrc_to_ass_line_level("[00:01.00]a\n[00:02.00]b\n[00:03.00]c")
+        assert ass.count("Dialogue:") == 3
+
+
+class TestWordsToAssContextBlock:
+    def test_current_line_keeps_k_tags_context_is_plain(self):
+        lrc = "[00:01.00]one\n[00:02.00]two\n[00:03.00]three"
+        words = [Word("two", 2.0, 2.5)]
+        ass = _words_to_ass_with_k_tags(words, lrc)
+        dialogues = [ln for ln in ass.splitlines() if ln.startswith("Dialogue:")]
+        middle = dialogues[1]
+        # Current line carries \k; past/future segments are plain text.
+        assert r"{\k50}two" in middle
+        assert "one" in middle
+        assert "three" in middle
+        # The non-current lines should NOT have \k near them.
+        assert middle.count(r"\k") == 1
+
+
+# ----- Stem-aware alignment -----
+
+
+class TestAlignmentAudioPath:
+    def test_returns_song_path_when_no_cache(self):
+        with patch("pikaraoke.lib.demucs_processor.get_cache_key", return_value="abc"), patch(
+            "pikaraoke.lib.demucs_processor.get_cached_stems", return_value=None
+        ):
+            assert _alignment_audio_path("/s/song.mp4") == "/s/song.mp4"
+
+    def test_returns_vocals_when_cached(self):
+        with patch("pikaraoke.lib.demucs_processor.get_cache_key", return_value="abc"), patch(
+            "pikaraoke.lib.demucs_processor.get_cached_stems",
+            return_value=("/cache/abc/vocals.mp3", "/cache/abc/instrumental.mp3", "mp3"),
+        ):
+            assert _alignment_audio_path("/s/song.mp4") == "/cache/abc/vocals.mp3"
+
+    def test_falls_back_on_exception(self, caplog):
+        with patch(
+            "pikaraoke.lib.demucs_processor.get_cache_key",
+            side_effect=OSError("permission denied"),
+        ):
+            with caplog.at_level("WARNING"):
+                result = _alignment_audio_path("/s/song.mp4")
+        assert result == "/s/song.mp4"
+        assert any("stem lookup failed" in r.message for r in caplog.records)
+
+
+class TestWaitForAlignmentAudio:
+    def test_returns_immediately_when_cached(self):
+        with patch(
+            "pikaraoke.lib.lyrics._alignment_audio_path",
+            return_value="/cache/abc/vocals.mp3",
+        ), patch("pikaraoke.lib.lyrics.time.sleep") as mock_sleep:
+            assert _wait_for_alignment_audio("/s/song.mp4") == "/cache/abc/vocals.mp3"
+            mock_sleep.assert_not_called()
+
+    def test_polls_and_resolves(self):
+        # First two polls return song path (no cache), third returns vocals.
+        responses = iter(
+            [
+                "/s/song.mp4",  # initial
+                "/s/song.mp4",  # poll 1
+                "/s/song.mp4",  # poll 2
+                "/cache/abc/vocals.mp3",  # poll 3 — success
+            ]
+        )
+        with patch(
+            "pikaraoke.lib.lyrics._alignment_audio_path",
+            side_effect=lambda _p: next(responses),
+        ), patch("pikaraoke.lib.lyrics.time.sleep"):
+            assert _wait_for_alignment_audio("/s/song.mp4") == "/cache/abc/vocals.mp3"
+
+    def test_times_out_falls_back_to_raw(self):
+        # monotonic returns deadline-passed immediately after one sleep.
+        with patch("pikaraoke.lib.lyrics._alignment_audio_path", return_value="/s/song.mp4"), patch(
+            "pikaraoke.lib.lyrics.time.sleep"
+        ), patch("pikaraoke.lib.lyrics.time.monotonic", side_effect=[0.0, 10_000.0]):
+            result = _wait_for_alignment_audio("/s/song.mp4")
+        assert result == "/s/song.mp4"
+
+
+class TestPrewarmStems:
+    def test_calls_demucs_prewarm(self):
+        with patch("pikaraoke.lib.demucs_processor.prewarm") as mock_prewarm:
+            _prewarm_stems("/s/song.mp4")
+        mock_prewarm.assert_called_once_with("/s/song.mp4")
+
+    def test_swallows_import_error(self, caplog):
+        with patch("pikaraoke.lib.demucs_processor.prewarm", side_effect=RuntimeError("no gpu")):
+            with caplog.at_level("WARNING"):
+                _prewarm_stems("/s/song.mp4")
+        assert any("Demucs prewarm failed" in r.message for r in caplog.records)
+
+
+class TestUpgradeToWordLevelUsesStem:
+    def test_passes_resolved_audio_path_to_aligner(self, tmp_path):
+        song = tmp_path / "S---abc.mp4"
+        song.write_text("fake")
+        aligner = MagicMock()
+        aligner.align.return_value = [Word("hi", 1.0, 1.5)]
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner)
+        with patch(
+            "pikaraoke.lib.lyrics._wait_for_alignment_audio",
+            return_value="/cache/abc/vocals.mp3",
+        ):
+            service._upgrade_to_word_level(str(song), "[00:01.00]hi")
+        aligner.align.assert_called_once()
+        assert aligner.align.call_args.args[0] == "/cache/abc/vocals.mp3"
+
+
+class TestPrewarmTriggeredFromFetchAndConvert:
+    def test_prewarm_called_when_aligner_and_lrc(self, tmp_path):
+        song = tmp_path / "Foo---abc.mp4"
+        song.write_text("fake")
+        (tmp_path / "Foo---abc.info.json").write_text(
+            json.dumps({"track": "T", "artist": "A", "duration": 180})
+        )
+        aligner = MagicMock()
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner)
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value="[00:01.00]hi"), patch(
+            "pikaraoke.lib.lyrics.Thread"
+        ), patch("pikaraoke.lib.lyrics._prewarm_stems") as mock_prewarm:
+            service.fetch_and_convert(str(song))
+        mock_prewarm.assert_called_once_with(str(song))
+
+    def test_prewarm_not_called_when_no_aligner(self, tmp_path):
+        song = tmp_path / "Foo---abc.mp4"
+        song.write_text("fake")
+        (tmp_path / "Foo---abc.info.json").write_text(
+            json.dumps({"track": "T", "artist": "A", "duration": 180})
+        )
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=None)
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value="[00:01.00]hi"), patch(
+            "pikaraoke.lib.lyrics._prewarm_stems"
+        ) as mock_prewarm:
+            service.fetch_and_convert(str(song))
+        mock_prewarm.assert_not_called()
+
+    def test_prewarm_not_called_when_no_lrc(self, tmp_path):
+        song = tmp_path / "Foo---abc.mp4"
+        song.write_text("fake")
+        (tmp_path / "Foo---abc.info.json").write_text(
+            json.dumps({"track": "T", "artist": "A", "duration": 180})
+        )
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=MagicMock())
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=None), patch(
+            "pikaraoke.lib.lyrics.resolve_metadata", return_value=None
+        ), patch("pikaraoke.lib.lyrics._prewarm_stems") as mock_prewarm:
+            service.fetch_and_convert(str(song))
+        mock_prewarm.assert_not_called()
