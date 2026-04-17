@@ -21,10 +21,12 @@ from pikaraoke.lib.lyrics import (
     _k_token,
     _lrc_plain_text,
     _lrc_to_ass_line_level,
+    _needs_word_level_upgrade,
     _parse_lrc,
     _parse_vtt_cues,
     _pick_best_vtt,
     _read_info_json,
+    _title_from_filename,
     _user_owned_ass,
     _vtt_to_ass,
     _words_to_ass_with_k_tags,
@@ -619,3 +621,148 @@ class TestLyricsServiceNewFlow:
             service.fetch_and_convert(song)
             mock_thread.assert_not_called()
         aligner.align.assert_not_called()
+
+
+# ----- Title-from-filename + reprocess helpers -----
+
+
+class TestTitleFromFilename:
+    @pytest.mark.parametrize(
+        "path,expected",
+        [
+            ("/songs/Eminem - Stan---gOMhN-hfMtY.mp4", "Eminem - Stan"),
+            ("/songs/Queen - Bohemian [dQw4w9WgXcQ].mp4", "Queen - Bohemian"),
+            ("/songs/Queen - Bohemian [dQw4w9WgXcQ].webm", "Queen - Bohemian"),
+            ("/Bare Title.mp4", "Bare Title"),
+            ("no_id_at_all---notenough.mp4", "no_id_at_all---notenough"),
+        ],
+    )
+    def test_strips_youtube_id(self, path, expected):
+        assert _title_from_filename(path) == expected
+
+
+class TestNeedsWordLevelUpgrade:
+    def test_no_ass_file(self, tmp_path):
+        song = tmp_path / "Foo---abc.mp4"
+        assert _needs_word_level_upgrade(str(song)) is False
+
+    def test_line_level_auto_ass_is_candidate(self, tmp_path):
+        song = tmp_path / "Foo---abc.mp4"
+        (tmp_path / "Foo---abc.ass").write_text(
+            f"[Script Info]\nTitle: {ASS_MARKER}\n\nDialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,hello\n"
+        )
+        assert _needs_word_level_upgrade(str(song)) is True
+
+    def test_already_word_level_skipped(self, tmp_path):
+        song = tmp_path / "Foo---abc.mp4"
+        (tmp_path / "Foo---abc.ass").write_text(
+            f"[Script Info]\nTitle: {ASS_MARKER}\n\nDialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,{{\\k50}}hi\n"
+        )
+        assert _needs_word_level_upgrade(str(song)) is False
+
+    def test_user_owned_ass_skipped(self, tmp_path):
+        song = tmp_path / "Foo---abc.mp4"
+        (tmp_path / "Foo---abc.ass").write_text("[Script Info]\nTitle: Aegisub File\n")
+        assert _needs_word_level_upgrade(str(song)) is False
+
+
+class TestReprocessLibrary:
+    def _make_line_level_song(self, tmp_path, name="Eminem - Stan---abcdefghij1"):
+        song = tmp_path / f"{name}.mp4"
+        song.write_text("fake")
+        (tmp_path / f"{name}.ass").write_text(
+            f"[Script Info]\nTitle: {ASS_MARKER}\n\n"
+            "Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,hello world\n"
+        )
+        return str(song)
+
+    def test_no_aligner_is_noop(self, tmp_path):
+        song = self._make_line_level_song(tmp_path)
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=None)
+        assert service.reprocess_library([song]) == 0
+
+    def test_no_candidates_returns_zero(self, tmp_path):
+        # Song with .ass that already has \k tags.
+        song = tmp_path / "Foo---abcdefghij1.mp4"
+        song.write_text("fake")
+        (tmp_path / "Foo---abcdefghij1.ass").write_text(
+            f"[Script Info]\nTitle: {ASS_MARKER}\n\n"
+            "Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,{\\k50}hi\n"
+        )
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=MagicMock())
+        assert service.reprocess_library([str(song)]) == 0
+
+    def test_candidates_spawn_background_thread(self, tmp_path):
+        song = self._make_line_level_song(tmp_path)
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=MagicMock())
+        with patch("pikaraoke.lib.lyrics.Thread") as mock_thread:
+            n = service.reprocess_library([song])
+        assert n == 1
+        mock_thread.assert_called_once()
+        assert mock_thread.call_args.kwargs["daemon"] is True
+
+    def test_reprocess_one_happy_path(self, tmp_path):
+        song = self._make_line_level_song(tmp_path, "Eminem - Stan---abcdefghij1")
+        aligner = MagicMock()
+        aligner.align.return_value = [Word("hello", 1.0, 1.5), Word("world", 1.5, 2.0)]
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner)
+        with patch(
+            "pikaraoke.lib.lyrics.resolve_metadata",
+            return_value={"artist": "Eminem", "track": "Stan"},
+        ), patch(
+            "pikaraoke.lib.lyrics._fetch_lrclib",
+            return_value="[00:01.00]hello world",
+        ):
+            service._reprocess_one(song)
+        ass_text = (tmp_path / "Eminem - Stan---abcdefghij1.ass").read_text()
+        # Must now contain \k tags from the aligner output.
+        assert "\\k" in ass_text
+        assert "hello" in ass_text and "world" in ass_text
+
+    def test_reprocess_one_skips_on_itunes_miss(self, tmp_path):
+        song = self._make_line_level_song(tmp_path)
+        aligner = MagicMock()
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner)
+        with patch("pikaraoke.lib.lyrics.resolve_metadata", return_value=None):
+            service._reprocess_one(song)
+        aligner.align.assert_not_called()
+
+    def test_reprocess_one_skips_on_lrclib_miss(self, tmp_path):
+        song = self._make_line_level_song(tmp_path)
+        aligner = MagicMock()
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner)
+        with patch(
+            "pikaraoke.lib.lyrics.resolve_metadata",
+            return_value={"artist": "Eminem", "track": "Stan"},
+        ), patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=None):
+            service._reprocess_one(song)
+        aligner.align.assert_not_called()
+
+    def test_reprocess_batch_continues_after_one_failure(self, tmp_path):
+        song_good = self._make_line_level_song(tmp_path, "Good - Song---abcdefghij1")
+        song_bad = self._make_line_level_song(tmp_path, "Bad - Song---abcdefghij2")
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=MagicMock())
+        call_order = []
+
+        def side_effect(p):
+            call_order.append(p)
+            if p == song_bad:
+                raise RuntimeError("boom")
+
+        with patch.object(service, "_reprocess_one", side_effect=side_effect):
+            service._reprocess_batch([song_bad, song_good])
+        assert call_order == [song_bad, song_good]  # both attempted
+
+    def test_reprocess_one_skips_if_no_longer_candidate(self, tmp_path):
+        # Pretend someone upgraded the .ass between scan and processing.
+        song = tmp_path / "Foo---abcdefghij1.mp4"
+        song.write_text("fake")
+        (tmp_path / "Foo---abcdefghij1.ass").write_text(
+            f"[Script Info]\nTitle: {ASS_MARKER}\n\n"
+            "Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,{\\k50}already\n"
+        )
+        aligner = MagicMock()
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner)
+        with patch("pikaraoke.lib.lyrics.resolve_metadata") as mock_resolve:
+            service._reprocess_one(str(song))
+            mock_resolve.assert_not_called()

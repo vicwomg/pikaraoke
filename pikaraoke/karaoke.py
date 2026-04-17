@@ -413,6 +413,10 @@ class Karaoke:
             result = self._scanner.scan(self.download_path)
             self._apply_scan_result(result)
 
+        # If whisperx is newly available, upgrade line-level .ass files in the
+        # background. No-op when the aligner is not configured or nothing qualifies.
+        self.lyrics_service.reprocess_library(list(self.song_manager.songs))
+
     def _apply_scan_result(self, result: ScanResult) -> None:
         """Update SongList and emit notifications after a scan."""
         if result.added or result.moved or result.deleted:

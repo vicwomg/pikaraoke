@@ -161,6 +161,96 @@ class LyricsService:
                 exc_info=True,
             )
 
+    def reprocess_library(self, song_paths: list[str]) -> int:
+        """Upgrade existing line-level auto-lyrics to word-level in the background.
+
+        Candidates are songs with an auto-generated ``.ass`` (carries the marker)
+        that lacks ``\\k`` tags - i.e. files produced before whisperx was
+        available. No-op when no aligner is configured or nothing qualifies.
+
+        Returns the number of songs scheduled for upgrade. Processing runs
+        serially in a single daemon thread so the aligner doesn't thrash CPU/GPU.
+        """
+        if self._aligner is None:
+            return 0
+        candidates = [p for p in song_paths if _needs_word_level_upgrade(p)]
+        if not candidates:
+            return 0
+        logger.info(
+            "Reprocessing %d song(s) to word-level karaoke captions in the background",
+            len(candidates),
+        )
+        Thread(
+            target=self._reprocess_batch,
+            args=(candidates,),
+            name="lyrics-reprocess",
+            daemon=True,
+        ).start()
+        return len(candidates)
+
+    def _reprocess_batch(self, song_paths: list[str]) -> None:
+        for song_path in song_paths:
+            try:
+                self._reprocess_one(song_path)
+            except Exception:
+                logger.exception("reprocess failed for %s", song_path)
+
+    def _reprocess_one(self, song_path: str) -> None:
+        """Re-fetch LRCLib from the filename-derived title, then align to word-level."""
+        if self._aligner is None:
+            return
+        if not _needs_word_level_upgrade(song_path):
+            return  # raced with another update
+        title = _title_from_filename(song_path)
+        if not title:
+            logger.debug("reprocess: could not extract title from %s", song_path)
+            return
+        meta = resolve_metadata(title)
+        if not meta:
+            logger.debug("reprocess: iTunes had no match for %r", title)
+            return
+        lrc = _fetch_lrclib(meta["track"], meta["artist"], None)
+        if not lrc:
+            logger.debug(
+                "reprocess: LRCLib had no match for %r / %r", meta["artist"], meta["track"]
+            )
+            return
+        self._upgrade_to_word_level(song_path, lrc)
+
+
+def _needs_word_level_upgrade(song_path: str) -> bool:
+    """True when <stem>.ass is auto-generated AND has no \\k tags yet."""
+    path = _ass_path(song_path)
+    if not os.path.exists(path):
+        return False
+    try:
+        with open(path, encoding="utf-8") as f:
+            content = f.read()
+    except OSError:
+        return False
+    if ASS_MARKER not in content:
+        return False  # user-owned Aegisub file
+    # Any \k tag means it's already word-level.
+    return "\\k" not in content
+
+
+def _title_from_filename(song_path: str) -> str:
+    """Strip the 11-char YouTube ID suffix (both ``---ID`` and ``[ID]`` forms).
+
+    Lightweight replacement for SongManager.filename_from_path so lyrics.py
+    stays free of the SongManager dependency.
+    """
+    stem = os.path.splitext(os.path.basename(song_path))[0]
+    # Triple-dash PiKaraoke form
+    m = re.search(r"---([A-Za-z0-9_-]{11})$", stem)
+    if m:
+        return stem[: m.start()].strip()
+    # yt-dlp brackets form
+    m = re.search(r"\s*\[([A-Za-z0-9_-]{11})\]$", stem)
+    if m:
+        return stem[: m.start()].strip()
+    return stem.strip()
+
 
 # ----- info.json reading -----
 
