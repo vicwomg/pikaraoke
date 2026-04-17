@@ -147,8 +147,12 @@ def build_ytdl_download_command(
         "--write-info-json",
         "--write-subs",
         "--write-auto-subs",
+        # Whitelist source-language prefixes. Matches originals like `en`,
+        # `en-nP7-2PuUl7o`, `pl-orig` but excludes YouTube machine translations
+        # (whose codes are `<target>-<source>-<id>`, e.g. `ab-en-…`). `all`
+        # pulls ~200 translation tracks and trips HTTP 429 rate limits.
         "--sub-langs",
-        "all,-live_chat",
+        "en.*,pl.*,es.*,de.*,fr.*,it.*,pt.*,ja.*,ko.*,zh.*,ru.*,uk.*,cs.*,nl.*,sv.*",
         "--convert-subs",
         "vtt",
         "--embed-metadata",
