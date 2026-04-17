@@ -34,6 +34,7 @@ from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
+from pikaraoke.lib.state_persistence import StatePersistence
 from pikaraoke.lib.youtube_dl import (
     get_search_results,
     get_youtubedl_version,
@@ -443,6 +444,11 @@ class Karaoke:
         # background. No-op when the aligner is not configured or nothing qualifies.
         self.lyrics_service.reprocess_library(list(self.song_manager.songs))
 
+        # Restore queue / now-playing / master volume from the previous run.
+        self.state_persistence = StatePersistence()
+        self._last_persist = 0.0
+        self._restore_state()
+
     def _apply_scan_result(self, result: ScanResult) -> None:
         """Update SongList and emit notifications after a scan."""
         if result.added or result.moved or result.deleted:
@@ -692,6 +698,83 @@ class Karaoke:
         """Handle one iteration of the main run loop with a sleep interval."""
         time.sleep(self.loop_interval / 1000)
 
+    def _restore_state(self) -> None:
+        """Rehydrate queue, now-playing, and master volume from disk.
+
+        The saved now-playing song (if any) is prepended to the queue and the
+        computed resume position is stashed on the PlaybackController; the
+        normal run loop picks it up on the next iteration.
+        """
+        state = self.state_persistence.load()
+        if state is None:
+            return
+
+        saved_volume = state.get("volume")
+        if isinstance(saved_volume, (int, float)):
+            self.volume = float(saved_volume)
+
+        saved_queue = state.get("queue") or []
+        restored_queue = [item for item in saved_queue if os.path.isfile(item.get("file", ""))]
+        dropped_queue = len(saved_queue) - len(restored_queue)
+
+        now_playing = state.get("now_playing")
+        resume_title = None
+        if now_playing and os.path.isfile(now_playing.get("filename", "")):
+            position = float(now_playing.get("position") or 0.0)
+            duration = now_playing.get("duration")
+            position_updated_at = now_playing.get("position_updated_at")
+            is_paused = bool(now_playing.get("is_paused"))
+
+            if not is_paused and position_updated_at is not None:
+                position += max(0.0, time.time() - float(position_updated_at))
+
+            if duration is None or position < float(duration) - 2.0:
+                title = self.song_manager.display_name_from_path(
+                    now_playing["filename"], remove_youtube_id=True
+                )
+                resume_item = {
+                    "user": now_playing.get("user") or "Pikaraoke",
+                    "file": now_playing["filename"],
+                    "title": title,
+                    "semitones": int(now_playing.get("transpose") or 0),
+                }
+                restored_queue.insert(0, resume_item)
+                self.playback_controller.pending_resume_position = max(0.0, position)
+                resume_title = title
+
+        self.queue_manager.queue = restored_queue
+
+        if restored_queue or resume_title:
+            summary = f"queue={len(restored_queue)}"
+            if resume_title:
+                summary += f", resuming '{resume_title}' at {self.playback_controller.pending_resume_position:.1f}s"
+            if dropped_queue:
+                summary += f", dropped {dropped_queue} missing file(s)"
+            logging.info(f"Restored session: {summary}")
+
+    def _persist_state(self) -> None:
+        """Snapshot current queue, now-playing, and master volume to disk."""
+        pc = self.playback_controller
+        now_playing: dict[str, Any] | None = None
+        if pc.now_playing_filename:
+            now_playing = {
+                "filename": pc.now_playing_filename,
+                "user": pc.now_playing_user,
+                "transpose": pc.now_playing_transpose,
+                "duration": pc.now_playing_duration,
+                "position": pc.now_playing_position or 0.0,
+                "position_updated_at": pc.position_updated_at,
+                "is_paused": pc.is_paused,
+            }
+        self.state_persistence.save(
+            {
+                "saved_at": time.time(),
+                "volume": self.volume,
+                "queue": list(self.queue_manager.queue),
+                "now_playing": now_playing,
+            }
+        )
+
     def reset_now_playing_notification(self) -> None:
         """Clear the current notification."""
         self.now_playing_notification = None
@@ -793,9 +876,23 @@ class Karaoke:
 
                     if not result.success and result.error:
                         self.log_and_send(result.error, "danger")
+                    elif self.playback_controller.pending_resume_position is not None:
+                        # Seed the server-side position so splash.js:682 auto-seeks
+                        # the video to where the previous run left off.
+                        pos = self.playback_controller.pending_resume_position
+                        self.playback_controller.pending_resume_position = None
+                        self.playback_controller.now_playing_position = pos
+                        self.playback_controller.position_updated_at = time.time()
+                        self.update_now_playing_socket()
 
                 self.playback_controller.log_output()
+                if time.time() - self._last_persist > 2.0:
+                    self._persist_state()
+                    self._last_persist = time.time()
                 self.handle_run_loop()
             except KeyboardInterrupt:
                 logging.warning("Keyboard interrupt: Exiting pikaraoke...")
                 self.running = False
+
+        # Final snapshot so SIGTERM (watchfiles restart) captures the latest state.
+        self._persist_state()

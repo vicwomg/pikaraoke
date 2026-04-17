@@ -46,6 +46,8 @@ class PlaybackController:
     now_playing_audio_track_url: str | None = None
     now_playing_avsync_offset_ms: int = 0
     now_playing_position: float | None = None
+    position_updated_at: float | None = None
+    pending_resume_position: float | None = None
     demucs_processed: float | None = None
     demucs_total: float | None = None
     ffmpeg_processed: float | None = None
@@ -257,6 +259,7 @@ class PlaybackController:
         self.now_playing_transpose = 0
         self.now_playing_duration = None
         self.now_playing_position = None
+        self.position_updated_at = None
         self.demucs_processed = None
         self.demucs_total = None
         self.ffmpeg_processed = None
