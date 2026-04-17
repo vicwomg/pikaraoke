@@ -6,7 +6,9 @@ import logging
 import os
 import shutil
 import subprocess
+import tempfile
 import time
+import threading
 from dataclasses import dataclass
 from queue import Queue
 from threading import Thread
@@ -72,6 +74,12 @@ class StreamManager:
         self.streaming_format = streaming_format
         self.ffmpeg_process = None
         self.ffmpeg_log: Queue | None = None
+        # Current playback context — used to restart FFmpeg with new volumes
+        self._current_fr: FileResolver | None = None
+        self._current_semitones: int = 0
+        self._current_is_hls: bool = False
+        self._current_vocals_wav: str | None = None
+        self._current_instrumental_wav: str | None = None
 
     def play_file(self, file_path: str, semitones: int = 0) -> PlaybackResult:
         """Start playback of a media file.
@@ -90,6 +98,7 @@ class StreamManager:
         streaming_format = self.streaming_format
         normalize_audio = self.preferences.get_or_default("normalize_audio")
         avsync = self.preferences.get_or_default("avsync")
+        vocal_removal = self.preferences.get_or_default("vocal_removal")
         complete_transcode_before_play = self.preferences.get_or_default(
             "complete_transcode_before_play"
         )
@@ -102,6 +111,7 @@ class StreamManager:
             or is_transcoding_required(file_path)
             or avsync != 0
             or is_hls
+            or vocal_removal
         )
 
         logging.debug(f"Requires transcoding: {requires_transcoding}")
@@ -183,12 +193,31 @@ class StreamManager:
         self.kill_ffmpeg()
 
         normalize_audio = self.preferences.get_or_default("normalize_audio")
+        vocal_removal = self.preferences.get_or_default("vocal_removal")
         complete_transcode_before_play = self.preferences.get_or_default(
             "complete_transcode_before_play"
         )
         avsync = self.preferences.get_or_default("avsync")
         cdg_pixel_scaling = self.preferences.get_or_default("cdg_pixel_scaling")
         buffer_size = int(self.preferences.get_or_default("buffer_size")) * 1000
+
+        # Run Demucs stem separation if enabled
+        vocals_wav = None
+        instrumental_wav = None
+        if vocal_removal and fr.file_path:
+            stems = self._run_demucs(fr)
+            if stems:
+                vocals_wav, instrumental_wav = stems
+
+        vocal_volume = float(self.preferences.get_or_default("vocal_volume"))
+        instrumental_volume = float(self.preferences.get_or_default("instrumental_volume"))
+
+        # Cache playback context for volume-change restarts
+        self._current_fr = fr
+        self._current_semitones = semitones
+        self._current_is_hls = is_hls
+        self._current_vocals_wav = vocals_wav
+        self._current_instrumental_wav = instrumental_wav
 
         ffmpeg_cmd = build_ffmpeg_cmd(
             fr,
@@ -198,6 +227,10 @@ class StreamManager:
             complete_transcode_before_play,
             avsync,
             cdg_pixel_scaling,
+            vocals_audio=vocals_wav,
+            instrumental_audio=instrumental_wav,
+            vocal_volume=vocal_volume,
+            instrumental_volume=instrumental_volume,
         )
         self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
 
@@ -325,6 +358,142 @@ class StreamManager:
             pass
 
         return False
+
+    def _run_demucs(self, fr: FileResolver) -> tuple[str, str] | None:
+        """Run Demucs stem separation (or reuse cached stems).
+
+        Extracts audio to WAV, computes a metadata-invariant cache key from
+        the decoded PCM, and either returns cached stems or runs streaming
+        Demucs separation producing both vocals.wav and instrumental.wav.
+
+        Args:
+            fr: FileResolver instance with file information.
+
+        Returns:
+            (vocals_wav_path, instrumental_wav_path), or None on failure.
+        """
+        from pikaraoke.lib.demucs_processor import (
+            cache_stems,
+            get_cache_key,
+            get_cached_stems,
+            separate_stems,
+        )
+
+        input_wav = os.path.join(fr.tmp_dir, "demucs_input.wav")
+
+        # Extract audio to WAV (needed both for hashing and as Demucs input)
+        logging.info(f"Demucs: extracting audio from {fr.file_path}")
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-i", fr.file_path, "-f", "wav", "-ar", "44100", input_wav],
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            logging.error(f"FFmpeg audio extraction failed: {result.stderr.decode()}")
+            return None
+
+        # Metadata-invariant cache key from the decoded PCM
+        cache_key = get_cache_key(input_wav)
+        cached = get_cached_stems(cache_key)
+        if cached:
+            return cached
+
+        vocals_wav = os.path.join(fr.tmp_dir, "demucs_vocals.wav")
+        instrumental_wav = os.path.join(fr.tmp_dir, "demucs_instrumental.wav")
+        ready_event = threading.Event()
+
+        def _separate_and_cache() -> None:
+            ok = separate_stems(input_wav, vocals_wav, instrumental_wav, ready_event)
+            if ok:
+                try:
+                    cache_stems(cache_key, vocals_wav, instrumental_wav)
+                except Exception:
+                    logging.exception("Failed to cache Demucs stems")
+
+        demucs_thread = threading.Thread(target=_separate_and_cache, daemon=True)
+        demucs_thread.start()
+
+        logging.info("Demucs: waiting for first segment...")
+        ready_event.wait(timeout=120)
+
+        if not (os.path.exists(vocals_wav) and os.path.exists(instrumental_wav)):
+            logging.error("Demucs: output files not created")
+            demucs_thread.join(timeout=5)
+            return None
+
+        logging.info("Demucs: first segment ready, starting FFmpeg")
+        self._demucs_thread = demucs_thread
+        return vocals_wav, instrumental_wav
+
+    def restart_with_new_volumes(self) -> bool:
+        """Restart FFmpeg for the current song with updated stem volumes.
+
+        Only has effect when stem separation is active (both vocals_wav and
+        instrumental_wav are set for the current playback). The new volumes
+        are read from preferences. The client is expected to reload the
+        stream and seek to the previously-saved position.
+
+        Returns:
+            True if a restart was issued, False if no eligible stream is active.
+        """
+        if not (self._current_fr and self._current_vocals_wav and self._current_instrumental_wav):
+            return False
+
+        fr = self._current_fr
+        is_hls = self._current_is_hls
+        semitones = self._current_semitones
+
+        normalize_audio = self.preferences.get_or_default("normalize_audio")
+        complete_transcode_before_play = self.preferences.get_or_default(
+            "complete_transcode_before_play"
+        )
+        avsync = self.preferences.get_or_default("avsync")
+        cdg_pixel_scaling = self.preferences.get_or_default("cdg_pixel_scaling")
+        vocal_volume = float(self.preferences.get_or_default("vocal_volume"))
+        instrumental_volume = float(self.preferences.get_or_default("instrumental_volume"))
+
+        logging.info(
+            f"Restarting FFmpeg with vocal_volume={vocal_volume} "
+            f"instrumental_volume={instrumental_volume}"
+        )
+        self.kill_ffmpeg()
+
+        # Clear stale HLS segments / mp4 output so ffmpeg starts fresh
+        try:
+            if is_hls:
+                stream_uid_str = str(fr.stream_uid)
+                for name in os.listdir(fr.tmp_dir):
+                    if stream_uid_str in name and (name.endswith(".m4s") or name.endswith(".m3u8")):
+                        try:
+                            os.remove(os.path.join(fr.tmp_dir, name))
+                        except OSError:
+                            pass
+            elif os.path.exists(fr.output_file):
+                os.remove(fr.output_file)
+        except Exception:
+            logging.exception("Failed to clean previous stream outputs before restart")
+
+        ffmpeg_cmd = build_ffmpeg_cmd(
+            fr,
+            semitones,
+            normalize_audio,
+            not is_hls,
+            complete_transcode_before_play,
+            avsync,
+            cdg_pixel_scaling,
+            vocals_audio=self._current_vocals_wav,
+            instrumental_audio=self._current_instrumental_wav,
+            vocal_volume=vocal_volume,
+            instrumental_volume=instrumental_volume,
+        )
+        self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
+        self.ffmpeg_log = Queue()
+        t = Thread(
+            target=enqueue_output,
+            args=(self.ffmpeg_process.stderr, self.ffmpeg_log),
+            daemon=True,
+        )
+        t.start()
+        return True
 
     def log_ffmpeg_output(self) -> None:
         """Log any pending FFmpeg output from the queue."""

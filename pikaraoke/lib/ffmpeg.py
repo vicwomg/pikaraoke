@@ -39,6 +39,11 @@ def build_ffmpeg_cmd(
     buffer_fully_before_playback: bool = False,
     avsync: float = 0,
     cdg_pixel_scaling: bool = False,
+    alternate_audio: str | None = None,
+    vocals_audio: str | None = None,
+    instrumental_audio: str | None = None,
+    vocal_volume: float = 1.0,
+    instrumental_volume: float = 1.0,
 ) -> Any:
     """Build an ffmpeg command for transcoding media.
 
@@ -92,7 +97,17 @@ def build_ffmpeg_cmd(
         input = ffmpeg.input(fr.file_path, **{"fflags": "+genpts"})
     else:
         input = ffmpeg.input(fr.file_path)
-    audio = input.audio
+
+    # Audio source: dual stems with independent volumes, single alternate, or original
+    if vocals_audio and instrumental_audio:
+        vocals = ffmpeg.input(vocals_audio).audio.filter("volume", vocal_volume)
+        instr = ffmpeg.input(instrumental_audio).audio.filter("volume", instrumental_volume)
+        audio = ffmpeg.filter([vocals, instr], "amix", inputs=2, duration="longest", normalize=0)
+        acodec = "aac"  # force re-encode when mixing stems
+    elif alternate_audio:
+        audio = ffmpeg.input(alternate_audio).audio
+    else:
+        audio = input.audio
 
     # Audio sync adjustment: delay or trim
     if avsync > 0:

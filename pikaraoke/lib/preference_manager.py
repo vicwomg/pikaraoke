@@ -46,6 +46,9 @@ class PreferenceManager:
         "high_score_phrases": "",
         "show_splash_clock": False,
         "enable_title_tidy": False,
+        "vocal_removal": False,
+        "vocal_volume": 0.3,
+        "instrumental_volume": 1.0,
     }
 
     def __init__(self, config_file_path: str = "config.ini", target: object | None = None) -> None:
