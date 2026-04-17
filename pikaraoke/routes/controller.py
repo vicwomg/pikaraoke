@@ -60,6 +60,24 @@ def volume(volume):
     return redirect(url_for("home.home"))
 
 
+@controller_bp.route("/vocal_volume/<volume>")
+def vocal_volume(volume):
+    """Set vocal stem volume (active when vocal_removal is on)."""
+    k = get_karaoke_instance()
+    broadcast_event("vocal_volume", volume)
+    k.vocal_volume_change(float(volume))
+    return redirect(url_for("home.home"))
+
+
+@controller_bp.route("/instrumental_volume/<volume>")
+def instrumental_volume(volume):
+    """Set instrumental stem volume (active when vocal_removal is on)."""
+    k = get_karaoke_instance()
+    broadcast_event("instrumental_volume", volume)
+    k.instrumental_volume_change(float(volume))
+    return redirect(url_for("home.home"))
+
+
 @controller_bp.route("/vol_up")
 def vol_up():
     """Increase volume by 10%."""

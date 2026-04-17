@@ -1,6 +1,8 @@
 {% extends 'base.html' %} {% block scripts %}
 <script>
 	var volume = {{ volume|default(0.85) }};
+	var vocalVolume = {{ vocal_volume|default(0.3) }};
+	var instrumentalVolume = {{ instrumental_volume|default(1.0) }};
 
 	// Ensure global socket exists
 	if (typeof window.socket === 'undefined') {
@@ -61,6 +63,23 @@
 			$("#volume-slider").val(volume);
 		}
 
+		// Show/hide stem controls based on vocal_removal state, sync slider values
+		if (np.vocal_removal) {
+			$("#stem-controls").show();
+			if (typeof np.vocal_volume === "number" && np.vocal_volume != vocalVolume) {
+				vocalVolume = np.vocal_volume;
+				$("#vocal-slider").val(vocalVolume);
+				$("#vocal-slider-label").text(Math.round(vocalVolume * 100) + "%");
+			}
+			if (typeof np.instrumental_volume === "number" && np.instrumental_volume != instrumentalVolume) {
+				instrumentalVolume = np.instrumental_volume;
+				$("#instrumental-slider").val(instrumentalVolume);
+				$("#instrumental-slider-label").text(Math.round(instrumentalVolume * 100) + "%");
+			}
+		} else {
+			$("#stem-controls").hide();
+		}
+
 		if (np.is_paused) {
 			$("#pause-resume").removeClass("icon-pause");
 			$("#pause-resume").addClass("icon-play");
@@ -91,6 +110,26 @@
 				const value = this.value;
 				$.get("/volume/" + value);
 			}, 500)
+		);
+
+		$("#vocal-slider").on("input", function () {
+			$("#vocal-slider-label").text(Math.round(this.value * 100) + "%");
+		});
+		$("#vocal-slider").on(
+			"change",
+			debounce(function () {
+				$.get("/vocal_volume/" + this.value);
+			}, 400)
+		);
+
+		$("#instrumental-slider").on("input", function () {
+			$("#instrumental-slider-label").text(Math.round(this.value * 100) + "%");
+		});
+		$("#instrumental-slider").on(
+			"change",
+			debounce(function () {
+				$.get("/instrumental_volume/" + this.value);
+			}, 400)
 		);
 
 		$("#submit-transpose").click(function () {
@@ -220,6 +259,21 @@
 				style="margin: 0 8px 0px 5px; width: 100px"
 			/>
 			<i id="vol-up" class="icon icon-volume-up"></i>
+		</div>
+	</div>
+
+	<div id="stem-controls" style="display: none; margin-top: 10px">
+		<div class="is-flex" style="align-items: center; justify-content: space-between; margin-bottom: 6px">
+			{# MSG: Label for the vocal stem volume slider (karaoke voice removal). #}
+			<span style="min-width: 90px">🎤 {% trans %}Vocals{% endtrans %}</span>
+			<input type="range" min="0" max="1" step="0.05" id="vocal-slider" value="0.3" style="flex: 1; margin: 0 8px" />
+			<span id="vocal-slider-label" style="min-width: 40px; text-align: right">30%</span>
+		</div>
+		<div class="is-flex" style="align-items: center; justify-content: space-between">
+			{# MSG: Label for the instrumental stem volume slider. #}
+			<span style="min-width: 90px">🎸 {% trans %}Music{% endtrans %}</span>
+			<input type="range" min="0" max="1" step="0.05" id="instrumental-slider" value="1.0" style="flex: 1; margin: 0 8px" />
+			<span id="instrumental-slider-label" style="min-width: 40px; text-align: right">100%</span>
 		</div>
 	</div>
 	<hr />

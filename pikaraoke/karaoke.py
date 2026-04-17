@@ -473,6 +473,26 @@ class Karaoke:
         self.update_now_playing_socket()
         return True
 
+    def vocal_volume_change(self, vol_level: float) -> bool:
+        """Set the vocal stem volume (used when vocal_removal is active)."""
+        vol_level = max(0.0, min(1.0, float(vol_level)))
+        self.preferences.set("vocal_volume", vol_level)
+        self.vocal_volume = vol_level
+        self.playback_controller.stream_manager.restart_with_new_volumes()
+        self.log_and_send(_("Vocal volume: %s") % (int(vol_level * 100)))
+        self.update_now_playing_socket()
+        return True
+
+    def instrumental_volume_change(self, vol_level: float) -> bool:
+        """Set the instrumental stem volume (used when vocal_removal is active)."""
+        vol_level = max(0.0, min(1.0, float(vol_level)))
+        self.preferences.set("instrumental_volume", vol_level)
+        self.instrumental_volume = vol_level
+        self.playback_controller.stream_manager.restart_with_new_volumes()
+        self.log_and_send(_("Instrumental volume: %s") % (int(vol_level * 100)))
+        self.update_now_playing_socket()
+        return True
+
     def vol_up(self) -> None:
         """Increase volume by 10%."""
         new_vol = min(self.volume + 0.1, 1.0)
@@ -517,6 +537,8 @@ class Karaoke:
         """Reset all now playing state to defaults."""
         self.playback_controller.reset_now_playing()
         self.volume = self.preferences.get_or_default("volume")
+        self.vocal_volume = self.preferences.get_or_default("vocal_volume")
+        self.instrumental_volume = self.preferences.get_or_default("instrumental_volume")
         self.update_now_playing_socket()
 
     def get_now_playing(self) -> dict[str, Any]:
@@ -536,6 +558,9 @@ class Karaoke:
             "up_next": next_song["title"] if next_song else None,
             "next_user": next_song["user"] if next_song else None,
             "volume": self.volume,
+            "vocal_removal": bool(self.preferences.get_or_default("vocal_removal")),
+            "vocal_volume": float(self.vocal_volume),
+            "instrumental_volume": float(self.instrumental_volume),
         }
 
     def update_now_playing_socket(self) -> None:
