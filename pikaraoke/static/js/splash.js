@@ -364,6 +364,26 @@ const applyStemVolumes = (np) => {
   }
 };
 
+// Smooth fades on the stem gain nodes, mirroring the video.volume jQuery
+// animations in the non-stem path so pause/play feels the same either way.
+const fadeStems = (targets, durationMs) => {
+  if (!stemNodes || !stemAudioCtx) return false;
+  const now = stemAudioCtx.currentTime;
+  const dur = durationMs / 1000;
+  for (const key of ["vocals", "instrumental"]) {
+    const g = stemNodes[key].gain.gain;
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(g.value, now);
+    g.linearRampToValueAtTime(targets[key], now + dur);
+  }
+  return true;
+};
+
+const stemTargets = () => ({
+  vocals: typeof nowPlaying.vocal_volume === "number" ? nowPlaying.vocal_volume : 0.3,
+  instrumental: typeof nowPlaying.instrumental_volume === "number" ? nowPlaying.instrumental_volume : 1.0,
+});
+
 const handleNowPlayingUpdate = (np) => {
   nowPlaying = np;
   // Apply stem volume updates on every poll/socket update so home-page slider
@@ -688,8 +708,14 @@ const setupSocketEvents = () => {
   });
   socket.on('pause', () => {
     const video = getVideoPlayer();
-    const currVolume = video.volume;
-    if (!video.paused) {
+    if (video.paused) return;
+    if (stemNodes) {
+      // Stems carry the real audio; fade them, then pause (video.pause fires
+      // the listener that pauses the Audio elements).
+      fadeStems({ vocals: 0, instrumental: 0 }, 1000);
+      setTimeout(() => video.pause(), 1000);
+    } else {
+      const currVolume = video.volume;
       $(video).animate({ volume: 0 }, 1000, () => {
         video.pause();
         video.volume = currVolume;
@@ -698,8 +724,20 @@ const setupSocketEvents = () => {
   });
   socket.on('play', () => {
     const video = getVideoPlayer();
-    const currVolume = video.volume;
-    if (video.paused) {
+    if (!video.paused) return;
+    if (stemNodes && stemAudioCtx) {
+      // Silence gains, start playback (video.play fires playAll on stems),
+      // then ramp gains back to the user's target values.
+      const now = stemAudioCtx.currentTime;
+      for (const key of ["vocals", "instrumental"]) {
+        const g = stemNodes[key].gain.gain;
+        g.cancelScheduledValues(now);
+        g.setValueAtTime(0, now);
+      }
+      video.play();
+      fadeStems(stemTargets(), 1000);
+    } else {
+      const currVolume = video.volume;
       video.play();
       video.volume = 0;
       $(video).animate({ volume: currVolume }, 1000);
@@ -707,13 +745,18 @@ const setupSocketEvents = () => {
   });
   socket.on('skip', (reason) => {
     const video = getVideoPlayer();
-    const currVolume = video.volume;
     if (isMediaPlaying(video)) {
-      $(video).animate({ volume: 0 }, 1000, () => {
-        video.pause();
-        video.volume = currVolume;
-        hideVideo();
-      });
+      if (stemNodes) {
+        fadeStems({ vocals: 0, instrumental: 0 }, 1000);
+        setTimeout(() => { video.pause(); hideVideo(); }, 1000);
+      } else {
+        const currVolume = video.volume;
+        $(video).animate({ volume: 0 }, 1000, () => {
+          video.pause();
+          video.volume = currVolume;
+          hideVideo();
+        });
+      }
     } else {
       video.pause();
       hideVideo();
