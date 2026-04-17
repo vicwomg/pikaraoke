@@ -287,6 +287,14 @@ class Karaoke:
             ),
         )
         self.events.on(
+            "ffmpeg_progress",
+            lambda data: (
+                self.socketio.emit("ffmpeg_progress", data, namespace="/")
+                if self.socketio
+                else None
+            ),
+        )
+        self.events.on(
             "stems_ready",
             lambda data: (
                 self.socketio.emit("stems_ready", data, namespace="/") if self.socketio else None

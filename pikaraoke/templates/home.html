@@ -1,4 +1,58 @@
 {% extends 'base.html' %} {% block scripts %}
+<style>
+	/* Seek slider: always span full song duration. The buffered portion is
+	   teal; the unprocessed tail is a visible mid-grey so users see how far
+	   demucs/ffmpeg has gotten. --seek-buffered-pct is set from JS. */
+	#seek-slider {
+		-webkit-appearance: none;
+		appearance: none;
+		height: 8px;
+		background: transparent;
+		padding: 0;
+		--seek-buffered-pct: 100%;
+	}
+	#seek-slider::-webkit-slider-runnable-track {
+		height: 8px;
+		border-radius: 4px;
+		background: linear-gradient(
+			to right,
+			hsl(171, 100%, 41%) 0%,
+			hsl(171, 100%, 41%) var(--seek-buffered-pct),
+			hsl(0, 0%, 45%) var(--seek-buffered-pct),
+			hsl(0, 0%, 45%) 100%
+		);
+	}
+	#seek-slider::-moz-range-track {
+		height: 8px;
+		border-radius: 4px;
+		background: linear-gradient(
+			to right,
+			hsl(171, 100%, 41%) 0%,
+			hsl(171, 100%, 41%) var(--seek-buffered-pct),
+			hsl(0, 0%, 45%) var(--seek-buffered-pct),
+			hsl(0, 0%, 45%) 100%
+		);
+	}
+	#seek-slider::-webkit-slider-thumb {
+		-webkit-appearance: none;
+		appearance: none;
+		width: 16px;
+		height: 16px;
+		border-radius: 50%;
+		background: hsl(0, 0%, 95%);
+		margin-top: -4px;
+		cursor: pointer;
+		border: none;
+	}
+	#seek-slider::-moz-range-thumb {
+		width: 16px;
+		height: 16px;
+		border-radius: 50%;
+		background: hsl(0, 0%, 95%);
+		border: none;
+		cursor: pointer;
+	}
+</style>
 <script>
 	var volume = {{ volume|default(0.85) }};
 	var vocalVolume = {{ vocal_volume|default(0.3) }};
@@ -6,8 +60,18 @@
 
 	// Seek slider state
 	var seekDuration = 0;       // total song length in seconds (from now_playing)
-	var seekBuffered = null;    // seconds processed by demucs; null = no limit (no vocal_removal or cache hit)
+	// Buffered upper bounds, in seconds. null = source not active / fully ready.
+	// Effective limit is the min of both — you can't seek past the slower one.
+	var seekBufferedDemucs = null;
+	var seekBufferedFfmpeg = null;
 	var seekDragging = false;   // suppress incoming position updates while user drags
+
+	function effectiveSeekBuffered() {
+		if (seekBufferedDemucs === null && seekBufferedFfmpeg === null) return null;
+		if (seekBufferedDemucs === null) return seekBufferedFfmpeg;
+		if (seekBufferedFfmpeg === null) return seekBufferedDemucs;
+		return Math.min(seekBufferedDemucs, seekBufferedFfmpeg);
+	}
 
 	// Ensure global socket exists
 	if (typeof window.socket === 'undefined') {
@@ -30,20 +94,17 @@
 	function updateSeekBufferedVisual() {
 		var slider = document.getElementById("seek-slider");
 		if (!slider) return;
-		if (seekDuration <= 0) {
-			slider.style.background = "";
-			return;
-		}
+		var buffered = effectiveSeekBuffered();
 		var bufferedPct;
-		if (seekBuffered === null) {
+		if (seekDuration <= 0) {
+			bufferedPct = 0;
+		} else if (buffered === null) {
 			bufferedPct = 100;
 		} else {
-			bufferedPct = Math.max(0, Math.min(100, (seekBuffered / seekDuration) * 100));
+			bufferedPct = Math.max(0, Math.min(100, (buffered / seekDuration) * 100));
 		}
-		// Fill up to buffered with bright color, remainder dimmed/disabled look.
-		slider.style.background =
-			"linear-gradient(to right, hsl(171, 100%, 41%) 0%, hsl(171, 100%, 41%) " +
-			bufferedPct + "%, hsl(0, 0%, 30%) " + bufferedPct + "%, hsl(0, 0%, 30%) 100%)";
+		// CSS pseudo-element track (see <style> above) draws the gradient.
+		slider.style.setProperty("--seek-buffered-pct", bufferedPct + "%");
 	}
 
 	function loadNowPlaying() {
@@ -153,18 +214,28 @@
 				// If server knows demucs progress, reflect it; otherwise assume full (cache hit expected).
 				if (typeof np.demucs_processed === "number" && typeof np.demucs_total === "number"
 					&& np.demucs_total > 0 && np.demucs_processed < np.demucs_total) {
-					seekBuffered = np.demucs_processed;
+					seekBufferedDemucs = np.demucs_processed;
 				} else {
-					seekBuffered = null;
+					seekBufferedDemucs = null;
 				}
 			} else {
-				seekBuffered = null;
+				seekBufferedDemucs = null;
+			}
+			// ffmpeg HLS segment progress. Server emits it for every HLS-transcoded
+			// song regardless of vocal_removal — the slider should never let the
+			// user seek past what's been written to disk.
+			if (typeof np.ffmpeg_processed === "number" && typeof np.ffmpeg_total === "number"
+				&& np.ffmpeg_total > 0 && np.ffmpeg_processed < np.ffmpeg_total) {
+				seekBufferedFfmpeg = np.ffmpeg_processed;
+			} else {
+				seekBufferedFfmpeg = null;
 			}
 			updateSeekBufferedVisual();
 			$("#seek-control").show();
 		} else {
 			seekDuration = 0;
-			seekBuffered = null;
+			seekBufferedDemucs = null;
+			seekBufferedFfmpeg = null;
 			$("#seek-control").hide();
 		}
 	}
@@ -238,7 +309,8 @@
 		var seekSlider = document.getElementById("seek-slider");
 		if (seekSlider) {
 			var clampToBuffered = function (v) {
-				if (seekBuffered !== null && v > seekBuffered) return seekBuffered;
+				var buffered = effectiveSeekBuffered();
+				if (buffered !== null && v > buffered) return buffered;
 				return v;
 			};
 			seekSlider.addEventListener("pointerdown", function () { seekDragging = true; });
@@ -270,9 +342,19 @@
 			if (!data || typeof data.processed !== "number" || typeof data.total !== "number") return;
 			if (data.total <= 0) return;
 			if (data.processed >= data.total - 0.05) {
-				seekBuffered = null; // fully processed — unlock whole slider
+				seekBufferedDemucs = null; // fully processed — this source no longer limits
 			} else {
-				seekBuffered = data.processed;
+				seekBufferedDemucs = data.processed;
+			}
+			updateSeekBufferedVisual();
+		});
+		window.socket.on("ffmpeg_progress", function (data) {
+			if (!data || typeof data.processed !== "number" || typeof data.total !== "number") return;
+			if (data.total <= 0) return;
+			if (data.processed >= data.total - 0.05) {
+				seekBufferedFfmpeg = null; // transcoding done — this source no longer limits
+			} else {
+				seekBufferedFfmpeg = data.processed;
 			}
 			updateSeekBufferedVisual();
 		});
