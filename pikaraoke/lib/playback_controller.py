@@ -167,6 +167,7 @@ class PlaybackController:
         self.reset_now_playing()
         self.stream_manager.kill_ffmpeg()
         self.stream_manager.clear_active_stems()
+        self.stream_manager.clear_active_sources()
         # Small delay to ensure FFmpeg fully terminates and file handles close
         # Critical on Raspberry Pi with slow SD cards and hardware encoder cleanup
         time.sleep(0.3)

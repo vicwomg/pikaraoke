@@ -8,6 +8,7 @@ import pytest
 
 from pikaraoke.lib.file_resolver import (
     FileResolver,
+    can_serve_directly,
     create_tmp_dir,
     delete_tmp_dir,
     get_tmp_dir,
@@ -81,6 +82,44 @@ class TestIsTranscodingRequired:
     def test_zip_needs_transcoding(self):
         """Test that .zip files need transcoding (CDG package)."""
         assert is_transcoding_required("/songs/karaoke.zip") is True
+
+
+class TestCanServeDirectly:
+    """Tests for the can_serve_directly function."""
+
+    def _probe(self, video_codec=None, audio_codec=None):
+        streams = []
+        if video_codec is not None:
+            streams.append({"codec_type": "video", "codec_name": video_codec})
+        if audio_codec is not None:
+            streams.append({"codec_type": "audio", "codec_name": audio_codec})
+        return {"streams": streams}
+
+    def test_h264_aac_mp4_is_direct(self):
+        with patch("ffmpeg.probe", return_value=self._probe("h264", "aac")):
+            assert can_serve_directly("/songs/test.mp4") is True
+
+    def test_h264_no_audio_is_direct(self):
+        with patch("ffmpeg.probe", return_value=self._probe("h264", None)):
+            assert can_serve_directly("/songs/test.mp4") is True
+
+    def test_hevc_is_not_direct(self):
+        with patch("ffmpeg.probe", return_value=self._probe("hevc", "aac")):
+            assert can_serve_directly("/songs/test.mp4") is False
+
+    def test_h264_opus_is_not_direct(self):
+        with patch("ffmpeg.probe", return_value=self._probe("h264", "opus")):
+            assert can_serve_directly("/songs/test.mp4") is False
+
+    def test_non_mp4_extension_is_not_direct(self):
+        # Should not even call ffprobe
+        with patch("ffmpeg.probe") as mock_probe:
+            assert can_serve_directly("/songs/test.webm") is False
+            mock_probe.assert_not_called()
+
+    def test_ffprobe_failure_is_not_direct(self):
+        with patch("ffmpeg.probe", side_effect=RuntimeError("boom")):
+            assert can_serve_directly("/songs/test.mp4") is False
 
     def test_case_insensitive_mp4(self):
         """Test that MP4 detection is case insensitive."""

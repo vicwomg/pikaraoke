@@ -15,7 +15,7 @@ from typing import Any
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.ffmpeg import build_ffmpeg_cmd
-from pikaraoke.lib.file_resolver import FileResolver, is_transcoding_required
+from pikaraoke.lib.file_resolver import FileResolver, can_serve_directly, is_transcoding_required
 from pikaraoke.lib.preference_manager import PreferenceManager
 
 # Mirror of hls_time in build_ffmpeg_cmd. Each .m4s segment covers roughly
@@ -103,6 +103,9 @@ class StreamManager:
         # Map of stream_uid -> ActiveStems, for the HTTP tail routes that
         # serve vocals/instrumental audio to the browser.
         self.active_stems: dict[str, ActiveStems] = {}
+        # Map of stream_uid -> source file path, for the direct-mp4 route
+        # that serves the original file with HTTP byte-range seeking.
+        self.active_sources: dict[str, str] = {}
 
     def play_file(self, file_path: str, semitones: int = 0) -> PlaybackResult:
         """Start playback of a media file.
@@ -151,8 +154,19 @@ class StreamManager:
         if vocal_removal and fr.file_path:
             self._prepare_stems(fr)
 
+        # Direct-serve path: vanilla h264/aac mp4 with no transforms. Skip
+        # the tmp-dir copy entirely and stream the source with native
+        # HTTP byte-range seeking.
+        can_direct = (
+            not requires_transcoding
+            and fr.file_path is not None
+            and can_serve_directly(fr.file_path)
+        )
+
         # Set stream URL based on format
-        if is_hls:
+        if can_direct:
+            stream_url_path = f"/stream/video/{fr.stream_uid}.mp4"
+        elif is_hls:
             stream_url_path = f"/stream/{fr.stream_uid}.m3u8"
         else:
             if complete_transcode_before_play or not requires_transcoding:
@@ -160,7 +174,11 @@ class StreamManager:
             else:
                 stream_url_path = f"/stream/{fr.stream_uid}.mp4"
 
-        if not requires_transcoding:
+        if can_direct:
+            self.active_sources[str(fr.stream_uid)] = fr.file_path  # type: ignore[assignment]
+            is_transcoding_complete = True
+            is_buffering_complete = True
+        elif not requires_transcoding:
             is_transcoding_complete = self._copy_file(file_path, fr.output_file)
             is_buffering_complete = True
         else:
@@ -601,6 +619,10 @@ class StreamManager:
         late requests for a finished song get 404 instead of stale data.
         """
         self.active_stems.clear()
+
+    def clear_active_sources(self) -> None:
+        """Drop all registered direct-mp4 source paths."""
+        self.active_sources.clear()
 
     def kill_ffmpeg(self) -> None:
         """Terminate the running FFmpeg process gracefully.

@@ -90,6 +90,37 @@ def is_transcoding_required(file_path: str) -> bool:
     return file_extension != ".mp4" and file_extension != ".webm"
 
 
+def can_serve_directly(file_path: str) -> bool:
+    """Check if the source file can be served byte-for-byte to the browser.
+
+    True only for .mp4 containers whose first video stream is h264 and whose
+    first audio stream is aac (or which have no audio). This lets the stream
+    route bypass the ffmpeg copy+faststart dance entirely and use native
+    HTTP byte-range seeking on the source file.
+
+    The ffprobe call adds ~50-150ms to play_file. Acceptable; the payoff is
+    no transcode pass at all on the common case.
+    """
+    import ffmpeg
+
+    if os.path.splitext(file_path)[1].casefold() != ".mp4":
+        return False
+    try:
+        data = ffmpeg.probe(file_path)
+    except Exception as e:
+        logging.debug(f"ffprobe failed for {file_path}: {e}")
+        return False
+    vcodec: str | None = None
+    acodec: str | None = None
+    for s in data.get("streams", []):
+        kind = s.get("codec_type")
+        if kind == "video" and vcodec is None:
+            vcodec = s.get("codec_name")
+        elif kind == "audio" and acodec is None:
+            acodec = s.get("codec_name")
+    return vcodec == "h264" and acodec in (None, "aac")
+
+
 class FileResolver:
     """Resolves media files for playback, handling CDG and zipped formats.
 

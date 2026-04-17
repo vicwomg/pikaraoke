@@ -131,6 +131,27 @@ def stream_stem_audio(stream_id: str, stem: str, ext: str):
     return response
 
 
+@stream_bp.route("/stream/video/<stream_uid>.mp4")
+def stream_source_mp4(stream_uid: str):
+    """Serve the original source mp4 with HTTP byte-range seeking.
+
+    Used when the source is a browser-native h264/aac mp4 and no audio
+    transforms are required; bypasses the copy-to-tmp+transcode path
+    entirely. Source file path is registered by StreamManager.play_file.
+    """
+    k = get_karaoke_instance()
+
+    if not k.playback_controller.is_playing:
+        now_playing_url = k.playback_controller.now_playing_url
+        if now_playing_url and stream_uid in now_playing_url:
+            k.playback_controller.start_song()
+
+    source_path = k.playback_controller.stream_manager.active_sources.get(stream_uid)
+    if not source_path or not os.path.exists(source_path):
+        return Response("Stream source not found", status=404)
+    return send_file(source_path, mimetype="video/mp4", conditional=True)
+
+
 # Serves HLS playlist file - explicit .m3u8 extension
 @stream_bp.route("/stream/<id>.m3u8")
 def stream_playlist(id):
