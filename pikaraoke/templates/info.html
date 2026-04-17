@@ -32,7 +32,7 @@
 				let timeoutId = setTimeout(function() {
 					$this.attr("data-start-value", val);
 
-					if (pref == "bg_music_volume" || pref == "volume") {
+					if (pref == "bg_music_volume" || pref == "volume" || pref == "vocal_volume" || pref == "instrumental_volume") {
 						val = val / 100;
 					}
 					changePreferences(pref, val);
@@ -410,6 +410,24 @@
 					<div class="user-preference-container">
 						<input id="pref-normalize" type="checkbox" class="user-preference-checkbox checkbox" data-pref="normalize_audio" {% if normalize_audio == True %}checked{% endif %}>
 						<label class="label" for="pref-normalize">{# MSG: Checkbox label which enable/disables audio volume normalization #} {% trans %}Normalize audio volume{% endtrans %}
+						</label>
+					</div>
+
+					<div class="user-preference-container">
+						<input id="pref-vocal-removal" type="checkbox" class="user-preference-checkbox checkbox" data-pref="vocal_removal" {% if vocal_removal == True %}checked{% endif %}>
+						<label class="label" for="pref-vocal-removal">{# MSG: Checkbox label which enables Demucs-based vocal removal (karaoke mode) #} {% trans %}Enable vocal removal (karaoke mode via Demucs stem separation — requires GPU or Apple Silicon for reasonable performance){% endtrans %}
+						</label>
+					</div>
+
+					<div class="user-preference-container is-align-items-center">
+						<input id="pref-vocal-volume" class="user-preference-input input" type="number" min="0" max="100" step="5" data-pref="vocal_volume" data-start-value="{{ vocal_volume }}" value="{{ vocal_volume }}" />
+						<label class="label" for="pref-vocal-volume">{# MSG: Numberbox label for vocal stem volume when vocal removal is enabled #} {% trans %}Vocal stem volume (min 0, max 100){% endtrans %}
+						</label>
+					</div>
+
+					<div class="user-preference-container is-align-items-center">
+						<input id="pref-instrumental-volume" class="user-preference-input input" type="number" min="0" max="100" step="5" data-pref="instrumental_volume" data-start-value="{{ instrumental_volume }}" value="{{ instrumental_volume }}" />
+						<label class="label" for="pref-instrumental-volume">{# MSG: Numberbox label for instrumental stem volume when vocal removal is enabled #} {% trans %}Instrumental stem volume (min 0, max 100){% endtrans %}
 						</label>
 					</div>
 
