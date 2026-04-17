@@ -43,13 +43,21 @@ from pikaraoke.version import __version__ as VERSION
 
 _WHISPERX_OPT_OUT = {"off", "none", "false", "0"}
 
+# Sweet spot for CPU alignment: ~142 MB, a few seconds per minute of audio on
+# modern hardware, and transcription accuracy is not the bottleneck (LRCLib
+# provides the reference text that timings are mapped onto).
+_DEFAULT_WHISPERX_MODEL = "base"
+
 
 def word_level_lyrics_status() -> dict:
     """Whether word-level karaoke alignment (whisperx) is active, and why / why not.
 
-    Returned dict:
-        enabled (bool): True only when whisperx is importable AND WHISPERX_MODEL is set.
-        model (str | None): The configured model name when enabled.
+    Defaults to enabled with model="base" when whisperx is installed and the
+    user hasn't explicitly opted out. Returned dict:
+
+        enabled (bool): True when whisperx is importable and not opted-out.
+        model (str | None): The configured (or default) model name when enabled.
+        device (str | None): The resolved torch device when enabled.
         reason (str | None): Human-readable reason why alignment is off.
         fix (str | None): One-line suggestion for the user to fix it.
         explicit_opt_out (bool): True when the user set WHISPERX_MODEL=off.
@@ -62,6 +70,7 @@ def word_level_lyrics_status() -> dict:
         return {
             "enabled": False,
             "model": None,
+            "device": None,
             "reason": "opted out via WHISPERX_MODEL=off",
             "fix": None,
             "explicit_opt_out": True,
@@ -70,21 +79,17 @@ def word_level_lyrics_status() -> dict:
         return {
             "enabled": False,
             "model": None,
+            "device": None,
             "reason": "whisperx is not installed",
             "fix": "pip install 'pikaraoke[align]'",
             "explicit_opt_out": False,
         }
-    if not model:
-        return {
-            "enabled": False,
-            "model": None,
-            "reason": "WHISPERX_MODEL environment variable is unset",
-            "fix": "export WHISPERX_MODEL=base   # or small/medium/large-v2",
-            "explicit_opt_out": False,
-        }
+    resolved_model = model_raw or _DEFAULT_WHISPERX_MODEL
+    device = os.environ.get("WHISPERX_DEVICE", "").strip() or _auto_whisperx_device()
     return {
         "enabled": True,
-        "model": model_raw,
+        "model": resolved_model,
+        "device": device,
         "reason": None,
         "fix": None,
         "explicit_opt_out": False,
@@ -97,6 +102,24 @@ def _is_whisperx_installed() -> bool:
     return importlib.util.find_spec("whisperx") is not None
 
 
+def _auto_whisperx_device() -> str:
+    """Prefer CUDA when torch sees it; fall back to CPU.
+
+    whisperx's faster-whisper backend (CTranslate2) has no MPS support today,
+    so Apple Silicon users stay on CPU here even when torch reports MPS.
+    """
+    try:
+        import torch
+    except ImportError:
+        return "cpu"
+    try:
+        if torch.cuda.is_available():
+            return "cuda"
+    except (RuntimeError, AttributeError):
+        pass
+    return "cpu"
+
+
 def _build_lyrics_aligner():
     """Return a WhisperXAligner or None, emitting a startup banner when disabled."""
     status = word_level_lyrics_status()
@@ -107,9 +130,10 @@ def _build_lyrics_aligner():
 
     from pikaraoke.lib.lyrics_align import WhisperXAligner
 
-    device = os.environ.get("WHISPERX_DEVICE", "cpu")
-    logging.info("whisperx alignment enabled (model=%s, device=%s)", status["model"], device)
-    return WhisperXAligner(model_size=status["model"], device=device)
+    logging.info(
+        "whisperx alignment enabled (model=%s, device=%s)", status["model"], status["device"]
+    )
+    return WhisperXAligner(model_size=status["model"], device=status["device"])
 
 
 def _warn_word_level_disabled(reason: str, fix: str) -> None:

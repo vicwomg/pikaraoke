@@ -26,13 +26,16 @@ class TestWordLevelLyricsStatus:
         assert "not installed" in status["reason"]
         assert "pip install" in status["fix"]
 
-    def test_env_unset_but_whisperx_installed(self, no_env):
-        with patch("pikaraoke.karaoke._is_whisperx_installed", return_value=True):
+    def test_env_unset_auto_enables_with_default_model(self, no_env):
+        # whisperx installed + env unset -> auto-enable with "base" model.
+        with patch("pikaraoke.karaoke._is_whisperx_installed", return_value=True), patch(
+            "pikaraoke.karaoke._auto_whisperx_device", return_value="cpu"
+        ):
             status = word_level_lyrics_status()
-        assert status["enabled"] is False
+        assert status["enabled"] is True
+        assert status["model"] == "base"
+        assert status["device"] == "cpu"
         assert status["explicit_opt_out"] is False
-        assert "WHISPERX_MODEL" in status["reason"]
-        assert "export WHISPERX_MODEL=" in status["fix"]
 
     @pytest.mark.parametrize("value", ["off", "OFF", "none", "false", "0"])
     def test_explicit_opt_out(self, monkeypatch, value):
@@ -43,18 +46,29 @@ class TestWordLevelLyricsStatus:
         assert status["explicit_opt_out"] is True
         assert status["fix"] is None
 
-    def test_enabled(self, monkeypatch):
-        monkeypatch.setenv("WHISPERX_MODEL", "base")
-        with patch("pikaraoke.karaoke._is_whisperx_installed", return_value=True):
+    def test_explicit_model_overrides_default(self, monkeypatch):
+        monkeypatch.setenv("WHISPERX_MODEL", "small")
+        with patch("pikaraoke.karaoke._is_whisperx_installed", return_value=True), patch(
+            "pikaraoke.karaoke._auto_whisperx_device", return_value="cpu"
+        ):
             status = word_level_lyrics_status()
         assert status["enabled"] is True
-        assert status["model"] == "base"
-        assert status["reason"] is None
-        assert status["explicit_opt_out"] is False
+        assert status["model"] == "small"
+
+    def test_explicit_device_overrides_autodetect(self, monkeypatch):
+        monkeypatch.setenv("WHISPERX_DEVICE", "cuda")
+        with patch("pikaraoke.karaoke._is_whisperx_installed", return_value=True), patch(
+            "pikaraoke.karaoke._auto_whisperx_device", return_value="cpu"
+        ) as mock_auto:
+            status = word_level_lyrics_status()
+        assert status["device"] == "cuda"
+        mock_auto.assert_not_called()
 
     def test_whitespace_stripped(self, monkeypatch):
         monkeypatch.setenv("WHISPERX_MODEL", "  base  ")
-        with patch("pikaraoke.karaoke._is_whisperx_installed", return_value=True):
+        with patch("pikaraoke.karaoke._is_whisperx_installed", return_value=True), patch(
+            "pikaraoke.karaoke._auto_whisperx_device", return_value="cpu"
+        ):
             status = word_level_lyrics_status()
         assert status["enabled"] is True
         assert status["model"] == "base"
@@ -72,13 +86,19 @@ class TestBuildLyricsAligner:
         assert "not installed" in kwargs["reason"]
         assert "pip install" in kwargs["fix"]
 
-    def test_warns_and_returns_none_when_model_unset(self, no_env):
+    def test_auto_enables_when_model_unset_and_whisperx_installed(self, no_env):
+        fake_aligner = object()
+        fake_cls = patch(
+            "pikaraoke.lib.lyrics_align.WhisperXAligner",
+            return_value=fake_aligner,
+        )
         with patch("pikaraoke.karaoke._is_whisperx_installed", return_value=True), patch(
-            "pikaraoke.karaoke._warn_word_level_disabled"
-        ) as mock_warn:
+            "pikaraoke.karaoke._auto_whisperx_device", return_value="cpu"
+        ), patch("pikaraoke.karaoke._warn_word_level_disabled") as mock_warn, fake_cls as mock_cls:
             aligner = _build_lyrics_aligner()
-        assert aligner is None
-        mock_warn.assert_called_once()
+        assert aligner is fake_aligner
+        mock_warn.assert_not_called()
+        mock_cls.assert_called_once_with(model_size="base", device="cpu")
 
     def test_silent_when_explicitly_opted_out(self, monkeypatch):
         monkeypatch.setenv("WHISPERX_MODEL", "off")
@@ -89,9 +109,9 @@ class TestBuildLyricsAligner:
         assert aligner is None
         mock_warn.assert_not_called()
 
-    def test_returns_aligner_when_enabled(self, monkeypatch):
-        monkeypatch.setenv("WHISPERX_MODEL", "base")
-        monkeypatch.setenv("WHISPERX_DEVICE", "cpu")
+    def test_returns_aligner_when_explicitly_enabled(self, monkeypatch):
+        monkeypatch.setenv("WHISPERX_MODEL", "small")
+        monkeypatch.setenv("WHISPERX_DEVICE", "cuda")
         fake_aligner = object()
         fake_cls = patch(
             "pikaraoke.lib.lyrics_align.WhisperXAligner",
@@ -100,7 +120,7 @@ class TestBuildLyricsAligner:
         with patch("pikaraoke.karaoke._is_whisperx_installed", return_value=True), fake_cls as mock:
             aligner = _build_lyrics_aligner()
         assert aligner is fake_aligner
-        mock.assert_called_once_with(model_size="base", device="cpu")
+        mock.assert_called_once_with(model_size="small", device="cuda")
 
 
 class TestWarnBanner:

@@ -520,7 +520,7 @@
 					{# MSG: Whether per-word (syllable-level) karaoke highlighting is active. #}
 					<li><u>{% trans %}Word-level lyrics:{% endtrans %}</u>
 						{% if word_level_lyrics.enabled %}
-							<span class="has-text-success">{% trans model=word_level_lyrics.model %}enabled (whisperx model: {{ model }}){% endtrans %}</span>
+							<span class="has-text-success">{% trans model=word_level_lyrics.model, device=word_level_lyrics.device %}enabled (whisperx model: {{ model }}, device: {{ device }}){% endtrans %}</span>
 						{% else %}
 							<span class="has-text-danger">
 								{% trans reason=word_level_lyrics.reason %}disabled ({{ reason }}){% endtrans %}
