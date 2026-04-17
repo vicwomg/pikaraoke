@@ -10,7 +10,7 @@ from typing import Any
 
 from flask_babel import _
 
-from pikaraoke.lib.get_platform import get_data_directory
+from pikaraoke.lib.get_platform import get_data_directory, has_torch_gpu
 
 
 class PreferenceManager:
@@ -46,7 +46,9 @@ class PreferenceManager:
         "high_score_phrases": "",
         "show_splash_clock": False,
         "enable_title_tidy": False,
-        "vocal_removal": False,
+        # Enabled by default on machines with a torch-capable GPU
+        # (CUDA or Apple Silicon MPS). CPU-only Demucs is too slow.
+        "vocal_removal": has_torch_gpu(),
         "vocal_volume": 0.3,
         "instrumental_volume": 1.0,
     }
