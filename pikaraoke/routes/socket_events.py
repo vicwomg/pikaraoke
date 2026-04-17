@@ -83,6 +83,27 @@ def setup_socket_events(socketio):
         k.preferences.set("instrumental_volume", v)
         socketio.emit("stem_volume", {"instrumental_volume": v}, include_self=False)
 
+    @socketio.on("seek")
+    def handle_seek(position: float) -> None:
+        """Handle seek request from a pilot.
+
+        Clamps to [0, duration] and broadcasts to all clients (splash applies
+        it to the media elements; other pilots update their sliders).
+        """
+        try:
+            pos = float(position)
+        except (TypeError, ValueError):
+            logging.warning(f"Ignoring invalid seek value: {position!r}")
+            return
+        k = get_karaoke_instance()
+        duration = k.playback_controller.now_playing_duration
+        if duration:
+            pos = max(0.0, min(float(duration), pos))
+        else:
+            pos = max(0.0, pos)
+        k.playback_controller.now_playing_position = pos
+        socketio.emit("seek", pos)
+
     @socketio.on("playback_position")
     def handle_playback_position(position: float) -> None:
         """Handle playback_position WebSocket event from the master splash screen.

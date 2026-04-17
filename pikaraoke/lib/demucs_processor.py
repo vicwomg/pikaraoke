@@ -13,6 +13,7 @@ import logging
 import os
 import struct
 import threading
+from typing import Callable
 
 import numpy as np
 import soundfile as sf
@@ -238,6 +239,7 @@ def separate_stems(
     output_vocals: str,
     output_instrumental: str,
     ready_event: threading.Event | None = None,
+    progress_callback: Callable[[float, float], None] | None = None,
 ) -> bool:
     """Separate audio into vocal and instrumental stems using Demucs.
 
@@ -250,6 +252,9 @@ def separate_stems(
         output_vocals: Path to output vocals WAV file.
         output_instrumental: Path to output instrumental WAV file.
         ready_event: Optional event set when first segment is ready for playback.
+        progress_callback: Optional callback(processed_seconds, total_seconds)
+            invoked after each segment flush. Receives final (total, total) on
+            completion. May be throttled by the caller.
 
     Returns:
         True if separation succeeded, False on error.
@@ -393,6 +398,12 @@ def separate_stems(
                         ready_event.set()
                     logging.info(f"Demucs: first segment ready ({written_up_to / sr:.1f}s)")
 
+                if progress_callback:
+                    try:
+                        progress_callback(written_up_to / sr, length / sr)
+                    except Exception:
+                        logging.exception("Demucs progress_callback failed")
+
             progress_bar.update(1)
 
         progress_bar.close()
@@ -419,6 +430,11 @@ def separate_stems(
         f_vocals.close()
         f_instrumental.close()
         logging.info("Demucs: separation complete")
+        if progress_callback:
+            try:
+                progress_callback(length / sr, length / sr)
+            except Exception:
+                logging.exception("Demucs progress_callback failed")
         return True
 
     except Exception:
