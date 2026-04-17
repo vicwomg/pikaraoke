@@ -21,3 +21,4 @@ docker-compose.yml
 
 # Briefcase build artifacts
 *.briefcase.toml
+.gstack/
