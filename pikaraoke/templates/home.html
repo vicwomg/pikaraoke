@@ -63,8 +63,11 @@
 			$("#volume-slider").val(volume);
 		}
 
-		// Show/hide stem controls based on vocal_removal state, sync slider values
+		// When vocal_removal is on, replace the single volume slider with
+		// two stem sliders (vocals + instrumental). Otherwise show only the
+		// standard volume slider.
 		if (np.vocal_removal) {
+			$("#main-volume-control").hide();
 			$("#stem-controls").show();
 			if (typeof np.vocal_volume === "number" && np.vocal_volume != vocalVolume) {
 				vocalVolume = np.vocal_volume;
@@ -78,6 +81,7 @@
 			}
 		} else {
 			$("#stem-controls").hide();
+			$("#main-volume-control").show();
 		}
 
 		if (np.is_paused) {
@@ -247,7 +251,7 @@
 			Title attribute on the button to skip to the next song. #}
 			<a title="{{ _('Stop Current Song') }}" id="skip"><i class="icon icon-to-end"></i> </a>
 		</div>
-		<div class="is-size-3" style="display: flex; align-items: center">
+		<div id="main-volume-control" class="is-size-3" style="display: flex; align-items: center">
 			<i id="vol-down" class="icon icon-volume-down"></i>
 			<input
 				type="range"
