@@ -571,21 +571,25 @@ const handleNowPlayingUpdate = (np) => {
   if (np.now_playing_url && np.now_playing_url !== currentVideoUrl) {
     currentVideoUrl = np.now_playing_url;
     const streamUrl = np.now_playing_url;
-    // Tear down the previous HLS instance before touching the element so
-    // load() doesn't close a MediaSource that hls.js still owns.
+    // Tear down any previous HLS instance before we touch the element.
+    // hls.destroy() revokes the old MediaSource blob; calling video.load()
+    // or leaving the old blob on video.src after that would trigger
+    // ERR_FILE_NOT_FOUND on the revoked URL.
     if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
-    $("#video-source").attr("src", "");
-    video.load();
 
     const isHls = streamUrl.endsWith('.m3u8');
     const useNativeHLS = isHls && video.canPlayType('application/vnd.apple.mpegurl') &&
       !isChrome && !isEdge && !isMobileSafari;
 
     if (isHls && !useNativeHLS) {
-      // hls.js attaches a MediaSource blob to video.src. Leaving an .m3u8
-      // on the <source> element or calling video.load() here would close
-      // the MediaSource and break playback.
+      // hls.js owns the media element: creates a MediaSource, sets
+      // video.src to its blob, feeds segments in. We must NOT call
+      // video.load() here — it would close the MediaSource.
+      $("#video-source").attr("src", "");
       hlsInstance = new Hls({ startPosition: 0 });
+      hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+        console.warn("hls.js error:", data.type, data.details, "fatal:", data.fatal, data);
+      });
       hlsInstance.loadSource(streamUrl);
       hlsInstance.attachMedia(video);
     } else {
