@@ -83,11 +83,26 @@ def stream_stem_audio(stream_id: str, stem: str, ext: str):
             path = stems.vocals_path if stem == "vocals" else stems.instrumental_path
             if os.path.exists(path):
                 break
+    # Race: encode_mp3_in_background replaces .wav with .mp3 on disk while
+    # ActiveStems still points to the .wav. Fall back to the sibling mp3
+    # (or vice versa) and update ActiveStems so future fetches find it.
+    if path and not os.path.exists(path):
+        alt = path[:-4] + ".mp3" if path.endswith(".wav") else path[:-4] + ".wav"
+        if os.path.exists(alt):
+            path = alt
+            if stem == "vocals":
+                stems.vocals_path = alt
+            else:
+                stems.instrumental_path = alt
+            stems.format = "mp3" if alt.endswith(".mp3") else "wav"
     if not path or not os.path.exists(path):
         return Response("Stem file missing", status=404)
 
     done_event = stems.done_event
-    mimetype = "audio/wav" if ext == "wav" else "audio/mpeg"
+    # Serve with the mimetype of the file we actually have on disk, not the
+    # URL extension — otherwise the fallback above (wav URL -> mp3 file)
+    # ships MP3 bytes as audio/wav and some browsers reject it.
+    mimetype = "audio/mpeg" if path.endswith(".mp3") else "audio/wav"
 
     # Fully-written files (cache hit, or Demucs completed mid-song) — serve
     # with range support so the browser can seek via HTTP byte ranges.
