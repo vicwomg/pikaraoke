@@ -144,6 +144,14 @@ def build_ytdl_download_command(
         "vcodec:h264",
         "--compat-options",
         "filename-sanitization",
+        "--write-info-json",
+        "--write-subs",
+        "--write-auto-subs",
+        "--sub-langs",
+        "all,-live_chat",
+        "--convert-subs",
+        "vtt",
+        "--embed-metadata",
     ]
     cmd = yt_dlp_cmd + args + _js_runtime_args()
     if youtubedl_proxy:
