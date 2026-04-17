@@ -43,6 +43,12 @@ class ActiveStems:
     ready_event: threading.Event  # set when the first segment is on disk
     processed_seconds: float = 0.0
     total_seconds: float = 0.0
+    # Transform prefs captured at song start. The stem HTTP route pipes the
+    # cached file through ffmpeg (rubberband + loudnorm) when either is set.
+    # Stashed here so mid-song slider changes don't retroactively mutate the
+    # currently-playing mix.
+    semitones: int = 0
+    normalize: bool = False
 
 
 @dataclass
@@ -150,10 +156,7 @@ class StreamManager:
         # avsync moves to the client on the direct path; server-side filters
         # remain on the HLS fallback (see _transcode_file).
         requires_transcoding = (
-            is_transcoding_required(file_path)
-            or is_hls
-            or avsync != 0
-            or needs_audio_transforms
+            is_transcoding_required(file_path) or is_hls or avsync != 0 or needs_audio_transforms
         )
 
         logging.debug(f"Requires transcoding (pre-direct check): {requires_transcoding}")
@@ -170,6 +173,10 @@ class StreamManager:
         # `stems_ready` event arrives.
         if vocal_removal and fr.file_path:
             self._prepare_stems(fr)
+            entry = self.active_stems.get(str(fr.stream_uid))
+            if entry is not None:
+                entry.semitones = semitones
+                entry.normalize = normalize_audio
 
         # Direct-video path: h264 mp4 source. If audio needs transforms or
         # is codec-incompatible, spin up a separate audio pipe route;
@@ -196,9 +203,7 @@ class StreamManager:
             # transforms on stems aren't supported in this pipeline yet
             # (stems would play unpitched, matching pre-Phase-4 behavior).
             needs_audio_pipe = not vocal_removal and (
-                needs_audio_transforms
-                or avsync != 0
-                or not can_serve_directly(fr.file_path)
+                needs_audio_transforms or avsync != 0 or not can_serve_directly(fr.file_path)
             )
             if needs_audio_pipe:
                 self.active_audio[uid] = AudioTrackConfig(
@@ -607,9 +612,7 @@ class StreamManager:
                 exited = rc is not None
                 try:
                     count = sum(
-                        1
-                        for f in os.listdir(tmp_dir)
-                        if stream_uid_str in f and f.endswith(".m4s")
+                        1 for f in os.listdir(tmp_dir) if stream_uid_str in f and f.endswith(".m4s")
                     )
                 except (FileNotFoundError, OSError):
                     count = 0

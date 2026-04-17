@@ -104,9 +104,29 @@ def stream_stem_audio(stream_id: str, stem: str, ext: str):
     # ships MP3 bytes as audio/wav and some browsers reject it.
     mimetype = "audio/mpeg" if path.endswith(".mp3") else "audio/wav"
 
+    transforms_active = stems.semitones != 0 or stems.normalize
+    is_done = done_event.is_set() and not path.endswith(".partial")
+
+    # Cache hit + pitch/normalize active — pipe the cached stem through
+    # ffmpeg so stems pick up the same transforms the single-track path
+    # already applies. Live Demucs (done_event unset) falls through to the
+    # raw tail reader below; seeking on a growing file via ffmpeg -ss is
+    # too fragile, so users hear raw stems until separation completes.
+    if transforms_active and is_done:
+        from pikaraoke.lib.audio_processor import AudioTrackConfig, stream_wav_range
+
+        config = AudioTrackConfig(
+            source_path=path,
+            duration_sec=float(stems.total_seconds or 0),
+            semitones=stems.semitones,
+            normalize=stems.normalize,
+        )
+        generate, status, headers, _total = stream_wav_range(config, request.headers.get("Range"))
+        return Response(stream_with_context(generate()), status=status, headers=headers)
+
     # Fully-written files (cache hit, or Demucs completed mid-song) — serve
     # with range support so the browser can seek via HTTP byte ranges.
-    if done_event.is_set() and not path.endswith(".partial"):
+    if is_done:
         return send_file(path, mimetype=mimetype, conditional=True)
 
     def generate():
@@ -148,9 +168,7 @@ def stream_audio_track(stream_uid: str):
     if config is None:
         return Response("Audio track not active", status=404)
 
-    generate, status, headers, _total = stream_wav_range(
-        config, request.headers.get("Range")
-    )
+    generate, status, headers, _total = stream_wav_range(config, request.headers.get("Range"))
     return Response(stream_with_context(generate()), status=status, headers=headers)
 
 

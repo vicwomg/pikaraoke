@@ -594,6 +594,48 @@ class TestStreamManagerPlayFile:
     @patch("pikaraoke.lib.stream_manager.can_serve_video_directly", return_value=True)
     @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
     @patch("pikaraoke.lib.stream_manager.FileResolver")
+    def test_play_file_vocal_removal_stashes_transform_prefs(
+        self,
+        mock_resolver_class,
+        mock_transcode_check,
+        mock_can_video,
+        mock_can_direct,
+        mock_gettext,
+        test_prefs,
+    ):
+        """Transform prefs are stashed on ActiveStems so the stem route can pipe them."""
+        import threading
+
+        from pikaraoke.lib.stream_manager import ActiveStems
+
+        test_prefs.set("vocal_removal", True)
+        test_prefs.set("normalize_audio", True)
+        sm = StreamManager(test_prefs, streaming_format="mp4")
+        mock_fr = self._setup_resolver(mock_resolver_class)
+        mock_fr.file_path = "/songs/test.mp4"
+
+        def fake_prepare_stems(fr):
+            sm.active_stems[str(fr.stream_uid)] = ActiveStems(
+                vocals_path="/cache/vocals.wav",
+                instrumental_path="/cache/instrumental.wav",
+                format="wav",
+                done_event=threading.Event(),
+                ready_event=threading.Event(),
+            )
+            return True
+
+        with patch.object(sm, "_prepare_stems", side_effect=fake_prepare_stems):
+            sm.play_file("/songs/test.mp4", semitones=2)
+
+        entry = sm.active_stems["12345"]
+        assert entry.semitones == 2
+        assert entry.normalize is True
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("pikaraoke.lib.stream_manager.can_serve_directly", return_value=True)
+    @patch("pikaraoke.lib.stream_manager.can_serve_video_directly", return_value=True)
+    @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
+    @patch("pikaraoke.lib.stream_manager.FileResolver")
     def test_play_file_avsync_goes_to_client_on_direct_path(
         self,
         mock_resolver_class,
