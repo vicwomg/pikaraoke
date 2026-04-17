@@ -22,6 +22,9 @@ let hlsInstance = null;
 // them through Web Audio gain nodes, and sync them to video playback.
 let stemAudioCtx = null;
 let stemNodes = null; // { vocals: {el, gain}, instrumental: {el, gain}, urls: {vocals, instrumental} }
+// Stems data for the current song if AudioContext wasn't running when
+// stems_ready arrived. Applied when the context becomes running.
+let pendingStemsData = null;
 let idleTime = 0;
 let screensaverTimeoutSeconds = PikaraokeConfig.screensaverTimeout;
 let bg_playlist = [];
@@ -291,6 +294,44 @@ const ensureAudioContextRunning = () => {
   return Promise.resolve();
 };
 
+// Sets up stems and crossfades from video audio. Bails if the context
+// isn't running so the video keeps its audio instead of going silent —
+// stems are re-tried when a gesture resumes the context.
+const applyPendingStems = () => {
+  if (!pendingStemsData) return;
+  const data = pendingStemsData;
+  const video = getVideoPlayer();
+  const currentUid = currentVideoUrl ? extractStreamUid(currentVideoUrl) : null;
+  if (data.stream_uid !== currentUid) {
+    pendingStemsData = null;  // song changed
+    return;
+  }
+  if (stemNodes) {
+    pendingStemsData = null;  // already set up (cache hit path)
+    return;
+  }
+  if (!stemAudioCtx || stemAudioCtx.state !== "running") return;
+  pendingStemsData = null;
+
+  const np = {
+    ...nowPlaying,
+    vocals_url: data.vocals_url,
+    instrumental_url: data.instrumental_url,
+  };
+  setupStemAudio(np, video);
+  if (!stemNodes) return;
+  for (const k of ["vocals", "instrumental"]) {
+    try { stemNodes[k].el.currentTime = video.currentTime; } catch (e) {}
+    stemNodes[k].el.play().catch(() => {});
+  }
+  // 300ms crossfade: video audio down to 0 as stem gains ramp up.
+  const fadeMs = 300;
+  $(video).animate({ volume: 0 }, fadeMs, () => {
+    video.muted = true;
+  });
+  fadeStems(stemTargets(), fadeMs);
+};
+
 // Extracts the stream_uid from a /stream/<uid>.<ext> URL so stems_ready
 // events can be matched against the song that's actually playing.
 const extractStreamUid = (url) => {
@@ -303,8 +344,9 @@ const extractStreamUid = (url) => {
 // First click/keydown/touch triggers resume so stems can play when they
 // become ready, even if the user never clicked the permissions modal
 // (testAutoplayCapability skips it when autoplay is already allowed).
+// Also applies any stems_ready that arrived while suspended.
 const resumeOnFirstGesture = () => {
-  ensureAudioContextRunning();
+  ensureAudioContextRunning().then(applyPendingStems);
 };
 document.addEventListener("click", resumeOnFirstGesture);
 document.addEventListener("keydown", resumeOnFirstGesture);
@@ -890,29 +932,8 @@ const setupSocketEvents = () => {
   // disk. Video has been playing with its original audio; crossfade to the
   // stems so the user gets the karaoke mix (vocals ducked per slider).
   socket.on("stems_ready", (data) => {
-    const video = getVideoPlayer();
-    const currentUid = currentVideoUrl ? extractStreamUid(currentVideoUrl) : null;
-    if (data.stream_uid !== currentUid) return;  // stale event from a previous song
-    if (stemNodes) return;  // already set up (cache hit path)
-    ensureAudioContextRunning().then(() => {
-      const np = {
-        ...nowPlaying,
-        vocals_url: data.vocals_url,
-        instrumental_url: data.instrumental_url,
-      };
-      setupStemAudio(np, video);
-      if (!stemNodes) return;
-      for (const k of ["vocals", "instrumental"]) {
-        try { stemNodes[k].el.currentTime = video.currentTime; } catch (e) {}
-        stemNodes[k].el.play().catch(() => {});
-      }
-      // 300ms crossfade: video audio down to 0 as stem gains ramp up.
-      const fadeMs = 300;
-      $(video).animate({ volume: 0 }, fadeMs, () => {
-        video.muted = true;
-      });
-      fadeStems(stemTargets(), fadeMs);
-    });
+    pendingStemsData = data;
+    ensureAudioContextRunning().then(applyPendingStems);
   });
   // Lightweight live stem volume updates during slider drag. Applies the
   // new gain directly without triggering the full now_playing refresh.
