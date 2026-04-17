@@ -647,6 +647,14 @@ class Karaoke:
                 ):
                     self.reset_now_playing()
 
+                # Prewarm Demucs cache for the next queued song so
+                # _prepare_stems hits the cache-hit path. Idempotent: the
+                # prewarm function deduplicates by path.
+                if self.preferences.get_or_default("vocal_removal") and self.queue_manager.queue:
+                    from pikaraoke.lib.demucs_processor import prewarm
+
+                    prewarm(self.queue_manager.queue[0]["file"])
+
                 # Start next song from queue if not currently playing
                 if len(self.queue_manager.queue) > 0 and not self.playback_controller.is_playing:
                     self.reset_now_playing()
