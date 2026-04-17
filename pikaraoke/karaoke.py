@@ -216,6 +216,7 @@ class Karaoke:
         # Clean up half-written Demucs stems from any previous run.
         try:
             from pikaraoke.lib.demucs_processor import cleanup_stale_partials
+
             cleanup_stale_partials()
         except Exception:
             logging.exception("Failed to clean up stale Demucs partials")
@@ -251,6 +252,14 @@ class Karaoke:
         self.events.on(
             "sync_finished",
             lambda: self.socketio.emit("sync_finished", namespace="/") if self.socketio else None,
+        )
+        self.events.on(
+            "demucs_progress",
+            lambda data: (
+                self.socketio.emit("demucs_progress", data, namespace="/")
+                if self.socketio
+                else None
+            ),
         )
 
         # Initialize queue manager

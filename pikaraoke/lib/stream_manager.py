@@ -6,9 +6,8 @@ import logging
 import os
 import shutil
 import subprocess
-import tempfile
-import time
 import threading
+import time
 from dataclasses import dataclass
 from queue import Queue
 from threading import Thread
@@ -31,6 +30,8 @@ class ActiveStems:
     instrumental_path: str
     format: str  # "wav" or "mp3"
     done_event: threading.Event  # set when stem files are fully written
+    processed_seconds: float = 0.0
+    total_seconds: float = 0.0
 
 
 @dataclass
@@ -76,15 +77,22 @@ class StreamManager:
         ffmpeg_log: Queue for FFmpeg stderr output.
     """
 
-    def __init__(self, preferences: PreferenceManager, streaming_format: str = "hls") -> None:
+    def __init__(
+        self,
+        preferences: PreferenceManager,
+        streaming_format: str = "hls",
+        events: EventSystem | None = None,
+    ) -> None:
         """Initialize the stream manager.
 
         Args:
             preferences: PreferenceManager instance for configuration.
             streaming_format: Video streaming format ('hls' or 'mp4').
+            events: Optional EventSystem to emit 'demucs_progress' events on.
         """
         self.preferences = preferences
         self.streaming_format = streaming_format
+        self.events = events
         self.ffmpeg_process = None
         self.ffmpeg_log: Queue | None = None
         # Map of stream_uid -> ActiveStems, for the HTTP tail routes that
@@ -393,6 +401,7 @@ class StreamManager:
         cache_key = get_cache_key(input_wav)
         stream_uid = str(fr.stream_uid)
         cached = get_cached_stems(cache_key)
+        total_seconds = float(fr.duration or 0)
 
         if cached:
             vocals_path, instrumental_path, fmt = cached
@@ -403,7 +412,10 @@ class StreamManager:
                 instrumental_path=instrumental_path,
                 format=fmt,
                 done_event=done,
+                processed_seconds=total_seconds,
+                total_seconds=total_seconds,
             )
+            self._emit_demucs_progress(total_seconds, total_seconds)
             # WAV cache → encode MP3 in background so the next play is smaller.
             if fmt == "wav":
                 encode_mp3_in_background(cache_key)
@@ -415,9 +427,21 @@ class StreamManager:
         ready_event = threading.Event()
         done_event = threading.Event()
 
+        last_emit = [0.0]  # [timestamp] — throttle broadcasts to ~1/s
+
+        def progress_cb(processed: float, total: float) -> None:
+            entry = self.active_stems.get(stream_uid)
+            if entry is not None:
+                entry.processed_seconds = processed
+                entry.total_seconds = total
+            now = time.monotonic()
+            if processed >= total or (now - last_emit[0]) >= 1.0:
+                last_emit[0] = now
+                self._emit_demucs_progress(processed, total)
+
         def _separate_and_finalize() -> None:
             try:
-                ok = separate_stems(input_wav, partial_v, partial_i, ready_event)
+                ok = separate_stems(input_wav, partial_v, partial_i, ready_event, progress_cb)
                 if ok:
                     final_v, final_i = finalize_partial_stems(cache_key)
                     entry = self.active_stems.get(stream_uid)
@@ -442,9 +466,21 @@ class StreamManager:
             instrumental_path=partial_i,
             format="wav",
             done_event=done_event,
+            processed_seconds=0.0,
+            total_seconds=total_seconds,
         )
         logging.info("Demucs: first segment ready")
         return True
+
+    def _emit_demucs_progress(self, processed: float, total: float) -> None:
+        if self.events is None:
+            return
+        try:
+            self.events.emit(
+                "demucs_progress", {"processed": float(processed), "total": float(total)}
+            )
+        except Exception:
+            logging.exception("Failed to emit demucs_progress event")
 
     def log_ffmpeg_output(self) -> None:
         """Log any pending FFmpeg output from the queue."""

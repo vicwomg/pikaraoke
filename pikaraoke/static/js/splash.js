@@ -777,6 +777,14 @@ const setupSocketEvents = () => {
     video.currentTime = 0;
     if (video.paused) video.play();
   });
+  socket.on('seek', (position) => {
+    if (!isFinite(position)) return;
+    const video = getVideoPlayer();
+    if (video.readyState === 0) return;
+    const duration = isFinite(video.duration) && video.duration > 0 ? video.duration : position;
+    video.currentTime = Math.max(0, Math.min(duration, position));
+    // Stem audio elements follow via the 'seeking'/'seeked' listeners in setupStemAudio.
+  });
   socket.on("notification", (data) => {
     const notification = data.split("::");
     const message = notification[0];
