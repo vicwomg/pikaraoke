@@ -20,6 +20,11 @@ import soundfile as sf
 import torch
 from tqdm import tqdm
 
+# tqdm spawns a monitor thread whose lock is gevent-patched; during
+# atexit the hub is torn down and the join deadlocks / raises on Ctrl+C.
+# monitor_interval=0 disables that thread entirely.
+tqdm.monitor_interval = 0
+
 CACHE_DIR = os.path.expanduser("~/.pikaraoke-cache")
 
 # Global model cache — loaded once, reused across calls
@@ -173,6 +178,13 @@ def encode_mp3_in_background(cache_key: str, bitrate: str = "320k") -> None:
     """
     import subprocess as sp
 
+    from gevent import monkey
+
+    # gevent's patched subprocess attaches a child watcher to the default
+    # event loop, which only exists on the main greenlet. This helper runs
+    # ffmpeg from an OS thread, so use the unpatched subprocess.run.
+    _run = monkey.get_original("subprocess", "run")
+
     d = _cache_dir(cache_key)
     wav_v = os.path.join(d, "vocals.wav")
     wav_i = os.path.join(d, "instrumental.wav")
@@ -190,7 +202,7 @@ def encode_mp3_in_background(cache_key: str, bitrate: str = "320k") -> None:
                 continue
             tmp = mp3 + ".partial"
             try:
-                sp.run(
+                _run(
                     [
                         "ffmpeg",
                         "-y",
