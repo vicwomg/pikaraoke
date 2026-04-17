@@ -7,6 +7,7 @@ from flask_smorest import Blueprint
 
 from pikaraoke import VERSION
 from pikaraoke.constants import LANGUAGES
+from pikaraoke.karaoke import word_level_lyrics_status
 from pikaraoke.lib.current_app import (
     get_admin_password,
     get_karaoke_instance,
@@ -47,6 +48,7 @@ def info():
         is_transpose_enabled=k.is_transpose_enabled,
         youtubedl_version=youtubedl_version,
         pikaraoke_version=VERSION,
+        word_level_lyrics=word_level_lyrics_status(),
         cpu=None,
         memory=None,
         disk=None,

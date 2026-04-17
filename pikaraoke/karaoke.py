@@ -4,6 +4,7 @@ import logging
 import os
 import socket
 import subprocess
+import sys
 import threading
 import time
 from typing import Any
@@ -40,24 +41,103 @@ from pikaraoke.lib.youtube_dl import (
 )
 from pikaraoke.version import __version__ as VERSION
 
+_WHISPERX_OPT_OUT = {"off", "none", "false", "0"}
+
+
+def word_level_lyrics_status() -> dict:
+    """Whether word-level karaoke alignment (whisperx) is active, and why / why not.
+
+    Returned dict:
+        enabled (bool): True only when whisperx is importable AND WHISPERX_MODEL is set.
+        model (str | None): The configured model name when enabled.
+        reason (str | None): Human-readable reason why alignment is off.
+        fix (str | None): One-line suggestion for the user to fix it.
+        explicit_opt_out (bool): True when the user set WHISPERX_MODEL=off.
+
+    Shared by the startup banner and the Info page so they report consistently.
+    """
+    model_raw = os.environ.get("WHISPERX_MODEL", "").strip()
+    model = model_raw.lower()
+    if model in _WHISPERX_OPT_OUT:
+        return {
+            "enabled": False,
+            "model": None,
+            "reason": "opted out via WHISPERX_MODEL=off",
+            "fix": None,
+            "explicit_opt_out": True,
+        }
+    if not _is_whisperx_installed():
+        return {
+            "enabled": False,
+            "model": None,
+            "reason": "whisperx is not installed",
+            "fix": "pip install 'pikaraoke[align]'",
+            "explicit_opt_out": False,
+        }
+    if not model:
+        return {
+            "enabled": False,
+            "model": None,
+            "reason": "WHISPERX_MODEL environment variable is unset",
+            "fix": "export WHISPERX_MODEL=base   # or small/medium/large-v2",
+            "explicit_opt_out": False,
+        }
+    return {
+        "enabled": True,
+        "model": model_raw,
+        "reason": None,
+        "fix": None,
+        "explicit_opt_out": False,
+    }
+
+
+def _is_whisperx_installed() -> bool:
+    import importlib.util
+
+    return importlib.util.find_spec("whisperx") is not None
+
 
 def _build_lyrics_aligner():
-    """Return a WhisperXAligner when WHISPERX_MODEL is set, else None.
+    """Return a WhisperXAligner or None, emitting a startup banner when disabled."""
+    status = word_level_lyrics_status()
+    if not status["enabled"]:
+        if not status["explicit_opt_out"]:
+            _warn_word_level_disabled(reason=status["reason"], fix=status["fix"])
+        return None
 
-    Kept at module level so Karaoke.__init__ stays uncluttered and the import
-    of whisperx only happens when the user explicitly opts in.
-    """
-    model = os.environ.get("WHISPERX_MODEL", "off").strip().lower()
-    if model in ("", "off", "none", "false", "0"):
-        return None
-    try:
-        from pikaraoke.lib.lyrics_align import WhisperXAligner
-    except ImportError:
-        logging.info("whisperx not installed; using line-level lyrics only")
-        return None
+    from pikaraoke.lib.lyrics_align import WhisperXAligner
+
     device = os.environ.get("WHISPERX_DEVICE", "cpu")
-    logging.info(f"whisperx alignment enabled (model={model}, device={device})")
-    return WhisperXAligner(model_size=model, device=device)
+    logging.info("whisperx alignment enabled (model=%s, device=%s)", status["model"], device)
+    return WhisperXAligner(model_size=status["model"], device=device)
+
+
+def _warn_word_level_disabled(reason: str, fix: str) -> None:
+    """Print a high-visibility startup banner when word-level captions are off."""
+    width = 78
+    inner = width - 2
+
+    def line(text: str) -> str:
+        return "*" + text.ljust(inner) + "*"
+
+    lines = [
+        "",
+        "*" * width,
+        "*" + " WARNING: word-level karaoke captions are DISABLED ".center(inner) + "*",
+        line(""),
+        line(f"  Reason:  {reason}"),
+        line(f"  Fix:     {fix}"),
+        line("  Silence: export WHISPERX_MODEL=off"),
+        line(""),
+        line("  Lyrics will still render line-by-line from LRCLib."),
+        line("  Only the syllable-level karaoke highlight is skipped."),
+        "*" * width,
+        "",
+    ]
+    banner = "\n".join(lines)
+    if hasattr(sys.stderr, "isatty") and sys.stderr.isatty():
+        banner = f"\033[1;31m{banner}\033[0m"
+    logging.warning(banner)
 
 
 class Karaoke:

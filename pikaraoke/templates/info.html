@@ -517,6 +517,19 @@
 					<li><u>{% trans %}yt-dlp version:{% endtrans %}</u> {{ youtubedl_version }}</li>
 					{# MSG: The version of the program "ffmpeg". #}
 					<li><u>{% trans %}FFmpeg version:{% endtrans %}</u> {{ ffmpeg_version }} {% if not is_transpose_enabled %} (missing lib-rubberband, pitch shift is not supported) {% endif %}</li>
+					{# MSG: Whether per-word (syllable-level) karaoke highlighting is active. #}
+					<li><u>{% trans %}Word-level lyrics:{% endtrans %}</u>
+						{% if word_level_lyrics.enabled %}
+							<span class="has-text-success">{% trans model=word_level_lyrics.model %}enabled (whisperx model: {{ model }}){% endtrans %}</span>
+						{% else %}
+							<span class="has-text-danger">
+								{% trans reason=word_level_lyrics.reason %}disabled ({{ reason }}){% endtrans %}
+								{% if word_level_lyrics.fix %}
+									<br/>&nbsp;&nbsp;&nbsp;&nbsp;<small>{% trans %}Automatic .ass karaoke highlighting will not be generated.{% endtrans %} {% trans fix=word_level_lyrics.fix %}To enable: <code>{{ fix }}</code>{% endtrans %}</small>
+								{% endif %}
+							</span>
+						{% endif %}
+					</li>
 					{# MSG: The version of Pikaraoke running right now. #}
 					<li><u>{% trans %}Pikaraoke version:{% endtrans %}</u> {{ pikaraoke_version }}</li>
 					</ul>
