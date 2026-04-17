@@ -16,12 +16,17 @@ const hasBgVideo = PikaraokeConfig.hasBgVideo;
 let currentVideoUrl = null;
 let hlsInstance = null;
 
-// Client-side stem mixing state. When vocal_removal is on, the server strips
-// audio from the video stream and serves vocals/instrumental stems via
-// /stream/<id>/<stem>.<ext>. We load both stems as HTMLAudioElements, route
-// them through Web Audio gain nodes, and sync them to video playback.
+// Client-side audio mixing state. Used in two shapes:
+//   - Stems mode (vocal_removal): 2 tracks (vocals, instrumental) from the
+//     Demucs cache at /stream/<uid>/<stem>.<ext>.
+//   - Single-track mode (pitch/normalize/avsync without vocal_removal):
+//     1 track piped from ffmpeg at /stream/audio/<uid>/track.wav.
+// Both shapes use the same drift-correction and seek machinery.
 let stemAudioCtx = null;
-let stemNodes = null; // { vocals: {el, gain}, instrumental: {el, gain}, urls: {vocals, instrumental} }
+// Generalized audio tracks attached to the video:
+//   { tracks: { label: {el, source, gain} }, labels: [..], offsetSec, _handlers, _video }
+// offsetSec applies an AV sync shift: audio.currentTime = video.currentTime + offsetSec.
+let audioNodes = null;
 // Stems data for the current song if AudioContext wasn't running when
 // stems_ready arrived. Applied when the context becomes running.
 let pendingStemsData = null;
@@ -306,7 +311,7 @@ const applyPendingStems = () => {
     pendingStemsData = null;  // song changed
     return;
   }
-  if (stemNodes) {
+  if (audioNodes) {
     pendingStemsData = null;  // already set up (cache hit path)
     return;
   }
@@ -319,10 +324,10 @@ const applyPendingStems = () => {
     instrumental_url: data.instrumental_url,
   };
   setupStemAudio(np, video);
-  if (!stemNodes) return;
-  for (const k of ["vocals", "instrumental"]) {
-    try { stemNodes[k].el.currentTime = video.currentTime; } catch (e) {}
-    stemNodes[k].el.play().catch(() => {});
+  if (!audioNodes) return;
+  for (const label of audioNodes.labels) {
+    try { audioNodes.tracks[label].el.currentTime = video.currentTime; } catch (e) {}
+    audioNodes.tracks[label].el.play().catch(() => {});
   }
   // 300ms crossfade: video audio down to 0 as stem gains ramp up.
   const fadeMs = 300;
@@ -353,17 +358,17 @@ document.addEventListener("keydown", resumeOnFirstGesture);
 document.addEventListener("touchstart", resumeOnFirstGesture);
 
 const teardownStemAudio = () => {
-  if (!stemNodes) return;
-  // Detach listeners BEFORE nulling stemNodes — otherwise stale handlers
+  if (!audioNodes) return;
+  // Detach listeners BEFORE nulling audioNodes — otherwise stale handlers
   // fire on subsequent video events and throw "Cannot read properties of
-  // null" because they close over the module-level `stemNodes`.
-  if (stemNodes._handlers && stemNodes._video) {
-    for (const [evt, fn] of Object.entries(stemNodes._handlers)) {
-      stemNodes._video.removeEventListener(evt, fn);
+  // null" because they close over the module-level `audioNodes`.
+  if (audioNodes._handlers && audioNodes._video) {
+    for (const [evt, fn] of Object.entries(audioNodes._handlers)) {
+      audioNodes._video.removeEventListener(evt, fn);
     }
   }
-  for (const key of ["vocals", "instrumental"]) {
-    const node = stemNodes[key];
+  for (const label of audioNodes.labels) {
+    const node = audioNodes.tracks[label];
     if (!node) continue;
     try { node.el.pause(); } catch (e) {}
     try { node.source.disconnect(); } catch (e) {}
@@ -372,16 +377,17 @@ const teardownStemAudio = () => {
     try { node.el.load(); } catch (e) {}
     node.el.remove();
   }
-  stemNodes = null;
+  audioNodes = null;
 };
 
-const setupStemAudio = (np, video) => {
-  // Fresh setup every song — URLs contain stream_uid so they're per-song.
+// tracks: [{ url, gain, label }, ...]
+// offsetMs: applied as audio.currentTime = video.currentTime + offsetMs/1000
+const setupAudioTracks = (tracks, video, offsetMs = 0) => {
   teardownStemAudio();
   ensureAudioContextRunning();
   if (!stemAudioCtx) return;
 
-  const makeStem = (url, initialGain) => {
+  const makeTrack = (url, initialGain) => {
     const el = new Audio();
     el.crossOrigin = "anonymous";
     el.preload = "auto";
@@ -393,72 +399,80 @@ const setupStemAudio = (np, video) => {
     return { el, source, gain };
   };
 
-  stemNodes = {
-    vocals: makeStem(np.vocals_url, np.vocal_volume ?? 0.3),
-    instrumental: makeStem(np.instrumental_url, np.instrumental_volume ?? 1.0),
-    urls: { vocals: np.vocals_url, instrumental: np.instrumental_url },
+  const nodes = {
+    tracks: {},
+    labels: [],
+    offsetSec: (offsetMs || 0) / 1000,
   };
+  for (const t of tracks) {
+    nodes.tracks[t.label] = makeTrack(t.url, t.gain);
+    nodes.labels.push(t.label);
+  }
 
-  // Sync stems to video. Any drift > 150ms is corrected.
+  const targetTime = () => video.currentTime + nodes.offsetSec;
+
+  // Sync audio tracks to video. Any drift > 150ms is corrected.
   const syncAll = () => {
-    if (!stemNodes) return;
-    for (const k of ["vocals", "instrumental"]) {
-      const a = stemNodes[k].el;
-      if (Math.abs(a.currentTime - video.currentTime) > 0.15) {
-        try { a.currentTime = video.currentTime; } catch (e) {}
+    if (!audioNodes) return;
+    const t = targetTime();
+    for (const label of audioNodes.labels) {
+      const a = audioNodes.tracks[label].el;
+      if (Math.abs(a.currentTime - t) > 0.15) {
+        try { a.currentTime = t; } catch (e) {}
       }
     }
   };
   const playAll = () => {
-    if (!stemNodes) return;
+    if (!audioNodes) return;
     syncAll();
-    for (const k of ["vocals", "instrumental"]) {
-      stemNodes[k].el.play().catch(() => {});
+    for (const label of audioNodes.labels) {
+      audioNodes.tracks[label].el.play().catch(() => {});
     }
   };
   const pauseAll = () => {
-    if (!stemNodes) return;
-    for (const k of ["vocals", "instrumental"]) {
-      try { stemNodes[k].el.pause(); } catch (e) {}
+    if (!audioNodes) return;
+    for (const label of audioNodes.labels) {
+      try { audioNodes.tracks[label].el.pause(); } catch (e) {}
     }
   };
   // On HLS seek the video stalls (0.5–2s) and may land on a fresh segment;
-  // the stem stream cannot guarantee a seek to the target position (for live
-  // Demucs the data may not be written; for non-range chunked streams some
-  // browsers restart the decoder). We pause stems during `seeking` so they
-  // don't play free, then on `seeked` attempt to re-sync. If a stem cannot
-  // reach the target within tolerance we leave it paused — silent audio is
-  // better than a 0.3s loop of whatever the decoder lands on.
+  // the audio stream cannot guarantee a seek to the target position (for
+  // live Demucs the data may not be written; for non-range chunked streams
+  // some browsers restart the decoder). We pause audio during `seeking` so
+  // tracks don't play free, then on `seeked` attempt to re-sync. If a track
+  // cannot reach the target within tolerance we leave it paused — silent
+  // audio is better than a 0.3s loop of whatever the decoder lands on.
   const seekedHandler = () => {
-    if (!stemNodes) return;
-    const target = video.currentTime;
-    for (const k of ["vocals", "instrumental"]) {
-      const a = stemNodes[k].el;
-      try { a.currentTime = target; } catch (e) {}
+    if (!audioNodes) return;
+    const t = targetTime();
+    for (const label of audioNodes.labels) {
+      try { audioNodes.tracks[label].el.currentTime = t; } catch (e) {}
     }
     if (video.paused) return;
     setTimeout(() => {
-      if (!stemNodes) return;
-      for (const k of ["vocals", "instrumental"]) {
-        const a = stemNodes[k].el;
-        if (Math.abs(a.currentTime - video.currentTime) < 0.5) {
+      if (!audioNodes) return;
+      const t2 = targetTime();
+      for (const label of audioNodes.labels) {
+        const a = audioNodes.tracks[label].el;
+        if (Math.abs(a.currentTime - t2) < 0.5) {
           a.play().catch(() => {});
         }
       }
     }, 120);
   };
   // Periodic drift correction while playing. Skip during seeking, and skip
-  // stems we've already given up on (paused) — don't loop-retry a seek that
-  // the source stream can't service.
+  // tracks we've already given up on (paused) — don't loop-retry a seek
+  // that the source stream can't service.
   const driftHandler = () => {
-    if (!stemNodes) return;
+    if (!audioNodes) return;
     if (video.paused || video.seeking) return;
-    for (const k of ["vocals", "instrumental"]) {
-      const a = stemNodes[k].el;
+    const t = targetTime();
+    for (const label of audioNodes.labels) {
+      const a = audioNodes.tracks[label].el;
       if (a.paused) continue;
-      const drift = a.currentTime - video.currentTime;
+      const drift = a.currentTime - t;
       if (Math.abs(drift) > 0.2) {
-        try { a.currentTime = video.currentTime; } catch (e) {}
+        try { a.currentTime = t; } catch (e) {}
       }
     }
   };
@@ -473,31 +487,45 @@ const setupStemAudio = (np, video) => {
   for (const [evt, fn] of Object.entries(handlers)) {
     video.addEventListener(evt, fn);
   }
-  stemNodes._handlers = handlers;
-  stemNodes._video = video;
+  nodes._handlers = handlers;
+  nodes._video = video;
+  audioNodes = nodes;
+};
+
+const setupStemAudio = (np, video) => {
+  setupAudioTracks(
+    [
+      { url: np.vocals_url, gain: np.vocal_volume ?? 0.3, label: "vocals" },
+      { url: np.instrumental_url, gain: np.instrumental_volume ?? 1.0, label: "instrumental" },
+    ],
+    video,
+    0,
+  );
 };
 
 const applyStemVolumes = (np) => {
-  if (!stemNodes) return;
-  if (typeof np.vocal_volume === "number") {
-    stemNodes.vocals.gain.gain.value = np.vocal_volume;
+  if (!audioNodes) return;
+  if (audioNodes.tracks.vocals && typeof np.vocal_volume === "number") {
+    audioNodes.tracks.vocals.gain.gain.value = np.vocal_volume;
   }
-  if (typeof np.instrumental_volume === "number") {
-    stemNodes.instrumental.gain.gain.value = np.instrumental_volume;
+  if (audioNodes.tracks.instrumental && typeof np.instrumental_volume === "number") {
+    audioNodes.tracks.instrumental.gain.gain.value = np.instrumental_volume;
   }
 };
 
-// Smooth fades on the stem gain nodes, mirroring the video.volume jQuery
-// animations in the non-stem path so pause/play feels the same either way.
+// Smooth fades on audio gain nodes, mirroring the video.volume jQuery
+// animations in the passthrough path so pause/play feels the same either
+// way. `targets` maps label -> value; unknown labels are ignored.
 const fadeStems = (targets, durationMs) => {
-  if (!stemNodes || !stemAudioCtx) return false;
+  if (!audioNodes || !stemAudioCtx) return false;
   const now = stemAudioCtx.currentTime;
   const dur = durationMs / 1000;
-  for (const key of ["vocals", "instrumental"]) {
-    const g = stemNodes[key].gain.gain;
+  for (const label of audioNodes.labels) {
+    if (!(label in targets)) continue;
+    const g = audioNodes.tracks[label].gain.gain;
     g.cancelScheduledValues(now);
     g.setValueAtTime(g.value, now);
-    g.linearRampToValueAtTime(targets[key], now + dur);
+    g.linearRampToValueAtTime(targets[label], now + dur);
   }
   return true;
 };
@@ -507,10 +535,19 @@ const stemTargets = () => ({
   instrumental: typeof nowPlaying.instrumental_volume === "number" ? nowPlaying.instrumental_volume : 1.0,
 });
 
+// Resume-from-pause gain targets for whichever audio-track shape is attached.
+const audioTargets = () => {
+  if (!audioNodes) return {};
+  if (audioNodes.labels.length === 1 && audioNodes.labels[0] === "track") {
+    return { track: 1.0 };  // single-track pipe: full gain
+  }
+  return stemTargets();
+};
+
 const handleNowPlayingUpdate = (np) => {
   nowPlaying = np;
   // Apply stem volume updates on every poll/socket update so home-page slider
-  // changes take effect mid-song. Safe when stemNodes is null.
+  // changes take effect mid-song. Safe when audioNodes is null.
   applyStemVolumes(np);
   if (np.now_playing) {
 
@@ -598,12 +635,22 @@ const handleNowPlayingUpdate = (np) => {
       video.load();
     }
 
-    // Video starts with its original audio. If stems are already ready
-    // (cache hit, or a reconnect mid-song) we set them up and mute the
-    // video immediately — otherwise wait for the `stems_ready` socket
-    // event which will crossfade from video audio to stems.
+    // Video starts with its original audio. Three attachment modes:
+    //   - Single-track pipe (direct-mp4 + audio transforms): mute video,
+    //     play audio with AV sync offset applied client-side.
+    //   - Stems ready: crossfade video audio to stems.
+    //   - Neither: keep native video audio; stems may arrive later via
+    //     the `stems_ready` event which triggers the crossfade.
     teardownStemAudio();
-    if (np.vocals_url && np.instrumental_url) {
+    if (np.now_playing_audio_track_url) {
+      setupAudioTracks(
+        [{ url: np.now_playing_audio_track_url, gain: 1.0, label: "track" }],
+        video,
+        np.now_playing_avsync_offset_ms || 0,
+      );
+      video.muted = true;
+      video.volume = 0;
+    } else if (np.vocals_url && np.instrumental_url) {
       setupStemAudio(np, video);
       video.muted = true;
       video.volume = 0;
@@ -846,10 +893,11 @@ const setupSocketEvents = () => {
   socket.on('pause', () => {
     const video = getVideoPlayer();
     if (video.paused) return;
-    if (stemNodes) {
-      // Stems carry the real audio; fade them, then pause (video.pause fires
-      // the listener that pauses the Audio elements).
-      fadeStems({ vocals: 0, instrumental: 0 }, 1000);
+    if (audioNodes) {
+      // Audio tracks carry the real audio; fade all, then pause (video.pause
+      // fires the listener that pauses the Audio elements).
+      const zeros = Object.fromEntries(audioNodes.labels.map((l) => [l, 0]));
+      fadeStems(zeros, 1000);
       setTimeout(() => video.pause(), 1000);
     } else {
       const currVolume = video.volume;
@@ -862,17 +910,17 @@ const setupSocketEvents = () => {
   socket.on('play', () => {
     const video = getVideoPlayer();
     if (!video.paused) return;
-    if (stemNodes && stemAudioCtx) {
-      // Silence gains, start playback (video.play fires playAll on stems),
+    if (audioNodes && stemAudioCtx) {
+      // Silence gains, start playback (video.play fires playAll on tracks),
       // then ramp gains back to the user's target values.
       const now = stemAudioCtx.currentTime;
-      for (const key of ["vocals", "instrumental"]) {
-        const g = stemNodes[key].gain.gain;
+      for (const label of audioNodes.labels) {
+        const g = audioNodes.tracks[label].gain.gain;
         g.cancelScheduledValues(now);
         g.setValueAtTime(0, now);
       }
       video.play();
-      fadeStems(stemTargets(), 1000);
+      fadeStems(audioTargets(), 1000);
     } else {
       const currVolume = video.volume;
       video.play();
@@ -883,8 +931,9 @@ const setupSocketEvents = () => {
   socket.on('skip', (reason) => {
     const video = getVideoPlayer();
     if (isMediaPlaying(video)) {
-      if (stemNodes) {
-        fadeStems({ vocals: 0, instrumental: 0 }, 1000);
+      if (audioNodes) {
+        const zeros = Object.fromEntries(audioNodes.labels.map((l) => [l, 0]));
+        fadeStems(zeros, 1000);
         setTimeout(() => { video.pause(); hideVideo(); }, 1000);
       } else {
         const currVolume = video.volume;
@@ -942,12 +991,12 @@ const setupSocketEvents = () => {
   // Lightweight live stem volume updates during slider drag. Applies the
   // new gain directly without triggering the full now_playing refresh.
   socket.on("stem_volume", (data) => {
-    if (!stemNodes) return;
-    if (typeof data.vocal_volume === "number") {
-      stemNodes.vocals.gain.gain.value = data.vocal_volume;
+    if (!audioNodes) return;
+    if (audioNodes.tracks.vocals && typeof data.vocal_volume === "number") {
+      audioNodes.tracks.vocals.gain.gain.value = data.vocal_volume;
     }
-    if (typeof data.instrumental_volume === "number") {
-      stemNodes.instrumental.gain.gain.value = data.instrumental_volume;
+    if (audioNodes.tracks.instrumental && typeof data.instrumental_volume === "number") {
+      audioNodes.tracks.instrumental.gain.gain.value = data.instrumental_volume;
     }
   });
   socket.on("preferences_update", applyPreferenceUpdate);
