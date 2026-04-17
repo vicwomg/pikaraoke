@@ -55,7 +55,7 @@ default_port = 5555
 default_log_level = logging.INFO
 default_prefer_hostname = False
 default_config_file_path = "config.ini"
-default_streaming_format = "hls"
+default_streaming_format = "mp4"
 default_dl_dir = get_default_dl_dir(platform)
 
 # Alias for cleaner help text formatting
