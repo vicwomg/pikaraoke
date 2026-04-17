@@ -1,16 +1,16 @@
 #!/bin/bash
 
-# PiKaraoke Headless Mode Verification Script (Unix)
-# This script starts PiKaraoke in headless mode, waits for initialization,
-# and verifies that key web endpoints are serving content.
+# PiKaraoke Server Verification Script (Unix)
+# Starts PiKaraoke (no browser auto-launch by default), waits for
+# initialization, and verifies that key web endpoints are serving content.
 
 set -e
 
 echo "Installing PiKaraoke for CI..."
 ./build_scripts/install/install.sh -y --local
 
-echo "Starting PiKaraoke in headless mode..."
-pikaraoke --headless > output.log 2>&1 &
+echo "Starting PiKaraoke server..."
+pikaraoke > output.log 2>&1 &
 PID=$!
 
 # Function to cleanup on exit
@@ -62,5 +62,5 @@ if [ "$FAILED" = true ]; then
     exit 1
 fi
 
-echo "Headless mode verification successful!"
+echo "Server verification successful!"
 exit 0

@@ -1,4 +1,6 @@
-let socket = io();
+// Socket is initialized in handleConfirmation() so nothing connects before the
+// user clicks Start (or testAutoplayCapability auto-confirms).
+let socket = null;
 let mouseTimer = null;
 let cursorVisible = false;
 let nowPlaying = {};
@@ -99,8 +101,17 @@ const testAutoplayCapability = async () => {
 };
 
 const handleConfirmation = () => {
-  $('#permissions-modal').removeClass('is-active');
+  if (autoplayConfirmed) return;
   autoplayConfirmed = true;
+  $('#permissions-modal').removeClass('is-active');
+
+  socket = io();
+  setupSocketEvents();
+  handleSocketRecovery();
+  if (socket.connected) socket.emit("register_splash");
+
+  setupBackgroundMusicPlayer();
+
   ensureAudioContextRunning();
   updateBackgroundMediaState(true);
   loadNowPlaying();
@@ -972,26 +983,15 @@ const setupUIScaling = () => {
 // Document ready procedures
 
 $(function () {
-  // Setup various features and listeners
+  // Setup various features and listeners. Nothing here opens a socket, fetches
+  // a playlist, or starts playback - those live in handleConfirmation().
   setupUIScaling();
   if (PikaraokeConfig.showSplashClock) startClock();
   setupScreensaver();
   setupOverlayMenus();
   setupVideoPlayer();
-  setupBackgroundMusicPlayer();
 
   // Handle browser compatibility
   handleUnsupportedBrowser();
   testAutoplayCapability();
 });
-
-
-// Setup sockets and recovery outside of document ready to prevent race conditions
-setupSocketEvents();
-handleSocketRecovery();
-
-// Fallback: if socket connected before listeners were attached, register now
-if (socket.connected) {
-  console.log('Socket already connected, registering splash...');
-  socket.emit("register_splash");
-}

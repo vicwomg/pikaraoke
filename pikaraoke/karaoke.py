@@ -110,7 +110,6 @@ class Karaoke:
         bg_video_path: str | None = None,
         config_file_path: str = "config.ini",
         download_path: str = "/usr/lib/pikaraoke/songs",
-        hide_splash_screen: bool | None = None,
         log_level: int = logging.DEBUG,
         logo_path: str | None = None,
         port: int = 5555,
@@ -149,7 +148,6 @@ class Karaoke:
             download_path: Directory path for downloaded songs.
             hide_url: Hide URL and QR code on splash screen.
             hide_notifications: Disable notification popups.
-            hide_splash_screen: Run in headless mode.
             high_quality: Download higher quality videos (up to 1080p).
             volume: Default volume level (0.0 to 1.0).
             normalize_audio: Apply loudness normalization.
@@ -202,7 +200,6 @@ class Karaoke:
 
         # Set non-preference attributes (not stored in config)
         self.port = port
-        self.hide_splash_screen = hide_splash_screen
         self.download_path = download_path
         self.log_level = log_level
         self.youtubedl_proxy = youtubedl_proxy
