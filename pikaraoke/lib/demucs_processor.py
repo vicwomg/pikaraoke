@@ -170,23 +170,17 @@ def cleanup_stale_partials() -> None:
                     pass
 
 
-def encode_mp3_in_background(cache_key: str, bitrate: str = "320k") -> None:
-    """Encode cached WAVs to MP3 in a background thread, then delete WAVs.
+def encode_mp3_sync(cache_key: str, bitrate: str = "320k") -> None:
+    """Encode cached WAVs to MP3, then delete the WAVs.
 
-    No-op if MP3s already exist or WAVs are missing. On Unix the WAV delete
-    does not affect in-flight HTTP tail responses (open fds keep reading).
+    Must be called from the main gevent greenlet: uses gevent-patched
+    subprocess, which requires the default event loop. gevent yields
+    during the ffmpeg wait so other greenlets (SocketIO, Flask) keep
+    running. No-op if MP3s already exist or WAVs are missing. On Unix
+    the WAV delete does not affect in-flight HTTP tail responses (open
+    fds keep reading).
     """
     import subprocess as sp
-
-    from gevent import monkey
-
-    # gevent's patched subprocess attaches a child watcher to the default
-    # event loop, which only exists on the main greenlet. This helper runs
-    # ffmpeg from an OS thread, so we must bypass the patched subprocess.
-    # get_original("subprocess", "run") alone isn't enough: the stdlib run()
-    # looks up Popen via module globals at call time — which are patched.
-    # Grab Popen directly instead.
-    _Popen = monkey.get_original("subprocess", "Popen")
 
     d = _cache_dir(cache_key)
     wav_v = os.path.join(d, "vocals.wav")
@@ -199,60 +193,54 @@ def encode_mp3_in_background(cache_key: str, bitrate: str = "320k") -> None:
     if not (os.path.isfile(wav_v) and os.path.isfile(wav_i)):
         return  # nothing to encode
 
-    def run() -> None:
-        for wav, mp3 in [(wav_v, mp3_v), (wav_i, mp3_i)]:
-            if os.path.isfile(mp3):
-                continue
-            tmp = mp3 + ".partial"
+    for wav, mp3 in [(wav_v, mp3_v), (wav_i, mp3_i)]:
+        if os.path.isfile(mp3):
+            continue
+        tmp = mp3 + ".partial"
+        try:
+            sp.run(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-i",
+                    wav,
+                    "-c:a",
+                    "libmp3lame",
+                    "-b:a",
+                    bitrate,
+                    "-f",
+                    "mp3",
+                    tmp,
+                ],
+                check=True,
+                capture_output=True,
+            )
+            os.replace(tmp, mp3)
+        except sp.CalledProcessError as e:
+            stderr = e.stderr.decode(errors="replace") if e.stderr else ""
+            logging.error(f"MP3 encode failed for {wav} (exit {e.returncode}): {stderr}")
             try:
-                with _Popen(
-                    [
-                        "ffmpeg",
-                        "-y",
-                        "-hide_banner",
-                        "-loglevel",
-                        "error",
-                        "-i",
-                        wav,
-                        "-c:a",
-                        "libmp3lame",
-                        "-b:a",
-                        bitrate,
-                        "-f",
-                        "mp3",
-                        tmp,
-                    ],
-                    stdout=sp.PIPE,
-                    stderr=sp.PIPE,
-                ) as proc:
-                    _out, err = proc.communicate()
-                    if proc.returncode != 0:
-                        stderr = err.decode(errors="replace") if err else ""
-                        logging.error(
-                            f"MP3 encode failed for {wav} (exit {proc.returncode}): {stderr}"
-                        )
-                        try:
-                            os.remove(tmp)
-                        except OSError:
-                            pass
-                        return
-                os.replace(tmp, mp3)
-            except OSError:
-                logging.exception(f"MP3 encode failed for {wav}")
-                try:
-                    os.remove(tmp)
-                except OSError:
-                    pass
-                return
-        # Both MP3s ready — remove WAVs. Unix keeps existing fds alive.
-        for wav in (wav_v, wav_i):
-            try:
-                os.remove(wav)
+                os.remove(tmp)
             except OSError:
                 pass
-        logging.info(f"MP3 cache ready, WAVs removed: {cache_key[:12]}...")
-
-    threading.Thread(target=run, daemon=True).start()
+            return
+        except OSError:
+            logging.exception(f"MP3 encode failed for {wav}")
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+            return
+    # Both MP3s ready — remove WAVs. Unix keeps existing fds alive.
+    for wav in (wav_v, wav_i):
+        try:
+            os.remove(wav)
+        except OSError:
+            pass
+    logging.info(f"MP3 cache ready, WAVs removed: {cache_key[:12]}...")
 
 
 # --- Separation ---
