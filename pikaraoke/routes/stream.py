@@ -5,7 +5,7 @@ import re
 import time
 
 import flask_babel
-from flask import Response, make_response, request, send_file
+from flask import Response, make_response, request, send_file, stream_with_context
 from flask_smorest import Blueprint
 
 _ = flask_babel.gettext
@@ -14,6 +14,53 @@ from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.file_resolver import FileResolver, get_tmp_dir
 
 stream_bp = Blueprint("stream", __name__)
+
+
+@stream_bp.route("/stream/<stream_id>/<stem>.<ext>")
+def stream_stem_audio(stream_id: str, stem: str, ext: str):
+    """Tail a stem audio file (vocals/instrumental) for client-side mixing.
+
+    Reads the file in the cache directory that StreamManager has registered
+    for this stream. When Demucs is still writing (tier 3), the generator
+    sleeps until new bytes are appended, then yields them, stopping when the
+    done_event is set. When the file is fully cached (tier 1/2), it streams
+    normally and exits at EOF.
+    """
+    if stem not in ("vocals", "instrumental") or ext not in ("wav", "mp3"):
+        return Response("Invalid stem or format", status=400)
+
+    k = get_karaoke_instance()
+    stems = k.playback_controller.stream_manager.active_stems.get(stream_id)
+    if stems is None:
+        return Response("Stream not active", status=404)
+
+    path = stems.vocals_path if stem == "vocals" else stems.instrumental_path
+    if not path or not os.path.exists(path):
+        return Response("Stem file missing", status=404)
+
+    done_event = stems.done_event
+    mimetype = "audio/wav" if ext == "wav" else "audio/mpeg"
+
+    def generate():
+        with open(path, "rb") as f:
+            while True:
+                chunk = f.read(64 * 1024)
+                if chunk:
+                    yield chunk
+                    continue
+                if done_event.is_set():
+                    # Drain anything appended between our last read and the set
+                    tail = f.read()
+                    if tail:
+                        yield tail
+                    return
+                time.sleep(0.1)
+
+    response = Response(stream_with_context(generate()), mimetype=mimetype)
+    # Disallow range — we're streaming a growing file and don't support seeks
+    response.headers["Accept-Ranges"] = "none"
+    response.headers["Cache-Control"] = "no-cache, no-store"
+    return response
 
 
 # Serves HLS playlist file - explicit .m3u8 extension

@@ -11,7 +11,6 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
-import shutil
 import struct
 import threading
 
@@ -73,6 +72,17 @@ def _write_wav_header(f, sr: int, channels: int, total_samples: int) -> None:
 
 
 # --- Cache functions ---
+#
+# Cache layout per song (keyed by SHA256 of decoded PCM):
+#   ~/.pikaraoke-cache/<sha256>/
+#     vocals.wav.partial        — while Demucs is writing (tier 3, tail-streamed)
+#     vocals.wav                — after Demucs completes (tier 2)
+#     vocals.mp3                — after background encode (tier 1, preferred)
+#     (instrumental.* mirrors)
+#
+# Lookup preference: MP3 > WAV > live Demucs. On startup, stray *.partial
+# files from a crashed run are purged.
+
 
 def get_cache_key(wav_path: str) -> str:
     """Compute SHA256 of decoded PCM WAV content. Metadata-invariant."""
@@ -86,24 +96,116 @@ def get_cache_key(wav_path: str) -> str:
     return h.hexdigest()
 
 
-def get_cached_stems(cache_key: str) -> tuple[str, str] | None:
-    """Return (vocals_path, instrumental_path) if both exist in cache."""
-    cache_path = os.path.join(CACHE_DIR, cache_key)
-    vocals = os.path.join(cache_path, "vocals.wav")
-    instrumental = os.path.join(cache_path, "instrumental.wav")
-    if os.path.isfile(vocals) and os.path.isfile(instrumental):
-        logging.info(f"Demucs cache hit: {cache_key[:12]}...")
-        return vocals, instrumental
+def _cache_dir(cache_key: str) -> str:
+    return os.path.join(CACHE_DIR, cache_key)
+
+
+def get_cached_stems(cache_key: str) -> tuple[str, str, str] | None:
+    """Return (vocals_path, instrumental_path, format) from best available tier.
+
+    format is "mp3" or "wav". Returns None if nothing is cached.
+    """
+    d = _cache_dir(cache_key)
+    mp3_v = os.path.join(d, "vocals.mp3")
+    mp3_i = os.path.join(d, "instrumental.mp3")
+    if os.path.isfile(mp3_v) and os.path.isfile(mp3_i):
+        logging.info(f"Demucs cache hit (mp3): {cache_key[:12]}...")
+        return mp3_v, mp3_i, "mp3"
+
+    wav_v = os.path.join(d, "vocals.wav")
+    wav_i = os.path.join(d, "instrumental.wav")
+    if os.path.isfile(wav_v) and os.path.isfile(wav_i):
+        logging.info(f"Demucs cache hit (wav): {cache_key[:12]}...")
+        return wav_v, wav_i, "wav"
+
     return None
 
 
-def cache_stems(cache_key: str, vocals_wav: str, instrumental_wav: str) -> None:
-    """Copy completed WAVs to cache directory."""
-    cache_path = os.path.join(CACHE_DIR, cache_key)
-    os.makedirs(cache_path, exist_ok=True)
-    shutil.copy2(vocals_wav, os.path.join(cache_path, "vocals.wav"))
-    shutil.copy2(instrumental_wav, os.path.join(cache_path, "instrumental.wav"))
-    logging.info(f"Demucs: cached stems at {cache_key[:12]}...")
+def partial_stem_paths(cache_key: str) -> tuple[str, str]:
+    """Return the .partial paths Demucs writes to while streaming."""
+    d = _cache_dir(cache_key)
+    os.makedirs(d, exist_ok=True)
+    return (
+        os.path.join(d, "vocals.wav.partial"),
+        os.path.join(d, "instrumental.wav.partial"),
+    )
+
+
+def finalize_partial_stems(cache_key: str) -> tuple[str, str]:
+    """Rename .partial files to their final .wav names. Returns final paths."""
+    d = _cache_dir(cache_key)
+    partials = partial_stem_paths(cache_key)
+    finals = (os.path.join(d, "vocals.wav"), os.path.join(d, "instrumental.wav"))
+    for p, f in zip(partials, finals):
+        if os.path.exists(p):
+            os.replace(p, f)
+    return finals
+
+
+def cleanup_stale_partials() -> None:
+    """Remove any *.partial files left over from a crashed Demucs run."""
+    if not os.path.isdir(CACHE_DIR):
+        return
+    for entry in os.listdir(CACHE_DIR):
+        d = os.path.join(CACHE_DIR, entry)
+        if not os.path.isdir(d):
+            continue
+        for name in os.listdir(d):
+            if name.endswith(".partial"):
+                try:
+                    os.remove(os.path.join(d, name))
+                    logging.info(f"Removed stale partial: {entry}/{name}")
+                except OSError:
+                    pass
+
+
+def encode_mp3_in_background(cache_key: str, bitrate: str = "320k") -> None:
+    """Encode cached WAVs to MP3 in a background thread, then delete WAVs.
+
+    No-op if MP3s already exist or WAVs are missing. On Unix the WAV delete
+    does not affect in-flight HTTP tail responses (open fds keep reading).
+    """
+    import subprocess as sp
+
+    d = _cache_dir(cache_key)
+    wav_v = os.path.join(d, "vocals.wav")
+    wav_i = os.path.join(d, "instrumental.wav")
+    mp3_v = os.path.join(d, "vocals.mp3")
+    mp3_i = os.path.join(d, "instrumental.mp3")
+
+    if os.path.isfile(mp3_v) and os.path.isfile(mp3_i):
+        return  # already encoded
+    if not (os.path.isfile(wav_v) and os.path.isfile(wav_i)):
+        return  # nothing to encode
+
+    def run() -> None:
+        for wav, mp3 in [(wav_v, mp3_v), (wav_i, mp3_i)]:
+            if os.path.isfile(mp3):
+                continue
+            tmp = mp3 + ".partial"
+            try:
+                sp.run(
+                    ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                     "-i", wav, "-c:a", "libmp3lame", "-b:a", bitrate, tmp],
+                    check=True, capture_output=True,
+                )
+                os.replace(tmp, mp3)
+            except Exception:
+                logging.exception(f"MP3 encode failed for {wav}")
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+                return
+        # Both MP3s ready — remove WAVs. Unix keeps existing fds alive.
+        for wav in (wav_v, wav_i):
+            try:
+                os.remove(wav)
+            except OSError:
+                pass
+        logging.info(f"MP3 cache ready, WAVs removed: {cache_key[:12]}...")
+
+    threading.Thread(target=run, daemon=True).start()
 
 
 # --- Separation ---
