@@ -29,6 +29,30 @@ def _wait_for_file(path: str, max_wait_tenths: int = 50) -> bool:
     return os.path.exists(path)
 
 
+def _wait_for_m3u8_ready(path: str, min_segments: int = 2, max_wait_tenths: int = 50) -> bool:
+    """Wait for HLS playlist to exist and reference at least min_segments.
+
+    Serving an m3u8 with only a single segment and no ENDLIST is fragile:
+    hls.js plays the one segment, then the buffer drains before it has
+    polled for playlist updates. Waiting for two segments (or ENDLIST)
+    ensures there's always enough buffered content for hls.js to carry
+    on while fetching more.
+    """
+    wait_count = 0
+    while wait_count < max_wait_tenths:
+        if os.path.exists(path):
+            try:
+                with open(path, "r") as f:
+                    content = f.read()
+                if "#EXT-X-ENDLIST" in content or content.count("#EXTINF:") >= min_segments:
+                    return True
+            except OSError:
+                pass
+        time.sleep(0.1)
+        wait_count += 1
+    return os.path.exists(path)
+
+
 @stream_bp.route("/stream/<stream_id>/<stem>.<ext>")
 def stream_stem_audio(stream_id: str, stem: str, ext: str):
     """Tail a stem audio file (vocals/instrumental) for client-side mixing.
@@ -106,7 +130,7 @@ def stream_playlist(id):
         if now_playing_url and id in now_playing_url:
             k.playback_controller.start_song()
 
-    if _wait_for_file(file_path):
+    if _wait_for_m3u8_ready(file_path):
         # Read file content and return with no-cache headers
         # This is critical for iOS Safari which aggressively caches playlists
         with open(file_path, "r") as f:
