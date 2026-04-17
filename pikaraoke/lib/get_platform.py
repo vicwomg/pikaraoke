@@ -189,3 +189,24 @@ def get_data_directory() -> str:
 def is_running_in_docker():
     """Check if we're running in a container using existence of /.dockerenv."""
     return os.path.exists("/.dockerenv")
+
+
+def has_torch_gpu() -> bool:
+    """Return True when torch can use CUDA or Apple Silicon MPS.
+
+    Used to decide whether Demucs vocal separation is worth enabling by
+    default — on CPU it's too slow for real-time karaoke. Torch is an
+    optional dep; missing imports degrade to False.
+    """
+    try:
+        import torch  # heavy import, gated behind this function
+    except ImportError:
+        return False
+    try:
+        if torch.cuda.is_available():
+            return True
+        if torch.backends.mps.is_available():
+            return True
+    except (RuntimeError, AttributeError):
+        pass
+    return False

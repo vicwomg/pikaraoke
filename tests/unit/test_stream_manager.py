@@ -12,8 +12,10 @@ from pikaraoke.lib.stream_manager import PlaybackResult, StreamManager, enqueue_
 
 @pytest.fixture
 def test_prefs():
-    """Create a PreferenceManager for testing."""
-    return PreferenceManager("/nonexistent/test_config.ini")
+    """PreferenceManager with Demucs off so tests don't depend on host GPU."""
+    prefs = PreferenceManager("/nonexistent/test_config.ini")
+    prefs.DEFAULTS = {**PreferenceManager.DEFAULTS, "vocal_removal": False}
+    return prefs
 
 
 class TestEnqueueOutput:
