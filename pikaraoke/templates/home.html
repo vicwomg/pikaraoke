@@ -221,7 +221,9 @@
 
 <div class="pk-home-hero">
   <h1 class="pk-view-title" style="text-align: center; margin-top: 10px;">Dziś <em>śpiewamy</em></h1>
-  <div class="pk-view-eyebrow" style="display: block; text-align: center; transform: rotate(0); margin: 6px 0 12px;">~ nad jeziorem ~</div>
+  {% if pk_hero_subtitle %}
+  <div class="pk-view-eyebrow" style="display: block; text-align: center; transform: rotate(0); margin: 6px 0 12px;">{{ pk_hero_subtitle }}</div>
+  {% endif %}
 </div>
 
 <a class="pk-cta-card" href="{{ url_for('search.search') }}">

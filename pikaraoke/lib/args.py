@@ -94,6 +94,12 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         required=False,
     )
     parser.add_argument(
+        "--hero-subtitle",
+        help="Small italic subtitle under the Home hero title (e.g. '~ nad jeziorem ~'). Empty = hidden.",
+        default="",
+        required=False,
+    )
+    parser.add_argument(
         "-d",
         "--download-path",
         nargs="+",

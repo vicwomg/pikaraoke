@@ -141,6 +141,7 @@ def inject_shell_vars() -> dict:
         "pk_default_theme": app.config.get("DEFAULT_THEME", "mazury"),
         "pk_brand_1": brand_parts[0],
         "pk_brand_2": brand_parts[1] if len(brand_parts) == 2 else "",
+        "pk_hero_subtitle": app.config.get("HERO_SUBTITLE", ""),
     }
     try:
         k = get_karaoke_instance()
@@ -275,6 +276,7 @@ def main() -> None:
     app.config["ADMIN_PASSWORD"] = args.admin_password
     app.config["SITE_NAME"] = args.site_title
     app.config["DEFAULT_THEME"] = args.theme
+    app.config["HERO_SUBTITLE"] = args.hero_subtitle
 
     # Expose some functions to jinja templates
     app.jinja_env.globals.update(filename_from_path=k.song_manager.display_name_from_path)
