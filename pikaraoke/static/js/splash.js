@@ -339,11 +339,23 @@ const setupStemAudio = (np, video) => {
 
   video.addEventListener("play", playAll);
   video.addEventListener("pause", pauseAll);
-  video.addEventListener("seeking", syncAll);
-  video.addEventListener("seeked", syncAll);
-  // Periodic drift correction while playing
+  // During an HLS seek, video stalls for 0.5–2s while the new segment loads;
+  // stems would run free and the drift-corrector would repeatedly reset them
+  // back to the frozen video.currentTime, producing a ~0.3s audio loop. Pause
+  // stems on `seeking`; re-sync and resume on `seeked`.
+  video.addEventListener("seeking", pauseAll);
+  video.addEventListener("seeked", () => {
+    syncAll();
+    if (!video.paused) {
+      for (const k of ["vocals", "instrumental"]) {
+        stemNodes[k].el.play().catch(() => {});
+      }
+    }
+  });
+  // Periodic drift correction while playing. Skip while video.seeking is true
+  // to avoid fighting with pauseAll/syncAll during HLS segment loads.
   video.addEventListener("timeupdate", () => {
-    if (video.paused) return;
+    if (video.paused || video.seeking) return;
     for (const k of ["vocals", "instrumental"]) {
       const a = stemNodes[k].el;
       const drift = a.currentTime - video.currentTime;
