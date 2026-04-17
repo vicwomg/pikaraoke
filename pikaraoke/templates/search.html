@@ -266,7 +266,12 @@
 					value: "autocomplete",
 					label: '{{ _("Available songs in local library") }}',
 				},
+				{
+					value: "itunes",
+					label: '{{ _("Suggestions") }}',
+				},
 			],
+			optgroupOrder: ["autocomplete", "itunes"],
 			createOnBlur: true,
 			openOnFocus: false,
 			createFilter: function (input) {
@@ -302,12 +307,24 @@
 					$("#search-link").attr("disabled", "true");
 					$("#add-queue-link").hide();
 					$("#search-link").show();
-				} else {
-					$("#add-queue-link").removeAttr("disabled");
-					$("#search-link").removeAttr("disabled");
-					$("#add-queue-link").show();
-					$("#search-link").hide();
+					return;
 				}
+				// Clicking an iTunes suggestion auto-submits the YouTube search.
+				var item = this.options[id];
+				if (item && item.type === "itunes") {
+					var include_non_karaoke = $("#include-non-karaoke").is(":checked");
+					$("#search_string").val(item.fileName);
+					$("#non_karaoke").val(include_non_karaoke);
+					$("#searching_loader").removeClass("is-hidden");
+					$("#searching_loader #search_term").text(item.fileName);
+					$("#container_search_result").hide();
+					$("#container_search_form form").submit();
+					return;
+				}
+				$("#add-queue-link").removeAttr("disabled");
+				$("#search-link").removeAttr("disabled");
+				$("#add-queue-link").show();
+				$("#search-link").hide();
 			},
 			onType: function (text) {
 				if (!text) {
@@ -324,9 +341,12 @@
 			},
 			render: {
 				option: function (item, escape) {
+					var iconClass = item.type === "itunes"
+						? "icon-search has-text-grey"
+						: "icon-music has-text-info";
 					return (
 						'<div class="row">' +
-						'<div class="col-icon"><i class="icon icon-music has-text-info"></i></div>' +
+						'<div class="col-icon"><i class="icon ' + iconClass + '"></i></div>' +
 						'<div class="col-text">' +
 						escape(item.fileName) +
 						"</div>" +
@@ -339,13 +359,28 @@
 			},
 			load: function (query, callback) {
 				if (query.length < 2) return callback;
+				// Fan out to both endpoints; fire the Selectize callback exactly
+				// once after both settle (regardless of individual success/failure).
+				var local = [];
+				var itunes = [];
+				var remaining = 2;
+				function onSettled() {
+					if (--remaining === 0) callback(local.concat(itunes));
+				}
 				$.ajax({
-					url: "{{ url_for('search.autocomplete') }}" + "?q=" + query,
+					url: "{{ url_for('search.autocomplete') }}" + "?q=" + encodeURIComponent(query),
 					type: "get",
-					success: function (data) {
-						callback(data);
-					},
-				});
+					dataType: "json",
+				})
+					.done(function (data) { local = data || []; })
+					.always(onSettled);
+				$.ajax({
+					url: "{{ url_for('search.suggest') }}" + "?q=" + encodeURIComponent(query),
+					type: "get",
+					dataType: "json",
+				})
+					.done(function (data) { itunes = data || []; })
+					.always(onSettled);
 			},
 		});
 

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 import re
 import subprocess
 import uuid
@@ -10,6 +12,7 @@ from queue import Queue
 from threading import Thread
 
 from pikaraoke.lib.events import EventSystem
+from pikaraoke.lib.music_metadata import resolve_metadata
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
@@ -17,6 +20,8 @@ from pikaraoke.lib.youtube_dl import (
     build_ytdl_download_command,
     get_youtube_id_from_url,
 )
+
+_METADATA_LOOKUP_TIMEOUT_S = 2.0
 
 
 class DownloadManager:
@@ -230,6 +235,18 @@ class DownloadManager:
         )
         logging.debug("yt-dlp command: " + " ".join(cmd))
 
+        # Kick off iTunes metadata resolution in parallel with yt-dlp.
+        # Result is merged into info.json after yt-dlp finishes so LyricsService
+        # sees canonical artist/track when it queries LRCLib.
+        metadata_holder: dict = {}
+        metadata_thread = Thread(
+            target=self._resolve_metadata_async,
+            args=(displayed_title, metadata_holder),
+            name=f"metadata-lookup-{displayed_title[:40]}",
+            daemon=True,
+        )
+        metadata_thread.start()
+
         # Use Popen to capture output in real-time
         process = subprocess.Popen(
             cmd,
@@ -312,6 +329,8 @@ class DownloadManager:
                 logging.warning("No video ID available to find downloaded song")
 
             if song_path:
+                metadata_thread.join(timeout=_METADATA_LOOKUP_TIMEOUT_S)
+                _merge_metadata_into_info_json(song_path, metadata_holder.get("meta"))
                 self._events.emit("song_downloaded", song_path)
             else:
                 logging.warning(
@@ -328,3 +347,40 @@ class DownloadManager:
                     )
 
         return rc
+
+    @staticmethod
+    def _resolve_metadata_async(title: str, holder: dict) -> None:
+        try:
+            holder["meta"] = resolve_metadata(title)
+        except Exception:  # pragma: no cover - defensive, resolver catches its own
+            logging.warning("metadata lookup crashed for %r", title, exc_info=True)
+
+
+def _merge_metadata_into_info_json(song_path: str, meta: dict | None) -> None:
+    """Write canonical artist/track into <stem>.info.json when absent.
+
+    Enrichment is best-effort: any failure is logged and swallowed so it cannot
+    break the download. Existing non-empty fields are preserved.
+    """
+    if not meta:
+        return
+    stem, _ext = os.path.splitext(song_path)
+    info_path = f"{stem}.info.json"
+    try:
+        with open(info_path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        logging.warning("metadata enrichment: failed to read %s: %s", info_path, e)
+        return
+    changed = False
+    for key in ("artist", "track"):
+        if not (data.get(key) or "").strip() and meta.get(key):
+            data[key] = meta[key]
+            changed = True
+    if not changed:
+        return
+    try:
+        with open(info_path, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+    except OSError as e:
+        logging.warning("metadata enrichment: failed to write %s: %s", info_path, e)
