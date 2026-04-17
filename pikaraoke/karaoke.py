@@ -27,6 +27,7 @@ from pikaraoke.lib.get_platform import (
 )
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.library_scanner import LibraryScanner, ScanResult
+from pikaraoke.lib.lyrics import LyricsService
 from pikaraoke.lib.network import get_ip
 from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
@@ -38,6 +39,25 @@ from pikaraoke.lib.youtube_dl import (
     upgrade_youtubedl,
 )
 from pikaraoke.version import __version__ as VERSION
+
+
+def _build_lyrics_aligner():
+    """Return a WhisperXAligner when WHISPERX_MODEL is set, else None.
+
+    Kept at module level so Karaoke.__init__ stays uncluttered and the import
+    of whisperx only happens when the user explicitly opts in.
+    """
+    model = os.environ.get("WHISPERX_MODEL", "off").strip().lower()
+    if model in ("", "off", "none", "false", "0"):
+        return None
+    try:
+        from pikaraoke.lib.lyrics_align import WhisperXAligner
+    except ImportError:
+        logging.info("whisperx not installed; using line-level lyrics only")
+        return None
+    device = os.environ.get("WHISPERX_DEVICE", "cpu")
+    logging.info(f"whisperx alignment enabled (model={model}, device={device})")
+    return WhisperXAligner(model_size=model, device=device)
 
 
 class Karaoke:
@@ -234,6 +254,13 @@ class Karaoke:
             streaming_format=self.streaming_format,
         )
 
+        # Lyrics auto-fetch from LRCLib; optional per-word forced alignment via whisperx.
+        self.lyrics_service = LyricsService(
+            download_path=self.download_path,
+            events=self.events,
+            aligner=_build_lyrics_aligner(),
+        )
+
         # Event bridging: the coordinator wires manager events to the UI (SocketIO/notifications).
         self.events.on("notification", self.log_and_send)
         self.events.on(
@@ -245,6 +272,7 @@ class Karaoke:
         self.events.on("song_ended", self.update_now_playing_socket)
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
         self.events.on("song_downloaded", self.song_manager.register_download)
+        self.events.on("song_downloaded", self.lyrics_service.fetch_and_convert)
         self.events.on(
             "sync_started",
             lambda: self.socketio.emit("sync_started", namespace="/") if self.socketio else None,
