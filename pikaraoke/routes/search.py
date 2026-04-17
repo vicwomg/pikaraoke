@@ -43,10 +43,13 @@ def search():
     """YouTube search page."""
     k = get_karaoke_instance()
     site_name = get_site_name()
+    # Skip the " karaoke" suffix when stem separation (demucs) is on —
+    # we can strip vocals locally, so restricting YT results hurts recall.
+    vocal_removal = k.preferences.get_or_default("vocal_removal")
     search_string = request.args.get("search_string")
     if search_string:
         non_karaoke = request.args.get("non_karaoke") == "true"
-        if non_karaoke:
+        if non_karaoke or vocal_removal:
             search_results = get_search_results(search_string)
         else:
             search_results = get_search_results(search_string + " karaoke")
@@ -60,6 +63,7 @@ def search():
         songs=k.song_manager.songs,
         search_results=search_results,
         search_string=search_string,
+        vocal_removal=vocal_removal,
     )
 
 
