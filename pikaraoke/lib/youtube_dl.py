@@ -145,14 +145,13 @@ def build_ytdl_download_command(
         "--compat-options",
         "filename-sanitization",
         "--write-info-json",
+        # Manual subs only. `--write-auto-subs` pulls YouTube's ~200
+        # machine-translated caption tracks (codes like `pl-en-<id>`), which
+        # trips HTTP 429 rate limits. Manual uploads are higher quality for
+        # lyrics anyway; LRCLib covers the gap when manual subs are missing.
         "--write-subs",
-        "--write-auto-subs",
-        # Whitelist source-language prefixes. Matches originals like `en`,
-        # `en-nP7-2PuUl7o`, `pl-orig` but excludes YouTube machine translations
-        # (whose codes are `<target>-<source>-<id>`, e.g. `ab-en-…`). `all`
-        # pulls ~200 translation tracks and trips HTTP 429 rate limits.
         "--sub-langs",
-        "en.*,pl.*,es.*,de.*,fr.*,it.*,pt.*,ja.*,ko.*,zh.*,ru.*,uk.*,cs.*,nl.*,sv.*",
+        "all,-live_chat",
         "--convert-subs",
         "vtt",
         "--embed-metadata",
