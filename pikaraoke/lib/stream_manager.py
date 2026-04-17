@@ -521,6 +521,16 @@ class StreamManager:
         while self.ffmpeg_log.qsize() > 0:
             output = self.ffmpeg_log.get_nowait()
             logging.debug("[FFMPEG] " + output.decode("utf-8", "ignore").strip())
+        if self.ffmpeg_process is not None:
+            rc = self.ffmpeg_process.poll()
+            if rc is not None and getattr(self, "_ffmpeg_exit_logged", None) != id(
+                self.ffmpeg_process
+            ):
+                if rc != 0:
+                    logging.error(f"[FFMPEG] process exited with code {rc}")
+                else:
+                    logging.debug(f"[FFMPEG] process exited cleanly (code 0)")
+                self._ffmpeg_exit_logged = id(self.ffmpeg_process)
 
     def kill_ffmpeg(self) -> None:
         """Terminate the running FFmpeg process gracefully.
