@@ -560,6 +560,40 @@ class TestStreamManagerPlayFile:
     @patch("pikaraoke.lib.stream_manager.can_serve_video_directly", return_value=True)
     @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
     @patch("pikaraoke.lib.stream_manager.FileResolver")
+    def test_play_file_vocal_removal_suppresses_audio_pipe(
+        self,
+        mock_resolver_class,
+        mock_transcode_check,
+        mock_can_video,
+        mock_can_direct,
+        mock_gettext,
+        test_prefs,
+    ):
+        """When vocal_removal is on, stems carry the audio — no single-track pipe."""
+        test_prefs.set("vocal_removal", True)
+        sm = StreamManager(test_prefs, streaming_format="mp4")
+        mock_fr = self._setup_resolver(mock_resolver_class)
+        mock_fr.file_path = "/songs/test.mp4"
+
+        with (
+            patch.object(sm, "_prepare_stems") as mock_prep,
+            patch.object(sm, "_copy_file") as mock_copy,
+            patch.object(sm, "_transcode_file") as mock_transcode,
+        ):
+            result = sm.play_file("/songs/test.mp4", semitones=2)
+
+        mock_prep.assert_called_once_with(mock_fr)
+        mock_copy.assert_not_called()
+        mock_transcode.assert_not_called()
+        assert result.stream_url == "/stream/video/12345.mp4"
+        assert result.audio_track_url is None
+        assert "12345" not in sm.active_audio
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("pikaraoke.lib.stream_manager.can_serve_directly", return_value=True)
+    @patch("pikaraoke.lib.stream_manager.can_serve_video_directly", return_value=True)
+    @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
+    @patch("pikaraoke.lib.stream_manager.FileResolver")
     def test_play_file_avsync_goes_to_client_on_direct_path(
         self,
         mock_resolver_class,

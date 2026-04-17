@@ -189,9 +189,17 @@ class StreamManager:
             uid = str(fr.stream_uid)
             stream_url_path = f"/stream/video/{fr.stream_uid}.mp4"
             self.active_sources[uid] = fr.file_path  # type: ignore[assignment]
-            # Pipe audio if transforms are set or the native track isn't
-            # browser-compatible (non-aac in the mp4 container).
-            needs_audio_pipe = needs_audio_transforms or not can_serve_directly(fr.file_path)
+            # Pipe audio if transforms are set, avsync is nonzero (we need a
+            # separate <audio> element to apply the client-side offset to),
+            # or the native track isn't browser-compatible. Skip entirely
+            # when vocal_removal is on — stems carry the audio, and
+            # transforms on stems aren't supported in this pipeline yet
+            # (stems would play unpitched, matching pre-Phase-4 behavior).
+            needs_audio_pipe = not vocal_removal and (
+                needs_audio_transforms
+                or avsync != 0
+                or not can_serve_directly(fr.file_path)
+            )
             if needs_audio_pipe:
                 self.active_audio[uid] = AudioTrackConfig(
                     source_path=fr.file_path,  # type: ignore[arg-type]
@@ -200,7 +208,7 @@ class StreamManager:
                     normalize=normalize_audio,
                 )
                 audio_track_url = f"/stream/audio/{fr.stream_uid}/track.wav"
-            avsync_offset_ms = int(avsync * 1000)
+                avsync_offset_ms = int(avsync * 1000)
             is_transcoding_complete = True
             is_buffering_complete = True
         elif is_hls:
