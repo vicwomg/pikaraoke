@@ -226,6 +226,17 @@ class TestVolumeChange:
         assert result is True
         assert mock_karaoke.volume == 0.0
 
+    def test_mirrors_into_stem_volumes(self, mock_karaoke):
+        """Single slider should mirror into both stems so the pre-stems level
+        carries over to the dual-slider UI when stems become audible."""
+        mock_karaoke.vocal_volume = 0.1
+        mock_karaoke.instrumental_volume = 0.9
+
+        mock_karaoke.volume_change(0.42)
+
+        assert mock_karaoke.vocal_volume == 0.42
+        assert mock_karaoke.instrumental_volume == 0.42
+
 
 class TestVolUp:
     """Tests for the vol_up method."""

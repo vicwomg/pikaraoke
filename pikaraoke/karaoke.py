@@ -658,7 +658,13 @@ class Karaoke:
         self.playback_controller.skip(log_action=False)
 
     def volume_change(self, vol_level: float) -> bool:
-        """Set the volume level.
+        """Set the playback volume.
+
+        Mirrors the value into both stem volumes: the single slider is the
+        only control the user sees before Demucs produces stems, so this
+        keeps the level they chose when the dual-slider UI flips in (US-22),
+        and lets the splash apply it to the vocal/instrumental gain nodes
+        as soon as stems are audible.
 
         Args:
             vol_level: Volume level (0.0 to 1.0).
@@ -666,7 +672,18 @@ class Karaoke:
         Returns:
             True after setting volume.
         """
+        vol_level = max(0.0, min(1.0, float(vol_level)))
         self.volume = vol_level
+        self.vocal_volume = vol_level
+        self.instrumental_volume = vol_level
+        self.preferences.set("vocal_volume", vol_level)
+        self.preferences.set("instrumental_volume", vol_level)
+        if self.socketio:
+            self.socketio.emit(
+                "stem_volume",
+                {"vocal_volume": vol_level, "instrumental_volume": vol_level},
+                namespace="/",
+            )
         # MSG: Message shown after the volume is changed, will be followed by the volume level
         self.log_and_send(_("Volume: %s") % (int(self.volume * 100)))
         self.update_now_playing_socket()
