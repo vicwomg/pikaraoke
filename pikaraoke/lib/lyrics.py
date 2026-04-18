@@ -162,11 +162,13 @@ class LyricsService:
                 return
             ass = _words_to_ass_with_k_tags(words, lrc)
             if ass:
+                from pikaraoke.lib.demucs_processor import CACHE_DIR
+
                 _write_ass_atomic(song_path, ass)
                 logger.info(
                     "Upgraded to per-word .ass for %s (audio=%s)",
                     song_path,
-                    "vocals stem" if audio_path != song_path else "raw mix",
+                    "vocals stem" if audio_path.startswith(CACHE_DIR) else "raw mix",
                 )
                 self._events.emit(
                     "notification",
@@ -724,38 +726,52 @@ _STEM_WAIT_TIMEOUT_S = 120.0
 _STEM_WAIT_POLL_S = 2.0
 
 
-def _alignment_audio_path(song_path: str) -> str:
-    """Return vocals stem path when Demucs has cached it, else the song path."""
-    try:
-        from pikaraoke.lib.demucs_processor import get_cache_key, get_cached_stems
+def _alignment_audio_path(song_path: str) -> str | None:
+    """Return vocals stem path when Demucs has cached it, else None.
 
-        cached = get_cached_stems(get_cache_key(song_path))
+    Cache is keyed by ``resolve_audio_source`` (sibling ``.m4a`` when present),
+    matching how ``prewarm`` populates it. Querying with the raw mp4 would miss.
+    """
+    try:
+        from pikaraoke.lib.demucs_processor import (
+            get_cache_key,
+            get_cached_stems,
+            resolve_audio_source,
+        )
+
+        cached = get_cached_stems(get_cache_key(resolve_audio_source(song_path)))
     except Exception as e:
         logger.warning("stem lookup failed for %s: %s", song_path, e)
-        return song_path
+        return None
     if not cached:
-        return song_path
+        return None
     vocals_path, _instr_path, _fmt = cached
     return vocals_path
 
 
 def _wait_for_alignment_audio(song_path: str) -> str:
-    """Poll for a cached vocals stem up to `_STEM_WAIT_TIMEOUT_S`, else fall back."""
-    audio_path = _alignment_audio_path(song_path)
-    if audio_path != song_path:
-        return audio_path
+    """Poll for a cached vocals stem up to `_STEM_WAIT_TIMEOUT_S`, else fall back.
+
+    Fallback is the audio-only sibling (``resolve_audio_source``) so we don't
+    feed whisperx a video-only mp4 from the split-streams download flow.
+    """
+    stem = _alignment_audio_path(song_path)
+    if stem is not None:
+        return stem
     deadline = time.monotonic() + _STEM_WAIT_TIMEOUT_S
     while time.monotonic() < deadline:
         time.sleep(_STEM_WAIT_POLL_S)
-        audio_path = _alignment_audio_path(song_path)
-        if audio_path != song_path:
-            return audio_path
+        stem = _alignment_audio_path(song_path)
+        if stem is not None:
+            return stem
     logger.info(
         "stems not ready within %.0fs for %s; aligning on raw mix",
         _STEM_WAIT_TIMEOUT_S,
         os.path.basename(song_path),
     )
-    return song_path
+    from pikaraoke.lib.demucs_processor import resolve_audio_source
+
+    return resolve_audio_source(song_path)
 
 
 def _prewarm_stems(song_path: str) -> None:

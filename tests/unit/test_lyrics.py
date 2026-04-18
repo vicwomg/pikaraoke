@@ -940,27 +940,44 @@ class TestWordsToAssContextBlock:
 
 
 class TestAlignmentAudioPath:
-    def test_returns_song_path_when_no_cache(self):
-        with patch("pikaraoke.lib.demucs_processor.get_cache_key", return_value="abc"), patch(
+    def test_returns_none_when_no_cache(self):
+        with patch(
+            "pikaraoke.lib.demucs_processor.resolve_audio_source", return_value="/s/song.mp4"
+        ), patch("pikaraoke.lib.demucs_processor.get_cache_key", return_value="abc"), patch(
             "pikaraoke.lib.demucs_processor.get_cached_stems", return_value=None
         ):
-            assert _alignment_audio_path("/s/song.mp4") == "/s/song.mp4"
+            assert _alignment_audio_path("/s/song.mp4") is None
 
     def test_returns_vocals_when_cached(self):
-        with patch("pikaraoke.lib.demucs_processor.get_cache_key", return_value="abc"), patch(
+        with patch(
+            "pikaraoke.lib.demucs_processor.resolve_audio_source", return_value="/s/song.mp4"
+        ), patch("pikaraoke.lib.demucs_processor.get_cache_key", return_value="abc"), patch(
             "pikaraoke.lib.demucs_processor.get_cached_stems",
             return_value=("/cache/abc/vocals.mp3", "/cache/abc/instrumental.mp3", "mp3"),
         ):
             assert _alignment_audio_path("/s/song.mp4") == "/cache/abc/vocals.mp3"
 
-    def test_falls_back_on_exception(self, caplog):
+    def test_lookup_uses_resolved_audio_source(self):
+        # Ensures cache key matches the one populated by prewarm (sibling .m4a).
         with patch(
-            "pikaraoke.lib.demucs_processor.get_cache_key",
+            "pikaraoke.lib.demucs_processor.resolve_audio_source", return_value="/s/song.m4a"
+        ) as mock_resolve, patch(
+            "pikaraoke.lib.demucs_processor.get_cache_key", return_value="abc"
+        ) as mock_key, patch(
+            "pikaraoke.lib.demucs_processor.get_cached_stems", return_value=None
+        ):
+            _alignment_audio_path("/s/song.mp4")
+        mock_resolve.assert_called_once_with("/s/song.mp4")
+        mock_key.assert_called_once_with("/s/song.m4a")
+
+    def test_returns_none_on_exception(self, caplog):
+        with patch(
+            "pikaraoke.lib.demucs_processor.resolve_audio_source",
             side_effect=OSError("permission denied"),
         ):
             with caplog.at_level("WARNING"):
                 result = _alignment_audio_path("/s/song.mp4")
-        assert result == "/s/song.mp4"
+        assert result is None
         assert any("stem lookup failed" in r.message for r in caplog.records)
 
 
@@ -974,12 +991,12 @@ class TestWaitForAlignmentAudio:
             mock_sleep.assert_not_called()
 
     def test_polls_and_resolves(self):
-        # First two polls return song path (no cache), third returns vocals.
+        # First two polls miss, third returns vocals.
         responses = iter(
             [
-                "/s/song.mp4",  # initial
-                "/s/song.mp4",  # poll 1
-                "/s/song.mp4",  # poll 2
+                None,  # initial
+                None,  # poll 1
+                None,  # poll 2
                 "/cache/abc/vocals.mp3",  # poll 3 — success
             ]
         )
@@ -989,13 +1006,15 @@ class TestWaitForAlignmentAudio:
         ), patch("pikaraoke.lib.lyrics.time.sleep"):
             assert _wait_for_alignment_audio("/s/song.mp4") == "/cache/abc/vocals.mp3"
 
-    def test_times_out_falls_back_to_raw(self):
-        # monotonic returns deadline-passed immediately after one sleep.
-        with patch("pikaraoke.lib.lyrics._alignment_audio_path", return_value="/s/song.mp4"), patch(
+    def test_times_out_falls_back_to_resolved_audio_source(self):
+        # On timeout, falls back to the sibling .m4a (resolve_audio_source), not the video.
+        with patch("pikaraoke.lib.lyrics._alignment_audio_path", return_value=None), patch(
             "pikaraoke.lib.lyrics.time.sleep"
-        ), patch("pikaraoke.lib.lyrics.time.monotonic", side_effect=[0.0, 10_000.0]):
+        ), patch("pikaraoke.lib.lyrics.time.monotonic", side_effect=[0.0, 10_000.0]), patch(
+            "pikaraoke.lib.demucs_processor.resolve_audio_source", return_value="/s/song.m4a"
+        ):
             result = _wait_for_alignment_audio("/s/song.mp4")
-        assert result == "/s/song.mp4"
+        assert result == "/s/song.m4a"
 
 
 class TestPrewarmStems:
