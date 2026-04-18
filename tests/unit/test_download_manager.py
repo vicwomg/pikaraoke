@@ -1,6 +1,7 @@
 """Unit tests for download_manager module."""
 
 import json
+import threading
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -604,6 +605,54 @@ class TestSplitDownload:
 
         # Both progress lines landed; progress is the mean.
         assert download_manager.active_download["progress"] == pytest.approx(60.0, abs=0.01)
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.Popen")
+    def test_split_download_cancels_sibling_on_failure(
+        self,
+        mock_popen,
+        mock_gettext,
+        download_manager,
+        preferences,
+        tmp_path,
+    ):
+        """When one stream fails fast, the still-running sibling is terminated."""
+        preferences.set("vocal_removal", True)
+        download_manager._download_path = str(tmp_path)
+
+        audio_proc = self._make_popen(1)
+
+        # Video mock emulates a live yt-dlp: readline blocks until
+        # terminate() is called, then EOF + non-None poll unblocks the reader.
+        video_proc = MagicMock()
+        video_unblocked = threading.Event()
+        terminated = {"flag": False}
+
+        def blocking_readline():
+            video_unblocked.wait(timeout=5)
+            return ""
+
+        def video_poll():
+            return -15 if terminated["flag"] else None
+
+        def video_terminate():
+            terminated["flag"] = True
+            video_unblocked.set()
+
+        video_proc.stdout.readline.side_effect = blocking_readline
+        video_proc.poll.side_effect = video_poll
+        video_proc.terminate.side_effect = video_terminate
+
+        # First Popen call builds the audio proc, second the video proc.
+        mock_popen.side_effect = [audio_proc, video_proc]
+
+        rc, _out = download_manager._run_split_download(
+            "https://youtube.com/watch?v=abc", "abc12345678"
+        )
+
+        assert rc != 0
+        video_proc.terminate.assert_called_once()
+        assert video_unblocked.is_set()
 
 
 class TestParallelMetadataEnrichment:

@@ -150,10 +150,14 @@ files; the default pipeline stays unchanged.
   would now have pulled every direct-video test into the audio-pipe
   branch. 948 tests pass.
 
-## Follow-ups (not in this change)
+## Follow-ups
 
-- Cancel the still-running yt-dlp when the sibling fails — today both
-  threads are joined regardless, so a failed audio can wait for a full
-  video download before surfacing the error.
-- Consider cross-fading the sibling m4a to stems during the warmup
-  window when playback starts before Demucs completes.
+- \[x\] Cancel the still-running yt-dlp when the sibling fails — both
+  Popens now start on the caller thread so either reader can
+  `terminate()` the other the moment its own rc is non-zero. Test
+  `test_split_download_cancels_sibling_on_failure` pins the behaviour.
+- \[ \] Consider cross-fading the sibling m4a to stems during the warmup
+  window when playback starts before Demucs completes. Scope: open
+  `needs_audio_pipe` for vocal_removal-on when `has_audio_sibling` and
+  stems aren't cache-hit, then add an m4a→stems crossfade branch in
+  `splash.js`. Deferred — belongs in its own PR.

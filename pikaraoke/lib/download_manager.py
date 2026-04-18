@@ -390,38 +390,57 @@ class DownloadManager:
 
             return on_progress
 
+        # Start both Popens on the caller thread so each reader thread can
+        # reach the other's handle as soon as it finishes — no races where
+        # the first thread to exit tries to cancel a sibling that hasn't
+        # attached its proc yet.
+        audio_proc = subprocess.Popen(
+            audio_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            universal_newlines=True,
+        )
+        video_proc = subprocess.Popen(
+            video_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            universal_newlines=True,
+        )
+
         audio_state: dict = {"rc": None, "output": ""}
         video_state: dict = {"rc": None, "output": ""}
 
+        def cancel(proc: subprocess.Popen, label: str) -> None:
+            if proc.poll() is not None:
+                return
+            logging.info("Cancelling %s yt-dlp after sibling failure", label)
+            try:
+                proc.terminate()
+            except OSError as e:
+                logging.warning("Failed to terminate %s yt-dlp: %s", label, e)
+
         def run_audio() -> None:
-            proc = subprocess.Popen(
-                audio_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                universal_newlines=True,
-            )
             buf: list[str] = []
-            _read_ytdlp_stdout(proc, buf, make_on_progress("audio"))
-            audio_state["rc"] = proc.poll()
+            _read_ytdlp_stdout(audio_proc, buf, make_on_progress("audio"))
+            audio_state["rc"] = audio_proc.poll()
             audio_state["output"] = "".join(buf)
-            if audio_state["rc"] == 0 and video_id:
-                self._prewarm_audio_sibling(video_id)
+            if audio_state["rc"] == 0:
+                if video_id:
+                    self._prewarm_audio_sibling(video_id)
+            else:
+                cancel(video_proc, "video")
 
         def run_video() -> None:
-            proc = subprocess.Popen(
-                video_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                universal_newlines=True,
-            )
             buf: list[str] = []
-            _read_ytdlp_stdout(proc, buf, make_on_progress("video"))
-            video_state["rc"] = proc.poll()
+            _read_ytdlp_stdout(video_proc, buf, make_on_progress("video"))
+            video_state["rc"] = video_proc.poll()
             video_state["output"] = "".join(buf)
+            if video_state["rc"] != 0:
+                cancel(audio_proc, "audio")
 
         at = Thread(target=run_audio, name="yt-dlp-audio", daemon=True)
         vt = Thread(target=run_video, name="yt-dlp-video", daemon=True)
