@@ -43,6 +43,13 @@
     <div class="has-text-success">
 		</span><i class="icon icon-mic-1" title="Current singer"></i>
       <span id="now-playing-singer"></span>
+      <span id="song-warning" style="display: none; position: relative; margin-left: 8px; cursor: pointer;">
+        <i class="icon icon-attention has-text-warning" title="Click to view warnings"></i>
+        <div id="song-warning-tooltip" style="display: none;">
+          <div id="song-warning-messages"></div>
+          <button id="song-warning-copy" class="button is-small is-dark" type="button">Copy</button>
+        </div>
+      </span>
 		<br />
 		<span class="timestamp is-size-6">
         <span id="current">00:00</span>
@@ -374,6 +381,50 @@
     z-index: 6;
     padding: 5px 10px;
     max-width: 450px;
+  }
+  #song-warning-tooltip {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 6px;
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.9);
+    border: 1px solid #555;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 13px;
+    line-height: 1.3;
+    white-space: normal;
+    text-align: left;
+    width: min(360px, calc(100vw - 40px));
+    max-width: calc(100vw - 40px);
+    z-index: 7;
+    text-shadow: none;
+    cursor: default;
+  }
+  #song-warning-messages {
+    max-height: 180px;
+    overflow-y: auto;
+    margin-bottom: 6px;
+    word-break: break-word;
+  }
+  #song-warning-messages .warning-entry {
+    padding: 4px 0;
+    border-bottom: 1px solid #333;
+  }
+  #song-warning-messages .warning-entry:last-child {
+    border-bottom: none;
+  }
+  #song-warning-messages .warning-title {
+    font-weight: bold;
+    color: #ffdd57;
+  }
+  #song-warning-messages .warning-detail {
+    font-family: monospace;
+    font-size: 11px;
+    color: #bbb;
+    white-space: pre-wrap;
+    margin-top: 2px;
   }
 </style>
 

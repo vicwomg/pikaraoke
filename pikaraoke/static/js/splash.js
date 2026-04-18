@@ -259,6 +259,85 @@ const flashNotification = (message, categoryClass) => {
   }, 3000);
 }
 
+// Warnings are buffered per-song so an emit that arrives before the song
+// starts playing (e.g. lyrics fetch fails at download time) attaches to
+// the correct song later, not to whatever is currently on splash. The
+// buffer is bounded so queued-but-never-played songs don't grow unbounded.
+const SONG_WARNING_BUFFER_MAX = 40;
+const songWarningsBySong = new Map();  // basename -> [{message, detail}]
+let songWarningSongKey = null;
+
+const getCurrentSongWarnings = () =>
+  songWarningSongKey ? songWarningsBySong.get(songWarningSongKey) || [] : [];
+
+const renderSongWarnings = () => {
+  const icon = $("#song-warning");
+  const list = $("#song-warning-messages");
+  const warnings = getCurrentSongWarnings();
+  if (!warnings.length) {
+    icon.hide();
+    $("#song-warning-tooltip").hide();
+    list.empty();
+    return;
+  }
+  const html = warnings.map((w) => {
+    const title = $("<div class='warning-title'></div>").text(w.message)[0].outerHTML;
+    const detail = w.detail
+      ? $("<div class='warning-detail'></div>").text(w.detail)[0].outerHTML
+      : "";
+    return `<div class="warning-entry">${title}${detail}</div>`;
+  }).join("");
+  list.html(html);
+  const title = warnings.length === 1
+    ? warnings[0].message
+    : `${warnings.length} warnings — click to view`;
+  icon.find("i").attr("title", title);
+  icon.show();
+};
+
+const clearSongWarnings = () => {
+  // Only clears the icon/tooltip render; the buffer itself retains
+  // entries for other songs.
+  renderSongWarnings();
+};
+
+const bufferSongWarning = (songKey, message, detail) => {
+  if (!songKey) return false;
+  const list = songWarningsBySong.get(songKey) || [];
+  if (list.some(w => w.message === message && w.detail === detail)) return false;
+  list.push({ message, detail });
+  songWarningsBySong.set(songKey, list);
+  // Bound the buffer: oldest song keys fall out first (Map preserves
+  // insertion order).
+  while (songWarningsBySong.size > SONG_WARNING_BUFFER_MAX) {
+    const first = songWarningsBySong.keys().next().value;
+    if (first === songWarningSongKey) break;  // never evict the active song
+    songWarningsBySong.delete(first);
+  }
+  return true;
+};
+
+const copySongWarnings = () => {
+  const warnings = getCurrentSongWarnings();
+  if (!warnings.length) return;
+  const text = warnings
+    .map(w => w.detail ? `${w.message}\n${w.detail}` : w.message)
+    .join("\n\n");
+  const done = (ok) => flashNotification(ok ? "Copied" : "Copy failed", ok ? "is-success" : "is-danger");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => done(true), () => done(false));
+  } else {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) {}
+    document.body.removeChild(ta);
+    done(ok);
+  }
+};
+
 const setupScreensaver = () => {
   if (screensaverTimeoutSeconds > 0) {
     setInterval(() => {
@@ -572,6 +651,14 @@ const handleNowPlayingUpdate = (np) => {
   // Apply stem volume updates on every poll/socket update so home-page slider
   // changes take effect mid-song. Safe when audioNodes is null.
   applyStemVolumes(np);
+  // Switch which buffered warnings are shown when the song changes. The
+  // buffer retains entries for other songs so a warning emitted at download
+  // time (before the song starts) still lands when its song begins playing.
+  const songKey = np.now_playing_basename || null;
+  if (songKey !== songWarningSongKey) {
+    songWarningSongKey = songKey;
+    renderSongWarnings();
+  }
   if (np.now_playing) {
 
     // Handle updating now playing HTML
@@ -666,8 +753,13 @@ const handleNowPlayingUpdate = (np) => {
     //     the `stems_ready` event which triggers the crossfade.
     teardownStemAudio();
     if (np.now_playing_audio_track_url) {
+      // Audio is routed through the pipe; video is muted. The single
+      // volume slider controls the track gain (see 'volume' socket
+      // handler), so seed the gain from np.volume to honor the current
+      // slider position immediately.
+      const initialTrackGain = typeof np.volume === "number" ? np.volume : 1.0;
       setupAudioTracks(
-        [{ url: np.now_playing_audio_track_url, gain: 1.0, label: "track" }],
+        [{ url: np.now_playing_audio_track_url, gain: initialTrackGain, label: "track" }],
         video,
         np.now_playing_avsync_offset_ms || 0,
       );
@@ -973,12 +1065,25 @@ const setupSocketEvents = () => {
   });
   socket.on('volume', (val) => {
     const video = getVideoPlayer();
+    // When audio is routed through the warmup "track" pipe (direct-mp4
+    // transforms or split-download m4a sibling), video.muted is true and
+    // the audible level lives on the track gain node, not video.volume.
+    // Reach the right sink so the single slider works pre-stems.
+    const usingTrackPipe = audioNodes && audioNodes.labels && audioNodes.labels.length === 1 && audioNodes.labels[0] === "track";
+    const trackGain = usingTrackPipe ? audioNodes.tracks.track.gain.gain : null;
+    const current = trackGain ? trackGain.value : video.volume;
+    let next;
     if (val === "up") {
-      video.volume = Math.min(1, video.volume + 0.1);
+      next = Math.min(1, current + 0.1);
     } else if (val === "down") {
-      video.volume = Math.max(0, video.volume - 0.1);
+      next = Math.max(0, current - 0.1);
     } else {
-      video.volume = val;
+      next = val;
+    }
+    if (trackGain) {
+      trackGain.value = next;
+    } else {
+      video.volume = next;
     }
   });
   socket.on('restart', () => {
@@ -1004,6 +1109,17 @@ const setupSocketEvents = () => {
     }
   });
   socket.on("now_playing", handleNowPlayingUpdate);
+  socket.on("song_warning", (data) => {
+    if (!data || !data.message || !data.song) return;
+    const added = bufferSongWarning(data.song, data.message, data.detail || "");
+    if (!added) return;
+    // Only surface the toast and icon for the song currently on splash;
+    // warnings for other songs stay buffered until that song starts playing.
+    if (data.song === songWarningSongKey) {
+      renderSongWarnings();
+      flashNotification(data.message, "is-warning");
+    }
+  });
   // Live Demucs fires this once the first segment for both stems is on
   // disk. Video has been playing with its original audio; crossfade to the
   // stems so the user gets the karaoke mix (vocals ducked per slider).
@@ -1096,4 +1212,21 @@ $(function () {
   // Handle browser compatibility
   handleUnsupportedBrowser();
   testAutoplayCapability();
+
+  // Toggle the per-song warning tooltip on icon click; keep click inside
+  // the tooltip from closing it so the copy button is usable.
+  $("#song-warning").on("click", (e) => {
+    if ($(e.target).closest("#song-warning-tooltip").length) return;
+    $("#song-warning-tooltip").toggle();
+  });
+  $("#song-warning-copy").on("click", (e) => {
+    e.stopPropagation();
+    copySongWarnings();
+  });
+  // Dismiss the tooltip on outside click.
+  $(document).on("click", (e) => {
+    if (!$(e.target).closest("#song-warning").length) {
+      $("#song-warning-tooltip").hide();
+    }
+  });
 });
