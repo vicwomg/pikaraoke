@@ -59,10 +59,11 @@ def test_event_system_kwargs():
 
 
 def test_event_system_no_handlers():
-    """Test that emitting an event with no handlers doesn't raise an error."""
+    """Emitting an unregistered event is a no-op: returns None without side effects."""
     events = EventSystem()
-    # Should not raise any exception
-    events.emit("nonexistent_event", "test message")
+    assert events.emit("nonexistent_event", "test message") is None
+    # Handler registry is unchanged (no implicit entry created on emit)
+    assert "nonexistent_event" not in events._handlers
 
 
 def test_event_system_handler_exceptions_bubble_up():

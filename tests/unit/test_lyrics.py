@@ -999,6 +999,18 @@ class TestAlignmentAudioPath:
         ):
             assert _alignment_audio_path("/s/song.mp4") == "/cache/abc/vocals.mp3"
 
+    def test_returns_none_for_wav_only_cache(self):
+        # WAVs are short-lived: as soon as the MP3 encode finishes the
+        # WAV files are deleted. Handing a WAV path to whisperx can race
+        # with that deletion and fail the align step. Wait for MP3.
+        with patch(
+            "pikaraoke.lib.demucs_processor.resolve_audio_source", return_value="/s/song.mp4"
+        ), patch("pikaraoke.lib.demucs_processor.get_cache_key", return_value="abc"), patch(
+            "pikaraoke.lib.demucs_processor.get_cached_stems",
+            return_value=("/cache/abc/vocals.wav", "/cache/abc/instrumental.wav", "wav"),
+        ):
+            assert _alignment_audio_path("/s/song.mp4") is None
+
     def test_lookup_uses_resolved_audio_source(self):
         # Ensures cache key matches the one populated by prewarm (sibling .m4a).
         with patch(

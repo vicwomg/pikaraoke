@@ -182,6 +182,18 @@ class LyricsService:
 
         if not wrote_from_vtt and not lrc:
             logger.info("No lyrics source for %s", os.path.basename(song_path))
+            try:
+                self._events.emit(
+                    "song_warning",
+                    {
+                        "message": "No lyrics found",
+                        "detail": "YouTube captions and LRCLib both had no match.",
+                        "song": os.path.basename(song_path),
+                        "severity": "warning",
+                    },
+                )
+            except Exception:
+                logger.exception("failed to emit song_warning for missing lyrics")
             return
 
         self._events.emit(
@@ -228,12 +240,24 @@ class LyricsService:
                     "success",
                 )
                 self._events.emit("lyrics_upgraded", song_path)
-        except Exception:
+        except Exception as e:
             logger.warning(
                 "word-level alignment failed for %s, keeping line-level",
                 song_path,
                 exc_info=True,
             )
+            try:
+                self._events.emit(
+                    "song_warning",
+                    {
+                        "message": "Word-level alignment failed",
+                        "detail": f"{type(e).__name__}: {e}",
+                        "song": os.path.basename(song_path),
+                        "severity": "warning",
+                    },
+                )
+            except Exception:
+                logger.exception("failed to emit song_warning for alignment failure")
 
     def reprocess_library(self, song_paths: list[str]) -> int:
         """Upgrade existing line-level auto-lyrics to word-level in the background.
@@ -779,10 +803,15 @@ _STEM_WAIT_POLL_S = 2.0
 
 
 def _alignment_audio_path(song_path: str) -> str | None:
-    """Return vocals stem path when Demucs has cached it, else None.
+    """Return vocals MP3 path when Demucs has finished encoding, else None.
 
     Cache is keyed by ``resolve_audio_source`` (sibling ``.m4a`` when present),
     matching how ``prewarm`` populates it. Querying with the raw mp4 would miss.
+
+    Only the MP3 tier is returned; the WAV tier is short-lived (removed as
+    soon as MP3 encoding finishes) and returning it can cause whisperx to
+    open a file that is deleted moments later. Waiting for MP3 is safe:
+    whisperx accepts it transparently.
     """
     try:
         from pikaraoke.lib.demucs_processor import (
@@ -797,7 +826,9 @@ def _alignment_audio_path(song_path: str) -> str | None:
         return None
     if not cached:
         return None
-    vocals_path, _instr_path, _fmt = cached
+    vocals_path, _instr_path, fmt = cached
+    if fmt != "mp3":
+        return None
     return vocals_path
 
 

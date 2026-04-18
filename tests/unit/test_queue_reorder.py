@@ -65,6 +65,10 @@ class TestQueueReorderSocketUpdates:
 
         assert response.status_code == 200
         assert json.loads(response.data)["success"] is True
+        assert [item["file"] for item in queue_with_events.queue_manager.queue] == [
+            "song2",
+            "song1",
+        ]
         queue_with_events.update_now_playing_socket.assert_called_once()
 
     @patch("pikaraoke.routes.queue.is_admin", return_value=True)
@@ -86,6 +90,10 @@ class TestQueueReorderSocketUpdates:
         response = client.get("/queue/edit?action=top&song=song2")
 
         assert response.status_code == 302
+        assert [item["file"] for item in queue_with_events.queue_manager.queue] == [
+            "song2",
+            "song1",
+        ]
         queue_with_events.update_now_playing_socket.assert_called_once()
 
     @patch("pikaraoke.routes.queue.is_admin", return_value=True)
@@ -107,4 +115,8 @@ class TestQueueReorderSocketUpdates:
         response = client.get("/queue/edit?action=bottom&song=song1")
 
         assert response.status_code == 302
+        assert [item["file"] for item in queue_with_events.queue_manager.queue] == [
+            "song2",
+            "song1",
+        ]
         queue_with_events.update_now_playing_socket.assert_called_once()

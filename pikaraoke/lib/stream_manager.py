@@ -571,7 +571,7 @@ class StreamManager:
         self._emit_stems_ready(stream_uid)
         # WAV cache -> encode MP3 in background so the next play is smaller.
         if fmt == "wav":
-            encode_mp3_in_background(cache_key)
+            encode_mp3_in_background(cache_key, on_failure=self._encode_failure_cb(None))
 
     def _attach_to_inflight_separation(
         self,
@@ -632,9 +632,9 @@ class StreamManager:
             self._record_stems_ready(song_id, cache_key)
             # WAV-only cache -> kick off the MP3 encode so future plays are
             # smaller. Idempotent: encode_mp3_in_background is a no-op when
-            # the MP3 already exists.
+            # the MP3 already exists (and dedups concurrent callers).
             if cached and cached[2] == "wav":
-                encode_mp3_in_background(cache_key)
+                encode_mp3_in_background(cache_key, on_failure=self._encode_failure_cb(None))
 
         threading.Thread(target=_notify_when_ready, daemon=True).start()
         threading.Thread(target=_swap_to_final_paths, daemon=True).start()
@@ -658,6 +658,8 @@ class StreamManager:
             separate_stems,
         )
 
+        song_basename = os.path.basename(fr.file_path) if fr.file_path else None
+
         input_wav = os.path.join(fr.tmp_dir, "demucs_input.wav")
         logging.info(f"Demucs: extracting audio from {resolved_source}")
         result = subprocess.run(
@@ -665,7 +667,9 @@ class StreamManager:
             capture_output=True,
         )
         if result.returncode != 0:
-            logging.error(f"FFmpeg audio extraction failed: {result.stderr.decode()}")
+            stderr = result.stderr.decode(errors="replace")
+            logging.error(f"FFmpeg audio extraction failed: {stderr}")
+            self._emit_song_warning("Audio extraction failed", stderr.strip(), song_basename)
             release_separation(resolved_source, False)
             return False
 
@@ -713,7 +717,15 @@ class StreamManager:
                             entry.vocals_path = final_v
                             entry.instrumental_path = final_i
                     self._record_stems_ready(song_id, cache_key)
-                    encode_mp3_in_background(cache_key)
+                    encode_mp3_in_background(
+                        cache_key, on_failure=self._encode_failure_cb(song_basename)
+                    )
+                else:
+                    self._emit_song_warning(
+                        "Vocal separation failed",
+                        "Demucs did not complete; falling back to mixed audio.",
+                        song_basename,
+                    )
             finally:
                 done_event.set()
                 release_separation(resolved_source, ok)
@@ -766,6 +778,35 @@ class StreamManager:
             )
         except Exception:
             logging.exception("Failed to emit stems_ready event")
+
+    def _emit_song_warning(self, message: str, detail: str = "", song: str | None = None) -> None:
+        """Notify clients that a background step failed for the current song.
+
+        ``song`` is the song basename when known; clients filter by it so a
+        stale warning doesn't attach to the next song.
+        """
+        if self.events is None:
+            return
+        try:
+            self.events.emit(
+                "song_warning",
+                {
+                    "message": message,
+                    "detail": detail,
+                    "song": song or "",
+                    "severity": "warning",
+                },
+            )
+        except Exception:
+            logging.exception("Failed to emit song_warning event")
+
+    def _encode_failure_cb(self, song: str | None) -> Any:
+        """Return a callback wired to emit song_warning for MP3 encode failures."""
+
+        def _cb(stage: str, detail: str) -> None:
+            self._emit_song_warning("MP3 encode failed", detail, song)
+
+        return _cb
 
     def _emit_demucs_progress(self, processed: float, total: float) -> None:
         if self.events is None:

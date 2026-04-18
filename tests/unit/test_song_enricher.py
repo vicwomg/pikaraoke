@@ -223,3 +223,5 @@ class TestEnrichSong:
             song_enricher.enrich_song(db, sid, song_path)  # must not raise
         row = db.get_song_by_id(sid)
         assert row["metadata_status"] == "not_found"
+        assert row["enrichment_attempts"] == 1
+        assert row["last_enrichment_attempt"] is not None

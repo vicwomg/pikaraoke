@@ -37,13 +37,15 @@ class TestGetIpViaUdpSocket:
             assert result == "127.0.0.1"
 
     def test_socket_is_closed(self):
-        """Test that socket is always closed."""
+        """Socket is closed after the IP is read (close happens, IP still returned correctly)."""
         mock_socket = MagicMock()
         mock_socket.getsockname.return_value = ("192.168.1.100", 12345)
 
         with patch("socket.socket", return_value=mock_socket):
-            _get_ip_via_udp_socket("8.8.8.8")
-            mock_socket.close.assert_called_once()
+            result = _get_ip_via_udp_socket("8.8.8.8")
+
+        assert result == "192.168.1.100"
+        mock_socket.close.assert_called_once()
 
 
 class TestGetIpWindows:

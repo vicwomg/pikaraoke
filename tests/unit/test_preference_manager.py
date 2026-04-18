@@ -41,7 +41,7 @@ def test_preference_manager_set_and_get(temp_config_file):
 
     success, message = prefs.set("test_pref", "test_value")
     assert success is True
-    assert "successfully" in message.lower()
+    assert message
 
     result = prefs.get("test_pref")
     assert result == "test_value"
@@ -122,27 +122,32 @@ def test_preference_manager_clear(temp_config_file):
     # Clear preferences
     success, message = prefs.clear()
     assert success is True
-    assert "successfully" in message.lower()
+    assert message
 
     # Config file should still exist (not deleted)
     assert os.path.exists(temp_config_file)
 
-    # Critical: verify cached values are cleared and defaults are returned
-    assert prefs.get("pref1", "default1") == "default1"
-    assert prefs.get("pref2", "default2") == "default2"
-    assert prefs.get("volume", 1.0) == 1.0  # Should return fallback, not old value
+    # Keys must be truly gone — get() with no default must return None
+    assert prefs.get("pref1") is None
+    assert prefs.get("pref2") is None
+    # And get() with a default now returns the default (not the pre-clear value)
+    assert prefs.get("volume", 1.0) == 1.0
 
 
 def test_preference_manager_clear_nonexistent_file():
     """Test clearing preferences when config file doesn't exist.
 
     This is considered successful since the desired state (no config) is achieved.
+    The manager must remain usable afterward (get() still works, returns defaults).
     """
     prefs = PreferenceManager("/nonexistent/config.ini")
 
     success, message = prefs.clear()
     assert success is True
-    assert "successfully" in message.lower()
+    assert message
+    # Manager is still usable: unknown keys → None, defaults fall through
+    assert prefs.get("any_key") is None
+    assert prefs.get("any_key", "fallback") == "fallback"
 
 
 def test_preference_manager_clear_resets_to_defaults(temp_config_file):

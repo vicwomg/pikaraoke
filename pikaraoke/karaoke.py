@@ -410,6 +410,31 @@ class Karaoke:
                 self.socketio.emit("stems_ready", data, namespace="/") if self.socketio else None
             ),
         )
+        self.events.on(
+            "song_warning",
+            lambda data: (
+                self.socketio.emit("song_warning", data, namespace="/") if self.socketio else None
+            ),
+        )
+
+        # Wire the demucs_processor module-level warning hook so that
+        # background prewarm paths (download_manager, lyrics) — which
+        # don't hold a StreamManager reference — can surface failures as
+        # song_warning events too.
+        from pikaraoke.lib import demucs_processor
+
+        def _forward_warning(song: str | None, message: str, detail: str) -> None:
+            self.events.emit(
+                "song_warning",
+                {
+                    "message": message,
+                    "detail": detail,
+                    "song": song or "",
+                    "severity": "warning",
+                },
+            )
+
+        demucs_processor.set_warning_hook(_forward_warning)
 
         # Initialize queue manager
         self.queue_manager = QueueManager(

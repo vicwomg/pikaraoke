@@ -1,11 +1,16 @@
 """Tests for the non-torch surface of demucs_processor."""
 
+import threading
+
 import pytest
 
+from pikaraoke.lib import demucs_processor as dp
 from pikaraoke.lib.demucs_processor import (
+    _encode_in_progress,
     _sep_done_keys,
     _sep_handles,
     acquire_separation,
+    encode_mp3_in_background,
     release_separation,
     resolve_audio_source,
 )
@@ -120,3 +125,77 @@ class TestSeparationCoordinator:
         is_owner_b, _ = acquire_separation("/s/b.m4a")
         assert is_owner_a is True
         assert is_owner_b is True
+
+
+@pytest.fixture
+def clean_encode_state():
+    _encode_in_progress.clear()
+    yield
+    _encode_in_progress.clear()
+
+
+class TestEncodeMp3Dedup:
+    """encode_mp3_in_background must dedup concurrent callers: three entry
+    points (prewarm, stream_manager owner, attached waiter) can invoke it
+    for the same cache_key and must not race two ffmpeg processes on the
+    same .partial file.
+    """
+
+    def test_second_call_noops_while_first_in_flight(
+        self, tmp_path, monkeypatch, clean_encode_state
+    ):
+        cache_key = "a" * 64
+        cache_dir = tmp_path / cache_key
+        cache_dir.mkdir()
+        (cache_dir / "vocals.wav").write_bytes(b"fake")
+        (cache_dir / "instrumental.wav").write_bytes(b"fake")
+        monkeypatch.setattr(dp, "CACHE_DIR", str(tmp_path))
+
+        # Simulate a first call still running by marking the key as in
+        # progress without spawning the worker thread.
+        _encode_in_progress.add(cache_key)
+
+        spawned = []
+        original_thread = threading.Thread
+
+        def tracking_thread(*args, **kwargs):
+            t = original_thread(*args, **kwargs)
+            spawned.append(t)
+            return t
+
+        monkeypatch.setattr(threading, "Thread", tracking_thread)
+        encode_mp3_in_background(cache_key)
+        assert spawned == []
+
+    def test_noop_when_mp3s_already_exist(self, tmp_path, monkeypatch, clean_encode_state):
+        cache_key = "b" * 64
+        cache_dir = tmp_path / cache_key
+        cache_dir.mkdir()
+        (cache_dir / "vocals.wav").write_bytes(b"fake")
+        (cache_dir / "instrumental.wav").write_bytes(b"fake")
+        (cache_dir / "vocals.mp3").write_bytes(b"fake")
+        (cache_dir / "instrumental.mp3").write_bytes(b"fake")
+        monkeypatch.setattr(dp, "CACHE_DIR", str(tmp_path))
+
+        spawned = []
+        monkeypatch.setattr(
+            threading, "Thread", lambda *a, **kw: spawned.append((a, kw)) or threading.Event()
+        )
+        encode_mp3_in_background(cache_key)
+        assert spawned == []
+        # And the dedup set is not polluted when the function early-exits.
+        assert cache_key not in _encode_in_progress
+
+    def test_noop_when_wavs_missing(self, tmp_path, monkeypatch, clean_encode_state):
+        cache_key = "c" * 64
+        (tmp_path / cache_key).mkdir()
+        monkeypatch.setattr(dp, "CACHE_DIR", str(tmp_path))
+        # No wavs, no mp3s.
+
+        spawned = []
+        monkeypatch.setattr(
+            threading, "Thread", lambda *a, **kw: spawned.append((a, kw)) or threading.Event()
+        )
+        encode_mp3_in_background(cache_key)
+        assert spawned == []
+        assert cache_key not in _encode_in_progress

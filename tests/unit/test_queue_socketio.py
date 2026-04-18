@@ -79,7 +79,7 @@ class TestQueueSocketEmissions:
         assert payload["next_user"] == "User1"
 
     def test_enqueue_triggers_queue_socket_update(self, karaoke_with_socketio):
-        """enqueue triggers queue_update event."""
+        """enqueue triggers exactly one queue_update event on namespace '/'."""
         k = karaoke_with_socketio
 
         k.queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
@@ -87,7 +87,8 @@ class TestQueueSocketEmissions:
         queue_update_calls = [
             call for call in k.socketio.emit.call_args_list if call[0][0] == "queue_update"
         ]
-        assert len(queue_update_calls) > 0
+        assert len(queue_update_calls) == 1
+        assert queue_update_calls[0] == (("queue_update",), {"namespace": "/"})
 
     def test_queue_edit_delete_triggers_socket_updates(self, karaoke_with_socketio):
         """queue_edit (delete) triggers both queue_update and now_playing events."""
@@ -150,21 +151,14 @@ class TestSocketIOEventFormats:
 
         payload = k.socketio.emit.call_args[0][1]
 
-        required_fields = [
-            "now_playing",
-            "now_playing_user",
-            "now_playing_transpose",
-            "now_playing_duration",
-            "now_playing_position",
-            "now_playing_url",
-            "now_playing_subtitle_url",
-            "is_paused",
-            "volume",
-            "up_next",
-            "next_user",
-        ]
-        for field in required_fields:
-            assert field in payload, f"Missing required field: {field}"
-
+        assert payload["now_playing"] == "/songs/Artist - Song---dQw4w9WgXcQ.mp4"
+        assert payload["now_playing_user"] == "TestUser"
+        assert payload["now_playing_transpose"] == 0
+        assert payload["now_playing_duration"] == 240
+        assert payload["now_playing_position"] == 30
+        assert payload["now_playing_url"] == "https://youtube.com/watch?v=dQw4w9WgXcQ"
+        assert payload["now_playing_subtitle_url"] is None
+        assert payload["is_paused"] is False
+        assert payload["volume"] == 0.85
         assert payload["up_next"] == "Next Song"
         assert payload["next_user"] == "NextUser"

@@ -173,11 +173,27 @@ def cleanup_stale_partials() -> None:
                     pass
 
 
-def encode_mp3_in_background(cache_key: str, bitrate: str = "320k") -> None:
+_encode_lock = threading.Lock()
+_encode_in_progress: set[str] = set()
+
+
+def encode_mp3_in_background(
+    cache_key: str,
+    bitrate: str = "320k",
+    on_failure: Callable[[str, str], None] | None = None,
+) -> None:
     """Encode cached WAVs to MP3 in a background thread, then delete WAVs.
 
     No-op if MP3s already exist or WAVs are missing. On Unix the WAV delete
     does not affect in-flight HTTP tail responses (open fds keep reading).
+
+    Deduplicates concurrent calls for the same ``cache_key`` so two ffmpeg
+    processes don't race on the same ``.partial`` path (three entry points
+    can invoke this: prewarm, owner, attached waiter).
+
+    ``on_failure(stage, detail)`` is invoked once if encoding fails; ``stage``
+    is a short label like ``"mp3_encode"`` and ``detail`` is the ffmpeg stderr
+    or exception string.
     """
     import subprocess as sp
 
@@ -192,55 +208,74 @@ def encode_mp3_in_background(cache_key: str, bitrate: str = "320k") -> None:
     if not (os.path.isfile(wav_v) and os.path.isfile(wav_i)):
         return  # nothing to encode
 
+    with _encode_lock:
+        if cache_key in _encode_in_progress:
+            return
+        _encode_in_progress.add(cache_key)
+
     def run() -> None:
-        for wav, mp3 in [(wav_v, mp3_v), (wav_i, mp3_i)]:
-            if os.path.isfile(mp3):
-                continue
-            tmp = mp3 + ".partial"
-            try:
-                sp.run(
-                    [
-                        "ffmpeg",
-                        "-y",
-                        "-hide_banner",
-                        "-loglevel",
-                        "error",
-                        "-i",
-                        wav,
-                        "-c:a",
-                        "libmp3lame",
-                        "-b:a",
-                        bitrate,
-                        "-f",
-                        "mp3",
-                        tmp,
-                    ],
-                    check=True,
-                    capture_output=True,
-                )
-                os.replace(tmp, mp3)
-            except sp.CalledProcessError as e:
-                stderr = e.stderr.decode(errors="replace") if e.stderr else ""
-                logging.error(f"MP3 encode failed for {wav} (exit {e.returncode}): {stderr}")
+        try:
+            for wav, mp3 in [(wav_v, mp3_v), (wav_i, mp3_i)]:
+                if os.path.isfile(mp3):
+                    continue
+                tmp = mp3 + ".partial"
                 try:
-                    os.remove(tmp)
+                    sp.run(
+                        [
+                            "ffmpeg",
+                            "-y",
+                            "-hide_banner",
+                            "-loglevel",
+                            "error",
+                            "-i",
+                            wav,
+                            "-c:a",
+                            "libmp3lame",
+                            "-b:a",
+                            bitrate,
+                            "-f",
+                            "mp3",
+                            tmp,
+                        ],
+                        check=True,
+                        capture_output=True,
+                    )
+                    os.replace(tmp, mp3)
+                except sp.CalledProcessError as e:
+                    stderr = e.stderr.decode(errors="replace") if e.stderr else ""
+                    logging.error(f"MP3 encode failed for {wav} (exit {e.returncode}): {stderr}")
+                    try:
+                        os.remove(tmp)
+                    except OSError:
+                        pass
+                    if on_failure:
+                        try:
+                            on_failure("mp3_encode", f"{os.path.basename(wav)}: {stderr.strip()}")
+                        except Exception:
+                            logging.exception("encode_mp3 on_failure callback raised")
+                    return
+                except OSError as e:
+                    logging.exception(f"MP3 encode failed for {wav}")
+                    try:
+                        os.remove(tmp)
+                    except OSError:
+                        pass
+                    if on_failure:
+                        try:
+                            on_failure("mp3_encode", f"{os.path.basename(wav)}: {e}")
+                        except Exception:
+                            logging.exception("encode_mp3 on_failure callback raised")
+                    return
+            # Both MP3s ready — remove WAVs. Unix keeps existing fds alive.
+            for wav in (wav_v, wav_i):
+                try:
+                    os.remove(wav)
                 except OSError:
                     pass
-                return
-            except OSError:
-                logging.exception(f"MP3 encode failed for {wav}")
-                try:
-                    os.remove(tmp)
-                except OSError:
-                    pass
-                return
-        # Both MP3s ready — remove WAVs. Unix keeps existing fds alive.
-        for wav in (wav_v, wav_i):
-            try:
-                os.remove(wav)
-            except OSError:
-                pass
-        logging.info(f"MP3 cache ready, WAVs removed: {cache_key[:12]}...")
+            logging.info(f"MP3 cache ready, WAVs removed: {cache_key[:12]}...")
+        finally:
+            with _encode_lock:
+                _encode_in_progress.discard(cache_key)
 
     threading.Thread(target=run, daemon=True).start()
 
@@ -550,6 +585,29 @@ def resolve_audio_source(media_path: str) -> str:
     return media_path
 
 
+# Module-level failure hook invoked by background paths that don't hold a
+# StreamManager (prewarm from download / lyrics). karaoke.py registers a
+# callback at startup that forwards the failure through the EventSystem as
+# a ``song_warning`` emit. Shape: ``(song_basename, message, detail)``.
+_warning_hook: Callable[[str | None, str, str], None] | None = None
+
+
+def set_warning_hook(hook: Callable[[str | None, str, str], None] | None) -> None:
+    """Register (or clear) the module-level warning hook."""
+    global _warning_hook
+    _warning_hook = hook
+
+
+def _notify_warning(song_basename: str | None, message: str, detail: str) -> None:
+    hook = _warning_hook
+    if hook is None:
+        return
+    try:
+        hook(song_basename, message, detail)
+    except Exception:
+        logging.exception("demucs_processor warning hook raised")
+
+
 def prewarm(file_path: str) -> None:
     """Fire-and-forget: populate the Demucs cache for file_path.
 
@@ -561,6 +619,11 @@ def prewarm(file_path: str) -> None:
     is_owner, _handle = acquire_separation(audio_source)
     if not is_owner:
         return  # already cached, or another caller is separating
+
+    song_basename = os.path.basename(file_path)
+
+    def _on_encode_failure(stage: str, detail: str) -> None:
+        _notify_warning(song_basename, "MP3 encode failed", detail)
 
     def _run() -> None:
         success = False
@@ -590,15 +653,26 @@ def prewarm(file_path: str) -> None:
                 partial_v, partial_i = partial_stem_paths(cache_key)
                 if separate_stems(input_wav, partial_v, partial_i, _handle.ready_event):
                     finalize_partial_stems(cache_key)
-                    encode_mp3_in_background(cache_key)
+                    encode_mp3_in_background(cache_key, on_failure=_on_encode_failure)
                     success = True
+                else:
+                    _notify_warning(
+                        song_basename,
+                        "Vocal separation failed",
+                        "Demucs did not complete during prewarm.",
+                    )
             finally:
                 try:
                     os.remove(input_wav)
                 except OSError:
                     pass
-        except Exception:
+        except subprocess.CalledProcessError as e:
             logging.exception(f"Demucs prewarm failed for {file_path}")
+            stderr = e.stderr.decode(errors="replace") if e.stderr else ""
+            _notify_warning(song_basename, "Audio extraction failed", stderr.strip())
+        except Exception as e:
+            logging.exception(f"Demucs prewarm failed for {file_path}")
+            _notify_warning(song_basename, "Demucs prewarm failed", f"{type(e).__name__}: {e}")
         finally:
             release_separation(audio_source, success)
 
