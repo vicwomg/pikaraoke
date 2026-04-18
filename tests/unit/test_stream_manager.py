@@ -329,13 +329,14 @@ class TestStreamManagerCheckHlsBuffer:
 class TestStreamManagerTranscodeFile:
     """Tests for StreamManager._transcode_file method."""
 
-    def _make_mock_fr(self):
+    def _make_mock_fr(self, audio_sibling_path=None):
         """Create a mock FileResolver for transcoding tests."""
         mock_fr = MagicMock()
         mock_fr.stream_uid = 12345
         mock_fr.output_file = "/tmp/12345.mp4"
         mock_fr.duration = 180
         mock_fr.tmp_dir = "/tmp"
+        mock_fr.audio_sibling_path = audio_sibling_path
         mock_fr.get_current_stream_size.return_value = 500000
         return mock_fr
 
@@ -440,6 +441,35 @@ class TestStreamManagerTranscodeFile:
             sm._transcode_file(self._make_mock_fr(), semitones=0, is_hls=False)
 
         mock_kill.assert_called_once()
+
+    @patch("pikaraoke.lib.stream_manager.Thread")
+    @patch("pikaraoke.lib.stream_manager.build_ffmpeg_cmd")
+    def test_transcode_routes_sibling_audio_when_silent_mp4(
+        self, mock_build_cmd, mock_thread, test_prefs
+    ):
+        """Silent mp4 + .m4a sibling: pass sibling as alternate_audio so the
+        muxed ffmpeg map doesn't fail on a missing audio stream."""
+        sm = StreamManager(test_prefs)
+        self._make_mock_ffmpeg(mock_build_cmd, poll_return=0)
+        fr = self._make_mock_fr(audio_sibling_path="/songs/test.m4a")
+
+        sm._transcode_file(fr, semitones=0, is_hls=True)
+
+        assert mock_build_cmd.call_args.kwargs["alternate_audio"] == "/songs/test.m4a"
+
+    @patch("pikaraoke.lib.stream_manager.Thread")
+    @patch("pikaraoke.lib.stream_manager.build_ffmpeg_cmd")
+    def test_transcode_no_sibling_leaves_alternate_audio_none(
+        self, mock_build_cmd, mock_thread, test_prefs
+    ):
+        """Muxed mp4 (no sibling): alternate_audio stays None so the
+        original audio track is used."""
+        sm = StreamManager(test_prefs)
+        self._make_mock_ffmpeg(mock_build_cmd, poll_return=0)
+
+        sm._transcode_file(self._make_mock_fr(), semitones=0, is_hls=True)
+
+        assert mock_build_cmd.call_args.kwargs["alternate_audio"] is None
 
 
 class TestStreamManagerPlayFile:

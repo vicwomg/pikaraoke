@@ -321,6 +321,9 @@ class StreamManager:
         cdg_pixel_scaling = self.preferences.get_or_default("cdg_pixel_scaling")
         buffer_size = int(self.preferences.get_or_default("buffer_size")) * 1000
 
+        # Parallel-download pipeline writes a silent mp4 + sibling .m4a. The
+        # muxed ffmpeg command here would fail mapping a missing audio stream;
+        # route the sibling in as alternate audio instead.
         ffmpeg_cmd = build_ffmpeg_cmd(
             fr,
             semitones,
@@ -329,6 +332,7 @@ class StreamManager:
             complete_transcode_before_play,
             avsync,
             cdg_pixel_scaling,
+            alternate_audio=fr.audio_sibling_path,
             strip_audio=False,
         )
         self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
