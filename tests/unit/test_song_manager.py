@@ -349,3 +349,11 @@ class TestDBCoordination:
         sm.register_download(_native(song))
         assert _native(song) in sm.songs
         mock_db.insert_songs.assert_called_once()
+        (records,) = mock_db.insert_songs.call_args.args
+        assert records == [
+            {
+                "file_path": _native(song),
+                "youtube_id": "xyz12345678",
+                "format": "mp4",
+            }
+        ]

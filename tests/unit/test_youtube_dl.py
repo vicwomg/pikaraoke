@@ -317,11 +317,17 @@ class TestUpgradeYoutubedl:
             result = upgrade_youtubedl()
 
             assert result == "2024.02.01"
-            # Check sys.executable -m pip was called (in a venv, no --break-system-packages)
             assert mock_check.call_count == 2
+            # In a venv (sys.prefix != sys.base_prefix), no --break-system-packages flag.
             second_call_args = mock_check.call_args_list[1][0][0]
-            assert "-m" in second_call_args
-            assert "pip" in second_call_args
+            assert second_call_args == [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--upgrade",
+                "yt-dlp",
+            ]
             assert "--break-system-packages" not in second_call_args
 
     def test_pip_upgrade_adds_break_system_packages_for_system_install(self):

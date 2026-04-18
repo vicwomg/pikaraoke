@@ -81,12 +81,16 @@ class TestStreamManagerLogFfmpegOutput:
             mock_logging.debug.assert_not_called()
 
     def test_no_log_when_queue_is_none(self, test_prefs):
-        """Test no error when ffmpeg_log is None."""
+        """With ffmpeg_log=None: no logging, no exception, state unchanged."""
         sm = StreamManager(test_prefs)
         sm.ffmpeg_log = None
 
-        # Should not raise
-        sm.log_ffmpeg_output()
+        with patch("pikaraoke.lib.stream_manager.logging") as mock_logging:
+            sm.log_ffmpeg_output()
+            mock_logging.debug.assert_not_called()
+            mock_logging.warning.assert_not_called()
+            mock_logging.error.assert_not_called()
+        assert sm.ffmpeg_log is None
 
 
 class TestStreamManagerKillFfmpeg:
@@ -126,14 +130,18 @@ class TestStreamManagerKillFfmpeg:
         mock_process.kill.assert_called_once()
 
     def test_kill_ffmpeg_handles_exception(self, test_prefs):
-        """Test that exceptions during termination are handled."""
+        """When terminate() raises, kill() and wait() are skipped but state is still reset."""
         sm = StreamManager(test_prefs)
         mock_process = MagicMock()
         mock_process.terminate.side_effect = Exception("Process error")
         sm.ffmpeg_process = mock_process
 
-        # Should not raise
-        sm.kill_ffmpeg()
+        sm.kill_ffmpeg()  # must not raise
+
+        # Exception path: neither SIGKILL nor the wait() loop ran
+        mock_process.kill.assert_not_called()
+        mock_process.wait.assert_not_called()
+        # finally-block still resets state
         assert sm.ffmpeg_process is None
 
 
@@ -352,6 +360,8 @@ class TestStreamManagerTranscodeFile:
         )
 
         assert is_complete is True
+        # FFmpeg completed before buffering check ever ran
+        assert is_buffered is False
         mock_build_cmd.assert_called_once()
         mock_cmd.run_async.assert_called_once_with(pipe_stderr=True, pipe_stdin=True)
 
@@ -392,13 +402,13 @@ class TestStreamManagerTranscodeFile:
         """Test HLS buffering check is used when is_hls=True."""
         sm = StreamManager(test_prefs)
         self._make_mock_ffmpeg(mock_build_cmd, poll_return=None)
+        fr = self._make_mock_fr()
+        expected_buffer_size = int(test_prefs.get_or_default("buffer_size")) * 1000
 
         with patch.object(sm, "_check_hls_buffer", return_value=True) as mock_hls:
-            is_complete, is_buffered = sm._transcode_file(
-                self._make_mock_fr(), semitones=0, is_hls=True
-            )
+            is_complete, is_buffered = sm._transcode_file(fr, semitones=0, is_hls=True)
 
-        mock_hls.assert_called()
+        mock_hls.assert_called_once_with(fr, expected_buffer_size)
         assert is_buffered is True
 
     @patch("pikaraoke.lib.stream_manager.time")
