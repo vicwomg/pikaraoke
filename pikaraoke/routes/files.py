@@ -80,6 +80,9 @@ def browse():
     if sort == "artist":
         songs = sorted(available_songs, key=lambda x: (_split(x)[0], _split(x)[1]))
         sort_order = "Artist"
+    elif sort == "date":
+        songs = sorted(available_songs, key=lambda x: os.path.getmtime(x), reverse=True)
+        sort_order = "Date"
     else:
         songs = sorted(available_songs, key=lambda x: (_split(x)[1], _split(x)[0]))
         sort_order = "Title"

@@ -104,9 +104,29 @@ def stream_stem_audio(stream_id: str, stem: str, ext: str):
     # ships MP3 bytes as audio/wav and some browsers reject it.
     mimetype = "audio/mpeg" if path.endswith(".mp3") else "audio/wav"
 
+    transforms_active = stems.semitones != 0 or stems.normalize
+    is_done = done_event.is_set() and not path.endswith(".partial")
+
+    # Cache hit + pitch/normalize active — pipe the cached stem through
+    # ffmpeg so stems pick up the same transforms the single-track path
+    # already applies. Live Demucs (done_event unset) falls through to the
+    # raw tail reader below; seeking on a growing file via ffmpeg -ss is
+    # too fragile, so users hear raw stems until separation completes.
+    if transforms_active and is_done:
+        from pikaraoke.lib.audio_processor import AudioTrackConfig, stream_wav_range
+
+        config = AudioTrackConfig(
+            source_path=path,
+            duration_sec=float(stems.total_seconds or 0),
+            semitones=stems.semitones,
+            normalize=stems.normalize,
+        )
+        generate, status, headers, _total = stream_wav_range(config, request.headers.get("Range"))
+        return Response(stream_with_context(generate()), status=status, headers=headers)
+
     # Fully-written files (cache hit, or Demucs completed mid-song) — serve
     # with range support so the browser can seek via HTTP byte ranges.
-    if done_event.is_set() and not path.endswith(".partial"):
+    if is_done:
         return send_file(path, mimetype=mimetype, conditional=True)
 
     def generate():
@@ -129,6 +149,48 @@ def stream_stem_audio(stream_id: str, stem: str, ext: str):
     response.headers["Accept-Ranges"] = "none"
     response.headers["Cache-Control"] = "no-cache, no-store"
     return response
+
+
+@stream_bp.route("/stream/audio/<stream_uid>/track.wav")
+def stream_audio_track(stream_uid: str):
+    """Serve the per-request WAV audio for the direct-video pipeline.
+
+    The generator pipes source audio through ffmpeg (optional rubberband
+    pitch + loudnorm) and emits a virtual WAV whose byte length matches
+    the song's duration; HTTP Range requests land on integer-second
+    ffmpeg seeks and the leading sub-second bytes are discarded inside
+    the generator for exact byte fidelity.
+    """
+    from pikaraoke.lib.audio_processor import stream_wav_range
+
+    k = get_karaoke_instance()
+    config = k.playback_controller.stream_manager.active_audio.get(stream_uid)
+    if config is None:
+        return Response("Audio track not active", status=404)
+
+    generate, status, headers, _total = stream_wav_range(config, request.headers.get("Range"))
+    return Response(stream_with_context(generate()), status=status, headers=headers)
+
+
+@stream_bp.route("/stream/video/<stream_uid>.mp4")
+def stream_source_mp4(stream_uid: str):
+    """Serve the original source mp4 with HTTP byte-range seeking.
+
+    Used when the source is a browser-native h264/aac mp4 and no audio
+    transforms are required; bypasses the copy-to-tmp+transcode path
+    entirely. Source file path is registered by StreamManager.play_file.
+    """
+    k = get_karaoke_instance()
+
+    if not k.playback_controller.is_playing:
+        now_playing_url = k.playback_controller.now_playing_url
+        if now_playing_url and stream_uid in now_playing_url:
+            k.playback_controller.start_song()
+
+    source_path = k.playback_controller.stream_manager.active_sources.get(stream_uid)
+    if not source_path or not os.path.exists(source_path):
+        return Response("Stream source not found", status=404)
+    return send_file(source_path, mimetype="video/mp4", conditional=True)
 
 
 # Serves HLS playlist file - explicit .m3u8 extension

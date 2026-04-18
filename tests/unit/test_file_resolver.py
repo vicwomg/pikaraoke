@@ -8,6 +8,7 @@ import pytest
 
 from pikaraoke.lib.file_resolver import (
     FileResolver,
+    can_serve_directly,
     create_tmp_dir,
     delete_tmp_dir,
     get_tmp_dir,
@@ -81,6 +82,44 @@ class TestIsTranscodingRequired:
     def test_zip_needs_transcoding(self):
         """Test that .zip files need transcoding (CDG package)."""
         assert is_transcoding_required("/songs/karaoke.zip") is True
+
+
+class TestCanServeDirectly:
+    """Tests for the can_serve_directly function."""
+
+    def _probe(self, video_codec=None, audio_codec=None):
+        streams = []
+        if video_codec is not None:
+            streams.append({"codec_type": "video", "codec_name": video_codec})
+        if audio_codec is not None:
+            streams.append({"codec_type": "audio", "codec_name": audio_codec})
+        return {"streams": streams}
+
+    def test_h264_aac_mp4_is_direct(self):
+        with patch("ffmpeg.probe", return_value=self._probe("h264", "aac")):
+            assert can_serve_directly("/songs/test.mp4") is True
+
+    def test_h264_no_audio_is_direct(self):
+        with patch("ffmpeg.probe", return_value=self._probe("h264", None)):
+            assert can_serve_directly("/songs/test.mp4") is True
+
+    def test_hevc_is_not_direct(self):
+        with patch("ffmpeg.probe", return_value=self._probe("hevc", "aac")):
+            assert can_serve_directly("/songs/test.mp4") is False
+
+    def test_h264_opus_is_not_direct(self):
+        with patch("ffmpeg.probe", return_value=self._probe("h264", "opus")):
+            assert can_serve_directly("/songs/test.mp4") is False
+
+    def test_non_mp4_extension_is_not_direct(self):
+        # Should not even call ffprobe
+        with patch("ffmpeg.probe") as mock_probe:
+            assert can_serve_directly("/songs/test.webm") is False
+            mock_probe.assert_not_called()
+
+    def test_ffprobe_failure_is_not_direct(self):
+        with patch("ffmpeg.probe", side_effect=RuntimeError("boom")):
+            assert can_serve_directly("/songs/test.mp4") is False
 
     def test_case_insensitive_mp4(self):
         """Test that MP4 detection is case insensitive."""
@@ -457,3 +496,49 @@ class TestFileResolverProcessFile:
 
         assert fr.file_extension == ".mkv"
         assert fr.file_path == str(video_file)
+
+
+class TestFileResolverAudioSibling:
+    """Parallel-download pipeline leaves a silent .mp4 plus a sibling .m4a.
+
+    FileResolver surfaces the sibling so StreamManager can pipe it as the
+    audio track.
+    """
+
+    @patch("pikaraoke.lib.file_resolver.get_media_duration", return_value=180)
+    @patch("pikaraoke.lib.file_resolver.create_tmp_dir")
+    @patch("pikaraoke.lib.file_resolver.get_tmp_dir", return_value="/tmp/12345")
+    def test_detects_m4a_sibling(self, mock_tmp, mock_create, mock_duration, tmp_path):
+        video_file = tmp_path / "song.mp4"
+        audio_file = tmp_path / "song.m4a"
+        video_file.touch()
+        audio_file.touch()
+
+        fr = FileResolver(str(video_file))
+
+        assert fr.audio_sibling_path == str(audio_file)
+
+    @patch("pikaraoke.lib.file_resolver.get_media_duration", return_value=180)
+    @patch("pikaraoke.lib.file_resolver.create_tmp_dir")
+    @patch("pikaraoke.lib.file_resolver.get_tmp_dir", return_value="/tmp/12345")
+    def test_no_sibling_leaves_field_none(self, mock_tmp, mock_create, mock_duration, tmp_path):
+        video_file = tmp_path / "song.mp4"
+        video_file.touch()
+
+        fr = FileResolver(str(video_file))
+
+        assert fr.audio_sibling_path is None
+
+    @patch("pikaraoke.lib.file_resolver.get_media_duration", return_value=180)
+    @patch("pikaraoke.lib.file_resolver.create_tmp_dir")
+    @patch("pikaraoke.lib.file_resolver.get_tmp_dir", return_value="/tmp/12345")
+    def test_non_mp4_ignores_sibling(self, mock_tmp, mock_create, mock_duration, tmp_path):
+        """Sibling detection is scoped to mp4 inputs; webm doesn't pair with m4a."""
+        video_file = tmp_path / "song.webm"
+        audio_file = tmp_path / "song.m4a"
+        video_file.touch()
+        audio_file.touch()
+
+        fr = FileResolver(str(video_file))
+
+        assert fr.audio_sibling_path is None

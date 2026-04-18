@@ -17,6 +17,7 @@ import logging
 import os
 import re
 import tempfile
+import time
 from dataclasses import dataclass
 from threading import Thread
 from typing import Protocol
@@ -24,6 +25,7 @@ from typing import Protocol
 import requests
 
 from pikaraoke.lib.events import EventSystem
+from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.music_metadata import resolve_metadata
 
 logger = logging.getLogger(__name__)
@@ -64,6 +66,11 @@ class Aligner(Protocol):
     def align(self, audio_path: str, reference_text: str) -> list[Word]:
         ...
 
+    @property
+    def model_id(self) -> str:
+        """Stable identifier recorded in the DB so model swaps invalidate cached .ass."""
+        ...
+
 
 class LyricsService:
     """Fetches synced lyrics from LRCLib and writes them as ASS subtitles."""
@@ -73,10 +80,50 @@ class LyricsService:
         download_path: str,
         events: EventSystem,
         aligner: Aligner | None = None,
+        db: KaraokeDatabase | None = None,
     ) -> None:
         self._download_path = download_path
         self._events = events
         self._aligner = aligner
+        self._db = db
+
+    def _register_ass(self, song_path: str, lyrics_source: str, aligner_model: str | None) -> None:
+        """Record the written .ass in song_artifacts and stamp lyrics_source/aligner_model.
+
+        No-op when db is not wired or when the song is not in the DB.
+        """
+        if self._db is None:
+            return
+        song_id = self._db.get_song_id_by_path(song_path)
+        if song_id is None:
+            return
+        self._db.upsert_artifacts(song_id, [{"role": "ass_auto", "path": _ass_path(song_path)}])
+        self._db.update_processing_config(
+            song_id, lyrics_source=lyrics_source, aligner_model=aligner_model
+        )
+
+    def _register_user_ass(self, song_path: str) -> None:
+        if self._db is None:
+            return
+        song_id = self._db.get_song_id_by_path(song_path)
+        if song_id is None:
+            return
+        self._db.upsert_artifacts(song_id, [{"role": "ass_user", "path": _ass_path(song_path)}])
+
+    def _maybe_drop_stale_auto_ass(self, song_path: str) -> None:
+        """When the aligner changed versus the recorded one, delete the auto .ass.
+
+        Runs before re-generating lyrics so that stale word-level alignments
+        produced by a previous model are not served.
+        """
+        if self._db is None or self._aligner is None:
+            return
+        song_id = self._db.get_song_id_by_path(song_path)
+        if song_id is None:
+            return
+        from pikaraoke.lib.audio_fingerprint import ensure_lyrics_config
+
+        ensure_lyrics_config(self._db, song_id, self._aligner.model_id)
 
     def fetch_and_convert(self, song_path: str) -> None:
         """Entry point - event listener for `song_downloaded`."""
@@ -89,15 +136,18 @@ class LyricsService:
         # User-supplied Aegisub files (without the auto-lyrics marker) are sacred.
         if _user_owned_ass(song_path):
             logger.debug("Skipping: user-supplied .ass present for %s", song_path)
+            self._register_user_ass(song_path)
             _cleanup_yt_subs_and_info(song_path)
             return
 
         info = _read_info_json(song_path)
+        self._maybe_drop_stale_auto_ass(song_path)
 
         # Step 1: baseline from YouTube VTT (always available when yt-dlp wrote any subs).
         wrote_from_vtt = _try_write_ass_from_vtt(song_path)
         if wrote_from_vtt:
             logger.info("Wrote .ass from YouTube VTT for %s", os.path.basename(song_path))
+            self._register_ass(song_path, lyrics_source="youtube_vtt", aligner_model=None)
 
         # Step 2: override with LRCLib if metadata available and track is found.
         lrc = None
@@ -126,6 +176,7 @@ class LyricsService:
                     info["artist"],
                     info["track"],
                 )
+                self._register_ass(song_path, lyrics_source="lrclib", aligner_model=None)
 
         _cleanup_yt_subs_and_info(song_path)
 
@@ -133,8 +184,16 @@ class LyricsService:
             logger.info("No lyrics source for %s", os.path.basename(song_path))
             return
 
+        self._events.emit(
+            "notification",
+            f"Lyrics ready: {_title_from_filename(song_path)}",
+            "info",
+        )
+
         # Per-word forced alignment requires reference lyrics text.
         if self._aligner and lrc:
+            # Eagerly kick off Demucs so the aligner gets vocals, not the raw mix.
+            _prewarm_stems(song_path)
             Thread(
                 target=self._upgrade_to_word_level,
                 args=(song_path, lrc),
@@ -146,20 +205,126 @@ class LyricsService:
         if self._aligner is None:
             return
         try:
+            audio_path = _wait_for_alignment_audio(song_path)
             plain = _lrc_plain_text(lrc)
-            words = self._aligner.align(song_path, plain)
+            words = self._aligner.align(audio_path, plain)
             if not words:
                 return
             ass = _words_to_ass_with_k_tags(words, lrc)
             if ass:
+                from pikaraoke.lib.demucs_processor import CACHE_DIR
+
                 _write_ass_atomic(song_path, ass)
-                logger.info("Upgraded to per-word .ass for %s", song_path)
+                logger.info(
+                    "Upgraded to per-word .ass for %s (audio=%s)",
+                    song_path,
+                    "vocals stem" if audio_path.startswith(CACHE_DIR) else "raw mix",
+                )
+                aligner_id = self._aligner.model_id if self._aligner else None
+                self._register_ass(song_path, lyrics_source="whisperx", aligner_model=aligner_id)
+                self._events.emit(
+                    "notification",
+                    f"Synced lyrics ready: {_title_from_filename(song_path)}",
+                    "success",
+                )
+                self._events.emit("lyrics_upgraded", song_path)
         except Exception:
             logger.warning(
                 "word-level alignment failed for %s, keeping line-level",
                 song_path,
                 exc_info=True,
             )
+
+    def reprocess_library(self, song_paths: list[str]) -> int:
+        """Upgrade existing line-level auto-lyrics to word-level in the background.
+
+        Candidates are songs with an auto-generated ``.ass`` (carries the marker)
+        that lacks ``\\k`` tags - i.e. files produced before whisperx was
+        available. No-op when no aligner is configured or nothing qualifies.
+
+        Returns the number of songs scheduled for upgrade. Processing runs
+        serially in a single daemon thread so the aligner doesn't thrash CPU/GPU.
+        """
+        if self._aligner is None:
+            return 0
+        candidates = [p for p in song_paths if _needs_word_level_upgrade(p)]
+        if not candidates:
+            return 0
+        logger.info(
+            "Reprocessing %d song(s) to word-level karaoke captions in the background",
+            len(candidates),
+        )
+        Thread(
+            target=self._reprocess_batch,
+            args=(candidates,),
+            name="lyrics-reprocess",
+            daemon=True,
+        ).start()
+        return len(candidates)
+
+    def _reprocess_batch(self, song_paths: list[str]) -> None:
+        for song_path in song_paths:
+            try:
+                self._reprocess_one(song_path)
+            except Exception:
+                logger.exception("reprocess failed for %s", song_path)
+
+    def _reprocess_one(self, song_path: str) -> None:
+        """Re-fetch LRCLib from the filename-derived title, then align to word-level."""
+        if self._aligner is None:
+            return
+        if not _needs_word_level_upgrade(song_path):
+            return  # raced with another update
+        title = _title_from_filename(song_path)
+        if not title:
+            logger.debug("reprocess: could not extract title from %s", song_path)
+            return
+        meta = resolve_metadata(title)
+        if not meta:
+            logger.debug("reprocess: iTunes had no match for %r", title)
+            return
+        lrc = _fetch_lrclib(meta["track"], meta["artist"], None)
+        if not lrc:
+            logger.debug(
+                "reprocess: LRCLib had no match for %r / %r", meta["artist"], meta["track"]
+            )
+            return
+        _prewarm_stems(song_path)
+        self._upgrade_to_word_level(song_path, lrc)
+
+
+def _needs_word_level_upgrade(song_path: str) -> bool:
+    """True when <stem>.ass is auto-generated AND has no \\k tags yet."""
+    path = _ass_path(song_path)
+    if not os.path.exists(path):
+        return False
+    try:
+        with open(path, encoding="utf-8") as f:
+            content = f.read()
+    except OSError:
+        return False
+    if ASS_MARKER not in content:
+        return False  # user-owned Aegisub file
+    # Any \k tag means it's already word-level.
+    return "\\k" not in content
+
+
+def _title_from_filename(song_path: str) -> str:
+    """Strip the 11-char YouTube ID suffix (both ``---ID`` and ``[ID]`` forms).
+
+    Lightweight replacement for SongManager.filename_from_path so lyrics.py
+    stays free of the SongManager dependency.
+    """
+    stem = os.path.splitext(os.path.basename(song_path))[0]
+    # Triple-dash PiKaraoke form
+    m = re.search(r"---([A-Za-z0-9_-]{11})$", stem)
+    if m:
+        return stem[: m.start()].strip()
+    # yt-dlp brackets form
+    m = re.search(r"\s*\[([A-Za-z0-9_-]{11})\]$", stem)
+    if m:
+        return stem[: m.start()].strip()
+    return stem.strip()
 
 
 # ----- info.json reading -----
@@ -321,46 +486,110 @@ def _format_ass_time(seconds: float) -> str:
 
 _LAST_LINE_HOLD_S = 5.0
 
+# Multi-line context window: show up to 2 past lines + current + up to 2 future
+# lines per Dialogue, with the future cap limited to 5s so a long pause between
+# verses doesn't leak spoilers onto the screen.
+_CONTEXT_BEFORE = 2
+_CONTEXT_AFTER = 2
+_CONTEXT_FORWARD_WINDOW_S = 5.0
+
+
+def _context_window_texts(entries: list[tuple[float, str]], i: int) -> tuple[list[str], list[str]]:
+    """Pick the past / future lines visible alongside ``entries[i]``."""
+    past = [text for _t, text in entries[max(0, i - _CONTEXT_BEFORE) : i]]
+    start_t = entries[i][0]
+    future: list[str] = []
+    for j in range(i + 1, min(i + 1 + _CONTEXT_AFTER, len(entries))):
+        t_j, text_j = entries[j]
+        if t_j - start_t > _CONTEXT_FORWARD_WINDOW_S:
+            break
+        future.append(text_j)
+    return past, future
+
+
+def _render_context_block(past_ass: list[str], current_ass: str, future_ass: list[str]) -> str:
+    """Compose the centered multi-line Dialogue body.
+
+    Current line is opaque + bold; past/future are dimmed (alpha 0x80). Middle-
+    center alignment (``\\an5``) stacks the block vertically on-screen. Callers
+    pass already-escaped / ``\\k``-tagged strings so this helper never re-escapes.
+    """
+    dim = r"{\alpha&H80&\b0}"
+    hot = r"{\alpha&H00&\b1}"
+    segments = [f"{dim}{t}" for t in past_ass]
+    segments.append(f"{hot}{current_ass}")
+    segments.extend(f"{dim}{t}" for t in future_ass)
+    return r"{\an5}" + r"\N".join(segments)
+
 
 def _lrc_to_ass_line_level(lrc: str) -> str | None:
-    """Convert LRC to ASS with one Dialogue per line, no highlighting."""
+    """Convert LRC to ASS with a centered 5-line context window per entry."""
     entries = _parse_lrc(lrc)
     if not entries:
         return None
     out = [_ass_header()]
     for i, (start, text) in enumerate(entries):
         end = entries[i + 1][0] if i + 1 < len(entries) else start + _LAST_LINE_HOLD_S
+        past_raw, future_raw = _context_window_texts(entries, i)
+        body = _render_context_block(
+            [_escape_ass(t) for t in past_raw],
+            _escape_ass(text),
+            [_escape_ass(t) for t in future_raw],
+        )
         out.append(
             f"Dialogue: 0,{_format_ass_time(start)},{_format_ass_time(end)},"
-            f"Default,,0,0,0,,{_escape_ass(text)}\n"
+            f"Default,,0,0,0,,{body}\n"
         )
     return "".join(out)
 
 
-def _words_to_ass_with_k_tags(words: list[Word], lrc: str) -> str | None:
-    """Rebuild ASS using LRC line boundaries but add \\k tags from word timings.
+# Accept words whose timing drifts up to this far outside the LRC line window
+# before we distrust the alignment and fall back to static text.
+_ALIGNMENT_TOLERANCE_S = 2.0
 
-    For each line: select words falling within its time window and render
-    `{\\k<centiseconds>}word` tokens. Lines without matching words fall back
-    to plain text.
+
+def _words_to_ass_with_k_tags(words: list[Word], lrc: str) -> str | None:
+    """Rebuild ASS with \\k tags on the current line, plain text on context lines.
+
+    Aligner output is 1:1 with reference-text tokens (see
+    ``map_whisper_to_reference``), so we assign words to LRC entries by
+    position - not by timestamp. Time-based matching collapses badly when
+    whisper mis-times a region of the song: hundreds of later-line words end
+    up stuffed into a single LRC entry's time window. Lines whose aligned
+    times don't overlap the LRC window fall back to static text.
     """
     entries = _parse_lrc(lrc)
     if not entries:
         return None
     out = [_ass_header()]
+    word_idx = 0
     for i, (start, text) in enumerate(entries):
         end = entries[i + 1][0] if i + 1 < len(entries) else start + _LAST_LINE_HOLD_S
-        line_words = [w for w in words if start <= w.start < end]
-        if line_words:
-            tokens = [_k_token(w) for w in line_words]
-            ass_text = " ".join(tokens)
+        expected = len(text.split())
+        line_words = words[word_idx : word_idx + expected]
+        word_idx += expected
+        if line_words and _words_overlap_window(line_words, start, end):
+            current_ass = " ".join(_k_token(w) for w in line_words)
         else:
-            ass_text = _escape_ass(text)
+            current_ass = _escape_ass(text)
+        past_raw, future_raw = _context_window_texts(entries, i)
+        body = _render_context_block(
+            [_escape_ass(t) for t in past_raw],
+            current_ass,
+            [_escape_ass(t) for t in future_raw],
+        )
         out.append(
             f"Dialogue: 0,{_format_ass_time(start)},{_format_ass_time(end)},"
-            f"Default,,0,0,0,,{ass_text}\n"
+            f"Default,,0,0,0,,{body}\n"
         )
     return "".join(out)
+
+
+def _words_overlap_window(words: list[Word], start: float, end: float) -> bool:
+    """True when the aligned words' span overlaps the LRC line window."""
+    first = words[0].start
+    last = words[-1].end
+    return last >= start - _ALIGNMENT_TOLERANCE_S and first <= end + _ALIGNMENT_TOLERANCE_S
 
 
 def _k_token(word: Word) -> str:
@@ -536,3 +765,72 @@ def _cleanup_yt_subs_and_info(song_path: str) -> None:
             except OSError as e:
                 logger.warning("failed to remove %s: %s", name, e)
     _cleanup_info_json(song_path)
+
+
+# ----- Demucs stem coupling -----
+#
+# Whisper alignment quality improves materially when fed clean vocals instead
+# of the full mix. When whisper is configured, LyricsService triggers a Demucs
+# prewarm at download time (see `_prewarm_stems`) and waits briefly for the
+# vocals stem to appear before running the aligner.
+
+_STEM_WAIT_TIMEOUT_S = 120.0
+_STEM_WAIT_POLL_S = 2.0
+
+
+def _alignment_audio_path(song_path: str) -> str | None:
+    """Return vocals stem path when Demucs has cached it, else None.
+
+    Cache is keyed by ``resolve_audio_source`` (sibling ``.m4a`` when present),
+    matching how ``prewarm`` populates it. Querying with the raw mp4 would miss.
+    """
+    try:
+        from pikaraoke.lib.demucs_processor import (
+            get_cache_key,
+            get_cached_stems,
+            resolve_audio_source,
+        )
+
+        cached = get_cached_stems(get_cache_key(resolve_audio_source(song_path)))
+    except Exception as e:
+        logger.warning("stem lookup failed for %s: %s", song_path, e)
+        return None
+    if not cached:
+        return None
+    vocals_path, _instr_path, _fmt = cached
+    return vocals_path
+
+
+def _wait_for_alignment_audio(song_path: str) -> str:
+    """Poll for a cached vocals stem up to `_STEM_WAIT_TIMEOUT_S`, else fall back.
+
+    Fallback is the audio-only sibling (``resolve_audio_source``) so we don't
+    feed whisperx a video-only mp4 from the split-streams download flow.
+    """
+    stem = _alignment_audio_path(song_path)
+    if stem is not None:
+        return stem
+    deadline = time.monotonic() + _STEM_WAIT_TIMEOUT_S
+    while time.monotonic() < deadline:
+        time.sleep(_STEM_WAIT_POLL_S)
+        stem = _alignment_audio_path(song_path)
+        if stem is not None:
+            return stem
+    logger.info(
+        "stems not ready within %.0fs for %s; aligning on raw mix",
+        _STEM_WAIT_TIMEOUT_S,
+        os.path.basename(song_path),
+    )
+    from pikaraoke.lib.demucs_processor import resolve_audio_source
+
+    return resolve_audio_source(song_path)
+
+
+def _prewarm_stems(song_path: str) -> None:
+    """Fire-and-forget Demucs prewarm so alignment has vocals ready."""
+    try:
+        from pikaraoke.lib.demucs_processor import prewarm
+
+        prewarm(song_path)
+    except Exception as e:
+        logger.warning("Demucs prewarm failed for %s: %s", song_path, e)

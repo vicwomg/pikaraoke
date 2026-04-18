@@ -9,6 +9,7 @@ from flask_babel import _
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.file_resolver import delete_tmp_dir
+from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.stream_manager import PlaybackResult, StreamManager
 
@@ -43,7 +44,11 @@ class PlaybackController:
     now_playing_duration: int | None = None
     now_playing_url: str | None = None
     now_playing_subtitle_url: str | None = None
+    now_playing_audio_track_url: str | None = None
+    now_playing_avsync_offset_ms: int = 0
     now_playing_position: float | None = None
+    position_updated_at: float | None = None
+    pending_resume_position: float | None = None
     demucs_processed: float | None = None
     demucs_total: float | None = None
     ffmpeg_processed: float | None = None
@@ -57,6 +62,7 @@ class PlaybackController:
         events: EventSystem,
         filename_from_path: Callable[[str, bool], str],
         streaming_format: str = "hls",
+        db: KaraokeDatabase | None = None,
     ) -> None:
         """Initialize the playback controller.
 
@@ -65,11 +71,12 @@ class PlaybackController:
             events: EventSystem instance for event emission.
             filename_from_path: Function to extract display name from path.
             streaming_format: Video streaming format ('hls' or 'mp4').
+            db: Optional database for audio fingerprint / stems cache invalidation.
         """
         self.preferences = preferences
         self.events = events
         self.filename_from_path = filename_from_path
-        self.stream_manager = StreamManager(preferences, streaming_format, events=events)
+        self.stream_manager = StreamManager(preferences, streaming_format, events=events, db=db)
         events.on("demucs_progress", self._on_demucs_progress)
         events.on("ffmpeg_progress", self._on_ffmpeg_progress)
 
@@ -122,6 +129,8 @@ class PlaybackController:
         self.now_playing_duration = result.duration
         self.now_playing_url = result.stream_url
         self.now_playing_subtitle_url = result.subtitle_url
+        self.now_playing_audio_track_url = result.audio_track_url
+        self.now_playing_avsync_offset_ms = result.avsync_offset_ms
         self.is_paused = False
 
         self.events.emit("playback_started")
@@ -167,6 +176,8 @@ class PlaybackController:
         self.reset_now_playing()
         self.stream_manager.kill_ffmpeg()
         self.stream_manager.clear_active_stems()
+        self.stream_manager.clear_active_sources()
+        self.stream_manager.clear_active_audio()
         # Small delay to ensure FFmpeg fully terminates and file handles close
         # Critical on Raspberry Pi with slow SD cards and hardware encoder cleanup
         time.sleep(0.3)
@@ -227,6 +238,8 @@ class PlaybackController:
             "now_playing_transpose": self.now_playing_transpose,
             "now_playing_url": self.now_playing_url,
             "now_playing_subtitle_url": self.now_playing_subtitle_url,
+            "now_playing_audio_track_url": self.now_playing_audio_track_url,
+            "now_playing_avsync_offset_ms": self.now_playing_avsync_offset_ms,
             "now_playing_position": self.now_playing_position,
             "demucs_processed": self.demucs_processed,
             "demucs_total": self.demucs_total,
@@ -242,11 +255,14 @@ class PlaybackController:
         self.now_playing_user = None
         self.now_playing_url = None
         self.now_playing_subtitle_url = None
+        self.now_playing_audio_track_url = None
+        self.now_playing_avsync_offset_ms = 0
         self.is_paused = True
         self.is_playing = False
         self.now_playing_transpose = 0
         self.now_playing_duration = None
         self.now_playing_position = None
+        self.position_updated_at = None
         self.demucs_processed = None
         self.demucs_total = None
         self.ffmpeg_processed = None

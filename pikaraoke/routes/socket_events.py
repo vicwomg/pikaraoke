@@ -1,6 +1,7 @@
 """Socket.IO event handlers for PiKaraoke."""
 
 import logging
+import time
 
 from flask import request
 
@@ -102,6 +103,7 @@ def setup_socket_events(socketio):
         else:
             pos = max(0.0, pos)
         k.playback_controller.now_playing_position = pos
+        k.playback_controller.position_updated_at = time.time()
         socketio.emit("seek", pos)
 
     @socketio.on("playback_position")
@@ -116,6 +118,7 @@ def setup_socket_events(socketio):
         if sid == master_splash_id:
             k = get_karaoke_instance()
             k.playback_controller.now_playing_position = position
+            k.playback_controller.position_updated_at = time.time()
             # Broadcast position to all other splash screens (slaves)
             socketio.emit("playback_position", position, include_self=False)
 

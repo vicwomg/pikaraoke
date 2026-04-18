@@ -34,6 +34,11 @@ class WhisperXAligner:
         self._align_meta = None
         self._align_lang: str | None = None
 
+    @property
+    def model_id(self) -> str:
+        """Stable identifier recorded alongside aligned .ass for cache invalidation."""
+        return f"whisperx-{self._model_size}"
+
     def align(self, audio_path: str, reference_text: str) -> list[Word]:
         wx = self._whisperx
         if self._asr_model is None:

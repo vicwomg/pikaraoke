@@ -4,6 +4,7 @@ import logging
 import os
 import socket
 import subprocess
+import sys
 import threading
 import time
 from typing import Any
@@ -33,6 +34,7 @@ from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
+from pikaraoke.lib.state_persistence import StatePersistence
 from pikaraoke.lib.youtube_dl import (
     get_search_results,
     get_youtubedl_version,
@@ -40,24 +42,129 @@ from pikaraoke.lib.youtube_dl import (
 )
 from pikaraoke.version import __version__ as VERSION
 
+_WHISPERX_OPT_OUT = {"off", "none", "false", "0"}
+
+# "small" (~466 MB, ~6x realtime on modern CPU): solid multi-language
+# transcription that produces reliable word anchors for alignment. Higher RAM
+# footprint than "base" but worth it - karaoke often features non-English
+# tracks, and transcription quality directly affects how well LRCLib reference
+# lyrics map onto whisper's word timings via SequenceMatcher.
+_DEFAULT_WHISPERX_MODEL = "small"
+
+
+def word_level_lyrics_status() -> dict:
+    """Whether word-level karaoke alignment (whisperx) is active, and why / why not.
+
+    Defaults to enabled with model="base" when whisperx is installed and the
+    user hasn't explicitly opted out. Returned dict:
+
+        enabled (bool): True when whisperx is importable and not opted-out.
+        model (str | None): The configured (or default) model name when enabled.
+        device (str | None): The resolved torch device when enabled.
+        reason (str | None): Human-readable reason why alignment is off.
+        fix (str | None): One-line suggestion for the user to fix it.
+        explicit_opt_out (bool): True when the user set WHISPERX_MODEL=off.
+
+    Shared by the startup banner and the Info page so they report consistently.
+    """
+    model_raw = os.environ.get("WHISPERX_MODEL", "").strip()
+    model = model_raw.lower()
+    if model in _WHISPERX_OPT_OUT:
+        return {
+            "enabled": False,
+            "model": None,
+            "device": None,
+            "reason": "opted out via WHISPERX_MODEL=off",
+            "fix": None,
+            "explicit_opt_out": True,
+        }
+    if not _is_whisperx_installed():
+        return {
+            "enabled": False,
+            "model": None,
+            "device": None,
+            "reason": "whisperx is not installed",
+            "fix": "pip install 'pikaraoke[align]'",
+            "explicit_opt_out": False,
+        }
+    resolved_model = model_raw or _DEFAULT_WHISPERX_MODEL
+    device = os.environ.get("WHISPERX_DEVICE", "").strip() or _auto_whisperx_device()
+    return {
+        "enabled": True,
+        "model": resolved_model,
+        "device": device,
+        "reason": None,
+        "fix": None,
+        "explicit_opt_out": False,
+    }
+
+
+def _is_whisperx_installed() -> bool:
+    import importlib.util
+
+    return importlib.util.find_spec("whisperx") is not None
+
+
+def _auto_whisperx_device() -> str:
+    """Prefer CUDA when torch sees it; fall back to CPU.
+
+    whisperx's faster-whisper backend (CTranslate2) has no MPS support today,
+    so Apple Silicon users stay on CPU here even when torch reports MPS.
+    """
+    try:
+        import torch
+    except ImportError:
+        return "cpu"
+    try:
+        if torch.cuda.is_available():
+            return "cuda"
+    except (RuntimeError, AttributeError):
+        pass
+    return "cpu"
+
 
 def _build_lyrics_aligner():
-    """Return a WhisperXAligner when WHISPERX_MODEL is set, else None.
+    """Return a WhisperXAligner or None, emitting a startup banner when disabled."""
+    status = word_level_lyrics_status()
+    if not status["enabled"]:
+        if not status["explicit_opt_out"]:
+            _warn_word_level_disabled(reason=status["reason"], fix=status["fix"])
+        return None
 
-    Kept at module level so Karaoke.__init__ stays uncluttered and the import
-    of whisperx only happens when the user explicitly opts in.
-    """
-    model = os.environ.get("WHISPERX_MODEL", "off").strip().lower()
-    if model in ("", "off", "none", "false", "0"):
-        return None
-    try:
-        from pikaraoke.lib.lyrics_align import WhisperXAligner
-    except ImportError:
-        logging.info("whisperx not installed; using line-level lyrics only")
-        return None
-    device = os.environ.get("WHISPERX_DEVICE", "cpu")
-    logging.info(f"whisperx alignment enabled (model={model}, device={device})")
-    return WhisperXAligner(model_size=model, device=device)
+    from pikaraoke.lib.lyrics_align import WhisperXAligner
+
+    logging.info(
+        "whisperx alignment enabled (model=%s, device=%s)", status["model"], status["device"]
+    )
+    return WhisperXAligner(model_size=status["model"], device=status["device"])
+
+
+def _warn_word_level_disabled(reason: str, fix: str) -> None:
+    """Print a high-visibility startup banner when word-level captions are off."""
+    width = 78
+    inner = width - 2
+
+    def line(text: str) -> str:
+        return "*" + text.ljust(inner) + "*"
+
+    lines = [
+        "",
+        "*" * width,
+        "*" + " WARNING: word-level karaoke captions are DISABLED ".center(inner) + "*",
+        line(""),
+        line(f"  Reason:  {reason}"),
+        line(f"  Fix:     {fix}"),
+        line("  Silence: export WHISPERX_MODEL=off"),
+        line(""),
+        line("  Lyrics will still render line-by-line from LRCLib."),
+        line("  Only the syllable-level karaoke highlight is skipped."),
+        "*" * width,
+        "",
+    ]
+    banner = "\n".join(lines)
+    if hasattr(sys.stderr, "isatty") and sys.stderr.isatty():
+        banner = f"\033[1;31m{banner}\033[0m"
+    logging.warning(banner)
 
 
 class Karaoke:
@@ -249,6 +356,7 @@ class Karaoke:
             events=self.events,
             filename_from_path=self.song_manager.display_name_from_path,
             streaming_format=self.streaming_format,
+            db=self.db,
         )
 
         # Lyrics auto-fetch from LRCLib; optional per-word forced alignment via whisperx.
@@ -256,6 +364,7 @@ class Karaoke:
             download_path=self.download_path,
             events=self.events,
             aligner=_build_lyrics_aligner(),
+            db=self.db,
         )
 
         # Event bridging: the coordinator wires manager events to the UI (SocketIO/notifications).
@@ -270,6 +379,7 @@ class Karaoke:
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
         self.events.on("song_downloaded", self.song_manager.register_download)
         self.events.on("song_downloaded", self.lyrics_service.fetch_and_convert)
+        self.events.on("lyrics_upgraded", self._on_lyrics_upgraded)
         self.events.on(
             "sync_started",
             lambda: self.socketio.emit("sync_started", namespace="/") if self.socketio else None,
@@ -332,6 +442,15 @@ class Karaoke:
             logging.info("No existing database found, scanning song directory")
             result = self._scanner.scan(self.download_path)
             self._apply_scan_result(result)
+
+        # If whisperx is newly available, upgrade line-level .ass files in the
+        # background. No-op when the aligner is not configured or nothing qualifies.
+        self.lyrics_service.reprocess_library(list(self.song_manager.songs))
+
+        # Restore queue / now-playing / master volume from the previous run.
+        self.state_persistence = StatePersistence()
+        self._last_persist = 0.0
+        self._restore_state()
 
     def _apply_scan_result(self, result: ScanResult) -> None:
         """Update SongList and emit notifications after a scan."""
@@ -582,6 +701,83 @@ class Karaoke:
         """Handle one iteration of the main run loop with a sleep interval."""
         time.sleep(self.loop_interval / 1000)
 
+    def _restore_state(self) -> None:
+        """Rehydrate queue, now-playing, and master volume from disk.
+
+        The saved now-playing song (if any) is prepended to the queue and the
+        computed resume position is stashed on the PlaybackController; the
+        normal run loop picks it up on the next iteration.
+        """
+        state = self.state_persistence.load()
+        if state is None:
+            return
+
+        saved_volume = state.get("volume")
+        if isinstance(saved_volume, (int, float)):
+            self.volume = float(saved_volume)
+
+        saved_queue = state.get("queue") or []
+        restored_queue = [item for item in saved_queue if os.path.isfile(item.get("file", ""))]
+        dropped_queue = len(saved_queue) - len(restored_queue)
+
+        now_playing = state.get("now_playing")
+        resume_title = None
+        if now_playing and os.path.isfile(now_playing.get("filename", "")):
+            position = float(now_playing.get("position") or 0.0)
+            duration = now_playing.get("duration")
+            position_updated_at = now_playing.get("position_updated_at")
+            is_paused = bool(now_playing.get("is_paused"))
+
+            if not is_paused and position_updated_at is not None:
+                position += max(0.0, time.time() - float(position_updated_at))
+
+            if duration is None or position < float(duration) - 2.0:
+                title = self.song_manager.display_name_from_path(
+                    now_playing["filename"], remove_youtube_id=True
+                )
+                resume_item = {
+                    "user": now_playing.get("user") or "Pikaraoke",
+                    "file": now_playing["filename"],
+                    "title": title,
+                    "semitones": int(now_playing.get("transpose") or 0),
+                }
+                restored_queue.insert(0, resume_item)
+                self.playback_controller.pending_resume_position = max(0.0, position)
+                resume_title = title
+
+        self.queue_manager.queue = restored_queue
+
+        if restored_queue or resume_title:
+            summary = f"queue={len(restored_queue)}"
+            if resume_title:
+                summary += f", resuming '{resume_title}' at {self.playback_controller.pending_resume_position:.1f}s"
+            if dropped_queue:
+                summary += f", dropped {dropped_queue} missing file(s)"
+            logging.info(f"Restored session: {summary}")
+
+    def _persist_state(self) -> None:
+        """Snapshot current queue, now-playing, and master volume to disk."""
+        pc = self.playback_controller
+        now_playing: dict[str, Any] | None = None
+        if pc.now_playing_filename:
+            now_playing = {
+                "filename": pc.now_playing_filename,
+                "user": pc.now_playing_user,
+                "transpose": pc.now_playing_transpose,
+                "duration": pc.now_playing_duration,
+                "position": pc.now_playing_position or 0.0,
+                "position_updated_at": pc.position_updated_at,
+                "is_paused": pc.is_paused,
+            }
+        self.state_persistence.save(
+            {
+                "saved_at": time.time(),
+                "volume": self.volume,
+                "queue": list(self.queue_manager.queue),
+                "now_playing": now_playing,
+            }
+        )
+
     def reset_now_playing_notification(self) -> None:
         """Clear the current notification."""
         self.now_playing_notification = None
@@ -638,6 +834,23 @@ class Karaoke:
         if self.socketio:
             self.socketio.emit("now_playing", self.get_now_playing(), namespace="/")
 
+    def _on_lyrics_upgraded(self, song_path: str) -> None:
+        """Force the splash to reload subtitles when word-level ASS lands mid-song.
+
+        The .ass file on disk is replaced in place; the subtitle URL stays the
+        same. Bumping a ``?v=<ts>`` query parameter cache-busts the client's
+        HTTP cache and makes splash.js see a new `now_playing_subtitle_url`,
+        which triggers its dispose+reinit SubtitlesOctopus path.
+        """
+        pc = self.playback_controller
+        if song_path != pc.now_playing_filename:
+            return
+        base_url = (pc.now_playing_subtitle_url or "").split("?", 1)[0]
+        if not base_url:
+            return
+        pc.now_playing_subtitle_url = f"{base_url}?v={int(time.time() * 1000)}"
+        self.update_now_playing_socket()
+
     def run(self) -> None:
         """Main run loop - processes queue and plays songs.
 
@@ -683,9 +896,23 @@ class Karaoke:
 
                     if not result.success and result.error:
                         self.log_and_send(result.error, "danger")
+                    elif self.playback_controller.pending_resume_position is not None:
+                        # Seed the server-side position so splash.js:682 auto-seeks
+                        # the video to where the previous run left off.
+                        pos = self.playback_controller.pending_resume_position
+                        self.playback_controller.pending_resume_position = None
+                        self.playback_controller.now_playing_position = pos
+                        self.playback_controller.position_updated_at = time.time()
+                        self.update_now_playing_socket()
 
                 self.playback_controller.log_output()
+                if time.time() - self._last_persist > 2.0:
+                    self._persist_state()
+                    self._last_persist = time.time()
                 self.handle_run_loop()
             except KeyboardInterrupt:
                 logging.warning("Keyboard interrupt: Exiting pikaraoke...")
                 self.running = False
+
+        # Final snapshot so SIGTERM (watchfiles restart) captures the latest state.
+        self._persist_state()

@@ -172,12 +172,39 @@ class LibraryScanner:
         if last_dir != songs_dir:
             self._db.set_metadata(self._METADATA_KEY, songs_dir)
 
+        # After v1 -> v2 migration, existing songs have no artifact rows.
+        # Also handles songs just inserted above, so register_download-style
+        # backfill runs once per song via a single pass.
+        self._backfill_artifacts()
+
         return ScanResult(
             added=len(to_insert),
             moved=len(moves),
             deleted=deleted,
             circuit_tripped=circuit_tripped,
         )
+
+    def _backfill_artifacts(self) -> None:
+        """Register artifacts + info.json metadata for songs that lack them.
+
+        Imports are deferred to avoid pulling song_manager (which imports
+        lyrics) at module-import time.
+        """
+        missing = self._db.get_songs_without_artifacts()
+        if not missing:
+            return
+        from pikaraoke.lib.song_manager import (
+            _track_metadata_from_info_json,
+            discover_song_artifacts,
+        )
+
+        logging.info(f"Scan: backfilling artifacts for {len(missing)} song(s)")
+        for song_id, path in missing:
+            artifacts = discover_song_artifacts(path)
+            self._db.upsert_artifacts(song_id, artifacts)
+            meta = _track_metadata_from_info_json(path)
+            if meta:
+                self._db.update_track_metadata(song_id, **meta)
 
     def _walk_disk(self, songs_dir: str) -> set[str]:
         """Walk the directory tree and collect paths of valid song files."""
