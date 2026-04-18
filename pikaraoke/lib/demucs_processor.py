@@ -15,6 +15,7 @@ import struct
 import subprocess
 import tempfile
 import threading
+from dataclasses import dataclass, field
 from typing import Callable
 
 import numpy as np
@@ -459,15 +460,72 @@ def separate_stems(
         return False
 
 
-# --- Prewarm ---
+# --- Per-song separation coordination ---
 #
-# Called from the main run loop with queue[0] — start Demucs on the next song
-# before play_file runs, so _prepare_stems hits the cache-hit path and emits
-# stems_ready instantly instead of waiting on a live Demucs run.
+# Three entry points can race to separate the same song: download_manager's
+# post-download prewarm (on the .m4a), lyrics' whisperx prewarm (on the .mp4),
+# and stream_manager._prepare_stems at playback. Each would hit the same
+# cache_key and write to the same .partial paths — a race on disk plus
+# wasted CPU. The coordinator here forces a single owner per song, keyed by
+# the resolved audio source (so `.m4a` and `.mp4` for the same song dedupe).
 
-_prewarm_in_progress: set[str] = set()
-_prewarm_done: set[str] = set()
-_prewarm_lock = threading.Lock()
+
+@dataclass
+class SeparationHandle:
+    """Shared state between the owner thread and any non-owner waiters.
+
+    The owner sets ``ready_event`` as part of ``separate_stems`` (after the
+    first 2 segments land on disk) and sets ``done_event`` via
+    ``release_separation`` once finalize completes. Non-owners can wait on
+    either to avoid duplicating work.
+    """
+
+    ready_event: threading.Event = field(default_factory=threading.Event)
+    done_event: threading.Event = field(default_factory=threading.Event)
+    success: bool = False
+
+
+_sep_lock = threading.Lock()
+_sep_handles: dict[str, SeparationHandle] = {}
+_sep_done_keys: set[str] = set()
+
+
+def acquire_separation(audio_source: str) -> tuple[bool, SeparationHandle]:
+    """Atomically claim separation ownership for `audio_source`.
+
+    Returns (is_owner, handle). When ``is_owner`` is True, the caller must
+    run the separation and call ``release_separation(audio_source, success)``
+    exactly once. When False, another caller is already separating (or has
+    finished); the returned handle's events may be waited on.
+    """
+    with _sep_lock:
+        if audio_source in _sep_done_keys:
+            done = SeparationHandle(success=True)
+            done.ready_event.set()
+            done.done_event.set()
+            return False, done
+        existing = _sep_handles.get(audio_source)
+        if existing is not None:
+            return False, existing
+        handle = SeparationHandle()
+        _sep_handles[audio_source] = handle
+        return True, handle
+
+
+def release_separation(audio_source: str, success: bool) -> None:
+    """Unblock any waiters and, on success, mark this song's cache as ready.
+
+    Must be called exactly once by the owner of a prior ``acquire_separation``
+    (even on failure, so waiters don't hang).
+    """
+    with _sep_lock:
+        handle = _sep_handles.pop(audio_source, None)
+        if success:
+            _sep_done_keys.add(audio_source)
+    if handle is not None:
+        handle.success = success
+        handle.ready_event.set()
+        handle.done_event.set()
 
 
 def resolve_audio_source(media_path: str) -> str:
@@ -490,23 +548,18 @@ def resolve_audio_source(media_path: str) -> str:
 def prewarm(file_path: str) -> None:
     """Fire-and-forget: populate the Demucs cache for file_path.
 
-    Idempotent. Deduplicates by path so the main run loop can poll-call
-    it without flooding threads. No-op if already warmed this session.
-    Prefers a sibling ``.m4a`` audio file when one exists — that keeps the
-    cache key stable across the silent-video pipeline.
+    Idempotent across all entry points (download_manager, lyrics, main run
+    loop). Deduplicates by resolved audio source so ``.mp4`` and sibling
+    ``.m4a`` paths for the same song collapse to a single separation.
     """
-    with _prewarm_lock:
-        if file_path in _prewarm_done or file_path in _prewarm_in_progress:
-            return
-        _prewarm_in_progress.add(file_path)
+    audio_source = resolve_audio_source(file_path)
+    is_owner, _handle = acquire_separation(audio_source)
+    if not is_owner:
+        return  # already cached, or another caller is separating
 
     def _run() -> None:
         success = False
         try:
-            audio_source = resolve_audio_source(file_path)
-            # SHA256 of a 200 MB mp4 is ~1 s — would block the main loop
-            # if computed under the dedup lock. Path-keyed dedup is good
-            # enough (two distinct paths w/ identical bytes is harmless).
             cache_key = get_cache_key(audio_source)
             if get_cached_stems(cache_key):
                 success = True
@@ -530,7 +583,7 @@ def prewarm(file_path: str) -> None:
                     check=True,
                 )
                 partial_v, partial_i = partial_stem_paths(cache_key)
-                if separate_stems(input_wav, partial_v, partial_i):
+                if separate_stems(input_wav, partial_v, partial_i, _handle.ready_event):
                     finalize_partial_stems(cache_key)
                     encode_mp3_in_background(cache_key)
                     success = True
@@ -542,9 +595,6 @@ def prewarm(file_path: str) -> None:
         except Exception:
             logging.exception(f"Demucs prewarm failed for {file_path}")
         finally:
-            with _prewarm_lock:
-                _prewarm_in_progress.discard(file_path)
-                if success:
-                    _prewarm_done.add(file_path)
+            release_separation(audio_source, success)
 
     threading.Thread(target=_run, daemon=True).start()
