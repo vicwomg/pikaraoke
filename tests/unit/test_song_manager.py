@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.song_manager import SongManager
 
 
@@ -15,7 +16,29 @@ def _native(path: Path) -> str:
 
 @pytest.fixture
 def mock_db():
-    return MagicMock()
+    """Minimal mock that keeps the SongManager.delete/rename code paths quiet.
+
+    Returns an empty artifact list so the artifact loop short-circuits; the
+    tests that exercise real artifact-driven cleanup use the ``real_db``
+    fixture instead.
+    """
+    db = MagicMock()
+    db.get_song_id_by_path.return_value = None
+    db.get_artifacts.return_value = []
+    return db
+
+
+@pytest.fixture
+def real_db(tmp_path):
+    d = KaraokeDatabase(str(tmp_path / "test.db"))
+    yield d
+    d.close()
+
+
+def _register(sm: SongManager, db: KaraokeDatabase, song_path: str) -> int:
+    """Insert a song + discover its artifacts on disk. Returns the song_id."""
+    sm.register_download(song_path)
+    return db.get_song_id_by_path(song_path)
 
 
 class TestFilenameFromPath:
@@ -107,45 +130,105 @@ class TestFilenameFromPath:
 
 
 class TestDelete:
-    def test_removes_file_and_updates_songs(self, tmp_path, mock_db):
-        song = tmp_path / "Test---abc.mp4"
+    def test_removes_file_and_updates_songs(self, tmp_path, real_db):
+        song = tmp_path / "Test---abc12345678.mp4"
         song.write_text("fake")
-        sm = SongManager(str(tmp_path), db=mock_db)
-        sm.songs.add_if_valid(_native(song))
+        sm = SongManager(str(tmp_path), db=real_db)
+        _register(sm, real_db, _native(song))
         sm.delete(_native(song))
         assert not song.exists()
         assert len(sm.songs) == 0
 
-    def test_deletes_cdg_companion(self, tmp_path, mock_db):
-        song = tmp_path / "Test---abc.mp4"
-        cdg = tmp_path / "Test---abc.cdg"
+    def test_deletes_cdg_companion(self, tmp_path, real_db):
+        song = tmp_path / "Test---abc12345678.mp4"
+        cdg = tmp_path / "Test---abc12345678.cdg"
         song.write_text("fake")
         cdg.write_text("fake")
-        sm = SongManager(str(tmp_path), db=mock_db)
-        sm.songs.add_if_valid(_native(song))
+        sm = SongManager(str(tmp_path), db=real_db)
+        _register(sm, real_db, _native(song))
         sm.delete(_native(song))
         assert not cdg.exists()
 
-    def test_deletes_ass_companion(self, tmp_path, mock_db):
-        song = tmp_path / "Test---abc.mp4"
-        ass = tmp_path / "Test---abc.ass"
+    def test_deletes_ass_auto_companion(self, tmp_path, real_db):
+        song = tmp_path / "Test---abc12345678.mp4"
+        ass = tmp_path / "Test---abc12345678.ass"
         song.write_text("fake")
-        ass.write_text("fake")
-        sm = SongManager(str(tmp_path), db=mock_db)
-        sm.songs.add_if_valid(_native(song))
+        ass.write_text("Title: PiKaraoke Auto-Lyrics\n")  # has marker -> ass_auto
+        sm = SongManager(str(tmp_path), db=real_db)
+        _register(sm, real_db, _native(song))
         sm.delete(_native(song))
         assert not ass.exists()
 
-    def test_deletes_m4a_sibling(self, tmp_path, mock_db):
+    def test_preserves_user_ass(self, tmp_path, real_db):
+        """User-authored .ass (no PiKaraoke marker) must survive delete."""
+        song = tmp_path / "Test---abc12345678.mp4"
+        ass = tmp_path / "Test---abc12345678.ass"
+        song.write_text("fake")
+        ass.write_text("[Script Info]\nTitle: my hand edit\n")
+        sm = SongManager(str(tmp_path), db=real_db)
+        _register(sm, real_db, _native(song))
+        sm.delete(_native(song))
+        assert ass.exists(), "user .ass should be preserved"
+
+    def test_deletes_m4a_sibling(self, tmp_path, real_db):
         """Parallel-download songs leave an .m4a next to the silent .mp4."""
-        song = tmp_path / "Test---abc.mp4"
-        m4a = tmp_path / "Test---abc.m4a"
+        song = tmp_path / "Test---abc12345678.mp4"
+        m4a = tmp_path / "Test---abc12345678.m4a"
         song.write_text("fake")
         m4a.write_text("fake")
-        sm = SongManager(str(tmp_path), db=mock_db)
-        sm.songs.add_if_valid(_native(song))
+        sm = SongManager(str(tmp_path), db=real_db)
+        _register(sm, real_db, _native(song))
         sm.delete(_native(song))
         assert not m4a.exists()
+
+    def test_deletes_info_json_and_vtt(self, tmp_path, real_db):
+        """yt-dlp byproducts that the old delete ignored now get cleaned up."""
+        song = tmp_path / "Test---abc12345678.mp4"
+        info = tmp_path / "Test---abc12345678.info.json"
+        vtt = tmp_path / "Test---abc12345678.en.vtt"
+        song.write_text("fake")
+        info.write_text("{}")
+        vtt.write_text("WEBVTT\n")
+        sm = SongManager(str(tmp_path), db=real_db)
+        _register(sm, real_db, _native(song))
+        sm.delete(_native(song))
+        assert not info.exists()
+        assert not vtt.exists()
+
+    def test_rmtrees_stems_cache_when_sole_owner(self, tmp_path, real_db):
+        song = tmp_path / "Test---abc12345678.mp4"
+        song.write_text("fake")
+        sm = SongManager(str(tmp_path), db=real_db)
+        sid = _register(sm, real_db, _native(song))
+
+        cache_dir = tmp_path / "cache" / ("a" * 64)
+        cache_dir.mkdir(parents=True)
+        (cache_dir / "vocals.wav").write_bytes(b"x")
+        real_db.update_audio_fingerprint(sid, 0.0, 0, "a" * 64)
+        real_db.upsert_artifacts(sid, [{"role": "stems_cache_dir", "path": str(cache_dir)}])
+
+        sm.delete(_native(song))
+        assert not cache_dir.exists()
+
+    def test_keeps_stems_cache_when_shared(self, tmp_path, real_db):
+        song_a = tmp_path / "A---abc12345678.mp4"
+        song_b = tmp_path / "B---def12345678.mp4"
+        song_a.write_text("fake")
+        song_b.write_text("fake")
+        sm = SongManager(str(tmp_path), db=real_db)
+        sid_a = _register(sm, real_db, _native(song_a))
+        sid_b = _register(sm, real_db, _native(song_b))
+
+        sha = "a" * 64
+        cache_dir = tmp_path / "cache" / sha
+        cache_dir.mkdir(parents=True)
+        real_db.update_audio_fingerprint(sid_a, 0.0, 0, sha)
+        real_db.update_audio_fingerprint(sid_b, 0.0, 0, sha)
+        real_db.upsert_artifacts(sid_a, [{"role": "stems_cache_dir", "path": str(cache_dir)}])
+        real_db.upsert_artifacts(sid_b, [{"role": "stems_cache_dir", "path": str(cache_dir)}])
+
+        sm.delete(_native(song_a))
+        assert cache_dir.exists(), "B still references this cache dir"
 
     def test_nonexistent_file_no_error(self, tmp_path, mock_db):
         sm = SongManager(str(tmp_path), db=mock_db)
@@ -153,55 +236,81 @@ class TestDelete:
 
 
 class TestRename:
-    def test_renames_file_and_updates_songs(self, tmp_path, mock_db):
-        song = tmp_path / "Old Name---abc.mp4"
+    def test_renames_file_and_updates_songs(self, tmp_path, real_db):
+        song = tmp_path / "Old Name---abc12345678.mp4"
         song.write_text("fake")
-        sm = SongManager(str(tmp_path), db=mock_db)
-        sm.songs.add_if_valid(_native(song))
-        sm.rename(_native(song), "New Name---abc")
+        sm = SongManager(str(tmp_path), db=real_db)
+        _register(sm, real_db, _native(song))
+        sm.rename(_native(song), "New Name---abc12345678")
         assert not song.exists()
-        assert (tmp_path / "New Name---abc.mp4").exists()
+        assert (tmp_path / "New Name---abc12345678.mp4").exists()
 
-    def test_renames_cdg_companion(self, tmp_path, mock_db):
-        song = tmp_path / "Old---abc.mp4"
-        cdg = tmp_path / "Old---abc.cdg"
+    def test_renames_cdg_companion(self, tmp_path, real_db):
+        song = tmp_path / "Old---abc12345678.mp4"
+        cdg = tmp_path / "Old---abc12345678.cdg"
         song.write_text("fake")
         cdg.write_text("fake")
-        sm = SongManager(str(tmp_path), db=mock_db)
-        sm.songs.add_if_valid(_native(song))
-        sm.rename(_native(song), "New---abc")
-        assert (tmp_path / "New---abc.cdg").exists()
+        sm = SongManager(str(tmp_path), db=real_db)
+        _register(sm, real_db, _native(song))
+        sm.rename(_native(song), "New---abc12345678")
+        assert (tmp_path / "New---abc12345678.cdg").exists()
         assert not cdg.exists()
 
-    def test_renames_ass_companion(self, tmp_path, mock_db):
-        song = tmp_path / "Old---abc.mp4"
-        ass = tmp_path / "Old---abc.ass"
+    def test_renames_ass_companion(self, tmp_path, real_db):
+        song = tmp_path / "Old---abc12345678.mp4"
+        ass = tmp_path / "Old---abc12345678.ass"
         song.write_text("fake")
-        ass.write_text("fake")
-        sm = SongManager(str(tmp_path), db=mock_db)
-        sm.songs.add_if_valid(_native(song))
-        sm.rename(_native(song), "New---abc")
-        assert (tmp_path / "New---abc.ass").exists()
+        ass.write_text("Title: PiKaraoke Auto-Lyrics\n")
+        sm = SongManager(str(tmp_path), db=real_db)
+        _register(sm, real_db, _native(song))
+        sm.rename(_native(song), "New---abc12345678")
+        assert (tmp_path / "New---abc12345678.ass").exists()
         assert not ass.exists()
 
-    def test_renames_m4a_sibling(self, tmp_path, mock_db):
-        song = tmp_path / "Old---abc.mp4"
-        m4a = tmp_path / "Old---abc.m4a"
+    def test_renames_m4a_sibling(self, tmp_path, real_db):
+        song = tmp_path / "Old---abc12345678.mp4"
+        m4a = tmp_path / "Old---abc12345678.m4a"
         song.write_text("fake")
         m4a.write_text("fake")
-        sm = SongManager(str(tmp_path), db=mock_db)
-        sm.songs.add_if_valid(_native(song))
-        sm.rename(_native(song), "New---abc")
-        assert (tmp_path / "New---abc.m4a").exists()
+        sm = SongManager(str(tmp_path), db=real_db)
+        _register(sm, real_db, _native(song))
+        sm.rename(_native(song), "New---abc12345678")
+        assert (tmp_path / "New---abc12345678.m4a").exists()
         assert not m4a.exists()
 
-    def test_returns_new_path(self, tmp_path, mock_db):
-        song = tmp_path / "Old---abc.mp4"
+    def test_renames_vtt_with_language_suffix(self, tmp_path, real_db):
+        song = tmp_path / "Old---abc12345678.mp4"
+        vtt = tmp_path / "Old---abc12345678.en.vtt"
         song.write_text("fake")
-        sm = SongManager(str(tmp_path), db=mock_db)
-        sm.songs.add_if_valid(_native(song))
-        result = sm.rename(_native(song), "New---abc")
-        assert result == _native(tmp_path / "New---abc.mp4")
+        vtt.write_text("WEBVTT\n")
+        sm = SongManager(str(tmp_path), db=real_db)
+        _register(sm, real_db, _native(song))
+        sm.rename(_native(song), "New---abc12345678")
+        assert (tmp_path / "New---abc12345678.en.vtt").exists()
+        assert not vtt.exists()
+
+    def test_preserves_stems_cache_dir_path(self, tmp_path, real_db):
+        """Rename must leave the content-addressed stems cache path unchanged."""
+        song = tmp_path / "Old---abc12345678.mp4"
+        song.write_text("fake")
+        sm = SongManager(str(tmp_path), db=real_db)
+        sid = _register(sm, real_db, _native(song))
+        cache_path = str(tmp_path / "cache" / ("a" * 64))
+        real_db.upsert_artifacts(sid, [{"role": "stems_cache_dir", "path": cache_path}])
+
+        new_path = sm.rename(_native(song), "New---abc12345678")
+
+        new_sid = real_db.get_song_id_by_path(new_path)
+        arts = {(a["role"], a["path"]) for a in real_db.get_artifacts(new_sid)}
+        assert ("stems_cache_dir", cache_path) in arts
+
+    def test_returns_new_path(self, tmp_path, real_db):
+        song = tmp_path / "Old---abc12345678.mp4"
+        song.write_text("fake")
+        sm = SongManager(str(tmp_path), db=real_db)
+        _register(sm, real_db, _native(song))
+        result = sm.rename(_native(song), "New---abc12345678")
+        assert result == _native(tmp_path / "New---abc12345678.mp4")
 
 
 class TestDBCoordination:

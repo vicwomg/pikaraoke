@@ -320,6 +320,48 @@ class TestLyricsServiceFetchAndConvert:
         ass_text = (tmp_path / "Foo---abc.ass").read_text(encoding="utf-8")
         assert "{\\k50}hello" in ass_text
 
+    def test_registers_ass_auto_artifact_when_db_wired(self, song_and_info, tmp_path):
+        """After writing an LRCLib .ass, the DB gets an ass_auto artifact row."""
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+        db = KaraokeDatabase(str(tmp_path / "t.db"))
+        db.insert_songs([{"file_path": song_and_info, "youtube_id": None, "format": "mp4"}])
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
+        with patch(
+            "pikaraoke.lib.lyrics._fetch_lrclib",
+            return_value="[00:01.00]hello\n[00:03.00]world",
+        ):
+            service.fetch_and_convert(song_and_info)
+
+        sid = db.get_song_id_by_path(song_and_info)
+        arts = {(a["role"], a["path"]) for a in db.get_artifacts(sid)}
+        assert ("ass_auto", str(tmp_path / "Foo---abc.ass")) in arts
+        row = db.get_song_by_id(sid)
+        assert row["lyrics_source"] == "lrclib"
+        assert row["aligner_model"] is None
+        db.close()
+
+    def test_registers_ass_user_when_preexisting_user_ass(self, tmp_path):
+        """A pre-existing user .ass gets registered but is not overwritten."""
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+        song = tmp_path / "Foo---abc.mp4"
+        song.write_text("fake")
+        ass = tmp_path / "Foo---abc.ass"
+        ass.write_text("[Script Info]\nTitle: hand edit\n")  # no marker
+
+        db = KaraokeDatabase(str(tmp_path / "t.db"))
+        db.insert_songs([{"file_path": str(song), "youtube_id": None, "format": "mp4"}])
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
+        service.fetch_and_convert(str(song))
+
+        sid = db.get_song_id_by_path(str(song))
+        roles = {a["role"] for a in db.get_artifacts(sid)}
+        assert "ass_user" in roles
+        # file preserved untouched
+        assert "hand edit" in ass.read_text(encoding="utf-8")
+        db.close()
+
     def test_unexpected_exception_swallowed(self, song_and_info, tmp_path):
         service = LyricsService(str(tmp_path), EventSystem())
         with patch("pikaraoke.lib.lyrics._read_info_json", side_effect=RuntimeError("boom")):

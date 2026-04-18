@@ -25,6 +25,7 @@ from typing import Protocol
 import requests
 
 from pikaraoke.lib.events import EventSystem
+from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.music_metadata import resolve_metadata
 
 logger = logging.getLogger(__name__)
@@ -65,6 +66,11 @@ class Aligner(Protocol):
     def align(self, audio_path: str, reference_text: str) -> list[Word]:
         ...
 
+    @property
+    def model_id(self) -> str:
+        """Stable identifier recorded in the DB so model swaps invalidate cached .ass."""
+        ...
+
 
 class LyricsService:
     """Fetches synced lyrics from LRCLib and writes them as ASS subtitles."""
@@ -74,10 +80,50 @@ class LyricsService:
         download_path: str,
         events: EventSystem,
         aligner: Aligner | None = None,
+        db: KaraokeDatabase | None = None,
     ) -> None:
         self._download_path = download_path
         self._events = events
         self._aligner = aligner
+        self._db = db
+
+    def _register_ass(self, song_path: str, lyrics_source: str, aligner_model: str | None) -> None:
+        """Record the written .ass in song_artifacts and stamp lyrics_source/aligner_model.
+
+        No-op when db is not wired or when the song is not in the DB.
+        """
+        if self._db is None:
+            return
+        song_id = self._db.get_song_id_by_path(song_path)
+        if song_id is None:
+            return
+        self._db.upsert_artifacts(song_id, [{"role": "ass_auto", "path": _ass_path(song_path)}])
+        self._db.update_processing_config(
+            song_id, lyrics_source=lyrics_source, aligner_model=aligner_model
+        )
+
+    def _register_user_ass(self, song_path: str) -> None:
+        if self._db is None:
+            return
+        song_id = self._db.get_song_id_by_path(song_path)
+        if song_id is None:
+            return
+        self._db.upsert_artifacts(song_id, [{"role": "ass_user", "path": _ass_path(song_path)}])
+
+    def _maybe_drop_stale_auto_ass(self, song_path: str) -> None:
+        """When the aligner changed versus the recorded one, delete the auto .ass.
+
+        Runs before re-generating lyrics so that stale word-level alignments
+        produced by a previous model are not served.
+        """
+        if self._db is None or self._aligner is None:
+            return
+        song_id = self._db.get_song_id_by_path(song_path)
+        if song_id is None:
+            return
+        from pikaraoke.lib.audio_fingerprint import ensure_lyrics_config
+
+        ensure_lyrics_config(self._db, song_id, self._aligner.model_id)
 
     def fetch_and_convert(self, song_path: str) -> None:
         """Entry point - event listener for `song_downloaded`."""
@@ -90,15 +136,18 @@ class LyricsService:
         # User-supplied Aegisub files (without the auto-lyrics marker) are sacred.
         if _user_owned_ass(song_path):
             logger.debug("Skipping: user-supplied .ass present for %s", song_path)
+            self._register_user_ass(song_path)
             _cleanup_yt_subs_and_info(song_path)
             return
 
         info = _read_info_json(song_path)
+        self._maybe_drop_stale_auto_ass(song_path)
 
         # Step 1: baseline from YouTube VTT (always available when yt-dlp wrote any subs).
         wrote_from_vtt = _try_write_ass_from_vtt(song_path)
         if wrote_from_vtt:
             logger.info("Wrote .ass from YouTube VTT for %s", os.path.basename(song_path))
+            self._register_ass(song_path, lyrics_source="youtube_vtt", aligner_model=None)
 
         # Step 2: override with LRCLib if metadata available and track is found.
         lrc = None
@@ -127,6 +176,7 @@ class LyricsService:
                     info["artist"],
                     info["track"],
                 )
+                self._register_ass(song_path, lyrics_source="lrclib", aligner_model=None)
 
         _cleanup_yt_subs_and_info(song_path)
 
@@ -170,6 +220,8 @@ class LyricsService:
                     song_path,
                     "vocals stem" if audio_path.startswith(CACHE_DIR) else "raw mix",
                 )
+                aligner_id = self._aligner.model_id if self._aligner else None
+                self._register_ass(song_path, lyrics_source="whisperx", aligner_model=aligner_id)
                 self._events.emit(
                     "notification",
                     f"Synced lyrics ready: {_title_from_filename(song_path)}",

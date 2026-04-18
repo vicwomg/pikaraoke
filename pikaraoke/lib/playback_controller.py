@@ -9,6 +9,7 @@ from flask_babel import _
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.file_resolver import delete_tmp_dir
+from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.stream_manager import PlaybackResult, StreamManager
 
@@ -61,6 +62,7 @@ class PlaybackController:
         events: EventSystem,
         filename_from_path: Callable[[str, bool], str],
         streaming_format: str = "hls",
+        db: KaraokeDatabase | None = None,
     ) -> None:
         """Initialize the playback controller.
 
@@ -69,11 +71,12 @@ class PlaybackController:
             events: EventSystem instance for event emission.
             filename_from_path: Function to extract display name from path.
             streaming_format: Video streaming format ('hls' or 'mp4').
+            db: Optional database for audio fingerprint / stems cache invalidation.
         """
         self.preferences = preferences
         self.events = events
         self.filename_from_path = filename_from_path
-        self.stream_manager = StreamManager(preferences, streaming_format, events=events)
+        self.stream_manager = StreamManager(preferences, streaming_format, events=events, db=db)
         events.on("demucs_progress", self._on_demucs_progress)
         events.on("ffmpeg_progress", self._on_ffmpeg_progress)
 

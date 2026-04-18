@@ -25,6 +25,10 @@ from tqdm import tqdm
 
 CACHE_DIR = os.path.expanduser("~/.pikaraoke-cache")
 
+# Name of the pretrained Demucs model used for separation. Recorded in the DB
+# alongside audio_sha256 so that swapping models auto-invalidates stems.
+DEMUCS_MODEL = "htdemucs"
+
 # Global model cache — loaded once, reused across calls
 _model = None
 _model_lock = threading.Lock()
@@ -54,9 +58,9 @@ def _get_model():
             return _model
         from demucs.pretrained import get_model
 
-        logging.info("Loading Demucs model (htdemucs)...")
+        logging.info(f"Loading Demucs model ({DEMUCS_MODEL})...")
         device = _get_device()
-        _model = get_model("htdemucs")
+        _model = get_model(DEMUCS_MODEL)
         _model.to(device)
         logging.info(f"Demucs model loaded. Sources: {_model.sources}")
         return _model

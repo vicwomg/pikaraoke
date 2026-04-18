@@ -356,6 +356,7 @@ class Karaoke:
             events=self.events,
             filename_from_path=self.song_manager.display_name_from_path,
             streaming_format=self.streaming_format,
+            db=self.db,
         )
 
         # Lyrics auto-fetch from LRCLib; optional per-word forced alignment via whisperx.
@@ -363,6 +364,7 @@ class Karaoke:
             download_path=self.download_path,
             events=self.events,
             aligner=_build_lyrics_aligner(),
+            db=self.db,
         )
 
         # Event bridging: the coordinator wires manager events to the UI (SocketIO/notifications).

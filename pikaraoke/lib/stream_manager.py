@@ -22,6 +22,9 @@ from pikaraoke.lib.file_resolver import (
     can_serve_video_directly,
     is_transcoding_required,
 )
+from pikaraoke.lib.karaoke_database import (  # noqa: F401  (used in type hint)
+    KaraokeDatabase,
+)
 from pikaraoke.lib.preference_manager import PreferenceManager
 
 # Mirror of hls_time in build_ffmpeg_cmd. Each .m4s segment covers roughly
@@ -106,6 +109,7 @@ class StreamManager:
         preferences: PreferenceManager,
         streaming_format: str = "hls",
         events: EventSystem | None = None,
+        db: "KaraokeDatabase | None" = None,
     ) -> None:
         """Initialize the stream manager.
 
@@ -113,10 +117,14 @@ class StreamManager:
             preferences: PreferenceManager instance for configuration.
             streaming_format: Video streaming format ('hls' or 'mp4').
             events: Optional EventSystem to emit 'demucs_progress' events on.
+            db: Optional KaraokeDatabase. When supplied, ``_prepare_stems``
+                runs audio fingerprint + stems config checks so stale cache
+                is wiped before being served.
         """
         self.preferences = preferences
         self.streaming_format = streaming_format
         self.events = events
+        self.db = db
         self.ffmpeg_process = None
         self.ffmpeg_log: Queue | None = None
         # Map of stream_uid -> ActiveStems, for the HTTP tail routes that
@@ -472,6 +480,7 @@ class StreamManager:
         unrecoverable errors before any registration.
         """
         from pikaraoke.lib.demucs_processor import (
+            DEMUCS_MODEL,
             acquire_separation,
             encode_mp3_in_background,
             finalize_partial_stems,
@@ -492,11 +501,27 @@ class StreamManager:
         # and play time.
         audio_source = fr.audio_sibling_path or fr.file_path
         resolved_source = resolve_audio_source(audio_source)
-        cache_key = get_cache_key(resolved_source)
+
+        # Fingerprint + config invalidation. Runs before get_cached_stems so
+        # a stale cache dir is wiped before being served. When db is not
+        # wired (tests / standalone), fall back to the raw file hash.
+        song_id = self.db.get_song_id_by_path(fr.file_path) if self.db else None
+        if song_id is not None:
+            from pikaraoke.lib.audio_fingerprint import (
+                ensure_audio_fingerprint,
+                ensure_stems_config,
+            )
+
+            fp_sha = ensure_audio_fingerprint(self.db, song_id, resolved_source)
+            ensure_stems_config(self.db, song_id, DEMUCS_MODEL)
+            cache_key = fp_sha or get_cache_key(resolved_source)
+        else:
+            cache_key = get_cache_key(resolved_source)
         cached = get_cached_stems(cache_key)
 
         if cached:
             self._register_cached_stems(stream_uid, cache_key, cached, total_seconds)
+            self._record_stems_ready(song_id, cache_key)
             return True
 
         # Claim the per-song separation lock. If another thread (download
@@ -505,12 +530,14 @@ class StreamManager:
         # would race on the same .partial files.
         is_owner, handle = acquire_separation(resolved_source)
         if not is_owner:
-            self._attach_to_inflight_separation(stream_uid, cache_key, total_seconds, handle)
+            self._attach_to_inflight_separation(
+                stream_uid, cache_key, total_seconds, handle, song_id
+            )
             return True
 
         try:
             return self._run_owned_separation(
-                fr, stream_uid, resolved_source, cache_key, total_seconds, handle
+                fr, stream_uid, resolved_source, cache_key, total_seconds, handle, song_id
             )
         except BaseException:
             # Ownership must always be released so waiters don't hang.
@@ -552,6 +579,7 @@ class StreamManager:
         cache_key: str,
         total_seconds: float,
         handle,
+        song_id: int | None = None,
     ) -> None:
         """Register stems that point at another thread's in-flight separation.
 
@@ -601,6 +629,7 @@ class StreamManager:
                     entry.processed_seconds = total_seconds
                     entry.total_seconds = total_seconds
             self._emit_demucs_progress(total_seconds, total_seconds)
+            self._record_stems_ready(song_id, cache_key)
             # WAV-only cache -> kick off the MP3 encode so future plays are
             # smaller. Idempotent: encode_mp3_in_background is a no-op when
             # the MP3 already exists.
@@ -618,6 +647,7 @@ class StreamManager:
         cache_key: str,
         total_seconds: float,
         handle,
+        song_id: int | None = None,
     ) -> bool:
         """Drive the separation when this call owns the per-song lock."""
         from pikaraoke.lib.demucs_processor import (
@@ -682,6 +712,7 @@ class StreamManager:
                         if entry is not None:
                             entry.vocals_path = final_v
                             entry.instrumental_path = final_i
+                    self._record_stems_ready(song_id, cache_key)
                     encode_mp3_in_background(cache_key)
             finally:
                 done_event.set()
@@ -696,6 +727,26 @@ class StreamManager:
         threading.Thread(target=_notify_when_ready, daemon=True).start()
 
         return True
+
+    def _record_stems_ready(self, song_id: int | None, cache_key: str) -> None:
+        """Record the current Demucs model + register the stems cache dir artifact.
+
+        Idempotent. Called after a successful separation (owner or attached
+        path) and on cache hit so the DB reflects a model that actually has
+        stems on disk. No-op when db or song_id is not available.
+        """
+        if self.db is None or song_id is None:
+            return
+        from pikaraoke.lib.demucs_processor import CACHE_DIR, DEMUCS_MODEL
+
+        try:
+            self.db.upsert_artifacts(
+                song_id,
+                [{"role": "stems_cache_dir", "path": os.path.join(CACHE_DIR, cache_key)}],
+            )
+            self.db.update_processing_config(song_id, demucs_model=DEMUCS_MODEL)
+        except Exception:
+            logging.exception("Failed to record stems_cache_dir/demucs_model")
 
     def _emit_stems_ready(self, stream_uid: str) -> None:
         if self.events is None:
