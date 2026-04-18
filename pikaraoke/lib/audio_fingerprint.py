@@ -26,15 +26,14 @@ def _demucs_bits():
 
     return CACHE_DIR, get_cache_key
 
+
 logger = logging.getLogger(__name__)
 
 STEMS_CACHE_DIR_ROLE = "stems_cache_dir"
 ASS_AUTO_ROLE = "ass_auto"
 
 
-def ensure_audio_fingerprint(
-    db: KaraokeDatabase, song_id: int, audio_path: str
-) -> str | None:
+def ensure_audio_fingerprint(db: KaraokeDatabase, song_id: int, audio_path: str) -> str | None:
     """Return the current audio sha256, invalidating stale caches if it changed.
 
     Returns None when the source file is missing (out-of-band deletion).
@@ -77,9 +76,7 @@ def ensure_audio_fingerprint(
     return new_sha
 
 
-def ensure_stems_config(
-    db: KaraokeDatabase, song_id: int, current_demucs_model: str
-) -> bool:
+def ensure_stems_config(db: KaraokeDatabase, song_id: int, current_demucs_model: str) -> bool:
     """Invalidate stems when the recorded demucs_model differs from the current one.
 
     NULL means "not yet recorded" (e.g. first play, post-migration) and does

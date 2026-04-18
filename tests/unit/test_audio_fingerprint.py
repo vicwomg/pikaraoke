@@ -42,8 +42,7 @@ class TestEnsureAudioFingerprint:
 
         arts = db.get_artifacts(sid)
         assert any(
-            a["role"] == "stems_cache_dir"
-            and a["path"] == os.path.join("/cache", "a" * 64)
+            a["role"] == "stems_cache_dir" and a["path"] == os.path.join("/cache", "a" * 64)
             for a in arts
         )
 
@@ -93,17 +92,13 @@ class TestEnsureAudioFingerprint:
 
         # Fingerprint records the old sha; artifact row points at old cache dir.
         db.update_audio_fingerprint(sid, mtime=0.0, size=0, sha256=old_sha)
-        db.upsert_artifacts(
-            sid, [{"role": "stems_cache_dir", "path": str(cache_root / old_sha)}]
-        )
+        db.upsert_artifacts(sid, [{"role": "stems_cache_dir", "path": str(cache_root / old_sha)}])
         # Auto .ass that should get dropped too.
         ass_path = tmp_path / "test.ass"
         ass_path.write_text("auto")
         db.upsert_artifacts(sid, [{"role": "ass_auto", "path": str(ass_path)}])
 
-        with patch.object(
-            af, "_demucs_bits", return_value=(str(cache_root), lambda p: new_sha)
-        ):
+        with patch.object(af, "_demucs_bits", return_value=(str(cache_root), lambda p: new_sha)):
             sha = af.ensure_audio_fingerprint(db, sid, audio_file)
 
         assert sha == new_sha
@@ -126,9 +121,7 @@ class TestEnsureAudioFingerprint:
         db.update_audio_fingerprint(s2, 0.0, 0, shared_sha)
 
         new_sha = "b" * 64
-        with patch.object(
-            af, "_demucs_bits", return_value=(str(cache_root), lambda p: new_sha)
-        ):
+        with patch.object(af, "_demucs_bits", return_value=(str(cache_root), lambda p: new_sha)):
             af.ensure_audio_fingerprint(db, s1, audio_file)
 
         assert (cache_root / shared_sha).exists(), "shared cache must survive"
@@ -140,9 +133,7 @@ class TestEnsureAudioFingerprint:
         user_ass.write_text("hand-authored")
         db.upsert_artifacts(sid, [{"role": "ass_user", "path": str(user_ass)}])
 
-        with patch.object(
-            af, "_demucs_bits", return_value=(str(tmp_path), lambda p: "b" * 64)
-        ):
+        with patch.object(af, "_demucs_bits", return_value=(str(tmp_path), lambda p: "b" * 64)):
             af.ensure_audio_fingerprint(db, sid, audio_file)
 
         assert user_ass.exists()

@@ -8,17 +8,23 @@ import requests
 from pikaraoke.lib import music_metadata
 from pikaraoke.lib.music_metadata import (
     _normalize_title,
+    _upscale_artwork,
+    fetch_itunes_track,
+    fetch_musicbrainz_ids,
     resolve_metadata,
     search_itunes,
+    search_itunes_full,
 )
 
 
 @pytest.fixture(autouse=True)
 def _clear_cache():
-    """iTunes cache is process-wide; reset between tests."""
+    """iTunes + MusicBrainz caches are process-wide; reset between tests."""
     music_metadata._search_itunes_cached.cache_clear()
+    music_metadata._search_musicbrainz_cached.cache_clear()
     yield
     music_metadata._search_itunes_cached.cache_clear()
+    music_metadata._search_musicbrainz_cached.cache_clear()
 
 
 class TestNormalizeTitle:
@@ -153,3 +159,156 @@ class TestResolveMetadata:
             assert params["term"] == "Queen - Bohemian Rhapsody"
             assert params["entity"] == "song"
             assert params["limit"] == 1
+
+
+class TestUpscaleArtwork:
+    def test_rewrites_100x100_to_600x600(self):
+        url = "https://is1.mzstatic.com/image/thumb/Music/.../100x100bb.jpg"
+        assert _upscale_artwork(url) == (
+            "https://is1.mzstatic.com/image/thumb/Music/.../600x600bb.jpg"
+        )
+
+    def test_custom_target(self):
+        url = "https://cdn/foo/100x100.jpg"
+        assert _upscale_artwork(url, target=300) == "https://cdn/foo/300x300bb.jpg"
+
+    def test_non_matching_url_returned_unchanged(self):
+        url = "https://cdn/foo/logo.png"
+        assert _upscale_artwork(url) == url
+
+
+class TestSearchItunesFull:
+    def test_returns_all_extracted_fields(self):
+        resp = _mock_itunes_response(
+            [
+                {
+                    "artistName": "Eminem",
+                    "trackName": "Stan",
+                    "trackId": 12345,
+                    "collectionName": "The Marshall Mathers LP",
+                    "trackNumber": 3,
+                    "releaseDate": "2000-05-23T07:00:00Z",
+                    "artworkUrl100": "https://cdn/a/100x100bb.jpg",
+                    "primaryGenreName": "Hip-Hop/Rap",
+                }
+            ]
+        )
+        with patch("pikaraoke.lib.music_metadata.requests.get", return_value=resp):
+            hits = search_itunes_full("Eminem Stan", limit=1)
+        assert hits == [
+            {
+                "artistName": "Eminem",
+                "trackName": "Stan",
+                "trackId": 12345,
+                "collectionName": "The Marshall Mathers LP",
+                "trackNumber": 3,
+                "releaseDate": "2000-05-23T07:00:00Z",
+                "artworkUrl100": "https://cdn/a/100x100bb.jpg",
+                "primaryGenreName": "Hip-Hop/Rap",
+            }
+        ]
+
+
+class TestFetchItunesTrack:
+    def test_returns_flat_enriched_shape(self):
+        resp = _mock_itunes_response(
+            [
+                {
+                    "artistName": "Eminem",
+                    "trackName": "Stan",
+                    "trackId": 42,
+                    "collectionName": "MMLP",
+                    "trackNumber": 3,
+                    "releaseDate": "2000-05-23T07:00:00Z",
+                    "artworkUrl100": "https://cdn/a/100x100bb.jpg",
+                    "primaryGenreName": "Hip-Hop/Rap",
+                }
+            ]
+        )
+        with patch("pikaraoke.lib.music_metadata.requests.get", return_value=resp):
+            result = fetch_itunes_track("Eminem - Stan (Long Version)")
+        assert result == {
+            "itunes_id": "42",
+            "artist": "Eminem",
+            "track": "Stan",
+            "album": "MMLP",
+            "track_number": 3,
+            "release_date": "2000-05-23T07:00:00Z",
+            "cover_art_url": "https://cdn/a/600x600bb.jpg",
+            "genre": "Hip-Hop/Rap",
+        }
+
+    def test_none_when_no_hits(self):
+        resp = _mock_itunes_response([])
+        with patch("pikaraoke.lib.music_metadata.requests.get", return_value=resp):
+            assert fetch_itunes_track("unknown") is None
+
+
+def _mock_mbrainz_response(recordings):
+    resp = MagicMock(status_code=200)
+    resp.json.return_value = {"recordings": recordings}
+    return resp
+
+
+class TestFetchMusicbrainzIds:
+    def test_returns_mbid_and_isrc(self):
+        resp = _mock_mbrainz_response(
+            [
+                {
+                    "id": "rec-uuid",
+                    "title": "Stan",
+                    "isrcs": ["USRC17600001"],
+                }
+            ]
+        )
+        with patch("pikaraoke.lib.music_metadata.requests.get", return_value=resp):
+            assert fetch_musicbrainz_ids("Eminem", "Stan") == {
+                "musicbrainz_recording_id": "rec-uuid",
+                "isrc": "USRC17600001",
+            }
+
+    def test_returns_none_isrc_when_absent(self):
+        resp = _mock_mbrainz_response([{"id": "rec-uuid", "title": "Stan"}])
+        with patch("pikaraoke.lib.music_metadata.requests.get", return_value=resp):
+            assert fetch_musicbrainz_ids("Eminem", "Stan") == {
+                "musicbrainz_recording_id": "rec-uuid",
+                "isrc": None,
+            }
+
+    def test_none_when_no_recordings(self):
+        resp = _mock_mbrainz_response([])
+        with patch("pikaraoke.lib.music_metadata.requests.get", return_value=resp):
+            assert fetch_musicbrainz_ids("A", "T") is None
+
+    def test_none_when_recording_has_no_id(self):
+        resp = _mock_mbrainz_response([{"title": "Stan"}])  # no "id"
+        with patch("pikaraoke.lib.music_metadata.requests.get", return_value=resp):
+            assert fetch_musicbrainz_ids("A", "T") is None
+
+    def test_network_failure_returns_none(self):
+        with patch(
+            "pikaraoke.lib.music_metadata.requests.get",
+            side_effect=requests.Timeout(),
+        ):
+            assert fetch_musicbrainz_ids("A", "T") is None
+
+    def test_empty_inputs_short_circuit(self):
+        with patch("pikaraoke.lib.music_metadata.requests.get") as mock_get:
+            assert fetch_musicbrainz_ids("", "Stan") is None
+            assert fetch_musicbrainz_ids("Eminem", "") is None
+            mock_get.assert_not_called()
+
+    def test_sends_user_agent(self):
+        resp = _mock_mbrainz_response([{"id": "x", "isrcs": []}])
+        with patch("pikaraoke.lib.music_metadata.requests.get", return_value=resp) as mock_get:
+            fetch_musicbrainz_ids("A", "T")
+            headers = mock_get.call_args.kwargs["headers"]
+            assert "User-Agent" in headers
+            assert "PiKaraoke" in headers["User-Agent"]
+
+    def test_caches_identical_queries(self):
+        resp = _mock_mbrainz_response([{"id": "x", "isrcs": []}])
+        with patch("pikaraoke.lib.music_metadata.requests.get", return_value=resp) as mock_get:
+            fetch_musicbrainz_ids("A", "T")
+            fetch_musicbrainz_ids("A", "T")
+            assert mock_get.call_count == 1

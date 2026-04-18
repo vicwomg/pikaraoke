@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import shutil
+import threading
 from collections.abc import Callable
 
 from pikaraoke.lib.get_platform import is_windows
@@ -119,11 +120,16 @@ class SongManager:
         download_path: str,
         db: KaraokeDatabase,
         get_title_tidy: Callable[[], bool] | None = None,
+        enrich_on_download: bool = True,
     ) -> None:
         self.download_path = download_path
         self.songs = SongList()
         self._db = db
         self._get_title_tidy = get_title_tidy
+        # Tests and anyone wanting to avoid the background iTunes/MusicBrainz
+        # network calls can disable it; the enricher otherwise fires on every
+        # register_download.
+        self._enrich_on_download = enrich_on_download
 
     @staticmethod
     def filename_from_path(
@@ -242,8 +248,10 @@ class SongManager:
         """Register a newly downloaded song in SongList and DB.
 
         Also inserts rows for every companion file (audio source, cdg, vtt,
-        info.json) and backfills track metadata from the info.json when
-        available.
+        info.json), backfills track metadata from the info.json when
+        available, and kicks off a best-effort iTunes+MusicBrainz enrichment
+        in a background thread so the 3-6s of external network latency
+        doesn't block the download pipeline.
         """
         self.songs.add_if_valid(song_path)
         self._db.insert_songs([build_song_record(song_path)])
@@ -254,6 +262,28 @@ class SongManager:
         meta = _track_metadata_from_info_json(song_path)
         if meta:
             self._db.update_track_metadata(song_id, **meta)
+        if self._enrich_on_download:
+            self._start_enrichment(song_id, song_path)
+
+    def _start_enrichment(self, song_id: int, song_path: str) -> None:
+        """Run iTunes + MusicBrainz enrichment in a daemon thread.
+
+        Imports are deferred so the SongManager module stays lightweight for
+        tests that don't care about enrichment and so the ``requests``
+        import chain only happens when enrichment actually runs.
+        """
+
+        def _run() -> None:
+            try:
+                from pikaraoke.lib.song_enricher import enrich_song
+
+                enrich_song(self._db, song_id, song_path)
+            except Exception:
+                logging.exception("enrichment failed for %s", song_path)
+
+        threading.Thread(
+            target=_run, name=f"enrich-{os.path.basename(song_path)}", daemon=True
+        ).start()
 
     # ------------------------------------------------------------------
     # Cache lifecycle helpers used by stream_manager / lyrics

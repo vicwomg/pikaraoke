@@ -341,6 +341,25 @@ class KaraokeDatabase:
                 (mtime, size, sha256, song_id),
             )
 
+    def stamp_enrichment_attempt(self, song_id: int, status: str, attempted_at: str) -> None:
+        """Record metadata_status + attempt count for a song.
+
+        Increments enrichment_attempts atomically. Used by the enricher so
+        failed lookups are visible in the DB for later retry.
+        """
+        with self._lock, self._conn:
+            self._conn.execute(
+                """
+                UPDATE songs
+                SET metadata_status = ?,
+                    enrichment_attempts = COALESCE(enrichment_attempts, 0) + 1,
+                    last_enrichment_attempt = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (status, attempted_at, song_id),
+            )
+
     def clear_audio_fingerprint(self, song_id: int) -> None:
         with self._lock, self._conn:
             self._conn.execute(
