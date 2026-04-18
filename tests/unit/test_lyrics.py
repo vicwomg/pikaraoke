@@ -876,7 +876,11 @@ class TestLrcToAssLineLevelContextBlock:
 class TestWordsToAssContextBlock:
     def test_current_line_keeps_k_tags_context_is_plain(self):
         lrc = "[00:01.00]one\n[00:02.00]two\n[00:03.00]three"
-        words = [Word("two", 2.0, 2.5)]
+        words = [
+            Word("one", 1.0, 1.5),
+            Word("two", 2.0, 2.5),
+            Word("three", 3.0, 3.5),
+        ]
         ass = _words_to_ass_with_k_tags(words, lrc)
         dialogues = [ln for ln in ass.splitlines() if ln.startswith("Dialogue:")]
         middle = dialogues[1]
@@ -886,6 +890,50 @@ class TestWordsToAssContextBlock:
         assert "three" in middle
         # The non-current lines should NOT have \k near them.
         assert middle.count(r"\k") == 1
+
+    def test_position_based_assignment_survives_bad_whisper_timing(self):
+        # Regression for the Bonnie Tyler bug: whisper mis-timed many later
+        # words into one line's window. Position-based assignment routes each
+        # LRC entry's tokens to their own dialogue line, so no single line
+        # gets stuffed with the rest of the song.
+        lrc = "[00:01.00]first line\n[00:30.00]second line\n[01:00.00]third line"
+        # All 6 words whisper-timed inside the first line's window. Old
+        # time-based code would cram every word into dialogues[0] and leave
+        # the other two empty.
+        words = [
+            Word("first", 1.0, 1.1),
+            Word("line", 1.1, 1.2),
+            Word("second", 1.2, 1.3),
+            Word("line", 1.3, 1.4),
+            Word("third", 1.4, 1.5),
+            Word("line", 1.5, 1.6),
+        ]
+        ass = _words_to_ass_with_k_tags(words, lrc)
+        dialogues = [ln for ln in ass.splitlines() if ln.startswith("Dialogue:")]
+        # Each LRC line receives exactly its own two tokens - not more.
+        assert dialogues[0].count(r"\k") == 2
+        # Lines 2 and 3 have whisper timings far outside their LRC windows
+        # (30s+ drift), so the tolerance check demotes them to static text
+        # rather than rendering wildly misaligned \k highlights.
+        assert r"\k" not in dialogues[1]
+        assert r"\k" not in dialogues[2]
+        assert "second line" in dialogues[1]
+        assert "third line" in dialogues[2]
+
+    def test_line_count_caps_at_lrc_token_count(self):
+        # Aligner output is 1:1 with reference tokens; position-based
+        # assignment caps each dialogue at its LRC line's token count so a
+        # surplus word can't bleed into the next line's highlight.
+        lrc = "[00:01.00]a b"
+        words = [
+            Word("a", 1.0, 1.1),
+            Word("b", 1.1, 1.2),
+            Word("extra", 1.2, 1.3),
+        ]
+        ass = _words_to_ass_with_k_tags(words, lrc)
+        dialogues = [ln for ln in ass.splitlines() if ln.startswith("Dialogue:")]
+        assert dialogues[0].count(r"\k") == 2
+        assert "extra" not in dialogues[0]
 
 
 # ----- Stem-aware alignment -----

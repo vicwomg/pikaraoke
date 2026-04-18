@@ -134,6 +134,12 @@ class LyricsService:
             logger.info("No lyrics source for %s", os.path.basename(song_path))
             return
 
+        self._events.emit(
+            "notification",
+            f"Lyrics ready: {_title_from_filename(song_path)}",
+            "info",
+        )
+
         # Per-word forced alignment requires reference lyrics text.
         if self._aligner and lrc:
             # Eagerly kick off Demucs so the aligner gets vocals, not the raw mix.
@@ -162,6 +168,12 @@ class LyricsService:
                     song_path,
                     "vocals stem" if audio_path != song_path else "raw mix",
                 )
+                self._events.emit(
+                    "notification",
+                    f"Synced lyrics ready: {_title_from_filename(song_path)}",
+                    "success",
+                )
+                self._events.emit("lyrics_upgraded", song_path)
         except Exception:
             logger.warning(
                 "word-level alignment failed for %s, keeping line-level",
@@ -477,20 +489,32 @@ def _lrc_to_ass_line_level(lrc: str) -> str | None:
     return "".join(out)
 
 
+# Accept words whose timing drifts up to this far outside the LRC line window
+# before we distrust the alignment and fall back to static text.
+_ALIGNMENT_TOLERANCE_S = 2.0
+
+
 def _words_to_ass_with_k_tags(words: list[Word], lrc: str) -> str | None:
     """Rebuild ASS with \\k tags on the current line, plain text on context lines.
 
-    Past / future are plain LRC text - their timing comes from LRC entries, not
-    whisper words, so they render as static (dimmed) context without highlights.
+    Aligner output is 1:1 with reference-text tokens (see
+    ``map_whisper_to_reference``), so we assign words to LRC entries by
+    position - not by timestamp. Time-based matching collapses badly when
+    whisper mis-times a region of the song: hundreds of later-line words end
+    up stuffed into a single LRC entry's time window. Lines whose aligned
+    times don't overlap the LRC window fall back to static text.
     """
     entries = _parse_lrc(lrc)
     if not entries:
         return None
     out = [_ass_header()]
+    word_idx = 0
     for i, (start, text) in enumerate(entries):
         end = entries[i + 1][0] if i + 1 < len(entries) else start + _LAST_LINE_HOLD_S
-        line_words = [w for w in words if start <= w.start < end]
-        if line_words:
+        expected = len(text.split())
+        line_words = words[word_idx : word_idx + expected]
+        word_idx += expected
+        if line_words and _words_overlap_window(line_words, start, end):
             current_ass = " ".join(_k_token(w) for w in line_words)
         else:
             current_ass = _escape_ass(text)
@@ -505,6 +529,13 @@ def _words_to_ass_with_k_tags(words: list[Word], lrc: str) -> str | None:
             f"Default,,0,0,0,,{body}\n"
         )
     return "".join(out)
+
+
+def _words_overlap_window(words: list[Word], start: float, end: float) -> bool:
+    """True when the aligned words' span overlaps the LRC line window."""
+    first = words[0].start
+    last = words[-1].end
+    return last >= start - _ALIGNMENT_TOLERANCE_S and first <= end + _ALIGNMENT_TOLERANCE_S
 
 
 def _k_token(word: Word) -> str:

@@ -377,6 +377,7 @@ class Karaoke:
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
         self.events.on("song_downloaded", self.song_manager.register_download)
         self.events.on("song_downloaded", self.lyrics_service.fetch_and_convert)
+        self.events.on("lyrics_upgraded", self._on_lyrics_upgraded)
         self.events.on(
             "sync_started",
             lambda: self.socketio.emit("sync_started", namespace="/") if self.socketio else None,
@@ -830,6 +831,23 @@ class Karaoke:
         """Emit now_playing state change via SocketIO."""
         if self.socketio:
             self.socketio.emit("now_playing", self.get_now_playing(), namespace="/")
+
+    def _on_lyrics_upgraded(self, song_path: str) -> None:
+        """Force the splash to reload subtitles when word-level ASS lands mid-song.
+
+        The .ass file on disk is replaced in place; the subtitle URL stays the
+        same. Bumping a ``?v=<ts>`` query parameter cache-busts the client's
+        HTTP cache and makes splash.js see a new `now_playing_subtitle_url`,
+        which triggers its dispose+reinit SubtitlesOctopus path.
+        """
+        pc = self.playback_controller
+        if song_path != pc.now_playing_filename:
+            return
+        base_url = (pc.now_playing_subtitle_url or "").split("?", 1)[0]
+        if not base_url:
+            return
+        pc.now_playing_subtitle_url = f"{base_url}?v={int(time.time() * 1000)}"
+        self.update_now_playing_socket()
 
     def run(self) -> None:
         """Main run loop - processes queue and plays songs.
