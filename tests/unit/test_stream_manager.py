@@ -577,10 +577,10 @@ class TestStreamManagerPlayFile:
         mock_gettext,
         test_prefs,
     ):
-        """When vocal_removal is on, stems carry the audio — no single-track pipe."""
+        """Old muxed mp4 (no sibling): stems eventually carry audio, no warmup pipe."""
         test_prefs.set("vocal_removal", True)
         sm = StreamManager(test_prefs, streaming_format="mp4")
-        mock_fr = self._setup_resolver(mock_resolver_class)
+        mock_fr = self._setup_resolver(mock_resolver_class)  # audio_sibling_path=None
         mock_fr.file_path = "/songs/test.mp4"
 
         with (
@@ -594,6 +594,98 @@ class TestStreamManagerPlayFile:
         mock_copy.assert_not_called()
         mock_transcode.assert_not_called()
         assert result.stream_url == "/stream/video/12345.mp4"
+        assert result.audio_track_url is None
+        assert "12345" not in sm.active_audio
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("pikaraoke.lib.stream_manager.can_serve_directly", return_value=True)
+    @patch("pikaraoke.lib.stream_manager.can_serve_video_directly", return_value=True)
+    @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
+    @patch("pikaraoke.lib.stream_manager.FileResolver")
+    def test_play_file_vocal_removal_warmup_pipes_sibling(
+        self,
+        mock_resolver_class,
+        mock_transcode_check,
+        mock_can_video,
+        mock_can_direct,
+        mock_gettext,
+        test_prefs,
+    ):
+        """Split-download mp4 + stems not cached: m4a sibling piped as warmup audio."""
+        import threading
+
+        from pikaraoke.lib.stream_manager import ActiveStems
+
+        test_prefs.set("vocal_removal", True)
+        sm = StreamManager(test_prefs, streaming_format="mp4")
+        mock_fr = self._setup_resolver(
+            mock_resolver_class, audio_sibling_path="/songs/test.m4a"
+        )
+        mock_fr.file_path = "/songs/test.mp4"
+
+        def fake_prepare_stems(fr):
+            # Live Demucs: entry exists but done_event is NOT set.
+            sm.active_stems[str(fr.stream_uid)] = ActiveStems(
+                vocals_path="/cache/vocals.wav.partial",
+                instrumental_path="/cache/instrumental.wav.partial",
+                format="wav",
+                done_event=threading.Event(),
+                ready_event=threading.Event(),
+            )
+            return True
+
+        with patch.object(sm, "_prepare_stems", side_effect=fake_prepare_stems):
+            result = sm.play_file("/songs/test.mp4", semitones=2)
+
+        assert result.audio_track_url == "/stream/audio/12345/track.wav"
+        assert sm.active_audio["12345"].source_path == "/songs/test.m4a"
+        # Transforms still apply to the warmup pipe so the m4a matches the
+        # pitch/normalize the stems will be played with.
+        assert sm.active_audio["12345"].semitones == 2
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("pikaraoke.lib.stream_manager.can_serve_directly", return_value=True)
+    @patch("pikaraoke.lib.stream_manager.can_serve_video_directly", return_value=True)
+    @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
+    @patch("pikaraoke.lib.stream_manager.FileResolver")
+    def test_play_file_vocal_removal_cache_hit_skips_warmup(
+        self,
+        mock_resolver_class,
+        mock_transcode_check,
+        mock_can_video,
+        mock_can_direct,
+        mock_gettext,
+        test_prefs,
+    ):
+        """Cache hit → done_event already set → no warmup pipe needed."""
+        import threading
+
+        from pikaraoke.lib.stream_manager import ActiveStems
+
+        test_prefs.set("vocal_removal", True)
+        sm = StreamManager(test_prefs, streaming_format="mp4")
+        mock_fr = self._setup_resolver(
+            mock_resolver_class, audio_sibling_path="/songs/test.m4a"
+        )
+        mock_fr.file_path = "/songs/test.mp4"
+
+        def fake_prepare_stems(fr):
+            done = threading.Event()
+            done.set()  # cache hit
+            ready = threading.Event()
+            ready.set()
+            sm.active_stems[str(fr.stream_uid)] = ActiveStems(
+                vocals_path="/cache/vocals.wav",
+                instrumental_path="/cache/instrumental.wav",
+                format="wav",
+                done_event=done,
+                ready_event=ready,
+            )
+            return True
+
+        with patch.object(sm, "_prepare_stems", side_effect=fake_prepare_stems):
+            result = sm.play_file("/songs/test.mp4")
+
         assert result.audio_track_url is None
         assert "12345" not in sm.active_audio
 

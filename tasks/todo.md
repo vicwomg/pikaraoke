@@ -156,8 +156,13 @@ files; the default pipeline stays unchanged.
   Popens now start on the caller thread so either reader can
   `terminate()` the other the moment its own rc is non-zero. Test
   `test_split_download_cancels_sibling_on_failure` pins the behaviour.
-- \[ \] Consider cross-fading the sibling m4a to stems during the warmup
-  window when playback starts before Demucs completes. Scope: open
-  `needs_audio_pipe` for vocal_removal-on when `has_audio_sibling` and
-  stems aren't cache-hit, then add an m4a→stems crossfade branch in
-  `splash.js`. Deferred — belongs in its own PR.
+- \[x\] Cross-fade sibling m4a to stems during the Demucs warmup window.
+  `stream_manager.play_file` now opens the audio pipe at the m4a
+  sibling when `vocal_removal` is on and the stems aren't a cache hit
+  (checked via `ActiveStems.done_event`). `splash.js` detects the
+  warmup track by label and, on `stems_ready`, fades the m4a to zero
+  before swapping to stems (pre-silenced, then ramped to target gain),
+  so the user hears the song end-to-end instead of silence + sudden
+  pop-in. Cache-hit and old-muxed-mp4 paths are unchanged. Covered by
+  `test_play_file_vocal_removal_warmup_pipes_sibling` and
+  `test_play_file_vocal_removal_cache_hit_skips_warmup`.

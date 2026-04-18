@@ -299,9 +299,11 @@ const ensureAudioContextRunning = () => {
   return Promise.resolve();
 };
 
-// Sets up stems and crossfades from video audio. Bails if the context
-// isn't running so the video keeps its audio instead of going silent —
-// stems are re-tried when a gesture resumes the context.
+// Sets up stems and crossfades from whatever audio source is currently
+// playing — the video's native track, or the m4a warmup pipe when the
+// split-download path served a silent video. Bails if the context
+// isn't running so the current source keeps playing; stems are re-tried
+// when a gesture resumes the context.
 const applyPendingStems = () => {
   if (!pendingStemsData) return;
   const data = pendingStemsData;
@@ -311,8 +313,9 @@ const applyPendingStems = () => {
     pendingStemsData = null;  // song changed
     return;
   }
-  if (audioNodes) {
-    pendingStemsData = null;  // already set up (cache hit path)
+  const labels = audioNodes ? audioNodes.labels : [];
+  if (labels.includes("vocals") && labels.includes("instrumental")) {
+    pendingStemsData = null;  // already on stems (cache hit path)
     return;
   }
   if (!stemAudioCtx || stemAudioCtx.state !== "running") return;
@@ -323,18 +326,38 @@ const applyPendingStems = () => {
     vocals_url: data.vocals_url,
     instrumental_url: data.instrumental_url,
   };
-  setupStemAudio(np, video);
-  if (!audioNodes) return;
-  for (const label of audioNodes.labels) {
-    try { audioNodes.tracks[label].el.currentTime = video.currentTime; } catch (e) {}
-    audioNodes.tracks[label].el.play().catch(() => {});
-  }
-  // 300ms crossfade: video audio down to 0 as stem gains ramp up.
   const fadeMs = 300;
+
+  const startStems = () => {
+    setupStemAudio(np, video);
+    if (!audioNodes || !stemAudioCtx) return;
+    // Pre-silence stem gains so they ramp up instead of popping in at
+    // full vocal/instrumental volume.
+    const now = stemAudioCtx.currentTime;
+    for (const label of audioNodes.labels) {
+      const g = audioNodes.tracks[label].gain.gain;
+      g.cancelScheduledValues(now);
+      g.setValueAtTime(0, now);
+      try { audioNodes.tracks[label].el.currentTime = video.currentTime; } catch (e) {}
+      audioNodes.tracks[label].el.play().catch(() => {});
+    }
+    fadeStems(stemTargets(), fadeMs);
+  };
+
+  if (labels.includes("track")) {
+    // Warmup m4a pipe is playing. Fade it out first, then swap to stems
+    // — setupStemAudio tears down the track pipe as part of its setup.
+    fadeStems({ track: 0 }, fadeMs);
+    setTimeout(startStems, fadeMs);
+    return;
+  }
+
+  // Default: video's own audio track is the source — fade it down as
+  // stems ramp up.
+  startStems();
   $(video).animate({ volume: 0 }, fadeMs, () => {
     video.muted = true;
   });
-  fadeStems(stemTargets(), fadeMs);
 };
 
 // Extracts the stream_uid from a /stream/<uid>.<ext> URL so stems_ready

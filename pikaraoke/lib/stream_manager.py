@@ -196,20 +196,31 @@ class StreamManager:
             uid = str(fr.stream_uid)
             stream_url_path = f"/stream/video/{fr.stream_uid}.mp4"
             self.active_sources[uid] = fr.file_path  # type: ignore[assignment]
-            # Pipe audio if transforms are set, avsync is nonzero (we need a
-            # separate <audio> element to apply the client-side offset to),
-            # or the native track isn't browser-compatible, or the video is
-            # silent with a sibling audio file (parallel-download pipeline).
-            # Skip entirely when vocal_removal is on — stems carry the audio,
-            # and transforms on stems aren't supported in this pipeline yet
-            # (stems would play unpitched, matching pre-Phase-4 behavior).
             has_audio_sibling = fr.audio_sibling_path is not None
-            needs_audio_pipe = not vocal_removal and (
-                has_audio_sibling
-                or needs_audio_transforms
-                or avsync != 0
-                or not can_serve_directly(fr.file_path)
-            )
+            # When vocal_removal is on, stems carry the audio — but only
+            # once they land. A cache hit (done_event set in _prepare_stems)
+            # means stems start instantly; otherwise we pipe the m4a
+            # sibling during Demucs warmup so the user hears the song
+            # instead of silence. splash.js crossfades m4a → stems when
+            # the `stems_ready` event arrives.
+            stems_cache_hit = False
+            if vocal_removal:
+                entry = self.active_stems.get(uid)
+                stems_cache_hit = entry is not None and entry.done_event.is_set()
+            if vocal_removal:
+                # No warmup fallback for old muxed mp4s — the video track
+                # still has audio to play until stems_ready fires.
+                needs_audio_pipe = has_audio_sibling and not stems_cache_hit
+            else:
+                # Direct-video path: transforms, client-side avsync, codec
+                # incompatibility, or a silent split-download video all
+                # require a separate audio pipe.
+                needs_audio_pipe = (
+                    has_audio_sibling
+                    or needs_audio_transforms
+                    or avsync != 0
+                    or not can_serve_directly(fr.file_path)
+                )
             if needs_audio_pipe:
                 audio_source = fr.audio_sibling_path or fr.file_path
                 self.active_audio[uid] = AudioTrackConfig(
