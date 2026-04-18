@@ -174,6 +174,78 @@
       $("#pk-theme-btn").on("click", function () {
         if (window.PK && window.PK.theme) window.PK.theme.toggle();
       });
+
+      // Pilot-side notifications + per-song warning icon (US-11/12/13 mirror).
+      // Buffers warnings per song so the icon persists for the song's duration
+      // and tapping it reveals the messages; splash-side has the same feature.
+      var songWarningsBySong = new Map();
+      var currentSongKey = null;
+      var SONG_WARNING_BUFFER_MAX = 40;
+
+      function warningSongKey(np) {
+        if (!np) return null;
+        return np.now_playing_basename || np.now_playing_file_path || np.now_playing || null;
+      }
+
+      function renderSongWarnings() {
+        var warnings = currentSongKey ? (songWarningsBySong.get(currentSongKey) || []) : [];
+        var $icon = $("#pk-song-warning");
+        var $list = $("#pk-song-warning-list");
+        if (!warnings.length) {
+          $icon.attr("hidden", true);
+          $("#pk-song-warning-panel").removeClass("is-open");
+          return;
+        }
+        $icon.removeAttr("hidden");
+        $list.empty();
+        warnings.forEach(function (w) {
+          var $entry = $('<div class="pk-warning-entry"></div>');
+          $('<div class="pk-warning-title"></div>').text(w.message).appendTo($entry);
+          if (w.detail) $('<div class="pk-warning-detail"></div>').text(w.detail).appendTo($entry);
+          $list.append($entry);
+        });
+      }
+
+      function bufferSongWarning(songKey, message, detail) {
+        if (!songKey) return;
+        var list = songWarningsBySong.get(songKey) || [];
+        var dup = list.some(function (w) { return w.message === message && w.detail === detail; });
+        if (dup) return;
+        list.push({ message: message, detail: detail });
+        if (list.length > SONG_WARNING_BUFFER_MAX) list.shift();
+        songWarningsBySong.set(songKey, list);
+      }
+
+      $("#pk-song-warning").on("click", function () {
+        $("#pk-song-warning-panel").toggleClass("is-open");
+      });
+
+      if (window.socket) {
+        window.socket.on("notification", function (data) {
+          var parts = String(data == null ? "" : data).split("::");
+          showNotification(parts[0], parts[1] || "is-info");
+        });
+
+        window.socket.on("song_warning", function (data) {
+          if (!data) return;
+          var key = data.song || currentSongKey;
+          bufferSongWarning(key, data.message, data.detail);
+          renderSongWarnings();
+          if (key === currentSongKey) {
+            showNotification(data.message, "is-warning", 4000);
+          }
+        });
+
+        // Piggy-back on now_playing to retarget the per-song warning icon.
+        // now-playing-bar.js has its own `now_playing` listener; both coexist.
+        window.socket.on("now_playing", function (np) {
+          var key = warningSongKey(np);
+          if (key !== currentSongKey) {
+            currentSongKey = key;
+            renderSongWarnings();
+          }
+        });
+      }
     });
   </script>
 
@@ -223,12 +295,19 @@
       <a class="pk-icon-btn" href="{{ url_for('info.info') }}" style="width: 36px; height: 36px;" aria-label="Info">
         <i class="icon icon-info-circled-1"></i>
       </a>
+      <button type="button" id="pk-song-warning" class="pk-icon-btn" hidden style="width: 36px; height: 36px;" aria-label="Song warnings">
+        <i class="icon icon-attention"></i>
+      </button>
       <a id="current-user" class="pk-singer-chip" href="#">
         <i class="pk-dot" aria-hidden="true"></i>
         <span class="pk-user-name">&mdash;</span>
       </a>
     </div>
   </header>
+
+  <div id="pk-song-warning-panel" class="pk-notif-panel">
+    <div id="pk-song-warning-list"></div>
+  </div>
 
   {# ===== Content =====
      Unmigrated views use the Bulma .box wrapper — which is also the SPA

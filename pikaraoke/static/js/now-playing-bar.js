@@ -20,6 +20,9 @@
     transposePending: 0,
     transposeTimer: null,
     seekDragging: false,
+    seekDuration: 0,
+    seekBufferedDemucs: null,
+    seekBufferedFfmpeg: null,
   };
 
   function init(opts = {}) {
@@ -61,6 +64,24 @@
     if (window.socket) {
       window.socket.off('now_playing', onSocketNowPlaying);
       window.socket.on('now_playing', onSocketNowPlaying);
+
+      window.socket.off('stems_ready', onStemsReady);
+      window.socket.on('stems_ready', onStemsReady);
+
+      window.socket.off('stem_volume', onStemVolume);
+      window.socket.on('stem_volume', onStemVolume);
+
+      window.socket.off('playback_position', onPlaybackPosition);
+      window.socket.on('playback_position', onPlaybackPosition);
+
+      window.socket.off('seek', onSeek);
+      window.socket.on('seek', onSeek);
+
+      window.socket.off('demucs_progress', onDemucsProgress);
+      window.socket.on('demucs_progress', onDemucsProgress);
+
+      window.socket.off('ffmpeg_progress', onFfmpegProgress);
+      window.socket.on('ffmpeg_progress', onFfmpegProgress);
     }
 
     document.addEventListener('visibilitychange', () => {
@@ -74,6 +95,60 @@
 
   function onSocketNowPlaying(data) {
     render(data);
+  }
+
+  // Swap single-volume → stem sliders the moment Demucs's first usable
+  // segment is on disk, without waiting for the next now_playing push.
+  function onStemsReady() {
+    if (el.volumeTool) el.volumeTool.hidden = true;
+    el.stemTools.forEach((t) => (t.hidden = false));
+    if (el.vocalSlider) el.vocalSlider.disabled = false;
+    if (el.instSlider) el.instSlider.disabled = false;
+  }
+
+  // Another pilot moved a stem slider — update the non-active slider and its %.
+  function onStemVolume(data) {
+    if (!data) return;
+    if (typeof data.vocal_volume === 'number'
+      && el.vocalSlider && document.activeElement !== el.vocalSlider) {
+      el.vocalSlider.value = data.vocal_volume;
+      if (el.vocalVal) el.vocalVal.textContent = Math.round(data.vocal_volume * 100) + '%';
+    }
+    if (typeof data.instrumental_volume === 'number'
+      && el.instSlider && document.activeElement !== el.instSlider) {
+      el.instSlider.value = data.instrumental_volume;
+      if (el.instVal) el.instVal.textContent = Math.round(data.instrumental_volume * 100) + '%';
+    }
+  }
+
+  function onPlaybackPosition(pos) {
+    if (state.seekDragging || !el.seekSlider) return;
+    el.seekSlider.value = pos;
+    if (el.seekCurrent) el.seekCurrent.textContent = fmtTime(pos);
+    if (state.seekDuration > 0 && el.mini) {
+      const pct = Math.min(100, Math.max(0, (pos / state.seekDuration) * 100));
+      el.mini.style.setProperty('--pk-progress', pct + '%');
+    }
+  }
+
+  function onSeek(pos) {
+    if (state.seekDragging || !el.seekSlider) return;
+    el.seekSlider.value = pos;
+    if (el.seekCurrent) el.seekCurrent.textContent = fmtTime(pos);
+  }
+
+  function onDemucsProgress(data) {
+    if (!data || typeof data.processed !== 'number' || typeof data.total !== 'number') return;
+    if (data.total <= 0) return;
+    state.seekBufferedDemucs = data.processed >= data.total - 0.05 ? null : data.processed;
+    updateSeekBufferedVisual();
+  }
+
+  function onFfmpegProgress(data) {
+    if (!data || typeof data.processed !== 'number' || typeof data.total !== 'number') return;
+    if (data.total <= 0) return;
+    state.seekBufferedFfmpeg = data.processed >= data.total - 0.05 ? null : data.processed;
+    updateSeekBufferedVisual();
   }
 
   function fetchNowPlaying() {
@@ -117,26 +192,25 @@
     el.fullTranspose.textContent = formatSemitones(data.now_playing_transpose || 0);
     setPauseIcon(el.fullPauseIcon, data.is_paused);
 
-    // Volume / stem controls: show one or the other depending on vocal_removal
-    const stemsOn = !!data.vocal_removal;
-    if (el.volumeTool) el.volumeTool.hidden = stemsOn;
-    el.stemTools.forEach((t) => (t.hidden = !stemsOn));
+    // Volume / stem controls: single slider during Demucs warmup, two sliders once stems are audible.
+    const stemsReady = !!(data.vocal_removal && data.vocals_url && data.instrumental_url);
+    if (el.volumeTool) el.volumeTool.hidden = stemsReady;
+    el.stemTools.forEach((t) => (t.hidden = !stemsReady));
 
-    if (!stemsOn && data.volume != null && el.fullVolume && document.activeElement !== el.fullVolume) {
+    if (!stemsReady && data.volume != null && el.fullVolume && document.activeElement !== el.fullVolume) {
       el.fullVolume.value = data.volume;
     }
 
-    if (stemsOn) {
-      const stemsReady = !!(data.vocals_url && data.instrumental_url);
+    if (stemsReady) {
       if (el.vocalSlider) {
-        el.vocalSlider.disabled = !stemsReady;
+        el.vocalSlider.disabled = false;
         if (document.activeElement !== el.vocalSlider && typeof data.vocal_volume === 'number') {
           el.vocalSlider.value = data.vocal_volume;
           if (el.vocalVal) el.vocalVal.textContent = Math.round(data.vocal_volume * 100) + '%';
         }
       }
       if (el.instSlider) {
-        el.instSlider.disabled = !stemsReady;
+        el.instSlider.disabled = false;
         if (document.activeElement !== el.instSlider && typeof data.instrumental_volume === 'number') {
           el.instSlider.value = data.instrumental_volume;
           if (el.instVal) el.instVal.textContent = Math.round(data.instrumental_volume * 100) + '%';
@@ -147,12 +221,33 @@
     // Seek slider + timecodes
     const dur = Number(data.now_playing_duration) || 0;
     if (el.seekSection && dur > 0) {
+      state.seekDuration = dur;
       el.seekSection.hidden = false;
       el.seekSlider.max = dur;
       if (!state.seekDragging) el.seekSlider.value = Number(data.now_playing_position) || 0;
       el.seekCurrent.textContent = fmtTime(Number(data.now_playing_position) || 0);
       el.seekDuration.textContent = fmtTime(dur);
+
+      // Re-derive buffered bounds from now_playing so a fresh page load
+      // reflects in-flight processing without waiting for the next progress tick.
+      if (data.vocal_removal
+        && typeof data.demucs_processed === 'number' && typeof data.demucs_total === 'number'
+        && data.demucs_total > 0 && data.demucs_processed < data.demucs_total) {
+        state.seekBufferedDemucs = data.demucs_processed;
+      } else {
+        state.seekBufferedDemucs = null;
+      }
+      if (typeof data.ffmpeg_processed === 'number' && typeof data.ffmpeg_total === 'number'
+        && data.ffmpeg_total > 0 && data.ffmpeg_processed < data.ffmpeg_total) {
+        state.seekBufferedFfmpeg = data.ffmpeg_processed;
+      } else {
+        state.seekBufferedFfmpeg = null;
+      }
+      updateSeekBufferedVisual();
     } else if (el.seekSection) {
+      state.seekDuration = 0;
+      state.seekBufferedDemucs = null;
+      state.seekBufferedFfmpeg = null;
       el.seekSection.hidden = true;
     }
 
@@ -168,6 +263,31 @@
     const m = Math.floor(s / 60);
     const ss = s % 60;
     return m + ':' + (ss < 10 ? '0' + ss : ss);
+  }
+
+  // Buffered-seek helpers — demucs and ffmpeg each cap how far the user
+  // can scrub; the effective limit is the slower of the two.
+  function effectiveSeekBuffered() {
+    if (state.seekBufferedDemucs === null && state.seekBufferedFfmpeg === null) return null;
+    if (state.seekBufferedDemucs === null) return state.seekBufferedFfmpeg;
+    if (state.seekBufferedFfmpeg === null) return state.seekBufferedDemucs;
+    return Math.min(state.seekBufferedDemucs, state.seekBufferedFfmpeg);
+  }
+
+  function updateSeekBufferedVisual() {
+    if (!el.seekSlider) return;
+    const buffered = effectiveSeekBuffered();
+    let pct;
+    if (state.seekDuration <= 0) pct = 0;
+    else if (buffered === null) pct = 100;
+    else pct = Math.max(0, Math.min(100, (buffered / state.seekDuration) * 100));
+    el.seekSlider.style.setProperty('--seek-buffered-pct', pct + '%');
+  }
+
+  function clampToBuffered(v) {
+    const buffered = effectiveSeekBuffered();
+    if (buffered !== null && v > buffered) return buffered;
+    return v;
   }
 
   function setPauseIcon(iconEl, isPaused) {
@@ -217,19 +337,25 @@
       });
     }
 
-    // Seek slider — emit 'seek' on change (release), not on input (dragging).
+    // Seek slider — emit 'seek' on change (release). Clamp drag to the
+    // buffered upper bound so users can't scrub into unprocessed territory.
     if (el.seekSlider) {
       const startDrag = () => { state.seekDragging = true; };
-      const endDrag = () => {
-        state.seekDragging = false;
-        if (window.socket) window.socket.emit('seek', parseFloat(el.seekSlider.value));
-      };
       el.seekSlider.addEventListener('input', () => {
-        if (el.seekCurrent) el.seekCurrent.textContent = fmtTime(parseFloat(el.seekSlider.value));
+        state.seekDragging = true;
+        const v = clampToBuffered(parseFloat(el.seekSlider.value));
+        if (v !== parseFloat(el.seekSlider.value)) el.seekSlider.value = v;
+        if (el.seekCurrent) el.seekCurrent.textContent = fmtTime(v);
       });
+      el.seekSlider.addEventListener('pointerdown', startDrag);
       el.seekSlider.addEventListener('mousedown', startDrag);
-      el.seekSlider.addEventListener('touchstart', startDrag);
-      el.seekSlider.addEventListener('change', endDrag);
+      el.seekSlider.addEventListener('touchstart', startDrag, { passive: true });
+      el.seekSlider.addEventListener('change', () => {
+        const v = clampToBuffered(parseFloat(el.seekSlider.value));
+        el.seekSlider.value = v;
+        if (window.socket) window.socket.emit('seek', v);
+        state.seekDragging = false;
+      });
     }
   }
 

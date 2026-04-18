@@ -277,6 +277,7 @@ body {
 .pk-notification.is-success { border-left-color: var(--pk-lime); }
 .pk-notification.is-danger { border-left-color: var(--pk-danger); }
 .pk-notification.is-info { border-left-color: var(--pk-amber-2); }
+.pk-notification.is-warning { border-left-color: var(--pk-amber); }
 .pk-notification .delete {
   margin-left: auto;
   background: none;
@@ -286,6 +287,43 @@ body {
   font-size: 18px;
   line-height: 1;
   padding: 4px 8px;
+}
+
+/* Pilot-side song-warning icon + drawer (topbar) */
+#pk-song-warning { color: var(--pk-amber); position: relative; }
+#pk-song-warning[hidden] { display: none; }
+.pk-notif-panel {
+  position: fixed;
+  top: calc(var(--pk-topbar-h) + 6px);
+  right: 12px;
+  left: 12px;
+  max-width: 420px;
+  margin-left: auto;
+  z-index: 65;
+  background: var(--pk-surface-2);
+  border: 1px solid var(--pk-border-strong);
+  border-radius: var(--pk-r-md);
+  box-shadow: var(--pk-shadow-elev);
+  padding: 10px 12px;
+  max-height: 50vh;
+  overflow-y: auto;
+  display: none;
+}
+.pk-notif-panel.is-open { display: block; }
+.pk-warning-entry {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--pk-border);
+  font-size: 13px;
+}
+.pk-warning-entry:last-child { border-bottom: 0; }
+.pk-warning-title { font-weight: 600; color: var(--pk-amber); }
+.pk-warning-detail {
+  color: var(--pk-ink-3);
+  font-family: var(--pk-font-mono);
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-top: 2px;
 }
 
 /* ====== Shared components ====== */

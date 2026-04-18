@@ -276,16 +276,31 @@
   background: transparent;
   cursor: pointer;
   padding: 8px 0;
+  --seek-buffered-pct: 100%;
 }
+/* Two-tone track: amber up to what's processed, muted surface after.
+   --seek-buffered-pct is driven by demucs_progress / ffmpeg_progress ticks. */
 .pk-seek-slider::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 100px;
-  background: var(--pk-surface-3);
+  background: linear-gradient(
+    to right,
+    var(--pk-amber) 0%,
+    var(--pk-amber) var(--seek-buffered-pct),
+    var(--pk-surface-3) var(--seek-buffered-pct),
+    var(--pk-surface-3) 100%
+  );
 }
 .pk-seek-slider::-moz-range-track {
   height: 4px;
   border-radius: 100px;
-  background: var(--pk-surface-3);
+  background: linear-gradient(
+    to right,
+    var(--pk-amber) 0%,
+    var(--pk-amber) var(--seek-buffered-pct),
+    var(--pk-surface-3) var(--seek-buffered-pct),
+    var(--pk-surface-3) 100%
+  );
 }
 .pk-seek-slider::-webkit-slider-thumb {
   appearance: none;
