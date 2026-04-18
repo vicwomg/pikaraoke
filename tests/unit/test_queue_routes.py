@@ -170,12 +170,12 @@ class TestQueueEditSocketUpdates:
         return qm, mock_karaoke, queue_updates, now_playing_updates
 
     @pytest.mark.parametrize(
-        "action,song_param",
+        "action,song_param,expected_files",
         [
-            ("delete", "&song=/songs/song1.mp4"),
-            ("up", "&song=/songs/song2.mp4"),
-            ("down", "&song=/songs/song1.mp4"),
-            ("clear", ""),
+            ("delete", "&song=/songs/song1.mp4", ["/songs/song2.mp4"]),
+            ("up", "&song=/songs/song2.mp4", ["/songs/song2.mp4", "/songs/song1.mp4"]),
+            ("down", "&song=/songs/song1.mp4", ["/songs/song2.mp4", "/songs/song1.mp4"]),
+            ("clear", "", []),
         ],
     )
     @patch("pikaraoke.routes.queue.is_admin", return_value=True)
@@ -191,9 +191,10 @@ class TestQueueEditSocketUpdates:
         client_with_session,
         action,
         song_param,
+        expected_files,
         queue_env,
     ):
-        """Queue edit actions emit queue_update and now_playing_update events."""
+        """Queue edit actions change queue state and emit both update events."""
         qm, mock_karaoke, queue_updates, now_playing_updates = queue_env
         qm.queue = [_make_queue_item(1), _make_queue_item(2)]
         mock_get_instance.return_value = mock_karaoke
@@ -201,8 +202,9 @@ class TestQueueEditSocketUpdates:
         response = client_with_session.get(f"/queue/edit?action={action}{song_param}")
 
         assert response.status_code == 302
-        assert len(queue_updates) >= 1, "queue_update event should be emitted"
-        assert len(now_playing_updates) >= 1, "now_playing_update event should be emitted"
+        assert [item["file"] for item in qm.queue] == expected_files
+        assert len(queue_updates) == 1
+        assert len(now_playing_updates) == 1
 
     @pytest.mark.parametrize(
         "action,song_param,expected_new_index",

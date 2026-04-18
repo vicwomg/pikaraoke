@@ -180,9 +180,13 @@ class TestGetTmpDir:
     """Tests for the get_tmp_dir function."""
 
     def test_returns_string(self):
-        """Test that get_tmp_dir returns a string path."""
+        """Test that get_tmp_dir returns a non-empty absolute path under the system tempdir."""
+        import tempfile
+
         result = get_tmp_dir()
-        assert isinstance(result, str)
+        assert isinstance(result, str) and result
+        assert os.path.isabs(result)
+        assert result.startswith(tempfile.gettempdir())
 
     def test_includes_pid(self):
         """Test that temp dir includes process ID."""
@@ -208,12 +212,15 @@ class TestCreateTmpDir:
             assert (tmp_path / "test_tmp").exists()
 
     def test_idempotent(self, tmp_path):
-        """Test that create_tmp_dir doesn't fail if dir exists."""
+        """create_tmp_dir on an existing dir does not wipe or recreate its contents."""
         test_dir = tmp_path / "test_tmp"
         test_dir.mkdir()
+        sentinel = test_dir / "pre_existing.txt"
+        sentinel.write_text("keep me")
         with patch("pikaraoke.lib.file_resolver.get_tmp_dir", return_value=str(test_dir)):
-            create_tmp_dir()  # Should not raise
-            assert test_dir.exists()
+            create_tmp_dir()
+        assert sentinel.exists()
+        assert sentinel.read_text() == "keep me"
 
 
 class TestDeleteTmpDir:
@@ -230,11 +237,11 @@ class TestDeleteTmpDir:
             assert not test_dir.exists()
 
     def test_handles_nonexistent_dir(self, tmp_path):
-        """Test that delete_tmp_dir handles nonexistent directory."""
-        with patch(
-            "pikaraoke.lib.file_resolver.get_tmp_dir", return_value=str(tmp_path / "nonexistent")
-        ):
-            delete_tmp_dir()  # Should not raise
+        """delete_tmp_dir on a missing dir is a no-op: does not raise and does not create it."""
+        missing = tmp_path / "nonexistent"
+        with patch("pikaraoke.lib.file_resolver.get_tmp_dir", return_value=str(missing)):
+            delete_tmp_dir()
+        assert not missing.exists()
 
 
 class TestFileResolverInit:
@@ -274,14 +281,14 @@ class TestFileResolverInit:
     @patch("pikaraoke.lib.file_resolver.create_tmp_dir")
     @patch("pikaraoke.lib.file_resolver.get_tmp_dir", return_value="/tmp/12345")
     def test_init_sets_segment_pattern(self, mock_tmp, mock_create, mock_duration, tmp_path):
-        """Test that init sets segment pattern and init filename."""
+        """Segment pattern and init filename are built from tmp_dir + stream_uid."""
         test_file = tmp_path / "song.mp4"
         test_file.touch()
 
         fr = FileResolver(str(test_file))
 
-        assert "_segment_" in fr.segment_pattern
-        assert "_init.mp4" in fr.init_filename
+        assert fr.segment_pattern == f"/tmp/12345/{fr.stream_uid}_segment_%03d.m4s"
+        assert fr.init_filename == f"{fr.stream_uid}_init.mp4"
 
 
 class TestFileResolverHandleAegissubSubtitle:

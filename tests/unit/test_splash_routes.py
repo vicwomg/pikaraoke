@@ -93,12 +93,17 @@ class TestScorePhrasesEndpoint:
     """Tests for GET /splash/score_phrases."""
 
     @patch("pikaraoke.routes.splash.get_karaoke_instance")
-    def test_returns_json_with_all_tiers(self, mock_get_instance, client):
+    def test_returns_json_with_all_tiers(self, mock_get_instance, app, client):
         mock_get_instance.return_value = _make_karaoke(low="Bad|Terrible")
 
         response = client.get("/splash/score_phrases")
 
         assert response.status_code == 200
         data = response.get_json()
-        assert set(data.keys()) == {"low", "mid", "high"}
-        assert data["low"] == ["Bad", "Terrible"]
+        with app.app_context():
+            defaults = _default_score_phrases()
+        assert data == {
+            "low": ["Bad", "Terrible"],
+            "mid": defaults["mid"],
+            "high": defaults["high"],
+        }

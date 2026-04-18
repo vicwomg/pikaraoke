@@ -81,12 +81,16 @@ class TestStreamManagerLogFfmpegOutput:
             mock_logging.debug.assert_not_called()
 
     def test_no_log_when_queue_is_none(self, test_prefs):
-        """Test no error when ffmpeg_log is None."""
+        """With ffmpeg_log=None: no logging, no exception, state unchanged."""
         sm = StreamManager(test_prefs)
         sm.ffmpeg_log = None
 
-        # Should not raise
-        sm.log_ffmpeg_output()
+        with patch("pikaraoke.lib.stream_manager.logging") as mock_logging:
+            sm.log_ffmpeg_output()
+            mock_logging.debug.assert_not_called()
+            mock_logging.warning.assert_not_called()
+            mock_logging.error.assert_not_called()
+        assert sm.ffmpeg_log is None
 
 
 class TestStreamManagerKillFfmpeg:
@@ -126,14 +130,18 @@ class TestStreamManagerKillFfmpeg:
         mock_process.kill.assert_called_once()
 
     def test_kill_ffmpeg_handles_exception(self, test_prefs):
-        """Test that exceptions during termination are handled."""
+        """When terminate() raises, kill() and wait() are skipped but state is still reset."""
         sm = StreamManager(test_prefs)
         mock_process = MagicMock()
         mock_process.terminate.side_effect = Exception("Process error")
         sm.ffmpeg_process = mock_process
 
-        # Should not raise
-        sm.kill_ffmpeg()
+        sm.kill_ffmpeg()  # must not raise
+
+        # Exception path: neither SIGKILL nor the wait() loop ran
+        mock_process.kill.assert_not_called()
+        mock_process.wait.assert_not_called()
+        # finally-block still resets state
         assert sm.ffmpeg_process is None
 
 

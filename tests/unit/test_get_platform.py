@@ -186,14 +186,13 @@ class TestGetPlatform:
                 assert get_platform() == "android"
 
     def test_raspberry_pi_platform(self):
-        """Test Raspberry Pi detection with model string."""
+        """Test Raspberry Pi detection returns the exact device-tree model string."""
         mock_file = mock_open(read_data="Raspberry Pi 4 Model B Rev 1.2")
         with patch("sys.platform", "linux"):
             with patch("pikaraoke.lib.get_platform.is_android", return_value=False):
                 with patch("pikaraoke.lib.get_platform.is_raspberry_pi", return_value=True):
                     with patch("builtins.open", mock_file):
-                        result = get_platform()
-                        assert "Raspberry Pi" in result
+                        assert get_platform() == "Raspberry Pi 4 Model B Rev 1.2"
 
     def test_unknown_platform(self):
         """Test unknown platform detection."""
@@ -295,13 +294,13 @@ class TestGetDataDirectory:
                     assert result == "/home/test/.pikaraoke"
 
     def test_linux_path_creation(self):
-        """Test that Linux creates the directory if missing."""
+        """Test that Linux creates the missing data directory at ~/.pikaraoke."""
         with patch("pikaraoke.lib.get_platform.is_windows", return_value=False):
             with patch("os.path.expanduser", return_value="/home/test/.pikaraoke"):
                 with patch("os.path.exists", return_value=False):
                     with patch("os.makedirs") as mock_makedirs:
                         get_data_directory()
-                        mock_makedirs.assert_called_once()
+                        mock_makedirs.assert_called_once_with("/home/test/.pikaraoke")
 
 
 class TestGetOsVersion:

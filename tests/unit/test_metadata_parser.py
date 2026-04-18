@@ -196,10 +196,13 @@ class TestScoreResult:
         assert score < score_exact
 
     def test_word_matching_fallback(self):
-        result = {"name": "Something Different Song", "artist": "Artist"}
-        unrelated = {"name": "Completely Unrelated Track", "artist": "Artist"}
-        score = score_result(result, "Something - Artist")
-        score_unrelated = score_result(unrelated, "Something - Artist")
+        # Query phrase is not a substring of the track (word order differs),
+        # so _match_score returns 0 and scoring falls back to _word_match_score
+        # which matches on individual words >3 chars ("amazing" in track).
+        result = {"name": "tune amazing extra", "artist": "Artist"}
+        unrelated = {"name": "completely unrelated stuff", "artist": "Artist"}
+        score = score_result(result, "Amazing Tune - Artist")
+        score_unrelated = score_result(unrelated, "Amazing Tune - Artist")
         assert score > score_unrelated
 
     def test_bad_keyword_penalization_live(self):

@@ -5,6 +5,8 @@ These tests verify that queue operations are accessible through the queue_manage
 
 import pytest
 
+from pikaraoke.lib.events import EventSystem
+
 
 class TestKaraokeQueueInterface:
     """Verify Karaoke class exposes queue methods with correct signatures."""
@@ -82,8 +84,10 @@ class TestKaraokeQueueInterface:
         assert qm.is_user_limited("OtherUser") is False
 
     def test_events_system_is_accessible(self, mock_karaoke):
-        """QueueManager should have an accessible EventSystem."""
-        assert mock_karaoke.queue_manager._events is not None
+        """QueueManager shares the same EventSystem instance as the Karaoke wiring."""
+        events = mock_karaoke.queue_manager._events
+        assert isinstance(events, EventSystem)
+        assert events is mock_karaoke.events
 
 
 class TestKaraokeQueueBehavior:
@@ -146,11 +150,15 @@ class TestKaraokeQueueStateManagement:
         assert mock_karaoke.limit_user_songs_by == 5
 
     def test_socketio_can_be_assigned(self, mock_karaoke):
-        """socketio attribute should accept assignment."""
+        """socketio attribute round-trips through the property and can be cleared."""
         from unittest.mock import MagicMock
 
-        mock_karaoke.socketio = MagicMock()
-        assert mock_karaoke.socketio is not None
+        sio = MagicMock()
+        mock_karaoke.socketio = sio
+        assert mock_karaoke.socketio is sio
+
+        mock_karaoke.socketio = None
+        assert mock_karaoke.socketio is None
 
 
 class TestKaraokeQueueIntegration:
@@ -179,14 +187,18 @@ class TestKaraokeQueueIntegration:
         assert len(mock_karaoke.queue_manager.queue) == 2
 
     def test_queue_operations_trigger_socket_updates(self, mock_karaoke):
-        """Queue operations with SocketIO should trigger emit calls."""
+        """Queue operations emit queue_update and now_playing events over SocketIO."""
         from unittest.mock import MagicMock
 
         mock_karaoke.socketio = MagicMock()
 
         mock_karaoke.queue_manager.enqueue("/songs/test---abc.mp4", "User1")
-        assert mock_karaoke.socketio.emit.called
+        emitted_events = [call.args[0] for call in mock_karaoke.socketio.emit.call_args_list]
+        assert "queue_update" in emitted_events
+        assert "now_playing" in emitted_events
 
         mock_karaoke.socketio.emit.reset_mock()
         mock_karaoke.queue_manager.queue_clear()
-        assert mock_karaoke.socketio.emit.called
+        emitted_events = [call.args[0] for call in mock_karaoke.socketio.emit.call_args_list]
+        assert "queue_update" in emitted_events
+        assert "now_playing" in emitted_events

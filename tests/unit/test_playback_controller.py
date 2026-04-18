@@ -178,7 +178,11 @@ class TestPlaybackControllerMissingFile:
         result = pc.play_file(str(song), "TestUser")
 
         assert result.success is True
-        pc.stream_manager.play_file.assert_called_once()
+        pc.stream_manager.play_file.assert_called_once_with(str(song), 0)
+        assert pc.now_playing_filename == str(song)
+        assert pc.now_playing_user == "TestUser"
+        assert pc.now_playing_duration == 180
+        assert pc.now_playing_url == "/stream/123.m3u8"
 
 
 class TestPlaybackControllerStartSong:

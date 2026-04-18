@@ -32,11 +32,18 @@ class TestSongListBasicOperations:
         assert "/songs/test.mp4" not in sl
         assert len(sl) == 0
 
-    def test_remove_nonexistent_song_logs_warning(self, caplog):
-        """Test that removing nonexistent song logs warning."""
+    def test_remove_nonexistent_song_does_not_raise(self, caplog):
+        """Removing a missing song is a no-op: list stays empty, no exception, warning logged."""
         sl = SongList()
-        sl.remove("/songs/nonexistent.mp4")
-        assert "not found" in caplog.text.lower()
+        sl.add("/songs/keep.mp4")
+        import logging
+
+        with caplog.at_level(logging.WARNING):
+            sl.remove("/songs/nonexistent.mp4")
+
+        assert "/songs/keep.mp4" in sl
+        assert len(sl) == 1
+        assert any(rec.levelno == logging.WARNING for rec in caplog.records)
 
     def test_update(self):
         """Test replacing all songs with a new list."""
@@ -258,8 +265,7 @@ class TestSongListFindById:
 
         result = sl.find_by_id(str(tmp_path), video_id)
 
-        assert result is not None
-        assert video_id in result
+        assert result == str(tmp_path / filename)
 
     def test_find_by_id_not_found(self, tmp_path):
         """Test that find_by_id returns None when ID not found."""
