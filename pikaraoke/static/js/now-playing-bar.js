@@ -189,7 +189,11 @@
 
     el.fullTitle.textContent = cleanTitle;
     el.fullSinger.textContent = data.now_playing_user || '';
-    el.fullTranspose.textContent = formatSemitones(data.now_playing_transpose || 0);
+    // fullTranspose is absent when pk_is_transpose_enabled=False (the whole
+    // key/pitch tool is {% if %}'d out of base.html).
+    if (el.fullTranspose) {
+      el.fullTranspose.textContent = formatSemitones(data.now_playing_transpose || 0);
+    }
     setPauseIcon(el.fullPauseIcon, data.is_paused);
 
     // Volume / stem controls: single slider during Demucs warmup, two sliders once stems are audible.

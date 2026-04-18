@@ -328,29 +328,43 @@
       $input.focus();
     });
 
+    let acSeq = 0;
     function fetchAutocomplete(q) {
-      fetch('{{ url_for("search.autocomplete") }}?q=' + encodeURIComponent(q))
+      const mySeq = ++acSeq;
+      const libP = fetch('{{ url_for("search.autocomplete") }}?q=' + encodeURIComponent(q))
         .then((r) => r.json())
-        .then((items) => {
-          if (!items || items.length === 0) return hideAutocomplete();
-          renderAutocomplete(items.slice(0, 8));
-        })
-        .catch(hideAutocomplete);
+        .catch(() => []);
+      const itunesP = fetch('{{ url_for("search.suggest") }}?q=' + encodeURIComponent(q))
+        .then((r) => r.json())
+        .catch(() => []);
+      Promise.all([libP, itunesP]).then(([lib, itunes]) => {
+        if (mySeq !== acSeq) return; // stale
+        const libSlice = (lib || []).slice(0, 4);
+        const itunesSlice = (itunes || []).slice(0, Math.max(0, 8 - libSlice.length));
+        const merged = libSlice.concat(itunesSlice);
+        if (merged.length === 0) return hideAutocomplete();
+        renderAutocomplete(merged);
+      });
     }
 
     function renderAutocomplete(items) {
       $ac.innerHTML = items
-        .map(
-          (it, i) => `
-            <div class="pk-list-row" data-idx="${i}">
-              <div class="pk-list-row-icon"><i class="icon icon-music"></i></div>
+        .map((it, i) => {
+          const isItunes = it.type === 'itunes';
+          const meta = isItunes ? 'szukaj na YouTube' : 'w bibliotece';
+          const leftIcon = isItunes ? 'icon-search-1' : 'icon-music';
+          const rightIcon = isItunes ? 'icon-right-open' : 'icon-plus-circled';
+          const rightColor = isItunes ? 'var(--pk-ink-3)' : 'var(--pk-amber)';
+          return `
+            <div class="pk-list-row" data-idx="${i}" data-type="${isItunes ? 'itunes' : 'library'}">
+              <div class="pk-list-row-icon"><i class="icon ${leftIcon}"></i></div>
               <div class="pk-list-row-body">
                 <div class="pk-list-row-title">${escHtml(it.fileName)}</div>
-                <div class="pk-list-row-meta">w bibliotece</div>
+                <div class="pk-list-row-meta">${meta}</div>
               </div>
-              <i class="icon icon-plus-circled" style="color: var(--pk-amber); font-size: 20px;"></i>
-            </div>`
-        )
+              <i class="icon ${rightIcon}" style="color: ${rightColor}; font-size: 20px;"></i>
+            </div>`;
+        })
         .join('');
       $ac._items = items;
       $ac.hidden = false;
@@ -370,6 +384,14 @@
       const item = items[idx];
       if (!item) return;
       row.style.opacity = '0.5';
+      if (item.type === 'itunes') {
+        // iTunes canonical entry → run YouTube search with the clean query
+        // so the user picks a single YT result to download (US-1).
+        $input.value = item.fileName;
+        hideAutocomplete();
+        submitSearch();
+        return;
+      }
       enqueueLocal(item.path, item.fileName);
     });
 
