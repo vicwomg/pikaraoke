@@ -618,9 +618,7 @@ class TestStreamManagerPlayFile:
 
         test_prefs.set("vocal_removal", True)
         sm = StreamManager(test_prefs, streaming_format="mp4")
-        mock_fr = self._setup_resolver(
-            mock_resolver_class, audio_sibling_path="/songs/test.m4a"
-        )
+        mock_fr = self._setup_resolver(mock_resolver_class, audio_sibling_path="/songs/test.m4a")
         mock_fr.file_path = "/songs/test.mp4"
 
         def fake_prepare_stems(fr):
@@ -664,9 +662,7 @@ class TestStreamManagerPlayFile:
 
         test_prefs.set("vocal_removal", True)
         sm = StreamManager(test_prefs, streaming_format="mp4")
-        mock_fr = self._setup_resolver(
-            mock_resolver_class, audio_sibling_path="/songs/test.m4a"
-        )
+        mock_fr = self._setup_resolver(mock_resolver_class, audio_sibling_path="/songs/test.m4a")
         mock_fr.file_path = "/songs/test.mp4"
 
         def fake_prepare_stems(fr):

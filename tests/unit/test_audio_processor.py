@@ -114,9 +114,7 @@ class TestStreamWavRange:
         assert headers["Content-Type"] == "audio/wav"
 
     def test_range_request_returns_206_with_content_range(self):
-        _, status, headers, total = stream_wav_range(
-            self._config(), range_header="bytes=100-500"
-        )
+        _, status, headers, total = stream_wav_range(self._config(), range_header="bytes=100-500")
         assert status == 206
         assert headers["Content-Range"] == f"bytes 100-500/{total}"
         assert int(headers["Content-Length"]) == 401

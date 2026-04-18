@@ -80,7 +80,9 @@ def build_audio_filters(semitones: int, normalize: bool) -> str | None:
     return ",".join(filters) if filters else None
 
 
-def build_pcm_command(source_path: str, semitones: int, normalize: bool, start_sec: float) -> list[str]:
+def build_pcm_command(
+    source_path: str, semitones: int, normalize: bool, start_sec: float
+) -> list[str]:
     """ffmpeg argv that emits raw s16le PCM at SAMPLE_RATE/CHANNELS to stdout."""
     cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error"]
     if start_sec > 0:

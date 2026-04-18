@@ -228,9 +228,7 @@ class TestGetDefaultDlDir:
         """Windows uses legacy dir if it exists."""
         with patch("pikaraoke.lib.get_platform.is_windows", return_value=True):
             with patch("os.path.exists", return_value=True):
-                with patch(
-                    "os.path.expanduser", return_value="C:\\Users\\test\\pikaraoke-songs"
-                ):
+                with patch("os.path.expanduser", return_value="C:\\Users\\test\\pikaraoke-songs"):
                     result = get_default_dl_dir("windows")
                     assert "pikaraoke-songs" in result
 
