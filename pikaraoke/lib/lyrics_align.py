@@ -24,6 +24,17 @@ class WhisperXAligner:
     """
 
     def __init__(self, model_size: str = "base", device: str = "cpu") -> None:
+        import warnings
+
+        # torchcodec wheels embed an @rpath reference to libavutil that only
+        # resolves on Linux setups; on macOS + Homebrew ffmpeg the loader
+        # falls back to pyannote's in-memory decoder — functionally fine, but
+        # the UserWarning spams the log on every alignment run.
+        warnings.filterwarnings(
+            "ignore",
+            message=r"torchcodec is not installed correctly.*",
+            category=UserWarning,
+        )
         import whisperx  # lazy - optional dep
 
         self._whisperx = whisperx
@@ -33,27 +44,41 @@ class WhisperXAligner:
         self._align_model = None
         self._align_meta = None
         self._align_lang: str | None = None
+        self.last_detected_language: str | None = None
 
     @property
     def model_id(self) -> str:
         """Stable identifier recorded alongside aligned .ass for cache invalidation."""
         return f"whisperx-{self._model_size}"
 
-    def align(self, audio_path: str, reference_text: str) -> list[Word]:
+    def align(
+        self, audio_path: str, reference_text: str, language: str | None = None
+    ) -> list[Word]:
+        """Align ``reference_text`` tokens to whisper-transcribed audio timings.
+
+        Passing ``language`` skips whisper's language-detection pass
+        (``Detected language: xx (0.92) in first 30s of audio``) which
+        otherwise re-runs on every song. The last detected code is kept on
+        ``last_detected_language`` for callers that want to persist it.
+        """
         wx = self._whisperx
         if self._asr_model is None:
             compute_type = "float16" if self._device != "cpu" else "int8"
             self._asr_model = wx.load_model(
                 self._model_size, self._device, compute_type=compute_type
             )
-        asr = self._asr_model.transcribe(audio_path)
-        language = asr.get("language", "en")
+        if language:
+            asr = self._asr_model.transcribe(audio_path, language=language)
+        else:
+            asr = self._asr_model.transcribe(audio_path)
+        detected = asr.get("language", language or "en")
+        self.last_detected_language = detected
 
-        if self._align_model is None or self._align_lang != language:
+        if self._align_model is None or self._align_lang != detected:
             self._align_model, self._align_meta = wx.load_align_model(
-                language_code=language, device=self._device
+                language_code=detected, device=self._device
             )
-            self._align_lang = language
+            self._align_lang = detected
 
         aligned = wx.align(
             asr["segments"],

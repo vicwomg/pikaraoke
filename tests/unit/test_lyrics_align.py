@@ -146,6 +146,7 @@ class TestWhisperXAligner:
         assert [w.text for w in words] == ["hello", "world"]
         assert words[0].start == 0.0
         assert words[1].end == 1.0
+        assert aligner.last_detected_language == "en"
         fake_whisperx.load_model.assert_called_once_with("tiny", "cpu", compute_type="int8")
 
     def test_models_cached_between_calls(self, fake_whisperx):
@@ -177,3 +178,20 @@ class TestWhisperXAligner:
         aligner = WhisperXAligner(model_size="base", device="cuda")
         aligner.align("/tmp/a.mp4", "hi")
         fake_whisperx.load_model.assert_called_once_with("base", "cuda", compute_type="float16")
+
+    def test_cached_language_is_passed_to_transcribe(self, fake_whisperx):
+        from pikaraoke.lib.lyrics_align import WhisperXAligner
+
+        aligner = WhisperXAligner(model_size="tiny", device="cpu")
+        aligner.align("/tmp/a.mp4", "hi", language="pl")
+        # whisperx skips detection when a language hint is supplied.
+        asr = fake_whisperx.load_model.return_value
+        asr.transcribe.assert_called_once_with("/tmp/a.mp4", language="pl")
+
+    def test_no_language_hint_calls_transcribe_without_kwarg(self, fake_whisperx):
+        from pikaraoke.lib.lyrics_align import WhisperXAligner
+
+        aligner = WhisperXAligner(model_size="tiny", device="cpu")
+        aligner.align("/tmp/a.mp4", "hi")
+        asr = fake_whisperx.load_model.return_value
+        asr.transcribe.assert_called_once_with("/tmp/a.mp4")
