@@ -63,7 +63,11 @@ class Word:
 class Aligner(Protocol):
     """Produces word-level timings for a song given its audio and reference lyrics."""
 
-    def align(self, audio_path: str, reference_text: str) -> list[Word]:
+    def align(
+        self, audio_path: str, reference_text: str, language: str | None = None
+    ) -> list[Word]:
+        """``language`` is an optional hint that lets the aligner skip its own
+        detection pass (e.g. when the caller already cached a prior result)."""
         ...
 
     @property
@@ -219,7 +223,20 @@ class LyricsService:
         try:
             audio_path = _wait_for_alignment_audio(song_path)
             plain = _lrc_plain_text(lrc)
-            words = self._aligner.align(audio_path, plain)
+            # Language fast-path: yt-dlp info.json / the enricher / a prior
+            # whisperx run may have cached a code on the song row. Any of
+            # those is authoritative (the user may have hand-edited), so we
+            # pass it as a hint to skip whisperx's ~20 s detection pass and
+            # only persist our own detection when nothing was previously set.
+            song_id = self._db.get_song_id_by_path(song_path) if self._db else None
+            cached_lang = None
+            if self._db is not None and song_id is not None:
+                row = self._db.get_song_by_id(song_id)
+                cached_lang = row["language"] if row is not None else None
+            words = self._aligner.align(audio_path, plain, language=cached_lang)
+            detected_lang = getattr(self._aligner, "last_detected_language", None)
+            if self._db is not None and song_id is not None and not cached_lang and detected_lang:
+                self._db.update_track_metadata(song_id, language=detected_lang)
             if not words:
                 return
             ass = _words_to_ass_with_k_tags(words, lrc)

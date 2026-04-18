@@ -1100,6 +1100,59 @@ class TestUpgradeToWordLevelUsesStem:
         assert aligner.align.call_args.args[0] == "/cache/abc/vocals.mp3"
 
 
+class TestUpgradeToWordLevelLanguageCache:
+    """Cached language skips whisperx re-detection on subsequent alignments."""
+
+    def _setup(self, tmp_path):
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+        song = tmp_path / "S---abc.mp4"
+        song.write_text("fake")
+        db = KaraokeDatabase(str(tmp_path / "t.db"))
+        db.insert_songs([{"file_path": str(song), "youtube_id": None, "format": "mp4"}])
+        return song, db
+
+    def test_persists_detected_language_when_db_empty(self, tmp_path):
+        song, db = self._setup(tmp_path)
+        aligner = MagicMock()
+        aligner.align.return_value = [Word("hi", 1.0, 1.5)]
+        aligner.last_detected_language = "pl"
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
+        with patch("pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p):
+            service._upgrade_to_word_level(str(song), "[00:01.00]hi")
+        assert aligner.align.call_args.kwargs["language"] is None
+        row = db.get_song_by_id(db.get_song_id_by_path(str(song)))
+        assert row["language"] == "pl"
+        db.close()
+
+    def test_passes_cached_language_as_hint(self, tmp_path):
+        song, db = self._setup(tmp_path)
+        db.update_track_metadata(db.get_song_id_by_path(str(song)), language="pl")
+        aligner = MagicMock()
+        aligner.align.return_value = [Word("hi", 1.0, 1.5)]
+        aligner.last_detected_language = "pl"
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
+        with patch("pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p):
+            service._upgrade_to_word_level(str(song), "[00:01.00]hi")
+        assert aligner.align.call_args.kwargs["language"] == "pl"
+        db.close()
+
+    def test_does_not_overwrite_existing_language(self, tmp_path):
+        """info.json / manual edits are authoritative; whisperx disagreement
+        must not clobber them."""
+        song, db = self._setup(tmp_path)
+        db.update_track_metadata(db.get_song_id_by_path(str(song)), language="en")
+        aligner = MagicMock()
+        aligner.align.return_value = [Word("hi", 1.0, 1.5)]
+        aligner.last_detected_language = "pl"
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
+        with patch("pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p):
+            service._upgrade_to_word_level(str(song), "[00:01.00]hi")
+        row = db.get_song_by_id(db.get_song_id_by_path(str(song)))
+        assert row["language"] == "en"
+        db.close()
+
+
 class TestPrewarmTriggeredFromFetchAndConvert:
     def test_prewarm_called_when_aligner_and_lrc(self, tmp_path):
         song = tmp_path / "Foo---abc.mp4"
