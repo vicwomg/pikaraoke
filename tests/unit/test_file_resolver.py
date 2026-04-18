@@ -2,6 +2,7 @@
 
 import os
 import zipfile
+from sys import maxsize
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,6 +17,8 @@ from pikaraoke.lib.file_resolver import (
     is_transcoding_required,
     string_to_hash,
 )
+
+HASH_UPPER_BOUND = (maxsize + 1) * 2
 
 
 class TestIsCdgFile:
@@ -135,11 +138,11 @@ class TestCanServeDirectly:
 class TestStringToHash:
     """Tests for the string_to_hash function."""
 
-    def test_returns_positive_integer(self):
-        """Test that hash is always positive."""
+    def test_returns_positive_integer_within_bounds(self):
+        """Hash must be non-negative and below the documented upper bound."""
         result = string_to_hash("test string")
         assert isinstance(result, int)
-        assert result >= 0
+        assert 0 <= result < HASH_UPPER_BOUND
 
     def test_consistent_hashing(self):
         """Test that same input produces same hash."""
@@ -154,23 +157,23 @@ class TestStringToHash:
         assert hash1 != hash2
 
     def test_empty_string(self):
-        """Test hashing empty string."""
+        """Empty string hashes to a bounded value and is deterministic."""
         result = string_to_hash("")
-        assert isinstance(result, int)
-        assert result >= 0
+        assert 0 <= result < HASH_UPPER_BOUND
+        assert result == string_to_hash("")
 
     def test_unicode_string(self):
-        """Test hashing unicode string."""
+        """Unicode string hashes to a bounded value distinct from its ASCII transliteration."""
         result = string_to_hash("こんにちは世界")
-        assert isinstance(result, int)
-        assert result >= 0
+        assert 0 <= result < HASH_UPPER_BOUND
+        assert result != string_to_hash("konnichiwa sekai")
 
     def test_long_string(self):
-        """Test hashing a very long string."""
+        """Long string hashes to a bounded value distinct from its truncation."""
         long_string = "a" * 10000
         result = string_to_hash(long_string)
-        assert isinstance(result, int)
-        assert result >= 0
+        assert 0 <= result < HASH_UPPER_BOUND
+        assert result != string_to_hash("a")
 
 
 class TestGetTmpDir:

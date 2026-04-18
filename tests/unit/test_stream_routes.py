@@ -97,6 +97,7 @@ class TestStreamStemAudioPipe:
 
         mock_stream.assert_not_called()
         mock_send_file.assert_called_once()
+        assert mock_send_file.call_args.args[0] == str(stem_file)
 
     @patch("pikaraoke.routes.stream.get_karaoke_instance")
     def test_raw_tail_when_demucs_not_done(self, mock_get_instance, client, tmp_path):
@@ -123,4 +124,5 @@ class TestStreamStemAudioPipe:
 
         mock_stream.assert_not_called()
         # tail-stream branch returns a streaming response with Accept-Ranges: none
+        assert response.status_code == 200
         assert response.headers.get("Accept-Ranges") == "none"

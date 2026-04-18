@@ -38,8 +38,7 @@ class TestNowPlayingApiContract:
     @patch("pikaraoke.routes.now_playing.get_karaoke_instance")
     def test_now_playing_returns_all_required_fields(self, mock_get_instance, client):
         """GET /now_playing must return all fields the frontend expects."""
-        mock_karaoke = MagicMock()
-        mock_karaoke.get_now_playing.return_value = {
+        payload = {
             "now_playing": "Artist - Song",
             "now_playing_user": "TestUser",
             "now_playing_duration": 180,
@@ -51,28 +50,19 @@ class TestNowPlayingApiContract:
             "is_paused": False,
             "volume": 0.85,
         }
+        mock_karaoke = MagicMock()
+        mock_karaoke.get_now_playing.return_value = payload
         mock_get_instance.return_value = mock_karaoke
 
         response = client.get("/now_playing")
 
         assert response.status_code == 200
-        data = json.loads(response.data)
-        # Verify all required fields for home/splash page
-        assert "now_playing" in data
-        assert "now_playing_user" in data
-        assert "now_playing_duration" in data
-        assert "now_playing_transpose" in data
-        assert "now_playing_url" in data
-        assert "up_next" in data
-        assert "next_user" in data
-        assert "is_paused" in data
-        assert "volume" in data
+        assert json.loads(response.data) == payload
 
     @patch("pikaraoke.routes.now_playing.get_karaoke_instance")
     def test_now_playing_with_nothing_playing(self, mock_get_instance, client):
         """GET /now_playing with nothing playing returns null values correctly."""
-        mock_karaoke = MagicMock()
-        mock_karaoke.get_now_playing.return_value = {
+        payload = {
             "now_playing": None,
             "now_playing_user": None,
             "now_playing_duration": 0,
@@ -84,14 +74,14 @@ class TestNowPlayingApiContract:
             "is_paused": False,
             "volume": 0.85,
         }
+        mock_karaoke = MagicMock()
+        mock_karaoke.get_now_playing.return_value = payload
         mock_get_instance.return_value = mock_karaoke
 
         response = client.get("/now_playing")
 
         assert response.status_code == 200
-        data = json.loads(response.data)
-        assert data["now_playing"] is None
-        assert data["up_next"] is None
+        assert json.loads(response.data) == payload
 
     @patch("pikaraoke.routes.now_playing.get_karaoke_instance")
     def test_now_playing_up_next_reflects_queue(self, mock_get_instance, client):

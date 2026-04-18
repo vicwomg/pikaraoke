@@ -154,13 +154,19 @@ class TestScoreResult:
 
     def test_empty_result_fields(self):
         result = {"name": "", "artist": ""}
+        reference = {"name": "Viva La Vida", "artist": "Coldplay"}
         score = score_result(result, "Coldplay - Viva La Vida")
-        assert isinstance(score, int)
+        score_reference = score_result(reference, "Coldplay - Viva La Vida")
+        assert score < 0
+        assert score < score_reference
 
     def test_missing_result_fields(self):
         result = {}
+        reference = {"name": "Viva La Vida", "artist": "Coldplay"}
         score = score_result(result, "Coldplay - Viva La Vida")
-        assert isinstance(score, int)
+        score_reference = score_result(reference, "Coldplay - Viva La Vida")
+        assert score < 0
+        assert score < score_reference
 
     def test_query_with_pipe_separator(self):
         result = {"name": "Song Title", "artist": "Artist Name"}
@@ -174,18 +180,27 @@ class TestScoreResult:
 
     def test_single_part_query_exact_match(self):
         result = {"name": "Bohemian Rhapsody", "artist": "Queen"}
+        unrelated = {"name": "Completely Unrelated Track", "artist": "Queen"}
         score = score_result(result, "Bohemian Rhapsody")
-        assert isinstance(score, int)
+        score_unrelated = score_result(unrelated, "Bohemian Rhapsody")
+        assert score > score_unrelated
 
     def test_single_part_query_partial_match(self):
         result = {"name": "Bohemian Rhapsody", "artist": "Queen"}
+        exact = {"name": "Bohemian", "artist": "Queen"}
+        unrelated = {"name": "Completely Unrelated Track", "artist": "Queen"}
         score = score_result(result, "Bohemian")
-        assert isinstance(score, int)
+        score_exact = score_result(exact, "Bohemian")
+        score_unrelated = score_result(unrelated, "Bohemian")
+        assert score > score_unrelated
+        assert score < score_exact
 
     def test_word_matching_fallback(self):
         result = {"name": "Something Different Song", "artist": "Artist"}
+        unrelated = {"name": "Completely Unrelated Track", "artist": "Artist"}
         score = score_result(result, "Something - Artist")
-        assert score > -1000
+        score_unrelated = score_result(unrelated, "Something - Artist")
+        assert score > score_unrelated
 
     def test_bad_keyword_penalization_live(self):
         result_live = {"name": "Song - Live", "artist": "Artist"}
@@ -203,15 +218,19 @@ class TestScoreResult:
         assert score > score_live
 
     def test_bad_keyword_penalization_remix(self):
-        result = {"name": "Song remix", "artist": "Artist"}
-        score = score_result(result, "Artist - Song")
-        assert isinstance(score, int)
+        result_remix = {"name": "Song remix", "artist": "Artist"}
+        result_normal = {"name": "Song", "artist": "Artist"}
+        score_remix = score_result(result_remix, "Artist - Song")
+        score_normal = score_result(result_normal, "Artist - Song")
+        assert score_remix < score_normal
 
     def test_long_title_penalization(self):
         long_name = "A" * 65
-        result = {"name": long_name, "artist": "Artist"}
-        score = score_result(result, "Artist - Song")
-        assert isinstance(score, int)
+        result_long = {"name": long_name, "artist": "Artist"}
+        result_short = {"name": "A", "artist": "Artist"}
+        score_long = score_result(result_long, "Artist - Song")
+        score_short = score_result(result_short, "Artist - Song")
+        assert score_long < score_short
 
     def test_mbid_bonus(self):
         result_with_mbid = {"name": "Song", "artist": "Artist", "mbid": "abc123"}
@@ -221,9 +240,11 @@ class TestScoreResult:
         assert score_with > score_without
 
     def test_artist_in_track_name_penalization(self):
-        result = {"name": "Coldplay - Viva La Vida", "artist": "Coldplay"}
-        score = score_result(result, "Coldplay - Viva La Vida")
-        assert isinstance(score, int)
+        result_dup = {"name": "Coldplay - Viva La Vida", "artist": "Coldplay"}
+        result_clean = {"name": "Viva La Vida", "artist": "Coldplay"}
+        score_dup = score_result(result_dup, "Coldplay - Viva La Vida")
+        score_clean = score_result(result_clean, "Coldplay - Viva La Vida")
+        assert score_dup < score_clean
 
     def test_no_artist_match_penalization(self):
         result = {"name": "Song Title", "artist": "Unknown Artist"}
@@ -232,8 +253,10 @@ class TestScoreResult:
 
     def test_part2_word_matching(self):
         result = {"name": "Amazing Song Title", "artist": "SomeArtist"}
+        unrelated = {"name": "Completely Unrelated", "artist": "SomeArtist"}
         score = score_result(result, "Whatever - Amazing")
-        assert isinstance(score, int)
+        score_unrelated = score_result(unrelated, "Whatever - Amazing")
+        assert score > score_unrelated
 
 
 class TestDetectArtistFirst:
@@ -298,11 +321,11 @@ class TestGetBestResult:
 
     def test_multiple_results_sorted_by_score(self):
         results = [
-            {"name": "Song", "artist": "Artist"},
+            {"name": "Different Song", "artist": "Artist"},
             {"name": "Song", "artist": "Artist", "mbid": "bonus"},
         ]
         result = get_best_result(results, "Artist - Song")
-        assert " - " in result
+        assert result == "Artist - Song"
 
 
 class TestLookupLastfm:

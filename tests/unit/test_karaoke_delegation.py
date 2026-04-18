@@ -15,23 +15,32 @@ class TestKaraokeQueueInterface:
 
     def test_enqueue_accepts_all_parameters(self, mock_karaoke):
         """enqueue() should accept file, user, semitones, and add_to_front."""
-        result = mock_karaoke.queue_manager.enqueue("/songs/test---abc.mp4", "User1")
-        assert result is not False
+        qm = mock_karaoke.queue_manager
 
-        result = mock_karaoke.queue_manager.enqueue("/songs/test2---def.mp4", "User2", semitones=3)
-        assert result is not False
+        result = qm.enqueue("/songs/test---abc.mp4", "User1")
+        assert result[0] is True
+        assert len(qm.queue) == 1
 
-        result = mock_karaoke.queue_manager.enqueue(
-            "/songs/test3---ghi.mp4", "User3", add_to_front=True
-        )
-        assert result is not False
+        result = qm.enqueue("/songs/test2---def.mp4", "User2", semitones=3)
+        assert result[0] is True
+        assert len(qm.queue) == 2
+        # semitones kwarg is stored on the queue item
+        assert next(i for i in qm.queue if i["file"] == "/songs/test2---def.mp4")["semitones"] == 3
+
+        result = qm.enqueue("/songs/test3---ghi.mp4", "User3", add_to_front=True)
+        assert result[0] is True
+        # add_to_front places the new item at index 0
+        assert qm.queue[0]["file"] == "/songs/test3---ghi.mp4"
+        assert len(qm.queue) == 3
 
     def test_queue_edit_accepts_song_and_action(self, mock_karaoke):
         """queue_edit() should accept song filename and action."""
-        mock_karaoke.queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+        qm = mock_karaoke.queue_manager
+        qm.enqueue("/songs/song1---abc.mp4", "User1")
 
-        result = mock_karaoke.queue_manager.queue_edit("song1---abc.mp4", "delete")
-        assert isinstance(result, bool)
+        result = qm.queue_edit("/songs/song1---abc.mp4", "delete")
+        assert result is True
+        assert len(qm.queue) == 0
 
     def test_queue_clear_empties_queue(self, mock_karaoke):
         """queue_clear() should remove all songs."""
@@ -40,10 +49,16 @@ class TestKaraokeQueueInterface:
         mock_karaoke.queue_manager.queue_clear()
         assert len(mock_karaoke.queue_manager.queue) == 0
 
-    def test_queue_add_random_accepts_amount(self, mock_karaoke):
-        """queue_add_random() should accept amount and return bool."""
-        result = mock_karaoke.queue_manager.queue_add_random(1)
-        assert isinstance(result, bool)
+    def test_queue_add_random_accepts_amount(self, mock_karaoke_with_songs):
+        """queue_add_random() should accept amount and populate the queue."""
+        qm = mock_karaoke_with_songs.queue_manager
+
+        result = qm.queue_add_random(3)
+        assert result is True
+        assert len(qm.queue) == 3
+        # Selected files must come from the available song library
+        available = set(mock_karaoke_with_songs.song_manager.songs)
+        assert all(item["file"] in available for item in qm.queue)
 
     def test_is_song_in_queue_returns_bool(self, mock_karaoke):
         """is_song_in_queue() should return bool for given path."""
@@ -53,9 +68,18 @@ class TestKaraokeQueueInterface:
         assert result is True
 
     def test_is_user_limited_returns_bool(self, mock_karaoke):
-        """is_user_limited() should return bool for given username."""
-        result = mock_karaoke.queue_manager.is_user_limited("TestUser")
-        assert isinstance(result, bool)
+        """is_user_limited() distinguishes users under vs at their song limit."""
+        qm = mock_karaoke.queue_manager
+        mock_karaoke.preferences.set("limit_user_songs_by", 2)
+
+        assert qm.is_user_limited("TestUser") is False
+
+        qm.enqueue("/songs/s1---abc.mp4", "TestUser")
+        assert qm.is_user_limited("TestUser") is False
+
+        qm.enqueue("/songs/s2---def.mp4", "TestUser")
+        assert qm.is_user_limited("TestUser") is True
+        assert qm.is_user_limited("OtherUser") is False
 
     def test_events_system_is_accessible(self, mock_karaoke):
         """QueueManager should have an accessible EventSystem."""

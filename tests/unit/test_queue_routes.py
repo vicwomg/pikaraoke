@@ -92,14 +92,14 @@ class TestQueueApiContract:
 
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert isinstance(data, list)
-        assert len(data) == 1
-        # Verify all required fields are present
-        item = data[0]
-        assert "user" in item
-        assert "file" in item
-        assert "title" in item
-        assert "semitones" in item
+        assert data == [
+            {
+                "user": "TestUser",
+                "file": "/songs/Artist - Song---abc123.mp4",
+                "title": "Artist - Song",
+                "semitones": 0,
+            }
+        ]
 
     @patch("pikaraoke.routes.queue.get_karaoke_instance")
     def test_get_queue_empty_returns_empty_array(self, mock_get_instance, client):

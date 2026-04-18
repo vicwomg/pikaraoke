@@ -122,7 +122,9 @@ class TestPlaybackControllerPlayFile:
         result = pc.play_file("/songs/test.mp4", "TestUser", semitones=0)
 
         assert result.success is False
-        assert result.error is not None
+        assert "not playable" in result.error.lower()
+        # Timeout path must clean up via end_song("timeout") → kill_ffmpeg
+        pc.stream_manager.kill_ffmpeg.assert_called_once()
 
     @patch("pikaraoke.lib.playback_controller.os.path.isfile", return_value=True)
     def test_play_file_stream_failure(self, mock_isfile, test_prefs):

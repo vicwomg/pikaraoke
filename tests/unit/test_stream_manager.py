@@ -352,6 +352,8 @@ class TestStreamManagerTranscodeFile:
         )
 
         assert is_complete is True
+        # FFmpeg completed before buffering check ever ran
+        assert is_buffered is False
         mock_build_cmd.assert_called_once()
         mock_cmd.run_async.assert_called_once_with(pipe_stderr=True, pipe_stdin=True)
 
@@ -392,13 +394,13 @@ class TestStreamManagerTranscodeFile:
         """Test HLS buffering check is used when is_hls=True."""
         sm = StreamManager(test_prefs)
         self._make_mock_ffmpeg(mock_build_cmd, poll_return=None)
+        fr = self._make_mock_fr()
+        expected_buffer_size = int(test_prefs.get_or_default("buffer_size")) * 1000
 
         with patch.object(sm, "_check_hls_buffer", return_value=True) as mock_hls:
-            is_complete, is_buffered = sm._transcode_file(
-                self._make_mock_fr(), semitones=0, is_hls=True
-            )
+            is_complete, is_buffered = sm._transcode_file(fr, semitones=0, is_hls=True)
 
-        mock_hls.assert_called()
+        mock_hls.assert_called_once_with(fr, expected_buffer_size)
         assert is_buffered is True
 
     @patch("pikaraoke.lib.stream_manager.time")

@@ -109,8 +109,9 @@ class TestIsFfmpegInstalled:
 
     def test_ffmpeg_installed(self):
         """Test when FFmpeg is installed."""
-        with patch("subprocess.run", return_value=MagicMock()):
+        with patch("subprocess.run", return_value=MagicMock()) as mock_run:
             assert is_ffmpeg_installed() is True
+            mock_run.assert_called_once_with(["ffmpeg", "-version"], capture_output=True)
 
     def test_ffmpeg_not_installed(self):
         """Test when FFmpeg is not installed."""
