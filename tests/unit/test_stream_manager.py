@@ -7,7 +7,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from pikaraoke.lib.preference_manager import PreferenceManager
-from pikaraoke.lib.stream_manager import PlaybackResult, StreamManager, enqueue_output
+from pikaraoke.lib.stream_manager import (
+    PlaybackResult,
+    StreamManager,
+    _parse_ffmpeg_time_seconds,
+    enqueue_output,
+)
 
 
 @pytest.fixture
@@ -43,6 +48,47 @@ class TestEnqueueOutput:
         enqueue_output(mock_stream, queue)
 
         mock_stream.close.assert_called_once()
+
+    def test_on_line_callback_runs_per_line(self):
+        """US-23: MP4 stderr tap invokes the callback for each line."""
+        mock_stream = MagicMock()
+        mock_stream.readline.side_effect = [b"a\n", b"b\n", b""]
+        queue = Queue()
+        seen = []
+
+        enqueue_output(mock_stream, queue, on_line=seen.append)
+
+        assert seen == [b"a\n", b"b\n"]
+        # Callback does not replace queueing.
+        assert queue.qsize() == 2
+
+    def test_on_line_callback_exception_does_not_break_reader(self):
+        """A throwing callback must not stop the queue from filling."""
+        mock_stream = MagicMock()
+        mock_stream.readline.side_effect = [b"a\n", b""]
+        queue = Queue()
+
+        def _boom(_line):
+            raise RuntimeError("cb crashed")
+
+        enqueue_output(mock_stream, queue, on_line=_boom)
+
+        assert queue.get() == b"a\n"
+
+
+class TestParseFfmpegTimeSeconds:
+    """US-23: time= parser for the MP4 stderr tap."""
+
+    def test_parses_hms_with_hundredths(self):
+        line = b"frame=100 fps=30 size=1024kB time=00:01:02.34 bitrate=1000k speed=1.0x"
+        assert _parse_ffmpeg_time_seconds(line) == pytest.approx(62.34)
+
+    def test_parses_hms_without_fraction(self):
+        line = b"time=01:00:00 bitrate=..."
+        assert _parse_ffmpeg_time_seconds(line) == 3600.0
+
+    def test_none_when_no_time_field(self):
+        assert _parse_ffmpeg_time_seconds(b"frame=100 fps=30") is None
 
 
 class TestStreamManagerInit:

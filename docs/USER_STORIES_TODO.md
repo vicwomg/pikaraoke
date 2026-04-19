@@ -281,10 +281,13 @@ No action.
 
 ### US-23 Seek bar with buffering progress (PARTIAL)
 
-- [ ] **P1** Emit `ffmpeg_progress` on the non-HLS transcoded MP4 path
-      too (`stream_manager.py:351-352` only starts the monitor when
-      `is_hls=True`). Otherwise the seek bar can't show ffmpeg
-      buffering on that path.
+- [x] ~~**P1** Emit `ffmpeg_progress` on the non-HLS MP4 path.~~ Done —
+      added an `on_line` callback hook on the shared stderr reader
+      (`enqueue_output`) and a `_mp4_progress_line_handler` that
+      parses ffmpeg's `time=HH:MM:SS.MS` status lines. HLS keeps its
+      segment-count monitor; MP4 now drives the seek-bar from
+      ffmpeg's own reported position. Throttled to one emit per
+      integer second.
 - [ ] **P2** Initialize `seekBufferedDemucs` to a conservative ceiling
       (e.g. 0) before the first `demucs_progress` tick so the slider
       reflects the actual buffered range from the start

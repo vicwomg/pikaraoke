@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import shutil
 import subprocess
 import threading
@@ -11,7 +12,7 @@ import time
 from dataclasses import dataclass
 from queue import Queue
 from threading import Thread
-from typing import Any
+from typing import Any, Callable
 
 from pikaraoke.lib.audio_processor import AudioTrackConfig
 from pikaraoke.lib.events import EventSystem
@@ -80,16 +81,41 @@ class PlaybackResult:
     error: str | None = None
 
 
-def enqueue_output(out: Any, queue: Queue) -> None:
+def enqueue_output(out: Any, queue: Queue, on_line: Callable[[bytes], None] | None = None) -> None:
     """Read lines from a stream and put them in a queue without blocking.
 
     Args:
         out: File-like object to read from (e.g., subprocess stderr).
         queue: Queue to put the read lines into.
+        on_line: Optional callback invoked for each line before it's queued.
+            Used to tap ffmpeg stderr for progress parsing without fighting
+            log_ffmpeg_output for the same fd.
     """
     for line in iter(out.readline, b""):
+        if on_line is not None:
+            try:
+                on_line(line)
+            except Exception:
+                logging.exception("ffmpeg stderr on_line callback failed")
         queue.put(line)
     out.close()
+
+
+# ffmpeg stderr status line:
+# frame= 100 fps=30 q=28.0 size=  1024kB time=00:00:03.30 bitrate=...
+_FFMPEG_TIME_RE = re.compile(rb"time=(\d+):(\d+):(\d+)(?:\.(\d+))?")
+
+
+def _parse_ffmpeg_time_seconds(line: bytes) -> float | None:
+    """Return ``processed seconds`` extracted from an ffmpeg status line, or None."""
+    m = _FFMPEG_TIME_RE.search(line)
+    if not m:
+        return None
+    h, mm, s = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    frac = m.group(4) or b""
+    # ffmpeg uses hundredths; pad/truncate to 6 digits to get microseconds, then /1e6.
+    frac_s = int(frac.ljust(6, b"0")[:6]) / 1_000_000 if frac else 0.0
+    return h * 3600 + mm * 60 + s + frac_s
 
 
 class StreamManager:
@@ -337,11 +363,17 @@ class StreamManager:
         )
         self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
 
-        # FFmpeg outputs to stderr - prevent blocking reads
+        # FFmpeg outputs to stderr - prevent blocking reads. For MP4 we
+        # also tap the same stream to emit ffmpeg_progress from `time=`
+        # status lines (US-23); HLS uses segment-count polling instead.
         self.ffmpeg_log = Queue()
+        mp4_on_line = None
+        if not is_hls:
+            mp4_on_line = self._mp4_progress_line_handler(fr)
         t = Thread(
             target=enqueue_output,
             args=(self.ffmpeg_process.stderr, self.ffmpeg_log),
+            kwargs={"on_line": mp4_on_line},
             daemon=True,
         )
         t.start()
@@ -876,6 +908,32 @@ class StreamManager:
                 time.sleep(1.0)
 
         threading.Thread(target=_poll, daemon=True).start()
+
+    def _mp4_progress_line_handler(self, fr: FileResolver) -> Callable[[bytes], None]:
+        """Return a stderr callback that emits ffmpeg_progress from time= lines.
+
+        Used on the non-HLS / direct-MP4 path (US-23); HLS uses segment
+        accounting because its stderr doesn't report clean transcode time
+        when it's just remuxing.
+        """
+        total_seconds = float(fr.duration or 0)
+        state = {"last_emitted": -1.0}
+
+        def _on_line(line: bytes) -> None:
+            if total_seconds <= 0:
+                return
+            processed = _parse_ffmpeg_time_seconds(line)
+            if processed is None:
+                return
+            processed = min(processed, total_seconds)
+            # Emit on integer-second boundary changes to keep socket traffic sane.
+            bucket = int(processed)
+            if bucket == int(state["last_emitted"]):
+                return
+            state["last_emitted"] = processed
+            self._emit_ffmpeg_progress(processed, total_seconds)
+
+        return _on_line
 
     def _emit_ffmpeg_progress(self, processed: float, total: float) -> None:
         if self.events is None:
