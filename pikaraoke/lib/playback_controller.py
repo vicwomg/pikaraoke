@@ -90,6 +90,32 @@ class PlaybackController:
         self.ffmpeg_processed = float(data.get("processed", 0))
         self.ffmpeg_total = float(data.get("total", 0))
 
+    def buffered_ceiling(self) -> float | None:
+        """Furthest timestamp a seek may land on without hitting unwritten content.
+
+        Returns the slower of Demucs and ffmpeg's processed-seconds counters,
+        skipping either stage that has already covered its total (no longer a
+        constraint). ``None`` means no active constraint is known — happens
+        before the first progress tick of a song, or for streams that bypass
+        both stages (direct mp4, fully cached stems).
+        """
+        ceilings: list[float] = []
+        if (
+            self.demucs_processed is not None
+            and self.demucs_total is not None
+            and self.demucs_total > 0
+            and self.demucs_processed < self.demucs_total
+        ):
+            ceilings.append(self.demucs_processed)
+        if (
+            self.ffmpeg_processed is not None
+            and self.ffmpeg_total is not None
+            and self.ffmpeg_total > 0
+            and self.ffmpeg_processed < self.ffmpeg_total
+        ):
+            ceilings.append(self.ffmpeg_processed)
+        return min(ceilings) if ceilings else None
+
     @property
     def ffmpeg_process(self) -> "subprocess.Popen | None":
         """Get the current FFmpeg process."""

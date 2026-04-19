@@ -88,8 +88,12 @@ def setup_socket_events(socketio):
     def handle_seek(position: float) -> None:
         """Handle seek request from a pilot.
 
-        Clamps to [0, duration] and broadcasts to all clients (splash applies
-        it to the media elements; other pilots update their sliders).
+        Clamps to [0, duration] and to the buffered ceiling (how far Demucs
+        and ffmpeg have progressed), then broadcasts. The buffered clamp is
+        the single enforcement point for US-23 — pilots clamp in the UI too,
+        but a pilot whose progress events haven't fired yet would otherwise
+        let the splash seek past unwritten segments and spin hls.js retrying
+        404s.
         """
         try:
             pos = float(position)
@@ -97,13 +101,17 @@ def setup_socket_events(socketio):
             logging.warning(f"Ignoring invalid seek value: {position!r}")
             return
         k = get_karaoke_instance()
-        duration = k.playback_controller.now_playing_duration
+        pc = k.playback_controller
+        duration = pc.now_playing_duration
         if duration:
             pos = max(0.0, min(float(duration), pos))
         else:
             pos = max(0.0, pos)
-        k.playback_controller.now_playing_position = pos
-        k.playback_controller.position_updated_at = time.time()
+        ceiling = pc.buffered_ceiling()
+        if ceiling is not None and pos > ceiling:
+            pos = ceiling
+        pc.now_playing_position = pos
+        pc.position_updated_at = time.time()
         socketio.emit("seek", pos)
 
     @socketio.on("playback_position")

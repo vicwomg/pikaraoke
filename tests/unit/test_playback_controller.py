@@ -341,3 +341,39 @@ class TestPlaybackControllerResetNowPlaying:
         assert pc.now_playing_user is None
         assert pc.is_playing is False
         assert pc.is_paused is True
+
+
+class TestBufferedCeiling:
+    """Tests for PlaybackController.buffered_ceiling — the seek clamp."""
+
+    def _make(self, test_prefs) -> PlaybackController:
+        events = EventSystem()
+        return PlaybackController(test_prefs, events, lambda x, remove_youtube_id=True: x)
+
+    def test_no_progress_means_no_constraint(self, test_prefs):
+        pc = self._make(test_prefs)
+        assert pc.buffered_ceiling() is None
+
+    def test_returns_slower_of_demucs_and_ffmpeg(self, test_prefs):
+        pc = self._make(test_prefs)
+        pc.demucs_processed = 120.0
+        pc.demucs_total = 300.0
+        pc.ffmpeg_processed = 90.0
+        pc.ffmpeg_total = 300.0
+        assert pc.buffered_ceiling() == 90.0
+
+    def test_completed_stage_drops_out(self, test_prefs):
+        pc = self._make(test_prefs)
+        pc.demucs_processed = 300.0
+        pc.demucs_total = 300.0
+        pc.ffmpeg_processed = 120.0
+        pc.ffmpeg_total = 300.0
+        assert pc.buffered_ceiling() == 120.0
+
+    def test_all_stages_done_means_no_constraint(self, test_prefs):
+        pc = self._make(test_prefs)
+        pc.demucs_processed = 300.0
+        pc.demucs_total = 300.0
+        pc.ffmpeg_processed = 300.0
+        pc.ffmpeg_total = 300.0
+        assert pc.buffered_ceiling() is None
