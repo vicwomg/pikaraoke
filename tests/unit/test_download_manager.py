@@ -43,9 +43,16 @@ def preferences(tmp_path):
 
 @pytest.fixture
 def song_manager():
-    """Create a mock SongManager."""
+    """Create a mock SongManager.
+
+    Default ``songs.find_by_id`` returns None so the cache-aware
+    short-circuit in ``queue_download`` doesn't fire — most tests want to
+    exercise the actual queue/download path. Tests that need the cache
+    hit can override ``mock.songs.find_by_id.return_value`` per-case.
+    """
     mock = MagicMock()
     mock.songs = MagicMock()
+    mock.songs.find_by_id.return_value = None
     return mock
 
 
@@ -160,6 +167,73 @@ class TestDownloadManagerQueueDownload:
 
         item = download_manager.download_queue.get_nowait()
         assert item["video_url"] == "https://youtube.com/watch?v=test123"
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    def test_queue_download_cache_hit_skips_ytdlp(
+        self, mock_gettext, download_manager, song_manager, events
+    ):
+        """Re-requesting an already-downloaded URL must not enqueue a yt-dlp run.
+
+        Instead it emits ``song_downloaded`` for the existing path so
+        downstream stages (lyrics, registration, optional enqueue) wake
+        up exactly as they would on a fresh download.
+        """
+        existing = "/songs/Artist - Song---abc12345678.mp4"
+        song_manager.songs.find_by_id.return_value = existing
+
+        downloaded: list[str] = []
+        events.on("song_downloaded", lambda path: downloaded.append(path))
+        notifications: list[str] = []
+        events.on("notification", lambda msg, *args: notifications.append(msg))
+
+        download_manager.queue_download(
+            "https://youtube.com/watch?v=abc12345678", user="TestUser"
+        )
+
+        assert download_manager.download_queue.empty()
+        assert downloaded == [existing]
+        assert any("Already downloaded" in n for n in notifications)
+
+    def test_maybe_emit_download_progress_throttles_by_integer_pct(
+        self, download_manager, events
+    ):
+        """One `download_progress` per integer-pct bucket (no firehose)."""
+        emitted: list[dict] = []
+        events.on("download_progress", lambda data: emitted.append(data))
+
+        download_manager.active_download = {
+            "title": "Song", "url": "u", "user": "U",
+            "progress": 0.0, "status": "downloading",
+        }
+        last = [-1]
+        # 0.1, 0.5 share bucket 0 -> 1 emit; 1.0, 1.4 share bucket 1 -> 1 emit
+        download_manager._maybe_emit_download_progress(0.1, "1KiB/s", "01:00", last)
+        download_manager._maybe_emit_download_progress(0.5, "1KiB/s", "01:00", last)
+        download_manager._maybe_emit_download_progress(1.0, "1KiB/s", "00:59", last)
+        download_manager._maybe_emit_download_progress(1.4, "1KiB/s", "00:58", last)
+
+        assert len(emitted) == 2
+        assert emitted[0]["progress"] == 0.1
+        assert emitted[0]["title"] == "Song"
+        assert emitted[1]["progress"] == 1.0
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    def test_queue_download_cache_hit_with_enqueue(
+        self, mock_gettext, download_manager, song_manager, queue_manager
+    ):
+        """Cache hit with ``enqueue=True`` still enqueues for playback."""
+        existing = "/songs/Artist - Song---abc12345678.mp4"
+        song_manager.songs.find_by_id.return_value = existing
+
+        download_manager.queue_download(
+            "https://youtube.com/watch?v=abc12345678",
+            enqueue=True,
+            user="TestUser",
+        )
+
+        queue_manager.enqueue.assert_called_once_with(
+            existing, "TestUser", log_action=False
+        )
 
 
 class TestDownloadManagerExecuteDownload:

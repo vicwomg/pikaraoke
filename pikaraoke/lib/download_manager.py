@@ -134,6 +134,29 @@ class DownloadManager:
 
         displayed_title = title if title else video_url
 
+        # Cache-aware short-circuit: if the video_id is already on disk we
+        # emit `song_downloaded` for the existing file and skip yt-dlp
+        # entirely. Downstream stages (song registration, lyrics, optional
+        # enqueue) listen for `song_downloaded` and are idempotent on
+        # already-registered songs.
+        video_id = get_youtube_id_from_url(video_url)
+        if video_id:
+            existing_path = self._song_manager.songs.find_by_id(
+                self._download_path, video_id
+            )
+            if existing_path:
+                logging.info(
+                    "cache hit for %s (%s); skipping yt-dlp", video_id, existing_path
+                )
+                # MSG: Message shown when the requested song is already in the library
+                self._events.emit(
+                    "notification", _("Already downloaded: %s") % displayed_title, "success"
+                )
+                self._events.emit("song_downloaded", existing_path)
+                if enqueue:
+                    self._queue_manager.enqueue(existing_path, user, log_action=False)
+                return
+
         # Check how many items are ahead (in queue + currently downloading)
         pending_count = self.download_queue.qsize() + (1 if self._is_downloading else 0)
 
@@ -344,6 +367,7 @@ class DownloadManager:
             universal_newlines=True,
         )
         output_buffer: list[str] = []
+        last_emit_pct = [-1]
 
         def on_progress(pct: float, speed: str, eta: str) -> None:
             if self.active_download:
@@ -351,9 +375,42 @@ class DownloadManager:
                 self.active_download["status"] = "downloading"
                 self.active_download["speed"] = speed
                 self.active_download["eta"] = eta
+            self._maybe_emit_download_progress(pct, speed, eta, last_emit_pct)
 
         _read_ytdlp_stdout(process, output_buffer, on_progress)
         return process.poll(), "".join(output_buffer)
+
+    def _maybe_emit_download_progress(
+        self,
+        pct: float,
+        speed: str,
+        eta: str,
+        last_emit: list[int],
+    ) -> None:
+        """Throttled emitter for the `download_progress` socket event.
+
+        yt-dlp's stdout fires a progress line every ~100ms; sending each one
+        through the socket is wasteful. Coalesce to one emission per
+        integer percent change so the UI sees smooth motion without the
+        firehose.
+        """
+        bucket = int(pct)
+        if bucket == last_emit[0]:
+            return
+        last_emit[0] = bucket
+        active = self.active_download or {}
+        self._events.emit(
+            "download_progress",
+            {
+                "title": active.get("title"),
+                "url": active.get("url"),
+                "user": active.get("user"),
+                "progress": pct,
+                "speed": speed,
+                "eta": eta,
+                "status": "downloading",
+            },
+        )
 
     def _run_split_download(self, video_url: str, video_id: str | None) -> tuple[int | None, str]:
         """Run audio-only and video-only yt-dlp in parallel.
@@ -376,18 +433,21 @@ class DownloadManager:
         logging.debug("yt-dlp audio-only: " + " ".join(audio_cmd))
 
         pcts = {"audio": 0.0, "video": 0.0}
+        last_emit_pct = [-1]
 
         def make_on_progress(which: str):
             def on_progress(pct: float, speed: str, eta: str) -> None:
                 pcts[which] = pct
+                # Average across the two streams. Audio typically finishes
+                # well before video, so after ~50% the dial tracks the
+                # video stream's progress alone.
+                avg = (pcts["audio"] + pcts["video"]) / 2
                 if self.active_download:
-                    # Average across the two streams. Audio typically finishes
-                    # well before video, so after ~50% the dial tracks the
-                    # video stream's progress alone.
-                    self.active_download["progress"] = (pcts["audio"] + pcts["video"]) / 2
+                    self.active_download["progress"] = avg
                     self.active_download["status"] = "downloading"
                     self.active_download["speed"] = speed
                     self.active_download["eta"] = eta
+                self._maybe_emit_download_progress(avg, speed, eta, last_emit_pct)
 
             return on_progress
 

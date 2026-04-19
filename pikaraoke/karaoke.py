@@ -389,6 +389,14 @@ class Karaoke:
             lambda: self.socketio.emit("sync_finished", namespace="/") if self.socketio else None,
         )
         self.events.on(
+            "download_progress",
+            lambda data: (
+                self.socketio.emit("download_progress", data, namespace="/")
+                if self.socketio
+                else None
+            ),
+        )
+        self.events.on(
             "demucs_progress",
             lambda data: (
                 self.socketio.emit("demucs_progress", data, namespace="/")
