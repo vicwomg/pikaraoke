@@ -540,6 +540,40 @@ class TestMergeMetadataIntoInfoJson:
         _merge_metadata_into_info_json(song_path, {"artist": "A", "track": "T"})
         assert info.read_text() == "not json {"
 
+    def test_atomic_write_leaves_no_partial(self, tmp_path):
+        """Successful merge must not leave a .part tempfile behind."""
+        info = tmp_path / "Song---abc.info.json"
+        info.write_text(json.dumps({"title": "x"}))
+        song_path = str(tmp_path / "Song---abc.mp4")
+
+        _merge_metadata_into_info_json(song_path, {"artist": "A", "track": "T"})
+
+        assert not (tmp_path / "Song---abc.info.json.part").exists()
+        data = json.loads(info.read_text())
+        assert data["artist"] == "A"
+
+    def test_atomic_write_preserves_original_on_replace_failure(self, tmp_path, monkeypatch):
+        """If os.replace fails, the original info.json must be untouched."""
+        info = tmp_path / "Song---abc.info.json"
+        original = {"title": "keep", "artist": "old"}
+        info.write_text(json.dumps(original))
+        song_path = str(tmp_path / "Song---abc.mp4")
+
+        import pikaraoke.lib.download_manager as dm
+
+        def _boom(*_args, **_kwargs):
+            raise OSError("disk full")
+
+        monkeypatch.setattr(dm.os, "replace", _boom)
+
+        # Original artist is empty on this row so a merge is attempted.
+        info.write_text(json.dumps({"title": "keep", "artist": ""}))
+        _merge_metadata_into_info_json(song_path, {"artist": "A", "track": "T"})
+
+        # Original file content intact, .part cleaned up.
+        assert json.loads(info.read_text()) == {"title": "keep", "artist": ""}
+        assert not (tmp_path / "Song---abc.info.json.part").exists()
+
 
 class TestSplitDownload:
     """Tests for the parallel audio + silent-video pipeline (vocal_removal on)."""

@@ -368,9 +368,9 @@ No action.
 
 ### US-34 Atomic writes (PARTIAL)
 
-- [ ] **P1** Make `_merge_metadata_into_info_json` atomic
-      (`download_manager.py:538-565`): write to `info_path + ".part"`
-      and `os.replace` into place.
+- [x] ~~**P1** Make `_merge_metadata_into_info_json` atomic.~~ Done —
+      writes to `info_path + ".part"` then `os.replace`; cleans up the
+      tempfile on OSError so the original is never truncated.
 - [ ] **P2** Make `PreferenceManager.set` atomic
       (`preference_manager.py:130`): tempfile + `os.replace`.
 

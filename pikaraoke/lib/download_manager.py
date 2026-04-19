@@ -618,8 +618,14 @@ def _merge_metadata_into_info_json(song_path: str, meta: dict | None) -> None:
             changed = True
     if not changed:
         return
+    tmp_path = f"{info_path}.part"
     try:
-        with open(info_path, "w", encoding="utf-8") as f:
+        with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(data, f)
+        os.replace(tmp_path, info_path)
     except OSError as e:
         logging.warning("metadata enrichment: failed to write %s: %s", info_path, e)
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
