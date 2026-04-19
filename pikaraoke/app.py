@@ -288,14 +288,21 @@ def main() -> None:
     # Werkzeug's threaded dev server handles WebSockets via simple-websocket.
     # It blocks, so run it on a daemon thread; the karaoke loop stays on the
     # main thread where it can catch KeyboardInterrupt.
+    # If the bind fails (e.g. port already in use), werkzeug calls sys.exit(1)
+    # which only kills this thread — force-terminate the whole process so we
+    # don't end up with a zombie karaoke loop that pops songs no client can reach.
     def _serve() -> None:
-        socketio.run(
-            app,
-            host="0.0.0.0",
-            port=int(args.port),
-            allow_unsafe_werkzeug=True,
-            log_output=False,
-        )
+        try:
+            socketio.run(
+                app,
+                host="0.0.0.0",
+                port=int(args.port),
+                allow_unsafe_werkzeug=True,
+                log_output=False,
+            )
+        except BaseException as exc:
+            logging.error(f"HTTP server failed to start on port {args.port}: {exc}")
+            os._exit(1)
 
     threading.Thread(target=_serve, daemon=True).start()
 
