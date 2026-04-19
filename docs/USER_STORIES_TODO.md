@@ -322,13 +322,16 @@ No action.
 
 ### US-27 User-action introduction screen (PARTIAL)
 
-- [ ] **P1** Replace the brittle muted-then-unmuted autoplay test
-      (`splash.js:74-109`). Use the actual `play()` promise on an
-      audible test asset and catch `NotAllowedError`, which is the
-      browser-spec signal for blocked audio autoplay.
-- [ ] **P2** Provide a graceful fallback when
-      `/static/video/test_autoplay.mp4` is missing — currently the
-      `onerror` always shows the modal.
+- [x] ~~**P1** Replace the brittle autoplay test.~~ Done — the test
+      now calls `video.play()` on an audible-but-near-silent clip and
+      catches `NotAllowedError` (the spec signal for a blocked autoplay
+      policy). Removed the muted-then-unmuted timing dance that
+      false-positived when the browser kept the element muted.
+- [x] ~~**P2** Graceful fallback when the test asset is missing.~~
+      Done — missing asset no longer shows the modal; it logs a warning
+      and proceeds (a missing file isn't the same signal as a blocked
+      policy, and every deployment without the mp4 was otherwise
+      stuck with a click-through modal).
 
 ---
 

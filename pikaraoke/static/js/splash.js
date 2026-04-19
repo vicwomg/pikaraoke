@@ -72,38 +72,52 @@ const formatTime = (seconds) => {
 }
 
 const testAutoplayCapability = async () => {
-  // Test if autoplay with audio is allowed using a real video file
-  try {
-    const testVideo = document.createElement('video');
-    testVideo.playsInline = true;
-    testVideo.muted = true;  // Start muted (always allowed)
-    testVideo.src = "/static/video/test_autoplay.mp4";
+  // Detect whether the browser will allow audio autoplay (US-27).
+  //
+  // The canonical spec signal is: call play() on an audible element and
+  // watch for a rejected promise with NotAllowedError. The old
+  // muted-then-unmuted dance was brittle because some browsers silently
+  // keep the element muted rather than reporting a policy block, which
+  // looked like "autoplay failed" even when the user gesture would have
+  // unblocked it on the next interaction anyway.
+  const testVideo = document.createElement('video');
+  testVideo.playsInline = true;
+  testVideo.volume = 0.01;   // audible (required for the policy test) but near-silent
+  testVideo.muted = false;
+  testVideo.src = "/static/video/test_autoplay.mp4";
 
-    // Wait for video to be ready
+  // Load the asset — graceful fallback when it's missing from the build.
+  // Previously the onerror handler always showed the modal, forcing every
+  // deployment without the asset to click-through. Missing asset ≠ blocked
+  // autoplay, so proceed on the assumption that autoplay is allowed.
+  try {
     await new Promise((resolve, reject) => {
       testVideo.onloadeddata = resolve;
-      testVideo.onerror = reject;
+      testVideo.onerror = () => reject(new Error("asset_missing"));
     });
-
-    await testVideo.play();
-    // Now try to unmute - this is the real test
-    testVideo.muted = false;
-    testVideo.volume = 0.01;
-
-    // Brief delay to let browser enforce policy
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Check if browser paused or muted the video
-    if (testVideo.muted || testVideo.paused) {
-      testVideo.pause();
-      $('#permissions-modal').addClass('is-active');
-    } else {
-      testVideo.pause();
-      handleConfirmation();
-    }
   } catch (e) {
-    // Autoplay blocked
-    console.log("Autoplay error thrown", e);
+    if (e && e.message === "asset_missing") {
+      console.warn("autoplay test asset missing; assuming autoplay is allowed");
+      handleConfirmation();
+      return;
+    }
+    console.warn("autoplay test load failed", e);
+    $('#permissions-modal').addClass('is-active');
+    return;
+  }
+
+  try {
+    await testVideo.play();
+    testVideo.pause();
+    handleConfirmation();
+  } catch (e) {
+    // NotAllowedError is the spec signal for "user gesture required".
+    // Treat anything else as a blocked policy too, to stay fail-safe.
+    if (e && e.name === "NotAllowedError") {
+      console.log("Autoplay blocked by browser policy (NotAllowedError)");
+    } else {
+      console.log("Autoplay test rejected", e);
+    }
     $('#permissions-modal').addClass('is-active');
   }
 };
