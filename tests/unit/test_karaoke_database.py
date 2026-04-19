@@ -28,7 +28,7 @@ class TestInit:
 
     def test_user_version(self, db):
         ver = db._conn.execute("PRAGMA user_version").fetchone()[0]
-        assert ver == 4
+        assert ver == 5
 
     def test_songs_table_exists(self, db):
         tables = {
@@ -470,14 +470,19 @@ class TestMigrationFromV1:
         conn.commit()
         conn.close()
 
-        # Open via KaraokeDatabase: should apply v2+v3+v4 migrations in-place.
+        # Open via KaraokeDatabase: should apply v2+v3+v4+v5 migrations in-place.
         db = KaraokeDatabase(db_path)
         try:
             ver = db._conn.execute("PRAGMA user_version").fetchone()[0]
-            assert ver == 4
+            assert ver == 5
 
             cols = {row[1] for row in db._conn.execute("PRAGMA table_info(songs)").fetchall()}
             assert "metadata_sources" in cols
+            art_cols = {
+                row[1]
+                for row in db._conn.execute("PRAGMA table_info(song_artifacts)").fetchall()
+            }
+            assert {"sha256", "size", "mtime"}.issubset(art_cols)
             assert {
                 "audio_sha256",
                 "audio_mtime",

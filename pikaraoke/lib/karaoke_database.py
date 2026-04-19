@@ -120,7 +120,17 @@ _MIGRATION_V4 = """
 ALTER TABLE songs ADD COLUMN metadata_sources TEXT;
 """
 
-_SCHEMA_VERSION = 4
+# v4 -> v5: per-artifact content fingerprints (US-30). Each cache file (.ass,
+# .vtt, .info.json, stems dir, ...) gets its own sha256/size/mtime so content
+# changes on one sibling don't require re-fingerprinting the whole song.
+# Columns are nullable and back-filled lazily on first cheap-refresh call.
+_MIGRATION_V5 = """
+ALTER TABLE song_artifacts ADD COLUMN sha256 TEXT;
+ALTER TABLE song_artifacts ADD COLUMN size   INTEGER;
+ALTER TABLE song_artifacts ADD COLUMN mtime  REAL;
+"""
+
+_SCHEMA_VERSION = 5
 
 _TRACK_METADATA_FIELDS = (
     "duration_seconds",
@@ -187,6 +197,12 @@ class KaraokeDatabase:
                 self._conn.executescript(_MIGRATION_V3)
             if version < 4 and "metadata_sources" not in columns:
                 self._conn.executescript(_MIGRATION_V4)
+            artifact_columns = {
+                row[1]
+                for row in self._conn.execute("PRAGMA table_info(song_artifacts)").fetchall()
+            }
+            if version < 5 and "sha256" not in artifact_columns:
+                self._conn.executescript(_MIGRATION_V5)
             self._conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
 
     # ------------------------------------------------------------------
@@ -342,9 +358,26 @@ class KaraokeDatabase:
         """Return all artifact rows for a song."""
         with self._lock:
             return self._conn.execute(
-                "SELECT id, song_id, role, path FROM song_artifacts WHERE song_id = ?",
+                """
+                SELECT id, song_id, role, path, sha256, size, mtime
+                FROM song_artifacts WHERE song_id = ?
+                """,
                 (song_id,),
             ).fetchall()
+
+    def update_artifact_fingerprint(
+        self, song_id: int, path: str, mtime: float, size: int, sha256: str
+    ) -> None:
+        """Record the fingerprint of one artifact file (US-30)."""
+        with self._lock, self._conn:
+            self._conn.execute(
+                """
+                UPDATE song_artifacts
+                SET sha256 = ?, size = ?, mtime = ?
+                WHERE song_id = ? AND path = ?
+                """,
+                (sha256, size, mtime, song_id, path),
+            )
 
     def delete_artifact(self, song_id: int, path: str) -> None:
         """Remove one artifact row by (song_id, path)."""

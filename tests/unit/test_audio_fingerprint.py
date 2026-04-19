@@ -231,6 +231,64 @@ class TestEnsureLyricsConfig:
         assert user_ass.exists(), "user .ass must be preserved"
 
 
+class TestEnsureArtifactFingerprint:
+    """US-30: per-artifact sha/size/mtime columns with cheap-refresh semantics."""
+
+    def test_first_call_records_fingerprint(self, db, tmp_path):
+        sid = _insert_song(db)
+        ass = tmp_path / "Foo.ass"
+        ass.write_text("line lyrics")
+        db.upsert_artifacts(sid, [{"role": "ass_auto", "path": str(ass)}])
+
+        sha = af.ensure_artifact_fingerprint(db, sid, str(ass))
+
+        assert sha is not None and len(sha) == 64
+        row = [a for a in db.get_artifacts(sid) if a["path"] == str(ass)][0]
+        assert row["sha256"] == sha
+        assert row["size"] == len("line lyrics")
+        assert row["mtime"] is not None
+
+    def test_stat_match_skips_recompute(self, db, tmp_path):
+        """When mtime+size match, return cached sha without reading the file."""
+        sid = _insert_song(db)
+        ass = tmp_path / "Foo.ass"
+        ass.write_text("content")
+        db.upsert_artifacts(sid, [{"role": "ass_auto", "path": str(ass)}])
+
+        af.ensure_artifact_fingerprint(db, sid, str(ass))
+
+        with patch.object(af, "_hash_file_sha256", side_effect=AssertionError("should skip")):
+            sha = af.ensure_artifact_fingerprint(db, sid, str(ass))
+        assert sha is not None and len(sha) == 64
+
+    def test_content_change_refreshes(self, db, tmp_path):
+        sid = _insert_song(db)
+        ass = tmp_path / "Foo.ass"
+        ass.write_text("original")
+        db.upsert_artifacts(sid, [{"role": "ass_auto", "path": str(ass)}])
+        original_sha = af.ensure_artifact_fingerprint(db, sid, str(ass))
+
+        ass.write_text("totally different content that changes size")
+        # Advance mtime so the stat-match branch triggers recompute.
+        future = os.path.getmtime(str(ass)) + 5
+        os.utime(str(ass), (future, future))
+
+        new_sha = af.ensure_artifact_fingerprint(db, sid, str(ass))
+        assert new_sha is not None and new_sha != original_sha
+
+    def test_missing_file_returns_none(self, db):
+        sid = _insert_song(db)
+        db.upsert_artifacts(sid, [{"role": "ass_auto", "path": "/does/not/exist.ass"}])
+        assert af.ensure_artifact_fingerprint(db, sid, "/does/not/exist.ass") is None
+
+    def test_unknown_artifact_returns_none(self, db, tmp_path):
+        """An artifact not registered for this song is a no-op (no row to update)."""
+        sid = _insert_song(db)
+        stranger = tmp_path / "stranger.ass"
+        stranger.write_text("x")
+        assert af.ensure_artifact_fingerprint(db, sid, str(stranger)) is None
+
+
 class TestLyricsShaClearedOnAudioChange:
     """US-31 waterfall: audio sha change must invalidate lyrics_sha so the
     next pipeline run re-fetches LRCLib. Otherwise ``ensure_lyrics_config``

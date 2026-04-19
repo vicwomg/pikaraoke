@@ -367,9 +367,13 @@ No action.
 
 ### US-30 Cache-file fingerprints (PARTIAL)
 
-- [ ] **P1** Add `sha256`, `size`, `mtime` columns to `song_artifacts`
-      (`karaoke_database.py:63-75`) so each cache file has its own
-      fingerprint, with the same cheap-refresh logic as audio.
+- [x] ~~**P1** Add `sha256`, `size`, `mtime` columns to
+      `song_artifacts`.~~ Done — V5 migration adds the three nullable
+      columns. New `KaraokeDatabase.update_artifact_fingerprint`
+      persists per-file fingerprints; new
+      `audio_fingerprint.ensure_artifact_fingerprint` mirrors the
+      cheap-stat / recompute-on-change flow used for audio. `get_artifacts`
+      now selects the new columns so consumers see them.
 - [ ] **P2** Apply the same fingerprint flow to stems directory and
       `.ass` outputs.
 

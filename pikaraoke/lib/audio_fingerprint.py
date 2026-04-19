@@ -12,6 +12,7 @@ demucs_model or aligner_model auto-invalidates without touching audio bytes.
 """
 
 import contextlib
+import hashlib
 import logging
 import os
 import shutil
@@ -153,6 +154,56 @@ def ensure_lyrics_config(
     logger.info("invalidating auto .ass for song %d: %s", song_id, stale_reason)
     _invalidate_auto_ass(db, song_id)
     return False
+
+
+def _hash_file_sha256(path: str) -> str | None:
+    """Streaming sha256 of a file; None on read failure."""
+    try:
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                h.update(chunk)
+        return h.hexdigest()
+    except OSError:
+        return None
+
+
+def ensure_artifact_fingerprint(
+    db: KaraokeDatabase, song_id: int, path: str
+) -> str | None:
+    """Return the current sha256 of one artifact file (US-30).
+
+    Mirrors ``ensure_audio_fingerprint`` but per-artifact: on stat-match with
+    the DB, trust the recorded sha; otherwise recompute and persist. Returns
+    None when the artifact file is missing or unreadable — callers treat that
+    as "fingerprint unknown" rather than erroring. No invalidation side
+    effects: the caller decides what to do when the sha changes (artifact
+    invalidation policy is per-role).
+    """
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    mtime, size = st.st_mtime, st.st_size
+
+    rows = [a for a in db.get_artifacts(song_id) if a["path"] == path]
+    if not rows:
+        return None
+    row = rows[0]
+    try:
+        cached_sha = row["sha256"]
+        cached_mtime = row["mtime"]
+        cached_size = row["size"]
+    except (KeyError, IndexError):
+        cached_sha = cached_mtime = cached_size = None
+    if cached_sha and cached_mtime == mtime and cached_size == size:
+        return cached_sha
+
+    new_sha = _hash_file_sha256(path)
+    if new_sha is None:
+        return None
+    db.update_artifact_fingerprint(song_id, path, mtime, size, new_sha)
+    return new_sha
 
 
 def _invalidate_stems(db: KaraokeDatabase, song_id: int, old_sha: str | None) -> None:
