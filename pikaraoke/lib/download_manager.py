@@ -7,15 +7,20 @@ import logging
 import os
 import re
 import subprocess
+import time
 import uuid
 from queue import Queue
 from threading import Thread
+from typing import TYPE_CHECKING
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.music_metadata import resolve_metadata
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
+
+if TYPE_CHECKING:
+    from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.youtube_dl import (
     build_ytdl_audio_only_command,
     build_ytdl_download_command,
@@ -43,6 +48,8 @@ class DownloadManager:
         download_queue: Queue holding pending download requests.
     """
 
+    _DB_ERRORS_KEY = "download_errors"
+
     def __init__(
         self,
         events: EventSystem,
@@ -52,6 +59,7 @@ class DownloadManager:
         download_path: str,
         youtubedl_proxy: str | None = None,
         additional_ytdl_args: str | None = None,
+        db: "KaraokeDatabase | None" = None,
     ) -> None:
         """Initialize the download manager.
 
@@ -63,6 +71,7 @@ class DownloadManager:
             download_path: Directory where downloads are saved.
             youtubedl_proxy: Optional proxy URL for yt-dlp.
             additional_ytdl_args: Optional additional arguments for yt-dlp.
+            db: Optional database used to persist download_errors across restarts.
         """
         self._events = events
         self._preferences = preferences
@@ -71,12 +80,40 @@ class DownloadManager:
         self._download_path = download_path
         self._youtubedl_proxy = youtubedl_proxy
         self._additional_ytdl_args = additional_ytdl_args
+        self._db = db
         self.download_queue: Queue = Queue()
         self.pending_downloads: list[dict] = []  # Shadow queue for visibility
-        self.download_errors: list[dict] = []  # Track failed downloads
+        self.download_errors: list[dict] = self._load_persisted_errors()
         self.active_download: dict | None = None
         self._worker_thread: Thread | None = None
         self._is_downloading: bool = False  # Track if a download is currently in progress
+
+    def _load_persisted_errors(self) -> list[dict]:
+        """Restore the error list saved in the DB across restarts."""
+        if self._db is None:
+            return []
+        try:
+            raw = self._db.get_metadata(self._DB_ERRORS_KEY)
+        except Exception:
+            logging.exception("Failed to read persisted download_errors")
+            return []
+        if not raw:
+            return []
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            logging.warning("Stored download_errors is not valid JSON; discarding")
+            return []
+        return data if isinstance(data, list) else []
+
+    def _persist_errors(self) -> None:
+        """Flush the in-memory error list to the DB. Best-effort."""
+        if self._db is None:
+            return
+        try:
+            self._db.set_metadata(self._DB_ERRORS_KEY, json.dumps(self.download_errors))
+        except Exception:
+            logging.exception("Failed to persist download_errors")
 
     def start(self) -> None:
         """Start the download worker thread."""
@@ -107,7 +144,10 @@ class DownloadManager:
         """
         initial_len = len(self.download_errors)
         self.download_errors = [e for e in self.download_errors if e["id"] != error_id]
-        return len(self.download_errors) < initial_len
+        removed = len(self.download_errors) < initial_len
+        if removed:
+            self._persist_errors()
+        return removed
 
     def queue_download(
         self,
@@ -301,8 +341,10 @@ class DownloadManager:
                     "url": video_url,
                     "user": user,
                     "error": output or "Unknown error",
+                    "timestamp": time.time(),
                 }
             )
+            self._persist_errors()
         else:
             if self.active_download:
                 self.active_download["progress"] = 100

@@ -49,7 +49,8 @@ class TestQueueRoutes:
         assert data == expected_status
 
     @patch("pikaraoke.routes.queue.get_karaoke_instance")
-    def test_delete_download_error(self, mock_get_instance, client):
+    @patch("pikaraoke.routes.queue.is_admin", return_value=True)
+    def test_delete_download_error(self, _mock_is_admin, mock_get_instance, client):
         """Test the delete_download_error route."""
         mock_karaoke = MagicMock()
         mock_get_instance.return_value = mock_karaoke
@@ -65,6 +66,20 @@ class TestQueueRoutes:
         response = client.delete("/queue/downloads/errors/999")
         assert response.status_code == 404
         assert json.loads(response.data)["success"] is False
+
+    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    @patch("pikaraoke.routes.queue.is_admin", return_value=False)
+    def test_delete_download_error_requires_admin(
+        self, _mock_is_admin, mock_get_instance, client
+    ):
+        """Non-admins get 403 and the remove_error helper is never called."""
+        mock_karaoke = MagicMock()
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.delete("/queue/downloads/errors/123")
+
+        assert response.status_code == 403
+        mock_karaoke.download_manager.remove_error.assert_not_called()
 
 
 class TestQueueApiContract:

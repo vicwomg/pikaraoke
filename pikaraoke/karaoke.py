@@ -457,6 +457,7 @@ class Karaoke:
             download_path=self.download_path,
             youtubedl_proxy=self.youtubedl_proxy,
             additional_ytdl_args=self.additional_ytdl_args,
+            db=self.db,
         )
         self.download_manager.start()
 

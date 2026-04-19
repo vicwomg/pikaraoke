@@ -208,7 +208,9 @@ def get_current_downloads():
 
 @queue_bp.route("/queue/downloads/errors/<error_id>", methods=["DELETE"])
 def delete_download_error(error_id):
-    """Remove a download error from the list."""
+    """Remove a download error from the list (admin only)."""
+    if not is_admin():
+        return json.dumps({"success": False, "error": "Unauthorized"}), 403
     k = get_karaoke_instance()
     if k.download_manager.remove_error(error_id):
         return json.dumps({"success": True})

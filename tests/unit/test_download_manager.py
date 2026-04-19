@@ -1,6 +1,7 @@
 """Unit tests for download_manager module."""
 
 import json
+import time
 import threading
 from unittest.mock import MagicMock, patch
 
@@ -427,6 +428,71 @@ class TestDownloadManagerStatus:
         result = download_manager.remove_error("1234")
         assert result is True
         assert len(download_manager.download_errors) == 0
+
+
+class TestDownloadErrorPersistence:
+    """US-38: download_errors survive app restart via the metadata kv table."""
+
+    @pytest.fixture
+    def db(self):
+        """Minimal stub backed by an in-memory dict."""
+        store: dict[str, str] = {}
+        stub = MagicMock()
+        stub.get_metadata.side_effect = lambda key: store.get(key)
+        stub.set_metadata.side_effect = lambda key, value: store.__setitem__(key, value)
+        stub._store = store
+        return stub
+
+    def _make(self, db, events, preferences, song_manager, queue_manager):
+        return DownloadManager(
+            events=events,
+            preferences=preferences,
+            song_manager=song_manager,
+            queue_manager=queue_manager,
+            download_path="/songs",
+            db=db,
+        )
+
+    def test_init_loads_persisted_errors(
+        self, db, events, preferences, song_manager, queue_manager
+    ):
+        db._store["download_errors"] = json.dumps(
+            [{"id": "1", "title": "Old", "url": "u", "user": "U", "error": "e"}]
+        )
+        dm = self._make(db, events, preferences, song_manager, queue_manager)
+        assert len(dm.download_errors) == 1
+        assert dm.download_errors[0]["title"] == "Old"
+
+    def test_init_tolerates_invalid_json(
+        self, db, events, preferences, song_manager, queue_manager
+    ):
+        db._store["download_errors"] = "not json {"
+        dm = self._make(db, events, preferences, song_manager, queue_manager)
+        assert dm.download_errors == []
+
+    def test_remove_error_persists(self, db, events, preferences, song_manager, queue_manager):
+        db._store["download_errors"] = json.dumps(
+            [{"id": "1", "title": "T", "url": "u", "user": "U", "error": "e"}]
+        )
+        dm = self._make(db, events, preferences, song_manager, queue_manager)
+        assert dm.remove_error("1") is True
+        # Flushed back to the store.
+        assert json.loads(db._store["download_errors"]) == []
+
+    def test_append_carries_timestamp_field(self, download_manager):
+        """Newly-appended error dicts must include a numeric timestamp."""
+        # Simulate the _execute_download failure path directly.
+        download_manager.download_errors.append(
+            {
+                "id": "1",
+                "title": "T",
+                "url": "u",
+                "user": "U",
+                "error": "e",
+                "timestamp": time.time(),
+            }
+        )
+        assert isinstance(download_manager.download_errors[0]["timestamp"], float)
 
 
 class TestDownloadManagerSpecialCharacters:

@@ -408,12 +408,16 @@ No action.
 
 ### US-38 Download error surface (PARTIAL)
 
-- [ ] **P1** Persist `download_errors` to DB (or to disk) so they
-      survive app restart (`download_manager.py:76`).
-- [ ] **P1** Admin-gate the dismiss endpoint
-      (`routes/queue.py:209-215`). Currently any user can dismiss.
-- [ ] **P2** Add a `timestamp` field to each error dict for diagnostics
-      (`download_manager.py:273-281`).
+- [x] ~~**P1** Persist `download_errors` to DB.~~ Done — stored as a
+      JSON blob under `metadata["download_errors"]`; `DownloadManager`
+      loads on init and flushes on every append/remove. Survives
+      restart.
+- [x] ~~**P1** Admin-gate the dismiss endpoint.~~ Done — the
+      `DELETE /queue/downloads/errors/<id>` route now returns 403 for
+      non-admins.
+- [x] ~~**P2** Add a `timestamp` field to each error dict.~~ Done —
+      new errors carry `timestamp: time.time()` (epoch seconds) for
+      diagnostics.
 
 ### US-39 Structured warnings (PARTIAL)
 
