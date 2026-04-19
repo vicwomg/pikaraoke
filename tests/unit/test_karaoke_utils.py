@@ -351,6 +351,46 @@ class TestResetNowPlayingNotification:
         assert mock_karaoke.now_playing_notification is None
 
 
+class TestInitialReprocessWithWhisperx:
+    """US-17: the library reprocess must fire at most once per install."""
+
+    @staticmethod
+    def _wire(mock_karaoke, has_aligner=True, sentinel_set=False):
+        store: dict[str, str] = {}
+        if sentinel_set:
+            store[mock_karaoke._WHISPERX_REPROCESS_SENTINEL] = "1"
+        db = MagicMock()
+        db.get_metadata.side_effect = lambda key: store.get(key)
+        db.set_metadata.side_effect = lambda key, value: store.__setitem__(key, value)
+        mock_karaoke.db = db
+
+        ls = MagicMock()
+        ls.has_aligner = has_aligner
+        mock_karaoke.lyrics_service = ls
+
+        mock_karaoke.song_manager = MagicMock()
+        mock_karaoke.song_manager.songs = []
+        return store, db, ls
+
+    def test_runs_on_first_startup_and_sets_sentinel(self, mock_karaoke):
+        store, _db, ls = self._wire(mock_karaoke)
+        mock_karaoke._maybe_initial_reprocess_with_whisperx()
+        ls.reprocess_library.assert_called_once()
+        assert store[mock_karaoke._WHISPERX_REPROCESS_SENTINEL] == "1"
+
+    def test_skips_when_sentinel_already_set(self, mock_karaoke):
+        _store, _db, ls = self._wire(mock_karaoke, sentinel_set=True)
+        mock_karaoke._maybe_initial_reprocess_with_whisperx()
+        ls.reprocess_library.assert_not_called()
+
+    def test_skips_when_no_aligner(self, mock_karaoke):
+        store, _db, ls = self._wire(mock_karaoke, has_aligner=False)
+        mock_karaoke._maybe_initial_reprocess_with_whisperx()
+        ls.reprocess_library.assert_not_called()
+        # No sentinel write either — we haven't actually offered an upgrade.
+        assert mock_karaoke._WHISPERX_REPROCESS_SENTINEL not in store
+
+
 class TestSongWarningBuffer:
     """US-39: the song_warning listener persists to DB and caps length."""
 

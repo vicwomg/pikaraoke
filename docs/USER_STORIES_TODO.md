@@ -215,10 +215,15 @@ No action.
 
 ### US-17 Reprocess library on aligner install (PARTIAL)
 
-- [ ] **P1** Track "first whisperx install" with a sentinel in the DB
-      `metadata` table (e.g. `whisperx_initial_reprocess_done = 1`) and
-      gate `reprocess_library` on it (`karaoke.py:473`). On every
-      restart it currently scans all songs.
+- [x] ~~**P1** Track "first whisperx install" with a sentinel.~~ Done —
+      added `Karaoke._maybe_initial_reprocess_with_whisperx` which
+      reads `metadata["whisperx_initial_reprocess_done"]` and skips
+      the full-library scan when set. The first successful run (or
+      any startup where the aligner is available) stamps the flag so
+      restarts no longer re-walk every song. Freshly-downloaded
+      songs take the word-level path during their own
+      `fetch_and_convert` run, so the sentinel doesn't regress their
+      behavior.
 - [ ] **P2** When upgrading existing line-level `.ass`, prefer reading
       the existing `.ass` text over re-fetching LRCLib via the filename
       (`lyrics.py:377-398`). Songs whose title/artist drifted are

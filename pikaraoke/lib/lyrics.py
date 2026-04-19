@@ -92,6 +92,11 @@ class LyricsService:
         self._aligner = aligner
         self._db = db
 
+    @property
+    def has_aligner(self) -> bool:
+        """True when whisperx (or any word-level aligner) is configured."""
+        return self._aligner is not None
+
     def _register_ass(
         self,
         song_path: str,

@@ -479,13 +479,35 @@ class Karaoke:
             self._apply_scan_result(result)
 
         # If whisperx is newly available, upgrade line-level .ass files in the
-        # background. No-op when the aligner is not configured or nothing qualifies.
-        self.lyrics_service.reprocess_library(list(self.song_manager.songs))
+        # background. Gated on a one-shot DB sentinel so we don't re-scan the
+        # whole library on every restart — the first successful pass sets the
+        # flag and subsequent startups skip straight past (US-17).
+        self._maybe_initial_reprocess_with_whisperx()
 
         # Restore queue / now-playing / master volume from the previous run.
         self.state_persistence = StatePersistence()
         self._last_persist = 0.0
         self._restore_state()
+
+    _WHISPERX_REPROCESS_SENTINEL = "whisperx_initial_reprocess_done"
+
+    def _maybe_initial_reprocess_with_whisperx(self) -> None:
+        """Run `reprocess_library` exactly once after whisperx becomes available.
+
+        Without the sentinel, every restart scans the whole library to look
+        for line-level `.ass` files that could be upgraded to word-level —
+        wasted work after the first pass (US-17).
+        """
+        if not self.lyrics_service.has_aligner:
+            return
+        if self.db.get_metadata(self._WHISPERX_REPROCESS_SENTINEL) == "1":
+            return
+        self.lyrics_service.reprocess_library(list(self.song_manager.songs))
+        # Record the sentinel even when the batch was empty. Every startup
+        # with an aligner available counts as "we've offered the upgrade" —
+        # freshly-downloaded songs take the word-level path during their own
+        # fetch_and_convert run.
+        self.db.set_metadata(self._WHISPERX_REPROCESS_SENTINEL, "1")
 
     def _apply_scan_result(self, result: ScanResult) -> None:
         """Update SongList and emit notifications after a scan."""
