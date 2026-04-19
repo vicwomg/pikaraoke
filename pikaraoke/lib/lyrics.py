@@ -185,23 +185,19 @@ class LyricsService:
             _cleanup_yt_subs_and_info(song_path, self._db)
             return
 
-        # Step 1: baseline from YouTube VTT (always available when yt-dlp wrote any subs).
-        wrote_from_vtt = _try_write_ass_from_vtt(song_path)
-        if wrote_from_vtt:
-            logger.info("Wrote .ass from YouTube VTT for %s", os.path.basename(song_path))
-            self._register_ass(
-                song_path, lyrics_source="youtube_vtt", aligner_model=None, lyrics_sha=None
-            )
+        # Decide the source BEFORE writing anything so the .ass is written
+        # exactly once per run (US-14). Precedence: LRCLib > YouTube VTT.
+        wrote_from_vtt = False
+        wrote_from_lrc = False
 
-        # Step 2: override line-level with LRCLib text when we have it.
         if lrc:
             ass = _lrc_to_ass_line_level(lrc)
             if ass:
                 _write_ass_atomic(song_path, ass)
                 logger.info(
                     "LRCLib: wrote line-level .ass for %s - %s",
-                    info["artist"],
-                    info["track"],
+                    info["artist"] if info else "?",
+                    info["track"] if info else "?",
                 )
                 self._register_ass(
                     song_path,
@@ -209,10 +205,27 @@ class LyricsService:
                     aligner_model=None,
                     lyrics_sha=lyrics_sha,
                 )
+                wrote_from_lrc = True
+
+        if not wrote_from_lrc:
+            vtt_path = _pick_best_vtt(song_path, preferred_lang=self._db_language(song_path))
+            if vtt_path and _try_write_ass_from_vtt_path(song_path, vtt_path):
+                logger.info(
+                    "Wrote .ass from YouTube VTT for %s",
+                    os.path.basename(song_path),
+                )
+                self._register_ass(
+                    song_path,
+                    lyrics_source="youtube_vtt",
+                    aligner_model=None,
+                    lyrics_sha=None,
+                )
+                self._persist_vtt_language(song_path, vtt_path)
+                wrote_from_vtt = True
 
         _cleanup_yt_subs_and_info(song_path, self._db)
 
-        if not wrote_from_vtt and not lrc:
+        if not wrote_from_vtt and not wrote_from_lrc:
             logger.info("No lyrics source for %s", os.path.basename(song_path))
             try:
                 self._events.emit(
@@ -244,6 +257,54 @@ class LyricsService:
                 name=f"lyrics-align-{os.path.basename(song_path)}",
                 daemon=True,
             ).start()
+
+    def _db_language(self, song_path: str) -> str | None:
+        """Return the DB-stored language for a song (e.g. "en", "pl-PL"), or None."""
+        if self._db is None:
+            return None
+        try:
+            song_id = self._db.get_song_id_by_path(song_path)
+        except Exception:
+            return None
+        if song_id is None:
+            return None
+        row = self._db.get_song_by_id(song_id)
+        if row is None:
+            return None
+        try:
+            return row["language"]
+        except (KeyError, IndexError):
+            return None
+
+    def _persist_vtt_language(self, song_path: str, vtt_path: str) -> None:
+        """Write the chosen VTT's lang code to songs.language so subsequent
+        runs (and whisperx alignment) skip audio-based language detection.
+        US-14 P1.
+        """
+        if self._db is None:
+            return
+        lang = _vtt_lang_from_filename(song_path, vtt_path)
+        if not lang:
+            return
+        try:
+            song_id = self._db.get_song_id_by_path(song_path)
+        except Exception:
+            logger.exception("failed to look up song_id to persist VTT language")
+            return
+        if song_id is None:
+            return
+        try:
+            row = self._db.get_song_by_id(song_id)
+            if row is not None and row["language"]:
+                return
+        except (KeyError, IndexError):
+            pass
+        try:
+            self._db.update_track_metadata_with_provenance(
+                song_id, "scanner", {"language": lang}
+            )
+        except Exception:
+            logger.exception("failed to persist VTT language for song_id=%s", song_id)
 
     def _fetch_lrc_with_itunes_fallback(self, info: dict | None) -> tuple[str | None, dict | None]:
         """Query LRCLib; on miss, canonicalize metadata via iTunes and retry.
@@ -874,11 +935,8 @@ def _write_ass_atomic(song_path: str, ass_content: str) -> None:
 # ----- VTT conversion -----
 
 
-def _try_write_ass_from_vtt(song_path: str) -> bool:
-    """Convert the best available YouTube VTT (if any) to ASS. Returns True on success."""
-    vtt_path = _pick_best_vtt(song_path)
-    if not vtt_path:
-        return False
+def _try_write_ass_from_vtt_path(song_path: str, vtt_path: str) -> bool:
+    """Convert a specific VTT file to ASS. Returns True on success."""
     try:
         with open(vtt_path, encoding="utf-8") as f:
             vtt = f.read()
@@ -892,17 +950,37 @@ def _try_write_ass_from_vtt(song_path: str) -> bool:
     return True
 
 
-def _pick_best_vtt(song_path: str) -> str | None:
+def _vtt_lang_from_filename(song_path: str, vtt_path: str) -> str | None:
+    """Extract the language code segment from <stem>.<lang>.vtt, or None."""
+    stem, _ext = os.path.splitext(song_path)
+    basename = os.path.basename(stem)
+    name = os.path.basename(vtt_path)
+    if not name.startswith(basename + ".") or not name.endswith(".vtt"):
+        return None
+    return name[len(basename) + 1 : -len(".vtt")] or None
+
+
+def _lang_base(lang: str | None) -> str:
+    """Normalize a language tag to its primary subtag (e.g. `pl-PL` -> `pl`)."""
+    if not lang:
+        return ""
+    return lang.split("-", 1)[0].split("_", 1)[0].lower()
+
+
+def _pick_best_vtt(song_path: str, preferred_lang: str | None = None) -> str | None:
     """Return the most suitable <stem>*.vtt path, or None if none exist.
 
     Preference order:
-      1. Files without the `-orig` / `-auto` language suffix (manual uploads).
-      2. Shorter language codes (e.g. `pl` beats `pl-PL`).
-      3. Alphabetical as a final tiebreaker.
+      1. Files whose primary lang subtag matches ``preferred_lang`` (typically
+         the track's DB-stored ``language``) — US-14 P1.
+      2. Manual uploads (no `-orig` / `-auto` suffix).
+      3. Shorter language codes (e.g. `pl` beats `pl-PL`).
+      4. Alphabetical as a final tiebreaker.
     """
     stem, _ext = os.path.splitext(song_path)
     directory = os.path.dirname(stem) or "."
     basename = os.path.basename(stem)
+    preferred_base = _lang_base(preferred_lang)
     candidates = []
     for name in os.listdir(directory):
         if not name.endswith(".vtt"):
@@ -911,11 +989,15 @@ def _pick_best_vtt(song_path: str) -> str | None:
             continue
         lang = name[len(basename) + 1 : -len(".vtt")]
         is_auto = "-orig" in lang or lang.endswith("-auto") or "auto" in lang
-        candidates.append((is_auto, len(lang), lang, os.path.join(directory, name)))
+        # False sorts before True, so "lang matches preferred" goes first.
+        lang_matches = bool(preferred_base) and _lang_base(lang) == preferred_base
+        candidates.append(
+            (not lang_matches, is_auto, len(lang), lang, os.path.join(directory, name))
+        )
     if not candidates:
         return None
     candidates.sort()
-    return candidates[0][3]
+    return candidates[0][4]
 
 
 def _parse_vtt_cues(vtt: str) -> list[tuple[float, float, str]]:

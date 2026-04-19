@@ -620,6 +620,34 @@ class TestPickBestVtt:
         (tmp_path / "Other---xyz.en.vtt").write_text("WEBVTT")
         assert _pick_best_vtt(str(song)) is None
 
+    def test_prefers_matching_preferred_lang(self, tmp_path):
+        """US-14: when preferred_lang is known, matching VTTs beat shorter ones."""
+        song = tmp_path / "Foo---abc.mp4"
+        (tmp_path / "Foo---abc.en.vtt").write_text("WEBVTT")  # shorter but wrong lang
+        (tmp_path / "Foo---abc.pl.vtt").write_text("WEBVTT")  # matches preferred
+        picked = _pick_best_vtt(str(song), preferred_lang="pl-PL")
+        assert picked is not None
+        assert picked.endswith(".pl.vtt")
+
+    def test_matching_preferred_lang_still_prefers_manual(self, tmp_path):
+        """Within a preferred-lang match, manual still beats auto."""
+        song = tmp_path / "Foo---abc.mp4"
+        (tmp_path / "Foo---abc.pl-orig.vtt").write_text("WEBVTT")
+        (tmp_path / "Foo---abc.pl.vtt").write_text("WEBVTT")
+        picked = _pick_best_vtt(str(song), preferred_lang="pl")
+        assert picked is not None
+        assert picked.endswith(".pl.vtt")
+
+    def test_preferred_lang_absent_falls_back_to_old_order(self, tmp_path):
+        """With no match, order degrades to (manual > shorter > alpha)."""
+        song = tmp_path / "Foo---abc.mp4"
+        (tmp_path / "Foo---abc.en.vtt").write_text("WEBVTT")
+        (tmp_path / "Foo---abc.de.vtt").write_text("WEBVTT")
+        picked = _pick_best_vtt(str(song), preferred_lang="pl")
+        assert picked is not None
+        # Both nonmatching, manual, same length -> alphabetical "de" wins
+        assert picked.endswith(".de.vtt")
+
 
 # ----- marker + ownership -----
 
@@ -760,6 +788,74 @@ class TestLyricsServiceNewFlow:
             service.fetch_and_convert(song)
             mock_fetch.assert_not_called()
         assert (tmp_path / "Foo---abc.ass").read_text() == user_ass
+
+    def test_lrc_wins_writes_ass_exactly_once(self, tmp_path):
+        """US-14: when LRC is the chosen source, the VTT-derived .ass is
+        never written — we write the chosen source once."""
+        song = self._setup(tmp_path, with_vtt=True, with_info=True)
+        service = LyricsService(str(tmp_path), EventSystem())
+        calls = []
+        real_write = _write_ass_atomic_ref = None
+        from pikaraoke.lib import lyrics as _lyrics_mod
+
+        real_write = _lyrics_mod._write_ass_atomic
+
+        def counting_write(path, content):
+            calls.append(path)
+            real_write(path, content)
+
+        with patch("pikaraoke.lib.lyrics._write_ass_atomic", side_effect=counting_write), patch(
+            "pikaraoke.lib.lyrics._fetch_lrclib",
+            return_value="[00:01.00]lrclib line",
+        ):
+            service.fetch_and_convert(song)
+
+        assert len(calls) == 1, f"expected exactly one .ass write, got {len(calls)}"
+
+    def test_vtt_chosen_persists_language_to_db(self, tmp_path):
+        """US-14: VTT lang code flows into songs.language so next runs and
+        whisperx alignment skip audio detection."""
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+        song = tmp_path / "Foo---abc.mp4"
+        song.write_text("fake")
+        (tmp_path / "Foo---abc.pl.vtt").write_text(
+            "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nvtt line\n"
+        )
+        db = KaraokeDatabase(str(tmp_path / "t.db"))
+        db.insert_songs([{"file_path": str(song), "youtube_id": None, "format": "mp4"}])
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
+
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=None):
+            service.fetch_and_convert(str(song))
+
+        sid = db.get_song_id_by_path(str(song))
+        row = db.get_song_by_id(sid)
+        assert row["language"] == "pl"
+        db.close()
+
+    def test_lrc_winning_does_not_persist_vtt_language(self, tmp_path):
+        """When LRC wins, we must not stamp the VTT's language over an
+        otherwise untouched row — VTT wasn't chosen."""
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+        song = tmp_path / "Foo---abc.mp4"
+        song.write_text("fake")
+        (tmp_path / "Foo---abc.info.json").write_text(
+            json.dumps({"track": "T", "artist": "A", "duration": 180})
+        )
+        (tmp_path / "Foo---abc.pl.vtt").write_text("WEBVTT\n")
+        db = KaraokeDatabase(str(tmp_path / "t.db"))
+        db.insert_songs([{"file_path": str(song), "youtube_id": None, "format": "mp4"}])
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
+
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value="[00:01.00]hi"):
+            service.fetch_and_convert(str(song))
+
+        sid = db.get_song_id_by_path(str(song))
+        row = db.get_song_by_id(sid)
+        assert row["language"] is None
+        db.close()
 
     def test_previous_auto_ass_is_overwritten(self, tmp_path):
         song = self._setup(tmp_path, with_vtt=False, with_info=True)

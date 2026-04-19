@@ -159,15 +159,22 @@ No action.
 
 ### US-14 Lyrics source precedence (PARTIAL)
 
-- [ ] **P1** Stop writing VTT-derived `.ass` first and overwriting it
-      with LRCLib (`lyrics.py:189-212`). Compute the chosen source
-      first; write only once.
-- [ ] **P1** Match VTT language against the track's language in
-      `_pick_best_vtt` (`lyrics.py:890-913`). Pull `language` from the
-      DB row and prefer matching codes.
-- [ ] **P1** When VTT is the chosen source, persist the VTT language
-      code (from filename) to `songs.language` so subsequent runs skip
-      whisper detection.
+- [x] ~~**P1** Stop writing VTT-derived `.ass` first and overwriting
+      it with LRCLib.~~ Done — `_do_fetch_and_convert` now picks the
+      chosen source (LRC > VTT) before writing, so the `.ass` is
+      written exactly once per run. Covered by
+      `test_lrc_wins_writes_ass_exactly_once`.
+- [x] ~~**P1** Match VTT language against the track's language.~~
+      Done — `_pick_best_vtt` now takes `preferred_lang`; matching
+      primary subtags beat shorter/manual in the sort key. The
+      service passes `self._db_language(song_path)` which pulls from
+      `songs.language`.
+- [x] ~~**P1** Persist VTT language to `songs.language`.~~ Done —
+      when VTT is the chosen source, `_persist_vtt_language` extracts
+      the lang code from the filename and writes it via
+      `update_track_metadata_with_provenance(..., "scanner", ...)`,
+      so whisperx alignment (and subsequent VTT picks) skip audio
+      detection.
 - [ ] **P2** Tighten the "auto/translation" detection — replace the
       brittle `"auto" in lang` substring check with a proper rule (e.g.
       `lang.endswith("-auto")` or `lang.endswith("-orig")`).
