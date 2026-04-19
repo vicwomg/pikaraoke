@@ -129,18 +129,29 @@ class LyricsService:
     def _maybe_drop_stale_auto_ass(self, song_path: str, lyrics_sha: str | None) -> None:
         """Delete the auto .ass when any upstream dependency changed.
 
-        Invalidates on: aligner model swap, demucs model swap (whisper aligned
-        to stems from the old model), or LRC content change (LRCLib updated
-        the lyrics). Runs before re-generating lyrics so stale artifacts are
-        not served.
+        Invalidates on: audio sha change (US-15 — source bytes replaced),
+        aligner model swap, demucs model swap (whisper aligned to stems from
+        the old model), or LRC content change (LRCLib updated the lyrics).
+        Runs before re-generating lyrics so stale artifacts are not served.
         """
         if self._db is None:
             return
         song_id = self._db.get_song_id_by_path(song_path)
         if song_id is None:
             return
-        from pikaraoke.lib.audio_fingerprint import ensure_lyrics_config
-        from pikaraoke.lib.demucs_processor import DEMUCS_MODEL
+        from pikaraoke.lib.audio_fingerprint import (
+            ensure_audio_fingerprint,
+            ensure_lyrics_config,
+        )
+        from pikaraoke.lib.demucs_processor import DEMUCS_MODEL, resolve_audio_source
+
+        # Audio sha check first — a re-downloaded source invalidates
+        # everything downstream (stems + auto .ass via _invalidate_auto_ass).
+        # Cheap when mtime+size match the DB.
+        try:
+            ensure_audio_fingerprint(self._db, song_id, resolve_audio_source(song_path))
+        except Exception:
+            logger.exception("ensure_audio_fingerprint failed for %s", song_path)
 
         aligner_id = self._aligner.model_id if self._aligner is not None else None
         ensure_lyrics_config(

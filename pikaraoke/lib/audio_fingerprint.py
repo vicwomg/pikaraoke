@@ -79,6 +79,12 @@ def ensure_audio_fingerprint(db: KaraokeDatabase, song_id: int, audio_path: str)
 def ensure_stems_config(db: KaraokeDatabase, song_id: int, current_demucs_model: str) -> bool:
     """Invalidate stems when the recorded demucs_model differs from the current one.
 
+    Also cascades to the auto .ass: whisper alignment runs on stem output, so
+    a demucs_model change means the existing .ass was aligned to stems from
+    the wrong separator — drop it too (US-31). Previously the .ass
+    invalidation depended on ``ensure_lyrics_config`` being called separately,
+    which is easy to miss in callers that only prime stems.
+
     NULL means "not yet recorded" (e.g. first play, post-migration) and does
     NOT trigger invalidation. Does not write the current model — the caller
     records it after the stems successfully land on disk so the DB doesn't
@@ -91,12 +97,13 @@ def ensure_stems_config(db: KaraokeDatabase, song_id: int, current_demucs_model:
     if cached is None or cached == current_demucs_model:
         return True
     logger.info(
-        "demucs_model changed for song %d (%s -> %s); invalidating stems",
+        "demucs_model changed for song %d (%s -> %s); invalidating stems + auto .ass",
         song_id,
         cached,
         current_demucs_model,
     )
     _invalidate_stems(db, song_id, row["audio_sha256"])
+    _invalidate_auto_ass(db, song_id)
     return False
 
 

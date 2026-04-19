@@ -181,18 +181,29 @@ No action.
 
 ### US-15 Cache-correct re-alignment (PARTIAL)
 
-- [ ] **P1** Call `ensure_audio_fingerprint` at download time as well as
-      play time (`stream_manager.py:519`), so a re-downloaded source
-      invalidates downstream caches before next play.
-- [ ] **P1** Have `_maybe_drop_stale_auto_ass` (`lyrics.py:129`) also
-      check the audio sha (or call `ensure_audio_fingerprint` first) so
-      audio changes cascade to lyrics without waiting for playback.
+- [x] ~~**P1** Call `ensure_audio_fingerprint` at download time.~~
+      Done — new `song_downloaded` listener
+      `Karaoke._ensure_fingerprint_on_download` runs
+      `ensure_audio_fingerprint` on the resolved audio sibling right
+      after `register_download`, before `fetch_and_convert`. A
+      re-download with changed bytes now invalidates stems and auto
+      `.ass` immediately instead of waiting for the first play.
+- [x] ~~**P1** Have `_maybe_drop_stale_auto_ass` also check the audio
+      sha.~~ Done — the helper now calls `ensure_audio_fingerprint`
+      before `ensure_lyrics_config`, so any path into
+      `fetch_and_convert` (not just the download listener) picks up
+      audio-sha changes. Redundant with the download-time call but
+      cheap (fast stat-match short-circuit when mtime+size agree).
 
 ### US-16 Language hint reuse (PARTIAL)
 
-- [ ] **P1** Use the VTT language code as the fast-path language source
-      when LRCLib misses (`lyrics.py:238` currently gates on `lrc`).
-      Persist it to `songs.language`.
+- [x] ~~**P1** Use the VTT language code as the fast-path language
+      source; persist to `songs.language`.~~ Done — `_persist_vtt_language`
+      (added for US-14) writes the VTT-derived lang into `songs.language`
+      via the provenance-aware writer. `_upgrade_to_word_level`
+      already reads from that column, so any future alignment pass on
+      a VTT-only song (e.g. after whisperx install) skips audio
+      detection and starts with the persisted hint.
 - [ ] **P2** Make `last_detected_language` thread-safe — either move it
       off the shared aligner singleton (`lyrics_align.py:47`) or guard
       it with a per-song lock so concurrent alignments don't clobber
@@ -357,13 +368,14 @@ No action.
       `aligner_model` via `update_processing_config`. Next pipeline run
       treats LRCLib as never-fetched and re-queries it. Covered by new
       tests in `tests/unit/test_audio_fingerprint.py::TestLyricsShaClearedOnAudioChange`.
-- [ ] **P1** Make sure `ensure_stems_config` also invalidates the
-      aligned `.ass` (currently the `.ass` invalidation depends on
-      `ensure_lyrics_config` running independently;
-      `audio_fingerprint.py:79-100`).
-- [ ] **P1** Run `ensure_audio_fingerprint` at download time, not only
-      at playback (`stream_manager.py:519`). Without this, model/audio
-      changes don't cascade until the song is next played.
+- [x] ~~**P1** Make sure `ensure_stems_config` also invalidates the
+      aligned `.ass`.~~ Done — `ensure_stems_config` now calls
+      `_invalidate_auto_ass` after `_invalidate_stems` when the
+      demucs_model changed. Whisper alignment runs on stem output, so
+      a new separator means the old `.ass` is aligned to the wrong
+      input.
+- [x] ~~**P1** Run `ensure_audio_fingerprint` at download time.~~
+      Done — see US-15 above (new `song_downloaded` listener).
 
 ### US-32 Cache cleanup on song delete (PARTIAL)
 

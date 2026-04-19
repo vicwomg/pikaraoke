@@ -178,6 +178,30 @@ class TestEnsureStemsConfig:
         roles = {a["role"] for a in db.get_artifacts(sid)}
         assert "stems_cache_dir" not in roles
 
+    def test_mismatched_model_cascades_to_auto_ass(self, db, tmp_path):
+        """US-31: changing demucs_model also drops the auto .ass because
+        whisper alignment runs on stems produced by the old model."""
+        sid = _insert_song(db)
+        sha = "a" * 64
+        ass_path = tmp_path / "Foo---abc.ass"
+        ass_path.write_text("stale ass")
+        db.update_audio_fingerprint(sid, 0.0, 0, sha)
+        db.update_processing_config(
+            sid, demucs_model="htdemucs", aligner_model="whisperx-base", lyrics_sha="x" * 64
+        )
+        db.upsert_artifacts(sid, [{"role": "ass_auto", "path": str(ass_path)}])
+
+        with patch.object(af, "_demucs_bits", return_value=(str(tmp_path / "cache"), None)):
+            af.ensure_stems_config(db, sid, "htdemucs_ft")
+
+        # .ass unlinked, row removed, and aligner_model/lyrics_sha cleared.
+        assert not ass_path.exists()
+        roles = {a["role"] for a in db.get_artifacts(sid)}
+        assert "ass_auto" not in roles
+        row = db.get_song_by_id(sid)
+        assert row["aligner_model"] is None
+        assert row["lyrics_sha"] is None
+
 
 class TestEnsureLyricsConfig:
     def test_first_time_is_noop(self, db):

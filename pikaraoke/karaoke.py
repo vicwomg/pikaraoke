@@ -380,6 +380,10 @@ class Karaoke:
         self.events.on("song_ended", self.update_now_playing_socket)
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
         self.events.on("song_downloaded", self.song_manager.register_download)
+        # US-15/US-31 P1: fingerprint audio at download time too, so a
+        # re-download with bit-flipped content invalidates stems + auto .ass
+        # before the next play instead of waiting for the play-time check.
+        self.events.on("song_downloaded", self._ensure_fingerprint_on_download)
         self.events.on("song_downloaded", self.lyrics_service.fetch_and_convert)
         self.events.on("lyrics_upgraded", self._on_lyrics_upgraded)
         self.events.on(
@@ -945,6 +949,23 @@ class Karaoke:
         """Emit now_playing state change via SocketIO."""
         if self.socketio:
             self.socketio.emit("now_playing", self.get_now_playing(), namespace="/")
+
+    def _ensure_fingerprint_on_download(self, song_path: str) -> None:
+        """Stamp the audio sha256 right after download so cache invalidation
+        cascades before the song's next play (US-15/US-31)."""
+        song_id = self.db.get_song_id_by_path(song_path)
+        if song_id is None:
+            return
+        try:
+            from pikaraoke.lib.audio_fingerprint import ensure_audio_fingerprint
+            from pikaraoke.lib.demucs_processor import resolve_audio_source
+
+            audio_source = resolve_audio_source(song_path)
+            ensure_audio_fingerprint(self.db, song_id, audio_source)
+        except Exception:
+            logging.exception(
+                "ensure_audio_fingerprint failed on download for %s", song_path
+            )
 
     def _on_lyrics_upgraded(self, song_path: str) -> None:
         """Force the splash to reload subtitles when word-level ASS lands mid-song.
