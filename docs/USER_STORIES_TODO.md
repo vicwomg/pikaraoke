@@ -221,9 +221,12 @@ No action.
 
 ### US-19 Skip, pause, restart (PARTIAL)
 
-- [ ] **P1** Make `karaoke.restart()` (`karaoke.py:722-736`) reset the
-      server-side position to 0 and broadcast a `seek` to 0, so the
-      effect doesn't depend entirely on client JS.
+- [x] ~~**P1** Make `karaoke.restart()` reset the server-side position
+      to 0 and broadcast a `seek` to 0.~~ Done — restart zeros
+      `playback_controller.now_playing_position` / `position_updated_at`
+      and emits `socketio.emit("seek", 0.0)` so every splash (not just
+      the click origin) rewinds, even if its client-side handler is
+      slow or disconnected.
 - [ ] **P2** Decide whether server-side pause should also pause the
       ffmpeg subprocess (SIGSTOP/SIGCONT) on the transcoded paths, or
       whether client-only pause is sufficient.

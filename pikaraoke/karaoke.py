@@ -731,7 +731,14 @@ class Karaoke:
         if self.playback_controller.is_playing:
             now_playing = self.playback_controller.now_playing
             logging.info("Restarting: " + (now_playing or "unknown song"))
+            # Reset server-side position to 0 and broadcast a seek so every
+            # client (not just the one that clicked Restart) rewinds — without
+            # this, the effect depends entirely on the client's JS handler.
+            self.playback_controller.now_playing_position = 0.0
+            self.playback_controller.position_updated_at = time.time()
             self.playback_controller.is_paused = False
+            if self.socketio:
+                self.socketio.emit("seek", 0.0, namespace="/")
             self.update_now_playing_socket()
             return True
         else:

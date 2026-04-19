@@ -287,11 +287,32 @@ class TestRestart:
         pc.is_playing = True
         pc.is_paused = True
         pc.now_playing = "Test Song"
+        pc.now_playing_position = 42.0
 
         result = mock_karaoke.restart()
 
         assert result is True
         assert pc.is_paused is False
+        # Server-side position rewinds so pilots landing mid-restart see 0,
+        # not the stale pre-restart value.
+        assert pc.now_playing_position == 0.0
+
+    def test_restart_broadcasts_seek_zero(self, mock_karaoke):
+        """Restart emits seek=0 so clients that missed the restart click rewind too."""
+        from unittest.mock import MagicMock
+
+        sio = MagicMock()
+        mock_karaoke.socketio = sio
+
+        pc = mock_karaoke.playback_controller
+        pc.is_playing = True
+        pc.now_playing_position = 42.0
+
+        mock_karaoke.restart()
+
+        seek_calls = [c for c in sio.emit.call_args_list if c.args and c.args[0] == "seek"]
+        assert seek_calls, "expected a 'seek' emit from restart()"
+        assert seek_calls[0].args[1] == 0.0
 
     def test_restart_when_nothing_playing(self, mock_karaoke):
         """Test restart returns False when nothing is playing."""
