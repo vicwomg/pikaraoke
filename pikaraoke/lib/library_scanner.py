@@ -204,7 +204,11 @@ class LibraryScanner:
             self._db.upsert_artifacts(song_id, artifacts)
             meta = _track_metadata_from_info_json(path)
             if meta:
-                self._db.update_track_metadata(song_id, **meta)
+                # info.json is yt-dlp's output, so provenance = "youtube".
+                # Media-specific fields rank YouTube above remote DBs; identity
+                # fields (only ``language`` here) rank it below MB/iTunes so an
+                # enrichment pass can still override.
+                self._db.update_track_metadata_with_provenance(song_id, "youtube", meta)
 
     def _walk_disk(self, songs_dir: str) -> set[str]:
         """Walk the directory tree and collect paths of valid song files."""

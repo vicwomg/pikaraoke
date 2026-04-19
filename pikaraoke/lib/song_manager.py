@@ -261,7 +261,7 @@ class SongManager:
         self._db.upsert_artifacts(song_id, discover_song_artifacts(song_path))
         meta = _track_metadata_from_info_json(song_path)
         if meta:
-            self._db.update_track_metadata(song_id, **meta)
+            self._db.update_track_metadata_with_provenance(song_id, "youtube", meta)
         if self._enrich_on_download:
             self._start_enrichment(song_id, song_path)
 

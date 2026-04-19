@@ -14,6 +14,7 @@ from pikaraoke.lib.lyrics import (
     _ass_header,
     _ass_path,
     _cleanup_yt_subs_and_info,
+    _detect_language,
     _escape_ass,
     _fetch_lrclib,
     _format_ass_time,
@@ -116,17 +117,49 @@ class TestEscapeAss:
 
 
 class TestKToken:
-    def test_builds_k_tag(self):
+    def test_builds_kf_tag(self):
         word = Word(text="hello", start=0.0, end=0.5)
-        assert _k_token(word) == "{\\k50}hello"
+        assert _k_token(word) == "{\\kf50}hello"
 
     def test_minimum_duration_one_cs(self):
         word = Word(text="x", start=1.0, end=1.0)
-        assert _k_token(word) == "{\\k1}x"
+        assert _k_token(word) == "{\\kf1}x"
 
     def test_rounds_to_centi(self):
         word = Word(text="a", start=0.0, end=0.333)
-        assert _k_token(word) == "{\\k33}a"
+        assert _k_token(word) == "{\\kf33}a"
+
+    def test_no_pulse_when_params_none(self):
+        word = Word(text="hello", start=1.0, end=1.5)
+        assert "\\t(" not in _k_token(word, line_start_s=1.0)
+
+    def test_no_pulse_when_pct_at_100(self):
+        from pikaraoke.lib.lyrics import _AnimParams
+
+        word = Word(text="hello", start=1.0, end=1.5)
+        out = _k_token(word, line_start_s=1.0, params=_AnimParams(100, 0.25))
+        assert "\\t(" not in out
+
+    def test_pulse_emits_scale_transforms_with_line_relative_ms(self):
+        from pikaraoke.lib.lyrics import _AnimParams
+
+        # Line starts at 1.0s, word at 1.2s, duration 0.5s -> 200ms offset,
+        # 500ms total, 25% rise = 125ms rise window.
+        word = Word(text="hello", start=1.2, end=1.7)
+        out = _k_token(word, line_start_s=1.0, params=_AnimParams(108, 0.25))
+        assert out.startswith("{\\kf50}")
+        assert "\\t(200,325,\\fscx108\\fscy108)" in out
+        assert "\\t(325,700,\\fscx100\\fscy100)" in out
+        assert out.endswith("hello")
+
+    def test_pulse_offset_clamped_to_zero_when_word_precedes_line(self):
+        from pikaraoke.lib.lyrics import _AnimParams
+
+        # WhisperX can drift a word slightly before the LRC line start;
+        # negative \t times are invalid, so clamp.
+        word = Word(text="w", start=0.95, end=1.1)
+        out = _k_token(word, line_start_s=1.0, params=_AnimParams(105, 0.25))
+        assert "\\t(0," in out
 
 
 class TestWordsToAssWithKTags:
@@ -137,7 +170,7 @@ class TestWordsToAssWithKTags:
             Word("world", 1.5, 2.0),
         ]
         ass = _words_to_ass_with_k_tags(words, lrc)
-        assert "{\\k50}hello {\\k50}world" in ass
+        assert "{\\kf50}hello {\\kf50}world" in ass
 
     def test_line_without_matching_words_falls_back_to_text(self):
         lrc = "[00:01.00]hello\n[00:20.00]world"
@@ -301,6 +334,7 @@ class TestLyricsServiceFetchAndConvert:
     def test_aligner_invoked_when_provided(self, song_and_info, tmp_path):
         aligner = MagicMock()
         aligner.align.return_value = [Word("hello", 1.0, 1.5)]
+        aligner.last_detected_language = "en"
         service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner)
         with patch(
             "pikaraoke.lib.lyrics._fetch_lrclib",
@@ -318,7 +352,7 @@ class TestLyricsServiceFetchAndConvert:
             target(*args)
         aligner.align.assert_called_once()
         ass_text = (tmp_path / "Foo---abc.ass").read_text(encoding="utf-8")
-        assert "{\\k50}hello" in ass_text
+        assert "{\\kf50}hello" in ass_text
 
     def test_registers_ass_auto_artifact_when_db_wired(self, song_and_info, tmp_path):
         """After writing an LRCLib .ass, the DB gets an ass_auto artifact row."""
@@ -367,6 +401,125 @@ class TestLyricsServiceFetchAndConvert:
         with patch("pikaraoke.lib.lyrics._read_info_json", side_effect=RuntimeError("boom")):
             # Must not raise - event listener context
             service.fetch_and_convert(song_and_info)
+
+    def test_skips_when_word_level_ass_already_fresh(self, song_and_info, tmp_path):
+        """Re-request of a cached song must not re-run whisper when LRC unchanged.
+
+        yt-dlp rewrites info.json on a cache hit; without this guard the
+        full VTT -> LRCLib -> whisper pipeline would re-run every time.
+        """
+        from pikaraoke.lib.demucs_processor import DEMUCS_MODEL
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+        from pikaraoke.lib.lyrics import _lrc_sha
+
+        lrc = "[00:01.00]hello"
+        existing = f"[Script Info]\nTitle: {ASS_MARKER}\n\n{{\\k50}}hello\n"
+        (tmp_path / "Foo---abc.ass").write_text(existing)
+
+        db = KaraokeDatabase(str(tmp_path / "t.db"))
+        db.insert_songs([{"file_path": song_and_info, "youtube_id": None, "format": "mp4"}])
+        sid = db.get_song_id_by_path(song_and_info)
+        db.upsert_artifacts(sid, [{"role": "ass_auto", "path": str(tmp_path / "Foo---abc.ass")}])
+        db.update_processing_config(
+            sid,
+            demucs_model=DEMUCS_MODEL,
+            aligner_model="whisperx-base",
+            lyrics_source="whisperx",
+            lyrics_sha=_lrc_sha(lrc),
+        )
+        aligner = MagicMock()
+        aligner.model_id = "whisperx-base"
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=lrc):
+            service.fetch_and_convert(song_and_info)
+        aligner.align.assert_not_called()
+        assert (tmp_path / "Foo---abc.ass").read_text(encoding="utf-8") == existing
+        assert not (tmp_path / "Foo---abc.info.json").exists()
+        db.close()
+
+    def test_subtitle_change_invalidates_word_level_ass(self, song_and_info, tmp_path):
+        """LRCLib returning different content must force whisper to re-run."""
+        from pikaraoke.lib.demucs_processor import DEMUCS_MODEL
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+        from pikaraoke.lib.lyrics import _lrc_sha
+
+        old_lrc = "[00:01.00]stale text"
+        new_lrc = "[00:01.00]fresh text"
+        (tmp_path / "Foo---abc.ass").write_text(
+            f"[Script Info]\nTitle: {ASS_MARKER}\n\n{{\\k50}}stale\n"
+        )
+
+        db = KaraokeDatabase(str(tmp_path / "t.db"))
+        db.insert_songs([{"file_path": song_and_info, "youtube_id": None, "format": "mp4"}])
+        sid = db.get_song_id_by_path(song_and_info)
+        db.upsert_artifacts(sid, [{"role": "ass_auto", "path": str(tmp_path / "Foo---abc.ass")}])
+        db.update_processing_config(
+            sid,
+            demucs_model=DEMUCS_MODEL,
+            aligner_model="whisperx-base",
+            lyrics_source="whisperx",
+            lyrics_sha=_lrc_sha(old_lrc),
+        )
+        aligner = MagicMock()
+        aligner.model_id = "whisperx-base"
+        aligner.align.return_value = [Word("fresh", 1.0, 1.5), Word("text", 1.5, 2.0)]
+        aligner.last_detected_language = "en"
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=new_lrc), patch(
+            "pikaraoke.lib.lyrics.Thread"
+        ) as mock_thread, patch(
+            "pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p
+        ), patch(
+            "pikaraoke.lib.lyrics._prewarm_stems"
+        ):
+            service.fetch_and_convert(song_and_info)
+            target = mock_thread.call_args.kwargs["target"]
+            args = mock_thread.call_args.kwargs["args"]
+            target(*args)
+        aligner.align.assert_called_once()
+        row = db.get_song_by_id(sid)
+        assert row["lyrics_sha"] == _lrc_sha(new_lrc)
+        db.close()
+
+    def test_demucs_model_change_invalidates_word_level_ass(self, song_and_info, tmp_path):
+        """Demucs model swap must force whisper re-run (aligned on stale stems)."""
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+        from pikaraoke.lib.lyrics import _lrc_sha
+
+        lrc = "[00:01.00]hello"
+        (tmp_path / "Foo---abc.ass").write_text(
+            f"[Script Info]\nTitle: {ASS_MARKER}\n\n{{\\k50}}hello\n"
+        )
+
+        db = KaraokeDatabase(str(tmp_path / "t.db"))
+        db.insert_songs([{"file_path": song_and_info, "youtube_id": None, "format": "mp4"}])
+        sid = db.get_song_id_by_path(song_and_info)
+        db.upsert_artifacts(sid, [{"role": "ass_auto", "path": str(tmp_path / "Foo---abc.ass")}])
+        db.update_processing_config(
+            sid,
+            demucs_model="old-demucs-v1",  # differs from current DEMUCS_MODEL
+            aligner_model="whisperx-base",
+            lyrics_source="whisperx",
+            lyrics_sha=_lrc_sha(lrc),
+        )
+        aligner = MagicMock()
+        aligner.model_id = "whisperx-base"
+        aligner.align.return_value = [Word("hello", 1.0, 1.5)]
+        aligner.last_detected_language = "en"
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=lrc), patch(
+            "pikaraoke.lib.lyrics.Thread"
+        ) as mock_thread, patch(
+            "pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p
+        ), patch(
+            "pikaraoke.lib.lyrics._prewarm_stems"
+        ):
+            service.fetch_and_convert(song_and_info)
+            target = mock_thread.call_args.kwargs["target"]
+            args = mock_thread.call_args.kwargs["args"]
+            target(*args)
+        aligner.align.assert_called_once()
+        db.close()
 
 
 # ----- path helpers -----
@@ -660,6 +813,7 @@ class TestLyricsServiceNewFlow:
         song = self._setup(tmp_path, with_vtt=True, with_info=True)
         aligner = MagicMock()
         aligner.align.return_value = [Word("x", 0, 1)]
+        aligner.last_detected_language = "en"
         service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner)
         with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=None), patch(
             "pikaraoke.lib.lyrics.Thread"
@@ -751,6 +905,7 @@ class TestReprocessLibrary:
         song = self._make_line_level_song(tmp_path, "Eminem - Stan---abcdefghij1")
         aligner = MagicMock()
         aligner.align.return_value = [Word("hello", 1.0, 1.5), Word("world", 1.5, 2.0)]
+        aligner.last_detected_language = "en"
         service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner)
         with patch(
             "pikaraoke.lib.lyrics.resolve_metadata",
@@ -926,8 +1081,8 @@ class TestWordsToAssContextBlock:
         ass = _words_to_ass_with_k_tags(words, lrc)
         dialogues = [ln for ln in ass.splitlines() if ln.startswith("Dialogue:")]
         middle = dialogues[1]
-        # Current line carries \k; past/future segments are plain text.
-        assert r"{\k50}two" in middle
+        # Current line carries \kf; past/future segments are plain text.
+        assert r"{\kf50}two" in middle
         assert "one" in middle
         assert "three" in middle
         # The non-current lines should NOT have \k near them.
@@ -1090,12 +1245,13 @@ class TestUpgradeToWordLevelUsesStem:
         song.write_text("fake")
         aligner = MagicMock()
         aligner.align.return_value = [Word("hi", 1.0, 1.5)]
+        aligner.last_detected_language = "en"
         service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner)
         with patch(
             "pikaraoke.lib.lyrics._wait_for_alignment_audio",
             return_value="/cache/abc/vocals.mp3",
-        ):
-            service._upgrade_to_word_level(str(song), "[00:01.00]hi")
+        ), patch("pikaraoke.lib.lyrics._estimate_bpm", return_value=None):
+            service._upgrade_to_word_level(str(song), "[00:01.00]hi", None)
         aligner.align.assert_called_once()
         assert aligner.align.call_args.args[0] == "/cache/abc/vocals.mp3"
 
@@ -1119,7 +1275,7 @@ class TestUpgradeToWordLevelLanguageCache:
         aligner.last_detected_language = "pl"
         service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
         with patch("pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p):
-            service._upgrade_to_word_level(str(song), "[00:01.00]hi")
+            service._upgrade_to_word_level(str(song), "[00:01.00]hi", None)
         assert aligner.align.call_args.kwargs["language"] is None
         row = db.get_song_by_id(db.get_song_id_by_path(str(song)))
         assert row["language"] == "pl"
@@ -1133,24 +1289,150 @@ class TestUpgradeToWordLevelLanguageCache:
         aligner.last_detected_language = "pl"
         service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
         with patch("pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p):
-            service._upgrade_to_word_level(str(song), "[00:01.00]hi")
+            service._upgrade_to_word_level(str(song), "[00:01.00]hi", None)
         assert aligner.align.call_args.kwargs["language"] == "pl"
         db.close()
 
     def test_does_not_overwrite_existing_language(self, tmp_path):
-        """info.json / manual edits are authoritative; whisperx disagreement
+        """info.json / manual edits are authoritative — whisperx disagreement
         must not clobber them."""
         song, db = self._setup(tmp_path)
         db.update_track_metadata(db.get_song_id_by_path(str(song)), language="en")
         aligner = MagicMock()
+        # Aligner hallucinates a different code; we ignore it for persistence.
         aligner.align.return_value = [Word("hi", 1.0, 1.5)]
         aligner.last_detected_language = "pl"
         service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
         with patch("pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p):
-            service._upgrade_to_word_level(str(song), "[00:01.00]hi")
+            service._upgrade_to_word_level(str(song), "[00:01.00]hi", None)
         row = db.get_song_by_id(db.get_song_id_by_path(str(song)))
         assert row["language"] == "en"
         db.close()
+
+    def test_detects_language_from_lrc_when_db_empty(self, tmp_path):
+        """LRC text detection short-circuits whisperx's audio-based detection."""
+        song, db = self._setup(tmp_path)
+        aligner = MagicMock()
+        aligner.align.return_value = [Word("hi", 1.0, 1.5)]
+        # Aligner won't be asked to detect because we passed a hint.
+        aligner.last_detected_language = None
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
+        # Long enough English text to trigger detection.
+        lrc = (
+            "[00:01.00]Every now and then I get a little bit lonely\n"
+            "[00:05.00]And you're never coming round\n"
+            "[00:09.00]Every now and then I get a little bit tired\n"
+        )
+        with patch("pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p):
+            service._upgrade_to_word_level(str(song), lrc, None)
+        assert aligner.align.call_args.kwargs["language"] == "en"
+        row = db.get_song_by_id(db.get_song_id_by_path(str(song)))
+        assert row["language"] == "en"
+        db.close()
+
+
+class TestDetectLanguage:
+    def test_returns_iso_code_for_long_english(self):
+        text = "Every now and then I get a little bit lonely " "and you're never coming round."
+        assert _detect_language(text) == "en"
+
+    def test_returns_none_for_short_input(self):
+        assert _detect_language("hi") is None
+
+    def test_returns_none_when_langdetect_missing(self, monkeypatch):
+        import builtins
+
+        real_import = builtins.__import__
+
+        def blocked_import(name, *args, **kwargs):
+            if name == "langdetect":
+                raise ImportError("simulated")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", blocked_import)
+        text = "Every now and then I get a little bit lonely and tired."
+        assert _detect_language(text) is None
+
+
+class TestAnimParamsForBpm:
+    def _params(self, bpm):
+        from pikaraoke.lib.lyrics import _anim_params_for_bpm
+
+        return _anim_params_for_bpm(bpm)
+
+    def test_none_bpm_disables_pulse(self):
+        p = self._params(None)
+        assert p.pulse_pct == 100
+        assert p.pulse_rise_frac == 0.0
+
+    def test_non_positive_bpm_disables_pulse(self):
+        assert self._params(0.0).pulse_pct == 100
+        assert self._params(-5.0).pulse_pct == 100
+
+    def test_ballad_tier(self):
+        assert self._params(60.0).pulse_pct == 103
+
+    def test_mid_tempo_tier(self):
+        assert self._params(110.0).pulse_pct == 106
+
+    def test_uptempo_tier(self):
+        assert self._params(150.0).pulse_pct == 109
+
+    def test_boundaries(self):
+        # < 80 -> ballad; 80 crosses into mid-tempo; 130 crosses into uptempo.
+        assert self._params(79.9).pulse_pct == 103
+        assert self._params(80.0).pulse_pct == 106
+        assert self._params(129.9).pulse_pct == 106
+        assert self._params(130.0).pulse_pct == 109
+
+    def test_faster_tier_has_sharper_rise(self):
+        assert self._params(150.0).pulse_rise_frac < self._params(60.0).pulse_rise_frac
+
+
+class TestEstimateBpm:
+    def test_returns_none_when_librosa_missing(self, monkeypatch):
+        import builtins
+
+        from pikaraoke.lib.lyrics import _estimate_bpm
+
+        real_import = builtins.__import__
+
+        def blocked_import(name, *args, **kwargs):
+            if name == "librosa":
+                raise ImportError("simulated")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", blocked_import)
+        assert _estimate_bpm("/tmp/no-such.mp3") is None
+
+    def test_returns_none_on_load_failure(self, caplog):
+        from pikaraoke.lib.lyrics import _estimate_bpm
+
+        fake_librosa = MagicMock()
+        fake_librosa.load.side_effect = RuntimeError("cannot decode")
+        with patch.dict("sys.modules", {"librosa": fake_librosa}):
+            with caplog.at_level("WARNING"):
+                assert _estimate_bpm("/tmp/x.mp3") is None
+        assert any("BPM estimation failed" in r.message for r in caplog.records)
+
+    def test_returns_tempo_on_success(self):
+        from pikaraoke.lib.lyrics import _estimate_bpm
+
+        fake_librosa = MagicMock()
+        fake_librosa.load.return_value = ("signal", 22050)
+        # librosa's newer API returns tempo as a 1-element ndarray-like.
+        fake_librosa.beat.beat_track.return_value = ([128.5], "beats")
+        with patch.dict("sys.modules", {"librosa": fake_librosa}):
+            assert _estimate_bpm("/tmp/x.mp3") == 128.5
+
+    def test_returns_tempo_when_scalar(self):
+        from pikaraoke.lib.lyrics import _estimate_bpm
+
+        fake_librosa = MagicMock()
+        fake_librosa.load.return_value = ("signal", 22050)
+        fake_librosa.beat.beat_track.return_value = (90.0, "beats")
+        with patch.dict("sys.modules", {"librosa": fake_librosa}):
+            assert _estimate_bpm("/tmp/x.mp3") == 90.0
 
 
 class TestPrewarmTriggeredFromFetchAndConvert:

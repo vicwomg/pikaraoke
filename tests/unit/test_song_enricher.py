@@ -76,11 +76,16 @@ class TestEnrichSong:
         assert row["metadata_status"] == "enriched"
         assert row["enrichment_attempts"] == 1
 
-    def test_does_not_overwrite_existing_fields(self, db, tmp_path):
+    def test_manual_edits_beat_itunes(self, db, tmp_path):
         song_path = str(tmp_path / "Foo---abc12345678.mp4")
         sid = _insert_song(db, song_path)
-        # Pre-existing manual artist/title/album.
-        db.update_track_metadata(sid, artist="Manual", title="Preset", album="Pre-album")
+        # Pre-existing manual artist/title/album — provenance "manual" is
+        # the top of the ladder so iTunes must not clobber.
+        db.update_track_metadata_with_provenance(
+            sid,
+            "manual",
+            {"artist": "Manual", "title": "Preset", "album": "Pre-album"},
+        )
 
         itunes_full = {
             "itunes_id": "12345",
@@ -98,13 +103,43 @@ class TestEnrichSong:
             song_enricher.enrich_song(db, sid, song_path)
 
         row = db.get_song_by_id(sid)
-        # Existing values preserved.
+        # Manual values preserved.
         assert row["artist"] == "Manual"
         assert row["title"] == "Preset"
         assert row["album"] == "Pre-album"
-        # NULL fields filled.
+        # Unclaimed fields filled.
         assert row["itunes_id"] == "12345"
         assert row["track_number"] == 7
+
+    def test_itunes_overwrites_youtube_sourced_fields(self, db, tmp_path):
+        """iTunes (conf 2) beats YouTube info.json (conf 1) for identity fields."""
+        song_path = str(tmp_path / "Foo---abc12345678.mp4")
+        sid = _insert_song(db, song_path)
+        db.update_track_metadata_with_provenance(
+            sid, "youtube", {"artist": "YouTube Artist", "title": "YouTube Track"}
+        )
+
+        itunes_full = {
+            "itunes_id": "12345",
+            "artist": "iTunes Artist",
+            "track": "iTunes Track",
+            "album": None,
+            "track_number": None,
+            "release_date": None,
+            "cover_art_url": None,
+            "genre": None,
+        }
+        with patch.object(
+            song_enricher, "fetch_itunes_track", return_value=itunes_full
+        ), patch.object(song_enricher, "fetch_musicbrainz_ids", return_value=None):
+            song_enricher.enrich_song(db, sid, song_path)
+
+        row = db.get_song_by_id(sid)
+        assert row["artist"] == "iTunes Artist"
+        assert row["title"] == "iTunes Track"
+        sources = db.get_metadata_sources(sid)
+        assert sources["artist"] == "itunes"
+        assert sources["title"] == "itunes"
 
     def test_writes_musicbrainz_ids_when_available(self, db, tmp_path):
         song_path = str(tmp_path / "Foo---abc12345678.mp4")

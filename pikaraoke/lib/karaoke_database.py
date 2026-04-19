@@ -1,10 +1,41 @@
 """SQLite database layer for persistent song library storage."""
 
+import json
 import os
 import sqlite3
 import threading
 
 from pikaraoke.lib.get_platform import get_data_directory
+
+# Confidence ladder for canonical music metadata (US-28). Higher number =
+# higher trust. The enricher uses this to decide whether a newly-arrived
+# value should replace an existing one. Sources not listed are treated as
+# 0 (lowest), so unknown sources never override known ones.
+METADATA_SOURCE_CONFIDENCE = {
+    "scanner": 0,
+    "youtube": 1,
+    "itunes": 2,
+    "musicbrainz": 3,
+    "manual": 4,  # User edits override everything.
+}
+
+# Fields that prefer media-provenance over musicbrainz (the song-as-file,
+# not the song-as-composition). YouTube wins for these.
+_MEDIA_FIELDS = frozenset({"duration_seconds", "source_url", "youtube_id"})
+
+_MEDIA_SOURCE_CONFIDENCE = {
+    "scanner": 0,
+    "musicbrainz": 1,
+    "itunes": 2,
+    "youtube": 3,
+    "manual": 4,
+}
+
+
+def _confidence_for(field: str, source: str) -> int:
+    """Return the confidence score for a (field, source) pair."""
+    table = _MEDIA_SOURCE_CONFIDENCE if field in _MEDIA_FIELDS else METADATA_SOURCE_CONFIDENCE
+    return table.get(source, 0)
 
 _SCHEMA_V1 = """
 PRAGMA journal_mode = WAL;
@@ -75,7 +106,21 @@ CREATE INDEX IF NOT EXISTS idx_songs_mbid         ON songs(musicbrainz_recording
 CREATE INDEX IF NOT EXISTS idx_songs_isrc         ON songs(isrc);
 """
 
-_SCHEMA_VERSION = 2
+# v2 -> v3: sha of the LRC used to produce auto .ass, so subtitle-content
+# changes invalidate whisperx alignment (stems don't change; only the lyrics did).
+_MIGRATION_V3 = """
+ALTER TABLE songs ADD COLUMN lyrics_sha TEXT;
+"""
+
+# v3 -> v4: per-field provenance for canonical metadata. JSON dict mapping
+# field name -> source identifier (e.g. {"artist": "musicbrainz", "title":
+# "itunes"}). Lets the enricher do confidence-based override (higher-trust
+# source replaces lower-trust value) instead of fill-if-NULL only.
+_MIGRATION_V4 = """
+ALTER TABLE songs ADD COLUMN metadata_sources TEXT;
+"""
+
+_SCHEMA_VERSION = 4
 
 _TRACK_METADATA_FIELDS = (
     "duration_seconds",
@@ -127,8 +172,21 @@ class KaraokeDatabase:
         self._conn.executescript(_SCHEMA_V1)
         with self._conn:
             version = self._conn.execute("PRAGMA user_version").fetchone()[0]
-            if version < 2:
+            # Introspect the songs table to detect partially-applied migrations
+            # (executescript auto-commits per-statement, so a crash between the
+            # ALTER TABLEs and the PRAGMA user_version bump leaves the DB in a
+            # mixed state where re-running the migration fails on duplicate
+            # column). The presence of a migration's canary column is the
+            # authoritative signal that it has already run.
+            columns = {
+                row[1] for row in self._conn.execute("PRAGMA table_info(songs)").fetchall()
+            }
+            if version < 2 and "audio_sha256" not in columns:
                 self._conn.executescript(_MIGRATION_V2)
+            if version < 3 and "lyrics_sha" not in columns:
+                self._conn.executescript(_MIGRATION_V3)
+            if version < 4 and "metadata_sources" not in columns:
+                self._conn.executescript(_MIGRATION_V4)
             self._conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
 
     # ------------------------------------------------------------------
@@ -372,31 +430,41 @@ class KaraokeDatabase:
                 (song_id,),
             )
 
+    # Sentinel that lets update_processing_config distinguish "caller didn't
+    # pass this field" from "caller explicitly cleared it". Plain None means
+    # clear (e.g. reverting to VTT-only), omission means keep-as-is.
+    _UNSET = object()
+
     def update_processing_config(
         self,
         song_id: int,
         *,
         demucs_model: str | None = None,
-        aligner_model: str | None = None,
+        aligner_model: object = _UNSET,
         lyrics_source: str | None = None,
+        lyrics_sha: object = _UNSET,
     ) -> None:
         """Record which models/sources produced the current cached artifacts.
 
-        Only non-None arguments are written. The stems cache key effectively
+        Only provided arguments are written. The stems cache key effectively
         becomes (audio_sha256, demucs_model); lyrics is (audio_sha256,
-        aligner_model, lyrics_source).
+        aligner_model, lyrics_source, lyrics_sha). aligner_model and lyrics_sha
+        accept explicit None to clear (e.g. LRCLib line-level has no aligner).
         """
         updates = []
         params: list = []
         if demucs_model is not None:
             updates.append("demucs_model = ?")
             params.append(demucs_model)
-        if aligner_model is not None:
+        if aligner_model is not self._UNSET:
             updates.append("aligner_model = ?")
             params.append(aligner_model)
         if lyrics_source is not None:
             updates.append("lyrics_source = ?")
             params.append(lyrics_source)
+        if lyrics_sha is not self._UNSET:
+            updates.append("lyrics_sha = ?")
+            params.append(lyrics_sha)
         if not updates:
             return
         params.append(song_id)
@@ -413,6 +481,10 @@ class KaraokeDatabase:
         track_number, release_date, itunes_id, musicbrainz_recording_id,
         isrc, artist, title, year, genre, variant. Unknown keys raise
         ValueError; keys whose values are None are skipped.
+
+        This bypasses provenance bookkeeping; prefer
+        ``update_track_metadata_with_provenance`` for enrichment writes
+        so the confidence ladder (US-28) applies.
         """
         unknown = set(fields) - set(_TRACK_METADATA_FIELDS)
         if unknown:
@@ -427,6 +499,90 @@ class KaraokeDatabase:
                 f"UPDATE songs SET {set_clause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                 params,
             )
+
+    def get_metadata_sources(self, song_id: int) -> dict[str, str]:
+        """Return the {field: source} provenance dict for a song.
+
+        Empty dict when the column is NULL (pre-V4 row, or never enriched).
+        """
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT metadata_sources FROM songs WHERE id = ?", (song_id,)
+            ).fetchone()
+        if row is None or row[0] is None:
+            return {}
+        try:
+            data = json.loads(row[0])
+        except (TypeError, ValueError):
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def update_track_metadata_with_provenance(
+        self, song_id: int, source: str, fields: dict
+    ) -> dict[str, str]:
+        """Confidence-aware metadata write (US-28).
+
+        For each provided (field, value) pair:
+
+        * If the field has no recorded source, write the value and stamp
+          ``source``.
+        * If ``source`` is at least as confident as the recorded source
+          (per ``METADATA_SOURCE_CONFIDENCE`` / ``_MEDIA_SOURCE_CONFIDENCE``),
+          overwrite the value and stamp the new source.
+        * Otherwise leave the field alone.
+
+        ``manual`` is sticky — once a field's source is ``manual``, only
+        another ``manual`` write can replace it.
+
+        Returns the *applied* {field: source} subset (useful for tests
+        and for the caller's "did we change anything" check).
+        """
+        clean = {k: v for k, v in fields.items() if v is not None and v != ""}
+        unknown = set(clean) - set(_TRACK_METADATA_FIELDS)
+        if unknown:
+            raise ValueError(
+                f"update_track_metadata_with_provenance: unknown fields {sorted(unknown)}"
+            )
+        if not clean:
+            return {}
+        with self._lock, self._conn:
+            row = self._conn.execute(
+                "SELECT metadata_sources FROM songs WHERE id = ?", (song_id,)
+            ).fetchone()
+            if row is None:
+                return {}
+            try:
+                sources = json.loads(row[0]) if row[0] else {}
+            except (TypeError, ValueError):
+                sources = {}
+            if not isinstance(sources, dict):
+                sources = {}
+
+            new_source_conf = {f: _confidence_for(f, source) for f in clean}
+            applied: dict[str, str] = {}
+            for field, value in clean.items():
+                cached_source = sources.get(field)
+                if cached_source is None:
+                    applied[field] = value
+                    sources[field] = source
+                    continue
+                cached_conf = _confidence_for(field, cached_source)
+                if new_source_conf[field] >= cached_conf:
+                    applied[field] = value
+                    sources[field] = source
+            if not applied:
+                return {}
+            cols = list(applied.keys())
+            params = [applied[c] for c in cols]
+            params.append(json.dumps(sources, sort_keys=True))
+            params.append(song_id)
+            set_clause = ", ".join(f"{c} = ?" for c in cols)
+            self._conn.execute(
+                f"UPDATE songs SET {set_clause}, metadata_sources = ?, "
+                f"updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                params,
+            )
+        return {f: source for f in applied}
 
     # ------------------------------------------------------------------
     # Metadata (app-level key-value store)

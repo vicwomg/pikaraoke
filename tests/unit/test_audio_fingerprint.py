@@ -205,3 +205,46 @@ class TestEnsureLyricsConfig:
         assert ok is False
         assert not ass.exists()
         assert user_ass.exists(), "user .ass must be preserved"
+
+
+class TestLyricsShaClearedOnAudioChange:
+    """US-31 waterfall: audio sha change must invalidate lyrics_sha so the
+    next pipeline run re-fetches LRCLib. Otherwise ``ensure_lyrics_config``
+    sees a matching cached sha and skips re-fetch even though the source
+    audio changed.
+    """
+
+    def test_audio_sha_change_clears_lyrics_sha(self, db, audio_file, tmp_path):
+        sid = _insert_song(db)
+        cache_root = tmp_path / "cache"
+        (cache_root / ("a" * 64)).mkdir(parents=True)
+        db.update_audio_fingerprint(sid, 0.0, 0, "a" * 64)
+        db.update_processing_config(
+            sid, lyrics_sha="oldlyrics" * 8, aligner_model="whisperx-base"
+        )
+        # Add an auto .ass so _invalidate_auto_ass actually runs its loop.
+        ass = tmp_path / "t.ass"
+        ass.write_text("auto")
+        db.upsert_artifacts(sid, [{"role": "ass_auto", "path": str(ass)}])
+
+        with patch.object(af, "_demucs_bits", return_value=(str(cache_root), lambda p: "b" * 64)):
+            af.ensure_audio_fingerprint(db, sid, audio_file)
+
+        row = db.get_song_by_id(sid)
+        assert row["lyrics_sha"] is None, "lyrics_sha must clear so LRCLib is re-fetched"
+        assert row["aligner_model"] is None, "aligner_model must clear too"
+
+    def test_lyrics_config_invalidation_also_clears_sha(self, db, tmp_path):
+        sid = _insert_song(db)
+        db.update_processing_config(
+            sid, aligner_model="whisperx-base", lyrics_sha="abc" * 20
+        )
+        ass = tmp_path / "t.ass"
+        ass.write_text("auto")
+        db.upsert_artifacts(sid, [{"role": "ass_auto", "path": str(ass)}])
+
+        af.ensure_lyrics_config(db, sid, "whisperx-large-v3")
+
+        row = db.get_song_by_id(sid)
+        assert row["lyrics_sha"] is None
+        assert row["aligner_model"] is None

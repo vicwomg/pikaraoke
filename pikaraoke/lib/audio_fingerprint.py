@@ -101,25 +101,49 @@ def ensure_stems_config(db: KaraokeDatabase, song_id: int, current_demucs_model:
 
 
 def ensure_lyrics_config(
-    db: KaraokeDatabase, song_id: int, current_aligner_model: str | None
+    db: KaraokeDatabase,
+    song_id: int,
+    current_aligner_model: str | None,
+    current_demucs_model: str | None = None,
+    current_lyrics_sha: str | None = None,
 ) -> bool:
-    """Invalidate auto .ass when the recorded aligner_model differs.
+    """Invalidate auto .ass when any dependency changed.
 
-    Symmetric to ``ensure_stems_config``: NULL is a no-op and the model is
-    recorded by the caller after the .ass actually lands.
+    Whisper alignment is downstream of both the demucs stems it runs on and
+    the LRC text it aligns to, so any of three signals can stale the cache:
+
+    * ``aligner_model``: whisper model swap (e.g. base -> large).
+    * ``demucs_model``: stems regenerated from a different separation model.
+    * ``lyrics_sha``: LRCLib returned different content for the same song.
+
+    NULL-cached fields are treated as "not yet recorded" and never trigger
+    invalidation, symmetric to ``ensure_stems_config``. Caller records the
+    current values after the .ass successfully lands.
     """
     row = db.get_song_by_id(song_id)
     if row is None:
         return True
-    cached = row["aligner_model"]
-    if cached is None or cached == current_aligner_model:
+    stale_reason: str | None = None
+    cached_aligner = row["aligner_model"]
+    if cached_aligner is not None and cached_aligner != current_aligner_model:
+        stale_reason = (
+            f"aligner_model changed ({cached_aligner} -> {current_aligner_model})"
+        )
+    elif current_demucs_model is not None:
+        cached_demucs = row["demucs_model"]
+        if cached_demucs is not None and cached_demucs != current_demucs_model:
+            stale_reason = (
+                f"demucs_model changed ({cached_demucs} -> {current_demucs_model})"
+            )
+    if stale_reason is None and current_lyrics_sha is not None:
+        cached_sha = row["lyrics_sha"]
+        if cached_sha is not None and cached_sha != current_lyrics_sha:
+            stale_reason = (
+                f"lyrics_sha changed ({cached_sha[:12]} -> {current_lyrics_sha[:12]})"
+            )
+    if stale_reason is None:
         return True
-    logger.info(
-        "aligner_model changed for song %d (%s -> %s); invalidating auto .ass",
-        song_id,
-        cached,
-        current_aligner_model,
-    )
+    logger.info("invalidating auto .ass for song %d: %s", song_id, stale_reason)
     _invalidate_auto_ass(db, song_id)
     return False
 
@@ -137,7 +161,14 @@ def _invalidate_stems(db: KaraokeDatabase, song_id: int, old_sha: str | None) ->
 
 
 def _invalidate_auto_ass(db: KaraokeDatabase, song_id: int) -> None:
-    """Unlink auto-generated .ass files (marker-tagged). Preserves ass_user rows."""
+    """Unlink auto-generated .ass files (marker-tagged). Preserves ass_user rows.
+
+    Also clears ``lyrics_sha`` so the next pipeline run treats LRCLib as
+    "never fetched" and re-queries it. Without this, audio-sha invalidation
+    deletes the .ass on disk but ``ensure_lyrics_config`` still sees a
+    matching cached sha and never triggers a re-fetch — the waterfall
+    diagram in US-31 (source audio changed -> re-fetch LRCLib) is broken.
+    """
     for artifact in db.get_artifacts(song_id):
         if artifact["role"] != ASS_AUTO_ROLE:
             continue
@@ -145,3 +176,4 @@ def _invalidate_auto_ass(db: KaraokeDatabase, song_id: int) -> None:
         with contextlib.suppress(FileNotFoundError):
             os.unlink(path)
         db.delete_artifact(song_id, path)
+    db.update_processing_config(song_id, lyrics_sha=None, aligner_model=None)

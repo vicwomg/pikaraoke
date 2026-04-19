@@ -28,7 +28,7 @@ class TestInit:
 
     def test_user_version(self, db):
         ver = db._conn.execute("PRAGMA user_version").fetchone()[0]
-        assert ver == 2
+        assert ver == 4
 
     def test_songs_table_exists(self, db):
         tables = {
@@ -345,6 +345,78 @@ class TestTrackMetadata:
             db.update_track_metadata(sid, bogus_col="x")
 
 
+class TestMetadataProvenance:
+    def test_first_write_records_source(self, db):
+        sid = _insert_song(db)
+        applied = db.update_track_metadata_with_provenance(
+            sid, "itunes", {"artist": "A", "title": "T"}
+        )
+        assert applied == {"artist": "itunes", "title": "itunes"}
+        row = db.get_song_by_id(sid)
+        assert row["artist"] == "A" and row["title"] == "T"
+        assert db.get_metadata_sources(sid) == {"artist": "itunes", "title": "itunes"}
+
+    def test_higher_confidence_overrides_lower(self, db):
+        sid = _insert_song(db)
+        db.update_track_metadata_with_provenance(sid, "youtube", {"artist": "YT"})
+        db.update_track_metadata_with_provenance(sid, "itunes", {"artist": "iT"})
+        db.update_track_metadata_with_provenance(sid, "musicbrainz", {"artist": "MB"})
+        row = db.get_song_by_id(sid)
+        assert row["artist"] == "MB"
+        assert db.get_metadata_sources(sid)["artist"] == "musicbrainz"
+
+    def test_lower_confidence_cannot_override_higher(self, db):
+        sid = _insert_song(db)
+        db.update_track_metadata_with_provenance(sid, "musicbrainz", {"artist": "MB"})
+        applied = db.update_track_metadata_with_provenance(sid, "itunes", {"artist": "iT"})
+        assert applied == {}
+        row = db.get_song_by_id(sid)
+        assert row["artist"] == "MB"
+
+    def test_manual_beats_everything_including_musicbrainz(self, db):
+        sid = _insert_song(db)
+        db.update_track_metadata_with_provenance(sid, "manual", {"artist": "Mine"})
+        db.update_track_metadata_with_provenance(sid, "musicbrainz", {"artist": "MB"})
+        row = db.get_song_by_id(sid)
+        assert row["artist"] == "Mine"
+
+    def test_same_source_overrides_its_own_value(self, db):
+        """Re-running the same enricher updates its own fields."""
+        sid = _insert_song(db)
+        db.update_track_metadata_with_provenance(sid, "itunes", {"artist": "Old"})
+        db.update_track_metadata_with_provenance(sid, "itunes", {"artist": "New"})
+        row = db.get_song_by_id(sid)
+        assert row["artist"] == "New"
+
+    def test_media_fields_prefer_youtube(self, db):
+        """For duration_seconds / source_url, YouTube outranks iTunes."""
+        sid = _insert_song(db)
+        db.update_track_metadata_with_provenance(sid, "youtube", {"duration_seconds": 180.0})
+        applied = db.update_track_metadata_with_provenance(
+            sid, "musicbrainz", {"duration_seconds": 200.0}
+        )
+        assert applied == {}
+        row = db.get_song_by_id(sid)
+        assert row["duration_seconds"] == 180.0
+
+    def test_skips_none_and_empty(self, db):
+        sid = _insert_song(db)
+        applied = db.update_track_metadata_with_provenance(
+            sid, "itunes", {"artist": None, "title": ""}
+        )
+        assert applied == {}
+        assert db.get_metadata_sources(sid) == {}
+
+    def test_rejects_unknown_field(self, db):
+        sid = _insert_song(db)
+        with pytest.raises(ValueError):
+            db.update_track_metadata_with_provenance(sid, "itunes", {"bogus": "x"})
+
+    def test_get_metadata_sources_empty_when_never_written(self, db):
+        sid = _insert_song(db)
+        assert db.get_metadata_sources(sid) == {}
+
+
 class TestGetSongHelpers:
     def test_get_song_id_by_path(self, db):
         sid = _insert_song(db, "/songs/a.mp4")
@@ -398,13 +470,14 @@ class TestMigrationFromV1:
         conn.commit()
         conn.close()
 
-        # Open via KaraokeDatabase: should apply v2 migration in-place.
+        # Open via KaraokeDatabase: should apply v2+v3+v4 migrations in-place.
         db = KaraokeDatabase(db_path)
         try:
             ver = db._conn.execute("PRAGMA user_version").fetchone()[0]
-            assert ver == 2
+            assert ver == 4
 
             cols = {row[1] for row in db._conn.execute("PRAGMA table_info(songs)").fetchall()}
+            assert "metadata_sources" in cols
             assert {
                 "audio_sha256",
                 "audio_mtime",
@@ -412,6 +485,7 @@ class TestMigrationFromV1:
                 "demucs_model",
                 "aligner_model",
                 "lyrics_source",
+                "lyrics_sha",
                 "duration_seconds",
                 "source_url",
                 "language",

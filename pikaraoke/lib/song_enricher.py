@@ -87,13 +87,22 @@ def _download_cover(url: str, dest: str) -> bool:
     return True
 
 
+SOURCE_ITUNES = "itunes"
+SOURCE_MUSICBRAINZ = "musicbrainz"
+
+
 def enrich_song(db: KaraokeDatabase, song_id: int, song_path: str) -> None:
     """Run iTunes + MusicBrainz enrichment for a single song.
 
     Always updates ``metadata_status``, ``enrichment_attempts``, and
-    ``last_enrichment_attempt`` so failed attempts are visible in the DB for
-    later retry. Populated fields only overwrite NULLs — values the scanner
-    or an earlier run already wrote are preserved.
+    ``last_enrichment_attempt`` so failed attempts are visible in the DB
+    for later retry.
+
+    Provenance (US-28): each metadata field is written via
+    ``update_track_metadata_with_provenance`` with the originating source
+    tag. The DB applies a confidence ladder (musicbrainz > itunes >
+    youtube > scanner) so MusicBrainz-supplied artist/title overrides
+    iTunes if both arrive, but neither overrides a ``manual`` write.
     """
     now = datetime.now(timezone.utc).isoformat()
     row = db.get_song_by_id(song_id)
@@ -115,10 +124,9 @@ def enrich_song(db: KaraokeDatabase, song_id: int, song_path: str) -> None:
         db.stamp_enrichment_attempt(song_id, "not_found", now)
         return
 
-    # Only write fields that are currently NULL so we don't clobber manual edits
-    # or earlier richer sources.
-    updates = _nullable_updates(
-        row,
+    applied = db.update_track_metadata_with_provenance(
+        song_id,
+        SOURCE_ITUNES,
         {
             "itunes_id": itunes.get("itunes_id"),
             "artist": itunes.get("artist"),
@@ -140,9 +148,10 @@ def enrich_song(db: KaraokeDatabase, song_id: int, song_path: str) -> None:
             logger.exception("MusicBrainz lookup crashed for %r / %r", mb_artist, mb_track)
             mb = None
         if mb:
-            updates.update(
-                _nullable_updates(
-                    row,
+            applied.update(
+                db.update_track_metadata_with_provenance(
+                    song_id,
+                    SOURCE_MUSICBRAINZ,
                     {
                         "musicbrainz_recording_id": mb.get("musicbrainz_recording_id"),
                         "isrc": mb.get("isrc"),
@@ -150,29 +159,10 @@ def enrich_song(db: KaraokeDatabase, song_id: int, song_path: str) -> None:
                 )
             )
 
-    if updates:
-        db.update_track_metadata(song_id, **updates)
-
     cover_url = itunes.get("cover_art_url")
     if cover_url:
         cover_path = f"{os.path.splitext(song_path)[0]}.cover.jpg"
         if not os.path.exists(cover_path) and _download_cover(cover_url, cover_path):
             db.upsert_artifacts(song_id, [{"role": COVER_ART_ROLE, "path": cover_path}])
 
-    db.stamp_enrichment_attempt(song_id, "enriched" if updates else "no_new_fields", now)
-
-
-def _nullable_updates(row, new_values: dict) -> dict:
-    """Return the subset of ``new_values`` whose DB column is currently NULL/empty.
-
-    Preserves any value previously written (by the user, the scanner, or a
-    richer source); iTunes is treated as a filler, never an override.
-    """
-    out = {}
-    for key, value in new_values.items():
-        if value is None or value == "":
-            continue
-        current = row[key] if key in row.keys() else None
-        if current is None or current == "":
-            out[key] = value
-    return out
+    db.stamp_enrichment_attempt(song_id, "enriched" if applied else "no_new_fields", now)

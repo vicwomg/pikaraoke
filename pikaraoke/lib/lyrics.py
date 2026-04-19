@@ -12,6 +12,7 @@ The existing .ass stack (FileResolver, SubtitlesOctopus in splash.js)
 renders the output automatically - no UI changes required.
 """
 
+import hashlib
 import json
 import logging
 import os
@@ -91,9 +92,17 @@ class LyricsService:
         self._aligner = aligner
         self._db = db
 
-    def _register_ass(self, song_path: str, lyrics_source: str, aligner_model: str | None) -> None:
-        """Record the written .ass in song_artifacts and stamp lyrics_source/aligner_model.
+    def _register_ass(
+        self,
+        song_path: str,
+        lyrics_source: str,
+        aligner_model: str | None,
+        lyrics_sha: str | None,
+    ) -> None:
+        """Record the written .ass in song_artifacts and stamp processing config.
 
+        ``lyrics_sha`` fingerprints the LRC text that produced the .ass, so a
+        later LRCLib refresh returning different content invalidates the cache.
         No-op when db is not wired or when the song is not in the DB.
         """
         if self._db is None:
@@ -103,7 +112,10 @@ class LyricsService:
             return
         self._db.upsert_artifacts(song_id, [{"role": "ass_auto", "path": _ass_path(song_path)}])
         self._db.update_processing_config(
-            song_id, lyrics_source=lyrics_source, aligner_model=aligner_model
+            song_id,
+            lyrics_source=lyrics_source,
+            aligner_model=aligner_model,
+            lyrics_sha=lyrics_sha,
         )
 
     def _register_user_ass(self, song_path: str) -> None:
@@ -114,20 +126,30 @@ class LyricsService:
             return
         self._db.upsert_artifacts(song_id, [{"role": "ass_user", "path": _ass_path(song_path)}])
 
-    def _maybe_drop_stale_auto_ass(self, song_path: str) -> None:
-        """When the aligner changed versus the recorded one, delete the auto .ass.
+    def _maybe_drop_stale_auto_ass(self, song_path: str, lyrics_sha: str | None) -> None:
+        """Delete the auto .ass when any upstream dependency changed.
 
-        Runs before re-generating lyrics so that stale word-level alignments
-        produced by a previous model are not served.
+        Invalidates on: aligner model swap, demucs model swap (whisper aligned
+        to stems from the old model), or LRC content change (LRCLib updated
+        the lyrics). Runs before re-generating lyrics so stale artifacts are
+        not served.
         """
-        if self._db is None or self._aligner is None:
+        if self._db is None:
             return
         song_id = self._db.get_song_id_by_path(song_path)
         if song_id is None:
             return
         from pikaraoke.lib.audio_fingerprint import ensure_lyrics_config
+        from pikaraoke.lib.demucs_processor import DEMUCS_MODEL
 
-        ensure_lyrics_config(self._db, song_id, self._aligner.model_id)
+        aligner_id = self._aligner.model_id if self._aligner is not None else None
+        ensure_lyrics_config(
+            self._db,
+            song_id,
+            current_aligner_model=aligner_id,
+            current_demucs_model=DEMUCS_MODEL,
+            current_lyrics_sha=lyrics_sha,
+        )
 
     def fetch_and_convert(self, song_path: str) -> None:
         """Entry point - event listener for `song_downloaded`."""
@@ -145,32 +167,33 @@ class LyricsService:
             return
 
         info = _read_info_json(song_path)
-        self._maybe_drop_stale_auto_ass(song_path)
+
+        # Fetch LRC up front so we can fingerprint it BEFORE deciding whether
+        # the cached .ass is still valid. Subtitle changes (LRCLib updated the
+        # lyrics for this song) must force a whisper re-run even if the audio
+        # and models haven't moved.
+        lrc, info = self._fetch_lrc_with_itunes_fallback(info)
+        lyrics_sha = _lrc_sha(lrc) if lrc else None
+
+        self._maybe_drop_stale_auto_ass(song_path, lyrics_sha)
+
+        # Cache hit: word-level .ass survived every invalidation trigger
+        # (aligner/demucs models + LRC content). Re-requesting a cached song
+        # (yt-dlp rewrites info.json on a cache hit) would otherwise overwrite
+        # it with line-level and re-run whisper every time.
+        if _is_word_level_auto_ass(song_path):
+            _cleanup_yt_subs_and_info(song_path)
+            return
 
         # Step 1: baseline from YouTube VTT (always available when yt-dlp wrote any subs).
         wrote_from_vtt = _try_write_ass_from_vtt(song_path)
         if wrote_from_vtt:
             logger.info("Wrote .ass from YouTube VTT for %s", os.path.basename(song_path))
-            self._register_ass(song_path, lyrics_source="youtube_vtt", aligner_model=None)
+            self._register_ass(
+                song_path, lyrics_source="youtube_vtt", aligner_model=None, lyrics_sha=None
+            )
 
-        # Step 2: override with LRCLib if metadata available and track is found.
-        lrc = None
-        if info:
-            lrc = _fetch_lrclib(info["track"], info["artist"], info["duration"])
-            if not lrc:
-                # Fallback: iTunes canonicalizes the noisy YouTube-derived fields.
-                clean = resolve_metadata(f"{info['artist']} - {info['track']}")
-                if clean:
-                    logger.info(
-                        "iTunes canonicalized %r / %r -> %r / %r",
-                        info["artist"],
-                        info["track"],
-                        clean["artist"],
-                        clean["track"],
-                    )
-                    lrc = _fetch_lrclib(clean["track"], clean["artist"], info["duration"])
-                    if lrc:
-                        info = {**info, "artist": clean["artist"], "track": clean["track"]}
+        # Step 2: override line-level with LRCLib text when we have it.
         if lrc:
             ass = _lrc_to_ass_line_level(lrc)
             if ass:
@@ -180,7 +203,12 @@ class LyricsService:
                     info["artist"],
                     info["track"],
                 )
-                self._register_ass(song_path, lyrics_source="lrclib", aligner_model=None)
+                self._register_ass(
+                    song_path,
+                    lyrics_source="lrclib",
+                    aligner_model=None,
+                    lyrics_sha=lyrics_sha,
+                )
 
         _cleanup_yt_subs_and_info(song_path)
 
@@ -212,34 +240,70 @@ class LyricsService:
             _prewarm_stems(song_path)
             Thread(
                 target=self._upgrade_to_word_level,
-                args=(song_path, lrc),
+                args=(song_path, lrc, lyrics_sha),
                 name=f"lyrics-align-{os.path.basename(song_path)}",
                 daemon=True,
             ).start()
 
-    def _upgrade_to_word_level(self, song_path: str, lrc: str) -> None:
+    def _fetch_lrc_with_itunes_fallback(self, info: dict | None) -> tuple[str | None, dict | None]:
+        """Query LRCLib; on miss, canonicalize metadata via iTunes and retry.
+
+        Returns (lrc_or_None, info_with_updated_fields_or_None). ``info`` is
+        returned with canonical artist/track when the iTunes fallback hit, so
+        later log lines show the cleaned names.
+        """
+        if not info:
+            return None, info
+        lrc = _fetch_lrclib(info["track"], info["artist"], info["duration"])
+        if lrc:
+            return lrc, info
+        clean = resolve_metadata(f"{info['artist']} - {info['track']}")
+        if not clean:
+            return None, info
+        logger.info(
+            "iTunes canonicalized %r / %r -> %r / %r",
+            info["artist"],
+            info["track"],
+            clean["artist"],
+            clean["track"],
+        )
+        lrc = _fetch_lrclib(clean["track"], clean["artist"], info["duration"])
+        if lrc:
+            info = {**info, "artist": clean["artist"], "track": clean["track"]}
+        return lrc, info
+
+    def _upgrade_to_word_level(self, song_path: str, lrc: str, lyrics_sha: str | None) -> None:
         if self._aligner is None:
             return
         try:
             audio_path = _wait_for_alignment_audio(song_path)
             plain = _lrc_plain_text(lrc)
-            # Language fast-path: yt-dlp info.json / the enricher / a prior
-            # whisperx run may have cached a code on the song row. Any of
-            # those is authoritative (the user may have hand-edited), so we
-            # pass it as a hint to skip whisperx's ~20 s detection pass and
-            # only persist our own detection when nothing was previously set.
+            # Language fast-path. Order of preference:
+            #   1. Cached on the song row (info.json, enricher, prior run, or
+            #      manual edit — all authoritative).
+            #   2. Detected from the LRC text. Lyrics are clean prose, hundreds
+            #      of words; text-detection is far more reliable than whisperx's
+            #      audio-based pass and skips its ~20 s startup cost.
+            #   3. None — let whisperx detect from audio.
             song_id = self._db.get_song_id_by_path(song_path) if self._db else None
-            cached_lang = None
+            db_lang = None
             if self._db is not None and song_id is not None:
                 row = self._db.get_song_by_id(song_id)
-                cached_lang = row["language"] if row is not None else None
-            words = self._aligner.align(audio_path, plain, language=cached_lang)
-            detected_lang = getattr(self._aligner, "last_detected_language", None)
-            if self._db is not None and song_id is not None and not cached_lang and detected_lang:
-                self._db.update_track_metadata(song_id, language=detected_lang)
+                db_lang = row["language"] if row is not None else None
+            language = db_lang or _detect_language(plain)
+            words = self._aligner.align(audio_path, plain, language=language)
+            final_lang = language or getattr(self._aligner, "last_detected_language", None)
+            if self._db is not None and song_id is not None and final_lang and not db_lang:
+                # Language detected from LRC text or whisperx audio pass.
+                # Source "scanner" keeps it as the lowest confidence so an
+                # iTunes/MusicBrainz enrichment can still correct it later.
+                self._db.update_track_metadata_with_provenance(
+                    song_id, "scanner", {"language": final_lang}
+                )
             if not words:
                 return
-            ass = _words_to_ass_with_k_tags(words, lrc)
+            anim_params = _anim_params_for_bpm(_estimate_bpm(audio_path))
+            ass = _words_to_ass_with_k_tags(words, lrc, params=anim_params)
             if ass:
                 from pikaraoke.lib.demucs_processor import CACHE_DIR
 
@@ -250,7 +314,12 @@ class LyricsService:
                     "vocals stem" if audio_path.startswith(CACHE_DIR) else "raw mix",
                 )
                 aligner_id = self._aligner.model_id if self._aligner else None
-                self._register_ass(song_path, lyrics_source="whisperx", aligner_model=aligner_id)
+                self._register_ass(
+                    song_path,
+                    lyrics_source="whisperx",
+                    aligner_model=aligner_id,
+                    lyrics_sha=lyrics_sha,
+                )
                 self._events.emit(
                     "notification",
                     f"Synced lyrics ready: {_title_from_filename(song_path)}",
@@ -331,7 +400,7 @@ class LyricsService:
             )
             return
         _prewarm_stems(song_path)
-        self._upgrade_to_word_level(song_path, lrc)
+        self._upgrade_to_word_level(song_path, lrc, _lrc_sha(lrc))
 
 
 def _needs_word_level_upgrade(song_path: str) -> bool:
@@ -348,6 +417,29 @@ def _needs_word_level_upgrade(song_path: str) -> bool:
         return False  # user-owned Aegisub file
     # Any \k tag means it's already word-level.
     return "\\k" not in content
+
+
+def _lrc_sha(lrc: str) -> str:
+    """Stable content fingerprint for an LRC payload.
+
+    Used as the cache key for whisper alignment output: same input lyrics ->
+    same alignment, so a matching sha lets us keep the existing .ass across
+    re-downloads. A changed sha (LRCLib updated the lyrics) invalidates it.
+    """
+    return hashlib.sha256(lrc.encode("utf-8")).hexdigest()
+
+
+def _is_word_level_auto_ass(song_path: str) -> bool:
+    """True when <stem>.ass is auto-generated AND already word-level (\\k tags present)."""
+    path = _ass_path(song_path)
+    if not os.path.exists(path):
+        return False
+    try:
+        with open(path, encoding="utf-8") as f:
+            content = f.read()
+    except OSError:
+        return False
+    return ASS_MARKER in content and "\\k" in content
 
 
 def _title_from_filename(song_path: str) -> str:
@@ -484,12 +576,98 @@ def _lrc_plain_text(lrc: str) -> str:
     return "\n".join(text for _start, text in _parse_lrc(lrc))
 
 
+_LANGDETECT_MIN_CHARS = 30
+
+
+def _detect_language(text: str) -> str | None:
+    """Best-effort 2-letter language code from text. None on failure.
+
+    Lyrics are an ideal input for text-based detection (hundreds of words of
+    clean prose), so a successful classification here lets the aligner skip
+    whisperx's slow audio-based detection pass. Returns None when langdetect
+    is not installed (optional ``[align]`` extra) or the input is too short
+    to classify confidently.
+    """
+    text = text.strip()
+    if len(text) < _LANGDETECT_MIN_CHARS:
+        return None
+    try:
+        import langdetect
+    except ImportError:
+        return None
+    langdetect.DetectorFactory.seed = 0  # deterministic across calls
+    try:
+        return langdetect.detect(text)
+    except langdetect.lang_detect_exception.LangDetectException:
+        return None
+
+
+# First minute is plenty for tempo classification and keeps CPU well under a
+# second on the CI/RPi box. librosa itself is heavy to import, so the call
+# stays lazy.
+_BPM_ANALYSIS_DURATION_S = 60.0
+
+
+def _estimate_bpm(audio_path: str) -> float | None:
+    """Best-effort song tempo in BPM, or None if detection fails.
+
+    Used only to pick decorative animation parameters - never in a timing
+    path - so any failure falls through to a plain (un-pulsed) render.
+    """
+    try:
+        import librosa
+    except ImportError:
+        return None
+    try:
+        y, sr = librosa.load(audio_path, sr=None, mono=True, duration=_BPM_ANALYSIS_DURATION_S)
+        tempo, _beats = librosa.beat.beat_track(y=y, sr=sr)
+        bpm = float(tempo[0]) if hasattr(tempo, "__len__") else float(tempo)
+        logger.info("Estimated BPM %.1f for %s", bpm, audio_path)
+        return bpm if bpm > 0 else None
+    except Exception:
+        logger.warning("BPM estimation failed for %s", audio_path, exc_info=True)
+        return None
+
+
 # ----- ASS builders -----
 
 
+@dataclass(frozen=True)
+class _AnimParams:
+    """Per-word decorative animation knobs, driven by song tempo.
+
+    ``pulse_pct`` is the scale peak as a whole-number percent (100 disables
+    the pulse entirely). ``pulse_rise_frac`` is the fraction of the word's
+    duration spent scaling up; the remainder eases back to 100%.
+    """
+
+    pulse_pct: int
+    pulse_rise_frac: float
+
+
+def _anim_params_for_bpm(bpm: float | None) -> _AnimParams:
+    """Map tempo to pulse shape. Unknown tempo = no pulse (plain \\kf fill).
+
+    Classification is deliberately coarse: the pulse is decorative, so being
+    one tier off is imperceptible. Fast songs get a bigger, snappier pop
+    (smaller rise fraction = sharper attack); ballads get a gentler rise.
+    """
+    if bpm is None or bpm <= 0:
+        return _AnimParams(pulse_pct=100, pulse_rise_frac=0.0)
+    if bpm < 80:
+        return _AnimParams(pulse_pct=103, pulse_rise_frac=0.35)
+    if bpm < 130:
+        return _AnimParams(pulse_pct=106, pulse_rise_frac=0.25)
+    return _AnimParams(pulse_pct=109, pulse_rise_frac=0.15)
+
+
+# Colors are &HAABBGGRR. PrimaryColour = unsung (bright white — what you read
+# next); SecondaryColour = the \kf wipe target for sung words (mid-grey — the
+# "already sang it" fade). Outline/shadow softened vs. the old spec so the
+# glyphs feel less chromed.
 _ASS_STYLE = (
-    "Style: Default,Arial,64,&H00FFFFFF,&H00FFFF00,&H00000000,&H80000000,"
-    "0,0,0,0,100,100,0,0,1,3,1,2,40,40,80,1"
+    "Style: Default,Arial,64,&H00FFFFFF,&H00AAAAAA,&H00000000,&HB0000000,"
+    "0,0,0,0,100,100,0,0,1,2,1,2,40,40,80,1"
 )
 
 
@@ -589,8 +767,10 @@ def _lrc_to_ass_line_level(lrc: str) -> str | None:
 _ALIGNMENT_TOLERANCE_S = 2.0
 
 
-def _words_to_ass_with_k_tags(words: list[Word], lrc: str) -> str | None:
-    """Rebuild ASS with \\k tags on the current line, plain text on context lines.
+def _words_to_ass_with_k_tags(
+    words: list[Word], lrc: str, params: _AnimParams | None = None
+) -> str | None:
+    """Rebuild ASS with \\kf karaoke tags on the current line, plain text on context lines.
 
     Aligner output is 1:1 with reference-text tokens (see
     ``map_whisper_to_reference``), so we assign words to LRC entries by
@@ -598,6 +778,9 @@ def _words_to_ass_with_k_tags(words: list[Word], lrc: str) -> str | None:
     whisper mis-times a region of the song: hundreds of later-line words end
     up stuffed into a single LRC entry's time window. Lines whose aligned
     times don't overlap the LRC window fall back to static text.
+
+    ``params`` controls the decorative per-word pulse; when ``None`` the
+    words render as plain \\kf fills with no scaling effect.
     """
     entries = _parse_lrc(lrc)
     if not entries:
@@ -610,7 +793,7 @@ def _words_to_ass_with_k_tags(words: list[Word], lrc: str) -> str | None:
         line_words = words[word_idx : word_idx + expected]
         word_idx += expected
         if line_words and _words_overlap_window(line_words, start, end):
-            current_ass = " ".join(_k_token(w) for w in line_words)
+            current_ass = " ".join(_k_token(w, start, params) for w in line_words)
         else:
             current_ass = _escape_ass(text)
         past_raw, future_raw = _context_window_texts(entries, i)
@@ -633,9 +816,33 @@ def _words_overlap_window(words: list[Word], start: float, end: float) -> bool:
     return last >= start - _ALIGNMENT_TOLERANCE_S and first <= end + _ALIGNMENT_TOLERANCE_S
 
 
-def _k_token(word: Word) -> str:
+def _k_token(word: Word, line_start_s: float = 0.0, params: _AnimParams | None = None) -> str:
+    """ASS karaoke tag for one word.
+
+    Emits ``\\kf`` (smooth left-to-right color wipe) instead of the older
+    ``\\k`` (instant flip) so sung words fade into the secondary colour
+    rather than popping. When ``params.pulse_pct`` exceeds 100 we also wrap
+    the glyphs in a ``\\t`` scale transform that pulses up and releases
+    within the word's own time window - this is the tempo-responsive layer.
+
+    ``\\t`` offsets are measured in milliseconds from the enclosing Dialogue
+    event's start, hence the ``line_start_s`` argument.
+    """
     dur_cs = max(1, int(round((word.end - word.start) * 100)))
-    return f"{{\\k{dur_cs}}}{_escape_ass(word.text)}"
+    escaped = _escape_ass(word.text)
+    if params is None or params.pulse_pct <= 100:
+        return f"{{\\kf{dur_cs}}}{escaped}"
+    total_ms = dur_cs * 10
+    off_ms = max(0, int(round((word.start - line_start_s) * 1000)))
+    rise_ms = max(1, int(total_ms * params.pulse_rise_frac))
+    rise_end = off_ms + rise_ms
+    fall_end = off_ms + total_ms
+    pct = params.pulse_pct
+    pulse = (
+        f"{{\\t({off_ms},{rise_end},\\fscx{pct}\\fscy{pct})"
+        f"\\t({rise_end},{fall_end},\\fscx100\\fscy100)}}"
+    )
+    return f"{{\\kf{dur_cs}}}{pulse}{escaped}"
 
 
 def _escape_ass(text: str) -> str:
