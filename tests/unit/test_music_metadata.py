@@ -312,3 +312,69 @@ class TestFetchMusicbrainzIds:
             fetch_musicbrainz_ids("A", "T")
             fetch_musicbrainz_ids("A", "T")
             assert mock_get.call_count == 1
+
+
+class TestSearchMusicbrainz:
+    """US-1: free-text MB search used by /suggest."""
+
+    def setup_method(self):
+        from pikaraoke.lib import music_metadata as _mm
+
+        _mm.search_musicbrainz.cache_clear()
+
+    def test_returns_artist_track_mbid_tuples(self):
+        from pikaraoke.lib.music_metadata import search_musicbrainz
+
+        resp = _mock_mbrainz_response(
+            [
+                {
+                    "id": "mbid-1",
+                    "title": "Stan",
+                    "artist-credit": [{"name": "Eminem"}],
+                },
+                {
+                    "id": "mbid-2",
+                    "title": "Lose Yourself",
+                    "artist-credit": [
+                        {"name": "Eminem", "joinphrase": " feat. "},
+                        {"name": "Guest"},
+                    ],
+                },
+            ]
+        )
+        with patch("pikaraoke.lib.music_metadata.requests.get", return_value=resp):
+            hits = search_musicbrainz("eminem")
+        assert hits[0]["artist"] == "Eminem"
+        assert hits[0]["track"] == "Stan"
+        assert hits[0]["musicbrainz_recording_id"] == "mbid-1"
+        assert hits[1]["artist"] == "Eminem feat. Guest"
+
+    def test_empty_query_short_circuits(self):
+        from pikaraoke.lib.music_metadata import search_musicbrainz
+
+        with patch("pikaraoke.lib.music_metadata.requests.get") as mock_get:
+            assert search_musicbrainz("   ") == ()
+            mock_get.assert_not_called()
+
+    def test_network_failure_returns_empty(self):
+        from pikaraoke.lib.music_metadata import search_musicbrainz
+
+        with patch(
+            "pikaraoke.lib.music_metadata.requests.get",
+            side_effect=requests.Timeout(),
+        ):
+            assert search_musicbrainz("anything") == ()
+
+    def test_skips_recordings_missing_fields(self):
+        """Entries without id, title, or artist-credit must not blow up."""
+        from pikaraoke.lib.music_metadata import search_musicbrainz
+
+        resp = _mock_mbrainz_response(
+            [
+                {"id": "mbid-1", "title": "t", "artist-credit": []},  # no artist
+                {"id": "mbid-2"},  # no title
+                {"title": "t", "artist-credit": [{"name": "A"}]},  # no id
+            ]
+        )
+        with patch("pikaraoke.lib.music_metadata.requests.get", return_value=resp):
+            assert search_musicbrainz("q") == ()

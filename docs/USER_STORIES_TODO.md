@@ -16,10 +16,14 @@ current codebase. Each item is grouped by user story and tagged with a priority:
 
 ### US-1 Unified search bar (PARTIAL)
 
-- [ ] **P1** Add MusicBrainz suggestions to `/suggest`
-      (`pikaraoke/routes/search.py:99`). Wire `fetch_musicbrainz_ids()` from
-      `music_metadata.py:212`; merge with iTunes results, dedupe, mark
-      `type: "musicbrainz"` so the UI can render distinct icons.
+- [x] ~~**P1** Add MusicBrainz suggestions to `/suggest`.~~ Done —
+      new `music_metadata.search_musicbrainz(query, limit)` does a
+      free-text MB recording search (LRU-cached, bounded timeout).
+      `/suggest` runs it in parallel with `search_itunes`, dedupes on
+      lowercased `"artist - track"`, and tags hits with
+      `type: "itunes"` / `"musicbrainz"` so the UI can render
+      distinct icons. iTunes wins the dedupe when both sources
+      return the same pair.
 - [ ] **P2** Replace path-substring library matching
       (`pikaraoke/routes/search.py:84`) with a parsed artist/title field
       search so "songs"/"home" don't match. Use `metadata_parser` or DB

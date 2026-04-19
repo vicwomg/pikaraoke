@@ -209,6 +209,51 @@ def _search_musicbrainz_cached(artist: str, track: str) -> tuple[str, str] | Non
     return (mbid, isrcs[0] if isrcs else "")
 
 
+@lru_cache(maxsize=128)
+def search_musicbrainz(query: str, limit: int = 5) -> tuple[dict, ...]:
+    """Free-text search against MusicBrainz; returns up to ``limit`` suggestions.
+
+    Each entry is ``{"artist", "track", "musicbrainz_recording_id"}``. Used by
+    the `/suggest` endpoint (US-1) to show MB hits alongside iTunes results.
+    Returns an empty tuple on request failure so callers can ignore failures
+    silently — suggestions are best-effort.
+    """
+    if not query.strip():
+        return ()
+    try:
+        r = requests.get(
+            _MUSICBRAINZ_URL,
+            params={"query": query, "fmt": "json", "limit": max(1, min(25, limit))},
+            timeout=_MUSICBRAINZ_TIMEOUT_S,
+            headers={"User-Agent": _MUSICBRAINZ_USER_AGENT},
+        )
+    except requests.RequestException as e:
+        logger.warning("MusicBrainz suggest request failed for %r: %s", query, e)
+        return ()
+    if r.status_code != 200:
+        return ()
+    try:
+        data = r.json()
+    except ValueError:
+        return ()
+    out: list[dict] = []
+    for rec in data.get("recordings") or []:
+        mbid = rec.get("id")
+        track = rec.get("title")
+        # Artists come back as "artist-credit" — flat credit-joined names read well.
+        credit = rec.get("artist-credit") or []
+        artist = "".join(
+            (c.get("name") or (c.get("artist") or {}).get("name") or "")
+            + (c.get("joinphrase") or "")
+            for c in credit
+        ).strip()
+        if mbid and track and artist:
+            out.append(
+                {"artist": artist, "track": track, "musicbrainz_recording_id": mbid}
+            )
+    return tuple(out)
+
+
 def fetch_musicbrainz_ids(artist: str, track: str) -> dict | None:
     """Return ``{musicbrainz_recording_id, isrc}`` or None.
 

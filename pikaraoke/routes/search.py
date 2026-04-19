@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from threading import Thread
 
 import flask_babel
 from flask import current_app, jsonify, render_template, request, url_for
@@ -10,7 +11,7 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
-from pikaraoke.lib.music_metadata import search_itunes
+from pikaraoke.lib.music_metadata import search_itunes, search_musicbrainz
 from pikaraoke.lib.youtube_dl import get_search_results, get_stream_url
 
 _ = flask_babel.gettext
@@ -97,18 +98,56 @@ def autocomplete(query):
 @search_bp.route("/suggest")
 @search_bp.arguments(SuggestQuery, location="query")
 def suggest(query):
-    """iTunes-backed music suggestions for the search box."""
-    hits = search_itunes(query["q"], limit=8)
-    # `path` is Selectize's unique key (valueField); prefix so it can't collide
-    # with a real song file path used by /autocomplete entries.
-    result = [
-        {
-            "path": f"itunes:{hit['artist']} - {hit['track']}",
-            "fileName": f"{hit['artist']} - {hit['track']}",
-            "type": "itunes",
-        }
-        for hit in hits
-    ]
+    """iTunes + MusicBrainz music suggestions for the search box (US-1).
+
+    Both providers run in parallel threads so their latency stacks in parallel
+    rather than series. Results are merged and deduped by a
+    lowercased ``"artist - track"`` key; iTunes wins when both providers
+    return the same pair (its metadata is generally cleaner for karaoke).
+    Each hit is tagged with ``type`` so the UI can show distinct icons.
+    """
+    q = query["q"]
+    itunes_hits: list[dict] = []
+    mb_hits: tuple[dict, ...] = ()
+
+    def _itunes() -> None:
+        nonlocal itunes_hits
+        itunes_hits = search_itunes(q, limit=8)
+
+    def _mb() -> None:
+        nonlocal mb_hits
+        mb_hits = search_musicbrainz(q, limit=5)
+
+    t_it = Thread(target=_itunes, name="suggest-itunes", daemon=True)
+    t_mb = Thread(target=_mb, name="suggest-mb", daemon=True)
+    t_it.start()
+    t_mb.start()
+    # Both providers already cap their own timeout (~3s); bounded join prevents
+    # a hung socket from stalling the response.
+    t_it.join(timeout=4.0)
+    t_mb.join(timeout=4.0)
+
+    result: list[dict] = []
+    seen: set[str] = set()
+
+    def _emit(artist: str, track: str, type_: str, path_prefix: str) -> None:
+        key = f"{artist.strip().lower()} - {track.strip().lower()}"
+        if key in seen:
+            return
+        seen.add(key)
+        result.append(
+            {
+                "path": f"{path_prefix}:{artist} - {track}",
+                "fileName": f"{artist} - {track}",
+                "type": type_,
+            }
+        )
+
+    for hit in itunes_hits:
+        _emit(hit["artist"], hit["track"], "itunes", "itunes")
+    for hit in mb_hits:
+        _emit(hit["artist"], hit["track"], "musicbrainz", "mb")
+
     return current_app.response_class(response=json.dumps(result), mimetype="application/json")
 
 
