@@ -65,9 +65,10 @@ No action.
 
 ### US-6 Split audio/video download (PARTIAL)
 
-- [ ] **P1** Either always use the split download path (story says
-      unconditional), or update the story to acknowledge that split is
-      gated on `vocal_removal`. Code: `download_manager.py:258-263`.
+- [x] ~~**P1** Reconcile split gate vs story.~~ Done — updated US-6 in
+      `docs/USER_STORIES.md` to call out that split-download is gated
+      on `vocal_removal=True`. Kept the gating (intentional
+      bandwidth/CPU save on machines that can't run Demucs anyway).
 - [ ] **P2** Decide what should own `info.json`/subtitles when the video
       half fails. Consider letting the audio command write its own
       `info.json` so downstream isn't blocked

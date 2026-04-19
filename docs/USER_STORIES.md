@@ -56,13 +56,20 @@ and queueing other songs while processing runs.
 
 ### US-6 Split audio / video download
 
-As a user, when I queue a YouTube URL, yt-dlp downloads **audio and video as
-separate streams in parallel**. This matters so that downstream stages can
-start as soon as audio is ready without waiting for video.
+As a user, when I queue a YouTube URL and vocal removal is enabled, yt-dlp
+downloads **audio and video as separate streams in parallel**. This matters
+so that downstream stages can start as soon as audio is ready without
+waiting for video.
 
 - Audio lands first as a sibling `.m4a` (or equivalent); video lands as a
   silent `.mp4`. The pipeline treats the audio sibling as the source of
   truth for separation and alignment.
+- **Gate**: split-download is skipped when `vocal_removal = False` — with
+  Demucs disabled there's no need for a dedicated audio sibling, so
+  `DownloadManager._execute_download` falls back to a merged-file yt-dlp
+  invocation (see `download_manager.py:258-263`). This is intentional:
+  skipping the split saves bandwidth and avoids the post-merge cost on
+  CPU-only machines that can't realistically run Demucs anyway.
 
 ### US-7 Demucs starts on audio completion
 
