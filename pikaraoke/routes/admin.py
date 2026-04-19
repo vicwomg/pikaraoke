@@ -76,6 +76,25 @@ def library_stats():
     return jsonify({"song_count": len(k.song_manager.songs)})
 
 
+@admin_bp.route("/song_warnings", methods=["GET"])
+def song_warnings():
+    """Return the persisted song_warning buffer for the admin dashboard."""
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    k = get_karaoke_instance()
+    return jsonify({"warnings": k.get_song_warnings()})
+
+
+@admin_bp.route("/song_warnings", methods=["DELETE"])
+def clear_song_warnings():
+    """Clear the persisted song_warning buffer."""
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    k = get_karaoke_instance()
+    k.clear_song_warnings()
+    return jsonify({"status": "cleared"})
+
+
 @admin_bp.route("/sync_library")
 def sync_library():
     """Trigger a background library scan."""

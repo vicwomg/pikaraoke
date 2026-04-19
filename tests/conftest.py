@@ -146,6 +146,13 @@ class MockKaraoke:
     restart = Karaoke.restart
     stop = Karaoke.stop
     reset_now_playing_notification = Karaoke.reset_now_playing_notification
+    _handle_song_warning = Karaoke._handle_song_warning
+    _load_song_warnings = Karaoke._load_song_warnings
+    _persist_song_warnings = Karaoke._persist_song_warnings
+    get_song_warnings = Karaoke.get_song_warnings
+    clear_song_warnings = Karaoke.clear_song_warnings
+    _SONG_WARNINGS_DB_KEY = Karaoke._SONG_WARNINGS_DB_KEY
+    _SONG_WARNINGS_MAX = Karaoke._SONG_WARNINGS_MAX
 
 
 class MockSongList:

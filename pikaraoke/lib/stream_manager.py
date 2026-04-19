@@ -673,7 +673,12 @@ class StreamManager:
         if result.returncode != 0:
             stderr = result.stderr.decode(errors="replace")
             logging.error(f"FFmpeg audio extraction failed: {stderr}")
-            self._emit_song_warning("Audio extraction failed", stderr.strip(), song_basename)
+            self._emit_song_warning(
+                "Audio extraction failed",
+                stderr.strip(),
+                song_basename,
+                severity="error",
+            )
             release_separation(resolved_source, False)
             return False
 
@@ -783,11 +788,20 @@ class StreamManager:
         except Exception:
             logging.exception("Failed to emit stems_ready event")
 
-    def _emit_song_warning(self, message: str, detail: str = "", song: str | None = None) -> None:
+    def _emit_song_warning(
+        self,
+        message: str,
+        detail: str = "",
+        song: str | None = None,
+        severity: str = "warning",
+    ) -> None:
         """Notify clients that a background step failed for the current song.
 
         ``song`` is the song basename when known; clients filter by it so a
-        stale warning doesn't attach to the next song.
+        stale warning doesn't attach to the next song. ``severity`` is one of
+        ``info``/``warning``/``error`` — ``error`` means the affected path is
+        unrecoverable for this song (e.g. audio extraction), while ``warning``
+        means a degraded-but-functional fallback was taken.
         """
         if self.events is None:
             return
@@ -798,7 +812,7 @@ class StreamManager:
                     "message": message,
                     "detail": detail,
                     "song": song or "",
-                    "severity": "warning",
+                    "severity": severity,
                 },
             )
         except Exception:

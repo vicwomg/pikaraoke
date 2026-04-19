@@ -1,5 +1,6 @@
 """Core karaoke engine for managing songs, queue, and playback."""
 
+import json
 import logging
 import os
 import socket
@@ -335,6 +336,12 @@ class Karaoke:
         self._scanner = LibraryScanner(self.db)
         self._sync_lock = threading.Lock()
 
+        # Rolling log of song_warning events. Persisted to the metadata kv so
+        # operators can open the admin view after a restart and still see what
+        # went wrong. Capped to avoid unbounded growth.
+        self._song_warnings: list[dict[str, Any]] = self._load_song_warnings()
+        self._song_warnings_lock = threading.Lock()
+
         self.generate_qr_code()
 
         # Clean up half-written Demucs stems from any previous run.
@@ -413,12 +420,7 @@ class Karaoke:
                 self.socketio.emit("stems_ready", data, namespace="/") if self.socketio else None
             ),
         )
-        self.events.on(
-            "song_warning",
-            lambda data: (
-                self.socketio.emit("song_warning", data, namespace="/") if self.socketio else None
-            ),
-        )
+        self.events.on("song_warning", self._handle_song_warning)
 
         # Wire the demucs_processor module-level warning hook so that
         # background prewarm paths (download_manager, lyrics) — which
@@ -834,6 +836,63 @@ class Karaoke:
     def reset_now_playing_notification(self) -> None:
         """Clear the current notification."""
         self.now_playing_notification = None
+
+    # ------------------------------------------------------------------
+    # song_warning persistence (US-39)
+    # ------------------------------------------------------------------
+
+    _SONG_WARNINGS_DB_KEY = "song_warnings"
+    _SONG_WARNINGS_MAX = 200
+
+    def _load_song_warnings(self) -> list[dict[str, Any]]:
+        try:
+            raw = self.db.get_metadata(self._SONG_WARNINGS_DB_KEY)
+        except Exception:
+            logging.exception("failed to load persisted song_warnings")
+            return []
+        if not raw:
+            return []
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            logging.warning("persisted song_warnings not valid JSON; discarding")
+            return []
+        return data if isinstance(data, list) else []
+
+    def _persist_song_warnings(self) -> None:
+        try:
+            self.db.set_metadata(self._SONG_WARNINGS_DB_KEY, json.dumps(self._song_warnings))
+        except Exception:
+            logging.exception("failed to persist song_warnings")
+
+    def _handle_song_warning(self, data: dict[str, Any]) -> None:
+        """Forward a song_warning socket event and append it to the persisted log."""
+        if self.socketio:
+            try:
+                self.socketio.emit("song_warning", data, namespace="/")
+            except Exception:
+                logging.exception("failed to emit song_warning via socketio")
+        try:
+            entry = dict(data)
+            entry.setdefault("timestamp", time.time())
+            with self._song_warnings_lock:
+                self._song_warnings.append(entry)
+                if len(self._song_warnings) > self._SONG_WARNINGS_MAX:
+                    del self._song_warnings[: -self._SONG_WARNINGS_MAX]
+                self._persist_song_warnings()
+        except Exception:
+            logging.exception("failed to buffer song_warning")
+
+    def get_song_warnings(self) -> list[dict[str, Any]]:
+        """Return a copy of the persisted song_warning buffer (oldest first)."""
+        with self._song_warnings_lock:
+            return list(self._song_warnings)
+
+    def clear_song_warnings(self) -> None:
+        """Wipe the song_warning buffer. Admin-triggered."""
+        with self._song_warnings_lock:
+            self._song_warnings.clear()
+            self._persist_song_warnings()
 
     def reset_now_playing(self) -> None:
         """Reset all now playing state to defaults."""

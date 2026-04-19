@@ -421,17 +421,22 @@ No action.
 
 ### US-39 Structured warnings (PARTIAL)
 
-- [ ] **P1** Use real severity levels (`info`, `warning`, `error`) at
-      emission sites instead of hardcoded `"warning"` everywhere
-      (`lyrics.py:219-227,332-340`, `stream_manager.py:786-803`,
-      `karaoke.py:427-435`).
-- [ ] **P1** Persist `song_warning` events and surface them in an admin
-      view (`pikaraoke/routes/admin.py`) so problems are diagnosable
-      without tailing logs (the story's stated goal).
-- [ ] **P1** Bridge `download_errors` and `song_warning`: emit a
-      `song_warning` (severity `error`) for download failures so the
-      two surfaces don't have parallel-but-disjoint state
-      (`download_manager.py:273`).
+- [x] ~~**P1** Use real severity levels at emission sites.~~ Done —
+      `StreamManager._emit_song_warning` now takes a `severity` kwarg,
+      and "Audio extraction failed" (the only unrecoverable case)
+      emits with `severity="error"`. Degraded-but-functional paths
+      (Demucs fallback, MP3 encode, lyrics misses, word-level align
+      failure) stay on `"warning"`.
+- [x] ~~**P1** Persist `song_warning` events + admin view.~~ Done —
+      Karaoke keeps a rolling 200-entry buffer persisted to
+      `metadata["song_warnings"]`; every `song_warning` event carries
+      a `timestamp` and is appended. New routes
+      `GET/DELETE /admin/song_warnings` (admin-gated) surface and
+      clear the log.
+- [x] ~~**P1** Bridge `download_errors` and `song_warning`.~~ Done —
+      after appending to `download_errors`, `DownloadManager` emits a
+      mirrored `song_warning` with `severity="error"` so the two
+      surfaces stay in sync.
 
 ---
 

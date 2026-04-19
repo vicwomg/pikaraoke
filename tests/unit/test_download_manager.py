@@ -334,6 +334,31 @@ class TestDownloadManagerExecuteDownload:
         assert "error" in download_manager.download_errors[0]
 
     @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.run")
+    @patch("subprocess.Popen")
+    @patch("pikaraoke.lib.youtube_dl.build_ytdl_download_command")
+    def test_execute_download_failure_emits_song_warning(
+        self, mock_build_cmd, mock_popen, mock_run, mock_gettext, download_manager, events
+    ):
+        """US-39: failed downloads mirror into the song_warning stream too."""
+        warnings = []
+        events.on("song_warning", lambda data: warnings.append(data))
+
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+        mock_process = MagicMock()
+        mock_process.stdout.readline.return_value = ""
+        mock_process.poll.return_value = 1
+        mock_popen.return_value = mock_process
+
+        download_manager._execute_download("url", False, "User", "Bridge Title")
+
+        assert warnings, "expected a song_warning bridge event"
+        payload = warnings[0]
+        assert payload["severity"] == "error"
+        assert payload["song"] == "Bridge Title"
+        assert payload["message"] == "Download failed"
+
+    @patch("flask_babel._", side_effect=lambda x: x)
     @patch("subprocess.Popen")
     @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
     def test_execute_download_enqueue_without_path(

@@ -1,5 +1,9 @@
 """Unit tests for Karaoke utility methods."""
 
+import json
+import threading
+from unittest.mock import MagicMock
+
 
 class TestConvertPreferenceValue:
     """Tests for the _convert_value method (now in PreferenceManager)."""
@@ -345,3 +349,60 @@ class TestResetNowPlayingNotification:
         mock_karaoke.reset_now_playing_notification()
 
         assert mock_karaoke.now_playing_notification is None
+
+
+class TestSongWarningBuffer:
+    """US-39: the song_warning listener persists to DB and caps length."""
+
+    @staticmethod
+    def _wire(mock_karaoke, stored: dict[str, str] | None = None):
+        """Attach a stubbed DB and an empty rolling warning buffer."""
+        stored = stored if stored is not None else {}
+        db = MagicMock()
+        db.get_metadata.side_effect = lambda key: stored.get(key)
+        db.set_metadata.side_effect = lambda key, value: stored.__setitem__(key, value)
+        mock_karaoke.db = db
+        mock_karaoke._song_warnings = mock_karaoke._load_song_warnings()
+        mock_karaoke._song_warnings_lock = threading.Lock()
+        return stored
+
+    def test_handle_song_warning_appends_and_persists(self, mock_karaoke):
+        """Calling the listener pushes the event into the buffer and flushes."""
+        store = self._wire(mock_karaoke)
+        mock_karaoke.socketio = MagicMock()
+
+        payload = {"message": "Vocal separation failed", "severity": "warning", "song": "x.mp4"}
+        mock_karaoke._handle_song_warning(payload)
+
+        saved = json.loads(store["song_warnings"])
+        assert len(saved) == 1
+        assert saved[0]["message"] == "Vocal separation failed"
+        assert "timestamp" in saved[0]
+        mock_karaoke.socketio.emit.assert_called_once()
+
+    def test_loads_persisted_on_init(self, mock_karaoke):
+        """Pre-existing buffer entries are restored from the DB."""
+        prior = [{"message": "boom", "severity": "error", "timestamp": 1700000000.0}]
+        self._wire(mock_karaoke, {"song_warnings": json.dumps(prior)})
+        assert mock_karaoke.get_song_warnings() == prior
+
+    def test_buffer_caps_at_max(self, mock_karaoke):
+        """Buffer keeps only the last N entries to avoid unbounded growth."""
+        self._wire(mock_karaoke)
+        max_entries = mock_karaoke._SONG_WARNINGS_MAX
+        for i in range(max_entries + 5):
+            mock_karaoke._handle_song_warning({"message": f"w{i}"})
+        warnings = mock_karaoke.get_song_warnings()
+        assert len(warnings) == max_entries
+        # Oldest was dropped; newest is kept.
+        assert warnings[-1]["message"] == f"w{max_entries + 4}"
+
+    def test_clear_song_warnings_wipes_buffer_and_store(self, mock_karaoke):
+        store = self._wire(mock_karaoke)
+        mock_karaoke._handle_song_warning({"message": "w"})
+        assert mock_karaoke.get_song_warnings()
+
+        mock_karaoke.clear_song_warnings()
+
+        assert mock_karaoke.get_song_warnings() == []
+        assert json.loads(store["song_warnings"]) == []

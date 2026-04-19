@@ -345,6 +345,21 @@ class DownloadManager:
                 }
             )
             self._persist_errors()
+            # Bridge: mirror the failure into the song_warning stream so the
+            # two diagnostic surfaces don't drift (US-39). Severity=error
+            # because the song will never play without a successful download.
+            try:
+                self._events.emit(
+                    "song_warning",
+                    {
+                        "message": "Download failed",
+                        "detail": (output or "Unknown error")[:500],
+                        "song": displayed_title,
+                        "severity": "error",
+                    },
+                )
+            except Exception:
+                logging.exception("failed to emit song_warning for download failure")
         else:
             if self.active_download:
                 self.active_download["progress"] = 100
