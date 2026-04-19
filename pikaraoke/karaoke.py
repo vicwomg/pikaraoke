@@ -384,7 +384,11 @@ class Karaoke:
         # re-download with bit-flipped content invalidates stems + auto .ass
         # before the next play instead of waiting for the play-time check.
         self.events.on("song_downloaded", self._ensure_fingerprint_on_download)
-        self.events.on("song_downloaded", self.lyrics_service.fetch_and_convert)
+        # Run lyrics_service.fetch_and_convert off the synchronous listener
+        # chain: LRCLib + iTunes calls can block up to ~10s per song (US-10).
+        # The event system invokes listeners serially on the download worker
+        # thread, so a slow fetch stalls the queue for the next song.
+        self.events.on("song_downloaded", self._dispatch_lyrics_fetch_async)
         self.events.on("lyrics_upgraded", self._on_lyrics_upgraded)
         self.events.on(
             "sync_started",
@@ -971,6 +975,20 @@ class Karaoke:
         """Emit now_playing state change via SocketIO."""
         if self.socketio:
             self.socketio.emit("now_playing", self.get_now_playing(), namespace="/")
+
+    def _dispatch_lyrics_fetch_async(self, song_path: str) -> None:
+        """Run the lyrics pipeline in a daemon thread (US-10).
+
+        LRCLib + iTunes lookups add up to several seconds per song and
+        must not block the shared song_downloaded listener chain — that
+        would stall the next download in a multi-queue run.
+        """
+        threading.Thread(
+            target=self.lyrics_service.fetch_and_convert,
+            args=(song_path,),
+            name=f"lyrics-fetch-{os.path.basename(song_path)}",
+            daemon=True,
+        ).start()
 
     def _ensure_fingerprint_on_download(self, song_path: str) -> None:
         """Stamp the audio sha256 right after download so cache invalidation

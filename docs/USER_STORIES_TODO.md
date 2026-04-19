@@ -105,13 +105,12 @@ No action.
       progress callbacks now emit `download_progress` (throttled to one
       event per integer percent change) with title/url/user/progress/
       speed/eta/status. Forwarded to clients in `karaoke.py:391-397`.
-- [ ] **P1** Move LRCLib + iTunes lookup off the `song_downloaded`
-      synchronous listener. Either:
-      (a) make `EventSystem` async/threaded for that listener, OR
-      (b) wrap `lyrics_service.fetch_and_convert` in a daemon thread
-          inside the listener.
-      Otherwise the download worker stalls up to ~10s per song
-      (`karaoke.py:381`, `lyrics.py:154-246`).
+- [x] ~~**P1** Move LRCLib + iTunes lookup off the sync listener.~~
+      Done (option b) — `Karaoke._dispatch_lyrics_fetch_async` wraps
+      `lyrics_service.fetch_and_convert` in a daemon thread named
+      `lyrics-fetch-<basename>` so the download worker returns
+      immediately and can pick up the next queued song instead of
+      blocking up to ~10s on LRCLib/iTunes HTTPS.
 
 ---
 
