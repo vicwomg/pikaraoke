@@ -51,6 +51,12 @@ class PreferenceManager:
         "vocal_removal": has_torch_gpu(),
         "vocal_volume": 0.3,
         "instrumental_volume": 1.0,
+        # Persisted CLI-settable paths/flags. Empty string = unset; callers treat
+        # unset as "use platform default" (download_path) or "not configured"
+        # (youtubedl_proxy, preferred_language).
+        "download_path": "",
+        "youtubedl_proxy": "",
+        "preferred_language": "",
     }
 
     def __init__(self, config_file_path: str = "config.ini", target: object | None = None) -> None:
@@ -208,6 +214,12 @@ class PreferenceManager:
             else:
                 setattr(self._target, pref, self.get(pref, default))
 
+    # Runtime paths resolved at startup (from CLI args or computed defaults).
+    # reset_all clears them from the config file so the next start picks them
+    # up fresh, but leaves the live instance intact — blanking self.download_path
+    # mid-process would break SongManager et al.
+    _RESET_SKIP_TARGET_KEYS = {"download_path", "youtubedl_proxy"}
+
     def reset_all(self) -> tuple[bool, str]:
         """Clear config file and reset target to defaults.
 
@@ -216,5 +228,7 @@ class PreferenceManager:
         success, message = self.clear()
         if success and self._target is not None:
             for pref, default in self.DEFAULTS.items():
+                if pref in self._RESET_SKIP_TARGET_KEYS:
+                    continue
                 setattr(self._target, pref, default)
         return success, message

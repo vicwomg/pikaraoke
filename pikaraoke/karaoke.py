@@ -345,11 +345,6 @@ class Karaoke:
         except Exception:
             logging.exception("Failed to clean up stale Demucs partials")
 
-        # Set preferred language from command line if provided (persists to config)
-        if preferred_language:
-            self.preferences.set("preferred_language", preferred_language)
-            logging.info(f"Setting preferred language to: {preferred_language}")
-
         # Initialize playback controller for video playback and FFmpeg coordination
         self.playback_controller = PlaybackController(
             preferences=self.preferences,

@@ -380,11 +380,13 @@ No action.
 
 ### US-35 Preferences persist across restarts (PARTIAL)
 
-- [ ] **P1** Add `download_path`, `youtubedl_proxy`, and
-      `preferred_language` to `PreferenceManager.DEFAULTS`
-      (`preference_manager.py:24-53`) and wire UI/CLI to persist them.
-      Currently CLI-only (and `preferred_language` is written without a
-      default entry to read it back).
+- [x] ~~**P1** Add `download_path`, `youtubedl_proxy`, and
+      `preferred_language` to `PreferenceManager.DEFAULTS`.~~ Done —
+      added as string defaults (empty = unset), `apply_all` now
+      persists CLI values for them on startup so the UI can read them
+      back via `get_or_default`. `reset_all` skips `download_path` /
+      `youtubedl_proxy` so admin "reset preferences" doesn't blank
+      the live runtime paths.
 
 ### US-36 Toggle vocal removal — PASS
 

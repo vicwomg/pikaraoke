@@ -293,6 +293,9 @@ def test_preference_manager_defaults_exist():
         "vocal_removal",
         "vocal_volume",
         "instrumental_volume",
+        "download_path",
+        "youtubedl_proxy",
+        "preferred_language",
     }
 
     assert set(PreferenceManager.DEFAULTS.keys()) == expected_keys
