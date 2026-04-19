@@ -38,6 +38,7 @@
     el.miniPlayBtn = el.mini.querySelector('[data-pk-mini-play]');
 
     el.fullTitle = el.full.querySelector('[data-pk-title]');
+    el.fullArtist = el.full.querySelector('[data-pk-artist]');
     el.fullSinger = el.full.querySelector('[data-pk-singer]');
     el.fullPauseIcon = el.full.querySelector('[data-pk-pause-icon]');
     el.fullTranspose = el.full.querySelector('[data-pk-transpose]');
@@ -188,6 +189,11 @@
     setPauseIcon(el.miniPauseIcon, data.is_paused);
 
     el.fullTitle.textContent = cleanTitle;
+    if (el.fullArtist) {
+      const artist = (data.now_playing_artist || '').trim();
+      el.fullArtist.textContent = artist;
+      el.fullArtist.hidden = !artist;
+    }
     el.fullSinger.textContent = data.now_playing_user || '';
     // fullTranspose is absent when pk_is_transpose_enabled=False (the whole
     // key/pitch tool is {% if %}'d out of base.html).

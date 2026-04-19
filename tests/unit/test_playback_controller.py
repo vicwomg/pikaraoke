@@ -309,6 +309,7 @@ class TestPlaybackControllerGetNowPlaying:
 
         pc = PlaybackController(test_prefs, events, filename_fn)
         pc.now_playing = "Test Song"
+        pc.now_playing_artist = "Test Artist"
         pc.now_playing_user = "TestUser"
         pc.now_playing_transpose = 2
         pc.is_paused = False
@@ -316,9 +317,41 @@ class TestPlaybackControllerGetNowPlaying:
         state = pc.get_now_playing()
 
         assert state["now_playing"] == "Test Song"
+        assert state["now_playing_artist"] == "Test Artist"
         assert state["now_playing_user"] == "TestUser"
         assert state["now_playing_transpose"] == 2
         assert state["is_paused"] is False
+
+    def test_lookup_artist_reads_from_db(self, test_prefs):
+        """play_file populates now_playing_artist from the DB row."""
+        events = EventSystem()
+        db = MagicMock()
+        # sqlite3.Row supports keys() and __getitem__
+        row = MagicMock()
+        row.keys.return_value = ["artist", "title"]
+        row.__getitem__ = lambda _self, key: {"artist": "Eminem", "title": "Stan"}[key]
+        db.get_song_by_path.return_value = row
+
+        pc = PlaybackController(test_prefs, events, lambda x, remove_youtube_id=True: x, db=db)
+        assert pc._lookup_artist("/songs/Stan.mp4") == "Eminem"
+
+    def test_lookup_artist_returns_none_when_no_db(self, test_prefs):
+        """Without a db, artist lookup is a silent no-op."""
+        events = EventSystem()
+        pc = PlaybackController(test_prefs, events, lambda x, remove_youtube_id=True: x, db=None)
+        assert pc._lookup_artist("/songs/Stan.mp4") is None
+
+    def test_lookup_artist_returns_none_when_artist_blank(self, test_prefs):
+        """Empty artist string returns None so the UI can hide the element."""
+        events = EventSystem()
+        db = MagicMock()
+        row = MagicMock()
+        row.keys.return_value = ["artist"]
+        row.__getitem__ = lambda _self, key: ""
+        db.get_song_by_path.return_value = row
+
+        pc = PlaybackController(test_prefs, events, lambda x, remove_youtube_id=True: x, db=db)
+        assert pc._lookup_artist("/songs/Stan.mp4") is None
 
 
 class TestPlaybackControllerResetNowPlaying:

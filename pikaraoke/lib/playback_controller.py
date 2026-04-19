@@ -39,6 +39,7 @@ class PlaybackController:
 
     now_playing: str | None = None
     now_playing_filename: str | None = None
+    now_playing_artist: str | None = None
     now_playing_user: str | None = None
     now_playing_transpose: int = 0
     now_playing_duration: int | None = None
@@ -76,9 +77,24 @@ class PlaybackController:
         self.preferences = preferences
         self.events = events
         self.filename_from_path = filename_from_path
+        self.db = db
         self.stream_manager = StreamManager(preferences, streaming_format, events=events, db=db)
         events.on("demucs_progress", self._on_demucs_progress)
         events.on("ffmpeg_progress", self._on_ffmpeg_progress)
+
+    def _lookup_artist(self, file_path: str) -> str | None:
+        """Read the canonical artist from the DB so the expanded player can show it."""
+        if self.db is None:
+            return None
+        try:
+            row = self.db.get_song_by_path(file_path)
+        except Exception:
+            logging.exception("get_song_by_path failed for %s", file_path)
+            return None
+        if row is None:
+            return None
+        artist = (row["artist"] or "").strip() if "artist" in row.keys() else ""
+        return artist or None
 
     def _on_demucs_progress(self, data: dict) -> None:
         """Update local state when StreamManager reports Demucs progress."""
@@ -150,6 +166,7 @@ class PlaybackController:
 
         self.now_playing = self.filename_from_path(file_path, remove_youtube_id=True)
         self.now_playing_filename = file_path
+        self.now_playing_artist = self._lookup_artist(file_path)
         self.now_playing_user = user
         self.now_playing_transpose = semitones
         self.now_playing_duration = result.duration
@@ -259,6 +276,7 @@ class PlaybackController:
         """
         return {
             "now_playing": self.now_playing,
+            "now_playing_artist": self.now_playing_artist,
             "now_playing_user": self.now_playing_user,
             "now_playing_duration": self.now_playing_duration,
             "now_playing_transpose": self.now_playing_transpose,
@@ -281,6 +299,7 @@ class PlaybackController:
         """Reset all now playing state to defaults."""
         self.now_playing = None
         self.now_playing_filename = None
+        self.now_playing_artist = None
         self.now_playing_user = None
         self.now_playing_url = None
         self.now_playing_subtitle_url = None

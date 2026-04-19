@@ -238,10 +238,13 @@ No action.
 
 ### US-21 Now-playing display (PARTIAL)
 
-- [ ] **P1** Add an `artist` field to `karaoke.get_now_playing()`
-      (`karaoke.py:835`) and `playback_controller.get_now_playing()`
-      (`playback_controller.py:254`). Render it in the expanded player
-      using the orphaned `.pk-player-artist` CSS class.
+- [x] ~~**P1** Add an `artist` field to now_playing and render it.~~
+      Done — `PlaybackController.play_file` looks up the artist via
+      `db.get_song_by_path()` on song start, exposes it as
+      `now_playing_artist` in `get_now_playing()`, and the expanded
+      player template + `now-playing-bar.js` render it under the title
+      using the `.pk-player-artist` CSS class. Hidden when empty so
+      rows without a canonical artist don't leave a blank line.
 
 ### US-22 Volume: single vs. dual sliders (PARTIAL)
 
