@@ -45,11 +45,10 @@ current codebase. Each item is grouped by user story and tagged with a priority:
 
 ### US-4 Delete a song (PARTIAL)
 
-- [ ] **P1** Decide and document the lifecycle for `info_json` and `vtt`:
-      either (a) keep them on disk until song delete (stop deleting in
-      `lyrics._cleanup_yt_subs_and_info`, `lyrics.py:993`), or
-      (b) unregister the artifacts when they're cleaned up so the DB
-      doesn't list ghost rows.
+- [x] ~~**P1** Decide and document the lifecycle for `info_json` and
+      `vtt`.~~ Done — chose option (b). `_cleanup_yt_subs_and_info`
+      now unregisters `vtt` / `info_json` artifact rows when the files
+      are deleted, keeping DB-vs-disk in sync (see US-29 note below).
 - [ ] **P2** Reconcile the story wording vs. the `ass_user` preservation
       decision (`song_manager.py:180-181`). If preservation is correct
       (most likely), update `USER_STORIES.md` to call it out.
@@ -323,10 +322,12 @@ No action.
 
 ### US-29 Artifact registry (PARTIAL)
 
-- [ ] **P1** Unregister `info_json` and `vtt` artifact rows when
-      `_cleanup_yt_subs_and_info` deletes the files
-      (`lyrics.py:993-1010`). Otherwise the DB doesn't reflect disk
-      truth (US-29 calls the DB authoritative).
+- [x] ~~**P1** Unregister `info_json` and `vtt` artifact rows.~~ Done —
+      `_cleanup_yt_subs_and_info` now accepts the DB, looks up the
+      song_id, and calls `db.delete_artifacts_by_role(song_id, "vtt")`
+      / `"info_json"` right after unlinking the files. LyricsService
+      passes `self._db` at all three call sites, so the DB no longer
+      keeps ghost rows for files that were cleaned up post-convert.
 - [ ] **P2** Re-register the audio sibling `.m4a` after split downloads
       finish; `discover_song_artifacts` (`song_manager.py:45-83`) only
       finds it if it exists at registration time.

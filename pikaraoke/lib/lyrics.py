@@ -163,7 +163,7 @@ class LyricsService:
         if _user_owned_ass(song_path):
             logger.debug("Skipping: user-supplied .ass present for %s", song_path)
             self._register_user_ass(song_path)
-            _cleanup_yt_subs_and_info(song_path)
+            _cleanup_yt_subs_and_info(song_path, self._db)
             return
 
         info = _read_info_json(song_path)
@@ -182,7 +182,7 @@ class LyricsService:
         # (yt-dlp rewrites info.json on a cache hit) would otherwise overwrite
         # it with line-level and re-run whisper every time.
         if _is_word_level_auto_ass(song_path):
-            _cleanup_yt_subs_and_info(song_path)
+            _cleanup_yt_subs_and_info(song_path, self._db)
             return
 
         # Step 1: baseline from YouTube VTT (always available when yt-dlp wrote any subs).
@@ -210,7 +210,7 @@ class LyricsService:
                     lyrics_sha=lyrics_sha,
                 )
 
-        _cleanup_yt_subs_and_info(song_path)
+        _cleanup_yt_subs_and_info(song_path, self._db)
 
         if not wrote_from_vtt and not lrc:
             logger.info("No lyrics source for %s", os.path.basename(song_path))
@@ -995,8 +995,13 @@ def _user_owned_ass(song_path: str) -> bool:
     return ASS_MARKER not in head
 
 
-def _cleanup_yt_subs_and_info(song_path: str) -> None:
-    """Remove yt-dlp byproducts (<stem>*.vtt, <stem>.info.json) after conversion."""
+def _cleanup_yt_subs_and_info(song_path: str, db=None) -> None:
+    """Remove yt-dlp byproducts (<stem>*.vtt, <stem>.info.json) after conversion.
+
+    When ``db`` is provided, also unregister the matching ``vtt`` and
+    ``info_json`` rows in ``song_artifacts`` so the DB stays in sync with
+    disk (US-29 treats the DB as authoritative).
+    """
     stem, _ext = os.path.splitext(song_path)
     directory = os.path.dirname(stem) or "."
     basename = os.path.basename(stem)
@@ -1013,6 +1018,21 @@ def _cleanup_yt_subs_and_info(song_path: str) -> None:
             except OSError as e:
                 logger.warning("failed to remove %s: %s", name, e)
     _cleanup_info_json(song_path)
+
+    if db is None:
+        return
+    try:
+        song_id = db.get_song_id_by_path(song_path)
+    except Exception:
+        logger.exception("failed to look up song_id for artifact cleanup: %s", song_path)
+        return
+    if song_id is None:
+        return
+    for role in ("vtt", "info_json"):
+        try:
+            db.delete_artifacts_by_role(song_id, role)
+        except Exception:
+            logger.exception("failed to unregister %s artifacts for song_id=%s", role, song_id)
 
 
 # ----- Demucs stem coupling -----

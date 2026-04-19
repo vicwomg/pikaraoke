@@ -666,6 +666,38 @@ class TestCleanupYtSubsAndInfo:
         assert (tmp_path / "Foo---abc.ass").exists()
         assert (tmp_path / "Unrelated---xyz.en.vtt").exists()
 
+    def test_unregisters_info_json_and_vtt_rows_when_db_provided(self, tmp_path):
+        """US-29: disk cleanup cascades into song_artifacts so the DB doesn't
+        list ghost rows for files that no longer exist."""
+        from unittest.mock import MagicMock
+
+        song = tmp_path / "Foo---abc.mp4"
+        (tmp_path / "Foo---abc.en.vtt").write_text("x")
+        (tmp_path / "Foo---abc.info.json").write_text("{}")
+
+        db = MagicMock()
+        db.get_song_id_by_path.return_value = 42
+
+        _cleanup_yt_subs_and_info(str(song), db)
+
+        db.get_song_id_by_path.assert_called_once_with(str(song))
+        roles = [c.args[1] for c in db.delete_artifacts_by_role.call_args_list]
+        assert set(roles) == {"vtt", "info_json"}
+        assert all(c.args[0] == 42 for c in db.delete_artifacts_by_role.call_args_list)
+
+    def test_skip_unregister_when_song_not_in_db(self, tmp_path):
+        """A stray cleanup for an unregistered path must not touch artifacts."""
+        from unittest.mock import MagicMock
+
+        song = tmp_path / "Foo---abc.mp4"
+        (tmp_path / "Foo---abc.en.vtt").write_text("x")
+        db = MagicMock()
+        db.get_song_id_by_path.return_value = None
+
+        _cleanup_yt_subs_and_info(str(song), db)
+
+        db.delete_artifacts_by_role.assert_not_called()
+
 
 # ----- LyricsService new flow (VTT + LRCLib) -----
 
