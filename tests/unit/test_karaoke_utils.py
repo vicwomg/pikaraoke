@@ -446,3 +446,51 @@ class TestSongWarningBuffer:
 
         assert mock_karaoke.get_song_warnings() == []
         assert json.loads(store["song_warnings"]) == []
+
+    def test_dismiss_song_warnings_removes_matching_and_broadcasts(
+        self, mock_karaoke
+    ):
+        """US-13: per-song dismiss drops matching entries and emits broadcast."""
+        store = self._wire(mock_karaoke)
+        mock_karaoke.socketio = MagicMock()
+        mock_karaoke._handle_song_warning({"message": "a", "song": "SongA.mp4"})
+        mock_karaoke._handle_song_warning({"message": "b", "song": "SongB.mp4"})
+        mock_karaoke._handle_song_warning({"message": "a2", "song": "SongA.mp4"})
+
+        removed = mock_karaoke.dismiss_song_warnings("SongA.mp4")
+
+        assert removed == 2
+        remaining = mock_karaoke.get_song_warnings()
+        assert [w["song"] for w in remaining] == ["SongB.mp4"]
+        # Persisted buffer reflects the dismissal.
+        assert [w["song"] for w in json.loads(store["song_warnings"])] == [
+            "SongB.mp4"
+        ]
+        # Broadcast fires once, carrying just the song key.
+        dismiss_calls = [
+            c for c in mock_karaoke.socketio.emit.call_args_list
+            if c.args[0] == "song_warnings_dismissed"
+        ]
+        assert len(dismiss_calls) == 1
+        assert dismiss_calls[0].args[1] == {"song": "SongA.mp4"}
+
+    def test_dismiss_song_warnings_no_match_is_noop(self, mock_karaoke):
+        """Dismissing a song with no buffered entries returns 0 and skips write."""
+        store = self._wire(mock_karaoke)
+        mock_karaoke.socketio = MagicMock()
+        mock_karaoke._handle_song_warning({"message": "x", "song": "Kept.mp4"})
+        store_writes_before = len(store)
+
+        removed = mock_karaoke.dismiss_song_warnings("Missing.mp4")
+
+        assert removed == 0
+        assert len(mock_karaoke.get_song_warnings()) == 1
+        # No redundant DB write when nothing matched.
+        assert len(store) == store_writes_before
+        # Broadcast still fires so other clients can drop anything they have
+        # locally — the server is authoritative for dismissal, not the buffer.
+        dismiss_calls = [
+            c for c in mock_karaoke.socketio.emit.call_args_list
+            if c.args[0] == "song_warnings_dismissed"
+        ]
+        assert len(dismiss_calls) == 1

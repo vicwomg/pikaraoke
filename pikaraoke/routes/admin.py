@@ -95,6 +95,20 @@ def clear_song_warnings():
     return jsonify({"status": "cleared"})
 
 
+@admin_bp.route("/song_warnings/<path:song>", methods=["DELETE"])
+def dismiss_song_warnings(song: str):
+    """Dismiss buffered warnings for one song and broadcast the dismissal.
+
+    Admin-gated so guest pilots in a karaoke party can't clear warnings for
+    everyone. ``song`` is the basename used by the ``song_warning`` emitter.
+    """
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    k = get_karaoke_instance()
+    removed = k.dismiss_song_warnings(song)
+    return jsonify({"status": "dismissed", "song": song, "removed": removed})
+
+
 @admin_bp.route("/sync_library")
 def sync_library():
     """Trigger a background library scan."""

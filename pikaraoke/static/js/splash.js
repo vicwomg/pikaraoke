@@ -713,10 +713,19 @@ const handleNowPlayingUpdate = (np) => {
   // When now_playing is null (idle between songs), keep whatever songWarning
   // key we had so pre-playback / end-of-song warnings stay visible until
   // a new song takes over.
+  // Don't clobber unacknowledged warnings when the next song starts (US-13):
+  // if the previous song had buffered warnings the operator hasn't dismissed,
+  // keep them on screen. The retarget happens once they dismiss (see the
+  // song_warnings_dismissed handler).
   const songKey = np.now_playing_basename || null;
   if (songKey && songKey !== songWarningSongKey) {
-    songWarningSongKey = songKey;
-    renderSongWarnings();
+    const oldHasWarnings =
+      songWarningSongKey &&
+      (songWarningsBySong.get(songWarningSongKey) || []).length > 0;
+    if (!oldHasWarnings) {
+      songWarningSongKey = songKey;
+      renderSongWarnings();
+    }
   }
   if (np.now_playing) {
 
@@ -1181,6 +1190,19 @@ const setupSocketEvents = () => {
     if (data.song === songWarningSongKey) {
       renderSongWarnings();
       flashNotification(data.message, "is-warning");
+    }
+  });
+  socket.on("song_warnings_dismissed", (data) => {
+    if (!data || !data.song) return;
+    songWarningsBySong.delete(data.song);
+    if (data.song === songWarningSongKey) {
+      // Retarget to the currently-playing song so any warnings that
+      // landed for the new song while the old song's warnings were
+      // held on screen immediately surface.
+      const currentPlaying =
+        (nowPlaying && nowPlaying.now_playing_basename) || null;
+      songWarningSongKey = currentPlaying;
+      renderSongWarnings();
     }
   });
   // Live Demucs fires this once the first segment for both stems is on

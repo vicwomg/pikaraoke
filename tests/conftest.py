@@ -151,6 +151,7 @@ class MockKaraoke:
     _persist_song_warnings = Karaoke._persist_song_warnings
     get_song_warnings = Karaoke.get_song_warnings
     clear_song_warnings = Karaoke.clear_song_warnings
+    dismiss_song_warnings = Karaoke.dismiss_song_warnings
     _SONG_WARNINGS_DB_KEY = Karaoke._SONG_WARNINGS_DB_KEY
     _SONG_WARNINGS_MAX = Karaoke._SONG_WARNINGS_MAX
     _maybe_initial_reprocess_with_whisperx = Karaoke._maybe_initial_reprocess_with_whisperx

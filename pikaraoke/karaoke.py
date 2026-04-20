@@ -924,6 +924,32 @@ class Karaoke:
             self._song_warnings.clear()
             self._persist_song_warnings()
 
+    def dismiss_song_warnings(self, song: str) -> int:
+        """Drop buffered warnings for a specific song. Admin-triggered.
+
+        Returns the number of entries removed so the caller can tell whether
+        anything actually matched. Broadcasts ``song_warnings_dismissed`` so
+        every pilot + splash wipes its client-side buffer in sync (US-13).
+        """
+        if not song:
+            return 0
+        with self._song_warnings_lock:
+            before = len(self._song_warnings)
+            self._song_warnings = [
+                w for w in self._song_warnings if w.get("song") != song
+            ]
+            removed = before - len(self._song_warnings)
+            if removed:
+                self._persist_song_warnings()
+        if self.socketio:
+            try:
+                self.socketio.emit(
+                    "song_warnings_dismissed", {"song": song}, namespace="/"
+                )
+            except Exception:
+                logging.exception("failed to emit song_warnings_dismissed")
+        return removed
+
     def reset_now_playing(self) -> None:
         """Reset all now playing state to defaults."""
         self.playback_controller.reset_now_playing()

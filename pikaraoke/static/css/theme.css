@@ -325,6 +325,27 @@ body {
   word-break: break-word;
   margin-top: 2px;
 }
+.pk-warning-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+  margin-top: 6px;
+  border-top: 1px solid var(--pk-border);
+}
+.pk-btn-ghost {
+  background: transparent;
+  border: 1px solid var(--pk-border-strong);
+  color: var(--pk-ink);
+  border-radius: var(--pk-r-md);
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.pk-btn-ghost:hover { background: var(--pk-surface); }
+.pk-btn-ghost:focus-visible {
+  outline: 2px solid var(--pk-sun);
+  outline-offset: 2px;
+}
 
 /* ====== Shared components ====== */
 

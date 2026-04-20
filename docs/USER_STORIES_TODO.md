@@ -173,14 +173,26 @@ No action.
 
 ### US-13 Warnings survive until acknowledged (PARTIAL)
 
-- [ ] **P1** Add a "dismiss" action in the control panel
-      (`pikaraoke/templates/base.html:219-247`) that clears warnings for
-      a given song from the buffer, with a server-side socket event so
-      all clients stay in sync.
-- [ ] **P1** Don't drop warnings from the splash render when the next
-      song starts (`splash.js:263-317`). Either keep them visible until
-      operator dismisses, or persist them to a per-song log surfaced
-      from the control panel.
+- [x] ~~**P1** Add a "dismiss" action in the control panel that clears
+      warnings for a given song from the buffer, with a server-side
+      event so all clients stay in sync.~~ Done — new admin-gated
+      `DELETE /admin/song_warnings/<song>` route calls
+      `Karaoke.dismiss_song_warnings(song)`, which filters the
+      persisted buffer and broadcasts `song_warnings_dismissed`. Both
+      pilot (`base.html`) and splash (`splash.js`) listen for the
+      broadcast and drop the song's entries from their local buffer.
+      A "Dismiss" button in `#pk-song-warning-panel` fires the DELETE;
+      the button is only rendered for admin pilots. Covered by new
+      tests in `TestSongWarningBuffer`.
+- [x] ~~**P1** Don't drop warnings from the splash render when the
+      next song starts.~~ Done — `handleNowPlayingUpdate` no longer
+      retargets `songWarningSongKey` when the previous song still has
+      unacknowledged buffered warnings; the icon holds its content
+      until dismiss drops the entries, at which point the dismiss
+      listener retargets to the currently-playing song so any freshly
+      buffered warnings for the new song surface immediately. Pre-
+      playback promotion (from US-12) still kicks in when the buffer
+      is empty.
 
 ---
 

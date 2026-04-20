@@ -220,6 +220,21 @@
         $("#pk-song-warning-panel").toggleClass("is-open");
       });
 
+      // Admin-only: POST a per-song dismiss so the server wipes its persisted
+      // buffer and broadcasts `song_warnings_dismissed` to every client. The
+      // per-client buffer drop happens on that broadcast, not here, so all
+      // pilots + splashes stay in sync even if this fetch originated from a
+      // different admin session.
+      $("#pk-song-warning-dismiss").on("click", function () {
+        if (!currentSongKey) return;
+        fetch("/admin/song_warnings/" + encodeURIComponent(currentSongKey), {
+          method: "DELETE",
+          credentials: "same-origin",
+        }).catch(function (err) {
+          console.error("song_warning dismiss failed", err);
+        });
+      });
+
       if (window.socket) {
         window.socket.on("notification", function (data) {
           var parts = String(data == null ? "" : data).split("::");
@@ -234,6 +249,12 @@
           if (key === currentSongKey) {
             showNotification(data.message, "is-warning", 4000);
           }
+        });
+
+        window.socket.on("song_warnings_dismissed", function (data) {
+          if (!data || !data.song) return;
+          songWarningsBySong.delete(data.song);
+          if (data.song === currentSongKey) renderSongWarnings();
         });
 
         // Piggy-back on now_playing to retarget the per-song warning icon.
@@ -307,6 +328,12 @@
 
   <div id="pk-song-warning-panel" class="pk-notif-panel">
     <div id="pk-song-warning-list"></div>
+    {% if pk_admin %}
+    <div class="pk-warning-actions">
+      <button type="button" id="pk-song-warning-dismiss" class="pk-btn-ghost"
+              aria-label="Oznacz ostrzeżenia jako odczytane">Dismiss</button>
+    </div>
+    {% endif %}
   </div>
 
   {# ===== Content =====
