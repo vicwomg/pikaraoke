@@ -275,9 +275,12 @@ No action.
 
 ### US-18 Play a queued song (PARTIAL)
 
-- [ ] **P2** Cache `can_serve_video_directly` results per file
-      (`file_resolver.py:113-124`) — keyed by mtime/size — so we don't
-      shell out to ffprobe on every play.
+- [x] ~~**P2** Cache `can_serve_video_directly` results per file.~~
+      Done — `file_resolver._probe_codecs` now memoizes on
+      `(path, size, mtime_ns)`, so `can_serve_video_directly` /
+      `can_serve_directly` stop shelling to ffprobe on repeat plays.
+      Cache is bounded (2048 entries, FIFO eviction) and invalidates
+      automatically when the file changes on disk.
 - [ ] **P2** Document that a non-aac audio track on h264 video still
       triggers an ffmpeg audio pipe (`stream_manager.py:230`); strictly
       speaking that's a transcode, even on the "direct video" path.
@@ -328,10 +331,13 @@ No action.
       segment-count monitor; MP4 now drives the seek-bar from
       ffmpeg's own reported position. Throttled to one emit per
       integer second.
-- [ ] **P2** Initialize `seekBufferedDemucs` to a conservative ceiling
-      (e.g. 0) before the first `demucs_progress` tick so the slider
-      reflects the actual buffered range from the start
-      (`now-playing-bar.js:281-289`).
+- [x] ~~**P2** Initialize `seekBufferedDemucs` to a conservative
+      ceiling before the first `demucs_progress` tick.~~ Done — when
+      `vocal_removal` is on and stems aren't live yet, render seeds
+      `seekBufferedDemucs = 0` (and the processing chip at 0%). The
+      slider now starts at zero-amber and fills as real ticks arrive,
+      instead of painting fully amber because a null ceiling meant
+      "unrestricted" to the clamp helper.
 
 ### US-24 Visual cues for processing progress (PARTIAL)
 
@@ -457,8 +463,12 @@ No action.
 - [x] ~~**P1** Make `_merge_metadata_into_info_json` atomic.~~ Done —
       writes to `info_path + ".part"` then `os.replace`; cleans up the
       tempfile on OSError so the original is never truncated.
-- [ ] **P2** Make `PreferenceManager.set` atomic
-      (`preference_manager.py:130`): tempfile + `os.replace`.
+- [x] ~~**P2** Make `PreferenceManager.set` atomic: tempfile +
+      `os.replace`.~~ Done — `set()` now writes to
+      `config.ini.part` and calls `os.replace` to swap it over the
+      live file. A mid-write crash can no longer leave a truncated
+      config.ini. Partial files from a failed replace are cleaned up
+      in the exception handler.
 
 ---
 

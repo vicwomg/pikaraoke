@@ -264,11 +264,20 @@
 
       // Re-derive buffered bounds from now_playing so a fresh page load
       // reflects in-flight processing without waiting for the next progress tick.
+      // When vocal_removal is on and stems aren't ready yet, seed the
+      // buffered ceiling at 0 instead of null (US-23 P2). null means
+      // "unrestricted" — so leaving it null while Demucs is still running
+      // would paint the seek bar fully amber until the first tick arrives,
+      // which misleads the user into thinking the song is already buffered.
+      const stemsLive = !!(data.vocal_removal && data.vocals_url && data.instrumental_url);
       if (data.vocal_removal
         && typeof data.demucs_processed === 'number' && typeof data.demucs_total === 'number'
         && data.demucs_total > 0 && data.demucs_processed < data.demucs_total) {
         state.seekBufferedDemucs = data.demucs_processed;
         setProcessingIndicator((data.demucs_processed / data.demucs_total) * 100);
+      } else if (data.vocal_removal && !stemsLive) {
+        state.seekBufferedDemucs = 0;
+        setProcessingIndicator(0);
       } else {
         state.seekBufferedDemucs = null;
         setProcessingIndicator(null);

@@ -90,9 +90,31 @@ def is_transcoding_required(file_path: str) -> bool:
     return file_extension != ".mp4" and file_extension != ".webm"
 
 
+# Cache probed codecs keyed by (path, size, mtime_ns) so repeated plays of
+# the same file skip the ffprobe subprocess. Invalidates automatically when
+# the file changes on disk. Bounded so a long-running server doesn't leak
+# entries for deleted files (US-18 P2).
+_PROBE_CACHE: dict[tuple[str, int, int], tuple[str | None, str | None]] = {}
+_PROBE_CACHE_MAX = 2048
+
+
+def _probe_cache_key(file_path: str) -> tuple[str, int, int] | None:
+    try:
+        st = os.stat(file_path)
+    except OSError:
+        return None
+    return (file_path, st.st_size, st.st_mtime_ns)
+
+
 def _probe_codecs(file_path: str) -> tuple[str | None, str | None]:
     """Return (video_codec, audio_codec) for the first video/audio stream."""
     import ffmpeg
+
+    key = _probe_cache_key(file_path)
+    if key is not None:
+        cached = _PROBE_CACHE.get(key)
+        if cached is not None:
+            return cached
 
     try:
         data = ffmpeg.probe(file_path)
@@ -107,6 +129,13 @@ def _probe_codecs(file_path: str) -> tuple[str | None, str | None]:
             vcodec = s.get("codec_name")
         elif kind == "audio" and acodec is None:
             acodec = s.get("codec_name")
+
+    if key is not None:
+        if len(_PROBE_CACHE) >= _PROBE_CACHE_MAX:
+            # Cheap FIFO drop — evict the oldest insertion to avoid unbounded
+            # growth. Not LRU, but the cache is per-process and rare to fill.
+            _PROBE_CACHE.pop(next(iter(_PROBE_CACHE)))
+        _PROBE_CACHE[key] = (vcodec, acodec)
     return vcodec, acodec
 
 

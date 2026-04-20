@@ -120,9 +120,12 @@ class PreferenceManager:
     def set(self, preference: str, val: Any, section: str = "USERPREFERENCES") -> tuple[bool, str]:
         """Update a preference, persist to config, and sync target object.
 
-        Returns (success, message) tuple.
+        Writes atomically via a sibling tempfile + ``os.replace`` so a
+        mid-write crash or out-of-space condition never leaves the user
+        with a truncated config.ini (US-34 P2). Returns (success, message).
         """
         logging.debug(f"Changing preference [{section}] << {preference} >> to {val}")
+        tmp_path = self.config_file_path + ".part"
         try:
             # Read existing config to preserve other preferences
             self._config_obj.read(self.config_file_path, encoding="utf-8")
@@ -133,8 +136,9 @@ class PreferenceManager:
             prefs = self._config_obj[section]
             prefs[preference] = str(val)
 
-            with open(self.config_file_path, "w", encoding="utf-8") as conf:
+            with open(tmp_path, "w", encoding="utf-8") as conf:
                 self._config_obj.write(conf)
+            os.replace(tmp_path, self.config_file_path)
 
             # Auto-sync target object if registered
             if self._target is not None:
@@ -145,6 +149,12 @@ class PreferenceManager:
             return (True, _("Your preferences were changed successfully"))
         except (OSError, configparser.Error) as e:
             logging.debug(f"Failed to change user preference << {preference} >>: {e}")
+            # Best-effort cleanup of the partial file so it doesn't clutter
+            # the config directory if the replace leg failed.
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
             return (False, _("Something went wrong! Your preferences were not changed"))
 
     def clear(self) -> tuple[bool, str]:
