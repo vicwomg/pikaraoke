@@ -122,12 +122,18 @@ No action.
 
 ### US-11 Splash notifications per stage (PARTIAL)
 
-- [ ] **P1** Add the missing stage notifications:
-      - "Downloading audio…" (separate from video,
-        `download_manager.py:243`)
-      - "Separating vocals… <pct>%" (drive from `demucs_progress`)
-      - "Fetching lyrics…" (before `lyrics.py:175`)
-      - "Aligning words…" (before `lyrics.py:241`)
+- [x] ~~**P1** Add the missing stage notifications.~~ Done —
+      `"Downloading audio: <title>"` fires in `_execute_download` right
+      before `_run_split_download` (split mode only; the merged path
+      already had one unified toast). `"Separating vocals: <title>"`
+      fires from `_prewarm_audio_sibling` after the .m4a is resolved
+      and before Demucs starts. `"Fetching lyrics: <title>"` and
+      `"Aligning words: <title>"` fire from a new
+      `LyricsService._emit_stage_notification` helper at the top of
+      `_do_fetch_and_convert` (after the user-ASS short-circuit) and
+      `_upgrade_to_word_level`. The progressive per-percent variant
+      for Demucs stays out of US-11 — it's the seek-bar demucs shading
+      under US-24.
 - [x] ~~**P1** Replace the `if (sn.html()) return;` guard with a small
       queue so concurrent stage notifications aren't dropped silently.~~
       Done — `flashNotification` now pushes onto a FIFO queue and a

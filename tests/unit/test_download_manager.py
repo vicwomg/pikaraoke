@@ -800,7 +800,9 @@ class TestSplitDownload:
         )
         mock_popen.side_effect = [video_proc, audio_proc]
 
-        download_manager._run_split_download("https://youtube.com/watch?v=abc", "abc12345678")
+        download_manager._run_split_download(
+            "https://youtube.com/watch?v=abc", "abc12345678", "Title"
+        )
 
         # Both progress lines landed; progress is the mean.
         assert download_manager.active_download["progress"] == pytest.approx(60.0, abs=0.01)
@@ -846,7 +848,7 @@ class TestSplitDownload:
         mock_popen.side_effect = [audio_proc, video_proc]
 
         rc, _out = download_manager._run_split_download(
-            "https://youtube.com/watch?v=abc", "abc12345678"
+            "https://youtube.com/watch?v=abc", "abc12345678", "Title"
         )
 
         assert rc != 0

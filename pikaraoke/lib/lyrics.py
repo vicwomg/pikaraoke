@@ -131,6 +131,21 @@ class LyricsService:
             return
         self._db.upsert_artifacts(song_id, [{"role": "ass_user", "path": _ass_path(song_path)}])
 
+    def _emit_stage_notification(self, song_path: str, stage: str) -> None:
+        """Toast a pipeline-stage message (e.g. "Fetching lyrics: Song Title").
+
+        Swallows emit exceptions so a missing/misconfigured event bus never
+        breaks the stage it was meant to announce.
+        """
+        if self._events is None:
+            return
+        try:
+            self._events.emit(
+                "notification", f"{stage}: {_title_from_filename(song_path)}"
+            )
+        except Exception:
+            logger.exception("failed to emit %s stage notification", stage)
+
     def _maybe_drop_stale_auto_ass(self, song_path: str, lyrics_sha: str | None) -> None:
         """Delete the auto .ass when any upstream dependency changed.
 
@@ -183,6 +198,12 @@ class LyricsService:
             return
 
         info = _read_info_json(song_path)
+
+        # Tell the operator we're about to hit LRCLib / iTunes. Emitted
+        # BEFORE the network call so the "Fetching lyrics…" toast lands
+        # while the HTTP round-trip is in flight. Skipped above if a
+        # user-supplied .ass preempts the whole pipeline.
+        self._emit_stage_notification(song_path, "Fetching lyrics")
 
         # Fetch LRC up front so we can fingerprint it BEFORE deciding whether
         # the cached .ass is still valid. Subtitle changes (LRCLib updated the
@@ -353,6 +374,10 @@ class LyricsService:
         if self._aligner is None:
             return
         try:
+            # Whisperx alignment waits on stems and then runs per-word forced
+            # alignment; easily the longest stage after Demucs. Surface it so
+            # the splash shows progress beyond "Lyrics ready".
+            self._emit_stage_notification(song_path, "Aligning words")
             audio_path = _wait_for_alignment_audio(song_path)
             plain = _lrc_plain_text(lrc)
             # Language fast-path. Order of preference:

@@ -321,7 +321,13 @@ class DownloadManager:
         vocal_removal = bool(self._preferences.get_or_default("vocal_removal"))
 
         if vocal_removal:
-            rc, output = self._run_split_download(video_url, video_id)
+            # Split pipeline runs an audio-only yt-dlp in parallel with the
+            # video-only one so Demucs can start as soon as the audio exits.
+            # Surface the audio leg too so the splash shows both stages.
+            self._events.emit(
+                "notification", _("Downloading audio: %s") % displayed_title
+            )
+            rc, output = self._run_split_download(video_url, video_id, displayed_title)
         else:
             rc, output = self._run_merged_download(video_url)
 
@@ -469,7 +475,12 @@ class DownloadManager:
             },
         )
 
-    def _run_split_download(self, video_url: str, video_id: str | None) -> tuple[int | None, str]:
+    def _run_split_download(
+        self,
+        video_url: str,
+        video_id: str | None,
+        displayed_title: str,
+    ) -> tuple[int | None, str]:
         """Run audio-only and video-only yt-dlp in parallel.
 
         Demucs prewarm is triggered the moment the audio process exits
@@ -548,7 +559,7 @@ class DownloadManager:
             audio_state["output"] = "".join(buf)
             if audio_state["rc"] == 0:
                 if video_id:
-                    self._prewarm_audio_sibling(video_id)
+                    self._prewarm_audio_sibling(video_id, displayed_title)
             else:
                 cancel(video_proc, "video")
 
@@ -581,8 +592,10 @@ class DownloadManager:
 
         return 0, combined_output
 
-    def _prewarm_audio_sibling(self, video_id: str) -> None:
+    def _prewarm_audio_sibling(self, video_id: str, displayed_title: str) -> None:
         """Fire Demucs prewarm on the just-downloaded `.m4a` for video_id."""
+        from flask_babel import _
+
         m4a = _find_file_by_id(self._download_path, video_id, ".m4a")
         if not m4a:
             logging.warning(
@@ -592,6 +605,12 @@ class DownloadManager:
         try:
             from pikaraoke.lib.demucs_processor import prewarm
 
+            # Audio is on disk and separation is about to start. This is the
+            # most visible "stuck" stage (30-60s on a Pi), so toast it so the
+            # operator sees progress beyond the download bar.
+            self._events.emit(
+                "notification", _("Separating vocals: %s") % displayed_title
+            )
             prewarm(m4a)
         except Exception:  # pragma: no cover - defensive
             logging.exception("Demucs prewarm dispatch failed for %s", m4a)
