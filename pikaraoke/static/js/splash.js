@@ -445,7 +445,11 @@ const applyPendingStems = () => {
   const video = getVideoPlayer();
   const currentUid = currentVideoUrl ? extractStreamUid(currentVideoUrl) : null;
   if (data.stream_uid !== currentUid) {
-    pendingStemsData = null;  // song changed
+    // Either the browser hasn't received now_playing yet (stems_ready can
+    // race ahead of it when Demucs prewarm finishes right as play_file
+    // runs) or the song truly changed. Keep pending so the next
+    // handleNowPlayingUpdate can retry; invalidation for a genuinely new
+    // song happens there.
     return;
   }
   const labels = audioNodes ? audioNodes.labels : [];
@@ -495,12 +499,14 @@ const applyPendingStems = () => {
   });
 };
 
-// Extracts the stream_uid from a /stream/<uid>.<ext> URL so stems_ready
-// events can be matched against the song that's actually playing.
+// Extracts the stream_uid from the tail of a stream URL so stems_ready
+// events can be matched against the song that's actually playing. Handles
+// /stream/<uid>.<ext>, /stream/video/<uid>.mp4, and /stream/full/<uid>.
 const extractStreamUid = (url) => {
   if (!url) return null;
-  const match = url.match(/\/stream\/([^/.]+)/);
-  return match ? match[1] : null;
+  const lastSeg = url.split("/").pop() || "";
+  const dot = lastSeg.indexOf(".");
+  return (dot === -1 ? lastSeg : lastSeg.slice(0, dot)) || null;
 };
 
 // Chrome/Edge block AudioContext.resume() until a user gesture happens.
@@ -785,6 +791,14 @@ const handleNowPlayingUpdate = (np) => {
 
   if (np.now_playing_url && np.now_playing_url !== currentVideoUrl) {
     currentVideoUrl = np.now_playing_url;
+    // If a stems_ready socket event arrived before this now_playing push
+    // (tight prewarm race), applyPendingStems bailed on stream_uid mismatch
+    // and kept the data pending. Drop it now only if it's for a different
+    // song; otherwise let it apply once the track pipe is set up below.
+    if (pendingStemsData
+        && pendingStemsData.stream_uid !== extractStreamUid(currentVideoUrl)) {
+      pendingStemsData = null;
+    }
     const streamUrl = np.now_playing_url;
     // Tear down any previous HLS instance before we touch the element.
     // hls.destroy() revokes the old MediaSource blob; calling video.load()
@@ -840,6 +854,11 @@ const handleNowPlayingUpdate = (np) => {
     } else {
       video.muted = false;
     }
+
+    // Retry any stems_ready that raced ahead of this now_playing update.
+    // Must run AFTER the track-pipe branch above so applyPendingStems sees
+    // labels=["track"] and crossfades cleanly.
+    if (pendingStemsData) ensureAudioContextRunning().then(applyPendingStems);
 
     if (volume !== np.volume) {
       volume = np.volume;
@@ -1208,7 +1227,12 @@ const setupSocketEvents = () => {
   // Live Demucs fires this once the first segment for both stems is on
   // disk. Video has been playing with its original audio; crossfade to the
   // stems so the user gets the karaoke mix (vocals ducked per slider).
+  // Prewarm (US-7) emits a lighter ``stems_ready`` carrying only
+  // ``song_basename``/``cache_key`` — no stream URLs — so skip the
+  // audio-routing path there and leave the real play-time event to do
+  // the crossfade.
   socket.on("stems_ready", (data) => {
+    if (!data || !data.stream_uid) return;
     pendingStemsData = data;
     ensureAudioContextRunning().then(applyPendingStems);
   });
