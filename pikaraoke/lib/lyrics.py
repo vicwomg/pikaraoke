@@ -434,29 +434,36 @@ class LyricsService:
                 except Exception:
                     logger.exception("failed to emit raw-mix fallback song_warning")
             plain = _lrc_plain_text(lrc)
-            # Language fast-path. Order of preference:
+            # Language is required for wav2vec2 forced alignment (models are
+            # per-language; the aligner no longer runs whisper ASR so it can't
+            # detect from audio). Order of preference:
             #   1. Cached on the song row (info.json, enricher, prior run, or
             #      manual edit — all authoritative).
             #   2. Detected from the LRC text. Lyrics are clean prose, hundreds
-            #      of words; text-detection is far more reliable than whisperx's
-            #      audio-based pass and skips its ~20 s startup cost.
-            #   3. None — let whisperx detect from audio.
+            #      of words; text-detection is reliable and essentially free.
             song_id = self._db.get_song_id_by_path(song_path) if self._db else None
             db_lang = None
             if self._db is not None and song_id is not None:
                 row = self._db.get_song_by_id(song_id)
                 db_lang = row["language"] if row is not None else None
             language = db_lang or _detect_language(plain)
+            if not language:
+                logger.info(
+                    "Skipping word-level alignment for %s: language unknown "
+                    "(LRC too short or langdetect missing)",
+                    song_path,
+                )
+                return
             words = self._aligner.align(
                 audio_path, plain, lrc_lines=lrc_line_windows(lrc), language=language
             )
-            final_lang = language or getattr(self._aligner, "last_detected_language", None)
-            if self._db is not None and song_id is not None and final_lang and not db_lang:
-                # Language detected from LRC text or whisperx audio pass.
-                # Source "scanner" keeps it as the lowest confidence so an
-                # iTunes/MusicBrainz enrichment can still correct it later.
+            if self._db is not None and song_id is not None and not db_lang:
+                # Persist the text-detected language so future runs and UI
+                # lookups skip the detection step. "scanner" keeps it at the
+                # lowest confidence so an iTunes/MusicBrainz enrichment can
+                # still correct it later.
                 self._db.update_track_metadata_with_provenance(
-                    song_id, "scanner", {"language": final_lang}
+                    song_id, "scanner", {"language": language}
                 )
             if not words:
                 return

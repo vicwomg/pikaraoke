@@ -1,10 +1,16 @@
-"""WhisperX-based forced alignment for per-word karaoke highlighting.
+"""Forced alignment for per-word karaoke highlighting.
 
 `whisperx` is an optional dependency - installed via `pip install 'pikaraoke[align]'`.
 The import is lazy so the rest of the app keeps working when it's absent.
 
+Despite the module name, we don't run whisper ASR. We already know the sung
+words from LRC, so we hand them directly to whisperx's wav2vec2 CTC forced-
+alignment step. That skips whisper transcription entirely - no hallucinations,
+no mis-hearings on music vocals, no SequenceMatcher reconciliation pass, and
+no 20s model-load + transcription latency.
+
 Output contract: a list of `Word(text, start, end)` where `text` comes from
-the reference lyrics (LRCLib) but timings come from whisper's acoustic alignment.
+the reference LRC and timings come from wav2vec2's phonetic alignment.
 """
 
 import logging
@@ -15,12 +21,18 @@ from pikaraoke.lib.lyrics import Word
 logger = logging.getLogger(__name__)
 
 
-class WhisperXAligner:
-    """Transcribes audio with whisper and aligns per-word timings to reference lyrics.
+# Upper bound for the whole-song fallback segment when no LRC line windows
+# are supplied. whisperx clamps segment ends to actual audio length.
+_WHOLE_SONG_SEGMENT_END_S = 24 * 3600.0
 
-    Model and alignment-model instances are cached on the first call - subsequent
-    songs reuse them. Alignment models are per-language; the cache invalidates
-    when a song in a new language appears.
+
+class WhisperXAligner:
+    """Forced-aligns reference LRC lyrics to audio using wav2vec2 CTC.
+
+    The per-language wav2vec2 model is cached on first use; it reloads when
+    a song in a new language appears. ``model_size`` is accepted for
+    backward compatibility with the startup wiring but is no longer used
+    (there's no whisper ASR step to size).
     """
 
     def __init__(self, model_size: str = "base", device: str = "cpu") -> None:
@@ -38,18 +50,25 @@ class WhisperXAligner:
         import whisperx  # lazy - optional dep
 
         self._whisperx = whisperx
-        self._model_size = model_size
+        self._model_size = model_size  # retained for backward-compat only
         self._device = device
-        self._asr_model = None
         self._align_model = None
         self._align_meta = None
         self._align_lang: str | None = None
+        # Kept for caller compatibility: the aligner no longer detects
+        # language itself (no whisper ASR), so this mirrors whatever the
+        # caller passed to align().
         self.last_detected_language: str | None = None
 
     @property
     def model_id(self) -> str:
-        """Stable identifier recorded alongside aligned .ass for cache invalidation."""
-        return f"whisperx-{self._model_size}"
+        """Stable identifier recorded alongside aligned .ass for cache invalidation.
+
+        Bumped from ``whisperx-<size>`` to ``wav2vec2-lrc`` when we dropped
+        the whisper ASR step, so existing cached .ass files auto-invalidate
+        and get re-generated with the higher-quality direct alignment.
+        """
+        return "wav2vec2-lrc"
 
     def align(
         self,
@@ -59,53 +78,76 @@ class WhisperXAligner:
         lrc_lines: list[tuple[float, float, str]] | None = None,
         language: str | None = None,
     ) -> list[Word]:
-        """Align ``reference_text`` tokens to whisper-transcribed audio timings.
+        """Forced-align reference lyrics to audio with wav2vec2 CTC.
 
-        Passing ``language`` skips whisper's language-detection pass
-        (``Detected language: xx (0.92) in first 30s of audio``) which
-        otherwise re-runs on every song. The last detected code is kept on
-        ``last_detected_language`` for callers that want to persist it.
+        ``language`` is required - wav2vec2 models are per-language, and
+        we no longer have a whisper ASR step to detect it from audio.
+        Callers typically derive it from the LRC text (``_detect_language``
+        in ``pikaraoke.lib.lyrics``).
 
-        When ``lrc_lines`` is provided, SequenceMatcher is confined to each
-        LRC line's audio window so repeated phrases elsewhere in the song
-        can't steal anchors across line boundaries. The returned word list
-        still concatenates 1:1 with ``reference_text.split()``.
+        ``lrc_lines`` is strongly preferred: each LRC line becomes its own
+        wav2vec2 segment so alignment is confined to the line's audio
+        window. The legacy ``reference_text``-only path treats the whole
+        song as one segment - less accurate but kept as a fallback for
+        callers without LRC line timings.
         """
+        if not language:
+            raise ValueError(
+                "language required: wav2vec2 is per-language, caller must supply it"
+            )
         wx = self._whisperx
-        if self._asr_model is None:
-            compute_type = "float16" if self._device != "cpu" else "int8"
-            self._asr_model = wx.load_model(
-                self._model_size, self._device, compute_type=compute_type
-            )
-        if language:
-            asr = self._asr_model.transcribe(audio_path, language=language)
-        else:
-            asr = self._asr_model.transcribe(audio_path)
-        detected = asr.get("language", language or "en")
-        self.last_detected_language = detected
+        self.last_detected_language = language
+        self._ensure_align_model(language)
 
-        if self._align_model is None or self._align_lang != detected:
-            self._align_model, self._align_meta = wx.load_align_model(
-                language_code=detected, device=self._device
-            )
-            self._align_lang = detected
+        segments = self._build_segments(reference_text, lrc_lines)
+        if not segments:
+            return []
 
         aligned = wx.align(
-            asr["segments"],
+            segments,
             self._align_model,
             self._align_meta,
             audio_path,
             self._device,
             return_char_alignments=False,
         )
-        whisper_words = [
+        aligned_words = [
             Word(text=str(w.get("word", "")).strip(), start=float(w["start"]), end=float(w["end"]))
             for w in aligned.get("word_segments", [])
             if "start" in w and "end" in w and w.get("word")
         ]
+        # wav2vec2 can silently drop tokens it couldn't align phonetically
+        # (weak onsets, overlapping instruments). Route through the mapper
+        # so missing reference tokens get interpolated within their line
+        # window rather than vanishing from the output.
         if lrc_lines is not None:
-            return map_whisper_to_reference_by_lines(whisper_words, lrc_lines)
-        return map_whisper_to_reference(whisper_words, reference_text)
+            return map_whisper_to_reference_by_lines(aligned_words, lrc_lines)
+        return map_whisper_to_reference(aligned_words, reference_text)
+
+    def _ensure_align_model(self, language: str) -> None:
+        if self._align_model is None or self._align_lang != language:
+            self._align_model, self._align_meta = self._whisperx.load_align_model(
+                language_code=language, device=self._device
+            )
+            self._align_lang = language
+
+    @staticmethod
+    def _build_segments(
+        reference_text: str,
+        lrc_lines: list[tuple[float, float, str]] | None,
+    ) -> list[dict]:
+        if lrc_lines is not None:
+            return [
+                {"start": float(s), "end": float(e), "text": text}
+                for (s, e, text) in lrc_lines
+                if text.strip()
+            ]
+        text = reference_text.strip()
+        if not text:
+            return []
+        # No line windows available: align against the whole song. The
+        # large upper bound is benign - whisperx clamps to audio length.
+        return [{"start": 0.0, "end": _WHOLE_SONG_SEGMENT_END_S, "text": text}]
 
 
 def map_whisper_to_reference(whisper_words: list[Word], reference_text: str) -> list[Word]:

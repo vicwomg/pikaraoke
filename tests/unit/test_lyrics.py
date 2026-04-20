@@ -336,15 +336,14 @@ class TestLyricsServiceFetchAndConvert:
     def test_aligner_invoked_when_provided(self, song_and_info, tmp_path):
         aligner = MagicMock()
         aligner.align.return_value = [Word("hello", 1.0, 1.5)]
-        aligner.last_detected_language = "en"
         service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner)
         with patch(
             "pikaraoke.lib.lyrics._fetch_lrclib",
             return_value="[00:01.00]hello",
         ), patch("pikaraoke.lib.lyrics.Thread") as mock_thread, patch(
             "pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p
-        ), patch(
-            "pikaraoke.lib.lyrics._prewarm_stems"
+        ), patch("pikaraoke.lib.lyrics._prewarm_stems"), patch(
+            "pikaraoke.lib.lyrics._detect_language", return_value="en"
         ):
             service.fetch_and_convert(song_and_info)
             mock_thread.assert_called_once()
@@ -463,16 +462,15 @@ class TestLyricsServiceFetchAndConvert:
             lyrics_sha=_lrc_sha(old_lrc),
         )
         aligner = MagicMock()
-        aligner.model_id = "whisperx-base"
+        aligner.model_id = "wav2vec2-lrc"
         aligner.align.return_value = [Word("fresh", 1.0, 1.5), Word("text", 1.5, 2.0)]
-        aligner.last_detected_language = "en"
         service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
         with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=new_lrc), patch(
             "pikaraoke.lib.lyrics.Thread"
         ) as mock_thread, patch(
             "pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p
-        ), patch(
-            "pikaraoke.lib.lyrics._prewarm_stems"
+        ), patch("pikaraoke.lib.lyrics._prewarm_stems"), patch(
+            "pikaraoke.lib.lyrics._detect_language", return_value="en"
         ):
             service.fetch_and_convert(song_and_info)
             target = mock_thread.call_args.kwargs["target"]
@@ -500,21 +498,20 @@ class TestLyricsServiceFetchAndConvert:
         db.update_processing_config(
             sid,
             demucs_model="old-demucs-v1",  # differs from current DEMUCS_MODEL
-            aligner_model="whisperx-base",
+            aligner_model="wav2vec2-lrc",
             lyrics_source="whisperx",
             lyrics_sha=_lrc_sha(lrc),
         )
         aligner = MagicMock()
-        aligner.model_id = "whisperx-base"
+        aligner.model_id = "wav2vec2-lrc"
         aligner.align.return_value = [Word("hello", 1.0, 1.5)]
-        aligner.last_detected_language = "en"
         service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
         with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=lrc), patch(
             "pikaraoke.lib.lyrics.Thread"
         ) as mock_thread, patch(
             "pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p
-        ), patch(
-            "pikaraoke.lib.lyrics._prewarm_stems"
+        ), patch("pikaraoke.lib.lyrics._prewarm_stems"), patch(
+            "pikaraoke.lib.lyrics._detect_language", return_value="en"
         ):
             service.fetch_and_convert(song_and_info)
             target = mock_thread.call_args.kwargs["target"]
@@ -1035,7 +1032,6 @@ class TestReprocessLibrary:
         song = self._make_line_level_song(tmp_path, "Eminem - Stan---abcdefghij1")
         aligner = MagicMock()
         aligner.align.return_value = [Word("hello", 1.0, 1.5), Word("world", 1.5, 2.0)]
-        aligner.last_detected_language = "en"
         service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner)
         with patch(
             "pikaraoke.lib.lyrics.resolve_metadata",
@@ -1045,8 +1041,8 @@ class TestReprocessLibrary:
             return_value="[00:01.00]hello world",
         ), patch(
             "pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p
-        ), patch(
-            "pikaraoke.lib.lyrics._prewarm_stems"
+        ), patch("pikaraoke.lib.lyrics._prewarm_stems"), patch(
+            "pikaraoke.lib.lyrics._detect_language", return_value="en"
         ):
             service._reprocess_one(song)
         ass_text = (tmp_path / "Eminem - Stan---abcdefghij1.ass").read_text()
@@ -1376,12 +1372,13 @@ class TestUpgradeToWordLevelUsesStem:
         song.write_text("fake")
         aligner = MagicMock()
         aligner.align.return_value = [Word("hi", 1.0, 1.5)]
-        aligner.last_detected_language = "en"
         service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner)
         with patch(
             "pikaraoke.lib.lyrics._wait_for_alignment_audio",
             return_value="/cache/abc/vocals.mp3",
-        ), patch("pikaraoke.lib.lyrics._estimate_bpm", return_value=None):
+        ), patch("pikaraoke.lib.lyrics._estimate_bpm", return_value=None), patch(
+            "pikaraoke.lib.lyrics._detect_language", return_value="en"
+        ):
             service._upgrade_to_word_level(str(song), "[00:01.00]hi", None)
         aligner.align.assert_called_once()
         assert aligner.align.call_args.args[0] == "/cache/abc/vocals.mp3"
@@ -1398,19 +1395,6 @@ class TestUpgradeToWordLevelLanguageCache:
         db = KaraokeDatabase(str(tmp_path / "t.db"))
         db.insert_songs([{"file_path": str(song), "youtube_id": None, "format": "mp4"}])
         return song, db
-
-    def test_persists_detected_language_when_db_empty(self, tmp_path):
-        song, db = self._setup(tmp_path)
-        aligner = MagicMock()
-        aligner.align.return_value = [Word("hi", 1.0, 1.5)]
-        aligner.last_detected_language = "pl"
-        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
-        with patch("pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p):
-            service._upgrade_to_word_level(str(song), "[00:01.00]hi", None)
-        assert aligner.align.call_args.kwargs["language"] is None
-        row = db.get_song_by_id(db.get_song_id_by_path(str(song)))
-        assert row["language"] == "pl"
-        db.close()
 
     def test_passes_cached_language_as_hint(self, tmp_path):
         song, db = self._setup(tmp_path)

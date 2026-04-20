@@ -45,22 +45,21 @@ from pikaraoke.version import __version__ as VERSION
 
 _WHISPERX_OPT_OUT = {"off", "none", "false", "0"}
 
-# "small" (~466 MB, ~6x realtime on modern CPU): solid multi-language
-# transcription that produces reliable word anchors for alignment. Higher RAM
-# footprint than "base" but worth it - karaoke often features non-English
-# tracks, and transcription quality directly affects how well LRCLib reference
-# lyrics map onto whisper's word timings via SequenceMatcher.
-_DEFAULT_WHISPERX_MODEL = "small"
+# The aligner no longer runs whisper ASR - it feeds LRC text directly to
+# wav2vec2 CTC forced alignment. There's no transcription-model size knob
+# anymore; WHISPERX_MODEL now only acts as an on/off switch ("off"/"none"/
+# "false"/"0" disable, anything else enables).
+_ALIGNER_ID = "wav2vec2"
 
 
 def word_level_lyrics_status() -> dict:
-    """Whether word-level karaoke alignment (whisperx) is active, and why / why not.
+    """Whether word-level karaoke alignment is active, and why / why not.
 
-    Defaults to enabled with model="base" when whisperx is installed and the
-    user hasn't explicitly opted out. Returned dict:
+    Auto-enables when whisperx is installed and the user hasn't explicitly
+    opted out. Returned dict:
 
         enabled (bool): True when whisperx is importable and not opted-out.
-        model (str | None): The configured (or default) model name when enabled.
+        model (str | None): Aligner identifier ("wav2vec2") when enabled.
         device (str | None): The resolved torch device when enabled.
         reason (str | None): Human-readable reason why alignment is off.
         fix (str | None): One-line suggestion for the user to fix it.
@@ -68,9 +67,8 @@ def word_level_lyrics_status() -> dict:
 
     Shared by the startup banner and the Info page so they report consistently.
     """
-    model_raw = os.environ.get("WHISPERX_MODEL", "").strip()
-    model = model_raw.lower()
-    if model in _WHISPERX_OPT_OUT:
+    env_raw = os.environ.get("WHISPERX_MODEL", "").strip().lower()
+    if env_raw in _WHISPERX_OPT_OUT:
         return {
             "enabled": False,
             "model": None,
@@ -88,11 +86,10 @@ def word_level_lyrics_status() -> dict:
             "fix": "pip install 'pikaraoke[align]'",
             "explicit_opt_out": False,
         }
-    resolved_model = model_raw or _DEFAULT_WHISPERX_MODEL
     device = os.environ.get("WHISPERX_DEVICE", "").strip() or _auto_whisperx_device()
     return {
         "enabled": True,
-        "model": resolved_model,
+        "model": _ALIGNER_ID,
         "device": device,
         "reason": None,
         "fix": None,
@@ -135,9 +132,11 @@ def _build_lyrics_aligner():
     from pikaraoke.lib.lyrics_align import WhisperXAligner
 
     logging.info(
-        "whisperx alignment enabled (model=%s, device=%s)", status["model"], status["device"]
+        "word-level alignment enabled (aligner=%s, device=%s)",
+        status["model"],
+        status["device"],
     )
-    return WhisperXAligner(model_size=status["model"], device=status["device"])
+    return WhisperXAligner(device=status["device"])
 
 
 def _warn_word_level_disabled(reason: str, fix: str) -> None:

@@ -189,12 +189,6 @@ class TestInterpolateGaps:
 def fake_whisperx(monkeypatch):
     """Install a fake whisperx module before WhisperXAligner is imported."""
     fake = MagicMock()
-    asr_model = MagicMock()
-    asr_model.transcribe.return_value = {
-        "language": "en",
-        "segments": [],
-    }
-    fake.load_model.return_value = asr_model
     fake.load_align_model.return_value = (MagicMock(), {"meta": 1})
     fake.align.return_value = {
         "word_segments": [
@@ -207,60 +201,92 @@ def fake_whisperx(monkeypatch):
 
 
 class TestWhisperXAligner:
-    def test_align_returns_words_mapped_to_reference(self, fake_whisperx):
+    def test_align_returns_words_with_wav2vec2_timings(self, fake_whisperx):
         from pikaraoke.lib.lyrics_align import WhisperXAligner
 
-        aligner = WhisperXAligner(model_size="tiny", device="cpu")
-        words = aligner.align("/tmp/song.mp4", "hello world")
+        aligner = WhisperXAligner(device="cpu")
+        words = aligner.align(
+            "/tmp/song.mp4",
+            "hello world",
+            lrc_lines=[(0.0, 5.0, "hello world")],
+            language="en",
+        )
         assert [w.text for w in words] == ["hello", "world"]
         assert words[0].start == 0.0
         assert words[1].end == 1.0
-        assert aligner.last_detected_language == "en"
-        fake_whisperx.load_model.assert_called_once_with("tiny", "cpu", compute_type="int8")
 
-    def test_models_cached_between_calls(self, fake_whisperx):
+    def test_skips_whisper_asr_entirely(self, fake_whisperx):
         from pikaraoke.lib.lyrics_align import WhisperXAligner
 
-        aligner = WhisperXAligner(model_size="tiny", device="cpu")
-        aligner.align("/tmp/a.mp4", "hello world")
-        aligner.align("/tmp/b.mp4", "hello world")
-        # ASR model loaded once, alignment model loaded once (same lang)
-        assert fake_whisperx.load_model.call_count == 1
+        aligner = WhisperXAligner(device="cpu")
+        aligner.align(
+            "/tmp/song.mp4",
+            "hello world",
+            lrc_lines=[(0.0, 5.0, "hello world")],
+            language="en",
+        )
+        # No whisper transcription model is ever loaded; wav2vec2 is the
+        # only model in the pipeline.
+        fake_whisperx.load_model.assert_not_called()
+
+    def test_passes_lrc_segments_to_wav2vec2(self, fake_whisperx):
+        from pikaraoke.lib.lyrics_align import WhisperXAligner
+
+        aligner = WhisperXAligner(device="cpu")
+        aligner.align(
+            "/tmp/song.mp4",
+            "hello world",
+            lrc_lines=[(1.0, 3.0, "hello"), (3.0, 6.0, "world")],
+            language="en",
+        )
+        segments_arg = fake_whisperx.align.call_args[0][0]
+        assert segments_arg == [
+            {"start": 1.0, "end": 3.0, "text": "hello"},
+            {"start": 3.0, "end": 6.0, "text": "world"},
+        ]
+
+    def test_align_model_cached_between_calls(self, fake_whisperx):
+        from pikaraoke.lib.lyrics_align import WhisperXAligner
+
+        aligner = WhisperXAligner(device="cpu")
+        aligner.align("/tmp/a.mp4", "hello", lrc_lines=[(0.0, 1.0, "hello")], language="en")
+        aligner.align("/tmp/b.mp4", "hello", lrc_lines=[(0.0, 1.0, "hello")], language="en")
         assert fake_whisperx.load_align_model.call_count == 1
 
     def test_align_model_reloads_on_language_change(self, fake_whisperx):
         from pikaraoke.lib.lyrics_align import WhisperXAligner
 
-        asr = fake_whisperx.load_model.return_value
-        asr.transcribe.side_effect = [
-            {"language": "en", "segments": []},
-            {"language": "pl", "segments": []},
-        ]
-        aligner = WhisperXAligner(model_size="tiny", device="cpu")
-        aligner.align("/tmp/a.mp4", "hello world")
-        aligner.align("/tmp/b.mp4", "czesc swiecie")
+        aligner = WhisperXAligner(device="cpu")
+        aligner.align("/tmp/a.mp4", "hello", lrc_lines=[(0.0, 1.0, "hello")], language="en")
+        aligner.align("/tmp/b.mp4", "czesc", lrc_lines=[(0.0, 1.0, "czesc")], language="pl")
         assert fake_whisperx.load_align_model.call_count == 2
 
-    def test_gpu_uses_float16_compute_type(self, fake_whisperx):
+    def test_missing_language_raises(self, fake_whisperx):
         from pikaraoke.lib.lyrics_align import WhisperXAligner
 
-        aligner = WhisperXAligner(model_size="base", device="cuda")
-        aligner.align("/tmp/a.mp4", "hi")
-        fake_whisperx.load_model.assert_called_once_with("base", "cuda", compute_type="float16")
+        aligner = WhisperXAligner(device="cpu")
+        with pytest.raises(ValueError, match="language required"):
+            aligner.align("/tmp/a.mp4", "hello", lrc_lines=[(0.0, 1.0, "hello")])
 
-    def test_cached_language_is_passed_to_transcribe(self, fake_whisperx):
+    def test_last_detected_language_mirrors_input(self, fake_whisperx):
         from pikaraoke.lib.lyrics_align import WhisperXAligner
 
-        aligner = WhisperXAligner(model_size="tiny", device="cpu")
-        aligner.align("/tmp/a.mp4", "hi", language="pl")
-        # whisperx skips detection when a language hint is supplied.
-        asr = fake_whisperx.load_model.return_value
-        asr.transcribe.assert_called_once_with("/tmp/a.mp4", language="pl")
+        aligner = WhisperXAligner(device="cpu")
+        aligner.align("/tmp/a.mp4", "hi", lrc_lines=[(0.0, 1.0, "hi")], language="pl")
+        assert aligner.last_detected_language == "pl"
 
-    def test_no_language_hint_calls_transcribe_without_kwarg(self, fake_whisperx):
+    def test_whole_song_fallback_when_no_lrc_lines(self, fake_whisperx):
         from pikaraoke.lib.lyrics_align import WhisperXAligner
 
-        aligner = WhisperXAligner(model_size="tiny", device="cpu")
-        aligner.align("/tmp/a.mp4", "hi")
-        asr = fake_whisperx.load_model.return_value
-        asr.transcribe.assert_called_once_with("/tmp/a.mp4")
+        aligner = WhisperXAligner(device="cpu")
+        aligner.align("/tmp/a.mp4", "hello world", language="en")
+        segments_arg = fake_whisperx.align.call_args[0][0]
+        assert len(segments_arg) == 1
+        assert segments_arg[0]["start"] == 0.0
+        assert segments_arg[0]["text"] == "hello world"
+
+    def test_model_id_is_wav2vec2(self, fake_whisperx):
+        from pikaraoke.lib.lyrics_align import WhisperXAligner
+
+        aligner = WhisperXAligner(device="cpu")
+        assert aligner.model_id == "wav2vec2-lrc"
