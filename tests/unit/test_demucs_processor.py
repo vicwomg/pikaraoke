@@ -199,3 +199,96 @@ class TestEncodeMp3Dedup:
         encode_mp3_in_background(cache_key)
         assert spawned == []
         assert cache_key not in _encode_in_progress
+
+
+class TestPrewarmHooks:
+    """Prewarm surfaces progress + ready signals so the front-end seek bar
+    can show Demucs state for songs that are being separated before play
+    starts (US-7).
+
+    ``prewarm`` spawns a daemon thread; we capture its target and invoke
+    it synchronously so we can assert the hooks fire without waiting on
+    real Demucs.
+    """
+
+    @pytest.fixture
+    def restore_hooks(self):
+        yield
+        dp.set_warning_hook(None)
+        dp.set_progress_hook(None)
+        dp.set_ready_hook(None)
+
+    def _run_prewarm_sync(self, monkeypatch, file_path):
+        """Invoke prewarm's background body on the calling thread."""
+        captured = {}
+
+        def fake_thread(target, daemon=None):
+            class _T:
+                def start(self_inner):
+                    captured["target"] = target
+
+            return _T()
+
+        monkeypatch.setattr(dp.threading, "Thread", fake_thread)
+        dp.prewarm(file_path)
+        target = captured.get("target")
+        if target is not None:
+            target()
+
+    def test_cache_hit_emits_ready(
+        self, tmp_path, monkeypatch, clean_coordinator, restore_hooks
+    ):
+        audio = tmp_path / "Song---abcdefghijk.m4a"
+        audio.write_text("")
+        ready_calls = []
+        progress_calls = []
+        dp.set_ready_hook(lambda song, key: ready_calls.append((song, key)))
+        dp.set_progress_hook(lambda song, p, t: progress_calls.append((song, p, t)))
+
+        # Pretend stems are already on disk for this audio source.
+        monkeypatch.setattr(dp, "get_cached_stems", lambda _k: ("v.wav", "i.wav", "wav"))
+
+        self._run_prewarm_sync(monkeypatch, str(audio))
+
+        assert len(ready_calls) == 1
+        assert ready_calls[0][0] == "Song---abcdefghijk.m4a"
+        # Cache hit short-circuits — no Demucs run, so no progress ticks.
+        assert progress_calls == []
+
+    def test_progress_throttles_and_final_tick_fires(
+        self, tmp_path, monkeypatch, clean_coordinator, restore_hooks
+    ):
+        audio = tmp_path / "song.m4a"
+        audio.write_text("")
+        progress_calls = []
+        dp.set_progress_hook(lambda song, p, t: progress_calls.append((p, t)))
+        dp.set_ready_hook(lambda *_: None)
+        dp.set_warning_hook(lambda *_: None)
+
+        # No cache — force the separation path. Stub out the pieces we
+        # don't want to actually exercise.
+        monkeypatch.setattr(dp, "get_cached_stems", lambda _k: None)
+        monkeypatch.setattr(
+            dp, "partial_stem_paths", lambda _k: ("/tmp/v.partial", "/tmp/i.partial")
+        )
+        monkeypatch.setattr(dp, "finalize_partial_stems", lambda _k: None)
+        monkeypatch.setattr(dp, "encode_mp3_in_background", lambda *a, **kw: None)
+        monkeypatch.setattr(dp.subprocess, "run", lambda *a, **kw: None)
+        monkeypatch.setattr(dp.os, "remove", lambda _p: None)
+
+        def fake_separate(inp, ov, oi, ready_event, progress_callback=None):
+            # Two fast ticks (throttled to one) + the final total==processed tick.
+            if progress_callback:
+                progress_callback(1.0, 10.0)
+                progress_callback(2.0, 10.0)  # throttled (within 1s of prior)
+                progress_callback(10.0, 10.0)  # final always emits
+            return True
+
+        monkeypatch.setattr(dp, "separate_stems", fake_separate)
+
+        self._run_prewarm_sync(monkeypatch, str(audio))
+
+        # Throttling drops the mid-tick; first + final survive.
+        assert (1.0, 10.0) in progress_calls
+        assert (10.0, 10.0) in progress_calls
+        assert (2.0, 10.0) not in progress_calls

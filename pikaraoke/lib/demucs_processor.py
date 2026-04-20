@@ -15,6 +15,7 @@ import struct
 import subprocess
 import tempfile
 import threading
+import time
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -591,11 +592,33 @@ def resolve_audio_source(media_path: str) -> str:
 # a ``song_warning`` emit. Shape: ``(song_basename, message, detail)``.
 _warning_hook: Callable[[str | None, str, str], None] | None = None
 
+# Prewarm progress hook: ``(song_basename, processed, total)``. Lets the
+# front-end seek-bar reflect Demucs progress before the prewarmed song
+# actually starts playing (US-7).
+_progress_hook: Callable[[str | None, float, float], None] | None = None
+
+# Prewarm completion hook: ``(song_basename, cache_key)``. Fires once
+# prewarm stems are on disk so a client that connects between prewarm and
+# play already knows the song has stems cached (US-7).
+_ready_hook: Callable[[str | None, str], None] | None = None
+
 
 def set_warning_hook(hook: Callable[[str | None, str, str], None] | None) -> None:
     """Register (or clear) the module-level warning hook."""
     global _warning_hook
     _warning_hook = hook
+
+
+def set_progress_hook(hook: Callable[[str | None, float, float], None] | None) -> None:
+    """Register (or clear) the module-level prewarm progress hook."""
+    global _progress_hook
+    _progress_hook = hook
+
+
+def set_ready_hook(hook: Callable[[str | None, str], None] | None) -> None:
+    """Register (or clear) the module-level prewarm completion hook."""
+    global _ready_hook
+    _ready_hook = hook
 
 
 def _notify_warning(song_basename: str | None, message: str, detail: str) -> None:
@@ -606,6 +629,26 @@ def _notify_warning(song_basename: str | None, message: str, detail: str) -> Non
         hook(song_basename, message, detail)
     except Exception:
         logging.exception("demucs_processor warning hook raised")
+
+
+def _notify_progress(song_basename: str | None, processed: float, total: float) -> None:
+    hook = _progress_hook
+    if hook is None:
+        return
+    try:
+        hook(song_basename, processed, total)
+    except Exception:
+        logging.exception("demucs_processor progress hook raised")
+
+
+def _notify_ready(song_basename: str | None, cache_key: str) -> None:
+    hook = _ready_hook
+    if hook is None:
+        return
+    try:
+        hook(song_basename, cache_key)
+    except Exception:
+        logging.exception("demucs_processor ready hook raised")
 
 
 def prewarm(file_path: str) -> None:
@@ -625,11 +668,23 @@ def prewarm(file_path: str) -> None:
     def _on_encode_failure(stage: str, detail: str) -> None:
         _notify_warning(song_basename, "MP3 encode failed", detail)
 
+    # Throttle progress emissions to ~1/s so prewarm of a long track
+    # doesn't flood the socket. The final (total, total) tick is always
+    # emitted so the front-end can clear the chip deterministically.
+    last_emit = [0.0]
+
+    def _progress_cb(processed: float, total: float) -> None:
+        now = time.monotonic()
+        if processed >= total or (now - last_emit[0]) >= 1.0:
+            last_emit[0] = now
+            _notify_progress(song_basename, processed, total)
+
     def _run() -> None:
         success = False
         try:
             cache_key = get_cache_key(audio_source)
             if get_cached_stems(cache_key):
+                _notify_ready(song_basename, cache_key)
                 success = True
                 return
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
@@ -651,9 +706,12 @@ def prewarm(file_path: str) -> None:
                     check=True,
                 )
                 partial_v, partial_i = partial_stem_paths(cache_key)
-                if separate_stems(input_wav, partial_v, partial_i, _handle.ready_event):
+                if separate_stems(
+                    input_wav, partial_v, partial_i, _handle.ready_event, _progress_cb
+                ):
                     finalize_partial_stems(cache_key)
                     encode_mp3_in_background(cache_key, on_failure=_on_encode_failure)
+                    _notify_ready(song_basename, cache_key)
                     success = True
                 else:
                     _notify_warning(

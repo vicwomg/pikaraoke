@@ -449,6 +449,30 @@ class Karaoke:
 
         demucs_processor.set_warning_hook(_forward_warning)
 
+        # Prewarm hooks (US-7): surface Demucs progress and completion for
+        # songs that are being separated before playback starts. The
+        # payloads carry ``song_basename`` so the client can decide whether
+        # the event applies to the currently-playing song (live prewarm is
+        # indistinguishable from in-flight play-time separation on-wire).
+        def _forward_progress(song: str | None, processed: float, total: float) -> None:
+            self.events.emit(
+                "demucs_progress",
+                {
+                    "processed": float(processed),
+                    "total": float(total),
+                    "song_basename": song or "",
+                },
+            )
+
+        def _forward_ready(song: str | None, cache_key: str) -> None:
+            self.events.emit(
+                "stems_ready",
+                {"song_basename": song or "", "cache_key": cache_key},
+            )
+
+        demucs_processor.set_progress_hook(_forward_progress)
+        demucs_processor.set_ready_hook(_forward_ready)
+
         # Initialize queue manager
         self.queue_manager = QueueManager(
             preferences=self.preferences,
