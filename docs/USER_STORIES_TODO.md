@@ -99,9 +99,14 @@ No action.
 
 ### US-9 Subtitles ASS + word-level upgrade (PARTIAL)
 
-- [ ] **P2** When the 120-second wait expires and whisper falls back to
-      raw mix (`lyrics.py:1054-1076`), emit a `song_warning` so the
-      operator knows alignment used a degraded source.
+- [x] ~~**P2** When the 120-second wait expires and whisper falls back
+      to raw mix, emit a `song_warning`.~~ Done —
+      `_upgrade_to_word_level` checks whether the audio path returned
+      by `_wait_for_alignment_audio` is inside `demucs_processor.CACHE_DIR`.
+      If not, stems weren't ready within `_STEM_WAIT_TIMEOUT_S`, so it
+      emits a `warning`-severity `song_warning` ("Aligned on raw mix")
+      with the timeout in the detail body so the operator can
+      correlate poor word-timing with the degraded source.
 
 ### US-10 Non-blocking parallel execution (RESOLVED P0; remaining P1)
 
@@ -356,10 +361,13 @@ No action.
 
 ### US-25 Captions rendering (PARTIAL)
 
-- [ ] **P2** Emit a `song_warning` (severity `info`) when `librosa` is
-      missing and the BPM pulse is silently disabled
-      (`lyrics.py:613-615`). Operator should know dependencies are
-      degraded.
+- [x] ~~**P2** Emit a `song_warning` (severity `info`) when `librosa`
+      is missing and the BPM pulse is silently disabled.~~ Done —
+      new `LyricsService._warn_once_if_bpm_disabled` fires on the
+      first song that tries to estimate BPM and gets `None` back
+      because librosa's import failed. Uses a module-level sentinel
+      so a missing install-level dep logs one "Caption pulse
+      disabled" (info) warning per process, not per song.
 - [ ] **P2** Document (or fix) that `_estimate_bpm` may run on the raw
       mix when stems aren't ready in time (`lyrics.py:300`).
 

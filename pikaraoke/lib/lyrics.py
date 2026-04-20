@@ -146,6 +146,38 @@ class LyricsService:
         except Exception:
             logger.exception("failed to emit %s stage notification", stage)
 
+    def _warn_once_if_bpm_disabled(self, song_path: str, bpm: float | None) -> None:
+        """Emit an info-severity song_warning when librosa is missing (US-25 P2).
+
+        Only fires once per process: a missing optional dependency is an
+        install-level fact, not a per-song problem, so flooding the warning
+        log with one entry per song obscures real errors.
+        """
+        if bpm is not None or _BPM_DISABLED_WARNED[0]:
+            return
+        try:
+            import librosa  # noqa: F401
+        except ImportError:
+            _BPM_DISABLED_WARNED[0] = True
+            if self._events is None:
+                return
+            try:
+                self._events.emit(
+                    "song_warning",
+                    {
+                        "message": "Caption pulse disabled",
+                        "detail": (
+                            "librosa is not installed; decorative tempo pulsing "
+                            "on captions is off. Alignment and playback are "
+                            "unaffected."
+                        ),
+                        "song": os.path.basename(song_path),
+                        "severity": "info",
+                    },
+                )
+            except Exception:
+                logger.exception("failed to emit librosa-missing song_warning")
+
     def _maybe_drop_stale_auto_ass(self, song_path: str, lyrics_sha: str | None) -> None:
         """Delete the auto .ass when any upstream dependency changed.
 
@@ -379,6 +411,28 @@ class LyricsService:
             # the splash shows progress beyond "Lyrics ready".
             self._emit_stage_notification(song_path, "Aligning words")
             audio_path = _wait_for_alignment_audio(song_path)
+            # Stems weren't ready within the 120s budget; whisperx falls back
+            # to the raw mix. Surface a song_warning so the operator can
+            # correlate poor word-timing with the degraded source. US-9 P2.
+            from pikaraoke.lib.demucs_processor import CACHE_DIR as _CACHE_DIR
+
+            if not audio_path.startswith(_CACHE_DIR):
+                try:
+                    self._events.emit(
+                        "song_warning",
+                        {
+                            "message": "Aligned on raw mix",
+                            "detail": (
+                                "Stems were not ready within "
+                                f"{int(_STEM_WAIT_TIMEOUT_S)}s; word-level timing "
+                                "may be less accurate than when vocals are isolated."
+                            ),
+                            "song": os.path.basename(song_path),
+                            "severity": "warning",
+                        },
+                    )
+                except Exception:
+                    logger.exception("failed to emit raw-mix fallback song_warning")
             plain = _lrc_plain_text(lrc)
             # Language fast-path. Order of preference:
             #   1. Cached on the song row (info.json, enricher, prior run, or
@@ -404,7 +458,9 @@ class LyricsService:
                 )
             if not words:
                 return
-            anim_params = _anim_params_for_bpm(_estimate_bpm(audio_path))
+            bpm = _estimate_bpm(audio_path)
+            self._warn_once_if_bpm_disabled(song_path, bpm)
+            anim_params = _anim_params_for_bpm(bpm)
             ass = _words_to_ass_with_k_tags(words, lrc, params=anim_params)
             if ass:
                 from pikaraoke.lib.demucs_processor import CACHE_DIR
@@ -708,6 +764,11 @@ def _detect_language(text: str) -> str | None:
 # second on the CI/RPi box. librosa itself is heavy to import, so the call
 # stays lazy.
 _BPM_ANALYSIS_DURATION_S = 60.0
+
+# Flag flipped true after the first "librosa is missing" song_warning fires.
+# Stored as a single-element list so module-level helpers can mutate it
+# without a dedicated class.
+_BPM_DISABLED_WARNED: list[bool] = [False]
 
 
 def _estimate_bpm(audio_path: str) -> float | None:
