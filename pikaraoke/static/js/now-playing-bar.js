@@ -100,9 +100,29 @@
     render(data);
   }
 
+  // Returns true when the event's song_basename (if any) matches the
+  // currently-playing song. Stream-manager emissions don't carry a
+  // basename and are treated as implicit-current (always apply).
+  // Extensions differ by source (download prewarm .m4a vs lyrics/player
+  // .mp4) — same song, so match on the stem only.
+  function stripExt(name) {
+    if (!name) return '';
+    const dot = name.lastIndexOf('.');
+    return dot > 0 ? name.slice(0, dot) : name;
+  }
+  function isForCurrentSong(data) {
+    if (!data || !data.song_basename) return true;
+    const current = state.data && state.data.now_playing_basename;
+    return !!current && stripExt(current) === stripExt(data.song_basename);
+  }
+
   // Swap single-volume → stem sliders the moment Demucs's first usable
   // segment is on disk, without waiting for the next now_playing push.
-  function onStemsReady() {
+  // Prewarm emits ``stems_ready`` with ``song_basename`` before the song
+  // plays; those are ignored here so the sliders don't flip for an
+  // unrelated queued song.
+  function onStemsReady(data) {
+    if (!isForCurrentSong(data)) return;
     if (el.volumeTool) el.volumeTool.hidden = true;
     el.stemTools.forEach((t) => (t.hidden = false));
     if (el.vocalSlider) el.vocalSlider.disabled = false;
@@ -159,6 +179,11 @@
   function onDemucsProgress(data) {
     if (!data || typeof data.processed !== 'number' || typeof data.total !== 'number') return;
     if (data.total <= 0) return;
+    // Prewarm ticks for a queued (not-yet-playing) song must not steer
+    // the seek-bar of whatever is currently playing. isForCurrentSong
+    // treats absent song_basename as implicit-current (stream-manager
+    // emissions during live play).
+    if (!isForCurrentSong(data)) return;
     state.seekBufferedDemucs = data.processed >= data.total - 0.05 ? null : data.processed;
     updateSeekBufferedVisual();
     // Surface the demucs progress as a text chip next to the seek bar so
