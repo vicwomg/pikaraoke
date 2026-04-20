@@ -7,8 +7,10 @@ current codebase. Each item is grouped by user story and tagged with a priority:
 - **P1** — significant functional gap
 - **P2** — robustness / polish / minor non-conformity
 
-> **Status**: All five P0 items have been resolved. See the
-> "Completed P0s" section at the bottom for landed changes.
+> **Status**: All five original P0 items are resolved. US-40 (satellites)
+> adds three new P0s — architectural decisions for a new feature, not
+> regressions. See the "Completed P0s" section at the bottom for
+> already-landed work.
 
 ---
 
@@ -80,14 +82,22 @@ No action.
 
 ### US-7 Demucs on audio completion (PARTIAL)
 
-- [ ] **P1** Emit `stems_ready` from the prewarm completion path so
-      front-ends that connect after prewarm but before play receive the
-      flip. Hook into `demucs_processor.prewarm`'s `done_event`
-      (`demucs_processor.py:611-679`) and call the same emitter that
-      `stream_manager._emit_stems_ready` (`stream_manager.py:767`) uses.
-- [ ] **P1** Wire the splash to stream `vocals.wav.partial` →
-      `vocals.wav` → `vocals.mp3` from prewarm-time, not just play-time.
-      Surface partial progress to the seek-bar before the song starts.
+- [x] ~~**P1** Emit `stems_ready` from the prewarm completion path.~~
+      Done — new module-level `_ready_hook` in `demucs_processor`; prewarm
+      calls it on cache hit and after a successful live separation.
+      `karaoke.py` forwards it as a `stems_ready` event carrying
+      `{song_basename, cache_key}` (no stream URLs — those remain
+      play-time only). `now-playing-bar.js` filters by
+      `now_playing_basename` so prewarm of a queued song doesn't flip
+      the sliders for a different now-playing song; `splash.js` ignores
+      stream_uid-less events so the audio-routing path isn't disturbed.
+- [x] ~~**P1** Wire partial-vocals streaming from prewarm-time.~~ Done —
+      prewarm now passes a throttled `progress_callback` into
+      `separate_stems`, driven by a new `_progress_hook`. `karaoke.py`
+      forwards ticks as `demucs_progress` events carrying
+      `song_basename` so the seek-bar's buffered shading and the
+      "Separating vocals… N%" chip track prewarm progress for the
+      current song. Covered by `TestPrewarmHooks`.
 
 ### US-8 Lyrics lookup (RESOLVED P0)
 
@@ -538,14 +548,147 @@ No action.
 
 ---
 
+## Multi-device Playback
+
+### US-40 Pilots as playback satellites (NOT STARTED)
+
+Whole story is unbuilt: no satellite wiring in `karaoke.py`,
+`playback_controller.py`, or any pilot JS. Call out as its own
+implementation block rather than a sprinkle of P1s.
+
+- [ ] **P0** Define the satellite sync contract. A satellite pilot needs
+      to know, for the currently-playing song: media URL (stream or
+      direct mp4), stems URLs (`vocals`/`instrumental`) when ready,
+      target playhead position, play/pause state, and per-pilot mix
+      state. Either extend `now_playing` with a `for_satellites` block
+      or introduce a dedicated `satellite_state` event — both need a
+      design decision and test coverage before any client work.
+- [ ] **P0** Server-side opt-in registry. Each pilot that toggles
+      satellite-on declares itself (socket room, client_id). Server
+      tracks which pilots are live satellites so it can broadcast
+      per-satellite stem volume / drift corrections without leaking
+      them to silent pilots. Needs persistence across pilot reconnect
+      (short-lived TTL is fine).
+- [ ] **P0** Drift correction loop. Satellite audio must stay within
+      ~200 ms of the splash playhead. Piggyback on the existing
+      `playback_position` broadcast; satellite client compares its
+      `audio.currentTime` against the reported position and nudges
+      (small `playbackRate` adjustments for <500 ms drift, seek for
+      anything larger). Document the exact tolerance in this file so
+      regressions have an anchor.
+- [ ] **P1** Per-pilot mix state. Satellite exposes its own volume (or
+      vocal + instrumental sliders once stems are ready) that's
+      independent of the splash mix. New routes + socket events:
+      `satellite_volume`, `satellite_stem_volume`. Must not collide
+      with the existing global `stem_volume` broadcast (which drives
+      the splash + every non-satellite pilot).
+- [ ] **P1** "No second splash" guardrails. A satellite pilot renders
+      only the audio pipeline — no captions, no QR, no intro overlay,
+      no seek-bar scrubbing (view-only). Shared UI components
+      (`splash.js`'s SubtitlesOctopus, now-playing overlay, QR) must
+      be gated behind an `isSatellite` flag or split into a dedicated
+      satellite template so new features don't accidentally leak.
+- [ ] **P1** Shared queue / shared transport. Satellite listens to the
+      same play/pause/skip/restart events as any other client.
+      Importantly, any pilot (including a satellite) can still drive
+      the queue — the satellite flag is strictly "this device also
+      plays audio", not "this device is read-only".
+- [ ] **P1** Stems sync. When `stems_ready` fires for the current song,
+      every active satellite crossfades to stems on its own
+      AudioContext. Reuse `splash.js`'s stem routing code (factor out
+      into a shared module — see refactor below) so we don't fork two
+      copies of the Web Audio graph.
+- [ ] **P1** Refactor shared audio setup. Extract `splash.js`'s Web
+      Audio stem-routing + crossfade logic into a module that both
+      the splash and a new `satellite.js` can import. Today it's
+      ~500 lines of tightly-coupled callbacks in `splash.js`; forking
+      it for the satellite path would double the maintenance cost.
+- [ ] **P2** Satellite autoplay policy. Every satellite needs the same
+      user-gesture unlock dance as the splash (US-27). Reuse
+      `testAutoplayCapability` but gate the UI so the toggle to
+      enable-satellite itself counts as the gesture.
+- [ ] **P2** Visibility indicator on the now-playing panel: show "N
+      satellites active" so an operator can see when phones are
+      pulling audio. Low-priority diagnostic.
+- [ ] **P2** Reconnect semantics. When a satellite pilot reconnects
+      mid-song, it must resume playback at the current position with
+      no gap + crossfade (don't silent-restart from zero). Document
+      and test the cold-join flow separately from the opt-in flow.
+
+**Open questions before starting:**
+
+1. Do we bind satellite audio to the same MediaSource stream the splash
+   uses (one encode, many readers), or does each satellite get its own
+   `/stream/<uid>/...` subscription? The former is cheaper; the latter
+   is simpler to reason about w.r.t. per-client position.
+2. How do we handle a satellite whose playhead is *ahead* of the
+   splash (e.g. splash paused for a buffering hiccup)? Pause
+   satellites too, or just let them coast and resync on resume?
+3. Should per-pilot stem volumes persist across songs (preference) or
+   reset each song (ephemeral)? Affects `PreferenceManager` schema.
+
+### US-41 Settings panel (PARTIAL)
+
+The existing `/info` page (`info.html`) already renders preferences
+alongside system info — rather than stand up a second page, US-41 is
+being closed by enriching that surface. Remaining P2s are genuine
+polish rather than architectural gaps.
+
+- [x] ~~**P1** Render the full preference set in a single admin
+      surface.~~ Already landed under `/info` (`pikaraoke/routes/info.py`,
+      `pikaraoke/templates/info.html`), now extended with
+      `download_path` and `youtubedl_proxy` text rows so the CLI-path
+      prefs are visible in the UI rather than config-file-only. Saves
+      via the existing `/change_preferences` route; already broadcasts
+      `preferences_update` to keep every pilot in sync.
+- [x] ~~**P1** GPU-aware vocal-splitter default.~~ Already landed in
+      `PreferenceManager.DEFAULTS["vocal_removal"] = has_torch_gpu()`
+      (`preference_manager.py:51`). US-41 adds the matching UI hint
+      "Default: on when a GPU is detected (<backend> active)" under
+      the toggle so the default is explainable without reading source.
+- [x] ~~**P1** Runtime version readout.~~ Done — new
+      `get_library_versions()` in `get_platform.py` uses
+      `importlib.metadata` to resolve whisperx + demucs at render
+      time (no torch import for a version number). Rendered in the
+      System `<dl>` on `/info`; missing packages show "not installed".
+      Covered by `TestGetLibraryVersions`.
+- [x] ~~**P2** Accelerator backend readout.~~ Done —
+      `get_accelerator_backend()` returns
+      `{backend: CUDA|MPS|CPU|none, detail}`; surfaced as a new
+      "Accelerator" row in the System `<dl>` and referenced in the
+      vocal-removal default hint. Covered by
+      `TestGetAcceleratorBackend`.
+- [x] ~~**P2** "Reset preferences" button.~~ Already present on
+      `/info` (`#pk-clear-prefs`), backed by the existing
+      `PreferenceManager.reset_all` which skips `download_path` /
+      `youtubedl_proxy` per the US-35 work. No work needed.
+- [ ] **P2** Inline validation for `download_path` (must exist + be
+      writable) and `youtubedl_proxy` (parseable URL). Currently the
+      text fields accept anything; a bad value silently fails on next
+      download. Add a lightweight server-side check in
+      `change_preferences` plus inline error rendering.
+- [ ] **P2** Server-side test for the `/info` route — a smoke test
+      that asserts `library_versions` and `accelerator` are populated
+      in the template context (non-admin gets public fields only;
+      admin gets the full preference set). Current tests cover the
+      helpers but not the route wiring.
+
+---
+
 ## Priority Roll-Up
 
-**P0 (architectural / story-breaking):** all resolved (see below).
+**P0 (architectural / story-breaking):** all original P0s resolved (see
+"Completed P0s" below). Three new P0s open under **US-40 satellites**
+(sync contract, server-side registry, drift loop) — these are
+new-feature architectural decisions rather than regressions.
 
-**P1 (significant gaps):** the bulk of the items above.
+**P1 (significant gaps):** US-7 and US-41 closed. US-40 owns the bulk
+of the remaining P1 scope (per-pilot mix, shared-queue transport,
+stems sync, splash refactor, satellite guardrails).
 
 **P2 (polish/robustness):** ASS pulse `librosa` warning, ffprobe caching,
-queue-blocks-delete documentation, etc.
+queue-blocks-delete documentation, settings-panel validation + route
+smoke test, etc.
 
 ---
 
@@ -559,4 +702,4 @@ queue-blocks-delete documentation, etc.
 | US-28 | Schema migration V4 adds `metadata_sources` JSON column. New `update_track_metadata_with_provenance` + `get_metadata_sources` apply a confidence ladder (musicbrainz > itunes > youtube > scanner; manual on top). All metadata writers updated. | `pikaraoke/lib/karaoke_database.py`, `pikaraoke/lib/song_enricher.py`, `pikaraoke/lib/library_scanner.py`, `pikaraoke/lib/song_manager.py`, `pikaraoke/lib/lyrics.py`, plus DB and enricher tests |
 | US-31 | `_invalidate_auto_ass` now also clears `lyrics_sha` and `aligner_model`, so audio-sha changes trigger an LRCLib re-fetch on next run. | `pikaraoke/lib/audio_fingerprint.py`, `tests/unit/test_audio_fingerprint.py` |
 
-Full unit suite: 1078 passed, 1 skipped.
+Full unit suite: 1130 passed, 1 skipped.

@@ -14,7 +14,11 @@ from pikaraoke.lib.current_app import (
     get_site_name,
     is_admin,
 )
-from pikaraoke.lib.get_platform import get_platform
+from pikaraoke.lib.get_platform import (
+    get_accelerator_backend,
+    get_library_versions,
+    get_platform,
+)
 
 _ = flask_babel.gettext
 
@@ -34,6 +38,15 @@ def info():
     preferred_language = k.preferences.get("preferred_language", "en")
     # yt-dlp
     youtubedl_version = k.youtubedl_version
+    # Runtime-resolved (US-41): kept out of Karaoke.__init__ so a
+    # package upgrade is reflected on next page load without a restart,
+    # and so importing torch is deferred until it's actually needed.
+    accelerator = get_accelerator_backend()
+    library_versions = get_library_versions()
+    # download_path / youtubedl_proxy are CLI-configurable but live in
+    # PreferenceManager too (US-35), so pull them from there for display.
+    download_path = k.preferences.get_or_default("download_path") or k.download_path
+    youtubedl_proxy = k.preferences.get_or_default("youtubedl_proxy") or ""
 
     return render_template(
         "info.html",
@@ -85,6 +98,10 @@ def info():
             "mid": k.mid_score_phrases,
             "high": k.high_score_phrases,
         },
+        accelerator=accelerator,
+        library_versions=library_versions,
+        download_path=download_path,
+        youtubedl_proxy=youtubedl_proxy,
     )
 
 

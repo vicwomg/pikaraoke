@@ -51,6 +51,7 @@
     line-height: 1.4;
   }
   .pk-pref-row input[type=number],
+  .pk-pref-row input[type=text],
   .pk-pref-row select {
     width: 80px;
     padding: 8px 10px;
@@ -63,6 +64,7 @@
     text-align: center;
     outline: 0;
   }
+  .pk-pref-row input[type=text] { width: 220px; text-align: left; }
   .pk-pref-row select { width: auto; text-align: left; padding-right: 28px; }
 
   .pk-pref-row input[type=checkbox] {
@@ -478,7 +480,12 @@ $(function () {
       <input class="user-preference-checkbox" type="checkbox" data-pref="enable_title_tidy" {% if enable_title_tidy %}checked{% endif %}>
     </div>
     <div class="pk-pref-row">
-      <span class="pk-pref-label">Usuwanie wokalu (AI — wolne bez GPU)</span>
+      <span class="pk-pref-label">
+        Usuwanie wokalu (AI — wolne bez GPU)
+        <div style="font-size: 11px; color: var(--pk-ink-4); margin-top: 2px; letter-spacing: normal; text-transform: none;">
+          {% trans backend=accelerator.backend %}Default: on when a GPU is detected ({{ backend }} active){% endtrans %}
+        </div>
+      </span>
       <input class="user-preference-checkbox" type="checkbox" data-pref="vocal_removal" {% if vocal_removal %}checked{% endif %}>
     </div>
     <div class="pk-pref-row">
@@ -501,6 +508,24 @@ $(function () {
       <span class="pk-pref-label">{% trans %}Browse results per page (10–1000){% endtrans %}</span>
       <input class="user-preference-input" type="number" min="10" max="1000" step="10" data-pref="browse_results_per_page" data-start-value="{{ browse_results_per_page }}" value="{{ browse_results_per_page }}">
     </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">
+        {% trans %}Download path{% endtrans %}
+        <div style="font-size: 11px; color: var(--pk-ink-4); margin-top: 2px; letter-spacing: normal; text-transform: none;">
+          {% trans %}Absolute path; blank uses the platform default. Not cleared by Reset.{% endtrans %}
+        </div>
+      </span>
+      <input class="user-preference-input" type="text" data-pref="download_path" data-start-value="{{ download_path }}" value="{{ download_path }}" placeholder="~/pikaraoke-songs">
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">
+        {% trans %}yt-dlp proxy{% endtrans %}
+        <div style="font-size: 11px; color: var(--pk-ink-4); margin-top: 2px; letter-spacing: normal; text-transform: none;">
+          {% trans %}e.g. http://host:port or socks5://host:port. Not cleared by Reset.{% endtrans %}
+        </div>
+      </span>
+      <input class="user-preference-input" type="text" data-pref="youtubedl_proxy" data-start-value="{{ youtubedl_proxy }}" value="{{ youtubedl_proxy }}" placeholder="http://…">
+    </div>
     <div style="padding: 14px 0 0;">
       <a id="pk-clear-prefs" class="pk-btn is-danger is-sm" href="{{ url_for('preferences.clear_preferences') }}">
         <i class="icon icon-trash-empty"></i>
@@ -519,6 +544,9 @@ $(function () {
     <dt>{% trans %}OS{% endtrans %}</dt><dd>{{ os_version }}</dd>
     <dt>yt-dlp</dt><dd>{{ youtubedl_version }}</dd>
     <dt>FFmpeg</dt><dd>{{ ffmpeg_version }}{% if not is_transpose_enabled %} <span style="color:var(--pk-ink-4); font-size: 11px;">({% trans %}no pitch shift{% endtrans %})</span>{% endif %}</dd>
+    <dt>WhisperX</dt><dd>{% if library_versions.whisperx %}{{ library_versions.whisperx }}{% else %}<span style="color:var(--pk-ink-4);">{% trans %}not installed{% endtrans %}</span>{% endif %}</dd>
+    <dt>Demucs</dt><dd>{% if library_versions.demucs %}{{ library_versions.demucs }}{% else %}<span style="color:var(--pk-ink-4);">{% trans %}not installed{% endtrans %}</span>{% endif %}</dd>
+    <dt>{% trans %}Accelerator{% endtrans %}</dt><dd>{{ accelerator.backend }}{% if accelerator.detail %} <span style="color:var(--pk-ink-4); font-size: 11px;">({{ accelerator.detail }})</span>{% endif %}</dd>
     <dt>PiKaraoke</dt><dd>{{ pikaraoke_version }}</dd>
     {% if admin %}
     <dt>CPU</dt><dd id="pk-cpu">{% trans %}Loading…{% endtrans %}</dd>

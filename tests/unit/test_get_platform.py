@@ -311,3 +311,103 @@ class TestGetOsVersion:
         with patch("platform.version", return_value="5.15.0-generic"):
             result = get_os_version()
             assert result == "5.15.0-generic"
+
+
+class TestGetAcceleratorBackend:
+    """Tests for get_accelerator_backend — the US-41 settings readout.
+
+    Torch is optional; on the dev box it's installed, but a prod Pi
+    build may not have it. The helper must return a renderable dict in
+    every case so the template doesn't need try/except around .backend.
+    """
+
+    def test_torch_missing_returns_none(self):
+        """Without torch installed the readout is 'none'/'torch not installed'."""
+        from pikaraoke.lib import get_platform as gp
+
+        import builtins
+
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name == "torch":
+                raise ImportError("no torch")
+            return real_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=fake_import):
+            result = gp.get_accelerator_backend()
+
+        assert result == {"backend": "none", "detail": "torch not installed"}
+
+    def test_cuda_path(self):
+        """CUDA available -> backend=CUDA with device name."""
+        from pikaraoke.lib import get_platform as gp
+
+        fake_torch = MagicMock()
+        fake_torch.cuda.is_available.return_value = True
+        fake_torch.cuda.get_device_name.return_value = "NVIDIA GeForce RTX 4090"
+
+        with patch.dict("sys.modules", {"torch": fake_torch}):
+            result = gp.get_accelerator_backend()
+
+        assert result == {"backend": "CUDA", "detail": "NVIDIA GeForce RTX 4090"}
+
+    def test_mps_path(self):
+        """MPS available (no CUDA) -> backend=MPS with Apple Silicon label."""
+        from pikaraoke.lib import get_platform as gp
+
+        fake_torch = MagicMock()
+        fake_torch.cuda.is_available.return_value = False
+        fake_torch.backends.mps.is_available.return_value = True
+
+        with patch.dict("sys.modules", {"torch": fake_torch}):
+            result = gp.get_accelerator_backend()
+
+        assert result == {"backend": "MPS", "detail": "Apple Silicon"}
+
+    def test_cpu_fallback(self):
+        """Neither CUDA nor MPS -> CPU + hint."""
+        from pikaraoke.lib import get_platform as gp
+
+        fake_torch = MagicMock()
+        fake_torch.cuda.is_available.return_value = False
+        fake_torch.backends.mps.is_available.return_value = False
+
+        with patch.dict("sys.modules", {"torch": fake_torch}):
+            result = gp.get_accelerator_backend()
+
+        assert result == {"backend": "CPU", "detail": "no GPU detected"}
+
+
+class TestGetLibraryVersions:
+    """Tests for get_library_versions — US-41 version footprint.
+
+    The contract is that every expected package key is present in the
+    returned dict regardless of install state, so the template can do
+    ``{% if library_versions.whisperx %}`` safely.
+    """
+
+    def test_all_keys_present(self):
+        """Returned dict always includes whisperx and demucs."""
+        from pikaraoke.lib.get_platform import get_library_versions
+
+        result = get_library_versions()
+        assert set(result.keys()) == {"whisperx", "demucs"}
+
+    def test_missing_package_yields_none(self):
+        """A PackageNotFoundError from importlib.metadata maps to None."""
+        from importlib.metadata import PackageNotFoundError
+
+        from pikaraoke.lib import get_platform as gp
+
+        def fake_version(pkg):
+            raise PackageNotFoundError(pkg)
+
+        with patch("pikaraoke.lib.get_platform.version", create=True):
+            # Patch at the call site inside the function. importlib.metadata
+            # is imported inside get_library_versions, so we have to patch
+            # the module's lookup rather than the import alias.
+            with patch("importlib.metadata.version", side_effect=fake_version):
+                result = gp.get_library_versions()
+
+        assert result == {"whisperx": None, "demucs": None}

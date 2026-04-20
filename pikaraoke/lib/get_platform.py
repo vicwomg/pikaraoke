@@ -210,3 +210,47 @@ def has_torch_gpu() -> bool:
     except (RuntimeError, AttributeError):
         pass
     return False
+
+
+def get_accelerator_backend() -> dict[str, str]:
+    """Identify the torch device Demucs/WhisperX will actually use.
+
+    Returned dict is safe to render in the UI even when torch isn't
+    installed. ``backend`` is one of ``"CUDA"``, ``"MPS"``, ``"CPU"``,
+    or ``"none"``; ``detail`` is a short human string (device name for
+    CUDA, ``"Apple Silicon"`` for MPS, ``"torch not installed"`` for
+    the error path).
+    """
+    try:
+        import torch
+    except ImportError:
+        return {"backend": "none", "detail": "torch not installed"}
+    try:
+        if torch.cuda.is_available():
+            name = torch.cuda.get_device_name(0)
+            return {"backend": "CUDA", "detail": name}
+        if torch.backends.mps.is_available():
+            return {"backend": "MPS", "detail": "Apple Silicon"}
+    except (RuntimeError, AttributeError):
+        pass
+    return {"backend": "CPU", "detail": "no GPU detected"}
+
+
+def get_library_versions() -> dict[str, str | None]:
+    """Resolve the installed versions of pipeline-critical libraries.
+
+    Returned keys always include ``whisperx`` and ``demucs`` so the UI
+    can render "not installed" deterministically — missing packages
+    yield ``None``. ``importlib.metadata`` is used instead of importing
+    the packages to avoid dragging in torch for a version readout.
+    """
+    from importlib.metadata import PackageNotFoundError, version
+
+    packages = ("whisperx", "demucs")
+    versions: dict[str, str | None] = {}
+    for pkg in packages:
+        try:
+            versions[pkg] = version(pkg)
+        except PackageNotFoundError:
+            versions[pkg] = None
+    return versions
