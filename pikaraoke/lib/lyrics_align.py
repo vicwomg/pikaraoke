@@ -52,7 +52,12 @@ class WhisperXAligner:
         return f"whisperx-{self._model_size}"
 
     def align(
-        self, audio_path: str, reference_text: str, language: str | None = None
+        self,
+        audio_path: str,
+        reference_text: str,
+        *,
+        lrc_lines: list[tuple[float, float, str]] | None = None,
+        language: str | None = None,
     ) -> list[Word]:
         """Align ``reference_text`` tokens to whisper-transcribed audio timings.
 
@@ -60,6 +65,11 @@ class WhisperXAligner:
         (``Detected language: xx (0.92) in first 30s of audio``) which
         otherwise re-runs on every song. The last detected code is kept on
         ``last_detected_language`` for callers that want to persist it.
+
+        When ``lrc_lines`` is provided, SequenceMatcher is confined to each
+        LRC line's audio window so repeated phrases elsewhere in the song
+        can't steal anchors across line boundaries. The returned word list
+        still concatenates 1:1 with ``reference_text.split()``.
         """
         wx = self._whisperx
         if self._asr_model is None:
@@ -93,6 +103,8 @@ class WhisperXAligner:
             for w in aligned.get("word_segments", [])
             if "start" in w and "end" in w and w.get("word")
         ]
+        if lrc_lines is not None:
+            return map_whisper_to_reference_by_lines(whisper_words, lrc_lines)
         return map_whisper_to_reference(whisper_words, reference_text)
 
 
@@ -119,6 +131,96 @@ def map_whisper_to_reference(whisper_words: list[Word], reference_text: str) -> 
             matched[block.a + i] = Word(text=ref_tokens[block.a + i], start=w.start, end=w.end)
 
     return _interpolate_gaps(ref_tokens, matched)
+
+
+def map_whisper_to_reference_by_lines(
+    whisper_words: list[Word],
+    lrc_lines: list[tuple[float, float, str]],
+) -> list[Word]:
+    """Per-line version of ``map_whisper_to_reference``.
+
+    For each LRC line the matcher only sees whisper words whose timestamps
+    fall inside ``[line_start - tolerance, line_end + tolerance]``. Repeated
+    phrases elsewhere in the song are invisible to that line's matcher, so
+    anchors can't migrate across line boundaries. Lines with no whisper
+    anchors in their window get uniform timings across the window - the
+    downstream ASS builder still renders per-word highlighting, just at
+    line-level sync accuracy.
+    """
+    out: list[Word] = []
+    for line_start, line_end, text in lrc_lines:
+        ref_tokens = text.split()
+        if not ref_tokens:
+            continue
+        lo = line_start - _LINE_WINDOW_TOLERANCE_S
+        hi = line_end + _LINE_WINDOW_TOLERANCE_S
+        line_whisper = [w for w in whisper_words if w.start >= lo and w.end <= hi]
+        if not line_whisper:
+            out.extend(_uniform_line_words(ref_tokens, line_start, line_end))
+            continue
+        ref_norm = [_normalize(t) for t in ref_tokens]
+        whisper_norm = [_normalize(w.text) for w in line_whisper]
+        matched: list[Word | None] = [None] * len(ref_tokens)
+        matcher = SequenceMatcher(a=ref_norm, b=whisper_norm, autojunk=False)
+        for block in matcher.get_matching_blocks():
+            for i in range(block.size):
+                w = line_whisper[block.b + i]
+                matched[block.a + i] = Word(
+                    text=ref_tokens[block.a + i], start=w.start, end=w.end
+                )
+        out.extend(_interpolate_line_gaps(ref_tokens, matched, line_start, line_end))
+    return out
+
+
+# Whisper timestamps can drift by a second or so around real line boundaries;
+# the tolerance extends each LRC line's window for candidate whisper words.
+# Keep smaller than _ALIGNMENT_TOLERANCE_S in lyrics.py so the downstream
+# overlap sanity check never trips on this path.
+_LINE_WINDOW_TOLERANCE_S = 1.5
+
+
+def _interpolate_line_gaps(
+    ref_tokens: list[str],
+    matched: list[Word | None],
+    line_start: float,
+    line_end: float,
+) -> list[Word]:
+    """Fill gaps in ``matched`` by interpolating between intra-line anchors.
+
+    Leading/trailing gaps anchor against the LRC line window boundaries
+    rather than bleeding into adjacent lines.
+    """
+    n = len(ref_tokens)
+    out: list[Word] = []
+    i = 0
+    while i < n:
+        if matched[i]:
+            out.append(matched[i])  # type: ignore[arg-type]
+            i += 1
+            continue
+        prev_end = out[-1].end if out else line_start
+        j = i
+        while j < n and matched[j] is None:
+            j += 1
+        next_start = matched[j].start if j < n else line_end  # type: ignore[union-attr]
+        gap = j - i
+        dur = max((next_start - prev_end) / gap, 0.01)
+        for k in range(gap):
+            start = prev_end + dur * k
+            end = start + dur
+            out.append(Word(text=ref_tokens[i + k], start=start, end=end))
+        i = j
+    return out
+
+
+def _uniform_line_words(tokens: list[str], start: float, end: float) -> list[Word]:
+    """Spread ``tokens`` evenly across ``[start, end]`` (no whisper anchor)."""
+    duration = max(end - start, 0.01)
+    per = duration / len(tokens)
+    return [
+        Word(text=t, start=start + per * i, end=start + per * (i + 1))
+        for i, t in enumerate(tokens)
+    ]
 
 
 def _normalize(token: str) -> str:

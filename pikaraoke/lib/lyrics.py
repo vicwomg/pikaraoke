@@ -447,7 +447,9 @@ class LyricsService:
                 row = self._db.get_song_by_id(song_id)
                 db_lang = row["language"] if row is not None else None
             language = db_lang or _detect_language(plain)
-            words = self._aligner.align(audio_path, plain, language=language)
+            words = self._aligner.align(
+                audio_path, plain, lrc_lines=lrc_line_windows(lrc), language=language
+            )
             final_lang = language or getattr(self._aligner, "last_detected_language", None)
             if self._db is not None and song_id is not None and final_lang and not db_lang:
                 # Language detected from LRC text or whisperx audio pass.
@@ -732,6 +734,22 @@ def _parse_lrc(lrc: str) -> list[tuple[float, str]]:
 def _lrc_plain_text(lrc: str) -> str:
     """Tags stripped; one line per LRC entry. For forced-alignment reference."""
     return "\n".join(text for _start, text in _parse_lrc(lrc))
+
+
+def lrc_line_windows(lrc: str) -> list[tuple[float, float, str]]:
+    """Parse LRC into ``(line_start, line_end, text)`` triples.
+
+    ``line_end`` is the next line's start; the final line uses
+    ``_LAST_LINE_HOLD_S``. Used by the aligner to confine per-line
+    SequenceMatcher so repeated phrases can't steal anchors across
+    lines.
+    """
+    entries = _parse_lrc(lrc)
+    windows: list[tuple[float, float, str]] = []
+    for i, (start, text) in enumerate(entries):
+        end = entries[i + 1][0] if i + 1 < len(entries) else start + _LAST_LINE_HOLD_S
+        windows.append((start, end, text))
+    return windows
 
 
 _LANGDETECT_MIN_CHARS = 30

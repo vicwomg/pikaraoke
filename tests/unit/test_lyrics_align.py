@@ -10,6 +10,7 @@ from pikaraoke.lib.lyrics_align import (
     _interpolate_gaps,
     _normalize,
     map_whisper_to_reference,
+    map_whisper_to_reference_by_lines,
 )
 
 
@@ -88,6 +89,74 @@ class TestMapWhisperToReference:
 
     def test_empty_reference_returns_empty(self):
         assert map_whisper_to_reference([Word("x", 0, 1)], "") == []
+
+
+class TestMapWhisperToReferenceByLines:
+    def test_repeated_phrase_anchors_within_each_line(self):
+        # Both lines say "turn around"; whisper correctly times each instance.
+        # Global SequenceMatcher can tie-break the ref "turn around"s to the
+        # wrong whisper instances and drag later tokens badly off - per-line
+        # matching makes that impossible because each window sees only its
+        # own whisper words.
+        lrc_lines = [(10.0, 15.0, "turn around now"), (60.0, 65.0, "turn around again")]
+        whisper = [
+            Word("turn", 10.1, 10.4),
+            Word("around", 10.5, 10.9),
+            Word("now", 11.0, 11.3),
+            Word("turn", 60.2, 60.5),
+            Word("around", 60.6, 61.0),
+            Word("again", 61.1, 61.4),
+        ]
+        out = map_whisper_to_reference_by_lines(whisper, lrc_lines)
+        texts = [w.text for w in out]
+        assert texts == ["turn", "around", "now", "turn", "around", "again"]
+        # Line 1 words anchor in the 10s range, line 2 in the 60s range.
+        for w in out[:3]:
+            assert 10.0 <= w.start <= 12.0
+        for w in out[3:]:
+            assert 60.0 <= w.start <= 62.0
+
+    def test_drifted_whisper_word_cannot_cross_line_boundary(self):
+        # Whisper grossly mis-timed the second "turn": placed it inside the
+        # first line's window. Per-line matching sees it only for line 1;
+        # line 2 has to fall back to uniform timing across its own window.
+        lrc_lines = [(10.0, 15.0, "turn around"), (60.0, 65.0, "turn around")]
+        whisper = [
+            Word("turn", 10.1, 10.4),
+            Word("around", 10.5, 10.9),
+            Word("turn", 11.0, 11.3),  # drifted: should have been ~60s
+            Word("around", 11.4, 11.7),  # drifted
+        ]
+        out = map_whisper_to_reference_by_lines(whisper, lrc_lines)
+        # Line 1 takes the first two whisper matches (in its window).
+        assert out[0].start == pytest.approx(10.1)
+        # Line 2 has no whisper anchors in its [58.5, 66.5] window, so
+        # uniform fallback spreads its two tokens across [60.0, 65.0].
+        assert 60.0 <= out[2].start < out[2].end <= 65.0
+        assert 60.0 <= out[3].start < out[3].end <= 65.0
+
+    def test_missing_whisper_word_interpolates_within_line(self):
+        # Whisper missed "around"; it should be interpolated between the
+        # two line anchors without bleeding timing across lines.
+        lrc_lines = [(10.0, 15.0, "turn around now")]
+        whisper = [
+            Word("turn", 10.5, 10.8),
+            Word("now", 13.0, 13.5),
+        ]
+        out = map_whisper_to_reference_by_lines(whisper, lrc_lines)
+        assert [w.text for w in out] == ["turn", "around", "now"]
+        assert 10.8 <= out[1].start < out[1].end <= 13.0
+
+    def test_line_with_no_whisper_uses_uniform_fallback(self):
+        lrc_lines = [(10.0, 20.0, "alpha beta gamma")]
+        out = map_whisper_to_reference_by_lines([], lrc_lines)
+        assert [w.text for w in out] == ["alpha", "beta", "gamma"]
+        # Uniform split across 10s window.
+        assert out[0].start == pytest.approx(10.0)
+        assert out[-1].end == pytest.approx(20.0)
+
+    def test_empty_input_returns_empty(self):
+        assert map_whisper_to_reference_by_lines([], []) == []
 
 
 class TestInterpolateGaps:
