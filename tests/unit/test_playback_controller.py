@@ -143,6 +143,59 @@ class TestPlaybackControllerPlayFile:
         assert result.success is False
         assert result.error == "Stream error"
 
+    @patch("pikaraoke.lib.playback_controller.os.path.isfile", return_value=True)
+    @patch("pikaraoke.lib.playback_controller.time.sleep")
+    def test_play_file_prefers_db_title_over_filename(self, mock_sleep, mock_isfile, test_prefs):
+        """now_playing shows DB title, not the raw YouTube-video filename."""
+        events = EventSystem()
+        # Filename fallback would produce the noisy dump; DB has the clean title.
+        filename_fn = lambda x, remove_youtube_id=True: (
+            "Bonnie Tyler - Total Eclipse of the Heart (Turn Around) (Official Video)"
+        )
+
+        db = MagicMock()
+        row = MagicMock()
+        row.keys.return_value = ["artist", "title"]
+        row.__getitem__ = lambda _self, key: {
+            "artist": "Bonnie Tyler",
+            "title": "Total Eclipse of the Heart",
+        }[key]
+        db.get_song_by_path.return_value = row
+
+        pc = PlaybackController(test_prefs, events, filename_fn, db=db)
+        pc.stream_manager.play_file = MagicMock(
+            return_value=PlaybackResult(success=True, stream_url="/stream/x.mp4", duration=300)
+        )
+        pc.is_playing = True
+
+        pc.play_file("/songs/Bonnie.mp4", "Pawel")
+
+        assert pc.now_playing == "Total Eclipse of the Heart"
+        assert pc.now_playing_artist == "Bonnie Tyler"
+
+    @patch("pikaraoke.lib.playback_controller.os.path.isfile", return_value=True)
+    @patch("pikaraoke.lib.playback_controller.time.sleep")
+    def test_play_file_falls_back_to_filename_when_db_empty(
+        self, mock_sleep, mock_isfile, test_prefs
+    ):
+        """Without a DB row, now_playing falls back to the filename-derived title."""
+        events = EventSystem()
+        filename_fn = lambda x, remove_youtube_id=True: "Raw Filename Title"
+
+        db = MagicMock()
+        db.get_song_by_path.return_value = None
+
+        pc = PlaybackController(test_prefs, events, filename_fn, db=db)
+        pc.stream_manager.play_file = MagicMock(
+            return_value=PlaybackResult(success=True, stream_url="/stream/x.mp4", duration=300)
+        )
+        pc.is_playing = True
+
+        pc.play_file("/songs/unknown.mp4", "Pawel")
+
+        assert pc.now_playing == "Raw Filename Title"
+        assert pc.now_playing_artist is None
+
 
 class TestPlaybackControllerMissingFile:
     """Tests for file-existence guard in play_file."""
@@ -322,8 +375,8 @@ class TestPlaybackControllerGetNowPlaying:
         assert state["now_playing_transpose"] == 2
         assert state["is_paused"] is False
 
-    def test_lookup_artist_reads_from_db(self, test_prefs):
-        """play_file populates now_playing_artist from the DB row."""
+    def test_lookup_metadata_reads_from_db(self, test_prefs):
+        """play_file populates both now_playing (title) and now_playing_artist."""
         events = EventSystem()
         db = MagicMock()
         # sqlite3.Row supports keys() and __getitem__
@@ -333,25 +386,25 @@ class TestPlaybackControllerGetNowPlaying:
         db.get_song_by_path.return_value = row
 
         pc = PlaybackController(test_prefs, events, lambda x, remove_youtube_id=True: x, db=db)
-        assert pc._lookup_artist("/songs/Stan.mp4") == "Eminem"
+        assert pc._lookup_metadata("/songs/Stan.mp4") == ("Stan", "Eminem")
 
-    def test_lookup_artist_returns_none_when_no_db(self, test_prefs):
-        """Without a db, artist lookup is a silent no-op."""
+    def test_lookup_metadata_returns_none_when_no_db(self, test_prefs):
+        """Without a db, metadata lookup is a silent no-op."""
         events = EventSystem()
         pc = PlaybackController(test_prefs, events, lambda x, remove_youtube_id=True: x, db=None)
-        assert pc._lookup_artist("/songs/Stan.mp4") is None
+        assert pc._lookup_metadata("/songs/Stan.mp4") == (None, None)
 
-    def test_lookup_artist_returns_none_when_artist_blank(self, test_prefs):
-        """Empty artist string returns None so the UI can hide the element."""
+    def test_lookup_metadata_returns_none_when_blank(self, test_prefs):
+        """Empty title/artist strings return None so the UI can fall back."""
         events = EventSystem()
         db = MagicMock()
         row = MagicMock()
-        row.keys.return_value = ["artist"]
+        row.keys.return_value = ["artist", "title"]
         row.__getitem__ = lambda _self, key: ""
         db.get_song_by_path.return_value = row
 
         pc = PlaybackController(test_prefs, events, lambda x, remove_youtube_id=True: x, db=db)
-        assert pc._lookup_artist("/songs/Stan.mp4") is None
+        assert pc._lookup_metadata("/songs/Stan.mp4") == (None, None)
 
 
 class TestPlaybackControllerResetNowPlaying:

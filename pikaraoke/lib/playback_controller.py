@@ -82,19 +82,24 @@ class PlaybackController:
         events.on("demucs_progress", self._on_demucs_progress)
         events.on("ffmpeg_progress", self._on_ffmpeg_progress)
 
-    def _lookup_artist(self, file_path: str) -> str | None:
-        """Read the canonical artist from the DB so the expanded player can show it."""
+    def _lookup_metadata(self, file_path: str) -> tuple[str | None, str | None]:
+        """Read canonical (title, artist) from the DB, so the now-playing
+        panel can show "Total Eclipse of the Heart" / "Bonnie Tyler" instead
+        of the raw YouTube dump "Bonnie Tyler - Total Eclipse of the Heart
+        (Turn Around) (Official Video)" that filename parsing produces."""
         if self.db is None:
-            return None
+            return None, None
         try:
             row = self.db.get_song_by_path(file_path)
         except Exception:
             logging.exception("get_song_by_path failed for %s", file_path)
-            return None
+            return None, None
         if row is None:
-            return None
-        artist = (row["artist"] or "").strip() if "artist" in row.keys() else ""
-        return artist or None
+            return None, None
+        keys = row.keys()
+        title = (row["title"] or "").strip() if "title" in keys else ""
+        artist = (row["artist"] or "").strip() if "artist" in keys else ""
+        return (title or None), (artist or None)
 
     def _on_demucs_progress(self, data: dict) -> None:
         """Update local state when StreamManager reports Demucs progress."""
@@ -164,9 +169,10 @@ class PlaybackController:
         if not result.success:
             return result
 
-        self.now_playing = self.filename_from_path(file_path, remove_youtube_id=True)
+        db_title, db_artist = self._lookup_metadata(file_path)
+        self.now_playing = db_title or self.filename_from_path(file_path, remove_youtube_id=True)
         self.now_playing_filename = file_path
-        self.now_playing_artist = self._lookup_artist(file_path)
+        self.now_playing_artist = db_artist
         self.now_playing_user = user
         self.now_playing_transpose = semitones
         self.now_playing_duration = result.duration
