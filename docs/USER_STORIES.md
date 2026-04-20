@@ -527,3 +527,23 @@ on the command line or in a config file.
   CLI-only. Changes save immediately and broadcast via
   `preferences_update` so every pilot stays consistent without a page
   reload.
+
+### US-42 Persistent pilot name
+
+As a pilot who returns to PiKaraoke across multiple sessions, my display
+name should survive browser restarts, OS reboots, and weeks of inactivity
+so I am not forced to re-enter it or end up enqueued as `Anon-XXXX`.
+
+- **Storage**: the pilot name is persisted in `localStorage` under key
+  `pk-pilot-name`. `localStorage` is not subject to Safari ITP's 7-day
+  script-writable-cookie cap, which silently evicts the legacy `"user"`
+  cookie even though it was written with a 10-year expiry.
+- **Migration**: on first load after upgrade, the legacy `"user"` cookie
+  is read once, copied to `localStorage`, and then cleared so there is a
+  single source of truth. Existing users keep their name without any
+  manual step.
+- **Scope**: per-browser-profile, not per-tab. A name set on the search
+  page is visible on the library page and on the TV splash menu without
+  a manual re-entry.
+- **Unset fallback**: if no name is stored, the existing prompt flow
+  still fires; skipping the prompt still generates `Anon-XXXX` as today.

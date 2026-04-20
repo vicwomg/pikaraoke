@@ -83,7 +83,7 @@
         $(document).on('click', '#current-user', async function(e) {
             e.preventDefault();
             $(this).blur();
-            const currentName = Cookies.get("user") || "";
+            const currentName = (typeof getPilotName === 'function' ? getPilotName() : '') || "";
             const t = window.translations || {};
             const name = await PK.dialog.prompt({
                 title: t.changeNameTitle || "Change your name",
@@ -95,7 +95,7 @@
             });
             const trimmed = (name || '').trim();
             if (trimmed) {
-                Cookies.set("user", trimmed, { expires: 3650, path: '/' });
+                try { localStorage.setItem('pk-pilot-name', trimmed); } catch (_) {}
                 $("#current-user .pk-user-name").text(trimmed);
             }
         });

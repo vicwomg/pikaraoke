@@ -252,8 +252,8 @@
     const $addQueueSearch = document.getElementById('pk-add-to-queue-search');
     const $addQueueDirect = document.getElementById('pk-add-to-queue-direct');
 
-    // Ensure user cookie is set before any queue action
-    setUserCookie();
+    // Ensure pilot name is set before any queue action
+    setPilotName();
 
     // Restore preferences
     if (Cookies.get('include-non-karaoke') === 'true') {
@@ -398,7 +398,7 @@
     function enqueueLocal(path, fileName) {
       const body = new URLSearchParams();
       body.append('song_to_add', path);
-      body.append('song_added_by', getUserCookie() || '');
+      body.append('song_added_by', getPilotName() || '');
       fetch('{{ url_for("queue.enqueue_form") }}', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -464,7 +464,7 @@
         body: JSON.stringify({
           song_url: url,
           song_title: title || '',
-          song_added_by: getUserCookie() || '',
+          song_added_by: getPilotName() || '',
           queue: !!queue,
         }),
       })

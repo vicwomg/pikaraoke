@@ -942,7 +942,7 @@ const setupOverlayMenus = () => {
       $('#menu-container iframe').attr('src', '');
       showMenu = false;
     } else {
-      setUserCookie();
+      setPilotName();
       $("#menu-container").show();
       $("#menu-container iframe").attr("src", "/");
       showMenu = true;

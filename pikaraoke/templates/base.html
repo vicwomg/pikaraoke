@@ -117,8 +117,31 @@
       setTimeout(function () { $n.removeClass(categoryClass); }, timeout + 750);
     }
 
-    async function setUserCookie(reload=false) {
-      if (Cookies.get("user")) return;
+    // Pilot name persistence. Stored in localStorage to survive Safari ITP's
+    // 7-day cap on JavaScript-set cookies. Legacy "user" cookie is migrated
+    // once and then removed so there is a single source of truth.
+    const PK_PILOT_KEY = 'pk-pilot-name';
+
+    function _writePilotName(name) {
+      try { localStorage.setItem(PK_PILOT_KEY, name); } catch (_) {}
+    }
+
+    function getPilotName() {
+      try {
+        const v = localStorage.getItem(PK_PILOT_KEY);
+        if (v) return v;
+      } catch (_) {}
+      const legacy = Cookies.get('user');
+      if (legacy) {
+        _writePilotName(legacy);
+        Cookies.remove('user', { path: '/' });
+        return legacy;
+      }
+      return undefined;
+    }
+
+    async function setPilotName(reload=false) {
+      if (getPilotName()) return;
       const name = await PK.dialog.prompt({
         title: "Twoje imię",
         message: "Pokaże się przy utworach, które dodasz z tego telefonu.",
@@ -128,16 +151,12 @@
       });
       const trimmed = (name || '').trim();
       if (trimmed) {
-        Cookies.set("user", trimmed, { expires: 3650, path: '/' });
+        _writePilotName(trimmed);
         $("#current-user .pk-user-name").text(trimmed);
       } else {
-        Cookies.set("user", `Anon-${generateRandomString(4)}`, { expires: 3650 });
+        _writePilotName(`Anon-${generateRandomString(4)}`);
       }
       if (reload) location.reload();
-    }
-
-    function getUserCookie() {
-      return Cookies.get("user");
     }
 
     $(function () {
@@ -151,7 +170,7 @@
       setTimeout(function () { $(".pk-flash").fadeOut(); }, 3000);
 
       // Current user chip
-      var currentUser = Cookies.get("user");
+      var currentUser = getPilotName();
       if (currentUser) {
         $("#current-user .pk-user-name").text(currentUser);
       }

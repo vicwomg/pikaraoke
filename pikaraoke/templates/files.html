@@ -178,14 +178,13 @@ $(function() {
     e.preventDefault();
     var $btn = $(this);
     if ($btn.hasClass('is-busy')) return;
-    setUserCookie().then ? null : null;
-    var user = Cookies.get('user') || '';
+    var user = getPilotName() || '';
     var href = this.href;
 
-    // If cookie not yet set, wait briefly for setUserCookie promise
+    // If pilot name not yet set, prompt for it then proceed
     if (!user) {
-      setUserCookie().then(function() {
-        fire($btn, href, Cookies.get('user') || '');
+      setPilotName().then(function() {
+        fire($btn, href, getPilotName() || '');
       });
     } else {
       fire($btn, href, user);
