@@ -10,6 +10,7 @@ from pikaraoke.lib.demucs_processor import (
     _sep_done_keys,
     _sep_handles,
     acquire_separation,
+    cleanup_wavs_if_mp3s_exist,
     encode_mp3_in_background,
     release_separation,
     resolve_audio_source,
@@ -201,6 +202,137 @@ class TestEncodeMp3Dedup:
         assert cache_key not in _encode_in_progress
 
 
+class TestCleanupWavsIfMp3sExist:
+    """WAVs must outlive active playback so mid-song restarts still find the
+    bytes the browser's range requests expect. Deletion is gated on both
+    MP3 siblings being present so an in-flight encode can't strand a half-
+    cached song with only WAVs gone.
+    """
+
+    def test_removes_wavs_when_both_mp3s_present(self, tmp_path, monkeypatch):
+        cache_key = "d" * 64
+        cache_dir = tmp_path / cache_key
+        cache_dir.mkdir()
+        (cache_dir / "vocals.wav").write_bytes(b"wav_v")
+        (cache_dir / "instrumental.wav").write_bytes(b"wav_i")
+        (cache_dir / "vocals.mp3").write_bytes(b"mp3_v")
+        (cache_dir / "instrumental.mp3").write_bytes(b"mp3_i")
+        monkeypatch.setattr(dp, "CACHE_DIR", str(tmp_path))
+
+        cleanup_wavs_if_mp3s_exist(cache_key)
+
+        assert not (cache_dir / "vocals.wav").exists()
+        assert not (cache_dir / "instrumental.wav").exists()
+        assert (cache_dir / "vocals.mp3").exists()
+        assert (cache_dir / "instrumental.mp3").exists()
+
+    def test_keeps_wavs_when_only_one_mp3_present(self, tmp_path, monkeypatch):
+        cache_key = "e" * 64
+        cache_dir = tmp_path / cache_key
+        cache_dir.mkdir()
+        (cache_dir / "vocals.wav").write_bytes(b"wav_v")
+        (cache_dir / "instrumental.wav").write_bytes(b"wav_i")
+        (cache_dir / "vocals.mp3").write_bytes(b"mp3_v")
+        monkeypatch.setattr(dp, "CACHE_DIR", str(tmp_path))
+
+        cleanup_wavs_if_mp3s_exist(cache_key)
+
+        assert (cache_dir / "vocals.wav").exists()
+        assert (cache_dir / "instrumental.wav").exists()
+
+    def test_keeps_wavs_when_no_mp3s(self, tmp_path, monkeypatch):
+        cache_key = "f" * 64
+        cache_dir = tmp_path / cache_key
+        cache_dir.mkdir()
+        (cache_dir / "vocals.wav").write_bytes(b"wav_v")
+        (cache_dir / "instrumental.wav").write_bytes(b"wav_i")
+        monkeypatch.setattr(dp, "CACHE_DIR", str(tmp_path))
+
+        cleanup_wavs_if_mp3s_exist(cache_key)
+
+        assert (cache_dir / "vocals.wav").exists()
+        assert (cache_dir / "instrumental.wav").exists()
+
+    def test_idempotent_when_wavs_already_gone(self, tmp_path, monkeypatch):
+        cache_key = "0" * 64
+        cache_dir = tmp_path / cache_key
+        cache_dir.mkdir()
+        (cache_dir / "vocals.mp3").write_bytes(b"mp3_v")
+        (cache_dir / "instrumental.mp3").write_bytes(b"mp3_i")
+        monkeypatch.setattr(dp, "CACHE_DIR", str(tmp_path))
+
+        cleanup_wavs_if_mp3s_exist(cache_key)  # must not raise
+
+
+class TestEncodeMp3WavDeletion:
+    """Default call path preserves WAVs so the currently-playing song keeps
+    serving range requests from them; only the prewarm path opts in to
+    immediate deletion.
+    """
+
+    def _run_encode_sync(self, monkeypatch, cache_dir, delete_wavs_on_done):
+        """Execute encode_mp3_in_background synchronously with a stub ffmpeg
+        that writes a smaller MP3 next to each WAV (simulating a real encode).
+        """
+        mp3_v = cache_dir / "vocals.mp3"
+        mp3_i = cache_dir / "instrumental.mp3"
+
+        def fake_run(cmd, check, capture_output):
+            # ffmpeg -i <wav> ... -f mp3 <tmp>
+            out = cmd[-1]
+            open(out, "wb").write(b"mp3_bytes")
+
+            class _R:
+                returncode = 0
+
+            return _R()
+
+        import subprocess as _sp
+
+        monkeypatch.setattr(_sp, "run", fake_run)
+
+        captured_target = {}
+
+        class _InlineThread:
+            def __init__(self, target=None, daemon=None, **kw):
+                captured_target["fn"] = target
+
+            def start(self):
+                captured_target["fn"]()
+
+        monkeypatch.setattr(threading, "Thread", _InlineThread)
+
+        cache_key = cache_dir.name
+        encode_mp3_in_background(cache_key, delete_wavs_on_done=delete_wavs_on_done)
+        assert mp3_v.exists() and mp3_i.exists()
+
+    def test_default_keeps_wavs(self, tmp_path, monkeypatch, clean_encode_state):
+        cache_key = "1" * 64
+        cache_dir = tmp_path / cache_key
+        cache_dir.mkdir()
+        (cache_dir / "vocals.wav").write_bytes(b"wav_v")
+        (cache_dir / "instrumental.wav").write_bytes(b"wav_i")
+        monkeypatch.setattr(dp, "CACHE_DIR", str(tmp_path))
+
+        self._run_encode_sync(monkeypatch, cache_dir, delete_wavs_on_done=False)
+
+        assert (cache_dir / "vocals.wav").exists()
+        assert (cache_dir / "instrumental.wav").exists()
+
+    def test_opt_in_removes_wavs(self, tmp_path, monkeypatch, clean_encode_state):
+        cache_key = "2" * 64
+        cache_dir = tmp_path / cache_key
+        cache_dir.mkdir()
+        (cache_dir / "vocals.wav").write_bytes(b"wav_v")
+        (cache_dir / "instrumental.wav").write_bytes(b"wav_i")
+        monkeypatch.setattr(dp, "CACHE_DIR", str(tmp_path))
+
+        self._run_encode_sync(monkeypatch, cache_dir, delete_wavs_on_done=True)
+
+        assert not (cache_dir / "vocals.wav").exists()
+        assert not (cache_dir / "instrumental.wav").exists()
+
+
 class TestPrewarmHooks:
     """Prewarm surfaces progress + ready signals so the front-end seek bar
     can show Demucs state for songs that are being separated before play
@@ -235,9 +367,7 @@ class TestPrewarmHooks:
         if target is not None:
             target()
 
-    def test_cache_hit_emits_ready(
-        self, tmp_path, monkeypatch, clean_coordinator, restore_hooks
-    ):
+    def test_cache_hit_emits_ready(self, tmp_path, monkeypatch, clean_coordinator, restore_hooks):
         audio = tmp_path / "Song---abcdefghijk.m4a"
         audio.write_text("")
         ready_calls = []

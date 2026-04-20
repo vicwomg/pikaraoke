@@ -970,7 +970,20 @@ class StreamManager:
         ActiveStems object, so clearing here doesn't interrupt them — it just
         prevents the dict from growing unboundedly across songs and ensures
         late requests for a finished song get 404 instead of stale data.
+
+        WAV cleanup is deferred to here (rather than the MP3 encode thread)
+        so mid-song restarts keep finding the WAV bytes the browser's range
+        requests expect. See demucs_processor.cleanup_wavs_if_mp3s_exist.
         """
+        from pikaraoke.lib.demucs_processor import cleanup_wavs_if_mp3s_exist
+
+        for entry in self.active_stems.values():
+            path = entry.vocals_path or entry.instrumental_path
+            if not path:
+                continue
+            cache_key = os.path.basename(os.path.dirname(path))
+            if len(cache_key) == 64:
+                cleanup_wavs_if_mp3s_exist(cache_key)
         self.active_stems.clear()
 
     def clear_active_sources(self) -> None:

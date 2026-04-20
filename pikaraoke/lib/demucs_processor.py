@@ -174,6 +174,25 @@ def cleanup_stale_partials() -> None:
                     pass
 
 
+def cleanup_wavs_if_mp3s_exist(cache_key: str) -> None:
+    """Delete cached WAVs when both MP3 siblings are present on disk.
+
+    Called at song-end so mid-session restarts still find the WAVs the
+    browser's <audio> element was range-reading from. Idempotent; no-op
+    if either MP3 is missing or WAVs are already gone.
+    """
+    d = _cache_dir(cache_key)
+    mp3_v = os.path.join(d, "vocals.mp3")
+    mp3_i = os.path.join(d, "instrumental.mp3")
+    if not (os.path.isfile(mp3_v) and os.path.isfile(mp3_i)):
+        return
+    for name in ("vocals.wav", "instrumental.wav"):
+        try:
+            os.remove(os.path.join(d, name))
+        except OSError:
+            pass
+
+
 _encode_lock = threading.Lock()
 _encode_in_progress: set[str] = set()
 
@@ -182,11 +201,11 @@ def encode_mp3_in_background(
     cache_key: str,
     bitrate: str = "320k",
     on_failure: Callable[[str, str], None] | None = None,
+    delete_wavs_on_done: bool = False,
 ) -> None:
-    """Encode cached WAVs to MP3 in a background thread, then delete WAVs.
+    """Encode cached WAVs to MP3 in a background thread.
 
-    No-op if MP3s already exist or WAVs are missing. On Unix the WAV delete
-    does not affect in-flight HTTP tail responses (open fds keep reading).
+    No-op if MP3s already exist or WAVs are missing.
 
     Deduplicates concurrent calls for the same ``cache_key`` so two ffmpeg
     processes don't race on the same ``.partial`` path (three entry points
@@ -195,6 +214,11 @@ def encode_mp3_in_background(
     ``on_failure(stage, detail)`` is invoked once if encoding fails; ``stage``
     is a short label like ``"mp3_encode"`` and ``detail`` is the ffmpeg stderr
     or exception string.
+
+    If ``delete_wavs_on_done`` is True, the WAV sources are removed after
+    both MP3s finish encoding. Only safe when no playback is in flight for
+    this cache_key (i.e. the prewarm path). Mid-session callers keep WAVs
+    and let ``cleanup_wavs_if_mp3s_exist`` run at song-end instead.
     """
     import subprocess as sp
 
@@ -267,13 +291,15 @@ def encode_mp3_in_background(
                         except Exception:
                             logging.exception("encode_mp3 on_failure callback raised")
                     return
-            # Both MP3s ready — remove WAVs. Unix keeps existing fds alive.
-            for wav in (wav_v, wav_i):
-                try:
-                    os.remove(wav)
-                except OSError:
-                    pass
-            logging.info(f"MP3 cache ready, WAVs removed: {cache_key[:12]}...")
+            if delete_wavs_on_done:
+                for wav in (wav_v, wav_i):
+                    try:
+                        os.remove(wav)
+                    except OSError:
+                        pass
+                logging.info(f"MP3 cache ready, WAVs removed: {cache_key[:12]}...")
+            else:
+                logging.info(f"MP3 cache ready: {cache_key[:12]}...")
         finally:
             with _encode_lock:
                 _encode_in_progress.discard(cache_key)
@@ -710,7 +736,11 @@ def prewarm(file_path: str) -> None:
                     input_wav, partial_v, partial_i, _handle.ready_event, _progress_cb
                 ):
                     finalize_partial_stems(cache_key)
-                    encode_mp3_in_background(cache_key, on_failure=_on_encode_failure)
+                    encode_mp3_in_background(
+                        cache_key,
+                        on_failure=_on_encode_failure,
+                        delete_wavs_on_done=True,
+                    )
                     _notify_ready(song_basename, cache_key)
                     success = True
                 else:
