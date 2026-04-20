@@ -258,19 +258,36 @@ const updateBackgroundMediaState = (immediate = false) => {
   }
 };
 
-const flashNotification = (message, categoryClass) => {
+const flashNotificationQueue = [];
+let flashNotificationShowing = false;
+
+const showNextFlashNotification = () => {
+  if (flashNotificationShowing) return;
+  const next = flashNotificationQueue.shift();
+  if (!next) return;
+  flashNotificationShowing = true;
   const sn = $("#splash-notification");
-  if (sn.html()) return;
-  sn.html(message);
-  sn.addClass(categoryClass);
+  sn.html(next.message);
+  sn.addClass(next.categoryClass);
   sn.fadeIn();
   setTimeout(() => {
     sn.fadeOut();
     setTimeout(() => {
       sn.html("");
-      sn.removeClass(categoryClass);
+      sn.removeClass(next.categoryClass);
+      flashNotificationShowing = false;
+      showNextFlashNotification();
     }, 450);
   }, 3000);
+};
+
+const flashNotification = (message, categoryClass) => {
+  // Dedupe adjacent duplicates so a burst of the same stage event
+  // (e.g. repeated socket retries) doesn't stack up a long queue.
+  const tail = flashNotificationQueue[flashNotificationQueue.length - 1];
+  if (tail && tail.message === message && tail.categoryClass === categoryClass) return;
+  flashNotificationQueue.push({ message, categoryClass });
+  showNextFlashNotification();
 }
 
 // Warnings are buffered per-song so an emit that arrives before the song
@@ -284,14 +301,38 @@ let songWarningSongKey = null;
 const getCurrentSongWarnings = () =>
   songWarningSongKey ? songWarningsBySong.get(songWarningSongKey) || [] : [];
 
+// Strip the YouTube ID suffix ("Title---dQw4w9WgXcQ" / "Title [dQw4w9WgXcQ]")
+// from a basename so the tooltip header reads as a human title, not a filename.
+const humanizeSongKey = (key) => {
+  if (!key) return "";
+  return String(key)
+    .replace(/---[A-Za-z0-9_-]{11}$/, "")
+    .replace(/\s*\[[A-Za-z0-9_-]{11}\]$/, "")
+    .trim();
+};
+
+const setTooltipOpen = (open) => {
+  const icon = $("#song-warning");
+  const tooltip = $("#song-warning-tooltip");
+  if (open) {
+    tooltip.show();
+    icon.attr("aria-expanded", "true");
+  } else {
+    tooltip.hide();
+    icon.attr("aria-expanded", "false");
+  }
+};
+
 const renderSongWarnings = () => {
   const icon = $("#song-warning");
   const list = $("#song-warning-messages");
+  const nameEl = $("#song-warning-song-name");
   const warnings = getCurrentSongWarnings();
   if (!warnings.length) {
     icon.hide();
-    $("#song-warning-tooltip").hide();
+    setTooltipOpen(false);
     list.empty();
+    nameEl.text("");
     return;
   }
   const html = warnings.map((w) => {
@@ -302,6 +343,7 @@ const renderSongWarnings = () => {
     return `<div class="warning-entry">${title}${detail}</div>`;
   }).join("");
   list.html(html);
+  nameEl.text(humanizeSongKey(songWarningSongKey));
   const title = warnings.length === 1
     ? warnings[0].message
     : `${warnings.length} warnings — click to view`;
@@ -668,8 +710,11 @@ const handleNowPlayingUpdate = (np) => {
   // Switch which buffered warnings are shown when the song changes. The
   // buffer retains entries for other songs so a warning emitted at download
   // time (before the song starts) still lands when its song begins playing.
+  // When now_playing is null (idle between songs), keep whatever songWarning
+  // key we had so pre-playback / end-of-song warnings stay visible until
+  // a new song takes over.
   const songKey = np.now_playing_basename || null;
-  if (songKey !== songWarningSongKey) {
+  if (songKey && songKey !== songWarningSongKey) {
     songWarningSongKey = songKey;
     renderSongWarnings();
   }
@@ -1127,8 +1172,12 @@ const setupSocketEvents = () => {
     if (!data || !data.message || !data.song) return;
     const added = bufferSongWarning(data.song, data.message, data.detail || "");
     if (!added) return;
-    // Only surface the toast and icon for the song currently on splash;
-    // warnings for other songs stay buffered until that song starts playing.
+    // If no song is currently tracked (nothing playing, no prior warnings
+    // shown), promote this song so warnings emitted during download /
+    // demucs / alignment are surfaced before playback starts. Otherwise
+    // keep per-song targeting so queued-song warnings don't steal focus
+    // from the currently-playing song.
+    if (!songWarningSongKey) songWarningSongKey = data.song;
     if (data.song === songWarningSongKey) {
       renderSongWarnings();
       flashNotification(data.message, "is-warning");
@@ -1227,12 +1276,46 @@ $(function () {
   handleUnsupportedBrowser();
   testAutoplayCapability();
 
-  // Toggle the per-song warning tooltip on icon click; keep click inside
-  // the tooltip from closing it so the copy button is usable.
-  $("#song-warning").on("click", (e) => {
-    if ($(e.target).closest("#song-warning-tooltip").length) return;
-    $("#song-warning-tooltip").toggle();
-  });
+  // Per-song warning tooltip: click toggles; hover/focus open; leaving the
+  // hover region with no keyboard focus closes. Clicks inside the tooltip
+  // don't close (so the copy button stays usable). Keyboard: Enter/Space
+  // toggles, Escape closes and returns focus to the icon.
+  let songWarningHoverTimer = null;
+  const openTooltipOnHover = () => {
+    if (songWarningHoverTimer) { clearTimeout(songWarningHoverTimer); songWarningHoverTimer = null; }
+    if (!$("#song-warning").is(":visible")) return;
+    setTooltipOpen(true);
+  };
+  const scheduleCloseTooltipOnLeave = () => {
+    if (songWarningHoverTimer) clearTimeout(songWarningHoverTimer);
+    songWarningHoverTimer = setTimeout(() => {
+      // Don't close if focus moved inside the icon / tooltip.
+      const active = document.activeElement;
+      if (active && $(active).closest("#song-warning").length) return;
+      setTooltipOpen(false);
+    }, 150);
+  };
+  $("#song-warning")
+    .on("click", (e) => {
+      if ($(e.target).closest("#song-warning-tooltip").length) return;
+      const isOpen = $("#song-warning-tooltip").is(":visible");
+      setTooltipOpen(!isOpen);
+    })
+    .on("mouseenter", openTooltipOnHover)
+    .on("mouseleave", scheduleCloseTooltipOnLeave)
+    .on("focusin", openTooltipOnHover)
+    .on("focusout", scheduleCloseTooltipOnLeave)
+    .on("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        if ($(e.target).closest("#song-warning-tooltip").length) return;
+        e.preventDefault();
+        const isOpen = $("#song-warning-tooltip").is(":visible");
+        setTooltipOpen(!isOpen);
+      } else if (e.key === "Escape") {
+        setTooltipOpen(false);
+        $("#song-warning").trigger("focus");
+      }
+    });
   $("#song-warning-copy").on("click", (e) => {
     e.stopPropagation();
     copySongWarnings();
@@ -1240,7 +1323,7 @@ $(function () {
   // Dismiss the tooltip on outside click.
   $(document).on("click", (e) => {
     if (!$(e.target).closest("#song-warning").length) {
-      $("#song-warning-tooltip").hide();
+      setTooltipOpen(false);
     }
   });
 });

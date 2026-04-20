@@ -128,23 +128,42 @@ No action.
       - "Separating vocals… <pct>%" (drive from `demucs_progress`)
       - "Fetching lyrics…" (before `lyrics.py:175`)
       - "Aligning words…" (before `lyrics.py:241`)
-- [ ] **P1** Replace the `if (sn.html()) return;` guard
-      (`pikaraoke/static/splash.js:247`) with a small queue or stack so
-      concurrent stage notifications aren't dropped silently.
+- [x] ~~**P1** Replace the `if (sn.html()) return;` guard with a small
+      queue so concurrent stage notifications aren't dropped silently.~~
+      Done — `flashNotification` now pushes onto a FIFO queue and a
+      `showNextFlashNotification` drainer fires the next toast as soon
+      as the current one finishes its 3000ms display + 450ms fade-out.
+      Adjacent duplicates dedupe at enqueue time so a burst of socket
+      retries doesn't stack up.
 - [ ] **P2** Consider per-stage styling (color/icon) so stages are
       visually distinct chips rather than one shared toast.
 
 ### US-12 Splash error indicators (PARTIAL)
 
-- [ ] **P1** Add hover/focus tooltip behavior in addition to click
-      (`splash.js:1218`). Required for keyboard accessibility.
-- [ ] **P1** Show the affected song name inside the tooltip body, not
-      just the icon `title` attribute (`splash.js:273-296`).
-- [ ] **P1** Render the `#song-warning` icon outside `#now-playing` (or
-      ensure it's visible pre-playback) so warnings emitted during
-      processing are visible before the song actually starts.
-- [ ] **P2** Add `role="button"`, `aria-label`, and `tabindex="0"` to
-      `#song-warning` for accessibility.
+- [x] ~~**P1** Add hover/focus tooltip behavior in addition to click.~~
+      Done — `#song-warning` now opens the tooltip on `mouseenter` and
+      `focusin`, closes on `mouseleave`/`focusout` (unless focus moved
+      inside the popover), and supports Enter/Space to toggle and
+      Escape to close + return focus. `aria-expanded` flips with
+      open/close state.
+- [x] ~~**P1** Show the affected song name inside the tooltip body.~~
+      Done — new `#song-warning-song-name` header above the messages
+      shows the humanized basename (strips the `---<ytid>` /
+      `[<ytid>]` suffix). Hides when empty.
+- [x] ~~**P1** Render the `#song-warning` icon outside `#now-playing`
+      so warnings emitted during processing are visible before the
+      song actually starts.~~ Done — icon is now a top-center
+      `sp-overlay` sibling of `#top-container`, independent of the
+      now-playing block's `display: none`. `song_warning` handler
+      auto-promotes the first incoming song to `songWarningSongKey`
+      when nothing is playing yet, and idle `now_playing` updates no
+      longer clear the key (preserves pre-playback warnings until a
+      new song actually starts).
+- [x] ~~**P2** Add `role="button"`, `aria-label`, and `tabindex="0"`
+      to `#song-warning` for accessibility.~~ Done — added
+      `role="button"`, `tabindex="0"`, `aria-haspopup="true"`,
+      `aria-expanded` (toggled in JS), and `aria-label` on the icon
+      plus `role="dialog"` + `aria-label` on the tooltip.
 
 ### US-13 Warnings survive until acknowledged (PARTIAL)
 

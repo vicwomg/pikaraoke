@@ -54,19 +54,26 @@
     <p id="now-playing-song" class="sp-now-title"></p>
     <div class="sp-now-singer">
       <span class="sp-singer-name" id="now-playing-singer"></span>
-      <span id="song-warning" style="display: none; position: relative; margin-left: 8px; cursor: pointer;">
-        <i class="icon icon-attention" title="Click to view warnings"></i>
-        <div id="song-warning-tooltip" style="display: none;">
-          <div id="song-warning-messages"></div>
-          <button id="song-warning-copy" class="sp-intro-btn" type="button" style="padding: 4px 10px; font-size: 12px;">Copy</button>
-        </div>
-      </span>
     </div>
     <div class="sp-now-time">
       <span id="current">00:00</span>
       <span class="sp-time-sep">/</span>
       <span id="duration">00:00</span>
     </div>
+  </div>
+</div>
+
+{# ==== Per-song warnings (top center, always mounted) ==== #}
+<div id="song-warning" class="sp-overlay" style="display: none;" role="button"
+     tabindex="0" aria-haspopup="true" aria-expanded="false"
+     aria-label="Ostrzeżenia dotyczące piosenki">
+  <i class="icon icon-attention" aria-hidden="true"></i>
+  <div id="song-warning-tooltip" style="display: none;" role="dialog"
+       aria-label="Szczegóły ostrzeżeń">
+    <div id="song-warning-song-name" class="warning-song-name"></div>
+    <div id="song-warning-messages"></div>
+    <button id="song-warning-copy" class="sp-intro-btn" type="button"
+            style="padding: 4px 10px; font-size: 12px;">Kopiuj</button>
   </div>
 </div>
 
@@ -603,12 +610,31 @@
   .visible { visibility: visible; opacity: 1; transition: opacity 0.5s linear; }
   .hidden { visibility: hidden; opacity: 0; transition: visibility 0s 0.5s, opacity 0.5s linear; }
 
-  /* Song alignment / failure warnings surfaced on the splash screen. */
-  #song-warning i.icon { color: var(--pk-sun); font-size: 16px; }
+  /* Song alignment / failure warnings surfaced on the splash screen.
+     Lives outside #now-playing so warnings emitted during download /
+     demucs / alignment are visible before playback starts. */
+  #song-warning {
+    top: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 7;
+    cursor: pointer;
+    padding: 6px 10px;
+    background: var(--pk-surface-2);
+    border: 1px solid var(--pk-border-strong);
+    border-radius: var(--pk-r-md);
+    line-height: 1;
+  }
+  #song-warning:focus-visible {
+    outline: 2px solid var(--pk-sun);
+    outline-offset: 2px;
+  }
+  #song-warning i.icon { color: var(--pk-sun); font-size: 18px; }
   #song-warning-tooltip {
     position: absolute;
     top: 100%;
-    right: 0;
+    left: 50%;
+    transform: translateX(-50%);
     margin-top: 6px;
     padding: 10px 12px;
     background: var(--pk-surface);
@@ -625,6 +651,17 @@
     text-shadow: none;
     cursor: default;
     box-shadow: var(--pk-shadow-elev);
+  }
+  #song-warning-song-name.warning-song-name {
+    font-weight: 600;
+    color: var(--pk-ink);
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--pk-border-strong);
+    word-break: break-word;
+  }
+  #song-warning-song-name.warning-song-name:empty {
+    display: none;
   }
   #song-warning-messages {
     max-height: 180px;
