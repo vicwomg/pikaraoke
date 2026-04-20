@@ -468,3 +468,62 @@ yt-dlp error output; I can dismiss them one at a time.
 As an admin, `song_warning` events (missing lyrics, failed alignment, demucs
 failure) surface in the UI with `message`, `detail`, `song`, and `severity`
 fields, so problems are diagnosable without tailing logs.
+
+## Multi-device playback
+
+### US-40 Pilots as playback satellites
+
+As a user, any pilot (control panel) can opt in to playing the current
+song locally on its own device, in parallel with the splash. The pilot
+becomes an audio satellite: it streams the same media the splash is
+rendering and stays in lock-step with it, so what comes out of the phone
+matches what's on the TV.
+
+- **Opt-in per pilot**: a toggle on the now-playing panel (default off)
+  switches that pilot from "silent remote" to "satellite". Other pilots
+  are unaffected — one phone can go satellite without turning the whole
+  room into echoing speakers.
+- **Per-pilot volume / stem sliders**: a satellite pilot exposes its own
+  local mix controls (single volume before stems, vocal + instrumental
+  sliders once `stems_ready` fires). These are independent of the splash
+  mix — the TV can carry the karaoke mix (vocals ducked) while the singer
+  monitors full vocals on headphones to stay on pitch.
+- **Shared queue, shared transport**: satellites do not fork the session.
+  They observe the same queue, the same play / pause / skip / restart
+  commands, and the same seek position as every other client. Any pilot
+  (satellite or not) can still drive the queue for everyone.
+- **Sync with the splash**: satellite audio tracks the splash playhead
+  using the same `playback_position` / `seek` / `stems_ready` signals
+  described in earlier stories; drift is corrected continuously so the
+  satellite never more than ~200 ms off.
+- **Use cases**: the singer monitors vocals on in-ear headphones to nail
+  pitch; friends on the patio listen through a phone with vocals up while
+  the TV keeps the room mix. A satellite must never appear as a second
+  splash (no captions, no QR, no intro screen) — it's strictly an audio
+  follower of the canonical splash.
+
+## Settings UI
+
+### US-41 Settings panel
+
+As a user, I have a dedicated Settings section in the UI that surfaces
+the runtime toggles and environment info I'd otherwise have to dig for
+on the command line or in a config file.
+
+- **Vocal splitter toggle**: on / off switch for Demucs. Default is **on
+  when a GPU accelerator (CUDA or Apple MPS) is detected**, off otherwise
+  so CPU-only machines don't silently pay the separation cost. The
+  underlying preference (`vocal_removal`) is the one already covered by
+  US-35 and US-36 — Settings is just its canonical UI home.
+- **Library versions**: the panel shows the versions of the key external
+  libraries pikaraoke depends on — `yt-dlp`, `whisperx` (or the
+  configured aligner), and `demucs` — read at runtime, not baked into
+  the template, so "it works for me but not for you" bug reports start
+  with a clear version footprint. Accelerator backend (CPU / CUDA /
+  MPS) is shown alongside so the vocal-splitter default is explainable.
+- **Other existing preferences**: high-quality downloads, preferred
+  language, download path, proxy, buffer/transcoding flags, etc. — all
+  the things US-35 says must persist — are exposed here instead of being
+  CLI-only. Changes save immediately and broadcast via
+  `preferences_update` so every pilot stays consistent without a page
+  reload.
