@@ -438,6 +438,14 @@
       </div>
     </div>
 
+    {# Processing chip — surfaces Demucs progress before stems_ready.
+       Visible only while demucs is between 0 < processed < total so the
+       user knows why the stem sliders aren't live yet. #}
+    <div class="pk-player-processing" data-pk-processing hidden>
+      <span class="pk-processing-spinner" aria-hidden="true"></span>
+      <span class="pk-processing-label" data-pk-processing-label></span>
+    </div>
+
     {# Seek slider — shown only when song has a known duration #}
     <div class="pk-player-seek" data-pk-seek-section hidden>
       <input type="range" min="0" max="100" step="1" value="0" data-pk-seek class="pk-seek-slider">

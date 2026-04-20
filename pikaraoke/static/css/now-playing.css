@@ -264,6 +264,31 @@
 
 .pk-player-singer i.icon { font-size: 11px; color: var(--pk-amber); }
 
+/* Processing chip — visible only while Demucs is in flight. Sits just
+   above the seek bar so the "why aren't stems live yet" cue is adjacent
+   to the buffered-seek shading. */
+.pk-player-processing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 24px 0;
+  color: var(--pk-ink-3);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+.pk-player-processing[hidden] { display: none; }
+.pk-processing-spinner {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--pk-border-strong);
+  border-top-color: var(--pk-amber);
+  animation: pk-processing-spin 0.9s linear infinite;
+}
+@keyframes pk-processing-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Seek slider */
 .pk-player-seek {
   padding: 0 24px 8px;

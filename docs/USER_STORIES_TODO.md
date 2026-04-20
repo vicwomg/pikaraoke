@@ -335,10 +335,14 @@ No action.
 
 ### US-24 Visual cues for processing progress (PARTIAL)
 
-- [ ] **P1** Add a separate processing indicator in the now-playing
-      panel (spinner, badge, or text chip — e.g. "Separating vocals…
-      <pct>%") next to the seek bar. Currently the only cue is the
-      seek-bar shading.
+- [x] ~~**P1** Add a separate processing indicator in the now-playing
+      panel next to the seek bar.~~ Done — new
+      `[data-pk-processing]` chip sits directly above the seek bar in
+      the expanded player (`#pk-player-full`). `setProcessingIndicator`
+      shows "Separating vocals… N%" while Demucs is in flight, hides
+      on the first `stems_ready` and on render when `demucs_processed`
+      has caught up to `demucs_total`. A small CSS spinner keeps the
+      cue visible even when the percent delta between ticks is tiny.
 
 ---
 

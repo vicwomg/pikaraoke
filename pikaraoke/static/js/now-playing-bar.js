@@ -53,6 +53,8 @@
     el.seekSlider = el.full.querySelector('[data-pk-seek]');
     el.seekCurrent = el.full.querySelector('[data-pk-seek-current]');
     el.seekDuration = el.full.querySelector('[data-pk-seek-duration]');
+    el.processing = el.full.querySelector('[data-pk-processing]');
+    el.processingLabel = el.full.querySelector('[data-pk-processing-label]');
 
     if (!state.isAdmin) {
       el.full.querySelectorAll('[data-admin]').forEach((n) => (n.hidden = true));
@@ -105,6 +107,22 @@
     el.stemTools.forEach((t) => (t.hidden = false));
     if (el.vocalSlider) el.vocalSlider.disabled = false;
     if (el.instSlider) el.instSlider.disabled = false;
+    setProcessingIndicator(null);
+  }
+
+  // Show "Separating vocals… N%" chip while Demucs is in flight; hide
+  // once processed catches up to total (stems_ready fires right after).
+  function setProcessingIndicator(pct) {
+    if (!el.processing) return;
+    if (pct === null || pct === undefined) {
+      el.processing.hidden = true;
+      return;
+    }
+    const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+    if (el.processingLabel) {
+      el.processingLabel.textContent = `Separating vocals… ${clamped}%`;
+    }
+    el.processing.hidden = false;
   }
 
   // Another pilot moved a stem slider — update the non-active slider and its %.
@@ -143,6 +161,11 @@
     if (data.total <= 0) return;
     state.seekBufferedDemucs = data.processed >= data.total - 0.05 ? null : data.processed;
     updateSeekBufferedVisual();
+    // Surface the demucs progress as a text chip next to the seek bar so
+    // the user has a cue beyond the buffered shading. Hide once finished;
+    // stems_ready will confirm and also hide defensively.
+    if (data.processed >= data.total - 0.05) setProcessingIndicator(null);
+    else setProcessingIndicator((data.processed / data.total) * 100);
   }
 
   function onFfmpegProgress(data) {
@@ -174,6 +197,7 @@
     if (!data || !data.now_playing) {
       el.mini.hidden = true;
       document.body.classList.remove('pk-has-mini-player');
+      setProcessingIndicator(null);
       if (el.full.classList.contains('is-open')) close();
       return;
     }
@@ -244,8 +268,10 @@
         && typeof data.demucs_processed === 'number' && typeof data.demucs_total === 'number'
         && data.demucs_total > 0 && data.demucs_processed < data.demucs_total) {
         state.seekBufferedDemucs = data.demucs_processed;
+        setProcessingIndicator((data.demucs_processed / data.demucs_total) * 100);
       } else {
         state.seekBufferedDemucs = null;
+        setProcessingIndicator(null);
       }
       if (typeof data.ffmpeg_processed === 'number' && typeof data.ffmpeg_total === 'number'
         && data.ffmpeg_total > 0 && data.ffmpeg_processed < data.ffmpeg_total) {
