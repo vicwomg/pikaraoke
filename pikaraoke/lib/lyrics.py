@@ -958,7 +958,13 @@ def _words_to_ass_with_k_tags(
         if line_words and _words_overlap_window(line_words, start, end):
             current_ass = " ".join(_k_token(w, start, params) for w in line_words)
         else:
-            current_ass = _escape_ass(text)
+            # Whisper's per-word timings for this line drifted too far from
+            # the LRC window to trust their absolute values. Keep per-word
+            # highlighting by re-anchoring the line's tokens to the LRC
+            # window with uniform durations - sync accuracy falls back to
+            # line-level granularity (same as pre-whisperx baseline), but
+            # the user still sees a smooth wipe instead of a frozen line.
+            current_ass = _uniform_k_tokens(text.split(), start, end, params)
         past_raw, future_raw = _context_window_texts(entries, i)
         body = _render_context_block(
             [_escape_ass(t) for t in past_raw],
@@ -977,6 +983,25 @@ def _words_overlap_window(words: list[Word], start: float, end: float) -> bool:
     first = words[0].start
     last = words[-1].end
     return last >= start - _ALIGNMENT_TOLERANCE_S and first <= end + _ALIGNMENT_TOLERANCE_S
+
+
+def _uniform_k_tokens(
+    tokens: list[str], start: float, end: float, params: "_AnimParams | None" = None
+) -> str:
+    """Render ``tokens`` as \\kf tags spread evenly across ``[start, end]``.
+
+    Fallback path when whisper's per-word timings can't be trusted for a
+    line. The line itself is still time-accurate (LRC window), only the
+    intra-line word wipe speed is estimated uniformly.
+    """
+    if not tokens:
+        return ""
+    duration = max(end - start, 0.01)
+    per = duration / len(tokens)
+    return " ".join(
+        _k_token(Word(text=t, start=start + per * i, end=start + per * (i + 1)), start, params)
+        for i, t in enumerate(tokens)
+    )
 
 
 def _k_token(word: Word, line_start_s: float = 0.0, params: _AnimParams | None = None) -> str:

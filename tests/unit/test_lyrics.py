@@ -172,13 +172,15 @@ class TestWordsToAssWithKTags:
         ass = _words_to_ass_with_k_tags(words, lrc)
         assert "{\\kf50}hello {\\kf50}world" in ass
 
-    def test_line_without_matching_words_falls_back_to_text(self):
+    def test_line_without_matching_words_uses_uniform_k_over_lrc_window(self):
         lrc = "[00:01.00]hello\n[00:20.00]world"
-        words = [Word("hello", 1.0, 1.5)]  # no words in second line window
+        words = [Word("hello", 1.0, 1.5)]  # no whisper words for second line
         ass = _words_to_ass_with_k_tags(words, lrc)
-        # Second dialogue has raw text, no \k
+        # Without trustworthy per-word timings, the fallback re-anchors the
+        # line's tokens to the LRC window with uniform \kf durations so
+        # karaoke highlighting still plays (at line-level granularity).
         dialogues = [ln for ln in ass.splitlines() if ln.startswith("Dialogue:")]
-        assert "{\\k" not in dialogues[1]
+        assert dialogues[1].count(r"\kf") == 1
         assert "world" in dialogues[1]
 
     def test_empty_lrc_returns_none(self):
@@ -1237,13 +1239,14 @@ class TestWordsToAssContextBlock:
         dialogues = [ln for ln in ass.splitlines() if ln.startswith("Dialogue:")]
         # Each LRC line receives exactly its own two tokens - not more.
         assert dialogues[0].count(r"\k") == 2
-        # Lines 2 and 3 have whisper timings far outside their LRC windows
-        # (30s+ drift), so the tolerance check demotes them to static text
-        # rather than rendering wildly misaligned \k highlights.
-        assert r"\k" not in dialogues[1]
-        assert r"\k" not in dialogues[2]
-        assert "second line" in dialogues[1]
-        assert "third line" in dialogues[2]
+        # Lines 2 and 3 have whisper timings far outside their LRC windows.
+        # Rather than freezing them as static text, the fallback re-anchors
+        # the tokens to the LRC window with uniform \kf durations so the
+        # user still sees a word-level wipe at line-level sync accuracy.
+        assert dialogues[1].count(r"\kf") == 2
+        assert dialogues[2].count(r"\kf") == 2
+        assert "second" in dialogues[1] and "line" in dialogues[1]
+        assert "third" in dialogues[2] and "line" in dialogues[2]
 
     def test_line_count_caps_at_lrc_token_count(self):
         # Aligner output is 1:1 with reference tokens; position-based
