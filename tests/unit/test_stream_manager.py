@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.stream_manager import (
     PlaybackResult,
@@ -101,6 +102,180 @@ class TestStreamManagerInit:
         assert sm.preferences == test_prefs
         assert sm.ffmpeg_process is None
         assert sm.ffmpeg_log is None
+
+
+class TestStemsLifecycle:
+    """Play -> end -> replay lifecycle with stem WAV/MP3 cache transitions.
+
+    After first-play ends, ``clear_active_stems`` must drop the WAVs that
+    are no longer needed (MP3 siblings ready) but not before. On replay
+    ``_register_cached_stems`` must emit MP3 stem URLs — the stale WAV
+    URLs from the previous play would 404/416 because the files are gone.
+    """
+
+    def _capture_events(self, events: EventSystem, name: str) -> list:
+        captured: list = []
+        events.on(name, lambda payload: captured.append(payload))
+        return captured
+
+    def test_register_cached_mp3_emits_mp3_urls(self, tmp_path, test_prefs):
+        cache_key = "a" * 64
+        cache_dir = tmp_path / cache_key
+        cache_dir.mkdir()
+        vocals_mp3 = cache_dir / "vocals.mp3"
+        instrumental_mp3 = cache_dir / "instrumental.mp3"
+        vocals_mp3.write_bytes(b"mp3_v")
+        instrumental_mp3.write_bytes(b"mp3_i")
+
+        events = EventSystem()
+        captured = self._capture_events(events, "stems_ready")
+        sm = StreamManager(test_prefs, events=events)
+
+        sm._register_cached_stems(
+            "uid_replay",
+            cache_key,
+            (str(vocals_mp3), str(instrumental_mp3), "mp3"),
+            total_seconds=180.0,
+        )
+
+        entry = sm.active_stems["uid_replay"]
+        assert entry.format == "mp3"
+        assert entry.vocals_path == str(vocals_mp3)
+        assert entry.instrumental_path == str(instrumental_mp3)
+
+        assert len(captured) == 1
+        payload = captured[0]
+        assert payload["vocals_url"] == "/stream/uid_replay/vocals.mp3"
+        assert payload["instrumental_url"] == "/stream/uid_replay/instrumental.mp3"
+
+    def test_register_cached_mp3_does_not_kick_encode(self, tmp_path, test_prefs):
+        """MP3 cache hit means encoding is already done — don't re-invoke it."""
+        cache_key = "b" * 64
+        cache_dir = tmp_path / cache_key
+        cache_dir.mkdir()
+        vocals_mp3 = cache_dir / "vocals.mp3"
+        instrumental_mp3 = cache_dir / "instrumental.mp3"
+        vocals_mp3.write_bytes(b"mp3_v")
+        instrumental_mp3.write_bytes(b"mp3_i")
+
+        sm = StreamManager(test_prefs, events=EventSystem())
+
+        with patch("pikaraoke.lib.demucs_processor.encode_mp3_in_background") as mock_encode:
+            sm._register_cached_stems(
+                "uid",
+                cache_key,
+                (str(vocals_mp3), str(instrumental_mp3), "mp3"),
+                total_seconds=180.0,
+            )
+
+        mock_encode.assert_not_called()
+
+    def test_clear_active_stems_cleans_wavs_when_mp3s_ready(self, tmp_path, test_prefs):
+        """End-of-song path: WAVs go away but only once both MP3 siblings
+        are on disk. Otherwise (e.g. MP3 encode still in flight) the WAV
+        stems stay so a refreshed play with WAV cache can keep working.
+        """
+        cache_key = "c" * 64
+        cache_dir = tmp_path / cache_key
+        cache_dir.mkdir()
+        (cache_dir / "vocals.wav").write_bytes(b"wav_v")
+        (cache_dir / "instrumental.wav").write_bytes(b"wav_i")
+        (cache_dir / "vocals.mp3").write_bytes(b"mp3_v")
+        (cache_dir / "instrumental.mp3").write_bytes(b"mp3_i")
+
+        sm = StreamManager(test_prefs, events=EventSystem())
+        from pikaraoke.lib import demucs_processor as dp
+
+        with patch.object(dp, "CACHE_DIR", str(tmp_path)):
+            sm._register_cached_stems(
+                "uid",
+                cache_key,
+                (str(cache_dir / "vocals.wav"), str(cache_dir / "instrumental.wav"), "wav"),
+                total_seconds=180.0,
+            )
+            # Avoid a real ffmpeg spawn when _register_cached_stems calls
+            # encode_mp3_in_background for the WAV format branch.
+            # (MP3s already exist so the function early-exits on noop.)
+            sm.clear_active_stems()
+
+        assert sm.active_stems == {}
+        assert not (cache_dir / "vocals.wav").exists()
+        assert not (cache_dir / "instrumental.wav").exists()
+        assert (cache_dir / "vocals.mp3").exists()
+        assert (cache_dir / "instrumental.mp3").exists()
+
+    def test_clear_active_stems_keeps_wavs_when_mp3s_missing(self, tmp_path, test_prefs):
+        """MP3 encode didn't finish yet — WAVs must survive so the next play
+        from this same cache_key still has stems to serve.
+        """
+        cache_key = "d" * 64
+        cache_dir = tmp_path / cache_key
+        cache_dir.mkdir()
+        (cache_dir / "vocals.wav").write_bytes(b"wav_v")
+        (cache_dir / "instrumental.wav").write_bytes(b"wav_i")
+
+        sm = StreamManager(test_prefs, events=EventSystem())
+        from pikaraoke.lib import demucs_processor as dp
+
+        with patch.object(dp, "CACHE_DIR", str(tmp_path)):
+            sm._register_cached_stems(
+                "uid",
+                cache_key,
+                (str(cache_dir / "vocals.wav"), str(cache_dir / "instrumental.wav"), "wav"),
+                total_seconds=180.0,
+            )
+            sm.clear_active_stems()
+
+        assert (cache_dir / "vocals.wav").exists()
+        assert (cache_dir / "instrumental.wav").exists()
+
+    def test_full_play_end_replay_cycle(self, tmp_path, test_prefs):
+        """The full symptom the user reported: first-play WAV stems,
+        song ends (WAVs deleted because MP3s present), replay registers
+        stems from MP3 cache and emits .mp3 URLs — not stale .wav URLs.
+        """
+        cache_key = "e" * 64
+        cache_dir = tmp_path / cache_key
+        cache_dir.mkdir()
+        # Cold cache -> Demucs runs -> WAVs written
+        (cache_dir / "vocals.wav").write_bytes(b"wav_v")
+        (cache_dir / "instrumental.wav").write_bytes(b"wav_i")
+        # Background MP3 encode finished during song
+        (cache_dir / "vocals.mp3").write_bytes(b"mp3_v")
+        (cache_dir / "instrumental.mp3").write_bytes(b"mp3_i")
+
+        events = EventSystem()
+        captured = self._capture_events(events, "stems_ready")
+        sm = StreamManager(test_prefs, events=events)
+        from pikaraoke.lib import demucs_processor as dp
+
+        with patch.object(dp, "CACHE_DIR", str(tmp_path)):
+            # First play: WAV cache-hit path
+            sm._register_cached_stems(
+                "uid_first",
+                cache_key,
+                (str(cache_dir / "vocals.wav"), str(cache_dir / "instrumental.wav"), "wav"),
+                total_seconds=180.0,
+            )
+            # Song ends
+            sm.clear_active_stems()
+
+            # Replay — MP3 cache-hit path (get_cached_stems prefers MP3)
+            sm._register_cached_stems(
+                "uid_replay",
+                cache_key,
+                (str(cache_dir / "vocals.mp3"), str(cache_dir / "instrumental.mp3"), "mp3"),
+                total_seconds=180.0,
+            )
+
+        assert not (cache_dir / "vocals.wav").exists()
+        assert len(captured) == 2
+        first = captured[0]
+        second = captured[1]
+        assert first["vocals_url"].endswith("/vocals.wav")
+        assert second["vocals_url"].endswith("/vocals.mp3")
+        assert second["instrumental_url"].endswith("/instrumental.mp3")
+        assert sm.active_stems["uid_replay"].format == "mp3"
 
 
 class TestStreamManagerLogFfmpegOutput:

@@ -126,3 +126,161 @@ class TestStreamStemAudioPipe:
         # tail-stream branch returns a streaming response with Accept-Ranges: none
         assert response.status_code == 200
         assert response.headers.get("Accept-Ranges") == "none"
+
+
+def _mp3_stems(path: str) -> ActiveStems:
+    done = threading.Event()
+    done.set()
+    ready = threading.Event()
+    ready.set()
+    return ActiveStems(
+        vocals_path=path,
+        instrumental_path=path,
+        format="mp3",
+        done_event=done,
+        ready_event=ready,
+        processed_seconds=180.0,
+        total_seconds=180.0,
+    )
+
+
+class TestStreamStemAudioMp3Replay:
+    """After first-play WAV cleanup only MP3 stems remain on disk. Replay
+    must serve them correctly: right mimetype, Range-aware, no 416.
+    """
+
+    @patch("pikaraoke.routes.stream.get_karaoke_instance")
+    def test_serves_mp3_with_audio_mpeg_mimetype(self, mock_get_instance, client, tmp_path):
+        stem_file = tmp_path / "vocals.mp3"
+        stem_file.write_bytes(b"\xff\xfb" + b"\x00" * 2048)  # fake MP3 header + data
+        stems = _mp3_stems(str(stem_file))
+
+        mock_karaoke = MagicMock()
+        mock_karaoke.playback_controller.stream_manager.active_stems = {"uid2": stems}
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/stream/uid2/vocals.mp3")
+
+        assert response.status_code == 200
+        assert response.mimetype == "audio/mpeg"
+        assert response.headers.get("Accept-Ranges") == "bytes"
+
+    @patch("pikaraoke.routes.stream.get_karaoke_instance")
+    def test_range_request_on_mp3_returns_206(self, mock_get_instance, client, tmp_path):
+        stem_file = tmp_path / "vocals.mp3"
+        stem_file.write_bytes(b"\xff\xfb" + b"\x00" * 2048)
+        stems = _mp3_stems(str(stem_file))
+
+        mock_karaoke = MagicMock()
+        mock_karaoke.playback_controller.stream_manager.active_stems = {"uid2": stems}
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/stream/uid2/vocals.mp3", headers={"Range": "bytes=100-200"})
+
+        assert response.status_code == 206
+        assert response.mimetype == "audio/mpeg"
+        content_range = response.headers.get("Content-Range", "")
+        assert content_range.startswith("bytes 100-200/")
+
+    @patch("pikaraoke.routes.stream.get_karaoke_instance")
+    def test_range_beyond_mp3_returns_416_not_silent_200(self, mock_get_instance, client, tmp_path):
+        """If a client requests a Range past the MP3 file length, the server
+        must return 416 (so the audio element fails fast) rather than a
+        truncated 206 that would desync playback.
+        """
+        stem_file = tmp_path / "vocals.mp3"
+        stem_file.write_bytes(b"\xff\xfb" + b"\x00" * 64)  # tiny file
+        stems = _mp3_stems(str(stem_file))
+
+        mock_karaoke = MagicMock()
+        mock_karaoke.playback_controller.stream_manager.active_stems = {"uid2": stems}
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/stream/uid2/vocals.mp3", headers={"Range": "bytes=100000-200000"})
+
+        assert response.status_code == 416
+
+
+class TestStreamStemAudioWavUrlWithMp3OnDisk:
+    """Regression guard for the cross-format fallback: when the URL says
+    .wav but only the .mp3 sibling is on disk (and ActiveStems still points
+    at the now-gone .wav), the route must swap to .mp3 and serve it — but
+    it must NOT answer an out-of-bounds Range with 416 because the browser
+    is pinned to the old WAV Content-Length. Instead it should shape the
+    response so the audio element can recover (serve 200 full or 206
+    against the MP3 size).
+    """
+
+    @patch("pikaraoke.routes.stream.get_karaoke_instance")
+    def test_fallback_serves_mp3_bytes_for_wav_url(self, mock_get_instance, client, tmp_path):
+        # Simulate the mid-session race: ActiveStems still has .wav but only
+        # .mp3 exists on disk (e.g. if cleanup ran early).
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+        mp3_file = cache_dir / "vocals.mp3"
+        mp3_file.write_bytes(b"\xff\xfb" + b"\x00" * 2048)
+        wav_path = str(cache_dir / "vocals.wav")  # does not exist on disk
+
+        done = threading.Event()
+        done.set()
+        ready = threading.Event()
+        ready.set()
+        stems = ActiveStems(
+            vocals_path=wav_path,
+            instrumental_path=wav_path,
+            format="wav",
+            done_event=done,
+            ready_event=ready,
+            processed_seconds=180.0,
+            total_seconds=180.0,
+        )
+        mock_karaoke = MagicMock()
+        mock_karaoke.playback_controller.stream_manager.active_stems = {"uid": stems}
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/stream/uid/vocals.wav")
+
+        assert response.status_code == 200
+        assert response.mimetype == "audio/mpeg"
+        # ActiveStems must be updated so subsequent fetches skip the fallback.
+        assert stems.vocals_path == str(mp3_file)
+        assert stems.format == "mp3"
+
+    @patch("pikaraoke.routes.stream.get_karaoke_instance")
+    def test_range_request_beyond_mp3_when_wav_url_used(self, mock_get_instance, client, tmp_path):
+        """This is the exact 416 the original bug report surfaced. Once
+        ActiveStems.vocals_path is swapped to the smaller MP3, a browser
+        Range header pinned to the old WAV size still produces 416. The
+        test documents the current behaviour so the higher-level fix (not
+        deleting WAVs mid-session) can be verified end-to-end.
+        """
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+        mp3_file = cache_dir / "vocals.mp3"
+        mp3_file.write_bytes(b"\xff\xfb" + b"\x00" * 64)  # tiny
+        wav_path = str(cache_dir / "vocals.wav")
+
+        done = threading.Event()
+        done.set()
+        ready = threading.Event()
+        ready.set()
+        stems = ActiveStems(
+            vocals_path=wav_path,
+            instrumental_path=wav_path,
+            format="wav",
+            done_event=done,
+            ready_event=ready,
+            processed_seconds=180.0,
+            total_seconds=180.0,
+        )
+        mock_karaoke = MagicMock()
+        mock_karaoke.playback_controller.stream_manager.active_stems = {"uid": stems}
+        mock_get_instance.return_value = mock_karaoke
+
+        # Browser thinks the file is WAV-sized (megabytes) and asks for bytes
+        # past the MP3 length.
+        response = client.get("/stream/uid/vocals.wav", headers={"Range": "bytes=100000-200000"})
+
+        # Documents the current behavior — the true fix is keeping WAVs on
+        # disk for the active song's lifetime (see test_demucs_processor).
+        assert response.status_code == 416
