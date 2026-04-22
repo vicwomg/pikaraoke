@@ -636,11 +636,12 @@ class LyricsService:
             )
             if self._db is not None and song_id is not None and not db_lang:
                 # Persist the text-detected language so future runs and UI
-                # lookups skip the detection step. "scanner" keeps it at the
-                # lowest confidence so an iTunes/MusicBrainz enrichment can
-                # still correct it later.
+                # lookups skip the detection step. ``lrc_heuristic`` sits
+                # below every other rung: LRCLib records are occasionally
+                # mislabelled (see US-43 Kolorowy wiatr), so any later
+                # classifier/enricher signal must be able to overwrite it.
                 self._db.update_track_metadata_with_provenance(
-                    song_id, "scanner", {"language": language}
+                    song_id, "lrc_heuristic", {"language": language}
                 )
             if not words:
                 return
@@ -773,8 +774,10 @@ class LyricsService:
             lyrics_sha=lyrics_sha,
         )
         if self._db is not None and song_id is not None and not db_lang:
+            # Genius plain lyrics are text-only; same upstream-mislabel risk
+            # as LRCLib, so this shares the ``lrc_heuristic`` rung.
             self._db.update_track_metadata_with_provenance(
-                song_id, "scanner", {"language": language}
+                song_id, "lrc_heuristic", {"language": language}
             )
         logger.info("Genius: wrote word-level .ass for %s - %s", artist, track)
         return True
@@ -839,8 +842,12 @@ class LyricsService:
                 song_id = self._db.get_song_id_by_path(song_path)
                 if song_id is not None:
                     try:
+                        # Whisper ASR's language-ID is acoustic ground truth
+                        # on the vocals stem; ranks above every text-derived
+                        # signal but below the dedicated pre-alignment probes
+                        # (whisper_probe_raw / _stems).
                         self._db.update_track_metadata_with_provenance(
-                            song_id, "scanner", {"language": lang}
+                            song_id, "whisper_asr", {"language": lang}
                         )
                     except Exception:
                         logger.exception("failed to persist whisper language for %s", song_path)

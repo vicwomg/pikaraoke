@@ -417,6 +417,53 @@ class TestMetadataProvenance:
         assert db.get_metadata_sources(sid) == {}
 
 
+class TestLanguageProvenanceLadder:
+    """US-43 language-signal rungs layered on top of the generic ladder."""
+
+    def test_scanner_beats_lrc_heuristic(self, db):
+        sid = _insert_song(db)
+        db.update_track_metadata_with_provenance(sid, "lrc_heuristic", {"language": "en"})
+        applied = db.update_track_metadata_with_provenance(sid, "scanner", {"language": "pl"})
+        assert applied == {"language": "scanner"}
+        assert db.get_song_by_id(sid)["language"] == "pl"
+
+    def test_lrc_heuristic_cannot_override_scanner(self, db):
+        sid = _insert_song(db)
+        db.update_track_metadata_with_provenance(sid, "scanner", {"language": "pl"})
+        applied = db.update_track_metadata_with_provenance(sid, "lrc_heuristic", {"language": "en"})
+        assert applied == {}
+        assert db.get_song_by_id(sid)["language"] == "pl"
+
+    def test_whisper_asr_overrides_lrc_heuristic(self, db):
+        sid = _insert_song(db)
+        db.update_track_metadata_with_provenance(sid, "lrc_heuristic", {"language": "en"})
+        applied = db.update_track_metadata_with_provenance(sid, "whisper_asr", {"language": "pl"})
+        assert applied == {"language": "whisper_asr"}
+        assert db.get_song_by_id(sid)["language"] == "pl"
+
+    def test_probe_stems_is_top_of_auto_ladder(self, db):
+        sid = _insert_song(db)
+        for src in (
+            "itunes_country",
+            "title_heuristic",
+            "itunes_text",
+            "yt_subtitle_lang",
+            "whisper_asr",
+            "mb_recording_lang",
+            "whisper_probe_raw",
+        ):
+            db.update_track_metadata_with_provenance(sid, src, {"language": "en"})
+        db.update_track_metadata_with_provenance(sid, "whisper_probe_stems", {"language": "pl"})
+        assert db.get_song_by_id(sid)["language"] == "pl"
+        assert db.get_metadata_sources(sid)["language"] == "whisper_probe_stems"
+
+    def test_manual_beats_whisper_probe_stems(self, db):
+        sid = _insert_song(db)
+        db.update_track_metadata_with_provenance(sid, "whisper_probe_stems", {"language": "en"})
+        db.update_track_metadata_with_provenance(sid, "manual", {"language": "pl"})
+        assert db.get_song_by_id(sid)["language"] == "pl"
+
+
 class TestGetSongHelpers:
     def test_get_song_id_by_path(self, db):
         sid = _insert_song(db, "/songs/a.mp4")
@@ -479,8 +526,7 @@ class TestMigrationFromV1:
             cols = {row[1] for row in db._conn.execute("PRAGMA table_info(songs)").fetchall()}
             assert "metadata_sources" in cols
             art_cols = {
-                row[1]
-                for row in db._conn.execute("PRAGMA table_info(song_artifacts)").fetchall()
+                row[1] for row in db._conn.execute("PRAGMA table_info(song_artifacts)").fetchall()
             }
             assert {"sha256", "size", "mtime"}.issubset(art_cols)
             assert {

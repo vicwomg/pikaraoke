@@ -11,12 +11,47 @@ from pikaraoke.lib.get_platform import get_data_directory
 # higher trust. The enricher uses this to decide whether a newly-arrived
 # value should replace an existing one. Sources not listed are treated as
 # 0 (lowest), so unknown sources never override known ones.
+#
+# US-43 extends the ladder with language-signal-specific rungs used by
+# the lyrics classifier. The generic rungs (scanner/youtube/itunes/
+# musicbrainz) still handle bulk artist/title/year enrichment; the new
+# rungs are used only for the ``language`` field where signal quality
+# varies dramatically across sources (raw LRC text can be mislabelled,
+# a Whisper probe on isolated vocals is near-ground-truth). The new
+# rungs are numbered above the legacy generic rungs so a
+# language-specific signal always beats a bulk enricher write for the
+# same field; ``lrc_heuristic`` sits below ``scanner`` so a poisoned
+# row can be corrected by any stronger later signal.
 METADATA_SOURCE_CONFIDENCE = {
+    # LRC/Genius text langdetect. Must sit below ``scanner`` so a
+    # later iTunes-text, Whisper-probe, or MusicBrainz-derived
+    # language can correct a row poisoned by an upstream-mislabelled
+    # LRCLib record (see US-43 Kolorowy wiatr case).
+    "lrc_heuristic": -1,
+    # Legacy generic rungs (enricher-wide, non-language fields).
     "scanner": 0,
     "youtube": 1,
     "itunes": 2,
     "musicbrainz": 3,
-    "manual": 4,  # User edits override everything.
+    # Language-signal rungs (US-43). Order follows the design doc:
+    # weak text/region hints at the bottom, direct MB metadata and
+    # Whisper probes on top.
+    "itunes_country": 10,
+    "mb_release_country": 11,
+    "title_heuristic": 12,
+    "yt_title_lang": 13,
+    "yt_info_lang": 14,
+    "mb_artist_alias_locale": 15,
+    "mb_release_titles": 16,
+    "itunes_text": 17,
+    "yt_subtitle_lang": 18,
+    "whisper_asr": 19,
+    "mb_release_textrep": 20,
+    "mb_recording_lang": 21,
+    "whisper_probe_raw": 22,
+    "whisper_probe_stems": 23,
+    # User edits override everything.
+    "manual": 100,
 }
 
 # Fields that prefer media-provenance over musicbrainz (the song-as-file,
@@ -36,6 +71,7 @@ def _confidence_for(field: str, source: str) -> int:
     """Return the confidence score for a (field, source) pair."""
     table = _MEDIA_SOURCE_CONFIDENCE if field in _MEDIA_FIELDS else METADATA_SOURCE_CONFIDENCE
     return table.get(source, 0)
+
 
 _SCHEMA_V1 = """
 PRAGMA journal_mode = WAL;
@@ -188,9 +224,7 @@ class KaraokeDatabase:
             # mixed state where re-running the migration fails on duplicate
             # column). The presence of a migration's canary column is the
             # authoritative signal that it has already run.
-            columns = {
-                row[1] for row in self._conn.execute("PRAGMA table_info(songs)").fetchall()
-            }
+            columns = {row[1] for row in self._conn.execute("PRAGMA table_info(songs)").fetchall()}
             if version < 2 and "audio_sha256" not in columns:
                 self._conn.executescript(_MIGRATION_V2)
             if version < 3 and "lyrics_sha" not in columns:
@@ -198,8 +232,7 @@ class KaraokeDatabase:
             if version < 4 and "metadata_sources" not in columns:
                 self._conn.executescript(_MIGRATION_V4)
             artifact_columns = {
-                row[1]
-                for row in self._conn.execute("PRAGMA table_info(song_artifacts)").fetchall()
+                row[1] for row in self._conn.execute("PRAGMA table_info(song_artifacts)").fetchall()
             }
             if version < 5 and "sha256" not in artifact_columns:
                 self._conn.executescript(_MIGRATION_V5)
