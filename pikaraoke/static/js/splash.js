@@ -834,6 +834,9 @@ const handleNowPlayingUpdate = (np) => {
 
   // Setup ASS subtitle file if found
   const subtitleUrl = np.now_playing_subtitle_url;
+  if (typeof np.subtitle_offset === 'number') {
+    PikaraokeConfig.subtitleOffset = np.subtitle_offset;
+  }
   if (octopusInstance) {
     octopusInstance.dispose();
     octopusInstance = null;
@@ -844,6 +847,7 @@ const handleNowPlayingUpdate = (np) => {
       subUrl: subtitleUrl,
       fonts: ["/static/fonts/Arial.ttf", "/static/fonts/DroidSansFallback.ttf"],
       debug: true,
+      timeOffset: Number(PikaraokeConfig.subtitleOffset) || 0,
       workerUrl: "/static/js/subtitles-octopus-worker.js"
     };
     try {
@@ -1125,6 +1129,11 @@ const PREFERENCE_EFFECTS = {
   screensaver_timeout: (v) => {
     screensaverTimeoutSeconds = v;
     PikaraokeConfig.screensaverTimeout = v;
+  },
+  subtitle_offset: (v) => {
+    const offset = Number(v) || 0;
+    PikaraokeConfig.subtitleOffset = offset;
+    if (octopusInstance) octopusInstance.timeOffset = offset;
   },
 };
 

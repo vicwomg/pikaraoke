@@ -958,17 +958,13 @@ class Karaoke:
             return 0
         with self._song_warnings_lock:
             before = len(self._song_warnings)
-            self._song_warnings = [
-                w for w in self._song_warnings if w.get("song") != song
-            ]
+            self._song_warnings = [w for w in self._song_warnings if w.get("song") != song]
             removed = before - len(self._song_warnings)
             if removed:
                 self._persist_song_warnings()
         if self.socketio:
             try:
-                self.socketio.emit(
-                    "song_warnings_dismissed", {"song": song}, namespace="/"
-                )
+                self.socketio.emit("song_warnings_dismissed", {"song": song}, namespace="/")
             except Exception:
                 logging.exception("failed to emit song_warnings_dismissed")
         return removed
@@ -1018,6 +1014,7 @@ class Karaoke:
             "instrumental_volume": float(self.instrumental_volume),
             "vocals_url": vocals_url,
             "instrumental_url": instrumental_url,
+            "subtitle_offset": float(self.preferences.get_or_default("subtitle_offset")),
         }
 
     def update_now_playing_socket(self) -> None:
@@ -1052,9 +1049,7 @@ class Karaoke:
             audio_source = resolve_audio_source(song_path)
             ensure_audio_fingerprint(self.db, song_id, audio_source)
         except Exception:
-            logging.exception(
-                "ensure_audio_fingerprint failed on download for %s", song_path
-            )
+            logging.exception("ensure_audio_fingerprint failed on download for %s", song_path)
 
     def _on_lyrics_upgraded(self, song_path: str) -> None:
         """Force the splash to reload subtitles when word-level ASS lands mid-song.

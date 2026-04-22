@@ -40,6 +40,10 @@ class PreferenceManager:
         "enable_fair_queue": False,
         "cdg_pixel_scaling": False,
         "avsync": 0,
+        # ASS subtitle timing offset in seconds. Shifts rendered lyrics relative
+        # to the video element. Negative = subtitles earlier, positive = later.
+        # Applied live via SubtitlesOctopus.timeOffset; does not change audio.
+        "subtitle_offset": 0.0,
         "browse_results_per_page": 100,
         "low_score_phrases": "",
         "mid_score_phrases": "",

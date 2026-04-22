@@ -49,6 +49,9 @@
     el.instSlider = el.full.querySelector('[data-pk-inst-volume]');
     el.vocalVal = el.full.querySelector('[data-pk-vocal-val]');
     el.instVal = el.full.querySelector('[data-pk-inst-val]');
+    el.subOffsetTool = el.full.querySelector('[data-pk-subtitle-offset-tool]');
+    el.subOffsetSlider = el.full.querySelector('[data-pk-subtitle-offset]');
+    el.subOffsetVal = el.full.querySelector('[data-pk-subtitle-offset-val]');
     el.seekSection = el.full.querySelector('[data-pk-seek-section]');
     el.seekSlider = el.full.querySelector('[data-pk-seek]');
     el.seekCurrent = el.full.querySelector('[data-pk-seek-current]');
@@ -256,6 +259,18 @@
     if (el.volumeTool) el.volumeTool.hidden = stemsReady;
     el.stemTools.forEach((t) => (t.hidden = !stemsReady));
 
+    // Subtitle offset slider — only meaningful while ASS lyrics are rendering.
+    if (el.subOffsetTool) {
+      el.subOffsetTool.hidden = !data.now_playing_subtitle_url;
+    }
+    if (el.subOffsetSlider && typeof data.subtitle_offset === 'number'
+        && document.activeElement !== el.subOffsetSlider) {
+      el.subOffsetSlider.value = data.subtitle_offset;
+      if (el.subOffsetVal) {
+        el.subOffsetVal.textContent = data.subtitle_offset.toFixed(2) + 's';
+      }
+    }
+
     if (!stemsReady && data.volume != null && el.fullVolume && document.activeElement !== el.fullVolume) {
       el.fullVolume.value = data.volume;
     }
@@ -404,6 +419,21 @@
         const v = parseFloat(el.instSlider.value);
         if (el.instVal) el.instVal.textContent = Math.round(v * 100) + '%';
         if (window.socket) window.socket.emit('instrumental_volume', v);
+      });
+    }
+
+    // Subtitle offset — reuse the generic preferences route so the value
+    // persists in config.ini and broadcasts via 'preferences_update' to
+    // splash, which mutates octopusInstance.timeOffset live.
+    if (el.subOffsetSlider) {
+      const pushOffset = debounce(() => {
+        const v = parseFloat(el.subOffsetSlider.value) || 0;
+        fetch('/change_preferences?pref=subtitle_offset&val=' + v);
+      }, 150);
+      el.subOffsetSlider.addEventListener('input', () => {
+        const v = parseFloat(el.subOffsetSlider.value) || 0;
+        if (el.subOffsetVal) el.subOffsetVal.textContent = v.toFixed(2) + 's';
+        pushOffset();
       });
     }
 
