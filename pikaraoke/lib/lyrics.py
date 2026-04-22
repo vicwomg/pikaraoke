@@ -47,11 +47,18 @@ GENIUS_ACCESS_TOKEN = os.environ.get("GENIUS_ACCESS_TOKEN", "").strip()
 # transcribe the vocals stem with faster-whisper so the song still gets
 # subtitles (flagged as auto-generated in the UI). Set the env var to
 # one of {"off","none","false","0"} to disable; otherwise the value is
-# the faster-whisper model size ("tiny" / "base" / "small" / "medium" /
-# "large-v2" / ...). Default "small" balances CPU cost (~1x realtime on
-# laptop CPU) with quality that's good enough for pop / rap vocals.
+# the faster-whisper model name ("tiny" / "base" / "small" / "medium" /
+# "large-v2" / "large-v3" / "large-v3-turbo" / ...).
+#
+# Default "large-v3-turbo" (aka "turbo"): ~1.5 GB, distilled from
+# large-v3 — near-large-v3 transcription quality at ~7x the decoding
+# speed. Heavy enough that Demucs-isolated vocals + non-English lyrics
+# actually come out legible (small/medium routinely mangle Polish rap)
+# but still fits in RAM and runs in ~real-time on a modern CPU with
+# int8. Downgrade to "medium" on low-RAM boxes; bump to "large-v3" when
+# raw accuracy matters more than wall time.
 _WHISPER_OPT_OUT = {"off", "none", "false", "0"}
-WHISPER_FALLBACK_MODEL = (os.environ.get("WHISPER_FALLBACK_MODEL", "").strip() or "small")
+WHISPER_FALLBACK_MODEL = (os.environ.get("WHISPER_FALLBACK_MODEL", "").strip() or "large-v3-turbo")
 _whisper_model_cache: list = [None]
 _whisper_model_lock = threading.Lock()
 
