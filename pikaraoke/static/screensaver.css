@@ -18,8 +18,8 @@ body {
   position: absolute;
   left: 0px;
   top: 0px;
-  height: 200px;
-  width: 420px;
+  height: 19vmin;
+  width: 39vmin;
   z-index: 11;
   border-radius: 10px;
   display: flex;
@@ -28,6 +28,6 @@ body {
   padding: 10px;
   background-image: url("/logo");
   background-repeat: no-repeat;
-  background-size: 300px;
+  background-size: 28vmin;
   background-position: contain;
 }
