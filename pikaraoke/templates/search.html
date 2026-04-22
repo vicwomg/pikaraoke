@@ -151,6 +151,47 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+
+  /* Caption-availability badge on search result cards. States:
+     - loading: neutral pulse while yt-dlp probes the video.
+     - manual:  dark-green CC (curated captions — highest quality).
+     - auto:    amber CC (YouTube auto-generated — usable but noisier).
+     - missing: hidden entirely (no captions, Whisper fallback will step in).
+     - error:   hidden (probe failed — avoid noise). */
+  .pk-cc-badge {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: var(--pk-font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    line-height: 1.6;
+    width: fit-content;
+  }
+  .pk-cc-badge[data-state="loading"] {
+    display: inline-flex;
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.3);
+    animation: pk-cc-pulse 1.4s ease-in-out infinite;
+  }
+  .pk-cc-badge[data-state="manual"] {
+    display: inline-flex;
+    background: rgba(120, 200, 120, 0.14);
+    color: #86d086;
+  }
+  .pk-cc-badge[data-state="auto"] {
+    display: inline-flex;
+    background: rgba(230, 180, 90, 0.14);
+    color: #e6b45a;
+  }
+  @keyframes pk-cc-pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.9; }
+  }
   .pk-result-actions {
     display: flex;
     gap: 6px;
@@ -452,6 +493,56 @@
       });
     });
 
+    // ---- Lazy CC badges ----
+    // Each probe is a ~1–3s yt-dlp metadata fetch, so we fan out with a
+    // cap of 3 concurrent probes — the backend caches per-ID so reloads
+    // are instant, and limiting concurrency keeps yt-dlp from thundering.
+    (function probeCaptions() {
+      const cards = Array.from(document.querySelectorAll('.pk-result-card[data-video-id]'));
+      if (cards.length === 0) return;
+      const queue = cards.slice();
+      const MAX_INFLIGHT = 3;
+      let inflight = 0;
+
+      const applyState = (badge, data) => {
+        if (!data) {
+          badge.setAttribute('data-state', 'error');
+          return;
+        }
+        if (data.manual) {
+          badge.setAttribute('data-state', 'manual');
+          badge.setAttribute(
+            'title',
+            data.langs.length ? 'Napisy: ' + data.langs.join(', ') : 'Napisy dostępne'
+          );
+        } else if (data.auto) {
+          badge.setAttribute('data-state', 'auto');
+          badge.setAttribute('title', 'Tylko auto-napisy (YouTube ASR)');
+        } else {
+          badge.setAttribute('data-state', 'missing');
+          badge.removeAttribute('title');
+        }
+      };
+
+      const next = () => {
+        while (inflight < MAX_INFLIGHT && queue.length > 0) {
+          const card = queue.shift();
+          const badge = card.querySelector('.pk-cc-badge');
+          if (!badge) continue;
+          inflight++;
+          fetch('{{ url_for("search.caption_check") }}?id=' + encodeURIComponent(card.dataset.videoId))
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => applyState(badge, data))
+            .catch(() => applyState(badge, null))
+            .finally(() => {
+              inflight--;
+              next();
+            });
+        }
+      };
+      next();
+    })();
+
     function downloadSong(url, title, btn, queue) {
       const original = btn.innerHTML;
       const originalWidth = btn.offsetWidth;
@@ -613,7 +704,7 @@
 {% else %}
 <div class="pk-results">
   {% for title, url, id, channel, duration in search_results %}
-  <div class="pk-result-card" data-url="{{ url }}" data-title="{{ title }}">
+  <div class="pk-result-card" data-url="{{ url }}" data-title="{{ title }}" data-video-id="{{ id }}">
     <div class="pk-result-thumb">
       <img src="https://img.youtube.com/vi/{{ id }}/mqdefault.jpg" alt="" loading="lazy">
       {% if duration %}<span class="pk-result-duration">{{ duration }}</span>{% endif %}
@@ -623,6 +714,9 @@
       <div class="pk-result-body">
         <h3 class="pk-result-title">{{ title }}</h3>
         {% if channel %}<p class="pk-result-channel">{{ channel }}</p>{% endif %}
+        <span class="pk-cc-badge" data-state="loading" title="Sprawdzam napisy...">
+          <span class="pk-cc-badge-text">CC</span>
+        </span>
       </div>
       <div class="pk-result-actions">
         <a href="{{ url }}" target="_blank" rel="noopener noreferrer" class="pk-btn is-ghost pk-btn-yt" aria-label="YouTube" title="Otwórz na YouTube">

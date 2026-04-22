@@ -10,6 +10,7 @@ from pikaraoke.lib.youtube_dl import (
     build_ytdl_audio_only_command,
     build_ytdl_download_command,
     build_ytdl_video_only_command,
+    check_captions,
     get_youtube_id_from_url,
     get_youtubedl_version,
     upgrade_youtubedl,
@@ -364,3 +365,94 @@ class TestUpgradeYoutubedl:
             result = upgrade_youtubedl()
             assert result == "2024.01.01"
             mock_version.assert_called_once_with()
+
+
+class TestCheckCaptions:
+    """Tests for check_captions — the lazy CC badge backing route."""
+
+    def setup_method(self):
+        # Reset the process-local cache between tests so probes don't
+        # leak across assertions.
+        from pikaraoke.lib.youtube_dl import _CAPTION_CACHE
+
+        _CAPTION_CACHE.clear()
+
+    def test_rejects_invalid_video_id(self):
+        result = check_captions("not-an-id")
+        assert result == {
+            "id": "not-an-id",
+            "has_captions": False,
+            "manual": False,
+            "auto": False,
+            "langs": [],
+        }
+
+    def test_rejects_empty_video_id(self):
+        result = check_captions("")
+        assert result["has_captions"] is False
+        assert result["manual"] is False
+
+    def test_parses_manual_and_auto_captions(self):
+        # yt-dlp emits "<subtitles_json>|<automatic_captions_json>".
+        stdout = (
+            b'{"en": [{"ext":"vtt"}], "pl": [{"ext":"vtt"}]}'
+            b"|"
+            b'{"en": [{"ext":"vtt"}]}'
+        )
+        fake = MagicMock(returncode=0, stdout=stdout, stderr=b"")
+        with patch("pikaraoke.lib.youtube_dl.subprocess.run", return_value=fake):
+            result = check_captions("dQw4w9WgXcQ")
+        assert result["has_captions"] is True
+        assert result["manual"] is True
+        assert result["auto"] is True
+        assert result["langs"] == ["en", "pl"]
+
+    def test_auto_only_is_manual_false(self):
+        stdout = b"{}" b"|" b'{"en": [{"ext":"vtt"}]}'
+        fake = MagicMock(returncode=0, stdout=stdout, stderr=b"")
+        with patch("pikaraoke.lib.youtube_dl.subprocess.run", return_value=fake):
+            result = check_captions("abcdefghijk")
+        assert result["manual"] is False
+        assert result["auto"] is True
+        assert result["has_captions"] is True
+
+    def test_no_captions(self):
+        stdout = b"{}|{}"
+        fake = MagicMock(returncode=0, stdout=stdout, stderr=b"")
+        with patch("pikaraoke.lib.youtube_dl.subprocess.run", return_value=fake):
+            result = check_captions("aaaaaaaaaaa")
+        assert result["has_captions"] is False
+
+    def test_caches_second_call(self):
+        stdout = b'{"en":[{}]}|{}'
+        fake = MagicMock(returncode=0, stdout=stdout, stderr=b"")
+        with patch("pikaraoke.lib.youtube_dl.subprocess.run", return_value=fake) as mock_run:
+            first = check_captions("X5P2uJELu5A")
+            second = check_captions("X5P2uJELu5A")
+        assert first == second
+        assert mock_run.call_count == 1
+
+    def test_timeout_returns_empty_and_caches(self):
+        with patch(
+            "pikaraoke.lib.youtube_dl.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="yt-dlp", timeout=15),
+        ) as mock_run:
+            result1 = check_captions("timeoutidxx")
+            result2 = check_captions("timeoutidxx")
+        assert result1["has_captions"] is False
+        # Timeout is cached so the tight-loop retry is avoided.
+        assert mock_run.call_count == 1
+        assert result2 == result1
+
+    def test_nonzero_returncode_returns_empty(self):
+        fake = MagicMock(returncode=1, stdout=b"", stderr=b"some error")
+        with patch("pikaraoke.lib.youtube_dl.subprocess.run", return_value=fake):
+            result = check_captions("errcode123x")
+        assert result["has_captions"] is False
+
+    def test_filters_live_chat_from_langs(self):
+        stdout = b'{"en":[{}], "live_chat":[{}]}|{}'
+        fake = MagicMock(returncode=0, stdout=stdout, stderr=b"")
+        with patch("pikaraoke.lib.youtube_dl.subprocess.run", return_value=fake):
+            result = check_captions("filterchatx")
+        assert result["langs"] == ["en"]

@@ -3,13 +3,24 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import shlex
 import subprocess
 import sys
+import threading
 
 from pikaraoke.lib.get_platform import get_installed_js_runtime
 
 yt_dlp_cmd = [sys.executable, "-m", "yt_dlp"]
+
+# Probing captions requires a full metadata fetch per video (yt-dlp's
+# flat-playlist search doesn't include subtitle fields). That's ~1-3s per
+# video — fine for a lazy badge but we must not re-probe the same ID in
+# the same session. Cache is process-local; restarts get fresh data.
+_VALID_VIDEO_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
+_CAPTION_CACHE: dict[str, dict] = {}
+_CAPTION_CACHE_LOCK = threading.Lock()
+_CAPTION_PROBE_TIMEOUT_S = 15
 
 
 def _js_runtime_args() -> list[str]:
@@ -284,6 +295,82 @@ def get_search_results(query: str) -> list[list[str]]:
     except subprocess.CalledProcessError as e:
         logging.debug(f"Error while executing search: {e}")
         raise
+
+
+def check_captions(video_id: str) -> dict:
+    """Probe a YouTube video for available subtitles and auto-captions.
+
+    Returns ``{"id", "has_captions", "manual", "auto", "langs"}``:
+
+      - ``has_captions``: True when any manual OR auto caption track exists.
+      - ``manual``: True when the uploader published captions (higher quality).
+      - ``auto``: True when YouTube's speech recognition produced auto-captions.
+      - ``langs``: sorted list of language codes with manual captions only
+        (auto-captions add 150+ machine translations which are noise here).
+
+    Results are cached per process: the same video ID probed a second time
+    within the session returns immediately. Cache key is the video ID;
+    invalid IDs short-circuit to ``has_captions=False``.
+    """
+    if not video_id or not _VALID_VIDEO_ID.match(video_id):
+        return {"id": video_id, "has_captions": False, "manual": False, "auto": False, "langs": []}
+    with _CAPTION_CACHE_LOCK:
+        cached = _CAPTION_CACHE.get(video_id)
+        if cached is not None:
+            return cached
+    cmd = (
+        yt_dlp_cmd
+        + ["--skip-download", "--no-playlist", "--print", "%(subtitles)j|%(automatic_captions)j"]
+        + _js_runtime_args()
+        + [f"https://www.youtube.com/watch?v={video_id}"]
+    )
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            timeout=_CAPTION_PROBE_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        logging.warning("yt-dlp caption probe timed out for %s", video_id)
+        payload = {"id": video_id, "has_captions": False, "manual": False, "auto": False, "langs": []}
+        # Cache the miss so the frontend doesn't retry in a tight loop.
+        with _CAPTION_CACHE_LOCK:
+            _CAPTION_CACHE[video_id] = payload
+        return payload
+    if result.returncode != 0:
+        logging.debug(
+            "yt-dlp caption probe failed for %s: %s",
+            video_id,
+            result.stderr.decode("utf-8", "ignore"),
+        )
+        payload = {"id": video_id, "has_captions": False, "manual": False, "auto": False, "langs": []}
+        with _CAPTION_CACHE_LOCK:
+            _CAPTION_CACHE[video_id] = payload
+        return payload
+    out = result.stdout.decode("utf-8", "ignore").strip()
+    # `--print` emits one line per video; our template embeds '|' between
+    # the two JSON blobs. Split on the first '|' only — caption JSON can
+    # contain escaped pipes inside URLs.
+    subtitles_json, _, auto_json = out.partition("|")
+    try:
+        subtitles = json.loads(subtitles_json) if subtitles_json else {}
+    except (json.JSONDecodeError, ValueError):
+        subtitles = {}
+    try:
+        auto = json.loads(auto_json) if auto_json else {}
+    except (json.JSONDecodeError, ValueError):
+        auto = {}
+    langs = sorted(k for k in subtitles.keys() if k and not k.startswith("live_chat"))
+    payload = {
+        "id": video_id,
+        "has_captions": bool(subtitles) or bool(auto),
+        "manual": bool(subtitles),
+        "auto": bool(auto),
+        "langs": langs,
+    }
+    with _CAPTION_CACHE_LOCK:
+        _CAPTION_CACHE[video_id] = payload
+    return payload
 
 
 def get_stream_url(video_url: str) -> str | None:

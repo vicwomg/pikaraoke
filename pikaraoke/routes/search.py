@@ -12,7 +12,7 @@ from marshmallow import Schema, fields
 
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
 from pikaraoke.lib.music_metadata import search_itunes, search_musicbrainz
-from pikaraoke.lib.youtube_dl import get_search_results, get_stream_url
+from pikaraoke.lib.youtube_dl import check_captions, get_search_results, get_stream_url
 
 _ = flask_babel.gettext
 
@@ -31,6 +31,10 @@ class SuggestQuery(Schema):
 
 class PreviewQuery(Schema):
     url = fields.String(required=True, metadata={"description": "YouTube video URL to preview"})
+
+
+class CaptionCheckQuery(Schema):
+    id = fields.String(required=True, metadata={"description": "11-char YouTube video ID"})
 
 
 class DownloadBody(Schema):
@@ -159,6 +163,22 @@ def preview(query):
     if stream_url is None:
         return jsonify({"error": "Could not fetch stream URL"}), 500
     return jsonify({"stream_url": stream_url})
+
+
+@search_bp.route("/caption-check")
+@search_bp.arguments(CaptionCheckQuery, location="query")
+def caption_check(query):
+    """Probe a single YouTube video for caption availability.
+
+    Used by the search-results page to lazily badge cards as "CC" so the
+    user can prefer videos with existing subtitles (LRCLib/Genius/Whisper
+    still run downstream, but a curated caption beats ASR every time).
+
+    Probe cost is ~1-3s per video (full yt-dlp metadata fetch), which is
+    why this endpoint is per-ID and fronted by an in-process cache —
+    rendering 10 badges costs 10 probes on first visit, 0 on reloads.
+    """
+    return jsonify(check_captions(query["id"]))
 
 
 @search_bp.route("/download", methods=["POST"])
