@@ -11,6 +11,7 @@ from pikaraoke.lib.music_metadata import (
     _upscale_artwork,
     fetch_itunes_track,
     fetch_musicbrainz_ids,
+    fetch_musicbrainz_language_signals,
     resolve_metadata,
     search_itunes,
     search_itunes_full,
@@ -205,8 +206,28 @@ class TestSearchItunesFull:
                 "releaseDate": "2000-05-23T07:00:00Z",
                 "artworkUrl100": "https://cdn/a/100x100bb.jpg",
                 "primaryGenreName": "Hip-Hop/Rap",
+                # US-43 language tiebreakers; absent from this stub.
+                "country": None,
+                "currency": None,
             }
         ]
+
+    def test_captures_country_and_currency(self):
+        resp = _mock_itunes_response(
+            [
+                {
+                    "artistName": "Edyta Górniak",
+                    "trackName": "Kolorowy Wiatr",
+                    "collectionName": "Pocahontas (Polska Wersja)",
+                    "country": "POL",
+                    "currency": "PLN",
+                }
+            ]
+        )
+        with patch("pikaraoke.lib.music_metadata.requests.get", return_value=resp):
+            hits = search_itunes_full("Edyta Gorniak Kolorowy Wiatr", limit=1)
+        assert hits[0]["country"] == "POL"
+        assert hits[0]["currency"] == "PLN"
 
 
 class TestFetchItunesTrack:
@@ -311,6 +332,60 @@ class TestFetchMusicbrainzIds:
         with patch("pikaraoke.lib.music_metadata.requests.get", return_value=resp) as mock_get:
             fetch_musicbrainz_ids("A", "T")
             fetch_musicbrainz_ids("A", "T")
+            assert mock_get.call_count == 1
+
+
+class TestFetchMusicbrainzLanguageSignals:
+    """US-43 language classifier inputs extracted from the cached MB response."""
+
+    def test_projects_country_title_tag_signals(self):
+        resp = _mock_mbrainz_response(
+            [
+                {
+                    "id": "rec-uuid",
+                    "title": "Kolorowy wiatr",
+                    "isrcs": ["PLPL11700001"],
+                    "releases": [
+                        {"id": "r1", "title": "Pocahontas", "country": "PL"},
+                        {"id": "r2", "title": "Pocahontas: Oryginalna Ścieżka", "country": "PL"},
+                    ],
+                    "tags": [{"name": "polish", "count": 2}, {"name": "disney", "count": 1}],
+                }
+            ]
+        )
+        with patch("pikaraoke.lib.music_metadata.requests.get", return_value=resp):
+            sigs = fetch_musicbrainz_language_signals("Edyta Górniak", "Kolorowy wiatr")
+        assert sigs is not None
+        assert sigs["release_countries"] == ("PL", "PL")
+        assert "Pocahontas" in sigs["release_titles_joined"]
+        assert "Pocahontas: Oryginalna Ścieżka" in sigs["release_titles_joined"]
+        assert sigs["tag_names"] == ("polish", "disney")
+
+    def test_tolerates_missing_release_fields(self):
+        resp = _mock_mbrainz_response(
+            [{"id": "rec-uuid", "title": "T", "releases": [{"id": "r1"}], "tags": []}]
+        )
+        with patch("pikaraoke.lib.music_metadata.requests.get", return_value=resp):
+            sigs = fetch_musicbrainz_language_signals("A", "T")
+        assert sigs == {
+            "release_countries": (),
+            "release_titles_joined": "",
+            "tag_names": (),
+        }
+
+    def test_returns_none_on_miss(self):
+        resp = _mock_mbrainz_response([])
+        with patch("pikaraoke.lib.music_metadata.requests.get", return_value=resp):
+            assert fetch_musicbrainz_language_signals("A", "T") is None
+
+    def test_shares_cache_with_fetch_musicbrainz_ids(self):
+        """Both projections use the same LRU, so one HTTP round-trip covers both."""
+        resp = _mock_mbrainz_response(
+            [{"id": "x", "isrcs": [], "releases": [{"id": "r1", "country": "US"}]}]
+        )
+        with patch("pikaraoke.lib.music_metadata.requests.get", return_value=resp) as mock_get:
+            fetch_musicbrainz_ids("A", "T")
+            fetch_musicbrainz_language_signals("A", "T")
             assert mock_get.call_count == 1
 
 

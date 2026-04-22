@@ -32,7 +32,17 @@ import requests
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
-from pikaraoke.lib.music_metadata import resolve_metadata
+from pikaraoke.lib.lyrics_language_classifier import (
+    classify_and_persist as _classify_language,
+)
+from pikaraoke.lib.lyrics_language_classifier import read_info_json as _read_info_json
+from pikaraoke.lib.music_metadata import (
+    _itunes_row_to_dict,
+    _normalize_title,
+    _search_itunes_cached,
+    fetch_musicbrainz_language_signals,
+    resolve_metadata,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -317,6 +327,17 @@ class LyricsService:
 
         info = self._read_metadata_for_lrclib(song_path)
 
+        # Tier 1 classifier (US-43): seed songs.language from every text
+        # signal we already have in hand (yt-dlp info.json, cached iTunes
+        # hit, cached MusicBrainz recording, langdetect on DB fields). Each
+        # signal persists under its own rung in the provenance ladder, so a
+        # stronger later source overwrites a weaker one and LRCLib's
+        # ``lrc_heuristic`` (lowest rung) can never overwrite anything the
+        # classifier seeded. Runs BEFORE the LRC fetch so
+        # ``_is_lrc_language_mismatch`` has DB-side ground truth to compare
+        # against on cold-DB first runs (the Kolorowy wiatr poison path).
+        self._run_language_classifier(song_path, info)
+
         # Tell the operator we're about to hit LRCLib / iTunes. Emitted
         # BEFORE the network call so the "Fetching lyrics…" toast lands
         # while the HTTP round-trip is in flight. Skipped above if a
@@ -473,6 +494,63 @@ class LyricsService:
         if not track or not artist:
             return None
         return {"track": track, "artist": artist, "duration": row["duration_seconds"]}
+
+    def _run_language_classifier(self, song_path: str, info: dict | None) -> None:
+        """Collect Tier 1 language signals and persist each at its rung.
+
+        Every signal source is data we already fetched: yt-dlp's info.json
+        (if still on disk — register_download usually consumes it, but a
+        scanner-registered song may still have it), the
+        ``_search_itunes_cached`` LRU populated by the enricher, and the
+        ``_search_musicbrainz_cached`` LRU from the same enrichment pass.
+        Cold caches return ``None`` and the extractor silently skips;
+        we never fire a fresh HTTP request from this path.
+
+        The classifier writes independently for each signal; the per-rung
+        ladder in ``METADATA_SOURCE_CONFIDENCE`` handles winner selection.
+        """
+        if self._db is None:
+            return
+        try:
+            song_id = self._db.get_song_id_by_path(song_path)
+        except Exception:
+            logger.exception("classifier: song_id lookup failed for %s", song_path)
+            return
+        if song_id is None:
+            return
+
+        yt_info = _read_info_json(song_path)
+        itunes_hit: dict | None = None
+        mb_signals: dict | None = None
+        if info and info.get("artist") and info.get("track"):
+            # Match the enricher's query shape (`_query_from_song` + iTunes'
+            # internal ``_normalize_title``) so both paths share the same LRU
+            # entry and pay at most one iTunes round-trip per song.
+            query = _normalize_title(f"{info['artist']} - {info['track']}")
+            try:
+                rows = _search_itunes_cached(query, 1)
+                if rows:
+                    itunes_hit = _itunes_row_to_dict(rows[0])
+            except Exception:
+                logger.exception("classifier: iTunes lookup failed for %s", song_path)
+            try:
+                mb_signals = fetch_musicbrainz_language_signals(info["artist"], info["track"])
+            except Exception:
+                logger.exception("classifier: MusicBrainz lookup failed for %s", song_path)
+
+        try:
+            _classify_language(
+                self._db,
+                song_id,
+                song_path=song_path,
+                yt_info=yt_info,
+                itunes_hit=itunes_hit,
+                mb_signals=mb_signals,
+                db_title=(info or {}).get("track"),
+                db_artist=(info or {}).get("artist"),
+            )
+        except Exception:
+            logger.exception("classifier: classify_and_persist crashed for %s", song_path)
 
     def _db_language(self, song_path: str) -> str | None:
         """Return the DB-stored language for a song (e.g. "en", "pl-PL"), or None."""

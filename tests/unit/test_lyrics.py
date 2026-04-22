@@ -5,6 +5,31 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
+
+@pytest.fixture(autouse=True)
+def _no_classifier_http():
+    """Keep the Tier 1 classifier hermetic in lyrics tests.
+
+    ``LyricsService._run_language_classifier`` calls iTunes + MusicBrainz
+    via the cached helpers in ``music_metadata``. Those are real HTTP
+    requests; left unmocked they make unit tests flaky (live data
+    changes langdetect verdicts, network failures skew timings).
+    Individual tests override these patches with ``with patch(...)`` as
+    needed to drive specific classifier scenarios.
+    """
+    with (
+        patch(
+            "pikaraoke.lib.lyrics._search_itunes_cached",
+            return_value=(),
+        ),
+        patch(
+            "pikaraoke.lib.lyrics.fetch_musicbrainz_language_signals",
+            return_value=None,
+        ),
+    ):
+        yield
+
+
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.lyrics import (
     ASS_MARKER,
@@ -2043,4 +2068,82 @@ class TestLyricsServiceLanguageMismatch:
             service.fetch_and_convert(song)
         row = db.get_song_by_id(db.get_song_id_by_path(song))
         assert row["lyrics_source"] == "lrclib"
+        db.close()
+
+    def test_classifier_seeds_language_before_lrc_fetch(self, tmp_path):
+        """US-43 Tier 1: the Kolorowy wiatr cold-DB case.
+
+        Cold DB (no language), Polish iTunes + MusicBrainz hits in hand,
+        LRCLib returns English text. The classifier must seed
+        ``songs.language='pl'`` from the Tier 1 consensus before the LRC
+        fetch, so the ab066fef dub-trap guard kicks in and the English
+        LRC is rejected on the very first run.
+        """
+        # Cold-DB: insert song, seed artist/title but NOT language.
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+        song = tmp_path / "Kolorowy---pl.mp4"
+        song.write_text("fake")
+        db = KaraokeDatabase(str(tmp_path / "coldkolorowy.db"))
+        db.insert_songs([{"file_path": str(song), "youtube_id": "pl1", "format": "mp4"}])
+        sid = db.get_song_id_by_path(str(song))
+        db.update_track_metadata_with_provenance(
+            sid,
+            "youtube",
+            {
+                "artist": "Edyta Górniak",
+                "title": "Kolorowy wiatr",
+                "duration_seconds": 210.0,
+            },
+        )
+        # Tier 1 inputs: Polish iTunes hit + unanimous Polish MB release
+        # countries. The default autouse fixture mocks these to empty;
+        # override here to drive the consensus path.
+        polish_itunes_hit = (
+            "Edyta Górniak",
+            "Kolorowy wiatr",
+            "",
+            "Pocahontas (Polska Wersja Językowa)",
+            "",
+            "",
+            "",
+            "",
+            "POL",
+            "PLN",
+        )
+        english_lrc = (
+            "[00:01.00]You think I'm an ignorant savage\n"
+            "[00:05.00]And you've been so many places\n"
+            "[00:09.00]I guess it must be so\n"
+            "[00:13.00]But still, I cannot see, if the savage one is me\n"
+        )
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=None, db=db)
+        with (
+            patch(
+                "pikaraoke.lib.lyrics._search_itunes_cached",
+                return_value=(polish_itunes_hit,),
+            ),
+            patch(
+                "pikaraoke.lib.lyrics.fetch_musicbrainz_language_signals",
+                return_value={
+                    "release_countries": ("PL", "PL", "PL"),
+                    "release_titles_joined": (
+                        "Pocahontas: Oryginalna Ścieżka Dźwiękowa | Złota kolekcja"
+                    ),
+                    "tag_names": ("polish",),
+                },
+            ),
+            patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=english_lrc),
+            patch("pikaraoke.lib.lyrics.resolve_metadata", return_value=None),
+        ):
+            service.fetch_and_convert(str(song))
+        # Classifier established `pl` before LRC fetch; dub-trap guard
+        # then rejected the English LRC. No `.ass` written, no lyrics_source.
+        assert not (tmp_path / "Kolorowy---pl.ass").exists()
+        row = db.get_song_by_id(sid)
+        assert row["language"] == "pl"
+        assert row["lyrics_source"] is None
+        sources = db.get_metadata_sources(sid)
+        # Consensus winning source is the highest-rung agreeing signal.
+        assert sources["language"] in {"itunes_text", "mb_release_titles"}
         db.close()

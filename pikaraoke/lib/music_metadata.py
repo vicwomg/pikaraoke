@@ -54,6 +54,10 @@ def _normalize_title(raw: str) -> str:
 
 # Fields extracted from iTunes per hit. Tuple shape is needed for the LRU cache
 # key; the readers below project it back to dicts.
+#
+# ``country`` and ``currency`` are US-43 language-classifier tiebreakers: the
+# iTunes storefront country (``POL``, ``USA``, ...) is a weak language hint
+# that helps break ties when langdetect on the text fields is ambiguous.
 _ITUNES_FIELDS = (
     "artistName",
     "trackName",
@@ -63,6 +67,8 @@ _ITUNES_FIELDS = (
     "releaseDate",
     "artworkUrl100",
     "primaryGenreName",
+    "country",
+    "currency",
 )
 
 
@@ -169,13 +175,36 @@ def fetch_itunes_track(title: str) -> dict | None:
     }
 
 
-@lru_cache(maxsize=256)
-def _search_musicbrainz_cached(artist: str, track: str) -> tuple[str, str] | None:
-    """Query MusicBrainz for a recording; cache ``(mbid, isrc_or_empty)`` per (artist, track).
+# Cached MusicBrainz recording shape. Fields beyond mbid/isrc are US-43
+# language-classifier inputs: country aggregation over the recording's
+# release list, release titles joined for langdetect, and tag names that
+# sometimes carry language hints ("polish", "polish-language", ...).
+# All string-valued tuple fields, so the return value stays hashable and
+# ``@lru_cache`` compatible.
+_MB_RECORDING_FIELDS = (
+    "mbid",
+    "isrc",
+    "release_countries",  # tuple[str, ...]
+    "release_titles_joined",  # str
+    "tag_names",  # tuple[str, ...]
+)
 
-    Returns None when no match or on request failure. MusicBrainz is
-    well-behaved about rate limits; we keep the timeout short and swallow
-    transient errors so enrichment stays best-effort.
+
+@lru_cache(maxsize=256)
+def _search_musicbrainz_cached(artist: str, track: str) -> tuple | None:
+    """Query MusicBrainz for a recording; cache a tuple of language-bearing fields.
+
+    Returns a tuple shaped like ``_MB_RECORDING_FIELDS`` or ``None`` when the
+    search has no match / the request failed. MusicBrainz is well-behaved
+    about rate limits; we keep the timeout short and swallow transient errors
+    so enrichment stays best-effort.
+
+    The recording-level ``language`` and the per-release
+    ``text-representation`` are not exposed on the ``/ws/2/recording`` search
+    endpoint (those require a follow-up ``/ws/2/recording/<id>?inc=...``
+    lookup and would violate US-43's "no new HTTP fetches" constraint), so
+    the classifier piggy-backs on what the search response does carry:
+    release countries, release titles, and folksonomy tags.
     """
     if not artist or not track:
         return None
@@ -206,7 +235,20 @@ def _search_musicbrainz_cached(artist: str, track: str) -> tuple[str, str] | Non
     if not mbid:
         return None
     isrcs = rec.get("isrcs") or []
-    return (mbid, isrcs[0] if isrcs else "")
+    releases = rec.get("releases") or []
+    countries = tuple((rel.get("country") or "").upper() for rel in releases if rel.get("country"))
+    titles_joined = " | ".join(
+        (rel.get("title") or "").strip() for rel in releases if rel.get("title")
+    )
+    tag_names = tuple(
+        (t.get("name") or "").lower() for t in (rec.get("tags") or []) if t.get("name")
+    )
+    return (mbid, isrcs[0] if isrcs else "", countries, titles_joined, tag_names)
+
+
+def _mb_row_to_dict(row: tuple) -> dict:
+    """Project a cached MB recording tuple back to a dict keyed by field name."""
+    return dict(zip(_MB_RECORDING_FIELDS, row))
 
 
 @lru_cache(maxsize=128)
@@ -248,9 +290,7 @@ def search_musicbrainz(query: str, limit: int = 5) -> tuple[dict, ...]:
             for c in credit
         ).strip()
         if mbid and track and artist:
-            out.append(
-                {"artist": artist, "track": track, "musicbrainz_recording_id": mbid}
-            )
+            out.append({"artist": artist, "track": track, "musicbrainz_recording_id": mbid})
     return tuple(out)
 
 
@@ -259,8 +299,30 @@ def fetch_musicbrainz_ids(artist: str, track: str) -> dict | None:
 
     ``isrc`` is set to None when MusicBrainz returned a recording but no ISRC.
     """
-    result = _search_musicbrainz_cached(artist, track)
-    if result is None:
+    row = _search_musicbrainz_cached(artist, track)
+    if row is None:
         return None
-    mbid, isrc = result
-    return {"musicbrainz_recording_id": mbid, "isrc": isrc or None}
+    rec = _mb_row_to_dict(row)
+    return {"musicbrainz_recording_id": rec["mbid"], "isrc": rec["isrc"] or None}
+
+
+def fetch_musicbrainz_language_signals(artist: str, track: str) -> dict | None:
+    """Return language-bearing projections from the cached MB recording.
+
+    Shape: ``{release_countries: tuple[str, ...], release_titles_joined: str,
+    tag_names: tuple[str, ...]}``. Returns None when MusicBrainz had no hit
+    — the US-43 classifier treats that as "no MB signals available".
+
+    Shares the ``_search_musicbrainz_cached`` LRU with ``fetch_musicbrainz_ids``
+    so the enricher and the classifier never pay a second HTTP call for the
+    same (artist, track) pair.
+    """
+    row = _search_musicbrainz_cached(artist, track)
+    if row is None:
+        return None
+    rec = _mb_row_to_dict(row)
+    return {
+        "release_countries": rec["release_countries"],
+        "release_titles_joined": rec["release_titles_joined"],
+        "tag_names": rec["tag_names"],
+    }
