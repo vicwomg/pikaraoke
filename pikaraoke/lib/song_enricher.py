@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 import requests
 
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
+from pikaraoke.lib.lyrics import _VARIANT_RE
 from pikaraoke.lib.music_metadata import fetch_itunes_track, fetch_musicbrainz_ids
 
 logger = logging.getLogger(__name__)
@@ -86,6 +87,21 @@ SOURCE_ITUNES = "itunes"
 SOURCE_MUSICBRAINZ = "musicbrainz"
 
 
+def _itunes_adds_variant(query: str, itunes: dict) -> bool:
+    """True when iTunes' canonical track name adds a mix/version marker the
+    original query did not have.
+
+    Guards against iTunes' only hit being the instrumental/karaoke/live cut
+    (common on small catalogues): overriding ``title`` with that suffix
+    poisons every downstream LRCLib/Genius query, which index by the
+    canonical song. Returns False when either side lacks a track name.
+    """
+    itunes_track = (itunes.get("track") or "").strip()
+    if not itunes_track or not query:
+        return False
+    return bool(_VARIANT_RE.search(itunes_track)) and not _VARIANT_RE.search(query)
+
+
 def enrich_song(db: KaraokeDatabase, song_id: int, song_path: str) -> None:
     """Run iTunes + MusicBrainz enrichment for a single song.
 
@@ -118,6 +134,15 @@ def enrich_song(db: KaraokeDatabase, song_id: int, song_path: str) -> None:
     if not itunes:
         db.stamp_enrichment_attempt(song_id, "not_found", now)
         return
+
+    if _itunes_adds_variant(query, itunes):
+        logger.info(
+            "iTunes canonical track %r adds a variant marker not in %r; "
+            "dropping title/artist override",
+            itunes.get("track"),
+            query,
+        )
+        itunes = {**itunes, "track": None, "artist": None}
 
     applied = db.update_track_metadata_with_provenance(
         song_id,

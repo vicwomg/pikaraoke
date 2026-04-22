@@ -22,6 +22,7 @@ import logging
 import os
 import re
 import tempfile
+import threading
 import time
 from dataclasses import dataclass
 from threading import Thread
@@ -37,6 +38,36 @@ logger = logging.getLogger(__name__)
 
 LRCLIB_BASE = "https://lrclib.net"
 LRCLIB_TIMEOUT = 5.0
+
+GENIUS_BASE = "https://api.genius.com"
+GENIUS_TIMEOUT = 5.0
+GENIUS_ACCESS_TOKEN = os.environ.get("GENIUS_ACCESS_TOKEN", "").strip()
+
+# Last-resort ASR fallback. When LRCLib / Genius / YouTube VTT all miss,
+# transcribe the vocals stem with faster-whisper so the song still gets
+# subtitles (flagged as auto-generated in the UI). Set the env var to
+# one of {"off","none","false","0"} to disable; otherwise the value is
+# the faster-whisper model size ("tiny" / "base" / "small" / "medium" /
+# "large-v2" / ...). Default "small" balances CPU cost (~1x realtime on
+# laptop CPU) with quality that's good enough for pop / rap vocals.
+_WHISPER_OPT_OUT = {"off", "none", "false", "0"}
+WHISPER_FALLBACK_MODEL = (os.environ.get("WHISPER_FALLBACK_MODEL", "").strip() or "small")
+_whisper_model_cache: list = [None]
+_whisper_model_lock = threading.Lock()
+
+# Trailing mix/version markers in parens or brackets: "(Instrumental)",
+# "[Karaoke]", "(Acoustic Version)", etc. LRCLib + Genius index lyrics once
+# per song regardless of release variant, so these suffixes drop otherwise-
+# good matches. Applied to the upstream query only; DB titles are untouched.
+_VARIANT_RE = re.compile(
+    r"\s*[\(\[]"
+    r"[^)\]]*?"
+    r"\b(?:instrumental|karaoke|acoustic(?:\s+version)?|live|remix|"
+    r"remastered|extended|radio\s+edit)\b"
+    r"[^)\]]*"
+    r"[\)\]]\s*$",
+    re.IGNORECASE,
+)
 
 # LRC timestamp: [mm:ss.xx] or [mm:ss.xxx] or [mm:ss]
 _LRC_TAG = re.compile(r"\[(\d{1,3}):(\d{2})(?:\.(\d{1,3}))?\]")
@@ -113,6 +144,10 @@ class LyricsService:
         ``lyrics_sha`` fingerprints the LRC text that produced the .ass, so a
         later LRCLib refresh returning different content invalidates the cache.
         No-op when db is not wired or when the song is not in the DB.
+
+        Emits ``lyrics_upgraded`` so the splash UI can refresh its
+        lyrics_source badge (and cache-bust the subtitle URL if the song
+        is already playing and the .ass was swapped in mid-song).
         """
         if self._db is None:
             return
@@ -126,6 +161,10 @@ class LyricsService:
             aligner_model=aligner_model,
             lyrics_sha=lyrics_sha,
         )
+        try:
+            self._events.emit("lyrics_upgraded", song_path)
+        except Exception:
+            logger.exception("failed to emit lyrics_upgraded for %s", song_path)
 
     def _register_user_ass(self, song_path: str) -> None:
         if self._db is None:
@@ -134,6 +173,18 @@ class LyricsService:
         if song_id is None:
             return
         self._db.upsert_artifacts(song_id, [{"role": "ass_user", "path": _ass_path(song_path)}])
+        # Tag the row so the UI badge distinguishes user-authored subtitles
+        # from auto-generated ones.
+        try:
+            self._db.update_processing_config(
+                song_id, lyrics_source="user_ass", aligner_model=None, lyrics_sha=None
+            )
+        except Exception:
+            logger.exception("failed to stamp user_ass lyrics_source for %s", song_path)
+        try:
+            self._events.emit("lyrics_upgraded", song_path)
+        except Exception:
+            logger.exception("failed to emit lyrics_upgraded for %s", song_path)
 
     def _emit_stage_notification(self, song_path: str, stage: str) -> None:
         """Toast a pipeline-stage message (e.g. "Fetching lyrics: Song Title").
@@ -278,7 +329,11 @@ class LyricsService:
                 )
                 wrote_from_lrc = True
 
-        if not wrote_from_lrc:
+        wrote_from_genius = False
+        if not wrote_from_lrc and self._aligner is not None and GENIUS_ACCESS_TOKEN and info:
+            wrote_from_genius = self._try_genius_fallback(song_path, info)
+
+        if not wrote_from_lrc and not wrote_from_genius:
             vtt_path = _pick_best_vtt(song_path, preferred_lang=self._db_language(song_path))
             if vtt_path and _try_write_ass_from_vtt_path(song_path, vtt_path):
                 logger.info(
@@ -298,23 +353,35 @@ class LyricsService:
         # we have our own .ass. When both LRCLib and VTT conversion failed,
         # leave the VTT on disk — raw captions beat no captions, and a
         # future retry (or the user) can still salvage them.
-        if wrote_from_lrc or wrote_from_vtt:
+        if wrote_from_lrc or wrote_from_vtt or wrote_from_genius:
             _cleanup_yt_vtt(song_path, self._db)
 
-        if not wrote_from_vtt and not wrote_from_lrc:
+        if not wrote_from_vtt and not wrote_from_lrc and not wrote_from_genius:
             logger.info("No lyrics source for %s", os.path.basename(song_path))
-            try:
-                self._events.emit(
-                    "song_warning",
-                    {
-                        "message": "No lyrics found",
-                        "detail": "YouTube captions and LRCLib both had no match.",
-                        "song": os.path.basename(song_path),
-                        "severity": "warning",
-                    },
-                )
-            except Exception:
-                logger.exception("failed to emit song_warning for missing lyrics")
+            if _whisper_fallback_enabled():
+                # Fire-and-forget: ASR is slow (~1x realtime on CPU) and
+                # must not block the download pipeline. If it succeeds the
+                # .ass lands mid-song and `lyrics_upgraded` flips the UI;
+                # if it fails we surface a song_warning from inside.
+                Thread(
+                    target=self._try_whisper_fallback,
+                    args=(song_path,),
+                    name=f"whisper-fallback-{os.path.basename(song_path)}",
+                    daemon=True,
+                ).start()
+            else:
+                try:
+                    self._events.emit(
+                        "song_warning",
+                        {
+                            "message": "No lyrics found",
+                            "detail": "LRCLib / Genius / YouTube captions all missed, and Whisper fallback is disabled.",
+                            "song": os.path.basename(song_path),
+                            "severity": "warning",
+                        },
+                    )
+                except Exception:
+                    logger.exception("failed to emit song_warning for missing lyrics")
             return
 
         self._events.emit(
@@ -529,7 +596,6 @@ class LyricsService:
                     f"Synced lyrics ready: {_title_from_filename(song_path)}",
                     "success",
                 )
-                self._events.emit("lyrics_upgraded", song_path)
         except Exception as e:
             logger.warning(
                 "word-level alignment failed for %s, keeping line-level",
@@ -548,6 +614,197 @@ class LyricsService:
                 )
             except Exception:
                 logger.exception("failed to emit song_warning for alignment failure")
+
+    def _try_genius_fallback(self, song_path: str, info: dict) -> bool:
+        """Fetch plain lyrics from Genius, align them, and write a word-level .ass.
+
+        Runs synchronously inside the ``fetch_and_convert`` worker thread
+        (caller already runs there). Returns True on success so the caller
+        can skip VTT fallback and the "no lyrics found" warning; False on
+        any miss (no Genius match, no stems, no language, aligner failure)
+        and the caller falls through to VTT.
+
+        Genius lyrics are plain text — no timestamps — so we align the
+        whole song in one pass (``lrc_lines=None``) then synthesise an LRC
+        from the aligned word times and reuse the existing word-level ASS
+        builder.
+        """
+        if self._aligner is None:
+            return False
+        track = info.get("track")
+        artist = info.get("artist")
+        if not track or not artist:
+            return False
+        try:
+            genius_text = _fetch_genius(track, artist)
+        except Exception:
+            logger.exception("Genius fetch crashed for %r / %r", artist, track)
+            return False
+        if not genius_text:
+            return False
+
+        self._emit_stage_notification(song_path, "Aligning Genius lyrics")
+        _prewarm_stems(song_path)
+        audio_path = _wait_for_alignment_audio(song_path)
+
+        lines = [ln for ln in genius_text.splitlines() if ln.strip()]
+        plain = "\n".join(lines)
+
+        song_id = self._db.get_song_id_by_path(song_path) if self._db else None
+        db_lang = None
+        if self._db is not None and song_id is not None:
+            row = self._db.get_song_by_id(song_id)
+            db_lang = row["language"] if row is not None else None
+        language = db_lang or _detect_language(plain)
+        if not language:
+            logger.info("Skipping Genius alignment for %s: language unknown", song_path)
+            return False
+
+        try:
+            words = self._aligner.align(audio_path, plain, language=language)
+        except Exception as e:
+            logger.warning("Genius alignment failed for %s", song_path, exc_info=True)
+            try:
+                self._events.emit(
+                    "song_warning",
+                    {
+                        "message": "Genius alignment failed",
+                        "detail": f"{type(e).__name__}: {e}",
+                        "song": os.path.basename(song_path),
+                        "severity": "warning",
+                    },
+                )
+            except Exception:
+                logger.exception("failed to emit song_warning for Genius alignment failure")
+            return False
+        if not words:
+            return False
+
+        synthetic_lrc = _lrc_from_aligned_lines(words, lines)
+        if not synthetic_lrc:
+            return False
+
+        bpm = _estimate_bpm(audio_path)
+        self._warn_once_if_bpm_disabled(song_path, bpm)
+        ass = _words_to_ass_with_k_tags(words, synthetic_lrc, params=_anim_params_for_bpm(bpm))
+        if not ass:
+            return False
+
+        _write_ass_atomic(song_path, ass)
+        aligner_id = self._aligner.model_id if self._aligner else None
+        lyrics_sha = _lrc_sha(synthetic_lrc)
+        self._register_ass(
+            song_path,
+            lyrics_source="genius",
+            aligner_model=aligner_id,
+            lyrics_sha=lyrics_sha,
+        )
+        if self._db is not None and song_id is not None and not db_lang:
+            self._db.update_track_metadata_with_provenance(
+                song_id, "scanner", {"language": language}
+            )
+        logger.info("Genius: wrote word-level .ass for %s - %s", artist, track)
+        return True
+
+    def _try_whisper_fallback(self, song_path: str) -> None:
+        """Last-resort ASR: transcribe the vocals stem with faster-whisper.
+
+        Runs only when LRCLib / Genius / YouTube VTT all missed. We already
+        fired off "No lyrics source" in the caller; this thread writes a
+        word-level .ass tagged ``lyrics_source="whisper"`` so the splash
+        badge can flag these as machine-transcribed (lower trust than a
+        curated LRC / user-authored .ass).
+
+        Uses Whisper's own word timestamps rather than re-aligning through
+        wav2vec2. Whisper's timings are a touch coarser (~200ms) than
+        forced alignment but the text it emits is a phoneme-level fiction
+        anyway — pushing hallucinated words back through wav2vec2 would
+        only hide the errors, not fix them.
+        """
+        try:
+            self._emit_stage_notification(song_path, "Transcribing (Whisper)")
+            _prewarm_stems(song_path)
+            audio_path = _wait_for_alignment_audio(song_path)
+            model = _get_whisper_model()
+            if model is None:
+                return
+            segments_iter, info = model.transcribe(
+                audio_path,
+                word_timestamps=True,
+                vad_filter=True,
+            )
+            segments = list(segments_iter)
+            if not segments:
+                logger.info("Whisper fallback: empty transcription for %s", song_path)
+                self._emit_whisper_failure(song_path, "empty transcription")
+                return
+            lrc = _lrc_from_whisper_segments(segments)
+            words: list[Word] = []
+            for seg in segments:
+                for w in (seg.words or []):
+                    text = (getattr(w, "word", "") or "").strip()
+                    if not text or w.start is None or w.end is None:
+                        continue
+                    words.append(Word(text=text, start=float(w.start), end=float(w.end)))
+            if not words or not lrc:
+                logger.info("Whisper fallback: no usable words for %s", song_path)
+                self._emit_whisper_failure(song_path, "no usable word timings")
+                return
+            bpm = _estimate_bpm(audio_path)
+            self._warn_once_if_bpm_disabled(song_path, bpm)
+            ass = _words_to_ass_with_k_tags(words, lrc, params=_anim_params_for_bpm(bpm))
+            if not ass:
+                logger.info("Whisper fallback: ASS conversion failed for %s", song_path)
+                self._emit_whisper_failure(song_path, "ASS conversion failed")
+                return
+            _write_ass_atomic(song_path, ass)
+            lang = getattr(info, "language", None)
+            if lang and self._db is not None:
+                song_id = self._db.get_song_id_by_path(song_path)
+                if song_id is not None:
+                    try:
+                        self._db.update_track_metadata_with_provenance(
+                            song_id, "scanner", {"language": lang}
+                        )
+                    except Exception:
+                        logger.exception("failed to persist whisper language for %s", song_path)
+            self._register_ass(
+                song_path,
+                lyrics_source="whisper",
+                aligner_model=f"whisper-{WHISPER_FALLBACK_MODEL}",
+                lyrics_sha=_lrc_sha(lrc),
+            )
+            logger.info(
+                "Whisper: wrote word-level .ass for %s (lang=%s, model=%s)",
+                os.path.basename(song_path),
+                lang or "?",
+                WHISPER_FALLBACK_MODEL,
+            )
+            try:
+                self._events.emit(
+                    "notification",
+                    f"Auto-lyrics ready: {_title_from_filename(song_path)}",
+                    "info",
+                )
+            except Exception:
+                logger.exception("failed to emit whisper success notification")
+        except Exception as e:
+            logger.exception("Whisper fallback crashed for %s", song_path)
+            self._emit_whisper_failure(song_path, f"{type(e).__name__}: {e}")
+
+    def _emit_whisper_failure(self, song_path: str, detail: str) -> None:
+        try:
+            self._events.emit(
+                "song_warning",
+                {
+                    "message": "No lyrics found",
+                    "detail": f"Whisper fallback: {detail}.",
+                    "song": os.path.basename(song_path),
+                    "severity": "warning",
+                },
+            )
+        except Exception:
+            logger.exception("failed to emit whisper-failure song_warning")
 
     def reprocess_library(self, song_paths: list[str]) -> int:
         """Upgrade existing line-level auto-lyrics to word-level in the background.
@@ -672,8 +929,21 @@ def _ass_path(song_path: str) -> str:
 # ----- LRCLib client -----
 
 
+def _strip_variant_markers(title: str) -> str:
+    """Trim trailing `(Instrumental)` / `[Karaoke]` / etc. from a track title.
+
+    LRCLib/Genius index lyrics once per song regardless of mix; querying with
+    a variant suffix drops otherwise-good matches. Called on the query only;
+    never mutates the DB title. Returns the original string when no marker
+    matches or stripping would yield an empty result.
+    """
+    stripped = _VARIANT_RE.sub("", title).strip()
+    return stripped or title
+
+
 def _fetch_lrclib(track: str, artist: str, duration: int | float | None) -> str | None:
     """Query LRCLib for syncedLyrics; None when none found or request failed."""
+    track = _strip_variant_markers(track)
     get_params: dict[str, str | int] = {"track_name": track, "artist_name": artist}
     if duration:
         get_params["duration"] = int(duration)
@@ -697,6 +967,90 @@ def _fetch_lrclib(track: str, artist: str, duration: int | float | None) -> str 
     except (requests.RequestException, ValueError) as e:
         logger.warning("LRCLib request failed: %s", e)
     return None
+
+
+# ----- Genius client -----
+
+
+def _fetch_genius(track: str, artist: str) -> str | None:
+    """Return plain-text lyrics from Genius, or None on miss / missing token.
+
+    Flow:
+      1. GET /search?q=<artist> <track>  (Bearer auth).
+      2. Pick the first hit whose ``primary_artist.name`` case-insensitively
+         matches ``artist``.
+      3. Scrape the public song page and extract text from the lyrics
+         containers (``div[data-lyrics-container="true"]``), preserving line
+         breaks from ``<br>`` tags and dropping annotation markup.
+
+    Returns None when ``GENIUS_ACCESS_TOKEN`` is empty (opt-in feature), on
+    any HTTP failure, or when no artist-matched hit is found.
+    """
+    if not GENIUS_ACCESS_TOKEN or not track or not artist:
+        return None
+    query = f"{artist} {_strip_variant_markers(track)}".strip()
+    try:
+        r = requests.get(
+            f"{GENIUS_BASE}/search",
+            params={"q": query},
+            headers={"Authorization": f"Bearer {GENIUS_ACCESS_TOKEN}"},
+            timeout=GENIUS_TIMEOUT,
+        )
+        if r.status_code != 200:
+            return None
+        hits = r.json().get("response", {}).get("hits", [])
+    except (requests.RequestException, ValueError) as e:
+        logger.warning("Genius search failed: %s", e)
+        return None
+    artist_lc = artist.strip().lower()
+    url = None
+    for hit in hits:
+        result = hit.get("result") or {}
+        primary = (result.get("primary_artist") or {}).get("name", "")
+        if primary.strip().lower() == artist_lc:
+            url = result.get("url")
+            break
+    if not url:
+        return None
+    try:
+        page = requests.get(url, timeout=GENIUS_TIMEOUT)
+        if page.status_code != 200:
+            return None
+    except requests.RequestException as e:
+        logger.warning("Genius page fetch failed: %s", e)
+        return None
+    return _extract_genius_lyrics(page.text)
+
+
+_GENIUS_CONTAINER_RE = re.compile(
+    r'<div[^>]+data-lyrics-container="true"[^>]*>(.*?)</div>',
+    re.IGNORECASE | re.DOTALL,
+)
+_GENIUS_SECTION_HEADER_RE = re.compile(r"^\s*\[[^\]]*\]\s*$", re.MULTILINE)
+_HTML_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _extract_genius_lyrics(html: str) -> str | None:
+    """Pull plain-text lyrics out of a Genius song page.
+
+    Genius wraps lyric blocks in ``data-lyrics-container="true"`` divs and
+    uses ``<br>`` for line breaks inside each block. Section headers like
+    ``[Verse 1]`` are dropped; they aren't part of the sung content.
+    Returns None when no container is found.
+    """
+    containers = _GENIUS_CONTAINER_RE.findall(html)
+    if not containers:
+        return None
+    lines: list[str] = []
+    for raw in containers:
+        text = re.sub(r"<br\s*/?>", "\n", raw, flags=re.IGNORECASE)
+        text = _HTML_TAG_RE.sub("", text)
+        text = _GENIUS_SECTION_HEADER_RE.sub("", text)
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped:
+                lines.append(stripped)
+    return "\n".join(lines) if lines else None
 
 
 # ----- LRC parser -----
@@ -744,6 +1098,34 @@ def lrc_line_windows(lrc: str) -> list[tuple[float, float, str]]:
         end = entries[i + 1][0] if i + 1 < len(entries) else start + _LAST_LINE_HOLD_S
         windows.append((start, end, text))
     return windows
+
+
+def _lrc_from_aligned_lines(words: list[Word], lines: list[str]) -> str | None:
+    """Build an LRC from aligned word timings + known line structure.
+
+    Used on the Genius fallback path: Genius gives us plain lyrics with line
+    breaks but no timestamps, so after wav2vec2 returns per-word timings
+    (1:1 with the reference tokens), we consume one line's worth of tokens
+    at a time and use the first aligned word's start as the line's LRC time.
+    Returns None when the aligner dropped so many words we can't scaffold
+    any line.
+    """
+    entries: list[str] = []
+    idx = 0
+    for line in lines:
+        tokens = line.split()
+        if not tokens:
+            continue
+        end_idx = min(idx + len(tokens), len(words))
+        line_words = words[idx:end_idx]
+        idx = end_idx
+        if not line_words:
+            continue
+        start = max(0.0, line_words[0].start)
+        mm = int(start // 60)
+        ss = start - mm * 60
+        entries.append(f"[{mm:02d}:{ss:05.2f}]{line}")
+    return "\n".join(entries) if entries else None
 
 
 _LANGDETECT_MIN_CHARS = 30
@@ -1329,3 +1711,62 @@ def _prewarm_stems(song_path: str) -> None:
         prewarm(song_path)
     except Exception as e:
         logger.warning("Demucs prewarm failed for %s: %s", song_path, e)
+
+
+def _whisper_fallback_enabled() -> bool:
+    """Honour WHISPER_FALLBACK_MODEL opt-out. Default: enabled."""
+    return WHISPER_FALLBACK_MODEL.lower() not in _WHISPER_OPT_OUT
+
+
+def _get_whisper_model():
+    """Lazy-load faster-whisper once per process. Returns None if unavailable.
+
+    Import is deferred so a missing ``faster-whisper`` install doesn't
+    crash the rest of the app — songs just fall through to the
+    "no lyrics source" warning instead.
+    """
+    if not _whisper_fallback_enabled():
+        return None
+    with _whisper_model_lock:
+        if _whisper_model_cache[0] is not None:
+            return _whisper_model_cache[0]
+        try:
+            from faster_whisper import WhisperModel
+        except ImportError:
+            logger.warning(
+                "Whisper fallback: faster-whisper not installed; "
+                "no auto-lyrics will be generated for songs missing curated captions."
+            )
+            return None
+        try:
+            model = WhisperModel(WHISPER_FALLBACK_MODEL, device="auto", compute_type="int8")
+        except Exception:
+            logger.exception(
+                "Whisper fallback: failed to load model %r on device=auto; disabling",
+                WHISPER_FALLBACK_MODEL,
+            )
+            return None
+        _whisper_model_cache[0] = model
+        logger.info("Whisper fallback: loaded model=%s", WHISPER_FALLBACK_MODEL)
+        return model
+
+
+def _lrc_from_whisper_segments(segments) -> str:
+    """Build a synthetic LRC (one line per whisper segment).
+
+    ``_words_to_ass_with_k_tags`` needs an LRC string to locate line
+    boundaries and per-line start times; whisper's segments approximate
+    spoken lines well enough for that. Text is stripped; empty segments
+    are dropped so a leading silence doesn't produce a blank LRC line
+    that would offset word-to-line assignment.
+    """
+    lines = []
+    for seg in segments:
+        text = (getattr(seg, "text", "") or "").strip()
+        if not text:
+            continue
+        start = float(getattr(seg, "start", 0.0) or 0.0)
+        minutes = int(start // 60)
+        seconds = start - minutes * 60
+        lines.append(f"[{minutes:02d}:{seconds:05.2f}]{text}")
+    return "\n".join(lines)

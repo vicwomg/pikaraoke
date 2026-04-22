@@ -250,6 +250,73 @@ class TestEnrichSong:
         # Existing file preserved.
         assert existing_cover.read_bytes() == b"already-there"
 
+    def test_itunes_variant_does_not_override_title(self, db, tmp_path):
+        """When iTunes' only hit is an Instrumental/Karaoke cut (a common
+        small-catalogue edge case), its canonical artist/track must not
+        clobber the existing row — otherwise LRCLib queries get poisoned
+        with a suffix that doesn't exist in its index. Other iTunes
+        fields (album, itunes_id, etc.) still flow through.
+        """
+        song_path = str(tmp_path / "Artist - Antyczny Napaleniec---abc12345678.mp4")
+        sid = _insert_song(db, song_path)
+        db.update_track_metadata_with_provenance(
+            sid,
+            "youtube",
+            {"artist": "Artist", "title": "Antyczny Napaleniec"},
+        )
+        itunes_full = {
+            "itunes_id": "55555",
+            "artist": "Artist",
+            "track": "Antyczny Napaleniec (Instrumental)",
+            "album": "Album Name",
+            "track_number": 4,
+            "release_date": "2020-01-01T00:00:00Z",
+            "cover_art_url": None,
+            "genre": "Rap",
+        }
+        with patch.object(
+            song_enricher, "fetch_itunes_track", return_value=itunes_full
+        ), patch.object(song_enricher, "fetch_musicbrainz_ids", return_value=None):
+            song_enricher.enrich_song(db, sid, song_path)
+
+        row = db.get_song_by_id(sid)
+        # Identity fields stay at whatever was there (YouTube-seeded).
+        assert row["title"] == "Antyczny Napaleniec"
+        assert row["artist"] == "Artist"
+        # Other iTunes-only fields still land.
+        assert row["itunes_id"] == "55555"
+        assert row["album"] == "Album Name"
+        assert row["track_number"] == 4
+        assert row["genre"] == "Rap"
+
+    def test_itunes_variant_matching_query_still_applies(self, db, tmp_path):
+        """When the query itself carries the variant suffix (user really
+        wants the karaoke cut), iTunes' matching suffix is legitimate and
+        must still flow through."""
+        song_path = str(tmp_path / "Artist - Song (Instrumental)---abc12345678.mp4")
+        sid = _insert_song(db, song_path)
+        db.update_track_metadata_with_provenance(
+            sid, "youtube", {"artist": "Artist", "title": "Song (Instrumental)"}
+        )
+        itunes_full = {
+            "itunes_id": "1",
+            "artist": "Artist Canonical",
+            "track": "Song (Instrumental)",
+            "album": None,
+            "track_number": None,
+            "release_date": None,
+            "cover_art_url": None,
+            "genre": None,
+        }
+        with patch.object(
+            song_enricher, "fetch_itunes_track", return_value=itunes_full
+        ), patch.object(song_enricher, "fetch_musicbrainz_ids", return_value=None):
+            song_enricher.enrich_song(db, sid, song_path)
+
+        row = db.get_song_by_id(sid)
+        assert row["artist"] == "Artist Canonical"
+        assert row["title"] == "Song (Instrumental)"
+
     def test_survives_provider_crashes(self, db, tmp_path):
         song_path = str(tmp_path / "Foo---abc12345678.mp4")
         sid = _insert_song(db, song_path)

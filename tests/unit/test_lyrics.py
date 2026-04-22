@@ -15,15 +15,19 @@ from pikaraoke.lib.lyrics import (
     _cleanup_yt_vtt,
     _detect_language,
     _escape_ass,
+    _extract_genius_lyrics,
+    _fetch_genius,
     _fetch_lrclib,
     _format_ass_time,
     _k_token,
+    _lrc_from_aligned_lines,
     _lrc_plain_text,
     _lrc_to_ass_line_level,
     _needs_word_level_upgrade,
     _parse_lrc,
     _parse_vtt_cues,
     _pick_best_vtt,
+    _strip_variant_markers,
     _title_from_filename,
     _user_owned_ass,
     _vtt_to_ass,
@@ -249,6 +253,165 @@ class TestFetchLrclib:
             _fetch_lrclib("T", "A", None)
             params = mock_get.call_args.kwargs["params"]
             assert "duration" not in params
+
+    def test_strips_variant_marker_before_query(self):
+        response = MagicMock(status_code=200)
+        response.json.return_value = {"syncedLyrics": "x"}
+        with patch("pikaraoke.lib.lyrics.requests.get", return_value=response) as mock_get:
+            _fetch_lrclib("Song (Instrumental)", "A", None)
+            assert mock_get.call_args.kwargs["params"]["track_name"] == "Song"
+
+
+# ----- variant stripper -----
+
+
+class TestStripVariantMarkers:
+    def test_strips_instrumental(self):
+        assert _strip_variant_markers("Antyczny Napaleniec (Instrumental)") == "Antyczny Napaleniec"
+
+    def test_strips_karaoke_brackets(self):
+        assert _strip_variant_markers("Song Name [Karaoke]") == "Song Name"
+
+    def test_strips_acoustic_version(self):
+        assert _strip_variant_markers("Song (Acoustic Version)") == "Song"
+
+    def test_strips_live_and_remix_and_remastered(self):
+        assert _strip_variant_markers("Song (Live)") == "Song"
+        assert _strip_variant_markers("Song (Remix)") == "Song"
+        assert _strip_variant_markers("Song (2011 Remastered)") == "Song"
+
+    def test_noop_when_no_marker(self):
+        assert _strip_variant_markers("Song Title") == "Song Title"
+
+    def test_noop_on_empty_input(self):
+        assert _strip_variant_markers("") == ""
+
+    def test_preserves_non_variant_parens(self):
+        # Parens that aren't a known variant keyword must not be touched.
+        assert _strip_variant_markers("Song (Part 2)") == "Song (Part 2)"
+
+    def test_does_not_fully_empty_the_title(self):
+        # Rare degenerate: the whole title IS a marker. Fall back to original
+        # rather than return empty string (empty breaks LRCLib params).
+        assert _strip_variant_markers("(Instrumental)") == "(Instrumental)"
+
+
+# ----- Genius client -----
+
+
+class TestFetchGenius:
+    def test_returns_none_without_token(self):
+        with patch("pikaraoke.lib.lyrics.GENIUS_ACCESS_TOKEN", ""):
+            assert _fetch_genius("Track", "Artist") is None
+
+    def test_returns_lyrics_on_hit(self):
+        search_resp = MagicMock(status_code=200)
+        search_resp.json.return_value = {
+            "response": {
+                "hits": [
+                    {
+                        "result": {
+                            "primary_artist": {"name": "Artist"},
+                            "url": "https://genius.com/song-lyrics",
+                        }
+                    }
+                ]
+            }
+        }
+        page_resp = MagicMock(status_code=200)
+        page_resp.text = (
+            '<html><div data-lyrics-container="true" class="lyrics">'
+            "[Verse 1]<br>hello<br>world</div></html>"
+        )
+        with patch("pikaraoke.lib.lyrics.GENIUS_ACCESS_TOKEN", "token"), patch(
+            "pikaraoke.lib.lyrics.requests.get", side_effect=[search_resp, page_resp]
+        ):
+            assert _fetch_genius("Track", "Artist") == "hello\nworld"
+
+    def test_returns_none_on_search_http_error(self):
+        search_resp = MagicMock(status_code=500)
+        with patch("pikaraoke.lib.lyrics.GENIUS_ACCESS_TOKEN", "token"), patch(
+            "pikaraoke.lib.lyrics.requests.get", return_value=search_resp
+        ):
+            assert _fetch_genius("Track", "Artist") is None
+
+    def test_returns_none_on_artist_mismatch(self):
+        search_resp = MagicMock(status_code=200)
+        search_resp.json.return_value = {
+            "response": {
+                "hits": [
+                    {
+                        "result": {
+                            "primary_artist": {"name": "Someone Else"},
+                            "url": "https://genius.com/x",
+                        }
+                    }
+                ]
+            }
+        }
+        with patch("pikaraoke.lib.lyrics.GENIUS_ACCESS_TOKEN", "token"), patch(
+            "pikaraoke.lib.lyrics.requests.get", return_value=search_resp
+        ):
+            assert _fetch_genius("Track", "Artist") is None
+
+    def test_returns_none_on_network_error(self):
+        with patch("pikaraoke.lib.lyrics.GENIUS_ACCESS_TOKEN", "token"), patch(
+            "pikaraoke.lib.lyrics.requests.get", side_effect=requests.ConnectionError()
+        ):
+            assert _fetch_genius("Track", "Artist") is None
+
+    def test_strips_variant_from_search_query(self):
+        search_resp = MagicMock(status_code=200)
+        search_resp.json.return_value = {"response": {"hits": []}}
+        with patch("pikaraoke.lib.lyrics.GENIUS_ACCESS_TOKEN", "token"), patch(
+            "pikaraoke.lib.lyrics.requests.get", return_value=search_resp
+        ) as mock_get:
+            _fetch_genius("Song (Instrumental)", "Artist")
+            assert mock_get.call_args.kwargs["params"]["q"] == "Artist Song"
+
+
+class TestExtractGeniusLyrics:
+    def test_extracts_from_container(self):
+        html = (
+            '<div data-lyrics-container="true">'
+            "[Verse 1]<br>line one<br>line two<br>"
+            "[Chorus]<br>line three</div>"
+        )
+        assert _extract_genius_lyrics(html) == "line one\nline two\nline three"
+
+    def test_returns_none_without_container(self):
+        assert _extract_genius_lyrics("<html><body>nothing here</body></html>") is None
+
+    def test_merges_multiple_containers(self):
+        html = (
+            '<div data-lyrics-container="true">a<br>b</div>'
+            '<div data-lyrics-container="true">c<br>d</div>'
+        )
+        assert _extract_genius_lyrics(html) == "a\nb\nc\nd"
+
+
+# ----- LRC-from-aligned-words helper -----
+
+
+class TestLrcFromAlignedLines:
+    def test_builds_lrc_from_word_timings(self):
+        words = [
+            Word("hello", 1.0, 1.5),
+            Word("world", 1.5, 2.0),
+            Word("second", 4.0, 4.5),
+            Word("line", 4.5, 5.0),
+        ]
+        lines = ["hello world", "second line"]
+        lrc = _lrc_from_aligned_lines(words, lines)
+        assert lrc == "[00:01.00]hello world\n[00:04.00]second line"
+
+    def test_returns_none_on_empty_lines(self):
+        assert _lrc_from_aligned_lines([], []) is None
+
+    def test_skips_lines_without_words(self):
+        # Only enough words for the first line; second line's window is empty.
+        words = [Word("hi", 0.5, 1.0)]
+        assert _lrc_from_aligned_lines(words, ["hi", "there"]) == "[00:00.50]hi"
 
 
 # ----- atomic write -----
@@ -1580,7 +1743,10 @@ class TestPrewarmTriggeredFromFetchAndConvert:
         mock_prewarm.assert_not_called()
         db.close()
 
-    def test_prewarm_not_called_when_no_lrc(self, tmp_path):
+    def test_prewarm_not_called_when_no_lrc_and_whisper_disabled(self, tmp_path, monkeypatch):
+        # With Whisper fallback disabled, an LRC-miss should not prewarm
+        # stems — nothing downstream would use them.
+        monkeypatch.setattr("pikaraoke.lib.lyrics.WHISPER_FALLBACK_MODEL", "off")
         song = tmp_path / "Foo---abc.mp4"
         song.write_text("fake")
         service = LyricsService(str(tmp_path), EventSystem(), aligner=MagicMock())
@@ -1589,3 +1755,112 @@ class TestPrewarmTriggeredFromFetchAndConvert:
         ), patch("pikaraoke.lib.lyrics._prewarm_stems") as mock_prewarm:
             service.fetch_and_convert(str(song))
         mock_prewarm.assert_not_called()
+
+    def test_whisper_fallback_kicks_off_when_no_lrc(self, tmp_path):
+        # Default behavior: LRC-miss spawns the Whisper fallback thread so
+        # songs without curated lyrics still get auto-generated captions.
+        song = tmp_path / "Foo---abc.mp4"
+        song.write_text("fake")
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=MagicMock())
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=None), patch(
+            "pikaraoke.lib.lyrics.resolve_metadata", return_value=None
+        ), patch("pikaraoke.lib.lyrics.Thread") as mock_thread:
+            service.fetch_and_convert(str(song))
+        mock_thread.assert_called_once()
+        kwargs = mock_thread.call_args.kwargs
+        assert kwargs["target"] == service._try_whisper_fallback
+
+
+# ----- LyricsService: Genius fallback integration -----
+
+
+class TestLyricsServiceGeniusFallback:
+    """LRCLib-miss + Genius-hit + aligner path writes a word-level .ass and
+    stamps ``lyrics_source="genius"``."""
+
+    def _song_with_lang(self, tmp_path, *, with_aligner=True, with_lang=True):
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+        song = tmp_path / "Foo---abc.mp4"
+        song.write_text("fake")
+        db = KaraokeDatabase(str(tmp_path / "genius.db"))
+        db.insert_songs([{"file_path": str(song), "youtube_id": "abc", "format": "mp4"}])
+        sid = db.get_song_id_by_path(str(song))
+        fields = {"artist": "A", "title": "T", "duration_seconds": 180.0}
+        if with_lang:
+            fields["language"] = "en"
+        db.update_track_metadata_with_provenance(sid, "youtube", fields)
+        aligner = None
+        if with_aligner:
+            aligner = MagicMock()
+            aligner.model_id = "test-aligner"
+            aligner.align.return_value = [
+                Word("hello", 1.0, 1.5),
+                Word("world", 1.5, 2.0),
+            ]
+        return str(song), db, sid, aligner
+
+    def test_genius_hit_writes_word_level_ass(self, tmp_path):
+        song, db, sid, aligner = self._song_with_lang(tmp_path)
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=None), patch(
+            "pikaraoke.lib.lyrics.resolve_metadata", return_value=None
+        ), patch("pikaraoke.lib.lyrics._fetch_genius", return_value="hello world"), patch(
+            "pikaraoke.lib.lyrics.GENIUS_ACCESS_TOKEN", "token"
+        ), patch(
+            "pikaraoke.lib.lyrics._prewarm_stems"
+        ), patch(
+            "pikaraoke.lib.lyrics._wait_for_alignment_audio", return_value="/tmp/vocals.mp3"
+        ), patch(
+            "pikaraoke.lib.lyrics._estimate_bpm", return_value=None
+        ):
+            service.fetch_and_convert(song)
+
+        ass = (tmp_path / "Foo---abc.ass").read_text(encoding="utf-8")
+        assert "\\kf" in ass
+        assert aligner.align.called
+        row = db.get_song_by_id(sid)
+        assert row["lyrics_source"] == "genius"
+        assert row["aligner_model"] == "test-aligner"
+        db.close()
+
+    def test_genius_skipped_without_aligner(self, tmp_path):
+        song, db, _sid, _ = self._song_with_lang(tmp_path, with_aligner=False)
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=None, db=db)
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=None), patch(
+            "pikaraoke.lib.lyrics.resolve_metadata", return_value=None
+        ), patch("pikaraoke.lib.lyrics._fetch_genius", return_value="hello world") as mock_g, patch(
+            "pikaraoke.lib.lyrics.GENIUS_ACCESS_TOKEN", "token"
+        ):
+            service.fetch_and_convert(song)
+        mock_g.assert_not_called()
+        assert not (tmp_path / "Foo---abc.ass").exists()
+        db.close()
+
+    def test_genius_not_called_without_token(self, tmp_path):
+        song, db, _sid, aligner = self._song_with_lang(tmp_path)
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=None), patch(
+            "pikaraoke.lib.lyrics.resolve_metadata", return_value=None
+        ), patch("pikaraoke.lib.lyrics._fetch_genius", return_value="x") as mock_g, patch(
+            "pikaraoke.lib.lyrics.GENIUS_ACCESS_TOKEN", ""
+        ):
+            service.fetch_and_convert(song)
+        mock_g.assert_not_called()
+        db.close()
+
+    def test_genius_miss_falls_through_to_vtt(self, tmp_path):
+        song, db, _sid, aligner = self._song_with_lang(tmp_path)
+        (tmp_path / "Foo---abc.en.vtt").write_text(
+            "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nvtt line\n"
+        )
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=None), patch(
+            "pikaraoke.lib.lyrics.resolve_metadata", return_value=None
+        ), patch("pikaraoke.lib.lyrics._fetch_genius", return_value=None), patch(
+            "pikaraoke.lib.lyrics.GENIUS_ACCESS_TOKEN", "token"
+        ):
+            service.fetch_and_convert(song)
+        ass = (tmp_path / "Foo---abc.ass").read_text(encoding="utf-8")
+        assert "vtt line" in ass
+        db.close()
