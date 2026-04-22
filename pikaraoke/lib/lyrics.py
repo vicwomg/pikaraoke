@@ -302,6 +302,14 @@ class LyricsService:
         # lyrics for this song) must force a whisper re-run even if the audio
         # and models haven't moved.
         lrc, info = self._fetch_lrc_with_itunes_fallback(info)
+        if lrc and self._is_lrc_language_mismatch(song_path, lrc):
+            # Dub-trap: LRCLib indexes by canonical song name, so a Polish
+            # dub of an English original gets the English lyrics (the
+            # Pocahontas "Kolorowy wiatr" case). When the DB already knows
+            # the audio language, reject the LRC and fall through to the
+            # other sources — Whisper ASR on the vocals stem produces
+            # matching-language subs, VTT might carry the dub captions.
+            lrc = None
         lyrics_sha = _lrc_sha(lrc) if lrc else None
 
         self._maybe_drop_stale_auto_ass(song_path, lyrics_sha)
@@ -457,6 +465,38 @@ class LyricsService:
             return row["language"]
         except (KeyError, IndexError):
             return None
+
+    def _is_lrc_language_mismatch(self, song_path: str, lrc: str) -> bool:
+        """True when the DB-stored audio language disagrees with the LRC's.
+
+        Catches the dub trap: LRCLib indexes by canonical song name, so a
+        Polish dub of an English original (e.g. Edyta Górniak's "Kolorowy
+        wiatr") gets the English "Colors of the Wind" lyrics served back.
+        The pipeline would then render English text timed against Polish
+        vocals, and sync looks permanently "off".
+
+        Compares primary subtags only (``pl`` vs ``pl-PL`` counts as a
+        match). NULL-cached DB language means "no ground truth yet" —
+        trust LRC in that case, because we have no better signal without
+        adding a Whisper audio probe. Once Whisper writes its detected
+        language back to the DB, the next run will enforce consistency.
+        """
+        db_lang = self._db_language(song_path)
+        if not db_lang:
+            return False
+        lrc_lang = _detect_language(_lrc_plain_text(lrc))
+        if not lrc_lang:
+            return False
+        if _lang_base(db_lang) == _lang_base(lrc_lang):
+            return False
+        logger.warning(
+            "LRCLib language mismatch for %s: DB=%s, LRC=%s — dropping LRC "
+            "to avoid mis-synced subs; falling through to VTT / Whisper",
+            os.path.basename(song_path),
+            db_lang,
+            lrc_lang,
+        )
+        return True
 
     def _persist_vtt_language(self, song_path: str, vtt_path: str) -> None:
         """Write the chosen VTT's lang code to songs.language so subsequent

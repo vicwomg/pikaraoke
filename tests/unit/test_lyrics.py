@@ -1864,3 +1864,103 @@ class TestLyricsServiceGeniusFallback:
         ass = (tmp_path / "Foo---abc.ass").read_text(encoding="utf-8")
         assert "vtt line" in ass
         db.close()
+
+
+# ----- LyricsService: LRC language mismatch guard -----
+
+
+class TestLyricsServiceLanguageMismatch:
+    """Dub-trap guard: reject LRCLib when its language disagrees with DB."""
+
+    def _song_with_lang(self, tmp_path, db_language):
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+        song = tmp_path / "Kolorowy---pl.mp4"
+        song.write_text("fake")
+        db = KaraokeDatabase(str(tmp_path / "langcheck.db"))
+        db.insert_songs([{"file_path": str(song), "youtube_id": "pl1", "format": "mp4"}])
+        sid = db.get_song_id_by_path(str(song))
+        db.update_track_metadata_with_provenance(
+            sid,
+            "youtube",
+            {
+                "artist": "Edyta Górniak",
+                "title": "Kolorowy wiatr",
+                "duration_seconds": 210.0,
+                "language": db_language,
+            },
+        )
+        return str(song), db, sid
+
+    def test_rejects_mismatched_lrc(self, tmp_path):
+        # DB says Polish; LRCLib returns English — the classic dub trap.
+        song, db, _sid = self._song_with_lang(tmp_path, db_language="pl")
+        english_lrc = (
+            "[00:01.00]You think I'm an ignorant savage\n"
+            "[00:05.00]And you've been so many places\n"
+            "[00:09.00]I guess it must be so\n"
+            "[00:13.00]But still, I cannot see, if the savage one is me\n"
+        )
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=None, db=db)
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=english_lrc), patch(
+            "pikaraoke.lib.lyrics.resolve_metadata", return_value=None
+        ):
+            service.fetch_and_convert(song)
+        # LRC was rejected → no .ass written, no lrclib source tag.
+        assert not (tmp_path / "Kolorowy---pl.ass").exists()
+        row = db.get_song_by_id(db.get_song_id_by_path(song))
+        assert row["lyrics_source"] is None
+        db.close()
+
+    def test_accepts_matching_lrc(self, tmp_path):
+        # DB says English; LRC is English — normal happy path, LRC used.
+        song, db, _sid = self._song_with_lang(tmp_path, db_language="en")
+        english_lrc = (
+            "[00:01.00]You think I'm an ignorant savage\n"
+            "[00:05.00]And you've been so many places\n"
+            "[00:09.00]I guess it must be so, but still I cannot see\n"
+        )
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=None, db=db)
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=english_lrc), patch(
+            "pikaraoke.lib.lyrics.resolve_metadata", return_value=None
+        ):
+            service.fetch_and_convert(song)
+        assert (tmp_path / "Kolorowy---pl.ass").exists()
+        row = db.get_song_by_id(db.get_song_id_by_path(song))
+        assert row["lyrics_source"] == "lrclib"
+        db.close()
+
+    def test_primary_subtag_only(self, tmp_path):
+        # DB has pl-PL, LRC detected as pl — same base, no rejection.
+        song, db, _sid = self._song_with_lang(tmp_path, db_language="pl-PL")
+        polish_lrc = (
+            "[00:01.00]Czy ci ludzie, których dzikimi zwiesz\n"
+            "[00:05.00]Mają duszę taką jak ty?\n"
+            "[00:09.00]Czy wiesz, że każdy kwiat ma barwę swą\n"
+            "[00:13.00]I każdy liść ma życie swoje własne\n"
+        )
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=None, db=db)
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=polish_lrc), patch(
+            "pikaraoke.lib.lyrics.resolve_metadata", return_value=None
+        ):
+            service.fetch_and_convert(song)
+        row = db.get_song_by_id(db.get_song_id_by_path(song))
+        assert row["lyrics_source"] == "lrclib"
+        db.close()
+
+    def test_null_db_language_trusts_lrc(self, tmp_path):
+        # No ground truth in DB — trust LRC (can't do better without audio
+        # probe). Separate test verifies this is not a silent fail.
+        song, db, _sid = self._song_with_lang(tmp_path, db_language=None)
+        english_lrc = (
+            "[00:01.00]You think I'm an ignorant savage\n"
+            "[00:05.00]And you've been so many places to places\n"
+        )
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=None, db=db)
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=english_lrc), patch(
+            "pikaraoke.lib.lyrics.resolve_metadata", return_value=None
+        ):
+            service.fetch_and_convert(song)
+        row = db.get_song_by_id(db.get_song_id_by_path(song))
+        assert row["lyrics_source"] == "lrclib"
+        db.close()
