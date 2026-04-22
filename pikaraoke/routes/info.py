@@ -47,6 +47,7 @@ def info():
     # PreferenceManager too (US-35), so pull them from there for display.
     download_path = k.preferences.get_or_default("download_path") or k.download_path
     youtubedl_proxy = k.preferences.get_or_default("youtubedl_proxy") or ""
+    youtube_data_api_key = k.preferences.get_or_default("youtube_data_api_key") or ""
 
     return render_template(
         "info.html",
@@ -103,6 +104,7 @@ def info():
         library_versions=library_versions,
         download_path=download_path,
         youtubedl_proxy=youtubedl_proxy,
+        youtube_data_api_key=youtube_data_api_key,
     )
 
 

@@ -530,6 +530,15 @@ $(function () {
       </span>
       <input class="user-preference-input" type="text" data-pref="youtubedl_proxy" data-start-value="{{ youtubedl_proxy }}" value="{{ youtubedl_proxy }}" placeholder="http://…">
     </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">
+        {% trans %}YouTube Data API v3 key (optional){% endtrans %}
+        <div style="font-size: 11px; color: var(--pk-ink-4); margin-top: 2px; letter-spacing: normal; text-transform: none;">
+          {% trans %}Speeds up caption detection on search: CC-enabled videos bubble to the top and skip the per-video yt-dlp probe.{% endtrans %}
+        </div>
+      </span>
+      <input class="user-preference-input" type="text" data-pref="youtube_data_api_key" data-start-value="{{ youtube_data_api_key }}" value="{{ youtube_data_api_key }}" placeholder="AIza…">
+    </div>
     <div style="padding: 14px 0 0;">
       <a id="pk-clear-prefs" class="pk-btn is-danger is-sm" href="{{ url_for('preferences.clear_preferences') }}">
         <i class="icon icon-trash-empty"></i>

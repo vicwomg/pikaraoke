@@ -291,6 +291,7 @@ def test_preference_manager_defaults_exist():
         "show_splash_clock",
         "enable_title_tidy",
         "pause_on_blur",
+        "youtube_data_api_key",
         "vocal_removal",
         "vocal_volume",
         "instrumental_volume",

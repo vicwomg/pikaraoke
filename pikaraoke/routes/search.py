@@ -12,6 +12,7 @@ from marshmallow import Schema, fields
 
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
 from pikaraoke.lib.music_metadata import search_itunes, search_musicbrainz
+from pikaraoke.lib.youtube_data_api import batch_caption_info
 from pikaraoke.lib.youtube_dl import check_captions, get_search_results, get_stream_url
 
 _ = flask_babel.gettext
@@ -59,12 +60,29 @@ def search():
     # we can strip vocals locally, so restricting YT results hurts recall.
     vocal_removal = k.preferences.get_or_default("vocal_removal")
     search_string = request.args.get("search_string")
+    known_captions: dict[str, bool] = {}
     if search_string:
         non_karaoke = request.args.get("non_karaoke") == "true"
         if non_karaoke or vocal_removal:
             search_results = get_search_results(search_string)
         else:
             search_results = get_search_results(search_string + " karaoke")
+
+        # YouTube Data API v3 augmentation (US-?): when the user has
+        # configured a key, batch-resolve caption availability for every
+        # search hit so the template can pre-flag CC badges (no lazy
+        # per-video yt-dlp probe needed) AND bubble CC videos to the
+        # top — same relevance ranking within each group, so a CC-less
+        # first hit won't steal the spot from an almost-as-good CC hit.
+        api_key = (k.preferences.get_or_default("youtube_data_api_key") or "").strip()
+        if api_key and search_results:
+            video_ids = [row[2] for row in search_results if len(row) > 2 and row[2]]
+            known_captions = batch_caption_info(video_ids, api_key)
+            if known_captions:
+                search_results = sorted(
+                    search_results,
+                    key=lambda row: (not known_captions.get(row[2], False)),
+                )
     else:
         search_string = None
         search_results = None
@@ -76,6 +94,7 @@ def search():
         search_results=search_results,
         search_string=search_string,
         vocal_removal=vocal_removal,
+        known_captions=known_captions,
     )
 
 

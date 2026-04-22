@@ -61,6 +61,11 @@ class PreferenceManager:
         "download_path": "",
         "youtubedl_proxy": "",
         "preferred_language": "",
+        # YouTube Data API v3 key. When set, search results are augmented
+        # with pre-computed caption availability (batch videos.list call)
+        # so the lazy yt-dlp per-card probe can be skipped and CC videos
+        # bubble to the top of the results list. Empty = disabled.
+        "youtube_data_api_key": "",
     }
 
     def __init__(self, config_file_path: str = "config.ini", target: object | None = None) -> None:

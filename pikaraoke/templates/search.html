@@ -497,8 +497,12 @@
     // Each probe is a ~1–3s yt-dlp metadata fetch, so we fan out with a
     // cap of 3 concurrent probes — the backend caches per-ID so reloads
     // are instant, and limiting concurrency keeps yt-dlp from thundering.
+    // Cards with data-cc-known already have a YouTube Data API verdict
+    // (set server-side by the /search view) and skip the probe entirely.
     (function probeCaptions() {
-      const cards = Array.from(document.querySelectorAll('.pk-result-card[data-video-id]'));
+      const cards = Array.from(
+        document.querySelectorAll('.pk-result-card[data-video-id]:not([data-cc-known])')
+      );
       if (cards.length === 0) return;
       const queue = cards.slice();
       const MAX_INFLIGHT = 3;
@@ -704,7 +708,9 @@
 {% else %}
 <div class="pk-results">
   {% for title, url, id, channel, duration in search_results %}
-  <div class="pk-result-card" data-url="{{ url }}" data-title="{{ title }}" data-video-id="{{ id }}">
+  {% set api_has_captions = known_captions.get(id) %}
+  <div class="pk-result-card" data-url="{{ url }}" data-title="{{ title }}" data-video-id="{{ id }}"
+       {% if api_has_captions is sameas true %}data-cc-known="manual"{% elif id in known_captions %}data-cc-known="none"{% endif %}>
     <div class="pk-result-thumb">
       <img src="https://img.youtube.com/vi/{{ id }}/mqdefault.jpg" alt="" loading="lazy">
       {% if duration %}<span class="pk-result-duration">{{ duration }}</span>{% endif %}
@@ -714,7 +720,9 @@
       <div class="pk-result-body">
         <h3 class="pk-result-title">{{ title }}</h3>
         {% if channel %}<p class="pk-result-channel">{{ channel }}</p>{% endif %}
-        <span class="pk-cc-badge" data-state="loading" title="Sprawdzam napisy...">
+        <span class="pk-cc-badge"
+              data-state="{% if api_has_captions %}manual{% elif id in known_captions %}missing{% else %}loading{% endif %}"
+              title="{% if api_has_captions %}Napisy dostępne (potwierdzone przez YouTube Data API){% elif id in known_captions %}{% else %}Sprawdzam napisy...{% endif %}">
           <span class="pk-cc-badge-text">CC</span>
         </span>
       </div>
