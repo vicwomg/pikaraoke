@@ -45,6 +45,7 @@ class PlaybackController:
     now_playing_duration: int | None = None
     now_playing_url: str | None = None
     now_playing_subtitle_url: str | None = None
+    now_playing_lyrics_source: str | None = None
     now_playing_audio_track_url: str | None = None
     now_playing_avsync_offset_ms: int = 0
     now_playing_position: float | None = None
@@ -100,6 +101,29 @@ class PlaybackController:
         title = (row["title"] or "").strip() if "title" in keys else ""
         artist = (row["artist"] or "").strip() if "artist" in keys else ""
         return (title or None), (artist or None)
+
+    def lookup_lyrics_source(self, file_path: str) -> str | None:
+        """Return the songs.lyrics_source tag for the current song, or None.
+
+        Values written by the lyrics pipeline: ``user_ass`` (manually placed
+        .ass), ``lrclib`` (LRCLib line-level), ``genius``, ``youtube_vtt``,
+        ``whisperx`` (LRCLib text + wav2vec2 timing), and ``whisper`` (ASR
+        fallback). The UI maps these to a small badge.
+        """
+        if self.db is None:
+            return None
+        try:
+            row = self.db.get_song_by_path(file_path)
+        except Exception:
+            logging.exception("get_song_by_path failed for %s", file_path)
+            return None
+        if row is None:
+            return None
+        try:
+            source = row["lyrics_source"]
+        except (KeyError, IndexError):
+            return None
+        return (source or None) if source else None
 
     def _on_demucs_progress(self, data: dict) -> None:
         """Update local state when StreamManager reports Demucs progress."""
@@ -178,6 +202,7 @@ class PlaybackController:
         self.now_playing_duration = result.duration
         self.now_playing_url = result.stream_url
         self.now_playing_subtitle_url = result.subtitle_url
+        self.now_playing_lyrics_source = self.lookup_lyrics_source(file_path)
         self.now_playing_audio_track_url = result.audio_track_url
         self.now_playing_avsync_offset_ms = result.avsync_offset_ms
         self.is_paused = False
@@ -288,6 +313,7 @@ class PlaybackController:
             "now_playing_transpose": self.now_playing_transpose,
             "now_playing_url": self.now_playing_url,
             "now_playing_subtitle_url": self.now_playing_subtitle_url,
+            "now_playing_lyrics_source": self.now_playing_lyrics_source,
             "now_playing_audio_track_url": self.now_playing_audio_track_url,
             "now_playing_avsync_offset_ms": self.now_playing_avsync_offset_ms,
             "now_playing_position": self.now_playing_position,
@@ -309,6 +335,7 @@ class PlaybackController:
         self.now_playing_user = None
         self.now_playing_url = None
         self.now_playing_subtitle_url = None
+        self.now_playing_lyrics_source = None
         self.now_playing_audio_track_url = None
         self.now_playing_avsync_offset_ms = 0
         self.is_paused = True

@@ -46,6 +46,10 @@ class PreferenceManager:
         "high_score_phrases": "",
         "show_splash_clock": False,
         "enable_title_tidy": False,
+        # When True, the splash player pauses stem audio tracks if the
+        # browser pauses the <video> while the document is hidden (e.g.
+        # macOS workspace switch). Default False: playback flows through.
+        "pause_on_blur": False,
         # Enabled by default on machines with a torch-capable GPU
         # (CUDA or Apple Silicon MPS). CPU-only Demucs is too slow.
         "vocal_removal": has_torch_gpu(),

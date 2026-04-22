@@ -14,6 +14,7 @@
     showSplashClock: "{{ show_splash_clock }}" == 'True',
     screensaverTimeout: parseInt('{{ screensaver_timeout }}') || 0,
     hideOverlay: "{{ hide_overlay }}" == 'True',
+    pauseOnBlur: "{{ pause_on_blur }}" == 'True',
     translations: {
       socketConnectionLost: "Utracono połączenie. Serwer jeszcze działa?",
       unsupportedBrowser: "Ta przeglądarka może nie działać w pełni. Używaj Chrome/Safari/Firefox/Edge.",
@@ -59,6 +60,10 @@
       <span id="current">00:00</span>
       <span class="sp-time-sep">/</span>
       <span id="duration">00:00</span>
+    </div>
+    <div id="lyrics-source" class="sp-lyrics-source" style="display: none"
+         title="Źródło napisów">
+      <span id="lyrics-source-label"></span>
     </div>
   </div>
 </div>
@@ -322,6 +327,33 @@
     letter-spacing: 0.04em;
   }
   .sp-time-sep { opacity: 0.5; margin: 0 4px; }
+
+  /* Lyrics source badge — surfaces where the current .ass came from
+     (user-authored, LRCLib, YouTube captions, Whisper ASR fallback).
+     Low-contrast by default so it doesn't compete with the song title;
+     brighter variants flag Whisper ASR (might hallucinate lyrics) and
+     user content (explicitly curated). */
+  .sp-lyrics-source {
+    margin-top: 6px;
+    font-family: var(--pk-font-mono);
+    font-size: clamp(11px, 0.95vw, 14px);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.55);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sp-lyrics-source::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.8;
+  }
+  .sp-lyrics-source[data-variant="user"]  { color: var(--pk-lime); }
+  .sp-lyrics-source[data-variant="trust"] { color: rgba(255,255,255,0.65); }
+  .sp-lyrics-source[data-variant="auto"]  { color: var(--pk-amber); }
 
   /* ===== Hostap + clock (top left) ===== */
   #ap-container {

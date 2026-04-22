@@ -1063,14 +1063,18 @@ class Karaoke:
         same. Bumping a ``?v=<ts>`` query parameter cache-busts the client's
         HTTP cache and makes splash.js see a new `now_playing_subtitle_url`,
         which triggers its dispose+reinit SubtitlesOctopus path.
+
+        Also refreshes `now_playing_lyrics_source` so the source badge in
+        the UI follows the actual source (e.g. "lrclib" → "whisperx" after
+        word-level alignment finishes; "whisper" when ASR fallback lands).
         """
         pc = self.playback_controller
         if song_path != pc.now_playing_filename:
             return
+        pc.now_playing_lyrics_source = pc.lookup_lyrics_source(song_path)
         base_url = (pc.now_playing_subtitle_url or "").split("?", 1)[0]
-        if not base_url:
-            return
-        pc.now_playing_subtitle_url = f"{base_url}?v={int(time.time() * 1000)}"
+        if base_url:
+            pc.now_playing_subtitle_url = f"{base_url}?v={int(time.time() * 1000)}"
         self.update_now_playing_socket()
 
     def run(self) -> None:

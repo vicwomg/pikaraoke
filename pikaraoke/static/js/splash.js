@@ -71,6 +71,33 @@ const formatTime = (seconds) => {
   return `${formattedMinutes}:${formattedSeconds}`;
 }
 
+// Map the DB `lyrics_source` tag to a short human label + semantic CSS
+// variant. Keeps the badge compact while surfacing provenance (user-authored
+// vs auto-generated, and which auto pipeline produced it).
+const LYRICS_SOURCE_LABELS = {
+  user_ass:    { text: "Twoje napisy",   variant: "user"   },
+  lrclib:      { text: "LRCLib",          variant: "trust"  },
+  whisperx:    { text: "LRCLib + sync",   variant: "trust"  },
+  genius:      { text: "Genius",          variant: "trust"  },
+  youtube_vtt: { text: "YouTube CC",      variant: "trust"  },
+  whisper:     { text: "Auto (Whisper)",  variant: "auto"   },
+};
+
+const updateLyricsSourceBadge = (source) => {
+  const el = document.getElementById("lyrics-source");
+  const label = document.getElementById("lyrics-source-label");
+  if (!el || !label) return;
+  const entry = source && LYRICS_SOURCE_LABELS[source];
+  if (!entry) {
+    el.style.display = "none";
+    el.removeAttribute("data-variant");
+    return;
+  }
+  label.textContent = entry.text;
+  el.setAttribute("data-variant", entry.variant);
+  el.style.display = "";
+}
+
 const testAutoplayCapability = async () => {
   // Detect whether the browser will allow audio autoplay (US-27).
   //
@@ -586,9 +613,30 @@ const setupAudioTracks = (tracks, video, offsetMs = 0) => {
       }
     }
   };
+  // Set while we force a video seek to catch up to free-running stems
+  // (resume-from-hidden). Suppresses the normal seeking/seeked cascade
+  // so stems aren't paused, reset, and replayed — which is what produced
+  // the residual micro-stutter when refocusing the tab.
+  let internalSeek = false;
+
   const playAll = () => {
     if (!audioNodes) return;
-    syncAll();
+    // Resume-from-hidden: stems advanced while the browser-paused <video>
+    // stayed frozen (onVideoPause skips pauseAll while document.hidden).
+    // Reverse the resync direction — seek the video forward to where the
+    // stems actually are — so the stems keep playing untouched and the
+    // video catches up to them.
+    const anyLabel = audioNodes.labels[0];
+    if (anyLabel) {
+      const stem = audioNodes.tracks[anyLabel].el;
+      const drift = stem.currentTime - targetTime();
+      if (drift > 0.3) {
+        internalSeek = true;
+        try { video.currentTime = stem.currentTime - audioNodes.offsetSec; }
+        catch (e) { internalSeek = false; }
+      }
+    }
+    if (!internalSeek) syncAll();
     for (const label of audioNodes.labels) {
       audioNodes.tracks[label].el.play().catch(() => {});
     }
@@ -606,8 +654,20 @@ const setupAudioTracks = (tracks, video, offsetMs = 0) => {
   // tracks don't play free, then on `seeked` attempt to re-sync. If a track
   // cannot reach the target within tolerance we leave it paused — silent
   // audio is better than a 0.3s loop of whatever the decoder lands on.
+  const seekingHandler = () => {
+    // Our own catch-up seek: stems are the source of truth and must
+    // keep playing uninterrupted. Skip the pauseAll cascade.
+    if (internalSeek) return;
+    pauseAll();
+  };
   const seekedHandler = () => {
     if (!audioNodes) return;
+    if (internalSeek) {
+      // Catch-up seek complete. Leave stems alone — they already hold
+      // the correct position; video has been brought to them.
+      internalSeek = false;
+      return;
+    }
     const t = targetTime();
     for (const label of audioNodes.labels) {
       try { audioNodes.tracks[label].el.currentTime = t; } catch (e) {}
@@ -641,10 +701,18 @@ const setupAudioTracks = (tracks, video, offsetMs = 0) => {
     }
   };
 
+  // Browsers pause the <video> when the document is hidden (macOS workspace
+  // switch, minimized window). Cascading that to stems stops the song, so
+  // by default we ignore those pauses and keep stems running. Users who
+  // prefer the old behavior enable the `pause_on_blur` preference.
+  const onVideoPause = () => {
+    if (document.hidden && !PikaraokeConfig.pauseOnBlur) return;
+    pauseAll();
+  };
   const handlers = {
     play: playAll,
-    pause: pauseAll,
-    seeking: pauseAll,
+    pause: onVideoPause,
+    seeking: seekingHandler,
     seeked: seekedHandler,
     timeupdate: driftHandler,
   };
@@ -742,9 +810,11 @@ const handleNowPlayingUpdate = (np) => {
     }
     $("#now-playing-song").html(nowPlayingHtml);
     $("#now-playing-singer").html(np.now_playing_user);
+    updateLyricsSourceBadge(np.now_playing_lyrics_source);
     $("#now-playing").fadeIn();
   } else {
     $("#now-playing").fadeOut();
+    updateLyricsSourceBadge(null);
   }
   if (np.up_next) {
     $("#up-next-song").html(np.up_next);

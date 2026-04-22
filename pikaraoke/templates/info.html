@@ -408,6 +408,10 @@ $(function () {
       <input class="user-preference-checkbox" type="checkbox" data-pref="hide_overlay" {% if hide_overlay %}checked{% endif %}>
     </div>
     <div class="pk-pref-row">
+      <span class="pk-pref-label">{% trans %}Pause playback when player window loses focus{% endtrans %}</span>
+      <input class="user-preference-checkbox" type="checkbox" data-pref="pause_on_blur" {% if pause_on_blur %}checked{% endif %}>
+    </div>
+    <div class="pk-pref-row">
       <span class="pk-pref-label">{% trans %}Default video volume (0–100){% endtrans %}</span>
       <input class="user-preference-input" type="number" min="0" max="100" step="5" data-pref="volume" data-start-value="{{ volume }}" value="{{ volume }}">
     </div>
