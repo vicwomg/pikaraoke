@@ -2,18 +2,22 @@
 
 Pipeline:
   song_downloaded event -> LyricsService.fetch_and_convert
-    1. Read <stem>.info.json (written by yt-dlp --write-info-json)
-    2. Query LRCLib for syncedLyrics
-    3. Convert LRC to line-level ASS and write <stem>.ass
+    1. Read track/artist/duration from the ``songs`` table
+       (``register_download`` seeded them from yt-dlp's info.json).
+    2. Query LRCLib for syncedLyrics.
+    3. Convert LRC to line-level ASS and write <stem>.ass.
     4. (Optional) in a background thread, run forced alignment and
        replace the ASS with per-word \\k-tagged highlighting.
 
 The existing .ass stack (FileResolver, SubtitlesOctopus in splash.js)
 renders the output automatically - no UI changes required.
+
+When LRCLib and VTT conversion both fail, the original ``<stem>*.vtt``
+is left on disk so the user's YouTube captions are not deleted along
+with the failed conversion attempt — raw captions beat zero captions.
 """
 
 import hashlib
-import json
 import logging
 import os
 import re
@@ -140,9 +144,7 @@ class LyricsService:
         if self._events is None:
             return
         try:
-            self._events.emit(
-                "notification", f"{stage}: {_title_from_filename(song_path)}"
-            )
+            self._events.emit("notification", f"{stage}: {_title_from_filename(song_path)}")
         except Exception:
             logger.exception("failed to emit %s stage notification", stage)
 
@@ -226,10 +228,10 @@ class LyricsService:
         if _user_owned_ass(song_path):
             logger.debug("Skipping: user-supplied .ass present for %s", song_path)
             self._register_user_ass(song_path)
-            _cleanup_yt_subs_and_info(song_path, self._db)
+            _cleanup_yt_vtt(song_path, self._db)
             return
 
-        info = _read_info_json(song_path)
+        info = self._read_metadata_for_lrclib(song_path)
 
         # Tell the operator we're about to hit LRCLib / iTunes. Emitted
         # BEFORE the network call so the "Fetching lyrics…" toast lands
@@ -251,7 +253,7 @@ class LyricsService:
         # (yt-dlp rewrites info.json on a cache hit) would otherwise overwrite
         # it with line-level and re-run whisper every time.
         if _is_word_level_auto_ass(song_path):
-            _cleanup_yt_subs_and_info(song_path, self._db)
+            _cleanup_yt_vtt(song_path, self._db)
             return
 
         # Decide the source BEFORE writing anything so the .ass is written
@@ -292,7 +294,12 @@ class LyricsService:
                 self._persist_vtt_language(song_path, vtt_path)
                 wrote_from_vtt = True
 
-        _cleanup_yt_subs_and_info(song_path, self._db)
+        # VTT cleanup is conditional: only drop YouTube's raw captions once
+        # we have our own .ass. When both LRCLib and VTT conversion failed,
+        # leave the VTT on disk — raw captions beat no captions, and a
+        # future retry (or the user) can still salvage them.
+        if wrote_from_lrc or wrote_from_vtt:
+            _cleanup_yt_vtt(song_path, self._db)
 
         if not wrote_from_vtt and not wrote_from_lrc:
             logger.info("No lyrics source for %s", os.path.basename(song_path))
@@ -326,6 +333,38 @@ class LyricsService:
                 name=f"lyrics-align-{os.path.basename(song_path)}",
                 daemon=True,
             ).start()
+
+    def _read_metadata_for_lrclib(self, song_path: str) -> dict | None:
+        """Return ``{"track", "artist", "duration"}`` from the songs table.
+
+        The DB is authoritative for lyrics: ``register_download`` seeds
+        artist/title from yt-dlp's info.json immediately after download,
+        enrichment (iTunes/MusicBrainz) may later refine them in-place, and
+        scanner-discovered songs get the same backfill. Either raw or
+        enriched values feed LRCLib here; if the first query misses,
+        ``_fetch_lrc_with_itunes_fallback`` re-canonicalises via iTunes.
+
+        Returns None when artist or title is empty — ``_fetch_lrclib`` has
+        no useful query without both, so we skip straight to the "no
+        lyrics source" warning upstream.
+        """
+        if self._db is None:
+            return None
+        try:
+            song_id = self._db.get_song_id_by_path(song_path)
+        except Exception:
+            logger.exception("failed to look up song_id for %s", song_path)
+            return None
+        if song_id is None:
+            return None
+        row = self._db.get_song_by_id(song_id)
+        if row is None:
+            return None
+        track = (row["title"] or "").strip()
+        artist = (row["artist"] or "").strip()
+        if not track or not artist:
+            return None
+        return {"track": track, "artist": artist, "duration": row["duration_seconds"]}
 
     def _db_language(self, song_path: str) -> str | None:
         """Return the DB-stored language for a song (e.g. "en", "pl-PL"), or None."""
@@ -369,9 +408,7 @@ class LyricsService:
         except (KeyError, IndexError):
             pass
         try:
-            self._db.update_track_metadata_with_provenance(
-                song_id, "scanner", {"language": lang}
-            )
+            self._db.update_track_metadata_with_provenance(song_id, "scanner", {"language": lang})
         except Exception:
             logger.exception("failed to persist VTT language for song_id=%s", song_id)
 
@@ -627,59 +664,9 @@ def _title_from_filename(song_path: str) -> str:
     return stem.strip()
 
 
-# ----- info.json reading -----
-
-
-def _info_json_path(song_path: str) -> str:
-    stem, _ext = os.path.splitext(song_path)
-    return f"{stem}.info.json"
-
-
 def _ass_path(song_path: str) -> str:
     stem, _ext = os.path.splitext(song_path)
     return f"{stem}.ass"
-
-
-def _read_info_json(song_path: str) -> dict | None:
-    """Read yt-dlp info.json and extract track/artist/duration.
-
-    Falls back to parsing "Artist - Track" from the title when yt-dlp
-    didn't provide dedicated fields (common for non-music videos).
-    Returns None when artist/track cannot be determined.
-    """
-    path = _info_json_path(song_path)
-    if not os.path.exists(path):
-        return None
-    try:
-        with open(path, encoding="utf-8") as f:
-            data = json.load(f)
-    except (OSError, json.JSONDecodeError) as e:
-        logger.warning("failed to read %s: %s", path, e)
-        return None
-
-    track = (data.get("track") or "").strip()
-    artist = (data.get("artist") or "").strip()
-    duration = data.get("duration")
-
-    if not track or not artist:
-        title = (data.get("title") or "").strip()
-        if " - " in title:
-            left, right = title.split(" - ", 1)
-            artist = artist or left.strip()
-            track = track or right.strip()
-
-    if not track or not artist:
-        return None
-    return {"track": track, "artist": artist, "duration": duration}
-
-
-def _cleanup_info_json(song_path: str) -> None:
-    path = _info_json_path(song_path)
-    if os.path.exists(path):
-        try:
-            os.unlink(path)
-        except OSError as e:
-            logger.warning("failed to remove %s: %s", path, e)
 
 
 # ----- LRCLib client -----
@@ -1229,12 +1216,13 @@ def _user_owned_ass(song_path: str) -> bool:
     return ASS_MARKER not in head
 
 
-def _cleanup_yt_subs_and_info(song_path: str, db=None) -> None:
-    """Remove yt-dlp byproducts (<stem>*.vtt, <stem>.info.json) after conversion.
+def _cleanup_yt_vtt(song_path: str, db=None) -> None:
+    """Remove <stem>*.vtt after conversion and drop the matching DB rows.
 
-    When ``db`` is provided, also unregister the matching ``vtt`` and
-    ``info_json`` rows in ``song_artifacts`` so the DB stays in sync with
-    disk (US-29 treats the DB as authoritative).
+    info.json is owned elsewhere: ``register_download`` consumes-then-
+    deletes it for fresh yt-dlp downloads, and scanner-imported
+    collections deliberately preserve it (user's own files). Lyrics
+    pipeline has no business touching it here.
     """
     stem, _ext = os.path.splitext(song_path)
     directory = os.path.dirname(stem) or "."
@@ -1251,7 +1239,6 @@ def _cleanup_yt_subs_and_info(song_path: str, db=None) -> None:
                 os.unlink(os.path.join(directory, name))
             except OSError as e:
                 logger.warning("failed to remove %s: %s", name, e)
-    _cleanup_info_json(song_path)
 
     if db is None:
         return
@@ -1262,11 +1249,10 @@ def _cleanup_yt_subs_and_info(song_path: str, db=None) -> None:
         return
     if song_id is None:
         return
-    for role in ("vtt", "info_json"):
-        try:
-            db.delete_artifacts_by_role(song_id, role)
-        except Exception:
-            logger.exception("failed to unregister %s artifacts for song_id=%s", role, song_id)
+    try:
+        db.delete_artifacts_by_role(song_id, "vtt")
+    except Exception:
+        logger.exception("failed to unregister vtt artifacts for song_id=%s", song_id)
 
 
 # ----- Demucs stem coupling -----

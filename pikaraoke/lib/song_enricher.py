@@ -1,8 +1,9 @@
 """Best-effort music metadata enrichment for downloaded songs.
 
 Pipeline per song:
-  1. Pick a query string (prefers the YouTube info.json track/artist pair
-     when present, falls back to the title).
+  1. Pick a query string from the ``songs`` row (register_download and
+     the scanner both seed artist/title from yt-dlp's info.json);
+     fall back to the filename stem when the row has no artist/title.
   2. Query iTunes for canonical artist/track + album + track_number +
      release_date + iTunes ID + cover-art URL.
   3. Query MusicBrainz with the iTunes-canonicalized artist/track for
@@ -18,9 +19,9 @@ background thread so the 3-6s of iTunes + MusicBrainz latency doesn't block
 the download pipeline.
 """
 
-import json
 import logging
 import os
+import re
 from datetime import datetime, timezone
 
 import requests
@@ -33,30 +34,24 @@ logger = logging.getLogger(__name__)
 COVER_ART_ROLE = "cover_art"
 _COVER_DOWNLOAD_TIMEOUT_S = 5.0
 
+_YT_ID_SUFFIX_RE = re.compile(r"(?:---[A-Za-z0-9_-]{11}|\s*\[[A-Za-z0-9_-]{11}\])$")
 
-def _query_from_song(song_path: str) -> str:
-    """Prefer info.json's explicit artist+track, else fall back to the filename."""
-    info_path = f"{os.path.splitext(song_path)[0]}.info.json"
-    if os.path.exists(info_path):
-        try:
-            with open(info_path, encoding="utf-8") as f:
-                data = json.load(f)
-        except (OSError, json.JSONDecodeError):
-            data = {}
-        artist = (data.get("artist") or "").strip()
-        track = (data.get("track") or "").strip()
-        if artist and track:
-            return f"{artist} - {track}"
-        title = (data.get("title") or "").strip()
-        if title:
-            return title
+
+def _query_from_song(row, song_path: str) -> str:
+    """Build an iTunes/MusicBrainz query: "<artist> - <title>".
+
+    Prefers the ``songs`` row seeded by register_download / scanner; falls
+    back to the filename stem (with the YouTube-id suffix stripped) when
+    the row is missing artist or title. Empty string means "skip
+    enrichment" — there's nothing to query with.
+    """
+    if row is not None:
+        artist = (row["artist"] or "").strip()
+        title = (row["title"] or "").strip()
+        if artist and title:
+            return f"{artist} - {title}"
     stem = os.path.splitext(os.path.basename(song_path))[0]
-    # Strip the 11-char YouTube id suffix in both "---ID" and "[ID]" forms.
-    import re
-
-    stem = re.sub(r"---[A-Za-z0-9_-]{11}$", "", stem)
-    stem = re.sub(r"\s*\[[A-Za-z0-9_-]{11}\]$", "", stem)
-    return stem.strip()
+    return _YT_ID_SUFFIX_RE.sub("", stem).strip()
 
 
 def _download_cover(url: str, dest: str) -> bool:
@@ -109,7 +104,7 @@ def enrich_song(db: KaraokeDatabase, song_id: int, song_path: str) -> None:
     if row is None:
         return
 
-    query = _query_from_song(song_path)
+    query = _query_from_song(row, song_path)
     if not query:
         db.stamp_enrichment_attempt(song_id, "skipped", now)
         return

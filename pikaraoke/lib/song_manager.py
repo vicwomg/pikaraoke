@@ -83,11 +83,32 @@ def discover_song_artifacts(song_path: str) -> list[dict]:
     return artifacts
 
 
-def _track_metadata_from_info_json(song_path: str) -> dict:
-    """Extract duration, source URL, and language from <stem>.info.json.
+def _consume_info_json(song_path: str, db: KaraokeDatabase, song_id: int) -> None:
+    """Delete <stem>.info.json from disk and drop its artifact row.
 
-    Returns a dict ready to pass to ``update_track_metadata`` (empty when the
-    info.json is missing or unparseable).
+    Called by ``register_download`` after info.json has been seeded into the
+    songs table. Scanner-discovered songs (user-owned collections) skip this
+    path so the original yt-dlp metadata stays on disk.
+    """
+    info_path = f"{os.path.splitext(song_path)[0]}.info.json"
+    if os.path.exists(info_path):
+        try:
+            os.unlink(info_path)
+        except OSError as e:
+            logging.warning("failed to remove %s: %s", info_path, e)
+    try:
+        db.delete_artifacts_by_role(song_id, "info_json")
+    except Exception:
+        logging.exception("failed to unregister info_json artifact for song_id=%s", song_id)
+
+
+def _track_metadata_from_info_json(song_path: str) -> dict:
+    """Extract track metadata from <stem>.info.json for DB seeding.
+
+    Includes artist + title + duration + source URL + language. ``track``
+    and ``artist`` fall back to parsing "Artist - Track" out of the video
+    title when yt-dlp lacks dedicated fields (common for non-music uploads).
+    Returns an empty dict when the info.json is missing or unparseable.
     """
     info_path = f"{os.path.splitext(song_path)[0]}.info.json"
     if not os.path.exists(info_path):
@@ -98,6 +119,18 @@ def _track_metadata_from_info_json(song_path: str) -> dict:
     except (OSError, json.JSONDecodeError):
         return {}
     fields = {}
+    track = (data.get("track") or "").strip()
+    artist = (data.get("artist") or "").strip()
+    if not track or not artist:
+        video_title = (data.get("title") or "").strip()
+        if " - " in video_title:
+            left, right = video_title.split(" - ", 1)
+            artist = artist or left.strip()
+            track = track or right.strip()
+    if artist:
+        fields["artist"] = artist
+    if track:
+        fields["title"] = track
     if data.get("duration") is not None:
         fields["duration_seconds"] = float(data["duration"])
     url = data.get("webpage_url") or data.get("original_url")
@@ -247,11 +280,19 @@ class SongManager:
     def register_download(self, song_path: str) -> None:
         """Register a newly downloaded song in SongList and DB.
 
-        Also inserts rows for every companion file (audio source, cdg, vtt,
-        info.json), backfills track metadata from the info.json when
-        available, and kicks off a best-effort iTunes+MusicBrainz enrichment
-        in a background thread so the 3-6s of external network latency
-        doesn't block the download pipeline.
+        Inserts rows for companion files (audio source, cdg, vtt, info.json),
+        backfills track metadata from the info.json when available, and
+        kicks off a best-effort iTunes+MusicBrainz enrichment in a
+        background thread so the 3-6s of external network latency doesn't
+        block the download pipeline.
+
+        The info.json is consumed-then-deleted here: yt-dlp wrote it for
+        this pipeline's benefit, everything useful has just been copied to
+        the ``songs`` row, and downstream consumers (song_enricher,
+        LyricsService) now read track metadata straight from the DB. The
+        scanner backfill path (``library_scanner.LibraryScanner._backfill_artifacts``)
+        deliberately does NOT delete info.json — it treats user-placed
+        collections as external data that must not be mutated.
         """
         self.songs.add_if_valid(song_path)
         self._db.insert_songs([build_song_record(song_path)])
@@ -262,6 +303,7 @@ class SongManager:
         meta = _track_metadata_from_info_json(song_path)
         if meta:
             self._db.update_track_metadata_with_provenance(song_id, "youtube", meta)
+        _consume_info_json(song_path, self._db, song_id)
         if self._enrich_on_download:
             self._start_enrichment(song_id, song_path)
 

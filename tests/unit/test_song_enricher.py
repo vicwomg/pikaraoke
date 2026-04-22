@@ -1,6 +1,5 @@
 """Unit tests for the song enricher (iTunes + MusicBrainz pipeline)."""
 
-import json
 from unittest.mock import patch
 
 import pytest
@@ -21,26 +20,30 @@ def _insert_song(db, path="/songs/Artist - Song---abc12345678.mp4"):
     return db.get_song_id_by_path(path)
 
 
+def _row_with(**fields):
+    """Mimic a sqlite3.Row (supports __getitem__ by column name)."""
+    return fields
+
+
 class TestQueryFromSong:
-    def test_prefers_info_json_artist_track(self, tmp_path):
+    def test_prefers_db_artist_and_title(self, tmp_path):
+        row = _row_with(artist="Eminem", title="Stan")
         song = tmp_path / "Foo---abc12345678.mp4"
-        info = tmp_path / "Foo---abc12345678.info.json"
-        info.write_text(json.dumps({"artist": "Eminem", "track": "Stan"}))
-        assert song_enricher._query_from_song(str(song)) == "Eminem - Stan"
+        assert song_enricher._query_from_song(row, str(song)) == "Eminem - Stan"
 
-    def test_falls_back_to_info_json_title(self, tmp_path):
-        song = tmp_path / "Foo---abc12345678.mp4"
-        info = tmp_path / "Foo---abc12345678.info.json"
-        info.write_text(json.dumps({"title": "Queen - Bohemian Rhapsody"}))
-        assert song_enricher._query_from_song(str(song)) == "Queen - Bohemian Rhapsody"
+    def test_falls_back_to_stem_when_db_missing_fields(self, tmp_path):
+        # Empty / None artist + title -> filename stem with YT id stripped.
+        row = _row_with(artist=None, title="")
+        song = tmp_path / "Queen - Bohemian Rhapsody---abc12345678.mp4"
+        assert song_enricher._query_from_song(row, str(song)) == "Queen - Bohemian Rhapsody"
 
-    def test_falls_back_to_stem_and_strips_youtube_id(self, tmp_path):
+    def test_falls_back_to_stem_when_row_is_none(self, tmp_path):
         song = tmp_path / "Artist - Song---dQw4w9WgXcQ.mp4"
-        assert song_enricher._query_from_song(str(song)) == "Artist - Song"
+        assert song_enricher._query_from_song(None, str(song)) == "Artist - Song"
 
     def test_handles_bracket_youtube_id(self, tmp_path):
         song = tmp_path / "Artist - Song [dQw4w9WgXcQ].mp4"
-        assert song_enricher._query_from_song(str(song)) == "Artist - Song"
+        assert song_enricher._query_from_song(None, str(song)) == "Artist - Song"
 
 
 class TestEnrichSong:

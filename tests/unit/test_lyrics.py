@@ -1,6 +1,5 @@
 """Unit tests for pikaraoke.lib.lyrics."""
 
-import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,12 +12,11 @@ from pikaraoke.lib.lyrics import (
     Word,
     _ass_header,
     _ass_path,
-    _cleanup_yt_subs_and_info,
+    _cleanup_yt_vtt,
     _detect_language,
     _escape_ass,
     _fetch_lrclib,
     _format_ass_time,
-    _info_json_path,
     _k_token,
     _lrc_plain_text,
     _lrc_to_ass_line_level,
@@ -26,7 +24,6 @@ from pikaraoke.lib.lyrics import (
     _parse_lrc,
     _parse_vtt_cues,
     _pick_best_vtt,
-    _read_info_json,
     _title_from_filename,
     _user_owned_ass,
     _vtt_to_ass,
@@ -196,36 +193,10 @@ class TestLrcPlainText:
 # ----- info.json reader -----
 
 
-class TestReadInfoJson:
-    def test_direct_fields(self, tmp_path):
-        song = tmp_path / "Song---abc.mp4"
-        info = tmp_path / "Song---abc.info.json"
-        info.write_text(json.dumps({"track": "T", "artist": "A", "duration": 180}))
-        result = _read_info_json(str(song))
-        assert result == {"track": "T", "artist": "A", "duration": 180}
-
-    def test_fallback_to_title_split(self, tmp_path):
-        song = tmp_path / "Foo---abc.mp4"
-        info = tmp_path / "Foo---abc.info.json"
-        info.write_text(json.dumps({"title": "Queen - Bohemian Rhapsody"}))
-        result = _read_info_json(str(song))
-        assert result == {"track": "Bohemian Rhapsody", "artist": "Queen", "duration": None}
-
-    def test_missing_file_returns_none(self, tmp_path):
-        song = tmp_path / "NoInfo---x.mp4"
-        assert _read_info_json(str(song)) is None
-
-    def test_invalid_json_returns_none(self, tmp_path):
-        song = tmp_path / "Foo---abc.mp4"
-        info = tmp_path / "Foo---abc.info.json"
-        info.write_text("not json {")
-        assert _read_info_json(str(song)) is None
-
-    def test_missing_metadata_returns_none(self, tmp_path):
-        song = tmp_path / "Foo---abc.mp4"
-        info = tmp_path / "Foo---abc.info.json"
-        info.write_text(json.dumps({"title": "just a title without separator"}))
-        assert _read_info_json(str(song)) is None
+# info.json reading is now in pikaraoke.lib.song_manager._track_metadata_from_info_json
+# (covered by tests in test_song_manager.py). LyricsService reads metadata from the
+# ``songs`` table via ``LyricsService._read_metadata_for_lrclib`` — exercised in
+# TestLyricsServiceFetchAndConvert via the DB-seeded fixture below.
 
 
 # ----- LRCLib client -----
@@ -303,28 +274,39 @@ class TestWriteAssAtomic:
 
 
 @pytest.fixture
-def song_and_info(tmp_path):
+def song_with_metadata(tmp_path):
+    """Song file + DB seeded with artist/title/duration — the state
+    LyricsService expects after register_download has run (register_download
+    seeds from info.json then deletes the file; lyrics reads from DB).
+    """
+    from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
     song = tmp_path / "Foo---abc.mp4"
     song.write_text("fake mp4")
-    info = tmp_path / "Foo---abc.info.json"
-    info.write_text(json.dumps({"track": "T", "artist": "A", "duration": 180}))
-    return str(song)
+    db = KaraokeDatabase(str(tmp_path / "lyrics-test.db"))
+    db.insert_songs([{"file_path": str(song), "youtube_id": "abc", "format": "mp4"}])
+    sid = db.get_song_id_by_path(str(song))
+    db.update_track_metadata_with_provenance(
+        sid, "youtube", {"artist": "A", "title": "T", "duration_seconds": 180.0}
+    )
+    yield str(song), db
+    db.close()
 
 
 class TestLyricsServiceFetchAndConvert:
-    def test_writes_line_level_ass_and_removes_info_json(self, song_and_info, tmp_path):
-        service = LyricsService(str(tmp_path), EventSystem())
+    def test_writes_line_level_ass_from_db_metadata(self, song_with_metadata, tmp_path):
+        song, db = song_with_metadata
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
         with patch(
             "pikaraoke.lib.lyrics._fetch_lrclib",
             return_value="[00:01.00]hello\n[00:03.00]world",
         ):
-            service.fetch_and_convert(song_and_info)
+            service.fetch_and_convert(song)
         ass = tmp_path / "Foo---abc.ass"
         assert ass.exists()
         assert "Dialogue:" in ass.read_text(encoding="utf-8")
-        assert not (tmp_path / "Foo---abc.info.json").exists()
 
-    def test_no_info_json_and_no_vtt_skips_silently(self, tmp_path):
+    def test_no_db_metadata_and_no_vtt_skips_silently(self, tmp_path):
         song = tmp_path / "Foo---abc.mp4"
         song.write_text("fake")
         service = LyricsService(str(tmp_path), EventSystem())
@@ -333,19 +315,22 @@ class TestLyricsServiceFetchAndConvert:
             mock_fetch.assert_not_called()
         assert not (tmp_path / "Foo---abc.ass").exists()
 
-    def test_aligner_invoked_when_provided(self, song_and_info, tmp_path):
+    def test_aligner_invoked_when_provided(self, song_with_metadata, tmp_path):
+        song, db = song_with_metadata
         aligner = MagicMock()
         aligner.align.return_value = [Word("hello", 1.0, 1.5)]
-        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner)
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
         with patch(
             "pikaraoke.lib.lyrics._fetch_lrclib",
             return_value="[00:01.00]hello",
         ), patch("pikaraoke.lib.lyrics.Thread") as mock_thread, patch(
             "pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p
-        ), patch("pikaraoke.lib.lyrics._prewarm_stems"), patch(
+        ), patch(
+            "pikaraoke.lib.lyrics._prewarm_stems"
+        ), patch(
             "pikaraoke.lib.lyrics._detect_language", return_value="en"
         ):
-            service.fetch_and_convert(song_and_info)
+            service.fetch_and_convert(song)
             mock_thread.assert_called_once()
             # Run the target synchronously to verify upgrade path
             target = mock_thread.call_args.kwargs["target"]
@@ -355,26 +340,22 @@ class TestLyricsServiceFetchAndConvert:
         ass_text = (tmp_path / "Foo---abc.ass").read_text(encoding="utf-8")
         assert "{\\kf50}hello" in ass_text
 
-    def test_registers_ass_auto_artifact_when_db_wired(self, song_and_info, tmp_path):
+    def test_registers_ass_auto_artifact_when_db_wired(self, song_with_metadata, tmp_path):
         """After writing an LRCLib .ass, the DB gets an ass_auto artifact row."""
-        from pikaraoke.lib.karaoke_database import KaraokeDatabase
-
-        db = KaraokeDatabase(str(tmp_path / "t.db"))
-        db.insert_songs([{"file_path": song_and_info, "youtube_id": None, "format": "mp4"}])
+        song, db = song_with_metadata
         service = LyricsService(str(tmp_path), EventSystem(), db=db)
         with patch(
             "pikaraoke.lib.lyrics._fetch_lrclib",
             return_value="[00:01.00]hello\n[00:03.00]world",
         ):
-            service.fetch_and_convert(song_and_info)
+            service.fetch_and_convert(song)
 
-        sid = db.get_song_id_by_path(song_and_info)
+        sid = db.get_song_id_by_path(song)
         arts = {(a["role"], a["path"]) for a in db.get_artifacts(sid)}
         assert ("ass_auto", str(tmp_path / "Foo---abc.ass")) in arts
         row = db.get_song_by_id(sid)
         assert row["lyrics_source"] == "lrclib"
         assert row["aligner_model"] is None
-        db.close()
 
     def test_registers_ass_user_when_preexisting_user_ass(self, tmp_path):
         """A pre-existing user .ass gets registered but is not overwritten."""
@@ -397,29 +378,28 @@ class TestLyricsServiceFetchAndConvert:
         assert "hand edit" in ass.read_text(encoding="utf-8")
         db.close()
 
-    def test_unexpected_exception_swallowed(self, song_and_info, tmp_path):
-        service = LyricsService(str(tmp_path), EventSystem())
-        with patch("pikaraoke.lib.lyrics._read_info_json", side_effect=RuntimeError("boom")):
+    def test_unexpected_exception_swallowed(self, song_with_metadata, tmp_path):
+        song, db = song_with_metadata
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
+        with patch.object(
+            LyricsService,
+            "_read_metadata_for_lrclib",
+            side_effect=RuntimeError("boom"),
+        ):
             # Must not raise - event listener context
-            service.fetch_and_convert(song_and_info)
+            service.fetch_and_convert(song)
 
-    def test_skips_when_word_level_ass_already_fresh(self, song_and_info, tmp_path):
-        """Re-request of a cached song must not re-run whisper when LRC unchanged.
-
-        yt-dlp rewrites info.json on a cache hit; without this guard the
-        full VTT -> LRCLib -> whisper pipeline would re-run every time.
-        """
+    def test_skips_when_word_level_ass_already_fresh(self, song_with_metadata, tmp_path):
+        """Re-request of a cached song must not re-run whisper when LRC unchanged."""
         from pikaraoke.lib.demucs_processor import DEMUCS_MODEL
-        from pikaraoke.lib.karaoke_database import KaraokeDatabase
         from pikaraoke.lib.lyrics import _lrc_sha
 
+        song, db = song_with_metadata
         lrc = "[00:01.00]hello"
         existing = f"[Script Info]\nTitle: {ASS_MARKER}\n\n{{\\k50}}hello\n"
         (tmp_path / "Foo---abc.ass").write_text(existing)
 
-        db = KaraokeDatabase(str(tmp_path / "t.db"))
-        db.insert_songs([{"file_path": song_and_info, "youtube_id": None, "format": "mp4"}])
-        sid = db.get_song_id_by_path(song_and_info)
+        sid = db.get_song_id_by_path(song)
         db.upsert_artifacts(sid, [{"role": "ass_auto", "path": str(tmp_path / "Foo---abc.ass")}])
         db.update_processing_config(
             sid,
@@ -432,27 +412,23 @@ class TestLyricsServiceFetchAndConvert:
         aligner.model_id = "whisperx-base"
         service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
         with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=lrc):
-            service.fetch_and_convert(song_and_info)
+            service.fetch_and_convert(song)
         aligner.align.assert_not_called()
         assert (tmp_path / "Foo---abc.ass").read_text(encoding="utf-8") == existing
-        assert not (tmp_path / "Foo---abc.info.json").exists()
-        db.close()
 
-    def test_subtitle_change_invalidates_word_level_ass(self, song_and_info, tmp_path):
+    def test_subtitle_change_invalidates_word_level_ass(self, song_with_metadata, tmp_path):
         """LRCLib returning different content must force whisper to re-run."""
         from pikaraoke.lib.demucs_processor import DEMUCS_MODEL
-        from pikaraoke.lib.karaoke_database import KaraokeDatabase
         from pikaraoke.lib.lyrics import _lrc_sha
 
+        song, db = song_with_metadata
         old_lrc = "[00:01.00]stale text"
         new_lrc = "[00:01.00]fresh text"
         (tmp_path / "Foo---abc.ass").write_text(
             f"[Script Info]\nTitle: {ASS_MARKER}\n\n{{\\k50}}stale\n"
         )
 
-        db = KaraokeDatabase(str(tmp_path / "t.db"))
-        db.insert_songs([{"file_path": song_and_info, "youtube_id": None, "format": "mp4"}])
-        sid = db.get_song_id_by_path(song_and_info)
+        sid = db.get_song_id_by_path(song)
         db.upsert_artifacts(sid, [{"role": "ass_auto", "path": str(tmp_path / "Foo---abc.ass")}])
         db.update_processing_config(
             sid,
@@ -469,31 +445,30 @@ class TestLyricsServiceFetchAndConvert:
             "pikaraoke.lib.lyrics.Thread"
         ) as mock_thread, patch(
             "pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p
-        ), patch("pikaraoke.lib.lyrics._prewarm_stems"), patch(
+        ), patch(
+            "pikaraoke.lib.lyrics._prewarm_stems"
+        ), patch(
             "pikaraoke.lib.lyrics._detect_language", return_value="en"
         ):
-            service.fetch_and_convert(song_and_info)
+            service.fetch_and_convert(song)
             target = mock_thread.call_args.kwargs["target"]
             args = mock_thread.call_args.kwargs["args"]
             target(*args)
         aligner.align.assert_called_once()
         row = db.get_song_by_id(sid)
         assert row["lyrics_sha"] == _lrc_sha(new_lrc)
-        db.close()
 
-    def test_demucs_model_change_invalidates_word_level_ass(self, song_and_info, tmp_path):
+    def test_demucs_model_change_invalidates_word_level_ass(self, song_with_metadata, tmp_path):
         """Demucs model swap must force whisper re-run (aligned on stale stems)."""
-        from pikaraoke.lib.karaoke_database import KaraokeDatabase
         from pikaraoke.lib.lyrics import _lrc_sha
 
+        song, db = song_with_metadata
         lrc = "[00:01.00]hello"
         (tmp_path / "Foo---abc.ass").write_text(
             f"[Script Info]\nTitle: {ASS_MARKER}\n\n{{\\k50}}hello\n"
         )
 
-        db = KaraokeDatabase(str(tmp_path / "t.db"))
-        db.insert_songs([{"file_path": song_and_info, "youtube_id": None, "format": "mp4"}])
-        sid = db.get_song_id_by_path(song_and_info)
+        sid = db.get_song_id_by_path(song)
         db.upsert_artifacts(sid, [{"role": "ass_auto", "path": str(tmp_path / "Foo---abc.ass")}])
         db.update_processing_config(
             sid,
@@ -510,15 +485,16 @@ class TestLyricsServiceFetchAndConvert:
             "pikaraoke.lib.lyrics.Thread"
         ) as mock_thread, patch(
             "pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p
-        ), patch("pikaraoke.lib.lyrics._prewarm_stems"), patch(
+        ), patch(
+            "pikaraoke.lib.lyrics._prewarm_stems"
+        ), patch(
             "pikaraoke.lib.lyrics._detect_language", return_value="en"
         ):
-            service.fetch_and_convert(song_and_info)
+            service.fetch_and_convert(song)
             target = mock_thread.call_args.kwargs["target"]
             args = mock_thread.call_args.kwargs["args"]
             target(*args)
         aligner.align.assert_called_once()
-        db.close()
 
 
 # ----- path helpers -----
@@ -528,9 +504,6 @@ class TestPathHelpers:
     def test_ass_path_replaces_extension(self):
         assert _ass_path("/a/Song---x.mp4") == "/a/Song---x.ass"
         assert _ass_path("/a/Song---x.webm") == "/a/Song---x.ass"
-
-    def test_info_json_path(self):
-        assert _info_json_path("/a/Song---x.mp4") == "/a/Song---x.info.json"
 
 
 # ----- VTT parser -----
@@ -675,41 +648,41 @@ class TestUserOwnedAss:
 # ----- cleanup -----
 
 
-class TestCleanupYtSubsAndInfo:
-    def test_removes_vtt_and_info_json(self, tmp_path):
+class TestCleanupYtVtt:
+    def test_removes_vtt_and_preserves_everything_else(self, tmp_path):
         song = tmp_path / "Foo---abc.mp4"
         (tmp_path / "Foo---abc.en.vtt").write_text("x")
         (tmp_path / "Foo---abc.pl.vtt").write_text("x")
+        # info.json is owned by register_download — cleanup must NOT touch it.
         (tmp_path / "Foo---abc.info.json").write_text("{}")
-        # Keep the .ass and unrelated files
         (tmp_path / "Foo---abc.ass").write_text("ASS")
         (tmp_path / "Unrelated---xyz.en.vtt").write_text("x")
 
-        _cleanup_yt_subs_and_info(str(song))
+        _cleanup_yt_vtt(str(song))
 
         assert not (tmp_path / "Foo---abc.en.vtt").exists()
         assert not (tmp_path / "Foo---abc.pl.vtt").exists()
-        assert not (tmp_path / "Foo---abc.info.json").exists()
+        assert (tmp_path / "Foo---abc.info.json").exists()
         assert (tmp_path / "Foo---abc.ass").exists()
         assert (tmp_path / "Unrelated---xyz.en.vtt").exists()
 
-    def test_unregisters_info_json_and_vtt_rows_when_db_provided(self, tmp_path):
-        """US-29: disk cleanup cascades into song_artifacts so the DB doesn't
-        list ghost rows for files that no longer exist."""
+    def test_unregisters_vtt_rows_when_db_provided(self, tmp_path):
+        """Disk cleanup cascades into song_artifacts so the DB doesn't list
+        ghost vtt rows. info_json rows are owned by register_download.
+        """
         from unittest.mock import MagicMock
 
         song = tmp_path / "Foo---abc.mp4"
         (tmp_path / "Foo---abc.en.vtt").write_text("x")
-        (tmp_path / "Foo---abc.info.json").write_text("{}")
 
         db = MagicMock()
         db.get_song_id_by_path.return_value = 42
 
-        _cleanup_yt_subs_and_info(str(song), db)
+        _cleanup_yt_vtt(str(song), db)
 
         db.get_song_id_by_path.assert_called_once_with(str(song))
         roles = [c.args[1] for c in db.delete_artifacts_by_role.call_args_list]
-        assert set(roles) == {"vtt", "info_json"}
+        assert roles == ["vtt"]
         assert all(c.args[0] == 42 for c in db.delete_artifacts_by_role.call_args_list)
 
     def test_skip_unregister_when_song_not_in_db(self, tmp_path):
@@ -721,7 +694,7 @@ class TestCleanupYtSubsAndInfo:
         db = MagicMock()
         db.get_song_id_by_path.return_value = None
 
-        _cleanup_yt_subs_and_info(str(song), db)
+        _cleanup_yt_vtt(str(song), db)
 
         db.delete_artifacts_by_role.assert_not_called()
 
@@ -730,32 +703,43 @@ class TestCleanupYtSubsAndInfo:
 
 
 class TestLyricsServiceNewFlow:
-    def _setup(self, tmp_path, *, with_vtt=False, with_info=True):
+    def _setup(self, tmp_path, *, with_vtt=False, with_metadata=True):
+        """Create a song file + DB. When ``with_metadata`` is True the DB
+        row carries artist/title/duration (the state after register_download
+        seeds from info.json). Optionally drops a VTT next to the mp4.
+        Returns ``(song_path, db)`` — the caller must close ``db``.
+        """
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
         song = tmp_path / "Foo---abc.mp4"
         song.write_text("fake mp4")
-        if with_info:
-            (tmp_path / "Foo---abc.info.json").write_text(
-                json.dumps({"track": "T", "artist": "A", "duration": 180})
+        db = KaraokeDatabase(str(tmp_path / "t.db"))
+        db.insert_songs([{"file_path": str(song), "youtube_id": "abc", "format": "mp4"}])
+        if with_metadata:
+            sid = db.get_song_id_by_path(str(song))
+            db.update_track_metadata_with_provenance(
+                sid, "youtube", {"artist": "A", "title": "T", "duration_seconds": 180.0}
             )
         if with_vtt:
             (tmp_path / "Foo---abc.en.vtt").write_text(
                 "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nvtt line\n"
             )
-        return str(song)
+        return str(song), db
 
     def test_vtt_only_writes_ass_from_vtt(self, tmp_path):
-        song = self._setup(tmp_path, with_vtt=True, with_info=False)
-        service = LyricsService(str(tmp_path), EventSystem())
+        song, db = self._setup(tmp_path, with_vtt=True, with_metadata=False)
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
         service.fetch_and_convert(song)
         ass = (tmp_path / "Foo---abc.ass").read_text(encoding="utf-8")
         assert "vtt line" in ass
         assert ASS_MARKER in ass
         # VTT cleaned up
         assert not (tmp_path / "Foo---abc.en.vtt").exists()
+        db.close()
 
     def test_lrclib_overrides_vtt(self, tmp_path):
-        song = self._setup(tmp_path, with_vtt=True, with_info=True)
-        service = LyricsService(str(tmp_path), EventSystem())
+        song, db = self._setup(tmp_path, with_vtt=True, with_metadata=True)
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
         with patch(
             "pikaraoke.lib.lyrics._fetch_lrclib",
             return_value="[00:01.00]lrclib line",
@@ -765,21 +749,22 @@ class TestLyricsServiceNewFlow:
         assert "lrclib line" in ass
         assert "vtt line" not in ass
         assert not (tmp_path / "Foo---abc.en.vtt").exists()
-        assert not (tmp_path / "Foo---abc.info.json").exists()
+        db.close()
 
     def test_vtt_only_when_lrclib_misses(self, tmp_path):
-        song = self._setup(tmp_path, with_vtt=True, with_info=True)
-        service = LyricsService(str(tmp_path), EventSystem())
+        song, db = self._setup(tmp_path, with_vtt=True, with_metadata=True)
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
         with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=None):
             service.fetch_and_convert(song)
         ass = (tmp_path / "Foo---abc.ass").read_text(encoding="utf-8")
         assert "vtt line" in ass
+        db.close()
 
     def test_user_aegisub_is_not_overwritten(self, tmp_path):
-        song = self._setup(tmp_path, with_vtt=True, with_info=True)
+        song, db = self._setup(tmp_path, with_vtt=True, with_metadata=True)
         user_ass = "[Script Info]\nTitle: My Aegisub\n\nDialogue: manually crafted\n"
         (tmp_path / "Foo---abc.ass").write_text(user_ass)
-        service = LyricsService(str(tmp_path), EventSystem())
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
         with patch(
             "pikaraoke.lib.lyrics._fetch_lrclib",
             return_value="[00:01.00]lrclib line",
@@ -787,14 +772,14 @@ class TestLyricsServiceNewFlow:
             service.fetch_and_convert(song)
             mock_fetch.assert_not_called()
         assert (tmp_path / "Foo---abc.ass").read_text() == user_ass
+        db.close()
 
     def test_lrc_wins_writes_ass_exactly_once(self, tmp_path):
         """US-14: when LRC is the chosen source, the VTT-derived .ass is
         never written — we write the chosen source once."""
-        song = self._setup(tmp_path, with_vtt=True, with_info=True)
-        service = LyricsService(str(tmp_path), EventSystem())
+        song, db = self._setup(tmp_path, with_vtt=True, with_metadata=True)
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
         calls = []
-        real_write = _write_ass_atomic_ref = None
         from pikaraoke.lib import lyrics as _lyrics_mod
 
         real_write = _lyrics_mod._write_ass_atomic
@@ -810,25 +795,21 @@ class TestLyricsServiceNewFlow:
             service.fetch_and_convert(song)
 
         assert len(calls) == 1, f"expected exactly one .ass write, got {len(calls)}"
+        db.close()
 
     def test_vtt_chosen_persists_language_to_db(self, tmp_path):
         """US-14: VTT lang code flows into songs.language so next runs and
         whisperx alignment skip audio detection."""
-        from pikaraoke.lib.karaoke_database import KaraokeDatabase
-
-        song = tmp_path / "Foo---abc.mp4"
-        song.write_text("fake")
+        song, db = self._setup(tmp_path, with_vtt=False, with_metadata=False)
         (tmp_path / "Foo---abc.pl.vtt").write_text(
             "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nvtt line\n"
         )
-        db = KaraokeDatabase(str(tmp_path / "t.db"))
-        db.insert_songs([{"file_path": str(song), "youtube_id": None, "format": "mp4"}])
+
         service = LyricsService(str(tmp_path), EventSystem(), db=db)
-
         with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=None):
-            service.fetch_and_convert(str(song))
+            service.fetch_and_convert(song)
 
-        sid = db.get_song_id_by_path(str(song))
+        sid = db.get_song_id_by_path(song)
         row = db.get_song_by_id(sid)
         assert row["language"] == "pl"
         db.close()
@@ -836,61 +817,77 @@ class TestLyricsServiceNewFlow:
     def test_lrc_winning_does_not_persist_vtt_language(self, tmp_path):
         """When LRC wins, we must not stamp the VTT's language over an
         otherwise untouched row — VTT wasn't chosen."""
-        from pikaraoke.lib.karaoke_database import KaraokeDatabase
-
-        song = tmp_path / "Foo---abc.mp4"
-        song.write_text("fake")
-        (tmp_path / "Foo---abc.info.json").write_text(
-            json.dumps({"track": "T", "artist": "A", "duration": 180})
-        )
+        song, db = self._setup(tmp_path, with_vtt=False, with_metadata=True)
         (tmp_path / "Foo---abc.pl.vtt").write_text("WEBVTT\n")
-        db = KaraokeDatabase(str(tmp_path / "t.db"))
-        db.insert_songs([{"file_path": str(song), "youtube_id": None, "format": "mp4"}])
         service = LyricsService(str(tmp_path), EventSystem(), db=db)
 
         with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value="[00:01.00]hi"):
-            service.fetch_and_convert(str(song))
+            service.fetch_and_convert(song)
 
-        sid = db.get_song_id_by_path(str(song))
+        sid = db.get_song_id_by_path(song)
         row = db.get_song_by_id(sid)
         assert row["language"] is None
         db.close()
 
     def test_previous_auto_ass_is_overwritten(self, tmp_path):
-        song = self._setup(tmp_path, with_vtt=False, with_info=True)
+        song, db = self._setup(tmp_path, with_vtt=False, with_metadata=True)
         # Previously auto-generated .ass (has marker) - should be replaced by fresh LRCLib.
         (tmp_path / "Foo---abc.ass").write_text(f"[Script Info]\nTitle: {ASS_MARKER}\nstale\n")
-        service = LyricsService(str(tmp_path), EventSystem())
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
         with patch(
             "pikaraoke.lib.lyrics._fetch_lrclib",
             return_value="[00:01.00]fresh",
         ):
             service.fetch_and_convert(song)
         assert "fresh" in (tmp_path / "Foo---abc.ass").read_text()
+        db.close()
 
     def test_no_source_means_no_ass(self, tmp_path):
-        song = self._setup(tmp_path, with_vtt=False, with_info=True)
-        service = LyricsService(str(tmp_path), EventSystem())
+        song, db = self._setup(tmp_path, with_vtt=False, with_metadata=True)
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
         with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=None):
             service.fetch_and_convert(song)
         assert not (tmp_path / "Foo---abc.ass").exists()
-        assert not (tmp_path / "Foo---abc.info.json").exists()
+        db.close()
+
+    def test_vtt_kept_when_no_ass_written(self, tmp_path):
+        """User preference: raw YouTube captions beat zero captions. When
+        LRCLib misses AND VTT conversion fails, the VTT stays on disk so a
+        future retry — or the user — can still salvage something.
+        """
+        song, db = self._setup(tmp_path, with_vtt=False, with_metadata=True)
+        # VTT present but intentionally garbage so _try_write_ass_from_vtt_path fails.
+        vtt = tmp_path / "Foo---abc.en.vtt"
+        vtt.write_text("not a real vtt")
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=None), patch(
+            "pikaraoke.lib.lyrics._try_write_ass_from_vtt_path", return_value=False
+        ):
+            service.fetch_and_convert(song)
+        assert not (tmp_path / "Foo---abc.ass").exists()
+        assert vtt.exists(), "VTT must be preserved when no .ass was written"
+        db.close()
 
     def test_itunes_fallback_when_lrclib_misses(self, tmp_path):
-        # info.json has noisy fields; first LRCLib call fails. iTunes returns
-        # canonical metadata; second LRCLib call (with clean fields) succeeds.
+        """DB has noisy artist/title; first LRCLib call misses. iTunes
+        canonicalises and the second LRCLib call hits."""
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
         song = tmp_path / "Foo---abc.mp4"
         song.write_text("fake")
-        (tmp_path / "Foo---abc.info.json").write_text(
-            json.dumps(
-                {
-                    "track": "Stan (Long Version) ft. Dido",
-                    "artist": "Eminem",
-                    "duration": 489,
-                }
-            )
+        db = KaraokeDatabase(str(tmp_path / "t.db"))
+        db.insert_songs([{"file_path": str(song), "youtube_id": "abc", "format": "mp4"}])
+        sid = db.get_song_id_by_path(str(song))
+        db.update_track_metadata_with_provenance(
+            sid,
+            "youtube",
+            {
+                "artist": "Eminem",
+                "title": "Stan (Long Version) ft. Dido",
+                "duration_seconds": 489.0,
+            },
         )
-        service = LyricsService(str(tmp_path), EventSystem())
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
         with patch(
             "pikaraoke.lib.lyrics._fetch_lrclib",
             side_effect=[None, "[00:01.00]clean line"],
@@ -900,54 +897,49 @@ class TestLyricsServiceNewFlow:
         ) as mock_resolve:
             service.fetch_and_convert(str(song))
         assert mock_fetch.call_count == 2
-        # Second call uses canonical fields from iTunes.
         second_call_args = mock_fetch.call_args_list[1].args
         assert second_call_args[0] == "Stan (feat. Dido)"
         assert second_call_args[1] == "Eminem"
         mock_resolve.assert_called_once()
         ass = (tmp_path / "Foo---abc.ass").read_text(encoding="utf-8")
         assert "clean line" in ass
+        db.close()
 
     def test_itunes_fallback_skipped_when_lrclib_hits(self, tmp_path):
-        song = tmp_path / "Foo---abc.mp4"
-        song.write_text("fake")
-        (tmp_path / "Foo---abc.info.json").write_text(
-            json.dumps({"track": "T", "artist": "A", "duration": 180})
-        )
-        service = LyricsService(str(tmp_path), EventSystem())
+        song, db = self._setup(tmp_path, with_vtt=False, with_metadata=True)
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
         with patch(
             "pikaraoke.lib.lyrics._fetch_lrclib",
             return_value="[00:01.00]first hit",
         ), patch("pikaraoke.lib.lyrics.resolve_metadata") as mock_resolve:
-            service.fetch_and_convert(str(song))
+            service.fetch_and_convert(song)
             mock_resolve.assert_not_called()
+        db.close()
 
     def test_itunes_fallback_returns_none(self, tmp_path):
         # LRCLib misses; iTunes also misses -> no .ass written from LRC.
-        song = tmp_path / "Foo---abc.mp4"
-        song.write_text("fake")
-        (tmp_path / "Foo---abc.info.json").write_text(
-            json.dumps({"track": "T", "artist": "A", "duration": 180})
-        )
-        service = LyricsService(str(tmp_path), EventSystem())
+        song, db = self._setup(tmp_path, with_vtt=False, with_metadata=True)
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
         with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=None), patch(
             "pikaraoke.lib.lyrics.resolve_metadata", return_value=None
         ):
-            service.fetch_and_convert(str(song))
+            service.fetch_and_convert(song)
         assert not (tmp_path / "Foo---abc.ass").exists()
+        db.close()
 
     def test_aligner_only_runs_when_lrclib_hit(self, tmp_path):
-        song = self._setup(tmp_path, with_vtt=True, with_info=True)
+        song, db = self._setup(tmp_path, with_vtt=True, with_metadata=True)
         aligner = MagicMock()
         aligner.align.return_value = [Word("x", 0, 1)]
         aligner.last_detected_language = "en"
-        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner)
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
         with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=None), patch(
             "pikaraoke.lib.lyrics.Thread"
         ) as mock_thread:
             service.fetch_and_convert(song)
             mock_thread.assert_not_called()
         aligner.align.assert_not_called()
+        db.close()
 
 
 # ----- Title-from-filename + reprocess helpers -----
@@ -1041,7 +1033,9 @@ class TestReprocessLibrary:
             return_value="[00:01.00]hello world",
         ), patch(
             "pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p
-        ), patch("pikaraoke.lib.lyrics._prewarm_stems"), patch(
+        ), patch(
+            "pikaraoke.lib.lyrics._prewarm_stems"
+        ), patch(
             "pikaraoke.lib.lyrics._detect_language", return_value="en"
         ):
             service._reprocess_one(song)
@@ -1551,39 +1545,44 @@ class TestEstimateBpm:
 
 
 class TestPrewarmTriggeredFromFetchAndConvert:
-    def test_prewarm_called_when_aligner_and_lrc(self, tmp_path):
+    @staticmethod
+    def _song_with_metadata_db(tmp_path):
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
         song = tmp_path / "Foo---abc.mp4"
         song.write_text("fake")
-        (tmp_path / "Foo---abc.info.json").write_text(
-            json.dumps({"track": "T", "artist": "A", "duration": 180})
+        db = KaraokeDatabase(str(tmp_path / "prewarm.db"))
+        db.insert_songs([{"file_path": str(song), "youtube_id": "abc", "format": "mp4"}])
+        sid = db.get_song_id_by_path(str(song))
+        db.update_track_metadata_with_provenance(
+            sid, "youtube", {"artist": "A", "title": "T", "duration_seconds": 180.0}
         )
+        return str(song), db
+
+    def test_prewarm_called_when_aligner_and_lrc(self, tmp_path):
+        song, db = self._song_with_metadata_db(tmp_path)
         aligner = MagicMock()
-        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner)
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
         with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value="[00:01.00]hi"), patch(
             "pikaraoke.lib.lyrics.Thread"
         ), patch("pikaraoke.lib.lyrics._prewarm_stems") as mock_prewarm:
-            service.fetch_and_convert(str(song))
-        mock_prewarm.assert_called_once_with(str(song))
+            service.fetch_and_convert(song)
+        mock_prewarm.assert_called_once_with(song)
+        db.close()
 
     def test_prewarm_not_called_when_no_aligner(self, tmp_path):
-        song = tmp_path / "Foo---abc.mp4"
-        song.write_text("fake")
-        (tmp_path / "Foo---abc.info.json").write_text(
-            json.dumps({"track": "T", "artist": "A", "duration": 180})
-        )
-        service = LyricsService(str(tmp_path), EventSystem(), aligner=None)
+        song, db = self._song_with_metadata_db(tmp_path)
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=None, db=db)
         with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value="[00:01.00]hi"), patch(
             "pikaraoke.lib.lyrics._prewarm_stems"
         ) as mock_prewarm:
-            service.fetch_and_convert(str(song))
+            service.fetch_and_convert(song)
         mock_prewarm.assert_not_called()
+        db.close()
 
     def test_prewarm_not_called_when_no_lrc(self, tmp_path):
         song = tmp_path / "Foo---abc.mp4"
         song.write_text("fake")
-        (tmp_path / "Foo---abc.info.json").write_text(
-            json.dumps({"track": "T", "artist": "A", "duration": 180})
-        )
         service = LyricsService(str(tmp_path), EventSystem(), aligner=MagicMock())
         with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=None), patch(
             "pikaraoke.lib.lyrics.resolve_metadata", return_value=None

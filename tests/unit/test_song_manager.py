@@ -357,3 +357,76 @@ class TestDBCoordination:
                 "format": "mp4",
             }
         ]
+
+    def test_register_download_seeds_metadata_then_deletes_info_json(self, tmp_path, real_db):
+        """After register_download, the DB owns the metadata and the
+        info.json is gone from disk — downstream consumers (enricher,
+        LyricsService) read the DB.
+        """
+        import json
+
+        song = tmp_path / "Foo---abc12345678.mp4"
+        song.write_text("fake")
+        info = tmp_path / "Foo---abc12345678.info.json"
+        info.write_text(
+            json.dumps(
+                {
+                    "track": "Bohemian Rhapsody",
+                    "artist": "Queen",
+                    "duration": 354,
+                    "webpage_url": "https://www.youtube.com/watch?v=abc12345678",
+                    "language": "en",
+                }
+            )
+        )
+        sm = SongManager(str(tmp_path), db=real_db, enrich_on_download=False)
+        sm.register_download(_native(song))
+
+        # info.json is gone and the artifact row is unregistered.
+        assert not info.exists()
+        sid = real_db.get_song_id_by_path(_native(song))
+        roles = {a["role"] for a in real_db.get_artifacts(sid)}
+        assert "info_json" not in roles
+        # DB carries what was in info.json.
+        row = real_db.get_song_by_id(sid)
+        assert row["artist"] == "Queen"
+        assert row["title"] == "Bohemian Rhapsody"
+        assert row["duration_seconds"] == 354.0
+        assert row["source_url"] == "https://www.youtube.com/watch?v=abc12345678"
+        assert row["language"] == "en"
+
+    def test_register_download_with_no_info_json_still_works(self, tmp_path, real_db):
+        """Downloads without a sibling info.json (cdg/mp3 imports, tests)
+        must still register the song — nothing to seed or delete."""
+        song = tmp_path / "Bare---xyz12345678.mp4"
+        song.write_text("fake")
+        sm = SongManager(str(tmp_path), db=real_db, enrich_on_download=False)
+        sm.register_download(_native(song))
+        sid = real_db.get_song_id_by_path(_native(song))
+        assert sid is not None
+        row = real_db.get_song_by_id(sid)
+        assert row["artist"] is None
+        assert row["title"] is None
+
+    def test_scanner_backfill_preserves_info_json(self, tmp_path, real_db):
+        """The library scanner is what populates DB for user-owned
+        collections; its backfill path does NOT delete info.json — it
+        treats the files as external data that must stay untouched.
+        """
+        import json
+
+        from pikaraoke.lib.library_scanner import LibraryScanner
+
+        song = tmp_path / "ExternalSong---abc12345678.mp4"
+        song.write_text("fake")
+        info = tmp_path / "ExternalSong---abc12345678.info.json"
+        info.write_text(json.dumps({"track": "T", "artist": "A", "duration": 180}))
+
+        scanner = LibraryScanner(real_db)
+        scanner.scan(str(tmp_path))
+
+        assert info.exists(), "scanner must not delete user-placed info.json"
+        sid = real_db.get_song_id_by_path(str(song))
+        row = real_db.get_song_by_id(sid)
+        assert row["artist"] == "A"
+        assert row["title"] == "T"
