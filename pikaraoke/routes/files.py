@@ -135,6 +135,7 @@ def browse():
         admin=is_admin(),
         current_url=current_url,
         artists=artists,
+        lyrics_sources=k.db.get_lyrics_sources(),
     )
 
 

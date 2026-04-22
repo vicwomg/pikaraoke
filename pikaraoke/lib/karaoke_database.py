@@ -215,6 +215,18 @@ class KaraokeDatabase:
             rows = self._conn.execute("SELECT file_path FROM songs").fetchall()
             return [row[0] for row in rows]
 
+    def get_lyrics_sources(self) -> dict[str, str]:
+        """Return ``{file_path: lyrics_source}`` for every song with a non-NULL tag.
+
+        Used by the library browse page to badge each row with its
+        provenance in one query, rather than hitting the DB per-row.
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT file_path, lyrics_source FROM songs WHERE lyrics_source IS NOT NULL"
+            ).fetchall()
+            return {row[0]: row[1] for row in rows}
+
     def get_song_count(self) -> int:
         """Return the total number of songs in the library."""
         with self._lock:

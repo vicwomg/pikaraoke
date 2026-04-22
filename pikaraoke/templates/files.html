@@ -109,6 +109,48 @@
     margin-top: 2px;
   }
   .pk-library-actions { display: flex; gap: 6px; }
+
+  /* Lyrics-source pill — same colour code as the splash badge (lime =
+     user-authored, slate = curated auto source, amber = ASR Whisper).
+     Inline next to the title so each library row shows provenance at a
+     glance: an unflagged row has no .ass on disk yet, so the user knows
+     Whisper hasn't run. */
+  .pk-lib-lyrics {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 4px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-family: var(--pk-font-mono);
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+  .pk-lib-lyrics::before {
+    content: '';
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .pk-lib-lyrics[data-variant="user"] {
+    color: var(--pk-lime);
+    background: rgba(163, 230, 53, 0.1);
+    border-color: rgba(163, 230, 53, 0.28);
+  }
+  .pk-lib-lyrics[data-variant="trust"] {
+    color: #9cdcfe;
+    background: rgba(156, 220, 254, 0.08);
+    border-color: rgba(156, 220, 254, 0.22);
+  }
+  .pk-lib-lyrics[data-variant="auto"] {
+    color: var(--pk-amber);
+    background: rgba(242, 157, 63, 0.1);
+    border-color: rgba(242, 157, 63, 0.28);
+  }
   .pk-library-btn {
     width: 38px;
     height: 38px;
@@ -246,6 +288,27 @@ $(function() {
 </div>
 {% endmacro %}
 
+{# Maps songs.lyrics_source values to a compact label + colour variant.
+   Variants match the splash badge: user-authored is vibrant (curated),
+   LRCLib/Genius/YouTube/whisperx are slate (trusted auto), Whisper ASR
+   is amber (may hallucinate). No entry means no .ass yet — Whisper
+   fallback hasn't run, which is useful operator signal. #}
+{% set lyrics_source_meta = {
+  'user_ass':    ('Twoje',           'user'),
+  'lrclib':      ('LRCLib',          'trust'),
+  'whisperx':    ('LRCLib + sync',   'trust'),
+  'genius':      ('Genius',          'trust'),
+  'youtube_vtt': ('YouTube',         'trust'),
+  'whisper':     ('Auto (Whisper)',  'auto'),
+} %}
+{% macro lyrics_badge(song) %}
+  {% set _src = lyrics_sources.get(song) %}
+  {% if _src and _src in lyrics_source_meta %}
+    {% set _label, _variant = lyrics_source_meta[_src] %}
+    <span class="pk-lib-lyrics" data-variant="{{ _variant }}" title="Źródło napisów: {{ _src }}">{{ _label }}</span>
+  {% endif %}
+{% endmacro %}
+
 {% if songs|length == 0 %}
 <p class="pk-empty">Jeszcze nic tu nie ma.</p>
 {% elif sort_order == 'Artist' %}
@@ -269,7 +332,10 @@ $(function() {
     {% endif %}
 
     <div class="pk-library-row">
-      <div class="pk-library-title">{{ _title.strip('\'"') }}</div>
+      <div class="pk-library-title">
+        {{ _title.strip('\'"') }}
+        {{ lyrics_badge(song) }}
+      </div>
       {{ action_buttons(song) }}
     </div>
   {% endfor %}
@@ -286,6 +352,7 @@ $(function() {
         {%- else -%}
         {{ _name.strip('\'"') }}
         {%- endif -%}
+        {{ lyrics_badge(song) }}
       </div>
       {{ action_buttons(song) }}
     </div>
