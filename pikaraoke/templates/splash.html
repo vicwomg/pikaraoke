@@ -330,30 +330,49 @@
 
   /* Lyrics source badge — surfaces where the current .ass came from
      (user-authored, LRCLib, YouTube captions, Whisper ASR fallback).
-     Low-contrast by default so it doesn't compete with the song title;
-     brighter variants flag Whisper ASR (might hallucinate lyrics) and
-     user content (explicitly curated). */
+     Small pill, right-aligned to sit under the now-playing time line.
+     Variants colour-code provenance: lime = user-curated, slate = curated
+     auto source (LRCLib / whisperx / Genius / YouTube), amber = ASR
+     (potentially hallucinated). Foreground/background both lift
+     enough to stay legible against the gradient overlay. */
   .sp-lyrics-source {
-    margin-top: 6px;
-    font-family: var(--pk-font-mono);
-    font-size: clamp(11px, 0.95vw, 14px);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.55);
+    margin-top: 8px;
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-family: var(--pk-font-mono);
+    font-size: clamp(11px, 0.95vw, 14px);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.18);
+    color: #fff;
   }
   .sp-lyrics-source::before {
     content: '';
-    width: 6px; height: 6px;
+    width: 7px; height: 7px;
     border-radius: 50%;
     background: currentColor;
-    opacity: 0.8;
+    box-shadow: 0 0 8px currentColor;
   }
-  .sp-lyrics-source[data-variant="user"]  { color: var(--pk-lime); }
-  .sp-lyrics-source[data-variant="trust"] { color: rgba(255,255,255,0.65); }
-  .sp-lyrics-source[data-variant="auto"]  { color: var(--pk-amber); }
+  .sp-lyrics-source[data-variant="user"] {
+    color: var(--pk-lime);
+    background: rgba(163, 230, 53, 0.14);
+    border-color: rgba(163, 230, 53, 0.35);
+  }
+  .sp-lyrics-source[data-variant="trust"] {
+    color: #9cdcfe;
+    background: rgba(156, 220, 254, 0.12);
+    border-color: rgba(156, 220, 254, 0.3);
+  }
+  .sp-lyrics-source[data-variant="auto"] {
+    color: var(--pk-amber);
+    background: rgba(242, 157, 63, 0.14);
+    border-color: rgba(242, 157, 63, 0.35);
+  }
 
   /* ===== Hostap + clock (top left) ===== */
   #ap-container {

@@ -284,6 +284,37 @@ ______________________________________________________________________
   (`lyrics.py:377-398`). Songs whose title/artist drifted are
   currently skipped silently.
 
+### US-43 Lyrics source transparency (PASS)
+
+- \[x\] ~~**P2** Surface which source produced the current subtitles so
+  the user can tell an LRCLib line-level render from a Whisper ASR
+  fallback at a glance.~~ Done — `PlaybackController.lookup_lyrics_source`
+  (`lib/playback_controller.py:105`) reads `songs.lyrics_source`; the
+  value rides on `/now_playing` as `now_playing_lyrics_source` and is
+  rendered in the splash as a compact badge (`#lyrics-source`,
+  `templates/splash.html`) with colour variants for user-authored,
+  curated (LRCLib / Genius / YouTube VTT / word-level `whisperx`), and
+  auto-generated (`whisper`). `updateLyricsSourceBadge`
+  (`static/js/splash.js:86`) handles the state flip, and
+  `LYRICS_SOURCE_LABELS` is the single source of truth for label text.
+- \[x\] ~~**P2** Refresh the badge mid-playback when the source changes
+  (word-level alignment completes, Whisper fallback lands after the
+  song has already started).~~ Done — `_register_ass` now emits
+  `lyrics_upgraded` unconditionally (`lib/lyrics.py:168`), and
+  `Karaoke._on_lyrics_upgraded` (`karaoke.py:1059`) re-runs
+  `lookup_lyrics_source` + pushes a socket update so the badge reflects
+  the latest provenance without a reload. `_register_user_ass`
+  (`lib/lyrics.py:202`) stamps `lyrics_source="user_ass"` too, so
+  manually placed Aegisub files are distinguishable from the auto
+  pipeline.
+- \[x\] ~~**P1** Reject LRCLib when its detected language disagrees
+  with the DB's `songs.language` — the dub trap (e.g. LRCLib returning
+  the English "Colors of the Wind" for Edyta Górniak's Polish "Kolorowy
+  wiatr").~~ Done — `_is_lrc_language_mismatch` (`lib/lyrics.py:495`)
+  compares primary subtags (`pl` ≡ `pl-PL`); mismatches drop the LRC
+  and fall through to Genius / VTT / Whisper. Covered by
+  `TestLyricsServiceLanguageMismatch` in `tests/unit/test_lyrics.py`.
+
 ______________________________________________________________________
 
 ## Playback
@@ -380,6 +411,19 @@ ______________________________________________________________________
   disabled" (info) warning per process, not per song.
 - \[ \] **P2** Document (or fix) that `_estimate_bpm` may run on the raw
   mix when stems aren't ready in time (`lyrics.py:300`).
+
+### US-25b Sub-word karaoke precision — PASS
+
+Shipped. Renderer emits one `\kf` per character on the WhisperX path
+(real wav2vec2 CTC timings) and one `\kf` per syllable on the
+Whisper-ASR fallback path (pyphen split, duration sliced
+proportionally to syllable char length). Monosyllabic words and
+unsupported languages fall back to a single per-word `\kf` - never
+worse than the pre-feature baseline. Model id bumped to
+`wav2vec2-char` so cached per-word `.ass` files regenerate.
+Covered by `tests/unit/test_lyrics_align.py::TestCharAlignmentExtraction`,
+`TestPartsForRef`, and `tests/unit/test_lyrics.py::TestSyllabify`,
+`TestSyllableParts`, `TestKToken` part cases.
 
 ### US-26 Now-playing overlay and QR — PASS
 
@@ -696,6 +740,68 @@ to that cap.
   and `user=` query param on `/enqueue` still carry the name as
   before; no changes to `routes/queue.py`, `routes/search.py`, or
   `lib/queue_manager.py`.
+
+______________________________________________________________________
+
+## Lyrics Timing and Language Safety
+
+### US-43 Fast-path synced lyrics + language-safe re-alignment (PARTIAL)
+
+Timing side is largely in place (US-8 + US-9 already dispatch LRC fetch
+off the `song_downloaded` event and gate whisperx on `stems_ready`).
+The language-safety side has a real hole: the dub-trap guard in
+`ab066fef` is ineffective on the first download of a cold-DB track,
+because there is no pre-LRC signal to compare the LRC's language
+against — so LRC is trusted, whisperx aligns it, and the LRC's own
+language is then persisted as `songs.language` with provenance
+`scanner`. Every subsequent run passes the guard trivially (DB and
+LRC agree), so the bad state is sticky.
+
+Evidence: Edyta Górniak's Polish "Kolorowy wiatr" (song_id 33) is
+currently in exactly this state — DB `language='en'`, `.ass` contains
+the English "Colors of the Wind" lyrics, whisperx aligned those English
+words to the Polish vocals. Files on disk:
+`/Users/zygzagz/.pikaraoke/songs/Edyta Gorniak - „Kolorowy wiatr' …---UityBuZoXv0.{ass,m4a,mp4}`.
+
+- \[ \] **P0** Seed `songs.language` from the title+artist heuristic
+  BEFORE the first LRC fetch, not after the first successful
+  whisperx alignment. Run `langdetect` on
+  `f"{artist} {title}"` from the DB row and persist the result
+  with a new provenance tag (e.g. `title_heuristic`). Ranks below
+  Whisper / VTT in the confidence ladder but above `lrc_heuristic`
+  (see next item) so the guard has ground truth to compare against
+  on the very first run. This is the single change that self-heals
+  future "Kolorowy wiatr"-shaped tracks without Whisper.
+- \[ \] **P0** Stop persisting the LRC-derived language with
+  provenance `scanner`. Either (a) drop the write at
+  `pikaraoke/lib/lyrics.py:643` entirely, since the title-heuristic
+  write above already populated the column, or (b) tag it with a
+  dedicated low-confidence source (`lrc_heuristic`) so higher-
+  confidence writers (VTT lang code, Whisper acoustic probe, user
+  override) can still overwrite it. The current confidence ladder
+  in `karaoke_database.py` must gain the new source at a rung
+  below `scanner`.
+- \[ \] **P1** Heal the sticky-bad case when the title-heuristic
+  disagrees with DB language on re-evaluation. A song whose
+  persisted language was seeded by post-alignment LRC write (the
+  poison path) should be detectable by comparing
+  `langdetect(title + artist)` against `songs.language`; on
+  disagreement, flag the `.ass` + `language` for reprocessing. One
+  safe trigger: run the check once on startup behind the existing
+  `whisperx_initial_reprocess_done` sentinel in
+  `Karaoke._maybe_initial_reprocess_with_whisperx`, extending it
+  to cover language drift, not just aligner install.
+- \[ \] **P1** Manual remediation for Kolorowy wiatr (song_id 33)
+  while P0/P1 above is in flight: delete the `.ass`, clear
+  `songs.language` + `songs.lyrics_source` + `songs.lyrics_sha` +
+  `songs.aligner_model`, and re-run the pipeline with the title
+  heuristic patched in. Verify the replay shows Polish lyrics
+  synced to the Polish vocals.
+- \[ \] **P2** Regression test: seed a DB row with title="Kolorowy
+  wiatr", artist="Edyta Górniak", `language=NULL`, stub LRCLib to
+  return English lyrics, assert the pipeline rejects the LRC and
+  falls through to Whisper ASR (or Genius) producing Polish text.
+  Guards against the cold-DB dub-trap for future refactors.
 
 ______________________________________________________________________
 
