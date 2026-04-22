@@ -71,8 +71,7 @@
   <div id="qr-code"{% if hide_url %} style="display: none"{% endif %}>
     <img
       src="{{ url_for('images.qrcode') }}"
-      width="100px"
-      style="image-rendering: pixelated"
+      style="width: 15vmin; image-rendering: pixelated"
       alt="qrcode"
     />
     <div class="is-size-6 stroke">
@@ -180,7 +179,7 @@
     <div id="dvd">
       <div id="screensaver-qr"{% if hide_url %} style="display: none"{% endif %}>
         <div style="text-align: right">
-          <img src="{{ url_for('images.qrcode') }}" width="30%" height="30%" />
+          <img src="{{ url_for('images.qrcode') }}" style="width: 15vmin; height: 15vmin; image-rendering: pixelated" />
         </div>
         <div>{{ hostap_info[0] }}<br />{{ url }}</div>
       </div>
