@@ -332,6 +332,41 @@ existing ASS stack (SubtitlesOctopus). No UI changes are required when new
 **User-supplied Aegisub (`.ass`) files are never restyled.** Authored
 subtitles keep their original colours, fonts, and effects.
 
+### US-25b Sub-word karaoke precision
+
+As a viewer, the highlight wipe inside a word advances at the **finest
+granularity available from the upstream aligner**, not one step per
+word. Long words don't "freeze" while a single `\kf` runs out — the
+fill tracks what I'm actually singing, glyph by glyph when possible.
+
+Two precision tiers, picked automatically:
+
+- **Per-character** (WhisperX path). When wav2vec2 CTC forced alignment
+  runs (LRCLib / Genius / VTT lyrics present), each glyph gets its own
+  `\kf` fill driven by the real phonetic timestamp — e.g.
+  `{\kf10}h{\kf10}e{\kf10}l{\kf10}l{\kf10}o`.
+- **Per-syllable** (Whisper-ASR fallback). When only word-level
+  timestamps exist (no LRC source, last-resort Whisper transcription),
+  pyphen splits each word into syllables and the word duration is
+  sliced proportionally to each syllable's character count — e.g.
+  Polish `Pocahontas` becomes `Po / ca / hon / tas`. Less precise than
+  per-character, but still finer than one wipe per word and
+  linguistically grounded for ~30 languages (see
+  `_PYPHEN_LANG_MAP`).
+- **Monosyllabic / unsupported language / aligner dropped the glyph**:
+  fallback is a single `\kf` for the whole word, same as before —
+  never worse than the previous baseline.
+
+**Pulse interaction:** the BPM-driven scale pulse (`\t`) from US-25
+still runs **once per word**, not per sub-word part — multi-syllable
+words get one scale bump that lines up with the word's onset instead
+of strobing once per character.
+
+**Cache invalidation:** the aligner writes `aligner_model=wav2vec2-char`
+into the artifact registry. Older `.ass` files produced by the per-word
+renderer (tagged `whisperx-*` or `wav2vec2-lrc`) are regenerated on the
+next pass per US-15's waterfall rules.
+
 ### US-26 Now-playing overlay and QR
 
 As a viewer, the splash screen shows the current song info, a QR code to
@@ -547,3 +582,4 @@ so I am not forced to re-enter it or end up enqueued as `Anon-XXXX`.
   a manual re-entry.
 - **Unset fallback**: if no name is stored, the existing prompt flow
   still fires; skipping the prompt still generates `Anon-XXXX` as today.
+

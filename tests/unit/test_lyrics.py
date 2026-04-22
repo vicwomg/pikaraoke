@@ -10,6 +10,7 @@ from pikaraoke.lib.lyrics import (
     ASS_MARKER,
     LyricsService,
     Word,
+    WordPart,
     _ass_header,
     _ass_path,
     _cleanup_yt_vtt,
@@ -28,6 +29,8 @@ from pikaraoke.lib.lyrics import (
     _parse_vtt_cues,
     _pick_best_vtt,
     _strip_variant_markers,
+    _syllabify,
+    _syllable_parts,
     _title_from_filename,
     _user_owned_ass,
     _vtt_to_ass,
@@ -148,7 +151,10 @@ class TestKToken:
         # 500ms total, 25% rise = 125ms rise window.
         word = Word(text="hello", start=1.2, end=1.7)
         out = _k_token(word, line_start_s=1.0, params=_AnimParams(108, 0.25))
-        assert out.startswith("{\\kf50}")
+        # \t pulse is now spliced into the first override block alongside
+        # \kf so the whole word gets one opening brace - shorter to emit
+        # and it keeps libass's tag count low on multi-part words.
+        assert "\\kf50" in out
         assert "\\t(200,325,\\fscx108\\fscy108)" in out
         assert "\\t(325,700,\\fscx100\\fscy100)" in out
         assert out.endswith("hello")
@@ -161,6 +167,80 @@ class TestKToken:
         word = Word(text="w", start=0.95, end=1.1)
         out = _k_token(word, line_start_s=1.0, params=_AnimParams(105, 0.25))
         assert "\\t(0," in out
+
+    def test_parts_emit_one_kf_per_part(self):
+        # Per-char parts from WhisperX -> one \kf per glyph, no spaces
+        # between them (they're one word, the karaoke fills advance as
+        # each char is sung).
+        parts = (
+            WordPart("h", 0.0, 0.1),
+            WordPart("e", 0.1, 0.2),
+            WordPart("y", 0.2, 0.3),
+        )
+        word = Word(text="hey", start=0.0, end=0.3, parts=parts)
+        out = _k_token(word, line_start_s=0.0, params=None)
+        assert out == "{\\kf10}h{\\kf10}e{\\kf10}y"
+
+    def test_parts_single_pulse_covers_whole_word(self):
+        # Pulse \t is attached to the first override only, not repeated
+        # per part - multi-char words would strobe otherwise.
+        from pikaraoke.lib.lyrics import _AnimParams
+
+        parts = (WordPart("a", 0.0, 0.1), WordPart("b", 0.1, 0.2))
+        word = Word(text="ab", start=0.0, end=0.2, parts=parts)
+        out = _k_token(word, line_start_s=0.0, params=_AnimParams(108, 0.25))
+        # The \t scale tags appear once, in the first override block.
+        assert out.count("\\fscx108") == 1
+        assert out.count("\\fscx100") == 1
+
+    def test_no_parts_emits_single_kf(self):
+        word = Word(text="hi", start=0.0, end=0.2, parts=None)
+        out = _k_token(word)
+        assert out == "{\\kf20}hi"
+
+
+class TestSyllabify:
+    def test_polish_multi_syllable(self):
+        spans = _syllabify("Pocahontas", "pl")
+        assert spans is not None
+        word = "Pocahontas"
+        assert [word[a:b] for a, b in spans] == ["Po", "ca", "hon", "tas"]
+
+    def test_english_multi_syllable(self):
+        spans = _syllabify("beautiful", "en")
+        assert spans is not None
+        word = "beautiful"
+        assert [word[a:b] for a, b in spans] == ["beau", "ti", "ful"]
+
+    def test_monosyllable_returns_none(self):
+        # pyphen returns no break positions for short words - renderer
+        # then emits a single \kf covering the whole word.
+        assert _syllabify("ja", "pl") is None
+        assert _syllabify("I", "en") is None
+
+    def test_unknown_language_returns_none(self):
+        assert _syllabify("anything", "xx") is None
+
+    def test_none_language_returns_none(self):
+        assert _syllabify("anything", None) is None
+
+
+class TestSyllableParts:
+    def test_splits_word_duration_proportionally(self):
+        # "Pocahontas" -> Po (2) + ca (2) + hon (3) + tas (3) = 10 chars
+        # over 1.0s -> 0.2 / 0.2 / 0.3 / 0.3.
+        parts = _syllable_parts("Pocahontas", "pl", 0.0, 1.0)
+        assert parts is not None
+        assert [p.text for p in parts] == ["Po", "ca", "hon", "tas"]
+        assert parts[0].start == 0.0
+        assert parts[0].end == pytest.approx(0.2)
+        assert parts[-1].end == 1.0  # anchors exactly to the word end
+
+    def test_monosyllable_returns_none(self):
+        assert _syllable_parts("ja", "pl", 0.0, 0.5) is None
+
+    def test_unknown_language_returns_none(self):
+        assert _syllable_parts("Pocahontas", "xx", 0.0, 1.0) is None
 
 
 class TestWordsToAssWithKTags:
@@ -601,7 +681,7 @@ class TestLyricsServiceFetchAndConvert:
             lyrics_sha=_lrc_sha(old_lrc),
         )
         aligner = MagicMock()
-        aligner.model_id = "wav2vec2-lrc"
+        aligner.model_id = "wav2vec2-char"
         aligner.align.return_value = [Word("fresh", 1.0, 1.5), Word("text", 1.5, 2.0)]
         service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
         with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=new_lrc), patch(
@@ -636,12 +716,12 @@ class TestLyricsServiceFetchAndConvert:
         db.update_processing_config(
             sid,
             demucs_model="old-demucs-v1",  # differs from current DEMUCS_MODEL
-            aligner_model="wav2vec2-lrc",
+            aligner_model="wav2vec2-char",
             lyrics_source="whisperx",
             lyrics_sha=_lrc_sha(lrc),
         )
         aligner = MagicMock()
-        aligner.model_id = "wav2vec2-lrc"
+        aligner.model_id = "wav2vec2-char"
         aligner.align.return_value = [Word("hello", 1.0, 1.5)]
         service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
         with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=lrc), patch(

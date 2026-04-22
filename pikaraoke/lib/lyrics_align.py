@@ -16,7 +16,7 @@ the reference LRC and timings come from wav2vec2's phonetic alignment.
 import logging
 from difflib import SequenceMatcher
 
-from pikaraoke.lib.lyrics import Word
+from pikaraoke.lib.lyrics import Word, WordPart
 
 logger = logging.getLogger(__name__)
 
@@ -64,11 +64,12 @@ class WhisperXAligner:
     def model_id(self) -> str:
         """Stable identifier recorded alongside aligned .ass for cache invalidation.
 
-        Bumped from ``whisperx-<size>`` to ``wav2vec2-lrc`` when we dropped
-        the whisper ASR step, so existing cached .ass files auto-invalidate
-        and get re-generated with the higher-quality direct alignment.
+        Bumped to ``wav2vec2-char`` when we switched the ASS renderer from
+        one ``\\kf`` per word to per-character ``\\kf`` fills using the
+        wav2vec2 char-level timings that were previously discarded.
+        Existing cached .ass files auto-invalidate.
         """
-        return "wav2vec2-lrc"
+        return "wav2vec2-char"
 
     def align(
         self,
@@ -92,9 +93,7 @@ class WhisperXAligner:
         callers without LRC line timings.
         """
         if not language:
-            raise ValueError(
-                "language required: wav2vec2 is per-language, caller must supply it"
-            )
+            raise ValueError("language required: wav2vec2 is per-language, caller must supply it")
         wx = self._whisperx
         self.last_detected_language = language
         self._ensure_align_model(language)
@@ -109,13 +108,9 @@ class WhisperXAligner:
             self._align_meta,
             audio_path,
             self._device,
-            return_char_alignments=False,
+            return_char_alignments=True,
         )
-        aligned_words = [
-            Word(text=str(w.get("word", "")).strip(), start=float(w["start"]), end=float(w["end"]))
-            for w in aligned.get("word_segments", [])
-            if "start" in w and "end" in w and w.get("word")
-        ]
+        aligned_words = _words_with_char_parts(aligned)
         # wav2vec2 can silently drop tokens it couldn't align phonetically
         # (weak onsets, overlapping instruments). Route through the mapper
         # so missing reference tokens get interpolated within their line
@@ -150,6 +145,119 @@ class WhisperXAligner:
         return [{"start": 0.0, "end": _WHOLE_SONG_SEGMENT_END_S, "text": text}]
 
 
+def _words_with_char_parts(aligned: dict) -> list[Word]:
+    """Assemble ``Word`` list from whisperx output, attaching per-char parts.
+
+    Each ``segment`` in the whisperx result carries a ``chars`` list (one
+    entry per glyph of the segment's input text, whitespace included) and
+    a ``words`` list. Char entries have ``{"char", "start", "end",
+    "score"}`` for glyphs the CTC backtrace aligned; whitespace and
+    unalignable glyphs arrive without ``start``/``end``. We split chars
+    into groups at spaces and zip with the words list 1:1, producing
+    ``WordPart`` entries for glyphs with valid timings - those become
+    per-character ``\\kf`` fills in the rendered ASS.
+
+    Words whose glyphs all lacked timings get ``parts=None`` and render
+    as a single ``\\kf`` spanning the word's full duration (same as the
+    pre-char-alignment behaviour).
+    """
+    out: list[Word] = []
+    for seg in aligned.get("segments", []):
+        seg_words = seg.get("words") or []
+        char_groups = _group_chars_by_word(seg.get("chars") or [])
+        for word_idx, word in enumerate(seg_words):
+            if "start" not in word or "end" not in word:
+                continue
+            text = str(word.get("word", "")).strip()
+            if not text:
+                continue
+            group = char_groups[word_idx] if word_idx < len(char_groups) else []
+            parts = _build_parts_from_chars(group)
+            out.append(
+                Word(
+                    text=text,
+                    start=float(word["start"]),
+                    end=float(word["end"]),
+                    parts=tuple(parts) if len(parts) > 1 else None,
+                )
+            )
+    return out
+
+
+def _group_chars_by_word(seg_chars: list[dict]) -> list[list[dict]]:
+    """Split whisperx's flat char list into per-word char groups.
+
+    Space characters are delimiters - they appear in the char list even
+    though they carry no timings. We start a new group whenever a space
+    is seen; leading spaces produce empty-group prefixes which we drop
+    to stay aligned with the word list (which has no leading-space
+    placeholder).
+    """
+    groups: list[list[dict]] = [[]]
+    for entry in seg_chars:
+        if not isinstance(entry, dict):
+            continue
+        ch = entry.get("char", "")
+        if ch == " ":
+            if groups[-1]:  # only start a new group after non-empty content
+                groups.append([])
+            continue
+        groups[-1].append(entry)
+    if groups and not groups[-1]:
+        groups.pop()
+    return groups
+
+
+def _build_parts_from_chars(group: list[dict]) -> list[WordPart]:
+    """``WordPart`` list for one word's char group. Drops unaligned glyphs."""
+    parts: list[WordPart] = []
+    for entry in group:
+        ch = entry.get("char", "")
+        if not ch:
+            continue
+        c_start = entry.get("start")
+        c_end = entry.get("end")
+        if c_start is None or c_end is None:
+            continue
+        parts.append(WordPart(text=ch, start=float(c_start), end=float(c_end)))
+    return parts
+
+
+def _parts_for_ref(
+    parts: tuple[WordPart, ...] | None, ref_text: str
+) -> tuple[WordPart, ...] | None:
+    """Reconcile a whisper word's char parts with the reference token text.
+
+    Aligned words normally carry their LRC-line glyphs verbatim, so
+    ``"".join(p.text) == ref_text`` is the common case. When the joined
+    parts appear as a substring of ``ref_text`` (e.g. reference has
+    trailing punctuation the matcher normalized away), we attach the
+    leading/trailing chars onto the first/last part so the renderer can
+    still display the full reference glyph set. When the join doesn't
+    occur in ``ref_text`` at all we give up and return ``None`` so the
+    renderer falls back to one ``\\kf`` for the whole word - safer than
+    emitting visibly wrong characters.
+    """
+    if not parts:
+        return None
+    joined = "".join(p.text for p in parts)
+    if joined == ref_text:
+        return parts
+    idx = ref_text.find(joined)
+    if idx < 0:
+        return None
+    prefix = ref_text[:idx]
+    suffix = ref_text[idx + len(joined) :]
+    new_parts = list(parts)
+    if prefix:
+        first = new_parts[0]
+        new_parts[0] = WordPart(text=prefix + first.text, start=first.start, end=first.end)
+    if suffix:
+        last = new_parts[-1]
+        new_parts[-1] = WordPart(text=last.text + suffix, start=last.start, end=last.end)
+    return tuple(new_parts)
+
+
 def map_whisper_to_reference(whisper_words: list[Word], reference_text: str) -> list[Word]:
     """Transfer whisper's word timings onto the reference text tokens.
 
@@ -170,7 +278,10 @@ def map_whisper_to_reference(whisper_words: list[Word], reference_text: str) -> 
     for block in matcher.get_matching_blocks():
         for i in range(block.size):
             w = whisper_words[block.b + i]
-            matched[block.a + i] = Word(text=ref_tokens[block.a + i], start=w.start, end=w.end)
+            ref = ref_tokens[block.a + i]
+            matched[block.a + i] = Word(
+                text=ref, start=w.start, end=w.end, parts=_parts_for_ref(w.parts, ref)
+            )
 
     return _interpolate_gaps(ref_tokens, matched)
 
@@ -207,8 +318,12 @@ def map_whisper_to_reference_by_lines(
         for block in matcher.get_matching_blocks():
             for i in range(block.size):
                 w = line_whisper[block.b + i]
+                ref = ref_tokens[block.a + i]
                 matched[block.a + i] = Word(
-                    text=ref_tokens[block.a + i], start=w.start, end=w.end
+                    text=ref,
+                    start=w.start,
+                    end=w.end,
+                    parts=_parts_for_ref(w.parts, ref),
                 )
         out.extend(_interpolate_line_gaps(ref_tokens, matched, line_start, line_end))
     return out
@@ -260,8 +375,7 @@ def _uniform_line_words(tokens: list[str], start: float, end: float) -> list[Wor
     duration = max(end - start, 0.01)
     per = duration / len(tokens)
     return [
-        Word(text=t, start=start + per * i, end=start + per * (i + 1))
-        for i, t in enumerate(tokens)
+        Word(text=t, start=start + per * i, end=start + per * (i + 1)) for i, t in enumerate(tokens)
     ]
 
 

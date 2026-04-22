@@ -36,6 +36,7 @@ dev = [
 align = [
   "whisperx>=3.1.1",
   "langdetect>=1.0.9",
+  "pyphen>=0.15",
 ]
 
 [dependency-groups]

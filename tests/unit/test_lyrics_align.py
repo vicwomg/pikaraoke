@@ -5,10 +5,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from pikaraoke.lib.lyrics import Word
+from pikaraoke.lib.lyrics import Word, WordPart
 from pikaraoke.lib.lyrics_align import (
+    _group_chars_by_word,
     _interpolate_gaps,
     _normalize,
+    _parts_for_ref,
+    _words_with_char_parts,
     map_whisper_to_reference,
     map_whisper_to_reference_by_lines,
 )
@@ -187,14 +190,40 @@ class TestInterpolateGaps:
 
 @pytest.fixture
 def fake_whisperx(monkeypatch):
-    """Install a fake whisperx module before WhisperXAligner is imported."""
+    """Install a fake whisperx module before WhisperXAligner is imported.
+
+    The fake returns the post-``return_char_alignments=True`` shape: per
+    segment a flat ``chars`` list plus a ``words`` list. Char timings
+    are synthetic (0.1s per glyph) but the structure matches what real
+    whisperx emits, which is what ``_words_with_char_parts`` consumes.
+    """
     fake = MagicMock()
     fake.load_align_model.return_value = (MagicMock(), {"meta": 1})
     fake.align.return_value = {
-        "word_segments": [
-            {"word": "hello", "start": 0.0, "end": 0.5},
-            {"word": "world", "start": 0.5, "end": 1.0},
-        ]
+        "segments": [
+            {
+                "text": "hello world",
+                "start": 0.0,
+                "end": 1.0,
+                "words": [
+                    {"word": "hello", "start": 0.0, "end": 0.5},
+                    {"word": "world", "start": 0.5, "end": 1.0},
+                ],
+                "chars": [
+                    {"char": "h", "start": 0.0, "end": 0.1},
+                    {"char": "e", "start": 0.1, "end": 0.2},
+                    {"char": "l", "start": 0.2, "end": 0.3},
+                    {"char": "l", "start": 0.3, "end": 0.4},
+                    {"char": "o", "start": 0.4, "end": 0.5},
+                    {"char": " "},
+                    {"char": "w", "start": 0.5, "end": 0.6},
+                    {"char": "o", "start": 0.6, "end": 0.7},
+                    {"char": "r", "start": 0.7, "end": 0.8},
+                    {"char": "l", "start": 0.8, "end": 0.9},
+                    {"char": "d", "start": 0.9, "end": 1.0},
+                ],
+            }
+        ],
     }
     monkeypatch.setitem(sys.modules, "whisperx", fake)
     return fake
@@ -289,4 +318,115 @@ class TestWhisperXAligner:
         from pikaraoke.lib.lyrics_align import WhisperXAligner
 
         aligner = WhisperXAligner(device="cpu")
-        assert aligner.model_id == "wav2vec2-lrc"
+        assert aligner.model_id == "wav2vec2-char"
+
+
+class TestCharAlignmentExtraction:
+    def test_group_chars_splits_on_spaces(self):
+        chars = [
+            {"char": "h", "start": 0.0, "end": 0.1},
+            {"char": "i", "start": 0.1, "end": 0.2},
+            {"char": " "},
+            {"char": "y", "start": 0.3, "end": 0.4},
+            {"char": "o", "start": 0.4, "end": 0.5},
+        ]
+        groups = _group_chars_by_word(chars)
+        assert len(groups) == 2
+        assert [e["char"] for e in groups[0]] == ["h", "i"]
+        assert [e["char"] for e in groups[1]] == ["y", "o"]
+
+    def test_group_chars_collapses_leading_space(self):
+        chars = [{"char": " "}, {"char": "a", "start": 0.0, "end": 0.1}]
+        groups = _group_chars_by_word(chars)
+        assert len(groups) == 1
+        assert [e["char"] for e in groups[0]] == ["a"]
+
+    def test_words_with_char_parts_produces_per_glyph_parts(self):
+        aligned = {
+            "segments": [
+                {
+                    "text": "ab",
+                    "start": 0.0,
+                    "end": 0.2,
+                    "words": [{"word": "ab", "start": 0.0, "end": 0.2}],
+                    "chars": [
+                        {"char": "a", "start": 0.0, "end": 0.1},
+                        {"char": "b", "start": 0.1, "end": 0.2},
+                    ],
+                }
+            ]
+        }
+        words = _words_with_char_parts(aligned)
+        assert len(words) == 1
+        assert words[0].parts is not None
+        assert [p.text for p in words[0].parts] == ["a", "b"]
+        assert words[0].parts[0].start == 0.0
+        assert words[0].parts[1].end == 0.2
+
+    def test_words_with_char_parts_skips_untimed_chars(self):
+        # A char that wav2vec2 couldn't align (no start/end) drops out of
+        # parts; the remaining glyphs still form valid parts.
+        aligned = {
+            "segments": [
+                {
+                    "text": "abc",
+                    "start": 0.0,
+                    "end": 0.3,
+                    "words": [{"word": "abc", "start": 0.0, "end": 0.3}],
+                    "chars": [
+                        {"char": "a", "start": 0.0, "end": 0.1},
+                        {"char": "b"},  # untimed
+                        {"char": "c", "start": 0.2, "end": 0.3},
+                    ],
+                }
+            ]
+        }
+        words = _words_with_char_parts(aligned)
+        assert [p.text for p in words[0].parts] == ["a", "c"]
+
+    def test_words_with_char_parts_none_when_single_part(self):
+        # Word with only one aligned glyph renders as a single \kf - no
+        # point attaching a single-element parts tuple.
+        aligned = {
+            "segments": [
+                {
+                    "text": "ab",
+                    "start": 0.0,
+                    "end": 0.2,
+                    "words": [{"word": "ab", "start": 0.0, "end": 0.2}],
+                    "chars": [
+                        {"char": "a", "start": 0.0, "end": 0.1},
+                        {"char": "b"},  # untimed
+                    ],
+                }
+            ]
+        }
+        words = _words_with_char_parts(aligned)
+        assert words[0].parts is None
+
+
+class TestPartsForRef:
+    def test_verbatim_match_returns_parts_unchanged(self):
+        parts = (WordPart("a", 0.0, 0.1), WordPart("b", 0.1, 0.2))
+        assert _parts_for_ref(parts, "ab") is parts
+
+    def test_trailing_punctuation_appended_to_last_part(self):
+        parts = (WordPart("h", 0.0, 0.1), WordPart("i", 0.1, 0.2))
+        out = _parts_for_ref(parts, "hi!")
+        assert out is not None
+        assert [p.text for p in out] == ["h", "i!"]
+        # Timings of the appended punct match the last part - we had no
+        # separate timing for the ',' glyph in the aligned output.
+        assert out[-1].end == 0.2
+
+    def test_leading_punctuation_prefixed_to_first_part(self):
+        parts = (WordPart("h", 0.1, 0.2),)
+        out = _parts_for_ref(parts, '"h')
+        assert [p.text for p in out] == ['"h']
+
+    def test_irreconcilable_returns_none(self):
+        parts = (WordPart("x", 0.0, 0.1),)
+        assert _parts_for_ref(parts, "totally-different") is None
+
+    def test_none_input_returns_none(self):
+        assert _parts_for_ref(None, "abc") is None

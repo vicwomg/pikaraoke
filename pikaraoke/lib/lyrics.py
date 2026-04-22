@@ -58,7 +58,7 @@ GENIUS_ACCESS_TOKEN = os.environ.get("GENIUS_ACCESS_TOKEN", "").strip()
 # int8. Downgrade to "medium" on low-RAM boxes; bump to "large-v3" when
 # raw accuracy matters more than wall time.
 _WHISPER_OPT_OUT = {"off", "none", "false", "0"}
-WHISPER_FALLBACK_MODEL = (os.environ.get("WHISPER_FALLBACK_MODEL", "").strip() or "large-v3-turbo")
+WHISPER_FALLBACK_MODEL = os.environ.get("WHISPER_FALLBACK_MODEL", "").strip() or "large-v3-turbo"
 _whisper_model_cache: list = [None]
 _whisper_model_lock = threading.Lock()
 
@@ -95,12 +95,38 @@ VIDEO_EXTS = (".mp4", ".webm", ".mkv", ".mov", ".avi")
 
 
 @dataclass(frozen=True)
-class Word:
-    """A single word with its start/end time in seconds."""
+class WordPart:
+    """Sub-word chunk with its audio-aligned start/end in seconds.
+
+    Used for both per-character alignment (WhisperX path, real wav2vec2
+    CTC timings per glyph) and per-syllable alignment (Whisper-ASR
+    fallback, pyphen-derived boundaries with uniformly interpolated
+    timings inside the word duration). The ASS renderer emits one
+    ``\\kf`` tag per part.
+    """
 
     text: str
     start: float
     end: float
+
+
+@dataclass(frozen=True)
+class Word:
+    """A single word with its start/end time in seconds.
+
+    ``parts`` is the sub-word breakdown used by the ASS renderer to emit
+    multiple ``\\kf`` tags inside a single word. On the WhisperX path
+    these are per-character with real wav2vec2 CTC timings; on the
+    Whisper-ASR fallback path they are per-syllable (pyphen) with
+    timings interpolated across the word duration. ``None`` means the
+    info is unavailable or the word is a single part - the renderer
+    emits one ``\\kf`` spanning the whole word in that case.
+    """
+
+    text: str
+    start: float
+    end: float
+    parts: tuple[WordPart, ...] | None = None
 
 
 class Aligner(Protocol):
@@ -786,13 +812,17 @@ class LyricsService:
                 self._emit_whisper_failure(song_path, "empty transcription")
                 return
             lrc = _lrc_from_whisper_segments(segments)
+            lang = getattr(info, "language", None)
             words: list[Word] = []
             for seg in segments:
-                for w in (seg.words or []):
+                for w in seg.words or []:
                     text = (getattr(w, "word", "") or "").strip()
                     if not text or w.start is None or w.end is None:
                         continue
-                    words.append(Word(text=text, start=float(w.start), end=float(w.end)))
+                    start = float(w.start)
+                    end = float(w.end)
+                    parts = _syllable_parts(text, lang, start, end)
+                    words.append(Word(text=text, start=start, end=end, parts=parts))
             if not words or not lrc:
                 logger.info("Whisper fallback: no usable words for %s", song_path)
                 self._emit_whisper_failure(song_path, "no usable word timings")
@@ -805,7 +835,6 @@ class LyricsService:
                 self._emit_whisper_failure(song_path, "ASS conversion failed")
                 return
             _write_ass_atomic(song_path, ass)
-            lang = getattr(info, "language", None)
             if lang and self._db is not None:
                 song_id = self._db.get_song_id_by_path(song_path)
                 if song_id is not None:
@@ -1446,32 +1475,64 @@ def _uniform_k_tokens(
 
 
 def _k_token(word: Word, line_start_s: float = 0.0, params: _AnimParams | None = None) -> str:
-    """ASS karaoke tag for one word.
+    """ASS karaoke tags for one word.
 
     Emits ``\\kf`` (smooth left-to-right color wipe) instead of the older
     ``\\k`` (instant flip) so sung words fade into the secondary colour
-    rather than popping. When ``params.pulse_pct`` exceeds 100 we also wrap
-    the glyphs in a ``\\t`` scale transform that pulses up and releases
-    within the word's own time window - this is the tempo-responsive layer.
+    rather than popping. When ``word.parts`` is set we emit one ``\\kf``
+    per part (per-char on the WhisperX path, per-syllable on the Whisper
+    fallback path); otherwise a single ``\\kf`` covers the whole word.
 
-    ``\\t`` offsets are measured in milliseconds from the enclosing Dialogue
-    event's start, hence the ``line_start_s`` argument.
+    When ``params.pulse_pct`` exceeds 100 we also wrap the first glyph
+    group in a ``\\t`` scale transform that pulses up and releases
+    across the word's full time window - one pulse per word, not per
+    part, so multi-syllable words don't strobe. ``\\t`` offsets are in
+    milliseconds from the enclosing Dialogue event's start, hence the
+    ``line_start_s`` argument.
     """
-    dur_cs = max(1, int(round((word.end - word.start) * 100)))
-    escaped = _escape_ass(word.text)
+    pulse_tag = _pulse_tag(word, line_start_s, params)
+    fills = _kf_fills(word)
+    # Splice the pulse override into the first fill's override block so
+    # that \kf and \t sit inside a single {...} group - libass parses this
+    # cleanly and it keeps the tag count down for long lines.
+    if pulse_tag and fills:
+        fills = fills.replace("{", "{" + pulse_tag, 1)
+    return fills
+
+
+def _kf_fills(word: Word) -> str:
+    """Sequence of ``{\\kfN}text`` groups for ``word`` (one per part)."""
+    parts = word.parts
+    if not parts:
+        dur_cs = max(1, int(round((word.end - word.start) * 100)))
+        return f"{{\\kf{dur_cs}}}{_escape_ass(word.text)}"
+    out = []
+    for p in parts:
+        dur_cs = max(1, int(round((p.end - p.start) * 100)))
+        out.append(f"{{\\kf{dur_cs}}}{_escape_ass(p.text)}")
+    return "".join(out)
+
+
+def _pulse_tag(word: Word, line_start_s: float, params: _AnimParams | None) -> str:
+    """Build the ``\\t`` scale-pulse override for one word, empty when disabled.
+
+    The pulse spans the whole word (not per-part) so multi-part words
+    get a single scale bump that lines up with the word's onset instead
+    of strobing once per character.
+    """
     if params is None or params.pulse_pct <= 100:
-        return f"{{\\kf{dur_cs}}}{escaped}"
+        return ""
+    dur_cs = max(1, int(round((word.end - word.start) * 100)))
     total_ms = dur_cs * 10
     off_ms = max(0, int(round((word.start - line_start_s) * 1000)))
     rise_ms = max(1, int(total_ms * params.pulse_rise_frac))
     rise_end = off_ms + rise_ms
     fall_end = off_ms + total_ms
     pct = params.pulse_pct
-    pulse = (
-        f"{{\\t({off_ms},{rise_end},\\fscx{pct}\\fscy{pct})"
-        f"\\t({rise_end},{fall_end},\\fscx100\\fscy100)}}"
+    return (
+        f"\\t({off_ms},{rise_end},\\fscx{pct}\\fscy{pct})"
+        f"\\t({rise_end},{fall_end},\\fscx100\\fscy100)"
     )
-    return f"{{\\kf{dur_cs}}}{pulse}{escaped}"
 
 
 def _escape_ass(text: str) -> str:
@@ -1796,6 +1857,130 @@ def _get_whisper_model():
         _whisper_model_cache[0] = model
         logger.info("Whisper fallback: loaded model=%s", WHISPER_FALLBACK_MODEL)
         return model
+
+
+# Whisper language codes -> pyphen locale. Pyphen needs region-qualified
+# codes for some locales ("pl_PL" not "pl"). For languages pyphen doesn't
+# ship a dictionary for (e.g. Japanese/Chinese - handled differently
+# anyway), _syllabify returns None and the renderer falls back to a
+# single \kf per word.
+_PYPHEN_LANG_MAP = {
+    "pl": "pl_PL",
+    "en": "en_US",
+    "de": "de_DE",
+    "es": "es_ES",
+    "fr": "fr_FR",
+    "it": "it_IT",
+    "pt": "pt_PT",
+    "nl": "nl_NL",
+    "sv": "sv",
+    "no": "nb_NO",
+    "nn": "nn_NO",
+    "da": "da_DK",
+    "fi": "fi_FI",
+    "cs": "cs_CZ",
+    "sk": "sk_SK",
+    "ru": "ru_RU",
+    "uk": "uk_UA",
+    "hu": "hu_HU",
+    "ro": "ro_RO",
+    "hr": "hr_HR",
+    "sl": "sl_SI",
+    "lt": "lt_LT",
+    "lv": "lv_LV",
+    "et": "et_EE",
+    "ca": "ca",
+    "gl": "gl",
+    "eu": "eu",
+    "bg": "bg",
+    "el": "el_GR",
+    "tr": "tr_TR",
+}
+
+_pyphen_cache: dict[str, object] = {}
+
+
+def _syllabify(word: str, language: str | None) -> list[tuple[int, int]] | None:
+    """Return syllable spans ``[(start_char_idx, end_char_idx), ...]`` for ``word``.
+
+    Uses pyphen (Hunspell hyphenation dictionaries). Returns ``None`` if
+    pyphen isn't installed, the language has no dictionary, or the word
+    has no internal hyphenation point (monosyllabic / too short / all
+    non-alphabetic). Callers treat ``None`` as "render this word as a
+    single ``\\kf``".
+
+    Spans are half-open: ``word[start:end]`` is the syllable's text. This
+    keeps the caller arithmetic consistent with Python slicing and lets
+    us reconstruct the full word via concatenation.
+    """
+    if not word or not language:
+        return None
+    try:
+        import pyphen
+    except ImportError:
+        return None
+    locale = _PYPHEN_LANG_MAP.get(language.lower(), language)
+    dic = _pyphen_cache.get(locale)
+    if dic is None:
+        try:
+            if locale not in pyphen.LANGUAGES:
+                # Try the bare language code as a last-ditch fallback.
+                short = language.lower().split("_")[0]
+                if short in pyphen.LANGUAGES:
+                    locale = short
+                else:
+                    _pyphen_cache[locale] = False  # sentinel: no dict
+                    return None
+            dic = pyphen.Pyphen(lang=locale)
+            _pyphen_cache[locale] = dic
+        except (KeyError, OSError):
+            _pyphen_cache[locale] = False
+            return None
+    if dic is False:
+        return None
+    positions = dic.positions(word)  # type: ignore[union-attr]
+    if not positions:
+        return None
+    spans: list[tuple[int, int]] = []
+    prev = 0
+    for p in positions:
+        spans.append((prev, p))
+        prev = p
+    spans.append((prev, len(word)))
+    return spans
+
+
+def _syllable_parts(
+    word: str, language: str | None, start: float, end: float
+) -> tuple["WordPart", ...] | None:
+    """Build per-syllable ``WordPart`` spans for ``word``.
+
+    Used by the Whisper-ASR fallback where we only have word-level
+    timings: pyphen splits the word, then the word's duration is sliced
+    proportionally to each syllable's character length. Returns ``None``
+    for monosyllabic words or unsupported languages so the renderer
+    falls back to a single ``\\kf`` per word (same UX as before).
+    """
+    spans = _syllabify(word, language)
+    if not spans or len(spans) < 2:
+        return None
+    total_chars = spans[-1][1] - spans[0][0]
+    if total_chars <= 0:
+        return None
+    duration = max(end - start, 0.01)
+    parts: list[WordPart] = []
+    cursor = start
+    for i, (a, b) in enumerate(spans):
+        text = word[a:b]
+        if not text:
+            continue
+        if i == len(spans) - 1:
+            part_end = end
+        else:
+            part_end = cursor + duration * (b - a) / total_chars
+        parts.append(WordPart(text=text, start=cursor, end=part_end))
+        cursor = part_end
+    return tuple(parts) if len(parts) >= 2 else None
 
 
 def _lrc_from_whisper_segments(segments) -> str:

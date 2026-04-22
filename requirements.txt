@@ -102,6 +102,7 @@ pycparser==3.0
 pycryptodomex==3.23.0
 Pygments==2.20.0
 pyparsing==3.3.2
+pyphen==0.17.2
 pypng==0.20220715.0
 pytest==9.0.3
 pytest-cov==7.1.0
@@ -144,6 +145,7 @@ treetable==0.2.6
 typing_extensions==4.15.0
 urllib3==2.6.3
 virtualenv==21.2.4
+watchfiles
 webargs==8.7.1
 websockets==16.0
 Werkzeug==3.1.8
@@ -154,4 +156,3 @@ yarl==1.23.0
 yt-dlp==2026.3.17
 yt-dlp-ejs==0.8.0
 zipp==3.23.1
-watchfiles
