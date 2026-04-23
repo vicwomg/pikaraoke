@@ -92,6 +92,9 @@ class WhisperXAligner:
         song as one segment - less accurate but kept as a fallback for
         callers without LRC line timings.
         """
+        import os
+        import time
+
         if not language:
             raise ValueError("language required: wav2vec2 is per-language, caller must supply it")
         wx = self._whisperx
@@ -100,8 +103,22 @@ class WhisperXAligner:
 
         segments = self._build_segments(reference_text, lrc_lines)
         if not segments:
+            logger.info(
+                "wav2vec2: no segments to align for %s (lang=%s)",
+                os.path.basename(audio_path),
+                language,
+            )
             return []
 
+        tag = os.path.basename(audio_path)
+        logger.info(
+            "wav2vec2: align start %s lang=%s segments=%d lrc_lines=%s",
+            tag,
+            language,
+            len(segments),
+            "yes" if lrc_lines is not None else "no",
+        )
+        t0 = time.monotonic()
         aligned = wx.align(
             segments,
             self._align_model,
@@ -111,6 +128,13 @@ class WhisperXAligner:
             return_char_alignments=True,
         )
         aligned_words = _words_with_char_parts(aligned)
+        logger.info(
+            "wav2vec2: align done %s lang=%s words=%d elapsed=%.2fs",
+            tag,
+            language,
+            len(aligned_words),
+            time.monotonic() - t0,
+        )
         # wav2vec2 can silently drop tokens it couldn't align phonetically
         # (weak onsets, overlapping instruments). Route through the mapper
         # so missing reference tokens get interpolated within their line
@@ -121,10 +145,17 @@ class WhisperXAligner:
 
     def _ensure_align_model(self, language: str) -> None:
         if self._align_model is None or self._align_lang != language:
+            logger.info(
+                "wav2vec2: loading align model lang=%s device=%s (previous lang=%s)",
+                language,
+                self._device,
+                self._align_lang,
+            )
             self._align_model, self._align_meta = self._whisperx.load_align_model(
                 language_code=language, device=self._device
             )
             self._align_lang = language
+            logger.info("wav2vec2: align model ready lang=%s", language)
 
     @staticmethod
     def _build_segments(

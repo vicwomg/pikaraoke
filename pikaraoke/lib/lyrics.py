@@ -322,14 +322,32 @@ class LyricsService:
             logger.exception("Unexpected error fetching lyrics for %s", song_path)
 
     def _do_fetch_and_convert(self, song_path: str) -> None:
+        basename = os.path.basename(song_path)
+        logger.info("lyrics pipeline: starting for %s", basename)
         # User-supplied Aegisub files (without the auto-lyrics marker) are sacred.
         if _user_owned_ass(song_path):
-            logger.debug("Skipping: user-supplied .ass present for %s", song_path)
+            logger.info(
+                "lyrics pipeline: %s -> user-supplied .ass (skipping auto pipeline)",
+                basename,
+            )
             self._register_user_ass(song_path)
             _cleanup_yt_vtt(song_path, self._db)
             return
 
         info = self._read_metadata_for_lrclib(song_path)
+        if info:
+            logger.info(
+                "lyrics pipeline: %s metadata track=%r artist=%r duration=%s",
+                basename,
+                info.get("track"),
+                info.get("artist"),
+                info.get("duration"),
+            )
+        else:
+            logger.info(
+                "lyrics pipeline: %s has no usable artist/title — LRCLib query will be skipped",
+                basename,
+            )
 
         # Tier 1 classifier (US-43): seed songs.language from every text
         # signal we already have in hand (yt-dlp info.json, cached iTunes
@@ -370,6 +388,10 @@ class LyricsService:
         # (yt-dlp rewrites info.json on a cache hit) would otherwise overwrite
         # it with line-level and re-run whisper every time.
         if _is_word_level_auto_ass(song_path):
+            logger.info(
+                "lyrics pipeline: %s -> word-level .ass cache hit (no work)",
+                basename,
+            )
             _cleanup_yt_vtt(song_path, self._db)
             return
 
@@ -423,8 +445,11 @@ class LyricsService:
             _cleanup_yt_vtt(song_path, self._db)
 
         if not wrote_from_vtt and not wrote_from_lrc and not wrote_from_genius:
-            logger.info("No lyrics source for %s", os.path.basename(song_path))
             if _whisper_fallback_enabled():
+                logger.info(
+                    "lyrics pipeline: %s -> no LRC/Genius/VTT source; queuing Whisper ASR fallback",
+                    basename,
+                )
                 # Fire-and-forget: ASR is slow (~1x realtime on CPU) and
                 # must not block the download pipeline. If it succeeds the
                 # .ass lands mid-song and `lyrics_upgraded` flips the UI;
@@ -436,6 +461,10 @@ class LyricsService:
                     daemon=True,
                 ).start()
             else:
+                logger.info(
+                    "lyrics pipeline: %s -> no LRC/Genius/VTT source; Whisper fallback disabled",
+                    basename,
+                )
                 try:
                     self._events.emit(
                         "song_warning",
@@ -456,8 +485,18 @@ class LyricsService:
             "info",
         )
 
+        source = "lrclib" if wrote_from_lrc else "genius" if wrote_from_genius else "youtube_vtt"
+        will_align = bool(self._aligner and lrc)
+        logger.info(
+            "lyrics pipeline: %s -> source=%s db_lang=%s word_alignment=%s",
+            basename,
+            source,
+            self._db_language(song_path),
+            "queued" if will_align else "skipped",
+        )
+
         # Per-word forced alignment requires reference lyrics text.
-        if self._aligner and lrc:
+        if will_align:
             # Eagerly kick off Demucs so the aligner gets vocals, not the raw mix.
             _prewarm_stems(song_path)
             Thread(
@@ -600,6 +639,12 @@ class LyricsService:
         except (KeyError, IndexError):
             duration = None
 
+        logger.info(
+            "US-43 tier2a: %s starting sha=%s duration=%s",
+            os.path.basename(song_path),
+            audio_sha[:12],
+            duration,
+        )
         try:
             lang = _probe_audio_language(
                 audio_path=audio_path,
@@ -661,6 +706,13 @@ class LyricsService:
             return False
         current_lang = row["language"]
 
+        logger.info(
+            "US-43 tier2b: %s starting sha=%s stem=%s current_db_lang=%s",
+            os.path.basename(song_path),
+            audio_sha[:12],
+            os.path.basename(stem_path),
+            current_lang,
+        )
         try:
             stem_lang = _probe_audio_language_whole_song(
                 audio_path=stem_path,
@@ -975,13 +1027,21 @@ class LyricsService:
         artist = info.get("artist")
         if not track or not artist:
             return False
+        logger.info("Genius: querying track=%r artist=%r", track, artist)
         try:
             genius_text = _fetch_genius(track, artist)
         except Exception:
             logger.exception("Genius fetch crashed for %r / %r", artist, track)
             return False
         if not genius_text:
+            logger.info("Genius: miss track=%r artist=%r", track, artist)
             return False
+        logger.info(
+            "Genius: hit track=%r artist=%r (%d chars)",
+            track,
+            artist,
+            len(genius_text),
+        )
 
         self._emit_stage_notification(song_path, "Aligning Genius lyrics")
         _prewarm_stems(song_path)
@@ -1302,6 +1362,12 @@ def _fetch_lrclib(track: str, artist: str, duration: int | float | None) -> str 
             data = r.json()
             synced = data.get("syncedLyrics")
             if synced:
+                logger.info(
+                    "LRCLib: hit /api/get track=%r artist=%r duration=%s",
+                    track,
+                    artist,
+                    duration,
+                )
                 return synced
         r = requests.get(
             f"{LRCLIB_BASE}/api/search",
@@ -1312,9 +1378,12 @@ def _fetch_lrclib(track: str, artist: str, duration: int | float | None) -> str 
             for item in r.json():
                 synced = item.get("syncedLyrics")
                 if synced:
+                    logger.info("LRCLib: hit /api/search track=%r artist=%r", track, artist)
                     return synced
     except (requests.RequestException, ValueError) as e:
         logger.warning("LRCLib request failed: %s", e)
+        return None
+    logger.info("LRCLib: miss track=%r artist=%r duration=%s", track, artist, duration)
     return None
 
 
@@ -1897,9 +1966,23 @@ def _pick_best_vtt(song_path: str, preferred_lang: str | None = None) -> str | N
             (not lang_matches, is_auto, len(lang), lang, os.path.join(directory, name))
         )
     if not candidates:
+        logger.info(
+            "VTT: no candidates for %s (preferred_lang=%s)",
+            basename,
+            preferred_lang,
+        )
         return None
     candidates.sort()
-    return candidates[0][4]
+    chosen = candidates[0]
+    logger.info(
+        "VTT: picked lang=%s from %d candidate(s) for %s (preferred_lang=%s, auto=%s)",
+        chosen[3],
+        len(candidates),
+        basename,
+        preferred_lang,
+        chosen[1],
+    )
+    return chosen[4]
 
 
 def _parse_vtt_cues(vtt: str) -> list[tuple[float, float, str]]:
