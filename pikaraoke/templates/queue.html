@@ -276,6 +276,7 @@
   }
 
   .pk-download-row {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -304,7 +305,46 @@
   }
   .pk-download-tag.is-pending { background: var(--pk-surface-3); color: var(--pk-ink-3); }
   .pk-download-tag.is-error { background: color-mix(in srgb, var(--pk-danger) 22%, var(--pk-bg)); color: var(--pk-danger); }
+  .pk-download-tag.is-error[role="button"] { cursor: pointer; }
+  .pk-download-tag.is-error[role="button"]:focus-visible {
+    outline: 2px solid var(--pk-danger);
+    outline-offset: 2px;
+  }
   .pk-download-dismiss {
+    background: transparent;
+    border: 0;
+    color: var(--pk-ink-3);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 4px 6px;
+  }
+  .pk-download-error-popover {
+    position: absolute;
+    right: 10px;
+    bottom: calc(100% + 6px);
+    z-index: 20;
+    max-width: min(420px, 90vw);
+    max-height: 50vh;
+    overflow: auto;
+    padding: 10px 28px 10px 12px;
+    background: var(--pk-surface-2, var(--pk-surface));
+    color: var(--pk-ink);
+    border: 1px solid color-mix(in srgb, var(--pk-danger) 40%, var(--pk-border));
+    border-radius: var(--pk-r-md);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+  .pk-download-error-popover-body {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--pk-ink-2);
+  }
+  .pk-download-error-popover-close {
+    position: absolute;
+    top: 2px;
+    right: 4px;
     background: transparent;
     border: 0;
     color: var(--pk-ink-3);
@@ -502,14 +542,52 @@
     (status.errors || []).forEach((d) => {
       html += `
         <div class="pk-download-row">
-          <span class="pk-download-row-title" title="${escHtml(d.error)}">${escHtml(d.title || d.url)}</span>
-          <span class="pk-download-tag is-error">błąd</span>
+          <span class="pk-download-row-title">${escHtml(d.title || d.url)}</span>
+          <span class="pk-download-tag is-error" role="button" tabindex="0" aria-expanded="false" aria-label="Pokaż szczegóły błędu" data-error="${escHtml(d.error)}">błąd</span>
           <button type="button" class="pk-download-dismiss" data-err-id="${escHtml(d.id)}" aria-label="Odrzuć">&times;</button>
         </div>`;
     });
 
+    closeErrorPopover();
     $box.innerHTML = html;
     $box.hidden = false;
+  }
+
+  function getErrorPopover() {
+    let el = document.getElementById('pk-download-error-popover');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'pk-download-error-popover';
+      el.className = 'pk-download-error-popover';
+      el.setAttribute('role', 'dialog');
+      el.setAttribute('aria-label', 'Błąd pobierania');
+      el.hidden = true;
+      el.innerHTML =
+        '<button type="button" class="pk-download-error-popover-close" aria-label="Zamknij">&times;</button>' +
+        '<pre class="pk-download-error-popover-body"></pre>';
+    }
+    return el;
+  }
+
+  function closeErrorPopover() {
+    const el = document.getElementById('pk-download-error-popover');
+    if (!el || el.hidden) return;
+    el.hidden = true;
+    const opener = el._opener;
+    if (opener && opener.isConnected) opener.setAttribute('aria-expanded', 'false');
+    el._opener = null;
+  }
+
+  function openErrorPopover(tagEl) {
+    const row = tagEl.closest('.pk-download-row');
+    if (!row) return;
+    const pop = getErrorPopover();
+    pop.querySelector('.pk-download-error-popover-body').textContent =
+      tagEl.dataset.error || '';
+    row.appendChild(pop);
+    pop.hidden = false;
+    pop._opener = tagEl;
+    tagEl.setAttribute('aria-expanded', 'true');
   }
 
   function pollDownloads() {
@@ -569,6 +647,35 @@
         url: '/queue/downloads/errors/' + encodeURIComponent(id),
         method: 'DELETE',
       }).always(pollDownloads);
+    });
+
+    // Click the "błąd" tag to toggle a popover with the full error message.
+    $(document).on('click', '.pk-download-tag.is-error', function (e) {
+      e.stopPropagation();
+      const pop = document.getElementById('pk-download-error-popover');
+      if (pop && !pop.hidden && pop._opener === this) {
+        closeErrorPopover();
+      } else {
+        closeErrorPopover();
+        openErrorPopover(this);
+      }
+    });
+    $(document).on('keydown', '.pk-download-tag.is-error', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        $(this).trigger('click');
+      }
+    });
+    $(document).on('click', '.pk-download-error-popover-close', function (e) {
+      e.stopPropagation();
+      closeErrorPopover();
+    });
+    $(document).on('click', function (e) {
+      if ($(e.target).closest('#pk-download-error-popover, .pk-download-tag.is-error').length) return;
+      closeErrorPopover();
+    });
+    $(document).on('keydown', function (e) {
+      if (e.key === 'Escape') closeErrorPopover();
     });
   });
 
