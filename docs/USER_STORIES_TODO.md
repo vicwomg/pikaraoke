@@ -869,6 +869,42 @@ run on files already on disk; no new network endpoints anywhere.
   Test: `test_disagreement_flips_language_and_invalidates_ass`
   now asserts the re-dispatch; `test_agreement_bumps_provenance_no_invalidation`
   asserts no re-dispatch on agreement.
+- \[ \] **P0** Tier 2 safety net when Tier 1 consensus is split or
+  stems miss. Pocahontas "Kolorowy wiatr" re-download on a slow MBP
+  exposed the gap: Tier 1 returned `en 3/5` (iTunes album blob +
+  country + MB titles langdetected to `en` outweigh the two Polish
+  signals), so Tier 2a never ran. Demucs then missed its 120s
+  budget, alignment fell back to raw mix, and Tier 2b is gated on
+  `audio_path.startswith(_CACHE_DIR)` at `lyrics.py:936` so it
+  silently skipped too. No acoustic probe fired at all; DB stayed
+  `en`; re-fetch never re-triggered. Two candidate fixes:
+  - Preferred: trigger Tier 2a whenever Tier 1 agreement is
+    \< unanimous (e.g. 3/2 or 4/1), not only on no-consensus. One
+    extra `detect_language` call on ambiguous songs, zero on
+    unanimous ones. Doesn't depend on stems timing.
+  - Or: run a Tier 2b-equivalent whole-song probe on the raw mix
+    inside the raw-mix fallback branch of `_upgrade_to_word_level`.
+    Higher CPU cost per miss, but catches the stems-too-slow path
+    the preferred fix still leaves uncovered on unanimous-but-wrong
+    Tier 1 runs (rare).
+- \[x\] ~~**P0** Stems `/stream/<hash>/{vocals,instrumental}.wav` 404
+  with no audio fallback.~~ Root cause: the per-song separation
+  coordinator (`_sep_handles` / `_sep_done_keys` in
+  `demucs_processor.py`) was keyed by the audio file *path*, not its
+  content hash. Pocahontas repro: queue-prewarm at 11:50:50 hit the
+  mp3 cache, ran `release_separation(m4a_path, success=True)`
+  — which added the m4a path to `_sep_done_keys`. After the user
+  deleted + re-downloaded the file (different bytes, same path), the
+  post-download prewarm's `acquire_separation(m4a_path)` returned
+  the stale "done" handle with both events already set, so `_run`
+  skipped separation entirely. `_attach_to_inflight_separation`
+  then registered stem URLs pointing at `<new_sha>/vocals.wav.partial`
+  that nobody was ever going to write — splash 404'd after the 15s
+  grace period. Fixed by switching the coordinator to key on
+  `cache_key` (content SHA) throughout. Delete + re-download now
+  computes a different key and correctly claims fresh ownership.
+  Regression test:
+  `test_distinct_content_at_same_path_does_not_share_done_state`.
 - \[ \] **P0** Widen LRCLib candidate list. Upgrade
   `_fetch_lrc_with_itunes_fallback` to return **all** candidates
   from `/api/search` (not just `/api/get`'s single possibly

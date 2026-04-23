@@ -557,38 +557,45 @@ _sep_handles: dict[str, SeparationHandle] = {}
 _sep_done_keys: set[str] = set()
 
 
-def acquire_separation(audio_source: str) -> tuple[bool, SeparationHandle]:
-    """Atomically claim separation ownership for `audio_source`.
+def acquire_separation(cache_key: str) -> tuple[bool, SeparationHandle]:
+    """Atomically claim separation ownership for ``cache_key``.
 
     Returns (is_owner, handle). When ``is_owner`` is True, the caller must
-    run the separation and call ``release_separation(audio_source, success)``
+    run the separation and call ``release_separation(cache_key, success)``
     exactly once. When False, another caller is already separating (or has
     finished); the returned handle's events may be waited on.
+
+    ``cache_key`` must be the content-hash (SHA256 of source bytes), not a
+    file path. A path is not a stable identity: delete + re-download writes
+    different bytes to the same path, and a path-keyed coordinator would
+    report the new content as "already done" based on the old content's
+    cache-hit prewarm (observed with Pocahontas "Kolorowy wiatr" — see
+    US-43 followup in USER_STORIES_TODO.md).
     """
     with _sep_lock:
-        if audio_source in _sep_done_keys:
+        if cache_key in _sep_done_keys:
             done = SeparationHandle(success=True)
             done.ready_event.set()
             done.done_event.set()
             return False, done
-        existing = _sep_handles.get(audio_source)
+        existing = _sep_handles.get(cache_key)
         if existing is not None:
             return False, existing
         handle = SeparationHandle()
-        _sep_handles[audio_source] = handle
+        _sep_handles[cache_key] = handle
         return True, handle
 
 
-def release_separation(audio_source: str, success: bool) -> None:
+def release_separation(cache_key: str, success: bool) -> None:
     """Unblock any waiters and, on success, mark this song's cache as ready.
 
     Must be called exactly once by the owner of a prior ``acquire_separation``
     (even on failure, so waiters don't hang).
     """
     with _sep_lock:
-        handle = _sep_handles.pop(audio_source, None)
+        handle = _sep_handles.pop(cache_key, None)
         if success:
-            _sep_done_keys.add(audio_source)
+            _sep_done_keys.add(cache_key)
     if handle is not None:
         handle.success = success
         handle.ready_event.set()
@@ -681,11 +688,13 @@ def prewarm(file_path: str) -> None:
     """Fire-and-forget: populate the Demucs cache for file_path.
 
     Idempotent across all entry points (download_manager, lyrics, main run
-    loop). Deduplicates by resolved audio source so ``.mp4`` and sibling
-    ``.m4a`` paths for the same song collapse to a single separation.
+    loop). Deduplicates by audio content-hash so re-downloaded bytes at the
+    same path get a fresh separation (path-keyed dedup would report the new
+    content as "already done" based on the prior run's cache-hit prewarm).
     """
     audio_source = resolve_audio_source(file_path)
-    is_owner, _handle = acquire_separation(audio_source)
+    cache_key = get_cache_key(audio_source)
+    is_owner, _handle = acquire_separation(cache_key)
     if not is_owner:
         return  # already cached, or another caller is separating
 
@@ -708,7 +717,6 @@ def prewarm(file_path: str) -> None:
     def _run() -> None:
         success = False
         try:
-            cache_key = get_cache_key(audio_source)
             if get_cached_stems(cache_key):
                 _notify_ready(song_basename, cache_key)
                 success = True
@@ -762,6 +770,6 @@ def prewarm(file_path: str) -> None:
             logging.exception(f"Demucs prewarm failed for {file_path}")
             _notify_warning(song_basename, "Demucs prewarm failed", f"{type(e).__name__}: {e}")
         finally:
-            release_separation(audio_source, success)
+            release_separation(cache_key, success)
 
     threading.Thread(target=_run, daemon=True).start()

@@ -122,10 +122,30 @@ class TestSeparationCoordinator:
         assert is_owner is True
 
     def test_distinct_sources_are_independent(self, clean_coordinator):
-        is_owner_a, _ = acquire_separation("/s/a.m4a")
-        is_owner_b, _ = acquire_separation("/s/b.m4a")
+        is_owner_a, _ = acquire_separation("sha-aaa")
+        is_owner_b, _ = acquire_separation("sha-bbb")
         assert is_owner_a is True
         assert is_owner_b is True
+
+    def test_distinct_content_at_same_path_does_not_share_done_state(self, clean_coordinator):
+        """Regression for the Pocahontas replay bug: a prior cache-hit
+        prewarm marked the file path "done" even though the user later
+        deleted + re-downloaded, overwriting the bytes. Path-keyed dedup
+        then reported the new content as already separated and no
+        separation actually ran — splash got 404 on every stem fetch.
+
+        Content-hash keys must be used so a different sha gets a fresh
+        ownership claim regardless of file path history.
+        """
+        # First run: cache-hit prewarm for the original bytes.
+        _, _ = acquire_separation("sha-original-bytes")
+        release_separation("sha-original-bytes", success=True)
+
+        # Same file path, different content (delete + re-download).
+        is_owner, handle = acquire_separation("sha-new-bytes")
+        assert is_owner is True
+        assert handle.ready_event.is_set() is False
+        assert handle.done_event.is_set() is False
 
 
 @pytest.fixture

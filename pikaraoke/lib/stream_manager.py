@@ -560,11 +560,14 @@ class StreamManager:
             self._record_stems_ready(song_id, cache_key)
             return True
 
-        # Claim the per-song separation lock. If another thread (download
-        # prewarm, lyrics prewarm) is already separating this song, we
-        # piggyback on its output instead of starting a parallel run that
-        # would race on the same .partial files.
-        is_owner, handle = acquire_separation(resolved_source)
+        # Claim the per-song separation lock, keyed by content hash. If
+        # another thread (download prewarm, lyrics prewarm) is already
+        # separating this song, we piggyback on its output instead of
+        # starting a parallel run that would race on the same .partial
+        # files. Keying by cache_key (not file path) so a delete +
+        # re-download with different bytes doesn't inherit the previous
+        # content's "done" state.
+        is_owner, handle = acquire_separation(cache_key)
         if not is_owner:
             self._attach_to_inflight_separation(
                 stream_uid, cache_key, total_seconds, handle, song_id
@@ -577,7 +580,7 @@ class StreamManager:
             )
         except BaseException:
             # Ownership must always be released so waiters don't hang.
-            release_separation(resolved_source, False)
+            release_separation(cache_key, False)
             raise
 
     def _register_cached_stems(
@@ -711,7 +714,7 @@ class StreamManager:
                 song_basename,
                 severity="error",
             )
-            release_separation(resolved_source, False)
+            release_separation(cache_key, False)
             return False
 
         # Tier 3: live Demucs. Register .partial paths immediately; the HTTP
@@ -769,7 +772,7 @@ class StreamManager:
                     )
             finally:
                 done_event.set()
-                release_separation(resolved_source, ok)
+                release_separation(cache_key, ok)
 
         def _notify_when_ready() -> None:
             if handle.ready_event.wait(timeout=120):
