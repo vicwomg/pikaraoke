@@ -583,3 +583,122 @@ so I am not forced to re-enter it or end up enqueued as `Anon-XXXX`.
 - **Unset fallback**: if no name is stored, the existing prompt flow
   still fires; skipping the prompt still generates `Anon-XXXX` as today.
 
+## Lyrics timing and language safety
+
+### US-43 Fast-path synced lyrics with language-safe re-alignment
+
+As a viewer, when I queue a song that has synced lyrics available on
+LRCLib (or Genius), those captions appear on the splash **before
+demucs finishes separating vocals**, not after. The word-level
+whisperx realignment is a background upgrade that runs exactly once —
+after `stems_ready` — and only when its output would actually change
+the `.ass`.
+
+**Timing contract (tightens US-8 and US-9):**
+
+1. LRCLib (and its iTunes-rescued retry) fires the moment
+   `song_downloaded` emits. It does not wait for audio fingerprinting,
+   demucs, or the silent-video half of a split download.
+2. The moment an LRC is in hand, the line-level `.ass` is written
+   atomically and the splash picks it up via SubtitlesOctopus. This is
+   the "fast path" the viewer actually sees while demucs is still
+   working.
+3. Word-level realignment is queued as a background upgrade that
+   blocks on `stems_ready`. It never delays or overwrites the fast
+   path; if stems never become ready the line-level `.ass` remains on
+   screen unchanged.
+4. The aligned `.ass` is re-written **only when**:
+   - `stems_ready` fired successfully, AND
+   - whisperx produced character-level timings on the vocals stem, AND
+   - the US-15 invalidation waterfall (audio sha / `demucs_model` /
+     `aligner_model` / `lyrics_sha`) agrees a re-run is warranted.
+     Otherwise the fast-path `.ass` from step 2 is left alone.
+
+**Language safety (hard invariant — the Kolorowy wiatr test case):**
+
+The karaoke experience collapses the moment the rendered text doesn't
+match the sung audio. LRCLib indexes by canonical song name but its
+entries are user-uploaded and occasionally mislabelled: record
+`lrclib://10005773` is tagged "Kolorowy Wiatr / Edyta Górniak"
+(Polish metadata) but its `plainLyrics` / `syncedLyrics` fields are
+the **English** "Colors of the Wind" text. A title-only or
+language-only heuristic cannot catch this — the LRC metadata agrees
+with the query, only the text is wrong. The pipeline must refuse to
+render those mismatched captions on the very first run of a cold DB,
+without waiting for demucs.
+
+**Tiered classifier-gated LRC acceptance:**
+
+No LRC is written to `.ass` until `songs.language` has been
+established by an independent signal that can't be poisoned by the
+LRCLib record itself. The classifier is tiered so the common case
+resolves at network speed and only ambiguous cases pay for acoustic
+analysis:
+
+1. **Tier 1 — text consensus (always runs, zero new HTTP, ≤50ms).**
+   Collects up to eight language signals from data pikaraoke already
+   fetches: yt-dlp info.json (`language`, `original_language`,
+   manual-subtitle track keys, langdetect on the raw video title),
+   the cached iTunes search response (langdetect on
+   `collectionName + trackName + artistName`, plus storefront
+   `country`), the cached MusicBrainz recording search (unanimous
+   `releases[].country` aggregate, langdetect on joined release
+   titles), and a langdetect pass over the DB-stored title+artist.
+   Each signal has its own provenance rung in
+   `METADATA_SOURCE_CONFIDENCE`. Consensus rule: ≥2 signals agreeing
+   on the same primary subtag wins, persisted under the
+   highest-ranked agreeing source. Disagreement falls through to
+   Tier 2.
+2. **Tier 2a — Whisper language-ID on raw audio.** Fires at
+   `song_downloaded` time (no demucs wait) when Tier 1 can't reach
+   consensus. A 30-second Whisper language-ID pass at 50% of track
+   duration dodges instrumental intros; instrumental-heavy tracks
+   majority-vote a second 30% window. Whisper's language-ID is
+   robust on music-with-backing; the confidence drop vs. isolated
+   vocals is small for the coarse "is this `pl` or `en`" question
+   we need to answer. Persisted under `whisper_probe_raw`. Cached
+   per `audio_sha256` so re-scoring LRC candidates pays the audio
+   cost once.
+3. **Tier 2b — Whisper language-ID on the vocals stem.** Fires when
+   `stems_ready` emits, re-running the same pass on the demucs
+   vocals output. If 2b agrees with 2a, the provenance bumps to
+   `whisper_probe_stems`. If 2b disagrees, `songs.language` is
+   overwritten, and the `.ass` + `lyrics_sha` + `aligner_model` are
+   invalidated so the next lyrics pass re-fetches LRC against the
+   corrected language — "write fast, fix later".
+4. **LRC candidate ranking.** LRCLib candidates come from
+   `/api/search`, not just `/api/get`'s first hit. Multiple uploads
+   for the same track (e.g. `10005773` and `24859990` for Kolorowy
+   Wiatr) are scored against the now-known `songs.language`; the
+   first candidate whose `langdetect(text)` matches by primary
+   subtag wins. All-reject falls through to Genius → YouTube VTT →
+   Whisper ASR on the vocals stem (US-14 precedence).
+5. **Tier 3 — same-language mislabel guard.** When two candidates
+   agree on language but disagree on text, a 15-30s Whisper ASR
+   pass on the probe window produces a noisy transcript; token
+   overlap against the first 30s of each LRC is scored. The
+   higher-overlap candidate wins; if none clears the threshold, all
+   are rejected. Raw-mix WER is higher than stem WER (~30% vs.
+   ~10%), but right-lyrics-vs-wrong-lyrics separates cleanly at
+   that noise floor.
+
+**Language persistence:**
+
+The ranked provenance ladder in `METADATA_SOURCE_CONFIDENCE` enforces
+the invariant: a stronger signal always wins, a weaker one never
+overwrites. `whisper_probe_stems` beats `whisper_probe_raw` beats
+`mb_recording_lang` beats `itunes_text` beats `title_heuristic` beats
+`lrc_heuristic`. The ab066fef dub-trap guard then has real ground
+truth on every subsequent run. Language values derived from the LRC
+text itself land at `lrc_heuristic` (the lowest rung) so they can
+never overwrite a probe- or text-consensus-derived value.
+
+**Cold-DB healing for already-poisoned rows:**
+
+Songs whose `songs.language` was seeded by the pre-classifier
+post-alignment LRC write (provenance `scanner` / `lrc_heuristic` /
+`whisper_asr` but no matching `whisper_probe_*`) are flagged for
+re-classification on startup. The probe re-runs, `songs.language` is
+overwritten if it disagrees, and the `.ass` + `lyrics_sha` are
+cleared to force a clean re-fetch. This piggybacks on the existing
+`whisperx_initial_reprocess_done` sentinel (US-17).

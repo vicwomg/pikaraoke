@@ -763,45 +763,119 @@ the English "Colors of the Wind" lyrics, whisperx aligned those English
 words to the Polish vocals. Files on disk:
 `/Users/zygzagz/.pikaraoke/songs/Edyta Gorniak - „Kolorowy wiatr' …---UityBuZoXv0.{ass,m4a,mp4}`.
 
-- \[ \] **P0** Seed `songs.language` from the title+artist heuristic
-  BEFORE the first LRC fetch, not after the first successful
-  whisperx alignment. Run `langdetect` on
-  `f"{artist} {title}"` from the DB row and persist the result
-  with a new provenance tag (e.g. `title_heuristic`). Ranks below
-  Whisper / VTT in the confidence ladder but above `lrc_heuristic`
-  (see next item) so the guard has ground truth to compare against
-  on the very first run. This is the single change that self-heals
-  future "Kolorowy wiatr"-shaped tracks without Whisper.
-- \[ \] **P0** Stop persisting the LRC-derived language with
-  provenance `scanner`. Either (a) drop the write at
-  `pikaraoke/lib/lyrics.py:643` entirely, since the title-heuristic
-  write above already populated the column, or (b) tag it with a
-  dedicated low-confidence source (`lrc_heuristic`) so higher-
-  confidence writers (VTT lang code, Whisper acoustic probe, user
-  override) can still overwrite it. The current confidence ladder
-  in `karaoke_database.py` must gain the new source at a rung
-  below `scanner`.
-- \[ \] **P1** Heal the sticky-bad case when the title-heuristic
-  disagrees with DB language on re-evaluation. A song whose
-  persisted language was seeded by post-alignment LRC write (the
-  poison path) should be detectable by comparing
-  `langdetect(title + artist)` against `songs.language`; on
-  disagreement, flag the `.ass` + `language` for reprocessing. One
-  safe trigger: run the check once on startup behind the existing
-  `whisperx_initial_reprocess_done` sentinel in
-  `Karaoke._maybe_initial_reprocess_with_whisperx`, extending it
-  to cover language drift, not just aligner install.
+Root cause of the English text is **upstream data poisoning, not our
+bug alone**: LRCLib record id `10005773` (and its duplicate
+id `24859990`) is labelled "Kolorowy Wiatr / Edyta Górniak /
+Pocahontas Original Soundtrack" but its `plainLyrics` /
+`syncedLyrics` fields are the English "Colors of the Wind" text.
+Query `GET https://lrclib.net/api/get?artist_name=Edyta%20Gorniak&track_name=Kolorowy%20Wiatr`
+to reproduce. LRCLib doesn't return a language field, so we cannot
+detect the mislabel from the HTTP response — the only defence is the
+title/artist-derived language hint we're not currently computing
+before the LRC call.
+
+**Accepted design: tiered classifier-gated LRC acceptance.**
+Tier 1 text-consensus runs on data we already have (yt-dlp info.json,
+cached iTunes/MusicBrainz responses, langdetect on DB title+artist)
+at `song_downloaded` time — zero new HTTP and well under the 50ms
+per-song fast-path budget. Tier 2 adds a Whisper language-ID probe on
+the raw audio when Tier 1 can't reach >=2-signal consensus, and a
+re-probe on the vocals stem once `stems_ready` fires (optionally
+overwriting `songs.language` and invalidating the `.ass` if the
+cleaner stem disagrees with the raw-audio probe). Tier 3 is a
+token-overlap Whisper ASR pass for same-language mislabels and runs
+only on Tier-1 consensus + Tier-2 tiebreaker ambiguity. All probes
+run on files already on disk; no new network endpoints anywhere.
+
+- \[x\] ~~**P0** Provenance ladder split.~~ Landed in
+  `69e1b847 feat(lyrics): provenance ladder split for US-43 language classifier`. `METADATA_SOURCE_CONFIDENCE` in
+  `karaoke_database.py` now carries 16 language-specific rungs
+  (`lrc_heuristic` below `scanner`; `itunes_country` →
+  `whisper_probe_stems` above; `manual` on top). The post-LRC and
+  post-Genius langdetect writes (`lyrics.py:643`, `:777`) moved
+  from `scanner` to `lrc_heuristic`; the post-Whisper-ASR write
+  (`:843`) moved to `whisper_asr`. VTT filename lang code stays at
+  `scanner`. Covered by `TestLanguageProvenanceLadder` in
+  `test_karaoke_database.py`.
+- \[x\] ~~**P0** Tier 1 text-consensus classifier.~~ Landed in
+  `cba41dc6 feat(lyrics): Tier 1 text-consensus language classifier (US-43)`. New `pikaraoke/lib/lyrics_language_classifier.py`
+  collects up to eight signals — `yt_info_lang`,
+  `yt_subtitle_lang`, `yt_title_lang`, `itunes_text`,
+  `itunes_country`, `mb_release_titles`, `mb_release_country`,
+  `title_heuristic` — and applies the design-doc consensus rule
+  (`>=2 agreeing primary subtags → persist under the highest-ranked agreeing source`). Disagreement leaves the DB alone and the
+  row falls through to Tier 2 acoustic probe. Wired into
+  `LyricsService._do_fetch_and_convert` ahead of the LRC fetch
+  so `_is_lrc_language_mismatch` has ground truth on cold-DB
+  first runs. Every signal + the consensus decision log at INFO
+  under the `US-43` tag. iTunes/MB queries share the enricher's
+  LRU caches (zero net new HTTP). Covered by 38 tests in
+  `test_lyrics_language_classifier.py` plus the
+  `test_classifier_seeds_language_before_lrc_fetch` integration
+  case in `test_lyrics.py`.
+- \[ \] **P0** Tier 2a Whisper raw-audio language probe. Fires on
+  Tier 1 miss/disagreement at `song_downloaded` time (no demucs
+  wait). 30-second language-ID pass at 50% track duration,
+  majority-voted against a 30% window on instrumental-heavy
+  tracks. Reuses the whisperx singleton in `lyrics_align.py`
+  (confirm its lazy-init supports language-ID-only mode — no
+  full transcription). Cache per `audio_sha256`. Persist
+  verdict under `whisper_probe_raw` (ladder rung already exists).
+- \[ \] **P0** Tier 2b Whisper vocals-stem re-probe. Fires when
+  `stems_ready` emits, on the demucs vocals stem rather than raw
+  audio. If 2b agrees with 2a, bump provenance to
+  `whisper_probe_stems`. If 2b disagrees, overwrite
+  `songs.language`, invalidate `.ass` + `lyrics_sha` +
+  `aligner_model` so the next lyrics pass re-fetches LRC with
+  the corrected language — the "write fast, fix later" path.
+- \[ \] **P0** Widen LRCLib candidate list. Upgrade
+  `_fetch_lrc_with_itunes_fallback` to return **all** candidates
+  from `/api/search` (not just `/api/get`'s single possibly
+  mislabelled hit). Rank by classifier score; on all-reject fall
+  through to Genius / VTT / Whisper ASR per US-14.
+- \[ \] **P0** Tier 3 same-language mislabel token overlap. When
+  `language_match=True` but two candidates disagree on text, run
+  a 15-30s Whisper ASR pass on the probe window and score token
+  overlap against the first 30s of each LRC. Pick the higher-
+  overlap candidate; reject all if none clears the threshold.
+  Raw-mix WER separates right-lyrics-vs-wrong-lyrics cleanly at
+  ~30%.
+- \[ \] **P1** Heal already-poisoned rows. On startup (behind the
+  existing `whisperx_initial_reprocess_done` sentinel in
+  `Karaoke._maybe_initial_reprocess_with_whisperx`), re-run the
+  probe for every song whose `songs.language` was written under
+  `scanner` / `lrc_heuristic` / `whisper_asr` provenance. If
+  the probe disagrees, overwrite (higher-rung now wins), clear
+  `lyrics_sha` + `aligner_model`, delete the `ass_auto`
+  artifact, and let the next playback trigger a clean re-fetch.
+  One song at a time so CPU/GPU isn't thrashed.
 - \[ \] **P1** Manual remediation for Kolorowy wiatr (song_id 33)
-  while P0/P1 above is in flight: delete the `.ass`, clear
+  while the above is in flight: delete the `.ass`, clear
   `songs.language` + `songs.lyrics_source` + `songs.lyrics_sha` +
-  `songs.aligner_model`, and re-run the pipeline with the title
-  heuristic patched in. Verify the replay shows Polish lyrics
-  synced to the Polish vocals.
-- \[ \] **P2** Regression test: seed a DB row with title="Kolorowy
-  wiatr", artist="Edyta Górniak", `language=NULL`, stub LRCLib to
-  return English lyrics, assert the pipeline rejects the LRC and
-  falls through to Whisper ASR (or Genius) producing Polish text.
-  Guards against the cold-DB dub-trap for future refactors.
+  `songs.aligner_model`, and replay. With Tier 1 landed the
+  replay should now seed `pl` from the iTunes/MB consensus even
+  without the Whisper probe; verify before closing out.
+- \[ \] **P2** Regression tests anchored on the Kolorowy wiatr
+  signature:
+  - \[x\] Stub LRCLib to return the English `10005773` record for
+    a cold-DB Polish song; Tier 1 classifier establishes `pl`
+    from iTunes/MB fixtures, the existing dub-trap guard rejects
+    the LRC. Covered by
+    `TestLyricsServiceLanguageMismatch::test_classifier_seeds_language_before_lrc_fetch`.
+  - \[ \] Stub two LRCLib candidates in the same language, one
+    matching the audio and one not; assert Tier 3 token overlap
+    picks the correct one.
+  - \[ \] Seed an already-poisoned DB row (`language='en'`,
+    provenance `scanner` or `lrc_heuristic`) and assert the
+    startup heal pass flips it to `pl` after the Whisper probe
+    runs.
+- \[ \] **P2** Decide whether raw-mix probe results are re-validated
+  once stems land. A Whisper language-ID on isolated vocals is
+  meaningfully more confident; a low-confidence raw-mix verdict
+  could be upgraded to high-confidence post-`stems_ready` without
+  changing the rendered `.ass`. This is basically what Tier 2b
+  above implements; leaving the note so the tradeoff is
+  reviewable if we ever scope Tier 2b out.
 
 ______________________________________________________________________
 
