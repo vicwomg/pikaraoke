@@ -19,6 +19,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Callable
 
+import librosa
 import numpy as np
 import soundfile as sf
 import torch
@@ -358,8 +359,6 @@ def separate_stems(
         source_names = inner_models[0].sources
 
         if sr != model_sr:
-            import librosa
-
             logging.info(f"Demucs: resampling {sr} -> {model_sr}")
             wav = torch.from_numpy(librosa.resample(wav.numpy(), orig_sr=sr, target_sr=model_sr))
             sr = model_sr

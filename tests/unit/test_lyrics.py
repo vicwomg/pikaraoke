@@ -1781,27 +1781,12 @@ class TestAnimParamsForBpm:
 
 
 class TestEstimateBpm:
-    def test_returns_none_when_librosa_missing(self, monkeypatch):
-        import builtins
-
-        from pikaraoke.lib.lyrics import _estimate_bpm
-
-        real_import = builtins.__import__
-
-        def blocked_import(name, *args, **kwargs):
-            if name == "librosa":
-                raise ImportError("simulated")
-            return real_import(name, *args, **kwargs)
-
-        monkeypatch.setattr(builtins, "__import__", blocked_import)
-        assert _estimate_bpm("/tmp/no-such.mp3") is None
-
     def test_returns_none_on_load_failure(self, caplog):
         from pikaraoke.lib.lyrics import _estimate_bpm
 
         fake_librosa = MagicMock()
         fake_librosa.load.side_effect = RuntimeError("cannot decode")
-        with patch.dict("sys.modules", {"librosa": fake_librosa}):
+        with patch("pikaraoke.lib.lyrics.librosa", fake_librosa):
             with caplog.at_level("WARNING"):
                 assert _estimate_bpm("/tmp/x.mp3") is None
         assert any("BPM estimation failed" in r.message for r in caplog.records)
@@ -1813,7 +1798,7 @@ class TestEstimateBpm:
         fake_librosa.load.return_value = ("signal", 22050)
         # librosa's newer API returns tempo as a 1-element ndarray-like.
         fake_librosa.beat.beat_track.return_value = ([128.5], "beats")
-        with patch.dict("sys.modules", {"librosa": fake_librosa}):
+        with patch("pikaraoke.lib.lyrics.librosa", fake_librosa):
             assert _estimate_bpm("/tmp/x.mp3") == 128.5
 
     def test_returns_tempo_when_scalar(self):
@@ -1822,7 +1807,7 @@ class TestEstimateBpm:
         fake_librosa = MagicMock()
         fake_librosa.load.return_value = ("signal", 22050)
         fake_librosa.beat.beat_track.return_value = (90.0, "beats")
-        with patch.dict("sys.modules", {"librosa": fake_librosa}):
+        with patch("pikaraoke.lib.lyrics.librosa", fake_librosa):
             assert _estimate_bpm("/tmp/x.mp3") == 90.0
 
 

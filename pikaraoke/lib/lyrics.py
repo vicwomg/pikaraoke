@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from threading import Thread
 from typing import Protocol
 
+import librosa
 import requests
 
 from pikaraoke.lib.events import EventSystem
@@ -245,38 +246,6 @@ class LyricsService:
             self._events.emit("notification", f"{stage}: {_title_from_filename(song_path)}")
         except Exception:
             logger.exception("failed to emit %s stage notification", stage)
-
-    def _warn_once_if_bpm_disabled(self, song_path: str, bpm: float | None) -> None:
-        """Emit an info-severity song_warning when librosa is missing (US-25 P2).
-
-        Only fires once per process: a missing optional dependency is an
-        install-level fact, not a per-song problem, so flooding the warning
-        log with one entry per song obscures real errors.
-        """
-        if bpm is not None or _BPM_DISABLED_WARNED[0]:
-            return
-        try:
-            import librosa  # noqa: F401
-        except ImportError:
-            _BPM_DISABLED_WARNED[0] = True
-            if self._events is None:
-                return
-            try:
-                self._events.emit(
-                    "song_warning",
-                    {
-                        "message": "Caption pulse disabled",
-                        "detail": (
-                            "librosa is not installed; decorative tempo pulsing "
-                            "on captions is off. Alignment and playback are "
-                            "unaffected."
-                        ),
-                        "song": os.path.basename(song_path),
-                        "severity": "info",
-                    },
-                )
-            except Exception:
-                logger.exception("failed to emit librosa-missing song_warning")
 
     def _maybe_drop_stale_auto_ass(self, song_path: str, lyrics_sha: str | None) -> None:
         """Delete the auto .ass when any upstream dependency changed.
@@ -982,7 +951,6 @@ class LyricsService:
             if not words:
                 return
             bpm = _estimate_bpm(audio_path)
-            self._warn_once_if_bpm_disabled(song_path, bpm)
             anim_params = _anim_params_for_bpm(bpm)
             ass = _words_to_ass_with_k_tags(words, lrc, params=anim_params)
             if ass:
@@ -1103,7 +1071,6 @@ class LyricsService:
             return False
 
         bpm = _estimate_bpm(audio_path)
-        self._warn_once_if_bpm_disabled(song_path, bpm)
         ass = _words_to_ass_with_k_tags(words, synthetic_lrc, params=_anim_params_for_bpm(bpm))
         if not ass:
             return False
@@ -1175,7 +1142,6 @@ class LyricsService:
                 self._emit_whisper_failure(song_path, "no usable word timings")
                 return
             bpm = _estimate_bpm(audio_path)
-            self._warn_once_if_bpm_disabled(song_path, bpm)
             ass = _words_to_ass_with_k_tags(words, lrc, params=_anim_params_for_bpm(bpm))
             if not ass:
                 logger.info("Whisper fallback: ASS conversion failed for %s", song_path)
@@ -1591,14 +1557,8 @@ def _detect_language(text: str) -> str | None:
 
 
 # First minute is plenty for tempo classification and keeps CPU well under a
-# second on the CI/RPi box. librosa itself is heavy to import, so the call
-# stays lazy.
+# second on the CI/RPi box.
 _BPM_ANALYSIS_DURATION_S = 60.0
-
-# Flag flipped true after the first "librosa is missing" song_warning fires.
-# Stored as a single-element list so module-level helpers can mutate it
-# without a dedicated class.
-_BPM_DISABLED_WARNED: list[bool] = [False]
 
 
 def _estimate_bpm(audio_path: str) -> float | None:
@@ -1607,10 +1567,6 @@ def _estimate_bpm(audio_path: str) -> float | None:
     Used only to pick decorative animation parameters - never in a timing
     path - so any failure falls through to a plain (un-pulsed) render.
     """
-    try:
-        import librosa
-    except ImportError:
-        return None
     try:
         y, sr = librosa.load(audio_path, sr=None, mono=True, duration=_BPM_ANALYSIS_DURATION_S)
         tempo, _beats = librosa.beat.beat_track(y=y, sr=sr)

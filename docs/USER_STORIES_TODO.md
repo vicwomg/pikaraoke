@@ -403,12 +403,11 @@ ______________________________________________________________________
 ### US-25 Captions rendering (PARTIAL)
 
 - \[x\] ~~**P2** Emit a `song_warning` (severity `info`) when `librosa`
-  is missing and the BPM pulse is silently disabled.~~ Done —
-  new `LyricsService._warn_once_if_bpm_disabled` fires on the
-  first song that tries to estimate BPM and gets `None` back
-  because librosa's import failed. Uses a module-level sentinel
-  so a missing install-level dep logs one "Caption pulse
-  disabled" (info) warning per process, not per song.
+  is missing and the BPM pulse is silently disabled.~~ Superseded —
+  librosa is now a declared dependency in `pyproject.toml`, so a
+  missing install is a broken install, not a supported state. The
+  `LyricsService._warn_once_if_bpm_disabled` helper and its sentinel
+  were removed.
 - \[ \] **P2** Document (or fix) that `_estimate_bpm` may run on the raw
   mix when stems aren't ready in time (`lyrics.py:300`).
 
