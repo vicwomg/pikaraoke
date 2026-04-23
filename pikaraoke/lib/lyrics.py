@@ -32,6 +32,7 @@ import requests
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
+from pikaraoke.lib.lyrics_audio_probe import probe_language as _probe_audio_language
 from pikaraoke.lib.lyrics_language_classifier import (
     classify_and_persist as _classify_language,
 )
@@ -539,7 +540,7 @@ class LyricsService:
                 logger.exception("classifier: MusicBrainz lookup failed for %s", song_path)
 
         try:
-            _classify_language(
+            _signals, verdict = _classify_language(
                 self._db,
                 song_id,
                 song_path=song_path,
@@ -551,6 +552,78 @@ class LyricsService:
             )
         except Exception:
             logger.exception("classifier: classify_and_persist crashed for %s", song_path)
+            return
+
+        # Tier 2a (US-43): when Tier 1 couldn't reach consensus, run a
+        # Whisper language-ID probe on the raw audio. The probe writes
+        # under ``whisper_probe_raw`` (rung 22), which beats every Tier 1
+        # signal — text consensus abstained, so acoustic ground truth
+        # takes over. No-op when consensus already landed, keeping the
+        # happy path at ~50ms.
+        if verdict is None:
+            self._run_tier2a_probe(song_path, song_id)
+
+    def _run_tier2a_probe(self, song_path: str, song_id: int) -> None:
+        """Tier 2a Whisper language-ID probe on raw audio (US-43).
+
+        Runs synchronously on the download-worker thread. Budget is 1-5s
+        warm / 5-15s cold; the LRC fetch behind it is a 5s HTTP call, so
+        the thread-handoff overhead to parallelise the two would cost
+        more than the probe itself on a warm model. Inline is fine.
+
+        Only fires when the Tier 1 text-consensus classifier returned no
+        verdict (caller responsibility). Writes under ``whisper_probe_raw``
+        (rung 22), which beats every Tier 1 text rung but sits below the
+        stems-based ``whisper_probe_stems`` that Tier 2b will write later.
+        """
+        if self._db is None or not _whisper_fallback_enabled():
+            return
+        from pikaraoke.lib.audio_fingerprint import ensure_audio_fingerprint
+        from pikaraoke.lib.demucs_processor import resolve_audio_source
+
+        audio_path = resolve_audio_source(song_path)
+        if not os.path.exists(audio_path):
+            return
+        try:
+            audio_sha = ensure_audio_fingerprint(self._db, song_id, audio_path)
+        except Exception:
+            logger.exception("tier2a probe: fingerprint failed for %s", song_path)
+            return
+        if not audio_sha:
+            return
+        row = self._db.get_song_by_id(song_id)
+        try:
+            duration = row["duration_seconds"] if row is not None else None
+        except (KeyError, IndexError):
+            duration = None
+
+        try:
+            lang = _probe_audio_language(
+                audio_path=audio_path,
+                audio_sha256=audio_sha,
+                duration_seconds=duration,
+                get_model=_get_whisper_model,
+                cache_get=self._db.get_metadata,
+                cache_set=self._db.set_metadata,
+            )
+        except Exception:
+            logger.exception("tier2a probe: probe_language crashed for %s", song_path)
+            return
+        if not lang:
+            return
+        try:
+            applied = self._db.update_track_metadata_with_provenance(
+                song_id, "whisper_probe_raw", {"language": lang}
+            )
+        except Exception:
+            logger.exception("tier2a probe: failed to persist lang=%s for %s", lang, song_path)
+            return
+        logger.info(
+            "US-43 tier2a: %s lang=%s applied=%s provenance=whisper_probe_raw",
+            os.path.basename(song_path),
+            lang,
+            bool(applied),
+        )
 
     def _db_language(self, song_path: str) -> str | None:
         """Return the DB-stored language for a song (e.g. "en", "pl-PL"), or None."""

@@ -8,12 +8,18 @@ import requests
 
 @pytest.fixture(autouse=True)
 def _no_classifier_http():
-    """Keep the Tier 1 classifier hermetic in lyrics tests.
+    """Keep the Tier 1 + Tier 2a classifier path hermetic in lyrics tests.
 
     ``LyricsService._run_language_classifier`` calls iTunes + MusicBrainz
     via the cached helpers in ``music_metadata``. Those are real HTTP
     requests; left unmocked they make unit tests flaky (live data
     changes langdetect verdicts, network failures skew timings).
+
+    Tier 2a (``_probe_audio_language``) would otherwise load faster-whisper
+    the first time a test triggers a Tier 1 miss (e.g. tests with no
+    info.json / no iTunes row). Loading the Whisper model at test time is
+    ~5-15s of cold-start; stub it to a silent no-op by default.
+
     Individual tests override these patches with ``with patch(...)`` as
     needed to drive specific classifier scenarios.
     """
@@ -24,6 +30,10 @@ def _no_classifier_http():
         ),
         patch(
             "pikaraoke.lib.lyrics.fetch_musicbrainz_language_signals",
+            return_value=None,
+        ),
+        patch(
+            "pikaraoke.lib.lyrics._probe_audio_language",
             return_value=None,
         ),
     ):
