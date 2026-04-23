@@ -24,6 +24,15 @@ dependencies = [
   "yt-dlp[default]>=2026.03.03",
   "flask-socketio>=5.5.0",
   "simple-websocket>=1.0.0",
+  # Stems + alignment pipeline (required: every song hits this)
+  "demucs>=4.0.1",
+  "torch>=2.0",
+  "numpy>=1.24",
+  "soundfile>=0.12",
+  "librosa>=0.10",
+  "whisperx>=3.1.1",
+  "langdetect>=1.0.9",
+  "pyphen>=0.15",
 ]
 
 [project.optional-dependencies]
@@ -32,11 +41,6 @@ dev = [
   "pytest>=9.0.2",
   "pytest-cov>=7.0.0",
 
-]
-align = [
-  "whisperx>=3.1.1",
-  "langdetect>=1.0.9",
-  "pyphen>=0.15",
 ]
 
 [dependency-groups]
