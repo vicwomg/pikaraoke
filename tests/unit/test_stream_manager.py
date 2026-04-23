@@ -1084,6 +1084,28 @@ class TestStreamManagerPlayFile:
         assert result.subtitle_url == "/subtitle/12345"
 
     @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
+    @patch("pikaraoke.lib.stream_manager.FileResolver")
+    def test_play_file_subtitle_url_set_even_without_ass(
+        self, mock_resolver_class, mock_transcode_check, mock_gettext, test_prefs
+    ):
+        """Subtitle URL is published even when .ass hasn't landed yet.
+
+        The lyrics pipeline is async — a song can start playing before any
+        .ass is written. _on_lyrics_upgraded needs a base URL to cache-bust
+        when the .ass lands mid-playback; leaving subtitle_url=None would
+        strand the client without subtitles even after lyrics arrive.
+        """
+        sm = StreamManager(test_prefs, streaming_format="mp4")
+        self._setup_resolver(mock_resolver_class, duration=180, ass_file_path=None)
+
+        with patch.object(sm, "_copy_file", return_value=True):
+            result = sm.play_file("/songs/test.mp4")
+
+        assert result.success is True
+        assert result.subtitle_url == "/subtitle/12345"
+
+    @patch("flask_babel._", side_effect=lambda x: x)
     @patch("pikaraoke.lib.stream_manager.can_serve_directly", return_value=False)
     @patch("pikaraoke.lib.stream_manager.can_serve_video_directly", return_value=False)
     @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)

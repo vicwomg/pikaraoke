@@ -285,9 +285,16 @@ class StreamManager:
                 fr, semitones, is_hls
             )
 
-        subtitle_url = None
+        # Always publish a subtitle URL, even when no .ass exists at prepare time.
+        # The lyrics pipeline is async: a song can start playing before any .ass
+        # lands (LRC fetch, Whisper fallback). `_on_lyrics_upgraded` cache-busts
+        # this URL with a ?v= query when the .ass is written mid-song; if we left
+        # it None here, its `if base_url:` guard would silently no-op and the
+        # client would never be told subtitles are ready. The /subtitle/<id>
+        # route resolves the file at request time and 404s when missing, so an
+        # unresolved URL is harmless.
+        subtitle_url = f"/subtitle/{fr.stream_uid}"
         if fr.ass_file_path:
-            subtitle_url = f"/subtitle/{fr.stream_uid}"
             logging.debug(f"Subtitle file found: {fr.ass_file_path}. URL: {subtitle_url}")
 
         # Check if the stream is ready to play
