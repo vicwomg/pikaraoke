@@ -855,6 +855,20 @@ run on files already on disk; no new network endpoints anywhere.
   lines in `lyrics_align.py`); basename↔sha bridge at Tier 2a/2b
   entry so one grep joins probe-internal sha-keyed logs with the
   rest of the pipeline's basename-keyed logs.
+- \[x\] ~~**P0** Re-dispatch pipeline after Tier 2b flip.~~ Caught
+  during manual Kolorowy wiatr testing: after 2b flipped `en -> pl`
+  and deleted the `.ass`, subsequent playbacks stayed caption-less
+  because the "next pipeline pass" the design relied on only fires
+  on `song_downloaded`, which never re-fires for an
+  already-downloaded row. `_run_tier2b_probe` now spawns
+  `fetch_and_convert` in a daemon thread right after invalidation,
+  closing the feedback loop: DB is now `pl`, the second pass
+  rejects the English LRC via `_is_lrc_language_mismatch`, and
+  falls through to Genius / VTT / Whisper ASR. The 2b probe on the
+  second pass hits the per-sha cache and agrees, so no loop.
+  Test: `test_disagreement_flips_language_and_invalidates_ass`
+  now asserts the re-dispatch; `test_agreement_bumps_provenance_no_invalidation`
+  asserts no re-dispatch on agreement.
 - \[ \] **P0** Widen LRCLib candidate list. Upgrade
   `_fetch_lrc_with_itunes_fallback` to return **all** candidates
   from `/api/search` (not just `/api/get`'s single possibly

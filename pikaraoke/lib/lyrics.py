@@ -776,6 +776,23 @@ class LyricsService:
             _invalidate_auto_ass(self._db, song_id)
         except Exception:
             logger.exception("tier2b probe: failed to invalidate .ass for %s", song_path)
+
+        # Re-dispatch the pipeline now. Waiting for the "next"
+        # ``song_downloaded`` is a dead-letter promise: that event only
+        # fires on the first download, so replays of an existing row
+        # would stay caption-less forever after a flip. Running on a
+        # daemon thread so the caller (``_upgrade_to_word_level``) can
+        # still unwind cleanly. The second pass sees the flipped DB
+        # language, rejects the wrong-language LRC via
+        # ``_is_lrc_language_mismatch``, and falls through to Genius /
+        # VTT / Whisper ASR. The 2b probe on the second pass hits the
+        # per-sha cache and agrees, so no infinite re-dispatch loop.
+        Thread(
+            target=self.fetch_and_convert,
+            args=(song_path,),
+            name=f"lyrics-refetch-{os.path.basename(song_path)}",
+            daemon=True,
+        ).start()
         return True
 
     def _db_language(self, song_path: str) -> str | None:
@@ -929,10 +946,11 @@ class LyricsService:
             # timeout fallback at line 747) — probing on the raw mix here
             # would just duplicate Tier 2a on a noisier input. If 2b flips
             # the DB language, abort this alignment pass: wav2vec2 is
-            # per-language, aligning with the wrong model is wasted work,
-            # and the ``.ass``/``lyrics_sha`` invalidation inside
-            # ``_run_tier2b_probe`` will make the next pipeline pass
-            # re-fetch LRC in the corrected language.
+            # per-language, aligning with the wrong model is wasted work.
+            # ``_run_tier2b_probe`` both invalidates the stale .ass and
+            # re-dispatches the pipeline so the corrected-language LRC
+            # gets fetched immediately (waiting for a future
+            # ``song_downloaded`` would leave replays caption-less).
             if song_id is not None and audio_path.startswith(_CACHE_DIR):
                 if self._run_tier2b_probe(song_path, song_id, audio_path):
                     return

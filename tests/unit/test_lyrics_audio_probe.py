@@ -566,13 +566,15 @@ class TestLyricsServiceTier2bWiring:
             with patch(
                 "pikaraoke.lib.lyrics._probe_audio_language_whole_song",
                 return_value="pl",
-            ):
+            ), patch("pikaraoke.lib.lyrics.Thread") as mock_thread:
                 flipped = svc._run_tier2b_probe(song_path, song_id, "/tmp/stems/vocals.mp3")
             assert flipped is False
             row = db.get_song_by_id(song_id)
             assert row["language"] == "pl"
             sources = db.get_metadata_sources(song_id)
             assert sources["language"] == "whisper_probe_stems"
+            # Agreement path must not re-dispatch — nothing changed.
+            mock_thread.assert_not_called()
         finally:
             db.close()
 
@@ -596,7 +598,7 @@ class TestLyricsServiceTier2bWiring:
             with patch(
                 "pikaraoke.lib.lyrics._probe_audio_language_whole_song",
                 return_value="pl",
-            ):
+            ), patch("pikaraoke.lib.lyrics.Thread") as mock_thread:
                 flipped = svc._run_tier2b_probe(song_path, song_id, "/tmp/stems/vocals.mp3")
             assert flipped is True
             row = db.get_song_by_id(song_id)
@@ -609,6 +611,15 @@ class TestLyricsServiceTier2bWiring:
             assert not ass_file.exists()
             assert row["lyrics_sha"] is None
             assert row["aligner_model"] is None
+            # Flip must re-dispatch the pipeline; without this, replays
+            # of an already-downloaded song would stay caption-less
+            # because ``song_downloaded`` never fires a second time.
+            mock_thread.assert_called_once()
+            kwargs = mock_thread.call_args.kwargs
+            assert kwargs["target"] == svc.fetch_and_convert
+            assert kwargs["args"] == (song_path,)
+            assert kwargs["daemon"] is True
+            mock_thread.return_value.start.assert_called_once()
         finally:
             db.close()
 
