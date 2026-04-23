@@ -36,6 +36,10 @@ def _no_classifier_http():
             "pikaraoke.lib.lyrics._probe_audio_language",
             return_value=None,
         ),
+        patch(
+            "pikaraoke.lib.lyrics._probe_audio_language_whole_song",
+            return_value=None,
+        ),
     ):
         yield
 

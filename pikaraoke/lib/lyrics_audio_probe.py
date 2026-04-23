@@ -1,37 +1,31 @@
-"""Tier 2a Whisper language-ID probe on raw audio (US-43).
+"""Whisper language-ID probes for the lyrics pipeline (US-43).
 
-Fires when the Tier 1 text-consensus classifier returns no verdict.
-Runs a 30-second faster-whisper language-ID pass on the original audio
-file (not the vocals stem — that's Tier 2b, and stem separation blocks
-until demucs finishes, which violates US-43's fast-path contract that
-the line-level ``.ass`` must land before demucs completes).
+Two probes live here, sharing cache helpers:
 
-The result is cached per ``audio_sha256`` so a re-download with
-identical content never re-pays the probe cost.
+Tier 2a — **raw audio, fast-path** (``probe_language``). Fires when
+Tier 1's text-consensus classifier returns no verdict. Windowed 30s
+probe at 50% of track duration with a 30% fallback window; never waits
+on demucs. Budget: <=5s warm / <=15s cold.
 
-Design choices:
+Tier 2b — **vocals stem, post-demucs** (``probe_language_whole_song``).
+Fires on ``stems_ready`` to re-validate 2a (and any text-based winner).
+Runs ``detect_language`` over the whole song with VAD filter enabled:
+demucs already stripped the instruments, so the remaining audio is
+dense vocal content — averaging probabilities across every 30s mel
+segment gives meaningfully higher confidence than a single window on
+the raw mix. Off the fast path, so wall-clock cost isn't critical.
 
-* **Primitive**: ``faster_whisper.WhisperModel.detect_language`` takes a
-  1D float32 numpy array at 16 kHz and returns ``(language,
-  probability, all_probs)`` in ~1-5s warm / ~5-15s cold on CPU.
-  No full transcription pass, no autoregressive decoding.
-* **Whisper singleton**: shared with ``lyrics._get_whisper_model`` via
-  the ``get_model`` injection point. ``lyrics_align.WhisperXAligner``
-  does not expose a whisper model (it only loads wav2vec2 for forced
-  alignment), so we reuse the faster-whisper model that the ASR
-  fallback path already loads lazily.
-* **Window**: 30-second slice centred at 50% of track duration, to
-  dodge instrumental intros. When the first window's language-ID
-  confidence falls below 0.5 we re-probe at 30% and accept only if
-  both windows agree on the same primary subtag — a cheap
-  "instrumental-heavy" guard that needs no VAD or voicedness
-  classifier.
-* **Cache storage**: ``db.metadata`` KV table keyed on
-  ``whisper_probe_raw:<audio_sha256>``. Value is a small JSON blob
-  ``{"lang": "pl", "conf": 0.87}`` (``lang=null`` on defer-to-Tier-3).
-  Single-table, survives schema migrations, no new DDL.
-* **No new HTTP**: operates on audio that's already on disk by
-  definition — this module is only called after ``song_downloaded``.
+Both probes cache per ``audio_sha256`` in the ``metadata`` KV table
+under distinct prefixes (``whisper_probe_raw:`` and
+``whisper_probe_stems:``). Value is a small JSON blob
+``{"lang": "pl", "conf": 0.87}``; ``lang=null`` cached on
+inconclusive outcomes so repeat boots don't re-pay the probe. No new
+schema, no new DDL.
+
+Both share the faster-whisper singleton from ``lyrics._get_whisper_model``
+via the ``get_model`` injection point — the ``WhisperXAligner`` in
+``lyrics_align`` only loads wav2vec2 for forced alignment and doesn't
+expose a whisper model to share.
 """
 
 import json
@@ -66,13 +60,31 @@ _FALLBACK_OFFSET = 0.30
 # offset and require the two windows to agree.
 _MIN_SINGLE_WINDOW_CONFIDENCE = 0.5
 
+# Tier 2b: how many 30s mel segments to let ``detect_language`` average
+# over. Capped to keep memory bounded; faster-whisper truncates the
+# VAD-concatenated audio to ``segments * n_samples``, so 20 segments
+# covers ~10 min of *sung content* (post-VAD) — more than any song.
+_WHOLE_SONG_MAX_SEGMENTS = 20
 
-def _cache_key(audio_sha256: str) -> str:
-    return f"whisper_probe_raw:{audio_sha256}"
+# Tier 2b: below this aggregate confidence the stem probe is treated as
+# inconclusive. Lower than Tier 2a's single-window threshold because the
+# whole-song probe averages across many segments — a value this low
+# usually means "no vocal content detected on the stem" (demucs
+# produced garbage, or the track is purely instrumental).
+_WHOLE_SONG_MIN_CONFIDENCE = 0.3
+
+# Cache key prefixes in ``db.metadata``. Distinct per tier so 2a and 2b
+# verdicts co-exist for the same audio_sha256.
+_TIER2A_PREFIX = "whisper_probe_raw"
+_TIER2B_PREFIX = "whisper_probe_stems"
 
 
-def read_cached_verdict(
-    cache_get: Callable[[str], str | None], audio_sha256: str
+def _cache_key(prefix: str, audio_sha256: str) -> str:
+    return f"{prefix}:{audio_sha256}"
+
+
+def _read_cached_verdict(
+    cache_get: Callable[[str], str | None], prefix: str, audio_sha256: str
 ) -> tuple[str | None, bool]:
     """Return ``(language_or_None, cache_hit)`` for a previously probed sha.
 
@@ -81,7 +93,7 @@ def read_cached_verdict(
     probe rather than re-running. Invalid JSON is treated as a miss so
     a corrupted row self-heals on the next pass.
     """
-    raw = cache_get(_cache_key(audio_sha256))
+    raw = cache_get(_cache_key(prefix, audio_sha256))
     if not raw:
         return None, False
     try:
@@ -94,17 +106,28 @@ def read_cached_verdict(
     return (lang if isinstance(lang, str) else None), True
 
 
+def read_cached_verdict(
+    cache_get: Callable[[str], str | None],
+    audio_sha256: str,
+    *,
+    prefix: str = _TIER2A_PREFIX,
+) -> tuple[str | None, bool]:
+    """Public cache-read shim. Default prefix is Tier 2a for back-compat."""
+    return _read_cached_verdict(cache_get, prefix, audio_sha256)
+
+
 def _write_cache(
     cache_set: Callable[[str, str], None],
+    prefix: str,
     audio_sha256: str,
     lang: str | None,
     confidence: float | None,
 ) -> None:
     payload = {"lang": lang, "conf": confidence}
     try:
-        cache_set(_cache_key(audio_sha256), json.dumps(payload, sort_keys=True))
+        cache_set(_cache_key(prefix, audio_sha256), json.dumps(payload, sort_keys=True))
     except Exception:
-        logger.exception("whisper_probe_raw: failed to cache sha=%s", audio_sha256[:12])
+        logger.exception("%s: failed to cache sha=%s", prefix, audio_sha256[:12])
 
 
 def _lang_base(lang: str | None) -> str | None:
@@ -161,7 +184,7 @@ def probe_language(
     unit-testable — tests pass in a mock ``get_model`` and a captured
     ``decode_audio_fn`` without ever loading faster-whisper.
     """
-    cached, hit = read_cached_verdict(cache_get, audio_sha256)
+    cached, hit = _read_cached_verdict(cache_get, _TIER2A_PREFIX, audio_sha256)
     if hit:
         logger.info("whisper_probe_raw: cache hit sha=%s lang=%s", audio_sha256[:12], cached)
         return cached
@@ -190,7 +213,7 @@ def probe_language(
 
     total_samples = int(getattr(audio, "shape", (len(audio),))[0])
     if total_samples == 0:
-        _write_cache(cache_set, audio_sha256, None, None)
+        _write_cache(cache_set, _TIER2A_PREFIX, audio_sha256, None, None)
         return None
 
     # DB-recorded duration is authoritative when present (some video
@@ -222,7 +245,7 @@ def probe_language(
             audio_sha256[:12],
             elapsed,
         )
-        _write_cache(cache_set, audio_sha256, lang1, conf1)
+        _write_cache(cache_set, _TIER2A_PREFIX, audio_sha256, lang1, conf1)
         return lang1
 
     # Low-confidence primary: re-probe at the fallback offset and require
@@ -254,7 +277,7 @@ def probe_language(
             audio_sha256[:12],
             elapsed,
         )
-        _write_cache(cache_set, audio_sha256, lang1, min(conf1, conf2))
+        _write_cache(cache_set, _TIER2A_PREFIX, audio_sha256, lang1, min(conf1, conf2))
         return lang1
 
     logger.info(
@@ -267,5 +290,108 @@ def probe_language(
         audio_sha256[:12],
         elapsed,
     )
-    _write_cache(cache_set, audio_sha256, None, None)
+    _write_cache(cache_set, _TIER2A_PREFIX, audio_sha256, None, None)
     return None
+
+
+def probe_language_whole_song(
+    *,
+    audio_path: str,
+    audio_sha256: str,
+    get_model: Callable[[], Any],
+    cache_get: Callable[[str], str | None],
+    cache_set: Callable[[str, str], None],
+    decode_audio_fn: Callable[..., Any] | None = None,
+    max_segments: int = _WHOLE_SONG_MAX_SEGMENTS,
+    min_confidence: float = _WHOLE_SONG_MIN_CONFIDENCE,
+) -> str | None:
+    """Tier 2b: whole-song Whisper language-ID on an isolated vocals stem.
+
+    faster-whisper's ``detect_language(language_detection_segments=N,
+    vad_filter=True)`` concatenates every VAD-detected speech chunk in
+    the input, truncates to ``N * 30s``, then averages per-segment
+    language probabilities. On a demucs-isolated vocals stem this is
+    ~all sung content in a typical 3-5 min song, averaged across 6-10
+    mel segments — meaningfully higher confidence than any single
+    window on the raw mix could give.
+
+    Returns the detected primary subtag, or ``None`` when the aggregate
+    confidence falls below ``min_confidence`` (treated as "no vocal
+    content detected on the stem" — demucs produced garbage, or the
+    track is purely instrumental). Both outcomes are cached so the
+    probe runs at most once per unique ``audio_sha256``.
+
+    Fires only on ``stems_ready``; does NOT wait on demucs from inside.
+    Wall-clock cost isn't on the fast path (the line-level ``.ass`` has
+    already landed), so no window tricks — we always process the whole
+    stem.
+    """
+    cached, hit = _read_cached_verdict(cache_get, _TIER2B_PREFIX, audio_sha256)
+    if hit:
+        logger.info(
+            "whisper_probe_stems: cache hit sha=%s lang=%s",
+            audio_sha256[:12],
+            cached,
+        )
+        return cached
+
+    model = get_model()
+    if model is None:
+        logger.info("whisper_probe_stems: model unavailable; skip sha=%s", audio_sha256[:12])
+        return None
+
+    decode = decode_audio_fn
+    if decode is None:
+        try:
+            from faster_whisper.audio import decode_audio as decode
+        except ImportError:
+            logger.info("whisper_probe_stems: faster-whisper not installed; skip")
+            return None
+
+    t0 = time.monotonic()
+    try:
+        audio = decode(audio_path, sampling_rate=_SAMPLE_RATE)
+    except Exception:
+        logger.exception("whisper_probe_stems: decode failed for %s", audio_path)
+        return None
+
+    total_samples = int(getattr(audio, "shape", (len(audio),))[0])
+    if total_samples == 0:
+        _write_cache(cache_set, _TIER2B_PREFIX, audio_sha256, None, None)
+        return None
+
+    try:
+        lang, conf, _all = model.detect_language(
+            audio=audio,
+            vad_filter=True,
+            language_detection_segments=max_segments,
+        )
+    except Exception:
+        logger.exception("whisper_probe_stems: detect_language failed for %s", audio_path)
+        return None
+
+    elapsed = time.monotonic() - t0
+    lang = _lang_base(lang)
+    conf = float(conf)
+
+    if not lang or conf < min_confidence:
+        logger.info(
+            "whisper_probe_stems: inconclusive lang=%s conf=%.3f (< %.2f) sha=%s " "elapsed=%.2fs",
+            lang,
+            conf,
+            min_confidence,
+            audio_sha256[:12],
+            elapsed,
+        )
+        _write_cache(cache_set, _TIER2B_PREFIX, audio_sha256, None, None)
+        return None
+
+    logger.info(
+        "whisper_probe_stems: accepted lang=%s conf=%.3f sha=%s elapsed=%.2fs " "(whole-song, vad)",
+        lang,
+        conf,
+        audio_sha256[:12],
+        elapsed,
+    )
+    _write_cache(cache_set, _TIER2B_PREFIX, audio_sha256, lang, conf)
+    return lang

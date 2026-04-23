@@ -33,6 +33,9 @@ import requests
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.lyrics_audio_probe import probe_language as _probe_audio_language
+from pikaraoke.lib.lyrics_audio_probe import (
+    probe_language_whole_song as _probe_audio_language_whole_song,
+)
 from pikaraoke.lib.lyrics_language_classifier import (
     classify_and_persist as _classify_language,
 )
@@ -625,6 +628,104 @@ class LyricsService:
             bool(applied),
         )
 
+    def _run_tier2b_probe(self, song_path: str, song_id: int, stem_path: str) -> bool:
+        """Tier 2b Whisper language-ID re-probe on the vocals stem (US-43).
+
+        Returns ``True`` when the probe *flipped* the DB language (caller
+        should abort the current alignment pass — the ``.ass`` +
+        ``lyrics_sha`` have been invalidated so the next pipeline run
+        re-fetches LRC in the corrected language, and the wav2vec2 model
+        currently loaded is for the wrong language anyway).
+
+        Returns ``False`` when the probe agrees with the current DB
+        language (provenance is bumped to ``whisper_probe_stems``,
+        language value unchanged), when the probe is inconclusive, when
+        the ladder blocks the write (e.g. a ``manual`` language is
+        sticky), or when Whisper isn't available at all — callers treat
+        False as "proceed with alignment as normal".
+
+        Unlike Tier 2a, this probe runs the whole song through
+        ``detect_language`` with VAD filtering. The vocals stem is
+        already clean (instruments gone, silences shortened), so
+        averaging language probabilities across every sung segment gives
+        meaningfully higher confidence than a single 30s window.
+        """
+        if self._db is None or not _whisper_fallback_enabled():
+            return False
+
+        row = self._db.get_song_by_id(song_id)
+        if row is None:
+            return False
+        audio_sha = row["audio_sha256"]
+        if not audio_sha:
+            return False
+        current_lang = row["language"]
+
+        try:
+            stem_lang = _probe_audio_language_whole_song(
+                audio_path=stem_path,
+                audio_sha256=audio_sha,
+                get_model=_get_whisper_model,
+                cache_get=self._db.get_metadata,
+                cache_set=self._db.set_metadata,
+            )
+        except Exception:
+            logger.exception("tier2b probe: probe_language_whole_song crashed for %s", song_path)
+            return False
+
+        if not stem_lang:
+            return False
+
+        try:
+            applied = self._db.update_track_metadata_with_provenance(
+                song_id, "whisper_probe_stems", {"language": stem_lang}
+            )
+        except Exception:
+            logger.exception("tier2b probe: failed to persist lang=%s for %s", stem_lang, song_path)
+            return False
+
+        same_lang = _lang_base(current_lang or "") == stem_lang
+        if same_lang:
+            logger.info(
+                "US-43 tier2b: %s agrees lang=%s applied=%s (provenance -> whisper_probe_stems)",
+                os.path.basename(song_path),
+                stem_lang,
+                bool(applied),
+            )
+            return False
+
+        if not applied:
+            # Current language comes from a higher rung than
+            # whisper_probe_stems — practically only ``manual``. Respect it.
+            logger.info(
+                "US-43 tier2b: %s disagrees (stems=%s, db=%s) but ladder blocked "
+                "the write; keeping db value",
+                os.path.basename(song_path),
+                stem_lang,
+                current_lang,
+            )
+            return False
+
+        # Disagreement, and the write landed. Invalidate the auto ``.ass``
+        # + ``lyrics_sha`` + ``aligner_model`` so the next
+        # ``_do_fetch_and_convert`` treats the LRC cache as stale and
+        # re-fetches in the corrected language. The currently-rendering
+        # session keeps whatever line-level ``.ass`` already landed —
+        # US-43's "write fast, fix later" path.
+        logger.info(
+            "US-43 tier2b: %s FLIP stems=%s db=%s; invalidating .ass for re-fetch",
+            os.path.basename(song_path),
+            stem_lang,
+            current_lang,
+        )
+        try:
+            from pikaraoke.lib.audio_fingerprint import _invalidate_auto_ass
+
+            _invalidate_auto_ass(self._db, song_id)
+        except Exception:
+            logger.exception("tier2b probe: failed to invalidate .ass for %s", song_path)
+        return True
+
     def _db_language(self, song_path: str) -> str | None:
         """Return the DB-stored language for a song (e.g. "en", "pl-PL"), or None."""
         if self._db is None:
@@ -770,6 +871,20 @@ class LyricsService:
             #   2. Detected from the LRC text. Lyrics are clean prose, hundreds
             #      of words; text-detection is reliable and essentially free.
             song_id = self._db.get_song_id_by_path(song_path) if self._db else None
+
+            # Tier 2b (US-43): re-validate language on the isolated vocals
+            # stem. Fires only when we actually got stems (not the raw-mix
+            # timeout fallback at line 747) — probing on the raw mix here
+            # would just duplicate Tier 2a on a noisier input. If 2b flips
+            # the DB language, abort this alignment pass: wav2vec2 is
+            # per-language, aligning with the wrong model is wasted work,
+            # and the ``.ass``/``lyrics_sha`` invalidation inside
+            # ``_run_tier2b_probe`` will make the next pipeline pass
+            # re-fetch LRC in the corrected language.
+            if song_id is not None and audio_path.startswith(_CACHE_DIR):
+                if self._run_tier2b_probe(song_path, song_id, audio_path):
+                    return
+
             db_lang = None
             if self._db is not None and song_id is not None:
                 row = self._db.get_song_by_id(song_id)
