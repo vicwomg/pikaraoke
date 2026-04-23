@@ -813,21 +813,48 @@ run on files already on disk; no new network endpoints anywhere.
   `test_lyrics_language_classifier.py` plus the
   `test_classifier_seeds_language_before_lrc_fetch` integration
   case in `test_lyrics.py`.
-- \[ \] **P0** Tier 2a Whisper raw-audio language probe. Fires on
-  Tier 1 miss/disagreement at `song_downloaded` time (no demucs
-  wait). 30-second language-ID pass at 50% track duration,
-  majority-voted against a 30% window on instrumental-heavy
-  tracks. Reuses the whisperx singleton in `lyrics_align.py`
-  (confirm its lazy-init supports language-ID-only mode — no
-  full transcription). Cache per `audio_sha256`. Persist
-  verdict under `whisper_probe_raw` (ladder rung already exists).
-- \[ \] **P0** Tier 2b Whisper vocals-stem re-probe. Fires when
-  `stems_ready` emits, on the demucs vocals stem rather than raw
-  audio. If 2b agrees with 2a, bump provenance to
-  `whisper_probe_stems`. If 2b disagrees, overwrite
-  `songs.language`, invalidate `.ass` + `lyrics_sha` +
-  `aligner_model` so the next lyrics pass re-fetches LRC with
-  the corrected language — the "write fast, fix later" path.
+- \[x\] ~~**P0** Tier 2a Whisper raw-audio language probe.~~ Landed in
+  `cf1d9279 feat(lyrics): Tier 2a Whisper language-ID probe on raw audio (US-43)`.
+  New `pikaraoke/lib/lyrics_audio_probe.py` runs a 30-second
+  `faster_whisper.WhisperModel.detect_language` pass at 50% of
+  track duration; low-confidence (\<0.5) results re-probe at 30%
+  and only accept when both windows agree on the same primary
+  subtag (cheap instrumental-heavy guard). Reuses the
+  faster-whisper singleton from `lyrics._get_whisper_model`
+  (the `WhisperXAligner` in `lyrics_align.py` only loads
+  wav2vec2 — no whisper model to share). Cached per
+  `audio_sha256` in `db.metadata` as
+  `whisper_probe_raw:<sha>` JSON; negative verdicts cache too
+  so repeat boots don't re-pay. Wired into
+  `LyricsService._run_language_classifier` to fire only when
+  Tier 1 returns no consensus. Persists under `whisper_probe_raw`
+  (rung 22). 19 tests in `test_lyrics_audio_probe.py`.
+- \[x\] ~~**P0** Tier 2b Whisper vocals-stem re-probe.~~ Landed in
+  `6a957da7 feat(lyrics): Tier 2b whole-song language-ID probe on vocals stem (US-43)`.
+  `probe_language_whole_song` runs the full vocals stem through
+  `detect_language(vad_filter=True, language_detection_segments=20)` —
+  VAD concatenates every sung chunk, then probabilities are
+  averaged across 6-10 mel segments for a 3-5 min song.
+  Fires inside `_upgrade_to_word_level` right after
+  `_wait_for_alignment_audio` resolves, only when real stems
+  are present (not the raw-mix timeout fallback). Decision rule
+  from the design doc: agreement bumps provenance to
+  `whisper_probe_stems` (rung 23); disagreement overwrites
+  `songs.language`, invalidates `.ass` + `lyrics_sha` +
+  `aligner_model` via `audio_fingerprint._invalidate_auto_ass`,
+  and aborts the current alignment pass so wav2vec2 doesn't burn
+  cycles on the wrong-language model. `manual` rung (100) blocks
+  the flip. Shared cache helpers with 2a (distinct prefix).
+  12 additional tests in `test_lyrics_audio_probe.py`.
+- \[x\] ~~**P2** End-to-end observability pass.~~ Landed in
+  `6c55804e chore(lyrics): end-to-end observability across the subtitle pipeline`.
+  Pipeline entry + terminal "source=X db_lang=Y" summary logs
+  in `_do_fetch_and_convert`; metadata-read log; LRCLib hit/miss;
+  VTT picker decision; Genius query/hit/miss; wav2vec2 align
+  start/done with word count + elapsed (previously zero log
+  lines in `lyrics_align.py`); basename↔sha bridge at Tier 2a/2b
+  entry so one grep joins probe-internal sha-keyed logs with the
+  rest of the pipeline's basename-keyed logs.
 - \[ \] **P0** Widen LRCLib candidate list. Upgrade
   `_fetch_lrc_with_itunes_fallback` to return **all** candidates
   from `/api/search` (not just `/api/get`'s single possibly
@@ -869,13 +896,12 @@ run on files already on disk; no new network endpoints anywhere.
     provenance `scanner` or `lrc_heuristic`) and assert the
     startup heal pass flips it to `pl` after the Whisper probe
     runs.
-- \[ \] **P2** Decide whether raw-mix probe results are re-validated
-  once stems land. A Whisper language-ID on isolated vocals is
-  meaningfully more confident; a low-confidence raw-mix verdict
-  could be upgraded to high-confidence post-`stems_ready` without
-  changing the rendered `.ass`. This is basically what Tier 2b
-  above implements; leaving the note so the tradeoff is
-  reviewable if we ever scope Tier 2b out.
+- \[x\] ~~**P2** Decide whether raw-mix probe results are re-validated
+  once stems land.~~ Resolved by Tier 2b landing above — every 2a
+  verdict is re-validated against the isolated vocals stem, and
+  disagreement triggers a language overwrite + `.ass` invalidation
+  so the next pipeline pass re-fetches LRC in the corrected
+  language.
 
 ______________________________________________________________________
 
