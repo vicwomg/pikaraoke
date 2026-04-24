@@ -447,9 +447,7 @@ class TestSongWarningBuffer:
         assert mock_karaoke.get_song_warnings() == []
         assert json.loads(store["song_warnings"]) == []
 
-    def test_dismiss_song_warnings_removes_matching_and_broadcasts(
-        self, mock_karaoke
-    ):
+    def test_dismiss_song_warnings_removes_matching_and_broadcasts(self, mock_karaoke):
         """US-13: per-song dismiss drops matching entries and emits broadcast."""
         store = self._wire(mock_karaoke)
         mock_karaoke.socketio = MagicMock()
@@ -463,12 +461,11 @@ class TestSongWarningBuffer:
         remaining = mock_karaoke.get_song_warnings()
         assert [w["song"] for w in remaining] == ["SongB.mp4"]
         # Persisted buffer reflects the dismissal.
-        assert [w["song"] for w in json.loads(store["song_warnings"])] == [
-            "SongB.mp4"
-        ]
+        assert [w["song"] for w in json.loads(store["song_warnings"])] == ["SongB.mp4"]
         # Broadcast fires once, carrying just the song key.
         dismiss_calls = [
-            c for c in mock_karaoke.socketio.emit.call_args_list
+            c
+            for c in mock_karaoke.socketio.emit.call_args_list
             if c.args[0] == "song_warnings_dismissed"
         ]
         assert len(dismiss_calls) == 1
@@ -490,7 +487,8 @@ class TestSongWarningBuffer:
         # Broadcast still fires so other clients can drop anything they have
         # locally — the server is authoritative for dismissal, not the buffer.
         dismiss_calls = [
-            c for c in mock_karaoke.socketio.emit.call_args_list
+            c
+            for c in mock_karaoke.socketio.emit.call_args_list
             if c.args[0] == "song_warnings_dismissed"
         ]
         assert len(dismiss_calls) == 1

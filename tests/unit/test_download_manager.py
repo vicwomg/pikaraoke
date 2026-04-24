@@ -1,8 +1,8 @@
 """Unit tests for download_manager module."""
 
 import json
-import time
 import threading
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -187,24 +187,23 @@ class TestDownloadManagerQueueDownload:
         notifications: list[str] = []
         events.on("notification", lambda msg, *args: notifications.append(msg))
 
-        download_manager.queue_download(
-            "https://youtube.com/watch?v=abc12345678", user="TestUser"
-        )
+        download_manager.queue_download("https://youtube.com/watch?v=abc12345678", user="TestUser")
 
         assert download_manager.download_queue.empty()
         assert downloaded == [existing]
         assert any("Already downloaded" in n for n in notifications)
 
-    def test_maybe_emit_download_progress_throttles_by_integer_pct(
-        self, download_manager, events
-    ):
+    def test_maybe_emit_download_progress_throttles_by_integer_pct(self, download_manager, events):
         """One `download_progress` per integer-pct bucket (no firehose)."""
         emitted: list[dict] = []
         events.on("download_progress", lambda data: emitted.append(data))
 
         download_manager.active_download = {
-            "title": "Song", "url": "u", "user": "U",
-            "progress": 0.0, "status": "downloading",
+            "title": "Song",
+            "url": "u",
+            "user": "U",
+            "progress": 0.0,
+            "status": "downloading",
         }
         last = [-1]
         # 0.1, 0.5 share bucket 0 -> 1 emit; 1.0, 1.4 share bucket 1 -> 1 emit
@@ -232,9 +231,7 @@ class TestDownloadManagerQueueDownload:
             user="TestUser",
         )
 
-        queue_manager.enqueue.assert_called_once_with(
-            existing, "TestUser", log_action=False
-        )
+        queue_manager.enqueue.assert_called_once_with(existing, "TestUser", log_action=False)
 
 
 class TestDownloadManagerExecuteDownload:

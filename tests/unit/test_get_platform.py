@@ -323,9 +323,9 @@ class TestGetAcceleratorBackend:
 
     def test_torch_missing_returns_none(self):
         """Without torch installed the readout is 'none'/'torch not installed'."""
-        from pikaraoke.lib import get_platform as gp
-
         import builtins
+
+        from pikaraoke.lib import get_platform as gp
 
         real_import = builtins.__import__
 

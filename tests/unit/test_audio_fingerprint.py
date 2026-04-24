@@ -301,9 +301,7 @@ class TestLyricsShaClearedOnAudioChange:
         cache_root = tmp_path / "cache"
         (cache_root / ("a" * 64)).mkdir(parents=True)
         db.update_audio_fingerprint(sid, 0.0, 0, "a" * 64)
-        db.update_processing_config(
-            sid, lyrics_sha="oldlyrics" * 8, aligner_model="whisperx-base"
-        )
+        db.update_processing_config(sid, lyrics_sha="oldlyrics" * 8, aligner_model="whisperx-base")
         # Add an auto .ass so _invalidate_auto_ass actually runs its loop.
         ass = tmp_path / "t.ass"
         ass.write_text("auto")
@@ -318,9 +316,7 @@ class TestLyricsShaClearedOnAudioChange:
 
     def test_lyrics_config_invalidation_also_clears_sha(self, db, tmp_path):
         sid = _insert_song(db)
-        db.update_processing_config(
-            sid, aligner_model="whisperx-base", lyrics_sha="abc" * 20
-        )
+        db.update_processing_config(sid, aligner_model="whisperx-base", lyrics_sha="abc" * 20)
         ass = tmp_path / "t.ass"
         ass.write_text("auto")
         db.upsert_artifacts(sid, [{"role": "ass_auto", "path": str(ass)}])

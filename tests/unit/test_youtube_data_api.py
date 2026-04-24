@@ -48,10 +48,10 @@ class TestBatchCaptionInfo:
             "items": [{"id": "aaaaaaaaaaa", "contentDetails": {"caption": "true"}}]
         }
         response.raise_for_status = MagicMock()
-        with patch("pikaraoke.lib.youtube_data_api.requests.get", return_value=response) as mock_get:
-            result = batch_caption_info(
-                ["aaaaaaaaaaa", "aaaaaaaaaaa", "aaaaaaaaaaa"], "AIza-key"
-            )
+        with patch(
+            "pikaraoke.lib.youtube_data_api.requests.get", return_value=response
+        ) as mock_get:
+            result = batch_caption_info(["aaaaaaaaaaa", "aaaaaaaaaaa", "aaaaaaaaaaa"], "AIza-key")
         # Only one API call despite three input IDs.
         assert mock_get.call_count == 1
         sent_params = mock_get.call_args.kwargs["params"]
@@ -68,9 +68,7 @@ class TestBatchCaptionInfo:
             batch_ids = kwargs["params"]["id"].split(",")
             response = MagicMock(status_code=200)
             response.json.return_value = {
-                "items": [
-                    {"id": vid, "contentDetails": {"caption": "false"}} for vid in batch_ids
-                ]
+                "items": [{"id": vid, "contentDetails": {"caption": "false"}} for vid in batch_ids]
             }
             response.raise_for_status = MagicMock()
             return response
@@ -84,9 +82,7 @@ class TestBatchCaptionInfo:
 
     def test_falls_through_on_http_error(self):
         response = MagicMock(status_code=403)
-        response.raise_for_status = MagicMock(
-            side_effect=requests.HTTPError("403 quotaExceeded")
-        )
+        response.raise_for_status = MagicMock(side_effect=requests.HTTPError("403 quotaExceeded"))
         with patch("pikaraoke.lib.youtube_data_api.requests.get", return_value=response):
             # An HTTP error means we can't trust any results — return {}
             # so the caller falls through to yt-dlp probes.
@@ -115,7 +111,9 @@ class TestBatchCaptionInfo:
             "items": [{"id": "aaaaaaaaaaa", "contentDetails": {"caption": "true"}}]
         }
         response.raise_for_status = MagicMock()
-        with patch("pikaraoke.lib.youtube_data_api.requests.get", return_value=response) as mock_get:
+        with patch(
+            "pikaraoke.lib.youtube_data_api.requests.get", return_value=response
+        ) as mock_get:
             batch_caption_info(["", "aaaaaaaaaaa", None], "AIza-key")  # type: ignore[list-item]
         sent_params = mock_get.call_args.kwargs["params"]
         assert sent_params["id"] == "aaaaaaaaaaa"

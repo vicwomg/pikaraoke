@@ -332,7 +332,13 @@ def check_captions(video_id: str) -> dict:
         )
     except subprocess.TimeoutExpired:
         logging.warning("yt-dlp caption probe timed out for %s", video_id)
-        payload = {"id": video_id, "has_captions": False, "manual": False, "auto": False, "langs": []}
+        payload = {
+            "id": video_id,
+            "has_captions": False,
+            "manual": False,
+            "auto": False,
+            "langs": [],
+        }
         # Cache the miss so the frontend doesn't retry in a tight loop.
         with _CAPTION_CACHE_LOCK:
             _CAPTION_CACHE[video_id] = payload
@@ -343,7 +349,13 @@ def check_captions(video_id: str) -> dict:
             video_id,
             result.stderr.decode("utf-8", "ignore"),
         )
-        payload = {"id": video_id, "has_captions": False, "manual": False, "auto": False, "langs": []}
+        payload = {
+            "id": video_id,
+            "has_captions": False,
+            "manual": False,
+            "auto": False,
+            "langs": [],
+        }
         with _CAPTION_CACHE_LOCK:
             _CAPTION_CACHE[video_id] = payload
         return payload

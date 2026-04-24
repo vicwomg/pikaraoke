@@ -134,21 +134,15 @@ def ensure_lyrics_config(
     stale_reason: str | None = None
     cached_aligner = row["aligner_model"]
     if cached_aligner is not None and cached_aligner != current_aligner_model:
-        stale_reason = (
-            f"aligner_model changed ({cached_aligner} -> {current_aligner_model})"
-        )
+        stale_reason = f"aligner_model changed ({cached_aligner} -> {current_aligner_model})"
     elif current_demucs_model is not None:
         cached_demucs = row["demucs_model"]
         if cached_demucs is not None and cached_demucs != current_demucs_model:
-            stale_reason = (
-                f"demucs_model changed ({cached_demucs} -> {current_demucs_model})"
-            )
+            stale_reason = f"demucs_model changed ({cached_demucs} -> {current_demucs_model})"
     if stale_reason is None and current_lyrics_sha is not None:
         cached_sha = row["lyrics_sha"]
         if cached_sha is not None and cached_sha != current_lyrics_sha:
-            stale_reason = (
-                f"lyrics_sha changed ({cached_sha[:12]} -> {current_lyrics_sha[:12]})"
-            )
+            stale_reason = f"lyrics_sha changed ({cached_sha[:12]} -> {current_lyrics_sha[:12]})"
     if stale_reason is None:
         return True
     logger.info("invalidating auto .ass for song %d: %s", song_id, stale_reason)
@@ -168,9 +162,7 @@ def _hash_file_sha256(path: str) -> str | None:
         return None
 
 
-def ensure_artifact_fingerprint(
-    db: KaraokeDatabase, song_id: int, path: str
-) -> str | None:
+def ensure_artifact_fingerprint(db: KaraokeDatabase, song_id: int, path: str) -> str | None:
     """Return the current sha256 of one artifact file (US-30).
 
     Mirrors ``ensure_audio_fingerprint`` but per-artifact: on stat-match with

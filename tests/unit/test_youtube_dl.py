@@ -394,11 +394,7 @@ class TestCheckCaptions:
 
     def test_parses_manual_and_auto_captions(self):
         # yt-dlp emits "<subtitles_json>|<automatic_captions_json>".
-        stdout = (
-            b'{"en": [{"ext":"vtt"}], "pl": [{"ext":"vtt"}]}'
-            b"|"
-            b'{"en": [{"ext":"vtt"}]}'
-        )
+        stdout = b'{"en": [{"ext":"vtt"}], "pl": [{"ext":"vtt"}]}' b"|" b'{"en": [{"ext":"vtt"}]}'
         fake = MagicMock(returncode=0, stdout=stdout, stderr=b"")
         with patch("pikaraoke.lib.youtube_dl.subprocess.run", return_value=fake):
             result = check_captions("dQw4w9WgXcQ")

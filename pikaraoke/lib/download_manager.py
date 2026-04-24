@@ -181,13 +181,9 @@ class DownloadManager:
         # already-registered songs.
         video_id = get_youtube_id_from_url(video_url)
         if video_id:
-            existing_path = self._song_manager.songs.find_by_id(
-                self._download_path, video_id
-            )
+            existing_path = self._song_manager.songs.find_by_id(self._download_path, video_id)
             if existing_path:
-                logging.info(
-                    "cache hit for %s (%s); skipping yt-dlp", video_id, existing_path
-                )
+                logging.info("cache hit for %s (%s); skipping yt-dlp", video_id, existing_path)
                 # MSG: Message shown when the requested song is already in the library
                 self._events.emit(
                     "notification", _("Already downloaded: %s") % displayed_title, "success"
@@ -324,9 +320,7 @@ class DownloadManager:
             # Split pipeline runs an audio-only yt-dlp in parallel with the
             # video-only one so Demucs can start as soon as the audio exits.
             # Surface the audio leg too so the splash shows both stages.
-            self._events.emit(
-                "notification", _("Downloading audio: %s") % displayed_title
-            )
+            self._events.emit("notification", _("Downloading audio: %s") % displayed_title)
             rc, output = self._run_split_download(video_url, video_id, displayed_title)
         else:
             rc, output = self._run_merged_download(video_url)
@@ -608,9 +602,7 @@ class DownloadManager:
             # Audio is on disk and separation is about to start. This is the
             # most visible "stuck" stage (30-60s on a Pi), so toast it so the
             # operator sees progress beyond the download bar.
-            self._events.emit(
-                "notification", _("Separating vocals: %s") % displayed_title
-            )
+            self._events.emit("notification", _("Separating vocals: %s") % displayed_title)
             prewarm(m4a)
         except Exception:  # pragma: no cover - defensive
             logging.exception("Demucs prewarm dispatch failed for %s", m4a)

@@ -69,9 +69,7 @@ class TestQueueRoutes:
 
     @patch("pikaraoke.routes.queue.get_karaoke_instance")
     @patch("pikaraoke.routes.queue.is_admin", return_value=False)
-    def test_delete_download_error_requires_admin(
-        self, _mock_is_admin, mock_get_instance, client
-    ):
+    def test_delete_download_error_requires_admin(self, _mock_is_admin, mock_get_instance, client):
         """Non-admins get 403 and the remove_error helper is never called."""
         mock_karaoke = MagicMock()
         mock_get_instance.return_value = mock_karaoke
