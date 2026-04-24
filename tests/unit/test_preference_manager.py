@@ -298,6 +298,7 @@ def test_preference_manager_defaults_exist():
         "download_path",
         "youtubedl_proxy",
         "preferred_language",
+        "subtitle_offset",
     }
 
     assert set(PreferenceManager.DEFAULTS.keys()) == expected_keys

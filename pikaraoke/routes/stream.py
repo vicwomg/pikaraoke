@@ -127,7 +127,10 @@ def stream_stem_audio(stream_id: str, stem: str, ext: str):
     # Fully-written files (cache hit, or Demucs completed mid-song) — serve
     # with range support so the browser can seek via HTTP byte ranges.
     if is_done:
-        return send_file(path, mimetype=mimetype, conditional=True)
+        response = send_file(path, mimetype=mimetype, conditional=True)
+        # Advertise range support on plain GET too so clients know seeking works.
+        response.headers["Accept-Ranges"] = "bytes"
+        return response
 
     def generate():
         with open(path, "rb") as f:
