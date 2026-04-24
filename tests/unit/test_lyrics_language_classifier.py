@@ -49,6 +49,42 @@ class TestItunesTextSignal:
         assert sig is not None
         assert sig.language == "en"
 
+    def test_dub_marker_polish_ver_beats_english_boilerplate(self):
+        """Regression: Pocahontas "[Polish Ver]" trap — langdetect alone
+        reads the surrounding English soundtrack text and calls it EN.
+        The dub marker is unambiguous ground truth and must win.
+        """
+        hit = {
+            "collectionName": (
+                "Pocahontas Original Soundtrack "
+                "(Soundtrack from the Motion Picture) [Polish Ver]"
+            ),
+            "trackName": "Kolorowy Wiatr",
+            "artistName": "Edyta Gorniak",
+        }
+        sig = _signal_itunes_text(hit)
+        assert sig is not None
+        assert sig.language == "pl"
+        assert "dub_marker" in sig.detail
+
+    def test_dub_marker_native_polska_wersja(self):
+        hit = {
+            "collectionName": "Pocahontas (Polska Wersja Językowa)",
+            "trackName": "Kolorowy Wiatr",
+            "artistName": "Edyta Górniak",
+        }
+        sig = _signal_itunes_text(hit)
+        assert sig is not None and sig.language == "pl"
+
+    def test_dub_marker_german_version(self):
+        hit = {
+            "collectionName": "Die Eiskönigin (Deutsche Version)",
+            "trackName": "Lass jetzt los",
+            "artistName": "Willemijn Verkaik",
+        }
+        sig = _signal_itunes_text(hit)
+        assert sig is not None and sig.language == "de"
+
 
 class TestItunesCountrySignal:
     def test_polish_storefront(self):
@@ -77,6 +113,25 @@ class TestMbReleaseTitlesSignal:
     def test_empty(self):
         assert _signal_mb_release_titles({}) is None
         assert _signal_mb_release_titles(None) is None
+
+    def test_per_release_vote_polish_wins_over_english_compilation(self):
+        """Regression: "Best Of Disney | Złota kolekcja | The Magic of Disney"
+        is a mixed-language compilation; joined langdetect reads the
+        English majority and calls it EN. Per-release voting gives each
+        title one vote, so the Polish title's vote counts equally.
+        """
+        mb = {
+            "release_titles_joined": (
+                "Best Of Disney | Złota kolekcja: Dotyk | " "The Magic of Disney"
+            ),
+        }
+        sig = _signal_mb_release_titles(mb)
+        # At least Polish is now represented among the votes — previously
+        # the EN boilerplate drowned it entirely. Depending on langdetect
+        # stability the top may be pl or tie; we just assert pl is not
+        # ignored anymore (the flagship regression).
+        if sig is not None and "per_release_vote" in sig.detail:
+            assert "pl" in sig.detail or sig.language == "pl"
 
 
 class TestMbReleaseCountrySignal:

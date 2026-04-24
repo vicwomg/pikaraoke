@@ -37,10 +37,14 @@ from pikaraoke.lib.lyrics_audio_probe import probe_language as _probe_audio_lang
 from pikaraoke.lib.lyrics_audio_probe import (
     probe_language_whole_song as _probe_audio_language_whole_song,
 )
+from pikaraoke.lib.lyrics_audio_probe import (
+    read_cached_verdict as _read_cached_probe_verdict,
+)
 from pikaraoke.lib.lyrics_language_classifier import (
     classify_and_persist as _classify_language,
 )
 from pikaraoke.lib.lyrics_language_classifier import read_info_json as _read_info_json
+from pikaraoke.lib.metadata_parser import remove_accents
 from pikaraoke.lib.music_metadata import (
     _itunes_row_to_dict,
     _normalize_title,
@@ -329,6 +333,15 @@ class LyricsService:
         # against on cold-DB first runs (the Kolorowy wiatr poison path).
         self._run_language_classifier(song_path, info)
 
+        # If a previous session already ran Tier-2b (``whisper_probe_stems``)
+        # for this audio sha, apply its cached verdict NOW — before the
+        # LRCLib round-trip. Otherwise Tier-1 consensus may have just
+        # written a wrong language (the Kolorowy wiatr text-signals-all-
+        # lying case), we'd fetch LRC in the wrong language and then
+        # discard it via the dub guard. Reading the cache is free; the
+        # expensive probe itself has already been paid for.
+        self._apply_cached_stems_probe(song_path)
+
         # Tell the operator we're about to hit LRCLib / iTunes. Emitted
         # BEFORE the network call so the "Fetching lyrics…" toast lands
         # while the HTTP round-trip is in flight. Skipped above if a
@@ -456,12 +469,21 @@ class LyricsService:
 
         source = "lrclib" if wrote_from_lrc else "genius" if wrote_from_genius else "youtube_vtt"
         will_align = bool(self._aligner and lrc)
+        # Genius path aligns inline inside _try_genius_fallback before this
+        # log fires, so reporting "skipped" there would be a lie. LRC path
+        # only queues alignment (Demucs still running) — "queued" is honest.
+        if wrote_from_genius:
+            alignment_status = "inline"
+        elif will_align:
+            alignment_status = "queued"
+        else:
+            alignment_status = "skipped"
         logger.info(
             "lyrics pipeline: %s -> source=%s db_lang=%s word_alignment=%s",
             basename,
             source,
             self._db_language(song_path),
-            "queued" if will_align else "skipped",
+            alignment_status,
         )
 
         # Per-word forced alignment requires reference lyrics text.
@@ -642,6 +664,64 @@ class LyricsService:
             bool(applied),
         )
 
+    def _apply_cached_stems_probe(self, song_path: str) -> None:
+        """Apply a previously cached ``whisper_probe_stems`` verdict, if any.
+
+        The stems probe (Tier 2b) only runs after Demucs completes, which
+        is long after the LRCLib/Genius fetch. But once it's run for a
+        given ``audio_sha256``, the verdict is cached in ``db.metadata``
+        and survives across sessions. On a re-dispatch (or a replay of an
+        already-processed song), that cache is hot before the pipeline
+        starts — so we can consult it up front and flip the DB language
+        early, saving a wasted LRCLib fetch + dub-guard discard when the
+        cached verdict disagrees with Tier-1 consensus.
+
+        No-op when the cache has no entry (first-ever run), when Whisper
+        isn't available, or when the probe was inconclusive. Writes under
+        ``whisper_probe_stems`` rung, so the ladder still respects a
+        sticky ``manual`` language.
+        """
+        if self._db is None:
+            return
+        try:
+            song_id = self._db.get_song_id_by_path(song_path)
+        except Exception:
+            return
+        if song_id is None:
+            return
+        row = self._db.get_song_by_id(song_id)
+        if row is None:
+            return
+        audio_sha = row["audio_sha256"]
+        if not audio_sha:
+            return
+        try:
+            cached_lang, hit = _read_cached_probe_verdict(
+                self._db.get_metadata, audio_sha, prefix="whisper_probe_stems"
+            )
+        except Exception:
+            logger.exception("cached stems probe: read failed for %s", song_path)
+            return
+        if not hit or not cached_lang:
+            return
+        current_lang = row["language"]
+        if _lang_base(current_lang or "") == _lang_base(cached_lang):
+            return
+        try:
+            applied = self._db.update_track_metadata_with_provenance(
+                song_id, "whisper_probe_stems", {"language": cached_lang}
+            )
+        except Exception:
+            logger.exception("cached stems probe: persist failed for %s", song_path)
+            return
+        if applied:
+            logger.info(
+                "US-43 cached stems probe: %s applied lang=%s (was %s) before LRCLib fetch",
+                os.path.basename(song_path),
+                cached_lang,
+                current_lang,
+            )
+
     def _run_tier2b_probe(self, song_path: str, song_id: int, stem_path: str) -> bool:
         """Tier 2b Whisper language-ID re-probe on the vocals stem (US-43).
 
@@ -783,34 +863,55 @@ class LyricsService:
             return None
 
     def _is_lrc_language_mismatch(self, song_path: str, lrc: str) -> bool:
-        """True when the DB-stored audio language disagrees with the LRC's.
+        """True when the DB-stored audio language disagrees with the LRC's."""
+        return self._is_lyrics_language_mismatch(
+            song_path, _lrc_plain_text(lrc), source_label="LRCLib"
+        )
 
-        Catches the dub trap: LRCLib indexes by canonical song name, so a
-        Polish dub of an English original (e.g. Edyta Górniak's "Kolorowy
-        wiatr") gets the English "Colors of the Wind" lyrics served back.
-        The pipeline would then render English text timed against Polish
-        vocals, and sync looks permanently "off".
+    def _is_genius_language_mismatch(self, song_path: str, genius_text: str) -> bool:
+        """True when the DB-stored audio language disagrees with Genius text.
+
+        Genius, like LRCLib, is indexed by canonical song title — so the
+        Polish dub of a Disney song can return the English original
+        lyrics. Without this guard we'd align EN words against PL vocals
+        (Whisper flipped the DB lang earlier, but Genius search is title-
+        based and doesn't see that flip). Mirrors the LRCLib guard.
+        """
+        return self._is_lyrics_language_mismatch(song_path, genius_text, source_label="Genius")
+
+    def _is_lyrics_language_mismatch(
+        self, song_path: str, plain_text: str, *, source_label: str
+    ) -> bool:
+        """Core dub-trap guard shared by LRCLib + Genius paths.
+
+        Catches the dub trap: both sources index by canonical song name,
+        so a Polish dub of an English original (e.g. Edyta Górniak's
+        "Kolorowy wiatr") gets the English "Colors of the Wind" lyrics
+        served back. The pipeline would then render English text timed
+        against Polish vocals, and sync looks permanently "off".
 
         Compares primary subtags only (``pl`` vs ``pl-PL`` counts as a
         match). NULL-cached DB language means "no ground truth yet" —
-        trust LRC in that case, because we have no better signal without
-        adding a Whisper audio probe. Once Whisper writes its detected
-        language back to the DB, the next run will enforce consistency.
+        trust the source in that case, because we have no better signal
+        without adding a Whisper audio probe. Once Whisper writes its
+        detected language back to the DB, the next run will enforce
+        consistency.
         """
         db_lang = self._db_language(song_path)
         if not db_lang:
             return False
-        lrc_lang = _detect_language(_lrc_plain_text(lrc))
-        if not lrc_lang:
+        lyrics_lang = _detect_language(plain_text)
+        if not lyrics_lang:
             return False
-        if _lang_base(db_lang) == _lang_base(lrc_lang):
+        if _lang_base(db_lang) == _lang_base(lyrics_lang):
             return False
         logger.warning(
-            "LRCLib language mismatch for %s: DB=%s, LRC=%s — dropping LRC "
-            "to avoid mis-synced subs; falling through to VTT / Whisper",
+            "%s language mismatch for %s: DB=%s, lyrics=%s — dropping to "
+            "avoid mis-synced subs; falling through to next source",
+            source_label,
             os.path.basename(song_path),
             db_lang,
-            lrc_lang,
+            lyrics_lang,
         )
         return True
 
@@ -1028,6 +1129,9 @@ class LyricsService:
             artist,
             len(genius_text),
         )
+
+        if self._is_genius_language_mismatch(song_path, genius_text):
+            return False
 
         self._emit_stage_notification(song_path, "Aligning Genius lyrics")
         _prewarm_stems(song_path)
@@ -1404,12 +1508,15 @@ def _fetch_genius(track: str, artist: str) -> str | None:
     except (requests.RequestException, ValueError) as e:
         logger.warning("Genius search failed: %s", e)
         return None
-    artist_lc = artist.strip().lower()
+    # Accent-fold both sides so yt-dlp metadata like "Edyta Gorniak"
+    # matches Genius's "Edyta Górniak". Pure .lower() keeps diacritics,
+    # so the exact-match drops legitimate hits for non-ASCII artists.
+    artist_key = remove_accents(artist.strip().lower())
     url = None
     for hit in hits:
         result = hit.get("result") or {}
         primary = (result.get("primary_artist") or {}).get("name", "")
-        if primary.strip().lower() == artist_lc:
+        if remove_accents(primary.strip().lower()) == artist_key:
             url = result.get("url")
             break
     if not url:

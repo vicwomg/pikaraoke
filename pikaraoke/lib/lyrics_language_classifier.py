@@ -32,6 +32,7 @@ Design constraints (from US-43):
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass, field
 
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
@@ -166,8 +167,70 @@ def _langdetect(text: str) -> str | None:
 # --- per-source signal extractors --------------------------------------
 
 
+# Explicit dub/version markers that appear in iTunes collection names.
+# Maps English language name -> primary subtag; we scan for
+# ``<name> (ver|version|edition|dub|language)`` and a handful of native
+# equivalents for languages whose iTunes storefronts commonly use them.
+# Conservative by design — only unambiguous markers, never just the bare
+# language name (``"Polish"`` alone could easily appear in an English
+# album title without meaning the lyrics are Polish).
+_LANG_NAME_TO_CODE = {
+    "polish": "pl",
+    "german": "de",
+    "french": "fr",
+    "spanish": "es",
+    "italian": "it",
+    "portuguese": "pt",
+    "russian": "ru",
+    "czech": "cs",
+    "hungarian": "hu",
+    "dutch": "nl",
+    "japanese": "ja",
+    "korean": "ko",
+    "chinese": "zh",
+    "mandarin": "zh",
+    "swedish": "sv",
+    "norwegian": "no",
+    "danish": "da",
+    "finnish": "fi",
+    "greek": "el",
+    "turkish": "tr",
+    "ukrainian": "uk",
+}
+_DUB_MARKER_EN = re.compile(
+    r"\b(" + "|".join(_LANG_NAME_TO_CODE) + r")\s+(ver|version|edition|dub|language)\b",
+    re.IGNORECASE,
+)
+# Native-language dub markers. Keyed by primary subtag; the regex fires
+# on the raw (case-insensitive) text.
+_DUB_MARKERS_NATIVE: tuple[tuple[str, re.Pattern], ...] = (
+    ("pl", re.compile(r"\b(polska\s+wersja|wersja\s+polska)\b", re.IGNORECASE)),
+    ("de", re.compile(r"\b(deutsche\s+version)\b", re.IGNORECASE)),
+    ("fr", re.compile(r"\b(version\s+fran[cç]aise)\b", re.IGNORECASE)),
+    ("es", re.compile(r"\b(versi[oó]n\s+espa[ñn]ola)\b", re.IGNORECASE)),
+    ("it", re.compile(r"\b(versione\s+italiana)\b", re.IGNORECASE)),
+)
+
+
+def _dub_hint_language(text: str) -> tuple[str, str] | None:
+    """Scan ``text`` for a dub/version marker; return ``(lang, matched)`` or None.
+
+    Catches the "Polish Ver" / "Polska Wersja" case in iTunes collection
+    names where langdetect would otherwise read the surrounding English
+    soundtrack boilerplate and mis-classify the album as English.
+    """
+    m = _DUB_MARKER_EN.search(text)
+    if m:
+        return _LANG_NAME_TO_CODE[m.group(1).lower()], m.group(0)
+    for code, pattern in _DUB_MARKERS_NATIVE:
+        m = pattern.search(text)
+        if m:
+            return code, m.group(0)
+    return None
+
+
 def _signal_itunes_text(itunes_hit: dict | None) -> LanguageSignal | None:
-    """Rung 17. langdetect over iTunes collection + track + artist names."""
+    """Rung 17. Dub-marker / langdetect over iTunes collection + track + artist."""
     if not itunes_hit:
         return None
     parts = [
@@ -176,6 +239,17 @@ def _signal_itunes_text(itunes_hit: dict | None) -> LanguageSignal | None:
         (itunes_hit.get("artistName") or "").strip(),
     ]
     text = " ".join(p for p in parts if p)
+    # Explicit dub markers beat langdetect — they're unambiguous ground
+    # truth when present, and langdetect is what mis-classified these
+    # cases in the first place (the Pocahontas "[Polish Ver]" trap).
+    hint = _dub_hint_language(text)
+    if hint:
+        lang, matched = hint
+        return LanguageSignal(
+            source="itunes_text",
+            language=lang,
+            detail=f"dub_marker({matched!r})",
+        )
     lang = _lang_base(_langdetect(text))
     if not lang:
         return None
@@ -204,10 +278,38 @@ def _signal_itunes_country(itunes_hit: dict | None) -> LanguageSignal | None:
 
 
 def _signal_mb_release_titles(mb_signals: dict | None) -> LanguageSignal | None:
-    """Rung 16. langdetect over joined MB release titles."""
+    """Rung 16. langdetect over MB release titles, voting per-release.
+
+    MB compilations frequently mix languages ("Best Of Disney | Złota
+    kolekcja"). Running langdetect on the joined string is noisy — the
+    English boilerplate outweighs the Polish release title. Splitting on
+    the stable ``" | "`` separator used by ``music_metadata`` lets us
+    vote per-release; tied or single-title inputs fall back to the joined
+    string so we stay conservative on low-data cases.
+    """
     if not mb_signals:
         return None
     joined = (mb_signals.get("release_titles_joined") or "").strip()
+    if not joined:
+        return None
+    titles = [t.strip() for t in joined.split(" | ") if t.strip()]
+    if len(titles) >= 2:
+        votes: dict[str, int] = {}
+        for title in titles:
+            lang = _lang_base(_langdetect(title))
+            if lang:
+                votes[lang] = votes.get(lang, 0) + 1
+        if votes:
+            top = max(votes.values())
+            winners = [lang for lang, count in votes.items() if count == top]
+            if len(winners) == 1:
+                return LanguageSignal(
+                    source="mb_release_titles",
+                    language=winners[0],
+                    detail=f"per_release_vote({votes})",
+                )
+            # Tie across languages — fall through to the joined heuristic
+            # rather than picking arbitrarily.
     lang = _lang_base(_langdetect(joined))
     if not lang:
         return None

@@ -479,6 +479,28 @@ class TestFetchGenius:
         ):
             assert _fetch_genius("Track", "Artist") is None
 
+    def test_matches_artist_ignoring_diacritics(self):
+        # yt-dlp metadata often strips Polish diacritics ("Edyta Gorniak"),
+        # while Genius returns them ("Edyta Górniak"). Matcher must fold.
+        search_resp = MagicMock(status_code=200)
+        search_resp.json.return_value = {
+            "response": {
+                "hits": [
+                    {
+                        "result": {
+                            "primary_artist": {"name": "Edyta Górniak"},
+                            "url": "https://genius.com/edyta-gorniak-kolorowy-wiatr-lyrics",
+                        }
+                    }
+                ]
+            }
+        }
+        page_resp = MagicMock(status_code=200, text="")
+        with patch("pikaraoke.lib.lyrics.GENIUS_ACCESS_TOKEN", "token"), patch(
+            "pikaraoke.lib.lyrics.requests.get", side_effect=[search_resp, page_resp]
+        ), patch("pikaraoke.lib.lyrics._extract_genius_lyrics", return_value="hi"):
+            assert _fetch_genius("Kolorowy Wiatr", "Edyta Gorniak") == "hi"
+
     def test_strips_variant_from_search_query(self):
         search_resp = MagicMock(status_code=200)
         search_resp.json.return_value = {"response": {"hits": []}}
@@ -2067,6 +2089,87 @@ class TestLyricsServiceLanguageMismatch:
             service.fetch_and_convert(song)
         row = db.get_song_by_id(db.get_song_id_by_path(song))
         assert row["lyrics_source"] == "lrclib"
+        db.close()
+
+    def test_genius_mismatch_rejected(self, tmp_path):
+        """Genius has the same dub-trap risk as LRCLib — indexed by
+        canonical song title, so the Polish dub of "Colors of the Wind"
+        can return the English lyrics. Must be rejected when DB lang is
+        known and disagrees.
+        """
+        song, db, _sid = self._song_with_lang(tmp_path, db_language="pl")
+        english_genius = (
+            "You think I'm an ignorant savage\n"
+            "And you've been so many places, I guess it must be so\n"
+            "But still I cannot see, if the savage one is me\n"
+            "How can there be so much that you don't know, you don't know\n"
+        )
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=None, db=db)
+        assert service._is_genius_language_mismatch(song, english_genius) is True
+        db.close()
+
+    def test_genius_match_accepted(self, tmp_path):
+        song, db, _sid = self._song_with_lang(tmp_path, db_language="pl")
+        polish_genius = (
+            "Czy ci ludzie, których dzikimi zwiesz, mają duszę taką jak ty?\n"
+            "Czy wiesz, że każdy kwiat ma barwę swą i każdy liść ma życie swoje\n"
+        )
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=None, db=db)
+        assert service._is_genius_language_mismatch(song, polish_genius) is False
+        db.close()
+
+    def test_genius_null_db_language_trusts_genius(self, tmp_path):
+        song, db, _sid = self._song_with_lang(tmp_path, db_language=None)
+        english_genius = "You think I'm an ignorant savage and I cannot see"
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=None, db=db)
+        assert service._is_genius_language_mismatch(song, english_genius) is False
+        db.close()
+
+    def test_cached_stems_probe_flips_before_lrc_fetch(self, tmp_path):
+        """P3: on a replay where a previous session's stems probe is
+        cached, consult it BEFORE the LRCLib round-trip so Tier-1's wrong
+        guess doesn't linger through the fetch.
+        """
+        import json
+
+        song, db, sid = self._song_with_lang(tmp_path, db_language="en")
+        # Simulate a prior tier2b verdict sitting in the cache for this
+        # song's audio sha.
+        db.update_audio_fingerprint(sid, mtime=1.0, size=100, sha256="deadbeefcafe" * 5)
+        db.set_metadata(
+            f"whisper_probe_stems:{'deadbeefcafe' * 5}",
+            json.dumps({"lang": "pl", "conf": 0.9}),
+        )
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=None, db=db)
+        service._apply_cached_stems_probe(song)
+        row = db.get_song_by_id(sid)
+        assert row["language"] == "pl"
+        db.close()
+
+    def test_cached_stems_probe_noop_when_agreeing(self, tmp_path):
+        """No spurious write when cached verdict matches current DB lang."""
+        import json
+
+        song, db, sid = self._song_with_lang(tmp_path, db_language="pl")
+        db.update_audio_fingerprint(sid, mtime=1.0, size=100, sha256="cafebabefeed" * 5)
+        db.set_metadata(
+            f"whisper_probe_stems:{'cafebabefeed' * 5}",
+            json.dumps({"lang": "pl", "conf": 0.9}),
+        )
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=None, db=db)
+        service._apply_cached_stems_probe(song)
+        row = db.get_song_by_id(sid)
+        assert row["language"] == "pl"
+        db.close()
+
+    def test_cached_stems_probe_noop_when_cache_empty(self, tmp_path):
+        """No-op first-run case (no cached verdict yet)."""
+        song, db, sid = self._song_with_lang(tmp_path, db_language="en")
+        db.update_audio_fingerprint(sid, mtime=1.0, size=100, sha256="feedfacebead" * 5)
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=None, db=db)
+        service._apply_cached_stems_probe(song)
+        row = db.get_song_by_id(sid)
+        assert row["language"] == "en"
         db.close()
 
     def test_classifier_seeds_language_before_lrc_fetch(self, tmp_path):
