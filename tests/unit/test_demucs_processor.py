@@ -7,7 +7,6 @@ import pytest
 from pikaraoke.lib import demucs_processor as dp
 from pikaraoke.lib.demucs_processor import (
     _encode_in_progress,
-    _sep_done_keys,
     _sep_handles,
     acquire_separation,
     cleanup_wavs_if_mp3s_exist,
@@ -21,10 +20,8 @@ from pikaraoke.lib.demucs_processor import (
 def clean_coordinator():
     """Reset the global separation coordinator state between tests."""
     _sep_handles.clear()
-    _sep_done_keys.clear()
     yield
     _sep_handles.clear()
-    _sep_done_keys.clear()
 
 
 class TestResolveAudioSource:
@@ -101,16 +98,24 @@ class TestSeparationCoordinator:
         assert owner_handle.done_event.is_set()
         assert owner_handle.success is False
 
-    def test_cache_done_returns_preset_handle(self, clean_coordinator):
-        # After a successful release, later acquires report non-owner with
-        # pre-set events so waiters never block on already-cached work.
+    def test_post_release_acquires_are_fresh_owners(self, clean_coordinator):
+        """After release, the coordinator holds no memory of the prior run.
+
+        The disk cache is the single source of truth for "already done";
+        the coordinator only guards concurrent inflight runs. A prior
+        in-memory "done" flag let a later rmtree (delete, replay,
+        invalidation) silently desync from the coordinator — the next
+        call thought demucs was done but no files were on disk, and
+        playback ended up with no audio pipe and no stems. Callers are
+        now responsible for a ``get_cached_stems`` pre-check to avoid a
+        redundant no-op owner run.
+        """
         _, _ = acquire_separation("/s/song.m4a")
         release_separation("/s/song.m4a", success=True)
         is_owner, handle = acquire_separation("/s/song.m4a")
-        assert is_owner is False
-        assert handle.ready_event.is_set()
-        assert handle.done_event.is_set()
-        assert handle.success is True
+        assert is_owner is True
+        assert handle.ready_event.is_set() is False
+        assert handle.done_event.is_set() is False
 
     def test_failed_run_allows_retry(self, clean_coordinator):
         # A failed separation should not poison the coordinator — the next

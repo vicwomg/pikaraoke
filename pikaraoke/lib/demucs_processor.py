@@ -553,7 +553,6 @@ class SeparationHandle:
 
 _sep_lock = threading.Lock()
 _sep_handles: dict[str, SeparationHandle] = {}
-_sep_done_keys: set[str] = set()
 
 
 def acquire_separation(cache_key: str) -> tuple[bool, SeparationHandle]:
@@ -561,8 +560,11 @@ def acquire_separation(cache_key: str) -> tuple[bool, SeparationHandle]:
 
     Returns (is_owner, handle). When ``is_owner`` is True, the caller must
     run the separation and call ``release_separation(cache_key, success)``
-    exactly once. When False, another caller is already separating (or has
-    finished); the returned handle's events may be waited on.
+    exactly once. When False, another caller is already separating; the
+    returned handle's events may be waited on. Callers should check the
+    on-disk cache via ``get_cached_stems`` *before* calling this — the
+    happy post-completion path is "stems present on disk", not any
+    in-memory flag.
 
     ``cache_key`` must be the content-hash (SHA256 of source bytes), not a
     file path. A path is not a stable identity: delete + re-download writes
@@ -572,11 +574,6 @@ def acquire_separation(cache_key: str) -> tuple[bool, SeparationHandle]:
     US-43 followup in USER_STORIES_TODO.md).
     """
     with _sep_lock:
-        if cache_key in _sep_done_keys:
-            done = SeparationHandle(success=True)
-            done.ready_event.set()
-            done.done_event.set()
-            return False, done
         existing = _sep_handles.get(cache_key)
         if existing is not None:
             return False, existing
@@ -586,15 +583,16 @@ def acquire_separation(cache_key: str) -> tuple[bool, SeparationHandle]:
 
 
 def release_separation(cache_key: str, success: bool) -> None:
-    """Unblock any waiters and, on success, mark this song's cache as ready.
+    """Unblock any waiters after the owner finishes separation.
 
     Must be called exactly once by the owner of a prior ``acquire_separation``
-    (even on failure, so waiters don't hang).
+    (even on failure, so waiters don't hang). Success state lives on the
+    disk cache, not an in-memory flag — a previous in-memory "done" set
+    would silently lie to callers after ``_invalidate_stems`` rmtree'd the
+    cache dir, leaving playback with no audio pipe and no stems.
     """
     with _sep_lock:
         handle = _sep_handles.pop(cache_key, None)
-        if success:
-            _sep_done_keys.add(cache_key)
     if handle is not None:
         handle.success = success
         handle.ready_event.set()
