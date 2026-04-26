@@ -21,9 +21,28 @@ from pikaraoke.lib.lyrics import Word, WordPart
 logger = logging.getLogger(__name__)
 
 
-# Upper bound for the whole-song fallback segment when no LRC line windows
-# are supplied. whisperx clamps segment ends to actual audio length.
+# Fallback upper bound for the whole-song segment when the audio
+# duration can't be read. Any value works here as long as it's >= the
+# actual audio length; whisperx is supposed to clamp to audio length,
+# but on hallucinated input (Genius page chrome leaking into the
+# reference text) it can overshoot badly. The real upper bound we use
+# is the measured audio duration — see `_probe_audio_duration`.
 _WHOLE_SONG_SEGMENT_END_S = 24 * 3600.0
+
+
+def _probe_audio_duration(audio_path: str) -> float | None:
+    """Read audio duration via librosa's header-only path. None on error.
+
+    librosa.get_duration avoids loading samples when it can fall back to
+    soundfile metadata, so the probe is cheap (~ms).
+    """
+    try:
+        import librosa
+
+        return float(librosa.get_duration(path=audio_path))
+    except Exception:  # pragma: no cover - defensive
+        logger.warning("audio duration probe failed for %s", audio_path, exc_info=True)
+        return None
 
 
 class WhisperXAligner:
@@ -105,7 +124,8 @@ class WhisperXAligner:
         self.last_detected_language = language
         self._ensure_align_model(language)
 
-        segments = self._build_segments(reference_text, lrc_lines)
+        audio_duration_s = _probe_audio_duration(audio_path)
+        segments = self._build_segments(reference_text, lrc_lines, audio_duration_s)
         if not segments:
             logger.info(
                 "wav2vec2: no segments to align for %s (lang=%s)",
@@ -144,8 +164,25 @@ class WhisperXAligner:
         # so missing reference tokens get interpolated within their line
         # window rather than vanishing from the output.
         if lrc_lines is not None:
-            return map_whisper_to_reference_by_lines(aligned_words, lrc_lines)
-        return map_whisper_to_reference(aligned_words, reference_text)
+            mapped = map_whisper_to_reference_by_lines(aligned_words, lrc_lines)
+        else:
+            mapped = map_whisper_to_reference(aligned_words, reference_text)
+        # Safety net: if the reference text contained hallucinated junk
+        # that made the aligner overshoot, drop words whose timings are
+        # past the audio. Without this, libass exits on createTrack.
+        if audio_duration_s:
+            cutoff = audio_duration_s + 2.0
+            clean = [w for w in mapped if w.start < audio_duration_s and w.end <= cutoff]
+            if len(clean) < len(mapped):
+                logger.warning(
+                    "wav2vec2: dropped %d/%d words whose timings exceeded "
+                    "audio length %.1fs (hallucinated reference text?)",
+                    len(mapped) - len(clean),
+                    len(mapped),
+                    audio_duration_s,
+                )
+            return clean
+        return mapped
 
     def _ensure_align_model(self, language: str) -> None:
         if self._align_model is None or self._align_lang != language:
@@ -165,6 +202,7 @@ class WhisperXAligner:
     def _build_segments(
         reference_text: str,
         lrc_lines: list[tuple[float, float, str]] | None,
+        audio_duration_s: float | None = None,
     ) -> list[dict]:
         if lrc_lines is not None:
             return [
@@ -175,9 +213,17 @@ class WhisperXAligner:
         text = reference_text.strip()
         if not text:
             return []
-        # No line windows available: align against the whole song. The
-        # large upper bound is benign - whisperx clamps to audio length.
-        return [{"start": 0.0, "end": _WHOLE_SONG_SEGMENT_END_S, "text": text}]
+        # Cap the segment at the actual audio length when we have it.
+        # whisperx is supposed to clamp automatically, but on hallucinated
+        # reference text (e.g. Genius page chrome like "4 Contributors"
+        # leaking in) it can overshoot and produce timestamps hours past
+        # the song — libass then crashes on createTrack.
+        end = (
+            audio_duration_s
+            if audio_duration_s and audio_duration_s > 0
+            else _WHOLE_SONG_SEGMENT_END_S
+        )
+        return [{"start": 0.0, "end": end, "text": text}]
 
 
 def _words_with_char_parts(aligned: dict) -> list[Word]:

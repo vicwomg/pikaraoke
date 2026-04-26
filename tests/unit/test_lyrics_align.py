@@ -363,6 +363,58 @@ class TestWhisperXAligner:
         assert segments_arg[0]["start"] == 0.0
         assert segments_arg[0]["text"] == "hello world"
 
+    def test_whole_song_segment_clamped_to_audio_duration(self, fake_whisperx, monkeypatch):
+        """The no-LRC fallback must bound the segment by actual audio
+        length. Otherwise hallucinated reference text can make wav2vec2
+        overshoot and produce timestamps hours past the song, which
+        crashes libass on createTrack."""
+        from pikaraoke.lib import lyrics_align
+
+        monkeypatch.setattr(lyrics_align, "_probe_audio_duration", lambda _p: 210.0)
+        aligner = lyrics_align.WhisperXAligner(device="cpu")
+        aligner.align("/tmp/a.mp4", "hello world", language="en")
+        segments_arg = fake_whisperx.align.call_args[0][0]
+        assert segments_arg[0]["end"] == 210.0
+
+    def test_words_past_audio_duration_dropped(self, fake_whisperx, monkeypatch):
+        """Safety net: words aligned past audio length are dropped.
+        This is the Genius whole-song path — no LRC line windows — so
+        wav2vec2 can overshoot when reference text includes junk like
+        '4 ContributorsTranslationsEnglish'."""
+        from pikaraoke.lib import lyrics_align
+
+        monkeypatch.setattr(lyrics_align, "_probe_audio_duration", lambda _p: 210.0)
+        # wav2vec2 hallucinates a word at 9999s.
+        fake_whisperx.align.return_value = {
+            "segments": [
+                {
+                    "text": "hello world",
+                    "start": 0.0,
+                    "end": 9999.0,
+                    "words": [
+                        {"word": "hello", "start": 1.0, "end": 2.0},
+                        {"word": "world", "start": 9998.0, "end": 9999.0},
+                    ],
+                    "chars": [
+                        {"char": "h", "start": 1.0, "end": 1.2},
+                        {"char": "e", "start": 1.2, "end": 1.4},
+                        {"char": "l", "start": 1.4, "end": 1.6},
+                        {"char": "l", "start": 1.6, "end": 1.8},
+                        {"char": "o", "start": 1.8, "end": 2.0},
+                        {"char": " "},
+                        {"char": "w", "start": 9998.0, "end": 9998.2},
+                        {"char": "o", "start": 9998.2, "end": 9998.4},
+                        {"char": "r", "start": 9998.4, "end": 9998.6},
+                        {"char": "l", "start": 9998.6, "end": 9998.8},
+                        {"char": "d", "start": 9998.8, "end": 9999.0},
+                    ],
+                }
+            ],
+        }
+        aligner = lyrics_align.WhisperXAligner(device="cpu")
+        words = aligner.align("/tmp/a.mp4", "hello world", language="en")
+        assert [w.text for w in words] == ["hello"]
+
     def test_model_id_is_wav2vec2(self, fake_whisperx):
         from pikaraoke.lib.lyrics_align import WhisperXAligner
 
