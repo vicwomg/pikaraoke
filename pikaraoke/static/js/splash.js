@@ -5,6 +5,33 @@ let mouseTimer = null;
 let cursorVisible = false;
 let nowPlaying = {};
 let octopusInstance = null;
+let currentSubtitleUrl = null;
+
+// Construct a SubtitlesOctopus worker bound to `video` for `subUrl`. Assumes
+// the URL has already been preflight-verified to return 200; libass crashes
+// with `jso: Failed to start a track` + exit(4) when fed a 404/5xx body.
+function initOctopus(video, subUrl) {
+  const options = {
+    video: video,
+    subUrl: subUrl,
+    fonts: ["/static/fonts/Arial.ttf", "/static/fonts/DroidSansFallback.ttf"],
+    debug: true,
+    timeOffset: Number(PikaraokeConfig.subtitleOffset) || 0,
+    workerUrl: "/static/js/subtitles-octopus-worker.js"
+  };
+  try {
+    octopusInstance = new SubtitlesOctopus(options);
+    if (uiScale) {
+      // Find the canvas created by SubtitlesOctopus (sibling of the video)
+      const canvas = video.parentNode.querySelector('canvas');
+      if (canvas) {
+        canvas.style.transform = `scale(${uiScale})`;
+        canvas.style.transformOrigin = 'bottom center';
+      }
+    }
+  } catch (e) { console.error(e); }
+}
+
 let showMenu = false;
 let menuButtonVisible = false;
 let autoplayConfirmed = false;
@@ -177,6 +204,7 @@ const endSong = async (reason = null, showScore = false) => {
     isScoreShown = false;
   }
   currentVideoUrl = null;
+  currentSubtitleUrl = null;
   if (hlsInstance) {
     hlsInstance.destroy();
     hlsInstance = null;
@@ -832,35 +860,42 @@ const handleNowPlayingUpdate = (np) => {
 
   const video = getVideoPlayer();
 
-  // Setup ASS subtitle file if found
+  // Setup ASS subtitle file if found.
+  //
+  // The server emits `now_playing` on many state changes (queue updates,
+  // subtitle-offset tweaks, lyrics_upgraded tier bumps). Re-creating the
+  // SubtitlesOctopus worker on every one of them burns CPU and — when the
+  // events arrive in rapid succession — races the worker's WASM init, so
+  // libass never finishes loading a track and no subs appear. Only tear
+  // down + re-init when the URL actually changed (i.e. a new `?v=` from
+  // _on_lyrics_upgraded, a different song, or gaining/losing subs).
   const subtitleUrl = np.now_playing_subtitle_url;
   if (typeof np.subtitle_offset === 'number') {
     PikaraokeConfig.subtitleOffset = np.subtitle_offset;
+    if (octopusInstance) {
+      octopusInstance.timeOffset = Number(PikaraokeConfig.subtitleOffset) || 0;
+    }
   }
-  if (octopusInstance) {
-    octopusInstance.dispose();
-    octopusInstance = null;
-  }
-  if (subtitleUrl && video) {
-    const options = {
-      video: video,
-      subUrl: subtitleUrl,
-      fonts: ["/static/fonts/Arial.ttf", "/static/fonts/DroidSansFallback.ttf"],
-      debug: true,
-      timeOffset: Number(PikaraokeConfig.subtitleOffset) || 0,
-      workerUrl: "/static/js/subtitles-octopus-worker.js"
-    };
-    try {
-      octopusInstance = new SubtitlesOctopus(options);
-      if (uiScale) {
-        // Find the canvas created by SubtitlesOctopus (sibling of the video)
-        const canvas = video.parentNode.querySelector('canvas');
-        if (canvas) {
-          canvas.style.transform = `scale(${uiScale})`;
-          canvas.style.transformOrigin = 'bottom center';
-        }
-      }
-    } catch (e) { console.error(e); }
+  if (subtitleUrl !== currentSubtitleUrl) {
+    if (octopusInstance) {
+      octopusInstance.dispose();
+      octopusInstance = null;
+    }
+    currentSubtitleUrl = subtitleUrl || null;
+    if (subtitleUrl && video) {
+      // Preflight: server publishes the URL unconditionally (so `_on_lyrics_upgraded`
+      // has something to cache-bust), but the .ass may not exist yet. A 404 body
+      // ("Subtitle file not found...") fed to libass crashes the worker with
+      // `jso: Failed to start a track` + exit(4). Verify 200 before constructing;
+      // the `?v=` bump from `_on_lyrics_upgraded` will retry once the .ass lands.
+      fetch(subtitleUrl, { method: 'HEAD' })
+        .then(r => {
+          if (!r.ok) return;
+          if (currentSubtitleUrl !== subtitleUrl) return; // URL changed while fetching
+          initOctopus(video, subtitleUrl);
+        })
+        .catch(() => {});
+    }
   }
 
   if (np.now_playing_url && np.now_playing_url !== currentVideoUrl) {

@@ -113,6 +113,21 @@ ASS_MARKER = "PiKaraoke Auto-Lyrics"
 VIDEO_EXTS = (".mp4", ".webm", ".mkv", ".mov", ".avi")
 
 
+# Lyrics quality tiers. Progressive writes only upgrade (never downgrade):
+# a later source with a lower tier is silently dropped by the tier gate.
+_TIER_NONE = 0
+_TIER_LINE_VTT = 1
+_TIER_LINE_LRC = 2
+_TIER_WORD = 3
+
+_TIER_NAMES = {
+    _TIER_NONE: "none",
+    _TIER_LINE_VTT: "line_vtt",
+    _TIER_LINE_LRC: "line_lrc",
+    _TIER_WORD: "word",
+}
+
+
 @dataclass(frozen=True)
 class WordPart:
     """Sub-word chunk with its audio-aligned start/end in seconds.
@@ -178,11 +193,73 @@ class LyricsService:
         self._events = events
         self._aligner = aligner
         self._db = db
+        # Per-song tier of the most recently written .ass. Parallel source
+        # workers go through `_try_write_ass_tiered` which reads + updates
+        # this under `_tier_lock` — a later source with a lower tier is
+        # dropped so VTT can never overwrite a word-level .ass that already
+        # landed.
+        self._tier_state: dict[str, int] = {}
+        self._tier_lock = threading.Lock()
 
     @property
     def has_aligner(self) -> bool:
         """True when whisperx (or any word-level aligner) is configured."""
         return self._aligner is not None
+
+    def _reset_tier(self, song_path: str) -> None:
+        """Clear the tier for a song at the start of a fresh pipeline run."""
+        with self._tier_lock:
+            self._tier_state[song_path] = _TIER_NONE
+
+    def _current_tier(self, song_path: str) -> int:
+        with self._tier_lock:
+            return self._tier_state.get(song_path, _TIER_NONE)
+
+    def _try_write_ass_tiered(
+        self,
+        song_path: str,
+        new_tier: int,
+        ass: str,
+        *,
+        lyrics_source: str,
+        aligner_model: str | None,
+        lyrics_sha: str | None,
+    ) -> bool:
+        """Write + register the .ass only when it upgrades the current tier.
+
+        Thread-safe. Holds ``_tier_lock`` across the atomic write + DB
+        provenance update so two workers finishing in close succession
+        can't interleave and leave the DB describing a file that's no
+        longer on disk. ``_register_ass`` fires ``lyrics_upgraded`` which
+        the splash uses to hot-swap the subtitle URL.
+        """
+        with self._tier_lock:
+            current = self._tier_state.get(song_path, _TIER_NONE)
+            if new_tier < current:
+                logger.info(
+                    "tier gate: %s dropped %s (tier=%s < current=%s)",
+                    os.path.basename(song_path),
+                    lyrics_source,
+                    _TIER_NAMES[new_tier],
+                    _TIER_NAMES[current],
+                )
+                return False
+            _write_ass_atomic(song_path, ass)
+            self._tier_state[song_path] = new_tier
+            self._register_ass(
+                song_path,
+                lyrics_source=lyrics_source,
+                aligner_model=aligner_model,
+                lyrics_sha=lyrics_sha,
+            )
+            logger.info(
+                "tier gate: %s wrote %s (tier=%s -> %s)",
+                os.path.basename(song_path),
+                lyrics_source,
+                _TIER_NAMES[current],
+                _TIER_NAMES[new_tier],
+            )
+            return True
 
     def _register_ass(
         self,
@@ -295,6 +372,20 @@ class LyricsService:
             logger.exception("Unexpected error fetching lyrics for %s", song_path)
 
     def _do_fetch_and_convert(self, song_path: str) -> None:
+        """Progressive lyrics pipeline.
+
+        Fan out YouTube VTT in parallel with the LRCLib fetch so a
+        line-level .ass lands within milliseconds when captions were
+        downloaded with the song — the splash renders T1 subs while LRC
+        is still in flight. A later LRC hit upgrades to T2 (synced LRC)
+        and wav2vec2 alignment upgrades to T3 (per-word). Each write
+        goes through ``_try_write_ass_tiered`` so a slower, lower-tier
+        write can never clobber a higher-tier .ass that already landed.
+
+        LRC fetch stays on the main thread so ``_maybe_drop_stale_auto_ass``
+        can compare ``lyrics_sha`` before the cache-hit check (preserving
+        LRC-content-change invalidation from US-31).
+        """
         basename = os.path.basename(song_path)
         logger.info("lyrics pipeline: starting for %s", basename)
         # User-supplied Aegisub files (without the auto-lyrics marker) are sacred.
@@ -342,10 +433,41 @@ class LyricsService:
         # expensive probe itself has already been paid for.
         self._apply_cached_stems_probe(song_path)
 
+        # Reset tier state for this run (handles replays after cache
+        # invalidation) and seed to WORD if a cached word-level .ass
+        # exists — the VTT/LRC workers below use the tier gate so they
+        # can't clobber a valid cache while the main thread is still
+        # verifying LRC-sha invalidation.
+        self._reset_tier(song_path)
+        if _is_word_level_auto_ass(song_path):
+            with self._tier_lock:
+                self._tier_state[song_path] = _TIER_WORD
+
+        # Start the parallel background workers:
+        #   - VTT worker: writes T1 line-level at ~100ms when captions
+        #     were downloaded with the song.
+        #   - wav2vec2 preload: loads the Polish/English/etc. align model
+        #     in parallel with Demucs, saving ~13s of cold-start when
+        #     alignment runs.
+        #   - Demucs prewarm: only when something downstream will use
+        #     stems (the aligner for word-level, or Whisper ASR for the
+        #     no-source fallback). Already idempotent via download_manager
+        #     for fresh downloads; we call here too so scanner-imported
+        #     songs prewarm too.
+        vtt_thread = Thread(
+            target=self._worker_vtt,
+            args=(song_path,),
+            name=f"lyrics-vtt-{basename}",
+            daemon=True,
+        )
+        vtt_thread.start()
+        self._warmup_aligner_async(song_path)
+        if self._aligner is not None or _whisper_fallback_enabled():
+            _prewarm_stems(song_path)
+
         # Tell the operator we're about to hit LRCLib / iTunes. Emitted
         # BEFORE the network call so the "Fetching lyrics…" toast lands
-        # while the HTTP round-trip is in flight. Skipped above if a
-        # user-supplied .ass preempts the whole pipeline.
+        # while the HTTP round-trip is in flight.
         self._emit_stage_notification(song_path, "Fetching lyrics")
 
         # Fetch LRC up front so we can fingerprint it BEFORE deciding whether
@@ -366,67 +488,70 @@ class LyricsService:
         self._maybe_drop_stale_auto_ass(song_path, lyrics_sha)
 
         # Cache hit: word-level .ass survived every invalidation trigger
-        # (aligner/demucs models + LRC content). Re-requesting a cached song
-        # (yt-dlp rewrites info.json on a cache hit) would otherwise overwrite
-        # it with line-level and re-run whisper every time.
+        # (aligner/demucs models + LRC content). If the invalidation
+        # above deleted the file, tier state still says WORD — lower it
+        # so subsequent writes can land.
         if _is_word_level_auto_ass(song_path):
             logger.info(
                 "lyrics pipeline: %s -> word-level .ass cache hit (no work)",
                 basename,
             )
             _cleanup_yt_vtt(song_path, self._db)
+            # Drain VTT worker so it doesn't race a later replay.
+            vtt_thread.join(timeout=5)
             return
+        if self._current_tier(song_path) == _TIER_WORD:
+            # Cached .ass was just invalidated — reset so the live writes land.
+            self._reset_tier(song_path)
 
-        # Decide the source BEFORE writing anything so the .ass is written
-        # exactly once per run (US-14). Precedence: LRCLib > YouTube VTT.
-        wrote_from_vtt = False
-        wrote_from_lrc = False
-
+        # Write T2 LINE_LRC if LRC hit (upgrades any T1 VTT already on disk).
         if lrc:
-            ass = _lrc_to_ass_line_level(lrc)
-            if ass:
-                _write_ass_atomic(song_path, ass)
-                logger.info(
-                    "LRCLib: wrote line-level .ass for %s - %s",
-                    info["artist"] if info else "?",
-                    info["track"] if info else "?",
-                )
-                self._register_ass(
+            line_ass = _lrc_to_ass_line_level(lrc)
+            if line_ass:
+                wrote = self._try_write_ass_tiered(
                     song_path,
+                    _TIER_LINE_LRC,
+                    line_ass,
                     lyrics_source="lrclib",
                     aligner_model=None,
                     lyrics_sha=lyrics_sha,
                 )
-                wrote_from_lrc = True
+                if wrote:
+                    logger.info(
+                        "LRCLib: wrote line-level .ass for %s - %s",
+                        info["artist"] if info else "?",
+                        info["track"] if info else "?",
+                    )
 
-        wrote_from_genius = False
-        if not wrote_from_lrc and self._aligner is not None and GENIUS_ACCESS_TOKEN and info:
-            wrote_from_genius = self._try_genius_fallback(song_path, info)
+        # Alignment / Genius workers. LRC > Genius: when LRC hit we queue
+        # the word-level upgrade on it; otherwise Genius is the alignment
+        # source (text-only, align against the whole song).
+        align_thread: Thread | None = None
+        if lrc and self._aligner is not None:
+            align_thread = Thread(
+                target=self._upgrade_to_word_level,
+                args=(song_path, lrc, lyrics_sha),
+                name=f"lyrics-align-{basename}",
+                daemon=True,
+            )
+            align_thread.start()
+        elif self._aligner is not None and GENIUS_ACCESS_TOKEN and info:
+            align_thread = Thread(
+                target=self._try_genius_fallback,
+                args=(song_path, info),
+                name=f"lyrics-genius-{basename}",
+                daemon=True,
+            )
+            align_thread.start()
 
-        if not wrote_from_lrc and not wrote_from_genius:
-            vtt_path = _pick_best_vtt(song_path, preferred_lang=self._db_language(song_path))
-            if vtt_path and _try_write_ass_from_vtt_path(song_path, vtt_path):
-                logger.info(
-                    "Wrote .ass from YouTube VTT for %s",
-                    os.path.basename(song_path),
-                )
-                self._register_ass(
-                    song_path,
-                    lyrics_source="youtube_vtt",
-                    aligner_model=None,
-                    lyrics_sha=None,
-                )
-                self._persist_vtt_language(song_path, vtt_path)
-                wrote_from_vtt = True
+        # Wait for background workers. VTT is fast (<100ms); alignment
+        # can take up to ~150s (stems wait 120 + whisperx 20-30s).
+        vtt_thread.join(timeout=180)
+        if align_thread is not None:
+            align_thread.join(timeout=180)
 
-        # VTT cleanup is conditional: only drop YouTube's raw captions once
-        # we have our own .ass. When both LRCLib and VTT conversion failed,
-        # leave the VTT on disk — raw captions beat no captions, and a
-        # future retry (or the user) can still salvage them.
-        if wrote_from_lrc or wrote_from_vtt or wrote_from_genius:
-            _cleanup_yt_vtt(song_path, self._db)
-
-        if not wrote_from_vtt and not wrote_from_lrc and not wrote_from_genius:
+        final_tier = self._current_tier(song_path)
+        if final_tier == _TIER_NONE:
             if _whisper_fallback_enabled():
                 logger.info(
                     "lyrics pipeline: %s -> no LRC/Genius/VTT source; queuing Whisper ASR fallback",
@@ -439,7 +564,7 @@ class LyricsService:
                 Thread(
                     target=self._try_whisper_fallback,
                     args=(song_path,),
-                    name=f"whisper-fallback-{os.path.basename(song_path)}",
+                    name=f"whisper-fallback-{basename}",
                     daemon=True,
                 ).start()
             else:
@@ -453,7 +578,7 @@ class LyricsService:
                         {
                             "message": "No lyrics found",
                             "detail": "LRCLib / Genius / YouTube captions all missed, and Whisper fallback is disabled.",
-                            "song": os.path.basename(song_path),
+                            "song": basename,
                             "severity": "warning",
                         },
                     )
@@ -461,41 +586,90 @@ class LyricsService:
                     logger.exception("failed to emit song_warning for missing lyrics")
             return
 
+        # VTT cleanup is conditional: only drop YouTube's raw captions once
+        # we have our own .ass. When every source failed we already
+        # returned above, so reaching here means at least one tier wrote.
+        _cleanup_yt_vtt(song_path, self._db)
+
         self._events.emit(
             "notification",
             f"Lyrics ready: {_title_from_filename(song_path)}",
             "info",
         )
-
-        source = "lrclib" if wrote_from_lrc else "genius" if wrote_from_genius else "youtube_vtt"
-        will_align = bool(self._aligner and lrc)
-        # Genius path aligns inline inside _try_genius_fallback before this
-        # log fires, so reporting "skipped" there would be a lie. LRC path
-        # only queues alignment (Demucs still running) — "queued" is honest.
-        if wrote_from_genius:
-            alignment_status = "inline"
-        elif will_align:
-            alignment_status = "queued"
-        else:
-            alignment_status = "skipped"
         logger.info(
-            "lyrics pipeline: %s -> source=%s db_lang=%s word_alignment=%s",
+            "lyrics pipeline: %s -> final_tier=%s db_lang=%s",
             basename,
-            source,
+            _TIER_NAMES[final_tier],
             self._db_language(song_path),
-            alignment_status,
         )
 
-        # Per-word forced alignment requires reference lyrics text.
-        if will_align:
-            # Eagerly kick off Demucs so the aligner gets vocals, not the raw mix.
-            _prewarm_stems(song_path)
-            Thread(
-                target=self._upgrade_to_word_level,
-                args=(song_path, lrc, lyrics_sha),
-                name=f"lyrics-align-{os.path.basename(song_path)}",
-                daemon=True,
-            ).start()
+    def _worker_vtt(self, song_path: str) -> None:
+        """Write a line-level .ass from the downloaded VTT captions, if any.
+
+        Runs in parallel with the main thread's LRCLib fetch so the
+        splash gets subtitles at ~100ms when captions exist, instead of
+        waiting on a 5-20s network round-trip. Tier-gated at
+        ``_TIER_LINE_VTT`` so a later LRC (T2) or aligned (T3) write
+        upgrades the .ass cleanly.
+        """
+        try:
+            vtt_path = _pick_best_vtt(song_path, preferred_lang=self._db_language(song_path))
+            if not vtt_path:
+                return
+            try:
+                with open(vtt_path, encoding="utf-8") as f:
+                    vtt = f.read()
+            except OSError as e:
+                logger.warning("failed to read %s: %s", vtt_path, e)
+                return
+            ass = _vtt_to_ass(vtt)
+            if not ass:
+                return
+            wrote = self._try_write_ass_tiered(
+                song_path,
+                _TIER_LINE_VTT,
+                ass,
+                lyrics_source="youtube_vtt",
+                aligner_model=None,
+                lyrics_sha=None,
+            )
+            if wrote:
+                logger.info(
+                    "Wrote .ass from YouTube VTT for %s",
+                    os.path.basename(song_path),
+                )
+                self._persist_vtt_language(song_path, vtt_path)
+        except Exception:
+            logger.exception("VTT worker crashed for %s", song_path)
+
+    def _warmup_aligner_async(self, song_path: str) -> None:
+        """Preload the wav2vec2 model in parallel with Demucs + LRC fetch.
+
+        Language is pulled from the DB (populated by the classifier).
+        No-op when the aligner isn't configured or language is unknown.
+        Saves ~13s of cold-start on the first alignment per language
+        per process.
+        """
+        if self._aligner is None:
+            return
+        language = self._db_language(song_path)
+        if not language:
+            return
+        Thread(
+            target=self._warmup_aligner,
+            args=(language,),
+            name=f"lyrics-warmup-{os.path.basename(song_path)}",
+            daemon=True,
+        ).start()
+
+    def _warmup_aligner(self, language: str) -> None:
+        try:
+            ensure = getattr(self._aligner, "_ensure_align_model", None)
+            if ensure is None:
+                return
+            ensure(_lang_base(language) or language)
+        except Exception:
+            logger.warning("wav2vec2 warmup failed for lang=%s", language, exc_info=True)
 
     def _read_metadata_for_lrclib(self, song_path: str) -> dict | None:
         """Return ``{"track", "artist", "duration"}`` from the songs table.
@@ -1057,24 +1231,26 @@ class LyricsService:
             if ass:
                 from pikaraoke.lib.demucs_processor import CACHE_DIR
 
-                _write_ass_atomic(song_path, ass)
-                logger.info(
-                    "Upgraded to per-word .ass for %s (audio=%s)",
-                    song_path,
-                    "vocals stem" if audio_path.startswith(CACHE_DIR) else "raw mix",
-                )
                 aligner_id = self._aligner.model_id if self._aligner else None
-                self._register_ass(
+                wrote = self._try_write_ass_tiered(
                     song_path,
+                    _TIER_WORD,
+                    ass,
                     lyrics_source="whisperx",
                     aligner_model=aligner_id,
                     lyrics_sha=lyrics_sha,
                 )
-                self._events.emit(
-                    "notification",
-                    f"Synced lyrics ready: {_title_from_filename(song_path)}",
-                    "success",
-                )
+                if wrote:
+                    logger.info(
+                        "Upgraded to per-word .ass for %s (audio=%s)",
+                        song_path,
+                        "vocals stem" if audio_path.startswith(CACHE_DIR) else "raw mix",
+                    )
+                    self._events.emit(
+                        "notification",
+                        f"Synced lyrics ready: {_title_from_filename(song_path)}",
+                        "success",
+                    )
         except Exception as e:
             logger.warning(
                 "word-level alignment failed for %s, keeping line-level",
@@ -1179,15 +1355,18 @@ class LyricsService:
         if not ass:
             return False
 
-        _write_ass_atomic(song_path, ass)
         aligner_id = self._aligner.model_id if self._aligner else None
         lyrics_sha = _lrc_sha(synthetic_lrc)
-        self._register_ass(
+        wrote = self._try_write_ass_tiered(
             song_path,
+            _TIER_WORD,
+            ass,
             lyrics_source="genius",
             aligner_model=aligner_id,
             lyrics_sha=lyrics_sha,
         )
+        if not wrote:
+            return False
         if self._db is not None and song_id is not None and not db_lang:
             # Genius plain lyrics are text-only; same upstream-mislabel risk
             # as LRCLib, so this shares the ``lrc_heuristic`` rung.
@@ -1251,7 +1430,16 @@ class LyricsService:
                 logger.info("Whisper fallback: ASS conversion failed for %s", song_path)
                 self._emit_whisper_failure(song_path, "ASS conversion failed")
                 return
-            _write_ass_atomic(song_path, ass)
+            wrote = self._try_write_ass_tiered(
+                song_path,
+                _TIER_WORD,
+                ass,
+                lyrics_source="whisper",
+                aligner_model=f"whisper-{WHISPER_FALLBACK_MODEL}",
+                lyrics_sha=_lrc_sha(lrc),
+            )
+            if not wrote:
+                return
             if lang and self._db is not None:
                 song_id = self._db.get_song_id_by_path(song_path)
                 if song_id is not None:
@@ -1265,12 +1453,6 @@ class LyricsService:
                         )
                     except Exception:
                         logger.exception("failed to persist whisper language for %s", song_path)
-            self._register_ass(
-                song_path,
-                lyrics_source="whisper",
-                aligner_model=f"whisper-{WHISPER_FALLBACK_MODEL}",
-                lyrics_sha=_lrc_sha(lrc),
-            )
             logger.info(
                 "Whisper: wrote word-level .ass for %s (lang=%s, model=%s)",
                 os.path.basename(song_path),

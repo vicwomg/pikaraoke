@@ -1,5 +1,6 @@
 """Unit tests for pikaraoke.lib.lyrics."""
 
+import threading
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -617,6 +618,99 @@ class TestWriteAssAtomic:
 # ----- LyricsService orchestration -----
 
 
+class TestTryWriteAssTiered:
+    """Tier gate only allows monotonic upgrades; lower-tier writes drop."""
+
+    def _service(self, tmp_path):
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+        song = tmp_path / "Foo---abc.mp4"
+        song.write_text("fake")
+        db = KaraokeDatabase(str(tmp_path / "t.db"))
+        db.insert_songs([{"file_path": str(song), "youtube_id": "abc", "format": "mp4"}])
+        return str(song), db, LyricsService(str(tmp_path), EventSystem(), db=db)
+
+    def test_monotonic_upgrades_all_write(self, tmp_path):
+        from pikaraoke.lib.lyrics import _TIER_LINE_LRC, _TIER_LINE_VTT, _TIER_WORD
+
+        song, db, service = self._service(tmp_path)
+        assert service._try_write_ass_tiered(
+            song,
+            _TIER_LINE_VTT,
+            "vtt",
+            lyrics_source="youtube_vtt",
+            aligner_model=None,
+            lyrics_sha=None,
+        )
+        assert service._try_write_ass_tiered(
+            song,
+            _TIER_LINE_LRC,
+            "lrc",
+            lyrics_source="lrclib",
+            aligner_model=None,
+            lyrics_sha="x",
+        )
+        assert service._try_write_ass_tiered(
+            song,
+            _TIER_WORD,
+            "word",
+            lyrics_source="whisperx",
+            aligner_model="m",
+            lyrics_sha="x",
+        )
+        # Final file contains the word-level content.
+        assert (tmp_path / "Foo---abc.ass").read_text() == "word"
+        db.close()
+
+    def test_downgrade_dropped(self, tmp_path):
+        from pikaraoke.lib.lyrics import _TIER_LINE_VTT, _TIER_WORD
+
+        song, db, service = self._service(tmp_path)
+        assert service._try_write_ass_tiered(
+            song,
+            _TIER_WORD,
+            "word",
+            lyrics_source="whisperx",
+            aligner_model="m",
+            lyrics_sha="x",
+        )
+        # A later T1 VTT write must not clobber the T3 word-level .ass.
+        assert not service._try_write_ass_tiered(
+            song,
+            _TIER_LINE_VTT,
+            "vtt",
+            lyrics_source="youtube_vtt",
+            aligner_model=None,
+            lyrics_sha=None,
+        )
+        assert (tmp_path / "Foo---abc.ass").read_text() == "word"
+        db.close()
+
+    def test_same_tier_overwrites(self, tmp_path):
+        """Same-tier re-write is allowed (e.g. LRC content change)."""
+        from pikaraoke.lib.lyrics import _TIER_LINE_LRC
+
+        song, db, service = self._service(tmp_path)
+        assert service._try_write_ass_tiered(
+            song,
+            _TIER_LINE_LRC,
+            "first",
+            lyrics_source="lrclib",
+            aligner_model=None,
+            lyrics_sha="a",
+        )
+        assert service._try_write_ass_tiered(
+            song,
+            _TIER_LINE_LRC,
+            "second",
+            lyrics_source="lrclib",
+            aligner_model=None,
+            lyrics_sha="b",
+        )
+        assert (tmp_path / "Foo---abc.ass").read_text() == "second"
+        db.close()
+
+
 @pytest.fixture
 def song_with_metadata(tmp_path):
     """Song file + DB seeded with artist/title/duration — the state
@@ -675,10 +769,17 @@ class TestLyricsServiceFetchAndConvert:
             "pikaraoke.lib.lyrics._detect_language", return_value="en"
         ):
             service.fetch_and_convert(song)
-            mock_thread.assert_called_once()
-            # Run the target synchronously to verify upgrade path
-            target = mock_thread.call_args.kwargs["target"]
-            args = mock_thread.call_args.kwargs["args"]
+            # Parallel pipeline spawns a VTT worker and an alignment worker;
+            # find the alignment call and run it synchronously to verify
+            # the word-level upgrade path.
+            align_calls = [
+                c
+                for c in mock_thread.call_args_list
+                if c.kwargs.get("target") == service._upgrade_to_word_level
+            ]
+            assert len(align_calls) == 1
+            target = align_calls[0].kwargs["target"]
+            args = align_calls[0].kwargs["args"]
             target(*args)
         aligner.align.assert_called_once()
         ass_text = (tmp_path / "Foo---abc.ass").read_text(encoding="utf-8")
@@ -1118,27 +1219,61 @@ class TestLyricsServiceNewFlow:
         assert (tmp_path / "Foo---abc.ass").read_text() == user_ass
         db.close()
 
-    def test_lrc_wins_writes_ass_exactly_once(self, tmp_path):
-        """US-14: when LRC is the chosen source, the VTT-derived .ass is
-        never written — we write the chosen source once."""
+    def test_vtt_lands_while_lrc_fetch_is_slow(self, tmp_path):
+        """Progressive pipeline: VTT writes T1 in parallel with a slow
+        LRC fetch, so subtitles display before LRCLib returns. Simulated
+        by making ``_fetch_lrclib`` block until the VTT write is
+        observed via the tier state."""
         song, db = self._setup(tmp_path, with_vtt=True, with_metadata=True)
         service = LyricsService(str(tmp_path), EventSystem(), db=db)
-        calls = []
-        from pikaraoke.lib import lyrics as _lyrics_mod
 
-        real_write = _lyrics_mod._write_ass_atomic
+        from pikaraoke.lib.lyrics import _TIER_LINE_VTT
 
-        def counting_write(path, content):
-            calls.append(path)
-            real_write(path, content)
+        vtt_landed = threading.Event()
 
-        with patch("pikaraoke.lib.lyrics._write_ass_atomic", side_effect=counting_write), patch(
+        def slow_lrc(*args, **kwargs):
+            # Wait until the VTT worker lands its T1 write.
+            vtt_landed.wait(timeout=5)
+            return None  # then miss
+
+        # Observe the tier state from a side channel: hook the tier gate
+        # so the event trips as soon as T1 is recorded.
+        real_try = service._try_write_ass_tiered
+
+        def hooked(song_path, new_tier, *args, **kwargs):
+            ok = real_try(song_path, new_tier, *args, **kwargs)
+            if ok and new_tier == _TIER_LINE_VTT:
+                vtt_landed.set()
+            return ok
+
+        with patch("pikaraoke.lib.lyrics._fetch_lrclib", side_effect=slow_lrc), patch(
+            "pikaraoke.lib.lyrics.resolve_metadata", return_value=None
+        ), patch.object(service, "_try_write_ass_tiered", side_effect=hooked):
+            service.fetch_and_convert(song)
+
+        # VTT worker finished before _fetch_lrclib returned.
+        assert vtt_landed.is_set()
+        ass_text = (tmp_path / "Foo---abc.ass").read_text(encoding="utf-8")
+        assert "vtt line" in ass_text
+        db.close()
+
+    def test_lrc_wins_final_ass_is_lrc_not_vtt(self, tmp_path):
+        """Progressive pipeline: when LRC hits, the final .ass on disk is
+        the LRC-derived one, not the VTT one. VTT may write T1 first and
+        get upgraded to T2 by LRC; both writes are expected."""
+        song, db = self._setup(tmp_path, with_vtt=True, with_metadata=True)
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
+        with patch(
             "pikaraoke.lib.lyrics._fetch_lrclib",
             return_value="[00:01.00]lrclib line",
         ):
             service.fetch_and_convert(song)
 
-        assert len(calls) == 1, f"expected exactly one .ass write, got {len(calls)}"
+        ass = (tmp_path / "Foo---abc.ass").read_text(encoding="utf-8")
+        assert "lrclib line" in ass
+        assert "vtt line" not in ass
+        sid = db.get_song_id_by_path(song)
+        assert db.get_song_by_id(sid)["lyrics_source"] == "lrclib"
         db.close()
 
     def test_vtt_chosen_persists_language_to_db(self, tmp_path):
@@ -1281,7 +1416,13 @@ class TestLyricsServiceNewFlow:
             "pikaraoke.lib.lyrics.Thread"
         ) as mock_thread:
             service.fetch_and_convert(song)
-            mock_thread.assert_not_called()
+            # VTT worker may have been spawned; the alignment worker must not be.
+            align_calls = [
+                c
+                for c in mock_thread.call_args_list
+                if c.kwargs.get("target") == service._upgrade_to_word_level
+            ]
+            assert align_calls == []
         aligner.align.assert_not_called()
         db.close()
 
@@ -1904,7 +2045,9 @@ class TestPrewarmTriggeredFromFetchAndConvert:
         service = LyricsService(str(tmp_path), EventSystem(), aligner=None, db=db)
         with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value="[00:01.00]hi"), patch(
             "pikaraoke.lib.lyrics._prewarm_stems"
-        ) as mock_prewarm:
+        ) as mock_prewarm, patch(
+            "pikaraoke.lib.lyrics._whisper_fallback_enabled", return_value=False
+        ):
             service.fetch_and_convert(song)
         mock_prewarm.assert_not_called()
         db.close()
@@ -1915,7 +2058,8 @@ class TestPrewarmTriggeredFromFetchAndConvert:
         monkeypatch.setattr("pikaraoke.lib.lyrics.WHISPER_FALLBACK_MODEL", "off")
         song = tmp_path / "Foo---abc.mp4"
         song.write_text("fake")
-        service = LyricsService(str(tmp_path), EventSystem(), aligner=MagicMock())
+        # No aligner either — with both off, prewarm should not fire.
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=None)
         with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=None), patch(
             "pikaraoke.lib.lyrics.resolve_metadata", return_value=None
         ), patch("pikaraoke.lib.lyrics._prewarm_stems") as mock_prewarm:
@@ -1932,9 +2076,14 @@ class TestPrewarmTriggeredFromFetchAndConvert:
             "pikaraoke.lib.lyrics.resolve_metadata", return_value=None
         ), patch("pikaraoke.lib.lyrics.Thread") as mock_thread:
             service.fetch_and_convert(str(song))
-        mock_thread.assert_called_once()
-        kwargs = mock_thread.call_args.kwargs
-        assert kwargs["target"] == service._try_whisper_fallback
+        # Parallel pipeline spawns VTT + possibly alignment workers up
+        # front; the Whisper thread fires only after all sources missed.
+        whisper_calls = [
+            c
+            for c in mock_thread.call_args_list
+            if c.kwargs.get("target") == service._try_whisper_fallback
+        ]
+        assert len(whisper_calls) == 1
 
 
 # ----- LyricsService: Genius fallback integration -----

@@ -1,168 +1,178 @@
-# Parallel yt-dlp: audio-only → Demucs, silent video
+# Parallel lyrics fetch + progressive display
 
 ## Goal
 
-Kick off Demucs as soon as the audio stream finishes downloading, instead of
-waiting for yt-dlp to merge video+audio into a single mp4. Split the
-preference-driven pipeline so vocal-removal downloads produce two sibling
-files; the default pipeline stays unchanged.
+Show subtitles on splash as fast as possible during playback, and
+upgrade to better quality as more sources return. Fan-out the three
+sources (LRCLib, Genius, YouTube VTT) instead of running them
+sequentially.
 
-## Decisions (confirmed)
+## Problem in today's code
 
-- Cache key: **SHA256 of the audio file** (reuse existing
-  `get_cache_key(path)` called on the `.m4a`).
-- **Dual download pipeline**, keyed on `vocal_removal` preference at
-  execute time:
-  - ON → two parallel yt-dlp processes (audio-only + silent video,
-    **always HQ selectors regardless of the `high_quality` pref**),
-    Demucs starts when audio is done.
-  - OFF → unchanged upstream pipeline (respects `high_quality` pref).
-- **No backwards-compat shims.** Existing muxed mp4s in the library play
-  via the unchanged path because they have no sibling `.m4a`.
-- Preference changing after download is fine: playback picks the right
-  path per file based on whether a sibling `.m4a` exists.
+`_do_fetch_and_convert` at `pikaraoke/lib/lyrics.py:297` is strictly
+serial:
 
-## File shape
+1. LRCLib (+iTunes canonicalize retry) — up to 20s on timeouts
+2. Genius (blocks on Demucs stems for alignment, inline on the main
+   thread)
+3. YouTube VTT (only when both above miss)
+4. Whisper fallback
 
-- Vocal-removal download →
-  - `<Title>---<ID>.mp4` (video-only, silent, h264, faststart)
-  - `<Title>---<ID>.m4a` (AAC)
-  - `<Title>---<ID>.info.json`, optional subs/ass (unchanged)
-- Default download → `<Title>---<ID>.mp4` (merged, unchanged)
+If LRCLib times out, Genius cannot start. The log for Kolorowy wiatr
+shows 15s of LRCLib stalls, then 13s wav2vec2 cold-load, then 26s
+alignment — total 60s before anything renders on screen.
 
-## Tasks
+## Decisions
 
-### 1. `youtube_dl.py`
+- **Four-tier ordering** (monotonic upgrades only — never downgrade):
+  - T0 NONE = nothing written
+  - T1 LINE_VTT = line-level from YouTube VTT
+  - T2 LINE_LRC = line-level from synced LRCLib LRC
+  - T3 WORD = word-level from wav2vec2 forced alignment (LRC or
+    Genius or Whisper source)
+- **Progressive writes:** any source that passes its own dub-trap
+  guard calls `_try_write_ass_tiered(tier, ass, source, lyrics_sha)`.
+  The gate writes atomically and emits `lyrics_upgraded` only when
+  `tier >= current`. Frontend already hot-swaps on the event
+  (splash.js:840–864, karaoke.py:1054–1073).
+- **Parallel fan-out:** LRCLib fetch, Genius text fetch, VTT probe
+  all start immediately after the language classifier. No worker
+  blocks another.
+- **Genius alignment off the main thread:** spawn a daemon thread
+  that waits on stems and aligns independently, mirroring the LRC
+  word-level upgrade.
+- **Preload wav2vec2 model** in parallel with Demucs — `_ensure_align_model(lang)`
+  in a daemon thread as soon as language is known.
+- **Preserve dub-trap guards:** each source runs its own language
+  mismatch check before submitting its candidate.
+- **Cache invalidation:** `_maybe_drop_stale_auto_ass` runs early
+  with `lyrics_sha=None` (handles audio sha + model change).
+  LRC-sha-change invalidation is implicit — a newer LRCLib text
+  overwrites via the tier gate (same tier, new content is written
+  because sha differs).
+- **Whisper fallback:** only when all three sources missed AND no
+  alignment produced a T3 .ass — checked after all workers join.
 
-- \[x\] Add `build_ytdl_audio_only_command(url, download_path, proxy, extra)`.
-  - `-f bestaudio[ext=m4a]/bestaudio`
-  - `-x --audio-format m4a` to force consistent extension
-  - `-o "<path>/%(title)s---%(id)s.%(ext)s"`
-  - No `--write-info-json` / subs on this side (video side owns them).
-- \[x\] Add `build_ytdl_video_only_command(url, download_path, ...)`.
-  - `-f bestvideo[ext=mp4][vcodec~='^avc1|^h264']/bestvideo[ext=mp4]/bestvideo`
-  - Keep `-S vcodec:h264`, `--postprocessor-args ffmpeg_o:-movflags +faststart`.
-  - Keep `--write-info-json`, `--write-subs`, `--sub-langs`,
-    `--convert-subs vtt`, `--embed-metadata`.
-  - Strip audio if yt-dlp fetches something with audio (shouldn't, but
-    safe).
+## Task list
 
-### 2. `demucs_processor.py`
+### 1. Tier coordinator (in `lyrics.py`)
 
-- \[x\] `prewarm(file_path)`: if a sibling `.m4a` exists alongside the
-  passed file, prefer it for cache key + extraction. If `file_path` is
-  already an audio-only file (`.m4a`/`.mp3`/…), use it directly. Compute
-  cache key from the audio file (already content-addressable).
-- \[x\] `_prepare_stems` (stream_manager caller) — same resolution rule.
-  Give the ffmpeg extract step the audio file instead of the silent mp4.
+- \[ \] Add `_LyricsTier` int constants or IntEnum (NONE=0, LINE_VTT=1,
+  LINE_LRC=2, WORD=3).
+- \[ \] Add `_tier_state: dict[str, int]` + `_tier_lock: threading.Lock`
+  as `LyricsService` instance attrs.
+- \[ \] Add `_try_write_ass_tiered(song_path, new_tier, ass, source,     aligner_model, lyrics_sha) -> bool` that:
+  \- locks
+  \- compares new_tier >= current (NONE default)
+  \- if yes: `_write_ass_atomic`, updates state to new_tier,
+  calls `_register_ass` (which emits `lyrics_upgraded`)
+  \- returns True on write
+- \[ \] Reset state entry on pipeline start (so re-runs don't see
+  stale tier).
 
-### 3. `download_manager.py`
+### 2. Worker refactor
 
-- \[x\] Branch in `_execute_download` on `vocal_removal` preference.
-- \[x\] New branch: spawn two `Popen`s in parallel (audio, video). Watch
-  progress of both; merge into `active_download` (weighted by typical
-  byte sizes, or simplest: average of the two percentages).
-- \[x\] When audio `Popen` exits cleanly, fire Demucs prewarm on the
-  resulting `.m4a` path. Don't wait for video.
-- \[x\] When video `Popen` exits cleanly, emit `song_downloaded` (as today)
-  and run metadata merge.
-- \[x\] Failure policy:
-  - Audio fails, video succeeds → song still usable; Demucs will fall
-    back to extracting audio from the muxed mp4 on first play. Log a
-    warning.
-  - Video fails → treat whole download as failed (same error path as
-    today). Audio Popen: if still running, terminate; clean up its
-    output if the file exists.
+- \[ \] Extract `_worker_lrc(song_path, info)` — does iTunes fallback,
+  dub-trap check, `_try_write_ass_tiered(LINE_LRC, ...)`,
+  returns `(lrc, lyrics_sha)` for downstream alignment.
+- \[ \] Extract `_worker_vtt(song_path)` — picks best VTT, dub-trap-
+  safe conversion, `_try_write_ass_tiered(LINE_VTT, ...)`.
+- \[ \] Extract `_worker_genius(song_path, info)` — fetches text,
+  runs dub-trap guard, waits for stems, aligns, `_try_write_ass_tiered(WORD, ...)`.
+- \[ \] Extract `_worker_lrc_align(song_path, lrc, lyrics_sha)` — wraps
+  existing `_upgrade_to_word_level`, writes via tier gate.
 
-### 4. `file_resolver.py`
+### 3. `_do_fetch_and_convert` rewrite
 
-- \[x\] Add `audio_sibling_path: str | None` on `FileResolver`. In
-  `process_file`, after `self.file_path` is set to an `.mp4`, check for
-  `{basename}.m4a` in the same directory. Populate the field.
+- \[ \] Keep: user-owned .ass short-circuit, metadata read, language
+  classifier, cached stems probe, word-level cache hit check,
+  `_maybe_drop_stale_auto_ass(path, None)`.
+- \[ \] Spawn threads: Demucs prewarm, wav2vec2 preload, LRC worker,
+  Genius worker, VTT worker.
+- \[ \] LRC worker, on hit, spawns the word-level align worker (chained).
+- \[ \] Join all threads with reasonable timeout (e.g. 180s hard cap).
+- \[ \] After join: if tier still NONE and Whisper enabled, spawn
+  Whisper worker; else emit `song_warning` "No lyrics found".
+- \[ \] After join: emit final `"Lyrics ready"` notification when tier
+  \>= LINE_VTT.
 
-### 5. `stream_manager.py`
+### 4. wav2vec2 preload
 
-- \[x\] `play_file`: when `fr.audio_sibling_path` is set:
-  - `vocal_removal` on → stems flow already handles audio; nothing else
-    to wire.
-  - `vocal_removal` off → force `needs_audio_pipe = True` and use
-    `AudioTrackConfig(source_path=fr.audio_sibling_path, …)`.
-- \[x\] `_prepare_stems`: use `audio_sibling_path` (when present) as both
-  the cache-key source and the ffmpeg extract input.
+- \[ \] Add `_warmup_aligner(language)` method on LyricsService,
+  no-op if aligner None or language None.
+- \[ \] Call from `_do_fetch_and_convert` right after language
+  classifier (when lang is known).
 
-### 6. `song_manager.py`
+### 5. Tests
 
-- \[x\] `_get_companion_files`: also return `{base}.m4a`. Keeps delete and
-  rename consistent.
+- \[ \] Unit-test `_try_write_ass_tiered` monotonicity (VTT then LRC
+  then WORD → 3 writes; WORD then LRC → 1 write).
+- \[ \] Update `TestLyricsServiceFetchAndConvert` — assert outcomes,
+  not sequence.
+- \[ \] Update `TestLyricsServiceGeniusFallback` — Genius runs in its
+  own thread, no longer inline.
+- \[ \] Update `TestLyricsServiceNewFlow` — verify tier-based writes
+  land when expected.
+- \[ \] Keep `TestLyricsServiceLanguageMismatch` intact (per-source
+  guards unchanged).
+- \[ \] `TestPrewarmTriggeredFromFetchAndConvert` — still fires.
+- \[ \] Add a test for wav2vec2 preload firing.
 
-### 7. `lyrics.py`
+### 6. Review / verify
 
-- \[x\] No change needed in callers — `_prewarm_stems(song_path)` still
-  passes the mp4 path; `demucs_processor.prewarm` now auto-detects the
-  sibling.
-
-### 8. Tests
-
-- \[x\] `test_download_manager.py` — add a parallel-path test mocking two
-  Popens; confirm Demucs prewarm fires on audio completion.
-- \[x\] `test_stream_routes.py` — silent-video + sibling `.m4a` →
-  `audio_track_url` routed to sibling.
-- \[x\] `test_youtube_dl.py` — command builders smoke test.
-- \[x\] Any demucs_processor unit tests — sibling-detection branch.
-
-## Out of scope
-
-- True streaming Demucs (still needs full waveform).
-- Extract-audio-from-stream piping (can come later if parallel downloads
-  aren't enough).
-- Library migration for existing muxed mp4s.
+- \[x\] `uv run pre-commit run --config code_quality/.pre-commit-config.yaml --files pikaraoke/lib/lyrics.py tests/unit/test_lyrics.py`
+  — black reformatted, pylint + isort clean. "No Commit to master"
+  warning is pre-existing (user commits manually).
+- \[x\] `uv run pytest tests/unit/` — 1320 passed, 1 skipped.
+- \[ \] Smoke test: Kolorowy wiatr replay — confirm word-level .ass lands
+  sooner than 60s (expected savings: ~13s from wav2vec2 preload,
+  ~0-15s from VTT-parallel-to-LRC when captions exist).
 
 ## Review
 
-- **yt-dlp**: `build_ytdl_video_only_command` (HQ h264/mp4 + info.json +
-  subs + faststart) and `build_ytdl_audio_only_command` (bestaudio,
-  `-x --audio-format m4a`, no info.json/subs) added as siblings of the
-  existing merged builder.
-- **demucs_processor**: `resolve_audio_source()` centralises sibling
-  lookup; `prewarm()` passes the audio path through it so cache key is
-  SHA256 of the `.m4a` when present.
-- **download_manager**: `_execute_download` dispatches on the
-  `vocal_removal` pref. Merged path (`_run_merged_download`) preserves
-  the upstream behaviour. Split path (`_run_split_download`) runs video
-  and audio yt-dlp in parallel threads, averages progress, fires Demucs
-  prewarm the moment audio exits cleanly, and sweeps up orphan files if
-  either process fails.
-- **file_resolver**: `audio_sibling_path` populated for `.mp4` inputs
-  when a `<basename>.m4a` exists on disk.
-- **stream_manager**: `play_file` forces the audio pipe on when a
-  sibling is present and vocal removal is off (the video is silent,
-  no native audio to serve). `_prepare_stems` runs Demucs off the
-  sibling so download-time prewarm and play-time lookups agree on the
-  cache key.
-- **song_manager**: `.m4a` joins `.cdg`/`.ass` as a recognized companion
-  so delete/rename stay in sync.
-- **Tests**: parallel-download coverage in `test_download_manager`,
-  command-builder coverage in `test_youtube_dl`, sibling detection in
-  `test_file_resolver`, `resolve_audio_source` in the new
-  `test_demucs_processor`, companion-file coverage in
-  `test_song_manager`. Fixed a latent flake in `test_stream_manager`
-  where the mock `FileResolver`'s auto-truthy `audio_sibling_path`
-  would now have pulled every direct-video test into the audio-pipe
-  branch. 948 tests pass.
+**What shipped:**
 
-## Follow-ups
+- Per-song tier coordinator in `LyricsService`
+  (`_TIER_NONE/_LINE_VTT/_LINE_LRC/_WORD`, `_tier_lock`,
+  `_try_write_ass_tiered`). Every source now routes its .ass write
+  through the gate — VTT/LRC/Genius/Whisper/wav2vec2-upgrade. The gate
+  both invalidates lower-tier writes that land late and emits the
+  `lyrics_upgraded` event that hot-swaps the subtitle URL.
+- `_do_fetch_and_convert` rewritten around three parallel tracks:
+  - `_worker_vtt` fires immediately (\<100ms path to line-level .ass
+    when YouTube captions were downloaded with the song).
+  - LRC fetch stays on the main thread (preserves US-31 LRC-sha
+    invalidation semantics).
+  - wav2vec2 preload via `_warmup_aligner_async` runs in parallel with
+    Demucs + LRC fetch; saves ~13s of cold-start on the first
+    alignment per language per process.
+- Genius and Whisper fallbacks now write through the tier gate instead
+  of `_write_ass_atomic` + `_register_ass` directly. Same behaviour on
+  the happy path, but they can no longer clobber a higher-tier .ass
+  that landed first.
 
-- \[x\] Cancel the still-running yt-dlp when the sibling fails — both
-  Popens now start on the caller thread so either reader can
-  `terminate()` the other the moment its own rc is non-zero. Test
-  `test_split_download_cancels_sibling_on_failure` pins the behaviour.
-- \[x\] Cross-fade sibling m4a to stems during the Demucs warmup window.
-  `stream_manager.play_file` now opens the audio pipe at the m4a
-  sibling when `vocal_removal` is on and the stems aren't a cache hit
-  (checked via `ActiveStems.done_event`). `splash.js` detects the
-  warmup track by label and, on `stems_ready`, fades the m4a to zero
-  before swapping to stems (pre-silenced, then ramped to target gain),
-  so the user hears the song end-to-end instead of silence + sudden
-  pop-in. Cache-hit and old-muxed-mp4 paths are unchanged. Covered by
-  `test_play_file_vocal_removal_warmup_pipes_sibling` and
-  `test_play_file_vocal_removal_cache_hit_skips_warmup`.
+**What didn't:**
+
+- Genius fetch stayed inside `_try_genius_fallback` (spawned as a
+  thread only when LRC misses). Running it in parallel with LRC would
+  save ~1s in the miss case but adds coordination complexity
+  (cancel-on-LRC-hit) for little win — left out on purpose.
+- LRC fetch itself is still sequential on the main thread. Moving it
+  off would require rethinking the cache-hit + LRC-sha invalidation
+  dance; out of scope here.
+
+**Expected wall-time impact on the Kolorowy wiatr case from the
+original log:**
+
+| Stage               | Before | After | Saved |
+|---------------------|--------|-------|-------|
+| LRC fetch           | 15s    | 15s   | 0     |
+| Demucs              | ~22s (parallel already) | same   | 0     |
+| wav2vec2 model load | 13s (serial after Demucs) | ~0s (preloaded) | 13s   |
+| Align               | 26s    | 26s   | 0     |
+| VTT display         | (never — no VTT) | n/a | 0 |
+| **Total to word-level** | **~60s** | **~47s** | **13s** |
+
+For songs with YouTube captions, VTT lands at ~100ms instead of after
+LRC timeout — the user sees subs almost immediately while higher-tier
+sources upgrade in the background.
