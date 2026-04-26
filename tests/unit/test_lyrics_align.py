@@ -161,6 +161,55 @@ class TestMapWhisperToReferenceByLines:
     def test_empty_input_returns_empty(self):
         assert map_whisper_to_reference_by_lines([], []) == []
 
+    def test_ctc_bleed_one_word_eats_window_falls_back_to_uniform(self):
+        # Pocahontas pattern: previous line's sustained "świaaat" bleeds
+        # into this line's audio window, so wav2vec2 places "Lecz" at
+        # +5s with a 5.3s duration. The guard discards all anchors and
+        # uses uniform timing instead.
+        line_start, line_end = 109.0, 116.0  # 7s line window
+        whisper = [
+            Word("Lecz", 109.0, 114.3),  # 5.3s - more than half the window
+            Word("to", 114.3, 114.5),
+            Word("będzie", 114.5, 115.5),
+            Word("świat", 115.5, 116.0),
+        ]
+        out = map_whisper_to_reference_by_lines(
+            whisper, [(line_start, line_end, "Lecz to będzie świat")]
+        )
+        assert [w.text for w in out] == ["Lecz", "to", "będzie", "świat"]
+        # Uniform fallback spreads tokens across the window evenly,
+        # ~1.75s per word - none consume more than half the window.
+        for w in out:
+            assert (w.end - w.start) == pytest.approx(1.75, abs=0.01)
+        assert out[0].start == pytest.approx(line_start)
+        assert out[-1].end == pytest.approx(line_end)
+
+    def test_ctc_bleed_first_anchor_past_midpoint_falls_back_to_uniform(self):
+        # Even if no single anchor exceeds the duration threshold, the
+        # whole phrase being shifted into the back half of the line
+        # window (in a multi-word line) is itself a bleed signature.
+        line_start, line_end = 100.0, 110.0  # 10s window, midpoint=105
+        whisper = [
+            Word("alpha", 106.0, 106.5),  # starts 6s into 10s window
+            Word("beta", 107.0, 107.5),
+            Word("gamma", 108.0, 108.5),
+        ]
+        out = map_whisper_to_reference_by_lines(
+            whisper, [(line_start, line_end, "alpha beta gamma")]
+        )
+        assert [w.text for w in out] == ["alpha", "beta", "gamma"]
+        # Uniform fallback - alpha now starts at line_start, not at +6s.
+        assert out[0].start == pytest.approx(line_start)
+
+    def test_single_word_line_keeps_long_sustain(self):
+        # A line with one word can legitimately sustain through the whole
+        # window (final held note); the bleed guard must not kick in.
+        whisper = [Word("świat", 100.0, 108.0)]  # 8s sustained note
+        out = map_whisper_to_reference_by_lines(whisper, [(100.0, 108.0, "świat")])
+        assert len(out) == 1
+        assert out[0].start == pytest.approx(100.0)
+        assert out[0].end == pytest.approx(108.0)
+
 
 class TestInterpolateGaps:
     def test_no_gaps(self):
@@ -318,7 +367,7 @@ class TestWhisperXAligner:
         from pikaraoke.lib.lyrics_align import WhisperXAligner
 
         aligner = WhisperXAligner(device="cpu")
-        assert aligner.model_id == "wav2vec2-char"
+        assert aligner.model_id == "wav2vec2-char-bleedguard"
 
 
 class TestCharAlignmentExtraction:
@@ -403,6 +452,67 @@ class TestCharAlignmentExtraction:
         }
         words = _words_with_char_parts(aligned)
         assert words[0].parts is None
+
+    def test_smooths_ctc_spike_into_uniform_distribution(self):
+        # Pocahontas "stworzeń" pattern: CTC dumps 1.36s on 'o' and packs
+        # the trailing chars into 20ms each. Smoothing replaces with an
+        # even spread across the word's span - same total duration.
+        aligned = {
+            "segments": [
+                {
+                    "text": "stworzen",
+                    "start": 0.0,
+                    "end": 3.06,
+                    "words": [{"word": "stworzen", "start": 0.0, "end": 3.06}],
+                    "chars": [
+                        {"char": "s", "start": 0.0, "end": 0.52},
+                        {"char": "t", "start": 0.52, "end": 0.70},
+                        {"char": "w", "start": 0.70, "end": 0.76},
+                        {"char": "o", "start": 0.76, "end": 0.96},
+                        {"char": "r", "start": 0.96, "end": 2.32},  # spike: 1.36s
+                        {"char": "z", "start": 2.32, "end": 3.02},
+                        {"char": "e", "start": 3.02, "end": 3.04},
+                        {"char": "n", "start": 3.04, "end": 3.06},
+                    ],
+                }
+            ]
+        }
+        words = _words_with_char_parts(aligned)
+        parts = words[0].parts
+        assert parts is not None
+        assert [p.text for p in parts] == ["s", "t", "w", "o", "r", "z", "e", "n"]
+        # 8 chars across 3.06s = 0.3825s each, all uniform.
+        per = 3.06 / 8
+        for i, p in enumerate(parts):
+            assert p.start == pytest.approx(per * i, abs=1e-6)
+            assert (p.end - p.start) == pytest.approx(per, abs=1e-6)
+
+    def test_does_not_smooth_balanced_char_durations(self):
+        # Normal aligned word with even per-char timings: smoothing must
+        # not touch it (no CTC spike to fix).
+        aligned = {
+            "segments": [
+                {
+                    "text": "hello",
+                    "start": 0.0,
+                    "end": 0.5,
+                    "words": [{"word": "hello", "start": 0.0, "end": 0.5}],
+                    "chars": [
+                        {"char": "h", "start": 0.00, "end": 0.10},
+                        {"char": "e", "start": 0.10, "end": 0.20},
+                        {"char": "l", "start": 0.20, "end": 0.30},
+                        {"char": "l", "start": 0.30, "end": 0.40},
+                        {"char": "o", "start": 0.40, "end": 0.50},
+                    ],
+                }
+            ]
+        }
+        parts = _words_with_char_parts(aligned)[0].parts
+        # Original timings preserved exactly.
+        assert parts[0].start == 0.00
+        assert parts[0].end == 0.10
+        assert parts[4].start == 0.40
+        assert parts[4].end == 0.50
 
 
 class TestPartsForRef:

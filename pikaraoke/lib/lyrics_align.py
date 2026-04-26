@@ -67,9 +67,13 @@ class WhisperXAligner:
         Bumped to ``wav2vec2-char`` when we switched the ASS renderer from
         one ``\\kf`` per word to per-character ``\\kf`` fills using the
         wav2vec2 char-level timings that were previously discarded.
+        Bumped to ``wav2vec2-char-bleedguard`` when we added the per-line
+        bleed-guard (drops anchors when CTC latched onto the previous
+        line's sustained vowel) and per-word spike smoothing (flattens
+        CTC's single-frame spikes into a uniform char distribution).
         Existing cached .ass files auto-invalidate.
         """
-        return "wav2vec2-char"
+        return "wav2vec2-char-bleedguard"
 
     def align(
         self,
@@ -204,15 +208,52 @@ def _words_with_char_parts(aligned: dict) -> list[Word]:
                 continue
             group = char_groups[word_idx] if word_idx < len(char_groups) else []
             parts = _build_parts_from_chars(group)
-            out.append(
-                Word(
-                    text=text,
-                    start=float(word["start"]),
-                    end=float(word["end"]),
-                    parts=tuple(parts) if len(parts) > 1 else None,
-                )
-            )
+            word_start = float(word["start"])
+            word_end = float(word["end"])
+            parts_tuple = tuple(parts) if len(parts) > 1 else None
+            parts_tuple = _smooth_spike_parts(parts_tuple, word_start, word_end)
+            out.append(Word(text=text, start=word_start, end=word_end, parts=parts_tuple))
     return out
+
+
+# When one char's CTC duration exceeds this multiple of the mean char
+# duration in the word, the alignment looks like a "spike" - typical of
+# a sustained sung vowel where CTC fires on a single high-confidence
+# frame and packs the remaining chars into the trailing milliseconds.
+# We redistribute uniformly in that case for steadier karaoke fill.
+_SPIKE_REDIST_FACTOR = 3.0
+
+
+def _smooth_spike_parts(
+    parts: tuple[WordPart, ...] | None,
+    word_start: float,
+    word_end: float,
+) -> tuple[WordPart, ...] | None:
+    """Flatten CTC spike timings to a uniform per-char distribution.
+
+    On sung sustained vowels CTC emits a high-confidence spike on the
+    sustained glyph and assigns trailing chars near-zero durations. The
+    karaoke fill then sits on one letter for seconds before racing
+    through the remainder. Detect that pattern (max char duration much
+    larger than the mean) and replace per-char timings with a uniform
+    spread across the word's span - same total time, smoother visual.
+
+    No-ops for words with fewer than two parts (single ``\\kf`` already)
+    or with already-balanced char durations.
+    """
+    if not parts or len(parts) < 2:
+        return parts
+    durations = [p.end - p.start for p in parts]
+    longest = max(durations)
+    mean = sum(durations) / len(durations)
+    if longest <= mean * _SPIKE_REDIST_FACTOR:
+        return parts
+    span = max(word_end - word_start, 0.01)
+    per = span / len(parts)
+    return tuple(
+        WordPart(text=p.text, start=word_start + per * i, end=word_start + per * (i + 1))
+        for i, p in enumerate(parts)
+    )
 
 
 def _group_chars_by_word(seg_chars: list[dict]) -> list[list[dict]]:
@@ -356,8 +397,57 @@ def map_whisper_to_reference_by_lines(
                     end=w.end,
                     parts=_parts_for_ref(w.parts, ref),
                 )
+        if not _anchors_look_credible(matched, line_start, line_end, len(ref_tokens)):
+            logger.info(
+                "wav2vec2: discarding anchors for line %.2f-%.2fs (CTC bleed "
+                "from previous sustain); using uniform fallback for %r",
+                line_start,
+                line_end,
+                text[:60],
+            )
+            out.extend(_uniform_line_words(ref_tokens, line_start, line_end))
+            continue
         out.extend(_interpolate_line_gaps(ref_tokens, matched, line_start, line_end))
     return out
+
+
+# Threshold for the "CTC bleed" guard: when a single word in a multi-word
+# line absorbs more than this fraction of the line window, the alignment
+# is almost certainly wrong (wav2vec2 latched onto the previous line's
+# sustained vowel that crossed into this line's audio window). Same
+# threshold is used to reject anchors that start past the line's midpoint
+# in multi-word lines - the singer can't realistically delay the entire
+# phrase that long without LRCLib having flagged a later line_start.
+_BLEED_GUARD_FRACTION = 0.5
+
+
+def _anchors_look_credible(
+    matched: list[Word | None], line_start: float, line_end: float, num_words: int
+) -> bool:
+    """Heuristic check that wav2vec2's anchors aren't a CTC-bleed artifact.
+
+    Returns False when the matched anchors show the classic bleed
+    signature - one word eating more than half the line window, or the
+    first anchor landing past the line's midpoint in a multi-word line.
+    A False return tells the caller to discard anchors and fall back to
+    uniform timing for this line.
+
+    Single-word lines are always considered credible: a single sustained
+    final note legitimately fills the line window.
+    """
+    anchors = [m for m in matched if m is not None]
+    if not anchors or num_words < 2:
+        return True
+    window = line_end - line_start
+    if window <= 0:
+        return True
+    threshold = window * _BLEED_GUARD_FRACTION
+    if any((a.end - a.start) > threshold for a in anchors):
+        return False
+    first = next((m for m in matched if m is not None), None)
+    if first and (first.start - line_start) > threshold:
+        return False
+    return True
 
 
 # Whisper timestamps can drift by a second or so around real line boundaries;
