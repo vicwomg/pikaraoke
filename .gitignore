@@ -16,6 +16,10 @@ docker-compose.yml
 .claude/
 /logs
 
+# Local env / secrets (GENIUS_ACCESS_TOKEN, etc.)
+.env
+.env.local
+
 # Compiled translation files (generated from .po files at startup)
 *.mo
 
