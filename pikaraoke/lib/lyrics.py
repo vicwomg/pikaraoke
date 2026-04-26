@@ -1538,6 +1538,33 @@ _GENIUS_CONTAINER_RE = re.compile(
 _GENIUS_SECTION_HEADER_RE = re.compile(r"^\s*\[[^\]]*\]\s*$", re.MULTILINE)
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 
+# Genius occasionally A/B-tests the page layout so a header block —
+# "4 Contributors", "Translations", language menus, "Read More", etc. —
+# leaks into the lyrics container. Stripping the HTML tags concatenates
+# those inline spans into a single nonsense "word"
+# (``4 ContributorsTranslationsEnglish``) that wav2vec2 happily pretends
+# to align, producing timestamps beyond the song duration that then
+# crash libass. Drop any line that looks like page chrome.
+#
+# The CamelCase boundary `(?=\W|[A-Z]|$)` is deliberate: `\b` only fires
+# between a word char and a non-word char, so it misses the glued
+# transition `Contributors`→`Translations` where both sides are letters.
+_GENIUS_JUNK_LINE_RE = re.compile(
+    r"""
+    ^\s*
+    (?:
+        \d+\s*Contributors?(?=\W|[A-Z]|$).*       # "4 Contributors", "4 ContributorsTranslations..."
+      | (?:Translations?|Read\s+More)(?=\W|[A-Z]|$).*
+      | (?:                                       # bare language-name menu entries
+            English|Polski|Polish|Français|French|Español|Spanish|
+            Deutsch|German|Italiano|Italian|Português|Portuguese|
+            Русский|Russian|日本語|Japanese|中文|Chinese
+        )\s*$
+    )
+    """,
+    re.VERBOSE,
+)
+
 
 def _extract_genius_lyrics(html: str) -> str | None:
     """Pull plain-text lyrics out of a Genius song page.
@@ -1557,8 +1584,12 @@ def _extract_genius_lyrics(html: str) -> str | None:
         text = _GENIUS_SECTION_HEADER_RE.sub("", text)
         for line in text.splitlines():
             stripped = line.strip()
-            if stripped:
-                lines.append(stripped)
+            if not stripped:
+                continue
+            if _GENIUS_JUNK_LINE_RE.match(stripped):
+                logger.info("Genius: dropping header junk line %r", stripped[:80])
+                continue
+            lines.append(stripped)
     return "\n".join(lines) if lines else None
 
 

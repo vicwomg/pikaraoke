@@ -530,6 +530,46 @@ class TestExtractGeniusLyrics:
         )
         assert _extract_genius_lyrics(html) == "a\nb\nc\nd"
 
+    def test_drops_contributor_header_junk(self):
+        """Genius occasionally leaks '4 Contributors' / 'Translations' /
+        language menu entries into the lyrics container. Those are not
+        sung content and must not reach the aligner — otherwise wav2vec2
+        hallucinates timestamps past the audio duration and libass
+        crashes rendering the resulting .ass."""
+        html = (
+            '<div data-lyrics-container="true">'
+            "4 Contributors<br>Translations<br>English<br>"
+            "Polski<br>Pobiegnij za mną<br>skarbów niezmierzonych"
+            "</div>"
+        )
+        result = _extract_genius_lyrics(html)
+        assert result is not None
+        assert "Contributors" not in result
+        assert "Translations" not in result
+        assert "English" not in result.split("\n")
+        assert "Polski" not in result.split("\n")
+        # Real lyrics still intact.
+        assert "Pobiegnij za mną" in result
+        assert "skarbów niezmierzonych" in result
+
+    def test_drops_read_more_marker(self):
+        html = '<div data-lyrics-container="true">' "line one<br>Read More<br>line two" "</div>"
+        result = _extract_genius_lyrics(html)
+        assert result == "line one\nline two"
+
+    def test_drops_camelcased_glued_header_chrome(self):
+        """When inline spans collapse without separators we get a single
+        glued line like ``4 ContributorsTranslationsEnglish``. The
+        original ``\\b``-based regex missed this because both sides of
+        the boundary are word chars — see Pocahontas (UityBuZoXv0)."""
+        html = (
+            '<div data-lyrics-container="true">'
+            "4 ContributorsTranslationsEnglish<br>Pobiegnij za mną"
+            "</div>"
+        )
+        result = _extract_genius_lyrics(html)
+        assert result == "Pobiegnij za mną"
+
 
 # ----- LRC-from-aligned-words helper -----
 
