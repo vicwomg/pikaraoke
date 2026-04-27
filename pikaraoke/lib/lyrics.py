@@ -123,6 +123,41 @@ _WHISPER_MODEL_RESOLVED: str | None = None
 _whisper_model_cache: list = [None]
 _whisper_model_lock = threading.Lock()
 
+
+# ----- Multi-source consensus dependencies (soft imports) -----
+#
+# The ``syncedlyrics`` PyPI package wraps Musixmatch + Megalobiz token
+# rotation. It is optional: when missing or its mobile-token rotation
+# breaks in a release, the consensus pipeline degrades to LRCLib +
+# Genius + VTT + Whisper without code changes.
+try:
+    import syncedlyrics as _syncedlyrics
+
+    _SYNCEDLYRICS_AVAILABLE = True
+except ImportError:
+    _syncedlyrics = None  # type: ignore[assignment]
+    _SYNCEDLYRICS_AVAILABLE = False
+
+
+# Operator gates for the consensus pipeline. ``LYRICS_CONSENSUS_ENABLED``
+# is the master switch — when "0"/"off"/"false" (or any value below) the
+# legacy LRC -> Genius -> Whisper sequential pipeline runs unchanged.
+# ``LYRICS_CONSENSUS_PROVIDERS`` is a comma-separated allowlist for the
+# syncedlyrics-backed sources. Empty = both disabled.
+def _consensus_enabled() -> bool:
+    return os.environ.get("LYRICS_CONSENSUS_ENABLED", "0").strip().lower() in {
+        "1",
+        "on",
+        "true",
+        "yes",
+    }
+
+
+def _consensus_providers() -> set[str]:
+    raw = os.environ.get("LYRICS_CONSENSUS_PROVIDERS", "musixmatch,megalobiz")
+    return {name.strip().lower() for name in raw.split(",") if name.strip()}
+
+
 # Trailing mix/version markers in parens or brackets: "(Instrumental)",
 # "[Karaoke]", "(Acoustic Version)", etc. LRCLib + Genius index lyrics once
 # per song regardless of release variant, so these suffixes drop otherwise-
@@ -565,11 +600,24 @@ class LyricsService:
                         info["track"] if info else "?",
                     )
 
-        # Alignment / Genius workers. LRC > Genius: when LRC hit we queue
-        # the word-level upgrade on it; otherwise Genius is the alignment
-        # source (text-only, align against the whole song).
+        # Alignment / Genius workers. Two paths:
+        # - Consensus path (LYRICS_CONSENSUS_ENABLED=1): one thread fans out
+        #   MXM/Megalobiz/Genius/Whisper in parallel, votes a token-level
+        #   consensus against the VTT/Whisper audio reference, runs the
+        #   aligner once, writes T3.
+        # - Legacy path (default): LRC > Genius. When LRC hit, align on it;
+        #   otherwise Genius is the alignment source (text-only,
+        #   whole-song align).
         align_thread: Thread | None = None
-        if lrc and self._aligner is not None:
+        if _consensus_enabled() and self._aligner is not None:
+            align_thread = Thread(
+                target=self._upgrade_via_consensus,
+                args=(song_path, info, lrc, lyrics_sha),
+                name=f"lyrics-consensus-{basename}",
+                daemon=True,
+            )
+            align_thread.start()
+        elif lrc and self._aligner is not None:
             align_thread = Thread(
                 target=self._upgrade_to_word_level,
                 args=(song_path, lrc, lyrics_sha),
@@ -1528,6 +1576,270 @@ class LyricsService:
         except Exception:
             logger.exception("failed to emit whisper-failure song_warning")
 
+    def _run_whisper_for_consensus(self, song_path: str) -> tuple[list["Word"], str | None]:
+        """Transcribe vocals with Whisper, return ``(words, language)``.
+
+        Same model load + segments-iter walk as ``_try_whisper_fallback``,
+        but skips the ASS write. Used by the consensus engine as an
+        always-parallel audio-reference contributor — its tokens score
+        title-matched sources and its words can scaffold a T3 LRC when
+        every synced source got rejected. Catches every internal Whisper
+        exception (OOM, decode failures, model load) and returns
+        ``([], None)`` so the consensus pool just runs without it.
+        """
+        try:
+            audio_path = _wait_for_alignment_audio(song_path)
+            model = _get_whisper_model()
+            if model is None:
+                return [], None
+            segments_iter, info = model.transcribe(
+                audio_path, word_timestamps=True, vad_filter=True
+            )
+            segments = list(segments_iter)
+            if not segments:
+                return [], None
+            lang = getattr(info, "language", None)
+            words: list[Word] = []
+            for seg in segments:
+                for w in seg.words or []:
+                    text = (getattr(w, "word", "") or "").strip()
+                    if not text or w.start is None or w.end is None:
+                        continue
+                    start = float(w.start)
+                    end = float(w.end)
+                    parts = _syllable_parts(text, lang, start, end)
+                    words.append(Word(text=text, start=start, end=end, parts=parts))
+            return words, lang
+        except Exception:
+            logger.exception("whisper-for-consensus crashed for %s", song_path)
+            return [], None
+
+    def _upgrade_via_consensus(
+        self,
+        song_path: str,
+        info: dict | None,
+        lrclib_lrc: str | None,
+        lyrics_sha: str | None,
+    ) -> None:
+        """T3 path via multi-source consensus (gated by LYRICS_CONSENSUS_ENABLED).
+
+        Fans out Musixmatch/Megalobiz/Genius/Whisper in parallel, collects
+        VTT + LRCLib already on hand, builds an audio reference (VTT +
+        Whisper), runs the consensus voter, aligns the consensus text once
+        through wav2vec2, and writes T3. Drops every safety guard on the
+        same blocks the legacy path uses (tier gate, atomic write, sha
+        invalidation), so a partial pipeline failure leaves the existing
+        T1/T2 .ass alone.
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        from pikaraoke.lib import lyrics_consensus as lc
+
+        basename = os.path.basename(song_path)
+        track = (info or {}).get("track")
+        artist = (info or {}).get("artist")
+
+        sources: list[lc.SourceResult] = []
+        vtt_source: lc.SourceResult | None = None
+        whisper_source: lc.SourceResult | None = None
+
+        # 1. VTT (free, on-disk if present)
+        try:
+            vtt_path = _pick_best_vtt(song_path, preferred_lang=self._db_language(song_path))
+            if vtt_path:
+                with open(vtt_path, encoding="utf-8") as f:
+                    vtt_text = f.read()
+                vtt_lrc = _vtt_to_lrc(vtt_text)
+                if vtt_lrc:
+                    vtt_source = lc.SourceResult(
+                        name="vtt", kind="source_matched", lrc=vtt_lrc, is_synced=True
+                    )
+                    sources.append(vtt_source)
+        except Exception:
+            logger.warning("consensus: VTT load failed for %s", basename, exc_info=True)
+
+        # 2. LRCLib (already fetched on the main thread)
+        if lrclib_lrc:
+            sources.append(
+                lc.SourceResult(name="lrclib", kind="title_matched", lrc=lrclib_lrc, is_synced=True)
+            )
+
+        # 3. Parallel fan-out: MXM, Megalobiz, Genius, Whisper
+        providers = _consensus_providers()
+        fetchers: dict[str, callable] = {}  # type: ignore[type-arg]
+        if track and artist:
+            if "musixmatch" in providers:
+                fetchers["musixmatch"] = lambda: _fetch_musixmatch(track, artist)
+            if "megalobiz" in providers:
+                fetchers["megalobiz"] = lambda: _fetch_megalobiz(track, artist)
+            if GENIUS_ACCESS_TOKEN:
+                fetchers["genius"] = lambda: _fetch_genius(track, artist)
+        if _whisper_fallback_enabled():
+            fetchers["whisper"] = lambda: self._run_whisper_for_consensus(song_path)
+
+        t_start = time.monotonic()
+        completed: list[str] = []
+        if fetchers:
+            with ThreadPoolExecutor(max_workers=max(1, len(fetchers))) as ex:
+                futures = {ex.submit(fn): name for name, fn in fetchers.items()}
+                try:
+                    for fut in as_completed(futures, timeout=180):
+                        name = futures[fut]
+                        try:
+                            r = fut.result()
+                        except Exception:
+                            logger.warning("consensus: fetcher %s raised", name, exc_info=True)
+                            self._emit_consensus_decision(song_path, name, "error", 0.0)
+                            continue
+                        if r is None:
+                            continue
+                        if name == "whisper":
+                            words, _lang = r
+                            if not words:
+                                continue
+                            whisper_source = lc.SourceResult(
+                                name="whisper",
+                                kind="source_matched",
+                                words=words,
+                                is_synced=False,
+                            )
+                            sources.append(whisper_source)
+                        elif name in ("musixmatch", "megalobiz") and r:
+                            sources.append(
+                                lc.SourceResult(
+                                    name=name,
+                                    kind="title_matched",
+                                    lrc=r,
+                                    is_synced=True,
+                                )
+                            )
+                        elif name == "genius" and r:
+                            sources.append(
+                                lc.SourceResult(
+                                    name="genius",
+                                    kind="title_matched",
+                                    plain_text=r,
+                                    is_synced=False,
+                                )
+                            )
+                        completed.append(name)
+                        # Early-stop: ≥3 results AND ≥30s since executor entry.
+                        if len(completed) >= 3 and time.monotonic() - t_start >= 30:
+                            for f in futures:
+                                f.cancel()
+                            break
+                except TimeoutError:
+                    logger.warning(
+                        "consensus: as_completed timeout, %d sources collected",
+                        len(completed),
+                    )
+
+        if not sources:
+            logger.info("consensus: no sources for %s", basename)
+            return
+
+        audio_ref = lc.build_audio_reference(vtt_source, whisper_source)
+        consensus = lc.build_consensus(sources, audio_ref)
+        if consensus is None:
+            logger.info("consensus: build returned None for %s", basename)
+            try:
+                self._events.emit(
+                    "song_warning",
+                    {
+                        "message": "Lyrics consensus failed",
+                        "detail": "Could not establish lyrics consensus across sources.",
+                        "song": basename,
+                        "severity": "info",
+                    },
+                )
+            except Exception:
+                logger.exception("failed to emit consensus failure warning")
+            return
+
+        for name in consensus.sources_used:
+            self._emit_consensus_decision(song_path, name, "accepted", consensus.confidence)
+        for name, _reason in consensus.sources_rejected:
+            self._emit_consensus_decision(song_path, name, "rejected", 0.0)
+
+        if self._aligner is None:
+            logger.info("consensus: no aligner, skipping T3 write for %s", basename)
+            return
+
+        # Align consensus text against audio. Reuse line breaks from
+        # consensus.lrc as windowed line scaffolding so the aligner gets
+        # the same structure the existing LRC path enjoys.
+        try:
+            audio_path = _wait_for_alignment_audio(song_path)
+        except Exception:
+            logger.exception("consensus: alignment audio missing for %s", basename)
+            return
+        try:
+            language = self._db_language(song_path)
+            aligned = self._aligner.align(audio_path, consensus.text, language=language)
+        except Exception:
+            logger.exception("consensus: aligner crashed for %s", basename)
+            try:
+                self._events.emit(
+                    "song_warning",
+                    {
+                        "message": "Lyrics alignment failed",
+                        "detail": "Consensus established but wav2vec2 alignment crashed.",
+                        "song": basename,
+                        "severity": "warning",
+                    },
+                )
+            except Exception:
+                logger.exception("failed to emit alignment failure warning")
+            return
+
+        if not aligned:
+            logger.info("consensus: empty aligner output for %s", basename)
+            return
+
+        bpm = _estimate_bpm(audio_path)
+        ass = _words_to_ass_with_k_tags(aligned, consensus.lrc, params=_anim_params_for_bpm(bpm))
+        if not ass:
+            logger.info("consensus: ASS conversion failed for %s", basename)
+            return
+
+        consensus_sha = _lrc_sha(consensus.lrc) or lyrics_sha
+        aligner_model = getattr(self._aligner, "model_name", None)
+        if not isinstance(aligner_model, str):
+            aligner_model = "wav2vec2"
+        wrote = self._try_write_ass_tiered(
+            song_path,
+            _TIER_WORD,
+            ass,
+            lyrics_source="consensus",
+            aligner_model=aligner_model,
+            lyrics_sha=consensus_sha,
+        )
+        if not wrote:
+            return
+        logger.info(
+            "consensus: wrote T3 for %s (sources=%s, confidence=%.2f, rejected=%s)",
+            basename,
+            consensus.sources_used,
+            consensus.confidence,
+            [n for n, _ in consensus.sources_rejected],
+        )
+
+    def _emit_consensus_decision(
+        self, song_path: str, source: str, decision: str, confidence: float
+    ) -> None:
+        try:
+            self._events.emit(
+                "consensus_decision",
+                {
+                    "song": os.path.basename(song_path),
+                    "source": source,
+                    "decision": decision,
+                    "confidence": round(confidence, 3),
+                },
+            )
+        except Exception:
+            logger.exception("failed to emit consensus_decision event")
+
     def reprocess_library(self, song_paths: list[str]) -> int:
         """Upgrade existing line-level auto-lyrics to word-level in the background.
 
@@ -1698,6 +2010,63 @@ def _fetch_lrclib(track: str, artist: str, duration: int | float | None) -> str 
         return None
     logger.info("LRCLib: miss track=%r artist=%r duration=%s", track, artist, duration)
     return None
+
+
+# ----- syncedlyrics-backed providers (Musixmatch, Megalobiz) -----
+
+
+def _fetch_via_syncedlyrics(track: str, artist: str, providers: list[str]) -> str | None:
+    """Common wrapper for syncedlyrics provider lookups.
+
+    Returns synced LRC text on hit, ``None`` when the lib is missing,
+    the network call fails, or the providers return nothing.
+    """
+    if not _SYNCEDLYRICS_AVAILABLE or _syncedlyrics is None:
+        return None
+    if not track or not artist:
+        return None
+    query = f"{track} {artist}"
+    try:
+        result = _syncedlyrics.search(query, providers=providers, save_path=None)
+    except Exception:
+        logger.warning("syncedlyrics %s: lookup failed", providers, exc_info=True)
+        return None
+    if not result:
+        return None
+    text = str(result).strip()
+    return text or None
+
+
+def _fetch_musixmatch(track: str, artist: str) -> str | None:
+    """Synced lyrics from Musixmatch via syncedlyrics. Returns LRC or None."""
+    return _fetch_via_syncedlyrics(track, artist, ["Musixmatch"])
+
+
+def _fetch_megalobiz(track: str, artist: str) -> str | None:
+    """Synced lyrics from Megalobiz via syncedlyrics. Returns LRC or None."""
+    return _fetch_via_syncedlyrics(track, artist, ["Megalobiz"])
+
+
+# ----- VTT -> LRC bridge for the consensus pool -----
+
+
+def _vtt_to_lrc(vtt: str) -> str | None:
+    """Convert YouTube VTT into an LRC string.
+
+    The VTT-to-ASS path drops the timing precision needed for consensus
+    voting (line text only, no per-line cue timestamps), so we re-emit
+    the parsed cues as ``[mm:ss.xx]text`` lines. Same dedup rules as
+    ``_vtt_to_ass`` apply via ``_parse_vtt_cues``.
+    """
+    cues = _parse_vtt_cues(vtt)
+    if not cues:
+        return None
+    lines: list[str] = []
+    for start, _end, text in cues:
+        mm = int(start // 60)
+        ss = start - mm * 60
+        lines.append(f"[{mm:02d}:{ss:05.2f}]{text}")
+    return "\n".join(lines) if lines else None
 
 
 # ----- Genius client -----

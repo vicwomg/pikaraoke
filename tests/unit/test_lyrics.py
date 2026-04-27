@@ -586,6 +586,106 @@ class TestFetchGenius:
             assert mock_get.call_args.kwargs["params"]["q"] == "Artist Song"
 
 
+class TestSyncedLyricsFetchers:
+    """Musixmatch + Megalobiz wrappers around the soft-imported syncedlyrics."""
+
+    def test_returns_none_when_lib_unavailable(self):
+        from pikaraoke.lib import lyrics as lyr
+
+        with patch.object(lyr, "_SYNCEDLYRICS_AVAILABLE", False), patch.object(
+            lyr, "_syncedlyrics", None
+        ):
+            assert lyr._fetch_musixmatch("t", "a") is None
+            assert lyr._fetch_megalobiz("t", "a") is None
+
+    def test_returns_none_on_empty_metadata(self):
+        from pikaraoke.lib import lyrics as lyr
+
+        with patch.object(lyr, "_SYNCEDLYRICS_AVAILABLE", True), patch.object(
+            lyr, "_syncedlyrics", MagicMock()
+        ):
+            assert lyr._fetch_musixmatch("", "a") is None
+            assert lyr._fetch_musixmatch("t", "") is None
+
+    def test_returns_lrc_on_hit(self):
+        from pikaraoke.lib import lyrics as lyr
+
+        fake_lib = MagicMock()
+        fake_lib.search.return_value = "[00:00.00]hello world"
+        with patch.object(lyr, "_SYNCEDLYRICS_AVAILABLE", True), patch.object(
+            lyr, "_syncedlyrics", fake_lib
+        ):
+            assert lyr._fetch_musixmatch("t", "a") == "[00:00.00]hello world"
+        # Verify provider list passed correctly.
+        assert fake_lib.search.call_args.kwargs["providers"] == ["Musixmatch"]
+
+    def test_returns_none_on_lib_exception(self):
+        from pikaraoke.lib import lyrics as lyr
+
+        fake_lib = MagicMock()
+        fake_lib.search.side_effect = RuntimeError("token rotation broke")
+        with patch.object(lyr, "_SYNCEDLYRICS_AVAILABLE", True), patch.object(
+            lyr, "_syncedlyrics", fake_lib
+        ):
+            assert lyr._fetch_megalobiz("t", "a") is None
+
+
+class TestConsensusEnv:
+    def test_disabled_by_default(self, monkeypatch):
+        from pikaraoke.lib.lyrics import _consensus_enabled
+
+        monkeypatch.delenv("LYRICS_CONSENSUS_ENABLED", raising=False)
+        assert _consensus_enabled() is False
+
+    def test_enabled_with_truthy_values(self, monkeypatch):
+        from pikaraoke.lib.lyrics import _consensus_enabled
+
+        for val in ("1", "on", "true", "yes", "TRUE", "ON"):
+            monkeypatch.setenv("LYRICS_CONSENSUS_ENABLED", val)
+            assert _consensus_enabled() is True, f"failed for {val!r}"
+
+    def test_providers_default(self, monkeypatch):
+        from pikaraoke.lib.lyrics import _consensus_providers
+
+        monkeypatch.delenv("LYRICS_CONSENSUS_PROVIDERS", raising=False)
+        assert _consensus_providers() == {"musixmatch", "megalobiz"}
+
+    def test_providers_empty_disables_both(self, monkeypatch):
+        from pikaraoke.lib.lyrics import _consensus_providers
+
+        monkeypatch.setenv("LYRICS_CONSENSUS_PROVIDERS", "")
+        assert _consensus_providers() == set()
+
+    def test_providers_csv_subset(self, monkeypatch):
+        from pikaraoke.lib.lyrics import _consensus_providers
+
+        monkeypatch.setenv("LYRICS_CONSENSUS_PROVIDERS", "musixmatch")
+        assert _consensus_providers() == {"musixmatch"}
+
+
+class TestVttToLrc:
+    def test_emits_lrc_format(self):
+        from pikaraoke.lib.lyrics import _vtt_to_lrc
+
+        vtt = (
+            "WEBVTT\n\n"
+            "00:00:01.000 --> 00:00:03.000\n"
+            "hello world\n\n"
+            "00:00:04.500 --> 00:00:06.000\n"
+            "second line\n"
+        )
+        out = _vtt_to_lrc(vtt)
+        assert out is not None
+        assert "[00:01.00]hello world" in out
+        assert "[00:04.50]second line" in out
+
+    def test_empty_vtt_returns_none(self):
+        from pikaraoke.lib.lyrics import _vtt_to_lrc
+
+        assert _vtt_to_lrc("") is None
+        assert _vtt_to_lrc("WEBVTT\n\n") is None
+
+
 class TestExtractGeniusLyrics:
     def test_extracts_from_container(self):
         html = (
@@ -930,6 +1030,64 @@ class TestLyricsServiceFetchAndConvert:
         ):
             # Must not raise - event listener context
             service.fetch_and_convert(song)
+
+    def test_consensus_path_engaged_when_env_enabled(
+        self, song_with_metadata, tmp_path, monkeypatch
+    ):
+        """With LYRICS_CONSENSUS_ENABLED=1, the alignment thread targets
+        ``_upgrade_via_consensus`` instead of the legacy ``_upgrade_to_word_level``
+        path. Default-off behavior is covered by ``test_aligner_invoked_when_provided``.
+        """
+        song, db = song_with_metadata
+        aligner = MagicMock()
+        aligner.align.return_value = [Word("hello", 1.0, 1.5)]
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
+        monkeypatch.setenv("LYRICS_CONSENSUS_ENABLED", "1")
+        # Disable syncedlyrics + Whisper + Genius so the consensus path runs
+        # purely off the main-thread LRCLib hit + on-disk VTT (none here) +
+        # the (mocked) aligner.
+        monkeypatch.setenv("LYRICS_CONSENSUS_PROVIDERS", "")
+        with patch(
+            "pikaraoke.lib.lyrics._fetch_lrclib",
+            return_value="[00:01.00]hello",
+        ), patch("pikaraoke.lib.lyrics.Thread") as mock_thread, patch(
+            "pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p
+        ), patch(
+            "pikaraoke.lib.lyrics._prewarm_stems"
+        ), patch(
+            "pikaraoke.lib.lyrics._whisper_fallback_enabled", return_value=False
+        ), patch(
+            "pikaraoke.lib.lyrics.GENIUS_ACCESS_TOKEN", ""
+        ), patch(
+            "pikaraoke.lib.lyrics._estimate_bpm", return_value=120.0
+        ), patch(
+            "pikaraoke.lib.lyrics._detect_language", return_value="en"
+        ):
+            service.fetch_and_convert(song)
+            consensus_calls = [
+                c
+                for c in mock_thread.call_args_list
+                if c.kwargs.get("target") == service._upgrade_via_consensus
+            ]
+            legacy_calls = [
+                c
+                for c in mock_thread.call_args_list
+                if c.kwargs.get("target") == service._upgrade_to_word_level
+            ]
+            assert len(consensus_calls) == 1
+            assert len(legacy_calls) == 0
+            # Run the consensus thread synchronously and verify T3 lands.
+            target = consensus_calls[0].kwargs["target"]
+            args = consensus_calls[0].kwargs["args"]
+            target(*args)
+        aligner.align.assert_called_once()
+        ass_text = (tmp_path / "Foo---abc.ass").read_text(encoding="utf-8")
+        # Word-level k-tag landed; pulse animation prefix may wrap it.
+        assert "\\kf50}hello" in ass_text
+        # Provenance: lyrics_source set to "consensus".
+        sid = db.get_song_id_by_path(song)
+        row = db.get_song_by_id(sid)
+        assert row["lyrics_source"] == "consensus"
 
     def test_skips_when_word_level_ass_already_fresh(self, song_with_metadata, tmp_path):
         """Re-request of a cached song must not re-run whisper when LRC unchanged."""

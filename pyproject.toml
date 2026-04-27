@@ -33,6 +33,11 @@ dependencies = [
   "whisperx>=3.1.1",
   "langdetect>=1.0.9",
   "pyphen>=0.15",
+  # Multi-source lyrics consensus: optional curated-LRC providers
+  # (Musixmatch + Megalobiz). Soft-imported in lyrics.py; pikaraoke
+  # still starts and falls back to LRCLib + Genius + VTT + Whisper if
+  # syncedlyrics is missing or its mobile-token rotation breaks.
+  "syncedlyrics>=0.5,<1.0",
 ]
 
 [project.optional-dependencies]

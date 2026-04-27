@@ -954,6 +954,39 @@ run on files already on disk; no new network endpoints anywhere.
 
 ______________________________________________________________________
 
+## US-44: Lyrics Consensus
+
+Multi-source consensus engine landed behind `LYRICS_CONSENSUS_ENABLED=1`
+to defend against the wrong-version overwrite class of bug (Moonlight
+Shadow). Phase 0 (Genius nested-div regex fix) closes the immediate
+incident; the consensus engine adds defense in depth for any future
+source regression. Default-off in this PR — flip on after operator
+soak testing flags no surprise rejections.
+
+Follow-ups:
+
+- \[ \] **P3** UI badge update: surface consensus contributors and
+  rejection reasons in the lyrics-source badge that splash already
+  renders. Touches `splash.js` and the badge component; defer until
+  the telemetry stream confirms the consensus mix is stable.
+- \[ \] **P3** Per-language threshold tuning: replace the global
+  `_REJECT_THRESHOLDS` dict with a per-language hook so Polish /
+  Japanese songs (where SequenceMatcher behaves differently on
+  short-token languages) can tune independently. Need telemetry
+  data first.
+- \[ \] **P2** Sunset criteria check: quarterly review of LRCLib + VTT
+  correctness rate. If they cover >95% of plays correctly for 3
+  months, consider env-disabling consensus by default and keeping
+  it as opt-in.
+- \[ \] **P3** Dashboard for `consensus_decision` event aggregation:
+  per-source hit / reject rate, confidence histogram. Backend route
+  - minimal admin view.
+- \[ \] **P2** Empirical threshold calibration from telemetry: once
+  the dashboard surfaces real rejection rates, tune the per-source
+  thresholds instead of guessing at 0.55 / 0.70.
+
+______________________________________________________________________
+
 ## Priority Roll-Up
 
 **P0 (architectural / story-breaking):** all original P0s resolved (see
