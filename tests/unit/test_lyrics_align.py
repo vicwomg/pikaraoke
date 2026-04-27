@@ -420,7 +420,7 @@ class TestWhisperXAligner:
         from pikaraoke.lib.lyrics_align import WhisperXAligner
 
         aligner = WhisperXAligner(device="cpu")
-        assert aligner.model_id == "wav2vec2-char-subtlepulse"
+        assert aligner.model_id == "wav2vec2-char-leadin"
 
     def test_no_offset_when_audio_lines_up_with_lrc(self, fake_whisperx, monkeypatch):
         # No leading silence to anchor against - silence probe returns
@@ -444,7 +444,8 @@ class TestWhisperXAligner:
         # YouTube rip with 1.83s extra intro padding vs LRCLib's source:
         # vocals start at 16.11s but LRC says 14.28s. wav2vec2 receives
         # already-shifted segments so its forced alignment runs against
-        # audio it can actually anchor to.
+        # audio it can actually anchor to. The shift includes a 0.25s
+        # karaoke lead-in so segments arrive just before the vocal peak.
         from pikaraoke.lib import lyrics_align
 
         monkeypatch.setattr(lyrics_align, "_detect_first_vocal_onset", lambda _p: 16.11)
@@ -455,12 +456,13 @@ class TestWhisperXAligner:
             lrc_lines=[(14.28, 17.27, "hello world")],
             language="en",
         )
-        assert aligner.last_global_offset_s == pytest.approx(1.83, abs=0.01)
+        expected_offset = 1.83 - 0.25
+        assert aligner.last_global_offset_s == pytest.approx(expected_offset, abs=0.01)
         # Single wav2vec2 call - shift happens before alignment runs.
         assert fake_whisperx.align.call_count == 1
         segments_arg = fake_whisperx.align.call_args[0][0]
-        assert segments_arg[0]["start"] == pytest.approx(16.11, abs=0.01)
-        assert segments_arg[0]["end"] == pytest.approx(19.10, abs=0.01)
+        assert segments_arg[0]["start"] == pytest.approx(14.28 + expected_offset, abs=0.01)
+        assert segments_arg[0]["end"] == pytest.approx(17.27 + expected_offset, abs=0.01)
 
     def test_offset_state_resets_per_call(self, fake_whisperx, monkeypatch):
         # First song detects an offset; the next song with no leading
@@ -636,22 +638,26 @@ class TestCharAlignmentExtraction:
 class TestDetectGlobalOffset:
     def test_positive_offset_when_audio_starts_after_lrc(self, monkeypatch):
         # Vocals stem starts silent until 16.11s; LRC says first line at
-        # 14.28 - the YouTube-vs-Spotify intro-padding pattern.
+        # 14.28 - the YouTube-vs-Spotify intro-padding pattern. Returned
+        # offset trims a 0.25s karaoke lead-in so subs land just before
+        # the vocal attack rather than on its peak.
         from pikaraoke.lib import lyrics_align
 
         monkeypatch.setattr(lyrics_align, "_detect_first_vocal_onset", lambda _p: 16.11)
         lrc_lines = [(14.28, 17.27, "Na"), (17.27, 20.96, "I")]
         offset = _detect_global_offset("/tmp/vocals.mp3", lrc_lines)
-        assert offset == pytest.approx(1.83, abs=0.01)
+        assert offset == pytest.approx(1.83 - 0.25, abs=0.01)
 
     def test_negative_offset_when_audio_precedes_lrc(self, monkeypatch):
         # Edge case: YouTube rip has shorter intro than the LRC source.
+        # The lead-in is subtracted from the raw delta in both directions
+        # so target = vocal_onset - lead_in stays consistent.
         from pikaraoke.lib import lyrics_align
 
         monkeypatch.setattr(lyrics_align, "_detect_first_vocal_onset", lambda _p: 5.0)
         lrc_lines = [(7.0, 9.0, "first")]
         offset = _detect_global_offset("/tmp/vocals.mp3", lrc_lines)
-        assert offset == pytest.approx(-2.0, abs=0.01)
+        assert offset == pytest.approx(-2.0 - 0.25, abs=0.01)
 
     def test_returns_none_when_silence_probe_fails(self, monkeypatch):
         # ffmpeg missing or audio starts non-silent - no leading silence
@@ -688,7 +694,7 @@ class TestDetectGlobalOffset:
         monkeypatch.setattr(lyrics_align, "_detect_first_vocal_onset", lambda _p: 16.11)
         lrc_lines = [(10.0, 14.0, ""), (14.28, 17.27, "Na")]
         offset = _detect_global_offset("/tmp/vocals.mp3", lrc_lines)
-        assert offset == pytest.approx(1.83, abs=0.01)
+        assert offset == pytest.approx(1.83 - 0.25, abs=0.01)
 
     def test_returns_none_when_no_lrc_lines_have_text(self, monkeypatch):
         from pikaraoke.lib import lyrics_align

@@ -68,6 +68,15 @@ _SILENCE_MIN_DURATION_S = 0.5
 # probing further isn't reliable.
 _LEADING_SILENCE_MAX_S = 30.0
 
+# Karaoke sync convention: subs should appear slightly before the sung
+# word so singers have reaction time. Silencedetect reports when vocals
+# *cross* the silence threshold - effectively the audible peak of the
+# attack, ~50-100ms after the consonant onset begins. Without this
+# lead-in, shifted lines highlight right at vocal peak and feel late;
+# 0.25s puts them just before the attack starts (matching how curated
+# LRCs target a small anticipation built into their line_starts).
+_KARAOKE_LEAD_IN_S = 0.25
+
 
 def _detect_first_vocal_onset(audio_path: str) -> float | None:
     """Return the first non-silent moment in ``audio_path``, or None.
@@ -146,12 +155,14 @@ def _detect_global_offset(
     first_vocal = _detect_first_vocal_onset(audio_path)
     if first_vocal is None:
         return None
-    offset = first_vocal - float(first_line_start)
-    if abs(offset) < _GLOBAL_OFFSET_MIN_S:
+    raw_offset = first_vocal - float(first_line_start)
+    if abs(raw_offset) < _GLOBAL_OFFSET_MIN_S:
         return None
-    if abs(offset) > _GLOBAL_OFFSET_MAX_S:
+    if abs(raw_offset) > _GLOBAL_OFFSET_MAX_S:
         return None
-    return offset
+    # Pull line starts a touch ahead of the detected vocal peak so subs
+    # fire before the syllable rather than on top of it.
+    return raw_offset - _KARAOKE_LEAD_IN_S
 
 
 class WhisperXAligner:
@@ -212,12 +223,16 @@ class WhisperXAligner:
         switched from wav2vec2's first-word anchors (bimodal when CTC
         latched onto silence at drifted-segment starts) to direct vocals
         leading-silence probing - cleaner signal, single wav2vec2 pass.
+        Bumped to ``wav2vec2-char-leadin`` when the silence-based shift
+        gained a 250ms karaoke anticipation buffer; without it, lines
+        highlighted at vocal peak instead of just before the attack and
+        felt late even though they were technically synced.
         Bumped to ``wav2vec2-char-subtlepulse`` when the per-word pulse
         amplitude was halved (102/103/104% vs 103/106/109%) so the
         decoration stays subtle even on fast tempos.
         Existing cached .ass files auto-invalidate.
         """
-        return "wav2vec2-char-subtlepulse"
+        return "wav2vec2-char-leadin"
 
     def align(
         self,
