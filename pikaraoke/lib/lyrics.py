@@ -425,7 +425,7 @@ class LyricsService:
         from pikaraoke.lib.demucs_processor import DEMUCS_MODEL, resolve_audio_source
 
         # Audio sha check first — a re-downloaded source invalidates
-        # everything downstream (stems + auto .ass via _invalidate_auto_ass).
+        # everything downstream (stems + auto .ass via invalidate_auto_ass).
         # Cheap when mtime+size match the DB.
         try:
             ensure_audio_fingerprint(self._db, song_id, resolve_audio_source(song_path))
@@ -1084,9 +1084,9 @@ class LyricsService:
             current_lang,
         )
         try:
-            from pikaraoke.lib.audio_fingerprint import _invalidate_auto_ass
+            from pikaraoke.lib.audio_fingerprint import invalidate_auto_ass
 
-            _invalidate_auto_ass(self._db, song_id)
+            invalidate_auto_ass(self._db, song_id)
         except Exception:
             logger.exception("tier2b probe: failed to invalidate .ass for %s", song_path)
 

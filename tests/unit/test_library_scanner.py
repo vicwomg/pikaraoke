@@ -1,5 +1,7 @@
 """Unit tests for LibraryScanner."""
 
+import os
+
 import pytest
 
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
@@ -369,6 +371,131 @@ class TestBuildSongRecord:
         # Pass a fake directory listing with a .cdg companion
         record = build_song_record(str(mp3), files_in_dir={"Track.cdg", "Track.mp3"})
         assert record["format"] == "cdg"
+
+
+class TestIntegrityCheck:
+    """Startup integrity walk: validate registered artifacts and queue songs
+    that need a fresh lyrics pipeline run."""
+
+    def test_first_scan_baselines_ass_sha(self, scanner, db, tmp_path):
+        """A freshly-scanned ass_auto file gets its sha recorded; no reprocess."""
+        mp4 = _make_song(tmp_path, "Song---aaaaaaaaaaa.mp4")
+        ass = tmp_path / "Song---aaaaaaaaaaa.ass"
+        ass.write_text("line lyrics")
+        # Inject the ass_auto role manually — build_song_record only flags the
+        # primary format, the explicit role comes from the lyrics pipeline.
+        result = scanner.scan(str(tmp_path))
+        sid = db.get_song_id_by_path(str(mp4))
+        db.upsert_artifacts(sid, [{"role": "ass_auto", "path": str(ass)}])
+        # Re-scan now that the artifact row exists.
+        result = scanner.scan(str(tmp_path))
+
+        rows = [a for a in db.get_artifacts(sid) if a["path"] == str(ass)]
+        assert rows[0]["sha256"] is not None
+        assert rows[0]["size"] == len("line lyrics")
+        # Baselining alone must not flag the song for reprocess.
+        assert str(mp4) not in result.reprocess_paths
+
+    def test_unchanged_ass_does_not_reprocess(self, scanner, db, tmp_path):
+        """stat-match (same mtime+size) skips sha recompute and reprocess."""
+        mp4 = _make_song(tmp_path, "Song---aaaaaaaaaaa.mp4")
+        ass = tmp_path / "Song---aaaaaaaaaaa.ass"
+        ass.write_text("line lyrics")
+        scanner.scan(str(tmp_path))
+        sid = db.get_song_id_by_path(str(mp4))
+        db.upsert_artifacts(sid, [{"role": "ass_auto", "path": str(ass)}])
+        scanner.scan(str(tmp_path))  # baseline
+
+        result = scanner.scan(str(tmp_path))  # second pass, no FS changes
+        assert str(mp4) not in result.reprocess_paths
+
+    def test_ass_content_change_invalidates_and_queues(self, scanner, db, tmp_path):
+        """sha mismatch on ass_auto unlinks the file, drops the row, queues reprocess."""
+        mp4 = _make_song(tmp_path, "Song---aaaaaaaaaaa.mp4")
+        ass = tmp_path / "Song---aaaaaaaaaaa.ass"
+        ass.write_text("original content")
+        scanner.scan(str(tmp_path))
+        sid = db.get_song_id_by_path(str(mp4))
+        db.upsert_artifacts(sid, [{"role": "ass_auto", "path": str(ass)}])
+        # Stamp a stale fingerprint so the mismatch path triggers; bypasses
+        # the "no recorded sha -> baseline" branch.
+        st = ass.stat()
+        db.update_artifact_fingerprint(sid, str(ass), st.st_mtime, st.st_size, "0" * 64)
+        # Mutate content + bump mtime so the cheap stat-check fails.
+        ass.write_text("a wholly different .ass payload, different size")
+        future = os.path.getmtime(str(ass)) + 5
+        os.utime(str(ass), (future, future))
+
+        result = scanner.scan(str(tmp_path))
+
+        assert str(mp4) in result.reprocess_paths
+        assert not ass.exists(), "invalidate_auto_ass should unlink the file"
+        rows = [a for a in db.get_artifacts(sid) if a["role"] == "ass_auto"]
+        assert rows == []
+        # lyrics_sha must clear so the next pipeline run treats LRC as never-fetched.
+        assert db.get_song_by_id(sid)["lyrics_sha"] is None
+
+    def test_missing_ass_drops_row_and_queues(self, scanner, db, tmp_path):
+        """An ass_auto registered but missing on disk: row dropped + queued."""
+        mp4 = _make_song(tmp_path, "Song---aaaaaaaaaaa.mp4")
+        scanner.scan(str(tmp_path))
+        sid = db.get_song_id_by_path(str(mp4))
+        ghost = tmp_path / "Song---aaaaaaaaaaa.ass"
+        db.upsert_artifacts(sid, [{"role": "ass_auto", "path": str(ghost)}])
+
+        result = scanner.scan(str(tmp_path))
+
+        assert str(mp4) in result.reprocess_paths
+        assert [a for a in db.get_artifacts(sid) if a["role"] == "ass_auto"] == []
+
+    def test_missing_cosmetic_artifact_drops_row_only(self, scanner, db, tmp_path):
+        """cover_art / vtt / info_json are cosmetic: drop the row, skip reprocess."""
+        mp4 = _make_song(tmp_path, "Song---aaaaaaaaaaa.mp4")
+        # Cover the "fresh import" case so the song would otherwise be queued.
+        # Add a user-authored .ass to short-circuit the no-lyrics check.
+        ass = tmp_path / "Song---aaaaaaaaaaa.ass"
+        ass.write_text("Title: Aegisub user file\n")
+        scanner.scan(str(tmp_path))
+        sid = db.get_song_id_by_path(str(mp4))
+        db.upsert_artifacts(
+            sid,
+            [
+                {"role": "ass_user", "path": str(ass)},
+                {"role": "cover_art", "path": str(tmp_path / "Song---aaaaaaaaaaa.cover.jpg")},
+            ],
+        )
+
+        result = scanner.scan(str(tmp_path))
+
+        assert str(mp4) not in result.reprocess_paths
+        assert [a for a in db.get_artifacts(sid) if a["role"] == "cover_art"] == []
+        assert [a for a in db.get_artifacts(sid) if a["role"] == "ass_user"] != []
+
+    def test_imported_song_without_ass_is_queued(self, scanner, db, tmp_path):
+        """Fresh scanner-imported mp4 with no .ass companion gets queued."""
+        mp4 = _make_song(tmp_path, "Imported---bbbbbbbbbbb.mp4")
+        result = scanner.scan(str(tmp_path))
+        assert str(mp4) in result.reprocess_paths
+
+    def test_imported_song_with_user_ass_is_not_queued(self, scanner, db, tmp_path):
+        """User-supplied .ass means the user owns lyrics — don't queue."""
+        mp4 = _make_song(tmp_path, "Song---aaaaaaaaaaa.mp4")
+        ass = tmp_path / "Song---aaaaaaaaaaa.ass"
+        ass.write_text("Title: Aegisub user file\n")
+        scanner.scan(str(tmp_path))
+        sid = db.get_song_id_by_path(str(mp4))
+        db.upsert_artifacts(sid, [{"role": "ass_user", "path": str(ass)}])
+
+        result = scanner.scan(str(tmp_path))
+        assert str(mp4) not in result.reprocess_paths
+
+    def test_cdg_format_song_not_queued(self, scanner, db, tmp_path):
+        """CDG songs don't use auto-lyrics; skip the no-lyrics reprocess heuristic."""
+        mp3 = _make_song(tmp_path, "Track---ccccccccccc.mp3")
+        cdg = tmp_path / "Track---ccccccccccc.cdg"
+        cdg.write_text("graphic karaoke")
+        result = scanner.scan(str(tmp_path))
+        assert str(mp3) not in result.reprocess_paths
 
 
 class TestExtractYoutubeId:

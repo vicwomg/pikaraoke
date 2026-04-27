@@ -67,7 +67,7 @@ def ensure_audio_fingerprint(db: KaraokeDatabase, song_id: int, audio_path: str)
             new_sha[:12],
         )
         _invalidate_stems(db, song_id, cached_sha)
-        _invalidate_auto_ass(db, song_id)
+        invalidate_auto_ass(db, song_id)
 
     db.update_audio_fingerprint(song_id, mtime, size, new_sha)
     db.upsert_artifacts(
@@ -104,7 +104,7 @@ def ensure_stems_config(db: KaraokeDatabase, song_id: int, current_demucs_model:
         current_demucs_model,
     )
     _invalidate_stems(db, song_id, row["audio_sha256"])
-    _invalidate_auto_ass(db, song_id)
+    invalidate_auto_ass(db, song_id)
     return False
 
 
@@ -146,7 +146,7 @@ def ensure_lyrics_config(
     if stale_reason is None:
         return True
     logger.info("invalidating auto .ass for song %d: %s", song_id, stale_reason)
-    _invalidate_auto_ass(db, song_id)
+    invalidate_auto_ass(db, song_id)
     return False
 
 
@@ -160,6 +160,60 @@ def _hash_file_sha256(path: str) -> str | None:
         return h.hexdigest()
     except OSError:
         return None
+
+
+# Verdicts returned by ``verify_artifact_fingerprint`` (US-31 startup
+# integrity check). The scanner translates these into per-role actions:
+# CHANGED on ass_auto invalidates the .ass; MISSING drops the row;
+# UNCHANGED/BASELINED/REFRESHED are no-ops.
+ARTIFACT_UNCHANGED = "unchanged"
+ARTIFACT_BASELINED = "baselined"
+ARTIFACT_REFRESHED = "refreshed"
+ARTIFACT_CHANGED = "changed"
+ARTIFACT_MISSING = "missing"
+
+
+def verify_artifact_fingerprint(
+    db: KaraokeDatabase,
+    song_id: int,
+    path: str,
+    *,
+    recorded_sha: str | None,
+    recorded_mtime: float | None,
+    recorded_size: int | None,
+) -> str:
+    """Return one of the ``ARTIFACT_*`` verdicts for an artifact file.
+
+    Cheap-check first: if mtime and size match the recorded values and a sha
+    is on file, the file is trusted unchanged. Otherwise sha is recomputed
+    and persisted; the verdict distinguishes a baseline (no prior sha), a
+    no-op refresh (mtime/size moved but content identical), and a real
+    content change.
+
+    Caller passes the recorded fingerprint explicitly so the integrity walk
+    can iterate ``get_artifacts(song_id)`` rows without a lookup-per-row.
+    """
+    try:
+        st = os.stat(path)
+    except OSError:
+        return ARTIFACT_MISSING
+    mtime, size = st.st_mtime, st.st_size
+
+    if recorded_sha and recorded_mtime == mtime and recorded_size == size:
+        return ARTIFACT_UNCHANGED
+
+    new_sha = _hash_file_sha256(path)
+    if new_sha is None:
+        # Read failure on a file we just stat'd successfully — treat as missing
+        # so the caller drops the row and retries.
+        return ARTIFACT_MISSING
+    db.update_artifact_fingerprint(song_id, path, mtime, size, new_sha)
+
+    if recorded_sha is None:
+        return ARTIFACT_BASELINED
+    if recorded_sha == new_sha:
+        return ARTIFACT_REFRESHED
+    return ARTIFACT_CHANGED
 
 
 def ensure_artifact_fingerprint(db: KaraokeDatabase, song_id: int, path: str) -> str | None:
@@ -210,7 +264,7 @@ def _invalidate_stems(db: KaraokeDatabase, song_id: int, old_sha: str | None) ->
     db.delete_artifacts_by_role(song_id, STEMS_CACHE_DIR_ROLE)
 
 
-def _invalidate_auto_ass(db: KaraokeDatabase, song_id: int) -> None:
+def invalidate_auto_ass(db: KaraokeDatabase, song_id: int) -> None:
     """Unlink auto-generated .ass files (marker-tagged). Preserves ass_user rows.
 
     Also clears ``lyrics_sha`` so the next pipeline run treats LRCLib as

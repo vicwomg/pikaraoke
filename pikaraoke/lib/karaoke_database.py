@@ -248,6 +248,16 @@ class KaraokeDatabase:
             rows = self._conn.execute("SELECT file_path FROM songs").fetchall()
             return [row[0] for row in rows]
 
+    def get_all_song_ids_and_paths(self) -> list[tuple[int, str]]:
+        """Return [(song_id, file_path)] for every song.
+
+        Used by LibraryScanner._verify_integrity to walk artifacts without
+        a lookup-per-row.
+        """
+        with self._lock:
+            rows = self._conn.execute("SELECT id, file_path FROM songs").fetchall()
+            return [(r[0], r[1]) for r in rows]
+
     def get_lyrics_sources(self) -> dict[str, str]:
         """Return ``{file_path: lyrics_source}`` for every song with a non-NULL tag.
 

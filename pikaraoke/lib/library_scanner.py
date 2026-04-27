@@ -1,15 +1,25 @@
 """Filesystem scanner that synchronises the song directory with the database."""
 
+import contextlib
 import logging
 import os
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.metadata_parser import youtube_id_suffix
 from pikaraoke.lib.song_list import SongList
 
 _VALID_EXTENSIONS = SongList.VALID_EXTENSIONS
+
+# Roles whose loss/content-change should trigger a fresh lyrics pipeline run.
+# Cosmetic artifacts (cover_art, info_json, vtt) drop quietly; primary_media
+# is already handled by the main scan diff (deletion of the song row).
+_LYRICS_TRIGGER_ROLES = frozenset({"ass_auto", "audio_source", "primary_media"})
+
+# Formats where auto-generated lyrics aren't expected: CDG ships its own
+# graphic karaoke track, ZIP is a CDG bundle. mp3/mp4/ass all qualify.
+_LYRICS_SKIP_FORMATS = frozenset({"cdg", "zip"})
 
 
 def build_song_record(
@@ -72,6 +82,10 @@ class ScanResult:
     moved: int
     deleted: int
     circuit_tripped: bool
+    # Songs whose artifacts indicate they need a fresh lyrics pipeline run
+    # (missing or sha-mismatched ass_auto, content-changed audio source, or
+    # an imported song that has never produced an .ass).
+    reprocess_paths: list[str] = field(default_factory=list)
 
 
 class LibraryScanner:
@@ -177,12 +191,124 @@ class LibraryScanner:
         # backfill runs once per song via a single pass.
         self._backfill_artifacts()
 
+        # Walk artifacts to spot files that vanished or changed sha out-of-band
+        # (user edited an .ass, mounted volume regenerated stems, etc.) and
+        # surface songs that need a fresh lyrics pipeline run.
+        reprocess_paths = self._verify_integrity()
+        if reprocess_paths:
+            logging.info(f"Scan: {len(reprocess_paths)} song(s) flagged for reprocess")
+
         return ScanResult(
             added=len(to_insert),
             moved=len(moves),
             deleted=deleted,
             circuit_tripped=circuit_tripped,
+            reprocess_paths=reprocess_paths,
         )
+
+    def _verify_integrity(self) -> list[str]:
+        """Validate every registered artifact and queue songs for reprocess.
+
+        For each artifact row:
+
+        * stat the file. Missing -> drop the row. If the role normally drives
+          the lyrics pipeline (ass_auto / audio_source / primary_media), the
+          song is queued for reprocess; cosmetic artifacts drop quietly.
+        * Otherwise call ``verify_artifact_fingerprint`` (cheap stat-then-sha
+          ladder). On a real content change, an ass_auto file is unlinked +
+          its row dropped + lyrics_sha cleared via ``invalidate_auto_ass``;
+          a changed audio source delegates to ``ensure_audio_fingerprint``
+          which cascades stems + auto-ass invalidation; other roles just
+          rebaseline.
+
+        Songs that survive integrity but have no ass_auto/ass_user companion
+        (typical of fresh scanner-imported collections) are also queued so
+        the lyrics pipeline runs once for each.
+
+        Imports are deferred to keep audio_fingerprint / demucs_processor
+        (torch) out of the scanner's import graph.
+        """
+        from pikaraoke.lib.audio_fingerprint import (
+            ARTIFACT_CHANGED,
+            ARTIFACT_MISSING,
+            ensure_audio_fingerprint,
+            invalidate_auto_ass,
+            verify_artifact_fingerprint,
+        )
+        from pikaraoke.lib.demucs_processor import resolve_audio_source
+
+        queue: list[str] = []
+        for song_id, song_path in self._db.get_all_song_ids_and_paths():
+            if not os.path.exists(song_path):
+                # Main scan already deletes vanished primary_media rows; if
+                # we still see one, it means the circuit breaker held off
+                # the delete. Don't queue reprocess for an unreachable song.
+                continue
+
+            artifacts = self._db.get_artifacts(song_id)
+            roles_present: set[str] = set()
+            needs_reprocess = False
+
+            for artifact in artifacts:
+                role = artifact["role"]
+                path = artifact["path"]
+
+                if role == "stems_cache_dir":
+                    # Not a file — sha doesn't apply. Drop the row when the
+                    # cache dir is gone; next play regenerates.
+                    if not os.path.isdir(path):
+                        self._db.delete_artifact(song_id, path)
+                    else:
+                        roles_present.add(role)
+                    continue
+
+                verdict = verify_artifact_fingerprint(
+                    self._db,
+                    song_id,
+                    path,
+                    recorded_sha=artifact["sha256"],
+                    recorded_mtime=artifact["mtime"],
+                    recorded_size=artifact["size"],
+                )
+
+                if verdict == ARTIFACT_MISSING:
+                    self._db.delete_artifact(song_id, path)
+                    if role in _LYRICS_TRIGGER_ROLES:
+                        needs_reprocess = True
+                    continue
+
+                roles_present.add(role)
+
+                if verdict == ARTIFACT_CHANGED:
+                    if role == "ass_auto":
+                        invalidate_auto_ass(self._db, song_id)
+                        needs_reprocess = True
+                    elif role in {"primary_media", "audio_source"}:
+                        # Source bytes drifted: re-run the canonical
+                        # invalidation cascade (stems + auto .ass).
+                        with contextlib.suppress(Exception):
+                            ensure_audio_fingerprint(
+                                self._db, song_id, resolve_audio_source(song_path)
+                            )
+                        needs_reprocess = True
+                    # ass_user / vtt / cdg / cover_art / info_json: rebaseline
+                    # only — verify_artifact_fingerprint already did that.
+
+            # Imported songs that never went through the lyrics pipeline
+            # (no auto + no user-authored .ass) get one shot at it now.
+            if (
+                not needs_reprocess
+                and "ass_auto" not in roles_present
+                and "ass_user" not in roles_present
+            ):
+                row = self._db.get_song_by_path(song_path)
+                if row is not None and row["format"] not in _LYRICS_SKIP_FORMATS:
+                    needs_reprocess = True
+
+            if needs_reprocess:
+                queue.append(song_path)
+
+        return queue
 
     def _backfill_artifacts(self) -> None:
         """Register artifacts + info.json metadata for songs that lack them.

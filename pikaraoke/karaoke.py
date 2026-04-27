@@ -565,7 +565,39 @@ class Karaoke:
             )
             return
 
+        if result.reprocess_paths:
+            self.events.emit(
+                "notification",
+                f"Library integrity: {len(result.reprocess_paths)} song(s) "
+                "queued for lyrics reprocess",
+                "success",
+            )
+            self._dispatch_reprocess(result.reprocess_paths)
+
         logging.info(f"Scan complete: {result}")
+
+    def _dispatch_reprocess(self, song_paths: list[str]) -> None:
+        """Run the lyrics pipeline for a batch of songs serially in one daemon thread.
+
+        Serial dispatch matters at startup: with a thousand songs flagged
+        we'd otherwise launch a thousand fetch_and_convert threads, each
+        racing for the aligner / Demucs / network. The lyrics pipeline is
+        idempotent (cache hits short-circuit) so duplicate dispatches across
+        back-to-back scans are harmless.
+        """
+
+        def _run() -> None:
+            for path in song_paths:
+                try:
+                    self.lyrics_service.fetch_and_convert(path)
+                except Exception:
+                    logging.exception("integrity reprocess failed for %s", path)
+
+        threading.Thread(
+            target=_run,
+            name="library-integrity-reprocess",
+            daemon=True,
+        ).start()
 
     def sync_library(self) -> bool:
         """Trigger a background library scan.
