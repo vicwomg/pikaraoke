@@ -10,6 +10,15 @@ let currentSubtitleUrl = null;
 // Construct a SubtitlesOctopus worker bound to `video` for `subUrl`. Assumes
 // the URL has already been preflight-verified to return 200; libass crashes
 // with `jso: Failed to start a track` + exit(4) when fed a 404/5xx body.
+//
+// onReady kick: the worker boots with `_isPaused=true` and only flips to
+// `false` when the <video> fires a `playing` event. When we hot-swap the
+// worker mid-playback (lyrics_upgraded T2->T3), `playing` already fired
+// before dispose, so the new worker never receives setIsPaused(false) via
+// the listener and renders only on `timeupdate` ticks (~4 Hz, ~8 fps subs).
+// A fresh page reload is smooth because the worker is constructed before
+// `playing` fires. Kick the new worker once it signals ready, when the
+// video is already playing.
 function initOctopus(video, subUrl) {
   const options = {
     video: video,
@@ -17,7 +26,20 @@ function initOctopus(video, subUrl) {
     fonts: ["/static/fonts/Arial.ttf", "/static/fonts/DroidSansFallback.ttf"],
     debug: true,
     timeOffset: Number(PikaraokeConfig.subtitleOffset) || 0,
-    workerUrl: "/static/js/subtitles-octopus-worker.js"
+    workerUrl: "/static/js/subtitles-octopus-worker.js",
+    onReady: () => {
+      if (!octopusInstance || !video) return;
+      // If video is already playing when the new worker comes up (hot-swap
+      // case), the worker won't see a `playing` event so kick it manually.
+      // Otherwise the existing listener will handle it on the next play.
+      if (!video.paused && !video.ended) {
+        const t = video.currentTime + (Number(PikaraokeConfig.subtitleOffset) || 0);
+        try { octopusInstance.setIsPaused(false, t); } catch (e) { /* worker raced dispose */ }
+      }
+      if (video.playbackRate && video.playbackRate !== 1) {
+        try { octopusInstance.setRate(video.playbackRate); } catch (e) { /* same */ }
+      }
+    }
   };
   try {
     octopusInstance = new SubtitlesOctopus(options);
