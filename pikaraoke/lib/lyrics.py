@@ -25,6 +25,7 @@ import tempfile
 import threading
 import time
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from threading import Thread
 from typing import Protocol
 
@@ -1713,10 +1714,6 @@ def _fetch_genius(track: str, artist: str) -> str | None:
     return _extract_genius_lyrics(page.text)
 
 
-_GENIUS_CONTAINER_RE = re.compile(
-    r'<div[^>]+data-lyrics-container="true"[^>]*>(.*?)</div>',
-    re.IGNORECASE | re.DOTALL,
-)
 _GENIUS_SECTION_HEADER_RE = re.compile(r"^\s*\[[^\]]*\]\s*$", re.MULTILINE)
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 
@@ -1748,6 +1745,68 @@ _GENIUS_JUNK_LINE_RE = re.compile(
 )
 
 
+class _GeniusLyricsParser(HTMLParser):
+    """Capture every ``<div data-lyrics-container="true">`` block.
+
+    Genius wraps inline annotations in nested ``<div>`` elements. A naive
+    non-greedy regex (``<div ...>(.*?)</div>``) closes on the first nested
+    ``</div>`` and silently drops the rest of the verse. We track div depth
+    explicitly so the container only closes when its matching ``</div>``
+    arrives. Inner element markup is preserved as text so the existing
+    post-processing chain (``<br>`` -> newline, tag strip, header drop)
+    operates exactly as before.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._depth = 0
+        self._in_container = False
+        self._chunks: list[str] = []
+        self.containers: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "div":
+            if not self._in_container and dict(attrs).get("data-lyrics-container") == "true":
+                self._in_container = True
+                self._depth = 1
+                self._chunks = []
+                return
+            if self._in_container:
+                self._depth += 1
+                self._chunks.append(self.get_starttag_text() or "")
+            return
+        if not self._in_container:
+            return
+        if tag == "br":
+            self._chunks.append("\n")
+            return
+        self._chunks.append(self.get_starttag_text() or "")
+
+    def handle_startendtag(self, tag, attrs):
+        if not self._in_container:
+            return
+        if tag == "br":
+            self._chunks.append("\n")
+            return
+        self._chunks.append(self.get_starttag_text() or "")
+
+    def handle_endtag(self, tag):
+        if not self._in_container:
+            return
+        if tag == "div":
+            self._depth -= 1
+            if self._depth == 0:
+                self.containers.append("".join(self._chunks))
+                self._in_container = False
+                self._chunks = []
+                return
+        self._chunks.append(f"</{tag}>")
+
+    def handle_data(self, data):
+        if self._in_container:
+            self._chunks.append(data)
+
+
 def _extract_genius_lyrics(html: str) -> str | None:
     """Pull plain-text lyrics out of a Genius song page.
 
@@ -1756,13 +1815,13 @@ def _extract_genius_lyrics(html: str) -> str | None:
     ``[Verse 1]`` are dropped; they aren't part of the sung content.
     Returns None when no container is found.
     """
-    containers = _GENIUS_CONTAINER_RE.findall(html)
-    if not containers:
+    parser = _GeniusLyricsParser()
+    parser.feed(html)
+    if not parser.containers:
         return None
     lines: list[str] = []
-    for raw in containers:
-        text = re.sub(r"<br\s*/?>", "\n", raw, flags=re.IGNORECASE)
-        text = _HTML_TAG_RE.sub("", text)
+    for raw in parser.containers:
+        text = _HTML_TAG_RE.sub("", raw)
         text = _GENIUS_SECTION_HEADER_RE.sub("", text)
         for line in text.splitlines():
             stripped = line.strip()

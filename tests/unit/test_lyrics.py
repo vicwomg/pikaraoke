@@ -571,6 +571,29 @@ class TestExtractGeniusLyrics:
         result = _extract_genius_lyrics(html)
         assert result == "Pobiegnij za mną"
 
+    def test_handles_nested_divs(self):
+        """Genius wraps inline annotations in nested ``<div>`` elements.
+        The previous non-greedy regex closed on the first nested ``</div>``
+        and silently swallowed the rest of the verse — reproduced live with
+        Moonlight Shadow on 2026-04-27 (lyrics started at "Four A.M.",
+        Verses 1+2 missing). The depth-counting parser must walk past the
+        nested annotation and capture the entire container."""
+        html = (
+            '<div data-lyrics-container="true" class="Lyrics__Container-sc-xxx">'
+            "35 ContributorsMoonlight Shadow Lyrics"
+            '<div class="annotation"><span>annotation note</span></div>'
+            "[Verse 1]<br>The last that ever she saw him"
+            "<br>Carried away by a moonlight shadow"
+            "</div>"
+        )
+        result = _extract_genius_lyrics(html)
+        assert result is not None
+        # Verse 1 first line must survive past the nested </div> (regression).
+        assert "The last that ever she saw him" in result
+        assert "Carried away by a moonlight shadow" in result
+        # Junk header still dropped (CamelCase boundary intact).
+        assert "Contributors" not in result
+
 
 # ----- LRC-from-aligned-words helper -----
 
