@@ -78,7 +78,48 @@ GENIUS_ACCESS_TOKEN = os.environ.get("GENIUS_ACCESS_TOKEN", "").strip()
 # int8. Downgrade to "medium" on low-RAM boxes; bump to "large-v3" when
 # raw accuracy matters more than wall time.
 _WHISPER_OPT_OUT = {"off", "none", "false", "0"}
-WHISPER_FALLBACK_MODEL = os.environ.get("WHISPER_FALLBACK_MODEL", "").strip() or "large-v3-turbo"
+_WHISPER_LOW_RAM_GB = 6.0
+_WHISPER_LOW_RAM_DEFAULT = "tiny.en"
+_WHISPER_DEFAULT = "large-v3-turbo"
+
+
+def _resolve_whisper_model() -> str:
+    """Honour ``WHISPER_FALLBACK_MODEL`` but auto-downgrade on low-RAM hosts.
+
+    Demucs (~2 GB) plus the default ``large-v3-turbo`` (~1.5 GB) saturate a
+    Pi 4 / 4 GB Mac mini. When total RAM is below 6 GB and the user did
+    not pin a "tiny" variant explicitly, swap to ``tiny.en`` so the
+    consensus pipeline can still cite Whisper as an audio reference.
+    Resolved once per process, cached.
+    """
+    global _WHISPER_MODEL_RESOLVED
+    if _WHISPER_MODEL_RESOLVED is not None:
+        return _WHISPER_MODEL_RESOLVED
+    requested = os.environ.get("WHISPER_FALLBACK_MODEL", "").strip() or _WHISPER_DEFAULT
+    if requested.lower() in _WHISPER_OPT_OUT:
+        _WHISPER_MODEL_RESOLVED = requested
+        return requested
+    try:
+        import psutil
+
+        total_gb = psutil.virtual_memory().total / (1024**3)
+    except Exception:
+        total_gb = float("inf")
+    if total_gb < _WHISPER_LOW_RAM_GB and "tiny" not in requested.lower():
+        logger.warning(
+            "Whisper: detected %.1f GB RAM, auto-downgrading %r -> %r. "
+            "Set WHISPER_FALLBACK_MODEL explicitly to override.",
+            total_gb,
+            requested,
+            _WHISPER_LOW_RAM_DEFAULT,
+        )
+        _WHISPER_MODEL_RESOLVED = _WHISPER_LOW_RAM_DEFAULT
+    else:
+        _WHISPER_MODEL_RESOLVED = requested
+    return _WHISPER_MODEL_RESOLVED
+
+
+_WHISPER_MODEL_RESOLVED: str | None = None
 _whisper_model_cache: list = [None]
 _whisper_model_lock = threading.Lock()
 
@@ -1431,12 +1472,13 @@ class LyricsService:
                 logger.info("Whisper fallback: ASS conversion failed for %s", song_path)
                 self._emit_whisper_failure(song_path, "ASS conversion failed")
                 return
+            model_name = _resolve_whisper_model()
             wrote = self._try_write_ass_tiered(
                 song_path,
                 _TIER_WORD,
                 ass,
                 lyrics_source="whisper",
-                aligner_model=f"whisper-{WHISPER_FALLBACK_MODEL}",
+                aligner_model=f"whisper-{model_name}",
                 lyrics_sha=_lrc_sha(lrc),
             )
             if not wrote:
@@ -1458,7 +1500,7 @@ class LyricsService:
                 "Whisper: wrote word-level .ass for %s (lang=%s, model=%s)",
                 os.path.basename(song_path),
                 lang or "?",
-                WHISPER_FALLBACK_MODEL,
+                model_name,
             )
             try:
                 self._events.emit(
@@ -2231,8 +2273,12 @@ def _pulse_tag(word: Word, line_start_s: float, params: _AnimParams | None) -> s
 
 
 def _escape_ass(text: str) -> str:
-    # Curly braces delimit override blocks in ASS; escape them.
-    return text.replace("{", "\\{").replace("}", "\\}")
+    # ASS override blocks are delimited by curly braces; backslash introduces
+    # special sequences (e.g. \\N forces a hard line break inside a Dialogue
+    # event). Third-party lyrics text reaches this path via Genius/Musixmatch/
+    # Megalobiz scrapes, so escape both the brace and the backslash to avoid
+    # rendering injection.
+    return text.replace("\\", "\\\\").replace("{", "\\{").replace("}", "\\}")
 
 
 # ----- atomic write -----
@@ -2532,7 +2578,7 @@ def _prewarm_stems(song_path: str) -> None:
 
 def _whisper_fallback_enabled() -> bool:
     """Honour WHISPER_FALLBACK_MODEL opt-out. Default: enabled."""
-    return WHISPER_FALLBACK_MODEL.lower() not in _WHISPER_OPT_OUT
+    return _resolve_whisper_model().lower() not in _WHISPER_OPT_OUT
 
 
 def _get_whisper_model():
@@ -2555,16 +2601,17 @@ def _get_whisper_model():
                 "no auto-lyrics will be generated for songs missing curated captions."
             )
             return None
+        model_name = _resolve_whisper_model()
         try:
-            model = WhisperModel(WHISPER_FALLBACK_MODEL, device="auto", compute_type="int8")
+            model = WhisperModel(model_name, device="auto", compute_type="int8")
         except Exception:
             logger.exception(
                 "Whisper fallback: failed to load model %r on device=auto; disabling",
-                WHISPER_FALLBACK_MODEL,
+                model_name,
             )
             return None
         _whisper_model_cache[0] = model
-        logger.info("Whisper fallback: loaded model=%s", WHISPER_FALLBACK_MODEL)
+        logger.info("Whisper fallback: loaded model=%s", model_name)
         return model
 
 

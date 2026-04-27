@@ -68,6 +68,7 @@ from pikaraoke.lib.lyrics import (
     _parse_lrc,
     _parse_vtt_cues,
     _pick_best_vtt,
+    _resolve_whisper_model,
     _strip_variant_markers,
     _syllabify,
     _syllable_parts,
@@ -158,6 +159,79 @@ class TestEscapeAss:
 
     def test_leaves_normal_text(self):
         assert _escape_ass("plain text") == "plain text"
+
+    def test_escapes_backslash_to_block_n_injection(self):
+        # \N is the ASS hard-line-break override. Third-party lyrics that
+        # contain a literal backslash must not introduce a Dialogue line
+        # break — escape the backslash itself.
+        assert _escape_ass("foo\\Nbar") == "foo\\\\Nbar"
+
+    def test_escapes_override_block_injection(self):
+        # Malicious payload that would rotate frames or hide subs.
+        out = _escape_ass("{\\frx30\\fry30}\\fad(50,50)")
+        assert "{\\frx" not in out
+        assert out.startswith("\\{")
+        # The backslashes are doubled so override sequences are inert.
+        assert "\\\\frx30" in out
+        assert "\\\\fad" in out
+
+
+class TestResolveWhisperModel:
+    def test_low_ram_downgrades_to_tiny_en(self, monkeypatch):
+        monkeypatch.setenv("WHISPER_FALLBACK_MODEL", "")  # use default
+        monkeypatch.setattr("pikaraoke.lib.lyrics._WHISPER_MODEL_RESOLVED", None)
+
+        class _FakeMem:
+            total = int(4 * 1024**3)  # 4 GB
+
+        fake_psutil = type("M", (), {"virtual_memory": staticmethod(lambda: _FakeMem())})()
+        monkeypatch.setitem(__import__("sys").modules, "psutil", fake_psutil)
+        assert _resolve_whisper_model() == "tiny.en"
+
+    def test_high_ram_keeps_default(self, monkeypatch):
+        monkeypatch.setenv("WHISPER_FALLBACK_MODEL", "")
+        monkeypatch.setattr("pikaraoke.lib.lyrics._WHISPER_MODEL_RESOLVED", None)
+
+        class _FakeMem:
+            total = int(16 * 1024**3)
+
+        fake_psutil = type("M", (), {"virtual_memory": staticmethod(lambda: _FakeMem())})()
+        monkeypatch.setitem(__import__("sys").modules, "psutil", fake_psutil)
+        assert _resolve_whisper_model() == "large-v3-turbo"
+
+    def test_explicit_tiny_request_not_downgraded(self, monkeypatch):
+        monkeypatch.setenv("WHISPER_FALLBACK_MODEL", "tiny")
+        monkeypatch.setattr("pikaraoke.lib.lyrics._WHISPER_MODEL_RESOLVED", None)
+
+        class _FakeMem:
+            total = int(2 * 1024**3)
+
+        fake_psutil = type("M", (), {"virtual_memory": staticmethod(lambda: _FakeMem())})()
+        monkeypatch.setitem(__import__("sys").modules, "psutil", fake_psutil)
+        # User-requested "tiny" is honored verbatim, not auto-replaced.
+        assert _resolve_whisper_model() == "tiny"
+
+    def test_opt_out_passes_through(self, monkeypatch):
+        monkeypatch.setenv("WHISPER_FALLBACK_MODEL", "off")
+        monkeypatch.setattr("pikaraoke.lib.lyrics._WHISPER_MODEL_RESOLVED", None)
+        assert _resolve_whisper_model() == "off"
+
+    def test_psutil_unavailable_trusts_user(self, monkeypatch):
+        monkeypatch.setenv("WHISPER_FALLBACK_MODEL", "")
+        monkeypatch.setattr("pikaraoke.lib.lyrics._WHISPER_MODEL_RESOLVED", None)
+
+        # Simulate psutil import failure by removing it from sys.modules and
+        # blocking re-import.
+        import sys
+
+        sys.modules.pop("psutil", None)
+        monkeypatch.setattr(
+            "builtins.__import__",
+            lambda name, *a, **kw: (_ for _ in ()).throw(ImportError())
+            if name == "psutil"
+            else __import__(name, *a, **kw),
+        )
+        assert _resolve_whisper_model() == "large-v3-turbo"
 
 
 class TestKToken:
@@ -2078,7 +2152,8 @@ class TestPrewarmTriggeredFromFetchAndConvert:
     def test_prewarm_not_called_when_no_lrc_and_whisper_disabled(self, tmp_path, monkeypatch):
         # With Whisper fallback disabled, an LRC-miss should not prewarm
         # stems — nothing downstream would use them.
-        monkeypatch.setattr("pikaraoke.lib.lyrics.WHISPER_FALLBACK_MODEL", "off")
+        monkeypatch.setenv("WHISPER_FALLBACK_MODEL", "off")
+        monkeypatch.setattr("pikaraoke.lib.lyrics._WHISPER_MODEL_RESOLVED", None)
         song = tmp_path / "Foo---abc.mp4"
         song.write_text("fake")
         # No aligner either — with both off, prewarm should not fire.
