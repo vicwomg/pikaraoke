@@ -7,6 +7,7 @@ import pytest
 
 from pikaraoke.lib.lyrics import Word, WordPart
 from pikaraoke.lib.lyrics_align import (
+    _detect_global_offset,
     _group_chars_by_word,
     _interpolate_gaps,
     _normalize,
@@ -419,7 +420,103 @@ class TestWhisperXAligner:
         from pikaraoke.lib.lyrics_align import WhisperXAligner
 
         aligner = WhisperXAligner(device="cpu")
-        assert aligner.model_id == "wav2vec2-char-bleedguard"
+        assert aligner.model_id == "wav2vec2-char-globaloffset"
+
+    def test_no_offset_detected_leaves_state_zero(self, fake_whisperx):
+        # Aligned timings line up with LRC - no offset, no re-align.
+        from pikaraoke.lib.lyrics_align import WhisperXAligner
+
+        aligner = WhisperXAligner(device="cpu")
+        aligner.align(
+            "/tmp/song.mp4",
+            "hello world",
+            lrc_lines=[(0.0, 5.0, "hello world")],
+            language="en",
+        )
+        assert aligner.last_global_offset_s == 0.0
+        # Single wav2vec2 call; no shifted-segment re-run.
+        assert fake_whisperx.align.call_count == 1
+
+    def test_global_offset_triggers_realignment(self, fake_whisperx):
+        # Six LRC lines all reporting their first sung word ~1.8s late
+        # (typical YouTube intro-padding mismatch). Aligner should detect
+        # the offset, log it, and re-align with shifted segments.
+        from pikaraoke.lib.lyrics_align import WhisperXAligner
+
+        lrc_lines = [(t, t + 3.0, "hello") for t in (10.0, 14.0, 18.0, 22.0, 26.0, 30.0)]
+        first_starts = [11.85, 15.80, 19.78, 23.82, 27.79, 31.83]
+        fake_whisperx.align.return_value = {
+            "segments": [
+                {
+                    "text": "hello",
+                    "start": float(s),
+                    "end": float(s) + 0.5,
+                    "words": [{"word": "hello", "start": s, "end": s + 0.5}],
+                    "chars": [
+                        {"char": "h", "start": s, "end": s + 0.1},
+                        {"char": "e", "start": s + 0.1, "end": s + 0.2},
+                        {"char": "l", "start": s + 0.2, "end": s + 0.3},
+                        {"char": "l", "start": s + 0.3, "end": s + 0.4},
+                        {"char": "o", "start": s + 0.4, "end": s + 0.5},
+                    ],
+                }
+                for s in first_starts
+            ]
+        }
+        aligner = WhisperXAligner(device="cpu")
+        aligner.align(
+            "/tmp/song.mp4",
+            "hello hello hello hello hello hello",
+            lrc_lines=lrc_lines,
+            language="en",
+        )
+        assert aligner.last_global_offset_s == pytest.approx(1.83, abs=0.05)
+        # Two wav2vec2 calls: original + shifted re-run.
+        assert fake_whisperx.align.call_count == 2
+        # Second call's segments are shifted by the detected offset.
+        second_segments = fake_whisperx.align.call_args_list[1][0][0]
+        first_segments = fake_whisperx.align.call_args_list[0][0][0]
+        for orig, shifted in zip(first_segments, second_segments):
+            assert shifted["start"] == pytest.approx(orig["start"] + aligner.last_global_offset_s)
+            assert shifted["text"] == orig["text"]
+
+    def test_offset_state_resets_per_call(self, fake_whisperx):
+        # First song detects an offset; the next song with consistent
+        # alignment must not inherit the previous song's offset.
+        from pikaraoke.lib.lyrics_align import WhisperXAligner
+
+        lrc_lines_offset = [(t, t + 3.0, "hello") for t in (10.0, 14.0, 18.0, 22.0, 26.0, 30.0)]
+        first_starts = [11.85, 15.80, 19.78, 23.82, 27.79, 31.83]
+        fake_whisperx.align.return_value = {
+            "segments": [
+                {
+                    "text": "hello",
+                    "start": float(s),
+                    "end": float(s) + 0.5,
+                    "words": [{"word": "hello", "start": s, "end": s + 0.5}],
+                    "chars": [{"char": "h", "start": s, "end": s + 0.1}],
+                }
+                for s in first_starts
+            ]
+        }
+        aligner = WhisperXAligner(device="cpu")
+        aligner.align("/tmp/a.mp4", "hello", lrc_lines=lrc_lines_offset, language="en")
+        assert aligner.last_global_offset_s != 0.0
+
+        # Next song: clean alignment, single segment, no offset signal.
+        fake_whisperx.align.return_value = {
+            "segments": [
+                {
+                    "text": "hi",
+                    "start": 0.0,
+                    "end": 0.5,
+                    "words": [{"word": "hi", "start": 0.0, "end": 0.5}],
+                    "chars": [{"char": "h", "start": 0.0, "end": 0.5}],
+                }
+            ]
+        }
+        aligner.align("/tmp/b.mp4", "hi", lrc_lines=[(0.0, 1.0, "hi")], language="en")
+        assert aligner.last_global_offset_s == 0.0
 
 
 class TestCharAlignmentExtraction:
@@ -565,6 +662,78 @@ class TestCharAlignmentExtraction:
         assert parts[0].end == 0.10
         assert parts[4].start == 0.40
         assert parts[4].end == 0.50
+
+
+class TestDetectGlobalOffset:
+    @staticmethod
+    def _aligned(first_starts: list[float]) -> dict:
+        # Minimal whisperx-shaped result: one segment per first_start, each
+        # carrying a single timed word. Detector only reads ``words[0].start``.
+        return {
+            "segments": [
+                {"words": [{"word": "x", "start": s, "end": s + 0.3}]} for s in first_starts
+            ]
+        }
+
+    def test_returns_median_when_offset_is_consistent(self):
+        # 6 lines with first-word anchors all roughly +1.8s past the LRC
+        # line start - the YouTube-vs-Spotify intro-padding pattern.
+        lrc_lines = [(t, t + 3.0, "x") for t in (10.0, 14.0, 18.0, 22.0, 26.0, 30.0)]
+        aligned = self._aligned([11.85, 15.80, 19.78, 23.82, 27.79, 31.83])
+        offset = _detect_global_offset(aligned, lrc_lines)
+        assert offset is not None
+        assert offset == pytest.approx(1.83, abs=0.05)
+
+    def test_returns_none_when_too_few_lines(self):
+        lrc_lines = [(0.0, 1.0, "x"), (1.0, 2.0, "x")]
+        aligned = self._aligned([2.0, 3.0])
+        assert _detect_global_offset(aligned, lrc_lines) is None
+
+    def test_returns_none_when_median_below_threshold(self):
+        # All deltas under 0.5s - natural drift, not a global offset worth
+        # correcting (bleed-guard handles small per-line drift on its own).
+        lrc_lines = [(t, t + 2.0, "x") for t in (0.0, 2.0, 4.0, 6.0, 8.0)]
+        aligned = self._aligned([0.1, 2.2, 4.15, 6.05, 8.2])
+        assert _detect_global_offset(aligned, lrc_lines) is None
+
+    def test_returns_none_when_iqr_too_wide(self):
+        # Median is +2s but deltas spread from -1 to +5 - that's tempo
+        # drift or wav2vec2 noise, not a constant intro offset.
+        lrc_lines = [(t, t + 2.0, "x") for t in (0.0, 5.0, 10.0, 15.0, 20.0)]
+        aligned = self._aligned([-1.0, 7.0, 12.0, 14.0, 25.0])
+        assert _detect_global_offset(aligned, lrc_lines) is None
+
+    def test_skips_segments_without_timed_words(self):
+        # Line 3 has no timed first word - skip it, still compute median
+        # from the remaining 5 lines.
+        lrc_lines = [(t, t + 3.0, "x") for t in (10.0, 14.0, 18.0, 22.0, 26.0, 30.0)]
+        aligned = {
+            "segments": [
+                {"words": [{"word": "x", "start": 11.8, "end": 12.1}]},
+                {"words": [{"word": "x", "start": 15.8, "end": 16.1}]},
+                {"words": [{"word": "x"}]},  # no start - segment dropped
+                {"words": [{"word": "x", "start": 23.8, "end": 24.1}]},
+                {"words": [{"word": "x", "start": 27.8, "end": 28.1}]},
+                {"words": [{"word": "x", "start": 31.8, "end": 32.1}]},
+            ]
+        }
+        assert _detect_global_offset(aligned, lrc_lines) == pytest.approx(1.8, abs=0.05)
+
+    def test_zip_skips_empty_lrc_lines(self):
+        # ``_build_segments`` filters empty-text lines, so segments are
+        # 1:1 with the non-empty subset - the detector must skip the same
+        # entries to keep the alignment honest.
+        lrc_lines = [
+            (10.0, 12.0, "x"),
+            (12.0, 14.0, ""),  # filtered out upstream
+            (14.0, 16.0, "x"),
+            (16.0, 18.0, "x"),
+            (18.0, 20.0, "x"),
+            (20.0, 22.0, "x"),
+        ]
+        aligned = self._aligned([11.8, 15.8, 17.8, 19.8, 21.8])
+        offset = _detect_global_offset(aligned, lrc_lines)
+        assert offset == pytest.approx(1.8, abs=0.05)
 
 
 class TestPartsForRef:

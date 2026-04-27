@@ -1317,7 +1317,15 @@ class LyricsService:
                 return
             bpm = _estimate_bpm(audio_path)
             anim_params = _anim_params_for_bpm(bpm)
-            ass = _words_to_ass_with_k_tags(words, lrc, params=anim_params)
+            # The aligner returns words in audio-true time space. When it
+            # also detected a global LRC->audio offset, the LRC string
+            # still carries the original (drifted) timestamps - the
+            # renderer would emit Dialogue events ahead of audio unless
+            # we shift those tags by the same amount.
+            raw_offset = getattr(self._aligner, "last_global_offset_s", 0.0)
+            offset = float(raw_offset) if isinstance(raw_offset, (int, float)) else 0.0
+            render_lrc = _shift_lrc(lrc, offset) if offset else lrc
+            ass = _words_to_ass_with_k_tags(words, render_lrc, params=anim_params)
             if ass:
                 from pikaraoke.lib.demucs_processor import CACHE_DIR
 
@@ -2274,6 +2282,34 @@ def _parse_lrc(lrc: str) -> list[tuple[float, str]]:
 def _lrc_plain_text(lrc: str) -> str:
     """Tags stripped; one line per LRC entry. For forced-alignment reference."""
     return "\n".join(text for _start, text in _parse_lrc(lrc))
+
+
+def _shift_lrc(lrc: str, offset_s: float) -> str:
+    """Return ``lrc`` with every ``[mm:ss.cc]`` timestamp shifted by ``offset_s``.
+
+    Used when the aligner detects that LRCLib timestamps sit ahead of the
+    actual YouTube audio - shifting the LRC string is the only way to move
+    the renderer's ``Dialogue`` events too, since ``_words_to_ass_with_k_tags``
+    derives them from ``_parse_lrc(lrc)``. Negative results clamp to zero
+    rather than wrap; we'd rather show subs at song start than emit invalid
+    LRC tags. Non-tag lines pass through unchanged.
+    """
+    if not offset_s:
+        return lrc
+
+    def replace(match: "re.Match[str]") -> str:
+        mm, ss, frac = match.group(1), match.group(2), match.group(3)
+        frac_s = int(frac) / (10 ** len(frac)) if frac else 0.0
+        t = max(0.0, int(mm) * 60 + int(ss) + frac_s + offset_s)
+        new_mm = int(t) // 60
+        new_ss = int(t) - new_mm * 60
+        new_cs = int(round((t - int(t)) * 100))
+        if new_cs >= 100:
+            new_ss += 1
+            new_cs = 0
+        return f"[{new_mm:02d}:{new_ss:02d}.{new_cs:02d}]"
+
+    return _LRC_TAG.sub(replace, lrc)
 
 
 def lrc_line_windows(lrc: str) -> list[tuple[float, float, str]]:

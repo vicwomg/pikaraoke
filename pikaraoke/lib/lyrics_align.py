@@ -45,6 +45,66 @@ def _probe_audio_duration(audio_path: str) -> float | None:
         return None
 
 
+# Minimum LRC lines required to confidently estimate a global LRC->audio
+# offset. Below this we'd be reading noise; the per-line bleed-guard already
+# handles small per-line drift safely.
+_GLOBAL_OFFSET_MIN_LINES = 5
+
+# Smallest absolute median offset that's worth correcting. Sub-half-second
+# drift sits below the bleed-guard threshold (`window * 0.5`) for typical
+# 2-3s karaoke lines, so it doesn't cause the symptom this guard addresses.
+_GLOBAL_OFFSET_MIN_S = 0.5
+
+# Max IQR of per-line deltas for the offset to be treated as global. When
+# deltas spread wider than this the source isn't a constant intro shift;
+# it's tempo drift or unreliable wav2vec2 anchors, and a single shift
+# would help some lines and hurt others.
+_GLOBAL_OFFSET_MAX_IQR_S = 1.5
+
+
+def _detect_global_offset(aligned: dict, lrc_lines: list[tuple[float, float, str]]) -> float | None:
+    """Estimate a constant LRC->audio offset from wav2vec2's first-word anchors.
+
+    For each LRC line, take the first wav2vec2 word in the matching segment
+    and compute ``word.start - line_start``. Median across lines (with an
+    IQR sanity check) gives the offset. Positive result means LRC labels
+    sit ahead of audio (subtitles wipe before singing) so the caller should
+    shift line windows forward by the returned value.
+
+    Returns None when the signal is too sparse, too small, or too noisy to
+    treat as a single global shift.
+    """
+    segments = aligned.get("segments") or []
+    # ``_build_segments`` skips empty-text lines, so segments index aligns
+    # with the filtered LRC list - not the raw one.
+    nonempty_lines = [line for line in lrc_lines if line[2].strip()]
+    if not segments or not nonempty_lines:
+        return None
+    deltas: list[float] = []
+    for seg, (line_start, _line_end, _text) in zip(segments, nonempty_lines):
+        seg_words = seg.get("words") or []
+        first = next(
+            (w for w in seg_words if isinstance(w, dict) and "start" in w),
+            None,
+        )
+        if first is None:
+            continue
+        deltas.append(float(first["start"]) - float(line_start))
+    if len(deltas) < _GLOBAL_OFFSET_MIN_LINES:
+        return None
+    deltas.sort()
+    n = len(deltas)
+    median = deltas[n // 2]
+    q1 = deltas[n // 4]
+    q3 = deltas[(3 * n) // 4]
+    iqr = q3 - q1
+    if abs(median) < _GLOBAL_OFFSET_MIN_S:
+        return None
+    if iqr > _GLOBAL_OFFSET_MAX_IQR_S:
+        return None
+    return median
+
+
 class WhisperXAligner:
     """Forced-aligns reference LRC lyrics to audio using wav2vec2 CTC.
 
@@ -78,6 +138,11 @@ class WhisperXAligner:
         # language itself (no whisper ASR), so this mirrors whatever the
         # caller passed to align().
         self.last_detected_language: str | None = None
+        # Most recent global LRC->audio offset (seconds). Positive means
+        # LRC labels precede audio (subs would render ahead of music if
+        # the renderer used the unshifted LRC). Callers shift the LRC
+        # string by this value so Dialogue events line up with audio.
+        self.last_global_offset_s: float = 0.0
 
     @property
     def model_id(self) -> str:
@@ -90,9 +155,13 @@ class WhisperXAligner:
         bleed-guard (drops anchors when CTC latched onto the previous
         line's sustained vowel) and per-word spike smoothing (flattens
         CTC's single-frame spikes into a uniform char distribution).
+        Bumped to ``wav2vec2-char-globaloffset`` when we added global
+        LRC->audio offset detection + re-alignment with shifted segments,
+        which fixes "subs N seconds ahead of music" on YouTube rips
+        whose intro padding differs from the LRCLib canonical recording.
         Existing cached .ass files auto-invalidate.
         """
-        return "wav2vec2-char-bleedguard"
+        return "wav2vec2-char-globaloffset"
 
     def align(
         self,
@@ -122,6 +191,7 @@ class WhisperXAligner:
             raise ValueError("language required: wav2vec2 is per-language, caller must supply it")
         wx = self._whisperx
         self.last_detected_language = language
+        self.last_global_offset_s = 0.0
         self._ensure_align_model(language)
 
         audio_duration_s = _probe_audio_duration(audio_path)
@@ -151,13 +221,47 @@ class WhisperXAligner:
             self._device,
             return_char_alignments=True,
         )
+
+        # Detect a global LRC->audio offset and re-align with shifted
+        # segments when it's significant. LRCLib pegs timestamps to a
+        # canonical recording (Spotify/iTunes), but YouTube rips often
+        # have different intro padding so the whole LRC sits 1-3s ahead
+        # of actual audio. Without this correction the renderer's
+        # Dialogue events fire before the music, and the bleed-guard
+        # heuristic rejects the (correct) wav2vec2 anchors that would
+        # otherwise reveal the offset - leaving the user with subs that
+        # wipe ahead of singing on every line. The re-run gives wav2vec2
+        # audio-true segments so its intra-line word timings come out
+        # clean too.
+        if lrc_lines is not None:
+            offset = _detect_global_offset(aligned, lrc_lines)
+            if offset:
+                logger.info(
+                    "wav2vec2: LRC->audio offset %+.2fs detected for %s; "
+                    "re-aligning with shifted segments",
+                    offset,
+                    tag,
+                )
+                lrc_lines = [(s + offset, e + offset, t) for s, e, t in lrc_lines]
+                shifted_segments = self._build_segments(reference_text, lrc_lines, audio_duration_s)
+                aligned = wx.align(
+                    shifted_segments,
+                    self._align_model,
+                    self._align_meta,
+                    audio_path,
+                    self._device,
+                    return_char_alignments=True,
+                )
+                self.last_global_offset_s = offset
+
         aligned_words = _words_with_char_parts(aligned)
         logger.info(
-            "wav2vec2: align done %s lang=%s words=%d elapsed=%.2fs",
+            "wav2vec2: align done %s lang=%s words=%d elapsed=%.2fs offset=%+.2fs",
             tag,
             language,
             len(aligned_words),
             time.monotonic() - t0,
+            self.last_global_offset_s,
         )
         # wav2vec2 can silently drop tokens it couldn't align phonetically
         # (weak onsets, overlapping instruments). Route through the mapper

@@ -69,6 +69,7 @@ from pikaraoke.lib.lyrics import (
     _parse_vtt_cues,
     _pick_best_vtt,
     _resolve_whisper_model,
+    _shift_lrc,
     _strip_variant_markers,
     _syllabify,
     _syllable_parts,
@@ -111,6 +112,45 @@ class TestParseLrc:
 
 
 # ----- ASS builders -----
+
+
+class TestShiftLrc:
+    def test_zero_offset_returns_input_unchanged(self):
+        lrc = "[00:01.00]hello\n[00:03.50]world"
+        assert _shift_lrc(lrc, 0.0) == lrc
+
+    def test_positive_offset_shifts_all_tags_forward(self):
+        # Typical YouTube-vs-Spotify intro-padding case: every line moves
+        # forward by the detected offset.
+        out = _shift_lrc("[00:14.28]first\n[00:17.27]second", 1.83)
+        assert "[00:16.11]first" in out
+        assert "[00:19.10]second" in out
+
+    def test_negative_offset_clamps_below_zero(self):
+        # Songs where the LRC sits behind audio shouldn't produce
+        # invalid (negative) timestamps; clamp to 00:00.00.
+        out = _shift_lrc("[00:01.00]early\n[00:05.00]later", -2.5)
+        assert "[00:00.00]early" in out
+        assert "[00:02.50]later" in out
+
+    def test_multi_tag_line_shifts_each_timestamp(self):
+        # `[00:12.34][00:25.67]chorus` style - both tags shift.
+        out = _shift_lrc("[00:12.34][00:25.67]chorus", 1.0)
+        assert "[00:13.34]" in out
+        assert "[00:26.67]" in out
+
+    def test_carry_to_next_second_when_centiseconds_round_up(self):
+        # 0.999 + 0.005 = 1.004 -> [00:01.00], not [00:00.100].
+        out = _shift_lrc("[00:00.99]x", 0.015)
+        assert "[00:01.00]x" in out
+
+    def test_non_tag_lines_pass_through(self):
+        lrc = "[ti:Title]\n[00:01.00]hello"
+        out = _shift_lrc(lrc, 1.0)
+        # ID3-style LRC headers like [ti:Title] shouldn't match the
+        # `mm:ss` regex - they pass through untouched.
+        assert "[ti:Title]" in out
+        assert "[00:02.00]hello" in out
 
 
 class TestLrcToAssLineLevel:
