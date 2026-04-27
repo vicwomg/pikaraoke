@@ -78,21 +78,29 @@ _LEADING_SILENCE_MAX_S = 30.0
 _KARAOKE_LEAD_IN_S = 0.25
 
 
-def _detect_first_vocal_onset(audio_path: str) -> float | None:
-    """Return the first non-silent moment in ``audio_path``, or None.
+# How far on either side of the LRC-extrapolated time we'll accept a
+# silence boundary as "this line's vocal onset". Bigger window catches
+# longer drift, but risks matching the wrong silence when verses are
+# closely spaced. 2.5s is loose enough to absorb the per-line drift seen
+# on Mam Tę Moc (>1.5s per chorus) without hopping multi-line in dense
+# sections.
+_PER_LINE_SEARCH_WINDOW_S = 2.5
 
-    Runs ffmpeg ``silencedetect`` and takes the first ``silence_end`` only
-    when its preceding ``silence_start`` is at the file start (audio begins
-    silent). When the audio starts with sound, no leading silence is
-    reported and we return None - there's no intro padding to correct for.
-    Returns None on any ffmpeg failure (binary missing, parse failure).
+
+def _list_silence_ends(audio_path: str) -> list[float]:
+    """Return every ``silence_end`` time reported by ffmpeg silencedetect.
+
+    Each entry marks a moment where audio crosses from silence into
+    sound, i.e. the start of a vocal segment on the demucs vocals stem.
+    Returns an empty list on any ffmpeg failure (missing binary, parse
+    failure, timeout) - callers fall back to no shift in that case.
     """
     import re
     import shutil
     import subprocess
 
     if not shutil.which("ffmpeg"):
-        return None
+        return []
     try:
         proc = subprocess.run(
             [
@@ -112,57 +120,71 @@ def _detect_first_vocal_onset(audio_path: str) -> float | None:
             timeout=60,
         )
     except (subprocess.TimeoutExpired, OSError):
-        return None
-    # silencedetect emits paired lines:
-    #   silence_start: <t>
-    #   silence_end: <t> | silence_duration: <d>
-    # The first pair only counts as "leading silence" when silence_start
-    # is at or near 0 - otherwise the audio started non-silent and the
-    # first detected silence is mid-song.
-    first_start = re.search(r"silence_start:\s*([\d.]+)", proc.stderr)
-    first_end = re.search(r"silence_end:\s*([\d.]+)", proc.stderr)
-    if first_start is None or first_end is None:
-        return None
-    if float(first_start.group(1)) > 0.1:
-        return None
-    onset = float(first_end.group(1))
-    if onset > _LEADING_SILENCE_MAX_S:
-        return None
-    return onset
+        return []
+    return [float(m.group(1)) for m in re.finditer(r"silence_end:\s*([\d.]+)", proc.stderr)]
 
 
-def _detect_global_offset(
+def _detect_per_line_starts(
     audio_path: str, lrc_lines: list[tuple[float, float, str]]
-) -> float | None:
-    """Estimate a constant LRC->audio offset from leading-silence detection.
+) -> list[float] | None:
+    """Compute audio-aligned start times for each LRC line.
 
-    Compares the first vocal onset in ``audio_path`` (typically the demucs
-    vocals stem, where leading silence == no singing) against the first
-    non-empty LRC line start. When LRCLib pegs timestamps to a Spotify
-    master but the YouTube rip has more (or less) intro padding, the
-    difference is the offset to apply.
+    Walks LRC lines and silence boundaries in lockstep, locking each line
+    onto the nearest plausible silence_end when one is within
+    ``_PER_LINE_SEARCH_WINDOW_S`` of the line's extrapolated audio time.
+    Lines without a clear silence anchor inherit the cumulative shift
+    from the most recently locked line - so continuous singing inside a
+    verse stays smooth after the verse's first line snaps to its onset.
 
-    Returns positive offset when LRC labels precede audio (subs would wipe
-    ahead of singing); negative when LRC trails. Returns None when the
-    signal is missing, ambiguous, or below the correction threshold.
+    Returns the list of new line starts (one per LRC entry, including
+    empty-text rows so indices align with ``lrc_lines``). Each entry is
+    pulled forward by ``_KARAOKE_LEAD_IN_S`` so subs fire just before the
+    vocal attack rather than on its peak.
+
+    Returns None when silence detection failed, when the audio doesn't
+    start silent (no leading-silence to anchor against), or when the
+    initial offset is below the correction threshold or implausibly
+    large.
     """
-    first_line_start = next(
-        (s for s, _e, t in lrc_lines if t.strip()),
+    silence_ends = sorted(_list_silence_ends(audio_path))
+    if not silence_ends or silence_ends[0] > _LEADING_SILENCE_MAX_S:
+        return None
+    first_idx = next(
+        (i for i, (_, _, t) in enumerate(lrc_lines) if t.strip()),
         None,
     )
-    if first_line_start is None:
+    if first_idx is None:
         return None
-    first_vocal = _detect_first_vocal_onset(audio_path)
-    if first_vocal is None:
+    first_lrc_start = float(lrc_lines[first_idx][0])
+    first_audio = silence_ends[0]
+    initial = first_audio - first_lrc_start
+    if abs(initial) < _GLOBAL_OFFSET_MIN_S:
         return None
-    raw_offset = first_vocal - float(first_line_start)
-    if abs(raw_offset) < _GLOBAL_OFFSET_MIN_S:
+    if abs(initial) > _GLOBAL_OFFSET_MAX_S:
         return None
-    if abs(raw_offset) > _GLOBAL_OFFSET_MAX_S:
-        return None
-    # Pull line starts a touch ahead of the detected vocal peak so subs
-    # fire before the syllable rather than on top of it.
-    return raw_offset - _KARAOKE_LEAD_IN_S
+
+    out: list[float] = []
+    cumulative = initial
+    sil_idx = 0
+    for lrc_start, _line_end, _text in lrc_lines:
+        expected = float(lrc_start) + cumulative
+        # Skip past silence boundaries that sit too far in the past for
+        # this line to plausibly own them.
+        while (
+            sil_idx < len(silence_ends)
+            and silence_ends[sil_idx] < expected - _PER_LINE_SEARCH_WINDOW_S
+        ):
+            sil_idx += 1
+        if sil_idx < len(silence_ends):
+            candidate = silence_ends[sil_idx]
+            if abs(candidate - expected) <= _PER_LINE_SEARCH_WINDOW_S:
+                # Snap to this silence_end and update the running offset
+                # so downstream continuous lines pick up the new tempo.
+                cumulative = candidate - float(lrc_start)
+                expected = candidate
+                sil_idx += 1  # consumed
+        out.append(expected - _KARAOKE_LEAD_IN_S)
+    return out
 
 
 class WhisperXAligner:
@@ -198,11 +220,12 @@ class WhisperXAligner:
         # language itself (no whisper ASR), so this mirrors whatever the
         # caller passed to align().
         self.last_detected_language: str | None = None
-        # Most recent global LRC->audio offset (seconds). Positive means
-        # LRC labels precede audio (subs would render ahead of music if
-        # the renderer used the unshifted LRC). Callers shift the LRC
-        # string by this value so Dialogue events line up with audio.
-        self.last_global_offset_s: float = 0.0
+        # Per-line shift applied during the most recent ``align()`` call,
+        # keyed by the original LRC line_start. Empty when no shift was
+        # detected. Callers consume this to rewrite the LRC string before
+        # rendering so Dialogue events match audio line-by-line (intro
+        # padding correction + per-verse tempo drift in one mapping).
+        self.last_line_starts: dict[float, float] = {}
 
     @property
     def model_id(self) -> str:
@@ -230,9 +253,14 @@ class WhisperXAligner:
         Bumped to ``wav2vec2-char-subtlepulse`` when the per-word pulse
         amplitude was halved (102/103/104% vs 103/106/109%) so the
         decoration stays subtle even on fast tempos.
+        Bumped to ``wav2vec2-char-perline`` when offset detection became
+        per-line: silence boundaries anchor each LRC line independently
+        so YouTube rips with non-uniform tempo drift (later verses sing
+        slower than earlier ones) sync line-by-line instead of relying
+        on a single global shift that fits one line and breaks others.
         Existing cached .ass files auto-invalidate.
         """
-        return "wav2vec2-char-leadin"
+        return "wav2vec2-char-perline"
 
     def align(
         self,
@@ -262,32 +290,47 @@ class WhisperXAligner:
             raise ValueError("language required: wav2vec2 is per-language, caller must supply it")
         wx = self._whisperx
         self.last_detected_language = language
-        self.last_global_offset_s = 0.0
+        self.last_line_starts = {}
         self._ensure_align_model(language)
 
         audio_duration_s = _probe_audio_duration(audio_path)
         tag = os.path.basename(audio_path)
 
-        # Detect a constant LRC->audio offset before kicking off wav2vec2.
-        # LRCLib pegs timestamps to a canonical recording (Spotify/iTunes),
-        # but YouTube rips often have different intro padding so the whole
-        # LRC sits 1-3s ahead of actual audio. Without this correction the
-        # renderer's Dialogue events fire before the music, and bleed-guard
-        # rejects wav2vec2 anchors that would otherwise compensate inside
-        # individual lines. Probing audio's first non-silent moment gives a
-        # cleaner signal than wav2vec2's first-word anchors, which can
-        # latch onto silence at segment starts when the LRC is drifted.
+        # Detect per-line LRC->audio offsets before kicking off wav2vec2.
+        # LRCLib pegs timestamps to a canonical recording (Spotify/iTunes);
+        # YouTube rips often have different intro padding *and* per-verse
+        # tempo drift, so a single global shift that fits the first line
+        # leaves later lines visibly ahead of audio (the wipe finishes
+        # before the singer reaches the phrase). Anchoring each line to
+        # its own silence boundary handles both the constant intro skew
+        # and the accumulated drift. Lines without a clear silence
+        # anchor (continuous singing inside a verse) inherit the most
+        # recent locked shift.
         if lrc_lines is not None:
-            offset = _detect_global_offset(audio_path, lrc_lines)
-            if offset:
+            new_starts = _detect_per_line_starts(audio_path, lrc_lines)
+            if new_starts is not None:
+                self.last_line_starts = {
+                    float(orig[0]): float(ns) for orig, ns in zip(lrc_lines, new_starts)
+                }
                 logger.info(
-                    "wav2vec2: LRC->audio offset %+.2fs detected for %s; "
-                    "shifting segments before alignment",
-                    offset,
+                    "wav2vec2: per-line LRC->audio shift for %s; first line %+.2fs, "
+                    "last line %+.2fs",
                     tag,
+                    new_starts[0] - lrc_lines[0][0],
+                    new_starts[-1] - lrc_lines[-1][0],
                 )
-                lrc_lines = [(s + offset, e + offset, t) for s, e, t in lrc_lines]
-                self.last_global_offset_s = offset
+                # Rebuild lrc_lines with shifted starts; ends follow the
+                # next line's new start (or preserve original duration
+                # for the final line) so wav2vec2 segments cover real
+                # audio rather than the original LRC's drifted window.
+                rebuilt: list[tuple[float, float, str]] = []
+                for i, ((s, e, t), ns) in enumerate(zip(lrc_lines, new_starts)):
+                    if i + 1 < len(new_starts):
+                        ne = new_starts[i + 1]
+                    else:
+                        ne = ns + (e - s)
+                    rebuilt.append((ns, ne, t))
+                lrc_lines = rebuilt
 
         segments = self._build_segments(reference_text, lrc_lines, audio_duration_s)
         if not segments:
@@ -299,12 +342,12 @@ class WhisperXAligner:
             return []
 
         logger.info(
-            "wav2vec2: align start %s lang=%s segments=%d lrc_lines=%s offset=%+.2fs",
+            "wav2vec2: align start %s lang=%s segments=%d lrc_lines=%s shifted=%s",
             tag,
             language,
             len(segments),
             "yes" if lrc_lines is not None else "no",
-            self.last_global_offset_s,
+            "yes" if self.last_line_starts else "no",
         )
         t0 = time.monotonic()
         aligned = wx.align(
@@ -318,12 +361,11 @@ class WhisperXAligner:
 
         aligned_words = _words_with_char_parts(aligned)
         logger.info(
-            "wav2vec2: align done %s lang=%s words=%d elapsed=%.2fs offset=%+.2fs",
+            "wav2vec2: align done %s lang=%s words=%d elapsed=%.2fs",
             tag,
             language,
             len(aligned_words),
             time.monotonic() - t0,
-            self.last_global_offset_s,
         )
         # wav2vec2 can silently drop tokens it couldn't align phonetically
         # (weak onsets, overlapping instruments). Route through the mapper

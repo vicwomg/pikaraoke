@@ -7,7 +7,7 @@ import pytest
 
 from pikaraoke.lib.lyrics import Word, WordPart
 from pikaraoke.lib.lyrics_align import (
-    _detect_global_offset,
+    _detect_per_line_starts,
     _group_chars_by_word,
     _interpolate_gaps,
     _normalize,
@@ -420,14 +420,14 @@ class TestWhisperXAligner:
         from pikaraoke.lib.lyrics_align import WhisperXAligner
 
         aligner = WhisperXAligner(device="cpu")
-        assert aligner.model_id == "wav2vec2-char-leadin"
+        assert aligner.model_id == "wav2vec2-char-perline"
 
-    def test_no_offset_when_audio_lines_up_with_lrc(self, fake_whisperx, monkeypatch):
-        # No leading silence to anchor against - silence probe returns
-        # None, no shift, single wav2vec2 pass with original segments.
+    def test_no_shift_when_no_leading_silence(self, fake_whisperx, monkeypatch):
+        # Silencedetect returns nothing - audio starts non-silent or
+        # ffmpeg failed. Aligner runs without modification.
         from pikaraoke.lib import lyrics_align
 
-        monkeypatch.setattr(lyrics_align, "_detect_first_vocal_onset", lambda _p: None)
+        monkeypatch.setattr(lyrics_align, "_list_silence_ends", lambda _p: [])
         aligner = lyrics_align.WhisperXAligner(device="cpu")
         aligner.align(
             "/tmp/song.mp4",
@@ -435,12 +435,12 @@ class TestWhisperXAligner:
             lrc_lines=[(0.0, 5.0, "hello world")],
             language="en",
         )
-        assert aligner.last_global_offset_s == 0.0
+        assert aligner.last_line_starts == {}
         assert fake_whisperx.align.call_count == 1
         segments_arg = fake_whisperx.align.call_args[0][0]
         assert segments_arg[0]["start"] == 0.0
 
-    def test_global_offset_shifts_segments_before_alignment(self, fake_whisperx, monkeypatch):
+    def test_per_line_shift_drives_segments_and_mapping(self, fake_whisperx, monkeypatch):
         # YouTube rip with 1.83s extra intro padding vs LRCLib's source:
         # vocals start at 16.11s but LRC says 14.28s. wav2vec2 receives
         # already-shifted segments so its forced alignment runs against
@@ -448,7 +448,7 @@ class TestWhisperXAligner:
         # karaoke lead-in so segments arrive just before the vocal peak.
         from pikaraoke.lib import lyrics_align
 
-        monkeypatch.setattr(lyrics_align, "_detect_first_vocal_onset", lambda _p: 16.11)
+        monkeypatch.setattr(lyrics_align, "_list_silence_ends", lambda _p: [16.11])
         aligner = lyrics_align.WhisperXAligner(device="cpu")
         aligner.align(
             "/tmp/song.mp4",
@@ -456,27 +456,27 @@ class TestWhisperXAligner:
             lrc_lines=[(14.28, 17.27, "hello world")],
             language="en",
         )
-        expected_offset = 1.83 - 0.25
-        assert aligner.last_global_offset_s == pytest.approx(expected_offset, abs=0.01)
+        expected_start = 16.11 - 0.25
+        assert 14.28 in aligner.last_line_starts
+        assert aligner.last_line_starts[14.28] == pytest.approx(expected_start, abs=0.01)
         # Single wav2vec2 call - shift happens before alignment runs.
         assert fake_whisperx.align.call_count == 1
         segments_arg = fake_whisperx.align.call_args[0][0]
-        assert segments_arg[0]["start"] == pytest.approx(14.28 + expected_offset, abs=0.01)
-        assert segments_arg[0]["end"] == pytest.approx(17.27 + expected_offset, abs=0.01)
+        assert segments_arg[0]["start"] == pytest.approx(expected_start, abs=0.01)
 
-    def test_offset_state_resets_per_call(self, fake_whisperx, monkeypatch):
-        # First song detects an offset; the next song with no leading
-        # silence must not inherit the previous song's value.
+    def test_shift_state_resets_per_call(self, fake_whisperx, monkeypatch):
+        # First song detects per-line shifts; the next song with no
+        # leading silence must not inherit the previous song's mapping.
         from pikaraoke.lib import lyrics_align
 
-        onset_per_path: dict[str, float | None] = {
-            "/tmp/a.mp4": 16.11,
-            "/tmp/b.mp4": None,
+        silences_per_path: dict[str, list[float]] = {
+            "/tmp/a.mp4": [16.11],
+            "/tmp/b.mp4": [],
         }
         monkeypatch.setattr(
             lyrics_align,
-            "_detect_first_vocal_onset",
-            lambda p: onset_per_path[p],
+            "_list_silence_ends",
+            lambda p: silences_per_path[p],
         )
         aligner = lyrics_align.WhisperXAligner(device="cpu")
         aligner.align(
@@ -485,9 +485,9 @@ class TestWhisperXAligner:
             lrc_lines=[(14.28, 17.27, "hello")],
             language="en",
         )
-        assert aligner.last_global_offset_s != 0.0
+        assert aligner.last_line_starts != {}
         aligner.align("/tmp/b.mp4", "hi", lrc_lines=[(0.0, 1.0, "hi")], language="en")
-        assert aligner.last_global_offset_s == 0.0
+        assert aligner.last_line_starts == {}
 
 
 class TestCharAlignmentExtraction:
@@ -635,72 +635,97 @@ class TestCharAlignmentExtraction:
         assert parts[4].end == 0.50
 
 
-class TestDetectGlobalOffset:
-    def test_positive_offset_when_audio_starts_after_lrc(self, monkeypatch):
-        # Vocals stem starts silent until 16.11s; LRC says first line at
-        # 14.28 - the YouTube-vs-Spotify intro-padding pattern. Returned
-        # offset trims a 0.25s karaoke lead-in so subs land just before
-        # the vocal attack rather than on its peak.
+class TestDetectPerLineStarts:
+    @staticmethod
+    def _patch_silences(monkeypatch, ends: list[float]) -> None:
         from pikaraoke.lib import lyrics_align
 
-        monkeypatch.setattr(lyrics_align, "_detect_first_vocal_onset", lambda _p: 16.11)
-        lrc_lines = [(14.28, 17.27, "Na"), (17.27, 20.96, "I")]
-        offset = _detect_global_offset("/tmp/vocals.mp3", lrc_lines)
-        assert offset == pytest.approx(1.83 - 0.25, abs=0.01)
+        monkeypatch.setattr(lyrics_align, "_list_silence_ends", lambda _p: list(ends))
 
-    def test_negative_offset_when_audio_precedes_lrc(self, monkeypatch):
-        # Edge case: YouTube rip has shorter intro than the LRC source.
-        # The lead-in is subtracted from the raw delta in both directions
-        # so target = vocal_onset - lead_in stays consistent.
-        from pikaraoke.lib import lyrics_align
+    def test_uniform_shift_when_all_lines_have_silence_anchors(self, monkeypatch):
+        # Every line preceded by a silence boundary that's +1.83s past
+        # its LRC time - silence-based anchoring locks onto each one and
+        # the result is a clean uniform shift minus the lead-in.
+        self._patch_silences(monkeypatch, [16.11, 19.10, 22.79, 26.15])
+        lrc_lines = [
+            (14.28, 17.27, "a"),
+            (17.27, 20.96, "b"),
+            (20.96, 24.32, "c"),
+            (24.32, 28.37, "d"),
+        ]
+        out = _detect_per_line_starts("/tmp/vocals.mp3", lrc_lines)
+        assert out is not None
+        # Each new_start = silence_end - lead_in (0.25s).
+        assert out[0] == pytest.approx(16.11 - 0.25, abs=0.01)
+        assert out[1] == pytest.approx(19.10 - 0.25, abs=0.01)
+        assert out[2] == pytest.approx(22.79 - 0.25, abs=0.01)
+        assert out[3] == pytest.approx(26.15 - 0.25, abs=0.01)
 
-        monkeypatch.setattr(lyrics_align, "_detect_first_vocal_onset", lambda _p: 5.0)
-        lrc_lines = [(7.0, 9.0, "first")]
-        offset = _detect_global_offset("/tmp/vocals.mp3", lrc_lines)
-        assert offset == pytest.approx(-2.0 - 0.25, abs=0.01)
+    def test_per_verse_drift_locks_each_locked_line_independently(self, monkeypatch):
+        # Mam Tę Moc pattern: line 1 drifts +1.72s, line 6 drifts +3.17s
+        # because the YouTube version slows down across verses. A single
+        # global shift would over-correct line 1 or under-correct line 6;
+        # silence-end matching catches each verse's true onset.
+        self._patch_silences(monkeypatch, [16.00, 22.68, 27.86, 30.42, 37.71])
+        lrc_lines = [
+            (14.28, 17.27, "verse1a"),
+            (17.27, 20.96, "verse1b"),  # continuous with line 0, no anchor
+            (20.96, 24.32, "verse2"),
+            (24.32, 28.37, "verse3"),
+            (28.37, 34.54, "verse4"),
+            (34.54, 42.55, "verse5"),
+        ]
+        out = _detect_per_line_starts("/tmp/vocals.mp3", lrc_lines)
+        assert out is not None
+        # Anchored lines snap to silence_end - lead_in.
+        assert out[0] == pytest.approx(16.00 - 0.25, abs=0.01)
+        assert out[2] == pytest.approx(22.68 - 0.25, abs=0.01)
+        assert out[3] == pytest.approx(27.86 - 0.25, abs=0.01)
+        assert out[4] == pytest.approx(30.42 - 0.25, abs=0.01)
+        assert out[5] == pytest.approx(37.71 - 0.25, abs=0.01)
+        # Continuous line inherits the previous lock's cumulative shift
+        # (+1.72 from line 0) - no audio anchor, but it tracks the verse.
+        assert out[1] == pytest.approx(17.27 + 1.72 - 0.25, abs=0.05)
 
-    def test_returns_none_when_silence_probe_fails(self, monkeypatch):
-        # ffmpeg missing or audio starts non-silent - no leading silence
-        # to anchor against, no offset to apply.
-        from pikaraoke.lib import lyrics_align
+    def test_continuous_line_inherits_running_offset(self, monkeypatch):
+        # Two LRC lines but only one silence anchor (the song starts
+        # singing line 1, line 2 is continuous). Line 2 inherits line 1's
+        # shift rather than mis-snapping to a distant silence.
+        self._patch_silences(monkeypatch, [16.00, 99.0])
+        lrc_lines = [(14.28, 17.27, "a"), (17.27, 20.96, "b")]
+        out = _detect_per_line_starts("/tmp/vocals.mp3", lrc_lines)
+        assert out is not None
+        assert out[0] == pytest.approx(16.00 - 0.25, abs=0.01)
+        # Line 1 + cumulative shift (+1.72) - lead_in.
+        assert out[1] == pytest.approx(17.27 + 1.72 - 0.25, abs=0.01)
 
-        monkeypatch.setattr(lyrics_align, "_detect_first_vocal_onset", lambda _p: None)
-        lrc_lines = [(0.0, 2.0, "x"), (2.0, 4.0, "y")]
-        assert _detect_global_offset("/tmp/vocals.mp3", lrc_lines) is None
+    def test_returns_none_when_silencedetect_yields_nothing(self, monkeypatch):
+        # ffmpeg failed or audio starts non-silent - no anchors to lock
+        # against, fall back to no shift.
+        self._patch_silences(monkeypatch, [])
+        assert _detect_per_line_starts("/tmp/v.mp3", [(0.0, 1.0, "x")]) is None
 
-    def test_returns_none_when_offset_below_threshold(self, monkeypatch):
-        # 0.3s drift sits below bleed-guard's threshold for typical karaoke
-        # lines, so it doesn't cause "subs ahead" - skip the correction.
-        from pikaraoke.lib import lyrics_align
+    def test_returns_none_when_initial_offset_below_threshold(self, monkeypatch):
+        # 300ms first-line drift sits below the bleed-guard pain point;
+        # not worth touching even though silencedetect found an anchor.
+        self._patch_silences(monkeypatch, [14.58])
+        assert _detect_per_line_starts("/tmp/v.mp3", [(14.28, 17.27, "a")]) is None
 
-        monkeypatch.setattr(lyrics_align, "_detect_first_vocal_onset", lambda _p: 14.58)
-        lrc_lines = [(14.28, 17.27, "Na")]
-        assert _detect_global_offset("/tmp/vocals.mp3", lrc_lines) is None
-
-    def test_returns_none_when_offset_exceeds_cap(self, monkeypatch):
-        # 15s offset is past _GLOBAL_OFFSET_MAX_S - more likely a multi-
-        # track LRC mismatch than YouTube intro padding. Don't trust it.
-        from pikaraoke.lib import lyrics_align
-
-        monkeypatch.setattr(lyrics_align, "_detect_first_vocal_onset", lambda _p: 30.0)
-        lrc_lines = [(14.28, 17.27, "Na")]
-        assert _detect_global_offset("/tmp/vocals.mp3", lrc_lines) is None
+    def test_returns_none_when_initial_offset_exceeds_cap(self, monkeypatch):
+        # 30s shift would mean the LRC came from a totally different
+        # mastering or the silence probe fired on the wrong gap.
+        self._patch_silences(monkeypatch, [44.0])
+        assert _detect_per_line_starts("/tmp/v.mp3", [(14.28, 17.27, "a")]) is None
 
     def test_skips_empty_lrc_lines_when_picking_first(self, monkeypatch):
-        # First line in the list has empty text (LRC fence-post quirk);
-        # detector should anchor against the first non-empty entry.
-        from pikaraoke.lib import lyrics_align
-
-        monkeypatch.setattr(lyrics_align, "_detect_first_vocal_onset", lambda _p: 16.11)
+        self._patch_silences(monkeypatch, [16.11])
         lrc_lines = [(10.0, 14.0, ""), (14.28, 17.27, "Na")]
-        offset = _detect_global_offset("/tmp/vocals.mp3", lrc_lines)
-        assert offset == pytest.approx(1.83 - 0.25, abs=0.01)
-
-    def test_returns_none_when_no_lrc_lines_have_text(self, monkeypatch):
-        from pikaraoke.lib import lyrics_align
-
-        monkeypatch.setattr(lyrics_align, "_detect_first_vocal_onset", lambda _p: 16.0)
-        assert _detect_global_offset("/tmp/vocals.mp3", [(0.0, 1.0, " ")]) is None
+        out = _detect_per_line_starts("/tmp/v.mp3", lrc_lines)
+        assert out is not None
+        # Empty line still gets a shifted timestamp (cumulative shift
+        # applied) - keeps indices aligned with lrc_lines for the
+        # caller's mapping.
+        assert out[1] == pytest.approx(16.11 - 0.25, abs=0.01)
 
 
 class TestPartsForRef:

@@ -1318,13 +1318,15 @@ class LyricsService:
             bpm = _estimate_bpm(audio_path)
             anim_params = _anim_params_for_bpm(bpm)
             # The aligner returns words in audio-true time space. When it
-            # also detected a global LRC->audio offset, the LRC string
+            # also detected per-line LRC->audio shifts, the LRC string
             # still carries the original (drifted) timestamps - the
             # renderer would emit Dialogue events ahead of audio unless
-            # we shift those tags by the same amount.
-            raw_offset = getattr(self._aligner, "last_global_offset_s", 0.0)
-            offset = float(raw_offset) if isinstance(raw_offset, (int, float)) else 0.0
-            render_lrc = _shift_lrc(lrc, offset) if offset else lrc
+            # we rewrite the tags by the same per-line mapping.
+            line_starts = getattr(self._aligner, "last_line_starts", None)
+            if isinstance(line_starts, dict) and line_starts:
+                render_lrc = _shift_lrc_per_line(lrc, line_starts)
+            else:
+                render_lrc = lrc
             ass = _words_to_ass_with_k_tags(words, render_lrc, params=anim_params)
             if ass:
                 from pikaraoke.lib.demucs_processor import CACHE_DIR
@@ -2284,6 +2286,18 @@ def _lrc_plain_text(lrc: str) -> str:
     return "\n".join(text for _start, text in _parse_lrc(lrc))
 
 
+def _format_lrc_tag(t: float) -> str:
+    """Render seconds as ``[mm:ss.cc]`` with negative values clamped to zero."""
+    t = max(0.0, t)
+    mm = int(t) // 60
+    ss = int(t) - mm * 60
+    cs = int(round((t - int(t)) * 100))
+    if cs >= 100:
+        ss += 1
+        cs = 0
+    return f"[{mm:02d}:{ss:02d}.{cs:02d}]"
+
+
 def _shift_lrc(lrc: str, offset_s: float) -> str:
     """Return ``lrc`` with every ``[mm:ss.cc]`` timestamp shifted by ``offset_s``.
 
@@ -2300,14 +2314,38 @@ def _shift_lrc(lrc: str, offset_s: float) -> str:
     def replace(match: "re.Match[str]") -> str:
         mm, ss, frac = match.group(1), match.group(2), match.group(3)
         frac_s = int(frac) / (10 ** len(frac)) if frac else 0.0
-        t = max(0.0, int(mm) * 60 + int(ss) + frac_s + offset_s)
-        new_mm = int(t) // 60
-        new_ss = int(t) - new_mm * 60
-        new_cs = int(round((t - int(t)) * 100))
-        if new_cs >= 100:
-            new_ss += 1
-            new_cs = 0
-        return f"[{new_mm:02d}:{new_ss:02d}.{new_cs:02d}]"
+        return _format_lrc_tag(int(mm) * 60 + int(ss) + frac_s + offset_s)
+
+    return _LRC_TAG.sub(replace, lrc)
+
+
+def _shift_lrc_per_line(lrc: str, mapping: dict[float, float]) -> str:
+    """Rewrite ``[mm:ss.cc]`` tags using a per-orig-time replacement map.
+
+    Each LRC tag whose decoded time matches a key in ``mapping`` (with a
+    small epsilon for floating-point round-trips) is replaced by the
+    mapped value. Tags without a match pass through unchanged - that
+    handles things like ``[ti:Title]`` headers and any LRC times the
+    aligner didn't see (e.g. multi-tag lines where only some times got
+    shifted upstream).
+
+    Used when the aligner produces a per-line shift table (silence-based
+    anchoring with per-verse drift), as a richer cousin of ``_shift_lrc``.
+    """
+    if not mapping:
+        return lrc
+
+    def replace(match: "re.Match[str]") -> str:
+        mm, ss, frac = match.group(1), match.group(2), match.group(3)
+        frac_s = int(frac) / (10 ** len(frac)) if frac else 0.0
+        t = int(mm) * 60 + int(ss) + frac_s
+        new_t = next(
+            (v for k, v in mapping.items() if abs(k - t) < 0.01),
+            None,
+        )
+        if new_t is None:
+            return match.group(0)
+        return _format_lrc_tag(new_t)
 
     return _LRC_TAG.sub(replace, lrc)
 

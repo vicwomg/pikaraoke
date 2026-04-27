@@ -70,6 +70,7 @@ from pikaraoke.lib.lyrics import (
     _pick_best_vtt,
     _resolve_whisper_model,
     _shift_lrc,
+    _shift_lrc_per_line,
     _strip_variant_markers,
     _syllabify,
     _syllable_parts,
@@ -151,6 +152,42 @@ class TestShiftLrc:
         # `mm:ss` regex - they pass through untouched.
         assert "[ti:Title]" in out
         assert "[00:02.00]hello" in out
+
+
+class TestShiftLrcPerLine:
+    def test_empty_mapping_returns_input_unchanged(self):
+        lrc = "[00:01.00]hello\n[00:03.00]world"
+        assert _shift_lrc_per_line(lrc, {}) == lrc
+
+    def test_replaces_only_mapped_timestamps(self):
+        # Mam Tę Moc style: per-verse drift means line 1 and line 6 get
+        # different shifts. Tags not in the mapping pass through, so a
+        # partial mapping doesn't corrupt unrelated entries.
+        lrc = "[00:14.28]Na zboczach\n[00:17.27]I nietknięty\n[00:34.54]Choć"
+        mapping = {14.28: 15.86, 34.54: 37.46}
+        out = _shift_lrc_per_line(lrc, mapping)
+        assert "[00:15.86]Na zboczach" in out
+        # Line 2 (17.27) wasn't in the mapping - keeps original tag.
+        assert "[00:17.27]I nietknięty" in out
+        assert "[00:37.46]Choć" in out
+
+    def test_negative_mapped_value_clamps_to_zero(self):
+        out = _shift_lrc_per_line("[00:01.00]early", {1.0: -2.0})
+        assert "[00:00.00]early" in out
+
+    def test_floating_point_keys_match_with_epsilon(self):
+        # Mapping keys come from `_parse_lrc` results, which can introduce
+        # 1e-9 round-trip noise vs. the LRC tag's integer-seconds source.
+        lrc = "[00:14.28]hello"
+        mapping = {14.279999999: 16.0}
+        out = _shift_lrc_per_line(lrc, mapping)
+        assert "[00:16.00]hello" in out
+
+    def test_passes_non_tag_lines_through(self):
+        lrc = "[ti:Title]\n[00:01.00]hello"
+        out = _shift_lrc_per_line(lrc, {1.0: 3.0})
+        assert "[ti:Title]" in out
+        assert "[00:03.00]hello" in out
 
 
 class TestLrcToAssLineLevel:
