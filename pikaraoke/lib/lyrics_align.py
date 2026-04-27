@@ -212,9 +212,12 @@ class WhisperXAligner:
         switched from wav2vec2's first-word anchors (bimodal when CTC
         latched onto silence at drifted-segment starts) to direct vocals
         leading-silence probing - cleaner signal, single wav2vec2 pass.
+        Bumped to ``wav2vec2-char-subtlepulse`` when the per-word pulse
+        amplitude was halved (102/103/104% vs 103/106/109%) so the
+        decoration stays subtle even on fast tempos.
         Existing cached .ass files auto-invalidate.
         """
-        return "wav2vec2-char-silenceoffset"
+        return "wav2vec2-char-subtlepulse"
 
     def align(
         self,

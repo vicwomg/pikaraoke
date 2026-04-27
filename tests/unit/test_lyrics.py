@@ -2259,20 +2259,20 @@ class TestAnimParamsForBpm:
         assert self._params(-5.0).pulse_pct == 100
 
     def test_ballad_tier(self):
-        assert self._params(60.0).pulse_pct == 103
+        assert self._params(60.0).pulse_pct == 102
 
     def test_mid_tempo_tier(self):
-        assert self._params(110.0).pulse_pct == 106
+        assert self._params(110.0).pulse_pct == 103
 
     def test_uptempo_tier(self):
-        assert self._params(150.0).pulse_pct == 109
+        assert self._params(150.0).pulse_pct == 104
 
     def test_boundaries(self):
         # < 80 -> ballad; 80 crosses into mid-tempo; 130 crosses into uptempo.
-        assert self._params(79.9).pulse_pct == 103
-        assert self._params(80.0).pulse_pct == 106
-        assert self._params(129.9).pulse_pct == 106
-        assert self._params(130.0).pulse_pct == 109
+        assert self._params(79.9).pulse_pct == 102
+        assert self._params(80.0).pulse_pct == 103
+        assert self._params(129.9).pulse_pct == 103
+        assert self._params(130.0).pulse_pct == 104
 
     def test_faster_tier_has_sharper_rise(self):
         assert self._params(150.0).pulse_rise_frac < self._params(60.0).pulse_rise_frac

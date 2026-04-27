@@ -420,7 +420,7 @@ class TestWhisperXAligner:
         from pikaraoke.lib.lyrics_align import WhisperXAligner
 
         aligner = WhisperXAligner(device="cpu")
-        assert aligner.model_id == "wav2vec2-char-silenceoffset"
+        assert aligner.model_id == "wav2vec2-char-subtlepulse"
 
     def test_no_offset_when_audio_lines_up_with_lrc(self, fake_whisperx, monkeypatch):
         # No leading silence to anchor against - silence probe returns

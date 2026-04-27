@@ -2430,10 +2430,10 @@ def _anim_params_for_bpm(bpm: float | None) -> _AnimParams:
     if bpm is None or bpm <= 0:
         return _AnimParams(pulse_pct=100, pulse_rise_frac=0.0)
     if bpm < 80:
-        return _AnimParams(pulse_pct=103, pulse_rise_frac=0.35)
+        return _AnimParams(pulse_pct=102, pulse_rise_frac=0.35)
     if bpm < 130:
-        return _AnimParams(pulse_pct=106, pulse_rise_frac=0.25)
-    return _AnimParams(pulse_pct=109, pulse_rise_frac=0.15)
+        return _AnimParams(pulse_pct=103, pulse_rise_frac=0.25)
+    return _AnimParams(pulse_pct=104, pulse_rise_frac=0.15)
 
 
 # Colors are &HAABBGGRR. PrimaryColour = unsung (bright white — what you read
