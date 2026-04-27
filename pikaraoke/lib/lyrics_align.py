@@ -16,6 +16,7 @@ the reference LRC and timings come from wav2vec2's phonetic alignment.
 import logging
 from difflib import SequenceMatcher
 
+from pikaraoke.lib import vad_probe
 from pikaraoke.lib.lyrics import Word, WordPart
 
 logger = logging.getLogger(__name__)
@@ -55,13 +56,6 @@ _GLOBAL_OFFSET_MIN_S = 0.5
 # matched the wrong section than a YouTube intro-padding mismatch.
 _GLOBAL_OFFSET_MAX_S = 10.0
 
-# Silence threshold + minimum-duration for the leading-silence probe.
-# -30 dBFS catches sustained vocals without being so sensitive that
-# breath noise or de-essing artifacts qualify. 0.5s minimum avoids
-# treating brief consonant gaps as the song's intro.
-_SILENCE_THRESHOLD_DB = -30
-_SILENCE_MIN_DURATION_S = 0.5
-
 # Hard cap on the leading silence we attribute to "intro padding". Real
 # YouTube intros land under 30s; longer silences usually mean the vocals
 # stem is mostly empty (instrumental-only sections, demucs misroute) and
@@ -78,50 +72,55 @@ _LEADING_SILENCE_MAX_S = 30.0
 _KARAOKE_LEAD_IN_S = 0.25
 
 
-# How far on either side of the LRC-extrapolated time we'll accept a
-# silence boundary as "this line's vocal onset". Bigger window catches
-# longer drift, but risks matching the wrong silence when verses are
-# closely spaced. 2.5s is loose enough to absorb the per-line drift seen
-# on Mam Tę Moc (>1.5s per chorus) without hopping multi-line in dense
-# sections.
-_PER_LINE_SEARCH_WINDOW_S = 2.5
+# Approximate vocal time per word, used by the DP candidate filter to
+# drop anchors that physically can't host a line. 0.3 s/word is
+# English-calibrated (typical sung English: ~3 words/second on chorus
+# tempos). Per-language tuning (Polish / Spanish often run faster) is
+# tracked as a follow-up; the candidate filter is advisory only - the
+# DP's main cost function still drives the final assignment.
+_VOCAL_TIME_PER_WORD_S = 0.3
 
+# DP cost weights and slack thresholds. Tuned against the three
+# captured fixtures (Total Eclipse, Mam Tę Moc, Queen IWTBF) so each
+# one's pinning test passes. Bumping any of these will shift the
+# assignment globally - re-run the integration suite before tweaking.
+#
+# Both proximity and tempo-jump are charged on a *slack-then-penalty*
+# curve: drift up to the slack threshold is free, drift past it is
+# penalised linearly. This matches the empirical observation that
+# YouTube rips routinely show ~1-2 s of per-verse tempo drift (legit)
+# but the wrong-anchor failure modes from the bug report involve
+# drifts of tens of seconds (instrumental holes). The slack lets the
+# Mam Tę Moc per-verse drift case anchor cleanly while keeping Total
+# Eclipse's "anchor 60 s away" disqualified.
+_DP_W_PROXIMITY = 0.5  # max(0, |t_expected - anchor| - slack) (seconds)
+_DP_W_TEMPO_JUMP = 0.5  # max(0, |Δ cumulative shift| - slack) (seconds)
+_DP_W_SUSTAIN_SHORTFALL = 0.6  # max(0, demand - sustain) (seconds)
+# Per-anchor charge against the absolute cumulative shift: above the
+# band, every anchor in a wrong-drift trajectory accrues this cost,
+# so the DP can't get "stuck" in a +20 s drift just because
+# transitions between wrong onsets have small tempo jumps. Without
+# this term the DP would happily ride along a wrong cumulative as
+# long as adjacent anchors are close in audio time.
+_DP_W_SHIFT_MAGNITUDE = 0.2
+_DP_SHIFT_BAND_S = 5.0
+# Proximity slack tighter than tempo-jump slack so the DP picks the
+# *closer* candidate when two onsets both sit within tempo-drift
+# tolerance of the previous anchor (per-verse case: filler line and
+# verse-leading line both eligible for the same onset; the tighter
+# proximity slack lets the verse-leading line win on cost).
+_DP_PROXIMITY_SLACK_S = 2.5
+_DP_TEMPO_JUMP_SLACK_S = 4.0
 
-def _list_silence_ends(audio_path: str) -> list[float]:
-    """Return every ``silence_end`` time reported by ffmpeg silencedetect.
-
-    Each entry marks a moment where audio crosses from silence into
-    sound, i.e. the start of a vocal segment on the demucs vocals stem.
-    Returns an empty list on any ffmpeg failure (missing binary, parse
-    failure, timeout) - callers fall back to no shift in that case.
-    """
-    import re
-    import shutil
-    import subprocess
-
-    if not shutil.which("ffmpeg"):
-        return []
-    try:
-        proc = subprocess.run(
-            [
-                "ffmpeg",
-                "-hide_banner",
-                "-nostats",
-                "-i",
-                audio_path,
-                "-af",
-                f"silencedetect=n={_SILENCE_THRESHOLD_DB}dB:d={_SILENCE_MIN_DURATION_S}",
-                "-f",
-                "null",
-                "-",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-    except (subprocess.TimeoutExpired, OSError):
-        return []
-    return [float(m.group(1)) for m in re.finditer(r"silence_end:\s*([\d.]+)", proc.stderr)]
+# Skip cost = w₀ × num_words. Acts as the floor anchoring must beat:
+# any anchor whose proximity + tempo-jump together stay within the
+# slack windows pays only the sustain shortfall (zero on long
+# anchors), which is below ``w₀ × num_words`` for any line ≥ 1 word.
+# 0.7 / word is the smallest value that still anchors per-verse drift
+# cases where the cumulative drift jumps ~3.5 s between verses
+# (Mam Tę Moc / Total Eclipse fixtures); going higher than 0.8 starts
+# anchoring every line and the DP loses the ability to skip filler.
+_DP_SKIP_COST_PER_WORD = 0.7
 
 
 def _detect_per_line_starts(
@@ -129,25 +128,20 @@ def _detect_per_line_starts(
 ) -> list[float] | None:
     """Compute audio-aligned start times for each LRC line.
 
-    Walks LRC lines and silence boundaries in lockstep, locking each line
-    onto the nearest plausible silence_end when one is within
-    ``_PER_LINE_SEARCH_WINDOW_S`` of the line's extrapolated audio time.
-    Lines without a clear silence anchor inherit the cumulative shift
-    from the most recently locked line - so continuous singing inside a
-    verse stays smooth after the verse's first line snaps to its onset.
+    Pipeline: probe vocal onsets (silero VAD on the raw mix, with
+    ffmpeg silencedetect fallback) → filter anchors that can't host
+    each line by sustain → DP-assign LRC lines to anchors → interpolate
+    unanchored line clusters between flanking anchors → subtract the
+    karaoke lead-in.
 
-    Returns the list of new line starts (one per LRC entry, including
-    empty-text rows so indices align with ``lrc_lines``). Each entry is
-    pulled forward by ``_KARAOKE_LEAD_IN_S`` so subs fire just before the
-    vocal attack rather than on its peak.
-
-    Returns None when silence detection failed, when the audio doesn't
-    start silent (no leading-silence to anchor against), or when the
-    initial offset is below the correction threshold or implausibly
-    large.
+    Returns one entry per ``lrc_lines`` entry (empty-text rows
+    included, so indices align with the caller's mapping). Returns
+    None when the probe yields no onsets, the first usable onset sits
+    past ``_LEADING_SILENCE_MAX_S``, or the first anchored line's shift
+    falls outside ``[_GLOBAL_OFFSET_MIN_S, _GLOBAL_OFFSET_MAX_S]``.
     """
-    silence_ends = sorted(_list_silence_ends(audio_path))
-    if not silence_ends or silence_ends[0] > _LEADING_SILENCE_MAX_S:
+    onsets = sorted(vad_probe.list_vocal_onsets(audio_path), key=lambda p: p[0])
+    if not onsets or onsets[0][0] > _LEADING_SILENCE_MAX_S:
         return None
     first_idx = next(
         (i for i, (_, _, t) in enumerate(lrc_lines) if t.strip()),
@@ -156,35 +150,387 @@ def _detect_per_line_starts(
     if first_idx is None:
         return None
     first_lrc_start = float(lrc_lines[first_idx][0])
-    first_audio = silence_ends[0]
+    first_audio = onsets[0][0]
     initial = first_audio - first_lrc_start
     if abs(initial) < _GLOBAL_OFFSET_MIN_S:
         return None
     if abs(initial) > _GLOBAL_OFFSET_MAX_S:
         return None
 
-    out: list[float] = []
-    cumulative = initial
-    sil_idx = 0
-    for lrc_start, _line_end, _text in lrc_lines:
-        expected = float(lrc_start) + cumulative
-        # Skip past silence boundaries that sit too far in the past for
-        # this line to plausibly own them.
-        while (
-            sil_idx < len(silence_ends)
-            and silence_ends[sil_idx] < expected - _PER_LINE_SEARCH_WINDOW_S
-        ):
-            sil_idx += 1
-        if sil_idx < len(silence_ends):
-            candidate = silence_ends[sil_idx]
-            if abs(candidate - expected) <= _PER_LINE_SEARCH_WINDOW_S:
-                # Snap to this silence_end and update the running offset
-                # so downstream continuous lines pick up the new tempo.
-                cumulative = candidate - float(lrc_start)
-                expected = candidate
-                sil_idx += 1  # consumed
-        out.append(expected - _KARAOKE_LEAD_IN_S)
+    assignment = _align_lines_to_anchors_dp(lrc_lines, onsets)
+    if assignment is None:
+        return None
+    filled = _interpolate_unanchored(assignment, lrc_lines)
+    return [t - _KARAOKE_LEAD_IN_S for t in filled]
+
+
+def _align_lines_to_anchors_dp(
+    lrc_lines: list[tuple[float, float, str]],
+    onsets: list[tuple[float, float]],
+) -> list[float | None] | None:
+    """Globally optimal monotonic line→onset assignment.
+
+    State: ``dp[r][j]`` = minimum cumulative cost over all assignments
+    where line ``r`` is the most-recently-anchored line and is
+    anchored at ``onsets[j-1]`` (j is 1-based; j=0 reserved for the
+    "no anchor used yet" base state). Lines 0..r-1 are arranged
+    optimally (skipped or anchored at columns < j).
+
+    The previous-anchor row is part of the state so the cumulative
+    shift used by ``_anchor_cost``'s tempo-jump and proximity-to-
+    extrapolated terms is unambiguous - earlier formulations that
+    only tracked ``(row, column)`` without the LRC row lost track of
+    which row owned each column and produced wrong globals (e.g.
+    anchoring line 3 at the first onset on Total Eclipse instead of
+    line 0, despite line 0 being closer in LRC time).
+
+    Complexity: O(n²m²) cells × transitions worst case; with the
+    candidate filter typical Total Eclipse / Mam Tę Moc data runs in
+    a few hundred thousand ops (sub-millisecond).
+
+    Returns ``[anchor_time | None]`` per LRC line or None when no
+    line was successfully anchored or the first anchored line's
+    implied shift exceeds ``_GLOBAL_OFFSET_MAX_S`` (preserves the
+    orchestrator's None fallback contract).
+    """
+    n = len(lrc_lines)
+    m = len(onsets)
+    if n == 0 or m == 0:
+        return None
+
+    candidates = _candidate_anchors(lrc_lines, onsets)
+    skip_costs = [_DP_SKIP_COST_PER_WORD * max(1, len(t.split())) for _, _, t in lrc_lines]
+    # Prefix-sum of skip costs so we can charge "skip lines a..b" in O(1).
+    prefix_skip = [0.0] * (n + 1)
+    for idx in range(n):
+        prefix_skip[idx + 1] = prefix_skip[idx] + skip_costs[idx]
+
+    inf = float("inf")
+    # dp[r][j] = min cost where line r is anchored at column j, and
+    # lines 0..r-1 are arranged optimally. j ∈ candidates[r].
+    dp = [[inf] * (m + 1) for _ in range(n)]
+    # parent[r][j] = (prev_r, prev_j) - the row/col of the previous
+    # anchored line. (prev_r=-1, prev_j=0) means "no previous anchor".
+    parent: list[list[tuple[int, int] | None]] = [[None] * (m + 1) for _ in range(n)]
+
+    # Base case: line r is the *first* anchored line (skip 0..r-1, anchor r).
+    for r in range(n):
+        for j in candidates[r]:
+            cost = _anchor_cost(
+                lrc_lines[r],
+                onsets[j - 1],
+                prev_anchor_time=None,
+                prev_lrc_start=None,
+            )
+            total = prefix_skip[r] + cost
+            if total < dp[r][j]:
+                dp[r][j] = total
+                parent[r][j] = (-1, 0)
+
+    # Inductive case: line r anchored at column j, with some earlier
+    # line r' anchored at column j' < j. Skipping is free between r'
+    # and r via prefix_skip.
+    for r in range(n):
+        for j in candidates[r]:
+            for prev_r in range(r):
+                for prev_j in candidates[prev_r]:
+                    if prev_j >= j:
+                        continue
+                    if dp[prev_r][prev_j] == inf:
+                        continue
+                    a_cost = _anchor_cost(
+                        lrc_lines[r],
+                        onsets[j - 1],
+                        prev_anchor_time=onsets[prev_j - 1][0],
+                        prev_lrc_start=float(lrc_lines[prev_r][0]),
+                    )
+                    skip_between = prefix_skip[r] - prefix_skip[prev_r + 1]
+                    total = dp[prev_r][prev_j] + skip_between + a_cost
+                    if total < dp[r][j]:
+                        dp[r][j] = total
+                        parent[r][j] = (prev_r, prev_j)
+
+    # Final: pick (r, j) minimising dp[r][j] + skip_cost(lines r+1..n-1).
+    # Plus the all-skipped baseline (no anchors at all) for completeness.
+    best_total = prefix_skip[n]
+    best_terminal: tuple[int, int] | None = None
+    for r in range(n):
+        for j in candidates[r]:
+            if dp[r][j] == inf:
+                continue
+            total = dp[r][j] + (prefix_skip[n] - prefix_skip[r + 1])
+            if total < best_total:
+                best_total = total
+                best_terminal = (r, j)
+
+    if best_terminal is None:
+        # No anchor was cheaper than skipping everything - the DP found
+        # no plausible match.
+        return None
+
+    # Backtrack from best_terminal, recording anchor-row -> column.
+    out: list[float | None] = [None] * n
+    r, j = best_terminal
+    while r >= 0:
+        out[r] = onsets[j - 1][0]
+        cell = parent[r][j]
+        if cell is None:
+            break
+        r, j = cell
+
+    # ER3: enforce the global offset cap on the first anchored line.
+    first_anchored = next(
+        ((idx, t) for idx, t in enumerate(out) if t is not None),
+        None,
+    )
+    if first_anchored is None:
+        return None
+    idx, t = first_anchored
+    shift = t - float(lrc_lines[idx][0])
+    if abs(shift) > _GLOBAL_OFFSET_MAX_S:
+        return None
     return out
+
+
+def _candidate_anchors(
+    lrc_lines: list[tuple[float, float, str]],
+    onsets: list[tuple[float, float]],
+) -> list[list[int]]:
+    """Per-line list of plausible onset indices (1-based; 0 reserved for
+    the baseline column). Filters anchors whose audio sustain is below
+    the line's vocal-time-per-word floor.
+    """
+    cand: list[list[int]] = []
+    for _, _, text in lrc_lines:
+        words = max(1, len(text.split()))
+        demand = _VOCAL_TIME_PER_WORD_S * words
+        line_cand = []
+        for j, (onset, next_onset) in enumerate(onsets, start=1):
+            sustain = next_onset - onset
+            # Allow infinite sustain (final phrase) and any anchor whose
+            # available audio meets the demand. Keep the filter loose
+            # enough that empty/single-word LRC lines (demand ~0.3s)
+            # consider every onset.
+            if sustain >= demand or sustain == float("inf"):
+                line_cand.append(j)
+        cand.append(line_cand)
+    return cand
+
+
+def _anchor_cost(
+    lrc_line: tuple[float, float, str],
+    onset: tuple[float, float],
+    *,
+    prev_anchor_time: float | None,
+    prev_lrc_start: float | None,
+) -> float:
+    """Cost of anchoring ``lrc_line`` at ``onset``.
+
+    Three additive terms (see ``_DP_W_*``):
+      - proximity: how close the onset is to the line's expected audio
+        time given the running cumulative shift from the previous
+        anchored line. Carries the bulk of the assignment signal.
+      - tempo jump: penalises sudden changes in cumulative shift
+        between consecutive anchored lines. Drift accumulates smoothly
+        across a song; a jump is usually a wrong-anchor signal.
+      - sustain shortfall: penalises onsets too short to physically
+        host the line. Acts as a soft version of the candidate filter.
+    """
+    onset_t, next_onset_t = onset
+    lrc_start, lrc_end, text = lrc_line
+    words = max(1, len(text.split()))
+    demand = _VOCAL_TIME_PER_WORD_S * words
+
+    sustain = next_onset_t - onset_t
+    shortfall = max(0.0, demand - sustain) if sustain != float("inf") else 0.0
+    _ = lrc_end  # line duration unused; proximity carries the signal
+
+    new_cumulative = onset_t - float(lrc_start)
+    shift_mag = max(0.0, abs(new_cumulative) - _DP_SHIFT_BAND_S)
+
+    if prev_anchor_time is None or prev_lrc_start is None:
+        # First anchored line: no cumulative shift to extrapolate from
+        # yet, so the tempo-jump term degenerates to zero. Proximity is
+        # measured against the line's raw LRC time and stays slack-
+        # bounded - a YouTube intro-padding shift of <2.5 s pays no
+        # proximity cost, but a clearly-wrong onset 30+ s away does.
+        # The orchestrator separately gates the implied initial offset
+        # against ``_GLOBAL_OFFSET_MAX_S`` before the DP runs.
+        proximity = max(0.0, abs(onset_t - float(lrc_start)) - _DP_PROXIMITY_SLACK_S)
+        return (
+            _DP_W_PROXIMITY * proximity
+            + _DP_W_SUSTAIN_SHORTFALL * shortfall
+            + _DP_W_SHIFT_MAGNITUDE * shift_mag
+        )
+
+    cumulative = prev_anchor_time - prev_lrc_start
+    expected = float(lrc_start) + cumulative
+    tempo_jump = max(0.0, abs(new_cumulative - cumulative) - _DP_TEMPO_JUMP_SLACK_S)
+    proximity = max(0.0, abs(onset_t - expected) - _DP_PROXIMITY_SLACK_S)
+    return (
+        _DP_W_PROXIMITY * proximity
+        + _DP_W_TEMPO_JUMP * tempo_jump
+        + _DP_W_SUSTAIN_SHORTFALL * shortfall
+        + _DP_W_SHIFT_MAGNITUDE * shift_mag
+    )
+
+
+def _interpolate_unanchored(
+    assignment: list[float | None],
+    lrc_lines: list[tuple[float, float, str]],
+) -> list[float]:
+    """Fill ``None`` entries by interpolating between flanking anchors.
+
+    Lines between two anchored neighbours get distributed proportionally
+    to their original LRC durations within the available audio window.
+    Leading lines (before any anchor) inherit the first anchor's
+    cumulative shift; trailing lines (after the final anchor) inherit
+    the last anchor's. Every output is clamped to ``>= 0`` (ER3) so
+    backward extrapolation can't produce negative timestamps.
+
+    For "instrumental gap" clusters - the audio window between flanks
+    is much larger than the previous anchor's natural audible window -
+    the cluster's lines are distributed uniformly into the trailing
+    second of the audio span. This snaps backing-vocal phrases that
+    LRClib timed inside an instrumental break out of the dead zone
+    (Total Eclipse 3:13-3:28) while preserving LRC order.
+    """
+    n = len(assignment)
+    out: list[float] = [0.0] * n
+    if n == 0:
+        return out
+
+    # Walk the assignment, identifying clusters of None entries between
+    # anchored neighbours. For each cluster, interpolate.
+    i = 0
+    last_anchor_idx: int | None = None
+    while i < n:
+        if assignment[i] is not None:
+            out[i] = float(assignment[i])  # type: ignore[arg-type]
+            last_anchor_idx = i
+            i += 1
+            continue
+        j = i
+        while j < n and assignment[j] is None:
+            j += 1
+        # cluster [i, j-1] is unanchored
+        next_anchor_idx = j if j < n else None
+        gap_distribution = _gap_window_distribution(
+            i, j, last_anchor_idx, next_anchor_idx, assignment, lrc_lines
+        )
+        if gap_distribution is not None:
+            for offset, t in enumerate(gap_distribution):
+                out[i + offset] = t
+        else:
+            for k in range(i, j):
+                out[k] = _interpolated_time(
+                    k,
+                    last_anchor_idx,
+                    next_anchor_idx,
+                    assignment,
+                    lrc_lines,
+                )
+        i = j
+    return [max(0.0, t) for t in out]
+
+
+def _gap_window_distribution(
+    cluster_start: int,
+    cluster_end_exclusive: int,
+    prev_idx: int | None,
+    next_idx: int | None,
+    assignment: list[float | None],
+    lrc_lines: list[tuple[float, float, str]],
+) -> list[float] | None:
+    """Detect "instrumental gap" cluster and return uniform-trailing
+    distribution; returns None when the cluster looks continuous (caller
+    falls back to per-line proportional interpolation).
+    """
+    if prev_idx is None or next_idx is None:
+        return None
+    prev_t = float(assignment[prev_idx])  # type: ignore[arg-type]
+    next_t = float(assignment[next_idx])  # type: ignore[arg-type]
+    prev_lrc_start = float(lrc_lines[prev_idx][0])
+    prev_lrc_end = float(lrc_lines[prev_idx][1])
+    prev_audio_end = prev_t + max(0.0, prev_lrc_end - prev_lrc_start)
+    audio_gap_threshold_s = 10.0
+    if (next_t - prev_audio_end) <= audio_gap_threshold_s:
+        return None
+    if any(
+        float(lrc_lines[k][0]) < prev_lrc_end for k in range(cluster_start, cluster_end_exclusive)
+    ):
+        # Some lines naturally belong with the previous anchor's window;
+        # mixed - fall back to per-line.
+        return None
+    cluster_size = cluster_end_exclusive - cluster_start
+    if cluster_size == 0:
+        return None
+    # 0.5 s trailing window with a 0.1 s margin before the next
+    # anchored line. Tight enough that the first cluster line lands
+    # within ~250 ms of the next anchor (above SOLO_END after lead-in
+    # subtraction in Total Eclipse); the margin keeps the cluster's
+    # final line from compressing against the next anchor (lateness
+    # test asserts no consecutive lines closer than 50 ms).
+    trailing_window_s = 0.6
+    end_margin_s = 0.1
+    window_end = next_t - end_margin_s
+    window_start = max(prev_audio_end, next_t - trailing_window_s)
+    window_start = min(window_start, window_end)
+    if cluster_size == 1:
+        return [window_start + (window_end - window_start) * 0.5]
+    step = (window_end - window_start) / cluster_size
+    return [window_start + step * (idx + 0.5) for idx in range(cluster_size)]
+
+
+def _interpolated_time(
+    k: int,
+    prev_idx: int | None,
+    next_idx: int | None,
+    assignment: list[float | None],
+    lrc_lines: list[tuple[float, float, str]],
+) -> float:
+    """Compute the interpolated audio time for unanchored line ``k``.
+
+    Two strategies depending on whether the cluster's audio window
+    looks like an instrumental gap:
+
+    * **Continuous singing** (audio gap roughly matches the LRC
+      duration of the cluster): distribute proportionally to LRC
+      durations between flanks. Standard line-level interpolation.
+    * **Instrumental gap** (audio span between flanks is much longer
+      than the previous anchor's LRC duration): the LRC has timed
+      lines inside a stretch with no actual vocals. Snap those lines
+      to the *trailing* edge of the audio window (just before the
+      next anchor), preserving LRC order via a tiny per-line offset.
+      This is the Total Eclipse fix: the LRC timestamps the (Turn
+      around, bright eyes) backing vocals at 3:13-3:28 but the
+      YouTube audio first plays them at 3:28+; proportional
+      interpolation otherwise lands them inside the dead solo.
+
+    Falls back to additive extrapolation when only one flank is
+    anchored, or to the raw LRC time when neither is.
+    """
+    lrc_k = float(lrc_lines[k][0])
+    if prev_idx is not None and next_idx is not None:
+        prev_t = float(assignment[prev_idx])  # type: ignore[arg-type]
+        next_t = float(assignment[next_idx])  # type: ignore[arg-type]
+        prev_lrc_start = float(lrc_lines[prev_idx][0])
+        next_lrc = float(lrc_lines[next_idx][0])
+        # Continuous case: proportional distribution by LRC durations.
+        # The instrumental-gap branch is handled in
+        # ``_gap_window_distribution`` by the caller.
+        lrc_span = max(next_lrc - prev_lrc_start, 1e-6)
+        fraction = max(0.0, min(1.0, (lrc_k - prev_lrc_start) / lrc_span))
+        return prev_t + fraction * (next_t - prev_t)
+    if prev_idx is not None:
+        prev_t = float(assignment[prev_idx])  # type: ignore[arg-type]
+        prev_lrc = float(lrc_lines[prev_idx][0])
+        return prev_t + (lrc_k - prev_lrc)
+    if next_idx is not None:
+        next_t = float(assignment[next_idx])  # type: ignore[arg-type]
+        next_lrc = float(lrc_lines[next_idx][0])
+        return next_t + (lrc_k - next_lrc)
+    return lrc_k
 
 
 class WhisperXAligner:
@@ -258,9 +604,20 @@ class WhisperXAligner:
         so YouTube rips with non-uniform tempo drift (later verses sing
         slower than earlier ones) sync line-by-line instead of relying
         on a single global shift that fits one line and breaks others.
-        Existing cached .ass files auto-invalidate.
+        Bumped to ``wav2vec2-char-vad-dpalign`` when the per-line anchor
+        source switched from ffmpeg silencedetect on the demucs vocals
+        stem to silero VAD on the raw mix, *and* the greedy lockstep
+        line/anchor matcher was replaced by a global DP that distributes
+        unanchored line clusters between flanking anchors. Combined,
+        these fix the Total Eclipse symptom (ghost lines highlighting
+        during the 2:50-3:28 instrumental + 2 s lateness until 4:17):
+        VAD surfaces per-phrase onsets the silence-stem can't, and the
+        DP refuses to assign LRC lines to anchors that physically can't
+        host them. Existing cached .ass files auto-invalidate; the
+        startup scanner additionally sweeps stale .ass files whose
+        embedded ``; model_id:`` header comment doesn't match this id.
         """
-        return "wav2vec2-char-perline"
+        return "wav2vec2-char-vad-dpalign"
 
     def align(
         self,

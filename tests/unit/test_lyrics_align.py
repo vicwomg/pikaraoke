@@ -7,9 +7,11 @@ import pytest
 
 from pikaraoke.lib.lyrics import Word, WordPart
 from pikaraoke.lib.lyrics_align import (
+    _align_lines_to_anchors_dp,
     _detect_per_line_starts,
     _group_chars_by_word,
     _interpolate_gaps,
+    _interpolate_unanchored,
     _normalize,
     _parts_for_ref,
     _words_with_char_parts,
@@ -420,14 +422,14 @@ class TestWhisperXAligner:
         from pikaraoke.lib.lyrics_align import WhisperXAligner
 
         aligner = WhisperXAligner(device="cpu")
-        assert aligner.model_id == "wav2vec2-char-perline"
+        assert aligner.model_id == "wav2vec2-char-vad-dpalign"
 
     def test_no_shift_when_no_leading_silence(self, fake_whisperx, monkeypatch):
-        # Silencedetect returns nothing - audio starts non-silent or
-        # ffmpeg failed. Aligner runs without modification.
-        from pikaraoke.lib import lyrics_align
+        # vad_probe returns nothing - no anchors to lock against, so
+        # the aligner runs without modification.
+        from pikaraoke.lib import lyrics_align, vad_probe
 
-        monkeypatch.setattr(lyrics_align, "_list_silence_ends", lambda _p: [])
+        monkeypatch.setattr(vad_probe, "list_vocal_onsets", lambda _p: [])
         aligner = lyrics_align.WhisperXAligner(device="cpu")
         aligner.align(
             "/tmp/song.mp4",
@@ -446,9 +448,9 @@ class TestWhisperXAligner:
         # already-shifted segments so its forced alignment runs against
         # audio it can actually anchor to. The shift includes a 0.25s
         # karaoke lead-in so segments arrive just before the vocal peak.
-        from pikaraoke.lib import lyrics_align
+        from pikaraoke.lib import lyrics_align, vad_probe
 
-        monkeypatch.setattr(lyrics_align, "_list_silence_ends", lambda _p: [16.11])
+        monkeypatch.setattr(vad_probe, "list_vocal_onsets", lambda _p: [(16.11, 76.11)])
         aligner = lyrics_align.WhisperXAligner(device="cpu")
         aligner.align(
             "/tmp/song.mp4",
@@ -467,16 +469,16 @@ class TestWhisperXAligner:
     def test_shift_state_resets_per_call(self, fake_whisperx, monkeypatch):
         # First song detects per-line shifts; the next song with no
         # leading silence must not inherit the previous song's mapping.
-        from pikaraoke.lib import lyrics_align
+        from pikaraoke.lib import lyrics_align, vad_probe
 
-        silences_per_path: dict[str, list[float]] = {
-            "/tmp/a.mp4": [16.11],
+        onsets_per_path: dict[str, list[tuple[float, float]]] = {
+            "/tmp/a.mp4": [(16.11, 76.11)],
             "/tmp/b.mp4": [],
         }
         monkeypatch.setattr(
-            lyrics_align,
-            "_list_silence_ends",
-            lambda p: silences_per_path[p],
+            vad_probe,
+            "list_vocal_onsets",
+            lambda p: onsets_per_path[p],
         )
         aligner = lyrics_align.WhisperXAligner(device="cpu")
         aligner.align(
@@ -638,9 +640,24 @@ class TestCharAlignmentExtraction:
 class TestDetectPerLineStarts:
     @staticmethod
     def _patch_silences(monkeypatch, ends: list[float]) -> None:
-        from pikaraoke.lib import lyrics_align
+        """Mock vad_probe to emit one onset per silence-end time.
 
-        monkeypatch.setattr(lyrics_align, "_list_silence_ends", lambda _p: list(ends))
+        Each onset's ``next_onset`` is the following onset (so sustain
+        looks like the time-to-next-anchor). The final entry's
+        ``next_onset`` is +60 s past the last so it sustains long
+        enough that the candidate filter never drops it.
+        """
+        from pikaraoke.lib import vad_probe
+
+        def _fake(_path: str) -> list[tuple[float, float]]:
+            sorted_ends = sorted(ends)
+            pairs: list[tuple[float, float]] = []
+            for i, t in enumerate(sorted_ends):
+                next_t = sorted_ends[i + 1] if i + 1 < len(sorted_ends) else t + 60.0
+                pairs.append((float(t), float(next_t)))
+            return pairs
+
+        monkeypatch.setattr(vad_probe, "list_vocal_onsets", _fake)
 
     def test_uniform_shift_when_all_lines_have_silence_anchors(self, monkeypatch):
         # Every line preceded by a silence boundary that's +1.83s past
@@ -699,9 +716,9 @@ class TestDetectPerLineStarts:
         # Line 1 + cumulative shift (+1.72) - lead_in.
         assert out[1] == pytest.approx(17.27 + 1.72 - 0.25, abs=0.01)
 
-    def test_returns_none_when_silencedetect_yields_nothing(self, monkeypatch):
-        # ffmpeg failed or audio starts non-silent - no anchors to lock
-        # against, fall back to no shift.
+    def test_returns_none_when_vad_yields_nothing(self, monkeypatch):
+        # vad_probe returned an empty list - no anchors to lock against,
+        # fall back to no shift.
         self._patch_silences(monkeypatch, [])
         assert _detect_per_line_starts("/tmp/v.mp3", [(0.0, 1.0, "x")]) is None
 
@@ -753,3 +770,192 @@ class TestPartsForRef:
 
     def test_none_input_returns_none(self):
         assert _parts_for_ref(None, "abc") is None
+
+
+# Helper for the DP / interpolation tests. The DP works with onset
+# tuples ``(onset, next_onset)``; in unit tests we typically generate
+# pairs from a list of onset times by zipping each with the next.
+def _onset_pairs(times: list[float], duration: float = 999.0) -> list[tuple[float, float]]:
+    out: list[tuple[float, float]] = []
+    for i, t in enumerate(times):
+        next_t = times[i + 1] if i + 1 < len(times) else duration
+        out.append((float(t), float(next_t)))
+    return out
+
+
+class TestDPAlignment:
+    def test_dp_assigns_one_line_per_anchor_when_lines_match_anchors(self):
+        # Three lines line up cleanly with three onsets - DP picks the
+        # 1:1 assignment that matches expected times.
+        lrc = [
+            (10.0, 14.0, "alpha alpha"),
+            (14.0, 18.0, "beta beta"),
+            (18.0, 22.0, "gamma gamma"),
+        ]
+        onsets = _onset_pairs([12.0, 16.0, 20.0])
+        out = _align_lines_to_anchors_dp(lrc, onsets)
+        assert out == [12.0, 16.0, 20.0]
+
+    def test_dp_distributes_cluster_between_flanking_anchors(self):
+        # Two anchored lines flank a cluster of unanchored ones (no
+        # plausible anchor for the middle two). DP places anchors near
+        # the start and end of the LRC span; interpolation handles the
+        # cluster. The exact anchored row may shift between two
+        # equivalent assignments (cost-tied), but the cluster shape
+        # must not collapse to "all skip" or "all anchor".
+        lrc = [
+            (10.0, 12.0, "anchor1"),
+            (12.0, 14.0, "filler1"),
+            (14.0, 16.0, "filler2"),
+            (16.0, 18.0, "anchor2"),
+        ]
+        # Only two onsets in the audio: clearly hosting one early and
+        # one late line.
+        onsets = _onset_pairs([12.0, 18.0])
+        out = _align_lines_to_anchors_dp(lrc, onsets)
+        assert out is not None
+        # Both onsets get used somewhere - DP doesn't waste them.
+        anchored = [t for t in out if t is not None]
+        assert sorted(anchored) == [12.0, 18.0]
+        # The anchors land in the *first half* and *second half* of
+        # the LRC line list (i.e. the cluster is correctly split).
+        anchor_indices = [i for i, t in enumerate(out) if t is not None]
+        assert any(i < 2 for i in anchor_indices), "first anchor must land on an early LRC line"
+        assert any(i >= 2 for i in anchor_indices), "second anchor must land on a late LRC line"
+
+    def test_dp_prefers_higher_sustain_for_long_lines(self):
+        # A long line with two candidate anchors: one with 0.5s sustain
+        # (too short for an 8-word line), one with 5s sustain. The DP's
+        # sustain-shortfall term should push the assignment toward the
+        # 5s anchor.
+        lrc = [(10.0, 18.0, " ".join(["w"] * 8))]
+        onsets = [(11.0, 11.5), (12.0, 17.0)]  # short, then long
+        out = _align_lines_to_anchors_dp(lrc, onsets)
+        assert out == [12.0]
+
+    def test_dp_prefers_anchor_when_clearly_matching(self):
+        # ER2 regression: skip_cost was scaled by num_words to ensure
+        # anchoring beats skipping for any line that has a plausible
+        # candidate. A 5-word line with a perfectly-matching anchor must
+        # anchor, never skip.
+        lrc = [(10.0, 14.0, "the quick brown fox jumps")]
+        onsets = _onset_pairs([10.5])
+        out = _align_lines_to_anchors_dp(lrc, onsets)
+        assert out == [10.5]
+
+    def test_dp_falls_through_to_inherit_when_no_anchors_exist(self):
+        # No onsets at all - DP can't assign anything; returns all-None.
+        # The orchestrator's earlier no-onset gate would normally bail
+        # out before reaching the DP, but the DP itself must not crash.
+        lrc = [(10.0, 14.0, "a"), (14.0, 18.0, "b")]
+        out = _align_lines_to_anchors_dp(lrc, [])
+        assert out is None
+
+    def test_dp_returns_none_when_first_anchor_offset_exceeds_cap(self):
+        # ER3 regression: the first anchored line's shift must respect
+        # _GLOBAL_OFFSET_MAX_S. A 30s drift is a wrong-onset signal, not
+        # something we should silently propagate to all later lines.
+        lrc = [(10.0, 14.0, "a")]
+        onsets = _onset_pairs([45.0])
+        out = _align_lines_to_anchors_dp(lrc, onsets)
+        assert out is None
+
+    def test_dp_preserves_per_verse_drift_case(self):
+        # Mam Tę Moc pattern: each verse drifts a little more than the
+        # last. A single global shift would break later verses; the DP
+        # anchors per-verse so each one snaps to its own onset.
+        lrc = [
+            (14.28, 17.27, "verse1"),
+            (20.96, 24.32, "verse2"),
+            (28.37, 34.54, "verse3"),
+            (34.54, 42.55, "verse4"),
+        ]
+        # +1.72 / +1.72 / -0.51 / +3.17 drift across verses.
+        onsets = _onset_pairs([16.00, 22.68, 27.86, 37.71])
+        out = _align_lines_to_anchors_dp(lrc, onsets)
+        assert out == [16.00, 22.68, 27.86, 37.71]
+
+    def test_dp_handles_first_few_lrc_lines_with_no_preceding_anchor(self):
+        # First two lines are far in LRC time from the only available
+        # onset; line 2's LRC time matches the onset within the
+        # proximity slack so the DP anchors line 2 alone. Leading lines
+        # then interpolate backward from line 2 in the orchestrator.
+        lrc = [
+            (10.0, 12.0, "a"),
+            (12.0, 14.0, "b"),
+            (50.0, 52.0, "c"),
+        ]
+        # Single onset matches line 2 (within slack); too far for 0/1.
+        onsets = _onset_pairs([50.5])
+        out = _align_lines_to_anchors_dp(lrc, onsets)
+        assert out[0] is None
+        assert out[1] is None
+        assert out[2] == 50.5
+
+    def test_dp_skips_short_filler_line_without_anchor(self):
+        # A filler line with no plausible anchor should be skipped; the
+        # DP shouldn't force it onto a far-away anchor.
+        lrc = [
+            (10.0, 12.0, "main line one"),
+            (12.0, 12.5, "x"),  # filler
+            (12.5, 15.0, "main line three"),
+        ]
+        onsets = _onset_pairs([10.5, 13.0])
+        out = _align_lines_to_anchors_dp(lrc, onsets)
+        assert out[0] == 10.5
+        assert out[2] == 13.0
+        assert out[1] is None
+
+
+class TestInterpolation:
+    def test_interpolate_unanchored_proportional_to_lrc_durations(self):
+        # Cluster of unanchored lines between two anchors. The unanchored
+        # lines' LRC durations are 1s and 3s; the available audio window
+        # is 10s. Distribution puts the first line ~1/4 of the way through
+        # and the second ~3/4.
+        lrc = [
+            (0.0, 2.0, "anchored1"),
+            (2.0, 3.0, "filler1"),
+            (3.0, 6.0, "filler2"),
+            (6.0, 10.0, "anchored2"),
+        ]
+        assignment: list[float | None] = [10.0, None, None, 20.0]
+        out = _interpolate_unanchored(assignment, lrc)
+        assert out[0] == 10.0
+        assert out[3] == 20.0
+        # filler1 at LRC 2.0 sits 33% through the LRC span 0..6 -> 13.33
+        # filler2 at LRC 3.0 sits 50% through -> 15.0
+        assert out[1] == pytest.approx(13.333, abs=0.01)
+        assert out[2] == pytest.approx(15.0, abs=0.01)
+
+    def test_interpolate_clamps_pre_anchor_lines_at_zero(self):
+        # ER3 regression: pre-anchor lines extrapolate backward from the
+        # first anchor. If the original LRC pushed a line "before time 0"
+        # (e.g. very short LRC intro), clamping must keep all outputs >= 0.
+        lrc = [
+            (0.5, 1.0, "very early"),
+            (1.0, 2.0, "early"),
+            (5.0, 6.0, "first anchored"),
+        ]
+        assignment: list[float | None] = [None, None, 2.0]
+        out = _interpolate_unanchored(assignment, lrc)
+        # Line 0 extrapolates to 2.0 - (5.0 - 0.5) = -2.5 -> clamped to 0.
+        # Line 1 extrapolates to 2.0 - (5.0 - 1.0) = -2.0 -> clamped to 0.
+        assert out[0] == 0.0
+        assert out[1] == 0.0
+        assert out[2] == 2.0
+
+    def test_interpolate_distributes_cluster_evenly_when_lrc_durations_uniform(self):
+        # When all LRC durations in the cluster are identical, the
+        # interpolated times spread evenly across the audio gap.
+        lrc = [
+            (0.0, 1.0, "a"),
+            (1.0, 2.0, "b"),
+            (2.0, 3.0, "c"),
+            (3.0, 4.0, "d"),
+        ]
+        assignment: list[float | None] = [0.0, None, None, 9.0]
+        out = _interpolate_unanchored(assignment, lrc)
+        # b at LRC 1/3 of span -> 3.0; c at LRC 2/3 of span -> 6.0
+        assert out[1] == pytest.approx(3.0, abs=0.01)
+        assert out[2] == pytest.approx(6.0, abs=0.01)

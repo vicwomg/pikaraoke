@@ -1,0 +1,137 @@
+{
+  "audio_duration_s": 271.418,
+  "onsets": [
+    {
+      "onset": 45.774,
+      "next_onset": 50.2
+    },
+    {
+      "onset": 50.2,
+      "next_onset": 54.6
+    },
+    {
+      "onset": 54.6,
+      "next_onset": 63.405
+    },
+    {
+      "onset": 63.405,
+      "next_onset": 68.608
+    },
+    {
+      "onset": 68.608,
+      "next_onset": 71.369
+    },
+    {
+      "onset": 71.369,
+      "next_onset": 76.644
+    },
+    {
+      "onset": 76.644,
+      "next_onset": 81.069
+    },
+    {
+      "onset": 81.069,
+      "next_onset": 84.674
+    },
+    {
+      "onset": 84.674,
+      "next_onset": 89.899
+    },
+    {
+      "onset": 89.899,
+      "next_onset": 95.085
+    },
+    {
+      "onset": 95.085,
+      "next_onset": 97.866
+    },
+    {
+      "onset": 97.866,
+      "next_onset": 104.199
+    },
+    {
+      "onset": 104.199,
+      "next_onset": 108.1
+    },
+    {
+      "onset": 108.1,
+      "next_onset": 109.175
+    },
+    {
+      "onset": 109.175,
+      "next_onset": 114.2
+    },
+    {
+      "onset": 114.2,
+      "next_onset": 118.019
+    },
+    {
+      "onset": 118.019,
+      "next_onset": 122.435
+    },
+    {
+      "onset": 122.435,
+      "next_onset": 126.297
+    },
+    {
+      "onset": 126.297,
+      "next_onset": 193.6
+    },
+    {
+      "onset": 193.6,
+      "next_onset": 198.083
+    },
+    {
+      "onset": 198.083,
+      "next_onset": 203.064
+    },
+    {
+      "onset": 203.064,
+      "next_onset": 206.661
+    },
+    {
+      "onset": 206.661,
+      "next_onset": 210.777
+    },
+    {
+      "onset": 210.777,
+      "next_onset": 212.151
+    },
+    {
+      "onset": 212.151,
+      "next_onset": 215.445
+    },
+    {
+      "onset": 215.445,
+      "next_onset": 216.8
+    },
+    {
+      "onset": 216.8,
+      "next_onset": 220.052
+    },
+    {
+      "onset": 220.052,
+      "next_onset": 224.547
+    },
+    {
+      "onset": 224.547,
+      "next_onset": 228.766
+    },
+    {
+      "onset": 228.766,
+      "next_onset": 233.404
+    },
+    {
+      "onset": 233.404,
+      "next_onset": 243.604
+    },
+    {
+      "onset": 243.604,
+      "next_onset": 271.418
+    },
+    {
+      "onset": 271.418,
+      "next_onset": 271.418
+    }
+  ]
+}

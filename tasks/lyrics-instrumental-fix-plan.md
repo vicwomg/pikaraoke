@@ -163,8 +163,9 @@ Today:
 ```python
 def _list_silence_ends(audio_path: str) -> list[float]:
     ...
-    return [float(m.group(1))
-            for m in re.finditer(r"silence_end:\s*([\d.]+)", proc.stderr)]
+    return [
+        float(m.group(1)) for m in re.finditer(r"silence_end:\s*([\d.]+)", proc.stderr)
+    ]
 ```
 
 Replace with a function that returns
@@ -192,7 +193,8 @@ _VOCAL_SUSTAIN_MIN_S = 1.5
 
 onsets = sorted(_list_vocal_onsets(audio_path))
 silence_ends = [
-    onset for onset, next_silence in onsets
+    onset
+    for onset, next_silence in onsets
     if next_silence - onset >= _VOCAL_SUSTAIN_MIN_S
 ]
 ```
@@ -242,9 +244,8 @@ production callers other than `_detect_per_line_starts`.
 
 1. **`test_filters_spurious_anchors_inside_instrumental`** — Total
    Eclipse pattern. LRC has 5 lines pre-solo, 3 post-solo with
-   timestamps that put the first post-solo line at `expected ≈
-   inside instrumental`. Onsets list contains 3 spurious markers
-   inside the solo (each followed by next-silence < 1.0 s) and one
+   timestamps that put the first post-solo line at `expected ≈ inside instrumental`. Onsets list contains 3 spurious markers
+   inside the solo (each followed by next-silence \< 1.0 s) and one
    real onset just after. Assert the filter drops all 3 spurious
    markers and the post-solo line snaps to the real onset.
 
@@ -269,9 +270,7 @@ def _patch_silences(monkeypatch, ends: list[float]) -> None:
     # passes the sustain filter — preserves the original test intent
     # (these tests are about the locking algorithm, not the filter).
     pairs = [(t, t + 99.0) for t in ends]
-    monkeypatch.setattr(
-        lyrics_align, "_list_vocal_onsets", lambda _p: list(pairs)
-    )
+    monkeypatch.setattr(lyrics_align, "_list_vocal_onsets", lambda _p: list(pairs))
 ```
 
 This keeps the five existing test bodies unchanged. They continue
@@ -281,15 +280,15 @@ handling.
 
 ### Manual verification (operator)
 
-- [ ] Re-process the cached Total Eclipse song (delete its `.ass`
-      so the new `model_id` triggers re-alignment).
-- [ ] Play through 2:30–4:30 on splash. Confirm: no highlighting
-      between 2:50 and 3:28; first post-solo line lights up within
-      ±300 ms of the singer's onset; sync remains correct through
-      4:17 instead of recovering at 4:17.
-- [ ] Spot-check Mam Tę Moc and the Polish-test corpus (the
-      original use case for per-line silence anchoring) — verify
-      no regression in per-verse drift correction.
+- \[ \] Re-process the cached Total Eclipse song (delete its `.ass`
+  so the new `model_id` triggers re-alignment).
+- \[ \] Play through 2:30–4:30 on splash. Confirm: no highlighting
+  between 2:50 and 3:28; first post-solo line lights up within
+  ±300 ms of the singer's onset; sync remains correct through
+  4:17 instead of recovering at 4:17.
+- \[ \] Spot-check Mam Tę Moc and the Polish-test corpus (the
+  original use case for per-line silence anchoring) — verify
+  no regression in per-verse drift correction.
 
 ## Acceptance criteria
 
@@ -325,7 +324,7 @@ handling.
 CC: ~25 min implementation + tests + pre-commit + manual
 verification. Human: ~3 h.
 
----
+______________________________________________________________________
 
 # /autoplan — Review Pipeline
 
@@ -364,12 +363,12 @@ Mode: SELECTIVE EXPANSION (per autoplan override). UI scope: **no**
 - No FIXME/TODO/HACK comments in `lyrics_align.py` or `lyrics.py`.
 - No stash, no in-flight diff against master.
 - Most-touched files in last 30 days are exactly the lyrics + stems
-  + splash files this plan touches downstream — high-cadence area.
-  Retrospective check: `_detect_per_line_starts` was added 4 days
-  ago and is being patched here for a regression on a real song.
-  This is the **first** functional patch to that function — not a
-  recurring problem area, but the second commit on a fresh
-  function tells us the design is still being settled.
+  - splash files this plan touches downstream — high-cadence area.
+    Retrospective check: `_detect_per_line_starts` was added 4 days
+    ago and is being patched here for a regression on a real song.
+    This is the **first** functional patch to that function — not a
+    recurring problem area, but the second commit on a fresh
+    function tells us the design is still being settled.
 
 ### 0A. Premise Challenge
 
@@ -397,7 +396,7 @@ The plan's premises:
 
 3. **"1.5 s sustain threshold is a safe heuristic."** Defensible
    but unverified. Soft ballad outros can have legitimate vocal
-   onsets followed by < 1 s of sound before a breath / silence.
+   onsets followed by \< 1 s of sound before a breath / silence.
    No corpus measurement, only intuition. Acceptable for a
    first-pass fix; flag in observability ask below.
 
@@ -416,7 +415,7 @@ The plan's premises:
 | ffmpeg silencedetect parse | `_list_silence_ends` (`lyrics_align.py:90`) | Replace in place — same regex pass, additionally captures `silence_start`. |
 | Per-line snap loop | `_detect_per_line_starts` | Untouched algorithm; cleaner candidate list only. |
 | Test infra | `TestDetectPerLineStarts._patch_silences` | Update one helper signature; five existing tests' bodies unchanged. |
-| Logging | `logger.info` already wired in `align()` | Add a single info line: "filter dropped N/M onsets as < 1.5s sustain". |
+| Logging | `logger.info` already wired in `align()` | Add a single info line: "filter dropped N/M onsets as \< 1.5s sustain". |
 
 Nothing rebuilt. No parallel infrastructure.
 
@@ -508,7 +507,7 @@ P2 in-blast-radius rule):
 
 | # | Expansion | Effort | In blast radius? | Decision | Rationale |
 |---|---|---|---|---|---|
-| E1 | Add `logger.info` line reporting filter drop count per song (e.g. "filter: dropped 7/41 onsets as <1.5s sustain") | XS (CC: 2 min) | YES | **ACCEPT** | P1 (completeness): observability is scope per CEO prime directive #5. Cheap, in blast radius, gives evidence for premise 1. |
+| E1 | Add `logger.info` line reporting filter drop count per song (e.g. "filter: dropped 7/41 onsets as \<1.5s sustain") | XS (CC: 2 min) | YES | **ACCEPT** | P1 (completeness): observability is scope per CEO prime directive #5. Cheap, in blast radius, gives evidence for premise 1. |
 | E2 | Telemetry: count songs where filter affected outcome (e.g. write to `~/.gstack/analytics/lyrics-filter.jsonl`) | M (CC: 30 min, new infra) | NO | **DEFER** | Not in blast radius; introduces new infrastructure (analytics jsonl); P3 (pragmatic): the info log from E1 is enough to debug for now. Adds to TODOS. |
 | E3 | Backfill: sweep `cache/` for `.ass` files written by old `model_id` and delete them eagerly so the next playback re-aligns | S (CC: 15 min) | NO | **DEFER** | Out of blast radius. Existing `model_id` bump already invalidates lazily on next playback. Eager sweep is nice-to-have. Adds to TODOS. |
 | E4 | Make `_VOCAL_SUSTAIN_MIN_S` configurable via env var (per-deployment tuning) | XS (CC: 5 min) | borderline | **REJECT** | P5 (explicit over clever) + P4 (DRY): premature configurability. No second consumer asking for a different value. |
@@ -572,6 +571,7 @@ components, no new boundaries.
 ```
 
 Shadow paths in the new candidate-filter step:
+
 - **Nil**: `_list_vocal_onsets` returns `[]` → filter yields `[]`
   → existing guard at line 150 (`if not silence_ends`) returns
   None. Unchanged.
@@ -597,6 +597,7 @@ guarded by `shutil.which("ffmpeg")` returning `[]` on absence.
 invocation, no user input touches the new code.
 
 **Production failure scenarios.**
+
 - ffmpeg version drift → silence_start absent → defensive fallback
   preserves today's behaviour (covered).
 - Pathological audio with zero silence boundaries (rare;
@@ -642,12 +643,13 @@ unchanged. No new env vars (E4 rejected). Skip.
 Diagram in Section 1. Edge cases covered in Section 2's GAP item.
 
 Adversarial scenarios:
+
 - **All silence_ends spurious** (entire song is sub-1.5s bursts —
   e.g. drum-machine track with no vocals): filter yields `[]` →
   function returns None → no shift applied. Acceptable degradation.
 - **No silence_starts at all** (continuous audio): filter sees
   every sustain as inf → no-op → today's behaviour. Acceptable.
-- **First real vocal line is < 1.5 s and followed by a breath**:
+- **First real vocal line is \< 1.5 s and followed by a breath**:
   filter drops it → that line inherits cumulative. Worst case:
   one line off by ≤ 2.5s. Same as today's no-anchor lines.
 
@@ -657,7 +659,7 @@ Test plan (3 new + 5 updated) is in the plan body. Coverage map:
 
 | New behaviour | Test | Notes |
 |---|---|---|
-| Filter drops <1.5s sustain | `test_drum_hit_inside_solo_is_dropped` | Direct unit. |
+| Filter drops \<1.5s sustain | `test_drum_hit_inside_solo_is_dropped` | Direct unit. |
 | Filter preserves credible onsets | `test_short_followed_by_long_silence_passes_filter` | Boundary at 1.5s. |
 | End-to-end Total Eclipse pattern | `test_filters_spurious_anchors_inside_instrumental` | Repro of the user-reported failure. |
 | Defensive fallback (no silence_starts parsed) | **MISSING** | Add: `test_no_silence_starts_means_filter_noop`. |
@@ -669,9 +671,11 @@ new tests, not 3.
 ### Section 6 — Observability
 
 Today's `align()` already logs:
+
 - `wav2vec2: per-line LRC->audio shift for %s; first %.2fs, last %.2fs`
 
 Add (E1):
+
 - `wav2vec2: silence-anchor filter dropped %d/%d onsets as <%.1fs sustain (audio=%s)`
 
 This is the only new observability needed. No metrics, no traces
@@ -794,7 +798,7 @@ These are appended to "Files touched" and "Test plan" below in
 | Failure modes | 4 catalogued; F3 is the residual risk if premise 2 is wrong |
 | Sections with no findings | 3 (Security — no new surface), 8 (Deployment — trivial), 9 (Cross-cutting — aligned) |
 
----
+______________________________________________________________________
 
 # Pivot: Global DP assignment
 
@@ -868,6 +872,7 @@ unanchored lines by smooth interpolation between flanking anchors.
 ### Algorithm
 
 Inputs:
+
 - `lrc_lines: list[(orig_start, orig_end, text)]` — N entries
   (typically 30–80).
 - `onsets: list[(silence_end, next_silence_start)]` — M entries
@@ -888,12 +893,14 @@ State: `dp[i][j]` = minimum cost to align lines `L₁..Lᵢ` such that
 `Lᵢ` is anchored at `Aⱼ` (or `j = 0` meaning "no anchor used yet").
 
 Transitions:
+
 - `dp[i+1][j]` ← `dp[i][j] + skip_cost(L_{i+1})` (line i+1 doesn't
   anchor; will be interpolated later).
 - `dp[i+1][k]` ← `dp[i][j] + anchor_cost(L_{i+1}, A_k, A_j)` for
   every `k > j` in `L_{i+1}`'s candidate set.
 
 `anchor_cost` components (sum, with weights):
+
 - **`w₁ × |t(L_{i+1}) - A_k - cumulative_at(j)|`** — anchor should
   be near where this line "wants" to be given the running shift.
 - **`w₂ × |Δ_cumulative|`** — penalize big tempo jumps. Tempo drift
@@ -909,6 +916,7 @@ are likely to be primary vocals (we'd prefer to anchor them).
 Recover the chain of (line, anchor) pairs from `dp`. For each
 unanchored line cluster between flanking anchored lines `Lₐ@Aₚ` and
 `L_b@A_q`:
+
 - Available audio window: `(A_p + ε, A_q - ε)`.
 - Distribute lines `L_{a+1}..L_{b-1}` proportionally to their
   original LRC durations within that window.
@@ -918,6 +926,7 @@ unanchored line cluster between flanking anchored lines `Lₐ@Aₚ` and
   vocals actually resume.
 
 Edge cases:
+
 - Cluster has no following anchor (final lines): use original LRC
   durations carried forward from the last anchor.
 - Cluster has no preceding anchor (initial lines before first
@@ -1002,7 +1011,7 @@ curl -s 'https://lrclib.net/api/get?artist_name=Bonnie%20Tyler&track_name=Total%
 ```
 
 (Both files committed to the repo so tests are reproducible
-without network or media files. Total fixture size < 5 KB.)
+without network or media files. Total fixture size \< 5 KB.)
 
 ### Test design
 
@@ -1017,10 +1026,10 @@ from pikaraoke.lib import lyrics_align
 from pikaraoke.lib.lyrics import lrc_line_windows
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "total_eclipse"
-SOLO_START_S = 170.0   # last pre-solo "heart" decays around 2:50
-SOLO_END_S = 207.0     # post-solo first audio onset is 207.84
+SOLO_START_S = 170.0  # last pre-solo "heart" decays around 2:50
+SOLO_END_S = 207.0  # post-solo first audio onset is 207.84
 EXPECTED_FIRST_POST_SOLO_S = 207.84
-LEAD_IN_S = 0.25       # _KARAOKE_LEAD_IN_S
+LEAD_IN_S = 0.25  # _KARAOKE_LEAD_IN_S
 
 
 @pytest.fixture
@@ -1037,9 +1046,7 @@ def total_eclipse_inputs(monkeypatch):
 
 def test_no_line_renders_during_solo(total_eclipse_inputs):
     """No LRC line's shifted start time may fall inside 2:50-3:28."""
-    out = lyrics_align._detect_per_line_starts(
-        "/dev/null", total_eclipse_inputs
-    )
+    out = lyrics_align._detect_per_line_starts("/dev/null", total_eclipse_inputs)
     assert out is not None, "alignment should not bail on Total Eclipse"
 
     in_solo = [
@@ -1056,9 +1063,7 @@ def test_no_line_renders_during_solo(total_eclipse_inputs):
 def test_first_post_solo_line_snaps_to_real_onset(total_eclipse_inputs):
     """The first line at or after 3:28 must start within 1s of the
     real audio onset (3:27.84) minus the karaoke lead-in."""
-    out = lyrics_align._detect_per_line_starts(
-        "/dev/null", total_eclipse_inputs
-    )
+    out = lyrics_align._detect_per_line_starts("/dev/null", total_eclipse_inputs)
     post_solo = [t for t in out if t >= SOLO_END_S]
     first_post = min(post_solo)
     expected = EXPECTED_FIRST_POST_SOLO_S - LEAD_IN_S
@@ -1072,9 +1077,7 @@ def test_lateness_recovers_by_417(total_eclipse_inputs):
     """Lines whose shifted start is in 207.84..257.56 must have
     monotonic-and-distributed shifts (no cluster all stuck near the
     earlier anchor producing a 2s late cascade)."""
-    out = lyrics_align._detect_per_line_starts(
-        "/dev/null", total_eclipse_inputs
-    )
+    out = lyrics_align._detect_per_line_starts("/dev/null", total_eclipse_inputs)
     in_window = sorted(t for t in out if 207.84 <= t <= 257.56)
     if len(in_window) < 2:
         pytest.skip("not enough lines in the post-solo window for this assertion")
@@ -1082,23 +1085,23 @@ def test_lateness_recovers_by_417(total_eclipse_inputs):
     # both within 0.5s of the same anchor — that's the "compressed at
     # the anchor" failure mode.
     consecutive_gaps = [b - a for a, b in zip(in_window, in_window[1:])]
-    assert min(consecutive_gaps) >= 0.05, (
-        f"post-solo lines are compressed: min gap = {min(consecutive_gaps):.3f}s"
-    )
+    assert (
+        min(consecutive_gaps) >= 0.05
+    ), f"post-solo lines are compressed: min gap = {min(consecutive_gaps):.3f}s"
 
 
 def test_full_pipeline_smoke(total_eclipse_inputs):
     """Sanity: every line gets a shifted timestamp, all monotonic, all
     inside [0, audio_duration + small_slack]."""
-    out = lyrics_align._detect_per_line_starts(
-        "/dev/null", total_eclipse_inputs
-    )
+    out = lyrics_align._detect_per_line_starts("/dev/null", total_eclipse_inputs)
     assert len(out) == len(total_eclipse_inputs)
     assert all(0 <= t <= 340 for t in out)
     # Monotonicity (or near-monotonic — small back-step OK for
     # adjacent very-close LRC lines that DP didn't anchor).
     inversions = sum(1 for a, b in zip(out, out[1:]) if b + 0.5 < a)
-    assert inversions == 0, f"{inversions} large monotonicity inversions in shifted starts"
+    assert (
+        inversions == 0
+    ), f"{inversions} large monotonicity inversions in shifted starts"
 ```
 
 ### Why this test is the right shape
@@ -1175,8 +1178,7 @@ that mocks the silence source needs the pair tuple.
 
 ### Architecture
 
-Single new pure function `_align_lines_to_anchors_dp(lrc_lines,
-onsets, *, weights) -> list[float | None]` returning either a
+Single new pure function `_align_lines_to_anchors_dp(lrc_lines, onsets, *, weights) -> list[float | None]` returning either a
 snapped anchor time or `None` per LRC line. A second pure function
 `_interpolate_unanchored(positions, lrc_lines) -> list[float]`
 fills the `None`s.
@@ -1240,7 +1242,7 @@ Total: 12 new tests + 5 preserved.
 |---|---|---|---|---|---|
 | F1 | DP weights mis-tuned, ghosts reappear | Med during dev | High | YES — the E2E test catches it | Tests pin behaviour; weights tuned against fixture before merge |
 | F2 | Interpolation produces clearly-wrong timings on LRCs without explicit instrumental marker | Low | Med | No | Acceptable; DP still beats today's behaviour |
-| F3 | DP runtime regression on giant LRCs | Very low | Low | No | N×M < 5000 worst case for any realistic karaoke song |
+| F3 | DP runtime regression on giant LRCs | Very low | Low | No | N×M \< 5000 worst case for any realistic karaoke song |
 | F4 | LRClib fixture diverges from real-world LRC (someone edited the LRClib entry) | Low | Low | No | Test uses committed fixture, not live API |
 | F5 | wav2vec2 finds no audio in a line's window after DP places it (e.g. lone outlier) | Low | Low | No | Existing `_uniform_line_words` fallback handles it |
 
@@ -1266,7 +1268,7 @@ Larger than the original (~25 min) because the algorithm is
 substantively new, but still well inside one focused work session
 on the CC scale.
 
----
+______________________________________________________________________
 
 # Pivot 2: VAD upstream replaces silencedetect
 
@@ -1407,6 +1409,7 @@ section. Each is addressed in this Pivot 2 plan:
 **Unit tests (`tests/unit/test_lyrics_align.py`):**
 
 `TestDetectPerLineStarts` (existing 5, helper updated only):
+
 1. `test_uniform_shift_when_all_lines_have_silence_anchors`
 2. `test_per_verse_drift_locks_each_locked_line_independently`
 3. `test_continuous_line_inherits_running_offset`
@@ -1416,6 +1419,7 @@ section. Each is addressed in this Pivot 2 plan:
 7. `test_skips_empty_lrc_lines_when_picking_first`
 
 `TestDPAlignment` (new, 9 tests):
+
 1. `test_dp_assigns_one_line_per_anchor_when_lines_match_anchors`
 2. `test_dp_distributes_cluster_between_flanking_anchors`
 3. `test_dp_prefers_higher_sustain_for_long_lines`
@@ -1427,12 +1431,14 @@ section. Each is addressed in this Pivot 2 plan:
 9. `test_interpolate_clamps_pre_anchor_lines_at_zero` *(ER3)*
 
 `TestInterpolation` (new, 2 tests):
+
 1. `test_interpolate_unanchored_proportional_to_lrc_durations`
 2. `test_interpolate_distributes_cluster_evenly_when_lrc_durations_uniform`
 
 **Unit tests (`tests/unit/test_vad_probe.py`):**
 
 `TestVADProbe` (new, 4 tests):
+
 1. `test_returns_sorted_monotonic_pairs`
 2. `test_collapses_adjacent_speech_segments_within_threshold`
 3. `test_falls_back_to_silencedetect_when_silero_import_fails`
@@ -1441,6 +1447,7 @@ section. Each is addressed in this Pivot 2 plan:
 **Integration tests (`tests/integration/test_lyrics_align_total_eclipse.py`):**
 
 (Per Pivot 1 design, with ER4 tolerance fix)
+
 1. `test_no_line_renders_during_solo` — hard assert (range check, weight-insensitive)
 2. `test_first_post_solo_line_snaps_to_real_onset` — `abs(...) < 2.0` *(ER4)*
 3. `test_lateness_recovers_by_417`
@@ -1462,6 +1469,7 @@ Usage:
         --track "Total Eclipse of the Heart" \\
         --slug total_eclipse
 """
+
 # implementation: silero-vad on the audio file, requests-get LRClib API,
 # write JSON + LRC into tests/fixtures/<slug>/
 ```
@@ -1530,7 +1538,7 @@ purely mechanical (one new module, one fallback if/else, one new
 test class) and the DP core that the subagent reviewed is
 unchanged.
 
----
+______________________________________________________________________
 
 # Pivot 2 — Scope expansion (per user direction "boil the ocean")
 
@@ -1741,5 +1749,3 @@ tests → manual verification on all three fixture songs.
 |---|---|---|---|---|
 | CEO | subagent-only | n/a | 5/10 (6 findings, all folded) | 1/6 confirmed, 4/6 disagreed (resolved by accepting subagent fixes), 1 N/A |
 | Eng | subagent-only | n/a | 7/10 (6 findings, all folded) | 0/6 confirmed (subagent surfaced unique findings), 6/6 disagreed (all addressed) |
-
-

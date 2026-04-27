@@ -47,6 +47,12 @@ dev = [
   "pytest-cov>=7.0.0",
 
 ]
+# Optional VAD upstream for per-line LRC->audio anchoring. When silero-vad
+# is missing we fall back to ffmpeg silencedetect on the demucs vocals stem
+# (lower anchor density, but the DP solver still runs).
+align = [
+  "silero-vad>=5.0",
+]
 
 [dependency-groups]
 dev = [

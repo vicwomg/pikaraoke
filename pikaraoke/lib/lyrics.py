@@ -1327,11 +1327,13 @@ class LyricsService:
                 render_lrc = _shift_lrc_per_line(lrc, line_starts)
             else:
                 render_lrc = lrc
-            ass = _words_to_ass_with_k_tags(words, render_lrc, params=anim_params)
+            aligner_id = self._aligner.model_id if self._aligner else None
+            ass = _words_to_ass_with_k_tags(
+                words, render_lrc, params=anim_params, aligner_model_id=aligner_id
+            )
             if ass:
                 from pikaraoke.lib.demucs_processor import CACHE_DIR
 
-                aligner_id = self._aligner.model_id if self._aligner else None
                 wrote = self._try_write_ass_tiered(
                     song_path,
                     _TIER_WORD,
@@ -1451,11 +1453,16 @@ class LyricsService:
             return False
 
         bpm = _estimate_bpm(audio_path)
-        ass = _words_to_ass_with_k_tags(words, synthetic_lrc, params=_anim_params_for_bpm(bpm))
+        aligner_id = self._aligner.model_id if self._aligner else None
+        ass = _words_to_ass_with_k_tags(
+            words,
+            synthetic_lrc,
+            params=_anim_params_for_bpm(bpm),
+            aligner_model_id=aligner_id,
+        )
         if not ass:
             return False
 
-        aligner_id = self._aligner.model_id if self._aligner else None
         lyrics_sha = _lrc_sha(synthetic_lrc)
         wrote = self._try_write_ass_tiered(
             song_path,
@@ -1525,12 +1532,17 @@ class LyricsService:
                 self._emit_whisper_failure(song_path, "no usable word timings")
                 return
             bpm = _estimate_bpm(audio_path)
-            ass = _words_to_ass_with_k_tags(words, lrc, params=_anim_params_for_bpm(bpm))
+            model_name = _resolve_whisper_model()
+            ass = _words_to_ass_with_k_tags(
+                words,
+                lrc,
+                params=_anim_params_for_bpm(bpm),
+                aligner_model_id=f"whisper-{model_name}",
+            )
             if not ass:
                 logger.info("Whisper fallback: ASS conversion failed for %s", song_path)
                 self._emit_whisper_failure(song_path, "ASS conversion failed")
                 return
-            model_name = _resolve_whisper_model()
             wrote = self._try_write_ass_tiered(
                 song_path,
                 _TIER_WORD,
@@ -1807,7 +1819,13 @@ class LyricsService:
             return
 
         bpm = _estimate_bpm(audio_path)
-        ass = _words_to_ass_with_k_tags(aligned, consensus.lrc, params=_anim_params_for_bpm(bpm))
+        aligner_model_id = self._aligner.model_id if self._aligner is not None else None
+        ass = _words_to_ass_with_k_tags(
+            aligned,
+            consensus.lrc,
+            params=_anim_params_for_bpm(bpm),
+            aligner_model_id=aligner_model_id,
+        )
         if not ass:
             logger.info("consensus: ASS conversion failed for %s", basename)
             return
@@ -2484,10 +2502,21 @@ _ASS_STYLE = (
 )
 
 
-def _ass_header() -> str:
+def _ass_header(aligner_model_id: str | None = None) -> str:
+    """Produce the ASS [Script Info]/[V4+ Styles]/[Events] preamble.
+
+    When ``aligner_model_id`` is supplied, embed it as a ``; model_id:``
+    semicolon comment in the header. The startup scanner uses this
+    line as a stable canary to detect cached .ass files produced by an
+    older alignment model and unlink them eagerly (the alternative is
+    lazy per-playback re-alignment, which surprises the user with a
+    slow first replay after every model bump).
+    """
+    model_comment = f"; model_id: {aligner_model_id}\n" if aligner_model_id else ""
     return (
         "[Script Info]\n"
         f"Title: {ASS_MARKER}\n"
+        f"{model_comment}"
         "ScriptType: v4.00+\n"
         "PlayResX: 1920\n"
         "PlayResY: 1080\n"
@@ -2581,7 +2610,11 @@ _ALIGNMENT_TOLERANCE_S = 2.0
 
 
 def _words_to_ass_with_k_tags(
-    words: list[Word], lrc: str, params: _AnimParams | None = None
+    words: list[Word],
+    lrc: str,
+    params: _AnimParams | None = None,
+    *,
+    aligner_model_id: str | None = None,
 ) -> str | None:
     """Rebuild ASS with \\kf karaoke tags on the current line, plain text on context lines.
 
@@ -2594,11 +2627,13 @@ def _words_to_ass_with_k_tags(
 
     ``params`` controls the decorative per-word pulse; when ``None`` the
     words render as plain \\kf fills with no scaling effect.
+    ``aligner_model_id`` is embedded as a ``; model_id:`` header comment
+    so the startup scanner can detect stale .ass files after a bump.
     """
     entries = _parse_lrc(lrc)
     if not entries:
         return None
-    out = [_ass_header()]
+    out = [_ass_header(aligner_model_id=aligner_model_id)]
     word_idx = 0
     for i, (start, text) in enumerate(entries):
         end = entries[i + 1][0] if i + 1 < len(entries) else start + _LAST_LINE_HOLD_S

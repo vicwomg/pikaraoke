@@ -139,6 +139,51 @@ def _build_lyrics_aligner():
     return WhisperXAligner(device=status["device"])
 
 
+def _ass_stale_model_id(path: str, current_model_id: str) -> str | None:
+    """If the .ass at ``path`` carries a stale ``; model_id:`` comment,
+    return that stale id; otherwise None.
+
+    Reads ~1 KB of the head only - the marker is in the [Script Info]
+    block. Files without any marker are treated as user-authored
+    (caller leaves them alone). On any read error we conservatively
+    return None so the sweep never deletes a file it couldn't read.
+    """
+    import re as _re
+
+    try:
+        with open(path, encoding="utf-8") as f:
+            head = f.read(1024)
+    except OSError:
+        return None
+    m = _re.search(r"^;\s*model_id:\s*(\S+)", head, _re.MULTILINE)
+    if not m:
+        return None
+    found = m.group(1).strip()
+    if found == current_model_id:
+        return None
+    return found
+
+
+def _prewarm_vad() -> None:
+    """Warm the silero VAD JIT model in a daemon thread.
+
+    The model is ~2 MB and loads in 200-500 ms on a Pi 4. Running the
+    load on startup keeps that latency off the first song's
+    LRC->audio anchor probe. Errors are logged inside ``vad_probe`` -
+    silero failure transparently routes to the silencedetect fallback.
+    """
+
+    def _run() -> None:
+        try:
+            from pikaraoke.lib import vad_probe
+
+            vad_probe._ensure_model()
+        except Exception:
+            logging.exception("vad_probe: prewarm thread crashed")
+
+    threading.Thread(target=_run, name="vad-prewarm", daemon=True).start()
+
+
 def _warn_word_level_disabled(reason: str, fix: str) -> None:
     """Print a high-visibility startup banner when word-level captions are off."""
     width = 78
@@ -361,12 +406,20 @@ class Karaoke:
         )
 
         # Lyrics auto-fetch from LRCLib; optional per-word forced alignment via whisperx.
+        self._aligner_instance = _build_lyrics_aligner()
         self.lyrics_service = LyricsService(
             download_path=self.download_path,
             events=self.events,
-            aligner=_build_lyrics_aligner(),
+            aligner=self._aligner_instance,
             db=self.db,
         )
+
+        # Prewarm silero VAD once per process so the first song's per-line
+        # LRC->audio anchor probe doesn't pay the model-load latency. The
+        # thread is daemon: a server shutdown during prewarm exits cleanly.
+        # Falls back to ffmpeg silencedetect when silero isn't installed -
+        # logged inside vad_probe so operators see it.
+        _prewarm_vad()
 
         # Event bridging: the coordinator wires manager events to the UI (SocketIO/notifications).
         self.events.on("notification", self.log_and_send)
@@ -502,6 +555,15 @@ class Karaoke:
         )
         self.download_manager.start()
 
+        # Eagerly drop cached .ass files whose embedded ``; model_id:``
+        # comment doesn't match the current aligner. Without this, a
+        # model bump quietly defers re-alignment to the next playback of
+        # each song - surprising the user with slow first replays across
+        # the next N song picks. Sub-second on a typical library; runs
+        # before the song-list warm so the integrity scanner sees only
+        # current-model files.
+        self._sweep_stale_aligned_ass()
+
         # Song library startup: warm cache from DB or blocking cold scan
         paths = self.db.get_all_song_paths()
         if paths:
@@ -523,6 +585,52 @@ class Karaoke:
         self.state_persistence = StatePersistence()
         self._last_persist = 0.0
         self._restore_state()
+
+    def _sweep_stale_aligned_ass(self) -> None:
+        """Unlink cached .ass files whose model_id doesn't match the current aligner.
+
+        Reads the first ~1 KB of each .ass file under the download path
+        and looks for the ``; model_id: <id>`` semicolon comment that
+        ``_ass_header()`` writes. Files without the marker are
+        considered user-authored (or pre-marker auto files) and are
+        left alone. Files with a marker that *doesn't* match the
+        current aligner's ``model_id`` are unlinked so the next
+        playback runs alignment with the new model immediately.
+
+        Sub-second on a typical 50-song library; sub-five-seconds on a
+        500-song library. No-ops when the aligner isn't available.
+        """
+        if self._aligner_instance is None:
+            return
+        current = getattr(self._aligner_instance, "model_id", None)
+        if not isinstance(current, str) or not current:
+            return
+        if not os.path.isdir(self.download_path):
+            return
+        swept = 0
+        previous_ids: set[str] = set()
+        for root, _dirs, files in os.walk(self.download_path):
+            for name in files:
+                if not name.endswith(".ass"):
+                    continue
+                path = os.path.join(root, name)
+                stale_id = _ass_stale_model_id(path, current)
+                if stale_id is None:
+                    continue
+                try:
+                    os.unlink(path)
+                except OSError:
+                    logging.exception("sweep: failed to unlink %s", path)
+                    continue
+                swept += 1
+                previous_ids.add(stale_id)
+        if swept:
+            logging.info(
+                "sweep: removed %d stale .ass file(s) (old model_id(s)=%s, current=%s)",
+                swept,
+                ",".join(sorted(previous_ids)),
+                current,
+            )
 
     _WHISPERX_REPROCESS_SENTINEL = "whisperx_initial_reprocess_done"
 

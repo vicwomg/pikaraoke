@@ -3237,6 +3237,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+align = [
+    { name = "silero-vad" },
+]
 dev = [
     { name = "pre-commit" },
     { name = "pytest" },
@@ -3275,6 +3278,7 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=7.0.0" },
     { name = "qrcode", extras = ["png"], specifier = "==8.2" },
     { name = "requests", specifier = "==2.32.5" },
+    { name = "silero-vad", marker = "extra == 'align'", specifier = ">=5.0" },
     { name = "simple-websocket", specifier = ">=1.0.0" },
     { name = "soundfile", specifier = ">=0.12" },
     { name = "syncedlyrics", specifier = ">=0.5,<1.0" },
@@ -3282,7 +3286,7 @@ requires-dist = [
     { name = "whisperx", specifier = ">=3.1.1" },
     { name = "yt-dlp", extras = ["default"], specifier = ">=2026.3.3" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["dev", "align"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -4541,6 +4545,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/4f/db/cfac1baf10650ab4d1c111714410d2fbb77ac5a616db26775db562c8fab2/setuptools-82.0.1.tar.gz", hash = "sha256:7d872682c5d01cfde07da7bccc7b65469d3dca203318515ada1de5eda35efbf9", size = 1152316, upload-time = "2026-03-09T12:47:17.221Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9d/76/f789f7a86709c6b087c5a2f52f911838cad707cc613162401badc665acfe/setuptools-82.0.1-py3-none-any.whl", hash = "sha256:a59e362652f08dcd477c78bb6e7bd9d80a7995bc73ce773050228a348ce2e5bb", size = 1006223, upload-time = "2026-03-09T12:47:15.026Z" },
+]
+
+[[package]]
+name = "silero-vad"
+version = "6.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+    { name = "torch" },
+    { name = "torchaudio" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/32/d3/e31f526482782764aa4f70e20fd4545cf2e4a81a60b6fb0f089f6d107991/silero_vad-6.2.1.tar.gz", hash = "sha256:b23062b0e39fad17b1266fc23c1e7b4290219dbe82ce08510889e32f681f4b3b", size = 28913811, upload-time = "2026-02-24T08:41:59.329Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0b/2b/48566f29a8b53d856ceb1994f209122749b3fda0a733a07e82047257de7a/silero_vad-6.2.1-py3-none-any.whl", hash = "sha256:09de93c4d874bb19c53e62a47dd38be5f163cedad2b5599583231f2a84ef79cb", size = 9146242, upload-time = "2026-02-24T08:41:56.955Z" },
 ]
 
 [[package]]

@@ -1,0 +1,113 @@
+{
+  "audio_duration_s": 223.26,
+  "onsets": [
+    {
+      "onset": 16.0,
+      "next_onset": 22.6
+    },
+    {
+      "onset": 22.6,
+      "next_onset": 27.8
+    },
+    {
+      "onset": 27.8,
+      "next_onset": 30.3
+    },
+    {
+      "onset": 30.3,
+      "next_onset": 37.7
+    },
+    {
+      "onset": 37.7,
+      "next_onset": 44.528
+    },
+    {
+      "onset": 44.528,
+      "next_onset": 57.7
+    },
+    {
+      "onset": 57.7,
+      "next_onset": 61.3
+    },
+    {
+      "onset": 61.3,
+      "next_onset": 63.3
+    },
+    {
+      "onset": 63.3,
+      "next_onset": 65.7
+    },
+    {
+      "onset": 65.7,
+      "next_onset": 69.9
+    },
+    {
+      "onset": 69.9,
+      "next_onset": 71.9
+    },
+    {
+      "onset": 71.9,
+      "next_onset": 86.5
+    },
+    {
+      "onset": 86.5,
+      "next_onset": 93.564
+    },
+    {
+      "onset": 93.564,
+      "next_onset": 122.5
+    },
+    {
+      "onset": 122.5,
+      "next_onset": 124.2
+    },
+    {
+      "onset": 124.2,
+      "next_onset": 126.0
+    },
+    {
+      "onset": 126.0,
+      "next_onset": 131.3
+    },
+    {
+      "onset": 131.3,
+      "next_onset": 135.4
+    },
+    {
+      "onset": 135.4,
+      "next_onset": 145.4
+    },
+    {
+      "onset": 145.4,
+      "next_onset": 151.08
+    },
+    {
+      "onset": 151.08,
+      "next_onset": 155.099
+    },
+    {
+      "onset": 155.099,
+      "next_onset": 159.2
+    },
+    {
+      "onset": 159.2,
+      "next_onset": 161.7
+    },
+    {
+      "onset": 161.7,
+      "next_onset": 169.9
+    },
+    {
+      "onset": 169.9,
+      "next_onset": 212.8
+    },
+    {
+      "onset": 212.8,
+      "next_onset": 223.26
+    },
+    {
+      "onset": 223.26,
+      "next_onset": 223.26
+    }
+  ]
+}
