@@ -47,6 +47,10 @@ class ActiveStems:
     ready_event: threading.Event  # set when the first segment is on disk
     processed_seconds: float = 0.0
     total_seconds: float = 0.0
+    # Demucs content-hash key for the cache directory backing these paths.
+    # Used by ``is_cache_key_active`` so the prewarm MP3 encoder can avoid
+    # deleting WAVs out from under live byte-range requests.
+    cache_key: str | None = None
     # Transform prefs captured at song start. The stem HTTP route pipes the
     # cached file through ffmpeg (rubberband + loudnorm) when either is set.
     # Stashed here so mid-song slider changes don't retroactively mutate the
@@ -612,6 +616,7 @@ class StreamManager:
             ready_event=ready,
             processed_seconds=total_seconds,
             total_seconds=total_seconds,
+            cache_key=cache_key,
         )
         self._emit_demucs_progress(total_seconds, total_seconds)
         self._emit_stems_ready(stream_uid)
@@ -649,6 +654,7 @@ class StreamManager:
             ready_event=handle.ready_event,
             processed_seconds=0.0,
             total_seconds=total_seconds,
+            cache_key=cache_key,
         )
 
         def _notify_when_ready() -> None:
@@ -737,6 +743,7 @@ class StreamManager:
             ready_event=handle.ready_event,
             processed_seconds=0.0,
             total_seconds=total_seconds,
+            cache_key=cache_key,
         )
 
         # Lock synchronizes the bg-thread rename (.partial -> .wav via
@@ -973,6 +980,15 @@ class StreamManager:
                     logging.debug(f"[FFMPEG] process exited cleanly (code 0)")
                 self._ffmpeg_exit_logged = id(self.ffmpeg_process)
 
+    def is_cache_key_active(self, cache_key: str) -> bool:
+        """True when any registered stream is serving stems for this cache key.
+
+        Consulted by ``encode_mp3_in_background`` (via the active-check hook
+        in demucs_processor) so the prewarm path doesn't unlink WAVs while
+        a live byte-range request is reading them.
+        """
+        return any(entry.cache_key == cache_key for entry in self.active_stems.values())
+
     def clear_active_stems(self) -> None:
         """Drop all registered stem entries.
 
@@ -988,12 +1004,8 @@ class StreamManager:
         from pikaraoke.lib.demucs_processor import cleanup_wavs_if_mp3s_exist
 
         for entry in self.active_stems.values():
-            path = entry.vocals_path or entry.instrumental_path
-            if not path:
-                continue
-            cache_key = os.path.basename(os.path.dirname(path))
-            if len(cache_key) == 64:
-                cleanup_wavs_if_mp3s_exist(cache_key)
+            if entry.cache_key:
+                cleanup_wavs_if_mp3s_exist(entry.cache_key)
         self.active_stems.clear()
 
     def clear_active_sources(self) -> None:

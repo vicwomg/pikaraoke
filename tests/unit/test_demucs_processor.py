@@ -357,6 +357,76 @@ class TestEncodeMp3WavDeletion:
         assert not (cache_dir / "vocals.wav").exists()
         assert not (cache_dir / "instrumental.wav").exists()
 
+    def test_opt_in_keeps_wavs_when_cache_key_active(
+        self, tmp_path, monkeypatch, clean_encode_state
+    ):
+        """delete_wavs_on_done must defer deletion when a live stream is
+        reading the same cache_key; otherwise the byte-range request
+        switches mime mid-stream and seeking breaks. Song-end cleanup
+        unlinks the WAVs once playback ends."""
+        cache_key = "3" * 64
+        cache_dir = tmp_path / cache_key
+        cache_dir.mkdir()
+        (cache_dir / "vocals.wav").write_bytes(b"wav_v")
+        (cache_dir / "instrumental.wav").write_bytes(b"wav_i")
+        monkeypatch.setattr(dp, "CACHE_DIR", str(tmp_path))
+
+        probed: list[str] = []
+
+        def _active(key: str) -> bool:
+            probed.append(key)
+            return key == cache_key
+
+        dp.set_active_check_hook(_active)
+        try:
+            self._run_encode_sync(monkeypatch, cache_dir, delete_wavs_on_done=True)
+        finally:
+            dp.set_active_check_hook(None)
+
+        assert probed == [cache_key]
+        assert (cache_dir / "vocals.wav").exists()
+        assert (cache_dir / "instrumental.wav").exists()
+
+    def test_opt_in_removes_wavs_when_active_hook_unset(
+        self, tmp_path, monkeypatch, clean_encode_state
+    ):
+        """Unconfigured probe means tests / standalone runs preserve the
+        legacy delete-on-done behaviour."""
+        cache_key = "4" * 64
+        cache_dir = tmp_path / cache_key
+        cache_dir.mkdir()
+        (cache_dir / "vocals.wav").write_bytes(b"wav_v")
+        (cache_dir / "instrumental.wav").write_bytes(b"wav_i")
+        monkeypatch.setattr(dp, "CACHE_DIR", str(tmp_path))
+        dp.set_active_check_hook(None)
+
+        self._run_encode_sync(monkeypatch, cache_dir, delete_wavs_on_done=True)
+
+        assert not (cache_dir / "vocals.wav").exists()
+        assert not (cache_dir / "instrumental.wav").exists()
+
+    def test_misbehaving_hook_fails_closed(self, tmp_path, monkeypatch, clean_encode_state):
+        """A raising probe must not strand the encoder. Treat as 'active' —
+        it's safer to keep the WAVs than to nuke them under unknown state."""
+        cache_key = "5" * 64
+        cache_dir = tmp_path / cache_key
+        cache_dir.mkdir()
+        (cache_dir / "vocals.wav").write_bytes(b"wav_v")
+        (cache_dir / "instrumental.wav").write_bytes(b"wav_i")
+        monkeypatch.setattr(dp, "CACHE_DIR", str(tmp_path))
+
+        def _broken(_key: str) -> bool:
+            raise RuntimeError("probe blew up")
+
+        dp.set_active_check_hook(_broken)
+        try:
+            self._run_encode_sync(monkeypatch, cache_dir, delete_wavs_on_done=True)
+        finally:
+            dp.set_active_check_hook(None)
+
+        assert (cache_dir / "vocals.wav").exists()
+        assert (cache_dir / "instrumental.wav").exists()
+
 
 class TestPrewarmHooks:
     """Prewarm surfaces progress + ready signals so the front-end seek bar

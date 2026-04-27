@@ -292,7 +292,14 @@ def encode_mp3_in_background(
                         except Exception:
                             logging.exception("encode_mp3 on_failure callback raised")
                     return
-            if delete_wavs_on_done:
+            if delete_wavs_on_done and _is_cache_key_active(cache_key):
+                # A live stream is mid-flight on these WAVs (the prewarm
+                # finished after playback already started). Leave them on
+                # disk so byte-range reads stay valid; song-end cleanup
+                # (StreamManager.clear_active_stems -> cleanup_wavs_if_mp3s_exist)
+                # will unlink them once playback ends.
+                logging.info(f"MP3 cache ready, WAVs kept (active playback): {cache_key[:12]}...")
+            elif delete_wavs_on_done:
                 for wav in (wav_v, wav_i):
                     try:
                         os.remove(wav)
@@ -632,6 +639,13 @@ _progress_hook: Callable[[str | None, float, float], None] | None = None
 # play already knows the song has stems cached (US-7).
 _ready_hook: Callable[[str | None, str], None] | None = None
 
+# Active-cache-key probe: returns True when any live HTTP stream is currently
+# reading stems backed by this cache_key. encode_mp3_in_background consults
+# this before honouring ``delete_wavs_on_done`` — deleting the WAVs while a
+# byte-range request is mid-flight strands the browser on a different file
+# format. karaoke.py points this at StreamManager.is_cache_key_active.
+_active_check_hook: Callable[[str], bool] | None = None
+
 
 def set_warning_hook(hook: Callable[[str | None, str, str], None] | None) -> None:
     """Register (or clear) the module-level warning hook."""
@@ -649,6 +663,26 @@ def set_ready_hook(hook: Callable[[str | None, str], None] | None) -> None:
     """Register (or clear) the module-level prewarm completion hook."""
     global _ready_hook
     _ready_hook = hook
+
+
+def set_active_check_hook(hook: Callable[[str], bool] | None) -> None:
+    """Register (or clear) the active-stream probe used by the WAV cleanup gate."""
+    global _active_check_hook
+    _active_check_hook = hook
+
+
+def _is_cache_key_active(cache_key: str) -> bool:
+    """Return True when a live stream is reading this cache_key's stems."""
+    hook = _active_check_hook
+    if hook is None:
+        return False
+    try:
+        return bool(hook(cache_key))
+    except Exception:
+        # A misbehaving probe must not strand the encoder; fail closed (treat
+        # as active) so we never delete WAVs we're not 100% sure are unused.
+        logging.exception("demucs_processor active-check hook raised")
+        return True
 
 
 def _notify_warning(song_basename: str | None, message: str, detail: str) -> None:

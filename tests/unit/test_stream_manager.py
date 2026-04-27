@@ -1,6 +1,7 @@
 """Unit tests for stream_manager module."""
 
 import subprocess
+import threading
 from queue import Queue
 from unittest.mock import MagicMock, patch
 
@@ -276,6 +277,55 @@ class TestStemsLifecycle:
         assert second["vocals_url"].endswith("/vocals.mp3")
         assert second["instrumental_url"].endswith("/instrumental.mp3")
         assert sm.active_stems["uid_replay"].format == "mp3"
+
+
+class TestIsCacheKeyActive:
+    """``is_cache_key_active`` powers the WAV-deletion gate in the prewarm
+    encoder; the boundary contract is what the encoder relies on, so test it
+    directly rather than only through the integration path."""
+
+    def _register(self, sm, stream_uid, cache_key, vocals_path):
+        from pikaraoke.lib.stream_manager import ActiveStems
+
+        done = threading.Event()
+        done.set()
+        ready = threading.Event()
+        ready.set()
+        sm.active_stems[stream_uid] = ActiveStems(
+            vocals_path=vocals_path,
+            instrumental_path=vocals_path,
+            format="wav",
+            done_event=done,
+            ready_event=ready,
+            cache_key=cache_key,
+        )
+
+    def test_returns_true_for_registered_cache_key(self, test_prefs):
+        sm = StreamManager(test_prefs, events=EventSystem())
+        self._register(sm, "uid_a", "k" * 64, "/tmp/vocals.wav")
+        assert sm.is_cache_key_active("k" * 64) is True
+
+    def test_returns_false_for_unknown_cache_key(self, test_prefs):
+        sm = StreamManager(test_prefs, events=EventSystem())
+        self._register(sm, "uid_a", "k" * 64, "/tmp/vocals.wav")
+        assert sm.is_cache_key_active("z" * 64) is False
+
+    def test_returns_false_when_no_streams(self, test_prefs):
+        sm = StreamManager(test_prefs, events=EventSystem())
+        assert sm.is_cache_key_active("k" * 64) is False
+
+    def test_clear_drops_active_state(self, test_prefs, tmp_path):
+        from pikaraoke.lib import demucs_processor as dp
+
+        sm = StreamManager(test_prefs, events=EventSystem())
+        cache_key = "k" * 64
+        cache_dir = tmp_path / cache_key
+        cache_dir.mkdir()
+        # Don't seed mp3s -> clear_active_stems' cleanup helper is a no-op.
+        self._register(sm, "uid_a", cache_key, str(cache_dir / "vocals.wav"))
+        with patch.object(dp, "CACHE_DIR", str(tmp_path)):
+            sm.clear_active_stems()
+        assert sm.is_cache_key_active(cache_key) is False
 
 
 class TestStreamManagerLogFfmpegOutput:

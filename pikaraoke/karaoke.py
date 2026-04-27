@@ -472,6 +472,14 @@ class Karaoke:
         demucs_processor.set_progress_hook(_forward_progress)
         demucs_processor.set_ready_hook(_forward_ready)
 
+        # Active-stream probe (US-32): the prewarm-mode MP3 encoder asks
+        # this before unlinking WAVs so a live byte-range request never
+        # has the file deleted mid-stream. Returns True when any
+        # registered stream is reading stems for the given cache_key.
+        demucs_processor.set_active_check_hook(
+            self.playback_controller.stream_manager.is_cache_key_active
+        )
+
         # Initialize queue manager
         self.queue_manager = QueueManager(
             preferences=self.preferences,
