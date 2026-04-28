@@ -139,31 +139,6 @@ def _build_lyrics_aligner():
     return WhisperXAligner(device=status["device"])
 
 
-def _ass_stale_model_id(path: str, current_model_id: str) -> str | None:
-    """If the .ass at ``path`` carries a stale ``; model_id:`` comment,
-    return that stale id; otherwise None.
-
-    Reads ~1 KB of the head only - the marker is in the [Script Info]
-    block. Files without any marker are treated as user-authored
-    (caller leaves them alone). On any read error we conservatively
-    return None so the sweep never deletes a file it couldn't read.
-    """
-    import re as _re
-
-    try:
-        with open(path, encoding="utf-8") as f:
-            head = f.read(1024)
-    except OSError:
-        return None
-    m = _re.search(r"^;\s*model_id:\s*(\S+)", head, _re.MULTILINE)
-    if not m:
-        return None
-    found = m.group(1).strip()
-    if found == current_model_id:
-        return None
-    return found
-
-
 def _prewarm_vad() -> None:
     """Warm the silero VAD JIT model in a daemon thread.
 
@@ -377,7 +352,10 @@ class Karaoke:
         self.song_manager = SongManager(
             self.download_path, db=self.db, get_title_tidy=lambda: self.enable_title_tidy
         )
-        self._scanner = LibraryScanner(self.db)
+        self._scanner = LibraryScanner(
+            self.db,
+            on_provenance_classified=self._invalidate_stale_alignments_from_db,
+        )
         self._sync_lock = threading.Lock()
 
         # Rolling log of song_warning events. Persisted to the metadata kv so
@@ -555,16 +533,12 @@ class Karaoke:
         )
         self.download_manager.start()
 
-        # Eagerly drop cached .ass files whose embedded ``; model_id:``
-        # comment doesn't match the current aligner. Without this, a
-        # model bump quietly defers re-alignment to the next playback of
-        # each song - surprising the user with slow first replays across
-        # the next N song picks. Sub-second on a typical library; runs
-        # before the song-list warm so the integrity scanner sees only
-        # current-model files.
-        self._sweep_stale_aligned_ass()
-
-        # Song library startup: warm cache from DB or blocking cold scan
+        # Song library startup: warm cache from DB or blocking cold scan.
+        # The scanner's _backfill_artifacts pass classifies each .ass into
+        # auto_word/auto_line/user (lyrics_provenance), then fires our
+        # injected _invalidate_stale_alignments_from_db sweep so any
+        # word-level files produced by an older aligner are dropped before
+        # _verify_integrity / _maybe_initial_reprocess_with_whisperx runs.
         paths = self.db.get_all_song_paths()
         if paths:
             self.song_manager.songs.update(paths)
@@ -586,49 +560,40 @@ class Karaoke:
         self._last_persist = 0.0
         self._restore_state()
 
-    def _sweep_stale_aligned_ass(self) -> None:
-        """Unlink cached .ass files whose model_id doesn't match the current aligner.
+    def _invalidate_stale_alignments_from_db(self) -> None:
+        """Invalidate cached word-level .ass whose aligner_model is stale.
 
-        Reads the first ~1 KB of each .ass file under the download path
-        and looks for the ``; model_id: <id>`` semicolon comment that
-        ``_ass_header()`` writes. Files without the marker are
-        considered user-authored (or pre-marker auto files) and are
-        left alone. Files with a marker that *doesn't* match the
-        current aligner's ``model_id`` are unlinked so the next
-        playback runs alignment with the new model immediately.
+        Queries the DB for songs with ``lyrics_provenance = 'auto_word'``
+        whose ``aligner_model`` differs from (or is NULL relative to) the
+        current aligner's ``model_id``, then routes each through
+        ``invalidate_auto_ass`` - the canonical primitive that unlinks
+        the file, drops the artifact row, and clears the DB columns so
+        the next playback re-runs alignment with the new model.
 
-        Sub-second on a typical 50-song library; sub-five-seconds on a
-        500-song library. No-ops when the aligner isn't available.
+        Wired into ``LibraryScanner`` as ``on_provenance_classified`` so
+        it fires after ``_backfill_artifacts`` has stamped provenance on
+        any pre-tracking files. No-op when the aligner isn't configured.
         """
         if self._aligner_instance is None:
             return
         current = getattr(self._aligner_instance, "model_id", None)
         if not isinstance(current, str) or not current:
             return
-        if not os.path.isdir(self.download_path):
-            return
-        swept = 0
-        previous_ids: set[str] = set()
-        for root, _dirs, files in os.walk(self.download_path):
-            for name in files:
-                if not name.endswith(".ass"):
-                    continue
-                path = os.path.join(root, name)
-                stale_id = _ass_stale_model_id(path, current)
-                if stale_id is None:
-                    continue
-                try:
-                    os.unlink(path)
-                except OSError:
-                    logging.exception("sweep: failed to unlink %s", path)
-                    continue
-                swept += 1
-                previous_ids.add(stale_id)
-        if swept:
+        from pikaraoke.lib.audio_fingerprint import invalidate_auto_ass
+
+        ids = self.db.get_song_ids_for_realignment(current)
+        for song_id in ids:
+            try:
+                invalidate_auto_ass(self.db, song_id)
+            except Exception:
+                logging.exception(
+                    "stale-alignment sweep: invalidate_auto_ass failed for song_id=%s",
+                    song_id,
+                )
+        if ids:
             logging.info(
-                "sweep: removed %d stale .ass file(s) (old model_id(s)=%s, current=%s)",
-                swept,
-                ",".join(sorted(previous_ids)),
+                "stale-alignment sweep: invalidated %d cached .ass (current aligner=%s)",
+                len(ids),
                 current,
             )
 

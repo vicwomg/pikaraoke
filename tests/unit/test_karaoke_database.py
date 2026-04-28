@@ -28,7 +28,7 @@ class TestInit:
 
     def test_user_version(self, db):
         ver = db._conn.execute("PRAGMA user_version").fetchone()[0]
-        assert ver == 5
+        assert ver == 6
 
     def test_songs_table_exists(self, db):
         tables = {
@@ -329,6 +329,51 @@ class TestProcessingConfig:
         db.update_processing_config(sid, aligner_model=None)
         assert db.get_song_by_id(sid)["demucs_model"] == "htdemucs"
 
+    def test_writes_lyrics_provenance(self, db):
+        sid = _insert_song(db)
+        db.update_processing_config(sid, lyrics_provenance="auto_word")
+        assert db.get_song_by_id(sid)["lyrics_provenance"] == "auto_word"
+
+    def test_rejects_invalid_lyrics_provenance(self, db):
+        sid = _insert_song(db)
+        with pytest.raises(ValueError):
+            db.update_processing_config(sid, lyrics_provenance="garbage")
+
+
+class TestGetSongIdsForRealignment:
+    def test_returns_auto_word_with_stale_aligner(self, db):
+        sid = _insert_song(db, "/songs/stale.mp4")
+        db.update_processing_config(sid, aligner_model="old-model", lyrics_provenance="auto_word")
+        assert db.get_song_ids_for_realignment("new-model") == [sid]
+
+    def test_returns_auto_word_with_null_aligner(self, db):
+        # Pre-tracking files: backfill stamped lyrics_provenance but
+        # aligner_model is still NULL until re-alignment writes it.
+        sid = _insert_song(db, "/songs/legacy.mp4")
+        db.update_processing_config(sid, lyrics_provenance="auto_word")
+        assert db.get_song_ids_for_realignment("new-model") == [sid]
+
+    def test_skips_current_aligner(self, db):
+        sid = _insert_song(db, "/songs/current.mp4")
+        db.update_processing_config(sid, aligner_model="new-model", lyrics_provenance="auto_word")
+        assert db.get_song_ids_for_realignment("new-model") == []
+
+    def test_skips_user_owned(self, db):
+        sid = _insert_song(db, "/songs/user.mp4")
+        db.update_processing_config(sid, lyrics_provenance="user")
+        assert db.get_song_ids_for_realignment("new-model") == []
+
+    def test_skips_line_level(self, db):
+        sid = _insert_song(db, "/songs/line.mp4")
+        db.update_processing_config(sid, lyrics_provenance="auto_line")
+        assert db.get_song_ids_for_realignment("new-model") == []
+
+    def test_skips_unclassified(self, db):
+        # Songs the scanner hasn't classified yet (lyrics_provenance NULL)
+        # should not be invalidated - wait for the backfill pass.
+        _insert_song(db, "/songs/pending.mp4")
+        assert db.get_song_ids_for_realignment("new-model") == []
+
 
 class TestTrackMetadata:
     def test_partial_update_ignores_none(self, db):
@@ -517,14 +562,15 @@ class TestMigrationFromV1:
         conn.commit()
         conn.close()
 
-        # Open via KaraokeDatabase: should apply v2+v3+v4+v5 migrations in-place.
+        # Open via KaraokeDatabase: should apply v2+v3+v4+v5+v6 migrations in-place.
         db = KaraokeDatabase(db_path)
         try:
             ver = db._conn.execute("PRAGMA user_version").fetchone()[0]
-            assert ver == 5
+            assert ver == 6
 
             cols = {row[1] for row in db._conn.execute("PRAGMA table_info(songs)").fetchall()}
             assert "metadata_sources" in cols
+            assert "lyrics_provenance" in cols
             art_cols = {
                 row[1] for row in db._conn.execute("PRAGMA table_info(song_artifacts)").fetchall()
             }
@@ -558,6 +604,10 @@ class TestMigrationFromV1:
 
             # Legacy row survived.
             assert db.get_song_count() == 1
+            # Pre-tracking row has lyrics_provenance NULL until the scanner
+            # backfill classifies its .ass on the next pass.
+            row = db.get_song_by_id(1)
+            assert row["lyrics_provenance"] is None
         finally:
             db.close()
 

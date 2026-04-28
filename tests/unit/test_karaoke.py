@@ -1,99 +1,165 @@
-"""Unit tests for module-level Karaoke helpers (sweep + VAD prewarm).
+"""Unit tests for module-level Karaoke helpers.
 
-Full ``Karaoke`` construction touches DB, scanner, and many other
-subsystems; the sweep logic is exercised here by calling the helper
-function ``_ass_stale_model_id`` directly and by running
-``Karaoke._sweep_stale_aligned_ass`` against a hand-rolled stub object
-that exposes only the attributes the method reads.
+The DB-driven stale-alignment sweep is exercised by calling
+``Karaoke._invalidate_stale_alignments_from_db`` against a hand-rolled stub
+that exposes only the attributes the method reads (``_aligner_instance``,
+``db``). The DB itself is a real ``KaraokeDatabase`` against a tmp file so
+the SQL query and ``invalidate_auto_ass`` round-trip are covered end-to-end.
 """
 
 from types import SimpleNamespace
 
-from pikaraoke.karaoke import Karaoke, _ass_stale_model_id
+import pytest
+
+from pikaraoke.karaoke import Karaoke
+from pikaraoke.lib.karaoke_database import KaraokeDatabase
+from pikaraoke.lib.song_manager import ASS_AUTO_ROLE
 
 
-class TestAssStaleModelId:
-    def _write_ass(self, path, marker_line: str | None) -> None:
-        marker = f"; model_id: {marker_line}\n" if marker_line else ""
-        path.write_text(
-            "[Script Info]\n"
-            "Title: PiKaraoke Auto-Lyrics\n"
-            f"{marker}"
-            "ScriptType: v4.00+\n",
-            encoding="utf-8",
+@pytest.fixture
+def db(tmp_path):
+    d = KaraokeDatabase(str(tmp_path / "test.db"))
+    yield d
+    d.close()
+
+
+def _make_song(db, file_path, *, provenance, aligner_model=None, ass_path=None):
+    """Insert a song + an ass_auto artifact and stamp its provenance."""
+    db.insert_songs([{"file_path": file_path, "youtube_id": None, "format": "mp4"}])
+    sid = db.get_song_id_by_path(file_path)
+    if ass_path is not None:
+        db.upsert_artifacts(sid, [{"role": ASS_AUTO_ROLE, "path": ass_path}])
+    db.update_processing_config(sid, aligner_model=aligner_model, lyrics_provenance=provenance)
+    return sid
+
+
+class TestInvalidateStaleAlignmentsFromDb:
+    def test_invalidates_only_stale_word_level(self, tmp_path, db):
+        # Five rows mixing every classification we care about.
+        stale = tmp_path / "stale.ass"
+        stale.write_text("[Script Info]\nTitle: PiKaraoke Auto-Lyrics\n", encoding="utf-8")
+        legacy = tmp_path / "legacy.ass"
+        legacy.write_text("[Script Info]\nTitle: PiKaraoke Auto-Lyrics\n", encoding="utf-8")
+        current = tmp_path / "current.ass"
+        current.write_text("[Script Info]\nTitle: PiKaraoke Auto-Lyrics\n", encoding="utf-8")
+        line = tmp_path / "line.ass"
+        line.write_text("[Script Info]\nTitle: PiKaraoke Auto-Lyrics\n", encoding="utf-8")
+        user = tmp_path / "user.ass"
+        user.write_text("[Script Info]\nTitle: My Custom\n", encoding="utf-8")
+
+        stale_id = _make_song(
+            db,
+            str(tmp_path / "stale.mp4"),
+            provenance="auto_word",
+            aligner_model="old-model",
+            ass_path=str(stale),
+        )
+        legacy_id = _make_song(
+            db,
+            str(tmp_path / "legacy.mp4"),
+            provenance="auto_word",
+            aligner_model=None,
+            ass_path=str(legacy),
+        )
+        current_id = _make_song(
+            db,
+            str(tmp_path / "current.mp4"),
+            provenance="auto_word",
+            aligner_model="new-model",
+            ass_path=str(current),
+        )
+        line_id = _make_song(
+            db,
+            str(tmp_path / "line.mp4"),
+            provenance="auto_line",
+            aligner_model=None,
+            ass_path=str(line),
+        )
+        user_id = _make_song(
+            db,
+            str(tmp_path / "user.mp4"),
+            provenance="user",
+            aligner_model=None,
+            ass_path=str(user),
         )
 
-    def test_returns_none_when_marker_matches(self, tmp_path):
-        ass = tmp_path / "song.ass"
-        self._write_ass(ass, "wav2vec2-char-vad-dpalign")
-        assert _ass_stale_model_id(str(ass), "wav2vec2-char-vad-dpalign") is None
-
-    def test_returns_old_id_when_marker_is_stale(self, tmp_path):
-        ass = tmp_path / "song.ass"
-        self._write_ass(ass, "wav2vec2-char-perline")
-        assert _ass_stale_model_id(str(ass), "wav2vec2-char-vad-dpalign") == (
-            "wav2vec2-char-perline"
-        )
-
-    def test_returns_none_when_no_marker(self, tmp_path):
-        # User-authored .ass files have no model_id comment - skip them.
-        ass = tmp_path / "song.ass"
-        self._write_ass(ass, None)
-        assert _ass_stale_model_id(str(ass), "wav2vec2-char-vad-dpalign") is None
-
-    def test_returns_none_when_file_unreadable(self, tmp_path):
-        # Conservative: if we can't read the file, never delete it.
-        assert _ass_stale_model_id(str(tmp_path / "missing.ass"), "any") is None
-
-
-class TestStartupSweepsStaleAlignedAss:
-    def test_startup_sweeps_stale_aligned_ass(self, tmp_path):
-        # Two .ass files in the songs dir: one current, one stale.
-        # Sweep removes only the stale one and leaves the current intact.
-        current = "wav2vec2-char-vad-dpalign"
-        stale_ass = tmp_path / "stale.ass"
-        stale_ass.write_text(
-            "[Script Info]\n"
-            "Title: PiKaraoke Auto-Lyrics\n"
-            "; model_id: wav2vec2-char-perline\n"
-            "ScriptType: v4.00+\n",
-            encoding="utf-8",
-        )
-        current_ass = tmp_path / "current.ass"
-        current_ass.write_text(
-            "[Script Info]\n"
-            "Title: PiKaraoke Auto-Lyrics\n"
-            f"; model_id: {current}\n"
-            "ScriptType: v4.00+\n",
-            encoding="utf-8",
-        )
-        user_ass = tmp_path / "user.ass"
-        # User-authored .ass without the marker stays untouched.
-        user_ass.write_text(
-            "[Script Info]\nTitle: My Custom Lyrics\nScriptType: v4.00+\n",
-            encoding="utf-8",
-        )
-
-        # Stub Karaoke with only the attributes the sweep reads.
         stub = SimpleNamespace(
-            _aligner_instance=SimpleNamespace(model_id=current),
-            download_path=str(tmp_path),
+            _aligner_instance=SimpleNamespace(model_id="new-model"),
+            db=db,
         )
-        Karaoke._sweep_stale_aligned_ass(stub)
+        Karaoke._invalidate_stale_alignments_from_db(stub)
 
-        assert not stale_ass.exists(), "stale .ass should be unlinked"
-        assert current_ass.exists(), "current .ass must survive"
-        assert user_ass.exists(), "user-authored .ass must survive"
+        # Stale + legacy word-level files: deleted, artifact rows dropped,
+        # aligner_model cleared.
+        assert not stale.exists()
+        assert not legacy.exists()
+        assert db.get_artifacts(stale_id) == []
+        assert db.get_artifacts(legacy_id) == []
+        assert db.get_song_by_id(stale_id)["aligner_model"] is None
+        assert db.get_song_by_id(legacy_id)["aligner_model"] is None
 
-    def test_sweep_no_op_when_aligner_disabled(self, tmp_path):
-        # No aligner -> the model_id check has no current value, sweep
-        # must not delete anything.
-        ass = tmp_path / "any.ass"
-        ass.write_text(
-            "[Script Info]\nTitle: PiKaraoke Auto-Lyrics\n"
-            "; model_id: wav2vec2-char-perline\nScriptType: v4.00+\n",
-            encoding="utf-8",
+        # Current word-level + line-level + user-owned: untouched.
+        assert current.exists()
+        assert line.exists()
+        assert user.exists()
+        current_arts = {a["role"] for a in db.get_artifacts(current_id)}
+        assert current_arts == {ASS_AUTO_ROLE}
+        assert db.get_song_by_id(current_id)["aligner_model"] == "new-model"
+        assert {a["role"] for a in db.get_artifacts(line_id)} == {ASS_AUTO_ROLE}
+        assert {a["role"] for a in db.get_artifacts(user_id)} == {ASS_AUTO_ROLE}
+
+    def test_no_op_when_aligner_disabled(self, tmp_path, db):
+        ass = tmp_path / "stale.ass"
+        ass.write_text("[Script Info]\nTitle: PiKaraoke Auto-Lyrics\n", encoding="utf-8")
+        sid = _make_song(
+            db,
+            str(tmp_path / "stale.mp4"),
+            provenance="auto_word",
+            aligner_model="old-model",
+            ass_path=str(ass),
         )
-        stub = SimpleNamespace(_aligner_instance=None, download_path=str(tmp_path))
-        Karaoke._sweep_stale_aligned_ass(stub)
+
+        stub = SimpleNamespace(_aligner_instance=None, db=db)
+        Karaoke._invalidate_stale_alignments_from_db(stub)
+
         assert ass.exists()
+        assert {a["role"] for a in db.get_artifacts(sid)} == {ASS_AUTO_ROLE}
+
+    def test_no_op_when_aligner_lacks_model_id(self, tmp_path, db):
+        ass = tmp_path / "stale.ass"
+        ass.write_text("[Script Info]\nTitle: PiKaraoke Auto-Lyrics\n", encoding="utf-8")
+        sid = _make_song(
+            db,
+            str(tmp_path / "stale.mp4"),
+            provenance="auto_word",
+            aligner_model="old-model",
+            ass_path=str(ass),
+        )
+
+        stub = SimpleNamespace(_aligner_instance=SimpleNamespace(), db=db)
+        Karaoke._invalidate_stale_alignments_from_db(stub)
+
+        assert ass.exists()
+        assert {a["role"] for a in db.get_artifacts(sid)} == {ASS_AUTO_ROLE}
+
+    def test_idempotent_on_repeat_calls(self, tmp_path, db):
+        ass = tmp_path / "stale.ass"
+        ass.write_text("[Script Info]\nTitle: PiKaraoke Auto-Lyrics\n", encoding="utf-8")
+        sid = _make_song(
+            db,
+            str(tmp_path / "stale.mp4"),
+            provenance="auto_word",
+            aligner_model="old-model",
+            ass_path=str(ass),
+        )
+        stub = SimpleNamespace(
+            _aligner_instance=SimpleNamespace(model_id="new-model"),
+            db=db,
+        )
+        Karaoke._invalidate_stale_alignments_from_db(stub)
+        # invalidate_auto_ass also clears lyrics_provenance, so the row drops
+        # out of the sweep query - the SELECT returns 0 ids on the next call.
+        assert db.get_song_by_id(sid)["lyrics_provenance"] is None
+        assert db.get_song_ids_for_realignment("new-model") == []
+        # Second call is a genuine no-op (no rows match).
+        Karaoke._invalidate_stale_alignments_from_db(stub)

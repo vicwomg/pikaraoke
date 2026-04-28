@@ -10,7 +10,12 @@ import threading
 from collections.abc import Callable
 
 from pikaraoke.lib.get_platform import is_windows
-from pikaraoke.lib.karaoke_database import KaraokeDatabase
+from pikaraoke.lib.karaoke_database import (
+    LYRICS_PROVENANCE_AUTO_LINE,
+    LYRICS_PROVENANCE_AUTO_WORD,
+    LYRICS_PROVENANCE_USER,
+    KaraokeDatabase,
+)
 from pikaraoke.lib.library_scanner import build_song_record
 from pikaraoke.lib.lyrics import ASS_MARKER
 from pikaraoke.lib.metadata_parser import regex_tidy, youtube_id_suffix
@@ -31,15 +36,24 @@ def sanitize_filename(name: str) -> str:
     return name.strip()
 
 
-def _classify_ass(path: str) -> str:
-    """Return 'ass_auto' or 'ass_user' based on the PiKaraoke marker."""
+def _classify_ass(path: str) -> tuple[str, str]:
+    """Inspect an .ass file and return (role, lyrics_provenance).
+
+    Reads the first ~8 KB - enough to cover the [Script Info] / [V4+ Styles]
+    blocks plus the first few Dialogue events. The presence of ``\\k`` in the
+    body distinguishes word-level (auto_word) from line-level (auto_line)
+    PiKaraoke output. Files without ``ASS_MARKER`` are user-authored.
+    """
     try:
         with open(path, encoding="utf-8") as f:
-            head = f.read(512)
+            head = f.read(8192)
     except OSError:
         # Unreadable: safer to assume user-owned so cleanup doesn't nuke it.
-        return ASS_USER_ROLE
-    return ASS_AUTO_ROLE if ASS_MARKER in head else ASS_USER_ROLE
+        return ASS_USER_ROLE, LYRICS_PROVENANCE_USER
+    if ASS_MARKER not in head:
+        return ASS_USER_ROLE, LYRICS_PROVENANCE_USER
+    provenance = LYRICS_PROVENANCE_AUTO_WORD if "\\k" in head else LYRICS_PROVENANCE_AUTO_LINE
+    return ASS_AUTO_ROLE, provenance
 
 
 def discover_song_artifacts(song_path: str) -> list[dict]:
@@ -71,7 +85,8 @@ def discover_song_artifacts(song_path: str) -> list[dict]:
             elif ext_lower == ".cdg":
                 artifacts.append({"role": "cdg", "path": full})
             elif ext_lower == ".ass":
-                artifacts.append({"role": _classify_ass(full), "path": full})
+                role, provenance = _classify_ass(full)
+                artifacts.append({"role": role, "path": full, "lyrics_provenance": provenance})
         # Multi-dot stems: <stem>.info.json, <stem>.<lang>.vtt, <stem>.cover.jpg
         elif name_lower.startswith(stem_lower + "."):
             if name_lower.endswith(".info.json"):

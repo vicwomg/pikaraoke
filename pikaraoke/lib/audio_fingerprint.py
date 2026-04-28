@@ -267,11 +267,13 @@ def _invalidate_stems(db: KaraokeDatabase, song_id: int, old_sha: str | None) ->
 def invalidate_auto_ass(db: KaraokeDatabase, song_id: int) -> None:
     """Unlink auto-generated .ass files (marker-tagged). Preserves ass_user rows.
 
-    Also clears ``lyrics_sha`` so the next pipeline run treats LRCLib as
-    "never fetched" and re-queries it. Without this, audio-sha invalidation
-    deletes the .ass on disk but ``ensure_lyrics_config`` still sees a
-    matching cached sha and never triggers a re-fetch — the waterfall
-    diagram in US-31 (source audio changed -> re-fetch LRCLib) is broken.
+    Clears ``lyrics_sha``, ``aligner_model`` and ``lyrics_provenance`` so the
+    row reverts to pre-tracking state - the next pipeline run treats LRCLib
+    as "never fetched" and the startup sweep won't re-flag the row until
+    the scanner backfill re-classifies a freshly-written .ass. Without
+    clearing ``lyrics_sha``, audio-sha invalidation deletes the .ass on
+    disk but ``ensure_lyrics_config`` still sees a matching cached sha
+    and never triggers a re-fetch (US-31 waterfall).
     """
     for artifact in db.get_artifacts(song_id):
         if artifact["role"] != ASS_AUTO_ROLE:
@@ -280,4 +282,6 @@ def invalidate_auto_ass(db: KaraokeDatabase, song_id: int) -> None:
         with contextlib.suppress(FileNotFoundError):
             os.unlink(path)
         db.delete_artifact(song_id, path)
-    db.update_processing_config(song_id, lyrics_sha=None, aligner_model=None)
+    db.update_processing_config(
+        song_id, lyrics_sha=None, aligner_model=None, lyrics_provenance=None
+    )

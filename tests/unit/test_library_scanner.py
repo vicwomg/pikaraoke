@@ -498,6 +498,96 @@ class TestIntegrityCheck:
         assert str(mp3) not in result.reprocess_paths
 
 
+_ASS_AUTO_WORD = (
+    "[Script Info]\n"
+    "Title: PiKaraoke Auto-Lyrics\n"
+    "ScriptType: v4.00+\n\n"
+    "[V4+ Styles]\nFormat: Name\n\n"
+    "[Events]\nFormat: Layer\n"
+    "Dialogue: 0,0:00:00.00,0:00:01.00,Default,,0,0,0,,{\\kf50}hello\n"
+)
+_ASS_AUTO_LINE = (
+    "[Script Info]\n"
+    "Title: PiKaraoke Auto-Lyrics\n"
+    "ScriptType: v4.00+\n\n"
+    "[Events]\nFormat: Layer\n"
+    "Dialogue: 0,0:00:00.00,0:00:01.00,Default,,0,0,0,,hello world\n"
+)
+_ASS_USER = "[Script Info]\nTitle: My Aegisub File\nScriptType: v4.00+\n"
+
+
+class TestBackfillClassifiesProvenance:
+    """Cold scan with pre-existing .ass files: _backfill_artifacts stamps
+    lyrics_provenance from the .ass head bytes so the startup sweep knows
+    which to invalidate."""
+
+    def test_word_level_ass_classified_auto_word(self, scanner, db, tmp_path):
+        mp4 = _make_song(tmp_path, "Word---wwwwwwwwwww.mp4")
+        ass = tmp_path / "Word---wwwwwwwwwww.ass"
+        ass.write_text(_ASS_AUTO_WORD)
+        scanner.scan(str(tmp_path))
+        sid = db.get_song_id_by_path(str(mp4))
+        assert db.get_song_by_id(sid)["lyrics_provenance"] == "auto_word"
+
+    def test_line_level_ass_classified_auto_line(self, scanner, db, tmp_path):
+        mp4 = _make_song(tmp_path, "Line---lllllllllll.mp4")
+        ass = tmp_path / "Line---lllllllllll.ass"
+        ass.write_text(_ASS_AUTO_LINE)
+        scanner.scan(str(tmp_path))
+        sid = db.get_song_id_by_path(str(mp4))
+        assert db.get_song_by_id(sid)["lyrics_provenance"] == "auto_line"
+
+    def test_user_ass_classified_user(self, scanner, db, tmp_path):
+        mp4 = _make_song(tmp_path, "User---uuuuuuuuuuu.mp4")
+        ass = tmp_path / "User---uuuuuuuuuuu.ass"
+        ass.write_text(_ASS_USER)
+        scanner.scan(str(tmp_path))
+        sid = db.get_song_id_by_path(str(mp4))
+        assert db.get_song_by_id(sid)["lyrics_provenance"] == "user"
+
+    def test_no_ass_leaves_provenance_null(self, scanner, db, tmp_path):
+        mp4 = _make_song(tmp_path, "None---nnnnnnnnnnn.mp4")
+        scanner.scan(str(tmp_path))
+        sid = db.get_song_id_by_path(str(mp4))
+        assert db.get_song_by_id(sid)["lyrics_provenance"] is None
+
+
+class TestSweepCallbackInjection:
+    """LibraryScanner runs the on_provenance_classified callback after
+    _backfill_artifacts and before _verify_integrity, so the sweep sees
+    freshly-classified pre-tracking files."""
+
+    def test_callback_fires_after_backfill(self, db, tmp_path):
+        mp4 = _make_song(tmp_path, "Sweep---sssssssssss.mp4")
+        ass = tmp_path / "Sweep---sssssssssss.ass"
+        ass.write_text(_ASS_AUTO_WORD)
+
+        observed = []
+
+        def sweep():
+            sid = db.get_song_id_by_path(str(mp4))
+            row = db.get_song_by_id(sid)
+            observed.append(row["lyrics_provenance"])
+
+        scanner = LibraryScanner(db, on_provenance_classified=sweep)
+        scanner.scan(str(tmp_path))
+
+        assert observed == [
+            "auto_word"
+        ], "Sweep must observe lyrics_provenance already populated by backfill"
+
+    def test_callback_exception_does_not_break_scan(self, db, tmp_path):
+        _make_song(tmp_path, "Crash---ccccccccccc.mp4")
+
+        def sweep():
+            raise RuntimeError("boom")
+
+        scanner = LibraryScanner(db, on_provenance_classified=sweep)
+        # Scan should swallow the exception and still complete.
+        result = scanner.scan(str(tmp_path))
+        assert result.added == 1
+
+
 class TestExtractYoutubeId:
     def test_pikaraoke_format(self):
         assert _extract_youtube_id("Song---dQw4w9WgXcQ.mp4") == "dQw4w9WgXcQ"

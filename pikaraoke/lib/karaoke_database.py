@@ -166,7 +166,27 @@ ALTER TABLE song_artifacts ADD COLUMN size   INTEGER;
 ALTER TABLE song_artifacts ADD COLUMN mtime  REAL;
 """
 
-_SCHEMA_VERSION = 5
+# v5 -> v6: explicit lyrics-artifact provenance, replacing the head-bytes
+# ".ass file carries its model_id" hack. One of:
+#   'auto_word' - PiKaraoke generated, word-level (\k tags, aligner-driven)
+#   'auto_line' - PiKaraoke generated, line-level (LRCLib or YouTube VTT)
+#   'user'      - user-authored (Aegisub overwrite, no PiKaraoke marker)
+#   NULL        - pre-tracking; the scanner classifies on its next backfill
+# Paired with aligner_model so the startup sweep can SELECT auto_word rows
+# whose aligner_model differs from (or is NULL relative to) the current id
+# and invalidate them via invalidate_auto_ass.
+_MIGRATION_V6 = """
+ALTER TABLE songs ADD COLUMN lyrics_provenance TEXT;
+"""
+
+LYRICS_PROVENANCE_AUTO_WORD = "auto_word"
+LYRICS_PROVENANCE_AUTO_LINE = "auto_line"
+LYRICS_PROVENANCE_USER = "user"
+_VALID_LYRICS_PROVENANCE = frozenset(
+    {LYRICS_PROVENANCE_AUTO_WORD, LYRICS_PROVENANCE_AUTO_LINE, LYRICS_PROVENANCE_USER}
+)
+
+_SCHEMA_VERSION = 6
 
 _TRACK_METADATA_FIELDS = (
     "duration_seconds",
@@ -236,6 +256,10 @@ class KaraokeDatabase:
             }
             if version < 5 and "sha256" not in artifact_columns:
                 self._conn.executescript(_MIGRATION_V5)
+            # Re-read columns after V2-V5 may have added new ones.
+            columns = {row[1] for row in self._conn.execute("PRAGMA table_info(songs)").fetchall()}
+            if version < 6 and "lyrics_provenance" not in columns:
+                self._conn.executescript(_MIGRATION_V6)
             self._conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
 
     # ------------------------------------------------------------------
@@ -294,6 +318,25 @@ class KaraokeDatabase:
                 "SELECT id FROM songs WHERE file_path = ?", (file_path,)
             ).fetchone()
             return row[0] if row else None
+
+    def get_song_ids_for_realignment(self, current_aligner_model: str) -> list[int]:
+        """Return song ids whose word-level .ass needs re-alignment.
+
+        A row qualifies when ``lyrics_provenance = 'auto_word'`` AND its
+        recorded ``aligner_model`` either differs from ``current_aligner_model``
+        or is NULL (pre-tracking word-level files just classified by the
+        scanner backfill). User-authored and line-level rows are not returned.
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT id FROM songs
+                WHERE lyrics_provenance = ?
+                  AND (aligner_model IS NULL OR aligner_model != ?)
+                """,
+                (LYRICS_PROVENANCE_AUTO_WORD, current_aligner_model),
+            ).fetchall()
+            return [r[0] for r in rows]
 
     def get_songs_without_artifacts(self) -> list[tuple[int, str]]:
         """Return [(song_id, file_path)] for songs that have no artifact rows yet.
@@ -531,14 +574,29 @@ class KaraokeDatabase:
         aligner_model: object = _UNSET,
         lyrics_source: str | None = None,
         lyrics_sha: object = _UNSET,
+        lyrics_provenance: object = _UNSET,
     ) -> None:
         """Record which models/sources produced the current cached artifacts.
 
         Only provided arguments are written. The stems cache key effectively
         becomes (audio_sha256, demucs_model); lyrics is (audio_sha256,
-        aligner_model, lyrics_source, lyrics_sha). aligner_model and lyrics_sha
-        accept explicit None to clear (e.g. LRCLib line-level has no aligner).
+        aligner_model, lyrics_source, lyrics_sha). ``aligner_model``,
+        ``lyrics_sha`` and ``lyrics_provenance`` accept explicit ``None`` to
+        clear (e.g. ``invalidate_auto_ass`` reverts a row to pre-tracking
+        state by clearing all three).
+
+        ``lyrics_provenance`` must be one of ``LYRICS_PROVENANCE_AUTO_WORD``,
+        ``LYRICS_PROVENANCE_AUTO_LINE``, ``LYRICS_PROVENANCE_USER``, or
+        explicit ``None`` to clear the column.
         """
+        if (
+            lyrics_provenance is not self._UNSET
+            and lyrics_provenance is not None
+            and lyrics_provenance not in _VALID_LYRICS_PROVENANCE
+        ):
+            raise ValueError(
+                f"update_processing_config: invalid lyrics_provenance {lyrics_provenance!r}"
+            )
         updates = []
         params: list = []
         if demucs_model is not None:
@@ -553,6 +611,9 @@ class KaraokeDatabase:
         if lyrics_sha is not self._UNSET:
             updates.append("lyrics_sha = ?")
             params.append(lyrics_sha)
+        if lyrics_provenance is not self._UNSET:
+            updates.append("lyrics_provenance = ?")
+            params.append(lyrics_provenance)
         if not updates:
             return
         params.append(song_id)

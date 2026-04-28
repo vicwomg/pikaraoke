@@ -4,6 +4,7 @@ import contextlib
 import logging
 import os
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
@@ -98,8 +99,17 @@ class LibraryScanner:
     CIRCUIT_BREAKER_THRESHOLD = 0.5
     _METADATA_KEY = "last_scan_directory"
 
-    def __init__(self, db: KaraokeDatabase) -> None:
+    def __init__(
+        self,
+        db: KaraokeDatabase,
+        on_provenance_classified: Callable[[], None] | None = None,
+    ) -> None:
         self._db = db
+        # Optional callback fired right after _backfill_artifacts populates
+        # lyrics_provenance for newly-classified .ass files. The startup
+        # invalidator hangs off this seam so it sees those classifications
+        # before _verify_integrity runs.
+        self._on_provenance_classified = on_provenance_classified
 
     def scan(self, songs_dir: str) -> ScanResult:
         """Synchronise the database with the filesystem.
@@ -190,6 +200,16 @@ class LibraryScanner:
         # Also handles songs just inserted above, so register_download-style
         # backfill runs once per song via a single pass.
         self._backfill_artifacts()
+
+        # Stale-aligner sweep runs here so it sees any lyrics_provenance
+        # values just stamped by _backfill_artifacts. Wired by Karaoke as
+        # _invalidate_stale_alignments_from_db; no-op when not provided
+        # (e.g. in scanner unit tests).
+        if self._on_provenance_classified is not None:
+            try:
+                self._on_provenance_classified()
+            except Exception:
+                logging.exception("Scan: stale-alignment sweep raised")
 
         # Walk artifacts to spot files that vanished or changed sha out-of-band
         # (user edited an .ass, mounted volume regenerated stems, etc.) and
@@ -313,6 +333,13 @@ class LibraryScanner:
     def _backfill_artifacts(self) -> None:
         """Register artifacts + info.json metadata for songs that lack them.
 
+        Also stamps ``lyrics_provenance`` on songs whose .ass file was just
+        discovered: ``discover_song_artifacts`` reads each .ass head once
+        and tags it ``auto_word`` (\\k present), ``auto_line`` (PiKaraoke
+        marker only), or ``user`` (no marker). The startup sweep relies
+        on this column to invalidate stale word-level files after a model
+        bump - see ``KaraokeDatabase.get_song_ids_for_realignment``.
+
         Imports are deferred to avoid pulling song_manager (which imports
         lyrics) at module-import time.
         """
@@ -328,6 +355,10 @@ class LibraryScanner:
         for song_id, path in missing:
             artifacts = discover_song_artifacts(path)
             self._db.upsert_artifacts(song_id, artifacts)
+            for artifact in artifacts:
+                provenance = artifact.get("lyrics_provenance")
+                if provenance:
+                    self._db.update_processing_config(song_id, lyrics_provenance=provenance)
             meta = _track_metadata_from_info_json(path)
             if meta:
                 # info.json is yt-dlp's output, so provenance = "youtube".

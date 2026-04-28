@@ -309,7 +309,23 @@ class LyricsService:
         can't interleave and leave the DB describing a file that's no
         longer on disk. ``_register_ass`` fires ``lyrics_upgraded`` which
         the splash uses to hot-swap the subtitle URL.
+
+        ``lyrics_provenance`` is derived from ``aligner_model``: present ⇒
+        word-level (``auto_word``), absent ⇒ line-level (``auto_line``).
+        The startup sweep (``Karaoke._invalidate_stale_alignments_from_db``)
+        reads it to decide which cached files to invalidate after a model
+        bump without touching line-level files.
         """
+        from pikaraoke.lib.karaoke_database import (
+            LYRICS_PROVENANCE_AUTO_LINE,
+            LYRICS_PROVENANCE_AUTO_WORD,
+        )
+
+        provenance = (
+            LYRICS_PROVENANCE_AUTO_WORD
+            if aligner_model is not None
+            else LYRICS_PROVENANCE_AUTO_LINE
+        )
         with self._tier_lock:
             current = self._tier_state.get(song_path, _TIER_NONE)
             if new_tier < current:
@@ -328,6 +344,7 @@ class LyricsService:
                 lyrics_source=lyrics_source,
                 aligner_model=aligner_model,
                 lyrics_sha=lyrics_sha,
+                lyrics_provenance=provenance,
             )
             logger.info(
                 "tier gate: %s wrote %s (tier=%s -> %s)",
@@ -344,6 +361,7 @@ class LyricsService:
         lyrics_source: str,
         aligner_model: str | None,
         lyrics_sha: str | None,
+        lyrics_provenance: str,
     ) -> None:
         """Record the written .ass in song_artifacts and stamp processing config.
 
@@ -366,6 +384,7 @@ class LyricsService:
             lyrics_source=lyrics_source,
             aligner_model=aligner_model,
             lyrics_sha=lyrics_sha,
+            lyrics_provenance=lyrics_provenance,
         )
         try:
             self._events.emit("lyrics_upgraded", song_path)
@@ -373,6 +392,8 @@ class LyricsService:
             logger.exception("failed to emit lyrics_upgraded for %s", song_path)
 
     def _register_user_ass(self, song_path: str) -> None:
+        from pikaraoke.lib.karaoke_database import LYRICS_PROVENANCE_USER
+
         if self._db is None:
             return
         song_id = self._db.get_song_id_by_path(song_path)
@@ -383,7 +404,11 @@ class LyricsService:
         # from auto-generated ones.
         try:
             self._db.update_processing_config(
-                song_id, lyrics_source="user_ass", aligner_model=None, lyrics_sha=None
+                song_id,
+                lyrics_source="user_ass",
+                aligner_model=None,
+                lyrics_sha=None,
+                lyrics_provenance=LYRICS_PROVENANCE_USER,
             )
         except Exception:
             logger.exception("failed to stamp user_ass lyrics_source for %s", song_path)
@@ -1328,9 +1353,7 @@ class LyricsService:
             else:
                 render_lrc = lrc
             aligner_id = self._aligner.model_id if self._aligner else None
-            ass = _words_to_ass_with_k_tags(
-                words, render_lrc, params=anim_params, aligner_model_id=aligner_id
-            )
+            ass = _words_to_ass_with_k_tags(words, render_lrc, params=anim_params)
             if ass:
                 from pikaraoke.lib.demucs_processor import CACHE_DIR
 
@@ -1458,7 +1481,6 @@ class LyricsService:
             words,
             synthetic_lrc,
             params=_anim_params_for_bpm(bpm),
-            aligner_model_id=aligner_id,
         )
         if not ass:
             return False
@@ -1537,7 +1559,6 @@ class LyricsService:
                 words,
                 lrc,
                 params=_anim_params_for_bpm(bpm),
-                aligner_model_id=f"whisper-{model_name}",
             )
             if not ass:
                 logger.info("Whisper fallback: ASS conversion failed for %s", song_path)
@@ -1819,12 +1840,10 @@ class LyricsService:
             return
 
         bpm = _estimate_bpm(audio_path)
-        aligner_model_id = self._aligner.model_id if self._aligner is not None else None
         ass = _words_to_ass_with_k_tags(
             aligned,
             consensus.lrc,
             params=_anim_params_for_bpm(bpm),
-            aligner_model_id=aligner_model_id,
         )
         if not ass:
             logger.info("consensus: ASS conversion failed for %s", basename)
@@ -2502,21 +2521,11 @@ _ASS_STYLE = (
 )
 
 
-def _ass_header(aligner_model_id: str | None = None) -> str:
-    """Produce the ASS [Script Info]/[V4+ Styles]/[Events] preamble.
-
-    When ``aligner_model_id`` is supplied, embed it as a ``; model_id:``
-    semicolon comment in the header. The startup scanner uses this
-    line as a stable canary to detect cached .ass files produced by an
-    older alignment model and unlink them eagerly (the alternative is
-    lazy per-playback re-alignment, which surprises the user with a
-    slow first replay after every model bump).
-    """
-    model_comment = f"; model_id: {aligner_model_id}\n" if aligner_model_id else ""
+def _ass_header() -> str:
+    """Produce the ASS [Script Info]/[V4+ Styles]/[Events] preamble."""
     return (
         "[Script Info]\n"
         f"Title: {ASS_MARKER}\n"
-        f"{model_comment}"
         "ScriptType: v4.00+\n"
         "PlayResX: 1920\n"
         "PlayResY: 1080\n"
@@ -2613,8 +2622,6 @@ def _words_to_ass_with_k_tags(
     words: list[Word],
     lrc: str,
     params: _AnimParams | None = None,
-    *,
-    aligner_model_id: str | None = None,
 ) -> str | None:
     """Rebuild ASS with \\kf karaoke tags on the current line, plain text on context lines.
 
@@ -2627,13 +2634,11 @@ def _words_to_ass_with_k_tags(
 
     ``params`` controls the decorative per-word pulse; when ``None`` the
     words render as plain \\kf fills with no scaling effect.
-    ``aligner_model_id`` is embedded as a ``; model_id:`` header comment
-    so the startup scanner can detect stale .ass files after a bump.
     """
     entries = _parse_lrc(lrc)
     if not entries:
         return None
-    out = [_ass_header(aligner_model_id=aligner_model_id)]
+    out = [_ass_header()]
     word_idx = 0
     for i, (start, text) in enumerate(entries):
         end = entries[i + 1][0] if i + 1 < len(entries) else start + _LAST_LINE_HOLD_S

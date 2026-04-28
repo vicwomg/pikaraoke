@@ -984,6 +984,53 @@ class TestTryWriteAssTiered:
         assert (tmp_path / "Foo---abc.ass").read_text() == "second"
         db.close()
 
+    def test_word_level_write_stamps_auto_word_provenance(self, tmp_path):
+        from pikaraoke.lib.lyrics import _TIER_WORD
+
+        song, db, service = self._service(tmp_path)
+        assert service._try_write_ass_tiered(
+            song,
+            _TIER_WORD,
+            "word",
+            lyrics_source="whisperx",
+            aligner_model="some-model",
+            lyrics_sha="x",
+        )
+        sid = db.get_song_id_by_path(song)
+        assert db.get_song_by_id(sid)["lyrics_provenance"] == "auto_word"
+        db.close()
+
+    def test_line_level_write_stamps_auto_line_provenance(self, tmp_path):
+        from pikaraoke.lib.lyrics import _TIER_LINE_LRC
+
+        song, db, service = self._service(tmp_path)
+        assert service._try_write_ass_tiered(
+            song,
+            _TIER_LINE_LRC,
+            "lrc",
+            lyrics_source="lrclib",
+            aligner_model=None,
+            lyrics_sha="x",
+        )
+        sid = db.get_song_id_by_path(song)
+        assert db.get_song_by_id(sid)["lyrics_provenance"] == "auto_line"
+        db.close()
+
+    def test_user_ass_register_stamps_user_provenance(self, tmp_path):
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+        song = tmp_path / "Foo---abc.mp4"
+        song.write_text("fake")
+        db = KaraokeDatabase(str(tmp_path / "u.db"))
+        db.insert_songs([{"file_path": str(song), "youtube_id": "abc", "format": "mp4"}])
+        # User-authored .ass on disk so the user-owned guard fires.
+        (tmp_path / "Foo---abc.ass").write_text("[Script Info]\nTitle: Aegisub\n")
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
+        service._register_user_ass(str(song))
+        sid = db.get_song_id_by_path(str(song))
+        assert db.get_song_by_id(sid)["lyrics_provenance"] == "user"
+        db.close()
+
 
 @pytest.fixture
 def song_with_metadata(tmp_path):
