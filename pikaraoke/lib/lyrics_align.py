@@ -14,12 +14,39 @@ the reference LRC and timings come from wav2vec2's phonetic alignment.
 """
 
 import logging
+from dataclasses import dataclass
 from difflib import SequenceMatcher
 
 from pikaraoke.lib import vad_probe
 from pikaraoke.lib.lyrics import Word, WordPart
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class DpResiduals:
+    """Diagnostic signals from ``_align_lines_to_anchors_dp``.
+
+    Surfaced alongside the line→anchor assignment so the prior-reliability
+    grader can score the LRC's trustworthiness without re-running the DP.
+
+    Attributes:
+        total_cost: optimal cumulative cost of the chosen assignment
+            (``best_total`` in the DP's selection step). Larger values
+            indicate the upstream LRC priors fought harder against the
+            audio onsets — a smell that the prior-reliability grader
+            uses as one of several signals.
+        max_anchor_shift: largest absolute drift between any anchored
+            line's LRC start and its assigned audio onset, in seconds.
+            Captures the worst-case timestamp error in the LRC.
+        rejected_anchors: number of LRC lines the DP chose to skip (no
+            anchor) rather than pin to an onset. A high rejection count
+            means most lines didn't have a credible audio match.
+    """
+
+    total_cost: float
+    max_anchor_shift: float
+    rejected_anchors: int
 
 
 # Fallback upper bound for the whole-song segment when the audio
@@ -157,9 +184,10 @@ def _detect_per_line_starts(
     if abs(initial) > _GLOBAL_OFFSET_MAX_S:
         return None
 
-    assignment = _align_lines_to_anchors_dp(lrc_lines, onsets)
-    if assignment is None:
+    dp_result = _align_lines_to_anchors_dp(lrc_lines, onsets)
+    if dp_result is None:
         return None
+    assignment, _residuals = dp_result
     filled = _interpolate_unanchored(assignment, lrc_lines)
     return [t - _KARAOKE_LEAD_IN_S for t in filled]
 
@@ -167,7 +195,7 @@ def _detect_per_line_starts(
 def _align_lines_to_anchors_dp(
     lrc_lines: list[tuple[float, float, str]],
     onsets: list[tuple[float, float]],
-) -> list[float | None] | None:
+) -> tuple[list[float | None], DpResiduals] | None:
     """Globally optimal monotonic line→onset assignment.
 
     State: ``dp[r][j]`` = minimum cumulative cost over all assignments
@@ -188,10 +216,12 @@ def _align_lines_to_anchors_dp(
     candidate filter typical Total Eclipse / Mam Tę Moc data runs in
     a few hundred thousand ops (sub-millisecond).
 
-    Returns ``[anchor_time | None]`` per LRC line or None when no
-    line was successfully anchored or the first anchored line's
-    implied shift exceeds ``_GLOBAL_OFFSET_MAX_S`` (preserves the
-    orchestrator's None fallback contract).
+    Returns ``([anchor_time | None], residuals)`` per LRC line, or
+    ``None`` when no line was successfully anchored or the first
+    anchored line's implied shift exceeds ``_GLOBAL_OFFSET_MAX_S``
+    (preserves the orchestrator's None fallback contract). The
+    residuals carry diagnostic signals used by the prior-reliability
+    grader (``_grade_priors``) without requiring a second DP pass.
     """
     n = len(lrc_lines)
     m = len(onsets)
@@ -289,7 +319,18 @@ def _align_lines_to_anchors_dp(
     shift = t - float(lrc_lines[idx][0])
     if abs(shift) > _GLOBAL_OFFSET_MAX_S:
         return None
-    return out
+
+    max_shift = max(
+        (abs(float(at) - float(lrc_lines[i][0])) for i, at in enumerate(out) if at is not None),
+        default=0.0,
+    )
+    rejected = sum(1 for at in out if at is None)
+    residuals = DpResiduals(
+        total_cost=float(best_total),
+        max_anchor_shift=float(max_shift),
+        rejected_anchors=int(rejected),
+    )
+    return out, residuals
 
 
 def _candidate_anchors(

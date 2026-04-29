@@ -7,6 +7,7 @@ import pytest
 
 from pikaraoke.lib.lyrics import Word, WordPart
 from pikaraoke.lib.lyrics_align import (
+    DpResiduals,
     _align_lines_to_anchors_dp,
     _detect_per_line_starts,
     _group_chars_by_word,
@@ -18,6 +19,18 @@ from pikaraoke.lib.lyrics_align import (
     map_whisper_to_reference,
     map_whisper_to_reference_by_lines,
 )
+
+
+def _dp_assignment(
+    lrc_lines: list[tuple[float, float, str]],
+    onsets: list[tuple[float, float]],
+) -> list[float | None] | None:
+    """Test helper: drop the residuals so the existing assertions still apply."""
+    result = _align_lines_to_anchors_dp(lrc_lines, onsets)
+    if result is None:
+        return None
+    assignment, _ = result
+    return assignment
 
 
 class TestNormalize:
@@ -793,7 +806,7 @@ class TestDPAlignment:
             (18.0, 22.0, "gamma gamma"),
         ]
         onsets = _onset_pairs([12.0, 16.0, 20.0])
-        out = _align_lines_to_anchors_dp(lrc, onsets)
+        out = _dp_assignment(lrc, onsets)
         assert out == [12.0, 16.0, 20.0]
 
     def test_dp_distributes_cluster_between_flanking_anchors(self):
@@ -812,7 +825,7 @@ class TestDPAlignment:
         # Only two onsets in the audio: clearly hosting one early and
         # one late line.
         onsets = _onset_pairs([12.0, 18.0])
-        out = _align_lines_to_anchors_dp(lrc, onsets)
+        out = _dp_assignment(lrc, onsets)
         assert out is not None
         # Both onsets get used somewhere - DP doesn't waste them.
         anchored = [t for t in out if t is not None]
@@ -830,7 +843,7 @@ class TestDPAlignment:
         # 5s anchor.
         lrc = [(10.0, 18.0, " ".join(["w"] * 8))]
         onsets = [(11.0, 11.5), (12.0, 17.0)]  # short, then long
-        out = _align_lines_to_anchors_dp(lrc, onsets)
+        out = _dp_assignment(lrc, onsets)
         assert out == [12.0]
 
     def test_dp_prefers_anchor_when_clearly_matching(self):
@@ -840,7 +853,7 @@ class TestDPAlignment:
         # anchor, never skip.
         lrc = [(10.0, 14.0, "the quick brown fox jumps")]
         onsets = _onset_pairs([10.5])
-        out = _align_lines_to_anchors_dp(lrc, onsets)
+        out = _dp_assignment(lrc, onsets)
         assert out == [10.5]
 
     def test_dp_falls_through_to_inherit_when_no_anchors_exist(self):
@@ -848,7 +861,7 @@ class TestDPAlignment:
         # The orchestrator's earlier no-onset gate would normally bail
         # out before reaching the DP, but the DP itself must not crash.
         lrc = [(10.0, 14.0, "a"), (14.0, 18.0, "b")]
-        out = _align_lines_to_anchors_dp(lrc, [])
+        out = _dp_assignment(lrc, [])
         assert out is None
 
     def test_dp_returns_none_when_first_anchor_offset_exceeds_cap(self):
@@ -857,7 +870,7 @@ class TestDPAlignment:
         # something we should silently propagate to all later lines.
         lrc = [(10.0, 14.0, "a")]
         onsets = _onset_pairs([45.0])
-        out = _align_lines_to_anchors_dp(lrc, onsets)
+        out = _dp_assignment(lrc, onsets)
         assert out is None
 
     def test_dp_preserves_per_verse_drift_case(self):
@@ -872,7 +885,7 @@ class TestDPAlignment:
         ]
         # +1.72 / +1.72 / -0.51 / +3.17 drift across verses.
         onsets = _onset_pairs([16.00, 22.68, 27.86, 37.71])
-        out = _align_lines_to_anchors_dp(lrc, onsets)
+        out = _dp_assignment(lrc, onsets)
         assert out == [16.00, 22.68, 27.86, 37.71]
 
     def test_dp_handles_first_few_lrc_lines_with_no_preceding_anchor(self):
@@ -887,7 +900,7 @@ class TestDPAlignment:
         ]
         # Single onset matches line 2 (within slack); too far for 0/1.
         onsets = _onset_pairs([50.5])
-        out = _align_lines_to_anchors_dp(lrc, onsets)
+        out = _dp_assignment(lrc, onsets)
         assert out[0] is None
         assert out[1] is None
         assert out[2] == 50.5
@@ -901,10 +914,42 @@ class TestDPAlignment:
             (12.5, 15.0, "main line three"),
         ]
         onsets = _onset_pairs([10.5, 13.0])
-        out = _align_lines_to_anchors_dp(lrc, onsets)
+        out = _dp_assignment(lrc, onsets)
         assert out[0] == 10.5
         assert out[2] == 13.0
         assert out[1] is None
+
+    def test_dp_returns_residuals_alongside_assignment(self):
+        # The grader (and any future telemetry) reads three signals from
+        # the DP without re-running it: total_cost, max_anchor_shift,
+        # rejected_anchors. A clean 1:1 anchoring must produce a
+        # plausible cost (small but non-negative) and zero rejections.
+        lrc = [
+            (10.0, 14.0, "alpha alpha"),
+            (14.0, 18.0, "beta beta"),
+        ]
+        onsets = _onset_pairs([12.0, 16.0])
+        result = _align_lines_to_anchors_dp(lrc, onsets)
+        assert result is not None
+        assignment, residuals = result
+        assert assignment == [12.0, 16.0]
+        assert isinstance(residuals, DpResiduals)
+        assert residuals.rejected_anchors == 0
+        assert residuals.max_anchor_shift == pytest.approx(2.0, abs=0.01)
+        assert residuals.total_cost >= 0.0
+
+    def test_dp_residuals_count_skipped_lines(self):
+        # Filler line skipped → rejected_anchors == 1.
+        lrc = [
+            (10.0, 12.0, "main line one"),
+            (12.0, 12.5, "x"),  # filler the DP skips
+            (12.5, 15.0, "main line three"),
+        ]
+        onsets = _onset_pairs([10.5, 13.0])
+        result = _align_lines_to_anchors_dp(lrc, onsets)
+        assert result is not None
+        _, residuals = result
+        assert residuals.rejected_anchors == 1
 
 
 class TestInterpolation:
