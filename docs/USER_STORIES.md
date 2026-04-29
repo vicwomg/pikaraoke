@@ -702,3 +702,57 @@ re-classification on startup. The probe re-runs, `songs.language` is
 overwritten if it disagrees, and the `.ass` + `lyrics_sha` are
 cleared to force a clean re-fetch. This piggybacks on the existing
 `whisperx_initial_reprocess_done` sentinel (US-17).
+
+### US-45 Mobile lyrics panel
+
+As a mobile user, when a song is playing, I see scrollable lyrics on
+the expanded now-playing panel with the current line highlighted, so
+I can sing along on my phone without needing to look at the splash
+screen. Primary use case: setups without a visible TV/projector, or
+shared-phone setups where the next-up singer wants to follow along.
+The splash remains the canonical lyrics surface when present (see
+US-25 / US-25b).
+
+**Behaviour:**
+
+- The panel appears whenever `now_playing_subtitle_url` is set on the
+  payload. The cover art shrinks to a 64 px thumbnail above the
+  panel; tapping a collapse toggle restores the full-size cover
+  without losing the underlying lyrics state.
+- The active line is amber and auto-centered. Sync is driven by the
+  `playback_position` socket events at ~1 Hz — sufficient for
+  line-level switching on the typical 2–5 s karaoke line. Word-level
+  fill (when the alignment provides `\kf` chunks) interpolates
+  between socket ticks at ~16 fps using a `background-clip: text`
+  gradient, capped to keep low-end phones smooth.
+- Manual scroll pauses auto-centering for ~3 s of idle, then resumes
+  on the next line change. iOS momentum scroll handled via
+  `scrollend` (with a `scroll`-event fallback).
+- The subtitle-offset slider re-syncs the highlight immediately via
+  `preferences_update`, without waiting for the next 1 Hz position
+  tick.
+- Admin users can tap any line to seek the splash to that line's
+  start time (keyboard-accessible via Enter/Space).
+- Composes with the subtitle source picker (US-43 / cozy-swan):
+  changing source bumps the `?v=` cache-buster, triggering an
+  abort + refetch + rebuild via the same code path. Picking `off`
+  clears the panel and restores the full cover, mirroring the
+  splash's own off-mode.
+
+**Robustness:**
+
+- The lyrics panel deliberately does not gate on the server's
+  `is_paused` flag — the splash can resume playback through
+  channels the server doesn't observe (e.g., the splash's own
+  controls), which would leave `is_paused` stale. The word-level
+  fill animation instead exits when socket position events go
+  quiet for >1.8 s, which is the only honest "audio actually
+  stopped" signal.
+- All lyric text is set via `textContent`, never `innerHTML`. Even
+  though the `.ass` file is server-generated, the lyric strings are
+  user-derived (LRClib / Genius / etc.) and must not be parsed as
+  HTML.
+- Pure ASS parsing logic lives in `pikaraoke/static/js/lyrics-parse.js`
+  as a side-effect-free ES module, with vitest unit coverage for
+  the rolling-window hot-segment extraction and `\kf` chunk parsing
+  (including the pulse-tag-injected first chunk per word).

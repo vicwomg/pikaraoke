@@ -56,10 +56,16 @@ Only support these two patterns.
 
 ## Testing
 
-- pytest with mocked external I/O and subprocess operations only
-- Test business logic and integration points
-- Skip trivial getters/setters
-- Use real `EventSystem` and `PreferenceManager` instances (they're lightweight)
+- **Python:** pytest with mocked external I/O and subprocess operations only.
+  - Test business logic and integration points
+  - Skip trivial getters/setters
+  - Use real `EventSystem` and `PreferenceManager` instances (they're lightweight)
+  - Run with `uv run pytest tests/`
+- **JavaScript:** vitest for pure helpers and parsers (no DOM mocking — extract
+  pure logic into ES modules and test it in isolation; leave DOM/socket glue to
+  manual end-to-end runs).
+  - Test files live in `tests/js/`
+  - Run with `npx vitest run` or `npm run test:js`
 
 ## Code Quality
 
