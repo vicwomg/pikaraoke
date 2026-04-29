@@ -26,3 +26,6 @@ docker-compose.yml
 # Briefcase build artifacts
 *.briefcase.toml
 .gstack/
+
+# JS test infra
+node_modules/
