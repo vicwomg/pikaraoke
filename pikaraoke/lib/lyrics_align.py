@@ -751,6 +751,20 @@ class WhisperXAligner:
         """
         return "wav2vec2-char-vad-dpalign"
 
+    @property
+    def model_name(self) -> str:
+        """Alias for ``model_id`` so the consensus and legacy alignment
+        paths persist the same identifier in ``aligner_model``.
+
+        The legacy path reads ``self._aligner.model_id`` directly; the
+        consensus orchestrator reads ``getattr(..., "model_name", None)``.
+        Without this alias the two paths would store different values
+        and the DB-driven invalidation sweep
+        (``get_song_ids_for_realignment``) would mis-classify which
+        cached ASS files need re-aligning after a model bump.
+        """
+        return self.model_id
+
     def align(
         self,
         audio_path: str,

@@ -439,6 +439,16 @@ class TestWhisperXAligner:
         aligner = WhisperXAligner(device="cpu")
         assert aligner.model_id == "wav2vec2-char-vad-dpalign"
 
+    def test_model_name_aliases_model_id(self, fake_whisperx):
+        # Both alignment paths must persist the same identifier in
+        # ``aligner_model`` so the DB invalidation sweep classifies
+        # cached ASS files correctly. The legacy path reads
+        # ``model_id``; the consensus path reads ``model_name``.
+        from pikaraoke.lib.lyrics_align import WhisperXAligner
+
+        aligner = WhisperXAligner(device="cpu")
+        assert aligner.model_name == aligner.model_id
+
     def test_no_shift_when_no_leading_silence(self, fake_whisperx, monkeypatch):
         # vad_probe returns nothing - no anchors to lock against, so
         # the aligner runs without modification.
