@@ -524,3 +524,136 @@
   flex: 1;
   accent-color: var(--pk-amber);
 }
+
+/* ====== Lyrics panel ====== */
+
+.pk-lyrics-panel {
+  flex: 1 1 0;
+  min-height: 0;
+  position: relative;
+  padding: 0 24px;
+  overflow: hidden;
+}
+.pk-lyrics-panel[hidden] { display: none; }
+
+.pk-lyrics-scroll {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 40px 0;
+}
+.pk-lyrics-scroll::-webkit-scrollbar { display: none; }
+
+.pk-lyrics-panel::before,
+.pk-lyrics-panel::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 40px;
+  pointer-events: none;
+  z-index: 1;
+}
+.pk-lyrics-panel::before {
+  top: 0;
+  background: linear-gradient(to bottom, var(--pk-bg), transparent);
+}
+.pk-lyrics-panel::after {
+  bottom: 0;
+  background: linear-gradient(to top, var(--pk-bg), transparent);
+}
+
+/* Hold font-size constant; animate transform + color only. font-size
+   transitions re-layout per step on lower-end Android, causing flicker. */
+.pk-lyric-line {
+  text-align: center;
+  padding: 10px 0;
+  margin: 0;
+  font-family: var(--pk-font-display);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--pk-ink-3);
+  line-height: 1.4;
+  word-break: normal;
+  hyphens: none;
+  transition: color 0.2s ease;
+}
+.pk-lyric-line.is-active {
+  color: var(--pk-amber);
+  font-weight: 600;
+}
+
+/* Word-level fill: amber up to --pk-fill-pct, dim ink after. The
+   background-clip: text trick paints the text itself as the gradient. */
+.pk-lyric-line.is-active.has-words {
+  background: linear-gradient(
+    to right,
+    var(--pk-amber) 0%,
+    var(--pk-amber) var(--pk-fill-pct, 0%),
+    var(--pk-ink-3) var(--pk-fill-pct, 0%),
+    var(--pk-ink-3) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.pk-lyric-line.is-tappable {
+  cursor: pointer;
+}
+.pk-lyric-line.is-tappable:hover {
+  color: var(--pk-ink);
+}
+.pk-lyric-line.is-active.is-tappable:hover {
+  color: var(--pk-amber);
+}
+.pk-lyric-line.is-tappable:focus-visible {
+  outline: 2px solid var(--pk-amber);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pk-lyric-line {
+    transition: none;
+  }
+  .pk-lyric-line.is-active.has-words {
+    background: none;
+    -webkit-text-fill-color: var(--pk-amber);
+    color: var(--pk-amber);
+  }
+  .pk-lyrics-scroll {
+    scroll-behavior: auto;
+  }
+}
+
+/* Cover thumbnail mode — only when lyrics are present and not collapsed. */
+.pk-player-full.has-lyrics:not(.has-lyrics-collapsed) .pk-player-cover-wrap {
+  padding: 12px 40px 8px;
+}
+.pk-player-full.has-lyrics:not(.has-lyrics-collapsed) .pk-player-cover {
+  width: 64px;
+  height: 64px;
+  min-height: 0;
+}
+.pk-player-full.has-lyrics:not(.has-lyrics-collapsed) .pk-player-cover .icon {
+  font-size: 32px !important;
+}
+
+/* Collapsed mode: user tapped the toggle — panel hidden, cover restores. */
+.pk-player-full.has-lyrics.has-lyrics-collapsed .pk-lyrics-panel {
+  display: none;
+}
+
+/* Toggle button — positions the existing .pk-icon-btn at top-right of
+   the panel. Touch target meets WCAG 2.5.5 / Apple HIG (44px min). */
+.pk-lyrics-toggle {
+  position: absolute;
+  top: 0;
+  right: 8px;
+  z-index: 2;
+  min-width: 44px;
+  min-height: 44px;
+}

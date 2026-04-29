@@ -23,6 +23,22 @@
     seekDuration: 0,
     seekBufferedDemucs: null,
     seekBufferedFfmpeg: null,
+    // Lyrics panel
+    lyrics: [],
+    lyricsUrl: null,
+    lyricsActiveIdx: -1,
+    lyricsActiveEl: null,
+    lyricsUserScrolled: false,
+    lyricsScrollTimer: null,
+    lyricsAutoScrollUntil: 0,
+    lyricsPosition: 0,
+    lyricsAbort: null,
+    lyricsHidden: false,
+    reduceMotion: false,
+    rafId: null,
+    rafLastTickTs: 0,
+    rafLastSocketPos: 0,
+    lastFillPct: -1,
   };
 
   function init(opts = {}) {
@@ -61,6 +77,33 @@
     el.processing = el.full.querySelector('[data-pk-processing]');
     el.processingLabel = el.full.querySelector('[data-pk-processing-label]');
 
+    el.lyricsPanel = el.full.querySelector('#pk-lyrics-panel');
+    el.lyricsScroll = el.full.querySelector('[data-pk-lyrics-scroll]');
+    el.lyricsToggleBtn = el.full.querySelector('[data-pk-lyrics-toggle]');
+    el.lyricsToggleIcon = el.full.querySelector('[data-pk-lyrics-toggle-icon]');
+
+    // Cache the reduced-motion preference once (avoid creating a fresh
+    // MediaQueryList per scroll tick). Listen for changes so the value
+    // stays current if the user toggles it mid-session.
+    if (window.matchMedia) {
+      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      state.reduceMotion = mq.matches;
+      const onMqChange = (e) => { state.reduceMotion = e.matches; };
+      if (mq.addEventListener) mq.addEventListener('change', onMqChange);
+      else if (mq.addListener) mq.addListener(onMqChange);
+    }
+
+    if (el.lyricsScroll) {
+      const evtName = 'onscrollend' in el.lyricsScroll ? 'scrollend' : 'scroll';
+      el.lyricsScroll.addEventListener(evtName, noteUserScroll, { passive: true });
+      // Tap-to-seek: admin-only delegated click + keyboard handler.
+      el.lyricsScroll.addEventListener('click', onLyricLineActivate);
+      el.lyricsScroll.addEventListener('keydown', onLyricLineKeydown);
+    }
+    if (el.lyricsToggleBtn) {
+      el.lyricsToggleBtn.addEventListener('click', toggleLyricsCollapsed);
+    }
+
     if (!state.isAdmin) {
       el.full.querySelectorAll('[data-admin]').forEach((n) => (n.hidden = true));
       if (el.miniPlayBtn) el.miniPlayBtn.hidden = true;
@@ -90,6 +133,9 @@
 
       window.socket.off('ffmpeg_progress', onFfmpegProgress);
       window.socket.on('ffmpeg_progress', onFfmpegProgress);
+
+      window.socket.off('preferences_update', onPreferencesUpdate);
+      window.socket.on('preferences_update', onPreferencesUpdate);
     }
 
     document.addEventListener('visibilitychange', () => {
@@ -173,12 +219,18 @@
       const pct = Math.min(100, Math.max(0, (pos / state.seekDuration) * 100));
       el.mini.style.setProperty('--pk-progress', pct + '%');
     }
+    state.lyricsPosition = pos;
+    anchorWordFillClock();
+    tickLyrics(pos);
   }
 
   function onSeek(pos) {
     if (state.seekDragging || !el.seekSlider) return;
     el.seekSlider.value = pos;
     if (el.seekCurrent) el.seekCurrent.textContent = fmtTime(pos);
+    state.lyricsPosition = pos;
+    anchorWordFillClock();
+    tickLyrics(pos);
   }
 
   function onDemucsProgress(data) {
@@ -228,6 +280,7 @@
       el.mini.hidden = true;
       document.body.classList.remove('pk-has-mini-player');
       setProcessingIndicator(null);
+      clearLyrics();
       if (el.full.classList.contains('is-open')) close();
       return;
     }
@@ -275,6 +328,8 @@
         el.subOffsetVal.textContent = data.subtitle_offset.toFixed(2) + 's';
       }
     }
+
+    updateLyrics(data);
 
     if (!stemsReady && data.volume != null && el.fullVolume && document.activeElement !== el.fullVolume) {
       el.fullVolume.value = data.volume;
@@ -618,12 +673,23 @@
   function open() {
     if (!state.data || !state.data.now_playing) return;
     el.full.hidden = false;
-    requestAnimationFrame(() => el.full.classList.add('is-open'));
+    requestAnimationFrame(() => {
+      el.full.classList.add('is-open');
+      // Re-center the active line on open: the panel was hidden, so any
+      // prior scrollIntoView calls were no-ops on a 0-height container.
+      requestAnimationFrame(() => {
+        state.lyricsUserScrolled = false;
+        scrollActiveIntoView();
+      });
+    });
   }
 
   function close() {
     el.full.classList.remove('is-open');
     setTimeout(() => (el.full.hidden = true), 400);
+    clearTimeout(state.lyricsScrollTimer);
+    state.lyricsUserScrolled = false;
+    stopWordFillRaf();
   }
 
   function formatSemitones(n) {
@@ -651,6 +717,359 @@
 
   function clamp(n, lo, hi) {
     return Math.max(lo, Math.min(hi, n));
+  }
+
+  // ===================== Lyrics panel =====================
+
+  function lyricsParseModule() {
+    return (window.PK && window.PK.LyricsParse) || null;
+  }
+
+  // render() writes state.data first, then calls sub-updates. updateLyrics
+  // reads data.* directly (not state.data) so it sees this song's payload
+  // even on the first call. tickLyrics reads state.data?.subtitle_offset,
+  // which is fresh by the time updateLyrics runs.
+  function updateLyrics(data) {
+    if (!el.lyricsPanel || !el.lyricsScroll) return;
+
+    if (data && data.subtitle_source_override === 'off') {
+      clearLyrics();
+      return;
+    }
+
+    const url = data && data.now_playing_subtitle_url;
+    if (!url) {
+      clearLyrics();
+      return;
+    }
+
+    if (url === state.lyricsUrl) {
+      // Same URL — pause/resume rAF if is_paused flipped, otherwise nothing.
+      syncWordFillRaf();
+      return;
+    }
+
+    // (A) Capture URL synchronously and shrink the cover immediately so the
+    // user sees the panel placeholder before the fetch returns.
+    state.lyricsUrl = url;
+    el.full.classList.add('has-lyrics');
+    showLyricsPanel();
+
+    if (state.lyricsAbort) state.lyricsAbort.abort();
+    const ac = new AbortController();
+    state.lyricsAbort = ac;
+
+    // Seed lyricsPosition from the now_playing payload so a mid-song open
+    // (e.g., visibility change) doesn't tick from t=0.
+    const seedPos = (data && typeof data.now_playing_position === 'number')
+      ? data.now_playing_position : state.lyricsPosition;
+    state.lyricsPosition = seedPos;
+
+    fetch(url, { signal: ac.signal })
+      .then((r) => (r.ok ? r.text() : ''))
+      .then((text) => {
+        // (B) Bail if a newer fetch has taken over while we were awaiting.
+        if (state.lyricsUrl !== url) return;
+        const mod = lyricsParseModule();
+        const lines = mod ? mod.parseAss(text) : [];
+        if (!lines.length) {
+          clearLyrics();
+          return;
+        }
+        state.lyrics = lines;
+        buildLyricsDom(lines);
+        // Cold start: if the first line begins ~immediately, light it now
+        // so the user isn't staring at an unlit panel until the first
+        // playback_position event arrives.
+        if (state.lyricsPosition <= 0 && lines[0].start <= 0.5) {
+          setActiveLine(0);
+        } else {
+          tickLyrics(state.lyricsPosition);
+        }
+      })
+      .catch((err) => {
+        // (C) AbortError is the expected unwind on song-change — never
+        // call clearLyrics() on it, or a fast skip would wipe the next
+        // song's panel mid-build.
+        if (err && err.name === 'AbortError') return;
+        clearLyrics();
+      });
+  }
+
+  function buildLyricsDom(lines) {
+    if (!el.lyricsScroll) return;
+    el.lyricsScroll.textContent = '';
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < lines.length; i++) {
+      const p = document.createElement('p');
+      p.className = 'pk-lyric-line';
+      p.dataset.pkLyricIdx = String(i);
+      p.textContent = lines[i].text;
+      if (state.isAdmin) {
+        p.setAttribute('role', 'button');
+        p.tabIndex = 0;
+        p.classList.add('is-tappable');
+      }
+      frag.appendChild(p);
+    }
+    el.lyricsScroll.appendChild(frag);
+    state.lyricsActiveIdx = -1;
+    state.lyricsActiveEl = null;
+  }
+
+  function tickLyrics(pos) {
+    if (!state.lyrics.length) return;
+    const offset = (state.data && typeof state.data.subtitle_offset === 'number')
+      ? state.data.subtitle_offset : 0;
+    const t = (pos || 0) + offset;
+    const mod = lyricsParseModule();
+    const idx = mod ? mod.findActiveLineIdx(state.lyrics, t) : -1;
+    setActiveLine(idx);
+    paintWordFill(t);
+    syncWordFillRaf();
+  }
+
+  function setActiveLine(idx) {
+    if (idx === state.lyricsActiveIdx) return;
+    if (state.lyricsActiveEl) {
+      state.lyricsActiveEl.classList.remove('is-active', 'has-words');
+      state.lyricsActiveEl.style.removeProperty('--pk-fill-pct');
+    }
+    state.lastFillPct = -1;
+    state.lyricsActiveIdx = idx;
+    if (idx < 0 || !el.lyricsScroll) {
+      state.lyricsActiveEl = null;
+      return;
+    }
+    const node = el.lyricsScroll.querySelector(
+      '.pk-lyric-line[data-pk-lyric-idx="' + idx + '"]'
+    );
+    state.lyricsActiveEl = node || null;
+    if (node) {
+      node.classList.add('is-active');
+      const line = state.lyrics[idx];
+      if (line && line.words && line.words.length) {
+        node.classList.add('has-words');
+      }
+      scrollActiveIntoView();
+    }
+  }
+
+  function scrollActiveIntoView() {
+    if (state.lyricsUserScrolled) return;
+    if (!state.lyricsActiveEl || !el.lyricsScroll) return;
+    if (el.lyricsPanel && el.lyricsPanel.hidden) return;
+    state.lyricsAutoScrollUntil = (typeof performance !== 'undefined'
+      ? performance.now() : Date.now()) + 800;
+    state.lyricsActiveEl.scrollIntoView({
+      behavior: state.reduceMotion ? 'auto' : 'smooth',
+      block: 'center',
+    });
+  }
+
+  function noteUserScroll() {
+    const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    if (now < state.lyricsAutoScrollUntil) return;
+    state.lyricsUserScrolled = true;
+    clearTimeout(state.lyricsScrollTimer);
+    state.lyricsScrollTimer = setTimeout(() => {
+      state.lyricsUserScrolled = false;
+    }, 3000);
+  }
+
+  function clearLyrics() {
+    if (state.lyricsAbort) {
+      state.lyricsAbort.abort();
+      state.lyricsAbort = null;
+    }
+    state.lyrics = [];
+    state.lyricsUrl = null;
+    state.lyricsActiveIdx = -1;
+    state.lyricsActiveEl = null;
+    state.lyricsHidden = false;
+    state.lyricsPosition = 0;
+    if (el.lyricsScroll) el.lyricsScroll.textContent = '';
+    if (el.lyricsPanel) el.lyricsPanel.hidden = true;
+    if (el.full) el.full.classList.remove('has-lyrics', 'has-lyrics-collapsed');
+    setLyricsToggleIcon(false);
+    stopWordFillRaf();
+    clearTimeout(state.lyricsScrollTimer);
+    state.lyricsUserScrolled = false;
+  }
+
+  function showLyricsPanel() {
+    if (!el.lyricsPanel) return;
+    el.lyricsPanel.hidden = false;
+  }
+
+  function toggleLyricsCollapsed() {
+    state.lyricsHidden = !state.lyricsHidden;
+    if (!el.full) return;
+    el.full.classList.toggle('has-lyrics-collapsed', state.lyricsHidden);
+    setLyricsToggleIcon(state.lyricsHidden);
+    if (!state.lyricsHidden) {
+      // Re-expanding: scroll the active line back into view on the next frame.
+      requestAnimationFrame(() => {
+        state.lyricsUserScrolled = false;
+        scrollActiveIntoView();
+      });
+    }
+  }
+
+  function setLyricsToggleIcon(collapsed) {
+    if (!el.lyricsToggleIcon || !el.lyricsToggleBtn) return;
+    el.lyricsToggleIcon.classList.toggle('icon-angle-up', !collapsed);
+    el.lyricsToggleIcon.classList.toggle('icon-angle-down', collapsed);
+    el.lyricsToggleBtn.setAttribute(
+      'aria-label', collapsed ? 'Show lyrics' : 'Hide lyrics'
+    );
+  }
+
+  // Tap-to-seek on a lyric line — admin only. Delegated on the scroll
+  // container so a single listener covers all lines without per-build wiring.
+  function onLyricLineActivate(e) {
+    if (!state.isAdmin) return;
+    const node = e.target.closest('.pk-lyric-line.is-tappable');
+    if (!node) return;
+    const idx = parseInt(node.dataset.pkLyricIdx, 10);
+    if (!isFinite(idx) || idx < 0 || idx >= state.lyrics.length) return;
+    const line = state.lyrics[idx];
+    if (!line) return;
+    if (window.socket) window.socket.emit('seek', line.start);
+  }
+
+  function onLyricLineKeydown(e) {
+    if (!state.isAdmin) return;
+    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    const node = e.target.closest('.pk-lyric-line.is-tappable');
+    if (!node) return;
+    e.preventDefault();
+    onLyricLineActivate(e);
+  }
+
+  // preferences_update fires when any pilot drags the subtitle-offset
+  // slider. Re-tick immediately so the highlight re-aligns without
+  // waiting for the next playback_position event (~1 Hz away).
+  function onPreferencesUpdate(data) {
+    if (!data || typeof data.subtitle_offset !== 'number') return;
+    if (state.data) state.data.subtitle_offset = data.subtitle_offset;
+    anchorWordFillClock();
+    tickLyrics(state.lyricsPosition);
+  }
+
+  // ===== Word-level fill (rAF interpolation) =====
+
+  function anchorWordFillClock() {
+    state.rafLastTickTs = (typeof performance !== 'undefined'
+      ? performance.now() : Date.now());
+    state.rafLastSocketPos = state.lyricsPosition;
+  }
+
+  // We deliberately do NOT key the rAF lifecycle off state.data.is_paused.
+  // The server's is_paused can lag actual splash playback (e.g., user
+  // resumes via the splash's own controls without going through the
+  // pilot's /pause endpoint). If we trusted is_paused we'd kill the
+  // word-fill animation while audio is still playing, which reads as
+  // stutter on the phone. Instead, the rAF tick exits when socket
+  // position events go stale — that's the real signal for "audio
+  // stopped advancing".
+  function syncWordFillRaf() {
+    const line = state.lyrics[state.lyricsActiveIdx];
+    const hasWords = !!(line && line.words && line.words.length);
+    if (hasWords && state.lyricsActiveEl) {
+      startWordFillRaf();
+    } else {
+      stopWordFillRaf();
+    }
+  }
+
+  // Cap word-fill paint rate. 60 fps `background-clip: text` repaints on
+  // a multi-line element thrash low-end phones (visible stutter). 60 ms
+  // ≈ 16 fps still reads as smooth for word-by-word fill.
+  const WORD_FILL_PAINT_INTERVAL_MS = 60;
+  // playback_position is broadcast at ~1 Hz. If we go this long without
+  // a socket update, treat the splash as actually-stopped and freeze the
+  // fill — otherwise the local clock would drift past the real position.
+  const POSITION_STALE_MS = 1800;
+
+  function startWordFillRaf() {
+    if (state.rafId !== null) return;
+    anchorWordFillClock();
+    let lastPaint = 0;
+    const tick = (now) => {
+      if (state.lyricsActiveIdx < 0 || !state.lyricsActiveEl) {
+        state.rafId = null;
+        return;
+      }
+      const line = state.lyrics[state.lyricsActiveIdx];
+      if (!line || !line.words || !line.words.length) {
+        state.rafId = null;
+        return;
+      }
+      // Stop interpolating when socket position events have gone quiet
+      // — the splash is paused for real (or disconnected). Next
+      // playback_position event re-arms the rAF via syncWordFillRaf.
+      if (now - state.rafLastTickTs > POSITION_STALE_MS) {
+        state.rafId = null;
+        return;
+      }
+      if (now - lastPaint >= WORD_FILL_PAINT_INTERVAL_MS) {
+        const elapsed = (now - state.rafLastTickTs) / 1000;
+        const offset = (state.data && typeof state.data.subtitle_offset === 'number')
+          ? state.data.subtitle_offset : 0;
+        const t = state.rafLastSocketPos + elapsed + offset;
+        paintWordFill(t);
+        lastPaint = now;
+      }
+      state.rafId = requestAnimationFrame(tick);
+    };
+    state.rafId = requestAnimationFrame(tick);
+  }
+
+  function stopWordFillRaf() {
+    if (state.rafId !== null) {
+      cancelAnimationFrame(state.rafId);
+      state.rafId = null;
+    }
+  }
+
+  // Paint one frame of the active line's amber fill. t is the offset-
+  // adjusted playback time. Computes the global percentage of the line
+  // text that should be amber, writes to the --pk-fill-pct custom prop.
+  // Skips the DOM write when pct hasn't moved meaningfully — repainting
+  // the same gradient costs as much as repainting a new one.
+  function paintWordFill(t) {
+    if (state.lyricsActiveIdx < 0 || !state.lyricsActiveEl) return;
+    const line = state.lyrics[state.lyricsActiveIdx];
+    if (!line || !line.words || !line.words.length) return;
+
+    let totalChars = 0;
+    for (const w of line.words) totalChars += w.text.length;
+    if (totalChars <= 0) return;
+
+    let charsBefore = 0;
+    let pct = 0;
+    if (t <= line.words[0].start) {
+      pct = 0;
+    } else {
+      pct = 100;
+      for (let i = 0; i < line.words.length; i++) {
+        const w = line.words[i];
+        if (t >= w.end) {
+          charsBefore += w.text.length;
+          continue;
+        }
+        const span = Math.max(0.001, w.end - w.start);
+        const wordProgress = Math.max(0, Math.min(1, (t - w.start) / span));
+        pct = ((charsBefore + wordProgress * w.text.length) / totalChars) * 100;
+        break;
+      }
+    }
+    if (Math.abs(pct - state.lastFillPct) < 0.5) return;
+    state.lastFillPct = pct;
+    state.lyricsActiveEl.style.setProperty(
+      '--pk-fill-pct', pct.toFixed(1) + '%'
+    );
   }
 
   window.PK.NowPlaying = { init, open, close };

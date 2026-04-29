@@ -29,6 +29,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/now-playing.css') }}">
 
   <script src="{{ url_for('static', filename='js/dialog.js') }}"></script>
+  <script type="module" src="{{ url_for('static', filename='js/lyrics-parse.js') }}"></script>
   <script src="{{ url_for('static', filename='js/now-playing-bar.js') }}"></script>
 
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/microphone.png') }}">
@@ -446,6 +447,17 @@
       <div class="pk-player-cover" data-pk-cover>
         <i class="icon icon-music" style="font-size: 96px; color: var(--pk-amber); display: grid; place-items: center; height: 100%;"></i>
       </div>
+    </div>
+
+    {# Lyrics panel — populated from #now_playing_subtitle_url when present. #}
+    <div id="pk-lyrics-panel" class="pk-lyrics-panel" hidden aria-live="off" aria-label="Lyrics">
+      <button type="button"
+              class="pk-icon-btn pk-lyrics-toggle"
+              data-pk-lyrics-toggle
+              aria-label="Hide lyrics">
+        <i class="icon icon-angle-up" aria-hidden="true" data-pk-lyrics-toggle-icon></i>
+      </button>
+      <div class="pk-lyrics-scroll" data-pk-lyrics-scroll></div>
     </div>
 
     <div class="pk-player-track">
