@@ -8,8 +8,10 @@ import pytest
 from pikaraoke.lib.lyrics import Word, WordPart
 from pikaraoke.lib.lyrics_align import (
     DpResiduals,
+    _RELIABILITY_GATE,
     _align_lines_to_anchors_dp,
     _detect_per_line_starts,
+    _grade_priors,
     _group_chars_by_word,
     _interpolate_gaps,
     _interpolate_unanchored,
@@ -950,6 +952,73 @@ class TestDPAlignment:
         assert result is not None
         _, residuals = result
         assert residuals.rejected_anchors == 1
+
+
+class TestGradePriors:
+    def _lrc(self, n: int) -> list[tuple[float, float, str]]:
+        return [(float(i * 4), float(i * 4 + 4), f"line {i}") for i in range(n)]
+
+    def test_neutral_when_no_signals(self):
+        # No audio probe, no LRC metadata, no DP run yet → 0.5.
+        score = _grade_priors(
+            audio_duration_s=None,
+            lrc_lines=self._lrc(8),
+            lrc_metadata_duration_s=None,
+            dp_residuals=None,
+        )
+        assert score == 0.5
+
+    def test_high_confidence_short_song(self):
+        # Audio matches LRC metadata, no DP residuals available → score
+        # ≥ 0.85 keeps the song on the fast path.
+        score = _grade_priors(
+            audio_duration_s=210.0,
+            lrc_lines=self._lrc(20),
+            lrc_metadata_duration_s=210.0,
+            dp_residuals=None,
+        )
+        assert score >= 0.85
+        assert score >= _RELIABILITY_GATE
+
+    def test_low_confidence_duration_mismatch(self):
+        # 4:30 LRC vs 3:30 audio = 60s mismatch → score < 0.5 routes the
+        # song through the synthetic-LRC fallback.
+        score = _grade_priors(
+            audio_duration_s=210.0,
+            lrc_lines=self._lrc(20),
+            lrc_metadata_duration_s=270.0,
+            dp_residuals=None,
+        )
+        assert score < 0.5
+        assert score < _RELIABILITY_GATE
+
+    def test_dp_residuals_pull_score_down(self):
+        # Half the lines rejected and a 25s anchor shift should drag a
+        # song below the gate even when durations match.
+        residuals = DpResiduals(
+            total_cost=42.0, max_anchor_shift=25.0, rejected_anchors=10
+        )
+        score = _grade_priors(
+            audio_duration_s=210.0,
+            lrc_lines=self._lrc(20),
+            lrc_metadata_duration_s=210.0,
+            dp_residuals=residuals,
+        )
+        assert score < _RELIABILITY_GATE
+
+    def test_clean_dp_residuals_keep_high_confidence(self):
+        # Zero rejections, anchor shift inside the band → DP factors
+        # don't drag the score down.
+        residuals = DpResiduals(
+            total_cost=2.0, max_anchor_shift=2.0, rejected_anchors=0
+        )
+        score = _grade_priors(
+            audio_duration_s=210.0,
+            lrc_lines=self._lrc(20),
+            lrc_metadata_duration_s=210.0,
+            dp_residuals=residuals,
+        )
+        assert score >= 0.95
 
 
 class TestInterpolation:

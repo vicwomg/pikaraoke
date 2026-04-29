@@ -150,6 +150,97 @@ _DP_TEMPO_JUMP_SLACK_S = 4.0
 _DP_SKIP_COST_PER_WORD = 0.7
 
 
+# Threshold the consensus orchestrator uses to route a song between the
+# fast LRC-windowed alignment path and the synthetic-LRC fallback.
+# Songs whose ``_grade_priors`` score is at or above this threshold keep
+# the fast path (LRC timestamps drive the line-template fence in the
+# rendered ASS); below it, the line-template fence is rebuilt from the
+# whole-song wav2vec2 alignment so off-by-one upstream timestamps don't
+# bleed through. 0.75 is calibrated to route Total Eclipse's short edit
+# (60s LRC/audio duration mismatch) to the fallback while keeping
+# queen_iwtbf (clean LRC priors) on the fast path.
+_RELIABILITY_GATE = 0.75
+
+# Beyond this duration gap (LRCLib metadata vs probed audio), the
+# duration term in ``_grade_priors`` saturates to zero. 30s mirrors the
+# LRCLib /api/search filter so any LRC that survived fetch-time filtering
+# at least starts the grader with a non-zero duration factor.
+_GRADE_DURATION_TOLERANCE_S = 30.0
+
+# Anchor-shift slack inside which the DP's max shift contributes nothing
+# to the grader penalty. ``_DP_SHIFT_BAND_S`` already drives the DP cost,
+# so re-using the same band keeps the grader consistent with the
+# alignment math. Anchor shifts past 30s saturate the grader to zero.
+_GRADE_SHIFT_KILL_S = 30.0
+
+# Weighting of the three reliability terms. Duration is the strongest
+# signal (a clean LRC for a different edit fails it outright), so it
+# carries the bulk of the score. Shift and rejection share the rest.
+# Tuned so a 60s duration mismatch with no DP residuals lands below
+# ``_RELIABILITY_GATE`` and a clean fixture lands above 0.85.
+_GRADE_W_DURATION = 0.6
+_GRADE_W_SHIFT = 0.2
+_GRADE_W_REJECTION = 0.2
+
+
+def _grade_priors(
+    *,
+    audio_duration_s: float | None,
+    lrc_lines: list[tuple[float, float, str]],
+    lrc_metadata_duration_s: float | None,
+    dp_residuals: DpResiduals | None,
+) -> float:
+    """Score how trustworthy the upstream LRC priors look for this song.
+
+    The orchestrator routes ``score >= _RELIABILITY_GATE`` through the
+    fast LRC-windowed alignment path and ``score < _RELIABILITY_GATE``
+    through the synthetic-LRC fallback (whole-song wav2vec2, line fence
+    rebuilt from aligned words). When all three signals are missing the
+    score defaults to the neutral 0.5 — below the gate, so an unsigned
+    LRC flows through the safer fallback.
+
+    Args:
+        audio_duration_s: probed audio length, or None if the probe
+            failed. Pair with ``lrc_metadata_duration_s`` to compute the
+            duration-mismatch term.
+        lrc_lines: parsed LRC ``(start, end, text)`` rows. Used to
+            normalise the rejection count against the song's length.
+        lrc_metadata_duration_s: LRCLib's reported duration for the
+            chosen sync, or None.
+        dp_residuals: residuals from the most recent
+            ``_align_lines_to_anchors_dp`` run, or None.
+
+    Returns:
+        Score in [0.0, 1.0]; higher means LRC timestamps look reliable.
+    """
+    if audio_duration_s is None and lrc_metadata_duration_s is None and dp_residuals is None:
+        return 0.5
+
+    duration_factor = 1.0
+    if audio_duration_s is not None and lrc_metadata_duration_s is not None:
+        delta = abs(float(audio_duration_s) - float(lrc_metadata_duration_s))
+        duration_factor = max(0.0, 1.0 - delta / _GRADE_DURATION_TOLERANCE_S)
+
+    shift_factor = 1.0
+    rejection_factor = 1.0
+    if dp_residuals is not None:
+        excess = max(0.0, dp_residuals.max_anchor_shift - _DP_SHIFT_BAND_S)
+        shift_factor = max(
+            0.0, 1.0 - excess / max(1.0, _GRADE_SHIFT_KILL_S - _DP_SHIFT_BAND_S)
+        )
+        line_count = max(1, len(lrc_lines))
+        rejection_factor = max(
+            0.0, 1.0 - min(1.0, dp_residuals.rejected_anchors / line_count)
+        )
+
+    score = (
+        _GRADE_W_DURATION * duration_factor
+        + _GRADE_W_SHIFT * shift_factor
+        + _GRADE_W_REJECTION * rejection_factor
+    )
+    return max(0.0, min(1.0, score))
+
+
 def _detect_per_line_starts(
     audio_path: str, lrc_lines: list[tuple[float, float, str]]
 ) -> list[float] | None:
