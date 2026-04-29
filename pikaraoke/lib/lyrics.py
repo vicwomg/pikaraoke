@@ -2278,9 +2278,57 @@ class LyricsService:
             return
 
         bpm = _estimate_bpm(audio_path)
+
+        # Grader: route between fast LRC-windowed line template and the
+        # synthetic-LRC fallback. ``consensus.lrc`` carries timestamps
+        # from the upstream LRC source — when those are off-by-one
+        # against the audio (Total Eclipse short edit), they bleed into
+        # the rendered ASS no matter how good the per-word alignment is.
+        # Below the gate we rebuild the line template from the aligned
+        # words, mirroring the Genius path's pattern.
+        from pikaraoke.lib.lyrics_align import (
+            _RELIABILITY_GATE,
+            _grade_priors,
+            _probe_audio_duration,
+        )
+
+        audio_duration_s = _probe_audio_duration(audio_path)
+        parsed_lrc: list[tuple[float, str]] = []
+        try:
+            parsed_lrc = _parse_lrc(consensus.lrc)
+        except Exception:
+            logger.exception("consensus: parse_lrc failed for grader on %s", basename)
+        lrc_implied_duration_s = float(parsed_lrc[-1][0]) if parsed_lrc else None
+        score = _grade_priors(
+            audio_duration_s=audio_duration_s,
+            lrc_lines=[(s, s, t) for s, t in parsed_lrc],
+            lrc_metadata_duration_s=lrc_implied_duration_s,
+            dp_residuals=None,
+        )
+
+        line_template = consensus.lrc
+        if score < _RELIABILITY_GATE:
+            text_lines = [ln for ln in consensus.text.splitlines() if ln.strip()]
+            synthetic = _lrc_from_aligned_lines(aligned, text_lines)
+            if synthetic:
+                line_template = synthetic
+                logger.info(
+                    "consensus: grader=%.2f < %.2f, using synthetic LRC for %s",
+                    score,
+                    _RELIABILITY_GATE,
+                    basename,
+                )
+
+        try:
+            song_id = self._db.get_song_id_by_path(song_path) if self._db else None
+            if song_id is not None and self._db is not None:
+                self._db.update_lyrics_confidence(song_id, score)
+        except Exception:
+            logger.exception("consensus: failed to persist lyrics_confidence for %s", basename)
+
         ass = _words_to_ass_with_k_tags(
             aligned,
-            consensus.lrc,
+            line_template,
             params=_anim_params_for_bpm(bpm),
         )
         if not ass:
