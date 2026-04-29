@@ -68,6 +68,15 @@ logger = logging.getLogger(__name__)
 LRCLIB_BASE = "https://lrclib.net"
 LRCLIB_TIMEOUT = 5.0
 
+# Tolerance (seconds) when filtering ``/api/search`` results by duration.
+# LRCLib's ``/api/search`` doesn't accept a duration query parameter, so
+# the index can return synced lyrics for a different edit (radio cut vs
+# extended mix). Skipping results whose duration drifts beyond this
+# threshold defends the consensus engine before its prior-reliability
+# grader has to clean up after a known-bad source. 30s mirrors the
+# duration band used by ``_grade_priors``.
+_LRCLIB_DURATION_TOLERANCE_S = 30.0
+
 GENIUS_BASE = "https://api.genius.com"
 GENIUS_TIMEOUT = 5.0
 GENIUS_ACCESS_TOKEN = os.environ.get("GENIUS_ACCESS_TOKEN", "").strip()
@@ -2494,9 +2503,24 @@ def _fetch_lrclib(track: str, artist: str, duration: int | float | None) -> str 
         if r.status_code == 200:
             for item in r.json():
                 synced = item.get("syncedLyrics")
-                if synced:
-                    logger.info("LRCLib: hit /api/search track=%r artist=%r", track, artist)
-                    return synced
+                if not synced:
+                    continue
+                if duration is not None:
+                    item_duration = item.get("duration")
+                    if isinstance(item_duration, (int, float)):
+                        delta = abs(float(item_duration) - float(duration))
+                        if delta > _LRCLIB_DURATION_TOLERANCE_S:
+                            logger.info(
+                                "LRCLib: /api/search skip duration mismatch "
+                                "(track=%r artist=%r item=%ss target=%ss)",
+                                track,
+                                artist,
+                                item_duration,
+                                duration,
+                            )
+                            continue
+                logger.info("LRCLib: hit /api/search track=%r artist=%r", track, artist)
+                return synced
     except (requests.RequestException, ValueError) as e:
         logger.warning("LRCLib request failed: %s", e)
         return None

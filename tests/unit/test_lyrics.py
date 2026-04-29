@@ -532,6 +532,38 @@ class TestFetchLrclib:
             _fetch_lrclib("Song (Instrumental)", "A", None)
             assert mock_get.call_args.kwargs["params"]["track_name"] == "Song"
 
+    def test_search_filters_by_duration(self):
+        # /api/search returned a hit for the wrong edit (400s long version
+        # vs 210s short cut). The result must be skipped so the consensus
+        # engine never sees off-by-minutes timestamps.
+        get_resp = MagicMock(status_code=404)
+        search_resp = MagicMock(status_code=200)
+        search_resp.json.return_value = [
+            {"syncedLyrics": "[00:01.00]wrong-edit", "duration": 400},
+            {"syncedLyrics": "[00:02.00]right-edit", "duration": 215},
+        ]
+        with patch("pikaraoke.lib.lyrics.requests.get", side_effect=[get_resp, search_resp]):
+            assert _fetch_lrclib("T", "A", 210) == "[00:02.00]right-edit"
+
+    def test_search_keeps_result_when_duration_missing(self):
+        # Older LRCLib responses may omit the duration field; the filter
+        # must not block the only available sync.
+        get_resp = MagicMock(status_code=404)
+        search_resp = MagicMock(status_code=200)
+        search_resp.json.return_value = [{"syncedLyrics": "[00:01.00]x"}]
+        with patch("pikaraoke.lib.lyrics.requests.get", side_effect=[get_resp, search_resp]):
+            assert _fetch_lrclib("T", "A", 210) == "[00:01.00]x"
+
+    def test_search_no_filter_when_target_duration_unknown(self):
+        # No probed audio duration → keep the legacy first-synced behaviour.
+        get_resp = MagicMock(status_code=404)
+        search_resp = MagicMock(status_code=200)
+        search_resp.json.return_value = [
+            {"syncedLyrics": "[00:01.00]x", "duration": 9999}
+        ]
+        with patch("pikaraoke.lib.lyrics.requests.get", side_effect=[get_resp, search_resp]):
+            assert _fetch_lrclib("T", "A", None) == "[00:01.00]x"
+
 
 # ----- variant stripper -----
 
