@@ -92,24 +92,32 @@ def test_full_pipeline_smoke(total_eclipse_inputs):
 
 
 def test_grader_routes_short_edit_to_fallback(total_eclipse_inputs):
-    """The fixture LRC carries long-version timestamps (last line ~4:17,
-    audio is the short edit ~5:30). The prior-reliability grader must
-    score this song below ``_RELIABILITY_GATE`` so the consensus
-    orchestrator routes it through the synthetic-LRC fallback rather
-    than re-stuffing the off-by-one upstream timestamps into the line
-    fence.
+    """Hypothesis from the plan: LRCLib returns long-version timestamps
+    for the YouTube short edit. The fixture LRC happens to match the
+    audio (the DP-pinning tests above use that matched case), so this
+    assertion replays the grader against a synthetic off-by-one input
+    derived from the same fixture: the LRC lines shifted +90s as if
+    they came from a longer master. The grader must score the song
+    below ``_RELIABILITY_GATE`` so the consensus orchestrator routes
+    it through the synthetic-LRC fallback rather than re-stuffing the
+    off-by-one upstream timestamps into the line fence.
     """
-    audio_duration_s = 207.84 + 130.0  # post-solo onset + tail
-    last_lrc_start = max(start for start, _end, text in total_eclipse_inputs if text.strip())
+    audio_duration_s = 333.949  # short-edit fixture audio
+    long_version_shift_s = 90.0  # plausible long-version → short-edit drift
+    shifted_lrc = [
+        (s + long_version_shift_s, e + long_version_shift_s, t)
+        for s, e, t in total_eclipse_inputs
+    ]
+    last_lrc_start = max(start for start, _end, text in shifted_lrc if text.strip())
     score = lyrics_align._grade_priors(
         audio_duration_s=audio_duration_s,
-        lrc_lines=[(s, e, t) for s, e, t in total_eclipse_inputs],
+        lrc_lines=shifted_lrc,
         lrc_metadata_duration_s=last_lrc_start,
         dp_residuals=None,
     )
     assert score < lyrics_align._RELIABILITY_GATE, (
         f"grader scored {score:.2f} ≥ gate {lyrics_align._RELIABILITY_GATE} "
-        "for the Total Eclipse short-edit fixture; the synthetic-LRC "
+        "for the Total Eclipse short-edit hypothesis; the synthetic-LRC "
         "fallback would not engage and off-by-one upstream timestamps "
         "would bleed into the rendered ASS"
     )

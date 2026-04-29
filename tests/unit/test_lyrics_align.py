@@ -437,7 +437,7 @@ class TestWhisperXAligner:
         from pikaraoke.lib.lyrics_align import WhisperXAligner
 
         aligner = WhisperXAligner(device="cpu")
-        assert aligner.model_id == "wav2vec2-char-vad-dpalign"
+        assert aligner.model_id == "wav2vec2-char-vad-dpalign-hybrid"
 
     def test_model_name_aliases_model_id(self, fake_whisperx):
         # Both alignment paths must persist the same identifier in

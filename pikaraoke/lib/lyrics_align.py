@@ -161,11 +161,15 @@ _DP_SKIP_COST_PER_WORD = 0.7
 # queen_iwtbf (clean LRC priors) on the fast path.
 _RELIABILITY_GATE = 0.75
 
-# Beyond this duration gap (LRCLib metadata vs probed audio), the
-# duration term in ``_grade_priors`` saturates to zero. 30s mirrors the
-# LRCLib /api/search filter so any LRC that survived fetch-time filtering
-# at least starts the grader with a non-zero duration factor.
-_GRADE_DURATION_TOLERANCE_S = 30.0
+# Beyond this duration gap (LRC implied duration vs probed audio), the
+# duration term in ``_grade_priors`` saturates to zero. 60s is wider
+# than the LRCLib /api/search filter (30s) on purpose: the grader's
+# input is the *implied* LRC duration (last timestamp), which trails
+# the song's true end by several seconds on songs with an instrumental
+# outro. 60s keeps a song with a 10-15s tail above the gate while still
+# routing the Total Eclipse short-edit case (LRC for the long version
+# implies ~417s duration vs ~330s audio = 87s gap) to the fallback.
+_GRADE_DURATION_TOLERANCE_S = 60.0
 
 # Anchor-shift slack inside which the DP's max shift contributes nothing
 # to the grader penalty. ``_DP_SHIFT_BAND_S`` already drives the DP cost,
@@ -748,8 +752,17 @@ class WhisperXAligner:
         host them. Existing cached .ass files auto-invalidate; the
         startup scanner additionally sweeps stale .ass files whose
         embedded ``; model_id:`` header comment doesn't match this id.
+        Bumped to ``wav2vec2-char-vad-dpalign-hybrid`` when the
+        consensus orchestrator gained a confidence-driven hybrid
+        aligner: a prior-reliability grader (``_grade_priors``) routes
+        each song between the fast LRC-windowed path (LRC timestamps
+        drive the line-template fence) and a synthetic-LRC fallback
+        (line-template fence rebuilt from the aligned words). The bump
+        invalidates every cached auto_word .ass on next startup; the
+        sweep is paced by ``_BackfillScheduler`` so it doesn't compete
+        with active playback.
         """
-        return "wav2vec2-char-vad-dpalign"
+        return "wav2vec2-char-vad-dpalign-hybrid"
 
     @property
     def model_name(self) -> str:

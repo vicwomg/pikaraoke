@@ -64,3 +64,31 @@ def test_shifts_within_audio_duration(queen_iwtbf_inputs):
     if out is None:
         pytest.skip("alignment bailed; nothing to check")
     assert all(0 <= t <= duration + 5.0 for t in out)
+
+
+def test_grader_keeps_clean_song_on_fast_path(queen_iwtbf_inputs):
+    """The Queen IWTBF fixture has clean LRC priors that match the audio
+    duration. The grader must score it ``>= _RELIABILITY_GATE`` so the
+    consensus orchestrator keeps it on the fast LRC-windowed path. This
+    is the regression gate for the model_id bump — if a future tweak
+    pushes well-aligned songs into the synthetic-LRC fallback, the
+    fallback's whole-song wav2vec2 drift could regress songs that align
+    well today.
+    """
+    onset_data = json.loads((FIXTURES / "vocal_onsets.json").read_text())
+    audio_duration_s = onset_data["audio_duration_s"]
+    # Last LRC line's start time is a reasonable proxy for the LRC's
+    # implied duration — within tolerance for this fixture.
+    last_lrc_start = max(start for start, _end, text in queen_iwtbf_inputs if text.strip())
+    score = lyrics_align._grade_priors(
+        audio_duration_s=audio_duration_s,
+        lrc_lines=[(s, e, t) for s, e, t in queen_iwtbf_inputs],
+        lrc_metadata_duration_s=last_lrc_start,
+        dp_residuals=None,
+    )
+    assert score >= lyrics_align._RELIABILITY_GATE, (
+        f"grader scored {score:.2f} < gate {lyrics_align._RELIABILITY_GATE} "
+        "for the Queen IWTBF fixture; routing this song through the "
+        "synthetic-LRC fallback would risk whole-song wav2vec2 drift "
+        "on a song the LRC-windowed path already aligns cleanly"
+    )
