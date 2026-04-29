@@ -763,6 +763,23 @@ class KaraokeDatabase:
                 (float(score) if score is not None else None, song_id),
             )
 
+    def get_lyrics_confidence(self, song_id: int) -> float | None:
+        """Read the persisted prior-reliability grader score, or None.
+
+        Returns None when the row is missing or the column is NULL
+        (pre-tracking rows or songs that haven't been graded yet). The
+        confidence-driven hybrid aligner uses this on replay to skip
+        re-grading when the same routing decision can be reused.
+        """
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT lyrics_confidence FROM songs WHERE id = ?", (song_id,)
+            ).fetchone()
+        if row is None:
+            return None
+        score = row[0]
+        return float(score) if score is not None else None
+
     def update_track_metadata(self, song_id: int, **fields) -> None:
         """Update any subset of cached music-metadata fields.
 

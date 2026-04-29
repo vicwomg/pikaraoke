@@ -1846,6 +1846,37 @@ class LyricsService:
                         f"Synced lyrics ready: {_title_from_filename(song_path)}",
                         "success",
                     )
+                    # Symmetry with the consensus path: persist the
+                    # prior-reliability score so a future quality
+                    # dashboard, replay-on-realignment, and the
+                    # consensus orchestrator's replay short-circuit see
+                    # a populated value regardless of which code path
+                    # produced the .ass. Residuals are populated by
+                    # ``WhisperXAligner.align`` whenever ``lrc_lines``
+                    # was passed (always in this branch via
+                    # ``lrc_line_windows(lrc)``).
+                    if self._db is not None and song_id is not None:
+                        try:
+                            from pikaraoke.lib.lyrics_align import (
+                                _grade_priors,
+                                _probe_audio_duration,
+                            )
+
+                            parsed = _parse_lrc(lrc)
+                            audio_duration_s = _probe_audio_duration(audio_path)
+                            implied_s = float(parsed[-1][0]) if parsed else None
+                            score = _grade_priors(
+                                audio_duration_s=audio_duration_s,
+                                lrc_lines=[(s, s, t) for s, t in parsed],
+                                lrc_implied_duration_s=implied_s,
+                                dp_residuals=getattr(self._aligner, "last_dp_residuals", None),
+                            )
+                            self._db.update_lyrics_confidence(song_id, score)
+                        except Exception:
+                            logger.exception(
+                                "legacy: failed to persist lyrics_confidence for %s",
+                                os.path.basename(song_path),
+                            )
         except Exception as e:
             logger.warning(
                 "word-level alignment failed for %s, keeping line-level",
@@ -2288,17 +2319,73 @@ class LyricsService:
             logger.info("consensus: no aligner, skipping T3 write for %s", basename)
             return
 
-        # Align consensus text against audio. Reuse line breaks from
-        # consensus.lrc as windowed line scaffolding so the aligner gets
-        # the same structure the existing LRC path enjoys.
         try:
             audio_path = _wait_for_alignment_audio(song_path)
         except Exception:
             logger.exception("consensus: alignment audio missing for %s", basename)
             return
+
+        # Pre-grade the consensus LRC priors against audio *before*
+        # alignment so the routing decision drives the aligner itself,
+        # not just the post-hoc line template. ``grade_lrc_priors_against_audio``
+        # runs the same VAD-onset probe + DP that the line-windowed
+        # aligner uses, so the score reflects all three reliability
+        # signals (duration mismatch + DP shift + DP rejection) instead
+        # of duration alone. Replay-aware: a persisted score above the
+        # gate skips the probe entirely; below the gate we re-grade so
+        # an improved upstream LRC has a chance to flip the routing.
+        from pikaraoke.lib.lyrics_align import (
+            _RELIABILITY_GATE,
+            grade_lrc_priors_against_audio,
+        )
+
+        consensus_lrc_windows = lrc_line_windows(consensus.lrc)
+        song_id = self._db.get_song_id_by_path(song_path) if self._db else None
+        replay_score: float | None = None
+        if song_id is not None and self._db is not None:
+            persisted = self._db.get_lyrics_confidence(song_id)
+            if persisted is not None and persisted >= _RELIABILITY_GATE:
+                replay_score = persisted
+                logger.info(
+                    "consensus: replaying persisted confidence %.2f for %s " "(skipping re-grade)",
+                    replay_score,
+                    basename,
+                )
+
+        if replay_score is not None:
+            score = replay_score
+        else:
+            try:
+                score, _residuals = grade_lrc_priors_against_audio(
+                    audio_path, consensus_lrc_windows
+                )
+            except Exception:
+                logger.exception(
+                    "consensus: pre-alignment grading crashed for %s; "
+                    "falling back to whole-song alignment",
+                    basename,
+                )
+                score = 0.0
+
+        # Routing: high-confidence priors get line-windowed alignment
+        # (faster, more accurate, line template = consensus.lrc).
+        # Low-confidence priors get whole-song alignment (escapes bad
+        # LRC timestamps) and the line template is rebuilt from aligned
+        # words. The Genius fallback path uses the same synthetic-LRC
+        # pattern.
+        align_with_lrc_lines = score >= _RELIABILITY_GATE and bool(consensus_lrc_windows)
+
         try:
             language = self._db_language(song_path)
-            aligned = self._aligner.align(audio_path, consensus.text, language=language)
+            if align_with_lrc_lines:
+                aligned = self._aligner.align(
+                    audio_path,
+                    consensus.text,
+                    lrc_lines=consensus_lrc_windows,
+                    language=language,
+                )
+            else:
+                aligned = self._aligner.align(audio_path, consensus.text, language=language)
         except Exception:
             logger.exception("consensus: aligner crashed for %s", basename)
             try:
@@ -2321,36 +2408,13 @@ class LyricsService:
 
         bpm = _estimate_bpm(audio_path)
 
-        # Grader: route between fast LRC-windowed line template and the
-        # synthetic-LRC fallback. ``consensus.lrc`` carries timestamps
-        # from the upstream LRC source — when those are off-by-one
-        # against the audio (Total Eclipse short edit), they bleed into
-        # the rendered ASS no matter how good the per-word alignment is.
-        # Below the gate we rebuild the line template from the aligned
-        # words, mirroring the Genius path's pattern.
-        from pikaraoke.lib.lyrics_align import (
-            _RELIABILITY_GATE,
-            _grade_priors,
-            _probe_audio_duration,
-        )
-
-        audio_duration_s = _probe_audio_duration(audio_path)
-        parsed_lrc: list[tuple[float, str]] = []
-        try:
-            parsed_lrc = _parse_lrc(consensus.lrc)
-        except Exception:
-            logger.exception("consensus: parse_lrc failed for grader on %s", basename)
-        lrc_implied_duration_s = float(parsed_lrc[-1][0]) if parsed_lrc else None
-        score = _grade_priors(
-            audio_duration_s=audio_duration_s,
-            lrc_lines=[(s, s, t) for s, t in parsed_lrc],
-            lrc_metadata_duration_s=lrc_implied_duration_s,
-            dp_residuals=None,
-        )
-
         line_template = consensus.lrc
-        if score < _RELIABILITY_GATE:
-            text_lines = [ln for ln in consensus.text.splitlines() if ln.strip()]
+        if not align_with_lrc_lines:
+            # Source the line breaks from the consensus LRC's parsed text
+            # rows. ``consensus.text`` is space-joined voted tokens (one
+            # logical line) so ``splitlines()`` would collapse the song
+            # into a single Dialogue event.
+            text_lines = [text for _start, text in _parse_lrc(consensus.lrc) if text.strip()]
             synthetic = _lrc_from_aligned_lines(aligned, text_lines)
             if synthetic:
                 line_template = synthetic
@@ -2360,9 +2424,14 @@ class LyricsService:
                     _RELIABILITY_GATE,
                     basename,
                 )
+        elif getattr(self._aligner, "last_line_starts", None):
+            # Line-windowed alignment may have shifted the LRC tags to
+            # match audio (intro padding + per-verse drift); apply the
+            # same per-line mapping the legacy path uses so the rendered
+            # Dialogue events match what the aligner anchored against.
+            line_template = _shift_lrc_per_line(consensus.lrc, self._aligner.last_line_starts)
 
         try:
-            song_id = self._db.get_song_id_by_path(song_path) if self._db else None
             if song_id is not None and self._db is not None:
                 self._db.update_lyrics_confidence(song_id, score)
         except Exception:

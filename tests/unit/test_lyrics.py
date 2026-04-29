@@ -558,9 +558,7 @@ class TestFetchLrclib:
         # No probed audio duration → keep the legacy first-synced behaviour.
         get_resp = MagicMock(status_code=404)
         search_resp = MagicMock(status_code=200)
-        search_resp.json.return_value = [
-            {"syncedLyrics": "[00:01.00]x", "duration": 9999}
-        ]
+        search_resp.json.return_value = [{"syncedLyrics": "[00:01.00]x", "duration": 9999}]
         with patch("pikaraoke.lib.lyrics.requests.get", side_effect=[get_resp, search_resp]):
             assert _fetch_lrclib("T", "A", None) == "[00:01.00]x"
 
@@ -2661,6 +2659,77 @@ class TestUpgradeToWordLevelLanguageCache:
         assert aligner.align.call_args.kwargs["language"] == "en"
         row = db.get_song_by_id(db.get_song_id_by_path(str(song)))
         assert row["language"] == "en"
+        db.close()
+
+
+class TestUpgradeToWordLevelPersistsConfidence:
+    """The legacy alignment path now grades the same priors the consensus
+    path does and writes the score to ``lyrics_confidence``. Both paths
+    populate the column so the future quality dashboard, replay-on-
+    realignment, and the consensus orchestrator's replay short-circuit
+    aren't biased toward one code path's history.
+    """
+
+    def _setup(self, tmp_path):
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+        from pikaraoke.lib.lyrics_align import DpResiduals
+
+        song = tmp_path / "S---abc.mp4"
+        song.write_text("fake")
+        db = KaraokeDatabase(str(tmp_path / "t.db"))
+        db.insert_songs([{"file_path": str(song), "youtube_id": None, "format": "mp4"}])
+        sid = db.get_song_id_by_path(str(song))
+        db.update_track_metadata(sid, language="en")
+        return song, db, sid, DpResiduals
+
+    def test_persists_high_score_when_priors_clean(self, tmp_path):
+        song, db, sid, DpResiduals = self._setup(tmp_path)
+        aligner = MagicMock()
+        aligner.align.return_value = [Word("hi", 1.0, 1.5)]
+        aligner.model_id = "wav2vec2-test"
+        aligner.last_line_starts = {}
+        aligner.last_dp_residuals = DpResiduals(
+            total_cost=1.0, max_anchor_shift=2.0, rejected_anchors=0
+        )
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
+        # Last LRC timestamp ~= audio duration (60s vs 60s) so the duration
+        # factor stays at 1.0; clean residuals keep shift/rejection at 1.0
+        # too. Score lands well above the gate.
+        with patch(
+            "pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p
+        ), patch("pikaraoke.lib.lyrics._estimate_bpm", return_value=None), patch(
+            "pikaraoke.lib.lyrics_align._probe_audio_duration", return_value=60.0
+        ):
+            service._upgrade_to_word_level(str(song), "[00:01.00]hi\n[00:55.00]bye", "sha")
+        score = db.get_lyrics_confidence(sid)
+        assert score is not None
+        assert score >= 0.9
+        db.close()
+
+    def test_persists_low_score_when_residuals_signal_drift(self, tmp_path):
+        song, db, sid, DpResiduals = self._setup(tmp_path)
+        aligner = MagicMock()
+        aligner.align.return_value = [Word("hi", 1.0, 1.5)]
+        aligner.model_id = "wav2vec2-test"
+        aligner.last_line_starts = {}
+        # Heavy DP-residual drift: half the LRC lines rejected and a
+        # large max anchor shift drag the score below the gate.
+        aligner.last_dp_residuals = DpResiduals(
+            total_cost=200.0, max_anchor_shift=28.0, rejected_anchors=6
+        )
+        service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
+        # Build an LRC with enough lines that ``rejected_anchors / len(lrc)``
+        # produces a meaningful penalty (6 / 8 = 0.75).
+        lrc = "\n".join(f"[00:{2 + i:02d}.00]line {i}" for i in range(8))
+        with patch(
+            "pikaraoke.lib.lyrics._wait_for_alignment_audio", side_effect=lambda p: p
+        ), patch("pikaraoke.lib.lyrics._estimate_bpm", return_value=None), patch(
+            "pikaraoke.lib.lyrics_align._probe_audio_duration", return_value=10.0
+        ):
+            service._upgrade_to_word_level(str(song), lrc, "sha")
+        score = db.get_lyrics_confidence(sid)
+        assert score is not None
+        assert score < 0.75
         db.close()
 
 

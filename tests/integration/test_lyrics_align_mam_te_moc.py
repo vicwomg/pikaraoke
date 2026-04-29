@@ -31,13 +31,18 @@ def mam_te_moc_inputs(monkeypatch):
     return lrc_line_windows(lrc)
 
 
+def _starts(result):
+    if result is None:
+        return None
+    starts, _residuals = result
+    return starts
+
+
 def test_first_line_snaps_to_first_onset(mam_te_moc_inputs):
     """The first non-empty LRC line snaps near the first VAD onset."""
-    out = lyrics_align._detect_per_line_starts("/dev/null", mam_te_moc_inputs)
+    out = _starts(lyrics_align._detect_per_line_starts("/dev/null", mam_te_moc_inputs))
     assert out is not None
-    first_text_idx = next(
-        i for i, (_, _, t) in enumerate(mam_te_moc_inputs) if t.strip()
-    )
+    first_text_idx = next(i for i, (_, _, t) in enumerate(mam_te_moc_inputs) if t.strip())
     onsets = json.loads((FIXTURES / "vocal_onsets.json").read_text())["onsets"]
     first_onset = onsets[0]["onset"]
     # The first non-empty LRC line should land within ~2 s of the first
@@ -48,7 +53,7 @@ def test_first_line_snaps_to_first_onset(mam_te_moc_inputs):
 def test_per_verse_shifts_grow_monotonically(mam_te_moc_inputs):
     """Cumulative shift (shifted - original) grows from verse to verse,
     not flatly applied as a single global offset."""
-    out = lyrics_align._detect_per_line_starts("/dev/null", mam_te_moc_inputs)
+    out = _starts(lyrics_align._detect_per_line_starts("/dev/null", mam_te_moc_inputs))
     assert out is not None
     shifts = [
         (i, out[i] - mam_te_moc_inputs[i][0])
@@ -69,14 +74,9 @@ def test_no_large_monotonicity_inversions(mam_te_moc_inputs):
     """Shifted times must not jump backward by more than 0.5 s between lines.
     A backward jump is a wrong-anchor signal; the DP's tempo-jump cost
     should keep the assignment monotonic across verses."""
-    out = lyrics_align._detect_per_line_starts("/dev/null", mam_te_moc_inputs)
+    out = _starts(lyrics_align._detect_per_line_starts("/dev/null", mam_te_moc_inputs))
     assert out is not None
-    inversions = [
-        (i, out[i - 1], out[i])
-        for i in range(1, len(out))
-        if out[i] + 0.5 < out[i - 1]
-    ]
+    inversions = [(i, out[i - 1], out[i]) for i in range(1, len(out)) if out[i] + 0.5 < out[i - 1]]
     assert not inversions, (
-        f"{len(inversions)} inversion(s) in shifted starts; first three: "
-        f"{inversions[:3]}"
+        f"{len(inversions)} inversion(s) in shifted starts; first three: " f"{inversions[:3]}"
     )

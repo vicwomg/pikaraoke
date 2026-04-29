@@ -361,6 +361,24 @@ class TestLyricsConfidence:
         with pytest.raises(ValueError):
             db.update_lyrics_confidence(sid, "high")
 
+    def test_get_returns_none_when_unset(self, db):
+        sid = _insert_song(db)
+        assert db.get_lyrics_confidence(sid) is None
+
+    def test_get_round_trips_score(self, db):
+        sid = _insert_song(db)
+        db.update_lyrics_confidence(sid, 0.91)
+        assert db.get_lyrics_confidence(sid) == pytest.approx(0.91)
+
+    def test_get_returns_none_for_missing_song(self, db):
+        assert db.get_lyrics_confidence(99_999) is None
+
+    def test_get_returns_none_after_clear(self, db):
+        sid = _insert_song(db)
+        db.update_lyrics_confidence(sid, 0.5)
+        db.update_lyrics_confidence(sid, None)
+        assert db.get_lyrics_confidence(sid) is None
+
 
 class TestGetSongIdsForRealignment:
     def test_returns_auto_word_with_stale_aligner(self, db):

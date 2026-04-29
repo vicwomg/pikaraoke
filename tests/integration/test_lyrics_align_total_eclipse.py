@@ -35,9 +35,16 @@ def total_eclipse_inputs(monkeypatch):
     return lrc_line_windows(lrc)
 
 
+def _starts(result):
+    if result is None:
+        return None
+    starts, _residuals = result
+    return starts
+
+
 def test_no_line_renders_during_solo(total_eclipse_inputs):
     """No LRC line's shifted start time may fall inside 2:50-3:28."""
-    out = lyrics_align._detect_per_line_starts("/dev/null", total_eclipse_inputs)
+    out = _starts(lyrics_align._detect_per_line_starts("/dev/null", total_eclipse_inputs))
     assert out is not None, "alignment should not bail on Total Eclipse"
 
     in_solo = [
@@ -53,14 +60,13 @@ def test_no_line_renders_during_solo(total_eclipse_inputs):
 
 def test_first_post_solo_line_snaps_to_real_onset(total_eclipse_inputs):
     """The first line at or after 3:28 starts within 2 s of the real onset."""
-    out = lyrics_align._detect_per_line_starts("/dev/null", total_eclipse_inputs)
+    out = _starts(lyrics_align._detect_per_line_starts("/dev/null", total_eclipse_inputs))
     assert out is not None
     post_solo = [t for t in out if t >= SOLO_END_S]
     first_post = min(post_solo)
     expected = EXPECTED_FIRST_POST_SOLO_S - LEAD_IN_S
     assert abs(first_post - expected) < 2.0, (
-        f"first post-solo line at {first_post:.2f}s, "
-        f"expected within 2s of {expected:.2f}s"
+        f"first post-solo line at {first_post:.2f}s, " f"expected within 2s of {expected:.2f}s"
     )
 
 
@@ -68,27 +74,25 @@ def test_lateness_recovers_by_417(total_eclipse_inputs):
     """Lines whose shifted start is in 207.84..257.56 must spread out, not
     pile up against the earlier anchor (the "compressed at one anchor"
     cascade we're fixing)."""
-    out = lyrics_align._detect_per_line_starts("/dev/null", total_eclipse_inputs)
+    out = _starts(lyrics_align._detect_per_line_starts("/dev/null", total_eclipse_inputs))
     assert out is not None
     in_window = sorted(t for t in out if 207.84 <= t <= 257.56)
     if len(in_window) < 2:
         pytest.skip("not enough lines in the post-solo window for this assertion")
     consecutive_gaps = [b - a for a, b in zip(in_window, in_window[1:])]
-    assert min(consecutive_gaps) >= 0.05, (
-        f"post-solo lines are compressed: min gap = {min(consecutive_gaps):.3f}s"
-    )
+    assert (
+        min(consecutive_gaps) >= 0.05
+    ), f"post-solo lines are compressed: min gap = {min(consecutive_gaps):.3f}s"
 
 
 def test_full_pipeline_smoke(total_eclipse_inputs):
     """Sanity: every line gets a shifted timestamp, all in [0, audio + slack]."""
-    out = lyrics_align._detect_per_line_starts("/dev/null", total_eclipse_inputs)
+    out = _starts(lyrics_align._detect_per_line_starts("/dev/null", total_eclipse_inputs))
     assert out is not None
     assert len(out) == len(total_eclipse_inputs)
     assert all(0 <= t <= 340 for t in out)
     inversions = sum(1 for a, b in zip(out, out[1:]) if b + 0.5 < a)
-    assert inversions == 0, (
-        f"{inversions} large monotonicity inversions in shifted starts"
-    )
+    assert inversions == 0, f"{inversions} large monotonicity inversions in shifted starts"
 
 
 def test_grader_routes_short_edit_to_fallback(total_eclipse_inputs):
@@ -105,14 +109,13 @@ def test_grader_routes_short_edit_to_fallback(total_eclipse_inputs):
     audio_duration_s = 333.949  # short-edit fixture audio
     long_version_shift_s = 90.0  # plausible long-version → short-edit drift
     shifted_lrc = [
-        (s + long_version_shift_s, e + long_version_shift_s, t)
-        for s, e, t in total_eclipse_inputs
+        (s + long_version_shift_s, e + long_version_shift_s, t) for s, e, t in total_eclipse_inputs
     ]
     last_lrc_start = max(start for start, _end, text in shifted_lrc if text.strip())
     score = lyrics_align._grade_priors(
         audio_duration_s=audio_duration_s,
         lrc_lines=shifted_lrc,
-        lrc_metadata_duration_s=last_lrc_start,
+        lrc_implied_duration_s=last_lrc_start,
         dp_residuals=None,
     )
     assert score < lyrics_align._RELIABILITY_GATE, (

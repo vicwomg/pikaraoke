@@ -7,8 +7,8 @@ import pytest
 
 from pikaraoke.lib.lyrics import Word, WordPart
 from pikaraoke.lib.lyrics_align import (
-    DpResiduals,
     _RELIABILITY_GATE,
+    DpResiduals,
     _align_lines_to_anchors_dp,
     _detect_per_line_starts,
     _grade_priors,
@@ -18,6 +18,7 @@ from pikaraoke.lib.lyrics_align import (
     _normalize,
     _parts_for_ref,
     _words_with_char_parts,
+    grade_lrc_priors_against_audio,
     map_whisper_to_reference,
     map_whisper_to_reference_by_lines,
 )
@@ -516,6 +517,45 @@ class TestWhisperXAligner:
         aligner.align("/tmp/b.mp4", "hi", lrc_lines=[(0.0, 1.0, "hi")], language="en")
         assert aligner.last_line_starts == {}
 
+    def test_align_captures_dp_residuals_for_grader(self, fake_whisperx, monkeypatch):
+        # The legacy alignment path needs to feed DP residuals into the
+        # prior-reliability grader so the persisted score reflects all
+        # three signals (duration + shift + rejection). The aligner
+        # exposes them via ``last_dp_residuals``; capture happens
+        # whenever ``_detect_per_line_starts`` returns a successful
+        # alignment.
+        from pikaraoke.lib import lyrics_align, vad_probe
+
+        monkeypatch.setattr(vad_probe, "list_vocal_onsets", lambda _p: [(16.11, 76.11)])
+        aligner = lyrics_align.WhisperXAligner(device="cpu")
+        aligner.align(
+            "/tmp/song.mp4",
+            "hello world",
+            lrc_lines=[(14.28, 17.27, "hello world")],
+            language="en",
+        )
+        assert isinstance(aligner.last_dp_residuals, lyrics_align.DpResiduals)
+        assert aligner.last_dp_residuals.rejected_anchors == 0
+
+    def test_residuals_reset_when_per_line_path_skipped(self, fake_whisperx, monkeypatch):
+        # Whole-song alignment (``lrc_lines=None``) doesn't run the DP,
+        # so any residuals from a prior call must clear — otherwise the
+        # legacy path's grader would attribute stale residuals to a
+        # song that wasn't actually graded against the audio.
+        from pikaraoke.lib import lyrics_align, vad_probe
+
+        monkeypatch.setattr(vad_probe, "list_vocal_onsets", lambda _p: [(16.11, 76.11)])
+        aligner = lyrics_align.WhisperXAligner(device="cpu")
+        aligner.align(
+            "/tmp/a.mp4",
+            "hello world",
+            lrc_lines=[(14.28, 17.27, "hello world")],
+            language="en",
+        )
+        assert aligner.last_dp_residuals is not None
+        aligner.align("/tmp/b.mp4", "no lrc lines", language="en")
+        assert aligner.last_dp_residuals is None
+
 
 class TestCharAlignmentExtraction:
     def test_group_chars_splits_on_spaces(self):
@@ -695,8 +735,10 @@ class TestDetectPerLineStarts:
             (20.96, 24.32, "c"),
             (24.32, 28.37, "d"),
         ]
-        out = _detect_per_line_starts("/tmp/vocals.mp3", lrc_lines)
-        assert out is not None
+        result = _detect_per_line_starts("/tmp/vocals.mp3", lrc_lines)
+        assert result is not None
+        out, residuals = result
+        assert isinstance(residuals, DpResiduals)
         # Each new_start = silence_end - lead_in (0.25s).
         assert out[0] == pytest.approx(16.11 - 0.25, abs=0.01)
         assert out[1] == pytest.approx(19.10 - 0.25, abs=0.01)
@@ -717,8 +759,9 @@ class TestDetectPerLineStarts:
             (28.37, 34.54, "verse4"),
             (34.54, 42.55, "verse5"),
         ]
-        out = _detect_per_line_starts("/tmp/vocals.mp3", lrc_lines)
-        assert out is not None
+        result = _detect_per_line_starts("/tmp/vocals.mp3", lrc_lines)
+        assert result is not None
+        out, _residuals = result
         # Anchored lines snap to silence_end - lead_in.
         assert out[0] == pytest.approx(16.00 - 0.25, abs=0.01)
         assert out[2] == pytest.approx(22.68 - 0.25, abs=0.01)
@@ -735,8 +778,9 @@ class TestDetectPerLineStarts:
         # shift rather than mis-snapping to a distant silence.
         self._patch_silences(monkeypatch, [16.00, 99.0])
         lrc_lines = [(14.28, 17.27, "a"), (17.27, 20.96, "b")]
-        out = _detect_per_line_starts("/tmp/vocals.mp3", lrc_lines)
-        assert out is not None
+        result = _detect_per_line_starts("/tmp/vocals.mp3", lrc_lines)
+        assert result is not None
+        out, _residuals = result
         assert out[0] == pytest.approx(16.00 - 0.25, abs=0.01)
         # Line 1 + cumulative shift (+1.72) - lead_in.
         assert out[1] == pytest.approx(17.27 + 1.72 - 0.25, abs=0.01)
@@ -762,8 +806,9 @@ class TestDetectPerLineStarts:
     def test_skips_empty_lrc_lines_when_picking_first(self, monkeypatch):
         self._patch_silences(monkeypatch, [16.11])
         lrc_lines = [(10.0, 14.0, ""), (14.28, 17.27, "Na")]
-        out = _detect_per_line_starts("/tmp/v.mp3", lrc_lines)
-        assert out is not None
+        result = _detect_per_line_starts("/tmp/v.mp3", lrc_lines)
+        assert result is not None
+        out, _residuals = result
         # Empty line still gets a shifted timestamp (cumulative shift
         # applied) - keeps indices aligned with lrc_lines for the
         # caller's mapping.
@@ -973,7 +1018,7 @@ class TestGradePriors:
         score = _grade_priors(
             audio_duration_s=None,
             lrc_lines=self._lrc(8),
-            lrc_metadata_duration_s=None,
+            lrc_implied_duration_s=None,
             dp_residuals=None,
         )
         assert score == 0.5
@@ -984,7 +1029,7 @@ class TestGradePriors:
         score = _grade_priors(
             audio_duration_s=210.0,
             lrc_lines=self._lrc(20),
-            lrc_metadata_duration_s=210.0,
+            lrc_implied_duration_s=210.0,
             dp_residuals=None,
         )
         assert score >= 0.85
@@ -996,7 +1041,7 @@ class TestGradePriors:
         score = _grade_priors(
             audio_duration_s=210.0,
             lrc_lines=self._lrc(20),
-            lrc_metadata_duration_s=270.0,
+            lrc_implied_duration_s=270.0,
             dp_residuals=None,
         )
         assert score < 0.5
@@ -1005,13 +1050,11 @@ class TestGradePriors:
     def test_dp_residuals_pull_score_down(self):
         # Half the lines rejected and a 25s anchor shift should drag a
         # song below the gate even when durations match.
-        residuals = DpResiduals(
-            total_cost=42.0, max_anchor_shift=25.0, rejected_anchors=10
-        )
+        residuals = DpResiduals(total_cost=42.0, max_anchor_shift=25.0, rejected_anchors=10)
         score = _grade_priors(
             audio_duration_s=210.0,
             lrc_lines=self._lrc(20),
-            lrc_metadata_duration_s=210.0,
+            lrc_implied_duration_s=210.0,
             dp_residuals=residuals,
         )
         assert score < _RELIABILITY_GATE
@@ -1019,16 +1062,69 @@ class TestGradePriors:
     def test_clean_dp_residuals_keep_high_confidence(self):
         # Zero rejections, anchor shift inside the band → DP factors
         # don't drag the score down.
-        residuals = DpResiduals(
-            total_cost=2.0, max_anchor_shift=2.0, rejected_anchors=0
-        )
+        residuals = DpResiduals(total_cost=2.0, max_anchor_shift=2.0, rejected_anchors=0)
         score = _grade_priors(
             audio_duration_s=210.0,
             lrc_lines=self._lrc(20),
-            lrc_metadata_duration_s=210.0,
+            lrc_implied_duration_s=210.0,
             dp_residuals=residuals,
         )
         assert score >= 0.95
+
+
+class TestGradeLrcPriorsAgainstAudio:
+    """Pre-alignment grader for the consensus orchestrator.
+
+    Mocks ``vad_probe.list_vocal_onsets`` and ``_probe_audio_duration``
+    so the helper can drive the DP standalone (no real audio needed).
+    The orchestrator calls this before deciding between line-windowed
+    and whole-song wav2vec2 alignment.
+    """
+
+    def _patch(self, monkeypatch, audio_duration_s, onsets):
+        from pikaraoke.lib import lyrics_align as la
+        from pikaraoke.lib import vad_probe
+
+        monkeypatch.setattr(la, "_probe_audio_duration", lambda _p: audio_duration_s)
+        monkeypatch.setattr(vad_probe, "list_vocal_onsets", lambda _p: list(onsets))
+
+    def test_clean_priors_score_above_gate_with_real_residuals(self, monkeypatch):
+        # Two LRC lines that match audio onsets cleanly: DP runs, returns
+        # zero rejections + small max shift, grader stacks all three
+        # signals near 1.0.
+        self._patch(monkeypatch, audio_duration_s=60.0, onsets=[(1.5, 30.0), (50.5, 60.0)])
+        lrc_lines = [(1.0, 50.0, "hello world"), (50.0, 55.0, "again again")]
+        score, residuals = grade_lrc_priors_against_audio("/tmp/audio.mp3", lrc_lines)
+        assert residuals is not None
+        assert residuals.rejected_anchors == 0
+        assert score >= _RELIABILITY_GATE
+
+    def test_duration_mismatch_drives_score_below_gate(self, monkeypatch):
+        # Implied LRC duration far past audio (long version vs short edit):
+        # duration factor saturates to 0; even with usable onsets the
+        # score should land below the gate.
+        self._patch(monkeypatch, audio_duration_s=60.0, onsets=[(1.0, 60.0)])
+        lrc_lines = [(120.0, 124.0, "wrong edit"), (125.0, 130.0, "still wrong")]
+        score, _residuals = grade_lrc_priors_against_audio("/tmp/audio.mp3", lrc_lines)
+        assert score < _RELIABILITY_GATE
+
+    def test_returns_residuals_none_when_no_onsets(self, monkeypatch):
+        # Empty onset list = the DP doesn't run; residuals must be None,
+        # score collapses to the duration-only signal.
+        self._patch(monkeypatch, audio_duration_s=60.0, onsets=[])
+        lrc_lines = [(1.0, 5.0, "matching duration"), (50.0, 55.0, "tail")]
+        score, residuals = grade_lrc_priors_against_audio("/tmp/audio.mp3", lrc_lines)
+        assert residuals is None
+        # Audio (60s) ~ implied duration (50s last timestamp) → small gap,
+        # duration factor stays near 1.0, residual factors default to 1.0.
+        assert score >= _RELIABILITY_GATE
+
+    def test_handles_empty_lrc_lines(self, monkeypatch):
+        # No LRC content to grade: helper falls back to neutral 0.5.
+        self._patch(monkeypatch, audio_duration_s=60.0, onsets=[])
+        score, residuals = grade_lrc_priors_against_audio("/tmp/audio.mp3", [])
+        assert residuals is None
+        assert score == 0.5
 
 
 class TestInterpolation:

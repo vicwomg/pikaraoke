@@ -169,6 +169,14 @@ _RELIABILITY_GATE = 0.75
 # outro. 60s keeps a song with a 10-15s tail above the gate while still
 # routing the Total Eclipse short-edit case (LRC for the long version
 # implies ~417s duration vs ~330s audio = 87s gap) to the fallback.
+#
+# Why "implied" rather than LRCLib's metadata ``duration`` field: the
+# metadata duration is already filtered at fetch time
+# (``_LRCLIB_DURATION_TOLERANCE_S`` in ``lyrics.py``), so by the time a
+# track reaches the grader the metadata claim is known to match audio.
+# The remaining failure mode is "right metadata, wrong timestamps" —
+# detected by comparing audio length against where the LRC's last line
+# falls.
 _GRADE_DURATION_TOLERANCE_S = 60.0
 
 # Anchor-shift slack inside which the DP's max shift contributes nothing
@@ -191,7 +199,7 @@ def _grade_priors(
     *,
     audio_duration_s: float | None,
     lrc_lines: list[tuple[float, float, str]],
-    lrc_metadata_duration_s: float | None,
+    lrc_implied_duration_s: float | None,
     dp_residuals: DpResiduals | None,
 ) -> float:
     """Score how trustworthy the upstream LRC priors look for this song.
@@ -205,24 +213,32 @@ def _grade_priors(
 
     Args:
         audio_duration_s: probed audio length, or None if the probe
-            failed. Pair with ``lrc_metadata_duration_s`` to compute the
+            failed. Pair with ``lrc_implied_duration_s`` to compute the
             duration-mismatch term.
         lrc_lines: parsed LRC ``(start, end, text)`` rows. Used to
             normalise the rejection count against the song's length.
-        lrc_metadata_duration_s: LRCLib's reported duration for the
-            chosen sync, or None.
+        lrc_implied_duration_s: the LRC's last timestamp (in seconds),
+            or None when the LRC was empty / unparseable. This is the
+            *implied* duration — the time at which the LRC stops
+            describing audio — not LRCLib's metadata duration field
+            (already filtered at fetch time, see
+            ``_LRCLIB_DURATION_TOLERANCE_S`` in ``lyrics.py``). On a
+            clean fixture this trails the audio's true end by ~10-15s
+            (instrumental outro); on a wrong-edit LRC it can lead audio
+            by minutes.
         dp_residuals: residuals from the most recent
-            ``_align_lines_to_anchors_dp`` run, or None.
+            ``_align_lines_to_anchors_dp`` run, or None when no DP pass
+            ran (e.g. whole-song alignment without line windows).
 
     Returns:
         Score in [0.0, 1.0]; higher means LRC timestamps look reliable.
     """
-    if audio_duration_s is None and lrc_metadata_duration_s is None and dp_residuals is None:
+    if audio_duration_s is None and lrc_implied_duration_s is None and dp_residuals is None:
         return 0.5
 
     duration_factor = 1.0
-    if audio_duration_s is not None and lrc_metadata_duration_s is not None:
-        delta = abs(float(audio_duration_s) - float(lrc_metadata_duration_s))
+    if audio_duration_s is not None and lrc_implied_duration_s is not None:
+        delta = abs(float(audio_duration_s) - float(lrc_implied_duration_s))
         duration_factor = max(0.0, 1.0 - delta / _GRADE_DURATION_TOLERANCE_S)
 
     shift_factor = 1.0
@@ -241,9 +257,52 @@ def _grade_priors(
     return max(0.0, min(1.0, score))
 
 
+def grade_lrc_priors_against_audio(
+    audio_path: str,
+    lrc_lines: list[tuple[float, float, str]],
+) -> tuple[float, DpResiduals | None]:
+    """Score upstream LRC priors against audio without aligning words.
+
+    Runs the same VAD-onset probe + DP that ``_detect_per_line_starts``
+    uses, but stops after the DP and feeds the residuals into
+    ``_grade_priors``. The consensus orchestrator calls this *before*
+    deciding between line-windowed and whole-song wav2vec2 alignment,
+    so the routing decision has the full 3-signal score (duration +
+    shift + rejection) instead of duration only.
+
+    Returns ``(score, residuals)``. ``residuals`` is None when the DP
+    couldn't produce a valid alignment (no onsets, first-line shift
+    past the global cap); the score in that case is computed from the
+    duration signal alone, falling back to the neutral 0.5 baseline
+    when both signals are absent. Empty ``lrc_lines`` short-circuits
+    to ``(0.5, None)`` — there's nothing to grade, so the safer
+    fallback (synthetic-LRC routing) is the right default.
+    """
+    if not lrc_lines:
+        return 0.5, None
+
+    audio_duration_s = _probe_audio_duration(audio_path)
+    lrc_implied_duration_s = float(lrc_lines[-1][0])
+
+    residuals: DpResiduals | None = None
+    onsets = sorted(vad_probe.list_vocal_onsets(audio_path), key=lambda p: p[0])
+    if onsets and onsets[0][0] <= _LEADING_SILENCE_MAX_S:
+        dp_result = _align_lines_to_anchors_dp(lrc_lines, onsets)
+        if dp_result is not None:
+            _assignment, residuals = dp_result
+
+    score = _grade_priors(
+        audio_duration_s=audio_duration_s,
+        lrc_lines=lrc_lines,
+        lrc_implied_duration_s=lrc_implied_duration_s,
+        dp_residuals=residuals,
+    )
+    return score, residuals
+
+
 def _detect_per_line_starts(
     audio_path: str, lrc_lines: list[tuple[float, float, str]]
-) -> list[float] | None:
+) -> tuple[list[float], DpResiduals] | None:
     """Compute audio-aligned start times for each LRC line.
 
     Pipeline: probe vocal onsets (silero VAD on the raw mix, with
@@ -252,8 +311,12 @@ def _detect_per_line_starts(
     unanchored line clusters between flanking anchors → subtract the
     karaoke lead-in.
 
-    Returns one entry per ``lrc_lines`` entry (empty-text rows
-    included, so indices align with the caller's mapping). Returns
+    Returns ``(starts, residuals)`` where ``starts`` has one entry per
+    ``lrc_lines`` row (empty-text rows included so indices align with
+    the caller's mapping) and ``residuals`` is the DP's diagnostic
+    signals — surfaced so the prior-reliability grader
+    (``_grade_priors``) can score the LRC's trustworthiness against
+    the same alignment pass that produced the per-line starts. Returns
     None when the probe yields no onsets, the first usable onset sits
     past ``_LEADING_SILENCE_MAX_S``, or the first anchored line's shift
     falls outside ``[_GLOBAL_OFFSET_MIN_S, _GLOBAL_OFFSET_MAX_S]``.
@@ -278,9 +341,10 @@ def _detect_per_line_starts(
     dp_result = _align_lines_to_anchors_dp(lrc_lines, onsets)
     if dp_result is None:
         return None
-    assignment, _residuals = dp_result
+    assignment, residuals = dp_result
     filled = _interpolate_unanchored(assignment, lrc_lines)
-    return [t - _KARAOKE_LEAD_IN_S for t in filled]
+    starts = [t - _KARAOKE_LEAD_IN_S for t in filled]
+    return starts, residuals
 
 
 def _align_lines_to_anchors_dp(
@@ -704,6 +768,13 @@ class WhisperXAligner:
         # rendering so Dialogue events match audio line-by-line (intro
         # padding correction + per-verse tempo drift in one mapping).
         self.last_line_starts: dict[float, float] = {}
+        # DP residuals from the most recent ``align()`` call's per-line
+        # alignment pass. None when ``align()`` ran whole-song (no
+        # ``lrc_lines`` arg) or the per-line probe couldn't anchor.
+        # Consumed by the prior-reliability grader (``_grade_priors``)
+        # so the legacy alignment path can persist a 3-signal score
+        # without re-running the DP.
+        self.last_dp_residuals: DpResiduals | None = None
 
     @property
     def model_id(self) -> str:
@@ -803,6 +874,7 @@ class WhisperXAligner:
         wx = self._whisperx
         self.last_detected_language = language
         self.last_line_starts = {}
+        self.last_dp_residuals = None
         self._ensure_align_model(language)
 
         audio_duration_s = _probe_audio_duration(audio_path)
@@ -819,11 +891,13 @@ class WhisperXAligner:
         # anchor (continuous singing inside a verse) inherit the most
         # recent locked shift.
         if lrc_lines is not None:
-            new_starts = _detect_per_line_starts(audio_path, lrc_lines)
-            if new_starts is not None:
+            detect_result = _detect_per_line_starts(audio_path, lrc_lines)
+            if detect_result is not None:
+                new_starts, residuals = detect_result
                 self.last_line_starts = {
                     float(orig[0]): float(ns) for orig, ns in zip(lrc_lines, new_starts)
                 }
+                self.last_dp_residuals = residuals
                 logger.info(
                     "wav2vec2: per-line LRC->audio shift for %s; first line %+.2fs, "
                     "last line %+.2fs",

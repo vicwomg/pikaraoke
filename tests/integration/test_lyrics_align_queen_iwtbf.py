@@ -31,8 +31,15 @@ def queen_iwtbf_inputs(monkeypatch):
     return lrc_line_windows(lrc)
 
 
+def _starts(result):
+    if result is None:
+        return None
+    starts, _residuals = result
+    return starts
+
+
 def test_alignment_returns_full_per_line_list(queen_iwtbf_inputs):
-    out = lyrics_align._detect_per_line_starts("/dev/null", queen_iwtbf_inputs)
+    out = _starts(lyrics_align._detect_per_line_starts("/dev/null", queen_iwtbf_inputs))
     # Either alignment runs (returns one entry per LRC line) or it bails
     # cleanly with None - both are valid contract states. Bail = the
     # initial offset doesn't pass the gate, which is acceptable here.
@@ -42,17 +49,12 @@ def test_alignment_returns_full_per_line_list(queen_iwtbf_inputs):
 
 
 def test_no_large_monotonicity_inversions(queen_iwtbf_inputs):
-    out = lyrics_align._detect_per_line_starts("/dev/null", queen_iwtbf_inputs)
+    out = _starts(lyrics_align._detect_per_line_starts("/dev/null", queen_iwtbf_inputs))
     if out is None:
         pytest.skip("alignment bailed; nothing to check for monotonicity")
-    inversions = [
-        (i, out[i - 1], out[i])
-        for i in range(1, len(out))
-        if out[i] + 0.5 < out[i - 1]
-    ]
+    inversions = [(i, out[i - 1], out[i]) for i in range(1, len(out)) if out[i] + 0.5 < out[i - 1]]
     assert not inversions, (
-        f"{len(inversions)} inversion(s) in shifted starts; first three: "
-        f"{inversions[:3]}"
+        f"{len(inversions)} inversion(s) in shifted starts; first three: " f"{inversions[:3]}"
     )
 
 
@@ -60,7 +62,7 @@ def test_shifts_within_audio_duration(queen_iwtbf_inputs):
     """Every shifted line lands within the audio duration with small slack."""
     onset_data = json.loads((FIXTURES / "vocal_onsets.json").read_text())
     duration = onset_data["audio_duration_s"]
-    out = lyrics_align._detect_per_line_starts("/dev/null", queen_iwtbf_inputs)
+    out = _starts(lyrics_align._detect_per_line_starts("/dev/null", queen_iwtbf_inputs))
     if out is None:
         pytest.skip("alignment bailed; nothing to check")
     assert all(0 <= t <= duration + 5.0 for t in out)
@@ -83,7 +85,7 @@ def test_grader_keeps_clean_song_on_fast_path(queen_iwtbf_inputs):
     score = lyrics_align._grade_priors(
         audio_duration_s=audio_duration_s,
         lrc_lines=[(s, e, t) for s, e, t in queen_iwtbf_inputs],
-        lrc_metadata_duration_s=last_lrc_start,
+        lrc_implied_duration_s=last_lrc_start,
         dp_residuals=None,
     )
     assert score >= lyrics_align._RELIABILITY_GATE, (
