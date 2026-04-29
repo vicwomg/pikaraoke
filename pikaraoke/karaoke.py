@@ -62,6 +62,57 @@ _WHISPERX_OPT_OUT = {"off", "none", "false", "0"}
 _ALIGNER_ID = "wav2vec2"
 
 
+class _BackfillScheduler:
+    """Pace ``invalidate_auto_ass`` calls so the model_id sweep doesn't
+    compete with active karaoke playback.
+
+    Each invalidation is cheap (file unlink + DB column clears), but a
+    1000-song sweep dispatched all at once during a song produces
+    measurable disk + SQLite contention — on Pi-class hardware the
+    contention shows up as audio dropouts. The scheduler:
+
+    * Runs sequentially (concurrency = 1).
+    * Pauses between songs whenever ``is_idle()`` returns False, so a
+      paused user session drains the queue but an active playback
+      keeps the loop blocked.
+    * Persists progress implicitly via the DB: each successful
+      ``invalidate`` clears ``lyrics_provenance`` and the row drops
+      out of ``get_song_ids_for_realignment``, so a restart picks up
+      the remaining queue without extra bookkeeping.
+
+    Run synchronously by default (production wraps in a thread, tests
+    drive ``run`` inline with ``is_idle=lambda: True``).
+    """
+
+    _PAUSE_POLL_S = 1.0
+
+    def __init__(self, db, invalidate, is_idle) -> None:
+        self._db = db
+        self._invalidate = invalidate
+        self._is_idle = is_idle
+        self._stop = threading.Event()
+
+    def run(self, song_ids) -> int:
+        processed = 0
+        for song_id in song_ids:
+            if self._stop.is_set():
+                break
+            while not self._is_idle():
+                if self._stop.wait(self._PAUSE_POLL_S):
+                    return processed
+            try:
+                self._invalidate(self._db, song_id)
+                processed += 1
+            except Exception:
+                logging.exception(
+                    "backfill: invalidate_auto_ass failed for song_id=%s", song_id
+                )
+        return processed
+
+    def stop(self) -> None:
+        self._stop.set()
+
+
 def word_level_lyrics_status() -> dict:
     """Whether word-level karaoke alignment is active, and why / why not.
 
@@ -594,6 +645,9 @@ class Karaoke:
         the file, drops the artifact row, and clears the DB columns so
         the next playback re-runs alignment with the new model.
 
+        Calls go through ``_BackfillScheduler`` so the sweep pauses while
+        a song is actively playing; an idle library drains immediately.
+
         Wired into ``LibraryScanner`` as ``on_provenance_classified`` so
         it fires after ``_backfill_artifacts`` has stamped provenance on
         any pre-tracking files. No-op when the aligner isn't configured.
@@ -606,20 +660,32 @@ class Karaoke:
         from pikaraoke.lib.audio_fingerprint import invalidate_auto_ass
 
         ids = self.db.get_song_ids_for_realignment(current)
-        for song_id in ids:
-            try:
-                invalidate_auto_ass(self.db, song_id)
-            except Exception:
-                logging.exception(
-                    "stale-alignment sweep: invalidate_auto_ass failed for song_id=%s",
-                    song_id,
-                )
-        if ids:
-            logging.info(
-                "stale-alignment sweep: invalidated %d cached .ass (current aligner=%s)",
-                len(ids),
-                current,
-            )
+        if not ids:
+            return
+        scheduler = _BackfillScheduler(
+            db=self.db,
+            invalidate=invalidate_auto_ass,
+            is_idle=getattr(self, "_backfill_is_idle", lambda: True),
+        )
+        scheduler.run(ids)
+        logging.info(
+            "stale-alignment sweep: invalidated %d cached .ass (current aligner=%s)",
+            len(ids),
+            current,
+        )
+
+    def _backfill_is_idle(self) -> bool:
+        """Return True when no song is actively playing.
+
+        Gates the rate-limited invalidation sweep so cheap-but-frequent
+        DB writes don't compete with active karaoke playback. Returns
+        True when the playback controller isn't wired (test stubs,
+        early init), so existing callers see synchronous behaviour.
+        """
+        try:
+            return self.playback_controller.now_playing_filename is None
+        except AttributeError:
+            return True
 
     _WHISPERX_REPROCESS_SENTINEL = "whisperx_initial_reprocess_done"
 

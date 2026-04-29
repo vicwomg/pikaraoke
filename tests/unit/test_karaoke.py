@@ -7,11 +7,13 @@ that exposes only the attributes the method reads (``_aligner_instance``,
 the SQL query and ``invalidate_auto_ass`` round-trip are covered end-to-end.
 """
 
+import threading
+import time
 from types import SimpleNamespace
 
 import pytest
 
-from pikaraoke.karaoke import Karaoke
+from pikaraoke.karaoke import Karaoke, _BackfillScheduler
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.song_manager import ASS_AUTO_ROLE
 
@@ -163,3 +165,109 @@ class TestInvalidateStaleAlignmentsFromDb:
         assert db.get_song_ids_for_realignment("new-model") == []
         # Second call is a genuine no-op (no rows match).
         Karaoke._invalidate_stale_alignments_from_db(stub)
+
+
+class TestBackfillScheduler:
+    def test_processes_all_when_idle(self):
+        seen: list[int] = []
+        scheduler = _BackfillScheduler(
+            db=object(),
+            invalidate=lambda _db, sid: seen.append(sid),
+            is_idle=lambda: True,
+        )
+        processed = scheduler.run([1, 2, 3])
+        assert processed == 3
+        assert seen == [1, 2, 3]
+
+    def test_stops_on_explicit_stop(self):
+        seen: list[int] = []
+        scheduler = _BackfillScheduler(
+            db=object(),
+            invalidate=lambda _db, sid: seen.append(sid),
+            is_idle=lambda: True,
+        )
+        scheduler.stop()
+        scheduler.run([1, 2, 3])
+        assert seen == []
+
+    def test_logs_and_continues_on_invalidate_error(self, caplog):
+        seen: list[int] = []
+
+        def invalidate(_db, sid):
+            if sid == 2:
+                raise RuntimeError("boom")
+            seen.append(sid)
+
+        scheduler = _BackfillScheduler(
+            db=object(),
+            invalidate=invalidate,
+            is_idle=lambda: True,
+        )
+        with caplog.at_level("ERROR"):
+            processed = scheduler.run([1, 2, 3])
+        # Failed song doesn't count toward processed, but the loop
+        # continues so song 3 still runs.
+        assert processed == 2
+        assert seen == [1, 3]
+
+    def test_pauses_during_active_playback(self):
+        # Idle flips True → False → True; the scheduler must wait for
+        # idle before processing the second song. With a 0.05s pause
+        # poll override it does so within ~150ms.
+        seen: list[int] = []
+        idle_state = {"value": True}
+
+        def is_idle() -> bool:
+            return idle_state["value"]
+
+        scheduler = _BackfillScheduler(
+            db=object(),
+            invalidate=lambda _db, sid: seen.append(sid),
+            is_idle=is_idle,
+        )
+        scheduler._PAUSE_POLL_S = 0.02
+
+        # Block playback after the first song lands.
+        original_invalidate = scheduler._invalidate
+
+        def gating_invalidate(db, sid):
+            original_invalidate(db, sid)
+            if sid == 1:
+                idle_state["value"] = False
+
+        scheduler._invalidate = gating_invalidate
+
+        result: dict[str, int] = {}
+        thread = threading.Thread(
+            target=lambda: result.setdefault("processed", scheduler.run([1, 2])),
+            daemon=True,
+        )
+        thread.start()
+
+        # Wait long enough for the first song to land + the loop to
+        # observe is_idle=False, then verify song 2 is still pending.
+        time.sleep(0.1)
+        assert seen == [1], f"second song fired during playback: {seen}"
+
+        # Re-enable idle; the scheduler must resume.
+        idle_state["value"] = True
+        thread.join(timeout=2.0)
+        assert seen == [1, 2]
+        assert result["processed"] == 2
+
+    def test_stop_breaks_pause_loop(self):
+        scheduler = _BackfillScheduler(
+            db=object(),
+            invalidate=lambda _db, _sid: None,
+            is_idle=lambda: False,
+        )
+        scheduler._PAUSE_POLL_S = 0.02
+
+        thread = threading.Thread(
+            target=lambda: scheduler.run([1, 2]), daemon=True
+        )
+        thread.start()
+        time.sleep(0.05)
+        scheduler.stop()
+        thread.join(timeout=1.0)
+        assert not thread.is_alive(), "stop() did not unblock the pause loop"
