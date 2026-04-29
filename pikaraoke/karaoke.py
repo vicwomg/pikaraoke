@@ -104,9 +104,7 @@ class _BackfillScheduler:
                 self._invalidate(self._db, song_id)
                 processed += 1
             except Exception:
-                logging.exception(
-                    "backfill: invalidate_auto_ass failed for song_id=%s", song_id
-                )
+                logging.exception("backfill: invalidate_auto_ass failed for song_id=%s", song_id)
         return processed
 
     def stop(self) -> None:

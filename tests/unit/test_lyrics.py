@@ -740,11 +740,18 @@ class TestSyncedLyricsFetchers:
 
 
 class TestConsensusEnv:
-    def test_disabled_by_default(self, monkeypatch):
+    def test_enabled_by_default(self, monkeypatch):
         from pikaraoke.lib.lyrics import _consensus_enabled
 
         monkeypatch.delenv("LYRICS_CONSENSUS_ENABLED", raising=False)
-        assert _consensus_enabled() is False
+        assert _consensus_enabled() is True
+
+    def test_explicit_opt_out(self, monkeypatch):
+        from pikaraoke.lib.lyrics import _consensus_enabled
+
+        for val in ("0", "off", "false", "no", ""):
+            monkeypatch.setenv("LYRICS_CONSENSUS_ENABLED", val)
+            assert _consensus_enabled() is False, f"failed for {val!r}"
 
     def test_enabled_with_truthy_values(self, monkeypatch):
         from pikaraoke.lib.lyrics import _consensus_enabled
@@ -1183,7 +1190,12 @@ class TestLyricsServiceFetchAndConvert:
             mock_fetch.assert_not_called()
         assert not (tmp_path / "Foo---abc.ass").exists()
 
-    def test_aligner_invoked_when_provided(self, song_with_metadata, tmp_path):
+    def test_aligner_invoked_when_provided(self, song_with_metadata, tmp_path, monkeypatch):
+        # With consensus default-on, the legacy ``_upgrade_to_word_level``
+        # thread only runs when the operator opts out. This test pins
+        # the legacy path; the consensus default is exercised by
+        # ``test_consensus_path_engaged_when_env_enabled``.
+        monkeypatch.setenv("LYRICS_CONSENSUS_ENABLED", "0")
         song, db = song_with_metadata
         aligner = MagicMock()
         aligner.align.return_value = [Word("hello", 1.0, 1.5)]
@@ -2882,7 +2894,13 @@ class TestLyricsServiceGeniusFallback:
             ]
         return str(song), db, sid, aligner
 
-    def test_genius_hit_writes_word_level_ass(self, tmp_path):
+    def test_genius_hit_writes_word_level_ass(self, tmp_path, monkeypatch):
+        # The Genius-only fallback runs through ``_try_genius_fallback``
+        # in the legacy path. With consensus default-on the orchestrator
+        # would route Genius through ``_upgrade_via_consensus`` instead;
+        # opt out here to keep this test focused on the legacy Genius
+        # fallback specifically.
+        monkeypatch.setenv("LYRICS_CONSENSUS_ENABLED", "0")
         song, db, sid, aligner = self._song_with_lang(tmp_path)
         service = LyricsService(str(tmp_path), EventSystem(), aligner=aligner, db=db)
         with patch("pikaraoke.lib.lyrics._fetch_lrclib", return_value=None), patch(

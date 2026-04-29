@@ -754,7 +754,9 @@ class KaraokeDatabase:
         and so future correction UI can surface low-confidence songs.
         """
         if score is not None and not isinstance(score, (int, float)):
-            raise ValueError(f"update_lyrics_confidence: score must be float or None, got {score!r}")
+            raise ValueError(
+                f"update_lyrics_confidence: score must be float or None, got {score!r}"
+            )
         with self._lock, self._conn:
             self._conn.execute(
                 "UPDATE songs SET lyrics_confidence = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",

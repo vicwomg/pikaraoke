@@ -160,10 +160,15 @@ except ImportError:
 # Operator gates for the consensus pipeline. ``LYRICS_CONSENSUS_ENABLED``
 # is the master switch — when "0"/"off"/"false" (or any value below) the
 # legacy LRC -> Genius -> Whisper sequential pipeline runs unchanged.
+# Default-on as of the confidence-driven hybrid aligner: the orchestrator
+# now grades each song's priors (``_grade_priors``) and routes between
+# the fast LRC-windowed path and the synthetic-LRC fallback, so the
+# voted consensus + audio-anchored grader is the right default.
+# Operators on tiny Pi devices can opt out with ``LYRICS_CONSENSUS_ENABLED=0``.
 # ``LYRICS_CONSENSUS_PROVIDERS`` is a comma-separated allowlist for the
 # syncedlyrics-backed sources. Empty = both disabled.
 def _consensus_enabled() -> bool:
-    return os.environ.get("LYRICS_CONSENSUS_ENABLED", "0").strip().lower() in {
+    return os.environ.get("LYRICS_CONSENSUS_ENABLED", "1").strip().lower() in {
         "1",
         "on",
         "true",

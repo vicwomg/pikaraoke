@@ -229,13 +229,9 @@ def _grade_priors(
     rejection_factor = 1.0
     if dp_residuals is not None:
         excess = max(0.0, dp_residuals.max_anchor_shift - _DP_SHIFT_BAND_S)
-        shift_factor = max(
-            0.0, 1.0 - excess / max(1.0, _GRADE_SHIFT_KILL_S - _DP_SHIFT_BAND_S)
-        )
+        shift_factor = max(0.0, 1.0 - excess / max(1.0, _GRADE_SHIFT_KILL_S - _DP_SHIFT_BAND_S))
         line_count = max(1, len(lrc_lines))
-        rejection_factor = max(
-            0.0, 1.0 - min(1.0, dp_residuals.rejected_anchors / line_count)
-        )
+        rejection_factor = max(0.0, 1.0 - min(1.0, dp_residuals.rejected_anchors / line_count))
 
     score = (
         _GRADE_W_DURATION * duration_factor
