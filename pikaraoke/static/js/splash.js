@@ -122,14 +122,16 @@ const formatTime = (seconds) => {
 
 // Map the DB `lyrics_source` tag to a short human label + semantic CSS
 // variant. Keeps the badge compact while surfacing provenance (user-authored
-// vs auto-generated, and which auto pipeline produced it).
+// vs auto-generated, and which auto pipeline produced it). Keys are the
+// canonical scheme used by the source-picker (see karaoke_database.py:
+// VALID_SUBTITLE_SOURCES).
 const LYRICS_SOURCE_LABELS = {
-  user_ass:    { text: "Twoje napisy",   variant: "user"   },
-  lrclib:      { text: "LRCLib",          variant: "trust"  },
-  whisperx:    { text: "LRCLib + sync",   variant: "trust"  },
-  genius:      { text: "Genius",          variant: "trust"  },
-  youtube_vtt: { text: "YouTube CC",      variant: "trust"  },
-  whisper:     { text: "Auto (Whisper)",  variant: "auto"   },
+  user:           { text: "Twoje napisy",  variant: "user"   },
+  lrclib:         { text: "LRCLib",         variant: "trust"  },
+  "lrclib-sync":  { text: "LRCLib + sync",  variant: "trust"  },
+  "genius-sync":  { text: "Genius + sync",  variant: "trust"  },
+  AI:             { text: "AI",             variant: "auto"   },
+  "youtube-vtt":  { text: "YouTube CC",     variant: "trust"  },
 };
 
 const updateLyricsSourceBadge = (source) => {
@@ -898,7 +900,23 @@ const handleNowPlayingUpdate = (np) => {
       octopusInstance.timeOffset = Number(PikaraokeConfig.subtitleOffset) || 0;
     }
   }
-  if (subtitleUrl !== currentSubtitleUrl) {
+
+  // Source picker ``off`` pin: server flags the song as having subtitles
+  // intentionally disabled. Tear down any in-flight Octopus instance and
+  // hide the canvas; the ``subtitle_on`` socket event handles the return
+  // path. TD1 from the autoplan review — ensures the off pin survives
+  // page reloads (the canvas-only socket toggle was ephemeral).
+  const subsDisabled = !!np.subtitle_disabled;
+  const canvas = document.getElementById('subtitles-canvas')
+    || (video && video.parentNode && video.parentNode.querySelector('canvas'));
+  if (canvas) canvas.style.display = subsDisabled ? 'none' : '';
+  if (subsDisabled) {
+    if (octopusInstance) {
+      octopusInstance.dispose();
+      octopusInstance = null;
+    }
+    currentSubtitleUrl = null;
+  } else if (subtitleUrl !== currentSubtitleUrl) {
     if (octopusInstance) {
       octopusInstance.dispose();
       octopusInstance = null;
@@ -1313,6 +1331,22 @@ const setupSocketEvents = () => {
     const video = getVideoPlayer();
     video.currentTime = 0;
     if (video.paused) video.play();
+  });
+  // Source-picker ``off`` toggle: hide/show the SubtitlesOctopus canvas
+  // without disposing the worker so re-enable is instant. The cold-load
+  // path in applyNowPlaying also handles ``subtitle_disabled`` for page
+  // reloads (TD1).
+  socket.on('subtitle_off', () => {
+    const video = getVideoPlayer();
+    const c = document.getElementById('subtitles-canvas')
+      || (video && video.parentNode && video.parentNode.querySelector('canvas'));
+    if (c) c.style.display = 'none';
+  });
+  socket.on('subtitle_on', () => {
+    const video = getVideoPlayer();
+    const c = document.getElementById('subtitles-canvas')
+      || (video && video.parentNode && video.parentNode.querySelector('canvas'));
+    if (c) c.style.display = '';
   });
   socket.on('seek', (position) => {
     if (!isFinite(position)) return;

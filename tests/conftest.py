@@ -136,6 +136,14 @@ class MockKaraoke:
 
     # Bind the real methods to our mock class
     get_now_playing = Karaoke.get_now_playing
+    _get_subtitle_sources_for_now_playing = Karaoke._get_subtitle_sources_for_now_playing
+    _has_local_vtt_file = Karaoke._has_local_vtt_file
+    _SUBTITLE_STATUS_READY = Karaoke._SUBTITLE_STATUS_READY
+    _SUBTITLE_STATUS_DOWNLOAD = Karaoke._SUBTITLE_STATUS_DOWNLOAD
+    _SUBTITLE_STATUS_DOWNLOADING = Karaoke._SUBTITLE_STATUS_DOWNLOADING
+    _SUBTITLE_STATUS_NA = Karaoke._SUBTITLE_STATUS_NA
+    _SUBTITLE_SOURCE_ORDER = Karaoke._SUBTITLE_SOURCE_ORDER
+    _SUBTITLE_SOURCE_LABELS = Karaoke._SUBTITLE_SOURCE_LABELS
     reset_now_playing = Karaoke.reset_now_playing
     send_notification = Karaoke.send_notification
     log_and_send = Karaoke.log_and_send

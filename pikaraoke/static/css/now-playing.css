@@ -356,6 +356,35 @@
   letter-spacing: 0.04em;
 }
 
+/* Subtitle source picker — full-width row matching the stem-tool aesthetic */
+.pk-tool-subtitle-src {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
+  grid-column: 1 / -1;
+  background: var(--pk-surface);
+  border: 1px solid var(--pk-border);
+  border-radius: var(--pk-r-md);
+}
+.pk-tool-subtitle-src[hidden] { display: none; }
+.pk-tool-subtitle-src select {
+  width: 100%;
+  background: var(--pk-bg);
+  color: var(--pk-ink);
+  border: 1px solid var(--pk-border);
+  border-radius: var(--pk-r-sm);
+  padding: 6px 8px;
+  font-family: var(--pk-font-mono);
+  font-size: 11px;
+  accent-color: var(--pk-amber);
+}
+.pk-tool-subtitle-src select:focus {
+  outline: 2px solid var(--pk-amber);
+  outline-offset: 0;
+}
+
 /* Stem volume controls (when vocal_removal is active) */
 .pk-tool-stem {
   display: grid;

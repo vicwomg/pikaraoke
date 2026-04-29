@@ -912,7 +912,7 @@ class TestTryWriteAssTiered:
             song,
             _TIER_LINE_VTT,
             "vtt",
-            lyrics_source="youtube_vtt",
+            lyrics_source="youtube-vtt",
             aligner_model=None,
             lyrics_sha=None,
         )
@@ -928,7 +928,7 @@ class TestTryWriteAssTiered:
             song,
             _TIER_WORD,
             "word",
-            lyrics_source="whisperx",
+            lyrics_source="lrclib-sync",
             aligner_model="m",
             lyrics_sha="x",
         )
@@ -944,7 +944,7 @@ class TestTryWriteAssTiered:
             song,
             _TIER_WORD,
             "word",
-            lyrics_source="whisperx",
+            lyrics_source="lrclib-sync",
             aligner_model="m",
             lyrics_sha="x",
         )
@@ -953,7 +953,7 @@ class TestTryWriteAssTiered:
             song,
             _TIER_LINE_VTT,
             "vtt",
-            lyrics_source="youtube_vtt",
+            lyrics_source="youtube-vtt",
             aligner_model=None,
             lyrics_sha=None,
         )
@@ -992,7 +992,7 @@ class TestTryWriteAssTiered:
             song,
             _TIER_WORD,
             "word",
-            lyrics_source="whisperx",
+            lyrics_source="lrclib-sync",
             aligner_model="some-model",
             lyrics_sha="x",
         )
@@ -1229,7 +1229,7 @@ class TestLyricsServiceFetchAndConvert:
             sid,
             demucs_model=DEMUCS_MODEL,
             aligner_model="whisperx-base",
-            lyrics_source="whisperx",
+            lyrics_source="lrclib-sync",
             lyrics_sha=_lrc_sha(lrc),
         )
         aligner = MagicMock()
@@ -1258,7 +1258,7 @@ class TestLyricsServiceFetchAndConvert:
             sid,
             demucs_model=DEMUCS_MODEL,
             aligner_model="whisperx-base",
-            lyrics_source="whisperx",
+            lyrics_source="lrclib-sync",
             lyrics_sha=_lrc_sha(old_lrc),
         )
         aligner = MagicMock()
@@ -1298,7 +1298,7 @@ class TestLyricsServiceFetchAndConvert:
             sid,
             demucs_model="old-demucs-v1",  # differs from current DEMUCS_MODEL
             aligner_model="wav2vec2-char",
-            lyrics_source="whisperx",
+            lyrics_source="lrclib-sync",
             lyrics_sha=_lrc_sha(lrc),
         )
         aligner = MagicMock()
@@ -1328,6 +1328,245 @@ class TestPathHelpers:
     def test_ass_path_replaces_extension(self):
         assert _ass_path("/a/Song---x.mp4") == "/a/Song---x.ass"
         assert _ass_path("/a/Song---x.webm") == "/a/Song---x.ass"
+
+
+class TestVariantAssPath:
+    def test_appends_source_before_extension(self):
+        from pikaraoke.lib.lyrics import variant_ass_path
+
+        assert variant_ass_path("/a/Song---x.mp4", "lrclib") == "/a/Song---x.lrclib.ass"
+        assert variant_ass_path("/a/Song---x.webm", "lrclib-sync") == "/a/Song---x.lrclib-sync.ass"
+
+    def test_handles_dotted_stem(self):
+        from pikaraoke.lib.lyrics import variant_ass_path
+
+        assert variant_ass_path("/a/Song.Name---x.mp4", "AI") == "/a/Song.Name---x.AI.ass"
+
+
+class TestVariantWriteOnTieredPath:
+    """Variant write fires alongside canonical when tier-gate accepts."""
+
+    def _service(self, tmp_path):
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+        song = tmp_path / "Foo---abc.mp4"
+        song.write_text("fake")
+        db = KaraokeDatabase(str(tmp_path / "v.db"))
+        db.insert_songs([{"file_path": str(song), "youtube_id": "abc", "format": "mp4"}])
+        return str(song), db, LyricsService(str(tmp_path), EventSystem(), db=db)
+
+    def test_lrclib_writes_canonical_and_variant(self, tmp_path):
+        from pikaraoke.lib.lyrics import _TIER_LINE_LRC
+
+        song, db, service = self._service(tmp_path)
+        assert service._try_write_ass_tiered(
+            song,
+            _TIER_LINE_LRC,
+            "lrc-content",
+            lyrics_source="lrclib",
+            aligner_model=None,
+            lyrics_sha="x",
+        )
+        assert (tmp_path / "Foo---abc.ass").read_text() == "lrc-content"
+        assert (tmp_path / "Foo---abc.lrclib.ass").read_text() == "lrc-content"
+        # ass_<source> artifact registered too.
+        sid = db.get_song_id_by_path(song)
+        roles = {r["role"] for r in db.get_artifacts(sid)}
+        assert "ass_lrclib" in roles
+        assert "ass_auto" in roles
+        db.close()
+
+    def test_variant_kept_even_when_canonical_tier_dropped(self, tmp_path):
+        """A lower-tier source can still leave a usable variant on disk."""
+        from pikaraoke.lib.lyrics import _TIER_LINE_LRC, _TIER_WORD
+
+        song, db, service = self._service(tmp_path)
+        # Land word-level first so the tier gate sits at WORD.
+        assert service._try_write_ass_tiered(
+            song,
+            _TIER_WORD,
+            "word",
+            lyrics_source="lrclib-sync",
+            aligner_model="m",
+            lyrics_sha="x",
+        )
+        # Now a lower-tier LRCLib write: canonical drops but variant lands.
+        assert not service._try_write_ass_tiered(
+            song,
+            _TIER_LINE_LRC,
+            "lrc-line",
+            lyrics_source="lrclib",
+            aligner_model=None,
+            lyrics_sha="y",
+        )
+        # Canonical is still the word-level winner.
+        assert (tmp_path / "Foo---abc.ass").read_text() == "word"
+        # Variant landed for both sources in VARIANT_FILE_SOURCES.
+        assert (tmp_path / "Foo---abc.lrclib-sync.ass").read_text() == "word"
+        assert (tmp_path / "Foo---abc.lrclib.ass").read_text() == "lrc-line"
+        sid = db.get_song_id_by_path(song)
+        roles = {r["role"] for r in db.get_artifacts(sid)}
+        assert "ass_lrclib" in roles
+        assert "ass_lrclib-sync" in roles
+        db.close()
+
+    def test_no_variant_for_user_or_consensus(self, tmp_path):
+        """Sources outside VARIANT_FILE_SOURCES never write a variant file."""
+        from pikaraoke.lib.lyrics import _TIER_WORD
+
+        song, db, service = self._service(tmp_path)
+        assert service._try_write_ass_tiered(
+            song,
+            _TIER_WORD,
+            "consensus-content",
+            lyrics_source="consensus",
+            aligner_model="m",
+            lyrics_sha="x",
+        )
+        # Canonical landed; no consensus variant file.
+        assert (tmp_path / "Foo---abc.ass").exists()
+        assert not (tmp_path / "Foo---abc.consensus.ass").exists()
+        sid = db.get_song_id_by_path(song)
+        roles = {r["role"] for r in db.get_artifacts(sid)}
+        assert "ass_consensus" not in roles
+        db.close()
+
+
+class TestFetchVariantDispatchAndDedup:
+    """fetch_variant routes by source, dedups concurrent calls (CG1)."""
+
+    def _service(self, tmp_path):
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+        song = tmp_path / "Foo---abc.mp4"
+        song.write_text("fake")
+        db = KaraokeDatabase(str(tmp_path / "f.db"))
+        db.insert_songs([{"file_path": str(song), "youtube_id": "abc", "format": "mp4"}])
+        return str(song), db, LyricsService(str(tmp_path), EventSystem(), db=db)
+
+    def test_unknown_source_returns_false(self, tmp_path):
+        song, db, service = self._service(tmp_path)
+        assert service.fetch_variant(song, "off") is False
+        assert service.fetch_variant(song, "user") is False
+        assert service.fetch_variant(song, "totally-bogus") is False
+        db.close()
+
+    def test_song_not_on_disk_returns_false(self, tmp_path):
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+        gone = str(tmp_path / "Missing---abc.mp4")
+        db = KaraokeDatabase(str(tmp_path / "x.db"))
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
+        assert service.fetch_variant(gone, "lrclib") is False
+        db.close()
+
+    def test_lrclib_dispatches_render_and_writes_variant(self, tmp_path):
+        song, db, service = self._service(tmp_path)
+        with patch.object(
+            service,
+            "_render_lrclib_line_ass",
+            return_value=("[Script Info]\nrendered\n", "abc", None),
+        ):
+            assert service.fetch_variant(song, "lrclib") is True
+        variant = tmp_path / "Foo---abc.lrclib.ass"
+        assert variant.exists()
+        assert "rendered" in variant.read_text()
+        sid = db.get_song_id_by_path(song)
+        roles = {r["role"] for r in db.get_artifacts(sid)}
+        assert "ass_lrclib" in roles
+        db.close()
+
+    def test_render_returning_none_writes_nothing(self, tmp_path):
+        song, db, service = self._service(tmp_path)
+        with patch.object(service, "_render_vtt_ass", return_value=None):
+            assert service.fetch_variant(song, "youtube-vtt") is False
+        assert not (tmp_path / "Foo---abc.youtube-vtt.ass").exists()
+        db.close()
+
+    def test_in_flight_dedup_across_threads(self, tmp_path):
+        """Two concurrent fetch_variant for same (song,source) → only one render."""
+        song, db, service = self._service(tmp_path)
+
+        entered = threading.Event()
+        gate = threading.Event()
+        call_count = [0]
+
+        def slow_render(*_args, **_kwargs):
+            call_count[0] += 1
+            entered.set()
+            gate.wait(timeout=2)
+            return "x", "sha", None
+
+        with patch.object(service, "_render_lrclib_line_ass", side_effect=slow_render):
+            results: list = []
+            t1 = threading.Thread(
+                target=lambda: results.append(service.fetch_variant(song, "lrclib"))
+            )
+            t2 = threading.Thread(
+                target=lambda: results.append(service.fetch_variant(song, "lrclib"))
+            )
+            t1.start()
+            # Wait until t1 is provably inside the render call before t2 races.
+            assert entered.wait(timeout=2)
+            t2.start()
+            t2.join()  # t2 should finish immediately via dedup
+            gate.set()  # unblock t1 only after t2 has reported back
+            t1.join()
+
+        # Exactly one render fired; one fetch returned True (the worker), the
+        # other returned False (deduped).
+        assert call_count[0] == 1
+        assert sorted(results) == [False, True]
+        db.close()
+
+    def test_render_exception_clears_in_flight(self, tmp_path):
+        """Worker exception must remove the in-flight key so retry works."""
+        song, db, service = self._service(tmp_path)
+        with patch.object(service, "_render_lrclib_line_ass", side_effect=RuntimeError("boom")):
+            assert service.fetch_variant(song, "lrclib") is False
+        # In-flight set is empty so a retry can proceed.
+        assert (song, "lrclib") not in service._in_flight_variants
+        db.close()
+
+
+class TestWriteAndRegisterVariant:
+    def test_writes_file_and_registers_artifact(self, tmp_path):
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+        song = tmp_path / "Foo---abc.mp4"
+        song.write_text("fake")
+        db = KaraokeDatabase(str(tmp_path / "w.db"))
+        db.insert_songs([{"file_path": str(song), "youtube_id": "abc", "format": "mp4"}])
+        events = EventSystem()
+        events_log: list = []
+        events.on("lyrics_upgraded", lambda p: events_log.append(p))
+        service = LyricsService(str(tmp_path), events, db=db)
+
+        service._write_and_register_variant(str(song), "AI", "[Script Info]\n")
+        variant = tmp_path / "Foo---abc.AI.ass"
+        assert variant.exists()
+        sid = db.get_song_id_by_path(str(song))
+        roles = {r["role"] for r in db.get_artifacts(sid)}
+        assert "ass_AI" in roles
+        # lyrics_upgraded fired so the splash hot-swap path can pick up the variant.
+        assert events_log == [str(song)]
+        db.close()
+
+    def test_refuses_invalid_source(self, tmp_path):
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+        song = tmp_path / "Foo---abc.mp4"
+        song.write_text("fake")
+        db = KaraokeDatabase(str(tmp_path / "w2.db"))
+        db.insert_songs([{"file_path": str(song), "youtube_id": "abc", "format": "mp4"}])
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
+
+        # ``user`` and ``off`` are not variant sources — caller bug, no write.
+        service._write_and_register_variant(str(song), "user", "x")
+        service._write_and_register_variant(str(song), "off", "x")
+        assert not (tmp_path / "Foo---abc.user.ass").exists()
+        assert not (tmp_path / "Foo---abc.off.ass").exists()
+        db.close()
 
 
 # ----- VTT parser -----
@@ -2363,6 +2602,16 @@ class TestAnimParamsForBpm:
 
 
 class TestEstimateBpm:
+    @pytest.fixture(autouse=True)
+    def _clear_bpm_cache(self):
+        """Reset the process-lifetime BPM cache between tests so prior
+        results (including cached failures) don't leak."""
+        from pikaraoke.lib import lyrics as lyrics_mod
+
+        lyrics_mod._bpm_cache.clear()
+        yield
+        lyrics_mod._bpm_cache.clear()
+
     def test_returns_none_on_load_failure(self, caplog):
         from pikaraoke.lib.lyrics import _estimate_bpm
 
@@ -2391,6 +2640,35 @@ class TestEstimateBpm:
         fake_librosa.beat.beat_track.return_value = (90.0, "beats")
         with patch("pikaraoke.lib.lyrics.librosa", fake_librosa):
             assert _estimate_bpm("/tmp/x.mp3") == 90.0
+
+    def test_caches_result_per_path(self):
+        """Repeat calls for the same path must not re-run librosa. Different
+        paths still trigger their own analysis."""
+        from pikaraoke.lib.lyrics import _estimate_bpm
+
+        fake_librosa = MagicMock()
+        fake_librosa.load.return_value = ("signal", 22050)
+        fake_librosa.beat.beat_track.return_value = ([110.0], "beats")
+        with patch("pikaraoke.lib.lyrics.librosa", fake_librosa):
+            assert _estimate_bpm("/tmp/cached.mp3") == 110.0
+            assert _estimate_bpm("/tmp/cached.mp3") == 110.0
+            assert _estimate_bpm("/tmp/cached.mp3") == 110.0
+            assert fake_librosa.load.call_count == 1
+            assert fake_librosa.beat.beat_track.call_count == 1
+            assert _estimate_bpm("/tmp/other.mp3") == 110.0
+            assert fake_librosa.load.call_count == 2
+
+    def test_caches_failure_too(self):
+        """A failed estimate (None) is also cached so we don't keep retrying
+        on every render path."""
+        from pikaraoke.lib.lyrics import _estimate_bpm
+
+        fake_librosa = MagicMock()
+        fake_librosa.load.side_effect = RuntimeError("cannot decode")
+        with patch("pikaraoke.lib.lyrics.librosa", fake_librosa):
+            assert _estimate_bpm("/tmp/bad.mp3") is None
+            assert _estimate_bpm("/tmp/bad.mp3") is None
+            assert fake_librosa.load.call_count == 1
 
 
 class TestPrewarmTriggeredFromFetchAndConvert:
@@ -2471,7 +2749,7 @@ class TestPrewarmTriggeredFromFetchAndConvert:
 
 class TestLyricsServiceGeniusFallback:
     """LRCLib-miss + Genius-hit + aligner path writes a word-level .ass and
-    stamps ``lyrics_source="genius"``."""
+    stamps ``lyrics_source="genius-sync"``."""
 
     def _song_with_lang(self, tmp_path, *, with_aligner=True, with_lang=True):
         from pikaraoke.lib.karaoke_database import KaraokeDatabase
@@ -2515,7 +2793,7 @@ class TestLyricsServiceGeniusFallback:
         assert "\\kf" in ass
         assert aligner.align.called
         row = db.get_song_by_id(sid)
-        assert row["lyrics_source"] == "genius"
+        assert row["lyrics_source"] == "genius-sync"
         assert row["aligner_model"] == "test-aligner"
         db.close()
 

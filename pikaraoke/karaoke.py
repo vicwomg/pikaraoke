@@ -27,9 +27,19 @@ from pikaraoke.lib.get_platform import (
     get_platform,
     is_raspberry_pi,
 )
-from pikaraoke.lib.karaoke_database import KaraokeDatabase
+from pikaraoke.lib.karaoke_database import (
+    LYRICS_PROVENANCE_USER,
+    SUBTITLE_SOURCE_AI,
+    SUBTITLE_SOURCE_GENIUS_SYNC,
+    SUBTITLE_SOURCE_LRCLIB,
+    SUBTITLE_SOURCE_LRCLIB_SYNC,
+    SUBTITLE_SOURCE_OFF,
+    SUBTITLE_SOURCE_USER,
+    SUBTITLE_SOURCE_YOUTUBE_VTT,
+    KaraokeDatabase,
+)
 from pikaraoke.lib.library_scanner import LibraryScanner, ScanResult
-from pikaraoke.lib.lyrics import LyricsService
+from pikaraoke.lib.lyrics import GENIUS_ACCESS_TOKEN, LyricsService, variant_ass_path
 from pikaraoke.lib.network import get_ip
 from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
@@ -101,6 +111,20 @@ def _is_whisperx_installed() -> bool:
     import importlib.util
 
     return importlib.util.find_spec("whisperx") is not None
+
+
+def _is_faster_whisper_installed() -> bool:
+    """Cached import probe for the AI-source capability gate.
+
+    ``find_spec`` runs on every now-playing poll (~1Hz) and the result
+    cannot change for the process lifetime, so cache it.
+    """
+    import importlib.util
+
+    return importlib.util.find_spec("faster_whisper") is not None
+
+
+_HAS_FASTER_WHISPER: bool | None = None
 
 
 def _auto_whisperx_device() -> str:
@@ -1117,6 +1141,12 @@ class Karaoke:
                 vocals_url = f"/stream/{stream_uid}/vocals.{ext}"
                 instrumental_url = f"/stream/{stream_uid}/instrumental.{ext}"
 
+        # Subtitle-source picker payload (US-XX): the now-playing tools
+        # panel shows a per-song dropdown of every source with a status
+        # cue. Computed here and piggybacked on the existing ~1s poll —
+        # no separate endpoint needed.
+        subtitle_sources, override, song_id = self._get_subtitle_sources_for_now_playing()
+
         return {
             **playback_state,
             "up_next": next_song["title"] if next_song else None,
@@ -1128,7 +1158,181 @@ class Karaoke:
             "vocals_url": vocals_url,
             "instrumental_url": instrumental_url,
             "subtitle_offset": float(self.preferences.get_or_default("subtitle_offset")),
+            "subtitle_sources": subtitle_sources,
+            "subtitle_source_override": override,
+            # When the operator has pinned ``off`` for this song, the splash
+            # must skip SubtitlesOctopus initialisation on cold load (the
+            # ``subtitle_off`` socket event only handles already-loaded
+            # sessions). TD1 from the autoplan review.
+            "subtitle_disabled": override == SUBTITLE_SOURCE_OFF,
+            "now_playing_song_id": song_id,
         }
+
+    # Status enum for ``subtitle_sources[*].status``. Polish UI suffixes
+    # are mapped client-side (now-playing-bar.js).
+    _SUBTITLE_STATUS_READY = "ready"
+    _SUBTITLE_STATUS_DOWNLOAD = "download"
+    _SUBTITLE_STATUS_DOWNLOADING = "downloading"
+    _SUBTITLE_STATUS_NA = "na"
+
+    # Fixed display order for the source-picker dropdown.
+    _SUBTITLE_SOURCE_ORDER = (
+        SUBTITLE_SOURCE_OFF,
+        SUBTITLE_SOURCE_USER,
+        SUBTITLE_SOURCE_LRCLIB,
+        SUBTITLE_SOURCE_LRCLIB_SYNC,
+        SUBTITLE_SOURCE_GENIUS_SYNC,
+        SUBTITLE_SOURCE_AI,
+        SUBTITLE_SOURCE_YOUTUBE_VTT,
+    )
+
+    # Polish UI labels (matches TD2 ratification).
+    _SUBTITLE_SOURCE_LABELS = {
+        SUBTITLE_SOURCE_OFF: "wyłącz",
+        SUBTITLE_SOURCE_USER: "Twoje napisy",
+        SUBTITLE_SOURCE_LRCLIB: "LRCLib",
+        SUBTITLE_SOURCE_LRCLIB_SYNC: "LRCLib + sync",
+        SUBTITLE_SOURCE_GENIUS_SYNC: "Genius + sync",
+        SUBTITLE_SOURCE_AI: "AI",
+        SUBTITLE_SOURCE_YOUTUBE_VTT: "YouTube CC",
+    }
+
+    def _get_subtitle_sources_for_now_playing(
+        self,
+    ) -> tuple[list[dict], str | None, int | None]:
+        """Compute the source-picker payload for the currently playing song.
+
+        Returns ``(sources, override, song_id)``. ``sources`` is the
+        ordered list of ``{source, label, status, downloadable}`` dicts —
+        empty when nothing is playing. ``override`` is the pinned source
+        from ``songs.subtitle_source_override`` (None means "follow the
+        auto tier-gate").
+        """
+        pc = self.playback_controller
+        file_path = pc.now_playing_filename
+        if not file_path:
+            return [], None, None
+
+        song_id: int | None = None
+        override: str | None = None
+        provenance: str | None = None
+        has_youtube_id: bool = False
+        try:
+            row = self.db.get_song_by_path(file_path) if self.db else None
+        except Exception:
+            logging.exception("subtitle_sources: get_song_by_path failed for %s", file_path)
+            row = None
+        if row is not None:
+            song_id = row["id"]
+            # Defensive column reads — a fresh-checkout DB still on v6 (or a
+            # SELECT executed against a cursor description that doesn't yet
+            # include the v7 column) would raise IndexError on the bracket
+            # accessor. Treat any miss as ``None`` so the picker still shows
+            # the dropdown and the migration catches up on the next start.
+            try:
+                override = row["subtitle_source_override"] or None
+            except (KeyError, IndexError):
+                override = None
+            try:
+                provenance = row["lyrics_provenance"]
+            except (KeyError, IndexError):
+                provenance = None
+            try:
+                has_youtube_id = bool(row["youtube_id"])
+            except (KeyError, IndexError):
+                has_youtube_id = False
+
+        # Capability gates (which sources can ever be fetched on this host).
+        has_genius_token = bool(GENIUS_ACCESS_TOKEN)
+        has_aligner = self.lyrics_service.has_aligner
+        global _HAS_FASTER_WHISPER
+        if _HAS_FASTER_WHISPER is None:
+            try:
+                _HAS_FASTER_WHISPER = _is_faster_whisper_installed()
+            except Exception:
+                _HAS_FASTER_WHISPER = False
+        has_whisper = _HAS_FASTER_WHISPER
+
+        # In-flight on-demand fetches for this exact song.
+        in_flight: set[str] = set()
+        ls = self.lyrics_service
+        try:
+            with ls._in_flight_lock:
+                in_flight = {src for (sp, src) in ls._in_flight_variants if sp == file_path}
+        except Exception:
+            pass
+
+        sources: list[dict] = []
+        for source in self._SUBTITLE_SOURCE_ORDER:
+            label = self._SUBTITLE_SOURCE_LABELS[source]
+
+            if source == SUBTITLE_SOURCE_OFF:
+                # ``off`` is always available — it's a UI toggle, not a fetch.
+                status = self._SUBTITLE_STATUS_READY
+                downloadable = False
+
+            elif source == SUBTITLE_SOURCE_USER:
+                # User-authored subtitles live at the canonical <stem>.ass
+                # (no <stem>.user.ass). Available iff the canonical file is
+                # tagged as user-authored.
+                status = (
+                    self._SUBTITLE_STATUS_READY
+                    if provenance == LYRICS_PROVENANCE_USER
+                    else self._SUBTITLE_STATUS_NA
+                )
+                downloadable = False
+
+            else:
+                # Variant sources: ready when <stem>.<source>.ass exists,
+                # downloading when an on-demand fetch is in flight, na when
+                # the host can't fetch this source at all, otherwise download.
+                na_reason = None
+                if source == SUBTITLE_SOURCE_GENIUS_SYNC and not has_genius_token:
+                    na_reason = "no GENIUS_ACCESS_TOKEN"
+                elif source == SUBTITLE_SOURCE_LRCLIB_SYNC and not has_aligner:
+                    na_reason = "no aligner configured"
+                elif source == SUBTITLE_SOURCE_AI and not (has_whisper and has_aligner):
+                    na_reason = "faster_whisper / aligner unavailable"
+                elif source == SUBTITLE_SOURCE_YOUTUBE_VTT and not (
+                    has_youtube_id or self._has_local_vtt_file(file_path)
+                ):
+                    na_reason = "no YouTube ID and no local VTT"
+
+                variant_path = variant_ass_path(file_path, source)
+                if os.path.exists(variant_path):
+                    status = self._SUBTITLE_STATUS_READY
+                elif source in in_flight:
+                    status = self._SUBTITLE_STATUS_DOWNLOADING
+                elif na_reason is not None:
+                    status = self._SUBTITLE_STATUS_NA
+                else:
+                    status = self._SUBTITLE_STATUS_DOWNLOAD
+                downloadable = status == self._SUBTITLE_STATUS_DOWNLOAD
+
+            sources.append(
+                {
+                    "source": source,
+                    "label": label,
+                    "status": status,
+                    "downloadable": downloadable,
+                }
+            )
+
+        return sources, override, song_id
+
+    @staticmethod
+    def _has_local_vtt_file(song_path: str) -> bool:
+        """True when at least one ``<stem>*.vtt`` file sits next to the song."""
+        stem, _ext = os.path.splitext(song_path)
+        directory = os.path.dirname(stem) or "."
+        basename = os.path.basename(stem)
+        try:
+            for name in os.listdir(directory):
+                if name.startswith(basename + ".") and name.endswith(".vtt"):
+                    return True
+        except OSError:
+            return False
+        return False
 
     def update_now_playing_socket(self) -> None:
         """Emit now_playing state change via SocketIO."""
@@ -1173,13 +1377,26 @@ class Karaoke:
         which triggers its dispose+reinit SubtitlesOctopus path.
 
         Also refreshes `now_playing_lyrics_source` so the source badge in
-        the UI follows the actual source (e.g. "lrclib" → "whisperx" after
-        word-level alignment finishes; "whisper" when ASR fallback lands).
+        the UI follows the actual source (e.g. "lrclib" → "lrclib-sync"
+        after word-level alignment finishes; "AI" when ASR fallback lands).
+        When the operator has pinned a per-song source override, the badge
+        tracks that pin instead of the auto tier-gate winner.
         """
         pc = self.playback_controller
         if song_path != pc.now_playing_filename:
             return
-        pc.now_playing_lyrics_source = pc.lookup_lyrics_source(song_path)
+        override = None
+        if self.db is not None:
+            try:
+                song_id = self.db.get_song_id_by_path(song_path)
+                if song_id is not None:
+                    override = self.db.get_subtitle_source_override(song_id)
+            except Exception:
+                logging.exception("get_subtitle_source_override failed for %s", song_path)
+        if override and override != SUBTITLE_SOURCE_OFF:
+            pc.now_playing_lyrics_source = override
+        else:
+            pc.now_playing_lyrics_source = pc.lookup_lyrics_source(song_path)
         base_url = (pc.now_playing_subtitle_url or "").split("?", 1)[0]
         if base_url:
             pc.now_playing_subtitle_url = f"{base_url}?v={int(time.time() * 1000)}"

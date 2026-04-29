@@ -179,6 +179,23 @@ _MIGRATION_V6 = """
 ALTER TABLE songs ADD COLUMN lyrics_provenance TEXT;
 """
 
+# v6 -> v7: per-song subtitle-source override (operator picks a specific
+# variant from the now-playing tools panel) plus a one-shot data migration
+# renaming legacy ``lyrics_source`` values to the canonical scheme used by
+# the source-picker UI (``lrclib-sync``, ``genius-sync``, ``AI``,
+# ``youtube-vtt``, ``user``). The override column is nullable: NULL means
+# "follow the auto tier-gate" (existing behaviour); ``"off"`` hides
+# subtitles; any other value names a per-source variant ASS file at
+# ``<stem>.<source>.ass``.
+_MIGRATION_V7 = """
+ALTER TABLE songs ADD COLUMN subtitle_source_override TEXT;
+UPDATE songs SET lyrics_source = 'lrclib-sync' WHERE lyrics_source = 'whisperx';
+UPDATE songs SET lyrics_source = 'genius-sync' WHERE lyrics_source = 'genius';
+UPDATE songs SET lyrics_source = 'AI'          WHERE lyrics_source = 'whisper';
+UPDATE songs SET lyrics_source = 'youtube-vtt' WHERE lyrics_source = 'youtube_vtt';
+UPDATE songs SET lyrics_source = 'user'        WHERE lyrics_source = 'user_ass';
+"""
+
 LYRICS_PROVENANCE_AUTO_WORD = "auto_word"
 LYRICS_PROVENANCE_AUTO_LINE = "auto_line"
 LYRICS_PROVENANCE_USER = "user"
@@ -186,7 +203,45 @@ _VALID_LYRICS_PROVENANCE = frozenset(
     {LYRICS_PROVENANCE_AUTO_WORD, LYRICS_PROVENANCE_AUTO_LINE, LYRICS_PROVENANCE_USER}
 )
 
-_SCHEMA_VERSION = 6
+# Canonical subtitle-source keys used by the source-picker UI, the
+# ``songs.subtitle_source_override`` column, and the per-source variant
+# ASS filenames (``<stem>.<source>.ass``). Hyphens are intentional;
+# they're filesystem-safe on every supported OS and read cleanly in the
+# UI option text. ``off`` is UI-only — there is no variant file for it.
+SUBTITLE_SOURCE_OFF = "off"
+SUBTITLE_SOURCE_USER = "user"
+SUBTITLE_SOURCE_LRCLIB = "lrclib"
+SUBTITLE_SOURCE_LRCLIB_SYNC = "lrclib-sync"
+SUBTITLE_SOURCE_GENIUS_SYNC = "genius-sync"
+SUBTITLE_SOURCE_AI = "AI"
+SUBTITLE_SOURCE_YOUTUBE_VTT = "youtube-vtt"
+
+VALID_SUBTITLE_SOURCES = frozenset(
+    {
+        SUBTITLE_SOURCE_OFF,
+        SUBTITLE_SOURCE_USER,
+        SUBTITLE_SOURCE_LRCLIB,
+        SUBTITLE_SOURCE_LRCLIB_SYNC,
+        SUBTITLE_SOURCE_GENIUS_SYNC,
+        SUBTITLE_SOURCE_AI,
+        SUBTITLE_SOURCE_YOUTUBE_VTT,
+    }
+)
+
+# Sources that map to an on-disk per-source variant ASS file. ``off`` is
+# excluded (no file); ``user`` is excluded because user-authored subtitles
+# live at ``<stem>.ass`` (canonical), not at ``<stem>.user.ass``.
+VARIANT_FILE_SOURCES = frozenset(
+    {
+        SUBTITLE_SOURCE_LRCLIB,
+        SUBTITLE_SOURCE_LRCLIB_SYNC,
+        SUBTITLE_SOURCE_GENIUS_SYNC,
+        SUBTITLE_SOURCE_AI,
+        SUBTITLE_SOURCE_YOUTUBE_VTT,
+    }
+)
+
+_SCHEMA_VERSION = 7
 
 _TRACK_METADATA_FIELDS = (
     "duration_seconds",
@@ -237,29 +292,33 @@ class KaraokeDatabase:
     def _create_schema(self) -> None:
         self._conn.executescript(_SCHEMA_V1)
         with self._conn:
-            version = self._conn.execute("PRAGMA user_version").fetchone()[0]
-            # Introspect the songs table to detect partially-applied migrations
-            # (executescript auto-commits per-statement, so a crash between the
-            # ALTER TABLEs and the PRAGMA user_version bump leaves the DB in a
-            # mixed state where re-running the migration fails on duplicate
-            # column). The presence of a migration's canary column is the
-            # authoritative signal that it has already run.
+            # Migrations are gated on the canary column ONLY, not on
+            # ``user_version``. A stale dev DB whose ``user_version`` was
+            # bumped past N without the accompanying ALTER (history of this
+            # branch swapping schema numbers during plan iteration, or a
+            # partial migration crash between the ALTERs and the PRAGMA
+            # bump) would silently skip an ``if version < N`` gate and
+            # then explode at query time with ``no such column``. The
+            # canary-only form self-heals; each ALTER is already
+            # idempotent thanks to the canary.
             columns = {row[1] for row in self._conn.execute("PRAGMA table_info(songs)").fetchall()}
-            if version < 2 and "audio_sha256" not in columns:
+            if "audio_sha256" not in columns:
                 self._conn.executescript(_MIGRATION_V2)
-            if version < 3 and "lyrics_sha" not in columns:
+            if "lyrics_sha" not in columns:
                 self._conn.executescript(_MIGRATION_V3)
-            if version < 4 and "metadata_sources" not in columns:
+            if "metadata_sources" not in columns:
                 self._conn.executescript(_MIGRATION_V4)
             artifact_columns = {
                 row[1] for row in self._conn.execute("PRAGMA table_info(song_artifacts)").fetchall()
             }
-            if version < 5 and "sha256" not in artifact_columns:
+            if "sha256" not in artifact_columns:
                 self._conn.executescript(_MIGRATION_V5)
-            # Re-read columns after V2-V5 may have added new ones.
             columns = {row[1] for row in self._conn.execute("PRAGMA table_info(songs)").fetchall()}
-            if version < 6 and "lyrics_provenance" not in columns:
+            if "lyrics_provenance" not in columns:
                 self._conn.executescript(_MIGRATION_V6)
+            columns = {row[1] for row in self._conn.execute("PRAGMA table_info(songs)").fetchall()}
+            if "subtitle_source_override" not in columns:
+                self._conn.executescript(_MIGRATION_V7)
             self._conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
 
     # ------------------------------------------------------------------
@@ -281,6 +340,55 @@ class KaraokeDatabase:
         with self._lock:
             rows = self._conn.execute("SELECT id, file_path FROM songs").fetchall()
             return [(r[0], r[1]) for r in rows]
+
+    def get_subtitle_source_override(self, song_id: int) -> str | None:
+        """Return the operator-pinned subtitle source for a song, or None.
+
+        ``None`` means "no override — serve the canonical .ass picked by the
+        tier gate". ``"off"`` means subtitles are intentionally hidden for
+        this song. Any other value is a key in ``VALID_SUBTITLE_SOURCES``
+        naming a per-source variant ASS file.
+        """
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT subtitle_source_override FROM songs WHERE id = ?", (song_id,)
+            ).fetchone()
+            return row[0] if row and row[0] else None
+
+    def set_subtitle_source_override(self, song_id: int, source: str | None) -> None:
+        """Pin (or clear with None) the operator's subtitle-source choice.
+
+        No source-name validation here: callers go through the route layer's
+        ``VALID_SUBTITLE_SOURCES`` whitelist before reaching the DB. This
+        keeps the DB free of route-tier concerns and lets ``stream.py`` clear
+        a stale override (variant file deleted out from under us) without a
+        re-validation hop.
+        """
+        with self._lock, self._conn:
+            self._conn.execute(
+                "UPDATE songs SET subtitle_source_override = ?, "
+                "updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (source, song_id),
+            )
+
+    def get_variant_artifacts(self, song_id: int) -> list[sqlite3.Row]:
+        """Return artifact rows whose role names a per-source variant ASS file.
+
+        Rows match ``role LIKE 'ass_%'`` and exclude the legacy ``ass_auto``
+        + ``ass_user`` roles, which name the canonical ``<stem>.ass`` rather
+        than a per-source variant file.
+        """
+        with self._lock:
+            return self._conn.execute(
+                """
+                SELECT id, song_id, role, path
+                FROM song_artifacts
+                WHERE song_id = ?
+                  AND role LIKE 'ass_%'
+                  AND role NOT IN ('ass_auto', 'ass_user')
+                """,
+                (song_id,),
+            ).fetchall()
 
     def get_lyrics_sources(self) -> dict[str, str]:
         """Return ``{file_path: lyrics_source}`` for every song with a non-NULL tag.

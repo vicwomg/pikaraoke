@@ -33,7 +33,16 @@ import librosa
 import requests
 
 from pikaraoke.lib.events import EventSystem
-from pikaraoke.lib.karaoke_database import KaraokeDatabase
+from pikaraoke.lib.karaoke_database import (
+    SUBTITLE_SOURCE_AI,
+    SUBTITLE_SOURCE_GENIUS_SYNC,
+    SUBTITLE_SOURCE_LRCLIB,
+    SUBTITLE_SOURCE_LRCLIB_SYNC,
+    SUBTITLE_SOURCE_USER,
+    SUBTITLE_SOURCE_YOUTUBE_VTT,
+    VARIANT_FILE_SOURCES,
+    KaraokeDatabase,
+)
 from pikaraoke.lib.lyrics_audio_probe import probe_language as _probe_audio_language
 from pikaraoke.lib.lyrics_audio_probe import (
     probe_language_whole_song as _probe_audio_language_whole_song,
@@ -277,6 +286,13 @@ class LyricsService:
         # landed.
         self._tier_state: dict[str, int] = {}
         self._tier_lock = threading.Lock()
+        # In-flight on-demand variant fetches keyed by (song_path, source).
+        # Two admin clients clicking the same source for the same song must
+        # not spawn two workers; the second call early-returns. The set is
+        # mutated only under ``_in_flight_lock`` (CG1 — Python's bare set
+        # is not thread-safe under concurrent add/remove).
+        self._in_flight_variants: set[tuple[str, str]] = set()
+        self._in_flight_lock = threading.Lock()
 
     @property
     def has_aligner(self) -> bool:
@@ -326,15 +342,41 @@ class LyricsService:
             if aligner_model is not None
             else LYRICS_PROVENANCE_AUTO_LINE
         )
+        # Variant write is unconditional — every successful source render
+        # leaves a per-source ``<stem>.<source>.ass`` so the operator can
+        # later pin that source via the picker even when a higher tier
+        # already won the canonical ``<stem>.ass``. ``user`` / ``off`` /
+        # ``consensus`` skip the variant file (no entry in
+        # ``VARIANT_FILE_SOURCES``).
+        write_variant = lyrics_source in VARIANT_FILE_SOURCES
         with self._tier_lock:
             current = self._tier_state.get(song_path, _TIER_NONE)
+            if write_variant:
+                try:
+                    _write_ass_atomic(
+                        song_path, ass, target_path=_variant_ass_path(song_path, lyrics_source)
+                    )
+                except OSError:
+                    # Variant write failure is non-fatal: log and fall through
+                    # so the canonical write still has a chance to land.
+                    logger.exception(
+                        "tier gate: variant write failed for %s/%s",
+                        os.path.basename(song_path),
+                        lyrics_source,
+                    )
+                    write_variant = False
             if new_tier < current:
+                if write_variant:
+                    # Canonical write tier-gated, but the variant landed —
+                    # still register it so the picker can find the file.
+                    self._register_variant_artifact(song_path, lyrics_source)
                 logger.info(
-                    "tier gate: %s dropped %s (tier=%s < current=%s)",
+                    "tier gate: %s dropped %s canonical (tier=%s < current=%s); " "variant=%s",
                     os.path.basename(song_path),
                     lyrics_source,
                     _TIER_NAMES[new_tier],
                     _TIER_NAMES[current],
+                    "kept" if write_variant else "skipped",
                 )
                 return False
             _write_ass_atomic(song_path, ass)
@@ -345,13 +387,15 @@ class LyricsService:
                 aligner_model=aligner_model,
                 lyrics_sha=lyrics_sha,
                 lyrics_provenance=provenance,
+                also_register_variant=write_variant,
             )
             logger.info(
-                "tier gate: %s wrote %s (tier=%s -> %s)",
+                "tier gate: %s wrote %s (tier=%s -> %s, variant=%s)",
                 os.path.basename(song_path),
                 lyrics_source,
                 _TIER_NAMES[current],
                 _TIER_NAMES[new_tier],
+                "yes" if write_variant else "no",
             )
             return True
 
@@ -362,12 +406,18 @@ class LyricsService:
         aligner_model: str | None,
         lyrics_sha: str | None,
         lyrics_provenance: str,
+        *,
+        also_register_variant: bool = False,
     ) -> None:
         """Record the written .ass in song_artifacts and stamp processing config.
 
         ``lyrics_sha`` fingerprints the LRC text that produced the .ass, so a
         later LRCLib refresh returning different content invalidates the cache.
         No-op when db is not wired or when the song is not in the DB.
+
+        When ``also_register_variant`` is set, also upsert an
+        ``ass_<lyrics_source>`` row pointing at ``<stem>.<source>.ass`` —
+        used by the source-picker UI to flag pre-cached variants.
 
         Emits ``lyrics_upgraded`` so the splash UI can refresh its
         lyrics_source badge (and cache-bust the subtitle URL if the song
@@ -378,7 +428,15 @@ class LyricsService:
         song_id = self._db.get_song_id_by_path(song_path)
         if song_id is None:
             return
-        self._db.upsert_artifacts(song_id, [{"role": "ass_auto", "path": _ass_path(song_path)}])
+        artifacts = [{"role": "ass_auto", "path": _ass_path(song_path)}]
+        if also_register_variant:
+            artifacts.append(
+                {
+                    "role": f"ass_{lyrics_source}",
+                    "path": _variant_ass_path(song_path, lyrics_source),
+                }
+            )
+        self._db.upsert_artifacts(song_id, artifacts)
         self._db.update_processing_config(
             song_id,
             lyrics_source=lyrics_source,
@@ -390,6 +448,229 @@ class LyricsService:
             self._events.emit("lyrics_upgraded", song_path)
         except Exception:
             logger.exception("failed to emit lyrics_upgraded for %s", song_path)
+
+    def _register_variant_artifact(self, song_path: str, source: str) -> None:
+        """Upsert an ``ass_<source>`` artifact row without touching processing config.
+
+        Used by ``_try_write_ass_tiered`` when the canonical write was
+        tier-gated but the variant file still landed on disk; the picker
+        then has the row to surface it as ``GOTOWE``.
+        """
+        if self._db is None:
+            return
+        song_id = self._db.get_song_id_by_path(song_path)
+        if song_id is None:
+            return
+        self._db.upsert_artifacts(
+            song_id,
+            [{"role": f"ass_{source}", "path": _variant_ass_path(song_path, source)}],
+        )
+
+    def _write_and_register_variant(
+        self,
+        song_path: str,
+        source: str,
+        ass: str,
+    ) -> None:
+        """Write a per-source variant ASS file and register it (no tier-gate).
+
+        Used by ``fetch_variant`` to land an on-demand source render
+        without touching the canonical ``<stem>.ass`` or its tier state.
+        Emits ``lyrics_upgraded`` so the splash hot-swap path picks up the
+        new variant when the operator's pinned source matches.
+        """
+        if source not in VARIANT_FILE_SOURCES:
+            logger.warning(
+                "_write_and_register_variant: refusing to write variant for source=%r",
+                source,
+            )
+            return
+        target = _variant_ass_path(song_path, source)
+        _write_ass_atomic(song_path, ass, target_path=target)
+        if self._db is None:
+            return
+        song_id = self._db.get_song_id_by_path(song_path)
+        if song_id is None:
+            return
+        self._db.upsert_artifacts(song_id, [{"role": f"ass_{source}", "path": target}])
+        try:
+            self._events.emit("lyrics_upgraded", song_path)
+        except Exception:
+            logger.exception("failed to emit lyrics_upgraded for variant %s/%s", source, song_path)
+
+    def is_fetch_in_flight(self, song_path: str, source: str) -> bool:
+        """Public read-only probe for the (song, source) in-flight slot."""
+        with self._in_flight_lock:
+            return (song_path, source) in self._in_flight_variants
+
+    def claim_fetch_in_flight(self, song_path: str, source: str) -> bool:
+        """Atomically reserve the (song, source) in-flight slot.
+
+        Returns ``True`` if the slot was free and is now ours; ``False`` if
+        another fetch is already running. Pair with ``release_fetch_in_flight``
+        when the work completes (success or failure).
+        """
+        key = (song_path, source)
+        with self._in_flight_lock:
+            if key in self._in_flight_variants:
+                return False
+            self._in_flight_variants.add(key)
+        return True
+
+    def release_fetch_in_flight(self, song_path: str, source: str) -> None:
+        """Release a slot previously reserved with ``claim_fetch_in_flight``."""
+        with self._in_flight_lock:
+            self._in_flight_variants.discard((song_path, source))
+
+    def dispatch_variant_fetch(self, song_path: str, source: str) -> bool:
+        """Synchronously claim the in-flight slot, then spawn a worker
+        thread to render + write the variant.
+
+        This is the safe entry point for HTTP routes: by the time the
+        route returns, the in-flight slot is guaranteed claimed, so any
+        cache-bust the route emits afterwards (e.g. ``lyrics_upgraded``)
+        cannot race the splash's ``GET /subtitle/<id>`` past the worker's
+        own ``add(key)``. Without this guarantee the stream route would
+        see no in-flight + no file and silently clear the operator's pin.
+
+        Returns ``True`` when a worker was dispatched, ``False`` for
+        unknown source / song-gone-from-disk / dedup hit.
+        """
+        if source not in VARIANT_FILE_SOURCES:
+            logger.warning("dispatch_variant_fetch: refusing unknown source=%r", source)
+            return False
+        if not os.path.exists(song_path):
+            logger.info(
+                "dispatch_variant_fetch: %s gone from disk; skipping %s",
+                os.path.basename(song_path),
+                source,
+            )
+            return False
+        if not self.claim_fetch_in_flight(song_path, source):
+            logger.info(
+                "dispatch_variant_fetch: dedup %s/%s (already in-flight)",
+                os.path.basename(song_path),
+                source,
+            )
+            return False
+
+        def _worker() -> None:
+            try:
+                self._fetch_variant_after_claim(song_path, source)
+            finally:
+                self.release_fetch_in_flight(song_path, source)
+
+        try:
+            threading.Thread(
+                target=_worker,
+                name=f"variant-fetch-{source}",
+                daemon=True,
+            ).start()
+        except Exception:
+            # OS thread limit / fork pressure: release the claim so the
+            # slot doesn't stay held forever and block future retries.
+            self.release_fetch_in_flight(song_path, source)
+            raise
+        return True
+
+    def fetch_variant(self, song_path: str, source: str) -> bool:
+        """On-demand fetch of one subtitle source variant.
+
+        Dispatches to the matching source helper without re-running the
+        full tier pipeline, writes ``<stem>.<source>.ass``, and emits
+        ``lyrics_upgraded``. Returns ``True`` when the variant landed,
+        ``False`` on miss / dedup / unknown source / song-gone-from-disk.
+
+        ``source`` must be a key from ``VARIANT_FILE_SOURCES``. Concurrent
+        calls for the same (song, source) are deduplicated through the
+        thread-safe ``_in_flight_variants`` set (CG1). The in-flight slot
+        is held until the variant ASS file has actually landed on disk —
+        clearing it in a ``finally`` around the render alone leaves a
+        race window where a concurrent ``GET /subtitle/<id>`` sees no
+        in-flight + no file and clears the operator's pin.
+        """
+        if source not in VARIANT_FILE_SOURCES:
+            logger.warning("fetch_variant: refusing unknown source=%r", source)
+            return False
+        if not os.path.exists(song_path):
+            logger.info(
+                "fetch_variant: %s gone from disk; skipping %s",
+                os.path.basename(song_path),
+                source,
+            )
+            return False
+        if not self.claim_fetch_in_flight(song_path, source):
+            logger.info(
+                "fetch_variant: dedup %s/%s (already in-flight)",
+                os.path.basename(song_path),
+                source,
+            )
+            return False
+        try:
+            return self._fetch_variant_after_claim(song_path, source)
+        finally:
+            self.release_fetch_in_flight(song_path, source)
+
+    def _fetch_variant_after_claim(self, song_path: str, source: str) -> bool:
+        """Render + write a variant assuming the caller already holds the
+        in-flight claim. Caller is responsible for releasing it.
+        """
+        try:
+            ass = self._render_for_variant(song_path, source)
+        except Exception:
+            logger.exception(
+                "fetch_variant: render crashed for %s/%s",
+                os.path.basename(song_path),
+                source,
+            )
+            try:
+                self._events.emit(
+                    "song_warning",
+                    {
+                        "message": "Lyrics fetch failed",
+                        "detail": f"Could not fetch {source} for this song.",
+                        "song": os.path.basename(song_path),
+                        "severity": "warning",
+                    },
+                )
+            except Exception:
+                logger.exception("failed to emit song_warning for fetch_variant")
+            return False
+        if not ass:
+            return False
+        try:
+            self._write_and_register_variant(song_path, source, ass)
+        except OSError:
+            logger.exception(
+                "fetch_variant: write failed for %s/%s",
+                os.path.basename(song_path),
+                source,
+            )
+            return False
+        return True
+
+    def _render_for_variant(self, song_path: str, source: str) -> str | None:
+        """Dispatch to the per-source render helper. Pure-ish: returns ASS or None."""
+        if source == SUBTITLE_SOURCE_YOUTUBE_VTT:
+            return self._render_vtt_ass(song_path)
+        if source == SUBTITLE_SOURCE_LRCLIB:
+            info = self._read_metadata_for_lrclib(song_path)
+            ass, _sha, _info = self._render_lrclib_line_ass(info)
+            return ass
+        if source == SUBTITLE_SOURCE_LRCLIB_SYNC:
+            info = self._read_metadata_for_lrclib(song_path)
+            lrc, _info = self._fetch_lrc_with_itunes_fallback(info)
+            if not lrc:
+                return None
+            return self._render_lrclib_word_ass(song_path, lrc)
+        if source == SUBTITLE_SOURCE_GENIUS_SYNC:
+            info = self._read_metadata_for_lrclib(song_path)
+            if not info:
+                return None
+            return self._render_genius_word_ass(song_path, info)
+        if source == SUBTITLE_SOURCE_AI:
+            return self._render_whisper_word_ass(song_path)
+        return None
 
     def _register_user_ass(self, song_path: str) -> None:
         from pikaraoke.lib.karaoke_database import LYRICS_PROVENANCE_USER
@@ -405,13 +686,13 @@ class LyricsService:
         try:
             self._db.update_processing_config(
                 song_id,
-                lyrics_source="user_ass",
+                lyrics_source=SUBTITLE_SOURCE_USER,
                 aligner_model=None,
                 lyrics_sha=None,
                 lyrics_provenance=LYRICS_PROVENANCE_USER,
             )
         except Exception:
-            logger.exception("failed to stamp user_ass lyrics_source for %s", song_path)
+            logger.exception("failed to stamp user lyrics_source for %s", song_path)
         try:
             self._events.emit("lyrics_upgraded", song_path)
         except Exception:
@@ -614,7 +895,7 @@ class LyricsService:
                     song_path,
                     _TIER_LINE_LRC,
                     line_ass,
-                    lyrics_source="lrclib",
+                    lyrics_source=SUBTITLE_SOURCE_LRCLIB,
                     aligner_model=None,
                     lyrics_sha=lyrics_sha,
                 )
@@ -718,6 +999,164 @@ class LyricsService:
             self._db_language(song_path),
         )
 
+    def _render_lrclib_line_ass(
+        self, info: dict | None
+    ) -> tuple[str | None, str | None, dict | None]:
+        """Fetch LRCLib (with iTunes fallback) and render line-level ASS.
+
+        Returns ``(ass, lyrics_sha, info)``. ``info`` is returned with
+        canonical artist/track when iTunes canonicalisation hit, mirroring
+        ``_fetch_lrc_with_itunes_fallback``.
+        """
+        lrc, info = self._fetch_lrc_with_itunes_fallback(info)
+        if not lrc:
+            return None, None, info
+        ass = _lrc_to_ass_line_level(lrc)
+        if not ass:
+            return None, None, info
+        return ass, _lrc_sha(lrc), info
+
+    def _render_lrclib_word_ass(self, song_path: str, lrc: str) -> str | None:
+        """Align an LRC against vocals via wav2vec2 and render word-level ASS.
+
+        Pure-ish: no .ass write, no tier-gate touch, no
+        ``lyrics_upgraded`` emit. Used by both the variant fetch path and
+        ``_upgrade_to_word_level`` (via the latter's existing tier-gate
+        write). Returns ``None`` when the aligner is missing, language
+        cannot be determined, or alignment yields no words.
+        """
+        if self._aligner is None:
+            return None
+        try:
+            audio_path = _wait_for_alignment_audio(song_path)
+            song_id = self._db.get_song_id_by_path(song_path) if self._db else None
+            db_lang = None
+            if self._db is not None and song_id is not None:
+                row = self._db.get_song_by_id(song_id)
+                db_lang = row["language"] if row is not None else None
+            language = db_lang or _detect_language(_lrc_plain_text(lrc))
+            if not language:
+                return None
+            words = self._aligner.align(
+                audio_path,
+                _lrc_plain_text(lrc),
+                lrc_lines=lrc_line_windows(lrc),
+                language=language,
+            )
+            if not words:
+                return None
+            line_starts = getattr(self._aligner, "last_line_starts", None)
+            if isinstance(line_starts, dict) and line_starts:
+                render_lrc = _shift_lrc_per_line(lrc, line_starts)
+            else:
+                render_lrc = lrc
+            bpm = _estimate_bpm(audio_path)
+            return _words_to_ass_with_k_tags(words, render_lrc, params=_anim_params_for_bpm(bpm))
+        except Exception:
+            logger.warning(
+                "_render_lrclib_word_ass: alignment failed for %s", song_path, exc_info=True
+            )
+            return None
+
+    def _render_genius_word_ass(self, song_path: str, info: dict) -> str | None:
+        """Genius lyrics + wav2vec2 → word-level ASS. Returns ASS string or None."""
+        if self._aligner is None:
+            return None
+        track = info.get("track")
+        artist = info.get("artist")
+        if not track or not artist:
+            return None
+        try:
+            genius_text = _fetch_genius(track, artist)
+        except Exception:
+            logger.exception("_render_genius_word_ass: fetch crashed for %r / %r", artist, track)
+            return None
+        if not genius_text:
+            return None
+        if self._is_genius_language_mismatch(song_path, genius_text):
+            return None
+        try:
+            _prewarm_stems(song_path)
+            audio_path = _wait_for_alignment_audio(song_path)
+            lines = [ln for ln in genius_text.splitlines() if ln.strip()]
+            plain = "\n".join(lines)
+            song_id = self._db.get_song_id_by_path(song_path) if self._db else None
+            db_lang = None
+            if self._db is not None and song_id is not None:
+                row = self._db.get_song_by_id(song_id)
+                db_lang = row["language"] if row is not None else None
+            language = db_lang or _detect_language(plain)
+            if not language:
+                return None
+            words = self._aligner.align(audio_path, plain, language=language)
+            if not words:
+                return None
+            synthetic_lrc = _lrc_from_aligned_lines(words, lines)
+            if not synthetic_lrc:
+                return None
+            bpm = _estimate_bpm(audio_path)
+            return _words_to_ass_with_k_tags(words, synthetic_lrc, params=_anim_params_for_bpm(bpm))
+        except Exception:
+            logger.warning("_render_genius_word_ass: failed for %s", song_path, exc_info=True)
+            return None
+
+    def _render_whisper_word_ass(self, song_path: str) -> str | None:
+        """Whisper ASR → word-level ASS. Returns ASS string or None."""
+        try:
+            _prewarm_stems(song_path)
+            audio_path = _wait_for_alignment_audio(song_path)
+            model = _get_whisper_model()
+            if model is None:
+                return None
+            segments_iter, info = model.transcribe(
+                audio_path, word_timestamps=True, vad_filter=True
+            )
+            segments = list(segments_iter)
+            if not segments:
+                return None
+            lrc = _lrc_from_whisper_segments(segments)
+            lang = getattr(info, "language", None)
+            words: list[Word] = []
+            for seg in segments:
+                for w in seg.words or []:
+                    text = (getattr(w, "word", "") or "").strip()
+                    if not text or w.start is None or w.end is None:
+                        continue
+                    start = float(w.start)
+                    end = float(w.end)
+                    parts = _syllable_parts(text, lang, start, end)
+                    words.append(Word(text=text, start=start, end=end, parts=parts))
+            if not words or not lrc:
+                return None
+            bpm = _estimate_bpm(audio_path)
+            return _words_to_ass_with_k_tags(words, lrc, params=_anim_params_for_bpm(bpm))
+        except Exception:
+            logger.exception("_render_whisper_word_ass: failed for %s", song_path)
+            return None
+
+    def _render_vtt_ass(self, song_path: str) -> str | None:
+        """Render a line-level ASS from the song's VTT captions, if any.
+
+        Pure-ish: returns the rendered ASS string (or None on miss). Persists
+        the inferred VTT language as a side effect — language detection is
+        free here (filename has the lang code) and feeds wav2vec2 model
+        selection downstream.
+        """
+        vtt_path = _pick_best_vtt(song_path, preferred_lang=self._db_language(song_path))
+        if not vtt_path:
+            return None
+        try:
+            with open(vtt_path, encoding="utf-8") as f:
+                vtt = f.read()
+        except OSError as e:
+            logger.warning("failed to read %s: %s", vtt_path, e)
+            return None
+        ass = _vtt_to_ass(vtt)
+        if not ass:
+            return None
+        self._persist_vtt_language(song_path, vtt_path)
+        return ass
+
     def _worker_vtt(self, song_path: str) -> None:
         """Write a line-level .ass from the downloaded VTT captions, if any.
 
@@ -728,23 +1167,14 @@ class LyricsService:
         upgrades the .ass cleanly.
         """
         try:
-            vtt_path = _pick_best_vtt(song_path, preferred_lang=self._db_language(song_path))
-            if not vtt_path:
-                return
-            try:
-                with open(vtt_path, encoding="utf-8") as f:
-                    vtt = f.read()
-            except OSError as e:
-                logger.warning("failed to read %s: %s", vtt_path, e)
-                return
-            ass = _vtt_to_ass(vtt)
+            ass = self._render_vtt_ass(song_path)
             if not ass:
                 return
             wrote = self._try_write_ass_tiered(
                 song_path,
                 _TIER_LINE_VTT,
                 ass,
-                lyrics_source="youtube_vtt",
+                lyrics_source=SUBTITLE_SOURCE_YOUTUBE_VTT,
                 aligner_model=None,
                 lyrics_sha=None,
             )
@@ -753,7 +1183,6 @@ class LyricsService:
                     "Wrote .ass from YouTube VTT for %s",
                     os.path.basename(song_path),
                 )
-                self._persist_vtt_language(song_path, vtt_path)
         except Exception:
             logger.exception("VTT worker crashed for %s", song_path)
 
@@ -1361,7 +1790,7 @@ class LyricsService:
                     song_path,
                     _TIER_WORD,
                     ass,
-                    lyrics_source="whisperx",
+                    lyrics_source=SUBTITLE_SOURCE_LRCLIB_SYNC,
                     aligner_model=aligner_id,
                     lyrics_sha=lyrics_sha,
                 )
@@ -1490,7 +1919,7 @@ class LyricsService:
             song_path,
             _TIER_WORD,
             ass,
-            lyrics_source="genius",
+            lyrics_source=SUBTITLE_SOURCE_GENIUS_SYNC,
             aligner_model=aligner_id,
             lyrics_sha=lyrics_sha,
         )
@@ -1568,7 +1997,7 @@ class LyricsService:
                 song_path,
                 _TIER_WORD,
                 ass,
-                lyrics_source="whisper",
+                lyrics_source=SUBTITLE_SOURCE_AI,
                 aligner_model=f"whisper-{model_name}",
                 lyrics_sha=_lrc_sha(lrc),
             )
@@ -2005,6 +2434,22 @@ def _title_from_filename(song_path: str) -> str:
 def _ass_path(song_path: str) -> str:
     stem, _ext = os.path.splitext(song_path)
     return f"{stem}.ass"
+
+
+def variant_ass_path(song_path: str, source: str) -> str:
+    """Return the per-source variant ASS path: ``<stem>.<source>.ass``.
+
+    Variants coexist on disk with the canonical ``<stem>.ass``; the
+    operator's source-picker pin in ``songs.subtitle_source_override``
+    decides which file ``/subtitle/<id>`` serves. ``user`` and ``off``
+    have no variant file (callers should not invoke this for them).
+    """
+    stem, _ext = os.path.splitext(song_path)
+    return f"{stem}.{source}.ass"
+
+
+# Backwards-compatible alias for internal callers within this module.
+_variant_ass_path = variant_ass_path
 
 
 # ----- LRCLib client -----
@@ -2461,22 +2906,39 @@ def _detect_language(text: str) -> str | None:
 # second on the CI/RPi box.
 _BPM_ANALYSIS_DURATION_S = 60.0
 
+# Process-lifetime cache for BPM estimates. Multiple render paths
+# (line/word/whisper/genius/lrclib variants) each ask for the BPM of the
+# same vocals.mp3, which used to repeat the librosa.load + beat_track
+# pipeline 3-7x per song. The vocals.mp3 parent directory is the audio
+# sha256, so the path is content-addressable and stable for the process
+# lifetime. None entries are cached too, so repeated failures don't keep
+# retrying.
+_bpm_cache: dict[str, float | None] = {}
+_bpm_cache_lock = threading.Lock()
+
 
 def _estimate_bpm(audio_path: str) -> float | None:
     """Best-effort song tempo in BPM, or None if detection fails.
 
     Used only to pick decorative animation parameters - never in a timing
     path - so any failure falls through to a plain (un-pulsed) render.
+    Cached for the process lifetime; see ``_bpm_cache``.
     """
+    with _bpm_cache_lock:
+        if audio_path in _bpm_cache:
+            return _bpm_cache[audio_path]
     try:
         y, sr = librosa.load(audio_path, sr=None, mono=True, duration=_BPM_ANALYSIS_DURATION_S)
         tempo, _beats = librosa.beat.beat_track(y=y, sr=sr)
         bpm = float(tempo[0]) if hasattr(tempo, "__len__") else float(tempo)
         logger.info("Estimated BPM %.1f for %s", bpm, audio_path)
-        return bpm if bpm > 0 else None
+        result = bpm if bpm > 0 else None
     except Exception:
         logger.warning("BPM estimation failed for %s", audio_path, exc_info=True)
-        return None
+        result = None
+    with _bpm_cache_lock:
+        _bpm_cache[audio_path] = result
+    return result
 
 
 # ----- ASS builders -----
@@ -2767,9 +3229,16 @@ def _escape_ass(text: str) -> str:
 # ----- atomic write -----
 
 
-def _write_ass_atomic(song_path: str, ass_content: str) -> None:
-    """Write <stem>.ass atomically so a concurrent read never sees partial data."""
-    target = _ass_path(song_path)
+def _write_ass_atomic(song_path: str, ass_content: str, *, target_path: str | None = None) -> None:
+    """Write an ASS file atomically so a concurrent read never sees partial data.
+
+    Default target is the canonical ``<stem>.ass``; pass ``target_path`` to
+    write a per-source variant (``<stem>.<source>.ass``) without changing
+    the canonical file. The temporary file is created in the same
+    directory as the target so ``os.replace`` stays a true rename (atomic
+    on the same filesystem; would degrade to a copy across mounts).
+    """
+    target = target_path or _ass_path(song_path)
     directory = os.path.dirname(target) or "."
     fd, tmp = tempfile.mkstemp(suffix=".ass", dir=directory)
     try:

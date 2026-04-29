@@ -23,6 +23,22 @@ _LYRICS_TRIGGER_ROLES = frozenset({"ass_auto", "audio_source", "primary_media"})
 _LYRICS_SKIP_FORMATS = frozenset({"cdg", "zip"})
 
 
+def _discover_variant_artifacts(song_path: str, variant_sources) -> list[dict]:
+    """Glob ``<stem>.<source>.ass`` for each known source.
+
+    Returns a list of ``{"role": "ass_<source>", "path": ...}`` dicts for
+    every variant file actually on disk. Bounded iteration: the source
+    set is fixed, so unknown ``<stem>.<random>.ass`` files (from older
+    naming schemes or user noise) are silently ignored.
+    """
+    artifacts: list[dict] = []
+    for source in variant_sources:
+        candidate = f"{os.path.splitext(song_path)[0]}.{source}.ass"
+        if os.path.exists(candidate):
+            artifacts.append({"role": f"ass_{source}", "path": candidate})
+    return artifacts
+
+
 def build_song_record(
     file_path: str,
     files_in_dir: set[str] | None = None,
@@ -340,12 +356,17 @@ class LibraryScanner:
         on this column to invalidate stale word-level files after a model
         bump - see ``KaraokeDatabase.get_song_ids_for_realignment``.
 
+        Also globs ``<stem>.<source>.ass`` for each known subtitle source
+        and registers an ``ass_<source>`` artifact row so the source
+        picker can flag pre-existing variants as ``ready``.
+
         Imports are deferred to avoid pulling song_manager (which imports
         lyrics) at module-import time.
         """
         missing = self._db.get_songs_without_artifacts()
         if not missing:
             return
+        from pikaraoke.lib.karaoke_database import VARIANT_FILE_SOURCES
         from pikaraoke.lib.song_manager import (
             _track_metadata_from_info_json,
             discover_song_artifacts,
@@ -354,6 +375,7 @@ class LibraryScanner:
         logging.info(f"Scan: backfilling artifacts for {len(missing)} song(s)")
         for song_id, path in missing:
             artifacts = discover_song_artifacts(path)
+            artifacts.extend(_discover_variant_artifacts(path, VARIANT_FILE_SOURCES))
             self._db.upsert_artifacts(song_id, artifacts)
             for artifact in artifacts:
                 provenance = artifact.get("lyrics_provenance")

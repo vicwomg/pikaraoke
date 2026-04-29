@@ -28,7 +28,7 @@ class TestInit:
 
     def test_user_version(self, db):
         ver = db._conn.execute("PRAGMA user_version").fetchone()[0]
-        assert ver == 6
+        assert ver == 7
 
     def test_songs_table_exists(self, db):
         tables = {
@@ -562,15 +562,16 @@ class TestMigrationFromV1:
         conn.commit()
         conn.close()
 
-        # Open via KaraokeDatabase: should apply v2+v3+v4+v5+v6 migrations in-place.
+        # Open via KaraokeDatabase: should apply v2..v7 migrations in-place.
         db = KaraokeDatabase(db_path)
         try:
             ver = db._conn.execute("PRAGMA user_version").fetchone()[0]
-            assert ver == 6
+            assert ver == 7
 
             cols = {row[1] for row in db._conn.execute("PRAGMA table_info(songs)").fetchall()}
             assert "metadata_sources" in cols
             assert "lyrics_provenance" in cols
+            assert "subtitle_source_override" in cols
             art_cols = {
                 row[1] for row in db._conn.execute("PRAGMA table_info(song_artifacts)").fetchall()
             }
@@ -614,3 +615,171 @@ class TestMigrationFromV1:
     def test_foreign_keys_enabled(self, db):
         fk = db._conn.execute("PRAGMA foreign_keys").fetchone()[0]
         assert fk == 1
+
+
+class TestSubtitleSourceOverride:
+    """v7 column: per-song subtitle source pin set by the picker."""
+
+    def _insert_song(self, db) -> int:
+        db.insert_songs([{"file_path": "/songs/x.mp4", "youtube_id": None, "format": "mp4"}])
+        return db.get_song_id_by_path("/songs/x.mp4")
+
+    def test_default_is_none(self, db):
+        sid = self._insert_song(db)
+        assert db.get_subtitle_source_override(sid) is None
+
+    def test_set_and_read_back(self, db):
+        sid = self._insert_song(db)
+        db.set_subtitle_source_override(sid, "lrclib-sync")
+        assert db.get_subtitle_source_override(sid) == "lrclib-sync"
+
+    def test_clear_with_none(self, db):
+        sid = self._insert_song(db)
+        db.set_subtitle_source_override(sid, "AI")
+        db.set_subtitle_source_override(sid, None)
+        assert db.get_subtitle_source_override(sid) is None
+
+    def test_off_value_persists(self, db):
+        sid = self._insert_song(db)
+        db.set_subtitle_source_override(sid, "off")
+        assert db.get_subtitle_source_override(sid) == "off"
+
+    def test_unknown_song_returns_none(self, db):
+        assert db.get_subtitle_source_override(99999) is None
+
+
+class TestVariantArtifacts:
+    def test_filters_to_ass_variants(self, db):
+        db.insert_songs([{"file_path": "/songs/x.mp4", "youtube_id": None, "format": "mp4"}])
+        sid = db.get_song_id_by_path("/songs/x.mp4")
+        db.upsert_artifacts(
+            sid,
+            [
+                {"role": "ass_auto", "path": "/songs/x.ass"},
+                {"role": "ass_user", "path": "/songs/x.ass"},
+                {"role": "ass_lrclib", "path": "/songs/x.lrclib.ass"},
+                {"role": "ass_AI", "path": "/songs/x.AI.ass"},
+                {"role": "vtt", "path": "/songs/x.en.vtt"},
+            ],
+        )
+        rows = db.get_variant_artifacts(sid)
+        roles = {r["role"] for r in rows}
+        assert roles == {"ass_lrclib", "ass_AI"}
+
+    def test_empty_when_no_variants(self, db):
+        db.insert_songs([{"file_path": "/songs/y.mp4", "youtube_id": None, "format": "mp4"}])
+        sid = db.get_song_id_by_path("/songs/y.mp4")
+        assert db.get_variant_artifacts(sid) == []
+
+
+class TestV7DataMigration:
+    """v6 → v7 renames legacy lyrics_source values to the new scheme."""
+
+    def test_renames_legacy_values(self, tmp_path):
+        # Build a v6 DB by hand (the column already exists from V2 migration).
+        import sqlite3
+
+        from pikaraoke.lib.karaoke_database import _MIGRATION_V2, _SCHEMA_V1
+
+        db_path = str(tmp_path / "v6.db")
+        conn = sqlite3.connect(db_path)
+        conn.executescript(_SCHEMA_V1)
+        conn.executescript(_MIGRATION_V2)
+        conn.executescript("ALTER TABLE songs ADD COLUMN lyrics_sha TEXT;")
+        conn.executescript("ALTER TABLE songs ADD COLUMN metadata_sources TEXT;")
+        conn.executescript(
+            "ALTER TABLE song_artifacts ADD COLUMN sha256 TEXT;"
+            "ALTER TABLE song_artifacts ADD COLUMN size INTEGER;"
+            "ALTER TABLE song_artifacts ADD COLUMN mtime REAL;"
+        )
+        conn.executescript("ALTER TABLE songs ADD COLUMN lyrics_provenance TEXT;")
+        for legacy in ("whisperx", "genius", "whisper", "youtube_vtt", "user_ass", "lrclib"):
+            conn.execute(
+                "INSERT INTO songs (file_path, youtube_id, format, lyrics_source) "
+                "VALUES (?, NULL, 'mp4', ?)",
+                (f"/songs/{legacy}.mp4", legacy),
+            )
+        conn.execute("PRAGMA user_version = 6")
+        conn.commit()
+        conn.close()
+
+        db = KaraokeDatabase(db_path)
+        try:
+            sources = db.get_lyrics_sources()
+            assert sources["/songs/whisperx.mp4"] == "lrclib-sync"
+            assert sources["/songs/genius.mp4"] == "genius-sync"
+            assert sources["/songs/whisper.mp4"] == "AI"
+            assert sources["/songs/youtube_vtt.mp4"] == "youtube-vtt"
+            assert sources["/songs/user_ass.mp4"] == "user"
+            assert sources["/songs/lrclib.mp4"] == "lrclib"
+        finally:
+            db.close()
+
+
+class TestDriftedSchemaSelfHeals:
+    """Regression: a DB whose ``user_version`` advanced past a migration
+    without the matching ALTER (partial-migration crash, or a dev branch
+    that swapped schema numbers mid-iteration) used to fail at query time
+    with ``no such column``. The canary-only migration gate must self-heal
+    by re-running ALTERs based on column presence, regardless of version.
+    """
+
+    def _build_drifted(self, db_path: str, missing_column: str, version: int) -> None:
+        """Create a DB whose user_version says ``version`` but is missing
+        ``missing_column`` from the songs table. We start from the v1
+        baseline (which only has the original songs columns) so any later
+        column is, in fact, missing.
+        """
+        import sqlite3
+
+        from pikaraoke.lib.karaoke_database import _SCHEMA_V1
+
+        conn = sqlite3.connect(db_path)
+        conn.executescript(_SCHEMA_V1)
+        conn.execute(f"PRAGMA user_version = {version}")
+        conn.commit()
+        conn.close()
+        # Sanity: missing_column actually missing.
+        conn = sqlite3.connect(db_path)
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(songs)").fetchall()}
+        assert missing_column not in cols
+        conn.close()
+
+    def test_self_heals_missing_lyrics_provenance(self, tmp_path):
+        """Production crash: user_version >= 6 but lyrics_provenance absent
+        → get_song_ids_for_realignment threw OperationalError."""
+        db_path = str(tmp_path / "drift_v6.db")
+        self._build_drifted(db_path, "lyrics_provenance", version=6)
+
+        db = KaraokeDatabase(db_path)
+        try:
+            cols = {r[1] for r in db._conn.execute("PRAGMA table_info(songs)").fetchall()}
+            assert "lyrics_provenance" in cols
+            assert db.get_song_ids_for_realignment("anymodel") == []
+        finally:
+            db.close()
+
+    def test_self_heals_missing_subtitle_source_override(self, tmp_path):
+        """Production crash: user_version >= 7 but subtitle_source_override
+        absent → karaoke.py crashed on row['subtitle_source_override']."""
+        db_path = str(tmp_path / "drift_v7.db")
+        self._build_drifted(db_path, "subtitle_source_override", version=7)
+
+        db = KaraokeDatabase(db_path)
+        try:
+            cols = {r[1] for r in db._conn.execute("PRAGMA table_info(songs)").fetchall()}
+            assert "subtitle_source_override" in cols
+        finally:
+            db.close()
+
+    def test_self_heals_missing_audio_sha256(self, tmp_path):
+        """V2 column drift: same shape, earlier migration."""
+        db_path = str(tmp_path / "drift_v2.db")
+        self._build_drifted(db_path, "audio_sha256", version=2)
+
+        db = KaraokeDatabase(db_path)
+        try:
+            cols = {r[1] for r in db._conn.execute("PRAGMA table_info(songs)").fetchall()}
+            assert "audio_sha256" in cols
+        finally:
+            db.close()

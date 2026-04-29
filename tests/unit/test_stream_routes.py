@@ -284,3 +284,63 @@ class TestStreamStemAudioWavUrlWithMp3OnDisk:
         # Documents the current behavior — the true fix is keeping WAVs on
         # disk for the active song's lifetime (see test_demucs_processor).
         assert response.status_code == 416
+
+
+class TestSubtitleOverride:
+    """``/subtitle/<id>`` honours the per-song source pin from the picker."""
+
+    def _setup(self, mock_get_instance, tmp_path, *, override=None, variant_exists=False):
+        song_path = tmp_path / "Foo---abc.mp4"
+        song_path.write_text("fake")
+        canonical = tmp_path / "Foo---abc.ass"
+        canonical.write_text("CANONICAL")
+        if variant_exists:
+            (tmp_path / "Foo---abc.lrclib.ass").write_text("VARIANT_LRCLIB")
+
+        mock_karaoke = MagicMock()
+        mock_karaoke.playback_controller.now_playing_filename = str(song_path)
+        mock_karaoke.playback_controller.now_playing_url = "/stream/uid"
+        mock_karaoke.db.get_song_id_by_path.return_value = 42
+        mock_karaoke.db.get_subtitle_source_override.return_value = override
+        # Default: no fetch in flight. Tests that need the in-flight branch
+        # override this explicitly. Without this, the MagicMock auto-attr
+        # returns a truthy MagicMock and the stale-clear branch is skipped.
+        mock_karaoke.lyrics_service.is_fetch_in_flight.return_value = False
+        mock_get_instance.return_value = mock_karaoke
+        return mock_karaoke, song_path
+
+    @patch("pikaraoke.routes.stream.get_karaoke_instance")
+    def test_serves_canonical_without_override(self, mock_get, client, tmp_path):
+        self._setup(mock_get, tmp_path, override=None)
+        r = client.get("/subtitle/uid")
+        assert r.status_code == 200
+        assert r.data == b"CANONICAL"
+
+    @patch("pikaraoke.routes.stream.get_karaoke_instance")
+    def test_serves_variant_when_override_pinned(self, mock_get, client, tmp_path):
+        self._setup(mock_get, tmp_path, override="lrclib", variant_exists=True)
+        r = client.get("/subtitle/uid")
+        assert r.status_code == 200
+        assert r.data == b"VARIANT_LRCLIB"
+
+    @patch("pikaraoke.routes.stream.get_karaoke_instance")
+    def test_stale_override_falls_back_and_clears(self, mock_get, client, tmp_path):
+        k, _ = self._setup(mock_get, tmp_path, override="genius-sync", variant_exists=False)
+        r = client.get("/subtitle/uid")
+        assert r.status_code == 200
+        # Falls back to canonical when the variant file is missing.
+        assert r.data == b"CANONICAL"
+        # And clears the stale pin so the picker shows ``download`` again.
+        k.db.set_subtitle_source_override.assert_called_once_with(42, None)
+
+    @patch("pikaraoke.routes.stream.get_karaoke_instance")
+    def test_off_override_serves_canonical_without_clearing(self, mock_get, client, tmp_path):
+        k, _ = self._setup(mock_get, tmp_path, override="off")
+        r = client.get("/subtitle/uid")
+        assert r.status_code == 200
+        # ``off`` is the picker's hide toggle; the splash skips Octopus init
+        # via subtitle_disabled, but the canonical URL is still served so
+        # other clients (admin browsers) get a body.
+        assert r.data == b"CANONICAL"
+        # ``off`` is not stale — no clear.
+        k.db.set_subtitle_source_override.assert_not_called()

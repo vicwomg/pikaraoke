@@ -12,6 +12,8 @@ _ = flask_babel.gettext
 
 from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.file_resolver import FileResolver, get_tmp_dir
+from pikaraoke.lib.karaoke_database import VARIANT_FILE_SOURCES
+from pikaraoke.lib.lyrics import variant_ass_path
 
 stream_bp = Blueprint("stream", __name__)
 
@@ -389,7 +391,18 @@ def stream_bg_video():
 # subtitle .ass
 @stream_bp.route("/subtitle/<id>")
 def stream_subtitle(id):
-    """Serve subtitle file for the current song."""
+    """Serve subtitle file for the current song.
+
+    Honours the per-song ``subtitle_source_override`` pin: when set to a
+    variant source, serves ``<stem>.<source>.ass`` instead of the
+    canonical ``<stem>.ass``. A stale override (variant file missing on
+    disk) falls back to canonical and clears the override so the picker
+    flips back to ``download``. When the override is ``"off"``, fall
+    through to canonical — the splash skips SubtitlesOctopus init via the
+    ``subtitle_disabled`` payload flag, and the canonical file is still
+    served so other clients (admin browsers) get the URL the picker
+    expects.
+    """
     k = get_karaoke_instance()
     try:
         original_file_path = k.playback_controller.now_playing_filename
@@ -397,6 +410,46 @@ def stream_subtitle(id):
         if original_file_path and now_playing_url and id in now_playing_url:
             fr = FileResolver(original_file_path)
             ass_file_path = fr.ass_file_path
+
+            override = None
+            song_id = None
+            if k.db is not None:
+                try:
+                    song_id = k.db.get_song_id_by_path(original_file_path)
+                    if song_id is not None:
+                        override = k.db.get_subtitle_source_override(song_id)
+                except Exception:
+                    pass
+            # Defense-in-depth: only honour overrides that map to a real
+            # variant file source. Any other DB value (corruption, future
+            # migration leaving a stale tag) falls through to canonical.
+            if override in VARIANT_FILE_SOURCES:
+                candidate = variant_ass_path(original_file_path, override)
+                if os.path.exists(candidate):
+                    ass_file_path = candidate
+                elif song_id is not None and k.db is not None:
+                    # File missing — but only clear the pin when no fetch is
+                    # in flight. If ``fetch_variant`` is still running for
+                    # this (song, source), the operator's pick is in
+                    # progress; clearing it here would silently undo their
+                    # choice the moment splash polls /subtitle/<id> before
+                    # wav2vec2 (or whatever per-source worker is running)
+                    # writes its variant. Fall back to canonical for now;
+                    # ``lyrics_upgraded`` from the worker will hot-swap to
+                    # the variant once it lands.
+                    fetch_in_flight = False
+                    ls = getattr(k, "lyrics_service", None)
+                    if ls is not None:
+                        try:
+                            fetch_in_flight = ls.is_fetch_in_flight(original_file_path, override)
+                        except Exception:
+                            fetch_in_flight = False
+                    if not fetch_in_flight:
+                        try:
+                            k.db.set_subtitle_source_override(song_id, None)
+                        except Exception:
+                            pass
+
             if ass_file_path and os.path.exists(ass_file_path):
                 return send_file(
                     os.path.abspath(ass_file_path),
