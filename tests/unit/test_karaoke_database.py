@@ -28,7 +28,7 @@ class TestInit:
 
     def test_user_version(self, db):
         ver = db._conn.execute("PRAGMA user_version").fetchone()[0]
-        assert ver == 7
+        assert ver == 8
 
     def test_songs_table_exists(self, db):
         tables = {
@@ -340,6 +340,28 @@ class TestProcessingConfig:
             db.update_processing_config(sid, lyrics_provenance="garbage")
 
 
+class TestLyricsConfidence:
+    def test_starts_null(self, db):
+        sid = _insert_song(db)
+        assert db.get_song_by_id(sid)["lyrics_confidence"] is None
+
+    def test_round_trips_score(self, db):
+        sid = _insert_song(db)
+        db.update_lyrics_confidence(sid, 0.83)
+        assert db.get_song_by_id(sid)["lyrics_confidence"] == pytest.approx(0.83)
+
+    def test_clears_to_null(self, db):
+        sid = _insert_song(db)
+        db.update_lyrics_confidence(sid, 0.42)
+        db.update_lyrics_confidence(sid, None)
+        assert db.get_song_by_id(sid)["lyrics_confidence"] is None
+
+    def test_rejects_non_numeric(self, db):
+        sid = _insert_song(db)
+        with pytest.raises(ValueError):
+            db.update_lyrics_confidence(sid, "high")
+
+
 class TestGetSongIdsForRealignment:
     def test_returns_auto_word_with_stale_aligner(self, db):
         sid = _insert_song(db, "/songs/stale.mp4")
@@ -562,16 +584,17 @@ class TestMigrationFromV1:
         conn.commit()
         conn.close()
 
-        # Open via KaraokeDatabase: should apply v2..v7 migrations in-place.
+        # Open via KaraokeDatabase: should apply v2..v8 migrations in-place.
         db = KaraokeDatabase(db_path)
         try:
             ver = db._conn.execute("PRAGMA user_version").fetchone()[0]
-            assert ver == 7
+            assert ver == 8
 
             cols = {row[1] for row in db._conn.execute("PRAGMA table_info(songs)").fetchall()}
             assert "metadata_sources" in cols
             assert "lyrics_provenance" in cols
             assert "subtitle_source_override" in cols
+            assert "lyrics_confidence" in cols
             art_cols = {
                 row[1] for row in db._conn.execute("PRAGMA table_info(song_artifacts)").fetchall()
             }

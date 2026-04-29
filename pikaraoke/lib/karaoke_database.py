@@ -196,6 +196,16 @@ UPDATE songs SET lyrics_source = 'youtube-vtt' WHERE lyrics_source = 'youtube_vt
 UPDATE songs SET lyrics_source = 'user'        WHERE lyrics_source = 'user_ass';
 """
 
+# v7 -> v8: per-song lyrics-prior reliability score recorded by the
+# confidence-driven hybrid aligner. NULL = not yet graded (pre-tracking
+# rows); 0.0..1.0 = grader output, where higher means upstream LRC
+# timestamps are trustworthy enough to keep the fast LRC-windowed
+# alignment path. Scores below ``_RELIABILITY_GATE`` route the song
+# through the synthetic-LRC fallback inside ``_upgrade_via_consensus``.
+_MIGRATION_V8 = """
+ALTER TABLE songs ADD COLUMN lyrics_confidence REAL;
+"""
+
 LYRICS_PROVENANCE_AUTO_WORD = "auto_word"
 LYRICS_PROVENANCE_AUTO_LINE = "auto_line"
 LYRICS_PROVENANCE_USER = "user"
@@ -241,7 +251,7 @@ VARIANT_FILE_SOURCES = frozenset(
     }
 )
 
-_SCHEMA_VERSION = 7
+_SCHEMA_VERSION = 8
 
 _TRACK_METADATA_FIELDS = (
     "duration_seconds",
@@ -319,6 +329,9 @@ class KaraokeDatabase:
             columns = {row[1] for row in self._conn.execute("PRAGMA table_info(songs)").fetchall()}
             if "subtitle_source_override" not in columns:
                 self._conn.executescript(_MIGRATION_V7)
+            columns = {row[1] for row in self._conn.execute("PRAGMA table_info(songs)").fetchall()}
+            if "lyrics_confidence" not in columns:
+                self._conn.executescript(_MIGRATION_V8)
             self._conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
 
     # ------------------------------------------------------------------
@@ -729,6 +742,23 @@ class KaraokeDatabase:
             self._conn.execute(
                 f"UPDATE songs SET {', '.join(updates)}, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                 params,
+            )
+
+    def update_lyrics_confidence(self, song_id: int, score: float | None) -> None:
+        """Record the prior-reliability grader's score for a song.
+
+        ``score`` is the value returned by ``lyrics_align._grade_priors``
+        (a float in [0.0, 1.0]), or ``None`` to clear the column. Used by
+        the confidence-driven hybrid aligner so the same routing decision
+        can be replayed on re-alignment without re-grading from scratch
+        and so future correction UI can surface low-confidence songs.
+        """
+        if score is not None and not isinstance(score, (int, float)):
+            raise ValueError(f"update_lyrics_confidence: score must be float or None, got {score!r}")
+        with self._lock, self._conn:
+            self._conn.execute(
+                "UPDATE songs SET lyrics_confidence = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (float(score) if score is not None else None, song_id),
             )
 
     def update_track_metadata(self, song_id: int, **fields) -> None:
