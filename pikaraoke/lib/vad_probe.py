@@ -96,9 +96,7 @@ def _ensure_model() -> object | None:
             _model = load_silero_vad()
             logger.info("vad_probe: silero model ready")
         except ImportError:
-            logger.info(
-                "vad_probe: silero-vad not installed; falling back to ffmpeg silencedetect"
-            )
+            logger.info("vad_probe: silero-vad not installed; falling back to ffmpeg silencedetect")
             _model_unavailable = True
         except Exception:
             logger.warning("vad_probe: silero model load failed", exc_info=True)
@@ -127,9 +125,7 @@ def list_vocal_onsets(audio_path: str) -> list[tuple[float, float]]:
     if audio_duration is None:
         return []
 
-    silencedetect_starts = [
-        onset for onset, end in silence_pairs if (end - onset) >= _MIN_AUDIO_S
-    ]
+    silencedetect_starts = [onset for onset, end in silence_pairs if (end - onset) >= _MIN_AUDIO_S]
     merged = _merge_starts(silero_starts + silencedetect_starts)
     if not merged:
         return []
@@ -224,9 +220,7 @@ def _silencedetect_onset_pairs(audio_path: str) -> list[tuple[float, float]]:
     silence_starts = [
         float(m.group(1)) for m in re.finditer(r"silence_start:\s*([\d.]+)", proc.stderr)
     ]
-    silence_ends = [
-        float(m.group(1)) for m in re.finditer(r"silence_end:\s*([\d.]+)", proc.stderr)
-    ]
+    silence_ends = [float(m.group(1)) for m in re.finditer(r"silence_end:\s*([\d.]+)", proc.stderr)]
     pairs: list[tuple[float, float]] = []
     # silence_end[i] = onset of audible region; silence_start[j] where
     # j is the smallest index with silence_start[j] >= silence_end[i] is
@@ -251,9 +245,7 @@ def _merge_starts(starts: list[float]) -> list[float]:
     return merged
 
 
-def _to_onset_pairs(
-    starts: list[float], audio_duration: float
-) -> list[tuple[float, float]]:
+def _to_onset_pairs(starts: list[float], audio_duration: float) -> list[tuple[float, float]]:
     """Zip a sorted list of onsets with each one's *next* onset."""
     if not starts:
         return []

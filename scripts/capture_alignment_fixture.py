@@ -32,7 +32,9 @@ FIXTURES_ROOT = REPO_ROOT / "tests" / "fixtures"
 LRCLIB_URL = "https://lrclib.net/api/get"
 
 
-def _vad_onsets(audio_path: str, sample_rate: int = 16000) -> tuple[list[tuple[float, float]], float]:
+def _vad_onsets(
+    audio_path: str, sample_rate: int = 16000
+) -> tuple[list[tuple[float, float]], float]:
     """Capture vocal onsets using the same pipeline as ``vad_probe``.
 
     Calls ``vad_probe.list_vocal_onsets`` directly so the fixture
@@ -64,10 +66,14 @@ def _lrclib_synced(artist: str, track: str, duration: float | None = None) -> st
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--audio", required=True, help="Path to the song's audio file (.m4a / .mp4)")
+    parser.add_argument(
+        "--audio", required=True, help="Path to the song's audio file (.m4a / .mp4)"
+    )
     parser.add_argument("--artist", required=True)
     parser.add_argument("--track", required=True)
-    parser.add_argument("--slug", required=True, help="Fixture directory name under tests/fixtures/")
+    parser.add_argument(
+        "--slug", required=True, help="Fixture directory name under tests/fixtures/"
+    )
     parser.add_argument(
         "--duration",
         type=float,

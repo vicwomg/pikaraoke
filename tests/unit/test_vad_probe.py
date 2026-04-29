@@ -66,9 +66,7 @@ class TestVADProbe:
         # ("0.001s of audio between two silences"). The candidate-filter
         # would treat that as a long-sustain anchor because the next merged
         # onset sits seconds away. Drop these at the source.
-        monkeypatch.setattr(
-            vad_probe, "_silero_onset_starts", lambda _p: ([], 60.0)
-        )
+        monkeypatch.setattr(vad_probe, "_silero_onset_starts", lambda _p: ([], 60.0))
         monkeypatch.setattr(
             vad_probe,
             "_silencedetect_onset_pairs",

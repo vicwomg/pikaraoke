@@ -263,9 +263,7 @@ class TestBackfillScheduler:
         )
         scheduler._PAUSE_POLL_S = 0.02
 
-        thread = threading.Thread(
-            target=lambda: scheduler.run([1, 2]), daemon=True
-        )
+        thread = threading.Thread(target=lambda: scheduler.run([1, 2]), daemon=True)
         thread.start()
         time.sleep(0.05)
         scheduler.stop()
