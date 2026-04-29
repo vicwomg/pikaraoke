@@ -772,6 +772,83 @@ class TestConsensusEnv:
         assert _consensus_providers() == {"musixmatch"}
 
 
+class TestConsensusSemaphore:
+    def test_default_concurrency_is_two(self, monkeypatch):
+        from pikaraoke.lib.lyrics import _consensus_max_concurrent
+
+        monkeypatch.delenv("LYRICS_CONSENSUS_MAX_CONCURRENT", raising=False)
+        assert _consensus_max_concurrent() == 2
+
+    def test_env_overrides_concurrency(self, monkeypatch):
+        from pikaraoke.lib.lyrics import _consensus_max_concurrent
+
+        monkeypatch.setenv("LYRICS_CONSENSUS_MAX_CONCURRENT", "5")
+        assert _consensus_max_concurrent() == 5
+
+    def test_invalid_env_falls_back_to_default(self, monkeypatch):
+        from pikaraoke.lib.lyrics import _consensus_max_concurrent
+
+        monkeypatch.setenv("LYRICS_CONSENSUS_MAX_CONCURRENT", "not-a-number")
+        assert _consensus_max_concurrent() == 2
+
+    def test_zero_or_negative_clamped_to_one(self, monkeypatch):
+        from pikaraoke.lib.lyrics import _consensus_max_concurrent
+
+        monkeypatch.setenv("LYRICS_CONSENSUS_MAX_CONCURRENT", "0")
+        assert _consensus_max_concurrent() == 1
+        monkeypatch.setenv("LYRICS_CONSENSUS_MAX_CONCURRENT", "-3")
+        assert _consensus_max_concurrent() == 1
+
+    def test_semaphore_caps_simultaneous_holders(self, monkeypatch):
+        # N=2 must allow two concurrent acquires and block the third
+        # until one slot releases.
+        import threading
+        import time
+
+        from pikaraoke.lib.lyrics import _get_consensus_semaphore
+
+        monkeypatch.setenv("LYRICS_CONSENSUS_MAX_CONCURRENT", "2")
+        sem = _get_consensus_semaphore()
+
+        held = []
+        gate = threading.Event()
+
+        def worker(name):
+            with sem:
+                held.append(name)
+                gate.wait(timeout=2.0)
+
+        t1 = threading.Thread(target=worker, args=("a",), daemon=True)
+        t2 = threading.Thread(target=worker, args=("b",), daemon=True)
+        t1.start()
+        t2.start()
+        # Spin until both workers acquired the semaphore.
+        deadline = time.monotonic() + 1.0
+        while len(held) < 2 and time.monotonic() < deadline:
+            time.sleep(0.005)
+        assert len(held) == 2
+
+        t3 = threading.Thread(target=worker, args=("c",), daemon=True)
+        t3.start()
+        time.sleep(0.05)
+        assert len(held) == 2, "third worker leaked through the semaphore"
+
+        gate.set()
+        t1.join(timeout=2.0)
+        t2.join(timeout=2.0)
+        t3.join(timeout=2.0)
+        assert sorted(held) == ["a", "b", "c"]
+
+    def test_semaphore_resizes_on_env_change(self, monkeypatch):
+        from pikaraoke.lib.lyrics import _get_consensus_semaphore
+
+        monkeypatch.setenv("LYRICS_CONSENSUS_MAX_CONCURRENT", "1")
+        sem1 = _get_consensus_semaphore()
+        monkeypatch.setenv("LYRICS_CONSENSUS_MAX_CONCURRENT", "4")
+        sem2 = _get_consensus_semaphore()
+        assert sem1 is not sem2
+
+
 class TestVttToLrc:
     def test_emits_lrc_format(self):
         from pikaraoke.lib.lyrics import _vtt_to_lrc

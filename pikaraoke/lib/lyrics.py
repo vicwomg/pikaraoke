@@ -176,6 +176,33 @@ def _consensus_providers() -> set[str]:
     return {name.strip().lower() for name in raw.split(",") if name.strip()}
 
 
+# Process-wide semaphore that bounds simultaneous consensus orchestrators.
+# Each ``_upgrade_via_consensus`` call holds one slot for the duration of
+# its fan-out + alignment + ASS write. Default 2 keeps Pi-class hardware
+# from drowning when consensus mode is default-on; operators on tiny
+# Pis can drop to ``LYRICS_CONSENSUS_MAX_CONCURRENT=1`` and bigger boxes
+# can raise it. The semaphore self-rebuilds when the env value changes
+# so tests can resize it between cases.
+_consensus_semaphore_state: dict = {"limit": None, "sem": None}
+_consensus_semaphore_state_lock = threading.Lock()
+
+
+def _consensus_max_concurrent() -> int:
+    try:
+        return max(1, int(os.environ.get("LYRICS_CONSENSUS_MAX_CONCURRENT", "2")))
+    except ValueError:
+        return 2
+
+
+def _get_consensus_semaphore() -> threading.Semaphore:
+    limit = _consensus_max_concurrent()
+    with _consensus_semaphore_state_lock:
+        if _consensus_semaphore_state["limit"] != limit:
+            _consensus_semaphore_state["limit"] = limit
+            _consensus_semaphore_state["sem"] = threading.Semaphore(limit)
+        return _consensus_semaphore_state["sem"]
+
+
 # Trailing mix/version markers in parens or brackets: "(Instrumental)",
 # "[Karaoke]", "(Acoustic Version)", etc. LRCLib + Genius index lyrics once
 # per song regardless of release variant, so these suffixes drop otherwise-
@@ -2112,6 +2139,16 @@ class LyricsService:
         invalidation), so a partial pipeline failure leaves the existing
         T1/T2 .ass alone.
         """
+        with _get_consensus_semaphore():
+            self._upgrade_via_consensus_locked(song_path, info, lrclib_lrc, lyrics_sha)
+
+    def _upgrade_via_consensus_locked(
+        self,
+        song_path: str,
+        info: dict | None,
+        lrclib_lrc: str | None,
+        lyrics_sha: str | None,
+    ) -> None:
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         from pikaraoke.lib import lyrics_consensus as lc
