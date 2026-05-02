@@ -309,7 +309,7 @@
     font-family: var(--pk-font-display);
     font-variation-settings: "opsz" 144, "SOFT" 60;
     font-weight: 500;
-    font-size: clamp(26px, 3.2vw, 48px);
+    font-size: clamp(22px, 2.6vw, 40px);
     line-height: 1.05;
     letter-spacing: -0.02em;
     color: #fff;
@@ -318,6 +318,13 @@
     overflow-wrap: anywhere;
     word-break: break-word;
     hyphens: auto;
+    /* Clamp to 2 lines so the singer name + time line stay visible even
+       when the title is "Some Long Song (Official 4K Remaster) [HD]". */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
   .sp-now-singer {
     font-family: var(--pk-font-hand);
