@@ -219,6 +219,7 @@ const handleConfirmation = () => {
 
 const hideVideo = () => {
   $("#video-container").hide();
+  document.body.classList.remove("is-playing");
 }
 
 const endSong = async (reason = null, showScore = false) => {
@@ -1109,6 +1110,7 @@ const setupVideoPlayer = () => {
   const video = getVideoPlayer();
   video.addEventListener("play", () => {
     $("#video-container").show();
+    document.body.classList.add("is-playing");
     if (isMaster) {
       setTimeout(() => { socket.emit("start_song") }, 1200);
     }

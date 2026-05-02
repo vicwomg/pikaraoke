@@ -102,7 +102,10 @@
 <div id="bottom-container" class="sp-overlay">
   <div id="qr-code" class="sp-qr"{% if hide_url %} style="display: none"{% endif %}>
     <img src="{{ url_for('images.qrcode') }}" class="sp-qr-img" alt="QR">
-    <div class="sp-qr-url">{{ url }}</div>
+    <div class="sp-qr-text">
+      <div class="sp-qr-label">skanuj aby dołączyć</div>
+      <div class="sp-qr-url">{{ url }}</div>
+    </div>
   </div>
   <div></div>
   <div id="up-next" class="sp-upnext" style="display: none">
@@ -376,7 +379,10 @@
     border-color: rgba(242, 157, 63, 0.35);
   }
 
-  /* ===== Hostap + clock (top left) ===== */
+  /* ===== Hostap + clock (top left) =====
+     Idle: ink-on-paper (no white-on-light illegibility).
+     Playing: white-on-video with shadow for legibility. The body class
+     is toggled by splash.js — see hideVideo()/video play listener. */
   #ap-container {
     top: 0; left: 0;
     max-width: 50%;
@@ -387,21 +393,30 @@
   .sp-clock {
     font-family: var(--pk-font-mono);
     font-size: clamp(20px, 2vw, 28px);
-    color: #fff;
+    color: var(--pk-ink-2);
     font-weight: 500;
     letter-spacing: 0.02em;
+  }
+  body.is-playing .sp-clock {
+    color: #fff;
     text-shadow: 0 2px 12px rgba(0,0,0,0.7);
   }
   .sp-hostap {
     font-family: var(--pk-font-mono);
     font-size: clamp(13px, 1.1vw, 16px);
-    color: rgba(255,255,255,0.8);
+    color: var(--pk-ink-3);
     letter-spacing: 0.04em;
+  }
+  body.is-playing .sp-hostap {
+    color: rgba(255,255,255,0.8);
     text-shadow: 0 1px 8px rgba(0,0,0,0.7);
   }
   .sp-hostap div { line-height: 1.5; }
 
-  /* ===== Bottom strip ===== */
+  /* ===== Bottom strip =====
+     Idle: QR sits on a paper card, centered, with a "scan to join" caveat
+     label — feels like a postcard. Playing: dark gradient + amber URL
+     stays legible over video. */
   #bottom-container {
     bottom: 0; left: 0;
     width: 100%;
@@ -410,29 +425,67 @@
     align-items: flex-end;
     gap: 20px;
     padding: 22px 28px;
+  }
+  body.is-playing #bottom-container {
     background: linear-gradient(0deg, rgba(0,0,0,0.5), transparent);
   }
   .sp-qr {
     display: flex;
     align-items: center;
-    gap: 14px;
-    max-width: 35%;
+    gap: 18px;
+    max-width: 40%;
+    padding: 16px 22px;
+    background: var(--pk-surface);
+    border: 1px solid var(--pk-border);
+    border-radius: var(--pk-r-lg, 18px);
+    box-shadow:
+      0 28px 52px -18px rgba(75, 50, 25, 0.4),
+      0 0 60px -10px var(--pk-amber-glow);
+  }
+  body.is-playing .sp-qr {
+    background: rgba(20, 14, 8, 0.55);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 24px -12px rgba(0,0,0,0.5);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
   }
   .sp-qr-img {
     width: 180px;
     height: 180px;
-    border-radius: 6px;
+    border-radius: 8px;
     background: #fff;
-    padding: 4px;
+    padding: 6px;
     image-rendering: pixelated;
+    flex-shrink: 0;
+    box-shadow: 0 6px 16px -8px rgba(75, 50, 25, 0.4);
+  }
+  .sp-qr-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .sp-qr-label {
+    font-family: var(--pk-font-hand);
+    font-size: clamp(22px, 2vw, 32px);
+    color: var(--pk-amber);
+    line-height: 1;
+  }
+  body.is-playing .sp-qr-label {
+    color: var(--pk-amber-2);
+    text-shadow: 0 1px 8px rgba(0,0,0,0.6);
   }
   .sp-qr-url {
     font-family: var(--pk-font-mono);
-    font-size: clamp(13px, 1.2vw, 18px);
+    font-size: clamp(14px, 1.3vw, 19px);
     color: var(--pk-amber-2);
     font-weight: 500;
-    text-shadow: 0 1px 8px rgba(0,0,0,0.7);
     letter-spacing: 0.02em;
+    word-break: break-all;
+  }
+  body.is-playing .sp-qr-url {
+    color: var(--pk-amber-2);
+    text-shadow: 0 1px 8px rgba(0,0,0,0.7);
   }
 
   .sp-upnext {
