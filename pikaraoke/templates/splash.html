@@ -108,7 +108,6 @@
       <div class="sp-qr-url">{{ url }}</div>
     </div>
   </div>
-  <div></div>
   <div id="up-next" class="sp-upnext" style="display: none">
     <div class="sp-upnext-head">
       <span class="sp-upnext-label">następne</span>
@@ -432,13 +431,12 @@
      label — feels like a postcard. Playing: dark gradient + amber URL
      stays legible over video. */
   #bottom-container {
-    bottom: 0; left: 0;
-    width: 100%;
+    bottom: 0; left: 0; right: 0;
     display: flex;
     justify-content: space-between;
     align-items: stretch;
     gap: 20px;
-    padding: 22px 280px 22px 28px;
+    padding: 22px 28px;
   }
   body.is-playing #bottom-container {
     background: linear-gradient(0deg, rgba(0,0,0,0.5), transparent);
@@ -517,6 +515,7 @@
 
   .sp-upnext {
     max-width: 38%;
+    margin-left: auto;
     text-align: right;
     color: #fff;
     display: flex;
