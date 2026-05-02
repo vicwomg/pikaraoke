@@ -34,7 +34,7 @@ class PreferenceManager:
         "screensaver_timeout": 300,
         "disable_bg_music": False,
         "bg_music_volume": 0.3,
-        "disable_bg_video": False,
+        "disable_bg_video": True,
         "disable_score": False,
         "limit_user_songs_by": 0,
         "enable_fair_queue": False,
