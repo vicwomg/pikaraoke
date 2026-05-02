@@ -283,7 +283,7 @@
   /* ===== Now playing (top right) ===== */
   #top-container {
     top: 0; right: 0;
-    max-width: 60%;
+    max-width: 72%;
     text-align: right;
     padding: 22px 28px;
     background: linear-gradient(225deg, rgba(0,0,0,0.55), transparent 70%);
@@ -309,12 +309,15 @@
     font-family: var(--pk-font-display);
     font-variation-settings: "opsz" 144, "SOFT" 60;
     font-weight: 500;
-    font-size: clamp(28px, 3.5vw, 54px);
+    font-size: clamp(26px, 3.2vw, 48px);
     line-height: 1.05;
     letter-spacing: -0.02em;
     color: #fff;
     margin: 4px 0 2px;
     text-shadow: 0 2px 16px rgba(0,0,0,0.8);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    hyphens: auto;
   }
   .sp-now-singer {
     font-family: var(--pk-font-hand);
