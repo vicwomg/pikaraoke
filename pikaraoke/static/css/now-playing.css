@@ -638,6 +638,13 @@
   height: 64px;
   min-height: 0;
 }
+/* Reserve vertical space for lyrics — without an explicit basis/min-height
+   the tools/controls panels (flex-shrink:0) eat all leftover space on
+   short mobile viewports and the lyrics scroll collapses to 0px. */
+.pk-player-full.has-lyrics:not(.has-lyrics-collapsed) .pk-lyrics-panel {
+  flex: 1 1 200px;
+  min-height: 160px;
+}
 .pk-player-full.has-lyrics:not(.has-lyrics-collapsed) .pk-player-cover .icon {
   font-size: 32px !important;
 }
