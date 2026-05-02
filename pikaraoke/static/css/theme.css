@@ -184,7 +184,7 @@ body {
   bottom: 0;
   z-index: 25;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   height: calc(var(--pk-tabbar-h) + env(safe-area-inset-bottom, 0px));
   padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
   background: linear-gradient(180deg, color-mix(in srgb, var(--pk-bg) 88%, transparent), color-mix(in srgb, var(--pk-surface) 94%, transparent));
