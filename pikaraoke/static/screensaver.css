@@ -6,28 +6,75 @@ body {
 
 #screensaver {
   position: absolute;
-  left: 0px;
-  top: 0px;
+  left: 0;
+  top: 0;
   z-index: 10;
   height: 100vh;
   width: 100vw;
-  background-color: #111;
+  background:
+    radial-gradient(ellipse at 80% 20%, var(--pk-amber-glow), transparent 55%),
+    radial-gradient(ellipse at 15% 85%, var(--pk-lime-glow), transparent 55%),
+    var(--pk-bg);
 }
 
 #dvd {
   position: absolute;
-  left: 0px;
-  top: 0px;
-  height: 200px;
-  width: 420px;
+  left: 0;
+  top: 0;
   z-index: 11;
-  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 28px;
+  padding: 20px 28px;
+  border-radius: 18px;
+  background: var(--pk-surface);
+  border: 1px solid var(--pk-border);
+  box-shadow:
+    0 28px 52px -18px rgba(75, 50, 25, 0.4),
+    0 0 60px -10px var(--pk-amber-glow);
+}
+
+.sp-saver-brand {
   display: flex;
-  justify-content: right;
-  align-items: flex-end;
-  padding: 10px;
-  background-image: url("/logo");
-  background-repeat: no-repeat;
-  background-size: 300px;
-  background-position: contain;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 0.9;
+}
+.sp-saver-line1 {
+  font-family: var(--pk-font-display);
+  font-variation-settings: "opsz" 144, "SOFT" 60, "WONK" 1;
+  font-weight: 400;
+  font-size: 64px;
+  letter-spacing: -0.03em;
+  color: var(--pk-ink);
+}
+.sp-saver-line2 {
+  font-family: var(--pk-font-hand);
+  font-size: 84px;
+  line-height: 0.8;
+  color: var(--pk-amber);
+  transform: rotate(-4deg);
+  margin-top: -4px;
+}
+
+#screensaver-qr {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.sp-saver-qr-img {
+  width: 110px;
+  height: 110px;
+  background: #fff;
+  border-radius: 6px;
+  padding: 5px;
+  image-rendering: pixelated;
+}
+.sp-saver-url {
+  font-family: var(--pk-font-mono);
+  font-size: 15px;
+  color: var(--pk-amber-2);
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  white-space: nowrap;
 }

@@ -182,11 +182,13 @@
 <div class="fw-fh-container">
   <div id="screensaver" style="visibility: hidden">
     <div id="dvd">
+      <div class="sp-saver-brand">
+        <div class="sp-saver-line1">{{ pk_brand_1 }}</div>
+        {% if pk_brand_2 %}<div class="sp-saver-line2">{{ pk_brand_2 }}</div>{% endif %}
+      </div>
       <div id="screensaver-qr"{% if hide_url %} style="display: none"{% endif %}>
-        <div style="text-align: right">
-          <img src="{{ url_for('images.qrcode') }}" width="30%" height="30%" />
-        </div>
-        <div>{{ hostap_info[0] }}<br />{{ url }}</div>
+        <img src="{{ url_for('images.qrcode') }}" class="sp-saver-qr-img" alt="QR">
+        <div class="sp-saver-url">{{ hostap_info[0] }}<br>{{ url }}</div>
       </div>
     </div>
   </div>
@@ -417,8 +419,8 @@
     max-width: 35%;
   }
   .sp-qr-img {
-    width: 90px;
-    height: 90px;
+    width: 180px;
+    height: 180px;
     border-radius: 6px;
     background: #fff;
     padding: 4px;
