@@ -91,6 +91,12 @@ let scoreReviews = {
 let isMaster = false;
 let uiScale = null;
 let clockIntervalId = null;
+// Splash-delay countdown between songs. The server blocks for splash_delay
+// seconds in karaoke.py:run() before popping the next track; during that
+// window now_playing is null but up_next is set. We tick locally because
+// the server doesn't broadcast remaining time.
+let breakCountdownInterval = null;
+let breakCountdownEndsAt = null;
 
 // Browser detection
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -119,6 +125,28 @@ const formatTime = (seconds) => {
   const formattedSeconds = String(secs).padStart(2, "0");
   return `${formattedMinutes}:${formattedSeconds}`;
 }
+
+const stopBreakCountdown = () => {
+  if (breakCountdownInterval) {
+    clearInterval(breakCountdownInterval);
+    breakCountdownInterval = null;
+  }
+  breakCountdownEndsAt = null;
+};
+
+const startBreakCountdown = () => {
+  if (breakCountdownInterval) return;
+  const delay = Number(PikaraokeConfig.splashDelay) || 0;
+  if (delay <= 0) return;
+  breakCountdownEndsAt = Date.now() + delay * 1000;
+  const tick = () => {
+    if (!breakCountdownEndsAt) return;
+    const remaining = Math.max(0, Math.ceil((breakCountdownEndsAt - Date.now()) / 1000));
+    $("#up-next-countdown").text(formatTime(remaining));
+  };
+  tick();
+  breakCountdownInterval = setInterval(tick, 250);
+};
 
 // Map the DB `lyrics_source` tag to a short human label + semantic CSS
 // variant. Keeps the badge compact while surfacing provenance (user-authored
@@ -877,12 +905,23 @@ const handleNowPlayingUpdate = (np) => {
     $("#up-next").fadeOut();
   }
 
-  // Countdown only makes sense while a song is actively playing.
-  // On idle (splash startup screen) we have no current-song duration, so
-  // hide "za --:--" instead of leaving a frozen placeholder visible.
+  // Countdown has three states:
+  //   - playing: ticks via video.timeupdate as (remaining + splash_delay).
+  //   - between songs: now_playing cleared but up_next set — server is
+  //     sleeping splash_delay before popping next; tick locally from
+  //     PikaraokeConfig.splashDelay down to 0.
+  //   - idle: no up_next, hide entirely (no current-song duration to count).
   const hasCurrent = !!(np.now_playing && np.now_playing_duration);
-  $('.sp-upnext-countdown').toggle(hasCurrent);
-  if (!hasCurrent) $('#up-next-countdown').text('--:--');
+  const inBreak = !np.now_playing && !!np.up_next;
+  $('.sp-upnext-countdown').toggle(hasCurrent || inBreak);
+  if (hasCurrent) {
+    stopBreakCountdown();
+  } else if (inBreak) {
+    startBreakCountdown();
+  } else {
+    stopBreakCountdown();
+    $('#up-next-countdown').text('--:--');
+  }
 
   // Update bg music and video state
   if (np.now_playing || np.up_next) {
