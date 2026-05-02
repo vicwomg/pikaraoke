@@ -448,6 +448,9 @@
     box-shadow: 0 8px 24px -12px rgba(0,0,0,0.5);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
+    padding: 10px 14px;
+    gap: 12px;
+    max-width: 28%;
   }
   .sp-qr-img {
     width: 180px;
@@ -458,6 +461,15 @@
     image-rendering: pixelated;
     flex-shrink: 0;
     box-shadow: 0 6px 16px -8px rgba(75, 50, 25, 0.4);
+  }
+  body.is-playing .sp-qr-img {
+    width: 84px;
+    height: 84px;
+    padding: 4px;
+    border-radius: 6px;
+  }
+  body.is-playing .sp-qr-label {
+    display: none;
   }
   .sp-qr-text {
     display: flex;
@@ -486,6 +498,7 @@
   body.is-playing .sp-qr-url {
     color: var(--pk-amber-2);
     text-shadow: 0 1px 8px rgba(0,0,0,0.7);
+    font-size: clamp(11px, 0.95vw, 14px);
   }
 
   .sp-upnext {
