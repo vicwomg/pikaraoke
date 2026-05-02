@@ -608,6 +608,12 @@
     refreshQueue();
     pollDownloads();
 
+    // Expose a refresh hook so AJAX handlers (clear-queue, delete-from-queue,
+    // …) in spa-navigation.js can refresh the list directly when the socket
+    // round-trip is delayed or missed (mobile Safari sometimes drops events).
+    window.PK = window.PK || {};
+    window.PK.queueRefresh = refreshQueue;
+
     window.socket.off('queue_update');
     window.socket.on('queue_update', refreshQueue);
     window.socket.off('now_playing');

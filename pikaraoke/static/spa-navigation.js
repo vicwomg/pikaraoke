@@ -101,6 +101,16 @@
         });
     }
 
+    // Fallback for mobile Safari where the queue_update socket event
+    // occasionally fails to arrive after a queue mutation — the queue page
+    // exposes window.PK.queueRefresh so AJAX handlers can re-pull state
+    // directly without waiting for the socket round-trip.
+    function refreshQueueIfPresent() {
+        if (window.PK && typeof window.PK.queueRefresh === 'function') {
+            window.PK.queueRefresh();
+        }
+    }
+
     /**
      * Initialize queue management handlers with event delegation
      * This ensures they work reliably across all page transitions
@@ -132,7 +142,7 @@
                 confirmText: t.clearBtn || "Clear",
                 cancelText: t.cancelBtn || "Cancel",
             });
-            if (ok) $.get(href);
+            if (ok) $.get(href).always(refreshQueueIfPresent);
         });
 
         // Delete song from queue confirmation
@@ -148,7 +158,7 @@
                 confirmText: t.removeBtn || "Remove",
                 cancelText: t.cancelBtn || "Cancel",
             });
-            if (ok) $.get(href);
+            if (ok) $.get(href).always(refreshQueueIfPresent);
         });
 
         // Delete song file from library confirmation (full page navigation)
@@ -182,6 +192,7 @@
             $('.up-button, .down-button').css('pointer-events', 'none').css('opacity', '0.5');
 
             $.get(this.href).always(function() {
+                refreshQueueIfPresent();
                 // Re-enable all buttons after request completes + 500ms
                 setTimeout(function() {
                     $('.up-button, .down-button').css('pointer-events', 'auto').css('opacity', '1');
@@ -206,6 +217,7 @@
             $('.up-button, .down-button').css('pointer-events', 'none').css('opacity', '0.5');
 
             $.get(this.href).always(function() {
+                refreshQueueIfPresent();
                 // Re-enable all buttons after request completes + 500ms
                 setTimeout(function() {
                     $('.up-button, .down-button').css('pointer-events', 'auto').css('opacity', '1');
@@ -219,7 +231,7 @@
             e.preventDefault();
             const amount = $('#randomNumberInput').val();
             const baseUrl = '/queue/addrandom';
-            $.get(`${baseUrl}/${amount}`);
+            $.get(`${baseUrl}/${amount}`).always(refreshQueueIfPresent);
         });
     }
 

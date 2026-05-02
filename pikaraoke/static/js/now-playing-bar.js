@@ -441,6 +441,17 @@
     iconEl.classList.toggle('icon-pause', !isPaused);
   }
 
+  // Flip the pause/play icon immediately on tap. The socket "now_playing"
+  // event from the server is the source of truth, but it can arrive
+  // hundreds of ms later (or not at all if the connection is briefly
+  // unstable on mobile), making the button feel stuck.
+  function flipPauseIconOptimistic() {
+    if (!state.data || typeof state.data.is_paused !== 'boolean') return;
+    state.data.is_paused = !state.data.is_paused;
+    setPauseIcon(el.miniPauseIcon, state.data.is_paused);
+    setPauseIcon(el.fullPauseIcon, state.data.is_paused);
+  }
+
   // Polish UI suffixes for the picker option text. Status enum is shared
   // with the backend payload (karaoke.py: _SUBTITLE_STATUS_*).
   const SUBTITLE_STATUS_SUFFIX = {
@@ -502,7 +513,10 @@
     if (el.miniPlayBtn) {
       el.miniPlayBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (state.isAdmin) fetch('/pause');
+        if (state.isAdmin) {
+          fetch('/pause');
+          flipPauseIconOptimistic();
+        }
       });
     }
 
@@ -611,6 +625,7 @@
     switch (action) {
       case 'pause':
         fetch('/pause');
+        flipPauseIconOptimistic();
         return;
       case 'skip':
         if (await PK.dialog.confirm({
