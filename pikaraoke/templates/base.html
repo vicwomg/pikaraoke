@@ -178,8 +178,7 @@
 
       // Highlight active tab
       var path = window.location.pathname;
-      var activeTab = path === '/' ? '#tab-home'
-        : path === '/queue' ? '#tab-queue'
+      var activeTab = (path === '/' || path === '/queue') ? '#tab-home'
         : path === '/search' ? '#tab-search'
         : path.indexOf('/browse') === 0 ? '#tab-browse'
         : null;
@@ -414,12 +413,8 @@
   {# ===== Bottom tab bar ===== #}
   <nav class="pk-tabbar" role="navigation">
     <a id="tab-home" class="pk-tab" href="{{ url_for('home.home') }}">
-      <i class="icon icon-home-2"></i>
-      {# MSG: Bottom-tab label for the start / home view. #}
-      <span class="pk-tab-label">start</span>
-    </a>
-    <a id="tab-queue" class="pk-tab" href="{{ url_for('queue.queue') }}">
       <i class="icon icon-list-numbered"></i>
+      {# MSG: Bottom-tab label for the start/queue view (now merged). #}
       <span class="pk-tab-label">kolejka</span>
     </a>
     <a id="tab-search" class="pk-tab" href="{{ url_for('search.search') }}">

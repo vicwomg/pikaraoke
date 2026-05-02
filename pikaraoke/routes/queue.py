@@ -6,14 +6,13 @@ import json
 from urllib.parse import unquote
 
 import flask_babel
-from flask import flash, redirect, render_template, request, url_for
+from flask import flash, redirect, request, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.lib.current_app import (
     broadcast_event,
     get_karaoke_instance,
-    get_site_name,
     is_admin,
 )
 
@@ -54,16 +53,8 @@ class QueueEditQuery(Schema):
 
 @queue_bp.route("/queue")
 def queue():
-    """Queue management page."""
-    k = get_karaoke_instance()
-    site_name = get_site_name()
-    return render_template(
-        "queue.html",
-        queue=k.queue_manager.queue,
-        site_title=site_name,
-        title="Queue",
-        admin=is_admin(),
-    )
+    """Legacy alias — the queue UI now lives on the home page."""
+    return redirect(url_for("home.home"))
 
 
 @queue_bp.route("/get_queue")
