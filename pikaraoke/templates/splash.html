@@ -15,6 +15,7 @@
     screensaverTimeout: parseInt('{{ screensaver_timeout }}') || 0,
     hideOverlay: "{{ hide_overlay }}" == 'True',
     pauseOnBlur: "{{ pause_on_blur }}" == 'True',
+    splashDelay: parseInt('{{ splash_delay }}') || 0,
     translations: {
       socketConnectionLost: "Utracono połączenie. Serwer jeszcze działa?",
       unsupportedBrowser: "Ta przeglądarka może nie działać w pełni. Używaj Chrome/Safari/Firefox/Edge.",
@@ -109,7 +110,10 @@
   </div>
   <div></div>
   <div id="up-next" class="sp-upnext" style="display: none">
-    <div class="sp-upnext-label">dalej</div>
+    <div class="sp-upnext-head">
+      <span class="sp-upnext-label">następne</span>
+      <span class="sp-upnext-countdown">za <span id="up-next-countdown">--:--</span></span>
+    </div>
     <span id="up-next-song" class="sp-upnext-song"></span>
     <div class="sp-upnext-singer">
       <span class="sp-caveat">śpiewa</span>
@@ -432,9 +436,9 @@
     width: 100%;
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
+    align-items: stretch;
     gap: 20px;
-    padding: 22px 28px;
+    padding: 22px 280px 22px 28px;
   }
   body.is-playing #bottom-container {
     background: linear-gradient(0deg, rgba(0,0,0,0.5), transparent);
@@ -506,48 +510,89 @@
     word-break: break-all;
   }
   body.is-playing .sp-qr-url {
-    color: var(--pk-amber-2);
+    color: #fff;
     text-shadow: 0 1px 8px rgba(0,0,0,0.7);
     font-size: clamp(11px, 0.95vw, 14px);
   }
 
   .sp-upnext {
-    max-width: 55%;
+    max-width: 38%;
     text-align: right;
     color: #fff;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    overflow: hidden;
+    padding: 10px 18px;
+    background: var(--pk-surface);
+    border: 1px solid var(--pk-border);
+    border-radius: var(--pk-r-lg, 18px);
+    box-shadow:
+      0 28px 52px -18px rgba(75, 50, 25, 0.4),
+      0 0 60px -10px var(--pk-amber-glow);
+  }
+  body.is-playing .sp-upnext {
+    background: rgba(20, 14, 8, 0.55);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 24px -12px rgba(0,0,0,0.5);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    max-height: 130px;
+  }
+  .sp-upnext-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 10px;
+    line-height: 1;
   }
   .sp-upnext-label {
     font-family: var(--pk-font-hand);
-    font-size: clamp(20px, 1.8vw, 28px);
+    font-size: clamp(22px, 2vw, 32px);
     color: var(--pk-amber);
     line-height: 1;
   }
+  body.is-playing .sp-upnext-label { color: #fff; }
+  .sp-upnext-countdown {
+    font-family: var(--pk-font-mono);
+    font-size: clamp(13px, 1.1vw, 17px);
+    color: var(--pk-ink-3);
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+  }
+  body.is-playing .sp-upnext-countdown { color: #fff; }
   .sp-upnext-song {
     font-family: var(--pk-font-display);
     font-variation-settings: "opsz" 72, "SOFT" 40;
     font-weight: 500;
-    font-size: clamp(22px, 2.4vw, 36px);
-    line-height: 1.1;
+    font-size: clamp(15px, 1.5vw, 22px);
+    line-height: 1.15;
     color: #fff;
     text-shadow: 0 2px 12px rgba(0,0,0,0.7);
     display: block;
-    margin-top: 4px;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    hyphens: auto;
+    white-space: normal;
+    margin-top: 2px;
   }
   .sp-upnext-singer {
-    font-size: clamp(14px, 1.2vw, 20px);
+    font-size: clamp(18px, 1.7vw, 26px);
     color: rgba(255,255,255,0.75);
     margin-top: 4px;
   }
   .sp-upnext-singer .sp-caveat {
     font-family: var(--pk-font-hand);
-    color: rgba(255,255,255,0.6);
+    color: var(--pk-amber-2);
   }
+  body.is-playing .sp-upnext-singer .sp-caveat { color: #fff; }
   .sp-upnext-singer .sp-singer-name {
     font-family: var(--pk-font-hand);
-    font-size: clamp(18px, 1.5vw, 24px);
+    font-size: clamp(20px, 1.9vw, 30px);
     color: var(--pk-amber-2);
     margin-left: 4px;
   }
+  body.is-playing .sp-upnext-singer .sp-singer-name { color: #fff; }
 
   /* ===== Intro modal ===== */
   .sp-intro {

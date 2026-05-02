@@ -877,6 +877,13 @@ const handleNowPlayingUpdate = (np) => {
     $("#up-next").fadeOut();
   }
 
+  // Countdown only makes sense while a song is actively playing.
+  // On idle (splash startup screen) we have no current-song duration, so
+  // hide "za --:--" instead of leaving a frozen placeholder visible.
+  const hasCurrent = !!(np.now_playing && np.now_playing_duration);
+  $('.sp-upnext-countdown').toggle(hasCurrent);
+  if (!hasCurrent) $('#up-next-countdown').text('--:--');
+
   // Update bg music and video state
   if (np.now_playing || np.up_next) {
     idleTime = 0;
@@ -1124,7 +1131,15 @@ const setupVideoPlayer = () => {
   }, 1000);
 
   video.addEventListener("ended", () => { endSong("complete", true); });
-  video.addEventListener("timeupdate", (e) => { $("#current").text(formatTime(video.currentTime)); });
+  video.addEventListener("timeupdate", (e) => {
+    $("#current").text(formatTime(video.currentTime));
+    const dur = nowPlaying && nowPlaying.now_playing_duration;
+    if (dur) {
+      const gap = Number(PikaraokeConfig.splashDelay) || 0;
+      const remaining = Math.max(0, dur - video.currentTime) + gap;
+      $("#up-next-countdown").text(formatTime(remaining));
+    }
+  });
   $("#video source")[0].addEventListener("error", (e) => {
     if (isMediaPlaying(video)) {
       endSong("error while playing");
@@ -1432,6 +1447,11 @@ const setupSocketEvents = () => {
           video.currentTime = position;
         }
       }
+    }
+    const dur = nowPlaying && nowPlaying.now_playing_duration;
+    if (dur) {
+      const gap = Number(PikaraokeConfig.splashDelay) || 0;
+      $("#up-next-countdown").text(formatTime(Math.max(0, dur - position) + gap));
     }
   });
 }

@@ -101,4 +101,5 @@ def splash():
         bg_music_volume=k.bg_music_volume,
         has_bg_video=k.bg_video_path is not None,
         pause_on_blur=k.pause_on_blur,
+        splash_delay=k.preferences.get_or_default("splash_delay"),
     )
