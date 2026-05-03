@@ -2,6 +2,8 @@
    Mobile-first. Scales up on desktop (centers content in a phone-ish column).
    All classes prefixed "pk-" to avoid collisions with Bulma during migration. */
 
+*, *::before, *::after { box-sizing: border-box; }
+
 /* ====== Shell ====== */
 html, body {
   background: var(--pk-bg);

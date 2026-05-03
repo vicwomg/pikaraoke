@@ -123,7 +123,11 @@
   font-size: 16px;
 }
 
-/* ====== Fullscreen player ====== */
+/* ====== Fullscreen player ======
+   Three-row flex shell:
+     [topbar (fixed-h)] [scroll (flex 1)] [controls (fixed-h)]
+   Topbar + controls stay put; the middle row scrolls so tools never
+   become unreachable on short viewports. */
 .pk-player-full {
   position: fixed;
   inset: 0;
@@ -165,6 +169,19 @@
   flex-shrink: 0;
   height: calc(var(--pk-topbar-h) + env(safe-area-inset-top, 0px));
 }
+
+/* Middle scroll region. flex:1 + min-height:0 lets it shrink properly
+   inside the column flex shell. overscroll-behavior: contain keeps a
+   bounce/pull from leaking through to the page below (mobile chrome). */
+.pk-player-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.pk-player-scroll::-webkit-scrollbar { display: none; }
 
 .pk-icon-btn {
   width: 40px;
@@ -210,7 +227,6 @@
   padding: 28px 40px 20px;
   display: grid;
   place-items: center;
-  flex-shrink: 0;
 }
 
 .pk-player-cover {
@@ -294,20 +310,68 @@
   padding: 0 24px 8px;
 }
 .pk-player-seek[hidden] { display: none; }
-.pk-seek-slider {
+
+/* ====== Range slider (shared) ======
+   One shared style for every <input type=range> in the player so volume,
+   stem, subtitle-offset and seek all match. 12px vertical padding gives
+   the input a ~32px hit-area; the parent .pk-tool row contributes the
+   rest, putting the touch target comfortably above 44px. Tracks/thumbs
+   need separate webkit + moz rules — there's no shorthand. */
+.pk-range {
   width: 100%;
   appearance: none;
   -webkit-appearance: none;
   background: transparent;
   cursor: pointer;
-  padding: 8px 0;
-  --seek-buffered-pct: 100%;
+  padding: 12px 0;
+  margin: 0;
+  touch-action: manipulation;
 }
-/* Two-tone track: amber up to what's processed, muted surface after.
-   --seek-buffered-pct is driven by demucs_progress / ffmpeg_progress ticks. */
-.pk-seek-slider::-webkit-slider-runnable-track {
+.pk-range::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 100px;
+  background: var(--pk-surface-3);
+}
+.pk-range::-moz-range-track {
+  height: 4px;
+  border-radius: 100px;
+  background: var(--pk-surface-3);
+}
+.pk-range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--pk-amber);
+  border: 2px solid var(--pk-bg);
+  margin-top: -6px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px var(--pk-amber-glow);
+}
+.pk-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--pk-amber);
+  border: 2px solid var(--pk-bg);
+  cursor: pointer;
+  box-shadow: 0 2px 6px var(--pk-amber-glow);
+}
+.pk-range:focus-visible { outline: none; }
+.pk-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--pk-amber-glow), 0 2px 6px var(--pk-amber-glow);
+}
+.pk-range:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px var(--pk-amber-glow), 0 2px 6px var(--pk-amber-glow);
+}
+
+/* Seek slider — two-tone track (amber up to processed, surface after).
+   --seek-buffered-pct is driven by demucs_progress / ffmpeg_progress ticks. */
+.pk-seek-slider {
+  --seek-buffered-pct: 100%;
+}
+.pk-seek-slider::-webkit-slider-runnable-track {
   background: linear-gradient(
     to right,
     var(--pk-amber) 0%,
@@ -317,8 +381,6 @@
   );
 }
 .pk-seek-slider::-moz-range-track {
-  height: 4px;
-  border-radius: 100px;
   background: linear-gradient(
     to right,
     var(--pk-amber) 0%,
@@ -328,24 +390,13 @@
   );
 }
 .pk-seek-slider::-webkit-slider-thumb {
-  appearance: none;
-  -webkit-appearance: none;
   width: 14px;
   height: 14px;
-  border-radius: 50%;
-  background: var(--pk-amber);
-  border: 2px solid var(--pk-bg);
   margin-top: -5px;
-  cursor: pointer;
-  box-shadow: 0 2px 6px var(--pk-amber-glow);
 }
 .pk-seek-slider::-moz-range-thumb {
   width: 14px;
   height: 14px;
-  border-radius: 50%;
-  background: var(--pk-amber);
-  border: 2px solid var(--pk-bg);
-  cursor: pointer;
 }
 .pk-seek-times {
   display: flex;
@@ -398,11 +449,6 @@
   border-radius: var(--pk-r-md);
 }
 .pk-tool-stem[hidden] { display: none; }
-.pk-tool-stem input[type=range] {
-  flex: 1;
-  width: 100%;
-  accent-color: var(--pk-amber);
-}
 .pk-tool-stem-val {
   font-family: var(--pk-font-mono);
   font-size: 11px;
@@ -410,12 +456,17 @@
   text-align: right;
 }
 
+/* Bottom controls — sticky bottom row in the player flex shell.
+   border-top + safe-area padding visually anchors the strip when the
+   middle scroll region pushes content underneath. */
 .pk-player-controls {
-  padding: 8px 28px 16px;
+  padding: 12px 28px calc(16px + env(safe-area-inset-bottom, 0px));
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
+  border-top: 1px solid var(--pk-border);
+  background: var(--pk-bg);
 }
 
 .pk-pc-btn {
@@ -448,11 +499,10 @@
 }
 
 .pk-player-tools {
-  padding: 8px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+  padding: 8px 16px 24px;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  flex-shrink: 0;
 }
 
 .pk-tool {
@@ -520,18 +570,15 @@
   padding: 12px 14px;
 }
 
-.pk-tool-slider input[type=range] {
-  flex: 1;
-  accent-color: var(--pk-amber);
-}
-
-/* ====== Lyrics panel ====== */
+/* ====== Lyrics panel ======
+   Lyrics keep their own bounded scroll inside the main .pk-player-scroll
+   so a long song doesn't push tools off-screen. The bounded height +
+   global box-sizing: border-box together prevent the previous overflow
+   bug where lines bled into the title section below. */
 
 .pk-lyrics-panel {
-  flex: 1 1 0;
-  min-height: 0;
   position: relative;
-  padding: 0 24px;
+  margin: 0 24px 12px;
   overflow: hidden;
 }
 .pk-lyrics-panel[hidden] { display: none; }
@@ -541,7 +588,7 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  padding: 40px 0;
+  padding: 32px 0;
 }
 .pk-lyrics-scroll::-webkit-scrollbar { display: none; }
 
@@ -551,7 +598,7 @@
   position: absolute;
   left: 0;
   right: 0;
-  height: 40px;
+  height: 32px;
   pointer-events: none;
   z-index: 1;
 }
@@ -571,12 +618,12 @@
   padding: 10px 0;
   margin: 0;
   font-family: var(--pk-font-display);
-  font-size: 18px;
+  font-size: clamp(17px, 4.5vw, 21px);
   font-weight: 500;
   color: var(--pk-ink-3);
   line-height: 1.4;
-  word-break: normal;
-  hyphens: none;
+  word-break: break-word;
+  hyphens: auto;
   transition: color 0.2s ease;
 }
 .pk-lyric-line.is-active {
@@ -624,7 +671,8 @@
     -webkit-text-fill-color: var(--pk-amber);
     color: var(--pk-amber);
   }
-  .pk-lyrics-scroll {
+  .pk-lyrics-scroll,
+  .pk-player-scroll {
     scroll-behavior: auto;
   }
 }
@@ -638,12 +686,12 @@
   height: 64px;
   min-height: 0;
 }
-/* Reserve vertical space for lyrics — without an explicit basis/min-height
-   the tools/controls panels (flex-shrink:0) eat all leftover space on
-   short mobile viewports and the lyrics scroll collapses to 0px. */
+/* Bounded panel size — small enough to leave room for tools/seek above
+   the sticky controls, large enough to show ~4 lines comfortably. dvh
+   tracks the dynamic viewport (excludes mobile URL bar) so the panel
+   doesn't jump when the bar shows/hides. */
 .pk-player-full.has-lyrics:not(.has-lyrics-collapsed) .pk-lyrics-panel {
-  flex: 1 1 200px;
-  min-height: 160px;
+  height: clamp(200px, 38dvh, 320px);
 }
 .pk-player-full.has-lyrics:not(.has-lyrics-collapsed) .pk-player-cover .icon {
   font-size: 32px !important;
@@ -663,4 +711,34 @@
   z-index: 2;
   min-width: 44px;
   min-height: 44px;
+}
+
+/* ====== Responsive tweaks ====== */
+
+/* Very narrow phones (Galaxy Fold cover, iPhone 5/SE 1st gen, 320 CSS px):
+   tools fall back to a single column so the stem labels + sliders don't
+   crowd each other; cover shrinks to leave more vertical room. */
+@media (max-width: 360px) {
+  .pk-player-tools {
+    grid-template-columns: 1fr;
+  }
+  .pk-player-cover {
+    width: min(220px, 65vw);
+  }
+  .pk-tool-stem {
+    grid-template-columns: 56px 1fr 40px;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+}
+
+/* Short viewports (iPhone SE, landscape-ish accidents): trim cover
+   padding so the seek/controls don't get pushed below the fold. */
+@media (max-height: 640px) {
+  .pk-player-cover-wrap {
+    padding: 12px 40px 8px;
+  }
+  .pk-player-cover {
+    width: min(180px, 50vw);
+  }
 }

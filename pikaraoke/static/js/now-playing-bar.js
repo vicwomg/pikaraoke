@@ -77,6 +77,7 @@
     el.processing = el.full.querySelector('[data-pk-processing]');
     el.processingLabel = el.full.querySelector('[data-pk-processing-label]');
 
+    el.playerScroll = el.full.querySelector('[data-pk-player-scroll]');
     el.lyricsPanel = el.full.querySelector('#pk-lyrics-panel');
     el.lyricsScroll = el.full.querySelector('[data-pk-lyrics-scroll]');
     el.lyricsToggleBtn = el.full.querySelector('[data-pk-lyrics-toggle]');
@@ -99,6 +100,15 @@
       // Tap-to-seek: admin-only delegated click + keyboard handler.
       el.lyricsScroll.addEventListener('click', onLyricLineActivate);
       el.lyricsScroll.addEventListener('keydown', onLyricLineKeydown);
+      // Re-center the active line when the panel resizes (rotation,
+      // mobile URL bar show/hide, keyboard appearing). Without this,
+      // the active line drifts off-center until the next song-tick.
+      if (typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => {
+          if (state.lyricsActiveEl) scrollActiveIntoView();
+        });
+        ro.observe(el.lyricsScroll);
+      }
     }
     if (el.lyricsToggleBtn) {
       el.lyricsToggleBtn.addEventListener('click', toggleLyricsCollapsed);
@@ -870,15 +880,23 @@
     }
   }
 
+  // Scroll only the lyrics container (never the player-scroll ancestor),
+  // computing the offset explicitly. scrollIntoView would also pull the
+  // outer .pk-player-scroll if lyrics weren't fully in view, which would
+  // fight the user's scroll position on the rest of the player.
   function scrollActiveIntoView() {
     if (state.lyricsUserScrolled) return;
     if (!state.lyricsActiveEl || !el.lyricsScroll) return;
     if (el.lyricsPanel && el.lyricsPanel.hidden) return;
+    const scroll = el.lyricsScroll;
+    const line = state.lyricsActiveEl;
+    const target = line.offsetTop - (scroll.clientHeight / 2)
+      + (line.offsetHeight / 2);
     state.lyricsAutoScrollUntil = (typeof performance !== 'undefined'
       ? performance.now() : Date.now()) + 800;
-    state.lyricsActiveEl.scrollIntoView({
+    scroll.scrollTo({
+      top: Math.max(0, target),
       behavior: state.reduceMotion ? 'auto' : 'smooth',
-      block: 'center',
     });
   }
 

@@ -438,46 +438,98 @@
       <span style="width: 40px;" aria-hidden="true"></span>
     </div>
 
-    <div class="pk-player-cover-wrap">
-      <div class="pk-player-cover" data-pk-cover>
-        <i class="icon icon-music" style="font-size: 96px; color: var(--pk-amber); display: grid; place-items: center; height: 100%;"></i>
+    {# Scrollable middle: cover/lyrics/track/processing/seek/tools.
+       Topbar stays sticky on top, controls stay sticky on bottom — so
+       play/pause/skip remain reachable even when tools overflow on
+       short viewports. #}
+    <div class="pk-player-scroll" data-pk-player-scroll>
+      <div class="pk-player-cover-wrap">
+        <div class="pk-player-cover" data-pk-cover>
+          <i class="icon icon-music" style="font-size: 96px; color: var(--pk-amber); display: grid; place-items: center; height: 100%;"></i>
+        </div>
       </div>
-    </div>
 
-    {# Lyrics panel — populated from #now_playing_subtitle_url when present. #}
-    <div id="pk-lyrics-panel" class="pk-lyrics-panel" hidden aria-live="off" aria-label="Lyrics">
-      <button type="button"
-              class="pk-icon-btn pk-lyrics-toggle"
-              data-pk-lyrics-toggle
-              aria-label="Hide lyrics">
-        <i class="icon icon-angle-up" aria-hidden="true" data-pk-lyrics-toggle-icon></i>
-      </button>
-      <div class="pk-lyrics-scroll" data-pk-lyrics-scroll></div>
-    </div>
-
-    <div class="pk-player-track">
-      <h2 class="pk-player-title" data-pk-title></h2>
-      <div class="pk-player-artist" data-pk-artist hidden></div>
-      <div class="pk-player-singer">
-        <i class="icon icon-mic-1"></i>
-        <span data-pk-singer></span>
+      {# Lyrics panel — populated from #now_playing_subtitle_url when present. #}
+      <div id="pk-lyrics-panel" class="pk-lyrics-panel" hidden aria-live="off" aria-label="Lyrics">
+        <button type="button"
+                class="pk-icon-btn pk-lyrics-toggle"
+                data-pk-lyrics-toggle
+                aria-label="Hide lyrics">
+          <i class="icon icon-angle-up" aria-hidden="true" data-pk-lyrics-toggle-icon></i>
+        </button>
+        <div class="pk-lyrics-scroll" data-pk-lyrics-scroll></div>
       </div>
-    </div>
 
-    {# Processing chip — surfaces Demucs progress before stems_ready.
-       Visible only while demucs is between 0 < processed < total so the
-       user knows why the stem sliders aren't live yet. #}
-    <div class="pk-player-processing" data-pk-processing hidden>
-      <span class="pk-processing-spinner" aria-hidden="true"></span>
-      <span class="pk-processing-label" data-pk-processing-label></span>
-    </div>
+      <div class="pk-player-track">
+        <h2 class="pk-player-title" data-pk-title></h2>
+        <div class="pk-player-artist" data-pk-artist hidden></div>
+        <div class="pk-player-singer">
+          <i class="icon icon-mic-1"></i>
+          <span data-pk-singer></span>
+        </div>
+      </div>
 
-    {# Seek slider — shown only when song has a known duration #}
-    <div class="pk-player-seek" data-pk-seek-section hidden>
-      <input type="range" min="0" max="100" step="1" value="0" data-pk-seek class="pk-seek-slider">
-      <div class="pk-seek-times">
-        <span data-pk-seek-current>0:00</span>
-        <span data-pk-seek-duration>0:00</span>
+      {# Processing chip — surfaces Demucs progress before stems_ready.
+         Visible only while demucs is between 0 < processed < total so the
+         user knows why the stem sliders aren't live yet. #}
+      <div class="pk-player-processing" data-pk-processing hidden>
+        <span class="pk-processing-spinner" aria-hidden="true"></span>
+        <span class="pk-processing-label" data-pk-processing-label></span>
+      </div>
+
+      {# Seek slider — shown only when song has a known duration #}
+      <div class="pk-player-seek" data-pk-seek-section hidden>
+        <input type="range" min="0" max="100" step="1" value="0" data-pk-seek class="pk-seek-slider pk-range">
+        <div class="pk-seek-times">
+          <span data-pk-seek-current>0:00</span>
+          <span data-pk-seek-duration>0:00</span>
+        </div>
+      </div>
+
+      <div class="pk-player-tools" data-admin>
+        {% if pk_is_transpose_enabled %}
+        <div class="pk-tool">
+          <div>
+            {# MSG: Label for the key/pitch transpose control in the expanded player. #}
+            <span class="pk-tool-label">{% trans %}Key{% endtrans %}</span>
+            <span class="pk-tool-value" data-pk-transpose>0</span>
+          </div>
+          <div class="pk-tool-steppers">
+            <button class="pk-tool-step" data-pk-action="transpose-down" aria-label="Transpose down">&minus;</button>
+            <button class="pk-tool-step" data-pk-action="transpose-up" aria-label="Transpose up">+</button>
+          </div>
+        </div>
+        {% endif %}
+        <div class="pk-tool pk-tool-slider" data-pk-volume-tool>
+          <i class="icon icon-volume-down"></i>
+          <input type="range" min="0" max="1" step="0.025" data-pk-volume class="pk-range" aria-label="Volume">
+          <i class="icon icon-volume-up"></i>
+        </div>
+
+        {# Stem controls — shown only when vocal_removal is on #}
+        <div class="pk-tool pk-tool-stem" data-pk-stem-tool hidden>
+          <span class="pk-tool-label">wokal</span>
+          <input type="range" min="0" max="1" step="0.025" data-pk-vocal-volume class="pk-range">
+          <span class="pk-tool-stem-val" data-pk-vocal-val>100%</span>
+        </div>
+        <div class="pk-tool pk-tool-stem" data-pk-stem-tool hidden>
+          <span class="pk-tool-label">muzyka</span>
+          <input type="range" min="0" max="1" step="0.025" data-pk-inst-volume class="pk-range">
+          <span class="pk-tool-stem-val" data-pk-inst-val>100%</span>
+        </div>
+
+        {# Subtitle timing offset — shown only when ASS lyrics are loaded. #}
+        <div class="pk-tool pk-tool-stem" data-pk-subtitle-offset-tool hidden>
+          <span class="pk-tool-label">napisy</span>
+          <input type="range" min="-2" max="2" step="0.05" value="0" data-pk-subtitle-offset class="pk-range">
+          <span class="pk-tool-stem-val" data-pk-subtitle-offset-val>0.00s</span>
+        </div>
+
+        {# Subtitle source picker — shown whenever a song is playing. #}
+        <div class="pk-tool pk-tool-subtitle-src" data-pk-subtitle-src-tool hidden>
+          <span class="pk-tool-label">źródło</span>
+          <select data-pk-subtitle-src aria-label="Subtitle source"></select>
+        </div>
       </div>
     </div>
 
@@ -494,52 +546,6 @@
       <button class="pk-pc-btn" data-pk-action="queue" aria-label="Queue">
         <i class="icon icon-list-numbered"></i>
       </button>
-    </div>
-
-    <div class="pk-player-tools" data-admin>
-      {% if pk_is_transpose_enabled %}
-      <div class="pk-tool">
-        <div>
-          {# MSG: Label for the key/pitch transpose control in the expanded player. #}
-          <span class="pk-tool-label">{% trans %}Key{% endtrans %}</span>
-          <span class="pk-tool-value" data-pk-transpose>0</span>
-        </div>
-        <div class="pk-tool-steppers">
-          <button class="pk-tool-step" data-pk-action="transpose-down" aria-label="Transpose down">&minus;</button>
-          <button class="pk-tool-step" data-pk-action="transpose-up" aria-label="Transpose up">+</button>
-        </div>
-      </div>
-      {% endif %}
-      <div class="pk-tool pk-tool-slider" data-pk-volume-tool>
-        <i class="icon icon-volume-down"></i>
-        <input type="range" min="0" max="1" step="0.025" data-pk-volume aria-label="Volume">
-        <i class="icon icon-volume-up"></i>
-      </div>
-
-      {# Stem controls — shown only when vocal_removal is on #}
-      <div class="pk-tool pk-tool-stem" data-pk-stem-tool hidden>
-        <span class="pk-tool-label">wokal</span>
-        <input type="range" min="0" max="1" step="0.025" data-pk-vocal-volume>
-        <span class="pk-tool-stem-val" data-pk-vocal-val>100%</span>
-      </div>
-      <div class="pk-tool pk-tool-stem" data-pk-stem-tool hidden>
-        <span class="pk-tool-label">muzyka</span>
-        <input type="range" min="0" max="1" step="0.025" data-pk-inst-volume>
-        <span class="pk-tool-stem-val" data-pk-inst-val>100%</span>
-      </div>
-
-      {# Subtitle timing offset — shown only when ASS lyrics are loaded. #}
-      <div class="pk-tool pk-tool-stem" data-pk-subtitle-offset-tool hidden>
-        <span class="pk-tool-label">napisy</span>
-        <input type="range" min="-2" max="2" step="0.05" value="0" data-pk-subtitle-offset>
-        <span class="pk-tool-stem-val" data-pk-subtitle-offset-val>0.00s</span>
-      </div>
-
-      {# Subtitle source picker — shown whenever a song is playing. #}
-      <div class="pk-tool pk-tool-subtitle-src" data-pk-subtitle-src-tool hidden>
-        <span class="pk-tool-label">źródło</span>
-        <select data-pk-subtitle-src aria-label="Subtitle source"></select>
-      </div>
     </div>
   </div>
 
