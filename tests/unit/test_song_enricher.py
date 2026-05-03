@@ -330,3 +330,33 @@ class TestEnrichSong:
         assert row["metadata_status"] == "not_found"
         assert row["enrichment_attempts"] == 1
         assert row["last_enrichment_attempt"] is not None
+
+    def test_uncaught_exception_stamps_error(self, db, tmp_path):
+        """Anything raising past the inline guards (e.g. a DB write error)
+        must still bump enrichment_attempts and stamp ``error`` so the row
+        doesn't get stuck on ``pending`` with attempts=0 — that's the
+        signal we use to spot enrichment that silently dropped."""
+        song_path = str(tmp_path / "Foo---abc12345678.mp4")
+        sid = _insert_song(db, song_path)
+
+        itunes_full = {
+            "itunes_id": "1",
+            "artist": "A",
+            "track": "T",
+            "album": None,
+            "track_number": None,
+            "release_date": None,
+            "cover_art_url": None,
+            "genre": None,
+        }
+        with patch.object(
+            song_enricher, "fetch_itunes_track", return_value=itunes_full
+        ), patch.object(
+            db, "update_track_metadata_with_provenance", side_effect=RuntimeError("db boom")
+        ):
+            song_enricher.enrich_song(db, sid, song_path)  # must not raise
+
+        row = db.get_song_by_id(sid)
+        assert row["metadata_status"] == "error"
+        assert row["enrichment_attempts"] == 1
+        assert row["last_enrichment_attempt"] is not None

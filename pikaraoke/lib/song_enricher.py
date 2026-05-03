@@ -107,7 +107,9 @@ def enrich_song(db: KaraokeDatabase, song_id: int, song_path: str) -> None:
 
     Always updates ``metadata_status``, ``enrichment_attempts``, and
     ``last_enrichment_attempt`` so failed attempts are visible in the DB
-    for later retry.
+    for later retry. Unexpected exceptions are caught here and stamped
+    as ``error`` so a crashing thread can't silently leave a row stuck
+    on ``pending`` with ``enrichment_attempts = 0``.
 
     Provenance (US-28): each metadata field is written via
     ``update_track_metadata_with_provenance`` with the originating source
@@ -116,8 +118,22 @@ def enrich_song(db: KaraokeDatabase, song_id: int, song_path: str) -> None:
     iTunes if both arrive, but neither overrides a ``manual`` write.
     """
     now = datetime.now(timezone.utc).isoformat()
+    try:
+        _enrich_song_inner(db, song_id, song_path, now)
+    except Exception:
+        logger.exception("enrich_song crashed for song_id=%d path=%s", song_id, song_path)
+        try:
+            db.stamp_enrichment_attempt(song_id, "error", now)
+        except Exception:
+            logger.exception("stamping enrichment error failed for song_id=%d", song_id)
+
+
+def _enrich_song_inner(db: KaraokeDatabase, song_id: int, song_path: str, now: str) -> None:
     row = db.get_song_by_id(song_id)
     if row is None:
+        # Row deleted between dispatch and execution (rename/delete race).
+        # Nothing to stamp -- the row is gone.
+        logger.warning("enrich_song: song_id=%d gone before enrichment ran", song_id)
         return
 
     query = _query_from_song(row, song_path)

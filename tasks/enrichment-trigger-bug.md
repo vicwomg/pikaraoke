@@ -1,5 +1,21 @@
 # Bug: iTunes/MusicBrainz enrichment never auto-runs on download
 
+## Status (2026-05-04)
+
+- 23 stuck rows (IDs 86–111, all with `metadata_status='pending'` and
+  `enrichment_attempts=0`) were drained one-shot via `enrich_song`. 21
+  came back `enriched`, 2 came back `not_found`. Pending count is 0.
+- `enrich_song` now wraps its body in a try/except that stamps
+  `metadata_status='error'` on any uncaught exception, so a future
+  daemon-thread crash leaves a visible signal instead of an invisible
+  pending row. Test: `test_uncaught_exception_stamps_error`.
+- Root cause of the original miss is still unproven — the diagnostic
+  logging suggested below was not added because it isn't needed any
+  more: the `error` stamp is the cheaper, persistent equivalent. If
+  the bug recurs, look for `metadata_status='error'` rows and the
+  `enrich_song crashed for song_id=…` log line they leave behind.
+
+
 ## Symptom
 
 All recently downloaded songs (12/12 inspected, IDs 100–111, downloaded
