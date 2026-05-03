@@ -1,6 +1,7 @@
 """Unit tests for pikaraoke.lib.lyrics."""
 
 import threading
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -57,8 +58,10 @@ from pikaraoke.lib.lyrics import (
     _detect_language,
     _escape_ass,
     _extract_genius_lyrics,
+    _extract_tekstowo_lyrics,
     _fetch_genius,
     _fetch_lrclib,
+    _fetch_tekstowo,
     _format_ass_time,
     _k_token,
     _lrc_from_aligned_lines,
@@ -71,6 +74,7 @@ from pikaraoke.lib.lyrics import (
     _resolve_whisper_model,
     _shift_lrc,
     _shift_lrc_per_line,
+    _spotify_lines_to_lrc,
     _strip_variant_markers,
     _syllabify,
     _syllable_parts,
@@ -691,6 +695,294 @@ class TestFetchGenius:
         ) as mock_get:
             _fetch_genius("Song (Instrumental)", "Artist")
             assert mock_get.call_args.kwargs["params"]["q"] == "Artist Song"
+
+
+# ----- Tekstowo client -----
+
+
+class TestFetchTekstowo:
+    # Tekstowo's current layout puts "Artist - Track" inside the anchor TEXT,
+    # not in a title="..." attribute. Slug-only hrefs (``/artist/track``)
+    # replaced the legacy ``/piosenka,...`` form.
+    SEARCH_HTML = (
+        "<html><body>"
+        '<a href="/edyta-gorniak/kolorowy-wiatr" class="title">'
+        "Edyta Górniak - Kolorowy wiatr</a>"
+        '<a href="/other/song" class="title">Other Artist - Cover</a>'
+        "</body></html>"
+    )
+    LYRICS_HTML = (
+        '<html><body><div class="song-text">'
+        '<div class="inner-text">[Refren]<br>linia jeden<br>linia dwa</div>'
+        "</div></body></html>"
+    )
+
+    def test_returns_lyrics_on_artist_match(self):
+        search = MagicMock(status_code=200, text=self.SEARCH_HTML)
+        page = MagicMock(status_code=200, text=self.LYRICS_HTML)
+        with patch("pikaraoke.lib.lyrics.requests.get", side_effect=[search, page]):
+            assert _fetch_tekstowo("Kolorowy wiatr", "Edyta Gorniak") == "linia jeden\nlinia dwa"
+
+    def test_returns_none_on_search_http_error(self):
+        with patch(
+            "pikaraoke.lib.lyrics.requests.get",
+            return_value=MagicMock(status_code=500, text=""),
+        ):
+            assert _fetch_tekstowo("X", "Y") is None
+
+    def test_returns_none_when_no_artist_match(self):
+        html = (
+            '<html><body><a href="/diff/song" class="title">'
+            "Different Person - Song</a></body></html>"
+        )
+        with patch(
+            "pikaraoke.lib.lyrics.requests.get",
+            return_value=MagicMock(status_code=200, text=html),
+        ):
+            assert _fetch_tekstowo("Song", "Looking For") is None
+
+    def test_returns_none_on_network_error(self):
+        with patch(
+            "pikaraoke.lib.lyrics.requests.get",
+            side_effect=requests.ConnectionError(),
+        ):
+            assert _fetch_tekstowo("X", "Y") is None
+
+    def test_skips_anchors_without_title_class(self):
+        # Tekstowo search pages include many anchors (nav, sidebar promos,
+        # artist profile links). Only ``class="title"`` is the lyrics link.
+        html = (
+            "<html><body>"
+            '<a href="/edyta-gorniak" class="green">Edyta Górniak - Profil</a>'
+            '<a href="/edyta-gorniak/kolorowy-wiatr" class="title">'
+            "Edyta Górniak - Kolorowy wiatr</a>"
+            "</body></html>"
+        )
+        page = MagicMock(status_code=200, text=self.LYRICS_HTML)
+        with patch(
+            "pikaraoke.lib.lyrics.requests.get",
+            side_effect=[MagicMock(status_code=200, text=html), page],
+        ) as mock_get:
+            _fetch_tekstowo("Kolorowy wiatr", "Edyta Górniak")
+            # Second call must be the song page, not the artist profile.
+            assert "edyta-gorniak/kolorowy-wiatr" in mock_get.call_args_list[1].args[0]
+
+    def test_track_substring_filters_wrong_song(self):
+        # Without the track-substring guard we'd grab the first Górniak
+        # anchor on the page even when our query was for a different song.
+        html = (
+            "<html><body>"
+            '<a href="/edyta-gorniak/anuluje-wszystko" class="title">'
+            "Edyta Górniak - Anuluję wszystko</a>"
+            '<a href="/edyta-gorniak/kolorowy-wiatr" class="title">'
+            "Edyta Górniak - Kolorowy wiatr</a>"
+            "</body></html>"
+        )
+        page = MagicMock(status_code=200, text=self.LYRICS_HTML)
+        with patch(
+            "pikaraoke.lib.lyrics.requests.get",
+            side_effect=[MagicMock(status_code=200, text=html), page],
+        ) as mock_get:
+            _fetch_tekstowo("Kolorowy wiatr", "Edyta Górniak")
+            assert "kolorowy-wiatr" in mock_get.call_args_list[1].args[0]
+
+    def test_polish_l_letter_folded(self):
+        # ``ł`` is not Unicode-decomposable, so plain remove_accents leaves it
+        # intact. _tekstowo_fold folds it to ``l`` so a query "Malgoska"
+        # matches the result label "Małgośka".
+        html = (
+            "<html><body>"
+            '<a href="/maryla-rodowicz/malgoska" class="title">'
+            "Maryla Rodowicz - Małgośka</a>"
+            "</body></html>"
+        )
+        page = MagicMock(status_code=200, text=self.LYRICS_HTML)
+        with patch(
+            "pikaraoke.lib.lyrics.requests.get",
+            side_effect=[MagicMock(status_code=200, text=html), page],
+        ) as mock_get:
+            _fetch_tekstowo("Malgoska", "Maryla Rodowicz")
+            assert "malgoska" in mock_get.call_args_list[1].args[0]
+
+    def test_sends_browser_user_agent(self):
+        # Tekstowo serves a placeholder page when the UA looks scriptable.
+        with patch(
+            "pikaraoke.lib.lyrics.requests.get",
+            return_value=MagicMock(status_code=200, text=""),
+        ) as mock_get:
+            _fetch_tekstowo("X", "Y")
+            ua = mock_get.call_args.kwargs["headers"]["User-Agent"]
+            assert "Mozilla" in ua
+
+
+class TestExtractTekstowoLyrics:
+    def test_basic_paragraph(self):
+        html = (
+            '<html><body><div class="song-text">'
+            '<div class="inner-text">first<br>second<br>third</div>'
+            "</div></body></html>"
+        )
+        assert _extract_tekstowo_lyrics(html) == "first\nsecond\nthird"
+
+    def test_drops_section_headers(self):
+        html = (
+            '<html><body><div class="inner-text">'
+            "[Refren]<br>chorus line<br>[Zwrotka 1]<br>verse line</div></body></html>"
+        )
+        assert _extract_tekstowo_lyrics(html) == "chorus line\nverse line"
+
+    def test_returns_none_when_container_missing(self):
+        assert _extract_tekstowo_lyrics("<html><body>nothing</body></html>") is None
+
+    def test_handles_nested_divs(self):
+        # tekstowo wraps inline annotation popups in nested <div>; the
+        # outer container only closes when its matching </div> arrives.
+        html = (
+            '<html><body><div class="inner-text">a<br>'
+            '<div class="annotation">popup</div>b</div></body></html>'
+        )
+        result = _extract_tekstowo_lyrics(html)
+        assert result is not None
+        assert "a" in result and "b" in result
+
+
+# ----- Spotify Color Lyrics -----
+
+
+class TestSpotifyLinesToLrc:
+    def test_basic(self):
+        lines = [
+            {"startTimeMs": "1230", "words": "first line"},
+            {"startTimeMs": "65890", "words": "second line"},
+        ]
+        assert _spotify_lines_to_lrc(lines) == "[00:01.23]first line\n[01:05.89]second line"
+
+    def test_skips_empty_words(self):
+        lines = [
+            {"startTimeMs": "0", "words": ""},
+            {"startTimeMs": "1000", "words": "real"},
+        ]
+        assert _spotify_lines_to_lrc(lines) == "[00:01.00]real"
+
+    def test_returns_none_when_all_empty(self):
+        assert _spotify_lines_to_lrc([]) is None
+        assert _spotify_lines_to_lrc([{"startTimeMs": "0", "words": ""}]) is None
+
+    def test_handles_invalid_start_ms(self):
+        lines = [
+            {"startTimeMs": "not-a-number", "words": "skipped"},
+            {"startTimeMs": "1000", "words": "kept"},
+        ]
+        assert _spotify_lines_to_lrc(lines) == "[00:01.00]kept"
+
+
+class TestSpotifyLyricsServiceFetch:
+    def _make_service(self, sp_dc="cookie123"):
+        from pikaraoke.lib.events import EventSystem
+
+        prefs = MagicMock()
+        prefs.get_or_default.return_value = sp_dc
+        return LyricsService(
+            download_path="/tmp",
+            events=EventSystem(),
+            preferences=prefs,
+        )
+
+    def test_token_returns_none_when_cookie_missing(self):
+        svc = self._make_service(sp_dc="")
+        assert svc._get_spotify_access_token() is None
+
+    def test_token_caches_across_calls(self):
+        svc = self._make_service()
+        resp = MagicMock(status_code=200)
+        # Token good for 1h.
+        resp.json.return_value = {
+            "accessToken": "TOK",
+            "accessTokenExpirationTimestampMs": (time.time() + 3600) * 1000,
+            "isAnonymous": False,
+        }
+        with patch("pikaraoke.lib.lyrics.requests.get", return_value=resp) as mock_get:
+            assert svc._get_spotify_access_token() == "TOK"
+            assert svc._get_spotify_access_token() == "TOK"
+            # Second call must hit the cache, not the network.
+            assert mock_get.call_count == 1
+
+    def test_token_anonymous_returns_none(self):
+        svc = self._make_service()
+        resp = MagicMock(status_code=200)
+        resp.json.return_value = {
+            "accessToken": "TOK",
+            "accessTokenExpirationTimestampMs": (time.time() + 3600) * 1000,
+            "isAnonymous": True,
+        }
+        with patch("pikaraoke.lib.lyrics.requests.get", return_value=resp):
+            assert svc._get_spotify_access_token() is None
+
+    def test_fetch_lrc_via_isrc(self):
+        svc = self._make_service()
+        token_resp = MagicMock(status_code=200)
+        token_resp.json.return_value = {
+            "accessToken": "TOK",
+            "accessTokenExpirationTimestampMs": (time.time() + 3600) * 1000,
+            "isAnonymous": False,
+        }
+        search_resp = MagicMock(status_code=200)
+        search_resp.json.return_value = {
+            "tracks": {"items": [{"id": "TRACKID", "artists": [{"name": "Artist"}]}]}
+        }
+        lyrics_resp = MagicMock(status_code=200)
+        lyrics_resp.json.return_value = {
+            "lyrics": {
+                "syncType": "LINE_SYNCED",
+                "lines": [{"startTimeMs": "1000", "words": "hello"}],
+            }
+        }
+        with patch(
+            "pikaraoke.lib.lyrics.requests.get",
+            side_effect=[token_resp, search_resp, lyrics_resp],
+        ) as mock_get:
+            lrc = svc._fetch_spotify_lrc("Song", "Artist", isrc="USRC12345678")
+            assert lrc == "[00:01.00]hello"
+            # Ensure search used isrc query, not artist+title.
+            assert "isrc:USRC12345678" in mock_get.call_args_list[1].kwargs["params"]["q"]
+
+    def test_fetch_lrc_returns_none_on_unsynced(self):
+        svc = self._make_service()
+        token_resp = MagicMock(status_code=200)
+        token_resp.json.return_value = {
+            "accessToken": "TOK",
+            "accessTokenExpirationTimestampMs": (time.time() + 3600) * 1000,
+            "isAnonymous": False,
+        }
+        search_resp = MagicMock(status_code=200)
+        search_resp.json.return_value = {
+            "tracks": {"items": [{"id": "ID", "artists": [{"name": "Artist"}]}]}
+        }
+        lyrics_resp = MagicMock(status_code=200)
+        lyrics_resp.json.return_value = {
+            "lyrics": {"syncType": "UNSYNCED", "lines": [{"startTimeMs": "0", "words": "x"}]}
+        }
+        with patch(
+            "pikaraoke.lib.lyrics.requests.get",
+            side_effect=[token_resp, search_resp, lyrics_resp],
+        ):
+            assert svc._fetch_spotify_lrc("Song", "Artist", isrc="X") is None
+
+    def test_fetch_lrc_returns_none_on_no_search_match(self):
+        svc = self._make_service()
+        token_resp = MagicMock(status_code=200)
+        token_resp.json.return_value = {
+            "accessToken": "TOK",
+            "accessTokenExpirationTimestampMs": (time.time() + 3600) * 1000,
+            "isAnonymous": False,
+        }
+        search_resp = MagicMock(status_code=200)
+        search_resp.json.return_value = {"tracks": {"items": []}}
+        with patch(
+            "pikaraoke.lib.lyrics.requests.get",
+            side_effect=[token_resp, search_resp],
+        ):
+            assert svc._fetch_spotify_lrc("Song", "Artist") is None
 
 
 class TestSyncedLyricsFetchers:

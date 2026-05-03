@@ -78,6 +78,19 @@ class TestWhitelist:
         r = _post_json(client, {"song_id": "abc", "source": "lrclib"})
         assert r.status_code == 400
 
+    def test_new_sources_pass_whitelist(self, client, mocks, tmp_path):
+        # Regression guard so adding a SUBTITLE_SOURCE_* constant without
+        # wiring it into the route's whitelist gets caught here.
+        song_path = tmp_path / "Foo---abc.mp4"
+        song_path.write_text("fake")
+        row = {"file_path": str(song_path), "lyrics_provenance": "auto_word"}
+        mocks["k"].db.get_song_by_id.return_value = row
+        for source in ("tekstowo-sync", "spotify-sync"):
+            r = _post_json(client, {"song_id": 1, "source": source})
+            # 200 (variant ready) or 202 (dispatched). 400 means the route's
+            # VALID_SUBTITLE_SOURCES drifted from karaoke_database.py.
+            assert r.status_code in (200, 202), source
+
 
 class TestAvailable:
     def test_existing_variant_returns_ok(self, client, mocks, tmp_path):

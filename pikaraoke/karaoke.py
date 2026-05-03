@@ -34,6 +34,8 @@ from pikaraoke.lib.karaoke_database import (
     SUBTITLE_SOURCE_LRCLIB,
     SUBTITLE_SOURCE_LRCLIB_SYNC,
     SUBTITLE_SOURCE_OFF,
+    SUBTITLE_SOURCE_SPOTIFY_SYNC,
+    SUBTITLE_SOURCE_TEKSTOWO_SYNC,
     SUBTITLE_SOURCE_USER,
     SUBTITLE_SOURCE_YOUTUBE_VTT,
     KaraokeDatabase,
@@ -463,6 +465,7 @@ class Karaoke:
             events=self.events,
             aligner=self._aligner_instance,
             db=self.db,
+            preferences=self.preferences,
         )
 
         # Prewarm silero VAD once per process so the first song's per-line
@@ -1246,6 +1249,8 @@ class Karaoke:
         SUBTITLE_SOURCE_LRCLIB,
         SUBTITLE_SOURCE_LRCLIB_SYNC,
         SUBTITLE_SOURCE_GENIUS_SYNC,
+        SUBTITLE_SOURCE_SPOTIFY_SYNC,
+        SUBTITLE_SOURCE_TEKSTOWO_SYNC,
         SUBTITLE_SOURCE_AI,
         SUBTITLE_SOURCE_YOUTUBE_VTT,
     )
@@ -1257,6 +1262,8 @@ class Karaoke:
         SUBTITLE_SOURCE_LRCLIB: "LRCLib",
         SUBTITLE_SOURCE_LRCLIB_SYNC: "LRCLib + sync",
         SUBTITLE_SOURCE_GENIUS_SYNC: "Genius + sync",
+        SUBTITLE_SOURCE_SPOTIFY_SYNC: "Spotify + sync",
+        SUBTITLE_SOURCE_TEKSTOWO_SYNC: "Tekstowo + sync",
         SUBTITLE_SOURCE_AI: "AI",
         SUBTITLE_SOURCE_YOUTUBE_VTT: "YouTube CC",
     }
@@ -1309,6 +1316,7 @@ class Karaoke:
         # Capability gates (which sources can ever be fetched on this host).
         has_genius_token = bool(GENIUS_ACCESS_TOKEN)
         has_aligner = self.lyrics_service.has_aligner
+        has_spotify_cookie = bool(self.preferences.get_or_default("spotify_sp_dc"))
         global _HAS_FASTER_WHISPER
         if _HAS_FASTER_WHISPER is None:
             try:
@@ -1355,6 +1363,12 @@ class Karaoke:
                     na_reason = "no GENIUS_ACCESS_TOKEN"
                 elif source == SUBTITLE_SOURCE_LRCLIB_SYNC and not has_aligner:
                     na_reason = "no aligner configured"
+                elif source == SUBTITLE_SOURCE_TEKSTOWO_SYNC and not has_aligner:
+                    na_reason = "no aligner configured"
+                elif source == SUBTITLE_SOURCE_SPOTIFY_SYNC and not (
+                    has_spotify_cookie and has_aligner
+                ):
+                    na_reason = "no spotify_sp_dc preference or aligner"
                 elif source == SUBTITLE_SOURCE_AI and not (has_whisper and has_aligner):
                     na_reason = "faster_whisper / aligner unavailable"
                 elif source == SUBTITLE_SOURCE_YOUTUBE_VTT and not (

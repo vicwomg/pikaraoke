@@ -214,6 +214,29 @@ $(function () {
     changePreferences($(this).data('pref'), val);
   });
 
+  // Spotify sp_dc helper: copy the inline JS snippet so the user can paste
+  // it into the Spotify Web Player DevTools console. Falls back to the
+  // legacy execCommand path on older browsers without clipboard.writeText.
+  $(document).on('click', '#pk-sp-dc-copy', function () {
+    const code = document.getElementById('pk-sp-dc-snippet');
+    if (!code) return;
+    const text = code.textContent || '';
+    const announce = () => showNotification('Snippet copied to clipboard', 'is-success');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(announce).catch(() => {
+        showNotification('Copy failed — select the snippet manually', 'is-warning');
+      });
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); announce(); }
+      catch (e) { showNotification('Copy failed', 'is-warning'); }
+      document.body.removeChild(ta);
+    }
+  });
+
   // Destructive confirms use PK.dialog
   async function danger(href, opts) {
     const ok = await PK.dialog.confirm({
@@ -538,6 +561,41 @@ $(function () {
         </div>
       </span>
       <input class="user-preference-input" type="text" data-pref="youtube_data_api_key" data-start-value="{{ youtube_data_api_key }}" value="{{ youtube_data_api_key }}" placeholder="AIza…">
+    </div>
+    <div class="pk-pref-row">
+      <span class="pk-pref-label">
+        {% trans %}Spotify sp_dc cookie (optional, Premium){% endtrans %}
+        <div style="font-size: 11px; color: var(--pk-ink-4); margin-top: 2px; letter-spacing: normal; text-transform: none;">
+          {% trans %}Enables the spotify-sync subtitle source. Cookie expires when you log out of open.spotify.com.{% endtrans %}
+          <details style="margin-top: 4px;">
+            <summary style="cursor: pointer; color: var(--pk-amber);">{% trans %}how do I get sp_dc?{% endtrans %}</summary>
+            <ol style="margin: 4px 0 4px 16px; padding: 0;">
+              <li>{% trans %}Open <a href="https://open.spotify.com" target="_blank" rel="noopener">open.spotify.com</a> and log in (Premium account).{% endtrans %}</li>
+              <li>{% trans %}Press F12, switch to the Console tab, paste the snippet below and press Enter.{% endtrans %}</li>
+              <li>{% trans %}Paste the value into this field.{% endtrans %}</li>
+            </ol>
+            <pre style="background: #000; color: #ddd; padding: 8px; border-radius: 4px; font-size: 11px; overflow: auto; margin: 4px 0;"><code id="pk-sp-dc-snippet">(async()=&gt;{
+  if(location.hostname!=='open.spotify.com'){
+    return console.warn('Open https://open.spotify.com first');
+  }
+  const m=document.cookie.match(/(?:^|; )sp_dc=([^;]+)/);
+  if(m){
+    await navigator.clipboard.writeText(m[1]);
+    console.log('%c✓ sp_dc copied to clipboard','color:lime');
+  } else {
+    console.warn('sp_dc is httpOnly. Open Application → Cookies → https://open.spotify.com → sp_dc → right-click → Copy value, then paste into PiKaraoke.');
+  }
+})();</code></pre>
+            <button type="button" id="pk-sp-dc-copy" class="pk-btn is-sm" style="margin-top: 4px;">
+              {% trans %}Copy snippet{% endtrans %}
+            </button>
+            <p style="margin-top: 6px; font-size: 11px;">
+              {% trans %}Note: sp_dc is usually httpOnly so the snippet can't auto-copy it; in that case it prints the manual fallback path.{% endtrans %}
+            </p>
+          </details>
+        </div>
+      </span>
+      <input class="user-preference-input" type="password" data-pref="spotify_sp_dc" data-start-value="{{ spotify_sp_dc }}" value="{{ spotify_sp_dc }}" placeholder="AQ…" autocomplete="off" spellcheck="false">
     </div>
     <div style="padding: 14px 0 0;">
       <a id="pk-clear-prefs" class="pk-btn is-danger is-sm" href="{{ url_for('preferences.clear_preferences') }}">

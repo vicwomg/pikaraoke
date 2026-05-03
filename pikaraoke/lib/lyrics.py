@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 from threading import Thread
 from typing import Protocol
+from urllib.parse import quote_plus
 
 import librosa
 import requests
@@ -38,6 +39,8 @@ from pikaraoke.lib.karaoke_database import (
     SUBTITLE_SOURCE_GENIUS_SYNC,
     SUBTITLE_SOURCE_LRCLIB,
     SUBTITLE_SOURCE_LRCLIB_SYNC,
+    SUBTITLE_SOURCE_SPOTIFY_SYNC,
+    SUBTITLE_SOURCE_TEKSTOWO_SYNC,
     SUBTITLE_SOURCE_USER,
     SUBTITLE_SOURCE_YOUTUBE_VTT,
     VARIANT_FILE_SOURCES,
@@ -80,6 +83,29 @@ _LRCLIB_DURATION_TOLERANCE_S = 30.0
 GENIUS_BASE = "https://api.genius.com"
 GENIUS_TIMEOUT = 5.0
 GENIUS_ACCESS_TOKEN = os.environ.get("GENIUS_ACCESS_TOKEN", "").strip()
+
+TEKSTOWO_BASE = "https://www.tekstowo.pl"
+TEKSTOWO_TIMEOUT = 5.0
+# Tekstowo serves the bot-detector page when the User-Agent looks scriptable;
+# pretend to be a desktop browser to get the real song page.
+TEKSTOWO_USER_AGENT = (
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+)
+
+SPOTIFY_TIMEOUT = 5.0
+SPOTIFY_TOKEN_URL = (
+    "https://open.spotify.com/get_access_token?reason=transport&productType=web_player"
+)
+SPOTIFY_SEARCH_URL = "https://api.spotify.com/v1/search"
+SPOTIFY_LYRICS_URL = (
+    "https://spclient.wg.spotify.com/color-lyrics/v2/track/{track_id}"
+    "?format=json&vocalRemoval=false"
+)
+SPOTIFY_USER_AGENT = (
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+)
 
 # Last-resort ASR fallback. When LRCLib / Genius / YouTube VTT all miss,
 # transcribe the vocals stem with faster-whisper so the song still gets
@@ -315,11 +341,20 @@ class LyricsService:
         events: EventSystem,
         aligner: Aligner | None = None,
         db: KaraokeDatabase | None = None,
+        preferences: object | None = None,
     ) -> None:
         self._download_path = download_path
         self._events = events
         self._aligner = aligner
         self._db = db
+        # PreferenceManager is read dynamically on every Spotify fetch so
+        # operators can rotate the sp_dc cookie via the settings UI without
+        # restarting the server. Optional to keep the test surface narrow.
+        self._preferences = preferences
+        # Cached Spotify access token: (token, exp_unix). The token is short-
+        # lived (~1h) and is regenerated lazily from the sp_dc cookie.
+        self._spotify_token_cache: tuple[str, float] | None = None
+        self._spotify_token_lock = threading.Lock()
         # Per-song tier of the most recently written .ass. Parallel source
         # workers go through `_try_write_ass_tiered` which reads + updates
         # this under `_tier_lock` — a later source with a lower tier is
@@ -709,6 +744,16 @@ class LyricsService:
             if not info:
                 return None
             return self._render_genius_word_ass(song_path, info)
+        if source == SUBTITLE_SOURCE_TEKSTOWO_SYNC:
+            info = self._read_metadata_for_lrclib(song_path)
+            if not info:
+                return None
+            return self._render_tekstowo_word_ass(song_path, info)
+        if source == SUBTITLE_SOURCE_SPOTIFY_SYNC:
+            info = self._read_metadata_for_lrclib(song_path)
+            if not info:
+                return None
+            return self._render_spotify_word_ass(song_path, info)
         if source == SUBTITLE_SOURCE_AI:
             return self._render_whisper_word_ass(song_path)
         return None
@@ -1116,10 +1161,31 @@ class LyricsService:
             return None
         if self._is_genius_language_mismatch(song_path, genius_text):
             return None
+        return self._align_plain_text_to_ass(song_path, genius_text, source_label="Genius")
+
+    def _align_plain_text_to_ass(
+        self, song_path: str, plain_text: str, source_label: str
+    ) -> str | None:
+        """Word-align plain lyrics against vocals and render word-level ASS.
+
+        Shared back-end for any source whose upstream returns timestamp-free
+        text (Genius, tekstowo.pl). The aligner gives us per-token timings;
+        ``_lrc_from_aligned_lines`` rebuilds a synthetic LRC by consuming
+        one line's worth of tokens at a time and stamping each line's first
+        word as the line's LRC time. Returns None on missing aligner,
+        unknown language, alignment failure, or empty word output.
+
+        ``source_label`` shows up in the warning log only — it doesn't
+        change behaviour, so callers can pass any human-readable name.
+        """
+        if self._aligner is None:
+            return None
         try:
             _prewarm_stems(song_path)
             audio_path = _wait_for_alignment_audio(song_path)
-            lines = [ln for ln in genius_text.splitlines() if ln.strip()]
+            lines = [ln for ln in plain_text.splitlines() if ln.strip()]
+            if not lines:
+                return None
             plain = "\n".join(lines)
             song_id = self._db.get_song_id_by_path(song_path) if self._db else None
             db_lang = None
@@ -1138,8 +1204,198 @@ class LyricsService:
             bpm = _estimate_bpm(audio_path)
             return _words_to_ass_with_k_tags(words, synthetic_lrc, params=_anim_params_for_bpm(bpm))
         except Exception:
-            logger.warning("_render_genius_word_ass: failed for %s", song_path, exc_info=True)
+            logger.warning(
+                "_align_plain_text_to_ass: %s alignment failed for %s",
+                source_label,
+                song_path,
+                exc_info=True,
+            )
             return None
+
+    def _render_tekstowo_word_ass(self, song_path: str, info: dict) -> str | None:
+        """Tekstowo.pl lyrics + wav2vec2 → word-level ASS. None on miss."""
+        if self._aligner is None:
+            return None
+        track = info.get("track")
+        artist = info.get("artist")
+        if not track or not artist:
+            return None
+        try:
+            text = _fetch_tekstowo(track, artist)
+        except Exception:
+            logger.exception("_render_tekstowo_word_ass: fetch crashed for %r / %r", artist, track)
+            return None
+        if not text:
+            return None
+        if self._is_lyrics_language_mismatch(song_path, text, source_label="Tekstowo"):
+            return None
+        return self._align_plain_text_to_ass(song_path, text, source_label="Tekstowo")
+
+    def _render_spotify_word_ass(self, song_path: str, info: dict) -> str | None:
+        """Spotify Color Lyrics LRC + wav2vec2 → word-level ASS. None on miss.
+
+        Spotify returns line-synced timing (LRC equivalent), so we route
+        through the existing LRC-windowed aligner pipeline used by LRCLib.
+        ISRC from the songs table gives us a deterministic Spotify track
+        match when available; otherwise we fall back to artist+title
+        search.
+        """
+        if self._aligner is None:
+            return None
+        track = info.get("track")
+        artist = info.get("artist")
+        if not track or not artist:
+            return None
+        isrc = info.get("isrc")
+        try:
+            lrc = self._fetch_spotify_lrc(track, artist, isrc=isrc)
+        except Exception:
+            logger.exception("_render_spotify_word_ass: fetch crashed for %r / %r", artist, track)
+            return None
+        if not lrc:
+            return None
+        if self._is_lyrics_language_mismatch(
+            song_path, _lrc_plain_text(lrc), source_label="Spotify"
+        ):
+            return None
+        return self._render_lrclib_word_ass(song_path, lrc)
+
+    # --- Spotify Color Lyrics auth + fetch -------------------------------
+
+    def _get_spotify_sp_dc(self) -> str:
+        """Read sp_dc cookie from the live preference store. Empty when unset."""
+        if self._preferences is None:
+            return ""
+        try:
+            return (self._preferences.get_or_default("spotify_sp_dc") or "").strip()
+        except Exception:
+            logger.exception("preference read failed for spotify_sp_dc")
+            return ""
+
+    def _get_spotify_access_token(self) -> str | None:
+        """Mint or reuse a short-lived Spotify access token.
+
+        Cached on the LyricsService for the token's full lifetime minus a
+        30s safety window. Returns None on missing cookie, network failure,
+        or anonymous token (cookie expired or wrong account).
+        """
+        sp_dc = self._get_spotify_sp_dc()
+        if not sp_dc:
+            return None
+        with self._spotify_token_lock:
+            cache = self._spotify_token_cache
+            if cache is not None and cache[1] > time.time() + 30:
+                return cache[0]
+            try:
+                r = requests.get(
+                    SPOTIFY_TOKEN_URL,
+                    headers={
+                        "User-Agent": SPOTIFY_USER_AGENT,
+                        "Accept": "application/json",
+                    },
+                    cookies={"sp_dc": sp_dc},
+                    timeout=SPOTIFY_TIMEOUT,
+                )
+                if r.status_code != 200:
+                    logger.warning("Spotify token fetch HTTP %s", r.status_code)
+                    return None
+                payload = r.json()
+            except (requests.RequestException, ValueError) as e:
+                logger.warning("Spotify token fetch failed: %s", e)
+                return None
+            if payload.get("isAnonymous"):
+                logger.warning("Spotify token is anonymous — sp_dc cookie expired or invalid")
+                return None
+            token = payload.get("accessToken")
+            exp_ms = payload.get("accessTokenExpirationTimestampMs")
+            if not token or not exp_ms:
+                return None
+            self._spotify_token_cache = (token, float(exp_ms) / 1000.0)
+            return token
+
+    def _fetch_spotify_lrc(self, track: str, artist: str, isrc: str | None = None) -> str | None:
+        """Return Spotify Color Lyrics for a song as LRC text, or None on miss.
+
+        Two paths to a track ID:
+          * ISRC (when stored in the songs table from MusicBrainz lookup) →
+            ``q=isrc:<code>`` is deterministic.
+          * Artist + title fallback → first hit whose primary artist matches
+            (accent-folded, case-insensitive).
+
+        Returns None on missing token, no track match, unsynced lyrics, or
+        any HTTP failure. ``LINE_SYNCED`` is the only sync type we accept —
+        ``UNSYNCED`` plain text is useless to the LRC-windowed aligner.
+        """
+        token = self._get_spotify_access_token()
+        if not token:
+            return None
+
+        if isrc:
+            query = f"isrc:{isrc}"
+        else:
+            query = f'track:"{track}" artist:"{artist}"'
+        try:
+            r = requests.get(
+                SPOTIFY_SEARCH_URL,
+                params={"q": query, "type": "track", "limit": 5},
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "User-Agent": SPOTIFY_USER_AGENT,
+                },
+                timeout=SPOTIFY_TIMEOUT,
+            )
+            if r.status_code != 200:
+                logger.warning("Spotify search HTTP %s for %r", r.status_code, query)
+                return None
+            items = (r.json().get("tracks") or {}).get("items") or []
+        except (requests.RequestException, ValueError) as e:
+            logger.warning("Spotify search failed: %s", e)
+            return None
+
+        if not items:
+            return None
+
+        artist_key = remove_accents(artist.strip().lower())
+        track_id = None
+        if isrc:
+            track_id = items[0].get("id")
+        else:
+            for item in items:
+                primary = ((item.get("artists") or [{}])[0]).get("name", "")
+                if remove_accents(primary.strip().lower()) == artist_key:
+                    track_id = item.get("id")
+                    break
+        if not track_id:
+            return None
+
+        try:
+            lr = requests.get(
+                SPOTIFY_LYRICS_URL.format(track_id=track_id),
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "App-Platform": "WebPlayer",
+                    "User-Agent": SPOTIFY_USER_AGENT,
+                },
+                timeout=SPOTIFY_TIMEOUT,
+            )
+            if lr.status_code == 404:
+                return None
+            if lr.status_code != 200:
+                logger.warning(
+                    "Spotify lyrics HTTP %s for track %s (Premium required for free accounts)",
+                    lr.status_code,
+                    track_id,
+                )
+                return None
+            payload = lr.json()
+        except (requests.RequestException, ValueError) as e:
+            logger.warning("Spotify lyrics fetch failed: %s", e)
+            return None
+
+        lyrics_block = payload.get("lyrics") or {}
+        if lyrics_block.get("syncType") != "LINE_SYNCED":
+            return None
+        return _spotify_lines_to_lrc(lyrics_block.get("lines") or [])
 
     def _render_whisper_word_ass(self, song_path: str) -> str | None:
         """Whisper ASR → word-level ASS. Returns ASS string or None."""
@@ -1286,7 +1542,19 @@ class LyricsService:
         artist = (row["artist"] or "").strip()
         if not track or not artist:
             return None
-        return {"track": track, "artist": artist, "duration": row["duration_seconds"]}
+        # ISRC is optional — present when MusicBrainz enrichment hit. Spotify
+        # variant uses it for deterministic ``q=isrc:<code>`` lookups; LRCLib /
+        # Genius paths ignore the field.
+        try:
+            isrc = (row["isrc"] or "").strip() or None
+        except (KeyError, IndexError):
+            isrc = None
+        return {
+            "track": track,
+            "artist": artist,
+            "duration": row["duration_seconds"],
+            "isrc": isrc,
+        }
 
     def _run_language_classifier(self, song_path: str, info: dict | None) -> None:
         """Collect Tier 1 language signals and persist each at its rung.
@@ -2918,6 +3186,267 @@ def _extract_genius_lyrics(html: str) -> str | None:
                 continue
             lines.append(stripped)
     return "\n".join(lines) if lines else None
+
+
+# ----- Tekstowo client -----
+
+
+# Polish has two letters that Unicode NFKD won't decompose because they
+# aren't accented base letters: ``ł``/``Ł`` (slashed L) and ``ø``-style
+# variants. ``remove_accents`` leaves them alone, so a query like
+# ``Malgoska`` would never substring-match the search-result label
+# ``Małgośka`` even after accent folding both sides. Apply this fold
+# *after* ``remove_accents`` to canonicalise everything to ASCII.
+_TEKSTOWO_LATIN_FOLD = str.maketrans({"ł": "l", "Ł": "L"})
+
+
+def _tekstowo_fold(text: str) -> str:
+    return remove_accents(text).translate(_TEKSTOWO_LATIN_FOLD).lower()
+
+
+def _fetch_tekstowo(track: str, artist: str) -> str | None:
+    """Return plain-text lyrics from tekstowo.pl, or None on miss / network failure.
+
+    Tekstowo.pl indexes >1.6M lyrics with strong coverage of Polish music
+    that LRCLib and Genius routinely miss. There is no public API; we
+    fetch the general search page (``/szukaj,X.html``), pick the first
+    ``<a class="title">`` whose ``title`` attribute matches both the
+    searched artist and (substring) the searched track — both folded for
+    accents and case — then scrape ``div.inner-text`` from the song page.
+
+    Bot-detector workaround: tekstowo serves a placeholder page when the
+    User-Agent is missing or scriptable-looking, so we present a desktop
+    Chrome UA. Section headers like ``[Refren]`` / ``[Zwrotka 1]`` are
+    dropped via the existing Genius header regex (same syntax).
+    """
+    if not track or not artist:
+        return None
+    track_clean = _strip_variant_markers(track)
+    query = f"{artist} {track_clean}".strip()
+    # ``/szukaj,X.html`` is the general search (redirects to ``/szukaj/X``).
+    # The narrower ``/szukaj,wykonawca,X.html`` form currently returns no
+    # lyric anchors at all — only the artist landing page.
+    search_url = f"{TEKSTOWO_BASE}/szukaj,{quote_plus(_tekstowo_fold(query))}.html"
+    try:
+        r = requests.get(
+            search_url,
+            headers={"User-Agent": TEKSTOWO_USER_AGENT},
+            timeout=TEKSTOWO_TIMEOUT,
+        )
+        if r.status_code != 200:
+            return None
+    except requests.RequestException as e:
+        logger.warning("Tekstowo search failed: %s", e)
+        return None
+
+    artist_key = _tekstowo_fold(artist.strip())
+    track_key = _tekstowo_fold(track_clean.strip())
+    parser = _TekstowoSearchParser(artist_key, track_key)
+    try:
+        parser.feed(r.text)
+    except Exception:
+        logger.exception("Tekstowo search parse crashed")
+        return None
+    if not parser.match_href:
+        return None
+
+    page_url = TEKSTOWO_BASE + parser.match_href
+    try:
+        page = requests.get(
+            page_url,
+            headers={"User-Agent": TEKSTOWO_USER_AGENT},
+            timeout=TEKSTOWO_TIMEOUT,
+        )
+        if page.status_code != 200:
+            return None
+    except requests.RequestException as e:
+        logger.warning("Tekstowo page fetch failed: %s", e)
+        return None
+    return _extract_tekstowo_lyrics(page.text)
+
+
+class _TekstowoSearchParser(HTMLParser):
+    """Pick the first search-result anchor that matches both artist and track.
+
+    Tekstowo's current layout serves song results as
+    ``<a class="title" href="/artist-slug/track-slug">Artist - Track</a>``
+    — the ``Artist - Track`` label lives in the anchor text, not in a
+    ``title`` attribute (which is sometimes present, sometimes not, and
+    we don't rely on it). We anchor on the semantic ``class="title"``
+    marker rather than the href shape because the URL pattern has shifted
+    several times (``/piosenka,artist,track,123.html`` →
+    ``/artist-slug/track-slug``).
+
+    Title substring match avoids the failure mode where a query like
+    "Edyta Górniak Halo" would otherwise grab the first Górniak song on
+    the page even when "Halo" doesn't appear in any result.
+    """
+
+    def __init__(self, artist_key: str, track_key: str) -> None:
+        super().__init__()
+        self._artist_key = artist_key
+        self._track_key = track_key
+        self._capturing = False
+        self._text_buf: list[str] = []
+        self._candidate_href: str | None = None
+        self.match_href: str | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if self.match_href is not None or tag != "a" or self._capturing:
+            return
+        attr_dict = dict(attrs)
+        cls = (attr_dict.get("class") or "").split()
+        if "title" not in cls:
+            return
+        href = attr_dict.get("href") or ""
+        if not href.startswith("/"):
+            return
+        self._capturing = True
+        self._text_buf = []
+        self._candidate_href = href
+
+    def handle_data(self, data: str) -> None:
+        if self._capturing:
+            self._text_buf.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag != "a" or not self._capturing:
+            return
+        text = " ".join("".join(self._text_buf).split()).strip()
+        href = self._candidate_href or ""
+        self._capturing = False
+        self._text_buf = []
+        self._candidate_href = None
+        if " - " not in text:
+            return
+        result_artist, result_track = text.split(" - ", 1)
+        if _tekstowo_fold(result_artist.strip()) != self._artist_key:
+            return
+        if self._track_key and self._track_key not in _tekstowo_fold(result_track.strip()):
+            return
+        self.match_href = href
+
+
+class _TekstowoLyricsParser(HTMLParser):
+    """Capture every ``<div class="inner-text">`` block.
+
+    Same depth-counted approach as ``_GeniusLyricsParser`` because tekstowo
+    nests inline annotations (translation toggles, advert blocks) inside
+    the lyrics container. ``<br>`` becomes ``\\n``; nested tags are
+    flattened to their text content. The container only closes when its
+    matching ``</div>`` arrives.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._depth = 0
+        self._in_container = False
+        self._chunks: list[str] = []
+        self.containers: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "div":
+            cls = (dict(attrs).get("class") or "").split()
+            if not self._in_container and "inner-text" in cls:
+                self._in_container = True
+                self._depth = 1
+                self._chunks = []
+                return
+            if self._in_container:
+                self._depth += 1
+                self._chunks.append(self.get_starttag_text() or "")
+            return
+        if not self._in_container:
+            return
+        if tag == "br":
+            self._chunks.append("\n")
+            return
+        self._chunks.append(self.get_starttag_text() or "")
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if not self._in_container:
+            return
+        if tag == "br":
+            self._chunks.append("\n")
+            return
+        self._chunks.append(self.get_starttag_text() or "")
+
+    def handle_endtag(self, tag: str) -> None:
+        if not self._in_container:
+            return
+        if tag == "div":
+            self._depth -= 1
+            if self._depth == 0:
+                self.containers.append("".join(self._chunks))
+                self._in_container = False
+                self._chunks = []
+                return
+        self._chunks.append(f"</{tag}>")
+
+    def handle_data(self, data: str) -> None:
+        if self._in_container:
+            self._chunks.append(data)
+
+
+def _extract_tekstowo_lyrics(html: str) -> str | None:
+    """Pull plain-text lyrics out of a tekstowo.pl song page.
+
+    Drops section headers (``[Refren]``, ``[Zwrotka 1]``, ``[Bridge]``)
+    via the same regex Genius uses — the bracket-only-line pattern is
+    universal across lyric sites. Returns None when no lyrics container
+    is found (404 page, age-gate, or layout drift).
+    """
+    parser = _TekstowoLyricsParser()
+    try:
+        parser.feed(html)
+    except Exception:
+        logger.exception("Tekstowo lyrics parse crashed")
+        return None
+    if not parser.containers:
+        return None
+    lines: list[str] = []
+    for raw in parser.containers:
+        text = _HTML_TAG_RE.sub("", raw)
+        text = _GENIUS_SECTION_HEADER_RE.sub("", text)
+        for line in text.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            lines.append(stripped)
+    return "\n".join(lines) if lines else None
+
+
+# ----- Spotify Color Lyrics client -----
+#
+# Spotify's lyrics endpoint is a private API powered by Musixmatch and
+# requires a user-context access token, which itself requires the
+# ``sp_dc`` cookie of a logged-in Premium account. The token is short-
+# lived (~1h); we cache it on the LyricsService instance and refresh
+# lazily. Operators paste sp_dc into the settings UI; it's read on every
+# fetch so a cookie refresh takes effect without a server restart.
+
+
+def _spotify_lines_to_lrc(lines: list[dict]) -> str | None:
+    """Convert Spotify Color Lyrics lines to LRC format.
+
+    Spotify returns ``[{"startTimeMs": "1234", "words": "Hej..."}, ...]``.
+    LRC tags are ``[mm:ss.cc]`` (centiseconds), which our parser already
+    accepts. Empty ``words`` lines are skipped — Spotify uses them as
+    musical-interlude markers; we don't render those.
+    """
+    out: list[str] = []
+    for line in lines:
+        try:
+            start_ms = int(line.get("startTimeMs") or 0)
+        except (TypeError, ValueError):
+            continue
+        words = (line.get("words") or "").strip()
+        if not words:
+            continue
+        mm = start_ms // 60_000
+        ss = (start_ms % 60_000) / 1000.0
+        out.append(f"[{mm:02d}:{ss:05.2f}]{words}")
+    return "\n".join(out) or None
 
 
 # ----- LRC parser -----

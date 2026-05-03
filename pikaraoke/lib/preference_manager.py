@@ -70,6 +70,11 @@ class PreferenceManager:
         # so the lazy yt-dlp per-card probe can be skipped and CC videos
         # bubble to the top of the results list. Empty = disabled.
         "youtube_data_api_key": "",
+        # Spotify sp_dc cookie value (from logged-in Premium Web Player).
+        # Required by the spotify-sync subtitle source: used to mint a
+        # short-lived access token via /get_access_token, which then
+        # authorises Spotify Color Lyrics. Empty = source disabled.
+        "spotify_sp_dc": "",
     }
 
     def __init__(self, config_file_path: str = "config.ini", target: object | None = None) -> None:
