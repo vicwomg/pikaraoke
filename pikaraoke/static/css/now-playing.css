@@ -697,8 +697,19 @@
   font-size: 32px !important;
 }
 
-/* Collapsed mode: user tapped the toggle — panel hidden, cover restores. */
+/* Collapsed mode: keep the panel as a 44px strip so the toggle button
+   stays tappable (it lives inside the panel). The scroll content + edge
+   gradients hide; the cover restores to its full size via the
+   :not(.has-lyrics-collapsed) selectors above. */
 .pk-player-full.has-lyrics.has-lyrics-collapsed .pk-lyrics-panel {
+  height: 44px;
+  margin-bottom: 4px;
+}
+.pk-player-full.has-lyrics.has-lyrics-collapsed .pk-lyrics-scroll {
+  display: none;
+}
+.pk-player-full.has-lyrics.has-lyrics-collapsed .pk-lyrics-panel::before,
+.pk-player-full.has-lyrics.has-lyrics-collapsed .pk-lyrics-panel::after {
   display: none;
 }
 
