@@ -299,6 +299,7 @@ def test_preference_manager_defaults_exist():
         "youtubedl_proxy",
         "preferred_language",
         "subtitle_offset",
+        "spotify_sp_dc",
     }
 
     assert set(PreferenceManager.DEFAULTS.keys()) == expected_keys
