@@ -524,6 +524,12 @@ class LyricsService:
             self._events.emit("lyrics_upgraded", song_path)
         except Exception:
             logger.exception("failed to emit lyrics_upgraded for %s", song_path)
+        self._emit_song_event(
+            song_path,
+            phase="lyrics",
+            message="Lyrics fetched",
+            detail=f"source={lyrics_source}, provenance={lyrics_provenance}",
+        )
 
     def _register_variant_artifact(self, song_path: str, source: str) -> None:
         """Upsert an ``ass_<source>`` artifact row without touching processing config.
@@ -573,6 +579,12 @@ class LyricsService:
             self._events.emit("lyrics_upgraded", song_path)
         except Exception:
             logger.exception("failed to emit lyrics_upgraded for variant %s/%s", source, song_path)
+        self._emit_song_event(
+            song_path,
+            phase="lyrics",
+            message="Lyrics variant fetched",
+            detail=f"source={source}",
+        )
 
     def is_fetch_in_flight(self, song_path: str, source: str) -> bool:
         """Public read-only probe for the (song, source) in-flight slot."""
@@ -796,6 +808,32 @@ class LyricsService:
             self._events.emit("notification", f"{stage}: {_title_from_filename(song_path)}")
         except Exception:
             logger.exception("failed to emit %s stage notification", stage)
+
+    def _emit_song_event(
+        self,
+        song_path: str,
+        *,
+        phase: str,
+        message: str,
+        detail: str = "",
+        severity: str = "info",
+    ) -> None:
+        """Push a milestone into the per-song timeline (best-effort)."""
+        if self._events is None:
+            return
+        try:
+            self._events.emit(
+                "song_event",
+                {
+                    "phase": phase,
+                    "message": message,
+                    "detail": detail,
+                    "severity": severity,
+                    "song": os.path.basename(song_path),
+                },
+            )
+        except Exception:
+            logger.exception("failed to emit song_event %s/%s", phase, message)
 
     def _maybe_drop_stale_auto_ass(self, song_path: str, lyrics_sha: str | None) -> None:
         """Delete the auto .ass when any upstream dependency changed.

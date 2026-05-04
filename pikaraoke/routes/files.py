@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import datetime
 import logging
 import os
+import re
 import unicodedata
 from urllib.parse import unquote
 
@@ -15,6 +17,20 @@ from marshmallow import Schema, fields
 
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
 from pikaraoke.lib.metadata_parser import youtube_id_suffix
+
+_YT_ID_FROM_SUFFIX_RE = re.compile(r"(?:---|\[)([A-Za-z0-9_-]{11})\]?$")
+
+
+def _youtube_id_from_path(path: str) -> str:
+    """Extract the bare 11-char YouTube id from a song path.
+
+    ``youtube_id_suffix`` returns the *suffix* (``---ID`` or `` [ID]``);
+    the per-song event log keys by the bare id, so strip the framing.
+    """
+    suffix = youtube_id_suffix(path).strip()
+    match = _YT_ID_FROM_SUFFIX_RE.search(suffix)
+    return match.group(1) if match else ""
+
 
 _ = flask_babel.gettext
 
@@ -197,6 +213,12 @@ def edit_file(query):
         key=str.lower,
     )
 
+    basename = os.path.basename(song_path)
+    youtube_id = _youtube_id_from_path(song_path)
+    events = [
+        _decorate_event(e) for e in k.get_song_events_for(song=basename, youtube_id=youtube_id)
+    ]
+
     return render_template(
         "edit.html",
         site_title=site_name,
@@ -205,7 +227,24 @@ def edit_file(query):
         raw_stem=raw_stem,
         referrer=referrer,
         artists=artists,
+        song_events=events,
+        song_basename=basename,
+        song_youtube_id=youtube_id,
     )
+
+
+def _decorate_event(event: dict) -> dict:
+    """Add a human-readable ``time_str`` (local HH:MM:SS) to an event row."""
+    out = dict(event)
+    ts = event.get("timestamp")
+    if isinstance(ts, (int, float)):
+        try:
+            out["time_str"] = datetime.datetime.fromtimestamp(ts).strftime("%H:%M:%S")
+        except (OSError, ValueError):
+            out["time_str"] = ""
+    else:
+        out["time_str"] = ""
+    return out
 
 
 @files_bp.route("/files/edit", methods=["POST"])

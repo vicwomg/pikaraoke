@@ -492,3 +492,130 @@ class TestSongWarningBuffer:
             if c.args[0] == "song_warnings_dismissed"
         ]
         assert len(dismiss_calls) == 1
+
+
+class TestSongEventsLedger:
+    """Per-song processing-event timeline (download/enrich/lyrics/demucs)."""
+
+    @staticmethod
+    def _wire(mock_karaoke, stored: dict[str, str] | None = None):
+        """Attach a stubbed DB and empty event/warning buffers."""
+        stored = stored if stored is not None else {}
+        db = MagicMock()
+        db.get_metadata.side_effect = lambda key: stored.get(key)
+        db.set_metadata.side_effect = lambda key, value: stored.__setitem__(key, value)
+        mock_karaoke.db = db
+        mock_karaoke._song_warnings = mock_karaoke._load_song_warnings()
+        mock_karaoke._song_warnings_lock = threading.Lock()
+        mock_karaoke._song_events = mock_karaoke._load_song_events()
+        mock_karaoke._song_events_lock = threading.Lock()
+        return stored
+
+    def test_handle_song_event_persists_and_broadcasts(self, mock_karaoke):
+        """A milestone event lands in the buffer, gets persisted, and is broadcast."""
+        store = self._wire(mock_karaoke)
+        mock_karaoke.socketio = MagicMock()
+
+        mock_karaoke._handle_song_event(
+            {
+                "phase": "download",
+                "message": "Download completed",
+                "song": "x.mp4",
+                "youtube_id": "abc12345678",
+                "severity": "info",
+            }
+        )
+
+        saved = json.loads(store["song_events"])
+        assert len(saved) == 1
+        entry = saved[0]
+        assert entry["phase"] == "download"
+        assert entry["song"] == "x.mp4"
+        assert entry["youtube_id"] == "abc12345678"
+        assert entry["severity"] == "info"
+        assert "timestamp" in entry
+        # Socket broadcast fired with the same shape.
+        socket_calls = [
+            c for c in mock_karaoke.socketio.emit.call_args_list if c.args[0] == "song_event"
+        ]
+        assert len(socket_calls) == 1
+
+    def test_warning_is_mirrored_into_events(self, mock_karaoke):
+        """song_warning entries also appear in the unified timeline buffer."""
+        self._wire(mock_karaoke)
+        mock_karaoke.socketio = MagicMock()
+
+        mock_karaoke._handle_song_warning(
+            {"message": "Download failed", "severity": "error", "song": "y.mp4"}
+        )
+
+        events = mock_karaoke.get_song_events_for(song="y.mp4")
+        assert len(events) == 1
+        assert events[0]["message"] == "Download failed"
+        assert events[0]["phase"] == "download"  # inferred from message
+        assert events[0]["severity"] == "error"
+        # The original warning buffer is untouched by the mirror logic.
+        assert len(mock_karaoke.get_song_warnings()) == 1
+
+    def test_get_events_filters_by_basename_or_youtube_id(self, mock_karaoke):
+        """Cross-keying covers events emitted before the basename was known."""
+        self._wire(mock_karaoke)
+        mock_karaoke.socketio = MagicMock()
+
+        # Pre-download event: only youtube_id known.
+        mock_karaoke._handle_song_event(
+            {"phase": "download", "message": "Download starting", "youtube_id": "ID11charABC"}
+        )
+        # Post-download event: basename known.
+        mock_karaoke._handle_song_event(
+            {
+                "phase": "download",
+                "message": "Download completed",
+                "song": "Song---ID11charABC.mp4",
+                "youtube_id": "ID11charABC",
+            }
+        )
+        # Unrelated event for a different song.
+        mock_karaoke._handle_song_event({"phase": "download", "message": "Other", "song": "z.mp4"})
+
+        events = mock_karaoke.get_song_events_for(
+            song="Song---ID11charABC.mp4", youtube_id="ID11charABC"
+        )
+        messages = [e["message"] for e in events]
+        assert messages == ["Download starting", "Download completed"]
+
+    def test_get_events_with_no_keys_returns_empty(self, mock_karaoke):
+        """Calling the getter with no song/youtube_id is a no-op (avoids dumping all rows)."""
+        self._wire(mock_karaoke)
+        mock_karaoke.socketio = MagicMock()
+        mock_karaoke._handle_song_event({"phase": "download", "message": "x", "song": "a.mp4"})
+        assert mock_karaoke.get_song_events_for() == []
+
+    def test_buffer_caps_at_max(self, mock_karaoke):
+        """Events buffer evicts oldest beyond the cap."""
+        self._wire(mock_karaoke)
+        mock_karaoke.socketio = MagicMock()
+        cap = mock_karaoke._SONG_EVENTS_MAX
+        for i in range(cap + 3):
+            mock_karaoke._handle_song_event(
+                {"phase": "download", "message": f"e{i}", "song": "s.mp4"}
+            )
+        events = mock_karaoke.get_song_events_for(song="s.mp4")
+        assert len(events) == cap
+        assert events[-1]["message"] == f"e{cap + 2}"
+
+    def test_loads_persisted_events_on_init(self, mock_karaoke):
+        """Pre-existing events are restored from the DB on startup."""
+        prior = [
+            {
+                "timestamp": 1700000000.0,
+                "phase": "download",
+                "severity": "info",
+                "message": "old",
+                "detail": "",
+                "song": "old.mp4",
+                "youtube_id": "",
+            }
+        ]
+        self._wire(mock_karaoke, {"song_events": json.dumps(prior)})
+        assert mock_karaoke.get_song_events_for(song="old.mp4") == prior

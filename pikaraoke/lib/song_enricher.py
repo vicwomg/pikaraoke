@@ -22,7 +22,9 @@ the download pipeline.
 import logging
 import os
 import re
+from collections.abc import Callable
 from datetime import datetime, timezone
+from typing import Any
 
 import requests
 
@@ -36,6 +38,29 @@ COVER_ART_ROLE = "cover_art"
 _COVER_DOWNLOAD_TIMEOUT_S = 5.0
 
 _YT_ID_SUFFIX_RE = re.compile(r"(?:---[A-Za-z0-9_-]{11}|\s*\[[A-Za-z0-9_-]{11}\])$")
+
+# Module-level hook for forwarding enrichment milestones into the per-song
+# event timeline. karaoke.py registers a callback that re-emits each payload
+# as a ``song_event`` on the EventSystem. The enricher itself is a module of
+# free functions with no events handle of its own — same pattern as
+# ``demucs_processor.set_warning_hook``.
+_event_hook: Callable[[dict[str, Any]], None] | None = None
+
+
+def set_event_hook(hook: Callable[[dict[str, Any]], None] | None) -> None:
+    """Register (or clear) the module-level enrichment-event hook."""
+    global _event_hook
+    _event_hook = hook
+
+
+def _notify(payload: dict[str, Any]) -> None:
+    hook = _event_hook
+    if hook is None:
+        return
+    try:
+        hook(payload)
+    except Exception:
+        logger.exception("enrichment event hook raised")
 
 
 def _query_from_song(row, song_path: str) -> str:
@@ -120,8 +145,17 @@ def enrich_song(db: KaraokeDatabase, song_id: int, song_path: str) -> None:
     now = datetime.now(timezone.utc).isoformat()
     try:
         _enrich_song_inner(db, song_id, song_path, now)
-    except Exception:
+    except Exception as exc:
         logger.exception("enrich_song crashed for song_id=%d path=%s", song_id, song_path)
+        _notify(
+            {
+                "phase": "enrichment",
+                "severity": "error",
+                "message": "Metadata enrichment failed",
+                "detail": repr(exc),
+                "song": os.path.basename(song_path),
+            }
+        )
         try:
             db.stamp_enrichment_attempt(song_id, "error", now)
         except Exception:
@@ -136,10 +170,28 @@ def _enrich_song_inner(db: KaraokeDatabase, song_id: int, song_path: str, now: s
         logger.warning("enrich_song: song_id=%d gone before enrichment ran", song_id)
         return
 
+    basename = os.path.basename(song_path)
+    youtube_id = (row["youtube_id"] or "") if row is not None else ""
+
+    def _emit(message: str, *, severity: str = "info", detail: str = "") -> None:
+        _notify(
+            {
+                "phase": "enrichment",
+                "severity": severity,
+                "message": message,
+                "detail": detail,
+                "song": basename,
+                "youtube_id": youtube_id,
+            }
+        )
+
     query = _query_from_song(row, song_path)
     if not query:
         db.stamp_enrichment_attempt(song_id, "skipped", now)
+        _emit("Metadata enrichment skipped", detail="no artist/title to query")
         return
+
+    _emit("Metadata enrichment starting", detail=query)
 
     itunes = None
     try:
@@ -149,6 +201,7 @@ def _enrich_song_inner(db: KaraokeDatabase, song_id: int, song_path: str, now: s
 
     if not itunes:
         db.stamp_enrichment_attempt(song_id, "not_found", now)
+        _emit("Metadata enrichment finished", detail="iTunes: no match")
         return
 
     if _itunes_adds_variant(query, itunes):
@@ -201,4 +254,9 @@ def _enrich_song_inner(db: KaraokeDatabase, song_id: int, song_path: str, now: s
         if not os.path.exists(cover_path) and _download_cover(cover_url, cover_path):
             db.upsert_artifacts(song_id, [{"role": COVER_ART_ROLE, "path": cover_path}])
 
-    db.stamp_enrichment_attempt(song_id, "enriched" if applied else "no_new_fields", now)
+    final_status = "enriched" if applied else "no_new_fields"
+    db.stamp_enrichment_attempt(song_id, final_status, now)
+    _emit(
+        "Metadata enrichment finished",
+        detail=f"{final_status}: " + ", ".join(sorted(applied)) if applied else final_status,
+    )

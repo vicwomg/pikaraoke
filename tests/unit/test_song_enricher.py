@@ -331,6 +331,72 @@ class TestEnrichSong:
         assert row["enrichment_attempts"] == 1
         assert row["last_enrichment_attempt"] is not None
 
+    def test_event_hook_fires_start_and_finish_milestones(self, db, tmp_path):
+        """The module-level event hook receives start + finish events on success."""
+        song_path = str(tmp_path / "Eminem - Stan---abc12345678.mp4")
+        sid = _insert_song(db, song_path)
+
+        captured: list[dict] = []
+        song_enricher.set_event_hook(captured.append)
+        try:
+            itunes_full = {
+                "itunes_id": "99999",
+                "artist": "Eminem",
+                "track": "Stan",
+                "album": "MMLP",
+                "track_number": 3,
+                "release_date": "2000-05-23T07:00:00Z",
+                "cover_art_url": None,
+                "genre": "Hip-Hop/Rap",
+            }
+            with patch.object(
+                song_enricher, "fetch_itunes_track", return_value=itunes_full
+            ), patch.object(song_enricher, "fetch_musicbrainz_ids", return_value=None):
+                song_enricher.enrich_song(db, sid, song_path)
+        finally:
+            song_enricher.set_event_hook(None)
+
+        messages = [e["message"] for e in captured]
+        assert messages == ["Metadata enrichment starting", "Metadata enrichment finished"]
+        assert all(e["phase"] == "enrichment" for e in captured)
+        assert all(e["song"] == "Eminem - Stan---abc12345678.mp4" for e in captured)
+        assert all(e["youtube_id"] == "abc12345678" for e in captured)
+
+    def test_event_hook_fires_finish_on_itunes_miss(self, db, tmp_path):
+        """An iTunes miss still emits a finish milestone (with detail)."""
+        song_path = str(tmp_path / "Foo - Bar---abc12345678.mp4")
+        sid = _insert_song(db, song_path)
+
+        captured: list[dict] = []
+        song_enricher.set_event_hook(captured.append)
+        try:
+            with patch.object(song_enricher, "fetch_itunes_track", return_value=None):
+                song_enricher.enrich_song(db, sid, song_path)
+        finally:
+            song_enricher.set_event_hook(None)
+
+        messages = [e["message"] for e in captured]
+        assert messages == ["Metadata enrichment starting", "Metadata enrichment finished"]
+        assert "no match" in captured[-1]["detail"]
+
+    def test_event_hook_misbehaving_callback_does_not_break_enrichment(self, db, tmp_path):
+        """A raising hook is logged and swallowed — enrichment must still complete."""
+        song_path = str(tmp_path / "Foo - Bar---abc12345678.mp4")
+        sid = _insert_song(db, song_path)
+
+        def explode(_payload):
+            raise RuntimeError("boom")
+
+        song_enricher.set_event_hook(explode)
+        try:
+            with patch.object(song_enricher, "fetch_itunes_track", return_value=None):
+                song_enricher.enrich_song(db, sid, song_path)  # must not raise
+        finally:
+            song_enricher.set_event_hook(None)
+
+        row = db.get_song_by_id(sid)
+        assert row["metadata_status"] == "not_found"
+
     def test_uncaught_exception_stamps_error(self, db, tmp_path):
         """Anything raising past the inline guards (e.g. a DB write error)
         must still bump enrichment_attempts and stamp ``error`` so the row

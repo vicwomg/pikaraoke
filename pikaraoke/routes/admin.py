@@ -8,7 +8,7 @@ import threading
 import time
 
 import flask_babel
-from flask import flash, jsonify, make_response, redirect, url_for
+from flask import flash, jsonify, make_response, redirect, request, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
@@ -93,6 +93,23 @@ def clear_song_warnings():
     k = get_karaoke_instance()
     k.clear_song_warnings()
     return jsonify({"status": "cleared"})
+
+
+@admin_bp.route("/song_events", methods=["GET"])
+def song_events():
+    """Return the per-song timeline filtered by basename and/or youtube_id.
+
+    Used by the edit view to refresh the processing log without a full page
+    reload. Admin-gated so guests cannot probe library contents.
+    """
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    song = request.args.get("song", "").strip()
+    youtube_id = request.args.get("youtube_id", "").strip()
+    if not song and not youtube_id:
+        return jsonify({"events": []})
+    k = get_karaoke_instance()
+    return jsonify({"events": k.get_song_events_for(song=song, youtube_id=youtube_id)})
 
 
 @admin_bp.route("/song_warnings/<path:song>", methods=["DELETE"])

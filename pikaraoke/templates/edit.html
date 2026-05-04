@@ -127,6 +127,102 @@
     color: var(--pk-amber-2);
     font-weight: 600;
   }
+
+  /* Per-song processing timeline */
+  .pk-events {
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px dotted var(--pk-ink-4);
+  }
+  .pk-events-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+  }
+  .pk-events-title {
+    font-family: var(--pk-font-mono);
+    font-size: 11px;
+    color: var(--pk-ink-3);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  .pk-events-refresh {
+    background: none;
+    border: 1px dashed var(--pk-wood-dark);
+    border-radius: var(--pk-r-pill);
+    padding: 4px 10px;
+    font-family: var(--pk-font-hand);
+    font-size: 13px;
+    color: var(--pk-ink-2);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pk-events-refresh:hover { color: var(--pk-amber-2); }
+  .pk-events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .pk-event {
+    display: grid;
+    grid-template-columns: 70px 90px 1fr;
+    gap: 8px;
+    align-items: baseline;
+    padding: 8px 10px;
+    background: var(--pk-bg);
+    border: 1px solid var(--pk-border);
+    border-left: 3px solid var(--pk-ink-4);
+    border-radius: var(--pk-r-sm);
+    font-size: 13px;
+  }
+  .pk-event.is-warning { border-left-color: var(--pk-amber); }
+  .pk-event.is-error   { border-left-color: #d35454; }
+  .pk-event-time {
+    font-family: var(--pk-font-mono);
+    font-size: 11px;
+    color: var(--pk-ink-3);
+    white-space: nowrap;
+  }
+  .pk-event-phase {
+    font-family: var(--pk-font-mono);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 2px 6px;
+    border-radius: var(--pk-r-sm);
+    text-align: center;
+    background: var(--pk-surface);
+    color: var(--pk-ink-2);
+  }
+  .pk-event-phase.is-download   { background: #1f3a5f; color: #cfe3ff; }
+  .pk-event-phase.is-enrichment { background: #3a2a55; color: #e1d2ff; }
+  .pk-event-phase.is-lyrics     { background: #1f4a2c; color: #cfeed8; }
+  .pk-event-phase.is-demucs     { background: #5a3a1f; color: #ffd9b5; }
+  .pk-event-phase.is-encode     { background: #1f4a4a; color: #c8eaea; }
+  .pk-event-body {
+    color: var(--pk-ink);
+    word-break: break-word;
+  }
+  .pk-event-msg { display: block; }
+  .pk-event-detail {
+    display: block;
+    margin-top: 2px;
+    font-family: var(--pk-font-mono);
+    font-size: 11px;
+    color: var(--pk-ink-3);
+    white-space: pre-wrap;
+  }
+  .pk-events-empty {
+    padding: 12px;
+    text-align: center;
+    color: var(--pk-ink-3);
+    font-style: italic;
+    font-size: 13px;
+  }
 </style>
 
 <script>
@@ -243,6 +339,58 @@
       d.textContent = String(s);
       return d.innerHTML;
     }
+
+    // ----- Per-song event log refresh -----
+    const $events = document.querySelector('.pk-events');
+    const $list = document.getElementById('pk-events-list');
+    const $refresh = document.getElementById('pk-events-refresh');
+    if ($events && $list && $refresh) {
+      $refresh.addEventListener('click', () => {
+        $refresh.disabled = true;
+        $refresh.textContent = 'Odświeżam…';
+        const params = new URLSearchParams({
+          song: $events.dataset.song || '',
+          youtube_id: $events.dataset.youtubeId || '',
+        });
+        fetch('/song_events?' + params.toString(), { credentials: 'same-origin' })
+          .then((r) => r.ok ? r.json() : Promise.reject(r.status))
+          .then((data) => renderEvents(data.events || []))
+          .catch(() => {
+            $list.innerHTML = '<li class="pk-events-empty">Nie udało się pobrać zdarzeń.</li>';
+          })
+          .finally(() => {
+            $refresh.disabled = false;
+            $refresh.textContent = 'Odśwież';
+          });
+      });
+    }
+
+    function renderEvents(events) {
+      if (!events.length) {
+        $list.innerHTML = '<li class="pk-events-empty">Brak zdarzeń dla tego utworu.</li>';
+        return;
+      }
+      $list.innerHTML = events
+        .map((ev) => {
+          const ts = (typeof ev.timestamp === 'number') ? new Date(ev.timestamp * 1000) : null;
+          const timeStr = ts ? ts.toTimeString().slice(0, 8) : '';
+          const sev = escHtml(ev.severity || 'info');
+          const phase = escHtml(ev.phase || 'other');
+          const detail = ev.detail
+            ? `<span class="pk-event-detail">${escHtml(ev.detail)}</span>`
+            : '';
+          return (
+            `<li class="pk-event is-${sev}">`
+            + `<span class="pk-event-time">${escHtml(timeStr)}</span>`
+            + `<span class="pk-event-phase is-${phase}">${phase}</span>`
+            + `<span class="pk-event-body">`
+            + `<span class="pk-event-msg">${escHtml(ev.message || '')}</span>`
+            + detail
+            + `</span></li>`
+          );
+        })
+        .join('');
+    }
   });
 })();
 </script>
@@ -291,6 +439,29 @@
     <a class="pk-btn" href="{{ referrer }}">Anuluj</a>
   </div>
 </form>
+
+<section class="pk-events"
+         data-song="{{ song_basename }}"
+         data-youtube-id="{{ song_youtube_id }}">
+  <div class="pk-events-head">
+    <span class="pk-events-title">Historia przetwarzania</span>
+    <button type="button" class="pk-events-refresh" id="pk-events-refresh">Odśwież</button>
+  </div>
+  <ul class="pk-events-list" id="pk-events-list">
+    {% for ev in song_events %}
+      <li class="pk-event is-{{ ev.severity }}">
+        <span class="pk-event-time">{{ ev.time_str }}</span>
+        <span class="pk-event-phase is-{{ ev.phase }}">{{ ev.phase }}</span>
+        <span class="pk-event-body">
+          <span class="pk-event-msg">{{ ev.message }}</span>
+          {% if ev.detail %}<span class="pk-event-detail">{{ ev.detail }}</span>{% endif %}
+        </span>
+      </li>
+    {% else %}
+      <li class="pk-events-empty" id="pk-events-empty">Brak zdarzeń dla tego utworu.</li>
+    {% endfor %}
+  </ul>
+</section>
 
 <div class="pk-edit-danger">
   <a class="pk-btn is-danger confirm-delete-file is-full"

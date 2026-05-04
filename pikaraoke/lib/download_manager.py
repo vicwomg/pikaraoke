@@ -188,6 +188,13 @@ class DownloadManager:
                 self._events.emit(
                     "notification", _("Already downloaded: %s") % displayed_title, "success"
                 )
+                self._emit_song_event(
+                    phase="download",
+                    message="Cache hit (already downloaded)",
+                    detail=displayed_title,
+                    song=os.path.basename(existing_path),
+                    youtube_id=video_id,
+                )
                 self._events.emit("song_downloaded", existing_path)
                 if enqueue:
                     self._queue_manager.enqueue(existing_path, user, log_action=False)
@@ -297,9 +304,17 @@ class DownloadManager:
         from flask_babel import _
 
         displayed_title = title if title else video_url
+        video_id = get_youtube_id_from_url(video_url)
 
         # MSG: Message shown when download actually starts (after waiting in queue)
         self._events.emit("notification", _("Downloading video: %s") % displayed_title)
+
+        self._emit_song_event(
+            phase="download",
+            message="Download starting",
+            detail=displayed_title,
+            youtube_id=video_id or "",
+        )
 
         # Kick off iTunes metadata resolution in parallel with yt-dlp.
         # Result is merged into info.json after yt-dlp finishes so LyricsService
@@ -313,7 +328,6 @@ class DownloadManager:
         )
         metadata_thread.start()
 
-        video_id = get_youtube_id_from_url(video_url)
         vocal_removal = bool(self._preferences.get_or_default("vocal_removal"))
 
         if vocal_removal:
@@ -355,6 +369,7 @@ class DownloadManager:
                         "message": "Download failed",
                         "detail": (output or "Unknown error")[:500],
                         "song": displayed_title,
+                        "youtube_id": video_id or "",
                         "severity": "error",
                     },
                 )
@@ -385,6 +400,13 @@ class DownloadManager:
             if song_path:
                 metadata_thread.join(timeout=_METADATA_LOOKUP_TIMEOUT_S)
                 _merge_metadata_into_info_json(song_path, metadata_holder.get("meta"))
+                self._emit_song_event(
+                    phase="download",
+                    message="Download completed",
+                    detail=displayed_title,
+                    song=os.path.basename(song_path),
+                    youtube_id=video_id or "",
+                )
                 self._events.emit("song_downloaded", song_path)
             else:
                 logging.warning(
@@ -617,6 +639,32 @@ class DownloadManager:
                     logging.info("Removed orphan %s", path)
                 except OSError as e:
                     logging.warning("Could not remove orphan %s: %s", path, e)
+
+    def _emit_song_event(
+        self,
+        *,
+        phase: str,
+        message: str,
+        detail: str = "",
+        severity: str = "info",
+        song: str = "",
+        youtube_id: str = "",
+    ) -> None:
+        """Push a milestone into the per-song timeline (best-effort)."""
+        try:
+            self._events.emit(
+                "song_event",
+                {
+                    "phase": phase,
+                    "message": message,
+                    "detail": detail,
+                    "severity": severity,
+                    "song": song,
+                    "youtube_id": youtube_id,
+                },
+            )
+        except Exception:
+            logging.exception("failed to emit song_event %s/%s", phase, message)
 
     @staticmethod
     def _resolve_metadata_async(title: str, holder: dict) -> None:

@@ -218,6 +218,26 @@ class TestDownloadManagerQueueDownload:
         assert emitted[1]["progress"] == 1.0
 
     @patch("flask_babel._", side_effect=lambda x: x)
+    def test_queue_download_cache_hit_emits_song_event(
+        self, mock_gettext, download_manager, song_manager, events
+    ):
+        """Cache hit fires a download song_event with song + youtube_id."""
+        existing = "/songs/Artist - Song---abc12345678.mp4"
+        song_manager.songs.find_by_id.return_value = existing
+
+        captured: list[dict] = []
+        events.on("song_event", lambda data: captured.append(data))
+
+        download_manager.queue_download("https://youtube.com/watch?v=abc12345678", user="U")
+
+        assert len(captured) == 1
+        ev = captured[0]
+        assert ev["phase"] == "download"
+        assert "Cache hit" in ev["message"]
+        assert ev["song"] == "Artist - Song---abc12345678.mp4"
+        assert ev["youtube_id"] == "abc12345678"
+
+    @patch("flask_babel._", side_effect=lambda x: x)
     def test_queue_download_cache_hit_with_enqueue(
         self, mock_gettext, download_manager, song_manager, queue_manager
     ):
@@ -246,6 +266,8 @@ class TestDownloadManagerExecuteDownload:
         """Test successful download execution."""
         notifications = []
         events.on("notification", lambda msg, *args: notifications.append(msg))
+        song_events: list[dict] = []
+        events.on("song_event", lambda data: song_events.append(data))
 
         mock_build_cmd.return_value = ["yt-dlp", "-o", "/songs/", "url"]
 
@@ -266,6 +288,13 @@ class TestDownloadManagerExecuteDownload:
         song_manager.songs.find_by_id.assert_called_once_with("/songs", "abc123")
         # add_if_valid is no longer called directly; a "song_downloaded" event is emitted instead
         assert any("Downloaded" in n for n in notifications)
+        # Both start + completion milestones land in the timeline.
+        messages = [e["message"] for e in song_events]
+        assert "Download starting" in messages
+        assert "Download completed" in messages
+        completed = next(e for e in song_events if e["message"] == "Download completed")
+        assert completed["song"] == "Artist - Song---abc123.mp4"
+        assert completed["youtube_id"] == "abc123"
 
     @patch("flask_babel._", side_effect=lambda x: x)
     @patch("subprocess.Popen")
