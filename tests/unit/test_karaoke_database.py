@@ -28,7 +28,7 @@ class TestInit:
 
     def test_user_version(self, db):
         ver = db._conn.execute("PRAGMA user_version").fetchone()[0]
-        assert ver == 8
+        assert ver == 9
 
     def test_songs_table_exists(self, db):
         tables = {
@@ -602,11 +602,11 @@ class TestMigrationFromV1:
         conn.commit()
         conn.close()
 
-        # Open via KaraokeDatabase: should apply v2..v8 migrations in-place.
+        # Open via KaraokeDatabase: should apply v2..v9 migrations in-place.
         db = KaraokeDatabase(db_path)
         try:
             ver = db._conn.execute("PRAGMA user_version").fetchone()[0]
-            assert ver == 8
+            assert ver == 9
 
             cols = {row[1] for row in db._conn.execute("PRAGMA table_info(songs)").fetchall()}
             assert "metadata_sources" in cols
@@ -822,5 +822,134 @@ class TestDriftedSchemaSelfHeals:
         try:
             cols = {r[1] for r in db._conn.execute("PRAGMA table_info(songs)").fetchall()}
             assert "audio_sha256" in cols
+        finally:
+            db.close()
+
+
+class TestSubtitleJobs:
+    """v9 table: per-(song, source) state machine driving the chip UI."""
+
+    def _insert_song(self, db) -> int:
+        db.insert_songs([{"file_path": "/songs/x.mp4", "youtube_id": None, "format": "mp4"}])
+        return db.get_song_id_by_path("/songs/x.mp4")
+
+    def test_empty_for_fresh_song(self, db):
+        sid = self._insert_song(db)
+        assert db.get_subtitle_jobs(sid) == []
+        assert db.get_subtitle_job(sid, "lrclib") is None
+
+    def test_insert_then_read_back(self, db):
+        sid = self._insert_song(db)
+        db.upsert_subtitle_job(sid, "lrclib", "queued")
+        row = db.get_subtitle_job(sid, "lrclib")
+        assert row["state"] == "queued"
+        assert row["attempt_count"] == 0
+        assert row["tier"] is None
+
+    def test_state_transition_keeps_started_at(self, db):
+        sid = self._insert_song(db)
+        db.upsert_subtitle_job(
+            sid, "lrclib", "running", started_at="2026-05-04T10:00:00", increment_attempt=True
+        )
+        db.upsert_subtitle_job(
+            sid,
+            "lrclib",
+            "success",
+            tier="line",
+            finished_at="2026-05-04T10:00:05",
+        )
+        row = db.get_subtitle_job(sid, "lrclib")
+        assert row["state"] == "success"
+        # started_at survives the success transition (COALESCE in upsert)
+        assert row["started_at"] == "2026-05-04T10:00:00"
+        assert row["finished_at"] == "2026-05-04T10:00:05"
+        assert row["tier"] == "line"
+        assert row["attempt_count"] == 1
+
+    def test_attempt_increment(self, db):
+        sid = self._insert_song(db)
+        db.upsert_subtitle_job(sid, "AI", "running", increment_attempt=True)
+        db.upsert_subtitle_job(sid, "AI", "running", increment_attempt=True)
+        db.upsert_subtitle_job(sid, "AI", "running", increment_attempt=True)
+        row = db.get_subtitle_job(sid, "AI")
+        assert row["attempt_count"] == 3
+
+    def test_invalid_state_rejected(self, db):
+        sid = self._insert_song(db)
+        with pytest.raises(ValueError):
+            db.upsert_subtitle_job(sid, "lrclib", "in_orbit")
+
+    def test_error_payload_persisted(self, db):
+        sid = self._insert_song(db)
+        db.upsert_subtitle_job(
+            sid,
+            "spotify-sync",
+            "failed",
+            error_code="not_found",
+            error_message="No track match",
+            finished_at="2026-05-04T10:00:00",
+        )
+        row = db.get_subtitle_job(sid, "spotify-sync")
+        assert row["state"] == "failed"
+        assert row["error_code"] == "not_found"
+        assert row["error_message"] == "No track match"
+
+    def test_cascade_on_song_delete(self, db):
+        sid = self._insert_song(db)
+        db.upsert_subtitle_job(sid, "lrclib", "queued")
+        db.delete_by_path("/songs/x.mp4")
+        # FK cascade wipes orphan job rows
+        rows = db._conn.execute("SELECT COUNT(*) FROM subtitle_jobs").fetchone()[0]
+        assert rows == 0
+
+
+class TestV9MigrationBackfill:
+    """v8 → v9 backfills success rows from existing ass_<source> artifacts."""
+
+    def test_backfills_variants_skipping_auto_user(self, tmp_path):
+        import sqlite3
+
+        from pikaraoke.lib.karaoke_database import _MIGRATION_V2, _SCHEMA_V1
+
+        db_path = str(tmp_path / "v8.db")
+        conn = sqlite3.connect(db_path)
+        conn.executescript(_SCHEMA_V1)
+        conn.executescript(_MIGRATION_V2)
+        # Replay V3..V8 by hand (column-based migrations are idempotent).
+        conn.executescript("ALTER TABLE songs ADD COLUMN lyrics_sha TEXT;")
+        conn.executescript("ALTER TABLE songs ADD COLUMN metadata_sources TEXT;")
+        conn.executescript(
+            "ALTER TABLE song_artifacts ADD COLUMN sha256 TEXT;"
+            "ALTER TABLE song_artifacts ADD COLUMN size INTEGER;"
+            "ALTER TABLE song_artifacts ADD COLUMN mtime REAL;"
+        )
+        conn.executescript("ALTER TABLE songs ADD COLUMN lyrics_provenance TEXT;")
+        conn.executescript("ALTER TABLE songs ADD COLUMN subtitle_source_override TEXT;")
+        conn.executescript("ALTER TABLE songs ADD COLUMN lyrics_confidence REAL;")
+        conn.execute(
+            "INSERT INTO songs (file_path, youtube_id, format) VALUES ('/songs/x.mp4', NULL, 'mp4')"
+        )
+        sid = conn.execute("SELECT id FROM songs").fetchone()[0]
+        for role, path in (
+            ("ass_auto", "/songs/x.ass"),
+            ("ass_lrclib", "/songs/x.lrclib.ass"),
+            ("ass_spotify-sync", "/songs/x.spotify-sync.ass"),
+            ("vtt", "/songs/x.en.vtt"),
+        ):
+            conn.execute(
+                "INSERT INTO song_artifacts (song_id, role, path) VALUES (?, ?, ?)",
+                (sid, role, path),
+            )
+        conn.execute("PRAGMA user_version = 8")
+        conn.commit()
+        conn.close()
+
+        db = KaraokeDatabase(db_path)
+        try:
+            rows = db.get_subtitle_jobs(sid)
+            sources = {r["source"]: r["state"] for r in rows}
+            # ass_auto and the non-ASS vtt artifact are skipped; ass_lrclib
+            # and ass_spotify-sync become success rows.
+            assert sources == {"lrclib": "success", "spotify-sync": "success"}
         finally:
             db.close()

@@ -84,3 +84,94 @@ class TestSongEventsRoute:
     def test_requires_admin(self, _admin, admin_client):
         resp = admin_client.get("/song_events?song=x")
         assert resp.status_code == 403
+
+
+class TestSongSubtitlesRoute:
+    """GET /api/songs/<id>/subtitles — chip UI source of truth (Phase 1)."""
+
+    @patch("pikaraoke.routes.admin.get_karaoke_instance")
+    @patch("pikaraoke.routes.admin.is_admin", return_value=True)
+    def test_returns_active_source_and_jobs(self, _admin, mock_get, admin_client):
+        k = MagicMock()
+        # Existing override pin: ``lrclib-sync``.
+        k.db.get_subtitle_source_override.return_value = "lrclib-sync"
+        # Song row for fallback when no override (not used here, but the
+        # endpoint indexes into row["lyrics_source"]).
+        k.db.get_song_by_id.return_value = {"lyrics_source": "lrclib"}
+
+        # Fake sqlite3.Row-like dicts — admin.py code only reads named keys.
+        k.db.get_subtitle_jobs.return_value = [
+            {
+                "source": "lrclib",
+                "state": "success",
+                "tier": "line",
+                "error_code": None,
+                "error_message": None,
+                "started_at": None,
+                "finished_at": "2026-05-04T10:00:05",
+                "attempt_count": 1,
+                "next_retry_at": None,
+            },
+            {
+                "source": "lrclib-sync",
+                "state": "success",
+                "tier": "word",
+                "error_code": None,
+                "error_message": None,
+                "started_at": None,
+                "finished_at": "2026-05-04T10:00:30",
+                "attempt_count": 1,
+                "next_retry_at": None,
+            },
+            {
+                "source": "spotify-sync",
+                "state": "failed",
+                "tier": None,
+                "error_code": "not_found",
+                "error_message": None,
+                "started_at": None,
+                "finished_at": "2026-05-04T10:00:08",
+                "attempt_count": 1,
+                "next_retry_at": None,
+            },
+        ]
+        mock_get.return_value = k
+
+        resp = admin_client.get("/api/songs/42/subtitles")
+        assert resp.status_code == 200
+        body = json.loads(resp.data)
+        assert body["active_source"] == "lrclib-sync"
+        ids = {s["id"]: s for s in body["sources"]}
+        assert ids["lrclib"]["state"] == "success"
+        assert ids["lrclib"]["is_active"] is False
+        assert ids["lrclib-sync"]["is_active"] is True
+        assert ids["spotify-sync"]["state"] == "failed"
+        assert ids["spotify-sync"]["error_code"] == "not_found"
+
+    @patch("pikaraoke.routes.admin.get_karaoke_instance")
+    @patch("pikaraoke.routes.admin.is_admin", return_value=True)
+    def test_falls_back_to_lyrics_source_when_no_override(self, _admin, mock_get, admin_client):
+        k = MagicMock()
+        k.db.get_subtitle_source_override.return_value = None
+        k.db.get_song_by_id.return_value = {"lyrics_source": "lrclib-sync"}
+        k.db.get_subtitle_jobs.return_value = []
+        mock_get.return_value = k
+
+        resp = admin_client.get("/api/songs/1/subtitles")
+        assert resp.status_code == 200
+        assert json.loads(resp.data)["active_source"] == "lrclib-sync"
+
+    @patch("pikaraoke.routes.admin.get_karaoke_instance")
+    @patch("pikaraoke.routes.admin.is_admin", return_value=True)
+    def test_returns_404_for_unknown_song(self, _admin, mock_get, admin_client):
+        k = MagicMock()
+        k.db.get_song_by_id.return_value = None
+        mock_get.return_value = k
+
+        resp = admin_client.get("/api/songs/9999/subtitles")
+        assert resp.status_code == 404
+
+    @patch("pikaraoke.routes.admin.is_admin", return_value=False)
+    def test_requires_admin(self, _admin, admin_client):
+        resp = admin_client.get("/api/songs/1/subtitles")
+        assert resp.status_code == 403

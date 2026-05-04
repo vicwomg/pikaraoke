@@ -154,12 +154,14 @@ const startBreakCountdown = () => {
 // canonical scheme used by the source-picker (see karaoke_database.py:
 // VALID_SUBTITLE_SOURCES).
 const LYRICS_SOURCE_LABELS = {
-  user:           { text: "Twoje napisy",  variant: "user"   },
-  lrclib:         { text: "LRCLib",         variant: "trust"  },
-  "lrclib-sync":  { text: "LRCLib + sync",  variant: "trust"  },
-  "genius-sync":  { text: "Genius + sync",  variant: "trust"  },
-  AI:             { text: "AI",             variant: "auto"   },
-  "youtube-vtt":  { text: "YouTube CC",     variant: "trust"  },
+  user:             { text: "Twoje napisy",     variant: "user"   },
+  lrclib:           { text: "LRCLib",            variant: "trust"  },
+  "lrclib-sync":    { text: "LRCLib + sync",     variant: "trust"  },
+  "genius-sync":    { text: "Genius + sync",     variant: "trust"  },
+  "spotify-sync":   { text: "Spotify + sync",    variant: "trust"  },
+  "tekstowo-sync":  { text: "Tekstowo + sync",   variant: "trust"  },
+  AI:               { text: "AI",                variant: "auto"   },
+  "youtube-vtt":    { text: "YouTube CC",        variant: "trust"  },
 };
 
 const updateLyricsSourceBadge = (source) => {

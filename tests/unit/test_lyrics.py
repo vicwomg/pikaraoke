@@ -1940,6 +1940,66 @@ class TestFetchVariantDispatchAndDedup:
         db.close()
 
 
+class TestFetchVariantSync:
+    """Phase 1 entry: structured status (success/failed/skipped) per source."""
+
+    def _service(self, tmp_path):
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+        song = tmp_path / "Foo---abc.mp4"
+        song.write_text("fake")
+        db = KaraokeDatabase(str(tmp_path / "f.db"))
+        db.insert_songs([{"file_path": str(song), "youtube_id": "abc", "format": "mp4"}])
+        return str(song), db, LyricsService(str(tmp_path), EventSystem(), db=db)
+
+    def test_success_returns_state_and_tier(self, tmp_path):
+        song, db, service = self._service(tmp_path)
+        with patch.object(
+            service,
+            "_render_lrclib_line_ass",
+            return_value=("[Script Info]\nrendered\n", "abc", None),
+        ):
+            result = service.fetch_variant_sync(song, "lrclib")
+        assert result == {"state": "success", "tier": "line"}
+        assert (tmp_path / "Foo---abc.lrclib.ass").exists()
+        db.close()
+
+    def test_render_returning_none_is_failed_not_found(self, tmp_path):
+        song, db, service = self._service(tmp_path)
+        with patch.object(service, "_render_vtt_ass", return_value=None):
+            result = service.fetch_variant_sync(song, "youtube-vtt")
+        assert result["state"] == "failed"
+        assert result["error_code"] == "not_found"
+        db.close()
+
+    def test_render_exception_is_failed_render_error(self, tmp_path):
+        song, db, service = self._service(tmp_path)
+        with patch.object(service, "_render_lrclib_line_ass", side_effect=RuntimeError("boom")):
+            result = service.fetch_variant_sync(song, "lrclib")
+        assert result["state"] == "failed"
+        assert result["error_code"] == "render_error"
+        assert "boom" in result["error_message"]
+        # In-flight set cleared so a later retry can proceed.
+        assert (song, "lrclib") not in service._in_flight_variants
+        db.close()
+
+    def test_unknown_source_skipped(self, tmp_path):
+        song, db, service = self._service(tmp_path)
+        result = service.fetch_variant_sync(song, "totally-bogus")
+        assert result == {"state": "skipped", "error_code": "unknown_source"}
+        db.close()
+
+    def test_song_gone_from_disk_skipped(self, tmp_path):
+        from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+        gone = str(tmp_path / "Missing---abc.mp4")
+        db = KaraokeDatabase(str(tmp_path / "x.db"))
+        service = LyricsService(str(tmp_path), EventSystem(), db=db)
+        result = service.fetch_variant_sync(gone, "lrclib")
+        assert result == {"state": "skipped", "error_code": "song_gone"}
+        db.close()
+
+
 class TestWriteAndRegisterVariant:
     def test_writes_file_and_registers_artifact(self, tmp_path):
         from pikaraoke.lib.karaoke_database import KaraokeDatabase

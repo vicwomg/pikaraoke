@@ -112,6 +112,53 @@ def song_events():
     return jsonify({"events": k.get_song_events_for(song=song, youtube_id=youtube_id)})
 
 
+@admin_bp.route("/api/songs/<int:song_id>/subtitles", methods=["GET"])
+def song_subtitles(song_id: int):
+    """Return per-source subtitle state for one song (Phase 1 chip UI).
+
+    Joins ``subtitle_jobs`` with ``songs.subtitle_source_override`` so a
+    single GET drives the chip row: which source is active, which are
+    queued/running/failed, what tier each one ended up at. Sources
+    without any row yet (orchestrator hasn't run for this song) are
+    omitted from ``sources`` — the UI surfaces those as N/A from the
+    canonical configured-source list.
+    """
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    k = get_karaoke_instance()
+    if k.db is None:
+        return jsonify({"error": "Database unavailable"}), 500
+    song_row = k.db.get_song_by_id(song_id)
+    if song_row is None:
+        return jsonify({"error": f"song {song_id} not found"}), 404
+    try:
+        active_source = k.db.get_subtitle_source_override(song_id)
+    except Exception:
+        active_source = None
+    if not active_source:
+        try:
+            active_source = song_row["lyrics_source"]
+        except (KeyError, IndexError):
+            active_source = None
+    rows = k.db.get_subtitle_jobs(song_id)
+    sources = [
+        {
+            "id": row["source"],
+            "state": row["state"],
+            "tier": row["tier"],
+            "error_code": row["error_code"],
+            "error_message": row["error_message"],
+            "started_at": row["started_at"],
+            "finished_at": row["finished_at"],
+            "attempt_count": row["attempt_count"],
+            "next_retry_at": row["next_retry_at"],
+            "is_active": active_source == row["source"],
+        }
+        for row in rows
+    ]
+    return jsonify({"active_source": active_source, "sources": sources})
+
+
 @admin_bp.route("/song_warnings/<path:song>", methods=["DELETE"])
 def dismiss_song_warnings(song: str):
     """Dismiss buffered warnings for one song and broadcast the dismissal.

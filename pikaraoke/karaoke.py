@@ -499,6 +499,22 @@ class Karaoke:
             preferences=self.preferences,
         )
 
+        # Phase 1: subtitle-source fan-out + per-(song, source) state machine.
+        # Listens to song_downloaded in addition to LyricsService.fetch_and_convert
+        # — the canonical-tier writer keeps producing <stem>.ass; the
+        # orchestrator queues every VARIANT_FILE_SOURCES entry independently
+        # and persists lifecycle state into ``subtitle_jobs``. The chip UI
+        # (Phase 2) reads that table; Phase 1 just makes the live state
+        # observable via REST + the new ``subtitle_job_update`` socket event.
+        from pikaraoke.lib.subtitle_orchestrator import SubtitleOrchestrator
+
+        self.subtitle_orchestrator = SubtitleOrchestrator(
+            lyrics_service=self.lyrics_service,
+            events=self.events,
+            db=self.db,
+        )
+        self.subtitle_orchestrator.attach()
+
         # Prewarm silero VAD once per process so the first song's per-line
         # LRC->audio anchor probe doesn't pay the model-load latency. The
         # thread is daemon: a server shutdown during prewarm exits cleanly.
@@ -567,6 +583,7 @@ class Karaoke:
         )
         self.events.on("song_warning", self._handle_song_warning)
         self.events.on("song_event", self._handle_song_event)
+        self.events.on("subtitle_job_update", self._handle_subtitle_job_update)
 
         # Wire song_enricher module-level event hook so the enrichment
         # lifecycle (start/finish) lands in the per-song timeline. Mirrors
@@ -1341,6 +1358,20 @@ class Karaoke:
                 self.socketio.emit("song_event", entry, namespace="/")
             except Exception:
                 logging.exception("failed to emit song_event via socketio")
+
+    def _handle_subtitle_job_update(self, data: dict[str, Any]) -> None:
+        """Rebroadcast a ``subtitle_job_update`` event over SocketIO.
+
+        The orchestrator already persisted the row before emitting; this
+        handler exists purely to fan the payload out to splash + remote
+        clients so chips (Phase 2) update without re-fetching.
+        """
+        if not self.socketio:
+            return
+        try:
+            self.socketio.emit("subtitle_job_update", data, namespace="/")
+        except Exception:
+            logging.exception("failed to emit subtitle_job_update via socketio")
 
     def get_song_events_for(self, song: str = "", youtube_id: str = "") -> list[dict[str, Any]]:
         """Return the persisted timeline for one song.

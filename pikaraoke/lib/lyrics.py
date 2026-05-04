@@ -280,6 +280,25 @@ _TIER_NAMES = {
     _TIER_WORD: "word",
 }
 
+# Coarse "word" vs "line" tier exposed to the chip UI / subtitle_jobs row.
+# Anything aligner-driven is word-level; the line-level sources are LRClib's
+# raw line .ass and YouTube's VTT captions. The granular tier-gate above
+# uses _TIER_LINE_VTT vs _TIER_LINE_LRC to break ties between two
+# line-level renders, but the UI doesn't need that distinction.
+_VARIANT_SOURCE_TIERS: dict[str, str] = {
+    SUBTITLE_SOURCE_LRCLIB: "line",
+    SUBTITLE_SOURCE_YOUTUBE_VTT: "line",
+    SUBTITLE_SOURCE_LRCLIB_SYNC: "word",
+    SUBTITLE_SOURCE_GENIUS_SYNC: "word",
+    SUBTITLE_SOURCE_SPOTIFY_SYNC: "word",
+    SUBTITLE_SOURCE_TEKSTOWO_SYNC: "word",
+    SUBTITLE_SOURCE_AI: "word",
+}
+
+
+def _tier_for_variant_source(source: str) -> str | None:
+    return _VARIANT_SOURCE_TIERS.get(source)
+
 
 @dataclass(frozen=True)
 class WordPart:
@@ -696,6 +715,65 @@ class LyricsService:
             return False
         try:
             return self._fetch_variant_after_claim(song_path, source)
+        finally:
+            self.release_fetch_in_flight(song_path, source)
+
+    def fetch_variant_sync(self, song_path: str, source: str) -> dict:
+        """Synchronous variant fetch with structured status (Phase 1 entry).
+
+        Used by ``SubtitleOrchestrator`` from its own thread pool — the pool
+        owns concurrency and feeds the result into ``subtitle_jobs``. Same
+        semantics as ``fetch_variant`` (claim → render → write → release)
+        but returns one of:
+
+          ``{"state": "success", "tier": "word"|"line"}``
+          ``{"state": "failed",  "error_code": <code>, "error_message": str}``
+          ``{"state": "skipped", "error_code": <code>}``
+
+        ``error_code`` is one of: ``unknown_source``, ``song_gone``,
+        ``in_flight_dedup``, ``not_found``, ``render_error``, ``write_error``.
+        ``not_found`` is the soft-miss path (render returned None — e.g.
+        LRCLib has no row, Genius search empty); the orchestrator surfaces
+        it as ``failed`` so the chip shows amber rather than silently
+        nothing happened.
+        """
+        if source not in VARIANT_FILE_SOURCES:
+            logger.warning("fetch_variant_sync: refusing unknown source=%r", source)
+            return {"state": "skipped", "error_code": "unknown_source"}
+        if not os.path.exists(song_path):
+            return {"state": "skipped", "error_code": "song_gone"}
+        if not self.claim_fetch_in_flight(song_path, source):
+            return {"state": "skipped", "error_code": "in_flight_dedup"}
+        try:
+            try:
+                ass = self._render_for_variant(song_path, source)
+            except Exception as exc:
+                logger.exception(
+                    "fetch_variant_sync: render crashed for %s/%s",
+                    os.path.basename(song_path),
+                    source,
+                )
+                return {
+                    "state": "failed",
+                    "error_code": "render_error",
+                    "error_message": str(exc)[:200],
+                }
+            if not ass:
+                return {"state": "failed", "error_code": "not_found"}
+            try:
+                self._write_and_register_variant(song_path, source, ass)
+            except OSError as exc:
+                logger.exception(
+                    "fetch_variant_sync: write failed for %s/%s",
+                    os.path.basename(song_path),
+                    source,
+                )
+                return {
+                    "state": "failed",
+                    "error_code": "write_error",
+                    "error_message": str(exc)[:200],
+                }
+            return {"state": "success", "tier": _tier_for_variant_source(source)}
         finally:
             self.release_fetch_in_flight(song_path, source)
 
