@@ -69,6 +69,13 @@ class TestPostBulkValidation:
         assert resp.status_code == 400
 
     @patch("pikaraoke.routes.subtitle_jobs.is_admin", return_value=True)
+    def test_song_ids_with_bool_returns_400(self, _admin, admin_client):
+        # Booleans are int subclasses in Python — reject them explicitly so
+        # ``[true]`` doesn't quietly map to song_id=1.
+        resp = admin_client.post("/api/songs/subtitles/bulk", json={"song_ids": [True, False]})
+        assert resp.status_code == 400
+
+    @patch("pikaraoke.routes.subtitle_jobs.is_admin", return_value=True)
     def test_exceeds_max_returns_400(self, _admin, admin_client):
         resp = admin_client.post(
             "/api/songs/subtitles/bulk",

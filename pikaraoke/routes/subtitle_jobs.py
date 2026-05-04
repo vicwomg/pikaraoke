@@ -95,7 +95,10 @@ def post_bulk():
     song_ids = body.get("song_ids")
     if not isinstance(song_ids, list):
         return jsonify({"error": "song_ids must be a list of integers"}), 400
-    if not all(isinstance(sid, int) for sid in song_ids):
+    # ``bool`` is a subclass of ``int`` in Python, so reject booleans
+    # explicitly — ``[true, false]`` would otherwise leak to the SQL layer
+    # as song_ids 1 and 0.
+    if not all(isinstance(sid, int) and not isinstance(sid, bool) for sid in song_ids):
         return jsonify({"error": "song_ids must be a list of integers"}), 400
     if len(song_ids) > MAX_BULK:
         return jsonify({"error": f"too many ids (max {MAX_BULK})"}), 400

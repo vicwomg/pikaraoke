@@ -250,7 +250,8 @@ export function mountCornerBadge(container, getSongId, opts) {
   root.append(glyph, labelEl, sep, statusEl);
   container.appendChild(root);
 
-  let last = null;
+  let lastData = null;
+  let lastActive = null;
   let lastSig = '';
 
   function render(activeSource, sources) {
@@ -262,28 +263,37 @@ export function mountCornerBadge(container, getSongId, opts) {
     setText(glyph, view.glyph);
     setText(labelEl, view.label);
     setText(statusEl, view.status);
-    last = view;
   }
 
   function update(data) {
     if (!data) return;
+    lastData = data;
     const sources = Array.isArray(data.subtitle_sources) ? data.subtitle_sources : [];
-    const active = data.subtitle_source_override || data.now_playing_lyrics_source || null;
-    render(active, sources);
+    lastActive = data.subtitle_source_override || data.now_playing_lyrics_source || null;
+    render(lastActive, sources);
   }
 
   function onJobUpdate(payload) {
-    if (!payload) return;
+    if (!payload || !lastData) return;
     const sid = getSongId && getSongId();
     if (sid != null && payload.song_id != null && payload.song_id !== sid) return;
-    if (!last) return;
-    // The badge only cares about the currently active source.
-    const activeSource = last.cssClass === 'pending' ? null : last.activeSource;
-    if (activeSource && payload.source && payload.source !== activeSource) return;
-    // Synthesize an updated row list with the new state for the active
-    // source. The next ``update(data)`` from the now_playing poll will
-    // reconcile to the canonical shape.
-    if (window.__pkLastNowPlaying) update(window.__pkLastNowPlaying);
+    // Only react when the active source's state changed — the splash badge
+    // displays one source at a time. Background source events still flow
+    // through the next now_playing poll's ``update`` call.
+    if (lastActive && payload.source && payload.source !== lastActive) return;
+    const sources = Array.isArray(lastData.subtitle_sources) ? lastData.subtitle_sources : [];
+    const idx = sources.findIndex((s) => s.source === payload.source);
+    if (idx >= 0) {
+      sources[idx] = {
+        ...sources[idx],
+        state: payload.state,
+        status: payload.status || sources[idx].status,
+        tier: payload.tier ?? sources[idx].tier,
+        error_code: payload.error_code,
+        error_message: payload.error_message,
+      };
+    }
+    render(lastActive, sources);
   }
 
   if (socket) socket.on('subtitle_job_update', onJobUpdate);
@@ -609,7 +619,6 @@ export function mountSmartPicker(container, getSongId, opts) {
   function update(data) {
     if (!data) return;
     lastData = data;
-    if (typeof window !== 'undefined') window.__pkLastNowPlaying = data;
     // Close popover on song change so we don't render stale rows for the
     // wrong song (D#24, D#39).
     if (data.now_playing_song_id != null) {
