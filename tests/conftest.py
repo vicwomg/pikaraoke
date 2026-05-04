@@ -143,7 +143,6 @@ class MockKaraoke:
     _SUBTITLE_STATUS_DOWNLOADING = Karaoke._SUBTITLE_STATUS_DOWNLOADING
     _SUBTITLE_STATUS_NA = Karaoke._SUBTITLE_STATUS_NA
     _SUBTITLE_SOURCE_ORDER = Karaoke._SUBTITLE_SOURCE_ORDER
-    _SUBTITLE_SOURCE_LABELS = Karaoke._SUBTITLE_SOURCE_LABELS
     reset_now_playing = Karaoke.reset_now_playing
     send_notification = Karaoke.send_notification
     log_and_send = Karaoke.log_and_send

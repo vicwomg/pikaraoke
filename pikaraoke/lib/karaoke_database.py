@@ -297,6 +297,35 @@ SUBTITLE_JOB_FAILED = "failed"
 SUBTITLE_JOB_RATE_LIMITED = "rate_limited"
 SUBTITLE_JOB_SKIPPED = "skipped"
 
+# Polish UI labels for each canonical source. Lifted to module level so the
+# subtitle orchestrator can embed labels in ``subtitle_job_update`` events
+# without importing ``karaoke.py`` (which would create a cycle — karaoke.py
+# already imports this module).
+SUBTITLE_SOURCE_LABELS: dict[str, str] = {
+    SUBTITLE_SOURCE_OFF: "wyłącz",
+    SUBTITLE_SOURCE_USER: "Twoje napisy",
+    SUBTITLE_SOURCE_LRCLIB: "LRCLib",
+    SUBTITLE_SOURCE_LRCLIB_SYNC: "LRCLib + sync",
+    SUBTITLE_SOURCE_GENIUS_SYNC: "Genius + sync",
+    SUBTITLE_SOURCE_SPOTIFY_SYNC: "Spotify + sync",
+    SUBTITLE_SOURCE_TEKSTOWO_SYNC: "Tekstowo + sync",
+    SUBTITLE_SOURCE_AI: "AI",
+    SUBTITLE_SOURCE_YOUTUBE_VTT: "YouTube CC",
+}
+
+# Translate raw DB ``subtitle_jobs.state`` values to the UI status vocabulary
+# the subtitle source picker renders. The picker keeps both ``state`` (for
+# fine-grained branching like rate-limit countdowns) and ``status`` (for the
+# coarse ready/downloading/error/queued/na bucket).
+JOB_STATE_TO_UI_STATUS: dict[str, str] = {
+    SUBTITLE_JOB_QUEUED: "queued",
+    SUBTITLE_JOB_RUNNING: "downloading",
+    SUBTITLE_JOB_SUCCESS: "ready",
+    SUBTITLE_JOB_FAILED: "error",
+    SUBTITLE_JOB_RATE_LIMITED: "error",
+    SUBTITLE_JOB_SKIPPED: "na",
+}
+
 VALID_SUBTITLE_JOB_STATES = frozenset(
     {
         SUBTITLE_JOB_QUEUED,
@@ -970,6 +999,35 @@ class KaraokeDatabase:
                 """,
                 (song_id,),
             ).fetchall()
+
+    def get_subtitle_jobs_bulk(self, song_ids: list[int]) -> dict[int, list[sqlite3.Row]]:
+        """Return jobs for many songs in a single ``IN (...)`` query.
+
+        Used by ``POST /api/songs/subtitles/bulk`` to avoid N+1 SQLite
+        queries on Pi 3 SD cards. Songs without any rows are simply absent
+        from the returned dict — callers synthesize placeholder sources.
+        """
+        if not song_ids:
+            return {}
+        # De-dup before binding; sqlite3 has no fixed parameter cap but
+        # binding the same value twice just bloats the plan for no gain.
+        unique_ids = list(set(song_ids))
+        placeholders = ",".join("?" for _ in unique_ids)
+        with self._lock:
+            rows = self._conn.execute(
+                f"""
+                SELECT song_id, source, state, tier, started_at, finished_at,
+                       error_code, error_message, attempt_count, next_retry_at
+                FROM subtitle_jobs
+                WHERE song_id IN ({placeholders})
+                ORDER BY song_id, source
+                """,
+                unique_ids,
+            ).fetchall()
+        out: dict[int, list[sqlite3.Row]] = {}
+        for row in rows:
+            out.setdefault(row["song_id"], []).append(row)
+        return out
 
     def get_subtitle_job(self, song_id: int, source: str) -> sqlite3.Row | None:
         """Return one subtitle_jobs row, or None when nothing recorded yet."""

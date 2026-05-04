@@ -41,6 +41,7 @@ from pikaraoke.routes.socket_events import setup_socket_events
 from pikaraoke.routes.splash import splash_bp
 from pikaraoke.routes.stream import stream_bp
 from pikaraoke.routes.subtitle import subtitle_bp
+from pikaraoke.routes.subtitle_jobs import subtitle_jobs_bp
 
 _ = flask_babel.gettext
 
@@ -83,6 +84,7 @@ _api_blueprints = [
     nowplaying_bp,
     stream_bp,
     subtitle_bp,
+    subtitle_jobs_bp,
     metadata_bp,
 ]
 

@@ -103,7 +103,6 @@ _Host._SUBTITLE_STATUS_DOWNLOAD = Karaoke._SUBTITLE_STATUS_DOWNLOAD
 _Host._SUBTITLE_STATUS_DOWNLOADING = Karaoke._SUBTITLE_STATUS_DOWNLOADING
 _Host._SUBTITLE_STATUS_NA = Karaoke._SUBTITLE_STATUS_NA
 _Host._SUBTITLE_SOURCE_ORDER = Karaoke._SUBTITLE_SOURCE_ORDER
-_Host._SUBTITLE_SOURCE_LABELS = Karaoke._SUBTITLE_SOURCE_LABELS
 
 
 class _StubLyricsService:
@@ -460,3 +459,55 @@ class TestNowPlayingPayloadStatusContract:
         assert returned_sid == sid
         by_key = {s["source"]: s for s in sources}
         assert by_key["lrclib-sync"]["status"] == "ready"
+
+
+class TestNowPlayingPickerPayloadIncludesJobState:
+    """Phase 2: ``subtitle_sources`` rows carry orchestrator job state for
+    the smart picker (T1=B). Picker reads rate-limit countdowns and error
+    tooltips off the now_playing payload — no separate GET round-trip."""
+
+    def test_job_state_tier_and_error_attached_per_source(self, host, db, tmp_path):
+        song_path = str(tmp_path / "JobState---abc12345xyz.mp4")
+        (tmp_path / "JobState---abc12345xyz.mp4").write_text("fake")
+        sid = _insert_song(db, song_path, provenance="auto_line")
+        host.playback_controller.now_playing_filename = song_path
+
+        # Three rows covering the three states the picker renders specially.
+        db.upsert_subtitle_job(
+            sid, "lrclib", "success", tier="line", finished_at="2026-05-04T10:00:05"
+        )
+        db.upsert_subtitle_job(sid, "AI", "failed", error_code="boom", error_message="model failed")
+        db.upsert_subtitle_job(
+            sid,
+            "genius-sync",
+            "rate_limited",
+            error_message="429",
+            next_retry_at="2026-05-04T11:00:00",
+        )
+
+        sources, _override, _sid = host._get_subtitle_sources_for_now_playing()
+        by_key = {s["source"]: s for s in sources}
+
+        assert by_key["lrclib"]["state"] == "success"
+        assert by_key["lrclib"]["tier"] == "line"
+
+        assert by_key["AI"]["state"] == "failed"
+        assert by_key["AI"]["error_code"] == "boom"
+        assert by_key["AI"]["error_message"] == "model failed"
+
+        assert by_key["genius-sync"]["state"] == "rate_limited"
+        assert by_key["genius-sync"]["next_retry_at"] == "2026-05-04T11:00:00"
+
+    def test_no_jobs_yields_null_state_per_source(self, host, db, tmp_path):
+        # Pre-Phase-1 song: no subtitle_jobs rows. The picker treats null
+        # state as "no orchestrator data yet" and falls back to capability
+        # status.
+        song_path = str(tmp_path / "NoJobs---qwe12345rty.mp4")
+        (tmp_path / "NoJobs---qwe12345rty.mp4").write_text("fake")
+        _insert_song(db, song_path, provenance="auto_line")
+        host.playback_controller.now_playing_filename = song_path
+
+        sources, _override, _sid = host._get_subtitle_sources_for_now_playing()
+        for s in sources:
+            assert s["state"] is None
+            assert s["error_code"] is None

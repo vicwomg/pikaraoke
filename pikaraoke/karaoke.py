@@ -31,6 +31,7 @@ from pikaraoke.lib.karaoke_database import (
     LYRICS_PROVENANCE_USER,
     SUBTITLE_SOURCE_AI,
     SUBTITLE_SOURCE_GENIUS_SYNC,
+    SUBTITLE_SOURCE_LABELS,
     SUBTITLE_SOURCE_LRCLIB,
     SUBTITLE_SOURCE_LRCLIB_SYNC,
     SUBTITLE_SOURCE_OFF,
@@ -1473,19 +1474,6 @@ class Karaoke:
         SUBTITLE_SOURCE_YOUTUBE_VTT,
     )
 
-    # Polish UI labels (matches TD2 ratification).
-    _SUBTITLE_SOURCE_LABELS = {
-        SUBTITLE_SOURCE_OFF: "wyłącz",
-        SUBTITLE_SOURCE_USER: "Twoje napisy",
-        SUBTITLE_SOURCE_LRCLIB: "LRCLib",
-        SUBTITLE_SOURCE_LRCLIB_SYNC: "LRCLib + sync",
-        SUBTITLE_SOURCE_GENIUS_SYNC: "Genius + sync",
-        SUBTITLE_SOURCE_SPOTIFY_SYNC: "Spotify + sync",
-        SUBTITLE_SOURCE_TEKSTOWO_SYNC: "Tekstowo + sync",
-        SUBTITLE_SOURCE_AI: "AI",
-        SUBTITLE_SOURCE_YOUTUBE_VTT: "YouTube CC",
-    }
-
     def _get_subtitle_sources_for_now_playing(
         self,
     ) -> tuple[list[dict], str | None, int | None]:
@@ -1552,9 +1540,29 @@ class Karaoke:
         except Exception:
             pass
 
+        # Per-source orchestrator job state (Phase 2 picker overlay). Picker
+        # renders capability-derived ``status`` for the coarse bucket and the
+        # job ``state`` for the row suffix (running/failed/rate_limited/...).
+        # Pre-Phase-1 songs and songs the orchestrator hasn't run on simply
+        # produce an empty map — the picker treats missing entries as ``na``
+        # placeholders.
+        jobs_by_source: dict[str, dict] = {}
+        if song_id is not None and self.db is not None:
+            try:
+                for row in self.db.get_subtitle_jobs(song_id):
+                    jobs_by_source[row["source"]] = {
+                        "state": row["state"],
+                        "tier": row["tier"],
+                        "error_code": row["error_code"],
+                        "error_message": row["error_message"],
+                        "next_retry_at": row["next_retry_at"],
+                    }
+            except Exception:
+                logging.exception("subtitle_sources: get_subtitle_jobs failed for %s", song_id)
+
         sources: list[dict] = []
         for source in self._SUBTITLE_SOURCE_ORDER:
-            label = self._SUBTITLE_SOURCE_LABELS[source]
+            label = SUBTITLE_SOURCE_LABELS[source]
 
             if source == SUBTITLE_SOURCE_OFF:
                 # ``off`` is always available — it's a UI toggle, not a fetch.
@@ -1605,12 +1613,18 @@ class Karaoke:
                     status = self._SUBTITLE_STATUS_DOWNLOAD
                 downloadable = status == self._SUBTITLE_STATUS_DOWNLOAD
 
+            job = jobs_by_source.get(source, {})
             sources.append(
                 {
                     "source": source,
                     "label": label,
                     "status": status,
                     "downloadable": downloadable,
+                    "state": job.get("state"),
+                    "tier": job.get("tier"),
+                    "error_code": job.get("error_code"),
+                    "error_message": job.get("error_message"),
+                    "next_retry_at": job.get("next_retry_at"),
                 }
             )
 

@@ -148,36 +148,23 @@ const startBreakCountdown = () => {
   breakCountdownInterval = setInterval(tick, 250);
 };
 
-// Map the DB `lyrics_source` tag to a short human label + semantic CSS
-// variant. Keeps the badge compact while surfacing provenance (user-authored
-// vs auto-generated, and which auto pipeline produced it). Keys are the
-// canonical scheme used by the source-picker (see karaoke_database.py:
-// VALID_SUBTITLE_SOURCES).
-const LYRICS_SOURCE_LABELS = {
-  user:             { text: "Twoje napisy",     variant: "user"   },
-  lrclib:           { text: "LRCLib",            variant: "trust"  },
-  "lrclib-sync":    { text: "LRCLib + sync",     variant: "trust"  },
-  "genius-sync":    { text: "Genius + sync",     variant: "trust"  },
-  "spotify-sync":   { text: "Spotify + sync",    variant: "trust"  },
-  "tekstowo-sync":  { text: "Tekstowo + sync",   variant: "trust"  },
-  AI:               { text: "AI",                variant: "auto"   },
-  "youtube-vtt":    { text: "YouTube CC",        variant: "trust"  },
-};
+// Subtitle source badge — Phase 2. The corner badge is mounted by
+// ``window.PK.SubtitleSourcePicker.mountCornerBadge`` (loaded as an ES
+// module by splash.html). It consumes the same ``np`` payload as the rest
+// of this file, so we just hand it the latest ``np`` whenever it changes.
+let subtitleBadge = null;
+let subtitleBadgeSongId = null;
 
-const updateLyricsSourceBadge = (source) => {
-  const el = document.getElementById("lyrics-source");
-  const label = document.getElementById("lyrics-source-label");
-  if (!el || !label) return;
-  const entry = source && LYRICS_SOURCE_LABELS[source];
-  if (!entry) {
-    el.style.display = "none";
-    el.removeAttribute("data-variant");
-    return;
-  }
-  label.textContent = entry.text;
-  el.setAttribute("data-variant", entry.variant);
-  el.style.display = "";
-}
+const ensureSubtitleBadge = () => {
+  if (subtitleBadge) return subtitleBadge;
+  const mount = document.getElementById("subtitle-source-mount");
+  const factory = window.PK && window.PK.SubtitleSourcePicker
+    ? window.PK.SubtitleSourcePicker.mountCornerBadge
+    : null;
+  if (!mount || !factory) return null;
+  subtitleBadge = factory(mount, () => subtitleBadgeSongId, { socket });
+  return subtitleBadge;
+};
 
 const testAutoplayCapability = async () => {
   // Detect whether the browser will allow audio autoplay (US-27).
@@ -893,12 +880,16 @@ const handleNowPlayingUpdate = (np) => {
     }
     $("#now-playing-song").html(nowPlayingHtml);
     $("#now-playing-singer").html(np.now_playing_user);
-    updateLyricsSourceBadge(np.now_playing_lyrics_source);
     $("#now-playing").fadeIn();
   } else {
     $("#now-playing").fadeOut();
-    updateLyricsSourceBadge(null);
   }
+  // Hand the latest ``now_playing`` payload to the corner badge regardless
+  // of the now-playing-block visibility. The badge knows how to render
+  // ``pending`` when nothing's playing.
+  subtitleBadgeSongId = np.now_playing_song_id ?? null;
+  const badge = ensureSubtitleBadge();
+  if (badge) badge.update(np);
   if (np.up_next) {
     $("#up-next-song").html(np.up_next);
     $("#up-next-singer").html(np.next_user);

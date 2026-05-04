@@ -1,0 +1,281 @@
+/* Subtitle source picker — Phase 2.
+   Mounted on splash (corner badge) and now-playing-bar (smart popover).
+   Uses --pk-* tokens; Mazury (light) + Late Show (dark) both covered. */
+
+/* ============================================================
+   Splash corner badge
+   ============================================================ */
+
+.pk-source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px 5px 9px;
+  border-radius: var(--pk-r-pill, 100px);
+  font-family: var(--pk-font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  /* D#20: bumped from rgba(0,0,0,0.45) so badge text holds contrast on
+     bright video backgrounds. */
+  background: rgba(0, 0, 0, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  /* Outer dark ring + glyph/text shadow follow the .sp-now-title pattern
+     from the existing splash overlay. */
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  color: rgba(233, 220, 196, 0.85);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  user-select: none;
+}
+
+.pk-source-badge .pk-glyph {
+  font-size: 11px;
+  line-height: 1;
+  width: 11px;
+  text-align: center;
+  /* Glyph contrast against bright frames. */
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+}
+
+.pk-source-badge .pk-source-name {
+  font-weight: 500;
+  color: #f5ede0;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+}
+
+.pk-source-badge .pk-sep {
+  color: rgba(233, 220, 196, 0.35);
+  margin: 0 1px;
+}
+
+.pk-source-badge .pk-status {
+  font-size: 11px; /* D#21: bumped from 9px to clear WCAG size threshold. */
+  color: rgba(233, 220, 196, 0.7);
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+}
+
+/* State colours. */
+.pk-source-badge[data-state="ready"] .pk-glyph,
+.pk-source-badge[data-state="ready"] .pk-status {
+  color: var(--pk-success, #6a9080);
+  /* D#22: glow lifts perceived contrast on light Mazury video frames. */
+  text-shadow: 0 0 6px var(--pk-success, #6a9080), 0 1px 4px rgba(0, 0, 0, 0.9);
+}
+.pk-source-badge[data-state="downloading"] .pk-glyph {
+  color: var(--pk-sun, #e8a25a);
+  display: inline-block;
+  animation: pk-spin 1.5s linear infinite;
+}
+.pk-source-badge[data-state="downloading"] .pk-status {
+  color: var(--pk-sun, #e8a25a);
+}
+.pk-source-badge[data-state="error"] .pk-glyph,
+.pk-source-badge[data-state="error"] .pk-status {
+  color: var(--pk-danger, #9c402a);
+}
+.pk-source-badge[data-state="error"] {
+  border-color: rgba(255, 77, 143, 0.3);
+  /* T2=B: subtle 2s background pulse so the operator notices the alarm
+     from across the room without it reading as a klaxon. */
+  animation: pk-badge-error-pulse 2s ease-in-out infinite;
+}
+.pk-source-badge[data-state="pending"] .pk-glyph,
+.pk-source-badge[data-state="pending"] .pk-status {
+  color: rgba(233, 220, 196, 0.55);
+}
+
+@keyframes pk-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pk-badge-error-pulse {
+  0%, 100% { background: rgba(0, 0, 0, 0.58); }
+  50% { background: rgba(156, 64, 42, 0.45); }
+}
+[data-theme="late-show"] .pk-source-badge[data-state="error"] {
+  animation-name: pk-badge-error-pulse-dark;
+}
+@keyframes pk-badge-error-pulse-dark {
+  0%, 100% { background: rgba(0, 0, 0, 0.58); }
+  50% { background: rgba(255, 77, 143, 0.35); }
+}
+
+/* ============================================================
+   Smart picker (phone now-playing-bar)
+   ============================================================ */
+
+.pk-smart-picker {
+  width: 100%;
+  position: relative;
+}
+
+.pk-trigger {
+  width: 100%;
+  /* D#19: 44px tap target (iOS HIG). */
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: 14px 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--pk-bg);
+  color: var(--pk-ink);
+  border: 1px solid var(--pk-border);
+  border-radius: var(--pk-r-sm, 6px);
+  font-family: var(--pk-font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.pk-trigger:hover { border-color: var(--pk-border-strong); }
+.pk-trigger:focus-visible { outline: 2px solid var(--pk-amber); outline-offset: 2px; }
+.pk-trigger:disabled { opacity: 0.6; cursor: progress; }
+
+.pk-trigger .pk-glyph[data-state="ready"] { color: var(--pk-success); }
+.pk-trigger .pk-glyph[data-state="downloading"] {
+  color: var(--pk-sun-deep, var(--pk-amber));
+  animation: pk-spin 1.5s linear infinite;
+  display: inline-block;
+}
+.pk-trigger .pk-glyph[data-state="error"] { color: var(--pk-danger); }
+.pk-trigger .pk-glyph[data-state="pending"] { color: var(--pk-ink-3); }
+
+.pk-trigger .pk-active-label {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* T3=B: drop the ✓; colour-code the fraction by severity. */
+.pk-trigger .pk-summary {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: var(--pk-r-pill, 100px);
+}
+.pk-trigger .pk-summary[data-severity="green"] {
+  background: var(--pk-lime-glow);
+  color: var(--pk-lime);
+}
+.pk-trigger .pk-summary[data-severity="amber"] {
+  background: var(--pk-amber-glow);
+  color: var(--pk-amber);
+}
+.pk-trigger .pk-summary[data-severity="red"] {
+  background: rgba(156, 64, 42, 0.18);
+  color: var(--pk-danger);
+}
+[data-theme="late-show"] .pk-trigger .pk-summary[data-severity="red"] {
+  background: rgba(255, 77, 143, 0.18);
+}
+
+.pk-trigger .pk-arrow {
+  font-size: 10px;
+  color: var(--pk-ink-3);
+}
+
+/* ============================================================
+   Popover
+   ============================================================ */
+
+.pk-popover {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: var(--pk-surface);
+  border: 1px solid var(--pk-border);
+  border-radius: var(--pk-r-sm, 6px);
+  box-shadow: var(--pk-shadow-elev);
+  overflow-y: auto;
+  padding: 4px;
+}
+.pk-smart-picker[data-flip="down"] .pk-popover {
+  top: calc(100% + 4px);
+  bottom: auto;
+}
+.pk-smart-picker[data-flip="up"] .pk-popover {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+/* Fallback when JS hasn't placed yet — assume below. */
+.pk-smart-picker:not([data-flip]) .pk-popover {
+  top: calc(100% + 4px);
+}
+.pk-popover[hidden] { display: none; }
+
+.pk-row {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  /* D#19: 44px tap target. */
+  min-height: 44px;
+  padding: 9px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--pk-r-sm, 6px);
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  color: var(--pk-ink);
+  cursor: pointer;
+}
+.pk-row:hover:not([disabled]) { background: var(--pk-bg); }
+.pk-row:focus-visible {
+  outline: 2px solid var(--pk-amber);
+  outline-offset: -2px;
+}
+.pk-row[disabled] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.pk-row[data-state="active"] {
+  background: var(--pk-bg);
+  font-weight: 600;
+}
+.pk-row[data-state="active"] .pk-row-glyph { color: var(--pk-success); }
+.pk-row[data-state="enabled"] .pk-row-glyph { color: var(--pk-ink-3); }
+.pk-row[data-state="disabled-running"] .pk-row-glyph,
+.pk-row[data-state="pending"] .pk-row-glyph {
+  color: var(--pk-sun-deep, var(--pk-amber));
+  animation: pk-spin 1.5s linear infinite;
+  display: inline-block;
+}
+.pk-row[data-state="disabled-error"] .pk-row-glyph { color: var(--pk-danger); }
+.pk-row[data-state="disabled-rate-limited"] .pk-row-glyph { color: var(--pk-sun-deep, var(--pk-amber)); }
+.pk-row[data-state="disabled-na"] .pk-row-glyph { color: var(--pk-ink-4); }
+
+.pk-row-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* D#21: 11px clears the WCAG size threshold for normal text. */
+.pk-row-status {
+  font-size: 11px;
+  color: var(--pk-ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.pk-row[data-state="disabled-error"] .pk-row-status { color: var(--pk-danger); }
+.pk-row[data-state="disabled-rate-limited"] .pk-row-status { color: var(--pk-sun-deep, var(--pk-amber)); }
+
+/* ============================================================
+   T4=A: alarm pulse on the slot when the badge enters error or
+   downloading. Cross-references the splash badge state for the
+   operator's eye.
+   ============================================================ */
+
+.pk-tool-subtitle-src.is-alarmed {
+  animation: pk-slot-alarm 1s ease-in-out 3;
+}
+@keyframes pk-slot-alarm {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 0 2px var(--pk-amber); }
+}

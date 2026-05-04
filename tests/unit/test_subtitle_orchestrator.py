@@ -120,8 +120,14 @@ class TestKickoff:
         states = [e["state"] for e in events_seen if e["source"] == "lrclib"]
         # Expected lifecycle: queued -> running -> success.
         assert states == ["queued", "running", "success"]
+        # Picker payload: ``label`` + UI-translated ``status`` ride alongside
+        # the raw ``state`` so the picker doesn't need a label-registry fetch
+        # or its own state→status translation table.
+        statuses = [e["status"] for e in events_seen if e["source"] == "lrclib"]
+        assert statuses == ["queued", "downloading", "ready"]
         for evt in events_seen:
             assert evt["song"] == "song.mp4"
+            assert evt["label"] == "LRCLib"
 
     def test_orchestrator_crash_recorded_as_failed(self, db, events, tmp_path):
         song_path = str(tmp_path / "song.mp4")

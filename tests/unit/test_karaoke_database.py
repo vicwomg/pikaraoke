@@ -903,6 +903,82 @@ class TestSubtitleJobs:
         assert rows == 0
 
 
+class TestSubtitleJobsBulk:
+    """Bulk fetch path for the queue rosette / picker (Phase 2)."""
+
+    def _insert_song(self, db, path: str) -> int:
+        db.insert_songs([{"file_path": path, "youtube_id": None, "format": "mp4"}])
+        return db.get_song_id_by_path(path)
+
+    def test_empty_list_returns_empty_dict(self, db):
+        assert db.get_subtitle_jobs_bulk([]) == {}
+
+    def test_single_id_matches_singular_method(self, db):
+        sid = self._insert_song(db, "/songs/a.mp4")
+        db.upsert_subtitle_job(sid, "lrclib", "success", tier="line")
+        bulk = db.get_subtitle_jobs_bulk([sid])
+        single = db.get_subtitle_jobs(sid)
+        assert list(bulk.keys()) == [sid]
+        assert [r["source"] for r in bulk[sid]] == [r["source"] for r in single]
+
+    def test_multiple_ids_return_dict_keyed_by_song_id(self, db):
+        a = self._insert_song(db, "/songs/a.mp4")
+        b = self._insert_song(db, "/songs/b.mp4")
+        db.upsert_subtitle_job(a, "lrclib", "success")
+        db.upsert_subtitle_job(b, "AI", "running")
+        out = db.get_subtitle_jobs_bulk([a, b])
+        assert set(out.keys()) == {a, b}
+        assert out[a][0]["source"] == "lrclib"
+        assert out[b][0]["source"] == "AI"
+
+    def test_unknown_id_omitted_from_dict(self, db):
+        a = self._insert_song(db, "/songs/a.mp4")
+        db.upsert_subtitle_job(a, "lrclib", "success")
+        out = db.get_subtitle_jobs_bulk([a, 99999])
+        assert list(out.keys()) == [a]
+
+    def test_uses_single_query(self, db, monkeypatch):
+        a = self._insert_song(db, "/songs/a.mp4")
+        b = self._insert_song(db, "/songs/b.mp4")
+        c = self._insert_song(db, "/songs/c.mp4")
+        for sid in (a, b, c):
+            db.upsert_subtitle_job(sid, "lrclib", "success")
+            db.upsert_subtitle_job(sid, "AI", "running")
+        # Wrap connection.execute via a thin proxy so we can count SELECTs
+        # against subtitle_jobs. sqlite3.Connection.execute is read-only,
+        # so we swap the whole _conn with a proxy for the duration of the
+        # call.
+        original_conn = db._conn
+        select_calls: list[str] = []
+
+        class _ConnProxy:
+            def __init__(self, real):
+                self._real = real
+
+            def execute(self, sql, *args, **kwargs):
+                if "FROM subtitle_jobs" in sql:
+                    select_calls.append(sql)
+                return self._real.execute(sql, *args, **kwargs)
+
+            def __getattr__(self, name):
+                return getattr(self._real, name)
+
+        db._conn = _ConnProxy(original_conn)  # type: ignore[assignment]
+        try:
+            out = db.get_subtitle_jobs_bulk([a, b, c])
+        finally:
+            db._conn = original_conn
+        assert len(out) == 3
+        assert len(select_calls) == 1, "bulk fetch must issue exactly one SELECT"
+
+    def test_duplicate_ids_dedupe(self, db):
+        a = self._insert_song(db, "/songs/a.mp4")
+        db.upsert_subtitle_job(a, "lrclib", "success")
+        out = db.get_subtitle_jobs_bulk([a, a, a])
+        assert list(out.keys()) == [a]
+        assert len(out[a]) == 1
+
+
 class TestV9MigrationBackfill:
     """v8 → v9 backfills success rows from existing ass_<source> artifacts."""
 

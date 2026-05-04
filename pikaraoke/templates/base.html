@@ -27,9 +27,11 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/now-playing.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/subtitle-source-picker.css') }}">
 
   <script src="{{ url_for('static', filename='js/dialog.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='js/lyrics-parse.js') }}"></script>
+  <script type="module" src="{{ url_for('static', filename='js/subtitle-source-picker.js') }}"></script>
   <script src="{{ url_for('static', filename='js/now-playing-bar.js') }}"></script>
 
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/microphone.png') }}">
@@ -525,10 +527,14 @@
           <span class="pk-tool-stem-val" data-pk-subtitle-offset-val>0.00s</span>
         </div>
 
-        {# Subtitle source picker — shown whenever a song is playing. #}
+        {# Subtitle source picker — Phase 2 mounts a smart popover into
+           [data-pk-subtitle-src-mount]; the native <select> stays in the
+           DOM, hidden, as a JS-load fallback so the operator never loses
+           the picker. #}
         <div class="pk-tool pk-tool-subtitle-src" data-pk-subtitle-src-tool hidden>
           <span class="pk-tool-label">źródło</span>
-          <select data-pk-subtitle-src aria-label="Subtitle source"></select>
+          <div data-pk-subtitle-src-mount class="pk-subtitle-src-mount"></div>
+          <select data-pk-subtitle-src aria-label="Subtitle source" hidden></select>
         </div>
       </div>
     </div>

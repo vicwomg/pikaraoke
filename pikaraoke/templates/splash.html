@@ -3,6 +3,8 @@
 {% block scripts %}
 <link rel="stylesheet" href="{{ url_for('static', filename='screensaver.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='score.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/subtitle-source-picker.css') }}" />
+<script type="module" src="{{ url_for('static', filename='js/subtitle-source-picker.js') }}"></script>
 <script src="{{ url_for('static', filename='js/subtitles-octopus.js') }}"></script>
 <script>
   const PikaraokeConfig = {
@@ -62,10 +64,6 @@
       <span class="sp-time-sep">/</span>
       <span id="duration">00:00</span>
     </div>
-    <div id="lyrics-source" class="sp-lyrics-source" style="display: none"
-         title="Źródło napisów">
-      <span id="lyrics-source-label"></span>
-    </div>
   </div>
 </div>
 
@@ -91,12 +89,16 @@
   </div>
 </div>
 
-{# ==== AP info + clock (top left) ==== #}
+{# ==== AP info + clock + subtitle source badge (top left) ==== #}
+{# Per Phase 2 D#36 the splash subtitle badge mounts as a third child of
+   #ap-container so it inherits the same flex column rather than fighting
+   for top-left airspace with #clock / #hostap. #}
 <div id="ap-container" class="sp-overlay">
   <div id="clock" class="sp-clock" style="display: none;"></div>
   <div id="hostap" class="sp-hostap">
     {% for line in hostap_info %}<div>{{ line }}</div>{% endfor %}
   </div>
+  <div id="subtitle-source-mount" class="sp-source-mount"></div>
 </div>
 
 {# ==== Bottom strip: QR + up next ==== #}

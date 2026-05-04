@@ -26,10 +26,12 @@ from concurrent.futures import ThreadPoolExecutor
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.karaoke_database import (
+    JOB_STATE_TO_UI_STATUS,
     SUBTITLE_JOB_QUEUED,
     SUBTITLE_JOB_RUNNING,
     SUBTITLE_JOB_SKIPPED,
     SUBTITLE_JOB_SUCCESS,
+    SUBTITLE_SOURCE_LABELS,
     VARIANT_FILE_SOURCES,
     KaraokeDatabase,
 )
@@ -310,7 +312,9 @@ class SubtitleOrchestrator:
                     "song_id": song_id,
                     "song": os.path.basename(song_path),
                     "source": source,
+                    "label": SUBTITLE_SOURCE_LABELS.get(source, source),
                     "state": state,
+                    "status": JOB_STATE_TO_UI_STATUS.get(state, state),
                     "tier": tier,
                     "error_code": error_code,
                     "error_message": error_message,

@@ -70,6 +70,7 @@
     el.subOffsetVal = el.full.querySelector('[data-pk-subtitle-offset-val]');
     el.subSrcTool = el.full.querySelector('[data-pk-subtitle-src-tool]');
     el.subSrcSelect = el.full.querySelector('[data-pk-subtitle-src]');
+    el.subSrcMount = el.full.querySelector('[data-pk-subtitle-src-mount]');
     el.seekSection = el.full.querySelector('[data-pk-seek-section]');
     el.seekSlider = el.full.querySelector('[data-pk-seek]');
     el.seekCurrent = el.full.querySelector('[data-pk-seek-current]');
@@ -330,7 +331,7 @@
     }
 
     // Subtitle source picker (per-song operator override).
-    updateSubtitleSourceSelect(data);
+    updateSubtitleSourcePicker(data);
     if (el.subOffsetSlider && typeof data.subtitle_offset === 'number'
         && document.activeElement !== el.subOffsetSlider) {
       el.subOffsetSlider.value = data.subtitle_offset;
@@ -462,56 +463,71 @@
     setPauseIcon(el.fullPauseIcon, state.data.is_paused);
   }
 
-  // Polish UI suffixes for the picker option text. Status enum is shared
-  // with the backend payload (karaoke.py: _SUBTITLE_STATUS_*).
-  const SUBTITLE_STATUS_SUFFIX = {
-    ready:       'GOTOWE',
-    download:    'POBIERZ',
-    downloading: 'POBIERANIE…',
-    na:          'N/D',
-  };
+  // Smart picker (Phase 2). Mounted on first call to
+  // ``updateSubtitleSourcePicker`` and re-mounted on song change so the
+  // alarm-pulse + cached-state machinery starts fresh per song.
+  let subPicker = null;
+  let subPickerSongId = null;
 
-  function updateSubtitleSourceSelect(data) {
-    if (!el.subSrcTool || !el.subSrcSelect) return;
+  function postSubtitleSource(source, songId) {
+    if (!source || songId == null) {
+      return Promise.resolve({ ok: false, error: 'Brak piosenki' });
+    }
+    return fetch('/subtitle_source', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ song_id: songId, source }),
+    })
+      .then(async (resp) => {
+        if (resp.ok) {
+          // Force a refresh so the next render reflects the new pin.
+          fetchNowPlaying();
+          return { ok: true };
+        }
+        let msg = 'Nie udało się przełączyć źródła';
+        try {
+          const body = await resp.json();
+          if (body && body.error) msg = String(body.error);
+        } catch (_) { /* ignore parse errors */ }
+        return { ok: false, error: msg };
+      })
+      .catch((err) => ({ ok: false, error: (err && err.message) || 'Błąd sieci' }));
+  }
+
+  function teardownSubPicker() {
+    if (subPicker) {
+      try { subPicker.destroy(); } catch (_) { /* defensive */ }
+      subPicker = null;
+    }
+    subPickerSongId = null;
+  }
+
+  function ensureSubPicker(songId) {
+    const factory = window.PK && window.PK.SubtitleSourcePicker
+      && window.PK.SubtitleSourcePicker.mountSmartPicker;
+    if (!el.subSrcMount || !factory) return null;
+    if (subPicker && subPickerSongId === songId) return subPicker;
+    teardownSubPicker();
+    subPickerSongId = songId;
+    subPicker = factory(el.subSrcMount, () => subPickerSongId, {
+      onSelect: (source) => postSubtitleSource(source, subPickerSongId),
+      showNotification: window.showNotification,
+    });
+    return subPicker;
+  }
+
+  function updateSubtitleSourcePicker(data) {
+    if (!el.subSrcTool) return;
     const list = Array.isArray(data.subtitle_sources) ? data.subtitle_sources : [];
     if (!list.length || !data.now_playing) {
       el.subSrcTool.hidden = true;
+      teardownSubPicker();
       return;
     }
     el.subSrcTool.hidden = false;
-
-    // ``auto`` (the absence of an override) is the implicit default. The
-    // operator picks an explicit source to pin; clearing the pin happens
-    // server-side when a stale variant disappears (B4).
-    const selected = data.subtitle_source_override || '';
-    // Re-render only when the option set actually changed — preserves
-    // focus + scroll state on rapid polls. Cheap signature: source+status.
-    const sig = list.map((s) => s.source + ':' + s.status).join('|') + '/' + selected;
-    if (el.subSrcSelect.dataset.pkSig === sig) return;
-    el.subSrcSelect.dataset.pkSig = sig;
-
-    el.subSrcSelect.innerHTML = '';
-    for (const s of list) {
-      const opt = document.createElement('option');
-      opt.value = s.source;
-      const suffix = SUBTITLE_STATUS_SUFFIX[s.status] || s.status;
-      opt.textContent = `${s.label} — ${suffix}`;
-      // Block na/downloading from being picked. ``ready`` and
-      // ``download`` are both selectable (download triggers a fetch).
-      if (s.status === 'na' || s.status === 'downloading') {
-        opt.disabled = true;
-      }
-      if (s.source === selected) {
-        opt.selected = true;
-      }
-      el.subSrcSelect.appendChild(opt);
-    }
-    // ``downloading`` for the currently-selected source: keep it selected
-    // visually so the operator sees their pick reflected even though the
-    // option is disabled.
-    if (selected && !el.subSrcSelect.value) {
-      el.subSrcSelect.value = selected;
-    }
+    const songId = data.now_playing_song_id ?? null;
+    const picker = ensureSubPicker(songId);
+    if (picker) picker.update(data);
   }
 
   function bindEvents() {
@@ -573,32 +589,10 @@
       });
     }
 
-    // Subtitle source picker — POST the choice and rely on the next
-    // /now_playing poll to resync. Optimistic UI: mark the selected option
-    // as ``…`` while the request is in flight so the operator sees their
-    // click landed, then disable the select for ~1s to absorb double-clicks.
-    if (el.subSrcSelect) {
-      el.subSrcSelect.addEventListener('change', () => {
-        const source = el.subSrcSelect.value;
-        const songId = state.data && state.data.now_playing_song_id;
-        if (!source || songId == null) return;
-        const wasDisabled = el.subSrcSelect.disabled;
-        el.subSrcSelect.disabled = true;
-        // Bust the signature so the next poll always re-renders (in case the
-        // server's status enum lands the same key we picked).
-        delete el.subSrcSelect.dataset.pkSig;
-        fetch('/subtitle_source', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ song_id: songId, source }),
-        })
-          .catch(() => {})
-          .finally(() => {
-            el.subSrcSelect.disabled = wasDisabled;
-            fetchNowPlaying();
-          });
-      });
-    }
+    // Subtitle source picker — the smart popover wires its own click /
+    // keyboard / socket handlers via mountSmartPicker. The native <select>
+    // remains hidden in the DOM as a JS-load fallback (D-Phase2-95) but is
+    // never bound here.
 
     // Seek slider — emit 'seek' on change (release). Clamp drag to the
     // buffered upper bound so users can't scrub into unprocessed territory.
