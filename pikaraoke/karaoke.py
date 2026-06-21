@@ -114,6 +114,7 @@ class Karaoke:
         disable_bg_music: bool | None = None,
         disable_bg_video: bool | None = None,
         disable_score: bool | None = None,
+        enable_mic_passthrough: bool | None = None,
         hide_notifications: bool | None = None,
         hide_overlay: bool | None = None,
         hide_url: bool | None = None,
@@ -187,6 +188,8 @@ class Karaoke:
         # Set non-preference attributes (not stored in config)
         self.port = port
         self.hide_splash_screen = hide_splash_screen
+        # Experimental launch-only gate: must be re-passed each run, never persisted to config.
+        self.enable_mic_passthrough = enable_mic_passthrough
         self.download_path = download_path
         self.log_level = log_level
         self.youtubedl_proxy = youtubedl_proxy
@@ -254,6 +257,7 @@ class Karaoke:
         self.sound_manager = SoundManager(
             preferences=self.preferences,
             events=self.events,
+            enabled=self.enable_mic_passthrough,
         )
         self.sound_manager.start()
 

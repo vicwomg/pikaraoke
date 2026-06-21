@@ -175,7 +175,7 @@
 			}
 		});
 
-		{% if admin %}
+		{% if admin and mic_available %}
 		// Mic volume controls (live adjustment for enabled mics)
 		window.socket.on("mic_devices_state", function(devices) {
 			var enabled = devices.filter(function(d) { return d.enabled; });
@@ -309,11 +309,13 @@
 	</div>
 	{% endif %}
 
+	{% if mic_available %}
 	<div id="mic-live-panel" style="display: none">
 		<hr />
 		<h4><i class="icon icon-mic-1"></i> {% trans %}Microphones{% endtrans %}</h4>
 		<div id="mic-live-list"></div>
 	</div>
+	{% endif %}
 </div>
 {% endif %}
 

@@ -135,11 +135,12 @@
 				updatePhrases(phrases)
 			})
 
-		// Microphone management via SocketIO
+		// Shared SocketIO connection (used by mic controls and library sync)
 		if (typeof window.socket === 'undefined') {
 			window.socket = io();
 		}
 
+		{% if admin and mic_available %}
 		// Mic settings (latency, echo cancel)
 		window.socket.on("mic_settings_state", function(state) {
 			$("#mic-latency").val(state.latency_ms);
@@ -177,7 +178,7 @@
 								(dev.enabled ? 'checked' : '') + ' />' +
 							'<span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + escaped + '</span>' +
 						'</label>' +
-						'<input type="range" min="0" max="2" step="0.05" value="' + dev.volume + '" ' +
+						'<input type="range" min="0" max="1" step="0.05" value="' + dev.volume + '" ' +
 							'class="mic-volume" data-device-id="' + dev.deviceId + '" data-label="' + escaped + '" ' +
 							'style="width: 100px; margin-left: 8px;" ' + (!dev.enabled ? 'disabled' : '') + ' />' +
 					'</div>'
@@ -237,6 +238,7 @@
 		// Request current state on page load
 		window.socket.emit("request_mic_devices");
 		window.socket.emit("request_mic_settings");
+		{% endif %}
 
 		// Fetch system stats asynchronously
 			$.getJSON("{{ url_for('info.get_system_stats') }}", function(data) {
@@ -449,6 +451,7 @@
 				</div>
 			</div>
 
+			{% if mic_passthrough_enabled %}
 			<hr class="my-0">
 
 			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
@@ -470,8 +473,8 @@
 					<div id="mic-settings-panel" style="display: none;">
 					<div class="is-flex mt-3 mb-2" style="align-items: center;">
 						<label class="label mr-2 mb-0" style="white-space: nowrap; font-size: 0.85rem;">{% trans %}Latency{% endtrans %}</label>
-						<input type="range" id="mic-latency" min="10" max="200" step="10" value="50" style="flex: 1;" />
-						<span id="mic-latency-value" class="ml-2 is-size-7" style="min-width: 45px;">50ms</span>
+						<input type="range" id="mic-latency" min="10" max="200" step="10" value="10" style="flex: 1;" />
+						<span id="mic-latency-value" class="ml-2 is-size-7" style="min-width: 45px;">10ms</span>
 					</div>
 					{% if is_linux %}
 					<div class="is-flex mb-2" style="align-items: center;">
@@ -498,6 +501,7 @@
 					{% endif %}
 				</div>
 			</div>
+			{% endif %}
 
 			<hr class="my-0">
 

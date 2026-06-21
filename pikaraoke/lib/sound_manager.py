@@ -7,6 +7,7 @@ microphone inputs to speakers. Uses PulseAudio/PipeWire on Linux
 
 import json
 import logging
+import os
 import re
 import shutil
 import struct
@@ -18,6 +19,17 @@ from pikaraoke.lib.preference_manager import PreferenceManager
 
 _HAS_PACTL = is_linux() and shutil.which("pactl") is not None
 
+# pactl needs XDG_RUNTIME_DIR to reach the per-user PulseAudio/PipeWire socket.
+# It is unset when pikaraoke runs as a non-login service user (e.g. via systemd),
+# so default it to the running user's runtime dir. Child pactl processes inherit
+# os.environ, so setting it here is enough.
+if _HAS_PACTL and not os.environ.get("XDG_RUNTIME_DIR"):
+    os.environ["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"
+    logging.info(
+        "XDG_RUNTIME_DIR was unset; defaulting to %s for pactl",
+        os.environ["XDG_RUNTIME_DIR"],
+    )
+
 # sounddevice is only needed on non-Linux platforms
 _SOUNDDEVICE_AVAILABLE = False
 if not _HAS_PACTL:
@@ -28,8 +40,8 @@ if not _HAS_PACTL:
     except (ImportError, OSError):
         pass
 
-_MAX_GAIN = 2.0
-_DEFAULT_LATENCY_MS = 50
+_MAX_GAIN = 1.0
+_DEFAULT_LATENCY_MS = 10
 _MIN_LATENCY_MS = 10
 _MAX_LATENCY_MS = 200
 
@@ -108,24 +120,29 @@ class SoundManager:
     zero-code audio routing. On Windows/macOS, uses sounddevice (PortAudio).
     """
 
-    def __init__(self, preferences: PreferenceManager, events: EventSystem) -> None:
+    def __init__(
+        self, preferences: PreferenceManager, events: EventSystem, enabled: bool = False
+    ) -> None:
         self._preferences = preferences
         self._events = events
+        self._enabled = enabled
         self._active_mics: dict[str, _ActiveMic] = {}
         self._device_list: list[dict] = []
         self._device_index: dict[str, dict] = {}
 
-        if not _HAS_PACTL and not _SOUNDDEVICE_AVAILABLE:
+        if enabled and not self.available:
             logging.warning(
                 "sounddevice not available (missing PortAudio?). Microphone support disabled."
             )
 
     @property
     def available(self) -> bool:
-        return _HAS_PACTL or _SOUNDDEVICE_AVAILABLE
+        return self._enabled and (_HAS_PACTL or _SOUNDDEVICE_AVAILABLE)
 
     def enumerate_devices(self) -> list[dict]:
         """Query system audio input devices."""
+        if not self.available:
+            return []
         if _HAS_PACTL:
             return self._enumerate_pactl()
         if _SOUNDDEVICE_AVAILABLE:
@@ -264,6 +281,8 @@ class SoundManager:
 
     def activate(self, device_id: str, volume: float) -> bool:
         """Start audio passthrough for a microphone device."""
+        if not self.available:
+            return False
         if device_id in self._active_mics:
             self.update_volume(device_id, volume)
             return True
@@ -539,6 +558,8 @@ class SoundManager:
 
     def start(self) -> None:
         """Enumerate devices and re-enable saved mics."""
+        if not self.available:
+            return
         self.enumerate_devices()
 
         settings = self.load_settings()

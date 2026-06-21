@@ -81,6 +81,7 @@ def info():
             "high": k.high_score_phrases,
         },
         mic_available=k.sound_manager.available,
+        mic_passthrough_enabled=k.enable_mic_passthrough,
     )
 
 
