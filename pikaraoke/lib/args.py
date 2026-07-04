@@ -136,7 +136,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--base-path",
-        help="Serve the web UI under a URL path prefix such as /karaoke",
+        help="URL path prefix for reverse proxy deployments (e.g., /karaoke). Requires a reverse proxy to handle the path routing; PiKaraoke only generates correct URLs with this prefix.",
         default="",
         type=normalize_url_base_path,
         required=False,
