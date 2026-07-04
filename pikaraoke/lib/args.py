@@ -122,7 +122,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     parser.add_argument(
         "--keep-awake",
         action="store_true",
-        help="Prevent the host machine from sleeping while PiKaraoke is running. Useful in headless mode, where there is no local player window to keep the system awake. Uses the OS's native mechanism (Windows execution state, macOS caffeinate, Linux systemd-inhibit).",
+        help="Prevent the host machine from sleeping while PiKaraoke is running. Especially useful when headless, where no local player window keeps the system awake.",
         required=False,
     )
     parser.add_argument(

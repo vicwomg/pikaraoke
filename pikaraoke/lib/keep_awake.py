@@ -5,6 +5,7 @@ host can idle-sleep and interrupt streaming to connected clients. This keeps the
 system awake using each platform's native mechanism.
 """
 
+import ctypes
 import logging
 import shutil
 import subprocess
@@ -53,8 +54,6 @@ class KeepAwake:
     # --- Windows ---
 
     def _start_windows(self) -> None:
-        import ctypes
-
         # ES_CONTINUOUS keeps the requirement in effect for the life of this
         # (main) thread, so a single call holds until stop() or process exit.
         result = ctypes.windll.kernel32.SetThreadExecutionState(
@@ -66,8 +65,6 @@ class KeepAwake:
             logging.info("Keep-awake enabled (system will not sleep)")
 
     def _stop_windows(self) -> None:
-        import ctypes
-
         # ES_CONTINUOUS alone clears the previous system/display requirements.
         ctypes.windll.kernel32.SetThreadExecutionState(_ES_CONTINUOUS)
 
@@ -83,7 +80,11 @@ class KeepAwake:
         self._start_subprocess(
             [
                 "systemd-inhibit",
-                "--what=idle:sleep",
+                # Inhibit only idle (not sleep): blocking idle prevents the
+                # automatic idle->suspend that interrupts streaming, and unlike
+                # --what=sleep it needs no privileged polkit auth (which would
+                # prompt for a password on headless/SSH sessions).
+                "--what=idle",
                 "--who=PiKaraoke",
                 "--why=Karaoke session active",
                 "--mode=block",
