@@ -6,14 +6,14 @@ from flask import jsonify, render_template
 from flask_smorest import Blueprint
 
 from pikaraoke import VERSION
-from pikaraoke.constants import LANGUAGES
+from pikaraoke.constants import ITUNES_COUNTRIES, LANGUAGES
 from pikaraoke.lib.current_app import (
     get_admin_password,
     get_karaoke_instance,
     get_site_name,
     is_admin,
 )
-from pikaraoke.lib.get_platform import get_platform
+from pikaraoke.lib.get_platform import get_platform, is_linux
 
 _ = flask_babel.gettext
 
@@ -28,9 +28,10 @@ def info():
     site_name = get_site_name()
     url = k.url
     admin_password = get_admin_password()
-    is_linux = get_platform() == "linux"
+    is_linux_platform = is_linux()
 
     preferred_language = k.preferences.get("preferred_language", "en")
+    itunes_search_country = k.preferences.get_or_default("itunes_search_country")
     # yt-dlp
     youtubedl_version = k.youtubedl_version
 
@@ -51,7 +52,7 @@ def info():
         memory=None,
         disk=None,
         is_pi=k.is_raspberry_pi,
-        is_linux=is_linux,
+        is_linux=is_linux_platform,
         volume=int(k.volume * 100),
         bg_music_volume=int(k.bg_music_volume * 100),
         disable_bg_music=k.disable_bg_music,
@@ -73,6 +74,8 @@ def info():
         buffer_size=k.buffer_size,
         languages=LANGUAGES,
         preferred_language=preferred_language,
+        itunes_countries=ITUNES_COUNTRIES,
+        itunes_search_country=itunes_search_country,
         browse_results_per_page=k.browse_results_per_page,
         enable_title_tidy=k.enable_title_tidy,
         score_phrases={
@@ -80,6 +83,8 @@ def info():
             "mid": k.mid_score_phrases,
             "high": k.high_score_phrases,
         },
+        mic_available=k.sound_manager.available,
+        mic_passthrough_enabled=k.enable_mic_passthrough,
     )
 
 
