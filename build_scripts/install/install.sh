@@ -37,6 +37,11 @@ if ! command -v ffmpeg &> /dev/null; then
     fi
 fi
 
+# pactl (pulseaudio-utils) is needed for mic loopback on Linux (works with PipeWire too)
+if [ "$OS_TYPE" == "Linux" ] && ! command -v pactl &> /dev/null; then
+    PKGS_TO_INSTALL+=("pulseaudio-utils"); DISPLAY_PKGS+=("pulseaudio-utils")
+fi
+
 SKIP_UV=0
 if command -v uv &> /dev/null; then
     SKIP_UV=1

@@ -25,4 +25,5 @@ def home():
         admin=is_admin(),
         is_transpose_enabled=k.is_transpose_enabled,
         volume=k.volume,
+        mic_available=k.sound_manager.available,
     )

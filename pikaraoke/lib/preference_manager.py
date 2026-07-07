@@ -45,6 +45,7 @@ class PreferenceManager:
         "mid_score_phrases": "",
         "high_score_phrases": "",
         "show_splash_clock": False,
+        "mic_settings": "{}",
         "enable_title_tidy": False,
     }
 
