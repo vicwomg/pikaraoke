@@ -47,6 +47,8 @@ class PreferenceManager:
         "show_splash_clock": False,
         "mic_settings": "{}",
         "enable_title_tidy": False,
+        "metadata_provider": "itunes",
+        "itunes_search_country": "US",
     }
 
     def __init__(self, config_file_path: str = "config.ini", target: object | None = None) -> None:
