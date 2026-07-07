@@ -82,6 +82,7 @@ def upgrade_youtubedl() -> str:
         logging.warning(f"Could not run yt-dlp for upgrade: {e}")
         return get_youtubedl_version()
 
+    logging.info(output)
     # Check if already up to date
     if "is up to date" in output.lower():
         logging.debug("yt-dlp is already up to date")
@@ -106,7 +107,7 @@ def upgrade_youtubedl() -> str:
     if upgrade_success:
         logging.info(f"Done. Installed version: {youtubedl_version}")
     else:
-        logging.error("Failed to upgrade yt-dlp.")
+        logging.error(f"Failed to upgrade yt-dlp. Current version: {youtubedl_version}")
     return youtubedl_version
 
 
