@@ -76,13 +76,13 @@ def upgrade_youtubedl() -> str:
             .decode("utf8")
             .strip()
         )
+        logging.debug(output)
     except subprocess.CalledProcessError as e:
         output = e.output.decode("utf8")
     except (FileNotFoundError, PermissionError) as e:
         logging.warning(f"Could not run yt-dlp for upgrade: {e}")
         return get_youtubedl_version()
 
-    logging.info(output)
     # Check if already up to date
     if "is up to date" in output.lower():
         logging.debug("yt-dlp is already up to date")
