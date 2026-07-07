@@ -985,7 +985,7 @@
         }
       ]
     },
-    "/metadata/tidy-name": {
+    "/metadata/auto-format": {
       "get": {
         "parameters": [
           {
@@ -1005,7 +1005,7 @@
             "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
-        "summary": "Apply regex-based cleanup to a song filename.",
+        "summary": "Apply regex_tidy to a filename and return the formatted result.",
         "tags": [
           "metadata"
         ]
@@ -1030,6 +1030,16 @@
               "default": 5
             },
             "required": false
+          },
+          {
+            "in": "query",
+            "name": "country",
+            "schema": {
+              "type": "string",
+              "default": null,
+              "nullable": true
+            },
+            "required": false
           }
         ],
         "responses": {
@@ -1040,7 +1050,7 @@
             "$ref": "#/components/responses/DEFAULT_ERROR"
           }
         },
-        "summary": "Search Last.fm for track suggestions matching a filename.",
+        "summary": "Search for track suggestions matching a filename.",
         "tags": [
           "metadata"
         ]
