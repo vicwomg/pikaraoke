@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.20.0](https://github.com/vicwomg/pikaraoke/compare/1.19.0...1.20.0) (2026-07-08)
+
+
+### Features
+
+* auto translate workflow and all missing translations rectified ([#803](https://github.com/vicwomg/pikaraoke/issues/803)) ([6618103](https://github.com/vicwomg/pikaraoke/commit/66181033988d3aeec39d9c8b7b0187a4de4fac3c))
+* clean YouTube filenames for display and fix filename renaming to preserve YouTube provenance ([#794](https://github.com/vicwomg/pikaraoke/issues/794)) ([f71c14d](https://github.com/vicwomg/pikaraoke/commit/f71c14d68724caedc80373f6a641fe86aa25fb6f))
+* experimental microphone passthrough ([#818](https://github.com/vicwomg/pikaraoke/issues/818)) ([390ade1](https://github.com/vicwomg/pikaraoke/commit/390ade1877a116ec7864335a548125815f34a97f)), closes [#242](https://github.com/vicwomg/pikaraoke/issues/242)
+* keep awake headless ([#835](https://github.com/vicwomg/pikaraoke/issues/835)) ([46919d2](https://github.com/vicwomg/pikaraoke/commit/46919d2b2731595b5f08d8817b327620c2c6c09b))
+* replace lastfm with itunes on song edit page and improve UI ([#804](https://github.com/vicwomg/pikaraoke/issues/804)) ([617a0f0](https://github.com/vicwomg/pikaraoke/commit/617a0f0569bd2852c00ffde25b12968f55a5f1ca))
+* sqllite song database ([aa61b5a](https://github.com/vicwomg/pikaraoke/commit/aa61b5ac5a0e123d1bac4a80a408c54036c1d2ca))
+
+
+### Bug Fixes
+
+* add admin security around edit, delete and addrandom routes ([#802](https://github.com/vicwomg/pikaraoke/issues/802)) ([f28d9f6](https://github.com/vicwomg/pikaraoke/commit/f28d9f688ca3881738651dc640499c7840f6c6ba))
+* move import requests to remove monkey patch warning ([#807](https://github.com/vicwomg/pikaraoke/issues/807)) ([e7bc348](https://github.com/vicwomg/pikaraoke/commit/e7bc348a61ca9db0d692bf24d294a164f9757757))
+* preserve committed iOS IME text when submitting search ([#811](https://github.com/vicwomg/pikaraoke/issues/811)) ([f452997](https://github.com/vicwomg/pikaraoke/commit/f452997ccda5ff516fb28fd8a09c338cb58bb8ca)), closes [#810](https://github.com/vicwomg/pikaraoke/issues/810)
+* prevent CJK characters from being stripped from YouTube filenames ([#806](https://github.com/vicwomg/pikaraoke/issues/806)) ([e0fbeab](https://github.com/vicwomg/pikaraoke/commit/e0fbeab95d2fd5ca657e433a22bbf82366d52586))
+* use per-port QR code filename for multi-instance setups ([#839](https://github.com/vicwomg/pikaraoke/issues/839)) ([4a5cc98](https://github.com/vicwomg/pikaraoke/commit/4a5cc98677d44c4b3e3f3a6dc8fe0e6f13a29b75))
+* windows installer hangs on winget list ([#815](https://github.com/vicwomg/pikaraoke/issues/815)) ([15f95d6](https://github.com/vicwomg/pikaraoke/commit/15f95d6dd52713df636245d73583b8cb2b7e86fe))
+
 ## [1.19.0](https://github.com/vicwomg/pikaraoke/compare/1.18.4...1.19.0) (2026-03-11)
 
 
