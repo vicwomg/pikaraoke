@@ -409,9 +409,11 @@ class Karaoke:
         qr.add_data(self.url)
         qr.make()
         img = qr.make_image(image_factory=PyPNGImage)
-        # Use writable data directory instead of program directory
+        # Use writable data directory instead of program directory.
+        # Include the port so multiple instances on the same host don't
+        # overwrite each other's QR code (see issue #836).
         data_dir = get_data_directory()
-        self.qr_code_path = os.path.join(data_dir, "qrcode.png")
+        self.qr_code_path = os.path.join(data_dir, f"qrcode-{self.port}.png")
         img.save(self.qr_code_path)  # type: ignore[arg-type]
 
     def send_notification(self, message: str, color: str = "primary") -> None:
