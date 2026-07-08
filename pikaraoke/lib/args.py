@@ -311,6 +311,12 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         required=False,
     )
     parser.add_argument(
+        "--enable-mic-passthrough",
+        action="store_true",
+        help="Enable experimental server-side microphone passthrough so singers can hear themselves through the karaoke speakers.",
+        required=False,
+    )
+    parser.add_argument(
         "--dolphly",
         action="store_true",
         help="Enable top-secret DOLPHLY mode.",

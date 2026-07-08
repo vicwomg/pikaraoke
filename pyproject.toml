@@ -21,9 +21,10 @@ dependencies = [
   "Babel==2.17.0",
   "Flask-Babel==4.0.0",
   "ffmpeg-python==0.2.0",
-  "yt-dlp[default]>=2026.03.03",
+  "yt-dlp[default]>=2026.07.04",
   "flask-socketio>=5.5.0",
   "gevent>=24.11.1",
+  "sounddevice>=0.5.0; sys_platform != 'linux'",
 ]
 
 [project.optional-dependencies]
