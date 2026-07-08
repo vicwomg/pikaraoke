@@ -121,6 +121,12 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         required=False,
     )
     parser.add_argument(
+        "--keep-awake",
+        action="store_true",
+        help="Prevent the host machine from sleeping while PiKaraoke is running. Especially useful when headless, where no local player window keeps the system awake.",
+        required=False,
+    )
+    parser.add_argument(
         "--logo-path",
         nargs="+",
         help="Path to a custom logo image file for the splash screen. Recommended dimensions ~ 2048x1024px",
@@ -316,6 +322,12 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         "--cdg-pixel-scaling",
         help="Enable CDG pixel scaling to improve video rendering of CDG files. This may increase CPU usage and may cause performance issues on slower devices.",
         action="store_true",
+        required=False,
+    )
+    parser.add_argument(
+        "--enable-mic-passthrough",
+        action="store_true",
+        help="Enable experimental server-side microphone passthrough so singers can hear themselves through the karaoke speakers.",
         required=False,
     )
     parser.add_argument(

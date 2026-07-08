@@ -16,3 +16,25 @@ LANGUAGES = {
     "zh_Hans_CN": "Chinese (Simplified)",
     "zh_Hant_TW": "Chinese (Traditional)",
 }
+
+ITUNES_COUNTRIES = {
+    "US": "United States",
+    "GB": "United Kingdom",
+    "CA": "Canada",
+    "AU": "Australia",
+    "BR": "Brazil",
+    "CN": "China",
+    "DE": "Germany",
+    "FI": "Finland",
+    "FR": "France",
+    "ID": "Indonesia",
+    "IT": "Italy",
+    "JP": "Japan",
+    "KR": "South Korea",
+    "NL": "Netherlands",
+    "NO": "Norway",
+    "RU": "Russia",
+    "TH": "Thailand",
+    "TW": "Taiwan",
+    "VE": "Venezuela",
+}

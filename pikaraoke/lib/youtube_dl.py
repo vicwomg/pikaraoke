@@ -76,6 +76,7 @@ def upgrade_youtubedl() -> str:
             .decode("utf8")
             .strip()
         )
+        logging.debug(output)
     except subprocess.CalledProcessError as e:
         output = e.output.decode("utf8")
     except (FileNotFoundError, PermissionError) as e:
@@ -106,7 +107,7 @@ def upgrade_youtubedl() -> str:
     if upgrade_success:
         logging.info(f"Done. Installed version: {youtubedl_version}")
     else:
-        logging.error("Failed to upgrade yt-dlp.")
+        logging.error(f"Failed to upgrade yt-dlp. Current version: {youtubedl_version}")
     return youtubedl_version
 
 

@@ -32,6 +32,7 @@ from pikaraoke.lib.get_platform import (
     has_js_runtime,
     is_windows,
 )
+from pikaraoke.lib.keep_awake import KeepAwake
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.url_prefix import BasePathMiddleware
 from pikaraoke.lib.youtube_dl import upgrade_youtubedl
@@ -259,6 +260,7 @@ def main() -> None:
         disable_bg_video=args.disable_bg_video,
         bg_video_path=args.bg_video_path,
         disable_score=args.disable_score,
+        enable_mic_passthrough=args.enable_mic_passthrough,
         limit_user_songs_by=args.limit_user_songs_by,
         avsync=float(args.avsync) if args.avsync is not None else None,
         config_file_path=args.config_file_path,
@@ -308,6 +310,13 @@ def main() -> None:
         args.hide_splash_screen = True
         logging.info("Forced to run headless mode in Android")
 
+    # Keep the host awake so idle-sleep doesn't interrupt streaming (headless has
+    # no local player window to hold a wake lock).
+    keep_awake = None
+    if args.keep_awake:
+        keep_awake = KeepAwake()
+        keep_awake.start()
+
     # Start the splash screen browser
     if not args.hide_splash_screen:
         browser = Browser(k, args.window_size, args.external_monitor)
@@ -327,6 +336,9 @@ def main() -> None:
     # Close running browser when done
     if browser is not None:
         browser.close()
+
+    if keep_awake is not None:
+        keep_awake.stop()
 
     delete_tmp_dir()
     sys.exit()
