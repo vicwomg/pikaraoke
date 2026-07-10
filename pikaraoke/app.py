@@ -58,7 +58,8 @@ _ = flask_babel.gettext
 from gevent.pywsgi import WSGIServer
 
 args = parse_pikaraoke_args()
-socketio = SocketIO(async_mode="gevent", cors_allowed_origins=args.url)
+socketio_path = f"{args.base_path}/socket.io" if args.base_path else "/socket.io"
+socketio = SocketIO(async_mode="gevent", cors_allowed_origins=args.url, path=socketio_path)
 babel = Babel()
 
 
@@ -70,9 +71,7 @@ app.config["JSON_SORT_KEYS"] = False
 app.config["APPLICATION_ROOT"] = args.base_path or "/"
 app.config["SESSION_COOKIE_PATH"] = args.base_path or "/"
 app.config["PIKARAOKE_BASE_PATH"] = args.base_path
-app.config["PIKARAOKE_SOCKETIO_PATH"] = (
-    f"{args.base_path}/socket.io" if args.base_path else "/socket.io"
-)
+app.config["PIKARAOKE_SOCKETIO_PATH"] = socketio_path
 app.wsgi_app = BasePathMiddleware(app.wsgi_app, args.base_path)
 
 # Always initialize flask-smorest Api for error handling (@bp.arguments validation).
