@@ -32,7 +32,7 @@
 			$(".control-box").show();
 		} else {
 			// {# MSG: Message which shows in the "Now Playing" section when there is no song currently playing #}
-			$("#now-playing").html("{{ _('Nothing is playing right now.') }}");
+			$("#now-playing").html({{ _('Nothing is playing right now.') | tojson }});
 			$(".control-box").hide();
 		}
 
@@ -40,10 +40,10 @@
 			$("#up-next").html(`<p style="margin-bottom: 5px">${np.up_next}</p>
           <p class="has-text-success">
             {# MSG: Title text for the icon marking the next person to sing. #}
-            <i class="icon icon-mic-1" title="{{ _('Next singer') }}"></i>${np.next_user}</p>`);
+            <i class="icon icon-mic-1" title="{{ _('Next singer') | forceescape }}"></i>${np.next_user}</p>`);
 		} else {
 			// {# MSG: Alternative text for the "Up next" section if no more songs are queued up. #}
-			$("#up-next").html("{{ _('No song is queued.') }}");
+			$("#up-next").html({{ _('No song is queued.') | tojson }});
 		}
 
 		if (np.now_playing_transpose != 0) {

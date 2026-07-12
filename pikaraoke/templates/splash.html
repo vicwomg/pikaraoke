@@ -20,8 +20,8 @@
     screensaverTimeout: parseInt('{{ screensaver_timeout }}') || 0,
     hideOverlay: "{{ hide_overlay }}" == 'True',
     translations: {
-      socketConnectionLost: "{{ _('Connection lost. Is the server still running?') }}",
-      unsupportedBrowser: "{{ _('This browser is not fully supported. You may experience streaming issues. Please use Chrome/Safari/Firefox/Edge for best results.') }}",
+      socketConnectionLost: {{ _('Connection lost. Is the server still running?') | tojson }},
+      unsupportedBrowser: {{ _('This browser is not fully supported. You may experience streaming issues. Please use Chrome/Safari/Firefox/Edge for best results.') | tojson }},
     },
     scorePhrasesUrl: "{{ url_for('splash.get_score_phrases') }}",
   };
