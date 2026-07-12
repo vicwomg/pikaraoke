@@ -20,8 +20,9 @@
 
   <script>
     // Translations for JS (static JS cannot use Jinja2 directly).
-    // Always pipe translations through |tojson: gettext output is Markup, so it is never
-    // autoescaped, and a translation containing a quote would otherwise break this script.
+    // Gettext output is Markup, so Jinja never autoescapes it. Inside a <script> a
+    // translation must therefore be filtered by hand: |tojson for a JS value (as below),
+    // |forceescape for HTML that JS builds as a string. See tests/unit/test_template_i18n.py.
     window.translations = {
       // {# MSG: Prompt to change the username displayed next to queued songs. CURRENT_NAME is replaced with the name #}
       promptChangeUsername: {{ _('Do you want to change the name of the person using this device? This will show up on queued songs. Current: CURRENT_NAME') | tojson }},

@@ -163,7 +163,7 @@
 			var list = $("#mic-list");
 			list.empty();
 			if (devices.length === 0) {
-				list.html('<p class="has-text-grey">{{ _("No microphones detected. Connect a USB or Bluetooth mic and click Refresh.") }}</p>');
+				list.html('<p class="has-text-grey">{{ _("No microphones detected. Connect a USB or Bluetooth mic and click Refresh.") | forceescape }}</p>');
 				$("#mic-settings-panel").hide();
 				return;
 			}

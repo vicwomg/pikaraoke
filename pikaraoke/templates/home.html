@@ -131,7 +131,7 @@
 		$("#skip").click(function () {
 			r = confirm(
 				// {# MSG: Confirmation message when clicking a button to skip a track. #}
-				`{{ _("Are you sure you want to skip this track? If you didn't add this song, ask permission first!") }}`
+				{{ _("Are you sure you want to skip this track? If you didn't add this song, ask permission first!") | tojson }}
 			);
 			if (r) {
 				$.get("/skip");

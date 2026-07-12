@@ -135,7 +135,10 @@ def get_locale() -> str | None:
     # Use browser header
     else:
         locale = request.accept_languages.best_match(LANGUAGES.keys())
-    return locale
+
+    # An unknown code (a stale session cookie, a hand-edited ?lang=) makes Babel raise
+    # UnknownLocaleError on every render, so never hand one back.
+    return locale if locale in LANGUAGES else None
 
 
 babel.init_app(app, locale_selector=get_locale)
