@@ -359,7 +359,7 @@
 
       // Track moved file for highlight (except delete)
       if (action !== 'delete') {
-          window.highlightAfterHighlight = file;
+          window.highlightAfterRefresh = file;
       }
 
       $.ajax({
@@ -443,7 +443,7 @@
 
   // Execute playback action and close modal
   window.executePlaybackAction = function(action) {
-      $.get('/' + action);
+      $.get(window.pikaraokeConfig.basePath + '/' + action);
       window.closeNowPlayingOptions();
   };
 
@@ -478,7 +478,7 @@
       $(document).on('click', '.playback-btn', function(e) {
           e.preventDefault();
           var action = $(this).data('action');
-          $.get('/' + action);
+          $.get(window.pikaraokeConfig.basePath + '/' + action);
       });
   });
 
