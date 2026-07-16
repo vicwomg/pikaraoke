@@ -35,6 +35,29 @@ CREATE TABLE IF NOT EXISTS metadata (
     key TEXT PRIMARY KEY,
     value TEXT
 );
+
+CREATE TABLE IF NOT EXISTS sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    uuid TEXT UNIQUE NOT NULL,
+    name TEXT,
+    started_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    ended_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS plays (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL,
+    song_id INTEGER,
+    performer TEXT NOT NULL,
+    played_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    completed INTEGER DEFAULT 0,
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_plays_session ON plays(session_id);
+CREATE INDEX IF NOT EXISTS idx_plays_played_at ON plays(played_at);
+CREATE INDEX IF NOT EXISTS idx_plays_performer ON plays(performer);
 """
 
 
@@ -61,6 +84,9 @@ class KaraokeDatabase:
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self._db_path, check_same_thread=False)
         conn.row_factory = sqlite3.Row
+        # Per-connection, not persisted in the file, so it cannot live in _SCHEMA.
+        # Without it the ON DELETE clauses on `plays` are parsed and ignored.
+        conn.execute("PRAGMA foreign_keys = ON")
         return conn
 
     def _create_schema(self) -> None:
@@ -88,6 +114,14 @@ class KaraokeDatabase:
         with self._lock:
             row = self._conn.execute(
                 "SELECT format FROM songs WHERE file_path = ?", (file_path,)
+            ).fetchone()
+            return row[0] if row else None
+
+    def get_song_id_by_path(self, file_path: str) -> int | None:
+        """Return the song id for a file path, or None if not found."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT id FROM songs WHERE file_path = ?", (file_path,)
             ).fetchone()
             return row[0] if row else None
 
@@ -182,6 +216,24 @@ class KaraokeDatabase:
                 "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
                 (key, value),
             )
+
+    # ------------------------------------------------------------------
+    # Generic access (used by PlayHistoryManager for its own tables)
+    # ------------------------------------------------------------------
+    #
+    # The single connection is shared by every thread and is only safe under
+    # self._lock, so managers owning tables outside the song library run their
+    # SQL through these rather than reaching for self._conn.
+
+    def query(self, sql: str, params: tuple = ()) -> list[sqlite3.Row]:
+        """Run a read query and return all rows."""
+        with self._lock:
+            return self._conn.execute(sql, params).fetchall()
+
+    def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
+        """Run a write statement in a transaction and return its cursor."""
+        with self._lock, self._conn:
+            return self._conn.execute(sql, params)
 
     # ------------------------------------------------------------------
     # Maintenance

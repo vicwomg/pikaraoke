@@ -28,6 +28,7 @@ from pikaraoke.lib.get_platform import (
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.library_scanner import LibraryScanner, ScanResult
 from pikaraoke.lib.network import get_ip
+from pikaraoke.lib.play_history_manager import PlayHistoryManager
 from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
@@ -61,6 +62,7 @@ class Karaoke:
     song_manager: SongManager
     queue_manager: QueueManager
     playback_controller: PlaybackController
+    play_history: PlayHistoryManager
 
     now_playing_notification: str | None = None
     volume: float
@@ -241,7 +243,7 @@ class Karaoke:
         )
         self.events.on("now_playing_update", self.update_now_playing_socket)
         self.events.on("playback_started", self.update_now_playing_socket)
-        self.events.on("song_ended", self.update_now_playing_socket)
+        self.events.on("song_ended", lambda reason=None: self.update_now_playing_socket())
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
         self.events.on("song_downloaded", self.song_manager.register_download)
         self.events.on(
@@ -269,6 +271,9 @@ class Karaoke:
             filename_from_path=self.song_manager.display_name_from_path,
             get_available_songs=lambda: self.song_manager.songs,
         )
+
+        # Play history for KJ reporting (subscribes to song_ended itself)
+        self.play_history = PlayHistoryManager(db=self.db, events=self.events)
 
         # Initialize and start download manager
         self.download_manager = DownloadManager(
@@ -596,7 +601,13 @@ class Karaoke:
                         song["file"], song["user"], song["semitones"]
                     )
 
-                    if not result.success and result.error:
+                    # play_file() blocks only until the client connects, so this
+                    # always lands before the song_ended that completes it.
+                    if result.success:
+                        self.play_history.record_play(
+                            self.db.get_song_id_by_path(song["file"]), song["user"]
+                        )
+                    elif result.error:
                         self.log_and_send(result.error, "danger")
 
                 self.playback_controller.log_output()

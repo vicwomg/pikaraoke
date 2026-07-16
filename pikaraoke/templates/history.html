@@ -1,0 +1,260 @@
+{% extends 'base.html' %} {% block scripts %}
+<script>
+	var HISTORY_PAGE_SIZE = 25;
+	var historyOffset = 0;
+	var historyTotal = 0;
+	var historySession = "";
+	var currentSessionUuid = null;
+
+	var historyText = {
+		// {# MSG: Shown on the history page when no session is currently running. #}
+		noSession: "{{ _('No active session') }}",
+		// {# MSG: Label for a session the KJ never named. #}
+		unnamed: "{{ _('Unnamed session') }}",
+		// {# MSG: Shown in the play log when the song file has since been deleted from the library. #}
+		songRemoved: "{{ _('(song removed from library)') }}",
+		// {# MSG: Prompt asking the KJ to name the session that is currently running. #}
+		promptRename: "{{ _('Name this session:') }}",
+		// {# MSG: Confirmation before deleting a session and every play recorded in it. #}
+		confirmDeleteSession: "{{ _('Delete this session and all of its plays? This cannot be undone.') }}",
+		// {# MSG: Confirmation before deleting one entry from the play log. #}
+		confirmDeletePlay: "{{ _('Delete this entry from the play log?') }}",
+		// {# MSG: Label for every session in the session filter dropdown. #}
+		allSessions: "{{ _('All sessions') }}",
+		// {# MSG: Shown when the play log has no entries yet. #}
+		noPlays: "{{ _('Nothing has been played yet.') }}",
+		// {# MSG: Pagination summary. START, END and TOTAL are replaced with numbers. #}
+		showing: "{{ _('START-END of TOTAL') }}",
+		// {# MSG: Shown next to a song that was played all the way through. #}
+		yes: "{{ _('Yes') }}",
+		// {# MSG: Shown next to a song that was skipped before it finished. #}
+		no: "{{ _('No') }}"
+	};
+
+	function escapeHtml(text) {
+		return $("<div>").text(text == null ? "" : text).html();
+	}
+
+	function sessionLabel(session) {
+		return session.name || historyText.unnamed + " - " + session.started_at;
+	}
+
+	function loadSessions() {
+		return $.getJSON("{{ url_for('history_api.get_sessions') }}", function (data) {
+			currentSessionUuid = data.current ? data.current.uuid : null;
+
+			$("#current-session").text(data.current ? sessionLabel(data.current) : historyText.noSession);
+			$("#start-session").toggleClass("is-hidden", !!data.current);
+			$("#end-session").toggleClass("is-hidden", !data.current);
+			$("#rename-session").toggleClass("is-hidden", !data.current);
+
+			var $filter = $("#session-filter").empty();
+			$filter.append($("<option>").val("").text(historyText.allSessions));
+			data.sessions.forEach(function (session) {
+				$filter.append(
+					$("<option>")
+						.val(session.uuid)
+						.text(sessionLabel(session) + " (" + session.play_count + ")")
+				);
+			});
+			$filter.val(historySession);
+			$("#session-actions").toggleClass("is-hidden", !historySession);
+			$("#export-session").attr("href", "/api/history/export/" + historySession);
+		});
+	}
+
+	function loadPlays() {
+		var params = { limit: HISTORY_PAGE_SIZE, offset: historyOffset };
+		if (historySession) {
+			params.session = historySession;
+		}
+		return $.getJSON("{{ url_for('history_api.get_plays') }}", params, function (data) {
+			historyTotal = data.total;
+			var $body = $("#plays-body").empty();
+
+			if (!data.plays.length) {
+				$body.append($("<tr>").append($("<td>").attr("colspan", 5).text(historyText.noPlays)));
+			}
+
+			data.plays.forEach(function (play) {
+				var song = play.song
+					? escapeHtml(play.song)
+					: '<span class="has-text-grey">' + escapeHtml(historyText.songRemoved) + "</span>";
+				$body.append(
+					"<tr>" +
+						"<td>" + escapeHtml(play.played_at) + "</td>" +
+						"<td>" + escapeHtml(play.performer) + "</td>" +
+						"<td class='break-word'>" + song + "</td>" +
+						"<td>" + (play.completed ? historyText.yes : historyText.no) + "</td>" +
+						"<td><a class='delete-play has-text-danger' data-id='" + play.id +
+						"' title='Delete'><i class='icon icon-trash'></i></a></td>" +
+					"</tr>"
+				);
+			});
+
+			var start = historyTotal ? historyOffset + 1 : 0;
+			var end = Math.min(historyOffset + HISTORY_PAGE_SIZE, historyTotal);
+			$("#page-info").text(
+				historyText.showing
+					.replace("START", start)
+					.replace("END", end)
+					.replace("TOTAL", historyTotal)
+			);
+			$("#prev-page").prop("disabled", historyOffset === 0);
+			$("#next-page").prop("disabled", end >= historyTotal);
+		});
+	}
+
+	function refreshHistory() {
+		loadSessions();
+		loadPlays();
+	}
+
+	function putSession(uuid, payload) {
+		return $.ajax({
+			url: "/api/history/sessions/" + uuid,
+			type: "PUT",
+			contentType: "application/json",
+			data: JSON.stringify(payload)
+		});
+	}
+
+	$(function () {
+		refreshHistory();
+
+		$("#start-session").on("click", function () {
+			$.ajax({
+				url: "{{ url_for('history_api.start_session') }}",
+				type: "POST",
+				contentType: "application/json",
+				data: JSON.stringify({})
+			}).done(refreshHistory);
+		});
+
+		$("#end-session").on("click", function () {
+			putSession(currentSessionUuid, { action: "end" }).done(refreshHistory);
+		});
+
+		$("#rename-session").on("click", function () {
+			var name = window.prompt(historyText.promptRename);
+			if (name === null || name.trim() === "") {
+				return;
+			}
+			putSession(currentSessionUuid, { action: "rename", name: name.trim() }).done(refreshHistory);
+		});
+
+		$("#session-filter").on("change", function () {
+			historySession = $(this).val();
+			historyOffset = 0;
+			refreshHistory();
+		});
+
+		$("#delete-session").on("click", function () {
+			if (!window.confirm(historyText.confirmDeleteSession)) {
+				return;
+			}
+			$.ajax({ url: "/api/history/sessions/" + historySession, type: "DELETE" }).done(function () {
+				historySession = "";
+				historyOffset = 0;
+				refreshHistory();
+			});
+		});
+
+		$("#plays-body").on("click", ".delete-play", function () {
+			if (!window.confirm(historyText.confirmDeletePlay)) {
+				return;
+			}
+			$.ajax({ url: "/api/history/plays/" + $(this).data("id"), type: "DELETE" }).done(refreshHistory);
+		});
+
+		$("#prev-page").on("click", function () {
+			historyOffset = Math.max(0, historyOffset - HISTORY_PAGE_SIZE);
+			loadPlays();
+		});
+
+		$("#next-page").on("click", function () {
+			historyOffset += HISTORY_PAGE_SIZE;
+			loadPlays();
+		});
+	});
+</script>
+{% endblock %} {% block header %}
+<h1>{% block title %}{{ title }}{% endblock %}</h1>
+<style>
+	#history-table {
+		width: 100%;
+		table-layout: auto;
+	}
+	#history-table td {
+		word-wrap: break-word;
+	}
+	.break-word {
+		word-break: break-all;
+	}
+	.session-controls {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		align-items: center;
+	}
+</style>
+{% endblock %} {% block content %}
+
+<div class="notification session-controls">
+	<span class="is-flex-grow-1">
+		<i class="icon icon-mic-1"></i>
+		{# MSG: Label before the name of the session that is currently running. #}
+		<strong>{% trans %}Current session{% endtrans %}:</strong>
+		<span id="current-session"></span>
+	</span>
+	<button id="start-session" class="button is-small is-success is-hidden">
+		{# MSG: Button which starts a new play history session. #} {% trans %}Start session{% endtrans %}
+	</button>
+	<button id="rename-session" class="button is-small is-hidden">
+		{# MSG: Button which names the session that is currently running. #} {% trans %}Rename{% endtrans %}
+	</button>
+	<button id="end-session" class="button is-small is-warning is-hidden">
+		{# MSG: Button which closes the session that is currently running. #} {% trans %}End session{% endtrans %}
+	</button>
+</div>
+
+<div class="session-controls" style="margin-bottom: 10px">
+	<div class="select is-small">
+		<select id="session-filter"></select>
+	</div>
+	<span id="session-actions" class="session-controls is-hidden">
+		<a id="export-session" class="button is-small no-spa">
+			{# MSG: Button which downloads the selected session's play log as a CSV file. #} {% trans %}Export CSV{%
+			endtrans %}
+		</a>
+		<button id="delete-session" class="button is-small is-danger">
+			{# MSG: Button which deletes the selected session and all of its plays. #} {% trans %}Delete session{% endtrans
+			%}
+		</button>
+	</span>
+</div>
+
+<table id="history-table">
+	<thead>
+		<tr>
+			{# MSG: Play log column header for when the song was played. #}
+			<th>{% trans %}Played{% endtrans %}</th>
+			{# MSG: Play log column header for who sang the song. #}
+			<th>{% trans %}Performer{% endtrans %}</th>
+			{# MSG: Play log column header for the song that was sung. #}
+			<th>{% trans %}Song{% endtrans %}</th>
+			{# MSG: Play log column header for whether the song played all the way through. #}
+			<th>{% trans %}Completed{% endtrans %}</th>
+			<th></th>
+		</tr>
+	</thead>
+	<tbody id="plays-body"></tbody>
+</table>
+
+<div class="session-controls" style="margin-top: 10px">
+	<button id="prev-page" class="button is-small"><i class="icon icon-left-big"></i></button>
+	<button id="next-page" class="button is-small"><i class="icon icon-right-big"></i></button>
+	<span id="page-info"></span>
+</div>
+
+{% endblock %}

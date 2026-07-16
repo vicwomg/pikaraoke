@@ -109,6 +109,22 @@
       return Cookies.get("user");
     }
 
+    // Fills the admin-only singer autocomplete from past performers. The
+    // datalist only exists for admins, so this no-ops for everyone else
+    // rather than calling an endpoint that would 403.
+    function loadSingerList() {
+      var $list = $("#singer-list");
+      if (!$list.length) {
+        return;
+      }
+      $.getJSON("{{ url_for('history_api.get_singers') }}", function (data) {
+        $list.empty();
+        data.singers.forEach(function (singer) {
+          $list.append($("<option>").val(singer.performer));
+        });
+      });
+    }
+
     $(function () {
       connectSocket();
 
@@ -132,6 +148,12 @@
       }
       if (currentPath == "/browse") {
         $("#browse").addClass("is-active")
+      }
+      if (currentPath == "/history") {
+        $("#history").addClass("is-active")
+      }
+      if (currentPath == "/rankings") {
+        $("#rankings").addClass("is-active")
       }
       if (currentPath == "/info") {
         $("#info").addClass("is-active")
@@ -225,6 +247,18 @@
           {# MSG: Navigation link for the page where the user can add existing songs to the queue. #}
           <span>{% trans %}Browse{% endtrans %}</span>
         </a>
+        {% if is_admin() %}
+        <a id="history" class="navbar-item" href="{{ url_for('history.history') }}">
+          <i class="icon icon-list-alt" title="History"></i>
+          {# MSG: Navigation link for the play history page, only shown to the admin. #}
+          <span>{% trans %}History{% endtrans %}</span>
+        </a>
+        <a id="rankings" class="navbar-item" href="{{ url_for('history.rankings') }}">
+          <i class="icon icon-sort-down" title="Rankings"></i>
+          {# MSG: Navigation link for the play rankings page, only shown to the admin. #}
+          <span>{% trans %}Rankings{% endtrans %}</span>
+        </a>
+        {% endif %}
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
           <span aria-hidden="true"></span>
           <span aria-hidden="true"></span>

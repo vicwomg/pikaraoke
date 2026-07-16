@@ -156,7 +156,7 @@ class PlaybackController:
         delete_tmp_dir()
         logging.debug("Cleanup complete")
 
-        self.events.emit("song_ended")
+        self.events.emit("song_ended", reason)
 
     def skip(self, log_action: bool = True) -> bool:
         """Skip the currently playing song.

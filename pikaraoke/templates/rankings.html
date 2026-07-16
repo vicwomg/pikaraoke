@@ -1,0 +1,74 @@
+{% extends 'base.html' %} {% block header %}
+<h1>{% block title %}{{ title }}{% endblock %}</h1>
+<style>
+	.rankings-table {
+		width: 100%;
+		table-layout: auto;
+		margin-bottom: 25px;
+	}
+	.rankings-table td {
+		word-wrap: break-word;
+	}
+	.rank-count {
+		text-align: right;
+		white-space: nowrap;
+	}
+</style>
+{% endblock %} {% block content %}
+
+{# MSG: Heading for the list of songs that have been sung the most times. #}
+<h2 class="subtitle">{% trans %}Top songs{% endtrans %}</h2>
+{% if top_songs %}
+<table class="rankings-table">
+	{% for song in top_songs %}
+	<tr>
+		<td style="width: 2em">{{ loop.index }}</td>
+		<td>{{ filename_from_path(song.file_path) }}</td>
+		{# MSG: Number of times a song has been sung. #}
+		<td class="rank-count">{% trans count=song.play_count %}{{ count }} play{% pluralize %}{{ count }} plays{% endtrans %}</td>
+	</tr>
+	{% endfor %}
+</table>
+{% else %}
+{# MSG: Shown on the rankings page when no songs have been played yet. #}
+<p>{% trans %}Nothing has been played yet.{% endtrans %}</p>
+{% endif %}
+
+{# MSG: Heading for the list of people who have sung the most songs. #}
+<h2 class="subtitle">{% trans %}Top performers{% endtrans %}</h2>
+{% if top_performers %}
+<table class="rankings-table">
+	{% for performer in top_performers %}
+	<tr>
+		<td style="width: 2em">{{ loop.index }}</td>
+		<td>{{ performer.performer }}</td>
+		{# MSG: Number of songs a performer has sung. #}
+		<td class="rank-count">{% trans count=performer.play_count %}{{ count }} play{% pluralize %}{{ count }} plays{% endtrans %}</td>
+	</tr>
+	{% endfor %}
+</table>
+{% else %}
+{# MSG: Shown on the rankings page when nobody has sung anything yet. #}
+<p>{% trans %}Nobody has sung yet.{% endtrans %}</p>
+{% endif %}
+
+{# MSG: Heading for the list of recent karaoke sessions and how busy each was. #}
+<h2 class="subtitle">{% trans %}Recent sessions{% endtrans %}</h2>
+{% if sessions %}
+<table class="rankings-table">
+	{% for session in sessions %}
+	<tr>
+		{# MSG: Label for a session the KJ never named. #}
+		<td>{{ session.name or _('Unnamed session') }}</td>
+		<td>{{ session.started_at }}</td>
+		{# MSG: Number of songs played during a session. #}
+		<td class="rank-count">{% trans count=session.play_count %}{{ count }} play{% pluralize %}{{ count }} plays{% endtrans %}</td>
+	</tr>
+	{% endfor %}
+</table>
+{% else %}
+{# MSG: Shown on the rankings page when no sessions have been recorded yet. #}
+<p>{% trans %}No sessions recorded yet.{% endtrans %}</p>
+{% endif %}
+
+{% endblock %}

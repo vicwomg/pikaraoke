@@ -23,7 +23,7 @@ from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.browser import Browser
-from pikaraoke.lib.current_app import get_karaoke_instance
+from pikaraoke.lib.current_app import get_karaoke_instance, is_admin
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
 from pikaraoke.lib.get_platform import (
@@ -40,6 +40,8 @@ from pikaraoke.routes.background_music import background_music_bp
 from pikaraoke.routes.batch_song_renamer import batch_song_renamer_bp
 from pikaraoke.routes.controller import controller_bp
 from pikaraoke.routes.files import files_bp
+from pikaraoke.routes.history import history_bp
+from pikaraoke.routes.history_api import history_api_bp
 from pikaraoke.routes.home import home_bp
 from pikaraoke.routes.images import images_bp
 from pikaraoke.routes.info import info_bp
@@ -66,6 +68,10 @@ app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
+
+# base.html gates the admin-only nav links on this. A global rather than a
+# per-route template arg, so every page that extends base.html agrees.
+app.jinja_env.globals.update(is_admin=is_admin)
 
 # Always initialize flask-smorest Api for error handling (@bp.arguments validation).
 # Only expose the Swagger UI when --enable-swagger is passed.
@@ -95,6 +101,7 @@ _api_blueprints = [
     nowplaying_bp,
     stream_bp,
     metadata_bp,
+    history_api_bp,
 ]
 
 # Blueprints hidden from /apidocs (internal UI routes)
@@ -103,6 +110,7 @@ _internal_blueprints = [
     info_bp,
     splash_bp,
     batch_song_renamer_bp,
+    history_bp,
 ]
 
 for bp in _api_blueprints:

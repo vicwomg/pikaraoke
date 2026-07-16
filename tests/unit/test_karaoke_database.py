@@ -1,10 +1,36 @@
 """Unit tests for KaraokeDatabase."""
 
 import os
+import sqlite3
 
 import pytest
 
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+# The songs table exactly as shipped by 1.20.0, before play history existed.
+_SCHEMA_1_20_0 = """
+CREATE TABLE IF NOT EXISTS songs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_path TEXT UNIQUE NOT NULL,
+    youtube_id TEXT,
+    format TEXT NOT NULL,
+    artist TEXT,
+    title TEXT,
+    variant TEXT,
+    year INTEGER,
+    genre TEXT,
+    metadata_status TEXT DEFAULT 'pending',
+    enrichment_attempts INTEGER DEFAULT 0,
+    last_enrichment_attempt TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS metadata (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
+"""
 
 
 @pytest.fixture
@@ -41,6 +67,98 @@ class TestInit:
 
     def test_empty_on_init(self, db):
         assert db.get_song_count() == 0
+
+    def test_play_history_tables_exist(self, db):
+        tables = {
+            row[0]
+            for row in db._conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        assert {"sessions", "plays"} <= tables
+
+    def test_foreign_keys_enforced(self, db):
+        assert db._conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+
+
+class TestUpgradeFromExistingDatabase:
+    """A 1.20.0 database has only songs+metadata; the new tables must appear
+    on open without touching the existing library."""
+
+    @pytest.fixture
+    def legacy_db_path(self, tmp_path):
+        path = str(tmp_path / "pikaraoke.db")
+        conn = sqlite3.connect(path)
+        conn.executescript(_SCHEMA_1_20_0)
+        conn.execute(
+            "INSERT INTO songs (file_path, youtube_id, format) VALUES (?, ?, ?)",
+            ("/songs/existing.mp4", "dQw4w9WgXcQ", "mp4"),
+        )
+        conn.execute("PRAGMA user_version = 1")
+        conn.commit()
+        conn.close()
+        return path
+
+    def test_creates_new_tables(self, legacy_db_path):
+        db = KaraokeDatabase(legacy_db_path)
+        tables = {
+            row[0]
+            for row in db._conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        db.close()
+        assert {"sessions", "plays"} <= tables
+
+    def test_preserves_existing_songs(self, legacy_db_path):
+        db = KaraokeDatabase(legacy_db_path)
+        paths = db.get_all_song_paths()
+        db.close()
+        assert paths == ["/songs/existing.mp4"]
+
+
+class TestGetSongIdByPath:
+    def test_returns_none_when_missing(self, db):
+        assert db.get_song_id_by_path("/songs/nope.mp4") is None
+
+    def test_returns_id_for_known_path(self, db):
+        db.insert_songs([{"file_path": "/songs/a.mp4", "youtube_id": None, "format": "mp4"}])
+        song_id = db.get_song_id_by_path("/songs/a.mp4")
+        assert song_id is not None
+        row = db._conn.execute("SELECT file_path FROM songs WHERE id = ?", (song_id,)).fetchone()
+        assert row[0] == "/songs/a.mp4"
+
+
+class TestForeignKeys:
+    """These all fail without the PRAGMA foreign_keys in _connect()."""
+
+    @pytest.fixture
+    def play(self, db):
+        """A session with one play against one song. Returns (song_id, play_id)."""
+        db.insert_songs([{"file_path": "/songs/a.mp4", "youtube_id": None, "format": "mp4"}])
+        song_id = db.get_song_id_by_path("/songs/a.mp4")
+        session_id = db.execute("INSERT INTO sessions (uuid) VALUES ('s1')").lastrowid
+        play_id = db.execute(
+            "INSERT INTO plays (session_id, song_id, performer) VALUES (?, ?, 'Alice')",
+            (session_id, song_id),
+        ).lastrowid
+        return song_id, play_id
+
+    def test_deleting_a_song_nulls_the_play_song_id(self, db, play):
+        _, play_id = play
+        db.delete_by_path("/songs/a.mp4")
+
+        row = db.query("SELECT song_id, performer FROM plays WHERE id = ?", (play_id,))[0]
+        assert row["song_id"] is None
+        assert row["performer"] == "Alice"
+
+    def test_deleting_a_session_cascades_to_plays(self, db, play):
+        db.execute("DELETE FROM sessions WHERE uuid = 's1'")
+        assert db.query("SELECT * FROM plays") == []
+
+    def test_play_requires_a_real_session(self, db):
+        with pytest.raises(sqlite3.IntegrityError):
+            db.execute("INSERT INTO plays (session_id, performer) VALUES (999, 'Alice')")
 
 
 class TestGetAllSongPaths:

@@ -13,10 +13,18 @@
 			});
 		}
 
+		loadSingerList();
+		$("#singer-name").val(getUserCookie());
+
 		$("a.add-song-link").click(function (e) {
 			e.preventDefault();
-			setUserCookie();
-			var user = Cookies.get("user");
+			// The admin-only singer field wins when the KJ is queuing for someone
+			// else; everyone else queues under their own cookie name.
+			var user = $("#singer-name").val();
+			if (!user) {
+				setUserCookie();
+				user = Cookies.get("user");
+			}
 			$.get(this.href + encodeURIComponent(user), function (data) {
 				var obj = JSON.parse(data);
 				if (obj.success[0]) {
@@ -55,6 +63,10 @@
 	}
 	.break-word {
 		word-break: break-all; /* Ensures long words break to fit within the cell */
+	}
+	.singer-field {
+		max-width: 320px;
+		margin-bottom: 10px;
 	}
 
 	@media screen and (max-width: 500px) {
@@ -109,6 +121,22 @@
 	>
 	{% endif%}
 </p>
+
+{% if admin %}
+<div class="field singer-field">
+	{# MSG: Label for the admin-only field naming who is about to sing the songs being queued. #}
+	<label class="label is-small" for="singer-name">{% trans %}Queue for singer{% endtrans %}</label>
+	<input
+		id="singer-name"
+		class="input is-small"
+		list="singer-list"
+		autocomplete="off"
+		{# MSG: Placeholder in the admin-only singer field. #}
+		placeholder="{{ _('Name of the singer') }}"
+	/>
+	<datalist id="singer-list"></datalist>
+</div>
+{% endif %}
 
 <div id="alpha-bar" class="column is-full has-background-dark mobile-hide">
 	<a href="{{ url_for('files.browse') }}" title="Show all"><i class="icon icon-list-bullet"></i></a>
