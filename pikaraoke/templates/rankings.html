@@ -1,16 +1,50 @@
 {% extends 'base.html' %} {% block header %}
 <h1>{% block title %}{{ title }}{% endblock %}</h1>
 <style>
+	/* Fixed layout, so the play counts line up down the page across all three
+	   tables. With auto layout each table sizes its own columns from its own
+	   content and the counts land in a different place in each. */
 	.rankings-table {
 		width: 100%;
-		table-layout: auto;
+		table-layout: fixed;
 		margin-bottom: 25px;
 	}
 	.rankings-table td {
 		word-wrap: break-word;
 	}
+	.rankings-table .col-rank {
+		width: 2.5em;
+	}
+	.rankings-table .col-when {
+		width: 12em;
+	}
+	.rankings-table .when span {
+		white-space: nowrap;
+	}
+	@media screen and (min-width: 769px) {
+		.rankings-table .when {
+			white-space: nowrap;
+		}
+	}
+	/* On a phone the desktop column widths would leave almost nothing for the
+	   session name, so tighten them and let the date wrap onto two lines. */
+	@media screen and (max-width: 768px) {
+		.rankings-table .col-rank {
+			width: 1.8em;
+		}
+		.rankings-table .col-when {
+			width: 6em;
+		}
+		.rankings-table .col-count {
+			width: 5em;
+		}
+	}
+	.rankings-table .col-count {
+		width: 8em;
+	}
+	/* Alignment comes from Bulma's has-text-right helper: its own
+	   `table td:not([align])` rule outranks a plain class selector here. */
 	.rank-count {
-		text-align: right;
 		white-space: nowrap;
 	}
 </style>
@@ -20,12 +54,17 @@
 <h2 class="subtitle">{% trans %}Top songs{% endtrans %}</h2>
 {% if top_songs %}
 <table class="rankings-table">
+	<colgroup>
+		<col class="col-rank" />
+		<col />
+		<col class="col-count" />
+	</colgroup>
 	{% for song in top_songs %}
 	<tr>
-		<td style="width: 2em">{{ loop.index }}</td>
+		<td>{{ loop.index }}</td>
 		<td>{{ filename_from_path(song.file_path) }}</td>
 		{# MSG: Number of times a song has been sung. #}
-		<td class="rank-count">{% trans count=song.play_count %}{{ count }} play{% pluralize %}{{ count }} plays{% endtrans %}</td>
+		<td class="rank-count has-text-right">{% trans count=song.play_count %}{{ count }} play{% pluralize %}{{ count }} plays{% endtrans %}</td>
 	</tr>
 	{% endfor %}
 </table>
@@ -38,12 +77,17 @@
 <h2 class="subtitle">{% trans %}Top performers{% endtrans %}</h2>
 {% if top_performers %}
 <table class="rankings-table">
+	<colgroup>
+		<col class="col-rank" />
+		<col />
+		<col class="col-count" />
+	</colgroup>
 	{% for performer in top_performers %}
 	<tr>
-		<td style="width: 2em">{{ loop.index }}</td>
+		<td>{{ loop.index }}</td>
 		<td>{{ performer.performer }}</td>
 		{# MSG: Number of songs a performer has sung. #}
-		<td class="rank-count">{% trans count=performer.play_count %}{{ count }} play{% pluralize %}{{ count }} plays{% endtrans %}</td>
+		<td class="rank-count has-text-right">{% trans count=performer.play_count %}{{ count }} play{% pluralize %}{{ count }} plays{% endtrans %}</td>
 	</tr>
 	{% endfor %}
 </table>
@@ -56,13 +100,28 @@
 <h2 class="subtitle">{% trans %}Recent sessions{% endtrans %}</h2>
 {% if sessions %}
 <table class="rankings-table">
+	<colgroup>
+		<col />
+		<col class="col-when" />
+		<col class="col-count" />
+	</colgroup>
 	{% for session in sessions %}
 	<tr>
-		{# MSG: Label for a session the KJ never named. #}
-		<td>{{ session.name or _('Unnamed session') }}</td>
-		<td>{{ session.started_at }}</td>
+		<td>
+			{%- if session.name -%}{{ session.name }}
+			{%- else -%}
+			{# MSG: Label for a session the KJ never named, followed by its number. #}
+			{% trans number=session.id %}Session {{ number }}{% endtrans %}
+			{%- endif -%}
+		</td>
+		{# Date and time wrap as a pair, never mid-token, so a narrow screen
+		   gets two tidy lines instead of one string forcing the table wide. #}
+		<td class="when">
+			{% set started = session.started_at.split(" ") %}
+			<span>{{ started[0] }}</span> <span>{{ started[1] if started|length > 1 }}</span>
+		</td>
 		{# MSG: Number of songs played during a session. #}
-		<td class="rank-count">{% trans count=session.play_count %}{{ count }} play{% pluralize %}{{ count }} plays{% endtrans %}</td>
+		<td class="rank-count has-text-right">{% trans count=session.play_count %}{{ count }} play{% pluralize %}{{ count }} plays{% endtrans %}</td>
 	</tr>
 	{% endfor %}
 </table>

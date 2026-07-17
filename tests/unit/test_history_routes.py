@@ -122,8 +122,8 @@ class TestExport:
         assert response.status_code == 200
         assert response.mimetype == "text/csv"
         assert "attachment" in response.headers["Content-Disposition"]
-        assert "Played At,Performer,Song,Completed" in body
-        assert "2026-03-05 21:00:00,Alice,Artist - Song,yes" in body
+        # Same vocabulary as the play log on the page, not a separate one.
+        assert "Played At,Performer,Song,Status" in body
+        assert "2026-03-05 21:00:00,Alice,Artist - Song,Played" in body
         # A song deleted from the library leaves the play, but with no title
-        assert "Bob" in body
-        assert ",no" in body
+        assert "2026-03-05 21:05:00,Bob,(song removed from library),Skipped" in body

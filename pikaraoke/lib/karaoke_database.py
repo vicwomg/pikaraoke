@@ -36,6 +36,9 @@ CREATE TABLE IF NOT EXISTS metadata (
     value TEXT
 );
 
+-- Timestamps are stored UTC (CURRENT_TIMESTAMP) and converted to local time on
+-- read. Storing UTC keeps ordering correct across a daylight-saving rollback,
+-- which local wall-clock times would not.
 CREATE TABLE IF NOT EXISTS sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     uuid TEXT UNIQUE NOT NULL,

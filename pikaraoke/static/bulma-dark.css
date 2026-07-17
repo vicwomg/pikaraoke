@@ -367,6 +367,35 @@ hr {
 	border: 1px solid rgba(0, 0, 0, 0.2);
 }
 
+/* Bulma gives every dropdown item its own background and colour, which paints
+   over the panel colour above. Keep them transparent so the navbar blue shows
+   through and dropdown items match the top-level ones. */
+.navbar-dropdown a.navbar-item:not(.is-active, .is-selected) {
+	background-color: transparent;
+	color: var(--dark-text-primary);
+}
+
+.navbar-dropdown a.navbar-item:hover,
+.navbar-dropdown a.navbar-item.is-active {
+	background-color: transparent;
+	color: var(--dark-link);
+}
+
+.navbar-dropdown .navbar-divider {
+	background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* The dropdown arrow defaults to the link colour, which reads as a stray blue
+   mark floating beside the white navbar text rather than part of it. Bulma
+   paints it via --bulma-navbar-dropdown-arrow, not --bulma-arrow-color. */
+.navbar-link:not(.is-arrowless)::after {
+	--bulma-navbar-dropdown-arrow: var(--dark-text-primary);
+}
+
+.navbar-link:hover:not(.is-arrowless)::after {
+	--bulma-navbar-dropdown-arrow: var(--dark-link);
+}
+
 /* ===================================
    TABS
    =================================== */

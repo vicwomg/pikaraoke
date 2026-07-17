@@ -1,5 +1,7 @@
 """Unit tests for PlayHistoryManager."""
 
+from datetime import datetime, timezone
+
 import pytest
 
 from pikaraoke.lib.events import EventSystem
@@ -82,6 +84,106 @@ class TestSessions:
         history.start_session("Quiet Night")
         assert history.get_sessions()[0]["play_count"] == 0
 
+    def test_get_sessions_exposes_id(self, history):
+        """The UI labels unnamed sessions by number, so id has to come back."""
+        history.start_session()
+        assert history.get_sessions()[0]["id"] is not None
+
+
+class TestSessionPaging:
+    """The session list pages. Without it older sessions could never be viewed
+    or deleted, yet would still count towards the rankings."""
+
+    @pytest.fixture
+    def many_sessions(self, history):
+        for n in range(1, 13):
+            history.start_session(f"Night {n}")
+        return 12
+
+    def test_count_sessions(self, history, many_sessions):
+        assert history.count_sessions() == many_sessions
+
+    def test_count_sessions_is_zero_initially(self, history):
+        assert history.count_sessions() == 0
+
+    def test_first_page_is_the_newest(self, history, many_sessions):
+        sessions = history.get_sessions(limit=5)
+        assert [s["name"] for s in sessions] == [f"Night {n}" for n in range(12, 7, -1)]
+
+    def test_offset_walks_back_through_older_sessions(self, history, many_sessions):
+        assert [s["name"] for s in history.get_sessions(limit=5, offset=5)] == [
+            f"Night {n}" for n in range(7, 2, -1)
+        ]
+
+    def test_last_page_is_short(self, history, many_sessions):
+        assert [s["name"] for s in history.get_sessions(limit=5, offset=10)] == [
+            "Night 2",
+            "Night 1",
+        ]
+
+    def test_every_session_is_reachable_by_paging(self, history, many_sessions):
+        seen = []
+        for offset in range(0, many_sessions, 5):
+            seen += [s["name"] for s in history.get_sessions(limit=5, offset=offset)]
+        assert sorted(seen) == sorted(f"Night {n}" for n in range(1, 13))
+
+    def test_past_the_end_is_empty(self, history, many_sessions):
+        assert history.get_sessions(limit=5, offset=99) == []
+
+
+class TestActivateSession:
+    """Ending a session is otherwise one-way; a mis-clicked End would strand
+    the rest of the night in a separate auto-started session."""
+
+    def test_reopens_an_ended_session(self, history):
+        session_uuid = history.start_session("Friday Night")
+        history.end_session()
+
+        assert history.activate_session(session_uuid) is True
+        assert history.get_current_session()["uuid"] == session_uuid
+
+    def test_closes_the_previously_open_session(self, history):
+        first = history.start_session("First")
+        second = history.start_session("Second")
+
+        history.activate_session(first)
+
+        assert history.get_current_session()["uuid"] == first
+        ended = [s for s in history.get_sessions() if s["uuid"] == second][0]
+        assert ended["ended_at"] is not None
+
+    def test_never_leaves_two_sessions_open(self, db, history):
+        first = history.start_session("First")
+        history.start_session("Second")
+        history.activate_session(first)
+
+        open_sessions = db.query("SELECT * FROM sessions WHERE ended_at IS NULL")
+        assert len(open_sessions) == 1
+
+    def test_new_plays_land_in_the_reactivated_session(self, history, song_id):
+        first = history.start_session("First")
+        history.record_play(song_id, "Alice")
+        history.start_session("Second")
+        history.record_play(song_id, "Bob")
+
+        history.activate_session(first)
+        history.record_play(song_id, "Dave")
+
+        assert [p["performer"] for p in history.get_plays(first)] == ["Dave", "Alice"]
+
+    def test_activating_the_active_session_keeps_it_active(self, history):
+        session_uuid = history.start_session("Friday Night")
+
+        assert history.activate_session(session_uuid) is True
+        assert history.get_current_session()["uuid"] == session_uuid
+
+    def test_unknown_session(self, history):
+        history.start_session("Friday Night")
+
+        assert history.activate_session("no-such-uuid") is False
+        # The open session must survive a failed activate.
+        assert history.get_current_session() is not None
+
 
 class TestRecordPlay:
     def test_auto_starts_session_when_none_active(self, history, song_id):
@@ -153,6 +255,147 @@ class TestCompleted:
         assert history.get_plays()[0]["completed"] == 0
 
 
+class TestTranspose:
+    """Transposing re-queues the same song and ends the stream, but the person
+    is still mid-performance. Logging that as a second play would let one
+    transpose inflate both Top songs and Top performers."""
+
+    def test_transpose_does_not_log_a_second_play(self, history, events, song_id):
+        history.record_play(song_id, "Alice")
+        events.emit("song_ended", "transpose")
+        history.record_play(song_id, "Alice")  # restarts in the new key
+
+        assert len(history.get_plays()) == 1
+        assert history.get_top_songs()[0]["play_count"] == 1
+
+    def test_transpose_keeps_the_play_resolvable(self, history, events, song_id):
+        history.record_play(song_id, "Alice")
+        events.emit("song_ended", "transpose")
+        history.record_play(song_id, "Alice")
+        events.emit("song_ended", "complete")
+
+        plays = history.get_plays()
+        assert len(plays) == 1
+        assert plays[0]["completed"] == 1
+
+    def test_transpose_then_skip_is_not_completed(self, history, events, song_id):
+        history.record_play(song_id, "Alice")
+        events.emit("song_ended", "transpose")
+        history.record_play(song_id, "Alice")
+        events.emit("song_ended", "skip")
+
+        assert [p["completed"] for p in history.get_plays()] == [0]
+
+    def test_repeated_transposes_still_log_one_play(self, history, events, song_id):
+        history.record_play(song_id, "Alice")
+        for _ in range(3):
+            events.emit("song_ended", "transpose")
+            history.record_play(song_id, "Alice")
+        events.emit("song_ended", "complete")
+
+        assert len(history.get_plays()) == 1
+
+    def test_a_different_song_after_a_transpose_is_still_logged(self, db, history, events, song_id):
+        """The restart may never arrive; a stale resume must not swallow it."""
+        db.insert_songs([{"file_path": "/songs/b.mp4", "youtube_id": None, "format": "mp4"}])
+        other = db.get_song_id_by_path("/songs/b.mp4")
+
+        history.record_play(song_id, "Alice")
+        events.emit("song_ended", "transpose")
+        history.record_play(other, "Bob")
+
+        assert [p["performer"] for p in history.get_plays()] == ["Bob", "Alice"]
+
+    def test_same_song_by_another_performer_is_still_logged(self, history, events, song_id):
+        history.record_play(song_id, "Alice")
+        events.emit("song_ended", "transpose")
+        history.record_play(song_id, "Bob")
+
+        assert [p["performer"] for p in history.get_plays()] == ["Bob", "Alice"]
+
+    def test_transpose_that_fails_to_restart_resolves_on_the_next_ending(
+        self, history, events, song_id
+    ):
+        """A failed restart emits song_ended(timeout); the play must not stay open."""
+        history.record_play(song_id, "Alice")
+        events.emit("song_ended", "transpose")
+        events.emit("song_ended", "timeout")
+
+        assert history.current_play_id is None
+        assert [p["completed"] for p in history.get_plays()] == [0]
+
+
+class TestLocalTimes:
+    """Stored UTC so ordering survives a daylight-saving rollback, but shown as
+    wall-clock time. These assertions are only meaningful off UTC, which is
+    exactly where the bug showed up."""
+
+    @staticmethod
+    def _drift(timestamp: str, reference: datetime) -> float:
+        """Seconds between a stored timestamp string and a reference time."""
+        parsed = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
+        return abs((parsed - reference).total_seconds())
+
+    def _seconds_from_now(self, timestamp: str) -> float:
+        return self._drift(timestamp, datetime.now())
+
+    def test_stored_as_utc(self, db, history, song_id):
+        history.record_play(song_id, "Alice")
+        stored = db.query("SELECT played_at FROM plays")[0][0]
+        assert self._drift(stored, datetime.now(timezone.utc).replace(tzinfo=None)) < 60
+
+    def test_plays_are_returned_local(self, history, song_id):
+        history.record_play(song_id, "Alice")
+        assert self._seconds_from_now(history.get_plays()[0]["played_at"]) < 60
+
+    def test_sessions_are_returned_local(self, history):
+        history.start_session("Friday Night")
+        assert self._seconds_from_now(history.get_sessions()[0]["started_at"]) < 60
+        assert self._seconds_from_now(history.get_current_session()["started_at"]) < 60
+
+    def test_ended_at_is_returned_local(self, history):
+        history.start_session("Friday Night")
+        history.end_session()
+        assert self._seconds_from_now(history.get_sessions()[0]["ended_at"]) < 60
+
+    def test_singers_last_played_is_local(self, history, song_id):
+        history.record_play(song_id, "Alice")
+        assert self._seconds_from_now(history.get_singers()[0]["last_played"]) < 60
+
+    def test_export_is_local(self, history, song_id):
+        session_uuid = history.start_session("One")
+        history.record_play(song_id, "Alice")
+        assert self._seconds_from_now(history.export_plays(session_uuid)[0]["played_at"]) < 60
+
+    def test_ordering_uses_stored_utc(self, db, history, song_id):
+        """Ordering must key off the raw column, not the converted one."""
+        history.start_session("One")
+        for performer in ["First", "Second", "Third"]:
+            history.record_play(song_id, performer)
+        # Force distinct stored times to prove ORDER BY is on the real column.
+        ids = [row[0] for row in db.query("SELECT id FROM plays ORDER BY id")]
+        for offset, play_id in enumerate(ids):
+            db.execute(
+                "UPDATE plays SET played_at = datetime('2026-03-06 10:00:00', ?) WHERE id = ?",
+                (f"+{offset} hours", play_id),
+            )
+        assert [p["performer"] for p in history.get_plays()] == ["Third", "Second", "First"]
+
+
+class TestCurrentPlayId:
+    def test_none_when_nothing_playing(self, history):
+        assert history.current_play_id is None
+
+    def test_set_while_playing(self, history, song_id):
+        history.record_play(song_id, "Alice")
+        assert history.current_play_id == history.get_plays()[0]["id"]
+
+    def test_cleared_once_the_song_ends(self, history, events, song_id):
+        history.record_play(song_id, "Alice")
+        events.emit("song_ended", "complete")
+        assert history.current_play_id is None
+
+
 class TestGetSingers:
     def test_empty_when_nothing_played(self, history):
         assert history.get_singers() == []
@@ -179,6 +422,33 @@ class TestGetSingers:
         history.record_play(song_id, "Mike")
 
         assert history.get_singers()[0]["performer"] == "Mike"
+
+    def test_scoped_to_a_session(self, history, song_id):
+        first = history.start_session("One")
+        history.record_play(song_id, "Alice")
+        second = history.start_session("Two")
+        history.record_play(song_id, "Bob")
+        history.record_play(song_id, "Bob")
+
+        assert [s["performer"] for s in history.get_singers(first)] == ["Alice"]
+        assert [(s["performer"], s["play_count"]) for s in history.get_singers(second)] == [
+            ("Bob", 2)
+        ]
+        # Unscoped still means everyone, which is what the autocomplete uses.
+        assert {s["performer"] for s in history.get_singers()} == {"Alice", "Bob"}
+
+    def test_scoped_to_a_session_with_no_plays(self, history):
+        session_uuid = history.start_session("Quiet Night")
+        assert history.get_singers(session_uuid) == []
+
+    def test_scoped_groups_casing_variants(self, history, song_id):
+        session_uuid = history.start_session("One")
+        history.record_play(song_id, "Mike")
+        history.record_play(song_id, "mike")
+
+        singers = history.get_singers(session_uuid)
+        assert len(singers) == 1
+        assert singers[0]["play_count"] == 2
 
 
 class TestGetTopSongs:
@@ -259,6 +529,83 @@ class TestGetPlays:
 
         assert history.count_plays() == 2
         assert history.count_plays(session_uuid) == 1
+
+
+class TestPlaySorting:
+    """The log is paged, so sorting must happen in SQL. The sort key comes from
+    the client and is interpolated, so it has to be whitelisted."""
+
+    @pytest.fixture
+    def plays(self, db, history):
+        db.insert_songs(
+            [
+                {"file_path": "/songs/Zebra.mp4", "youtube_id": None, "format": "mp4"},
+                {"file_path": "/songs/apple.mp4", "youtube_id": None, "format": "mp4"},
+            ]
+        )
+        zebra = db.get_song_id_by_path("/songs/Zebra.mp4")
+        apple = db.get_song_id_by_path("/songs/apple.mp4")
+        history.record_play(zebra, "carol")
+        history.record_play(apple, "Alice")
+        history.record_play(zebra, "Bob")
+        # Distinct stored times so date order is unambiguous.
+        for offset, play_id in enumerate(
+            r[0] for r in db.query("SELECT id FROM plays ORDER BY id")
+        ):
+            db.execute(
+                "UPDATE plays SET played_at = datetime('2026-03-06 10:00:00', ?) WHERE id = ?",
+                (f"+{offset} hours", play_id),
+            )
+
+    def test_defaults_to_newest_first(self, history, plays):
+        assert [p["performer"] for p in history.get_plays()] == ["Bob", "Alice", "carol"]
+
+    def test_by_date_ascending(self, history, plays):
+        assert [p["performer"] for p in history.get_plays(sort="played_at", direction="asc")] == [
+            "carol",
+            "Alice",
+            "Bob",
+        ]
+
+    def test_by_performer_is_case_insensitive(self, history, plays):
+        assert [p["performer"] for p in history.get_plays(sort="performer", direction="asc")] == [
+            "Alice",
+            "Bob",
+            "carol",
+        ]
+
+    def test_by_performer_descending(self, history, plays):
+        assert [p["performer"] for p in history.get_plays(sort="performer", direction="desc")] == [
+            "carol",
+            "Bob",
+            "Alice",
+        ]
+
+    def test_by_song_is_case_insensitive(self, history, plays):
+        """apple must precede Zebra; a case-sensitive sort would put Z first."""
+        assert [p["file_path"] for p in history.get_plays(sort="song", direction="asc")] == [
+            "/songs/apple.mp4",
+            "/songs/Zebra.mp4",
+            "/songs/Zebra.mp4",
+        ]
+
+    def test_sorting_survives_paging(self, history, plays):
+        first = history.get_plays(sort="performer", direction="asc", limit=2, offset=0)
+        second = history.get_plays(sort="performer", direction="asc", limit=2, offset=2)
+        assert [p["performer"] for p in first + second] == ["Alice", "Bob", "carol"]
+
+    def test_unknown_sort_falls_back_to_date(self, history, plays):
+        assert [p["performer"] for p in history.get_plays(sort="nonsense")] == [
+            "Bob",
+            "Alice",
+            "carol",
+        ]
+
+    def test_sort_key_cannot_inject_sql(self, history, plays):
+        """An unwhitelisted key must never reach the query."""
+        injected = "p.played_at; DROP TABLE plays"
+        assert len(history.get_plays(sort=injected)) == 3
+        assert history.count_plays() == 3
 
 
 class TestDelete:

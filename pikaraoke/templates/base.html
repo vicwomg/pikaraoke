@@ -247,18 +247,6 @@
           {# MSG: Navigation link for the page where the user can add existing songs to the queue. #}
           <span>{% trans %}Browse{% endtrans %}</span>
         </a>
-        {% if is_admin() %}
-        <a id="history" class="navbar-item" href="{{ url_for('history.history') }}">
-          <i class="icon icon-list-alt" title="History"></i>
-          {# MSG: Navigation link for the play history page, only shown to the admin. #}
-          <span>{% trans %}History{% endtrans %}</span>
-        </a>
-        <a id="rankings" class="navbar-item" href="{{ url_for('history.rankings') }}">
-          <i class="icon icon-sort-down" title="Rankings"></i>
-          {# MSG: Navigation link for the play rankings page, only shown to the admin. #}
-          <span>{% trans %}Rankings{% endtrans %}</span>
-        </a>
-        {% endif %}
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
           <span aria-hidden="true"></span>
           <span aria-hidden="true"></span>
@@ -271,10 +259,34 @@
             <i class="icon  icon-mic-1" title="Current user"></i>
             <span></span>
           </a>
-          <a id="info" class="navbar-item" href="{{ url_for('info.info') }}">
-            <i class="icon icon-info-circled-1" title="Info"></i>
-            <span>Pikaraoke</span>&nbsp;&nbsp;
-          </a>
+          <!-- Home for settings and admin tools, so the main nav stays the
+               four things a singer actually uses. -->
+          <div id="pikaraoke-menu" class="navbar-item has-dropdown is-hoverable">
+            <a class="navbar-link">
+              <i class="icon icon-info-circled-1" title="Pikaraoke"></i>
+              <span>Pikaraoke</span>
+            </a>
+            <div class="navbar-dropdown is-right">
+              <a id="info" class="navbar-item" href="{{ url_for('info.info') }}">
+                <i class="icon icon-cog"></i>
+                {# MSG: Dropdown link to the settings and system information page. #}
+                <span>{% trans %}Settings{% endtrans %}</span>
+              </a>
+              {% if is_admin() %}
+              <hr class="navbar-divider">
+              <a id="history" class="navbar-item" href="{{ url_for('history.history') }}">
+                <i class="icon icon-list-alt"></i>
+                {# MSG: Dropdown link to the karaoke sessions and play log page, only shown to the admin. #}
+                <span>{% trans %}Sessions{% endtrans %}</span>
+              </a>
+              <a id="rankings" class="navbar-item" href="{{ url_for('history.rankings') }}">
+                <i class="icon icon-th-list-outline"></i>
+                {# MSG: Dropdown link to the play rankings page, only shown to the admin. #}
+                <span>{% trans %}Rankings{% endtrans %}</span>
+              </a>
+              {% endif %}
+            </div>
+          </div>
         </div>
       </div>
     </nav>

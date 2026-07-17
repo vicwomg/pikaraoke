@@ -32,6 +32,10 @@ class PlaysQuery(Schema):
     session = fields.String(load_default=None, metadata={"description": "Session UUID filter"})
     limit = fields.Integer(load_default=100)
     offset = fields.Integer(load_default=0)
+    sort = fields.String(
+        load_default="played_at", metadata={"description": "played_at, performer or song"}
+    )
+    direction = fields.String(load_default="desc", metadata={"description": "asc or desc"})
 
 
 class SessionsQuery(Schema):
@@ -43,8 +47,12 @@ class StartSessionForm(Schema):
     name = fields.String(load_default=None, metadata={"description": "Optional session name"})
 
 
+class SingersQuery(Schema):
+    session = fields.String(load_default=None, metadata={"description": "Session UUID filter"})
+
+
 class UpdateSessionForm(Schema):
-    action = fields.String(required=True, metadata={"description": "'rename' or 'end'"})
+    action = fields.String(required=True, metadata={"description": "'rename', 'end' or 'activate'"})
     name = fields.String(load_default=None, metadata={"description": "New name when renaming"})
 
 
@@ -58,10 +66,14 @@ def _with_titles(plays: list[dict]) -> list[dict]:
 
 
 @history_api_bp.route("/api/history/singers")
-def get_singers():
-    """Performer names with play counts, most active first (KJ auto-complete)."""
+@history_api_bp.arguments(SingersQuery, location="query")
+def get_singers(query):
+    """Performer names with play counts, most active first.
+
+    Unscoped for the KJ auto-complete; scoped to a session for its singer list.
+    """
     k = get_karaoke_instance()
-    return jsonify({"singers": k.play_history.get_singers()})
+    return jsonify({"singers": k.play_history.get_singers(query["session"])})
 
 
 @history_api_bp.route("/api/history/plays")
@@ -69,11 +81,16 @@ def get_singers():
 def get_plays(query):
     """Paginated play log, newest first, optionally scoped to one session."""
     k = get_karaoke_instance()
-    plays = k.play_history.get_plays(query["session"], query["limit"], query["offset"])
+    plays = k.play_history.get_plays(
+        query["session"], query["limit"], query["offset"], query["sort"], query["direction"]
+    )
     return jsonify(
         {
             "plays": _with_titles(plays),
             "total": k.play_history.count_plays(query["session"]),
+            # Its row exists but has not been resolved yet, so the UI must not
+            # render the song playing right now as skipped.
+            "current_play_id": k.play_history.current_play_id,
         }
     )
 
@@ -95,6 +112,9 @@ def get_sessions(query):
     return jsonify(
         {
             "sessions": k.play_history.get_sessions(query["limit"], query["offset"]),
+            # Without this a caller cannot tell a full list from a truncated
+            # page, which is how older sessions went missing silently.
+            "total": k.play_history.count_sessions(),
             "current": k.play_history.get_current_session(),
         }
     )
@@ -116,6 +136,11 @@ def update_session(form, session_uuid):
 
     if form["action"] == "end":
         k.play_history.end_session()
+        return jsonify({"success": True})
+
+    if form["action"] == "activate":
+        if not k.play_history.activate_session(session_uuid):
+            return jsonify({"success": False, "error": _("Session not found")}), 404
         return jsonify({"success": True})
 
     if form["action"] == "rename":
@@ -145,14 +170,14 @@ def export_session(session_uuid):
 
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(["Played At", "Performer", "Song", "Completed"])
+    writer.writerow(["Played At", "Performer", "Song", "Status"])
     for play in plays:
         writer.writerow(
             [
                 play["played_at"],
                 play["performer"],
                 play["song"] or _("(song removed from library)"),
-                "yes" if play["completed"] else "no",
+                "Played" if play["completed"] else "Skipped",
             ]
         )
 

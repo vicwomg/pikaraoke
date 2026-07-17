@@ -414,6 +414,10 @@
             $('#browse').addClass('is-active');
         } else if (path === '/info') {
             $('#info').addClass('is-active');
+        } else if (path === '/history') {
+            $('#history').addClass('is-active');
+        } else if (path === '/rankings') {
+            $('#rankings').addClass('is-active');
         }
     }
 

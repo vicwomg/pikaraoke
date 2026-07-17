@@ -144,7 +144,7 @@ class PlaybackController:
         logging.info(f"Song ending: {self.now_playing}")
         if reason:
             logging.info(f"Reason: {reason}")
-            if reason not in ("complete", "skip"):
+            if reason not in ("complete", "skip", "transpose"):
                 # MSG: Message shown when the song ends abnormally
                 self.events.emit("notification", _("Song ended abnormally: %s") % reason, "danger")
 
@@ -158,11 +158,15 @@ class PlaybackController:
 
         self.events.emit("song_ended", reason)
 
-    def skip(self, log_action: bool = True) -> bool:
+    def skip(self, log_action: bool = True, reason: str = "skip") -> bool:
         """Skip the currently playing song.
 
         Args:
             log_action: Whether to log and notify about the skip.
+            reason: End reason passed to listeners. Callers that end the stream
+                without ending the performance (a transpose restarts the same
+                song in a new key) pass their own, so play history can tell the
+                difference between a real skip and a restart.
 
         Returns:
             True if a song was skipped, False if nothing playing.
@@ -171,7 +175,7 @@ class PlaybackController:
             if log_action:
                 # MSG: Message shown after the song is skipped, will be followed by song name
                 self.events.emit("notification", _("Skip: %s") % self.now_playing, "info")
-            self.end_song(reason="skip")
+            self.end_song(reason=reason)
             return True
         else:
             logging.warning("Tried to skip, but no file is playing!")

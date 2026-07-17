@@ -1,73 +1,171 @@
 {% extends 'base.html' %} {% block scripts %}
 <script>
-	var HISTORY_PAGE_SIZE = 25;
+	var historyLimit = 25;
 	var historyOffset = 0;
 	var historyTotal = 0;
+	var historySort = "played_at";
+	var historyDirection = "desc";
+	// The session list sits above the play log, so it pages rather than growing
+	// without limit. Paging is what keeps old sessions reachable: unreachable
+	// ones could never be viewed or deleted, yet would still count towards the
+	// rankings.
+	var sessionsLimit = 10;
+	var sessionsOffset = 0;
 	var historySession = "";
 	var currentSessionUuid = null;
 
 	var historyText = {
 		// {# MSG: Shown on the history page when no session is currently running. #}
 		noSession: "{{ _('No active session') }}",
-		// {# MSG: Label for a session the KJ never named. #}
-		unnamed: "{{ _('Unnamed session') }}",
+		// {# MSG: Label for a session the KJ never named. NUMBER is replaced with a number. #}
+		unnamed: "{{ _('Session NUMBER') }}",
 		// {# MSG: Shown in the play log when the song file has since been deleted from the library. #}
 		songRemoved: "{{ _('(song removed from library)') }}",
-		// {# MSG: Prompt asking the KJ to name the session that is currently running. #}
+		// {# MSG: Prompt asking the KJ to name a session. #}
 		promptRename: "{{ _('Name this session:') }}",
-		// {# MSG: Confirmation before deleting a session and every play recorded in it. #}
-		confirmDeleteSession: "{{ _('Delete this session and all of its plays? This cannot be undone.') }}",
+		// {# MSG: Confirmation before deleting a session and every play recorded in it. SESSION is replaced with its name. #}
+		confirmDeleteSession: "{{ _('Delete SESSION and all of its plays? This cannot be undone.') }}",
 		// {# MSG: Confirmation before deleting one entry from the play log. #}
 		confirmDeletePlay: "{{ _('Delete this entry from the play log?') }}",
-		// {# MSG: Label for every session in the session filter dropdown. #}
-		allSessions: "{{ _('All sessions') }}",
+		// {# MSG: Shown when no sessions have been recorded yet. #}
+		noSessions: "{{ _('No sessions yet.') }}",
 		// {# MSG: Shown when the play log has no entries yet. #}
 		noPlays: "{{ _('Nothing has been played yet.') }}",
+		// {# MSG: Marks the session that is currently running in the session list. #}
+		active: "{{ _('active') }}",
+		// {# MSG: Heading above the list of people who sang in the selected session. #}
+		singersIn: "{{ _('Singers in SESSION') }}",
+		// {# MSG: Shown when a session has no plays, so nobody has sung in it. #}
+		noSingers: "{{ _('Nobody has sung in this session.') }}",
+		// {# MSG: Confirmation before making an old session the one new songs are recorded against. #}
+		confirmActivate: "{{ _('Make SESSION the active session? New songs will be recorded against it.') }}",
 		// {# MSG: Pagination summary. START, END and TOTAL are replaced with numbers. #}
 		showing: "{{ _('START-END of TOTAL') }}",
-		// {# MSG: Shown next to a song that was played all the way through. #}
-		yes: "{{ _('Yes') }}",
-		// {# MSG: Shown next to a song that was skipped before it finished. #}
-		no: "{{ _('No') }}"
+		// {# MSG: Status of a song that was sung all the way through. #}
+		played: "{{ _('Played') }}",
+		// {# MSG: Status of a song that was skipped before it finished. #}
+		skipped: "{{ _('Skipped') }}",
+		// {# MSG: Status of the song that is playing right now, which has not finished yet. #}
+		playing: "{{ _('Playing') }}"
 	};
 
 	function escapeHtml(text) {
 		return $("<div>").text(text == null ? "" : text).html();
 	}
 
+	// A play row is written when the song starts, so an unresolved row is the
+	// song playing right now, not one that was skipped.
+	function playStatus(play, currentPlayId) {
+		if (play.id === currentPlayId) {
+			return '<span class="has-text-info">' + escapeHtml(historyText.playing) + "</span>";
+		}
+		if (play.completed) {
+			return escapeHtml(historyText.played);
+		}
+		return '<span class="has-text-grey">' + escapeHtml(historyText.skipped) + "</span>";
+	}
+
+	// "2026-03-06 21:04:11" -> date and time as separate unbreakable spans, so
+	// the cell can wrap between them rather than forcing the table wide.
+	function whenCell(timestamp) {
+		var parts = String(timestamp == null ? "" : timestamp).split(" ");
+		return (
+			'<td class="when"><span>' + escapeHtml(parts[0]) + "</span> " +
+			"<span>" + escapeHtml(parts[1] || "") + "</span></td>"
+		);
+	}
+
+	// Unnamed sessions fall back to their number; the date is already its own
+	// column, so repeating it here only makes the label long.
 	function sessionLabel(session) {
-		return session.name || historyText.unnamed + " - " + session.started_at;
+		return session.name || historyText.unnamed.replace("NUMBER", session.id);
 	}
 
 	function loadSessions() {
-		return $.getJSON("{{ url_for('history_api.get_sessions') }}", function (data) {
+		var params = { limit: sessionsLimit, offset: sessionsOffset };
+		return $.getJSON("{{ url_for('history_api.get_sessions') }}", params, function (data) {
+			// Deleting the last row on the last page would otherwise strand the
+			// list on an empty one.
+			if (!data.sessions.length && sessionsOffset > 0) {
+				sessionsOffset = Math.max(0, sessionsOffset - sessionsLimit);
+				loadSessions();
+				return;
+			}
+
 			currentSessionUuid = data.current ? data.current.uuid : null;
+
+			var sessionsStart = data.total ? sessionsOffset + 1 : 0;
+			var sessionsEnd = Math.min(sessionsOffset + sessionsLimit, data.total);
+			$("#sessions-page-info").text(
+				historyText.showing
+					.replace("START", sessionsStart)
+					.replace("END", sessionsEnd)
+					.replace("TOTAL", data.total)
+			);
+			$("#sessions-prev").prop("disabled", sessionsOffset === 0);
+			$("#sessions-next").prop("disabled", sessionsEnd >= data.total);
 
 			$("#current-session").text(data.current ? sessionLabel(data.current) : historyText.noSession);
 			$("#start-session").toggleClass("is-hidden", !!data.current);
 			$("#end-session").toggleClass("is-hidden", !data.current);
 			$("#rename-session").toggleClass("is-hidden", !data.current);
 
-			var $filter = $("#session-filter").empty();
-			$filter.append($("<option>").val("").text(historyText.allSessions));
+			var $body = $("#sessions-body").empty();
+			if (!data.sessions.length) {
+				$body.append($("<tr>").append($("<td>").attr("colspan", 4).text(historyText.noSessions)));
+			}
+
 			data.sessions.forEach(function (session) {
-				$filter.append(
-					$("<option>")
-						.val(session.uuid)
-						.text(sessionLabel(session) + " (" + session.play_count + ")")
+				var isActive = session.uuid === currentSessionUuid;
+				var isFiltered = session.uuid === historySession;
+				if (isFiltered) {
+					$("#singers-heading").text(
+						historyText.singersIn.replace("SESSION", sessionLabel(session))
+					);
+				}
+				var badge = isActive
+					? ' <span class="tag is-success is-light">' + escapeHtml(historyText.active) + "</span>"
+					: "";
+				$body.append(
+					'<tr class="' + (isFiltered ? "is-selected-session" : "") + '">' +
+						'<td><a class="filter-session" data-uuid="' + escapeHtml(session.uuid) + '">' +
+							escapeHtml(sessionLabel(session)) + "</a>" + badge + "</td>" +
+						whenCell(session.started_at) +
+						'<td class="has-text-right">' + session.play_count + "</td>" +
+						'<td class="has-text-right">' +
+							'<a class="has-text-grey-light session-options-btn" data-uuid="' +
+								escapeHtml(session.uuid) + '" data-label="' + escapeHtml(sessionLabel(session)) +
+								'" data-active="' + isActive + '" title="{{ _("Options") }}">' +
+								'<i class="icon-cog is-size-5"></i></a>' +
+						"</td>" +
+					"</tr>"
 				);
 			});
-			$filter.val(historySession);
-			$("#session-actions").toggleClass("is-hidden", !historySession);
-			$("#export-session").attr("href", "/api/history/export/" + historySession);
+		});
+	}
+
+	// Mark the sorted column, so it is clear which one the order came from.
+	function renderSortArrows() {
+		$("#play-log th.sortable").each(function () {
+			var $th = $(this);
+			var arrow = historyDirection === "asc" ? "icon-sort-up" : "icon-sort-down";
+			$th.find(".sort-arrow").html(
+				$th.data("sort") === historySort ? '<i class="icon ' + arrow + '"></i>' : ""
+			);
 		});
 	}
 
 	function loadPlays() {
-		var params = { limit: HISTORY_PAGE_SIZE, offset: historyOffset };
+		var params = {
+			limit: historyLimit,
+			offset: historyOffset,
+			sort: historySort,
+			direction: historyDirection
+		};
 		if (historySession) {
 			params.session = historySession;
 		}
+		renderSortArrows();
 		return $.getJSON("{{ url_for('history_api.get_plays') }}", params, function (data) {
 			historyTotal = data.total;
 			var $body = $("#plays-body").empty();
@@ -82,18 +180,18 @@
 					: '<span class="has-text-grey">' + escapeHtml(historyText.songRemoved) + "</span>";
 				$body.append(
 					"<tr>" +
-						"<td>" + escapeHtml(play.played_at) + "</td>" +
+						whenCell(play.played_at) +
 						"<td>" + escapeHtml(play.performer) + "</td>" +
 						"<td class='break-word'>" + song + "</td>" +
-						"<td>" + (play.completed ? historyText.yes : historyText.no) + "</td>" +
-						"<td><a class='delete-play has-text-danger' data-id='" + play.id +
+						"<td>" + playStatus(play, data.current_play_id) + "</td>" +
+						"<td class='has-text-right'><a class='delete-play has-text-danger' data-id='" + play.id +
 						"' title='Delete'><i class='icon icon-trash'></i></a></td>" +
 					"</tr>"
 				);
 			});
 
 			var start = historyTotal ? historyOffset + 1 : 0;
-			var end = Math.min(historyOffset + HISTORY_PAGE_SIZE, historyTotal);
+			var end = Math.min(historyOffset + historyLimit, historyTotal);
 			$("#page-info").text(
 				historyText.showing
 					.replace("START", start)
@@ -102,25 +200,125 @@
 			);
 			$("#prev-page").prop("disabled", historyOffset === 0);
 			$("#next-page").prop("disabled", end >= historyTotal);
+			$("#clear-filter").toggleClass("is-hidden", !historySession);
 		});
+	}
+
+	// Who sang in the selected session. Derived from its plays, so a name only
+	// appears here once that person has actually sung something.
+	function loadSingers() {
+		var $block = $("#session-singers");
+		if (!historySession) {
+			$block.addClass("is-hidden");
+			return;
+		}
+		$block.removeClass("is-hidden");
+		return $.getJSON(
+			"{{ url_for('history_api.get_singers') }}",
+			{ session: historySession },
+			function (data) {
+				var $list = $("#singers-list").empty();
+				if (!data.singers.length) {
+					$list.append($("<span>").text(historyText.noSingers));
+					return;
+				}
+				data.singers.forEach(function (singer) {
+					$list.append(
+						$("<span>")
+							.addClass("tag singer-tag")
+							.text(singer.performer + " (" + singer.play_count + ")")
+					);
+				});
+			}
+		);
 	}
 
 	function refreshHistory() {
 		loadSessions();
+		loadSingers();
 		loadPlays();
 	}
 
 	function putSession(uuid, payload) {
 		return $.ajax({
-			url: "/api/history/sessions/" + uuid,
+			url: "/api/history/sessions/" + encodeURIComponent(uuid),
 			type: "PUT",
 			contentType: "application/json",
 			data: JSON.stringify(payload)
 		});
 	}
 
+	function renameSession(uuid) {
+		var name = window.prompt(historyText.promptRename);
+		if (name === null || name.trim() === "") {
+			return;
+		}
+		putSession(uuid, { action: "rename", name: name.trim() }).done(refreshHistory);
+	}
+
+	function deleteSession(uuid) {
+		$.ajax({ url: "/api/history/sessions/" + encodeURIComponent(uuid), type: "DELETE" }).done(
+			function () {
+				if (historySession === uuid) {
+					historySession = "";
+					historyOffset = 0;
+				}
+				refreshHistory();
+			}
+		);
+	}
+
+	// Row actions live in one modal rather than a row of icons, matching the
+	// queue page and keeping the table narrow enough for a phone.
+	window.currentSessionOptions = { uuid: "", label: "" };
+
+	window.openSessionOptions = function (uuid, label, isActive) {
+		window.currentSessionOptions = { uuid: uuid, label: label };
+		$("#session-modal-title").text(label);
+		$("#opt-activate").toggle(!isActive);
+		$("#opt-export").attr("href", "/api/history/export/" + encodeURIComponent(uuid));
+		$("#session-options-modal").addClass("is-active");
+	};
+
+	window.closeSessionOptions = function () {
+		$("#session-options-modal").removeClass("is-active");
+	};
+
+	window.executeSessionAction = function (action) {
+		var uuid = window.currentSessionOptions.uuid;
+		var label = window.currentSessionOptions.label;
+		window.closeSessionOptions();
+
+		if (action === "activate") {
+			if (window.confirm(historyText.confirmActivate.replace("SESSION", label))) {
+				putSession(uuid, { action: "activate" }).done(refreshHistory);
+			}
+		} else if (action === "rename") {
+			renameSession(uuid);
+		} else if (action === "delete") {
+			if (window.confirm(historyText.confirmDeleteSession.replace("SESSION", label))) {
+				deleteSession(uuid);
+			}
+		}
+	};
+
 	$(function () {
 		refreshHistory();
+
+		// A play is logged when the song starts and resolved when it ends, so the
+		// Status column changes without anyone touching this page. now_playing is
+		// emitted on both, which is the same event the rest of the UI follows.
+		// Re-registered rather than stacked, because SPA navigation re-runs this.
+		if (window.socket) {
+			if (window.historyNowPlayingHandler) {
+				window.socket.off("now_playing", window.historyNowPlayingHandler);
+			}
+			window.historyNowPlayingHandler = debounce(function () {
+				loadSessions();
+				loadPlays();
+			}, 400);
+			window.socket.on("now_playing", window.historyNowPlayingHandler);
+		}
 
 		$("#start-session").on("click", function () {
 			$.ajax({
@@ -136,28 +334,52 @@
 		});
 
 		$("#rename-session").on("click", function () {
-			var name = window.prompt(historyText.promptRename);
-			if (name === null || name.trim() === "") {
-				return;
-			}
-			putSession(currentSessionUuid, { action: "rename", name: name.trim() }).done(refreshHistory);
+			renameSession(currentSessionUuid);
 		});
 
-		$("#session-filter").on("change", function () {
-			historySession = $(this).val();
+		$("#sessions-body").on("click", ".session-options-btn", function () {
+			var $btn = $(this);
+			window.openSessionOptions($btn.data("uuid"), $btn.data("label"), $btn.data("active") === true);
+		});
+
+		$("#session-options-modal .modal-background").on("click", window.closeSessionOptions);
+
+		$("#sessions-body").on("click", ".filter-session", function () {
+			var uuid = $(this).data("uuid");
+			// Clicking the session already being shown clears the filter.
+			historySession = historySession === uuid ? "" : uuid;
 			historyOffset = 0;
 			refreshHistory();
 		});
 
-		$("#delete-session").on("click", function () {
-			if (!window.confirm(historyText.confirmDeleteSession)) {
-				return;
-			}
-			$.ajax({ url: "/api/history/sessions/" + historySession, type: "DELETE" }).done(function () {
-				historySession = "";
-				historyOffset = 0;
-				refreshHistory();
-			});
+		$("#sessions-limit").on("change", function () {
+			sessionsLimit = parseInt($(this).val(), 10);
+			// A new page size invalidates the old offset, so start again at page one.
+			sessionsOffset = 0;
+			loadSessions();
+		});
+
+		$("#history-limit").on("change", function () {
+			historyLimit = parseInt($(this).val(), 10);
+			// A new page size invalidates the old offset, so start again at page one.
+			historyOffset = 0;
+			loadPlays();
+		});
+
+		$("#sessions-prev").on("click", function () {
+			sessionsOffset = Math.max(0, sessionsOffset - sessionsLimit);
+			loadSessions();
+		});
+
+		$("#sessions-next").on("click", function () {
+			sessionsOffset += sessionsLimit;
+			loadSessions();
+		});
+
+		$("#clear-filter").on("click", function () {
+			historySession = "";
+			historyOffset = 0;
+			refreshHistory();
 		});
 
 		$("#plays-body").on("click", ".delete-play", function () {
@@ -167,13 +389,26 @@
 			$.ajax({ url: "/api/history/plays/" + $(this).data("id"), type: "DELETE" }).done(refreshHistory);
 		});
 
+		$("#play-log").on("click", "th.sortable", function () {
+			var sort = $(this).data("sort");
+			if (historySort === sort) {
+				historyDirection = historyDirection === "asc" ? "desc" : "asc";
+			} else {
+				// Dates read best newest-first; names read best A-Z.
+				historySort = sort;
+				historyDirection = sort === "played_at" ? "desc" : "asc";
+			}
+			historyOffset = 0;
+			loadPlays();
+		});
+
 		$("#prev-page").on("click", function () {
-			historyOffset = Math.max(0, historyOffset - HISTORY_PAGE_SIZE);
+			historyOffset = Math.max(0, historyOffset - historyLimit);
 			loadPlays();
 		});
 
 		$("#next-page").on("click", function () {
-			historyOffset += HISTORY_PAGE_SIZE;
+			historyOffset += historyLimit;
 			loadPlays();
 		});
 	});
@@ -181,15 +416,29 @@
 {% endblock %} {% block header %}
 <h1>{% block title %}{{ title }}{% endblock %}</h1>
 <style>
-	#history-table {
+	.history-table {
 		width: 100%;
 		table-layout: auto;
 	}
-	#history-table td {
+	.history-table td {
 		word-wrap: break-word;
 	}
+	/* Timestamps may wrap between the date and the time, but never within
+	   either, so a narrow screen gets two tidy lines instead of one long
+	   string forcing the table wider than the viewport. Where there is room
+	   they stay on one line. */
+	.history-table .when span {
+		white-space: nowrap;
+	}
+	@media screen and (min-width: 769px) {
+		.history-table .when {
+			white-space: nowrap;
+		}
+	}
+	/* break-word, not break-all: song titles wrap at spaces and only split a
+	   word when that word alone is too wide for the column. */
 	.break-word {
-		word-break: break-all;
+		overflow-wrap: break-word;
 	}
 	.session-controls {
 		display: flex;
@@ -197,9 +446,36 @@
 		gap: 8px;
 		align-items: center;
 	}
+	.session-buttons {
+		display: flex;
+		flex-wrap: nowrap;
+		gap: 8px;
+	}
+	.filter-session {
+		cursor: pointer;
+	}
+	.session-options-btn {
+		cursor: pointer;
+	}
+	.history-table th.sortable {
+		cursor: pointer;
+		white-space: nowrap;
+	}
+	.history-table th.sortable:hover {
+		color: var(--dark-link);
+	}
+	.singer-tag {
+		margin-right: 6px;
+		margin-bottom: 6px;
+	}
+	tr.is-selected-session > td {
+		background-color: rgb(70, 80, 80);
+	}
 </style>
 {% endblock %} {% block content %}
 
+{# MSG: Heading for the section which manages karaoke sessions. #}
+<h2 class="subtitle">{% trans %}Session{% endtrans %}</h2>
 <div class="notification session-controls">
 	<span class="is-flex-grow-1">
 		<i class="icon icon-mic-1"></i>
@@ -207,44 +483,82 @@
 		<strong>{% trans %}Current session{% endtrans %}:</strong>
 		<span id="current-session"></span>
 	</span>
-	<button id="start-session" class="button is-small is-success is-hidden">
-		{# MSG: Button which starts a new play history session. #} {% trans %}Start session{% endtrans %}
-	</button>
-	<button id="rename-session" class="button is-small is-hidden">
-		{# MSG: Button which names the session that is currently running. #} {% trans %}Rename{% endtrans %}
-	</button>
-	<button id="end-session" class="button is-small is-warning is-hidden">
-		{# MSG: Button which closes the session that is currently running. #} {% trans %}End session{% endtrans %}
-	</button>
-</div>
-
-<div class="session-controls" style="margin-bottom: 10px">
-	<div class="select is-small">
-		<select id="session-filter"></select>
-	</div>
-	<span id="session-actions" class="session-controls is-hidden">
-		<a id="export-session" class="button is-small no-spa">
-			{# MSG: Button which downloads the selected session's play log as a CSV file. #} {% trans %}Export CSV{%
-			endtrans %}
-		</a>
-		<button id="delete-session" class="button is-small is-danger">
-			{# MSG: Button which deletes the selected session and all of its plays. #} {% trans %}Delete session{% endtrans
-			%}
+	{# One flex item, so the actions wrap as a group instead of splitting across rows. #}
+	<span class="session-buttons">
+		<button id="start-session" class="button is-small is-success is-hidden">
+			{# MSG: Button which starts a new play history session. #} {% trans %}Start session{% endtrans %}
+		</button>
+		<button id="rename-session" class="button is-small is-hidden">
+			{# MSG: Button which names the session that is currently running. #} {% trans %}Rename{% endtrans %}
+		</button>
+		<button id="end-session" class="button is-small is-warning is-hidden">
+			{# MSG: Button which closes the session that is currently running. #} {% trans %}End session{% endtrans %}
 		</button>
 	</span>
 </div>
 
-<table id="history-table">
+<table class="history-table">
+	<thead>
+		<tr>
+			{# MSG: Session list column header for the session name. #}
+			<th>{% trans %}Session{% endtrans %}</th>
+			{# MSG: Session list column header for when the session started. #}
+			<th>{% trans %}Started{% endtrans %}</th>
+			{# MSG: Session list column header for how many songs were played. #}
+			<th class="has-text-right">{% trans %}Plays{% endtrans %}</th>
+			<th></th>
+		</tr>
+	</thead>
+	<tbody id="sessions-body"></tbody>
+</table>
+
+<div class="session-controls" style="margin-top: 8px">
+	<button id="sessions-prev" class="button is-small"><i class="icon icon-left-big"></i></button>
+	<button id="sessions-next" class="button is-small"><i class="icon icon-right-big"></i></button>
+	<span id="sessions-page-info" class="is-size-7"></span>
+	<span class="is-flex-grow-1"></span>
+	{# MSG: Label before the dropdown choosing how many sessions to list per page. #}
+	<label class="is-size-7" for="sessions-limit">{% trans %}Per page{% endtrans %}</label>
+	<div class="select is-small">
+		<select id="sessions-limit">
+			<option value="5">5</option>
+			<option value="10" selected>10</option>
+			<option value="25">25</option>
+			<option value="50">50</option>
+		</select>
+	</div>
+</div>
+
+<div id="session-singers" class="is-hidden" style="margin-top: 12px">
+	<strong id="singers-heading"></strong>
+	<div id="singers-list" style="margin-top: 6px"></div>
+</div>
+
+<h2 class="subtitle" style="margin-top: 25px">
+	{# MSG: Heading for the list of songs that have been played. #}
+	{% trans %}History{% endtrans %}
+	<a id="clear-filter" class="is-size-7 is-hidden" style="margin-left: 10px">
+		{# MSG: Link which stops filtering the play log by session and shows every play. #}
+		{% trans %}Show all sessions{% endtrans %}
+	</a>
+</h2>
+<table class="history-table" id="play-log">
 	<thead>
 		<tr>
 			{# MSG: Play log column header for when the song was played. #}
-			<th>{% trans %}Played{% endtrans %}</th>
+			<th class="sortable" data-sort="played_at">
+				{% trans %}Played{% endtrans %} <span class="sort-arrow"></span>
+			</th>
 			{# MSG: Play log column header for who sang the song. #}
-			<th>{% trans %}Performer{% endtrans %}</th>
+			<th class="sortable" data-sort="performer">
+				{% trans %}Performer{% endtrans %} <span class="sort-arrow"></span>
+			</th>
 			{# MSG: Play log column header for the song that was sung. #}
-			<th>{% trans %}Song{% endtrans %}</th>
-			{# MSG: Play log column header for whether the song played all the way through. #}
-			<th>{% trans %}Completed{% endtrans %}</th>
+			<th class="sortable" data-sort="song">
+				{% trans %}Song{% endtrans %} <span class="sort-arrow"></span>
+			</th>
+			{# MSG: Play log column header for whether the song was played through, skipped, or is still playing. #}
+			<th>{% trans %}Status{% endtrans %}</th>
 			<th></th>
 		</tr>
 	</thead>
@@ -254,7 +568,50 @@
 <div class="session-controls" style="margin-top: 10px">
 	<button id="prev-page" class="button is-small"><i class="icon icon-left-big"></i></button>
 	<button id="next-page" class="button is-small"><i class="icon icon-right-big"></i></button>
-	<span id="page-info"></span>
+	<span id="page-info" class="is-size-7"></span>
+	<span class="is-flex-grow-1"></span>
+	{# MSG: Label before the dropdown choosing how many plays to list per page. #}
+	<label class="is-size-7" for="history-limit">{% trans %}Per page{% endtrans %}</label>
+	<div class="select is-small">
+		<select id="history-limit">
+			<option value="10">10</option>
+			<option value="25" selected>25</option>
+			<option value="50">50</option>
+			<option value="100">100</option>
+		</select>
+	</div>
+</div>
+
+<div class="modal" id="session-options-modal">
+	<div class="modal-background"></div>
+	<div class="modal-card" style="width: 90%; max-width: 400px;">
+		<header class="modal-card-head" style="padding: 15px;">
+			<p class="modal-card-title is-size-6" id="session-modal-title" style="max-width: 95%"></p>
+			<button class="delete" aria-label="close" onclick="closeSessionOptions()"></button>
+		</header>
+		<section class="modal-card-body" style="padding: 0;">
+			<a id="opt-activate" class="panel-block py-3" href="#" onclick="executeSessionAction('activate'); return false;">
+				<span class="icon has-text-info mr-2"><i class="icon-exchange"></i></span>
+				{# MSG: Menu item which makes an old session the one new songs are recorded against. #}
+				{% trans %}Make active{% endtrans %}
+			</a>
+			<a id="opt-export" class="panel-block py-3 no-spa" href="#">
+				<span class="icon mr-2"><i class="icon-down-circled"></i></span>
+				{# MSG: Menu item which downloads the session's play log as a CSV file. #}
+				{% trans %}Export CSV{% endtrans %}
+			</a>
+			<a id="opt-rename" class="panel-block py-3" href="#" onclick="executeSessionAction('rename'); return false;">
+				<span class="icon mr-2"><i class="icon-pencil"></i></span>
+				{# MSG: Menu item which renames the session. #}
+				{% trans %}Rename{% endtrans %}
+			</a>
+			<a id="opt-delete-session" class="panel-block py-3 has-text-danger" href="#" onclick="executeSessionAction('delete'); return false;">
+				<span class="icon mr-2"><i class="icon-trash-empty"></i></span>
+				{# MSG: Menu item which deletes the session and every play recorded in it. #}
+				{% trans %}Delete session{% endtrans %}
+			</a>
+		</section>
+	</div>
 </div>
 
 {% endblock %}

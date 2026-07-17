@@ -27,7 +27,7 @@ def history():
     return render_template(
         "history.html",
         site_title=get_site_name(),
-        title="History",
+        title="Sessions",
         admin=True,
     )
 

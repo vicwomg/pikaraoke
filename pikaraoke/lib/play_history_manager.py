@@ -14,6 +14,28 @@ _LATEST_CASING = """
 """
 
 
+# Sortable columns for the play log, keyed by what the UI sends. These
+# interpolate into SQL, so the sort key is looked up here and never used raw.
+# Songs sort by path rather than display title: the title is derived in Python,
+# and path order still groups every play of the same song together.
+_PLAY_SORTS = {
+    "played_at": "p.played_at",
+    "performer": "p.performer COLLATE NOCASE",
+    "song": "s.file_path COLLATE NOCASE",
+}
+
+
+def _local(column: str, alias: str) -> str:
+    """Render a UTC timestamp column as local time.
+
+    Timestamps are stored UTC so that ordering survives a daylight-saving
+    rollback, but a KJ only ever wants wall-clock time. Converting here in SQL
+    keeps it to one place, rather than one conversion in Python for the
+    server-rendered pages and another in JavaScript for the fetched ones.
+    """
+    return f"datetime({column}, 'localtime') AS {alias}"
+
+
 class PlayHistoryManager:
     """Records who sang what and when, grouped into sessions.
 
@@ -26,7 +48,18 @@ class PlayHistoryManager:
         self.db = db
         self.events = events
         self._current_play_id: int | None = None
+        self._resuming = False
         self.events.on("song_ended", self._on_song_ended)
+
+    @property
+    def current_play_id(self) -> int | None:
+        """The play still in flight, or None when nothing is playing.
+
+        A play row is written when the song starts, so `completed` is only
+        meaningful once it ends. The UI needs this to tell "still playing"
+        apart from "was skipped".
+        """
+        return self._current_play_id
 
     # ------------------------------------------------------------------
     # Sessions
@@ -49,15 +82,21 @@ class PlayHistoryManager:
     def get_current_session(self) -> dict | None:
         """Return the open session, or None if none is active."""
         rows = self.db.query(
-            "SELECT * FROM sessions WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1"
+            f"""
+            SELECT id, uuid, name, {_local("started_at", "started_at")}, ended_at
+            FROM sessions WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1
+            """
         )
         return dict(rows[0]) if rows else None
 
     def get_sessions(self, limit: int = 50, offset: int = 0) -> list[dict]:
-        """Return sessions newest first, each with its play count."""
+        """Return a page of sessions, newest first, each with its play count."""
         rows = self.db.query(
-            """
-            SELECT s.uuid, s.name, s.started_at, s.ended_at, COUNT(p.id) AS play_count
+            f"""
+            SELECT s.id, s.uuid, s.name,
+                   {_local("s.started_at", "started_at")},
+                   {_local("s.ended_at", "ended_at")},
+                   COUNT(p.id) AS play_count
             FROM sessions s
             LEFT JOIN plays p ON p.session_id = s.id
             GROUP BY s.id
@@ -67,6 +106,22 @@ class PlayHistoryManager:
             (limit, offset),
         )
         return [dict(row) for row in rows]
+
+    def activate_session(self, session_uuid: str) -> bool:
+        """Reopen a session so new plays land in it, closing any other open one.
+
+        Ending a session is otherwise one-way, so a mis-clicked End would split
+        a night across two sessions with no way to rejoin them.
+        """
+        if not self.db.query("SELECT id FROM sessions WHERE uuid = ?", (session_uuid,)):
+            return False
+        self.end_session()
+        self.db.execute("UPDATE sessions SET ended_at = NULL WHERE uuid = ?", (session_uuid,))
+        return True
+
+    def count_sessions(self) -> int:
+        """Return the total number of sessions, so a paged list can say so."""
+        return self.db.query("SELECT COUNT(*) FROM sessions")[0][0]
 
     def rename_session(self, session_uuid: str, name: str) -> bool:
         """Name a session (typically one that auto-started unnamed)."""
@@ -86,6 +141,13 @@ class PlayHistoryManager:
 
     def record_play(self, song_id: int | None, performer: str) -> None:
         """Record a play against the active session, auto-starting one if needed."""
+        if self._resuming:
+            self._resuming = False
+            if self._is_current_play(song_id, performer):
+                # Same performance restarting in a new key. Reusing the open row
+                # keeps it to one play, so a transpose cannot inflate rankings.
+                return
+
         session = self.get_current_session()
         if session is None:
             self.start_session()
@@ -97,12 +159,34 @@ class PlayHistoryManager:
         )
         self._current_play_id = cursor.lastrowid
 
+    def _is_current_play(self, song_id: int | None, performer: str) -> bool:
+        """Is the in-flight play this same song by this same performer?
+
+        Guards the resume: if the restart never arrives (the file vanished, say)
+        the flag would otherwise swallow whatever played next.
+        """
+        if self._current_play_id is None:
+            return False
+        rows = self.db.query(
+            "SELECT song_id, performer FROM plays WHERE id = ?", (self._current_play_id,)
+        )
+        if not rows:
+            return False
+        return rows[0]["song_id"] == song_id and rows[0]["performer"] == performer
+
     def _on_song_ended(self, reason: str | None = None) -> None:
         """Resolve the pending play's completed flag from the end reason.
 
         end_song() fires on every ending path, so only reason == "complete"
         marks the song as sung through; "skip" and "timeout" do not.
         """
+        # A transpose ends the stream but not the performance: hold the row open
+        # so the restart in the new key reuses it instead of logging a second.
+        if reason == "transpose" and self._current_play_id is not None:
+            self._resuming = True
+            return
+
+        self._resuming = False
         if self._current_play_id is None:
             return
         if reason == "complete":
@@ -114,9 +198,25 @@ class PlayHistoryManager:
     # ------------------------------------------------------------------
 
     def get_plays(
-        self, session_uuid: str | None = None, limit: int = 100, offset: int = 0
+        self,
+        session_uuid: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+        sort: str = "played_at",
+        direction: str = "desc",
     ) -> list[dict]:
-        """Return the play log newest first, optionally scoped to one session."""
+        """Return a page of the play log, optionally scoped to one session.
+
+        Sorting happens here rather than in the page because the log is paged:
+        sorting a single page would only order the rows already fetched.
+
+        Args:
+            sort: One of _PLAY_SORTS. Anything else falls back to played_at.
+            direction: "asc", or descending for anything else.
+        """
+        order = _PLAY_SORTS.get(sort, _PLAY_SORTS["played_at"])
+        ascending = "ASC" if direction == "asc" else "DESC"
+
         where = ""
         params: tuple = ()
         if session_uuid:
@@ -125,12 +225,12 @@ class PlayHistoryManager:
 
         rows = self.db.query(
             f"""
-            SELECT p.id, p.played_at, p.performer, p.completed,
+            SELECT p.id, {_local("p.played_at", "played_at")}, p.performer, p.completed,
                    p.song_id, s.file_path, s.artist, s.title
             FROM plays p
             LEFT JOIN songs s ON s.id = p.song_id
             {where}
-            ORDER BY p.played_at DESC, p.id DESC
+            ORDER BY {order} {ascending}, p.id {ascending}
             LIMIT ? OFFSET ?
             """,
             params + (limit, offset),
@@ -149,17 +249,30 @@ class PlayHistoryManager:
             rows = self.db.query("SELECT COUNT(*) FROM plays")
         return rows[0][0]
 
-    def get_singers(self) -> list[dict]:
-        """Return performers with play counts, most active first."""
+    def get_singers(self, session_uuid: str | None = None) -> list[dict]:
+        """Return performers with play counts, most active first.
+
+        Scoped to one session when given; otherwise every performer on record.
+        The casing subquery stays unscoped so a name renders the same way
+        wherever it appears.
+        """
+        where = ""
+        params: tuple = ()
+        if session_uuid:
+            where = "WHERE p.session_id = (SELECT id FROM sessions WHERE uuid = ?)"
+            params = (session_uuid,)
+
         rows = self.db.query(
             f"""
             SELECT ({_LATEST_CASING}) AS performer,
                    COUNT(*) AS play_count,
-                   MAX(p.played_at) AS last_played
+                   {_local("MAX(p.played_at)", "last_played")}
             FROM plays p
+            {where}
             GROUP BY p.performer COLLATE NOCASE
             ORDER BY play_count DESC, last_played DESC
-            """
+            """,
+            params,
         )
         return [dict(row) for row in rows]
 
@@ -186,8 +299,9 @@ class PlayHistoryManager:
     def export_plays(self, session_uuid: str) -> list[dict]:
         """Return a session's plays oldest first, for CSV export."""
         rows = self.db.query(
-            """
-            SELECT p.played_at, p.performer, p.completed, s.file_path, s.artist, s.title
+            f"""
+            SELECT {_local("p.played_at", "played_at")}, p.performer, p.completed,
+                   s.file_path, s.artist, s.title
             FROM plays p
             LEFT JOIN songs s ON s.id = p.song_id
             WHERE p.session_id = (SELECT id FROM sessions WHERE uuid = ?)
