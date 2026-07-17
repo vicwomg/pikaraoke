@@ -160,15 +160,34 @@
 		});
 	}
 
-	// Mark the sorted column, so it is clear which one the order came from.
+	// Mark the sorted field, so it is clear which one the order came from. Both
+	// the desktop column headers and the phone sort bar carry a .sort-arrow.
 	function renderSortArrows() {
-		$("#play-log th.sortable").each(function () {
-			var $th = $(this);
-			var arrow = historyDirection === "asc" ? "icon-sort-up" : "icon-sort-down";
-			$th.find(".sort-arrow").html(
-				$th.data("sort") === historySort ? '<i class="icon ' + arrow + '"></i>' : ""
-			);
+		var arrow = historyDirection === "asc" ? "icon-sort-up" : "icon-sort-down";
+		$("#play-log th.sortable, #play-sort-bar .sort-btn").each(function () {
+			var $el = $(this);
+			var active = $el.data("sort") === historySort;
+			$el.find(".sort-arrow").html(active ? '<i class="icon ' + arrow + '"></i>' : "");
+			// The phone's buttons also highlight the active field; a header shows
+			// it through the arrow alone.
+			if ($el.hasClass("sort-btn")) {
+				$el.toggleClass("is-info", active);
+			}
 		});
+	}
+
+	// Sorting is shared by the desktop column headers and the phone sort bar:
+	// clicking the active field flips direction; a new field starts on its
+	// natural default (dates newest-first, names A-Z).
+	function applySort(sort) {
+		if (historySort === sort) {
+			historyDirection = historyDirection === "asc" ? "desc" : "asc";
+		} else {
+			historySort = sort;
+			historyDirection = sort === "played_at" ? "desc" : "asc";
+		}
+		playsPage.offset = 0;
+		loadPlays();
 	}
 
 	function loadPlays() {
@@ -196,10 +215,10 @@
 				$body.append(
 					"<tr>" +
 						whenCell(play.played_at) +
-						"<td>" + escapeHtml(play.performer) + "</td>" +
-						"<td class='break-word'>" + song + "</td>" +
-						"<td>" + playStatus(play, data.current_play_id) + "</td>" +
-						"<td class='has-text-right'><a class='delete-play has-text-danger' data-id='" + play.id +
+						"<td class='performer-cell'>" + escapeHtml(play.performer) + "</td>" +
+						"<td class='break-word song-cell'>" + song + "</td>" +
+						"<td class='status-cell'>" + playStatus(play, data.current_play_id) + "</td>" +
+						"<td class='has-text-right delete-cell'><a class='delete-play has-text-danger' data-id='" + play.id +
 						"' title='Delete'><i class='icon icon-trash'></i></a></td>" +
 					"</tr>"
 				);
@@ -391,16 +410,11 @@
 		});
 
 		$("#play-log").on("click", "th.sortable", function () {
-			var sort = $(this).data("sort");
-			if (historySort === sort) {
-				historyDirection = historyDirection === "asc" ? "desc" : "asc";
-			} else {
-				// Dates read best newest-first; names read best A-Z.
-				historySort = sort;
-				historyDirection = sort === "played_at" ? "desc" : "asc";
-			}
-			playsPage.offset = 0;
-			loadPlays();
+			applySort($(this).data("sort"));
+		});
+
+		$("#play-sort-bar").on("click", ".sort-btn", function () {
+			applySort($(this).data("sort"));
 		});
 	});
 </script>
@@ -445,16 +459,84 @@
 	tr.is-selected-session > td {
 		background-color: rgb(70, 80, 80);
 	}
+	/* The sort bar only stands in for the column headers on a phone, where the
+	   card layout hides them. */
+	#play-sort-bar {
+		display: none;
+	}
+	/* On a phone the five-column play log is too wide, so each play stacks into
+	   a card: the song on its own line, a muted meta line (time, performer,
+	   status) below it, and the delete pinned to the card's top-right corner
+	   rather than spilling off the side of the table. */
+	@media screen and (max-width: 600px) {
+		#play-sort-bar {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			gap: 6px;
+			margin-bottom: 10px;
+		}
+		#play-log thead {
+			display: none;
+		}
+		#play-log,
+		#play-log tbody {
+			display: block;
+		}
+		#play-log tr {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: baseline;
+			position: relative;
+			padding: 8px 32px 8px 0;
+			border-bottom: 1px solid rgba(128, 128, 128, 0.35);
+		}
+		#play-log td {
+			display: block;
+			padding: 0;
+			border: none;
+		}
+		#play-log td.song-cell {
+			order: 1;
+			flex-basis: 100%;
+			font-weight: 600;
+			margin-bottom: 2px;
+		}
+		#play-log td.when {
+			order: 2;
+		}
+		#play-log td.performer-cell {
+			order: 3;
+		}
+		#play-log td.status-cell {
+			order: 4;
+		}
+		#play-log td.when,
+		#play-log td.performer-cell,
+		#play-log td.status-cell {
+			font-size: 0.85rem;
+			color: #a7a7a7;
+		}
+		#play-log td.performer-cell::before,
+		#play-log td.status-cell::before {
+			content: "\00b7";
+			margin: 0 6px;
+			color: #a7a7a7;
+		}
+		#play-log td.delete-cell {
+			position: absolute;
+			top: 6px;
+			right: 2px;
+		}
+	}
 </style>
 {% endblock %} {% block content %}
 
-{# MSG: Heading for the section which manages karaoke sessions. #}
-<h2 class="subtitle">{% trans %}Session{% endtrans %}</h2>
+{# MSG: Heading for the section showing the session currently being recorded. #}
+<h2 class="subtitle">{% trans %}Current Session{% endtrans %}</h2>
 <div class="notification session-controls">
 	<span class="is-flex-grow-1">
 		<i class="icon icon-mic-1"></i>
-		{# MSG: Label before the name of the session that is currently running. #}
-		<strong>{% trans %}Current session{% endtrans %}:</strong>
 		<span id="current-session"></span>
 	</span>
 	{# One flex item, so the actions wrap as a group instead of splitting across rows. #}
@@ -471,6 +553,8 @@
 	</span>
 </div>
 
+{# MSG: Heading for the list of past karaoke sessions. #}
+<h2 class="subtitle" style="margin-top: 25px">{% trans %}Session History{% endtrans %}</h2>
 <table class="history-table">
 	<thead>
 		<tr>
@@ -510,12 +594,27 @@
 
 <h2 class="subtitle" style="margin-top: 25px">
 	{# MSG: Heading for the list of songs that have been played. #}
-	{% trans %}History{% endtrans %}
+	{% trans %}Play History{% endtrans %}
 	<a id="clear-filter" class="is-size-7 is-hidden" style="margin-left: 10px">
 		{# MSG: Link which stops filtering the play log by session and shows every play. #}
 		{% trans %}Show all sessions{% endtrans %}
 	</a>
 </h2>
+{# Phone-only sort control: the card layout hides the sortable column headers,
+   so an admin still needs to pivot the log by who sang and by what was sung. #}
+<div id="play-sort-bar">
+	{# MSG: Label before the buttons that sort the play log on a phone. #}
+	<span class="is-size-7">{% trans %}Sort{% endtrans %}</span>
+	<button class="button is-small sort-btn" data-sort="played_at">
+		{% trans %}Played{% endtrans %} <span class="sort-arrow"></span>
+	</button>
+	<button class="button is-small sort-btn" data-sort="performer">
+		{% trans %}Performer{% endtrans %} <span class="sort-arrow"></span>
+	</button>
+	<button class="button is-small sort-btn" data-sort="song">
+		{% trans %}Song{% endtrans %} <span class="sort-arrow"></span>
+	</button>
+</div>
 <table class="history-table" id="play-log">
 	<thead>
 		<tr>

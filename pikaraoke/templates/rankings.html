@@ -1,9 +1,54 @@
-{% extends 'base.html' %} {% block header %}
+{% extends 'base.html' %}
+
+{% block scripts %}
+<script>
+	// Rankings are top-N lists, so changing "how many to show" just reloads the
+	// page with new row counts rather than paging. Each dropdown carries the
+	// other two values so changing one does not reset the others.
+	function applyRankingLimits() {
+		var params = $.param({
+			songs: $("#limit-songs").val(),
+			performers: $("#limit-performers").val(),
+			sessions: $("#limit-sessions").val()
+		});
+		window.location.href = "{{ url_for('history.rankings') }}?" + params;
+	}
+</script>
+{% endblock %}
+
+{# A right-aligned "Show N" control row below a list, reloading with the chosen
+   row count. Mirrors the per-page control on the Sessions page. #}
+{% macro limit_select(name, current) %}
+<div class="rankings-controls">
+	<span class="is-flex-grow-1"></span>
+	{# MSG: Label before the dropdown choosing how many ranked rows to show. #}
+	<label class="is-size-7" for="limit-{{ name }}">{% trans %}Show{% endtrans %}</label>
+	<div class="select is-small">
+		<select id="limit-{{ name }}" onchange="applyRankingLimits()">
+			{% for n in ranking_sizes %}
+			<option value="{{ n }}"{% if n == current %} selected{% endif %}>{{ n }}</option>
+			{% endfor %}
+		</select>
+	</div>
+</div>
+{% endmacro %}
+
+{% block header %}
 <h1>{% block title %}{{ title }}{% endblock %}</h1>
 <style>
 	/* The global `table` rule already fixes the layout, which is what lines the
 	   play counts up down the page across all three tables. */
 	.rankings-table {
+		margin-bottom: 0;
+	}
+	/* The row-count control sits just under its table and is pushed to the
+	   right, matching the per-page control on the Sessions page. Its bottom
+	   margin is what separates one ranking section from the next. */
+	.rankings-controls {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-top: 8px;
 		margin-bottom: 25px;
 	}
 	.rankings-table td {
@@ -57,6 +102,7 @@
 	</tr>
 	{% endfor %}
 </table>
+{{ limit_select("songs", limits.songs) }}
 {% else %}
 {# MSG: Shown on the rankings page when no songs have been played yet. #}
 <p>{% trans %}Nothing has been played yet.{% endtrans %}</p>
@@ -80,6 +126,7 @@
 	</tr>
 	{% endfor %}
 </table>
+{{ limit_select("performers", limits.performers) }}
 {% else %}
 {# MSG: Shown on the rankings page when nobody has sung anything yet. #}
 <p>{% trans %}Nobody has sung yet.{% endtrans %}</p>
@@ -114,6 +161,7 @@
 	</tr>
 	{% endfor %}
 </table>
+{{ limit_select("sessions", limits.sessions) }}
 {% else %}
 {# MSG: Shown on the rankings page when no sessions have been recorded yet. #}
 <p>{% trans %}No sessions recorded yet.{% endtrans %}</p>

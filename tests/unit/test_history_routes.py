@@ -60,6 +60,15 @@ def karaoke():
         yield k
 
 
+@pytest.fixture
+def karaoke_page():
+    """Patch the karaoke instance for the page blueprint (history), not the api."""
+    with patch("pikaraoke.routes.history.get_karaoke_instance") as get_instance:
+        k = MagicMock()
+        get_instance.return_value = k
+        yield k
+
+
 # Every API endpoint, as (method, path). A new endpoint added without the gate
 # should show up here rather than in production.
 API_ENDPOINTS = [
@@ -155,4 +164,36 @@ class TestExport:
     def test_bad_format_rejected(self, admin_client, karaoke):
         karaoke.play_history.export_plays.return_value = []
         response = admin_client.get("/api/history/export/abc?format=xml")
+        assert response.status_code == 422
+
+
+class TestRankingsSizes:
+    """The rankings lists are top-N, so a row-count selector stands in for paging."""
+
+    def test_honors_selected_sizes(self, admin_client, karaoke_page):
+        with patch("pikaraoke.routes.history.render_template", return_value="ok") as render:
+            response = admin_client.get("/rankings?songs=50&performers=10&sessions=20")
+
+        assert response.status_code == 200
+        karaoke_page.play_history.get_top_songs.assert_called_once_with(50)
+        karaoke_page.play_history.get_singers.assert_called_once_with(limit=10)
+        karaoke_page.play_history.get_sessions.assert_called_once_with(limit=20)
+        # The chosen sizes are handed to the template so the dropdowns show them.
+        kwargs = render.call_args.kwargs
+        assert kwargs["limits"]["songs"] == 50
+        assert kwargs["limits"]["performers"] == 10
+        assert kwargs["limits"]["sessions"] == 20
+
+    def test_defaults_when_unset(self, admin_client, karaoke_page):
+        with patch("pikaraoke.routes.history.render_template", return_value="ok"):
+            admin_client.get("/rankings")
+
+        karaoke_page.play_history.get_top_songs.assert_called_once_with(20)
+        karaoke_page.play_history.get_singers.assert_called_once_with(limit=20)
+        karaoke_page.play_history.get_sessions.assert_called_once_with(limit=10)
+
+    def test_off_menu_size_rejected(self, admin_client, karaoke_page):
+        # Only the offered sizes are accepted, so a hand-edited URL cannot ask
+        # for an unbounded list.
+        response = admin_client.get("/rankings?songs=999")
         assert response.status_code == 422
