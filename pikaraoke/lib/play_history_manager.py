@@ -47,19 +47,16 @@ class PlayHistoryManager:
     def __init__(self, db: KaraokeDatabase, events: EventSystem) -> None:
         self.db = db
         self.events = events
-        self._current_play_id: int | None = None
+        # The play still in flight, or None when nothing is playing. A play row
+        # is written when the song starts, so `completed` is only meaningful
+        # once it ends; the UI needs this to tell "still playing" from
+        # "was skipped". The song and performer alongside it identify that
+        # performance, so a transpose can recognise its own restart.
+        self.current_play_id: int | None = None
+        self._current_song_id: int | None = None
+        self._current_performer: str | None = None
         self._resuming = False
         self.events.on("song_ended", self._on_song_ended)
-
-    @property
-    def current_play_id(self) -> int | None:
-        """The play still in flight, or None when nothing is playing.
-
-        A play row is written when the song starts, so `completed` is only
-        meaningful once it ends. The UI needs this to tell "still playing"
-        apart from "was skipped".
-        """
-        return self._current_play_id
 
     # ------------------------------------------------------------------
     # Sessions
@@ -157,7 +154,9 @@ class PlayHistoryManager:
             "INSERT INTO plays (session_id, song_id, performer) VALUES (?, ?, ?)",
             (session["id"], song_id, performer),
         )
-        self._current_play_id = cursor.lastrowid
+        self.current_play_id = cursor.lastrowid
+        self._current_song_id = song_id
+        self._current_performer = performer
 
     def _is_current_play(self, song_id: int | None, performer: str) -> bool:
         """Is the in-flight play this same song by this same performer?
@@ -165,14 +164,9 @@ class PlayHistoryManager:
         Guards the resume: if the restart never arrives (the file vanished, say)
         the flag would otherwise swallow whatever played next.
         """
-        if self._current_play_id is None:
+        if self.current_play_id is None:
             return False
-        rows = self.db.query(
-            "SELECT song_id, performer FROM plays WHERE id = ?", (self._current_play_id,)
-        )
-        if not rows:
-            return False
-        return rows[0]["song_id"] == song_id and rows[0]["performer"] == performer
+        return self._current_song_id == song_id and self._current_performer == performer
 
     def _on_song_ended(self, reason: str | None = None) -> None:
         """Resolve the pending play's completed flag from the end reason.
@@ -182,16 +176,18 @@ class PlayHistoryManager:
         """
         # A transpose ends the stream but not the performance: hold the row open
         # so the restart in the new key reuses it instead of logging a second.
-        if reason == "transpose" and self._current_play_id is not None:
+        if reason == "transpose" and self.current_play_id is not None:
             self._resuming = True
             return
 
         self._resuming = False
-        if self._current_play_id is None:
+        if self.current_play_id is None:
             return
         if reason == "complete":
-            self.db.execute("UPDATE plays SET completed = 1 WHERE id = ?", (self._current_play_id,))
-        self._current_play_id = None
+            self.db.execute("UPDATE plays SET completed = 1 WHERE id = ?", (self.current_play_id,))
+        self.current_play_id = None
+        self._current_song_id = None
+        self._current_performer = None
 
     # ------------------------------------------------------------------
     # Queries
@@ -226,7 +222,7 @@ class PlayHistoryManager:
         rows = self.db.query(
             f"""
             SELECT p.id, {_local("p.played_at", "played_at")}, p.performer, p.completed,
-                   p.song_id, s.file_path, s.artist, s.title
+                   s.file_path
             FROM plays p
             LEFT JOIN songs s ON s.id = p.song_id
             {where}
@@ -249,18 +245,28 @@ class PlayHistoryManager:
             rows = self.db.query("SELECT COUNT(*) FROM plays")
         return rows[0][0]
 
-    def get_singers(self, session_uuid: str | None = None) -> list[dict]:
+    def get_singers(self, session_uuid: str | None = None, limit: int | None = None) -> list[dict]:
         """Return performers with play counts, most active first.
 
         Scoped to one session when given; otherwise every performer on record.
         The casing subquery stays unscoped so a name renders the same way
         wherever it appears.
+
+        Args:
+            limit: Cap on rows returned. Callers showing a leaderboard or an
+                autocomplete want a handful, and the full list grows without
+                bound over a venue's lifetime.
         """
         where = ""
         params: tuple = ()
         if session_uuid:
             where = "WHERE p.session_id = (SELECT id FROM sessions WHERE uuid = ?)"
             params = (session_uuid,)
+
+        limit_clause = ""
+        if limit is not None:
+            limit_clause = "LIMIT ?"
+            params += (limit,)
 
         rows = self.db.query(
             f"""
@@ -271,6 +277,7 @@ class PlayHistoryManager:
             {where}
             GROUP BY p.performer COLLATE NOCASE
             ORDER BY play_count DESC, last_played DESC
+            {limit_clause}
             """,
             params,
         )
@@ -280,7 +287,7 @@ class PlayHistoryManager:
         """Return the most-played songs. Songs deleted from the library are omitted."""
         rows = self.db.query(
             """
-            SELECT p.song_id, s.file_path, s.artist, s.title, COUNT(*) AS play_count
+            SELECT s.file_path, COUNT(*) AS play_count
             FROM plays p
             JOIN songs s ON s.id = p.song_id
             GROUP BY p.song_id
@@ -301,7 +308,7 @@ class PlayHistoryManager:
         rows = self.db.query(
             f"""
             SELECT {_local("p.played_at", "played_at")}, p.performer, p.completed,
-                   s.file_path, s.artist, s.title
+                   s.file_path
             FROM plays p
             LEFT JOIN songs s ON s.id = p.song_id
             WHERE p.session_id = (SELECT id FROM sessions WHERE uuid = ?)

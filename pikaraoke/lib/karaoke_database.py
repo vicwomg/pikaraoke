@@ -58,9 +58,18 @@ CREATE TABLE IF NOT EXISTS plays (
     FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE SET NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_plays_session ON plays(session_id);
+-- Composite rather than session_id alone: the play log filters by session and
+-- orders by played_at, and one index serving both avoids a sort per page. The
+-- leftmost prefix still covers the session_id lookups on its own.
+CREATE INDEX IF NOT EXISTS idx_plays_session_played_at ON plays(session_id, played_at);
 CREATE INDEX IF NOT EXISTS idx_plays_played_at ON plays(played_at);
-CREATE INDEX IF NOT EXISTS idx_plays_performer ON plays(performer);
+-- NOCASE to match the collation every performer query uses; a BINARY index
+-- would be written on every play and read by nothing.
+CREATE INDEX IF NOT EXISTS idx_plays_performer ON plays(performer COLLATE NOCASE);
+-- Foreign keys are enforced, so SQLite scans for referencing plays on every
+-- song delete. Without this, a library sync that drops songs scans the whole
+-- plays table once per deleted row.
+CREATE INDEX IF NOT EXISTS idx_plays_song ON plays(song_id);
 """
 
 

@@ -1,16 +1,13 @@
 {% extends 'base.html' %} {% block scripts %}
 <script>
-	var historyLimit = 25;
-	var historyOffset = 0;
-	var historyTotal = 0;
+	var playsPage = { offset: 0, limit: 25 };
 	var historySort = "played_at";
 	var historyDirection = "desc";
 	// The session list sits above the play log, so it pages rather than growing
 	// without limit. Paging is what keeps old sessions reachable: unreachable
 	// ones could never be viewed or deleted, yet would still count towards the
 	// rankings.
-	var sessionsLimit = 10;
-	var sessionsOffset = 0;
+	var sessionsPage = { offset: 0, limit: 10 };
 	var historySession = "";
 	var currentSessionUuid = null;
 
@@ -81,29 +78,48 @@
 		return session.name || historyText.unnamed.replace("NUMBER", session.id);
 	}
 
+	// Both tables page identically, so the summary and the button states are
+	// rendered from one place; `prefix` names the widget's element ids.
+	function renderPager(prefix, page, total) {
+		var start = total ? page.offset + 1 : 0;
+		var end = Math.min(page.offset + page.limit, total);
+		$("#" + prefix + "-page-info").text(
+			historyText.showing.replace("START", start).replace("END", end).replace("TOTAL", total)
+		);
+		$("#" + prefix + "-prev").prop("disabled", page.offset === 0);
+		$("#" + prefix + "-next").prop("disabled", end >= total);
+	}
+
+	function wirePager(prefix, page, reload) {
+		$("#" + prefix + "-prev").on("click", function () {
+			page.offset = Math.max(0, page.offset - page.limit);
+			reload();
+		});
+		$("#" + prefix + "-next").on("click", function () {
+			page.offset += page.limit;
+			reload();
+		});
+		$("#" + prefix + "-limit").on("change", function () {
+			page.limit = parseInt($(this).val(), 10);
+			// A new page size invalidates the old offset, so start again at page one.
+			page.offset = 0;
+			reload();
+		});
+	}
+
 	function loadSessions() {
-		var params = { limit: sessionsLimit, offset: sessionsOffset };
+		var params = { limit: sessionsPage.limit, offset: sessionsPage.offset };
 		return $.getJSON("{{ url_for('history_api.get_sessions') }}", params, function (data) {
 			// Deleting the last row on the last page would otherwise strand the
 			// list on an empty one.
-			if (!data.sessions.length && sessionsOffset > 0) {
-				sessionsOffset = Math.max(0, sessionsOffset - sessionsLimit);
+			if (!data.sessions.length && sessionsPage.offset > 0) {
+				sessionsPage.offset = Math.max(0, sessionsPage.offset - sessionsPage.limit);
 				loadSessions();
 				return;
 			}
 
 			currentSessionUuid = data.current ? data.current.uuid : null;
-
-			var sessionsStart = data.total ? sessionsOffset + 1 : 0;
-			var sessionsEnd = Math.min(sessionsOffset + sessionsLimit, data.total);
-			$("#sessions-page-info").text(
-				historyText.showing
-					.replace("START", sessionsStart)
-					.replace("END", sessionsEnd)
-					.replace("TOTAL", data.total)
-			);
-			$("#sessions-prev").prop("disabled", sessionsOffset === 0);
-			$("#sessions-next").prop("disabled", sessionsEnd >= data.total);
+			renderPager("sessions", sessionsPage, data.total);
 
 			$("#current-session").text(data.current ? sessionLabel(data.current) : historyText.noSession);
 			$("#start-session").toggleClass("is-hidden", !!data.current);
@@ -157,8 +173,8 @@
 
 	function loadPlays() {
 		var params = {
-			limit: historyLimit,
-			offset: historyOffset,
+			limit: playsPage.limit,
+			offset: playsPage.offset,
 			sort: historySort,
 			direction: historyDirection
 		};
@@ -167,7 +183,6 @@
 		}
 		renderSortArrows();
 		return $.getJSON("{{ url_for('history_api.get_plays') }}", params, function (data) {
-			historyTotal = data.total;
 			var $body = $("#plays-body").empty();
 
 			if (!data.plays.length) {
@@ -190,16 +205,7 @@
 				);
 			});
 
-			var start = historyTotal ? historyOffset + 1 : 0;
-			var end = Math.min(historyOffset + historyLimit, historyTotal);
-			$("#page-info").text(
-				historyText.showing
-					.replace("START", start)
-					.replace("END", end)
-					.replace("TOTAL", historyTotal)
-			);
-			$("#prev-page").prop("disabled", historyOffset === 0);
-			$("#next-page").prop("disabled", end >= historyTotal);
+			renderPager("plays", playsPage, data.total);
 			$("#clear-filter").toggleClass("is-hidden", !historySession);
 		});
 	}
@@ -261,7 +267,7 @@
 			function () {
 				if (historySession === uuid) {
 					historySession = "";
-					historyOffset = 0;
+					playsPage.offset = 0;
 				}
 				refreshHistory();
 			}
@@ -313,10 +319,24 @@
 			if (window.historyNowPlayingHandler) {
 				window.socket.off("now_playing", window.historyNowPlayingHandler);
 			}
-			window.historyNowPlayingHandler = debounce(function () {
+			// Queue edits and pause emit now_playing too, and neither can change
+			// the log. Only a change of song is worth re-querying for. The
+			// comparison runs on every event and only the reload is debounced:
+			// debouncing first would coalesce "A ended, A started again" into a
+			// single unchanged value and miss the new play entirely.
+			var reloadLog = debounce(function () {
 				loadSessions();
 				loadPlays();
 			}, 400);
+			var lastNowPlaying;
+			window.historyNowPlayingHandler = function (data) {
+				var song = data ? data.now_playing : null;
+				if (song === lastNowPlaying) {
+					return;
+				}
+				lastNowPlaying = song;
+				reloadLog();
+			};
 			window.socket.on("now_playing", window.historyNowPlayingHandler);
 		}
 
@@ -348,37 +368,16 @@
 			var uuid = $(this).data("uuid");
 			// Clicking the session already being shown clears the filter.
 			historySession = historySession === uuid ? "" : uuid;
-			historyOffset = 0;
+			playsPage.offset = 0;
 			refreshHistory();
 		});
 
-		$("#sessions-limit").on("change", function () {
-			sessionsLimit = parseInt($(this).val(), 10);
-			// A new page size invalidates the old offset, so start again at page one.
-			sessionsOffset = 0;
-			loadSessions();
-		});
-
-		$("#history-limit").on("change", function () {
-			historyLimit = parseInt($(this).val(), 10);
-			// A new page size invalidates the old offset, so start again at page one.
-			historyOffset = 0;
-			loadPlays();
-		});
-
-		$("#sessions-prev").on("click", function () {
-			sessionsOffset = Math.max(0, sessionsOffset - sessionsLimit);
-			loadSessions();
-		});
-
-		$("#sessions-next").on("click", function () {
-			sessionsOffset += sessionsLimit;
-			loadSessions();
-		});
+		wirePager("sessions", sessionsPage, loadSessions);
+		wirePager("plays", playsPage, loadPlays);
 
 		$("#clear-filter").on("click", function () {
 			historySession = "";
-			historyOffset = 0;
+			playsPage.offset = 0;
 			refreshHistory();
 		});
 
@@ -398,17 +397,7 @@
 				historySort = sort;
 				historyDirection = sort === "played_at" ? "desc" : "asc";
 			}
-			historyOffset = 0;
-			loadPlays();
-		});
-
-		$("#prev-page").on("click", function () {
-			historyOffset = Math.max(0, historyOffset - historyLimit);
-			loadPlays();
-		});
-
-		$("#next-page").on("click", function () {
-			historyOffset += historyLimit;
+			playsPage.offset = 0;
 			loadPlays();
 		});
 	});
@@ -422,23 +411,6 @@
 	}
 	.history-table td {
 		word-wrap: break-word;
-	}
-	/* Timestamps may wrap between the date and the time, but never within
-	   either, so a narrow screen gets two tidy lines instead of one long
-	   string forcing the table wider than the viewport. Where there is room
-	   they stay on one line. */
-	.history-table .when span {
-		white-space: nowrap;
-	}
-	@media screen and (min-width: 769px) {
-		.history-table .when {
-			white-space: nowrap;
-		}
-	}
-	/* break-word, not break-all: song titles wrap at spaces and only split a
-	   word when that word alone is too wide for the column. */
-	.break-word {
-		overflow-wrap: break-word;
 	}
 	.session-controls {
 		display: flex;
@@ -566,14 +538,14 @@
 </table>
 
 <div class="session-controls" style="margin-top: 10px">
-	<button id="prev-page" class="button is-small"><i class="icon icon-left-big"></i></button>
-	<button id="next-page" class="button is-small"><i class="icon icon-right-big"></i></button>
-	<span id="page-info" class="is-size-7"></span>
+	<button id="plays-prev" class="button is-small"><i class="icon icon-left-big"></i></button>
+	<button id="plays-next" class="button is-small"><i class="icon icon-right-big"></i></button>
+	<span id="plays-page-info" class="is-size-7"></span>
 	<span class="is-flex-grow-1"></span>
 	{# MSG: Label before the dropdown choosing how many plays to list per page. #}
-	<label class="is-size-7" for="history-limit">{% trans %}Per page{% endtrans %}</label>
+	<label class="is-size-7" for="plays-limit">{% trans %}Per page{% endtrans %}</label>
 	<div class="select is-small">
-		<select id="history-limit">
+		<select id="plays-limit">
 			<option value="10">10</option>
 			<option value="25" selected>25</option>
 			<option value="50">50</option>

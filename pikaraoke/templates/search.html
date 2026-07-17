@@ -6,11 +6,6 @@
 		font-weight: bold;
 	}
 
-	.singer-field {
-		max-width: 320px;
-		margin-bottom: 10px;
-	}
-
 	.row {
 		display: flex;
 		border-bottom: 1px solid #cccccc;
@@ -613,7 +608,7 @@
 <div>
 	<div class="field" id="container_queue_form">
 		<form id="queue-form">
-			{% if admin %}
+			{% if is_admin() %}
 			<div class="field singer-field">
 				{# MSG: Label for the admin-only field naming who is about to sing the songs being queued. #}
 				<label class="label is-small" for="singer-name">{% trans %}Queue for singer{% endtrans %}</label>

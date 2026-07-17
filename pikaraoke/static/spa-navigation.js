@@ -14,6 +14,15 @@
         scrollBehavior: 'smooth'
     };
 
+    /**
+     * Nav bar item id for a path. Every item's id is its first path segment
+     * ("/browse/rock" -> "browse"), so a new page needs no change here. Shared
+     * with base.html, which highlights the nav on a full page load.
+     */
+    window.navItemIdForPath = function (path) {
+        return path === '/' ? 'home' : path.split('/')[1];
+    };
+
     // State management
     let isNavigating = false;
     let currentPath = window.location.pathname + window.location.search;
@@ -403,22 +412,7 @@
         // Remove all active classes
         $('.navbar-item').removeClass('is-active');
 
-        // Add active class to matching navbar item
-        if (path === '/') {
-            $('#home').addClass('is-active');
-        } else if (path === '/queue') {
-            $('#queue').addClass('is-active');
-        } else if (path === '/search') {
-            $('#search').addClass('is-active');
-        } else if (path === '/browse' || path.startsWith('/browse')) {
-            $('#browse').addClass('is-active');
-        } else if (path === '/info') {
-            $('#info').addClass('is-active');
-        } else if (path === '/history') {
-            $('#history').addClass('is-active');
-        } else if (path === '/rankings') {
-            $('#rankings').addClass('is-active');
-        }
+        $('#' + window.navItemIdForPath(path)).addClass('is-active');
     }
 
     /**

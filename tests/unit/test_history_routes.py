@@ -102,16 +102,12 @@ class TestExport:
                 "performer": "Alice",
                 "completed": 1,
                 "file_path": "/songs/Artist - Song---abc12345678.mp4",
-                "artist": None,
-                "title": None,
             },
             {
                 "played_at": "2026-03-05 21:05:00",
                 "performer": "Bob",
                 "completed": 0,
                 "file_path": None,
-                "artist": None,
-                "title": None,
             },
         ]
         karaoke.song_manager.display_name_from_path.return_value = "Artist - Song"

@@ -77,6 +77,26 @@ table {
   width: 100%;
 }
 
+/* Admin-only field naming who is about to sing. */
+.singer-field {
+  max-width: 320px;
+  margin-bottom: 10px;
+}
+
+/* Timestamp cells: may wrap between the date and the time, but never within
+   either, so a narrow screen gets two tidy lines instead of one long string
+   forcing the table wider than the viewport. Where there is room they stay on
+   one line. */
+.when span {
+  white-space: nowrap;
+}
+
+@media screen and (min-width: 769px) {
+  .when {
+    white-space: nowrap;
+  }
+}
+
 body.hide-cursor * {
   cursor: none !important;
 }

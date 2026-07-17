@@ -28,7 +28,6 @@ def history():
         "history.html",
         site_title=get_site_name(),
         title="Sessions",
-        admin=True,
     )
 
 
@@ -40,8 +39,7 @@ def rankings():
         "rankings.html",
         site_title=get_site_name(),
         title="Rankings",
-        admin=True,
         top_songs=k.play_history.get_top_songs(),
-        top_performers=k.play_history.get_singers()[:20],
+        top_performers=k.play_history.get_singers(limit=20),
         sessions=k.play_history.get_sessions(limit=10),
     )

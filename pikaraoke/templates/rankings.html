@@ -1,12 +1,9 @@
 {% extends 'base.html' %} {% block header %}
 <h1>{% block title %}{{ title }}{% endblock %}</h1>
 <style>
-	/* Fixed layout, so the play counts line up down the page across all three
-	   tables. With auto layout each table sizes its own columns from its own
-	   content and the counts land in a different place in each. */
+	/* The global `table` rule already fixes the layout, which is what lines the
+	   play counts up down the page across all three tables. */
 	.rankings-table {
-		width: 100%;
-		table-layout: fixed;
 		margin-bottom: 25px;
 	}
 	.rankings-table td {
@@ -18,13 +15,8 @@
 	.rankings-table .col-when {
 		width: 12em;
 	}
-	.rankings-table .when span {
-		white-space: nowrap;
-	}
-	@media screen and (min-width: 769px) {
-		.rankings-table .when {
-			white-space: nowrap;
-		}
+	.rankings-table .col-count {
+		width: 8em;
 	}
 	/* On a phone the desktop column widths would leave almost nothing for the
 	   session name, so tighten them and let the date wrap onto two lines. */
@@ -38,9 +30,6 @@
 		.rankings-table .col-count {
 			width: 5em;
 		}
-	}
-	.rankings-table .col-count {
-		width: 8em;
 	}
 	/* Alignment comes from Bulma's has-text-right helper: its own
 	   `table td:not([align])` rule outranks a plain class selector here. */

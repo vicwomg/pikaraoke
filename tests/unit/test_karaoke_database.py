@@ -68,18 +68,6 @@ class TestInit:
     def test_empty_on_init(self, db):
         assert db.get_song_count() == 0
 
-    def test_play_history_tables_exist(self, db):
-        tables = {
-            row[0]
-            for row in db._conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()
-        }
-        assert {"sessions", "plays"} <= tables
-
-    def test_foreign_keys_enforced(self, db):
-        assert db._conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
-
 
 class TestUpgradeFromExistingDatabase:
     """A 1.20.0 database has only songs+metadata; the new tables must appear

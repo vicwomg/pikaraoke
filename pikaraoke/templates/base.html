@@ -111,17 +111,20 @@
 
     // Fills the admin-only singer autocomplete from past performers. The
     // datalist only exists for admins, so this no-ops for everyone else
-    // rather than calling an endpoint that would 403.
+    // rather than calling an endpoint that would 403. Capped because the
+    // performer list grows without bound over a venue's lifetime, and nobody
+    // scrolls an autocomplete past the most active handful.
     function loadSingerList() {
       var $list = $("#singer-list");
       if (!$list.length) {
         return;
       }
-      $.getJSON("{{ url_for('history_api.get_singers') }}", function (data) {
-        $list.empty();
+      $.getJSON("{{ url_for('history_api.get_singers') }}", { limit: 50 }, function (data) {
+        var options = document.createDocumentFragment();
         data.singers.forEach(function (singer) {
-          $list.append($("<option>").val(singer.performer));
+          options.appendChild($("<option>").val(singer.performer)[0]);
         });
+        $list.empty().append(options);
       });
     }
 
@@ -135,29 +138,9 @@
 
       // Navbar burger menu is handled by spa-navigation.js
 
-      // handle highlighting current nav bar location
-      var currentPath = window.location.pathname;
-      if (currentPath == "/") {
-        $("#home").addClass("is-active")
-      }
-      if (currentPath == "/queue") {
-        $("#queue").addClass("is-active")
-      }
-      if (currentPath == "/search") {
-        $("#search").addClass("is-active")
-      }
-      if (currentPath == "/browse") {
-        $("#browse").addClass("is-active")
-      }
-      if (currentPath == "/history") {
-        $("#history").addClass("is-active")
-      }
-      if (currentPath == "/rankings") {
-        $("#rankings").addClass("is-active")
-      }
-      if (currentPath == "/info") {
-        $("#info").addClass("is-active")
-      }
+      // Highlight the current nav bar location. Every nav item's id is its path
+      // segment, so deriving the id means a new page needs no edit here.
+      $("#" + navItemIdForPath(window.location.pathname)).addClass("is-active")
 
       // handle auto-close flash notifications
       setTimeout(function() { $("#notification").fadeOut()}, 3000);

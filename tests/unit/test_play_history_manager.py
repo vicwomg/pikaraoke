@@ -215,14 +215,13 @@ class TestRecordPlay:
 
         play = history.get_plays()[0]
         assert play["performer"] == "Alice"
-        assert play["song_id"] == song_id
         assert play["file_path"] == "/songs/a.mp4"
 
     def test_song_id_may_be_none(self, history):
         history.record_play(None, "Alice")
 
         play = history.get_plays()[0]
-        assert play["song_id"] is None
+        assert play["file_path"] is None
         assert play["performer"] == "Alice"
 
 

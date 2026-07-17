@@ -243,7 +243,7 @@ class Karaoke:
         )
         self.events.on("now_playing_update", self.update_now_playing_socket)
         self.events.on("playback_started", self.update_now_playing_socket)
-        self.events.on("song_ended", lambda reason=None: self.update_now_playing_socket())
+        self.events.on("song_ended", self.update_now_playing_socket)
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
         self.events.on("song_downloaded", self.song_manager.register_download)
         self.events.on(
@@ -563,8 +563,13 @@ class Karaoke:
             "volume": self.volume,
         }
 
-    def update_now_playing_socket(self) -> None:
-        """Emit now_playing state change via SocketIO."""
+    def update_now_playing_socket(self, *_) -> None:
+        """Emit now_playing state change via SocketIO.
+
+        Takes and ignores any arguments, so it can subscribe directly to events
+        that carry a payload (song_ended passes a reason) as well as those that
+        do not.
+        """
         if self.socketio:
             self.socketio.emit("now_playing", self.get_now_playing(), namespace="/")
 

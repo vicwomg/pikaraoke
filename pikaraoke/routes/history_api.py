@@ -6,7 +6,7 @@ import io
 import flask_babel
 from flask import Response, jsonify
 from flask_smorest import Blueprint
-from marshmallow import Schema, fields
+from marshmallow import Schema, ValidationError, fields, validate, validates_schema
 
 from pikaraoke.lib.current_app import get_karaoke_instance, is_admin
 
@@ -49,11 +49,20 @@ class StartSessionForm(Schema):
 
 class SingersQuery(Schema):
     session = fields.String(load_default=None, metadata={"description": "Session UUID filter"})
+    limit = fields.Integer(
+        load_default=None, metadata={"description": "Cap on performers returned"}
+    )
 
 
 class UpdateSessionForm(Schema):
-    action = fields.String(required=True, metadata={"description": "'rename', 'end' or 'activate'"})
+    action = fields.String(required=True, validate=validate.OneOf(["rename", "end", "activate"]))
     name = fields.String(load_default=None, metadata={"description": "New name when renaming"})
+
+    @validates_schema
+    def check_name(self, data, **kwargs):
+        if data["action"] == "rename" and not data["name"]:
+            # MSG: Error when renaming a session without supplying a name
+            raise ValidationError(_("A name is required"), "name")
 
 
 def _with_titles(plays: list[dict]) -> list[dict]:
@@ -73,7 +82,7 @@ def get_singers(query):
     Unscoped for the KJ auto-complete; scoped to a session for its singer list.
     """
     k = get_karaoke_instance()
-    return jsonify({"singers": k.play_history.get_singers(query["session"])})
+    return jsonify({"singers": k.play_history.get_singers(query["session"], query["limit"])})
 
 
 @history_api_bp.route("/api/history/plays")
@@ -131,7 +140,7 @@ def start_session(form):
 @history_api_bp.route("/api/history/sessions/<session_uuid>", methods=["PUT"])
 @history_api_bp.arguments(UpdateSessionForm, location="json")
 def update_session(form, session_uuid):
-    """End or rename a session."""
+    """End, activate or rename a session. The schema rejects any other action."""
     k = get_karaoke_instance()
 
     if form["action"] == "end":
@@ -143,14 +152,9 @@ def update_session(form, session_uuid):
             return jsonify({"success": False, "error": _("Session not found")}), 404
         return jsonify({"success": True})
 
-    if form["action"] == "rename":
-        if not form["name"]:
-            return jsonify({"success": False, "error": _("A name is required")}), 400
-        if not k.play_history.rename_session(session_uuid, form["name"]):
-            return jsonify({"success": False, "error": _("Session not found")}), 404
-        return jsonify({"success": True})
-
-    return jsonify({"success": False, "error": _("Unknown action")}), 400
+    if not k.play_history.rename_session(session_uuid, form["name"]):
+        return jsonify({"success": False, "error": _("Session not found")}), 404
+    return jsonify({"success": True})
 
 
 @history_api_bp.route("/api/history/sessions/<session_uuid>", methods=["DELETE"])
