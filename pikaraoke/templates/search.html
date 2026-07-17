@@ -451,7 +451,15 @@
 
 		setUserCookie(); // Don't reload page after setting cookie
 
+		// The hidden song_added_by field is the attribution submitted with every
+		// queue add. It defaults to this device's own name; in KJ mode the
+		// visible singer input syncs into it, falling back to the device name
+		// when the host leaves it blank. The visible input starts empty so its
+		// autocomplete lists every past singer rather than filtering to one name.
 		$(".song_added_by").val(getUserCookie());
+		$("#singer-name").on("input", function () {
+			$(".song_added_by").val($(this).val() || getUserCookie());
+		});
 		loadSingerList();
 
 		// Restore checkbox states from cookies
@@ -609,16 +617,15 @@
 	<div class="field" id="container_queue_form">
 		<form id="queue-form">
 			{% if is_admin() %}
-			<div class="field singer-field">
-				{# MSG: Label for the admin-only field naming who is about to sing the songs being queued. #}
+			<div class="field singer-field kj-only is-hidden">
+				{# MSG: Label for the KJ-mode field naming who is about to sing the songs being queued. #}
 				<label class="label is-small" for="singer-name">{% trans %}Queue for singer{% endtrans %}</label>
 				<input
 					id="singer-name"
-					class="input is-small song_added_by"
-					name="song_added_by"
+					class="input is-small"
 					list="singer-list"
 					autocomplete="off"
-					{# MSG: Placeholder in the admin-only singer field. #}
+					{# MSG: Placeholder in the KJ-mode singer field. #}
 					placeholder="{{ _('Name of the singer') }}"
 				/>
 				<datalist id="singer-list"></datalist>
@@ -638,9 +645,9 @@
 					the queue. #}
 					<a class="button is-info" id="add-queue-link">{% trans %}Add to queue{% endtrans %}</a>
 				</div>
-				{% if not admin %}
+				{# The one submitted attribution field. In KJ mode the visible singer
+				   input above syncs into it; otherwise it carries this device's name. #}
 				<input class="song_added_by" type="hidden" name="song_added_by" />
-				{% endif %}
 			</div>
 			<div class="control is-flex is-justify-content-flex-end is-align-items-center mb-2">
 				<a id="clear-search" class="has-text-danger" style="margin-right: 15px">

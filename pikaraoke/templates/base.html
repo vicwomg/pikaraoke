@@ -109,14 +109,31 @@
       return Cookies.get("user");
     }
 
-    // Fills the admin-only singer autocomplete from past performers. The
-    // datalist only exists for admins, so this no-ops for everyone else
-    // rather than calling an endpoint that would 403. Capped because the
-    // performer list grows without bound over a venue's lifetime, and nobody
-    // scrolls an autocomplete past the most active handful.
+    // KJ mode is opt-in for a host queuing on behalf of singers. It is not the
+    // default use case (a karaoke party between friends), so its extra search-UI
+    // controls stay hidden unless the URL carries ?kj_mode=true. The flag is
+    // remembered per tab because SPA navigation drops the query string.
+    (function () {
+      var mode = new URLSearchParams(window.location.search).get("kj_mode");
+      if (mode === "true") {
+        sessionStorage.setItem("kj_mode", "1");
+      } else if (mode === "false") {
+        sessionStorage.removeItem("kj_mode");
+      }
+    })();
+
+    function isKjMode() {
+      return sessionStorage.getItem("kj_mode") === "1";
+    }
+
+    // Fills the singer autocomplete from past performers. Only runs in KJ mode
+    // (the datalist is hidden otherwise) and only for admins -- the performer
+    // list is effectively the guest list, so the endpoint 403s for everyone
+    // else. Capped because the list grows without bound over a venue's lifetime
+    // and nobody scrolls an autocomplete past the most active handful.
     function loadSingerList() {
       var $list = $("#singer-list");
-      if (!$list.length) {
+      if (!$list.length || !isKjMode()) {
         return;
       }
       $.getJSON("{{ url_for('history_api.get_singers') }}", { limit: 50 }, function (data) {
@@ -144,6 +161,11 @@
 
       // handle auto-close flash notifications
       setTimeout(function() { $("#notification").fadeOut()}, 3000);
+
+      // Reveal KJ-only controls when a host has opted into KJ mode.
+      if (isKjMode()) {
+        $(".kj-only").removeClass("is-hidden");
+      }
 
       // handle current user display
       var currentUser = Cookies.get("user");

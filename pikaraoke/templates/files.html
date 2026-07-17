@@ -14,12 +14,12 @@
 		}
 
 		loadSingerList();
-		$("#singer-name").val(getUserCookie());
 
 		$("a.add-song-link").click(function (e) {
 			e.preventDefault();
-			// The admin-only singer field wins when the KJ is queuing for someone
-			// else; everyone else queues under their own cookie name.
+			// In KJ mode the visible singer field names who the host is queuing
+			// for; left blank (or hidden outside KJ mode) it falls back to this
+			// device's own cookie name.
 			var user = $("#singer-name").val();
 			if (!user) {
 				setUserCookie();
@@ -119,15 +119,15 @@
 </p>
 
 {% if admin %}
-<div class="field singer-field">
-	{# MSG: Label for the admin-only field naming who is about to sing the songs being queued. #}
+<div class="field singer-field kj-only is-hidden">
+	{# MSG: Label for the KJ-mode field naming who is about to sing the songs being queued. #}
 	<label class="label is-small" for="singer-name">{% trans %}Queue for singer{% endtrans %}</label>
 	<input
 		id="singer-name"
 		class="input is-small"
 		list="singer-list"
 		autocomplete="off"
-		{# MSG: Placeholder in the admin-only singer field. #}
+		{# MSG: Placeholder in the KJ-mode singer field. #}
 		placeholder="{{ _('Name of the singer') }}"
 	/>
 	<datalist id="singer-list"></datalist>

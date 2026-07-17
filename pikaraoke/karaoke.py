@@ -272,7 +272,7 @@ class Karaoke:
             get_available_songs=lambda: self.song_manager.songs,
         )
 
-        # Play history for KJ reporting (subscribes to song_ended itself)
+        # Play history recording and reporting (subscribes to song_ended itself)
         self.play_history = PlayHistoryManager(db=self.db, events=self.events)
 
         # Initialize and start download manager

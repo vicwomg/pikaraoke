@@ -13,7 +13,7 @@ history_bp = Blueprint("history", __name__)
 
 @history_bp.before_request
 def require_admin():
-    """Play history is a KJ management tool; guests never see it."""
+    """The play log and rankings are host reporting pages; guests never see them."""
     if not is_admin():
         # MSG: Message shown when a non-admin tries to open the play history pages
         flash(_("You don't have permission to view play history"), "is-danger")

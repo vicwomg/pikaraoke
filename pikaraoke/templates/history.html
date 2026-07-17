@@ -14,11 +14,11 @@
 	var historyText = {
 		// {# MSG: Shown on the history page when no session is currently running. #}
 		noSession: "{{ _('No active session') }}",
-		// {# MSG: Label for a session the KJ never named. NUMBER is replaced with a number. #}
+		// {# MSG: Label for a session the host never named. NUMBER is replaced with a number. #}
 		unnamed: "{{ _('Session NUMBER') }}",
 		// {# MSG: Shown in the play log when the song file has since been deleted from the library. #}
 		songRemoved: "{{ _('(song removed from library)') }}",
-		// {# MSG: Prompt asking the KJ to name a session. #}
+		// {# MSG: Prompt asking the host to name a session. #}
 		promptRename: "{{ _('Name this session:') }}",
 		// {# MSG: Confirmation before deleting a session and every play recorded in it. SESSION is replaced with its name. #}
 		confirmDeleteSession: "{{ _('Delete SESSION and all of its plays? This cannot be undone.') }}",
@@ -282,7 +282,9 @@
 		window.currentSessionOptions = { uuid: uuid, label: label };
 		$("#session-modal-title").text(label);
 		$("#opt-activate").toggle(!isActive);
-		$("#opt-export").attr("href", "/api/history/export/" + encodeURIComponent(uuid));
+		var exportBase = "/api/history/export/" + encodeURIComponent(uuid);
+		$("#opt-export").attr("href", exportBase);
+		$("#opt-export-txt").attr("href", exportBase + "?format=txt");
 		$("#session-options-modal").addClass("is-active");
 	};
 
@@ -569,8 +571,13 @@
 			</a>
 			<a id="opt-export" class="panel-block py-3 no-spa" href="#">
 				<span class="icon mr-2"><i class="icon-down-circled"></i></span>
-				{# MSG: Menu item which downloads the session's play log as a CSV file. #}
+				{# MSG: Menu item which downloads the session's play log as a CSV file for spreadsheets. #}
 				{% trans %}Export CSV{% endtrans %}
+			</a>
+			<a id="opt-export-txt" class="panel-block py-3 no-spa" href="#">
+				<span class="icon mr-2"><i class="icon-list-numbered"></i></span>
+				{# MSG: Menu item which downloads the session's play log as a plain-text, human-readable set list. #}
+				{% trans %}Export list (text){% endtrans %}
 			</a>
 			<a id="opt-rename" class="panel-block py-3" href="#" onclick="executeSessionAction('rename'); return false;">
 				<span class="icon mr-2"><i class="icon-pencil"></i></span>

@@ -99,7 +99,7 @@
 		<td>
 			{%- if session.name -%}{{ session.name }}
 			{%- else -%}
-			{# MSG: Label for a session the KJ never named, followed by its number. #}
+			{# MSG: Label for a session the host never named, followed by its number. #}
 			{% trans number=session.id %}Session {{ number }}{% endtrans %}
 			{%- endif -%}
 		</td>

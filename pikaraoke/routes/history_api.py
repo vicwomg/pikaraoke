@@ -54,6 +54,14 @@ class SingersQuery(Schema):
     )
 
 
+class ExportQuery(Schema):
+    format = fields.String(
+        load_default="csv",
+        validate=validate.OneOf(["csv", "txt"]),
+        metadata={"description": "csv (spreadsheet) or txt (human-readable list)"},
+    )
+
+
 class UpdateSessionForm(Schema):
     action = fields.String(required=True, validate=validate.OneOf(["rename", "end", "activate"]))
     name = fields.String(load_default=None, metadata={"description": "New name when renaming"})
@@ -79,7 +87,7 @@ def _with_titles(plays: list[dict]) -> list[dict]:
 def get_singers(query):
     """Performer names with play counts, most active first.
 
-    Unscoped for the KJ auto-complete; scoped to a session for its singer list.
+    Unscoped for the singer auto-complete; scoped to a session for its singer list.
     """
     k = get_karaoke_instance()
     return jsonify({"singers": k.play_history.get_singers(query["session"], query["limit"])})
@@ -166,12 +174,8 @@ def delete_session(session_uuid):
     return jsonify({"success": True})
 
 
-@history_api_bp.route("/api/history/export/<session_uuid>")
-def export_session(session_uuid):
-    """Download a session's plays as CSV."""
-    k = get_karaoke_instance()
-    plays = _with_titles(k.play_history.export_plays(session_uuid))
-
+def _export_csv(session_uuid: str, plays: list[dict]) -> Response:
+    """Render plays as CSV, for spreadsheets."""
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow(["Played At", "Performer", "Song", "Status"])
@@ -184,9 +188,36 @@ def export_session(session_uuid):
                 "Played" if play["completed"] else "Skipped",
             ]
         )
-
     return Response(
         buffer.getvalue(),
         mimetype="text/csv",
         headers={"Content-Disposition": f'attachment; filename="pikaraoke-{session_uuid}.csv"'},
     )
+
+
+def _export_txt(session_uuid: str, plays: list[dict]) -> Response:
+    """Render plays as a numbered, human-readable list (the #213 request)."""
+    lines = [_("PiKaraoke - Play History"), ""]
+    for i, play in enumerate(plays, 1):
+        song = play["song"] or _("(song removed from library)")
+        # played_at is "YYYY-MM-DD HH:MM:SS"; minutes are enough for a set list.
+        line = f"{i}. {play['played_at'][:16]}  {play['performer']} - {song}"
+        if not play["completed"]:
+            line += "  " + _("(skipped)")
+        lines.append(line)
+    return Response(
+        "\n".join(lines) + "\n",
+        mimetype="text/plain",
+        headers={"Content-Disposition": f'attachment; filename="pikaraoke-{session_uuid}.txt"'},
+    )
+
+
+@history_api_bp.route("/api/history/export/<session_uuid>")
+@history_api_bp.arguments(ExportQuery, location="query")
+def export_session(query, session_uuid):
+    """Download a session's plays as CSV or a human-readable text list."""
+    k = get_karaoke_instance()
+    plays = _with_titles(k.play_history.export_plays(session_uuid))
+    if query["format"] == "txt":
+        return _export_txt(session_uuid, plays)
+    return _export_csv(session_uuid, plays)

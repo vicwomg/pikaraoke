@@ -1,4 +1,4 @@
-"""Play history: session tracking, play recording, and KJ reporting queries."""
+"""Play history: session tracking, play recording, and reporting queries."""
 
 import uuid
 
@@ -29,7 +29,7 @@ def _local(column: str, alias: str) -> str:
     """Render a UTC timestamp column as local time.
 
     Timestamps are stored UTC so that ordering survives a daylight-saving
-    rollback, but a KJ only ever wants wall-clock time. Converting here in SQL
+    rollback, but the host only ever wants wall-clock time. Converting here in SQL
     keeps it to one place, rather than one conversion in Python for the
     server-rendered pages and another in JavaScript for the fetched ones.
     """
@@ -39,7 +39,7 @@ def _local(column: str, alias: str) -> str:
 class PlayHistoryManager:
     """Records who sang what and when, grouped into sessions.
 
-    Sessions are time brackets the KJ names from the History page, but one
+    Sessions are time brackets the host names from the Sessions page, but one
     auto-starts on the first play so a forgotten Start button never loses a
     night's data.
     """
