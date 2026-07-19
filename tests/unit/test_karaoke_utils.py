@@ -98,6 +98,16 @@ class TestGetNowPlaying:
         assert result["is_paused"] is False
         assert result["volume"] == 0.7
 
+    def test_get_now_playing_carries_session_name(self, mock_karaoke):
+        """The splash screen never reloads, so it reads the session name from here."""
+        mock_karaoke.play_history.session = {"name": "Saturday Night"}
+
+        assert mock_karaoke.get_now_playing()["session_name"] == "Saturday Night"
+
+    def test_get_now_playing_session_name_is_none_without_a_session(self, mock_karaoke):
+        """An unnamed or absent session must not surface a name on the splash."""
+        assert mock_karaoke.get_now_playing()["session_name"] is None
+
     def test_get_now_playing_with_queue(self, mock_karaoke):
         """Test now playing shows up_next from queue."""
         mock_karaoke.queue_manager.enqueue("/songs/Next Song---dQw4w9WgXcQ.mp4", "NextUser")

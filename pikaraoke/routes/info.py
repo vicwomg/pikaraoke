@@ -61,6 +61,8 @@ def info():
         hide_notifications=k.hide_notifications,
         show_splash_clock=k.show_splash_clock,
         hide_url=k.hide_url,
+        hide_session_name=k.hide_session_name,
+        hide_logo=k.hide_logo,
         hide_overlay=k.hide_overlay,
         screensaver_timeout=k.screensaver_timeout,
         splash_delay=k.splash_delay,

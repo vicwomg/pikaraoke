@@ -1,0 +1,18 @@
+{# KJ-mode field naming who the host is queuing for. Shared by the search and
+   files pages: base.html binds #singer-name and fills #singer-list, so the ids
+   here are a contract with loadSingerList() and must not be duplicated. #}
+{% if is_admin() %}
+<div class="field singer-field kj-only is-hidden">
+	{# MSG: Label for the KJ-mode field naming who is about to sing the songs being queued. #}
+	<label class="label is-small" for="singer-name">{% trans %}Queue for singer{% endtrans %}</label>
+	<input
+		id="singer-name"
+		class="input is-small"
+		list="singer-list"
+		autocomplete="off"
+		{# MSG: Placeholder in the KJ-mode singer field. #}
+		placeholder="{{ _('Name of the singer') }}"
+	/>
+	<datalist id="singer-list"></datalist>
+</div>
+{% endif %}

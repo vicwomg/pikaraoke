@@ -45,6 +45,8 @@ class PreferenceManager:
         "mid_score_phrases": "",
         "high_score_phrases": "",
         "show_splash_clock": False,
+        "hide_session_name": False,
+        "hide_logo": False,
         "mic_settings": "{}",
         "enable_title_tidy": False,
         "metadata_provider": "itunes",

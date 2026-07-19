@@ -23,11 +23,7 @@ from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.browser import Browser
-from pikaraoke.lib.current_app import (
-    get_active_session_name,
-    get_karaoke_instance,
-    is_admin,
-)
+from pikaraoke.lib.current_app import get_karaoke_instance, is_admin
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
 from pikaraoke.lib.get_platform import (
@@ -76,10 +72,6 @@ app.config["JSON_SORT_KEYS"] = False
 # base.html gates the admin-only nav links on this. A global rather than a
 # per-route template arg, so every page that extends base.html agrees.
 app.jinja_env.globals.update(is_admin=is_admin)
-
-# base.html renders a subtle ribbon naming the active karaoke session. A global
-# so every page agrees without threading it through each route.
-app.jinja_env.globals.update(active_session_name=get_active_session_name)
 
 # Always initialize flask-smorest Api for error handling (@bp.arguments validation).
 # Only expose the Swagger UI when --enable-swagger is passed.
@@ -244,6 +236,8 @@ def main() -> None:
         complete_transcode_before_play=args.complete_transcode_before_play,
         buffer_size=args.buffer_size,
         hide_url=args.hide_url,
+        hide_session_name=args.hide_session_name,
+        hide_logo=args.hide_logo,
         hide_notifications=args.hide_notifications,
         hide_splash_screen=args.hide_splash_screen,
         high_quality=args.high_quality,
@@ -290,9 +284,14 @@ def main() -> None:
     app.config["ADMIN_PASSWORD"] = args.admin_password
     app.config["SITE_NAME"] = "PiKaraoke"
 
-    # Expose some functions to jinja templates
-    app.jinja_env.globals.update(filename_from_path=k.song_manager.display_name_from_path)
-    app.jinja_env.globals.update(url_escape=quote)
+    # Expose some functions to jinja templates. base.html renders a subtle
+    # ribbon from active_session_name, so it is a global rather than a
+    # per-route arg and every page that extends base.html agrees.
+    app.jinja_env.globals.update(
+        filename_from_path=k.song_manager.display_name_from_path,
+        url_escape=quote,
+        active_session_name=k.play_history.get_current_session_name,
+    )
 
     spawn(upgrade_youtubedl)
 

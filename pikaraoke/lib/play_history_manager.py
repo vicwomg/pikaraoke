@@ -86,17 +86,30 @@ class PlayHistoryManager:
         )
         return dict(rows[0]) if rows else None
 
+    def get_current_session_name(self) -> str | None:
+        """Return the open session's name, or None when it is unnamed or absent.
+
+        Sessions auto-start unnamed on the first play, so callers that surface
+        the name to a user (the nav ribbon, the splash screen) want those
+        treated the same as no session at all rather than rendering "None".
+        """
+        session = self.get_current_session()
+        return session["name"] if session else None
+
     def get_sessions(self, limit: int = 50, offset: int = 0) -> list[dict]:
-        """Return a page of sessions, newest first, each with its play count."""
+        """Return a page of sessions, newest first, each with its play count.
+
+        The count is a correlated subquery rather than a join-and-group so the
+        LIMIT bounds the work: grouping first would aggregate every play ever
+        recorded just to render ten rows.
+        """
         rows = self.db.query(
             f"""
             SELECT s.id, s.uuid, s.name,
                    {_local("s.started_at", "started_at")},
                    {_local("s.ended_at", "ended_at")},
-                   COUNT(p.id) AS play_count
+                   (SELECT COUNT(*) FROM plays p WHERE p.session_id = s.id) AS play_count
             FROM sessions s
-            LEFT JOIN plays p ON p.session_id = s.id
-            GROUP BY s.id
             ORDER BY s.started_at DESC, s.id DESC
             LIMIT ? OFFSET ?
             """,

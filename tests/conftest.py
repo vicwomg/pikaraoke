@@ -76,6 +76,19 @@ class MockSoundManager:
         pass
 
 
+class MockPlayHistory:
+    """Minimal mock of PlayHistoryManager, which needs a database in the real thing."""
+
+    def __init__(self, session=None):
+        self.session = session
+
+    def get_current_session(self) -> dict | None:
+        return self.session
+
+    def get_current_session_name(self) -> str | None:
+        return self.session["name"] if self.session else None
+
+
 class MockKaraoke:
     """Minimal mock of the Karaoke class for testing queue operations.
 
@@ -92,6 +105,7 @@ class MockKaraoke:
             config_file_path=str(tmp_path / "config.ini"), target=self
         )
         self.playback_controller = MockPlaybackController()
+        self.play_history = MockPlayHistory()
         self.volume = 0.85
         self.running = True
         self.now_playing_notification = None

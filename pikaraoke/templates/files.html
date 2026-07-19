@@ -23,7 +23,7 @@
 			var user = $("#singer-name").val();
 			if (!user) {
 				setUserCookie();
-				user = Cookies.get("user");
+				user = getUserCookie();
 			}
 			$.get(this.href + encodeURIComponent(user), function (data) {
 				var obj = JSON.parse(data);
@@ -118,21 +118,7 @@
 	{% endif%}
 </p>
 
-{% if admin %}
-<div class="field singer-field kj-only is-hidden">
-	{# MSG: Label for the KJ-mode field naming who is about to sing the songs being queued. #}
-	<label class="label is-small" for="singer-name">{% trans %}Queue for singer{% endtrans %}</label>
-	<input
-		id="singer-name"
-		class="input is-small"
-		list="singer-list"
-		autocomplete="off"
-		{# MSG: Placeholder in the KJ-mode singer field. #}
-		placeholder="{{ _('Name of the singer') }}"
-	/>
-	<datalist id="singer-list"></datalist>
-</div>
-{% endif %}
+{% include 'partials/singer_field.html' %}
 
 <div id="alpha-bar" class="column is-full has-background-dark mobile-hide">
 	<a href="{{ url_for('files.browse') }}" title="Show all"><i class="icon icon-list-bullet"></i></a>

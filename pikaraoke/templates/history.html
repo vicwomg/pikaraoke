@@ -46,20 +46,18 @@
 		playing: "{{ _('Playing') }}"
 	};
 
-	function escapeHtml(text) {
-		return $("<div>").text(text == null ? "" : text).html();
-	}
-
 	// A play row is written when the song starts, so an unresolved row is the
-	// song playing right now, not one that was skipped.
+	// song playing right now, not one that was skipped. The labels come from
+	// historyText, which is translator-controlled rather than user input, so
+	// only the untrusted fields below go through escapeHtml (from base.html).
 	function playStatus(play, currentPlayId) {
 		if (play.id === currentPlayId) {
-			return '<span class="has-text-info">' + escapeHtml(historyText.playing) + "</span>";
+			return '<span class="has-text-info">' + historyText.playing + "</span>";
 		}
 		if (play.completed) {
-			return escapeHtml(historyText.played);
+			return historyText.played;
 		}
-		return '<span class="has-text-grey">' + escapeHtml(historyText.skipped) + "</span>";
+		return '<span class="has-text-grey">' + historyText.skipped + "</span>";
 	}
 
 	// "2026-03-06 21:04:11" -> date and time as separate unbreakable spans, so
@@ -126,37 +124,40 @@
 			$("#end-session").toggleClass("is-hidden", !data.current);
 			$("#rename-session").toggleClass("is-hidden", !data.current);
 
-			var $body = $("#sessions-body").empty();
+			var $body = $("#sessions-body");
 			if (!data.sessions.length) {
-				$body.append($("<tr>").append($("<td>").attr("colspan", 4).text(historyText.noSessions)));
+				$body.html($("<tr>").append($("<td>").attr("colspan", 4).text(historyText.noSessions)));
+				return;
 			}
 
-			data.sessions.forEach(function (session) {
+			// Rows are joined and written once: appending inside the loop costs
+			// a separate HTML parse and reflow per row.
+			var rows = data.sessions.map(function (session) {
 				var isActive = session.uuid === currentSessionUuid;
 				var isFiltered = session.uuid === historySession;
+				var label = sessionLabel(session);
 				if (isFiltered) {
-					$("#singers-heading").text(
-						historyText.singersIn.replace("SESSION", sessionLabel(session))
-					);
+					$("#singers-heading").text(historyText.singersIn.replace("SESSION", label));
 				}
 				var badge = isActive
-					? ' <span class="tag is-success is-light">' + escapeHtml(historyText.active) + "</span>"
+					? ' <span class="tag is-success is-light">' + historyText.active + "</span>"
 					: "";
-				$body.append(
+				return (
 					'<tr class="' + (isFiltered ? "is-selected-session" : "") + '">' +
 						'<td><a class="filter-session" data-uuid="' + escapeHtml(session.uuid) + '">' +
-							escapeHtml(sessionLabel(session)) + "</a>" + badge + "</td>" +
+							escapeHtml(label) + "</a>" + badge + "</td>" +
 						whenCell(session.started_at) +
 						'<td class="has-text-right">' + session.play_count + "</td>" +
 						'<td class="has-text-right">' +
 							'<a class="has-text-grey-light session-options-btn" data-uuid="' +
-								escapeHtml(session.uuid) + '" data-label="' + escapeHtml(sessionLabel(session)) +
+								escapeHtml(session.uuid) + '" data-label="' + escapeHtml(label) +
 								'" data-active="' + isActive + '" title="{{ _("Options") }}">' +
 								'<i class="icon-cog is-size-5"></i></a>' +
 						"</td>" +
 					"</tr>"
 				);
 			});
+			$body.html(rows.join(""));
 		});
 	}
 
@@ -202,27 +203,28 @@
 		}
 		renderSortArrows();
 		return $.getJSON("{{ url_for('history_api.get_plays') }}", params, function (data) {
-			var $body = $("#plays-body").empty();
+			var $body = $("#plays-body");
 
 			if (!data.plays.length) {
-				$body.append($("<tr>").append($("<td>").attr("colspan", 5).text(historyText.noPlays)));
+				$body.html($("<tr>").append($("<td>").attr("colspan", 5).text(historyText.noPlays)));
+			} else {
+				var rows = data.plays.map(function (play) {
+					var song = play.song
+						? escapeHtml(play.song)
+						: '<span class="has-text-grey">' + historyText.songRemoved + "</span>";
+					return (
+						"<tr>" +
+							whenCell(play.played_at) +
+							"<td class='performer-cell'>" + escapeHtml(play.performer) + "</td>" +
+							"<td class='break-word song-cell'>" + song + "</td>" +
+							"<td class='status-cell'>" + playStatus(play, data.current_play_id) + "</td>" +
+							"<td class='has-text-right delete-cell'><a class='delete-play has-text-danger' data-id='" + play.id +
+							"' title='Delete'><i class='icon icon-trash'></i></a></td>" +
+						"</tr>"
+					);
+				});
+				$body.html(rows.join(""));
 			}
-
-			data.plays.forEach(function (play) {
-				var song = play.song
-					? escapeHtml(play.song)
-					: '<span class="has-text-grey">' + escapeHtml(historyText.songRemoved) + "</span>";
-				$body.append(
-					"<tr>" +
-						whenCell(play.played_at) +
-						"<td class='performer-cell'>" + escapeHtml(play.performer) + "</td>" +
-						"<td class='break-word song-cell'>" + song + "</td>" +
-						"<td class='status-cell'>" + playStatus(play, data.current_play_id) + "</td>" +
-						"<td class='has-text-right delete-cell'><a class='delete-play has-text-danger' data-id='" + play.id +
-						"' title='Delete'><i class='icon icon-trash'></i></a></td>" +
-					"</tr>"
-				);
-			});
 
 			renderPager("plays", playsPage, data.total);
 			$("#clear-filter").toggleClass("is-hidden", !historySession);
@@ -247,13 +249,15 @@
 					$list.append($("<span>").text(historyText.noSingers));
 					return;
 				}
+				var tags = document.createDocumentFragment();
 				data.singers.forEach(function (singer) {
-					$list.append(
+					tags.appendChild(
 						$("<span>")
 							.addClass("tag singer-tag")
-							.text(singer.performer + " (" + singer.play_count + ")")
+							.text(singer.performer + " (" + singer.play_count + ")")[0]
 					);
 				});
+				$list.append(tags);
 			}
 		);
 	}
@@ -264,9 +268,19 @@
 		loadPlays();
 	}
 
+	// url_for cannot build the parameterised paths, so the uuid is substituted
+	// into a rendered placeholder rather than the path being hardcoded here:
+	// renaming the route then still fails loudly at render time.
+	var sessionUrlTemplate = "{{ url_for('history_api.update_session', session_uuid='SESSION_UUID') }}";
+	var exportUrlTemplate = "{{ url_for('history_api.export_session', session_uuid='SESSION_UUID') }}";
+
+	function sessionUrl(uuid) {
+		return sessionUrlTemplate.replace("SESSION_UUID", encodeURIComponent(uuid));
+	}
+
 	function putSession(uuid, payload) {
 		return $.ajax({
-			url: "/api/history/sessions/" + encodeURIComponent(uuid),
+			url: sessionUrl(uuid),
 			type: "PUT",
 			contentType: "application/json",
 			data: JSON.stringify(payload)
@@ -282,39 +296,47 @@
 	}
 
 	function deleteSession(uuid) {
-		$.ajax({ url: "/api/history/sessions/" + encodeURIComponent(uuid), type: "DELETE" }).done(
-			function () {
-				if (historySession === uuid) {
-					historySession = "";
-					playsPage.offset = 0;
-				}
-				refreshHistory();
+		$.ajax({ url: sessionUrl(uuid), type: "DELETE" }).done(function () {
+			if (historySession === uuid) {
+				setSessionFilter("");
+				return;
 			}
-		);
+			refreshHistory();
+		});
+	}
+
+	// Showing one session's plays, or "" for all of them. A new filter always
+	// resets the page, since the old offset indexes a different result set.
+	function setSessionFilter(uuid) {
+		historySession = uuid;
+		playsPage.offset = 0;
+		refreshHistory();
 	}
 
 	// Row actions live in one modal rather than a row of icons, matching the
-	// queue page and keeping the table narrow enough for a phone.
-	window.currentSessionOptions = { uuid: "", label: "" };
+	// queue page and keeping the table narrow enough for a phone. The target
+	// session is held on the modal element rather than in a global, so it
+	// cannot outlive the page across SPA navigation.
+	var $sessionModal = null;
 
-	window.openSessionOptions = function (uuid, label, isActive) {
-		window.currentSessionOptions = { uuid: uuid, label: label };
+	function openSessionOptions(uuid, label, isActive) {
+		$sessionModal.data({ uuid: uuid, label: label });
 		$("#session-modal-title").text(label);
 		$("#opt-activate").toggle(!isActive);
-		var exportBase = "/api/history/export/" + encodeURIComponent(uuid);
+		var exportBase = exportUrlTemplate.replace("SESSION_UUID", encodeURIComponent(uuid));
 		$("#opt-export").attr("href", exportBase);
 		$("#opt-export-txt").attr("href", exportBase + "?format=txt");
-		$("#session-options-modal").addClass("is-active");
-	};
+		$sessionModal.addClass("is-active");
+	}
 
-	window.closeSessionOptions = function () {
-		$("#session-options-modal").removeClass("is-active");
-	};
+	function closeSessionOptions() {
+		$sessionModal.removeClass("is-active");
+	}
 
-	window.executeSessionAction = function (action) {
-		var uuid = window.currentSessionOptions.uuid;
-		var label = window.currentSessionOptions.label;
-		window.closeSessionOptions();
+	function executeSessionAction(action) {
+		var uuid = $sessionModal.data("uuid");
+		var label = $sessionModal.data("label");
+		closeSessionOptions();
 
 		if (action === "activate") {
 			if (window.confirm(historyText.confirmActivate.replace("SESSION", label))) {
@@ -327,9 +349,10 @@
 				deleteSession(uuid);
 			}
 		}
-	};
+	}
 
 	$(function () {
+		$sessionModal = $("#session-options-modal");
 		refreshHistory();
 
 		// A play is logged when the song starts and resolved when it ends, so the
@@ -380,33 +403,37 @@
 
 		$("#sessions-body").on("click", ".session-options-btn", function () {
 			var $btn = $(this);
-			window.openSessionOptions($btn.data("uuid"), $btn.data("label"), $btn.data("active") === true);
+			openSessionOptions($btn.data("uuid"), $btn.data("label"), $btn.data("active") === true);
 		});
 
-		$("#session-options-modal .modal-background").on("click", window.closeSessionOptions);
+		$sessionModal.on("click", ".modal-background, .modal-close-btn", closeSessionOptions);
+
+		$sessionModal.on("click", "[data-action]", function (e) {
+			e.preventDefault();
+			executeSessionAction($(this).data("action"));
+		});
 
 		$("#sessions-body").on("click", ".filter-session", function () {
 			var uuid = $(this).data("uuid");
 			// Clicking the session already being shown clears the filter.
-			historySession = historySession === uuid ? "" : uuid;
-			playsPage.offset = 0;
-			refreshHistory();
+			setSessionFilter(historySession === uuid ? "" : uuid);
 		});
 
 		wirePager("sessions", sessionsPage, loadSessions);
 		wirePager("plays", playsPage, loadPlays);
 
 		$("#clear-filter").on("click", function () {
-			historySession = "";
-			playsPage.offset = 0;
-			refreshHistory();
+			setSessionFilter("");
 		});
 
 		$("#plays-body").on("click", ".delete-play", function () {
 			if (!window.confirm(historyText.confirmDeletePlay)) {
 				return;
 			}
-			$.ajax({ url: "/api/history/plays/" + $(this).data("id"), type: "DELETE" }).done(refreshHistory);
+			// A play is deleted at its own id under the same collection the log
+			// is read from.
+			var url = "{{ url_for('history_api.get_plays') }}/" + $(this).data("id");
+			$.ajax({ url: url, type: "DELETE" }).done(refreshHistory);
 		});
 
 		$("#play-log").on("click", "th.sortable", function () {
@@ -418,7 +445,30 @@
 		});
 	});
 </script>
-{% endblock %} {% block header %}
+{% endblock %}
+
+{# Prev/next, a page summary and a per-page dropdown, under a paged table.
+   `prefix` names the widget's element ids; wirePager() binds them by the same
+   prefix, so both tables page from one implementation on either side. #}
+{% macro pager_controls(prefix, sizes, default_size) %}
+<div class="session-controls pager-controls">
+	<button id="{{ prefix }}-prev" class="button is-small"><i class="icon icon-left-big"></i></button>
+	<button id="{{ prefix }}-next" class="button is-small"><i class="icon icon-right-big"></i></button>
+	<span id="{{ prefix }}-page-info" class="is-size-7"></span>
+	<span class="is-flex-grow-1"></span>
+	{# MSG: Label before the dropdown choosing how many rows to list per page. #}
+	<label class="is-size-7" for="{{ prefix }}-limit">{% trans %}Per page{% endtrans %}</label>
+	<div class="select is-small">
+		<select id="{{ prefix }}-limit">
+			{% for n in sizes %}
+			<option value="{{ n }}"{% if n == default_size %} selected{% endif %}>{{ n }}</option>
+			{% endfor %}
+		</select>
+	</div>
+</div>
+{% endmacro %}
+
+{% block header %}
 <h1>{% block title %}{{ title }}{% endblock %}</h1>
 <style>
 	.history-table {
@@ -433,6 +483,10 @@
 		flex-wrap: wrap;
 		gap: 8px;
 		align-items: center;
+	}
+	/* The prev/next + per-page row that sits under each of the two tables. */
+	.pager-controls {
+		margin-top: 10px;
 	}
 	.session-buttons {
 		display: flex;
@@ -570,22 +624,7 @@
 	<tbody id="sessions-body"></tbody>
 </table>
 
-<div class="session-controls" style="margin-top: 8px">
-	<button id="sessions-prev" class="button is-small"><i class="icon icon-left-big"></i></button>
-	<button id="sessions-next" class="button is-small"><i class="icon icon-right-big"></i></button>
-	<span id="sessions-page-info" class="is-size-7"></span>
-	<span class="is-flex-grow-1"></span>
-	{# MSG: Label before the dropdown choosing how many sessions to list per page. #}
-	<label class="is-size-7" for="sessions-limit">{% trans %}Per page{% endtrans %}</label>
-	<div class="select is-small">
-		<select id="sessions-limit">
-			<option value="5">5</option>
-			<option value="10" selected>10</option>
-			<option value="25">25</option>
-			<option value="50">50</option>
-		</select>
-	</div>
-</div>
+{{ pager_controls("sessions", [5, 10, 25, 50], 10) }}
 
 <div id="session-singers" class="is-hidden" style="margin-top: 12px">
 	<strong id="singers-heading"></strong>
@@ -638,32 +677,17 @@
 	<tbody id="plays-body"></tbody>
 </table>
 
-<div class="session-controls" style="margin-top: 10px">
-	<button id="plays-prev" class="button is-small"><i class="icon icon-left-big"></i></button>
-	<button id="plays-next" class="button is-small"><i class="icon icon-right-big"></i></button>
-	<span id="plays-page-info" class="is-size-7"></span>
-	<span class="is-flex-grow-1"></span>
-	{# MSG: Label before the dropdown choosing how many plays to list per page. #}
-	<label class="is-size-7" for="plays-limit">{% trans %}Per page{% endtrans %}</label>
-	<div class="select is-small">
-		<select id="plays-limit">
-			<option value="10">10</option>
-			<option value="25" selected>25</option>
-			<option value="50">50</option>
-			<option value="100">100</option>
-		</select>
-	</div>
-</div>
+{{ pager_controls("plays", [10, 25, 50, 100], 25) }}
 
 <div class="modal" id="session-options-modal">
 	<div class="modal-background"></div>
 	<div class="modal-card" style="width: 90%; max-width: 400px;">
 		<header class="modal-card-head" style="padding: 15px;">
 			<p class="modal-card-title is-size-6" id="session-modal-title" style="max-width: 95%"></p>
-			<button class="delete" aria-label="close" onclick="closeSessionOptions()"></button>
+			<button class="delete modal-close-btn" aria-label="close"></button>
 		</header>
 		<section class="modal-card-body" style="padding: 0;">
-			<a id="opt-activate" class="panel-block py-3" href="#" onclick="executeSessionAction('activate'); return false;">
+			<a id="opt-activate" class="panel-block py-3" href="#" data-action="activate">
 				<span class="icon has-text-info mr-2"><i class="icon-exchange"></i></span>
 				{# MSG: Menu item which makes an old session the one new songs are recorded against. #}
 				{% trans %}Make active{% endtrans %}
@@ -678,12 +702,12 @@
 				{# MSG: Menu item which downloads the session's play log as a plain-text, human-readable set list. #}
 				{% trans %}Export list (text){% endtrans %}
 			</a>
-			<a id="opt-rename" class="panel-block py-3" href="#" onclick="executeSessionAction('rename'); return false;">
+			<a id="opt-rename" class="panel-block py-3" href="#" data-action="rename">
 				<span class="icon mr-2"><i class="icon-pencil"></i></span>
 				{# MSG: Menu item which renames the session. #}
 				{% trans %}Rename{% endtrans %}
 			</a>
-			<a id="opt-delete-session" class="panel-block py-3 has-text-danger" href="#" onclick="executeSessionAction('delete'); return false;">
+			<a id="opt-delete-session" class="panel-block py-3 has-text-danger" href="#" data-action="delete">
 				<span class="icon mr-2"><i class="icon-trash-empty"></i></span>
 				{# MSG: Menu item which deletes the session and every play recorded in it. #}
 				{% trans %}Delete session{% endtrans %}

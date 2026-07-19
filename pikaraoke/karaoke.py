@@ -119,6 +119,8 @@ class Karaoke:
         enable_mic_passthrough: bool | None = None,
         hide_notifications: bool | None = None,
         hide_overlay: bool | None = None,
+        hide_logo: bool | None = None,
+        hide_session_name: bool | None = None,
         hide_url: bool | None = None,
         high_quality: bool | None = None,
         limit_user_songs_by: int | None = None,
@@ -135,6 +137,8 @@ class Karaoke:
             port: HTTP server port number.
             download_path: Directory path for downloaded songs.
             hide_url: Hide URL and QR code on splash screen.
+            hide_session_name: Hide the session name under the splash screen logo.
+            hide_logo: Hide the logo in the centre of the splash screen.
             hide_notifications: Disable notification popups.
             hide_splash_screen: Run in headless mode.
             high_quality: Download higher quality videos (up to 1080p).
@@ -243,7 +247,8 @@ class Karaoke:
         )
         self.events.on("now_playing_update", self.update_now_playing_socket)
         self.events.on("playback_started", self.update_now_playing_socket)
-        self.events.on("song_ended", self.update_now_playing_socket)
+        # song_ended carries a reason this listener has no use for.
+        self.events.on("song_ended", lambda *_: self.update_now_playing_socket())
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
         self.events.on("song_downloaded", self.song_manager.register_download)
         self.events.on(
@@ -561,15 +566,13 @@ class Karaoke:
             "up_next": next_song["title"] if next_song else None,
             "next_user": next_song["user"] if next_song else None,
             "volume": self.volume,
+            # The splash screen never reloads, so the session name rides this
+            # payload rather than being rendered once at page load.
+            "session_name": self.play_history.get_current_session_name(),
         }
 
-    def update_now_playing_socket(self, *_) -> None:
-        """Emit now_playing state change via SocketIO.
-
-        Takes and ignores any arguments, so it can subscribe directly to events
-        that carry a payload (song_ended passes a reason) as well as those that
-        do not.
-        """
+    def update_now_playing_socket(self) -> None:
+        """Emit now_playing state change via SocketIO."""
         if self.socketio:
             self.socketio.emit("now_playing", self.get_now_playing(), namespace="/")
 

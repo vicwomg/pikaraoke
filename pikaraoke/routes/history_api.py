@@ -178,14 +178,15 @@ def _export_csv(session_uuid: str, plays: list[dict]) -> Response:
     """Render plays as CSV, for spreadsheets."""
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(["Played At", "Performer", "Song", "Status"])
+    writer.writerow([_("Played At"), _("Performer"), _("Song"), _("Status")])
     for play in plays:
         writer.writerow(
             [
                 play["played_at"],
                 play["performer"],
                 play["song"] or _("(song removed from library)"),
-                "Played" if play["completed"] else "Skipped",
+                # The same vocabulary the play log shows on screen.
+                _("Played") if play["completed"] else _("Skipped"),
             ]
         )
     return Response(

@@ -61,6 +61,18 @@
       return JSON.stringify(obj1) === JSON.stringify(obj2);
     }
 
+    // Escapes text for interpolation into an HTML string. A plain replace
+    // rather than the $("<div>").text().html() idiom: pages that build table
+    // rows call this several times per row, and that idiom allocates a
+    // detached element on every call.
+    var HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+
+    function escapeHtml(text) {
+      return text == null ? "" : String(text).replace(/[&<>"']/g, function (c) {
+        return HTML_ESCAPES[c];
+      });
+    }
+
     function debounce(func, wait) {
       let timeout;
       return function(...args) {
@@ -333,10 +345,11 @@
 
     {% set session_name = active_session_name() %}
     {% if session_name %}
-    <div class="session-ribbon" title="{{ session_name }}">
+    {# MSG: Accessible label for the banner naming the karaoke session in progress. SESSION_NAME is replaced with the session's name. #}
+    <div class="session-ribbon" aria-label="{{ _('Current session: SESSION_NAME').replace('SESSION_NAME', session_name) }}"
+      title="{{ session_name }}">
       <span class="session-ribbon-dot" aria-hidden="true"></span>
-      {# MSG: Subtle banner naming the karaoke session currently in progress. SESSION_NAME is replaced with the name the host gave the session. #}
-      <span class="session-ribbon-text">{{ _('Live: SESSION_NAME').replace('SESSION_NAME', session_name) }}</span>
+      <span class="session-ribbon-text">{{ session_name }}</span>
     </div>
     {% endif %}
 
