@@ -249,6 +249,10 @@ class Karaoke:
         self.events.on("playback_started", self.update_now_playing_socket)
         # song_ended carries a reason this listener has no use for.
         self.events.on("song_ended", lambda *_: self.update_now_playing_socket())
+        # The splash screen carries the session name and is a display that never
+        # reloads, so starting or ending a session has to reach it. Sessions
+        # change between songs, when no playback event is coming.
+        self.events.on("session_changed", self.update_now_playing_socket)
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
         self.events.on("song_downloaded", self.song_manager.register_download)
         self.events.on(

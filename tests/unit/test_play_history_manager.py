@@ -664,3 +664,58 @@ class TestExport:
 
     def test_unknown_session_exports_nothing(self, history):
         assert history.export_plays("no-such-uuid") == []
+
+
+class TestSessionChangedEvent:
+    """The splash screen never reloads, so it learns the session name from this
+    event. Sessions change between songs, when no playback event is coming."""
+
+    @pytest.fixture
+    def names(self, history, events):
+        """The current session name as of each event, which is what a listener
+        re-reading state would put on display."""
+        seen = []
+        events.on("session_changed", lambda: seen.append(history.get_current_session_name()))
+        return seen
+
+    def test_start_session_announces_once(self, history, names):
+        history.start_session("Friday")
+        # start_session closes any open session first; that must not surface as a
+        # separate event, or the splash blanks the name and repaints it.
+        assert names == ["Friday"]
+
+    def test_end_then_start_announces_the_new_name(self, history, names):
+        history.start_session("Friday")
+        history.end_session()
+        history.start_session("Saturday")
+        assert names == ["Friday", None, "Saturday"]
+
+    def test_rename_announces_the_new_name(self, history, names):
+        session_uuid = history.start_session("Friday")
+        history.rename_session(session_uuid, "Friday Night")
+        assert names[-1] == "Friday Night"
+
+    def test_activate_announces_the_reopened_name(self, history, names):
+        friday = history.start_session("Friday")
+        history.start_session("Saturday")
+        history.activate_session(friday)
+        assert names[-1] == "Friday"
+
+    def test_deleting_the_active_session_announces_no_name(self, history, names):
+        session_uuid = history.start_session("Friday")
+        history.delete_session(session_uuid)
+        assert names[-1] is None
+
+    @pytest.mark.parametrize(
+        "action",
+        [
+            lambda h: h.rename_session("no-such-uuid", "x"),
+            lambda h: h.activate_session("no-such-uuid"),
+            lambda h: h.delete_session("no-such-uuid"),
+        ],
+    )
+    def test_no_announcement_when_nothing_changed(self, history, names, action):
+        history.start_session("Friday")
+        names.clear()
+        assert action(history) is False
+        assert names == []

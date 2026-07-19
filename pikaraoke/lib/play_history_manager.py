@@ -62,19 +62,30 @@ class PlayHistoryManager:
     # Sessions
     # ------------------------------------------------------------------
 
+    def _close_open_session(self) -> None:
+        """Close the active session without announcing it.
+
+        The public mutations below announce once when they have finished, so the
+        ones that close a session on their way to opening another use this and
+        emit a single event rather than one per statement.
+        """
+        self.db.execute("UPDATE sessions SET ended_at = CURRENT_TIMESTAMP WHERE ended_at IS NULL")
+
     def start_session(self, name: str | None = None) -> str:
         """Start a session and return its UUID.
 
         Closes any session still open, so "current" is never ambiguous.
         """
-        self.end_session()
+        self._close_open_session()
         session_uuid = str(uuid.uuid4())
         self.db.execute("INSERT INTO sessions (uuid, name) VALUES (?, ?)", (session_uuid, name))
+        self.events.emit("session_changed")
         return session_uuid
 
     def end_session(self) -> None:
         """Close the active session, if there is one."""
-        self.db.execute("UPDATE sessions SET ended_at = CURRENT_TIMESTAMP WHERE ended_at IS NULL")
+        self._close_open_session()
+        self.events.emit("session_changed")
 
     def get_current_session(self) -> dict | None:
         """Return the open session, or None if none is active."""
@@ -125,8 +136,9 @@ class PlayHistoryManager:
         """
         if not self.db.query("SELECT id FROM sessions WHERE uuid = ?", (session_uuid,)):
             return False
-        self.end_session()
+        self._close_open_session()
         self.db.execute("UPDATE sessions SET ended_at = NULL WHERE uuid = ?", (session_uuid,))
+        self.events.emit("session_changed")
         return True
 
     def count_sessions(self) -> int:
@@ -138,12 +150,23 @@ class PlayHistoryManager:
         cursor = self.db.execute(
             "UPDATE sessions SET name = ? WHERE uuid = ?", (name, session_uuid)
         )
-        return cursor.rowcount > 0
+        if cursor.rowcount == 0:
+            return False
+        # Renaming an old session cannot change what is on display, but telling
+        # the difference costs a query to find the active one; the listeners
+        # only re-read state they already hold.
+        self.events.emit("session_changed")
+        return True
 
     def delete_session(self, session_uuid: str) -> bool:
         """Delete a session and, by cascade, all of its plays."""
         cursor = self.db.execute("DELETE FROM sessions WHERE uuid = ?", (session_uuid,))
-        return cursor.rowcount > 0
+        if cursor.rowcount == 0:
+            return False
+        # Deleting the active session leaves none active, so the name on display
+        # has to come down.
+        self.events.emit("session_changed")
+        return True
 
     # ------------------------------------------------------------------
     # Play recording
