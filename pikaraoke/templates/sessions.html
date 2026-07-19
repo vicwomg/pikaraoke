@@ -21,6 +21,10 @@
 		songRemoved: "{{ _('(song removed from library)') }}",
 		// {# MSG: Prompt asking the host to name a session. #}
 		promptRename: "{{ _('Name this session:') }}",
+		// {# MSG: Button which gives a name to a session that has never had one. #}
+		nameSession: "{{ _('Name') }}",
+		// {# MSG: Button which changes the name of a session that already has one. #}
+		renameSession: "{{ _('Rename') }}",
 		// {# MSG: Confirmation before deleting a session and every play recorded in it. SESSION is replaced with its name. #}
 		confirmDeleteSession: "{{ _('Delete SESSION and all of its plays? This cannot be undone.') }}",
 		// {# MSG: Confirmation before deleting one entry from the play log. #}
@@ -77,6 +81,14 @@
 		return session.name || historyText.unnamed.replace("NUMBER", session.id);
 	}
 
+	// An auto-started session has no name: it shows as "Session 45" and stays off
+	// the splash screen until the host gives it a real one. The action that does
+	// so reads "Name" until then, so it never offers to re-name something that
+	// was never named.
+	function renameActionLabel(isNamed) {
+		return isNamed ? historyText.renameSession : historyText.nameSession;
+	}
+
 	// Both tables page identically, so the summary and the button states are
 	// rendered from one place; `prefix` names the widget's element ids.
 	function renderPager(prefix, page, total) {
@@ -123,7 +135,9 @@
 			$("#current-session").text(data.current ? sessionLabel(data.current) : historyText.noSession);
 			$("#start-session").toggleClass("is-hidden", !!data.current);
 			$("#end-session").toggleClass("is-hidden", !data.current);
-			$("#rename-session").toggleClass("is-hidden", !data.current);
+			$("#rename-session")
+				.toggleClass("is-hidden", !data.current)
+				.text(renameActionLabel(!!(data.current && data.current.name)));
 
 			var $body = $("#sessions-body");
 			if (!data.sessions.length) {
@@ -149,7 +163,7 @@
 						'<td class="has-text-right">' +
 							'<a class="has-text-grey-light session-options-btn" data-uuid="' +
 								escapeHtml(session.uuid) + '" data-label="' + escapeHtml(label) +
-								'" title="{{ _("Options") }}">' +
+								'" data-named="' + !!session.name + '" title="{{ _("Options") }}">' +
 								'<i class="icon-cog is-size-5"></i></a>' +
 						"</td>" +
 					"</tr>"
@@ -324,9 +338,10 @@
 	// cannot outlive the page across SPA navigation.
 	var $sessionModal = null;
 
-	function openSessionOptions(uuid, label) {
+	function openSessionOptions(uuid, label, isNamed) {
 		$sessionModal.data({ uuid: uuid, label: label });
 		$("#session-modal-title").text(label);
+		$("#opt-rename-label").text(renameActionLabel(isNamed));
 		// Activating and ending are mirror actions, so only the one that applies
 		// to this session is offered.
 		var isActive = uuid === currentSessionUuid;
@@ -421,7 +436,7 @@
 
 		$("#sessions-body").on("click", ".session-options-btn", function () {
 			var $btn = $(this);
-			openSessionOptions($btn.data("uuid"), $btn.data("label"));
+			openSessionOptions($btn.data("uuid"), $btn.data("label"), $btn.data("named") === true);
 		});
 
 		$sessionModal.on("click", ".modal-background, .modal-close-btn", closeSessionOptions);
@@ -731,8 +746,9 @@
 			</a>
 			<a id="opt-rename" class="panel-block py-3" href="#" data-action="rename">
 				<span class="icon mr-2"><i class="icon-pencil"></i></span>
-				{# MSG: Menu item which renames the session. #}
-				{% trans %}Rename{% endtrans %}
+				{# Filled by openSessionOptions: reads "Name" or "Rename" depending
+				   on whether this session has been named yet. #}
+				<span id="opt-rename-label"></span>
 			</a>
 			<a id="opt-delete-session" class="panel-block py-3 has-text-danger" href="#" data-action="delete">
 				<span class="icon mr-2"><i class="icon-trash-empty"></i></span>
