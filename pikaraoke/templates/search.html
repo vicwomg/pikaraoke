@@ -458,7 +458,7 @@
 		// autocomplete lists every past singer rather than filtering to one name.
 		$(".song_added_by").val(getUserCookie());
 		$("#singer-name").on("input", function () {
-			$(".song_added_by").val($(this).val() || getUserCookie());
+			$(".song_added_by").val(resolveSinger());
 		});
 		loadSingerList();
 
@@ -493,7 +493,7 @@
 				data: JSON.stringify({
 					song_url: songUrl,
 					song_title: songTitle || "",
-					song_added_by: $(".song_added_by").val() || getUserCookie() || "",
+					song_added_by: resolveSinger(),
 					queue: $("#add-to-queue-search").is(":checked"),
 				}),
 				success: function () {

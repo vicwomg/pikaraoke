@@ -57,6 +57,7 @@
   <div>
     <img class="logo" src="{{ url_for('images.logo') }}" width="500px" alt="logo"
       {% if hide_logo %}style="display: none"{% endif %} />
+    {% set session_name = active_session_name() %}
     <div id="session-name" class="stroke"
       {% if hide_session_name or not session_name %}style="display: none"{% endif %}>{{ session_name or '' }}</div>
   </div>

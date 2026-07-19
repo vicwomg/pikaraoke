@@ -17,15 +17,7 @@
 
 		$("a.add-song-link").click(function (e) {
 			e.preventDefault();
-			// In KJ mode the visible singer field names who the host is queuing
-			// for; left blank (or hidden outside KJ mode) it falls back to this
-			// device's own cookie name.
-			var user = $("#singer-name").val();
-			if (!user) {
-				setUserCookie();
-				user = getUserCookie();
-			}
-			$.get(this.href + encodeURIComponent(user), function (data) {
+			$.get(this.href + encodeURIComponent(resolveSinger()), function (data) {
 				var obj = JSON.parse(data);
 				if (obj.success[0]) {
 					// {# MSG: Notification when a song gets added to the queue.  The song name comes after this string. #}

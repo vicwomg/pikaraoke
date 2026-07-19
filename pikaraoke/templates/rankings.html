@@ -33,6 +33,13 @@
 </div>
 {% endmacro %}
 
+{# The trailing count cell is identical in all three tables below. Kept as one
+   macro so translators see a single message rather than three copies of it. #}
+{% macro play_count_cell(count) %}
+{#- MSG: Number of plays, shown at the end of a ranked row. -#}
+<td class="rank-count has-text-right">{% trans count=count %}{{ count }} play{% pluralize %}{{ count }} plays{% endtrans %}</td>
+{%- endmacro %}
+
 {% block header %}
 <h1>{% block title %}{{ title }}{% endblock %}</h1>
 <style>
@@ -97,8 +104,7 @@
 	<tr>
 		<td>{{ loop.index }}</td>
 		<td>{{ filename_from_path(song.file_path) }}</td>
-		{# MSG: Number of times a song has been sung. #}
-		<td class="rank-count has-text-right">{% trans count=song.play_count %}{{ count }} play{% pluralize %}{{ count }} plays{% endtrans %}</td>
+		{{ play_count_cell(song.play_count) }}
 	</tr>
 	{% endfor %}
 </table>
@@ -121,8 +127,7 @@
 	<tr>
 		<td>{{ loop.index }}</td>
 		<td>{{ performer.performer }}</td>
-		{# MSG: Number of songs a performer has sung. #}
-		<td class="rank-count has-text-right">{% trans count=performer.play_count %}{{ count }} play{% pluralize %}{{ count }} plays{% endtrans %}</td>
+		{{ play_count_cell(performer.play_count) }}
 	</tr>
 	{% endfor %}
 </table>
@@ -156,8 +161,7 @@
 			{% set started = session.started_at.split(" ") %}
 			<span>{{ started[0] }}</span> <span>{{ started[1] if started|length > 1 }}</span>
 		</td>
-		{# MSG: Number of songs played during a session. #}
-		<td class="rank-count has-text-right">{% trans count=session.play_count %}{{ count }} play{% pluralize %}{{ count }} plays{% endtrans %}</td>
+		{{ play_count_cell(session.play_count) }}
 	</tr>
 	{% endfor %}
 </table>

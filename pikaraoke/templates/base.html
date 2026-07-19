@@ -121,6 +121,20 @@
       return Cookies.get("user");
     }
 
+    // Who a queue add is attributed to. In KJ mode the visible singer field
+    // names who the host is queuing for; left blank (or hidden outside KJ mode)
+    // it falls back to this device's own cookie name, prompting for one the
+    // first time it is needed. Every page that queues a song resolves it here,
+    // so the fallback rule cannot drift between them.
+    function resolveSinger() {
+      var singer = $("#singer-name").val();
+      if (singer) {
+        return singer;
+      }
+      setUserCookie();
+      return getUserCookie() || "";
+    }
+
     // KJ mode is opt-in for a host queuing on behalf of singers. It is not the
     // default use case (a karaoke party between friends), so its extra search-UI
     // controls stay hidden unless the URL carries ?kj_mode=true. The flag is

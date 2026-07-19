@@ -56,11 +56,25 @@ class PlayHistoryManager:
         self._current_song_id: int | None = None
         self._current_performer: str | None = None
         self._resuming = False
+        # The open session, cached because the nav ribbon reads it on every page
+        # render and the now_playing broadcast on every queue or playback change,
+        # while only the mutations below can change it. Loaded lazily;
+        # _session_cached separates "no session" from "not looked up yet".
+        self._cached_session: dict | None = None
+        self._session_cached = False
         self.events.on("song_ended", self._on_song_ended)
 
     # ------------------------------------------------------------------
     # Sessions
     # ------------------------------------------------------------------
+
+    def _announce_session_change(self) -> None:
+        """Drop the cached session and tell listeners it moved.
+
+        Every mutation below ends here, so the cache cannot outlive a write.
+        """
+        self._session_cached = False
+        self.events.emit("session_changed")
 
     def _close_open_session(self) -> None:
         """Close the active session without announcing it.
@@ -69,6 +83,8 @@ class PlayHistoryManager:
         ones that close a session on their way to opening another use this and
         emit a single event rather than one per statement.
         """
+        if self.get_current_session() is None:
+            return
         self.db.execute("UPDATE sessions SET ended_at = CURRENT_TIMESTAMP WHERE ended_at IS NULL")
 
     def start_session(self, name: str | None = None) -> str:
@@ -79,23 +95,26 @@ class PlayHistoryManager:
         self._close_open_session()
         session_uuid = str(uuid.uuid4())
         self.db.execute("INSERT INTO sessions (uuid, name) VALUES (?, ?)", (session_uuid, name))
-        self.events.emit("session_changed")
+        self._announce_session_change()
         return session_uuid
 
     def end_session(self) -> None:
         """Close the active session, if there is one."""
         self._close_open_session()
-        self.events.emit("session_changed")
+        self._announce_session_change()
 
     def get_current_session(self) -> dict | None:
         """Return the open session, or None if none is active."""
-        rows = self.db.query(
-            f"""
-            SELECT id, uuid, name, {_local("started_at", "started_at")}, ended_at
-            FROM sessions WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1
-            """
-        )
-        return dict(rows[0]) if rows else None
+        if not self._session_cached:
+            rows = self.db.query(
+                f"""
+                SELECT id, uuid, name, {_local("started_at", "started_at")}, ended_at
+                FROM sessions WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1
+                """
+            )
+            self._cached_session = dict(rows[0]) if rows else None
+            self._session_cached = True
+        return self._cached_session
 
     def get_current_session_name(self) -> str | None:
         """Return the open session's name, or None when it is unnamed or absent.
@@ -138,7 +157,7 @@ class PlayHistoryManager:
             return False
         self._close_open_session()
         self.db.execute("UPDATE sessions SET ended_at = NULL WHERE uuid = ?", (session_uuid,))
-        self.events.emit("session_changed")
+        self._announce_session_change()
         return True
 
     def count_sessions(self) -> int:
@@ -155,7 +174,7 @@ class PlayHistoryManager:
         # Renaming an old session cannot change what is on display, but telling
         # the difference costs a query to find the active one; the listeners
         # only re-read state they already hold.
-        self.events.emit("session_changed")
+        self._announce_session_change()
         return True
 
     def delete_session(self, session_uuid: str) -> bool:
@@ -165,7 +184,7 @@ class PlayHistoryManager:
             return False
         # Deleting the active session leaves none active, so the name on display
         # has to come down.
-        self.events.emit("session_changed")
+        self._announce_session_change()
         return True
 
     # ------------------------------------------------------------------
@@ -176,7 +195,7 @@ class PlayHistoryManager:
         """Record a play against the active session, auto-starting one if needed."""
         if self._resuming:
             self._resuming = False
-            if self._is_current_play(song_id, performer):
+            if self._current_song_id == song_id and self._current_performer == performer:
                 # Same performance restarting in a new key. Reusing the open row
                 # keeps it to one play, so a transpose cannot inflate rankings.
                 return
@@ -193,16 +212,6 @@ class PlayHistoryManager:
         self.current_play_id = cursor.lastrowid
         self._current_song_id = song_id
         self._current_performer = performer
-
-    def _is_current_play(self, song_id: int | None, performer: str) -> bool:
-        """Is the in-flight play this same song by this same performer?
-
-        Guards the resume: if the restart never arrives (the file vanished, say)
-        the flag would otherwise swallow whatever played next.
-        """
-        if self.current_play_id is None:
-            return False
-        return self._current_song_id == song_id and self._current_performer == performer
 
     def _on_song_ended(self, reason: str | None = None) -> None:
         """Resolve the pending play's completed flag from the end reason.

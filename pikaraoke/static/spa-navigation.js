@@ -429,7 +429,12 @@
         const $current = $('.session-ribbon');
         if (newRibbon) {
             if ($current.length) {
-                $current.replaceWith(newRibbon.outerHTML);
+                // The session name changes a handful of times a night, so skip
+                // the reparse when it hasn't -- replacing restarts the dot's
+                // pulse animation for no reason.
+                if ($current[0].outerHTML !== newRibbon.outerHTML) {
+                    $current.replaceWith(newRibbon.outerHTML);
+                }
             } else {
                 $('.navbar').after(newRibbon.outerHTML);
             }

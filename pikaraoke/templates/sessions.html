@@ -9,6 +9,7 @@
 	// rankings.
 	var sessionsPage = { offset: 0, limit: 10 };
 	var historySession = "";
+	var historySessionLabel = "";
 	var currentSessionUuid = null;
 
 	var historyText = {
@@ -136,9 +137,6 @@
 				var isActive = session.uuid === currentSessionUuid;
 				var isFiltered = session.uuid === historySession;
 				var label = sessionLabel(session);
-				if (isFiltered) {
-					$("#singers-heading").text(historyText.singersIn.replace("SESSION", label));
-				}
 				var badge = isActive
 					? ' <span class="tag is-success is-light">' + historyText.active + "</span>"
 					: "";
@@ -151,7 +149,7 @@
 						'<td class="has-text-right">' +
 							'<a class="has-text-grey-light session-options-btn" data-uuid="' +
 								escapeHtml(session.uuid) + '" data-label="' + escapeHtml(label) +
-								'" data-active="' + isActive + '" title="{{ _("Options") }}">' +
+								'" title="{{ _("Options") }}">' +
 								'<i class="icon-cog is-size-5"></i></a>' +
 						"</td>" +
 					"</tr>"
@@ -240,6 +238,9 @@
 			return;
 		}
 		$block.removeClass("is-hidden");
+		$("#singers-heading").text(
+			historyText.singersIn.replace("SESSION", historySessionLabel)
+		);
 		return $.getJSON(
 			"{{ url_for('sessions_api.get_singers') }}",
 			{ session: historySession },
@@ -307,8 +308,12 @@
 
 	// Showing one session's plays, or "" for all of them. A new filter always
 	// resets the page, since the old offset indexes a different result set.
-	function setSessionFilter(uuid) {
+	// The label is captured here because the filter is only ever set from a row
+	// that already displays it; rediscovering it while rendering would miss any
+	// session that has paged off the sessions table.
+	function setSessionFilter(uuid, label) {
 		historySession = uuid;
+		historySessionLabel = label || "";
 		playsPage.offset = 0;
 		refreshHistory();
 	}
@@ -319,11 +324,12 @@
 	// cannot outlive the page across SPA navigation.
 	var $sessionModal = null;
 
-	function openSessionOptions(uuid, label, isActive) {
+	function openSessionOptions(uuid, label) {
 		$sessionModal.data({ uuid: uuid, label: label });
 		$("#session-modal-title").text(label);
 		// Activating and ending are mirror actions, so only the one that applies
 		// to this session is offered.
+		var isActive = uuid === currentSessionUuid;
 		$("#opt-activate").toggle(!isActive);
 		$("#opt-end").toggle(isActive);
 		var exportBase = exportUrlTemplate.replace("SESSION_UUID", encodeURIComponent(uuid));
@@ -379,6 +385,13 @@
 			}, 400);
 			var lastNowPlaying;
 			window.historyNowPlayingHandler = function (data) {
+				// The socket outlives SPA page swaps, so a handler left bound
+				// would keep re-querying the log for a table that is no longer
+				// on screen. A missing tbody means this page is gone.
+				if (!$("#plays-body").length) {
+					window.socket.off("now_playing", window.historyNowPlayingHandler);
+					return;
+				}
 				var song = data ? data.now_playing : null;
 				if (song === lastNowPlaying) {
 					return;
@@ -408,7 +421,7 @@
 
 		$("#sessions-body").on("click", ".session-options-btn", function () {
 			var $btn = $(this);
-			openSessionOptions($btn.data("uuid"), $btn.data("label"), $btn.data("active") === true);
+			openSessionOptions($btn.data("uuid"), $btn.data("label"));
 		});
 
 		$sessionModal.on("click", ".modal-background, .modal-close-btn", closeSessionOptions);
@@ -421,7 +434,11 @@
 		$("#sessions-body").on("click", ".filter-session", function () {
 			var uuid = $(this).data("uuid");
 			// Clicking the session already being shown clears the filter.
-			setSessionFilter(historySession === uuid ? "" : uuid);
+			if (historySession === uuid) {
+				setSessionFilter("");
+			} else {
+				setSessionFilter(uuid, $(this).text());
+			}
 		});
 
 		wirePager("sessions", sessionsPage, loadSessions);
