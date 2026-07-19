@@ -107,7 +107,7 @@
 
 	function loadSessions() {
 		var params = { limit: sessionsPage.limit, offset: sessionsPage.offset };
-		return $.getJSON("{{ url_for('history_api.get_sessions') }}", params, function (data) {
+		return $.getJSON("{{ url_for('sessions_api.get_sessions') }}", params, function (data) {
 			// Deleting the last row on the last page would otherwise strand the
 			// list on an empty one.
 			if (!data.sessions.length && sessionsPage.offset > 0) {
@@ -202,7 +202,7 @@
 			params.session = historySession;
 		}
 		renderSortArrows();
-		return $.getJSON("{{ url_for('history_api.get_plays') }}", params, function (data) {
+		return $.getJSON("{{ url_for('sessions_api.get_plays') }}", params, function (data) {
 			var $body = $("#plays-body");
 
 			if (!data.plays.length) {
@@ -241,7 +241,7 @@
 		}
 		$block.removeClass("is-hidden");
 		return $.getJSON(
-			"{{ url_for('history_api.get_singers') }}",
+			"{{ url_for('sessions_api.get_singers') }}",
 			{ session: historySession },
 			function (data) {
 				var $list = $("#singers-list").empty();
@@ -271,8 +271,8 @@
 	// url_for cannot build the parameterised paths, so the uuid is substituted
 	// into a rendered placeholder rather than the path being hardcoded here:
 	// renaming the route then still fails loudly at render time.
-	var sessionUrlTemplate = "{{ url_for('history_api.update_session', session_uuid='SESSION_UUID') }}";
-	var exportUrlTemplate = "{{ url_for('history_api.export_session', session_uuid='SESSION_UUID') }}";
+	var sessionUrlTemplate = "{{ url_for('sessions_api.update_session', session_uuid='SESSION_UUID') }}";
+	var exportUrlTemplate = "{{ url_for('sessions_api.export_session', session_uuid='SESSION_UUID') }}";
 
 	function sessionUrl(uuid) {
 		return sessionUrlTemplate.replace("SESSION_UUID", encodeURIComponent(uuid));
@@ -322,7 +322,10 @@
 	function openSessionOptions(uuid, label, isActive) {
 		$sessionModal.data({ uuid: uuid, label: label });
 		$("#session-modal-title").text(label);
+		// Activating and ending are mirror actions, so only the one that applies
+		// to this session is offered.
 		$("#opt-activate").toggle(!isActive);
+		$("#opt-end").toggle(isActive);
 		var exportBase = exportUrlTemplate.replace("SESSION_UUID", encodeURIComponent(uuid));
 		$("#opt-export").attr("href", exportBase);
 		$("#opt-export-txt").attr("href", exportBase + "?format=txt");
@@ -342,6 +345,8 @@
 			if (window.confirm(historyText.confirmActivate.replace("SESSION", label))) {
 				putSession(uuid, { action: "activate" }).done(refreshHistory);
 			}
+		} else if (action === "end") {
+			putSession(uuid, { action: "end" }).done(refreshHistory);
 		} else if (action === "rename") {
 			renameSession(uuid);
 		} else if (action === "delete") {
@@ -386,7 +391,7 @@
 
 		$("#start-session").on("click", function () {
 			$.ajax({
-				url: "{{ url_for('history_api.start_session') }}",
+				url: "{{ url_for('sessions_api.start_session') }}",
 				type: "POST",
 				contentType: "application/json",
 				data: JSON.stringify({})
@@ -432,7 +437,7 @@
 			}
 			// A play is deleted at its own id under the same collection the log
 			// is read from.
-			var url = "{{ url_for('history_api.get_plays') }}/" + $(this).data("id");
+			var url = "{{ url_for('sessions_api.get_plays') }}/" + $(this).data("id");
 			$.ajax({ url: url, type: "DELETE" }).done(refreshHistory);
 		});
 
@@ -691,6 +696,11 @@
 				<span class="icon has-text-info mr-2"><i class="icon-exchange"></i></span>
 				{# MSG: Menu item which makes an old session the one new songs are recorded against. #}
 				{% trans %}Make active{% endtrans %}
+			</a>
+			<a id="opt-end" class="panel-block py-3" href="#" data-action="end">
+				<span class="icon has-text-warning mr-2"><i class="icon-cancel-circled-outline"></i></span>
+				{# MSG: Menu item which closes the session that is currently running. #}
+				{% trans %}End session{% endtrans %}
 			</a>
 			<a id="opt-export" class="panel-block py-3 no-spa" href="#">
 				<span class="icon mr-2"><i class="icon-down-circled"></i></span>

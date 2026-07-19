@@ -11,7 +11,7 @@
 			performers: $("#limit-performers").val(),
 			sessions: $("#limit-sessions").val()
 		});
-		window.location.href = "{{ url_for('history.rankings') }}?" + params;
+		window.location.href = "{{ url_for('sessions.rankings') }}?" + params;
 	}
 </script>
 {% endblock %}

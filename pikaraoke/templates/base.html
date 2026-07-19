@@ -148,7 +148,7 @@
       if (!$list.length || !isKjMode()) {
         return;
       }
-      $.getJSON("{{ url_for('history_api.get_singers') }}", { limit: 50 }, function (data) {
+      $.getJSON("{{ url_for('sessions_api.get_singers') }}", { limit: 50 }, function (data) {
         var options = document.createDocumentFragment();
         data.singers.forEach(function (singer) {
           options.appendChild($("<option>").val(singer.performer)[0]);
@@ -326,12 +326,12 @@
               </a>
               {% if is_admin() %}
               <hr class="navbar-divider">
-              <a id="history" class="navbar-item" href="{{ url_for('history.history') }}">
+              <a id="sessions" class="navbar-item" href="{{ url_for('sessions.sessions') }}">
                 <i class="icon icon-list-alt"></i>
                 {# MSG: Dropdown link to the karaoke sessions and play log page, only shown to the admin. #}
                 <span>{% trans %}Sessions{% endtrans %}</span>
               </a>
-              <a id="rankings" class="navbar-item" href="{{ url_for('history.rankings') }}">
+              <a id="rankings" class="navbar-item" href="{{ url_for('sessions.rankings') }}">
                 <i class="icon icon-th-list-outline"></i>
                 {# MSG: Dropdown link to the play rankings page, only shown to the admin. #}
                 <span>{% trans %}Rankings{% endtrans %}</span>

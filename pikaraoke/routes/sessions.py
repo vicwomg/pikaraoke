@@ -9,7 +9,7 @@ from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_ad
 
 _ = flask_babel.gettext
 
-history_bp = Blueprint("history", __name__)
+sessions_bp = Blueprint("sessions", __name__)
 
 # Row counts offered by the "Show" dropdowns on the rankings page.
 _RANKING_SIZES = [10, 20, 50, 100]
@@ -24,7 +24,7 @@ class RankingsQuery(Schema):
     sessions = fields.Integer(load_default=10, validate=validate.OneOf(_RANKING_SIZES))
 
 
-@history_bp.before_request
+@sessions_bp.before_request
 def require_admin():
     """The play log and rankings are host reporting pages; guests never see them."""
     if not is_admin():
@@ -34,18 +34,18 @@ def require_admin():
     return None
 
 
-@history_bp.route("/history")
-def history():
+@sessions_bp.route("/sessions")
+def sessions():
     """Play log page with session management."""
     return render_template(
-        "history.html",
+        "sessions.html",
         site_title=get_site_name(),
         title="Sessions",
     )
 
 
-@history_bp.route("/rankings")
-@history_bp.arguments(RankingsQuery, location="query")
+@sessions_bp.route("/rankings")
+@sessions_bp.arguments(RankingsQuery, location="query")
 def rankings(query):
     """Most-played songs, most active performers, and busiest sessions."""
     k = get_karaoke_instance()

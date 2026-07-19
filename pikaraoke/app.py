@@ -40,8 +40,6 @@ from pikaraoke.routes.background_music import background_music_bp
 from pikaraoke.routes.batch_song_renamer import batch_song_renamer_bp
 from pikaraoke.routes.controller import controller_bp
 from pikaraoke.routes.files import files_bp
-from pikaraoke.routes.history import history_bp
-from pikaraoke.routes.history_api import history_api_bp
 from pikaraoke.routes.home import home_bp
 from pikaraoke.routes.images import images_bp
 from pikaraoke.routes.info import info_bp
@@ -50,6 +48,8 @@ from pikaraoke.routes.now_playing import nowplaying_bp
 from pikaraoke.routes.preferences import preferences_bp
 from pikaraoke.routes.queue import queue_bp
 from pikaraoke.routes.search import search_bp
+from pikaraoke.routes.sessions import sessions_bp
+from pikaraoke.routes.sessions_api import sessions_api_bp
 from pikaraoke.routes.socket_events import setup_socket_events
 from pikaraoke.routes.splash import splash_bp
 from pikaraoke.routes.stream import stream_bp
@@ -101,7 +101,7 @@ _api_blueprints = [
     nowplaying_bp,
     stream_bp,
     metadata_bp,
-    history_api_bp,
+    sessions_api_bp,
 ]
 
 # Blueprints hidden from /apidocs (internal UI routes)
@@ -110,7 +110,7 @@ _internal_blueprints = [
     info_bp,
     splash_bp,
     batch_song_renamer_bp,
-    history_bp,
+    sessions_bp,
 ]
 
 for bp in _api_blueprints:

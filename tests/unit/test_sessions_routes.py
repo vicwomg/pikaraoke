@@ -18,8 +18,8 @@ from unittest.mock import MagicMock, patch
 
 from flask_babel import Babel
 
-from pikaraoke.routes.history import history_bp
-from pikaraoke.routes.history_api import history_api_bp
+from pikaraoke.routes.sessions import sessions_bp
+from pikaraoke.routes.sessions_api import sessions_api_bp
 
 ADMIN_PASSWORD = "secret"
 
@@ -31,8 +31,8 @@ def app():
     test_app.config["ADMIN_PASSWORD"] = ADMIN_PASSWORD
     test_app.config["SITE_NAME"] = "PiKaraoke"
     Babel(test_app)
-    test_app.register_blueprint(history_api_bp)
-    test_app.register_blueprint(history_bp)
+    test_app.register_blueprint(sessions_api_bp)
+    test_app.register_blueprint(sessions_bp)
 
     # The non-admin redirect target; the real app supplies this via home_bp.
     test_app.add_url_rule("/", endpoint="home.home", view_func=lambda: "home")
@@ -54,7 +54,7 @@ def admin_client(app):
 
 @pytest.fixture
 def karaoke():
-    with patch("pikaraoke.routes.history_api.get_karaoke_instance") as get_instance:
+    with patch("pikaraoke.routes.sessions_api.get_karaoke_instance") as get_instance:
         k = MagicMock()
         get_instance.return_value = k
         yield k
@@ -63,7 +63,7 @@ def karaoke():
 @pytest.fixture
 def karaoke_page():
     """Patch the karaoke instance for the page blueprint (history), not the api."""
-    with patch("pikaraoke.routes.history.get_karaoke_instance") as get_instance:
+    with patch("pikaraoke.routes.sessions.get_karaoke_instance") as get_instance:
         k = MagicMock()
         get_instance.return_value = k
         yield k
@@ -89,7 +89,7 @@ class TestAdminGate:
         response = getattr(client, method)(path)
         assert response.status_code == 403
 
-    @pytest.mark.parametrize("path", ["/history", "/rankings"])
+    @pytest.mark.parametrize("path", ["/sessions", "/rankings"])
     def test_pages_redirect_non_admin(self, client, path):
         response = client.get(path)
         assert response.status_code == 302
@@ -171,7 +171,7 @@ class TestRankingsSizes:
     """The rankings lists are top-N, so a row-count selector stands in for paging."""
 
     def test_honors_selected_sizes(self, admin_client, karaoke_page):
-        with patch("pikaraoke.routes.history.render_template", return_value="ok") as render:
+        with patch("pikaraoke.routes.sessions.render_template", return_value="ok") as render:
             response = admin_client.get("/rankings?songs=50&performers=10&sessions=20")
 
         assert response.status_code == 200
@@ -185,7 +185,7 @@ class TestRankingsSizes:
         assert kwargs["limits"]["sessions"] == 20
 
     def test_defaults_when_unset(self, admin_client, karaoke_page):
-        with patch("pikaraoke.routes.history.render_template", return_value="ok"):
+        with patch("pikaraoke.routes.sessions.render_template", return_value="ok"):
             admin_client.get("/rankings")
 
         karaoke_page.play_history.get_top_songs.assert_called_once_with(20)

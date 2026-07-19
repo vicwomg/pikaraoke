@@ -12,10 +12,10 @@ from pikaraoke.lib.current_app import get_karaoke_instance, is_admin
 
 _ = flask_babel.gettext
 
-history_api_bp = Blueprint("history_api", __name__)
+sessions_api_bp = Blueprint("sessions_api", __name__)
 
 
-@history_api_bp.before_request
+@sessions_api_bp.before_request
 def require_admin():
     """Gate every endpoint in this blueprint.
 
@@ -82,8 +82,8 @@ def _with_titles(plays: list[dict]) -> list[dict]:
     return plays
 
 
-@history_api_bp.route("/api/history/singers")
-@history_api_bp.arguments(SingersQuery, location="query")
+@sessions_api_bp.route("/api/history/singers")
+@sessions_api_bp.arguments(SingersQuery, location="query")
 def get_singers(query):
     """Performer names with play counts, most active first.
 
@@ -93,8 +93,8 @@ def get_singers(query):
     return jsonify({"singers": k.play_history.get_singers(query["session"], query["limit"])})
 
 
-@history_api_bp.route("/api/history/plays")
-@history_api_bp.arguments(PlaysQuery, location="query")
+@sessions_api_bp.route("/api/history/plays")
+@sessions_api_bp.arguments(PlaysQuery, location="query")
 def get_plays(query):
     """Paginated play log, newest first, optionally scoped to one session."""
     k = get_karaoke_instance()
@@ -112,7 +112,7 @@ def get_plays(query):
     )
 
 
-@history_api_bp.route("/api/history/plays/<int:play_id>", methods=["DELETE"])
+@sessions_api_bp.route("/api/history/plays/<int:play_id>", methods=["DELETE"])
 def delete_play(play_id):
     """Delete a single play from the log."""
     k = get_karaoke_instance()
@@ -121,8 +121,8 @@ def delete_play(play_id):
     return jsonify({"success": True})
 
 
-@history_api_bp.route("/api/history/sessions")
-@history_api_bp.arguments(SessionsQuery, location="query")
+@sessions_api_bp.route("/api/history/sessions")
+@sessions_api_bp.arguments(SessionsQuery, location="query")
 def get_sessions(query):
     """Session list with play counts, plus the currently active session."""
     k = get_karaoke_instance()
@@ -137,16 +137,16 @@ def get_sessions(query):
     )
 
 
-@history_api_bp.route("/api/history/sessions", methods=["POST"])
-@history_api_bp.arguments(StartSessionForm, location="json")
+@sessions_api_bp.route("/api/history/sessions", methods=["POST"])
+@sessions_api_bp.arguments(StartSessionForm, location="json")
 def start_session(form):
     """Start a new session, closing any that is still open."""
     k = get_karaoke_instance()
     return jsonify({"success": True, "uuid": k.play_history.start_session(form["name"])})
 
 
-@history_api_bp.route("/api/history/sessions/<session_uuid>", methods=["PUT"])
-@history_api_bp.arguments(UpdateSessionForm, location="json")
+@sessions_api_bp.route("/api/history/sessions/<session_uuid>", methods=["PUT"])
+@sessions_api_bp.arguments(UpdateSessionForm, location="json")
 def update_session(form, session_uuid):
     """End, activate or rename a session. The schema rejects any other action."""
     k = get_karaoke_instance()
@@ -165,7 +165,7 @@ def update_session(form, session_uuid):
     return jsonify({"success": True})
 
 
-@history_api_bp.route("/api/history/sessions/<session_uuid>", methods=["DELETE"])
+@sessions_api_bp.route("/api/history/sessions/<session_uuid>", methods=["DELETE"])
 def delete_session(session_uuid):
     """Delete a session and all of its plays."""
     k = get_karaoke_instance()
@@ -213,8 +213,8 @@ def _export_txt(session_uuid: str, plays: list[dict]) -> Response:
     )
 
 
-@history_api_bp.route("/api/history/export/<session_uuid>")
-@history_api_bp.arguments(ExportQuery, location="query")
+@sessions_api_bp.route("/api/history/export/<session_uuid>")
+@sessions_api_bp.arguments(ExportQuery, location="query")
 def export_session(query, session_uuid):
     """Download a session's plays as CSV or a human-readable text list."""
     k = get_karaoke_instance()
