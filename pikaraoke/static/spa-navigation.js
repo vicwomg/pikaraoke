@@ -350,6 +350,9 @@
                 // Update navigation highlighting
                 updateNavHighlight(url);
 
+                // Sync the active-session ribbon, which lives outside .box
+                updateSessionRibbon(doc);
+
                 // Load external resources (CSS and JS) before executing inline scripts
                 await loadExternalResources(newStylesheets, newScripts);
 
@@ -413,6 +416,26 @@
         $('.navbar-item').removeClass('is-active');
 
         $('#' + window.navItemIdForPath(path)).addClass('is-active');
+    }
+
+    /**
+     * Sync the active-session ribbon to match the freshly fetched page.
+     * It sits above .box, so the content swap alone leaves it stale when a
+     * session starts, ends, or is renamed between navigations.
+     * @param {Document} doc - Parsed document of the new page
+     */
+    function updateSessionRibbon(doc) {
+        const newRibbon = doc.querySelector('.session-ribbon');
+        const $current = $('.session-ribbon');
+        if (newRibbon) {
+            if ($current.length) {
+                $current.replaceWith(newRibbon.outerHTML);
+            } else {
+                $('.navbar').after(newRibbon.outerHTML);
+            }
+        } else {
+            $current.remove();
+        }
     }
 
     /**

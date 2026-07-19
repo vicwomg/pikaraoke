@@ -201,6 +201,41 @@
     bottom: 5px;
     right: 10px;
   }
+  .session-ribbon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 4px 5px 0;
+    padding: 4px 12px;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.04);
+    color: hsl(0, 0%, 71%);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .session-ribbon-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .session-ribbon-dot {
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: hsl(141, 53%, 53%);
+    animation: session-ribbon-pulse 2s ease-in-out infinite;
+  }
+  @keyframes session-ribbon-pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(72, 199, 116, 0.5); }
+    50% { opacity: 0.55; box-shadow: 0 0 0 4px rgba(72, 199, 116, 0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .session-ribbon-dot { animation: none; }
+  }
   tr:nth-child(even) {
     background-color: rgb(50, 55, 55);
   }
@@ -295,6 +330,15 @@
         </div>
       </div>
     </nav>
+
+    {% set session_name = active_session_name() %}
+    {% if session_name %}
+    <div class="session-ribbon" title="{{ session_name }}">
+      <span class="session-ribbon-dot" aria-hidden="true"></span>
+      {# MSG: Subtle banner naming the karaoke session currently in progress. SESSION_NAME is replaced with the name the host gave the session. #}
+      <span class="session-ribbon-text">{{ _('Live: SESSION_NAME').replace('SESSION_NAME', session_name) }}</span>
+    </div>
+    {% endif %}
 
     {% if get_flashed_messages() %}
     {% for category, message in get_flashed_messages(with_categories=true) %}

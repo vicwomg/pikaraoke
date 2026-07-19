@@ -23,7 +23,11 @@ from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.browser import Browser
-from pikaraoke.lib.current_app import get_karaoke_instance, is_admin
+from pikaraoke.lib.current_app import (
+    get_active_session_name,
+    get_karaoke_instance,
+    is_admin,
+)
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
 from pikaraoke.lib.get_platform import (
@@ -72,6 +76,10 @@ app.config["JSON_SORT_KEYS"] = False
 # base.html gates the admin-only nav links on this. A global rather than a
 # per-route template arg, so every page that extends base.html agrees.
 app.jinja_env.globals.update(is_admin=is_admin)
+
+# base.html renders a subtle ribbon naming the active karaoke session. A global
+# so every page agrees without threading it through each route.
+app.jinja_env.globals.update(active_session_name=get_active_session_name)
 
 # Always initialize flask-smorest Api for error handling (@bp.arguments validation).
 # Only expose the Swagger UI when --enable-swagger is passed.

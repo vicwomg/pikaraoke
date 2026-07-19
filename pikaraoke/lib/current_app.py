@@ -55,6 +55,17 @@ def get_site_name() -> str:
     return current_app.config["SITE_NAME"]
 
 
+def get_active_session_name() -> str | None:
+    """Return the current karaoke session's name, or None.
+
+    base.html renders a subtle "live session" ribbon from this. Only named
+    sessions surface: sessions auto-start unnamed on first play, and a banner
+    reading "None" would be noise, not branding.
+    """
+    session = get_karaoke_instance().play_history.get_current_session()
+    return session["name"] if session else None
+
+
 def broadcast_event(event: str, data: Any = None) -> None:
     """Broadcast a SocketIO event to all connected clients.
 
