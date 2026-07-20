@@ -157,6 +157,26 @@
     // list is effectively the guest list, so the endpoint 403s for everyone
     // else. Capped because the list grows without bound over a venue's lifetime
     // and nobody scrolls an autocomplete past the most active handful.
+    // Swaps the KJ singer field for a "start a session" prompt. The server
+    // renders the right one at page load; this keeps it correct when the host
+    // starts or ends a session from another tab, since session_changed
+    // rebroadcasts the now_playing payload that carries has_session.
+    function setSingerFieldSessionState(hasSession) {
+      var $input = $("#singer-input");
+      if (!$input.length) {
+        return;
+      }
+      $input.toggleClass("is-hidden", !hasSession);
+      $("#singer-no-session").toggleClass("is-hidden", hasSession);
+      if (hasSession) {
+        loadSingerList();
+      } else {
+        // A stale name here would be attributed to the next song queued once a
+        // session starts.
+        $("#singer-name").val("");
+      }
+    }
+
     function loadSingerList() {
       var $list = $("#singer-list");
       if (!$list.length || !isKjMode()) {
@@ -191,6 +211,9 @@
       // Reveal KJ-only controls when a host has opted into KJ mode.
       if (isKjMode()) {
         $(".kj-only").removeClass("is-hidden");
+        window.socket.on("now_playing", function (np) {
+          setSingerFieldSessionState(np.has_session);
+        });
       }
 
       // handle current user display

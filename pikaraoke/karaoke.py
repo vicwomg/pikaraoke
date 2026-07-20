@@ -573,6 +573,10 @@ class Karaoke:
             # The splash screen never reloads, so the session name rides this
             # payload rather than being rendered once at page load.
             "session_name": self.play_history.get_current_session_name(),
+            # Separate from session_name, which is None for an unnamed session
+            # too. The KJ singer field gates on this, and session_changed emits
+            # this payload, so starting a session elsewhere updates it live.
+            "has_session": self.play_history.has_active_session(),
         }
 
     def update_now_playing_socket(self) -> None:

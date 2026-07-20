@@ -126,6 +126,15 @@ class PlayHistoryManager:
         session = self.get_current_session()
         return session["name"] if session else None
 
+    def has_active_session(self) -> bool:
+        """Whether a session is open, regardless of whether it has been named.
+
+        Distinct from get_current_session_name(), which returns None for an
+        unnamed session too. KJ mode gates on this, so conflating the two would
+        lock the host out of a session that is running but not yet named.
+        """
+        return self.get_current_session() is not None
+
     def get_sessions(self, limit: int = 50, offset: int = 0) -> list[dict]:
         """Return a page of sessions, newest first, each with its play count.
 

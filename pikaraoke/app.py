@@ -286,11 +286,13 @@ def main() -> None:
 
     # Expose some functions to jinja templates. base.html renders a subtle
     # ribbon from active_session_name, so it is a global rather than a
-    # per-route arg and every page that extends base.html agrees.
+    # per-route arg and every page that extends base.html agrees. singer_field
+    # gates KJ mode on has_active_session for the same reason.
     app.jinja_env.globals.update(
         filename_from_path=k.song_manager.display_name_from_path,
         url_escape=quote,
         active_session_name=k.play_history.get_current_session_name,
+        has_active_session=k.play_history.has_active_session,
     )
 
     spawn(upgrade_youtubedl)

@@ -88,6 +88,9 @@ class MockPlayHistory:
     def get_current_session_name(self) -> str | None:
         return self.session["name"] if self.session else None
 
+    def has_active_session(self) -> bool:
+        return self.session is not None
+
 
 class MockKaraoke:
     """Minimal mock of the Karaoke class for testing queue operations.
