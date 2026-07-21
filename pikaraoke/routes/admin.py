@@ -177,7 +177,7 @@ def auth(form):
         # MSG: Message shown after logging in as admin successfully
         flash(_("Admin mode granted!"), "is-success")
     else:
-        resp = make_response(redirect(url_for("admin.login", next=next_url)))
+        resp = make_response(redirect(next_url))
         # MSG: Message shown after failing to login as admin
         flash(_("Incorrect admin password!"), "is-danger")
     return resp
