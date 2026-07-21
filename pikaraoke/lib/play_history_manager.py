@@ -54,9 +54,13 @@ def _local(column: str, alias: str) -> str:
 class PlayHistoryManager:
     """Records who sang what and when, grouped into sessions.
 
-    Sessions are time brackets the host names from the Sessions page, but one
-    auto-starts on the first play so a forgotten Start button never loses a
-    night's data.
+    Sessions are time brackets the host names and ends from the Sessions page.
+    A play cannot exist without one -- plays.session_id is NOT NULL -- so
+    record_play() opens an unnamed session when none is running, which is what
+    lets the play log and rankings work for a household that never starts one by
+    hand. That session is deliberately invisible: unnamed, so it stays off the
+    splash screen and the nav ribbon, and left open, since nobody who relies on
+    it would ever end it.
     """
 
     def __init__(self, db: KaraokeDatabase, events: EventSystem) -> None:
@@ -180,13 +184,21 @@ class PlayHistoryManager:
         )
         return [dict(row) for row in rows]
 
+    def session_exists(self, session_uuid: str) -> bool:
+        """Whether a session with this UUID is on record.
+
+        Callers that return nothing for an unknown session need this to tell it
+        apart from a session that simply has no plays.
+        """
+        return bool(self.db.query("SELECT id FROM sessions WHERE uuid = ?", (session_uuid,)))
+
     def activate_session(self, session_uuid: str) -> bool:
         """Reopen a session so new plays land in it, closing any other open one.
 
         Ending a session is otherwise one-way, so a mis-clicked End would split
         a night across two sessions with no way to rejoin them.
         """
-        if not self.db.query("SELECT id FROM sessions WHERE uuid = ?", (session_uuid,)):
+        if not self.session_exists(session_uuid):
             return False
         self._close_open_session()
         self.db.execute("UPDATE sessions SET ended_at = NULL WHERE uuid = ?", (session_uuid,))

@@ -167,6 +167,25 @@ class TestExport:
         response = admin_client.get("/api/history/export/abc?format=xml")
         assert response.status_code == 422
 
+    def test_unknown_session_is_404(self, admin_client, karaoke):
+        """A deleted session must not download as an empty file, which reads as
+        'nobody sang' rather than 'that session is gone'."""
+        karaoke.play_history.session_exists.return_value = False
+
+        response = admin_client.get("/api/history/export/gone")
+
+        assert response.status_code == 404
+        karaoke.play_history.export_plays.assert_not_called()
+
+    def test_session_with_no_plays_still_exports(self, admin_client, karaoke):
+        karaoke.play_history.session_exists.return_value = True
+        karaoke.play_history.export_plays.return_value = []
+
+        response = admin_client.get("/api/history/export/quiet")
+
+        assert response.status_code == 200
+        assert "Played At,Performer,Song,Status" in response.data.decode()
+
 
 class TestSessionName:
     """A session name is a display value: the splash screen shows it across a TV

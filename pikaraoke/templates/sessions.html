@@ -268,7 +268,8 @@
 							"<td class='break-word song-cell'>" + song + "</td>" +
 							"<td class='status-cell'>" + playStatus(play, data.current_play_id) + "</td>" +
 							"<td class='has-text-right delete-cell'><a class='delete-play has-text-danger' data-id='" + play.id +
-							"' title='Delete'><i class='icon icon-trash'></i></a></td>" +
+							{# MSG: Tooltip on the button that removes a single play from the log. #}
+							"' title='{{ _('Delete') | forceescape }}'><i class='icon icon-trash'></i></a></td>" +
 						"</tr>"
 					);
 				});

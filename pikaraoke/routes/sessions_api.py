@@ -259,6 +259,10 @@ def _export_txt(session_uuid: str, plays: list[dict]) -> Response:
 def export_session(query, session_uuid):
     """Download a session's plays as CSV or a human-readable text list."""
     k = get_karaoke_instance()
+    # Otherwise a deleted session downloads as a header row and no plays, which
+    # reads as "nobody sang" rather than "that session is gone".
+    if not k.play_history.session_exists(session_uuid):
+        return jsonify({"success": False, "error": _("Session not found")}), 404
     plays = _with_titles(k.play_history.export_plays(session_uuid))
     if query["format"] == "txt":
         return _export_txt(session_uuid, plays)
