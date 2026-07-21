@@ -16,7 +16,7 @@
 				if (returnData[0]) showNotification(returnData[1], "is-success");
 				else showNotification(returnData[1], "is-danger");
 			} catch (_e) {
-				showNotification("{{ _('Something went wrong! Your preferences were not changed') }}", "is-danger");
+				showNotification({{ _('Something went wrong! Your preferences were not changed') | tojson }}, "is-danger");
 			}
 		}
 
@@ -64,7 +64,7 @@
 			$("#quit-link").click(function (e) {
 				e.preventDefault();
 				// {# MSG: Confirmation text whe the user selects quit. #}
-				if (window.confirm("{{ _('Are you sure you want to quit?') }}")) {
+				if (window.confirm({{ _('Are you sure you want to quit?') | tojson }})) {
 					location.href = this.href;
 				}
 			});
@@ -72,7 +72,7 @@
 			$("#shutdown-link").click(function (e) {
 				e.preventDefault();
 				// {# MSG: Confirmation text whe the user starts to turn off the machine running Pikaraoke. #}
-				if (window.confirm("{{ _('Are you sure you want to shut down?') }}")) {
+				if (window.confirm({{ _('Are you sure you want to shut down?') | tojson }})) {
 					location.href = this.href;
 				}
 			});
@@ -80,7 +80,7 @@
 			$("#clear-preferences-link").click(function (e) {
 				e.preventDefault();
 				// {# MSG: Confirmation text whe the user clears preferences. #}
-				if (window.confirm("{{ _('Are you sure you want to clear your preferences?') }}")) {
+				if (window.confirm({{ _('Are you sure you want to clear your preferences?') | tojson }})) {
 					location.href = this.href;
 				}
 			});
@@ -88,7 +88,7 @@
 			$("#restart-link").click(function (e) {
 				e.preventDefault();
 				// {# MSG: Confirmation text whe the user starts to reboot the machine running Pikaraoke. #}
-				if (window.confirm("{{ _('Are you sure you want to reboot?') }}")) {
+				if (window.confirm({{ _('Are you sure you want to reboot?') | tojson }})) {
 					location.href = this.href;
 				}
 			});
@@ -98,7 +98,7 @@
 				if (
 					window.confirm(
 						// {# MSG: Confirmation text whe the user asks to update yt-dlp. #}
-						"{{ _('Are you sure you want to update yt-dlp right now? Current and pending downloads may fail.') }}"
+						{{ _('Are you sure you want to update yt-dlp right now? Current and pending downloads may fail.') | tojson }}
 					)
 				) {
 					location.href = this.href;
@@ -163,7 +163,7 @@
 			var list = $("#mic-list");
 			list.empty();
 			if (devices.length === 0) {
-				list.html('<p class="has-text-grey">{{ _("No microphones detected. Connect a USB or Bluetooth mic and click Refresh.") }}</p>');
+				list.html('<p class="has-text-grey">{{ _("No microphones detected. Connect a USB or Bluetooth mic and click Refresh.") | forceescape }}</p>');
 				$("#mic-settings-panel").hide();
 				return;
 			}
@@ -229,9 +229,9 @@
 		$("#mic-refresh").click(function(e) {
 			e.preventDefault();
 			window.socket.emit("mic_refresh");
-			$(this).prop("disabled", true).text("{{ _('Scanning...') }}");
+			$(this).prop("disabled", true).text({{ _('Scanning...') | tojson }});
 			setTimeout(function() {
-				$("#mic-refresh").prop("disabled", false).text("{{ _('Refresh') }}");
+				$("#mic-refresh").prop("disabled", false).text({{ _('Refresh') | tojson }});
 			}, 3000);
 		});
 
@@ -281,7 +281,7 @@
 				$.getJSON("{{ url_for('admin.library_stats') }}", function(data) {
 					if (!data.error) $("#library-song-count").text(data.song_count);
 				});
-				showNotification("{{ _('Library sync complete') }}", "is-success");
+				showNotification({{ _('Library sync complete') | tojson }}, "is-success");
 			});
 		});
 	</script>

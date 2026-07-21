@@ -28,10 +28,10 @@
             $('<a class="suggested_item has-background-grey-dark">').data('name', display).append($text).append($score).appendTo($container);
           });
           // {# MSG: Help text explaining that clicking a suggestion copies it to the filename input. #}
-          $container.append('<p class="is-size-7 has-text-grey-light mt-2">{{ _("Click a suggestion to use it as the new filename.") }}</p>');
+          $container.append('<p class="is-size-7 has-text-grey-light mt-2">{{ _("Click a suggestion to use it as the new filename.") | forceescape }}</p>');
         } else {
           // {# MSG: Warning when no suggested tracks are found for a search. #}
-          $container.html('<span class="has-text-grey-light">{{ _("No suggestion!") }}</span>');
+          $container.html('<span class="has-text-grey-light">{{ _("No suggestion!") | forceescape }}</span>');
         }
       }).always(function () {
         $btn.removeClass("is-loading");

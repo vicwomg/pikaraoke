@@ -40,7 +40,7 @@ LOCALE_TO_GOOGLE = {
     "ja_JP": "ja",
     "ko_KR": "ko",
     "nl_NL": "nl",
-    "no_NO": "no",
+    "nb_NO": "no",
     "pt_BR": "pt",
     "ru_RU": "ru",
     "th_TH": "th",
