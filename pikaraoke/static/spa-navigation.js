@@ -16,10 +16,15 @@
 
     /**
      * Nav bar item id for a path. Every item's id is its first path segment
-     * ("/browse/rock" -> "browse"), so a new page needs no change here. Shared
-     * with base.html, which highlights the nav on a full page load.
+     * ("/browse/rock" -> "browse"), so a new page needs no change here. Strips
+     * the reverse proxy base path first, so callers can pass a raw location.
+     * Shared with base.html, which highlights the nav on a full page load.
      */
     window.navItemIdForPath = function (path) {
+        const basePath = window.pikaraokeConfig.basePath;
+        if (basePath && path.startsWith(basePath)) {
+            path = path.substring(basePath.length) || '/';
+        }
         return path === '/' ? 'home' : path.split('/')[1];
     };
 
@@ -100,7 +105,10 @@
             // Only update if user clicked OK and entered a non-empty name
             // null = Cancel clicked, "" = OK with empty input
             if (name !== null && name.trim() !== "") {
-                Cookies.set("user", name, { expires: 3650, path: '/' });
+                Cookies.set("user", name, {
+                    expires: 3650,
+                    path: window.pikaraokeConfig.cookiePath
+                });
                 // Update the displayed name without reloading
                 $("#current-user span").text(name);
             }
@@ -215,7 +223,7 @@
         $(document).on('click', '.add-random', function(e) {
             e.preventDefault();
             const amount = $('#randomNumberInput').val();
-            const baseUrl = '/queue/addrandom';
+            const baseUrl = `${window.pikaraokeConfig.basePath}/queue/addrandom`;
             $.get(`${baseUrl}/${amount}`);
         });
     }
@@ -259,21 +267,22 @@
         }
 
         // Exclude admin action links that perform system operations
+        const basePath = window.pikaraokeConfig.basePath;
         const excludedPaths = [
-            '/quit',
-            '/shutdown',
-            '/reboot',
-            '/logout',
-            '/login',
-            '/update_ytdl',
-            '/refresh',
-            '/expand_fs',
-            '/clear_preferences',
-            '/auth',
-            '/batch-song-renamer', // Edit all songs page
-            '/files/edit', // Edit single song
-            '/files/delete', // Delete song
-            '/queue/edit' // Queue edit actions (move up/down/top/bottom/delete)
+            basePath + '/quit',
+            basePath + '/shutdown',
+            basePath + '/reboot',
+            basePath + '/logout',
+            basePath + '/login',
+            basePath + '/update_ytdl',
+            basePath + '/refresh',
+            basePath + '/expand_fs',
+            basePath + '/clear_preferences',
+            basePath + '/auth',
+            basePath + '/batch-song-renamer', // Edit all songs page
+            basePath + '/files/edit', // Edit single song
+            basePath + '/files/delete', // Delete song
+            basePath + '/queue/edit' // Queue edit actions (move up/down/top/bottom/delete)
         ];
 
         // Check if the href matches any excluded path

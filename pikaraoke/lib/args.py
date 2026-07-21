@@ -6,6 +6,7 @@ import os
 
 from pikaraoke.lib.get_platform import get_default_dl_dir, get_platform
 from pikaraoke.lib.preference_manager import PreferenceManager
+from pikaraoke.lib.url_prefix import normalize_url_base_path
 
 
 def arg_path_parse(path: str | list[str] | None) -> str | None:
@@ -99,6 +100,13 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         required=False,
     )
     parser.add_argument(
+        "--skip-youtubedl-upgrade",
+        "--skip-ytdl-upgrade",
+        action="store_true",
+        help="Skip automatic yt-dlp upgrade check on startup.",
+        required=False,
+    )
+    parser.add_argument(
         "-l",
         "--log-level",
         help=f"Logging level int value (DEBUG: 10, INFO: 20, WARNING: 30, ERROR: 40, CRITICAL: 50). (default: {default_log_level})",
@@ -137,6 +145,13 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         "--url",
         help="Override the displayed IP address with a supplied URL. This argument should include port, if necessary",
         default=None,
+        required=False,
+    )
+    parser.add_argument(
+        "--base-path",
+        help="URL path prefix for reverse proxy deployments (e.g., /karaoke). Requires a reverse proxy to handle the path routing; PiKaraoke only generates correct URLs with this prefix.",
+        default="",
+        type=normalize_url_base_path,
         required=False,
     )
     parser.add_argument(
@@ -179,7 +194,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--preferred-language",
-        help="Set the preferred language for the web interface. This will persist across restarts. Available codes: en, de_DE, es_VE, fi_FI, fr_FR, id_ID,it_IT, ja_JP, ko_KR, nl_NL, no_NO, pt_BR, ru_RU, th_TH, zh_Hans_CN, zh_Hant_TW",
+        help="Set the preferred language for the web interface. This will persist across restarts. Available codes: en, de_DE, es_VE, fi_FI, fr_FR, id_ID,it_IT, ja_JP, ko_KR, nl_NL, nb_NO, pt_BR, ru_RU, th_TH, zh_Hans_CN, zh_Hant_TW",
         default=None,
         required=False,
     )

@@ -9,7 +9,7 @@ LANGUAGES = {
     "ja_JP": "Japanese",
     "ko_KR": "Korean",
     "nl_NL": "Dutch",
-    "no_NO": "Norwegian",
+    "nb_NO": "Norwegian",
     "pt_BR": "Brazilian Portuguese",
     "ru_RU": "Russian",
     "th_TH": "Thai",

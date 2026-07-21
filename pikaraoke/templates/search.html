@@ -264,7 +264,7 @@
 			optgroups: [
 				{
 					value: "autocomplete",
-					label: '{{ _("Available songs in local library") }}',
+					label: {{ _("Available songs in local library") | tojson }},
 				},
 			],
 			createOnBlur: true,

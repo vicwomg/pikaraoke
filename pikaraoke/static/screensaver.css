@@ -26,7 +26,7 @@ body {
   justify-content: right;
   align-items: flex-end;
   padding: 10px;
-  background-image: url("/logo");
+  background-image: var(--pikaraoke-logo-url);
   background-repeat: no-repeat;
   background-size: 300px;
   background-position: contain;

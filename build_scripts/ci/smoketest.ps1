@@ -14,7 +14,7 @@ Write-Host "Installing PiKaraoke for CI..."
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
 Write-Host "Starting PiKaraoke in headless mode..."
-$proc = Start-Process pikaraoke -ArgumentList "--headless" -PassThru -RedirectStandardOutput output.log -RedirectStandardError error.log
+$proc = Start-Process pikaraoke -ArgumentList "--headless", "--skip-youtubedl-upgrade" -PassThru -RedirectStandardOutput output.log -RedirectStandardError error.log
 
 try {
     Write-Host "Waiting for PiKaraoke to initialize (max 30s)..."

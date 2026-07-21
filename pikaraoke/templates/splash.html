@@ -21,8 +21,8 @@
     hideOverlay: "{{ hide_overlay }}" == 'True',
     hideSessionName: "{{ hide_session_name }}" == 'True',
     translations: {
-      socketConnectionLost: "{{ _('Connection lost. Is the server still running?') }}",
-      unsupportedBrowser: "{{ _('This browser is not fully supported. You may experience streaming issues. Please use Chrome/Safari/Firefox/Edge for best results.') }}",
+      socketConnectionLost: {{ _('Connection lost. Is the server still running?') | tojson }},
+      unsupportedBrowser: {{ _('This browser is not fully supported. You may experience streaming issues. Please use Chrome/Safari/Firefox/Edge for best results.') | tojson }},
     },
     scorePhrasesUrl: "{{ url_for('splash.get_score_phrases') }}",
   };
@@ -181,7 +181,7 @@
 ></div>
 
 <div class="fw-fh-container">
-  <div id="screensaver" style="visibility: hidden">
+  <div id="screensaver" style="visibility: hidden; --pikaraoke-logo-url: url('{{ url_for("images.logo") }}');">
     <div id="dvd">
       <div id="screensaver-qr"{% if hide_url %} style="display: none"{% endif %}>
         <div style="text-align: right">

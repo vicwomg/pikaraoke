@@ -18,43 +18,46 @@
 	// one-shot flag: a refresh must not re-open a row the host has since closed.
 	var autoOpenedUuid;
 
+	// Gettext output is Markup, so Jinja never autoescapes it: an apostrophe in a
+	// translation would close the JS string literal and break this whole script.
+	// |tojson emits the literal instead. See tests/unit/test_template_i18n.py.
 	var historyText = {
 		// {# MSG: Shown on the history page when no session is currently running. #}
-		noSession: "{{ _('No active session') }}",
+		noSession: {{ _('No active session') | tojson }},
 		// {# MSG: Label for a session the host never named. NUMBER is replaced with a number. #}
-		unnamed: "{{ _('Session NUMBER') }}",
+		unnamed: {{ _('Session NUMBER') | tojson }},
 		// {# MSG: Shown in the play log when the song file has since been deleted from the library. #}
-		songRemoved: "{{ _('(song removed from library)') }}",
+		songRemoved: {{ _('(song removed from library)') | tojson }},
 		// {# MSG: Prompt asking the host to name a session. #}
-		promptRename: "{{ _('Name this session:') }}",
+		promptRename: {{ _('Name this session:') | tojson }},
 		// {# MSG: Button which gives a name to a session that has never had one. #}
-		nameSession: "{{ _('Name') }}",
+		nameSession: {{ _('Name') | tojson }},
 		// {# MSG: Button which changes the name of a session that already has one. #}
-		renameSession: "{{ _('Rename') }}",
+		renameSession: {{ _('Rename') | tojson }},
 		// {# MSG: Confirmation before deleting a session and every play recorded in it. SESSION is replaced with its name. #}
-		confirmDeleteSession: "{{ _('Delete SESSION and all of its plays? This cannot be undone.') }}",
+		confirmDeleteSession: {{ _('Delete SESSION and all of its plays? This cannot be undone.') | tojson }},
 		// {# MSG: Confirmation before deleting one entry from the play log. #}
-		confirmDeletePlay: "{{ _('Delete this entry from the play log?') }}",
+		confirmDeletePlay: {{ _('Delete this entry from the play log?') | tojson }},
 		// {# MSG: Shown when no sessions have been recorded yet. #}
-		noSessions: "{{ _('No sessions yet.') }}",
+		noSessions: {{ _('No sessions yet.') | tojson }},
 		// {# MSG: Shown when the play log has no entries yet. #}
-		noPlays: "{{ _('Nothing has been played yet.') }}",
+		noPlays: {{ _('Nothing has been played yet.') | tojson }},
 		// {# MSG: Link inside an expanded session which limits the play log below to that session. #}
-		showThesePlays: "{{ _('Show only these plays') }}",
+		showThesePlays: {{ _('Show only these plays') | tojson }},
 		// {# MSG: Link inside an expanded session which stops limiting the play log to it. #}
-		showAllPlays: "{{ _('Show all plays') }}",
+		showAllPlays: {{ _('Show all plays') | tojson }},
 		// {# MSG: Shown when a session has no plays, so nobody has sung in it. #}
-		noSingers: "{{ _('Nobody has sung in this session.') }}",
+		noSingers: {{ _('Nobody has sung in this session.') | tojson }},
 		// {# MSG: Confirmation before making an old session the one new songs are recorded against. #}
-		confirmActivate: "{{ _('Make SESSION the active session? New songs will be recorded against it.') }}",
+		confirmActivate: {{ _('Make SESSION the active session? New songs will be recorded against it.') | tojson }},
 		// {# MSG: Pagination summary. START, END and TOTAL are replaced with numbers. #}
-		showing: "{{ _('START-END of TOTAL') }}",
+		showing: {{ _('START-END of TOTAL') | tojson }},
 		// {# MSG: Status of a song that was sung all the way through. #}
-		played: "{{ _('Played') }}",
+		played: {{ _('Played') | tojson }},
 		// {# MSG: Status of a song that was skipped before it finished. #}
-		skipped: "{{ _('Skipped') }}",
+		skipped: {{ _('Skipped') | tojson }},
 		// {# MSG: Status of the song that is playing right now, which has not finished yet. #}
-		playing: "{{ _('Playing') }}"
+		playing: {{ _('Playing') | tojson }}
 	};
 
 	// A play row is written when the song starts, so an unresolved row is the
@@ -190,7 +193,7 @@
 						'<td class="has-text-right">' +
 							'<a class="has-text-grey-light session-options-btn" data-uuid="' +
 								escapedUuid + '" data-label="' + escapeHtml(label) +
-								'" data-named="' + !!session.name + '" title="{{ _("Options") }}">' +
+								'" data-named="' + !!session.name + '" title="{{ _("Options") | forceescape }}">' +
 								'<i class="icon-cog is-size-5"></i></a>' +
 						"</td>" +
 					"</tr>" +

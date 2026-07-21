@@ -53,6 +53,7 @@ class PlaybackController:
         events: EventSystem,
         filename_from_path: Callable[[str, bool], str],
         streaming_format: str = "hls",
+        base_path: str = "",
     ) -> None:
         """Initialize the playback controller.
 
@@ -61,11 +62,12 @@ class PlaybackController:
             events: EventSystem instance for event emission.
             filename_from_path: Function to extract display name from path.
             streaming_format: Video streaming format ('hls' or 'mp4').
+            base_path: URL path prefix when PiKaraoke is hosted under a subpath.
         """
         self.preferences = preferences
         self.events = events
         self.filename_from_path = filename_from_path
-        self.stream_manager = StreamManager(preferences, streaming_format)
+        self.stream_manager = StreamManager(preferences, streaming_format, base_path)
 
     @property
     def ffmpeg_process(self) -> "subprocess.Popen | None":
