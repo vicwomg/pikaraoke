@@ -388,6 +388,10 @@
 				setTimeout(function () {
 					$("#add-queue-link").removeClass("is-loading");
 				}, 1000);
+				// Resolved here rather than kept in sync as the singer field
+				// changes: a programmatic clear fires no input event, so a
+				// mirrored value outlives the singer it was set for.
+				$(".song_added_by").val(resolveSinger());
 				$.ajax({
 					url: "{{ url_for('queue.enqueue') }}",
 					type: "post",
@@ -451,15 +455,6 @@
 
 		setUserCookie(); // Don't reload page after setting cookie
 
-		// The hidden song_added_by field is the attribution submitted with every
-		// queue add. It defaults to this device's own name; in KJ mode the
-		// visible singer input syncs into it, falling back to the device name
-		// when the host leaves it blank. The visible input starts empty so its
-		// autocomplete lists every past singer rather than filtering to one name.
-		$(".song_added_by").val(getUserCookie());
-		$("#singer-name").on("input", function () {
-			$(".song_added_by").val(resolveSinger());
-		});
 		loadSingerList();
 
 		// Restore checkbox states from cookies
@@ -631,8 +626,9 @@
 					the queue. #}
 					<a class="button is-info" id="add-queue-link">{% trans %}Add to queue{% endtrans %}</a>
 				</div>
-				{# The one submitted attribution field. In KJ mode the visible singer
-				   input above syncs into it; otherwise it carries this device's name. #}
+				{# The one submitted attribution field. Written from resolveSinger()
+				   at submit time, so it cannot hold a name the singer field no
+				   longer shows. #}
 				<input class="song_added_by" type="hidden" name="song_added_by" />
 			</div>
 			<div class="control is-flex is-justify-content-flex-end is-align-items-center mb-2">

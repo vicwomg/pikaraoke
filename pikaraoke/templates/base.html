@@ -137,7 +137,9 @@
     // first time it is needed. Every page that queues a song resolves it here,
     // so the fallback rule cannot drift between them.
     function resolveSinger() {
-      var singer = $("#singer-name").val();
+      // The field is absent for non-admins, so val() can be undefined. Trimmed
+      // because a stray space would otherwise be stored as a performer name.
+      var singer = ($("#singer-name").val() || "").trim();
       if (singer) {
         return singer;
       }
