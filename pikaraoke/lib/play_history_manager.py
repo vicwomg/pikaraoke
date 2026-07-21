@@ -11,11 +11,20 @@ from pikaraoke.lib.karaoke_database import KaraokeDatabase
 # than trying to shrink what is displayed.
 SESSION_NAME_MAX_LENGTH = 60
 
-# Selects the most recently used casing of each performer name, so that
-# "Mike" and "mike" rank as one person rather than forking the leaderboard.
-_LATEST_CASING = """
+
+def _latest_casing(name_column: str) -> str:
+    """Select the most recently used casing of a performer name.
+
+    So that "Mike" and "mike" rank as one person rather than forking the
+    leaderboard. Deliberately unscoped by session, so a name renders the same
+    way wherever it appears.
+
+    This is correlated, so it runs once per row of whatever it is attached to.
+    Attach it to an already-limited set, never to the grouping that produces one.
+    """
+    return f"""
     SELECT p2.performer FROM plays p2
-    WHERE p2.performer = p.performer COLLATE NOCASE
+    WHERE p2.performer = {name_column} COLLATE NOCASE
     ORDER BY p2.played_at DESC, p2.id DESC LIMIT 1
 """
 
@@ -339,19 +348,31 @@ class PlayHistoryManager:
 
         limit_clause = ""
         if limit is not None:
-            limit_clause = "LIMIT ?"
+            # Only needed to decide which rows the LIMIT keeps; the outer query
+            # establishes the returned order either way.
+            limit_clause = "ORDER BY play_count DESC, last_played DESC LIMIT ?"
             params += (limit,)
 
+        # Counting and casing are separated so the LIMIT lands between them.
+        # Resolving casing in the grouped query would run the correlated lookup
+        # once per performer on record before the LIMIT could discard any of
+        # them, making a capped autocomplete cost the same as an uncapped one.
+        # Both ORDER BYs key off the raw UTC column rather than the converted
+        # alias, so ranking survives a daylight-saving rollback.
         rows = self.db.query(
             f"""
-            SELECT ({_LATEST_CASING}) AS performer,
-                   COUNT(*) AS play_count,
-                   {_local("MAX(p.played_at)", "last_played")}
-            FROM plays p
-            {where}
-            GROUP BY p.performer COLLATE NOCASE
-            ORDER BY play_count DESC, last_played DESC
-            {limit_clause}
+            WITH totals AS (
+                SELECT p.performer, COUNT(*) AS play_count, MAX(p.played_at) AS last_played
+                FROM plays p
+                {where}
+                GROUP BY p.performer COLLATE NOCASE
+                {limit_clause}
+            )
+            SELECT ({_latest_casing("t.performer")}) AS performer,
+                   t.play_count,
+                   {_local("t.last_played", "last_played")}
+            FROM totals t
+            ORDER BY t.play_count DESC, t.last_played DESC
             """,
             params,
         )

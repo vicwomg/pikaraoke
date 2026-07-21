@@ -477,6 +477,46 @@ class TestGetSingers:
         assert len(singers) == 1
         assert singers[0]["play_count"] == 2
 
+    def test_limit_keeps_the_most_active(self, history, song_id):
+        """The cap must select the busiest performers, not an arbitrary slice."""
+        for performer, plays in [("Quiet", 1), ("Busy", 3), ("Middling", 2)]:
+            for _ in range(plays):
+                history.record_play(song_id, performer)
+
+        assert [(s["performer"], s["play_count"]) for s in history.get_singers(limit=2)] == [
+            ("Busy", 3),
+            ("Middling", 2),
+        ]
+
+    def test_limit_counts_performers_not_plays(self, history, song_id):
+        history.record_play(song_id, "Alice")
+        history.record_play(song_id, "Alice")
+        history.record_play(song_id, "Bob")
+
+        assert len(history.get_singers(limit=1)) == 1
+
+    def test_limit_above_the_performer_count_returns_everyone(self, history, song_id):
+        history.record_play(song_id, "Alice")
+        history.record_play(song_id, "Bob")
+
+        assert len(history.get_singers(limit=50)) == 2
+
+    def test_limit_still_resolves_latest_casing(self, history, song_id):
+        """Casing is resolved after the cap is applied, so it must survive it."""
+        history.record_play(song_id, "mike")
+        history.record_play(song_id, "Mike")
+
+        assert history.get_singers(limit=1)[0]["performer"] == "Mike"
+
+    def test_limit_applies_within_a_session_scope(self, history, song_id):
+        first = history.start_session("One")
+        history.record_play(song_id, "Alice")
+        history.start_session("Two")
+        history.record_play(song_id, "Bob")
+        history.record_play(song_id, "Bob")
+
+        assert [s["performer"] for s in history.get_singers(first, limit=5)] == ["Alice"]
+
 
 class TestGetTopSongs:
     def test_empty_when_nothing_played(self, history):
