@@ -100,6 +100,13 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         required=False,
     )
     parser.add_argument(
+        "--skip-youtubedl-upgrade",
+        "--skip-ytdl-upgrade",
+        action="store_true",
+        help="Skip automatic yt-dlp upgrade check on startup.",
+        required=False,
+    )
+    parser.add_argument(
         "-l",
         "--log-level",
         help=f"Logging level int value (DEBUG: 10, INFO: 20, WARNING: 30, ERROR: 40, CRITICAL: 50). (default: {default_log_level})",
