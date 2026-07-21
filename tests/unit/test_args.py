@@ -2,7 +2,7 @@
 
 import pytest
 
-from pikaraoke.lib.args import arg_path_parse, parse_volume
+from pikaraoke.lib.args import arg_path_parse, parse_pikaraoke_args, parse_volume
 
 
 class TestArgPathParse:
@@ -75,3 +75,22 @@ class TestParseVolume:
         """Test that decimal precision is preserved."""
         result = parse_volume("0.333", "test volume")
         assert result == 0.333
+
+
+class TestParsePikaraokeArgs:
+    """Tests for parse_pikaraoke_args."""
+
+    def test_skip_youtubedl_upgrade_default(self, monkeypatch):
+        monkeypatch.setattr("sys.argv", ["pikaraoke"])
+        args = parse_pikaraoke_args()
+        assert args.skip_youtubedl_upgrade is False
+
+    def test_skip_youtubedl_upgrade_flag(self, monkeypatch):
+        monkeypatch.setattr("sys.argv", ["pikaraoke", "--skip-youtubedl-upgrade"])
+        args = parse_pikaraoke_args()
+        assert args.skip_youtubedl_upgrade is True
+
+    def test_skip_ytdl_upgrade_alias(self, monkeypatch):
+        monkeypatch.setattr("sys.argv", ["pikaraoke", "--skip-ytdl-upgrade"])
+        args = parse_pikaraoke_args()
+        assert args.skip_youtubedl_upgrade is True

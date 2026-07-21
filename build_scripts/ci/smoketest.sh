@@ -10,7 +10,7 @@ echo "Installing PiKaraoke for CI..."
 ./build_scripts/install/install.sh -y --local
 
 echo "Starting PiKaraoke in headless mode..."
-pikaraoke --headless > output.log 2>&1 &
+pikaraoke --headless --skip-youtubedl-upgrade > output.log 2>&1 &
 PID=$!
 
 # Function to cleanup on exit

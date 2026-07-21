@@ -299,7 +299,10 @@ def main() -> None:
     app.jinja_env.globals.update(filename_from_path=k.song_manager.display_name_from_path)
     app.jinja_env.globals.update(url_escape=quote)
 
-    spawn(upgrade_youtubedl)
+    if not args.skip_youtubedl_upgrade:
+        spawn(upgrade_youtubedl)
+    else:
+        logging.info("Skipping yt-dlp upgrade on startup")
 
     server = WSGIServer(("0.0.0.0", int(args.port)), app, log=None, error_log=logging.getLogger())
     server.start()
