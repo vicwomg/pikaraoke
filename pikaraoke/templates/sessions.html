@@ -13,10 +13,15 @@
 	// every play.
 	var historySession = "";
 	var currentSessionUuid = null;
-	// The session last opened for being the active one, so handing the night over
-	// to another session can move the open row with it. Tracked rather than a
-	// one-shot flag: a refresh must not re-open a row the host has since closed.
-	var autoOpenedUuid;
+	// Which session rows are expanded, so a refresh does not collapse them.
+	var expandedSessions = {};
+	// Singers per session, keyed by uuid. Cleared on every refresh, so it only
+	// spares repeat lookups while the list on screen is unchanged.
+	var singerCache = {};
+	// The session last expanded for being the active one, so handing the night
+	// over to another session can move the open row with it. Tracked rather than
+	// a one-shot flag: a refresh must not re-open a row the host has since closed.
+	var autoExpandedUuid;
 
 	// Gettext output is Markup, so Jinja never autoescapes it: an apostrophe in a
 	// translation would close the JS string literal and break this whole script.
