@@ -33,8 +33,8 @@ from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
-from pikaraoke.lib.url_prefix import append_base_path_to_url
 from pikaraoke.lib.sound_manager import SoundManager
+from pikaraoke.lib.url_prefix import append_base_path_to_url
 from pikaraoke.lib.youtube_dl import (
     get_search_results,
     get_youtubedl_version,
