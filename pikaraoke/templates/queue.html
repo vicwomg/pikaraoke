@@ -161,7 +161,7 @@
 
     if (isAdmin) {
       html += '<td style="width: ' + COL_WIDTH.options + '; vertical-align: middle; text-align: right;">';
-      html += '<a class="has-text-grey-light is-small is-text now-playing-options-btn" title="{{ _("Options") }}">';
+      html += '<a class="has-text-grey-light is-small is-text now-playing-options-btn" title="{{ _("Options") | forceescape }}">';
       html += '<i class="icon-cog is-size-5"></i></a>';
       html += '</td>';
     }
@@ -210,12 +210,12 @@
           }
 
           if (status.pending && status.pending.length > 0) {
-              html += `<div class="content"><h5 class="title is-6 mb-2">{{ _('Pending downloads') }}</h5>`;
+              html += `<div class="content"><h5 class="title is-6 mb-2">{{ _('Pending downloads') | forceescape }}</h5>`;
               status.pending.forEach(function(d) {
                   html += `
                       <div class="box mb-2 p-3 has-background-dark is-flex is-align-items-center">
                           <span class="has-text-grey">${d.display_title || d.video_url}</span>
-                          <span class="tag is-light is-rounded ml-auto">{{ _('Queued') }}</span>
+                          <span class="tag is-light is-rounded ml-auto">{{ _('Queued') | forceescape }}</span>
                       </div>
                   `;
               });
@@ -223,7 +223,7 @@
           }
 
           if (status.errors && status.errors.length > 0) {
-              html += `<div class="content"><h5 class="title is-6 mb-2 has-text-danger">{{ _('Download Errors') }}</h5>`;
+              html += `<div class="content"><h5 class="title is-6 mb-2 has-text-danger">{{ _('Download Errors') | forceescape }}</h5>`;
               status.errors.forEach(function(d) {
                   html += `
                       <div class="box mb-2 p-3 has-background-white-ter is-flex is-align-items-center" style="border-left: 4px solid #f14668;">
@@ -232,8 +232,8 @@
                               <p class="has-text-grey mb-0 is-truncated" title="${d.title || d.url}">${d.title || d.url}</p>
                               <p class="help is-danger mb-0 is-truncated" title="${d.error}">${d.error}</p>
                           </div>
-                          <span class="tag is-danger is-light is-rounded ml-2">{{ _('Failed') }}</span>
-                          <button class="delete ml-2" onclick="dismissDownloadError('${d.id}')" title="{{ _('Dismiss') }}"></button>
+                          <span class="tag is-danger is-light is-rounded ml-2">{{ _('Failed') | forceescape }}</span>
+                          <button class="delete ml-2" onclick="dismissDownloadError('${d.id}')" title="{{ _('Dismiss') | forceescape }}"></button>
                       </div>
                   `;
               });
@@ -295,7 +295,7 @@
     html += '<td style="width: ' + COL_WIDTH.number + '; padding: 8px 8px; vertical-align: middle; text-align: center;">' + (index + 1) + '</td>';
 
     if (isAdmin) {
-      html += '<td class="drag-handle" style="width: ' + COL_WIDTH.drag + '; vertical-align: middle; text-align: center; cursor: grab; touch-action: none;" title="{{ _("Drag to reorder") }}">';
+      html += '<td class="drag-handle" style="width: ' + COL_WIDTH.drag + '; vertical-align: middle; text-align: center; cursor: grab; touch-action: none;" title="{{ _("Drag to reorder") | forceescape }}">';
       html += '<i class="icon icon-braille has-text-grey-light"></i>';
       html += '</td>';
     }
@@ -310,7 +310,7 @@
 
     if (isAdmin) {
       html += '<td style="width: ' + COL_WIDTH.options + '; vertical-align: middle; text-align: right; padding-right: 10px;">';
-      html += '<a class="has-text-grey-light is-small is-text queue-song-options-btn" data-index="' + index + '" data-file="' + escape(e.file) + '" data-title="' + escape(e.title) + '" title="{{ _("Options") }}">';
+      html += '<a class="has-text-grey-light is-small is-text queue-song-options-btn" data-index="' + index + '" data-file="' + escape(e.file) + '" data-title="' + escape(e.title) + '" title="{{ _("Options") | forceescape }}">';
       html += '<i class="icon-cog is-size-5"></i></a>';
       html += '</td>';
     }
@@ -335,7 +335,7 @@
       });
     } else if (!np || !np.now_playing) {
       // Only show empty message if nothing is playing AND queue is empty
-      html += '<tr><td colspan="' + colSpan + '"><p class="has-text-warning">{{ _("The queue is empty") }}</p></td></tr>';
+      html += '<tr><td colspan="' + colSpan + '"><p class="has-text-warning">{{ _("The queue is empty") | forceescape }}</p></td></tr>';
     }
 
     html += "</tbody>";
