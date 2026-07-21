@@ -189,9 +189,14 @@ class PlayHistoryManager:
         return self.db.query("SELECT COUNT(*) FROM sessions")[0][0]
 
     def rename_session(self, session_uuid: str, name: str) -> bool:
-        """Name a session (typically one that auto-started unnamed)."""
+        """Name a session (typically one that auto-started unnamed).
+
+        Blank names are stored as none at all, matching start_session: a
+        whitespace-only name is truthy everywhere it is read, so it would render
+        as an empty session ribbon rather than as no session name.
+        """
         cursor = self.db.execute(
-            "UPDATE sessions SET name = ? WHERE uuid = ?", (name, session_uuid)
+            "UPDATE sessions SET name = ? WHERE uuid = ?", (name.strip() or None, session_uuid)
         )
         if cursor.rowcount == 0:
             return False

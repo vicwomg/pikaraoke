@@ -80,6 +80,23 @@ class TestSessions:
     def test_rename_unknown_session(self, history):
         assert history.rename_session("no-such-uuid", "Nope") is False
 
+    @pytest.mark.parametrize("name", ["", "   ", "\t\n"])
+    def test_rename_to_blank_stores_no_name(self, history, name):
+        """A blank name must land as NULL, matching start_session.
+
+        Stored verbatim it would be truthy wherever the name is read, rendering
+        an empty session ribbon rather than none at all.
+        """
+        session_uuid = history.start_session("Saturday")
+
+        assert history.rename_session(session_uuid, name) is True
+        assert history.get_current_session_name() is None
+
+    def test_rename_trims_surrounding_whitespace(self, history):
+        session_uuid = history.start_session()
+        history.rename_session(session_uuid, "  Saturday  ")
+        assert history.get_current_session_name() == "Saturday"
+
     def test_get_sessions_includes_play_counts(self, history, song_id):
         history.start_session("Night One")
         history.record_play(song_id, "Alice")

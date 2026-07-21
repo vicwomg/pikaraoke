@@ -29,10 +29,30 @@ def require_admin():
     return None
 
 
+# Paging bounds shared by the list endpoints. Capped rather than left open: these
+# queries run on a Pi that is transcoding video at the same time, and SQLite reads
+# a negative LIMIT as no limit at all, so an unvalidated one loads the whole table.
+_MAX_PAGE_SIZE = 500
+
+
+def _page_size(default: int | None) -> fields.Integer:
+    """A row cap that cannot be negative, zero, or unbounded."""
+    return fields.Integer(
+        load_default=default,
+        validate=validate.Range(min=1, max=_MAX_PAGE_SIZE),
+        metadata={"description": f"Rows to return (1-{_MAX_PAGE_SIZE})"},
+    )
+
+
+def _page_offset() -> fields.Integer:
+    """A row offset that cannot be negative."""
+    return fields.Integer(load_default=0, validate=validate.Range(min=0))
+
+
 class PlaysQuery(Schema):
     session = fields.String(load_default=None, metadata={"description": "Session UUID filter"})
-    limit = fields.Integer(load_default=100)
-    offset = fields.Integer(load_default=0)
+    limit = _page_size(100)
+    offset = _page_offset()
     sort = fields.String(
         load_default="played_at", metadata={"description": "played_at, performer or song"}
     )
@@ -40,8 +60,8 @@ class PlaysQuery(Schema):
 
 
 class SessionsQuery(Schema):
-    limit = fields.Integer(load_default=50)
-    offset = fields.Integer(load_default=0)
+    limit = _page_size(50)
+    offset = _page_offset()
 
 
 class StartSessionForm(Schema):
@@ -63,9 +83,10 @@ class StartSessionForm(Schema):
 
 class SingersQuery(Schema):
     session = fields.String(load_default=None, metadata={"description": "Session UUID filter"})
-    limit = fields.Integer(
-        load_default=None, metadata={"description": "Cap on performers returned"}
-    )
+    # Defaults to no cap: the session singer panel wants everyone who sang that
+    # night, which is bounded by the session. A cap passed explicitly is still
+    # bounded, for the autocomplete that asks against every session on record.
+    limit = _page_size(None)
 
 
 class ExportQuery(Schema):
@@ -86,7 +107,9 @@ class UpdateSessionForm(Schema):
 
     @validates_schema
     def check_name(self, data, **kwargs):
-        if data["action"] == "rename" and not data["name"]:
+        # Whitespace-only is blank: it would be truthy everywhere the name is
+        # read and render as an empty session ribbon.
+        if data["action"] == "rename" and not (data["name"] or "").strip():
             # MSG: Error when renaming a session without supplying a name
             raise ValidationError(_("A name is required"), "name")
 

@@ -206,6 +206,49 @@ class TestSessionName:
         assert response.status_code == 422
         karaoke.play_history.rename_session.assert_not_called()
 
+    @pytest.mark.parametrize("name", ["", "   ", "\t"])
+    def test_blank_rename_rejected(self, admin_client, karaoke, name):
+        response = admin_client.put(
+            "/api/history/sessions/abc",
+            data=json.dumps({"action": "rename", "name": name}),
+            content_type="application/json",
+        )
+
+        assert response.status_code == 422
+        karaoke.play_history.rename_session.assert_not_called()
+
+
+class TestPagingBounds:
+    """SQLite reads a negative LIMIT as no limit, so an unvalidated one would
+    load the whole table on a Pi that is transcoding at the same time."""
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/history/plays?limit=-1",
+            "/api/history/plays?limit=0",
+            "/api/history/plays?limit=501",
+            "/api/history/plays?offset=-1",
+            "/api/history/sessions?limit=-1",
+            "/api/history/sessions?offset=-5",
+            "/api/history/singers?limit=-1",
+        ],
+    )
+    def test_out_of_range_paging_rejected(self, admin_client, karaoke, path):
+        response = admin_client.get(path)
+
+        assert response.status_code == 422
+        karaoke.play_history.get_plays.assert_not_called()
+        karaoke.play_history.get_sessions.assert_not_called()
+        karaoke.play_history.get_singers.assert_not_called()
+
+    def test_singers_defaults_to_no_cap(self, admin_client, karaoke):
+        """The session singer panel wants everyone who sang, bounded by the session."""
+        karaoke.play_history.get_singers.return_value = []
+
+        assert admin_client.get("/api/history/singers?session=abc").status_code == 200
+        karaoke.play_history.get_singers.assert_called_once_with("abc", None)
+
 
 class TestRankingsSizes:
     """The rankings lists are top-N, so a row-count selector stands in for paging."""
