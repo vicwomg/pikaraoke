@@ -137,7 +137,7 @@
 
 		// Shared SocketIO connection (used by mic controls and library sync)
 		if (typeof window.socket === 'undefined') {
-			window.socket = io();
+			window.socket = io({ path: window.pikaraokeConfig.socketioPath });
 		}
 
 		{% if admin and mic_available %}

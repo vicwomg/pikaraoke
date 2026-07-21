@@ -12,7 +12,7 @@
 
   // Ensure global socket exists
   if (typeof window.socket === 'undefined') {
-    window.socket = io();
+    window.socket = io({ path: window.pikaraokeConfig.socketioPath });
   }
 
   // Initialize queue state if needed
@@ -355,7 +355,7 @@
   // Execute queue edit action via AJAX
   window.executeQueueAction = function(action) {
       var file = window.currentSongOptions.file;
-      var url = "/queue/edit?song=" + encodeURIComponent(file) + "&action=" + action;
+      var url = window.pikaraokeConfig.basePath + "/queue/edit?song=" + encodeURIComponent(file) + "&action=" + action;
 
       // Track moved file for highlight (except delete)
       if (action !== 'delete') {
@@ -443,7 +443,7 @@
 
   // Execute playback action and close modal
   window.executePlaybackAction = function(action) {
-      $.get('/' + action);
+      $.get(window.pikaraokeConfig.basePath + '/' + action);
       window.closeNowPlayingOptions();
   };
 
@@ -478,7 +478,7 @@
       $(document).on('click', '.playback-btn', function(e) {
           e.preventDefault();
           var action = $(this).data('action');
-          $.get('/' + action);
+          $.get(window.pikaraokeConfig.basePath + '/' + action);
       });
   });
 
@@ -505,7 +505,7 @@
 			{% trans %}Add <input id="randomNumberInput" class="input mx-2 p-2" pattern="\d*" maxlength="2" value="3" min="1" max="99" style="width: 42px" /> random songs{% endtrans %}
 	</div>
 	<div>
-		<a class="button is-danger is-outlined confirm-clear" href="/queue/edit?action=clear">
+		<a class="button is-danger is-outlined confirm-clear" href="{{ request.script_root }}/queue/edit?action=clear">
 		<i class="icon icon-trash-empty mr-1"></i>{% trans %}Clear all{% endtrans %}</a>
 	</div>
 </div>

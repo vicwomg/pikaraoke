@@ -19,6 +19,11 @@
   <link rel="stylesheet" href="{{  url_for('static', filename='fontello/css/fontello.css') }}?v=2">
 
   <script>
+    window.pikaraokeConfig = {
+      basePath: "{{ base_path }}",
+      cookiePath: "{{ cookie_path }}",
+      socketioPath: "{{ socketio_path }}"
+    };
     // Translations for JS (static JS cannot use Jinja2 directly).
     // Gettext output is Markup, so Jinja never autoescapes it. Inside a <script> a
     // translation must therefore be filtered by hand: |tojson for a JS value (as below),
@@ -73,7 +78,7 @@
     }
 
     function connectSocket() {
-      window.socket = io();
+      window.socket = io({ path: window.pikaraokeConfig.socketioPath });
       window.socket.on('connect', function() {
           console.log('Socket connected');
       });
@@ -99,7 +104,7 @@
           {{ _('Please enter your name. This will show up next to the songs you queue up from this device.') | tojson }}
         );
         if (name) {
-          Cookies.set("user", name, { expires: 3650, path: '/' });
+          Cookies.set("user", name, { expires: 3650, path: window.pikaraokeConfig.cookiePath });
         }
         else {
           Cookies.set("user", `Anon-${generateRandomString(4)}`, { expires: 3650 });
@@ -123,20 +128,25 @@
       // Navbar burger menu is handled by spa-navigation.js
 
       // handle highlighting current nav bar location
-      var currentPath = window.location.pathname;
-      if (currentPath == "/") {
+      var fullPath = window.location.pathname;
+      var basePath = window.pikaraokeConfig.basePath;
+      var path = fullPath;
+      if (basePath && fullPath.startsWith(basePath)) {
+        path = fullPath.substring(basePath.length) || '/';
+      }
+      if (path === '/' || path === '') {
         $("#home").addClass("is-active")
       }
-      if (currentPath == "/queue") {
+      if (path === '/queue') {
         $("#queue").addClass("is-active")
       }
-      if (currentPath == "/search") {
+      if (path === '/search') {
         $("#search").addClass("is-active")
       }
-      if (currentPath == "/browse") {
+      if (path === '/browse' || path.startsWith('/browse')) {
         $("#browse").addClass("is-active")
       }
-      if (currentPath == "/info") {
+      if (path === '/info') {
         $("#info").addClass("is-active")
       }
 

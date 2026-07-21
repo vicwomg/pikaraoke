@@ -6,6 +6,7 @@ import os
 
 from pikaraoke.lib.get_platform import get_default_dl_dir, get_platform
 from pikaraoke.lib.preference_manager import PreferenceManager
+from pikaraoke.lib.url_prefix import normalize_url_base_path
 
 
 def arg_path_parse(path: str | list[str] | None) -> str | None:
@@ -137,6 +138,13 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         "--url",
         help="Override the displayed IP address with a supplied URL. This argument should include port, if necessary",
         default=None,
+        required=False,
+    )
+    parser.add_argument(
+        "--base-path",
+        help="URL path prefix for reverse proxy deployments (e.g., /karaoke). Requires a reverse proxy to handle the path routing; PiKaraoke only generates correct URLs with this prefix.",
+        default="",
+        type=normalize_url_base_path,
         required=False,
     )
     parser.add_argument(

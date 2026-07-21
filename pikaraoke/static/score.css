@@ -1,6 +1,6 @@
 #score{
 	position: absolute;
-	background-image: url("/static/images/stage.jpg");
+	background-image: url("images/stage.jpg");
 	background-size: cover;
 	left: 0px;
 	top: 0px;

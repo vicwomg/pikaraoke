@@ -34,6 +34,7 @@ from pikaraoke.lib.get_platform import (
 )
 from pikaraoke.lib.keep_awake import KeepAwake
 from pikaraoke.lib.song_manager import SongManager
+from pikaraoke.lib.url_prefix import BasePathMiddleware
 from pikaraoke.lib.youtube_dl import upgrade_youtubedl
 from pikaraoke.routes.admin import admin_bp
 from pikaraoke.routes.background_music import background_music_bp
@@ -57,7 +58,8 @@ _ = flask_babel.gettext
 from gevent.pywsgi import WSGIServer
 
 args = parse_pikaraoke_args()
-socketio = SocketIO(async_mode="gevent", cors_allowed_origins=args.url)
+socketio_path = f"{args.base_path}/socket.io" if args.base_path else "/socket.io"
+socketio = SocketIO(async_mode="gevent", cors_allowed_origins=args.url, path=socketio_path)
 babel = Babel()
 
 
@@ -66,6 +68,11 @@ app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
+app.config["APPLICATION_ROOT"] = args.base_path or "/"
+app.config["SESSION_COOKIE_PATH"] = args.base_path or "/"
+app.config["PIKARAOKE_BASE_PATH"] = args.base_path
+app.config["PIKARAOKE_SOCKETIO_PATH"] = socketio_path
+app.wsgi_app = BasePathMiddleware(app.wsgi_app, args.base_path)
 
 # Always initialize flask-smorest Api for error handling (@bp.arguments validation).
 # Only expose the Swagger UI when --enable-swagger is passed.
@@ -139,6 +146,16 @@ def get_locale() -> str | None:
     # An unknown code (a stale session cookie, a hand-edited ?lang=) makes Babel raise
     # UnknownLocaleError on every render, so never hand one back.
     return locale if locale in LANGUAGES else None
+
+
+@app.context_processor
+def inject_path_config() -> dict[str, str]:
+    """Expose path-prefix settings to templates."""
+    return {
+        "base_path": app.config["PIKARAOKE_BASE_PATH"],
+        "socketio_path": app.config["PIKARAOKE_SOCKETIO_PATH"],
+        "cookie_path": app.config["SESSION_COOKIE_PATH"],
+    }
 
 
 babel.init_app(app, locale_selector=get_locale)
@@ -254,6 +271,7 @@ def main() -> None:
         additional_ytdl_args=getattr(args, "ytdl_args", None),
         socketio=socketio,
         preferred_language=args.preferred_language,
+        url_base_path=args.base_path,
     )
 
     # expose karaoke object to the flask app
