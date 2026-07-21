@@ -5,6 +5,12 @@ import uuid
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
 
+# A session name is shown across a TV on the splash screen at 2rem with wide
+# letter spacing, where roughly this much still fits on one line at 720p. Longer
+# names are not wrong, only unreadable, so this caps what can be stored rather
+# than trying to shrink what is displayed.
+SESSION_NAME_MAX_LENGTH = 60
+
 # Selects the most recently used casing of each performer name, so that
 # "Mike" and "mike" rank as one person rather than forking the leaderboard.
 _LATEST_CASING = """
@@ -91,7 +97,16 @@ class PlayHistoryManager:
         """Start a session and return its UUID.
 
         Closes any session still open, so "current" is never ambiguous.
+
+        Args:
+            name: What the splash screen shows while the session runs. The host
+                names a session as they start it, so the only unnamed sessions
+                are the ones record_play() auto-starts with nobody there to name
+                them -- which is why a blank name is stored as none at all rather
+                than as an empty label.
         """
+        if name is not None:
+            name = name.strip() or None
         self._close_open_session()
         session_uuid = str(uuid.uuid4())
         self.db.execute("INSERT INTO sessions (uuid, name) VALUES (?, ?)", (session_uuid, name))
@@ -130,8 +145,8 @@ class PlayHistoryManager:
         """Whether a session is open, regardless of whether it has been named.
 
         Distinct from get_current_session_name(), which returns None for an
-        unnamed session too. KJ mode gates on this, so conflating the two would
-        lock the host out of a session that is running but not yet named.
+        auto-started session too. KJ mode gates on this, so conflating the two
+        would lock the host out of a session that is running but not yet named.
         """
         return self.get_current_session() is not None
 

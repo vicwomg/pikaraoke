@@ -286,6 +286,14 @@
     align-items: center;
     justify-content: center;
   }
+  /* The wrapper is only as wide as its widest child, so a session name wider
+     than the logo leaves the logo against its left edge. Stacking centres both
+     against each other, whichever of the two is the wider. */
+  #logo-container > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
   /* Reads as the event title under the logo, so it carries no label. */
   #session-name {
     margin-top: 18px;

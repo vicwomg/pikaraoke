@@ -6,6 +6,7 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, fields, validate
 
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
+from pikaraoke.lib.play_history_manager import SESSION_NAME_MAX_LENGTH
 
 _ = flask_babel.gettext
 
@@ -41,6 +42,9 @@ def sessions():
         "sessions.html",
         site_title=get_site_name(),
         title="Sessions",
+        # The API rejects anything longer, so the page enforces the same cap
+        # rather than letting the host type a name that is refused on submit.
+        session_name_max_length=SESSION_NAME_MAX_LENGTH,
     )
 
 

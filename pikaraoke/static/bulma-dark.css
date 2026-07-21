@@ -179,6 +179,14 @@ hr {
 	color: var(--dark-bg-secondary);
 }
 
+/* Inputs keep a white background above, but Bulma derives the placeholder from
+   the dark scheme's text colour -- near-white, so it is invisible here. A muted
+   version of the input's own text colour instead. */
+.input::placeholder,
+.textarea::placeholder {
+	color: rgba(40, 47, 47, 0.6);
+}
+
 .input:hover,
 .textarea:hover,
 .select select:hover {

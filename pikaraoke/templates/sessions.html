@@ -13,6 +13,9 @@
 	// every play.
 	var historySession = "";
 	var currentSessionUuid = null;
+	// The cap the API enforces, so the rename prompt can hold to it too. The name
+	// box carries it as a maxlength attribute.
+	var sessionNameMaxLength = {{ session_name_max_length }};
 	// Which session rows are expanded, so a refresh does not collapse them.
 	var expandedSessions = {};
 	// Singers per session, keyed by uuid. Cleared on every refresh, so it only
@@ -35,10 +38,6 @@
 		songRemoved: {{ _('(song removed from library)') | tojson }},
 		// {# MSG: Prompt asking the host to name a session. #}
 		promptRename: {{ _('Name this session:') | tojson }},
-		// {# MSG: Button which gives a name to a session that has never had one. #}
-		nameSession: {{ _('Name') | tojson }},
-		// {# MSG: Button which changes the name of a session that already has one. #}
-		renameSession: {{ _('Rename') | tojson }},
 		// {# MSG: Confirmation before deleting a session and every play recorded in it. SESSION is replaced with its name. #}
 		confirmDeleteSession: {{ _('Delete SESSION and all of its plays? This cannot be undone.') | tojson }},
 		// {# MSG: Confirmation before deleting one entry from the play log. #}
@@ -89,18 +88,11 @@
 		);
 	}
 
-	// Unnamed sessions fall back to their number; the date is already its own
+	// A host-started session always has a name, so only one that auto-started on
+	// the first play falls back to its number. The date is already its own
 	// column, so repeating it here only makes the label long.
 	function sessionLabel(session) {
 		return session.name || historyText.unnamed.replace("NUMBER", session.id);
-	}
-
-	// An auto-started session has no name: it shows as "Session 45" and stays off
-	// the splash screen until the host gives it a real one. The action that does
-	// so reads "Name" until then, so it never offers to re-name something that
-	// was never named.
-	function renameActionLabel(isNamed) {
-		return isNamed ? historyText.renameSession : historyText.nameSession;
 	}
 
 	// Both tables page identically, so the summary and the button states are
@@ -159,11 +151,11 @@
 			renderPager("sessions", sessionsPage, data.total);
 
 			$("#current-session").text(data.current ? sessionLabel(data.current) : historyText.noSession);
-			$("#start-session").toggleClass("is-hidden", !!data.current);
-			$("#end-session").toggleClass("is-hidden", !data.current);
-			$("#rename-session")
-				.toggleClass("is-hidden", !data.current)
-				.text(renameActionLabel(!!(data.current && data.current.name)));
+			// The name box belongs to starting a session, so it comes and goes with
+			// the button it feeds. Hidden by the control rather than the input, so
+			// the icon goes with it.
+			$("#session-name-control, #start-session").toggleClass("is-hidden", !!data.current);
+			$("#end-session, #rename-session").toggleClass("is-hidden", !data.current);
 
 			var $body = $("#sessions-body");
 			if (!data.sessions.length) {
@@ -198,7 +190,7 @@
 						'<td class="has-text-right">' +
 							'<a class="has-text-grey-light session-options-btn" data-uuid="' +
 								escapedUuid + '" data-label="' + escapeHtml(label) +
-								'" data-named="' + !!session.name + '" title="{{ _("Options") | forceescape }}">' +
+								'" title="{{ _("Options") | forceescape }}">' +
 								'<i class="icon-cog is-size-5"></i></a>' +
 						"</td>" +
 					"</tr>" +
@@ -351,12 +343,16 @@
 		});
 	}
 
+	// A prompt cannot enforce a maxlength the way the name box does, so an
+	// over-long name is cut to the same cap here rather than being refused by the
+	// API after the host has typed it.
 	function renameSession(uuid) {
 		var name = window.prompt(historyText.promptRename);
 		if (name === null || name.trim() === "") {
 			return;
 		}
-		putSession(uuid, { action: "rename", name: name.trim() }).done(refreshHistory);
+		var trimmed = name.trim().slice(0, sessionNameMaxLength);
+		putSession(uuid, { action: "rename", name: trimmed }).done(refreshHistory);
 	}
 
 	function deleteSession(uuid) {
@@ -383,10 +379,9 @@
 	// cannot outlive the page across SPA navigation.
 	var $sessionModal = null;
 
-	function openSessionOptions(uuid, label, isNamed) {
+	function openSessionOptions(uuid, label) {
 		$sessionModal.data({ uuid: uuid, label: label });
 		$("#session-modal-title").text(label);
-		$("#opt-rename-label").text(renameActionLabel(isNamed));
 		// Activating and ending are mirror actions, so only the one that applies
 		// to this session is offered.
 		var isActive = uuid === currentSessionUuid;
@@ -462,14 +457,43 @@
 			window.socket.on("now_playing", window.historyNowPlayingHandler);
 		}
 
-		$("#start-session").on("click", function () {
+		// Enter and the button are the same action, and both are governed by the
+		// same emptiness check the button's disabled state shows. The server
+		// rejects a blank name too, so this only spares the round trip.
+		function startSession() {
+			var $name = $("#session-name-input");
+			var name = $name.val().trim();
+			if (!name) {
+				return;
+			}
 			$.ajax({
 				url: "{{ url_for('sessions_api.start_session') }}",
 				type: "POST",
 				contentType: "application/json",
-				data: JSON.stringify({})
-			}).done(refreshHistory);
-		});
+				data: JSON.stringify({ name: name })
+			}).done(function () {
+				$name.val("");
+				// The box comes back empty when this session ends, so the button has
+				// to go back to waiting for a name.
+				$("#start-session").prop("disabled", true);
+				refreshHistory();
+			});
+		}
+
+		$("#start-session").on("click", startSession);
+
+		$("#session-name-input")
+			.on("input", function () {
+				$("#start-session").prop("disabled", !$(this).val().trim());
+			})
+			// Typing a name and pressing enter is the whole interaction, so it
+			// should not need a trip to the button. The field is outside a form, so
+			// nothing submits on its own.
+			.on("keydown", function (e) {
+				if (e.key === "Enter") {
+					startSession();
+				}
+			});
 
 		$("#end-session").on("click", function () {
 			putSession(currentSessionUuid, { action: "end" }).done(refreshHistory);
@@ -485,7 +509,7 @@
 		$("#sessions-body").on("click", ".session-options-btn", function (e) {
 			e.stopPropagation();
 			var $btn = $(this);
-			openSessionOptions($btn.data("uuid"), $btn.data("label"), $btn.data("named") === true);
+			openSessionOptions($btn.data("uuid"), $btn.data("label"));
 		});
 
 		$("#sessions-body").on("click", ".session-row", function () {
@@ -590,6 +614,25 @@
 		display: flex;
 		flex-wrap: nowrap;
 		gap: 8px;
+	}
+	/* Wide enough for the placeholder to read in full, and free to shrink below
+	   its content width so the Start button beside it is never pushed off a phone
+	   screen. Sized on the control rather than the input, since the icon is
+	   positioned against the control. */
+	#session-name-control {
+		width: 200px;
+		min-width: 0;
+	}
+	/* Bulma sizes a control's icon from the base input height, so against an
+	   is-small field it is too tall and reserves more room than the glyph needs.
+	   Pinned to the field's own height, and the text indented to match. */
+	#session-name-control .icon.is-left {
+		height: 100%;
+		width: 2rem;
+	}
+	#session-name-input {
+		width: 100%;
+		padding-left: 2rem;
 	}
 	.filter-session {
 		cursor: pointer;
@@ -699,6 +742,20 @@
 	   status) below it, and the delete pinned to the card's top-right corner
 	   rather than spilling off the side of the table. */
 	@media screen and (max-width: 600px) {
+		/* A phone has no room to put the name box and its button side by side with
+		   the session it describes, so the controls take the full width under it:
+		   the box on its own line, then the buttons sharing the line below, each an
+		   equal share of it. */
+		.session-buttons {
+			width: 100%;
+			flex-wrap: wrap;
+		}
+		#session-name-control {
+			width: 100%;
+		}
+		.session-buttons .button {
+			flex: 1;
+		}
 		/* No slack left to share on a phone, so the timestamp is cut down instead:
 		   stacked, it asks for a date's width rather than a date and a time, and
 		   the session name keeps what that frees up. */
@@ -779,18 +836,32 @@
 		<i class="icon icon-mic-1"></i>
 		<span id="current-session"></span>
 	</span>
-	{# One flex item, so the actions wrap as a group instead of splitting across rows. #}
-	<span class="session-buttons">
-		<button id="start-session" class="button is-small is-success is-hidden">
+	{# One flex item, so the actions wrap as a group instead of splitting across
+	   rows. A div rather than a span: the name box's control wrapper is a block. #}
+	<div class="session-buttons">
+		{# Named on the way in rather than started blank and renamed after: the name
+		   is what the splash screen shows, so a session that has to be named in a
+		   second step spends its first songs anonymous. The placeholder carries the
+		   instruction, so the bar stays one line high. #}
+		<div id="session-name-control" class="control has-icons-left is-hidden">
+			<input id="session-name-input" class="input is-small" type="text"
+				maxlength="{{ session_name_max_length }}"
+				{# MSG: Placeholder inside the box naming a session as it is started. #}
+				placeholder="{{ _('Name this session...') | forceescape }}">
+			<span class="icon is-small is-left"><i class="icon-pencil"></i></span>
+		</div>
+		{# Disabled until the box has something in it: naming is the whole point of
+		   starting one by hand, so there is nothing to fall back to. #}
+		<button id="start-session" class="button is-small is-success is-hidden" disabled>
 			{# MSG: Button which starts a new play history session. #} {% trans %}Start session{% endtrans %}
 		</button>
 		<button id="rename-session" class="button is-small is-hidden">
-			{# MSG: Button which names the session that is currently running. #} {% trans %}Rename{% endtrans %}
+			{# MSG: Button which changes the name of the session that is currently running. #} {% trans %}Rename{% endtrans %}
 		</button>
 		<button id="end-session" class="button is-small is-warning is-hidden">
 			{# MSG: Button which closes the session that is currently running. #} {% trans %}End session{% endtrans %}
 		</button>
-	</span>
+	</div>
 </div>
 
 {# MSG: Heading for the list of past karaoke sessions. #}
@@ -890,9 +961,8 @@
 			</a>
 			<a id="opt-rename" class="panel-block py-3" href="#" data-action="rename">
 				<span class="icon mr-2"><i class="icon-pencil"></i></span>
-				{# Filled by openSessionOptions: reads "Name" or "Rename" depending
-				   on whether this session has been named yet. #}
-				<span id="opt-rename-label"></span>
+				{# MSG: Menu item which changes the name of a session. #}
+				{% trans %}Rename{% endtrans %}
 			</a>
 			<a id="opt-delete-session" class="panel-block py-3 has-text-danger" href="#" data-action="delete">
 				<span class="icon mr-2"><i class="icon-trash-empty"></i></span>

@@ -18,6 +18,7 @@ from unittest.mock import MagicMock, patch
 
 from flask_babel import Babel
 
+from pikaraoke.lib.play_history_manager import SESSION_NAME_MAX_LENGTH
 from pikaraoke.routes.sessions import sessions_bp
 from pikaraoke.routes.sessions_api import sessions_api_bp
 
@@ -165,6 +166,45 @@ class TestExport:
         karaoke.play_history.export_plays.return_value = []
         response = admin_client.get("/api/history/export/abc?format=xml")
         assert response.status_code == 422
+
+
+class TestSessionName:
+    """A session name is a display value: the splash screen shows it across a TV
+    and the nav ribbon carries it on every page."""
+
+    def _start(self, client, name):
+        return client.post(
+            "/api/history/sessions",
+            data=json.dumps({"name": name}),
+            content_type="application/json",
+        )
+
+    def test_name_is_required(self, admin_client, karaoke):
+        assert self._start(admin_client, "   ").status_code == 422
+        karaoke.play_history.start_session.assert_not_called()
+
+    def test_over_long_name_rejected(self, admin_client, karaoke):
+        assert self._start(admin_client, "x" * (SESSION_NAME_MAX_LENGTH + 1)).status_code == 422
+        karaoke.play_history.start_session.assert_not_called()
+
+    def test_name_at_the_cap_accepted(self, admin_client, karaoke):
+        karaoke.play_history.start_session.return_value = "session-uuid"
+        name = "x" * SESSION_NAME_MAX_LENGTH
+
+        assert self._start(admin_client, name).status_code == 200
+        karaoke.play_history.start_session.assert_called_once_with(name)
+
+    def test_over_long_rename_rejected(self, admin_client, karaoke):
+        response = admin_client.put(
+            "/api/history/sessions/abc",
+            data=json.dumps(
+                {"action": "rename", "name": "x" * (SESSION_NAME_MAX_LENGTH + 1)},
+            ),
+            content_type="application/json",
+        )
+
+        assert response.status_code == 422
+        karaoke.play_history.rename_session.assert_not_called()
 
 
 class TestRankingsSizes:

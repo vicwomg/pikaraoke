@@ -41,7 +41,17 @@ class TestSessions:
         session_uuid = history.start_session("Friday Night")
         assert history.get_current_session()["uuid"] == session_uuid
 
-    def test_start_session_unnamed(self, history):
+    def test_start_session_strips_the_name(self, history):
+        history.start_session("  Friday Night  ")
+        assert history.get_current_session()["name"] == "Friday Night"
+
+    def test_start_session_stores_a_blank_name_as_unnamed(self, history):
+        """An empty label would render as a blank row rather than "Session 45"."""
+        history.start_session("   ")
+        assert history.get_current_session()["name"] is None
+
+    def test_start_session_with_no_name_stays_unnamed(self, history):
+        """The auto-start on first play, which must not surface on the splash."""
         history.start_session()
         assert history.get_current_session()["name"] is None
 
@@ -85,7 +95,7 @@ class TestSessions:
         assert history.get_sessions()[0]["play_count"] == 0
 
     def test_get_sessions_exposes_id(self, history):
-        """The UI labels unnamed sessions by number, so id has to come back."""
+        """The UI labels an auto-started session by number, so id has to come back."""
         history.start_session()
         assert history.get_sessions()[0]["id"] is not None
 
@@ -187,6 +197,7 @@ class TestActivateSession:
 
 class TestRecordPlay:
     def test_auto_starts_session_when_none_active(self, history, song_id):
+        """Unnamed, so a household that never uses sessions never sees one."""
         history.record_play(song_id, "Alice")
 
         session = history.get_current_session()

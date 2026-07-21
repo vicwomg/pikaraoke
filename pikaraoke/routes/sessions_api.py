@@ -9,6 +9,7 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, ValidationError, fields, validate, validates_schema
 
 from pikaraoke.lib.current_app import get_karaoke_instance, is_admin
+from pikaraoke.lib.play_history_manager import SESSION_NAME_MAX_LENGTH
 
 _ = flask_babel.gettext
 
@@ -44,7 +45,20 @@ class SessionsQuery(Schema):
 
 
 class StartSessionForm(Schema):
-    name = fields.String(load_default=None, metadata={"description": "Optional session name"})
+    # Required: this route is the host starting a session by hand, and the name
+    # is what the splash screen shows while it runs. Only the auto-start on the
+    # first play, which nobody is there to name, leaves a session unnamed.
+    name = fields.String(
+        required=True,
+        validate=validate.Length(max=SESSION_NAME_MAX_LENGTH),
+        metadata={"description": "Session name"},
+    )
+
+    @validates_schema
+    def check_name(self, data, **kwargs):
+        if not data["name"].strip():
+            # MSG: Error when starting a session without supplying a name
+            raise ValidationError(_("A name is required"), "name")
 
 
 class SingersQuery(Schema):
@@ -64,7 +78,11 @@ class ExportQuery(Schema):
 
 class UpdateSessionForm(Schema):
     action = fields.String(required=True, validate=validate.OneOf(["rename", "end", "activate"]))
-    name = fields.String(load_default=None, metadata={"description": "New name when renaming"})
+    name = fields.String(
+        load_default=None,
+        validate=validate.Length(max=SESSION_NAME_MAX_LENGTH),
+        metadata={"description": "New name when renaming"},
+    )
 
     @validates_schema
     def check_name(self, data, **kwargs):
