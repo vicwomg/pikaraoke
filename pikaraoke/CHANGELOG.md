@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.21.0](https://github.com/vicwomg/pikaraoke/compare/1.20.0...1.21.0) (2026-07-21)
+
+
+### Features
+
+* add subpath support for reverse proxy deployments ([#819](https://github.com/vicwomg/pikaraoke/issues/819)) ([1a23c0a](https://github.com/vicwomg/pikaraoke/commit/1a23c0a10cc7376daf32d4d834b116bf21f7aa8a))
+* CLI parameter to skip yt-dlp upgrade check ([#846](https://github.com/vicwomg/pikaraoke/issues/846)) ([3a07c76](https://github.com/vicwomg/pikaraoke/commit/3a07c7676f3c191760fea80d704a1e919bd5d00d))
+
+
+### Bug Fixes
+
+* annoying linting error ([#847](https://github.com/vicwomg/pikaraoke/issues/847)) ([ddd7dc5](https://github.com/vicwomg/pikaraoke/commit/ddd7dc5bf39786d3de0215fe64e050657bdf95e2))
+* i18n inline js escaping ([#844](https://github.com/vicwomg/pikaraoke/issues/844)) ([b0dec6a](https://github.com/vicwomg/pikaraoke/commit/b0dec6a1df395b3df9f6a455b23f1879b8c732dc)), closes [#843](https://github.com/vicwomg/pikaraoke/issues/843)
+* server 500 error for invalid password ([#841](https://github.com/vicwomg/pikaraoke/issues/841)) ([ef6cc37](https://github.com/vicwomg/pikaraoke/commit/ef6cc3756ed9e625fe575b75b052dc7ab5632832))
+
 ## [1.20.0](https://github.com/vicwomg/pikaraoke/compare/1.19.0...1.20.0) (2026-07-08)
 
 
