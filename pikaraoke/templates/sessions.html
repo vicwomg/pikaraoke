@@ -8,9 +8,15 @@
 	// ones could never be viewed or deleted, yet would still count towards the
 	// rankings.
 	var sessionsPage = { offset: 0, limit: 10 };
+	// The open session, which is also the session the play log is scoped to:
+	// opening one is what filters the log, so only one is ever open. "" shows
+	// every play.
 	var historySession = "";
-	var historySessionLabel = "";
 	var currentSessionUuid = null;
+	// The session last opened for being the active one, so handing the night over
+	// to another session can move the open row with it. Tracked rather than a
+	// one-shot flag: a refresh must not re-open a row the host has since closed.
+	var autoOpenedUuid;
 
 	var historyText = {
 		// {# MSG: Shown on the history page when no session is currently running. #}
@@ -33,10 +39,10 @@
 		noSessions: "{{ _('No sessions yet.') }}",
 		// {# MSG: Shown when the play log has no entries yet. #}
 		noPlays: "{{ _('Nothing has been played yet.') }}",
-		// {# MSG: Marks the session that is currently running in the session list. #}
-		active: "{{ _('active') }}",
-		// {# MSG: Heading above the list of people who sang in the selected session. #}
-		singersIn: "{{ _('Singers in SESSION') }}",
+		// {# MSG: Link inside an expanded session which limits the play log below to that session. #}
+		showThesePlays: "{{ _('Show only these plays') }}",
+		// {# MSG: Link inside an expanded session which stops limiting the play log to it. #}
+		showAllPlays: "{{ _('Show all plays') }}",
 		// {# MSG: Shown when a session has no plays, so nobody has sung in it. #}
 		noSingers: "{{ _('Nobody has sung in this session.') }}",
 		// {# MSG: Confirmation before making an old session the one new songs are recorded against. #}
@@ -130,6 +136,18 @@
 			}
 
 			currentSessionUuid = data.current ? data.current.uuid : null;
+			// Plays may have been recorded since the last render, so counts held
+			// from before it are stale.
+			singerCache = {};
+			// Handing the night over to another session moves the open row with it,
+			// so the singers on screen are always the ones being recorded.
+			if (autoExpandedUuid !== currentSessionUuid) {
+				delete expandedSessions[autoExpandedUuid];
+				if (currentSessionUuid) {
+					expandedSessions[currentSessionUuid] = true;
+				}
+				autoExpandedUuid = currentSessionUuid;
+			}
 			renderPager("sessions", sessionsPage, data.total);
 
 			$("#current-session").text(data.current ? sessionLabel(data.current) : historyText.noSession);
@@ -146,30 +164,49 @@
 			}
 
 			// Rows are joined and written once: appending inside the loop costs
-			// a separate HTML parse and reflow per row.
+			// a separate HTML parse and reflow per row. Each session contributes
+			// two: the row itself and its singer panel, which is always rendered
+			// and merely hidden when collapsed, so expanding is a class flip and a
+			// fetch rather than a DOM splice.
 			var rows = data.sessions.map(function (session) {
+				var escapedUuid = escapeHtml(session.uuid);
 				var isActive = session.uuid === currentSessionUuid;
 				var isFiltered = session.uuid === historySession;
+				var isExpanded = !!expandedSessions[session.uuid];
 				var label = sessionLabel(session);
-				var badge = isActive
-					? ' <span class="tag is-success is-light">' + historyText.active + "</span>"
-					: "";
+				// The panel carries the same marks, so a session and its singers
+				// read as one block rather than two.
+				var marks =
+					(isFiltered ? " is-selected-session" : "") +
+					(isActive ? " is-active-session" : "");
 				return (
-					'<tr class="' + (isFiltered ? "is-selected-session" : "") + '">' +
-						'<td><a class="filter-session" data-uuid="' + escapeHtml(session.uuid) + '">' +
-							escapeHtml(label) + "</a>" + badge + "</td>" +
+					'<tr class="session-row' + marks +
+						'" data-uuid="' + escapedUuid + '" aria-expanded="' + isExpanded + '">' +
+						'<td><i class="session-chevron icon-play"></i>' +
+							'<span class="session-name">' + escapeHtml(label) + "</span>" +
+						"</td>" +
 						whenCell(session.started_at) +
 						'<td class="has-text-right">' + session.play_count + "</td>" +
 						'<td class="has-text-right">' +
 							'<a class="has-text-grey-light session-options-btn" data-uuid="' +
-								escapeHtml(session.uuid) + '" data-label="' + escapeHtml(label) +
+								escapedUuid + '" data-label="' + escapeHtml(label) +
 								'" data-named="' + !!session.name + '" title="{{ _("Options") }}">' +
 								'<i class="icon-cog is-size-5"></i></a>' +
 						"</td>" +
+					"</tr>" +
+					'<tr class="singers-row' + marks + (isExpanded ? "" : " is-hidden") +
+						'" data-uuid="' + escapedUuid + '">' +
+						'<td colspan="4"><div class="singers-panel">' +
+							'<div class="singers-list"></div>' +
+							'<a class="filter-session is-size-7" data-uuid="' + escapedUuid + '">' +
+								(isFiltered ? historyText.showAllPlays : historyText.showThesePlays) +
+							"</a>" +
+						"</div></td>" +
 					"</tr>"
 				);
 			});
 			$body.html(rows.join(""));
+			loadExpandedSingers();
 		});
 	}
 
@@ -243,43 +280,47 @@
 		});
 	}
 
-	// Who sang in the selected session. Derived from its plays, so a name only
-	// appears here once that person has actually sung something.
-	function loadSingers() {
-		var $block = $("#session-singers");
-		if (!historySession) {
-			$block.addClass("is-hidden");
+	function renderSingerTags($list, singers) {
+		$list.empty();
+		if (!singers.length) {
+			$list.append($("<span>").text(historyText.noSingers));
 			return;
 		}
-		$block.removeClass("is-hidden");
-		$("#singers-heading").text(
-			historyText.singersIn.replace("SESSION", historySessionLabel)
+		// Appended as one array, so the tags are inserted in a single pass.
+		$list.append(
+			singers.map(function (singer) {
+				return $("<span>")
+					.addClass("tag singer-tag")
+					.text(singer.performer + " (" + singer.play_count + ")")[0];
+			})
 		);
-		return $.getJSON(
-			"{{ url_for('sessions_api.get_singers') }}",
-			{ session: historySession },
-			function (data) {
-				var $list = $("#singers-list").empty();
-				if (!data.singers.length) {
-					$list.append($("<span>").text(historyText.noSingers));
-					return;
-				}
-				var tags = document.createDocumentFragment();
-				data.singers.forEach(function (singer) {
-					tags.appendChild(
-						$("<span>")
-							.addClass("tag singer-tag")
-							.text(singer.performer + " (" + singer.play_count + ")")[0]
-					);
-				});
-				$list.append(tags);
-			}
-		);
+	}
+
+	// Who sang in a session, derived from its plays, so a name only appears once
+	// that person has actually sung something. `$panel` is the singers row itself,
+	// which keeps the uuid out of a jQuery selector.
+	function fillSingers($panel) {
+		var uuid = $panel.data("uuid");
+		var $list = $panel.find(".singers-list");
+		if (singerCache[uuid]) {
+			renderSingerTags($list, singerCache[uuid]);
+			return;
+		}
+		$.getJSON("{{ url_for('sessions_api.get_singers') }}", { session: uuid }, function (data) {
+			singerCache[uuid] = data.singers;
+			renderSingerTags($list, data.singers);
+		});
+	}
+
+	// One request per open row: a collapsed panel costs nothing until it is opened.
+	function loadExpandedSingers() {
+		$("#sessions-body .singers-row:not(.is-hidden)").each(function () {
+			fillSingers($(this));
+		});
 	}
 
 	function refreshHistory() {
 		loadSessions();
-		loadSingers();
 		loadPlays();
 	}
 
@@ -322,12 +363,8 @@
 
 	// Showing one session's plays, or "" for all of them. A new filter always
 	// resets the page, since the old offset indexes a different result set.
-	// The label is captured here because the filter is only ever set from a row
-	// that already displays it; rediscovering it while rendering would miss any
-	// session that has paged off the sessions table.
-	function setSessionFilter(uuid, label) {
+	function setSessionFilter(uuid) {
 		historySession = uuid;
-		historySessionLabel = label || "";
 		playsPage.offset = 0;
 		refreshHistory();
 	}
@@ -434,9 +471,28 @@
 			renameSession(currentSessionUuid);
 		});
 
-		$("#sessions-body").on("click", ".session-options-btn", function () {
+		// The cog sits inside a row that expands on click, so it stops the event
+		// reaching it. jQuery runs delegated handlers from the target outwards, so
+		// this one runs first.
+		$("#sessions-body").on("click", ".session-options-btn", function (e) {
+			e.stopPropagation();
 			var $btn = $(this);
 			openSessionOptions($btn.data("uuid"), $btn.data("label"), $btn.data("named") === true);
+		});
+
+		$("#sessions-body").on("click", ".session-row", function () {
+			var $row = $(this);
+			var uuid = $row.data("uuid");
+			var shouldExpand = !expandedSessions[uuid];
+			expandedSessions[uuid] = shouldExpand;
+			// CSS turns the triangle off aria-expanded, so state lives in one place.
+			$row.attr("aria-expanded", shouldExpand);
+			// Toggling in place rather than re-rendering leaves the play log and
+			// the scroll position alone.
+			var $panel = $row.next(".singers-row").toggleClass("is-hidden", !shouldExpand);
+			if (shouldExpand) {
+				fillSingers($panel);
+			}
 		});
 
 		$sessionModal.on("click", ".modal-background, .modal-close-btn", closeSessionOptions);
@@ -448,12 +504,9 @@
 
 		$("#sessions-body").on("click", ".filter-session", function () {
 			var uuid = $(this).data("uuid");
-			// Clicking the session already being shown clears the filter.
-			if (historySession === uuid) {
-				setSessionFilter("");
-			} else {
-				setSessionFilter(uuid, $(this).text());
-			}
+			// The link reads "Show all plays" once its session is the one on show,
+			// so clicking it again clears the filter.
+			setSessionFilter(historySession === uuid ? "" : uuid);
 		});
 
 		wirePager("sessions", sessionsPage, loadSessions);
@@ -536,6 +589,77 @@
 	.session-options-btn {
 		cursor: pointer;
 	}
+	/* The whole session row toggles its singer panel, with the triangle as the
+	   affordance for it. */
+	.session-row {
+		cursor: pointer;
+	}
+	/* Hover stands down on the filtered session, whose highlight says which one
+	   the play log is scoped to. */
+	.session-row:not(.is-selected-session):hover > td {
+		background-color: rgba(128, 128, 128, 0.15);
+	}
+	/* One triangle rotated rather than two icons swapped, turning on the row's
+	   aria-expanded so open/shut is held in one place. */
+	.session-chevron {
+		font-size: 0.7em;
+		color: var(--dark-link);
+	}
+	/* Fontello puts the glyph and its margins on the ::before, so the rotation
+	   goes there: turning the element would swing the spacing round with it and
+	   shift the name. */
+	.session-chevron:before {
+		margin-left: 0;
+		margin-right: 0.7em;
+		transition: transform 0.15s ease;
+	}
+	.session-row[aria-expanded="true"] .session-chevron:before {
+		transform: rotate(90deg);
+	}
+	.session-row:hover .session-chevron {
+		color: var(--dark-link-hover);
+	}
+	/* The active session gets a standing accent. Every row reserves the same 3px
+	   so names stay aligned, and the bar runs on down the panel: the pair is one
+	   block. */
+	.session-row > td:first-child,
+	.singers-row > td {
+		border-left: 3px solid transparent;
+	}
+	.is-active-session > td:first-child {
+		border-left-color: var(--dark-success);
+	}
+	.is-active-session .session-name {
+		font-weight: 600;
+	}
+	/* The panel belongs to the row above it: no separating border, an inset
+	   background, and an indent that lines it up under the session name. */
+	.singers-row > td {
+		padding: 0 12px 2px 22px;
+		border-top: none;
+		background-color: rgba(0, 0, 0, 0.15);
+	}
+	/* Last of the three washes, so the active session's panel takes the same tint
+	   as its row rather than the inset grey. The filtered highlight below still
+	   outranks it: which session the log is showing is the stronger signal. */
+	.is-active-session > td {
+		background-color: rgba(46, 204, 113, 0.07);
+	}
+	/* Auto table layout shares surplus width by how much content each column
+	   asks for, and a timestamp asks for more than a session name does. The name
+	   is the column worth reading, so it claims the slack and the rest settle at
+	   their content width. */
+	#session-list th:first-child {
+		width: 100%;
+	}
+	/* The link sits beside the singers rather than out at the table edge, and
+	   drops to its own line only once the tags fill the width. */
+	.singers-panel {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 0 12px;
+	}
 	.history-table th.sortable {
 		cursor: pointer;
 		white-space: nowrap;
@@ -555,11 +679,28 @@
 	#play-sort-bar {
 		display: none;
 	}
+	/* Bulma lays an .icon out as a 1.5rem inline-flex box that centres its glyph,
+	   which pulls the arrow back against the button's label. Only the active
+	   button holds an arrow, so the gap goes on the icon rather than the empty
+	   span, and the others keep their natural width. */
+	#play-sort-bar .sort-arrow > .icon {
+		margin-left: 0.3em;
+	}
 	/* On a phone the five-column play log is too wide, so each play stacks into
 	   a card: the song on its own line, a muted meta line (time, performer,
 	   status) below it, and the delete pinned to the card's top-right corner
 	   rather than spilling off the side of the table. */
 	@media screen and (max-width: 600px) {
+		/* No slack left to share on a phone, so the timestamp is cut down instead:
+		   stacked, it asks for a date's width rather than a date and a time, and
+		   the session name keeps what that frees up. */
+		#session-list td.when span {
+			display: block;
+		}
+		#session-list td.when {
+			font-size: 0.85rem;
+			color: #a7a7a7;
+		}
 		#play-sort-bar {
 			display: flex;
 			flex-wrap: wrap;
@@ -646,7 +787,7 @@
 
 {# MSG: Heading for the list of past karaoke sessions. #}
 <h2 class="subtitle" style="margin-top: 25px">{% trans %}Session History{% endtrans %}</h2>
-<table class="history-table">
+<table class="history-table" id="session-list">
 	<thead>
 		<tr>
 			{# MSG: Session list column header for the session name. #}
@@ -662,11 +803,6 @@
 </table>
 
 {{ pager_controls("sessions", [5, 10, 25, 50], 10) }}
-
-<div id="session-singers" class="is-hidden" style="margin-top: 12px">
-	<strong id="singers-heading"></strong>
-	<div id="singers-list" style="margin-top: 6px"></div>
-</div>
 
 <h2 class="subtitle" style="margin-top: 25px">
 	{# MSG: Heading for the list of songs that have been played. #}
