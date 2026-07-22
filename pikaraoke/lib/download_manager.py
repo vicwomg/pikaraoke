@@ -7,7 +7,8 @@ import re
 import subprocess
 import uuid
 from queue import Queue
-from threading import Thread
+
+from gevent import Greenlet, spawn
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
@@ -61,13 +62,18 @@ class DownloadManager:
         self.pending_downloads: list[dict] = []  # Shadow queue for visibility
         self.download_errors: list[dict] = []  # Track failed downloads
         self.active_download: dict | None = None
-        self._worker_thread: Thread | None = None
+        self._worker: Greenlet | None = None
         self._is_downloading: bool = False  # Track if a download is currently in progress
 
     def start(self) -> None:
-        """Start the download worker thread."""
-        self._worker_thread = Thread(target=self._process_queue, daemon=True)
-        self._worker_thread.start()
+        """Start the download worker greenlet.
+
+        Runs as a greenlet on the main gevent hub rather than a raw OS thread:
+        a separate thread touching monkey-patched primitives (Queue, subprocess)
+        spins up a second hub, which races the main hub at WSGIServer startup and
+        can deadlock (observed hanging PiKaraoke launch on macOS).
+        """
+        self._worker = spawn(self._process_queue)
         logging.debug("Download queue worker started")
 
     def get_downloads_status(self) -> dict:

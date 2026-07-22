@@ -56,15 +56,17 @@ class TestDownloadManagerInit:
         """Test that init creates an empty queue."""
         assert download_manager.download_queue.empty()
         assert download_manager._is_downloading is False
-        assert download_manager._worker_thread is None
+        assert download_manager._worker is None
 
-    def test_start_creates_worker_thread(self, download_manager):
-        """Test that start creates and starts a daemon thread."""
+    def test_start_creates_worker_greenlet(self, download_manager):
+        """Test that start spawns a live worker greenlet."""
         download_manager.start()
 
-        assert download_manager._worker_thread is not None
-        assert download_manager._worker_thread.daemon is True
-        assert download_manager._worker_thread.is_alive()
+        assert download_manager._worker is not None
+        assert not download_manager._worker.dead
+
+        # Reap the idle worker so it can't block the suite on the (unpatched) queue
+        download_manager._worker.kill()
 
 
 class TestDownloadManagerQueueDownload:
