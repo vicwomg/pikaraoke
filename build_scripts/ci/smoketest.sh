@@ -6,6 +6,10 @@
 
 set -e
 
+# gevent's default async DNS resolver hangs at WSGIServer startup on macOS GHA
+# runners; the blocking libc resolver avoids it. Harmless on Linux.
+export GEVENT_RESOLVER=block
+
 echo "Installing PiKaraoke for CI..."
 ./build_scripts/install/install.sh -y --local
 
