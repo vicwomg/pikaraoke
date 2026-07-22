@@ -304,7 +304,6 @@ def main() -> None:
     else:
         logging.info("Skipping yt-dlp upgrade on startup")
 
-    logging.info("SMOKETEST PROBE: constructing WSGIServer")
     # Pre-populate SERVER_NAME so gevent's pywsgi skips the reverse-DNS (getfqdn)
     # lookup it otherwise runs at startup, which can hang for a long time on hosts
     # without working reverse DNS (observed hanging PiKaraoke launch on macOS).
@@ -315,13 +314,7 @@ def main() -> None:
         error_log=logging.getLogger(),
         environ={"SERVER_NAME": k.ip},
     )
-    logging.info("SMOKETEST PROBE: WSGIServer constructed, calling start()")
-    import faulthandler
-
-    faulthandler.dump_traceback_later(12)  # dump all stacks if start() is still hung
     server.start()
-    faulthandler.cancel_dump_traceback_later()
-    logging.info("SMOKETEST PROBE: WSGIServer started")
 
     # Handle sigterm, apparently cherrypy won't shut down without explicit handling
     # signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
@@ -352,7 +345,6 @@ def main() -> None:
         logging.info(f"Swagger API docs enabled at {k.url}/apidocs")
 
     # Start the karaoke process
-    logging.info("SMOKETEST PROBE: entering k.run()")
     k.run()
 
     # Close running browser when done
