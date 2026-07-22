@@ -304,8 +304,9 @@ def main() -> None:
     else:
         logging.info("Skipping yt-dlp upgrade on startup")
 
-    logging.info("SMOKETEST PROBE: starting WSGIServer")
+    logging.info("SMOKETEST PROBE: constructing WSGIServer")
     server = WSGIServer(("0.0.0.0", int(args.port)), app, log=None, error_log=logging.getLogger())
+    logging.info("SMOKETEST PROBE: WSGIServer constructed, calling start()")
     server.start()
     logging.info("SMOKETEST PROBE: WSGIServer started")
 
