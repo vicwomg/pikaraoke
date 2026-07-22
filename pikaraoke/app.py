@@ -304,8 +304,10 @@ def main() -> None:
     else:
         logging.info("Skipping yt-dlp upgrade on startup")
 
+    logging.info("SMOKETEST PROBE: starting WSGIServer")
     server = WSGIServer(("0.0.0.0", int(args.port)), app, log=None, error_log=logging.getLogger())
     server.start()
+    logging.info("SMOKETEST PROBE: WSGIServer started")
 
     # Handle sigterm, apparently cherrypy won't shut down without explicit handling
     # signal.signal(signal.SIGTERM, lambda signum, stack_frame: k.stop())
@@ -336,6 +338,7 @@ def main() -> None:
         logging.info(f"Swagger API docs enabled at {k.url}/apidocs")
 
     # Start the karaoke process
+    logging.info("SMOKETEST PROBE: entering k.run()")
     k.run()
 
     # Close running browser when done
