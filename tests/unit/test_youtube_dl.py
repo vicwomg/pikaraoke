@@ -32,16 +32,30 @@ class TestGetYoutubeIdFromUrl:
         url = "https://youtu.be/dQw4w9WgXcQ"
         assert get_youtube_id_from_url(url) == "dQw4w9WgXcQ"
 
-    def test_url_with_extra_params(self):
-        """Test parsing URL with additional parameters after ?."""
-        # Note: current implementation only strips params after second ?
-        url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ?extra=param"
+    def test_url_with_trailing_params(self):
+        """Test that params after the video ID are stripped."""
+        url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ&pp=ygUHa2FyYW9rZQ%3D%3D"
+        assert get_youtube_id_from_url(url) == "dQw4w9WgXcQ"
+
+    def test_url_with_leading_params(self):
+        """Test parsing when v= is not the first query parameter."""
+        url = "https://www.youtube.com/watch?app=desktop&v=dQw4w9WgXcQ"
         assert get_youtube_id_from_url(url) == "dQw4w9WgXcQ"
 
     def test_short_url_with_params(self):
         """Test parsing short URL with parameters."""
         url = "https://youtu.be/dQw4w9WgXcQ?t=30"
         assert get_youtube_id_from_url(url) == "dQw4w9WgXcQ"
+
+    def test_short_url_with_tracking_params(self):
+        """Test parsing share-style short URL with tracking params."""
+        url = "https://youtu.be/dQw4w9WgXcQ?si=abcdefghijkl"
+        assert get_youtube_id_from_url(url) == "dQw4w9WgXcQ"
+
+    def test_malformed_id_returns_none(self):
+        """Test that a value which isn't a valid 11-char ID is rejected."""
+        url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ?extra=param"
+        assert get_youtube_id_from_url(url) is None
 
     def test_invalid_url_returns_none(self):
         """Test that invalid URL returns None."""

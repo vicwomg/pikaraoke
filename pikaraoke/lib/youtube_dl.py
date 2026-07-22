@@ -3,13 +3,18 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import shlex
 import subprocess
 import sys
+from urllib.parse import parse_qs, urlparse
 
 from pikaraoke.lib.get_platform import get_installed_js_runtime
 
 yt_dlp_cmd = [sys.executable, "-m", "yt_dlp"]
+
+# YouTube video IDs are always exactly 11 characters
+YOUTUBE_ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{11}")
 
 
 def _js_runtime_args() -> list[str]:
@@ -43,23 +48,26 @@ def get_youtube_id_from_url(url: str) -> str | None:
 
     Supports youtube.com/watch?v=, m.youtube.com/?v=, and youtu.be/ formats.
 
+    The ID is validated against the canonical 11-character shape so tracking
+    params (&pp=, &t=, &si=) can never leak into the ID and silently break
+    lookups of the downloaded file.
+
     Args:
         url: YouTube video URL.
 
     Returns:
         The video ID string, or None if parsing failed.
     """
-    if "v=" in url:  # accommodates youtube.com/watch?v= and m.youtube.com/?v=
-        s = url.split("watch?v=")
-    else:  # accommodates youtu.be/
-        s = url.split("u.be/")
-    if len(s) == 2:
-        if "?" in s[1]:  # Strip unneeded YouTube params
-            s[1] = s[1][0 : s[1].index("?")]
-        return s[1]
+    parsed = urlparse(url)
+    if parsed.hostname and parsed.hostname.endswith("youtu.be"):
+        video_id = parsed.path.lstrip("/").split("/")[0]
     else:
+        video_id = parse_qs(parsed.query).get("v", [""])[0]
+
+    if not YOUTUBE_ID_PATTERN.fullmatch(video_id):
         logging.error(f"Error parsing youtube id from url: {url}")
         return None
+    return video_id
 
 
 def upgrade_youtubedl() -> str:
