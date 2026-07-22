@@ -307,7 +307,11 @@ def main() -> None:
     logging.info("SMOKETEST PROBE: constructing WSGIServer")
     server = WSGIServer(("0.0.0.0", int(args.port)), app, log=None, error_log=logging.getLogger())
     logging.info("SMOKETEST PROBE: WSGIServer constructed, calling start()")
+    import faulthandler
+
+    faulthandler.dump_traceback_later(12)  # dump all stacks if start() is still hung
     server.start()
+    faulthandler.cancel_dump_traceback_later()
     logging.info("SMOKETEST PROBE: WSGIServer started")
 
     # Handle sigterm, apparently cherrypy won't shut down without explicit handling
