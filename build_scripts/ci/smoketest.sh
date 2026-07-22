@@ -6,6 +6,10 @@
 
 set -e
 
+# EXPERIMENT: bypass gevent's thread DNS resolver, suspected to hang at
+# WSGIServer startup on macOS runners.
+export GEVENT_RESOLVER=block
+
 echo "Installing PiKaraoke for CI..."
 ./build_scripts/install/install.sh -y --local
 
