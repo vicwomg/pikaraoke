@@ -13,12 +13,44 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
+      prs_created: ${{ steps.release.outputs.prs_created }}
+      pr: ${{ steps.release.outputs.pr }}
     steps:
     - name: Release Please
       id: release
       uses: googleapis/release-please-action@v4
       with:
         token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+
+  # release-please's python release type only updates pyproject.toml, version.py,
+  # CHANGELOG.md and the manifest. uv.lock also pins pikaraoke's own version, so
+  # without this it trails the released version until an unrelated dependency bump
+  # happens to regenerate it.
+  sync-uv-lock:
+    runs-on: ubuntu-latest
+    needs: release-please
+    if: ${{ needs.release-please.outputs.prs_created == 'true' }}
+    steps:
+    - name: Check out the release PR branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ fromJSON(needs.release-please.outputs.pr).headBranchName }}
+        token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+
+    - name: Sync uv.lock with the released version
+      run: |
+        uv lock
+        if git diff --quiet -- uv.lock; then
+          echo "uv.lock already in sync"
+          exit 0
+        fi
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git commit uv.lock -m "chore: sync uv.lock with released version"
+        git push
 
   build-and-publish:
     runs-on: ubuntu-latest
