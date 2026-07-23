@@ -326,7 +326,16 @@ def main() -> None:
     else:
         logging.info("Skipping yt-dlp upgrade on startup")
 
-    server = WSGIServer(("0.0.0.0", int(args.port)), app, log=None, error_log=logging.getLogger())
+    # Pre-populate SERVER_NAME so gevent's pywsgi skips the reverse-DNS (getfqdn)
+    # lookup it otherwise runs at startup, which can hang for a long time on hosts
+    # without working reverse DNS (observed hanging PiKaraoke launch on macOS).
+    server = WSGIServer(
+        ("0.0.0.0", int(args.port)),
+        app,
+        log=None,
+        error_log=logging.getLogger(),
+        environ={"SERVER_NAME": k.ip},
+    )
     server.start()
 
     # Handle sigterm, apparently cherrypy won't shut down without explicit handling

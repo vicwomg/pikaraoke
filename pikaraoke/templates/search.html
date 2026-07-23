@@ -233,7 +233,7 @@
 		$("#direct-download-button").click(function () {
 			var url = $("#direct-download-url").val();
 			if (!url) return;
-			downloadSong(url, "", this);
+			downloadSong(url, "", this, $("#add-to-queue-direct").is(":checked"));
 		});
 
 		$("#add-queue-link").click(function () {});
@@ -476,7 +476,7 @@
 			$("#add-to-queue-direct, #add-to-queue-search").prop("checked", isChecked);
 		});
 
-		function downloadSong(songUrl, songTitle, button) {
+		function downloadSong(songUrl, songTitle, button, addToQueue) {
 			var $btn = $(button);
 			var originalText = $btn.html();
 			$btn.css("min-width", $btn.outerWidth() + "px");
@@ -489,7 +489,7 @@
 					song_url: songUrl,
 					song_title: songTitle || "",
 					song_added_by: resolveSinger(),
-					queue: $("#add-to-queue-search").is(":checked"),
+					queue: addToQueue,
 				}),
 				success: function () {
 					$btn.removeClass("is-loading").addClass("is-success")
@@ -515,7 +515,7 @@
 			item.querySelector("button").addEventListener("click", function () {
 				const url = item.getAttribute("value");
 				const title = item.getAttribute("data-ytTitle");
-				downloadSong(url, title, this);
+				downloadSong(url, title, this, $("#add-to-queue-search").is(":checked"));
 			})
 		);
 
