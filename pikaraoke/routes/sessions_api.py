@@ -114,15 +114,6 @@ class UpdateSessionForm(Schema):
             raise ValidationError(_("A name is required"), "name")
 
 
-def _with_titles(plays: list[dict]) -> list[dict]:
-    """Attach a display title to each play, or None when the song file is gone."""
-    k = get_karaoke_instance()
-    for play in plays:
-        file_path = play.get("file_path")
-        play["song"] = k.song_manager.display_name_from_path(file_path) if file_path else None
-    return plays
-
-
 @sessions_api_bp.route("/api/history/singers")
 @sessions_api_bp.arguments(SingersQuery, location="query")
 def get_singers(query):
@@ -144,7 +135,7 @@ def get_plays(query):
     )
     return jsonify(
         {
-            "plays": _with_titles(plays),
+            "plays": plays,
             "total": k.play_history.count_plays(query["session"]),
             # Its row exists but has not been resolved yet, so the UI must not
             # render the song playing right now as skipped.
@@ -225,7 +216,7 @@ def _export_csv(session_uuid: str, plays: list[dict]) -> Response:
             [
                 play["played_at"],
                 play["performer"],
-                play["song"] or _("(song removed from library)"),
+                play["song"],
                 # The same vocabulary the play log shows on screen.
                 _("Played") if play["completed"] else _("Skipped"),
             ]
@@ -241,9 +232,8 @@ def _export_txt(session_uuid: str, plays: list[dict]) -> Response:
     """Render plays as a numbered, human-readable list (the #213 request)."""
     lines = [_("PiKaraoke - Play History"), ""]
     for i, play in enumerate(plays, 1):
-        song = play["song"] or _("(song removed from library)")
         # played_at is "YYYY-MM-DD HH:MM:SS"; minutes are enough for a set list.
-        line = f"{i}. {play['played_at'][:16]}  {play['performer']} - {song}"
+        line = f"{i}. {play['played_at'][:16]}  {play['performer']} - {play['song']}"
         if not play["completed"]:
             line += "  " + _("(skipped)")
         lines.append(line)
@@ -263,7 +253,7 @@ def export_session(query, session_uuid):
     # reads as "nobody sang" rather than "that session is gone".
     if not k.play_history.session_exists(session_uuid):
         return jsonify({"success": False, "error": _("Session not found")}), 404
-    plays = _with_titles(k.play_history.export_plays(session_uuid))
+    plays = k.play_history.export_plays(session_uuid)
     if query["format"] == "txt":
         return _export_txt(session_uuid, plays)
     return _export_csv(session_uuid, plays)

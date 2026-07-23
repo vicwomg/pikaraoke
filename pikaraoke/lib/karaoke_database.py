@@ -47,10 +47,15 @@ CREATE TABLE IF NOT EXISTS sessions (
     ended_at TEXT
 );
 
+-- song_title records what was sung as a fact, so a play still reads correctly
+-- after the song leaves the library. song_id is the live link alongside it,
+-- for aggregation over songs that are still there; it goes NULL on delete
+-- while the title survives.
 CREATE TABLE IF NOT EXISTS plays (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id INTEGER NOT NULL,
     song_id INTEGER,
+    song_title TEXT,
     performer TEXT NOT NULL,
     played_at TEXT DEFAULT CURRENT_TIMESTAMP,
     completed INTEGER DEFAULT 0,

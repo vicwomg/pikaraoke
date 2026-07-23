@@ -111,16 +111,15 @@ class TestExport:
                 "played_at": "2026-03-05 21:00:00",
                 "performer": "Alice",
                 "completed": 1,
-                "file_path": "/songs/Artist - Song---abc12345678.mp4",
+                "song": "Artist - Song",
             },
             {
                 "played_at": "2026-03-05 21:05:00",
                 "performer": "Bob",
                 "completed": 0,
-                "file_path": None,
+                "song": "Another Song",
             },
         ]
-        karaoke.song_manager.display_name_from_path.return_value = "Artist - Song"
 
         response = admin_client.get("/api/history/export/abc")
         body = response.data.decode()
@@ -131,8 +130,7 @@ class TestExport:
         # Same vocabulary as the play log on the page, not a separate one.
         assert "Played At,Performer,Song,Status" in body
         assert "2026-03-05 21:00:00,Alice,Artist - Song,Played" in body
-        # A song deleted from the library leaves the play, but with no title
-        assert "2026-03-05 21:05:00,Bob,(song removed from library),Skipped" in body
+        assert "2026-03-05 21:05:00,Bob,Another Song,Skipped" in body
 
     def test_txt_contents(self, admin_client, karaoke):
         karaoke.play_history.export_plays.return_value = [
@@ -140,16 +138,15 @@ class TestExport:
                 "played_at": "2026-03-05 21:00:00",
                 "performer": "Alice",
                 "completed": 1,
-                "file_path": "/songs/Artist - Song---abc12345678.mp4",
+                "song": "Artist - Song",
             },
             {
                 "played_at": "2026-03-05 21:05:00",
                 "performer": "Bob",
                 "completed": 0,
-                "file_path": None,
+                "song": "Another Song",
             },
         ]
-        karaoke.song_manager.display_name_from_path.return_value = "Artist - Song"
 
         response = admin_client.get("/api/history/export/abc?format=txt")
         body = response.data.decode()
@@ -159,8 +156,8 @@ class TestExport:
         assert 'filename="pikaraoke-abc.txt"' in response.headers["Content-Disposition"]
         # A numbered, human-readable set list: minutes only, no CSV commas.
         assert "1. 2026-03-05 21:00  Alice - Artist - Song" in body
-        # A skipped song is flagged; a deleted song still lists by placeholder.
-        assert "2. 2026-03-05 21:05  Bob - (song removed from library)  (skipped)" in body
+        # A skipped song is still listed, but flagged.
+        assert "2. 2026-03-05 21:05  Bob - Another Song  (skipped)" in body
 
     def test_bad_format_rejected(self, admin_client, karaoke):
         karaoke.play_history.export_plays.return_value = []

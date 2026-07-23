@@ -34,8 +34,6 @@
 		noSession: {{ _('No active session') | tojson }},
 		// {# MSG: Label for a session the host never named. NUMBER is replaced with a number. #}
 		unnamed: {{ _('Session NUMBER') | tojson }},
-		// {# MSG: Shown in the play log when the song file has since been deleted from the library. #}
-		songRemoved: {{ _('(song removed from library)') | tojson }},
 		// {# MSG: Prompt asking the host to name a session. #}
 		promptRename: {{ _('Name this session:') | tojson }},
 		// {# MSG: Confirmation before deleting a session and every play recorded in it. SESSION is replaced with its name. #}
@@ -258,9 +256,7 @@
 				$body.html($("<tr>").append($("<td>").attr("colspan", 5).text(historyText.noPlays)));
 			} else {
 				var rows = data.plays.map(function (play) {
-					var song = play.song
-						? escapeHtml(play.song)
-						: '<span class="has-text-grey">' + historyText.songRemoved + "</span>";
+					var song = escapeHtml(play.song);
 					return (
 						"<tr>" +
 							whenCell(play.played_at) +

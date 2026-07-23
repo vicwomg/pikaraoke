@@ -635,7 +635,9 @@ class Karaoke:
                     # always lands before the song_ended that completes it.
                     if result.success:
                         self.play_history.record_play(
-                            self.db.get_song_id_by_path(song["file"]), song["user"]
+                            self.db.get_song_id_by_path(song["file"]),
+                            song["user"],
+                            self.song_manager.display_name_from_path(song["file"]),
                         )
                     elif result.error:
                         self.log_and_send(result.error, "danger")

@@ -31,12 +31,10 @@ def _latest_casing(name_column: str) -> str:
 
 # Sortable columns for the play log, keyed by what the UI sends. These
 # interpolate into SQL, so the sort key is looked up here and never used raw.
-# Songs sort by path rather than display title: the title is derived in Python,
-# and path order still groups every play of the same song together.
 _PLAY_SORTS = {
     "played_at": "p.played_at",
     "performer": "p.performer COLLATE NOCASE",
-    "song": "s.file_path COLLATE NOCASE",
+    "song": "p.song_title COLLATE NOCASE",
 }
 
 
@@ -241,8 +239,15 @@ class PlayHistoryManager:
     # Play recording
     # ------------------------------------------------------------------
 
-    def record_play(self, song_id: int | None, performer: str) -> None:
-        """Record a play against the active session, auto-starting one if needed."""
+    def record_play(self, song_id: int | None, performer: str, song_title: str) -> None:
+        """Record a play against the active session, auto-starting one if needed.
+
+        Args:
+            song_title: The title as displayed when it was sung, stored rather
+                than looked up later so the log survives the song being deleted
+                from the library. A side effect is that toggling title tidying
+                afterwards does not rewrite history, which is the point.
+        """
         if self._resuming:
             self._resuming = False
             if self._current_song_id == song_id and self._current_performer == performer:
@@ -256,8 +261,8 @@ class PlayHistoryManager:
             session = self.get_current_session()
 
         cursor = self.db.execute(
-            "INSERT INTO plays (session_id, song_id, performer) VALUES (?, ?, ?)",
-            (session["id"], song_id, performer),
+            "INSERT INTO plays (session_id, song_id, song_title, performer) VALUES (?, ?, ?, ?)",
+            (session["id"], song_id, song_title, performer),
         )
         self.current_play_id = cursor.lastrowid
         self._current_song_id = song_id
@@ -317,9 +322,8 @@ class PlayHistoryManager:
         rows = self.db.query(
             f"""
             SELECT p.id, {_local("p.played_at", "played_at")}, p.performer, p.completed,
-                   s.file_path
+                   p.song_title AS song
             FROM plays p
-            LEFT JOIN songs s ON s.id = p.song_id
             {where}
             ORDER BY {order} {ascending}, p.id {ascending}
             LIMIT ? OFFSET ?
@@ -415,9 +419,8 @@ class PlayHistoryManager:
         rows = self.db.query(
             f"""
             SELECT {_local("p.played_at", "played_at")}, p.performer, p.completed,
-                   s.file_path
+                   p.song_title AS song
             FROM plays p
-            LEFT JOIN songs s ON s.id = p.song_id
             WHERE p.session_id = (SELECT id FROM sessions WHERE uuid = ?)
             ORDER BY p.played_at, p.id
             """,
