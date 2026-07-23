@@ -13,11 +13,11 @@
 			});
 		}
 
+		loadSingerList();
+
 		$("a.add-song-link").click(function (e) {
 			e.preventDefault();
-			setUserCookie();
-			var user = Cookies.get("user");
-			$.get(this.href + encodeURIComponent(user), function (data) {
+			$.get(this.href + encodeURIComponent(resolveSinger()), function (data) {
 				var obj = JSON.parse(data);
 				if (obj.success[0]) {
 					// {# MSG: Notification when a song gets added to the queue.  The song name comes after this string. #}
@@ -109,6 +109,8 @@
 	>
 	{% endif%}
 </p>
+
+{% include 'partials/singer_field.html' %}
 
 <div id="alpha-bar" class="column is-full has-background-dark mobile-hide">
 	<a href="{{ url_for('files.browse') }}" title="Show all"><i class="icon icon-list-bullet"></i></a>

@@ -388,6 +388,10 @@
 				setTimeout(function () {
 					$("#add-queue-link").removeClass("is-loading");
 				}, 1000);
+				// Resolved here rather than kept in sync as the singer field
+				// changes: a programmatic clear fires no input event, so a
+				// mirrored value outlives the singer it was set for.
+				$(".song_added_by").val(resolveSinger());
 				$.ajax({
 					url: "{{ url_for('queue.enqueue') }}",
 					type: "post",
@@ -451,7 +455,7 @@
 
 		setUserCookie(); // Don't reload page after setting cookie
 
-		$(".song_added_by").val(getUserCookie());
+		loadSingerList();
 
 		// Restore checkbox states from cookies
 		restoreCheckboxStates();
@@ -484,7 +488,7 @@
 				data: JSON.stringify({
 					song_url: songUrl,
 					song_title: songTitle || "",
-					song_added_by: getUserCookie() || "",
+					song_added_by: resolveSinger(),
 					queue: addToQueue,
 				}),
 				success: function () {
@@ -607,6 +611,7 @@
 <div>
 	<div class="field" id="container_queue_form">
 		<form id="queue-form">
+			{% include 'partials/singer_field.html' %}
 			<div id="search-field" class="field has-addons mb-1">
 				<div class="control is-expanded">
 					<select id="song_to_add" class="search-selectize is-size-7" name="song_to_add">
@@ -621,6 +626,9 @@
 					the queue. #}
 					<a class="button is-info" id="add-queue-link">{% trans %}Add to queue{% endtrans %}</a>
 				</div>
+				{# The one submitted attribution field. Written from resolveSinger()
+				   at submit time, so it cannot hold a name the singer field no
+				   longer shows. #}
 				<input class="song_added_by" type="hidden" name="song_added_by" />
 			</div>
 			<div class="control is-flex is-justify-content-flex-end is-align-items-center mb-2">

@@ -23,7 +23,7 @@ from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.browser import Browser
-from pikaraoke.lib.current_app import get_karaoke_instance
+from pikaraoke.lib.current_app import get_karaoke_instance, is_admin
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
 from pikaraoke.lib.get_platform import (
@@ -49,6 +49,8 @@ from pikaraoke.routes.now_playing import nowplaying_bp
 from pikaraoke.routes.preferences import preferences_bp
 from pikaraoke.routes.queue import queue_bp
 from pikaraoke.routes.search import search_bp
+from pikaraoke.routes.sessions import sessions_bp
+from pikaraoke.routes.sessions_api import sessions_api_bp
 from pikaraoke.routes.socket_events import setup_socket_events
 from pikaraoke.routes.splash import splash_bp
 from pikaraoke.routes.stream import stream_bp
@@ -73,6 +75,19 @@ app.config["SESSION_COOKIE_PATH"] = args.base_path or "/"
 app.config["PIKARAOKE_BASE_PATH"] = args.base_path
 app.config["PIKARAOKE_SOCKETIO_PATH"] = socketio_path
 app.wsgi_app = BasePathMiddleware(app.wsgi_app, args.base_path)
+
+# Globals rather than per-route template args, so every page that extends
+# base.html agrees: it gates the admin-only nav links on is_admin and renders a
+# session ribbon from active_session_name, and singer_field gates KJ mode on
+# has_active_session. Registered at import rather than in main() -- base.html
+# calls them on every render, so binding them any later leaves a render path
+# that fails on an undefined name. The Karaoke instance is resolved per call
+# because it does not exist yet at import time.
+app.jinja_env.globals.update(
+    is_admin=is_admin,
+    active_session_name=lambda: get_karaoke_instance().play_history.get_current_session_name(),
+    has_active_session=lambda: get_karaoke_instance().play_history.has_active_session(),
+)
 
 # Always initialize flask-smorest Api for error handling (@bp.arguments validation).
 # Only expose the Swagger UI when --enable-swagger is passed.
@@ -102,6 +117,7 @@ _api_blueprints = [
     nowplaying_bp,
     stream_bp,
     metadata_bp,
+    sessions_api_bp,
 ]
 
 # Blueprints hidden from /apidocs (internal UI routes)
@@ -110,6 +126,7 @@ _internal_blueprints = [
     info_bp,
     splash_bp,
     batch_song_renamer_bp,
+    sessions_bp,
 ]
 
 for bp in _api_blueprints:
@@ -248,6 +265,8 @@ def main() -> None:
         complete_transcode_before_play=args.complete_transcode_before_play,
         buffer_size=args.buffer_size,
         hide_url=args.hide_url,
+        hide_session_name=args.hide_session_name,
+        hide_logo=args.hide_logo,
         hide_notifications=args.hide_notifications,
         hide_splash_screen=args.hide_splash_screen,
         high_quality=args.high_quality,
@@ -295,9 +314,12 @@ def main() -> None:
     app.config["ADMIN_PASSWORD"] = args.admin_password
     app.config["SITE_NAME"] = "PiKaraoke"
 
-    # Expose some functions to jinja templates
-    app.jinja_env.globals.update(filename_from_path=k.song_manager.display_name_from_path)
-    app.jinja_env.globals.update(url_escape=quote)
+    # Expose some functions to jinja templates. The session globals are bound at
+    # import instead; these two need the Karaoke instance, which only exists here.
+    app.jinja_env.globals.update(
+        filename_from_path=k.song_manager.display_name_from_path,
+        url_escape=quote,
+    )
 
     if not args.skip_youtubedl_upgrade:
         spawn(upgrade_youtubedl)

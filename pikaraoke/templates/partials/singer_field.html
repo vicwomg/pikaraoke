@@ -1,0 +1,38 @@
+{# KJ-mode field naming who the host is queuing for. Shared by the search and
+   files pages: base.html binds #singer-name and fills #singer-list, so the ids
+   here are a contract with loadSingerList() and must not be duplicated.
+
+   KJ mode requires an open session. A night's plays belong to a named session,
+   and without this gate record_play() silently auto-starts an unnamed one --
+   the history exists but the host never got to name it. Both branches render
+   and base.html swaps them on session_changed, so starting a session in another
+   tab does not leave a stale prompt here. #}
+{% if is_admin() %}
+<div class="field singer-field kj-only is-hidden">
+	<div id="singer-input" class="{% if not has_active_session() %}is-hidden{% endif %}">
+		{# MSG: Label for the KJ-mode field naming who is about to sing the songs being queued. #}
+		<label class="label is-small" for="singer-name">{% trans %}Queue for singer{% endtrans %}</label>
+		<input
+			id="singer-name"
+			class="input is-small"
+			list="singer-list"
+			autocomplete="off"
+			{# MSG: Placeholder in the KJ-mode singer field. #}
+			placeholder="{{ _('Name of the singer') }}"
+		/>
+		<datalist id="singer-list"></datalist>
+	</div>
+	{# Replaces the input rather than disabling it: a dead box invites clicking.
+	   Sized like the input it stands in for, and carrying the Sessions nav icon
+	   so it reads as a route to the fix rather than an error. #}
+	<a
+		id="singer-no-session"
+		class="button is-small is-fullwidth is-warning is-outlined {% if has_active_session() %}is-hidden{% endif %}"
+		href="{{ url_for('sessions.sessions') }}"
+	>
+		<i class="icon icon-list-alt"></i>
+		{# MSG: Button shown in place of the KJ singer field when no session is running. Links to the sessions page. #}
+		<span>{% trans %}Start a session to queue for singers{% endtrans %}</span>
+	</a>
+</div>
+{% endif %}

@@ -251,6 +251,18 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         required=False,
     )
     parser.add_argument(
+        "--hide-session-name",
+        action="store_true",
+        help="Hide the karaoke session name shown under the splash screen logo.",
+        required=False,
+    )
+    parser.add_argument(
+        "--hide-logo",
+        action="store_true",
+        help="Hide the logo in the centre of the splash screen.",
+        required=False,
+    )
+    parser.add_argument(
         "--hide-overlay",
         action="store_true",
         help="Hide all overlays that show on top of video, including current/next song, pikaraoke QR code and IP",

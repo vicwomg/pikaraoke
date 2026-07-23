@@ -1,0 +1,490 @@
+"""Play history: session tracking, play recording, and reporting queries."""
+
+import uuid
+
+from pikaraoke.lib.events import EventSystem
+from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+# A session name is shown across a TV on the splash screen at 2rem with wide
+# letter spacing, where roughly this much still fits on one line at 720p. Longer
+# names are not wrong, only unreadable, so this caps what can be stored rather
+# than trying to shrink what is displayed.
+SESSION_NAME_MAX_LENGTH = 60
+
+
+def _latest_casing(name_column: str) -> str:
+    """Select the most recently used casing of a performer name.
+
+    So that "Mike" and "mike" rank as one person rather than forking the
+    leaderboard. Deliberately unscoped by session, so a name renders the same
+    way wherever it appears.
+
+    This is correlated, so it runs once per row of whatever it is attached to.
+    Attach it to an already-limited set, never to the grouping that produces one.
+    """
+    return f"""
+    SELECT p2.performer FROM plays p2
+    WHERE p2.performer = {name_column} COLLATE NOCASE
+    ORDER BY p2.played_at DESC, p2.id DESC LIMIT 1
+"""
+
+
+# Which song a play was of, as one groupable value.
+#
+# Deliberately built only from columns frozen on the play row. song_id is not
+# among them: it goes NULL when a song is deleted but a re-added copy of the
+# same song gets a fresh id, so plays either side of a library rebuild would key
+# differently and split into two rankings. youtube_id and song_title are written
+# once and never move, so every play of one song keys the same way for good.
+#
+# Namespaced so an id can never collide with a title that reads like one.
+# Concatenating a NULL yields NULL in SQLite, which is what makes COALESCE fall
+# through to the title for local rips, which have no YouTube id.
+_SONG_KEY = "COALESCE('y:' || p.youtube_id, 't:' || LOWER(p.song_title))"
+
+# Sortable columns for the play log, keyed by what the UI sends. These
+# interpolate into SQL, so the sort key is looked up here and never used raw.
+_PLAY_SORTS = {
+    "played_at": "p.played_at",
+    "performer": "p.performer COLLATE NOCASE",
+    "song": "p.song_title COLLATE NOCASE",
+}
+
+
+def _local(column: str, alias: str) -> str:
+    """Render a UTC timestamp column as local time.
+
+    Timestamps are stored UTC so that ordering survives a daylight-saving
+    rollback, but the host only ever wants wall-clock time. Converting here in SQL
+    keeps it to one place, rather than one conversion in Python for the
+    server-rendered pages and another in JavaScript for the fetched ones.
+    """
+    return f"datetime({column}, 'localtime') AS {alias}"
+
+
+class PlayHistoryManager:
+    """Records who sang what and when, grouped into sessions.
+
+    Sessions are time brackets the host names and ends from the Sessions page.
+    A play cannot exist without one -- plays.session_id is NOT NULL -- so
+    record_play() opens an unnamed session when none is running, which is what
+    lets the play log and rankings work for a household that never starts one by
+    hand. That session is deliberately invisible: unnamed, so it stays off the
+    splash screen and the nav ribbon, and left open, since nobody who relies on
+    it would ever end it.
+    """
+
+    def __init__(self, db: KaraokeDatabase, events: EventSystem) -> None:
+        self.db = db
+        self.events = events
+        # The play still in flight, or None when nothing is playing. Only the
+        # in-process bookkeeping for resolving it; readers get the state from
+        # plays.ended_at instead. The song and performer alongside it identify
+        # that performance, so a transpose can recognise its own restart.
+        self._current_play_id: int | None = None
+        self._current_song_id: int | None = None
+        self._current_performer: str | None = None
+        self._resuming = False
+        self._close_orphaned_plays()
+        # The open session, cached because the nav ribbon reads it on every page
+        # render and the now_playing broadcast on every queue or playback change,
+        # while only the mutations below can change it. Loaded lazily;
+        # _session_cached separates "no session" from "not looked up yet".
+        self._cached_session: dict | None = None
+        self._session_cached = False
+        self.events.on("song_ended", self._on_song_ended)
+        self.events.on("song_renamed", self._on_song_renamed)
+
+    def _on_song_renamed(self, song_id: int, title: str) -> None:
+        """Carry a renamed song's plays over to its new title.
+
+        Reporting identifies a song with no YouTube id by its title, so leaving
+        old plays under the old one would rank a renamed local rip twice. Scoped
+        to song_id, which is exactly the set of plays the library still links to
+        this file; plays of a song that has since been deleted keep the title
+        they were recorded under, there being nothing better to give them.
+        """
+        self.db.execute("UPDATE plays SET song_title = ? WHERE song_id = ?", (title, song_id))
+
+    def _close_orphaned_plays(self) -> None:
+        """Resolve plays left open by a previous process.
+
+        An unresolved play means "singing right now", which can only be true of
+        the process that wrote it. Anything still open at startup was cut short
+        by a crash or a restart, so it is closed here rather than reading as a
+        song that has been playing since last week. ended_at is backdated to
+        played_at: the real end time went down with the old process, and
+        stamping it now would invent a performance spanning the downtime.
+        """
+        self.db.execute("UPDATE plays SET ended_at = played_at WHERE ended_at IS NULL")
+
+    # ------------------------------------------------------------------
+    # Sessions
+    # ------------------------------------------------------------------
+
+    def _announce_session_change(self) -> None:
+        """Drop the cached session and tell listeners it moved.
+
+        Every mutation below ends here, so the cache cannot outlive a write.
+        """
+        self._session_cached = False
+        self.events.emit("session_changed")
+
+    def _close_open_session(self) -> None:
+        """Close the active session without announcing it.
+
+        The public mutations below announce once when they have finished, so the
+        ones that close a session on their way to opening another use this and
+        emit a single event rather than one per statement.
+        """
+        if self.get_current_session() is None:
+            return
+        self.db.execute("UPDATE sessions SET ended_at = CURRENT_TIMESTAMP WHERE ended_at IS NULL")
+
+    def start_session(self, name: str | None = None) -> str:
+        """Start a session and return its UUID.
+
+        Closes any session still open, so "current" is never ambiguous.
+
+        Args:
+            name: What the splash screen shows while the session runs. The host
+                names a session as they start it, so the only unnamed sessions
+                are the ones record_play() auto-starts with nobody there to name
+                them -- which is why a blank name is stored as none at all rather
+                than as an empty label.
+        """
+        if name is not None:
+            name = name.strip() or None
+        self._close_open_session()
+        session_uuid = str(uuid.uuid4())
+        self.db.execute("INSERT INTO sessions (uuid, name) VALUES (?, ?)", (session_uuid, name))
+        self._announce_session_change()
+        return session_uuid
+
+    def end_session(self) -> None:
+        """Close the active session, if there is one."""
+        self._close_open_session()
+        self._announce_session_change()
+
+    def get_current_session(self) -> dict | None:
+        """Return the open session, or None if none is active."""
+        if not self._session_cached:
+            rows = self.db.query(
+                f"""
+                SELECT id, uuid, name, {_local("started_at", "started_at")}, ended_at
+                FROM sessions WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1
+                """
+            )
+            self._cached_session = dict(rows[0]) if rows else None
+            self._session_cached = True
+        return self._cached_session
+
+    def get_current_session_name(self) -> str | None:
+        """Return the open session's name, or None when it is unnamed or absent.
+
+        Sessions auto-start unnamed on the first play, so callers that surface
+        the name to a user (the nav ribbon, the splash screen) want those
+        treated the same as no session at all rather than rendering "None".
+        """
+        session = self.get_current_session()
+        return session["name"] if session else None
+
+    def has_active_session(self) -> bool:
+        """Whether a session is open, regardless of whether it has been named.
+
+        Distinct from get_current_session_name(), which returns None for an
+        auto-started session too. KJ mode gates on this, so conflating the two
+        would lock the host out of a session that is running but not yet named.
+        """
+        return self.get_current_session() is not None
+
+    def get_sessions(self, limit: int = 50, offset: int = 0) -> list[dict]:
+        """Return a page of sessions, newest first, each with its play count.
+
+        The count is a correlated subquery rather than a join-and-group so the
+        LIMIT bounds the work: grouping first would aggregate every play ever
+        recorded just to render ten rows.
+        """
+        rows = self.db.query(
+            f"""
+            SELECT s.id, s.uuid, s.name,
+                   {_local("s.started_at", "started_at")},
+                   {_local("s.ended_at", "ended_at")},
+                   (SELECT COUNT(*) FROM plays p WHERE p.session_id = s.id) AS play_count
+            FROM sessions s
+            ORDER BY s.started_at DESC, s.id DESC
+            LIMIT ? OFFSET ?
+            """,
+            (limit, offset),
+        )
+        return [dict(row) for row in rows]
+
+    def session_exists(self, session_uuid: str) -> bool:
+        """Whether a session with this UUID is on record.
+
+        Callers that return nothing for an unknown session need this to tell it
+        apart from a session that simply has no plays.
+        """
+        return bool(self.db.query("SELECT id FROM sessions WHERE uuid = ?", (session_uuid,)))
+
+    def activate_session(self, session_uuid: str) -> bool:
+        """Reopen a session so new plays land in it, closing any other open one.
+
+        Ending a session is otherwise one-way, so a mis-clicked End would split
+        a night across two sessions with no way to rejoin them.
+        """
+        if not self.session_exists(session_uuid):
+            return False
+        self._close_open_session()
+        self.db.execute("UPDATE sessions SET ended_at = NULL WHERE uuid = ?", (session_uuid,))
+        self._announce_session_change()
+        return True
+
+    def count_sessions(self) -> int:
+        """Return the total number of sessions, so a paged list can say so."""
+        return self.db.query("SELECT COUNT(*) FROM sessions")[0][0]
+
+    def rename_session(self, session_uuid: str, name: str) -> bool:
+        """Name a session (typically one that auto-started unnamed).
+
+        Blank names are stored as none at all, matching start_session: a
+        whitespace-only name is truthy everywhere it is read, so it would render
+        as an empty session ribbon rather than as no session name.
+        """
+        cursor = self.db.execute(
+            "UPDATE sessions SET name = ? WHERE uuid = ?", (name.strip() or None, session_uuid)
+        )
+        if cursor.rowcount == 0:
+            return False
+        # Renaming an old session cannot change what is on display, but telling
+        # the difference costs a query to find the active one; the listeners
+        # only re-read state they already hold.
+        self._announce_session_change()
+        return True
+
+    def delete_session(self, session_uuid: str) -> bool:
+        """Delete a session and, by cascade, all of its plays."""
+        cursor = self.db.execute("DELETE FROM sessions WHERE uuid = ?", (session_uuid,))
+        if cursor.rowcount == 0:
+            return False
+        # Deleting the active session leaves none active, so the name on display
+        # has to come down.
+        self._announce_session_change()
+        return True
+
+    # ------------------------------------------------------------------
+    # Play recording
+    # ------------------------------------------------------------------
+
+    def record_play(
+        self, song_id: int | None, youtube_id: str | None, performer: str, song_title: str
+    ) -> None:
+        """Record a play against the active session, auto-starting one if needed.
+
+        Args:
+            song_id: The live library row, for joining to current metadata. Goes
+                NULL when the song is deleted.
+            youtube_id: The song's durable identity, which reporting groups on.
+                None for local rips, which fall back to the title.
+            song_title: The title as displayed when it was sung, stored rather
+                than looked up later so the log survives the song being deleted
+                from the library. A side effect is that toggling title tidying
+                afterwards does not rewrite history, which is the point.
+        """
+        if self._resuming:
+            self._resuming = False
+            if self._current_song_id == song_id and self._current_performer == performer:
+                # Same performance restarting in a new key. Reusing the open row
+                # keeps it to one play, so a transpose cannot inflate rankings.
+                return
+
+        session = self.get_current_session()
+        if session is None:
+            self.start_session()
+            session = self.get_current_session()
+
+        cursor = self.db.execute(
+            "INSERT INTO plays (session_id, song_id, youtube_id, song_title, performer) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (session["id"], song_id, youtube_id, song_title, performer),
+        )
+        self._current_play_id = cursor.lastrowid
+        self._current_song_id = song_id
+        self._current_performer = performer
+
+    def _on_song_ended(self, reason: str | None = None) -> None:
+        """Close the pending play, recording whether it was sung through.
+
+        end_song() fires on every ending path, so only reason == "complete"
+        marks the song as sung through; "skip" and "timeout" do not. Stamping
+        ended_at is what takes the row out of the "playing right now" state.
+        """
+        # A transpose ends the stream but not the performance: hold the row open
+        # so the restart in the new key reuses it instead of logging a second.
+        if reason == "transpose" and self._current_play_id is not None:
+            self._resuming = True
+            return
+
+        self._resuming = False
+        if self._current_play_id is None:
+            return
+        self.db.execute(
+            "UPDATE plays SET ended_at = CURRENT_TIMESTAMP, completed = ? WHERE id = ?",
+            (1 if reason == "complete" else 0, self._current_play_id),
+        )
+        self._current_play_id = None
+        self._current_song_id = None
+        self._current_performer = None
+
+    # ------------------------------------------------------------------
+    # Queries
+    # ------------------------------------------------------------------
+
+    def get_plays(
+        self,
+        session_uuid: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+        sort: str = "played_at",
+        direction: str = "desc",
+    ) -> list[dict]:
+        """Return a page of the play log, optionally scoped to one session.
+
+        Sorting happens here rather than in the page because the log is paged:
+        sorting a single page would only order the rows already fetched.
+
+        Args:
+            sort: One of _PLAY_SORTS. Anything else falls back to played_at.
+            direction: "asc", or descending for anything else.
+        """
+        order = _PLAY_SORTS.get(sort, _PLAY_SORTS["played_at"])
+        ascending = "ASC" if direction == "asc" else "DESC"
+
+        where = ""
+        params: tuple = ()
+        if session_uuid:
+            where = "WHERE p.session_id = (SELECT id FROM sessions WHERE uuid = ?)"
+            params = (session_uuid,)
+
+        rows = self.db.query(
+            f"""
+            SELECT p.id, {_local("p.played_at", "played_at")}, p.performer, p.completed,
+                   -- NULL only while it is actually playing, which is how the
+                   -- log tells "singing now" from "was skipped".
+                   p.ended_at IS NOT NULL AS has_ended,
+                   p.song_title AS song
+            FROM plays p
+            {where}
+            ORDER BY {order} {ascending}, p.id {ascending}
+            LIMIT ? OFFSET ?
+            """,
+            params + (limit, offset),
+        )
+        return [dict(row) for row in rows]
+
+    def count_plays(self, session_uuid: str | None = None) -> int:
+        """Return the total number of plays, optionally scoped to one session."""
+        if session_uuid:
+            rows = self.db.query(
+                "SELECT COUNT(*) FROM plays WHERE session_id = "
+                "(SELECT id FROM sessions WHERE uuid = ?)",
+                (session_uuid,),
+            )
+        else:
+            rows = self.db.query("SELECT COUNT(*) FROM plays")
+        return rows[0][0]
+
+    def get_singers(self, session_uuid: str | None = None, limit: int | None = None) -> list[dict]:
+        """Return performers with play counts, most active first.
+
+        Scoped to one session when given; otherwise every performer on record.
+        The casing subquery stays unscoped so a name renders the same way
+        wherever it appears.
+
+        Args:
+            limit: Cap on rows returned. Callers showing a leaderboard or an
+                autocomplete want a handful, and the full list grows without
+                bound over a venue's lifetime.
+        """
+        where = ""
+        params: tuple = ()
+        if session_uuid:
+            where = "WHERE p.session_id = (SELECT id FROM sessions WHERE uuid = ?)"
+            params = (session_uuid,)
+
+        limit_clause = ""
+        if limit is not None:
+            # Only needed to decide which rows the LIMIT keeps; the outer query
+            # establishes the returned order either way.
+            limit_clause = "ORDER BY play_count DESC, last_played DESC LIMIT ?"
+            params += (limit,)
+
+        # Counting and casing are separated so the LIMIT lands between them.
+        # Resolving casing in the grouped query would run the correlated lookup
+        # once per performer on record before the LIMIT could discard any of
+        # them, making a capped autocomplete cost the same as an uncapped one.
+        # Both ORDER BYs key off the raw UTC column rather than the converted
+        # alias, so ranking survives a daylight-saving rollback.
+        rows = self.db.query(
+            f"""
+            WITH totals AS (
+                SELECT p.performer, COUNT(*) AS play_count, MAX(p.played_at) AS last_played
+                FROM plays p
+                {where}
+                GROUP BY p.performer COLLATE NOCASE
+                {limit_clause}
+            )
+            SELECT ({_latest_casing("t.performer")}) AS performer,
+                   t.play_count,
+                   {_local("t.last_played", "last_played")}
+            FROM totals t
+            ORDER BY t.play_count DESC, t.last_played DESC
+            """,
+            params,
+        )
+        return [dict(row) for row in rows]
+
+    def get_top_songs(self, limit: int = 20) -> list[dict]:
+        """Return the most-played songs, counting each one across its renames.
+
+        Grouped on _SONG_KEY rather than joined to the library, so a song keeps
+        its history through a rename and past its own deletion. Labelled with
+        the most recent title it was played under, so a renamed song reads by
+        its current name rather than whichever spelling happened to be first.
+        """
+        rows = self.db.query(
+            f"""
+            SELECT p.song_title AS song, COUNT(*) AS play_count, MAX(p.id)
+            FROM plays p
+            GROUP BY {_SONG_KEY}
+            ORDER BY play_count DESC, song
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        # MAX() in the select list is what picks which row the bare song_title
+        # comes from: SQLite resolves bare columns in an aggregate query against
+        # the row that produced the max, so the label is the latest title rather
+        # than an arbitrary one. Keyed on id rather than played_at because it is
+        # unique -- two plays within the same second would make the max, and so
+        # the label, ambiguous. Cheaper than a correlated lookup per group.
+        return [{"song": row["song"], "play_count": row["play_count"]} for row in rows]
+
+    def delete_play(self, play_id: int) -> bool:
+        """Delete a single play from the log."""
+        cursor = self.db.execute("DELETE FROM plays WHERE id = ?", (play_id,))
+        return cursor.rowcount > 0
+
+    def export_plays(self, session_uuid: str) -> list[dict]:
+        """Return a session's plays oldest first, for CSV export."""
+        rows = self.db.query(
+            f"""
+            SELECT {_local("p.played_at", "played_at")}, p.performer, p.completed,
+                   p.song_title AS song
+            FROM plays p
+            WHERE p.session_id = (SELECT id FROM sessions WHERE uuid = ?)
+            ORDER BY p.played_at, p.id
+            """,
+            (session_uuid,),
+        )
+        return [dict(row) for row in rows]

@@ -22,7 +22,15 @@ class MockPlaybackController:
     is_paused: bool = True
     is_playing: bool = False
 
-    def skip(self, log_action: bool = True) -> bool:
+    def __init__(self) -> None:
+        # End reasons passed to skip(), in order. Held on the instance so one
+        # test cannot see another's calls.
+        self.skipped_reasons: list[str] = []
+
+    # Mirrors the real signature: transpose skips with its own reason so play
+    # history can tell a restart from a real skip, and tests assert on it.
+    def skip(self, log_action: bool = True, reason: str = "skip") -> bool:
+        self.skipped_reasons.append(reason)
         if self.is_playing:
             self.reset_now_playing()
             return True
@@ -76,6 +84,22 @@ class MockSoundManager:
         pass
 
 
+class MockPlayHistory:
+    """Minimal mock of PlayHistoryManager, which needs a database in the real thing."""
+
+    def __init__(self, session=None):
+        self.session = session
+
+    def get_current_session(self) -> dict | None:
+        return self.session
+
+    def get_current_session_name(self) -> str | None:
+        return self.session["name"] if self.session else None
+
+    def has_active_session(self) -> bool:
+        return self.session is not None
+
+
 class MockKaraoke:
     """Minimal mock of the Karaoke class for testing queue operations.
 
@@ -92,6 +116,7 @@ class MockKaraoke:
             config_file_path=str(tmp_path / "config.ini"), target=self
         )
         self.playback_controller = MockPlaybackController()
+        self.play_history = MockPlayHistory()
         self.volume = 0.85
         self.running = True
         self.now_playing_notification = None
@@ -133,6 +158,7 @@ class MockKaraoke:
     # Bind the real methods to our mock class
     get_now_playing = Karaoke.get_now_playing
     reset_now_playing = Karaoke.reset_now_playing
+    transpose_current = Karaoke.transpose_current
     send_notification = Karaoke.send_notification
     log_and_send = Karaoke.log_and_send
     update_now_playing_socket = Karaoke.update_now_playing_socket

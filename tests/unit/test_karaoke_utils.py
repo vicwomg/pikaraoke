@@ -98,6 +98,32 @@ class TestGetNowPlaying:
         assert result["is_paused"] is False
         assert result["volume"] == 0.7
 
+    def test_get_now_playing_carries_session_name(self, mock_karaoke):
+        """The splash screen never reloads, so it reads the session name from here."""
+        mock_karaoke.play_history.session = {"name": "Saturday Night"}
+
+        assert mock_karaoke.get_now_playing()["session_name"] == "Saturday Night"
+
+    def test_get_now_playing_session_name_is_none_without_a_session(self, mock_karaoke):
+        """An unnamed or absent session must not surface a name on the splash."""
+        assert mock_karaoke.get_now_playing()["session_name"] is None
+
+    def test_get_now_playing_reports_an_unnamed_session_as_active(self, mock_karaoke):
+        """The KJ singer field gates on has_session, so it cannot follow the name.
+
+        An unnamed session is still a session; conflating the two would lock a
+        host out of KJ mode until they got around to naming the night.
+        """
+        mock_karaoke.play_history.session = {"name": None}
+
+        result = mock_karaoke.get_now_playing()
+
+        assert result["has_session"] is True
+        assert result["session_name"] is None
+
+    def test_get_now_playing_reports_no_session(self, mock_karaoke):
+        assert mock_karaoke.get_now_playing()["has_session"] is False
+
     def test_get_now_playing_with_queue(self, mock_karaoke):
         """Test now playing shows up_next from queue."""
         mock_karaoke.queue_manager.enqueue("/songs/Next Song---dQw4w9WgXcQ.mp4", "NextUser")
@@ -313,3 +339,46 @@ class TestResetNowPlayingNotification:
         mock_karaoke.reset_now_playing_notification()
 
         assert mock_karaoke.now_playing_notification is None
+
+
+class TestTransposeCurrent:
+    """Tests for transpose_current, which restarts a song in a new key."""
+
+    def _start_playing(self, k, path="/songs/Artist - Song One---abc123.mp4"):
+        k.playback_controller.now_playing = "Artist - Song One"
+        k.playback_controller.now_playing_filename = path
+        k.playback_controller.now_playing_user = "Alice"
+        k.playback_controller.is_playing = True
+        return path
+
+    def test_transpose_requeues_and_skips_with_its_own_reason(self, mock_karaoke_with_songs):
+        """Play history tells a restart from a skip by the reason alone."""
+        k = mock_karaoke_with_songs
+        path = self._start_playing(k)
+
+        k.transpose_current(2)
+
+        assert k.queue_manager.queue[0]["file"] == path
+        assert k.queue_manager.queue[0]["semitones"] == 2
+        assert k.playback_controller.skipped_reasons == ["transpose"]
+
+    def test_transpose_keeps_playing_when_the_requeue_is_refused(self, mock_karaoke_with_songs):
+        """A refused requeue must not skip: the singer would lose their turn.
+
+        The song is already queued again further down, so enqueue() declines it.
+        Skipping anyway would end the song with nothing to restart it, and leave
+        play history holding the play open for a restart that never comes.
+        """
+        k = mock_karaoke_with_songs
+        path = self._start_playing(k)
+        k.queue_manager.enqueue(path, "Bob")
+
+        k.transpose_current(2)
+
+        assert k.playback_controller.skipped_reasons == []
+        assert k.playback_controller.now_playing == "Artist - Song One"
+
+    def test_transpose_with_nothing_playing_does_nothing(self, mock_karaoke_with_songs):
+        mock_karaoke_with_songs.transpose_current(2)
+
+        assert mock_karaoke_with_songs.playback_controller.skipped_reasons == []

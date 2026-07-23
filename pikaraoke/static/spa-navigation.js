@@ -14,6 +14,30 @@
         scrollBehavior: 'smooth'
     };
 
+    /**
+     * Highlight the nav bar item for a path. Every item's id is its first path
+     * segment ("/browse/rock" -> "browse"), so a new page needs no change here.
+     * Strips the reverse proxy base path first, so callers can pass a raw
+     * location. Shared with base.html, which highlights on a full page load.
+     * @param {string} path - Path without a query string
+     */
+    window.highlightNavItem = function (path) {
+        const basePath = window.pikaraokeConfig.basePath;
+        if (basePath && path.startsWith(basePath)) {
+            path = path.substring(basePath.length) || '/';
+        }
+        const segment = path === '/' ? 'home' : path.split('/')[1];
+
+        $('.navbar-item').removeClass('is-active');
+
+        // Nav ids are plain words. A path segment that is not one belongs to no
+        // nav item, and interpolated into a selector it would throw out of
+        // querySelectorAll and abandon the rest of the caller.
+        if (/^[\w-]+$/.test(segment)) {
+            $('#' + segment).addClass('is-active');
+        }
+    };
+
     // State management
     let isNavigating = false;
     let currentPath = window.location.pathname + window.location.search;
@@ -343,7 +367,10 @@
                 }
 
                 // Update navigation highlighting
-                updateNavHighlight(url);
+                window.highlightNavItem(url.split('?')[0]);
+
+                // Sync the active-session ribbon, which lives outside .box
+                updateSessionRibbon(doc);
 
                 // Load external resources (CSS and JS) before executing inline scripts
                 await loadExternalResources(newStylesheets, newScripts);
@@ -397,34 +424,27 @@
     }
 
     /**
-     * Update navbar active state highlighting
-     * @param {string} url - The current URL (may include query params)
+     * Sync the active-session ribbon to match the freshly fetched page.
+     * It sits above .box, so the content swap alone leaves it stale when a
+     * session starts, ends, or is renamed between navigations.
+     * @param {Document} doc - Parsed document of the new page
      */
-    function updateNavHighlight(url) {
-        // Extract base path without query parameters
-        const fullPath = url.split('?')[0];
-        const basePath = window.pikaraokeConfig.basePath;
-
-        // Remove base path to get the relative path for comparison
-        let path = fullPath;
-        if (basePath && fullPath.startsWith(basePath)) {
-            path = fullPath.substring(basePath.length) || '/';
-        }
-
-        // Remove all active classes
-        $('.navbar-item').removeClass('is-active');
-
-        // Add active class to matching navbar item
-        if (path === '/' || path === '') {
-            $('#home').addClass('is-active');
-        } else if (path === '/queue') {
-            $('#queue').addClass('is-active');
-        } else if (path === '/search') {
-            $('#search').addClass('is-active');
-        } else if (path === '/browse' || path.startsWith('/browse')) {
-            $('#browse').addClass('is-active');
-        } else if (path === '/info') {
-            $('#info').addClass('is-active');
+    function updateSessionRibbon(doc) {
+        const newRibbon = doc.querySelector('.session-ribbon');
+        const $current = $('.session-ribbon');
+        if (newRibbon) {
+            if ($current.length) {
+                // The session name changes a handful of times a night, so skip
+                // the reparse when it hasn't -- replacing restarts the dot's
+                // pulse animation for no reason.
+                if ($current[0].outerHTML !== newRibbon.outerHTML) {
+                    $current.replaceWith(newRibbon.outerHTML);
+                }
+            } else {
+                $('.navbar').after(newRibbon.outerHTML);
+            }
+        } else {
+            $current.remove();
         }
     }
 

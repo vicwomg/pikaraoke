@@ -258,8 +258,22 @@ const setupScreensaver = () => {
   }
 }
 
+// Server-rendered once at page load, then kept current from now_playing updates
+// because the splash screen is a long-lived display that never reloads.
+let sessionName = null;
+
+const renderSessionName = () => {
+  $("#session-name")
+    .text(sessionName || "")
+    .toggle(Boolean(sessionName) && !PikaraokeConfig.hideSessionName);
+};
+
 const handleNowPlayingUpdate = (np) => {
   nowPlaying = np;
+  if (np.session_name !== sessionName) {
+    sessionName = np.session_name;
+    renderSessionName();
+  }
   if (np.now_playing) {
 
     // Handle updating now playing HTML
@@ -526,6 +540,11 @@ const PREFERENCE_EFFECTS = {
     $("#bottom-container, #top-container").toggle(!v);
   },
   hide_url:            (v) => { $("#qr-code, #screensaver-qr").toggle(!v); },
+  hide_logo:           (v) => { $("#logo-container img.logo").toggle(!v); },
+  hide_session_name:   (v) => {
+    PikaraokeConfig.hideSessionName = v;
+    renderSessionName();
+  },
   bg_music_volume:     (v) => {
     PikaraokeConfig.bgMusicVolume = v;
     const player = getBackgroundMusicPlayer();
@@ -668,6 +687,7 @@ const setupUIScaling = () => {
 
   const scaleTargets = [
     { selector: '#logo-container img.logo', origin: null },
+    { selector: '#session-name', origin: null },
     { selector: '#top-container', origin: 'top right' },
     { selector: '#ap-container', origin: 'top left' },
     { selector: '#qr-code', origin: 'bottom left' },

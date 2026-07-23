@@ -22,7 +22,9 @@
     window.pikaraokeConfig = {
       basePath: "{{ base_path }}",
       cookiePath: "{{ cookie_path }}",
-      socketioPath: "{{ socketio_path }}"
+      socketioPath: "{{ socketio_path }}",
+      // Empty on the chromeless splash page, which has no singer field.
+      singersUrl: "{% if not blank_page %}{{ url_for('sessions_api.get_singers') }}{% endif %}"
     };
     // Translations for JS (static JS cannot use Jinja2 directly).
     // Gettext output is Markup, so Jinja never autoescapes it. Inside a <script> a
@@ -67,6 +69,18 @@
 
     function isEqual(obj1, obj2) {
       return JSON.stringify(obj1) === JSON.stringify(obj2);
+    }
+
+    // Escapes text for interpolation into an HTML string. A plain replace
+    // rather than the $("<div>").text().html() idiom: pages that build table
+    // rows call this several times per row, and that idiom allocates a
+    // detached element on every call.
+    var HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+
+    function escapeHtml(text) {
+      return text == null ? "" : String(text).replace(/[&<>"']/g, function (c) {
+        return HTML_ESCAPES[c];
+      });
     }
 
     function debounce(func, wait) {
@@ -117,6 +131,105 @@
       return Cookies.get("user");
     }
 
+    // Who a queue add is attributed to. In KJ mode the visible singer field
+    // names who the host is queuing for; left blank (or hidden outside KJ mode)
+    // it falls back to this device's own cookie name, prompting for one the
+    // first time it is needed. Every page that queues a song resolves it here,
+    // so the fallback rule cannot drift between them.
+    function resolveSinger() {
+      // The field is absent for non-admins, so val() can be undefined. Trimmed
+      // because a stray space would otherwise be stored as a performer name.
+      var singer = ($("#singer-name").val() || "").trim();
+      if (singer) {
+        return singer;
+      }
+      setUserCookie();
+      return getUserCookie() || "";
+    }
+
+    // KJ mode is opt-in for a host queuing on behalf of singers. It is not the
+    // default use case (a karaoke party between friends), so its extra search-UI
+    // controls stay hidden unless the URL carries ?kj_mode=true. The flag is
+    // remembered per tab because SPA navigation drops the query string.
+    (function () {
+      var mode = new URLSearchParams(window.location.search).get("kj_mode");
+      if (mode === "true") {
+        sessionStorage.setItem("kj_mode", "1");
+      } else if (mode === "false") {
+        sessionStorage.removeItem("kj_mode");
+      }
+    })();
+
+    function isKjMode() {
+      return sessionStorage.getItem("kj_mode") === "1";
+    }
+
+    // Swaps the KJ singer field for a "start a session" prompt. The server
+    // renders the right one at page load; this keeps it correct when the host
+    // starts or ends a session from another tab, since session_changed
+    // rebroadcasts the now_playing payload that carries has_session.
+    function setSingerFieldSessionState(hasSession) {
+      var $input = $("#singer-input");
+      if (!$input.length) {
+        return;
+      }
+      $input.toggleClass("is-hidden", !hasSession);
+      $("#singer-no-session").toggleClass("is-hidden", hasSession);
+      if (hasSession) {
+        loadSingerList();
+      } else {
+        // A stale name here would be attributed to the next song queued once a
+        // session starts.
+        $("#singer-name").val("");
+      }
+    }
+
+    // Fills the singer autocomplete from past performers. Only runs in KJ mode
+    // (the datalist is hidden otherwise) and only for admins -- the performer
+    // list is effectively the guest list, so the endpoint 403s for everyone
+    // else. Capped because the list grows without bound over a venue's lifetime
+    // and nobody scrolls an autocomplete past the most active handful.
+    function loadSingerList() {
+      var $list = $("#singer-list");
+      if (!$list.length || !isKjMode()) {
+        return;
+      }
+      $.getJSON(window.pikaraokeConfig.singersUrl, { limit: 50 }, function (data) {
+        var options = document.createDocumentFragment();
+        data.singers.forEach(function (singer) {
+          options.appendChild($("<option>").val(singer.performer)[0]);
+        });
+        $list.empty().append(options);
+      });
+    }
+
+    // Keeps the singer field in step with the session, over a socket that
+    // outlives SPA page swaps. io() hands back the same instance every time, so
+    // this script re-running on each navigation would stack another handler
+    // unless the previous one is removed first.
+    function bindSingerFieldToSession() {
+      if (!window.socket) {
+        return;
+      }
+      if (window.kjSessionHandler) {
+        window.socket.off("now_playing", window.kjSessionHandler);
+      }
+      // now_playing also fires on every queue edit, pause and volume change,
+      // none of which move the session. Seeded from what the server just
+      // rendered, so those cost nothing rather than a singer fetch apiece.
+      var lastHasSession = $("#singer-input").length
+        ? !$("#singer-input").hasClass("is-hidden")
+        : null;
+      window.kjSessionHandler = function (np) {
+        if (np.has_session === lastHasSession) {
+          return;
+        }
+        lastHasSession = np.has_session;
+        setSingerFieldSessionState(np.has_session);
+      };
+      window.socket.on("now_playing", window.kjSessionHandler);
+    }
+
     $(function () {
       connectSocket();
 
@@ -127,31 +240,18 @@
 
       // Navbar burger menu is handled by spa-navigation.js
 
-      // handle highlighting current nav bar location
-      var fullPath = window.location.pathname;
-      var basePath = window.pikaraokeConfig.basePath;
-      var path = fullPath;
-      if (basePath && fullPath.startsWith(basePath)) {
-        path = fullPath.substring(basePath.length) || '/';
-      }
-      if (path === '/' || path === '') {
-        $("#home").addClass("is-active")
-      }
-      if (path === '/queue') {
-        $("#queue").addClass("is-active")
-      }
-      if (path === '/search') {
-        $("#search").addClass("is-active")
-      }
-      if (path === '/browse' || path.startsWith('/browse')) {
-        $("#browse").addClass("is-active")
-      }
-      if (path === '/info') {
-        $("#info").addClass("is-active")
-      }
+      // Highlight the current nav bar location. Every nav item's id is its path
+      // segment, so deriving the id means a new page needs no edit here.
+      highlightNavItem(window.location.pathname)
 
       // handle auto-close flash notifications
       setTimeout(function() { $("#notification").fadeOut()}, 3000);
+
+      // Reveal KJ-only controls when a host has opted into KJ mode.
+      if (isKjMode()) {
+        $(".kj-only").removeClass("is-hidden");
+        bindSingerFieldToSession();
+      }
 
       // handle current user display
       var currentUser = Cookies.get("user");
@@ -186,6 +286,41 @@
     padding: 3px;
     bottom: 5px;
     right: 10px;
+  }
+  .session-ribbon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 4px 5px 0;
+    padding: 4px 12px;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.04);
+    color: hsl(0, 0%, 71%);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .session-ribbon-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .session-ribbon-dot {
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: hsl(141, 53%, 53%);
+    animation: session-ribbon-pulse 2s ease-in-out infinite;
+  }
+  @keyframes session-ribbon-pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(72, 199, 116, 0.5); }
+    50% { opacity: 0.55; box-shadow: 0 0 0 4px rgba(72, 199, 116, 0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .session-ribbon-dot { animation: none; }
   }
   tr:nth-child(even) {
     background-color: rgb(50, 55, 55);
@@ -250,13 +385,47 @@
             <i class="icon  icon-mic-1" title="Current user"></i>
             <span></span>
           </a>
-          <a id="info" class="navbar-item" href="{{ url_for('info.info') }}">
-            <i class="icon icon-info-circled-1" title="Info"></i>
-            <span>Pikaraoke</span>&nbsp;&nbsp;
-          </a>
+          <!-- Home for settings and admin tools, so the main nav stays the
+               four things a singer actually uses. -->
+          <div id="pikaraoke-menu" class="navbar-item has-dropdown is-hoverable">
+            <a class="navbar-link">
+              <i class="icon icon-info-circled-1" title="Pikaraoke"></i>
+              <span>Pikaraoke</span>
+            </a>
+            <div class="navbar-dropdown is-right">
+              <a id="info" class="navbar-item" href="{{ url_for('info.info') }}">
+                <i class="icon icon-cog"></i>
+                {# MSG: Dropdown link to the settings and system information page. #}
+                <span>{% trans %}Settings{% endtrans %}</span>
+              </a>
+              {% if is_admin() %}
+              <hr class="navbar-divider">
+              <a id="sessions" class="navbar-item" href="{{ url_for('sessions.sessions') }}">
+                <i class="icon icon-list-alt"></i>
+                {# MSG: Dropdown link to the karaoke sessions and play log page, only shown to the admin. #}
+                <span>{% trans %}Sessions{% endtrans %}</span>
+              </a>
+              <a id="rankings" class="navbar-item" href="{{ url_for('sessions.rankings') }}">
+                <i class="icon icon-th-list-outline"></i>
+                {# MSG: Dropdown link to the play rankings page, only shown to the admin. #}
+                <span>{% trans %}Rankings{% endtrans %}</span>
+              </a>
+              {% endif %}
+            </div>
+          </div>
         </div>
       </div>
     </nav>
+
+    {% set session_name = active_session_name() %}
+    {% if session_name %}
+    {# MSG: Accessible label for the banner naming the karaoke session in progress. SESSION_NAME is replaced with the session's name. #}
+    <div class="session-ribbon" aria-label="{{ _('Current session: SESSION_NAME').replace('SESSION_NAME', session_name) }}"
+      title="{{ session_name }}">
+      <span class="session-ribbon-dot" aria-hidden="true"></span>
+      <span class="session-ribbon-text">{{ session_name }}</span>
+    </div>
+    {% endif %}
 
     {% if get_flashed_messages() %}
     {% for category, message in get_flashed_messages(with_categories=true) %}

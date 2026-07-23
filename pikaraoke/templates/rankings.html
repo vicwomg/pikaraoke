@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+<script>
+	// Rankings are top-N lists, so changing "how many to show" just reloads the
+	// page with new row counts rather than paging. Each dropdown carries the
+	// other two values so changing one does not reset the others.
+	function applyRankingLimits() {
+		var params = $.param({
+			songs: $("#limit-songs").val(),
+			performers: $("#limit-performers").val(),
+			sessions: $("#limit-sessions").val()
+		});
+		window.location.href = "{{ url_for('sessions.rankings') }}?" + params;
+	}
+</script>
+{% endblock %}
+
+{# A right-aligned "Show N" control row below a list, reloading with the chosen
+   row count. Mirrors the per-page control on the Sessions page. #}
+{% macro limit_select(name, current) %}
+<div class="rankings-controls">
+	<span class="is-flex-grow-1"></span>
+	{# MSG: Label before the dropdown choosing how many ranked rows to show. #}
+	<label class="is-size-7" for="limit-{{ name }}">{% trans %}Show{% endtrans %}</label>
+	<div class="select is-small">
+		<select id="limit-{{ name }}" onchange="applyRankingLimits()">
+			{% for n in ranking_sizes %}
+			<option value="{{ n }}"{% if n == current %} selected{% endif %}>{{ n }}</option>
+			{% endfor %}
+		</select>
+	</div>
+</div>
+{% endmacro %}
+
+{# The trailing count cell is identical in all three tables below. Kept as one
+   macro so translators see a single message rather than three copies of it. #}
+{% macro play_count_cell(count) %}
+{#- MSG: Number of plays, shown at the end of a ranked row. -#}
+<td class="rank-count has-text-right">{% trans count=count %}{{ count }} play{% pluralize %}{{ count }} plays{% endtrans %}</td>
+{%- endmacro %}
+
+{% block header %}
+<h1>{% block title %}{{ title }}{% endblock %}</h1>
+<style>
+	/* The global `table` rule already fixes the layout, which is what lines the
+	   play counts up down the page across all three tables. */
+	.rankings-table {
+		margin-bottom: 0;
+	}
+	/* The row-count control sits just under its table and is pushed to the
+	   right, matching the per-page control on the Sessions page. Its bottom
+	   margin is what separates one ranking section from the next. */
+	.rankings-controls {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-top: 8px;
+		margin-bottom: 25px;
+	}
+	.rankings-table td {
+		word-wrap: break-word;
+	}
+	.rankings-table .col-rank {
+		width: 2.5em;
+	}
+	.rankings-table .col-when {
+		width: 12em;
+	}
+	.rankings-table .col-count {
+		width: 8em;
+	}
+	/* On a phone the desktop column widths would leave almost nothing for the
+	   session name, so tighten them and let the date wrap onto two lines. */
+	@media screen and (max-width: 768px) {
+		.rankings-table .col-rank {
+			width: 1.8em;
+		}
+		.rankings-table .col-when {
+			width: 6em;
+		}
+		.rankings-table .col-count {
+			width: 5em;
+		}
+	}
+	/* Alignment comes from Bulma's has-text-right helper: its own
+	   `table td:not([align])` rule outranks a plain class selector here. */
+	.rank-count {
+		white-space: nowrap;
+	}
+</style>
+{% endblock %} {% block content %}
+
+{# MSG: Heading for the list of songs that have been sung the most times. #}
+<h2 class="subtitle">{% trans %}Top songs{% endtrans %}</h2>
+{% if top_songs %}
+<table class="rankings-table">
+	<colgroup>
+		<col class="col-rank" />
+		<col />
+		<col class="col-count" />
+	</colgroup>
+	{% for song in top_songs %}
+	<tr>
+		<td>{{ loop.index }}</td>
+		{# The title as recorded, so a song still counts after leaving the library. #}
+		<td>{{ song.song }}</td>
+		{{ play_count_cell(song.play_count) }}
+	</tr>
+	{% endfor %}
+</table>
+{{ limit_select("songs", limits.songs) }}
+{% else %}
+{# MSG: Shown on the rankings page when no songs have been played yet. #}
+<p>{% trans %}Nothing has been played yet.{% endtrans %}</p>
+{% endif %}
+
+{# MSG: Heading for the list of people who have sung the most songs. #}
+<h2 class="subtitle">{% trans %}Top performers{% endtrans %}</h2>
+{% if top_performers %}
+<table class="rankings-table">
+	<colgroup>
+		<col class="col-rank" />
+		<col />
+		<col class="col-count" />
+	</colgroup>
+	{% for performer in top_performers %}
+	<tr>
+		<td>{{ loop.index }}</td>
+		<td>{{ performer.performer }}</td>
+		{{ play_count_cell(performer.play_count) }}
+	</tr>
+	{% endfor %}
+</table>
+{{ limit_select("performers", limits.performers) }}
+{% else %}
+{# MSG: Shown on the rankings page when nobody has sung anything yet. #}
+<p>{% trans %}Nobody has sung yet.{% endtrans %}</p>
+{% endif %}
+
+{# MSG: Heading for the list of recent karaoke sessions and how busy each was. #}
+<h2 class="subtitle">{% trans %}Recent sessions{% endtrans %}</h2>
+{% if sessions %}
+<table class="rankings-table">
+	<colgroup>
+		<col />
+		<col class="col-when" />
+		<col class="col-count" />
+	</colgroup>
+	{% for session in sessions %}
+	<tr>
+		<td>
+			{%- if session.name -%}{{ session.name }}
+			{%- else -%}
+			{# MSG: Label for a session the host never named, followed by its number. #}
+			{% trans number=session.id %}Session {{ number }}{% endtrans %}
+			{%- endif -%}
+		</td>
+		{# Date and time wrap as a pair, never mid-token, so a narrow screen
+		   gets two tidy lines instead of one string forcing the table wide. #}
+		<td class="when">
+			{% set started = session.started_at.split(" ") %}
+			<span>{{ started[0] }}</span> <span>{{ started[1] if started|length > 1 }}</span>
+		</td>
+		{{ play_count_cell(session.play_count) }}
+	</tr>
+	{% endfor %}
+</table>
+{{ limit_select("sessions", limits.sessions) }}
+{% else %}
+{# MSG: Shown on the rankings page when no sessions have been recorded yet. #}
+<p>{% trans %}No sessions recorded yet.{% endtrans %}</p>
+{% endif %}
+
+{% endblock %}

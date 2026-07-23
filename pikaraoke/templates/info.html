@@ -418,6 +418,18 @@
 					</div>
 
 					<div class="user-preference-container">
+						<input id="pref-logo" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_logo" {% if hide_logo == True %}checked{% endif %}>
+						<label class="label" for="pref-logo">{# MSG: Checkbox label which enables/disables the logo in the middle of the splash screen #} {% trans %}Hide the logo on the splash screen{% endtrans %}
+						</label>
+					</div>
+
+					<div class="user-preference-container">
+						<input id="pref-session-name" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_session_name" {% if hide_session_name == True %}checked{% endif %}>
+						<label class="label" for="pref-session-name">{# MSG: Checkbox label which enables/disables the karaoke session name shown under the logo on the splash screen #} {% trans %}Hide the session name on the splash screen{% endtrans %}
+						</label>
+					</div>
+
+					<div class="user-preference-container">
 						<input id="pref-overlay" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_overlay" {% if hide_overlay == True %}checked{% endif %}>
 						<label class="label" for="pref-overlay">{# MSG: Checkbox label which enable/disables showing overlay data on the splash screen #} {% trans %}Hide all overlays, including now playing, up next, and QR code{% endtrans %}
 						</label>

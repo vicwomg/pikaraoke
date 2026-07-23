@@ -284,6 +284,8 @@ def test_preference_manager_defaults_exist():
         "mid_score_phrases",
         "high_score_phrases",
         "show_splash_clock",
+        "hide_session_name",
+        "hide_logo",
         "mic_settings",
         "enable_title_tidy",
         "metadata_provider",

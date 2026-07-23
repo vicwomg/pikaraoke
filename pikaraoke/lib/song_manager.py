@@ -6,6 +6,7 @@ import os
 import re
 from collections.abc import Callable
 
+from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.get_platform import is_windows
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.library_scanner import build_song_record
@@ -34,11 +35,13 @@ class SongManager:
         self,
         download_path: str,
         db: KaraokeDatabase,
+        events: EventSystem,
         get_title_tidy: Callable[[], bool] | None = None,
     ) -> None:
         self.download_path = download_path
         self.songs = SongList()
         self._db = db
+        self._events = events
         self._get_title_tidy = get_title_tidy
 
     @staticmethod
@@ -116,6 +119,13 @@ class SongManager:
             os.rename(companion, os.path.join(self.download_path, new_name + companion_ext))
         self.songs.rename(song_path, new_path)
         self._db.update_path(song_path, new_path)
+        # A rename is the user correcting the name, not a display preference, so
+        # the play log follows it. Without this a local rip -- which has no
+        # YouTube id to be identified by -- would rank as two separate songs,
+        # its plays split at the moment it was renamed.
+        song_id = self._db.get_song_identity(new_path)[0]
+        if song_id is not None:
+            self._events.emit("song_renamed", song_id, self.display_name_from_path(new_path))
         return new_path
 
     def register_download(self, song_path: str) -> None:

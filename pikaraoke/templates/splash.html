@@ -19,6 +19,7 @@
     showSplashClock: "{{ show_splash_clock }}" == 'True',
     screensaverTimeout: parseInt('{{ screensaver_timeout }}') || 0,
     hideOverlay: "{{ hide_overlay }}" == 'True',
+    hideSessionName: "{{ hide_session_name }}" == 'True',
     translations: {
       socketConnectionLost: {{ _('Connection lost. Is the server still running?') | tojson }},
       unsupportedBrowser: {{ _('This browser is not fully supported. You may experience streaming issues. Please use Chrome/Safari/Firefox/Edge for best results.') | tojson }},
@@ -54,7 +55,11 @@
 
 <div id="logo-container">
   <div>
-    <img class="logo" src="{{ url_for('images.logo') }}" width="500px" alt="logo" />
+    <img class="logo" src="{{ url_for('images.logo') }}" width="500px" alt="logo"
+      {% if hide_logo %}style="display: none"{% endif %} />
+    {% set session_name = active_session_name() %}
+    <div id="session-name" class="stroke"
+      {% if hide_session_name or not session_name %}style="display: none"{% endif %}>{{ session_name or '' }}</div>
   </div>
 </div>
 
@@ -280,6 +285,25 @@
     height: 100vh;
     align-items: center;
     justify-content: center;
+  }
+  /* The wrapper is only as wide as its widest child, so a session name wider
+     than the logo leaves the logo against its left edge. Stacking centres both
+     against each other, whichever of the two is the wider. */
+  #logo-container > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  /* Reads as the event title under the logo, so it carries no label. */
+  #session-name {
+    margin-top: 18px;
+    color: white;
+    font-size: 2rem;
+    font-weight: 300;
+    letter-spacing: 0.18em;
+    text-align: center;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
   }
   #menu-background {
     bottom: 0;
