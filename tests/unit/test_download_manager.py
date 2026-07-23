@@ -164,14 +164,14 @@ class TestDownloadManagerExecuteDownload:
         mock_popen.return_value = mock_process
 
         # Mock find_by_id to return a path
-        song_manager.songs.find_by_id.return_value = "/songs/Artist - Song---abc123.mp4"
+        song_manager.songs.find_by_id.return_value = "/songs/Artist - Song---dQw4w9WgXcQ.mp4"
 
         rc = download_manager._execute_download(
-            "https://youtube.com/watch?v=abc123", False, "User", "Title"
+            "https://youtube.com/watch?v=dQw4w9WgXcQ", False, "User", "Title"
         )
 
         assert rc == 0
-        song_manager.songs.find_by_id.assert_called_once_with("/songs", "abc123")
+        song_manager.songs.find_by_id.assert_called_once_with("/songs", "dQw4w9WgXcQ")
         # add_if_valid is no longer called directly; a "song_downloaded" event is emitted instead
         assert any("Downloaded" in n for n in notifications)
 
@@ -197,15 +197,15 @@ class TestDownloadManagerExecuteDownload:
         mock_popen.return_value = mock_process
 
         # Mock find_by_id
-        song_manager.songs.find_by_id.return_value = "/songs/Song---abc.mp4"
+        song_manager.songs.find_by_id.return_value = "/songs/Song---dQw4w9WgXcQ.mp4"
         song_manager.songs.add_if_valid.return_value = True
 
         download_manager._execute_download(
-            "https://youtube.com/watch?v=abc", True, "TestUser", "Title"
+            "https://youtube.com/watch?v=dQw4w9WgXcQ", True, "TestUser", "Title"
         )
 
         queue_manager.enqueue.assert_called_once_with(
-            "/songs/Song---abc.mp4", "TestUser", log_action=False
+            "/songs/Song---dQw4w9WgXcQ.mp4", "TestUser", log_action=False
         )
 
     @patch("flask_babel._", side_effect=lambda x: x)
