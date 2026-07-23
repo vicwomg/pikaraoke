@@ -133,15 +133,7 @@ def get_plays(query):
     plays = k.play_history.get_plays(
         query["session"], query["limit"], query["offset"], query["sort"], query["direction"]
     )
-    return jsonify(
-        {
-            "plays": plays,
-            "total": k.play_history.count_plays(query["session"]),
-            # Its row exists but has not been resolved yet, so the UI must not
-            # render the song playing right now as skipped.
-            "current_play_id": k.play_history.current_play_id,
-        }
-    )
+    return jsonify({"plays": plays, "total": k.play_history.count_plays(query["session"])})
 
 
 @sessions_api_bp.route("/api/history/plays/<int:play_id>", methods=["DELETE"])
@@ -206,6 +198,22 @@ def delete_session(session_uuid):
     return jsonify({"success": True})
 
 
+# Excel and LibreOffice read a cell starting with any of these as a formula.
+# Performer names and song titles reach the log from the queue, which any device
+# on the network can post to, so neither can be trusted into a spreadsheet.
+_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe(value: str | None) -> str:
+    """Stop a spreadsheet reading a queued name as a formula.
+
+    The leading apostrophe is the spreadsheet convention for "this is text";
+    it is consumed on import rather than shown in the cell.
+    """
+    text = "" if value is None else str(value)
+    return "'" + text if text.startswith(_FORMULA_PREFIXES) else text
+
+
 def _export_csv(session_uuid: str, plays: list[dict]) -> Response:
     """Render plays as CSV, for spreadsheets."""
     buffer = io.StringIO()
@@ -215,8 +223,8 @@ def _export_csv(session_uuid: str, plays: list[dict]) -> Response:
         writer.writerow(
             [
                 play["played_at"],
-                play["performer"],
-                play["song"],
+                _csv_safe(play["performer"]),
+                _csv_safe(play["song"]),
                 # The same vocabulary the play log shows on screen.
                 _("Played") if play["completed"] else _("Skipped"),
             ]

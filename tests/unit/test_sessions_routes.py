@@ -159,6 +159,43 @@ class TestExport:
         # A skipped song is still listed, but flagged.
         assert "2. 2026-03-05 21:05  Bob - Another Song  (skipped)" in body
 
+    @pytest.mark.parametrize("prefix", ["=", "+", "-", "@"])
+    def test_csv_neutralises_formula_prefixes(self, admin_client, karaoke, prefix):
+        """A queued name must not execute when the host opens the export.
+
+        song_added_by is free text from any device on the network, so a
+        performer called '=HYPERLINK(...)' would otherwise run as a formula in
+        Excel and LibreOffice.
+        """
+        karaoke.play_history.export_plays.return_value = [
+            {
+                "played_at": "2026-03-05 21:00:00",
+                "performer": f'{prefix}HYPERLINK("http://evil/","Alice")',
+                "completed": 1,
+                "song": f"{prefix}cmd|'/c calc'!A1",
+            }
+        ]
+
+        body = admin_client.get("/api/history/export/abc").data.decode()
+
+        # Quoted by the csv writer, so the apostrophe is the first cell character.
+        assert f"\"'{prefix}HYPERLINK" in body
+        assert f"'{prefix}cmd|" in body
+
+    def test_csv_leaves_ordinary_names_alone(self, admin_client, karaoke):
+        karaoke.play_history.export_plays.return_value = [
+            {
+                "played_at": "2026-03-05 21:00:00",
+                "performer": "Alice",
+                "completed": 1,
+                "song": "Artist - Song",
+            }
+        ]
+
+        body = admin_client.get("/api/history/export/abc").data.decode()
+
+        assert "2026-03-05 21:00:00,Alice,Artist - Song,Played" in body
+
     def test_bad_format_rejected(self, admin_client, karaoke):
         karaoke.play_history.export_plays.return_value = []
         response = admin_client.get("/api/history/export/abc?format=xml")

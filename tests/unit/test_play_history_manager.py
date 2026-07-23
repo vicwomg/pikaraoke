@@ -30,7 +30,7 @@ def history(db, events):
 def song_id(db):
     """A song in the library, for plays to point at."""
     db.insert_songs([{"file_path": "/songs/a.mp4", "youtube_id": None, "format": "mp4"}])
-    return db.get_song_id_by_path("/songs/a.mp4")
+    return db.get_song_identity("/songs/a.mp4")[0]
 
 
 class TestSessions:
@@ -99,8 +99,8 @@ class TestSessions:
 
     def test_get_sessions_includes_play_counts(self, history, song_id):
         history.start_session("Night One")
-        history.record_play(song_id, "Alice", "A Song")
-        history.record_play(song_id, "Bob", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.record_play(song_id, None, "Bob", "A Song")
 
         sessions = history.get_sessions()
         assert len(sessions) == 1
@@ -189,12 +189,12 @@ class TestActivateSession:
 
     def test_new_plays_land_in_the_reactivated_session(self, history, song_id):
         first = history.start_session("First")
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         history.start_session("Second")
-        history.record_play(song_id, "Bob", "A Song")
+        history.record_play(song_id, None, "Bob", "A Song")
 
         history.activate_session(first)
-        history.record_play(song_id, "Dave", "A Song")
+        history.record_play(song_id, None, "Dave", "A Song")
 
         assert [p["performer"] for p in history.get_plays(first)] == ["Dave", "Alice"]
 
@@ -215,7 +215,7 @@ class TestActivateSession:
 class TestRecordPlay:
     def test_auto_starts_session_when_none_active(self, history, song_id):
         """Unnamed, so a household that never uses sessions never sees one."""
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
 
         session = history.get_current_session()
         assert session is not None
@@ -224,14 +224,14 @@ class TestRecordPlay:
 
     def test_reuses_the_active_session(self, history, song_id):
         session_uuid = history.start_session("Night One")
-        history.record_play(song_id, "Alice", "A Song")
-        history.record_play(song_id, "Bob", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.record_play(song_id, None, "Bob", "A Song")
 
         assert history.get_current_session()["uuid"] == session_uuid
         assert len(history.get_sessions()) == 1
 
     def test_auto_started_session_can_be_renamed_afterwards(self, history, song_id):
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         session_uuid = history.get_current_session()["uuid"]
 
         history.rename_session(session_uuid, "The Night We Forgot To Start")
@@ -239,14 +239,14 @@ class TestRecordPlay:
         assert history.get_current_session()["name"] == "The Night We Forgot To Start"
 
     def test_records_performer_and_song(self, history, song_id):
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
 
         play = history.get_plays()[0]
         assert play["performer"] == "Alice"
         assert play["song"] == "A Song"
 
     def test_song_id_may_be_none(self, history):
-        history.record_play(None, "Alice", "A Song")
+        history.record_play(None, None, "Alice", "A Song")
 
         play = history.get_plays()[0]
         assert play["song"] == "A Song"
@@ -254,7 +254,7 @@ class TestRecordPlay:
 
     def test_title_survives_the_song_leaving_the_library(self, db, history, song_id):
         """The whole point of storing the title rather than joining for it."""
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
 
         db.delete_by_path("/songs/a.mp4")
 
@@ -264,19 +264,28 @@ class TestRecordPlay:
 
 
 class TestCompleted:
-    def test_not_completed_before_song_ends(self, history, song_id):
-        history.record_play(song_id, "Alice", "A Song")
-        assert history.get_plays()[0]["completed"] == 0
+    def test_still_playing_before_song_ends(self, history, song_id):
+        """has_ended is what the log renders as "Playing" rather than "Skipped"."""
+        history.record_play(song_id, None, "Alice", "A Song")
+
+        play = history.get_plays()[0]
+        assert play["has_ended"] == 0
+        assert play["completed"] == 0
+
+    def test_has_ended_once_the_song_finishes(self, history, events, song_id):
+        history.record_play(song_id, None, "Alice", "A Song")
+        events.emit("song_ended", "skip")
+        assert history.get_plays()[0]["has_ended"] == 1
 
     def test_completed_on_complete_reason(self, history, events, song_id):
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "complete")
         assert history.get_plays()[0]["completed"] == 1
 
     @pytest.mark.parametrize("reason", ["skip", "timeout", None])
     def test_not_completed_on_other_reasons(self, history, events, song_id, reason):
         """The regression that would make `completed` a constant 1 and useless."""
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", reason)
         assert history.get_plays()[0]["completed"] == 0
 
@@ -285,7 +294,7 @@ class TestCompleted:
         assert history.get_plays() == []
 
     def test_second_song_ended_does_not_complete_the_previous_play(self, history, events, song_id):
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "skip")
         events.emit("song_ended", "complete")
 
@@ -298,17 +307,17 @@ class TestTranspose:
     transpose inflate both Top songs and Top performers."""
 
     def test_transpose_does_not_log_a_second_play(self, history, events, song_id):
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "transpose")
-        history.record_play(song_id, "Alice", "A Song")  # restarts in the new key
+        history.record_play(song_id, None, "Alice", "A Song")  # restarts in the new key
 
         assert len(history.get_plays()) == 1
         assert history.get_top_songs()[0]["play_count"] == 1
 
     def test_transpose_keeps_the_play_resolvable(self, history, events, song_id):
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "transpose")
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "complete")
 
         plays = history.get_plays()
@@ -316,18 +325,18 @@ class TestTranspose:
         assert plays[0]["completed"] == 1
 
     def test_transpose_then_skip_is_not_completed(self, history, events, song_id):
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "transpose")
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "skip")
 
         assert [p["completed"] for p in history.get_plays()] == [0]
 
     def test_repeated_transposes_still_log_one_play(self, history, events, song_id):
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         for _ in range(3):
             events.emit("song_ended", "transpose")
-            history.record_play(song_id, "Alice", "A Song")
+            history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "complete")
 
         assert len(history.get_plays()) == 1
@@ -335,18 +344,18 @@ class TestTranspose:
     def test_a_different_song_after_a_transpose_is_still_logged(self, db, history, events, song_id):
         """The restart may never arrive; a stale resume must not swallow it."""
         db.insert_songs([{"file_path": "/songs/b.mp4", "youtube_id": None, "format": "mp4"}])
-        other = db.get_song_id_by_path("/songs/b.mp4")
+        other = db.get_song_identity("/songs/b.mp4")[0]
 
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "transpose")
-        history.record_play(other, "Bob", "A Song")
+        history.record_play(other, None, "Bob", "A Song")
 
         assert [p["performer"] for p in history.get_plays()] == ["Bob", "Alice"]
 
     def test_same_song_by_another_performer_is_still_logged(self, history, events, song_id):
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "transpose")
-        history.record_play(song_id, "Bob", "A Song")
+        history.record_play(song_id, None, "Bob", "A Song")
 
         assert [p["performer"] for p in history.get_plays()] == ["Bob", "Alice"]
 
@@ -354,11 +363,11 @@ class TestTranspose:
         self, history, events, song_id
     ):
         """A failed restart emits song_ended(timeout); the play must not stay open."""
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "transpose")
         events.emit("song_ended", "timeout")
 
-        assert history.current_play_id is None
+        assert history._current_play_id is None
         assert [p["completed"] for p in history.get_plays()] == [0]
 
 
@@ -377,12 +386,12 @@ class TestLocalTimes:
         return self._drift(timestamp, datetime.now())
 
     def test_stored_as_utc(self, db, history, song_id):
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         stored = db.query("SELECT played_at FROM plays")[0][0]
         assert self._drift(stored, datetime.now(timezone.utc).replace(tzinfo=None)) < 60
 
     def test_plays_are_returned_local(self, history, song_id):
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         assert self._seconds_from_now(history.get_plays()[0]["played_at"]) < 60
 
     def test_sessions_are_returned_local(self, history):
@@ -396,19 +405,19 @@ class TestLocalTimes:
         assert self._seconds_from_now(history.get_sessions()[0]["ended_at"]) < 60
 
     def test_singers_last_played_is_local(self, history, song_id):
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         assert self._seconds_from_now(history.get_singers()[0]["last_played"]) < 60
 
     def test_export_is_local(self, history, song_id):
         session_uuid = history.start_session("One")
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         assert self._seconds_from_now(history.export_plays(session_uuid)[0]["played_at"]) < 60
 
     def test_ordering_uses_stored_utc(self, db, history, song_id):
         """Ordering must key off the raw column, not the converted one."""
         history.start_session("One")
         for performer in ["First", "Second", "Third"]:
-            history.record_play(song_id, performer, "A Song")
+            history.record_play(song_id, None, performer, "A Song")
         # Force distinct stored times to prove ORDER BY is on the real column.
         ids = [row[0] for row in db.query("SELECT id FROM plays ORDER BY id")]
         for offset, play_id in enumerate(ids):
@@ -421,16 +430,16 @@ class TestLocalTimes:
 
 class TestCurrentPlayId:
     def test_none_when_nothing_playing(self, history):
-        assert history.current_play_id is None
+        assert history._current_play_id is None
 
     def test_set_while_playing(self, history, song_id):
-        history.record_play(song_id, "Alice", "A Song")
-        assert history.current_play_id == history.get_plays()[0]["id"]
+        history.record_play(song_id, None, "Alice", "A Song")
+        assert history._current_play_id == history.get_plays()[0]["id"]
 
     def test_cleared_once_the_song_ends(self, history, events, song_id):
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "complete")
-        assert history.current_play_id is None
+        assert history._current_play_id is None
 
 
 class TestGetSingers:
@@ -438,34 +447,34 @@ class TestGetSingers:
         assert history.get_singers() == []
 
     def test_counts_per_performer(self, history, song_id):
-        history.record_play(song_id, "Alice", "A Song")
-        history.record_play(song_id, "Alice", "A Song")
-        history.record_play(song_id, "Bob", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.record_play(song_id, None, "Bob", "A Song")
 
         singers = history.get_singers()
         assert [(s["performer"], s["play_count"]) for s in singers] == [("Alice", 2), ("Bob", 1)]
 
     def test_groups_casing_variants_as_one_performer(self, history, song_id):
-        history.record_play(song_id, "Mike", "A Song")
-        history.record_play(song_id, "mike", "A Song")
-        history.record_play(song_id, "MIKE", "A Song")
+        history.record_play(song_id, None, "Mike", "A Song")
+        history.record_play(song_id, None, "mike", "A Song")
+        history.record_play(song_id, None, "MIKE", "A Song")
 
         singers = history.get_singers()
         assert len(singers) == 1
         assert singers[0]["play_count"] == 3
 
     def test_uses_most_recent_casing(self, history, song_id):
-        history.record_play(song_id, "mike", "A Song")
-        history.record_play(song_id, "Mike", "A Song")
+        history.record_play(song_id, None, "mike", "A Song")
+        history.record_play(song_id, None, "Mike", "A Song")
 
         assert history.get_singers()[0]["performer"] == "Mike"
 
     def test_scoped_to_a_session(self, history, song_id):
         first = history.start_session("One")
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         second = history.start_session("Two")
-        history.record_play(song_id, "Bob", "A Song")
-        history.record_play(song_id, "Bob", "A Song")
+        history.record_play(song_id, None, "Bob", "A Song")
+        history.record_play(song_id, None, "Bob", "A Song")
 
         assert [s["performer"] for s in history.get_singers(first)] == ["Alice"]
         assert [(s["performer"], s["play_count"]) for s in history.get_singers(second)] == [
@@ -480,8 +489,8 @@ class TestGetSingers:
 
     def test_scoped_groups_casing_variants(self, history, song_id):
         session_uuid = history.start_session("One")
-        history.record_play(song_id, "Mike", "A Song")
-        history.record_play(song_id, "mike", "A Song")
+        history.record_play(song_id, None, "Mike", "A Song")
+        history.record_play(song_id, None, "mike", "A Song")
 
         singers = history.get_singers(session_uuid)
         assert len(singers) == 1
@@ -491,7 +500,7 @@ class TestGetSingers:
         """The cap must select the busiest performers, not an arbitrary slice."""
         for performer, plays in [("Quiet", 1), ("Busy", 3), ("Middling", 2)]:
             for _ in range(plays):
-                history.record_play(song_id, performer, "A Song")
+                history.record_play(song_id, None, performer, "A Song")
 
         assert [(s["performer"], s["play_count"]) for s in history.get_singers(limit=2)] == [
             ("Busy", 3),
@@ -499,31 +508,31 @@ class TestGetSingers:
         ]
 
     def test_limit_counts_performers_not_plays(self, history, song_id):
-        history.record_play(song_id, "Alice", "A Song")
-        history.record_play(song_id, "Alice", "A Song")
-        history.record_play(song_id, "Bob", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.record_play(song_id, None, "Bob", "A Song")
 
         assert len(history.get_singers(limit=1)) == 1
 
     def test_limit_above_the_performer_count_returns_everyone(self, history, song_id):
-        history.record_play(song_id, "Alice", "A Song")
-        history.record_play(song_id, "Bob", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.record_play(song_id, None, "Bob", "A Song")
 
         assert len(history.get_singers(limit=50)) == 2
 
     def test_limit_still_resolves_latest_casing(self, history, song_id):
         """Casing is resolved after the cap is applied, so it must survive it."""
-        history.record_play(song_id, "mike", "A Song")
-        history.record_play(song_id, "Mike", "A Song")
+        history.record_play(song_id, None, "mike", "A Song")
+        history.record_play(song_id, None, "Mike", "A Song")
 
         assert history.get_singers(limit=1)[0]["performer"] == "Mike"
 
     def test_limit_applies_within_a_session_scope(self, history, song_id):
         first = history.start_session("One")
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         history.start_session("Two")
-        history.record_play(song_id, "Bob", "A Song")
-        history.record_play(song_id, "Bob", "A Song")
+        history.record_play(song_id, None, "Bob", "A Song")
+        history.record_play(song_id, None, "Bob", "A Song")
 
         assert [s["performer"] for s in history.get_singers(first, limit=5)] == ["Alice"]
 
@@ -532,36 +541,140 @@ class TestGetTopSongs:
     def test_empty_when_nothing_played(self, history):
         assert history.get_top_songs() == []
 
-    def test_ranks_by_play_count(self, db, history):
-        db.insert_songs(
-            [
-                {"file_path": "/songs/popular.mp4", "youtube_id": None, "format": "mp4"},
-                {"file_path": "/songs/rare.mp4", "youtube_id": None, "format": "mp4"},
-            ]
-        )
-        popular = db.get_song_id_by_path("/songs/popular.mp4")
-        rare = db.get_song_id_by_path("/songs/rare.mp4")
-
-        history.record_play(popular, "Alice", "A Song")
-        history.record_play(popular, "Bob", "A Song")
-        history.record_play(rare, "Alice", "A Song")
+    def test_ranks_by_play_count(self, db, history, song_id):
+        history.record_play(song_id, None, "Alice", "Popular Song")
+        history.record_play(song_id, None, "Bob", "Popular Song")
+        history.record_play(song_id, None, "Alice", "Rare Song")
 
         top = history.get_top_songs()
-        assert [(s["file_path"], s["play_count"]) for s in top] == [
-            ("/songs/popular.mp4", 2),
-            ("/songs/rare.mp4", 1),
+        assert [(s["song"], s["play_count"]) for s in top] == [
+            ("Popular Song", 2),
+            ("Rare Song", 1),
         ]
 
-    def test_respects_limit(self, db, history):
+    def test_respects_limit(self, history, song_id):
         for i in range(5):
-            db.insert_songs([{"file_path": f"/songs/{i}.mp4", "youtube_id": None, "format": "mp4"}])
-            history.record_play(db.get_song_id_by_path(f"/songs/{i}.mp4"), "Alice", "A Song")
+            history.record_play(song_id, None, "Alice", f"Song {i}")
 
         assert len(history.get_top_songs(limit=3)) == 3
 
-    def test_omits_plays_with_no_song(self, history):
-        history.record_play(None, "Alice", "A Song")
-        assert history.get_top_songs() == []
+    def test_counts_one_song_under_either_casing(self, history, song_id):
+        """Matching the play log, which is case-insensitive about titles too."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.record_play(song_id, None, "Bob", "a song")
+
+        assert history.get_top_songs()[0]["play_count"] == 2
+
+    def test_counts_plays_whose_song_left_the_library(self, history, song_id, db):
+        """The whole reason song_title is stored: a deleted song keeps its history.
+
+        song_id goes NULL on delete, so ranking on the join would drop exactly
+        the plays this column exists to preserve.
+        """
+        history.record_play(song_id, None, "Alice", "A Song")
+        db.delete_by_path("/songs/a.mp4")
+
+        assert history.get_top_songs() == [{"song": "A Song", "play_count": 1}]
+
+    def test_counts_one_song_across_a_library_rebuild(self, history, song_id, db):
+        """Nuking the library and rescanning it must not fork every song in two.
+
+        The re-added song gets a fresh row id, so a key built on song_id would
+        put the plays either side of the rebuild into separate rankings.
+        """
+        history.record_play(song_id, None, "Alice", "A Song")
+        db.delete_by_path("/songs/a.mp4")
+        db.insert_songs([{"file_path": "/songs/a.mp4", "youtube_id": None, "format": "mp4"}])
+        readded = db.get_song_identity("/songs/a.mp4")[0]
+        history.record_play(readded, None, "Bob", "A Song")
+
+        assert readded != song_id
+        assert history.get_top_songs() == [{"song": "A Song", "play_count": 2}]
+
+    def test_youtube_songs_count_as_one_across_a_retitle(self, history, song_id):
+        """The id identifies the video, so it outranks whatever it was called."""
+        history.record_play(song_id, "dQw4w9WgXcQ", "Alice", "Never Gonna Give You Up")
+        history.record_play(song_id, "dQw4w9WgXcQ", "Bob", "Rick Astley - Never Gonna Give You Up")
+
+        top = history.get_top_songs()
+        assert len(top) == 1
+        assert top[0]["play_count"] == 2
+        # Labelled with the most recent title, so a renamed song reads currently.
+        assert top[0]["song"] == "Rick Astley - Never Gonna Give You Up"
+
+    def test_different_videos_are_never_merged_by_title(self, history, song_id):
+        """Covers and live versions share titles constantly."""
+        history.record_play(song_id, "aaaaaaaaaaa", "Alice", "Hallelujah")
+        history.record_play(song_id, "bbbbbbbbbbb", "Bob", "Hallelujah")
+
+        assert [s["play_count"] for s in history.get_top_songs()] == [1, 1]
+
+
+class TestSongRenamed:
+    """A local rip has no YouTube id, so it is identified by its title. A rename
+    has to carry its plays over or the song ranks twice."""
+
+    def test_rename_merges_the_plays_of_a_local_rip(self, history, events, song_id):
+        history.record_play(song_id, None, "Alice", "Old Name")
+        events.emit("song_renamed", song_id, "New Name")
+        history.record_play(song_id, None, "Bob", "New Name")
+
+        assert history.get_top_songs() == [{"song": "New Name", "play_count": 2}]
+
+    def test_rename_updates_the_play_log(self, history, events, song_id):
+        history.record_play(song_id, None, "Alice", "Old Name")
+        events.emit("song_renamed", song_id, "New Name")
+
+        assert history.get_plays()[0]["song"] == "New Name"
+
+    def test_rename_leaves_other_songs_alone(self, history, events, song_id, db):
+        db.insert_songs([{"file_path": "/songs/b.mp4", "youtube_id": None, "format": "mp4"}])
+        other = db.get_song_identity("/songs/b.mp4")[0]
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.record_play(other, None, "Bob", "Another Song")
+
+        events.emit("song_renamed", song_id, "Renamed")
+
+        assert {s["song"] for s in history.get_top_songs()} == {"Renamed", "Another Song"}
+
+    def test_rename_does_not_touch_plays_of_a_deleted_song(self, history, events, song_id, db):
+        """Their song_id is NULL, so they keep the title they were sung under."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        db.delete_by_path("/songs/a.mp4")
+
+        events.emit("song_renamed", song_id, "Renamed")
+
+        assert history.get_plays()[0]["song"] == "A Song"
+
+
+class TestOrphanedPlays:
+    """An unresolved play means "singing right now", which can only be true of
+    the process that wrote it. A crash or restart must not leave a song showing
+    as playing for ever."""
+
+    def test_startup_closes_a_play_left_open(self, db, events, song_id):
+        first = PlayHistoryManager(db=db, events=events)
+        first.record_play(song_id, None, "Alice", "A Song")
+        assert first.get_plays()[0]["has_ended"] == 0
+
+        restarted = PlayHistoryManager(db=db, events=EventSystem())
+
+        play = restarted.get_plays()[0]
+        assert play["has_ended"] == 1
+        # Cut short rather than sung through, so it reads as skipped.
+        assert play["completed"] == 0
+
+    def test_startup_leaves_resolved_plays_alone(self, db, events, song_id):
+        first = PlayHistoryManager(db=db, events=events)
+        first.record_play(song_id, None, "Alice", "A Song")
+        events.emit("song_ended", "complete")
+        before = first.get_plays()[0]
+
+        restarted = PlayHistoryManager(db=db, events=EventSystem())
+
+        after = restarted.get_plays()[0]
+        assert after["completed"] == 1
+        assert after["played_at"] == before["played_at"]
 
 
 class TestGetPlays:
@@ -572,16 +685,16 @@ class TestGetPlays:
                 {"file_path": "/songs/second.mp4", "youtube_id": None, "format": "mp4"},
             ]
         )
-        history.record_play(db.get_song_id_by_path("/songs/first.mp4"), "Alice", "A Song")
-        history.record_play(db.get_song_id_by_path("/songs/second.mp4"), "Bob", "A Song")
+        history.record_play(db.get_song_identity("/songs/first.mp4")[0], None, "Alice", "A Song")
+        history.record_play(db.get_song_identity("/songs/second.mp4")[0], None, "Bob", "A Song")
 
         assert [p["performer"] for p in history.get_plays()] == ["Bob", "Alice"]
 
     def test_filters_by_session(self, history, song_id):
         first = history.start_session("One")
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         second = history.start_session("Two")
-        history.record_play(song_id, "Bob", "A Song")
+        history.record_play(song_id, None, "Bob", "A Song")
 
         assert [p["performer"] for p in history.get_plays(first)] == ["Alice"]
         assert [p["performer"] for p in history.get_plays(second)] == ["Bob"]
@@ -589,7 +702,7 @@ class TestGetPlays:
 
     def test_pagination(self, history, song_id):
         for name in ["A", "B", "C", "D", "E"]:
-            history.record_play(song_id, name, "A Song")
+            history.record_play(song_id, None, name, "A Song")
 
         page = history.get_plays(limit=2, offset=0)
         next_page = history.get_plays(limit=2, offset=2)
@@ -600,9 +713,9 @@ class TestGetPlays:
 
     def test_count_plays(self, history, song_id):
         session_uuid = history.start_session("One")
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         history.start_session("Two")
-        history.record_play(song_id, "Bob", "A Song")
+        history.record_play(song_id, None, "Bob", "A Song")
 
         assert history.count_plays() == 2
         assert history.count_plays(session_uuid) == 1
@@ -620,11 +733,11 @@ class TestPlaySorting:
                 {"file_path": "/songs/apple.mp4", "youtube_id": None, "format": "mp4"},
             ]
         )
-        zebra = db.get_song_id_by_path("/songs/Zebra.mp4")
-        apple = db.get_song_id_by_path("/songs/apple.mp4")
-        history.record_play(zebra, "carol", "Zebra")
-        history.record_play(apple, "Alice", "apple")
-        history.record_play(zebra, "Bob", "Zebra")
+        zebra = db.get_song_identity("/songs/Zebra.mp4")[0]
+        apple = db.get_song_identity("/songs/apple.mp4")[0]
+        history.record_play(zebra, None, "carol", "Zebra")
+        history.record_play(apple, None, "Alice", "apple")
+        history.record_play(zebra, None, "Bob", "Zebra")
         # Distinct stored times so date order is unambiguous.
         for offset, play_id in enumerate(
             r[0] for r in db.query("SELECT id FROM plays ORDER BY id")
@@ -687,7 +800,7 @@ class TestPlaySorting:
 
 class TestDelete:
     def test_delete_play(self, history, song_id):
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         play_id = history.get_plays()[0]["id"]
 
         assert history.delete_play(play_id) is True
@@ -698,7 +811,7 @@ class TestDelete:
 
     def test_delete_session_cascades_to_plays(self, history, song_id):
         session_uuid = history.start_session("One")
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
 
         assert history.delete_session(session_uuid) is True
         assert history.get_sessions() == []
@@ -709,9 +822,9 @@ class TestDelete:
 
     def test_delete_session_leaves_other_sessions_alone(self, history, song_id):
         first = history.start_session("One")
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         history.start_session("Two")
-        history.record_play(song_id, "Bob", "A Song")
+        history.record_play(song_id, None, "Bob", "A Song")
 
         history.delete_session(first)
 
@@ -721,9 +834,9 @@ class TestDelete:
 class TestExport:
     def test_exports_session_plays_oldest_first(self, history, events, song_id):
         session_uuid = history.start_session("One")
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "complete")
-        history.record_play(song_id, "Bob", "A Song")
+        history.record_play(song_id, None, "Bob", "A Song")
         events.emit("song_ended", "skip")
 
         rows = history.export_plays(session_uuid)
@@ -734,9 +847,9 @@ class TestExport:
 
     def test_excludes_other_sessions(self, history, song_id):
         session_uuid = history.start_session("One")
-        history.record_play(song_id, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
         history.start_session("Two")
-        history.record_play(song_id, "Bob", "A Song")
+        history.record_play(song_id, None, "Bob", "A Song")
 
         assert [r["performer"] for r in history.export_plays(session_uuid)] == ["Alice"]
 

@@ -29,6 +29,19 @@ def _latest_casing(name_column: str) -> str:
 """
 
 
+# Which song a play was of, as one groupable value.
+#
+# Deliberately built only from columns frozen on the play row. song_id is not
+# among them: it goes NULL when a song is deleted but a re-added copy of the
+# same song gets a fresh id, so plays either side of a library rebuild would key
+# differently and split into two rankings. youtube_id and song_title are written
+# once and never move, so every play of one song keys the same way for good.
+#
+# Namespaced so an id can never collide with a title that reads like one.
+# Concatenating a NULL yields NULL in SQLite, which is what makes COALESCE fall
+# through to the title for local rips, which have no YouTube id.
+_SONG_KEY = "COALESCE('y:' || p.youtube_id, 't:' || LOWER(p.song_title))"
+
 # Sortable columns for the play log, keyed by what the UI sends. These
 # interpolate into SQL, so the sort key is looked up here and never used raw.
 _PLAY_SORTS = {
@@ -64,15 +77,15 @@ class PlayHistoryManager:
     def __init__(self, db: KaraokeDatabase, events: EventSystem) -> None:
         self.db = db
         self.events = events
-        # The play still in flight, or None when nothing is playing. A play row
-        # is written when the song starts, so `completed` is only meaningful
-        # once it ends; the UI needs this to tell "still playing" from
-        # "was skipped". The song and performer alongside it identify that
-        # performance, so a transpose can recognise its own restart.
-        self.current_play_id: int | None = None
+        # The play still in flight, or None when nothing is playing. Only the
+        # in-process bookkeeping for resolving it; readers get the state from
+        # plays.ended_at instead. The song and performer alongside it identify
+        # that performance, so a transpose can recognise its own restart.
+        self._current_play_id: int | None = None
         self._current_song_id: int | None = None
         self._current_performer: str | None = None
         self._resuming = False
+        self._close_orphaned_plays()
         # The open session, cached because the nav ribbon reads it on every page
         # render and the now_playing broadcast on every queue or playback change,
         # while only the mutations below can change it. Loaded lazily;
@@ -80,6 +93,30 @@ class PlayHistoryManager:
         self._cached_session: dict | None = None
         self._session_cached = False
         self.events.on("song_ended", self._on_song_ended)
+        self.events.on("song_renamed", self._on_song_renamed)
+
+    def _on_song_renamed(self, song_id: int, title: str) -> None:
+        """Carry a renamed song's plays over to its new title.
+
+        Reporting identifies a song with no YouTube id by its title, so leaving
+        old plays under the old one would rank a renamed local rip twice. Scoped
+        to song_id, which is exactly the set of plays the library still links to
+        this file; plays of a song that has since been deleted keep the title
+        they were recorded under, there being nothing better to give them.
+        """
+        self.db.execute("UPDATE plays SET song_title = ? WHERE song_id = ?", (title, song_id))
+
+    def _close_orphaned_plays(self) -> None:
+        """Resolve plays left open by a previous process.
+
+        An unresolved play means "singing right now", which can only be true of
+        the process that wrote it. Anything still open at startup was cut short
+        by a crash or a restart, so it is closed here rather than reading as a
+        song that has been playing since last week. ended_at is backdated to
+        played_at: the real end time went down with the old process, and
+        stamping it now would invent a performance spanning the downtime.
+        """
+        self.db.execute("UPDATE plays SET ended_at = played_at WHERE ended_at IS NULL")
 
     # ------------------------------------------------------------------
     # Sessions
@@ -239,10 +276,16 @@ class PlayHistoryManager:
     # Play recording
     # ------------------------------------------------------------------
 
-    def record_play(self, song_id: int | None, performer: str, song_title: str) -> None:
+    def record_play(
+        self, song_id: int | None, youtube_id: str | None, performer: str, song_title: str
+    ) -> None:
         """Record a play against the active session, auto-starting one if needed.
 
         Args:
+            song_id: The live library row, for joining to current metadata. Goes
+                NULL when the song is deleted.
+            youtube_id: The song's durable identity, which reporting groups on.
+                None for local rips, which fall back to the title.
             song_title: The title as displayed when it was sung, stored rather
                 than looked up later so the log survives the song being deleted
                 from the library. A side effect is that toggling title tidying
@@ -261,31 +304,35 @@ class PlayHistoryManager:
             session = self.get_current_session()
 
         cursor = self.db.execute(
-            "INSERT INTO plays (session_id, song_id, song_title, performer) VALUES (?, ?, ?, ?)",
-            (session["id"], song_id, song_title, performer),
+            "INSERT INTO plays (session_id, song_id, youtube_id, song_title, performer) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (session["id"], song_id, youtube_id, song_title, performer),
         )
-        self.current_play_id = cursor.lastrowid
+        self._current_play_id = cursor.lastrowid
         self._current_song_id = song_id
         self._current_performer = performer
 
     def _on_song_ended(self, reason: str | None = None) -> None:
-        """Resolve the pending play's completed flag from the end reason.
+        """Close the pending play, recording whether it was sung through.
 
         end_song() fires on every ending path, so only reason == "complete"
-        marks the song as sung through; "skip" and "timeout" do not.
+        marks the song as sung through; "skip" and "timeout" do not. Stamping
+        ended_at is what takes the row out of the "playing right now" state.
         """
         # A transpose ends the stream but not the performance: hold the row open
         # so the restart in the new key reuses it instead of logging a second.
-        if reason == "transpose" and self.current_play_id is not None:
+        if reason == "transpose" and self._current_play_id is not None:
             self._resuming = True
             return
 
         self._resuming = False
-        if self.current_play_id is None:
+        if self._current_play_id is None:
             return
-        if reason == "complete":
-            self.db.execute("UPDATE plays SET completed = 1 WHERE id = ?", (self.current_play_id,))
-        self.current_play_id = None
+        self.db.execute(
+            "UPDATE plays SET ended_at = CURRENT_TIMESTAMP, completed = ? WHERE id = ?",
+            (1 if reason == "complete" else 0, self._current_play_id),
+        )
+        self._current_play_id = None
         self._current_song_id = None
         self._current_performer = None
 
@@ -322,6 +369,9 @@ class PlayHistoryManager:
         rows = self.db.query(
             f"""
             SELECT p.id, {_local("p.played_at", "played_at")}, p.performer, p.completed,
+                   -- NULL only while it is actually playing, which is how the
+                   -- log tells "singing now" from "was skipped".
+                   p.ended_at IS NOT NULL AS has_ended,
                    p.song_title AS song
             FROM plays p
             {where}
@@ -395,19 +445,30 @@ class PlayHistoryManager:
         return [dict(row) for row in rows]
 
     def get_top_songs(self, limit: int = 20) -> list[dict]:
-        """Return the most-played songs. Songs deleted from the library are omitted."""
+        """Return the most-played songs, counting each one across its renames.
+
+        Grouped on _SONG_KEY rather than joined to the library, so a song keeps
+        its history through a rename and past its own deletion. Labelled with
+        the most recent title it was played under, so a renamed song reads by
+        its current name rather than whichever spelling happened to be first.
+        """
         rows = self.db.query(
-            """
-            SELECT s.file_path, COUNT(*) AS play_count
+            f"""
+            SELECT p.song_title AS song, COUNT(*) AS play_count, MAX(p.id)
             FROM plays p
-            JOIN songs s ON s.id = p.song_id
-            GROUP BY p.song_id
-            ORDER BY play_count DESC, s.file_path
+            GROUP BY {_SONG_KEY}
+            ORDER BY play_count DESC, song
             LIMIT ?
             """,
             (limit,),
         )
-        return [dict(row) for row in rows]
+        # MAX() in the select list is what picks which row the bare song_title
+        # comes from: SQLite resolves bare columns in an aggregate query against
+        # the row that produced the max, so the label is the latest title rather
+        # than an arbitrary one. Keyed on id rather than played_at because it is
+        # unique -- two plays within the same second would make the max, and so
+        # the label, ambiguous. Cheaper than a correlated lookup per group.
+        return [{"song": row["song"], "play_count": row["play_count"]} for row in rows]
 
     def delete_play(self, play_id: int) -> bool:
         """Delete a single play from the log."""

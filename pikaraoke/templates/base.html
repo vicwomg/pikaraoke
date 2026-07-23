@@ -164,11 +164,6 @@
       return sessionStorage.getItem("kj_mode") === "1";
     }
 
-    // Fills the singer autocomplete from past performers. Only runs in KJ mode
-    // (the datalist is hidden otherwise) and only for admins -- the performer
-    // list is effectively the guest list, so the endpoint 403s for everyone
-    // else. Capped because the list grows without bound over a venue's lifetime
-    // and nobody scrolls an autocomplete past the most active handful.
     // Swaps the KJ singer field for a "start a session" prompt. The server
     // renders the right one at page load; this keeps it correct when the host
     // starts or ends a session from another tab, since session_changed
@@ -189,6 +184,11 @@
       }
     }
 
+    // Fills the singer autocomplete from past performers. Only runs in KJ mode
+    // (the datalist is hidden otherwise) and only for admins -- the performer
+    // list is effectively the guest list, so the endpoint 403s for everyone
+    // else. Capped because the list grows without bound over a venue's lifetime
+    // and nobody scrolls an autocomplete past the most active handful.
     function loadSingerList() {
       var $list = $("#singer-list");
       if (!$list.length || !isKjMode()) {
@@ -203,6 +203,33 @@
       });
     }
 
+    // Keeps the singer field in step with the session, over a socket that
+    // outlives SPA page swaps. io() hands back the same instance every time, so
+    // this script re-running on each navigation would stack another handler
+    // unless the previous one is removed first.
+    function bindSingerFieldToSession() {
+      if (!window.socket) {
+        return;
+      }
+      if (window.kjSessionHandler) {
+        window.socket.off("now_playing", window.kjSessionHandler);
+      }
+      // now_playing also fires on every queue edit, pause and volume change,
+      // none of which move the session. Seeded from what the server just
+      // rendered, so those cost nothing rather than a singer fetch apiece.
+      var lastHasSession = $("#singer-input").length
+        ? !$("#singer-input").hasClass("is-hidden")
+        : null;
+      window.kjSessionHandler = function (np) {
+        if (np.has_session === lastHasSession) {
+          return;
+        }
+        lastHasSession = np.has_session;
+        setSingerFieldSessionState(np.has_session);
+      };
+      window.socket.on("now_playing", window.kjSessionHandler);
+    }
+
     $(function () {
       connectSocket();
 
@@ -215,7 +242,7 @@
 
       // Highlight the current nav bar location. Every nav item's id is its path
       // segment, so deriving the id means a new page needs no edit here.
-      $("#" + navItemIdForPath(window.location.pathname)).addClass("is-active")
+      highlightNavItem(window.location.pathname)
 
       // handle auto-close flash notifications
       setTimeout(function() { $("#notification").fadeOut()}, 3000);
@@ -223,9 +250,7 @@
       // Reveal KJ-only controls when a host has opted into KJ mode.
       if (isKjMode()) {
         $(".kj-only").removeClass("is-hidden");
-        window.socket.on("now_playing", function (np) {
-          setSingerFieldSessionState(np.has_session);
-        });
+        bindSingerFieldToSession();
       }
 
       // handle current user display

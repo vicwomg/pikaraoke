@@ -15,17 +15,27 @@
     };
 
     /**
-     * Nav bar item id for a path. Every item's id is its first path segment
-     * ("/browse/rock" -> "browse"), so a new page needs no change here. Strips
-     * the reverse proxy base path first, so callers can pass a raw location.
-     * Shared with base.html, which highlights the nav on a full page load.
+     * Highlight the nav bar item for a path. Every item's id is its first path
+     * segment ("/browse/rock" -> "browse"), so a new page needs no change here.
+     * Strips the reverse proxy base path first, so callers can pass a raw
+     * location. Shared with base.html, which highlights on a full page load.
+     * @param {string} path - Path without a query string
      */
-    window.navItemIdForPath = function (path) {
+    window.highlightNavItem = function (path) {
         const basePath = window.pikaraokeConfig.basePath;
         if (basePath && path.startsWith(basePath)) {
             path = path.substring(basePath.length) || '/';
         }
-        return path === '/' ? 'home' : path.split('/')[1];
+        const segment = path === '/' ? 'home' : path.split('/')[1];
+
+        $('.navbar-item').removeClass('is-active');
+
+        // Nav ids are plain words. A path segment that is not one belongs to no
+        // nav item, and interpolated into a selector it would throw out of
+        // querySelectorAll and abandon the rest of the caller.
+        if (/^[\w-]+$/.test(segment)) {
+            $('#' + segment).addClass('is-active');
+        }
     };
 
     // State management
@@ -357,7 +367,7 @@
                 }
 
                 // Update navigation highlighting
-                updateNavHighlight(url);
+                window.highlightNavItem(url.split('?')[0]);
 
                 // Sync the active-session ribbon, which lives outside .box
                 updateSessionRibbon(doc);
@@ -411,20 +421,6 @@
             // Fallback to full page reload if no state
             window.location.reload();
         }
-    }
-
-    /**
-     * Update navbar active state highlighting
-     * @param {string} url - The current URL (may include query params)
-     */
-    function updateNavHighlight(url) {
-        // Extract base path without query parameters
-        const path = url.split('?')[0];
-
-        // Remove all active classes
-        $('.navbar-item').removeClass('is-active');
-
-        $('#' + window.navItemIdForPath(path)).addClass('is-active');
     }
 
     /**

@@ -339,3 +339,46 @@ class TestResetNowPlayingNotification:
         mock_karaoke.reset_now_playing_notification()
 
         assert mock_karaoke.now_playing_notification is None
+
+
+class TestTransposeCurrent:
+    """Tests for transpose_current, which restarts a song in a new key."""
+
+    def _start_playing(self, k, path="/songs/Artist - Song One---abc123.mp4"):
+        k.playback_controller.now_playing = "Artist - Song One"
+        k.playback_controller.now_playing_filename = path
+        k.playback_controller.now_playing_user = "Alice"
+        k.playback_controller.is_playing = True
+        return path
+
+    def test_transpose_requeues_and_skips_with_its_own_reason(self, mock_karaoke_with_songs):
+        """Play history tells a restart from a skip by the reason alone."""
+        k = mock_karaoke_with_songs
+        path = self._start_playing(k)
+
+        k.transpose_current(2)
+
+        assert k.queue_manager.queue[0]["file"] == path
+        assert k.queue_manager.queue[0]["semitones"] == 2
+        assert k.playback_controller.skipped_reasons == ["transpose"]
+
+    def test_transpose_keeps_playing_when_the_requeue_is_refused(self, mock_karaoke_with_songs):
+        """A refused requeue must not skip: the singer would lose their turn.
+
+        The song is already queued again further down, so enqueue() declines it.
+        Skipping anyway would end the song with nothing to restart it, and leave
+        play history holding the play open for a restart that never comes.
+        """
+        k = mock_karaoke_with_songs
+        path = self._start_playing(k)
+        k.queue_manager.enqueue(path, "Bob")
+
+        k.transpose_current(2)
+
+        assert k.playback_controller.skipped_reasons == []
+        assert k.playback_controller.now_playing == "Artist - Song One"
+
+    def test_transpose_with_nothing_playing_does_nothing(self, mock_karaoke_with_songs):
+        mock_karaoke_with_songs.transpose_current(2)
+
+        assert mock_karaoke_with_songs.playback_controller.skipped_reasons == []

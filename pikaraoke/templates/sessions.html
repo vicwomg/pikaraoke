@@ -62,12 +62,12 @@
 		playing: {{ _('Playing') | tojson }}
 	};
 
-	// A play row is written when the song starts, so an unresolved row is the
-	// song playing right now, not one that was skipped. The labels come from
-	// historyText, which is translator-controlled rather than user input, so
-	// only the untrusted fields below go through escapeHtml (from base.html).
-	function playStatus(play, currentPlayId) {
-		if (play.id === currentPlayId) {
+	// A play row is written when the song starts and closed when it ends, so an
+	// unclosed row is the song playing right now, not one that was skipped. The
+	// labels come from historyText, which is translator-controlled rather than
+	// user input, so only the untrusted fields below go through escapeHtml.
+	function playStatus(play) {
+		if (!play.has_ended) {
 			return '<span class="has-text-info">' + historyText.playing + "</span>";
 		}
 		if (play.completed) {
@@ -250,6 +250,14 @@
 		}
 		renderSortArrows();
 		return $.getJSON("{{ url_for('sessions_api.get_plays') }}", params, function (data) {
+			// Deleting the last row on the last page, or filtering down to a
+			// shorter log, would otherwise strand it on an empty one.
+			if (!data.plays.length && playsPage.offset > 0) {
+				playsPage.offset = Math.max(0, playsPage.offset - playsPage.limit);
+				loadPlays();
+				return;
+			}
+
 			var $body = $("#plays-body");
 
 			if (!data.plays.length) {
@@ -262,7 +270,7 @@
 							whenCell(play.played_at) +
 							"<td class='performer-cell'>" + escapeHtml(play.performer) + "</td>" +
 							"<td class='break-word song-cell'>" + song + "</td>" +
-							"<td class='status-cell'>" + playStatus(play, data.current_play_id) + "</td>" +
+							"<td class='status-cell'>" + playStatus(play) + "</td>" +
 							"<td class='has-text-right delete-cell'><a class='delete-play has-text-danger' data-id='" + play.id +
 							{# MSG: Tooltip on the button that removes a single play from the log. #}
 							"' title='{{ _('Delete') | forceescape }}'><i class='icon icon-trash'></i></a></td>" +

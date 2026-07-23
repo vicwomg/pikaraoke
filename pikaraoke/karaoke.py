@@ -223,7 +223,10 @@ class Karaoke:
         # Initialize database, scanner, and song manager (startup runs at end of __init__)
         self.db = KaraokeDatabase()
         self.song_manager = SongManager(
-            self.download_path, db=self.db, get_title_tidy=lambda: self.enable_title_tidy
+            self.download_path,
+            db=self.db,
+            events=self.events,
+            get_title_tidy=lambda: self.enable_title_tidy,
         )
         self._scanner = LibraryScanner(self.db)
         self._sync_lock = threading.Lock()
@@ -495,12 +498,18 @@ class Karaoke:
         if filename is None or user is None:
             logging.warning("Cannot transpose: no song currently playing")
             return
-        # MSG: Message shown after the song is transposed, first is the semitones and then the song name
-        self.log_and_send(_("Transposing by %s semitones: %s") % (semitones, now_playing))
         # Insert the same song at the top of the queue with transposition.
         # The stream ends but the performance does not, so play history keeps
         # the existing play open rather than logging a second one.
-        self.queue_manager.enqueue(filename, user, semitones, True)
+        queued, message = self.queue_manager.enqueue(filename, user, semitones, True)
+        if not queued:
+            # Skipping now would end the song with nothing to restart it: the
+            # singer loses their turn, and play history holds the play open
+            # waiting for a restart that is never coming.
+            self.log_and_send(str(message), "danger")
+            return
+        # MSG: Message shown after the song is transposed, first is the semitones and then the song name
+        self.log_and_send(_("Transposing by %s semitones: %s") % (semitones, now_playing))
         self.playback_controller.skip(log_action=False, reason="transpose")
 
     def volume_change(self, vol_level: float) -> bool:
@@ -634,8 +643,10 @@ class Karaoke:
                     # play_file() blocks only until the client connects, so this
                     # always lands before the song_ended that completes it.
                     if result.success:
+                        song_id, youtube_id = self.db.get_song_identity(song["file"])
                         self.play_history.record_play(
-                            self.db.get_song_id_by_path(song["file"]),
+                            song_id,
+                            youtube_id,
                             song["user"],
                             self.song_manager.display_name_from_path(song["file"]),
                         )

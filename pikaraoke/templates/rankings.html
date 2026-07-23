@@ -103,7 +103,8 @@
 	{% for song in top_songs %}
 	<tr>
 		<td>{{ loop.index }}</td>
-		<td>{{ filename_from_path(song.file_path) }}</td>
+		{# The title as recorded, so a song still counts after leaving the library. #}
+		<td>{{ song.song }}</td>
 		{{ play_count_cell(song.play_count) }}
 	</tr>
 	{% endfor %}

@@ -105,16 +105,23 @@ class TestUpgradeFromExistingDatabase:
         assert paths == ["/songs/existing.mp4"]
 
 
-class TestGetSongIdByPath:
-    def test_returns_none_when_missing(self, db):
-        assert db.get_song_id_by_path("/songs/nope.mp4") is None
+class TestGetSongIdentity:
+    def test_returns_nones_when_missing(self, db):
+        assert db.get_song_identity("/songs/nope.mp4") == (None, None)
 
     def test_returns_id_for_known_path(self, db):
         db.insert_songs([{"file_path": "/songs/a.mp4", "youtube_id": None, "format": "mp4"}])
-        song_id = db.get_song_id_by_path("/songs/a.mp4")
-        assert song_id is not None
+        song_id, youtube_id = db.get_song_identity("/songs/a.mp4")
+        assert youtube_id is None
         row = db._conn.execute("SELECT file_path FROM songs WHERE id = ?", (song_id,)).fetchone()
         assert row[0] == "/songs/a.mp4"
+
+    def test_returns_the_youtube_id_when_the_song_has_one(self, db):
+        """Play history stores this as the identity that outlives the song row."""
+        db.insert_songs(
+            [{"file_path": "/songs/a.mp4", "youtube_id": "dQw4w9WgXcQ", "format": "mp4"}]
+        )
+        assert db.get_song_identity("/songs/a.mp4")[1] == "dQw4w9WgXcQ"
 
 
 class TestForeignKeys:
@@ -124,10 +131,11 @@ class TestForeignKeys:
     def play(self, db):
         """A session with one play against one song. Returns (song_id, play_id)."""
         db.insert_songs([{"file_path": "/songs/a.mp4", "youtube_id": None, "format": "mp4"}])
-        song_id = db.get_song_id_by_path("/songs/a.mp4")
+        song_id = db.get_song_identity("/songs/a.mp4")[0]
         session_id = db.execute("INSERT INTO sessions (uuid) VALUES ('s1')").lastrowid
         play_id = db.execute(
-            "INSERT INTO plays (session_id, song_id, performer) VALUES (?, ?, 'Alice')",
+            "INSERT INTO plays (session_id, song_id, song_title, performer) "
+            "VALUES (?, ?, 'A Song', 'Alice')",
             (session_id, song_id),
         ).lastrowid
         return song_id, play_id
@@ -145,8 +153,12 @@ class TestForeignKeys:
         assert db.query("SELECT * FROM plays") == []
 
     def test_play_requires_a_real_session(self, db):
+        # song_title supplied so this fails on the foreign key, not NOT NULL.
         with pytest.raises(sqlite3.IntegrityError):
-            db.execute("INSERT INTO plays (session_id, performer) VALUES (999, 'Alice')")
+            db.execute(
+                "INSERT INTO plays (session_id, song_title, performer) "
+                "VALUES (999, 'A Song', 'Alice')"
+            )
 
 
 class TestGetAllSongPaths:

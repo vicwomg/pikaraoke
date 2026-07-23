@@ -47,17 +47,32 @@ CREATE TABLE IF NOT EXISTS sessions (
     ended_at TEXT
 );
 
--- song_title records what was sung as a fact, so a play still reads correctly
--- after the song leaves the library. song_id is the live link alongside it,
--- for aggregation over songs that are still there; it goes NULL on delete
--- while the title survives.
+-- Three ways of saying "which song", each for a different job:
+--   song_id     the live link, for joining to current metadata. Goes NULL when
+--               the song is deleted, and a re-added copy gets a fresh id, so
+--               this is only ever a join -- never an identity.
+--   youtube_id  the durable identity, a property of the video rather than of
+--               the row or the file, so it survives rename, move, delete and
+--               re-download. NULL for local rips, which have no such id.
+--   song_title  the identity of last resort, and what the log displays. Kept
+--               current through renames (PlayHistoryManager subscribes to
+--               song_renamed) so a local rip stays one song in the rankings,
+--               but never rewritten by a title-tidy toggle, which is a display
+--               preference rather than a correction.
+-- Reporting keys on COALESCE(youtube_id, song_title) -- see _SONG_KEY.
+--
+-- ended_at is NULL only while the song is actually playing, so the three states
+-- (playing / played through / ended early) live in the row rather than in a
+-- manager's memory, and survive a restart.
 CREATE TABLE IF NOT EXISTS plays (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id INTEGER NOT NULL,
     song_id INTEGER,
-    song_title TEXT,
+    youtube_id TEXT,
+    song_title TEXT NOT NULL,
     performer TEXT NOT NULL,
     played_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    ended_at TEXT,
     completed INTEGER DEFAULT 0,
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
     FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE SET NULL
@@ -134,13 +149,18 @@ class KaraokeDatabase:
             ).fetchone()
             return row[0] if row else None
 
-    def get_song_id_by_path(self, file_path: str) -> int | None:
-        """Return the song id for a file path, or None if not found."""
+    def get_song_identity(self, file_path: str) -> tuple[int | None, str | None]:
+        """Return (song_id, youtube_id) for a path, both None if not found.
+
+        One lookup rather than two: a play records both -- the id as the live
+        link to current metadata, the YouTube id as the identity that outlives
+        the song being renamed or removed.
+        """
         with self._lock:
             row = self._conn.execute(
-                "SELECT id FROM songs WHERE file_path = ?", (file_path,)
+                "SELECT id, youtube_id FROM songs WHERE file_path = ?", (file_path,)
             ).fetchone()
-            return row[0] if row else None
+            return (row[0], row[1]) if row else (None, None)
 
     # ------------------------------------------------------------------
     # Batch write operations (used by LibraryScanner)

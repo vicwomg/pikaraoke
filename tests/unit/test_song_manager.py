@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.song_manager import SongManager
 
 
@@ -15,7 +16,10 @@ def _native(path: Path) -> str:
 
 @pytest.fixture
 def mock_db():
-    return MagicMock()
+    db = MagicMock()
+    # (song_id, youtube_id), which rename() reads to announce song_renamed.
+    db.get_song_identity.return_value = (1, None)
+    return db
 
 
 class TestFilenameFromPath:
@@ -110,7 +114,7 @@ class TestDelete:
     def test_removes_file_and_updates_songs(self, tmp_path, mock_db):
         song = tmp_path / "Test---abc.mp4"
         song.write_text("fake")
-        sm = SongManager(str(tmp_path), db=mock_db)
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
         sm.songs.add_if_valid(_native(song))
         sm.delete(_native(song))
         assert not song.exists()
@@ -121,7 +125,7 @@ class TestDelete:
         cdg = tmp_path / "Test---abc.cdg"
         song.write_text("fake")
         cdg.write_text("fake")
-        sm = SongManager(str(tmp_path), db=mock_db)
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
         sm.songs.add_if_valid(_native(song))
         sm.delete(_native(song))
         assert not cdg.exists()
@@ -131,13 +135,13 @@ class TestDelete:
         ass = tmp_path / "Test---abc.ass"
         song.write_text("fake")
         ass.write_text("fake")
-        sm = SongManager(str(tmp_path), db=mock_db)
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
         sm.songs.add_if_valid(_native(song))
         sm.delete(_native(song))
         assert not ass.exists()
 
     def test_nonexistent_file_no_error(self, tmp_path, mock_db):
-        sm = SongManager(str(tmp_path), db=mock_db)
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
         sm.delete(_native(tmp_path / "nonexistent.mp4"))
 
 
@@ -145,7 +149,7 @@ class TestRename:
     def test_renames_file_and_updates_songs(self, tmp_path, mock_db):
         song = tmp_path / "Old Name---abc.mp4"
         song.write_text("fake")
-        sm = SongManager(str(tmp_path), db=mock_db)
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
         sm.songs.add_if_valid(_native(song))
         sm.rename(_native(song), "New Name---abc")
         assert not song.exists()
@@ -156,7 +160,7 @@ class TestRename:
         cdg = tmp_path / "Old---abc.cdg"
         song.write_text("fake")
         cdg.write_text("fake")
-        sm = SongManager(str(tmp_path), db=mock_db)
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
         sm.songs.add_if_valid(_native(song))
         sm.rename(_native(song), "New---abc")
         assert (tmp_path / "New---abc.cdg").exists()
@@ -167,7 +171,7 @@ class TestRename:
         ass = tmp_path / "Old---abc.ass"
         song.write_text("fake")
         ass.write_text("fake")
-        sm = SongManager(str(tmp_path), db=mock_db)
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
         sm.songs.add_if_valid(_native(song))
         sm.rename(_native(song), "New---abc")
         assert (tmp_path / "New---abc.ass").exists()
@@ -176,7 +180,7 @@ class TestRename:
     def test_returns_new_path(self, tmp_path, mock_db):
         song = tmp_path / "Old---abc.mp4"
         song.write_text("fake")
-        sm = SongManager(str(tmp_path), db=mock_db)
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
         sm.songs.add_if_valid(_native(song))
         result = sm.rename(_native(song), "New---abc")
         assert result == _native(tmp_path / "New---abc.mp4")
@@ -189,7 +193,7 @@ class TestDBCoordination:
         song = tmp_path / "Test---abc.mp4"
         song.write_text("fake")
         mock_db = MagicMock()
-        sm = SongManager(str(tmp_path), db=mock_db)
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
         sm.songs.add_if_valid(_native(song))
         sm.delete(_native(song))
         mock_db.delete_by_path.assert_called_once_with(_native(song))
@@ -198,7 +202,7 @@ class TestDBCoordination:
         song = tmp_path / "Old---abc.mp4"
         song.write_text("fake")
         mock_db = MagicMock()
-        sm = SongManager(str(tmp_path), db=mock_db)
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
         sm.songs.add_if_valid(_native(song))
         sm.rename(_native(song), "New---abc")
         mock_db.update_path.assert_called_once_with(
@@ -209,7 +213,7 @@ class TestDBCoordination:
         song = tmp_path / "New---xyz12345678.mp4"
         song.write_text("fake")
         mock_db = MagicMock()
-        sm = SongManager(str(tmp_path), db=mock_db)
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
         sm.register_download(_native(song))
         assert _native(song) in sm.songs
         mock_db.insert_songs.assert_called_once()

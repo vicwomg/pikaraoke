@@ -76,9 +76,18 @@ app.config["PIKARAOKE_BASE_PATH"] = args.base_path
 app.config["PIKARAOKE_SOCKETIO_PATH"] = socketio_path
 app.wsgi_app = BasePathMiddleware(app.wsgi_app, args.base_path)
 
-# base.html gates the admin-only nav links on this. A global rather than a
-# per-route template arg, so every page that extends base.html agrees.
-app.jinja_env.globals.update(is_admin=is_admin)
+# Globals rather than per-route template args, so every page that extends
+# base.html agrees: it gates the admin-only nav links on is_admin and renders a
+# session ribbon from active_session_name, and singer_field gates KJ mode on
+# has_active_session. Registered at import rather than in main() -- base.html
+# calls them on every render, so binding them any later leaves a render path
+# that fails on an undefined name. The Karaoke instance is resolved per call
+# because it does not exist yet at import time.
+app.jinja_env.globals.update(
+    is_admin=is_admin,
+    active_session_name=lambda: get_karaoke_instance().play_history.get_current_session_name(),
+    has_active_session=lambda: get_karaoke_instance().play_history.has_active_session(),
+)
 
 # Always initialize flask-smorest Api for error handling (@bp.arguments validation).
 # Only expose the Swagger UI when --enable-swagger is passed.
@@ -305,15 +314,11 @@ def main() -> None:
     app.config["ADMIN_PASSWORD"] = args.admin_password
     app.config["SITE_NAME"] = "PiKaraoke"
 
-    # Expose some functions to jinja templates. base.html renders a subtle
-    # ribbon from active_session_name, so it is a global rather than a
-    # per-route arg and every page that extends base.html agrees. singer_field
-    # gates KJ mode on has_active_session for the same reason.
+    # Expose some functions to jinja templates. The session globals are bound at
+    # import instead; these two need the Karaoke instance, which only exists here.
     app.jinja_env.globals.update(
         filename_from_path=k.song_manager.display_name_from_path,
         url_escape=quote,
-        active_session_name=k.play_history.get_current_session_name,
-        has_active_session=k.play_history.has_active_session,
     )
 
     if not args.skip_youtubedl_upgrade:
