@@ -189,8 +189,18 @@
 </head>
 
 <style>
-  .navbar-item > i {
-    margin-right: 2px;
+  /* Icon-to-label spacing. Bulma already makes navbar items flex containers with
+     a .75rem gap, and the fontello glyph adds another .2em of its own, so the
+     icon floated well clear of its label. The flex gap is the only lever needed
+     once the glyph's margin is zeroed -- the element margin that used to be here
+     just stacked a third value on top. */
+  .navbar-item,
+  .navbar-link {
+    gap: 0.3rem;
+  }
+  .navbar-item > i::before,
+  .navbar-link > i::before {
+    margin-right: 0;
   }
   .base-notification {
     position: fixed;
