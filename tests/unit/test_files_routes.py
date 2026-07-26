@@ -95,6 +95,31 @@ class TestFilter:
         assert "Waterloo" not in body
 
 
+class TestPaginationLinksEscapeTheQuery:
+    """Only the page number is un-escaped in the pagination href; the query is not."""
+
+    @staticmethod
+    def _page_links(body):
+        return re.findall(r'href="([^"]*page=\d+[^"]*)"', body)
+
+    def test_ampersand_in_q_does_not_split_the_link(self, client, app):
+        songs = [f"/songs/Simon & Garfunkel - Song {i}.mp4" for i in range(10)]
+        body = _browse(client, app, songs, "?q=Simon+%26+Garfunkel", per_page=2).data.decode()
+        links = self._page_links(body)
+        assert links, "expected pagination links to assert against"
+        # Unescaped, "&" would end the q parameter and page 2 would search "Simon "
+        assert all("q=Simon+%26+Garfunkel" in href for href in links)
+
+    def test_hash_in_q_does_not_become_a_fragment(self, client, app):
+        songs = [f"/songs/Rock #1 Hits {i}.mp4" for i in range(10)]
+        body = _browse(client, app, songs, "?q=rock+%231", per_page=2).data.decode()
+        links = self._page_links(body)
+        assert links, "expected pagination links to assert against"
+        # A bare "#" would make everything after it a fragment, so `page` would
+        # never reach the server and every link would render page 1.
+        assert all("#" not in href for href in links)
+
+
 class TestSortLinksPreserveTheFilter:
     """Sorting is orthogonal to filtering; only the alpha bar clears the query."""
 

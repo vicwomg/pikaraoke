@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import os
-from urllib.parse import unquote
 
 import flask_babel
 from flask import flash, redirect, render_template, request, url_for
@@ -22,6 +21,12 @@ _ = flask_babel.gettext
 _FORMAT_ICONS = {"mp4", "avi", "mkv", "mov", "webm", "cdg", "ass"}
 # Zipped CDG+MP3 packages are stored as "zip" in the DB but use the CDG icon
 _FORMAT_ALIASES = {"zip": "cdg"}
+
+# flask_paginate builds each page link with href.format(page), so the href has to
+# reach it holding a literal "{0}". url_for percent-encodes braces, so the page
+# number travels through it as this token instead: unreserved characters that come
+# back out untouched.
+_PAGE_TOKEN = "PIKARAOKE-PAGE-TOKEN"
 
 
 def _format_icon(song_path: str, db_format: str | None) -> str | None:
@@ -95,10 +100,15 @@ def browse():
     current_url = url_for("files.browse", **args.to_dict())
 
     page_param = get_page_parameter()
-    args[page_param] = "{0}"
+    args[page_param] = _PAGE_TOKEN
 
-    args_dict = args.to_dict()
-    pagination_href = unquote(url_for("files.browse", **args_dict))  # type: ignore
+    # Only this one parameter is un-escaped. Unquoting the whole URL instead would
+    # decode the user's query too: "Simon & Garfunkel" would split into separate
+    # parameters at the "&", and everything after a "#" would become a fragment the
+    # server never sees, pinning pagination to page 1.
+    pagination_href = url_for("files.browse", **args.to_dict()).replace(
+        f"{page_param}={_PAGE_TOKEN}", f"{page_param}={{0}}"
+    )
 
     # `songs` is already filtered, so the filtered count is the only count there is.
     # flask_paginate's search mode exists to report a `found` subset of a larger

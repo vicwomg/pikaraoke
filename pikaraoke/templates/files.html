@@ -74,26 +74,56 @@
 
 		function applyFilter() {
 			const q = effectiveQuery(input.value.trim());
+
+			// Aborting before the early return, not after it: backspacing from "ab"
+			// to "a" resolves to the query already on screen, but the request for
+			// "ab" is still in flight and its response would fill the table with
+			// results the input no longer describes.
+			if (inflight) {
+				inflight.abort();
+				inflight = null;
+			}
 			if (q === renderedQuery) return;
 
-			const params = buildParams(q);
-			history.replaceState(null, "", BROWSE_URL + "?" + params.toString());
+			// Safe to move ahead of the response: these only matter once clicked,
+			// and clicking one navigates to a fresh server render of that query.
 			syncSortLinks(q);
-			// Filtering drops `letter` from the URL and from the server-side query,
-			// so the heading's letter suffix is stale for good once one is typed.
-			if (q) $("#letter-heading").remove();
 
-			if (inflight) inflight.abort();
-			inflight = new AbortController();
+			const params = buildParams(q);
+			const query = params.toString();
+			const url = BROWSE_URL + (query ? "?" + query : "");
+
+			const controller = new AbortController();
+			inflight = controller;
 			params.set("partial", "1");
-			fetch(BROWSE_URL + "?" + params.toString(), { signal: inflight.signal })
-				.then((r) => r.text())
+			fetch(BROWSE_URL + "?" + params.toString(), { signal: controller.signal })
+				.then((r) => {
+					// An error page is still text. Without this check a 500 renders
+					// itself into the results table as though it were the fragment.
+					if (!r.ok) throw new Error("Filter request failed: " + r.status);
+					return r.text();
+				})
 				.then((html) => {
+					// abort() does not guarantee the promise loses the race, so the
+					// identity check is what actually keeps a stale response out.
+					if (inflight !== controller) return;
+					inflight = null;
 					resultsDiv.innerHTML = html;
 					renderedQuery = q;
+					// The URL is rewritten only once the table it names is on screen,
+					// so an abandoned query can never be left in the address bar. It
+					// carries the {path} state spa-navigation.js reads, or Back into
+					// this entry falls through to a full reload -- and currentPath has
+					// to move with it, or every link pointing here becomes a no-op.
+					history.replaceState({ path: url }, "", url);
+					if (window.spaNavigation) window.spaNavigation.setCurrentPath(url);
+					// Filtering drops `letter` from the URL and from the server-side
+					// query, so the heading's letter suffix is stale for good.
+					if (q) $("#letter-heading").remove();
 				})
 				.catch((e) => {
-					if (e.name !== "AbortError") throw e;
+					if (e.name === "AbortError") return;
+					console.error(e);
 				});
 		}
 
