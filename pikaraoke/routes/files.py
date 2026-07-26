@@ -88,6 +88,11 @@ def browse():
 
     args = request.args.copy()
     args.pop("_", None)
+    # Without this the fragment renders pagination links carrying partial=1, so
+    # clicking page 2 inside a swapped result table lands on a bare <table> with
+    # no nav or stylesheet. The same leak poisons current_url, which becomes the
+    # edit button's referrer.
+    args.pop("partial", None)
 
     current_url = url_for("files.browse", **args.to_dict())
 
@@ -97,29 +102,41 @@ def browse():
     args_dict = args.to_dict()
     pagination_href = unquote(url_for("files.browse", **args_dict))  # type: ignore
 
+    # In search mode flask_paginate counts pages from `found`, not `total`, so
+    # both have to be supplied or a filtered result set reports zero songs and
+    # renders no page links at all.
     pagination = Pagination(
         css_framework="bulma",
         page=page,
         total=len(songs),
+        found=len(songs),
         search=search,
         record_name="songs",
         per_page=results_per_page,
         display_msg="Showing <b>{start} - {end}</b> of <b>{total}</b> {record_name}",
+        search_msg="Showing <b>{start} - {end}</b> of <b>{found}</b> {record_name}",
         href=pagination_href,
     )
     start_index = (page - 1) * results_per_page
-    return render_template(
-        "files.html",
-        pagination=pagination,
-        sort_order=sort_order,
-        site_title=site_name,
-        letter=letter,
+    context = {
+        "pagination": pagination,
+        "sort_order": sort_order,
+        "site_title": site_name,
+        "letter": letter,
+        "q": q,
         # MSG: Title of the files page.
-        title=_("Browse"),
-        songs=songs[start_index : start_index + results_per_page],
-        admin=is_admin(),
-        current_url=current_url,
-    )
+        "title": _("Browse"),
+        "songs": songs[start_index : start_index + results_per_page],
+        "admin": is_admin(),
+        "current_url": current_url,
+    }
+    # Filter keystrokes ask for the result table alone. Rendering base.html per
+    # keystroke is pure Python, so on a Pi it blocks the event loop as surely as
+    # it wastes bytes over the hotspot. Built from one context dict so the two
+    # paths cannot drift.
+    if request.args.get("partial"):
+        return render_template("partials/browse_results.html", **context)
+    return render_template("files.html", **context)
 
 
 @files_bp.route("/files/delete", methods=["GET"])

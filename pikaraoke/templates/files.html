@@ -13,7 +13,9 @@
 			});
 		}
 
-		$("a.add-song-link").click(function (e) {
+		// Delegated: the result table is replaced wholesale on every filter
+		// keystroke, which would kill a handler bound directly to its rows.
+		$(document).on("click", "a.add-song-link", function (e) {
 			e.preventDefault();
 			setUserCookie();
 			var user = Cookies.get("user");
@@ -28,12 +30,98 @@
 				}
 			});
 		});
+
+		// --- Filter box -------------------------------------------------
+		// Hiragana/Katakana, CJK Ext A, CJK Unified, Hangul Syllables. Ranges mirror
+		// _CJK in metadata_parser.py. Compared numerically rather than written as a
+		// regex character class, so this file stays pure ASCII -- it is a Jinja
+		// template and must not depend on its own encoding surviving a round trip.
+		const CJK_RANGES = [
+			[0x3040, 0x30ff],
+			[0x3400, 0x4dbf],
+			[0x4e00, 0x9fff],
+			[0xac00, 0xd7af],
+		];
+
+		function hasCjk(text) {
+			for (const ch of text) {
+				const code = ch.codePointAt(0);
+				if (CJK_RANGES.some((r) => code >= r[0] && code <= r[1])) return true;
+			}
+			return false;
+		}
+
+		const input = document.getElementById("song-filter");
+		const resultsDiv = document.getElementById("browse-results");
+		// What the server last rendered. A query that resolves to this needs no
+		// request, which is why typing one letter on an unfiltered page is free.
+		let renderedQuery = {{ q | tojson }};
+		let inflight = null;
+
+		// A single Latin character matches nearly everything -- maximum scan cost
+		// for no narrowing. A single CJK character is the opposite: often a whole
+		// word, and highly selective. So the gate is selectivity, not length.
+		function effectiveQuery(raw) {
+			return raw.length < 2 && !hasCjk(raw) ? "" : raw;
+		}
+
+		function buildParams(q) {
+			const params = new URLSearchParams();
+			if (q) params.set("q", q);
+			// A user who chose ?sort=date and then typed has not asked to go back
+			// to alphabetical. page and letter are dropped: a new query is a new
+			// result set, and q takes precedence over letter server-side anyway.
+			const sort = new URLSearchParams(window.location.search).get("sort");
+			if (sort) params.set("sort", sort);
+			return params;
+		}
+
+		function applyFilter() {
+			const q = effectiveQuery(input.value.trim());
+			if (q === renderedQuery) return;
+
+			const params = buildParams(q);
+			history.replaceState(null, "", "{{ url_for('files.browse') }}?" + params.toString());
+			// Filtering drops `letter` from the URL and from the server-side query,
+			// so the heading's letter suffix is stale for good once one is typed.
+			if (q) $("#letter-heading").remove();
+
+			if (inflight) inflight.abort();
+			inflight = new AbortController();
+			params.set("partial", "1");
+			fetch("{{ url_for('files.browse') }}?" + params.toString(), { signal: inflight.signal })
+				.then((r) => r.text())
+				.then((html) => {
+					resultsDiv.innerHTML = html;
+					renderedQuery = q;
+				})
+				.catch((e) => {
+					if (e.name !== "AbortError") throw e;
+				});
+		}
+
+		const runFilter = debounce(applyFilter, 250);
+
+		input.addEventListener("input", function (e) {
+			// With an IME, "input" fires on every intermediate romaji state.
+			// Each one is a wasted round trip returning noise.
+			if (e.isComposing) return;
+			runFilter();
+		});
+		input.addEventListener("compositionend", runFilter);
+
+		$("#clear-filter").on("click", function (e) {
+			e.preventDefault();
+			input.value = "";
+			applyFilter();
+			input.focus();
+		});
 	});
 </script>
 
 {% endblock %} {% block header %}
 <h1>
-	{% block title %} {% if letter %} {{title}}: "{{ letter.upper() }}" {% else %} {{title}} {% endif %} {% endblock %}
+	{% block title %}{{title}}{% if letter %}<span id="letter-heading">: "{{ letter.upper() }}"</span>{% endif %}{% endblock %}
 </h1>
 <style>
 	#alpha-bar {
@@ -110,6 +198,27 @@
 	{% endif%}
 </p>
 
+{# Filtering is server-side: the page is paginated, so a client-side filter over
+   the ~100 rows in the DOM would silently miss songs on every other page. #}
+<div class="field has-addons mb-3">
+	<div class="control has-icons-left is-expanded">
+		<input
+			id="song-filter"
+			class="input"
+			type="text"
+			autocomplete="off"
+			value="{{ q }}"
+			{# MSG: Placeholder in the box that filters the songs already on this machine. #}
+			placeholder="{{ _('Filter by title or artist') }}"
+		/>
+		<span class="icon is-small is-left"><i class="icon icon-search-1"></i></span>
+	</div>
+	<div class="control">
+		{# MSG: Button which empties the filter box and shows every song again. #}
+		<a id="clear-filter" class="button">{% trans %}Clear{% endtrans %}</a>
+	</div>
+</div>
+
 <div id="alpha-bar" class="column is-full has-background-dark mobile-hide">
 	<a href="{{ url_for('files.browse') }}" title="Show all"><i class="icon icon-list-bullet"></i></a>
 	<a href="{{ url_for('files.browse') }}?letter=numeric">#</a>
@@ -119,32 +228,7 @@
 	{% endfor %}
 </div>
 
-{{ pagination.links }} {{ pagination.info }}
-<table>
-	{% for song in songs %}
-	{% set display_name = filename_from_path(song) %}
-	<tr value="{{ song }}">
-		<td style="padding: 5px 0px">{{loop.index + pagination.skip}}</td>
-		<td id="{{display_name[0].lower()}}" style="padding-right: 0">
-			<a
-				class="add-song-link has-text-weight-bold has-text-success"
-				title="Add '{{display_name}}' to queue"
-				href="{{url_for('queue.enqueue')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&user="
-				><i class="icon icon-list-add"></i>
-			</a>
-		</td>
-		<td class="break-word" style="padding-right: 0">{{display_name}}</td>
-		{% if admin %}
-		<td style="padding-right: 0">
-			<a
-				class="edit-button"
-				href="{{url_for('files.edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&referrer={{url_escape(current_url)}}"
-				title="Edit song"
-				><i class="icon icon-edit-1"></i>
-			</a>
-		</td>
-		{% endif %} {% endfor %}
-	</tr>
-</table>
-
-{{ pagination.links }} {% endblock %}
+{# The filter input sits outside this div, so a keystroke swap never takes the
+   caret with it. #}
+<div id="browse-results">{% include 'partials/browse_results.html' %}</div>
+{% endblock %}
