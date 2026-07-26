@@ -124,8 +124,8 @@ def browse():
         "site_title": site_name,
         "letter": letter,
         "q": q,
-        # MSG: Title of the files page.
-        "title": _("Browse"),
+        # MSG: Title of the page listing the songs already on this machine.
+        "title": _("Songs"),
         "songs": songs[start_index : start_index + results_per_page],
         "admin": is_admin(),
         "current_url": current_url,

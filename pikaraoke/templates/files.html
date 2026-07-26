@@ -123,6 +123,8 @@
 <h1>
 	{% block title %}{{title}}{% if letter %}<span id="letter-heading">: "{{ letter.upper() }}"</span>{% endif %}{% endblock %}
 </h1>
+{# MSG: Subtitle under the Songs heading, explaining that this page lists songs already downloaded. #}
+<p class="subtitle is-6">{% trans %}Everything already on this machine{% endtrans %}</p>
 <style>
 	#alpha-bar {
 		padding: 5px 10px;

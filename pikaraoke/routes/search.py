@@ -56,7 +56,8 @@ def search():
     return render_template(
         "search.html",
         site_title=site_name,
-        title="Search",
+        # MSG: Title of the page used to get new songs into the library.
+        title=_("Add New"),
         songs=k.song_manager.songs,
         search_results=search_results,
         search_string=search_string,

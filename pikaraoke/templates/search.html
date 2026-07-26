@@ -600,8 +600,15 @@
 		}
 	}
 </script>
-{% endblock %} {% block header %} {# MSG: Title for the search page. #}
-<h1>{% block title %}{% trans %}Search / Add New{% endtrans %}{% endblock %}</h1>
+{% endblock %} {% block header %}
+{# Rendered from the route's title, matching files.html -- a hardcoded heading here
+   meant changing search.py only moved the browser tab text. #}
+<h1>{% block title %}{{title}}{% endblock %}</h1>
+{% set library_link %}<a href="{{ url_for('files.browse') }}">{% trans %}Songs{% endtrans %}</a>{% endset %}
+<p class="subtitle is-6">
+	{# MSG: Subtitle under the Add New heading. LIBRARY_LINK is a link to the page listing songs already downloaded. #}
+	{% trans library_link=library_link %}Get new songs into your library. For songs you already have, see {{ library_link }}.{% endtrans %}
+</p>
 {% endblock %} {% block content %}
 
 <div>
