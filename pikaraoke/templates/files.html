@@ -116,11 +116,21 @@
 </script>
 
 {% endblock %} {% block header %}
-<h1>
-	{% block title %}{{title}}{% if letter %}<span id="letter-heading">: "{{ letter.upper() }}"</span>{% endif %}{% endblock %}
-</h1>
+{# The admin action shares the heading's row at every width rather than floating
+   over it, so it lines up against the same right edge as the content below. #}
+<div id="songs-heading">
+	<h1>
+		{% block title %}{{title}}{% if letter %}<span id="letter-heading">: "{{ letter.upper() }}"</span>{% endif %}{% endblock %}
+	</h1>
+	{% if admin %}
+	<a class="batch-edit-btn" href="{{ url_for('batch_song_renamer.browse')}}" title="Edit all songs"
+		><i class="icon icon-edit"></i>{# MSG: Button to open the batch song renamer page. #} {% trans %}Edit all songs{%
+		endtrans %}</a
+	>
+	{% endif %}
+</div>
 {# MSG: Subtitle under the Songs heading, explaining that this page lists songs already downloaded. #}
-<p class="subtitle is-6">{% trans %}Already on this machine{% endtrans %}</p>
+<p class="subtitle is-6">{% trans %}Available in the library{% endtrans %}</p>
 <style>
 	#alpha-bar {
 		padding: 5px 10px;
@@ -139,8 +149,39 @@
 	td {
 		word-wrap: break-word; /* Ensures long words break to fit within the cell */
 	}
+	/* `anywhere`, not `break-all`: break-all splits every title mid-word. This breaks
+	   a word only when it cannot fit on a line alone, and unlike the `break-word` in
+	   custom.css it still lets the auto-layout column shrink below its longest word,
+	   so a long unbroken filename narrows instead of overflowing on a phone. Old
+	   browsers that drop `anywhere` fall back to that custom.css rule. */
 	.break-word {
-		word-break: break-all; /* Ensures long words break to fit within the cell */
+		overflow-wrap: anywhere;
+	}
+
+	#songs-heading {
+		display: flex;
+		justify-content: space-between;
+		/* Baseline, not center: the link should sit on the heading's text line
+		   rather than float halfway up a much taller h1. */
+		align-items: baseline;
+		gap: 1rem;
+	}
+	#songs-heading h1 {
+		margin-bottom: 0;
+	}
+	.batch-edit-btn {
+		font-size: 0.875rem;
+		white-space: nowrap;
+	}
+
+	#sort-bar {
+		display: flex;
+		justify-content: flex-end;
+	}
+	/* Bulma gives a non-last .buttons a full block of spacing; this control belongs
+	   close to the table it sorts. */
+	#sort-bar .buttons {
+		margin-bottom: 0.5rem;
 	}
 
 	@media screen and (max-width: 500px) {
@@ -158,47 +199,9 @@
 		.mobile-hide {
 			visibility: hidden;
 		}
-		.batch-edit-btn {
-			position: absolute;
-			top: 10px;
-			right: 10px;
-			font-size: 0.875rem;
-			margin-right: 10px;
-		}
-		.box {
-			position: relative;
-		}
 	}
 </style>
 {% endblock %} {% block content %}
-
-<p class="is-flex is-justify-content-space-between">
-	<span class="is-flex-grow-1">
-		{# Sorting is orthogonal to filtering, so these carry the active filter through.
-		   The alpha bar below is the one control that deliberately clears it. #}
-		{% if sort_order == "Alphabetical" %} {# MSG: Label which displays that the songs are currently sorted by
-		alphabetical order. #} {% trans %}Sorted Alphabetically{% endtrans %} |
-		<a class="sort-link" data-sort="date"
-			href="{{ url_for('files.browse', sort='date', q=q or None, letter=letter or None) }}">
-			{# MSG: Button which changes how the songs are sorted so they become sorted by date. #} {% trans %}Sort by
-			Date{% endtrans %}
-		</a>
-		{% endif %} {% if sort_order == "Date" %} {# MSG: Label which displays that the songs are currently sorted by
-		date. #} {% trans %}Sorted by date{% endtrans %} |
-		<a class="sort-link" data-sort=""
-			href="{{ url_for('files.browse', q=q or None, letter=letter or None) }}">
-			{# MSG: Button which changes how the songs are sorted so they become sorted by name. #} {% trans %}Sort by
-			Alphabetical{% endtrans %}
-		</a>
-		{% endif %}
-	</span>
-	{% if admin %}
-	<a class="batch-edit-btn" href="{{ url_for('batch_song_renamer.browse')}}" title="Edit all songs"
-		><i class="icon icon-edit"></i>{# MSG: Button to open the batch song renamer page. #} {% trans %}Edit all songs{%
-		endtrans %}</a
-	>
-	{% endif%}
-</p>
 
 {# Filtering is server-side: the page is paginated, so a client-side filter over
    the ~100 rows in the DOM would silently miss songs on every other page. #}
@@ -224,10 +227,33 @@
 <div id="alpha-bar" class="column is-full has-background-dark mobile-hide">
 	<a href="{{ url_for('files.browse') }}" title="Show all"><i class="icon icon-list-bullet"></i></a>
 	<a href="{{ url_for('files.browse') }}?letter=numeric">#</a>
-	{% for letter in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
+	{# Not named `letter`: the sort links below read the page's own `letter` variable,
+	   and shadowing it here would be one Jinja scoping rule away from a bug. #}
+	{% for alpha in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
 	'u', 'v', 'w', 'x', 'y', 'z'] %}
-	<a href="{{ url_for('files.browse') }}?letter={{letter}}">{{letter.upper()}}</a>
+	<a href="{{ url_for('files.browse') }}?letter={{alpha}}">{{alpha.upper()}}</a>
 	{% endfor %}
+</div>
+
+{# Sits with the results it describes rather than above the search box, and shows
+   both orderings at once so the current one is visible without reading a sentence.
+   Sorting is orthogonal to filtering, so these carry the active filter through --
+   the alpha bar above is the one control that deliberately clears it. #}
+<div id="sort-bar">
+	<div class="buttons has-addons are-small">
+		{# Labels stay on one line: `trans` does not collapse whitespace, so a wrapped
+		   label bakes the newline and tabs into the msgid and any reindent breaks it. #}
+		<a class="button sort-link {% if sort_order == 'Alphabetical' %}is-info is-selected{% endif %}" data-sort=""
+			href="{{ url_for('files.browse', q=q or None, letter=letter or None) }}">
+			{# MSG: Button which changes how the songs are sorted so they become sorted by name. #}
+			{% trans %}Sort Alphabetically{% endtrans %}
+		</a>
+		<a class="button sort-link {% if sort_order == 'Date' %}is-info is-selected{% endif %}" data-sort="date"
+			href="{{ url_for('files.browse', sort='date', q=q or None, letter=letter or None) }}">
+			{# MSG: Button which changes how the songs are sorted so they become sorted by date. #}
+			{% trans %}Sort by Date{% endtrans %}
+		</a>
+	</div>
 </div>
 
 {# The filter input sits outside this div, so a keystroke swap never takes the
