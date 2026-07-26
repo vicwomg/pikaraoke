@@ -53,7 +53,6 @@
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		justify-content: space-between;
 		gap: 0.5rem 1.5rem;
 		margin-bottom: 0.75rem;
 	}
@@ -61,6 +60,10 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 1.25rem;
+		/* Auto margin rather than space-between on the row: once the links wrap
+		   onto their own line on mobile, space-between would leave them flush
+		   left. This keeps them right-aligned at every width. */
+		margin-left: auto;
 	}
 	/* Neither has an href -- they are JS actions, so the cursor needs saying */
 	#clear-search,
@@ -446,11 +449,13 @@
 					%}Direct download YouTube url:{% endtrans %}
 				</div>
 				<div>
+					{# An example rather than a prefilled value: the stub URL had to be typed
+					   past or cleared before a pasted link would work. #}
 					<input
 						class="input"
 						id="direct-download-url"
 						type="text"
-						value="https://www.youtube.com/watch?v="
+						placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 					/>
 					<div class="has-text-right mt-2">
 						{# MSG: Button which downloads a song and puts it straight in the queue. #}
