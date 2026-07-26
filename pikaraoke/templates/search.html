@@ -1,32 +1,5 @@
 {% extends 'base.html' %} {% block scripts %}
-<link href="{{  url_for('static', filename='selectize.min.css') }}" rel="stylesheet" />
-<script src="{{  url_for('static', filename='selectize-0.12.6.min.js') }}"></script>
 <style>
-	.optgroup-header {
-		font-weight: bold;
-	}
-
-	.row {
-		display: flex;
-		border-bottom: 1px solid #cccccc;
-	}
-
-	.col-icon {
-		padding-left: 1px;
-	}
-
-	.col-text {
-		padding-left: 2px;
-		font-size: 120%;
-	}
-
-	.selectize-input {
-		height: 40px;
-		border-top-right-radius: 0;
-		border-bottom-right-radius: 0;
-		font-size: 1rem;
-	}
-
 	/* --- Search result list ---------------------------------- */
 	ul.search_result_items {
 		list-style: none;
@@ -197,38 +170,8 @@
 </style>
 <script>
 	$(function () {
-		let lastCommittedSearchTerm = "";
-
-		function normalizeSearchTerm(value) {
-			return (value || "").trim();
-		}
-
-		function setLastCommittedSearchTerm(value) {
-			lastCommittedSearchTerm = normalizeSearchTerm(value);
-			return lastCommittedSearchTerm;
-		}
-
-		function getRestorableSearchTerm(selectize) {
-			return (
-				lastCommittedSearchTerm ||
-				normalizeSearchTerm(selectize.$control_input.val()) ||
-				normalizeSearchTerm(selectize.currentResults && selectize.currentResults.query)
-			);
-		}
-
-		function bindSearchTextboxTracking(selectize) {
-			selectize.$control_input.on("input change compositionend", function () {
-				setLastCommittedSearchTerm(this.value);
-			});
-		}
-
-		$("#search_result_selector").focus();
-
-		$("#search-link").click(function () {
-			if (!$("#search-link").is("[disabled=disabled]")) {
-				$("#search-link").addClass("is-loading");
-			}
-		});
+		const searchInput = document.getElementById("search_string_input");
+		searchInput.focus();
 
 		$("#direct-download-button").click(function () {
 			var url = $("#direct-download-url").val();
@@ -236,197 +179,44 @@
 			downloadSong(url, "", this, $("#add-to-queue-direct").is(":checked"));
 		});
 
-		$("#add-queue-link").click(function () {});
-
-		//START SELECTIZE CHANGES
-
-		//if enter key press, by default search button is click
-		$(document).keypress(function (event) {
-			if (event.which == "13") {
-				event.preventDefault();
-
-				if ($(".search-selectize .selectize-input input").val()) {
-					$("#search-link").trigger("click");
-				} else if ($(".search-selectize").find(":selected").text()) {
-					$("#add-queue-link").trigger("click");
-				}
-			}
-		});
-
-		$("#add-queue-link").hide();
-		$("#add-queue-link").attr("disabled", "true");
-		$("#search-link").attr("disabled", "true");
-		var $select = $("#song_to_add").selectize({
-			valueField: "path",
-			labelField: "fileName",
-			searchField: ["fileName"],
-			optgroupField: "type",
-			optgroups: [
-				{
-					value: "autocomplete",
-					label: {{ _("Available songs in local library") | tojson }},
-				},
-			],
-			createOnBlur: true,
-			openOnFocus: false,
-			createFilter: function (input) {
-				return input.length >= 2;
-			},
-			onInitialize: function () {
-				var that = this;
-
-				bindSearchTextboxTracking(this);
-
-				this.$control.on("click", function () {
-					that.ignoreFocusOpen = true;
-					setTimeout(function () {
-						that.ignoreFocusOpen = false;
-					}, 50);
-				});
-			},
-
-			onFocus: function () {
-				if ($(window).width() <= 500 && $(window).height() <= 740) {
-					document.getElementById("search-field").scrollIntoView();
-				}
-				if (!this.ignoreFocusOpen) {
-					this.open();
-				}
-			},
-			onBlur: function () {
-				this.setTextboxValue(getRestorableSearchTerm(this));
-			},
-			onChange: function (id) {
-				if (!id) {
-					$("#add-queue-link").attr("disabled", "true");
-					$("#search-link").attr("disabled", "true");
-					$("#add-queue-link").hide();
-					$("#search-link").show();
-				} else {
-					$("#add-queue-link").removeAttr("disabled");
-					$("#search-link").removeAttr("disabled");
-					$("#add-queue-link").show();
-					$("#search-link").hide();
-				}
-			},
-			onType: function (text) {
-				if (!text) {
-					console.log("no text");
-					$("#search-link").attr("disabled", "true");
-					{# $("#add-queue-link").show();
-					$("#search-link").hide(); #}
-				} else {
-					console.log("has text: " + text);
-					$("#search-link").removeAttr("disabled");
-					$("#add-queue-link").hide();
-					$("#search-link").show();
-				}
-			},
-			render: {
-				option: function (item, escape) {
-					return (
-						'<div class="row">' +
-						'<div class="col-icon"><i class="icon icon-music has-text-info"></i></div>' +
-						'<div class="col-text">' +
-						escape(item.fileName) +
-						"</div>" +
-						"</div>"
-					);
-				},
-				optgroup_header: function (data, escape) {
-					return '<div class="optgroup-header">' + escape(data.label) + "</div>";
-				},
-			},
-			load: function (query, callback) {
-				if (query.length < 2) return callback;
-				$.ajax({
-					url: "{{ url_for('search.autocomplete') }}" + "?q=" + query,
-					type: "get",
-					success: function (data) {
-						callback(data);
-					},
-				});
-			},
-		});
-
-		// re-populate the search field with previous search term
-		const urlParams = new URLSearchParams(window.location.search);
-		const qSearchString = urlParams.get("search_string");
-		if (qSearchString) {
-			$("#song_to_add-selectized").val(qSearchString);
-			$("#song_to_add-selectized").width("100%");
-			setLastCommittedSearchTerm(qSearchString);
+		function runSearch() {
+			const term = searchInput.value.trim();
+			if (!term) return;
+			$("#searching_loader").removeClass("is-hidden");
+			$("#searching_loader #search_term").text(term);
+			$("#search-link").attr("disabled", "true").addClass("is-loading");
+			$("#search_string").val(term);
+			$("#non_karaoke").val($("#include-non-karaoke").is(":checked"));
+			$("#container_search_result").hide();
+			$("#container_search_form form").submit();
 		}
-
-		$("#clear-search").on("click", function (e) {
-			e.preventDefault();
-			$select[0].selectize.clear();
-			$("#song_to_add-selectized").val("");
-			setLastCommittedSearchTerm("");
-		});
 
 		$("#search-link").on("click", function (e) {
 			e.preventDefault();
-			var search_term =
-				lastCommittedSearchTerm || normalizeSearchTerm($(".search-selectize .selectize-input input").val());
-			var include_non_karaoke = $("#include-non-karaoke").is(":checked");
-			if (search_term) {
-				$("#searching_loader").removeClass("is-hidden");
-				$("#searching_loader #search_term").text(search_term);
-				$("#search-link").attr("disabled", "true");
-				$("#search_string").val(search_term);
-				$("#non_karaoke").val(include_non_karaoke);
-				$("#container_search_result").hide();
-				$("#container_search_form form").submit();
+			runSearch();
+		});
+
+		// The input submits on Enter rather than firing per keystroke, so this page
+		// needs no IME composition handling. The Songs page filter does fire per
+		// keystroke and handles composition there.
+		searchInput.addEventListener("keypress", function (e) {
+			if (e.which === 13) {
+				e.preventDefault();
+				runSearch();
 			}
 		});
-		$("#add-queue-link").on("click", function (e) {
+
+		$("#clear-search").on("click", function (e) {
 			e.preventDefault();
-			if ($(".search-selectize").find(":selected").text()) {
-				$("#add-queue-link").attr("disabled", "true");
-				$("#add-queue-link").addClass("is-loading");
-				setTimeout(function () {
-					$("#add-queue-link").removeClass("is-loading");
-				}, 1000);
-				$.ajax({
-					url: "{{ url_for('queue.enqueue') }}",
-					type: "post",
-					data: $("#queue-form").serialize(),
-					success: function (data) {
-						var obj = JSON.parse(data);
-						if (obj.success[0]) {
-							showNotification(obj.success[1], "is-success");
-						} else {
-							showNotification(obj.success[1], "is-danger");
-						}
-						$select[0].selectize.clear();
-					},
-				});
-			}
+			searchInput.value = "";
+			searchInput.focus();
 		});
 
-		//END SELECTIZE CHANGES
-
-		$("#youtube-link").attr("href", $("#search_result_selector").val());
-		$("#youtube-link").text($("#search_result_selector").val());
-
-		//get youtube thumbnail based on ID
-		i = -1;
-		changeImage();
-
-		$(document).on("change", "#search_result_selector", function () {
-			var url = $("#search_result_selector").val();
-			$("#youtube-link").attr("href", url);
-			$("#youtube-link").text(url);
-			changeImage();
-		});
-		//alow click of images
-		$("#youtube-thumb").click(function (e) {
-			changeImage();
-		});
-		setInterval(function () {
-			$("#youtube-thumb").trigger("click");
-		}, 2000);
+		// re-populate the search field with the previous search term
+		const qSearchString = new URLSearchParams(window.location.search).get("search_string");
+		if (qSearchString) {
+			searchInput.value = qSearchString;
+		}
 
 		$("#advanced-settings").hide();
 
@@ -450,8 +240,6 @@
 		});
 
 		setUserCookie(); // Don't reload page after setting cookie
-
-		$(".song_added_by").val(getUserCookie());
 
 		// Restore checkbox states from cookies
 		restoreCheckboxStates();
@@ -506,14 +294,18 @@
 			});
 		}
 
-		const items = document.querySelectorAll(".search_result_items li");
-		items.forEach((item) =>
-			item.querySelector("button").addEventListener("click", function () {
-				const url = item.getAttribute("value");
-				const title = item.getAttribute("data-ytTitle");
-				downloadSong(url, title, this, $("#add-to-queue-search").is(":checked"));
-			})
-		);
+		// Delegated and scoped to the download class: rows for songs already in
+		// the library render an anchor instead of a button, and an unconditional
+		// querySelector("button") would throw on them.
+		$("#search-results").on("click", ".search_result_items_download", function () {
+			const item = this.closest("li");
+			downloadSong(
+				item.getAttribute("value"),
+				item.getAttribute("data-ytTitle"),
+				this,
+				$("#add-to-queue-search").is(":checked")
+			);
+		});
 
 
 
@@ -577,14 +369,6 @@
 		}
 	}
 
-	function changeImage() {
-		var next = ++i % 4;
-		var youtube_id = $("#search_result_selector").find(":selected").data("ytid");
-		var fn = next == 0 ? "default" : next;
-		var img_src = "https://img.youtube.com/vi/" + youtube_id + "/mq" + fn + ".jpg";
-		$("#youtube-thumb").attr("src", img_src);
-	}
-
 	function restoreCheckboxStates() {
 		// Restore "Include non-karaoke matches" checkbox state
 		var includeNonKaraoke = Cookies.get("include-non-karaoke");
@@ -612,57 +396,32 @@
 {% endblock %} {% block content %}
 
 <div>
-	<div class="field" id="container_queue_form">
-		<form id="queue-form">
-			<div id="search-field" class="field has-addons mb-1">
-				<div class="control is-expanded">
-					<select id="song_to_add" class="search-selectize is-size-7" name="song_to_add">
-						{# TODO MSG: Label #}
-						<optgroup label="{{ _('Available Songs') }}" id="available-songs"></optgroup>
-					</select>
-				</div>
-				<div class="control">
-					{# MSG: Submit button on the search form for searching YouTube. #}
-					<a class="button is-warning" id="search-link">{% trans %}Search{% endtrans %}</a>
-					{# MSG: Submit button on the search form when selecting a locally downloaded song. The button adds it to
-					the queue. #}
-					<a class="button is-info" id="add-queue-link">{% trans %}Add to queue{% endtrans %}</a>
-				</div>
-				<input class="song_added_by" type="hidden" name="song_added_by" />
+	<div class="field">
+		<div id="search-field" class="field has-addons mb-1">
+			<div class="control is-expanded">
+				<input
+					id="search_string_input"
+					class="input"
+					type="text"
+					autocomplete="off"
+					{# MSG: Placeholder in the box used to search YouTube for a song to download. #}
+					placeholder="{{ _('Search YouTube for a song to download') }}"
+				/>
 			</div>
-			<div class="control is-flex is-justify-content-flex-end is-align-items-center mb-2">
-				<a id="clear-search" class="has-text-danger" style="margin-right: 15px">
-					{# MSG: Link which clears the text from the search box. #} {% trans %}Clear{% endtrans %}</a
-				>
-				<label class="checkbox is-flex is-align-items-center">
-					<input type="checkbox" id="show-advanced" class="checkbox" name="show-advanced" />
-					{# MSG: Checkbox label which enables more options when searching. #} {% trans %}Advanced{% endtrans %}
-				</label>
+			<div class="control">
+				{# MSG: Submit button on the search form for searching YouTube. #}
+				<a class="button is-warning" id="search-link">{% trans %}Search{% endtrans %}</a>
 			</div>
-
-			<article class="message">
-				<div class="message-body">
-					<div class="columns is-vcentered is-mobile">
-						<div class="column is-narrow">
-							<span class="icon has-text-warning">
-								{# MSG: Info icon at the start of the help text below the search bar. #}
-								<i class="icon icon-info-circled-1 is-size-4" title="Info"></i>
-							</span>
-						</div>
-						<div class="column has-text-warning-light">
-							<p class="mb-1 is-italic">
-								{# MSG: Help text below the search bar. #} {% trans -%}- Type a song (title/artist) to search
-								the available songs and click 'Add to queue' to add it to the queue. {%- endtrans %}
-							</p>
-							<p class="is-italic">
-								{# MSG: Additonal help text below the search bar. #} {% trans -%}- If the song doesn't appear in
-								the "Available Songs" dropdown, click 'Search' to find it on Youtube {%- endtrans %}
-							</p>
-						</div>
-					</div>
-				</div>
-			</article>
-		</form>
+		</div>
+		<div class="control is-flex is-justify-content-flex-end is-align-items-center mb-2">
+			<a id="clear-search" class="has-text-danger" style="margin-right: 15px">
+				{# MSG: Link which clears the text from the search box. #} {% trans %}Clear{% endtrans %}</a
+			>
+			<label class="checkbox is-flex is-align-items-center">
+				<input type="checkbox" id="show-advanced" class="checkbox" name="show-advanced" />
+				{# MSG: Checkbox label which enables more options when searching. #} {% trans %}Advanced{% endtrans %}
+			</label>
+		</div>
 	</div>
 
 	<div>
@@ -746,13 +505,27 @@
 						{% if duration %}<span class="duration-badge">{{ duration }}</span>{% endif %}
 					</div>
 				</div>
+				{% set local_path = library_matches.get(id) %}
 				<div class="search_result_items_meta">
 					<div>
 						{{title}}
+						{% if local_path %}
+						{# MSG: Tag on a YouTube search result marking a song that is already downloaded. #}
+						<span class="tag is-info">{% trans %}In library{% endtrans %}</span>
+						{% endif %}
 						{% if channel %}<div class="is-size-7 has-text-grey">{{ channel }}</div>{% endif %}
 						<a href="{{url}}" target="_blank" rel="noopener noreferrer" class="is-size-7 has-text-info">YouTube ↗</a>
 					</div>
+					{% if local_path %}
+					{# Already downloaded, so queue it rather than fetching a second copy. #}
+					<a
+						class="button is-info add-song-link"
+						href="{{url_for('queue.enqueue')}}?song={{url_escape(local_path.encode('utf-8','surrogateescape'))}}&user="
+						>{# MSG: Button which adds an already-downloaded song to the queue. #} {% trans %}Add to queue{% endtrans %}</a
+					>
+					{% else %}
 					<button class="button search_result_items_download">Download</button>
+					{% endif %}
 				</div>
 			</li>
 			{% endfor %}

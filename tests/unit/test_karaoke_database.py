@@ -199,3 +199,36 @@ class TestUnicodeFilenames:
         path = "/songs/Céline Dion - My Heart---abc1234567x.mp4"
         db.insert_songs([{"file_path": path, "youtube_id": "abc1234567x", "format": "mp4"}])
         assert db.get_all_song_paths() == [path]
+
+
+class TestGetPathsByYoutubeIds:
+    """Powers the "In library" tag on YouTube search results."""
+
+    @staticmethod
+    def _record(youtube_id):
+        return {
+            "file_path": f"/songs/Song {youtube_id}---{youtube_id}.mp4",
+            "youtube_id": youtube_id,
+            "format": "mp4",
+        }
+
+    def test_empty_input_makes_no_query(self, db):
+        assert db.get_paths_by_youtube_ids([]) == {}
+
+    def test_no_match(self, db):
+        db.insert_songs([self._record("aaaaaaaaaaa")])
+        assert db.get_paths_by_youtube_ids(["zzzzzzzzzzz"]) == {}
+
+    def test_partial_match_returns_only_what_is_present(self, db):
+        db.insert_songs([self._record("aaaaaaaaaaa")])
+        result = db.get_paths_by_youtube_ids(["aaaaaaaaaaa", "zzzzzzzzzzz"])
+        assert result == {"aaaaaaaaaaa": "/songs/Song aaaaaaaaaaa---aaaaaaaaaaa.mp4"}
+
+    def test_multiple_matches(self, db):
+        db.insert_songs([self._record("aaaaaaaaaaa"), self._record("bbbbbbbbbbb")])
+        result = db.get_paths_by_youtube_ids(["aaaaaaaaaaa", "bbbbbbbbbbb"])
+        assert set(result) == {"aaaaaaaaaaa", "bbbbbbbbbbb"}
+
+    def test_ignores_songs_without_a_youtube_id(self, db):
+        db.insert_songs([{"file_path": "/songs/Local.zip", "youtube_id": None, "format": "zip"}])
+        assert db.get_paths_by_youtube_ids(["aaaaaaaaaaa"]) == {}

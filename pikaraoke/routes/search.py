@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import json
-
 import flask_babel
-from flask import current_app, jsonify, render_template, request, url_for
+from flask import jsonify, render_template, request
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
@@ -15,10 +13,6 @@ from pikaraoke.lib.youtube_dl import get_search_results, get_stream_url
 _ = flask_babel.gettext
 
 search_bp = Blueprint("search", __name__)
-
-
-class AutocompleteQuery(Schema):
-    q = fields.String(required=True, metadata={"description": "Search query for autocomplete"})
 
 
 class PreviewQuery(Schema):
@@ -53,35 +47,20 @@ def search():
     else:
         search_string = None
         search_results = None
+    # A result already on this machine gets a queue action instead of a pointless
+    # second download. One indexed query for the page, not one per result.
+    library_matches = (
+        k.db.get_paths_by_youtube_ids([r[2] for r in search_results]) if search_results else {}
+    )
     return render_template(
         "search.html",
         site_title=site_name,
         # MSG: Title of the page used to get new songs into the library.
         title=_("Add New"),
-        songs=k.song_manager.songs,
         search_results=search_results,
         search_string=search_string,
+        library_matches=library_matches,
     )
-
-
-@search_bp.route("/autocomplete")
-@search_bp.arguments(AutocompleteQuery, location="query")
-def autocomplete(query):
-    """Search available songs for autocomplete."""
-    k = get_karaoke_instance()
-    q = query["q"].lower()
-    result = []
-    for each in k.song_manager.songs:
-        if q in each.lower():
-            result.append(
-                {
-                    "path": each,
-                    "fileName": k.song_manager.display_name_from_path(each),
-                    "type": "autocomplete",
-                }
-            )
-    response = current_app.response_class(response=json.dumps(result), mimetype="application/json")
-    return response
 
 
 @search_bp.route("/preview")

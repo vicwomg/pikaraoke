@@ -117,8 +117,27 @@
       return Cookies.get("user");
     }
 
+    // Queueing a song already on this machine. Delegated because the Songs page
+    // swaps its whole result table per filter keystroke, and shared because
+    // Songs and Add New render the identical link. Unbound first: SPA navigation
+    // re-executes every inline script, so a plain bind would stack and queue the
+    // song once per page visited.
+    function bindAddSongLinks() {
+      $(document).off("click", "a.add-song-link");
+      $(document).on("click", "a.add-song-link", function (e) {
+        e.preventDefault();
+        setUserCookie();
+        $.get(this.href + encodeURIComponent(getUserCookie() || ""), function (data) {
+          var obj = JSON.parse(data);
+          // {# MSG: Notification shown after trying to add a song to the queue. The song name comes after this string. #}
+          showNotification(obj.success[1], obj.success[0] ? "is-success" : "is-danger");
+        });
+      });
+    }
+
     $(function () {
       connectSocket();
+      bindAddSongLinks();
 
       $("#notification-close").click(function () {
         $(".notification").hide();

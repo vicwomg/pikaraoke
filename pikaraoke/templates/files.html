@@ -13,24 +13,6 @@
 			});
 		}
 
-		// Delegated: the result table is replaced wholesale on every filter
-		// keystroke, which would kill a handler bound directly to its rows.
-		$(document).on("click", "a.add-song-link", function (e) {
-			e.preventDefault();
-			setUserCookie();
-			var user = Cookies.get("user");
-			$.get(this.href + encodeURIComponent(user), function (data) {
-				var obj = JSON.parse(data);
-				if (obj.success[0]) {
-					// {# MSG: Notification when a song gets added to the queue.  The song name comes after this string. #}
-					showNotification(obj.success[1], "is-success");
-				} else {
-					// {# MSG: Notification when a song does not get added to the queue.  The song name comes after this string. #}
-					showNotification(obj.success[1], "is-danger");
-				}
-			});
-		});
-
 		// --- Filter box -------------------------------------------------
 		// Hiragana/Katakana, CJK Ext A, CJK Unified, Hangul Syllables. Ranges mirror
 		// _CJK in metadata_parser.py. Compared numerically rather than written as a
