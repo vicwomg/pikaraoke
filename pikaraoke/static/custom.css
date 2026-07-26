@@ -131,13 +131,21 @@ body.hide-cursor * {
   font-size: 0.8rem;
 }
 
-/* Bulma sets the placeholder to 0.3 alpha, which over the dark theme's L=9% input
-   background composites to roughly L=34% -- about 2.3:1 contrast, unreadable.
-   0.65 lands near 6.6:1 while staying visibly dimmer than entered text.
-   Must be set on .input/.textarea themselves: Bulma declares the variable there,
-   and a property set on the element beats one inherited from :root. */
-.input,
-.textarea,
-.select select {
-  --bulma-input-placeholder-color: hsla(var(--bulma-text-h), var(--bulma-text-s), var(--bulma-text-strong-l), 0.65);
+/* The two Bulma stylesheets disagree about how dark an input is: bulma-dark.css
+   gives .input a white background, while Bulma's own dark-theme variables still
+   supply near-white values for the placeholder (0.3 alpha of a 93%-lightness
+   text colour) and for the left icon. Both were being painted white on white.
+   Set explicit greys rather than adjusting the variables, since the theme chain
+   cannot be trusted to know the background here. */
+.input::placeholder,
+.textarea::placeholder {
+  /* ~4.9:1 on white, and clearly dimmer than the near-black text entered above it */
+  color: #6a7273;
+  /* Firefox applies its own default placeholder opacity on top of the colour */
+  opacity: 1;
+}
+
+.control.has-icons-left .icon,
+.control.has-icons-right .icon {
+  color: #6a7273;
 }
