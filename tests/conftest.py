@@ -1,11 +1,44 @@
 """Pytest fixtures for PiKaraoke tests."""
 
+from pathlib import Path
+from urllib.parse import quote
+
 import pytest
+from flask import Flask
+from flask_babel import Babel
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
+
+PIKARAOKE_PACKAGE = Path(__file__).resolve().parent.parent / "pikaraoke"
+
+
+def make_route_app(blueprint, linked_endpoints):
+    """A Flask app with just enough wiring to render one blueprint's templates.
+
+    `linked_endpoints` are the (rule, endpoint) pairs the templates url_for()
+    but the blueprint under test does not itself define, so they need stubs.
+    """
+    app = Flask(__name__, template_folder=str(PIKARAOKE_PACKAGE / "templates"))
+    Babel(app)
+    app.register_blueprint(blueprint)
+    for rule, endpoint in linked_endpoints:
+        app.add_url_rule(rule, endpoint, lambda: "", methods=["GET"])
+
+    @app.context_processor
+    def inject_path_config():
+        return {"base_path": "", "socketio_path": "/socket.io", "cookie_path": "/"}
+
+    app.jinja_env.globals.update(url_escape=quote)
+    return app
+
+
+@pytest.fixture
+def client(app):
+    """Test client for whichever `app` fixture the test module defines."""
+    return app.test_client()
 
 
 class MockPlaybackController:

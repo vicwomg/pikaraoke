@@ -1,20 +1,15 @@
 """Tests for the Add New page: it acquires songs and flags ones already held."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-from urllib.parse import quote
 
 import pytest
 import werkzeug
-from flask import Flask
-from flask_babel import Babel
 
 if not hasattr(werkzeug, "__version__"):
     werkzeug.__version__ = "3.0.0"
 
 from pikaraoke.routes.search import search_bp
-
-PIKARAOKE = Path(__file__).resolve().parents[2] / "pikaraoke"
+from tests.conftest import make_route_app
 
 # (title, url, id, channel, duration) -- the shape get_search_results returns
 HELD = ("Held Song", "https://youtu.be/aaaaaaaaaaa", "aaaaaaaaaaa", "Chan", "3:21")
@@ -28,29 +23,16 @@ SAVE_BUTTON = 'class="button search_result_items_download" data-queue=""'
 
 @pytest.fixture
 def app():
-    test_app = Flask(__name__, template_folder=str(PIKARAOKE / "templates"))
-    Babel(test_app)
-    test_app.register_blueprint(search_bp)
-    for rule, endpoint in (
-        ("/", "home.home"),
-        ("/queue", "queue.queue"),
-        ("/queue/enqueue", "queue.enqueue"),
-        ("/browse", "files.browse"),
-        ("/info", "info.info"),
-    ):
-        test_app.add_url_rule(rule, endpoint, lambda: "", methods=["GET"])
-
-    @test_app.context_processor
-    def inject_path_config():
-        return {"base_path": "", "socketio_path": "/socket.io", "cookie_path": "/"}
-
-    test_app.jinja_env.globals.update(url_escape=quote)
-    return test_app
-
-
-@pytest.fixture
-def client(app):
-    return app.test_client()
+    return make_route_app(
+        search_bp,
+        [
+            ("/", "home.home"),
+            ("/queue", "queue.queue"),
+            ("/queue/enqueue", "queue.enqueue"),
+            ("/browse", "files.browse"),
+            ("/info", "info.info"),
+        ],
+    )
 
 
 def _search(client, results, library_matches):

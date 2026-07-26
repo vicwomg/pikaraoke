@@ -2,57 +2,32 @@
 
 import os
 import re
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-from urllib.parse import quote
 
 import pytest
 import werkzeug
-from flask import Flask
-from flask_babel import Babel
 
 if not hasattr(werkzeug, "__version__"):
     werkzeug.__version__ = "3.0.0"
 
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.routes.files import files_bp
-
-PIKARAOKE = Path(__file__).resolve().parents[2] / "pikaraoke"
-
-
-def _stub_endpoints(app):
-    """Minimal stand-ins for the endpoints base.html and files.html link to."""
-    for rule, endpoint in (
-        ("/", "home.home"),
-        ("/queue", "queue.queue"),
-        ("/queue/enqueue", "queue.enqueue"),
-        ("/search", "search.search"),
-        ("/info", "info.info"),
-        ("/batch", "batch_song_renamer.browse"),
-    ):
-        app.add_url_rule(rule, endpoint, lambda: "", methods=["GET"])
+from tests.conftest import make_route_app
 
 
 @pytest.fixture
 def app():
-    test_app = Flask(__name__, template_folder=str(PIKARAOKE / "templates"))
-    test_app.config["PIKARAOKE_BASE_PATH"] = ""
-    test_app.config["PIKARAOKE_SOCKETIO_PATH"] = "/socket.io"
-    Babel(test_app)
-    test_app.register_blueprint(files_bp)
-    _stub_endpoints(test_app)
-
-    @test_app.context_processor
-    def inject_path_config():
-        return {"base_path": "", "socketio_path": "/socket.io", "cookie_path": "/"}
-
-    test_app.jinja_env.globals.update(url_escape=quote)
-    return test_app
-
-
-@pytest.fixture
-def client(app):
-    return app.test_client()
+    return make_route_app(
+        files_bp,
+        [
+            ("/", "home.home"),
+            ("/queue", "queue.queue"),
+            ("/queue/enqueue", "queue.enqueue"),
+            ("/search", "search.search"),
+            ("/info", "info.info"),
+            ("/batch", "batch_song_renamer.browse"),
+        ],
+    )
 
 
 def _sort_links(body):
