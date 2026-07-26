@@ -33,6 +33,7 @@
 			return false;
 		}
 
+		const BROWSE_URL = "{{ url_for('files.browse') }}";
 		const input = document.getElementById("song-filter");
 		const resultsDiv = document.getElementById("browse-results");
 		// What the server last rendered. A query that resolves to this needs no
@@ -67,7 +68,7 @@
 				if (q) params.set("q", q);
 				if (a.dataset.sort) params.set("sort", a.dataset.sort);
 				const query = params.toString();
-				a.href = "{{ url_for('files.browse') }}" + (query ? "?" + query : "");
+				a.href = BROWSE_URL + (query ? "?" + query : "");
 			});
 		}
 
@@ -76,7 +77,7 @@
 			if (q === renderedQuery) return;
 
 			const params = buildParams(q);
-			history.replaceState(null, "", "{{ url_for('files.browse') }}?" + params.toString());
+			history.replaceState(null, "", BROWSE_URL + "?" + params.toString());
 			syncSortLinks(q);
 			// Filtering drops `letter` from the URL and from the server-side query,
 			// so the heading's letter suffix is stale for good once one is typed.
@@ -85,7 +86,7 @@
 			if (inflight) inflight.abort();
 			inflight = new AbortController();
 			params.set("partial", "1");
-			fetch("{{ url_for('files.browse') }}?" + params.toString(), { signal: inflight.signal })
+			fetch(BROWSE_URL + "?" + params.toString(), { signal: inflight.signal })
 				.then((r) => r.text())
 				.then((html) => {
 					resultsDiv.innerHTML = html;

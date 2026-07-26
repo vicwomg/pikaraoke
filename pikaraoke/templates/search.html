@@ -272,10 +272,13 @@
 
 		setUserCookie(); // Don't reload page after setting cookie
 
-		// Restore checkbox states from cookies
-		restoreCheckboxStates();
-
-		// Save checkbox states when they change
+		// "Include non-karaoke matches" is the only setting left on this page, so its
+		// cookie is read and written right here rather than through a restore-everything
+		// helper.
+		const includeNonKaraoke = Cookies.get("include-non-karaoke");
+		if (includeNonKaraoke !== undefined) {
+			$("#include-non-karaoke").prop("checked", includeNonKaraoke === "true");
+		}
 		$("#include-non-karaoke").change(function () {
 			Cookies.set("include-non-karaoke", $(this).is(":checked"), {
 				expires: 365,
@@ -387,14 +390,6 @@
 			return s.includes("youtube.com/watch?v=") || s.includes("youtube.com/v/") || s.includes("youtu.be/");
 		} else {
 			return false;
-		}
-	}
-
-	function restoreCheckboxStates() {
-		// Restore "Include non-karaoke matches" checkbox state
-		var includeNonKaraoke = Cookies.get("include-non-karaoke");
-		if (includeNonKaraoke !== undefined) {
-			$("#include-non-karaoke").prop("checked", includeNonKaraoke === "true");
 		}
 	}
 </script>

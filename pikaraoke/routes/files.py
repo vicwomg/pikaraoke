@@ -60,9 +60,7 @@ def browse():
     k = get_karaoke_instance()
     site_name = get_site_name()
     q = (request.args.get("q") or "").strip()
-    search = bool(q)
     page = int(request.args.get("page", 1))
-
     letter = request.args.get("letter")
 
     # A text query and a letter jump are two different intents, so q wins.
@@ -102,19 +100,17 @@ def browse():
     args_dict = args.to_dict()
     pagination_href = unquote(url_for("files.browse", **args_dict))  # type: ignore
 
-    # In search mode flask_paginate counts pages from `found`, not `total`, so
-    # both have to be supplied or a filtered result set reports zero songs and
-    # renders no page links at all.
+    # `songs` is already filtered, so the filtered count is the only count there is.
+    # flask_paginate's search mode exists to report a `found` subset of a larger
+    # `total`; leaving it off keeps one number driving both the page links and the
+    # message. Turning it on without a `found` reports zero songs and no page links.
     pagination = Pagination(
         css_framework="bulma",
         page=page,
         total=len(songs),
-        found=len(songs),
-        search=search,
         record_name="songs",
         per_page=results_per_page,
         display_msg="Showing <b>{start} - {end}</b> of <b>{total}</b> {record_name}",
-        search_msg="Showing <b>{start} - {end}</b> of <b>{found}</b> {record_name}",
         href=pagination_href,
     )
     start_index = (page - 1) * results_per_page
