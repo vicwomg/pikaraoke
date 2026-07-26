@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import os
-import unicodedata
 from urllib.parse import unquote
 
 import flask_babel
@@ -60,33 +59,23 @@ def browse():
     """Browse available songs page."""
     k = get_karaoke_instance()
     site_name = get_site_name()
-    search = False
-    q = request.args.get("q")
-    if q:
-        search = True
+    q = (request.args.get("q") or "").strip()
+    search = bool(q)
     page = int(request.args.get("page", 1))
-
-    available_songs = k.song_manager.songs
 
     letter = request.args.get("letter")
 
-    if letter:
-        result = []
-        if letter == "numeric":
-            for song in available_songs:
-                f = k.song_manager.display_name_from_path(song)[0]
-                if f.isnumeric():
-                    result.append(song)
-        else:
-            for song in available_songs:
-                f = k.song_manager.display_name_from_path(song).lower()
-                # Normalize accented characters so e.g. "Édith" matches "e"
-                normalized = unicodedata.normalize("NFD", f)
-                base_char = normalized[0] if normalized else ""
-                if base_char == letter.lower():
-                    result.append(song)
-        available_songs = result
+    # A text query and a letter jump are two different intents, so q wins.
+    if q:
+        available_songs = k.song_manager.search(q)
+    elif letter:
+        available_songs = k.song_manager.songs_by_letter(letter)
+    else:
+        available_songs = k.song_manager.songs
 
+    # Filtering stays above the date sort so getmtime() only stats the filtered
+    # songs -- on a USB or SMB mounted library that is the difference between
+    # ~50 stats and ~2000, and gevent does not yield during filesystem I/O.
     if request.args.get("sort") == "date":
         songs = sorted(available_songs, key=lambda x: os.path.getmtime(x))
         songs.reverse()
