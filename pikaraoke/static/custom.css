@@ -130,3 +130,9 @@ body.hide-cursor * {
   color: var(--dark-text-muted);
   font-size: 0.8rem;
 }
+
+/* Bulma sets this to 0.3 alpha, which is effectively invisible against the dark
+   theme's input background -- placeholder hints could not be read at all. */
+:root {
+  --bulma-input-placeholder-color: hsla(var(--bulma-text-h), var(--bulma-text-s), var(--bulma-text-strong-l), 0.62);
+}

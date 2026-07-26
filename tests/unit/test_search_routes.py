@@ -20,8 +20,10 @@ PIKARAOKE = Path(__file__).resolve().parents[2] / "pikaraoke"
 HELD = ("Held Song", "https://youtu.be/aaaaaaaaaaa", "aaaaaaaaaaa", "Chan", "3:21")
 MISSING = ("Missing Song", "https://youtu.be/zzzzzzzzzzz", "zzzzzzzzzzz", "Chan", "4:05")
 
-# The rendered element, not the bare class name -- that also appears in the page's CSS
-DOWNLOAD_BUTTON = '<button class="button search_result_items_download">'
+# The rendered elements, not the bare class name -- that also appears in the page's CSS.
+# The row carries the queue-or-not intent, so there is no global toggle to read.
+QUEUE_BUTTON = 'class="button is-info search_result_items_download" data-queue="1"'
+SAVE_BUTTON = 'class="button search_result_items_download" data-queue=""'
 
 
 @pytest.fixture
@@ -93,16 +95,25 @@ class TestLibraryMatches:
         body = response.data.decode()
         assert "In library" in body
         assert "add-song-link" in body
-        assert DOWNLOAD_BUTTON not in body
+        assert QUEUE_BUTTON not in body
+        assert SAVE_BUTTON not in body
 
-    def test_missing_song_keeps_the_download_button(self, client):
+    def test_missing_song_offers_both_queue_and_save(self, client):
+        """The row carries the intent, so there is no global queue-once-downloaded toggle."""
         response, _ = _search(client, [MISSING], {})
         body = response.data.decode()
         assert "In library" not in body
-        assert DOWNLOAD_BUTTON in body
+        assert QUEUE_BUTTON in body
+        assert SAVE_BUTTON in body
+
+    def test_no_global_queue_toggle_remains(self, client):
+        response, _ = _search(client, [MISSING], {})
+        assert 'id="add-to-queue"' not in response.data.decode()
 
     def test_a_mixed_page_renders_both(self, client):
         response, _ = _search(client, [HELD, MISSING], {"aaaaaaaaaaa": "/songs/Held Song.mp4"})
         body = response.data.decode()
         assert "In library" in body
-        assert DOWNLOAD_BUTTON in body
+        assert "add-song-link" in body
+        assert QUEUE_BUTTON in body
+        assert SAVE_BUTTON in body

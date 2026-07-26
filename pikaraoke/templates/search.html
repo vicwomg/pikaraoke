@@ -48,6 +48,36 @@
 		transition: opacity 0.3s ease;
 	}
 
+	/* Options row: one setting on the left, the two text actions on the right */
+	#search-options {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem 1.5rem;
+		margin-bottom: 0.75rem;
+	}
+	.search-options-links {
+		display: inline-flex;
+		align-items: center;
+		gap: 1.25rem;
+	}
+	/* Neither has an href -- they are JS actions, so the cursor needs saying */
+	#clear-search,
+	#show-advanced {
+		cursor: pointer;
+	}
+
+	/* Stacked at every width, as it already rendered on mobile: side by side the
+	   two labels form a wide block that squeezes the title into a narrow column. */
+	.search_result_items_actions {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		flex-shrink: 0;
+		gap: 0.5rem;
+	}
+
 	/* Meta: title fills space, button pinned right */
 	.search_result_items_meta {
 		display: flex;
@@ -60,9 +90,6 @@
 	.search_result_items_meta > div:first-child {
 		flex: 1;
 		min-width: 0;
-	}
-	.search_result_items_download {
-		flex-shrink: 0;
 	}
 
 	#search-results .img-wrapper:hover img {
@@ -122,10 +149,9 @@
 		height: 100%;
 	}
 
-	.duration-badge {
+	.duration-badge,
+	.library-badge {
 		position: absolute;
-		bottom: 4px;
-		right: 4px;
 		background: rgba(0, 0, 0, 0.8);
 		color: #fff;
 		font-size: 0.75rem;
@@ -133,6 +159,16 @@
 		border-radius: 3px;
 		pointer-events: none;
 		z-index: 3; /* above the play-icon overlays (z-index 1 and 2) */
+	}
+	.duration-badge {
+		bottom: 4px;
+		right: 4px;
+	}
+	.library-badge {
+		top: 4px;
+		left: 4px;
+		background: hsl(204, 71%, 39%);
+		font-weight: 600;
 	}
 
 	/* Loading overlay for the video preview modal.
@@ -173,10 +209,10 @@
 		const searchInput = document.getElementById("search_string_input");
 		searchInput.focus();
 
-		$("#direct-download-button").click(function () {
+		$(".direct-download").click(function () {
 			var url = $("#direct-download-url").val();
 			if (!url) return;
-			downloadSong(url, "", this, $("#add-to-queue-direct").is(":checked"));
+			downloadSong(url, "", this, Boolean(this.dataset.queue));
 		});
 
 		function runSearch() {
@@ -218,25 +254,17 @@
 			searchInput.value = qSearchString;
 		}
 
-		$("#advanced-settings").hide();
-
-		// handle show advanced state
-		$("#show-advanced").on("change", function () {
-			if ($("#show-advanced").is(":checked")) {
-				$("#advanced-settings").show();
-			} else {
-				$("#advanced-settings").hide();
-			}
+		// A disclosure, not a setting: the panel starts hidden via its inline style.
+		$("#show-advanced").on("click", function (e) {
+			e.preventDefault();
+			var expanded = $(this).attr("aria-expanded") === "true";
+			$(this).attr("aria-expanded", !expanded);
+			$("#advanced-settings").slideToggle(120);
 		});
 
 		// handle direct download url input change
 		$("#direct-download-url").on("input", function () {
-			var v = $("#direct-download-url").val();
-			if (isYoutubeURL(v)) {
-				$("#direct-download-button").removeAttr("disabled");
-			} else {
-				$("#direct-download-button").attr("disabled", true);
-			}
+			$(".direct-download").attr("disabled", !isYoutubeURL($(this).val()));
 		});
 
 		setUserCookie(); // Don't reload page after setting cookie
@@ -249,15 +277,6 @@
 			Cookies.set("include-non-karaoke", $(this).is(":checked"), {
 				expires: 365,
 			});
-		});
-
-		$("#add-to-queue-direct, #add-to-queue-search").change(function () {
-			Cookies.set("add-to-queue-on-download", $(this).is(":checked"), {
-				expires: 365,
-			});
-			// Sync both checkboxes to have the same state
-			var isChecked = $(this).is(":checked");
-			$("#add-to-queue-direct, #add-to-queue-search").prop("checked", isChecked);
 		});
 
 		function downloadSong(songUrl, songTitle, button, addToQueue) {
@@ -296,18 +315,17 @@
 
 		// Delegated and scoped to the download class: rows for songs already in
 		// the library render an anchor instead of a button, and an unconditional
-		// querySelector("button") would throw on them.
+		// querySelector("button") would throw on them. data-queue carries the
+		// intent, so "Add to queue" and "Save for later" share one handler.
 		$("#search-results").on("click", ".search_result_items_download", function () {
 			const item = this.closest("li");
 			downloadSong(
 				item.getAttribute("value"),
 				item.getAttribute("data-ytTitle"),
 				this,
-				$("#add-to-queue-search").is(":checked")
+				Boolean(this.dataset.queue)
 			);
 		});
-
-
 
 		$("#search-results").on("click", ".img-wrapper", function () {
 			const modal = document.getElementById("modal-js-example");
@@ -375,65 +393,53 @@
 		if (includeNonKaraoke !== undefined) {
 			$("#include-non-karaoke").prop("checked", includeNonKaraoke === "true");
 		}
-
-		// Restore "Add to queue once downloaded" checkbox state
-		var addToQueue = Cookies.get("add-to-queue-on-download");
-		if (addToQueue !== undefined) {
-			var shouldCheck = addToQueue === "true";
-			$("#add-to-queue-direct, #add-to-queue-search").prop("checked", shouldCheck);
-		}
 	}
 </script>
 {% endblock %} {% block header %}
 {# Rendered from the route's title, matching files.html -- a hardcoded heading here
    meant changing search.py only moved the browser tab text. #}
 <h1>{% block title %}{{title}}{% endblock %}</h1>
-{% set library_link %}<a href="{{ url_for('files.browse') }}">{% trans %}Songs{% endtrans %}</a>{% endset %}
-<p class="subtitle is-6">
-	{# MSG: Subtitle under the Add New heading. LIBRARY_LINK is a link to the page listing songs already downloaded. #}
-	{% trans library_link=library_link %}Get new songs into your library. For songs you already have, see {{ library_link }}.{% endtrans %}
-</p>
+{# MSG: Subtitle under the Add New heading, explaining that this page downloads songs the machine does not have. #}
+<p class="subtitle is-6">{% trans %}Download new songs from YouTube{% endtrans %}</p>
 {% endblock %} {% block content %}
 
 <div>
 	<div class="field">
 		<div id="search-field" class="field has-addons mb-1">
-			<div class="control is-expanded">
+			<div class="control has-icons-left is-expanded">
 				<input
 					id="search_string_input"
 					class="input"
 					type="text"
 					autocomplete="off"
 					{# MSG: Placeholder in the box used to search YouTube for a song to download. #}
-					placeholder="{{ _('Search YouTube for a song to download') }}"
+					placeholder="{{ _('Search YouTube by title, artist...') }}"
 				/>
+				<span class="icon is-small is-left"><i class="icon icon-search-1"></i></span>
 			</div>
 			<div class="control">
 				{# MSG: Submit button on the search form for searching YouTube. #}
 				<a class="button is-warning" id="search-link">{% trans %}Search{% endtrans %}</a>
 			</div>
 		</div>
-		<div class="control is-flex is-justify-content-flex-end is-align-items-center mb-2">
-			<a id="clear-search" class="has-text-danger" style="margin-right: 15px">
-				{# MSG: Link which clears the text from the search box. #} {% trans %}Clear{% endtrans %}</a
-			>
-			<label class="checkbox is-flex is-align-items-center">
-				<input type="checkbox" id="show-advanced" class="checkbox" name="show-advanced" />
-				{# MSG: Checkbox label which enables more options when searching. #} {% trans %}Advanced{% endtrans %}
+		{# Only one setting left: each result row carries its own queue-or-not
+		   buttons, so no global toggle is needed. Advanced reveals the direct-URL
+		   form -- a disclosure rather than a setting, so it is a link, not a tickbox. #}
+		<div id="search-options">
+			<label class="checkbox">
+				<input type="checkbox" id="include-non-karaoke" name="include-non-karaoke" />
+				{# MSG: Checkbox label which enables matching songs which are not karaoke versions (i.e. the songs still
+				have a singer and are not just instrumentals.) #} {% trans %}Include non-karaoke matches{% endtrans %}
 			</label>
+			<span class="search-options-links">
+				{# MSG: Link which clears the text from the search box. #}
+				<a id="clear-search" class="has-text-danger">{% trans %}Clear{% endtrans %}</a>
+				{# MSG: Link which reveals the direct-URL download form. #}
+				<a id="show-advanced" aria-expanded="false">{% trans %}Advanced{% endtrans %}</a>
+			</span>
 		</div>
-	</div>
 
-	<div>
-		<div id="advanced-settings" class="box has-background-black-bis" style="margin-top: 10px; display: none">
-			<div class="control">
-				<label class="checkbox is-flex is-align-items-center">
-					<input type="checkbox" class="checkbox" id="include-non-karaoke" name="include-non-karaoke" />
-					{# MSG: Checkbox label which enables matching songs which are not karaoke versions (i.e. the songs still
-					have a singer and are not just instrumentals.) #} {% trans %}Include non-karaoke matches{% endtrans %}
-				</label>
-			</div>
-			<hr />
+		<div id="advanced-settings" class="box has-background-black-bis mt-2" style="display: none">
 			<div class="control">
 				<div class="label">
 					{# MSG: Label for an input which takes a YouTube url directly instead of searching titles. #} {% trans
@@ -446,25 +452,22 @@
 						type="text"
 						value="https://www.youtube.com/watch?v="
 					/>
-					<div class="field" style="margin-top: 5px">
-						<label class="checkbox is-flex is-align-items-center">
-							<input type="checkbox" class="checkbox" checked id="add-to-queue-direct" />
-							{# MSG: Checkbox label which marks the song to be added to the queue after it finishes downloading.
-							#} {% trans %}Add to queue once downloaded{% endtrans %}
-						</label>
-					</div>
-					<div class="has-text-right" style="margin-top: 5px">
-						<button class="button is-rounded is-primary" disabled id="direct-download-button">
-							{# MSG: Button label for the direct download form's submit button. #} {% trans %}Download{%
-							endtrans %}
+					<div class="has-text-right mt-2">
+						{# MSG: Button which downloads a song and puts it straight in the queue. #}
+						<button class="button is-info direct-download" disabled data-queue="1">
+							<span class="icon"><i class="icon-list-add"></i></span>
+							<span>{% trans %}Add to queue{% endtrans %}</span>
+						</button>
+						{# MSG: Button which downloads a song into the library without queuing it. #}
+						<button class="button direct-download" disabled data-queue="">
+							<span class="icon"><i class="icon-down-circled"></i></span>
+							<span>{% trans %}Save for later{% endtrans %}</span>
 						</button>
 					</div>
 				</div>
 			</div>
 		</div>
 	</div>
-
-	<hr />
 
 	<div class="field is-hidden" id="container_search_form">
 		<form action="{{ url_for('search.search') }}" method="get">
@@ -489,43 +492,56 @@
 			<small><i>'{{search_string}}'</i></small>
 			{%- endtrans %}
 		</label>
-		<div class="field">
-			<label class="checkbox is-flex is-align-items-center">
-				<input type="checkbox" checked id="add-to-queue-search" class="checkbox" />
-				{# MSG: Checkbox label which marks the song to be added to the queue after it finishes downloading. #} {%
-				trans %}Add to queue once downloaded{% endtrans %}
-			</label>
-		</div>
 		<ul id="search-results" class="search_result_items">
 			{% for title,url,id,channel,duration in search_results %}
+			{% set local_path = library_matches.get(id) %}
 			<li data-ytID="{{id}}" data-ytTitle="{{title}}" value="{{url}}" data-index="{{loop.index0}}">
 				<div class="img-wrapper" data-url="{{url}}">
 					<div class="img-frame">
 						<img src="https://img.youtube.com/vi/{{id}}/mqdefault.jpg" />
+						{# On the thumbnail rather than after the title: titles wrap, so a tag
+						   trailing the text lands wherever the last line happens to end. #}
+						{% if local_path %}
+						{# MSG: Badge on a YouTube search result marking a song that is already downloaded. #}
+						<span class="library-badge">{% trans %}In library{% endtrans %}</span>
+						{% endif %}
 						{% if duration %}<span class="duration-badge">{{ duration }}</span>{% endif %}
 					</div>
 				</div>
-				{% set local_path = library_matches.get(id) %}
 				<div class="search_result_items_meta">
 					<div>
 						{{title}}
-						{% if local_path %}
-						{# MSG: Tag on a YouTube search result marking a song that is already downloaded. #}
-						<span class="tag is-info">{% trans %}In library{% endtrans %}</span>
-						{% endif %}
 						{% if channel %}<div class="is-size-7 has-text-grey">{{ channel }}</div>{% endif %}
 						<a href="{{url}}" target="_blank" rel="noopener noreferrer" class="is-size-7 has-text-info">YouTube ↗</a>
 					</div>
-					{% if local_path %}
-					{# Already downloaded, so queue it rather than fetching a second copy. #}
-					<a
-						class="button is-info add-song-link"
-						href="{{url_for('queue.enqueue')}}?song={{url_escape(local_path.encode('utf-8','surrogateescape'))}}&user="
-						>{# MSG: Button which adds an already-downloaded song to the queue. #} {% trans %}Add to queue{% endtrans %}</a
-					>
-					{% else %}
-					<button class="button search_result_items_download">Download</button>
-					{% endif %}
+					<div class="search_result_items_actions">
+						{% if local_path %}
+						{# Already downloaded, so queue it rather than fetching a second copy. #}
+						<a
+							class="button is-info add-song-link"
+							href="{{url_for('queue.enqueue')}}?song={{url_escape(local_path.encode('utf-8','surrogateescape'))}}&user="
+						>
+							<span class="icon"><i class="icon-list-add"></i></span>
+							{# MSG: Button which adds an already-downloaded song to the queue. #}
+							<span>{% trans %}Add to queue{% endtrans %}</span>
+						</a>
+						{% else %}
+						{# The row states the intent, so there is no global "queue once downloaded" toggle. #}
+						{# The label needs its own span: with a bare text node the icon is the
+						   only element child, and Bulma's icon-only-button rule then applies
+						   negative margins that pull the text over the glyph. #}
+						{# MSG: Button which downloads a song and puts it straight in the queue. #}
+						<button class="button is-info search_result_items_download" data-queue="1">
+							<span class="icon"><i class="icon-list-add"></i></span>
+							<span>{% trans %}Add to queue{% endtrans %}</span>
+						</button>
+						{# MSG: Button which downloads a song into the library without queuing it. #}
+						<button class="button search_result_items_download" data-queue="">
+							<span class="icon"><i class="icon-down-circled"></i></span>
+							<span>{% trans %}Save for later{% endtrans %}</span>
+						</button>
+						{% endif %}
+					</div>
 				</div>
 			</li>
 			{% endfor %}

@@ -58,12 +58,26 @@
 			return params;
 		}
 
+		// The sort link sits outside the swapped fragment, so it is not re-rendered
+		// on a keystroke and would keep pointing at the query the page loaded with --
+		// switching sort would then silently drop what the user had typed.
+		function syncSortLinks(q) {
+			document.querySelectorAll("a.sort-link").forEach(function (a) {
+				const params = new URLSearchParams();
+				if (q) params.set("q", q);
+				if (a.dataset.sort) params.set("sort", a.dataset.sort);
+				const query = params.toString();
+				a.href = "{{ url_for('files.browse') }}" + (query ? "?" + query : "");
+			});
+		}
+
 		function applyFilter() {
 			const q = effectiveQuery(input.value.trim());
 			if (q === renderedQuery) return;
 
 			const params = buildParams(q);
 			history.replaceState(null, "", "{{ url_for('files.browse') }}?" + params.toString());
+			syncSortLinks(q);
 			// Filtering drops `letter` from the URL and from the server-side query,
 			// so the heading's letter suffix is stale for good once one is typed.
 			if (q) $("#letter-heading").remove();
@@ -106,7 +120,7 @@
 	{% block title %}{{title}}{% if letter %}<span id="letter-heading">: "{{ letter.upper() }}"</span>{% endif %}{% endblock %}
 </h1>
 {# MSG: Subtitle under the Songs heading, explaining that this page lists songs already downloaded. #}
-<p class="subtitle is-6">{% trans %}Everything already on this machine{% endtrans %}</p>
+<p class="subtitle is-6">{% trans %}Already on this machine{% endtrans %}</p>
 <style>
 	#alpha-bar {
 		padding: 5px 10px;
@@ -160,15 +174,19 @@
 
 <p class="is-flex is-justify-content-space-between">
 	<span class="is-flex-grow-1">
+		{# Sorting is orthogonal to filtering, so these carry the active filter through.
+		   The alpha bar below is the one control that deliberately clears it. #}
 		{% if sort_order == "Alphabetical" %} {# MSG: Label which displays that the songs are currently sorted by
 		alphabetical order. #} {% trans %}Sorted Alphabetically{% endtrans %} |
-		<a href="{{ url_for('files.browse') }}?sort=date">
+		<a class="sort-link" data-sort="date"
+			href="{{ url_for('files.browse', sort='date', q=q or None, letter=letter or None) }}">
 			{# MSG: Button which changes how the songs are sorted so they become sorted by date. #} {% trans %}Sort by
 			Date{% endtrans %}
 		</a>
 		{% endif %} {% if sort_order == "Date" %} {# MSG: Label which displays that the songs are currently sorted by
 		date. #} {% trans %}Sorted by date{% endtrans %} |
-		<a href="{{ url_for('files.browse') }}">
+		<a class="sort-link" data-sort=""
+			href="{{ url_for('files.browse', q=q or None, letter=letter or None) }}">
 			{# MSG: Button which changes how the songs are sorted so they become sorted by name. #} {% trans %}Sort by
 			Alphabetical{% endtrans %}
 		</a>
@@ -193,7 +211,7 @@
 			autocomplete="off"
 			value="{{ q }}"
 			{# MSG: Placeholder in the box that filters the songs already on this machine. #}
-			placeholder="{{ _('Filter by title or artist') }}"
+			placeholder="{{ _('Search by title, artist...') }}"
 		/>
 		<span class="icon is-small is-left"><i class="icon icon-search-1"></i></span>
 	</div>

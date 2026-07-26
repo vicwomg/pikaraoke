@@ -1,5 +1,6 @@
 """Tests for the browse route's filtering, sorting, and fragment rendering."""
 
+import re
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -117,6 +118,39 @@ class TestFilter:
         body = _browse(client, app, songs, "?letter=q").data.decode()
         assert "Bohemian" in body
         assert "Waterloo" not in body
+
+
+class TestSortLinksPreserveTheFilter:
+    """Sorting is orthogonal to filtering; only the alpha bar clears the query."""
+
+    SONGS = ["/songs/Abba - Waterloo.mp4", "/songs/Queen - Bohemian Rhapsody.mp4"]
+
+    def test_sort_by_date_link_carries_q(self, client, app):
+        body = _browse(client, app, self.SONGS, "?q=abba").data.decode()
+        link = re.search(r'<a class="sort-link"[^>]*href="([^"]+)"', body).group(1)
+        assert "q=abba" in link
+        assert "sort=date" in link
+
+    def test_sort_by_name_link_carries_q(self, tmp_path, client, app):
+        """sort=date stats the files, so this one needs real paths."""
+        song = tmp_path / "Abba - Waterloo.mp4"
+        song.write_text("fake")
+        body = _browse(client, app, [str(song)], "?q=abba&sort=date").data.decode()
+        link = re.search(r'<a class="sort-link"[^>]*href="([^"]+)"', body).group(1)
+        assert "q=abba" in link
+        assert "sort=" not in link
+
+    def test_sort_link_carries_letter_when_no_query(self, client, app):
+        body = _browse(client, app, self.SONGS, "?letter=a").data.decode()
+        link = re.search(r'<a class="sort-link"[^>]*href="([^"]+)"', body).group(1)
+        assert "letter=a" in link
+
+    def test_alpha_bar_links_stay_bare(self, client, app):
+        """The A-Z bar is the one control that resets the filter."""
+        body = _browse(client, app, self.SONGS, "?q=abba").data.decode()
+        alpha = re.findall(r'href="([^"]*letter=[^"]*)"', body)
+        assert alpha, "expected alpha-bar links"
+        assert all("q=" not in href for href in alpha)
 
 
 class TestFilterWithDateSort:
