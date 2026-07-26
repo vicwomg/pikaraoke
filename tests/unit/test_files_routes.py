@@ -1,8 +1,10 @@
 """Tests for the browse route's filtering, sorting, and fragment rendering."""
 
+import os
 import re
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+from urllib.parse import quote
 
 import pytest
 import werkzeug
@@ -11,8 +13,6 @@ from flask_babel import Babel
 
 if not hasattr(werkzeug, "__version__"):
     werkzeug.__version__ = "3.0.0"
-
-from urllib.parse import quote
 
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.routes.files import files_bp
@@ -55,23 +55,23 @@ def client(app):
     return app.test_client()
 
 
-def _karaoke(app, songs, per_page=100, tidy=False):
-    """A karaoke stand-in whose song_manager is the real thing over `songs`."""
-    sm = SongManager("/songs", db=MagicMock(), get_title_tidy=lambda: tidy)
+def _sort_links(body):
+    """Map each sort button's data-sort value ("" for alphabetical) to its href."""
+    return dict(re.findall(r'data-sort="([^"]*)"\s*href="([^"]+)"', body))
+
+
+def _browse(client, app, songs, query="", per_page=100):
+    """GET /browse against a karaoke stand-in whose song_manager is the real thing."""
+    sm = SongManager("/songs", db=MagicMock(), get_title_tidy=lambda: False)
     sm.songs.update(songs)
     app.jinja_env.globals.update(filename_from_path=sm.display_name_from_path)
     k = MagicMock()
     k.song_manager = sm
     k.browse_results_per_page = per_page
-    return k
-
-
-def _browse(client, app, songs, query="", per_page=100, admin=True):
-    k = _karaoke(app, songs, per_page=per_page)
     with (
         patch("pikaraoke.routes.files.get_karaoke_instance", return_value=k),
         patch("pikaraoke.routes.files.get_site_name", return_value="PiKaraoke"),
-        patch("pikaraoke.routes.files.is_admin", return_value=admin),
+        patch("pikaraoke.routes.files.is_admin", return_value=True),
     ):
         return client.get("/browse" + query)
 
@@ -127,7 +127,7 @@ class TestSortLinksPreserveTheFilter:
 
     def test_sort_by_date_link_carries_q(self, client, app):
         body = _browse(client, app, self.SONGS, "?q=abba").data.decode()
-        link = re.search(r'<a class="sort-link"[^>]*href="([^"]+)"', body).group(1)
+        link = _sort_links(body)["date"]
         assert "q=abba" in link
         assert "sort=date" in link
 
@@ -136,14 +136,15 @@ class TestSortLinksPreserveTheFilter:
         song = tmp_path / "Abba - Waterloo.mp4"
         song.write_text("fake")
         body = _browse(client, app, [str(song)], "?q=abba&sort=date").data.decode()
-        link = re.search(r'<a class="sort-link"[^>]*href="([^"]+)"', body).group(1)
+        link = _sort_links(body)[""]
         assert "q=abba" in link
         assert "sort=" not in link
 
-    def test_sort_link_carries_letter_when_no_query(self, client, app):
+    def test_sort_links_carry_letter_when_no_query(self, client, app):
         body = _browse(client, app, self.SONGS, "?letter=a").data.decode()
-        link = re.search(r'<a class="sort-link"[^>]*href="([^"]+)"', body).group(1)
-        assert "letter=a" in link
+        links = _sort_links(body)
+        assert set(links) == {"", "date"}
+        assert all("letter=a" in href for href in links.values())
 
     def test_alpha_bar_links_stay_bare(self, client, app):
         """The A-Z bar is the one control that resets the filter."""
@@ -161,8 +162,6 @@ class TestFilterWithDateSort:
         for i, name in enumerate(names):
             p = tmp_path / name
             p.write_text("fake")
-            import os
-
             os.utime(p, (1_600_000_000 + i * 100, 1_600_000_000 + i * 100))
             paths.append(str(p))
 

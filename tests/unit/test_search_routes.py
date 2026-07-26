@@ -107,8 +107,9 @@ class TestLibraryMatches:
         assert SAVE_BUTTON in body
 
     def test_no_global_queue_toggle_remains(self, client):
+        """The removed checkboxes were #add-to-queue-direct and #add-to-queue-search."""
         response, _ = _search(client, [MISSING], {})
-        assert 'id="add-to-queue"' not in response.data.decode()
+        assert "add-to-queue" not in response.data.decode()
 
     def test_a_mixed_page_renders_both(self, client):
         response, _ = _search(client, [HELD, MISSING], {"aaaaaaaaaaa": "/songs/Held Song.mp4"})
