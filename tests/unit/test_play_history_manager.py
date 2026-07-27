@@ -6,7 +6,7 @@ import pytest
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
-from pikaraoke.lib.play_history_manager import PlayHistoryManager
+from pikaraoke.lib.play_history_manager import STALE_SESSION_HOURS, PlayHistoryManager
 
 
 @pytest.fixture
@@ -261,6 +261,116 @@ class TestRecordPlay:
         play = history.get_plays()[0]
         assert play["song"] == "A Song"
         assert play["performer"] == "Alice"
+
+
+class TestStaleSessionRollover:
+    """A night ends when the singing stops, not when the host remembers.
+
+    Nothing else closes a session on its own, so without this an install's
+    entire history lands in the one session record_play() auto-started.
+    """
+
+    @staticmethod
+    def _make_stale(db, hours=STALE_SESSION_HOURS + 1):
+        """Age the open session and its plays past the rollover window."""
+        stale = f"-{hours} hours"
+        db.execute(
+            "UPDATE plays SET played_at = datetime('now', ?) "
+            "WHERE session_id = (SELECT id FROM sessions WHERE ended_at IS NULL)",
+            (stale,),
+        )
+        db.execute(
+            "UPDATE sessions SET started_at = datetime('now', ?) WHERE ended_at IS NULL",
+            (stale,),
+        )
+
+    def test_idle_unnamed_session_is_replaced(self, db, history, song_id):
+        history.record_play(song_id, None, "Alice", "A Song")
+        first = history.get_current_session()["uuid"]
+        self._make_stale(db)
+
+        history.record_play(song_id, None, "Bob", "A Song")
+
+        assert history.get_current_session()["uuid"] != first
+        assert len(history.get_sessions()) == 2
+
+    def test_the_replacement_is_unnamed_too(self, db, history, song_id):
+        """It is still the invisible session; only its bounds have changed."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        self._make_stale(db)
+
+        history.record_play(song_id, None, "Bob", "A Song")
+
+        assert history.get_current_session()["name"] is None
+
+    def test_recent_unnamed_session_is_reused(self, history, song_id):
+        history.record_play(song_id, None, "Alice", "A Song")
+        session_uuid = history.get_current_session()["uuid"]
+
+        history.record_play(song_id, None, "Bob", "A Song")
+
+        assert history.get_current_session()["uuid"] == session_uuid
+        assert len(history.get_sessions()) == 1
+
+    def test_a_named_session_is_never_rolled_over(self, db, history, song_id):
+        """The one that would quietly destroy a host's night."""
+        session_uuid = history.start_session("Friday")
+        history.record_play(song_id, None, "Alice", "A Song")
+        self._make_stale(db, hours=24 * 7)
+
+        history.record_play(song_id, None, "Bob", "A Song")
+
+        assert history.get_current_session()["uuid"] == session_uuid
+        assert history.get_current_session()["name"] == "Friday"
+        assert len(history.get_sessions()) == 1
+
+    def test_the_closed_session_keeps_its_plays(self, db, history, song_id):
+        """Rollover draws a boundary; it never moves history across one."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        self._make_stale(db)
+
+        history.record_play(song_id, None, "Bob", "A Song")
+
+        counts = [s["play_count"] for s in history.get_sessions()]
+        assert sorted(counts) == [1, 1]
+
+    def test_ended_at_is_backdated_to_the_last_play(self, db, history, song_id):
+        """Stamping now would invent a session spanning the silence."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        self._make_stale(db)
+
+        history.record_play(song_id, None, "Bob", "A Song")
+
+        closed = db.query("SELECT id, ended_at FROM sessions WHERE ended_at IS NOT NULL")[0]
+        last_play = db.query(
+            "SELECT MAX(played_at) AS at FROM plays WHERE session_id = ?", (closed["id"],)
+        )[0]
+        assert closed["ended_at"] == last_play["at"]
+
+    def test_a_session_with_no_plays_falls_back_to_started_at(self, db, history, song_id):
+        """MAX(played_at) is NULL here, and NULL would compare its way out of it."""
+        history.start_session()
+        self._make_stale(db)
+
+        history.record_play(song_id, None, "Alice", "A Song")
+
+        assert len(history.get_sessions()) == 2
+        closed = db.query("SELECT started_at, ended_at FROM sessions WHERE ended_at IS NOT NULL")[0]
+        assert closed["ended_at"] == closed["started_at"]
+
+    def test_a_transpose_after_a_long_gap_does_not_split_the_performance(
+        self, db, history, events, song_id
+    ):
+        """The restart is the same performance, so it must not begin a night."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        session_uuid = history.get_current_session()["uuid"]
+        self._make_stale(db)
+
+        events.emit("song_ended", "transpose")
+        history.record_play(song_id, None, "Alice", "A Song")  # restarts in the new key
+
+        assert history.get_current_session()["uuid"] == session_uuid
+        assert len(history.get_sessions()) == 1
 
 
 class TestCompleted:

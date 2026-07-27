@@ -11,6 +11,11 @@ from pikaraoke.lib.karaoke_database import KaraokeDatabase
 # than trying to shrink what is displayed.
 SESSION_NAME_MAX_LENGTH = 60
 
+# How long a gap between plays ends an auto-started session. Long enough that a
+# real break -- a meal, a film, everyone going outside -- does not split one
+# evening into two sessions; short enough that tonight is never yesterday's.
+STALE_SESSION_HOURS = 6
+
 
 def _latest_casing(name_column: str) -> str:
     """Select the most recently used casing of a performer name.
@@ -70,8 +75,13 @@ class PlayHistoryManager:
     record_play() opens an unnamed session when none is running, which is what
     lets the play log and rankings work for a household that never starts one by
     hand. That session is deliberately invisible: unnamed, so it stays off the
-    splash screen and the nav ribbon, and left open, since nobody who relies on
-    it would ever end it.
+    splash screen and the nav ribbon.
+
+    It is also closed again, by _roll_over_stale_session(), once the singing has
+    stopped for long enough. Opening one without ever closing it would give the
+    households this exists for a single session spanning the life of the install,
+    so the play log, rankings and export could no longer tell one night from
+    another -- which is the whole of what they are for.
     """
 
     def __init__(self, db: KaraokeDatabase, events: EventSystem) -> None:
@@ -140,6 +150,49 @@ class PlayHistoryManager:
         if self.get_current_session() is None:
             return
         self.db.execute("UPDATE sessions SET ended_at = CURRENT_TIMESTAMP WHERE ended_at IS NULL")
+
+    def _roll_over_stale_session(self) -> None:
+        """Close an abandoned auto-started session so the next play starts a night.
+
+        Nothing else ever closes a session on its own -- start_session(),
+        end_session() and activate_session() are all explicit host actions -- so
+        without this the invisible session record_play() opens stays open for
+        good, and every play for the rest of the install's life lands in it.
+
+        Only unnamed sessions. A named one belongs to the host, who may be
+        resuming it after a long break, and ending it behind their back would be
+        worse than the bug this fixes. The duration a named session has run is
+        deliberately not consulted: a night is bounded by when the singing
+        stopped, not by when it began.
+        """
+        session = self.get_current_session()
+        if session is None or session["name"] is not None:
+            return
+
+        # One statement, so the staleness test cannot disagree with what gets
+        # written. ended_at is back-dated to the last play for the same reason
+        # _close_orphaned_plays() back-dates: the night ended when the singing
+        # did, and stamping now would invent a session spanning the silence. A
+        # session that never saw a play falls back to when it started, which is
+        # also the only timestamp it has.
+        last_activity = """
+            COALESCE(
+                (SELECT MAX(played_at) FROM plays WHERE session_id = sessions.id),
+                started_at
+            )
+        """
+        closed = self.db.execute(
+            f"""
+            UPDATE sessions SET ended_at = {last_activity}
+            WHERE id = ? AND {last_activity} < datetime('now', ?)
+            """,
+            (session["id"], f"-{STALE_SESSION_HOURS} hours"),
+        )
+        if closed.rowcount:
+            # Silently, like _close_open_session(): record_play() opens the
+            # replacement immediately and start_session() announces that, so
+            # listeners see one move rather than a close and an open.
+            self._session_cached = False
 
     def start_session(self, name: str | None = None) -> str:
         """Start a session and return its UUID.
@@ -281,6 +334,10 @@ class PlayHistoryManager:
     ) -> None:
         """Record a play against the active session, auto-starting one if needed.
 
+        An auto-started session left idle since yesterday is closed first, so
+        the play below opens a fresh one through the same path rather than
+        joining a night that ended hours ago.
+
         Args:
             song_id: The live library row, for joining to current metadata. Goes
                 NULL when the song is deleted.
@@ -298,6 +355,7 @@ class PlayHistoryManager:
                 # keeps it to one play, so a transpose cannot inflate rankings.
                 return
 
+        self._roll_over_stale_session()
         session = self.get_current_session()
         if session is None:
             self.start_session()
