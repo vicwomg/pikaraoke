@@ -289,6 +289,7 @@ def test_preference_manager_defaults_exist():
         "hide_logo",
         "mic_settings",
         "enable_title_tidy",
+        "enable_folder_browsing",
         "metadata_provider",
         "itunes_search_country",
         "suggestion_name_order",

@@ -42,7 +42,7 @@ def _sort_links(body):
     return dict(re.findall(r'data-sort="([^"]*)"\s*href="([^"]+)"', body))
 
 
-def _karaoke(app, songs, per_page):
+def _karaoke(app, songs, per_page, folders=True):
     """A karaoke stand-in whose song_manager is the real thing."""
     sm = SongManager("/songs", db=MagicMock(), events=EventSystem(), get_title_tidy=lambda: False)
     sm.songs.update(songs)
@@ -50,12 +50,17 @@ def _karaoke(app, songs, per_page):
     k = MagicMock()
     k.song_manager = sm
     k.browse_results_per_page = per_page
+    # Set explicitly: a bare MagicMock attribute is truthy, so leaving it out would
+    # silently enable folder browsing in every test and never exercise the gate.
+    k.enable_folder_browsing = folders
     return k
 
 
-def _browse(client, app, songs=(), query="", per_page=100, admin=True, cookie=None, k=None):
+def _browse(
+    client, app, songs=(), query="", per_page=100, admin=True, cookie=None, k=None, folders=True
+):
     """GET /browse. `per_page` is the server-wide default, `cookie` one device's choice."""
-    k = k if k is not None else _karaoke(app, songs, per_page)
+    k = k if k is not None else _karaoke(app, songs, per_page, folders)
     if cookie is not None:
         client.set_cookie("browse_per_page", cookie)
     with (
@@ -518,6 +523,33 @@ class TestFolderView:
         folders = _browse(client, app, NESTED, "?view=folders").data.decode()
         assert 'id="alpha-bar"' not in folders
         assert 'id="alpha-bar"' in _browse(client, app, NESTED).data.decode()
+
+
+class TestFolderBrowsingIsOptIn:
+    """Off by default: the Songs page must look exactly as it did without the feature."""
+
+    def test_no_toggle_when_disabled(self, client, app):
+        body = _browse(client, app, NESTED, folders=False).data.decode()
+        assert "view=folders" not in body
+
+    def test_every_song_still_listed_when_disabled(self, client, app):
+        body = _browse(client, app, NESTED, folders=False).data.decode()
+        assert "Loose Track" in body
+        assert "Bon Jovi" in body
+        assert "Heavy Song" in body
+
+    def test_bookmarked_folder_url_falls_back_to_the_flat_list(self, client, app):
+        """The preference can be turned off while a phone is sitting on a folder page."""
+        body = _browse(
+            client, app, NESTED, "?view=folders&folder=Rock", folders=False
+        ).data.decode()
+        assert "Heavy Song" in body
+        assert "breadcrumb" not in body
+
+    def test_alpha_bar_returns_when_disabled(self, client, app):
+        """The folder view's short-folder rule must not leak into the flat page."""
+        body = _browse(client, app, NESTED, "?view=folders", folders=False).data.decode()
+        assert 'id="alpha-bar"' in body
 
 
 class TestTraversalGuard:

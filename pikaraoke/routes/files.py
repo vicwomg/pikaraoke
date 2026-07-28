@@ -91,8 +91,14 @@ def browse():
     # and q/letter are filters within it. An unknown folder -- including a "../"
     # traversal attempt -- is not a key in the tree, so it clamps to the root
     # rather than being validated against the filesystem.
-    folder_tree = k.song_manager.folder_tree()
-    in_folders = request.args.get("view") == "folders"
+    #
+    # Folder browsing is opt-in. The empty tree stands in when it is off, which
+    # drops the toggle and makes a bookmarked ?view=folders fall back to the flat
+    # list rather than 404 -- the preference can be turned off while a phone is
+    # sitting on a folder page.
+    folder_tree = k.song_manager.folder_tree() if k.enable_folder_browsing else {"": []}
+    has_subfolders = bool(folder_tree[""])
+    in_folders = has_subfolders and request.args.get("view") == "folders"
     folder = request.args.get("folder", "") if in_folders else ""
     if folder not in folder_tree:
         folder = ""
@@ -185,7 +191,7 @@ def browse():
         "breadcrumbs": _build_breadcrumbs(folder),
         # Drives whether the folder toggle is offered at all: a flat library never
         # sees it, so nothing about the page changes for those users.
-        "has_subfolders": bool(folder_tree[""]),
+        "has_subfolders": has_subfolders,
     }
     # Filter keystrokes ask for the result table alone. Rendering base.html per
     # keystroke is pure Python, so on a Pi it blocks the event loop as surely as

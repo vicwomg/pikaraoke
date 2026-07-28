@@ -85,6 +85,7 @@ def info():
         browse_results_per_page=k.browse_results_per_page,
         per_page_options=per_page_options(k.browse_results_per_page),
         enable_title_tidy=k.enable_title_tidy,
+        enable_folder_browsing=k.enable_folder_browsing,
         score_phrases={
             "low": k.low_score_phrases,
             "mid": k.mid_score_phrases,
