@@ -461,3 +461,132 @@ class TestRenameFailuresKeepYourWork:
         body = response.data.decode()
         assert 'value="Half Typed Name"' in body
         assert 'value="/queue"' in body
+
+
+# Nested library shared by the folder tests below. "Loose" sits at the top level,
+# so it separates "every song" from "every song not in a subfolder".
+NESTED = [
+    "/songs/Loose Track.mp4",
+    "/songs/Rock/Bon Jovi - Livin.mp4",
+    "/songs/Rock/Metal/Heavy Song.mp4",
+    "/songs/Pop/Abba - Waterloo.mp4",
+]
+
+
+class TestFolderView:
+    def test_flat_view_lists_every_song_wherever_it_sits(self, client, app):
+        """The default view is what most libraries use; folders must not disturb it."""
+        body = _browse(client, app, NESTED).data.decode()
+        assert "Loose Track" in body
+        assert "Bon Jovi" in body
+        assert "Heavy Song" in body
+
+    def test_folder_root_lists_subfolders_and_only_loose_songs(self, client, app):
+        body = _browse(client, app, NESTED, "?view=folders").data.decode()
+        assert "Rock" in body
+        assert "Pop" in body
+        assert "Loose Track" in body
+        assert "Bon Jovi" not in body
+
+    def test_entering_a_folder_lists_its_direct_songs_only(self, client, app):
+        body = _browse(client, app, NESTED, "?view=folders&folder=Rock").data.decode()
+        assert "Bon Jovi" in body
+        assert "Loose Track" not in body
+        # One level deeper: offered as a subfolder, not listed as a song.
+        assert "Heavy Song" not in body
+        assert "Metal" in body
+
+    def test_nested_folder_is_reached_by_its_full_key(self, client, app):
+        body = _browse(client, app, NESTED, "?view=folders&folder=Rock/Metal").data.decode()
+        assert "Heavy Song" in body
+        assert "Bon Jovi" not in body
+
+    def test_breadcrumbs_appear_inside_a_folder(self, client, app):
+        body = _browse(client, app, NESTED, "?view=folders&folder=Rock/Metal").data.decode()
+        assert "breadcrumb" in body
+
+    def test_view_toggle_is_absent_for_a_flat_library(self, client, app):
+        body = _browse(client, app, ["/songs/A.mp4", "/songs/B.mp4"]).data.decode()
+        assert "view=folders" not in body
+
+    def test_alpha_bar_is_hidden_in_a_folder_that_fits_on_one_page(self, client, app):
+        """26 letters above four rows is noise; the flat view keeps the bar regardless.
+
+        Asserting on the id attribute, not the bare string: the scroll handler in
+        this template's script block names #alpha-bar whether or not it renders.
+        """
+        folders = _browse(client, app, NESTED, "?view=folders").data.decode()
+        assert 'id="alpha-bar"' not in folders
+        assert 'id="alpha-bar"' in _browse(client, app, NESTED).data.decode()
+
+
+class TestTraversalGuard:
+    """Folder keys come from real song paths, so anything else clamps to the root."""
+
+    def test_dot_dot_traversal_clamps_to_the_root(self, client, app):
+        body = _browse(client, app, NESTED, "?view=folders&folder=../../etc").data.decode()
+        assert "Loose Track" in body
+        assert "breadcrumb" not in body
+
+    def test_unknown_folder_clamps_to_the_root(self, client, app):
+        body = _browse(client, app, NESTED, "?view=folders&folder=Nope").data.decode()
+        assert "Loose Track" in body
+        assert "breadcrumb" not in body
+
+    def test_clamped_folder_is_dropped_from_generated_urls(self, client, app):
+        """current_url becomes the edit referrer; it must describe what was rendered."""
+        body = _browse(client, app, NESTED, "?view=folders&folder=Nope").data.decode()
+        assert "Nope" not in body
+
+
+class TestFolderScopeSurvivesTheControls:
+    """Every URL the page generates has to keep the folder, or a click silently leaves it."""
+
+    def test_sort_links_carry_the_folder(self, client, app):
+        body = _browse(client, app, NESTED, "?view=folders&folder=Rock").data.decode()
+        links = _sort_links(body)
+        assert links, "expected sort links to assert against"
+        assert all("view=folders" in href and "folder=Rock" in href for href in links.values())
+
+    def test_alpha_bar_links_carry_the_folder(self, client, app):
+        body = _browse(client, app, NESTED, "?view=folders&folder=Rock&letter=b").data.decode()
+        alpha = re.findall(r'href="([^"]*letter=[^"]*)"', body)
+        assert alpha, "expected alpha-bar links"
+        assert all("view=folders" in href and "folder=Rock" in href for href in alpha)
+
+    def test_pagination_links_carry_the_folder(self, client, app):
+        songs = [f"/songs/Rock/Song {i:03d}.mp4" for i in range(10)]
+        body = _browse(client, app, songs, "?view=folders&folder=Rock", per_page=2).data.decode()
+        links = re.findall(r'href="([^"]*page=\d+[^"]*)"', body)
+        assert links, "expected pagination links"
+        assert all("view=folders" in href and "folder=Rock" in href for href in links)
+
+    def test_filtering_stays_inside_the_folder(self, client, app):
+        body = _browse(client, app, NESTED, "?view=folders&folder=Pop&q=a").data.decode()
+        assert "Abba - Waterloo" in body
+        assert "Bon Jovi" not in body
+
+    def test_partial_fragment_stays_inside_the_folder(self, client, app):
+        body = _browse(client, app, NESTED, "?view=folders&folder=Pop&partial=1").data.decode()
+        assert "Abba - Waterloo" in body
+        assert "Bon Jovi" not in body
+
+
+class TestFolderLanding:
+    """A folder holding only subfolders is navigation, not a result set."""
+
+    ONLY_FOLDERS = ["/songs/Rock/a.mp4", "/songs/Pop/b.mp4"]
+
+    def test_controls_and_table_are_hidden(self, client, app):
+        """Attributes, not bare ids: the script block names all three regardless."""
+        body = _browse(client, app, self.ONLY_FOLDERS, "?view=folders").data.decode()
+        assert "Rock" in body
+        assert 'id="song-filter"' not in body
+        assert 'id="browse-results"' not in body
+        assert 'class="button sort-link' not in body
+
+    def test_an_active_query_keeps_the_controls(self, client, app):
+        """A query matching nothing still has to be clearable."""
+        body = _browse(client, app, self.ONLY_FOLDERS, "?view=folders&q=zzz").data.decode()
+        assert 'id="song-filter"' in body
+        assert 'id="browse-results"' in body

@@ -56,6 +56,14 @@ def _format_icon(song_path: str, db_format: str | None) -> str | None:
 files_bp = Blueprint("files", __name__)
 
 
+def _build_breadcrumbs(folder: str) -> list[dict[str, str]]:
+    """Trail of {name, folder} entries for each segment of a folder key."""
+    if not folder:
+        return []
+    parts = folder.split("/")
+    return [{"name": part, "folder": "/".join(parts[: i + 1])} for i, part in enumerate(parts)]
+
+
 class SongReferrerQuery(Schema):
     song = fields.String(required=True, metadata={"description": "Path to the song file"})
     referrer = fields.String(metadata={"description": "URL to redirect back to"})
@@ -79,11 +87,24 @@ def browse():
     q = (request.args.get("q") or "").strip()
     letter = request.args.get("letter")
 
+    # `view=folders` scopes the listing to one directory, so the folder is a scope
+    # and q/letter are filters within it. An unknown folder -- including a "../"
+    # traversal attempt -- is not a key in the tree, so it clamps to the root
+    # rather than being validated against the filesystem.
+    folder_tree = k.song_manager.folder_tree()
+    in_folders = request.args.get("view") == "folders"
+    folder = request.args.get("folder", "") if in_folders else ""
+    if folder not in folder_tree:
+        folder = ""
+    scope = folder if in_folders else None
+
     # A text query and a letter jump are two different intents, so q wins.
     if q:
-        available_songs = k.song_manager.search(q)
+        available_songs = k.song_manager.search(q, folder=scope)
     elif letter:
-        available_songs = k.song_manager.songs_by_letter(letter)
+        available_songs = k.song_manager.songs_by_letter(letter, folder=scope)
+    elif in_folders:
+        available_songs = k.song_manager.songs_in_folder(folder)
     else:
         available_songs = k.song_manager.songs
 
@@ -120,10 +141,16 @@ def browse():
     # no nav or stylesheet. The same leak poisons current_url, which becomes the
     # edit button's referrer.
     args.pop("partial", None)
-    # Rewritten rather than passed through, because the clamp above may have dropped
-    # a page the request asked for, and these args build the pagination links and
-    # the edit referrer -- an edit started from a clamped page comes back to a real
-    # one.
+    # Rewritten rather than passed through, because the clamps above may have
+    # dropped a folder or a page the request asked for. These args build the
+    # pagination links and the edit referrer, so they have to describe what was
+    # rendered -- an edit started from a clamped page comes back to a real one.
+    args.pop("view", None)
+    args.pop("folder", None)
+    if in_folders:
+        args["view"] = "folders"
+        if folder:
+            args["folder"] = folder
     args["page"] = page
 
     current_url = url_for("files.browse", **args.to_dict())
@@ -152,6 +179,13 @@ def browse():
         "songs": songs[start_index : start_index + results_per_page],
         "admin": admin,
         "current_url": current_url,
+        "view": "folders" if in_folders else "",
+        "folder": folder,
+        "subfolders": folder_tree[folder] if in_folders else [],
+        "breadcrumbs": _build_breadcrumbs(folder),
+        # Drives whether the folder toggle is offered at all: a flat library never
+        # sees it, so nothing about the page changes for those users.
+        "has_subfolders": bool(folder_tree[""]),
     }
     # Filter keystrokes ask for the result table alone. Rendering base.html per
     # keystroke is pure Python, so on a Pi it blocks the event loop as surely as

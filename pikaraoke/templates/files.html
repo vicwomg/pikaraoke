@@ -51,8 +51,26 @@
 		}
 
 		const BROWSE_URL = "{{ url_for('files.browse') }}";
+		const VIEW = {{ view | tojson }};
+		const FOLDER = {{ folder | tojson }};
 		const input = document.getElementById("song-filter");
 		const resultsDiv = document.getElementById("browse-results");
+
+		// A folder holding only subfolders renders neither control. The alpha-bar
+		// handler above is already bound, so bail out here rather than earlier.
+		if (!input || !resultsDiv) return;
+
+		// Filtering and sorting act *within* the folder being browsed, so every URL
+		// built below has to carry the scope -- otherwise the first keystroke
+		// silently throws the user back out to the whole library.
+		function scopeParams() {
+			const params = new URLSearchParams();
+			if (VIEW) {
+				params.set("view", VIEW);
+				if (FOLDER) params.set("folder", FOLDER);
+			}
+			return params;
+		}
 		// What the server last rendered. A query that resolves to this needs no
 		// request, which is why typing one letter on an unfiltered page is free.
 		let renderedQuery = {{ q | tojson }};
@@ -66,7 +84,7 @@
 		}
 
 		function buildParams(q) {
-			const params = new URLSearchParams();
+			const params = scopeParams();
 			if (q) params.set("q", q);
 			// A user who chose ?sort=date and then typed has not asked to go back
 			// to alphabetical. page and letter are dropped: a new query is a new
@@ -81,7 +99,7 @@
 		// switching sort would then silently drop what the user had typed.
 		function syncSortLinks(q) {
 			document.querySelectorAll("a.sort-link").forEach(function (a) {
-				const params = new URLSearchParams();
+				const params = scopeParams();
 				if (q) params.set("q", q);
 				if (a.dataset.sort) params.set("sort", a.dataset.sort);
 				const query = params.toString();
@@ -244,14 +262,23 @@
 		white-space: nowrap;
 	}
 
-	#sort-bar {
+	/* The view toggle sits left, the sort toggle right. The left slot is rendered
+	   even when empty so that space-between keeps sort against the right edge on a
+	   library with no subfolders. */
+	#browse-controls {
 		display: flex;
-		justify-content: flex-end;
+		justify-content: space-between;
+		flex-wrap: wrap;
 	}
-	/* Bulma gives a non-last .buttons a full block of spacing; this control belongs
-	   close to the table it sorts. */
-	#sort-bar .buttons {
+	/* Bulma gives a non-last .buttons a full block of spacing; these controls belong
+	   close to the table they act on. */
+	#browse-controls .buttons {
 		margin-bottom: 0.5rem;
+	}
+
+	.folder-item {
+		/* Pushes the chevron to the right edge; panel-block is flex already. */
+		justify-content: space-between;
 	}
 
 	@media screen and (max-width: 500px) {
@@ -286,6 +313,34 @@
 </style>
 {% endblock %} {% block content %}
 
+{# A folder holding only subfolders is navigation, not a result set: no filter box,
+   no A-Z bar, no sort toggle and no empty table -- just the folders. An active
+   filter keeps them all, so a query matching nothing can still be cleared. #}
+{% set folder_landing = view and not songs and not q and not letter %}
+{# The route reports the sort as a display string; the view toggle needs the param
+   back so that switching between flat and folder view keeps the chosen order. #}
+{% set sort_param = 'date' if sort_order == 'Date' else None %}
+
+{% if breadcrumbs %}
+<nav class="breadcrumb is-small" aria-label="breadcrumbs">
+	<ul>
+		<li>
+			<a href="{{ url_for('files.browse', view='folders') }}">
+				<span class="icon is-small"><i class="icon icon-folder-open-empty"></i></span>
+				{# MSG: Breadcrumb link back to the top level of the folder view. #}
+				<span>{% trans %}All folders{% endtrans %}</span>
+			</a>
+		</li>
+		{% for crumb in breadcrumbs %}
+		<li {% if loop.last %}class="is-active"{% endif %}>
+			<a href="{{ url_for('files.browse', view='folders', folder=crumb.folder) }}">{{ crumb.name }}</a>
+		</li>
+		{% endfor %}
+	</ul>
+</nav>
+{% endif %}
+
+{% if not folder_landing %}
 {# Filtering is server-side: the page is paginated, so a client-side filter over
    the ~100 rows in the DOM would silently miss songs on every other page. #}
 <div class="field has-addons mb-3">
@@ -307,39 +362,78 @@
 	</div>
 </div>
 
+{# In folder view a short folder does not need 26 letters to narrow it, and the bar
+   would sit above a table it dwarfs. The flat view keeps it unconditionally. #}
+{% if not view or total > per_page %}
 <div id="alpha-bar" class="column is-full has-background-dark">
-	<a href="{{ url_for('files.browse') }}" title="Show all"><i class="icon icon-list-bullet"></i></a>
-	<a href="{{ url_for('files.browse') }}?letter=numeric">#</a>
+	<a href="{{ url_for('files.browse', view=view or None, folder=folder or None) }}" title="Show all"
+		><i class="icon icon-list-bullet"></i
+	></a>
+	<a href="{{ url_for('files.browse', letter='numeric', view=view or None, folder=folder or None) }}">#</a>
 	{# Not named `letter`: the sort links below read the page's own `letter` variable,
 	   and shadowing it here would be one Jinja scoping rule away from a bug. #}
 	{% for alpha in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
 	'u', 'v', 'w', 'x', 'y', 'z'] %}
-	<a href="{{ url_for('files.browse') }}?letter={{alpha}}">{{alpha.upper()}}</a>
+	<a href="{{ url_for('files.browse', letter=alpha, view=view or None, folder=folder or None) }}">{{alpha.upper()}}</a>
 	{% endfor %}
 </div>
+{% endif %}
+{% endif %}
 
-{# Sits with the results it describes rather than above the search box, and shows
-   both orderings at once so the current one is visible without reading a sentence.
-   Sorting is orthogonal to filtering, so these carry the active filter through --
-   the alpha bar above is the one control that deliberately clears it. #}
-<div id="sort-bar">
+{% if subfolders %}
+{# Entering a folder deliberately drops q, letter and page: a folder is a new
+   listing, not a filtered continuation of the one being left. #}
+<div class="panel">
+	{% for name in subfolders %}
+	<a class="panel-block py-3 folder-item"
+		href="{{ url_for('files.browse', view='folders', folder=(folder ~ '/' ~ name) if folder else name) }}">
+		<span><span class="icon mr-2"><i class="icon-folder-open-empty"></i></span>{{ name }}</span>
+		<span class="icon"><i class="icon-right-big"></i></span>
+	</a>
+	{% endfor %}
+</div>
+{% endif %}
+
+{# Both toggles sit with the results they describe rather than above the search box,
+   and each shows its options at once so the active one is visible without reading a
+   sentence. Sorting and the view are orthogonal to filtering, so both carry the
+   active query through -- the alpha bar above is the one control that clears it. #}
+<div id="browse-controls">
 	<div class="buttons has-addons are-small">
+		{% if has_subfolders %}
+		<a class="button {% if not view %}is-info is-selected{% endif %}"
+			href="{{ url_for('files.browse', q=q or None, sort=sort_param) }}">
+			{# MSG: Button which lists every song at once, ignoring the folders they are stored in. #}
+			{% trans %}All songs{% endtrans %}
+		</a>
+		<a class="button {% if view %}is-info is-selected{% endif %}"
+			href="{{ url_for('files.browse', view='folders', q=q or None, sort=sort_param) }}">
+			{# MSG: Button which groups the songs by the folder they are stored in. #}
+			{% trans %}Folders{% endtrans %}
+		</a>
+		{% endif %}
+	</div>
+	<div class="buttons has-addons are-small">
+		{% if not folder_landing %}
 		{# Labels stay on one line: `trans` does not collapse whitespace, so a wrapped
 		   label bakes the newline and tabs into the msgid and any reindent breaks it. #}
 		<a class="button sort-link {% if sort_order == 'Alphabetical' %}is-info is-selected{% endif %}" data-sort=""
-			href="{{ url_for('files.browse', q=q or None, letter=letter or None) }}">
+			href="{{ url_for('files.browse', q=q or None, letter=letter or None, view=view or None, folder=folder or None) }}">
 			{# MSG: Button which changes how the songs are sorted so they become sorted by name. #}
 			{% trans %}Sort Alphabetically{% endtrans %}
 		</a>
 		<a class="button sort-link {% if sort_order == 'Date' %}is-info is-selected{% endif %}" data-sort="date"
-			href="{{ url_for('files.browse', sort='date', q=q or None, letter=letter or None) }}">
+			href="{{ url_for('files.browse', sort='date', q=q or None, letter=letter or None, view=view or None, folder=folder or None) }}">
 			{# MSG: Button which changes how the songs are sorted so they become sorted by date. #}
 			{% trans %}Sort by Date{% endtrans %}
 		</a>
+		{% endif %}
 	</div>
 </div>
 
+{% if not folder_landing %}
 {# The filter input sits outside this div, so a keystroke swap never takes the
    caret with it. #}
 <div id="browse-results">{% include 'partials/browse_results.html' %}</div>
+{% endif %}
 {% endblock %}
