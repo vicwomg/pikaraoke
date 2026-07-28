@@ -281,6 +281,14 @@
 		justify-content: space-between;
 	}
 
+	/* Bulma ships the breadcrumb list as align-items: flex-start, which only shows
+	   when the items are unequal heights -- here the root crumb carries a folder
+	   icon and the rest are plain text, so they hang from the top instead of
+	   sharing a centre line. */
+	.breadcrumb ul {
+		align-items: center;
+	}
+
 	@media screen and (max-width: 500px) {
 		#alpha-bar {
 			font-size: 13px;
@@ -326,13 +334,16 @@
 	<ul>
 		<li>
 			<a href="{{ url_for('files.browse', view='folders') }}">
-				<span class="icon is-small"><i class="icon icon-folder-open-empty"></i></span>
+				{# The glyph class alone -- adding Bulma's `icon` to the inner element
+				   nests a default 1.5rem icon box inside this `is-small` one and
+				   knocks the folder glyph off centre. #}
+				<span class="icon is-small"><i class="icon-folder-open-empty"></i></span>
 				{# MSG: Breadcrumb link back to the top level of the folder view. #}
 				<span>{% trans %}All folders{% endtrans %}</span>
 			</a>
 		</li>
 		{% for crumb in breadcrumbs %}
-		<li {% if loop.last %}class="is-active"{% endif %}>
+		<li{% if loop.last %} class="is-active"{% endif %}>
 			<a href="{{ url_for('files.browse', view='folders', folder=crumb.folder) }}">{{ crumb.name }}</a>
 		</li>
 		{% endfor %}

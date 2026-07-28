@@ -507,8 +507,10 @@ class TestFolderView:
         assert "Bon Jovi" not in body
 
     def test_breadcrumbs_appear_inside_a_folder(self, client, app):
+        """The attribute, not the bare word: a .breadcrumb CSS rule ships on every page."""
         body = _browse(client, app, NESTED, "?view=folders&folder=Rock/Metal").data.decode()
-        assert "breadcrumb" in body
+        assert 'class="breadcrumb' in body
+        assert ">Rock<" in body and ">Metal<" in body
 
     def test_view_toggle_is_absent_for_a_flat_library(self, client, app):
         body = _browse(client, app, ["/songs/A.mp4", "/songs/B.mp4"]).data.decode()
@@ -544,7 +546,7 @@ class TestFolderBrowsingIsOptIn:
             client, app, NESTED, "?view=folders&folder=Rock", folders=False
         ).data.decode()
         assert "Heavy Song" in body
-        assert "breadcrumb" not in body
+        assert 'class="breadcrumb' not in body
 
     def test_alpha_bar_returns_when_disabled(self, client, app):
         """The folder view's short-folder rule must not leak into the flat page."""
@@ -558,12 +560,12 @@ class TestTraversalGuard:
     def test_dot_dot_traversal_clamps_to_the_root(self, client, app):
         body = _browse(client, app, NESTED, "?view=folders&folder=../../etc").data.decode()
         assert "Loose Track" in body
-        assert "breadcrumb" not in body
+        assert 'class="breadcrumb' not in body
 
     def test_unknown_folder_clamps_to_the_root(self, client, app):
         body = _browse(client, app, NESTED, "?view=folders&folder=Nope").data.decode()
         assert "Loose Track" in body
-        assert "breadcrumb" not in body
+        assert 'class="breadcrumb' not in body
 
     def test_clamped_folder_is_dropped_from_generated_urls(self, client, app):
         """current_url becomes the edit referrer; it must describe what was rendered."""
