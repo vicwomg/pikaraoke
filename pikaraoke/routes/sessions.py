@@ -6,7 +6,7 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, fields, validate
 
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
-from pikaraoke.lib.play_history_manager import SESSION_NAME_MAX_LENGTH
+from pikaraoke.lib.play_history_manager import RANKING_SCOPES, SESSION_NAME_MAX_LENGTH
 
 _ = flask_babel.gettext
 
@@ -17,12 +17,12 @@ _RANKING_SIZES = [10, 20, 50, 100]
 
 
 class RankingsQuery(Schema):
-    """How many rows to show in each rankings list. These are top-N lists, so a
-    row-count selector stands in for pagination."""
+    """What the rankings cover, and how many rows of each to show. The lists are
+    top-N, so a row-count selector stands in for pagination."""
 
     songs = fields.Integer(load_default=20, validate=validate.OneOf(_RANKING_SIZES))
     performers = fields.Integer(load_default=20, validate=validate.OneOf(_RANKING_SIZES))
-    sessions = fields.Integer(load_default=10, validate=validate.OneOf(_RANKING_SIZES))
+    scope = fields.String(load_default="all", validate=validate.OneOf(RANKING_SCOPES))
 
 
 @sessions_bp.before_request
@@ -51,15 +51,22 @@ def sessions():
 @sessions_bp.route("/rankings")
 @sessions_bp.arguments(RankingsQuery, location="query")
 def rankings(query):
-    """Most-played songs, most active performers, and busiest sessions."""
+    """Most-played songs and most active performers, all time or this session."""
     k = get_karaoke_instance()
+    # Resolved in both scopes: the scope control labels itself "this session",
+    # "last session" or nothing at all, before the host has clicked it.
+    session = k.play_history.get_latest_session()
+    session_uuid = session["uuid"] if session and query["scope"] == "session" else None
     return render_template(
         "rankings.html",
         site_title=get_site_name(),
         title="Rankings",
-        top_songs=k.play_history.get_top_songs(query["songs"]),
-        top_performers=k.play_history.get_singers(limit=query["performers"]),
-        sessions=k.play_history.get_sessions(limit=query["sessions"]),
+        top_songs=k.play_history.get_top_songs(query["songs"], session_uuid),
+        top_performers=k.play_history.get_singers(
+            session_uuid, limit=query["performers"], completed_only=True
+        ),
+        scope=query["scope"],
+        session=session,
         limits=query,
         ranking_sizes=_RANKING_SIZES,
     )

@@ -9,7 +9,7 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, ValidationError, fields, validate, validates_schema
 
 from pikaraoke.lib.current_app import get_karaoke_instance, is_admin
-from pikaraoke.lib.play_history_manager import SESSION_NAME_MAX_LENGTH
+from pikaraoke.lib.play_history_manager import RANKING_SCOPES, SESSION_NAME_MAX_LENGTH
 
 _ = flask_babel.gettext
 
@@ -57,11 +57,19 @@ class PlaysQuery(Schema):
         load_default="played_at", metadata={"description": "played_at, performer or song"}
     )
     direction = fields.String(load_default="desc", metadata={"description": "asc or desc"})
+    include_skipped = fields.Boolean(
+        load_default=False,
+        metadata={"description": "Show songs nobody sang through"},
+    )
 
 
 class SessionsQuery(Schema):
     limit = _page_size(50)
     offset = _page_offset()
+    include_unnamed = fields.Boolean(
+        load_default=False,
+        metadata={"description": "Include auto-started sessions the host never named"},
+    )
 
 
 class StartSessionForm(Schema):
@@ -87,6 +95,28 @@ class SingersQuery(Schema):
     # night, which is bounded by the session. A cap passed explicitly is still
     # bounded, for the autocomplete that asks against every session on record.
     limit = _page_size(None)
+    completed_only = fields.Boolean(
+        load_default=False,
+        metadata={"description": "Count only songs sung through, for the singer lists"},
+    )
+
+
+class ResetHistoryQuery(Schema):
+    """What a reset is allowed to destroy.
+
+    scope is required rather than defaulted: a parameter that goes missing must
+    fail the request, never fall through to the wider of two irreversible
+    deletes.
+    """
+
+    scope = fields.String(required=True, validate=validate.OneOf(RANKING_SCOPES))
+    session = fields.String(load_default=None, metadata={"description": "UUID when scope=session"})
+
+    @validates_schema
+    def check_session(self, data, **kwargs):
+        if data["scope"] == "session" and not data["session"]:
+            # MSG: Error when resetting one session's plays without saying which session
+            raise ValidationError(_("A session is required"), "session")
 
 
 class ExportQuery(Schema):
@@ -119,10 +149,14 @@ class UpdateSessionForm(Schema):
 def get_singers(query):
     """Performer names with play counts, most active first.
 
-    Unscoped for the singer auto-complete; scoped to a session for its singer list.
+    Unscoped for the singer auto-complete; scoped to a session for its singer
+    list. Only the auto-complete leaves completed_only off: it is a directory of
+    who sings here, so dropping someone who skipped their only song would just
+    mean the host typing the name out again.
     """
     k = get_karaoke_instance()
-    return jsonify({"singers": k.play_history.get_singers(query["session"], query["limit"])})
+    singers = k.play_history.get_singers(query["session"], query["limit"], query["completed_only"])
+    return jsonify({"singers": singers})
 
 
 @sessions_api_bp.route("/api/history/plays")
@@ -130,10 +164,17 @@ def get_singers(query):
 def get_plays(query):
     """Paginated play log, newest first, optionally scoped to one session."""
     k = get_karaoke_instance()
+    skipped = query["include_skipped"]
     plays = k.play_history.get_plays(
-        query["session"], query["limit"], query["offset"], query["sort"], query["direction"]
+        query["session"],
+        query["limit"],
+        query["offset"],
+        query["sort"],
+        query["direction"],
+        skipped,
     )
-    return jsonify({"plays": plays, "total": k.play_history.count_plays(query["session"])})
+    total = k.play_history.count_plays(query["session"], skipped)
+    return jsonify({"plays": plays, "total": total})
 
 
 @sessions_api_bp.route("/api/history/plays/<int:play_id>", methods=["DELETE"])
@@ -150,12 +191,13 @@ def delete_play(play_id):
 def get_sessions(query):
     """Session list with play counts, plus the currently active session."""
     k = get_karaoke_instance()
+    unnamed = query["include_unnamed"]
     return jsonify(
         {
-            "sessions": k.play_history.get_sessions(query["limit"], query["offset"]),
+            "sessions": k.play_history.get_sessions(query["limit"], query["offset"], unnamed),
             # Without this a caller cannot tell a full list from a truncated
             # page, which is how older sessions went missing silently.
-            "total": k.play_history.count_sessions(),
+            "total": k.play_history.count_sessions(unnamed),
             "current": k.play_history.get_current_session(),
         }
     )
@@ -189,6 +231,28 @@ def update_session(form, session_uuid):
     return jsonify({"success": True})
 
 
+@sessions_api_bp.route("/api/history", methods=["DELETE"])
+@sessions_api_bp.arguments(ResetHistoryQuery, location="query")
+def reset_history(query):
+    """Erase play history: one session's plays, or everything on record.
+
+    Gated here as well as by the blueprint: the rankings page this is reached
+    from may yet become visible to the whole room (issue #793), and wiping the
+    history must stay admin-only wherever that page ends up living.
+    """
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+
+    k = get_karaoke_instance()
+    if query["scope"] == "all":
+        k.play_history.clear_all_history()
+        return jsonify({"success": True})
+
+    if not k.play_history.clear_session_plays(query["session"]):
+        return jsonify({"success": False, "error": _("Session not found")}), 404
+    return jsonify({"success": True})
+
+
 @sessions_api_bp.route("/api/history/sessions/<session_uuid>", methods=["DELETE"])
 def delete_session(session_uuid):
     """Delete a session and all of its plays."""
@@ -218,17 +282,11 @@ def _export_csv(session_uuid: str, plays: list[dict]) -> Response:
     """Render plays as CSV, for spreadsheets."""
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    writer.writerow([_("Played At"), _("Performer"), _("Song"), _("Status")])
+    # No status column: the export carries performances only, so it would read
+    # "Played" the whole way down.
+    writer.writerow([_("Played At"), _("Performer"), _("Song")])
     for play in plays:
-        writer.writerow(
-            [
-                play["played_at"],
-                _csv_safe(play["performer"]),
-                _csv_safe(play["song"]),
-                # The same vocabulary the play log shows on screen.
-                _("Played") if play["completed"] else _("Skipped"),
-            ]
-        )
+        writer.writerow([play["played_at"], _csv_safe(play["performer"]), _csv_safe(play["song"])])
     return Response(
         buffer.getvalue(),
         mimetype="text/csv",
@@ -241,10 +299,7 @@ def _export_txt(session_uuid: str, plays: list[dict]) -> Response:
     lines = [_("PiKaraoke - Play History"), ""]
     for i, play in enumerate(plays, 1):
         # played_at is "YYYY-MM-DD HH:MM:SS"; minutes are enough for a set list.
-        line = f"{i}. {play['played_at'][:16]}  {play['performer']} - {play['song']}"
-        if not play["completed"]:
-            line += "  " + _("(skipped)")
-        lines.append(line)
+        lines.append(f"{i}. {play['played_at'][:16]}  {play['performer']} - {play['song']}")
     return Response(
         "\n".join(lines) + "\n",
         mimetype="text/plain",

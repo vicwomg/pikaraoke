@@ -1,20 +1,92 @@
 {% extends 'base.html' %}
 
+{# The label the scope control and the reset confirmation both show. Set once so
+   the button cannot name a different session from the one on screen. The NUMBER
+   token is what sessions.html builds the same label from; keep the two identical
+   so an unnamed session is not named two different ways in one translation. #}
+{# MSG: Label for a session the host never named. NUMBER is replaced with a number. #}
+{% set session_label = (session.name or _('Session NUMBER') | replace('NUMBER', session.id)) if session else "" %}
+
+{# Whether the session on offer is being sung right now. get_latest_session()
+   falls back to the last night on record once the host has ended it, and a
+   control reading "this session" over a finished night is a small lie. Only an
+   open session has no ended_at, so the column alone tells the two apart. #}
+{% set session_is_live = session and not session.ended_at %}
+
 {% block scripts %}
 <script>
-	// Rankings are top-N lists, so changing "how many to show" just reloads the
-	// page with new row counts rather than paging. Each dropdown carries the
-	// other two values so changing one does not reset the others.
+	// What the page is showing, and therefore what the reset destroys.
+	var rankingScope = {{ scope | tojson }};
+	var rankingSessionUuid = {{ (session.uuid if session else "") | tojson }};
+	var rankingSessionLabel = {{ session_label | tojson }};
+
+	// Every control on this page reloads it with a new query string: the lists
+	// are server-rendered top-N, so there is nothing here to update in place.
+	// Each control carries the others' values so changing one does not reset them.
 	function applyRankingLimits() {
 		var params = $.param({
+			scope: rankingScope,
 			songs: $("#limit-songs").val(),
-			performers: $("#limit-performers").val(),
-			sessions: $("#limit-sessions").val()
+			performers: $("#limit-performers").val()
 		});
 		window.location.href = "{{ url_for('sessions.rankings') }}?" + params;
 	}
+
+	// Gettext output is Markup, so Jinja never autoescapes it: an apostrophe in a
+	// translation would close the JS string literal and break this whole script.
+	// |tojson emits the literal instead. See tests/unit/test_template_i18n.py.
+	var resetText = {
+		// {# MSG: Confirmation before deleting every play recorded in one session. SESSION is replaced with its name. #}
+		confirmSession: {{ _('Delete every play recorded in SESSION? The session itself is kept. This cannot be undone.') | tojson }},
+		// {# MSG: Confirmation before deleting the entire play history. The host must type ok to proceed. #}
+		confirmAll: {{ _('Delete ALL play history - every session and every play, for good? Type "ok" to continue.') | tojson }}
+	};
+
+	// Wiping everything asks for a typed confirmation rather than a click,
+	// matching the clear-queue control: the friction is proportional to what
+	// cannot be undone.
+	function resetRankings() {
+		var params = { scope: rankingScope };
+		if (rankingScope === "session") {
+			if (!window.confirm(resetText.confirmSession.replace("SESSION", rankingSessionLabel))) {
+				return;
+			}
+			params.session = rankingSessionUuid;
+		} else {
+			var typed = window.prompt(resetText.confirmAll);
+			if (typed === null || typed.trim().toLowerCase() !== "ok") {
+				return;
+			}
+		}
+		$.ajax({
+			url: "{{ url_for('sessions_api.reset_history') }}?" + $.param(params),
+			type: "DELETE"
+		}).done(function () {
+			// The ribbon, the nav and the lists all move when history is wiped,
+			// and the server already knows how to draw the result.
+			window.location.reload();
+		});
+	}
+
+	$(function () {
+		$("#reset-rankings").on("click", resetRankings);
+	});
 </script>
 {% endblock %}
+
+{# One of the two scope choices, as a link carrying the current row counts so
+   switching what the page covers does not reset how much of it is shown. Falls
+   back to a disabled button when there is no session to scope to, rather than
+   offering a filter that silently shows everything. #}
+{% macro scope_link(value, label, available=True) %}
+{% if available %}
+<a class="button is-small{% if scope == value %} is-info is-selected{% endif %}"
+	href="{{ url_for('sessions.rankings', scope=value, songs=limits.songs, performers=limits.performers) }}">{{ label }}</a>
+{% else %}
+{# MSG: Tooltip on the disabled session filter, when nothing has ever been sung. #}
+<button class="button is-small" disabled title="{{ _('No sessions recorded yet') | forceescape }}">{{ label }}</button>
+{% endif %}
+{% endmacro %}
 
 {# A right-aligned "Show N" control row below a list, reloading with the chosen
    row count. Mirrors the per-page control on the Sessions page. #}
@@ -33,8 +105,8 @@
 </div>
 {% endmacro %}
 
-{# The trailing count cell is identical in all three tables below. Kept as one
-   macro so translators see a single message rather than three copies of it. #}
+{# The trailing count cell is identical in both tables below. Kept as one macro
+   so translators see a single message rather than two copies of it. #}
 {% macro play_count_cell(count) %}
 {#- MSG: Number of plays, shown at the end of a ranked row. -#}
 <td class="rank-count has-text-right">{% trans count=count %}{{ count }} play{% pluralize %}{{ count }} plays{% endtrans %}</td>
@@ -44,7 +116,7 @@
 <h1>{% block title %}{{ title }}{% endblock %}</h1>
 <style>
 	/* The global `table` rule already fixes the layout, which is what lines the
-	   play counts up down the page across all three tables. */
+	   play counts up down the page across both tables. */
 	.rankings-table {
 		margin-bottom: 0;
 	}
@@ -58,29 +130,51 @@
 		margin-top: 8px;
 		margin-bottom: 25px;
 	}
+	/* What the rankings cover, and the control that erases it. One row: the
+	   reset destroys whatever the scope selects, so they belong together. */
+	.rankings-scope {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+		margin-bottom: 20px;
+	}
+	/* Bulma spaces stacked .buttons groups; this one sits inline in a flex row
+	   that already provides the gap. */
+	.rankings-scope .buttons {
+		margin-bottom: 0;
+	}
+	/* Green marks a live session, matching the active-session bar on the Sessions
+	   page. A finished night reads in plain grey: still what the page is showing,
+	   but nothing is happening in it. */
+	.scope-session {
+		color: var(--dark-success);
+	}
+	.scope-session-ended {
+		color: #a7a7a7;
+	}
 	.rankings-table td {
 		word-wrap: break-word;
 	}
 	.rankings-table .col-rank {
 		width: 2.5em;
 	}
-	.rankings-table .col-when {
-		width: 12em;
-	}
 	.rankings-table .col-count {
 		width: 8em;
 	}
 	/* On a phone the desktop column widths would leave almost nothing for the
-	   session name, so tighten them and let the date wrap onto two lines. */
+	   song title, so tighten them. */
 	@media screen and (max-width: 768px) {
 		.rankings-table .col-rank {
 			width: 1.8em;
 		}
-		.rankings-table .col-when {
-			width: 6em;
-		}
 		.rankings-table .col-count {
 			width: 5em;
+		}
+		/* The scope buttons take the full width and the reset drops below them,
+		   rather than the three squeezing onto one line. */
+		.rankings-scope .buttons {
+			flex: 1;
 		}
 	}
 	/* Alignment comes from Bulma's has-text-right helper: its own
@@ -90,6 +184,44 @@
 	}
 </style>
 {% endblock %} {% block content %}
+
+<div class="rankings-scope">
+	<div class="buttons has-addons">
+		{# MSG: Button showing rankings across every session ever recorded. #}
+		{{ scope_link("all", _("All time")) }}
+		{% if session_is_live %}
+		{# MSG: Button showing rankings for the session being sung right now. #}
+		{{ scope_link("session", _("This session")) }}
+		{% else %}
+		{# MSG: Button showing rankings for the most recent session, once it has ended. #}
+		{{ scope_link("session", _("Last session"), available=session) }}
+		{% endif %}
+	</div>
+	{% if scope == "session" and session %}
+	<span class="is-size-7 scope-session{% if not session_is_live %} scope-session-ended{% endif %}">
+		<i class="icon icon-mic-1"></i>{{ session_label }}
+	</span>
+	{% endif %}
+	<span class="is-flex-grow-1"></span>
+	{# Disabled when the session scope has no session to erase, which on a fresh
+	   install is also the only time there is nothing at all to erase. #}
+	<button id="reset-rankings" class="button is-small is-danger is-outlined"
+		{% if scope == "session" and not session %}disabled{% endif %}>
+		<span class="icon"><i class="icon-trash-empty"></i></span>
+		<span>
+			{%- if scope != "session" -%}
+			{# MSG: Button which deletes the entire play history, every session and every play. #}
+			{% trans %}Reset all history{% endtrans %}
+			{%- elif session_is_live -%}
+			{# MSG: Button which deletes every play recorded in the session running now. #}
+			{% trans %}Clear this session{% endtrans %}
+			{%- else -%}
+			{# MSG: Button which deletes every play recorded in the most recent session. #}
+			{% trans %}Clear last session{% endtrans %}
+			{%- endif -%}
+		</span>
+	</button>
+</div>
 
 {# MSG: Heading for the list of songs that have been sung the most times. #}
 <h2 class="subtitle">{% trans %}Top songs{% endtrans %}</h2>
@@ -136,40 +268,6 @@
 {% else %}
 {# MSG: Shown on the rankings page when nobody has sung anything yet. #}
 <p>{% trans %}Nobody has sung yet.{% endtrans %}</p>
-{% endif %}
-
-{# MSG: Heading for the list of recent karaoke sessions and how busy each was. #}
-<h2 class="subtitle">{% trans %}Recent sessions{% endtrans %}</h2>
-{% if sessions %}
-<table class="rankings-table">
-	<colgroup>
-		<col />
-		<col class="col-when" />
-		<col class="col-count" />
-	</colgroup>
-	{% for session in sessions %}
-	<tr>
-		<td>
-			{%- if session.name -%}{{ session.name }}
-			{%- else -%}
-			{# MSG: Label for a session the host never named, followed by its number. #}
-			{% trans number=session.id %}Session {{ number }}{% endtrans %}
-			{%- endif -%}
-		</td>
-		{# Date and time wrap as a pair, never mid-token, so a narrow screen
-		   gets two tidy lines instead of one string forcing the table wide. #}
-		<td class="when">
-			{% set started = session.started_at.split(" ") %}
-			<span>{{ started[0] }}</span> <span>{{ started[1] if started|length > 1 }}</span>
-		</td>
-		{{ play_count_cell(session.play_count) }}
-	</tr>
-	{% endfor %}
-</table>
-{{ limit_select("sessions", limits.sessions) }}
-{% else %}
-{# MSG: Shown on the rankings page when no sessions have been recorded yet. #}
-<p>{% trans %}No sessions recorded yet.{% endtrans %}</p>
 {% endif %}
 
 {% endblock %}

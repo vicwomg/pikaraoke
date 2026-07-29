@@ -81,6 +81,7 @@ API_ENDPOINTS = [
     ("put", "/api/history/sessions/abc"),
     ("delete", "/api/history/sessions/abc"),
     ("get", "/api/history/export/abc"),
+    ("delete", "/api/history?scope=all"),
 ]
 
 
@@ -104,22 +105,17 @@ class TestAdminGate:
         assert json.loads(response.data)["singers"][0]["performer"] == "Alice"
 
 
+# What export_plays() hands the exporters: performances only, so there is no
+# status to render.
+EXPORTED_PLAYS = [
+    {"played_at": "2026-03-05 21:00:00", "performer": "Alice", "song": "Artist - Song"},
+    {"played_at": "2026-03-05 21:05:00", "performer": "Bob", "song": "Another Song"},
+]
+
+
 class TestExport:
     def test_csv_contents(self, admin_client, karaoke):
-        karaoke.play_history.export_plays.return_value = [
-            {
-                "played_at": "2026-03-05 21:00:00",
-                "performer": "Alice",
-                "completed": 1,
-                "song": "Artist - Song",
-            },
-            {
-                "played_at": "2026-03-05 21:05:00",
-                "performer": "Bob",
-                "completed": 0,
-                "song": "Another Song",
-            },
-        ]
+        karaoke.play_history.export_plays.return_value = EXPORTED_PLAYS
 
         response = admin_client.get("/api/history/export/abc")
         body = response.data.decode()
@@ -127,26 +123,15 @@ class TestExport:
         assert response.status_code == 200
         assert response.mimetype == "text/csv"
         assert "attachment" in response.headers["Content-Disposition"]
-        # Same vocabulary as the play log on the page, not a separate one.
-        assert "Played At,Performer,Song,Status" in body
-        assert "2026-03-05 21:00:00,Alice,Artist - Song,Played" in body
-        assert "2026-03-05 21:05:00,Bob,Another Song,Skipped" in body
+        # No status column: export_plays() returns songs sung through, so it
+        # would read "Played" the whole way down.
+        assert "Played At,Performer,Song" in body
+        assert "Status" not in body
+        assert "2026-03-05 21:00:00,Alice,Artist - Song" in body
+        assert "2026-03-05 21:05:00,Bob,Another Song" in body
 
     def test_txt_contents(self, admin_client, karaoke):
-        karaoke.play_history.export_plays.return_value = [
-            {
-                "played_at": "2026-03-05 21:00:00",
-                "performer": "Alice",
-                "completed": 1,
-                "song": "Artist - Song",
-            },
-            {
-                "played_at": "2026-03-05 21:05:00",
-                "performer": "Bob",
-                "completed": 0,
-                "song": "Another Song",
-            },
-        ]
+        karaoke.play_history.export_plays.return_value = EXPORTED_PLAYS
 
         response = admin_client.get("/api/history/export/abc?format=txt")
         body = response.data.decode()
@@ -156,8 +141,9 @@ class TestExport:
         assert 'filename="pikaraoke-abc.txt"' in response.headers["Content-Disposition"]
         # A numbered, human-readable set list: minutes only, no CSV commas.
         assert "1. 2026-03-05 21:00  Alice - Artist - Song" in body
-        # A skipped song is still listed, but flagged.
-        assert "2. 2026-03-05 21:05  Bob - Another Song  (skipped)" in body
+        assert "2. 2026-03-05 21:05  Bob - Another Song" in body
+        # Nothing is flagged: a skipped song never reaches the export.
+        assert "skipped" not in body
 
     @pytest.mark.parametrize("prefix", ["=", "+", "-", "@"])
     def test_csv_neutralises_formula_prefixes(self, admin_client, karaoke, prefix):
@@ -171,7 +157,6 @@ class TestExport:
             {
                 "played_at": "2026-03-05 21:00:00",
                 "performer": f'{prefix}HYPERLINK("http://evil/","Alice")',
-                "completed": 1,
                 "song": f"{prefix}cmd|'/c calc'!A1",
             }
         ]
@@ -183,18 +168,11 @@ class TestExport:
         assert f"'{prefix}cmd|" in body
 
     def test_csv_leaves_ordinary_names_alone(self, admin_client, karaoke):
-        karaoke.play_history.export_plays.return_value = [
-            {
-                "played_at": "2026-03-05 21:00:00",
-                "performer": "Alice",
-                "completed": 1,
-                "song": "Artist - Song",
-            }
-        ]
+        karaoke.play_history.export_plays.return_value = EXPORTED_PLAYS[:1]
 
         body = admin_client.get("/api/history/export/abc").data.decode()
 
-        assert "2026-03-05 21:00:00,Alice,Artist - Song,Played" in body
+        assert "2026-03-05 21:00:00,Alice,Artist - Song" in body
 
     def test_bad_format_rejected(self, admin_client, karaoke):
         karaoke.play_history.export_plays.return_value = []
@@ -218,7 +196,7 @@ class TestExport:
         response = admin_client.get("/api/history/export/quiet")
 
         assert response.status_code == 200
-        assert "Played At,Performer,Song,Status" in response.data.decode()
+        assert "Played At,Performer,Song" in response.data.decode()
 
 
 class TestSessionName:
@@ -295,12 +273,31 @@ class TestPagingBounds:
         karaoke.play_history.get_sessions.assert_not_called()
         karaoke.play_history.get_singers.assert_not_called()
 
+    def test_sessions_hide_auto_started_by_default(self, admin_client, karaoke):
+        karaoke.play_history.get_sessions.return_value = []
+        karaoke.play_history.count_sessions.return_value = 0
+        karaoke.play_history.get_current_session.return_value = None
+
+        assert admin_client.get("/api/history/sessions").status_code == 200
+        karaoke.play_history.get_sessions.assert_called_once_with(50, 0, False)
+        karaoke.play_history.count_sessions.assert_called_once_with(False)
+
+    def test_sessions_can_reveal_auto_started(self, admin_client, karaoke):
+        """The total has to take the same filter, or the pager overruns the list."""
+        karaoke.play_history.get_sessions.return_value = []
+        karaoke.play_history.count_sessions.return_value = 0
+        karaoke.play_history.get_current_session.return_value = None
+
+        assert admin_client.get("/api/history/sessions?include_unnamed=true").status_code == 200
+        karaoke.play_history.get_sessions.assert_called_once_with(50, 0, True)
+        karaoke.play_history.count_sessions.assert_called_once_with(True)
+
     def test_singers_defaults_to_no_cap(self, admin_client, karaoke):
         """The session singer panel wants everyone who sang, bounded by the session."""
         karaoke.play_history.get_singers.return_value = []
 
         assert admin_client.get("/api/history/singers?session=abc").status_code == 200
-        karaoke.play_history.get_singers.assert_called_once_with("abc", None)
+        karaoke.play_history.get_singers.assert_called_once_with("abc", None, False)
 
 
 class TestRankingsSizes:
@@ -308,28 +305,124 @@ class TestRankingsSizes:
 
     def test_honors_selected_sizes(self, admin_client, karaoke_page):
         with patch("pikaraoke.routes.sessions.render_template", return_value="ok") as render:
-            response = admin_client.get("/rankings?songs=50&performers=10&sessions=20")
+            response = admin_client.get("/rankings?songs=50&performers=10")
 
         assert response.status_code == 200
-        karaoke_page.play_history.get_top_songs.assert_called_once_with(50)
-        karaoke_page.play_history.get_singers.assert_called_once_with(limit=10)
-        karaoke_page.play_history.get_sessions.assert_called_once_with(limit=20)
+        karaoke_page.play_history.get_top_songs.assert_called_once_with(50, None)
+        karaoke_page.play_history.get_singers.assert_called_once_with(
+            None, limit=10, completed_only=True
+        )
         # The chosen sizes are handed to the template so the dropdowns show them.
         kwargs = render.call_args.kwargs
         assert kwargs["limits"]["songs"] == 50
         assert kwargs["limits"]["performers"] == 10
-        assert kwargs["limits"]["sessions"] == 20
 
     def test_defaults_when_unset(self, admin_client, karaoke_page):
         with patch("pikaraoke.routes.sessions.render_template", return_value="ok"):
             admin_client.get("/rankings")
 
-        karaoke_page.play_history.get_top_songs.assert_called_once_with(20)
-        karaoke_page.play_history.get_singers.assert_called_once_with(limit=20)
-        karaoke_page.play_history.get_sessions.assert_called_once_with(limit=10)
+        karaoke_page.play_history.get_top_songs.assert_called_once_with(20, None)
+        karaoke_page.play_history.get_singers.assert_called_once_with(
+            None, limit=20, completed_only=True
+        )
 
     def test_off_menu_size_rejected(self, admin_client, karaoke_page):
         # Only the offered sizes are accepted, so a hand-edited URL cannot ask
         # for an unbounded list.
         response = admin_client.get("/rankings?songs=999")
         assert response.status_code == 422
+
+
+class TestRankingsScope:
+    """Rankings cover every play on record, or just the night in progress."""
+
+    def test_all_time_is_the_default(self, admin_client, karaoke_page):
+        with patch("pikaraoke.routes.sessions.render_template", return_value="ok") as render:
+            admin_client.get("/rankings")
+
+        assert render.call_args.kwargs["scope"] == "all"
+        karaoke_page.play_history.get_top_songs.assert_called_once_with(20, None)
+
+    def test_all_time_still_resolves_the_session(self, admin_client, karaoke_page):
+        """The scope control labels the option it is offering -- "this session"
+        against a live one, "last session" against a finished one -- so it needs
+        the session before the host has clicked anything."""
+        karaoke_page.play_history.get_latest_session.return_value = {"uuid": "abc", "name": "Fri"}
+
+        with patch("pikaraoke.routes.sessions.render_template", return_value="ok") as render:
+            admin_client.get("/rankings")
+
+        assert render.call_args.kwargs["session"]["name"] == "Fri"
+        # Resolved for labelling only; all-time rankings stay unscoped.
+        karaoke_page.play_history.get_top_songs.assert_called_once_with(20, None)
+
+    def test_session_scope_filters_both_lists(self, admin_client, karaoke_page):
+        karaoke_page.play_history.get_latest_session.return_value = {"uuid": "abc", "name": "Fri"}
+
+        with patch("pikaraoke.routes.sessions.render_template", return_value="ok") as render:
+            admin_client.get("/rankings?scope=session")
+
+        karaoke_page.play_history.get_top_songs.assert_called_once_with(20, "abc")
+        karaoke_page.play_history.get_singers.assert_called_once_with(
+            "abc", limit=20, completed_only=True
+        )
+        assert render.call_args.kwargs["session"]["name"] == "Fri"
+
+    def test_session_scope_without_a_session_shows_everything(self, admin_client, karaoke_page):
+        """A play cannot exist without a session, so no session means no plays:
+        the unscoped query returns the same empty list either way. The control
+        renders the option disabled rather than offering the empty filter."""
+        karaoke_page.play_history.get_latest_session.return_value = None
+
+        with patch("pikaraoke.routes.sessions.render_template", return_value="ok") as render:
+            response = admin_client.get("/rankings?scope=session")
+
+        assert response.status_code == 200
+        karaoke_page.play_history.get_top_songs.assert_called_once_with(20, None)
+        assert render.call_args.kwargs["session"] is None
+
+    def test_unknown_scope_rejected(self, admin_client, karaoke_page):
+        assert admin_client.get("/rankings?scope=everything").status_code == 422
+
+
+class TestResetHistory:
+    """Wiping the log is irreversible, so the scope is never inferred."""
+
+    def test_clears_one_session(self, admin_client, karaoke):
+        karaoke.play_history.clear_session_plays.return_value = True
+
+        response = admin_client.delete("/api/history?scope=session&session=abc")
+
+        assert response.status_code == 200
+        karaoke.play_history.clear_session_plays.assert_called_once_with("abc")
+        karaoke.play_history.clear_all_history.assert_not_called()
+
+    def test_clears_everything(self, admin_client, karaoke):
+        response = admin_client.delete("/api/history?scope=all")
+
+        assert response.status_code == 200
+        karaoke.play_history.clear_all_history.assert_called_once_with()
+        karaoke.play_history.clear_session_plays.assert_not_called()
+
+    def test_unknown_session_is_not_found(self, admin_client, karaoke):
+        karaoke.play_history.clear_session_plays.return_value = False
+
+        response = admin_client.delete("/api/history?scope=session&session=gone")
+
+        assert response.status_code == 404
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "",  # no scope at all must not fall through to wiping everything
+            "?scope=everything",
+            "?scope=session",  # scoped, but to no session in particular
+            "?session=abc",
+        ],
+    )
+    def test_ambiguous_request_destroys_nothing(self, admin_client, karaoke, query):
+        response = admin_client.delete("/api/history" + query)
+
+        assert response.status_code == 422
+        karaoke.play_history.clear_all_history.assert_not_called()
+        karaoke.play_history.clear_session_plays.assert_not_called()

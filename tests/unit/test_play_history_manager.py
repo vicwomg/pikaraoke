@@ -27,6 +27,22 @@ def history(db, events):
 
 
 @pytest.fixture
+def sing(history, events):
+    """Record a play and sing it through.
+
+    Every reporting surface counts performances rather than starts, so a test
+    about what gets counted has to finish the song. record_play() alone leaves
+    the row unresolved, which reads as "playing right now".
+    """
+
+    def _sing(song_id, youtube_id, performer, title):
+        history.record_play(song_id, youtube_id, performer, title)
+        events.emit("song_ended", "complete")
+
+    return _sing
+
+
+@pytest.fixture
 def song_id(db):
     """A song in the library, for plays to point at."""
     db.insert_songs([{"file_path": "/songs/a.mp4", "youtube_id": None, "format": "mp4"}])
@@ -97,10 +113,11 @@ class TestSessions:
         history.rename_session(session_uuid, "  Saturday  ")
         assert history.get_current_session_name() == "Saturday"
 
-    def test_get_sessions_includes_play_counts(self, history, song_id):
+    def test_get_sessions_includes_play_counts(self, history, sing, song_id):
+        """Performances, not attempts: the count matches what the rankings count."""
         history.start_session("Night One")
-        history.record_play(song_id, None, "Alice", "A Song")
-        history.record_play(song_id, None, "Bob", "A Song")
+        sing(song_id, None, "Alice", "A Song")
+        sing(song_id, None, "Bob", "A Song")
 
         sessions = history.get_sessions()
         assert len(sessions) == 1
@@ -114,7 +131,7 @@ class TestSessions:
     def test_get_sessions_exposes_id(self, history):
         """The UI labels an auto-started session by number, so id has to come back."""
         history.start_session()
-        assert history.get_sessions()[0]["id"] is not None
+        assert history.get_sessions(include_unnamed=True)[0]["id"] is not None
 
 
 class TestSessionPaging:
@@ -213,14 +230,14 @@ class TestActivateSession:
 
 
 class TestRecordPlay:
-    def test_auto_starts_session_when_none_active(self, history, song_id):
+    def test_auto_starts_session_when_none_active(self, history, sing, song_id):
         """Unnamed, so a household that never uses sessions never sees one."""
-        history.record_play(song_id, None, "Alice", "A Song")
+        sing(song_id, None, "Alice", "A Song")
 
         session = history.get_current_session()
         assert session is not None
         assert session["name"] is None
-        assert history.get_sessions()[0]["play_count"] == 1
+        assert history.get_sessions(include_unnamed=True)[0]["play_count"] == 1
 
     def test_reuses_the_active_session(self, history, song_id):
         session_uuid = history.start_session("Night One")
@@ -292,7 +309,7 @@ class TestStaleSessionRollover:
         history.record_play(song_id, None, "Bob", "A Song")
 
         assert history.get_current_session()["uuid"] != first
-        assert len(history.get_sessions()) == 2
+        assert len(history.get_sessions(include_unnamed=True)) == 2
 
     def test_the_replacement_is_unnamed_too(self, db, history, song_id):
         """It is still the invisible session; only its bounds have changed."""
@@ -310,7 +327,7 @@ class TestStaleSessionRollover:
         history.record_play(song_id, None, "Bob", "A Song")
 
         assert history.get_current_session()["uuid"] == session_uuid
-        assert len(history.get_sessions()) == 1
+        assert len(history.get_sessions(include_unnamed=True)) == 1
 
     def test_a_named_session_is_never_rolled_over(self, db, history, song_id):
         """The one that would quietly destroy a host's night."""
@@ -322,16 +339,16 @@ class TestStaleSessionRollover:
 
         assert history.get_current_session()["uuid"] == session_uuid
         assert history.get_current_session()["name"] == "Friday"
-        assert len(history.get_sessions()) == 1
+        assert len(history.get_sessions(include_unnamed=True)) == 1
 
-    def test_the_closed_session_keeps_its_plays(self, db, history, song_id):
+    def test_the_closed_session_keeps_its_plays(self, db, history, sing, song_id):
         """Rollover draws a boundary; it never moves history across one."""
-        history.record_play(song_id, None, "Alice", "A Song")
+        sing(song_id, None, "Alice", "A Song")
         self._make_stale(db)
 
-        history.record_play(song_id, None, "Bob", "A Song")
+        sing(song_id, None, "Bob", "A Song")
 
-        counts = [s["play_count"] for s in history.get_sessions()]
+        counts = [s["play_count"] for s in history.get_sessions(include_unnamed=True)]
         assert sorted(counts) == [1, 1]
 
     def test_ended_at_is_backdated_to_the_last_play(self, db, history, song_id):
@@ -354,7 +371,7 @@ class TestStaleSessionRollover:
 
         history.record_play(song_id, None, "Alice", "A Song")
 
-        assert len(history.get_sessions()) == 2
+        assert len(history.get_sessions(include_unnamed=True)) == 2
         closed = db.query("SELECT started_at, ended_at FROM sessions WHERE ended_at IS NOT NULL")[0]
         assert closed["ended_at"] == closed["started_at"]
 
@@ -370,7 +387,7 @@ class TestStaleSessionRollover:
         history.record_play(song_id, None, "Alice", "A Song")  # restarts in the new key
 
         assert history.get_current_session()["uuid"] == session_uuid
-        assert len(history.get_sessions()) == 1
+        assert len(history.get_sessions(include_unnamed=True)) == 1
 
 
 class TestCompleted:
@@ -378,37 +395,37 @@ class TestCompleted:
         """has_ended is what the log renders as "Playing" rather than "Skipped"."""
         history.record_play(song_id, None, "Alice", "A Song")
 
-        play = history.get_plays()[0]
+        play = history.get_plays(include_skipped=True)[0]
         assert play["has_ended"] == 0
         assert play["completed"] == 0
 
     def test_has_ended_once_the_song_finishes(self, history, events, song_id):
         history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "skip")
-        assert history.get_plays()[0]["has_ended"] == 1
+        assert history.get_plays(include_skipped=True)[0]["has_ended"] == 1
 
     def test_completed_on_complete_reason(self, history, events, song_id):
         history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "complete")
-        assert history.get_plays()[0]["completed"] == 1
+        assert history.get_plays(include_skipped=True)[0]["completed"] == 1
 
     @pytest.mark.parametrize("reason", ["skip", "timeout", None])
     def test_not_completed_on_other_reasons(self, history, events, song_id, reason):
         """The regression that would make `completed` a constant 1 and useless."""
         history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", reason)
-        assert history.get_plays()[0]["completed"] == 0
+        assert history.get_plays(include_skipped=True)[0]["completed"] == 0
 
     def test_song_ended_with_nothing_tracked_is_noop(self, history, events):
         events.emit("song_ended", "complete")
-        assert history.get_plays() == []
+        assert history.get_plays(include_skipped=True) == []
 
     def test_second_song_ended_does_not_complete_the_previous_play(self, history, events, song_id):
         history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "skip")
         events.emit("song_ended", "complete")
 
-        assert history.get_plays()[0]["completed"] == 0
+        assert history.get_plays(include_skipped=True)[0]["completed"] == 0
 
 
 class TestTranspose:
@@ -420,6 +437,7 @@ class TestTranspose:
         history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "transpose")
         history.record_play(song_id, None, "Alice", "A Song")  # restarts in the new key
+        events.emit("song_ended", "complete")
 
         assert len(history.get_plays()) == 1
         assert history.get_top_songs()[0]["play_count"] == 1
@@ -430,7 +448,7 @@ class TestTranspose:
         history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "complete")
 
-        plays = history.get_plays()
+        plays = history.get_plays(include_skipped=True)
         assert len(plays) == 1
         assert plays[0]["completed"] == 1
 
@@ -440,7 +458,7 @@ class TestTranspose:
         history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "skip")
 
-        assert [p["completed"] for p in history.get_plays()] == [0]
+        assert [p["completed"] for p in history.get_plays(include_skipped=True)] == [0]
 
     def test_repeated_transposes_still_log_one_play(self, history, events, song_id):
         history.record_play(song_id, None, "Alice", "A Song")
@@ -449,7 +467,7 @@ class TestTranspose:
             history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "complete")
 
-        assert len(history.get_plays()) == 1
+        assert len(history.get_plays(include_skipped=True)) == 1
 
     def test_a_different_song_after_a_transpose_is_still_logged(self, db, history, events, song_id):
         """The restart may never arrive; a stale resume must not swallow it."""
@@ -460,14 +478,14 @@ class TestTranspose:
         events.emit("song_ended", "transpose")
         history.record_play(other, None, "Bob", "A Song")
 
-        assert [p["performer"] for p in history.get_plays()] == ["Bob", "Alice"]
+        assert [p["performer"] for p in history.get_plays(include_skipped=True)] == ["Bob", "Alice"]
 
     def test_same_song_by_another_performer_is_still_logged(self, history, events, song_id):
         history.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "transpose")
         history.record_play(song_id, None, "Bob", "A Song")
 
-        assert [p["performer"] for p in history.get_plays()] == ["Bob", "Alice"]
+        assert [p["performer"] for p in history.get_plays(include_skipped=True)] == ["Bob", "Alice"]
 
     def test_transpose_that_fails_to_restart_resolves_on_the_next_ending(
         self, history, events, song_id
@@ -478,7 +496,7 @@ class TestTranspose:
         events.emit("song_ended", "timeout")
 
         assert history._current_play_id is None
-        assert [p["completed"] for p in history.get_plays()] == [0]
+        assert [p["completed"] for p in history.get_plays(include_skipped=True)] == [0]
 
 
 class TestLocalTimes:
@@ -518,9 +536,9 @@ class TestLocalTimes:
         history.record_play(song_id, None, "Alice", "A Song")
         assert self._seconds_from_now(history.get_singers()[0]["last_played"]) < 60
 
-    def test_export_is_local(self, history, song_id):
+    def test_export_is_local(self, history, sing, song_id):
         session_uuid = history.start_session("One")
-        history.record_play(song_id, None, "Alice", "A Song")
+        sing(song_id, None, "Alice", "A Song")
         assert self._seconds_from_now(history.export_plays(session_uuid)[0]["played_at"]) < 60
 
     def test_ordering_uses_stored_utc(self, db, history, song_id):
@@ -651,10 +669,10 @@ class TestGetTopSongs:
     def test_empty_when_nothing_played(self, history):
         assert history.get_top_songs() == []
 
-    def test_ranks_by_play_count(self, db, history, song_id):
-        history.record_play(song_id, None, "Alice", "Popular Song")
-        history.record_play(song_id, None, "Bob", "Popular Song")
-        history.record_play(song_id, None, "Alice", "Rare Song")
+    def test_ranks_by_play_count(self, sing, db, history, song_id):
+        sing(song_id, None, "Alice", "Popular Song")
+        sing(song_id, None, "Bob", "Popular Song")
+        sing(song_id, None, "Alice", "Rare Song")
 
         top = history.get_top_songs()
         assert [(s["song"], s["play_count"]) for s in top] == [
@@ -662,49 +680,58 @@ class TestGetTopSongs:
             ("Rare Song", 1),
         ]
 
-    def test_respects_limit(self, history, song_id):
+    def test_respects_limit(self, sing, history, song_id):
         for i in range(5):
-            history.record_play(song_id, None, "Alice", f"Song {i}")
+            sing(song_id, None, "Alice", f"Song {i}")
 
         assert len(history.get_top_songs(limit=3)) == 3
 
-    def test_counts_one_song_under_either_casing(self, history, song_id):
+    def test_scopes_to_one_session(self, sing, history, song_id):
+        """The rankings page filters to the night in progress."""
+        first = history.start_session("One")
+        sing(song_id, None, "Alice", "Old Favourite")
+        history.start_session("Two")
+        sing(song_id, None, "Bob", "Tonight's Song")
+
+        assert [s["song"] for s in history.get_top_songs(session_uuid=first)] == ["Old Favourite"]
+
+    def test_counts_one_song_under_either_casing(self, sing, history, song_id):
         """Matching the play log, which is case-insensitive about titles too."""
-        history.record_play(song_id, None, "Alice", "A Song")
-        history.record_play(song_id, None, "Bob", "a song")
+        sing(song_id, None, "Alice", "A Song")
+        sing(song_id, None, "Bob", "a song")
 
         assert history.get_top_songs()[0]["play_count"] == 2
 
-    def test_counts_plays_whose_song_left_the_library(self, history, song_id, db):
+    def test_counts_plays_whose_song_left_the_library(self, sing, history, song_id, db):
         """The whole reason song_title is stored: a deleted song keeps its history.
 
         song_id goes NULL on delete, so ranking on the join would drop exactly
         the plays this column exists to preserve.
         """
-        history.record_play(song_id, None, "Alice", "A Song")
+        sing(song_id, None, "Alice", "A Song")
         db.delete_by_path("/songs/a.mp4")
 
         assert history.get_top_songs() == [{"song": "A Song", "play_count": 1}]
 
-    def test_counts_one_song_across_a_library_rebuild(self, history, song_id, db):
+    def test_counts_one_song_across_a_library_rebuild(self, sing, history, song_id, db):
         """Nuking the library and rescanning it must not fork every song in two.
 
         The re-added song gets a fresh row id, so a key built on song_id would
         put the plays either side of the rebuild into separate rankings.
         """
-        history.record_play(song_id, None, "Alice", "A Song")
+        sing(song_id, None, "Alice", "A Song")
         db.delete_by_path("/songs/a.mp4")
         db.insert_songs([{"file_path": "/songs/a.mp4", "youtube_id": None, "format": "mp4"}])
         readded = db.get_song_identity("/songs/a.mp4")[0]
-        history.record_play(readded, None, "Bob", "A Song")
+        sing(readded, None, "Bob", "A Song")
 
         assert readded != song_id
         assert history.get_top_songs() == [{"song": "A Song", "play_count": 2}]
 
-    def test_youtube_songs_count_as_one_across_a_retitle(self, history, song_id):
+    def test_youtube_songs_count_as_one_across_a_retitle(self, sing, history, song_id):
         """The id identifies the video, so it outranks whatever it was called."""
-        history.record_play(song_id, "dQw4w9WgXcQ", "Alice", "Never Gonna Give You Up")
-        history.record_play(song_id, "dQw4w9WgXcQ", "Bob", "Rick Astley - Never Gonna Give You Up")
+        sing(song_id, "dQw4w9WgXcQ", "Alice", "Never Gonna Give You Up")
+        sing(song_id, "dQw4w9WgXcQ", "Bob", "Rick Astley - Never Gonna Give You Up")
 
         top = history.get_top_songs()
         assert len(top) == 1
@@ -712,10 +739,10 @@ class TestGetTopSongs:
         # Labelled with the most recent title, so a renamed song reads currently.
         assert top[0]["song"] == "Rick Astley - Never Gonna Give You Up"
 
-    def test_different_videos_are_never_merged_by_title(self, history, song_id):
+    def test_different_videos_are_never_merged_by_title(self, sing, history, song_id):
         """Covers and live versions share titles constantly."""
-        history.record_play(song_id, "aaaaaaaaaaa", "Alice", "Hallelujah")
-        history.record_play(song_id, "bbbbbbbbbbb", "Bob", "Hallelujah")
+        sing(song_id, "aaaaaaaaaaa", "Alice", "Hallelujah")
+        sing(song_id, "bbbbbbbbbbb", "Bob", "Hallelujah")
 
         assert [s["play_count"] for s in history.get_top_songs()] == [1, 1]
 
@@ -724,32 +751,34 @@ class TestSongRenamed:
     """A local rip has no YouTube id, so it is identified by its title. A rename
     has to carry its plays over or the song ranks twice."""
 
-    def test_rename_merges_the_plays_of_a_local_rip(self, history, events, song_id):
-        history.record_play(song_id, None, "Alice", "Old Name")
+    def test_rename_merges_the_plays_of_a_local_rip(self, sing, history, events, song_id):
+        sing(song_id, None, "Alice", "Old Name")
         events.emit("song_renamed", song_id, "New Name")
-        history.record_play(song_id, None, "Bob", "New Name")
+        sing(song_id, None, "Bob", "New Name")
 
         assert history.get_top_songs() == [{"song": "New Name", "play_count": 2}]
 
-    def test_rename_updates_the_play_log(self, history, events, song_id):
-        history.record_play(song_id, None, "Alice", "Old Name")
+    def test_rename_updates_the_play_log(self, sing, history, events, song_id):
+        sing(song_id, None, "Alice", "Old Name")
         events.emit("song_renamed", song_id, "New Name")
 
         assert history.get_plays()[0]["song"] == "New Name"
 
-    def test_rename_leaves_other_songs_alone(self, history, events, song_id, db):
+    def test_rename_leaves_other_songs_alone(self, sing, history, events, song_id, db):
         db.insert_songs([{"file_path": "/songs/b.mp4", "youtube_id": None, "format": "mp4"}])
         other = db.get_song_identity("/songs/b.mp4")[0]
-        history.record_play(song_id, None, "Alice", "A Song")
-        history.record_play(other, None, "Bob", "Another Song")
+        sing(song_id, None, "Alice", "A Song")
+        sing(other, None, "Bob", "Another Song")
 
         events.emit("song_renamed", song_id, "Renamed")
 
         assert {s["song"] for s in history.get_top_songs()} == {"Renamed", "Another Song"}
 
-    def test_rename_does_not_touch_plays_of_a_deleted_song(self, history, events, song_id, db):
+    def test_rename_does_not_touch_plays_of_a_deleted_song(
+        self, sing, history, events, song_id, db
+    ):
         """Their song_id is NULL, so they keep the title they were sung under."""
-        history.record_play(song_id, None, "Alice", "A Song")
+        sing(song_id, None, "Alice", "A Song")
         db.delete_by_path("/songs/a.mp4")
 
         events.emit("song_renamed", song_id, "Renamed")
@@ -769,7 +798,8 @@ class TestOrphanedPlays:
 
         restarted = PlayHistoryManager(db=db, events=EventSystem())
 
-        play = restarted.get_plays()[0]
+        # Marked the same way as a skip, so reaching it takes the same opt-in.
+        play = restarted.get_plays(include_skipped=True)[0]
         assert play["has_ended"] == 1
         # Cut short rather than sung through, so it reads as skipped.
         assert play["completed"] == 0
@@ -941,25 +971,190 @@ class TestDelete:
         assert [p["performer"] for p in history.get_plays()] == ["Bob"]
 
 
-class TestExport:
-    def test_exports_session_plays_oldest_first(self, history, events, song_id):
-        session_uuid = history.start_session("One")
+class TestUnnamedSessionsAreHidden:
+    """A session the host never named is not an event they declared. The splash
+    screen and nav ribbon already show nothing for it, so the session list agrees
+    with them by default and reveals them only when asked."""
+
+    def test_list_hides_auto_started_sessions(self, history, song_id):
         history.record_play(song_id, None, "Alice", "A Song")
-        events.emit("song_ended", "complete")
+
+        assert history.get_sessions() == []
+
+    def test_list_reveals_them_on_request(self, history, song_id):
+        history.record_play(song_id, None, "Alice", "A Song")
+
+        assert len(history.get_sessions(include_unnamed=True)) == 1
+
+    def test_named_sessions_are_always_listed(self, history):
+        history.start_session("Friday Night")
+
+        assert [s["name"] for s in history.get_sessions()] == ["Friday Night"]
+
+    def test_naming_one_promotes_it_into_the_list(self, history, song_id):
+        """The whole point of revealing them: a night nobody named gets named,
+        and from that moment it is an ordinary session everywhere."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        auto_started = history.get_current_session()["uuid"]
+
+        history.rename_session(auto_started, "Saturday Night")
+
+        assert [s["name"] for s in history.get_sessions()] == ["Saturday Night"]
+
+    def test_count_matches_what_the_list_shows(self, history, song_id):
+        """A total counting rows the list will not render pages off its own end."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.end_session()
+        history.start_session("Friday Night")
+
+        assert history.count_sessions() == 1
+        assert history.count_sessions(include_unnamed=True) == 2
+
+    def test_rankings_still_see_an_unnamed_night(self, history, song_id):
+        """Hiding them from the list must not hide their plays from reporting:
+        a household that never names a night would otherwise have no rankings."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.end_session()
+
+        assert history.get_latest_session() is not None
+
+
+class TestLatestSession:
+    """What reporting means by "this session"."""
+
+    def test_none_on_a_fresh_install(self, history):
+        assert history.get_latest_session() is None
+
+    def test_prefers_the_open_session(self, history):
+        history.start_session("Old")
+        current = history.start_session("Tonight")
+
+        assert history.get_latest_session()["uuid"] == current
+
+    def test_falls_back_to_the_most_recent_when_none_is_open(self, history):
+        """Ending the night must not empty the rankings the host went to read."""
+        history.start_session("Old")
+        last = history.start_session("Tonight")
+        history.end_session()
+
+        assert history.get_latest_session()["uuid"] == last
+
+    def test_an_unnamed_session_still_counts(self, history, song_id):
+        """The households this feature exists for never press Start, so their
+        only sessions are the unnamed ones record_play() opens. Requiring a name
+        would leave those hosts with a scope that never resolves to anything."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        auto_started = history.get_current_session()["uuid"]
+        history.end_session()
+
+        assert history.get_latest_session()["uuid"] == auto_started
+
+    def test_follows_a_reactivated_older_session(self, history):
+        """Reopening an old session makes it the one plays land in, so it is the
+        one reporting is about -- even though a newer session started later."""
+        old = history.start_session("Old")
+        history.start_session("Newer")
+        history.activate_session(old)
+
+        assert history.get_latest_session()["uuid"] == old
+
+
+class TestClearHistory:
+    def test_clearing_a_session_keeps_the_session(self, history, song_id):
+        """It may be the night in progress; emptying it must not end it."""
+        session_uuid = history.start_session("Tonight")
+        history.record_play(song_id, None, "Alice", "A Song")
+
+        assert history.clear_session_plays(session_uuid) is True
+        assert history.get_plays() == []
+        assert history.get_current_session()["uuid"] == session_uuid
+
+    def test_clearing_a_session_leaves_other_sessions_alone(self, history, song_id):
+        first = history.start_session("One")
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.start_session("Two")
         history.record_play(song_id, None, "Bob", "A Song")
-        events.emit("song_ended", "skip")
+
+        history.clear_session_plays(first)
+
+        assert [p["performer"] for p in history.get_plays()] == ["Bob"]
+
+    def test_clearing_an_unknown_session(self, history):
+        assert history.clear_session_plays("no-such-uuid") is False
+
+    def test_reset_removes_every_session_and_play(self, history, song_id):
+        history.start_session("One")
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.start_session("Two")
+        history.record_play(song_id, None, "Bob", "Another Song")
+
+        history.clear_all_history()
+
+        assert history.get_sessions() == []
+        assert history.get_plays() == []
+        assert history.get_current_session() is None
+
+    def test_reset_announces_the_session_going_away(self, history, events, song_id):
+        """The splash screen and nav ribbon show the session name and never
+        reload, so they only learn it has gone from this event."""
+        seen = []
+        events.on("session_changed", lambda: seen.append(history.get_current_session_name()))
+        history.start_session("Tonight")
+        seen.clear()
+
+        history.clear_all_history()
+
+        assert seen == [None]
+
+    def test_the_next_play_starts_a_new_session(self, history, song_id):
+        history.start_session("Tonight")
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.clear_all_history()
+
+        history.record_play(song_id, None, "Bob", "Another Song")
+
+        assert history.get_current_session() is not None
+        assert [p["performer"] for p in history.get_plays()] == ["Bob"]
+
+    def test_a_transpose_after_a_reset_still_records_the_play(self, history, events, song_id):
+        """A transpose reuses the open play row rather than logging a second one.
+        With that row wiped there is nothing to reuse, so the restart has to be
+        recorded or the song on screen goes missing from the log entirely."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.clear_all_history()
+        events.emit("song_ended", "transpose")
+
+        history.record_play(song_id, None, "Alice", "A Song")
+
+        assert [p["performer"] for p in history.get_plays()] == ["Alice"]
+
+
+class TestExport:
+    def test_exports_session_plays_oldest_first(self, history, sing, song_id):
+        session_uuid = history.start_session("One")
+        sing(song_id, None, "Alice", "A Song")
+        sing(song_id, None, "Bob", "A Song")
 
         rows = history.export_plays(session_uuid)
 
         assert [r["performer"] for r in rows] == ["Alice", "Bob"]
-        assert [r["completed"] for r in rows] == [1, 0]
         assert rows[0]["song"] == "A Song"
 
-    def test_excludes_other_sessions(self, history, song_id):
+    def test_export_omits_skipped_songs(self, history, events, sing, song_id):
+        """The export is a set list of what the room heard, so a song nobody sang
+        through does not belong on it."""
         session_uuid = history.start_session("One")
-        history.record_play(song_id, None, "Alice", "A Song")
+        sing(song_id, None, "Alice", "A Song")
+        history.record_play(song_id, None, "Bob", "Abandoned Song")
+        events.emit("song_ended", "skip")
+
+        assert [r["performer"] for r in history.export_plays(session_uuid)] == ["Alice"]
+
+    def test_excludes_other_sessions(self, history, sing, song_id):
+        session_uuid = history.start_session("One")
+        sing(song_id, None, "Alice", "A Song")
         history.start_session("Two")
-        history.record_play(song_id, None, "Bob", "A Song")
+        sing(song_id, None, "Bob", "A Song")
 
         assert [r["performer"] for r in history.export_plays(session_uuid)] == ["Alice"]
 

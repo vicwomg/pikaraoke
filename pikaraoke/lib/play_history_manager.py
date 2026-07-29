@@ -16,6 +16,11 @@ SESSION_NAME_MAX_LENGTH = 60
 # evening into two sessions; short enough that tonight is never yesterday's.
 STALE_SESSION_HOURS = 6
 
+# What reporting can be about: every play on record, or the night in progress.
+# Shared by the rankings page, which filters on it, and the reset endpoint, which
+# destroys exactly one of the two.
+RANKING_SCOPES = ["all", "session"]
+
 
 def _latest_casing(name_column: str) -> str:
     """Select the most recently used casing of a performer name.
@@ -65,6 +70,35 @@ def _local(column: str, alias: str) -> str:
     server-rendered pages and another in JavaScript for the fetched ones.
     """
     return f"datetime({column}, 'localtime') AS {alias}"
+
+
+# A performance: a song somebody sang through. A skipped song stays on record,
+# but it is not something that happened at the party, so no screen counts it.
+_SUNG = "p.completed = 1"
+
+# The same, plus the song being sung right now, whose `completed` is not settled
+# until it ends. Only the play log wants that unresolved row: it is exactly what
+# renders as "Playing".
+_SUNG_OR_PLAYING = "(p.completed = 1 OR p.ended_at IS NULL)"
+
+
+def _plays_filter(session_uuid: str | None, condition: str | None) -> tuple[str, tuple]:
+    """Build the WHERE clause narrowing a query over `plays p`, and its parameters.
+
+    Args:
+        session_uuid: Scope to one session. Matched on uuid rather than joined,
+            so callers only need the id the UI already carries.
+        condition: _SUNG or _SUNG_OR_PLAYING, or None to take every play on
+            record.
+    """
+    clauses = []
+    params: tuple = ()
+    if session_uuid:
+        clauses.append("p.session_id = (SELECT id FROM sessions WHERE uuid = ?)")
+        params += (session_uuid,)
+    if condition:
+        clauses.append(condition)
+    return ("WHERE " + " AND ".join(clauses) if clauses else ""), params
 
 
 class PlayHistoryManager:
@@ -251,20 +285,47 @@ class PlayHistoryManager:
         """
         return self.get_current_session() is not None
 
-    def get_sessions(self, limit: int = 50, offset: int = 0) -> list[dict]:
+    def get_latest_session(self) -> dict | None:
+        """The session reporting means by "this session", or None on a fresh install.
+
+        The open one, falling back to the most recent on record: without the
+        fallback the rankings would empty out the instant a host pressed End,
+        which is the moment they are most likely to go and look at them.
+        """
+        session = self.get_current_session()
+        if session is not None:
+            return session
+        # Unnamed included: hiding those from the session list is about not
+        # inventing events the host never declared, and must not hide their
+        # plays from reporting -- some households never name a night at all.
+        sessions = self.get_sessions(limit=1, include_unnamed=True)
+        return sessions[0] if sessions else None
+
+    def get_sessions(
+        self, limit: int = 50, offset: int = 0, include_unnamed: bool = False
+    ) -> list[dict]:
         """Return a page of sessions, newest first, each with its play count.
 
         The count is a correlated subquery rather than a join-and-group so the
         LIMIT bounds the work: grouping first would aggregate every play ever
         recorded just to render ten rows.
+
+        Args:
+            include_unnamed: Include the sessions record_play() auto-starts.
+                Excluded by default because the splash screen and the nav ribbon
+                already show nothing for a session the host never claimed;
+                asking for them is how such a night gets found and named.
         """
+        where = "" if include_unnamed else "WHERE s.name IS NOT NULL"
         rows = self.db.query(
             f"""
             SELECT s.id, s.uuid, s.name,
                    {_local("s.started_at", "started_at")},
                    {_local("s.ended_at", "ended_at")},
-                   (SELECT COUNT(*) FROM plays p WHERE p.session_id = s.id) AS play_count
+                   (SELECT COUNT(*) FROM plays p
+                    WHERE p.session_id = s.id AND {_SUNG}) AS play_count
             FROM sessions s
+            {where}
             ORDER BY s.started_at DESC, s.id DESC
             LIMIT ? OFFSET ?
             """,
@@ -293,9 +354,14 @@ class PlayHistoryManager:
         self._announce_session_change()
         return True
 
-    def count_sessions(self) -> int:
-        """Return the total number of sessions, so a paged list can say so."""
-        return self.db.query("SELECT COUNT(*) FROM sessions")[0][0]
+    def count_sessions(self, include_unnamed: bool = False) -> int:
+        """Return the total number of sessions, so a paged list can say so.
+
+        Takes the same filter as get_sessions(), or the pager runs off the end
+        of the list it is paging.
+        """
+        where = "" if include_unnamed else "WHERE name IS NOT NULL"
+        return self.db.query(f"SELECT COUNT(*) FROM sessions {where}")[0][0]
 
     def rename_session(self, session_uuid: str, name: str) -> bool:
         """Name a session (typically one that auto-started unnamed).
@@ -394,6 +460,21 @@ class PlayHistoryManager:
         self._current_song_id = None
         self._current_performer = None
 
+    def _forget_deleted_play(self) -> None:
+        """Drop the in-flight bookkeeping when a reset has taken its row away.
+
+        A transpose restart reuses the open row on the strength of this state
+        alone, so leaving it set would record no play at all for the song still
+        on screen.
+        """
+        if self._current_play_id is None:
+            return
+        if self.db.query("SELECT 1 FROM plays WHERE id = ?", (self._current_play_id,)):
+            return
+        self._current_play_id = None
+        self._current_song_id = None
+        self._current_performer = None
+
     # ------------------------------------------------------------------
     # Queries
     # ------------------------------------------------------------------
@@ -405,6 +486,7 @@ class PlayHistoryManager:
         offset: int = 0,
         sort: str = "played_at",
         direction: str = "desc",
+        include_skipped: bool = False,
     ) -> list[dict]:
         """Return a page of the play log, optionally scoped to one session.
 
@@ -414,15 +496,14 @@ class PlayHistoryManager:
         Args:
             sort: One of _PLAY_SORTS. Anything else falls back to played_at.
             direction: "asc", or descending for anything else.
+            include_skipped: Show the songs nobody sang through. Off by default,
+                so the log reads as a record of the night rather than of the
+                playback engine, but it is the only surface that shows them at
+                all -- and a play cut short by a crash is marked the same way.
         """
         order = _PLAY_SORTS.get(sort, _PLAY_SORTS["played_at"])
         ascending = "ASC" if direction == "asc" else "DESC"
-
-        where = ""
-        params: tuple = ()
-        if session_uuid:
-            where = "WHERE p.session_id = (SELECT id FROM sessions WHERE uuid = ?)"
-            params = (session_uuid,)
+        where, params = _plays_filter(session_uuid, None if include_skipped else _SUNG_OR_PLAYING)
 
         rows = self.db.query(
             f"""
@@ -440,19 +521,21 @@ class PlayHistoryManager:
         )
         return [dict(row) for row in rows]
 
-    def count_plays(self, session_uuid: str | None = None) -> int:
-        """Return the total number of plays, optionally scoped to one session."""
-        if session_uuid:
-            rows = self.db.query(
-                "SELECT COUNT(*) FROM plays WHERE session_id = "
-                "(SELECT id FROM sessions WHERE uuid = ?)",
-                (session_uuid,),
-            )
-        else:
-            rows = self.db.query("SELECT COUNT(*) FROM plays")
-        return rows[0][0]
+    def count_plays(self, session_uuid: str | None = None, include_skipped: bool = False) -> int:
+        """Return the total number of plays, optionally scoped to one session.
 
-    def get_singers(self, session_uuid: str | None = None, limit: int | None = None) -> list[dict]:
+        Takes the same filter as get_plays(), or the pager offers a page the log
+        cannot fill.
+        """
+        where, params = _plays_filter(session_uuid, None if include_skipped else _SUNG_OR_PLAYING)
+        return self.db.query(f"SELECT COUNT(*) FROM plays p {where}", params)[0][0]
+
+    def get_singers(
+        self,
+        session_uuid: str | None = None,
+        limit: int | None = None,
+        completed_only: bool = False,
+    ) -> list[dict]:
         """Return performers with play counts, most active first.
 
         Scoped to one session when given; otherwise every performer on record.
@@ -463,12 +546,12 @@ class PlayHistoryManager:
             limit: Cap on rows returned. Callers showing a leaderboard or an
                 autocomplete want a handful, and the full list grows without
                 bound over a venue's lifetime.
+            completed_only: Count only songs sung through, for the rankings and
+                the per-session singer panel. Off for the queue's name
+                autocomplete, which is a directory of who sings here rather than
+                a report of what was sung.
         """
-        where = ""
-        params: tuple = ()
-        if session_uuid:
-            where = "WHERE p.session_id = (SELECT id FROM sessions WHERE uuid = ?)"
-            params = (session_uuid,)
+        where, params = _plays_filter(session_uuid, _SUNG if completed_only else None)
 
         limit_clause = ""
         if limit is not None:
@@ -502,23 +585,29 @@ class PlayHistoryManager:
         )
         return [dict(row) for row in rows]
 
-    def get_top_songs(self, limit: int = 20) -> list[dict]:
+    def get_top_songs(self, limit: int = 20, session_uuid: str | None = None) -> list[dict]:
         """Return the most-played songs, counting each one across its renames.
 
         Grouped on _SONG_KEY rather than joined to the library, so a song keeps
         its history through a rename and past its own deletion. Labelled with
         the most recent title it was played under, so a renamed song reads by
         its current name rather than whichever spelling happened to be first.
+
+        Scoped to one session when given; otherwise every play on record. Only
+        songs sung through are counted: a skip says the room did not want the
+        song, which is the opposite of what a most-played chart claims.
         """
+        where, params = _plays_filter(session_uuid, _SUNG)
         rows = self.db.query(
             f"""
             SELECT p.song_title AS song, COUNT(*) AS play_count, MAX(p.id)
             FROM plays p
+            {where}
             GROUP BY {_SONG_KEY}
             ORDER BY play_count DESC, song
             LIMIT ?
             """,
-            (limit,),
+            params + (limit,),
         )
         # MAX() in the select list is what picks which row the bare song_title
         # comes from: SQLite resolves bare columns in an aggregate query against
@@ -533,16 +622,48 @@ class PlayHistoryManager:
         cursor = self.db.execute("DELETE FROM plays WHERE id = ?", (play_id,))
         return cursor.rowcount > 0
 
+    def clear_session_plays(self, session_uuid: str) -> bool:
+        """Delete every play in a session, leaving the session itself standing.
+
+        The session may be the one running, and ending it from a reporting page
+        would be a surprise nobody asked for.
+        """
+        if not self.session_exists(session_uuid):
+            return False
+        self.db.execute(
+            "DELETE FROM plays WHERE session_id = (SELECT id FROM sessions WHERE uuid = ?)",
+            (session_uuid,),
+        )
+        self._forget_deleted_play()
+        return True
+
+    def clear_all_history(self) -> None:
+        """Delete every session and every play.
+
+        Sessions go with the plays: a list of nights that no longer contain
+        anything is noise. The open one goes too, so the next song auto-starts a
+        genuinely new night.
+        """
+        # Plays cascade from sessions, and a play cannot exist without one.
+        self.db.execute("DELETE FROM sessions")
+        self._forget_deleted_play()
+        self._announce_session_change()
+
     def export_plays(self, session_uuid: str) -> list[dict]:
-        """Return a session's plays oldest first, for CSV export."""
+        """Return a session's performances oldest first, for export.
+
+        Songs sung through only, matching every other surface: the export is a
+        set list of what the room heard, not an audit of the playback engine.
+        """
+        where, params = _plays_filter(session_uuid, _SUNG)
         rows = self.db.query(
             f"""
-            SELECT {_local("p.played_at", "played_at")}, p.performer, p.completed,
+            SELECT {_local("p.played_at", "played_at")}, p.performer,
                    p.song_title AS song
             FROM plays p
-            WHERE p.session_id = (SELECT id FROM sessions WHERE uuid = ?)
+            {where}
             ORDER BY p.played_at, p.id
             """,
-            (session_uuid,),
+            params,
         )
         return [dict(row) for row in rows]
