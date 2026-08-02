@@ -397,8 +397,8 @@
 {# Rendered from the route's title, matching files.html -- a hardcoded heading here
    meant changing search.py only moved the browser tab text. #}
 <h1>{% block title %}{{title}}{% endblock %}</h1>
-{# MSG: Subtitle under the Add New heading, explaining that this page downloads songs the machine does not have. #}
-<p class="subtitle is-6">{% trans %}Download new songs from YouTube{% endtrans %}</p>
+{# MSG: Subtitle under the Add New heading, explaining that this page gets songs the machine does not have. #}
+<p class="subtitle is-6">{% trans %}Add new songs from YouTube{% endtrans %}</p>
 {% endblock %} {% block content %}
 
 <div>
@@ -440,8 +440,8 @@
 		<div id="advanced-settings" class="box has-background-black-bis mt-2" style="display: none">
 			<div class="control">
 				<div class="label">
-					{# MSG: Label for an input which takes a YouTube url directly instead of searching titles. #} {% trans
-					%}Direct download YouTube url:{% endtrans %}
+					{# MSG: Label for an input which takes a YouTube url directly instead of searching titles. #}
+					{% trans %}Paste a YouTube url:{% endtrans %}
 				</div>
 				<div>
 					{# An example rather than a prefilled value: the stub URL had to be typed
