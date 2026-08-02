@@ -70,11 +70,10 @@ def karaoke_page():
         yield k
 
 
-# Every API endpoint, as (method, path). A new endpoint added without the gate
-# should show up here rather than in production.
+# Every host-only API endpoint, as (method, path). A new endpoint added without
+# the gate should show up here rather than in production.
 API_ENDPOINTS = [
     ("get", "/api/history/singers"),
-    ("get", "/api/history/plays"),
     ("delete", "/api/history/plays/1"),
     ("get", "/api/history/sessions"),
     ("post", "/api/history/sessions"),
@@ -91,10 +90,9 @@ class TestAdminGate:
         response = getattr(client, method)(path)
         assert response.status_code == 403
 
-    @pytest.mark.parametrize("path", ["/sessions", "/rankings"])
-    def test_pages_redirect_non_admin(self, client, path):
-        response = client.get(path)
-        assert response.status_code == 302
+    def test_sessions_page_redirects_non_admin(self, client):
+        """Managing the night is the host's; reporting on it is not."""
+        assert client.get("/sessions").status_code == 302
 
     def test_singers_allows_admin(self, admin_client, karaoke):
         karaoke.play_history.get_singers.return_value = [{"performer": "Alice", "play_count": 2}]
@@ -103,6 +101,55 @@ class TestAdminGate:
 
         assert response.status_code == 200
         assert json.loads(response.data)["singers"][0]["performer"] == "Alice"
+
+
+class TestPublicPlayLog:
+    """The play log is the one part of this feature the whole room may read: a
+    guest looking up what they sang last time and queuing it again is the point
+    of the page. Everything around it stays with the host."""
+
+    def test_guests_can_read_the_log(self, client, karaoke):
+        karaoke.play_history.get_plays.return_value = [{"id": 1, "song": "A Song"}]
+        karaoke.play_history.count_plays.return_value = 1
+
+        response = client.get("/api/history/plays")
+
+        assert response.status_code == 200
+        assert json.loads(response.data)["plays"][0]["song"] == "A Song"
+
+    @pytest.mark.parametrize("path", ["/history", "/rankings"])
+    def test_guests_can_open_the_reporting_pages(self, client, karaoke_page, path):
+        karaoke_page.play_history.get_sessions.return_value = []
+
+        with patch("pikaraoke.routes.sessions.render_template", return_value="ok"):
+            assert client.get(path).status_code == 200
+
+    def test_guests_cannot_delete_an_entry(self, client, karaoke):
+        response = client.delete("/api/history/plays/1")
+
+        assert response.status_code == 403
+        karaoke.play_history.delete_play.assert_not_called()
+
+    def test_the_page_says_whether_deleting_is_offered(self, admin_client, client, karaoke_page):
+        """The menu only shows Delete to the host; the API refuses it either way."""
+        karaoke_page.play_history.get_sessions.return_value = []
+
+        with patch("pikaraoke.routes.sessions.render_template", return_value="ok") as render:
+            admin_client.get("/history")
+            assert render.call_args.kwargs["admin"] is True
+
+            client.get("/history")
+            assert render.call_args.kwargs["admin"] is False
+
+    def test_the_page_carries_the_session_filter(self, client, karaoke_page):
+        """The filter is a link, so the uuid arrives in the query string."""
+        karaoke_page.play_history.get_sessions.return_value = [{"uuid": "abc", "name": "Fri"}]
+
+        with patch("pikaraoke.routes.sessions.render_template", return_value="ok") as render:
+            client.get("/history?session=abc")
+
+        assert render.call_args.kwargs["selected_session"] == "abc"
+        assert render.call_args.kwargs["sessions"][0]["name"] == "Fri"
 
 
 # What export_plays() hands the exporters: performances only, so there is no
@@ -273,24 +320,24 @@ class TestPagingBounds:
         karaoke.play_history.get_sessions.assert_not_called()
         karaoke.play_history.get_singers.assert_not_called()
 
-    def test_sessions_hide_auto_started_by_default(self, admin_client, karaoke):
+    def test_sessions_show_auto_started_by_default(self, admin_client, karaoke):
         karaoke.play_history.get_sessions.return_value = []
         karaoke.play_history.count_sessions.return_value = 0
         karaoke.play_history.get_current_session.return_value = None
 
         assert admin_client.get("/api/history/sessions").status_code == 200
-        karaoke.play_history.get_sessions.assert_called_once_with(50, 0, False)
-        karaoke.play_history.count_sessions.assert_called_once_with(False)
+        karaoke.play_history.get_sessions.assert_called_once_with(50, 0, True)
+        karaoke.play_history.count_sessions.assert_called_once_with(True)
 
-    def test_sessions_can_reveal_auto_started(self, admin_client, karaoke):
+    def test_sessions_can_hide_auto_started(self, admin_client, karaoke):
         """The total has to take the same filter, or the pager overruns the list."""
         karaoke.play_history.get_sessions.return_value = []
         karaoke.play_history.count_sessions.return_value = 0
         karaoke.play_history.get_current_session.return_value = None
 
-        assert admin_client.get("/api/history/sessions?include_unnamed=true").status_code == 200
-        karaoke.play_history.get_sessions.assert_called_once_with(50, 0, True)
-        karaoke.play_history.count_sessions.assert_called_once_with(True)
+        assert admin_client.get("/api/history/sessions?include_unnamed=false").status_code == 200
+        karaoke.play_history.get_sessions.assert_called_once_with(50, 0, False)
+        karaoke.play_history.count_sessions.assert_called_once_with(False)
 
     def test_singers_defaults_to_no_cap(self, admin_client, karaoke):
         """The session singer panel wants everyone who sang, bounded by the session."""
@@ -333,56 +380,37 @@ class TestRankingsSizes:
         assert response.status_code == 422
 
 
-class TestRankingsScope:
-    """Rankings cover every play on record, or just the night in progress."""
+class TestRankingsSessionFilter:
+    """Rankings cover every play on record, or one night, chosen from the same
+    dropdown the play log uses."""
 
-    def test_all_time_is_the_default(self, admin_client, karaoke_page):
+    def test_every_session_is_the_default(self, admin_client, karaoke_page):
         with patch("pikaraoke.routes.sessions.render_template", return_value="ok") as render:
             admin_client.get("/rankings")
 
-        assert render.call_args.kwargs["scope"] == "all"
+        assert render.call_args.kwargs["selected_session"] == ""
         karaoke_page.play_history.get_top_songs.assert_called_once_with(20, None)
+        karaoke_page.play_history.get_singers.assert_called_once_with(
+            None, limit=20, completed_only=True
+        )
 
-    def test_all_time_still_resolves_the_session(self, admin_client, karaoke_page):
-        """The scope control labels the option it is offering -- "this session"
-        against a live one, "last session" against a finished one -- so it needs
-        the session before the host has clicked anything."""
-        karaoke_page.play_history.get_latest_session.return_value = {"uuid": "abc", "name": "Fri"}
-
+    def test_a_session_filters_both_charts(self, admin_client, karaoke_page):
         with patch("pikaraoke.routes.sessions.render_template", return_value="ok") as render:
-            admin_client.get("/rankings")
-
-        assert render.call_args.kwargs["session"]["name"] == "Fri"
-        # Resolved for labelling only; all-time rankings stay unscoped.
-        karaoke_page.play_history.get_top_songs.assert_called_once_with(20, None)
-
-    def test_session_scope_filters_both_lists(self, admin_client, karaoke_page):
-        karaoke_page.play_history.get_latest_session.return_value = {"uuid": "abc", "name": "Fri"}
-
-        with patch("pikaraoke.routes.sessions.render_template", return_value="ok") as render:
-            admin_client.get("/rankings?scope=session")
+            admin_client.get("/rankings?session=abc")
 
         karaoke_page.play_history.get_top_songs.assert_called_once_with(20, "abc")
         karaoke_page.play_history.get_singers.assert_called_once_with(
             "abc", limit=20, completed_only=True
         )
-        assert render.call_args.kwargs["session"]["name"] == "Fri"
+        assert render.call_args.kwargs["selected_session"] == "abc"
 
-    def test_session_scope_without_a_session_shows_everything(self, admin_client, karaoke_page):
-        """A play cannot exist without a session, so no session means no plays:
-        the unscoped query returns the same empty list either way. The control
-        renders the option disabled rather than offering the empty filter."""
-        karaoke_page.play_history.get_latest_session.return_value = None
+    def test_the_dropdown_is_offered_every_session(self, admin_client, karaoke_page):
+        karaoke_page.play_history.get_sessions.return_value = [{"uuid": "abc", "name": "Fri"}]
 
         with patch("pikaraoke.routes.sessions.render_template", return_value="ok") as render:
-            response = admin_client.get("/rankings?scope=session")
+            admin_client.get("/rankings")
 
-        assert response.status_code == 200
-        karaoke_page.play_history.get_top_songs.assert_called_once_with(20, None)
-        assert render.call_args.kwargs["session"] is None
-
-    def test_unknown_scope_rejected(self, admin_client, karaoke_page):
-        assert admin_client.get("/rankings?scope=everything").status_code == 422
+        assert render.call_args.kwargs["sessions"][0]["name"] == "Fri"
 
 
 class TestResetHistory:

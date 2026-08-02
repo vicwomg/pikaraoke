@@ -1,0 +1,435 @@
+{% extends 'base.html' %}
+{% import 'partials/history_tables.html' as tables with context %}
+
+{% block scripts %}
+{{ tables.table_scripts(page_size) }}
+<script>
+	var playsPage = { offset: 0, limit: HISTORY_PAGE_SIZE };
+	var historySort = "played_at";
+	var historyDirection = "desc";
+	// Which session the log is scoped to, or "" for every play on record. Comes
+	// from the query string, so the view is shareable and the filter survives a
+	// reload; the dropdown reloads the page to change it.
+	var historySession = {{ selected_session | tojson }};
+	// Whether the log hides songs nobody sang through. Off by default: this is
+	// the only surface that shows them at all, and a play cut short by a crash is
+	// marked the same way as one the singer abandoned.
+	var hideSkippedPlays = false;
+	// Deleting an entry is the host's to do; queuing a song back up is anybody's.
+	var isAdmin = {{ admin | tojson }};
+	// The animation the queue and home pages already use for the song in progress,
+	// so "playing now" looks the same wherever it is shown.
+	var nowPlayingGif = "{{ url_for('static', filename='images/now-playing.gif') }}";
+
+	// Gettext output is Markup, so Jinja never autoescapes it: an apostrophe in a
+	// translation would close the JS string literal and break this whole script.
+	// |tojson emits the literal instead. See tests/unit/test_template_i18n.py.
+	var historyText = {
+		// {# MSG: Confirmation before deleting one entry from the play log. #}
+		confirmDeletePlay: {{ _('Delete this entry from the play log?') | tojson }},
+		// {# MSG: Shown when the play log has no entries yet. #}
+		noPlays: {{ _('Nothing has been played yet.') | tojson }},
+		// {# MSG: Status of a song that was sung all the way through. #}
+		played: {{ _('Played') | tojson }},
+		// {# MSG: Status of a song that was skipped before it finished. #}
+		skipped: {{ _('Skipped') | tojson }},
+		// {# MSG: Status of the song that is playing right now, which has not finished yet. #}
+		playing: {{ _('Playing') | tojson }}
+	};
+
+	// A play row is written when the song starts and closed when it ends, so an
+	// unclosed row is the song playing right now, not one that was skipped. Both
+	// the status glyph and the row's own colour turn on this.
+	function wasSkipped(play) {
+		return !!play.has_ended && !play.completed;
+	}
+
+	// Shown as a glyph with the word on its tooltip: three fixed states are not
+	// worth a column of text, and icon-to-end is already this app's skip control.
+	// The words stay as titles, which is what a screen reader announces.
+	function playStatus(play) {
+		if (!play.has_ended) {
+			var playing = escapeHtml(historyText.playing);
+			return (
+				'<img class="status-playing" src="' + nowPlayingGif +
+				'" alt="' + playing + '" title="' + playing + '">'
+			);
+		}
+		if (!wasSkipped(play)) {
+			return statusIcon("icon-ok", "has-text-success", historyText.played);
+		}
+		return statusIcon("icon-to-end", "has-text-grey", historyText.skipped);
+	}
+
+	// The labels are translator-controlled rather than user input, but they land
+	// in an attribute here, where an apostrophe would close it early.
+	function statusIcon(glyph, colour, label) {
+		return (
+			'<span class="' + colour + '" title="' + escapeHtml(label) + '">' +
+			'<i class="icon ' + glyph + '"></i></span>'
+		);
+	}
+
+	// Mark the sorted column, so it is clear which one the order came from. The
+	// glyph goes in bare, without Bulma's .icon: see .sort-arrow below.
+	function renderSortArrows() {
+		var arrow = historyDirection === "asc" ? "icon-sort-up" : "icon-sort-down";
+		$("#play-log th.sortable").each(function () {
+			var $th = $(this);
+			var active = $th.data("sort") === historySort;
+			$th.find(".sort-arrow").html(active ? '<i class="' + arrow + '"></i>' : "");
+		});
+	}
+
+	// Clicking the sorted column flips direction; a new one starts on its natural
+	// default (dates newest-first, names A-Z).
+	function applySort(sort) {
+		if (historySort === sort) {
+			historyDirection = historyDirection === "asc" ? "desc" : "asc";
+		} else {
+			historySort = sort;
+			historyDirection = sort === "played_at" ? "desc" : "asc";
+		}
+		playsPage.offset = 0;
+		loadPlays();
+	}
+
+	function loadPlays() {
+		var params = {
+			limit: playsPage.limit,
+			offset: playsPage.offset,
+			sort: historySort,
+			direction: historyDirection,
+			include_skipped: !hideSkippedPlays
+		};
+		if (historySession) {
+			params.session = historySession;
+		}
+		renderSortArrows();
+		return $.getJSON("{{ url_for('sessions_api.get_plays') }}", params, function (data) {
+			// Deleting the last row on the last page, or filtering down to a
+			// shorter log, would otherwise strand it on an empty one.
+			if (!data.plays.length && playsPage.offset > 0) {
+				playsPage.offset = Math.max(0, playsPage.offset - playsPage.limit);
+				loadPlays();
+				return;
+			}
+
+			var $body = $("#plays-body");
+
+			if (!data.plays.length) {
+				$body.html($("<tr>").append($("<td>").attr("colspan", 5).text(historyText.noPlays)));
+			} else {
+				var rows = data.plays.map(function (play) {
+					// file_path is the song's place in the library today, and is null
+					// once it has been deleted. Carried on the button so the modal can
+					// offer the song back to the queue, or say that it is gone.
+					return (
+						'<tr class="' + (wasSkipped(play) ? "is-skipped" : "") + '">' +
+							whenCell(play.played_at) +
+							"<td>" + escapeHtml(play.performer) + "</td>" +
+							"<td>" + escapeHtml(play.song) + "</td>" +
+							'<td class="status-cell">' + playStatus(play) + "</td>" +
+							'<td class="has-text-right options-cell">' +
+								'<a class="has-text-grey-light row-options-btn" data-id="' + play.id +
+									'" data-song="' + escapeHtml(play.song) +
+									'" data-path="' + escapeHtml(play.file_path) +
+									'" title="{{ _("Options") | forceescape }}">' +
+									'<i class="icon-cog is-size-5"></i></a>' +
+							"</td>" +
+						"</tr>"
+					);
+				});
+				$body.html(rows.join(""));
+			}
+
+			renderPager("plays", playsPage, data.total);
+		});
+	}
+
+	// Row actions live in one modal rather than a row of icons, matching the
+	// sessions page and keeping the table narrow enough for a phone. The target
+	// play is held on the modal element rather than in a global, so it cannot
+	// outlive the page across SPA navigation.
+	var $playModal = null;
+
+	function openPlayOptions($btn) {
+		var path = $btn.data("path");
+		$playModal.data({ id: $btn.data("id"), path: path });
+		$("#play-modal-title").text($btn.data("song"));
+		// A song can be played and later deleted from the library, which leaves
+		// the entry in the log with nothing to queue. Saying so is friendlier than
+		// an add that fails.
+		$("#opt-add-queue").toggle(!!path);
+		$("#opt-song-gone").toggle(!path);
+		$playModal.addClass("is-active");
+	}
+
+	function closePlayOptions() {
+		$playModal.removeClass("is-active");
+	}
+
+	function addToQueue(path) {
+		// The same endpoint and response shape the browse page uses: `success` is
+		// [ok, message], the message being what to show either way.
+		$.get("{{ url_for('queue.enqueue') }}", { song: path, user: resolveSinger() }, function (data) {
+			var result = JSON.parse(data).success;
+			showNotification(result[1], result[0] ? "is-success" : "is-danger");
+		});
+	}
+
+	function deletePlay(id) {
+		if (!window.confirm(historyText.confirmDeletePlay)) {
+			return;
+		}
+		// A play is deleted at its own id under the same collection the log is
+		// read from.
+		var url = "{{ url_for('sessions_api.get_plays') }}/" + id;
+		$.ajax({ url: url, type: "DELETE" }).done(loadPlays);
+	}
+
+	$(function () {
+		$playModal = $("#play-options-modal");
+		// Only the host may delete, and the API says so too -- this just keeps the
+		// menu honest about what it can do.
+		$("#opt-delete-play").toggle(isAdmin);
+		loadPlays();
+
+		// A play is logged when the song starts and resolved when it ends, so the
+		// Status column changes without anyone touching this page. now_playing is
+		// emitted on both, which is the same event the rest of the UI follows.
+		// Re-registered rather than stacked, because SPA navigation re-runs this.
+		if (window.socket) {
+			if (window.historyNowPlayingHandler) {
+				window.socket.off("now_playing", window.historyNowPlayingHandler);
+			}
+			// Queue edits and pause emit now_playing too, and neither can change
+			// the log. Only a change of song is worth re-querying for. The
+			// comparison runs on every event and only the reload is debounced:
+			// debouncing first would coalesce "A ended, A started again" into a
+			// single unchanged value and miss the new play entirely.
+			var reloadLog = debounce(loadPlays, 400);
+			var lastNowPlaying;
+			window.historyNowPlayingHandler = function (data) {
+				// The socket outlives SPA page swaps, so a handler left bound
+				// would keep re-querying the log for a table that is no longer
+				// on screen. A missing tbody means this page is gone.
+				if (!$("#plays-body").length) {
+					window.socket.off("now_playing", window.historyNowPlayingHandler);
+					return;
+				}
+				var song = data ? data.now_playing : null;
+				if (song === lastNowPlaying) {
+					return;
+				}
+				lastNowPlaying = song;
+				reloadLog();
+			};
+			window.socket.on("now_playing", window.historyNowPlayingHandler);
+		}
+
+		$("#plays-body").on("click", ".row-options-btn", function () {
+			openPlayOptions($(this));
+		});
+
+		$playModal.on("click", ".modal-background, .modal-close-btn", closePlayOptions);
+
+		$playModal.on("click", "[data-action]", function (e) {
+			e.preventDefault();
+			var action = $(this).data("action");
+			var id = $playModal.data("id");
+			var path = $playModal.data("path");
+			closePlayOptions();
+			if (action === "queue") {
+				addToQueue(path);
+			} else {
+				deletePlay(id);
+			}
+		});
+
+		// Hiding rows changes how many there are, so the old offset would index a
+		// different list.
+		$("#hide-skipped").on("change", function () {
+			hideSkippedPlays = $(this).is(":checked");
+			playsPage.offset = 0;
+			loadPlays();
+		});
+
+		$("#play-log").on("click", "th.sortable", function () {
+			applySort($(this).data("sort"));
+		});
+
+		wirePager("plays", playsPage, loadPlays);
+	});
+</script>
+{% endblock %}
+
+{% block header %}
+<h1>{% block title %}{{ title }}{% endblock %}</h1>
+<style>
+	.history-table th.sortable {
+		cursor: pointer;
+		white-space: nowrap;
+	}
+	.history-table th.sortable:hover {
+		color: var(--dark-link);
+	}
+	/* The arrow is a bare fontello glyph, never a Bulma .icon: that is a 1.5rem
+	   inline-flex box which centres its glyph on its own axis instead of the
+	   header's baseline, so the arrow floats above the label and stretches the
+	   row to 1.5rem. Left as inline text it simply sits on the baseline.
+
+	   The width is reserved whether or not this is the sorted column, so
+	   clicking a header does not shuffle its label sideways. */
+	.sort-arrow {
+		display: inline-block;
+		width: 1.3em;
+		font-size: 0.8em;
+	}
+	/* Fontello centres each glyph in a 1em box with symmetric side margins,
+	   which here reads as a gap on the wrong side of the arrow. */
+	.sort-arrow i:before {
+		width: auto;
+		margin-left: 0.4em;
+		margin-right: 0;
+	}
+	/* A skipped song stays on the record but was never a performance, so the row
+	   reads in the same grey as the marker saying so. The cog is unaffected --
+	   Bulma's colour helpers are !important -- which is right: the actions on a
+	   skipped row are as available as on any other. */
+	#play-log tr.is-skipped td {
+		color: var(--bulma-grey);
+	}
+	/* Widths are declared here rather than left to the contents: the song column
+	   is the only one without one, so it absorbs the slack and the three columns
+	   beside it keep a usable share whatever gets sung. The status column holds
+	   a glyph but has to be wide enough for its own header. */
+	/* A cell here is a time or a date, never both, so the column is sized for
+	   "7:57 am" or "31 Jul" rather than for the pair. Only a row from another
+	   year is longer, and it wraps. */
+	#play-log .col-when {
+		width: 5em;
+	}
+	#play-log .col-performer {
+		width: 20%;
+	}
+	#play-log .col-status {
+		width: 4em;
+	}
+	#play-log .col-options {
+		width: 3em;
+	}
+	#play-log td.status-cell {
+		text-align: center;
+	}
+	.status-playing {
+		width: 18px;
+		height: auto;
+		vertical-align: middle;
+	}
+	/* A phone keeps the columns rather than stacking each play into a card: the
+	   header row is the only thing saying what these values are, and sorting
+	   belongs on it. Room comes from a smaller type size and tighter cell
+	   padding; the rest is found by letting the performer and song columns wrap
+	   (the timestamp is already down to a bare time -- see whenLabel). */
+	@media screen and (max-width: 600px) {
+		#play-log {
+			font-size: 0.9rem;
+		}
+		#play-log th,
+		#play-log td {
+			padding-left: 4px;
+			padding-right: 4px;
+		}
+		#play-log .col-when {
+			width: 4.2em;
+		}
+		#play-log .col-performer {
+			width: 22%;
+		}
+		#play-log .col-status {
+			width: 3.2em;
+		}
+		#play-log .col-options {
+			width: 2em;
+		}
+		#play-log td.when {
+			color: #a7a7a7;
+		}
+	}
+</style>
+{% endblock %}
+
+{% block content %}
+
+{% include 'partials/session_filter.html' %}
+
+<table class="history-table" id="play-log">
+	{# The song column is deliberately unsized: it takes whatever the others do
+	   not need, on a phone as much as on a desktop. #}
+	<colgroup>
+		<col class="col-when" />
+		<col class="col-performer" />
+		<col />
+		<col class="col-status" />
+		<col class="col-options" />
+	</colgroup>
+	<thead>
+		<tr>
+			{# MSG: Play log column header for when the song was played. #}
+			<th class="sortable" data-sort="played_at">
+				{% trans %}Played{% endtrans %} <span class="sort-arrow"></span>
+			</th>
+			{# MSG: Play log column header for who sang the song. #}
+			<th class="sortable" data-sort="performer">
+				{% trans %}Performer{% endtrans %} <span class="sort-arrow"></span>
+			</th>
+			{# MSG: Play log column header for the song that was sung. #}
+			<th class="sortable" data-sort="song">
+				{% trans %}Song{% endtrans %} <span class="sort-arrow"></span>
+			</th>
+			{# MSG: Play log column header for whether the song was played through, skipped, or is still playing. #}
+			<th>{% trans %}Status{% endtrans %}</th>
+			<th></th>
+		</tr>
+	</thead>
+	<tbody id="plays-body"></tbody>
+</table>
+
+{{ tables.pager_controls("plays") }}
+
+{# Off by default, so the log shows every attempt. See hideSkippedPlays. #}
+<label class="checkbox is-size-7 table-toggle">
+	<input type="checkbox" id="hide-skipped" />
+	{# MSG: Checkbox which hides songs that were skipped before they finished. #}
+	{% trans %}Hide skipped songs{% endtrans %}
+</label>
+
+<div class="modal" id="play-options-modal">
+	<div class="modal-background"></div>
+	<div class="modal-card" style="width: 90%; max-width: 400px;">
+		<header class="modal-card-head" style="padding: 15px;">
+			<p class="modal-card-title is-size-6" id="play-modal-title" style="max-width: 95%"></p>
+			<button class="delete modal-close-btn" aria-label="close"></button>
+		</header>
+		<section class="modal-card-body" style="padding: 0;">
+			<a id="opt-add-queue" class="panel-block py-3" href="#" data-action="queue">
+				<span class="icon has-text-success mr-2"><i class="icon-list-add"></i></span>
+				{# MSG: Menu item which adds the song from this play log entry to the queue. #}
+				{% trans %}Add to queue{% endtrans %}
+			</a>
+			<span id="opt-song-gone" class="panel-block py-3 has-text-grey">
+				<span class="icon mr-2"><i class="icon-info-circled"></i></span>
+				{# MSG: Shown in place of "add to queue" when the song has since been removed from the library. #}
+				{% trans %}This song is no longer in the library{% endtrans %}
+			</span>
+			<a id="opt-delete-play" class="panel-block py-3 has-text-danger" href="#" data-action="delete">
+				<span class="icon mr-2"><i class="icon-trash"></i></span>
+				{# MSG: Menu item which removes this entry from the play log. #}
+				{% trans %}Delete entry{% endtrans %}
+			</a>
+		</section>
+	</div>
+</div>
+
+{% endblock %}

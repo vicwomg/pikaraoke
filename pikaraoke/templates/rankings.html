@@ -1,95 +1,37 @@
 {% extends 'base.html' %}
 
-{# The label the scope control and the reset confirmation both show. Set once so
-   the button cannot name a different session from the one on screen. The NUMBER
-   token is what sessions.html builds the same label from; keep the two identical
-   so an unnamed session is not named two different ways in one translation. #}
-{# MSG: Label for a session the host never named. NUMBER is replaced with a number. #}
-{% set session_label = (session.name or _('Session NUMBER') | replace('NUMBER', session.id)) if session else "" %}
-
-{# Whether the session on offer is being sung right now. get_latest_session()
-   falls back to the last night on record once the host has ended it, and a
-   control reading "this session" over a finished night is a small lie. Only an
-   open session has no ended_at, so the column alone tells the two apart. #}
-{% set session_is_live = session and not session.ended_at %}
-
 {% block scripts %}
 <script>
-	// What the page is showing, and therefore what the reset destroys.
-	var rankingScope = {{ scope | tojson }};
-	var rankingSessionUuid = {{ (session.uuid if session else "") | tojson }};
-	var rankingSessionLabel = {{ session_label | tojson }};
-
 	// Every control on this page reloads it with a new query string: the lists
 	// are server-rendered top-N, so there is nothing here to update in place.
 	// Each control carries the others' values so changing one does not reset them.
 	function applyRankingLimits() {
 		var params = $.param({
-			scope: rankingScope,
+			session: {{ selected_session | tojson }},
 			songs: $("#limit-songs").val(),
 			performers: $("#limit-performers").val()
 		});
 		window.location.href = "{{ url_for('sessions.rankings') }}?" + params;
 	}
 
-	// Gettext output is Markup, so Jinja never autoescapes it: an apostrophe in a
-	// translation would close the JS string literal and break this whole script.
-	// |tojson emits the literal instead. See tests/unit/test_template_i18n.py.
-	var resetText = {
-		// {# MSG: Confirmation before deleting every play recorded in one session. SESSION is replaced with its name. #}
-		confirmSession: {{ _('Delete every play recorded in SESSION? The session itself is kept. This cannot be undone.') | tojson }},
-		// {# MSG: Confirmation before deleting the entire play history. The host must type ok to proceed. #}
-		confirmAll: {{ _('Delete ALL play history - every session and every play, for good? Type "ok" to continue.') | tojson }}
-	};
-
-	// Wiping everything asks for a typed confirmation rather than a click,
-	// matching the clear-queue control: the friction is proportional to what
-	// cannot be undone.
-	function resetRankings() {
-		var params = { scope: rankingScope };
-		if (rankingScope === "session") {
-			if (!window.confirm(resetText.confirmSession.replace("SESSION", rankingSessionLabel))) {
-				return;
-			}
-			params.session = rankingSessionUuid;
-		} else {
-			var typed = window.prompt(resetText.confirmAll);
-			if (typed === null || typed.trim().toLowerCase() !== "ok") {
-				return;
-			}
-		}
-		$.ajax({
-			url: "{{ url_for('sessions_api.reset_history') }}?" + $.param(params),
-			type: "DELETE"
-		}).done(function () {
-			// The ribbon, the nav and the lists all move when history is wiped,
-			// and the server already knows how to draw the result.
-			window.location.reload();
-		});
-	}
-
 	$(function () {
-		$("#reset-rankings").on("click", resetRankings);
+		// The same endpoint and response shape the browse page uses: the href
+		// already carries the song and ends at "user=", which is resolved at click
+		// time rather than rendered, since it comes from this device's cookie.
+		$(".add-song-link").on("click", function (e) {
+			e.preventDefault();
+			$.get(this.href + encodeURIComponent(resolveSinger()), function (data) {
+				var result = JSON.parse(data).success;
+				showNotification(result[1], result[0] ? "is-success" : "is-danger");
+			});
+		});
 	});
 </script>
 {% endblock %}
 
-{# One of the two scope choices, as a link carrying the current row counts so
-   switching what the page covers does not reset how much of it is shown. Falls
-   back to a disabled button when there is no session to scope to, rather than
-   offering a filter that silently shows everything. #}
-{% macro scope_link(value, label, available=True) %}
-{% if available %}
-<a class="button is-small{% if scope == value %} is-info is-selected{% endif %}"
-	href="{{ url_for('sessions.rankings', scope=value, songs=limits.songs, performers=limits.performers) }}">{{ label }}</a>
-{% else %}
-{# MSG: Tooltip on the disabled session filter, when nothing has ever been sung. #}
-<button class="button is-small" disabled title="{{ _('No sessions recorded yet') | forceescape }}">{{ label }}</button>
-{% endif %}
-{% endmacro %}
-
 {# A right-aligned "Show N" control row below a list, reloading with the chosen
-   row count. Mirrors the per-page control on the Sessions page. #}
+   row count. These lists are top-N rather than paged, so this says how much of
+   the chart to see -- it is not the page size the tables elsewhere use. #}
 {% macro limit_select(name, current) %}
 <div class="rankings-controls">
 	<span class="is-flex-grow-1"></span>
@@ -105,12 +47,18 @@
 </div>
 {% endmacro %}
 
-{# The trailing count cell is identical in both tables below. Kept as one macro
-   so translators see a single message rather than two copies of it. #}
-{% macro play_count_cell(count) %}
-{#- MSG: Number of plays, shown at the end of a ranked row. -#}
-<td class="rank-count has-text-right">{% trans count=count %}{{ count }} play{% pluralize %}{{ count }} plays{% endtrans %}</td>
-{%- endmacro %}
+{# Both charts are ranked lists of a name and a count, so they share a header. #}
+{% macro ranking_head(what) %}
+<thead>
+	<tr>
+		{# MSG: Ranking table column header for a row's position in the chart. #}
+		<th>{% trans %}Rank{% endtrans %}</th>
+		<th>{{ what }}</th>
+		{# MSG: Ranking table column header for how many times something was played. #}
+		<th class="has-text-right">{% trans %}Plays{% endtrans %}</th>
+	</tr>
+</thead>
+{% endmacro %}
 
 {% block header %}
 <h1>{% block title %}{{ title }}{% endblock %}</h1>
@@ -121,8 +69,7 @@
 		margin-bottom: 0;
 	}
 	/* The row-count control sits just under its table and is pushed to the
-	   right, matching the per-page control on the Sessions page. Its bottom
-	   margin is what separates one ranking section from the next. */
+	   right. Its bottom margin is what separates one chart from the next. */
 	.rankings-controls {
 		display: flex;
 		align-items: center;
@@ -130,98 +77,48 @@
 		margin-top: 8px;
 		margin-bottom: 25px;
 	}
-	/* What the rankings cover, and the control that erases it. One row: the
-	   reset destroys whatever the scope selects, so they belong together. */
-	.rankings-scope {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 8px;
-		margin-bottom: 20px;
-	}
-	/* Bulma spaces stacked .buttons groups; this one sits inline in a flex row
-	   that already provides the gap. */
-	.rankings-scope .buttons {
-		margin-bottom: 0;
-	}
-	/* Green marks a live session, matching the active-session bar on the Sessions
-	   page. A finished night reads in plain grey: still what the page is showing,
-	   but nothing is happening in it. */
-	.scope-session {
-		color: var(--dark-success);
-	}
-	.scope-session-ended {
-		color: #a7a7a7;
-	}
 	.rankings-table td {
 		word-wrap: break-word;
 	}
+	/* Wide enough for the headers above them -- "Rank" and "Plays" are single
+	   words and cannot wrap -- and no wider, so the song column takes the rest. */
 	.rankings-table .col-rank {
-		width: 2.5em;
+		width: 4em;
 	}
 	.rankings-table .col-count {
-		width: 8em;
+		width: 5em;
 	}
-	/* On a phone the desktop column widths would leave almost nothing for the
-	   song title, so tighten them. */
-	@media screen and (max-width: 768px) {
+	/* The add-to-queue plus leads the title it queues. Fontello's symmetric side
+	   margins go: the left one would indent the plus out of line with the column
+	   above it, and the right one is the gap to the title. */
+	.rankings-table .add-song-link i:before {
+		margin-left: 0;
+		margin-right: 0.4em;
+	}
+	/* On a phone the desktop column widths would leave too little for the song
+	   title, so they tighten to what the headers still need. */
+	@media screen and (max-width: 600px) {
+		.rankings-table {
+			font-size: 0.9rem;
+		}
+		.rankings-table th,
+		.rankings-table td {
+			padding-left: 4px;
+			padding-right: 4px;
+		}
 		.rankings-table .col-rank {
-			width: 1.8em;
+			width: 3em;
 		}
 		.rankings-table .col-count {
-			width: 5em;
+			width: 3.6em;
 		}
-		/* The scope buttons take the full width and the reset drops below them,
-		   rather than the three squeezing onto one line. */
-		.rankings-scope .buttons {
-			flex: 1;
-		}
-	}
-	/* Alignment comes from Bulma's has-text-right helper: its own
-	   `table td:not([align])` rule outranks a plain class selector here. */
-	.rank-count {
-		white-space: nowrap;
 	}
 </style>
-{% endblock %} {% block content %}
+{% endblock %}
 
-<div class="rankings-scope">
-	<div class="buttons has-addons">
-		{# MSG: Button showing rankings across every session ever recorded. #}
-		{{ scope_link("all", _("All time")) }}
-		{% if session_is_live %}
-		{# MSG: Button showing rankings for the session being sung right now. #}
-		{{ scope_link("session", _("This session")) }}
-		{% else %}
-		{# MSG: Button showing rankings for the most recent session, once it has ended. #}
-		{{ scope_link("session", _("Last session"), available=session) }}
-		{% endif %}
-	</div>
-	{% if scope == "session" and session %}
-	<span class="is-size-7 scope-session{% if not session_is_live %} scope-session-ended{% endif %}">
-		<i class="icon icon-mic-1"></i>{{ session_label }}
-	</span>
-	{% endif %}
-	<span class="is-flex-grow-1"></span>
-	{# Disabled when the session scope has no session to erase, which on a fresh
-	   install is also the only time there is nothing at all to erase. #}
-	<button id="reset-rankings" class="button is-small is-danger is-outlined"
-		{% if scope == "session" and not session %}disabled{% endif %}>
-		<span class="icon"><i class="icon-trash-empty"></i></span>
-		<span>
-			{%- if scope != "session" -%}
-			{# MSG: Button which deletes the entire play history, every session and every play. #}
-			{% trans %}Reset all history{% endtrans %}
-			{%- elif session_is_live -%}
-			{# MSG: Button which deletes every play recorded in the session running now. #}
-			{% trans %}Clear this session{% endtrans %}
-			{%- else -%}
-			{# MSG: Button which deletes every play recorded in the most recent session. #}
-			{% trans %}Clear last session{% endtrans %}
-			{%- endif -%}
-		</span>
-	</button>
-</div>
+{% block content %}
+
+{% include 'partials/session_filter.html' %}
 
 {# MSG: Heading for the list of songs that have been sung the most times. #}
 <h2 class="subtitle">{% trans %}Top songs{% endtrans %}</h2>
@@ -232,14 +129,31 @@
 		<col />
 		<col class="col-count" />
 	</colgroup>
-	{% for song in top_songs %}
-	<tr>
-		<td>{{ loop.index }}</td>
-		{# The title as recorded, so a song still counts after leaving the library. #}
-		<td>{{ song.song }}</td>
-		{{ play_count_cell(song.play_count) }}
-	</tr>
-	{% endfor %}
+	{# MSG: Ranking table column header for the song that was sung. #}
+	{{ ranking_head(_("Song")) }}
+	<tbody>
+		{% for song in top_songs %}
+		<tr>
+			<td>{{ loop.index }}</td>
+			{# The title as recorded, so a song still counts after leaving the
+			   library -- which is also why file_path can be missing, and with it
+			   any way to queue the song up again. #}
+			<td>
+				{% if song.file_path %}
+				{# A bare fontello glyph, not a Bulma .icon: this one sits inline with
+				   the title, and .icon is a 1.5rem flex box that would ride above it. #}
+				<a class="add-song-link has-text-success"
+					title="{{ _('Add to queue') | forceescape }}"
+					href="{{ url_for('queue.enqueue') }}?song={{ url_escape(song.file_path.encode('utf-8','surrogateescape')) }}&user="
+					><i class="icon-list-add"></i
+				></a>
+				{% endif %}
+				{{ song.song }}
+			</td>
+			<td class="has-text-right">{{ song.play_count }}</td>
+		</tr>
+		{% endfor %}
+	</tbody>
 </table>
 {{ limit_select("songs", limits.songs) }}
 {% else %}
@@ -256,13 +170,17 @@
 		<col />
 		<col class="col-count" />
 	</colgroup>
-	{% for performer in top_performers %}
-	<tr>
-		<td>{{ loop.index }}</td>
-		<td>{{ performer.performer }}</td>
-		{{ play_count_cell(performer.play_count) }}
-	</tr>
-	{% endfor %}
+	{# MSG: Ranking table column header for the person who sang. #}
+	{{ ranking_head(_("Performer")) }}
+	<tbody>
+		{% for performer in top_performers %}
+		<tr>
+			<td>{{ loop.index }}</td>
+			<td>{{ performer.performer }}</td>
+			<td class="has-text-right">{{ performer.play_count }}</td>
+		</tr>
+		{% endfor %}
+	</tbody>
 </table>
 {{ limit_select("performers", limits.performers) }}
 {% else %}

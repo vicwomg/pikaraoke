@@ -711,7 +711,9 @@ class TestGetTopSongs:
         sing(song_id, None, "Alice", "A Song")
         db.delete_by_path("/songs/a.mp4")
 
-        assert history.get_top_songs() == [{"song": "A Song", "play_count": 1}]
+        assert history.get_top_songs() == [
+            {"song": "A Song", "play_count": 1, "file_path": None},
+        ]
 
     def test_counts_one_song_across_a_library_rebuild(self, sing, history, song_id, db):
         """Nuking the library and rescanning it must not fork every song in two.
@@ -726,7 +728,15 @@ class TestGetTopSongs:
         sing(readded, None, "Bob", "A Song")
 
         assert readded != song_id
-        assert history.get_top_songs() == [{"song": "A Song", "play_count": 2}]
+        assert history.get_top_songs() == [
+            {"song": "A Song", "play_count": 2, "file_path": "/songs/a.mp4"},
+        ]
+
+    def test_carries_the_path_a_song_can_be_requeued_from(self, sing, history, song_id):
+        """The chart offers each song back to the queue, which needs its path."""
+        sing(song_id, None, "Alice", "A Song")
+
+        assert history.get_top_songs()[0]["file_path"] == "/songs/a.mp4"
 
     def test_youtube_songs_count_as_one_across_a_retitle(self, sing, history, song_id):
         """The id identifies the video, so it outranks whatever it was called."""
@@ -756,7 +766,9 @@ class TestSongRenamed:
         events.emit("song_renamed", song_id, "New Name")
         sing(song_id, None, "Bob", "New Name")
 
-        assert history.get_top_songs() == [{"song": "New Name", "play_count": 2}]
+        assert history.get_top_songs() == [
+            {"song": "New Name", "play_count": 2, "file_path": "/songs/a.mp4"},
+        ]
 
     def test_rename_updates_the_play_log(self, sing, history, events, song_id):
         sing(song_id, None, "Alice", "Old Name")
@@ -859,6 +871,36 @@ class TestGetPlays:
 
         assert history.count_plays() == 2
         assert history.count_plays(session_uuid) == 1
+
+    def test_shows_skipped_songs_by_default(self, history, events, song_id):
+        """This is the only surface that shows them at all, and a play cut short
+        by a crash is marked the same way as one the singer abandoned."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        events.emit("song_ended", "skip")
+
+        assert len(history.get_plays()) == 1
+        assert history.count_plays() == 1
+
+    def test_hides_skipped_songs_on_request(self, history, events, song_id):
+        """The count has to agree, or the pager offers a page the log cannot fill."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        events.emit("song_ended", "skip")
+
+        assert history.get_plays(include_skipped=False) == []
+        assert history.count_plays(include_skipped=False) == 0
+
+    def test_carries_the_path_a_song_can_be_requeued_from(self, history, song_id):
+        """The log offers each entry back to the queue, which needs its path."""
+        history.record_play(song_id, None, "Alice", "A Song")
+
+        assert history.get_plays()[0]["file_path"] == "/songs/a.mp4"
+
+    def test_a_deleted_song_leaves_nothing_to_requeue(self, history, song_id, db):
+        """The entry survives the song; the offer to queue it cannot."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        db.delete_by_path("/songs/a.mp4")
+
+        assert history.get_plays()[0]["file_path"] is None
 
 
 class TestPlaySorting:
@@ -971,35 +1013,38 @@ class TestDelete:
         assert [p["performer"] for p in history.get_plays()] == ["Bob"]
 
 
-class TestUnnamedSessionsAreHidden:
-    """A session the host never named is not an event they declared. The splash
-    screen and nav ribbon already show nothing for it, so the session list agrees
-    with them by default and reveals them only when asked."""
+class TestUnnamedSessions:
+    """A session the host never named is still a night that happened. The list
+    shows it by default -- it is the only place one can be seen at all, and the
+    households this feature exists for never press Start."""
 
-    def test_list_hides_auto_started_sessions(self, history, song_id):
+    def test_list_shows_auto_started_sessions(self, history, song_id):
         history.record_play(song_id, None, "Alice", "A Song")
 
-        assert history.get_sessions() == []
+        assert len(history.get_sessions()) == 1
 
-    def test_list_reveals_them_on_request(self, history, song_id):
+    def test_list_hides_them_on_request(self, history, song_id):
         history.record_play(song_id, None, "Alice", "A Song")
 
-        assert len(history.get_sessions(include_unnamed=True)) == 1
+        assert history.get_sessions(include_unnamed=False) == []
 
     def test_named_sessions_are_always_listed(self, history):
         history.start_session("Friday Night")
 
         assert [s["name"] for s in history.get_sessions()] == ["Friday Night"]
 
-    def test_naming_one_promotes_it_into_the_list(self, history, song_id):
-        """The whole point of revealing them: a night nobody named gets named,
-        and from that moment it is an ordinary session everywhere."""
+    def test_naming_one_promotes_it_everywhere(self, history, song_id):
+        """A night nobody named gets named, and from that moment it is an
+        ordinary session on every surface, including the ones that hide the
+        unnamed."""
         history.record_play(song_id, None, "Alice", "A Song")
         auto_started = history.get_current_session()["uuid"]
 
         history.rename_session(auto_started, "Saturday Night")
 
-        assert [s["name"] for s in history.get_sessions()] == ["Saturday Night"]
+        assert [s["name"] for s in history.get_sessions(include_unnamed=False)] == [
+            "Saturday Night"
+        ]
 
     def test_count_matches_what_the_list_shows(self, history, song_id):
         """A total counting rows the list will not render pages off its own end."""
@@ -1007,56 +1052,8 @@ class TestUnnamedSessionsAreHidden:
         history.end_session()
         history.start_session("Friday Night")
 
-        assert history.count_sessions() == 1
-        assert history.count_sessions(include_unnamed=True) == 2
-
-    def test_rankings_still_see_an_unnamed_night(self, history, song_id):
-        """Hiding them from the list must not hide their plays from reporting:
-        a household that never names a night would otherwise have no rankings."""
-        history.record_play(song_id, None, "Alice", "A Song")
-        history.end_session()
-
-        assert history.get_latest_session() is not None
-
-
-class TestLatestSession:
-    """What reporting means by "this session"."""
-
-    def test_none_on_a_fresh_install(self, history):
-        assert history.get_latest_session() is None
-
-    def test_prefers_the_open_session(self, history):
-        history.start_session("Old")
-        current = history.start_session("Tonight")
-
-        assert history.get_latest_session()["uuid"] == current
-
-    def test_falls_back_to_the_most_recent_when_none_is_open(self, history):
-        """Ending the night must not empty the rankings the host went to read."""
-        history.start_session("Old")
-        last = history.start_session("Tonight")
-        history.end_session()
-
-        assert history.get_latest_session()["uuid"] == last
-
-    def test_an_unnamed_session_still_counts(self, history, song_id):
-        """The households this feature exists for never press Start, so their
-        only sessions are the unnamed ones record_play() opens. Requiring a name
-        would leave those hosts with a scope that never resolves to anything."""
-        history.record_play(song_id, None, "Alice", "A Song")
-        auto_started = history.get_current_session()["uuid"]
-        history.end_session()
-
-        assert history.get_latest_session()["uuid"] == auto_started
-
-    def test_follows_a_reactivated_older_session(self, history):
-        """Reopening an old session makes it the one plays land in, so it is the
-        one reporting is about -- even though a newer session started later."""
-        old = history.start_session("Old")
-        history.start_session("Newer")
-        history.activate_session(old)
-
-        assert history.get_latest_session()["uuid"] == old
+        assert history.count_sessions() == 2
+        assert history.count_sessions(include_unnamed=False) == 1
 
 
 class TestClearHistory:

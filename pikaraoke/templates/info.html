@@ -272,6 +272,22 @@
 				});
 			});
 
+			// Wiping every session and play asks for a typed confirmation rather
+			// than a click, matching the clear-queue control: the friction is
+			// proportional to what cannot be undone.
+			$("#reset-history-btn").click(function() {
+				// {# MSG: Confirmation before deleting the entire play history. The host must type ok to proceed. #}
+				var typed = window.prompt({{ _('Delete ALL play history - every session and every play, for good? Type "ok" to continue.') | tojson }});
+				if (typed === null || typed.trim().toLowerCase() !== "ok") return;
+				$.ajax({
+					url: "{{ url_for('sessions_api.reset_history') }}?scope=all",
+					type: "DELETE"
+				}).done(function() {
+					// {# MSG: Notification shown once the play history has been erased. #}
+					showNotification({{ _('Play history erased') | tojson }}, "is-success");
+				});
+			});
+
 			// SocketIO: manage Sync Now button state
 			window.socket.on("sync_started", function() {
 				$("#sync-library-btn").addClass("is-loading").prop("disabled", true);
@@ -364,6 +380,31 @@
 					<p class="is-size-7 has-text-warning mt-3">
 						{# MSG: Help text explaining what Sync Now does. #}
 						{% trans %}Reconciles the library with the song directory in the background.{% endtrans %}
+					</p>
+				</div>
+			</div>
+
+			<hr class="my-0">
+
+			{# A section of its own rather than another control under Library: the
+			   play log is not the song library, and the one irreversible action in
+			   this feature should not sit a click away from Sync Now. It lives here
+			   rather than on the pages that report it -- a chart is for reading.
+			   Clearing a single session is still offered from that session's own
+			   row on the Sessions page. #}
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				{# MSG: Header of the play history management section of the settings page. #}
+				<h3 class="m-0">{% trans %}Play History{% endtrans %}</h3>
+			</header>
+			<div class="card-content collapsible-content">
+				<div class="content">
+					<button id="reset-history-btn" class="button is-danger is-outlined">
+						{# MSG: Button which deletes the entire play history, every session and every play. #}
+						{% trans %}Reset all history{% endtrans %}
+					</button>
+					<p class="is-size-7 has-text-warning mt-3">
+						{# MSG: Help text explaining what Reset all history does. #}
+						{% trans %}Deletes every session and every play on record. This cannot be undone.{% endtrans %}
 					</p>
 				</div>
 			</div>
@@ -645,10 +686,14 @@
 					</label>
 					</div>
 
+					{# The Browse page offers the common sizes as a dropdown; this is the
+					   same preference, kept as a free number so any value in range is
+					   still reachable. The dropdown always lists whatever is set here,
+					   so the two controls can never disagree. #}
 					<div class="user-preference-container is-align-items-center">
 						<input id="pref-browse-per-page" class="user-preference-input input" type="number" min="10" max="1000" step="10" data-pref="browse_results_per_page" data-start-value="{{ browse_results_per_page }}" value="{{ browse_results_per_page }}" />
 						<label class="label" for="pref-browse-per-page">
-							Browse page results per page (10-1000, default 500)
+							{# MSG: Numberbox label for how many songs the Browse page lists per page #} {% trans %}Songs listed per page when browsing (10-1000, default 100){% endtrans %}
 						</label>
 					</div>
 

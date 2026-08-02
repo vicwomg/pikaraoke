@@ -1,30 +1,16 @@
-{% extends 'base.html' %} {% block scripts %}
+{% extends 'base.html' %}
+{% import 'partials/history_tables.html' as tables with context %}
+
+{% block scripts %}
+{{ tables.table_scripts(page_size) }}
 <script>
-	var playsPage = { offset: 0, limit: 25 };
-	var historySort = "played_at";
-	var historyDirection = "desc";
-	// The session list sits above the play log, so it pages rather than growing
-	// without limit. Paging is what keeps old sessions reachable: unreachable
-	// ones could never be viewed or deleted, yet would still count towards the
-	// rankings.
-	var sessionsPage = { offset: 0, limit: 10 };
-	// Whether the list reveals the sessions record_play() auto-starts. Off by
-	// default, so it agrees with the splash screen and the ribbon, which show
-	// nothing for a session the host never named. Turning it on is how such a
-	// night gets found, and naming it from here is what promotes it to active.
-	var showUnnamedSessions = false;
-	// Whether the play log shows songs nobody sang through. Off by default, so
-	// the log reads as a record of the night rather than of the playback engine,
-	// but it is the only place they can be seen at all -- and a play cut short by
-	// a crash is marked the same way as one the singer abandoned.
-	var showSkippedPlays = false;
-	// The animation the queue and home pages already use for the song in progress,
-	// so "playing now" looks the same wherever it is shown.
-	var nowPlayingGif = "{{ url_for('static', filename='images/now-playing.gif') }}";
-	// The open session, which is also the session the play log is scoped to:
-	// opening one is what filters the log, so only one is ever open. "" shows
-	// every play.
-	var historySession = "";
+	var sessionsPage = { offset: 0, limit: HISTORY_PAGE_SIZE };
+	// Whether the list hides the sessions record_play() auto-starts. Off by
+	// default: this page is the only place they can be seen at all, and a
+	// household that never names a night would otherwise find the list empty.
+	// They are styled apart rather than hidden, and naming one from here is what
+	// promotes it to the active session everyone sees.
+	var hideAutoStarted = false;
 	var currentSessionUuid = null;
 	// The cap the API enforces, so the rename prompt can hold to it too. The name
 	// box carries it as a maxlength attribute.
@@ -42,8 +28,8 @@
 	// Gettext output is Markup, so Jinja never autoescapes it: an apostrophe in a
 	// translation would close the JS string literal and break this whole script.
 	// |tojson emits the literal instead. See tests/unit/test_template_i18n.py.
-	var historyText = {
-		// {# MSG: Shown on the history page when no session is currently running. #}
+	var sessionText = {
+		// {# MSG: Shown on the sessions page when no session is currently running. #}
 		noSession: {{ _('No active session') | tojson }},
 		// {# MSG: Label for a session the host never named. NUMBER is replaced with a number. #}
 		unnamed: {{ _('Session NUMBER') | tojson }},
@@ -55,110 +41,31 @@
 		renameSession: {{ _('Rename') | tojson }},
 		// {# MSG: Confirmation before deleting a session and every play recorded in it. SESSION is replaced with its name. #}
 		confirmDeleteSession: {{ _('Delete SESSION and all of its plays? This cannot be undone.') | tojson }},
-		// {# MSG: Confirmation before deleting one entry from the play log. #}
-		confirmDeletePlay: {{ _('Delete this entry from the play log?') | tojson }},
+		// {# MSG: Confirmation before deleting every play in a session while keeping the session. SESSION is replaced with its name. #}
+		confirmClearPlays: {{ _('Delete every play recorded in SESSION? The session itself is kept. This cannot be undone.') | tojson }},
 		// {# MSG: Shown when no sessions have been recorded yet. #}
 		noSessions: {{ _('No sessions yet.') | tojson }},
-		// {# MSG: Shown when the play log has no entries yet. #}
-		noPlays: {{ _('Nothing has been played yet.') | tojson }},
-		// {# MSG: Link inside an expanded session which limits the play log below to that session. #}
-		showThesePlays: {{ _('Show only these plays') | tojson }},
-		// {# MSG: Link inside an expanded session which stops limiting the play log to it. #}
-		showAllPlays: {{ _('Show all plays') | tojson }},
 		// {# MSG: Shown when a session has no plays, so nobody has sung in it. #}
 		noSingers: {{ _('Nobody has sung in this session.') | tojson }},
 		// {# MSG: Confirmation before making an old session the one new songs are recorded against. #}
-		confirmActivate: {{ _('Make SESSION the active session? New songs will be recorded against it.') | tojson }},
-		// {# MSG: Pagination summary. START, END and TOTAL are replaced with numbers. #}
-		showing: {{ _('START-END of TOTAL') | tojson }},
-		// {# MSG: Status of a song that was sung all the way through. #}
-		played: {{ _('Played') | tojson }},
-		// {# MSG: Status of a song that was skipped before it finished. #}
-		skipped: {{ _('Skipped') | tojson }},
-		// {# MSG: Status of the song that is playing right now, which has not finished yet. #}
-		playing: {{ _('Playing') | tojson }}
+		confirmActivate: {{ _('Make SESSION the active session? New songs will be recorded against it.') | tojson }}
 	};
-
-	// A play row is written when the song starts and closed when it ends, so an
-	// unclosed row is the song playing right now, not one that was skipped.
-	//
-	// Shown as a glyph with the word on its tooltip: three fixed states are not
-	// worth a column of text, and icon-to-end is already this app's skip control.
-	// The words stay as titles, which is what a screen reader announces.
-	function playStatus(play) {
-		if (!play.has_ended) {
-			var playing = escapeHtml(historyText.playing);
-			return (
-				'<img class="status-playing" src="' + nowPlayingGif +
-				'" alt="' + playing + '" title="' + playing + '">'
-			);
-		}
-		if (play.completed) {
-			return statusIcon("icon-ok", "has-text-success", historyText.played);
-		}
-		return statusIcon("icon-to-end", "has-text-grey", historyText.skipped);
-	}
-
-	// The labels are translator-controlled rather than user input, but they land
-	// in an attribute here, where an apostrophe would close it early.
-	function statusIcon(glyph, colour, label) {
-		return (
-			'<span class="' + colour + '" title="' + escapeHtml(label) + '">' +
-			'<i class="icon ' + glyph + '"></i></span>'
-		);
-	}
-
-	// "2026-03-06 21:04:11" -> date and time as separate unbreakable spans, so
-	// the cell can wrap between them rather than forcing the table wide.
-	function whenCell(timestamp) {
-		var parts = String(timestamp == null ? "" : timestamp).split(" ");
-		return (
-			'<td class="when"><span>' + escapeHtml(parts[0]) + "</span> " +
-			"<span>" + escapeHtml(parts[1] || "") + "</span></td>"
-		);
-	}
 
 	// A host-started session always has a name, so only one that auto-started on
 	// the first play falls back to its number. The date is already its own
 	// column, so repeating it here only makes the label long.
 	function sessionLabel(session) {
-		return session.name || historyText.unnamed.replace("NUMBER", session.id);
+		return session.name || sessionText.unnamed.replace("NUMBER", session.id);
 	}
 
-	// Both tables page identically, so the summary and the button states are
-	// rendered from one place; `prefix` names the widget's element ids.
-	function renderPager(prefix, page, total) {
-		var start = total ? page.offset + 1 : 0;
-		var end = Math.min(page.offset + page.limit, total);
-		$("#" + prefix + "-page-info").text(
-			historyText.showing.replace("START", start).replace("END", end).replace("TOTAL", total)
-		);
-		$("#" + prefix + "-prev").prop("disabled", page.offset === 0);
-		$("#" + prefix + "-next").prop("disabled", end >= total);
-	}
-
-	function wirePager(prefix, page, reload) {
-		$("#" + prefix + "-prev").on("click", function () {
-			page.offset = Math.max(0, page.offset - page.limit);
-			reload();
-		});
-		$("#" + prefix + "-next").on("click", function () {
-			page.offset += page.limit;
-			reload();
-		});
-		$("#" + prefix + "-limit").on("change", function () {
-			page.limit = parseInt($(this).val(), 10);
-			// A new page size invalidates the old offset, so start again at page one.
-			page.offset = 0;
-			reload();
-		});
-	}
+	// The play log lives on its own page, scoped by the uuid in its query string.
+	var historyUrlTemplate = "{{ url_for('sessions.history') }}?session=SESSION_UUID";
 
 	function loadSessions() {
 		var params = {
 			limit: sessionsPage.limit,
 			offset: sessionsPage.offset,
-			include_unnamed: showUnnamedSessions
+			include_unnamed: !hideAutoStarted
 		};
 		return $.getJSON("{{ url_for('sessions_api.get_sessions') }}", params, function (data) {
 			// Deleting the last row on the last page would otherwise strand the
@@ -188,7 +95,7 @@
 			// nav ribbon: as nothing at all. Naming one from the list below is what
 			// promotes it to the active session on all three surfaces at once.
 			var currentName = data.current ? data.current.name : null;
-			$("#current-session").text(currentName || historyText.noSession);
+			$("#current-session").text(currentName || sessionText.noSession);
 			// The name box belongs to starting a session, so it comes and goes with
 			// the button it feeds. Hidden by the control rather than the input, so
 			// the icon goes with it.
@@ -197,7 +104,7 @@
 
 			var $body = $("#sessions-body");
 			if (!data.sessions.length) {
-				$body.html($("<tr>").append($("<td>").attr("colspan", 4).text(historyText.noSessions)));
+				$body.html($("<tr>").append($("<td>").attr("colspan", 4).text(sessionText.noSessions)));
 				return;
 			}
 
@@ -209,14 +116,12 @@
 			var rows = data.sessions.map(function (session) {
 				var escapedUuid = escapeHtml(session.uuid);
 				var isActive = session.uuid === currentSessionUuid;
-				var isFiltered = session.uuid === historySession;
 				var isExpanded = !!expandedSessions[session.uuid];
 				var isUnnamed = !session.name;
 				var label = sessionLabel(session);
 				// The panel carries the same marks, so a session and its singers
 				// read as one block rather than two.
 				var marks =
-					(isFiltered ? " is-selected-session" : "") +
 					(isActive ? " is-active-session" : "") +
 					(isUnnamed ? " is-unnamed-session" : "");
 				return (
@@ -227,8 +132,8 @@
 						"</td>" +
 						whenCell(session.started_at) +
 						'<td class="has-text-right">' + session.play_count + "</td>" +
-						'<td class="has-text-right">' +
-							'<a class="has-text-grey-light session-options-btn" data-uuid="' +
+						'<td class="has-text-right options-cell">' +
+							'<a class="has-text-grey-light row-options-btn" data-uuid="' +
 								escapedUuid + '" data-label="' + escapeHtml(label) +
 								'" data-unnamed="' + (isUnnamed ? "1" : "") +
 								'" title="{{ _("Options") | forceescape }}">' +
@@ -239,8 +144,10 @@
 						'" data-uuid="' + escapedUuid + '">' +
 						'<td colspan="4"><div class="singers-panel">' +
 							'<div class="singers-list"></div>' +
-							'<a class="filter-session is-size-7" data-uuid="' + escapedUuid + '">' +
-								(isFiltered ? historyText.showAllPlays : historyText.showThesePlays) +
+							'<a class="is-size-7" href="' +
+								historyUrlTemplate.replace("SESSION_UUID", encodeURIComponent(session.uuid)) + '">' +
+								{# MSG: Link inside an expanded session which opens the play log filtered to it. #}
+								"{{ _('Show these plays') | forceescape }}" +
 							"</a>" +
 						"</div></td>" +
 					"</tr>"
@@ -251,88 +158,10 @@
 		});
 	}
 
-	// Mark the sorted field, so it is clear which one the order came from. Both
-	// the desktop column headers and the phone sort bar carry a .sort-arrow.
-	function renderSortArrows() {
-		var arrow = historyDirection === "asc" ? "icon-sort-up" : "icon-sort-down";
-		$("#play-log th.sortable, #play-sort-bar .sort-btn").each(function () {
-			var $el = $(this);
-			var active = $el.data("sort") === historySort;
-			$el.find(".sort-arrow").html(active ? '<i class="icon ' + arrow + '"></i>' : "");
-			// The phone's buttons also highlight the active field; a header shows
-			// it through the arrow alone.
-			if ($el.hasClass("sort-btn")) {
-				$el.toggleClass("is-info", active);
-			}
-		});
-	}
-
-	// Sorting is shared by the desktop column headers and the phone sort bar:
-	// clicking the active field flips direction; a new field starts on its
-	// natural default (dates newest-first, names A-Z).
-	function applySort(sort) {
-		if (historySort === sort) {
-			historyDirection = historyDirection === "asc" ? "desc" : "asc";
-		} else {
-			historySort = sort;
-			historyDirection = sort === "played_at" ? "desc" : "asc";
-		}
-		playsPage.offset = 0;
-		loadPlays();
-	}
-
-	function loadPlays() {
-		var params = {
-			limit: playsPage.limit,
-			offset: playsPage.offset,
-			sort: historySort,
-			direction: historyDirection,
-			include_skipped: showSkippedPlays
-		};
-		if (historySession) {
-			params.session = historySession;
-		}
-		renderSortArrows();
-		return $.getJSON("{{ url_for('sessions_api.get_plays') }}", params, function (data) {
-			// Deleting the last row on the last page, or filtering down to a
-			// shorter log, would otherwise strand it on an empty one.
-			if (!data.plays.length && playsPage.offset > 0) {
-				playsPage.offset = Math.max(0, playsPage.offset - playsPage.limit);
-				loadPlays();
-				return;
-			}
-
-			var $body = $("#plays-body");
-
-			if (!data.plays.length) {
-				$body.html($("<tr>").append($("<td>").attr("colspan", 5).text(historyText.noPlays)));
-			} else {
-				var rows = data.plays.map(function (play) {
-					var song = escapeHtml(play.song);
-					return (
-						"<tr>" +
-							whenCell(play.played_at) +
-							"<td class='performer-cell'>" + escapeHtml(play.performer) + "</td>" +
-							"<td class='break-word song-cell'>" + song + "</td>" +
-							"<td class='status-cell'>" + playStatus(play) + "</td>" +
-							"<td class='has-text-right delete-cell'><a class='delete-play has-text-danger' data-id='" + play.id +
-							{# MSG: Tooltip on the button that removes a single play from the log. #}
-							"' title='{{ _('Delete') | forceescape }}'><i class='icon icon-trash'></i></a></td>" +
-						"</tr>"
-					);
-				});
-				$body.html(rows.join(""));
-			}
-
-			renderPager("plays", playsPage, data.total);
-			$("#clear-filter").toggleClass("is-hidden", !historySession);
-		});
-	}
-
 	function renderSingerTags($list, singers) {
 		$list.empty();
 		if (!singers.length) {
-			$list.append($("<span>").text(historyText.noSingers));
+			$list.append($("<span>").text(sessionText.noSingers));
 			return;
 		}
 		// Appended as one array, so the tags are inserted in a single pass.
@@ -371,11 +200,6 @@
 		});
 	}
 
-	function refreshHistory() {
-		loadSessions();
-		loadPlays();
-	}
-
 	// url_for cannot build the parameterised paths, so the uuid is substituted
 	// into a rendered placeholder rather than the path being hardcoded here:
 	// renaming the route then still fails loudly at render time.
@@ -403,39 +227,21 @@
 	// it are one intent. Sequenced rather than sent together, so a rejected name
 	// cannot leave a nameless session active -- the state this scheme avoids.
 	function renameSession(uuid, alsoActivate) {
-		var name = window.prompt(historyText.promptRename);
+		var name = window.prompt(sessionText.promptRename);
 		if (name === null || name.trim() === "") {
 			return;
 		}
 		var trimmed = name.trim().slice(0, sessionNameMaxLength);
 		var renamed = putSession(uuid, { action: "rename", name: trimmed });
 		if (!alsoActivate) {
-			renamed.done(refreshHistory);
+			renamed.done(loadSessions);
 			return;
 		}
 		renamed
 			.then(function () {
 				return putSession(uuid, { action: "activate" });
 			})
-			.done(refreshHistory);
-	}
-
-	function deleteSession(uuid) {
-		$.ajax({ url: sessionUrl(uuid), type: "DELETE" }).done(function () {
-			if (historySession === uuid) {
-				setSessionFilter("");
-				return;
-			}
-			refreshHistory();
-		});
-	}
-
-	// Showing one session's plays, or "" for all of them. A new filter always
-	// resets the page, since the old offset indexes a different result set.
-	function setSessionFilter(uuid) {
-		historySession = uuid;
-		playsPage.offset = 0;
-		refreshHistory();
+			.done(loadSessions);
 	}
 
 	// Row actions live in one modal rather than a row of icons, matching the
@@ -456,7 +262,7 @@
 		$("#opt-activate").toggle(!isActive && !isUnnamed);
 		$("#opt-end").toggle(isActive);
 		$("#opt-rename-text").text(
-			isUnnamed ? historyText.nameToPromote : historyText.renameSession
+			isUnnamed ? sessionText.nameToPromote : sessionText.renameSession
 		);
 		$("#opt-rename").toggleClass("has-text-warning", !!isUnnamed);
 		var exportBase = exportUrlTemplate.replace("SESSION_UUID", encodeURIComponent(uuid));
@@ -475,50 +281,54 @@
 		closeSessionOptions();
 
 		if (action === "activate") {
-			if (window.confirm(historyText.confirmActivate.replace("SESSION", label))) {
-				putSession(uuid, { action: "activate" }).done(refreshHistory);
+			if (window.confirm(sessionText.confirmActivate.replace("SESSION", label))) {
+				putSession(uuid, { action: "activate" }).done(loadSessions);
 			}
 		} else if (action === "end") {
-			putSession(uuid, { action: "end" }).done(refreshHistory);
+			putSession(uuid, { action: "end" }).done(loadSessions);
 		} else if (action === "rename") {
 			// An unnamed session that is not already open is promoted by the same
 			// click that names it; there is no other way to activate one.
 			renameSession(uuid, $sessionModal.data("unnamed") && !$sessionModal.data("active"));
+		} else if (action === "clear") {
+			if (window.confirm(sessionText.confirmClearPlays.replace("SESSION", label))) {
+				var params = $.param({ scope: "session", session: uuid });
+				$.ajax({ url: "{{ url_for('sessions_api.reset_history') }}?" + params, type: "DELETE" })
+					.done(loadSessions);
+			}
 		} else if (action === "delete") {
-			if (window.confirm(historyText.confirmDeleteSession.replace("SESSION", label))) {
-				deleteSession(uuid);
+			if (window.confirm(sessionText.confirmDeleteSession.replace("SESSION", label))) {
+				$.ajax({ url: sessionUrl(uuid), type: "DELETE" }).done(loadSessions);
 			}
 		}
 	}
 
 	$(function () {
 		$sessionModal = $("#session-options-modal");
-		refreshHistory();
+		loadSessions();
 
-		// A play is logged when the song starts and resolved when it ends, so the
-		// Status column changes without anyone touching this page. now_playing is
-		// emitted on both, which is the same event the rest of the UI follows.
-		// Re-registered rather than stacked, because SPA navigation re-runs this.
+		// A play lands against the active session while this page is open, which
+		// moves its play count and its singer list. now_playing is emitted when a
+		// song starts and again when it ends, which is the same event the rest of
+		// the UI follows. Re-registered rather than stacked, because SPA
+		// navigation re-runs this.
 		if (window.socket) {
-			if (window.historyNowPlayingHandler) {
-				window.socket.off("now_playing", window.historyNowPlayingHandler);
+			if (window.sessionsNowPlayingHandler) {
+				window.socket.off("now_playing", window.sessionsNowPlayingHandler);
 			}
 			// Queue edits and pause emit now_playing too, and neither can change
-			// the log. Only a change of song is worth re-querying for. The
+			// the list. Only a change of song is worth re-querying for. The
 			// comparison runs on every event and only the reload is debounced:
 			// debouncing first would coalesce "A ended, A started again" into a
 			// single unchanged value and miss the new play entirely.
-			var reloadLog = debounce(function () {
-				loadSessions();
-				loadPlays();
-			}, 400);
+			var reloadSessions = debounce(loadSessions, 400);
 			var lastNowPlaying;
-			window.historyNowPlayingHandler = function (data) {
+			window.sessionsNowPlayingHandler = function (data) {
 				// The socket outlives SPA page swaps, so a handler left bound
-				// would keep re-querying the log for a table that is no longer
-				// on screen. A missing tbody means this page is gone.
-				if (!$("#plays-body").length) {
-					window.socket.off("now_playing", window.historyNowPlayingHandler);
+				// would keep re-querying for a table that is no longer on screen.
+				// A missing tbody means this page is gone.
+				if (!$("#sessions-body").length) {
+					window.socket.off("now_playing", window.sessionsNowPlayingHandler);
 					return;
 				}
 				var song = data ? data.now_playing : null;
@@ -526,9 +336,9 @@
 					return;
 				}
 				lastNowPlaying = song;
-				reloadLog();
+				reloadSessions();
 			};
-			window.socket.on("now_playing", window.historyNowPlayingHandler);
+			window.socket.on("now_playing", window.sessionsNowPlayingHandler);
 		}
 
 		// Enter and the button are the same action, and both are governed by the
@@ -550,7 +360,7 @@
 				// The box comes back empty when this session ends, so the button has
 				// to go back to waiting for a name.
 				$("#start-session").prop("disabled", true);
-				refreshHistory();
+				loadSessions();
 			});
 		}
 
@@ -570,7 +380,7 @@
 			});
 
 		$("#end-session").on("click", function () {
-			putSession(currentSessionUuid, { action: "end" }).done(refreshHistory);
+			putSession(currentSessionUuid, { action: "end" }).done(loadSessions);
 		});
 
 		$("#rename-session").on("click", function () {
@@ -580,10 +390,16 @@
 		// The cog sits inside a row that expands on click, so it stops the event
 		// reaching it. jQuery runs delegated handlers from the target outwards, so
 		// this one runs first.
-		$("#sessions-body").on("click", ".session-options-btn", function (e) {
+		$("#sessions-body").on("click", ".row-options-btn", function (e) {
 			e.stopPropagation();
 			var $btn = $(this);
 			openSessionOptions($btn.data("uuid"), $btn.data("label"), !!$btn.data("unnamed"));
+		});
+
+		// The link out to the play log sits in the panel the row toggles, so it
+		// stops the click reaching the row and collapsing what it just opened.
+		$("#sessions-body").on("click", ".singers-panel a", function (e) {
+			e.stopPropagation();
 		});
 
 		$("#sessions-body").on("click", ".session-row", function () {
@@ -593,8 +409,8 @@
 			expandedSessions[uuid] = shouldExpand;
 			// CSS turns the triangle off aria-expanded, so state lives in one place.
 			$row.attr("aria-expanded", shouldExpand);
-			// Toggling in place rather than re-rendering leaves the play log and
-			// the scroll position alone.
+			// Toggling in place rather than re-rendering leaves the scroll position
+			// alone.
 			var $panel = $row.next(".singers-row").toggleClass("is-hidden", !shouldExpand);
 			if (shouldExpand) {
 				fillSingers($panel);
@@ -608,122 +424,36 @@
 			executeSessionAction($(this).data("action"));
 		});
 
-		$("#sessions-body").on("click", ".filter-session", function () {
-			var uuid = $(this).data("uuid");
-			// The link reads "Show all plays" once its session is the one on show,
-			// so clicking it again clears the filter.
-			setSessionFilter(historySession === uuid ? "" : uuid);
-		});
-
-		// Both toggles reveal rows their table hides by default, which changes how
-		// many there are, so the old offset would index a different list.
-		$("#show-unnamed").on("change", function () {
-			showUnnamedSessions = $(this).is(":checked");
+		// Hiding rows changes how many there are, so the old offset would index a
+		// different list.
+		$("#hide-auto-started").on("change", function () {
+			hideAutoStarted = $(this).is(":checked");
 			sessionsPage.offset = 0;
 			loadSessions();
 		});
 
-		$("#show-skipped").on("change", function () {
-			showSkippedPlays = $(this).is(":checked");
-			playsPage.offset = 0;
-			loadPlays();
-		});
-
 		wirePager("sessions", sessionsPage, loadSessions);
-		wirePager("plays", playsPage, loadPlays);
-
-		$("#clear-filter").on("click", function () {
-			setSessionFilter("");
-		});
-
-		$("#plays-body").on("click", ".delete-play", function () {
-			if (!window.confirm(historyText.confirmDeletePlay)) {
-				return;
-			}
-			// A play is deleted at its own id under the same collection the log
-			// is read from.
-			var url = "{{ url_for('sessions_api.get_plays') }}/" + $(this).data("id");
-			$.ajax({ url: url, type: "DELETE" }).done(refreshHistory);
-		});
-
-		$("#play-log").on("click", "th.sortable", function () {
-			applySort($(this).data("sort"));
-		});
-
-		$("#play-sort-bar").on("click", ".sort-btn", function () {
-			applySort($(this).data("sort"));
-		});
 	});
 </script>
 {% endblock %}
 
-{# Prev/next, a page summary and a per-page dropdown, under a paged table.
-   `prefix` names the widget's element ids; wirePager() binds them by the same
-   prefix, so both tables page from one implementation on either side. #}
-{% macro pager_controls(prefix, sizes, default_size) %}
-<div class="session-controls pager-controls">
-	<button id="{{ prefix }}-prev" class="button is-small"><i class="icon icon-left-big"></i></button>
-	<button id="{{ prefix }}-next" class="button is-small"><i class="icon icon-right-big"></i></button>
-	<span id="{{ prefix }}-page-info" class="is-size-7"></span>
-	<span class="is-flex-grow-1"></span>
-	{# MSG: Label before the dropdown choosing how many rows to list per page. #}
-	<label class="is-size-7" for="{{ prefix }}-limit">{% trans %}Per page{% endtrans %}</label>
-	<div class="select is-small">
-		<select id="{{ prefix }}-limit">
-			{% for n in sizes %}
-			<option value="{{ n }}"{% if n == default_size %} selected{% endif %}>{{ n }}</option>
-			{% endfor %}
-		</select>
-	</div>
-</div>
-{% endmacro %}
-
 {% block header %}
 <h1>{% block title %}{{ title }}{% endblock %}</h1>
 <style>
-	.history-table {
-		width: 100%;
-		table-layout: auto;
-	}
-	.history-table td {
-		word-wrap: break-word;
-	}
-	.session-controls {
+	/* Flush with the table below rather than inset inside a notification box:
+	   this is the page's first line and has to line up with everything under it. */
+	.current-session {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 8px;
 		align-items: center;
+		padding-bottom: 12px;
+		margin-bottom: 25px;
+		border-bottom: 1px solid rgba(128, 128, 128, 0.35);
 	}
-	/* Bulma pads a notification for a paragraph of prose (1.375em top and
-	   bottom). This one holds a single line and a row of small buttons, so the
-	   default opens a gap above the session name that reads as a layout fault. */
-	.session-controls.notification {
-		padding: 12px 16px;
-	}
-	/* The prev/next + per-page row that sits under each of the two tables. */
-	.pager-controls {
-		margin-top: 10px;
-	}
-	/* A quiet aside under each pager: these reveal bookkeeping rather than filter
-	   the list the host came to read. */
-	#show-unnamed-label,
-	#show-skipped-label {
-		display: inline-block;
-		margin-top: 8px;
-		color: #a7a7a7;
-	}
-	/* A glyph rather than a word, so the column shrinks to it and the song title
-	   keeps the width that frees. */
-	#play-log th.status-col,
-	#play-log td.status-cell {
-		width: 1px;
-		white-space: nowrap;
-		text-align: center;
-	}
-	.status-playing {
-		width: 18px;
-		height: auto;
-		vertical-align: middle;
+	.current-session-name {
+		flex-grow: 1;
+		font-weight: 600;
 	}
 	.session-buttons {
 		display: flex;
@@ -749,30 +479,12 @@
 		width: 100%;
 		padding-left: 2rem;
 	}
-	.filter-session {
-		cursor: pointer;
-	}
-	/* Fontello gives every glyph side margins and a line box taller than the row's
-	   text, which floats the cog above the session name and off the right edge the
-	   play counts sit flush against. Both are corrected here. */
-	.session-options-btn {
-		cursor: pointer;
-		display: inline-flex;
-		align-items: center;
-		line-height: 1;
-	}
-	.session-options-btn .icon-cog:before {
-		margin-left: 0;
-		margin-right: 0;
-	}
 	/* The whole session row toggles its singer panel, with the triangle as the
 	   affordance for it. */
 	.session-row {
 		cursor: pointer;
 	}
-	/* Hover stands down on the filtered session, whose highlight says which one
-	   the play log is scoped to. */
-	.session-row:not(.is-selected-session):hover > td {
+	.session-row:hover > td {
 		background-color: rgba(128, 128, 128, 0.15);
 	}
 	/* One triangle rotated rather than two icons swapped, turning on the row's
@@ -827,9 +539,8 @@
 		border-top: none;
 		background-color: rgba(0, 0, 0, 0.15);
 	}
-	/* Last of the three washes, so the active session's panel takes the same tint
-	   as its row rather than the inset grey. The filtered highlight below still
-	   outranks it: which session the log is showing is the stronger signal. */
+	/* Last of the washes, so the active session's panel takes the same tint as
+	   its row rather than the inset grey. */
 	.is-active-session > td {
 		background-color: rgba(46, 204, 113, 0.07);
 	}
@@ -837,12 +548,17 @@
 	.is-active-session.is-unnamed-session > td {
 		background-color: rgba(241, 183, 14, 0.07);
 	}
-	/* Auto table layout shares surplus width by how much content each column
-	   asks for, and a timestamp asks for more than a session name does. The name
-	   is the column worth reading, so it claims the slack and the rest settle at
-	   their content width. */
-	#session-list th:first-child {
-		width: 100%;
+	/* The name column is deliberately unsized, so it takes whatever the three
+	   beside it do not need: it is the column worth reading, and a timestamp
+	   left to its own devices would ask for more width than a name does. */
+	#session-list .col-when {
+		width: 7em;
+	}
+	#session-list .col-plays {
+		width: 4.5em;
+	}
+	#session-list .col-options {
+		width: 3em;
 	}
 	/* The link sits beside the singers rather than out at the table edge, and
 	   drops to its own line only once the tags fill the width. */
@@ -852,36 +568,10 @@
 		align-items: baseline;
 		gap: 0 12px;
 	}
-	.history-table th.sortable {
-		cursor: pointer;
-		white-space: nowrap;
-	}
-	.history-table th.sortable:hover {
-		color: var(--dark-link);
-	}
 	.singer-tag {
 		margin-right: 6px;
 		margin-bottom: 6px;
 	}
-	tr.is-selected-session > td {
-		background-color: rgb(70, 80, 80);
-	}
-	/* The sort bar only stands in for the column headers on a phone, where the
-	   card layout hides them. */
-	#play-sort-bar {
-		display: none;
-	}
-	/* Bulma lays an .icon out as a 1.5rem inline-flex box that centres its glyph,
-	   which pulls the arrow back against the button's label. Only the active
-	   button holds an arrow, so the gap goes on the icon rather than the empty
-	   span, and the others keep their natural width. */
-	#play-sort-bar .sort-arrow > .icon {
-		margin-left: 0.3em;
-	}
-	/* On a phone the five-column play log is too wide, so each play stacks into
-	   a card: the song on its own line, a muted meta line (time, performer,
-	   status) below it, and the delete pinned to the card's top-right corner
-	   rather than spilling off the side of the table. */
 	@media screen and (max-width: 600px) {
 		/* A phone has no room to put the name box and its button side by side with
 		   the session it describes, so the controls take the full width under it:
@@ -897,83 +587,38 @@
 		.session-buttons .button {
 			flex: 1;
 		}
-		/* No slack left to share on a phone, so the timestamp is cut down instead:
-		   stacked, it asks for a date's width rather than a date and a time, and
-		   the session name keeps what that frees up. */
-		#session-list td.when span {
-			display: block;
+		/* Same trade as the play log: smaller type, tighter padding and the short
+		   timestamp, so the session name keeps the width that frees. */
+		#session-list {
+			font-size: 0.9rem;
+		}
+		#session-list th,
+		#session-list td {
+			padding-left: 4px;
+			padding-right: 4px;
+		}
+		#session-list .col-when {
+			width: 5.2em;
+		}
+		#session-list .col-plays {
+			width: 3.4em;
+		}
+		#session-list .col-options {
+			width: 2em;
 		}
 		#session-list td.when {
-			font-size: 0.85rem;
 			color: #a7a7a7;
-		}
-		#play-sort-bar {
-			display: flex;
-			flex-wrap: wrap;
-			align-items: center;
-			gap: 6px;
-			margin-bottom: 10px;
-		}
-		#play-log thead {
-			display: none;
-		}
-		#play-log,
-		#play-log tbody {
-			display: block;
-		}
-		#play-log tr {
-			display: flex;
-			flex-wrap: wrap;
-			align-items: baseline;
-			position: relative;
-			padding: 8px 32px 8px 0;
-			border-bottom: 1px solid rgba(128, 128, 128, 0.35);
-		}
-		#play-log td {
-			display: block;
-			padding: 0;
-			border: none;
-		}
-		#play-log td.song-cell {
-			order: 1;
-			flex-basis: 100%;
-			font-weight: 600;
-			margin-bottom: 2px;
-		}
-		#play-log td.when {
-			order: 2;
-		}
-		#play-log td.performer-cell {
-			order: 3;
-		}
-		#play-log td.status-cell {
-			order: 4;
-		}
-		#play-log td.when,
-		#play-log td.performer-cell,
-		#play-log td.status-cell {
-			font-size: 0.85rem;
-			color: #a7a7a7;
-		}
-		#play-log td.performer-cell::before,
-		#play-log td.status-cell::before {
-			content: "\00b7";
-			margin: 0 6px;
-			color: #a7a7a7;
-		}
-		#play-log td.delete-cell {
-			position: absolute;
-			top: 6px;
-			right: 2px;
 		}
 	}
 </style>
-{% endblock %} {% block content %}
+{% endblock %}
+
+{% block content %}
 
 {# MSG: Heading for the section showing the session currently being recorded. #}
 <h2 class="subtitle">{% trans %}Current Session{% endtrans %}</h2>
-<div class="notification session-controls">
-	<span class="is-flex-grow-1">
+<div class="current-session">
+	<span class="current-session-name">
 		<i class="icon icon-mic-1"></i>
 		<span id="current-session"></span>
 	</span>
@@ -1006,8 +651,16 @@
 </div>
 
 {# MSG: Heading for the list of past karaoke sessions. #}
-<h2 class="subtitle" style="margin-top: 25px">{% trans %}Session History{% endtrans %}</h2>
+<h2 class="subtitle">{% trans %}Session History{% endtrans %}</h2>
 <table class="history-table" id="session-list">
+	{# The name column is deliberately unsized: it takes whatever the others do
+	   not need, on a phone as much as on a desktop. #}
+	<colgroup>
+		<col />
+		<col class="col-when" />
+		<col class="col-plays" />
+		<col class="col-options" />
+	</colgroup>
 	<thead>
 		<tr>
 			{# MSG: Session list column header for the session name. #}
@@ -1022,70 +675,13 @@
 	<tbody id="sessions-body"></tbody>
 </table>
 
-{{ pager_controls("sessions", [5, 10, 25, 50], 10) }}
+{{ tables.pager_controls("sessions") }}
 
-{# Off by default, so the list shows only the nights the host declared. See
-   showUnnamedSessions. #}
-<label class="checkbox is-size-7" id="show-unnamed-label">
-	<input type="checkbox" id="show-unnamed" />
-	{# MSG: Checkbox which reveals the sessions PiKaraoke started on its own, which the host never named. #}
-	{% trans %}Show auto-started sessions{% endtrans %}
-</label>
-
-<h2 class="subtitle" style="margin-top: 25px">
-	{# MSG: Heading for the list of songs that have been played. #}
-	{% trans %}Play History{% endtrans %}
-	<a id="clear-filter" class="is-size-7 is-hidden" style="margin-left: 10px">
-		{# MSG: Link which stops filtering the play log by session and shows every play. #}
-		{% trans %}Show all sessions{% endtrans %}
-	</a>
-</h2>
-{# Phone-only sort control: the card layout hides the sortable column headers,
-   so an admin still needs to pivot the log by who sang and by what was sung. #}
-<div id="play-sort-bar">
-	{# MSG: Label before the buttons that sort the play log on a phone. #}
-	<span class="is-size-7">{% trans %}Sort{% endtrans %}</span>
-	<button class="button is-small sort-btn" data-sort="played_at">
-		{% trans %}Played{% endtrans %} <span class="sort-arrow"></span>
-	</button>
-	<button class="button is-small sort-btn" data-sort="performer">
-		{% trans %}Performer{% endtrans %} <span class="sort-arrow"></span>
-	</button>
-	<button class="button is-small sort-btn" data-sort="song">
-		{% trans %}Song{% endtrans %} <span class="sort-arrow"></span>
-	</button>
-</div>
-<table class="history-table" id="play-log">
-	<thead>
-		<tr>
-			{# MSG: Play log column header for when the song was played. #}
-			<th class="sortable" data-sort="played_at">
-				{% trans %}Played{% endtrans %} <span class="sort-arrow"></span>
-			</th>
-			{# MSG: Play log column header for who sang the song. #}
-			<th class="sortable" data-sort="performer">
-				{% trans %}Performer{% endtrans %} <span class="sort-arrow"></span>
-			</th>
-			{# MSG: Play log column header for the song that was sung. #}
-			<th class="sortable" data-sort="song">
-				{% trans %}Song{% endtrans %} <span class="sort-arrow"></span>
-			</th>
-			{# MSG: Play log column header for whether the song was played through, skipped, or is still playing. #}
-			<th class="status-col">{% trans %}Status{% endtrans %}</th>
-			<th></th>
-		</tr>
-	</thead>
-	<tbody id="plays-body"></tbody>
-</table>
-
-{{ pager_controls("plays", [10, 25, 50, 100], 25) }}
-
-{# Off by default, so the log lists performances rather than every attempt. See
-   showSkippedPlays. #}
-<label class="checkbox is-size-7" id="show-skipped-label">
-	<input type="checkbox" id="show-skipped" />
-	{# MSG: Checkbox which reveals songs that were skipped before they finished. #}
-	{% trans %}Show skipped songs{% endtrans %}
+{# Off by default, so the list shows every night on record. See hideAutoStarted. #}
+<label class="checkbox is-size-7 table-toggle">
+	<input type="checkbox" id="hide-auto-started" />
+	{# MSG: Checkbox which hides the sessions PiKaraoke started on its own, which the host never named. #}
+	{% trans %}Hide auto-started sessions{% endtrans %}
 </label>
 
 <div class="modal" id="session-options-modal">
@@ -1121,6 +717,11 @@
 			<a id="opt-rename" class="panel-block py-3" href="#" data-action="rename">
 				<span class="icon mr-2"><i class="icon-pencil"></i></span>
 				<span id="opt-rename-text"></span>
+			</a>
+			<a id="opt-clear-plays" class="panel-block py-3 has-text-danger" href="#" data-action="clear">
+				<span class="icon mr-2"><i class="icon-trash"></i></span>
+				{# MSG: Menu item which deletes every play in the session but keeps the session itself. #}
+				{% trans %}Clear plays{% endtrans %}
 			</a>
 			<a id="opt-delete-session" class="panel-block py-3 has-text-danger" href="#" data-action="delete">
 				<span class="icon mr-2"><i class="icon-trash-empty"></i></span>

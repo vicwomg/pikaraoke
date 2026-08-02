@@ -1,0 +1,41 @@
+{# Which session the page reports on: every one on record, or a single night.
+   Shared by Play History and Rankings so the filter reads the same on both.
+
+   Changing it reloads the page with the uuid in the query string rather than
+   filtering in place, which keeps the view shareable and the back button
+   honest. Parameters already in the URL are carried through, so the rankings'
+   row counts survive a change of session.
+
+   NUMBER labels a session the host never named, matching sessions.html, which
+   builds the same label in JavaScript. Keep the two messages identical or one
+   session is named two different ways in one translation. #}
+<div class="session-filter">
+	{# MSG: Label before the dropdown choosing which karaoke session a page reports on. #}
+	<label class="is-size-7" for="session-filter">{% trans %}Session{% endtrans %}</label>
+	<div class="select is-small">
+		<select id="session-filter">
+			{# MSG: Dropdown option covering every karaoke session ever recorded. #}
+			<option value="">{% trans %}All sessions{% endtrans %}</option>
+			{% for s in sessions %}
+			{# MSG: Label for a session the host never named. NUMBER is replaced with a number. #}
+			<option value="{{ s.uuid }}" {% if s.uuid == selected_session %}selected{% endif %}>
+				{{ s.name or _('Session NUMBER') | replace('NUMBER', s.id) }}
+			</option>
+			{% endfor %}
+		</select>
+	</div>
+</div>
+<script>
+	$(function () {
+		$("#session-filter").on("change", function () {
+			var url = new URL(window.location.href);
+			var uuid = $(this).val();
+			if (uuid) {
+				url.searchParams.set("session", uuid);
+			} else {
+				url.searchParams.delete("session");
+			}
+			window.location.href = url.toString();
+		});
+	});
+</script>

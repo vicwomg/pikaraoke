@@ -389,7 +389,11 @@ hr {
 	color: var(--dark-link);
 }
 
+/* Bulma hides the divider below its desktop breakpoint, where the dropdown
+   flattens into the burger menu -- which is exactly where a group separator is
+   needed most, the items having lost the panel that framed them. */
 .navbar-dropdown .navbar-divider {
+	display: block;
 	background-color: rgba(255, 255, 255, 0.2);
 }
 

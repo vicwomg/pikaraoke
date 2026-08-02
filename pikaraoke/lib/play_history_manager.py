@@ -16,10 +16,8 @@ SESSION_NAME_MAX_LENGTH = 60
 # evening into two sessions; short enough that tonight is never yesterday's.
 STALE_SESSION_HOURS = 6
 
-# What reporting can be about: every play on record, or the night in progress.
-# Shared by the rankings page, which filters on it, and the reset endpoint, which
-# destroys exactly one of the two.
-RANKING_SCOPES = ["all", "session"]
+# What a reset is allowed to destroy: every play on record, or one session's.
+RESET_SCOPES = ["all", "session"]
 
 
 def _latest_casing(name_column: str) -> str:
@@ -285,24 +283,8 @@ class PlayHistoryManager:
         """
         return self.get_current_session() is not None
 
-    def get_latest_session(self) -> dict | None:
-        """The session reporting means by "this session", or None on a fresh install.
-
-        The open one, falling back to the most recent on record: without the
-        fallback the rankings would empty out the instant a host pressed End,
-        which is the moment they are most likely to go and look at them.
-        """
-        session = self.get_current_session()
-        if session is not None:
-            return session
-        # Unnamed included: hiding those from the session list is about not
-        # inventing events the host never declared, and must not hide their
-        # plays from reporting -- some households never name a night at all.
-        sessions = self.get_sessions(limit=1, include_unnamed=True)
-        return sessions[0] if sessions else None
-
     def get_sessions(
-        self, limit: int = 50, offset: int = 0, include_unnamed: bool = False
+        self, limit: int = 50, offset: int = 0, include_unnamed: bool = True
     ) -> list[dict]:
         """Return a page of sessions, newest first, each with its play count.
 
@@ -312,9 +294,10 @@ class PlayHistoryManager:
 
         Args:
             include_unnamed: Include the sessions record_play() auto-starts.
-                Excluded by default because the splash screen and the nav ribbon
-                already show nothing for a session the host never claimed;
-                asking for them is how such a night gets found and named.
+                On by default: this list is the only place they can be seen at
+                all, and a household that never names a night would otherwise
+                find it empty. The list styles them apart instead of hiding
+                them, and the Sessions page offers a checkbox to filter them out.
         """
         where = "" if include_unnamed else "WHERE s.name IS NOT NULL"
         rows = self.db.query(
@@ -354,7 +337,7 @@ class PlayHistoryManager:
         self._announce_session_change()
         return True
 
-    def count_sessions(self, include_unnamed: bool = False) -> int:
+    def count_sessions(self, include_unnamed: bool = True) -> int:
         """Return the total number of sessions, so a paged list can say so.
 
         Takes the same filter as get_sessions(), or the pager runs off the end
@@ -486,20 +469,24 @@ class PlayHistoryManager:
         offset: int = 0,
         sort: str = "played_at",
         direction: str = "desc",
-        include_skipped: bool = False,
+        include_skipped: bool = True,
     ) -> list[dict]:
         """Return a page of the play log, optionally scoped to one session.
 
         Sorting happens here rather than in the page because the log is paged:
         sorting a single page would only order the rows already fetched.
 
+        Each row carries file_path, the song's place in the library today, so
+        the log can offer it back to the queue. NULL once the song has been
+        deleted, which is what the page reads to withhold the offer.
+
         Args:
             sort: One of _PLAY_SORTS. Anything else falls back to played_at.
             direction: "asc", or descending for anything else.
-            include_skipped: Show the songs nobody sang through. Off by default,
-                so the log reads as a record of the night rather than of the
-                playback engine, but it is the only surface that shows them at
-                all -- and a play cut short by a crash is marked the same way.
+            include_skipped: Show the songs nobody sang through. On by default:
+                this is the only surface that shows them at all, and a play cut
+                short by a crash is marked the same way as one the singer
+                abandoned.
         """
         order = _PLAY_SORTS.get(sort, _PLAY_SORTS["played_at"])
         ascending = "ASC" if direction == "asc" else "DESC"
@@ -511,8 +498,10 @@ class PlayHistoryManager:
                    -- NULL only while it is actually playing, which is how the
                    -- log tells "singing now" from "was skipped".
                    p.ended_at IS NOT NULL AS has_ended,
-                   p.song_title AS song
+                   p.song_title AS song,
+                   s.file_path
             FROM plays p
+            LEFT JOIN songs s ON s.id = p.song_id
             {where}
             ORDER BY {order} {ascending}, p.id {ascending}
             LIMIT ? OFFSET ?
@@ -521,7 +510,7 @@ class PlayHistoryManager:
         )
         return [dict(row) for row in rows]
 
-    def count_plays(self, session_uuid: str | None = None, include_skipped: bool = False) -> int:
+    def count_plays(self, session_uuid: str | None = None, include_skipped: bool = True) -> int:
         """Return the total number of plays, optionally scoped to one session.
 
         Takes the same filter as get_plays(), or the pager offers a page the log
@@ -593,29 +582,43 @@ class PlayHistoryManager:
         the most recent title it was played under, so a renamed song reads by
         its current name rather than whichever spelling happened to be first.
 
+        Each row carries file_path, the song's place in the library today, so
+        the chart can offer it back to the queue. NULL once the song has been
+        deleted, which is what the page reads to withhold the offer.
+
         Scoped to one session when given; otherwise every play on record. Only
         songs sung through are counted: a skip says the room did not want the
         song, which is the opposite of what a most-played chart claims.
         """
         where, params = _plays_filter(session_uuid, _SUNG)
+        # MAX(p.id) in the inner query is what picks which row the bare
+        # song_title comes from: SQLite resolves bare columns in an aggregate
+        # query against the row that produced the max, so the label is the
+        # latest title rather than an arbitrary one. Keyed on id rather than
+        # played_at because it is unique -- two plays within the same second
+        # would make the max, and so the label, ambiguous.
+        #
+        # The library lookup hangs off that same latest play and sits outside
+        # the grouping, so the LIMIT bounds it: joining before the group would
+        # touch the library once per play ever recorded to rank twenty rows.
         rows = self.db.query(
             f"""
-            SELECT p.song_title AS song, COUNT(*) AS play_count, MAX(p.id)
-            FROM plays p
-            {where}
-            GROUP BY {_SONG_KEY}
-            ORDER BY play_count DESC, song
-            LIMIT ?
+            SELECT top.song, top.play_count, s.file_path
+            FROM (
+                SELECT p.song_title AS song, COUNT(*) AS play_count, MAX(p.id) AS last_play_id
+                FROM plays p
+                {where}
+                GROUP BY {_SONG_KEY}
+                ORDER BY play_count DESC, song
+                LIMIT ?
+            ) top
+            JOIN plays last ON last.id = top.last_play_id
+            LEFT JOIN songs s ON s.id = last.song_id
+            ORDER BY top.play_count DESC, top.song
             """,
             params + (limit,),
         )
-        # MAX() in the select list is what picks which row the bare song_title
-        # comes from: SQLite resolves bare columns in an aggregate query against
-        # the row that produced the max, so the label is the latest title rather
-        # than an arbitrary one. Keyed on id rather than played_at because it is
-        # unique -- two plays within the same second would make the max, and so
-        # the label, ambiguous. Cheaper than a correlated lookup per group.
-        return [{"song": row["song"], "play_count": row["play_count"]} for row in rows]
+        return [dict(row) for row in rows]
 
     def delete_play(self, play_id: int) -> bool:
         """Delete a single play from the log."""

@@ -5,11 +5,9 @@ from __future__ import annotations
 import logging
 import os
 import unicodedata
-from urllib.parse import unquote
 
 import flask_babel
 from flask import flash, redirect, render_template, request, url_for
-from flask_paginate import Pagination, get_page_parameter
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
@@ -39,6 +37,17 @@ def _format_icon(song_path: str, db_format: str | None) -> str | None:
 
 files_bp = Blueprint("files", __name__)
 
+# Page sizes the browse page offers. browse_results_per_page is stored as a
+# plain number and Settings still takes one, so a value from outside this list
+# is added to it rather than leaving the dropdown unable to show what is set.
+# One stored value, two controls that can always represent it.
+_PER_PAGE_SIZES = [25, 50, 100, 250, 500, 1000]
+
+
+def _per_page_options(current: int) -> list[int]:
+    """The sizes on offer, always including the one in force."""
+    return sorted(set(_PER_PAGE_SIZES) | {current})
+
 
 class SongReferrerQuery(Schema):
     song = fields.String(required=True, metadata={"description": "Path to the song file"})
@@ -60,11 +69,9 @@ def browse():
     """Browse available songs page."""
     k = get_karaoke_instance()
     site_name = get_site_name()
-    search = False
-    q = request.args.get("q")
-    if q:
-        search = True
-    page = int(request.args.get("page", 1))
+    # Clamped: the pager renders a link to the page either side of this one, and
+    # a page of zero would index the song list from the wrong end.
+    page = max(1, int(request.args.get("page", 1)))
 
     available_songs = k.song_manager.songs
 
@@ -102,26 +109,16 @@ def browse():
 
     current_url = url_for("files.browse", **args.to_dict())
 
-    page_param = get_page_parameter()
-    args[page_param] = "{0}"
+    # The pager's links carry the rest of the query string, so paging never
+    # drops the letter filter or the sort order. The number is substituted into
+    # a rendered URL rather than appended, which would have to guess whether the
+    # separator is "?" or "&".
+    args["page"] = "PAGENUMBER"
+    page_href = url_for("files.browse", **args.to_dict())
 
-    args_dict = args.to_dict()
-    pagination_href = unquote(url_for("files.browse", **args_dict))  # type: ignore
-
-    pagination = Pagination(
-        css_framework="bulma",
-        page=page,
-        total=len(songs),
-        search=search,
-        record_name="songs",
-        per_page=results_per_page,
-        display_msg="Showing <b>{start} - {end}</b> of <b>{total}</b> {record_name}",
-        href=pagination_href,
-    )
     start_index = (page - 1) * results_per_page
     return render_template(
         "files.html",
-        pagination=pagination,
         sort_order=sort_order,
         site_title=site_name,
         letter=letter,
@@ -130,6 +127,12 @@ def browse():
         songs=songs[start_index : start_index + results_per_page],
         admin=is_admin(),
         current_url=current_url,
+        page=page,
+        per_page=results_per_page,
+        per_page_options=_per_page_options(results_per_page),
+        total=len(songs),
+        skip=start_index,
+        page_href=page_href,
     )
 
 
