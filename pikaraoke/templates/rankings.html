@@ -153,7 +153,13 @@
 					><i class="icon-list-add"></i
 				></a>
 				{% endif %}
-				{{ song.song }}
+				{# Through to every play of this song, and so to who sang it. The id
+				   goes with the title because a song downloaded twice ranks as two
+				   rows: without it both would open the same combined log, agreeing
+				   with neither count. #}
+				<a href="{{ url_for('sessions.history', song=song.song,
+					youtube_id=song.youtube_id or None,
+					session=selected_session or None) }}">{{ song.song }}</a>
 			</td>
 			<td class="has-text-right">{{ song.play_count }}</td>
 		</tr>

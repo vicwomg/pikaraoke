@@ -42,6 +42,11 @@ class RankingsQuery(Schema):
 class HistoryQuery(Schema):
     session = fields.String(load_default="", metadata={"description": "Session UUID filter"})
     performer = fields.String(load_default="", metadata={"description": "Performer name filter"})
+    # Likewise reached from a song title, in the log itself or on the rankings.
+    # youtube_id rides along so the filter selects the same plays the chart row
+    # counted; the title is what the chip shows.
+    song = fields.String(load_default="", metadata={"description": "Song title filter"})
+    youtube_id = fields.String(load_default="", metadata={"description": "Song's YouTube id"})
 
 
 @sessions_bp.before_request
@@ -87,6 +92,8 @@ def history(query):
         sessions=_filter_sessions(),
         selected_session=query["session"],
         selected_performer=query["performer"],
+        selected_song=query["song"],
+        selected_youtube_id=query["youtube_id"],
     )
 
 

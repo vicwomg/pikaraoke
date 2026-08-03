@@ -171,6 +171,28 @@ class TestPublicPlayLog:
         assert karaoke.play_history.get_plays.call_args.kwargs["performer"] == "Alice"
         assert karaoke.play_history.count_plays.call_args.kwargs["performer"] == "Alice"
 
+    def test_the_log_filters_by_song(self, client, karaoke):
+        """The id rides along with the title and is what decides the match, so a
+        log opened from a chart row holds the plays that row counted."""
+        karaoke.play_history.get_plays.return_value = []
+        karaoke.play_history.count_plays.return_value = 0
+
+        response = client.get("/api/history/plays?song=A+Song&youtube_id=dQw4w9WgXcQ")
+
+        assert response.status_code == 200
+        for call in (karaoke.play_history.get_plays, karaoke.play_history.count_plays):
+            assert call.call_args.kwargs["song"] == "A Song"
+            assert call.call_args.kwargs["youtube_id"] == "dQw4w9WgXcQ"
+
+    def test_the_page_carries_the_song_filter(self, client, karaoke_page):
+        karaoke_page.play_history.get_sessions.return_value = []
+
+        with patch("pikaraoke.routes.sessions.render_template", return_value="ok") as render:
+            client.get("/history?song=A+Song&youtube_id=dQw4w9WgXcQ")
+
+        assert render.call_args.kwargs["selected_song"] == "A Song"
+        assert render.call_args.kwargs["selected_youtube_id"] == "dQw4w9WgXcQ"
+
 
 # What export_plays() hands the exporters: performances only, so there is no
 # status to render.

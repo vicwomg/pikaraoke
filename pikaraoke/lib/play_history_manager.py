@@ -81,7 +81,11 @@ _SUNG_OR_PLAYING = "(p.completed = 1 OR p.ended_at IS NULL)"
 
 
 def _plays_filter(
-    session_uuid: str | None, condition: str | None, performer: str | None = None
+    session_uuid: str | None,
+    condition: str | None,
+    performer: str | None = None,
+    song: str | None = None,
+    youtube_id: str | None = None,
 ) -> tuple[str, tuple]:
     """Build the WHERE clause narrowing a query over `plays p`, and its parameters.
 
@@ -94,6 +98,9 @@ def _plays_filter(
             groups the same way, so a name is one person wherever it is counted;
             matching exactly here would show fewer plays than the ranking the
             reader followed to get here.
+        song: Scope to one song, by the title it was played under.
+        youtube_id: The same song's id, when it has one. Given both, the id
+            decides and the title is only a label -- see below.
     """
     clauses = []
     params: tuple = ()
@@ -103,6 +110,17 @@ def _plays_filter(
     if performer:
         clauses.append("p.performer = ? COLLATE NOCASE")
         params += (performer,)
+    # Selects exactly the plays _SONG_KEY groups together, so a log opened from a
+    # chart row holds the plays that row counted. A library often holds several
+    # downloads of one popular song: they rank separately, so matching on title
+    # alone would open one list for two rows and disagree with both.
+    if youtube_id:
+        clauses.append("p.youtube_id = ?")
+        params += (youtube_id,)
+    elif song:
+        # A local rip has no id, and keys on its title instead.
+        clauses.append("p.youtube_id IS NULL AND p.song_title = ? COLLATE NOCASE")
+        params += (song,)
     if condition:
         clauses.append(condition)
     return ("WHERE " + " AND ".join(clauses) if clauses else ""), params
@@ -484,6 +502,8 @@ class PlayHistoryManager:
         direction: str = "desc",
         include_skipped: bool = True,
         performer: str | None = None,
+        song: str | None = None,
+        youtube_id: str | None = None,
     ) -> list[dict]:
         """Return a page of the play log, optionally scoped to one session.
 
@@ -502,11 +522,19 @@ class PlayHistoryManager:
                 short by a crash is marked the same way as one the singer
                 abandoned.
             performer: Scope to one singer, case-insensitively.
+            song: Scope to one song, by the title it was played under.
+            youtube_id: The same song's id, when it has one, which decides the
+                match. Also returned on every row, so the log can link a song to
+                the rest of its own plays.
         """
         order = _PLAY_SORTS.get(sort, _PLAY_SORTS["played_at"])
         ascending = "ASC" if direction == "asc" else "DESC"
         where, params = _plays_filter(
-            session_uuid, None if include_skipped else _SUNG_OR_PLAYING, performer
+            session_uuid,
+            None if include_skipped else _SUNG_OR_PLAYING,
+            performer,
+            song,
+            youtube_id,
         )
 
         rows = self.db.query(
@@ -516,6 +544,7 @@ class PlayHistoryManager:
                    -- log tells "singing now" from "was skipped".
                    p.ended_at IS NOT NULL AS has_ended,
                    p.song_title AS song,
+                   p.youtube_id,
                    s.file_path
             FROM plays p
             LEFT JOIN songs s ON s.id = p.song_id
@@ -532,6 +561,8 @@ class PlayHistoryManager:
         session_uuid: str | None = None,
         include_skipped: bool = True,
         performer: str | None = None,
+        song: str | None = None,
+        youtube_id: str | None = None,
     ) -> int:
         """Return the total number of plays, optionally scoped to one session.
 
@@ -539,7 +570,11 @@ class PlayHistoryManager:
         cannot fill.
         """
         where, params = _plays_filter(
-            session_uuid, None if include_skipped else _SUNG_OR_PLAYING, performer
+            session_uuid,
+            None if include_skipped else _SUNG_OR_PLAYING,
+            performer,
+            song,
+            youtube_id,
         )
         return self.db.query(f"SELECT COUNT(*) FROM plays p {where}", params)[0][0]
 
@@ -627,9 +662,13 @@ class PlayHistoryManager:
         # touch the library once per play ever recorded to rank twenty rows.
         rows = self.db.query(
             f"""
-            SELECT top.song, top.play_count, s.file_path
+            SELECT top.song, top.youtube_id, top.play_count, s.file_path
             FROM (
-                SELECT p.song_title AS song, COUNT(*) AS play_count, MAX(p.id) AS last_play_id
+                -- youtube_id is part of the group key, so every play in a group
+                -- carries the same one and a bare column is unambiguous. Returned
+                -- so the chart can link a row to exactly the plays it counted.
+                SELECT p.song_title AS song, p.youtube_id, COUNT(*) AS play_count,
+                       MAX(p.id) AS last_play_id
                 FROM plays p
                 {where}
                 GROUP BY {_SONG_KEY}

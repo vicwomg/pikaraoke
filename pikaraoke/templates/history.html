@@ -15,6 +15,11 @@
 	// string, so a link to one person's plays is shareable; the chip above the
 	// table clears it.
 	var historyPerformer = {{ selected_performer | tojson }};
+	// Which song, as the title shown on the chip and the id that actually decides
+	// the match. A song downloaded twice ranks as two entries, so the title alone
+	// would open one log for both.
+	var historySong = {{ selected_song | tojson }};
+	var historyYoutubeId = {{ selected_youtube_id | tojson }};
 	// Whether the log hides songs nobody sang through. Off by default: this is
 	// the only surface that shows them at all, and a play cut short by a crash is
 	// marked the same way as one the singer abandoned.
@@ -98,23 +103,25 @@
 		loadPlays();
 	}
 
-	// A name in the log narrows it to that person, the same link the rankings and
-	// a session's singer tags offer. The session travels with it, so a log scoped
-	// to one night stays on that night.
+	// A value in the log narrows it to itself: a name to that person's plays, a
+	// title to everyone who sang it. Only the session travels along, so each link
+	// replaces the other filter rather than compounding it -- clicking a song
+	// while scoped to one singer answers "who else sang this", which is the
+	// question the click is asking.
 	//
-	// Rendered as plain text once the log is already filtered: every row then
-	// carries the same name, and a link back to the page you are on is nothing
-	// but noise. The chip above the table is the way out.
-	function performerCell(performer) {
-		var name = escapeHtml(performer);
-		if (historyPerformer) {
-			return "<td>" + name + "</td>";
+	// `active` is whether this column is already the filter. It then renders as
+	// plain text: every row carries the same value, and a link back to the page
+	// you are on is nothing but noise. The chip above the table is the way out.
+	function filterCell(value, params, active) {
+		var text = escapeHtml(value);
+		if (active) {
+			return "<td>" + text + "</td>";
 		}
-		var url = "{{ url_for('sessions.history') }}?performer=" + encodeURIComponent(performer);
 		if (historySession) {
-			url += "&session=" + encodeURIComponent(historySession);
+			params.session = historySession;
 		}
-		return '<td><a href="' + url + '">' + name + "</a></td>";
+		var url = "{{ url_for('sessions.history') }}?" + $.param(params);
+		return '<td><a href="' + url + '">' + text + "</a></td>";
 	}
 
 	function loadPlays() {
@@ -130,6 +137,12 @@
 		}
 		if (historyPerformer) {
 			params.performer = historyPerformer;
+		}
+		// The id decides the match where there is one, so it has to survive the
+		// round trip; the title alone would merge two downloads of one song.
+		if (historySong || historyYoutubeId) {
+			params.song = historySong;
+			params.youtube_id = historyYoutubeId;
 		}
 		renderSortArrows();
 		return $.getJSON("{{ url_for('sessions_api.get_plays') }}", params, function (data) {
@@ -153,8 +166,12 @@
 					return (
 						'<tr class="' + (wasSkipped(play) ? "is-skipped" : "") + '">' +
 							whenCell(play.played_at) +
-							performerCell(play.performer) +
-							"<td>" + escapeHtml(play.song) + "</td>" +
+							filterCell(play.performer, { performer: play.performer }, historyPerformer) +
+							filterCell(
+								play.song,
+								{ song: play.song, youtube_id: play.youtube_id || "" },
+								historySong || historyYoutubeId
+							) +
 							'<td class="status-cell">' + playStatus(play) + "</td>" +
 							'<td class="has-text-right options-cell">' +
 								'<a class="has-text-grey-light row-options-btn" data-id="' + play.id +
@@ -393,9 +410,30 @@
 		<span class="is-size-7 mr-2">{% trans %}Performer{% endtrans %}</span>
 		<span class="tag">
 			{{ selected_performer }}
+			{# Drops this filter and keeps every other, so clearing one of two chips
+			   leaves the log narrowed by the one still on screen. #}
 			{# MSG: Button which stops filtering the play log to one singer. #}
-			<a class="delete is-small" href="{{ url_for('sessions.history', session=selected_session or None) }}"
+			<a class="delete is-small" href="{{ url_for('sessions.history',
+					session=selected_session or None, song=selected_song or None,
+					youtube_id=selected_youtube_id or None) }}"
 				aria-label="{{ _('Show all performers') | forceescape }}"></a>
+		</span>
+	</span>
+	{% endif %}
+
+	{% if selected_song %}
+	{# Reached from a title, in the log itself or on the rankings, and answering
+	   "who sang this". The id alongside it is what makes the list agree with the
+	   chart row it came from. #}
+	<span class="is-flex is-align-items-center">
+		{# MSG: Label before the name of the song the play log is filtered to. #}
+		<span class="is-size-7 mr-2">{% trans %}Song{% endtrans %}</span>
+		<span class="tag">
+			{{ selected_song }}
+			{# MSG: Button which stops filtering the play log to one song. #}
+			<a class="delete is-small" href="{{ url_for('sessions.history',
+					session=selected_session or None, performer=selected_performer or None) }}"
+				aria-label="{{ _('Show all songs') | forceescape }}"></a>
 		</span>
 	</span>
 	{% endif %}

@@ -70,6 +70,13 @@ class PlaysQuery(Schema):
     performer = fields.String(
         load_default=None, metadata={"description": "Performer name filter, case-insensitive"}
     )
+    song = fields.String(load_default=None, metadata={"description": "Song title filter"})
+    # Sent alongside song for anything downloaded from YouTube, and decides the
+    # match: a library may hold several downloads of one song, which rank
+    # separately and so must filter separately.
+    youtube_id = fields.String(
+        load_default=None, metadata={"description": "Song's YouTube id, when it has one"}
+    )
 
 
 class SessionsQuery(Schema):
@@ -174,18 +181,23 @@ def get_plays(query):
     """Paginated play log, newest first, optionally scoped to one session."""
     k = get_karaoke_instance()
     session = query["session"]
-    skipped = query["include_skipped"]
-    performer = query["performer"]
+    # The rows and the count must take the same filter, or the pager offers a
+    # page the log cannot fill.
+    scope = {
+        "include_skipped": query["include_skipped"],
+        "performer": query["performer"],
+        "song": query["song"],
+        "youtube_id": query["youtube_id"],
+    }
     plays = k.play_history.get_plays(
         session,
         query["limit"],
         query["offset"],
         query["sort"],
         query["direction"],
-        include_skipped=skipped,
-        performer=performer,
+        **scope,
     )
-    total = k.play_history.count_plays(session, include_skipped=skipped, performer=performer)
+    total = k.play_history.count_plays(session, **scope)
     return jsonify({"plays": plays, "total": total})
 
 

@@ -712,7 +712,7 @@ class TestGetTopSongs:
         db.delete_by_path("/songs/a.mp4")
 
         assert history.get_top_songs() == [
-            {"song": "A Song", "play_count": 1, "file_path": None},
+            {"song": "A Song", "youtube_id": None, "play_count": 1, "file_path": None},
         ]
 
     def test_counts_one_song_across_a_library_rebuild(self, sing, history, song_id, db):
@@ -729,7 +729,7 @@ class TestGetTopSongs:
 
         assert readded != song_id
         assert history.get_top_songs() == [
-            {"song": "A Song", "play_count": 2, "file_path": "/songs/a.mp4"},
+            {"song": "A Song", "youtube_id": None, "play_count": 2, "file_path": "/songs/a.mp4"},
         ]
 
     def test_carries_the_path_a_song_can_be_requeued_from(self, sing, history, song_id):
@@ -767,7 +767,7 @@ class TestSongRenamed:
         sing(song_id, None, "Bob", "New Name")
 
         assert history.get_top_songs() == [
-            {"song": "New Name", "play_count": 2, "file_path": "/songs/a.mp4"},
+            {"song": "New Name", "youtube_id": None, "play_count": 2, "file_path": "/songs/a.mp4"},
         ]
 
     def test_rename_updates_the_play_log(self, sing, history, events, song_id):
@@ -899,6 +899,52 @@ class TestGetPlays:
 
         assert len(history.get_plays(first, performer="Alice")) == 1
         assert history.count_plays(first, performer="Alice") == 1
+
+    def test_filters_by_song_title(self, history, song_id):
+        """A local rip has no YouTube id and keys on its title, as _SONG_KEY does."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.record_play(song_id, None, "Bob", "Another Song")
+
+        plays = history.get_plays(song="a song")
+
+        assert [p["performer"] for p in plays] == ["Alice"]
+        assert history.count_plays(song="a song") == 1
+
+    def test_the_youtube_id_decides_which_song(self, history, song_id):
+        """A library often holds several downloads of one popular song. They rank
+        as separate rows, so a log opened from one must not show the other's
+        plays -- the count would agree with neither."""
+        history.record_play(song_id, "aaaaaaaaaaa", "Alice", "Bohemian Rhapsody")
+        history.record_play(song_id, "bbbbbbbbbbb", "Bob", "Bohemian Rhapsody")
+
+        plays = history.get_plays(song="Bohemian Rhapsody", youtube_id="aaaaaaaaaaa")
+
+        assert [p["performer"] for p in plays] == ["Alice"]
+        assert history.count_plays(song="Bohemian Rhapsody", youtube_id="aaaaaaaaaaa") == 1
+
+    def test_a_title_filter_does_not_match_downloads_of_the_same_name(self, history, song_id):
+        """The title-only branch is for songs with no id, so it must not sweep up
+        a download that happens to share the title."""
+        history.record_play(song_id, "aaaaaaaaaaa", "Alice", "Bohemian Rhapsody")
+        history.record_play(song_id, None, "Bob", "Bohemian Rhapsody")
+
+        plays = history.get_plays(song="Bohemian Rhapsody")
+
+        assert [p["performer"] for p in plays] == ["Bob"]
+
+    def test_carries_the_youtube_id_a_song_can_be_linked_by(self, history, song_id):
+        """The log links each title to the rest of that song's plays, which needs
+        the id that decides the match."""
+        history.record_play(song_id, "aaaaaaaaaaa", "Alice", "A Song")
+
+        assert history.get_plays()[0]["youtube_id"] == "aaaaaaaaaaa"
+
+    def test_song_and_performer_filters_compose(self, history, song_id):
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.record_play(song_id, None, "Bob", "A Song")
+        history.record_play(song_id, None, "Alice", "Another Song")
+
+        assert history.count_plays(performer="Alice", song="A Song") == 1
 
     def test_shows_skipped_songs_by_default(self, history, events, song_id):
         """This is the only surface that shows them at all, and a play cut short
