@@ -98,6 +98,25 @@
 		loadPlays();
 	}
 
+	// A name in the log narrows it to that person, the same link the rankings and
+	// a session's singer tags offer. The session travels with it, so a log scoped
+	// to one night stays on that night.
+	//
+	// Rendered as plain text once the log is already filtered: every row then
+	// carries the same name, and a link back to the page you are on is nothing
+	// but noise. The chip above the table is the way out.
+	function performerCell(performer) {
+		var name = escapeHtml(performer);
+		if (historyPerformer) {
+			return "<td>" + name + "</td>";
+		}
+		var url = "{{ url_for('sessions.history') }}?performer=" + encodeURIComponent(performer);
+		if (historySession) {
+			url += "&session=" + encodeURIComponent(historySession);
+		}
+		return '<td><a href="' + url + '">' + name + "</a></td>";
+	}
+
 	function loadPlays() {
 		var params = {
 			limit: playsPage.limit,
@@ -134,7 +153,7 @@
 					return (
 						'<tr class="' + (wasSkipped(play) ? "is-skipped" : "") + '">' +
 							whenCell(play.played_at) +
-							"<td>" + escapeHtml(play.performer) + "</td>" +
+							performerCell(play.performer) +
 							"<td>" + escapeHtml(play.song) + "</td>" +
 							'<td class="status-cell">' + playStatus(play) + "</td>" +
 							'<td class="has-text-right options-cell">' +
