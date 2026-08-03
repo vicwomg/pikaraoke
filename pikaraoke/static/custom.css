@@ -126,6 +126,13 @@ table {
 .table-toggle {
   margin-left: auto;
   color: #a7a7a7;
+  /* A box and its label, centred on each other. Left inline the box sits on the
+     text baseline, which puts it a couple of pixels low against type this
+     small. The gap replaces the whitespace between them, which a flex
+     container would otherwise collapse away. */
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 /* The session list and the play log. Each declares its column widths in a
