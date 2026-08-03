@@ -80,7 +80,9 @@ _SUNG = "p.completed = 1"
 _SUNG_OR_PLAYING = "(p.completed = 1 OR p.ended_at IS NULL)"
 
 
-def _plays_filter(session_uuid: str | None, condition: str | None) -> tuple[str, tuple]:
+def _plays_filter(
+    session_uuid: str | None, condition: str | None, performer: str | None = None
+) -> tuple[str, tuple]:
     """Build the WHERE clause narrowing a query over `plays p`, and its parameters.
 
     Args:
@@ -88,12 +90,19 @@ def _plays_filter(session_uuid: str | None, condition: str | None) -> tuple[str,
             so callers only need the id the UI already carries.
         condition: _SUNG or _SUNG_OR_PLAYING, or None to take every play on
             record.
+        performer: Scope to one singer. Case-insensitive because get_singers()
+            groups the same way, so a name is one person wherever it is counted;
+            matching exactly here would show fewer plays than the ranking the
+            reader followed to get here.
     """
     clauses = []
     params: tuple = ()
     if session_uuid:
         clauses.append("p.session_id = (SELECT id FROM sessions WHERE uuid = ?)")
         params += (session_uuid,)
+    if performer:
+        clauses.append("p.performer = ? COLLATE NOCASE")
+        params += (performer,)
     if condition:
         clauses.append(condition)
     return ("WHERE " + " AND ".join(clauses) if clauses else ""), params
@@ -418,6 +427,9 @@ class PlayHistoryManager:
         self._current_play_id = cursor.lastrowid
         self._current_song_id = song_id
         self._current_performer = performer
+        # After the write, never before: listeners re-read the log, and one told
+        # early would read the row it was told about in its old state.
+        self.events.emit("play_logged")
 
     def _on_song_ended(self, reason: str | None = None) -> None:
         """Close the pending play, recording whether it was sung through.
@@ -442,6 +454,7 @@ class PlayHistoryManager:
         self._current_play_id = None
         self._current_song_id = None
         self._current_performer = None
+        self.events.emit("play_logged")
 
     def _forget_deleted_play(self) -> None:
         """Drop the in-flight bookkeeping when a reset has taken its row away.
@@ -470,6 +483,7 @@ class PlayHistoryManager:
         sort: str = "played_at",
         direction: str = "desc",
         include_skipped: bool = True,
+        performer: str | None = None,
     ) -> list[dict]:
         """Return a page of the play log, optionally scoped to one session.
 
@@ -487,10 +501,13 @@ class PlayHistoryManager:
                 this is the only surface that shows them at all, and a play cut
                 short by a crash is marked the same way as one the singer
                 abandoned.
+            performer: Scope to one singer, case-insensitively.
         """
         order = _PLAY_SORTS.get(sort, _PLAY_SORTS["played_at"])
         ascending = "ASC" if direction == "asc" else "DESC"
-        where, params = _plays_filter(session_uuid, None if include_skipped else _SUNG_OR_PLAYING)
+        where, params = _plays_filter(
+            session_uuid, None if include_skipped else _SUNG_OR_PLAYING, performer
+        )
 
         rows = self.db.query(
             f"""
@@ -510,13 +527,20 @@ class PlayHistoryManager:
         )
         return [dict(row) for row in rows]
 
-    def count_plays(self, session_uuid: str | None = None, include_skipped: bool = True) -> int:
+    def count_plays(
+        self,
+        session_uuid: str | None = None,
+        include_skipped: bool = True,
+        performer: str | None = None,
+    ) -> int:
         """Return the total number of plays, optionally scoped to one session.
 
         Takes the same filter as get_plays(), or the pager offers a page the log
         cannot fill.
         """
-        where, params = _plays_filter(session_uuid, None if include_skipped else _SUNG_OR_PLAYING)
+        where, params = _plays_filter(
+            session_uuid, None if include_skipped else _SUNG_OR_PLAYING, performer
+        )
         return self.db.query(f"SELECT COUNT(*) FROM plays p {where}", params)[0][0]
 
     def get_singers(

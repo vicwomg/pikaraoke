@@ -107,11 +107,24 @@ table {
   opacity: 0.5;
 }
 
-/* A quiet aside under a pager: these hide bookkeeping rows rather than filter
-   the list the reader came for. */
+/* The row above a table holding what narrows it: which subset is on screen on
+   the left, the controls that change it on the right. Wraps rather than
+   squeezing, so a long performer name and a checkbox take a line each on a
+   phone. */
+.table-toggle-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 8px;
+}
+
+/* Held to the right edge whether or not a filter chip shares the row, so the
+   checkbox is in the same place on every page that has one. Set apart rather
+   than emphasised: these hide bookkeeping rows rather than filter the list the
+   reader came for. */
 .table-toggle {
-  display: inline-block;
-  margin-top: 8px;
+  margin-left: auto;
   color: #a7a7a7;
 }
 
@@ -165,6 +178,13 @@ table {
 .row-options-btn .icon-cog:before {
   margin-left: 0;
   margin-right: 0;
+}
+
+/* The cog is deliberately dim until pointed at, so a column of them does not
+   compete with the rows. !important because it carries has-text-grey-light,
+   and Bulma's colour helpers are themselves !important. */
+.row-options-btn:hover {
+  color: var(--dark-link) !important;
 }
 
 body.hide-cursor * {

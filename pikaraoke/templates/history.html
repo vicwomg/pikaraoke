@@ -11,6 +11,10 @@
 	// from the query string, so the view is shareable and the filter survives a
 	// reload; the dropdown reloads the page to change it.
 	var historySession = {{ selected_session | tojson }};
+	// Which singer the log is scoped to, or "" for everyone. Also from the query
+	// string, so a link to one person's plays is shareable; the chip above the
+	// table clears it.
+	var historyPerformer = {{ selected_performer | tojson }};
 	// Whether the log hides songs nobody sang through. Off by default: this is
 	// the only surface that shows them at all, and a play cut short by a crash is
 	// marked the same way as one the singer abandoned.
@@ -105,6 +109,9 @@
 		if (historySession) {
 			params.session = historySession;
 		}
+		if (historyPerformer) {
+			params.performer = historyPerformer;
+		}
 		renderSortArrows();
 		return $.getJSON("{{ url_for('sessions_api.get_plays') }}", params, function (data) {
 			// Deleting the last row on the last page, or filtering down to a
@@ -196,36 +203,28 @@
 		loadPlays();
 
 		// A play is logged when the song starts and resolved when it ends, so the
-		// Status column changes without anyone touching this page. now_playing is
-		// emitted on both, which is the same event the rest of the UI follows.
+		// Status column changes without anyone touching this page. play_logged is
+		// emitted after each of those writes, so the row is already in its new
+		// state by the time this refetches.
 		// Re-registered rather than stacked, because SPA navigation re-runs this.
 		if (window.socket) {
-			if (window.historyNowPlayingHandler) {
-				window.socket.off("now_playing", window.historyNowPlayingHandler);
+			if (window.historyLogHandler) {
+				window.socket.off("play_logged", window.historyLogHandler);
 			}
-			// Queue edits and pause emit now_playing too, and neither can change
-			// the log. Only a change of song is worth re-querying for. The
-			// comparison runs on every event and only the reload is debounced:
-			// debouncing first would coalesce "A ended, A started again" into a
-			// single unchanged value and miss the new play entirely.
+			// Debounced for a splash delay of 0, where a song ending and the
+			// next starting land together and the log reads the same after both.
 			var reloadLog = debounce(loadPlays, 400);
-			var lastNowPlaying;
-			window.historyNowPlayingHandler = function (data) {
+			window.historyLogHandler = function () {
 				// The socket outlives SPA page swaps, so a handler left bound
 				// would keep re-querying the log for a table that is no longer
 				// on screen. A missing tbody means this page is gone.
 				if (!$("#plays-body").length) {
-					window.socket.off("now_playing", window.historyNowPlayingHandler);
+					window.socket.off("play_logged", window.historyLogHandler);
 					return;
 				}
-				var song = data ? data.now_playing : null;
-				if (song === lastNowPlaying) {
-					return;
-				}
-				lastNowPlaying = song;
 				reloadLog();
 			};
-			window.socket.on("now_playing", window.historyNowPlayingHandler);
+			window.socket.on("play_logged", window.historyLogHandler);
 		}
 
 		$("#plays-body").on("click", ".row-options-btn", function () {
@@ -364,6 +363,32 @@
 
 {% include 'partials/session_filter.html' %}
 
+<div class="table-toggle-row">
+	{% if selected_performer %}
+	{# Reached from a name on the rankings or in a session's singer list:
+	   performers grow without bound, so unlike the session filter there is no
+	   dropdown to pick one from or to set it back to "everyone". The chip is the
+	   only way out, and it clears the performer alone, keeping the session. #}
+	<span class="is-flex is-align-items-center">
+		{# MSG: Label before the name of the singer the play log is filtered to. #}
+		<span class="is-size-7 mr-2">{% trans %}Performer{% endtrans %}</span>
+		<span class="tag">
+			{{ selected_performer }}
+			{# MSG: Button which stops filtering the play log to one singer. #}
+			<a class="delete is-small" href="{{ url_for('sessions.history', session=selected_session or None) }}"
+				aria-label="{{ _('Show all performers') | forceescape }}"></a>
+		</span>
+	</span>
+	{% endif %}
+
+	{# Off by default, so the log shows every attempt. See hideSkippedPlays. #}
+	<label class="checkbox is-size-7 table-toggle">
+		<input type="checkbox" id="hide-skipped" />
+		{# MSG: Checkbox which hides songs that were skipped before they finished. #}
+		{% trans %}Hide skipped songs{% endtrans %}
+	</label>
+</div>
+
 <table class="history-table" id="play-log">
 	{# The song column is deliberately unsized: it takes whatever the others do
 	   not need, on a phone as much as on a desktop. #}
@@ -397,13 +422,6 @@
 </table>
 
 {{ tables.pager_controls("plays") }}
-
-{# Off by default, so the log shows every attempt. See hideSkippedPlays. #}
-<label class="checkbox is-size-7 table-toggle">
-	<input type="checkbox" id="hide-skipped" />
-	{# MSG: Checkbox which hides songs that were skipped before they finished. #}
-	{% trans %}Hide skipped songs{% endtrans %}
-</label>
 
 <div class="modal" id="play-options-modal">
 	<div class="modal-background"></div>

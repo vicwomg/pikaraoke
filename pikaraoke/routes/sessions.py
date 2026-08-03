@@ -41,6 +41,7 @@ class RankingsQuery(Schema):
 
 class HistoryQuery(Schema):
     session = fields.String(load_default="", metadata={"description": "Session UUID filter"})
+    performer = fields.String(load_default="", metadata={"description": "Performer name filter"})
 
 
 @sessions_bp.before_request
@@ -85,6 +86,7 @@ def history(query):
         admin=is_admin(),
         sessions=_filter_sessions(),
         selected_session=query["session"],
+        selected_performer=query["performer"],
     )
 
 

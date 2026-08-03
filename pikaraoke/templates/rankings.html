@@ -95,6 +95,11 @@
 		margin-left: 0;
 		margin-right: 0.4em;
 	}
+	/* Dimmed rather than recoloured on hover: has-text-success is a Bulma helper
+	   and therefore !important, and green is the point of the control. */
+	.rankings-table .add-song-link:hover {
+		opacity: 0.75;
+	}
 	/* On a phone the desktop column widths would leave too little for the song
 	   title, so they tighten to what the headers still need. */
 	@media screen and (max-width: 600px) {
@@ -176,7 +181,11 @@
 		{% for performer in top_performers %}
 		<tr>
 			<td>{{ loop.index }}</td>
-			<td>{{ performer.performer }}</td>
+			{# Through to this person's plays. The session goes with it, so a chart
+			   scoped to one night links to that night rather than to all time. #}
+			<td>
+				<a href="{{ url_for('sessions.history', performer=performer.performer, session=selected_session or None) }}">{{ performer.performer }}</a>
+			</td>
 			<td class="has-text-right">{{ performer.play_count }}</td>
 		</tr>
 		{% endfor %}

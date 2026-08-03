@@ -67,6 +67,9 @@ class PlaysQuery(Schema):
         load_default=True,
         metadata={"description": "Show songs nobody sang through"},
     )
+    performer = fields.String(
+        load_default=None, metadata={"description": "Performer name filter, case-insensitive"}
+    )
 
 
 class SessionsQuery(Schema):
@@ -170,16 +173,19 @@ def get_singers(query):
 def get_plays(query):
     """Paginated play log, newest first, optionally scoped to one session."""
     k = get_karaoke_instance()
+    session = query["session"]
     skipped = query["include_skipped"]
+    performer = query["performer"]
     plays = k.play_history.get_plays(
-        query["session"],
+        session,
         query["limit"],
         query["offset"],
         query["sort"],
         query["direction"],
-        skipped,
+        include_skipped=skipped,
+        performer=performer,
     )
-    total = k.play_history.count_plays(query["session"], skipped)
+    total = k.play_history.count_plays(session, include_skipped=skipped, performer=performer)
     return jsonify({"plays": plays, "total": total})
 
 

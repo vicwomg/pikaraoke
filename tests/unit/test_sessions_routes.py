@@ -151,6 +151,26 @@ class TestPublicPlayLog:
         assert render.call_args.kwargs["selected_session"] == "abc"
         assert render.call_args.kwargs["sessions"][0]["name"] == "Fri"
 
+    def test_the_page_carries_the_performer_filter(self, client, karaoke_page):
+        """Reached from a name on the rankings or in a session's singer list."""
+        karaoke_page.play_history.get_sessions.return_value = []
+
+        with patch("pikaraoke.routes.sessions.render_template", return_value="ok") as render:
+            client.get("/history?performer=Alice")
+
+        assert render.call_args.kwargs["selected_performer"] == "Alice"
+
+    def test_the_log_filters_by_performer(self, client, karaoke):
+        """The rows and the count take the same filter, or the pager offers a
+        page the log cannot fill."""
+        karaoke.play_history.get_plays.return_value = []
+        karaoke.play_history.count_plays.return_value = 0
+
+        assert client.get("/api/history/plays?performer=Alice").status_code == 200
+
+        assert karaoke.play_history.get_plays.call_args.kwargs["performer"] == "Alice"
+        assert karaoke.play_history.count_plays.call_args.kwargs["performer"] == "Alice"
+
 
 # What export_plays() hands the exporters: performances only, so there is no
 # status to render.

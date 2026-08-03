@@ -367,12 +367,30 @@ hr {
 	.navbar-menu {
 		background-color: var(--dark-primary);
 		border-radius: 0 0 0.4em 0.4em;
+		/* The dropdown flattens into this menu and is its last child, so without
+		   clipping its square corners paint over the rounded ones and leave a
+		   dark sliver at each bottom edge. */
+		overflow: hidden;
 	}
 }
 
 .navbar-dropdown {
 	background-color: var(--dark-primary);
 	border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+/* Below the desktop breakpoint the dropdown is not a floating panel: it sits
+   inline in the burger menu, in the same blue. The border that frames it above
+   only draws a box around part of a menu down here, its square corners cutting
+   across the rounded ones below it.
+
+   Must follow the rule above rather than join the other mobile rules earlier in
+   this file: a media query adds no specificity, so an override placed before
+   the declaration it overrides simply loses. */
+@media screen and (max-width: 1023px) {
+	.navbar-dropdown {
+		border: none;
+	}
 }
 
 /* Bulma gives every dropdown item its own background and colour, which paints

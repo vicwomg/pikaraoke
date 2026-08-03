@@ -203,6 +203,45 @@
       });
     }
 
+    // Gettext output is Markup, which Jinja never autoescapes, so an apostrophe
+    // in a translation would close this string literal. See
+    // tests/unit/test_template_i18n.py.
+    // {# MSG: Accessible label for the banner naming the karaoke session in progress. SESSION_NAME is replaced with the session's name. #}
+    var sessionRibbonLabel = {{ _('Current session: SESSION_NAME') | tojson }};
+
+    // Shows the banner naming the session in progress, or hides it when there
+    // is none. A nameless auto-started session counts as none: the ribbon has
+    // nothing to say and an empty bar reads as a bug.
+    function setSessionRibbon(name) {
+      var $ribbon = $("#session-ribbon");
+      if (!$ribbon.length) {
+        return;
+      }
+      var text = name || "";
+      $ribbon.toggleClass("is-hidden", !text);
+      $ribbon.find(".session-ribbon-text").text(text);
+      $ribbon.attr("title", text);
+      $ribbon.attr("aria-label", sessionRibbonLabel.replace("SESSION_NAME", text));
+    }
+
+    // The ribbon sits on every page and outlives SPA navigation, so ending a
+    // session has to reach it without a reload. session_changed rebroadcasts the
+    // now_playing payload, which carries the name.
+    function bindSessionRibbon() {
+      if (!window.socket) {
+        return;
+      }
+      if (window.sessionRibbonHandler) {
+        window.socket.off("now_playing", window.sessionRibbonHandler);
+      }
+      // Every write in setSessionRibbon is idempotent, so the queue edits and
+      // pauses that also emit now_playing need no guarding against.
+      window.sessionRibbonHandler = function (np) {
+        setSessionRibbon(np.session_name);
+      };
+      window.socket.on("now_playing", window.sessionRibbonHandler);
+    }
+
     // Keeps the singer field in step with the session, over a socket that
     // outlives SPA page swaps. io() hands back the same instance every time, so
     // this script re-running on each navigation would stack another handler
@@ -232,6 +271,10 @@
 
     $(function () {
       connectSocket();
+
+      // Unlike the singer field, the ribbon is not a KJ-mode control: everyone
+      // in the room sees which session is running.
+      bindSessionRibbon();
 
       $("#notification-close").click(function () {
         $(".notification").hide();
@@ -428,15 +471,18 @@
       </div>
     </nav>
 
-    {% set session_name = active_session_name() %}
-    {% if session_name %}
-    {# MSG: Accessible label for the banner naming the karaoke session in progress. SESSION_NAME is replaced with the session's name. #}
-    <div class="session-ribbon" aria-label="{{ _('Current session: SESSION_NAME').replace('SESSION_NAME', session_name) }}"
+    {% set session_name = active_session_name() or '' %}
+    {# Always in the DOM, hidden when empty, so setSessionRibbon() can show and
+       hide it rather than having to build it; the server settles only which
+       state it starts in. An auto-started session has no name and so shows no
+       ribbon, which is why this turns on the name rather than on has_session. #}
+    <div class="session-ribbon{% if not session_name %} is-hidden{% endif %}" id="session-ribbon"
+      {# MSG: Accessible label for the banner naming the karaoke session in progress. SESSION_NAME is replaced with the session's name. #}
+      aria-label="{{ _('Current session: SESSION_NAME').replace('SESSION_NAME', session_name) }}"
       title="{{ session_name }}">
       <span class="session-ribbon-dot" aria-hidden="true"></span>
       <span class="session-ribbon-text">{{ session_name }}</span>
     </div>
-    {% endif %}
 
     {% if get_flashed_messages() %}
     {% for category, message in get_flashed_messages(with_categories=true) %}

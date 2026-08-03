@@ -61,6 +61,16 @@
 	// The play log lives on its own page, scoped by the uuid in its query string.
 	var historyUrlTemplate = "{{ url_for('sessions.history') }}?session=SESSION_UUID";
 
+	function historyUrl(uuid) {
+		return historyUrlTemplate.replace("SESSION_UUID", encodeURIComponent(uuid));
+	}
+
+	// The same log narrowed to one singer of that session, which is where a
+	// singer tag leads.
+	function historySingerUrl(uuid, performer) {
+		return historyUrl(uuid) + "&performer=" + encodeURIComponent(performer);
+	}
+
 	function loadSessions() {
 		var params = {
 			limit: sessionsPage.limit,
@@ -127,7 +137,9 @@
 				return (
 					'<tr class="session-row' + marks +
 						'" data-uuid="' + escapedUuid + '" aria-expanded="' + isExpanded + '">' +
-						'<td><i class="session-chevron icon-play"></i>' +
+						"<td>" +
+							{# MSG: Tooltip on the arrow which expands a session to list who sang in it. #}
+							'<i class="session-chevron icon-play" title="{{ _("Show who sang") | forceescape }}"></i>' +
 							'<span class="session-name">' + escapeHtml(label) + "</span>" +
 						"</td>" +
 						whenCell(session.started_at) +
@@ -144,8 +156,7 @@
 						'" data-uuid="' + escapedUuid + '">' +
 						'<td colspan="4"><div class="singers-panel">' +
 							'<div class="singers-list"></div>' +
-							'<a class="is-size-7" href="' +
-								historyUrlTemplate.replace("SESSION_UUID", encodeURIComponent(session.uuid)) + '">' +
+							'<a class="is-size-7" href="' + historyUrl(session.uuid) + '">' +
 								{# MSG: Link inside an expanded session which opens the play log filtered to it. #}
 								"{{ _('Show these plays') | forceescape }}" +
 							"</a>" +
@@ -158,7 +169,9 @@
 		});
 	}
 
-	function renderSingerTags($list, singers) {
+	// Each tag links to what that person sang this session. Built with .text()
+	// rather than concatenated markup, so jQuery escapes the name.
+	function renderSingerTags($list, uuid, singers) {
 		$list.empty();
 		if (!singers.length) {
 			$list.append($("<span>").text(sessionText.noSingers));
@@ -167,8 +180,9 @@
 		// Appended as one array, so the tags are inserted in a single pass.
 		$list.append(
 			singers.map(function (singer) {
-				return $("<span>")
+				return $("<a>")
 					.addClass("tag singer-tag")
+					.attr("href", historySingerUrl(uuid, singer.performer))
 					.text(singer.performer + " (" + singer.play_count + ")")[0];
 			})
 		);
@@ -181,7 +195,7 @@
 		var uuid = $panel.data("uuid");
 		var $list = $panel.find(".singers-list");
 		if (singerCache[uuid]) {
-			renderSingerTags($list, singerCache[uuid]);
+			renderSingerTags($list, uuid, singerCache[uuid]);
 			return;
 		}
 		// completed_only, unlike the auto-complete: this panel reports how much
@@ -189,7 +203,7 @@
 		var params = { session: uuid, completed_only: true };
 		$.getJSON("{{ url_for('sessions_api.get_singers') }}", params, function (data) {
 			singerCache[uuid] = data.singers;
-			renderSingerTags($list, data.singers);
+			renderSingerTags($list, uuid, data.singers);
 		});
 	}
 
@@ -308,37 +322,27 @@
 		loadSessions();
 
 		// A play lands against the active session while this page is open, which
-		// moves its play count and its singer list. now_playing is emitted when a
-		// song starts and again when it ends, which is the same event the rest of
-		// the UI follows. Re-registered rather than stacked, because SPA
-		// navigation re-runs this.
+		// moves its play count and its singer list. play_logged is emitted after
+		// the play is written, so the counts below are already the new ones.
+		// Re-registered rather than stacked, because SPA navigation re-runs this.
 		if (window.socket) {
-			if (window.sessionsNowPlayingHandler) {
-				window.socket.off("now_playing", window.sessionsNowPlayingHandler);
+			if (window.sessionsLogHandler) {
+				window.socket.off("play_logged", window.sessionsLogHandler);
 			}
-			// Queue edits and pause emit now_playing too, and neither can change
-			// the list. Only a change of song is worth re-querying for. The
-			// comparison runs on every event and only the reload is debounced:
-			// debouncing first would coalesce "A ended, A started again" into a
-			// single unchanged value and miss the new play entirely.
+			// Debounced for a splash delay of 0, where a song ending and the
+			// next starting land together and the list reads the same after both.
 			var reloadSessions = debounce(loadSessions, 400);
-			var lastNowPlaying;
-			window.sessionsNowPlayingHandler = function (data) {
+			window.sessionsLogHandler = function () {
 				// The socket outlives SPA page swaps, so a handler left bound
 				// would keep re-querying for a table that is no longer on screen.
 				// A missing tbody means this page is gone.
 				if (!$("#sessions-body").length) {
-					window.socket.off("now_playing", window.sessionsNowPlayingHandler);
+					window.socket.off("play_logged", window.sessionsLogHandler);
 					return;
 				}
-				var song = data ? data.now_playing : null;
-				if (song === lastNowPlaying) {
-					return;
-				}
-				lastNowPlaying = song;
 				reloadSessions();
 			};
-			window.socket.on("now_playing", window.sessionsNowPlayingHandler);
+			window.socket.on("play_logged", window.sessionsLogHandler);
 		}
 
 		// Enter and the button are the same action, and both are governed by the
@@ -652,6 +656,18 @@
 
 {# MSG: Heading for the list of past karaoke sessions. #}
 <h2 class="subtitle">{% trans %}Session History{% endtrans %}</h2>
+
+{# Above the table it filters. Nothing sits on the left here, but the row still
+   holds the checkbox to the right edge. #}
+<div class="table-toggle-row">
+	{# Off by default, so the list shows every night on record. See hideAutoStarted. #}
+	<label class="checkbox is-size-7 table-toggle">
+		<input type="checkbox" id="hide-auto-started" />
+		{# MSG: Checkbox which hides the sessions PiKaraoke started on its own, which the host never named. #}
+		{% trans %}Hide auto-started sessions{% endtrans %}
+	</label>
+</div>
+
 <table class="history-table" id="session-list">
 	{# The name column is deliberately unsized: it takes whatever the others do
 	   not need, on a phone as much as on a desktop. #}
@@ -676,13 +692,6 @@
 </table>
 
 {{ tables.pager_controls("sessions") }}
-
-{# Off by default, so the list shows every night on record. See hideAutoStarted. #}
-<label class="checkbox is-size-7 table-toggle">
-	<input type="checkbox" id="hide-auto-started" />
-	{# MSG: Checkbox which hides the sessions PiKaraoke started on its own, which the host never named. #}
-	{% trans %}Hide auto-started sessions{% endtrans %}
-</label>
 
 <div class="modal" id="session-options-modal">
 	<div class="modal-background"></div>

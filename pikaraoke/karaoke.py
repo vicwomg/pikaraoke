@@ -249,10 +249,7 @@ class Karaoke:
 
         # Event bridging: the coordinator wires manager events to the UI (SocketIO/notifications).
         self.events.on("notification", self.log_and_send)
-        self.events.on(
-            "queue_update",
-            lambda: self.socketio.emit("queue_update", namespace="/") if self.socketio else None,
-        )
+        self._relay_to_browser("queue_update")
         self.events.on("now_playing_update", self.update_now_playing_socket)
         self.events.on("playback_started", self.update_now_playing_socket)
         # song_ended carries a reason this listener has no use for.
@@ -261,16 +258,14 @@ class Karaoke:
         # reloads, so starting or ending a session has to reach it. Sessions
         # change between songs, when no playback event is coming.
         self.events.on("session_changed", self.update_now_playing_socket)
+        # The play log and the session list re-read themselves on this. Separate
+        # from now_playing, which also fires on pauses and queue edits that leave
+        # the log untouched, and which is emitted before the row is written.
+        self._relay_to_browser("play_logged")
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
         self.events.on("song_downloaded", self.song_manager.register_download)
-        self.events.on(
-            "sync_started",
-            lambda: self.socketio.emit("sync_started", namespace="/") if self.socketio else None,
-        )
-        self.events.on(
-            "sync_finished",
-            lambda: self.socketio.emit("sync_finished", namespace="/") if self.socketio else None,
-        )
+        self._relay_to_browser("sync_started")
+        self._relay_to_browser("sync_finished")
 
         # Initialize microphone manager for server-side mic passthrough
         self.sound_manager = SoundManager(
@@ -599,6 +594,16 @@ class Karaoke:
             # this payload, so starting a session elsewhere updates it live.
             "has_session": self.play_history.has_active_session(),
         }
+
+    def _relay_to_browser(self, event: str) -> None:
+        """Forward a payload-free manager event to the browser under the same name.
+
+        The browser is told only that something moved and refetches; socketio is
+        optional, so a Karaoke built without one drops the event.
+        """
+        self.events.on(
+            event, lambda: self.socketio.emit(event, namespace="/") if self.socketio else None
+        )
 
     def update_now_playing_socket(self) -> None:
         """Emit now_playing state change via SocketIO."""

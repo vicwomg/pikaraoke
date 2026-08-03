@@ -426,26 +426,15 @@
     /**
      * Sync the active-session ribbon to match the freshly fetched page.
      * It sits above .box, so the content swap alone leaves it stale when a
-     * session starts, ends, or is renamed between navigations.
+     * session starts, ends, or is renamed between navigations. Written through
+     * setSessionRibbon(), the same function the socket uses, so the two paths
+     * cannot render the ribbon differently -- and the node is never replaced,
+     * which would restart the dot's pulse animation.
      * @param {Document} doc - Parsed document of the new page
      */
     function updateSessionRibbon(doc) {
-        const newRibbon = doc.querySelector('.session-ribbon');
-        const $current = $('.session-ribbon');
-        if (newRibbon) {
-            if ($current.length) {
-                // The session name changes a handful of times a night, so skip
-                // the reparse when it hasn't -- replacing restarts the dot's
-                // pulse animation for no reason.
-                if ($current[0].outerHTML !== newRibbon.outerHTML) {
-                    $current.replaceWith(newRibbon.outerHTML);
-                }
-            } else {
-                $('.navbar').after(newRibbon.outerHTML);
-            }
-        } else {
-            $current.remove();
-        }
+        const newText = doc.querySelector('.session-ribbon-text');
+        window.setSessionRibbon(newText ? newText.textContent : '');
     }
 
     /**

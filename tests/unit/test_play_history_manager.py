@@ -872,6 +872,34 @@ class TestGetPlays:
         assert history.count_plays() == 2
         assert history.count_plays(session_uuid) == 1
 
+    def test_filters_by_performer(self, history, song_id):
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.record_play(song_id, None, "Bob", "A Song")
+
+        assert [p["performer"] for p in history.get_plays(performer="Alice")] == ["Alice"]
+        assert history.count_plays(performer="Alice") == 1
+
+    def test_performer_filter_ignores_case(self, history, song_id):
+        """get_singers() groups case-insensitively, so the rankings count "alice"
+        and "Alice" as one person. Matching exactly here would show fewer plays
+        than the chart the reader followed to get here."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.record_play(song_id, None, "alice", "A Song")
+
+        assert len(history.get_plays(performer="ALICE")) == 2
+        assert history.count_plays(performer="ALICE") == 2
+
+    def test_performer_and_session_filters_compose(self, history, song_id):
+        """A performer linked from a chart scoped to one night lands on that
+        night, not on everything they have ever sung."""
+        first = history.start_session("One")
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.start_session("Two")
+        history.record_play(song_id, None, "Alice", "A Song")
+
+        assert len(history.get_plays(first, performer="Alice")) == 1
+        assert history.count_plays(first, performer="Alice") == 1
+
     def test_shows_skipped_songs_by_default(self, history, events, song_id):
         """This is the only surface that shows them at all, and a play cut short
         by a crash is marked the same way as one the singer abandoned."""
@@ -901,6 +929,43 @@ class TestGetPlays:
         db.delete_by_path("/songs/a.mp4")
 
         assert history.get_plays()[0]["file_path"] is None
+
+
+class TestPlayLoggedEvent:
+    """The play log and the session list re-read themselves on play_logged, so
+    what matters is not that it fires but that the write has already landed when
+    it does. A listener told early reads the row it was told about in its old
+    state, and nothing further arrives to correct it."""
+
+    def test_a_new_play_is_readable_when_it_is_announced(self, history, events, song_id):
+        readable = []
+        events.on("play_logged", lambda: readable.append(len(history.get_plays())))
+
+        history.record_play(song_id, None, "Alice", "A Song")
+
+        assert readable == [1]
+
+    def test_an_ended_play_is_closed_when_it_is_announced(self, history, events, song_id):
+        """has_ended is what the Status column reads: announced too early, a song
+        that has finished goes on showing as still playing."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        closed = []
+        events.on("play_logged", lambda: closed.append(history.get_plays()[0]["has_ended"]))
+
+        events.emit("song_ended", "complete")
+
+        assert closed == [1]
+
+    def test_a_transpose_announces_nothing(self, history, events, song_id):
+        """The row is held open for the restart in the new key, so the log reads
+        exactly as it did before."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        announcements = []
+        events.on("play_logged", lambda: announcements.append(1))
+
+        events.emit("song_ended", "transpose")
+
+        assert announcements == []
 
 
 class TestPlaySorting:
