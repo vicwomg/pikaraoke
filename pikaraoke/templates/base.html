@@ -146,28 +146,7 @@
 
       // Navbar burger menu is handled by spa-navigation.js
 
-      // handle highlighting current nav bar location
-      var fullPath = window.location.pathname;
-      var basePath = window.pikaraokeConfig.basePath;
-      var path = fullPath;
-      if (basePath && fullPath.startsWith(basePath)) {
-        path = fullPath.substring(basePath.length) || '/';
-      }
-      if (path === '/' || path === '') {
-        $("#home").addClass("is-active")
-      }
-      if (path === '/queue') {
-        $("#queue").addClass("is-active")
-      }
-      if (path === '/search') {
-        $("#search").addClass("is-active")
-      }
-      if (path === '/browse' || path.startsWith('/browse')) {
-        $("#browse").addClass("is-active")
-      }
-      if (path === '/info') {
-        $("#info").addClass("is-active")
-      }
+      window.spaNavigation.updateNavHighlight(window.location.pathname);
 
       // handle auto-close flash notifications
       setTimeout(function() { $("#notification").fadeOut()}, 3000);

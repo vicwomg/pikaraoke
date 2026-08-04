@@ -610,19 +610,19 @@
         }, timeout + 750);
     }
 
-    /**
-     * Public API for pages that rewrite the URL themselves.
-     *
-     * The browse filter replaces the URL in place as the query narrows. Without
-     * telling the navigator, currentPath still names the URL the page loaded with,
-     * so a link whose href happens to equal the rewritten URL -- the alpha bar's
-     * "Show all", the "Songs" navbar item -- hits the "already here" early return
-     * in navigateTo and silently does nothing.
-     */
     window.spaNavigation = {
+        /**
+         * The browse filter replaces the URL in place as the query narrows. Without
+         * telling the navigator, currentPath still names the URL the page loaded with,
+         * so a link whose href happens to equal the rewritten URL -- the alpha bar's
+         * "Show all", the "Songs" navbar item -- hits the "already here" early return
+         * in navigateTo and silently does nothing.
+         */
         setCurrentPath: function(path) {
             currentPath = path;
-        }
+        },
+        // base.html calls this on first load; SPA transitions call it internally.
+        updateNavHighlight: updateNavHighlight
     };
 
     // Initialize when DOM is ready
