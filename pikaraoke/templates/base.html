@@ -259,19 +259,19 @@
         </a>
         <!-- The labels below are hidden under 1088px, so the icon is the only nav
              signal a phone gets and the aria-label is the only accessible name.
-             Do not change these ids or hrefs: highlightNavItem() derives the
+             Do not change these ids or hrefs: updateNavHighlight() derives the
              active item from the first URL path segment. -->
-        <a id="search" class="navbar-item" href="{{ url_for('search.search') }}"
-          aria-label="{% trans %}Add New{% endtrans %}">
-          <i class="icon icon-plus-circled"></i>
-          {# MSG: Navigation link for the page used to get new songs into the library. #}
-          <span>{% trans %}Add New{% endtrans %}</span>
-        </a>
         <a id="browse" class="navbar-item" href="{{ url_for('files.browse') }}"
           aria-label="{% trans %}Songs{% endtrans %}">
           <i class="icon icon-music"></i>
           {# MSG: Navigation link for the page listing songs already on this machine. #}
           <span>{% trans %}Songs{% endtrans %}</span>
+        </a>
+        <a id="search" class="navbar-item" href="{{ url_for('search.search') }}"
+          aria-label="{% trans %}Add New{% endtrans %}">
+          <i class="icon icon-plus-circled"></i>
+          {# MSG: Navigation link for the page used to get new songs into the library. #}
+          <span>{% trans %}Add New{% endtrans %}</span>
         </a>
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
           <span aria-hidden="true"></span>
