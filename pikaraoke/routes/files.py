@@ -101,6 +101,7 @@ def browse():
         sort_order = "Alphabetical"
 
     results_per_page = k.browse_results_per_page
+    # `songs` is already filtered, so the filtered count is the only count there is.
     total = len(songs)
     # Resolved before the URLs below are built, so the pager links and the edit
     # referrer describe the page that was rendered rather than the one asked for.
