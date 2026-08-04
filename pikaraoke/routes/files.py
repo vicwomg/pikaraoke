@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 
 import flask_babel
 from flask import flash, redirect, render_template, request, url_for
-from flask_paginate import Pagination, get_page_parameter
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
@@ -22,11 +22,9 @@ _FORMAT_ICONS = {"mp4", "avi", "mkv", "mov", "webm", "cdg", "ass"}
 # Zipped CDG+MP3 packages are stored as "zip" in the DB but use the CDG icon
 _FORMAT_ALIASES = {"zip": "cdg"}
 
-# flask_paginate builds each page link with href.format(page), so the href has to
-# reach it holding a literal "{0}". url_for percent-encodes braces, so the page
-# number travels through it as this token instead: unreserved characters that come
-# back out untouched.
-_PAGE_TOKEN = "PIKARAOKE-PAGE-TOKEN"
+# Page sizes the browse pager offers. Settings takes any number, so the size in
+# force is unioned in rather than leaving the dropdown unable to show what is set.
+_PER_PAGE_SIZES = [20, 50, 100, 250, 500]
 
 
 def _format_icon(song_path: str, db_format: str | None) -> str | None:
@@ -65,7 +63,6 @@ def browse():
     k = get_karaoke_instance()
     site_name = get_site_name()
     q = (request.args.get("q") or "").strip()
-    page = int(request.args.get("page", 1))
     letter = request.args.get("letter")
 
     # A text query and a letter jump are two different intents, so q wins.
@@ -88,6 +85,18 @@ def browse():
         sort_order = "Alphabetical"
 
     results_per_page = k.browse_results_per_page
+    # `songs` is already filtered, so the filtered count is the only count there is.
+    total = len(songs)
+    # Resolved before the URLs below are built, so the pager links and the edit
+    # referrer describe the page that was rendered rather than the one asked for.
+    # Junk, a zero and a page past the end all land somewhere real: the pager links
+    # to the page either side of this one, and a bookmark is not worth a 500.
+    try:
+        page = int(request.args.get("page", 1))
+    except ValueError:
+        page = 1
+    page = min(max(page, 1), max(1, math.ceil(total / results_per_page)))
+    start_index = (page - 1) * results_per_page
 
     args = request.args.copy()
     args.pop("_", None)
@@ -96,36 +105,29 @@ def browse():
     # no nav or stylesheet. The same leak poisons current_url, which becomes the
     # edit button's referrer.
     args.pop("partial", None)
+    # Rewritten rather than passed through, because the clamp above may have dropped
+    # a page the request asked for, and these args build the pagination links and
+    # the edit referrer -- an edit started from a clamped page comes back to a real
+    # one.
+    args["page"] = page
 
     current_url = url_for("files.browse", **args.to_dict())
 
-    page_param = get_page_parameter()
-    args[page_param] = _PAGE_TOKEN
+    # Substituted into the rendered URL rather than appended, which would have to
+    # guess whether the separator is "?" or "&". Unreserved characters, so url_for's
+    # percent-encoding hands it back untouched; partials/pager.html replaces it.
+    args["page"] = "PAGENUMBER"
+    page_href = url_for("files.browse", **args.to_dict())
 
-    # Only this one parameter is un-escaped. Unquoting the whole URL instead would
-    # decode the user's query too: "Simon & Garfunkel" would split into separate
-    # parameters at the "&", and everything after a "#" would become a fragment the
-    # server never sees, pinning pagination to page 1.
-    pagination_href = url_for("files.browse", **args.to_dict()).replace(
-        f"{page_param}={_PAGE_TOKEN}", f"{page_param}={{0}}"
-    )
-
-    # `songs` is already filtered, so the filtered count is the only count there is.
-    # flask_paginate's search mode exists to report a `found` subset of a larger
-    # `total`; leaving it off keeps one number driving both the page links and the
-    # message. Turning it on without a `found` reports zero songs and no page links.
-    pagination = Pagination(
-        css_framework="bulma",
-        page=page,
-        total=len(songs),
-        record_name="songs",
-        per_page=results_per_page,
-        display_msg="Showing <b>{start} - {end}</b> of <b>{total}</b> {record_name}",
-        href=pagination_href,
-    )
-    start_index = (page - 1) * results_per_page
+    admin = is_admin()
     context = {
-        "pagination": pagination,
+        "page": page,
+        "per_page": results_per_page,
+        # The size is a server-wide preference, so only the host is offered it.
+        "per_page_options": sorted(set(_PER_PAGE_SIZES) | {results_per_page}) if admin else None,
+        "total": total,
+        "skip": start_index,
+        "page_href": page_href,
         "sort_order": sort_order,
         "site_title": site_name,
         "letter": letter,
@@ -133,7 +135,7 @@ def browse():
         # MSG: Title of the page listing the songs already on this machine.
         "title": _("Songs"),
         "songs": songs[start_index : start_index + results_per_page],
-        "admin": is_admin(),
+        "admin": admin,
         "current_url": current_url,
     }
     # Filter keystrokes ask for the result table alone. Rendering base.html per

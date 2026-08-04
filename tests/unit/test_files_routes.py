@@ -26,6 +26,7 @@ def app():
             ("/search", "search.search"),
             ("/info", "info.info"),
             ("/batch", "batch_song_renamer.browse"),
+            ("/change_preferences", "preferences.change_preferences"),
         ],
     )
 
@@ -76,10 +77,10 @@ class TestFilter:
         assert "Waterloo" not in body
 
     def test_filtered_count_and_page_links_are_rendered(self, client, app):
-        """flask_paginate counts pages from `found` in search mode, not `total`."""
+        """The pager counts the filtered set, not the library behind it."""
         songs = [f"/songs/Abba - Song {i}.mp4" for i in range(10)]
         body = _browse(client, app, songs, "?q=abba", per_page=2).data.decode()
-        assert "<b>10</b> songs" in body
+        assert "1-2 of 10" in body
         assert "page=2" in body
 
     def test_blank_q_returns_everything(self, client, app):
@@ -118,6 +119,61 @@ class TestPaginationLinksEscapeTheQuery:
         # A bare "#" would make everything after it a fragment, so `page` would
         # never reach the server and every link would render page 1.
         assert all("#" not in href for href in links)
+
+
+class TestPagerBounds:
+    """The pager links to the page either side of this one, so `page` has to be real."""
+
+    SONGS = [f"/songs/Song {i:02d}.mp4" for i in range(10)]
+
+    def test_a_page_past_the_end_lands_on_the_last_one(self, client, app):
+        """Deleting the last row, or filtering to a shorter list, strands the pager."""
+        body = _browse(client, app, self.SONGS, "?page=99", per_page=4).data.decode()
+        assert "9-10 of 10" in body
+        assert "Song 08" in body
+
+    def test_page_zero_does_not_index_from_the_wrong_end(self, client, app):
+        body = _browse(client, app, self.SONGS, "?page=0", per_page=4).data.decode()
+        assert "1-4 of 10" in body
+
+    def test_a_junk_page_is_a_request_for_the_first_one(self, client, app):
+        """A bookmark carrying junk should not be a 500."""
+        response = _browse(client, app, self.SONGS, "?page=abc", per_page=4)
+        assert response.status_code == 200
+        assert "1-4 of 10" in response.data.decode()
+
+    def test_an_empty_result_reports_no_rows(self, client, app):
+        body = _browse(client, app, self.SONGS, "?q=zzz").data.decode()
+        assert "0-0 of 0" in body
+
+    def test_a_single_page_carries_one_pager_not_two(self, client, app):
+        """Two stacked pagers around a short table are one control drawn twice."""
+        body = _browse(client, app, self.SONGS, per_page=100).data.decode()
+        assert body.count("pager-controls") == 1
+
+    def test_a_paged_list_keeps_the_pager_at_both_ends(self, client, app):
+        body = _browse(client, app, self.SONGS, per_page=4).data.decode()
+        assert body.count("pager-controls") == 2
+
+
+class TestPerPageControl:
+    """The size is a server-wide preference, so only the host is offered the dropdown."""
+
+    SONGS = [f"/songs/Song {i:02d}.mp4" for i in range(10)]
+
+    def test_the_dropdown_is_offered_to_an_admin(self, client, app):
+        body = _browse(client, app, self.SONGS, per_page=25).data.decode()
+        assert 'id="pager-per-page"' in body
+
+    def test_the_size_in_force_is_always_selectable(self, client, app):
+        """A value Settings allows but the list does not would otherwise be unshowable."""
+        body = _browse(client, app, self.SONGS, per_page=70).data.decode()
+        assert '<option value="70" selected>70</option>' in body
+
+    def test_only_the_top_pager_carries_it(self, client, app):
+        """Reaching the bottom of the page is the thing the control exists to avoid."""
+        body = _browse(client, app, self.SONGS, per_page=25).data.decode()
+        assert body.count('id="pager-per-page"') == 1
 
 
 class TestSortLinksPreserveTheFilter:

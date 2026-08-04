@@ -160,6 +160,29 @@
 			applyFilter();
 			input.focus();
 		});
+
+		// Delegated because the dropdown rides inside the fragment a filter keystroke
+		// replaces, and namespaced and unbound first because SPA navigation re-runs
+		// this script on every visit.
+		$(document)
+			.off("change.perpage")
+			.on("change.perpage", "#pager-per-page", function () {
+				$.get({{ url_for('preferences.change_preferences') | tojson }}, {
+					pref: "browse_results_per_page",
+					val: $(this).val(),
+				}).done(function (data) {
+					if (!data[0]) {
+						showNotification(data[1], "is-danger");
+						return;
+					}
+					// Read from the address bar rather than the URL this page was rendered
+					// with, which a filter keystroke may since have replaced. A new size
+					// invalidates the offset, so this restarts at page one.
+					const target = new URL(window.location.href);
+					target.searchParams.set("page", "1");
+					window.location.href = target.toString();
+				});
+			});
 	});
 </script>
 

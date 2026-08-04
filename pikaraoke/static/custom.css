@@ -149,3 +149,11 @@ body.hide-cursor * {
 .control.has-icons-right .icon {
   color: #6a7273;
 }
+
+.pager-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}

@@ -1,14 +1,16 @@
 {# Rendered standalone for filter keystrokes (?partial=1) and included by files.html
    for a full page load. The filter input lives outside this fragment so a swap
-   never steals focus or the caret. #}
-{{ pagination.links }} {{ pagination.info }}
+   never steals focus or the caret. The pager sits inside it, because filtering
+   changes the count and the number of pages. #}
+{% import 'partials/pager.html' as pager %}
+{{ pager.pager(page, per_page, total, page_href, size_options=per_page_options) }}
 <table>
 	{% for song in songs %}
 	{% set display_name = filename_from_path(song) %}
 	<tr value="{{ song }}">
 		{# Bulma pads every cell 0.5em vertically and top-aligns it, so the vertical
 		   half has to match or the number floats above the title it numbers. #}
-		<td style="padding: 0.5em 0">{{loop.index + pagination.skip}}</td>
+		<td style="padding: 0.5em 0">{{loop.index + skip}}</td>
 		<td id="{{display_name[0].lower()}}" style="padding-right: 0">
 			<a
 				class="add-song-link has-text-weight-bold has-text-success"
@@ -32,4 +34,9 @@
 	{% endfor %}
 </table>
 
-{{ pagination.links }}
+{# The top pager always renders: it carries the count and the size control, which
+   are worth having even on a single page. This one exists only to save scrolling
+   back up, so it appears only when there is somewhere to scroll back up from. #}
+{% if total > per_page %}
+{{ pager.pager(page, per_page, total, page_href) }}
+{% endif %}
