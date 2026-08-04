@@ -1,7 +1,9 @@
 {% extends 'base.html' %}
 {% import 'partials/history_tables.html' as tables with context %}
+{% import 'partials/pager.html' as pager %}
 
 {% block scripts %}
+{{ pager.pager_scripts() }}
 {{ tables.table_scripts(page_size) }}
 <script>
 	var playsPage = { offset: 0, limit: HISTORY_PAGE_SIZE };
@@ -478,7 +480,7 @@
 	<tbody id="plays-body"></tbody>
 </table>
 
-{{ tables.pager_controls("plays") }}
+{{ pager.pager_controls("plays") }}
 
 <div class="modal" id="play-options-modal">
 	<div class="modal-background"></div>

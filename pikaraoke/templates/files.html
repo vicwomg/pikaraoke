@@ -1,4 +1,6 @@
-{% extends 'base.html' %} {% block scripts %}
+{% extends 'base.html' %}
+{% import 'partials/pager.html' as pager %}
+{% block scripts %}
 <script>
 	$(function () {
 		if ($(window).width() <= 500) {
@@ -18,7 +20,7 @@
 		// The one place this size is stored is the preference Settings also
 		// edits, so the two controls cannot drift apart. A new size invalidates
 		// the current offset, so the reload starts again at page one.
-		$("#browse-per-page").on("change", function () {
+		$("#pager-per-page").on("change", function () {
 			$.get("{{ url_for('preferences.change_preferences') }}", {
 				pref: "browse_results_per_page",
 				val: $(this).val()
@@ -44,45 +46,6 @@
 </script>
 
 {% endblock %}
-
-{# The same prev/next and "1-50 of 300" summary the play history tables carry,
-   so every paged table on the site reads alike. Server-rendered here rather
-   than driven by JavaScript: this page has no fetch to re-run, and links keep
-   the browser's history and back button working.
-
-   `with_size` adds the per-page dropdown, which belongs on the top row only:
-   the point of changing it is not having to reach the bottom of the page. #}
-{% macro browse_pager(with_size=False) %}
-{% set start = ((page - 1) * per_page) + 1 if total else 0 %}
-{% set end = [page * per_page, total] | min %}
-<div class="pager-controls">
-	{# MSG: Tooltip on the button showing the previous page of a table. #}
-	<a class="button is-small{% if page <= 1 %} is-disabled{% endif %}" title="{{ _('Previous page') | forceescape }}"
-		href="{{ page_href | replace('PAGENUMBER', page - 1) }}"><i class="icon icon-left-big"></i></a>
-	{# MSG: Tooltip on the button showing the next page of a table. #}
-	<a class="button is-small{% if end >= total %} is-disabled{% endif %}" title="{{ _('Next page') | forceescape }}"
-		href="{{ page_href | replace('PAGENUMBER', page + 1) }}"><i class="icon icon-right-big"></i></a>
-	{# MSG: Pagination summary. START, END and TOTAL are replaced with numbers. #}
-	<span class="is-size-7">
-		{{- _('START-END of TOTAL') | replace('START', start) | replace('END', end) | replace('TOTAL', total) -}}
-	</span>
-	{# The size is a server-wide preference rather than this device's choice, so
-	   only the host is offered it -- and only the host's request to change it
-	   would be accepted anyway. #}
-	{% if with_size and admin %}
-	<span class="is-flex-grow-1"></span>
-	{# MSG: Label before the dropdown choosing how many songs to list per page. #}
-	<label class="is-size-7" for="browse-per-page">{% trans %}Per page{% endtrans %}</label>
-	<div class="select is-small">
-		<select id="browse-per-page">
-			{% for n in per_page_options %}
-			<option value="{{ n }}"{% if n == per_page %} selected{% endif %}>{{ n }}</option>
-			{% endfor %}
-		</select>
-	</div>
-	{% endif %}
-</div>
-{% endmacro %}
 
 {% block header %}
 <h1>
@@ -174,7 +137,7 @@
 	{% endfor %}
 </div>
 
-{{ browse_pager(with_size=True) }}
+{{ pager.pager(page, per_page, total, page_href, size_options=per_page_options if admin else None) }}
 <table>
 	{% for song in songs %}
 	{% set display_name = filename_from_path(song) %}
@@ -202,4 +165,10 @@
 	</tr>
 </table>
 
-{{ browse_pager() }} {% endblock %}
+{# The top pager always renders: it carries the count and the size control, which
+   are worth having even on a single page. This one exists only to save scrolling
+   back up, so it appears only when there is somewhere to scroll back up from. #}
+{% if total > per_page %}
+{{ pager.pager(page, per_page, total, page_href) }}
+{% endif %}
+{% endblock %}

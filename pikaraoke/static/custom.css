@@ -100,13 +100,6 @@ table {
   margin-top: 10px;
 }
 
-/* The browse pager's ends are links rather than buttons, and Bulma only styles
-   a disabled <button>. */
-.pager-controls .is-disabled {
-  pointer-events: none;
-  opacity: 0.5;
-}
-
 /* The row above a table holding what narrows it: which subset is on screen on
    the left, the controls that change it on the right. Wraps rather than
    squeezing, so a long performer name and a checkbox take a line each on a

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 import unicodedata
 
@@ -41,7 +42,7 @@ files_bp = Blueprint("files", __name__)
 # plain number and Settings still takes one, so a value from outside this list
 # is added to it rather than leaving the dropdown unable to show what is set.
 # One stored value, two controls that can always represent it.
-_PER_PAGE_SIZES = [25, 50, 100, 250, 500, 1000]
+_PER_PAGE_SIZES = [20, 50, 100, 250, 500]
 
 
 def _per_page_options(current: int) -> list[int]:
@@ -69,9 +70,6 @@ def browse():
     """Browse available songs page."""
     k = get_karaoke_instance()
     site_name = get_site_name()
-    # Clamped: the pager renders a link to the page either side of this one, and
-    # a page of zero would index the song list from the wrong end.
-    page = max(1, int(request.args.get("page", 1)))
 
     available_songs = k.song_manager.songs
 
@@ -103,9 +101,21 @@ def browse():
         sort_order = "Alphabetical"
 
     results_per_page = k.browse_results_per_page
+    total = len(songs)
+    # Resolved before the URLs below are built, so the pager links and the edit
+    # referrer describe the page that was rendered rather than the one asked for.
+    # Junk, a zero and a page past the end all land somewhere real: the pager links
+    # to the page either side of this one, and a bookmark is not worth a 500.
+    try:
+        page = int(request.args.get("page", 1))
+    except ValueError:
+        page = 1
+    page = min(max(page, 1), max(1, math.ceil(total / results_per_page)))
+    start_index = (page - 1) * results_per_page
 
     args = request.args.copy()
     args.pop("_", None)
+    args["page"] = page
 
     current_url = url_for("files.browse", **args.to_dict())
 
@@ -116,7 +126,6 @@ def browse():
     args["page"] = "PAGENUMBER"
     page_href = url_for("files.browse", **args.to_dict())
 
-    start_index = (page - 1) * results_per_page
     return render_template(
         "files.html",
         sort_order=sort_order,
@@ -130,7 +139,7 @@ def browse():
         page=page,
         per_page=results_per_page,
         per_page_options=_per_page_options(results_per_page),
-        total=len(songs),
+        total=total,
         skip=start_index,
         page_href=page_href,
     )

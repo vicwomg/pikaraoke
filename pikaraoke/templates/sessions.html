@@ -1,7 +1,9 @@
 {% extends 'base.html' %}
 {% import 'partials/history_tables.html' as tables with context %}
+{% import 'partials/pager.html' as pager %}
 
 {% block scripts %}
+{{ pager.pager_scripts() }}
 {{ tables.table_scripts(page_size) }}
 <script>
 	var sessionsPage = { offset: 0, limit: HISTORY_PAGE_SIZE };
@@ -691,7 +693,7 @@
 	<tbody id="sessions-body"></tbody>
 </table>
 
-{{ tables.pager_controls("sessions") }}
+{{ pager.pager_controls("sessions") }}
 
 <div class="modal" id="session-options-modal">
 	<div class="modal-background"></div>
