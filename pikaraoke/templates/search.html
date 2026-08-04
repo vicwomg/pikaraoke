@@ -210,12 +210,23 @@
 <script>
 	$(function () {
 		const searchInput = document.getElementById("search_string_input");
-		searchInput.focus();
 
 		$(".direct-download").click(function () {
-			var url = $("#direct-download-url").val();
+			const url = $("#direct-download-url").val();
 			if (!url) return;
-			downloadSong(url, "", this, Boolean(this.dataset.queue));
+			const $btn = $(this);
+			$(".direct-download").attr("disabled", true);
+			$btn.addClass("is-loading");
+			requestDownload(url, "", Boolean(this.dataset.queue), function (accepted) {
+				$btn.removeClass("is-loading");
+				if (accepted) {
+					// Clearing the box leaves both buttons disabled via the input handler,
+					// so the same URL cannot be sent twice while it waits in the queue.
+					$("#direct-download-url").val("");
+				} else {
+					$(".direct-download").removeAttr("disabled");
+				}
+			});
 		});
 
 		function runSearch() {
@@ -227,6 +238,9 @@
 			$("#search_string").val(term);
 			$("#non_karaoke").val($("#include-non-karaoke").is(":checked"));
 			$("#container_search_result").hide();
+			// Drop the keyboard before the wait: it covers the loader now and the
+			// results when they land.
+			searchInput.blur();
 			$("#container_search_form form").submit();
 		}
 
@@ -255,6 +269,11 @@
 		const qSearchString = new URLSearchParams(window.location.search).get("search_string");
 		if (qSearchString) {
 			searchInput.value = qSearchString;
+		} else {
+			// Only on a fresh page. Focusing a results page pops the mobile keyboard
+			// over the results the search just produced; Clear and tapping the box
+			// are the ways back in.
+			searchInput.focus();
 		}
 
 		// A disclosure, not a setting: the panel starts hidden via its inline style.
@@ -285,11 +304,10 @@
 			});
 		});
 
-		function downloadSong(songUrl, songTitle, button, addToQueue) {
-			var $btn = $(button);
-			var originalText = $btn.html();
-			$btn.css("min-width", $btn.outerWidth() + "px");
-			$btn.addClass("is-loading").attr("disabled", true);
+		// This POST only hands the song to the download worker, which runs yt-dlp
+		// afterwards, so no caller may report that the file has arrived. Completion
+		// comes back later on the song_downloaded socket event.
+		function requestDownload(songUrl, songTitle, addToQueue, onSettled) {
 			$.ajax({
 				url: "{{ url_for('search.download') }}",
 				type: "POST",
@@ -300,23 +318,51 @@
 					song_added_by: getUserCookie() || "",
 					queue: addToQueue,
 				}),
-				success: function () {
-					$btn.removeClass("is-loading").addClass("is-success")
-						.html('<i class="icon icon-ok"></i>');
-					setTimeout(function () {
-						$btn.removeClass("is-success").html(originalText)
-							.removeAttr("disabled").css("min-width", "");
-					}, 3000);
-				},
-				error: function () {
-					$btn.removeClass("is-loading").addClass("is-danger")
-						.text("!");
-					setTimeout(function () {
-						$btn.removeClass("is-danger").html(originalText)
-							.removeAttr("disabled").css("min-width", "");
-					}, 3000);
-				},
+				success: function () { onSettled(true); },
+				error: function () { onSettled(false); },
 			});
+		}
+
+		// Replaces the download choice for as long as the song is with the worker:
+		// the file does not exist yet, so downloading it again and queueing it are
+		// both invalid. The displaced markup is kept for restoreChoice.
+		function showPending($actions) {
+			if ($actions.data("choiceHtml") === undefined) {
+				$actions.data("choiceHtml", $actions.html());
+			}
+			$actions.html(
+				'<span class="button is-static search_result_items_pending">' +
+					'<span class="icon"><i class="icon-down-circled"></i></span>' +
+					// {# MSG: Status shown on a search result that has been requested but has not arrived yet. #}
+					'<span>{{ _("Adding...") | forceescape }}</span>' +
+				"</span>"
+			);
+		}
+
+		function restoreChoice($actions) {
+			const html = $actions.data("choiceHtml");
+			if (html !== undefined) {
+				$actions.html(html);
+			}
+		}
+
+		// Rewrites a row into the state the server renders for a song it already
+		// holds. The anchor needs no binding of its own: base.html delegates
+		// add-song-link clicks from the document.
+		function showInLibrary($row, path) {
+			const href = "{{ url_for('queue.enqueue') }}?song=" + encodeURIComponent(path) + "&user=";
+			$row.find(".search_result_items_actions").html(
+				'<a class="button is-info add-song-link" href="' + href + '">' +
+					'<span class="icon"><i class="icon-list-add"></i></span>' +
+					// {# MSG: Button which adds an already-downloaded song to the queue. #}
+					'<span>{{ _("Add to queue") | forceescape }}</span>' +
+				"</a>"
+			);
+			const $frame = $row.find(".img-frame");
+			if (!$frame.find(".library-badge").length) {
+				// {# MSG: Badge on a YouTube search result marking a song that is already downloaded. #}
+				$frame.prepend('<span class="library-badge">{{ _("In library") | forceescape }}</span>');
+			}
 		}
 
 		// Delegated and scoped to the download class: rows for songs already in
@@ -325,12 +371,38 @@
 		// intent, so "Add to queue" and "Save for later" share one handler.
 		$("#search-results").on("click", ".search_result_items_download", function () {
 			const item = this.closest("li");
-			downloadSong(
+			const $actions = $(this).closest(".search_result_items_actions");
+			showPending($actions);
+			requestDownload(
 				item.getAttribute("value"),
 				item.getAttribute("data-ytTitle"),
-				this,
-				Boolean(this.dataset.queue)
+				Boolean(this.dataset.queue),
+				function (accepted) {
+					if (!accepted) {
+						restoreChoice($actions);
+					}
+				}
 			);
+		});
+
+		// Unbound first: SPA navigation re-executes this script, so a plain bind
+		// would stack and rewrite the same row once per page visited.
+		window.socket.off("song_downloaded");
+		window.socket.on("song_downloaded", function (data) {
+			if (!data || !data.youtube_id) return;
+			const $row = $("#search-results li[data-ytID='" + data.youtube_id + "']");
+			if ($row.length) {
+				showInLibrary($row, data.path);
+			}
+		});
+
+		window.socket.off("download_stopped");
+		window.socket.on("download_stopped", function () {
+			// A failed download emits no song_downloaded, so a row still pending once
+			// the worker has drained is never getting its file. Hand the choice back.
+			$(".search_result_items_pending").each(function () {
+				restoreChoice($(this).closest(".search_result_items_actions"));
+			});
 		});
 
 		$("#search-results").on("click", ".img-wrapper", function () {

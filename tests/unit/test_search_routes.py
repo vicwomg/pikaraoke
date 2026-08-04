@@ -35,6 +35,18 @@ def app():
     )
 
 
+def _rows(response):
+    """The rendered result rows only.
+
+    The page's script block builds the in-library markup client-side for songs
+    that finish downloading, so a whole-body search matches text that is not on
+    screen.
+    """
+    body = response.data.decode()
+    start = body.index('<ul id="search-results"')
+    return body[start : body.index("</ul>", start)]
+
+
 def _search(client, results, library_matches):
     k = MagicMock()
     k.db.get_paths_by_youtube_ids.return_value = library_matches
@@ -74,19 +86,19 @@ class TestLibraryMatches:
 
     def test_held_song_offers_a_queue_action_instead_of_a_download(self, client):
         response, _ = _search(client, [HELD], {"aaaaaaaaaaa": "/songs/Held Song.mp4"})
-        body = response.data.decode()
-        assert "In library" in body
-        assert "add-song-link" in body
-        assert QUEUE_BUTTON not in body
-        assert SAVE_BUTTON not in body
+        rows = _rows(response)
+        assert "In library" in rows
+        assert "add-song-link" in rows
+        assert QUEUE_BUTTON not in rows
+        assert SAVE_BUTTON not in rows
 
     def test_missing_song_offers_both_queue_and_save(self, client):
         """The row carries the intent, so there is no global queue-once-downloaded toggle."""
         response, _ = _search(client, [MISSING], {})
-        body = response.data.decode()
-        assert "In library" not in body
-        assert QUEUE_BUTTON in body
-        assert SAVE_BUTTON in body
+        rows = _rows(response)
+        assert "In library" not in rows
+        assert QUEUE_BUTTON in rows
+        assert SAVE_BUTTON in rows
 
     def test_no_global_queue_toggle_remains(self, client):
         """The removed checkboxes were #add-to-queue-direct and #add-to-queue-search."""
@@ -95,8 +107,8 @@ class TestLibraryMatches:
 
     def test_a_mixed_page_renders_both(self, client):
         response, _ = _search(client, [HELD, MISSING], {"aaaaaaaaaaa": "/songs/Held Song.mp4"})
-        body = response.data.decode()
-        assert "In library" in body
-        assert "add-song-link" in body
-        assert QUEUE_BUTTON in body
-        assert SAVE_BUTTON in body
+        rows = _rows(response)
+        assert "In library" in rows
+        assert "add-song-link" in rows
+        assert QUEUE_BUTTON in rows
+        assert SAVE_BUTTON in rows
