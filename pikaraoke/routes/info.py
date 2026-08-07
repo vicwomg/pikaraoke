@@ -6,7 +6,7 @@ from flask import jsonify, render_template
 from flask_smorest import Blueprint
 
 from pikaraoke import VERSION
-from pikaraoke.constants import ITUNES_COUNTRIES, LANGUAGES
+from pikaraoke.constants import ITUNES_COUNTRIES, LANGUAGES, per_page_options
 from pikaraoke.lib.current_app import (
     get_admin_password,
     get_karaoke_instance,
@@ -79,6 +79,7 @@ def info():
         itunes_countries=ITUNES_COUNTRIES,
         itunes_search_country=itunes_search_country,
         browse_results_per_page=k.browse_results_per_page,
+        per_page_options=per_page_options(k.browse_results_per_page),
         enable_title_tidy=k.enable_title_tidy,
         score_phrases={
             "low": k.low_score_phrases,

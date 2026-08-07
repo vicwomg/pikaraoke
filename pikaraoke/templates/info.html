@@ -686,14 +686,16 @@
 					</label>
 					</div>
 
-					{# The Browse page offers the common sizes as a dropdown; this is the
-					   same preference, kept as a free number so any value in range is
-					   still reachable. The dropdown always lists whatever is set here,
-					   so the two controls can never disagree. #}
 					<div class="user-preference-container is-align-items-center">
-						<input id="pref-browse-per-page" class="user-preference-input input" type="number" min="10" max="1000" step="10" data-pref="browse_results_per_page" data-start-value="{{ browse_results_per_page }}" value="{{ browse_results_per_page }}" />
+						<div class="select">
+							<select id="pref-browse-per-page" class="user-preference-input" data-pref="browse_results_per_page" data-start-value="{{ browse_results_per_page }}">
+								{% for n in per_page_options %}
+								<option value="{{ n }}" {% if browse_results_per_page == n %}selected{% endif %}>{{ n }}</option>
+								{% endfor %}
+							</select>
+						</div>
 						<label class="label" for="pref-browse-per-page">
-							{# MSG: Numberbox label for how many songs the Browse page lists per page #} {% trans %}Songs listed per page when browsing (10-1000, default 100){% endtrans %}
+							{# MSG: Label for the dropdown choosing how many songs are shown per page on the Songs page. #} {% trans %}Default songs per page.{% endtrans %}
 						</label>
 					</div>
 

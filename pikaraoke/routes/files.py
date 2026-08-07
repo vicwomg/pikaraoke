@@ -12,7 +12,7 @@ from flask import flash, redirect, render_template, request, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
-from pikaraoke.constants import ITUNES_COUNTRIES
+from pikaraoke.constants import ITUNES_COUNTRIES, per_page_options
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
 from pikaraoke.lib.metadata_parser import youtube_id_suffix
 
@@ -22,6 +22,23 @@ _ = flask_babel.gettext
 _FORMAT_ICONS = {"mp4", "avi", "mkv", "mov", "webm", "cdg", "ass"}
 # Zipped CDG+MP3 packages are stored as "zip" in the DB but use the CDG icon
 _FORMAT_ALIASES = {"zip": "cdg"}
+
+# On the device, not in config.ini: one server serves every phone in the room,
+# so a browsing choice written server-side moves everyone's default.
+_PER_PAGE_COOKIE = "browse_per_page"
+
+
+def _results_per_page(server_default: int, options: list[int]) -> int:
+    """This device's page size, falling back to the server-wide default.
+
+    Sizes off the menu are ignored: the cookie is user-editable, and a hand-set
+    50000 would render every row on a Pi that is also decoding video.
+    """
+    try:
+        chosen = int(request.cookies.get(_PER_PAGE_COOKIE, ""))
+    except ValueError:
+        return server_default
+    return chosen if chosen in options else server_default
 
 
 def _format_icon(song_path: str, db_format: str | None) -> str | None:
@@ -37,17 +54,6 @@ def _format_icon(song_path: str, db_format: str | None) -> str | None:
 
 
 files_bp = Blueprint("files", __name__)
-
-# Page sizes the browse page offers. browse_results_per_page is stored as a
-# plain number and Settings still takes one, so a value from outside this list
-# is added to it rather than leaving the dropdown unable to show what is set.
-# One stored value, two controls that can always represent it.
-_PER_PAGE_SIZES = [20, 50, 100, 250, 500]
-
-
-def _per_page_options(current: int) -> list[int]:
-    """The sizes on offer, always including the one in force."""
-    return sorted(set(_PER_PAGE_SIZES) | {current})
 
 
 class SongReferrerQuery(Schema):
@@ -100,7 +106,8 @@ def browse():
         songs = available_songs
         sort_order = "Alphabetical"
 
-    results_per_page = k.browse_results_per_page
+    size_options = per_page_options(k.browse_results_per_page)
+    results_per_page = _results_per_page(k.browse_results_per_page, size_options)
     # `songs` is already filtered, so the filtered count is the only count there is.
     total = len(songs)
     # Resolved before the URLs below are built, so the pager links and the edit
@@ -139,7 +146,8 @@ def browse():
         current_url=current_url,
         page=page,
         per_page=results_per_page,
-        per_page_options=_per_page_options(results_per_page),
+        # Everyone, not just the host: the size is per-device now.
+        per_page_options=size_options,
         total=total,
         skip=start_index,
         page_href=page_href,

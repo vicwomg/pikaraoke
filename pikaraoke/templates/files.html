@@ -17,16 +17,16 @@
 
 		loadSingerList();
 
-		// The one place this size is stored is the preference Settings also
-		// edits, so the two controls cannot drift apart. A new size invalidates
-		// the current offset, so the reload starts again at page one.
+		// A cookie, not the preference Settings edits, which everyone shares. Not
+		// localStorage: the page is rendered server-side, and the browser sends this
+		// with the pager links so Flask can size what it builds. A new size
+		// invalidates the current offset, so the reload starts again at page one.
 		$("#pager-per-page").on("change", function () {
-			$.get("{{ url_for('preferences.change_preferences') }}", {
-				pref: "browse_results_per_page",
-				val: $(this).val()
-			}).done(function () {
-				window.location.href = {{ (page_href | replace('PAGENUMBER', 1)) | tojson }};
+			Cookies.set("browse_per_page", $(this).val(), {
+				expires: 3650,
+				path: window.pikaraokeConfig.cookiePath,
 			});
+			window.location.href = {{ (page_href | replace('PAGENUMBER', 1)) | tojson }};
 		});
 
 		$("a.add-song-link").click(function (e) {
@@ -137,7 +137,7 @@
 	{% endfor %}
 </div>
 
-{{ pager.pager(page, per_page, total, page_href, size_options=per_page_options if admin else None) }}
+{{ pager.pager(page, per_page, total, page_href, size_options=per_page_options) }}
 <table>
 	{% for song in songs %}
 	{% set display_name = filename_from_path(song) %}
