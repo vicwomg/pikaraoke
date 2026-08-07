@@ -26,7 +26,6 @@ def app():
             ("/search", "search.search"),
             ("/info", "info.info"),
             ("/batch", "batch_song_renamer.browse"),
-            ("/change_preferences", "preferences.change_preferences"),
         ],
     )
 
@@ -36,18 +35,26 @@ def _sort_links(body):
     return dict(re.findall(r'data-sort="([^"]*)"\s*href="([^"]+)"', body))
 
 
-def _browse(client, app, songs, query="", per_page=100):
-    """GET /browse against a karaoke stand-in whose song_manager is the real thing."""
+def _karaoke(app, songs, per_page):
+    """A karaoke stand-in whose song_manager is the real thing."""
     sm = SongManager("/songs", db=MagicMock(), get_title_tidy=lambda: False)
     sm.songs.update(songs)
     app.jinja_env.globals.update(filename_from_path=sm.display_name_from_path)
     k = MagicMock()
     k.song_manager = sm
     k.browse_results_per_page = per_page
+    return k
+
+
+def _browse(client, app, songs=(), query="", per_page=100, admin=True, cookie=None, k=None):
+    """GET /browse. `per_page` is the server-wide default, `cookie` one device's choice."""
+    k = k if k is not None else _karaoke(app, songs, per_page)
+    if cookie is not None:
+        client.set_cookie("browse_per_page", cookie)
     with (
         patch("pikaraoke.routes.files.get_karaoke_instance", return_value=k),
         patch("pikaraoke.routes.files.get_site_name", return_value="PiKaraoke"),
-        patch("pikaraoke.routes.files.is_admin", return_value=True),
+        patch("pikaraoke.routes.files.is_admin", return_value=admin),
     ):
         return client.get("/browse" + query)
 
@@ -157,12 +164,13 @@ class TestPagerBounds:
 
 
 class TestPerPageControl:
-    """The size is a server-wide preference, so only the host is offered the dropdown."""
+    """The size belongs to the device, so everyone is offered the dropdown."""
 
     SONGS = [f"/songs/Song {i:02d}.mp4" for i in range(10)]
 
-    def test_the_dropdown_is_offered_to_an_admin(self, client, app):
-        body = _browse(client, app, self.SONGS, per_page=25).data.decode()
+    def test_the_dropdown_is_offered_to_a_guest(self, client, app):
+        """It was admin-only while the size was a server-wide preference."""
+        body = _browse(client, app, self.SONGS, per_page=25, admin=False).data.decode()
         assert 'id="pager-per-page"' in body
 
     def test_the_size_in_force_is_always_selectable(self, client, app):
@@ -174,6 +182,43 @@ class TestPerPageControl:
         """Reaching the bottom of the page is the thing the control exists to avoid."""
         body = _browse(client, app, self.SONGS, per_page=25).data.decode()
         assert body.count('id="pager-per-page"') == 1
+
+
+class TestPerPageCookie:
+    """The chosen size is this device's own and must never move the shared default."""
+
+    SONGS = [f"/songs/Song {i:02d}.mp4" for i in range(30)]
+
+    def test_the_cookie_sizes_the_page(self, client, app):
+        body = _browse(client, app, self.SONGS, per_page=100, cookie="20").data.decode()
+        assert "1-20 of 30" in body
+
+    def test_the_server_default_applies_without_a_cookie(self, client, app):
+        body = _browse(client, app, self.SONGS, per_page=100).data.decode()
+        assert "1-30 of 30" in body
+
+    def test_browsing_never_writes_the_server_default(self, client, app):
+        """The reported bug: picking a size here moved the default shown in Settings."""
+        k = _karaoke(app, self.SONGS, per_page=100)
+        _browse(client, app, cookie="20", k=k)
+        k.preferences.set.assert_not_called()
+
+    def test_the_size_outlives_admin(self, client, app):
+        """Logging out is not a reason to lose a display choice."""
+        body = _browse(
+            client, app, self.SONGS, per_page=100, cookie="20", admin=False
+        ).data.decode()
+        assert "1-20 of 30" in body
+
+    def test_junk_falls_back_to_the_default(self, client, app):
+        response = _browse(client, app, self.SONGS, per_page=100, cookie="abc")
+        assert response.status_code == 200
+        assert "1-30 of 30" in response.data.decode()
+
+    def test_a_size_off_the_menu_is_ignored(self, client, app):
+        """A hand-edited cookie must not make the Pi render the whole library."""
+        body = _browse(client, app, self.SONGS, per_page=100, cookie="50000").data.decode()
+        assert "1-30 of 30" in body
 
 
 class TestSortLinksPreserveTheFilter:

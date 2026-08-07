@@ -38,3 +38,16 @@ ITUNES_COUNTRIES = {
     "TW": "Taiwan",
     "VE": "Venezuela",
 }
+
+# Page sizes offered by both the Settings default and the per-device dropdown on
+# the Songs page, so the two controls always agree on what is choosable.
+PER_PAGE_SIZES = [20, 50, 100, 250, 500]
+
+
+def per_page_options(current: int) -> list[int]:
+    """The sizes on offer, always including the one in force.
+
+    Earlier versions stored any number, so a saved 75 has to stay selectable --
+    a dropdown that cannot show it would silently save something else instead.
+    """
+    return sorted(set(PER_PAGE_SIZES) | {current})
