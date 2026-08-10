@@ -18,7 +18,7 @@ jobs:
     steps:
     - name: Release Please
       id: release
-      uses: googleapis/release-please-action@v4
+      uses: googleapis/release-please-action@v5
       with:
         token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
 
@@ -32,13 +32,14 @@ jobs:
     if: ${{ needs.release-please.outputs.prs_created == 'true' }}
     steps:
     - name: Check out the release PR branch
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         ref: ${{ fromJSON(needs.release-please.outputs.pr).headBranchName }}
         token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v4
+      # setup-uv stopped publishing moving major tags at v8, so pin the exact version.
+      uses: astral-sh/setup-uv@v9.0.0
 
     - name: Sync uv.lock with the released version
       run: |
@@ -64,15 +65,15 @@ jobs:
       url: https://pypi.org/p/pikaraoke
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v7
       with:
         python-version: '3.10'
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v4
+      uses: astral-sh/setup-uv@v9.0.0
 
     - name: Extract version number
       id: get_version
@@ -87,19 +88,19 @@ jobs:
       uses: pypa/gh-action-pypi-publish@release/v1
 
     - name: Login to Docker Hub
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
+      uses: docker/setup-qemu-action@v4
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v4
 
     - name: Build and push
-      uses: docker/build-push-action@v6
+      uses: docker/build-push-action@v7
       with:
         context: .
         file: build_scripts/docker/Dockerfile
