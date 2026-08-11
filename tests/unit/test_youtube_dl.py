@@ -8,6 +8,7 @@ import pytest
 
 from pikaraoke.lib.youtube_dl import (
     build_ytdl_download_command,
+    get_stream_url,
     get_youtube_id_from_url,
     get_youtubedl_version,
     upgrade_youtubedl,
@@ -187,6 +188,49 @@ class TestBuildYtdlDownloadCommand:
             additional_args="--no-playlist",
         )
         assert cmd[-1] == "https://www.youtube.com/watch?v=test123"
+
+
+class TestGetStreamUrl:
+    """Tests for the get_stream_url function."""
+
+    @staticmethod
+    def _run_with_output(stdout: bytes, returncode: int = 0):
+        return patch(
+            "subprocess.run",
+            return_value=MagicMock(returncode=returncode, stdout=stdout, stderr=b""),
+        )
+
+    @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
+    def test_requests_progressive_format_only(self, mock_js):
+        """Test that the format selector excludes HLS and single-track formats."""
+        with self._run_with_output(b"https://rr1.googlevideo.com/videoplayback?x=1\n") as mock_run:
+            get_stream_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+            cmd = mock_run.call_args[0][0]
+            fmt = cmd[cmd.index("-f") + 1]
+            assert "[protocol=https]" in fmt
+            assert "[vcodec!=none][acodec!=none]" in fmt
+
+    @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
+    def test_returns_progressive_url(self, mock_js):
+        """Test that a normal progressive URL is returned."""
+        url = "https://rr1.googlevideo.com/videoplayback?itag=18"
+        with self._run_with_output(url.encode() + b"\n"):
+            assert get_stream_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ") == url
+
+    @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
+    def test_rejects_hls_manifest(self, mock_js):
+        """Test that an m3u8 manifest is rejected; browsers other than Safari can't play it."""
+        manifest = (
+            "https://manifest.googlevideo.com/api/manifest/hls_playlist/itag/91/playlist/index.m3u8"
+        )
+        with self._run_with_output(manifest.encode() + b"\n"):
+            assert get_stream_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ") is None
+
+    @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
+    def test_returns_none_on_failure(self, mock_js):
+        """Test that a non-zero yt-dlp exit returns None."""
+        with self._run_with_output(b"", returncode=1):
+            assert get_stream_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ") is None
 
 
 class TestGetYoutubedlVersion:

@@ -201,6 +201,14 @@ def get_search_results(query: str) -> list[list[str]]:
         raise
 
 
+# yt-dlp reports HLS variants as ext=mp4 even though their URL is an .m3u8 playlist
+# that only Safari can play, so protocol=https is what keeps the preview progressive.
+PREVIEW_FORMAT = (
+    "worst[ext=mp4][protocol=https][vcodec!=none][acodec!=none]"
+    "/worst[protocol=https][vcodec!=none][acodec!=none]"
+)
+
+
 def get_stream_url(video_url: str) -> str | None:
     """Get a direct stream URL for a YouTube video without downloading it.
 
@@ -208,9 +216,10 @@ def get_stream_url(video_url: str) -> str | None:
         video_url: YouTube video URL.
 
     Returns:
-        Direct playable stream URL, or None if yt-dlp failed.
+        Progressive stream URL playable in a browser, or None if yt-dlp failed or
+        offered nothing progressive.
     """
-    cmd = yt_dlp_cmd + ["-g", "-f", "worst[ext=mp4]/worst"] + _js_runtime_args()
+    cmd = yt_dlp_cmd + ["-g", "-f", PREVIEW_FORMAT] + _js_runtime_args()
     cmd += [video_url]
     logging.debug(f"yt-dlp get stream URL command: {' '.join(cmd)}")
     try:
@@ -224,7 +233,12 @@ def get_stream_url(video_url: str) -> str | None:
         if not output:
             logging.warning(f"yt-dlp returned empty output for: {video_url}")
             return None
-        return output.splitlines()[0]
+        stream_url = output.splitlines()[0]
+        # Available formats vary between calls, so a manifest can still slip through.
+        if ".m3u8" in stream_url or "/manifest/" in stream_url:
+            logging.warning(f"yt-dlp returned a manifest, not a stream, for: {video_url}")
+            return None
+        return stream_url
     except subprocess.TimeoutExpired:
         logging.error(f"yt-dlp stream URL timed out for: {video_url}")
         return None
