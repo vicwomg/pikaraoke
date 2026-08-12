@@ -54,10 +54,11 @@ def make_route_app(blueprint, linked_endpoints):
 
     # app.py binds these at import for the same reason: base.html calls them on
     # every render, so a page rendered without them fails on an undefined name.
-    # Off by default -- a test that wants the admin markup overrides them.
+    # Off by default -- a test that wants the admin or KJ markup overrides them.
     app.jinja_env.globals.update(
         url_escape=quote,
         is_admin=lambda: False,
+        has_active_session=lambda: False,
         active_session_name=lambda: "",
     )
     return app
@@ -156,6 +157,9 @@ class MockPlayHistory:
 
     def get_current_session_name(self) -> str | None:
         return self.session["name"] if self.session else None
+
+    def has_active_session(self) -> bool:
+        return self.session is not None
 
 
 class MockKaraoke:

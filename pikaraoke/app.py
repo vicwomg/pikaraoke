@@ -78,13 +78,15 @@ app.wsgi_app = BasePathMiddleware(app.wsgi_app, args.base_path)
 
 # Globals rather than per-route template args, so every page that extends
 # base.html agrees: it gates the admin-only nav links on is_admin and renders a
-# session ribbon from active_session_name. Registered at import rather than in
-# main() -- base.html calls them on every render, so binding them any later
-# leaves a render path that fails on an undefined name. The Karaoke instance is
-# resolved per call because it does not exist yet at import time.
+# session ribbon from active_session_name, and singer_field gates KJ mode on
+# has_active_session. Registered at import rather than in main() -- base.html
+# calls them on every render, so binding them any later leaves a render path
+# that fails on an undefined name. The Karaoke instance is resolved per call
+# because it does not exist yet at import time.
 app.jinja_env.globals.update(
     is_admin=is_admin,
     active_session_name=lambda: get_karaoke_instance().play_history.get_current_session_name(),
+    has_active_session=lambda: get_karaoke_instance().play_history.has_active_session(),
 )
 
 # Always initialize flask-smorest Api for error handling (@bp.arguments validation).
