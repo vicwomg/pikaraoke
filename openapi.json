@@ -223,33 +223,6 @@
         ]
       }
     },
-    "/autocomplete": {
-      "get": {
-        "parameters": [
-          {
-            "in": "query",
-            "name": "q",
-            "description": "Search query for autocomplete",
-            "schema": {
-              "type": "string"
-            },
-            "required": true
-          }
-        ],
-        "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
-          },
-          "default": {
-            "$ref": "#/components/responses/DEFAULT_ERROR"
-          }
-        },
-        "summary": "Search available songs for autocomplete.",
-        "tags": [
-          "search"
-        ]
-      }
-    },
     "/preview": {
       "get": {
         "parameters": [
