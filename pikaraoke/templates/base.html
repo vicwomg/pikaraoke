@@ -485,11 +485,6 @@
                 <span>{% trans %}Play History{% endtrans %}</span>
               </a>
               <hr class="navbar-divider">
-              <a id="info" class="navbar-item" href="{{ url_for('info.info') }}">
-                <i class="icon icon-cog"></i>
-                {# MSG: Dropdown link to the settings and system information page. #}
-                <span>{% trans %}Settings{% endtrans %}</span>
-              </a>
               {% if is_admin() %}
               <a id="sessions" class="navbar-item" href="{{ url_for('sessions.sessions') }}">
                 <i class="icon icon-mic-1"></i>
@@ -497,6 +492,11 @@
                 <span>{% trans %}Sessions{% endtrans %}</span>
               </a>
               {% endif %}
+              <a id="info" class="navbar-item" href="{{ url_for('info.info') }}">
+                <i class="icon icon-cog"></i>
+                {# MSG: Dropdown link to the settings and system information page. #}
+                <span>{% trans %}Settings{% endtrans %}</span>
+              </a>
             </div>
           </div>
         </div>
