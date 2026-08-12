@@ -162,7 +162,7 @@ def build_ffmpeg_cmd(
             # CDG needs pix_fmt for proper color space
             **({"pix_fmt": "yuv420p"} if is_cdg else {}),
             **{
-                "vsync": "cfr",
+                "fps_mode": "cfr",
                 "avoid_negative_ts": "make_zero",
             },
         )
