@@ -77,12 +77,6 @@ table {
   width: 100%;
 }
 
-/* Admin-only field naming who is about to sing. */
-.singer-field {
-  max-width: 320px;
-  margin-bottom: 10px;
-}
-
 /* A timestamp cell holds either a time or a date, never both (see whenLabel),
    so it is short enough to keep whole. Only "31 Jul 2025" is long enough to
    want a second line, and it has spaces to break at. */

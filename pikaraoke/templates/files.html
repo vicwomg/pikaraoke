@@ -1,8 +1,6 @@
 {% extends 'base.html' %} {% block scripts %}
 <script>
 	$(function () {
-		loadSingerList();
-
 		// --- A-Z strip ----------------------------------------------------
 		// On a phone the strip is fixed, so it has to be told where to sit: it
 		// starts level with the top of the Songs box and rides up with the page
@@ -287,8 +285,6 @@
 	}
 </style>
 {% endblock %} {% block content %}
-
-{% include 'partials/singer_field.html' %}
 
 {# Filtering is server-side: the page is paginated, so a client-side filter over
    the ~100 rows in the DOM would silently miss songs on every other page. #}
