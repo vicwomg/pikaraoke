@@ -18,9 +18,14 @@ sessions_bp = Blueprint("sessions", __name__)
 # host-only until someone decides otherwise.
 _PUBLIC_ENDPOINTS = {"sessions.history", "sessions.rankings"}
 
-# Every paged table in this feature uses one page size, so the pagers all read
-# the same and none of them needs a control of its own.
-PAGE_SIZE = 50
+# Sized to the table rather than shared, because the two differ by roughly the
+# number of songs in a night: sessions gain a row per night and total in the
+# tens, plays gain one per song and total in the thousands. One number cannot
+# serve both -- large enough for plays leaves the sessions pager permanently
+# inert, small enough for sessions turns a year of plays into hundreds of pages.
+# Neither page offers a control, so these are the only sizes there are.
+SESSIONS_PAGE_SIZE = 20
+PLAYS_PAGE_SIZE = 50
 
 # How many sessions the filter dropdowns offer. They are dropdowns, and nobody
 # scrolls one back past a few months of nights.
@@ -71,7 +76,7 @@ def sessions():
         "sessions.html",
         site_title=get_site_name(),
         title="Sessions",
-        page_size=PAGE_SIZE,
+        page_size=SESSIONS_PAGE_SIZE,
         # The API rejects anything longer, so the page enforces the same cap
         # rather than letting the host type a name that is refused on submit.
         session_name_max_length=SESSION_NAME_MAX_LENGTH,
@@ -86,7 +91,7 @@ def history(query):
         "history.html",
         site_title=get_site_name(),
         title="Play History",
-        page_size=PAGE_SIZE,
+        page_size=PLAYS_PAGE_SIZE,
         # Deleting an entry is a host action; queuing a song back up is not.
         admin=is_admin(),
         sessions=_filter_sessions(),
