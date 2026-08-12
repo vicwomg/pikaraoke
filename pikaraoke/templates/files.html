@@ -233,6 +233,14 @@
 		top: 3px;
 		z-index: 20;
 	}
+	/* Held in the layout rather than hidden, so the strip keeps the same 27 slots in
+	   every folder. Dim enough to read as unavailable, but still legible: it is the
+	   only thing telling you the folder has nothing under that letter. */
+	#alpha-bar .alpha-empty {
+		opacity: 0.35;
+		cursor: default;
+		user-select: none;
+	}
 	table {
 		width: 100%;
 		table-layout: auto; /* Allows columns to adjust based on content */
@@ -376,19 +384,31 @@
 	</div>
 </div>
 
-{# In folder view a short folder does not need 26 letters to narrow it, and the bar
-   would sit above a table it dwarfs. The flat view keeps it unconditionally. #}
-{% if not view or total > per_page %}
+{# A folder listing only subfolders has no songs for the bar to narrow, so every
+   letter would be a dead end. Everywhere else it renders, scoped to what is on
+   screen -- the letters that would return nothing are greyed rather than dropped,
+   so the strip does not change shape as the user moves between folders. #}
+{% if not view or letters %}
 <div id="alpha-bar" class="column is-full has-background-dark">
 	<a href="{{ url_for('files.browse', view=view or None, folder=folder or None) }}" title="Show all"
 		><i class="icon icon-list-bullet"></i
 	></a>
+	{% if 'numeric' in letters %}
 	<a href="{{ url_for('files.browse', letter='numeric', view=view or None, folder=folder or None) }}">#</a>
+	{% else %}
+	<span class="alpha-empty">#</span>
+	{% endif %}
 	{# Not named `letter`: the sort links below read the page's own `letter` variable,
 	   and shadowing it here would be one Jinja scoping rule away from a bug. #}
 	{% for alpha in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
 	'u', 'v', 'w', 'x', 'y', 'z'] %}
+	{% if alpha in letters %}
 	<a href="{{ url_for('files.browse', letter=alpha, view=view or None, folder=folder or None) }}">{{alpha.upper()}}</a>
+	{% else %}
+	{# A span, not a disabled link: an anchor with no href is still focusable, so a
+	   keyboard would tab through two dozen dead stops to reach the list. #}
+	<span class="alpha-empty">{{alpha.upper()}}</span>
+	{% endif %}
 	{% endfor %}
 </div>
 {% endif %}

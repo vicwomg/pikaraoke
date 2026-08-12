@@ -512,3 +512,49 @@ class TestFolderScoping:
     def test_unknown_folder_yields_nothing(self, tmp_path, mock_db):
         sm = _manager(tmp_path, mock_db, _under(tmp_path, *self.SONGS))
         assert sm.songs_in_folder("Nope") == []
+
+
+class TestLettersWithSongs:
+    """The alpha bar greys the keys that would return nothing, so the two must agree."""
+
+    SONGS = ("Loose.mp4", "Rock/Bon Jovi.mp4", "Rock/Metal/Heavy.mp4", "Pop/Abba.mp4")
+
+    def test_a_folder_reports_only_its_direct_children(self, tmp_path, mock_db):
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, *self.SONGS))
+        assert sm.letters_with_songs("Rock") == {"b"}
+
+    def test_no_scope_covers_the_whole_library(self, tmp_path, mock_db):
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, *self.SONGS))
+        assert sm.letters_with_songs() == {"l", "b", "h", "a"}
+
+    def test_the_root_is_not_the_whole_library(self, tmp_path, mock_db):
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, *self.SONGS))
+        assert sm.letters_with_songs("") == {"l"}
+
+    def test_a_folder_of_subfolders_reports_nothing(self, tmp_path, mock_db):
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, "Genres/Rock/Heavy.mp4"))
+        assert sm.letters_with_songs("Genres") == set()
+
+    def test_a_digit_reports_as_numeric(self, tmp_path, mock_db):
+        """Matching songs_by_letter, which groups every digit under one key."""
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, "99 Luftballons.mp4"))
+        assert sm.letters_with_songs() == {"numeric"}
+
+    def test_accents_fold_onto_the_plain_letter(self, tmp_path, mock_db):
+        """songs_by_letter matches the folded name, so 'b' must light up for Bjork."""
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, "Bjork - Army Of Me.mp4"))
+        assert sm.letters_with_songs() == {"b"}
+
+    def test_every_reported_letter_actually_returns_songs(self, tmp_path, mock_db):
+        """The invariant behind the greying: a linked key is never a dead end."""
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, *self.SONGS))
+        for folder in ("", "Rock", "Rock/Metal", "Pop", None):
+            for key in sm.letters_with_songs(folder):
+                assert sm.songs_by_letter(key, folder=folder), f"{key!r} dead in {folder!r}"
+
+    def test_rebuilds_when_the_song_list_changes(self, tmp_path, mock_db):
+        """Memoized on SongList.version, so a download would otherwise stay greyed out."""
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, "Rock/Bon Jovi.mp4"))
+        assert sm.letters_with_songs("Rock") == {"b"}
+        sm.songs.update(_under(tmp_path, "Rock/Bon Jovi.mp4", "Rock/Queen.mp4"))
+        assert sm.letters_with_songs("Rock") == {"b", "q"}

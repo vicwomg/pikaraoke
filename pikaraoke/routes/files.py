@@ -179,6 +179,9 @@ def browse():
         "sort_order": sort_order,
         "site_title": site_name,
         "letter": letter,
+        # Scoped, not filtered: the alpha bar sits outside the swapped fragment, so
+        # which letters it offers must not move as the user types.
+        "letters": k.song_manager.letters_with_songs(scope),
         "q": q,
         # MSG: Title of the page listing the songs already on this machine.
         "title": _("Songs"),

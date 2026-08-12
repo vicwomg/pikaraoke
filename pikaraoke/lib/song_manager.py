@@ -54,6 +54,8 @@ class SongManager:
         self._index_version: int | None = None
         self._folders: dict[str, list[str]] = {}  # folder key -> immediate subfolder names
         self._folders_version: int | None = None
+        self._initials: dict[str | None, set[str]] = {}  # scope -> alpha-bar keys present
+        self._initials_version: int | None = None
 
     @staticmethod
     def filename_from_path(
@@ -191,6 +193,35 @@ class SongManager:
             }
             self._folders_version = version
         return self._folders
+
+    def letters_with_songs(self, folder: str | None = None) -> set[str]:
+        """Alpha-bar keys that `songs_by_letter` would answer for, in the same scope.
+
+        Memoized against the song list rather than derived per request: the browse
+        page greys out the dead letters on every render, and `_scoped_index` costs
+        an O(songs) pass of path splitting that a Pi should not repeat mid-playback.
+        Keyed like `_scoped_index` -- `None` is the whole library, `""` the root.
+        """
+        version = self.songs.version
+        if self._initials_version != version:
+            initials: dict[str | None, set[str]] = {None: set()}
+            prefix = os.path.normpath(self.download_path) + os.sep
+            for name, path in self._match_index():
+                first = name[:1]
+                if not first:
+                    continue
+                key = "numeric" if first.isnumeric() else first
+                directory = os.path.dirname(os.path.normpath(path))
+                scope = (
+                    directory[len(prefix) :].replace(os.sep, "/")
+                    if directory.startswith(prefix)
+                    else ""
+                )
+                initials[None].add(key)
+                initials.setdefault(scope, set()).add(key)
+            self._initials = initials
+            self._initials_version = version
+        return self._initials.get(folder, set())
 
     def songs_in_folder(self, folder: str) -> list[str]:
         """Songs sitting directly in `folder`, excluding its subfolders, in list order."""
