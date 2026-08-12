@@ -10,7 +10,7 @@ from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.get_platform import is_windows
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.library_scanner import build_song_record
-from pikaraoke.lib.metadata_parser import regex_tidy, youtube_id_suffix
+from pikaraoke.lib.metadata_parser import regex_tidy, remove_accents, youtube_id_suffix
 from pikaraoke.lib.song_list import SongList
 
 # Characters illegal in Windows filenames
@@ -43,6 +43,8 @@ class SongManager:
         self._db = db
         self._events = events
         self._get_title_tidy = get_title_tidy
+        self._index: list[tuple[str, str]] = []  # (accent-folded raw filename key, path)
+        self._index_version: int | None = None
 
     @staticmethod
     def filename_from_path(
@@ -72,6 +74,55 @@ class SongManager:
         """Extract display name from path, respecting the enable_title_tidy preference."""
         tidy = self._get_title_tidy() if self._get_title_tidy else True
         return self.filename_from_path(file_path, remove_youtube_id=remove_youtube_id, tidy=tidy)
+
+    # ------------------------------------------------------------------
+    # Matching
+    #
+    # The match key is the *untidied* filename stem. regex_tidy() is almost
+    # entirely subtractive, so every term in the tidied name survives in the raw
+    # one and the raw one additionally matches what tidy threw away. Matching the
+    # tidied name could only ever find fewer songs -- and never "karaoke", which
+    # TRAILING_NOISE_PATTERNS strips to end-of-string by construction, so
+    # "bohemian karaoke" would silently return nothing. Keying on the raw stem
+    # also makes the key independent of the enable_title_tidy preference.
+    # ------------------------------------------------------------------
+
+    def _match_index(self) -> list[tuple[str, str]]:
+        """(accent-folded lowercase raw filename, path) pairs, rebuilt when the song list changes."""
+        # Read the version BEFORE iterating: a mutation racing this rebuild then stores
+        # newer data under an older version and rebuilds next call. Reading it after
+        # would cache stale data under the new version and never rebuild.
+        version = self.songs.version
+        if self._index_version != version:
+            self._index = [
+                (remove_accents(self.filename_from_path(p, tidy=False)).lower(), p)
+                for p in self.songs
+            ]
+            self._index_version = version
+        return self._index
+
+    def search(self, query: str) -> list[str]:
+        """Songs whose filename contains every whitespace-separated term, in list order."""
+        terms = remove_accents(query).lower().split()
+        if not terms:
+            return list(self.songs)
+        index = self._match_index()
+        if len(terms) == 1:
+            term = terms[0]
+            return [path for name, path in index if term in name]
+        return [path for name, path in index if all(t in name for t in terms)]
+
+    def songs_by_letter(self, letter: str) -> list[str]:
+        """Songs whose filename starts with `letter`, or with a digit when 'numeric'.
+
+        Grouping by the raw filename keeps the alpha bar in agreement with
+        SongList's sort order, which also keys on the raw basename.
+        """
+        index = self._match_index()
+        if letter == "numeric":
+            return [path for name, path in index if name[:1].isnumeric()]
+        target = letter.lower()
+        return [path for name, path in index if name[:1] == target]
 
     def _get_companion_files(self, song_path: str) -> list[str]:
         """Return paths to companion files (.cdg, .ass) that exist alongside a song."""

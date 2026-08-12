@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import math
 import os
-import unicodedata
 
 import flask_babel
 from flask import flash, redirect, render_template, request, url_for
@@ -76,28 +75,20 @@ def browse():
     """Browse available songs page."""
     k = get_karaoke_instance()
     site_name = get_site_name()
-
-    available_songs = k.song_manager.songs
-
+    q = (request.args.get("q") or "").strip()
     letter = request.args.get("letter")
 
-    if letter:
-        result = []
-        if letter == "numeric":
-            for song in available_songs:
-                f = k.song_manager.display_name_from_path(song)[0]
-                if f.isnumeric():
-                    result.append(song)
-        else:
-            for song in available_songs:
-                f = k.song_manager.display_name_from_path(song).lower()
-                # Normalize accented characters so e.g. "Édith" matches "e"
-                normalized = unicodedata.normalize("NFD", f)
-                base_char = normalized[0] if normalized else ""
-                if base_char == letter.lower():
-                    result.append(song)
-        available_songs = result
+    # A text query and a letter jump are two different intents, so q wins.
+    if q:
+        available_songs = k.song_manager.search(q)
+    elif letter:
+        available_songs = k.song_manager.songs_by_letter(letter)
+    else:
+        available_songs = k.song_manager.songs
 
+    # Filtering stays above the date sort so getmtime() only stats the filtered
+    # songs -- on a USB or SMB mounted library that is the difference between
+    # ~50 stats and ~2000, and gevent does not yield during filesystem I/O.
     if request.args.get("sort") == "date":
         songs = sorted(available_songs, key=lambda x: os.path.getmtime(x))
         songs.reverse()
@@ -123,35 +114,51 @@ def browse():
 
     args = request.args.copy()
     args.pop("_", None)
+    # Without this the fragment renders pagination links carrying partial=1, so
+    # clicking page 2 inside a swapped result table lands on a bare <table> with
+    # no nav or stylesheet. The same leak poisons current_url, which becomes the
+    # edit button's referrer.
+    args.pop("partial", None)
+    # Rewritten rather than passed through, because the clamp above may have dropped
+    # a page the request asked for, and these args build the pagination links and
+    # the edit referrer -- an edit started from a clamped page comes back to a real
+    # one.
     args["page"] = page
 
     current_url = url_for("files.browse", **args.to_dict())
 
-    # The pager's links carry the rest of the query string, so paging never
-    # drops the letter filter or the sort order. The number is substituted into
-    # a rendered URL rather than appended, which would have to guess whether the
-    # separator is "?" or "&".
+    # Substituted into the rendered URL rather than appended, which would have to
+    # guess whether the separator is "?" or "&". Unreserved characters, so url_for's
+    # percent-encoding hands it back untouched; partials/pager.html replaces it.
     args["page"] = "PAGENUMBER"
     page_href = url_for("files.browse", **args.to_dict())
 
-    return render_template(
-        "files.html",
-        sort_order=sort_order,
-        site_title=site_name,
-        letter=letter,
-        # MSG: Title of the files page.
-        title=_("Browse"),
-        songs=songs[start_index : start_index + results_per_page],
-        admin=is_admin(),
-        current_url=current_url,
-        page=page,
-        per_page=results_per_page,
+    admin = is_admin()
+    context = {
+        "page": page,
+        "per_page": results_per_page,
         # Everyone, not just the host: the size is per-device now.
-        per_page_options=size_options,
-        total=total,
-        skip=start_index,
-        page_href=page_href,
-    )
+        "per_page_options": size_options,
+        "total": total,
+        "skip": start_index,
+        "page_href": page_href,
+        "sort_order": sort_order,
+        "site_title": site_name,
+        "letter": letter,
+        "q": q,
+        # MSG: Title of the page listing the songs already on this machine.
+        "title": _("Songs"),
+        "songs": songs[start_index : start_index + results_per_page],
+        "admin": admin,
+        "current_url": current_url,
+    }
+    # Filter keystrokes ask for the result table alone. Rendering base.html per
+    # keystroke is pure Python, so on a Pi it blocks the event loop as surely as
+    # it wastes bytes over the hotspot. Built from one context dict so the two
+    # paths cannot drift.
+    if request.args.get("partial"):
+        return render_template("partials/browse_results.html", **context)
+    return render_template("files.html", **context)
 
 
 @files_bp.route("/files/delete", methods=["GET"])

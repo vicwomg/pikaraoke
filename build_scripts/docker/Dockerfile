@@ -10,15 +10,13 @@ ENV UV_BREAK_SYSTEM_PACKAGES=1
 # Copy static ffmpeg binaries. 7.0 is a bit old, but significantly smaller while supporting librubberband
 COPY --from=mwader/static-ffmpeg:7.0 /ffprobe /ffmpeg /usr/local/bin/
 
-RUN --mount=type=cache,target=/var/cache/apk \
-    apk add --update-cache python3 deno curl
+RUN apk add --no-cache python3 deno curl
 
 # Copy dependency and metadata files first for better caching
 COPY pyproject.toml uv.lock ./
 
 # Install dependencies using uv (this layer is cached)
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv venv /app/.venv && \
+RUN uv venv /app/.venv && \
     uv pip install --no-cache-dir -r pyproject.toml
 
 ENV VIRTUAL_ENV=/app/.venv
@@ -31,8 +29,7 @@ COPY docs ./docs
 COPY pikaraoke ./pikaraoke
 
 # Final install of the package itself (fast)
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --no-cache-dir --no-deps .
+RUN uv pip install --no-cache-dir --no-deps .
 
 # Set up volumes and ports
 

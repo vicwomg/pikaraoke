@@ -382,3 +382,39 @@ class TestTransposeCurrent:
         mock_karaoke_with_songs.transpose_current(2)
 
         assert mock_karaoke_with_songs.playback_controller.skipped_reasons == []
+
+
+class TestRegisterDownloadedSong:
+    """Tests for the register_downloaded_song method."""
+
+    def _call(self, k):
+        from pikaraoke.karaoke import Karaoke
+
+        Karaoke.register_downloaded_song(k, "/songs/Song---abc12345678.mp4", "abc12345678")
+
+    def test_song_is_registered_before_browsers_are_told(self):
+        """The search page queues off this event, so the library must know the song first."""
+        from unittest.mock import MagicMock
+
+        k = MagicMock()
+        order = MagicMock()
+        k.song_manager.register_download = order.register
+        k.socketio.emit = order.emit
+
+        self._call(k)
+
+        assert [name for name, _, _ in order.mock_calls] == ["register", "emit"]
+
+    def test_broadcast_carries_the_id_and_path_the_row_rewrite_needs(self):
+        """The page matches rows by YouTube ID and builds the queue link from the path."""
+        from unittest.mock import MagicMock
+
+        k = MagicMock()
+
+        self._call(k)
+
+        k.socketio.emit.assert_called_once_with(
+            "song_downloaded",
+            {"youtube_id": "abc12345678", "path": "/songs/Song---abc12345678.mp4"},
+            namespace="/",
+        )

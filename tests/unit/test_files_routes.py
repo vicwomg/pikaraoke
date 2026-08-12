@@ -1,0 +1,302 @@
+"""Tests for the browse route's filtering, sorting, and fragment rendering."""
+
+import os
+import re
+from unittest.mock import MagicMock, patch
+
+import pytest
+import werkzeug
+
+if not hasattr(werkzeug, "__version__"):
+    werkzeug.__version__ = "3.0.0"
+
+from pikaraoke.lib.events import EventSystem
+from pikaraoke.lib.song_manager import SongManager
+from pikaraoke.routes.files import files_bp
+from tests.conftest import make_route_app
+
+
+@pytest.fixture
+def app():
+    return make_route_app(
+        files_bp,
+        [
+            ("/", "home.home"),
+            ("/queue", "queue.queue"),
+            ("/queue/enqueue", "queue.enqueue"),
+            ("/search", "search.search"),
+            ("/info", "info.info"),
+            ("/batch", "batch_song_renamer.browse"),
+        ],
+    )
+
+
+def _sort_links(body):
+    """Map each sort button's data-sort value ("" for alphabetical) to its href."""
+    return dict(re.findall(r'data-sort="([^"]*)"\s*href="([^"]+)"', body))
+
+
+def _karaoke(app, songs, per_page):
+    """A karaoke stand-in whose song_manager is the real thing."""
+    sm = SongManager("/songs", db=MagicMock(), events=EventSystem(), get_title_tidy=lambda: False)
+    sm.songs.update(songs)
+    app.jinja_env.globals.update(filename_from_path=sm.display_name_from_path)
+    k = MagicMock()
+    k.song_manager = sm
+    k.browse_results_per_page = per_page
+    return k
+
+
+def _browse(client, app, songs=(), query="", per_page=100, admin=True, cookie=None, k=None):
+    """GET /browse. `per_page` is the server-wide default, `cookie` one device's choice."""
+    k = k if k is not None else _karaoke(app, songs, per_page)
+    if cookie is not None:
+        client.set_cookie("browse_per_page", cookie)
+    with (
+        patch("pikaraoke.routes.files.get_karaoke_instance", return_value=k),
+        patch("pikaraoke.routes.files.get_site_name", return_value="PiKaraoke"),
+        patch("pikaraoke.routes.files.is_admin", return_value=admin),
+    ):
+        return client.get("/browse" + query)
+
+
+class TestFilter:
+    def test_q_narrows_the_list(self, client, app):
+        songs = ["/songs/Abba - Waterloo.mp4", "/songs/Queen - Bohemian Rhapsody.mp4"]
+        response = _browse(client, app, songs, "?q=waterloo")
+        body = response.data.decode()
+        assert "Abba - Waterloo" in body
+        assert "Bohemian" not in body
+
+    def test_q_searches_the_whole_library_not_just_the_current_page(self, client, app):
+        """A client-side filter over the rendered rows would miss this one entirely."""
+        songs = [f"/songs/Filler {i:03d}.mp4" for i in range(150)]
+        songs.append("/songs/Zzz Needle In Haystack.mp4")
+        response = _browse(client, app, songs, "?q=needle", per_page=100)
+        body = response.data.decode()
+        assert "Needle In Haystack" in body
+        assert "Filler" not in body
+
+    def test_q_overrides_letter(self, client, app):
+        songs = ["/songs/Abba - Waterloo.mp4", "/songs/Queen - Bohemian Rhapsody.mp4"]
+        response = _browse(client, app, songs, "?q=bohemian&letter=a")
+        body = response.data.decode()
+        assert "Bohemian" in body
+        assert "Waterloo" not in body
+
+    def test_filtered_count_and_page_links_are_rendered(self, client, app):
+        """The pager counts the filtered set, not the library behind it."""
+        songs = [f"/songs/Abba - Song {i}.mp4" for i in range(10)]
+        body = _browse(client, app, songs, "?q=abba", per_page=2).data.decode()
+        assert "1-2 of 10" in body
+        assert "page=2" in body
+
+    def test_blank_q_returns_everything(self, client, app):
+        songs = ["/songs/Abba - Waterloo.mp4", "/songs/Queen - Bohemian Rhapsody.mp4"]
+        body = _browse(client, app, songs, "?q=%20%20").data.decode()
+        assert "Waterloo" in body
+        assert "Bohemian" in body
+
+    def test_letter_still_filters_without_q(self, client, app):
+        songs = ["/songs/Abba - Waterloo.mp4", "/songs/Queen - Bohemian Rhapsody.mp4"]
+        body = _browse(client, app, songs, "?letter=q").data.decode()
+        assert "Bohemian" in body
+        assert "Waterloo" not in body
+
+
+class TestPaginationLinksEscapeTheQuery:
+    """Only the page number is un-escaped in the pagination href; the query is not."""
+
+    @staticmethod
+    def _page_links(body):
+        return re.findall(r'href="([^"]*page=\d+[^"]*)"', body)
+
+    def test_ampersand_in_q_does_not_split_the_link(self, client, app):
+        songs = [f"/songs/Simon & Garfunkel - Song {i}.mp4" for i in range(10)]
+        body = _browse(client, app, songs, "?q=Simon+%26+Garfunkel", per_page=2).data.decode()
+        links = self._page_links(body)
+        assert links, "expected pagination links to assert against"
+        # Unescaped, "&" would end the q parameter and page 2 would search "Simon "
+        assert all("q=Simon+%26+Garfunkel" in href for href in links)
+
+    def test_hash_in_q_does_not_become_a_fragment(self, client, app):
+        songs = [f"/songs/Rock #1 Hits {i}.mp4" for i in range(10)]
+        body = _browse(client, app, songs, "?q=rock+%231", per_page=2).data.decode()
+        links = self._page_links(body)
+        assert links, "expected pagination links to assert against"
+        # A bare "#" would make everything after it a fragment, so `page` would
+        # never reach the server and every link would render page 1.
+        assert all("#" not in href for href in links)
+
+
+class TestPagerBounds:
+    """The pager links to the page either side of this one, so `page` has to be real."""
+
+    SONGS = [f"/songs/Song {i:02d}.mp4" for i in range(10)]
+
+    def test_a_page_past_the_end_lands_on_the_last_one(self, client, app):
+        """Deleting the last row, or filtering to a shorter list, strands the pager."""
+        body = _browse(client, app, self.SONGS, "?page=99", per_page=4).data.decode()
+        assert "9-10 of 10" in body
+        assert "Song 08" in body
+
+    def test_page_zero_does_not_index_from_the_wrong_end(self, client, app):
+        body = _browse(client, app, self.SONGS, "?page=0", per_page=4).data.decode()
+        assert "1-4 of 10" in body
+
+    def test_a_junk_page_is_a_request_for_the_first_one(self, client, app):
+        """A bookmark carrying junk should not be a 500."""
+        response = _browse(client, app, self.SONGS, "?page=abc", per_page=4)
+        assert response.status_code == 200
+        assert "1-4 of 10" in response.data.decode()
+
+    def test_an_empty_result_reports_no_rows(self, client, app):
+        body = _browse(client, app, self.SONGS, "?q=zzz").data.decode()
+        assert "0-0 of 0" in body
+
+    def test_a_single_page_carries_one_pager_not_two(self, client, app):
+        """Two stacked pagers around a short table are one control drawn twice."""
+        body = _browse(client, app, self.SONGS, per_page=100).data.decode()
+        assert body.count("pager-controls") == 1
+
+    def test_a_paged_list_keeps_the_pager_at_both_ends(self, client, app):
+        body = _browse(client, app, self.SONGS, per_page=4).data.decode()
+        assert body.count("pager-controls") == 2
+
+
+class TestPerPageControl:
+    """The size belongs to the device, so everyone is offered the dropdown."""
+
+    SONGS = [f"/songs/Song {i:02d}.mp4" for i in range(10)]
+
+    def test_the_dropdown_is_offered_to_a_guest(self, client, app):
+        """It was admin-only while the size was a server-wide preference."""
+        body = _browse(client, app, self.SONGS, per_page=25, admin=False).data.decode()
+        assert 'id="pager-per-page"' in body
+
+    def test_the_size_in_force_is_always_selectable(self, client, app):
+        """A value Settings allows but the list does not would otherwise be unshowable."""
+        body = _browse(client, app, self.SONGS, per_page=70).data.decode()
+        assert '<option value="70" selected>70</option>' in body
+
+    def test_only_the_top_pager_carries_it(self, client, app):
+        """Reaching the bottom of the page is the thing the control exists to avoid."""
+        body = _browse(client, app, self.SONGS, per_page=25).data.decode()
+        assert body.count('id="pager-per-page"') == 1
+
+
+class TestPerPageCookie:
+    """The chosen size is this device's own and must never move the shared default."""
+
+    SONGS = [f"/songs/Song {i:02d}.mp4" for i in range(30)]
+
+    def test_the_cookie_sizes_the_page(self, client, app):
+        body = _browse(client, app, self.SONGS, per_page=100, cookie="20").data.decode()
+        assert "1-20 of 30" in body
+
+    def test_the_server_default_applies_without_a_cookie(self, client, app):
+        body = _browse(client, app, self.SONGS, per_page=100).data.decode()
+        assert "1-30 of 30" in body
+
+    def test_browsing_never_writes_the_server_default(self, client, app):
+        """The reported bug: picking a size here moved the default shown in Settings."""
+        k = _karaoke(app, self.SONGS, per_page=100)
+        _browse(client, app, cookie="20", k=k)
+        k.preferences.set.assert_not_called()
+
+    def test_the_size_outlives_admin(self, client, app):
+        """Logging out is not a reason to lose a display choice."""
+        body = _browse(
+            client, app, self.SONGS, per_page=100, cookie="20", admin=False
+        ).data.decode()
+        assert "1-20 of 30" in body
+
+    def test_junk_falls_back_to_the_default(self, client, app):
+        response = _browse(client, app, self.SONGS, per_page=100, cookie="abc")
+        assert response.status_code == 200
+        assert "1-30 of 30" in response.data.decode()
+
+    def test_a_size_off_the_menu_is_ignored(self, client, app):
+        """A hand-edited cookie must not make the Pi render the whole library."""
+        body = _browse(client, app, self.SONGS, per_page=100, cookie="50000").data.decode()
+        assert "1-30 of 30" in body
+
+
+class TestSortLinksPreserveTheFilter:
+    """Sorting is orthogonal to filtering; only the alpha bar clears the query."""
+
+    SONGS = ["/songs/Abba - Waterloo.mp4", "/songs/Queen - Bohemian Rhapsody.mp4"]
+
+    def test_sort_by_date_link_carries_q(self, client, app):
+        body = _browse(client, app, self.SONGS, "?q=abba").data.decode()
+        link = _sort_links(body)["date"]
+        assert "q=abba" in link
+        assert "sort=date" in link
+
+    def test_sort_by_name_link_carries_q(self, tmp_path, client, app):
+        """sort=date stats the files, so this one needs real paths."""
+        song = tmp_path / "Abba - Waterloo.mp4"
+        song.write_text("fake")
+        body = _browse(client, app, [str(song)], "?q=abba&sort=date").data.decode()
+        link = _sort_links(body)[""]
+        assert "q=abba" in link
+        assert "sort=" not in link
+
+    def test_sort_links_carry_letter_when_no_query(self, client, app):
+        body = _browse(client, app, self.SONGS, "?letter=a").data.decode()
+        links = _sort_links(body)
+        assert set(links) == {"", "date"}
+        assert all("letter=a" in href for href in links.values())
+
+    def test_alpha_bar_links_stay_bare(self, client, app):
+        """The A-Z bar is the one control that resets the filter."""
+        body = _browse(client, app, self.SONGS, "?q=abba").data.decode()
+        alpha = re.findall(r'href="([^"]*letter=[^"]*)"', body)
+        assert alpha, "expected alpha-bar links"
+        assert all("q=" not in href for href in alpha)
+
+
+class TestFilterWithDateSort:
+    def test_filter_applies_before_the_sort(self, tmp_path, client, app):
+        """Ordering is what is load-bearing: the filtered set, newest first."""
+        names = ["Abba - Waterloo.mp4", "Abba - Dancing Queen.mp4", "Queen - Bohemian.mp4"]
+        paths = []
+        for i, name in enumerate(names):
+            p = tmp_path / name
+            p.write_text("fake")
+            os.utime(p, (1_600_000_000 + i * 100, 1_600_000_000 + i * 100))
+            paths.append(str(p))
+
+        body = _browse(client, app, paths, "?q=abba&sort=date").data.decode()
+        assert "Bohemian" not in body
+        # Dancing Queen is newer than Waterloo, so it must come first
+        assert body.index("Dancing Queen") < body.index("Waterloo")
+
+
+class TestPartialFragment:
+    SONGS = ["/songs/Abba - Waterloo.mp4", "/songs/Queen - Bohemian Rhapsody.mp4"]
+
+    def test_partial_returns_only_the_results(self, client, app):
+        body = _browse(client, app, self.SONGS, "?q=abba&partial=1").data.decode()
+        assert "Waterloo" in body
+        assert "<html" not in body
+        assert "<nav" not in body
+        assert "song-filter" not in body
+
+    def test_full_page_is_unchanged_by_the_partial_flag(self, client, app):
+        body = _browse(client, app, self.SONGS, "?q=abba").data.decode()
+        assert "<html" in body
+        assert "song-filter" in body
+
+    def test_partial_never_leaks_into_generated_urls(self, client, app):
+        """Invisible until a user clicks page 2 of a filtered set and gets a bare table."""
+        songs = [f"/songs/Abba - Song {i}.mp4" for i in range(10)]
+        body = _browse(client, app, songs, "?q=abba&partial=1", per_page=2).data.decode()
+        assert "page=" in body, "expected pagination links to assert against"
+        assert "partial" not in body
+
+    def test_partial_absent_from_the_edit_referrer(self, client, app):
+        """current_url becomes the edit button's referrer; a fragment URL would break saving."""
+        body = _browse(client, app, self.SONGS, "?q=abba&partial=1").data.decode()
+        assert "referrer=" in body
+        assert "partial" not in body

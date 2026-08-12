@@ -240,3 +240,30 @@ body.hide-cursor * {
   color: var(--dark-text-muted);
   font-size: 0.8rem;
 }
+
+/* The two Bulma stylesheets disagree about how dark an input is: bulma-dark.css
+   gives .input a white background, while Bulma's own dark-theme variables still
+   supply near-white values for the placeholder (0.3 alpha of a 93%-lightness
+   text colour) and for the left icon. Both were being painted white on white.
+   Set explicit greys rather than adjusting the variables, since the theme chain
+   cannot be trusted to know the background here. */
+.input::placeholder,
+.textarea::placeholder {
+  /* ~4.9:1 on white, and clearly dimmer than the near-black text entered above it */
+  color: #6a7273;
+  /* Firefox applies its own default placeholder opacity on top of the colour */
+  opacity: 1;
+}
+
+.control.has-icons-left .icon,
+.control.has-icons-right .icon {
+  color: #6a7273;
+}
+
+.pager-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}

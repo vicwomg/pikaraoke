@@ -263,7 +263,7 @@ class Karaoke:
         # the log untouched, and which is emitted before the row is written.
         self._relay_to_browser("play_logged")
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
-        self.events.on("song_downloaded", self.song_manager.register_download)
+        self.events.on("song_downloaded", self.register_downloaded_song)
         self._relay_to_browser("sync_started")
         self._relay_to_browser("sync_finished")
 
@@ -609,6 +609,20 @@ class Karaoke:
         """Emit now_playing state change via SocketIO."""
         if self.socketio:
             self.socketio.emit("now_playing", self.get_now_playing(), namespace="/")
+
+    def register_downloaded_song(self, song_path: str, youtube_id: str | None) -> None:
+        """Add a finished download to the library, then announce it to browsers.
+
+        Registration happens first so the queue link the search page swaps in on
+        this event resolves against a song the library already knows about.
+        """
+        self.song_manager.register_download(song_path)
+        if self.socketio:
+            self.socketio.emit(
+                "song_downloaded",
+                {"youtube_id": youtube_id, "path": song_path},
+                namespace="/",
+            )
 
     def run(self) -> None:
         """Main run loop - processes queue and plays songs.

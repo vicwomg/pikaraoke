@@ -1,11 +1,73 @@
 """Pytest fixtures for PiKaraoke tests."""
 
+from pathlib import Path
+from urllib.parse import quote
+
 import pytest
+from flask import Flask
+from flask_babel import Babel
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
+
+PIKARAOKE_PACKAGE = Path(__file__).resolve().parent.parent / "pikaraoke"
+
+
+# What base.html itself url_for()s on every render, independent of which
+# blueprint is under test. Listed here rather than in each caller so a new route
+# test does not have to rediscover the layout's own dependencies.
+_BASE_TEMPLATE_ENDPOINTS = [
+    ("/", "home.home"),
+    ("/queue", "queue.queue"),
+    ("/browse", "files.browse"),
+    ("/search", "search.search"),
+    ("/info", "info.info"),
+    ("/rankings", "sessions.rankings"),
+    ("/history", "sessions.history"),
+    ("/sessions", "sessions.sessions"),
+    ("/api/sessions/singers", "sessions_api.get_singers"),
+]
+
+
+def make_route_app(blueprint, linked_endpoints):
+    """A Flask app with just enough wiring to render one blueprint's templates.
+
+    `linked_endpoints` are the (rule, endpoint) pairs the templates url_for()
+    but the blueprint under test does not itself define, so they need stubs.
+    """
+    app = Flask(__name__, template_folder=str(PIKARAOKE_PACKAGE / "templates"))
+    Babel(app)
+    app.register_blueprint(blueprint)
+    endpoints = {endpoint: rule for rule, endpoint in _BASE_TEMPLATE_ENDPOINTS}
+    endpoints.update({endpoint: rule for rule, endpoint in linked_endpoints})
+    for endpoint, rule in endpoints.items():
+        # The blueprint under test defines some of these for real; stubbing over
+        # one would replace the view the test is exercising.
+        if endpoint not in app.view_functions:
+            app.add_url_rule(rule, endpoint, lambda: "", methods=["GET"])
+
+    @app.context_processor
+    def inject_path_config():
+        return {"base_path": "", "socketio_path": "/socket.io", "cookie_path": "/"}
+
+    # app.py binds these at import for the same reason: base.html calls them on
+    # every render, so a page rendered without them fails on an undefined name.
+    # Off by default -- a test that wants the admin or KJ markup overrides them.
+    app.jinja_env.globals.update(
+        url_escape=quote,
+        is_admin=lambda: False,
+        has_active_session=lambda: False,
+        active_session_name=lambda: "",
+    )
+    return app
+
+
+@pytest.fixture
+def client(app):
+    """Test client for whichever `app` fixture the test module defines."""
+    return app.test_client()
 
 
 class MockPlaybackController:

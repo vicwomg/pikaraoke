@@ -156,6 +156,8 @@ class TestDownloadManagerExecuteDownload:
         """Test successful download execution."""
         notifications = []
         events.on("notification", lambda msg, *args: notifications.append(msg))
+        downloaded = []
+        events.on("song_downloaded", lambda path, video_id: downloaded.append((path, video_id)))
 
         mock_build_cmd.return_value = ["yt-dlp", "-o", "/songs/", "url"]
 
@@ -174,7 +176,9 @@ class TestDownloadManagerExecuteDownload:
 
         assert rc == 0
         song_manager.songs.find_by_id.assert_called_once_with("/songs", "dQw4w9WgXcQ")
-        # add_if_valid is no longer called directly; a "song_downloaded" event is emitted instead
+        # The library registers the song from this event, and the search page keys
+        # its row rewrite off the id, so both halves of the payload matter.
+        assert downloaded == [("/songs/Artist - Song---dQw4w9WgXcQ.mp4", "dQw4w9WgXcQ")]
         assert any("Downloaded" in n for n in notifications)
 
     @patch("flask_babel._", side_effect=lambda x: x)
