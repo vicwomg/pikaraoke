@@ -1,40 +1,206 @@
 {% extends 'base.html' %} {% block scripts %}
 <script>
 	$(function () {
-		if ($(window).width() <= 500) {
-			$(document).scroll(function () {
-				var y = $(this).scrollTop();
-				if (y > 100) {
-					$("#alpha-bar").removeClass("mobile-hide");
-					$("#alpha-bar").fadeIn();
-				} else {
-					$("#alpha-bar").fadeOut();
-				}
+		// --- A-Z strip ----------------------------------------------------
+		// On a phone the strip is fixed, so it has to be told where to sit: it
+		// starts level with the top of the Songs box and rides up with the page
+		// until it reaches the top of the screen. Written to a custom property
+		// rather than `top` so the value only takes effect inside the mobile
+		// media query -- an inline `top` would follow a resize onto the desktop
+		// layout and strand the bar wherever the phone had left it.
+		const alphaBar = document.getElementById("alpha-bar");
+		const restingTop = document.querySelector(".box").getBoundingClientRect().top + window.scrollY;
+		let queued = false;
+		function placeAlphaBar() {
+			queued = false;
+			const top = Math.max(3, restingTop - window.scrollY);
+			alphaBar.style.setProperty("--alpha-top", top + "px");
+		}
+		// Not on load alone: a Back navigation restores the scroll position.
+		placeAlphaBar();
+		// Namespaced, and unbound first, because SPA navigation re-runs this
+		// script on every visit and a plain bind would stack a handler per page.
+		$(window)
+			.off("scroll.alphabar")
+			.on("scroll.alphabar", function () {
+				// A phone fires scroll faster than it paints and each write
+				// forces a layout, so collapse them onto the frame.
+				if (queued) return;
+				queued = true;
+				requestAnimationFrame(placeAlphaBar);
+			});
+
+		// --- Filter box -------------------------------------------------
+		// Hiragana/Katakana, CJK Ext A, CJK Unified, Hangul Syllables. Ranges mirror
+		// _CJK in metadata_parser.py. Compared numerically rather than written as a
+		// regex character class, so this file stays pure ASCII -- it is a Jinja
+		// template and must not depend on its own encoding surviving a round trip.
+		const CJK_RANGES = [
+			[0x3040, 0x30ff],
+			[0x3400, 0x4dbf],
+			[0x4e00, 0x9fff],
+			[0xac00, 0xd7af],
+		];
+
+		function hasCjk(text) {
+			for (const ch of text) {
+				const code = ch.codePointAt(0);
+				if (CJK_RANGES.some((r) => code >= r[0] && code <= r[1])) return true;
+			}
+			return false;
+		}
+
+		const BROWSE_URL = "{{ url_for('files.browse') }}";
+		const input = document.getElementById("song-filter");
+		const resultsDiv = document.getElementById("browse-results");
+		// What the server last rendered. A query that resolves to this needs no
+		// request, which is why typing one letter on an unfiltered page is free.
+		let renderedQuery = {{ q | tojson }};
+		let inflight = null;
+
+		// A single Latin character matches nearly everything -- maximum scan cost
+		// for no narrowing. A single CJK character is the opposite: often a whole
+		// word, and highly selective. So the gate is selectivity, not length.
+		function effectiveQuery(raw) {
+			return raw.length < 2 && !hasCjk(raw) ? "" : raw;
+		}
+
+		function buildParams(q) {
+			const params = new URLSearchParams();
+			if (q) params.set("q", q);
+			// A user who chose ?sort=date and then typed has not asked to go back
+			// to alphabetical. page and letter are dropped: a new query is a new
+			// result set, and q takes precedence over letter server-side anyway.
+			const sort = new URLSearchParams(window.location.search).get("sort");
+			if (sort) params.set("sort", sort);
+			return params;
+		}
+
+		// The sort link sits outside the swapped fragment, so it is not re-rendered
+		// on a keystroke and would keep pointing at the query the page loaded with --
+		// switching sort would then silently drop what the user had typed.
+		function syncSortLinks(q) {
+			document.querySelectorAll("a.sort-link").forEach(function (a) {
+				const params = new URLSearchParams();
+				if (q) params.set("q", q);
+				if (a.dataset.sort) params.set("sort", a.dataset.sort);
+				const query = params.toString();
+				a.href = BROWSE_URL + (query ? "?" + query : "");
 			});
 		}
 
-		$("a.add-song-link").click(function (e) {
-			e.preventDefault();
-			setUserCookie();
-			var user = Cookies.get("user");
-			$.get(this.href + encodeURIComponent(user), function (data) {
-				var obj = JSON.parse(data);
-				if (obj.success[0]) {
-					// {# MSG: Notification when a song gets added to the queue.  The song name comes after this string. #}
-					showNotification(obj.success[1], "is-success");
-				} else {
-					// {# MSG: Notification when a song does not get added to the queue.  The song name comes after this string. #}
-					showNotification(obj.success[1], "is-danger");
-				}
-			});
+		function applyFilter() {
+			const q = effectiveQuery(input.value.trim());
+
+			// Aborting before the early return, not after it: backspacing from "ab"
+			// to "a" resolves to the query already on screen, but the request for
+			// "ab" is still in flight and its response would fill the table with
+			// results the input no longer describes.
+			if (inflight) {
+				inflight.abort();
+				inflight = null;
+			}
+			if (q === renderedQuery) return;
+
+			// Safe to move ahead of the response: these only matter once clicked,
+			// and clicking one navigates to a fresh server render of that query.
+			syncSortLinks(q);
+
+			const params = buildParams(q);
+			const query = params.toString();
+			const url = BROWSE_URL + (query ? "?" + query : "");
+
+			const controller = new AbortController();
+			inflight = controller;
+			params.set("partial", "1");
+			fetch(BROWSE_URL + "?" + params.toString(), { signal: controller.signal })
+				.then((r) => {
+					// An error page is still text. Without this check a 500 renders
+					// itself into the results table as though it were the fragment.
+					if (!r.ok) throw new Error("Filter request failed: " + r.status);
+					return r.text();
+				})
+				.then((html) => {
+					// abort() does not guarantee the promise loses the race, so the
+					// identity check is what actually keeps a stale response out.
+					if (inflight !== controller) return;
+					inflight = null;
+					resultsDiv.innerHTML = html;
+					renderedQuery = q;
+					// The URL is rewritten only once the table it names is on screen,
+					// so an abandoned query can never be left in the address bar. It
+					// carries the {path} state spa-navigation.js reads, or Back into
+					// this entry falls through to a full reload -- and currentPath has
+					// to move with it, or every link pointing here becomes a no-op.
+					history.replaceState({ path: url }, "", url);
+					if (window.spaNavigation) window.spaNavigation.setCurrentPath(url);
+					// Filtering drops `letter` from the URL and from the server-side
+					// query, so the heading's letter suffix is stale for good.
+					if (q) $("#letter-heading").remove();
+				})
+				.catch((e) => {
+					if (e.name === "AbortError") return;
+					console.error(e);
+				});
+		}
+
+		const runFilter = debounce(applyFilter, 250);
+
+		input.addEventListener("input", function (e) {
+			// With an IME, "input" fires on every intermediate romaji state.
+			// Each one is a wasted round trip returning noise.
+			if (e.isComposing) return;
+			runFilter();
 		});
+		input.addEventListener("compositionend", runFilter);
+
+		$("#clear-filter").on("click", function (e) {
+			e.preventDefault();
+			input.value = "";
+			applyFilter();
+			input.focus();
+		});
+
+		// A cookie, not the preference Settings edits, which everyone shares. Not
+		// localStorage: the page is rendered server-side, and the browser sends this
+		// with the pager links and filter fetches so Flask can size what it builds.
+		//
+		// Delegated because the dropdown rides inside the fragment a filter keystroke
+		// replaces, and namespaced and unbound first because SPA navigation re-runs
+		// this script on every visit.
+		$(document)
+			.off("change.perpage")
+			.on("change.perpage", "#pager-per-page", function () {
+				Cookies.set("browse_per_page", $(this).val(), {
+					expires: 3650,
+					path: window.pikaraokeConfig.cookiePath,
+				});
+				// Read from the address bar rather than the URL this page was rendered
+				// with, which a filter keystroke may since have replaced. A new size
+				// invalidates the offset, so this restarts at page one.
+				const target = new URL(window.location.href);
+				target.searchParams.set("page", "1");
+				window.location.href = target.toString();
+			});
 	});
 </script>
 
 {% endblock %} {% block header %}
-<h1>
-	{% block title %} {% if letter %} {{title}}: "{{ letter.upper() }}" {% else %} {{title}} {% endif %} {% endblock %}
-</h1>
+{# The admin action shares the heading's row at every width rather than floating
+   over it, so it lines up against the same right edge as the content below. #}
+<div id="songs-heading">
+	<h1>
+		{% block title %}{{title}}{% if letter %}<span id="letter-heading">: "{{ letter.upper() }}"</span>{% endif %}{% endblock %}
+	</h1>
+	{% if admin %}
+	<a class="batch-edit-btn" href="{{ url_for('batch_song_renamer.browse')}}" title="Edit all songs"
+		><i class="icon icon-edit"></i>{# MSG: Button to open the batch song renamer page. #} {% trans %}Edit all songs{%
+		endtrans %}</a
+	>
+	{% endif %}
+</div>
+{# MSG: Subtitle under the Songs heading, explaining that this page lists songs already downloaded. #}
+<p class="subtitle is-6">{% trans %}Available in the library{% endtrans %}</p>
 <style>
 	#alpha-bar {
 		padding: 5px 10px;
@@ -53,8 +219,39 @@
 	td {
 		word-wrap: break-word; /* Ensures long words break to fit within the cell */
 	}
+	/* `anywhere`, not `break-all`: break-all splits every title mid-word. This breaks
+	   a word only when it cannot fit on a line alone, and unlike the `break-word` in
+	   custom.css it still lets the auto-layout column shrink below its longest word,
+	   so a long unbroken filename narrows instead of overflowing on a phone. Old
+	   browsers that drop `anywhere` fall back to that custom.css rule. */
 	.break-word {
-		word-break: break-all; /* Ensures long words break to fit within the cell */
+		overflow-wrap: anywhere;
+	}
+
+	#songs-heading {
+		display: flex;
+		justify-content: space-between;
+		/* Baseline, not center: the link should sit on the heading's text line
+		   rather than float halfway up a much taller h1. */
+		align-items: baseline;
+		gap: 1rem;
+	}
+	#songs-heading h1 {
+		margin-bottom: 0;
+	}
+	.batch-edit-btn {
+		font-size: 0.875rem;
+		white-space: nowrap;
+	}
+
+	#sort-bar {
+		display: flex;
+		justify-content: flex-end;
+	}
+	/* Bulma gives a non-last .buttons a full block of spacing; this control belongs
+	   close to the table it sorts. */
+	#sort-bar .buttons {
+		margin-bottom: 0.5rem;
 	}
 
 	@media screen and (max-width: 500px) {
@@ -63,88 +260,86 @@
 			position: fixed;
 			display: flex;
 			align-items: center;
-			right: 8px;
-			top: 15px;
+			/* Flush with the navbar and the box, which both stop at the container's
+			   5px padding. Any further in covers song titles, page links and edit
+			   icons; any further out and the blue navbar looks clipped beside it. */
+			right: 5px;
+			/* Set from the real .box position on load and on scroll. The fallback
+			   is the same place worked out statically -- the navbar's 3.25rem plus
+			   the container's 5px padding and the box's 5px margin -- so the strip
+			   lands correctly on the first paint, before the script runs. Paired
+			   with `bottom` rather than a height, or starting this far down would
+			   push the last letters off the bottom of the screen. */
+			top: var(--alpha-top, calc(3.25rem + 10px));
+			bottom: 8px;
 			flex-direction: column;
 			max-width: 22px;
-			height: 95vh;
 		}
-		.mobile-hide {
-			visibility: hidden;
-		}
-		.batch-edit-btn {
-			position: absolute;
-			top: 10px;
-			right: 10px;
-			font-size: 0.875rem;
-			margin-right: 10px;
-		}
+		/* The strip is an overlay, so the content has to give up the width it sits
+		   in. Bulma's 20px of box padding is not enough on its own: it leaves the
+		   page links, the edit icons and "Edit all songs" running underneath, and
+		   since the strip paints above them it swallows their taps too. */
 		.box {
-			position: relative;
+			padding-right: 28px;
 		}
 	}
 </style>
 {% endblock %} {% block content %}
 
-<p class="is-flex is-justify-content-space-between">
-	<span class="is-flex-grow-1">
-		{% if sort_order == "Alphabetical" %} {# MSG: Label which displays that the songs are currently sorted by
-		alphabetical order. #} {% trans %}Sorted Alphabetically{% endtrans %} |
-		<a href="{{ url_for('files.browse') }}?sort=date">
-			{# MSG: Button which changes how the songs are sorted so they become sorted by date. #} {% trans %}Sort by
-			Date{% endtrans %}
-		</a>
-		{% endif %} {% if sort_order == "Date" %} {# MSG: Label which displays that the songs are currently sorted by
-		date. #} {% trans %}Sorted by date{% endtrans %} |
-		<a href="{{ url_for('files.browse') }}">
-			{# MSG: Button which changes how the songs are sorted so they become sorted by name. #} {% trans %}Sort by
-			Alphabetical{% endtrans %}
-		</a>
-		{% endif %}
-	</span>
-	{% if admin %}
-	<a class="batch-edit-btn" href="{{ url_for('batch_song_renamer.browse')}}" title="Edit all songs"
-		><i class="icon icon-edit"></i>{# MSG: Button to open the batch song renamer page. #} {% trans %}Edit all songs{%
-		endtrans %}</a
-	>
-	{% endif%}
-</p>
+{# Filtering is server-side: the page is paginated, so a client-side filter over
+   the ~100 rows in the DOM would silently miss songs on every other page. #}
+<div class="field has-addons mb-3">
+	<div class="control has-icons-left is-expanded">
+		<input
+			id="song-filter"
+			class="input"
+			type="text"
+			autocomplete="off"
+			value="{{ q }}"
+			{# MSG: Placeholder in the box that filters the songs already on this machine. #}
+			placeholder="{{ _('Search by title, artist...') }}"
+		/>
+		<span class="icon is-small is-left"><i class="icon icon-search-1"></i></span>
+	</div>
+	<div class="control">
+		{# MSG: Button which empties the filter box and shows every song again. #}
+		<a id="clear-filter" class="button">{% trans %}Clear{% endtrans %}</a>
+	</div>
+</div>
 
-<div id="alpha-bar" class="column is-full has-background-dark mobile-hide">
+<div id="alpha-bar" class="column is-full has-background-dark">
 	<a href="{{ url_for('files.browse') }}" title="Show all"><i class="icon icon-list-bullet"></i></a>
 	<a href="{{ url_for('files.browse') }}?letter=numeric">#</a>
-	{% for letter in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
+	{# Not named `letter`: the sort links below read the page's own `letter` variable,
+	   and shadowing it here would be one Jinja scoping rule away from a bug. #}
+	{% for alpha in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
 	'u', 'v', 'w', 'x', 'y', 'z'] %}
-	<a href="{{ url_for('files.browse') }}?letter={{letter}}">{{letter.upper()}}</a>
+	<a href="{{ url_for('files.browse') }}?letter={{alpha}}">{{alpha.upper()}}</a>
 	{% endfor %}
 </div>
 
-{{ pagination.links }} {{ pagination.info }}
-<table>
-	{% for song in songs %}
-	{% set display_name = filename_from_path(song) %}
-	<tr value="{{ song }}">
-		<td style="padding: 5px 0px">{{loop.index + pagination.skip}}</td>
-		<td id="{{display_name[0].lower()}}" style="padding-right: 0">
-			<a
-				class="add-song-link has-text-weight-bold has-text-success"
-				title="Add '{{display_name}}' to queue"
-				href="{{url_for('queue.enqueue')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&user="
-				><i class="icon icon-list-add"></i>
-			</a>
-		</td>
-		<td class="break-word" style="padding-right: 0">{{display_name}}</td>
-		{% if admin %}
-		<td style="padding-right: 0">
-			<a
-				class="edit-button"
-				href="{{url_for('files.edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&referrer={{url_escape(current_url)}}"
-				title="Edit song"
-				><i class="icon icon-edit-1"></i>
-			</a>
-		</td>
-		{% endif %} {% endfor %}
-	</tr>
-</table>
+{# Sits with the results it describes rather than above the search box, and shows
+   both orderings at once so the current one is visible without reading a sentence.
+   Sorting is orthogonal to filtering, so these carry the active filter through --
+   the alpha bar above is the one control that deliberately clears it. #}
+<div id="sort-bar">
+	<div class="buttons has-addons are-small">
+		{# Labels stay on one line: `trans` does not collapse whitespace, so a wrapped
+		   label bakes the newline and tabs into the msgid and any reindent breaks it. #}
+		<a class="button sort-link {% if sort_order == 'Alphabetical' %}is-info is-selected{% endif %}" data-sort=""
+			href="{{ url_for('files.browse', q=q or None, letter=letter or None) }}">
+			{# MSG: Button which changes how the songs are sorted so they become sorted by name. #}
+			{% trans %}Sort Alphabetically{% endtrans %}
+		</a>
+		<a class="button sort-link {% if sort_order == 'Date' %}is-info is-selected{% endif %}" data-sort="date"
+			href="{{ url_for('files.browse', sort='date', q=q or None, letter=letter or None) }}">
+			{# MSG: Button which changes how the songs are sorted so they become sorted by date. #}
+			{% trans %}Sort by Date{% endtrans %}
+		</a>
+	</div>
+</div>
 
-{{ pagination.links }} {% endblock %}
+{# The filter input sits outside this div, so a keystroke swap never takes the
+   caret with it. #}
+<div id="browse-results">{% include 'partials/browse_results.html' %}</div>
+{% endblock %}

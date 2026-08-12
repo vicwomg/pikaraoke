@@ -213,3 +213,161 @@ class TestDBCoordination:
         sm.register_download(_native(song))
         assert _native(song) in sm.songs
         mock_db.insert_songs.assert_called_once()
+
+
+# enable_title_tidy defaults to False, so every test that cares about it sets it
+# explicitly -- otherwise a test silently exercises only the untidied path.
+def _manager(tmp_path, mock_db, songs, tidy=False):
+    sm = SongManager(str(tmp_path), db=mock_db, get_title_tidy=lambda: tidy)
+    sm.songs.update(songs)
+    return sm
+
+
+class TestSearch:
+    """Tests for filename matching."""
+
+    def test_single_term(self, tmp_path, mock_db):
+        sm = _manager(
+            tmp_path,
+            mock_db,
+            [
+                "/songs/Abba - Waterloo---aaaaaaaaaaa.mp4",
+                "/songs/Queen - Bohemian---bbbbbbbbbbb.mp4",
+            ],
+        )
+        assert sm.search("waterloo") == ["/songs/Abba - Waterloo---aaaaaaaaaaa.mp4"]
+
+    def test_multi_term_is_order_independent(self, tmp_path, mock_db):
+        song = "/songs/Queen - Bohemian Rhapsody---aaaaaaaaaaa.mp4"
+        sm = _manager(tmp_path, mock_db, [song])
+        assert sm.search("queen bohemian") == [song]
+        assert sm.search("bohemian queen") == [song]
+
+    def test_case_insensitive(self, tmp_path, mock_db):
+        song = "/songs/Abba - Waterloo---aaaaaaaaaaa.mp4"
+        sm = _manager(tmp_path, mock_db, [song])
+        assert sm.search("WATERLOO") == [song]
+
+    def test_empty_query_returns_everything(self, tmp_path, mock_db):
+        songs = ["/songs/a---aaaaaaaaaaa.mp4", "/songs/b---bbbbbbbbbbb.mp4"]
+        sm = _manager(tmp_path, mock_db, songs)
+        assert sm.search("") == sorted(songs)
+        assert sm.search("   ") == sorted(songs)
+
+    def test_single_and_multi_term_paths_agree(self, tmp_path, mock_db):
+        """The single-term fast path must return what the general path would."""
+        songs = [
+            "/songs/Abba - Waterloo---aaaaaaaaaaa.mp4",
+            "/songs/Abba - Dancing Queen---bbbbbbbbbbb.mp4",
+        ]
+        sm = _manager(tmp_path, mock_db, songs)
+        assert sm.search("abba") == sm.search("abba abba")
+
+    def test_accent_insensitive_both_directions(self, tmp_path, mock_db):
+        song = "/songs/Céline Dion - Pour que tu m'aimes---aaaaaaaaaaa.mp4"
+        sm = _manager(tmp_path, mock_db, [song])
+        assert sm.search("celine") == [song]
+        assert sm.search("céline") == [song]
+
+    def test_no_match_returns_empty(self, tmp_path, mock_db):
+        sm = _manager(tmp_path, mock_db, ["/songs/Abba - Waterloo---aaaaaaaaaaa.mp4"])
+        assert sm.search("nonexistent") == []
+
+    def test_ignores_directory_names(self, tmp_path, mock_db):
+        """Matching the full path would return every song in a library under Karaoke/."""
+        song = "/music/Karaoke/Abba - Waterloo---aaaaaaaaaaa.mp4"
+        sm = _manager(tmp_path, mock_db, [song])
+        assert sm.search("karaoke") == []
+        assert sm.search("waterloo") == [song]
+
+
+class TestSearchUsesUntidiedFilename:
+    """The match key is the raw stem, so terms regex_tidy strips are still findable."""
+
+    SONG = "/songs/Bohemian Rhapsody (Karaoke Version)---aaaaaaaaaaa.mp4"
+
+    def test_finds_song_by_a_word_tidy_strips(self, tmp_path, mock_db):
+        """The deciding case: a tidied key cannot contain 'karaoke' by construction."""
+        sm = _manager(tmp_path, mock_db, [self.SONG], tidy=True)
+        assert sm.search("bohemian karaoke") == [self.SONG]
+
+    def test_results_identical_regardless_of_tidy_preference(self, tmp_path, mock_db):
+        songs = [self.SONG, "/songs/Abba - Waterloo HD---bbbbbbbbbbb.mp4"]
+        tidy_on = _manager(tmp_path, mock_db, songs, tidy=True)
+        tidy_off = _manager(tmp_path, mock_db, songs, tidy=False)
+        for query in ("bohemian karaoke", "waterloo hd", "abba", "version"):
+            assert tidy_on.search(query) == tidy_off.search(query)
+
+
+class TestMatchIndexInvalidation:
+    """The index is keyed on SongList.version, which is the part most likely to break."""
+
+    def test_song_added_after_a_search_is_findable(self, tmp_path, mock_db):
+        sm = _manager(tmp_path, mock_db, ["/songs/Abba - Waterloo---aaaaaaaaaaa.mp4"])
+        assert sm.search("dancing") == []
+        new_song = "/songs/Abba - Dancing Queen---bbbbbbbbbbb.mp4"
+        sm.songs.add(new_song)
+        assert sm.search("dancing") == [new_song]
+
+    def test_deleted_song_disappears(self, tmp_path, mock_db):
+        song = "/songs/Abba - Waterloo---aaaaaaaaaaa.mp4"
+        sm = _manager(tmp_path, mock_db, [song])
+        assert sm.search("waterloo") == [song]
+        sm.songs.remove(song)
+        assert sm.search("waterloo") == []
+
+    def test_renamed_song_findable_under_new_name_only(self, tmp_path, mock_db):
+        song = tmp_path / "Old Title---aaaaaaaaaaa.mp4"
+        song.write_text("fake")
+        sm = SongManager(str(tmp_path), db=mock_db, get_title_tidy=lambda: False)
+        sm.songs.add_if_valid(str(song))
+        assert sm.search("old") == [str(song)]
+        new_path = sm.rename(str(song), "New Title---aaaaaaaaaaa")
+        assert sm.search("new") == [new_path]
+        assert sm.search("old") == []
+
+
+class TestSongsByLetter:
+    def test_groups_by_first_letter(self, tmp_path, mock_db):
+        abba = "/songs/Abba - Waterloo---aaaaaaaaaaa.mp4"
+        queen = "/songs/Queen - Bohemian---bbbbbbbbbbb.mp4"
+        sm = _manager(tmp_path, mock_db, [abba, queen])
+        assert sm.songs_by_letter("a") == [abba]
+        assert sm.songs_by_letter("q") == [queen]
+
+    def test_accent_folding(self, tmp_path, mock_db):
+        song = "/songs/Édith Piaf - La Vie en Rose---aaaaaaaaaaa.mp4"
+        sm = _manager(tmp_path, mock_db, [song])
+        assert sm.songs_by_letter("e") == [song]
+
+    def test_numeric(self, tmp_path, mock_db):
+        numeric = "/songs/99 Luftballons---aaaaaaaaaaa.mp4"
+        sm = _manager(tmp_path, mock_db, [numeric, "/songs/Abba - Waterloo---bbbbbbbbbbb.mp4"])
+        assert sm.songs_by_letter("numeric") == [numeric]
+
+    def test_case_insensitive_input(self, tmp_path, mock_db):
+        song = "/songs/Abba - Waterloo---aaaaaaaaaaa.mp4"
+        sm = _manager(tmp_path, mock_db, [song])
+        assert sm.songs_by_letter("A") == [song]
+
+    def test_groups_by_raw_filename_not_display_name(self, tmp_path, mock_db):
+        """Filing under the raw name is what keeps the alpha bar in step with the sort order."""
+        song = "/songs/Karaoke - Bohemian Rhapsody---aaaaaaaaaaa.mp4"
+        sm = _manager(tmp_path, mock_db, [song], tidy=True)
+        assert sm.display_name_from_path(song) == "Bohemian Rhapsody"
+        assert sm.songs_by_letter("k") == [song]
+        assert sm.songs_by_letter("b") == []
+
+
+class TestDisplayNameUnchanged:
+    """Regression guard: this change touches matching and must leave display alone."""
+
+    SONG = "/songs/Queen - Bohemian Rhapsody (Karaoke Version)---aaaaaaaaaaa.mp4"
+
+    def test_tidy_on_returns_tidied_name(self, tmp_path, mock_db):
+        sm = _manager(tmp_path, mock_db, [self.SONG], tidy=True)
+        assert sm.display_name_from_path(self.SONG) == "Queen - Bohemian Rhapsody"
+
+    def test_tidy_off_returns_raw_name(self, tmp_path, mock_db):
+        sm = _manager(tmp_path, mock_db, [self.SONG], tidy=False)
+        assert sm.display_name_from_path(self.SONG) == "Queen - Bohemian Rhapsody (Karaoke Version)"

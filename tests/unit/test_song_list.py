@@ -309,3 +309,54 @@ class TestSongListThreadSafety:
         t2.join()
 
         assert errors == [], f"Exceptions raised during concurrent access: {errors}"
+
+
+class TestVersion:
+    """Tests for the mutation counter that lets callers cache derived data."""
+
+    def test_starts_at_zero(self):
+        assert SongList().version == 0
+
+    def test_add_bumps(self):
+        sl = SongList()
+        sl.add("/songs/test.mp4")
+        assert sl.version == 1
+
+    def test_duplicate_add_does_not_bump(self):
+        sl = SongList()
+        sl.add("/songs/test.mp4")
+        sl.add("/songs/test.mp4")
+        assert sl.version == 1
+
+    def test_remove_bumps(self):
+        sl = SongList()
+        sl.add("/songs/test.mp4")
+        sl.remove("/songs/test.mp4")
+        assert sl.version == 2
+
+    def test_absent_remove_does_not_bump(self):
+        """A no-op remove changes nothing, so a cache keyed on version must not rebuild."""
+        sl = SongList()
+        sl.remove("/songs/nothing.mp4")
+        assert sl.version == 0
+
+    def test_update_bumps(self):
+        sl = SongList()
+        sl.update(["/songs/a.mp4", "/songs/b.mp4"])
+        assert sl.version == 1
+
+    def test_rename_bumps(self, tmp_path):
+        old = tmp_path / "Old---abc12345678.mp4"
+        new = tmp_path / "New---abc12345678.mp4"
+        new.write_text("fake")
+        sl = SongList()
+        sl.add(str(old))
+        assert sl.rename(str(old), str(new)) is True
+        assert sl.version == 2
+
+    def test_failed_rename_does_not_bump(self):
+        """rename() rejects an invalid new path before mutating, so nothing changed."""
+        sl = SongList()
+        sl.add("/songs/old.mp4")
+        assert sl.rename("/songs/old.mp4", "/songs/missing.mp4") is False
+        assert sl.version == 1
