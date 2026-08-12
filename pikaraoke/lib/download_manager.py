@@ -318,7 +318,7 @@ class DownloadManager:
                 logging.warning("No video ID available to find downloaded song")
 
             if song_path:
-                self._events.emit("song_downloaded", song_path)
+                self._events.emit("song_downloaded", song_path, video_id)
             else:
                 logging.warning(
                     f"Could not find downloaded song in {self._download_path} matching ID: {video_id}"

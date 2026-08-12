@@ -117,8 +117,27 @@
       return Cookies.get("user");
     }
 
+    // Queueing a song already on this machine. Delegated because the Songs page
+    // swaps its whole result table per filter keystroke, and shared because
+    // Songs and Add New render the identical link. Unbound first: SPA navigation
+    // re-executes every inline script, so a plain bind would stack and queue the
+    // song once per page visited.
+    function bindAddSongLinks() {
+      $(document).off("click", "a.add-song-link");
+      $(document).on("click", "a.add-song-link", function (e) {
+        e.preventDefault();
+        setUserCookie();
+        $.get(this.href + encodeURIComponent(getUserCookie() || ""), function (data) {
+          var obj = JSON.parse(data);
+          // {# MSG: Notification shown after trying to add a song to the queue. The song name comes after this string. #}
+          showNotification(obj.success[1], obj.success[0] ? "is-success" : "is-danger");
+        });
+      });
+    }
+
     $(function () {
       connectSocket();
+      bindAddSongLinks();
 
       $("#notification-close").click(function () {
         $(".notification").hide();
@@ -127,28 +146,7 @@
 
       // Navbar burger menu is handled by spa-navigation.js
 
-      // handle highlighting current nav bar location
-      var fullPath = window.location.pathname;
-      var basePath = window.pikaraokeConfig.basePath;
-      var path = fullPath;
-      if (basePath && fullPath.startsWith(basePath)) {
-        path = fullPath.substring(basePath.length) || '/';
-      }
-      if (path === '/' || path === '') {
-        $("#home").addClass("is-active")
-      }
-      if (path === '/queue') {
-        $("#queue").addClass("is-active")
-      }
-      if (path === '/search') {
-        $("#search").addClass("is-active")
-      }
-      if (path === '/browse' || path.startsWith('/browse')) {
-        $("#browse").addClass("is-active")
-      }
-      if (path === '/info') {
-        $("#info").addClass("is-active")
-      }
+      window.spaNavigation.updateNavHighlight(window.location.pathname);
 
       // handle auto-close flash notifications
       setTimeout(function() { $("#notification").fadeOut()}, 3000);
@@ -170,8 +168,18 @@
 </head>
 
 <style>
-  .navbar-item > i {
-    margin-right: 2px;
+  /* Icon-to-label spacing. Bulma already makes navbar items flex containers with
+     a .75rem gap, and the fontello glyph adds another .2em of its own, so the
+     icon floated well clear of its label. The flex gap is the only lever needed
+     once the glyph's margin is zeroed -- the element margin that used to be here
+     just stacked a third value on top. */
+  .navbar-item,
+  .navbar-link {
+    gap: 0.3rem;
+  }
+  .navbar-item > i::before,
+  .navbar-link > i::before {
+    margin-right: 0;
   }
   .base-notification {
     position: fixed;
@@ -228,15 +236,21 @@
           {# MSG: Navigation link for the queue page. #}
           <span>{% trans %}Queue{% endtrans %}</span>
         </a>
-        <a id="search" class="navbar-item" href="{{ url_for('search.search') }}">
-          <i class="icon icon-search-1" title="Search"></i>
-          {# MSG: Navigation link for the search page add songs to the queue. #}
-          <span>{% trans %}Search{% endtrans %}</span>
+        <!-- The labels below are hidden under 1088px, so the icon is the only nav
+             signal a phone gets and the aria-label is the only accessible name.
+             Do not change these ids or hrefs: updateNavHighlight() derives the
+             active item from the first URL path segment. -->
+        <a id="browse" class="navbar-item" href="{{ url_for('files.browse') }}"
+          aria-label="{% trans %}Songs{% endtrans %}">
+          <i class="icon icon-music"></i>
+          {# MSG: Navigation link for the page listing songs already on this machine. #}
+          <span>{% trans %}Songs{% endtrans %}</span>
         </a>
-        <a id="browse" class="navbar-item" href="{{ url_for('files.browse') }}">
-          <i class="icon icon-folder-open-empty" title="Browse"></i>
-          {# MSG: Navigation link for the page where the user can add existing songs to the queue. #}
-          <span>{% trans %}Browse{% endtrans %}</span>
+        <a id="search" class="navbar-item" href="{{ url_for('search.search') }}"
+          aria-label="{% trans %}Add New{% endtrans %}">
+          <i class="icon icon-plus-circled"></i>
+          {# MSG: Navigation link for the page used to get new songs into the library. #}
+          <span>{% trans %}Add New{% endtrans %}</span>
         </a>
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
           <span aria-hidden="true"></span>

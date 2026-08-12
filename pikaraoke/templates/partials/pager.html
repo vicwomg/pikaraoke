@@ -1,0 +1,106 @@
+{# The one pager every paged table uses: prev and next either side of a
+   "1-100 of 2000" summary. Two forms, because pages differ in where their paging
+   state lives, not in how paging looks -- both emit .pager-controls with the same
+   classes and icons, so the two render identically.
+
+   Use `pager()` when the state is in the URL, so a page is a link and Back works.
+   Use `pager_controls()` with `pager_scripts()` when the state is an offset held
+   in JavaScript beside filters that never reach the URL, so a page is a re-fetch
+   and navigating away would drop them. #}
+
+{# A dead end has nowhere to link to, so it stops being one. Bulma styles a disabled
+   <button> natively, and the browser drops it from the tab order. #}
+{% macro _end(label, icon, href, enabled) %}
+{%- if enabled -%}
+<a class="button is-small" title="{{ label | forceescape }}" href="{{ href }}"><i class="icon icon-{{ icon }}"></i></a>
+{%- else -%}
+<button class="button is-small" title="{{ label | forceescape }}" disabled><i class="icon icon-{{ icon }}"></i></button>
+{%- endif -%}
+{% endmacro %}
+
+{# `page_href` is an already-rendered URL carrying the literal PAGENUMBER where the
+   number goes -- substituted rather than appended, which would have to guess whether
+   the separator is "?" or "&".
+
+   `size_options` adds the per-page dropdown. Pass it on the top row only: the point
+   of changing the size is not having to reach the bottom of the page first. #}
+{% macro pager(page, per_page, total, page_href, size_options=None) %}
+{% set start = ((page - 1) * per_page) + 1 if total else 0 %}
+{% set end = [page * per_page, total] | min %}
+<div class="pager-controls">
+	{# MSG: Tooltip on the button showing the previous page of a table. #}
+	{{ _end(_('Previous page'), 'left-big', page_href | replace('PAGENUMBER', page - 1), page > 1) }}
+	{# MSG: Tooltip on the button showing the next page of a table. #}
+	{{ _end(_('Next page'), 'right-big', page_href | replace('PAGENUMBER', page + 1), end < total) }}
+	{# Tokens rather than Jinja placeholders, because renderPager() below substitutes
+	   the same string client-side and shares this one msgid. #}
+	{# MSG: Pagination summary. START, END and TOTAL are replaced with numbers, reading for example "1-100 of 2000". #}
+	<span class="is-size-7">
+		{{- _('START-END of TOTAL') | replace('START', start) | replace('END', end) | replace('TOTAL', total) -}}
+	</span>
+	{% if size_options %}
+	<span class="is-flex-grow-1"></span>
+	{# MSG: Label before the dropdown choosing how many rows to list per page. #}
+	<label class="is-size-7" for="pager-per-page">{% trans %}Per page{% endtrans %}</label>
+	<div class="select is-small">
+		<select id="pager-per-page">
+			{% for n in size_options %}
+			<option value="{{ n }}"{% if n == per_page %} selected{% endif %}>{{ n }}</option>
+			{% endfor %}
+		</select>
+	</div>
+	{% endif %}
+</div>
+{% endmacro %}
+
+{# The ends are real buttons here because there is nowhere to link to, and the
+   summary is filled in by renderPager() once the rows arrive. `prefix` names the
+   element ids; wirePager() binds them by the same prefix, so one page can carry
+   several of these. #}
+{% macro pager_controls(prefix) %}
+<div class="pager-controls">
+	{# MSG: Tooltip on the button showing the previous page of a table. #}
+	<button id="{{ prefix }}-prev" class="button is-small" title="{{ _('Previous page') | forceescape }}">
+		<i class="icon icon-left-big"></i>
+	</button>
+	{# MSG: Tooltip on the button showing the next page of a table. #}
+	<button id="{{ prefix }}-next" class="button is-small" title="{{ _('Next page') | forceescape }}">
+		<i class="icon icon-right-big"></i>
+	</button>
+	<span id="{{ prefix }}-page-info" class="is-size-7"></span>
+</div>
+{% endmacro %}
+
+{# Drives every pager_controls() on the page. Include once. #}
+{% macro pager_scripts() %}
+<script>
+	// Gettext output is Markup, so Jinja never autoescapes it: an apostrophe in a
+	// translation would close the JS string literal and break this whole script.
+	// |tojson emits the literal instead. See tests/unit/test_template_i18n.py.
+	var pagerText = {
+		// {# MSG: Pagination summary. START, END and TOTAL are replaced with numbers, reading for example "1-100 of 2000". #}
+		showing: {{ _('START-END of TOTAL') | tojson }}
+	};
+
+	function renderPager(prefix, page, total) {
+		var start = total ? page.offset + 1 : 0;
+		var end = Math.min(page.offset + page.limit, total);
+		$("#" + prefix + "-page-info").text(
+			pagerText.showing.replace("START", start).replace("END", end).replace("TOTAL", total)
+		);
+		$("#" + prefix + "-prev").prop("disabled", page.offset === 0);
+		$("#" + prefix + "-next").prop("disabled", end >= total);
+	}
+
+	function wirePager(prefix, page, reload) {
+		$("#" + prefix + "-prev").on("click", function () {
+			page.offset = Math.max(0, page.offset - page.limit);
+			reload();
+		});
+		$("#" + prefix + "-next").on("click", function () {
+			page.offset += page.limit;
+			reload();
+		});
+	}
+</script>
+{% endmacro %}
