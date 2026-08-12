@@ -40,6 +40,7 @@ class SongList:
         self._sorted_cache: list[str] | None = None
         self._sort_key = sort_key or (lambda f: self._normalize_sort_key(f))
         self._lock = threading.Lock()
+        self._version = 0
 
     @staticmethod
     def _normalize_sort_key(file_path: str) -> str:
@@ -53,8 +54,15 @@ class SongList:
         return "".join(c for c in decomposed if unicodedata.category(c) != "Mn")
 
     def _invalidate_cache(self) -> None:
-        """Mark the sorted cache as stale."""
+        """Mark the sorted cache as stale and signal the change to observers."""
         self._sorted_cache = None
+        self._version += 1
+
+    @property
+    def version(self) -> int:
+        """Monotonic counter bumped on every mutation; lets callers cache derived data."""
+        with self._lock:
+            return self._version
 
     def _ensure_sorted(self) -> list[str]:
         """Ensure the sorted cache is up to date and return it."""

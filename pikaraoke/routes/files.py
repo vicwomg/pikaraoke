@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
-import unicodedata
-from urllib.parse import unquote
 
 import flask_babel
 from flask import flash, redirect, render_template, request, url_for
-from flask_paginate import Pagination, get_page_parameter
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
-from pikaraoke.constants import ITUNES_COUNTRIES
+from pikaraoke.constants import ITUNES_COUNTRIES, per_page_options
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
 from pikaraoke.lib.metadata_parser import youtube_id_suffix
 
@@ -23,6 +21,23 @@ _ = flask_babel.gettext
 _FORMAT_ICONS = {"mp4", "avi", "mkv", "mov", "webm", "cdg", "ass"}
 # Zipped CDG+MP3 packages are stored as "zip" in the DB but use the CDG icon
 _FORMAT_ALIASES = {"zip": "cdg"}
+
+# On the device, not in config.ini: one server serves every phone in the room,
+# so a browsing choice written server-side moves everyone's default.
+_PER_PAGE_COOKIE = "browse_per_page"
+
+
+def _results_per_page(server_default: int, options: list[int]) -> int:
+    """This device's page size, falling back to the server-wide default.
+
+    Sizes off the menu are ignored: the cookie is user-editable, and a hand-set
+    50000 would render every row on a Pi that is also decoding video.
+    """
+    try:
+        chosen = int(request.cookies.get(_PER_PAGE_COOKIE, ""))
+    except ValueError:
+        return server_default
+    return chosen if chosen in options else server_default
 
 
 def _format_icon(song_path: str, db_format: str | None) -> str | None:
@@ -60,33 +75,20 @@ def browse():
     """Browse available songs page."""
     k = get_karaoke_instance()
     site_name = get_site_name()
-    search = False
-    q = request.args.get("q")
-    if q:
-        search = True
-    page = int(request.args.get("page", 1))
-
-    available_songs = k.song_manager.songs
-
+    q = (request.args.get("q") or "").strip()
     letter = request.args.get("letter")
 
-    if letter:
-        result = []
-        if letter == "numeric":
-            for song in available_songs:
-                f = k.song_manager.display_name_from_path(song)[0]
-                if f.isnumeric():
-                    result.append(song)
-        else:
-            for song in available_songs:
-                f = k.song_manager.display_name_from_path(song).lower()
-                # Normalize accented characters so e.g. "Édith" matches "e"
-                normalized = unicodedata.normalize("NFD", f)
-                base_char = normalized[0] if normalized else ""
-                if base_char == letter.lower():
-                    result.append(song)
-        available_songs = result
+    # A text query and a letter jump are two different intents, so q wins.
+    if q:
+        available_songs = k.song_manager.search(q)
+    elif letter:
+        available_songs = k.song_manager.songs_by_letter(letter)
+    else:
+        available_songs = k.song_manager.songs
 
+    # Filtering stays above the date sort so getmtime() only stats the filtered
+    # songs -- on a USB or SMB mounted library that is the difference between
+    # ~50 stats and ~2000, and gevent does not yield during filesystem I/O.
     if request.args.get("sort") == "date":
         songs = sorted(available_songs, key=lambda x: os.path.getmtime(x))
         songs.reverse()
@@ -95,42 +97,68 @@ def browse():
         songs = available_songs
         sort_order = "Alphabetical"
 
-    results_per_page = k.browse_results_per_page
+    size_options = per_page_options(k.browse_results_per_page)
+    results_per_page = _results_per_page(k.browse_results_per_page, size_options)
+    # `songs` is already filtered, so the filtered count is the only count there is.
+    total = len(songs)
+    # Resolved before the URLs below are built, so the pager links and the edit
+    # referrer describe the page that was rendered rather than the one asked for.
+    # Junk, a zero and a page past the end all land somewhere real: the pager links
+    # to the page either side of this one, and a bookmark is not worth a 500.
+    try:
+        page = int(request.args.get("page", 1))
+    except ValueError:
+        page = 1
+    page = min(max(page, 1), max(1, math.ceil(total / results_per_page)))
+    start_index = (page - 1) * results_per_page
 
     args = request.args.copy()
     args.pop("_", None)
+    # Without this the fragment renders pagination links carrying partial=1, so
+    # clicking page 2 inside a swapped result table lands on a bare <table> with
+    # no nav or stylesheet. The same leak poisons current_url, which becomes the
+    # edit button's referrer.
+    args.pop("partial", None)
+    # Rewritten rather than passed through, because the clamp above may have dropped
+    # a page the request asked for, and these args build the pagination links and
+    # the edit referrer -- an edit started from a clamped page comes back to a real
+    # one.
+    args["page"] = page
 
     current_url = url_for("files.browse", **args.to_dict())
 
-    page_param = get_page_parameter()
-    args[page_param] = "{0}"
+    # Substituted into the rendered URL rather than appended, which would have to
+    # guess whether the separator is "?" or "&". Unreserved characters, so url_for's
+    # percent-encoding hands it back untouched; partials/pager.html replaces it.
+    args["page"] = "PAGENUMBER"
+    page_href = url_for("files.browse", **args.to_dict())
 
-    args_dict = args.to_dict()
-    pagination_href = unquote(url_for("files.browse", **args_dict))  # type: ignore
-
-    pagination = Pagination(
-        css_framework="bulma",
-        page=page,
-        total=len(songs),
-        search=search,
-        record_name="songs",
-        per_page=results_per_page,
-        display_msg="Showing <b>{start} - {end}</b> of <b>{total}</b> {record_name}",
-        href=pagination_href,
-    )
-    start_index = (page - 1) * results_per_page
-    return render_template(
-        "files.html",
-        pagination=pagination,
-        sort_order=sort_order,
-        site_title=site_name,
-        letter=letter,
-        # MSG: Title of the files page.
-        title=_("Browse"),
-        songs=songs[start_index : start_index + results_per_page],
-        admin=is_admin(),
-        current_url=current_url,
-    )
+    admin = is_admin()
+    context = {
+        "page": page,
+        "per_page": results_per_page,
+        # Everyone, not just the host: the size is per-device now.
+        "per_page_options": size_options,
+        "total": total,
+        "skip": start_index,
+        "page_href": page_href,
+        "sort_order": sort_order,
+        "site_title": site_name,
+        "letter": letter,
+        "q": q,
+        # MSG: Title of the page listing the songs already on this machine.
+        "title": _("Songs"),
+        "songs": songs[start_index : start_index + results_per_page],
+        "admin": admin,
+        "current_url": current_url,
+    }
+    # Filter keystrokes ask for the result table alone. Rendering base.html per
+    # keystroke is pure Python, so on a Pi it blocks the event loop as surely as
+    # it wastes bytes over the hotspot. Built from one context dict so the two
+    # paths cannot drift.
+    if request.args.get("partial"):
+        return render_template("partials/browse_results.html", **context)
+    return render_template("files.html", **context)
 
 
 @files_bp.route("/files/delete", methods=["GET"])

@@ -91,6 +91,21 @@ class KaraokeDatabase:
             ).fetchone()
             return row[0] if row else None
 
+    def get_paths_by_youtube_ids(self, youtube_ids: list[str]) -> dict[str, str]:
+        """Map YouTube IDs to local file paths for those already in the library.
+
+        One indexed query per search page rather than one per result.
+        """
+        if not youtube_ids:
+            return {}
+        placeholders = ",".join("?" * len(youtube_ids))
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT youtube_id, file_path FROM songs WHERE youtube_id IN ({placeholders})",
+                tuple(youtube_ids),
+            ).fetchall()
+        return {row[0]: row[1] for row in rows}
+
     # ------------------------------------------------------------------
     # Batch write operations (used by LibraryScanner)
     # ------------------------------------------------------------------
