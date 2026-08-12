@@ -517,11 +517,7 @@ class TestFolderView:
         assert "view=folders" not in body
 
     def test_alpha_bar_is_hidden_in_a_folder_that_fits_on_one_page(self, client, app):
-        """26 letters above four rows is noise; the flat view keeps the bar regardless.
-
-        Asserting on the id attribute, not the bare string: the scroll handler in
-        this template's script block names #alpha-bar whether or not it renders.
-        """
+        """26 letters above four rows is noise; the flat view keeps the bar regardless."""
         folders = _browse(client, app, NESTED, "?view=folders").data.decode()
         assert 'id="alpha-bar"' not in folders
         assert 'id="alpha-bar"' in _browse(client, app, NESTED).data.decode()

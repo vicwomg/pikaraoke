@@ -9,26 +9,35 @@
 		// media query -- an inline `top` would follow a resize onto the desktop
 		// layout and strand the bar wherever the phone had left it.
 		const alphaBar = document.getElementById("alpha-bar");
-		const restingTop = document.querySelector(".box").getBoundingClientRect().top + window.scrollY;
-		let queued = false;
-		function placeAlphaBar() {
-			queued = false;
-			const top = Math.max(3, restingTop - window.scrollY);
-			alphaBar.style.setProperty("--alpha-top", top + "px");
+		const box = document.querySelector(".box");
+		// The strip is dropped for a folder short enough to fit on one page.
+		if (alphaBar && box) {
+			const restingTop = box.getBoundingClientRect().top + window.scrollY;
+			let queued = false;
+			function placeAlphaBar() {
+				queued = false;
+				const top = Math.max(3, restingTop - window.scrollY);
+				alphaBar.style.setProperty("--alpha-top", top + "px");
+			}
+			// Not on load alone: a Back navigation restores the scroll position.
+			placeAlphaBar();
+			// Namespaced, and unbound first, because SPA navigation re-runs this
+			// script on every visit and a plain bind would stack a handler per page.
+			$(window)
+				.off("scroll.alphabar")
+				.on("scroll.alphabar", function () {
+					// A phone fires scroll faster than it paints and each write
+					// forces a layout, so collapse them onto the frame.
+					if (queued) return;
+					queued = true;
+					requestAnimationFrame(placeAlphaBar);
+				});
 		}
-		// Not on load alone: a Back navigation restores the scroll position.
-		placeAlphaBar();
-		// Namespaced, and unbound first, because SPA navigation re-runs this
-		// script on every visit and a plain bind would stack a handler per page.
-		$(window)
-			.off("scroll.alphabar")
-			.on("scroll.alphabar", function () {
-				// A phone fires scroll faster than it paints and each write
-				// forces a layout, so collapse them onto the frame.
-				if (queued) return;
-				queued = true;
-				requestAnimationFrame(placeAlphaBar);
-			});
+
+		const input = document.getElementById("song-filter");
+		const resultsDiv = document.getElementById("browse-results");
+		// A folder holding only subfolders renders neither control.
+		if (!input || !resultsDiv) return;
 
 		// --- Filter box -------------------------------------------------
 		// Hiragana/Katakana, CJK Ext A, CJK Unified, Hangul Syllables. Ranges mirror
@@ -53,12 +62,6 @@
 		const BROWSE_URL = "{{ url_for('files.browse') }}";
 		const VIEW = {{ view | tojson }};
 		const FOLDER = {{ folder | tojson }};
-		const input = document.getElementById("song-filter");
-		const resultsDiv = document.getElementById("browse-results");
-
-		// A folder holding only subfolders renders neither control. The alpha-bar
-		// handler above is already bound, so bail out here rather than earlier.
-		if (!input || !resultsDiv) return;
 
 		// Filtering and sorting act *within* the folder being browsed, so every URL
 		// built below has to carry the scope -- otherwise the first keystroke
