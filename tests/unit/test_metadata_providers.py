@@ -506,6 +506,18 @@ class TestSuggestionScoring:
         featuring = "Sia And Fetty Wap"
         assert _score(both, query, featuring) > _score(one, query, featuring)
 
+    def test_collaborator_bonus_ignores_which_part_is_first(self):
+        """The bonus used to read part one as the artist, so it never fired on
+        a 'Title - Artist' library."""
+        result = {
+            "artist": "Taylor Swift",
+            "title": "Everything Has Changed (feat. Ed Sheeran)",
+            "genre": "Pop",
+        }
+        artist_first = "Taylor Swift and Ed Sheeran - Everything Has Changed"
+        title_first = "Everything Has Changed - Taylor Swift and Ed Sheeran"
+        assert _score(result, title_first) == _score(result, artist_first)
+
     def test_version_keyword_uses_word_boundaries(self):
         """'Oliver's Army' should not be penalized for containing 'live'."""
         result = {

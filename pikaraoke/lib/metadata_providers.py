@@ -324,11 +324,14 @@ def _suggestion_score(
 
     artist_matched = False
     title_matched = False
+    artist_part_norm = ""
     for part, part_norm in query_parts_norm:
         matched_artist = _matches_field(part_norm, artist_norm)
         matched_title = (
             part == title_lower or part == title_base or _matches_field(part_norm, title_norm)
         )
+        if matched_artist and not artist_part_norm:
+            artist_part_norm = part_norm
         artist_matched |= matched_artist
         title_matched |= matched_title
         exact_match = (
@@ -380,7 +383,9 @@ def _suggestion_score(
     # This handles "and"/"&"/"with" collaborator names without treating them
     # as featuring keywords (which would break genuine duos).
     if len(query_parts_norm) >= 2 and title_base != title_lower:
-        query_artist_norm = query_parts_norm[0][1]
+        # Whichever part matched the artist, not whichever came first: the
+        # filename may be "Title - Artist".
+        query_artist_norm = artist_part_norm or query_parts_norm[0][1]
         parens_text = _extract_qualifier_text(title_lower)
         if parens_text and artist_norm != query_artist_norm:
             # Extract the extra part of the query artist beyond the result artist
