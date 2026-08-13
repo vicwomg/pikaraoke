@@ -417,6 +417,14 @@ class TestRenameFailuresKeepYourWork:
         assert "already exists" in response.data.decode()
         k.rename_song.assert_not_called()
 
+    def test_saving_the_name_it_already_has_is_not_a_collision(self, client, app, existing_song):
+        """A song that already fits the naming convention is done, not in conflict with itself."""
+        k = _karaoke_for_rename()
+        response = self._submit(client, k, existing_song, new_file_name=existing_song.stem)
+        assert response.status_code == 302
+        assert response.headers["Location"] == "/queue"
+        k.rename_song.assert_not_called()
+
     def test_a_song_claimed_mid_edit_is_reported(self, client, app, existing_song):
         k = _karaoke_for_rename()
         k.rename_song.side_effect = SongInUseError(str(existing_song))

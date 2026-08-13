@@ -255,9 +255,13 @@ def rename_file(form):
 
     new_name_full = new_name + youtube_id_suffix(old_name)
     file_extension = os.path.splitext(old_name)[1]
-    if os.path.isfile(os.path.join(os.path.dirname(old_name), new_name_full + file_extension)):
+    target = os.path.join(os.path.dirname(old_name), new_name_full + file_extension)
+    # A song already named what you asked for is done, not a collision with itself.
+    if target == old_name:
+        return redirect(referrer)
+    if os.path.isfile(target):
         # MSG: Message shown after trying to rename a song to a name already in use.
-        error = _("A song called '%s' already exists.") % (new_name_full + file_extension)
+        error = _("A song called '%s' already exists.") % os.path.basename(target)
         return _render_edit_page(k, old_name, new_name, referrer, error)
 
     try:
