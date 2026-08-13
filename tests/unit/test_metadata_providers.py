@@ -401,6 +401,23 @@ class TestSuggestMetadata:
         assert len(results) > 0
         assert results[0]["source"] == "itunes"
 
+    def test_artist_first_sets_the_display_order(self):
+        """The library's convention decides, not the order the file happens to use."""
+        mock_provider = MagicMock()
+        mock_provider.search.return_value = [
+            {"artist": "Queen", "title": "Bohemian Rhapsody", "year": "", "genre": "", "source": ""}
+        ]
+
+        artist_first = suggest_metadata(
+            "Bohemian Rhapsody - Queen", provider=mock_provider, artist_first=True
+        )
+        title_first = suggest_metadata(
+            "Queen - Bohemian Rhapsody", provider=mock_provider, artist_first=False
+        )
+
+        assert artist_first[0]["display"] == "Queen - Bohemian Rhapsody"
+        assert title_first[0]["display"] == "Bohemian Rhapsody - Queen"
+
     def test_uses_provided_provider(self):
         mock_provider = MagicMock()
         mock_provider.search.return_value = [

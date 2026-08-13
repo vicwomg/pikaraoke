@@ -288,6 +288,7 @@ def test_preference_manager_defaults_exist():
         "enable_title_tidy",
         "metadata_provider",
         "itunes_search_country",
+        "suggestion_name_order",
     }
 
     assert set(PreferenceManager.DEFAULTS.keys()) == expected_keys
