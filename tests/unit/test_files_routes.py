@@ -1,7 +1,9 @@
 """Tests for the browse route's filtering, sorting, and fragment rendering."""
 
+import contextlib
 import os
 import re
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,6 +12,7 @@ import werkzeug
 if not hasattr(werkzeug, "__version__"):
     werkzeug.__version__ = "3.0.0"
 
+from pikaraoke.karaoke import SongInUseError
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.routes.files import files_bp
 from tests.conftest import make_route_app
@@ -304,24 +307,46 @@ class TestPartialFragment:
         assert "partial" not in body
 
 
-def _post_rename(client, k, admin=True, **form):
-    """POST /files/edit with the given form fields."""
-    form = {"old_file_name": "/songs/Old.mp4", "new_file_name": "New", **form}
-    with (
+def _patched(k, admin=True):
+    return (
         patch("pikaraoke.routes.files.get_karaoke_instance", return_value=k),
         patch("pikaraoke.routes.files.get_site_name", return_value="PiKaraoke"),
         patch("pikaraoke.routes.files.is_admin", return_value=admin),
-    ):
+    )
+
+
+def _post_rename(client, k, admin=True, **form):
+    """POST /files/edit with the given form fields."""
+    form = {"old_file_name": "/songs/Old.mp4", "new_file_name": "New", **form}
+    with contextlib.ExitStack() as stack:
+        for ctx in _patched(k, admin):
+            stack.enter_context(ctx)
         return client.post("/files/edit", data=form)
 
 
+def _get_edit(client, k, song, admin=True):
+    with contextlib.ExitStack() as stack:
+        for ctx in _patched(k, admin):
+            stack.enter_context(ctx)
+        return client.get(f"/files/edit?song={song}&referrer=/queue")
+
+
 def _karaoke_for_rename(playing=None, queued=()):
-    """A karaoke stand-in answering only what the rename guards ask it."""
+    """A karaoke stand-in answering only what the rename route asks it."""
     k = MagicMock()
     k.playback_controller.now_playing_filename = playing
     k.queue_manager.is_song_in_queue.side_effect = lambda path: path in queued
     k.is_song_in_use.side_effect = lambda path: path == playing or path in queued
+    k.db.get_format.return_value = None
+    k.song_manager.filename_from_path.side_effect = lambda path, tidy=True: Path(path).stem
     return k
+
+
+@pytest.fixture
+def existing_song(tmp_path):
+    song = tmp_path / "Old Name.mp4"
+    song.write_text("fake")
+    return song
 
 
 class TestRenamePermission:
@@ -337,18 +362,79 @@ class TestRenamePermission:
 class TestRenameThePlayingSong:
     """On POSIX this renamed the file out from under FFmpeg and broke subtitles."""
 
-    def test_the_claimed_song_is_not_renamed(self, client, app):
-        k = _karaoke_for_rename(playing="/songs/Old.mp4")
-        _post_rename(client, k, old_file_name="/songs/Old.mp4")
-        k.song_manager.rename.assert_not_called()
-
     def test_the_claimed_song_has_no_edit_page(self, client, app):
         k = _karaoke_for_rename(playing="/songs/Old.mp4")
-        with (
-            patch("pikaraoke.routes.files.get_karaoke_instance", return_value=k),
-            patch("pikaraoke.routes.files.get_site_name", return_value="PiKaraoke"),
-            patch("pikaraoke.routes.files.is_admin", return_value=True),
-        ):
-            response = client.get("/files/edit?song=/songs/Old.mp4&referrer=/queue")
+        response = _get_edit(client, k, "/songs/Old.mp4")
         assert response.status_code == 302
         assert response.headers["Location"] == "/queue"
+
+    def test_a_queued_song_still_has_one(self, client, app):
+        """The feature: the queue is no longer what blocks a rename."""
+        k = _karaoke_for_rename(queued=["/songs/Old.mp4"])
+        response = _get_edit(client, k, "/songs/Old.mp4")
+        assert response.status_code == 200
+
+
+class TestRenameFailuresKeepYourWork:
+    """Only a rename that happened redirects; everything else re-renders."""
+
+    def _submit(self, client, k, song, new_file_name="New Name"):
+        return _post_rename(
+            client,
+            k,
+            old_file_name=str(song),
+            new_file_name=new_file_name,
+            referrer="/queue",
+        )
+
+    def test_a_successful_rename_redirects_to_the_referrer(self, client, app, existing_song):
+        k = _karaoke_for_rename()
+        response = self._submit(client, k, existing_song)
+        assert response.status_code == 302
+        assert response.headers["Location"] == "/queue"
+        k.rename_song.assert_called_once_with(str(existing_song), "New Name")
+
+    def test_a_blank_name_is_rejected(self, client, app, existing_song):
+        """It used to rename the song to '.mp4' and drop it out of the song list."""
+        k = _karaoke_for_rename()
+        response = self._submit(client, k, existing_song, new_file_name="   ")
+        assert response.status_code == 200
+        k.rename_song.assert_not_called()
+
+    def test_a_vanished_source_is_reported_before_the_rename(self, client, app):
+        k = _karaoke_for_rename()
+        response = self._submit(client, k, "/songs/Gone.mp4")
+        assert response.status_code == 200
+        assert "no longer in the library" in response.data.decode()
+        k.rename_song.assert_not_called()
+
+    def test_a_name_collision_is_reported(self, client, app, existing_song):
+        taken = existing_song.parent / "Taken.mp4"
+        taken.write_text("fake")
+        k = _karaoke_for_rename()
+        response = self._submit(client, k, existing_song, new_file_name="Taken")
+        assert response.status_code == 200
+        assert "already exists" in response.data.decode()
+        k.rename_song.assert_not_called()
+
+    def test_a_song_claimed_mid_edit_is_reported(self, client, app, existing_song):
+        k = _karaoke_for_rename()
+        k.rename_song.side_effect = SongInUseError(str(existing_song))
+        response = self._submit(client, k, existing_song)
+        assert response.status_code == 200
+        assert "started playing while you were editing it" in response.data.decode()
+
+    def test_an_os_error_is_reported(self, client, app, existing_song):
+        k = _karaoke_for_rename()
+        k.rename_song.side_effect = OSError("disk on fire")
+        response = self._submit(client, k, existing_song)
+        assert response.status_code == 200
+        assert "disk on fire" in response.data.decode()
+
+    def test_a_refusal_keeps_the_typed_name_and_the_referrer(self, client, app, existing_song):
+        k = _karaoke_for_rename()
+        k.rename_song.side_effect = SongInUseError(str(existing_song))
+        response = self._submit(client, k, existing_song, new_file_name="Half Typed Name")
+        body = response.data.decode()
+        assert 'value="Half Typed Name"' in body
+        assert 'value="/queue"' in body

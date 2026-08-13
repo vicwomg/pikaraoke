@@ -97,12 +97,15 @@
     </div>
     <input value="{{ song }}" type="hidden" name='old_file_name'>
     <input type="hidden" name="referrer" value="{{ referrer }}">
+    {% if error %}
+    <div class="notification is-danger">{{ error }}</div>
+    {% endif %}
     {# MSG: Label for the input where the user types the new filename. #}
     <label class="label">{% trans %}New filename{% endtrans %}</label>
     <div class="field">
       <div class="control">
         <input autocomplete="off" id="new_file_name" class="input" type="text" name="new_file_name"
-          value="{{ raw_stem }}">
+          value="{{ new_name }}">
       </div>
     </div>
     <div class="buttons are-small mb-4">

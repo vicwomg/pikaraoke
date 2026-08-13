@@ -43,6 +43,10 @@ from pikaraoke.lib.youtube_dl import (
 from pikaraoke.version import __version__ as VERSION
 
 
+class SongInUseError(Exception):
+    """Raised when a rename targets the file playback has claimed."""
+
+
 class Karaoke:
     """Main karaoke engine managing songs, queue, and playback.
 
@@ -477,6 +481,22 @@ class Karaoke:
             self.playback_controller.now_playing_filename == song_path
             or self.queue_manager.is_song_in_queue(song_path)
         )
+
+    def rename_song(self, song_path: str, new_name: str) -> str:
+        """Rename a song and carry any queue entry over to the new path.
+
+        Raises SongInUseError if playback has claimed the file.
+        """
+        with self._playback_lock:
+            if self.playback_controller.now_playing_filename == song_path:
+                raise SongInUseError(song_path)
+            new_path = self.song_manager.rename(song_path, new_name)
+            requeued = self.queue_manager.update_song_path(
+                song_path, new_path, self.song_manager.display_name_from_path(new_path)
+            )
+        if requeued:
+            self.events.emit("queue_update")
+        return new_path
 
     def transpose_current(self, semitones: int) -> None:
         """Restart the current song with a new transpose value.

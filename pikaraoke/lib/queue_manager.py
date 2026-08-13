@@ -153,6 +153,22 @@ class QueueManager:
             _("Song added to the queue: %s") % title,
         ]
 
+    def update_song_path(self, old_path: str, new_path: str, new_title: str) -> bool:
+        """Point a queue entry at a renamed file, keeping position, user and key.
+
+        Returns False if the song was not queued. Emits nothing: the caller
+        renames the library too and announces both changes at once.
+        """
+        index = self._find_song_index(old_path)
+        if index == -1:
+            return False
+        if self.is_song_in_queue(new_path):
+            logging.error("Renamed song is already in the queue: " + new_path)
+            return False
+        self.queue[index]["file"] = new_path
+        self.queue[index]["title"] = new_title
+        return True
+
     def queue_add_random(self, amount: int) -> bool:
         """Add random songs to the queue. Returns False if ran out of songs."""
         logging.info("Adding %d random songs to queue" % amount)

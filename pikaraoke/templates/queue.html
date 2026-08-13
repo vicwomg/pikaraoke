@@ -391,6 +391,10 @@
 
       $('#modal-song-title').text(title);
 
+      var basePath = window.pikaraokeConfig.basePath;
+      $('#opt-rename').attr('href', basePath + '/files/edit?song=' + encodeURIComponent(file)
+          + '&referrer=' + encodeURIComponent(basePath + '/queue'));
+
       // Reset all options to visible first
       $('#opt-up, #opt-top, #opt-down, #opt-bottom').show();
 
@@ -533,6 +537,10 @@
         <a id="opt-bottom" class="panel-block py-3" href="#" onclick="executeQueueAction('bottom'); return false;">
             <span class="icon has-text-info mr-2"><i class="icon-angle-double-down"></i></span>
             {% trans %}Move to Bottom{% endtrans %}
+        </a>
+        <a id="opt-rename" class="panel-block py-3 edit-button" href="#">
+            <span class="icon mr-2"><i class="icon-edit-1"></i></span>
+            {% trans %}Rename{% endtrans %}
         </a>
         <a id="opt-delete" class="panel-block py-3 has-text-danger" href="#" onclick="executeQueueAction('delete'); return false;">
             <span class="icon mr-2"><i class="icon-trash-empty"></i></span>

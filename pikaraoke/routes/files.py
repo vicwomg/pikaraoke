@@ -12,6 +12,7 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.constants import ITUNES_COUNTRIES, per_page_options
+from pikaraoke.karaoke import SongInUseError
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
 from pikaraoke.lib.metadata_parser import youtube_id_suffix
 
@@ -187,12 +188,29 @@ def delete_file(query):
     return redirect(referrer)
 
 
+def _render_edit_page(k, song_path: str, new_name: str, referrer: str, error: str | None = None):
+    """Render the rename page with `new_name` in the input and `error` above it."""
+    return render_template(
+        "edit.html",
+        site_title=get_site_name(),
+        title="Song File Edit",
+        song=song_path,
+        # What is on disk, which on a failed save is precisely what did not change.
+        raw_stem=k.song_manager.filename_from_path(song_path, tidy=False),
+        new_name=new_name,
+        format_icon=_format_icon(song_path, k.db.get_format(song_path)),
+        referrer=referrer,
+        itunes_countries=ITUNES_COUNTRIES,
+        itunes_search_country=k.preferences.get_or_default("itunes_search_country"),
+        error=error,
+    )
+
+
 @files_bp.route("/files/edit", methods=["GET"])
 @files_bp.arguments(SongReferrerQuery, location="query")
 def edit_file(query):
     """Show the song rename page."""
     k = get_karaoke_instance()
-    site_name = get_site_name()
     song_path = query["song"]
     referrer = query.get("referrer") or url_for("files.browse")
     if not is_admin():
@@ -202,33 +220,18 @@ def edit_file(query):
         # MSG: Message shown after trying to rename the song that is playing.
         flash(_("This song is playing. Rename it when it finishes."), "is-danger")
         return redirect(referrer)
-    if k.queue_manager.is_song_in_queue(song_path):
-        # MSG: Message shown after trying to edit a song that is in the queue.
-        flash(
-            _("Error: Can't edit this song because it is in the current queue: ") + song_path,
-            "is-danger",
-        )
-        return redirect(referrer)
     raw_stem = k.song_manager.filename_from_path(song_path, tidy=False)
-    format_icon = _format_icon(song_path, k.db.get_format(song_path))
-    itunes_search_country = k.preferences.get_or_default("itunes_search_country")
-    return render_template(
-        "edit.html",
-        site_title=site_name,
-        title="Song File Edit",
-        song=song_path,
-        raw_stem=raw_stem,
-        format_icon=format_icon,
-        referrer=referrer,
-        itunes_countries=ITUNES_COUNTRIES,
-        itunes_search_country=itunes_search_country,
-    )
+    return _render_edit_page(k, song_path, raw_stem, referrer)
 
 
 @files_bp.route("/files/edit", methods=["POST"])
 @files_bp.arguments(EditFileForm, location="form")
 def rename_file(form):
-    """Process a song rename."""
+    """Process a song rename.
+
+    Redirects to the referrer only when the file actually moved; every refusal
+    re-renders the page with the submitted name, so nothing typed is lost.
+    """
     k = get_karaoke_instance()
     referrer = form.get("referrer") or url_for("files.browse")
     new_name = form["new_file_name"]
@@ -236,40 +239,44 @@ def rename_file(form):
     if not is_admin():
         flash(_("You don't have permission to edit songs"), "is-danger")
         return redirect(referrer)
-    yt_suffix = youtube_id_suffix(old_name)
-    new_name_full = new_name + yt_suffix
-    if k.playback_controller.now_playing_filename == old_name:
-        # MSG: Message shown after trying to rename the song that is playing.
-        flash(_("This song is playing. Rename it when it finishes."), "is-danger")
-    elif k.queue_manager.is_song_in_queue(old_name):
-        # check one more time just in case someone added it during editing
-        # MSG: Message shown after trying to edit a song that is in the queue.
-        flash(
-            _("Error: Can't edit this song because it is in the current queue: ") + old_name,
-            "is-danger",
+
+    if not new_name.strip():
+        # MSG: Message shown after saving the rename page with an empty name.
+        error = _("Enter a name for this song.")
+        return _render_edit_page(k, old_name, new_name, referrer, error)
+
+    if not os.path.isfile(old_name):
+        # MSG: Message shown when the song being renamed is gone from the library.
+        error = _(
+            "This song is no longer in the library. "
+            "It may have been renamed or deleted from another device."
         )
-    else:
-        file_extension = os.path.splitext(old_name)[1]
-        if os.path.isfile(os.path.join(os.path.dirname(old_name), new_name_full + file_extension)):
-            flash(
-                # MSG: Message shown after trying to rename a file to a name that already exists.
-                _("Error renaming file: '%s' to '%s', Filename already exists")
-                % (old_name, new_name_full + file_extension),
-                "is-danger",
-            )
-        else:
-            try:
-                k.song_manager.rename(old_name, new_name_full)
-            except OSError as e:
-                logging.error(f"Error renaming file: {e}")
-                flash(
-                    _("Error renaming file: '%s' to '%s', %s") % (old_name, new_name_full, e),
-                    "is-danger",
-                )
-            else:
-                flash(
-                    # MSG: Message shown after renaming a file.
-                    _("Renamed file: %s to %s") % (old_name, new_name_full),
-                    "is-warning",
-                )
+        return _render_edit_page(k, old_name, new_name, referrer, error)
+
+    new_name_full = new_name + youtube_id_suffix(old_name)
+    file_extension = os.path.splitext(old_name)[1]
+    if os.path.isfile(os.path.join(os.path.dirname(old_name), new_name_full + file_extension)):
+        # MSG: Message shown after trying to rename a song to a name already in use.
+        error = _("A song called '%s' already exists.") % (new_name_full + file_extension)
+        return _render_edit_page(k, old_name, new_name, referrer, error)
+
+    try:
+        k.rename_song(old_name, new_name_full)
+    except SongInUseError:
+        # MSG: Message shown when the song being renamed started playing mid-edit.
+        error = _(
+            "This song started playing while you were editing it. Rename it when it finishes."
+        )
+        return _render_edit_page(k, old_name, new_name, referrer, error)
+    except OSError as e:
+        logging.error(f"Error renaming file: {e}")
+        # MSG: Message shown after a rename failed. Followed by the system error.
+        error = _("Error renaming file: %s") % e
+        return _render_edit_page(k, old_name, new_name, referrer, error)
+
+    flash(
+        # MSG: Message shown after renaming a file.
+        _("Renamed file: %s to %s") % (old_name, new_name_full),
+        "is-warning",
+    )
     return redirect(referrer)
