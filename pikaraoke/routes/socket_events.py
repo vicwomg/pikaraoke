@@ -1,5 +1,6 @@
 """Socket.IO event handlers for PiKaraoke."""
 
+import itertools
 import logging
 from collections.abc import Callable
 from functools import wraps
@@ -8,9 +9,16 @@ from flask import request
 
 from pikaraoke.lib.current_app import get_karaoke_instance, is_admin
 
-# Track connected splash screen clients and the elected master
-splash_connections = set()
-master_splash_id = None
+# Connected splash screens: socket id -> stable screen id supplied by the client
+splash_connections: dict[str, str] = {}
+# When each screen was first seen, as a monotonic rank. It is keyed by the stable
+# screen id, so it outlives the per-reload socket id: a screen that reloads keeps
+# its place in the election rather than dropping to the back. Cleared when the
+# last screen leaves, so a fresh room starts counting again.
+screen_first_seen: dict[str, int] = {}
+master_splash_id: str | None = None
+
+_seniority = itertools.count()
 
 
 def _guard(handler: Callable) -> Callable:
@@ -79,21 +87,69 @@ def setup_socket_events(socketio):
         k = get_karaoke_instance()
         k.reset_now_playing_notification()
 
-    @open_to_room("register_splash")
-    def register_splash() -> None:
-        """Handle splash screen registration and assign master/slave roles."""
-        global master_splash_id
-        sid = request.sid
-        splash_connections.add(sid)
-        logging.info(f"Splash screen registered: {sid}")
+    def send_role(sid: str) -> None:
+        """Tell one splash screen whether it is the master."""
+        role = "master" if sid == master_splash_id else "slave"
+        socketio.emit("splash_role", role, room=sid)
+        logging.info(f"Splash screen {sid} assigned: {role}")
 
-        if master_splash_id is None:
-            master_splash_id = sid
-            socketio.emit("splash_role", "master", room=sid)
-            logging.info(f"Master splash screens assigned: {sid}")
+    def elect_master() -> None:
+        """Hold the role on the connected screen seen first.
+
+        Recomputed on every connect and disconnect. A screen reloads under a new
+        socket id but keeps its first-seen rank, so it reclaims the role from a
+        screen that stayed up rather than dropping to the back of the queue. A
+        superseded master is told it is now a slave; a new one is told it is
+        master. Everyone else's role is unchanged, so nothing else is emitted.
+        """
+        global master_splash_id
+        previous = master_splash_id
+        if splash_connections:
+            master_splash_id = min(
+                splash_connections, key=lambda s: screen_first_seen[splash_connections[s]]
+            )
         else:
-            socketio.emit("splash_role", "slave", room=sid)
-            logging.info(f"Slave splash screens assigned: {sid}")
+            master_splash_id = None
+        if master_splash_id == previous:
+            return
+        if previous in splash_connections:
+            send_role(previous)
+        if master_splash_id is not None:
+            send_role(master_splash_id)
+
+    def retire_stale_sockets(screen_id: str, sid: str) -> None:
+        """Drop earlier sockets belonging to this screen.
+
+        A reloaded or reconnected screen arrives under a new socket id while its
+        old one lingers until the ping timeout; a second tab of the same browser
+        shares the id outright. Either way the earlier socket no longer speaks for
+        the screen, so it is dropped and told it is a slave. Electing a new master
+        if the ghost held the role is left to elect_master.
+        """
+        stale = [s for s, screen in splash_connections.items() if screen == screen_id and s != sid]
+        for stale_sid in stale:
+            del splash_connections[stale_sid]
+            logging.info(f"Retired stale splash socket: {stale_sid} (screen {screen_id})")
+            socketio.emit("splash_role", "slave", room=stale_sid)
+
+    @open_to_room("register_splash")
+    def register_splash(screen_id: str | None = None) -> None:
+        """Handle splash screen registration and assign master/slave roles.
+
+        Args:
+            screen_id: Stable per-screen id that survives a socket reconnect.
+        """
+        sid = request.sid
+        screen_id = screen_id or sid
+        retire_stale_sockets(screen_id, sid)
+        if screen_id not in screen_first_seen:
+            screen_first_seen[screen_id] = next(_seniority)
+        splash_connections[sid] = screen_id
+        logging.info(f"Splash screen registered: {sid} (screen {screen_id})")
+
+        elect_master()
+        if sid != master_splash_id:
+            send_role(sid)
 
     @open_to_room("playback_position")
     def handle_playback_position(position: float) -> None:
@@ -113,20 +169,14 @@ def setup_socket_events(socketio):
     @open_to_room("disconnect")
     def handle_disconnect() -> None:
         """Handle Socket.IO client disconnection and manage splash role handover."""
-        global master_splash_id
         sid = request.sid
-        if sid in splash_connections:
-            splash_connections.remove(sid)
+        if splash_connections.pop(sid, None) is not None:
             logging.info(f"Splash screen disconnected: {sid}")
+            if not splash_connections:
+                screen_first_seen.clear()
             if sid == master_splash_id:
-                master_splash_id = None
                 logging.info("Master splash disconnected, electing new master")
-                if splash_connections:
-                    # Elect new master from remaining connections
-                    new_master = next(iter(splash_connections))
-                    master_splash_id = new_master
-                    socketio.emit("splash_role", "master", room=new_master)
-                    logging.info(f"New master splash elected: {new_master}")
+                elect_master()
 
     @host_only("request_mic_devices")
     def handle_request_mic_devices() -> None:
