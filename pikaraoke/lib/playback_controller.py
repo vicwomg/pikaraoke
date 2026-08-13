@@ -31,6 +31,7 @@ class PlaybackController:
         now_playing_url: Stream URL for current song.
         now_playing_subtitle_url: URL path for subtitles.
         now_playing_position: Current playback position in seconds.
+        playback_id: Identifier of the current playback, None when nothing is loaded.
         is_paused: Whether playback is paused.
         is_playing: Whether a song is currently playing.
         ffmpeg_process: Currently running FFmpeg subprocess.
@@ -44,6 +45,7 @@ class PlaybackController:
     now_playing_url: str | None = None
     now_playing_subtitle_url: str | None = None
     now_playing_position: float | None = None
+    playback_id: int | None = None
     is_paused: bool = True
     is_playing: bool = False
 
@@ -68,6 +70,7 @@ class PlaybackController:
         self.events = events
         self.filename_from_path = filename_from_path
         self.stream_manager = StreamManager(preferences, streaming_format, base_path)
+        self._playback_counter = 0
 
     @property
     def ffmpeg_process(self) -> "subprocess.Popen | None":
@@ -105,6 +108,8 @@ class PlaybackController:
             self.now_playing_filename = None
             return result
 
+        self._playback_counter += 1
+        self.playback_id = self._playback_counter
         self.now_playing = self.filename_from_path(file_path, remove_youtube_id=True)
         self.now_playing_user = user
         self.now_playing_transpose = semitones
@@ -139,30 +144,63 @@ class PlaybackController:
         """
         self.now_playing_filename = file_path
 
-    def start_song(self) -> None:
+    def start_song(self, playback_id: int | None = None) -> None:
         """Mark the current song as actively playing.
 
-        Called by Flask route when client connects to stream.
-        Idempotent - safe to call multiple times.
+        Called when a player connects to the stream. Idempotent - safe to call
+        multiple times.
+
+        Args:
+            playback_id: Playback the caller is reporting on. Reports for any
+                other playback are ignored, so a player announcing a song after
+                it has already ended cannot resurrect the "playing" state.
         """
+        if self.playback_id is None:
+            logging.debug("Ignoring start_song: no song is loaded")
+            return
+        if playback_id is not None and playback_id != self.playback_id:
+            logging.debug(f"Ignoring stale start_song for playback {playback_id}")
+            return
         if not self.is_playing:
             logging.info(f"Song starting: {self.now_playing}")
             self.is_playing = True
 
-    def end_song(self, reason: str | None = None) -> None:
+    def start_song_for_stream(self, stream_uid: str) -> None:
+        """Mark the song as started if stream_uid belongs to the current song.
+
+        Used by the streaming routes, where the stream URL is the only identity
+        the connecting player carries.
+        """
+        if self.now_playing_url and stream_uid in self.now_playing_url:
+            self.start_song()
+
+    def end_song(self, reason: str | None = None, playback_id: int | None = None) -> None:
         """End the current song and clean up resources.
 
         Args:
             reason: Optional reason for ending (e.g., 'complete', 'skip', 'timeout').
+            playback_id: Playback the caller is ending. Requests for any other
+                playback are ignored, so a player reporting on a song that has
+                already ended cannot tear down its successor.
         """
+        if self.playback_id is None:
+            logging.debug(f"Ignoring end_song ({reason}): no song is playing")
+            return
+        if playback_id is not None and playback_id != self.playback_id:
+            logging.debug(f"Ignoring stale end_song ({reason}) for playback {playback_id}")
+            return
+
         logging.info(f"Song ending: {self.now_playing}")
+        # Claim the playback before anything that yields to another greenlet, so
+        # a second caller arriving mid-cleanup is rejected by the guard above.
+        self.reset_now_playing()
+
         if reason:
             logging.info(f"Reason: {reason}")
             if reason not in ("complete", "skip", "transpose"):
                 # MSG: Message shown when the song ends abnormally
                 self.events.emit("notification", _("Song ended abnormally: %s") % reason, "danger")
 
-        self.reset_now_playing()
         self.stream_manager.kill_ffmpeg()
         # Small delay to ensure FFmpeg fully terminates and file handles close
         # Critical on Raspberry Pi with slow SD cards and hardware encoder cleanup
@@ -223,6 +261,7 @@ class PlaybackController:
         """
         return {
             "now_playing": self.now_playing,
+            "playback_id": self.playback_id,
             "now_playing_user": self.now_playing_user,
             "now_playing_duration": self.now_playing_duration,
             "now_playing_transpose": self.now_playing_transpose,
@@ -234,6 +273,7 @@ class PlaybackController:
 
     def reset_now_playing(self) -> None:
         """Reset all now playing state to defaults."""
+        self.playback_id = None
         self.now_playing = None
         self.now_playing_filename = None
         self.now_playing_user = None

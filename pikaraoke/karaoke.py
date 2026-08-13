@@ -688,11 +688,13 @@ class Karaoke:
         self.running = True
         while self.running:
             try:
-                # Clean up if playback ended but state wasn't reset
-                if (
-                    not self.playback_controller.is_playing
-                    and self.playback_controller.now_playing is not None
+                # Clean up if the playback state is inconsistent. Only the second
+                # case is new: the loop starts songs when is_playing is False, so
+                # a "playing" flag with no song loaded would wedge it forever.
+                if self.playback_controller.is_playing != (
+                    self.playback_controller.now_playing is not None
                 ):
+                    logging.info("Playback state out of sync, resetting")
                     self.reset_now_playing()
 
                 # Start next song from queue if not currently playing

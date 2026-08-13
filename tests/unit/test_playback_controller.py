@@ -91,6 +91,7 @@ class TestPlaybackControllerPlayFile:
         result = pc.play_file("/songs/test.mp4", "TestUser", semitones=2)
 
         assert result.success is True
+        assert pc.playback_id is not None
         assert pc.now_playing == "Test Song"
         assert pc.now_playing_filename == "/songs/test.mp4"
         assert pc.now_playing_user == "TestUser"
@@ -230,9 +231,50 @@ class TestPlaybackControllerStartSong:
 
         pc = PlaybackController(test_prefs, events, filename_fn)
         pc.now_playing = "Test Song"
+        pc.playback_id = 1
 
         pc.start_song()
 
+        assert pc.is_playing is True
+
+    def test_start_song_ignored_when_no_song_loaded(self, test_prefs):
+        """A player reporting a start after the song ended must not wedge the run loop."""
+        events = EventSystem()
+        filename_fn = lambda x, remove_youtube_id=True: x
+
+        pc = PlaybackController(test_prefs, events, filename_fn)
+
+        pc.start_song()
+
+        assert pc.is_playing is False
+
+    def test_start_song_ignores_stale_playback_id(self, test_prefs):
+        """A start reported for the previous song must not mark the new one playing."""
+        events = EventSystem()
+        filename_fn = lambda x, remove_youtube_id=True: x
+
+        pc = PlaybackController(test_prefs, events, filename_fn)
+        pc.now_playing = "Test Song"
+        pc.playback_id = 2
+
+        pc.start_song(playback_id=1)
+
+        assert pc.is_playing is False
+
+    def test_start_song_for_stream_checks_stream_id(self, test_prefs):
+        """Only the stream belonging to the current song can start it."""
+        events = EventSystem()
+        filename_fn = lambda x, remove_youtube_id=True: x
+
+        pc = PlaybackController(test_prefs, events, filename_fn)
+        pc.now_playing = "Test Song"
+        pc.playback_id = 1
+        pc.now_playing_url = "/stream/999.m3u8"
+
+        pc.start_song_for_stream("111")
+        assert pc.is_playing is False
+
+        pc.start_song_for_stream("999")
         assert pc.is_playing is True
 
 
@@ -248,6 +290,7 @@ class TestPlaybackControllerEndSong:
 
         pc = PlaybackController(test_prefs, events, filename_fn)
         pc.now_playing = "Test Song"
+        pc.playback_id = 1
         pc.is_playing = True
         pc.stream_manager.kill_ffmpeg = MagicMock()
 
@@ -272,6 +315,7 @@ class TestPlaybackControllerEndSong:
         filename_fn = lambda x, remove_youtube_id=True: x
 
         pc = PlaybackController(test_prefs, events, filename_fn)
+        pc.playback_id = 1
         pc.stream_manager.kill_ffmpeg = MagicMock()
 
         emitted_reasons = []
@@ -280,6 +324,45 @@ class TestPlaybackControllerEndSong:
         pc.end_song(reason="complete")
 
         assert emitted_reasons == ["complete"]
+
+    @patch("pikaraoke.lib.playback_controller.time.sleep")
+    @patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+    def test_end_song_ignores_stale_playback_id(self, mock_delete, mock_sleep, test_prefs):
+        """A player ending the previous song must not tear down its successor."""
+        events = EventSystem()
+        filename_fn = lambda x, remove_youtube_id=True: x
+
+        pc = PlaybackController(test_prefs, events, filename_fn)
+        pc.now_playing = "Second Song"
+        pc.playback_id = 2
+        pc.is_playing = True
+        pc.stream_manager.kill_ffmpeg = MagicMock()
+
+        pc.end_song("complete", playback_id=1)
+
+        assert pc.is_playing is True
+        assert pc.now_playing == "Second Song"
+        pc.stream_manager.kill_ffmpeg.assert_not_called()
+        mock_delete.assert_not_called()
+
+    @patch("pikaraoke.lib.playback_controller.time.sleep")
+    @patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+    def test_end_song_is_idempotent(self, mock_delete, mock_sleep, test_prefs):
+        """A second end for an already-ended song is a no-op, not another teardown."""
+        events = EventSystem()
+        filename_fn = lambda x, remove_youtube_id=True: x
+
+        pc = PlaybackController(test_prefs, events, filename_fn)
+        pc.now_playing = "Test Song"
+        pc.playback_id = 1
+        pc.is_playing = True
+        pc.stream_manager.kill_ffmpeg = MagicMock()
+
+        pc.end_song("complete")
+        pc.end_song("complete")
+
+        pc.stream_manager.kill_ffmpeg.assert_called_once()
+        mock_delete.assert_called_once()
 
 
 class TestPlaybackControllerSkip:
@@ -295,6 +378,7 @@ class TestPlaybackControllerSkip:
 
         pc = PlaybackController(test_prefs, events, filename_fn)
         pc.now_playing = "Test Song"
+        pc.playback_id = 1
         pc.is_playing = True
         pc.stream_manager.kill_ffmpeg = MagicMock()
 

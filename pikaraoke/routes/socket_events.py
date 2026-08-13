@@ -53,20 +53,25 @@ def setup_socket_events(socketio):
         return register
 
     @open_to_room("end_song")
-    def end_song(reason: str) -> None:
+    def end_song(reason: str, playback_id: int | None = None) -> None:
         """Handle end_song WebSocket event from client.
 
         Args:
             reason: Reason for ending the song (e.g., 'complete', 'error').
+            playback_id: Playback the player is reporting on.
         """
         k = get_karaoke_instance()
-        k.playback_controller.end_song(reason)
+        k.playback_controller.end_song(reason, playback_id)
 
     @open_to_room("start_song")
-    def start_song() -> None:
-        """Handle start_song WebSocket event when playback begins."""
+    def start_song(playback_id: int | None = None) -> None:
+        """Handle start_song WebSocket event when playback begins.
+
+        Args:
+            playback_id: Playback the player is reporting on.
+        """
         k = get_karaoke_instance()
-        k.playback_controller.start_song()
+        k.playback_controller.start_song(playback_id)
 
     @open_to_room("clear_notification")
     def clear_notification() -> None:

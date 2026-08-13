@@ -26,6 +26,9 @@ let scoreReviews = {
 let isMaster = false;
 let uiScale = null;
 let clockIntervalId = null;
+// Identifies the playback this screen is showing. Reported back to the server so
+// events about a song that has already ended can't be applied to its successor.
+let currentPlaybackId = null;
 
 // Browser detection
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -113,13 +116,9 @@ const hideVideo = () => {
   $("#video-container").hide();
 }
 
-const endSong = async (reason = null, showScore = false) => {
-  if (showScore && !PikaraokeConfig.disableScore) {
-    isScoreShown = true;
-    await startScore(withBasePath("/static/"));
-    isScoreShown = false;
-  }
+const stopVideoPlayback = () => {
   currentVideoUrl = null;
+  currentPlaybackId = null;
   if (hlsInstance) {
     hlsInstance.destroy();
     hlsInstance = null;
@@ -129,8 +128,21 @@ const endSong = async (reason = null, showScore = false) => {
   $("#video-source").attr("src", "");
   video.load();
   hideVideo();
+}
+
+const endSong = async (reason = null, showScore = false) => {
+  // Claim the playback up front: the score screen below can run for seconds, and
+  // the server must be told which song ended, not which one is current by then.
+  const endedPlaybackId = currentPlaybackId;
+  currentPlaybackId = null;
+  if (showScore && !PikaraokeConfig.disableScore) {
+    isScoreShown = true;
+    await startScore(withBasePath("/static/"));
+    isScoreShown = false;
+  }
+  stopVideoPlayback();
   if (isMaster) {
-    socket.emit("end_song", reason);
+    socket.emit("end_song", reason, endedPlaybackId);
   } else {
     console.log("Slave active (read-only): skipping end_song emission");
   }
@@ -297,6 +309,14 @@ const handleNowPlayingUpdate = (np) => {
     sessionName = np.session_name;
     renderSessionName();
   }
+  currentPlaybackId = np.playback_id ?? null;
+
+  // The server ended the song (skip, clear queue, transpose): stop rather than
+  // play on from the buffer, whose stream files have already been deleted.
+  if (!np.now_playing_url && currentVideoUrl) {
+    stopVideoPlayback();
+  }
+
   if (np.now_playing) {
 
     // Handle updating now playing HTML
@@ -404,8 +424,12 @@ const handleNowPlayingUpdate = (np) => {
       }
     }
 
+    const loadedPlaybackId = currentPlaybackId;
     setTimeout(() => {
-      if (!isMediaPlaying(video) && !video.paused) {
+      // Only judge the song this timer was armed for, and count a paused video as
+      // a failure too: a blocked autoplay leaves it paused and silent forever.
+      if (loadedPlaybackId !== currentPlaybackId) return;
+      if (!isMediaPlaying(video) && !nowPlaying.is_paused) {
         endSong("failed to start");
       }
     }, playbackStartTimeout);
@@ -476,7 +500,10 @@ const setupVideoPlayer = () => {
   video.addEventListener("play", () => {
     $("#video-container").show();
     if (isMaster) {
-      setTimeout(() => { socket.emit("start_song") }, 1200);
+      // Capture the id now, not when the timer fires: a song skipped inside this
+      // delay must not have its late "started" report applied to the next one.
+      const startedPlaybackId = currentPlaybackId;
+      setTimeout(() => { socket.emit("start_song", startedPlaybackId) }, 1200);
     }
   });
 
