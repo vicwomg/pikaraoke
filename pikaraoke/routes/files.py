@@ -233,6 +233,7 @@ def rename_file(form):
     old_name = form["old_file_name"]
     if not is_admin():
         flash(_("You don't have permission to edit songs"), "is-danger")
+        return redirect(referrer)
     yt_suffix = youtube_id_suffix(old_name)
     new_name_full = new_name + yt_suffix
     if k.queue_manager.is_song_in_queue(old_name):

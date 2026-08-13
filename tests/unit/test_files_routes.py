@@ -17,7 +17,7 @@ from tests.conftest import make_route_app
 
 @pytest.fixture
 def app():
-    return make_route_app(
+    app = make_route_app(
         files_bp,
         [
             ("/", "home.home"),
@@ -28,6 +28,9 @@ def app():
             ("/batch", "batch_song_renamer.browse"),
         ],
     )
+    # The rename route flashes, and flashing writes to the session.
+    app.secret_key = "test"
+    return app
 
 
 def _sort_links(body):
@@ -299,3 +302,24 @@ class TestPartialFragment:
         body = _browse(client, app, self.SONGS, "?q=abba&partial=1").data.decode()
         assert "referrer=" in body
         assert "partial" not in body
+
+
+def _post_rename(client, k, admin=True, **form):
+    """POST /files/edit with the given form fields."""
+    form = {"old_file_name": "/songs/Old.mp4", "new_file_name": "New", **form}
+    with (
+        patch("pikaraoke.routes.files.get_karaoke_instance", return_value=k),
+        patch("pikaraoke.routes.files.get_site_name", return_value="PiKaraoke"),
+        patch("pikaraoke.routes.files.is_admin", return_value=admin),
+    ):
+        return client.post("/files/edit", data=form)
+
+
+class TestRenamePermission:
+    def test_a_guest_renames_nothing(self, client, app):
+        """The flash used to fire and the rename proceed anyway."""
+        k = MagicMock()
+        response = _post_rename(client, k, admin=False, referrer="/queue")
+        assert response.status_code == 302
+        assert response.headers["Location"] == "/queue"
+        k.song_manager.rename.assert_not_called()
