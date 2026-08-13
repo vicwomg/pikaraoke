@@ -158,6 +158,19 @@ class MockPlayHistory:
         return self.session["name"] if self.session else None
 
 
+class MockKeepAwake:
+    """Minimal mock of KeepAwake that records whether the lock is held."""
+
+    def __init__(self):
+        self.active = False
+
+    def start(self):
+        self.active = True
+
+    def stop(self):
+        self.active = False
+
+
 class MockKaraoke:
     """Minimal mock of the Karaoke class for testing queue operations.
 
@@ -168,6 +181,7 @@ class MockKaraoke:
     def __init__(self, tmp_path):
         self.song_manager = MockSongManager()
         self.sound_manager = MockSoundManager()
+        self._keep_awake = MockKeepAwake()
         self._socketio = None
         self.events = EventSystem()
         self.preferences = PreferenceManager(
@@ -214,6 +228,7 @@ class MockKaraoke:
     from pikaraoke.karaoke import Karaoke
 
     # Bind the real methods to our mock class
+    keep_awake = Karaoke.keep_awake
     get_now_playing = Karaoke.get_now_playing
     reset_now_playing = Karaoke.reset_now_playing
     transpose_current = Karaoke.transpose_current

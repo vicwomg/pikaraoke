@@ -270,6 +270,7 @@ def test_preference_manager_defaults_exist():
         "complete_transcode_before_play",
         "buffer_size",
         "hide_overlay",
+        "keep_awake",
         "screensaver_timeout",
         "disable_bg_music",
         "bg_music_volume",
