@@ -193,8 +193,8 @@
 		{% block title %}{{title}}{% if letter %}<span id="letter-heading">: "{{ letter.upper() }}"</span>{% endif %}{% endblock %}
 	</h1>
 	{% if admin %}
-	<a class="batch-edit-btn" href="{{ url_for('batch_song_renamer.browse')}}" title="Edit all songs"
-		><i class="icon icon-edit"></i>{# MSG: Button to open the batch song renamer page. #} {% trans %}Edit all songs{%
+	<a class="batch-edit-btn" href="{{ url_for('batch_song_renamer.browse')}}" title="Rename all songs"
+		><i class="icon icon-edit"></i>{# MSG: Button to open the batch song renamer page. #} {% trans %}Rename all songs{%
 		endtrans %}</a
 	>
 	{% endif %}

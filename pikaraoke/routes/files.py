@@ -193,7 +193,7 @@ def _render_edit_page(k, song_path: str, new_name: str, referrer: str, error: st
     return render_template(
         "edit.html",
         site_title=get_site_name(),
-        title="Song File Edit",
+        title="Rename Song",
         song=song_path,
         # What is on disk, which on a failed save is precisely what did not change.
         raw_stem=k.song_manager.filename_from_path(song_path, tidy=False),
@@ -214,7 +214,7 @@ def edit_file(query):
     song_path = query["song"]
     referrer = query.get("referrer") or url_for("files.browse")
     if not is_admin():
-        flash(_("You don't have permission to edit songs"), "is-danger")
+        flash(_("You don't have permission to rename songs"), "is-danger")
         return redirect(referrer)
     if k.playback_controller.now_playing_filename == song_path:
         # MSG: Message shown after trying to rename the song that is playing.
@@ -237,7 +237,7 @@ def rename_file(form):
     new_name = form["new_file_name"]
     old_name = form["old_file_name"]
     if not is_admin():
-        flash(_("You don't have permission to edit songs"), "is-danger")
+        flash(_("You don't have permission to rename songs"), "is-danger")
         return redirect(referrer)
 
     if not new_name.strip():
