@@ -14,12 +14,19 @@ from pikaraoke.lib.song_list import SongList
 
 # Characters illegal in Windows filenames
 _WINDOWS_ILLEGAL_CHARS = re.compile(r'[<>:"/\\|?*]')
+_PATH_SEPARATORS = re.compile(r"[/\\]")
 
 
 def sanitize_filename(name: str) -> str:
-    """Remove characters that are illegal in filenames on the current platform."""
+    """Remove characters that are illegal in a filename on the current platform.
+
+    Path separators go on every platform: callers pass a bare filename, so a
+    separator can only be an attempt to write outside the song directory.
+    """
     if is_windows():
         name = _WINDOWS_ILLEGAL_CHARS.sub("-", name)
+    else:
+        name = _PATH_SEPARATORS.sub("-", name)
     return name.strip()
 
 
@@ -160,11 +167,14 @@ class SongManager:
         logging.info(f"Renaming song: '{song_path}' to: {new_name}")
         companions = self._get_companion_files(song_path)
         _, ext = os.path.splitext(song_path)
-        new_path = os.path.join(self.download_path, new_name + ext)
+        # The song's own directory, not download_path: the scanner walks
+        # recursively, so a renamed song stays in the subfolder it was filed in.
+        dirpath = os.path.dirname(song_path)
+        new_path = os.path.join(dirpath, new_name + ext)
         os.rename(song_path, new_path)
         for companion in companions:
             companion_ext = os.path.splitext(companion)[1]
-            os.rename(companion, os.path.join(self.download_path, new_name + companion_ext))
+            os.rename(companion, os.path.join(dirpath, new_name + companion_ext))
         self.songs.rename(song_path, new_path)
         self._db.update_path(song_path, new_path)
         return new_path

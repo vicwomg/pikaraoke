@@ -315,6 +315,15 @@ def _post_rename(client, k, admin=True, **form):
         return client.post("/files/edit", data=form)
 
 
+def _karaoke_for_rename(playing=None, queued=()):
+    """A karaoke stand-in answering only what the rename guards ask it."""
+    k = MagicMock()
+    k.playback_controller.now_playing_filename = playing
+    k.queue_manager.is_song_in_queue.side_effect = lambda path: path in queued
+    k.is_song_in_use.side_effect = lambda path: path == playing or path in queued
+    return k
+
+
 class TestRenamePermission:
     def test_a_guest_renames_nothing(self, client, app):
         """The flash used to fire and the rename proceed anyway."""
@@ -323,3 +332,23 @@ class TestRenamePermission:
         assert response.status_code == 302
         assert response.headers["Location"] == "/queue"
         k.song_manager.rename.assert_not_called()
+
+
+class TestRenameThePlayingSong:
+    """On POSIX this renamed the file out from under FFmpeg and broke subtitles."""
+
+    def test_the_claimed_song_is_not_renamed(self, client, app):
+        k = _karaoke_for_rename(playing="/songs/Old.mp4")
+        _post_rename(client, k, old_file_name="/songs/Old.mp4")
+        k.song_manager.rename.assert_not_called()
+
+    def test_the_claimed_song_has_no_edit_page(self, client, app):
+        k = _karaoke_for_rename(playing="/songs/Old.mp4")
+        with (
+            patch("pikaraoke.routes.files.get_karaoke_instance", return_value=k),
+            patch("pikaraoke.routes.files.get_site_name", return_value="PiKaraoke"),
+            patch("pikaraoke.routes.files.is_admin", return_value=True),
+        ):
+            response = client.get("/files/edit?song=/songs/Old.mp4&referrer=/queue")
+        assert response.status_code == 302
+        assert response.headers["Location"] == "/queue"

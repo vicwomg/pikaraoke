@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from pikaraoke.lib.song_manager import SongManager
+from pikaraoke.lib.song_manager import SongManager, sanitize_filename
 
 
 def _native(path: Path) -> str:
@@ -180,6 +180,46 @@ class TestRename:
         sm.songs.add_if_valid(_native(song))
         result = sm.rename(_native(song), "New---abc")
         assert result == _native(tmp_path / "New---abc.mp4")
+
+    def test_a_song_in_a_subfolder_stays_there(self, tmp_path, mock_db):
+        """The scanner walks recursively; renaming used to move songs to the root."""
+        subfolder = tmp_path / "Duets"
+        subfolder.mkdir()
+        song = subfolder / "Old---abc.mp4"
+        song.write_text("fake")
+        sm = SongManager(str(tmp_path), db=mock_db)
+        sm.songs.add_if_valid(_native(song))
+
+        result = sm.rename(_native(song), "New---abc")
+
+        assert result == _native(subfolder / "New---abc.mp4")
+        assert (subfolder / "New---abc.mp4").exists()
+        assert not (tmp_path / "New---abc.mp4").exists()
+
+    def test_a_companion_follows_into_the_subfolder(self, tmp_path, mock_db):
+        subfolder = tmp_path / "Duets"
+        subfolder.mkdir()
+        (subfolder / "Old---abc.mp3").write_text("fake")
+        (subfolder / "Old---abc.cdg").write_text("fake")
+        sm = SongManager(str(tmp_path), db=mock_db)
+        sm.songs.add_if_valid(_native(subfolder / "Old---abc.mp3"))
+
+        sm.rename(_native(subfolder / "Old---abc.mp3"), "New---abc")
+
+        assert (subfolder / "New---abc.cdg").exists()
+
+
+class TestSanitizeFilename:
+    def test_path_separators_go_on_posix_too(self, monkeypatch):
+        """A name of '../../x' on a Pi used to move the song out of the library."""
+        monkeypatch.setattr("pikaraoke.lib.song_manager.is_windows", lambda: False)
+        assert sanitize_filename("../../home/pi/x") == "..-..-home-pi-x"
+        assert sanitize_filename("a\\b") == "a-b"
+
+    def test_posix_legal_characters_survive(self, monkeypatch):
+        """Colons and question marks are legal on POSIX and appear in real titles."""
+        monkeypatch.setattr("pikaraoke.lib.song_manager.is_windows", lambda: False)
+        assert sanitize_filename("Who's Next: Part 2?") == "Who's Next: Part 2?"
 
 
 class TestDBCoordination:

@@ -171,12 +171,10 @@ def delete_file(query):
     if not is_admin():
         flash(_("You don't have permission to delete songs"), "is-danger")
         return redirect(referrer)
-    if k.queue_manager.is_song_in_queue(song_path):
+    if k.is_song_in_use(song_path):
         flash(
-            # MSG: Message shown after trying to delete a song that is in the queue.
-            _("Error: Can't delete this song because it is in the current queue")
-            + ": "
-            + song_path,
+            # MSG: Message shown after trying to delete a song that is queued or playing.
+            _("Error: Can't delete this song because it is queued or playing") + ": " + song_path,
             "is-danger",
         )
     else:
@@ -199,6 +197,10 @@ def edit_file(query):
     referrer = query.get("referrer") or url_for("files.browse")
     if not is_admin():
         flash(_("You don't have permission to edit songs"), "is-danger")
+        return redirect(referrer)
+    if k.playback_controller.now_playing_filename == song_path:
+        # MSG: Message shown after trying to rename the song that is playing.
+        flash(_("This song is playing. Rename it when it finishes."), "is-danger")
         return redirect(referrer)
     if k.queue_manager.is_song_in_queue(song_path):
         # MSG: Message shown after trying to edit a song that is in the queue.
@@ -236,7 +238,10 @@ def rename_file(form):
         return redirect(referrer)
     yt_suffix = youtube_id_suffix(old_name)
     new_name_full = new_name + yt_suffix
-    if k.queue_manager.is_song_in_queue(old_name):
+    if k.playback_controller.now_playing_filename == old_name:
+        # MSG: Message shown after trying to rename the song that is playing.
+        flash(_("This song is playing. Rename it when it finishes."), "is-danger")
+    elif k.queue_manager.is_song_in_queue(old_name):
         # check one more time just in case someone added it during editing
         # MSG: Message shown after trying to edit a song that is in the queue.
         flash(
@@ -245,9 +250,7 @@ def rename_file(form):
         )
     else:
         file_extension = os.path.splitext(old_name)[1]
-        if os.path.isfile(
-            os.path.join(k.song_manager.download_path, new_name_full + file_extension)
-        ):
+        if os.path.isfile(os.path.join(os.path.dirname(old_name), new_name_full + file_extension)):
             flash(
                 # MSG: Message shown after trying to rename a file to a name that already exists.
                 _("Error renaming file: '%s' to '%s', Filename already exists")
