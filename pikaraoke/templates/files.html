@@ -193,8 +193,8 @@
 		{% block title %}{{title}}{% if letter %}<span id="letter-heading">: "{{ letter.upper() }}"</span>{% endif %}{% endblock %}
 	</h1>
 	{% if admin %}
-	<a class="batch-edit-btn" href="{{ url_for('batch_song_renamer.browse')}}" title="Rename all songs"
-		><i class="icon icon-edit"></i>{# MSG: Button to open the batch song renamer page. #} {% trans %}Rename all songs{%
+	<a class="batch-edit-btn" href="{{ url_for('batch_song_renamer.browse')}}" title="Bulk rename"
+		><i class="icon icon-edit"></i>{# MSG: Button to open the batch song renamer page. #} {% trans %}Bulk rename{%
 		endtrans %}</a
 	>
 	{% endif %}
@@ -277,7 +277,7 @@
 		}
 		/* The strip is an overlay, so the content has to give up the width it sits
 		   in. Bulma's 20px of box padding is not enough on its own: it leaves the
-		   page links, the edit icons and "Edit all songs" running underneath, and
+		   page links, the rename icons and "Bulk rename" running underneath, and
 		   since the strip paints above them it swallows their taps too. */
 		.box {
 			padding-right: 28px;
