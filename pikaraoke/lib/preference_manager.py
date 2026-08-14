@@ -31,6 +31,7 @@ class PreferenceManager:
         "complete_transcode_before_play": False,
         "buffer_size": 150,
         "hide_overlay": False,
+        "keep_awake": False,
         "screensaver_timeout": 300,
         "disable_bg_music": False,
         "bg_music_volume": 0.3,

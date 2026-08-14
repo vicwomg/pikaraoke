@@ -699,6 +699,24 @@
 						</label>
 					</div>
 
+					{% if keep_awake_unsupported %}
+					<p class="is-size-7 has-text-grey">
+						{% if keep_awake_unsupported == "container" %}
+						{# MSG: Shown instead of the keep-awake checkbox when running in a container. #} {% trans %}Keep the server awake: unavailable in a container. Disable sleep on the host.{% endtrans %}
+						{% elif keep_awake_unsupported == "missing_tool" %}
+						{# MSG: Shown instead of the keep-awake checkbox when the required tool is missing. #} {% trans %}Keep the server awake: needs systemd-inhibit (Linux) or caffeinate (macOS).{% endtrans %}
+						{% else %}
+						{# MSG: Shown instead of the keep-awake checkbox on platforms without a wake lock. #} {% trans %}Keep the server awake: not supported on this platform.{% endtrans %}
+						{% endif %}
+					</p>
+					{% else %}
+					<div class="user-preference-container">
+						<input id="pref-keep-awake" type="checkbox" class="user-preference-checkbox checkbox" data-pref="keep_awake" {% if keep_awake == True %}checked{% endif %}>
+						<label class="label" for="pref-keep-awake">{# MSG: Checkbox label which stops the server machine from sleeping #} {% trans %}Keep the server awake while PiKaraoke is running{% endtrans %}
+						</label>
+					</div>
+					{% endif %}
+
 					<div style="margin-top: 20px">
 						{# MSG: Text for the link where the user can clear all user preferences #}
 						<a id="clear-preferences-link" class="button is-danger is-outlined" href="{{ url_for('preferences.clear_preferences') }}">{% trans %}Clear preferences{% endtrans %}</a>
@@ -780,7 +798,8 @@
 			</div>
 		</div>
 
-		{% if is_pi %}
+		{# A Pi container still reports as a Pi, but has no raspi-config. #}
+		{% if is_pi and not is_container %}
 
 			{# MSG: Title of the updates section. #}
 			<h1>{% trans %}Other{% endtrans %}</h1>
@@ -839,7 +858,8 @@
 					<div class="buttons">
 						{# MSG: Text for button which turns off Pikaraoke for everyone using it at your house. #}
 						<a id="quit-link" class="button is-primary" href="{{ url_for('admin.quit') }}">{% trans %}Quit Pikaraoke{% endtrans %}</a>
-						{% if is_pi or is_linux %}
+						{# Host power control is meaningless in a container: only "Quit" applies. #}
+						{% if (is_pi or is_linux) and not is_container %}
 							{# MSG: Text for button which reboots the machine running Pikaraoke. #}
 							<a id="restart-link" class="button is-primary" href="{{ url_for('admin.reboot') }}">{% trans %}Reboot System{% endtrans %}</a>
 

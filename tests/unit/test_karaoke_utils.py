@@ -312,6 +312,40 @@ class TestStop:
 
         assert mock_karaoke.running is False
 
+    def test_stop_releases_the_wake_lock(self, mock_karaoke):
+        """Test that stop releases the keep-awake lock."""
+        mock_karaoke.preferences.set("keep_awake", "True")
+
+        mock_karaoke.stop()
+
+        assert mock_karaoke.keep_awake is False
+
+
+class TestKeepAwake:
+    """Tests for the keep_awake preference driving the wake lock."""
+
+    def test_enabling_preference_acquires_lock(self, mock_karaoke):
+        """Test that setting the preference starts the wake lock."""
+        mock_karaoke.preferences.set("keep_awake", "True")
+
+        assert mock_karaoke.keep_awake is True
+
+    def test_disabling_preference_releases_lock(self, mock_karaoke):
+        """Test that unsetting the preference stops the wake lock."""
+        mock_karaoke.preferences.set("keep_awake", "True")
+
+        mock_karaoke.preferences.set("keep_awake", "False")
+
+        assert mock_karaoke.keep_awake is False
+
+    def test_resetting_preferences_releases_lock(self, mock_karaoke):
+        """Test that clearing preferences returns the lock to its default off state."""
+        mock_karaoke.preferences.set("keep_awake", "True")
+
+        mock_karaoke.preferences.reset_all()
+
+        assert mock_karaoke.keep_awake is False
+
 
 class TestResetNowPlayingNotification:
     """Tests for the reset_now_playing_notification method."""

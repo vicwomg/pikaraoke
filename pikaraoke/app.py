@@ -32,7 +32,6 @@ from pikaraoke.lib.get_platform import (
     has_js_runtime,
     is_windows,
 )
-from pikaraoke.lib.keep_awake import KeepAwake
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.url_prefix import BasePathMiddleware
 from pikaraoke.lib.youtube_dl import upgrade_youtubedl
@@ -270,6 +269,7 @@ def main() -> None:
         high_quality=args.high_quality,
         logo_path=args.logo_path,
         hide_overlay=args.hide_overlay,
+        keep_awake=args.keep_awake,
         show_splash_clock=args.show_splash_clock,
         url=args.url,
         prefer_hostname=args.prefer_hostname,
@@ -344,13 +344,6 @@ def main() -> None:
         args.hide_splash_screen = True
         logging.info("Forced to run headless mode in Android")
 
-    # Keep the host awake so idle-sleep doesn't interrupt streaming (headless has
-    # no local player window to hold a wake lock).
-    keep_awake = None
-    if args.keep_awake:
-        keep_awake = KeepAwake()
-        keep_awake.start()
-
     # Start the splash screen browser
     if not args.hide_splash_screen:
         browser = Browser(k, args.window_size, args.external_monitor)
@@ -371,8 +364,8 @@ def main() -> None:
     if browser is not None:
         browser.close()
 
-    if keep_awake is not None:
-        keep_awake.stop()
+    # Ctrl-C leaves the run loop without going through stop().
+    k.stop()
 
     delete_tmp_dir()
     sys.exit()

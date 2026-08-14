@@ -10,16 +10,47 @@ import logging
 import shutil
 import subprocess
 
-from pikaraoke.lib.get_platform import is_linux, is_macos, is_windows
+from pikaraoke.lib.get_platform import (
+    is_linux,
+    is_macos,
+    is_running_in_docker,
+    is_windows,
+)
 
 # Windows SetThreadExecutionState flags
 _ES_CONTINUOUS = 0x80000000
 _ES_SYSTEM_REQUIRED = 0x00000001
 _ES_DISPLAY_REQUIRED = 0x00000002
 
+_UNSUPPORTED_LOG_MESSAGES = {
+    "container": "it has no effect inside a container; disable sleep on the host instead",
+    "missing_tool": (
+        "'systemd-inhibit' (Linux) or 'caffeinate' (macOS) was not found; "
+        "disable sleep in your OS power settings instead"
+    ),
+    "unsupported_platform": "this platform is not supported",
+}
+
+
+def unsupported_reason() -> str | None:
+    """Why keep-awake cannot work here, or None when it can.
+
+    One of ``container``, ``missing_tool`` or ``unsupported_platform``.
+    """
+    if is_windows():
+        return None
+    # A container cannot reach the host's power manager, and the host is what suspends.
+    if is_running_in_docker():
+        return "container"
+    if is_macos():
+        return None if shutil.which("caffeinate") else "missing_tool"
+    if is_linux():
+        return None if shutil.which("systemd-inhibit") else "missing_tool"
+    return "unsupported_platform"
+
 
 class KeepAwake:
-    """Keeps the host awake for the app's lifetime via a native OS mechanism.
+    """Holds a wake lock on the host via a native OS mechanism.
 
     Windows uses SetThreadExecutionState; macOS uses ``caffeinate``; Linux uses
     ``systemd-inhibit``. ``start()``/``stop()`` are safe to call on any platform
@@ -28,9 +59,19 @@ class KeepAwake:
 
     def __init__(self) -> None:
         self._process: subprocess.Popen | None = None
+        self.active = False
 
     def start(self) -> None:
         """Begin preventing system (and display) sleep."""
+        if self.active:
+            return
+
+        reason = unsupported_reason()
+        if reason is not None:
+            logging.warning(f"Keep-awake requested, but {_UNSUPPORTED_LOG_MESSAGES[reason]}.")
+            return
+
+        self.active = True
         if is_windows():
             self._start_windows()
         elif is_macos():
@@ -38,11 +79,10 @@ class KeepAwake:
             self._start_subprocess(["caffeinate", "-dis"], "caffeinate")
         elif is_linux():
             self._start_linux()
-        else:
-            logging.warning("Keep-awake is not supported on this platform; ignoring.")
 
     def stop(self) -> None:
         """Release the wake lock, allowing normal power management to resume."""
+        self.active = False
         if is_windows():
             self._stop_windows()
         elif self._process is not None:
@@ -54,8 +94,9 @@ class KeepAwake:
     # --- Windows ---
 
     def _start_windows(self) -> None:
-        # ES_CONTINUOUS keeps the requirement in effect for the life of this
-        # (main) thread, so a single call holds until stop() or process exit.
+        # ES_CONTINUOUS holds until stop() or process exit, on the calling
+        # thread. gevent keeps every greenlet on one OS thread, so a toggle
+        # from a web request lands on the thread that startup used.
         result = ctypes.windll.kernel32.SetThreadExecutionState(
             _ES_CONTINUOUS | _ES_SYSTEM_REQUIRED | _ES_DISPLAY_REQUIRED
         )
@@ -71,12 +112,6 @@ class KeepAwake:
     # --- Linux ---
 
     def _start_linux(self) -> None:
-        if shutil.which("systemd-inhibit") is None:
-            logging.warning(
-                "Keep-awake requested but 'systemd-inhibit' was not found. "
-                "Disable sleep manually in your OS power settings."
-            )
-            return
         self._start_subprocess(
             [
                 "systemd-inhibit",
