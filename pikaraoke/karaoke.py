@@ -27,6 +27,7 @@ from pikaraoke.lib.get_platform import (
     is_raspberry_pi,
 )
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
+from pikaraoke.lib.keep_awake import KeepAwake
 from pikaraoke.lib.library_scanner import LibraryScanner, ScanResult
 from pikaraoke.lib.network import get_ip
 from pikaraoke.lib.play_history_manager import PlayHistoryManager
@@ -126,6 +127,7 @@ class Karaoke:
         hide_session_name: bool | None = None,
         hide_url: bool | None = None,
         high_quality: bool | None = None,
+        keep_awake: bool | None = None,
         limit_user_songs_by: int | None = None,
         normalize_audio: bool | None = None,
         screensaver_timeout: int | None = None,
@@ -154,6 +156,7 @@ class Karaoke:
             youtubedl_proxy: Proxy URL for yt-dlp.
             logo_path: Custom logo image path.
             hide_overlay: Hide video overlay.
+            keep_awake: Prevent the host machine from sleeping.
             screensaver_timeout: Screensaver activation delay in seconds.
             url: Override auto-detected URL.
             prefer_hostname: Use hostname instead of IP in URL.
@@ -212,6 +215,9 @@ class Karaoke:
         self.url_override = url
         self.url_base_path = url_base_path
         self.url = self.get_url()
+
+        # Must exist before preferences are applied: the keep_awake setter uses it.
+        self._keep_awake = KeepAwake()
 
         # Load all preference-driven attributes from config (with CLI overrides as fallback)
         cli_args = {k: v for k, v in locals().items() if k != "self"}
@@ -369,6 +375,22 @@ class Karaoke:
         Priority: CLI argument (if provided) > config file > PreferenceManager.DEFAULTS
         """
         self.preferences.apply_all(**cli_overrides)
+
+    @property
+    def keep_awake(self) -> bool:
+        """Whether the host is being held awake.
+
+        A property so that preference writes acquire or release the wake lock
+        immediately, rather than at the next restart.
+        """
+        return self._keep_awake.active
+
+    @keep_awake.setter
+    def keep_awake(self, enabled: bool) -> None:
+        if enabled:
+            self._keep_awake.start()
+        else:
+            self._keep_awake.stop()
 
     def get_url(self):
         """Get the URL for accessing the PiKaraoke web interface.
@@ -553,6 +575,7 @@ class Karaoke:
     def stop(self) -> None:
         """Stop the karaoke run loop."""
         self.sound_manager.stop()
+        self._keep_awake.stop()
         self.running = False
 
     def handle_run_loop(self) -> None:
