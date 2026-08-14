@@ -8,7 +8,7 @@ $ErrorActionPreference = "Stop"
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
 Write-Host "Installing PiKaraoke for CI..."
-./build_scripts/install/install.ps1 -Confirm:$false -Local:$true
+./build_scripts/install/install.ps1 -NoConfirm -Local
 
 # Reload path again just in case installer updated it
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
