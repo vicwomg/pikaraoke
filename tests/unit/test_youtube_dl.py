@@ -5,8 +5,11 @@ import sys
 from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
+import requests
 
 from pikaraoke.lib.youtube_dl import (
+    _PREVIEW_ATTEMPTS,
+    _serves_bytes,
     build_ytdl_download_command,
     get_stream_url,
     get_youtube_id_from_url,
@@ -200,11 +203,16 @@ class TestGetStreamUrl:
             return_value=MagicMock(returncode=returncode, stdout=stdout, stderr=b""),
         )
 
+    @staticmethod
+    def _serving(*results: bool):
+        return patch("pikaraoke.lib.youtube_dl._serves_bytes", side_effect=results)
+
     @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
     def test_requests_progressive_format_only(self, mock_js):
         """Test that the format selector excludes HLS and single-track formats."""
         with self._run_with_output(b"https://rr1.googlevideo.com/videoplayback?x=1\n") as mock_run:
-            get_stream_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+            with self._serving(True):
+                get_stream_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
             cmd = mock_run.call_args[0][0]
             fmt = cmd[cmd.index("-f") + 1]
             assert "[protocol=https]" in fmt
@@ -212,9 +220,9 @@ class TestGetStreamUrl:
 
     @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
     def test_returns_progressive_url(self, mock_js):
-        """Test that a normal progressive URL is returned."""
+        """Test that a verified progressive URL is returned."""
         url = "https://rr1.googlevideo.com/videoplayback?itag=18"
-        with self._run_with_output(url.encode() + b"\n"):
+        with self._run_with_output(url.encode() + b"\n"), self._serving(True):
             assert get_stream_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ") == url
 
     @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
@@ -231,6 +239,49 @@ class TestGetStreamUrl:
         """Test that a non-zero yt-dlp exit returns None."""
         with self._run_with_output(b"", returncode=1):
             assert get_stream_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ") is None
+
+    @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
+    def test_re_resolves_when_stream_refused(self, mock_js):
+        """Test that a refused URL is discarded and a freshly resolved one returned."""
+        refused = b"https://rr1.googlevideo.com/videoplayback?itag=18&dead=1\n"
+        working = "https://rr2.googlevideo.com/videoplayback?itag=18&live=1"
+        runs = [
+            MagicMock(returncode=0, stdout=refused, stderr=b""),
+            MagicMock(returncode=0, stdout=working.encode() + b"\n", stderr=b""),
+        ]
+        with patch("subprocess.run", side_effect=runs), self._serving(False, True):
+            assert get_stream_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ") == working
+
+    @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
+    def test_returns_none_when_every_attempt_refused(self, mock_js):
+        """Test that a URL the browser could not play is never handed back."""
+        url = "https://rr1.googlevideo.com/videoplayback?itag=18"
+        with self._run_with_output(url.encode() + b"\n"):
+            with self._serving(*[False] * _PREVIEW_ATTEMPTS):
+                assert get_stream_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ") is None
+
+
+class TestServesBytes:
+    """Tests for the _serves_bytes stream check."""
+
+    @staticmethod
+    def _response(status_code: int):
+        return patch("requests.get", return_value=MagicMock(status_code=status_code))
+
+    def test_accepts_partial_content(self):
+        """Test that a ranged request answered with 206 counts as playable."""
+        with self._response(206):
+            assert _serves_bytes("https://rr1.googlevideo.com/videoplayback") is True
+
+    def test_rejects_forbidden(self):
+        """Test that YouTube refusing the stream counts as unplayable."""
+        with self._response(403):
+            assert _serves_bytes("https://rr1.googlevideo.com/videoplayback") is False
+
+    def test_rejects_unreachable_host(self):
+        """Test that a transport failure counts as unplayable rather than raising."""
+        with patch("requests.get", side_effect=requests.ConnectionError("boom")):
+            assert _serves_bytes("https://rr1.googlevideo.com/videoplayback") is False
 
 
 class TestGetYoutubedlVersion:
