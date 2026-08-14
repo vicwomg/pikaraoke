@@ -1028,6 +1028,404 @@
           "metadata"
         ]
       }
+    },
+    "/api/history/singers": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "session",
+            "description": "Session UUID filter",
+            "schema": {
+              "type": "string",
+              "default": null,
+              "nullable": true
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "description": "Rows to return (1-500)",
+            "schema": {
+              "type": "integer",
+              "default": null,
+              "minimum": 1,
+              "maximum": 500,
+              "nullable": true
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "completed_only",
+            "description": "Count only songs sung through, for the singer lists",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Performer names with play counts, most active first.",
+        "description": "Unscoped for the singer auto-complete; scoped to a session for its singer\nlist. Only the auto-complete leaves completed_only off: it is a directory of\nwho sings here, so dropping someone who skipped their only song would just\nmean the host typing the name out again.",
+        "tags": [
+          "sessions_api"
+        ]
+      }
+    },
+    "/api/history/plays": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "session",
+            "description": "Session UUID filter",
+            "schema": {
+              "type": "string",
+              "default": null,
+              "nullable": true
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "description": "Rows to return (1-500)",
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "minimum": 1,
+              "maximum": 500
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "description": "played_at, performer or song",
+            "schema": {
+              "type": "string",
+              "default": "played_at"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "direction",
+            "description": "asc or desc",
+            "schema": {
+              "type": "string",
+              "default": "desc"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "include_skipped",
+            "description": "Show songs nobody sang through",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "performer",
+            "description": "Performer name filter, case-insensitive",
+            "schema": {
+              "type": "string",
+              "default": null,
+              "nullable": true
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "song",
+            "description": "Song title filter",
+            "schema": {
+              "type": "string",
+              "default": null,
+              "nullable": true
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "youtube_id",
+            "description": "Song's YouTube id, when it has one",
+            "schema": {
+              "type": "string",
+              "default": null,
+              "nullable": true
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Paginated play log, newest first, optionally scoped to one session.",
+        "tags": [
+          "sessions_api"
+        ]
+      }
+    },
+    "/api/history/plays/{play_id}": {
+      "delete": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Delete a single play from the log.",
+        "tags": [
+          "sessions_api"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "play_id",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      ]
+    },
+    "/api/history/sessions": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "description": "Rows to return (1-500)",
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 500
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "include_unnamed",
+            "description": "Include auto-started sessions the host never named",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Session list with play counts, plus the currently active session.",
+        "tags": [
+          "sessions_api"
+        ]
+      },
+      "post": {
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartSessionForm"
+              }
+            }
+          }
+        },
+        "summary": "Start a new session, closing any that is still open.",
+        "tags": [
+          "sessions_api"
+        ]
+      }
+    },
+    "/api/history/sessions/{session_uuid}": {
+      "put": {
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSessionForm"
+              }
+            }
+          }
+        },
+        "summary": "End, activate or rename a session. The schema rejects any other action.",
+        "tags": [
+          "sessions_api"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "session_uuid",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ],
+      "delete": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Delete a session and all of its plays.",
+        "tags": [
+          "sessions_api"
+        ]
+      }
+    },
+    "/api/history": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "scope",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "session"
+              ]
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "session",
+            "description": "UUID when scope=session",
+            "schema": {
+              "type": "string",
+              "default": null,
+              "nullable": true
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Erase play history: one session's plays, or everything on record.",
+        "description": "Gated here as well as by the blueprint. The Play History page is already\nopen to the whole room, so the blueprint's allowlist is the only thing\nstanding between a guest and this; an irreversible delete does not rest on\none line in a set literal.",
+        "tags": [
+          "sessions_api"
+        ]
+      }
+    },
+    "/api/history/export/{session_uuid}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "format",
+            "description": "csv (spreadsheet) or txt (human-readable list)",
+            "schema": {
+              "type": "string",
+              "default": "csv",
+              "enum": [
+                "csv",
+                "txt"
+              ]
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Download a session's plays as CSV or a human-readable text list.",
+        "tags": [
+          "sessions_api"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "session_uuid",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ]
     }
   },
   "info": {
@@ -1077,6 +1475,10 @@
     },
     {
       "name": "metadata",
+      "description": ""
+    },
+    {
+      "name": "sessions_api",
       "description": ""
     }
   ],
@@ -1240,6 +1642,44 @@
             "description": "URL to redirect to after login"
           }
         },
+        "additionalProperties": false
+      },
+      "StartSessionForm": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 60,
+            "description": "Session name"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateSessionForm": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "rename",
+              "end",
+              "activate"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "default": null,
+            "maxLength": 60,
+            "description": "New name when renaming",
+            "nullable": true
+          }
+        },
+        "required": [
+          "action"
+        ],
         "additionalProperties": false
       }
     },
