@@ -15,6 +15,22 @@ from pikaraoke.lib.song_manager import SongManager
 PIKARAOKE_PACKAGE = Path(__file__).resolve().parent.parent / "pikaraoke"
 
 
+# What base.html itself url_for()s on every render, independent of which
+# blueprint is under test. Listed here rather than in each caller so a new route
+# test does not have to rediscover the layout's own dependencies.
+_BASE_TEMPLATE_ENDPOINTS = [
+    ("/", "home.home"),
+    ("/queue", "queue.queue"),
+    ("/browse", "files.browse"),
+    ("/search", "search.search"),
+    ("/info", "info.info"),
+    ("/rankings", "sessions.rankings"),
+    ("/history", "sessions.history"),
+    ("/sessions", "sessions.sessions"),
+    ("/api/sessions/singers", "sessions_api.get_singers"),
+]
+
+
 def make_route_app(blueprint, linked_endpoints):
     """A Flask app with just enough wiring to render one blueprint's templates.
 
@@ -24,14 +40,26 @@ def make_route_app(blueprint, linked_endpoints):
     app = Flask(__name__, template_folder=str(PIKARAOKE_PACKAGE / "templates"))
     Babel(app)
     app.register_blueprint(blueprint)
-    for rule, endpoint in linked_endpoints:
-        app.add_url_rule(rule, endpoint, lambda: "", methods=["GET"])
+    endpoints = {endpoint: rule for rule, endpoint in _BASE_TEMPLATE_ENDPOINTS}
+    endpoints.update({endpoint: rule for rule, endpoint in linked_endpoints})
+    for endpoint, rule in endpoints.items():
+        # The blueprint under test defines some of these for real; stubbing over
+        # one would replace the view the test is exercising.
+        if endpoint not in app.view_functions:
+            app.add_url_rule(rule, endpoint, lambda: "", methods=["GET"])
 
     @app.context_processor
     def inject_path_config():
         return {"base_path": "", "socketio_path": "/socket.io", "cookie_path": "/"}
 
-    app.jinja_env.globals.update(url_escape=quote)
+    # app.py binds these at import for the same reason: base.html calls them on
+    # every render, so a page rendered without them fails on an undefined name.
+    # Off by default -- a test that wants the admin markup overrides them.
+    app.jinja_env.globals.update(
+        url_escape=quote,
+        is_admin=lambda: False,
+        active_session_name=lambda: "",
+    )
     return app
 
 
@@ -55,7 +83,15 @@ class MockPlaybackController:
     is_paused: bool = True
     is_playing: bool = False
 
-    def skip(self, log_action: bool = True) -> bool:
+    def __init__(self) -> None:
+        # End reasons passed to skip(), in order. Held on the instance so one
+        # test cannot see another's calls.
+        self.skipped_reasons: list[str] = []
+
+    # Mirrors the real signature: transpose skips with its own reason so play
+    # history can tell a restart from a real skip, and tests assert on it.
+    def skip(self, log_action: bool = True, reason: str = "skip") -> bool:
+        self.skipped_reasons.append(reason)
         if self.is_playing:
             self.reset_now_playing()
             return True
@@ -109,6 +145,19 @@ class MockSoundManager:
         pass
 
 
+class MockPlayHistory:
+    """Minimal mock of PlayHistoryManager, which needs a database in the real thing."""
+
+    def __init__(self, session=None):
+        self.session = session
+
+    def get_current_session(self) -> dict | None:
+        return self.session
+
+    def get_current_session_name(self) -> str | None:
+        return self.session["name"] if self.session else None
+
+
 class MockKaraoke:
     """Minimal mock of the Karaoke class for testing queue operations.
 
@@ -125,6 +174,7 @@ class MockKaraoke:
             config_file_path=str(tmp_path / "config.ini"), target=self
         )
         self.playback_controller = MockPlaybackController()
+        self.play_history = MockPlayHistory()
         self.volume = 0.85
         self.running = True
         self.now_playing_notification = None
@@ -166,6 +216,7 @@ class MockKaraoke:
     # Bind the real methods to our mock class
     get_now_playing = Karaoke.get_now_playing
     reset_now_playing = Karaoke.reset_now_playing
+    transpose_current = Karaoke.transpose_current
     send_notification = Karaoke.send_notification
     log_and_send = Karaoke.log_and_send
     update_now_playing_socket = Karaoke.update_now_playing_socket

@@ -10,6 +10,7 @@ import werkzeug
 if not hasattr(werkzeug, "__version__"):
     werkzeug.__version__ = "3.0.0"
 
+from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.routes.files import files_bp
 from tests.conftest import make_route_app
@@ -37,7 +38,7 @@ def _sort_links(body):
 
 def _karaoke(app, songs, per_page):
     """A karaoke stand-in whose song_manager is the real thing."""
-    sm = SongManager("/songs", db=MagicMock(), get_title_tidy=lambda: False)
+    sm = SongManager("/songs", db=MagicMock(), events=EventSystem(), get_title_tidy=lambda: False)
     sm.songs.update(songs)
     app.jinja_env.globals.update(filename_from_path=sm.display_name_from_path)
     k = MagicMock()

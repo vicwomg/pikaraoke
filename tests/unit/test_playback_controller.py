@@ -211,8 +211,8 @@ class TestPlaybackControllerEndSong:
         pc.stream_manager.kill_ffmpeg = MagicMock()
 
         # Track emitted events
-        emitted_events = []
-        events.on("song_ended", lambda: emitted_events.append("song_ended"))
+        emitted_reasons = []
+        events.on("song_ended", lambda reason=None: emitted_reasons.append(reason))
 
         pc.end_song()
 
@@ -221,7 +221,24 @@ class TestPlaybackControllerEndSong:
         pc.stream_manager.kill_ffmpeg.assert_called_once()
         mock_delete.assert_called_once()
         mock_sleep.assert_called_once()
-        assert "song_ended" in emitted_events
+        assert emitted_reasons == [None]
+
+    @patch("pikaraoke.lib.playback_controller.time.sleep")
+    @patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+    def test_end_song_emits_reason(self, mock_delete, mock_sleep, test_prefs):
+        """The end reason reaches listeners; play history derives 'completed' from it."""
+        events = EventSystem()
+        filename_fn = lambda x, remove_youtube_id=True: x
+
+        pc = PlaybackController(test_prefs, events, filename_fn)
+        pc.stream_manager.kill_ffmpeg = MagicMock()
+
+        emitted_reasons = []
+        events.on("song_ended", lambda reason=None: emitted_reasons.append(reason))
+
+        pc.end_song(reason="complete")
+
+        assert emitted_reasons == ["complete"]
 
 
 class TestPlaybackControllerSkip:

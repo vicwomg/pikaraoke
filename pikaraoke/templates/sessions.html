@@ -1,0 +1,746 @@
+{% extends 'base.html' %}
+{% import 'partials/history_tables.html' as tables with context %}
+{% import 'partials/pager.html' as pager %}
+
+{% block scripts %}
+{{ pager.pager_scripts() }}
+{{ tables.table_scripts(page_size) }}
+<script>
+	var sessionsPage = { offset: 0, limit: HISTORY_PAGE_SIZE };
+	// Whether the list hides the sessions record_play() auto-starts. Off by
+	// default: this page is the only place they can be seen at all, and a
+	// household that never names a night would otherwise find the list empty.
+	// They are styled apart rather than hidden, and naming one from here is what
+	// promotes it to the active session everyone sees.
+	var hideAutoStarted = false;
+	var currentSessionUuid = null;
+	// The cap the API enforces, so the rename prompt can hold to it too. The name
+	// box carries it as a maxlength attribute.
+	var sessionNameMaxLength = {{ session_name_max_length }};
+	// Which session rows are expanded, so a refresh does not collapse them.
+	var expandedSessions = {};
+	// Singers per session, keyed by uuid. Cleared on every refresh, so it only
+	// spares repeat lookups while the list on screen is unchanged.
+	var singerCache = {};
+	// The session last expanded for being the active one, so handing the night
+	// over to another session can move the open row with it. Tracked rather than
+	// a one-shot flag: a refresh must not re-open a row the host has since closed.
+	var autoExpandedUuid;
+
+	// Gettext output is Markup, so Jinja never autoescapes it: an apostrophe in a
+	// translation would close the JS string literal and break this whole script.
+	// |tojson emits the literal instead. See tests/unit/test_template_i18n.py.
+	var sessionText = {
+		// {# MSG: Shown on the sessions page when no session is currently running. #}
+		noSession: {{ _('No active session') | tojson }},
+		// {# MSG: Label for a session the host never named. NUMBER is replaced with a number. #}
+		unnamed: {{ _('Session NUMBER') | tojson }},
+		// {# MSG: Prompt asking the host to name a session. #}
+		promptRename: {{ _('Name this session:') | tojson }},
+		// {# MSG: Menu item which names the auto-started session that is recording now, making it the active session everyone sees. #}
+		nameToPromote: {{ _('Name to make active') | tojson }},
+		// {# MSG: Menu item which changes the name of a session that already has one. #}
+		renameSession: {{ _('Rename') | tojson }},
+		// {# MSG: Confirmation before deleting a session and every play recorded in it. SESSION is replaced with its name. #}
+		confirmDeleteSession: {{ _('Delete SESSION and all of its plays? This cannot be undone.') | tojson }},
+		// {# MSG: Confirmation before deleting every play in a session while keeping the session. SESSION is replaced with its name. #}
+		confirmClearPlays: {{ _('Delete every play recorded in SESSION? The session itself is kept. This cannot be undone.') | tojson }},
+		// {# MSG: Shown when no sessions have been recorded yet. #}
+		noSessions: {{ _('No sessions yet.') | tojson }},
+		// {# MSG: Shown when a session has no plays, so nobody has sung in it. #}
+		noSingers: {{ _('Nobody has sung in this session.') | tojson }},
+		// {# MSG: Confirmation before making an old session the one new songs are recorded against. #}
+		confirmActivate: {{ _('Make SESSION the active session? New songs will be recorded against it.') | tojson }}
+	};
+
+	// A host-started session always has a name, so only one that auto-started on
+	// the first play falls back to its number. The date is already its own
+	// column, so repeating it here only makes the label long.
+	function sessionLabel(session) {
+		return session.name || sessionText.unnamed.replace("NUMBER", session.id);
+	}
+
+	// The play log lives on its own page, scoped by the uuid in its query string.
+	var historyUrlTemplate = "{{ url_for('sessions.history') }}?session=SESSION_UUID";
+
+	function historyUrl(uuid) {
+		return historyUrlTemplate.replace("SESSION_UUID", encodeURIComponent(uuid));
+	}
+
+	// The same log narrowed to one singer of that session, which is where a
+	// singer tag leads.
+	function historySingerUrl(uuid, performer) {
+		return historyUrl(uuid) + "&performer=" + encodeURIComponent(performer);
+	}
+
+	function loadSessions() {
+		var params = {
+			limit: sessionsPage.limit,
+			offset: sessionsPage.offset,
+			include_unnamed: !hideAutoStarted
+		};
+		return $.getJSON("{{ url_for('sessions_api.get_sessions') }}", params, function (data) {
+			// Deleting the last row on the last page would otherwise strand the
+			// list on an empty one.
+			if (!data.sessions.length && sessionsPage.offset > 0) {
+				sessionsPage.offset = Math.max(0, sessionsPage.offset - sessionsPage.limit);
+				loadSessions();
+				return;
+			}
+
+			currentSessionUuid = data.current ? data.current.uuid : null;
+			// Plays may have been recorded since the last render, so counts held
+			// from before it are stale.
+			singerCache = {};
+			// Handing the night over to another session moves the open row with it,
+			// so the singers on screen are always the ones being recorded.
+			if (autoExpandedUuid !== currentSessionUuid) {
+				delete expandedSessions[autoExpandedUuid];
+				if (currentSessionUuid) {
+					expandedSessions[currentSessionUuid] = true;
+				}
+				autoExpandedUuid = currentSessionUuid;
+			}
+			renderPager("sessions", sessionsPage, data.total);
+
+			// An unnamed session reads here as it does on the splash screen and the
+			// nav ribbon: as nothing at all. Naming one from the list below is what
+			// promotes it to the active session on all three surfaces at once.
+			var currentName = data.current ? data.current.name : null;
+			$("#current-session").text(currentName || sessionText.noSession);
+			// The name box belongs to starting a session, so it comes and goes with
+			// the button it feeds. Hidden by the control rather than the input, so
+			// the icon goes with it.
+			$("#session-name-control, #start-session").toggleClass("is-hidden", !!currentName);
+			$("#end-session, #rename-session").toggleClass("is-hidden", !currentName);
+
+			var $body = $("#sessions-body");
+			if (!data.sessions.length) {
+				$body.html($("<tr>").append($("<td>").attr("colspan", 4).text(sessionText.noSessions)));
+				return;
+			}
+
+			// Rows are joined and written once: appending inside the loop costs
+			// a separate HTML parse and reflow per row. Each session contributes
+			// two: the row itself and its singer panel, which is always rendered
+			// and merely hidden when collapsed, so expanding is a class flip and a
+			// fetch rather than a DOM splice.
+			var rows = data.sessions.map(function (session) {
+				var escapedUuid = escapeHtml(session.uuid);
+				var isActive = session.uuid === currentSessionUuid;
+				var isExpanded = !!expandedSessions[session.uuid];
+				var isUnnamed = !session.name;
+				var label = sessionLabel(session);
+				// The panel carries the same marks, so a session and its singers
+				// read as one block rather than two.
+				var marks =
+					(isActive ? " is-active-session" : "") +
+					(isUnnamed ? " is-unnamed-session" : "");
+				return (
+					'<tr class="session-row' + marks +
+						'" data-uuid="' + escapedUuid + '" aria-expanded="' + isExpanded + '">' +
+						"<td>" +
+							{# MSG: Tooltip on the arrow which expands a session to list who sang in it. #}
+							'<i class="session-chevron icon-play" title="{{ _("Show who sang") | forceescape }}"></i>' +
+							'<span class="session-name">' + escapeHtml(label) + "</span>" +
+						"</td>" +
+						whenCell(session.started_at) +
+						'<td class="has-text-right">' + session.play_count + "</td>" +
+						'<td class="has-text-right options-cell">' +
+							'<a class="has-text-grey-light row-options-btn" data-uuid="' +
+								escapedUuid + '" data-label="' + escapeHtml(label) +
+								'" data-unnamed="' + (isUnnamed ? "1" : "") +
+								'" title="{{ _("Options") | forceescape }}">' +
+								'<i class="icon-cog is-size-5"></i></a>' +
+						"</td>" +
+					"</tr>" +
+					'<tr class="singers-row' + marks + (isExpanded ? "" : " is-hidden") +
+						'" data-uuid="' + escapedUuid + '">' +
+						'<td colspan="4"><div class="singers-panel">' +
+							'<div class="singers-list"></div>' +
+							'<a class="is-size-7" href="' + historyUrl(session.uuid) + '">' +
+								{# MSG: Link inside an expanded session which opens the play log filtered to it. #}
+								"{{ _('Show these plays') | forceescape }}" +
+							"</a>" +
+						"</div></td>" +
+					"</tr>"
+				);
+			});
+			$body.html(rows.join(""));
+			loadExpandedSingers();
+		});
+	}
+
+	// Each tag links to what that person sang this session. Built with .text()
+	// rather than concatenated markup, so jQuery escapes the name.
+	function renderSingerTags($list, uuid, singers) {
+		$list.empty();
+		if (!singers.length) {
+			$list.append($("<span>").text(sessionText.noSingers));
+			return;
+		}
+		// Appended as one array, so the tags are inserted in a single pass.
+		$list.append(
+			singers.map(function (singer) {
+				return $("<a>")
+					.addClass("tag singer-tag")
+					.attr("href", historySingerUrl(uuid, singer.performer))
+					.text(singer.performer + " (" + singer.play_count + ")")[0];
+			})
+		);
+	}
+
+	// Who sang in a session, derived from its plays, so a name only appears once
+	// that person has actually sung something. `$panel` is the singers row itself,
+	// which keeps the uuid out of a jQuery selector.
+	function fillSingers($panel) {
+		var uuid = $panel.data("uuid");
+		var $list = $panel.find(".singers-list");
+		if (singerCache[uuid]) {
+			renderSingerTags($list, uuid, singerCache[uuid]);
+			return;
+		}
+		// completed_only, unlike the auto-complete: this panel reports how much
+		// each person sang, so it counts what every other screen counts.
+		var params = { session: uuid, completed_only: true };
+		$.getJSON("{{ url_for('sessions_api.get_singers') }}", params, function (data) {
+			singerCache[uuid] = data.singers;
+			renderSingerTags($list, uuid, data.singers);
+		});
+	}
+
+	// One request per open row: a collapsed panel costs nothing until it is opened.
+	function loadExpandedSingers() {
+		$("#sessions-body .singers-row:not(.is-hidden)").each(function () {
+			fillSingers($(this));
+		});
+	}
+
+	// url_for cannot build the parameterised paths, so the uuid is substituted
+	// into a rendered placeholder rather than the path being hardcoded here:
+	// renaming the route then still fails loudly at render time.
+	var sessionUrlTemplate = "{{ url_for('sessions_api.update_session', session_uuid='SESSION_UUID') }}";
+	var exportUrlTemplate = "{{ url_for('sessions_api.export_session', session_uuid='SESSION_UUID') }}";
+
+	function sessionUrl(uuid) {
+		return sessionUrlTemplate.replace("SESSION_UUID", encodeURIComponent(uuid));
+	}
+
+	function putSession(uuid, payload) {
+		return $.ajax({
+			url: sessionUrl(uuid),
+			type: "PUT",
+			contentType: "application/json",
+			data: JSON.stringify(payload)
+		});
+	}
+
+	// A prompt cannot enforce a maxlength the way the name box does, so an
+	// over-long name is cut to the same cap here rather than being refused by the
+	// API after the host has typed it.
+	//
+	// `alsoActivate` promotes a closed auto-started session: naming it and opening
+	// it are one intent. Sequenced rather than sent together, so a rejected name
+	// cannot leave a nameless session active -- the state this scheme avoids.
+	function renameSession(uuid, alsoActivate) {
+		var name = window.prompt(sessionText.promptRename);
+		if (name === null || name.trim() === "") {
+			return;
+		}
+		var trimmed = name.trim().slice(0, sessionNameMaxLength);
+		var renamed = putSession(uuid, { action: "rename", name: trimmed });
+		if (!alsoActivate) {
+			renamed.done(loadSessions);
+			return;
+		}
+		renamed
+			.then(function () {
+				return putSession(uuid, { action: "activate" });
+			})
+			.done(loadSessions);
+	}
+
+	// Row actions live in one modal rather than a row of icons, matching the
+	// queue page and keeping the table narrow enough for a phone. The target
+	// session is held on the modal element rather than in a global, so it
+	// cannot outlive the page across SPA navigation.
+	var $sessionModal = null;
+
+	function openSessionOptions(uuid, label, isUnnamed) {
+		var isActive = uuid === currentSessionUuid;
+		$sessionModal.data({ uuid: uuid, label: label, unnamed: isUnnamed, active: isActive });
+		$("#session-modal-title").text(label);
+		// Activating and ending are mirror actions, so only the one that applies
+		// to this session is offered. An unnamed session is never activated by a
+		// deliberate click: that would leave a session recording with nothing on
+		// the ribbon, the splash screen or the bar above to show for it. Naming
+		// it is offered as the promotion instead, and activates it too.
+		$("#opt-activate").toggle(!isActive && !isUnnamed);
+		$("#opt-end").toggle(isActive);
+		$("#opt-rename-text").text(
+			isUnnamed ? sessionText.nameToPromote : sessionText.renameSession
+		);
+		$("#opt-rename").toggleClass("has-text-warning", !!isUnnamed);
+		var exportBase = exportUrlTemplate.replace("SESSION_UUID", encodeURIComponent(uuid));
+		$("#opt-export").attr("href", exportBase);
+		$("#opt-export-txt").attr("href", exportBase + "?format=txt");
+		$sessionModal.addClass("is-active");
+	}
+
+	function closeSessionOptions() {
+		$sessionModal.removeClass("is-active");
+	}
+
+	function executeSessionAction(action) {
+		var uuid = $sessionModal.data("uuid");
+		var label = $sessionModal.data("label");
+		closeSessionOptions();
+
+		if (action === "activate") {
+			if (window.confirm(sessionText.confirmActivate.replace("SESSION", label))) {
+				putSession(uuid, { action: "activate" }).done(loadSessions);
+			}
+		} else if (action === "end") {
+			putSession(uuid, { action: "end" }).done(loadSessions);
+		} else if (action === "rename") {
+			// An unnamed session that is not already open is promoted by the same
+			// click that names it; there is no other way to activate one.
+			renameSession(uuid, $sessionModal.data("unnamed") && !$sessionModal.data("active"));
+		} else if (action === "clear") {
+			if (window.confirm(sessionText.confirmClearPlays.replace("SESSION", label))) {
+				var params = $.param({ scope: "session", session: uuid });
+				$.ajax({ url: "{{ url_for('sessions_api.reset_history') }}?" + params, type: "DELETE" })
+					.done(loadSessions);
+			}
+		} else if (action === "delete") {
+			if (window.confirm(sessionText.confirmDeleteSession.replace("SESSION", label))) {
+				$.ajax({ url: sessionUrl(uuid), type: "DELETE" }).done(loadSessions);
+			}
+		}
+	}
+
+	$(function () {
+		$sessionModal = $("#session-options-modal");
+		loadSessions();
+
+		// A play lands against the active session while this page is open, which
+		// moves its play count and its singer list. play_logged is emitted after
+		// the play is written, so the counts below are already the new ones.
+		// Re-registered rather than stacked, because SPA navigation re-runs this.
+		if (window.socket) {
+			if (window.sessionsLogHandler) {
+				window.socket.off("play_logged", window.sessionsLogHandler);
+			}
+			// Debounced for a splash delay of 0, where a song ending and the
+			// next starting land together and the list reads the same after both.
+			var reloadSessions = debounce(loadSessions, 400);
+			window.sessionsLogHandler = function () {
+				// The socket outlives SPA page swaps, so a handler left bound
+				// would keep re-querying for a table that is no longer on screen.
+				// A missing tbody means this page is gone.
+				if (!$("#sessions-body").length) {
+					window.socket.off("play_logged", window.sessionsLogHandler);
+					return;
+				}
+				reloadSessions();
+			};
+			window.socket.on("play_logged", window.sessionsLogHandler);
+		}
+
+		// Enter and the button are the same action, and both are governed by the
+		// same emptiness check the button's disabled state shows. The server
+		// rejects a blank name too, so this only spares the round trip.
+		function startSession() {
+			var $name = $("#session-name-input");
+			var name = $name.val().trim();
+			if (!name) {
+				return;
+			}
+			$.ajax({
+				url: "{{ url_for('sessions_api.start_session') }}",
+				type: "POST",
+				contentType: "application/json",
+				data: JSON.stringify({ name: name })
+			}).done(function () {
+				$name.val("");
+				// The box comes back empty when this session ends, so the button has
+				// to go back to waiting for a name.
+				$("#start-session").prop("disabled", true);
+				loadSessions();
+			});
+		}
+
+		$("#start-session").on("click", startSession);
+
+		$("#session-name-input")
+			.on("input", function () {
+				$("#start-session").prop("disabled", !$(this).val().trim());
+			})
+			// Typing a name and pressing enter is the whole interaction, so it
+			// should not need a trip to the button. The field is outside a form, so
+			// nothing submits on its own.
+			.on("keydown", function (e) {
+				if (e.key === "Enter") {
+					startSession();
+				}
+			});
+
+		$("#end-session").on("click", function () {
+			putSession(currentSessionUuid, { action: "end" }).done(loadSessions);
+		});
+
+		$("#rename-session").on("click", function () {
+			renameSession(currentSessionUuid);
+		});
+
+		// The cog sits inside a row that expands on click, so it stops the event
+		// reaching it. jQuery runs delegated handlers from the target outwards, so
+		// this one runs first.
+		$("#sessions-body").on("click", ".row-options-btn", function (e) {
+			e.stopPropagation();
+			var $btn = $(this);
+			openSessionOptions($btn.data("uuid"), $btn.data("label"), !!$btn.data("unnamed"));
+		});
+
+		// The link out to the play log sits in the panel the row toggles, so it
+		// stops the click reaching the row and collapsing what it just opened.
+		$("#sessions-body").on("click", ".singers-panel a", function (e) {
+			e.stopPropagation();
+		});
+
+		$("#sessions-body").on("click", ".session-row", function () {
+			var $row = $(this);
+			var uuid = $row.data("uuid");
+			var shouldExpand = !expandedSessions[uuid];
+			expandedSessions[uuid] = shouldExpand;
+			// CSS turns the triangle off aria-expanded, so state lives in one place.
+			$row.attr("aria-expanded", shouldExpand);
+			// Toggling in place rather than re-rendering leaves the scroll position
+			// alone.
+			var $panel = $row.next(".singers-row").toggleClass("is-hidden", !shouldExpand);
+			if (shouldExpand) {
+				fillSingers($panel);
+			}
+		});
+
+		$sessionModal.on("click", ".modal-background, .modal-close-btn", closeSessionOptions);
+
+		$sessionModal.on("click", "[data-action]", function (e) {
+			e.preventDefault();
+			executeSessionAction($(this).data("action"));
+		});
+
+		// Hiding rows changes how many there are, so the old offset would index a
+		// different list.
+		$("#hide-auto-started").on("change", function () {
+			hideAutoStarted = $(this).is(":checked");
+			sessionsPage.offset = 0;
+			loadSessions();
+		});
+
+		wirePager("sessions", sessionsPage, loadSessions);
+	});
+</script>
+{% endblock %}
+
+{% block header %}
+<h1>{% block title %}{{ title }}{% endblock %}</h1>
+<style>
+	/* Flush with the table below rather than inset inside a notification box:
+	   this is the page's first line and has to line up with everything under it. */
+	.current-session {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		align-items: center;
+		padding-bottom: 12px;
+		margin-bottom: 25px;
+		border-bottom: 1px solid rgba(128, 128, 128, 0.35);
+	}
+	.current-session-name {
+		flex-grow: 1;
+		font-weight: 600;
+	}
+	.session-buttons {
+		display: flex;
+		flex-wrap: nowrap;
+		gap: 8px;
+	}
+	/* Wide enough for the placeholder to read in full, and free to shrink below
+	   its content width so the Start button beside it is never pushed off a phone
+	   screen. Sized on the control rather than the input, since the icon is
+	   positioned against the control. */
+	#session-name-control {
+		width: 200px;
+		min-width: 0;
+	}
+	/* Bulma sizes a control's icon from the base input height, so against an
+	   is-small field it is too tall and reserves more room than the glyph needs.
+	   Pinned to the field's own height, and the text indented to match. */
+	#session-name-control .icon.is-left {
+		height: 100%;
+		width: 2rem;
+	}
+	#session-name-input {
+		width: 100%;
+		padding-left: 2rem;
+	}
+	/* The whole session row toggles its singer panel, with the triangle as the
+	   affordance for it. */
+	.session-row {
+		cursor: pointer;
+	}
+	.session-row:hover > td {
+		background-color: rgba(128, 128, 128, 0.15);
+	}
+	/* One triangle rotated rather than two icons swapped, turning on the row's
+	   aria-expanded so open/shut is held in one place. */
+	.session-chevron {
+		font-size: 0.7em;
+		color: var(--dark-link);
+	}
+	/* Fontello puts the glyph and its margins on the ::before, so the rotation
+	   goes there: turning the element would swing the spacing round with it and
+	   shift the name. */
+	.session-chevron:before {
+		margin-left: 0;
+		margin-right: 0.7em;
+		transition: transform 0.15s ease;
+	}
+	.session-row[aria-expanded="true"] .session-chevron:before {
+		transform: rotate(90deg);
+	}
+	.session-row:hover .session-chevron {
+		color: var(--dark-link-hover);
+	}
+	/* The active session gets a standing accent. Every row reserves the same 3px
+	   so names stay aligned, and the bar runs on down the panel: the pair is one
+	   block. */
+	.session-row > td:first-child,
+	.singers-row > td {
+		border-left: 3px solid transparent;
+	}
+	.is-active-session > td:first-child {
+		border-left-color: var(--dark-success);
+	}
+	.is-active-session .session-name {
+		font-weight: 600;
+	}
+	/* An auto-started session is recording but unclaimed, which is why the ribbon
+	   and splash screen show nothing for it. The warning accent rather than the
+	   success one, so the list never implies the room can see a name that is not
+	   there. Naming it turns it green. */
+	.is-active-session.is-unnamed-session > td:first-child {
+		border-left-color: var(--dark-warning);
+	}
+	/* The row label is a number PiKaraoke assigned, not a name anyone chose. */
+	.is-unnamed-session .session-name {
+		font-style: italic;
+		color: #a7a7a7;
+	}
+	/* The panel belongs to the row above it: no separating border, an inset
+	   background, and an indent that lines it up under the session name. */
+	.singers-row > td {
+		padding: 0 12px 2px 22px;
+		border-top: none;
+		background-color: rgba(0, 0, 0, 0.15);
+	}
+	/* Last of the washes, so the active session's panel takes the same tint as
+	   its row rather than the inset grey. */
+	.is-active-session > td {
+		background-color: rgba(46, 204, 113, 0.07);
+	}
+	/* Matching the warning accent above, so the wash and the bar agree. */
+	.is-active-session.is-unnamed-session > td {
+		background-color: rgba(241, 183, 14, 0.07);
+	}
+	/* The name column is deliberately unsized, so it takes whatever the three
+	   beside it do not need: it is the column worth reading, and a timestamp
+	   left to its own devices would ask for more width than a name does. */
+	#session-list .col-when {
+		width: 7em;
+	}
+	#session-list .col-plays {
+		width: 4.5em;
+	}
+	#session-list .col-options {
+		width: 3em;
+	}
+	/* The link sits beside the singers rather than out at the table edge, and
+	   drops to its own line only once the tags fill the width. */
+	.singers-panel {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 0 12px;
+	}
+	.singer-tag {
+		margin-right: 6px;
+		margin-bottom: 6px;
+	}
+	@media screen and (max-width: 600px) {
+		/* A phone has no room to put the name box and its button side by side with
+		   the session it describes, so the controls take the full width under it:
+		   the box on its own line, then the buttons sharing the line below, each an
+		   equal share of it. */
+		.session-buttons {
+			width: 100%;
+			flex-wrap: wrap;
+		}
+		#session-name-control {
+			width: 100%;
+		}
+		.session-buttons .button {
+			flex: 1;
+		}
+		/* Same trade as the play log: smaller type, tighter padding and the short
+		   timestamp, so the session name keeps the width that frees. */
+		#session-list {
+			font-size: 0.9rem;
+		}
+		#session-list th,
+		#session-list td {
+			padding-left: 4px;
+			padding-right: 4px;
+		}
+		#session-list .col-when {
+			width: 5.2em;
+		}
+		#session-list .col-plays {
+			width: 3.4em;
+		}
+		#session-list .col-options {
+			width: 2em;
+		}
+		#session-list td.when {
+			color: #a7a7a7;
+		}
+	}
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# MSG: Heading for the section showing the session currently being recorded. #}
+<h2 class="subtitle">{% trans %}Current Session{% endtrans %}</h2>
+<div class="current-session">
+	<span class="current-session-name">
+		<i class="icon icon-mic-1"></i>
+		<span id="current-session"></span>
+	</span>
+	{# One flex item, so the actions wrap as a group instead of splitting across
+	   rows. A div rather than a span: the name box's control wrapper is a block. #}
+	<div class="session-buttons">
+		{# Named on the way in rather than started blank and renamed after: the name
+		   is what the splash screen shows, so a session that has to be named in a
+		   second step spends its first songs anonymous. The placeholder carries the
+		   instruction, so the bar stays one line high. #}
+		<div id="session-name-control" class="control has-icons-left is-hidden">
+			<input id="session-name-input" class="input is-small" type="text"
+				maxlength="{{ session_name_max_length }}"
+				{# MSG: Placeholder inside the box naming a session as it is started. #}
+				placeholder="{{ _('Name this session...') | forceescape }}">
+			<span class="icon is-small is-left"><i class="icon-pencil"></i></span>
+		</div>
+		{# Disabled until the box has something in it: naming is the whole point of
+		   starting one by hand, so there is nothing to fall back to. #}
+		<button id="start-session" class="button is-small is-success is-hidden" disabled>
+			{# MSG: Button which starts a new play history session. #} {% trans %}Start session{% endtrans %}
+		</button>
+		<button id="rename-session" class="button is-small is-hidden">
+			{# MSG: Button which changes the name of the session that is currently running. #} {% trans %}Rename{% endtrans %}
+		</button>
+		<button id="end-session" class="button is-small is-warning is-hidden">
+			{# MSG: Button which closes the session that is currently running. #} {% trans %}End session{% endtrans %}
+		</button>
+	</div>
+</div>
+
+{# MSG: Heading for the list of past karaoke sessions. #}
+<h2 class="subtitle">{% trans %}Session History{% endtrans %}</h2>
+
+{# Above the table it filters. Nothing sits on the left here, but the row still
+   holds the checkbox to the right edge. #}
+<div class="table-toggle-row">
+	{# Off by default, so the list shows every night on record. See hideAutoStarted. #}
+	<label class="checkbox is-size-7 table-toggle">
+		<input type="checkbox" id="hide-auto-started" />
+		{# MSG: Checkbox which hides the sessions PiKaraoke started on its own, which the host never named. #}
+		{% trans %}Hide auto-started{% endtrans %}
+	</label>
+</div>
+
+<table class="history-table" id="session-list">
+	{# The name column is deliberately unsized: it takes whatever the others do
+	   not need, on a phone as much as on a desktop. #}
+	<colgroup>
+		<col />
+		<col class="col-when" />
+		<col class="col-plays" />
+		<col class="col-options" />
+	</colgroup>
+	<thead>
+		<tr>
+			{# MSG: Session list column header for the session name. #}
+			<th>{% trans %}Session{% endtrans %}</th>
+			{# MSG: Session list column header for when the session started. #}
+			<th>{% trans %}Started{% endtrans %}</th>
+			{# MSG: Session list column header for how many songs were played. #}
+			<th class="has-text-right">{% trans %}Plays{% endtrans %}</th>
+			<th></th>
+		</tr>
+	</thead>
+	<tbody id="sessions-body"></tbody>
+</table>
+
+{{ pager.pager_controls("sessions") }}
+
+<div class="modal" id="session-options-modal">
+	<div class="modal-background"></div>
+	<div class="modal-card" style="width: 90%; max-width: 400px;">
+		<header class="modal-card-head" style="padding: 15px;">
+			<p class="modal-card-title is-size-6" id="session-modal-title" style="max-width: 95%"></p>
+			<button class="delete modal-close-btn" aria-label="close"></button>
+		</header>
+		<section class="modal-card-body" style="padding: 0;">
+			<a id="opt-activate" class="panel-block py-3" href="#" data-action="activate">
+				<span class="icon has-text-info mr-2"><i class="icon-exchange"></i></span>
+				{# MSG: Menu item which makes an old session the one new songs are recorded against. #}
+				{% trans %}Make active{% endtrans %}
+			</a>
+			<a id="opt-end" class="panel-block py-3" href="#" data-action="end">
+				<span class="icon has-text-warning mr-2"><i class="icon-cancel-circled-outline"></i></span>
+				{# MSG: Menu item which closes the session that is currently running. #}
+				{% trans %}End session{% endtrans %}
+			</a>
+			<a id="opt-export" class="panel-block py-3 no-spa" href="#">
+				<span class="icon mr-2"><i class="icon-down-circled"></i></span>
+				{# MSG: Menu item which downloads the session's play log as a CSV file for spreadsheets. #}
+				{% trans %}Export CSV{% endtrans %}
+			</a>
+			<a id="opt-export-txt" class="panel-block py-3 no-spa" href="#">
+				<span class="icon mr-2"><i class="icon-list-numbered"></i></span>
+				{# MSG: Menu item which downloads the session's play log as a plain-text, human-readable set list. #}
+				{% trans %}Export list (text){% endtrans %}
+			</a>
+			{# Labelled from openSessionOptions(): naming an unnamed session promotes
+			   it, naming a named one is a rename. #}
+			<a id="opt-rename" class="panel-block py-3" href="#" data-action="rename">
+				<span class="icon mr-2"><i class="icon-pencil"></i></span>
+				<span id="opt-rename-text"></span>
+			</a>
+			<a id="opt-clear-plays" class="panel-block py-3 has-text-danger" href="#" data-action="clear">
+				<span class="icon mr-2"><i class="icon-trash"></i></span>
+				{# MSG: Menu item which deletes every play in the session but keeps the session itself. #}
+				{% trans %}Clear plays{% endtrans %}
+			</a>
+			<a id="opt-delete-session" class="panel-block py-3 has-text-danger" href="#" data-action="delete">
+				<span class="icon mr-2"><i class="icon-trash-empty"></i></span>
+				{# MSG: Menu item which deletes the session and every play recorded in it. #}
+				{% trans %}Delete session{% endtrans %}
+			</a>
+		</section>
+	</div>
+</div>
+
+{% endblock %}

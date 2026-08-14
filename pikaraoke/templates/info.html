@@ -272,6 +272,22 @@
 				});
 			});
 
+			// Wiping every session and play asks for a typed confirmation rather
+			// than a click, matching the clear-queue control: the friction is
+			// proportional to what cannot be undone.
+			$("#reset-history-btn").click(function() {
+				// {# MSG: Confirmation before deleting the entire play history. The host must type ok to proceed. #}
+				var typed = window.prompt({{ _('Delete ALL play history - every session and every play, for good? Type "ok" to continue.') | tojson }});
+				if (typed === null || typed.trim().toLowerCase() !== "ok") return;
+				$.ajax({
+					url: "{{ url_for('sessions_api.reset_history') }}?scope=all",
+					type: "DELETE"
+				}).done(function() {
+					// {# MSG: Notification shown once the play history has been erased. #}
+					showNotification({{ _('Play history erased') | tojson }}, "is-success");
+				});
+			});
+
 			// SocketIO: manage Sync Now button state
 			window.socket.on("sync_started", function() {
 				$("#sync-library-btn").addClass("is-loading").prop("disabled", true);
@@ -367,6 +383,31 @@
 					</p>
 				</div>
 			</div>
+
+			<hr class="my-0">
+
+			{# A section of its own rather than another control under Library: the
+			   play log is not the song library, and the one irreversible action in
+			   this feature should not sit a click away from Sync Now. It lives here
+			   rather than on the pages that report it -- a chart is for reading.
+			   Clearing a single session is still offered from that session's own
+			   row on the Sessions page. #}
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				{# MSG: Header of the play history management section of the settings page. #}
+				<h3 class="m-0">{% trans %}Play History{% endtrans %}</h3>
+			</header>
+			<div class="card-content collapsible-content">
+				<div class="content">
+					<button id="reset-history-btn" class="button is-danger is-outlined">
+						{# MSG: Button which deletes the entire play history, every session and every play. #}
+						{% trans %}Reset all history{% endtrans %}
+					</button>
+					<p class="is-size-7 has-text-warning mt-3">
+						{# MSG: Help text explaining what Reset all history does. #}
+						{% trans %}Deletes every session and every play on record. This cannot be undone.{% endtrans %}
+					</p>
+				</div>
+			</div>
 		</div>
 
 		{# MSG: Title of the user preferences section. #}
@@ -414,6 +455,18 @@
 					<div class="user-preference-container">
 						<input id="pref-qr-code" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_url" {% if hide_url == True %}checked{% endif %}>
 						<label class="label" for="pref-qr-code">{# MSG: Checkbox label which enable/disables the URL display #} {% trans %}Hide the URL and QR code{% endtrans %}
+						</label>
+					</div>
+
+					<div class="user-preference-container">
+						<input id="pref-logo" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_logo" {% if hide_logo == True %}checked{% endif %}>
+						<label class="label" for="pref-logo">{# MSG: Checkbox label which enables/disables the logo in the middle of the splash screen #} {% trans %}Hide the logo on the splash screen{% endtrans %}
+						</label>
+					</div>
+
+					<div class="user-preference-container">
+						<input id="pref-session-name" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_session_name" {% if hide_session_name == True %}checked{% endif %}>
+						<label class="label" for="pref-session-name">{# MSG: Checkbox label which enables/disables the karaoke session name shown under the logo on the splash screen #} {% trans %}Hide the session name on the splash screen{% endtrans %}
 						</label>
 					</div>
 

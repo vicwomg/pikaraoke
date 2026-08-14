@@ -326,7 +326,7 @@
 				data: JSON.stringify({
 					song_url: songUrl,
 					song_title: songTitle || "",
-					song_added_by: getUserCookie() || "",
+					song_added_by: resolveSinger(),
 					queue: addToQueue,
 				}),
 				success: function () { onSettled(true); },

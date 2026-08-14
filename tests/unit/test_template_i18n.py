@@ -55,7 +55,7 @@ def test_window_translations_are_valid_js_string_literals(app, locale):
         assert json.loads(value)
 
 
-@pytest.mark.parametrize("template", sorted(TEMPLATES.glob("*.html")), ids=lambda p: p.name)
+@pytest.mark.parametrize("template", sorted(TEMPLATES.glob("**/*.html")), ids=lambda p: p.name)
 def test_gettext_in_script_blocks_is_escaped(template):
     """Enforce the |tojson / |forceescape convention on every gettext call in inline JS."""
     source = template.read_text(encoding="utf-8")
