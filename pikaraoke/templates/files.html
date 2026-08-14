@@ -10,7 +10,7 @@
 		// layout and strand the bar wherever the phone had left it.
 		const alphaBar = document.getElementById("alpha-bar");
 		const box = document.querySelector(".box");
-		// The strip is dropped for a folder short enough to fit on one page.
+		// The strip is dropped for a folder that holds only subfolders.
 		if (alphaBar && box) {
 			const restingTop = box.getBoundingClientRect().top + window.scrollY;
 			let queued = false;
