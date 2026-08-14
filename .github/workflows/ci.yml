@@ -148,3 +148,18 @@ jobs:
     - name: Verify Runtime (arm64)
       run: |
         ./build_scripts/ci/docker-smoketest.sh pikaraoke-ci-test-arm64:latest pikaraoke-test-arm64
+
+  # Compiles the installer without publishing it, so a broken .iss surfaces here
+  # rather than during the release that would have attached it.
+  installer-build:
+    runs-on: windows-latest
+    name: Windows Installer Build
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+
+    - name: Install Inno Setup
+      run: choco install innosetup -y --no-progress
+
+    - name: Build Windows installer
+      run: .\build_scripts\install\build_installer.ps1

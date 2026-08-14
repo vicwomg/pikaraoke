@@ -7,13 +7,14 @@ from flask_smorest import Blueprint
 
 from pikaraoke import VERSION
 from pikaraoke.constants import ITUNES_COUNTRIES, LANGUAGES, per_page_options
+from pikaraoke.lib import keep_awake
 from pikaraoke.lib.current_app import (
     get_admin_password,
     get_karaoke_instance,
     get_site_name,
     is_admin,
 )
-from pikaraoke.lib.get_platform import get_platform, is_linux
+from pikaraoke.lib.get_platform import get_platform, is_linux, is_running_in_docker
 
 _ = flask_babel.gettext
 
@@ -54,6 +55,7 @@ def info():
         disk=None,
         is_pi=k.is_raspberry_pi,
         is_linux=is_linux_platform,
+        is_container=is_running_in_docker(),
         volume=int(k.volume * 100),
         bg_music_volume=int(k.bg_music_volume * 100),
         disable_bg_music=k.disable_bg_music,
@@ -62,6 +64,8 @@ def info():
         hide_notifications=k.hide_notifications,
         show_splash_clock=k.show_splash_clock,
         hide_url=k.hide_url,
+        hide_session_name=k.hide_session_name,
+        hide_logo=k.hide_logo,
         hide_overlay=k.hide_overlay,
         screensaver_timeout=k.screensaver_timeout,
         splash_delay=k.splash_delay,
@@ -88,6 +92,8 @@ def info():
         },
         mic_available=k.sound_manager.available,
         mic_passthrough_enabled=k.enable_mic_passthrough,
+        keep_awake=k.keep_awake,
+        keep_awake_unsupported=keep_awake.unsupported_reason(),
     )
 
 

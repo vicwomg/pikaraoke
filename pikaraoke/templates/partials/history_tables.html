@@ -1,0 +1,78 @@
+{# Pieces shared by the Sessions and Play History pages, which both render a
+   paged table of timestamped rows. Imported with context:
+
+	 {% import 'partials/history_tables.html' as tables with context %}
+#}
+
+{# The pager these pages carry lives in partials/pager.html, so the browse page
+   and these tables render the same control from one implementation. No per-page
+   control on it: each page's size is settled server-side (see routes/sessions.py)
+   rather than asked about on a page nobody opened to configure anything. #}
+
+{# Timestamp rendering, shared by both pages' tables. `page_size` is the caller's
+   own server-side size, passed in so the offsets the page computes agree with
+   the rows the API returns. #}
+{% macro table_scripts(page_size) %}
+<script>
+	var HISTORY_PAGE_SIZE = {{ page_size }};
+
+	// 24-hour everywhere, whatever the locale would have chosen: a log is read by
+	// scanning a column of times, and am/pm costs three characters on every row
+	// to say what the ordering already makes obvious. h23 rather than
+	// hour12:false, which leaves some locales rendering midnight as "24:00".
+	var TIME_OPTIONS = { hour: "2-digit", minute: "2-digit", hourCycle: "h23" };
+
+	// Today's rows show a time and nothing else; every other row shows a date and
+	// nothing else. Same rule a mail client uses, and it holds for the same
+	// reason: within the day you are placing rows against each other by the hour,
+	// and beyond it by the day. Carrying both is what made the column wide, and
+	// the half you were not reading is the half repeated down every row.
+	//
+	// The year appears only once it is not this one.
+	function whenLabel(when) {
+		var now = new Date();
+		var sameDay =
+			when.getFullYear() === now.getFullYear() &&
+			when.getMonth() === now.getMonth() &&
+			when.getDate() === now.getDate();
+		if (sameDay) {
+			return when.toLocaleTimeString(undefined, TIME_OPTIONS);
+		}
+		var options = { day: "numeric", month: "short" };
+		if (when.getFullYear() !== now.getFullYear()) {
+			options.year = "numeric";
+		}
+		return when.toLocaleDateString(undefined, options);
+	}
+
+	// "2026-03-06 21:04:11" -> what the cell shows, and the stored value for its
+	// tooltip. Seconds never reach the label: nothing here is read to the second.
+	//
+	// Taken apart and rebuilt field by field rather than parsed: the stored
+	// format is not the ISO one Date() accepts, and browsers disagree on the
+	// rest. Anything unrecognisable is shown exactly as it was stored.
+	function whenParts(timestamp) {
+		var text = String(timestamp == null ? "" : timestamp);
+		var parts = text.split(" ");
+		var ymd = (parts[0] || "").split("-");
+		var hms = (parts[1] || "").split(":");
+		var when =
+			ymd.length === 3 ? new Date(+ymd[0], +ymd[1] - 1, +ymd[2], +hms[0] || 0, +hms[1] || 0) : null;
+		if (when === null || isNaN(when.getTime())) {
+			return { label: text, full: text };
+		}
+		return { label: whenLabel(when), full: text };
+	}
+
+	// The full stored timestamp rides the cell's title, so a label cut down to a
+	// bare time is never the only record of which day it was.
+	function whenCell(timestamp) {
+		var when = whenParts(timestamp);
+		return (
+			'<td class="when" title="' + escapeHtml(when.full) + '">' +
+			escapeHtml(when.label) + "</td>"
+		);
+	}
+
+</script>
+{% endmacro %}

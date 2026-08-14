@@ -179,6 +179,14 @@ hr {
 	color: var(--dark-bg-secondary);
 }
 
+/* Inputs keep a white background above, but Bulma derives the placeholder from
+   the dark scheme's text colour -- near-white, so it is invisible here. A muted
+   version of the input's own text colour instead. */
+.input::placeholder,
+.textarea::placeholder {
+	color: rgba(40, 47, 47, 0.6);
+}
+
 .input:hover,
 .textarea:hover,
 .select select:hover {
@@ -359,12 +367,63 @@ hr {
 	.navbar-menu {
 		background-color: var(--dark-primary);
 		border-radius: 0 0 0.4em 0.4em;
+		/* The dropdown flattens into this menu and is its last child, so without
+		   clipping its square corners paint over the rounded ones and leave a
+		   dark sliver at each bottom edge. */
+		overflow: hidden;
 	}
 }
 
 .navbar-dropdown {
 	background-color: var(--dark-primary);
 	border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+/* Below the desktop breakpoint the dropdown is not a floating panel: it sits
+   inline in the burger menu, in the same blue. The border that frames it above
+   only draws a box around part of a menu down here, its square corners cutting
+   across the rounded ones below it.
+
+   Must follow the rule above rather than join the other mobile rules earlier in
+   this file: a media query adds no specificity, so an override placed before
+   the declaration it overrides simply loses. */
+@media screen and (max-width: 1023px) {
+	.navbar-dropdown {
+		border: none;
+	}
+}
+
+/* Bulma gives every dropdown item its own background and colour, which paints
+   over the panel colour above. Keep them transparent so the navbar blue shows
+   through and dropdown items match the top-level ones. */
+.navbar-dropdown a.navbar-item:not(.is-active, .is-selected) {
+	background-color: transparent;
+	color: var(--dark-text-primary);
+}
+
+.navbar-dropdown a.navbar-item:hover,
+.navbar-dropdown a.navbar-item.is-active {
+	background-color: transparent;
+	color: var(--dark-link);
+}
+
+/* Bulma hides the divider below its desktop breakpoint, where the dropdown
+   flattens into the burger menu -- which is exactly where a group separator is
+   needed most, the items having lost the panel that framed them. */
+.navbar-dropdown .navbar-divider {
+	display: block;
+	background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* The dropdown arrow defaults to the link colour, which reads as a stray blue
+   mark floating beside the white navbar text rather than part of it. Bulma
+   paints it via --bulma-navbar-dropdown-arrow, not --bulma-arrow-color. */
+.navbar-link:not(.is-arrowless)::after {
+	--bulma-navbar-dropdown-arrow: var(--dark-text-primary);
+}
+
+.navbar-link:hover:not(.is-arrowless)::after {
+	--bulma-navbar-dropdown-arrow: var(--dark-link);
 }
 
 /* ===================================

@@ -45,13 +45,25 @@ For a streamlined installation that handles all dependencies (uv, ffmpeg, deno) 
 curl -fsSL https://raw.githubusercontent.com/vicwomg/pikaraoke/master/build_scripts/install/install.sh | bash
 ```
 
+### Windows (installer)
+
+Download `PiKaraoke-<version>-setup.exe` from the [latest release](https://github.com/vicwomg/pikaraoke/releases) and run it. It adds Start Menu and desktop shortcuts.
+
+Windows shows a blue "Windows protected your PC" screen because the installer is unsigned. Click **More info**, then **Run anyway**.
+
+To uninstall, use **Settings > Apps**.
+
 ### Windows (PowerShell)
 
 ```powershell
 irm https://raw.githubusercontent.com/vicwomg/pikaraoke/master/build_scripts/install/install.ps1 | iex
 ```
 
+To uninstall, swap `install.ps1` for `uninstall.ps1`.
+
 After installation, you can launch pikaraoke from the command line with `pikaraoke` or from a desktop shortcut. Re-running the above command will update a previous pikaraoke installation to the latest version.
+
+Uninstalling removes the pikaraoke package and its shortcuts. Your songs, settings, ffmpeg, deno and uv are left in place.
 
 ## Manual installation (advanced users)
 

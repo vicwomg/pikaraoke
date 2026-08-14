@@ -15,6 +15,7 @@ jobs:
       release_created: ${{ steps.release.outputs.release_created }}
       prs_created: ${{ steps.release.outputs.prs_created }}
       pr: ${{ steps.release.outputs.pr }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
     - name: Release Please
       id: release
@@ -111,3 +112,25 @@ jobs:
           type=gha,scope=docker-build
           type=gha,scope=docker-build-arm64
         cache-to: type=gha,mode=max,scope=docker-release
+
+  # Separate from build-and-publish because ISCC is Windows-only, and because the PyPI
+  # upload there publishes everything in dist/ - an installer exe alongside the wheel
+  # would be handed to PyPI.
+  build-installer:
+    runs-on: windows-latest
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+
+    - name: Install Inno Setup
+      run: choco install innosetup -y --no-progress
+
+    - name: Build Windows installer
+      run: .\build_scripts\install\build_installer.ps1
+
+    - name: Attach installer to the release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: gh release upload ${{ needs.release-please.outputs.tag_name }} (Get-ChildItem dist\*.exe).FullName --clobber

@@ -22,7 +22,7 @@
     window.pikaraokeConfig = {
       basePath: "{{ base_path }}",
       cookiePath: "{{ cookie_path }}",
-      socketioPath: "{{ socketio_path }}"
+      socketioPath: "{{ socketio_path }}",
     };
     // Translations for JS (static JS cannot use Jinja2 directly).
     // Gettext output is Markup, so Jinja never autoescapes it. Inside a <script> a
@@ -67,6 +67,18 @@
 
     function isEqual(obj1, obj2) {
       return JSON.stringify(obj1) === JSON.stringify(obj2);
+    }
+
+    // Escapes text for interpolation into an HTML string. A plain replace
+    // rather than the $("<div>").text().html() idiom: pages that build table
+    // rows call this several times per row, and that idiom allocates a
+    // detached element on every call.
+    var HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+
+    function escapeHtml(text) {
+      return text == null ? "" : String(text).replace(/[&<>"']/g, function (c) {
+        return HTML_ESCAPES[c];
+      });
     }
 
     function debounce(func, wait) {
@@ -117,6 +129,53 @@
       return Cookies.get("user");
     }
 
+    // Who a queue add is attributed to: this device's own cookie name,
+    // prompting for one the first time it is needed. Every page that queues a
+    // song resolves it here, so the rule cannot drift between them.
+    function resolveSinger() {
+      setUserCookie();
+      return getUserCookie() || "";
+    }
+
+    // Gettext output is Markup, which Jinja never autoescapes, so an apostrophe
+    // in a translation would close this string literal. See
+    // tests/unit/test_template_i18n.py.
+    // {# MSG: Accessible label for the banner naming the karaoke session in progress. SESSION_NAME is replaced with the session's name. #}
+    var sessionRibbonLabel = {{ _('Current session: SESSION_NAME') | tojson }};
+
+    // Shows the banner naming the session in progress, or hides it when there
+    // is none. A nameless auto-started session counts as none: the ribbon has
+    // nothing to say and an empty bar reads as a bug.
+    function setSessionRibbon(name) {
+      var $ribbon = $("#session-ribbon");
+      if (!$ribbon.length) {
+        return;
+      }
+      var text = name || "";
+      $ribbon.toggleClass("is-hidden", !text);
+      $ribbon.find(".session-ribbon-text").text(text);
+      $ribbon.attr("title", text);
+      $ribbon.attr("aria-label", sessionRibbonLabel.replace("SESSION_NAME", text));
+    }
+
+    // The ribbon sits on every page and outlives SPA navigation, so ending a
+    // session has to reach it without a reload. session_changed rebroadcasts the
+    // now_playing payload, which carries the name.
+    function bindSessionRibbon() {
+      if (!window.socket) {
+        return;
+      }
+      if (window.sessionRibbonHandler) {
+        window.socket.off("now_playing", window.sessionRibbonHandler);
+      }
+      // Every write in setSessionRibbon is idempotent, so the queue edits and
+      // pauses that also emit now_playing need no guarding against.
+      window.sessionRibbonHandler = function (np) {
+        setSessionRibbon(np.session_name);
+      };
+      window.socket.on("now_playing", window.sessionRibbonHandler);
+    }
+
     // Queueing a song already on this machine. Delegated because the Songs page
     // swaps its whole result table per filter keystroke, and shared because
     // Songs and Add New render the identical link. Unbound first: SPA navigation
@@ -126,8 +185,7 @@
       $(document).off("click", "a.add-song-link");
       $(document).on("click", "a.add-song-link", function (e) {
         e.preventDefault();
-        setUserCookie();
-        $.get(this.href + encodeURIComponent(getUserCookie() || ""), function (data) {
+        $.get(this.href + encodeURIComponent(resolveSinger()), function (data) {
           var obj = JSON.parse(data);
           // {# MSG: Notification shown after trying to add a song to the queue. The song name comes after this string. #}
           showNotification(obj.success[1], obj.success[0] ? "is-success" : "is-danger");
@@ -138,6 +196,9 @@
     $(function () {
       connectSocket();
       bindAddSongLinks();
+
+      // Everyone in the room sees which session is running.
+      bindSessionRibbon();
 
       $("#notification-close").click(function () {
         $(".notification").hide();
@@ -194,6 +255,44 @@
     padding: 3px;
     bottom: 5px;
     right: 10px;
+  }
+  .session-ribbon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    /* No horizontal margin: the .box below is flush with the container's
+       padding, and any inset here leaves the ribbon visibly narrower than
+       every other block on the page. */
+    margin: 4px 0 0;
+    padding: 4px 12px;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.04);
+    color: hsl(0, 0%, 71%);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .session-ribbon-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .session-ribbon-dot {
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: hsl(141, 53%, 53%);
+    animation: session-ribbon-pulse 2s ease-in-out infinite;
+  }
+  @keyframes session-ribbon-pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(72, 199, 116, 0.5); }
+    50% { opacity: 0.55; box-shadow: 0 0 0 4px rgba(72, 199, 116, 0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .session-ribbon-dot { animation: none; }
   }
   tr:nth-child(even) {
     background-color: rgb(50, 55, 55);
@@ -264,13 +363,58 @@
             <i class="icon  icon-mic-1" title="Current user"></i>
             <span></span>
           </a>
-          <a id="info" class="navbar-item" href="{{ url_for('info.info') }}">
-            <i class="icon icon-info-circled-1" title="Info"></i>
-            <span>Pikaraoke</span>&nbsp;&nbsp;
-          </a>
+          <!-- Home for settings and admin tools, so the main nav stays the
+               four things a singer actually uses. -->
+          <div id="pikaraoke-menu" class="navbar-item has-dropdown is-hoverable">
+            <a class="navbar-link">
+              <i class="icon icon-info-circled-1" title="Pikaraoke"></i>
+              <span>Pikaraoke</span>
+            </a>
+            <!-- Split by audience, not by topic. Above the divider is what the
+                 room came for: the stats and the log, open to every device.
+                 Below it is running the machine and running the night. -->
+            <div class="navbar-dropdown is-right">
+              <a id="rankings" class="navbar-item" href="{{ url_for('sessions.rankings') }}">
+                <i class="icon icon-th-list-outline"></i>
+                {# MSG: Dropdown link to the most-played songs and most active singers. #}
+                <span>{% trans %}Rankings{% endtrans %}</span>
+              </a>
+              <a id="history" class="navbar-item" href="{{ url_for('sessions.history') }}">
+                <i class="icon icon-list-alt"></i>
+                {# MSG: Dropdown link to the log of everything that has been sung. #}
+                <span>{% trans %}Play History{% endtrans %}</span>
+              </a>
+              <hr class="navbar-divider">
+              {% if is_admin() %}
+              <a id="sessions" class="navbar-item" href="{{ url_for('sessions.sessions') }}">
+                <i class="icon icon-mic-1"></i>
+                {# MSG: Dropdown link to the karaoke session management page, only shown to the host. #}
+                <span>{% trans %}Sessions{% endtrans %}</span>
+              </a>
+              {% endif %}
+              <a id="info" class="navbar-item" href="{{ url_for('info.info') }}">
+                <i class="icon icon-cog"></i>
+                {# MSG: Dropdown link to the settings and system information page. #}
+                <span>{% trans %}Settings{% endtrans %}</span>
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </nav>
+
+    {% set session_name = active_session_name() or '' %}
+    {# Always in the DOM, hidden when empty, so setSessionRibbon() can show and
+       hide it rather than having to build it; the server settles only which
+       state it starts in. An auto-started session has no name and so shows no
+       ribbon. #}
+    <div class="session-ribbon{% if not session_name %} is-hidden{% endif %}" id="session-ribbon"
+      {# MSG: Accessible label for the banner naming the karaoke session in progress. SESSION_NAME is replaced with the session's name. #}
+      aria-label="{{ _('Current session: SESSION_NAME').replace('SESSION_NAME', session_name) }}"
+      title="{{ session_name }}">
+      <span class="session-ribbon-dot" aria-hidden="true"></span>
+      <span class="session-ribbon-text">{{ session_name }}</span>
+    </div>
 
     {% if get_flashed_messages() %}
     {% for category, message in get_flashed_messages(with_categories=true) %}

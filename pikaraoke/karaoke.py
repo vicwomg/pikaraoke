@@ -27,8 +27,10 @@ from pikaraoke.lib.get_platform import (
     is_raspberry_pi,
 )
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
+from pikaraoke.lib.keep_awake import KeepAwake
 from pikaraoke.lib.library_scanner import LibraryScanner, ScanResult
 from pikaraoke.lib.network import get_ip
+from pikaraoke.lib.play_history_manager import PlayHistoryManager
 from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
@@ -67,6 +69,7 @@ class Karaoke:
     song_manager: SongManager
     queue_manager: QueueManager
     playback_controller: PlaybackController
+    play_history: PlayHistoryManager
 
     now_playing_notification: str | None = None
     volume: float
@@ -124,8 +127,11 @@ class Karaoke:
         enable_mic_passthrough: bool | None = None,
         hide_notifications: bool | None = None,
         hide_overlay: bool | None = None,
+        hide_logo: bool | None = None,
+        hide_session_name: bool | None = None,
         hide_url: bool | None = None,
         high_quality: bool | None = None,
+        keep_awake: bool | None = None,
         limit_user_songs_by: int | None = None,
         normalize_audio: bool | None = None,
         screensaver_timeout: int | None = None,
@@ -140,6 +146,8 @@ class Karaoke:
             port: HTTP server port number.
             download_path: Directory path for downloaded songs.
             hide_url: Hide URL and QR code on splash screen.
+            hide_session_name: Hide the session name under the splash screen logo.
+            hide_logo: Hide the logo in the centre of the splash screen.
             hide_notifications: Disable notification popups.
             hide_splash_screen: Run in headless mode.
             high_quality: Download higher quality videos (up to 1080p).
@@ -152,6 +160,7 @@ class Karaoke:
             youtubedl_proxy: Proxy URL for yt-dlp.
             logo_path: Custom logo image path.
             hide_overlay: Hide video overlay.
+            keep_awake: Prevent the host machine from sleeping.
             screensaver_timeout: Screensaver activation delay in seconds.
             url: Override auto-detected URL.
             prefer_hostname: Use hostname instead of IP in URL.
@@ -211,6 +220,9 @@ class Karaoke:
         self.url_base_path = url_base_path
         self.url = self.get_url()
 
+        # Must exist before preferences are applied: the keep_awake setter uses it.
+        self._keep_awake = KeepAwake()
+
         # Load all preference-driven attributes from config (with CLI overrides as fallback)
         cli_args = {k: v for k, v in locals().items() if k != "self"}
         self._load_preferences(**cli_args)
@@ -221,7 +233,10 @@ class Karaoke:
         # Initialize database, scanner, and song manager (startup runs at end of __init__)
         self.db = KaraokeDatabase()
         self.song_manager = SongManager(
-            self.download_path, db=self.db, get_title_tidy=lambda: self.enable_title_tidy
+            self.download_path,
+            db=self.db,
+            events=self.events,
+            get_title_tidy=lambda: self.enable_title_tidy,
         )
         self._scanner = LibraryScanner(self.db)
         self._sync_lock = threading.Lock()
@@ -247,23 +262,23 @@ class Karaoke:
 
         # Event bridging: the coordinator wires manager events to the UI (SocketIO/notifications).
         self.events.on("notification", self.log_and_send)
-        self.events.on(
-            "queue_update",
-            lambda: self.socketio.emit("queue_update", namespace="/") if self.socketio else None,
-        )
+        self._relay_to_browser("queue_update")
         self.events.on("now_playing_update", self.update_now_playing_socket)
         self.events.on("playback_started", self.update_now_playing_socket)
-        self.events.on("song_ended", self.update_now_playing_socket)
+        # song_ended carries a reason this listener has no use for.
+        self.events.on("song_ended", lambda *_: self.update_now_playing_socket())
+        # The splash screen carries the session name and is a display that never
+        # reloads, so starting or ending a session has to reach it. Sessions
+        # change between songs, when no playback event is coming.
+        self.events.on("session_changed", self.update_now_playing_socket)
+        # The play log and the session list re-read themselves on this. Separate
+        # from now_playing, which also fires on pauses and queue edits that leave
+        # the log untouched, and which is emitted before the row is written.
+        self._relay_to_browser("play_logged")
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
         self.events.on("song_downloaded", self.register_downloaded_song)
-        self.events.on(
-            "sync_started",
-            lambda: self.socketio.emit("sync_started", namespace="/") if self.socketio else None,
-        )
-        self.events.on(
-            "sync_finished",
-            lambda: self.socketio.emit("sync_finished", namespace="/") if self.socketio else None,
-        )
+        self._relay_to_browser("sync_started")
+        self._relay_to_browser("sync_finished")
 
         # Initialize microphone manager for server-side mic passthrough
         self.sound_manager = SoundManager(
@@ -281,6 +296,9 @@ class Karaoke:
             filename_from_path=self.song_manager.display_name_from_path,
             get_available_songs=lambda: self.song_manager.songs,
         )
+
+        # Play history recording and reporting (subscribes to song_ended itself)
+        self.play_history = PlayHistoryManager(db=self.db, events=self.events)
 
         # Initialize and start download manager
         self.download_manager = DownloadManager(
@@ -364,6 +382,22 @@ class Karaoke:
         Priority: CLI argument (if provided) > config file > PreferenceManager.DEFAULTS
         """
         self.preferences.apply_all(**cli_overrides)
+
+    @property
+    def keep_awake(self) -> bool:
+        """Whether the host is being held awake.
+
+        A property so that preference writes acquire or release the wake lock
+        immediately, rather than at the next restart.
+        """
+        return self._keep_awake.active
+
+    @keep_awake.setter
+    def keep_awake(self, enabled: bool) -> None:
+        if enabled:
+            self._keep_awake.start()
+        else:
+            self._keep_awake.stop()
 
     def get_url(self):
         """Get the URL for accessing the PiKaraoke web interface.
@@ -511,11 +545,19 @@ class Karaoke:
         if filename is None or user is None:
             logging.warning("Cannot transpose: no song currently playing")
             return
+        # Insert the same song at the top of the queue with transposition.
+        # The stream ends but the performance does not, so play history keeps
+        # the existing play open rather than logging a second one.
+        queued, message = self.queue_manager.enqueue(filename, user, semitones, True)
+        if not queued:
+            # Skipping now would end the song with nothing to restart it: the
+            # singer loses their turn, and play history holds the play open
+            # waiting for a restart that is never coming.
+            self.log_and_send(str(message), "danger")
+            return
         # MSG: Message shown after the song is transposed, first is the semitones and then the song name
         self.log_and_send(_("Transposing by %s semitones: %s") % (semitones, now_playing))
-        # Insert the same song at the top of the queue with transposition
-        self.queue_manager.enqueue(filename, user, semitones, True)
-        self.playback_controller.skip(log_action=False)
+        self.playback_controller.skip(log_action=False, reason="transpose")
 
     def volume_change(self, vol_level: float) -> bool:
         """Set the volume level.
@@ -563,6 +605,7 @@ class Karaoke:
     def stop(self) -> None:
         """Stop the karaoke run loop."""
         self.sound_manager.stop()
+        self._keep_awake.stop()
         self.running = False
 
     def handle_run_loop(self) -> None:
@@ -596,7 +639,20 @@ class Karaoke:
             "up_next": next_song["title"] if next_song else None,
             "next_user": next_song["user"] if next_song else None,
             "volume": self.volume,
+            # The splash screen never reloads, so the session name rides this
+            # payload rather than being rendered once at page load.
+            "session_name": self.play_history.get_current_session_name(),
         }
+
+    def _relay_to_browser(self, event: str) -> None:
+        """Forward a payload-free manager event to the browser under the same name.
+
+        The browser is told only that something moved and refetches; socketio is
+        optional, so a Karaoke built without one drops the event.
+        """
+        self.events.on(
+            event, lambda: self.socketio.emit(event, namespace="/") if self.socketio else None
+        )
 
     def update_now_playing_socket(self) -> None:
         """Emit now_playing state change via SocketIO."""
@@ -656,7 +712,17 @@ class Karaoke:
                         song["file"], song["user"], song["semitones"]
                     )
 
-                    if not result.success and result.error:
+                    # play_file() blocks only until the client connects, so this
+                    # always lands before the song_ended that completes it.
+                    if result.success:
+                        song_id, youtube_id = self.db.get_song_identity(song["file"])
+                        self.play_history.record_play(
+                            song_id,
+                            youtube_id,
+                            song["user"],
+                            self.song_manager.display_name_from_path(song["file"]),
+                        )
+                    elif result.error:
                         self.log_and_send(result.error, "danger")
 
                 self.playback_controller.log_output()

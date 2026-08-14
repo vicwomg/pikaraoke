@@ -146,10 +146,21 @@
 
 	.video-container {
 		aspect-ratio: 16 / 9;
+		position: relative;
 	}
 	.video-container video {
 		width: 100%;
 		height: 100%;
+	}
+	/* Overlays the dead player so the modal keeps its shape. */
+	#modal-video-error {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		max-width: 90%;
+		text-align: center;
+		z-index: 12;
 	}
 
 	.duration-badge,
@@ -315,7 +326,7 @@
 				data: JSON.stringify({
 					song_url: songUrl,
 					song_title: songTitle || "",
-					song_added_by: getUserCookie() || "",
+					song_added_by: resolveSinger(),
 					queue: addToQueue,
 				}),
 				success: function () { onSettled(true); },
@@ -405,53 +416,66 @@
 			});
 		});
 
+		const previewModal = document.getElementById("modal-js-example");
+		const previewVideo = document.getElementById("modal-video");
+		const previewContent = previewModal.querySelector(".modal-content");
+		const previewCloseButton = previewModal.querySelector(".modal-close");
+		const previewError = document.getElementById("modal-video-error");
+
+		// Fetching a stream URL takes seconds, long enough to close the modal or click
+		// another thumbnail, so only the response for the preview on screen is applied.
+		let previewRequestId = 0;
+
+		// Registered once; clearing the spinner is idempotent.
+		previewVideo.addEventListener("playing", function () {
+			previewContent.classList.remove("is-loading");
+			previewError.style.display = "none";
+		});
+		previewVideo.addEventListener("error", function () {
+			previewContent.classList.remove("is-loading");
+			previewError.style.display = "block";
+		});
+
+		const closePreview = function () {
+			previewRequestId++;
+			previewModal.classList.remove("is-active");
+			previewContent.classList.remove("is-loading");
+			previewError.style.display = "none";
+			previewVideo.pause();
+			// Detach rather than set src="", which resolves to the page URL and makes
+			// the browser fetch this HTML as media.
+			previewVideo.removeAttribute("src");
+			previewVideo.load();
+		};
+
+		previewCloseButton.onclick = closePreview;
+		previewModal.querySelector(".modal-background").onclick = closePreview;
+
 		$("#search-results").on("click", ".img-wrapper", function () {
-			const modal = document.getElementById("modal-js-example");
-			const modalVideo = document.getElementById("modal-video");
-			const modalContent = modal.querySelector(".modal-content");
 			const videoUrl = $(this).data("url");
+			const requestId = ++previewRequestId;
 
-			modal.classList.add("is-active");
-			modalContent.classList.add("is-loading");
+			previewModal.classList.add("is-active");
+			previewContent.classList.add("is-loading");
+			previewCloseButton.focus();
 
-			// Unlock autoplay on iOS/mobile: briefly play the empty video element
-			// synchronously inside the click handler so Safari associates it with
-			// a user gesture. Without this, the async AJAX callback's .play() is blocked.
-			modalVideo.play().then(function () { modalVideo.pause(); }).catch(function () {});
-
-			const closeButton = modal.querySelector(".modal-close");
-			closeButton.focus();
-
-			// Remove the spinner when the video starts playing or errors — not when
-			// the AJAX returns, since the video still has to buffer after src is set.
-			const stopLoading = function () {
-				modalContent.classList.remove("is-loading");
-			};
-			modalVideo.addEventListener("playing", stopLoading, { once: true });
-			modalVideo.addEventListener("error", stopLoading, { once: true });
-
-			const closeModal = function () {
-				modal.classList.remove("is-active");
-				modalContent.classList.remove("is-loading");
-				modalVideo.pause();
-				modalVideo.src = "";
-			};
-
-			closeButton.onclick = closeModal;
-			modal.querySelector(".modal-background").onclick = closeModal;
+			// Unlock autoplay on iOS: Safari only ties play() to a gesture when it is
+			// called in the handler. load() aborts this promise, so nothing chains to it.
+			previewVideo.play().catch(function () {});
 
 			$.ajax({
 				url: "{{ url_for('search.preview') }}" + "?url=" + encodeURIComponent(videoUrl),
 				type: "get",
 				success: function (data) {
-					if (modal.classList.contains("is-active")) {
-						modalVideo.src = data.stream_url;
-						modalVideo.load();
-						modalVideo.play().catch(function () {});
-					}
+					if (requestId !== previewRequestId) return;
+					previewVideo.src = data.stream_url;
+					previewVideo.load();
+					previewVideo.play().catch(function () {});
 				},
 				error: function () {
-					closeModal();
+					if (requestId !== previewRequestId) return;
+					previewContent.classList.remove("is-loading");
+					previewError.style.display = "block";
 				},
 			});
 		});
@@ -623,6 +647,9 @@
 			<div class="modal-content">
 				<div class="video-container">
 					<video id="modal-video" controls></video>
+					<div id="modal-video-error" class="notification is-danger" style="display: none">
+						{% trans %}Preview unavailable for this video. Use the YouTube link on the result to watch it.{% endtrans %}
+					</div>
 				</div>
 			</div>
 			<button class="modal-close is-large" aria-label="close"></button>

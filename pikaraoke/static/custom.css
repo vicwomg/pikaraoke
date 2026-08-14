@@ -77,6 +77,110 @@ table {
   width: 100%;
 }
 
+/* A timestamp cell holds either a time or a date, never both (see whenLabel),
+   so it is short enough to keep whole. Only "31 Jul 2025" is long enough to
+   want a second line, and it has spaces to break at. */
+.when {
+  overflow-wrap: break-word;
+}
+
+/* Every paged table on the site (session list, play log, browse) carries the
+   same controls underneath: a prev/next pair and a "1-50 of 300" summary. */
+.pager-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+/* The row above a table holding what narrows it: which subset is on screen on
+   the left, the controls that change it on the right. Wraps rather than
+   squeezing, so a long performer name and a checkbox take a line each on a
+   phone. */
+.table-toggle-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 8px;
+}
+
+/* Held to the right edge whether or not a filter chip shares the row, so the
+   checkbox is in the same place on every page that has one. Set apart rather
+   than emphasised: these hide bookkeeping rows rather than filter the list the
+   reader came for. */
+.table-toggle {
+  margin-left: auto;
+  color: #a7a7a7;
+  /* A box and its label, centred on each other. Left inline the box sits on the
+     text baseline, which puts it a couple of pixels low against type this
+     small. The gap replaces the whitespace between them, which a flex
+     container would otherwise collapse away. */
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* The session list and the play log. Each declares its column widths in a
+   colgroup and keeps the global fixed layout, so the name columns hold their
+   share instead of being squeezed to one word per line by whichever cell
+   happens to hold the longest song title. Only the unsized column absorbs the
+   slack. */
+.history-table td {
+  word-wrap: break-word;
+}
+
+@media screen and (max-width: 600px) {
+  /* Headers set smaller than the rows under them. They are single words that
+     cannot wrap, so on a phone they, not the data, are what decides how narrow
+     a column may be -- and they are read once rather than scanned down the
+     page, which makes them the right thing to shrink. */
+  .history-table th {
+    font-size: 0.75rem;
+  }
+}
+
+/* Which session a page reports on. Its own row on both pages that carry it: a
+   long session name sharing a line with a control wraps badly on a phone. */
+.session-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+/* Bulma top-aligns every table cell (`table td,table th{vertical-align:top}`,
+   unscoped). Text is fine with that -- it sits half a leading below the cell's
+   top edge -- but a cell holding one glyph has no baseline to sit on, so it
+   pins flush to the top and reads as floating above the words beside it.
+   Cells whose whole content is an icon centre against the row instead. */
+.history-table td.options-cell,
+.history-table td.status-cell {
+  vertical-align: middle;
+}
+
+/* The cog opening a row's actions. Fontello gives every glyph side margins that
+   push it off the right edge the other cells sit flush against. */
+.row-options-btn {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.row-options-btn .icon-cog:before {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* The cog is deliberately dim until pointed at, so a column of them does not
+   compete with the rows. !important because it carries has-text-grey-light,
+   and Bulma's colour helpers are themselves !important. */
+.row-options-btn:hover {
+  color: var(--dark-link) !important;
+}
+
 body.hide-cursor * {
   cursor: none !important;
 }
