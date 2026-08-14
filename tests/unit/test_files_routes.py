@@ -14,7 +14,7 @@ if not hasattr(werkzeug, "__version__"):
 
 from pikaraoke.karaoke import SongInUseError
 from pikaraoke.lib.events import EventSystem
-from pikaraoke.lib.song_manager import SongManager
+from pikaraoke.lib.song_manager import SongManager, sanitize_filename
 from pikaraoke.routes.files import files_bp
 from tests.conftest import make_route_app
 
@@ -340,6 +340,9 @@ def _karaoke_for_rename(playing=None, queued=()):
     k.is_song_in_use.side_effect = lambda path: path == playing or path in queued
     k.db.get_format.return_value = None
     k.song_manager.filename_from_path.side_effect = lambda path, tidy=True: Path(path).stem
+    k.song_manager.rename_target.side_effect = lambda path, name: str(
+        Path(path).parent / (sanitize_filename(name) + Path(path).suffix)
+    )
     return k
 
 
@@ -414,6 +417,17 @@ class TestRenameFailuresKeepYourWork:
         taken.write_text("fake")
         k = _karaoke_for_rename()
         response = self._submit(client, k, existing_song, new_file_name="Taken")
+        assert response.status_code == 200
+        assert "already exists" in response.data.decode()
+        k.rename_song.assert_not_called()
+
+    def test_a_collision_only_visible_after_sanitizing_is_reported(
+        self, client, app, existing_song
+    ):
+        """'AC/DC' is written as 'AC-DC', which os.rename would have replaced in silence."""
+        (existing_song.parent / "AC-DC - Thunderstruck.mp4").write_text("fake")
+        k = _karaoke_for_rename()
+        response = self._submit(client, k, existing_song, new_file_name="AC/DC - Thunderstruck")
         assert response.status_code == 200
         assert "already exists" in response.data.decode()
         k.rename_song.assert_not_called()

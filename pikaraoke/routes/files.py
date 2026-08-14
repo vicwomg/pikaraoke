@@ -254,8 +254,7 @@ def rename_file(form):
         return _render_edit_page(k, old_name, new_name, referrer, error)
 
     new_name_full = new_name + youtube_id_suffix(old_name)
-    file_extension = os.path.splitext(old_name)[1]
-    target = os.path.join(os.path.dirname(old_name), new_name_full + file_extension)
+    target = k.song_manager.rename_target(old_name, new_name_full)
     # A song already named what you asked for is done, not a collision with itself.
     if target == old_name:
         return redirect(referrer)

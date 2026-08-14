@@ -213,6 +213,30 @@ class TestRename:
         assert (subfolder / "New---abc.cdg").exists()
 
 
+class TestRenameTarget:
+    """The clash check reads this path, so it has to be the one rename writes to."""
+
+    def test_it_is_where_rename_writes_a_name_that_needs_sanitizing(self, tmp_path, mock_db):
+        song = tmp_path / "Old---abc.mp4"
+        song.write_text("fake")
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
+        sm.songs.add_if_valid(_native(song))
+
+        target = sm.rename_target(_native(song), "AC/DC - Thunderstruck---abc")
+
+        assert sm.rename(_native(song), "AC/DC - Thunderstruck---abc") == target
+        assert Path(target).exists()
+
+    def test_it_keeps_the_song_in_its_subfolder(self, tmp_path, mock_db):
+        subfolder = tmp_path / "Duets"
+        subfolder.mkdir()
+        song = subfolder / "Old---abc.mp4"
+        song.write_text("fake")
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
+
+        assert sm.rename_target(_native(song), "New---abc") == _native(subfolder / "New---abc.mp4")
+
+
 class TestSanitizeFilename:
     def test_path_separators_go_on_posix_too(self, monkeypatch):
         """A name of '../../x' on a Pi used to move the song out of the library."""

@@ -159,6 +159,18 @@ class SongManager:
         self.songs.remove(song_path)
         self._db.delete_by_path(song_path)
 
+    def rename_target(self, song_path: str, new_name: str) -> str:
+        """The path `rename` writes `new_name` to, sanitized as `rename` sanitizes it.
+
+        A caller checking the destination for a clash has to ask here. A path
+        built by hand skips the sanitizing, so the real target moves out from
+        under the check and os.rename replaces the clashing song without a word.
+        """
+        _, ext = os.path.splitext(song_path)
+        # The song's own directory, not download_path: the scanner walks
+        # recursively, so a renamed song stays in the subfolder it was filed in.
+        return os.path.join(os.path.dirname(song_path), sanitize_filename(new_name) + ext)
+
     def rename(self, song_path: str, new_name: str) -> str:
         """Rename a song on disk, in SongList, and in DB. Returns new path.
 
@@ -169,11 +181,8 @@ class SongManager:
         new_name = sanitize_filename(new_name)
         logging.info(f"Renaming song: '{song_path}' to: {new_name}")
         companions = self._get_companion_files(song_path)
-        _, ext = os.path.splitext(song_path)
-        # The song's own directory, not download_path: the scanner walks
-        # recursively, so a renamed song stays in the subfolder it was filed in.
         dirpath = os.path.dirname(song_path)
-        new_path = os.path.join(dirpath, new_name + ext)
+        new_path = self.rename_target(song_path, new_name)
         os.rename(song_path, new_path)
         for companion in companions:
             companion_ext = os.path.splitext(companion)[1]
