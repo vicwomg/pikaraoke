@@ -37,11 +37,7 @@ from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.sound_manager import SoundManager
 from pikaraoke.lib.url_prefix import append_base_path_to_url
-from pikaraoke.lib.youtube_dl import (
-    get_search_results,
-    get_youtubedl_version,
-    upgrade_youtubedl,
-)
+from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
 from pikaraoke.version import __version__ as VERSION
 
 

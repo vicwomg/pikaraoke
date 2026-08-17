@@ -611,26 +611,26 @@
 			{%- endtrans %}
 		</label>
 		<ul id="search-results" class="search_result_items">
-			{% for title,url,id,channel,duration in search_results %}
-			{% set local_path = library_matches.get(id) %}
-			<li data-ytID="{{id}}" data-ytTitle="{{title}}" value="{{url}}" data-index="{{loop.index0}}">
-				<div class="img-wrapper" data-url="{{url}}">
+			{% for result in search_results %}
+			{% set local_path = library_matches.get(result.video_id) %}
+			<li data-ytID="{{result.video_id}}" data-ytTitle="{{result.title}}" value="{{result.url}}" data-index="{{loop.index0}}">
+				<div class="img-wrapper" data-url="{{result.url}}">
 					<div class="img-frame">
-						<img src="https://img.youtube.com/vi/{{id}}/mqdefault.jpg" />
+						<img src="https://img.youtube.com/vi/{{result.video_id}}/mqdefault.jpg" />
 						{# On the thumbnail rather than after the title: titles wrap, so a tag
 						   trailing the text lands wherever the last line happens to end. #}
 						{% if local_path %}
 						{# MSG: Badge on a YouTube search result marking a song that is already downloaded. #}
 						<span class="library-badge">{% trans %}In library{% endtrans %}</span>
 						{% endif %}
-						{% if duration %}<span class="duration-badge">{{ duration }}</span>{% endif %}
+						{% if result.duration %}<span class="duration-badge">{{ result.duration }}</span>{% endif %}
 					</div>
 				</div>
 				<div class="search_result_items_meta">
 					<div>
-						{{title}}
-						{% if channel %}<div class="is-size-7 has-text-grey">{{ channel }}</div>{% endif %}
-						<a href="{{url}}" target="_blank" rel="noopener noreferrer" class="is-size-7 has-text-info">YouTube ↗</a>
+						{{result.title}}
+						{% if result.channel %}<div class="is-size-7 has-text-grey">{{ result.channel }}</div>{% endif %}
+						<a href="{{result.url}}" target="_blank" rel="noopener noreferrer" class="is-size-7 has-text-info">YouTube ↗</a>
 					</div>
 					<div class="search_result_items_actions">
 						{% if local_path %}

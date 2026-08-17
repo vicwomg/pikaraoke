@@ -50,7 +50,9 @@ def search():
     # A result already on this machine gets a queue action instead of a pointless
     # second download. One indexed query for the page, not one per result.
     library_matches = (
-        k.db.get_paths_by_youtube_ids([r[2] for r in search_results]) if search_results else {}
+        k.db.get_paths_by_youtube_ids([r.video_id for r in search_results])
+        if search_results
+        else {}
     )
     return render_template(
         "search.html",
