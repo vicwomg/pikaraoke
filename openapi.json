@@ -210,6 +210,30 @@
         }
       ]
     },
+    "/queue/downloads/errors/{error_id}/retry": {
+      "post": {
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "summary": "Re-queue a failed download.",
+        "tags": [
+          "queue"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "error_id",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ]
+    },
     "/search": {
       "get": {
         "responses": {
