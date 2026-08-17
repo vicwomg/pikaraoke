@@ -139,8 +139,10 @@ def build_ytdl_download_command(
         List of command-line arguments for subprocess execution.
     """
     dl_path = os.path.join(download_path, "%(title)s---%(id)s.%(ext)s")
+    # AV1 ships in an mp4 container, so ext!=webm admits it and -S only sorts. Filtering
+    # on the codec is what keeps playback a stream copy instead of a libx264 transcode.
     file_quality = (
-        "bestvideo[ext!=webm][height<=1080]+bestaudio[ext!=webm]/best[ext!=webm]"
+        "bestvideo[vcodec^=avc1][height<=1080]+bestaudio[ext!=webm]/best[ext!=webm]"
         if high_quality
         else "mp4"
     )
