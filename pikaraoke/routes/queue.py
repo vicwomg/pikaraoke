@@ -213,3 +213,12 @@ def delete_download_error(error_id):
     if k.download_manager.remove_error(error_id):
         return json.dumps({"success": True})
     return json.dumps({"success": False, "error": "Error not found"}), 404
+
+
+@queue_bp.route("/queue/downloads/errors/<error_id>/retry", methods=["POST"])
+def retry_download_error(error_id):
+    """Re-queue a failed download."""
+    k = get_karaoke_instance()
+    if k.download_manager.retry_error(error_id):
+        return json.dumps({"success": True})
+    return json.dumps({"success": False, "error": "Error not found"}), 404

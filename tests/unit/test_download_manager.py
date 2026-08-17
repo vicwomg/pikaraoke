@@ -4,9 +4,33 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pikaraoke.lib.download_manager import DownloadManager
+from pikaraoke.lib.download_manager import MAX_DOWNLOAD_ATTEMPTS, DownloadManager
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
+
+
+def make_request(
+    url: str = "https://youtube.com/watch?v=dQw4w9WgXcQ",
+    enqueue: bool = False,
+    user: str = "User",
+    title: str = "Title",
+) -> dict:
+    """Build a download request in the shape queue_download produces."""
+    return {
+        "video_url": url,
+        "enqueue": enqueue,
+        "user": user,
+        "title": title,
+        "display_title": title or url,
+        "attempts": 0,
+    }
+
+
+@pytest.fixture(autouse=True)
+def no_reprioritize():
+    """Keep psutil away from whatever pid a mocked Popen invents."""
+    with patch("pikaraoke.lib.download_manager._use_spare_capacity"):
+        yield
 
 
 @pytest.fixture
@@ -170,9 +194,7 @@ class TestDownloadManagerExecuteDownload:
         # Mock find_by_id to return a path
         song_manager.songs.find_by_id.return_value = "/songs/Artist - Song---dQw4w9WgXcQ.mp4"
 
-        rc = download_manager._execute_download(
-            "https://youtube.com/watch?v=dQw4w9WgXcQ", False, "User", "Title"
-        )
+        rc = download_manager._execute_download(make_request())
 
         assert rc == 0
         song_manager.songs.find_by_id.assert_called_once_with("/songs", "dQw4w9WgXcQ")
@@ -206,43 +228,11 @@ class TestDownloadManagerExecuteDownload:
         song_manager.songs.find_by_id.return_value = "/songs/Song---dQw4w9WgXcQ.mp4"
         song_manager.songs.add_if_valid.return_value = True
 
-        download_manager._execute_download(
-            "https://youtube.com/watch?v=dQw4w9WgXcQ", True, "TestUser", "Title"
-        )
+        download_manager._execute_download(make_request(enqueue=True, user="TestUser"))
 
         queue_manager.enqueue.assert_called_once_with(
             "/songs/Song---dQw4w9WgXcQ.mp4", "TestUser", log_action=False
         )
-
-    @patch("flask_babel._", side_effect=lambda x: x)
-    @patch("subprocess.run")
-    @patch("subprocess.Popen")
-    @patch("pikaraoke.lib.youtube_dl.build_ytdl_download_command")
-    def test_execute_download_failure(
-        self, mock_build_cmd, mock_popen, mock_run, mock_gettext, download_manager, events
-    ):
-        """Test download failure is handled without retry."""
-        notifications = []
-        events.on("notification", lambda msg, cat="info": notifications.append((msg, cat)))
-
-        mock_build_cmd.return_value = ["yt-dlp", "url"]
-
-        # First call (Popen) fails
-        mock_process = MagicMock()
-        mock_process.stdout.readline.return_value = ""
-        mock_process.poll.return_value = 1
-        mock_popen.return_value = mock_process
-
-        rc = download_manager._execute_download("url", False, "User", "Title")
-
-        assert rc == 1
-        # Should have "Error downloading" message with danger category
-        assert any("Error downloading" in msg and cat == "danger" for msg, cat in notifications)
-
-        # Should populate download_errors
-        assert len(download_manager.download_errors) == 1
-        assert download_manager.download_errors[0]["title"] == "Title"
-        assert "error" in download_manager.download_errors[0]
 
     @patch("flask_babel._", side_effect=lambda x: x)
     @patch("subprocess.Popen")
@@ -265,10 +255,170 @@ class TestDownloadManagerExecuteDownload:
         # Mock find_by_id to return None (file not found)
         song_manager.songs.find_by_id.return_value = None
 
-        download_manager._execute_download("https://youtube.com/watch?v=abc", True, "User", "Title")
+        download_manager._execute_download(
+            make_request(url="https://youtube.com/watch?v=abc", enqueue=True)
+        )
 
         # Should log error about queueing
         assert any("Error queueing" in msg and cat == "danger" for msg, cat in notifications)
+
+
+class TestDownloadManagerRetry:
+    """Tests for re-queueing failed downloads instead of failing them outright."""
+
+    @staticmethod
+    def _failing_popen(mock_popen):
+        process = MagicMock()
+        process.stdout.readline.return_value = ""
+        process.poll.return_value = 1
+        mock_popen.return_value = process
+        return process
+
+    @staticmethod
+    def _drain(manager) -> int:
+        """Run the queue to exhaustion the way the worker greenlet does."""
+        runs = 0
+        while not manager.download_queue.empty():
+            request = manager.download_queue.get()
+            manager.pending_downloads.pop(0)
+            manager._execute_download(request)
+            runs += 1
+        return runs
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.Popen")
+    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
+    def test_requeues_on_failure(self, mock_build_cmd, mock_popen, mock_gettext, download_manager):
+        """A first failure goes back on the queue rather than to an error card."""
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+        self._failing_popen(mock_popen)
+
+        rc = download_manager._execute_download(make_request())
+
+        assert rc == 1
+        assert download_manager.download_errors == []
+        assert download_manager.download_queue.get_nowait()["attempts"] == 1
+        assert len(download_manager.pending_downloads) == 1
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.Popen")
+    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
+    def test_stops_at_attempt_cap(self, mock_build_cmd, mock_popen, mock_gettext, download_manager):
+        """A download that never succeeds is bounded, and its error keeps enqueue."""
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+        self._failing_popen(mock_popen)
+
+        download_manager.queue_download(
+            "https://youtube.com/watch?v=dQw4w9WgXcQ", enqueue=True, title="Broken"
+        )
+
+        assert self._drain(download_manager) == MAX_DOWNLOAD_ATTEMPTS
+        assert mock_popen.call_count == MAX_DOWNLOAD_ATTEMPTS
+        assert download_manager.pending_downloads == []
+        assert len(download_manager.download_errors) == 1
+        # Without this the Retry button silently drops "add to the playback queue"
+        assert download_manager.download_errors[0]["enqueue"] is True
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.Popen", side_effect=OSError("cannot spawn"))
+    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
+    def test_invocation_crash_becomes_a_visible_failure(
+        self, mock_build_cmd, mock_popen, mock_gettext, download_manager
+    ):
+        """A crash launching yt-dlp must retry and surface, not vanish out of the worker."""
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+
+        download_manager.queue_download("https://youtube.com/watch?v=dQw4w9WgXcQ", title="Broken")
+
+        assert self._drain(download_manager) == MAX_DOWNLOAD_ATTEMPTS
+        assert len(download_manager.download_errors) == 1
+        assert "OSError" in download_manager.download_errors[0]["error"]
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.Popen")
+    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
+    def test_retry_is_silent(
+        self, mock_build_cmd, mock_popen, mock_gettext, download_manager, events
+    ):
+        """A retried attempt must not repeat the 'Downloading video' toast."""
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+        self._failing_popen(mock_popen)
+
+        notifications = []
+        events.on("notification", lambda msg, *args: notifications.append(msg))
+
+        download_manager.queue_download("https://youtube.com/watch?v=dQw4w9WgXcQ", title="Broken")
+        self._drain(download_manager)
+
+        assert sum("Downloading video" in n for n in notifications) == 1
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.Popen")
+    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
+    def test_no_retry_on_success(
+        self, mock_build_cmd, mock_popen, mock_gettext, download_manager, song_manager
+    ):
+        """Guards against doubling every download."""
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+        process = MagicMock()
+        process.stdout.readline.side_effect = ["Done", ""]
+        process.poll.return_value = 0
+        mock_popen.return_value = process
+        song_manager.songs.find_by_id.return_value = "/songs/Song---dQw4w9WgXcQ.mp4"
+
+        download_manager.queue_download("https://youtube.com/watch?v=dQw4w9WgXcQ", title="Fine")
+
+        assert self._drain(download_manager) == 1
+        assert mock_popen.call_count == 1
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.Popen")
+    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
+    def test_retry_goes_to_the_back_of_the_queue(
+        self, mock_build_cmd, mock_popen, mock_gettext, download_manager
+    ):
+        """Back-of-queue placement is the backoff: waiting downloads overtake the failure."""
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+        self._failing_popen(mock_popen)
+
+        download_manager.queue_download("https://youtube.com/watch?v=aaaaaaaaaaa", title="Broken")
+        download_manager.queue_download("https://youtube.com/watch?v=bbbbbbbbbbb", title="Waiting")
+
+        request = download_manager.download_queue.get()
+        download_manager.pending_downloads.pop(0)
+        download_manager._execute_download(request)
+
+        assert [r["title"] for r in download_manager.pending_downloads] == ["Waiting", "Broken"]
+        assert download_manager.download_queue.get_nowait()["title"] == "Waiting"
+        assert download_manager.download_queue.get_nowait()["title"] == "Broken"
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    def test_retry_error_requeues_and_clears(self, mock_gettext, download_manager):
+        """The Retry button restores the request, enqueue flag included."""
+        download_manager.download_errors = [
+            {
+                "id": "err-1",
+                "title": "Failed Song",
+                "url": "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                "user": "TestUser",
+                "enqueue": True,
+                "error": "HTTP Error 403: Forbidden",
+            }
+        ]
+
+        assert download_manager.retry_error("err-1") is True
+        assert download_manager.download_errors == []
+
+        request = download_manager.download_queue.get_nowait()
+        assert request["video_url"] == "https://youtube.com/watch?v=dQw4w9WgXcQ"
+        assert request["enqueue"] is True
+        assert request["user"] == "TestUser"
+        assert request["attempts"] == 0
+
+    def test_retry_error_unknown_id(self, download_manager):
+        """An already-dismissed error cannot be retried."""
+        assert download_manager.retry_error("nope") is False
+        assert download_manager.download_queue.empty()
 
 
 class TestDownloadManagerStatus:
@@ -383,10 +533,12 @@ class TestDownloadManagerSpecialCharacters:
         song_manager.songs.add_if_valid.return_value = True
 
         download_manager._execute_download(
-            f"https://youtube.com/watch?v={video_id}",
-            enqueue=True,
-            user="TestUser",
-            title="Test",
+            make_request(
+                url=f"https://youtube.com/watch?v={video_id}",
+                enqueue=True,
+                user="TestUser",
+                title="Test",
+            )
         )
 
         queue_manager.enqueue.assert_called_once_with(file_path, "TestUser", log_action=False)
