@@ -90,19 +90,22 @@ class PlaybackController:
         if not os.path.isfile(file_path):
             error_msg = _("Song file not found: %s") % file_path
             logging.warning(error_msg)
+            self.now_playing_filename = None
             return PlaybackResult(success=False, error=error_msg)
 
         logging.info(
             f"Playing file: {file_path} for user: {user}, transposed {semitones} semitones"
         )
 
+        self.claim(file_path)
+
         result = self.stream_manager.play_file(file_path, semitones)
 
         if not result.success:
+            self.now_playing_filename = None
             return result
 
         self.now_playing = self.filename_from_path(file_path, remove_youtube_id=True)
-        self.now_playing_filename = file_path
         self.now_playing_user = user
         self.now_playing_transpose = semitones
         self.now_playing_duration = result.duration
@@ -126,6 +129,15 @@ class PlaybackController:
 
         logging.debug("Stream is playing")
         return result
+
+    def claim(self, file_path: str) -> None:
+        """Mark a file as the one playback owns, before any of it is read.
+
+        This field is what tells a rename request the file is spoken for, so it
+        must be set before the first yield point: play_file() sleeps through
+        transcoding and gevent serves HTTP requests during those sleeps.
+        """
+        self.now_playing_filename = file_path
 
     def start_song(self) -> None:
         """Mark the current song as actively playing.

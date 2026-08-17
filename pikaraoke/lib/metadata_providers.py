@@ -324,11 +324,14 @@ def _suggestion_score(
 
     artist_matched = False
     title_matched = False
+    artist_part_norm = ""
     for part, part_norm in query_parts_norm:
         matched_artist = _matches_field(part_norm, artist_norm)
         matched_title = (
             part == title_lower or part == title_base or _matches_field(part_norm, title_norm)
         )
+        if matched_artist and not artist_part_norm:
+            artist_part_norm = part_norm
         artist_matched |= matched_artist
         title_matched |= matched_title
         exact_match = (
@@ -380,7 +383,9 @@ def _suggestion_score(
     # This handles "and"/"&"/"with" collaborator names without treating them
     # as featuring keywords (which would break genuine duos).
     if len(query_parts_norm) >= 2 and title_base != title_lower:
-        query_artist_norm = query_parts_norm[0][1]
+        # Whichever part matched the artist, not whichever came first: the
+        # filename may be "Title - Artist".
+        query_artist_norm = artist_part_norm or query_parts_norm[0][1]
         parens_text = _extract_qualifier_text(title_lower)
         if parens_text and artist_norm != query_artist_norm:
             # Extract the extra part of the query artist beyond the result artist
@@ -429,15 +434,6 @@ def _deduplicate_suggestions(
 _OVERFETCH_FACTOR = 3
 
 
-def _detect_query_artist_first(query: str, top_result: dict) -> bool:
-    """Detect if the query uses 'Artist - Title' order by checking the top result."""
-    if " - " not in query:
-        return False
-    first_part = _normalize_for_matching(query.split(" - ", 1)[0])
-    artist = _normalize_for_matching(top_result.get("artist", ""))
-    return _fuzzy_match(first_part, artist)
-
-
 def _extract_qualifier_text(text: str) -> str:
     """Extract all parenthetical and bracketed content as a single string."""
     return " ".join(g for groups in _PAREN_EXTRACT_RE.findall(text) for g in groups if g)
@@ -447,8 +443,15 @@ def suggest_metadata(
     display_name: str,
     provider: MetadataProvider | None = None,
     limit: int = 5,
+    artist_first: bool = False,
 ) -> list[dict]:
-    """Tidy a display name and search for metadata suggestions."""
+    """Tidy a display name and search for metadata suggestions.
+
+    Args:
+        artist_first: Render each suggestion as "Artist - Title" rather than
+            "Title - Artist". The library's naming convention, not the current
+            filename's, so suggestions pull a mangled library into line.
+    """
     if provider is None:
         provider = ITunesProvider()
     tidied = regex_tidy(display_name)
@@ -465,7 +468,6 @@ def suggest_metadata(
         return []
 
     # Build output dicts with display and score fields (don't mutate originals)
-    artist_first = _detect_query_artist_first(search_query, truncated[0][1])
     out = []
     for score, r in truncated:
         display = (

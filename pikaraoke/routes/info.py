@@ -33,6 +33,7 @@ def info():
 
     preferred_language = k.preferences.get("preferred_language", "en")
     itunes_search_country = k.preferences.get_or_default("itunes_search_country")
+    suggestion_name_order = k.preferences.get_or_default("suggestion_name_order")
     # yt-dlp
     youtubedl_version = k.youtubedl_version
 
@@ -80,6 +81,7 @@ def info():
         preferred_language=preferred_language,
         itunes_countries=ITUNES_COUNTRIES,
         itunes_search_country=itunes_search_country,
+        suggestion_name_order=suggestion_name_order,
         browse_results_per_page=k.browse_results_per_page,
         per_page_options=per_page_options(k.browse_results_per_page),
         enable_title_tidy=k.enable_title_tidy,

@@ -548,6 +548,42 @@ class TestQueueManagerRandom:
         assert len(qm.queue) == 2
 
 
+class TestQueueManagerUpdateSongPath:
+    """Test carrying a queue entry over to a renamed file."""
+
+    def test_rewrites_file_and_title_in_place(self, queue_manager):
+        queue_manager.enqueue("/songs/old---abc.mp4", "User1", semitones=2)
+
+        assert queue_manager.update_song_path("/songs/old---abc.mp4", "/songs/new---abc.mp4", "new")
+
+        assert queue_manager.queue[0] == {
+            "user": "User1",
+            "file": "/songs/new---abc.mp4",
+            "title": "new",
+            "semitones": 2,
+        }
+
+    def test_a_song_that_is_not_queued_changes_nothing(self, queue_manager):
+        queue_manager.enqueue("/songs/other---abc.mp4", "User1")
+
+        assert not queue_manager.update_song_path(
+            "/songs/old---abc.mp4", "/songs/new---abc.mp4", "new"
+        )
+
+        assert queue_manager.queue[0]["file"] == "/songs/other---abc.mp4"
+
+    def test_a_destination_already_queued_is_refused(self, queue_manager):
+        """Two entries for one file is a state to reject, not to merge."""
+        queue_manager.enqueue("/songs/old---abc.mp4", "User1")
+        queue_manager.enqueue("/songs/new---abc.mp4", "User2")
+
+        assert not queue_manager.update_song_path(
+            "/songs/old---abc.mp4", "/songs/new---abc.mp4", "new"
+        )
+
+        assert queue_manager.queue[0]["file"] == "/songs/old---abc.mp4"
+
+
 class TestQueueManagerHelpers:
     """Test helper methods."""
 

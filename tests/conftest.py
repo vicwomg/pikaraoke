@@ -1,6 +1,7 @@
 """Pytest fixtures for PiKaraoke tests."""
 
-from pathlib import Path
+import threading
+from pathlib import Path, PurePath
 from urllib.parse import quote
 
 import pytest
@@ -137,6 +138,17 @@ class MockSongManager:
 
     filename_from_path = SongManager.filename_from_path
 
+    def display_name_from_path(self, file_path, remove_youtube_id=True):
+        return SongManager.filename_from_path(file_path, remove_youtube_id)
+
+    def rename(self, song_path, new_name):
+        """Swap the path in the song list; the real one also touches disk and DB."""
+        directory = song_path[: len(song_path) - len(PurePath(song_path).name)]
+        new_path = directory + new_name + PurePath(song_path).suffix
+        self.songs.remove(song_path)
+        self.songs.add(new_path)
+        return new_path
+
 
 class MockSoundManager:
     """Minimal mock of SoundManager for testing."""
@@ -188,6 +200,7 @@ class MockKaraoke:
             config_file_path=str(tmp_path / "config.ini"), target=self
         )
         self.playback_controller = MockPlaybackController()
+        self._playback_lock = threading.Lock()
         self.play_history = MockPlayHistory()
         self.volume = 0.85
         self.running = True
@@ -230,6 +243,8 @@ class MockKaraoke:
     # Bind the real methods to our mock class
     keep_awake = Karaoke.keep_awake
     get_now_playing = Karaoke.get_now_playing
+    is_song_in_use = Karaoke.is_song_in_use
+    rename_song = Karaoke.rename_song
     reset_now_playing = Karaoke.reset_now_playing
     transpose_current = Karaoke.transpose_current
     send_notification = Karaoke.send_notification

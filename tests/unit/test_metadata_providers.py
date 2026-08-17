@@ -401,6 +401,23 @@ class TestSuggestMetadata:
         assert len(results) > 0
         assert results[0]["source"] == "itunes"
 
+    def test_artist_first_sets_the_display_order(self):
+        """The library's convention decides, not the order the file happens to use."""
+        mock_provider = MagicMock()
+        mock_provider.search.return_value = [
+            {"artist": "Queen", "title": "Bohemian Rhapsody", "year": "", "genre": "", "source": ""}
+        ]
+
+        artist_first = suggest_metadata(
+            "Bohemian Rhapsody - Queen", provider=mock_provider, artist_first=True
+        )
+        title_first = suggest_metadata(
+            "Queen - Bohemian Rhapsody", provider=mock_provider, artist_first=False
+        )
+
+        assert artist_first[0]["display"] == "Queen - Bohemian Rhapsody"
+        assert title_first[0]["display"] == "Bohemian Rhapsody - Queen"
+
     def test_uses_provided_provider(self):
         mock_provider = MagicMock()
         mock_provider.search.return_value = [
@@ -488,6 +505,18 @@ class TestSuggestionScoring:
         query = "David Guetta - Bang My Head"
         featuring = "Sia And Fetty Wap"
         assert _score(both, query, featuring) > _score(one, query, featuring)
+
+    def test_collaborator_bonus_ignores_which_part_is_first(self):
+        """The bonus used to read part one as the artist, so it never fired on
+        a 'Title - Artist' library."""
+        result = {
+            "artist": "Taylor Swift",
+            "title": "Everything Has Changed (feat. Ed Sheeran)",
+            "genre": "Pop",
+        }
+        artist_first = "Taylor Swift and Ed Sheeran - Everything Has Changed"
+        title_first = "Everything Has Changed - Taylor Swift and Ed Sheeran"
+        assert _score(result, title_first) == _score(result, artist_first)
 
     def test_version_keyword_uses_word_boundaries(self):
         """'Oliver's Army' should not be penalized for containing 'live'."""
