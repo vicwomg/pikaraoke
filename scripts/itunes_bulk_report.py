@@ -100,7 +100,7 @@ def run_report(songs_dir: str, country: str = "US") -> None:
                     "year": top.get("year", ""),
                     "genre": top.get("genre", ""),
                 }
-                status = "OK" if score >= 100 else "LOW"
+                status = "OK" if score >= 95 else "LOW"
                 print(
                     f"  [{i}/{total}] {status} ({score:>4}) "
                     f"{stem[:50]:<50} -> {row['display'][:50]}"
@@ -139,15 +139,12 @@ def run_report(songs_dir: str, country: str = "US") -> None:
     print(f"Time elapsed:               {elapsed_total / 60:.1f} minutes")
     print()
 
-    thresholds = [120, 100, 80, 50, 0]
-    for thresh in thresholds:
+    # The four anchors, so the counts size the three groups directly: >= 100 is
+    # already correct, 95..98 is what a bulk run would touch, the rest is review.
+    for thresh in (100, 98, 95, 80, 0):
         count = sum(1 for s in scores if s >= thresh)
         pct = count / queried * 100 if queried else 0
         print(f"  Score >= {thresh:>3}: {count:>4} / {queried}  ({pct:5.1f}%)")
-
-    neg = sum(1 for s in scores if s < 0)
-    neg_pct = neg / queried * 100 if queried else 0
-    print(f"  Score <   0: {neg:>4} / {queried}  ({neg_pct:5.1f}%)")
 
     print(f"\nFull results saved to: {csv_path}")
 

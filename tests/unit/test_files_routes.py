@@ -14,7 +14,8 @@ if not hasattr(werkzeug, "__version__"):
 
 from pikaraoke.karaoke import SongInUseError
 from pikaraoke.lib.events import EventSystem
-from pikaraoke.lib.song_manager import SongManager, sanitize_filename
+from pikaraoke.lib.metadata_parser import sanitize_filename
+from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.routes.files import files_bp
 from tests.conftest import make_route_app
 

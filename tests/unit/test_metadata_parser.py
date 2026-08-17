@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from pikaraoke.lib.metadata_parser import (
+    _RECORDING_VARIANT_RE,
     _detect_artist_first,
     clean_search_query,
     clear_song_name_cache,
@@ -14,10 +15,38 @@ from pikaraoke.lib.metadata_parser import (
     has_youtube_id,
     lookup_lastfm,
     regex_tidy,
+    sanitize_filename,
     score_result,
     search_lastfm_tracks,
     youtube_id_suffix,
 )
+
+
+class TestSanitizeFilename:
+    def test_path_separators_go_on_posix_too(self, monkeypatch):
+        """A name of '../../x' on a Pi used to move the song out of the library."""
+        monkeypatch.setattr("pikaraoke.lib.metadata_parser.is_windows", lambda: False)
+        assert sanitize_filename("../../home/pi/x") == "..-..-home-pi-x"
+        assert sanitize_filename("a\\b") == "a-b"
+
+    def test_posix_legal_characters_survive(self, monkeypatch):
+        """Colons and question marks are legal on POSIX and appear in real titles."""
+        monkeypatch.setattr("pikaraoke.lib.metadata_parser.is_windows", lambda: False)
+        assert sanitize_filename("Who's Next: Part 2?") == "Who's Next: Part 2?"
+
+
+class TestRecordingVariantPattern:
+    """A qualifier a rename must not silently discard, unlike YouTube noise."""
+
+    def test_variants_are_matched(self):
+        for qualifier in ("Live", "Remastered 2010", "Acoustic", "Radio Edit", "Demo"):
+            assert _RECORDING_VARIANT_RE.search(qualifier), qualifier
+
+    def test_karaoke_and_version_are_not_variants(self):
+        """Excluded deliberately: '(Karaoke Version)' is this app's commonest
+        noise token, and treating it as a variant would gut the feature."""
+        assert not _RECORDING_VARIANT_RE.search("Karaoke Version")
+        assert not _RECORDING_VARIANT_RE.search("Karaoke")
 
 
 @pytest.fixture(autouse=True)

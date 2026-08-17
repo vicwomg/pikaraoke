@@ -3,32 +3,18 @@
 import contextlib
 import logging
 import os
-import re
 from collections.abc import Callable
 
 from pikaraoke.lib.events import EventSystem
-from pikaraoke.lib.get_platform import is_windows
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.library_scanner import build_song_record
-from pikaraoke.lib.metadata_parser import regex_tidy, remove_accents, youtube_id_suffix
+from pikaraoke.lib.metadata_parser import (
+    regex_tidy,
+    remove_accents,
+    sanitize_filename,
+    youtube_id_suffix,
+)
 from pikaraoke.lib.song_list import SongList
-
-# Characters illegal in Windows filenames
-_WINDOWS_ILLEGAL_CHARS = re.compile(r'[<>:"/\\|?*]')
-_PATH_SEPARATORS = re.compile(r"[/\\]")
-
-
-def sanitize_filename(name: str) -> str:
-    """Remove characters that are illegal in a filename on the current platform.
-
-    Path separators go on every platform: callers pass a bare filename, so a
-    separator can only be an attempt to write outside the song directory.
-    """
-    if is_windows():
-        name = _WINDOWS_ILLEGAL_CHARS.sub("-", name)
-    else:
-        name = _PATH_SEPARATORS.sub("-", name)
-    return name.strip()
 
 
 class SongManager:

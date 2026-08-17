@@ -10,6 +10,12 @@ import re
 import time
 import unicodedata
 
+from pikaraoke.lib.get_platform import is_windows
+
+# Characters illegal in Windows filenames
+_WINDOWS_ILLEGAL_CHARS = re.compile(r'[<>:"/\\|?*]')
+_PATH_SEPARATORS = re.compile(r"[/\\]")
+
 EMOJI_PATTERN = re.compile(
     "["
     "\U0001F1E0-\U0001F1FF"
@@ -92,6 +98,20 @@ SPECIAL_VERSION_KEYWORDS = [
 ]
 _SPECIAL_VERSION_RE = re.compile(
     r"\b(?:" + "|".join(re.escape(kw) for kw in SPECIAL_VERSION_KEYWORDS if kw != " - ") + r")\b",
+    re.IGNORECASE,
+)
+
+# Qualifiers marking a different recording of the same song, as opposed to noise
+# a rename may safely discard. Derived from SPECIAL_VERSION_KEYWORDS minus
+# "version" and "karaoke", which in a karaoke library are the two most common
+# noise tokens there are -- keeping them would push most of a library out of
+# reach of any suggestion that strips them.
+_RECORDING_VARIANT_RE = re.compile(
+    r"\b(?:"
+    + "|".join(
+        re.escape(kw) for kw in SPECIAL_VERSION_KEYWORDS if kw not in (" - ", "version", "karaoke")
+    )
+    + r")\b",
     re.IGNORECASE,
 )
 
@@ -719,6 +739,19 @@ def regex_tidy(filename: str) -> str:
     name = _step_normalize_cjk_dashes(name)
     name = _step_extract_attribution_or_strip_noise(name)
     return _step_normalize_separators_and_whitespace(name)
+
+
+def sanitize_filename(name: str) -> str:
+    """Remove characters that are illegal in a filename on the current platform.
+
+    Path separators go on every platform: callers pass a bare filename, so a
+    separator can only be an attempt to write outside the song directory.
+    """
+    if is_windows():
+        name = _WINDOWS_ILLEGAL_CHARS.sub("-", name)
+    else:
+        name = _PATH_SEPARATORS.sub("-", name)
+    return name.strip()
 
 
 def youtube_id_suffix(file_path: str) -> str:

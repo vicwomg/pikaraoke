@@ -5,7 +5,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from pikaraoke.lib.metadata_parser import sanitize_filename
 from pikaraoke.lib.metadata_providers import (
+    _ALREADY_CORRECT,
+    _UNCONFIRMED_CEILING,
     ITUNES_MAX_RETRIES,
     ITunesProvider,
     _normalize_for_matching,
@@ -21,6 +24,22 @@ def _score(result: dict, query: str, featuring: str = "") -> int:
     parts = _normalize_query_parts(query)
     feat_norm = _normalize_for_matching(featuring) if featuring else ""
     return _suggestion_score(result, parts, feat_norm)
+
+
+def _mock_provider(*results: tuple[str, str]) -> MagicMock:
+    """A provider returning (artist, title) pairs as full result dicts."""
+    provider = MagicMock()
+    provider.search.return_value = [
+        {"artist": artist, "title": title, "year": "2008", "genre": "Pop", "source": "itunes"}
+        for artist, title in results
+    ]
+    return provider
+
+
+def _anchored(name: str, artist: str, title: str, artist_first: bool = True) -> int:
+    """The top suggestion's 0-100 score for a filename against one mocked result."""
+    provider = _mock_provider((artist, title))
+    return suggest_metadata(name, provider=provider, artist_first=artist_first)[0]["score"]
 
 
 ITUNES_RESPONSE = {
@@ -576,3 +595,126 @@ class TestSuggestionScoring:
         no_apos = _score(result, "Elvis Costello & The Attractions - Olivers Army")
         with_apos = _score(result, "Elvis Costello & The Attractions - Oliver's Army")
         assert no_apos == with_apos
+
+    def test_a_clean_confirmed_match_tallies_to_the_anchor(self):
+        """Two exact parts plus the cross-field bonus must sum to exactly 100.
+
+        The anchor is assigned rather than computed, so nothing else would catch
+        a weight tweak silently detaching the tally from the value it anchors to.
+        """
+        result = {"artist": "Queen", "title": "Bohemian Rhapsody", "genre": "Rock"}
+        assert _score(result, "Queen - Bohemian Rhapsody") == _ALREADY_CORRECT
+
+
+class TestScoreAnchoring:
+    """Tests for the 0-100 scale: 100 already correct, 98/95 confirmed, <= 94 not."""
+
+    def test_a_byte_identical_name_scores_100(self):
+        assert _anchored("Beyoncé - Halo", "Beyoncé", "Halo") == 100
+
+    def test_a_missing_accent_is_one_correction(self):
+        """100 is byte-equality, not a fuzzy match: the file still needs renaming."""
+        assert _anchored("Beyonce - Halo", "Beyoncé", "Halo") == 98
+
+    def test_wrong_case_alone_is_one_correction(self):
+        assert _anchored("abba - waterloo", "ABBA", "Waterloo") == 98
+
+    def test_order_is_measured_against_the_preference(self):
+        """The same file is already correct or one correction away, depending
+        only on which way round the library writes its names."""
+        assert _anchored("Halo - Beyoncé", "Beyoncé", "Halo", artist_first=True) == 98
+        assert _anchored("Halo - Beyoncé", "Beyoncé", "Halo", artist_first=False) == 100
+
+    def test_corrections_compound(self):
+        """Two or three kinds of correction share one score, below a single kind."""
+        assert _anchored("halo - beyonce", "Beyoncé", "Halo") == 95
+        assert _anchored("Halo - Beyonce (Official Video)", "Beyoncé", "Halo") == 95
+
+    def test_noise_the_tidy_cannot_reach_never_confirms(self):
+        """regex_tidy only strips *trailing* qualifiers, so noise attached to a
+        leading title survives into the query and the fields never match."""
+        assert _anchored("Halo (Official Video) - Beyonce", "Beyoncé", "Halo") <= 94
+
+    def test_a_tidied_name_still_needs_renaming(self):
+        """The tidy decides confidence; the raw stem decides whether there is
+        anything to apply. Confirmed fields alone must not reach 100."""
+        assert _anchored("Beyoncé - Halo (Official Video)", "Beyoncé", "Halo") == 98
+
+    def test_the_variant_guard_ignores_karaoke(self):
+        """'(Karaoke Version)' is this app's commonest noise token. Treating it
+        as a recording variant would push most of a library out of the band."""
+        assert _anchored("Beyoncé - Halo (Karaoke Version)", "Beyoncé", "Halo") == 98
+
+    def test_a_stripped_recording_variant_leaves_the_band(self):
+        """Renaming these would lose the distinction, and possibly collide with
+        the studio recording already in the library."""
+        assert _anchored("Beyoncé - Halo (Live)", "Beyoncé", "Halo") <= 94
+        assert _anchored("ABBA - Fernando (Remastered 2010)", "ABBA", "Fernando") <= 94
+
+    def test_a_title_whose_body_reads_as_a_variant_is_untouched(self):
+        """The variant guard reads bracketed text only, never the title body."""
+        assert _anchored("Wings - Live and Let Die", "Wings", "Live and Let Die") == 100
+
+    def test_a_featuring_credit_reaches_the_band_and_is_restored(self):
+        """The credit is stripped from the query so the fields can agree; the
+        rename then writes iTunes' canonical form back."""
+        provider = _mock_provider(("David Guetta", "Bang My Head (feat. Sia)"))
+        top = suggest_metadata("David Guetta - Bang My Head ft Sia", provider=provider)[0]
+        assert top["score"] >= 95
+        assert top["display"] == "David Guetta - Bang My Head (feat. Sia)"
+
+    def test_a_qualifier_that_is_not_a_credit_disqualifies(self):
+        artist, title = "Taylor Swift", "Everything Has Changed"
+        assert _anchored(f"{artist} - {title}", artist, f"{title} (Taylor's Version)") <= 94
+        assert _anchored(f"{artist} - {title}", artist, f"{title} (Commentary)") <= 94
+
+    def test_a_bracketed_variant_beside_a_credit_disqualifies(self):
+        """_PAREN_NOT_FEAT sees round brackets only, so this reaches the
+        variant regex running over the extracted qualifier text."""
+        assert (
+            _anchored("Mark Ronson - Uptown Funk", "Mark Ronson", "Uptown Funk (feat. B) [Live]")
+            <= 94
+        )
+
+    def test_a_windows_illegal_character_still_reaches_100(self):
+        """The comparison is against the sanitised proposal, so a file named as
+        correctly as the filesystem permits is not demoted for the platform's sake."""
+        on_disk = sanitize_filename("Rush - Song: The Sequel")
+        assert _anchored(on_disk, "Rush", "Song: The Sequel") == 100
+
+    def test_an_unconfirmed_tally_cannot_enter_the_band(self):
+        """Bonuses stack past 100 without confirming anything, which is what the
+        ceiling exists to catch."""
+        query = "David Guetta and Fetty Wap - Bang My Head"
+        result = {"artist": "David Guetta", "title": "Bang My Head (feat. Sia & Fetty Wap)"}
+        assert _score(result, query, "Sia") > _UNCONFIRMED_CEILING
+        assert (
+            _anchored(
+                "David Guetta and Fetty Wap - Bang My Head ft Sia",
+                result["artist"],
+                result["title"],
+            )
+            <= 94
+        )
+
+    def test_a_heavily_penalised_result_floors_at_zero(self):
+        provider = _mock_provider(("Nobody At All", f"{'x' * 70} (Live Remix)"))
+        provider.search.return_value[0]["genre"] = "Rock/Pop"
+        assert suggest_metadata("Beyoncé - Halo", provider=provider)[0]["score"] == 0
+
+    def test_scores_never_rise_down_the_list(self):
+        """The badge sits beside a ranked list, so a demotion applied after the
+        sort could show a 95 above a 98."""
+        provider = _mock_provider(
+            ("Beyoncé", "Halo"),
+            ("Beyoncé", "Halo (Live)"),
+            ("Unrelated Band", "Some Other Song"),
+        )
+        scores = [r["score"] for r in suggest_metadata("Beyoncé - Halo", provider=provider)]
+        assert scores == sorted(scores, reverse=True)
+
+    def test_two_different_cjk_titles_are_not_confirmed(self):
+        """The renamer's old normaliser folded every pure-CJK title to '', so
+        two unrelated ones compared equal. This normaliser keeps them apart."""
+        assert _anchored("夜に駆ける - YOASOBI", "YOASOBI", "君の名は") <= 94
+        assert _anchored("YOASOBI - 夜に駆ける", "YOASOBI", "夜に駆ける") == 100

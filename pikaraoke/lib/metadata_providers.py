@@ -14,10 +14,13 @@ import urllib3.connection
 import urllib3.util.ssl_
 
 from pikaraoke.lib.metadata_parser import (
+    _PAREN_NOT_FEAT,
+    _RECORDING_VARIANT_RE,
     _SPECIAL_VERSION_RE,
     normalize_for_comparison,
     regex_tidy,
     remove_accents,
+    sanitize_filename,
 )
 
 # iTunes nominally allows ~20 requests/minute.  A 2s floor between requests
@@ -343,19 +346,21 @@ def _suggestion_score(
         fuzzy = _fuzzy_match(part_norm, artist_norm) or _fuzzy_match(part_norm, title_norm)
         substring = part_norm in artist_norm or part_norm in title_norm
         if exact_match:
-            score += 50
+            score += 38
         elif fuzzy:
-            score += 40
+            score += 31
         elif substring:
-            score += 25
+            score += 19
 
     # Cross-field bonus: when one query part matched the artist and another
     # matched the title, the result aligns with the query's structure.
     # Without this, a result where both parts coincidentally appear in the
     # title (e.g. a track titled "Dolly Parton + Beer Cereal Divorce" by
     # David Liebe Hart) could outscore a result with the correct artist.
+    # 24 rather than the proportional 23 so that two exact parts plus this
+    # bonus sum to exactly _ALREADY_CORRECT.
     if len(query_parts_norm) >= 2 and artist_matched and title_matched:
-        score += 30
+        score += 24
 
     # Single-part decomposition: when the query has no separator but can be
     # split into artist + title, score each confirmed field independently.
@@ -364,18 +369,18 @@ def _suggestion_score(
         # Strip artist -> does remainder match title?
         artist_remainder = part_norm.replace(artist_norm, "", 1).strip()
         if artist_remainder and _matches_field(artist_remainder, title_norm):
-            score += 40
+            score += 31
         # Strip title -> does remainder match artist?
         title_remainder = part_norm.replace(title_norm, "", 1).strip()
         if title_remainder and _matches_field(title_remainder, artist_norm):
-            score += 40
+            score += 31
 
     # Bonus if the featuring artist appears in the result title
     # Normalize both sides so "and" matches "&" and accents are ignored
     if featuring_norm:
         title_full_norm = _normalize_for_matching(title_lower)
         if featuring_norm in title_full_norm:
-            score += 15
+            score += 12
 
     # Bonus when query artist part has extra names that appear in the result's
     # parenthetical (e.g. query "Taylor Swift and Ed Sheeran" matches
@@ -392,29 +397,121 @@ def _suggestion_score(
             extra = query_artist_norm.replace(artist_norm, "").strip()
             extra = _LEADING_CONJUNCTION_RE.sub("", extra).strip()
             if extra and len(extra) > 2 and extra in parens_text:
-                score += 15
+                score += 12
 
     # Penalize titles with parenthetical qualifiers (sessions, performances, etc.)
     if title_base != title_lower:
-        score -= 10
+        score -= 8
 
     # Penalize special versions (live, remix, etc.)
     if _SPECIAL_VERSION_RE.search(title_lower):
-        score -= 30
+        score -= 23
     if len(title_lower) > 60:
-        score -= 20
+        score -= 15
 
     # Prefer simple genres ("Rock") over compound ones ("Singer/Songwriter")
     genre = result.get("genre", "")
     if "/" in genre or "&" in genre:
-        score -= 5
+        score -= 4
     return score
 
 
+# A confirmed match is assigned its anchor rather than tallied: exactness is a
+# definitive determination, so the version and length penalties that rank
+# candidates against each other no longer apply. 100 is also what the rebased
+# weights produce for a clean confirmed match (38 + 38 + 24), so the assignment
+# agrees with the arithmetic instead of overriding it.
+_ALREADY_CORRECT = 100  # the name on disk is what we would rename it to
+_ONE_CORRECTION = 98  # fields confirmed; one of order / noise / characters is wrong
+_MANY_CORRECTIONS = 95  # fields confirmed; two or three of them are
+_UNCONFIRMED_CEILING = 94  # nothing unconfirmed may enter the confirmed band
+
+
+def _has_disqualifying_qualifier(title: str) -> bool:
+    """Whether the title carries a qualifier other than a featuring credit."""
+    # "(Live)", "(Taylor's Version)", "(Commentary)" -- anything parenthesised that is not a credit
+    if _PAREN_NOT_FEAT.search(title):
+        return True
+    # _PAREN_NOT_FEAT only sees round brackets, so "(feat. X) [Live]" reaches here
+    return bool(_RECORDING_VARIANT_RE.search(_extract_qualifier_text(title)))
+
+
+def _exact_match_artist_first(result: dict, query_parts_norm: list[tuple[str, str]]) -> bool | None:
+    """Whether an exactly matching query is written artist-first.
+
+    None when the result is not an exact match on both fields, including when
+    the title carries a qualifier other than a featuring credit.
+    """
+    if len(query_parts_norm) != 2:
+        return None
+    title_lower = result.get("title", "").lower()
+    if _has_disqualifying_qualifier(title_lower):
+        return None
+    artist_norm = _normalize_for_matching(result.get("artist", "").lower())
+    title_norm = _normalize_for_matching(_PAREN_CONTENT_RE.sub("", title_lower).strip())
+    first, second = query_parts_norm[0][1], query_parts_norm[1][1]
+    if first == artist_norm and second == title_norm:
+        return True
+    if first == title_norm and second == artist_norm:
+        return False
+    return None
+
+
+def _correction_count(
+    name: str, proposal: str, query_artist_first: bool, artist_first: bool
+) -> int:
+    """Count the kinds of correction a rename to `proposal` would apply.
+
+    Three sequential transformations -- order, then noise, then characters --
+    each asking "did this step change anything". Sequential rather than parallel
+    so that one defect cannot be counted under two kinds.
+    """
+    corrections = 0
+    reordered = name
+    if query_artist_first != artist_first:
+        corrections += 1
+        head, _, tail = name.partition(" - ")
+        if tail:
+            reordered = f"{tail} - {head}"
+    tidied = regex_tidy(reordered)
+    if tidied != reordered:
+        corrections += 1
+    # Deliberately raw: no case folding, no accent folding. This is what keeps
+    # "Beyonce" off 100.
+    if tidied != proposal:
+        corrections += 1
+    return corrections
+
+
+def _anchor_score(
+    score: int, result: dict, query_parts_norm: list[tuple[str, str]], name: str, artist_first: bool
+) -> int:
+    """Pin a confirmed match to its anchor; cap everything else below the band.
+
+    `name` is the filename as it stands, compared against the sanitised proposal
+    so a title containing a character Windows forbids can still be already-correct.
+    """
+    query_artist_first = _exact_match_artist_first(result, query_parts_norm)
+    if query_artist_first is None:
+        return min(score, _UNCONFIRMED_CEILING)
+    artist, title = result.get("artist", ""), result.get("title", "")
+    proposal = sanitize_filename(f"{artist} - {title}" if artist_first else f"{title} - {artist}")
+    # regex_tidy strips "(Live)" and "(Remastered 2010)" as readily as
+    # "(Official Video)", so a confirmed match can still be the wrong recording.
+    if _RECORDING_VARIANT_RE.search(name) and not _RECORDING_VARIANT_RE.search(proposal):
+        return min(score, _UNCONFIRMED_CEILING)
+    return (_ALREADY_CORRECT, _ONE_CORRECTION, _MANY_CORRECTIONS, _MANY_CORRECTIONS)[
+        _correction_count(name, proposal, query_artist_first, artist_first)
+    ]
+
+
 def _deduplicate_suggestions(
-    results: list[dict], query: str, featuring: str = ""
+    results: list[dict], query: str, name: str, artist_first: bool, featuring: str = ""
 ) -> list[tuple[int, dict]]:
     """Keep the highest-scored result per unique (artist, title) pair.
+
+    Anchoring happens here rather than at display time: the badge sits beside a
+    ranked list, so a demotion applied after the sort could show a 95 above a 98.
 
     Returns (score, result) tuples sorted by score descending.
     """
@@ -423,7 +520,13 @@ def _deduplicate_suggestions(
     best: dict[tuple[str, str], tuple[int, dict]] = {}
     for r in results:
         key = (r.get("artist", "").lower(), r.get("title", "").lower())
-        s = _suggestion_score(r, query_parts_norm, featuring_norm)
+        s = _anchor_score(
+            _suggestion_score(r, query_parts_norm, featuring_norm),
+            r,
+            query_parts_norm,
+            name,
+            artist_first,
+        )
         if key not in best or s > best[key][0]:
             best[key] = (s, r)
     scored = sorted(best.values(), key=lambda x: x[0], reverse=True)
@@ -443,14 +546,16 @@ def suggest_metadata(
     display_name: str,
     provider: MetadataProvider | None = None,
     limit: int = 5,
-    artist_first: bool = False,
+    artist_first: bool = True,
 ) -> list[dict]:
     """Tidy a display name and search for metadata suggestions.
 
     Args:
         artist_first: Render each suggestion as "Artist - Title" rather than
             "Title - Artist". The library's naming convention, not the current
-            filename's, so suggestions pull a mangled library into line.
+            filename's, so suggestions pull an untidy library into line. It also
+            decides which order scores 100, so the default mirrors the
+            "artist_title" default of the suggestion_name_order preference.
     """
     if provider is None:
         provider = ITunesProvider()
@@ -461,7 +566,9 @@ def suggest_metadata(
     featuring = feat_match.group("name").strip() if feat_match else ""
     search_query = _FEATURING_PATTERN.sub("", tidied).strip()
     results = provider.search(search_query, limit=limit * _OVERFETCH_FACTOR)
-    scored = _deduplicate_suggestions(results, search_query, featuring)
+    # The untidied name, not the query: the question the anchors answer is what
+    # is on disk, not what the tidy makes of it.
+    scored = _deduplicate_suggestions(results, search_query, display_name, artist_first, featuring)
     truncated = scored[:limit]
 
     if not truncated:
@@ -473,5 +580,5 @@ def suggest_metadata(
         display = (
             f"{r['artist']} - {r['title']}" if artist_first else f"{r['title']} - {r['artist']}"
         )
-        out.append({**r, "display": display, "score": score})
+        out.append({**r, "display": display, "score": max(0, score)})
     return out
