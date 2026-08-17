@@ -442,13 +442,26 @@ def _exact_match_artist_first(result: dict, query_parts_norm: list[tuple[str, st
     None when the result is not an exact match on both fields, including when
     the title carries a qualifier other than a featuring credit.
     """
-    if len(query_parts_norm) != 2:
+    if len(query_parts_norm) not in (1, 2):
         return None
     title_lower = result.get("title", "").lower()
     if _has_disqualifying_qualifier(title_lower):
         return None
     artist_norm = _normalize_for_matching(result.get("artist", "").lower())
     title_norm = _normalize_for_matching(_PAREN_CONTENT_RE.sub("", title_lower).strip())
+    if not artist_norm or not title_norm:
+        return None
+    if len(query_parts_norm) == 1:
+        # A query with no separator confirms both fields only when it is exactly
+        # the two of them concatenated, nothing left over: "CAKE I Will Survive"
+        # qualifies, "Cry Me a River by Julie London" does not. Whichever
+        # concatenation matches is the order the filename is written in.
+        whole = query_parts_norm[0][1]
+        if whole == f"{artist_norm} {title_norm}":
+            return True
+        if whole == f"{title_norm} {artist_norm}":
+            return False
+        return None
     first, second = query_parts_norm[0][1], query_parts_norm[1][1]
     if first == artist_norm and second == title_norm:
         return True

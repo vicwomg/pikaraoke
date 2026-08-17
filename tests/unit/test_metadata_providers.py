@@ -713,6 +713,24 @@ class TestScoreAnchoring:
         scores = [r["score"] for r in suggest_metadata("Beyoncé - Halo", provider=provider)]
         assert scores == sorted(scores, reverse=True)
 
+    def test_a_query_with_no_separator_can_confirm(self):
+        """_suggestion_score already confirms both fields by decomposition, so
+        the anchoring has to honour it: an underscore-separated YouTube name
+        tidies to a single part, and used to be locked out of the band."""
+        assert _anchored("CAKE I Will Survive", "CAKE", "I Will Survive") == 98
+        assert _anchored("【カラオケ】うっせぇわ _ Ado", "Ado", "うっせぇわ") == 95
+
+    def test_a_separator_less_query_must_decompose_exactly(self):
+        """Anything left over after the two fields means the query carries more
+        than a name, and the file needs a human."""
+        assert _anchored("Cry Me a River by Julie London", "Julie London", "Cry Me a River") <= 94
+        assert _anchored("王菲 Faye Wong Eyes On Me", "Faye Wong", "Eyes On Me") <= 94
+
+    def test_a_romanised_result_never_confirms_a_native_script_name(self):
+        """Accepting 'Usseewa' for a file named うっせぇわ rewrites the library's
+        convention, which is a decision for an admin and not for a bulk run."""
+        assert _anchored("【カラオケ】うっせぇわ _ Ado", "Ado", "Usseewa") <= 94
+
     def test_two_different_cjk_titles_are_not_confirmed(self):
         """The renamer's old normaliser folded every pure-CJK title to '', so
         two unrelated ones compared equal. This normaliser keeps them apart."""
