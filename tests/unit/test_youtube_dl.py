@@ -94,7 +94,11 @@ class TestBuildYtdlDownloadCommand:
 
     @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
     def test_high_quality_format(self, mock_js):
-        """Test that high quality uses correct format string."""
+        """Test that high quality uses correct format string.
+
+        The codec filter is the guard: ext!=webm admits AV1, which would then be
+        transcoded on every playback rather than stream-copied.
+        """
         cmd = build_ytdl_download_command(
             video_url="https://www.youtube.com/watch?v=test123",
             download_path="/songs",
@@ -102,6 +106,7 @@ class TestBuildYtdlDownloadCommand:
         )
         format_idx = cmd.index("-f") + 1
         assert "bestvideo" in cmd[format_idx]
+        assert "vcodec^=avc1" in cmd[format_idx]
         assert "1080" in cmd[format_idx]
 
     @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
