@@ -383,3 +383,53 @@ class TestFairQueuePosition:
 
         # add_to_front should still put song at position 0
         assert mock_karaoke.queue_manager.queue[0]["file"] == "/songs/a2---a02.mp4"
+
+    def test_fair_queue_counts_the_song_on_screen(self, mock_karaoke):
+        """The singer at the microphone has had their turn for this round."""
+        qm = mock_karaoke.queue_manager
+        for index in range(1, 6):
+            qm.enqueue(f"/songs/a{index}---a0{index}.mp4", "UserA")
+        # UserA's first song leaves the queue for the screen.
+        qm.pop_next()
+        mock_karaoke.playback_controller.now_playing_user = "UserA"
+
+        qm.enqueue("/songs/b1---b01.mp4", "UserB")
+        qm.enqueue("/songs/c1---c01.mp4", "UserC")
+
+        users = [item["user"] for item in qm.queue]
+        # Both newcomers sing before UserA's second, not after it.
+        assert users == ["UserB", "UserC", "UserA", "UserA", "UserA", "UserA"]
+
+    def test_fair_queue_counts_songs_already_sung(self, mock_karaoke):
+        """Turns carry across an empty queue, where position alone forgets them."""
+        mock_karaoke.play_history.turns_taken = {"usera": 2}
+
+        mock_karaoke.queue_manager.enqueue("/songs/a3---a03.mp4", "UserA")
+        mock_karaoke.queue_manager.enqueue("/songs/b1---b01.mp4", "UserB")
+
+        users = [item["user"] for item in mock_karaoke.queue_manager.queue]
+        assert users == ["UserB", "UserA"]
+
+    def test_fair_queue_matches_singers_case_insensitively(self, mock_karaoke):
+        """History keys on a folded name, so the queue has to look one up the same way."""
+        mock_karaoke.play_history.turns_taken = {"usera": 2}
+
+        mock_karaoke.queue_manager.enqueue("/songs/a3---a03.mp4", "usera")
+        mock_karaoke.queue_manager.enqueue("/songs/b1---b01.mp4", "UserB")
+
+        users = [item["user"] for item in mock_karaoke.queue_manager.queue]
+        assert users == ["UserB", "usera"]
+
+    def test_fair_queue_latecomer_cannot_claim_missed_rounds(self, mock_karaoke):
+        """Somebody walking in at midnight joins the round in progress."""
+        qm = mock_karaoke.queue_manager
+        mock_karaoke.play_history.turns_taken = {"usera": 3, "userb": 3}
+        mock_karaoke.playback_controller.now_playing_user = "UserA"
+        qm.enqueue("/songs/b4---b04.mp4", "UserB")
+
+        qm.enqueue("/songs/c1---c01.mp4", "UserC")
+        qm.enqueue("/songs/c2---c02.mp4", "UserC")
+
+        users = [item["user"] for item in qm.queue]
+        # UserC has sung nothing, but the three rounds they missed are gone.
+        assert users == ["UserB", "UserC", "UserC"]

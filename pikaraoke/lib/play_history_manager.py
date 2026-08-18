@@ -624,6 +624,27 @@ class PlayHistoryManager:
         )
         return [dict(row) for row in rows]
 
+    def get_turns_taken(self) -> dict[str, int]:
+        """Return how many songs each singer has sung through tonight, keyed lower-case.
+
+        What the fair queue shares turns out against, so it is scoped to the
+        active session and counts neither skipped songs nor the one on screen,
+        whose row does not settle until it ends.
+        """
+        session = self.get_current_session()
+        if session is None:
+            return {}
+        rows = self.db.query(
+            f"SELECT p.performer, COUNT(*) AS turns FROM plays p "
+            f"WHERE p.session_id = ? AND {_SUNG} GROUP BY p.performer COLLATE NOCASE",
+            (session["id"],),
+        )
+        # Folding again in Python can merge two of SQLite's ASCII-only groups.
+        turns: dict[str, int] = {}
+        for row in rows:
+            turns[row["performer"].lower()] = turns.get(row["performer"].lower(), 0) + row["turns"]
+        return turns
+
     def get_top_songs(self, limit: int = 20, session_uuid: str | None = None) -> list[dict]:
         """Return the most-played songs, counting each one across its renames.
 

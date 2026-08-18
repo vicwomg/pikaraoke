@@ -160,11 +160,17 @@ class MockSoundManager:
 class MockPlayHistory:
     """Minimal mock of PlayHistoryManager, which needs a database in the real thing."""
 
-    def __init__(self, session=None):
+    def __init__(self, session=None, turns_taken=None):
         self.session = session
+        # {lower-case name: songs sung tonight}, for staging a session already
+        # under way.
+        self.turns_taken = turns_taken or {}
 
     def get_current_session(self) -> dict | None:
         return self.session
+
+    def get_turns_taken(self) -> dict[str, int]:
+        return self.turns_taken
 
     def get_current_session_name(self) -> str | None:
         return self.session["name"] if self.session else None
@@ -225,6 +231,7 @@ class MockKaraoke:
             get_now_playing_user=lambda: self.playback_controller.now_playing_user,
             filename_from_path=SongManager.filename_from_path,
             get_available_songs=lambda: self.song_manager.songs,
+            get_turns_taken=lambda: self.play_history.get_turns_taken(),
         )
 
     @property
