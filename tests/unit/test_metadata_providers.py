@@ -637,6 +637,12 @@ class TestScoreReasons:
         assert no_sep == "characters"
         assert with_sep == "order"
 
+    def test_a_separator_inside_a_bracket_is_not_a_character_correction(self):
+        """Reordering before the tidy split on the bracket's own " - ", leaving a
+        name the tidy then collapsed to the artist alone."""
+        vendor = "Halo - Beyoncé (Karaoke Songs With Lyrics - Original Key)"
+        assert _reason(vendor, "Beyoncé", "Halo") == "noise, order"
+
     def test_a_credit_does_not_excuse_a_variant_sharing_its_bracket(self):
         """A bracket that opens on a credit can still close on a variant, and
         "(feat. Sia, Live)" is as much a live recording as "(Live)" is."""

@@ -525,24 +525,25 @@ def _corrections(
 ) -> list[str]:
     """Which kinds of correction a rename to `proposal` would apply.
 
-    Three sequential transformations -- order, then noise, then characters --
-    each asking "did this step change anything". Sequential rather than parallel
-    so that one defect cannot be counted under two kinds.
+    Three sequential transformations -- noise, then order, then characters --
+    each asking "did this step change anything", so that one defect cannot be
+    counted under two kinds. Noise goes first because reordering a name that
+    still carries its brackets can split on a separator inside one.
     """
     kinds = []
-    reordered = name
+    tidied = regex_tidy(name)
+    if tidied != name:
+        kinds.append("noise")
+    reordered = tidied
     if query_artist_first != artist_first:
-        head, _, tail = name.partition(" - ")
+        head, _, tail = tidied.partition(" - ")
         if tail:
             reordered = f"{tail} - {head}"
-    if reordered != name:
+    if reordered != tidied:
         kinds.append("order")
-    tidied = regex_tidy(reordered)
-    if tidied != reordered:
-        kinds.append("noise")
     # Deliberately raw: no case folding, no accent folding. This is what keeps
     # "Beyonce" off 100.
-    if tidied != proposal:
+    if reordered != proposal:
         kinds.append("characters")
     return kinds
 
