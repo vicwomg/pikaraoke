@@ -1,14 +1,43 @@
-"""Unit tests for placeholder protection in update_translations."""
+"""Unit tests for placeholder protection and retry in update_translations."""
 
 import pytest
 
 pytest.importorskip("polib", reason="polib is only in the 'translations' dependency group")
 
+import polib
+from deep_translator.exceptions import (
+    LanguageNotSupportedException,
+    TranslationNotFound,
+)
+
 from build_scripts.update_translations import (
     _protect_placeholders,
     _restore_placeholders,
+    _translate_once,
     _validate_placeholders,
+    translate_entry,
 )
+
+
+class FakeTranslator:
+    """Fails its first `failures` calls with `error`, then succeeds."""
+
+    def __init__(self, failures: int = 0, error: type[Exception] = TranslationNotFound):
+        self.calls = 0
+        self.failures = failures
+        self.error = error
+
+    def translate(self, text: str) -> str:
+        self.calls += 1
+        if self.calls <= self.failures:
+            raise self.error("translator unavailable")
+        return f"translated {text}"
+
+
+@pytest.fixture(autouse=True)
+def no_sleep(monkeypatch):
+    """Skip the rate-limit and retry delays so the suite stays fast."""
+    monkeypatch.setattr("build_scripts.update_translations.time.sleep", lambda _: None)
 
 
 class TestProtectPlaceholders:
@@ -182,3 +211,42 @@ class TestBraceTokens:
     def test_uppercase_word_is_not_a_token(self):
         """ENTIRE is emphasis, not a placeholder, so the translator should see it."""
         assert _protect_placeholders("clear the ENTIRE queue")[1] == []
+
+
+class TestTranslateOnce:
+    def test_succeeds_first_try(self):
+        translator = FakeTranslator()
+        assert _translate_once("hello", translator) == "translated hello"
+        assert translator.calls == 1
+
+    def test_retries_transient_error(self):
+        translator = FakeTranslator(failures=1)
+        assert _translate_once("hello", translator) == "translated hello"
+        assert translator.calls == 2
+
+    def test_gives_up_after_one_retry(self):
+        translator = FakeTranslator(failures=2)
+        with pytest.raises(TranslationNotFound):
+            _translate_once("hello", translator)
+        assert translator.calls == 2
+
+    def test_permanent_error_is_not_retried(self):
+        translator = FakeTranslator(failures=1, error=LanguageNotSupportedException)
+        with pytest.raises(LanguageNotSupportedException):
+            _translate_once("hello", translator)
+        assert translator.calls == 1
+
+
+class TestTranslateEntry:
+    def test_recovers_from_transient_error(self):
+        entry = polib.POEntry(msgid="Session {number}")
+        assert translate_entry(entry, FakeTranslator(failures=1)) == "translated Session {number}"
+
+    def test_returns_none_when_translation_fails(self):
+        entry = polib.POEntry(msgid="Session {number}")
+        assert translate_entry(entry, FakeTranslator(failures=2)) is None
+
+    def test_skips_blank_msgid(self):
+        translator = FakeTranslator()
+        assert translate_entry(polib.POEntry(msgid="   "), translator) is None
+        assert translator.calls == 0

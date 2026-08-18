@@ -19,6 +19,12 @@ from pathlib import Path
 
 import polib
 from deep_translator import GoogleTranslator
+from deep_translator.exceptions import (
+    RequestError,
+    ServerException,
+    TooManyRequests,
+    TranslationNotFound,
+)
 
 from pikaraoke.constants import LANGUAGES
 
@@ -57,6 +63,11 @@ AUTO_TRANSLATED_COMMENT = "auto-translated"
 
 # Rate limiting: seconds between Google Translate requests
 REQUEST_DELAY = 0.5
+
+# Roughly one request in twenty comes back empty or refused. Retrying costs a couple of
+# seconds; not retrying leaves the string English in one locale, which review rarely catches.
+RETRY_DELAY = 2.0
+TRANSIENT_ERRORS = (TranslationNotFound, RequestError, TooManyRequests, ServerException)
 
 
 def run_pybabel(args: list[str]) -> None:
@@ -162,6 +173,21 @@ def _validate_placeholders(source: str, translated: str) -> bool:
     return all(translated_counts[ph] >= count for ph, count in source_counts.items())
 
 
+def _translate_once(text: str, translator: GoogleTranslator) -> str:
+    """Translate one string, giving a transient failure a second chance.
+
+    Permanent errors (an unsupported language, an over-long payload) are left to propagate:
+    a second identical request would fail identically.
+    """
+    try:
+        result = translator.translate(text)
+    except TRANSIENT_ERRORS:
+        time.sleep(RETRY_DELAY)
+        result = translator.translate(text)
+    time.sleep(REQUEST_DELAY)
+    return result
+
+
 def translate_entry(entry: polib.POEntry, translator: GoogleTranslator) -> str | None:
     """Translate a single PO entry. Returns translated text or None on failure."""
     source = entry.msgid
@@ -169,8 +195,7 @@ def translate_entry(entry: polib.POEntry, translator: GoogleTranslator) -> str |
         return None
     try:
         protected, tokens = _protect_placeholders(source)
-        raw = translator.translate(protected)
-        time.sleep(REQUEST_DELAY)
+        raw = _translate_once(protected, translator)
         translated = _restore_placeholders(raw, tokens)
 
         if not _validate_placeholders(source, translated):
