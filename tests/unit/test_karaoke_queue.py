@@ -439,8 +439,22 @@ class TestFairQueuePosition:
         qm.enqueue("/songs/c2---c02.mp4", "UserC")
 
         users = [item["user"] for item in qm.queue]
-        # UserC has sung nothing, but the three rounds they missed are gone.
-        assert users == ["UserB", "UserC", "UserC"]
+        # UserC has sung nothing, so they lead the round, but the three rounds
+        # they missed are gone: the second song waits its turn behind UserB.
+        assert users == ["UserC", "UserB", "UserC"]
+
+    def test_fair_queue_ranks_the_under_served_first(self, mock_karaoke):
+        """Within the round in progress, fewest turns sung goes first."""
+        qm = mock_karaoke.queue_manager
+        mock_karaoke.play_history.turns_taken = {"usera": 5, "userb": 3, "userc": 1}
+
+        qm.enqueue("/songs/a6---a06.mp4", "UserA")
+        qm.enqueue("/songs/b4---b04.mp4", "UserB")
+        qm.enqueue("/songs/c2---c02.mp4", "UserC")
+
+        users = [item["user"] for item in qm.queue]
+        # The cap holds them all to one round; it no longer levels them inside it.
+        assert users == ["UserC", "UserB", "UserA"]
 
     def test_fair_queue_ignores_songs_the_system_queued(self, mock_karaoke):
         """Filler nobody asked for holds no turn, so it cannot flatten the rounds."""

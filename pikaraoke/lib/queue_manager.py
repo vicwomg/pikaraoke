@@ -90,18 +90,23 @@ class QueueManager:
             turns_taken[singer] = turns_taken.get(singer, 0) + 1
 
         current_round = max(max(turns_taken.values(), default=0) - 1, 0)
-        next_round = {singer: max(turns, current_round) for singer, turns in turns_taken.items()}
+        # Ranked on the round first, then on turns sung, so that within one round
+        # the singer who has had least goes first. Taking a turn settles the debt
+        # whatever it was, which is what holds catching up to a single song.
+        ranks = {
+            singer: (max(turns, current_round), turns) for singer, turns in turns_taken.items()
+        }
 
-        rounds: list[int] = []
+        placed: list[tuple[int, int]] = []
         for item in self.queue:
             singer = item["user"].lower()
-            round_number = next_round.get(singer, current_round)
-            next_round[singer] = round_number + 1
-            rounds.append(round_number)
+            round_number, turns = ranks.get(singer, (current_round, 0))
+            ranks[singer] = (round_number + 1, round_number + 1)
+            placed.append((round_number, turns))
 
-        target = next_round.get(user.lower(), current_round)
-        for index, round_number in enumerate(rounds):
-            if round_number > target:
+        target = ranks.get(user.lower(), (current_round, 0))
+        for index, rank in enumerate(placed):
+            if rank > target:
                 return index
         return len(self.queue)
 
