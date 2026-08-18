@@ -29,13 +29,32 @@ class TestSanitizeFilename:
         assert sanitize_filename("../../home/pi/x") == "..-..-home-pi-x"
         assert sanitize_filename("a\\b") == "a-b"
 
-    def test_a_quote_becomes_an_apostrophe_not_a_dash(self, monkeypatch):
-        """Windows forbids the quote, but a dash makes a nickname read as
-        corruption: Bobby "Boris" Pickett filed as Bobby -Boris- Pickett."""
+    def test_illegal_characters_get_the_stand_in_they_deserve(self, monkeypatch):
+        """A dash for everything reads as corruption: Bobby -Boris- Pickett for a
+        nickname, What Does the Fox Say- for a question."""
         monkeypatch.setattr("pikaraoke.lib.metadata_parser.is_windows", lambda: True)
         assert sanitize_filename('Bobby "Boris" Pickett') == "Bobby 'Boris' Pickett"
-        # Everything else still has no stand-in worth using
+        assert sanitize_filename("Ylvis - What Does the Fox Say?") == (
+            "Ylvis - What Does the Fox Say"
+        )
+        # A dash where it stands in for structure, not for punctuation
         assert sanitize_filename("AC/DC - T.N.T.") == "AC-DC - T.N.T."
+        assert sanitize_filename("Cee Lo Green - F**k You") == "Cee Lo Green - F--k You"
+
+    def test_a_dropped_character_leaves_no_dangling_separator(self, monkeypatch):
+        """The substitution runs at the end as readily as the middle, and a name
+        ending in a stray dash looks truncated rather than sanitized."""
+        monkeypatch.setattr("pikaraoke.lib.metadata_parser.is_windows", lambda: True)
+        assert sanitize_filename("Blondie - Rip Her to Shreds*") == "Blondie - Rip Her to Shreds"
+        assert sanitize_filename("Prince - 1999?") == "Prince - 1999"
+
+    def test_a_name_is_never_sanitized_away_to_nothing(self, monkeypatch):
+        """The rename route checks for an empty name before sanitizing, so a name
+        emptied here would build a path of bare extension -- a hidden file."""
+        monkeypatch.setattr("pikaraoke.lib.metadata_parser.is_windows", lambda: True)
+        assert sanitize_filename("---") == "---"
+        assert sanitize_filename("?") == "-"
+        assert sanitize_filename("") == ""
 
     def test_posix_legal_characters_survive(self, monkeypatch):
         """Colons and question marks are legal on POSIX and appear in real titles."""

@@ -13,10 +13,13 @@ import unicodedata
 from pikaraoke.lib.get_platform import is_windows
 
 # Characters illegal in Windows filenames, and what to write in their place.
-# A quote has a readable stand-in; the rest have none, so they collapse to a
-# dash. Without this, Bobby "Boris" Pickett is filed as Bobby -Boris- Pickett.
+# A quote reads as an apostrophe, and a question mark reads as nothing -- a
+# title survives losing its punctuation. The rest stand in for structure a
+# dash keeps: AC/DC is AC-DC, and a censored word is F--k rather than Fk.
 _WINDOWS_ILLEGAL_CHARS = re.compile(r'[<>:"/\\|?*]')
-_ILLEGAL_CHAR_SUBSTITUTES = {'"': "'"}
+_ILLEGAL_CHAR_SUBSTITUTES = {'"': "'", "?": "", "<": "", ">": ""}
+_WHITESPACE_RUN_RE = re.compile(r"\s{2,}")
+_DANGLING_SEPARATOR_RE = re.compile(r"[\s-]+$")
 _PATH_SEPARATORS = re.compile(r"[/\\]")
 
 EMOJI_PATTERN = re.compile(
@@ -823,13 +826,21 @@ def sanitize_filename(name: str) -> str:
     Path separators go on every platform: callers pass a bare filename, so a
     separator can only be an attempt to write outside the song directory.
     """
+    original = name.strip()
     if is_windows():
         name = _WINDOWS_ILLEGAL_CHARS.sub(
             lambda m: _ILLEGAL_CHAR_SUBSTITUTES.get(m.group(), "-"), name
         )
     else:
         name = _PATH_SEPARATORS.sub("-", name)
-    return name.strip()
+    # Dropping a character at the end leaves a dangling separator, which reads
+    # as a truncated name rather than as punctuation the filesystem refused.
+    collapsed = _WHITESPACE_RUN_RE.sub(" ", name).strip()
+    sanitized = _DANGLING_SEPARATOR_RE.sub("", collapsed)
+    # A name of nothing but refused characters would sanitize away to nothing,
+    # and the caller builds a path from this: bare extension is a hidden file,
+    # not a song. Keep whatever survived, or a dash, so the rename stays visible.
+    return sanitized or collapsed or ("-" if original else "")
 
 
 def youtube_id_suffix(file_path: str) -> str:
