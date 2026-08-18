@@ -15,6 +15,10 @@ from flask_babel import _
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 
+# Names the system queues under when no singer asked for the song, so they are
+# exempt from per-singer limits and hold no turn in the fair queue.
+_PLACEHOLDER_SINGERS = frozenset({"pikaraoke", "randomizer"})
+
 
 class QueueManager:
     """Manages the song queue: enqueueing, editing, reordering, and fair queue logic."""
@@ -43,7 +47,7 @@ class QueueManager:
     def is_user_limited(self, user: str) -> bool:
         """Check if a user has reached their queue limit."""
         limit = self._preferences.get_or_default("limit_user_songs_by")
-        if limit == 0 or user in ("Pikaraoke", "Randomizer"):
+        if limit == 0 or user.lower() in _PLACEHOLDER_SINGERS:
             return False
 
         now_playing_user = self._get_now_playing_user() if self._get_now_playing_user else None
@@ -74,9 +78,12 @@ class QueueManager:
         round that just played, or a singer arriving at midnight would claim
         every round the room got through before they walked in.
         """
-        turns_taken = dict(self._get_turns_taken()) if self._get_turns_taken else {}
+        history = self._get_turns_taken() if self._get_turns_taken else {}
+        turns_taken = {
+            singer: turns for singer, turns in history.items() if singer not in _PLACEHOLDER_SINGERS
+        }
         now_playing = self._get_now_playing_user() if self._get_now_playing_user else None
-        if now_playing:
+        if now_playing and now_playing.lower() not in _PLACEHOLDER_SINGERS:
             # History cannot count this one until it ends.
             singer = now_playing.lower()
             turns_taken[singer] = turns_taken.get(singer, 0) + 1

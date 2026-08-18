@@ -433,3 +433,27 @@ class TestFairQueuePosition:
         users = [item["user"] for item in qm.queue]
         # UserC has sung nothing, but the three rounds they missed are gone.
         assert users == ["UserB", "UserC", "UserC"]
+
+    def test_fair_queue_ignores_songs_the_system_queued(self, mock_karaoke):
+        """Filler nobody asked for holds no turn, so it cannot flatten the rounds."""
+        qm = mock_karaoke.queue_manager
+        mock_karaoke.play_history.turns_taken = {"randomizer": 6, "usera": 2}
+
+        qm.enqueue("/songs/a3---a03.mp4", "UserA")
+        qm.enqueue("/songs/b1---b01.mp4", "UserB")
+
+        users = [item["user"] for item in qm.queue]
+        # UserB has sung nothing tonight, so six rounds of filler cannot demote them.
+        assert users == ["UserB", "UserA"]
+
+    def test_fair_queue_ignores_filler_on_screen(self, mock_karaoke):
+        """A random song at the microphone is nobody's turn either."""
+        qm = mock_karaoke.queue_manager
+        mock_karaoke.play_history.turns_taken = {"randomizer": 1, "usera": 1}
+        mock_karaoke.playback_controller.now_playing_user = "Randomizer"
+
+        qm.enqueue("/songs/a2---a02.mp4", "UserA")
+        qm.enqueue("/songs/b1---b01.mp4", "UserB")
+
+        users = [item["user"] for item in qm.queue]
+        assert users == ["UserB", "UserA"]
