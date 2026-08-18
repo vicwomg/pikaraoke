@@ -7,6 +7,7 @@ import re
 import shlex
 import subprocess
 import sys
+from dataclasses import dataclass
 from urllib.parse import parse_qs, urlparse
 
 from pikaraoke.lib.get_platform import get_installed_js_runtime
@@ -15,6 +16,17 @@ yt_dlp_cmd = [sys.executable, "-m", "yt_dlp"]
 
 # YouTube video IDs are always exactly 11 characters
 YOUTUBE_ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{11}")
+
+
+@dataclass
+class SearchResult:
+    """One YouTube search hit. Channel and duration may be empty."""
+
+    title: str
+    url: str
+    video_id: str
+    channel: str
+    duration: str  # formatted M:SS, not seconds
 
 
 def _js_runtime_args() -> list[str]:
@@ -165,15 +177,14 @@ def build_ytdl_download_command(
     return cmd
 
 
-def get_search_results(query: str) -> list[list[str]]:
+def get_search_results(query: str) -> list[SearchResult]:
     """Search YouTube for videos matching the query.
 
     Args:
         query: Search query string.
 
     Returns:
-        List of [title, url, video_id, channel, duration] for each result.
-        Duration is formatted as M:SS; channel and duration may be empty strings.
+        One SearchResult per hit, in the order yt-dlp reported them.
     """
     logging.info(f"Searching YouTube for: {query}")
     num_results = 10
@@ -196,7 +207,7 @@ def get_search_results(query: str) -> list[list[str]]:
             if isinstance(duration_raw, (int, float)):
                 seconds = int(duration_raw)
                 duration_str = f"{seconds // 60}:{seconds % 60:02d}"
-            results.append([j["title"], j["url"], j["id"], channel, duration_str])
+            results.append(SearchResult(j["title"], j["url"], j["id"], channel, duration_str))
         return results
     except subprocess.CalledProcessError as e:
         logging.debug(f"Error while executing search: {e}")

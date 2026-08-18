@@ -8,12 +8,14 @@ import werkzeug
 if not hasattr(werkzeug, "__version__"):
     werkzeug.__version__ = "3.0.0"
 
+from pikaraoke.lib.youtube_dl import SearchResult
 from pikaraoke.routes.search import search_bp
 from tests.conftest import make_route_app
 
-# (title, url, id, channel, duration) -- the shape get_search_results returns
-HELD = ("Held Song", "https://youtu.be/aaaaaaaaaaa", "aaaaaaaaaaa", "Chan", "3:21")
-MISSING = ("Missing Song", "https://youtu.be/zzzzzzzzzzz", "zzzzzzzzzzz", "Chan", "4:05")
+HELD = SearchResult("Held Song", "https://youtu.be/aaaaaaaaaaa", "aaaaaaaaaaa", "Chan", "3:21")
+MISSING = SearchResult(
+    "Missing Song", "https://youtu.be/zzzzzzzzzzz", "zzzzzzzzzzz", "Chan", "4:05"
+)
 
 # The rendered elements, not the bare class name -- that also appears in the page's CSS.
 # The row carries the queue-or-not intent, so there is no global toggle to read.
@@ -112,3 +114,14 @@ class TestLibraryMatches:
         assert "add-song-link" in rows
         assert QUEUE_BUTTON in rows
         assert SAVE_BUTTON in rows
+
+    def test_every_result_field_reaches_the_row(self, client):
+        """The download script reads value= and data-ytTitle, so a dropped field
+        breaks downloading at click time on a page that still looks correct."""
+        response, _ = _search(client, [MISSING], {})
+        rows = _rows(response)
+        assert 'data-ytTitle="Missing Song"' in rows
+        assert 'value="https://youtu.be/zzzzzzzzzzz"' in rows
+        assert "vi/zzzzzzzzzzz/mqdefault.jpg" in rows
+        assert "4:05" in rows
+        assert "Chan" in rows
