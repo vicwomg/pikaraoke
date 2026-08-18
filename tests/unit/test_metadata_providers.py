@@ -5,7 +5,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from pikaraoke.lib.metadata_parser import regex_tidy, sanitize_filename
 from pikaraoke.lib.metadata_providers import (
+    _ALREADY_CORRECT,
+    _UNCONFIRMED_CEILING,
     ITUNES_MAX_RETRIES,
     ITunesProvider,
     _normalize_for_matching,
@@ -21,6 +24,28 @@ def _score(result: dict, query: str, featuring: str = "") -> int:
     parts = _normalize_query_parts(query)
     feat_norm = _normalize_for_matching(featuring) if featuring else ""
     return _suggestion_score(result, parts, feat_norm)
+
+
+def _mock_provider(*results: tuple[str, str]) -> MagicMock:
+    """A provider returning (artist, title) pairs as full result dicts."""
+    provider = MagicMock()
+    provider.search.return_value = [
+        {"artist": artist, "title": title, "year": "2008", "genre": "Pop", "source": "itunes"}
+        for artist, title in results
+    ]
+    return provider
+
+
+def _anchored(name: str, artist: str, title: str, artist_first: bool = True) -> int:
+    """The top suggestion's 0-100 score for a filename against one mocked result."""
+    provider = _mock_provider((artist, title))
+    return suggest_metadata(name, provider=provider, artist_first=artist_first)[0]["score"]
+
+
+def _reason(name: str, artist: str, title: str, artist_first: bool = True) -> str:
+    """The top suggestion's explanation of its score."""
+    provider = _mock_provider((artist, title))
+    return suggest_metadata(name, provider=provider, artist_first=artist_first)[0]["reason"]
 
 
 ITUNES_RESPONSE = {
@@ -576,3 +601,241 @@ class TestSuggestionScoring:
         no_apos = _score(result, "Elvis Costello & The Attractions - Olivers Army")
         with_apos = _score(result, "Elvis Costello & The Attractions - Oliver's Army")
         assert no_apos == with_apos
+
+    def test_a_clean_confirmed_match_tallies_to_the_anchor(self):
+        """Two exact parts plus the cross-field bonus must sum to exactly 100.
+
+        The anchor is assigned rather than computed, so nothing else would catch
+        a weight tweak silently detaching the tally from the value it anchors to.
+        """
+        result = {"artist": "Queen", "title": "Bohemian Rhapsody", "genre": "Rock"}
+        assert _score(result, "Queen - Bohemian Rhapsody") == _ALREADY_CORRECT
+
+
+class TestScoreReasons:
+    """A score below the band is only interpretable with the reason beside it."""
+
+    def test_each_anchor_names_its_corrections(self):
+        assert _reason("Beyoncé - Halo", "Beyoncé", "Halo") == "already correct"
+        assert _reason("Beyonce - Halo", "Beyoncé", "Halo") == "characters"
+        assert _reason("Halo - Beyoncé", "Beyoncé", "Halo") == "order"
+        assert _reason("Beyoncé - Halo (Official Video)", "Beyoncé", "Halo") == "noise"
+        assert _reason("halo - beyonce", "Beyoncé", "Halo") == "order, characters"
+
+    def test_the_two_ways_of_missing_the_band_are_distinguished(self):
+        """Both score 94 and they want opposite responses: one is our caution,
+        the other is iTunes having nothing to offer."""
+        assert _reason("Beyoncé - Halo (Live)", "Beyoncé", "Halo") == "variant kept"
+        assert _reason("Beyoncé - Halo", "Beyoncé", "Halo (Live)") == "result qualified"
+        assert _reason("Beyoncé - Halo", "Nickelback", "Photograph") == "unconfirmed"
+
+    def test_a_reorder_that_cannot_happen_is_not_a_correction(self):
+        """With no separator there is nothing to swap, so the rewrite the rename
+        applies is counted once, under "characters"."""
+        no_sep = _reason("CAKE I Will Survive", "CAKE", "I Will Survive", artist_first=False)
+        with_sep = _reason("CAKE - I Will Survive", "CAKE", "I Will Survive", artist_first=False)
+        assert no_sep == "characters"
+        assert with_sep == "order"
+
+    def test_a_separator_inside_a_bracket_is_not_a_character_correction(self):
+        """Reordering before the tidy split on the bracket's own " - ", leaving a
+        name the tidy then collapsed to the artist alone."""
+        vendor = "Halo - Beyoncé (Karaoke Songs With Lyrics - Original Key)"
+        assert _reason(vendor, "Beyoncé", "Halo") == "noise, order"
+
+    def test_a_credit_does_not_excuse_a_variant_sharing_its_bracket(self):
+        """A bracket that opens on a credit can still close on a variant, and
+        "(feat. Sia, Live)" is as much a live recording as "(Live)" is."""
+        assert _reason("Beyoncé - Halo", "Beyoncé", "Halo (feat. Sia, Live)") == "result qualified"
+        assert _reason("Beyoncé - Halo", "Beyoncé", "Halo (feat. Sia)") == "characters"
+
+
+class TestScoreAnchoring:
+    """Tests for the 0-100 scale: 100 already correct, 98/95 confirmed, <= 94 not."""
+
+    def test_a_byte_identical_name_scores_100(self):
+        assert _anchored("Beyoncé - Halo", "Beyoncé", "Halo") == 100
+
+    def test_a_missing_accent_is_one_correction(self):
+        """100 is byte-equality, not a fuzzy match: the file still needs renaming."""
+        assert _anchored("Beyonce - Halo", "Beyoncé", "Halo") == 98
+
+    def test_wrong_case_alone_is_one_correction(self):
+        assert _anchored("abba - waterloo", "ABBA", "Waterloo") == 98
+
+    def test_order_is_measured_against_the_preference(self):
+        """The same file is already correct or one correction away, depending
+        only on which way round the library writes its names."""
+        assert _anchored("Halo - Beyoncé", "Beyoncé", "Halo", artist_first=True) == 98
+        assert _anchored("Halo - Beyoncé", "Beyoncé", "Halo", artist_first=False) == 100
+
+    def test_corrections_compound(self):
+        """Two or three kinds of correction share one score, below a single kind."""
+        assert _anchored("halo - beyonce", "Beyoncé", "Halo") == 95
+        assert _anchored("Halo - Beyonce (Official Video)", "Beyoncé", "Halo") == 95
+
+    def test_noise_the_tidy_cannot_reach_never_confirms(self):
+        """regex_tidy only strips *trailing* qualifiers, so noise attached to a
+        leading title survives into the query and the fields never match."""
+        assert _anchored("Halo (Official Video) - Beyonce", "Beyoncé", "Halo") <= 94
+
+    def test_a_tidied_name_still_needs_renaming(self):
+        """The tidy decides confidence; the raw stem decides whether there is
+        anything to apply. Confirmed fields alone must not reach 100."""
+        assert _anchored("Beyoncé - Halo (Official Video)", "Beyoncé", "Halo") == 98
+
+    def test_the_variant_guard_ignores_karaoke(self):
+        """'(Karaoke Version)' is this app's commonest noise token. Treating it
+        as a recording variant would push most of a library out of the band."""
+        assert _anchored("Beyoncé - Halo (Karaoke Version)", "Beyoncé", "Halo") == 98
+
+    def test_a_stripped_recording_variant_leaves_the_band(self):
+        """Renaming these would lose the distinction, and possibly collide with
+        the studio recording already in the library."""
+        assert _anchored("Beyoncé - Halo (Live)", "Beyoncé", "Halo") <= 94
+        assert _anchored("ABBA - Fernando (Remastered 2010)", "ABBA", "Fernando") <= 94
+
+    def test_a_variant_nobody_listed_leaves_the_band(self):
+        """The qualifier vocabulary is a whitelist of what may be dropped, so a
+        release form outside it is kept rather than silently renamed away."""
+        for qualifier in ("2011 Remaster", "Unplugged", "Single Edit", "BBC Session", "Club Mix"):
+            assert (
+                _anchored(f"Queen - Bohemian Rhapsody ({qualifier})", "Queen", "Bohemian Rhapsody")
+                <= 94
+            ), qualifier
+
+    def test_a_suggestion_may_not_add_a_qualifier_to_a_clean_name(self):
+        """Square brackets used to slip past the paren-only check, so a correctly
+        named file was offered a 98 that would have made it worse."""
+        for title in ("Bohemian Rhapsody [2011 Remaster]", "Bohemian Rhapsody (2011 Remaster)"):
+            assert _anchored("Queen - Bohemian Rhapsody", "Queen", title) <= 94, title
+
+    def test_a_title_whose_body_reads_as_a_variant_is_untouched(self):
+        """The variant guard reads bracketed text only, never the title body."""
+        assert _anchored("Wings - Live and Let Die", "Wings", "Live and Let Die") == 100
+
+    def test_a_featuring_credit_reaches_the_band_and_is_restored(self):
+        """The credit is stripped from the query so the fields can agree; the
+        rename then writes iTunes' canonical form back."""
+        provider = _mock_provider(("David Guetta", "Bang My Head (feat. Sia)"))
+        top = suggest_metadata("David Guetta - Bang My Head ft Sia", provider=provider)[0]
+        assert top["score"] >= 95
+        assert top["display"] == "David Guetta - Bang My Head (feat. Sia)"
+
+    def test_a_name_we_already_wrote_is_already_correct(self):
+        """The rename restores iTunes' canonical credit, so the name on disk
+        afterwards carries it. Scoring that 94 means the feature does not
+        recognise its own output, and every renamed song leaves the band."""
+        for artist, title in (
+            ("Taylor Swift", "Everything Has Changed (feat. Ed Sheeran)"),
+            ("David Guetta", "Bang My Head (feat. Sia)"),
+        ):
+            assert _anchored(f"{artist} - {title}", artist, title) == 100, title
+
+    def test_a_qualifier_that_is_not_a_credit_disqualifies(self):
+        artist, title = "Taylor Swift", "Everything Has Changed"
+        assert _anchored(f"{artist} - {title}", artist, f"{title} (Taylor's Version)") <= 94
+        assert _anchored(f"{artist} - {title}", artist, f"{title} (Commentary)") <= 94
+
+    def test_a_bracketed_variant_beside_a_credit_disqualifies(self):
+        """_PAREN_NOT_FEAT sees round brackets only, so this reaches the
+        variant regex running over the extracted qualifier text."""
+        assert (
+            _anchored("Mark Ronson - Uptown Funk", "Mark Ronson", "Uptown Funk (feat. B) [Live]")
+            <= 94
+        )
+
+    def test_a_windows_illegal_character_still_reaches_100(self):
+        """The comparison is against the sanitised proposal, so a file named as
+        correctly as the filesystem permits is not demoted for the platform's sake."""
+        on_disk = sanitize_filename("Rush - Song: The Sequel")
+        assert _anchored(on_disk, "Rush", "Song: The Sequel") == 100
+
+    def test_an_unconfirmed_tally_cannot_enter_the_band(self):
+        """Bonuses stack past 100 without confirming anything, which is what the
+        ceiling exists to catch."""
+        query = "David Guetta and Fetty Wap - Bang My Head"
+        result = {"artist": "David Guetta", "title": "Bang My Head (feat. Sia & Fetty Wap)"}
+        assert _score(result, query, "Sia") > _UNCONFIRMED_CEILING
+        assert (
+            _anchored(
+                "David Guetta and Fetty Wap - Bang My Head ft Sia",
+                result["artist"],
+                result["title"],
+            )
+            <= 94
+        )
+
+    def test_a_heavily_penalised_result_floors_at_zero(self):
+        provider = _mock_provider(("Nobody At All", f"{'x' * 70} (Live Remix)"))
+        provider.search.return_value[0]["genre"] = "Rock/Pop"
+        assert suggest_metadata("Beyoncé - Halo", provider=provider)[0]["score"] == 0
+
+    def test_scores_never_rise_down_the_list(self):
+        """The badge sits beside a ranked list, so a demotion applied after the
+        sort could show a 95 above a 98."""
+        provider = _mock_provider(
+            ("Beyoncé", "Halo"),
+            ("Beyoncé", "Halo (Live)"),
+            ("Unrelated Band", "Some Other Song"),
+        )
+        scores = [r["score"] for r in suggest_metadata("Beyoncé - Halo", provider=provider)]
+        assert scores == sorted(scores, reverse=True)
+
+    def test_a_query_with_no_separator_can_confirm(self):
+        """_suggestion_score already confirms both fields by decomposition, so
+        the anchoring has to honour it: an underscore-separated YouTube name
+        tidies to a single part, and used to be locked out of the band."""
+        assert _anchored("CAKE I Will Survive", "CAKE", "I Will Survive") == 98
+        assert _anchored("【カラオケ】うっせぇわ _ Ado", "Ado", "うっせぇわ") == 95
+
+    def test_an_attribution_phrase_confirms(self):
+        """The karaoke vendors' house style. Each of these names both fields as
+        plainly as a separator does, so each belongs in the band."""
+        for name in (
+            "Cry Me a River by Julie London",
+            "Cry Me a River made famous by Julie London",
+            "Cry Me a River (Made Famous by Julie London)",
+            "Cry Me a River [In the Style of Julie London]",
+            "Cry Me a River (As Popularized by Julie London)",
+            "Cry Me a River (by Julie London)",
+            "Cry Me a River - by Julie London",
+            "Cry Me a River [Karaoke Version] made famous by Julie London",
+            "Cry Me a River [Karaoke Version] by Julie London",
+            "Cry Me a River (Karaoke) by Julie London",
+        ):
+            assert _anchored(name, "Julie London", "Cry Me a River") >= 95, name
+
+    def test_a_bare_by_needs_a_bracket_to_read_as_attribution(self):
+        """Unbracketed it cannot be told from a title: renaming 'Stand by Me' to
+        'Stand - Me' is the failure this asymmetry exists to prevent."""
+        assert regex_tidy("Stand by Me") == "Stand by Me"
+        assert regex_tidy("Blinded by the Light") == "Blinded by the Light"
+        assert regex_tidy("Cry Me a River (by Julie London)") == "Cry Me a River - Julie London"
+
+    def test_a_leading_connector_does_not_swallow_a_real_title(self):
+        """'By the Way' opens with one. The separator already named both fields,
+        so the connector has to be optional rather than stripped."""
+        assert (
+            _anchored("By the Way - Red Hot Chili Peppers", "Red Hot Chili Peppers", "By the Way")
+            == 98
+        )
+
+    def test_a_separator_less_query_must_decompose_exactly(self):
+        """Anything left over after the two fields and an attribution phrase
+        means the query carries more than a name, and the file needs a human."""
+        assert (
+            _anchored("Cry Me a River, a Julie London song", "Julie London", "Cry Me a River") <= 94
+        )
+        assert _anchored("王菲 Faye Wong Eyes On Me", "Faye Wong", "Eyes On Me") <= 94
+
+    def test_a_romanised_result_never_confirms_a_native_script_name(self):
+        """Accepting 'Usseewa' for a file named うっせぇわ rewrites the library's
+        convention, which is a decision for an admin and not for a bulk run."""
+        assert _anchored("【カラオケ】うっせぇわ _ Ado", "Ado", "Usseewa") <= 94
+
+    def test_two_different_cjk_titles_are_not_confirmed(self):
+        """The renamer's old normaliser folded every pure-CJK title to '', so
+        two unrelated ones compared equal. This normaliser keeps them apart."""
+        assert _anchored("夜に駆ける - YOASOBI", "YOASOBI", "君の名は") <= 94
+        assert _anchored("YOASOBI - 夜に駆ける", "YOASOBI", "夜に駆ける") == 100

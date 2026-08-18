@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from pikaraoke.lib.events import EventSystem
-from pikaraoke.lib.song_manager import SongManager, sanitize_filename
+from pikaraoke.lib.song_manager import SongManager
 
 
 def _native(path: Path) -> str:
@@ -235,19 +235,6 @@ class TestRenameTarget:
         sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
 
         assert sm.rename_target(_native(song), "New---abc") == _native(subfolder / "New---abc.mp4")
-
-
-class TestSanitizeFilename:
-    def test_path_separators_go_on_posix_too(self, monkeypatch):
-        """A name of '../../x' on a Pi used to move the song out of the library."""
-        monkeypatch.setattr("pikaraoke.lib.song_manager.is_windows", lambda: False)
-        assert sanitize_filename("../../home/pi/x") == "..-..-home-pi-x"
-        assert sanitize_filename("a\\b") == "a-b"
-
-    def test_posix_legal_characters_survive(self, monkeypatch):
-        """Colons and question marks are legal on POSIX and appear in real titles."""
-        monkeypatch.setattr("pikaraoke.lib.song_manager.is_windows", lambda: False)
-        assert sanitize_filename("Who's Next: Part 2?") == "Who's Next: Part 2?"
 
 
 class TestDBCoordination:

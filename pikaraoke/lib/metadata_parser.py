@@ -10,6 +10,18 @@ import re
 import time
 import unicodedata
 
+from pikaraoke.lib.get_platform import is_windows
+
+# Characters illegal in Windows filenames, and what to write in their place.
+# A quote reads as an apostrophe, and a question mark reads as nothing -- a
+# title survives losing its punctuation. The rest stand in for structure a
+# dash keeps: AC/DC is AC-DC, and a censored word is F--k rather than Fk.
+_WINDOWS_ILLEGAL_CHARS = re.compile(r'[<>:"/\\|?*]')
+_ILLEGAL_CHAR_SUBSTITUTES = {'"': "'", "?": "", "<": "", ">": ""}
+_WHITESPACE_RUN_RE = re.compile(r"\s{2,}")
+_DANGLING_SEPARATOR_RE = re.compile(r"[\s-]+$")
+_PATH_SEPARATORS = re.compile(r"[/\\]")
+
 EMOJI_PATTERN = re.compile(
     "["
     "\U0001F1E0-\U0001F1FF"
@@ -65,8 +77,14 @@ NOISE_WORDS = [
 ]
 NOISE_PATTERN = re.compile("|".join(NOISE_WORDS), flags=re.IGNORECASE)
 
+# A featuring credit is part of the track's name, not a qualifier over it. Only
+# the unambiguous words: "with" opens credits ("with Kiki Dee") and qualifiers
+# ("with Live Band") alike, and a qualifier admitted here is one renamed away.
+_FEAT_CREDIT_ALT = r"feat(?:uring)?|ft"
+_FEAT_CREDIT_RE = re.compile(rf"^\s*(?:{_FEAT_CREDIT_ALT})\.?\s", re.IGNORECASE)
+
 # Matches parenthesised content EXCEPT featuring credits like "(feat. X)" / "(ft. X)"
-_FEAT_LOOKAHEAD = r"(?!\s*(?:feat(?:uring)?|ft)\.?\s)"
+_FEAT_LOOKAHEAD = rf"(?!\s*(?:{_FEAT_CREDIT_ALT})\.?\s)"
 _PAREN_NOT_FEAT = re.compile(rf"\s*\({_FEAT_LOOKAHEAD}[^)]*\)", flags=re.IGNORECASE)
 _PAREN_NOT_FEAT_TRAILING = re.compile(rf"\s*\({_FEAT_LOOKAHEAD}[^)]*\)\s*$", flags=re.IGNORECASE)
 
@@ -147,20 +165,51 @@ _LEADING_BRACKET_NOISE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Phrases naming the original artist of a karaoke track: "Title (Made Famous by
+# Artist)". Longest first -- the alternation is first-match-wins, so a bare "by"
+# listed ahead of "made famous by" would capture "famous by Artist".
+ATTRIBUTION_CONNECTORS = [
+    "originally performed by",
+    "as popularized by",
+    "popularized by",
+    "made famous by",
+    "in the style of",
+    "by",
+]
+
+
+def _connector_alternation(connectors: list[str]) -> str:
+    return "|".join(c.replace(" ", r"\s+") for c in connectors)
+
+
+_ATTRIBUTION_ALT = _connector_alternation(ATTRIBUTION_CONNECTORS)
+# Bare "by" only where brackets mark it as attribution. Inline it is unreadable:
+# "Stand by Me" and "Blinded by the Light" are titles, not attributions.
+_ATTRIBUTION_ALT_INLINE = _connector_alternation([c for c in ATTRIBUTION_CONNECTORS if c != "by"])
+
 ATTRIBUTION_PATTERNS = [
-    # Parenthetical: "(Made Famous by Artist)", "(In the Style of Artist)", etc.
-    re.compile(
-        r"\((?:as\s+)?(?:made\s+famous\s+by|in\s+the\s+style\s+of"
-        r"|originally\s+performed\s+by|as\s+popularized\s+by)[:\s]+([^)]+)\)",
-        re.IGNORECASE,
-    ),
+    # Parenthetical: "(Made Famous by Artist)", "(In the Style of Artist)", "(by Artist)"
+    re.compile(rf"\((?:as\s+)?(?:{_ATTRIBUTION_ALT})[:\s]+([^)]+)\)", re.IGNORECASE),
+    # The same in square brackets, the form most karaoke vendors ship
+    re.compile(rf"\[(?:as\s+)?(?:{_ATTRIBUTION_ALT})[:\s]+([^\]]+)\]", re.IGNORECASE),
     # Trailing inline: "Title made famous by Artist [noise]"
     re.compile(
-        r"\b(?:made\s+famous\s+by|in\s+the\s+style\s+of"
-        r"|originally\s+performed\s+by|as\s+popularized\s+by)[:\s]+(.+?)(?:\s*[\(\[]|$)",
+        rf"\b(?:{_ATTRIBUTION_ALT_INLINE})[:\s]+(.+?)(?:\s*[\(\[]|$)",
+        re.IGNORECASE,
+    ),
+    # Bare "by" after a *closed* karaoke bracket: "Song [Karaoke Version] by
+    # Artist". The bracket is what distinguishes it from "Karaoke by Stingray",
+    # where the same word names the vendor who cut the track, not the artist.
+    # Unbracketed and unmarked, a bare "by" is unreadable -- hence neither the
+    # pattern above nor this one will touch "Stand by Me".
+    re.compile(
+        rf"[\(\[][^)\]]*?(?:{_KARAOKE_KEYWORDS_ALT})[^)\]]*[\)\]]\s*by[:\s]+(.+?)(?:\s*[\(\[]|$)",
         re.IGNORECASE,
     ),
 ]
+# An attribution phrase and everything after it, for reading bracketed text that
+# has already been separated from its title.
+_QUALIFIER_ATTRIBUTION_RE = re.compile(rf"\b(?:{_ATTRIBUTION_ALT})\b.*$", re.IGNORECASE)
 
 TRAILING_NOISE_PATTERNS = [
     # Any karaoke keyword = nuke everything from that word to end of string.
@@ -179,6 +228,55 @@ TRAILING_NOISE_PATTERNS = [
         re.IGNORECASE,
     ),
 ]
+
+# Everything a bracketed qualifier may be made of and still be safe to drop.
+# A whitelist, not a blacklist: the qualifiers that must survive a rename --
+# "(2011 Remaster)", "(Unplugged)", "(Single Edit)", "(BBC Session)" -- are an
+# open set, so listing them would always be one release form behind. "karaoke"
+# and "version" belong here despite naming a variant elsewhere: in this library
+# they are the two commonest noise tokens there are.
+DISCARDABLE_QUALIFIER_WORDS = [
+    r"official\s+(?:music\s+)?video",
+    r"no\s+lead\s+vocals?",
+    r"original\s+key",
+    r"with\s+lyrics?",
+    r"sing[\s-]*along",
+    r"backing\s+track",
+    r"minus\s+one",
+    rf"(?:{_KARAOKE_KEYWORDS_ALT})",
+    r"version",
+    r"official",
+    r"music",
+    r"songs?",
+    r"video",
+    r"audio",
+    r"lyrics?",
+    r"karafun",
+    r"coversph",
+    r"singkaraoke",
+    r"complete|completo",
+    r"full",
+    r"hd|hq|4k|mv|cc",
+]
+_DISCARDABLE_QUALIFIER_RE = re.compile(
+    r"\b(?:" + "|".join(DISCARDABLE_QUALIFIER_WORDS) + r")\b", re.IGNORECASE
+)
+# Digits, punctuation and separators carry no version meaning on their own, so a
+# qualifier of "(2011)" or "(HD)" is spent once its words are accounted for.
+_QUALIFIER_FILLER_RE = re.compile(r"[\W\d_]+")
+
+
+def is_discardable_qualifier(text: str) -> bool:
+    """Whether bracketed text is noise a rename may drop rather than a recording variant.
+
+    Dropping "(Karaoke Version)" tidies a filename; dropping "(Live)" renames one
+    recording into another, which can collide with the studio cut already filed
+    beside it. Anything this cannot account for is treated as the latter.
+    """
+    remainder = _QUALIFIER_ATTRIBUTION_RE.sub("", text)
+    remainder = _DISCARDABLE_QUALIFIER_RE.sub(" ", remainder)
+    return not _QUALIFIER_FILLER_RE.sub("", remainder)
+
 
 # A dash adjacent to a CJK/Kana/Hangul character is always a separator (never a hyphen
 # within a word). Uses lookaround so the replacement is just the dash, not surrounding chars.
@@ -688,7 +786,10 @@ def _step_extract_attribution_or_strip_noise(name: str) -> str:
     artist = _extract_attribution_artist(name)
     if artist:
         title = _strip_attribution_and_noise(name)
-        return f"{title} - {artist}"
+        # An empty title means the phrase matched across the whole name and what
+        # it called the artist was really the title ("Karaoke - Stand by Me").
+        if title:
+            return f"{title} - {artist}"
     # No attribution — strip trailing parenthesised/bracketed content + noise
     name = _PAREN_NOT_FEAT_TRAILING.sub("", name)
     name = re.sub(r"\s*\[[^\]]*\]\s*$", "", name, flags=re.IGNORECASE)
@@ -719,6 +820,30 @@ def regex_tidy(filename: str) -> str:
     name = _step_normalize_cjk_dashes(name)
     name = _step_extract_attribution_or_strip_noise(name)
     return _step_normalize_separators_and_whitespace(name)
+
+
+def sanitize_filename(name: str) -> str:
+    """Remove characters that are illegal in a filename on the current platform.
+
+    Path separators go on every platform: the result is a bare filename, so a
+    separator in it is either punctuation the filesystem cannot keep or an
+    attempt to leave the song directory. Both want the same substitution.
+    """
+    original = name.strip()
+    if is_windows():
+        name = _WINDOWS_ILLEGAL_CHARS.sub(
+            lambda m: _ILLEGAL_CHAR_SUBSTITUTES.get(m.group(), "-"), name
+        )
+    else:
+        name = _PATH_SEPARATORS.sub("-", name)
+    # Dropping a character at the end leaves a dangling separator, which reads
+    # as a truncated name rather than as punctuation the filesystem refused.
+    collapsed = _WHITESPACE_RUN_RE.sub(" ", name).strip()
+    sanitized = _DANGLING_SEPARATOR_RE.sub("", collapsed)
+    # A name of nothing but refused characters would sanitize away to nothing,
+    # and the caller builds a path from this: bare extension is a hidden file,
+    # not a song. Keep whatever survived, or a dash, so the rename stays visible.
+    return sanitized or collapsed or ("-" if original else "")
 
 
 def youtube_id_suffix(file_path: str) -> str:
