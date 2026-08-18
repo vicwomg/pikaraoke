@@ -32,8 +32,14 @@
               if (item.genre) parts.push(item.genre);
               $text.append($('<span class="suggest-meta">').text(" (" + parts.join(", ") + ")"));
             }
-            var score = item.score != null ? item.score : "";
-            var $score = $('<span class="suggest-score">').text(score);
+            // Percent, because the score is anchored rather than ranked: 100 means
+            // "already correct", not "best of these five". The reason explains a
+            // number below that, which the number alone can only assert.
+            var $score = $('<span class="suggest-score">');
+            if (item.score != null) {
+              $score.text(item.score + '%');
+              if (item.reason) $score.attr('title', item.reason);
+            }
             $('<a class="suggested_item has-background-grey-dark">').data('name', display).append($text).append($score).appendTo($container);
           });
           // {# MSG: Help text explaining that clicking a suggestion copies it to the filename input. #}
