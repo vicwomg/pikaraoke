@@ -34,9 +34,9 @@
 	{{ _end(_('Next page'), 'right-big', page_href | replace('PAGENUMBER', page + 1), end < total) }}
 	{# Tokens rather than Jinja placeholders, because renderPager() below substitutes
 	   the same string client-side and shares this one msgid. #}
-	{# MSG: Pagination summary. START, END and TOTAL are replaced with numbers, reading for example "1-100 of 2000". #}
+	{# MSG: Pagination summary. {start}, {end} and {total} are replaced with numbers, reading for example "1-100 of 2000". #}
 	<span class="is-size-7">
-		{{- _('START-END of TOTAL') | replace('START', start) | replace('END', end) | replace('TOTAL', total) -}}
+		{{- _('{start}-{end} of {total}') | replace('{start}', start) | replace('{end}', end) | replace('{total}', total) -}}
 	</span>
 	{% if size_options %}
 	<span class="is-flex-grow-1"></span>
@@ -78,15 +78,15 @@
 	// translation would close the JS string literal and break this whole script.
 	// |tojson emits the literal instead. See tests/unit/test_template_i18n.py.
 	var pagerText = {
-		// {# MSG: Pagination summary. START, END and TOTAL are replaced with numbers, reading for example "1-100 of 2000". #}
-		showing: {{ _('START-END of TOTAL') | tojson }}
+		// {# MSG: Pagination summary. {start}, {end} and {total} are replaced with numbers, reading for example "1-100 of 2000". #}
+		showing: {{ _('{start}-{end} of {total}') | tojson }}
 	};
 
 	function renderPager(prefix, page, total) {
 		var start = total ? page.offset + 1 : 0;
 		var end = Math.min(page.offset + page.limit, total);
 		$("#" + prefix + "-page-info").text(
-			pagerText.showing.replace("START", start).replace("END", end).replace("TOTAL", total)
+			pagerText.showing.replace("{start}", start).replace("{end}", end).replace("{total}", total)
 		);
 		$("#" + prefix + "-prev").prop("disabled", page.offset === 0);
 		$("#" + prefix + "-next").prop("disabled", end >= total);

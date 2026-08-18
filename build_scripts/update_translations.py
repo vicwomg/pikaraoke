@@ -124,10 +124,12 @@ def prune_obsolete() -> None:
 
 
 # Matches printf-style placeholders: %s, %d, %(name)s, %(name)d, etc.
-# Also matches HTML tags: <b>, </b>, <a href="...">, etc.
+# Also matches HTML tags, and the {token} placeholders that Jinja and JS swap out with
+# str.replace() at the call site -- a translated token breaks that substitution silently.
 _PLACEHOLDER_RE = re.compile(
     r"%(?:\([^)]+\))?[sdifFeEgGcrboxXn%]"  # printf: %s, %d, %(name)s, %%
     r"|<[^>]+>"  # HTML tags
+    r"|\{[a-z_]+\}"  # {token} substituted at the call site
 )
 
 

@@ -159,3 +159,26 @@ class TestValidatePlaceholders:
         source = "Error renaming file: '%s' to '%s', %s"
         translated = "Fehler beim Umbenennen: '%s' nach '%s'"
         assert not _validate_placeholders(source, translated)
+
+
+class TestBraceTokens:
+    """Tokens the call site fills in with replace() must survive translation verbatim."""
+
+    def test_protected(self):
+        protected, tokens = _protect_placeholders("{start}-{end} of {total}")
+        assert tokens == ["{start}", "{end}", "{total}"]
+        assert protected == "<x0>-<x1> of <x2>"
+
+    def test_roundtrip(self):
+        text = "Current session: {name}"
+        assert _restore_placeholders(*_protect_placeholders(text)) == text
+
+    def test_translated_token_rejected(self):
+        assert not _validate_placeholders("{start}-{end} of {total}", "ANFANG-ENDE von GESAMT")
+
+    def test_preserved_token_accepted(self):
+        assert _validate_placeholders("{start}-{end} of {total}", "{start}-{end} von {total}")
+
+    def test_uppercase_word_is_not_a_token(self):
+        """ENTIRE is emphasis, not a placeholder, so the translator should see it."""
+        assert _protect_placeholders("clear the ENTIRE queue")[1] == []

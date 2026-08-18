@@ -33,31 +33,31 @@
 	var sessionText = {
 		// {# MSG: Shown on the sessions page when no session is currently running. #}
 		noSession: {{ _('No active session') | tojson }},
-		// {# MSG: Label for a session the host never named. NUMBER is replaced with a number. #}
-		unnamed: {{ _('Session NUMBER') | tojson }},
+		// {# MSG: Label for a session the host never named. {number} is replaced with a number. #}
+		unnamed: {{ _('Session {number}') | tojson }},
 		// {# MSG: Prompt asking the host to name a session. #}
 		promptRename: {{ _('Name this session:') | tojson }},
 		// {# MSG: Menu item which names the auto-started session that is recording now, making it the active session everyone sees. #}
 		nameToPromote: {{ _('Name to make active') | tojson }},
 		// {# MSG: Menu item which changes the name of a session that already has one. #}
 		renameSession: {{ _('Rename') | tojson }},
-		// {# MSG: Confirmation before deleting a session and every play recorded in it. SESSION is replaced with its name. #}
-		confirmDeleteSession: {{ _('Delete SESSION and all of its plays? This cannot be undone.') | tojson }},
-		// {# MSG: Confirmation before deleting every play in a session while keeping the session. SESSION is replaced with its name. #}
-		confirmClearPlays: {{ _('Delete every play recorded in SESSION? The session itself is kept. This cannot be undone.') | tojson }},
+		// {# MSG: Confirmation before deleting a session and every play recorded in it. {session} is replaced with its name. #}
+		confirmDeleteSession: {{ _('Delete {session} and all of its plays? This cannot be undone.') | tojson }},
+		// {# MSG: Confirmation before deleting every play in a session while keeping the session. {session} is replaced with its name. #}
+		confirmClearPlays: {{ _('Delete every play recorded in {session}? The session itself is kept. This cannot be undone.') | tojson }},
 		// {# MSG: Shown when no sessions have been recorded yet. #}
 		noSessions: {{ _('No sessions yet.') | tojson }},
 		// {# MSG: Shown when a session has no plays, so nobody has sung in it. #}
 		noSingers: {{ _('Nobody has sung in this session.') | tojson }},
 		// {# MSG: Confirmation before making an old session the one new songs are recorded against. #}
-		confirmActivate: {{ _('Make SESSION the active session? New songs will be recorded against it.') | tojson }}
+		confirmActivate: {{ _('Make {session} the active session? New songs will be recorded against it.') | tojson }}
 	};
 
 	// A host-started session always has a name, so only one that auto-started on
 	// the first play falls back to its number. The date is already its own
 	// column, so repeating it here only makes the label long.
 	function sessionLabel(session) {
-		return session.name || sessionText.unnamed.replace("NUMBER", session.id);
+		return session.name || sessionText.unnamed.replace("{number}", session.id);
 	}
 
 	// The play log lives on its own page, scoped by the uuid in its query string.
@@ -297,7 +297,7 @@
 		closeSessionOptions();
 
 		if (action === "activate") {
-			if (window.confirm(sessionText.confirmActivate.replace("SESSION", label))) {
+			if (window.confirm(sessionText.confirmActivate.replace("{session}", label))) {
 				putSession(uuid, { action: "activate" }).done(loadSessions);
 			}
 		} else if (action === "end") {
@@ -307,13 +307,13 @@
 			// click that names it; there is no other way to activate one.
 			renameSession(uuid, $sessionModal.data("unnamed") && !$sessionModal.data("active"));
 		} else if (action === "clear") {
-			if (window.confirm(sessionText.confirmClearPlays.replace("SESSION", label))) {
+			if (window.confirm(sessionText.confirmClearPlays.replace("{session}", label))) {
 				var params = $.param({ scope: "session", session: uuid });
 				$.ajax({ url: "{{ url_for('sessions_api.reset_history') }}?" + params, type: "DELETE" })
 					.done(loadSessions);
 			}
 		} else if (action === "delete") {
-			if (window.confirm(sessionText.confirmDeleteSession.replace("SESSION", label))) {
+			if (window.confirm(sessionText.confirmDeleteSession.replace("{session}", label))) {
 				$.ajax({ url: sessionUrl(uuid), type: "DELETE" }).done(loadSessions);
 			}
 		}
