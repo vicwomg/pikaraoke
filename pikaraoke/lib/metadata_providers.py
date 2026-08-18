@@ -434,10 +434,13 @@ def _has_disqualifying_qualifier(title: str) -> bool:
     Round and square brackets alike: "[2011 Remaster]" renames to a different
     recording just as surely as "(2011 Remaster)" does.
     """
-    return any(
-        not _FEAT_CREDIT_RE.match(text) and not is_discardable_qualifier(text)
-        for text in _extract_qualifier_texts(title)
-    )
+    for text in _extract_qualifier_texts(title):
+        # A credit excuses only the bracket it is alone in: "(feat. Sia, Live)"
+        # is still a live recording.
+        credit_only = _FEAT_CREDIT_RE.match(text) and not _SPECIAL_VERSION_RE.search(text)
+        if not credit_only and not is_discardable_qualifier(text):
+            return True
+    return False
 
 
 # The attribution phrases as they survive normalization, for reading a filename
@@ -529,10 +532,11 @@ def _corrections(
     kinds = []
     reordered = name
     if query_artist_first != artist_first:
-        kinds.append("order")
         head, _, tail = name.partition(" - ")
         if tail:
             reordered = f"{tail} - {head}"
+    if reordered != name:
+        kinds.append("order")
     tidied = regex_tidy(reordered)
     if tidied != reordered:
         kinds.append("noise")

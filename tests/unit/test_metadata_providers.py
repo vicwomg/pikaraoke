@@ -629,6 +629,20 @@ class TestScoreReasons:
         assert _reason("Beyoncé - Halo", "Beyoncé", "Halo (Live)") == "result qualified"
         assert _reason("Beyoncé - Halo", "Nickelback", "Photograph") == "unconfirmed"
 
+    def test_a_reorder_that_cannot_happen_is_not_a_correction(self):
+        """With no separator there is nothing to swap, so the rewrite the rename
+        applies is counted once, under "characters"."""
+        no_sep = _reason("CAKE I Will Survive", "CAKE", "I Will Survive", artist_first=False)
+        with_sep = _reason("CAKE - I Will Survive", "CAKE", "I Will Survive", artist_first=False)
+        assert no_sep == "characters"
+        assert with_sep == "order"
+
+    def test_a_credit_does_not_excuse_a_variant_sharing_its_bracket(self):
+        """A bracket that opens on a credit can still close on a variant, and
+        "(feat. Sia, Live)" is as much a live recording as "(Live)" is."""
+        assert _reason("Beyoncé - Halo", "Beyoncé", "Halo (feat. Sia, Live)") == "result qualified"
+        assert _reason("Beyoncé - Halo", "Beyoncé", "Halo (feat. Sia)") == "characters"
+
 
 class TestScoreAnchoring:
     """Tests for the 0-100 scale: 100 already correct, 98/95 confirmed, <= 94 not."""

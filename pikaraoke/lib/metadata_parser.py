@@ -823,8 +823,9 @@ def regex_tidy(filename: str) -> str:
 def sanitize_filename(name: str) -> str:
     """Remove characters that are illegal in a filename on the current platform.
 
-    Path separators go on every platform: callers pass a bare filename, so a
-    separator can only be an attempt to write outside the song directory.
+    Path separators go on every platform: the result is a bare filename, so a
+    separator in it is either punctuation the filesystem cannot keep or an
+    attempt to leave the song directory. Both want the same substitution.
     """
     original = name.strip()
     if is_windows():
