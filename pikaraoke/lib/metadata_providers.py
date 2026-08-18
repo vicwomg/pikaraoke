@@ -17,6 +17,7 @@ from pikaraoke.lib.metadata_parser import (
     _PAREN_NOT_FEAT,
     _RECORDING_VARIANT_RE,
     _SPECIAL_VERSION_RE,
+    ATTRIBUTION_CONNECTORS,
     normalize_for_comparison,
     regex_tidy,
     remove_accents,
@@ -436,6 +437,29 @@ def _has_disqualifying_qualifier(title: str) -> bool:
     return bool(_RECORDING_VARIANT_RE.search(_extract_qualifier_text(title)))
 
 
+# The attribution phrases as they survive normalization, for reading a filename
+# that names its artist in prose: "Cry Me a River made famous by Julie London".
+_ATTRIBUTION_CONNECTORS_NORM = [_normalize_for_matching(c) for c in ATTRIBUTION_CONNECTORS]
+_LEADING_ATTRIBUTION_RE = re.compile(r"^(?:" + "|".join(_ATTRIBUTION_CONNECTORS_NORM) + r")\s+")
+
+
+def _decomposes_into(whole: str, first: str, second: str) -> bool:
+    """Whether `whole` is exactly `first` then `second`, bar an attribution phrase."""
+    if whole == f"{first} {second}":
+        return True
+    return any(whole == f"{first} {c} {second}" for c in _ATTRIBUTION_CONNECTORS_NORM)
+
+
+def _part_names_field(part_norm: str, field_norm: str) -> bool:
+    """Whether a query part is this field, with or without an opening connector.
+
+    Both forms, not just the stripped one: "By the Way - Red Hot Chili Peppers"
+    puts a connector at the front of a real title, and stripping it there would
+    lose the match the separator already made plain.
+    """
+    return field_norm in (part_norm, _LEADING_ATTRIBUTION_RE.sub("", part_norm))
+
+
 def _exact_match_artist_first(result: dict, query_parts_norm: list[tuple[str, str]]) -> bool | None:
     """Whether an exactly matching query is written artist-first.
 
@@ -453,19 +477,21 @@ def _exact_match_artist_first(result: dict, query_parts_norm: list[tuple[str, st
         return None
     if len(query_parts_norm) == 1:
         # A query with no separator confirms both fields only when it is exactly
-        # the two of them concatenated, nothing left over: "CAKE I Will Survive"
-        # qualifies, "Cry Me a River by Julie London" does not. Whichever
-        # concatenation matches is the order the filename is written in.
+        # the two of them, nothing left over: "CAKE I Will Survive" and "Cry Me a
+        # River by Julie London" qualify, "Cry Me a River, a Julie London song"
+        # does not. Whichever arrangement matches is the order it is written in.
         whole = query_parts_norm[0][1]
-        if whole == f"{artist_norm} {title_norm}":
+        if _decomposes_into(whole, artist_norm, title_norm):
             return True
-        if whole == f"{title_norm} {artist_norm}":
+        if _decomposes_into(whole, title_norm, artist_norm):
             return False
         return None
+    # "Cry Me a River - by Julie London": the separator is there, but the artist
+    # side still opens with the connector the vendor wrote it with.
     first, second = query_parts_norm[0][1], query_parts_norm[1][1]
-    if first == artist_norm and second == title_norm:
+    if _part_names_field(first, artist_norm) and _part_names_field(second, title_norm):
         return True
-    if first == title_norm and second == artist_norm:
+    if _part_names_field(first, title_norm) and _part_names_field(second, artist_norm):
         return False
     return None
 

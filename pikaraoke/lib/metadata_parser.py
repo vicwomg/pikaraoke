@@ -167,17 +167,45 @@ _LEADING_BRACKET_NOISE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Phrases naming the original artist of a karaoke track: "Title (Made Famous by
+# Artist)". Longest first -- the alternation is first-match-wins, so a bare "by"
+# listed ahead of "made famous by" would capture "famous by Artist".
+ATTRIBUTION_CONNECTORS = [
+    "originally performed by",
+    "as popularized by",
+    "popularized by",
+    "made famous by",
+    "in the style of",
+    "by",
+]
+
+
+def _connector_alternation(connectors: list[str]) -> str:
+    return "|".join(c.replace(" ", r"\s+") for c in connectors)
+
+
+_ATTRIBUTION_ALT = _connector_alternation(ATTRIBUTION_CONNECTORS)
+# Bare "by" only where brackets mark it as attribution. Inline it is unreadable:
+# "Stand by Me" and "Blinded by the Light" are titles, not attributions.
+_ATTRIBUTION_ALT_INLINE = _connector_alternation([c for c in ATTRIBUTION_CONNECTORS if c != "by"])
+
 ATTRIBUTION_PATTERNS = [
-    # Parenthetical: "(Made Famous by Artist)", "(In the Style of Artist)", etc.
-    re.compile(
-        r"\((?:as\s+)?(?:made\s+famous\s+by|in\s+the\s+style\s+of"
-        r"|originally\s+performed\s+by|as\s+popularized\s+by)[:\s]+([^)]+)\)",
-        re.IGNORECASE,
-    ),
+    # Parenthetical: "(Made Famous by Artist)", "(In the Style of Artist)", "(by Artist)"
+    re.compile(rf"\((?:as\s+)?(?:{_ATTRIBUTION_ALT})[:\s]+([^)]+)\)", re.IGNORECASE),
+    # The same in square brackets, the form most karaoke vendors ship
+    re.compile(rf"\[(?:as\s+)?(?:{_ATTRIBUTION_ALT})[:\s]+([^\]]+)\]", re.IGNORECASE),
     # Trailing inline: "Title made famous by Artist [noise]"
     re.compile(
-        r"\b(?:made\s+famous\s+by|in\s+the\s+style\s+of"
-        r"|originally\s+performed\s+by|as\s+popularized\s+by)[:\s]+(.+?)(?:\s*[\(\[]|$)",
+        rf"\b(?:{_ATTRIBUTION_ALT_INLINE})[:\s]+(.+?)(?:\s*[\(\[]|$)",
+        re.IGNORECASE,
+    ),
+    # Bare "by" after a *closed* karaoke bracket: "Song [Karaoke Version] by
+    # Artist". The bracket is what distinguishes it from "Karaoke by Stingray",
+    # where the same word names the vendor who cut the track, not the artist.
+    # Unbracketed and unmarked, a bare "by" is unreadable -- hence neither the
+    # pattern above nor this one will touch "Stand by Me".
+    re.compile(
+        rf"[\(\[][^)\]]*?(?:{_KARAOKE_KEYWORDS_ALT})[^)\]]*[\)\]]\s*by[:\s]+(.+?)(?:\s*[\(\[]|$)",
         re.IGNORECASE,
     ),
 ]
@@ -708,7 +736,10 @@ def _step_extract_attribution_or_strip_noise(name: str) -> str:
     artist = _extract_attribution_artist(name)
     if artist:
         title = _strip_attribution_and_noise(name)
-        return f"{title} - {artist}"
+        # An empty title means the phrase matched across the whole name and what
+        # it called the artist was really the title ("Karaoke - Stand by Me").
+        if title:
+            return f"{title} - {artist}"
     # No attribution — strip trailing parenthesised/bracketed content + noise
     name = _PAREN_NOT_FEAT_TRAILING.sub("", name)
     name = re.sub(r"\s*\[[^\]]*\]\s*$", "", name, flags=re.IGNORECASE)

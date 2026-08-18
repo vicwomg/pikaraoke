@@ -572,6 +572,13 @@ class TestRegexTidy:
     def test_strips_karaoke_by_source(self):
         assert regex_tidy("Artist - Song - Karaoke by Stingray") == "Artist - Song"
 
+    def test_a_closed_karaoke_bracket_makes_by_an_attribution(self):
+        """The bracket is the whole difference: "Karaoke by Stingray" names the
+        vendor who cut the track, "[Karaoke] by Stingray" names the artist."""
+        assert regex_tidy("Song [Karaoke Version] by Julie London") == "Song - Julie London"
+        assert regex_tidy("Song (Karaoke) by Julie London") == "Song - Julie London"
+        assert regex_tidy("Song [Karaoke by Stingray]") == "Song"
+
     def test_no_dangling_separator_after_noise_and_attribution_removal(self):
         result = regex_tidy("Fernando - KARAOKE VERSION - as popularized by ABBA")
         assert result == "Fernando - ABBA"

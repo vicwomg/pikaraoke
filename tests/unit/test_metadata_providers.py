@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pikaraoke.lib.metadata_parser import sanitize_filename
+from pikaraoke.lib.metadata_parser import regex_tidy, sanitize_filename
 from pikaraoke.lib.metadata_providers import (
     _ALREADY_CORRECT,
     _UNCONFIRMED_CEILING,
@@ -720,10 +720,44 @@ class TestScoreAnchoring:
         assert _anchored("CAKE I Will Survive", "CAKE", "I Will Survive") == 98
         assert _anchored("【カラオケ】うっせぇわ _ Ado", "Ado", "うっせぇわ") == 95
 
+    def test_an_attribution_phrase_confirms(self):
+        """The karaoke vendors' house style. Each of these names both fields as
+        plainly as a separator does, so each belongs in the band."""
+        for name in (
+            "Cry Me a River by Julie London",
+            "Cry Me a River made famous by Julie London",
+            "Cry Me a River (Made Famous by Julie London)",
+            "Cry Me a River [In the Style of Julie London]",
+            "Cry Me a River (As Popularized by Julie London)",
+            "Cry Me a River (by Julie London)",
+            "Cry Me a River - by Julie London",
+            "Cry Me a River [Karaoke Version] made famous by Julie London",
+            "Cry Me a River [Karaoke Version] by Julie London",
+            "Cry Me a River (Karaoke) by Julie London",
+        ):
+            assert _anchored(name, "Julie London", "Cry Me a River") >= 95, name
+
+    def test_a_bare_by_needs_a_bracket_to_read_as_attribution(self):
+        """Unbracketed it cannot be told from a title: renaming 'Stand by Me' to
+        'Stand - Me' is the failure this asymmetry exists to prevent."""
+        assert regex_tidy("Stand by Me") == "Stand by Me"
+        assert regex_tidy("Blinded by the Light") == "Blinded by the Light"
+        assert regex_tidy("Cry Me a River (by Julie London)") == "Cry Me a River - Julie London"
+
+    def test_a_leading_connector_does_not_swallow_a_real_title(self):
+        """'By the Way' opens with one. The separator already named both fields,
+        so the connector has to be optional rather than stripped."""
+        assert (
+            _anchored("By the Way - Red Hot Chili Peppers", "Red Hot Chili Peppers", "By the Way")
+            == 98
+        )
+
     def test_a_separator_less_query_must_decompose_exactly(self):
-        """Anything left over after the two fields means the query carries more
-        than a name, and the file needs a human."""
-        assert _anchored("Cry Me a River by Julie London", "Julie London", "Cry Me a River") <= 94
+        """Anything left over after the two fields and an attribution phrase
+        means the query carries more than a name, and the file needs a human."""
+        assert (
+            _anchored("Cry Me a River, a Julie London song", "Julie London", "Cry Me a River") <= 94
+        )
         assert _anchored("王菲 Faye Wong Eyes On Me", "Faye Wong", "Eyes On Me") <= 94
 
     def test_a_romanised_result_never_confirms_a_native_script_name(self):
