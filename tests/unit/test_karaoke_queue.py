@@ -310,6 +310,14 @@ class TestIsUserLimited:
 
         assert mock_karaoke.queue_manager.is_user_limited("User1") is True
 
+    def test_is_user_limited_matches_names_case_insensitively(self, mock_karaoke):
+        """One singer typing a different capitalisation is still the same singer."""
+        mock_karaoke.preferences.set("limit_user_songs_by", 2)
+        mock_karaoke.playback_controller.now_playing_user = "USER1"
+        mock_karaoke.queue_manager.enqueue("/songs/song1---abc.mp4", "user1")
+
+        assert mock_karaoke.queue_manager.is_user_limited("User1") is True
+
 
 class TestFairQueuePosition:
     """Tests for round-robin fair queue insertion."""

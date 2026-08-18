@@ -47,12 +47,13 @@ class QueueManager:
     def is_user_limited(self, user: str) -> bool:
         """Check if a user has reached their queue limit."""
         limit = self._preferences.get_or_default("limit_user_songs_by")
-        if limit == 0 or user.lower() in _PLACEHOLDER_SINGERS:
+        singer = user.lower()
+        if limit == 0 or singer in _PLACEHOLDER_SINGERS:
             return False
 
         now_playing_user = self._get_now_playing_user() if self._get_now_playing_user else None
-        count = sum(1 for item in self.queue if item["user"] == user) + (
-            1 if now_playing_user == user else 0
+        count = sum(1 for item in self.queue if item["user"].lower() == singer) + (
+            1 if now_playing_user and now_playing_user.lower() == singer else 0
         )
         return count >= int(limit)
 
