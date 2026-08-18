@@ -651,6 +651,21 @@ class TestScoreAnchoring:
         assert _anchored("Beyoncé - Halo (Live)", "Beyoncé", "Halo") <= 94
         assert _anchored("ABBA - Fernando (Remastered 2010)", "ABBA", "Fernando") <= 94
 
+    def test_a_variant_nobody_listed_leaves_the_band(self):
+        """The qualifier vocabulary is a whitelist of what may be dropped, so a
+        release form outside it is kept rather than silently renamed away."""
+        for qualifier in ("2011 Remaster", "Unplugged", "Single Edit", "BBC Session", "Club Mix"):
+            assert (
+                _anchored(f"Queen - Bohemian Rhapsody ({qualifier})", "Queen", "Bohemian Rhapsody")
+                <= 94
+            ), qualifier
+
+    def test_a_suggestion_may_not_add_a_qualifier_to_a_clean_name(self):
+        """Square brackets used to slip past the paren-only check, so a correctly
+        named file was offered a 98 that would have made it worse."""
+        for title in ("Bohemian Rhapsody [2011 Remaster]", "Bohemian Rhapsody (2011 Remaster)"):
+            assert _anchored("Queen - Bohemian Rhapsody", "Queen", title) <= 94, title
+
     def test_a_title_whose_body_reads_as_a_variant_is_untouched(self):
         """The variant guard reads bracketed text only, never the title body."""
         assert _anchored("Wings - Live and Let Die", "Wings", "Live and Let Die") == 100

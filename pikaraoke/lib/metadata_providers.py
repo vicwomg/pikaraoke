@@ -14,10 +14,10 @@ import urllib3.connection
 import urllib3.util.ssl_
 
 from pikaraoke.lib.metadata_parser import (
-    _PAREN_NOT_FEAT,
-    _RECORDING_VARIANT_RE,
+    _FEAT_CREDIT_RE,
     _SPECIAL_VERSION_RE,
     ATTRIBUTION_CONNECTORS,
+    is_discardable_qualifier,
     normalize_for_comparison,
     regex_tidy,
     remove_accents,
@@ -422,19 +422,22 @@ def _suggestion_score(
 # candidates against each other no longer apply. 100 is also what the rebased
 # weights produce for a clean confirmed match (38 + 38 + 24), so the assignment
 # agrees with the arithmetic instead of overriding it.
-_ALREADY_CORRECT = 100  # the name on disk is what we would rename it to
+_ALREADY_CORRECT = 100  # the name as submitted is what we would rename it to
 _ONE_CORRECTION = 98  # fields confirmed; one of order / noise / characters is wrong
 _MANY_CORRECTIONS = 95  # fields confirmed; two or three of them are
 _UNCONFIRMED_CEILING = 94  # nothing unconfirmed may enter the confirmed band
 
 
 def _has_disqualifying_qualifier(title: str) -> bool:
-    """Whether the title carries a qualifier other than a featuring credit."""
-    # "(Live)", "(Taylor's Version)", "(Commentary)" -- anything parenthesised that is not a credit
-    if _PAREN_NOT_FEAT.search(title):
-        return True
-    # _PAREN_NOT_FEAT only sees round brackets, so "(feat. X) [Live]" reaches here
-    return bool(_RECORDING_VARIANT_RE.search(_extract_qualifier_text(title)))
+    """Whether the title carries a qualifier that is neither a credit nor droppable noise.
+
+    Round and square brackets alike: "[2011 Remaster]" renames to a different
+    recording just as surely as "(2011 Remaster)" does.
+    """
+    return any(
+        not _FEAT_CREDIT_RE.match(text) and not is_discardable_qualifier(text)
+        for text in _extract_qualifier_texts(title)
+    )
 
 
 # The attribution phrases as they survive normalization, for reading a filename
@@ -496,6 +499,17 @@ def _exact_match_artist_first(result: dict, query_parts_norm: list[tuple[str, st
     return None
 
 
+def _proposal(result: dict, artist_first: bool) -> str:
+    """The filename a rename to this result would write.
+
+    Sanitized, because that is what lands on disk: a score of "already correct"
+    has to be measured against the name the save can actually produce, and the
+    suggestion the user clicks has to be the same string it was scored as.
+    """
+    artist, title = result.get("artist", ""), result.get("title", "")
+    return sanitize_filename(f"{artist} - {title}" if artist_first else f"{title} - {artist}")
+
+
 def _correction_count(
     name: str, proposal: str, query_artist_first: bool, artist_first: bool
 ) -> int:
@@ -527,17 +541,17 @@ def _anchor_score(
 ) -> int:
     """Pin a confirmed match to its anchor; cap everything else below the band.
 
-    `name` is the filename as it stands, compared against the sanitised proposal
-    so a title containing a character Windows forbids can still be already-correct.
+    `name` is the name the caller asked about, which on the edit page is what
+    the box currently holds rather than what is on disk -- 100 answers "would
+    saving this change anything", not "is the library tidy".
     """
     query_artist_first = _exact_match_artist_first(result, query_parts_norm)
     if query_artist_first is None:
         return min(score, _UNCONFIRMED_CEILING)
-    artist, title = result.get("artist", ""), result.get("title", "")
-    proposal = sanitize_filename(f"{artist} - {title}" if artist_first else f"{title} - {artist}")
-    # regex_tidy strips "(Live)" and "(Remastered 2010)" as readily as
+    proposal = _proposal(result, artist_first)
+    # regex_tidy strips "(Live)" and "(2011 Remaster)" as readily as it strips
     # "(Official Video)", so a confirmed match can still be the wrong recording.
-    if _RECORDING_VARIANT_RE.search(name) and not _RECORDING_VARIANT_RE.search(proposal):
+    if _has_disqualifying_qualifier(name) and not _has_disqualifying_qualifier(proposal):
         return min(score, _UNCONFIRMED_CEILING)
     return (_ALREADY_CORRECT, _ONE_CORRECTION, _MANY_CORRECTIONS, _MANY_CORRECTIONS)[
         _correction_count(name, proposal, query_artist_first, artist_first)
@@ -556,29 +570,32 @@ def _deduplicate_suggestions(
     """
     query_parts_norm = _normalize_query_parts(query)
     featuring_norm = _normalize_for_matching(featuring) if featuring else ""
-    best: dict[tuple[str, str], tuple[int, dict]] = {}
+    best: dict[tuple[str, str], tuple[int, int, dict]] = {}
     for r in results:
         key = (r.get("artist", "").lower(), r.get("title", "").lower())
-        s = _anchor_score(
-            _suggestion_score(r, query_parts_norm, featuring_norm),
-            r,
-            query_parts_norm,
-            name,
-            artist_first,
-        )
-        if key not in best or s > best[key][0]:
-            best[key] = (s, r)
-    scored = sorted(best.values(), key=lambda x: x[0], reverse=True)
-    return scored
+        tally = _suggestion_score(r, query_parts_norm, featuring_norm)
+        s = _anchor_score(tally, r, query_parts_norm, name, artist_first)
+        if key not in best or (s, tally) > best[key][:2]:
+            best[key] = (s, tally, r)
+    # The raw tally breaks ties: the ceiling flattens every unconfirmed result
+    # above it to one value, and without this the best of them would rank by
+    # nothing more than the order iTunes happened to return it in.
+    ranked = sorted(best.values(), key=lambda x: (x[0], x[1]), reverse=True)
+    return [(score, result) for score, _, result in ranked]
 
 
 # Over-fetch factor to compensate for deduplication
 _OVERFETCH_FACTOR = 3
 
 
+def _extract_qualifier_texts(text: str) -> list[str]:
+    """Each parenthetical and bracketed group's content, brackets removed."""
+    return [g for groups in _PAREN_EXTRACT_RE.findall(text) for g in groups if g]
+
+
 def _extract_qualifier_text(text: str) -> str:
     """Extract all parenthetical and bracketed content as a single string."""
-    return " ".join(g for groups in _PAREN_EXTRACT_RE.findall(text) for g in groups if g)
+    return " ".join(_extract_qualifier_texts(text))
 
 
 def suggest_metadata(
@@ -614,10 +631,7 @@ def suggest_metadata(
         return []
 
     # Build output dicts with display and score fields (don't mutate originals)
-    out = []
-    for score, r in truncated:
-        display = (
-            f"{r['artist']} - {r['title']}" if artist_first else f"{r['title']} - {r['artist']}"
-        )
-        out.append({**r, "display": display, "score": max(0, score)})
-    return out
+    return [
+        {**r, "display": _proposal(r, artist_first), "score": max(0, score)}
+        for score, r in truncated
+    ]

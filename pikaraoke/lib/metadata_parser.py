@@ -71,8 +71,14 @@ NOISE_WORDS = [
 ]
 NOISE_PATTERN = re.compile("|".join(NOISE_WORDS), flags=re.IGNORECASE)
 
+# A featuring credit is part of the track's name, not a qualifier over it. Only
+# the unambiguous words: "with" opens credits ("with Kiki Dee") and qualifiers
+# ("with Live Band") alike, and a qualifier admitted here is one renamed away.
+_FEAT_CREDIT_ALT = r"feat(?:uring)?|ft"
+_FEAT_CREDIT_RE = re.compile(rf"^\s*(?:{_FEAT_CREDIT_ALT})\.?\s", re.IGNORECASE)
+
 # Matches parenthesised content EXCEPT featuring credits like "(feat. X)" / "(ft. X)"
-_FEAT_LOOKAHEAD = r"(?!\s*(?:feat(?:uring)?|ft)\.?\s)"
+_FEAT_LOOKAHEAD = rf"(?!\s*(?:{_FEAT_CREDIT_ALT})\.?\s)"
 _PAREN_NOT_FEAT = re.compile(rf"\s*\({_FEAT_LOOKAHEAD}[^)]*\)", flags=re.IGNORECASE)
 _PAREN_NOT_FEAT_TRAILING = re.compile(rf"\s*\({_FEAT_LOOKAHEAD}[^)]*\)\s*$", flags=re.IGNORECASE)
 
@@ -98,20 +104,6 @@ SPECIAL_VERSION_KEYWORDS = [
 ]
 _SPECIAL_VERSION_RE = re.compile(
     r"\b(?:" + "|".join(re.escape(kw) for kw in SPECIAL_VERSION_KEYWORDS if kw != " - ") + r")\b",
-    re.IGNORECASE,
-)
-
-# Qualifiers marking a different recording of the same song, as opposed to noise
-# a rename may safely discard. Derived from SPECIAL_VERSION_KEYWORDS minus
-# "version" and "karaoke", which in a karaoke library are the two most common
-# noise tokens there are -- keeping them would push most of a library out of
-# reach of any suggestion that strips them.
-_RECORDING_VARIANT_RE = re.compile(
-    r"\b(?:"
-    + "|".join(
-        re.escape(kw) for kw in SPECIAL_VERSION_KEYWORDS if kw not in (" - ", "version", "karaoke")
-    )
-    + r")\b",
     re.IGNORECASE,
 )
 
@@ -209,6 +201,9 @@ ATTRIBUTION_PATTERNS = [
         re.IGNORECASE,
     ),
 ]
+# An attribution phrase and everything after it, for reading bracketed text that
+# has already been separated from its title.
+_QUALIFIER_ATTRIBUTION_RE = re.compile(rf"\b(?:{_ATTRIBUTION_ALT})\b.*$", re.IGNORECASE)
 
 TRAILING_NOISE_PATTERNS = [
     # Any karaoke keyword = nuke everything from that word to end of string.
@@ -227,6 +222,53 @@ TRAILING_NOISE_PATTERNS = [
         re.IGNORECASE,
     ),
 ]
+
+# Everything a bracketed qualifier may be made of and still be safe to drop.
+# A whitelist, not a blacklist: the qualifiers that must survive a rename --
+# "(2011 Remaster)", "(Unplugged)", "(Single Edit)", "(BBC Session)" -- are an
+# open set, so listing them would always be one release form behind. "karaoke"
+# and "version" belong here despite naming a variant elsewhere: in this library
+# they are the two commonest noise tokens there are.
+DISCARDABLE_QUALIFIER_WORDS = [
+    r"official\s+(?:music\s+)?video",
+    r"no\s+lead\s+vocals?",
+    r"with\s+lyrics?",
+    r"sing[\s-]*along",
+    r"backing\s+track",
+    r"minus\s+one",
+    rf"(?:{_KARAOKE_KEYWORDS_ALT})",
+    r"version",
+    r"official",
+    r"music",
+    r"video",
+    r"audio",
+    r"lyrics?",
+    r"karafun",
+    r"coversph",
+    r"singkaraoke",
+    r"complete|completo",
+    r"full",
+    r"hd|hq|4k|mv|cc",
+]
+_DISCARDABLE_QUALIFIER_RE = re.compile(
+    r"\b(?:" + "|".join(DISCARDABLE_QUALIFIER_WORDS) + r")\b", re.IGNORECASE
+)
+# Digits, punctuation and separators carry no version meaning on their own, so a
+# qualifier of "(2011)" or "(HD)" is spent once its words are accounted for.
+_QUALIFIER_FILLER_RE = re.compile(r"[\W\d_]+")
+
+
+def is_discardable_qualifier(text: str) -> bool:
+    """Whether bracketed text is noise a rename may drop rather than a recording variant.
+
+    Dropping "(Karaoke Version)" tidies a filename; dropping "(Live)" renames one
+    recording into another, which can collide with the studio cut already filed
+    beside it. Anything this cannot account for is treated as the latter.
+    """
+    remainder = _QUALIFIER_ATTRIBUTION_RE.sub("", text)
+    remainder = _DISCARDABLE_QUALIFIER_RE.sub(" ", remainder)
+    return not _QUALIFIER_FILLER_RE.sub("", remainder)
+
 
 # A dash adjacent to a CJK/Kana/Hangul character is always a separator (never a hyphen
 # within a word). Uses lookaround so the replacement is just the dash, not surrounding chars.

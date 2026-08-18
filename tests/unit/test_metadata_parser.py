@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from pikaraoke.lib.metadata_parser import (
-    _RECORDING_VARIANT_RE,
     _detect_artist_first,
     clean_search_query,
     clear_song_name_cache,
@@ -13,6 +12,7 @@ from pikaraoke.lib.metadata_parser import (
     get_song_correct_name,
     has_artist_title_separator,
     has_youtube_id,
+    is_discardable_qualifier,
     lookup_lastfm,
     regex_tidy,
     sanitize_filename,
@@ -35,18 +35,50 @@ class TestSanitizeFilename:
         assert sanitize_filename("Who's Next: Part 2?") == "Who's Next: Part 2?"
 
 
-class TestRecordingVariantPattern:
-    """A qualifier a rename must not silently discard, unlike YouTube noise."""
+class TestIsDiscardableQualifier:
+    """Which bracketed text a rename may drop, and which names another recording."""
 
-    def test_variants_are_matched(self):
-        for qualifier in ("Live", "Remastered 2010", "Acoustic", "Radio Edit", "Demo"):
-            assert _RECORDING_VARIANT_RE.search(qualifier), qualifier
+    def test_production_noise_is_discardable(self):
+        for text in (
+            "Official Video",
+            "Official Music Video",
+            "Karaoke",
+            "Karaoke Version",
+            "HD",
+            "Lyrics",
+            "With Lyrics",
+            "カラオケ",
+            "2011",
+        ):
+            assert is_discardable_qualifier(text), text
 
-    def test_karaoke_and_version_are_not_variants(self):
-        """Excluded deliberately: '(Karaoke Version)' is this app's commonest
-        noise token, and treating it as a variant would gut the feature."""
-        assert not _RECORDING_VARIANT_RE.search("Karaoke Version")
-        assert not _RECORDING_VARIANT_RE.search("Karaoke")
+    def test_recording_variants_are_not_discardable(self):
+        """Dropping one of these renames a recording into a different one, which
+        can collide with the studio cut already filed beside it."""
+        for text in (
+            "Live",
+            "Acoustic",
+            "Remastered 2010",
+            "2011 Remaster",
+            "Unplugged",
+            "Single Edit",
+            "Club Mix",
+            "Mono Version",
+            "BBC Session",
+            "Alternate Take",
+            "Taylor's Version",
+        ):
+            assert not is_discardable_qualifier(text), text
+
+    def test_an_attribution_is_discardable(self):
+        """regex_tidy moves the artist out to the other side of the separator,
+        so the bracket it came from is spent, not lost."""
+        for text in ("Made Famous by Julie London", "In the Style of ABBA", "by Adele"):
+            assert is_discardable_qualifier(text), text
+
+    def test_an_unknown_qualifier_fails_closed(self):
+        """The point of the whitelist: a release form nobody listed is kept."""
+        assert not is_discardable_qualifier("Rarities Box Set")
 
 
 @pytest.fixture(autouse=True)
