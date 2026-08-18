@@ -702,6 +702,16 @@ class TestScoreAnchoring:
         assert top["score"] >= 95
         assert top["display"] == "David Guetta - Bang My Head (feat. Sia)"
 
+    def test_a_name_we_already_wrote_is_already_correct(self):
+        """The rename restores iTunes' canonical credit, so the name on disk
+        afterwards carries it. Scoring that 94 means the feature does not
+        recognise its own output, and every renamed song leaves the band."""
+        for artist, title in (
+            ("Taylor Swift", "Everything Has Changed (feat. Ed Sheeran)"),
+            ("David Guetta", "Bang My Head (feat. Sia)"),
+        ):
+            assert _anchored(f"{artist} - {title}", artist, title) == 100, title
+
     def test_a_qualifier_that_is_not_a_credit_disqualifies(self):
         artist, title = "Taylor Swift", "Everything Has Changed"
         assert _anchored(f"{artist} - {title}", artist, f"{title} (Taylor's Version)") <= 94

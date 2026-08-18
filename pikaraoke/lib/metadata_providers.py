@@ -453,14 +453,15 @@ def _decomposes_into(whole: str, first: str, second: str) -> bool:
     return any(whole == f"{first} {c} {second}" for c in _ATTRIBUTION_CONNECTORS_NORM)
 
 
-def _part_names_field(part_norm: str, field_norm: str) -> bool:
-    """Whether a query part is this field, with or without an opening connector.
+def _part_names_field(part_norm: str, *field_norms: str) -> bool:
+    """Whether a query part is any of these forms of a field.
 
-    Both forms, not just the stripped one: "By the Way - Red Hot Chili Peppers"
-    puts a connector at the front of a real title, and stripping it there would
-    lose the match the separator already made plain.
+    With or without an opening connector: "By the Way - Red Hot Chili Peppers"
+    puts one at the front of a real title, and stripping it there would lose the
+    match the separator already made plain.
     """
-    return field_norm in (part_norm, _LEADING_ATTRIBUTION_RE.sub("", part_norm))
+    forms = (part_norm, _LEADING_ATTRIBUTION_RE.sub("", part_norm))
+    return any(f in forms for f in field_norms if f)
 
 
 def _exact_match_artist_first(result: dict, query_parts_norm: list[tuple[str, str]]) -> bool | None:
@@ -478,23 +479,29 @@ def _exact_match_artist_first(result: dict, query_parts_norm: list[tuple[str, st
     title_norm = _normalize_for_matching(_PAREN_CONTENT_RE.sub("", title_lower).strip())
     if not artist_norm or not title_norm:
         return None
+    # Both forms of the title. A filename already carrying the credit iTunes
+    # writes -- "Everything Has Changed (feat. Ed Sheeran)" -- has to match the
+    # whole title, not only what is left once the brackets come off. Comparing a
+    # bracketed query part against a stripped title is what stopped this feature
+    # recognising the very names it renames songs to.
+    titles = (title_norm, _normalize_for_matching(title_lower))
     if len(query_parts_norm) == 1:
         # A query with no separator confirms both fields only when it is exactly
         # the two of them, nothing left over: "CAKE I Will Survive" and "Cry Me a
         # River by Julie London" qualify, "Cry Me a River, a Julie London song"
         # does not. Whichever arrangement matches is the order it is written in.
         whole = query_parts_norm[0][1]
-        if _decomposes_into(whole, artist_norm, title_norm):
+        if any(_decomposes_into(whole, artist_norm, t) for t in titles):
             return True
-        if _decomposes_into(whole, title_norm, artist_norm):
+        if any(_decomposes_into(whole, t, artist_norm) for t in titles):
             return False
         return None
     # "Cry Me a River - by Julie London": the separator is there, but the artist
     # side still opens with the connector the vendor wrote it with.
     first, second = query_parts_norm[0][1], query_parts_norm[1][1]
-    if _part_names_field(first, artist_norm) and _part_names_field(second, title_norm):
+    if _part_names_field(first, artist_norm) and _part_names_field(second, *titles):
         return True
-    if _part_names_field(first, title_norm) and _part_names_field(second, artist_norm):
+    if _part_names_field(first, *titles) and _part_names_field(second, artist_norm):
         return False
     return None
 
