@@ -12,8 +12,11 @@ import unicodedata
 
 from pikaraoke.lib.get_platform import is_windows
 
-# Characters illegal in Windows filenames
+# Characters illegal in Windows filenames, and what to write in their place.
+# A quote has a readable stand-in; the rest have none, so they collapse to a
+# dash. Without this, Bobby "Boris" Pickett is filed as Bobby -Boris- Pickett.
 _WINDOWS_ILLEGAL_CHARS = re.compile(r'[<>:"/\\|?*]')
+_ILLEGAL_CHAR_SUBSTITUTES = {'"': "'"}
 _PATH_SEPARATORS = re.compile(r"[/\\]")
 
 EMOJI_PATTERN = re.compile(
@@ -821,7 +824,9 @@ def sanitize_filename(name: str) -> str:
     separator can only be an attempt to write outside the song directory.
     """
     if is_windows():
-        name = _WINDOWS_ILLEGAL_CHARS.sub("-", name)
+        name = _WINDOWS_ILLEGAL_CHARS.sub(
+            lambda m: _ILLEGAL_CHAR_SUBSTITUTES.get(m.group(), "-"), name
+        )
     else:
         name = _PATH_SEPARATORS.sub("-", name)
     return name.strip()

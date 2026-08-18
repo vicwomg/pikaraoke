@@ -29,6 +29,14 @@ class TestSanitizeFilename:
         assert sanitize_filename("../../home/pi/x") == "..-..-home-pi-x"
         assert sanitize_filename("a\\b") == "a-b"
 
+    def test_a_quote_becomes_an_apostrophe_not_a_dash(self, monkeypatch):
+        """Windows forbids the quote, but a dash makes a nickname read as
+        corruption: Bobby "Boris" Pickett filed as Bobby -Boris- Pickett."""
+        monkeypatch.setattr("pikaraoke.lib.metadata_parser.is_windows", lambda: True)
+        assert sanitize_filename('Bobby "Boris" Pickett') == "Bobby 'Boris' Pickett"
+        # Everything else still has no stand-in worth using
+        assert sanitize_filename("AC/DC - T.N.T.") == "AC-DC - T.N.T."
+
     def test_posix_legal_characters_survive(self, monkeypatch):
         """Colons and question marks are legal on POSIX and appear in real titles."""
         monkeypatch.setattr("pikaraoke.lib.metadata_parser.is_windows", lambda: False)
