@@ -5,23 +5,23 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version:  1.1.1\n"
+"Project-Id-Version: 1.1.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-03-20 08:10+1100\n"
+"POT-Creation-Date: 2026-08-19 09:35+1000\n"
 "PO-Revision-Date: 2022-04-28 10:09-0400\n"
 "Last-Translator: \n"
-"Language: zh_CN\n"
 "Language-Team: zh_Hans_CN <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Language: zh_CN\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.17.0\n"
 
 # auto-translated
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
-#: karaoke.py:453
+#: karaoke.py:557
 #, python-format
 msgid "Transposing by %s semitones: %s"
 msgstr "移调 %s 个半音：%s"
@@ -29,106 +29,106 @@ msgstr "移调 %s 个半音：%s"
 # auto-translated
 #. Message shown after the volume is changed, will be followed by the volume
 #. level
-#: karaoke.py:469
+#: karaoke.py:571
 #, python-format
 msgid "Volume: %s"
 msgstr "音量：%s"
 
-#: lib/download_manager.py:130
+#: lib/download_manager.py:184
 #, python-format
 msgid "Download queued (#%d): %s"
 msgstr "成功添加歌曲 (#%d)： %s"
 
 #. Message shown when download is added and will start immediately
-#: lib/download_manager.py:134
+#: lib/download_manager.py:188
 #, python-format
 msgid "Download starting: %s"
 msgstr "下载: %s"
 
 # auto-translated
 #. Message shown when download actually starts (after waiting in queue)
-#: lib/download_manager.py:222
+#: lib/download_manager.py:344
 #, python-format
 msgid "Downloading video: %s"
 msgstr "正在下载视频：%s"
 
 # auto-translated
-#: lib/download_manager.py:280
+#: lib/download_manager.py:370
 msgid "Error downloading song: "
 msgstr "下载歌曲时出错："
 
-#: lib/download_manager.py:300
+#: lib/download_manager.py:390
 #, python-format
 msgid "Downloaded and queued: %s"
 msgstr "成功添加歌曲： %s"
 
 #. Message shown after the download is completed but not queued
-#: lib/download_manager.py:304
+#: lib/download_manager.py:394
 #, python-format
 msgid "Downloaded: %s"
 msgstr "下载: %s"
 
 # auto-translated
-#: lib/download_manager.py:327
+#: lib/download_manager.py:418
 msgid "Error queueing song: "
 msgstr "歌曲排队错误："
 
 # auto-translated
-#: lib/playback_controller.py:89
+#: lib/playback_controller.py:91
 #, python-format
 msgid "Song file not found: %s"
 msgstr "未找到歌曲文件：%s"
 
 # auto-translated
-#: lib/playback_controller.py:120
+#: lib/playback_controller.py:125
 msgid "Stream was not playable! Skipping track"
 msgstr "串流无法播放！跳过曲目"
 
 # auto-translated
 #. Message shown when the song ends abnormally
-#: lib/playback_controller.py:149
+#: lib/playback_controller.py:163
 #, python-format
 msgid "Song ended abnormally: %s"
 msgstr "歌曲异常结束：%s"
 
 # auto-translated
 #. Message shown after the song is skipped, will be followed by song name
-#: lib/playback_controller.py:173
+#: lib/playback_controller.py:191
 #, python-format
 msgid "Skip: %s"
 msgstr "跳过：%s"
 
 # auto-translated
 #. Message shown after the song is resumed, will be followed by song name
-#: lib/playback_controller.py:189
+#: lib/playback_controller.py:207
 #, python-format
 msgid "Resume: %s"
 msgstr "继续：%s"
 
 # auto-translated
 #. Message shown after the song is paused, will be followed by song name
-#: lib/playback_controller.py:192
+#: lib/playback_controller.py:210
 #, python-format
 msgid "Pause: %s"
 msgstr "暂停：%s"
 
 # auto-translated
-#: lib/preference_manager.py:133
+#: lib/preference_manager.py:142
 msgid "Your preferences were changed successfully"
 msgstr "您的偏好设置已成功更改"
 
 # auto-translated
-#: lib/preference_manager.py:136 templates/info.html:19
+#: lib/preference_manager.py:145 templates/info.html:19
 msgid "Something went wrong! Your preferences were not changed"
 msgstr "出了问题！您的偏好没有改变"
 
 # auto-translated
-#: lib/preference_manager.py:153
+#: lib/preference_manager.py:162
 msgid "Your preferences were cleared successfully"
 msgstr "您的偏好设置已成功清除"
 
 # auto-translated
-#: lib/preference_manager.py:156
+#: lib/preference_manager.py:165
 msgid "Something went wrong! Your preferences were not cleared"
 msgstr "出了问题！您的偏好未清除"
 
@@ -161,18 +161,18 @@ msgstr "成功添加歌曲：%s"
 
 # auto-translated
 #. Message shown after the queue is cleared
-#: lib/queue_manager.py:194
+#: lib/queue_manager.py:210
 msgid "Clear queue"
 msgstr "清除队列"
 
 # auto-translated
-#: lib/stream_manager.py:112
+#: lib/stream_manager.py:124
 #, python-format
 msgid "Error resolving file: %s"
 msgstr "解析文件时出错：%s"
 
 # auto-translated
-#: lib/stream_manager.py:148
+#: lib/stream_manager.py:160
 msgid "Failed to prepare stream"
 msgstr "准备流失败"
 
@@ -278,61 +278,94 @@ msgid "Error: No filename parameters were specified!"
 msgstr "错误：未指定文件名参数！"
 
 # auto-translated
-#: routes/batch_song_renamer.py:245 routes/files.py:160 routes/files.py:191
+#: routes/batch_song_renamer.py:245
 msgid "Error: Can't edit this song because it is in the current queue: "
 msgstr "错误：无法编辑这首歌曲，因为它位于当前队列中："
 
 # auto-translated
-#. Message shown after trying to rename a file to a name that already exists.
-#: routes/batch_song_renamer.py:259 routes/files.py:201
+#: routes/batch_song_renamer.py:259
 #, python-format
 msgid "Error renaming file: '%s' to '%s', Filename already exists"
 msgstr "将文件 '%s' 重命名为 '%s' 时出错，文件名已存在"
 
-#. Title of the files page.
-#. Navigation link for the page where the user can add existing songs to the
-#. queue.
-#: routes/files.py:111 templates/base.html:226
-msgid "Browse"
-msgstr "浏览"
+# auto-translated
+#. Title of the page listing the songs already on this machine.
+#. Navigation link for the page listing songs already on this machine.
+#: routes/files.py:187 templates/base.html:343 templates/base.html:346
+msgid "Songs"
+msgstr "歌曲"
 
 # auto-translated
-#: routes/files.py:126
+#: routes/files.py:216
 msgid "You don't have permission to delete songs"
 msgstr "您无权删除歌曲"
 
 # auto-translated
-#. Message shown after trying to delete a song that is in the queue.
-#: routes/files.py:131
-msgid "Error: Can't delete this song because it is in the current queue"
-msgstr "错误：无法删除这首歌曲，因为它位于当前队列中"
+#. Message shown after trying to delete a song that is queued or playing.
+#: routes/files.py:221
+msgid "Error: Can't delete this song because it is queued or playing"
+msgstr "错误：无法删除这首歌曲，因为它正在排队或正在播放"
 
 # auto-translated
-#: routes/files.py:140
+#: routes/files.py:228
 #, python-format
 msgid "Song deleted: %s"
 msgstr "已删除歌曲：%s"
 
 # auto-translated
-#: routes/files.py:155 routes/files.py:184
-msgid "You don't have permission to edit songs"
-msgstr "您没有编辑歌曲的权限"
+#: routes/files.py:260 routes/files.py:283
+msgid "You don't have permission to rename songs"
+msgstr "您无权重命名歌曲"
 
 # auto-translated
-#: routes/files.py:211
+#. Message shown after trying to rename the song that is playing.
+#: routes/files.py:264
+msgid "This song is playing. Rename it when it finishes."
+msgstr "正在播放这首歌。完成后重命名。"
+
+# auto-translated
+#. Message shown after saving the rename page with an empty name.
+#: routes/files.py:288
+msgid "Enter a name for this song."
+msgstr "输入这首歌的名称。"
+
+# auto-translated
+#: routes/files.py:294
+msgid ""
+"This song is no longer in the library. It may have been renamed or deleted "
+"from another device."
+msgstr "这首歌已经不在图书馆里了。它可能已被重命名或从其他设备中删除。"
+
+# auto-translated
+#. Message shown after trying to rename a song to a name already in use.
+#: routes/files.py:306
 #, python-format
-msgid "Error renaming file: '%s' to '%s', %s"
-msgstr "将文件 '%s' 重命名为 '%s' 时出错，%s"
+msgid "A song called '%s' already exists."
+msgstr "一首名为“%s”的歌曲已经存在。"
+
+# auto-translated
+#: routes/files.py:314
+msgid ""
+"This song started playing while you were editing it. Rename it when it "
+"finishes."
+msgstr "这首歌在您编辑时开始播放。完成后重命名。"
+
+# auto-translated
+#. Message shown after a rename failed. Followed by the system error.
+#: routes/files.py:320
+#, python-format
+msgid "Error renaming file: %s"
+msgstr "重命名文件时出错：%s"
 
 # auto-translated
 #. Message shown after renaming a file.
-#: routes/files.py:217
+#: routes/files.py:325
 #, python-format
 msgid "Renamed file: %s to %s"
 msgstr "已重命名文件：%s 为 %s"
 
 # auto-translated
-#: routes/info.py:100
+#: routes/info.py:116
 msgid "CPU usage query unsupported"
 msgstr "不支持CPU使用率查询"
 
@@ -427,6 +460,72 @@ msgid "Error deleting from queue"
 msgstr "从队列中删除时出错"
 
 # auto-translated
+#. Title of the page used to get new songs into the library.
+#. Navigation link for the page used to get new songs into the library.
+#: routes/search.py:61 templates/base.html:349 templates/base.html:352
+msgid "Add New"
+msgstr "添加新内容"
+
+# auto-translated
+#. Message shown when a non-admin tries to open a host-only history page
+#: routes/sessions.py:63
+msgid "You don't have permission to view this page"
+msgstr "您没有权限查看此页面"
+
+# auto-translated
+#. Error when starting a session without supplying a name
+#. Error when renaming a session without supplying a name
+#: routes/sessions_api.py:105 routes/sessions_api.py:160
+msgid "A name is required"
+msgstr "需要提供姓名"
+
+# auto-translated
+#. Error when resetting one session's plays without saying which session
+#: routes/sessions_api.py:135
+msgid "A session is required"
+msgstr "需要一个会话"
+
+# auto-translated
+#: routes/sessions_api.py:209
+msgid "Play not found"
+msgstr "找不到播放"
+
+# auto-translated
+#: routes/sessions_api.py:250 routes/sessions_api.py:254
+#: routes/sessions_api.py:277 routes/sessions_api.py:286
+#: routes/sessions_api.py:343
+msgid "Session not found"
+msgstr "未找到会话"
+
+# auto-translated
+#: routes/sessions_api.py:312
+msgid "Played At"
+msgstr "玩过"
+
+# auto-translated
+#. Label before the name of the singer the play log is filtered to.
+#. Play log column header for who sang the song.
+#. Ranking table column header for the person who sang.
+#: routes/sessions_api.py:312 templates/history.html:412
+#: templates/history.html:469 templates/rankings.html:185
+msgid "Performer"
+msgstr "演员"
+
+# auto-translated
+#. Label before the name of the song the play log is filtered to.
+#. Play log column header for the song that was sung.
+#. Ranking table column header for the song that was sung.
+#: routes/sessions_api.py:312 templates/history.html:432
+#: templates/history.html:473 templates/rankings.html:138
+msgid "Song"
+msgstr "歌曲"
+
+# auto-translated
+#: routes/sessions_api.py:324
+msgid "PiKaraoke - Play History"
+msgstr "PiKaraoke - 播放历史"
+
+# auto-translated
 #: routes/splash.py:24
 msgid "Never sing again... ever."
 msgstr "永远不要再唱歌了……永远。"
@@ -507,65 +606,69 @@ msgid "Failed to stream subtitle: "
 msgstr "无法传输字幕："
 
 # auto-translated
-#. Prompt to change the username displayed next to queued songs. CURRENT_NAME
-#. is replaced with the name
-#: templates/base.html:25
+#. Prompt to change the username displayed next to queued songs. {name} is
+#. replaced with the name
+#: templates/base.html:33
+#, python-brace-format
 msgid ""
-"Do you want to change the name of the person using this device? This will"
-" show up on queued songs. Current: CURRENT_NAME"
-msgstr "您想更改使用此设备的人的姓名吗？这将显示在排队的歌曲上。当前：CURRENT_NAME"
+"Do you want to change the name of the person using this device? This will "
+"show up on queued songs. Current: {name}"
+msgstr "您想更改使用此设备的人的姓名吗？这将显示在排队的歌曲上。当前：{name}"
 
 # auto-translated
 #. Confirmation prompt to clear entire queue. User must type ok to confirm
-#: templates/base.html:27
+#: templates/base.html:35
 msgid "Are you sure you want to clear the ENTIRE queue? Type ok to continue"
 msgstr "您确定要清除整个队列吗？输入“确定”继续"
 
 # auto-translated
-#. Confirmation dialog when removing a song from the queue. SONG_TITLE is
-#. replaced with the title
-#: templates/base.html:29
-msgid "Are you sure you want to delete SONG_TITLE from the queue?"
-msgstr "您确定要从队列中删除 SONG_TITLE 吗？"
+#. Confirmation dialog when removing a song from the queue. {title} is
+#. replaced
+#. with the title
+#: templates/base.html:37
+#, python-brace-format
+msgid "Are you sure you want to delete {title} from the queue?"
+msgstr "您确定要从队列中删除 {title} 吗？"
 
 #. Confirmation dialog when permanently deleting a song file from the library
-#: templates/base.html:31
+#: templates/base.html:39
 msgid "Are you sure you want to delete this song from the library?"
 msgstr "确认即将把此歌曲从音乐库里删除？"
 
 # auto-translated
-#. Label showing the number of semitones for pitch shift. SEMITONE_VALUE is
-#. replaced with a number like +3 or -2.
-#: templates/base.html:33
-msgid "SEMITONE_VALUE semitones"
-msgstr "SEMITONE_VALUE 半音"
+#. Label showing the number of semitones for pitch shift. {value} is replaced
+#. with a number like +3 or -2.
+#: templates/base.html:41
+#, python-brace-format
+msgid "{value} semitones"
+msgstr "{value} 半音"
 
 # auto-translated
-#. Confirmation dialog when changing the key/pitch of a song. SEMITONE_LABEL is
+#. Confirmation dialog when changing the key/pitch of a song. {label} is
 #. replaced with a label like "+3 semitones".
-#: templates/base.html:35
-msgid "Transpose this song: SEMITONE_LABEL?"
-msgstr "转调这首歌：SEMITONE_LABEL？"
+#: templates/base.html:43
+#, python-brace-format
+msgid "Transpose this song: {label}?"
+msgstr "转置这首歌：{label}？"
 
 # auto-translated
 #. Confirmation dialog when restarting the currently playing track.
-#: templates/base.html:37
+#: templates/base.html:45
 msgid "Are you sure you want to restart this track?"
 msgstr "您确定要重新开始该曲目吗？"
 
 # auto-translated
 #. Informational tooltip explaining what a semitone is.
-#: templates/base.html:39
+#: templates/base.html:47
 msgid ""
-"A semitone is also known as a half-step. It is the smallest interval used"
-" in classical Western music, equal to a twelfth of an octave or half a "
-"tone."
+"A semitone is also known as a half-step. It is the smallest interval used in"
+" classical Western music, equal to a twelfth of an octave or half a tone."
 msgstr "半音也称为半音。它是西方古典音乐中使用的最小音程，等于十二个八度或半个音。"
 
 # auto-translated
 #. Confirmation dialog when expanding the filesystem on Raspberry Pi, which
 #. triggers a reboot.
-#: templates/base.html:41
+#: templates/base.html:49
 msgid ""
 "Are you sure you want to expand the filesystem? This will reboot your "
 "raspberry pi."
@@ -573,40 +676,67 @@ msgstr "您确定要扩展文件系统吗？这将重新启动您的树莓派。
 
 # auto-translated
 #. Generic error prefix shown before an error message.
-#: templates/base.html:43
+#: templates/base.html:51
 msgid "Error"
 msgstr "错误"
 
 #. Prompt which asks the user their name when they first try to add to the
 #. queue.
-#: templates/base.html:96
+#: templates/base.html:116
 msgid ""
 "Please enter your name. This will show up next to the songs you queue up "
 "from this device."
 msgstr "演唱者（我）的名字是："
 
+# auto-translated
+#. Accessible label for the banner naming the karaoke session in progress.
+#. {name} is replaced with the session's name.
+#: templates/base.html:144 templates/base.html:413
+#, python-brace-format
+msgid "Current session: {name}"
+msgstr "当前会话：{name}"
+
 #. Navigation link for the home page.
-#: templates/base.html:210
+#: templates/base.html:330
 msgid "Home"
 msgstr "主页"
 
 #. Navigation link for the queue page.
-#: templates/base.html:216 templates/queue.html:492
+#: templates/base.html:336 templates/queue.html:509
 msgid "Queue"
 msgstr "列表"
 
-#. Navigation link for the search page add songs to the queue.
-#. Submit button on the search form for searching YouTube.
-#: templates/base.html:221 templates/search.html:589
-msgid "Search"
-msgstr "搜索"
+# auto-translated
+#. Dropdown link to the most-played songs and most active singers.
+#: templates/base.html:380
+msgid "Rankings"
+msgstr "排行榜"
+
+# auto-translated
+#. Dropdown link to the log of everything that has been sung.
+#. Header of the play history management section of the settings page.
+#: templates/base.html:385 templates/info.html:432
+msgid "Play History"
+msgstr "播放历史"
+
+# auto-translated
+#. Dropdown link to the karaoke session management page, only shown to the
+#. host.
+#: templates/base.html:392
+msgid "Sessions"
+msgstr "会议"
+
+# auto-translated
+#. Dropdown link to the settings and system information page.
+#: templates/base.html:398
+msgid "Settings"
+msgstr "设置"
 
 # auto-translated
 #. Message about the wait for loading the songs
 #: templates/batch-song-renamer.html:136
 msgid ""
-"The loading process may take a few seconds, as the song titles are "
-"compared online. Loading time may vary\n"
+"The loading process may take a few seconds, as the song titles are compared online. Loading time may vary\n"
 "\tbased on your internet connection."
 msgstr ""
 "由于歌曲名称是在线比较的，加载过程可能需要几秒钟。加载时间可能会有所不同\n"
@@ -640,7 +770,8 @@ msgstr ""
 
 # auto-translated
 #. Button which changes to show all songs
-#: templates/batch-song-renamer.html:150
+#. Button which stops filtering the play log to one song.
+#: templates/batch-song-renamer.html:150 templates/history.html:438
 msgid "Show all songs"
 msgstr "显示所有歌曲"
 
@@ -650,82 +781,211 @@ msgstr "显示所有歌曲"
 msgid "Loading songs..."
 msgstr "正在加载歌曲..."
 
+# auto-translated
+#. Help text explaining that clicking a suggestion copies it to the filename
+#. input.
+#: templates/edit.html:46
+msgid "Click a suggestion to use it as the new filename."
+msgstr "单击建议以将其用作新文件名。"
+
 #. Warning when no suggested tracks are found for a search.
-#: templates/edit.html:30
+#: templates/edit.html:49
 msgid "No suggestion!"
 msgstr "没有搜索建议！"
 
-#. Page title for the page where a song can be edited.
-#: templates/edit.html:55
-msgid "Edit Song"
-msgstr "修改歌曲"
-
-#. Label on the control to edit the song's name
-#: templates/edit.html:69
-msgid "Edit Song Name"
-msgstr "修改歌曲名称"
-
-#. Label on button which auto formats the song's title.
-#: templates/edit.html:76
-msgid "Auto-format"
-msgstr "自动整理"
-
-#. Label on button which swaps the order of the artist and song in the title.
-#: templates/edit.html:78
-msgid "Swap artist/song order"
-msgstr "切换歌手/歌曲顺序"
+# auto-translated
+#. Page title for the page where a song can be renamed.
+#: templates/edit.html:99
+msgid "Rename Song"
+msgstr "重命名歌曲"
 
 # auto-translated
-#. Label on button which suggests song titles from the website Last.fm.
-#: templates/edit.html:81
-msgid "Suggest from Last.fm"
-msgstr "来自 Last.fm 的建议"
+#. Label showing the original filename on disk before editing.
+#: templates/edit.html:108
+msgid "Current filename"
+msgstr "当前文件名"
+
+# auto-translated
+#. Label for the input where the user types the new filename.
+#: templates/edit.html:127
+msgid "New filename"
+msgstr "新文件名"
+
+# auto-translated
+#. Label on button which applies automatic formatting to tidy the filename.
+#: templates/edit.html:138
+msgid "Auto Format"
+msgstr "自动格式化"
+
+# auto-translated
+#. Label on button which swaps the artist and title around the dash separator.
+#: templates/edit.html:143
+msgid "Swap Artist/Title"
+msgstr "交换艺术家/标题"
+
+# auto-translated
+#. Label on button which searches for track name suggestions from iTunes.
+#: templates/edit.html:150
+msgid "Suggest from iTunes"
+msgstr "来自 iTunes 的建议"
+
+# auto-translated
+#. Label for iTunes search country dropdown
+#: templates/edit.html:155 templates/info.html:416
+msgid "iTunes search country"
+msgstr "iTunes 搜索国家/地区"
 
 #. Label on button which saves the changes.
-#: templates/edit.html:90
+#: templates/edit.html:169
 msgid "Save"
 msgstr "保存"
 
 # auto-translated
-#: templates/edit.html:95
+#: templates/edit.html:174
 msgid "Cancel"
 msgstr "取消"
 
 #. Label on button which deletes the current song.
-#: templates/edit.html:106
+#: templates/edit.html:183
 msgid "Delete this song"
 msgstr "删除此曲"
 
-#. Label which displays that the songs are currently sorted by
-#. alphabetical order.
-#: templates/files.html:92
-msgid "Sorted Alphabetically"
-msgstr "现在歌曲正在按字母排序"
-
-#. Button which changes how the songs are sorted so they become sorted by date.
-#: templates/files.html:94
-msgid ""
-"Sort by\n"
-"\t\t\tDate"
-msgstr "现在歌曲正在按日期排序"
-
-#. Label which displays that the songs are currently sorted by
-#. date.
-#: templates/files.html:98
-msgid "Sorted by date"
-msgstr "现在歌曲正在按日期排序"
-
-#. Button which changes how the songs are sorted so they become sorted by name.
-#: templates/files.html:100
-msgid ""
-"Sort by\n"
-"\t\t\tAlphabetical"
-msgstr "用字母排序"
-
+# auto-translated
 #. Button to open the batch song renamer page.
-#: templates/files.html:107
-msgid "Edit all songs"
-msgstr "編輯所有歌曲"
+#: templates/files.html:218
+msgid "Bulk rename"
+msgstr "批量重命名"
+
+# auto-translated
+#. Subtitle under the Songs heading, explaining that this page lists songs
+#. already downloaded.
+#: templates/files.html:224
+msgid "Available in the library"
+msgstr "在图书馆可以找到"
+
+# auto-translated
+#. Breadcrumb link back to the top level of the folder view.
+#: templates/files.html:353
+msgid "All folders"
+msgstr "所有文件夹"
+
+# auto-translated
+#. Placeholder in the box that filters the songs already on this machine.
+#: templates/files.html:377
+msgid "Search by title, artist..."
+msgstr "按标题、艺术家搜索..."
+
+#. Button which empties the filter box and shows every song again.
+#. Link which clears the text from the search box.
+#: templates/files.html:383 templates/search.html:552
+msgid "Clear"
+msgstr "清除所有"
+
+# auto-translated
+#. Button which lists every song at once, ignoring the folders they are stored
+#. in.
+#: templates/files.html:441
+msgid "All songs"
+msgstr "所有歌曲"
+
+# auto-translated
+#. Button which groups the songs by the folder they are stored in.
+#: templates/files.html:446
+msgid "Folders"
+msgstr "文件夹"
+
+# auto-translated
+#. Button which changes how the songs are sorted so they become sorted by
+#. name.
+#: templates/files.html:457
+msgid "Sort Alphabetically"
+msgstr "按字母顺序排序"
+
+# auto-translated
+#. Button which changes how the songs are sorted so they become sorted by
+#. date.
+#: templates/files.html:462
+msgid "Sort by Date"
+msgstr "按日期排序"
+
+# auto-translated
+#. Confirmation before deleting one entry from the play log.
+#: templates/history.html:40
+msgid "Delete this entry from the play log?"
+msgstr "从播放日志中删除此条目吗？"
+
+# auto-translated
+#. Shown when the play log has no entries yet.
+#. Shown on the rankings page when no songs have been played yet.
+#: templates/history.html:42 templates/rankings.html:172
+msgid "Nothing has been played yet."
+msgstr "还没有播放任何内容。"
+
+# auto-translated
+#. Status of a song that was sung all the way through.
+#. Play log column header for when the song was played.
+#: templates/history.html:44 templates/history.html:465
+msgid "Played"
+msgstr "玩过"
+
+# auto-translated
+#. Status of a song that was skipped before it finished.
+#: templates/history.html:46
+msgid "Skipped"
+msgstr "跳过"
+
+# auto-translated
+#. Status of the song that is playing right now, which has not finished yet.
+#: templates/history.html:48
+msgid "Playing"
+msgstr "演奏"
+
+# auto-translated
+#: templates/history.html:182 templates/queue.html:164
+#: templates/queue.html:326 templates/sessions.html:153
+msgid "Options"
+msgstr "选项"
+
+# auto-translated
+#. Button which stops filtering the play log to one singer.
+#: templates/history.html:421
+msgid "Show all performers"
+msgstr "显示所有表演者"
+
+# auto-translated
+#. Checkbox which hides songs that were skipped before they finished.
+#: templates/history.html:447
+msgid "Hide skipped"
+msgstr "隐藏跳过的"
+
+# auto-translated
+#. Play log column header for whether the song was played through, skipped, or
+#. is still playing.
+#: templates/history.html:476
+msgid "Status"
+msgstr "地位"
+
+#. Menu item which adds the song from this play log entry to the queue.
+#. Button which adds an already-downloaded song to the queue.
+#. Button which downloads a song and puts it straight in the queue.
+#: templates/history.html:496 templates/rankings.html:151
+#: templates/search.html:369 templates/search.html:577
+#: templates/search.html:644 templates/search.html:654
+msgid "Add to queue"
+msgstr "添加至播放列表"
+
+# auto-translated
+#. Shown in place of "add to queue" when the song has since been removed from
+#. the library.
+#: templates/history.html:501
+msgid "This song is no longer in the library"
+msgstr "这首歌已经不在库里了"
+
+# auto-translated
+#. Menu item which removes this entry from the play log.
+#: templates/history.html:506
+msgid "Delete entry"
+msgstr "删除条目"
 
 #. Message which shows in the "Now Playing" section when there is no song
 #. currently playing
@@ -746,48 +1006,53 @@ msgstr "没有下一首歌"
 #. Confirmation message when clicking a button to skip a track.
 #: templates/home.html:134
 msgid ""
-"Are you sure you want to skip this track? If you didn't add this song, "
-"ask permission first!"
+"Are you sure you want to skip this track? If you didn't add this song, ask "
+"permission first!"
 msgstr "你确定要跳过这首歌？"
 
 #. Header showing the currently playing song.
-#: templates/home.html:181
+#: templates/home.html:235
 msgid "Now Playing"
 msgstr "正在播放曲目"
 
 #. Title for the section displaying the next song to be played.
-#: templates/home.html:194
+#: templates/home.html:248
 msgid "Next Song"
 msgstr "下一首歌"
 
 #. Title of the box with controls such as pause and skip.
-#: templates/home.html:201
+#: templates/home.html:255
 msgid "Player Control"
 msgstr "播放器"
 
 #. Title attribute on the button to play or pause the current song.
-#: templates/home.html:205
+#: templates/home.html:259
 msgid "Restart Song"
 msgstr "重新开始"
 
 #. Title attribute on the button to skip to the next song.
-#: templates/home.html:207
+#: templates/home.html:261
 msgid "Play/Pause"
 msgstr "播放/暂停"
 
-#: templates/home.html:209
+#: templates/home.html:263
 msgid "Stop Current Song"
 msgstr "停止并跳到下一首歌"
 
 #. Title of a control to change the key/pitch of the playing song.
-#: templates/home.html:231
+#: templates/home.html:285
 msgid "Change Key"
 msgstr "升降调"
 
 #. Label on the button to confirm the change in key/pitch of the playing song.
-#: templates/home.html:251
+#: templates/home.html:305
 msgid "Change"
 msgstr "确认更改声调"
+
+# auto-translated
+#: templates/home.html:315 templates/info.html:553
+msgid "Microphones"
+msgstr "麦克风"
 
 #. Confirmation text whe the user selects quit.
 #: templates/info.html:67
@@ -822,236 +1087,364 @@ msgstr "确定升级yt-dlp？会终止正在下载的音乐"
 # auto-translated
 #. Confirmation text when the user wants to expand the filesystem to take the
 #. entire SD card.
-#: templates/info.html:179
+#: templates/info.html:166 templates/info.html:558
+msgid ""
+"No microphones detected. Connect a USB or Bluetooth mic and click Refresh."
+msgstr "未检测到麦克风。连接 USB 或蓝牙麦克风，然后单击“刷新”。"
+
+# auto-translated
+#: templates/info.html:232
+msgid "Scanning..."
+msgstr "扫描..."
+
+# auto-translated
+#: templates/info.html:234 templates/info.html:579
+msgid "Refresh"
+msgstr "刷新"
+
+# auto-translated
+#. Confirmation before deleting the entire play history. The host must type ok
+#. to proceed.
+#: templates/info.html:280
+msgid ""
+"Delete ALL play history - every session and every play, for good? Type "
+"\"ok\" to continue."
+msgstr "永久删除所有游戏历史记录 - 每个会话和每个游戏？输入“确定”继续。"
+
+# auto-translated
+#. Notification shown once the play history has been erased.
+#: templates/info.html:287
+msgid "Play history erased"
+msgstr "播放历史记录已删除"
+
+# auto-translated
+#: templates/info.html:300
 msgid "Library sync complete"
 msgstr "库同步完成"
 
 #. Title of the information page.
-#: templates/info.html:189
+#: templates/info.html:310
 msgid "Information"
 msgstr "信息"
 
 #. Label which appears before a url which links to the current page.
-#: templates/info.html:201
+#: templates/info.html:322
 #, python-format
 msgid "URL of %(site_title)s:"
 msgstr "%(site_title)s 的网址"
 
 #. Label before a QR code which brings a frind (pal) to the main page if
 #. scanned, so they can also add songs. QR code follows this text.
-#: templates/info.html:207
+#: templates/info.html:328
 msgid "Handy URL QR code to share with a pal:"
 msgstr "快捷QR码（用于分享给朋友）"
 
 # auto-translated
 #. Title of the admin section.
-#: templates/info.html:215 templates/info.html:578
+#: templates/info.html:336 templates/info.html:860
 msgid "Admin"
 msgstr "行政"
 
 #. Title fo the form to enter the administrator password.
-#: templates/info.html:221
+#: templates/info.html:342
 msgid "Enter the administrator password"
 msgstr "输入管理员密码"
 
 #. Text on submit button for the admin login form.
-#: templates/info.html:230
+#: templates/info.html:351
 msgid "Login"
 msgstr "登录"
 
 # auto-translated
 #. Title of the song library section.
-#: templates/info.html:242
+#: templates/info.html:363
 msgid "Song Library"
 msgstr "歌库"
 
 # auto-translated
 #. Header of the song library management section.
-#: templates/info.html:247
+#: templates/info.html:368
 msgid "Library"
 msgstr "图书馆"
 
 # auto-translated
 #. Song count display in the library card.
-#: templates/info.html:253
+#: templates/info.html:374
 msgid "Songs in library:"
 msgstr "库里的歌曲："
 
 # auto-translated
 #. Button to trigger a background library scan.
-#: templates/info.html:257
+#: templates/info.html:378
 msgid "Sync Now"
 msgstr "立即同步"
 
 # auto-translated
 #. Help text explaining what Sync Now does.
-#: templates/info.html:261
+#: templates/info.html:382
 msgid "Reconciles the library with the song directory in the background."
 msgstr "在后台协调库与歌曲目录。"
 
 # auto-translated
+#. Header of the song renaming settings section.
+#: templates/info.html:391
+msgid "Renaming"
+msgstr "重命名"
+
+# auto-translated
+#. Option for naming songs artist first, e.g. "Abba - Waterloo".
+#: templates/info.html:399
+msgid "Artist - Title"
+msgstr "艺术家 - 头衔"
+
+# auto-translated
+#. Option for naming songs title first, e.g. "Waterloo - Abba".
+#: templates/info.html:401
+msgid "Title - Artist"
+msgstr "头衔 - 艺术家"
+
+# auto-translated
+#. Label for the suggestion name order dropdown
+#: templates/info.html:404
+msgid "Order of iTunes suggested song names"
+msgstr "iTunes 建议歌曲名称的顺序"
+
+# auto-translated
+#. Button which deletes the entire play history, every session and every play.
+#: templates/info.html:438
+msgid "Reset all history"
+msgstr "重置所有历史记录"
+
+# auto-translated
+#. Help text explaining what Reset all history does.
+#: templates/info.html:442
+msgid "Deletes every session and every play on record. This cannot be undone."
+msgstr "删除记录中的每个会话和每个播放。此操作无法撤消。"
+
+# auto-translated
 #. Title of the user preferences section.
-#: templates/info.html:268
+#: templates/info.html:449
 msgid "User Preferences"
 msgstr "用户偏好"
 
 # auto-translated
 #. Title text for the splash screen settings section of preferences
-#: templates/info.html:274
+#: templates/info.html:455
 msgid "Splash screen settings"
 msgstr "启动画面设置"
 
 # auto-translated
 #. Checkbox label which enable/disables background video on the Splash Screen
-#: templates/info.html:282
+#: templates/info.html:463
 msgid "Disable background video"
 msgstr "禁用背景视频"
 
 # auto-translated
 #. Checkbox label which enable/disables background music on the Splash Screen
-#: templates/info.html:288
+#: templates/info.html:469
 msgid "Disable background music"
 msgstr "禁用背景音乐"
 
 # auto-translated
 #. Checkbox label which enable/disables the Score Screen
-#: templates/info.html:294
+#: templates/info.html:475
 msgid "Disable the score screen after each song"
 msgstr "每首歌曲后禁用乐谱屏幕"
 
 # auto-translated
 #. Checkbox label which enable/disables notifications on the splash screen
-#: templates/info.html:300
+#: templates/info.html:481
 msgid "Hide notifications"
 msgstr "隐藏通知"
 
 # auto-translated
 #. Checkbox label which enable/disables the digital clock on the splash screen
-#: templates/info.html:306
+#: templates/info.html:487
 msgid "Show splash clock"
 msgstr "显示启动时钟"
 
 # auto-translated
 #. Checkbox label which enable/disables the URL display
-#: templates/info.html:311
+#: templates/info.html:492
 msgid "Hide the URL and QR code"
 msgstr "隐藏网址和二维码"
 
 # auto-translated
+#. Checkbox label which enables/disables the logo in the middle of the splash
+#. screen
+#: templates/info.html:498
+msgid "Hide the logo on the splash screen"
+msgstr "隐藏启动屏幕上的徽标"
+
+# auto-translated
+#. Checkbox label which enables/disables the karaoke session name shown under
+#. the logo on the splash screen
+#: templates/info.html:504
+msgid "Hide the session name on the splash screen"
+msgstr "在启动屏幕上隐藏会话名称"
+
+# auto-translated
 #. Checkbox label which enable/disables showing overlay data on the splash
 #. screen
-#: templates/info.html:317
+#: templates/info.html:510
 msgid "Hide all overlays, including now playing, up next, and QR code"
 msgstr "隐藏所有叠加层，包括正在播放、下一个和二维码"
 
 # auto-translated
 #. Numberbox label for setting the default video volume
-#: templates/info.html:323
+#: templates/info.html:516
 msgid "Default volume of the videos (min 0, max 100)"
 msgstr "视频的默认音量（最小 0，最大 100）"
 
 # auto-translated
 #. Numberbox label for setting the background music volume
-#: templates/info.html:329
+#: templates/info.html:522
 msgid "Volume of the background music (min 0, max 100)"
 msgstr "背景音乐音量（最小 0，最大 100）"
 
 # auto-translated
 #. Numberbox label for setting the inactive delay before showing the
 #. screensaver
-#: templates/info.html:336
+#: templates/info.html:529
 msgid ""
-"The amount of idle time in seconds before the screen saver activates. Set"
-" to 0 to disable it."
+"The amount of idle time in seconds before the screen saver activates. Set to"
+" 0 to disable it."
 msgstr "屏幕保护程序激活之前的空闲时间（以秒为单位）。设置为 0 以禁用它。"
 
 # auto-translated
 #. Numberbox label for setting the delay before playing the next song
-#: templates/info.html:343
+#: templates/info.html:536
 msgid "The delay in seconds before starting the next song"
 msgstr "开始下一首歌曲之前的延迟（以秒为单位）"
 
 # auto-translated
+#: templates/info.html:547
+msgid "Audio"
+msgstr "声音的"
+
+# auto-translated
+#: templates/info.html:555
+msgid ""
+"Microphones detected on the server. Audio is routed directly to speakers."
+msgstr "在服务器上检测到麦克风。音频直接传送至扬声器。"
+
+# auto-translated
+#: templates/info.html:563
+msgid "Latency"
+msgstr "延迟"
+
+# auto-translated
+#: templates/info.html:571
+msgid "Echo cancellation"
+msgstr "回声消除"
+
+# auto-translated
+#: templates/info.html:573
+msgid "Experimental"
+msgstr "实验性的"
+
+# auto-translated
+#: templates/info.html:574
+msgid "(reduces feedback, adds latency)"
+msgstr "（减少反馈，增加延迟）"
+
+# auto-translated
+#: templates/info.html:582
+msgid ""
+"Microphone support is unavailable. Required audio tools are not installed."
+msgstr "麦克风支持不可用。未安装所需的音频工具。"
+
+# auto-translated
+#: templates/info.html:585
+msgid "On Linux / Raspberry Pi, install it with:"
+msgstr "在 Linux / Raspberry Pi 上，安装它："
+
+# auto-translated
+#: templates/info.html:587
+msgid "and restart PiKaraoke."
+msgstr "并重新启动 PiKaraoke。"
+
+# auto-translated
 #. Title text for the Score Phrases section of preferences
-#: templates/info.html:354
+#: templates/info.html:599
 msgid "Score phrases"
 msgstr "给短语评分"
 
 # auto-translated
 #. Help text explaining how to add phrases
-#: templates/info.html:361
+#: templates/info.html:606
 msgid "Add one phrase per line in each box and hit save."
 msgstr "在每个框中每行添加一个短语，然后点击“保存”。"
 
 # auto-translated
 #. Title for LOW Score Phrases
-#: templates/info.html:363
+#: templates/info.html:608
 msgid "LOW Score Phrases (score < 30)"
 msgstr "低分短语（分数 < 30）"
 
 # auto-translated
 #. Placeholder for the low score phrases textarea
-#: templates/info.html:365
+#: templates/info.html:610
 msgid "Could be better..."
 msgstr "可能会更好..."
 
 # auto-translated
 #. Title for MID Score Phrases
-#: templates/info.html:368
+#: templates/info.html:613
 msgid "MID Score Phrases (30 > score < 60)"
 msgstr "MID 得分短语 (30 > 得分 < 60)"
 
 # auto-translated
 #. Placeholder for the MID score phrases textarea
-#: templates/info.html:370
+#: templates/info.html:615
 msgid "That was ok..."
 msgstr "那就可以了..."
 
 # auto-translated
 #. Title for HIGH Score Phrases
-#: templates/info.html:373
+#: templates/info.html:618
 msgid "HIGH Score Phrases (60 < score)"
 msgstr "高分短语（60 < 分数）"
 
 # auto-translated
 #. Placeholder for the HIGH score phrases textarea
-#: templates/info.html:375
+#: templates/info.html:620
 msgid "Wonderfull..."
 msgstr "精彩..."
 
 # auto-translated
 #. Title text for the language settings section of preferences
-#: templates/info.html:383
+#: templates/info.html:628
 msgid "Language settings"
 msgstr "语言设置"
 
 # auto-translated
 #. Label for language selection dropdown
-#: templates/info.html:396
+#: templates/info.html:641
 msgid "Preferred language (requires restart)"
 msgstr "首选语言（需要重新启动）"
 
 # auto-translated
 #. Title text for the server settings section of preferences
-#: templates/info.html:405
+#: templates/info.html:650
 msgid "Server settings"
 msgstr "服务器设置"
 
 # auto-translated
 #. Checkbox label which enable/disables audio volume normalization
-#: templates/info.html:412
+#: templates/info.html:657
 msgid "Normalize audio volume"
 msgstr "标准化音量"
 
 # auto-translated
 #. Checkbox label which enable/disables high quality video downloads
-#: templates/info.html:418
+#: templates/info.html:663
 msgid "Download high quality videos"
 msgstr "下载高质量视频"
 
 # auto-translated
 #. Checkbox label which enable/disables full transcode before playback
-#: templates/info.html:424
+#: templates/info.html:669
 msgid ""
 "Transcode video completely before playing (better browser compatibility, "
 "slower starts). Buffer size will be ignored.*"
@@ -1059,15 +1452,31 @@ msgstr "在播放前对视频进行完全转码（浏览器兼容性更好，启
 
 # auto-translated
 #. Checkbox label which enable/disables CDG pixel scaling
-#: templates/info.html:430
+#: templates/info.html:675
 msgid ""
-"Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU"
-" usage)"
+"Enable CDG pixel scaling (crisper visuals for CDG files, may increase CPU "
+"usage)"
 msgstr "启用 CDG 像素缩放（CDG 文件的视觉效果更清晰，可能会增加 CPU 使用率）"
 
 # auto-translated
+#. Checkbox label which enables automatic cleanup of YouTube song titles
+#: templates/info.html:681
+msgid ""
+"Enable automatic YouTube title cleanup (strips noise words like \"Karaoke "
+"Version HD\")"
+msgstr "启用自动 YouTube 标题清​​理（删除“卡拉 OK 版本高清”等干扰词）"
+
+# auto-translated
+#. Checkbox label which enables browsing the song library by folder
+#: templates/info.html:687
+msgid ""
+"Enable folder browsing (adds a Folders view to the Songs page when the "
+"library has subfolders)"
+msgstr "启用文件夹浏览（当库有子文件夹时，将文件夹视图添加到歌曲页面）"
+
+# auto-translated
 #. Numberbox label for audio video synchronization
-#: templates/info.html:437
+#: templates/info.html:694
 msgid ""
 "Fix the audio and video synchronization in seconds (negative = advances "
 "audio | positive = delays audio)"
@@ -1075,114 +1484,147 @@ msgstr "在几秒钟内修复音频和视频同步（负=提前音频|正=延迟
 
 # auto-translated
 #. Numberbox label for limitting the number of songs for each player
-#: templates/info.html:444
+#: templates/info.html:701
 msgid "Limit of songs an individual user can add to the queue (0 = unlimited)"
 msgstr "单个用户可以添加到队列中的歌曲数量限制（0 = 无限制）"
 
 # auto-translated
 #. Checkbox label which enable/disables fair queue (round-robin) mode
-#: templates/info.html:450
+#: templates/info.html:707
 msgid "Enable fair queue (round-robin mode ensures users take turns)"
 msgstr "启用公平队列（循环模式确保用户轮流）"
 
 # auto-translated
 #. Numberbox label for setting the buffer size in kilobytes
-#: templates/info.html:457
+#: templates/info.html:714
 msgid ""
-"Buffer size in kilobytes. Transcode this amount of the video before "
-"sending it to the splash screen. "
+"Buffer size in kilobytes. Transcode this amount of the video before sending "
+"it to the splash screen. "
 msgstr "缓冲区大小（以千字节为单位）。在将视频发送到启动屏幕之前对其进行转码。"
 
 # auto-translated
+#. Label for the dropdown choosing how many songs are shown per page on the
+#. Songs page.
+#: templates/info.html:727
+msgid "Default songs per page."
+msgstr "每页默认歌曲。"
+
+# auto-translated
+#. Shown instead of the keep-awake checkbox when running in a container.
+#: templates/info.html:734
+msgid ""
+"Keep the server awake: unavailable in a container. Disable sleep on the "
+"host."
+msgstr "保持服务器唤醒：在容器中不可用。禁用主机上的睡眠。"
+
+# auto-translated
+#. Shown instead of the keep-awake checkbox when the required tool is missing.
+#: templates/info.html:736
+msgid ""
+"Keep the server awake: needs systemd-inhibit (Linux) or caffeinate (macOS)."
+msgstr "保持服务器唤醒：需要 systemd-inhibit (Linux) 或 caffeinate (macOS)。"
+
+# auto-translated
+#. Shown instead of the keep-awake checkbox on platforms without a wake lock.
+#: templates/info.html:738
+msgid "Keep the server awake: not supported on this platform."
+msgstr "保持服务器唤醒：此平台不支持。"
+
+# auto-translated
+#. Checkbox label which stops the server machine from sleeping
+#: templates/info.html:744
+msgid "Keep the server awake while PiKaraoke is running"
+msgstr "PiKaraoke 运行时保持服务器处于唤醒状态"
+
+# auto-translated
 #. Text for the link where the user can clear all user preferences
-#: templates/info.html:470
+#: templates/info.html:751
 msgid "Clear preferences"
 msgstr "明确的偏好"
 
 #. Title of the system data section.
-#: templates/info.html:478
+#: templates/info.html:759
 msgid "System Data"
 msgstr "系统信息"
 
 #. Header of the information section about the computer running Pikaraoke.
-#: templates/info.html:483
+#: templates/info.html:764
 msgid "System Info"
 msgstr "系统信息"
 
 # auto-translated
 #. The hardware platform
-#: templates/info.html:489
+#: templates/info.html:770
 msgid "Platform:"
 msgstr "平台："
 
 # auto-translated
 #. The os version
-#: templates/info.html:491
+#: templates/info.html:772
 msgid "OS Version:"
 msgstr "操作系统版本："
 
 #. The version of the program "yt-dlp".
-#: templates/info.html:493
+#: templates/info.html:774
 msgid "yt-dlp version:"
 msgstr "yt-dlp 版本:"
 
 # auto-translated
 #. The version of the program "ffmpeg".
-#: templates/info.html:495
+#: templates/info.html:776
 msgid "FFmpeg version:"
 msgstr "FFmpeg 版本："
 
 #. The version of Pikaraoke running right now.
-#: templates/info.html:497
+#: templates/info.html:778
 msgid "Pikaraoke version:"
 msgstr "卡拉OK派 版本:"
 
 #. Header of the information section about the System stats.
-#: templates/info.html:503
+#: templates/info.html:784
 msgid "System stats"
 msgstr "系统信息"
 
 # auto-translated
 #. The CPU usage of the computer running Pikaraoke.
-#: templates/info.html:509
+#: templates/info.html:790
 msgid "CPU:"
 msgstr "中央处理器："
 
 # auto-translated
-#: templates/info.html:509 templates/info.html:511 templates/info.html:513
+#: templates/info.html:790 templates/info.html:792 templates/info.html:794
 msgid "Loading..."
 msgstr "加载中..."
 
 # auto-translated
 #. The disk usage of the computer running Pikaraoke. Used by downloaded songs.
-#: templates/info.html:511
+#: templates/info.html:792
 msgid "Disk Usage:"
 msgstr "磁盘使用情况："
 
 # auto-translated
 #. The memory (RAM) usage of the computer running Pikaraoke.
-#: templates/info.html:513
+#: templates/info.html:794
 msgid "Memory:"
 msgstr "记忆："
 
 #. Title of the updates section.
-#: templates/info.html:520
+#: templates/info.html:801
 msgid "Updates"
 msgstr "更新"
 
 # auto-translated
 #. Label for the YT-DLP update on the updates section
-#: templates/info.html:525
+#: templates/info.html:806
 msgid "YT-DLP update"
 msgstr "YT-DLP 更新"
 
 #. Text explaining why you might want to update yt-dlp.
-#: templates/info.html:530
+#: templates/info.html:811
 #, python-format
 msgid ""
 "\n"
-"\t\t\t\t\t\tIf downloads or searches stopped working, updating yt-dlp "
-"will probably fix it.<br/>\n"
+"\t\t\t\t\t\tIf downloads or searches stopped working, updating yt-dlp will probably fix it.<br/>\n"
 "\t\t\t\t\t\tThe current installed version is: \"%(youtubedl_version)s\".\n"
 "\t\t\t\t\t"
 msgstr ""
@@ -1191,40 +1633,37 @@ msgstr ""
 
 #. Text for the link which will try and update yt-dlp on the machine running
 #. Pikaraoke.
-#: templates/info.html:536
+#: templates/info.html:817
 msgid "Update yt-dlp"
 msgstr "更新 yt-dlp"
 
 #. Help text which explains why updating yt-dlp can fail. The log is a file on
 #. the machine running Pikaraoke.
-#: templates/info.html:540
+#: templates/info.html:821
 msgid ""
-"* This update link above may fail if you don't have proper file "
-"permissions.\n"
+"* This update link above may fail if you don't have proper file permissions.\n"
 "\t\t\t\t\t\t\tCheck the pikaraoke log for errors."
 msgstr ""
 "以上的链接有可能失败，如果你没有相应的权限的话.\n"
 "    查看卡拉OK派的错误日志以检查错误"
 
 #. Title of the updates section.
-#: templates/info.html:552
+#: templates/info.html:834
 msgid "Other"
 msgstr "其他"
 
 #. Title for section containing a few other options on the Info page.
 #. Text for button
-#: templates/info.html:557 templates/info.html:569
+#: templates/info.html:839 templates/info.html:851
 msgid "Expand Raspberry Pi filesystem"
 msgstr "拓展Raspberry Pi文件系统"
 
 #. Explainitory text which explains why you might want to expand the
 #. filesystem.
-#: templates/info.html:562
+#: templates/info.html:844
 msgid ""
-"If you just installed the pre-built pikaraoke pi image and your SD card "
-"is larger than 4GB,\n"
-"\t\t\t\t\t\t\tyou may want to expand the filesystem to utilize the "
-"remaining space. You only need to do this once.\n"
+"If you just installed the pre-built pikaraoke pi image and your SD card is larger than 4GB,\n"
+"\t\t\t\t\t\t\tyou may want to expand the filesystem to utilize the remaining space. You only need to do this once.\n"
 "\t\t\t\t\t\t\tThis will reboot the system."
 msgstr ""
 "如果你刚刚安装预设卡拉OK派图片而且你的SD卡超过4GB,\n"
@@ -1233,25 +1672,25 @@ msgstr ""
 
 # auto-translated
 #. Message for the log out user from admin mode button.
-#: templates/info.html:584
+#: templates/info.html:866
 msgid "Click here to logout from admin mode."
 msgstr "单击此处从管理模式注销。"
 
 # auto-translated
 #. Link which will log out the user from admin mode.
-#: templates/info.html:586
+#: templates/info.html:868
 msgid "Log out"
 msgstr "退出"
 
 #. Title of the section on shutting down / turning off the machine running
 #. Pikaraoke.
-#: templates/info.html:593
+#: templates/info.html:875
 msgid "Shutdown"
 msgstr "关闭"
 
 # auto-translated
 #. Explainitory text which explains why to use the shutdown link.
-#: templates/info.html:600
+#: templates/info.html:882
 msgid ""
 "Don't just pull the plug! Always shut down your server properly to avoid "
 "data corruption."
@@ -1259,201 +1698,271 @@ msgstr "不要只是拔掉插头！始终正确关闭服务器以避免数据损
 
 #. Text for button which turns off Pikaraoke for everyone using it at your
 #. house.
-#: templates/info.html:607
+#: templates/info.html:889
 msgid "Quit Pikaraoke"
 msgstr "退出卡拉OK派"
 
 #. Text for button which reboots the machine running Pikaraoke.
-#: templates/info.html:610
+#: templates/info.html:893
 msgid "Reboot System"
 msgstr "重启系统"
 
 #. Text for button which turn soff the machine running Pikaraoke.
-#: templates/info.html:613
+#: templates/info.html:896
 msgid "Shutdown System"
 msgstr "关机"
 
 # auto-translated
-#: templates/queue.html:164 templates/queue.html:313
-msgid "Options"
-msgstr "选项"
+#. Tooltip on the button showing the previous page of a table.
+#: templates/partials/pager.html:32 templates/partials/pager.html:63
+msgid "Previous page"
+msgstr "上一页"
 
 # auto-translated
-#: templates/queue.html:213
+#. Tooltip on the button showing the next page of a table.
+#: templates/partials/pager.html:34 templates/partials/pager.html:67
+msgid "Next page"
+msgstr "下一页"
+
+# auto-translated
+#. Pagination summary. {start}, {end} and {total} are replaced with numbers,
+#. reading for example "1-100 of 2000".
+#: templates/partials/pager.html:39 templates/partials/pager.html:82
+#, python-brace-format
+msgid "{start}-{end} of {total}"
+msgstr "{start}-{end} 共 {total}"
+
+# auto-translated
+#. Label before the dropdown choosing how many rows to list per page.
+#: templates/partials/pager.html:44
+msgid "Per page"
+msgstr "每页"
+
+# auto-translated
+#. Dropdown option covering every karaoke session ever recorded.
+#: templates/partials/session_filter.html:18
+msgid "All sessions"
+msgstr "所有会议"
+
+# auto-translated
+#: templates/queue.html:214
 msgid "Pending downloads"
 msgstr "待下载"
 
 # auto-translated
 #: templates/queue.html:218
+msgid "Retrying"
+msgstr "重试"
+
+# auto-translated
+#: templates/queue.html:219
 msgid "Queued"
 msgstr "排队"
 
 # auto-translated
-#: templates/queue.html:226
+#: templates/queue.html:231
 msgid "Download Errors"
 msgstr "下载错误"
 
 # auto-translated
-#: templates/queue.html:235
+#: templates/queue.html:240
 msgid "Failed"
 msgstr "失败的"
 
 # auto-translated
-#: templates/queue.html:236
+#: templates/queue.html:241
+msgid "Retry"
+msgstr "重试"
+
+# auto-translated
+#: templates/queue.html:242
 msgid "Dismiss"
 msgstr "解雇"
 
 # auto-translated
-#: templates/queue.html:298
+#: templates/queue.html:311
 msgid "Drag to reorder"
 msgstr "拖动以重新排序"
 
-#: templates/queue.html:338
+#: templates/queue.html:351
 msgid "The queue is empty"
 msgstr "播放列表是空的"
 
 # auto-translated
-#: templates/queue.html:432
+#: templates/queue.html:449
 msgid "Play"
 msgstr "玩"
 
 # auto-translated
-#: templates/queue.html:434 templates/queue.html:559
+#: templates/queue.html:451 templates/queue.html:580
 msgid "Pause"
 msgstr "暂停"
 
 # auto-translated
-#: templates/queue.html:505
+#: templates/queue.html:522
 msgid ""
 "Add <input id=\"randomNumberInput\" class=\"input mx-2 p-2\" "
 "pattern=\"\\d*\" maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" "
 "style=\"width: 42px\" /> random songs"
 msgstr ""
-"添加 <input id=\"randomNumberInput\" class=\"input mx-2 p-2\" "
-"pattern=\"\\d*\" maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" "
-"style=\"width: 42px\" /> 随机歌曲"
+"添加 <input id=\"randomNumberInput\" class=\"input mx-2 p-2\" pattern=\"\\d*\""
+" maxlength=\"2\" value=\"3\" min=\"1\" max=\"99\" style=\"width: 42px\" /> "
+"随机歌曲"
 
-#: templates/queue.html:509
+#: templates/queue.html:526
 msgid "Clear all"
 msgstr "清除所有"
 
 # auto-translated
-#: templates/queue.html:523
+#: templates/queue.html:540
 msgid "Play Next"
 msgstr "播放下一个"
 
 # auto-translated
-#: templates/queue.html:523
+#: templates/queue.html:540
 msgid "Move to Top"
 msgstr "移至顶部"
 
 # auto-translated
-#: templates/queue.html:527
+#: templates/queue.html:544
 msgid "Move Up"
 msgstr "向上移动"
 
 # auto-translated
-#: templates/queue.html:531
+#: templates/queue.html:548
 msgid "Move Down"
 msgstr "下移"
 
 # auto-translated
-#: templates/queue.html:535
+#: templates/queue.html:552
 msgid "Move to Bottom"
 msgstr "移至底部"
 
 # auto-translated
-#: templates/queue.html:539
+#. Menu item which changes the name of a session that already has one.
+#. Button which changes the name of the session that is currently running.
+#: templates/queue.html:556 templates/sessions.html:43
+#: templates/sessions.html:651
+msgid "Rename"
+msgstr "重命名"
+
+# auto-translated
+#: templates/queue.html:560
 msgid "Remove from Queue"
 msgstr "从队列中删除"
 
 # auto-translated
-#: templates/queue.html:555
+#: templates/queue.html:576
 msgid "Restart"
 msgstr "重新启动"
 
 # auto-translated
-#: templates/queue.html:563
+#: templates/queue.html:584
 msgid "Skip"
 msgstr "跳过"
 
 # auto-translated
-#: templates/queue.html:571
+#: templates/queue.html:592
 msgid "Download queue"
 msgstr "下载队列"
 
-#: templates/search.html:242
-msgid "Available songs in local library"
-msgstr "本地曲库"
+# auto-translated
+#. Label before the dropdown choosing how many ranked rows to show.
+#: templates/rankings.html:39
+msgid "Show"
+msgstr "展示"
 
-#. Title for the search page.
-#: templates/search.html:574
-msgid "Search / Add New"
-msgstr "搜索 / 添加新歌"
+# auto-translated
+#. Ranking table column header for a row's position in the chart.
+#: templates/rankings.html:55
+msgid "Rank"
+msgstr "秩"
 
-#: templates/search.html:584
-msgid "Available Songs"
-msgstr "已有歌曲"
+# auto-translated
+#. Ranking table column header for how many times something was played.
+#. Session list column header for how many songs were played.
+#: templates/rankings.html:58 templates/sessions.html:689
+msgid "Plays"
+msgstr "戏剧"
 
-#. Submit button on the search form when selecting a locally downloaded song.
-#. The button adds it to                                         the queue.
-#: templates/search.html:592
-msgid "Add to queue"
-msgstr "添加至播放列表"
+# auto-translated
+#. Heading for the list of songs that have been sung the most times.
+#: templates/rankings.html:129
+msgid "Top songs"
+msgstr "热门歌曲"
 
-#. Link which clears the text from the search box.
-#: templates/search.html:598
-msgid "Clear"
-msgstr "清除所有"
+# auto-translated
+#. Heading for the list of people who have sung the most songs.
+#: templates/rankings.html:176
+msgid "Top performers"
+msgstr "表现最佳者"
 
-#. Checkbox label which enables more options when searching.
-#: templates/search.html:602
-msgid "Advanced"
-msgstr "高级设置"
+# auto-translated
+#. Shown on the rankings page when nobody has sung anything yet.
+#: templates/rankings.html:203
+msgid "Nobody has sung yet."
+msgstr "还没有人唱歌。"
 
-#. Help text below the search bar.
-#: templates/search.html:617
-msgid ""
-"- Type a song (title/artist) to search\n"
-"\t\t\t\t\t\t\t\tthe available songs and click 'Add to queue' to add it to"
-" the queue."
-msgstr "输入想唱的歌的名字，点击旁边的“添加至播放列表”按键以添加歌曲"
+# auto-translated
+#. Status shown on a search result that has been requested but has not arrived
+#. yet.
+#: templates/search.html:348
+msgid "Adding..."
+msgstr "添加..."
 
-#. Additonal help text below the search bar.
-#: templates/search.html:621
-msgid ""
-"- If the song doesn't appear in\n"
-"\t\t\t\t\t\t\t\tthe \"Available Songs\" dropdown, click 'Search' to find "
-"it on Youtube"
-msgstr "如果曲目不在“已有歌曲”列表中，点击”搜索“转跳到YouTube上搜索"
+# auto-translated
+#. Badge on a YouTube search result marking a song that is already downloaded.
+#: templates/search.html:375 templates/search.html:624
+msgid "In library"
+msgstr "在图书馆"
+
+# auto-translated
+#. Subtitle under the Add New heading, explaining that this page gets songs
+#. the
+#. machine does not have.
+#: templates/search.html:519
+msgid "Add new songs from YouTube"
+msgstr "添加来自 YouTube 的新歌曲"
+
+# auto-translated
+#. Placeholder in the box used to search YouTube for a song to download.
+#: templates/search.html:532
+msgid "Search YouTube by title, artist..."
+msgstr "按标题、艺术家搜索 YouTube..."
+
+#. Submit button on the search form for searching YouTube.
+#: templates/search.html:538
+msgid "Search"
+msgstr "搜索"
 
 #. Checkbox label which enables matching songs which are not karaoke versions
-#. (i.e. the songs still                                         have a singer
-#. and are not just instrumentals.)
-#: templates/search.html:637
+#. (i.e. the songs still                                 have a singer and are
+#. not just instrumentals.)
+#: templates/search.html:548
 msgid "Include non-karaoke matches"
 msgstr "搜索包含原唱版本（非伴奏）"
 
+#. Link which reveals the direct-URL download form.
+#: templates/search.html:554
+msgid "Advanced"
+msgstr "高级设置"
+
+# auto-translated
 #. Label for an input which takes a YouTube url directly instead of searching
 #. titles.
-#: templates/search.html:643
-msgid "Direct download YouTube url:"
-msgstr "通过YouTube url网址直接下载"
+#: templates/search.html:562
+msgid "Paste a YouTube url:"
+msgstr "粘贴 YouTube 网址："
 
-#. Checkbox label which marks the song to be added to the queue after it
-#. finishes downloading.
-#: templates/search.html:657 templates/search.html:700
-msgid "Add to queue once downloaded"
-msgstr "下载完毕后自动添加曲目到播放列表"
-
-#. Button label for the direct download form's submit button.
-#: templates/search.html:662
-msgid "Download"
-msgstr "下载"
+# auto-translated
+#. Button which downloads a song into the library without queuing it.
+#: templates/search.html:582 templates/search.html:659
+msgid "Save for later"
+msgstr "保存以供稍后使用"
 
 #. Html text which displays what was searched for, in quotes while the page is
 #. loading.
-#: templates/search.html:684
+#: templates/search.html:601
 #, python-format
 msgid ""
 "Searching YouTube for\n"
@@ -1462,7 +1971,7 @@ msgstr "在YouTube上搜索<small><i>'%(search_term)s'</i></small>"
 
 # auto-translated
 #. Html text which displays what was searched for, in quotes.
-#: templates/search.html:691
+#: templates/search.html:608
 #, python-format
 msgid ""
 "Search results for\n"
@@ -1472,40 +1981,210 @@ msgstr ""
 "\t\t\t<small><i>'%(search_string)s'</i></small>"
 
 # auto-translated
-#: templates/splash.html:23
+#: templates/search.html:673
+msgid ""
+"Preview unavailable for this video. Use the YouTube link on the result to "
+"watch it."
+msgstr "该视频无法预览。使用结果上的 YouTube 链接进行观看。"
+
+# auto-translated
+#. Shown on the sessions page when no session is currently running.
+#: templates/sessions.html:35
+msgid "No active session"
+msgstr "没有活动会话"
+
+# auto-translated
+#. Label for a session the host never named. {number} is replaced with a
+#. number.
+#: templates/partials/session_filter.html:22 templates/sessions.html:37
+#, python-brace-format
+msgid "Session {number}"
+msgstr "会话 {number}"
+
+# auto-translated
+#. Prompt asking the host to name a session.
+#: templates/sessions.html:39
+msgid "Name this session:"
+msgstr "将此会话命名为："
+
+# auto-translated
+#. Menu item which names the auto-started session that is recording now,
+#. making
+#. it the active session everyone sees.
+#: templates/sessions.html:41
+msgid "Name to make active"
+msgstr "要激活的名称"
+
+# auto-translated
+#. Confirmation before deleting a session and every play recorded in it.
+#. {session} is replaced with its name.
+#: templates/sessions.html:45
+#, python-brace-format
+msgid "Delete {session} and all of its plays? This cannot be undone."
+msgstr "删除 {session} 及其所有戏剧？此操作无法撤消。"
+
+# auto-translated
+#. Confirmation before deleting every play in a session while keeping the
+#. session. {session} is replaced with its name.
+#: templates/sessions.html:47
+#, python-brace-format
+msgid ""
+"Delete every play recorded in {session}? The session itself is kept. This "
+"cannot be undone."
+msgstr "删除 {session} 中录制的所有播放内容吗？会话本身被保留。此操作无法撤消。"
+
+# auto-translated
+#. Shown when no sessions have been recorded yet.
+#: templates/sessions.html:49
+msgid "No sessions yet."
+msgstr "还没有会议。"
+
+# auto-translated
+#. Shown when a session has no plays, so nobody has sung in it.
+#: templates/sessions.html:51
+msgid "Nobody has sung in this session."
+msgstr "没有人在这届会议上唱歌。"
+
+# auto-translated
+#. Confirmation before making an old session the one new songs are recorded
+#. against.
+#: templates/sessions.html:53
+#, python-brace-format
+msgid ""
+"Make {session} the active session? New songs will be recorded against it."
+msgstr "使 {session} 成为活动会话？新歌曲将根据它录制。"
+
+# auto-translated
+#. Tooltip on the arrow which expands a session to list who sang in it.
+#: templates/sessions.html:144
+msgid "Show who sang"
+msgstr "显示谁唱的"
+
+# auto-translated
+#. Link inside an expanded session which opens the play log filtered to it.
+#: templates/sessions.html:163
+msgid "Show these plays"
+msgstr "展示这些剧目"
+
+# auto-translated
+#. Heading for the section showing the session currently being recorded.
+#: templates/sessions.html:625
+msgid "Current Session"
+msgstr "当前会话"
+
+# auto-translated
+#. Placeholder inside the box naming a session as it is started.
+#: templates/sessions.html:642
+msgid "Name this session..."
+msgstr "将此会话命名..."
+
+# auto-translated
+#. Button which starts a new play history session.
+#: templates/sessions.html:648
+msgid "Start session"
+msgstr "开始会话"
+
+# auto-translated
+#. Button which closes the session that is currently running.
+#. Menu item which closes the session that is currently running.
+#: templates/sessions.html:654 templates/sessions.html:714
+msgid "End session"
+msgstr "结束会话"
+
+# auto-translated
+#. Heading for the list of past karaoke sessions.
+#: templates/sessions.html:660
+msgid "Session History"
+msgstr "会话历史记录"
+
+# auto-translated
+#. Checkbox which hides the sessions PiKaraoke started on its own, which the
+#. host never named.
+#: templates/sessions.html:669
+msgid "Hide auto-started"
+msgstr "隐藏自动启动"
+
+# auto-translated
+#. Session list column header for the session name.
+#. Label before the dropdown choosing which karaoke session a page reports on.
+#: templates/partials/session_filter.html:14 templates/sessions.html:685
+msgid "Session"
+msgstr "会议"
+
+# auto-translated
+#. Session list column header for when the session started.
+#: templates/sessions.html:687
+msgid "Started"
+msgstr "开始"
+
+# auto-translated
+#. Menu item which makes an old session the one new songs are recorded
+#. against.
+#: templates/sessions.html:709
+msgid "Make active"
+msgstr "激活"
+
+# auto-translated
+#. Menu item which downloads the session's play log as a CSV file for
+#. spreadsheets.
+#: templates/sessions.html:719
+msgid "Export CSV"
+msgstr "导出 CSV"
+
+# auto-translated
+#. Menu item which downloads the session's play log as a plain-text,
+#. human-readable set list.
+#: templates/sessions.html:724
+msgid "Export list (text)"
+msgstr "导出列表（文本）"
+
+# auto-translated
+#. Menu item which deletes every play in the session but keeps the session
+#. itself.
+#: templates/sessions.html:735
+msgid "Clear plays"
+msgstr "清晰的戏剧"
+
+# auto-translated
+#. Menu item which deletes the session and every play recorded in it.
+#: templates/sessions.html:740
+msgid "Delete session"
+msgstr "删除会话"
+
+# auto-translated
+#: templates/splash.html:24
 msgid "Connection lost. Is the server still running?"
 msgstr "连接丢失。服务器还在运行吗？"
 
 # auto-translated
-#: templates/splash.html:24
+#: templates/splash.html:25
 msgid ""
-"This browser is not fully supported. You may experience streaming issues."
-" Please use Chrome/Safari/Firefox/Edge for best results."
+"This browser is not fully supported. You may experience streaming issues. "
+"Please use Chrome/Safari/Firefox/Edge for best results."
 msgstr "该浏览器不完全支持。您可能会遇到流媒体问题。请使用 Chrome/Safari/Firefox/Edge 以获得最佳效果。"
 
 #. Label for the next song to be played in the queue.
-#: templates/splash.html:89
+#: templates/splash.html:94
 msgid "Up next:"
 msgstr "下一首歌："
 
 #. Label for the next singer in the queue.
-#: templates/splash.html:96
+#: templates/splash.html:101
 msgid "Next singer:"
 msgstr "下一个歌手："
 
 # auto-translated
 #. The title of the score screen, telling the user their singing score
-#: templates/splash.html:118
+#: templates/splash.html:123
 msgid "Your Score"
 msgstr "你的分数"
 
 # auto-translated
 #. Prompt for interaction in order to enable video autoplay.
-#: templates/splash.html:132
+#: templates/splash.html:137
 msgid ""
 "Due to limitations with browser permissions, you must interact\n"
-"      with the page once before it allows autoplay of videos. Pikaraoke "
-"will not\n"
+"      with the page once before it allows autoplay of videos. Pikaraoke will not\n"
 "      play otherwise. Click the button below to\n"
 "      <a onClick=\"handleConfirmation()\">confirm</a>."
 msgstr ""
@@ -1516,7 +2195,6 @@ msgstr ""
 
 # auto-translated
 #. Button to confirm to enable video autoplay.
-#: templates/splash.html:145
+#: templates/splash.html:150
 msgid "Confirm"
 msgstr "确认"
-
