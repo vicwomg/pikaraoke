@@ -510,78 +510,86 @@ def _proposal(result: dict, artist_first: bool) -> str:
     return sanitize_filename(f"{artist} - {title}" if artist_first else f"{title} - {artist}")
 
 
-def _correction_count(
+def _corrections(
     name: str, proposal: str, query_artist_first: bool, artist_first: bool
-) -> int:
-    """Count the kinds of correction a rename to `proposal` would apply.
+) -> list[str]:
+    """Which kinds of correction a rename to `proposal` would apply.
 
     Three sequential transformations -- order, then noise, then characters --
     each asking "did this step change anything". Sequential rather than parallel
     so that one defect cannot be counted under two kinds.
     """
-    corrections = 0
+    kinds = []
     reordered = name
     if query_artist_first != artist_first:
-        corrections += 1
+        kinds.append("order")
         head, _, tail = name.partition(" - ")
         if tail:
             reordered = f"{tail} - {head}"
     tidied = regex_tidy(reordered)
     if tidied != reordered:
-        corrections += 1
+        kinds.append("noise")
     # Deliberately raw: no case folding, no accent folding. This is what keeps
     # "Beyonce" off 100.
     if tidied != proposal:
-        corrections += 1
-    return corrections
+        kinds.append("characters")
+    return kinds
 
 
 def _anchor_score(
     score: int, result: dict, query_parts_norm: list[tuple[str, str]], name: str, artist_first: bool
-) -> int:
+) -> tuple[int, str]:
     """Pin a confirmed match to its anchor; cap everything else below the band.
 
     `name` is the name the caller asked about, which on the edit page is what
     the box currently holds rather than what is on disk -- 100 answers "would
     saving this change anything", not "is the library tidy".
+
+    Returns the score with the reason for it. A score below the band is only
+    interpretable alongside which of the three ways of missing it applied.
     """
     query_artist_first = _exact_match_artist_first(result, query_parts_norm)
     if query_artist_first is None:
-        return min(score, _UNCONFIRMED_CEILING)
+        # "iTunes offered a variant, not the track" and "the two fields were
+        # never both matched" are the same 94 and want opposite responses.
+        qualified = _has_disqualifying_qualifier(result.get("title", "").lower())
+        return min(score, _UNCONFIRMED_CEILING), (
+            "result qualified" if qualified else "unconfirmed"
+        )
     proposal = _proposal(result, artist_first)
     # regex_tidy strips "(Live)" and "(2011 Remaster)" as readily as it strips
     # "(Official Video)", so a confirmed match can still be the wrong recording.
     if _has_disqualifying_qualifier(name) and not _has_disqualifying_qualifier(proposal):
-        return min(score, _UNCONFIRMED_CEILING)
-    return (_ALREADY_CORRECT, _ONE_CORRECTION, _MANY_CORRECTIONS, _MANY_CORRECTIONS)[
-        _correction_count(name, proposal, query_artist_first, artist_first)
-    ]
+        return min(score, _UNCONFIRMED_CEILING), "variant kept"
+    kinds = _corrections(name, proposal, query_artist_first, artist_first)
+    anchor = (_ALREADY_CORRECT, _ONE_CORRECTION, _MANY_CORRECTIONS, _MANY_CORRECTIONS)[len(kinds)]
+    return anchor, ", ".join(kinds) or "already correct"
 
 
 def _deduplicate_suggestions(
     results: list[dict], query: str, name: str, artist_first: bool, featuring: str = ""
-) -> list[tuple[int, dict]]:
+) -> list[tuple[int, str, dict]]:
     """Keep the highest-scored result per unique (artist, title) pair.
 
     Anchoring happens here rather than at display time: the badge sits beside a
     ranked list, so a demotion applied after the sort could show a 95 above a 98.
 
-    Returns (score, result) tuples sorted by score descending.
+    Returns (score, reason, result) tuples sorted by score descending.
     """
     query_parts_norm = _normalize_query_parts(query)
     featuring_norm = _normalize_for_matching(featuring) if featuring else ""
-    best: dict[tuple[str, str], tuple[int, int, dict]] = {}
+    best: dict[tuple[str, str], tuple[int, int, str, dict]] = {}
     for r in results:
         key = (r.get("artist", "").lower(), r.get("title", "").lower())
         tally = _suggestion_score(r, query_parts_norm, featuring_norm)
-        s = _anchor_score(tally, r, query_parts_norm, name, artist_first)
-        if key not in best or (s, tally) > best[key][:2]:
-            best[key] = (s, tally, r)
+        score, reason = _anchor_score(tally, r, query_parts_norm, name, artist_first)
+        if key not in best or (score, tally) > best[key][:2]:
+            best[key] = (score, tally, reason, r)
     # The raw tally breaks ties: the ceiling flattens every unconfirmed result
     # above it to one value, and without this the best of them would rank by
     # nothing more than the order iTunes happened to return it in.
     ranked = sorted(best.values(), key=lambda x: (x[0], x[1]), reverse=True)
-    return [(score, result) for score, _, result in ranked]
+    return [(score, reason, result) for score, _, reason, result in ranked]
 
 
 # Over-fetch factor to compensate for deduplication
@@ -630,8 +638,8 @@ def suggest_metadata(
     if not truncated:
         return []
 
-    # Build output dicts with display and score fields (don't mutate originals)
+    # Build output dicts with display, score and reason (don't mutate originals)
     return [
-        {**r, "display": _proposal(r, artist_first), "score": max(0, score)}
-        for score, r in truncated
+        {**r, "display": _proposal(r, artist_first), "score": max(0, score), "reason": reason}
+        for score, reason, r in truncated
     ]

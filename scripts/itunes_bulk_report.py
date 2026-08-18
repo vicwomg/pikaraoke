@@ -62,6 +62,7 @@ def run_report(songs_dir: str, country: str = "US") -> None:
                 "original_stem",
                 "tidied",
                 "top_score",
+                "reason",
                 "suggested_display",
                 "suggested_artist",
                 "suggested_title",
@@ -83,8 +84,8 @@ def run_report(songs_dir: str, country: str = "US") -> None:
                 suggestions = suggest_metadata(clean_stem, provider=provider, limit=5)
             except (requests.exceptions.RequestException, ValueError, KeyError) as e:
                 print(f"  [{i}/{total}] ERROR: {stem} -> {e}")
-                writer.writerow([stem, tidied, "ERROR", "", "", "", "", ""])
-                results.append({"stem": stem, "score": None})
+                writer.writerow([stem, tidied, "ERROR", type(e).__name__, "", "", "", "", ""])
+                results.append({"stem": stem, "score": None, "reason": type(e).__name__})
                 continue
 
             if suggestions:
@@ -94,6 +95,7 @@ def run_report(songs_dir: str, country: str = "US") -> None:
                     "stem": stem,
                     "tidied": tidied,
                     "score": score,
+                    "reason": top.get("reason", ""),
                     "display": top.get("display", ""),
                     "artist": top.get("artist", ""),
                     "title": top.get("title", ""),
@@ -103,14 +105,15 @@ def run_report(songs_dir: str, country: str = "US") -> None:
                 status = "OK" if score >= 95 else "LOW"
                 print(
                     f"  [{i}/{total}] {status} ({score:>4}) "
-                    f"{stem[:50]:<50} -> {row['display'][:50]}"
-                    f"  (ETA: {eta_min:.0f}m)"
+                    f"{stem[:44]:<44} -> {row['display'][:44]:<44}"
+                    f" [{row['reason'][:24]:<24}] (ETA: {eta_min:.0f}m)"
                 )
                 writer.writerow(
                     [
                         stem,
                         tidied,
                         score,
+                        row["reason"],
                         row["display"],
                         row["artist"],
                         row["title"],
@@ -120,8 +123,8 @@ def run_report(songs_dir: str, country: str = "US") -> None:
                 )
             else:
                 print(f"  [{i}/{total}] NONE {stem[:50]:<50}  (ETA: {eta_min:.0f}m)")
-                row = {"stem": stem, "score": 0}
-                writer.writerow([stem, tidied, 0, "", "", "", "", ""])
+                row = {"stem": stem, "score": 0, "reason": "no results"}
+                writer.writerow([stem, tidied, 0, "no results", "", "", "", "", ""])
 
             results.append(row)
 
@@ -145,6 +148,22 @@ def run_report(songs_dir: str, country: str = "US") -> None:
         count = sum(1 for s in scores if s >= thresh)
         pct = count / queried * 100 if queried else 0
         print(f"  Score >= {thresh:>3}: {count:>4} / {queried}  ({pct:5.1f}%)")
+
+    # A count of songs below the band means nothing on its own. "iTunes had
+    # nothing to offer" wants a better query; "we held it back" is the
+    # threshold's own doing, and only that second group argues for moving it.
+    for label, keep in (("below the band", False), ("inside it", True)):
+        group = [r for r in results if r.get("score") is not None and ((r["score"] >= 95) == keep)]
+        if not group:
+            continue
+        tally: dict[str, int] = {}
+        for r in group:
+            reason = r.get("reason") or "unknown"
+            tally[reason] = tally.get(reason, 0) + 1
+        print(f"\n  Why, for everything {label}:")
+        for reason, count in sorted(tally.items(), key=lambda kv: -kv[1]):
+            pct = count / queried * 100 if queried else 0
+            print(f"    {reason:<26} {count:>4} / {queried}  ({pct:5.1f}%)")
 
     print(f"\nFull results saved to: {csv_path}")
 

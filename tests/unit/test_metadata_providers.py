@@ -42,6 +42,12 @@ def _anchored(name: str, artist: str, title: str, artist_first: bool = True) -> 
     return suggest_metadata(name, provider=provider, artist_first=artist_first)[0]["score"]
 
 
+def _reason(name: str, artist: str, title: str, artist_first: bool = True) -> str:
+    """The top suggestion's explanation of its score."""
+    provider = _mock_provider((artist, title))
+    return suggest_metadata(name, provider=provider, artist_first=artist_first)[0]["reason"]
+
+
 ITUNES_RESPONSE = {
     "resultCount": 2,
     "results": [
@@ -604,6 +610,24 @@ class TestSuggestionScoring:
         """
         result = {"artist": "Queen", "title": "Bohemian Rhapsody", "genre": "Rock"}
         assert _score(result, "Queen - Bohemian Rhapsody") == _ALREADY_CORRECT
+
+
+class TestScoreReasons:
+    """A score below the band is only interpretable with the reason beside it."""
+
+    def test_each_anchor_names_its_corrections(self):
+        assert _reason("Beyoncé - Halo", "Beyoncé", "Halo") == "already correct"
+        assert _reason("Beyonce - Halo", "Beyoncé", "Halo") == "characters"
+        assert _reason("Halo - Beyoncé", "Beyoncé", "Halo") == "order"
+        assert _reason("Beyoncé - Halo (Official Video)", "Beyoncé", "Halo") == "noise"
+        assert _reason("halo - beyonce", "Beyoncé", "Halo") == "order, characters"
+
+    def test_the_two_ways_of_missing_the_band_are_distinguished(self):
+        """Both score 94 and they want opposite responses: one is our caution,
+        the other is iTunes having nothing to offer."""
+        assert _reason("Beyoncé - Halo (Live)", "Beyoncé", "Halo") == "variant kept"
+        assert _reason("Beyoncé - Halo", "Beyoncé", "Halo (Live)") == "result qualified"
+        assert _reason("Beyoncé - Halo", "Nickelback", "Photograph") == "unconfirmed"
 
 
 class TestScoreAnchoring:
