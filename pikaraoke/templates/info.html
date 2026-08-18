@@ -386,6 +386,41 @@
 
 			<hr class="my-0">
 
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				{# MSG: Header of the song renaming settings section. #}
+				<h3 class="m-0">{% trans %}Renaming{% endtrans %}</h3>
+			</header>
+			<div class="card-content collapsible-content">
+				<div class="content">
+					<div class="user-preference-container is-align-items-center">
+						<div class="select">
+							<select id="pref-name-order" class="user-preference-input" data-pref="suggestion_name_order" data-start-value="{{ suggestion_name_order }}">
+								{# MSG: Option for naming songs artist first, e.g. "Abba - Waterloo". #}
+								<option value="artist_title" {% if suggestion_name_order == 'artist_title' %}selected{% endif %}>{% trans %}Artist - Title{% endtrans %}</option>
+								{# MSG: Option for naming songs title first, e.g. "Waterloo - Abba". #}
+								<option value="title_artist" {% if suggestion_name_order == 'title_artist' %}selected{% endif %}>{% trans %}Title - Artist{% endtrans %}</option>
+							</select>
+						</div>
+						<label class="label" for="pref-name-order">{# MSG: Label for the suggestion name order dropdown #} {% trans %}Order of iTunes suggested song names{% endtrans %}
+						</label>
+					</div>
+
+					<div class="user-preference-container is-align-items-center">
+						<div class="select">
+							<select id="pref-itunes-country" class="user-preference-input" data-pref="itunes_search_country" data-start-value="{{ itunes_search_country }}">
+								{% for code, name in itunes_countries.items() %}
+								<option value="{{ code }}" {% if itunes_search_country == code %}selected{% endif %}>{{ name }}</option>
+								{% endfor %}
+							</select>
+						</div>
+						<label class="label" for="pref-itunes-country">{# MSG: Label for iTunes search country dropdown #} {% trans %}iTunes search country{% endtrans %}
+						</label>
+					</div>
+				</div>
+			</div>
+
+			<hr class="my-0">
+
 			{# A section of its own rather than another control under Library: the
 			   play log is not the song library, and the one irreversible action in
 			   this feature should not sit a click away from Sync Now. It lives here
@@ -606,18 +641,6 @@
 						<label class="label" for="pref-language">{# MSG: Label for language selection dropdown #} {% trans %}Preferred language (requires restart){% endtrans %}
 						</label>
 					</div>
-
-					<div class="user-preference-container is-align-items-center">
-						<div class="select">
-							<select id="pref-itunes-country" class="user-preference-input" data-pref="itunes_search_country" data-start-value="{{ itunes_search_country }}">
-								{% for code, name in itunes_countries.items() %}
-								<option value="{{ code }}" {% if itunes_search_country == code %}selected{% endif %}>{{ name }}</option>
-								{% endfor %}
-							</select>
-						</div>
-						<label class="label" for="pref-itunes-country">{# MSG: Label for iTunes search country dropdown #} {% trans %}iTunes search country{% endtrans %}
-						</label>
-					</div>
 				</div>
 			</div>
 
@@ -656,6 +679,12 @@
 					<div class="user-preference-container">
 					<input id="pref-enable-title-tidy" type="checkbox" class="user-preference-checkbox checkbox" data-pref="enable_title_tidy" {% if enable_title_tidy == True %}checked{% endif %}>
 					<label class="label" for="pref-enable-title-tidy">{# MSG: Checkbox label which enables automatic cleanup of YouTube song titles #} {% trans %}Enable automatic YouTube title cleanup (strips noise words like "Karaoke Version HD"){% endtrans %}
+					</label>
+					</div>
+
+					<div class="user-preference-container">
+					<input id="pref-enable-folder-browsing" type="checkbox" class="user-preference-checkbox checkbox" data-pref="enable_folder_browsing" {% if enable_folder_browsing == True %}checked{% endif %}>
+					<label class="label" for="pref-enable-folder-browsing">{# MSG: Checkbox label which enables browsing the song library by folder #} {% trans %}Enable folder browsing (adds a Folders view to the Songs page when the library has subfolders){% endtrans %}
 					</label>
 					</div>
 

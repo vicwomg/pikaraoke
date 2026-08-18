@@ -2,6 +2,8 @@
 
 import pytest
 
+from pikaraoke.karaoke import SongInUseError
+
 
 class TestEnqueue:
     """Tests for the enqueue method."""
@@ -195,6 +197,63 @@ class TestQueueClear:
         mock_karaoke.queue_manager.queue_clear()
 
         assert len(mock_karaoke.queue_manager.queue) == 0
+
+
+class TestRenameSong:
+    """A queued song can be renamed and still plays when its turn arrives."""
+
+    SONG = "/songs/Old Name---dQw4w9WgXcQ.mp4"
+    NEW_STEM = "New Name---dQw4w9WgXcQ"
+
+    def test_the_queue_entry_follows_the_file(self, mock_karaoke):
+        mock_karaoke.queue_manager.enqueue(self.SONG, "Singer", semitones=3)
+
+        new_path = mock_karaoke.rename_song(self.SONG, self.NEW_STEM)
+
+        entry = mock_karaoke.queue_manager.queue[0]
+        assert entry["file"] == new_path
+        assert entry["title"] == "New Name"
+        assert entry["user"] == "Singer"
+        assert entry["semitones"] == 3
+
+    def test_the_position_is_kept(self, mock_karaoke):
+        mock_karaoke.queue_manager.enqueue("/songs/First---aaaaaaaaaaa.mp4", "A")
+        mock_karaoke.queue_manager.enqueue(self.SONG, "B")
+        mock_karaoke.queue_manager.enqueue("/songs/Third---ccccccccccc.mp4", "C")
+
+        mock_karaoke.rename_song(self.SONG, self.NEW_STEM)
+
+        assert [item["title"] for item in mock_karaoke.queue_manager.queue] == [
+            "First",
+            "New Name",
+            "Third",
+        ]
+
+    def test_renaming_a_queued_song_announces_the_new_title(self, mock_karaoke):
+        mock_karaoke.queue_manager.enqueue(self.SONG, "Singer")
+        emitted = []
+        mock_karaoke.events.on("queue_update", lambda: emitted.append(True))
+
+        mock_karaoke.rename_song(self.SONG, self.NEW_STEM)
+
+        assert emitted
+
+    def test_a_song_that_is_not_queued_renames_anyway(self, mock_karaoke):
+        new_path = mock_karaoke.rename_song(self.SONG, self.NEW_STEM)
+
+        assert new_path == "/songs/New Name---dQw4w9WgXcQ.mp4"
+        assert mock_karaoke.queue_manager.queue == []
+
+    def test_the_claimed_song_is_refused(self, mock_karaoke):
+        mock_karaoke.song_manager.songs.add(self.SONG)
+        mock_karaoke.queue_manager.enqueue(self.SONG, "Singer")
+        mock_karaoke.playback_controller.now_playing_filename = self.SONG
+
+        with pytest.raises(SongInUseError):
+            mock_karaoke.rename_song(self.SONG, self.NEW_STEM)
+
+        assert mock_karaoke.queue_manager.queue[0]["file"] == self.SONG
+        assert self.SONG in mock_karaoke.song_manager.songs
 
 
 class TestIsSongInQueue:

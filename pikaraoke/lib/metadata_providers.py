@@ -14,10 +14,14 @@ import urllib3.connection
 import urllib3.util.ssl_
 
 from pikaraoke.lib.metadata_parser import (
+    _FEAT_CREDIT_RE,
     _SPECIAL_VERSION_RE,
+    ATTRIBUTION_CONNECTORS,
+    is_discardable_qualifier,
     normalize_for_comparison,
     regex_tidy,
     remove_accents,
+    sanitize_filename,
 )
 
 # iTunes nominally allows ~20 requests/minute.  A 2s floor between requests
@@ -324,11 +328,14 @@ def _suggestion_score(
 
     artist_matched = False
     title_matched = False
+    artist_part_norm = ""
     for part, part_norm in query_parts_norm:
         matched_artist = _matches_field(part_norm, artist_norm)
         matched_title = (
             part == title_lower or part == title_base or _matches_field(part_norm, title_norm)
         )
+        if matched_artist and not artist_part_norm:
+            artist_part_norm = part_norm
         artist_matched |= matched_artist
         title_matched |= matched_title
         exact_match = (
@@ -340,19 +347,21 @@ def _suggestion_score(
         fuzzy = _fuzzy_match(part_norm, artist_norm) or _fuzzy_match(part_norm, title_norm)
         substring = part_norm in artist_norm or part_norm in title_norm
         if exact_match:
-            score += 50
+            score += 38
         elif fuzzy:
-            score += 40
+            score += 31
         elif substring:
-            score += 25
+            score += 19
 
     # Cross-field bonus: when one query part matched the artist and another
     # matched the title, the result aligns with the query's structure.
     # Without this, a result where both parts coincidentally appear in the
     # title (e.g. a track titled "Dolly Parton + Beer Cereal Divorce" by
     # David Liebe Hart) could outscore a result with the correct artist.
+    # 24 rather than the proportional 23 so that two exact parts plus this
+    # bonus sum to exactly _ALREADY_CORRECT.
     if len(query_parts_norm) >= 2 and artist_matched and title_matched:
-        score += 30
+        score += 24
 
     # Single-part decomposition: when the query has no separator but can be
     # split into artist + title, score each confirmed field independently.
@@ -361,18 +370,18 @@ def _suggestion_score(
         # Strip artist -> does remainder match title?
         artist_remainder = part_norm.replace(artist_norm, "", 1).strip()
         if artist_remainder and _matches_field(artist_remainder, title_norm):
-            score += 40
+            score += 31
         # Strip title -> does remainder match artist?
         title_remainder = part_norm.replace(title_norm, "", 1).strip()
         if title_remainder and _matches_field(title_remainder, artist_norm):
-            score += 40
+            score += 31
 
     # Bonus if the featuring artist appears in the result title
     # Normalize both sides so "and" matches "&" and accents are ignored
     if featuring_norm:
         title_full_norm = _normalize_for_matching(title_lower)
         if featuring_norm in title_full_norm:
-            score += 15
+            score += 12
 
     # Bonus when query artist part has extra names that appear in the result's
     # parenthetical (e.g. query "Taylor Swift and Ed Sheeran" matches
@@ -380,75 +389,250 @@ def _suggestion_score(
     # This handles "and"/"&"/"with" collaborator names without treating them
     # as featuring keywords (which would break genuine duos).
     if len(query_parts_norm) >= 2 and title_base != title_lower:
-        query_artist_norm = query_parts_norm[0][1]
+        # Whichever part matched the artist, not whichever came first: the
+        # filename may be "Title - Artist".
+        query_artist_norm = artist_part_norm or query_parts_norm[0][1]
         parens_text = _extract_qualifier_text(title_lower)
         if parens_text and artist_norm != query_artist_norm:
             # Extract the extra part of the query artist beyond the result artist
             extra = query_artist_norm.replace(artist_norm, "").strip()
             extra = _LEADING_CONJUNCTION_RE.sub("", extra).strip()
             if extra and len(extra) > 2 and extra in parens_text:
-                score += 15
+                score += 12
 
     # Penalize titles with parenthetical qualifiers (sessions, performances, etc.)
     if title_base != title_lower:
-        score -= 10
+        score -= 8
 
     # Penalize special versions (live, remix, etc.)
     if _SPECIAL_VERSION_RE.search(title_lower):
-        score -= 30
+        score -= 23
     if len(title_lower) > 60:
-        score -= 20
+        score -= 15
 
     # Prefer simple genres ("Rock") over compound ones ("Singer/Songwriter")
     genre = result.get("genre", "")
     if "/" in genre or "&" in genre:
-        score -= 5
+        score -= 4
     return score
 
 
+# A confirmed match is assigned its anchor rather than tallied: exactness is a
+# definitive determination, so the version and length penalties that rank
+# candidates against each other no longer apply. 100 is also what the rebased
+# weights produce for a clean confirmed match (38 + 38 + 24), so the assignment
+# agrees with the arithmetic instead of overriding it.
+_ALREADY_CORRECT = 100  # the name as submitted is what we would rename it to
+_ONE_CORRECTION = 98  # fields confirmed; one of order / noise / characters is wrong
+_MANY_CORRECTIONS = 95  # fields confirmed; two or three of them are
+_UNCONFIRMED_CEILING = 94  # nothing unconfirmed may enter the confirmed band
+
+
+def _has_disqualifying_qualifier(title: str) -> bool:
+    """Whether the title carries a qualifier that is neither a credit nor droppable noise.
+
+    Round and square brackets alike: "[2011 Remaster]" renames to a different
+    recording just as surely as "(2011 Remaster)" does.
+    """
+    for text in _extract_qualifier_texts(title):
+        # A credit excuses only the bracket it is alone in: "(feat. Sia, Live)"
+        # is still a live recording.
+        credit_only = _FEAT_CREDIT_RE.match(text) and not _SPECIAL_VERSION_RE.search(text)
+        if not credit_only and not is_discardable_qualifier(text):
+            return True
+    return False
+
+
+# The attribution phrases as they survive normalization, for reading a filename
+# that names its artist in prose: "Cry Me a River made famous by Julie London".
+_ATTRIBUTION_CONNECTORS_NORM = [_normalize_for_matching(c) for c in ATTRIBUTION_CONNECTORS]
+_LEADING_ATTRIBUTION_RE = re.compile(r"^(?:" + "|".join(_ATTRIBUTION_CONNECTORS_NORM) + r")\s+")
+
+
+def _decomposes_into(whole: str, first: str, second: str) -> bool:
+    """Whether `whole` is exactly `first` then `second`, bar an attribution phrase."""
+    if whole == f"{first} {second}":
+        return True
+    return any(whole == f"{first} {c} {second}" for c in _ATTRIBUTION_CONNECTORS_NORM)
+
+
+def _part_names_field(part_norm: str, *field_norms: str) -> bool:
+    """Whether a query part is any of these forms of a field.
+
+    With or without an opening connector: "By the Way - Red Hot Chili Peppers"
+    puts one at the front of a real title, and stripping it there would lose the
+    match the separator already made plain.
+    """
+    forms = (part_norm, _LEADING_ATTRIBUTION_RE.sub("", part_norm))
+    return any(f in forms for f in field_norms if f)
+
+
+def _exact_match_artist_first(result: dict, query_parts_norm: list[tuple[str, str]]) -> bool | None:
+    """Whether an exactly matching query is written artist-first.
+
+    None when the result is not an exact match on both fields, including when
+    the title carries a qualifier other than a featuring credit.
+    """
+    if len(query_parts_norm) not in (1, 2):
+        return None
+    title_lower = result.get("title", "").lower()
+    if _has_disqualifying_qualifier(title_lower):
+        return None
+    artist_norm = _normalize_for_matching(result.get("artist", "").lower())
+    title_norm = _normalize_for_matching(_PAREN_CONTENT_RE.sub("", title_lower).strip())
+    if not artist_norm or not title_norm:
+        return None
+    # Both forms of the title. A filename already carrying the credit iTunes
+    # writes -- "Everything Has Changed (feat. Ed Sheeran)" -- has to match the
+    # whole title, not only what is left once the brackets come off. Comparing a
+    # bracketed query part against a stripped title is what stopped this feature
+    # recognising the very names it renames songs to.
+    titles = (title_norm, _normalize_for_matching(title_lower))
+    if len(query_parts_norm) == 1:
+        # A query with no separator confirms both fields only when it is exactly
+        # the two of them, nothing left over: "CAKE I Will Survive" and "Cry Me a
+        # River by Julie London" qualify, "Cry Me a River, a Julie London song"
+        # does not. Whichever arrangement matches is the order it is written in.
+        whole = query_parts_norm[0][1]
+        if any(_decomposes_into(whole, artist_norm, t) for t in titles):
+            return True
+        if any(_decomposes_into(whole, t, artist_norm) for t in titles):
+            return False
+        return None
+    # "Cry Me a River - by Julie London": the separator is there, but the artist
+    # side still opens with the connector the vendor wrote it with.
+    first, second = query_parts_norm[0][1], query_parts_norm[1][1]
+    if _part_names_field(first, artist_norm) and _part_names_field(second, *titles):
+        return True
+    if _part_names_field(first, *titles) and _part_names_field(second, artist_norm):
+        return False
+    return None
+
+
+def _proposal(result: dict, artist_first: bool) -> str:
+    """The filename a rename to this result would write.
+
+    Sanitized, because that is what lands on disk: a score of "already correct"
+    has to be measured against the name the save can actually produce, and the
+    suggestion the user clicks has to be the same string it was scored as.
+    """
+    artist, title = result.get("artist", ""), result.get("title", "")
+    return sanitize_filename(f"{artist} - {title}" if artist_first else f"{title} - {artist}")
+
+
+def _corrections(
+    name: str, proposal: str, query_artist_first: bool, artist_first: bool
+) -> list[str]:
+    """Which kinds of correction a rename to `proposal` would apply.
+
+    Three sequential transformations -- noise, then order, then characters --
+    each asking "did this step change anything", so that one defect cannot be
+    counted under two kinds. Noise goes first because reordering a name that
+    still carries its brackets can split on a separator inside one.
+    """
+    kinds = []
+    tidied = regex_tidy(name)
+    if tidied != name:
+        kinds.append("noise")
+    reordered = tidied
+    if query_artist_first != artist_first:
+        head, _, tail = tidied.partition(" - ")
+        if tail:
+            reordered = f"{tail} - {head}"
+    if reordered != tidied:
+        kinds.append("order")
+    # Deliberately raw: no case folding, no accent folding. This is what keeps
+    # "Beyonce" off 100.
+    if reordered != proposal:
+        kinds.append("characters")
+    return kinds
+
+
+def _anchor_score(
+    score: int, result: dict, query_parts_norm: list[tuple[str, str]], name: str, artist_first: bool
+) -> tuple[int, str]:
+    """Pin a confirmed match to its anchor; cap everything else below the band.
+
+    `name` is the name the caller asked about, which on the edit page is what
+    the box currently holds rather than what is on disk -- 100 answers "would
+    saving this change anything", not "is the library tidy".
+
+    Returns the score with the reason for it. A score below the band is only
+    interpretable alongside which of the three ways of missing it applied.
+    """
+    query_artist_first = _exact_match_artist_first(result, query_parts_norm)
+    if query_artist_first is None:
+        # "iTunes offered a variant, not the track" and "the two fields were
+        # never both matched" are the same 94 and want opposite responses.
+        qualified = _has_disqualifying_qualifier(result.get("title", "").lower())
+        return min(score, _UNCONFIRMED_CEILING), (
+            "result qualified" if qualified else "unconfirmed"
+        )
+    proposal = _proposal(result, artist_first)
+    # regex_tidy strips "(Live)" and "(2011 Remaster)" as readily as it strips
+    # "(Official Video)", so a confirmed match can still be the wrong recording.
+    if _has_disqualifying_qualifier(name) and not _has_disqualifying_qualifier(proposal):
+        return min(score, _UNCONFIRMED_CEILING), "variant kept"
+    kinds = _corrections(name, proposal, query_artist_first, artist_first)
+    anchor = (_ALREADY_CORRECT, _ONE_CORRECTION, _MANY_CORRECTIONS, _MANY_CORRECTIONS)[len(kinds)]
+    return anchor, ", ".join(kinds) or "already correct"
+
+
 def _deduplicate_suggestions(
-    results: list[dict], query: str, featuring: str = ""
-) -> list[tuple[int, dict]]:
+    results: list[dict], query: str, name: str, artist_first: bool, featuring: str = ""
+) -> list[tuple[int, str, dict]]:
     """Keep the highest-scored result per unique (artist, title) pair.
 
-    Returns (score, result) tuples sorted by score descending.
+    Anchoring happens here rather than at display time: the badge sits beside a
+    ranked list, so a demotion applied after the sort could show a 95 above a 98.
+
+    Returns (score, reason, result) tuples sorted by score descending.
     """
     query_parts_norm = _normalize_query_parts(query)
     featuring_norm = _normalize_for_matching(featuring) if featuring else ""
-    best: dict[tuple[str, str], tuple[int, dict]] = {}
+    best: dict[tuple[str, str], tuple[int, int, str, dict]] = {}
     for r in results:
         key = (r.get("artist", "").lower(), r.get("title", "").lower())
-        s = _suggestion_score(r, query_parts_norm, featuring_norm)
-        if key not in best or s > best[key][0]:
-            best[key] = (s, r)
-    scored = sorted(best.values(), key=lambda x: x[0], reverse=True)
-    return scored
+        tally = _suggestion_score(r, query_parts_norm, featuring_norm)
+        score, reason = _anchor_score(tally, r, query_parts_norm, name, artist_first)
+        if key not in best or (score, tally) > best[key][:2]:
+            best[key] = (score, tally, reason, r)
+    # The raw tally breaks ties: the ceiling flattens every unconfirmed result
+    # above it to one value, and without this the best of them would rank by
+    # nothing more than the order iTunes happened to return it in.
+    ranked = sorted(best.values(), key=lambda x: (x[0], x[1]), reverse=True)
+    return [(score, reason, result) for score, _, reason, result in ranked]
 
 
 # Over-fetch factor to compensate for deduplication
 _OVERFETCH_FACTOR = 3
 
 
-def _detect_query_artist_first(query: str, top_result: dict) -> bool:
-    """Detect if the query uses 'Artist - Title' order by checking the top result."""
-    if " - " not in query:
-        return False
-    first_part = _normalize_for_matching(query.split(" - ", 1)[0])
-    artist = _normalize_for_matching(top_result.get("artist", ""))
-    return _fuzzy_match(first_part, artist)
+def _extract_qualifier_texts(text: str) -> list[str]:
+    """Each parenthetical and bracketed group's content, brackets removed."""
+    return [g for groups in _PAREN_EXTRACT_RE.findall(text) for g in groups if g]
 
 
 def _extract_qualifier_text(text: str) -> str:
     """Extract all parenthetical and bracketed content as a single string."""
-    return " ".join(g for groups in _PAREN_EXTRACT_RE.findall(text) for g in groups if g)
+    return " ".join(_extract_qualifier_texts(text))
 
 
 def suggest_metadata(
     display_name: str,
     provider: MetadataProvider | None = None,
     limit: int = 5,
+    artist_first: bool = True,
 ) -> list[dict]:
-    """Tidy a display name and search for metadata suggestions."""
+    """Tidy a display name and search for metadata suggestions.
+
+    Args:
+        artist_first: Render each suggestion as "Artist - Title" rather than
+            "Title - Artist". The library's naming convention, not the current
+            filename's, so suggestions pull an untidy library into line. It also
+            decides which order scores 100, so the default mirrors the
+            "artist_title" default of the suggestion_name_order preference.
+    """
     if provider is None:
         provider = ITunesProvider()
     tidied = regex_tidy(display_name)
@@ -458,18 +642,16 @@ def suggest_metadata(
     featuring = feat_match.group("name").strip() if feat_match else ""
     search_query = _FEATURING_PATTERN.sub("", tidied).strip()
     results = provider.search(search_query, limit=limit * _OVERFETCH_FACTOR)
-    scored = _deduplicate_suggestions(results, search_query, featuring)
+    # The untidied name, not the query: the question the anchors answer is what
+    # is on disk, not what the tidy makes of it.
+    scored = _deduplicate_suggestions(results, search_query, display_name, artist_first, featuring)
     truncated = scored[:limit]
 
     if not truncated:
         return []
 
-    # Build output dicts with display and score fields (don't mutate originals)
-    artist_first = _detect_query_artist_first(search_query, truncated[0][1])
-    out = []
-    for score, r in truncated:
-        display = (
-            f"{r['artist']} - {r['title']}" if artist_first else f"{r['title']} - {r['artist']}"
-        )
-        out.append({**r, "display": display, "score": score})
-    return out
+    # Build output dicts with display, score and reason (don't mutate originals)
+    return [
+        {**r, "display": _proposal(r, artist_first), "score": max(0, score), "reason": reason}
+        for score, reason, r in truncated
+    ]

@@ -37,12 +37,12 @@ from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.sound_manager import SoundManager
 from pikaraoke.lib.url_prefix import append_base_path_to_url
-from pikaraoke.lib.youtube_dl import (
-    get_search_results,
-    get_youtubedl_version,
-    upgrade_youtubedl,
-)
+from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
 from pikaraoke.version import __version__ as VERSION
+
+
+class SongInUseError(Exception):
+    """Raised when a rename targets the file playback has claimed."""
 
 
 class Karaoke:
@@ -135,6 +135,7 @@ class Karaoke:
         splash_delay: int | None = None,
         volume: float | None = None,
         enable_title_tidy: bool | None = None,
+        enable_folder_browsing: bool | None = None,
     ) -> None:
         """Initialize the Karaoke instance.
 
@@ -175,6 +176,7 @@ class Karaoke:
             additional_ytdl_args: Additional yt-dlp command arguments.
             socketio: SocketIO instance for real-time event emission.
             preferred_language: Language code for UI (e.g., 'en', 'de_DE').
+            enable_folder_browsing: Offer a Folders view on the Songs page.
         """
         logging.basicConfig(
             format="[%(asctime)s] %(levelname)s: %(message)s",
@@ -236,6 +238,9 @@ class Karaoke:
         )
         self._scanner = LibraryScanner(self.db)
         self._sync_lock = threading.Lock()
+        # Held across "pop the next song and claim it", and by rename_song, so a
+        # rename cannot land on a song that has left the queue but is not yet claimed.
+        self._playback_lock = threading.Lock()
 
         self.generate_qr_code()
 
@@ -502,6 +507,29 @@ class Karaoke:
             logging.info(message)
             self.send_notification(message, "primary")
 
+    def is_song_in_use(self, song_path: str) -> bool:
+        """True if playback has claimed the file, or it is waiting in the queue."""
+        return (
+            self.playback_controller.now_playing_filename == song_path
+            or self.queue_manager.is_song_in_queue(song_path)
+        )
+
+    def rename_song(self, song_path: str, new_name: str) -> str:
+        """Rename a song and carry any queue entry over to the new path.
+
+        Raises SongInUseError if playback has claimed the file.
+        """
+        with self._playback_lock:
+            if self.playback_controller.now_playing_filename == song_path:
+                raise SongInUseError(song_path)
+            new_path = self.song_manager.rename(song_path, new_name)
+            requeued = self.queue_manager.update_song_path(
+                song_path, new_path, self.song_manager.display_name_from_path(new_path)
+            )
+        if requeued:
+            self.events.emit("queue_update")
+        return new_path
+
     def transpose_current(self, semitones: int) -> None:
         """Restart the current song with a new transpose value.
 
@@ -674,8 +702,12 @@ class Karaoke:
                         self.handle_run_loop()
                         i += self.loop_interval
 
-                    # Pop song before playback to avoid UI flicker
-                    song = self.queue_manager.pop_next()
+                    # Pop song before playback to avoid UI flicker. Released
+                    # before play_file, which sleeps for seconds while transcoding.
+                    with self._playback_lock:
+                        song = self.queue_manager.pop_next()
+                        if song:
+                            self.playback_controller.claim(song["file"])
                     if not song:
                         continue
                     result = self.playback_controller.play_file(

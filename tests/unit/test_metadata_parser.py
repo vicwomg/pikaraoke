@@ -12,12 +12,103 @@ from pikaraoke.lib.metadata_parser import (
     get_song_correct_name,
     has_artist_title_separator,
     has_youtube_id,
+    is_discardable_qualifier,
     lookup_lastfm,
     regex_tidy,
+    sanitize_filename,
     score_result,
     search_lastfm_tracks,
     youtube_id_suffix,
 )
+
+
+class TestSanitizeFilename:
+    def test_path_separators_go_on_posix_too(self, monkeypatch):
+        """A name of '../../x' on a Pi used to move the song out of the library."""
+        monkeypatch.setattr("pikaraoke.lib.metadata_parser.is_windows", lambda: False)
+        assert sanitize_filename("../../home/pi/x") == "..-..-home-pi-x"
+        assert sanitize_filename("a\\b") == "a-b"
+
+    def test_illegal_characters_get_the_stand_in_they_deserve(self, monkeypatch):
+        """A dash for everything reads as corruption: Bobby -Boris- Pickett for a
+        nickname, What Does the Fox Say- for a question."""
+        monkeypatch.setattr("pikaraoke.lib.metadata_parser.is_windows", lambda: True)
+        assert sanitize_filename('Bobby "Boris" Pickett') == "Bobby 'Boris' Pickett"
+        assert sanitize_filename("Ylvis - What Does the Fox Say?") == (
+            "Ylvis - What Does the Fox Say"
+        )
+        # A dash where it stands in for structure, not for punctuation
+        assert sanitize_filename("AC/DC - T.N.T.") == "AC-DC - T.N.T."
+        assert sanitize_filename("Cee Lo Green - F**k You") == "Cee Lo Green - F--k You"
+
+    def test_a_dropped_character_leaves_no_dangling_separator(self, monkeypatch):
+        """The substitution runs at the end as readily as the middle, and a name
+        ending in a stray dash looks truncated rather than sanitized."""
+        monkeypatch.setattr("pikaraoke.lib.metadata_parser.is_windows", lambda: True)
+        assert sanitize_filename("Blondie - Rip Her to Shreds*") == "Blondie - Rip Her to Shreds"
+        assert sanitize_filename("Prince - 1999?") == "Prince - 1999"
+
+    def test_a_name_is_never_sanitized_away_to_nothing(self, monkeypatch):
+        """The rename route checks for an empty name before sanitizing, so a name
+        emptied here would build a path of bare extension -- a hidden file."""
+        monkeypatch.setattr("pikaraoke.lib.metadata_parser.is_windows", lambda: True)
+        assert sanitize_filename("---") == "---"
+        assert sanitize_filename("?") == "-"
+        assert sanitize_filename("") == ""
+
+    def test_posix_legal_characters_survive(self, monkeypatch):
+        """Colons and question marks are legal on POSIX and appear in real titles."""
+        monkeypatch.setattr("pikaraoke.lib.metadata_parser.is_windows", lambda: False)
+        assert sanitize_filename("Who's Next: Part 2?") == "Who's Next: Part 2?"
+
+
+class TestIsDiscardableQualifier:
+    """Which bracketed text a rename may drop, and which names another recording."""
+
+    def test_production_noise_is_discardable(self):
+        for text in (
+            "Official Video",
+            "Official Music Video",
+            "Karaoke",
+            "Karaoke Version",
+            "HD",
+            "Lyrics",
+            "With Lyrics",
+            "Original Key",
+            "カラオケ",
+            "2011",
+        ):
+            assert is_discardable_qualifier(text), text
+
+    def test_recording_variants_are_not_discardable(self):
+        """Dropping one of these renames a recording into a different one, which
+        can collide with the studio cut already filed beside it."""
+        for text in (
+            "Live",
+            "Acoustic",
+            "Lower Key",
+            "Higher Key",
+            "Remastered 2010",
+            "2011 Remaster",
+            "Unplugged",
+            "Single Edit",
+            "Club Mix",
+            "Mono Version",
+            "BBC Session",
+            "Alternate Take",
+            "Taylor's Version",
+        ):
+            assert not is_discardable_qualifier(text), text
+
+    def test_an_attribution_is_discardable(self):
+        """regex_tidy moves the artist out to the other side of the separator,
+        so the bracket it came from is spent, not lost."""
+        for text in ("Made Famous by Julie London", "In the Style of ABBA", "by Adele"):
+            assert is_discardable_qualifier(text), text
+
+    def test_an_unknown_qualifier_fails_closed(self):
+        """The point of the whitelist: a release form nobody listed is kept."""
+        assert not is_discardable_qualifier("Rarities Box Set")
 
 
 @pytest.fixture(autouse=True)
@@ -542,6 +633,13 @@ class TestRegexTidy:
 
     def test_strips_karaoke_by_source(self):
         assert regex_tidy("Artist - Song - Karaoke by Stingray") == "Artist - Song"
+
+    def test_a_closed_karaoke_bracket_makes_by_an_attribution(self):
+        """The bracket is the whole difference: "Karaoke by Stingray" names the
+        vendor who cut the track, "[Karaoke] by Stingray" names the artist."""
+        assert regex_tidy("Song [Karaoke Version] by Julie London") == "Song - Julie London"
+        assert regex_tidy("Song (Karaoke) by Julie London") == "Song - Julie London"
+        assert regex_tidy("Song [Karaoke by Stingray]") == "Song"
 
     def test_no_dangling_separator_after_noise_and_attribution_removal(self):
         result = regex_tidy("Fernando - KARAOKE VERSION - as popularized by ABBA")

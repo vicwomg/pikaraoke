@@ -427,6 +427,38 @@
 		// Fetching a stream URL takes seconds, long enough to close the modal or click
 		// another thumbnail, so only the response for the preview on screen is applied.
 		let previewRequestId = 0;
+		let previewPageUrl = null;
+		let previewRetried = false;
+
+		// A refused stream is common enough that one silent re-request beats a failure,
+		// whether the server gave up or the browser could not play what it returned.
+		const retryOrFailPreview = function () {
+			if (!previewRetried) {
+				previewRetried = true;
+				previewContent.classList.add("is-loading");
+				requestPreview(previewPageUrl, previewRequestId);
+				return;
+			}
+			previewContent.classList.remove("is-loading");
+			previewError.style.display = "block";
+		};
+
+		const requestPreview = function (videoUrl, requestId) {
+			$.ajax({
+				url: "{{ url_for('search.preview') }}" + "?url=" + encodeURIComponent(videoUrl),
+				type: "get",
+				success: function (data) {
+					if (requestId !== previewRequestId) return;
+					previewVideo.src = data.stream_url;
+					previewVideo.load();
+					previewVideo.play().catch(function () {});
+				},
+				error: function () {
+					if (requestId !== previewRequestId) return;
+					retryOrFailPreview();
+				},
+			});
+		};
 
 		// Registered once; clearing the spinner is idempotent.
 		previewVideo.addEventListener("playing", function () {
@@ -434,8 +466,9 @@
 			previewError.style.display = "none";
 		});
 		previewVideo.addEventListener("error", function () {
-			previewContent.classList.remove("is-loading");
-			previewError.style.display = "block";
+			// Detaching the source during teardown also fires error; ignore that.
+			if (!previewModal.classList.contains("is-active")) return;
+			retryOrFailPreview();
 		});
 
 		const closePreview = function () {
@@ -456,30 +489,19 @@
 		$("#search-results").on("click", ".img-wrapper", function () {
 			const videoUrl = $(this).data("url");
 			const requestId = ++previewRequestId;
+			previewPageUrl = videoUrl;
+			previewRetried = false;
 
 			previewModal.classList.add("is-active");
 			previewContent.classList.add("is-loading");
+			previewError.style.display = "none";
 			previewCloseButton.focus();
 
 			// Unlock autoplay on iOS: Safari only ties play() to a gesture when it is
 			// called in the handler. load() aborts this promise, so nothing chains to it.
 			previewVideo.play().catch(function () {});
 
-			$.ajax({
-				url: "{{ url_for('search.preview') }}" + "?url=" + encodeURIComponent(videoUrl),
-				type: "get",
-				success: function (data) {
-					if (requestId !== previewRequestId) return;
-					previewVideo.src = data.stream_url;
-					previewVideo.load();
-					previewVideo.play().catch(function () {});
-				},
-				error: function () {
-					if (requestId !== previewRequestId) return;
-					previewContent.classList.remove("is-loading");
-					previewError.style.display = "block";
-				},
-			});
+			requestPreview(videoUrl, requestId);
 		});
 	});
 
@@ -592,26 +614,26 @@
 			{%- endtrans %}
 		</label>
 		<ul id="search-results" class="search_result_items">
-			{% for title,url,id,channel,duration in search_results %}
-			{% set local_path = library_matches.get(id) %}
-			<li data-ytID="{{id}}" data-ytTitle="{{title}}" value="{{url}}" data-index="{{loop.index0}}">
-				<div class="img-wrapper" data-url="{{url}}">
+			{% for result in search_results %}
+			{% set local_path = library_matches.get(result.video_id) %}
+			<li data-ytID="{{result.video_id}}" data-ytTitle="{{result.title}}" value="{{result.url}}" data-index="{{loop.index0}}">
+				<div class="img-wrapper" data-url="{{result.url}}">
 					<div class="img-frame">
-						<img src="https://img.youtube.com/vi/{{id}}/mqdefault.jpg" />
+						<img src="https://img.youtube.com/vi/{{result.video_id}}/mqdefault.jpg" />
 						{# On the thumbnail rather than after the title: titles wrap, so a tag
 						   trailing the text lands wherever the last line happens to end. #}
 						{% if local_path %}
 						{# MSG: Badge on a YouTube search result marking a song that is already downloaded. #}
 						<span class="library-badge">{% trans %}In library{% endtrans %}</span>
 						{% endif %}
-						{% if duration %}<span class="duration-badge">{{ duration }}</span>{% endif %}
+						{% if result.duration %}<span class="duration-badge">{{ result.duration }}</span>{% endif %}
 					</div>
 				</div>
 				<div class="search_result_items_meta">
 					<div>
-						{{title}}
-						{% if channel %}<div class="is-size-7 has-text-grey">{{ channel }}</div>{% endif %}
-						<a href="{{url}}" target="_blank" rel="noopener noreferrer" class="is-size-7 has-text-info">YouTube ↗</a>
+						{{result.title}}
+						{% if result.channel %}<div class="is-size-7 has-text-grey">{{ result.channel }}</div>{% endif %}
+						<a href="{{result.url}}" target="_blank" rel="noopener noreferrer" class="is-size-7 has-text-info">YouTube ↗</a>
 					</div>
 					<div class="search_result_items_actions">
 						{% if local_path %}

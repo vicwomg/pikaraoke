@@ -11,26 +11,35 @@
 		// media query -- an inline `top` would follow a resize onto the desktop
 		// layout and strand the bar wherever the phone had left it.
 		const alphaBar = document.getElementById("alpha-bar");
-		const restingTop = document.querySelector(".box").getBoundingClientRect().top + window.scrollY;
-		let queued = false;
-		function placeAlphaBar() {
-			queued = false;
-			const top = Math.max(3, restingTop - window.scrollY);
-			alphaBar.style.setProperty("--alpha-top", top + "px");
+		const box = document.querySelector(".box");
+		// The strip is dropped for a folder that holds only subfolders.
+		if (alphaBar && box) {
+			const restingTop = box.getBoundingClientRect().top + window.scrollY;
+			let queued = false;
+			function placeAlphaBar() {
+				queued = false;
+				const top = Math.max(3, restingTop - window.scrollY);
+				alphaBar.style.setProperty("--alpha-top", top + "px");
+			}
+			// Not on load alone: a Back navigation restores the scroll position.
+			placeAlphaBar();
+			// Namespaced, and unbound first, because SPA navigation re-runs this
+			// script on every visit and a plain bind would stack a handler per page.
+			$(window)
+				.off("scroll.alphabar")
+				.on("scroll.alphabar", function () {
+					// A phone fires scroll faster than it paints and each write
+					// forces a layout, so collapse them onto the frame.
+					if (queued) return;
+					queued = true;
+					requestAnimationFrame(placeAlphaBar);
+				});
 		}
-		// Not on load alone: a Back navigation restores the scroll position.
-		placeAlphaBar();
-		// Namespaced, and unbound first, because SPA navigation re-runs this
-		// script on every visit and a plain bind would stack a handler per page.
-		$(window)
-			.off("scroll.alphabar")
-			.on("scroll.alphabar", function () {
-				// A phone fires scroll faster than it paints and each write
-				// forces a layout, so collapse them onto the frame.
-				if (queued) return;
-				queued = true;
-				requestAnimationFrame(placeAlphaBar);
-			});
+
+		const input = document.getElementById("song-filter");
+		const resultsDiv = document.getElementById("browse-results");
+		// A folder holding only subfolders renders neither control.
+		if (!input || !resultsDiv) return;
 
 		// --- Filter box -------------------------------------------------
 		// Hiragana/Katakana, CJK Ext A, CJK Unified, Hangul Syllables. Ranges mirror
@@ -53,8 +62,20 @@
 		}
 
 		const BROWSE_URL = "{{ url_for('files.browse') }}";
-		const input = document.getElementById("song-filter");
-		const resultsDiv = document.getElementById("browse-results");
+		const VIEW = {{ view | tojson }};
+		const FOLDER = {{ folder | tojson }};
+
+		// Filtering and sorting act *within* the folder being browsed, so every URL
+		// built below has to carry the scope -- otherwise the first keystroke
+		// silently throws the user back out to the whole library.
+		function scopeParams() {
+			const params = new URLSearchParams();
+			if (VIEW) {
+				params.set("view", VIEW);
+				if (FOLDER) params.set("folder", FOLDER);
+			}
+			return params;
+		}
 		// What the server last rendered. A query that resolves to this needs no
 		// request, which is why typing one letter on an unfiltered page is free.
 		let renderedQuery = {{ q | tojson }};
@@ -68,7 +89,7 @@
 		}
 
 		function buildParams(q) {
-			const params = new URLSearchParams();
+			const params = scopeParams();
 			if (q) params.set("q", q);
 			// A user who chose ?sort=date and then typed has not asked to go back
 			// to alphabetical. page and letter are dropped: a new query is a new
@@ -83,7 +104,7 @@
 		// switching sort would then silently drop what the user had typed.
 		function syncSortLinks(q) {
 			document.querySelectorAll("a.sort-link").forEach(function (a) {
-				const params = new URLSearchParams();
+				const params = scopeParams();
 				if (q) params.set("q", q);
 				if (a.dataset.sort) params.set("sort", a.dataset.sort);
 				const query = params.toString();
@@ -195,8 +216,8 @@
 		{% block title %}{{title}}{% if letter %}<span id="letter-heading">: "{{ letter.upper() }}"</span>{% endif %}{% endblock %}
 	</h1>
 	{% if admin %}
-	<a class="batch-edit-btn" href="{{ url_for('batch_song_renamer.browse')}}" title="Edit all songs"
-		><i class="icon icon-edit"></i>{# MSG: Button to open the batch song renamer page. #} {% trans %}Edit all songs{%
+	<a class="batch-edit-btn" href="{{ url_for('batch_song_renamer.browse')}}" title="Bulk rename"
+		><i class="icon icon-edit"></i>{# MSG: Button to open the batch song renamer page. #} {% trans %}Bulk rename{%
 		endtrans %}</a
 	>
 	{% endif %}
@@ -213,6 +234,14 @@
 		justify-content: space-between;
 		top: 3px;
 		z-index: 20;
+	}
+	/* Held in the layout rather than hidden, so the strip keeps the same 27 slots in
+	   every folder. Dim enough to read as unavailable, but still legible: it is the
+	   only thing telling you the folder has nothing under that letter. */
+	#alpha-bar .alpha-empty {
+		opacity: 0.35;
+		cursor: default;
+		user-select: none;
 	}
 	table {
 		width: 100%;
@@ -246,14 +275,31 @@
 		white-space: nowrap;
 	}
 
-	#sort-bar {
+	/* The view toggle sits left, the sort toggle right. The left slot is rendered
+	   even when empty so that space-between keeps sort against the right edge on a
+	   library with no subfolders. */
+	#browse-controls {
 		display: flex;
-		justify-content: flex-end;
+		justify-content: space-between;
+		flex-wrap: wrap;
 	}
-	/* Bulma gives a non-last .buttons a full block of spacing; this control belongs
-	   close to the table it sorts. */
-	#sort-bar .buttons {
+	/* Bulma gives a non-last .buttons a full block of spacing; these controls belong
+	   close to the table they act on. */
+	#browse-controls .buttons {
 		margin-bottom: 0.5rem;
+	}
+
+	.folder-item {
+		/* Pushes the chevron to the right edge; panel-block is flex already. */
+		justify-content: space-between;
+	}
+
+	/* Bulma ships the breadcrumb list as align-items: flex-start, which only shows
+	   when the items are unequal heights -- here the root crumb carries a folder
+	   icon and the rest are plain text, so they hang from the top instead of
+	   sharing a centre line. */
+	.breadcrumb ul {
+		align-items: center;
 	}
 
 	@media screen and (max-width: 500px) {
@@ -279,7 +325,7 @@
 		}
 		/* The strip is an overlay, so the content has to give up the width it sits
 		   in. Bulma's 20px of box padding is not enough on its own: it leaves the
-		   page links, the edit icons and "Edit all songs" running underneath, and
+		   page links, the rename icons and "Bulk rename" running underneath, and
 		   since the strip paints above them it swallows their taps too. */
 		.box {
 			padding-right: 28px;
@@ -288,6 +334,38 @@
 </style>
 {% endblock %} {% block content %}
 
+{# A folder holding only subfolders is navigation, not a result set: no singer
+   field, no filter box, no A-Z bar, no sort toggle and no empty table -- just the
+   folders. An active filter keeps them all, so a query matching nothing can still
+   be cleared. #}
+{% set folder_landing = view and not songs and not q and not letter %}
+{# The route reports the sort as a display string; the view toggle needs the param
+   back so that switching between flat and folder view keeps the chosen order. #}
+{% set sort_param = 'date' if sort_order == 'Date' else None %}
+
+{% if breadcrumbs %}
+<nav class="breadcrumb is-small" aria-label="breadcrumbs">
+	<ul>
+		<li>
+			<a href="{{ url_for('files.browse', view='folders') }}">
+				{# The glyph class alone -- adding Bulma's `icon` to the inner element
+				   nests a default 1.5rem icon box inside this `is-small` one and
+				   knocks the folder glyph off centre. #}
+				<span class="icon is-small"><i class="icon-folder-open-empty"></i></span>
+				{# MSG: Breadcrumb link back to the top level of the folder view. #}
+				<span>{% trans %}All folders{% endtrans %}</span>
+			</a>
+		</li>
+		{% for crumb in breadcrumbs %}
+		<li{% if loop.last %} class="is-active"{% endif %}>
+			<a href="{{ url_for('files.browse', view='folders', folder=crumb.folder) }}">{{ crumb.name }}</a>
+		</li>
+		{% endfor %}
+	</ul>
+</nav>
+{% endif %}
+
+{% if not folder_landing %}
 {% include 'partials/singer_field.html' %}
 
 {# Filtering is server-side: the page is paginated, so a client-side filter over
@@ -311,39 +389,90 @@
 	</div>
 </div>
 
+{# A folder listing only subfolders has no songs for the bar to narrow, so every
+   letter would be a dead end. Everywhere else it renders, scoped to what is on
+   screen -- the letters that would return nothing are greyed rather than dropped,
+   so the strip does not change shape as the user moves between folders. #}
+{% if not view or letters %}
 <div id="alpha-bar" class="column is-full has-background-dark">
-	<a href="{{ url_for('files.browse') }}" title="Show all"><i class="icon icon-list-bullet"></i></a>
-	<a href="{{ url_for('files.browse') }}?letter=numeric">#</a>
+	<a href="{{ url_for('files.browse', view=view or None, folder=folder or None) }}" title="Show all"
+		><i class="icon icon-list-bullet"></i
+	></a>
+	{% if 'numeric' in letters %}
+	<a href="{{ url_for('files.browse', letter='numeric', view=view or None, folder=folder or None) }}">#</a>
+	{% else %}
+	<span class="alpha-empty">#</span>
+	{% endif %}
 	{# Not named `letter`: the sort links below read the page's own `letter` variable,
 	   and shadowing it here would be one Jinja scoping rule away from a bug. #}
 	{% for alpha in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
 	'u', 'v', 'w', 'x', 'y', 'z'] %}
-	<a href="{{ url_for('files.browse') }}?letter={{alpha}}">{{alpha.upper()}}</a>
+	{% if alpha in letters %}
+	<a href="{{ url_for('files.browse', letter=alpha, view=view or None, folder=folder or None) }}">{{alpha.upper()}}</a>
+	{% else %}
+	{# A span, not a disabled link: an anchor with no href is still focusable, so a
+	   keyboard would tab through two dozen dead stops to reach the list. #}
+	<span class="alpha-empty">{{alpha.upper()}}</span>
+	{% endif %}
 	{% endfor %}
 </div>
+{% endif %}
+{% endif %}
 
-{# Sits with the results it describes rather than above the search box, and shows
-   both orderings at once so the current one is visible without reading a sentence.
-   Sorting is orthogonal to filtering, so these carry the active filter through --
-   the alpha bar above is the one control that deliberately clears it. #}
-<div id="sort-bar">
+{% if subfolders %}
+{# Entering a folder deliberately drops q, letter and page: a folder is a new
+   listing, not a filtered continuation of the one being left. #}
+<div class="panel">
+	{% for name in subfolders %}
+	<a class="panel-block py-3 folder-item"
+		href="{{ url_for('files.browse', view='folders', folder=(folder ~ '/' ~ name) if folder else name) }}">
+		<span><span class="icon mr-2"><i class="icon-folder-open-empty"></i></span>{{ name }}</span>
+		<span class="icon"><i class="icon-right-big"></i></span>
+	</a>
+	{% endfor %}
+</div>
+{% endif %}
+
+{# Both toggles sit with the results they describe rather than above the search box,
+   and each shows its options at once so the active one is visible without reading a
+   sentence. Sorting and the view are orthogonal to filtering, so both carry the
+   active query through -- the alpha bar above is the one control that clears it. #}
+<div id="browse-controls">
 	<div class="buttons has-addons are-small">
+		{% if has_subfolders %}
+		<a class="button {% if not view %}is-info is-selected{% endif %}"
+			href="{{ url_for('files.browse', q=q or None, sort=sort_param) }}">
+			{# MSG: Button which lists every song at once, ignoring the folders they are stored in. #}
+			{% trans %}All songs{% endtrans %}
+		</a>
+		<a class="button {% if view %}is-info is-selected{% endif %}"
+			href="{{ url_for('files.browse', view='folders', q=q or None, sort=sort_param) }}">
+			{# MSG: Button which groups the songs by the folder they are stored in. #}
+			{% trans %}Folders{% endtrans %}
+		</a>
+		{% endif %}
+	</div>
+	<div class="buttons has-addons are-small">
+		{% if not folder_landing %}
 		{# Labels stay on one line: `trans` does not collapse whitespace, so a wrapped
 		   label bakes the newline and tabs into the msgid and any reindent breaks it. #}
 		<a class="button sort-link {% if sort_order == 'Alphabetical' %}is-info is-selected{% endif %}" data-sort=""
-			href="{{ url_for('files.browse', q=q or None, letter=letter or None) }}">
+			href="{{ url_for('files.browse', q=q or None, letter=letter or None, view=view or None, folder=folder or None) }}">
 			{# MSG: Button which changes how the songs are sorted so they become sorted by name. #}
 			{% trans %}Sort Alphabetically{% endtrans %}
 		</a>
 		<a class="button sort-link {% if sort_order == 'Date' %}is-info is-selected{% endif %}" data-sort="date"
-			href="{{ url_for('files.browse', sort='date', q=q or None, letter=letter or None) }}">
+			href="{{ url_for('files.browse', sort='date', q=q or None, letter=letter or None, view=view or None, folder=folder or None) }}">
 			{# MSG: Button which changes how the songs are sorted so they become sorted by date. #}
 			{% trans %}Sort by Date{% endtrans %}
 		</a>
+		{% endif %}
 	</div>
 </div>
 
+{% if not folder_landing %}
 {# The filter input sits outside this div, so a keystroke swap never takes the
    caret with it. #}
 <div id="browse-results">{% include 'partials/browse_results.html' %}</div>
+{% endif %}
 {% endblock %}

@@ -142,6 +142,47 @@ class TestPlaybackControllerPlayFile:
         assert result.error == "Stream error"
 
 
+class TestPlaybackControllerClaim:
+    """The claim is what a rename request consults, so it must outlast no window."""
+
+    @patch("pikaraoke.lib.playback_controller.os.path.isfile", return_value=True)
+    @patch("pikaraoke.lib.playback_controller.time.sleep")
+    def test_claims_before_delegating_to_the_stream(self, mock_sleep, mock_isfile, test_prefs):
+        """play_file sleeps through transcoding, and gevent serves renames meanwhile."""
+        pc = PlaybackController(test_prefs, EventSystem(), lambda x, remove_youtube_id=True: x)
+        claimed = []
+        pc.stream_manager.play_file = MagicMock(
+            side_effect=lambda *a: claimed.append(pc.now_playing_filename)
+            or PlaybackResult(success=True, stream_url="/s.m3u8", duration=1)
+        )
+        pc.is_playing = True
+
+        pc.play_file("/songs/test.mp4", "TestUser")
+
+        assert claimed == ["/songs/test.mp4"]
+
+    @patch("pikaraoke.lib.playback_controller.os.path.isfile", return_value=True)
+    def test_a_failed_stream_releases_the_claim(self, mock_isfile, test_prefs):
+        pc = PlaybackController(test_prefs, EventSystem(), lambda x, remove_youtube_id=True: x)
+        pc.stream_manager.play_file = MagicMock(
+            return_value=PlaybackResult(success=False, error="Stream error")
+        )
+
+        pc.play_file("/songs/test.mp4", "TestUser")
+
+        assert pc.now_playing_filename is None
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    def test_a_missing_file_releases_the_run_loops_claim(self, mock_gettext, test_prefs):
+        """The run loop claims before calling in, so this path has one to release."""
+        pc = PlaybackController(test_prefs, EventSystem(), lambda x, remove_youtube_id=True: x)
+        pc.claim("/nonexistent/song.mp4")
+
+        pc.play_file("/nonexistent/song.mp4", "TestUser")
+
+        assert pc.now_playing_filename is None
+
+
 class TestPlaybackControllerMissingFile:
     """Tests for file-existence guard in play_file."""
 

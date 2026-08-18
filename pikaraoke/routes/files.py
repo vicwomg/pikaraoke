@@ -12,6 +12,7 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.constants import ITUNES_COUNTRIES, per_page_options
+from pikaraoke.karaoke import SongInUseError
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
 from pikaraoke.lib.metadata_parser import youtube_id_suffix
 
@@ -55,6 +56,14 @@ def _format_icon(song_path: str, db_format: str | None) -> str | None:
 files_bp = Blueprint("files", __name__)
 
 
+def _build_breadcrumbs(folder: str) -> list[dict[str, str]]:
+    """Trail of {name, folder} entries for each segment of a folder key."""
+    if not folder:
+        return []
+    parts = folder.split("/")
+    return [{"name": part, "folder": "/".join(parts[: i + 1])} for i, part in enumerate(parts)]
+
+
 class SongReferrerQuery(Schema):
     song = fields.String(required=True, metadata={"description": "Path to the song file"})
     referrer = fields.String(metadata={"description": "URL to redirect back to"})
@@ -78,11 +87,30 @@ def browse():
     q = (request.args.get("q") or "").strip()
     letter = request.args.get("letter")
 
+    # `view=folders` scopes the listing to one directory, so the folder is a scope
+    # and q/letter are filters within it. An unknown folder -- including a "../"
+    # traversal attempt -- is not a key in the tree, so it clamps to the root
+    # rather than being validated against the filesystem.
+    #
+    # Folder browsing is opt-in. The empty tree stands in when it is off, which
+    # drops the toggle and makes a bookmarked ?view=folders fall back to the flat
+    # list rather than 404 -- the preference can be turned off while a phone is
+    # sitting on a folder page.
+    folder_tree = k.song_manager.folder_tree() if k.enable_folder_browsing else {"": []}
+    has_subfolders = bool(folder_tree[""])
+    in_folders = has_subfolders and request.args.get("view") == "folders"
+    folder = request.args.get("folder", "") if in_folders else ""
+    if folder not in folder_tree:
+        folder = ""
+    scope = folder if in_folders else None
+
     # A text query and a letter jump are two different intents, so q wins.
     if q:
-        available_songs = k.song_manager.search(q)
+        available_songs = k.song_manager.search(q, folder=scope)
     elif letter:
-        available_songs = k.song_manager.songs_by_letter(letter)
+        available_songs = k.song_manager.songs_by_letter(letter, folder=scope)
+    elif in_folders:
+        available_songs = k.song_manager.songs_in_folder(folder)
     else:
         available_songs = k.song_manager.songs
 
@@ -119,10 +147,16 @@ def browse():
     # no nav or stylesheet. The same leak poisons current_url, which becomes the
     # edit button's referrer.
     args.pop("partial", None)
-    # Rewritten rather than passed through, because the clamp above may have dropped
-    # a page the request asked for, and these args build the pagination links and
-    # the edit referrer -- an edit started from a clamped page comes back to a real
-    # one.
+    # Rewritten rather than passed through, because the clamps above may have
+    # dropped a folder or a page the request asked for. These args build the
+    # pagination links and the edit referrer, so they have to describe what was
+    # rendered -- an edit started from a clamped page comes back to a real one.
+    args.pop("view", None)
+    args.pop("folder", None)
+    if in_folders:
+        args["view"] = "folders"
+        if folder:
+            args["folder"] = folder
     args["page"] = page
 
     current_url = url_for("files.browse", **args.to_dict())
@@ -145,12 +179,22 @@ def browse():
         "sort_order": sort_order,
         "site_title": site_name,
         "letter": letter,
+        # Scoped, not filtered: the alpha bar sits outside the swapped fragment, so
+        # which letters it offers must not move as the user types.
+        "letters": k.song_manager.letters_with_songs(scope),
         "q": q,
         # MSG: Title of the page listing the songs already on this machine.
         "title": _("Songs"),
         "songs": songs[start_index : start_index + results_per_page],
         "admin": admin,
         "current_url": current_url,
+        "view": "folders" if in_folders else "",
+        "folder": folder,
+        "subfolders": folder_tree[folder] if in_folders else [],
+        "breadcrumbs": _build_breadcrumbs(folder),
+        # Drives whether the folder toggle is offered at all: a flat library never
+        # sees it, so nothing about the page changes for those users.
+        "has_subfolders": has_subfolders,
     }
     # Filter keystrokes ask for the result table alone. Rendering base.html per
     # keystroke is pure Python, so on a Pi it blocks the event loop as surely as
@@ -171,12 +215,10 @@ def delete_file(query):
     if not is_admin():
         flash(_("You don't have permission to delete songs"), "is-danger")
         return redirect(referrer)
-    if k.queue_manager.is_song_in_queue(song_path):
+    if k.is_song_in_use(song_path):
         flash(
-            # MSG: Message shown after trying to delete a song that is in the queue.
-            _("Error: Can't delete this song because it is in the current queue")
-            + ": "
-            + song_path,
+            # MSG: Message shown after trying to delete a song that is queued or playing.
+            _("Error: Can't delete this song because it is queued or playing") + ": " + song_path,
             "is-danger",
         )
     else:
@@ -189,83 +231,98 @@ def delete_file(query):
     return redirect(referrer)
 
 
+def _render_edit_page(k, song_path: str, new_name: str, referrer: str, error: str | None = None):
+    """Render the rename page with `new_name` in the input and `error` above it."""
+    return render_template(
+        "edit.html",
+        site_title=get_site_name(),
+        title="Rename Song",
+        song=song_path,
+        # What is on disk, which on a failed save is precisely what did not change.
+        raw_stem=k.song_manager.filename_from_path(song_path, tidy=False),
+        new_name=new_name,
+        format_icon=_format_icon(song_path, k.db.get_format(song_path)),
+        referrer=referrer,
+        itunes_countries=ITUNES_COUNTRIES,
+        itunes_search_country=k.preferences.get_or_default("itunes_search_country"),
+        error=error,
+    )
+
+
 @files_bp.route("/files/edit", methods=["GET"])
 @files_bp.arguments(SongReferrerQuery, location="query")
 def edit_file(query):
     """Show the song rename page."""
     k = get_karaoke_instance()
-    site_name = get_site_name()
     song_path = query["song"]
     referrer = query.get("referrer") or url_for("files.browse")
     if not is_admin():
-        flash(_("You don't have permission to edit songs"), "is-danger")
+        flash(_("You don't have permission to rename songs"), "is-danger")
         return redirect(referrer)
-    if k.queue_manager.is_song_in_queue(song_path):
-        # MSG: Message shown after trying to edit a song that is in the queue.
-        flash(
-            _("Error: Can't edit this song because it is in the current queue: ") + song_path,
-            "is-danger",
-        )
+    if k.playback_controller.now_playing_filename == song_path:
+        # MSG: Message shown after trying to rename the song that is playing.
+        flash(_("This song is playing. Rename it when it finishes."), "is-danger")
         return redirect(referrer)
     raw_stem = k.song_manager.filename_from_path(song_path, tidy=False)
-    format_icon = _format_icon(song_path, k.db.get_format(song_path))
-    itunes_search_country = k.preferences.get_or_default("itunes_search_country")
-    return render_template(
-        "edit.html",
-        site_title=site_name,
-        title="Song File Edit",
-        song=song_path,
-        raw_stem=raw_stem,
-        format_icon=format_icon,
-        referrer=referrer,
-        itunes_countries=ITUNES_COUNTRIES,
-        itunes_search_country=itunes_search_country,
-    )
+    return _render_edit_page(k, song_path, raw_stem, referrer)
 
 
 @files_bp.route("/files/edit", methods=["POST"])
 @files_bp.arguments(EditFileForm, location="form")
 def rename_file(form):
-    """Process a song rename."""
+    """Process a song rename.
+
+    Redirects to the referrer only when the file actually moved; every refusal
+    re-renders the page with the submitted name, so nothing typed is lost.
+    """
     k = get_karaoke_instance()
     referrer = form.get("referrer") or url_for("files.browse")
     new_name = form["new_file_name"]
     old_name = form["old_file_name"]
     if not is_admin():
-        flash(_("You don't have permission to edit songs"), "is-danger")
-    yt_suffix = youtube_id_suffix(old_name)
-    new_name_full = new_name + yt_suffix
-    if k.queue_manager.is_song_in_queue(old_name):
-        # check one more time just in case someone added it during editing
-        # MSG: Message shown after trying to edit a song that is in the queue.
-        flash(
-            _("Error: Can't edit this song because it is in the current queue: ") + old_name,
-            "is-danger",
+        flash(_("You don't have permission to rename songs"), "is-danger")
+        return redirect(referrer)
+
+    if not new_name.strip():
+        # MSG: Message shown after saving the rename page with an empty name.
+        error = _("Enter a name for this song.")
+        return _render_edit_page(k, old_name, new_name, referrer, error)
+
+    if not os.path.isfile(old_name):
+        # MSG: Message shown when the song being renamed is gone from the library.
+        error = _(
+            "This song is no longer in the library. "
+            "It may have been renamed or deleted from another device."
         )
-    else:
-        file_extension = os.path.splitext(old_name)[1]
-        if os.path.isfile(
-            os.path.join(k.song_manager.download_path, new_name_full + file_extension)
-        ):
-            flash(
-                # MSG: Message shown after trying to rename a file to a name that already exists.
-                _("Error renaming file: '%s' to '%s', Filename already exists")
-                % (old_name, new_name_full + file_extension),
-                "is-danger",
-            )
-        else:
-            try:
-                k.song_manager.rename(old_name, new_name_full)
-            except OSError as e:
-                logging.error(f"Error renaming file: {e}")
-                flash(
-                    _("Error renaming file: '%s' to '%s', %s") % (old_name, new_name_full, e),
-                    "is-danger",
-                )
-            else:
-                flash(
-                    # MSG: Message shown after renaming a file.
-                    _("Renamed file: %s to %s") % (old_name, new_name_full),
-                    "is-warning",
-                )
+        return _render_edit_page(k, old_name, new_name, referrer, error)
+
+    new_name_full = new_name + youtube_id_suffix(old_name)
+    target = k.song_manager.rename_target(old_name, new_name_full)
+    # A song already named what you asked for is done, not a collision with itself.
+    if target == old_name:
+        return redirect(referrer)
+    if os.path.isfile(target):
+        # MSG: Message shown after trying to rename a song to a name already in use.
+        error = _("A song called '%s' already exists.") % os.path.basename(target)
+        return _render_edit_page(k, old_name, new_name, referrer, error)
+
+    try:
+        k.rename_song(old_name, new_name_full)
+    except SongInUseError:
+        # MSG: Message shown when the song being renamed started playing mid-edit.
+        error = _(
+            "This song started playing while you were editing it. Rename it when it finishes."
+        )
+        return _render_edit_page(k, old_name, new_name, referrer, error)
+    except OSError as e:
+        logging.error(f"Error renaming file: {e}")
+        # MSG: Message shown after a rename failed. Followed by the system error.
+        error = _("Error renaming file: %s") % e
+        return _render_edit_page(k, old_name, new_name, referrer, error)
+
+    flash(
+        # MSG: Message shown after renaming a file.
+        _("Renamed file: %s to %s") % (old_name, new_name_full),
+        "is-warning",
+    )
     return redirect(referrer)

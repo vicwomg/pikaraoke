@@ -50,8 +50,10 @@ class PreferenceManager:
         "hide_logo": False,
         "mic_settings": "{}",
         "enable_title_tidy": False,
+        "enable_folder_browsing": False,
         "metadata_provider": "itunes",
         "itunes_search_country": "US",
+        "suggestion_name_order": "artist_title",
     }
 
     def __init__(self, config_file_path: str = "config.ini", target: object | None = None) -> None:

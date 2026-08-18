@@ -4,6 +4,15 @@
 <script>
   $(function () {
 
+    var currentName = {{ raw_stem | tojson }};
+
+    // Nothing to save until the name differs from the one on disk, so the button
+    // answers "does this song already fit?" without a round trip.
+    function updateSaveState() {
+      var val = $.trim($('#new_file_name').val());
+      $('#save-button').prop('disabled', val === '' || val === currentName);
+    }
+
     function fetchSuggestions() {
       var filename = $.trim($('#new_file_name').val());
       if (!filename) return;
@@ -23,8 +32,14 @@
               if (item.genre) parts.push(item.genre);
               $text.append($('<span class="suggest-meta">').text(" (" + parts.join(", ") + ")"));
             }
-            var score = item.score != null ? item.score : "";
-            var $score = $('<span class="suggest-score">').text(score);
+            // Percent, because the score is anchored rather than ranked: 100 means
+            // "already correct", not "best of these five". The reason explains a
+            // number below that, which the number alone can only assert.
+            var $score = $('<span class="suggest-score">');
+            if (item.score != null) {
+              $score.text(item.score + '%');
+              if (item.reason) $score.attr('title', item.reason);
+            }
             $('<a class="suggested_item has-background-grey-dark">').data('name', display).append($text).append($score).appendTo($container);
           });
           // {# MSG: Help text explaining that clicking a suggestion copies it to the filename input. #}
@@ -48,7 +63,10 @@
       if (!filename) return;
       $btn.addClass("is-loading");
       $.getJSON(window.pikaraokeConfig.basePath + '/metadata/auto-format', { filename: filename }, function (data) {
-        if (data.formatted_name) $('#new_file_name').val(data.formatted_name);
+        if (data.formatted_name) {
+          $('#new_file_name').val(data.formatted_name);
+          updateSaveState();
+        }
       }).always(function () {
         $btn.removeClass("is-loading");
       });
@@ -61,19 +79,24 @@
       var part1 = val.substring(0, idx);
       var part2 = val.substring(idx + 3);
       $('#new_file_name').val(part2 + ' - ' + part1);
+      updateSaveState();
     });
 
     $("#suggest_results").on("click", ".suggested_item", function () {
       $('#new_file_name').val($(this).data('name'));
+      updateSaveState();
     });
+
+    $('#new_file_name').on('input', updateSaveState);
+    updateSaveState();
 
   });
 </script>
 {% endblock %}
 
 {% block header %}
-{# MSG: Page title for the page where a song can be edited. #}
-<h1>{% block title %}{% trans %}Edit Song{% endtrans %}{% endblock %}</h1>
+{# MSG: Page title for the page where a song can be renamed. #}
+<h1>{% block title %}{% trans %}Rename Song{% endtrans %}{% endblock %}</h1>
 {% endblock %}
 
 {% block content %}
@@ -97,12 +120,15 @@
     </div>
     <input value="{{ song }}" type="hidden" name='old_file_name'>
     <input type="hidden" name="referrer" value="{{ referrer }}">
+    {% if error %}
+    <div class="notification is-danger">{{ error }}</div>
+    {% endif %}
     {# MSG: Label for the input where the user types the new filename. #}
     <label class="label">{% trans %}New filename{% endtrans %}</label>
     <div class="field">
       <div class="control">
         <input autocomplete="off" id="new_file_name" class="input" type="text" name="new_file_name"
-          value="{{ raw_stem }}">
+          value="{{ new_name }}">
       </div>
     </div>
     <div class="buttons are-small mb-4">
@@ -138,7 +164,7 @@
     <div id="suggest_results" class="mb-4"></div>
     <div class="field is-grouped">
       <div class="control">
-        <button class="button is-primary" id="search-button" type="submit">
+        <button class="button is-primary" id="save-button" type="submit">
           {# MSG: Label on button which saves the changes. #}
           {%- trans %}Save{% endtrans -%}
         </button>

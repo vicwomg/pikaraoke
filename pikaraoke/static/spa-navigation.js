@@ -289,7 +289,7 @@
             basePath + '/expand_fs',
             basePath + '/clear_preferences',
             basePath + '/auth',
-            basePath + '/batch-song-renamer', // Edit all songs page
+            basePath + '/batch-song-renamer', // Bulk rename page
             basePath + '/files/edit', // Edit single song
             basePath + '/files/delete', // Delete song
             basePath + '/queue/edit' // Queue edit actions (move up/down/top/bottom/delete)

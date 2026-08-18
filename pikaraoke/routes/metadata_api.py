@@ -34,5 +34,10 @@ def suggest_names(query):
     """Search for track suggestions matching a filename."""
     k = get_karaoke_instance()
     provider = get_provider(k.preferences, country=query["country"])
-    results = suggest_metadata(query["filename"], provider=provider, limit=query["limit"])
+    results = suggest_metadata(
+        query["filename"],
+        provider=provider,
+        limit=query["limit"],
+        artist_first=k.preferences.get_or_default("suggestion_name_order") == "artist_title",
+    )
     return {"suggestions": results}

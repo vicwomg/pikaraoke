@@ -7,6 +7,7 @@ import re
 import shlex
 import subprocess
 import sys
+from dataclasses import dataclass
 from urllib.parse import parse_qs, urlparse
 
 from pikaraoke.lib.get_platform import get_installed_js_runtime
@@ -15,6 +16,17 @@ yt_dlp_cmd = [sys.executable, "-m", "yt_dlp"]
 
 # YouTube video IDs are always exactly 11 characters
 YOUTUBE_ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{11}")
+
+
+@dataclass
+class SearchResult:
+    """One YouTube search hit. Channel and duration may be empty."""
+
+    title: str
+    url: str
+    video_id: str
+    channel: str
+    duration: str  # formatted M:SS, not seconds
 
 
 def _js_runtime_args() -> list[str]:
@@ -139,8 +151,10 @@ def build_ytdl_download_command(
         List of command-line arguments for subprocess execution.
     """
     dl_path = os.path.join(download_path, "%(title)s---%(id)s.%(ext)s")
+    # AV1 ships in an mp4 container, so ext!=webm admits it and -S only sorts. Filtering
+    # on the codec is what keeps playback a stream copy instead of a libx264 transcode.
     file_quality = (
-        "bestvideo[ext!=webm][height<=1080]+bestaudio[ext!=webm]/best[ext!=webm]"
+        "bestvideo[vcodec^=avc1][height<=1080]+bestaudio[ext!=webm]/best[ext!=webm]"
         if high_quality
         else "mp4"
     )
@@ -163,15 +177,14 @@ def build_ytdl_download_command(
     return cmd
 
 
-def get_search_results(query: str) -> list[list[str]]:
+def get_search_results(query: str) -> list[SearchResult]:
     """Search YouTube for videos matching the query.
 
     Args:
         query: Search query string.
 
     Returns:
-        List of [title, url, video_id, channel, duration] for each result.
-        Duration is formatted as M:SS; channel and duration may be empty strings.
+        One SearchResult per hit, in the order yt-dlp reported them.
     """
     logging.info(f"Searching YouTube for: {query}")
     num_results = 10
@@ -194,7 +207,7 @@ def get_search_results(query: str) -> list[list[str]]:
             if isinstance(duration_raw, (int, float)):
                 seconds = int(duration_raw)
                 duration_str = f"{seconds // 60}:{seconds % 60:02d}"
-            results.append([j["title"], j["url"], j["id"], channel, duration_str])
+            results.append(SearchResult(j["title"], j["url"], j["id"], channel, duration_str))
         return results
     except subprocess.CalledProcessError as e:
         logging.debug(f"Error while executing search: {e}")
@@ -208,17 +221,15 @@ PREVIEW_FORMAT = (
     "/worst[protocol=https][vcodec!=none][acodec!=none]"
 )
 
+# YouTube answers 403 to a freshly resolved itag 18 URL often enough that it has to be
+# proven here: downloads survive it by retrying, a <video> element gets one attempt.
+# Two consecutive refusals then a working URL is a routinely observed sequence.
+_PREVIEW_ATTEMPTS = 3
+_VERIFY_TIMEOUT_SECONDS = 5
 
-def get_stream_url(video_url: str) -> str | None:
-    """Get a direct stream URL for a YouTube video without downloading it.
 
-    Args:
-        video_url: YouTube video URL.
-
-    Returns:
-        Progressive stream URL playable in a browser, or None if yt-dlp failed or
-        offered nothing progressive.
-    """
+def _resolve_stream_url(video_url: str) -> str | None:
+    """Ask yt-dlp for a progressive stream URL. No guarantee it will serve bytes."""
     cmd = yt_dlp_cmd + ["-g", "-f", PREVIEW_FORMAT] + _js_runtime_args()
     cmd += [video_url]
     logging.debug(f"yt-dlp get stream URL command: {' '.join(cmd)}")
@@ -245,3 +256,44 @@ def get_stream_url(video_url: str) -> str | None:
     except (FileNotFoundError, PermissionError) as e:
         logging.error(f"Could not run yt-dlp: {e}")
         return None
+
+
+def _serves_bytes(stream_url: str) -> bool:
+    """Check the stream answers a browser, asking for one block so nothing downloads."""
+    # Lazy so importing this module never pulls requests in ahead of gevent's patching.
+    import requests
+
+    try:
+        response = requests.get(
+            stream_url,
+            headers={"Range": "bytes=0-1023"},
+            timeout=_VERIFY_TIMEOUT_SECONDS,
+            stream=True,
+        )
+        response.close()
+        return response.status_code in (200, 206)
+    except requests.RequestException as e:
+        logging.warning(f"Preview stream check failed: {e}")
+        return False
+
+
+def get_stream_url(video_url: str) -> str | None:
+    """Get a browser-playable stream URL for a YouTube video, without downloading it.
+
+    Args:
+        video_url: YouTube video URL.
+
+    Returns:
+        A stream URL confirmed to serve bytes, or None if every attempt was refused.
+    """
+    for attempt in range(_PREVIEW_ATTEMPTS):
+        stream_url = _resolve_stream_url(video_url)
+        if stream_url is None:
+            return None
+        if _serves_bytes(stream_url):
+            return stream_url
+        logging.info(
+            f"Preview stream refused for {video_url}, re-resolving "
+            f"(attempt {attempt + 1}/{_PREVIEW_ATTEMPTS})"
+        )
+    return None
