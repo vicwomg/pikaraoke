@@ -238,6 +238,7 @@ TRAILING_NOISE_PATTERNS = [
 DISCARDABLE_QUALIFIER_WORDS = [
     r"official\s+(?:music\s+)?video",
     r"no\s+lead\s+vocals?",
+    r"original\s+key",
     r"with\s+lyrics?",
     r"sing[\s-]*along",
     r"backing\s+track",
@@ -246,6 +247,7 @@ DISCARDABLE_QUALIFIER_WORDS = [
     r"version",
     r"official",
     r"music",
+    r"songs?",
     r"video",
     r"audio",
     r"lyrics?",

@@ -74,6 +74,7 @@ class TestIsDiscardableQualifier:
             "HD",
             "Lyrics",
             "With Lyrics",
+            "Original Key",
             "カラオケ",
             "2011",
         ):
@@ -85,6 +86,8 @@ class TestIsDiscardableQualifier:
         for text in (
             "Live",
             "Acoustic",
+            "Lower Key",
+            "Higher Key",
             "Remastered 2010",
             "2011 Remaster",
             "Unplugged",
