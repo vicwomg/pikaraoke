@@ -135,6 +135,7 @@ class Karaoke:
         splash_delay: int | None = None,
         volume: float | None = None,
         enable_title_tidy: bool | None = None,
+        enable_folder_browsing: bool | None = None,
     ) -> None:
         """Initialize the Karaoke instance.
 
@@ -175,6 +176,7 @@ class Karaoke:
             additional_ytdl_args: Additional yt-dlp command arguments.
             socketio: SocketIO instance for real-time event emission.
             preferred_language: Language code for UI (e.g., 'en', 'de_DE').
+            enable_folder_browsing: Offer a Folders view on the Songs page.
         """
         logging.basicConfig(
             format="[%(asctime)s] %(levelname)s: %(message)s",

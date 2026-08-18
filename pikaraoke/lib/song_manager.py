@@ -38,6 +38,10 @@ class SongManager:
         self._get_title_tidy = get_title_tidy
         self._index: list[tuple[str, str]] = []  # (accent-folded raw filename key, path)
         self._index_version: int | None = None
+        self._folders: dict[str, list[str]] = {}  # folder key -> immediate subfolder names
+        self._folders_version: int | None = None
+        self._initials: dict[str | None, set[str]] = {}  # scope -> alpha-bar keys present
+        self._initials_version: int | None = None
 
     @staticmethod
     def filename_from_path(
@@ -94,28 +98,120 @@ class SongManager:
             self._index_version = version
         return self._index
 
-    def search(self, query: str) -> list[str]:
+    def _scoped_index(self, folder: str | None) -> list[tuple[str, str]]:
+        """Match index entries, narrowed to one folder's direct children.
+
+        `None` means the whole library; `""` means the download path itself. The
+        two are not the same: the flat view lists every song wherever it sits,
+        while the root of the folder view lists only what is not in a subfolder.
+        """
+        index = self._match_index()
+        if folder is None:
+            return index
+        target = self.folder_path(folder)
+        return [
+            (name, path)
+            for name, path in index
+            if os.path.dirname(os.path.normpath(path)) == target
+        ]
+
+    def search(self, query: str, folder: str | None = None) -> list[str]:
         """Songs whose filename contains every whitespace-separated term, in list order."""
         terms = remove_accents(query).lower().split()
+        index = self._scoped_index(folder)
         if not terms:
-            return list(self.songs)
-        index = self._match_index()
+            return [path for _, path in index]
         if len(terms) == 1:
             term = terms[0]
             return [path for name, path in index if term in name]
         return [path for name, path in index if all(t in name for t in terms)]
 
-    def songs_by_letter(self, letter: str) -> list[str]:
+    def songs_by_letter(self, letter: str, folder: str | None = None) -> list[str]:
         """Songs whose filename starts with `letter`, or with a digit when 'numeric'.
 
         Grouping by the raw filename keeps the alpha bar in agreement with
         SongList's sort order, which also keys on the raw basename.
         """
-        index = self._match_index()
+        index = self._scoped_index(folder)
         if letter == "numeric":
             return [path for name, path in index if name[:1].isnumeric()]
         target = letter.lower()
         return [path for name, path in index if name[:1] == target]
+
+    # ------------------------------------------------------------------
+    # Folders
+    #
+    # Folder keys are relative to download_path and always "/"-separated, because
+    # they travel as a URL parameter and must not change shape between platforms.
+    # The empty string is the root.
+    # ------------------------------------------------------------------
+
+    def folder_path(self, folder: str) -> str:
+        """Absolute directory for a folder key."""
+        base = os.path.normpath(self.download_path)
+        return os.path.join(base, *folder.split("/")) if folder else base
+
+    def folder_tree(self) -> dict[str, list[str]]:
+        """Every folder holding songs, mapped to its immediate subfolder names.
+
+        Memoized against the song list like the match index: the browse page needs
+        the root entry on every request to decide whether to offer the folder view
+        at all, and rebuilding that per request is an O(songs) pass on a Pi.
+
+        Because keys are derived from real song paths, membership doubles as the
+        path-traversal guard -- "../../etc" is simply not a key.
+        """
+        version = self.songs.version
+        if self._folders_version != version:
+            children: dict[str, set[str]] = {"": set()}
+            prefix = os.path.normpath(self.download_path) + os.sep
+            for path in self.songs:
+                directory = os.path.dirname(os.path.normpath(path))
+                if not directory.startswith(prefix):
+                    continue  # sits directly in the download path
+                parent = ""
+                for name in directory[len(prefix) :].split(os.sep):
+                    children.setdefault(parent, set()).add(name)
+                    parent = f"{parent}/{name}" if parent else name
+                children.setdefault(parent, set())
+            self._folders = {
+                folder: sorted(names, key=str.lower) for folder, names in children.items()
+            }
+            self._folders_version = version
+        return self._folders
+
+    def letters_with_songs(self, folder: str | None = None) -> set[str]:
+        """Alpha-bar keys that `songs_by_letter` would answer for, in the same scope.
+
+        Memoized against the song list rather than derived per request: the browse
+        page greys out the dead letters on every render, and `_scoped_index` costs
+        an O(songs) pass of path splitting that a Pi should not repeat mid-playback.
+        Keyed like `_scoped_index` -- `None` is the whole library, `""` the root.
+        """
+        version = self.songs.version
+        if self._initials_version != version:
+            initials: dict[str | None, set[str]] = {None: set()}
+            prefix = os.path.normpath(self.download_path) + os.sep
+            for name, path in self._match_index():
+                first = name[:1]
+                if not first:
+                    continue
+                key = "numeric" if first.isnumeric() else first
+                directory = os.path.dirname(os.path.normpath(path))
+                scope = (
+                    directory[len(prefix) :].replace(os.sep, "/")
+                    if directory.startswith(prefix)
+                    else ""
+                )
+                initials[None].add(key)
+                initials.setdefault(scope, set()).add(key)
+            self._initials = initials
+            self._initials_version = version
+        return self._initials.get(folder, set())
+
+    def songs_in_folder(self, folder: str) -> list[str]:
+        """Songs sitting directly in `folder`, excluding its subfolders, in list order."""
+        return [path for _, path in self._scoped_index(folder)]
 
     def _get_companion_files(self, song_path: str) -> list[str]:
         """Return paths to companion files (.cdg, .ass) that exist alongside a song."""

@@ -682,6 +682,12 @@
 					</label>
 					</div>
 
+					<div class="user-preference-container">
+					<input id="pref-enable-folder-browsing" type="checkbox" class="user-preference-checkbox checkbox" data-pref="enable_folder_browsing" {% if enable_folder_browsing == True %}checked{% endif %}>
+					<label class="label" for="pref-enable-folder-browsing">{# MSG: Checkbox label which enables browsing the song library by folder #} {% trans %}Enable folder browsing (adds a Folders view to the Songs page when the library has subfolders){% endtrans %}
+					</label>
+					</div>
+
 					<div class="user-preference-container is-align-items-center">
 					<input id="pref-avsync" class="user-preference-input input" type="number" step="0.1" min="-10" max="10" data-pref="avsync" data-start-value="{{ avsync }}" value="{{ avsync }}" />
 					<label class="label" for="pref-avsync">

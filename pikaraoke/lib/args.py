@@ -344,6 +344,12 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         required=False,
     )
     parser.add_argument(
+        "--enable-folder-browsing",
+        action="store_true",
+        help="Let users browse the song library by the folders it is stored in. Adds a Folders view to the Songs page when the library has subdirectories.",
+        required=False,
+    )
+    parser.add_argument(
         "--enable-mic-passthrough",
         action="store_true",
         help="Enable experimental server-side microphone passthrough so singers can hear themselves through the karaoke speakers.",

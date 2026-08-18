@@ -284,6 +284,7 @@ def main() -> None:
         avsync=float(args.avsync) if args.avsync is not None else None,
         config_file_path=args.config_file_path,
         cdg_pixel_scaling=args.cdg_pixel_scaling,
+        enable_folder_browsing=args.enable_folder_browsing,
         streaming_format=args.streaming_format,
         additional_ytdl_args=getattr(args, "ytdl_args", None),
         socketio=socketio,

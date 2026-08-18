@@ -428,3 +428,120 @@ class TestDisplayNameUnchanged:
     def test_tidy_off_returns_raw_name(self, tmp_path, mock_db):
         sm = _manager(tmp_path, mock_db, [self.SONG], tidy=False)
         assert sm.display_name_from_path(self.SONG) == "Queen - Bohemian Rhapsody (Karaoke Version)"
+
+
+def _under(tmp_path, *relative: str) -> list[str]:
+    """Native paths for songs genuinely inside the manager's download path."""
+    return [str(tmp_path.joinpath(*r.split("/"))) for r in relative]
+
+
+class TestFolderTree:
+    """The tree is what makes a folder key trustworthy: it is built from real songs."""
+
+    def test_root_lists_immediate_subfolders_only(self, tmp_path, mock_db):
+        songs = _under(tmp_path, "Top.mp4", "Rock/T.mp4", "Pop/T.mp4", "Rock/Metal/H.mp4")
+        sm = _manager(tmp_path, mock_db, songs)
+        assert sm.folder_tree()[""] == ["Pop", "Rock"]
+
+    def test_every_level_is_its_own_key(self, tmp_path, mock_db):
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, "Rock/Metal/Heavy.mp4"))
+        tree = sm.folder_tree()
+        assert tree["Rock"] == ["Metal"]
+        # A leaf still has to be a key, or browsing into it clamps back to the root.
+        assert tree["Rock/Metal"] == []
+
+    def test_flat_library_has_only_the_root(self, tmp_path, mock_db):
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, "A.mp4", "B.mp4"))
+        assert sm.folder_tree() == {"": []}
+
+    def test_subfolders_sort_case_insensitively(self, tmp_path, mock_db):
+        songs = _under(tmp_path, "zed/a.mp4", "Alpha/a.mp4", "beta/a.mp4")
+        sm = _manager(tmp_path, mock_db, songs)
+        assert sm.folder_tree()[""] == ["Alpha", "beta", "zed"]
+
+    def test_rebuilds_when_the_song_list_changes(self, tmp_path, mock_db):
+        """Memoized on SongList.version, so a stale tree would outlive a download."""
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, "Rock/a.mp4"))
+        assert sm.folder_tree()[""] == ["Rock"]
+        sm.songs.update(_under(tmp_path, "Rock/a.mp4", "Jazz/b.mp4"))
+        assert sm.folder_tree()[""] == ["Jazz", "Rock"]
+
+
+class TestFolderScoping:
+    SONGS = ("Loose.mp4", "Rock/Bon Jovi.mp4", "Rock/Metal/Heavy.mp4", "Pop/Abba.mp4")
+
+    def test_songs_in_folder_excludes_deeper_levels(self, tmp_path, mock_db):
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, *self.SONGS))
+        assert sm.songs_in_folder("Rock") == _under(tmp_path, "Rock/Bon Jovi.mp4")
+
+    def test_root_folder_excludes_everything_in_a_subfolder(self, tmp_path, mock_db):
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, *self.SONGS))
+        assert sm.songs_in_folder("") == _under(tmp_path, "Loose.mp4")
+
+    def test_no_scope_is_not_the_same_as_the_root(self, tmp_path, mock_db):
+        """The flat view lists every song wherever it sits; the folder root does not."""
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, *self.SONGS))
+        assert len(sm.search("", folder=None)) == 4
+        assert len(sm.search("", folder="")) == 1
+
+    def test_search_is_scoped_to_the_folder(self, tmp_path, mock_db):
+        songs = _under(tmp_path, "Rock/Abba - Waterloo.mp4", "Pop/Abba - Dancing.mp4")
+        sm = _manager(tmp_path, mock_db, songs)
+        assert sm.search("abba", folder="Rock") == _under(tmp_path, "Rock/Abba - Waterloo.mp4")
+        assert len(sm.search("abba")) == 2
+
+    def test_songs_by_letter_is_scoped_to_the_folder(self, tmp_path, mock_db):
+        songs = _under(tmp_path, "Rock/Abba.mp4", "Pop/Adele.mp4")
+        sm = _manager(tmp_path, mock_db, songs)
+        assert sm.songs_by_letter("a", folder="Rock") == _under(tmp_path, "Rock/Abba.mp4")
+        assert len(sm.songs_by_letter("a")) == 2
+
+    def test_unknown_folder_yields_nothing(self, tmp_path, mock_db):
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, *self.SONGS))
+        assert sm.songs_in_folder("Nope") == []
+
+
+class TestLettersWithSongs:
+    """The alpha bar greys the keys that would return nothing, so the two must agree."""
+
+    SONGS = ("Loose.mp4", "Rock/Bon Jovi.mp4", "Rock/Metal/Heavy.mp4", "Pop/Abba.mp4")
+
+    def test_a_folder_reports_only_its_direct_children(self, tmp_path, mock_db):
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, *self.SONGS))
+        assert sm.letters_with_songs("Rock") == {"b"}
+
+    def test_no_scope_covers_the_whole_library(self, tmp_path, mock_db):
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, *self.SONGS))
+        assert sm.letters_with_songs() == {"l", "b", "h", "a"}
+
+    def test_the_root_is_not_the_whole_library(self, tmp_path, mock_db):
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, *self.SONGS))
+        assert sm.letters_with_songs("") == {"l"}
+
+    def test_a_folder_of_subfolders_reports_nothing(self, tmp_path, mock_db):
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, "Genres/Rock/Heavy.mp4"))
+        assert sm.letters_with_songs("Genres") == set()
+
+    def test_a_digit_reports_as_numeric(self, tmp_path, mock_db):
+        """Matching songs_by_letter, which groups every digit under one key."""
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, "99 Luftballons.mp4"))
+        assert sm.letters_with_songs() == {"numeric"}
+
+    def test_accents_fold_onto_the_plain_letter(self, tmp_path, mock_db):
+        """songs_by_letter matches the folded name, so 'b' must light up for Bjork."""
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, "Bjork - Army Of Me.mp4"))
+        assert sm.letters_with_songs() == {"b"}
+
+    def test_every_reported_letter_actually_returns_songs(self, tmp_path, mock_db):
+        """The invariant behind the greying: a linked key is never a dead end."""
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, *self.SONGS))
+        for folder in ("", "Rock", "Rock/Metal", "Pop", None):
+            for key in sm.letters_with_songs(folder):
+                assert sm.songs_by_letter(key, folder=folder), f"{key!r} dead in {folder!r}"
+
+    def test_rebuilds_when_the_song_list_changes(self, tmp_path, mock_db):
+        """Memoized on SongList.version, so a download would otherwise stay greyed out."""
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, "Rock/Bon Jovi.mp4"))
+        assert sm.letters_with_songs("Rock") == {"b"}
+        sm.songs.update(_under(tmp_path, "Rock/Bon Jovi.mp4", "Rock/Queen.mp4"))
+        assert sm.letters_with_songs("Rock") == {"b", "q"}
