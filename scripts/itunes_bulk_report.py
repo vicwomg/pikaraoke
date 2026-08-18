@@ -42,6 +42,34 @@ def collect_unique_songs(songs_dir: str) -> list[str]:
     return filenames
 
 
+def _print_distribution(label: str, rows: list[dict], queried: int) -> None:
+    """Score distribution and reasons for one provenance group."""
+    scores = [r["score"] for r in rows if r.get("score") is not None]
+    if not scores:
+        return
+    n = len(scores)
+    print(f"\n  {label}: {n} songs, {n / queried * 100:.0f}% of those queried")
+    # The three anchors, so the counts size the groups directly: >= 100 is
+    # already correct, 95..98 is what a bulk run would touch.
+    for thresh in (100, 98, 95):
+        count = sum(1 for s in scores if s >= thresh)
+        print(f"      score >= {thresh:>3}: {count:>4} / {n}  ({count / n * 100:5.1f}%)")
+    # A count below the band means nothing on its own. "iTunes had nothing to
+    # offer" wants a better query; "we held it back" is the threshold's own
+    # doing, and only that second group argues for moving it.
+    for sub, keep in (("inside the band", True), ("below it", False)):
+        members = [r for r in rows if r.get("score") is not None and (r["score"] >= 95) == keep]
+        if not members:
+            continue
+        tally: dict[str, int] = {}
+        for r in members:
+            reason = r.get("reason") or "unknown"
+            tally[reason] = tally.get(reason, 0) + 1
+        print(f"      why {sub}:")
+        for reason, count in sorted(tally.items(), key=lambda kv: -kv[1]):
+            print(f"        {reason:<26} {count:>4} / {n}  ({count / n * 100:5.1f}%)")
+
+
 def run_report(songs_dir: str, country: str = "US") -> None:
     filenames = collect_unique_songs(songs_dir)
     total = len(filenames)
@@ -60,6 +88,7 @@ def run_report(songs_dir: str, country: str = "US") -> None:
         writer.writerow(
             [
                 "original_stem",
+                "youtube",
                 "tidied",
                 "top_score",
                 "reason",
@@ -77,6 +106,7 @@ def run_report(songs_dir: str, country: str = "US") -> None:
             stem = os.path.splitext(filename)[0]
             suffix = youtube_id_suffix(filename)
             clean_stem = stem[: -len(suffix)] if suffix else stem
+            yt = bool(suffix)
             tidied = regex_tidy(clean_stem)
             eta_min = (total - i) * 3 / 60  # ~3s effective per song
 
@@ -84,8 +114,10 @@ def run_report(songs_dir: str, country: str = "US") -> None:
                 suggestions = suggest_metadata(clean_stem, provider=provider, limit=5)
             except (requests.exceptions.RequestException, ValueError, KeyError) as e:
                 print(f"  [{i}/{total}] ERROR: {stem} -> {e}")
-                writer.writerow([stem, tidied, "ERROR", type(e).__name__, "", "", "", "", ""])
-                results.append({"stem": stem, "score": None, "reason": type(e).__name__})
+                writer.writerow([stem, yt, tidied, "ERROR", type(e).__name__, "", "", "", "", ""])
+                results.append(
+                    {"stem": stem, "youtube": yt, "score": None, "reason": type(e).__name__}
+                )
                 continue
 
             if suggestions:
@@ -93,6 +125,7 @@ def run_report(songs_dir: str, country: str = "US") -> None:
                 score = top.get("score", 0)
                 row = {
                     "stem": stem,
+                    "youtube": yt,
                     "tidied": tidied,
                     "score": score,
                     "reason": top.get("reason", ""),
@@ -111,6 +144,7 @@ def run_report(songs_dir: str, country: str = "US") -> None:
                 writer.writerow(
                     [
                         stem,
+                        yt,
                         tidied,
                         score,
                         row["reason"],
@@ -123,8 +157,8 @@ def run_report(songs_dir: str, country: str = "US") -> None:
                 )
             else:
                 print(f"  [{i}/{total}] NONE {stem[:50]:<50}  (ETA: {eta_min:.0f}m)")
-                row = {"stem": stem, "score": 0, "reason": "no results"}
-                writer.writerow([stem, tidied, 0, "no results", "", "", "", "", ""])
+                row = {"stem": stem, "youtube": yt, "score": 0, "reason": "no results"}
+                writer.writerow([stem, yt, tidied, 0, "no results", "", "", "", "", ""])
 
             results.append(row)
 
@@ -142,28 +176,15 @@ def run_report(songs_dir: str, country: str = "US") -> None:
     print(f"Time elapsed:               {elapsed_total / 60:.1f} minutes")
     print()
 
-    # The four anchors, so the counts size the three groups directly: >= 100 is
-    # already correct, 95..98 is what a bulk run would touch, the rest is review.
-    for thresh in (100, 98, 95, 80, 0):
-        count = sum(1 for s in scores if s >= thresh)
-        pct = count / queried * 100 if queried else 0
-        print(f"  Score >= {thresh:>3}: {count:>4} / {queried}  ({pct:5.1f}%)")
-
-    # A count of songs below the band means nothing on its own. "iTunes had
-    # nothing to offer" wants a better query; "we held it back" is the
-    # threshold's own doing, and only that second group argues for moving it.
-    for label, keep in (("below the band", False), ("inside it", True)):
-        group = [r for r in results if r.get("score") is not None and ((r["score"] >= 95) == keep)]
-        if not group:
-            continue
-        tally: dict[str, int] = {}
-        for r in group:
-            reason = r.get("reason") or "unknown"
-            tally[reason] = tally.get(reason, 0) + 1
-        print(f"\n  Why, for everything {label}:")
-        for reason, count in sorted(tally.items(), key=lambda kv: -kv[1]):
-            pct = count / queried * 100 if queried else 0
-            print(f"    {reason:<26} {count:>4} / {queried}  ({pct:5.1f}%)")
+    # Auto-renaming YouTube downloads is what this feature exists for. A
+    # library's other files arrive with their own naming conventions and are a
+    # secondary concern, so one blended number hides how well the primary case
+    # works -- and hides which group a disappointing number belongs to.
+    for label, group in (
+        ("YouTube-sourced", [r for r in results if r.get("youtube")]),
+        ("Other provenance", [r for r in results if r.get("youtube") is False]),
+    ):
+        _print_distribution(label, group, queried)
 
     print(f"\nFull results saved to: {csv_path}")
 
