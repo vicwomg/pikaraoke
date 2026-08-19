@@ -743,6 +743,15 @@ class TestScoreAnchoring:
             on_disk = sanitize_filename(f"{artist} - {title}")
             assert _anchored(on_disk, artist, title) == 100, title
 
+    def test_a_download_keeps_its_title_bracket_and_drops_its_noise(self):
+        """The path this feature exists for: a yt-dlp name carrying both kinds
+        of bracket at once. Only one of them is noise."""
+        provider = _mock_provider(("Ylvis", "The Fox (What Does the Fox Say?)"))
+        name = "Ylvis - The Fox (What Does The Fox Say) [Official music video HD]"
+        top = suggest_metadata(name, provider=provider)[0]
+        assert top["display"] == sanitize_filename("Ylvis - The Fox (What Does the Fox Say?)")
+        assert top["score"] > _UNCONFIRMED_CEILING
+
     def test_a_bracket_the_name_lacks_still_disqualifies(self):
         """Sharing one bracket with the name excuses that bracket alone: a
         metal cover of the same song is still another recording."""
