@@ -139,7 +139,8 @@
 				   the title, and .icon is a 1.5rem flex box that would ride above it. #}
 				<a class="add-song-link has-text-success"
 					title="{{ _('Add to queue') | forceescape }}"
-					href="{{ url_for('queue.enqueue') }}?song={{ url_escape(song.file_path.encode('utf-8','surrogateescape')) }}&user="
+					href="#"
+					data-song="{{ url_escape(song.file_path.encode('utf-8','surrogateescape')) }}"
 					><i class="icon-list-add"></i
 				></a>
 				{% endif %}

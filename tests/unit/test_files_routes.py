@@ -27,7 +27,6 @@ def app():
         [
             ("/", "home.home"),
             ("/queue", "queue.queue"),
-            ("/queue/enqueue", "queue.enqueue"),
             ("/search", "search.search"),
             ("/info", "info.info"),
             ("/batch", "batch_song_renamer.browse"),

@@ -24,7 +24,9 @@
       cookiePath: "{{ cookie_path }}",
       socketioPath: "{{ socketio_path }}",
       // Empty on the chromeless splash page, which has no singer field.
-      singersUrl: "{% if not blank_page %}{{ url_for('sessions_api.get_singers') }}{% endif %}"
+      singersUrl: "{% if not blank_page %}{{ url_for('sessions_api.get_singers') }}{% endif %}",
+      // Likewise: the splash page renders no add links.
+      enqueueUrl: "{% if not blank_page %}{{ url_for('queue.enqueue_form') }}{% endif %}"
     };
     // Translations for JS (static JS cannot use Jinja2 directly).
     // Gettext output is Markup, so Jinja never autoescapes it. Inside a <script> a
@@ -278,7 +280,18 @@
       $(document).off("click", "a.add-song-link");
       $(document).on("click", "a.add-song-link", function (e) {
         e.preventDefault();
-        $.get(this.href + encodeURIComponent(resolveSinger()), function (data) {
+        // The song rides in data-song and goes back as a POST. A link that
+        // queues a song on GET is queued by anything that fetches it without a
+        // click -- a prefetcher, a link preview, a proxy retry, a userscript.
+        // The attribute holds the percent-encoded path the href used to carry,
+        // and the body is assembled by hand to pass it through untouched: a
+        // filename that is not valid UTF-8 cannot survive a decode here.
+        var body =
+          "song_to_add=" +
+          this.getAttribute("data-song") +
+          "&song_added_by=" +
+          encodeURIComponent(resolveSinger());
+        $.post(window.pikaraokeConfig.enqueueUrl, body, function (data) {
           var obj = JSON.parse(data);
           // {# MSG: Notification shown after trying to add a song to the queue. The song name comes after this string. #}
           showNotification(obj.success[1], obj.success[0] ? "is-success" : "is-danger");
