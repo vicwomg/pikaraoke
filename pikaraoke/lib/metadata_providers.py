@@ -428,19 +428,25 @@ _MANY_CORRECTIONS = 95  # fields confirmed; two or three of them are
 _UNCONFIRMED_CEILING = 94  # nothing unconfirmed may enter the confirmed band
 
 
-def _has_disqualifying_qualifier(title: str) -> bool:
-    """Whether the title carries a qualifier that is neither a credit nor droppable noise.
+def _disqualifying_qualifiers(title: str) -> list[str]:
+    """The qualifiers in the title that are neither a credit nor droppable noise.
 
     Round and square brackets alike: "[2011 Remaster]" renames to a different
     recording just as surely as "(2011 Remaster)" does.
     """
+    kept = []
     for text in _extract_qualifier_texts(title):
         # A credit excuses only the bracket it is alone in: "(feat. Sia, Live)"
         # is still a live recording.
         credit_only = _FEAT_CREDIT_RE.match(text) and not _SPECIAL_VERSION_RE.search(text)
         if not credit_only and not is_discardable_qualifier(text):
-            return True
-    return False
+            kept.append(text)
+    return kept
+
+
+def _has_disqualifying_qualifier(title: str) -> bool:
+    """Whether the title carries a qualifier that is neither a credit nor droppable noise."""
+    return bool(_disqualifying_qualifiers(title))
 
 
 # The attribution phrases as they survive normalization, for reading a filename
@@ -467,16 +473,22 @@ def _part_names_field(part_norm: str, *field_norms: str) -> bool:
     return any(f in forms for f in field_norms if f)
 
 
-def _exact_match_artist_first(result: dict, query_parts_norm: list[tuple[str, str]]) -> bool | None:
+def _exact_match_artist_first(
+    result: dict, query_parts_norm: list[tuple[str, str]], name: str
+) -> bool | None:
     """Whether an exactly matching query is written artist-first.
 
     None when the result is not an exact match on both fields, including when
-    the title carries a qualifier other than a featuring credit.
+    its title carries a qualifier the name does not. A bracket the name says
+    too is the track's own title -- "The Fox (What Does the Fox Say?)" -- not a
+    variant the rename would swap in, so it disqualifies nothing.
     """
     if len(query_parts_norm) not in (1, 2):
         return None
     title_lower = result.get("title", "").lower()
-    if _has_disqualifying_qualifier(title_lower):
+    carried = {_normalize_for_matching(q) for q in _extract_qualifier_texts(name.lower())}
+    qualifiers = _disqualifying_qualifiers(title_lower)
+    if any(_normalize_for_matching(q) not in carried for q in qualifiers):
         return None
     artist_norm = _normalize_for_matching(result.get("artist", "").lower())
     title_norm = _normalize_for_matching(_PAREN_CONTENT_RE.sub("", title_lower).strip())
@@ -520,6 +532,21 @@ def _proposal(result: dict, artist_first: bool) -> str:
     return sanitize_filename(f"{artist} - {title}" if artist_first else f"{title} - {artist}")
 
 
+def _without_shared_brackets(name: str, proposal: str) -> tuple[str, str]:
+    """Both names with the bracketed groups they carry identically removed.
+
+    regex_tidy reads every trailing bracket as noise, so a title bracketed in
+    its own right -- "The Fox (What Does the Fox Say?)" -- would otherwise be
+    read as a name wanting that bracket taken off, when the rename writes it
+    straight back.
+    """
+    shared = set(_PAREN_CONTENT_RE.findall(name)) & set(_PAREN_CONTENT_RE.findall(proposal))
+    for group in shared:
+        name = name.replace(group, "")
+        proposal = proposal.replace(group, "")
+    return name.strip(), proposal.strip()
+
+
 def _corrections(
     name: str, proposal: str, query_artist_first: bool, artist_first: bool
 ) -> list[str]:
@@ -531,6 +558,7 @@ def _corrections(
     still carries its brackets can split on a separator inside one.
     """
     kinds = []
+    name, proposal = _without_shared_brackets(name, proposal)
     tidied = regex_tidy(name)
     if tidied != name:
         kinds.append("noise")
@@ -560,7 +588,7 @@ def _anchor_score(
     Returns the score with the reason for it. A score below the band is only
     interpretable alongside which of the three ways of missing it applied.
     """
-    query_artist_first = _exact_match_artist_first(result, query_parts_norm)
+    query_artist_first = _exact_match_artist_first(result, query_parts_norm, name)
     if query_artist_first is None:
         # "iTunes offered a variant, not the track" and "the two fields were
         # never both matched" are the same 94 and want opposite responses.

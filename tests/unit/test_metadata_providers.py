@@ -732,6 +732,24 @@ class TestScoreAnchoring:
         ):
             assert _anchored(f"{artist} - {title}", artist, title) == 100, title
 
+    def test_a_bracketed_title_we_already_wrote_is_already_correct(self):
+        """These brackets are the song's own name, not a variant of it. Scoring
+        them 92 meant every song iTunes names this way stayed one click from
+        correct however often it was renamed."""
+        for artist, title in (
+            ("Ylvis", "The Fox (What Does the Fox Say?)"),
+            ("Whitney Houston", "I Wanna Dance With Somebody (Who Loves Me)"),
+        ):
+            on_disk = sanitize_filename(f"{artist} - {title}")
+            assert _anchored(on_disk, artist, title) == 100, title
+
+    def test_a_bracket_the_name_lacks_still_disqualifies(self):
+        """Sharing one bracket with the name excuses that bracket alone: a
+        metal cover of the same song is still another recording."""
+        name = sanitize_filename("Ylvis - The Fox (What Does the Fox Say?)")
+        title = "The Fox (What Does the Fox Say?) [Metal Version]"
+        assert _anchored(name, "Ylvis", title) <= 94
+
     def test_a_qualifier_that_is_not_a_credit_disqualifies(self):
         artist, title = "Taylor Swift", "Everything Has Changed"
         assert _anchored(f"{artist} - {title}", artist, f"{title} (Taylor's Version)") <= 94
