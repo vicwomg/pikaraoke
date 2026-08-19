@@ -1,6 +1,8 @@
 {% extends 'base.html' %} {% block scripts %}
 <script>
 	$(function () {
+		loadSingerList();
+
 		// --- A-Z strip ----------------------------------------------------
 		// On a phone the strip is fixed, so it has to be told where to sit: it
 		// starts level with the top of the Songs box and rides up with the page
@@ -332,9 +334,10 @@
 </style>
 {% endblock %} {% block content %}
 
-{# A folder holding only subfolders is navigation, not a result set: no filter box,
-   no A-Z bar, no sort toggle and no empty table -- just the folders. An active
-   filter keeps them all, so a query matching nothing can still be cleared. #}
+{# A folder holding only subfolders is navigation, not a result set: no singer
+   field, no filter box, no A-Z bar, no sort toggle and no empty table -- just the
+   folders. An active filter keeps them all, so a query matching nothing can still
+   be cleared. #}
 {% set folder_landing = view and not songs and not q and not letter %}
 {# The route reports the sort as a display string; the view toggle needs the param
    back so that switching between flat and folder view keeps the chosen order. #}
@@ -363,6 +366,8 @@
 {% endif %}
 
 {% if not folder_landing %}
+{% include 'partials/singer_field.html' %}
+
 {# Filtering is server-side: the page is paginated, so a client-side filter over
    the ~100 rows in the DOM would silently miss songs on every other page. #}
 <div class="field has-addons mb-3">

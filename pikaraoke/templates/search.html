@@ -302,6 +302,8 @@
 
 		setUserCookie(); // Don't reload page after setting cookie
 
+		loadSingerList();
+
 		// "Include non-karaoke matches" is the only setting left on this page, so its
 		// cookie is read and written right here rather than through a restore-everything
 		// helper.
@@ -520,6 +522,7 @@
 {% endblock %} {% block content %}
 
 <div>
+	{% include 'partials/singer_field.html' %}
 	<div class="field">
 		<div id="search-field" class="field has-addons mb-1">
 			<div class="control has-icons-left is-expanded">

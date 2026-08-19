@@ -108,6 +108,22 @@ class TestGetNowPlaying:
         """An unnamed or absent session must not surface a name on the splash."""
         assert mock_karaoke.get_now_playing()["session_name"] is None
 
+    def test_get_now_playing_reports_an_unnamed_session_as_active(self, mock_karaoke):
+        """The KJ singer field gates on has_session, so it cannot follow the name.
+
+        An unnamed session is still a session; conflating the two would lock a
+        host out of KJ mode until they got around to naming the night.
+        """
+        mock_karaoke.play_history.session = {"name": None}
+
+        result = mock_karaoke.get_now_playing()
+
+        assert result["has_session"] is True
+        assert result["session_name"] is None
+
+    def test_get_now_playing_reports_no_session(self, mock_karaoke):
+        assert mock_karaoke.get_now_playing()["has_session"] is False
+
     def test_get_now_playing_with_queue(self, mock_karaoke):
         """Test now playing shows up_next from queue."""
         mock_karaoke.queue_manager.enqueue("/songs/Next Song---dQw4w9WgXcQ.mp4", "NextUser")

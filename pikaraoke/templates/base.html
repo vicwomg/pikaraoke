@@ -23,6 +23,8 @@
       basePath: "{{ base_path }}",
       cookiePath: "{{ cookie_path }}",
       socketioPath: "{{ socketio_path }}",
+      // Empty on the chromeless splash page, which has no singer field.
+      singersUrl: "{% if not blank_page %}{{ url_for('sessions_api.get_singers') }}{% endif %}"
     };
     // Translations for JS (static JS cannot use Jinja2 directly).
     // Gettext output is Markup, so Jinja never autoescapes it. Inside a <script> a
@@ -129,12 +131,76 @@
       return Cookies.get("user");
     }
 
-    // Who a queue add is attributed to: this device's own cookie name,
-    // prompting for one the first time it is needed. Every page that queues a
-    // song resolves it here, so the rule cannot drift between them.
+    // Who a queue add is attributed to. In KJ mode the visible singer field
+    // names who the host is queuing for; left blank (or hidden outside KJ mode)
+    // it falls back to this device's own cookie name, prompting for one the
+    // first time it is needed. Every page that queues a song resolves it here,
+    // so the fallback rule cannot drift between them.
     function resolveSinger() {
+      // The field is absent for non-admins, so val() can be undefined. Trimmed
+      // because a stray space would otherwise be stored as a performer name.
+      var singer = ($("#singer-name").val() || "").trim();
+      if (singer) {
+        return singer;
+      }
       setUserCookie();
       return getUserCookie() || "";
+    }
+
+    // KJ mode is opt-in for a host queuing on behalf of singers. It is not the
+    // default use case (a karaoke party between friends), so its extra search-UI
+    // controls stay hidden unless the URL carries ?kj_mode=true. The flag is
+    // remembered per tab because SPA navigation drops the query string.
+    (function () {
+      var mode = new URLSearchParams(window.location.search).get("kj_mode");
+      if (mode === "true") {
+        sessionStorage.setItem("kj_mode", "1");
+      } else if (mode === "false") {
+        sessionStorage.removeItem("kj_mode");
+      }
+    })();
+
+    function isKjMode() {
+      return sessionStorage.getItem("kj_mode") === "1";
+    }
+
+    // Swaps the KJ singer field for a "start a session" prompt. The server
+    // renders the right one at page load; this keeps it correct when the host
+    // starts or ends a session from another tab, since session_changed
+    // rebroadcasts the now_playing payload that carries has_session.
+    function setSingerFieldSessionState(hasSession) {
+      var $input = $("#singer-input");
+      if (!$input.length) {
+        return;
+      }
+      $input.toggleClass("is-hidden", !hasSession);
+      $("#singer-no-session").toggleClass("is-hidden", hasSession);
+      if (hasSession) {
+        loadSingerList();
+      } else {
+        // A stale name here would be attributed to the next song queued once a
+        // session starts.
+        $("#singer-name").val("");
+      }
+    }
+
+    // Fills the singer autocomplete from past performers. Only runs in KJ mode
+    // (the datalist is hidden otherwise) and only for admins -- the performer
+    // list is effectively the guest list, so the endpoint 403s for everyone
+    // else. Capped because the list grows without bound over a venue's lifetime
+    // and nobody scrolls an autocomplete past the most active handful.
+    function loadSingerList() {
+      var $list = $("#singer-list");
+      if (!$list.length || !isKjMode()) {
+        return;
+      }
+      $.getJSON(window.pikaraokeConfig.singersUrl, { limit: 50 }, function (data) {
+        var options = document.createDocumentFragment();
+        data.singers.forEach(function (singer) {
+          options.appendChild($("<option>").val(singer.performer)[0]);
+        });
+        $list.empty().append(options);
+      });
     }
 
     // Gettext output is Markup, which Jinja never autoescapes, so an apostrophe
@@ -176,6 +242,33 @@
       window.socket.on("now_playing", window.sessionRibbonHandler);
     }
 
+    // Keeps the singer field in step with the session, over a socket that
+    // outlives SPA page swaps. io() hands back the same instance every time, so
+    // this script re-running on each navigation would stack another handler
+    // unless the previous one is removed first.
+    function bindSingerFieldToSession() {
+      if (!window.socket) {
+        return;
+      }
+      if (window.kjSessionHandler) {
+        window.socket.off("now_playing", window.kjSessionHandler);
+      }
+      // now_playing also fires on every queue edit, pause and volume change,
+      // none of which move the session. Seeded from what the server just
+      // rendered, so those cost nothing rather than a singer fetch apiece.
+      var lastHasSession = $("#singer-input").length
+        ? !$("#singer-input").hasClass("is-hidden")
+        : null;
+      window.kjSessionHandler = function (np) {
+        if (np.has_session === lastHasSession) {
+          return;
+        }
+        lastHasSession = np.has_session;
+        setSingerFieldSessionState(np.has_session);
+      };
+      window.socket.on("now_playing", window.kjSessionHandler);
+    }
+
     // Queueing a song already on this machine. Delegated because the Songs page
     // swaps its whole result table per filter keystroke, and shared because
     // Songs and Add New render the identical link. Unbound first: SPA navigation
@@ -197,7 +290,8 @@
       connectSocket();
       bindAddSongLinks();
 
-      // Everyone in the room sees which session is running.
+      // Unlike the singer field, the ribbon is not a KJ-mode control: everyone
+      // in the room sees which session is running.
       bindSessionRibbon();
 
       $("#notification-close").click(function () {
@@ -211,6 +305,12 @@
 
       // handle auto-close flash notifications
       setTimeout(function() { $("#notification").fadeOut()}, 3000);
+
+      // Reveal KJ-only controls when a host has opted into KJ mode.
+      if (isKjMode()) {
+        $(".kj-only").removeClass("is-hidden");
+        bindSingerFieldToSession();
+      }
 
       // handle current user display
       var currentUser = Cookies.get("user");
@@ -407,7 +507,7 @@
     {# Always in the DOM, hidden when empty, so setSessionRibbon() can show and
        hide it rather than having to build it; the server settles only which
        state it starts in. An auto-started session has no name and so shows no
-       ribbon. #}
+       ribbon, which is why this turns on the name rather than on has_session. #}
     <div class="session-ribbon{% if not session_name %} is-hidden{% endif %}" id="session-ribbon"
       {# MSG: Accessible label for the banner naming the karaoke session in progress. SESSION_NAME is replaced with the session's name. #}
       aria-label="{{ _('Current session: SESSION_NAME').replace('SESSION_NAME', session_name) }}"
