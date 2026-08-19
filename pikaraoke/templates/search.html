@@ -361,11 +361,10 @@
 
 		// Rewrites a row into the state the server renders for a song it already
 		// holds. The anchor needs no binding of its own: base.html delegates
-		// add-song-link clicks from the document.
+		// add-song-link clicks from the document and reads the path from data-song.
 		function showInLibrary($row, path) {
-			const href = "{{ url_for('queue.enqueue') }}?song=" + encodeURIComponent(path) + "&user=";
 			$row.find(".search_result_items_actions").html(
-				'<a class="button is-info add-song-link" href="' + href + '">' +
+				'<a class="button is-info add-song-link" href="#" data-song="' + encodeURIComponent(path) + '">' +
 					'<span class="icon"><i class="icon-list-add"></i></span>' +
 					// {# MSG: Button which adds an already-downloaded song to the queue. #}
 					'<span>{{ _("Add to queue") | forceescape }}</span>' +
@@ -640,7 +639,8 @@
 						{# Already downloaded, so queue it rather than fetching a second copy. #}
 						<a
 							class="button is-info add-song-link"
-							href="{{url_for('queue.enqueue')}}?song={{url_escape(local_path.encode('utf-8','surrogateescape'))}}&user="
+							href="#"
+							data-song="{{url_escape(local_path.encode('utf-8','surrogateescape'))}}"
 						>
 							<span class="icon"><i class="icon-list-add"></i></span>
 							{# MSG: Button which adds an already-downloaded song to the queue. #}

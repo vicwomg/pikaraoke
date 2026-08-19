@@ -30,7 +30,6 @@ def app():
         [
             ("/", "home.home"),
             ("/queue", "queue.queue"),
-            ("/queue/enqueue", "queue.enqueue"),
             ("/browse", "files.browse"),
             ("/info", "info.info"),
         ],
@@ -66,7 +65,9 @@ class TestAcquisitionOnly:
         body = response.data.decode()
         assert response.status_code == 200
         assert "selectize" not in body
-        assert "song_to_add" not in body
+        # The removed dropdown was the only element naming this field; the shared
+        # queueing script in base.html posts it, so the bare name now matches that.
+        assert 'id="song_to_add"' not in body
         assert "search_string_input" in body
 
     def test_autocomplete_endpoint_is_gone(self, client):

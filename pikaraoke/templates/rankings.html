@@ -14,18 +14,8 @@
 		window.location.href = "{{ url_for('sessions.rankings') }}?" + params;
 	}
 
-	$(function () {
-		// The same endpoint and response shape the browse page uses: the href
-		// already carries the song and ends at "user=", which is resolved at click
-		// time rather than rendered, since it comes from this device's cookie.
-		$(".add-song-link").on("click", function (e) {
-			e.preventDefault();
-			$.get(this.href + encodeURIComponent(resolveSinger()), function (data) {
-				var result = JSON.parse(data).success;
-				showNotification(result[1], result[0] ? "is-success" : "is-danger");
-			});
-		});
-	});
+	// The add links need no handler here: base.html delegates add-song-link
+	// clicks from the document, and a second binding would queue the song twice.
 </script>
 {% endblock %}
 
@@ -149,7 +139,8 @@
 				   the title, and .icon is a 1.5rem flex box that would ride above it. #}
 				<a class="add-song-link has-text-success"
 					title="{{ _('Add to queue') | forceescape }}"
-					href="{{ url_for('queue.enqueue') }}?song={{ url_escape(song.file_path.encode('utf-8','surrogateescape')) }}&user="
+					href="#"
+					data-song="{{ url_escape(song.file_path.encode('utf-8','surrogateescape')) }}"
 					><i class="icon-list-add"></i
 				></a>
 				{% endif %}
