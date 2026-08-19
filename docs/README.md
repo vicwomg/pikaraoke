@@ -108,11 +108,14 @@ Run PiKaraoke in Docker using the command below. Note the requirements for port 
 
 ```sh
 docker run -p 5555:5555 \
+  -e TZ=Europe/London \
   -v ~/pikaraoke-songs:/app/pikaraoke-songs \
   -v ~/.pikaraoke:/home/pikaraoke/.pikaraoke \
   vicwomg/pikaraoke:latest \
   -u http://<YOUR_LAN_IP>:5555
 ```
+
+Set `TZ` to your own timezone, taken from the "TZ identifier" column of the [tz database list](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones).
 
 For more information and a configurable docker-compose example, [see official Dockerhub repo](https://hub.docker.com/r/vicwomg/pikaraoke)
 

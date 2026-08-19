@@ -10,7 +10,8 @@ ENV UV_BREAK_SYSTEM_PACKAGES=1
 # Copy static ffmpeg binaries. 7.0 is a bit old, but significantly smaller while supporting librubberband
 COPY --from=mwader/static-ffmpeg:7.0 /ffprobe /ffmpeg /usr/local/bin/
 
-RUN apk add --no-cache python3 deno curl
+# tzdata: without the zoneinfo files, musl ignores a TZ zone name and stays on UTC
+RUN apk add --no-cache python3 deno curl tzdata
 
 # Copy dependency and metadata files first for better caching
 COPY pyproject.toml uv.lock ./

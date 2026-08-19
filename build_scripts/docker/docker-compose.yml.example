@@ -21,6 +21,12 @@ services:
     command: >
       -u http://<YOUR_LAN_IP>:5555
 
+    # --- TIMEZONE ---
+    # Set this to your own zone, from the "TZ identifier" column of
+    # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+    environment:
+      - TZ=Europe/London
+
     # --- VOLUMES ---
     # The <local_directory>:<container_directory> format is used.
     # You should only need to change <local_directory>
