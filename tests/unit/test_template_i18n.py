@@ -6,6 +6,10 @@ terminates the JS string literal it is interpolated into, raising a SyntaxError 
 kills the entire inline <script> for that locale. Every gettext call inside a <script>
 must therefore be escaped by hand: |tojson to emit a JS value, or |forceescape when JS
 builds the translation into an HTML string.
+
+It also guards the placeholder convention. A token that a call site fills in with
+replace() must be braced, like {name}: a bare English word is translated along with the
+sentence around it, so the replace() matches nothing and the token reaches the screen.
 """
 
 import json
@@ -28,6 +32,15 @@ SCRIPT_BLOCK = re.compile(r"<script\b[^>]*>(.*?)</script>", re.DOTALL | re.IGNOR
 JINJA_EXPRESSION = re.compile(r"\{\{.*?\}\}", re.DOTALL)
 GETTEXT_CALL = re.compile(r"\b(_|gettext|ngettext)\s*\(")
 ESCAPING_FILTER = re.compile(r"\|\s*(tojson|forceescape)\b")
+
+GETTEXT_STRING = re.compile(r"\b(?:_|gettext|ngettext)\s*\(\s*(['\"])(.*?)\1")
+REPLACE_TARGET = re.compile(r"\breplace\(\s*(['\"])(.*?)\1")
+BARE_TOKEN = re.compile(r"\b[A-Z][A-Z0-9_]{2,}\b")
+
+# Minified bundles substitute uppercase strings of their own, which would read as offenders.
+OWN_SOURCES = sorted(TEMPLATES.glob("**/*.html")) + sorted(
+    path for path in (PIKARAOKE / "static").glob("*.js") if not path.name.endswith(".min.js")
+)
 
 
 @pytest.fixture(scope="module")
@@ -67,3 +80,26 @@ def test_gettext_in_script_blocks_is_escaped(template):
     ]
 
     assert not offenders, "Unescaped gettext in inline JS:\n" + "\n".join(offenders)
+
+
+def test_substituted_tokens_in_translated_strings_are_braced():
+    """Flag an uppercase word that is both inside a msgid and a target of replace().
+
+    Cross-file by necessity: base.html holds the msgid whose token spa-navigation.js
+    substitutes. Words that are merely uppercase (CDG, ENTIRE) are never replace() targets,
+    so no vocabulary list is needed to tell a placeholder from emphasis.
+    """
+    sources = {path: path.read_text(encoding="utf-8") for path in OWN_SOURCES}
+    substituted = {
+        match.group(2) for text in sources.values() for match in REPLACE_TARGET.finditer(text)
+    }
+
+    offenders = [
+        f"{path.name}: {token} in {call.group(2)[:60]!r}"
+        for path, text in sources.items()
+        for call in GETTEXT_STRING.finditer(text)
+        for token in BARE_TOKEN.findall(call.group(2))
+        if token in substituted
+    ]
+
+    assert not offenders, "Substituted tokens must be braced, like {name}:\n" + "\n".join(offenders)

@@ -100,7 +100,7 @@
 			} else {
 				value = 0;
 			}
-			r = confirm(window.translations.confirmTranspose.replace("SEMITONE_LABEL", getSemitonesLabel(value)));
+			r = confirm(window.translations.confirmTranspose.replace("{label}", getSemitonesLabel(value)));
 			if (r) {
 				$.get(window.pikaraokeConfig.basePath + "/transpose/" + value);
 			}

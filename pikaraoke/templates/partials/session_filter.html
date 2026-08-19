@@ -17,9 +17,9 @@
 			{# MSG: Dropdown option covering every karaoke session ever recorded. #}
 			<option value="">{% trans %}All sessions{% endtrans %}</option>
 			{% for s in sessions %}
-			{# MSG: Label for a session the host never named. NUMBER is replaced with a number. #}
+			{# MSG: Label for a session the host never named. {number} is replaced with a number. #}
 			<option value="{{ s.uuid }}" {% if s.uuid == selected_session %}selected{% endif %}>
-				{{ s.name or _('Session NUMBER') | replace('NUMBER', s.id) }}
+				{{ s.name or _('Session {number}') | replace('{number}', s.id) }}
 			</option>
 			{% endfor %}
 		</select>

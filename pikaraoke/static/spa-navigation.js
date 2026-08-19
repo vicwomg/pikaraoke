@@ -109,7 +109,7 @@
             // Get the current name from the cookie dynamically
             let currentName = Cookies.get("user");
             var promptMsg = (window.translations && window.translations.promptChangeUsername)
-                ? window.translations.promptChangeUsername.replace('CURRENT_NAME', currentName)
+                ? window.translations.promptChangeUsername.replace('{name}', currentName)
                 : "Do you want to change the name of the person using this device? This will show up on queued songs. Current: " + currentName;
             let name = window.prompt(promptMsg);
             // Only update if user clicked OK and entered a non-empty name
@@ -163,7 +163,7 @@
         $(document).on('click', '.confirm-delete', function(e) {
             e.preventDefault();
             var msg = (window.translations && window.translations.confirmDeleteFromQueue)
-                ? window.translations.confirmDeleteFromQueue.replace('SONG_TITLE', this.title)
+                ? window.translations.confirmDeleteFromQueue.replace('{title}', this.title)
                 : `Are you sure you want to delete "${this.title}" from the queue?`;
             if (window.confirm(msg)) {
                 $.get(this.href);
