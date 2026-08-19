@@ -310,6 +310,14 @@ class TestIsUserLimited:
 
         assert mock_karaoke.queue_manager.is_user_limited("User1") is True
 
+    def test_is_user_limited_matches_names_case_insensitively(self, mock_karaoke):
+        """One singer typing a different capitalisation is still the same singer."""
+        mock_karaoke.preferences.set("limit_user_songs_by", 2)
+        mock_karaoke.playback_controller.now_playing_user = "USER1"
+        mock_karaoke.queue_manager.enqueue("/songs/song1---abc.mp4", "user1")
+
+        assert mock_karaoke.queue_manager.is_user_limited("User1") is True
+
 
 class TestFairQueuePosition:
     """Tests for round-robin fair queue insertion."""
@@ -383,3 +391,91 @@ class TestFairQueuePosition:
 
         # add_to_front should still put song at position 0
         assert mock_karaoke.queue_manager.queue[0]["file"] == "/songs/a2---a02.mp4"
+
+    def test_fair_queue_counts_the_song_on_screen(self, mock_karaoke):
+        """The singer at the microphone has had their turn for this round."""
+        qm = mock_karaoke.queue_manager
+        for index in range(1, 6):
+            qm.enqueue(f"/songs/a{index}---a0{index}.mp4", "UserA")
+        # UserA's first song leaves the queue for the screen.
+        qm.pop_next()
+        mock_karaoke.playback_controller.now_playing_user = "UserA"
+
+        qm.enqueue("/songs/b1---b01.mp4", "UserB")
+        qm.enqueue("/songs/c1---c01.mp4", "UserC")
+
+        users = [item["user"] for item in qm.queue]
+        # Both newcomers sing before UserA's second, not after it.
+        assert users == ["UserB", "UserC", "UserA", "UserA", "UserA", "UserA"]
+
+    def test_fair_queue_counts_songs_already_sung(self, mock_karaoke):
+        """Turns carry across an empty queue, where position alone forgets them."""
+        mock_karaoke.play_history.turns_taken = {"usera": 2}
+
+        mock_karaoke.queue_manager.enqueue("/songs/a3---a03.mp4", "UserA")
+        mock_karaoke.queue_manager.enqueue("/songs/b1---b01.mp4", "UserB")
+
+        users = [item["user"] for item in mock_karaoke.queue_manager.queue]
+        assert users == ["UserB", "UserA"]
+
+    def test_fair_queue_matches_singers_case_insensitively(self, mock_karaoke):
+        """History keys on a folded name, so the queue has to look one up the same way."""
+        mock_karaoke.play_history.turns_taken = {"usera": 2}
+
+        mock_karaoke.queue_manager.enqueue("/songs/a3---a03.mp4", "usera")
+        mock_karaoke.queue_manager.enqueue("/songs/b1---b01.mp4", "UserB")
+
+        users = [item["user"] for item in mock_karaoke.queue_manager.queue]
+        assert users == ["UserB", "usera"]
+
+    def test_fair_queue_latecomer_cannot_claim_missed_rounds(self, mock_karaoke):
+        """Somebody walking in at midnight joins the round in progress."""
+        qm = mock_karaoke.queue_manager
+        mock_karaoke.play_history.turns_taken = {"usera": 3, "userb": 3}
+        mock_karaoke.playback_controller.now_playing_user = "UserA"
+        qm.enqueue("/songs/b4---b04.mp4", "UserB")
+
+        qm.enqueue("/songs/c1---c01.mp4", "UserC")
+        qm.enqueue("/songs/c2---c02.mp4", "UserC")
+
+        users = [item["user"] for item in qm.queue]
+        # UserC has sung nothing, so they lead the round, but the three rounds
+        # they missed are gone: the second song waits its turn behind UserB.
+        assert users == ["UserC", "UserB", "UserC"]
+
+    def test_fair_queue_ranks_the_under_served_first(self, mock_karaoke):
+        """Within the round in progress, fewest turns sung goes first."""
+        qm = mock_karaoke.queue_manager
+        mock_karaoke.play_history.turns_taken = {"usera": 5, "userb": 3, "userc": 1}
+
+        qm.enqueue("/songs/a6---a06.mp4", "UserA")
+        qm.enqueue("/songs/b4---b04.mp4", "UserB")
+        qm.enqueue("/songs/c2---c02.mp4", "UserC")
+
+        users = [item["user"] for item in qm.queue]
+        # The cap holds them all to one round; it no longer levels them inside it.
+        assert users == ["UserC", "UserB", "UserA"]
+
+    def test_fair_queue_ignores_songs_the_system_queued(self, mock_karaoke):
+        """Filler nobody asked for holds no turn, so it cannot flatten the rounds."""
+        qm = mock_karaoke.queue_manager
+        mock_karaoke.play_history.turns_taken = {"randomizer": 6, "usera": 2}
+
+        qm.enqueue("/songs/a3---a03.mp4", "UserA")
+        qm.enqueue("/songs/b1---b01.mp4", "UserB")
+
+        users = [item["user"] for item in qm.queue]
+        # UserB has sung nothing tonight, so six rounds of filler cannot demote them.
+        assert users == ["UserB", "UserA"]
+
+    def test_fair_queue_ignores_filler_on_screen(self, mock_karaoke):
+        """A random song at the microphone is nobody's turn either."""
+        qm = mock_karaoke.queue_manager
+        mock_karaoke.play_history.turns_taken = {"randomizer": 1, "usera": 1}
+        mock_karaoke.playback_controller.now_playing_user = "Randomizer"
+
+        qm.enqueue("/songs/a2---a02.mp4", "UserA")
+        qm.enqueue("/songs/b1---b01.mp4", "UserB")
+
+        users = [item["user"] for item in qm.queue]
+        assert users == ["UserB", "UserA"]

@@ -665,6 +665,49 @@ class TestGetSingers:
         assert [s["performer"] for s in history.get_singers(first, limit=5)] == ["Alice"]
 
 
+class TestGetTurnsTaken:
+    def test_empty_when_nothing_played(self, history):
+        assert history.get_turns_taken() == {}
+
+    def test_counts_songs_sung_through(self, history, sing, song_id):
+        sing(song_id, None, "Alice", "A Song")
+        sing(song_id, None, "Alice", "A Song")
+        sing(song_id, None, "Bob", "A Song")
+
+        assert history.get_turns_taken() == {"alice": 2, "bob": 1}
+
+    def test_excludes_skipped_songs(self, history, events, sing, song_id):
+        sing(song_id, None, "Alice", "A Song")
+        history.record_play(song_id, None, "Alice", "A Song")
+        events.emit("song_ended", "skip")
+
+        assert history.get_turns_taken() == {"alice": 1}
+
+    def test_excludes_the_song_still_playing(self, history, song_id):
+        history.record_play(song_id, None, "Alice", "A Song")
+
+        assert history.get_turns_taken() == {}
+
+    def test_folds_casing_variants_into_one_singer(self, history, sing, song_id):
+        sing(song_id, None, "Mike", "A Song")
+        sing(song_id, None, "mike", "A Song")
+
+        assert history.get_turns_taken() == {"mike": 2}
+
+    def test_scoped_to_the_active_session(self, history, sing, song_id):
+        sing(song_id, None, "Alice", "A Song")
+        history.start_session("Tonight")
+        sing(song_id, None, "Bob", "A Song")
+
+        assert history.get_turns_taken() == {"bob": 1}
+
+    def test_empty_when_no_session_is_open(self, history, sing, song_id):
+        sing(song_id, None, "Alice", "A Song")
+        history.end_session()
+
+        assert history.get_turns_taken() == {}
+
+
 class TestGetTopSongs:
     def test_empty_when_nothing_played(self, history):
         assert history.get_top_songs() == []

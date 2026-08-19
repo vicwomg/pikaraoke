@@ -293,6 +293,8 @@ class Karaoke:
             get_now_playing_user=lambda: self.playback_controller.now_playing_user,
             filename_from_path=self.song_manager.display_name_from_path,
             get_available_songs=lambda: self.song_manager.songs,
+            # Bound late: play history is built below.
+            get_turns_taken=lambda: self.play_history.get_turns_taken(),
         )
 
         # Play history recording and reporting (subscribes to song_ended itself)

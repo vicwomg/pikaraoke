@@ -15,6 +15,10 @@ from flask_babel import _
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 
+# Names the system queues under when no singer asked for the song, so they are
+# exempt from per-singer limits and hold no turn in the fair queue.
+_PLACEHOLDER_SINGERS = frozenset({"pikaraoke", "randomizer"})
+
 
 class QueueManager:
     """Manages the song queue: enqueueing, editing, reordering, and fair queue logic."""
@@ -26,6 +30,7 @@ class QueueManager:
         get_now_playing_user: Callable[[], str | None] | None = None,
         filename_from_path: Callable[[str, bool], str] | None = None,
         get_available_songs: Callable[[], Any] | None = None,
+        get_turns_taken: Callable[[], dict[str, int]] | None = None,
     ) -> None:
         self.queue: list[dict[str, Any]] = []
         self._preferences = preferences
@@ -33,6 +38,7 @@ class QueueManager:
         self._get_now_playing_user = get_now_playing_user
         self._filename_from_path = filename_from_path
         self._get_available_songs = get_available_songs
+        self._get_turns_taken = get_turns_taken
 
     def is_song_in_queue(self, song_path: str) -> bool:
         """Check if a song is already in the queue."""
@@ -41,12 +47,13 @@ class QueueManager:
     def is_user_limited(self, user: str) -> bool:
         """Check if a user has reached their queue limit."""
         limit = self._preferences.get_or_default("limit_user_songs_by")
-        if limit == 0 or user in ("Pikaraoke", "Randomizer"):
+        singer = user.lower()
+        if limit == 0 or singer in _PLACEHOLDER_SINGERS:
             return False
 
         now_playing_user = self._get_now_playing_user() if self._get_now_playing_user else None
-        count = sum(1 for item in self.queue if item["user"] == user) + (
-            1 if now_playing_user == user else 0
+        count = sum(1 for item in self.queue if item["user"].lower() == singer) + (
+            1 if now_playing_user and now_playing_user.lower() == singer else 0
         )
         return count >= int(limit)
 
@@ -64,33 +71,43 @@ class QueueManager:
         return -1
 
     def _calculate_fair_queue_position(self, user: str) -> int:
-        """Calculate insertion position using Nagle Fair Queuing.
+        """Return where a new song from `user` belongs under fair queuing.
 
-        Users take turns in rounds: a user's Nth song is placed after all
-        other users' Nth songs (or at queue end).
+        Singers take turns in rounds, ranked by the turns they have had tonight
+        rather than by what is left in the queue, so the song on screen and the
+        ones already sung both count against them. Catching up is capped at the
+        round that just played, or a singer arriving at midnight would claim
+        every round the room got through before they walked in.
         """
-        # Count how many songs this user already has in queue
-        user_song_count = sum(1 for item in self.queue if item["user"] == user)
+        history = self._get_turns_taken() if self._get_turns_taken else {}
+        turns_taken = {
+            singer: turns for singer, turns in history.items() if singer not in _PLACEHOLDER_SINGERS
+        }
+        now_playing = self._get_now_playing_user() if self._get_now_playing_user else None
+        if now_playing and now_playing.lower() not in _PLACEHOLDER_SINGERS:
+            # History cannot count this one until it ends.
+            singer = now_playing.lower()
+            turns_taken[singer] = turns_taken.get(singer, 0) + 1
 
-        # Find position after the last song in "round N" where N = user_song_count
-        # Round 0 = first song from each user, Round 1 = second song, etc.
-        target_round = user_song_count
-        songs_seen_per_user: dict[str, int] = {}
+        current_round = max(max(turns_taken.values(), default=0) - 1, 0)
+        # Ranked on the round first, then on turns sung, so that within one round
+        # the singer who has had least goes first. Taking a turn settles the debt
+        # whatever it was, which is what holds catching up to a single song.
+        ranks = {
+            singer: (max(turns, current_round), turns) for singer, turns in turns_taken.items()
+        }
 
-        for idx, item in enumerate(self.queue):
-            queue_user = item["user"]
-            songs_seen_per_user[queue_user] = songs_seen_per_user.get(queue_user, 0) + 1
-            # This song is in round (count - 1) for its user
-            song_round = songs_seen_per_user[queue_user] - 1
-            if song_round == target_round:
-                # Found a song in the target round, insert after it
-                # Keep scanning to find the LAST song in this round
-                pass
-            elif song_round > target_round:
-                # We've moved past target round, insert here
-                return idx
+        placed: list[tuple[int, int]] = []
+        for item in self.queue:
+            singer = item["user"].lower()
+            round_number, turns = ranks.get(singer, (current_round, 0))
+            ranks[singer] = (round_number + 1, round_number + 1)
+            placed.append((round_number, turns))
 
-        # All songs are in rounds <= target_round, append to end
+        target = ranks.get(user.lower(), (current_round, 0))
+        for index, rank in enumerate(placed):
+            if rank > target:
+                return index
         return len(self.queue)
 
     def enqueue(
