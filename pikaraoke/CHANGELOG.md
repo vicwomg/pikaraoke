@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.22.0](https://github.com/vicwomg/pikaraoke/compare/1.21.0...1.22.0) (2026-08-19)
+
+
+### Features
+
+* add keep awake toggle to the info page ([#862](https://github.com/vicwomg/pikaraoke/issues/862)) ([272ccc7](https://github.com/vicwomg/pikaraoke/commit/272ccc7fe95a53c2b7cf30d00672b82a3081d565))
+* folder browsing ([#866](https://github.com/vicwomg/pikaraoke/issues/866)) ([eb08c30](https://github.com/vicwomg/pikaraoke/commit/eb08c30e5cf216012358995e1179d4988b49bd66))
+* KJ mode for queuing on behalf of singers ([#857](https://github.com/vicwomg/pikaraoke/issues/857)) ([cced6f9](https://github.com/vicwomg/pikaraoke/commit/cced6f993659a851b27f999e27186fa5cb5fba3a))
+* make iTunes scores out of 100 ([#872](https://github.com/vicwomg/pikaraoke/issues/872)) ([5631bb7](https://github.com/vicwomg/pikaraoke/commit/5631bb7dabeaa01824b18923e7ac9289104af090))
+* rename song from queue and fix renaming bugs ([#865](https://github.com/vicwomg/pikaraoke/issues/865)) ([b74458b](https://github.com/vicwomg/pikaraoke/commit/b74458b8832ae25d73c027f1d1431bb7fa3c54d8))
+* separate song library search from YouTube search ([#853](https://github.com/vicwomg/pikaraoke/issues/853)) ([20b18fc](https://github.com/vicwomg/pikaraoke/commit/20b18fcf0420c306a252c40350b0f6441f1c8968)), closes [#851](https://github.com/vicwomg/pikaraoke/issues/851) [#146](https://github.com/vicwomg/pikaraoke/issues/146)
+* Session Management and Play History ([#845](https://github.com/vicwomg/pikaraoke/issues/845)) ([f494a4e](https://github.com/vicwomg/pikaraoke/commit/f494a4e1fc1105de56b5de1d0c8253cc63f5d14e))
+* windows inno installer ([#859](https://github.com/vicwomg/pikaraoke/issues/859)) ([95da410](https://github.com/vicwomg/pikaraoke/commit/95da410355c3e41ffd99f7a69bc1649b855dc82e))
+
+
+### Bug Fixes
+
+* bracketed title suggestion score ([#876](https://github.com/vicwomg/pikaraoke/issues/876)) ([64eff7e](https://github.com/vicwomg/pikaraoke/commit/64eff7e9eb52d1464395dcfa54c25a7f02e3299d))
+* direct download queue checkbox ([#850](https://github.com/vicwomg/pikaraoke/issues/850)) ([e947ca7](https://github.com/vicwomg/pikaraoke/commit/e947ca759f0481cdfc36461204764d7849cabed5)), closes [#824](https://github.com/vicwomg/pikaraoke/issues/824)
+* drop buildkit cache mounts for legacy docker builders ([#855](https://github.com/vicwomg/pikaraoke/issues/855)) ([1c4d170](https://github.com/vicwomg/pikaraoke/commit/1c4d170e758fa6e8d009767a0468103c16ed1071))
+* guarantee h264 for high quality downloads ([#868](https://github.com/vicwomg/pikaraoke/issues/868)) ([906694a](https://github.com/vicwomg/pikaraoke/commit/906694acae7aa01963ec30bb890fd133ec2bf350))
+* queue songs with a POST rather than a GET link ([#879](https://github.com/vicwomg/pikaraoke/issues/879)) ([2e2ecbb](https://github.com/vicwomg/pikaraoke/commit/2e2ecbb474b9d05d35251dea059fa6063546546c))
+* rank the fair queue by turns taken this session ([#873](https://github.com/vicwomg/pikaraoke/issues/873)) ([ccd3a59](https://github.com/vicwomg/pikaraoke/commit/ccd3a597aacb1c2e2de6303bb16447e0a877204c))
+* replace deprecated -vsync with -fps_mode for ffmpeg 9.0 compatibility ([#861](https://github.com/vicwomg/pikaraoke/issues/861)) ([3d6f30d](https://github.com/vicwomg/pikaraoke/commit/3d6f30dc7368857212351c9ea9f66ecd70f16cb7))
+* retry failed downloads without blocking the queue ([#869](https://github.com/vicwomg/pikaraoke/issues/869)) ([89d7ef9](https://github.com/vicwomg/pikaraoke/commit/89d7ef9f4e8b59196584daa5b8bcfda7ed5b59d1))
+* session times display in UTC under docker ([#875](https://github.com/vicwomg/pikaraoke/issues/875)) ([ecf5a5e](https://github.com/vicwomg/pikaraoke/commit/ecf5a5eb3f13dba4e8e7740e2a5901f1915c8a59))
+* sync uv.lock during release-please runs ([#852](https://github.com/vicwomg/pikaraoke/issues/852)) ([01b3179](https://github.com/vicwomg/pikaraoke/commit/01b3179c670b93fd6c8e285f5c5ec79ddc8476e3))
+* verify preview stream URLs before handing them to the browser ([#864](https://github.com/vicwomg/pikaraoke/issues/864)) ([46ec7fe](https://github.com/vicwomg/pikaraoke/commit/46ec7fe125743f80f889d1143b0e5ae6faac696f))
+* youtube preview hls manifest ([#860](https://github.com/vicwomg/pikaraoke/issues/860)) ([862048c](https://github.com/vicwomg/pikaraoke/commit/862048c95525c6271379252701adade8d73b589d))
+
 ## [1.21.0](https://github.com/vicwomg/pikaraoke/compare/1.20.0...1.21.0) (2026-07-21)
 
 
