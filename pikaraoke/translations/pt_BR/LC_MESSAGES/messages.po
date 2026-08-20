@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: mawkee@gmail.com\n"
-"POT-Creation-Date: 2026-08-19 09:35+1000\n"
+"POT-Creation-Date: 2026-08-20 10:03+1000\n"
 "PO-Revision-Date: 2022-06-28 18:57-0300\n"
 "Last-Translator: FULL NAME <mawkee@gmail.com>\n"
 "Language-Team: pt_BR <LL@li.org>\n"
@@ -20,14 +20,14 @@ msgstr ""
 
 #. Message shown after the song is transposed, first is the semitones and then
 #. the song name
-#: karaoke.py:557
+#: karaoke.py:559
 #, python-format
 msgid "Transposing by %s semitones: %s"
 msgstr "Transpondo em %s semitons: %s"
 
 #. Message shown after the volume is changed, will be followed by the volume
 #. level
-#: karaoke.py:571
+#: karaoke.py:573
 #, python-format
 msgid "Volume: %s"
 msgstr "Volume: %s"
@@ -121,33 +121,33 @@ msgid "Something went wrong! Your preferences were not cleared"
 msgstr "Algo deu errado! Suas preferências não foram limpas"
 
 # auto-translated
-#: lib/queue_manager.py:111
+#: lib/queue_manager.py:128
 #, python-format
 msgid "Song is already in the queue: %s"
 msgstr "A música já está na fila: %s"
 
-#: lib/queue_manager.py:119
+#: lib/queue_manager.py:136
 #, python-format
 msgid "You reached the limit of %s song(s) from an user in queue!"
 msgstr "Você atingiu o limite de %s música(s) de um usuário na fila!"
 
-#: lib/queue_manager.py:132
+#: lib/queue_manager.py:149
 #, python-format
 msgid "%s added to top of queue: %s"
 msgstr "%s adicionado ao topo da fila: %s"
 
-#: lib/queue_manager.py:141
+#: lib/queue_manager.py:158
 #, python-format
 msgid "%s added to the queue: %s"
 msgstr "%s adicionou à fila: %s"
 
-#: lib/queue_manager.py:153
+#: lib/queue_manager.py:170
 #, python-format
 msgid "Song added to the queue: %s"
 msgstr "Música adicionada à fila: %s"
 
 #. Message shown after the queue is cleared
-#: lib/queue_manager.py:210
+#: lib/queue_manager.py:227
 msgid "Clear queue"
 msgstr "Fila limpa"
 
@@ -265,7 +265,7 @@ msgstr "Erro ao renomear o arquivo: '%s' para '%s', Nome do arquivo já existe"
 # auto-translated
 #. Title of the page listing the songs already on this machine.
 #. Navigation link for the page listing songs already on this machine.
-#: routes/files.py:187 templates/base.html:343 templates/base.html:346
+#: routes/files.py:187 templates/base.html:456 templates/base.html:459
 msgid "Songs"
 msgstr "Músicas"
 
@@ -428,7 +428,7 @@ msgstr "Erro ao remover da fila"
 # auto-translated
 #. Title of the page used to get new songs into the library.
 #. Navigation link for the page used to get new songs into the library.
-#: routes/search.py:61 templates/base.html:349 templates/base.html:352
+#: routes/search.py:61 templates/base.html:462 templates/base.html:465
 msgid "Add New"
 msgstr "Adicionar novo"
 
@@ -473,7 +473,7 @@ msgstr "Jogado em"
 #. Play log column header for who sang the song.
 #. Ranking table column header for the person who sang.
 #: routes/sessions_api.py:312 templates/history.html:412
-#: templates/history.html:469 templates/rankings.html:185
+#: templates/history.html:469 templates/rankings.html:176
 msgid "Performer"
 msgstr "Intérprete"
 
@@ -482,7 +482,7 @@ msgstr "Intérprete"
 #. Play log column header for the song that was sung.
 #. Ranking table column header for the song that was sung.
 #: routes/sessions_api.py:312 templates/history.html:432
-#: templates/history.html:473 templates/rankings.html:138
+#: templates/history.html:473 templates/rankings.html:128
 msgid "Song"
 msgstr "Canção"
 
@@ -560,7 +560,7 @@ msgstr "Falha ao transmitir legenda:"
 # auto-translated
 #. Prompt to change the username displayed next to queued songs. {name} is
 #. replaced with the name
-#: templates/base.html:33
+#: templates/base.html:37
 #, python-brace-format
 msgid ""
 "Do you want to change the name of the person using this device? This will "
@@ -571,7 +571,7 @@ msgstr ""
 
 # auto-translated
 #. Confirmation prompt to clear entire queue. User must type ok to confirm
-#: templates/base.html:35
+#: templates/base.html:39
 msgid "Are you sure you want to clear the ENTIRE queue? Type ok to continue"
 msgstr ""
 "Tem certeza de que deseja limpar TODA a fila? Digite ok para continuar"
@@ -580,20 +580,20 @@ msgstr ""
 #. Confirmation dialog when removing a song from the queue. {title} is
 #. replaced
 #. with the title
-#: templates/base.html:37
+#: templates/base.html:41
 #, python-brace-format
 msgid "Are you sure you want to delete {title} from the queue?"
 msgstr "Tem certeza de que deseja excluir {title} da fila?"
 
 #. Confirmation dialog when permanently deleting a song file from the library
-#: templates/base.html:39
+#: templates/base.html:43
 msgid "Are you sure you want to delete this song from the library?"
 msgstr "Tem certeza que quer excluir esta música da biblioteca?"
 
 # auto-translated
 #. Label showing the number of semitones for pitch shift. {value} is replaced
 #. with a number like +3 or -2.
-#: templates/base.html:41
+#: templates/base.html:45
 #, python-brace-format
 msgid "{value} semitones"
 msgstr "{value} semitons"
@@ -601,20 +601,20 @@ msgstr "{value} semitons"
 # auto-translated
 #. Confirmation dialog when changing the key/pitch of a song. {label} is
 #. replaced with a label like "+3 semitones".
-#: templates/base.html:43
+#: templates/base.html:47
 #, python-brace-format
 msgid "Transpose this song: {label}?"
 msgstr "Transponha esta música: {label}?"
 
 # auto-translated
 #. Confirmation dialog when restarting the currently playing track.
-#: templates/base.html:45
+#: templates/base.html:49
 msgid "Are you sure you want to restart this track?"
 msgstr "Tem certeza de que deseja reiniciar esta faixa?"
 
 # auto-translated
 #. Informational tooltip explaining what a semitone is.
-#: templates/base.html:47
+#: templates/base.html:51
 msgid ""
 "A semitone is also known as a half-step. It is the smallest interval used in"
 " classical Western music, equal to a twelfth of an octave or half a tone."
@@ -625,7 +625,7 @@ msgstr ""
 # auto-translated
 #. Confirmation dialog when expanding the filesystem on Raspberry Pi, which
 #. triggers a reboot.
-#: templates/base.html:49
+#: templates/base.html:53
 msgid ""
 "Are you sure you want to expand the filesystem? This will reboot your "
 "raspberry pi."
@@ -635,13 +635,13 @@ msgstr ""
 
 # auto-translated
 #. Generic error prefix shown before an error message.
-#: templates/base.html:51
+#: templates/base.html:55
 msgid "Error"
 msgstr "Erro"
 
 #. Prompt which asks the user their name when they first try to add to the
 #. queue.
-#: templates/base.html:116
+#: templates/base.html:120
 msgid ""
 "Please enter your name. This will show up next to the songs you queue up "
 "from this device."
@@ -652,44 +652,44 @@ msgstr ""
 # auto-translated
 #. Accessible label for the banner naming the karaoke session in progress.
 #. {name} is replaced with the session's name.
-#: templates/base.html:144 templates/base.html:413
+#: templates/base.html:212 templates/base.html:526
 #, python-brace-format
 msgid "Current session: {name}"
 msgstr "Sessão atual: {name}"
 
 #. Navigation link for the home page.
-#: templates/base.html:330
+#: templates/base.html:443
 msgid "Home"
 msgstr "Home"
 
 #. Navigation link for the queue page.
-#: templates/base.html:336 templates/queue.html:509
+#: templates/base.html:449 templates/queue.html:509
 msgid "Queue"
 msgstr "Fila"
 
 # auto-translated
 #. Dropdown link to the most-played songs and most active singers.
-#: templates/base.html:380
+#: templates/base.html:493
 msgid "Rankings"
 msgstr "Classificações"
 
 # auto-translated
 #. Dropdown link to the log of everything that has been sung.
 #. Header of the play history management section of the settings page.
-#: templates/base.html:385 templates/info.html:432
+#: templates/base.html:498 templates/info.html:432
 msgid "Play History"
 msgstr "Histórico de jogos"
 
 # auto-translated
 #. Dropdown link to the karaoke session management page, only shown to the
 #. host.
-#: templates/base.html:392
+#: templates/base.html:505
 msgid "Sessions"
 msgstr "Sessões"
 
 # auto-translated
 #. Dropdown link to the settings and system information page.
-#: templates/base.html:398
+#: templates/base.html:511
 msgid "Settings"
 msgstr "Configurações"
 
@@ -808,59 +808,59 @@ msgstr "Apagar esta música"
 
 # auto-translated
 #. Button to open the batch song renamer page.
-#: templates/files.html:218
+#: templates/files.html:220
 msgid "Bulk rename"
 msgstr "Renomear em massa"
 
 # auto-translated
 #. Subtitle under the Songs heading, explaining that this page lists songs
 #. already downloaded.
-#: templates/files.html:224
+#: templates/files.html:226
 msgid "Available in the library"
 msgstr "Disponível na biblioteca"
 
 # auto-translated
 #. Breadcrumb link back to the top level of the folder view.
-#: templates/files.html:353
+#: templates/files.html:356
 msgid "All folders"
 msgstr "Todas as pastas"
 
 # auto-translated
 #. Placeholder in the box that filters the songs already on this machine.
-#: templates/files.html:377
+#: templates/files.html:382
 msgid "Search by title, artist..."
 msgstr "Pesquise por título, artista..."
 
 #. Button which empties the filter box and shows every song again.
 #. Link which clears the text from the search box.
-#: templates/files.html:383 templates/search.html:552
+#: templates/files.html:388 templates/search.html:554
 msgid "Clear"
 msgstr "Limpar"
 
 # auto-translated
 #. Button which lists every song at once, ignoring the folders they are stored
 #. in.
-#: templates/files.html:441
+#: templates/files.html:446
 msgid "All songs"
 msgstr "Todas as músicas"
 
 # auto-translated
 #. Button which groups the songs by the folder they are stored in.
-#: templates/files.html:446
+#: templates/files.html:451
 msgid "Folders"
 msgstr "Pastas"
 
 # auto-translated
 #. Button which changes how the songs are sorted so they become sorted by
 #. name.
-#: templates/files.html:457
+#: templates/files.html:462
 msgid "Sort Alphabetically"
 msgstr "Classificar em ordem alfabética"
 
 # auto-translated
 #. Button which changes how the songs are sorted so they become sorted by
 #. date.
-#: templates/files.html:462
+#: templates/files.html:467
 msgid "Sort by Date"
 msgstr "Classificar por data"
 
@@ -873,7 +873,7 @@ msgstr "Excluir esta entrada do registro de reprodução?"
 # auto-translated
 #. Shown when the play log has no entries yet.
 #. Shown on the rankings page when no songs have been played yet.
-#: templates/history.html:42 templates/rankings.html:172
+#: templates/history.html:42 templates/rankings.html:163
 msgid "Nothing has been played yet."
 msgstr "Nada foi jogado ainda."
 
@@ -924,9 +924,9 @@ msgstr "Status"
 #. Menu item which adds the song from this play log entry to the queue.
 #. Button which adds an already-downloaded song to the queue.
 #. Button which downloads a song and puts it straight in the queue.
-#: templates/history.html:496 templates/rankings.html:151
-#: templates/search.html:369 templates/search.html:577
-#: templates/search.html:644 templates/search.html:654
+#: templates/history.html:496 templates/rankings.html:141
+#: templates/search.html:370 templates/search.html:579
+#: templates/search.html:647 templates/search.html:657
 msgid "Add to queue"
 msgstr "Adicionar à fila"
 
@@ -1702,6 +1702,26 @@ msgid "All sessions"
 msgstr "Todas as sessões"
 
 # auto-translated
+#. Label for the KJ-mode field naming who is about to sing the songs being
+#. queued.
+#: templates/partials/singer_field.html:14
+msgid "Queue for singer"
+msgstr "Fila para cantor"
+
+# auto-translated
+#. Placeholder in the KJ-mode singer field.
+#: templates/partials/singer_field.html:21
+msgid "Name of the singer"
+msgstr "Nome do cantor"
+
+# auto-translated
+#. Button shown in place of the KJ singer field when no session is running.
+#. Links to the sessions page.
+#: templates/partials/singer_field.html:35
+msgid "Start a session to queue for singers"
+msgstr "Inicie uma sessão para fazer fila para cantores"
+
+# auto-translated
 #: templates/queue.html:214
 msgid "Pending downloads"
 msgstr "Downloads pendentes"
@@ -1823,51 +1843,51 @@ msgstr "Fila de download"
 
 # auto-translated
 #. Label before the dropdown choosing how many ranked rows to show.
-#: templates/rankings.html:39
+#: templates/rankings.html:29
 msgid "Show"
 msgstr "Mostrar"
 
 # auto-translated
 #. Ranking table column header for a row's position in the chart.
-#: templates/rankings.html:55
+#: templates/rankings.html:45
 msgid "Rank"
 msgstr "Classificação"
 
 # auto-translated
 #. Ranking table column header for how many times something was played.
 #. Session list column header for how many songs were played.
-#: templates/rankings.html:58 templates/sessions.html:689
+#: templates/rankings.html:48 templates/sessions.html:689
 msgid "Plays"
 msgstr "Peças"
 
 # auto-translated
 #. Heading for the list of songs that have been sung the most times.
-#: templates/rankings.html:129
+#: templates/rankings.html:119
 msgid "Top songs"
 msgstr "Melhores músicas"
 
 # auto-translated
 #. Heading for the list of people who have sung the most songs.
-#: templates/rankings.html:176
+#: templates/rankings.html:167
 msgid "Top performers"
 msgstr "Melhores desempenhos"
 
 # auto-translated
 #. Shown on the rankings page when nobody has sung anything yet.
-#: templates/rankings.html:203
+#: templates/rankings.html:194
 msgid "Nobody has sung yet."
 msgstr "Ninguém cantou ainda."
 
 # auto-translated
 #. Status shown on a search result that has been requested but has not arrived
 #. yet.
-#: templates/search.html:348
+#: templates/search.html:350
 msgid "Adding..."
 msgstr "Adicionando..."
 
 # auto-translated
 #. Badge on a YouTube search result marking a song that is already downloaded.
-#: templates/search.html:375 templates/search.html:624
+#: templates/search.html:376 templates/search.html:626
 msgid "In library"
 msgstr "Na biblioteca"
 
@@ -1875,49 +1895,49 @@ msgstr "Na biblioteca"
 #. Subtitle under the Add New heading, explaining that this page gets songs
 #. the
 #. machine does not have.
-#: templates/search.html:519
+#: templates/search.html:520
 msgid "Add new songs from YouTube"
 msgstr "Adicione novas músicas do YouTube"
 
 # auto-translated
 #. Placeholder in the box used to search YouTube for a song to download.
-#: templates/search.html:532
+#: templates/search.html:534
 msgid "Search YouTube by title, artist..."
 msgstr "Pesquise no YouTube por título, artista..."
 
 #. Submit button on the search form for searching YouTube.
-#: templates/search.html:538
+#: templates/search.html:540
 msgid "Search"
 msgstr "Busca"
 
 #. Checkbox label which enables matching songs which are not karaoke versions
 #. (i.e. the songs still                                 have a singer and are
 #. not just instrumentals.)
-#: templates/search.html:548
+#: templates/search.html:550
 msgid "Include non-karaoke matches"
 msgstr "Adicionar resultados não-karaoke"
 
 #. Link which reveals the direct-URL download form.
-#: templates/search.html:554
+#: templates/search.html:556
 msgid "Advanced"
 msgstr "Avançado"
 
 # auto-translated
 #. Label for an input which takes a YouTube url directly instead of searching
 #. titles.
-#: templates/search.html:562
+#: templates/search.html:564
 msgid "Paste a YouTube url:"
 msgstr "Cole um URL do YouTube:"
 
 # auto-translated
 #. Button which downloads a song into the library without queuing it.
-#: templates/search.html:582 templates/search.html:659
+#: templates/search.html:584 templates/search.html:662
 msgid "Save for later"
 msgstr "Salvar para mais tarde"
 
 #. Html text which displays what was searched for, in quotes while the page is
 #. loading.
-#: templates/search.html:601
+#: templates/search.html:603
 #, python-format
 msgid ""
 "Searching YouTube for\n"
@@ -1926,7 +1946,7 @@ msgstr "Procurando no YouTube por <small><i>'%(search_term)s'</i></small>"
 
 # auto-translated
 #. Html text which displays what was searched for, in quotes.
-#: templates/search.html:608
+#: templates/search.html:610
 #, python-format
 msgid ""
 "Search results for\n"
@@ -1936,7 +1956,7 @@ msgstr ""
 "\t\t\t<small><i>'%(search_string)s'</i></small>"
 
 # auto-translated
-#: templates/search.html:673
+#: templates/search.html:676
 msgid ""
 "Preview unavailable for this video. Use the YouTube link on the result to "
 "watch it."
