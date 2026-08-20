@@ -38,6 +38,18 @@
         }
     };
 
+    /**
+     * Navigate to `url` by POST, so a cross-site link cannot fire the route.
+     * A POST form action keeps its query string, so pass the href unchanged.
+     */
+    window.postNavigate = function (url) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = url;
+        document.body.appendChild(form);
+        form.submit();
+    };
+
     // State management
     let isNavigating = false;
     let currentPath = window.location.pathname + window.location.search;
@@ -155,7 +167,7 @@
             let userInput = window.prompt(promptMsg);
             // Only clear if user typed 'ok' exactly (case insensitive)
             if (userInput !== null && userInput.toLowerCase() === "ok") {
-                $.get(this.href);
+                $.post(this.href);
             }
         });
 
@@ -166,7 +178,7 @@
                 ? window.translations.confirmDeleteFromQueue.replace('{title}', this.title)
                 : `Are you sure you want to delete "${this.title}" from the queue?`;
             if (window.confirm(msg)) {
-                $.get(this.href);
+                $.post(this.href);
             }
         });
 
@@ -177,7 +189,7 @@
                 ? window.translations.confirmDeleteFromLibrary
                 : 'Are you sure you want to delete this song from the library?';
             if (window.confirm(msg)) {
-                window.location.href = this.href;
+                window.postNavigate(this.href);
             }
         });
 
@@ -196,7 +208,7 @@
             // Visual feedback on all up/down buttons
             $('.up-button, .down-button').css('pointer-events', 'none').css('opacity', '0.5');
 
-            $.get(this.href).always(function() {
+            $.post(this.href).always(function() {
                 // Re-enable all buttons after request completes + 500ms
                 setTimeout(function() {
                     $('.up-button, .down-button').css('pointer-events', 'auto').css('opacity', '1');
@@ -220,7 +232,7 @@
             // Visual feedback on all up/down buttons
             $('.up-button, .down-button').css('pointer-events', 'none').css('opacity', '0.5');
 
-            $.get(this.href).always(function() {
+            $.post(this.href).always(function() {
                 // Re-enable all buttons after request completes + 500ms
                 setTimeout(function() {
                     $('.up-button, .down-button').css('pointer-events', 'auto').css('opacity', '1');
@@ -234,7 +246,7 @@
             e.preventDefault();
             const amount = $('#randomNumberInput').val();
             const baseUrl = `${window.pikaraokeConfig.basePath}/queue/addrandom`;
-            $.get(`${baseUrl}/${amount}`);
+            $.post(`${baseUrl}/${amount}`);
         });
     }
 

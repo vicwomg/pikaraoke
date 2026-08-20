@@ -5,7 +5,7 @@
 
 			try {
 				for (const phraseRange in phrases) {
-					returnData = await $.get("{{ url_for('preferences.change_preferences') }}", {
+					returnData = await $.post("{{ url_for('preferences.change_preferences') }}", {
 							pref: phraseRange,
 							val: phrases[phraseRange]
 					})
@@ -51,7 +51,7 @@
 			})
 
 			function changePreferences(pref, val) {
-				$.get("{{ url_for('preferences.change_preferences') }}", {
+				$.post("{{ url_for('preferences.change_preferences') }}", {
 					"pref": pref,
 					"val": val
 				})
@@ -65,7 +65,7 @@
 				e.preventDefault();
 				// {# MSG: Confirmation text whe the user selects quit. #}
 				if (window.confirm({{ _('Are you sure you want to quit?') | tojson }})) {
-					location.href = this.href;
+					window.postNavigate(this.href);
 				}
 			});
 
@@ -73,7 +73,7 @@
 				e.preventDefault();
 				// {# MSG: Confirmation text whe the user starts to turn off the machine running Pikaraoke. #}
 				if (window.confirm({{ _('Are you sure you want to shut down?') | tojson }})) {
-					location.href = this.href;
+					window.postNavigate(this.href);
 				}
 			});
 
@@ -81,7 +81,7 @@
 				e.preventDefault();
 				// {# MSG: Confirmation text whe the user clears preferences. #}
 				if (window.confirm({{ _('Are you sure you want to clear your preferences?') | tojson }})) {
-					location.href = this.href;
+					window.postNavigate(this.href);
 				}
 			});
 
@@ -89,7 +89,7 @@
 				e.preventDefault();
 				// {# MSG: Confirmation text whe the user starts to reboot the machine running Pikaraoke. #}
 				if (window.confirm({{ _('Are you sure you want to reboot?') | tojson }})) {
-					location.href = this.href;
+					window.postNavigate(this.href);
 				}
 			});
 
@@ -101,7 +101,7 @@
 						{{ _('Are you sure you want to update yt-dlp right now? Current and pending downloads may fail.') | tojson }}
 					)
 				) {
-					location.href = this.href;
+					window.postNavigate(this.href);
 				}
 			});
 
@@ -109,7 +109,7 @@
 			e.preventDefault();
 			// {# MSG: Confirmation text when the user wants to expand the filesystem to take the entire SD card. #}
 			if (window.confirm(window.translations.confirmExpandFilesystem)) {
-				location.href = this.href;
+				window.postNavigate(this.href);
 			}
 		});
 
@@ -264,7 +264,7 @@
 			$("#sync-library-btn").click(function() {
 				var $btn = $(this);
 				$btn.addClass("is-loading").prop("disabled", true);
-				$.getJSON("{{ url_for('admin.sync_library') }}", function(data) {
+				$.post("{{ url_for('admin.sync_library') }}", function(data) {
 					if (data.status !== "already_syncing") return;
 					// stays disabled -- sync_finished will re-enable
 				}).fail(function() {

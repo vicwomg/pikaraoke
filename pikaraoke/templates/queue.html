@@ -377,7 +377,7 @@
 
       $.ajax({
           url: url,
-          method: 'GET',
+          method: 'POST',
           headers: { 'X-Requested-With': 'XMLHttpRequest' }
       }).done(function(response) {
           var result = JSON.parse(response);

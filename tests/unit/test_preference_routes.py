@@ -52,7 +52,7 @@ class TestChangePreferencesBroadcast:
     def test_broadcasts_preferences_update_on_success(self, client, route_mocks):
         route_mocks["karaoke"].preferences.set.return_value = (True, "Success")
 
-        client.get("/change_preferences?pref=disable_bg_video&val=True")
+        client.post("/change_preferences", data={"pref": "disable_bg_video", "val": "True"})
 
         route_mocks["broadcast"].assert_any_call(
             "preferences_update", {"key": "disable_bg_video", "value": "True"}
@@ -61,7 +61,7 @@ class TestChangePreferencesBroadcast:
     def test_does_not_broadcast_on_failure(self, client, route_mocks):
         route_mocks["karaoke"].preferences.set.return_value = (False, "Error")
 
-        client.get("/change_preferences?pref=volume&val=0.5")
+        client.post("/change_preferences", data={"pref": "volume", "val": "0.5"})
 
         route_mocks["broadcast"].assert_not_called()
 
@@ -69,7 +69,7 @@ class TestChangePreferencesBroadcast:
         route_mocks["karaoke"].preferences.set.return_value = (True, "Success")
         route_mocks["phrases"].return_value = {"low": ["Bad"], "mid": ["OK"], "high": ["Great"]}
 
-        client.get("/change_preferences?pref=low_score_phrases&val=Bad")
+        client.post("/change_preferences", data={"pref": "low_score_phrases", "val": "Bad"})
 
         assert route_mocks["broadcast"].call_count == 2
         route_mocks["broadcast"].assert_any_call(
@@ -82,7 +82,7 @@ class TestChangePreferencesBroadcast:
     def test_non_score_pref_does_not_broadcast_score_phrases(self, client, route_mocks):
         route_mocks["karaoke"].preferences.set.return_value = (True, "Success")
 
-        client.get("/change_preferences?pref=hide_overlay&val=True")
+        client.post("/change_preferences", data={"pref": "hide_overlay", "val": "True"})
 
         assert route_mocks["broadcast"].call_count == 1
         route_mocks["broadcast"].assert_called_once_with(
@@ -97,7 +97,7 @@ class TestClearPreferencesBroadcast:
         route_mocks["karaoke"].preferences.reset_all.return_value = (True, "Success")
         route_mocks["phrases"].return_value = {"low": ["L"], "mid": ["M"], "high": ["H"]}
 
-        client.get("/clear_preferences", follow_redirects=False)
+        client.post("/clear_preferences", follow_redirects=False)
 
         route_mocks["broadcast"].assert_any_call("preferences_reset", PreferenceManager.DEFAULTS)
         route_mocks["broadcast"].assert_any_call(
@@ -107,6 +107,6 @@ class TestClearPreferencesBroadcast:
     def test_does_not_broadcast_on_reset_failure(self, client, route_mocks):
         route_mocks["karaoke"].preferences.reset_all.return_value = (False, "Error")
 
-        client.get("/clear_preferences", follow_redirects=False)
+        client.post("/clear_preferences", follow_redirects=False)
 
         route_mocks["broadcast"].assert_not_called()

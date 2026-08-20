@@ -16,21 +16,21 @@ _SCORE_PHRASE_KEYS = {"low_score_phrases", "mid_score_phrases", "high_score_phra
 preferences_bp = Blueprint("preferences", __name__)
 
 
-class ChangePreferenceQuery(Schema):
+class ChangePreferenceForm(Schema):
     pref = fields.String(
         required=True, metadata={"description": "Name of the preference to change"}
     )
     val = fields.String(required=True, metadata={"description": "New value for the preference"})
 
 
-@preferences_bp.route("/change_preferences", methods=["GET"])
-@preferences_bp.arguments(ChangePreferenceQuery, location="query")
-def change_preferences(query):
+@preferences_bp.route("/change_preferences", methods=["POST"])
+@preferences_bp.arguments(ChangePreferenceForm, location="form")
+def change_preferences(form):
     """Change a user preference setting."""
     k = get_karaoke_instance()
     if is_admin():
-        preference = query["pref"]
-        val = query["val"]
+        preference = form["pref"]
+        val = form["val"]
         success, message = k.preferences.set(preference, val)
         if success:
             broadcast_event("preferences_update", {"key": preference, "value": val})
@@ -43,7 +43,7 @@ def change_preferences(query):
     return redirect(url_for("info.info"))
 
 
-@preferences_bp.route("/clear_preferences", methods=["GET"])
+@preferences_bp.route("/clear_preferences", methods=["POST"])
 def clear_preferences():
     """Reset all preferences to defaults."""
     k = get_karaoke_instance()
