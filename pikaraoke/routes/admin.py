@@ -173,7 +173,15 @@ def auth(form):
         resp = make_response(redirect(next_url))
         expire_date = datetime.datetime.now()
         expire_date = expire_date + datetime.timedelta(days=90)
-        resp.set_cookie("admin", admin_password, expires=expire_date)
+        # Not secure=True: PiKaraoke serves plain HTTP on a LAN, so the browser
+        # would never send the cookie back.
+        resp.set_cookie(
+            "admin",
+            admin_password,
+            expires=expire_date,
+            httponly=True,
+            samesite="Lax",
+        )
         # MSG: Message shown after logging in as admin successfully
         flash(_("Admin mode granted!"), "is-success")
     else:
@@ -187,7 +195,7 @@ def auth(form):
 def logout():
     """Log out of admin mode."""
     resp = make_response(redirect(url_for("info.info")))
-    resp.set_cookie("admin", "")
+    resp.set_cookie("admin", "", httponly=True, samesite="Lax")
     # MSG: Message shown after logging out as admin successfully
     flash(_("Logged out of admin mode!"), "is-success")
     return resp
