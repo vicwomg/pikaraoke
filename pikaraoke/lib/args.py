@@ -161,7 +161,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     )
     library.add_argument(
         "--ytdl-args",
-        help="Additional arguments to pass to yt-dlp (as a single string)",
+        help='Additional arguments to pass to yt-dlp, as a single string. Attach the value with an equals sign, or its leading dashes are read as PiKaraoke arguments (Example: --ytdl-args="--sleep-requests 1.5")',
         required=False,
     )
     library.add_argument(
