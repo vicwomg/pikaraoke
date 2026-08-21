@@ -710,6 +710,7 @@
           }
         },
         "summary": "Stream a background music file.",
+        "description": "send_from_directory, not send_file: `file` comes from the URL, and only this\nrefuses one that escapes the directory.",
         "tags": [
           "bg_music"
         ]
