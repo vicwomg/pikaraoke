@@ -6,6 +6,10 @@ import threading
 
 from pikaraoke.lib.get_platform import get_data_directory
 
+# Bump when the schema changes and add a branch to _migrate(). Shipped to users
+# in 1.20.0 as version 1, so existing databases must be migrated, not recreated.
+_SCHEMA_VERSION = 2
+
 _SCHEMA = """
 PRAGMA journal_mode = WAL;
 
@@ -22,6 +26,18 @@ CREATE TABLE IF NOT EXISTS songs (
     metadata_status TEXT DEFAULT 'pending',
     enrichment_attempts INTEGER DEFAULT 0,
     last_enrichment_attempt TEXT,
+    -- Enrichment staging: disposable, storefront-derived, cleared whenever
+    -- suggestions are re-run. Held apart from year/genre above because those
+    -- have no source outside this table -- unlike artist/title, which the
+    -- filename can always rebuild -- so a re-run must not take them with it.
+    -- suggested_score is the API's 0-100 match confidence, unrecoverable
+    -- without re-querying, and orders the batch renamer's triage.
+    suggested_genre TEXT,
+    suggested_year INTEGER,
+    suggested_score INTEGER,
+    -- The storefront the suggestions came from, so changing the search country
+    -- re-enriches only the rows that were matched against a different one.
+    metadata_country TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
@@ -122,9 +138,36 @@ class KaraokeDatabase:
         return conn
 
     def _create_schema(self) -> None:
+        # Migrate an existing older DB before running the idempotent schema
+        # script. A fresh DB reports user_version 0, so migration is skipped and
+        # CREATE TABLE builds the current schema directly.
+        version = self._conn.execute("PRAGMA user_version").fetchone()[0]
+        if version and version < _SCHEMA_VERSION:
+            self._migrate(version)
         self._conn.executescript(_SCHEMA)
         with self._conn:
-            self._conn.execute("PRAGMA user_version = 1")
+            # Write the constant, last, once. PRAGMA user_version is a raw int
+            # SQLite never interprets, so a literal here would re-stamp the old
+            # version on every launch and re-run the migration into a
+            # "duplicate column name" crash on the next start.
+            self._conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
+
+    def _migrate(self, from_version: int) -> None:
+        """Apply additive migrations to an already-shipped database.
+
+        The songs table shipped in 1.20.0 as schema version 1. New columns must
+        arrive via ALTER TABLE because CREATE TABLE IF NOT EXISTS is a no-op once
+        the table exists. Additive only -- existing rows are preserved.
+        """
+        with self._conn:
+            if from_version < 2:
+                for column, coltype in (
+                    ("suggested_genre", "TEXT"),
+                    ("suggested_year", "INTEGER"),
+                    ("suggested_score", "INTEGER"),
+                    ("metadata_country", "TEXT"),
+                ):
+                    self._conn.execute(f"ALTER TABLE songs ADD COLUMN {column} {coltype}")
 
     # ------------------------------------------------------------------
     # Read operations

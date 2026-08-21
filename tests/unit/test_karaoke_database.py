@@ -32,6 +32,14 @@ CREATE TABLE IF NOT EXISTS metadata (
 );
 """
 
+# Added by the v2 migration. Kept apart from the durable year/genre, which a
+# storefront re-run must never clear.
+_NEW_IN_V2 = {"suggested_genre", "suggested_year", "suggested_score", "metadata_country"}
+
+
+def _song_columns(conn):
+    return {row[1] for row in conn.execute("PRAGMA table_info(songs)").fetchall()}
+
 
 @pytest.fixture
 def db(tmp_path):
@@ -54,7 +62,13 @@ class TestInit:
 
     def test_user_version(self, db):
         ver = db._conn.execute("PRAGMA user_version").fetchone()[0]
-        assert ver == 1
+        assert ver == 2
+
+    def test_fresh_schema_has_the_enrichment_staging_columns(self, db):
+        assert _NEW_IN_V2 <= _song_columns(db._conn)
+
+    def test_fresh_schema_keeps_the_durable_year_and_genre(self, db):
+        assert {"year", "genre"} <= _song_columns(db._conn)
 
     def test_songs_table_exists(self, db):
         tables = {
@@ -103,6 +117,76 @@ class TestUpgradeFromExistingDatabase:
         paths = db.get_all_song_paths()
         db.close()
         assert paths == ["/songs/existing.mp4"]
+
+
+class TestSchemaV2Migration:
+    """CREATE TABLE IF NOT EXISTS cannot add a column to a table that already
+    exists, so a 1.20.0 songs table can only gain the staging columns by
+    ALTER TABLE."""
+
+    @pytest.fixture
+    def legacy_db_path(self, tmp_path):
+        path = str(tmp_path / "pikaraoke.db")
+        conn = sqlite3.connect(path)
+        conn.executescript(_SCHEMA_1_20_0)
+        conn.execute(
+            "INSERT INTO songs (file_path, youtube_id, format, artist, title) "
+            "VALUES (?, ?, ?, ?, ?)",
+            ("/songs/existing.mp4", "dQw4w9WgXcQ", "mp4", "Beyonce", "Halo"),
+        )
+        conn.execute("PRAGMA user_version = 1")
+        conn.commit()
+        conn.close()
+        return path
+
+    def test_v1_database_gains_the_columns(self, legacy_db_path):
+        db = KaraokeDatabase(legacy_db_path)
+        columns = _song_columns(db._conn)
+        db.close()
+        assert _NEW_IN_V2 <= columns
+
+    def test_version_is_stamped_to_2(self, legacy_db_path):
+        db = KaraokeDatabase(legacy_db_path)
+        ver = db._conn.execute("PRAGMA user_version").fetchone()[0]
+        db.close()
+        assert ver == 2
+
+    def test_existing_row_survives_with_nulls_in_the_new_columns(self, legacy_db_path):
+        db = KaraokeDatabase(legacy_db_path)
+        row = db._conn.execute(
+            "SELECT file_path, youtube_id, artist, title, suggested_genre, "
+            "suggested_year, suggested_score, metadata_country FROM songs"
+        ).fetchone()
+        db.close()
+        assert tuple(row) == ("/songs/existing.mp4", "dQw4w9WgXcQ", "Beyonce", "Halo", *[None] * 4)
+
+    def test_reopening_does_not_re_run_the_migration(self, legacy_db_path):
+        # Catches a literal PRAGMA user_version = 1 in _create_schema: that
+        # re-stamps the old version every launch, so the second open re-runs
+        # ALTER TABLE and dies with "duplicate column name".
+        for _ in range(3):
+            db = KaraokeDatabase(legacy_db_path)
+            db.close()
+
+    def test_play_history_tables_are_untouched_by_the_v2_step(self, legacy_db_path):
+        db = KaraokeDatabase(legacy_db_path)
+        tables = {
+            row[0]
+            for row in db._conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        db.close()
+        assert {"sessions", "plays"} <= tables
+
+    def test_a_fresh_database_does_not_enter_the_migration(self, tmp_path, monkeypatch):
+        # user_version 0 means there is no songs table to ALTER yet.
+        def fail(*args):
+            raise AssertionError("_migrate ran on a fresh database")
+
+        monkeypatch.setattr(KaraokeDatabase, "_migrate", fail)
+        db = KaraokeDatabase(str(tmp_path / "fresh.db"))
+        db.close()
 
 
 class TestGetSongIdentity:
