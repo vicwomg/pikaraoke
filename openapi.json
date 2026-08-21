@@ -27,7 +27,7 @@
       }
     },
     "/queue/addrandom/{amount}": {
-      "get": {
+      "post": {
         "responses": {
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -77,7 +77,7 @@
       }
     },
     "/queue/edit": {
-      "get": {
+      "post": {
         "parameters": [
           {
             "in": "query",
@@ -314,7 +314,7 @@
       }
     },
     "/files/delete": {
-      "get": {
+      "post": {
         "parameters": [
           {
             "in": "query",
@@ -411,33 +411,23 @@
       }
     },
     "/change_preferences": {
-      "get": {
-        "parameters": [
-          {
-            "in": "query",
-            "name": "pref",
-            "description": "Name of the preference to change",
-            "schema": {
-              "type": "string"
-            },
-            "required": true
-          },
-          {
-            "in": "query",
-            "name": "val",
-            "description": "New value for the preference",
-            "schema": {
-              "type": "string"
-            },
-            "required": true
-          }
-        ],
+      "post": {
         "responses": {
           "422": {
             "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
           },
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePreferenceForm"
+              }
+            }
           }
         },
         "summary": "Change a user preference setting.",
@@ -447,7 +437,7 @@
       }
     },
     "/clear_preferences": {
-      "get": {
+      "post": {
         "responses": {
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -460,7 +450,7 @@
       }
     },
     "/update_ytdl": {
-      "get": {
+      "post": {
         "responses": {
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -486,7 +476,7 @@
       }
     },
     "/sync_library": {
-      "get": {
+      "post": {
         "responses": {
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -499,7 +489,7 @@
       }
     },
     "/quit": {
-      "get": {
+      "post": {
         "responses": {
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -512,7 +502,7 @@
       }
     },
     "/shutdown": {
-      "get": {
+      "post": {
         "responses": {
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -525,7 +515,7 @@
       }
     },
     "/reboot": {
-      "get": {
+      "post": {
         "responses": {
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -538,7 +528,7 @@
       }
     },
     "/expand_fs": {
-      "get": {
+      "post": {
         "responses": {
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -1651,6 +1641,24 @@
         "required": [
           "new_file_name",
           "old_file_name"
+        ],
+        "additionalProperties": false
+      },
+      "ChangePreferenceForm": {
+        "type": "object",
+        "properties": {
+          "pref": {
+            "type": "string",
+            "description": "Name of the preference to change"
+          },
+          "val": {
+            "type": "string",
+            "description": "New value for the preference"
+          }
+        },
+        "required": [
+          "pref",
+          "val"
         ],
         "additionalProperties": false
       },
