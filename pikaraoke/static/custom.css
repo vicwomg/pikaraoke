@@ -267,3 +267,49 @@ body.hide-cursor * {
   align-items: center;
   margin-top: 10px;
 }
+
+/* A div, not <progress>, so the fill can transition; the duration matches the poll. */
+.dl-bar {
+  background-color: var(--dark-bg-tertiary);
+  border-radius: 290486px;
+  height: 1rem;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.dl-bar-fill {
+  background-color: var(--dark-text-light);
+  border-radius: inherit;
+  height: 100%;
+  position: relative;
+  transition: width 500ms linear;
+  width: 0;
+}
+
+/* The resolve and the merge report no percentage, so a highlight travels instead of a
+   number advancing. It rides the empty track at the start and the full fill at the end,
+   hence the opposite contrast. transform keeps the animation off the Pi's CPU. */
+.dl-bar.is-waiting::after,
+.dl-bar-fill.is-merging::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  animation: dl-sheen 1.6s linear infinite;
+}
+
+/* Grey, not white: a white sweep on the empty track would read as real fill. */
+.dl-bar.is-waiting::after {
+  background: linear-gradient(90deg, transparent, var(--dark-border-light), transparent);
+  opacity: 0.4;
+}
+
+.dl-bar-fill.is-merging::after {
+  background: linear-gradient(90deg, transparent, var(--dark-bg-tertiary), transparent);
+  opacity: 0.45;
+}
+
+@keyframes dl-sheen {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}

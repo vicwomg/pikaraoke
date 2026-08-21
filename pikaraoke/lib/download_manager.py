@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import re
 import subprocess
 import uuid
 from queue import Queue
@@ -17,6 +16,9 @@ from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.youtube_dl import (
+    POSTPROCESS_PREFIX,
+    PROGRESS_PREFIX,
+    SIZE_PREFIX,
     build_ytdl_download_command,
     get_youtube_id_from_url,
 )
@@ -25,6 +27,41 @@ from pikaraoke.lib.youtube_dl import (
 # regardless of the format selected, and re-extracting from scratch is the only known
 # remedy. At that rate three attempts would still leave one download in eight failing.
 MAX_DOWNLOAD_ATTEMPTS = 5
+
+# The bar is one 0-100 scale of downloaded bytes; the video and audio passes are bands
+# on it. Seam between them until the real sizes arrive.
+_FALLBACK_VIDEO_END = 90.0
+
+
+def _selects_separate_streams(cmd: list[str]) -> bool:
+    """True when the format selector downloads video and audio as separate passes.
+
+    Read off the selector, not the high_quality preference, which only caps resolution.
+    """
+    try:
+        selector = cmd[cmd.index("-f") + 1]
+    except (ValueError, IndexError):
+        return False
+    return "+" in selector.split("/")[0]
+
+
+def _video_band_end(line: str, fallback: float) -> float:
+    """Place the video/audio seam by the formats' real sizes, e.g. "[12577843, 4205572]".
+
+    Progress lines only ever see their own pass, so this is the only whole-job figure.
+    """
+    try:
+        sizes = [int(n) for n in line[len(SIZE_PREFIX) :].strip().strip("[]").split(",")]
+    except ValueError:
+        return fallback
+    if len(sizes) != 2 or not sum(sizes):
+        return fallback
+    return round(100 * sizes[0] / sum(sizes), 1)
+
+
+# The progress templates share the stream yt-dlp's prose goes to, so a download killed
+# mid-transfer ends on one of these. They carry no diagnosis a person can read.
+_TEMPLATED_PREFIXES = (PROGRESS_PREFIX, POSTPROCESS_PREFIX, SIZE_PREFIX)
 
 
 def _summarise_ytdl_failure(output: str) -> str:
@@ -38,7 +75,11 @@ def _summarise_ytdl_failure(output: str) -> str:
         stripped = line.strip()
         if stripped.startswith("ERROR:"):
             return stripped.removeprefix("ERROR:").strip()
-    tail = [line.strip() for line in output.splitlines() if line.strip()]
+    tail = [
+        stripped
+        for line in output.splitlines()
+        if (stripped := line.strip()) and not stripped.startswith(_TEMPLATED_PREFIXES)
+    ]
     return tail[-1] if tail else "Unknown error"
 
 
@@ -281,12 +322,7 @@ class DownloadManager:
         _use_spare_capacity(process)
 
         output_buffer = []
-
-        # Regex to parse progress from yt-dlp stdout
-        # Example: [download]   0.0% of    4.62MiB at  396.66KiB/s ETA 00:12
-        progress_regex = re.compile(
-            r"\[download\]\s+(\d+\.?\d*)%\s+of\s+.*?\s+at\s+([^\s]+)\s+ETA\s+([^\s]+)"
-        )
+        video_end = _FALLBACK_VIDEO_END if _selects_separate_streams(cmd) else 100.0
 
         while True:
             line = process.stdout.readline()
@@ -294,12 +330,10 @@ class DownloadManager:
                 break
             if line:
                 output_buffer.append(line)
-                match = progress_regex.search(line)
-                if match and self.active_download:
-                    self.active_download["progress"] = float(match.group(1))
-                    self.active_download["status"] = "downloading"
-                    self.active_download["speed"] = match.group(2)
-                    self.active_download["eta"] = match.group(3)
+                if line.startswith(SIZE_PREFIX):
+                    video_end = _video_band_end(line, video_end)
+                else:
+                    self._apply_progress_line(line, video_end)
 
         rc = process.poll()
         output = "".join(output_buffer)
@@ -308,6 +342,42 @@ class DownloadManager:
             # so the winning attempt's output has to be kept as well.
             logging.debug(f"yt-dlp output: {output}")
         return rc, output
+
+    def _apply_progress_line(self, line: str, video_end: float) -> None:
+        """Fold one templated yt-dlp progress line into active_download."""
+        if not self.active_download:
+            return
+
+        if line.startswith(POSTPROCESS_PREFIX):
+            if line[len(POSTPROCESS_PREFIX) :].strip() == "Merger":
+                # Every byte is down; the last speed and ETA describe nothing by then.
+                self.active_download["progress"] = 100.0
+                self.active_download["status"] = "merging"
+                self.active_download["speed"] = "---"
+                self.active_download["eta"] = "--:--"
+            return
+
+        if not line.startswith(PROGRESS_PREFIX):
+            return
+        fields = line[len(PROGRESS_PREFIX) :].strip().split("|")
+        if len(fields) != 4:
+            return
+
+        percent_str, speed, eta, vcodec = (field.strip() for field in fields)
+        audio_pass = vcodec == "none"
+        self.active_download["status"] = "downloading audio" if audio_pass else "downloading"
+        self.active_download["speed"] = speed
+        self.active_download["eta"] = eta
+
+        try:
+            percent = float(percent_str.rstrip("%"))
+        except ValueError:
+            return  # "Unknown%": hold the last real percentage rather than reset the bar
+        if audio_pass:
+            start, span = video_end, 100.0 - video_end
+        else:
+            start, span = 0.0, video_end
+        self.active_download["progress"] = round(start + percent / 100 * span, 1)
 
     def _requeue(self, request: dict) -> bool:
         """Put a failed download back at the end of the queue.

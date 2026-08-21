@@ -479,6 +479,150 @@ class TestSummariseYtdlFailure:
     def test_empty_output(self):
         assert _summarise_ytdl_failure("") == "Unknown error"
 
+    def test_fallback_skips_the_progress_templates(self):
+        """A download killed mid-transfer ends on a bar line, which names no failure."""
+        killed = (
+            "[info] abc: Downloading 1 format(s): 136+140\n"
+            "[pk-size]|[12577843, 4205572]\n"
+            "[pk]| 43.2%|Unknown B/s|Unknown ETA|avc1.640028\n"
+        )
+        assert _summarise_ytdl_failure(killed) == "[info] abc: Downloading 1 format(s): 136+140"
+
+
+class TestDownloadProgress:
+    """Tests for folding yt-dlp's templated progress lines into the bar."""
+
+    TWO_PASS_CMD = ["yt-dlp", "-f", "bestvideo[height<=1080]+bestaudio/best[ext!=webm]", "url"]
+    ONE_PASS_CMD = ["yt-dlp", "-f", "mp4", "url"]
+
+    @staticmethod
+    def progress_line(percent="50.0%", speed="1.20MiB/s", eta="00:12", vcodec="avc1.640028"):
+        """One download line in the shape the --progress-template produces."""
+        return f"[pk]|{percent}|{speed}|{eta}|{vcodec}\n"
+
+    def run_lines(self, download_manager, cmd, lines):
+        """Feed lines through _run_ytdl, snapshotting active_download after each one."""
+        download_manager.active_download = {
+            "progress": 0.0,
+            "status": "starting",
+            "speed": "---",
+            "eta": "--:--",
+        }
+        remaining = list(lines) + [""]
+        snapshots = []
+
+        def readline():
+            snapshots.append(dict(download_manager.active_download))
+            return remaining.pop(0)
+
+        process = MagicMock()
+        process.stdout.readline.side_effect = readline
+        process.poll.return_value = 0
+        with patch("subprocess.Popen", return_value=process):
+            download_manager._run_ytdl(cmd)
+        snapshots.append(dict(download_manager.active_download))
+        return snapshots
+
+    def test_two_passes_share_one_scale(self, download_manager):
+        """The audio pass resumes where the video pass stopped instead of rewinding."""
+        snapshots = self.run_lines(
+            download_manager,
+            self.TWO_PASS_CMD,
+            [
+                self.progress_line("0.0%"),
+                self.progress_line("100.0%"),
+                self.progress_line("0.0%", vcodec="none"),
+                self.progress_line("100.0%", vcodec="none"),
+            ],
+        )
+        progress = [snap["progress"] for snap in snapshots]
+        assert progress == sorted(progress)
+        assert 90.0 in progress and progress[-1] == 100.0
+
+    def test_single_pass_reaches_the_top_of_the_scale(self, download_manager):
+        """With no audio pass, the video runs the whole scale on its own."""
+        snapshots = self.run_lines(
+            download_manager, self.ONE_PASS_CMD, [self.progress_line("100.0%")]
+        )
+        assert snapshots[-1]["progress"] == 100.0
+
+    def test_audio_pass_is_named_by_vcodec(self, download_manager):
+        """vcodec is the discriminator, not a percentage that reset."""
+        snapshots = self.run_lines(
+            download_manager, self.TWO_PASS_CMD, [self.progress_line("50.0%", vcodec="none")]
+        )
+        assert snapshots[-1]["status"] == "downloading audio"
+        assert snapshots[-1]["progress"] == 95.0
+
+    def test_missing_estimates_survive_the_split(self, download_manager):
+        """The speed carries a space when yt-dlp is guessing, so the delimiter is a pipe."""
+        snapshots = self.run_lines(
+            download_manager,
+            self.TWO_PASS_CMD,
+            [self.progress_line("10.0%", speed="Unknown B/s", eta="Unknown")],
+        )
+        assert snapshots[-1]["speed"] == "Unknown B/s"
+        assert snapshots[-1]["eta"] == "Unknown"
+        assert snapshots[-1]["progress"] == 9.0
+
+    def test_unparseable_percent_holds_the_bar(self, download_manager):
+        """A percentage yt-dlp cannot compute must not drop the bar back to zero."""
+        snapshots = self.run_lines(
+            download_manager,
+            self.TWO_PASS_CMD,
+            [self.progress_line("50.0%"), self.progress_line("Unknown%", speed="10MiB/s")],
+        )
+        assert snapshots[-1]["progress"] == 45.0
+        assert snapshots[-1]["speed"] == "10MiB/s"
+
+    def test_merge_holds_a_full_bar(self, download_manager):
+        """Every byte is down by the merge, which reports no percentage of its own."""
+        snapshots = self.run_lines(
+            download_manager,
+            self.TWO_PASS_CMD,
+            [self.progress_line("50.0%", vcodec="none"), "[pk-post]|Merger\n"],
+        )
+        assert snapshots[-1]["progress"] == 100.0
+        assert snapshots[-1]["status"] == "merging"
+        assert snapshots[-1]["speed"] == "---"
+        assert snapshots[-1]["eta"] == "--:--"
+
+    def test_real_sizes_place_the_seam(self, download_manager):
+        """The formats' byte counts replace the guessed split between the passes."""
+        snapshots = self.run_lines(
+            download_manager,
+            self.TWO_PASS_CMD,
+            [
+                "[pk-size]|[12577843, 4205572]\n",
+                self.progress_line("100.0%"),
+                self.progress_line("100.0%", vcodec="none"),
+            ],
+        )
+        progress = [snap["progress"] for snap in snapshots]
+        # Video is 75% of 16.8MB, so the seam sits well below the 90.0 fallback.
+        assert 74.9 in progress
+        assert progress == sorted(progress)
+        assert progress[-1] == 100.0
+
+    def test_unusable_sizes_keep_the_fallback_seam(self, download_manager):
+        """A single-file download has no requested_formats, so yt-dlp prints NA."""
+        snapshots = self.run_lines(
+            download_manager,
+            self.TWO_PASS_CMD,
+            ["[pk-size]|NA\n", self.progress_line("100.0%")],
+        )
+        assert snapshots[-1]["progress"] == 90.0
+
+    def test_other_output_is_ignored(self, download_manager):
+        """yt-dlp's prose still flows past; only the templated lines count."""
+        snapshots = self.run_lines(
+            download_manager,
+            self.TWO_PASS_CMD,
+            ["[youtube] test123: Downloading android vr player API JSON\n"],
+        )
+        assert snapshots[-1]["status"] == "starting"
+        assert snapshots[-1]["progress"] == 0.0
+
 
 class TestDownloadManagerStatus:
     """Tests for DownloadManager.get_downloads_status method."""
