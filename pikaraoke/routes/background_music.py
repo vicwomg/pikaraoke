@@ -5,7 +5,7 @@ import random
 import urllib
 
 import flask_babel
-from flask import jsonify, send_file, url_for
+from flask import jsonify, send_from_directory, url_for
 from flask_smorest import Blueprint
 
 from pikaraoke.lib.current_app import get_karaoke_instance
@@ -39,10 +39,13 @@ def create_randomized_playlist(input_directory, base_url, max_songs=50):
 
 @background_music_bp.route("/bg_music/<file>", methods=["GET"])
 def bg_music(file):
-    """Stream a background music file."""
+    """Stream a background music file.
+
+    send_from_directory, not send_file: `file` comes from the URL, and only this
+    refuses one that escapes the directory.
+    """
     k = get_karaoke_instance()
-    mp3_path = os.path.join(k.bg_music_path, file)
-    return send_file(os.path.abspath(mp3_path), mimetype="audio/mpeg")
+    return send_from_directory(k.bg_music_path, file, mimetype="audio/mpeg")
 
 
 @background_music_bp.route("/bg_playlist", methods=["GET"])
