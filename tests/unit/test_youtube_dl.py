@@ -127,6 +127,25 @@ class TestBuildYtdlDownloadCommand:
         assert "vcodec^=avc1" in cmd[format_idx]
         assert "720" in cmd[format_idx]
 
+    @pytest.mark.parametrize("high_quality, height", [(True, 1080), (False, 720)])
+    @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
+    def test_pre_merged_fallback_honours_the_cap_before_giving_up_on_it(
+        self, mock_js, high_quality, height
+    ):
+        """A video with no avc1 DASH pair still has to respect the height cap.
+
+        -S sorts on resolution, so an uncapped fallback would pick a 1080p HLS variant.
+        The uncapped tier stays last so selection can never fail outright.
+        """
+        cmd = build_ytdl_download_command(
+            video_url="https://www.youtube.com/watch?v=test123",
+            download_path="/songs",
+            high_quality=high_quality,
+        )
+        tiers = cmd[cmd.index("-f") + 1].split("/")
+        assert tiers[1] == f"best[ext!=webm][height<={height}]"
+        assert tiers[2] == "best[ext!=webm]"
+
     @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
     def test_with_proxy(self, mock_js):
         """Test command with proxy setting."""

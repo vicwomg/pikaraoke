@@ -156,7 +156,13 @@ def build_ytdl_download_command(
     # Both branches must be DASH: "mp4" selects the best pre-merged format, and YouTube
     # refuses those far more often than it refuses the separate streams.
     height = 1080 if high_quality else 720
-    file_quality = f"bestvideo[vcodec^=avc1][height<={height}]+bestaudio[ext!=webm]/best[ext!=webm]"
+    # The capped fallback matters because -S sorts on resolution: without it, a video with
+    # no avc1 DASH pair lands on a 1080p HLS variant no matter what the cap says.
+    file_quality = (
+        f"bestvideo[vcodec^=avc1][height<={height}]+bestaudio[ext!=webm]"
+        f"/best[ext!=webm][height<={height}]"
+        "/best[ext!=webm]"
+    )
     args = [
         "-f",
         file_quality,
