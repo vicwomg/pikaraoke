@@ -27,6 +27,21 @@ from pikaraoke.lib.youtube_dl import (
 MAX_DOWNLOAD_ATTEMPTS = 5
 
 
+def _summarise_ytdl_failure(output: str) -> str:
+    """Reduce yt-dlp's captured output to the line that says what went wrong.
+
+    yt-dlp reports warnings before it attempts a download, so the whole transcript on an
+    error card buries the diagnosis past the truncation point. The full output is logged
+    either way.
+    """
+    for line in output.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("ERROR:"):
+            return stripped.removeprefix("ERROR:").strip()
+    tail = [line.strip() for line in output.splitlines() if line.strip()]
+    return tail[-1] if tail else "Unknown error"
+
+
 def _use_spare_capacity(process: subprocess.Popen) -> None:
     """Drop a download to background priority so it never competes with playback.
 
@@ -376,7 +391,7 @@ class DownloadManager:
                     "url": video_url,
                     "user": user,
                     "enqueue": enqueue,
-                    "error": output or "Unknown error",
+                    "error": _summarise_ytdl_failure(output),
                 }
             )
         else:

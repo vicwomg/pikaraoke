@@ -4,7 +4,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pikaraoke.lib.download_manager import MAX_DOWNLOAD_ATTEMPTS, DownloadManager
+from pikaraoke.lib.download_manager import (
+    MAX_DOWNLOAD_ATTEMPTS,
+    DownloadManager,
+    _summarise_ytdl_failure,
+)
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 
@@ -393,6 +397,32 @@ class TestDownloadManagerRetry:
         assert download_manager.download_queue.get_nowait()["title"] == "Broken"
 
     @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.Popen")
+    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
+    def test_error_card_carries_only_the_error_line(
+        self, mock_build_cmd, mock_popen, mock_gettext, download_manager
+    ):
+        """The card shows the diagnosis, not the whole transcript that buried it."""
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+        lines = [
+            'WARNING: "-f mp4" selects the best pre-merged mp4 format\n',
+            "[info] fAzCnCwJO5c: Downloading 1 format(s): 18\n",
+            "ERROR: unable to download video data: HTTP Error 403: Forbidden\n",
+        ]
+        process = MagicMock()
+        process.stdout.readline.side_effect = (lines + [""]) * MAX_DOWNLOAD_ATTEMPTS
+        process.poll.return_value = 1
+        mock_popen.return_value = process
+
+        download_manager.queue_download("https://youtube.com/watch?v=fAzCnCwJO5c", title="Broken")
+        self._drain(download_manager)
+
+        assert (
+            download_manager.download_errors[0]["error"]
+            == "unable to download video data: HTTP Error 403: Forbidden"
+        )
+
+    @patch("flask_babel._", side_effect=lambda x: x)
     def test_retry_error_requeues_and_clears(self, mock_gettext, download_manager):
         """The Retry button restores the request, enqueue flag included."""
         download_manager.download_errors = [
@@ -419,6 +449,35 @@ class TestDownloadManagerRetry:
         """An already-dismissed error cannot be retried."""
         assert download_manager.retry_error("nope") is False
         assert download_manager.download_queue.empty()
+
+
+class TestSummariseYtdlFailure:
+    """Tests for reducing yt-dlp's transcript to the line that names the failure."""
+
+    # Verbatim from a real 403, whose warning block pushed the diagnosis past truncation.
+    REAL_OUTPUT = (
+        '\nWARNING: "-f mp4" selects the best pre-merged mp4 format which is often not'
+        " what's intended.\n"
+        "         Pre-merged mp4 formats are not available from all sites, or may only be"
+        " available in lower quality.\n"
+        "[youtube] Extracting URL: https://www.youtube.com/watch?v=fAzCnCwJO5c\n"
+        "[youtube] fAzCnCwJO5c: Downloading android vr player API JSON\n"
+        "[info] fAzCnCwJO5c: Downloading 1 format(s): 18\n"
+        "ERROR: unable to download video data: HTTP Error 403: Forbidden\n"
+    )
+
+    def test_picks_the_error_line_out_of_the_transcript(self):
+        assert (
+            _summarise_ytdl_failure(self.REAL_OUTPUT)
+            == "unable to download video data: HTTP Error 403: Forbidden"
+        )
+
+    def test_falls_back_to_the_last_line_when_nothing_is_flagged(self):
+        """yt-dlp can die without an ERROR: line; the card still needs something."""
+        assert _summarise_ytdl_failure("[youtube] Extracting URL: x\nkilled\n") == "killed"
+
+    def test_empty_output(self):
+        assert _summarise_ytdl_failure("") == "Unknown error"
 
 
 class TestDownloadManagerStatus:

@@ -143,7 +143,7 @@ def build_ytdl_download_command(
     Args:
         video_url: URL of the video to download.
         download_path: Directory path where videos will be saved.
-        high_quality: If True, download up to 1080p; otherwise download mp4.
+        high_quality: If True, cap the download at 1080p; otherwise cap it at 720p.
         youtubedl_proxy: Optional proxy server URL.
         additional_args: Optional additional command-line arguments as a string.
 
@@ -153,10 +153,15 @@ def build_ytdl_download_command(
     dl_path = os.path.join(download_path, "%(title)s---%(id)s.%(ext)s")
     # AV1 ships in an mp4 container, so ext!=webm admits it and -S only sorts. Filtering
     # on the codec is what keeps playback a stream copy instead of a libx264 transcode.
+    # Both branches must be DASH: "mp4" selects the best pre-merged format, and YouTube
+    # refuses those far more often than it refuses the separate streams.
+    height = 1080 if high_quality else 720
+    # The capped fallback matters because -S sorts on resolution: without it, a video with
+    # no avc1 DASH pair lands on a 1080p HLS variant no matter what the cap says.
     file_quality = (
-        "bestvideo[vcodec^=avc1][height<=1080]+bestaudio[ext!=webm]/best[ext!=webm]"
-        if high_quality
-        else "mp4"
+        f"bestvideo[vcodec^=avc1][height<={height}]+bestaudio[ext!=webm]"
+        f"/best[ext!=webm][height<={height}]"
+        "/best[ext!=webm]"
     )
     args = [
         "-f",
