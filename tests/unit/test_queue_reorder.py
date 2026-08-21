@@ -83,7 +83,7 @@ class TestQueueReorderSocketUpdates:
         queue_with_events.song_manager.display_name_from_path.return_value = "song2"
         mock_get_instance.return_value = queue_with_events
 
-        response = client.get("/queue/edit?action=top&song=song2")
+        response = client.post("/queue/edit?action=top&song=song2")
 
         assert response.status_code == 302
         queue_with_events.update_now_playing_socket.assert_called_once()
@@ -104,7 +104,7 @@ class TestQueueReorderSocketUpdates:
         queue_with_events.song_manager.display_name_from_path.return_value = "song1"
         mock_get_instance.return_value = queue_with_events
 
-        response = client.get("/queue/edit?action=bottom&song=song1")
+        response = client.post("/queue/edit?action=bottom&song=song1")
 
         assert response.status_code == 302
         queue_with_events.update_now_playing_socket.assert_called_once()

@@ -73,7 +73,7 @@ def get_queue():
     return json.dumps(k.queue_manager.queue)
 
 
-@queue_bp.route("/queue/addrandom/<int:amount>", methods=["GET"])
+@queue_bp.route("/queue/addrandom/<int:amount>", methods=["POST"])
 def add_random(amount):
     """Add random songs to the queue."""
     if not is_admin():
@@ -108,7 +108,7 @@ def reorder(form):
     return json.dumps({"success": False})
 
 
-@queue_bp.route("/queue/edit", methods=["GET"])
+@queue_bp.route("/queue/edit", methods=["POST"])
 @queue_bp.arguments(QueueEditQuery, location="query")
 def queue_edit(query):
     """Edit queue items (admin only)."""

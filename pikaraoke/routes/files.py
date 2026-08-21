@@ -205,7 +205,7 @@ def browse():
     return render_template("files.html", **context)
 
 
-@files_bp.route("/files/delete", methods=["GET"])
+@files_bp.route("/files/delete", methods=["POST"])
 @files_bp.arguments(SongReferrerQuery, location="query")
 def delete_file(query):
     """Delete a song file."""
