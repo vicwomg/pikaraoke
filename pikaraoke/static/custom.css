@@ -67,6 +67,30 @@ input {
   font-size: 16px !important;
 }
 
+/* Sections step down from the page heading rather than matching it: Bulma's
+   own scale starts an h2 at 1.75em. Bold, not Bulma's 800, which the theme
+   loads no face for. */
+.content h2 {
+  font-size: 1.5em;
+}
+.content h3 {
+  font-size: 1.25em;
+}
+.content h4 {
+  font-size: 1.125em;
+}
+.content h5,
+.content h6 {
+  font-size: 1em;
+}
+.content h2,
+.content h3,
+.content h4,
+.content h5,
+.content h6 {
+  font-weight: 700;
+}
+
 table {
   table-layout: fixed;
   width: 100%;
