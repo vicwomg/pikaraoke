@@ -25,6 +25,7 @@ from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.browser import Browser
 from pikaraoke.lib.current_app import get_karaoke_instance, is_admin
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
+from pikaraoke.lib.rate_limiter import init_rate_limiter
 from pikaraoke.lib.file_resolver import delete_tmp_dir
 from pikaraoke.lib.get_platform import (
     get_data_directory,
@@ -102,6 +103,9 @@ if args.enable_swagger:
     app.config["OPENAPI_SWAGGER_UI_URL"] = "https://cdn.jsdelivr.net/npm/swagger-ui-dist/"
 
 api = Api(app)
+
+# Initialize rate limiter for API endpoints
+limiter = init_rate_limiter(app)
 
 # Blueprints shown in /apidocs when swagger is enabled
 _api_blueprints = [

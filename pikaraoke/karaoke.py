@@ -34,6 +34,8 @@ from pikaraoke.lib.play_history_manager import PlayHistoryManager
 from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
+from pikaraoke.lib.security_checks import warn_if_internet_exposed
+from pikaraoke.lib.session_manager import SessionManager
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.sound_manager import SoundManager
 from pikaraoke.lib.url_prefix import append_base_path_to_url
@@ -311,6 +313,13 @@ class Karaoke:
             additional_ytdl_args=self.additional_ytdl_args,
         )
         self.download_manager.start()
+
+        # Initialize secure session manager
+        self.session_manager = SessionManager(session_duration_hours=24)
+        self.session_manager.start_cleanup()
+
+        # Check if running with internet exposure and warn
+        warn_if_internet_exposed(self.port, self.url)
 
         # Song library startup: warm cache from DB or blocking cold scan
         paths = self.db.get_all_song_paths()

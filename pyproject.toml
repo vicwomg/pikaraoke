@@ -23,6 +23,7 @@ dependencies = [
   "ffmpeg-python>=0.2.0,<1",
   "yt-dlp[default]>=2026.07.04",
   "flask-socketio>=5.5.0",
+  "Flask-Limiter>=3.5.0,<4",  # API rate limiting for security
   "gevent>=24.11.1",
   "sounddevice>=0.5.0; sys_platform != 'linux'",
 ]
