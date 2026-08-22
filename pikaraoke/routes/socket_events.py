@@ -1,14 +1,29 @@
 """Socket.IO event handlers for PiKaraoke."""
 
+import functools
 import logging
 
 from flask import request
 
-from pikaraoke.lib.current_app import get_karaoke_instance
+from pikaraoke.lib.current_app import get_karaoke_instance, is_admin
 
 # Track connected splash screen clients and the elected master
 splash_connections = set()
 master_splash_id = None
+
+
+def require_admin(f):
+    """Decorator to require admin authentication for WebSocket events.
+
+    Disconnects unauthorized clients immediately.
+    """
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        if not is_admin():
+            logging.warning(f"Unauthorized access attempt to {f.__name__}")
+            return False
+        return f(*args, **kwargs)
+    return wrapper
 
 
 def setup_socket_events(socketio):
@@ -110,6 +125,7 @@ def setup_socket_events(socketio):
         )
 
     @socketio.on("mic_latency_change")
+    @require_admin
     def handle_mic_latency_change(data: dict) -> None:
         """Handle mic latency change from control UI."""
         k = get_karaoke_instance()
@@ -118,6 +134,7 @@ def setup_socket_events(socketio):
         socketio.emit("mic_settings_state", state)
 
     @socketio.on("mic_echo_cancel_change")
+    @require_admin
     def handle_mic_echo_cancel_change(data: dict) -> None:
         """Handle echo cancellation toggle from control UI."""
         k = get_karaoke_instance()
@@ -126,6 +143,7 @@ def setup_socket_events(socketio):
         socketio.emit("mic_settings_state", state)
 
     @socketio.on("mic_refresh")
+    @require_admin
     def handle_mic_refresh() -> None:
         """Re-enumerate mic and output devices server-side and broadcast updated lists."""
         k = get_karaoke_instance()
@@ -133,6 +151,7 @@ def setup_socket_events(socketio):
         socketio.emit("mic_devices_state", enriched)
 
     @socketio.on("mic_update")
+    @require_admin
     def handle_mic_update(data: dict) -> None:
         """Handle mic configuration change from control UI.
 
