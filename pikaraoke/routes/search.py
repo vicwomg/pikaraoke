@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import functools
+
 import flask_babel
 from flask import jsonify, render_template, request
 from flask_smorest import Blueprint
@@ -13,6 +15,24 @@ from pikaraoke.lib.youtube_dl import get_search_results, get_stream_url
 _ = flask_babel.gettext
 
 search_bp = Blueprint("search", __name__)
+
+
+def apply_rate_limit(limit_string):
+    """Decorator to apply rate limit to a route.
+
+    Args:
+        limit_string: Flask-Limiter limit string (e.g., "10 per minute").
+    """
+    def decorator(f):
+        @functools.wraps(f)
+        def wrapper(*args, **kwargs):
+            from flask import current_app
+            limiter = current_app.extensions.get("limiter")
+            if limiter:
+                limiter.limit(limit_string)(lambda: None)
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
 
 
 class PreviewQuery(Schema):
@@ -33,6 +53,7 @@ class DownloadBody(Schema):
 
 
 @search_bp.route("/search", methods=["GET"])
+@apply_rate_limit("10 per minute")
 def search():
     """YouTube search page."""
     k = get_karaoke_instance()
@@ -67,6 +88,7 @@ def search():
 
 @search_bp.route("/preview")
 @search_bp.arguments(PreviewQuery, location="query")
+@apply_rate_limit("20 per minute")
 def preview(query):
     """Get a direct stream URL for previewing a YouTube video."""
     stream_url = get_stream_url(query["url"])
@@ -77,6 +99,7 @@ def preview(query):
 
 @search_bp.route("/download", methods=["POST"])
 @search_bp.arguments(DownloadBody, location="json")
+@apply_rate_limit("6 per hour")
 def download(form):
     """Download a video from YouTube."""
     k = get_karaoke_instance()
