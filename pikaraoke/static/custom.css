@@ -267,3 +267,108 @@ body.hide-cursor * {
   align-items: center;
   margin-top: 10px;
 }
+
+/* A div, not <progress>, so the fill can transition; the duration matches the poll. */
+.dl-bar {
+  /* The card is .has-background-dark, which Bulma resolves to #2c303a - and
+     --dark-bg-tertiary sits at 1.17:1 against that, so the empty track was invisible
+     until the fill covered it. This blends it toward --dark-border to clear the card
+     without leaving the theme's hue line. */
+  background-color: #454f50;
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.dl-bar-fill {
+  background-color: var(--dark-link);
+  border-radius: inherit;
+  height: 100%;
+  position: relative;
+  transition: width 500ms linear;
+  width: 0;
+}
+
+/* Whenever no percentage is arriving - the resolve, the seam between the two passes,
+   the merge - a highlight travels instead of a number advancing. It rides the empty
+   track before the first byte and the fill after it, hence the opposite contrast.
+   transform keeps the animation off the Pi's CPU. */
+.dl-bar.is-waiting::after,
+.dl-bar-fill.is-waiting::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  animation: dl-sheen 1.6s linear infinite;
+}
+
+/* Grey, not the accent: a coloured sweep on the empty track would read as real fill. */
+.dl-bar.is-waiting::after {
+  background: linear-gradient(90deg, transparent, var(--dark-border-light), transparent);
+  opacity: 0.35;
+}
+
+.dl-bar-fill.is-waiting::after {
+  background: linear-gradient(90deg, transparent, #ffffff, transparent);
+  opacity: 0.28;
+}
+
+@keyframes dl-sheen {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dl-bar-fill {
+    transition: none;
+  }
+
+  .dl-bar.is-waiting::after,
+  .dl-bar-fill.is-waiting::after {
+    animation: none;
+    opacity: 0.2;
+  }
+}
+
+/* Wraps, unlike the .level.is-mobile it replaces: the phase and the three figures
+   need more room than a phone gives them. The auto margin is on the phase so the
+   figures stay grouped at the right, and so the rate stays right-aligned when it
+   drops to a second line. */
+.dl-meta {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 16px;
+  justify-content: flex-end;
+  margin-top: 10px;
+  min-height: 17px;
+}
+
+.dl-phase-group {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-right: auto;
+}
+
+.dl-phase {
+  color: var(--dark-text-light);
+}
+
+/* Tabular figures and a floor on the width: without both, the percentage and the
+   speed change width on every 500 ms poll and the whole row twitches. */
+.dl-percent {
+  color: var(--dark-text-secondary);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  min-width: 3.2em;
+  text-align: right;
+}
+
+.dl-meta-rate {
+  color: var(--dark-text-muted);
+  display: flex;
+  font-variant-numeric: tabular-nums;
+  gap: 12px;
+}

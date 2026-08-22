@@ -645,25 +645,6 @@ hr {
 }
 
 /* ===================================
-   PROGRESS BAR
-   =================================== */
-.progress {
-	border-radius: 290486px;
-}
-
-.progress::-webkit-progress-bar {
-	background-color: var(--dark-bg-tertiary);
-}
-
-.progress::-webkit-progress-value {
-	background-color: var(--dark-text-light);
-}
-
-.progress::-moz-progress-bar {
-	background-color: var(--dark-text-light);
-}
-
-/* ===================================
    PAGINATION
    =================================== */
 .pagination-previous,
