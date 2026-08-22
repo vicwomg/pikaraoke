@@ -9,6 +9,7 @@ PiKaraoke is a cross-platform karaoke server that brings the professional "KTV" 
 - 🌐 YouTube & Local Media: Play your own files or access more from the web.
 - 🎹 Live Pitch Shifting: Adjust the key of any song to match your vocal range.
 - 🛠️ Admin Control: Manage the queue and settings via a password-protected admin mode.
+- 📊 Session Management: Every night is recorded automatically—browse the play history, then see which songs and performers topped the charts.
 - 🎯 Hyper-accurate vocal performance scoring system: (not really, it's random. But kind of fun!)
 - 🐧 Lightweight & Versatile: Runs anywhere from a basic Raspberry Pi to a high-end PC.
 
