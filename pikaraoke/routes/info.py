@@ -41,7 +41,7 @@ def info():
         "info.html",
         site_title=site_name,
         # MSG: Title of the settings and system information page.
-        title=_("Information"),
+        title=_("Settings"),
         url=url,
         admin=is_admin(),
         admin_password=admin_password,
