@@ -1,14 +1,12 @@
 """Admin routes for system control and authentication."""
 
-import datetime
-import os
 import subprocess
 import sys
 import threading
 import time
 
 import flask_babel
-from flask import flash, jsonify, make_response, redirect, url_for
+from flask import flash, jsonify, make_response, redirect, request, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
@@ -35,13 +33,12 @@ def delayed_halt(cmd: int, k: Karaoke):
     if cmd == 0:
         sys.exit()
     if cmd == 1:
-        os.system("shutdown now")
+        subprocess.run(["shutdown", "now"], check=False)
     if cmd == 2:
-        os.system("reboot")
+        subprocess.run(["reboot"], check=False)
     if cmd == 3:
-        process = subprocess.Popen(["raspi-config", "--expand-rootfs"])
-        process.wait()
-        os.system("reboot")
+        subprocess.run(["raspi-config", "--expand-rootfs"], check=False)
+        subprocess.run(["reboot"], check=False)
 
 
 @admin_bp.route("/update_ytdl", methods=["POST"])
@@ -170,15 +167,13 @@ def auth(form):
         next_url = "/"
 
     if p == admin_password:
+        k = get_karaoke_instance()
+        token = k.session_manager.create_session()
         resp = make_response(redirect(next_url))
-        expire_date = datetime.datetime.now()
-        expire_date = expire_date + datetime.timedelta(days=90)
-        # Not secure=True: PiKaraoke serves plain HTTP on a LAN, so the browser
-        # would never send the cookie back.
+        # Token expires server-side; no client-side cookie expiry needed
         resp.set_cookie(
-            "admin",
-            admin_password,
-            expires=expire_date,
+            "admin_session",
+            token,
             httponly=True,
             samesite="Lax",
         )
@@ -194,8 +189,12 @@ def auth(form):
 @admin_bp.route("/logout")
 def logout():
     """Log out of admin mode."""
+    k = get_karaoke_instance()
+    token = request.cookies.get("admin_session")
+    if token:
+        k.session_manager.revoke_session(token)
     resp = make_response(redirect(url_for("info.info")))
-    resp.set_cookie("admin", "", httponly=True, samesite="Lax")
+    resp.set_cookie("admin_session", "", httponly=True, samesite="Lax")
     # MSG: Message shown after logging out as admin successfully
     flash(_("Logged out of admin mode!"), "is-success")
     return resp
