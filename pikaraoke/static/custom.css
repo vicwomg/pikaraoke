@@ -91,6 +91,27 @@ input {
   font-weight: 700;
 }
 
+/* The heading row: the page title, and optionally one action held against the
+   right edge. Baseline rather than centre, so that action sits on the title's
+   own text line instead of floating halfway up it. */
+.page-header {
+  /* What .title:not(:last-child) used to give the header it replaced. */
+  margin-bottom: var(--bulma-block-spacing);
+}
+.page-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+/* Matched on .title, not h1: Bulma spaces a .title from what follows it, which
+   inside a row is height rather than space, and its selector outranks an h1
+   one. Regular weight because the sections below carry the emphasis. */
+.page-heading .title {
+  font-weight: 400;
+  margin-bottom: 0;
+}
+
 table {
   table-layout: fixed;
   width: 100%;
