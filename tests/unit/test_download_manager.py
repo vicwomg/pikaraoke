@@ -1,11 +1,13 @@
 """Unit tests for download_manager module."""
 
+from time import monotonic
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from pikaraoke.lib.download_manager import (
     MAX_DOWNLOAD_ATTEMPTS,
+    STALE_PROGRESS_SECONDS,
     DownloadManager,
     _summarise_ytdl_failure,
 )
@@ -303,6 +305,23 @@ class TestDownloadManagerRetry:
         assert download_manager.download_errors == []
         assert download_manager.download_queue.get_nowait()["attempts"] == 1
         assert len(download_manager.pending_downloads) == 1
+
+    def test_retry_clears_the_stale_rate(self, download_manager):
+        """The dead attempt's speed and ETA would otherwise sit under a bar back at zero."""
+        download_manager.active_download = {
+            "progress": 62.0,
+            "status": "downloading",
+            "speed": "2.31MiB/s",
+            "eta": "0:04",
+            "attempts": 0,
+        }
+
+        assert download_manager._requeue(make_request()) is True
+
+        assert download_manager.active_download["progress"] == 0.0
+        assert download_manager.active_download["status"] == "retrying"
+        assert download_manager.active_download["speed"] == "---"
+        assert download_manager.active_download["eta"] == "--:--"
 
     @patch("flask_babel._", side_effect=lambda x: x)
     @patch("subprocess.Popen")
@@ -622,6 +641,66 @@ class TestDownloadProgress:
         )
         assert snapshots[-1]["status"] == "starting"
         assert snapshots[-1]["progress"] == 0.0
+
+
+class TestStalledProgress:
+    """The panel must stop reporting a rate once yt-dlp stops printing one.
+
+    The seam between the video and audio passes prints nothing while the next
+    connection opens, and the bar sat there showing the finished pass's speed and ETA.
+    """
+
+    @staticmethod
+    def downloading(seconds_ago: float, status: str = "downloading") -> dict:
+        return {
+            "title": "Song",
+            "progress": 75.0,
+            "status": status,
+            "speed": "2.31MiB/s",
+            "eta": "0:04",
+            "progress_at": monotonic() - seconds_ago,
+        }
+
+    def test_a_fresh_line_is_not_stale(self, download_manager):
+        download_manager.active_download = self.downloading(0.0)
+
+        assert download_manager.get_downloads_status()["active"]["stalled"] is False
+
+    def test_silence_marks_the_rate_stale(self, download_manager):
+        download_manager.active_download = self.downloading(STALE_PROGRESS_SECONDS + 0.5)
+
+        active = download_manager.get_downloads_status()["active"]
+
+        assert active["stalled"] is True
+        # The bytes are down either way, so the bar must not give up its place.
+        assert active["progress"] == 75.0
+
+    def test_the_audio_pass_can_stall_too(self, download_manager):
+        download_manager.active_download = self.downloading(
+            STALE_PROGRESS_SECONDS + 0.5, status="downloading audio"
+        )
+
+        assert download_manager.get_downloads_status()["active"]["stalled"] is True
+
+    def test_phases_that_report_no_rate_never_stall(self, download_manager):
+        """The merge already animates in place; marking it stalled would say it twice."""
+        for status in ("starting", "retrying", "merging", "complete"):
+            download_manager.active_download = self.downloading(60.0, status=status)
+
+            assert download_manager.get_downloads_status()["active"]["stalled"] is False, status
+
+    def test_the_internal_timestamp_stays_out_of_the_payload(self, download_manager):
+        download_manager.active_download = self.downloading(0.0)
+
+        assert "progress_at" not in download_manager.get_downloads_status()["active"]
+
+    def test_a_progress_line_refreshes_the_stamp(self, download_manager):
+        """Without this every reading past the first 1.5 s would read as stalled."""
+        download_manager.active_download = self.downloading(60.0)
+
+        download_manager._apply_progress_line("[pk]| 80.0%|3.10MiB/s|0:02|avc1.640028", 100.0)
+
+        assert download_manager.get_downloads_status()["active"]["stalled"] is False
 
 
 class TestDownloadManagerStatus:

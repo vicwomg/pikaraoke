@@ -6,6 +6,7 @@ import logging
 import subprocess
 import uuid
 from queue import Queue
+from time import monotonic
 
 import psutil
 from gevent import Greenlet, spawn
@@ -31,6 +32,14 @@ MAX_DOWNLOAD_ATTEMPTS = 5
 # The bar is one 0-100 scale of downloaded bytes; the video and audio passes are bands
 # on it. Seam between them until the real sizes arrive.
 _FALLBACK_VIDEO_END = 90.0
+
+# A speed and an ETA describe the instant yt-dlp printed them. Between the two passes of
+# a "+" selector nothing is printed for as long as the next connection takes to open, and
+# the last pair goes on claiming a transfer that has already stopped.
+STALE_PROGRESS_SECONDS = 1.5
+
+# The only statuses that carry a rate, and so the only ones that can go stale.
+_RATE_BEARING_STATUSES = ("downloading", "downloading audio")
 
 
 def _selects_separate_streams(cmd: list[str]) -> bool:
@@ -164,11 +173,26 @@ class DownloadManager:
             Dict containing 'active' download info and list of 'pending' downloads.
         """
         return {
-            "active": self.active_download,
+            "active": self._active_download_status(),
             "pending": self.pending_downloads,
             "errors": self.download_errors,
             "max_attempts": MAX_DOWNLOAD_ATTEMPTS,
         }
+
+    def _active_download_status(self) -> dict | None:
+        """The active download as the UI reads it, with an expired rate marked stale.
+
+        The byte count behind the bar stays true through a silence; the speed and the
+        ETA do not, so the panel needs to know which of the two it is holding.
+        """
+        if not self.active_download:
+            return None
+        printed_at = self.active_download.get("progress_at")
+        active = {key: value for key, value in self.active_download.items() if key != "progress_at"}
+        active["stalled"] = self.active_download["status"] in _RATE_BEARING_STATUSES and (
+            printed_at is None or monotonic() - printed_at > STALE_PROGRESS_SECONDS
+        )
+        return active
 
     def remove_error(self, error_id: str) -> bool:
         """Remove an error from the list by ID.
@@ -368,6 +392,7 @@ class DownloadManager:
         self.active_download["status"] = "downloading audio" if audio_pass else "downloading"
         self.active_download["speed"] = speed
         self.active_download["eta"] = eta
+        self.active_download["progress_at"] = monotonic()
 
         try:
             percent = float(percent_str.rstrip("%"))
@@ -397,6 +422,9 @@ class DownloadManager:
             self.active_download["progress"] = 0.0
             self.active_download["status"] = "retrying"
             self.active_download["attempts"] = attempts
+            # The dead attempt's last speed and ETA describe nothing once it has stopped.
+            self.active_download["speed"] = "---"
+            self.active_download["eta"] = "--:--"
 
         self.download_queue.put(request)
         self.pending_downloads.append(request)
