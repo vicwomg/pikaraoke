@@ -140,7 +140,9 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     )
     server.add_argument(
         "--admin-password",
-        help="Administrator password, for locking down certain features of the web UI such as queue editing, player controls, song editing, and system shutdown. If unspecified, everyone is an admin.",
+        help="Administrator password for the web UI: player controls, song editing, shutdown. Saved when passed, so it also resets a forgotten one; pass it with no value to clear it. Unset, everyone is an admin.",
+        nargs="?",
+        const="",
         default=None,
         required=False,
     )

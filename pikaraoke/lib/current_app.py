@@ -7,25 +7,21 @@ import sys
 import time
 from typing import Any
 
-from flask import current_app, request
+from flask import current_app, request, session
 from flask_socketio import emit
 
 from pikaraoke.karaoke import Karaoke
+from pikaraoke.lib.admin_auth import AdminAuth
 
 
 def is_admin() -> bool:
-    """Determine if the current app's admin password matches the admin cookie value
-    This function checks if the provided password is `None` or if it matches
-    the value of the "admin" cookie in the current Flask request. If the password
-    is `None`, the function assumes the user is an admin. If the "admin" cookie
-    is present and its value matches the provided password, the function returns `True`.
-    Otherwise, it returns `False`.
-    Returns:
-        bool: `True` if the password matches the admin cookie or if the password is `None`,
-              `False` otherwise.
+    """Whether this request is authenticated as the admin.
+
+    With no admin password set everyone is an admin -- the right default for a box
+    on a home TV. Otherwise it takes a signed session established by /auth.
     """
-    password = get_admin_password()
-    return password is None or request.cookies.get("admin") == password
+    auth = get_admin_auth()
+    return not auth.is_password_set() or session.get("admin") == auth.session_token
 
 
 def get_karaoke_instance() -> Karaoke:
@@ -37,13 +33,9 @@ def get_karaoke_instance() -> Karaoke:
     return current_app.config["KARAOKE_INSTANCE"]
 
 
-def get_admin_password() -> str:
-    """Get the admin password from the current app's configuration
-    This function returns the admin password stored in the current app's configuration.
-    Returns:
-        str: The admin password stored in the current app's configuration.
-    """
-    return current_app.config["ADMIN_PASSWORD"]
+def get_admin_auth() -> AdminAuth:
+    """Get the current app's admin authentication store."""
+    return current_app.config["ADMIN_AUTH"]
 
 
 def get_site_name() -> str:

@@ -133,8 +133,8 @@ class PreferenceManager:
             with open(self.config_file_path, "w", encoding="utf-8") as conf:
                 self._config_obj.write(conf)
 
-            # Auto-sync target object if registered
-            if self._target is not None:
+            # Only user preferences map to attributes; other sections would invent them.
+            if self._target is not None and section == "USERPREFERENCES":
                 default = self.DEFAULTS.get(preference)
                 typed_val = str(val) if isinstance(default, str) else self._convert_value(val)
                 setattr(self._target, preference, typed_val)

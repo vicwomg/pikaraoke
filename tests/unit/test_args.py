@@ -94,3 +94,19 @@ class TestParsePikaraokeArgs:
         monkeypatch.setattr("sys.argv", ["pikaraoke", "--skip-ytdl-upgrade"])
         args = parse_pikaraoke_args()
         assert args.skip_youtubedl_upgrade is True
+
+    def test_omitting_admin_password_keeps_the_stored_one(self, monkeypatch):
+        monkeypatch.setattr("sys.argv", ["pikaraoke"])
+        args = parse_pikaraoke_args()
+        assert args.admin_password is None
+
+    def test_admin_password_with_no_value_clears_it(self, monkeypatch):
+        """A bare flag, because not every shell can pass an empty string."""
+        monkeypatch.setattr("sys.argv", ["pikaraoke", "--admin-password"])
+        args = parse_pikaraoke_args()
+        assert args.admin_password == ""
+
+    def test_admin_password_sets_it(self, monkeypatch):
+        monkeypatch.setattr("sys.argv", ["pikaraoke", "--admin-password", "hunter2"])
+        args = parse_pikaraoke_args()
+        assert args.admin_password == "hunter2"
