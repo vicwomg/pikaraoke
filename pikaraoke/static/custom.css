@@ -67,6 +67,51 @@ input {
   font-size: 16px !important;
 }
 
+/* Sections step down from the page heading rather than matching it: Bulma's
+   own scale starts an h2 at 1.75em. Bold, not Bulma's 800, which the theme
+   loads no face for. */
+.content h2 {
+  font-size: 1.5em;
+}
+.content h3 {
+  font-size: 1.25em;
+}
+.content h4 {
+  font-size: 1.125em;
+}
+.content h5,
+.content h6 {
+  font-size: 1em;
+}
+.content h2,
+.content h3,
+.content h4,
+.content h5,
+.content h6 {
+  font-weight: 700;
+}
+
+/* The heading row: the page title, and optionally one action held against the
+   right edge. Baseline rather than centre, so that action sits on the title's
+   own text line instead of floating halfway up it. */
+.page-header {
+  /* What .title:not(:last-child) used to give the header it replaced. */
+  margin-bottom: var(--bulma-block-spacing);
+}
+.page-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+/* Matched on .title, not h1: Bulma spaces a .title from what follows it, which
+   inside a row is height rather than space, and its selector outranks an h1
+   one. Regular weight because the sections below carry the emphasis. */
+.page-heading .title {
+  font-weight: 400;
+  margin-bottom: 0;
+}
+
 table {
   table-layout: fixed;
   width: 100%;

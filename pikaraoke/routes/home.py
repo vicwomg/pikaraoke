@@ -20,7 +20,8 @@ def home():
     return render_template(
         "home.html",
         site_title=site_name,
-        title="Home",
+        # MSG: Title of the home page, which shows the song playing now.
+        title=_("Now Playing"),
         transpose_value=k.playback_controller.now_playing_transpose,
         admin=is_admin(),
         is_transpose_enabled=k.is_transpose_enabled,

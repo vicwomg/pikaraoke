@@ -444,7 +444,6 @@
 {% endblock %}
 
 {% block header %}
-<h1>{% block title %}{{ title }}{% endblock %}</h1>
 <style>
 	/* Flush with the table below rather than inset inside a notification box:
 	   this is the page's first line and has to line up with everything under it. */
@@ -622,7 +621,7 @@
 {% block content %}
 
 {# MSG: Heading for the section showing the session currently being recorded. #}
-<h2 class="subtitle">{% trans %}Current Session{% endtrans %}</h2>
+<h2>{% trans %}Current Session{% endtrans %}</h2>
 <div class="current-session">
 	<span class="current-session-name">
 		<i class="icon icon-mic-1"></i>
@@ -657,7 +656,7 @@
 </div>
 
 {# MSG: Heading for the list of past karaoke sessions. #}
-<h2 class="subtitle">{% trans %}Session History{% endtrans %}</h2>
+<h2>{% trans %}Session History{% endtrans %}</h2>
 
 {# Above the table it filters. Nothing sits on the left here, but the row still
    holds the checkbox to the right edge. #}

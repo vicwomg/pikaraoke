@@ -303,15 +303,6 @@
 	</script>
 {% endblock %}
 
-{% block header %}
-	<h1>
-		{% block title %}
-			{# MSG: Title of the information page. #}
-			{% trans %}Information{% endtrans %}
-		{% endblock %}
-	</h1>
-{% endblock %}
-
 {% block content %}
 
 	<div class="card">
@@ -333,7 +324,7 @@
 
 	{% if not admin and admin_password != none %}
 		{# MSG: Title of the admin section. #}
-		<h1>{% trans %}Admin{% endtrans %}</h1>
+		<h2>{% trans %}Admin{% endtrans %}</h2>
 
 		<div class="card">
 			<div class="card-content">
@@ -360,7 +351,7 @@
 	{% if admin %}
 
 		{# MSG: Title of the song library section. #}
-		<h1>{% trans %}Song Library{% endtrans %}</h1>
+		<h2>{% trans %}Song Library{% endtrans %}</h2>
 
 		<div class="card">
 			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
@@ -446,13 +437,13 @@
 		</div>
 
 		{# MSG: Title of the user preferences section. #}
-		<h1>{% trans %}User Preferences{% endtrans %}</h1>
+		<h2>{% trans %}User Preferences{% endtrans %}</h2>
 
 		<div class="card">
 			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				<div class="media-content">
 					{# MSG: Title text for the splash screen settings section of preferences #}
-					<h3 class="title mb-0">{% trans %}Splash screen settings{% endtrans %}</h3>
+					<h3 class="mb-0">{% trans %}Splash screen settings{% endtrans %}</h3>
 
 				</div>
 			</header>
@@ -544,7 +535,7 @@
 
 			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				<div class="media-content">
-					<h3 class="title mb-0">{% trans %}Audio{% endtrans %}</h3>
+					<h3 class="mb-0">{% trans %}Audio{% endtrans %}</h3>
 				</div>
 			</header>
 			<div class="card-content collapsible-content">
@@ -596,7 +587,7 @@
 			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				<div class="media-content">
 				{# MSG: Title text for the Score Phrases section of preferences #}
-				<h3 class="title m-0">{% trans %}Score phrases{% endtrans %}</h3>
+				<h3 class="m-0">{% trans %}Score phrases{% endtrans %}</h3>
 
 			</div>
 		</header>
@@ -756,7 +747,7 @@
 		</div>
 
 		{# MSG: Title of the system data section. #}
-		<h1>{% trans %}System Data{% endtrans %}</h1>
+		<h2>{% trans %}System Data{% endtrans %}</h2>
 
 		<div class="card">
 			<header class="card-header py-3 px-5">
@@ -798,12 +789,12 @@
 		</div>
 
 		{# MSG: Title of the updates section. #}
-		<h1>{% trans %}Updates{% endtrans %}</h1>
+		<h2>{% trans %}Updates{% endtrans %}</h2>
 
 		<div class="card">
 			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				{# MSG: Label for the YT-DLP update on the updates section #}
-				<h3 class="title mb-0">{% trans %}YT-DLP update{% endtrans %}</h3>
+				<h3 class="mb-0">{% trans %}YT-DLP update{% endtrans %}</h3>
 			</header>
 			<div class="card-content collapsible-content">
 				<div class="content">
@@ -831,12 +822,12 @@
 		{% if is_pi and not is_container %}
 
 			{# MSG: Title of the updates section. #}
-			<h1>{% trans %}Other{% endtrans %}</h1>
+			<h2>{% trans %}Other{% endtrans %}</h2>
 
 			<div class="card">
 				<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 					{# MSG: Title for section containing a few other options on the Info page. #}
-					<h3 class="title mb-0">{% trans %}Expand Raspberry Pi filesystem{% endtrans %}</h3>
+					<h3 class="mb-0">{% trans %}Expand Raspberry Pi filesystem{% endtrans %}</h3>
 				</header>
 				<div class="card-content collapsible-content">
 					<div class="content">
@@ -857,7 +848,7 @@
 
 		{% if admin_password != none %}
 			{# MSG: Title of the admin section. #}
-			<h1>{% trans %}Admin{% endtrans %}</h1>
+			<h2>{% trans %}Admin{% endtrans %}</h2>
 
 			<div class="card">
 				<div class="card-content">
@@ -872,7 +863,7 @@
 		{% endif %}
 
 		{# MSG: Title of the section on shutting down / turning off the machine running Pikaraoke. #}
-		<h1>{% trans %}Shutdown{% endtrans %}</h1>
+		<h2>{% trans %}Shutdown{% endtrans %}</h2>
 
 		<div class="card">
 			<div class="card-content">

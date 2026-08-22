@@ -61,7 +61,8 @@ def queue():
         "queue.html",
         queue=k.queue_manager.queue,
         site_title=site_name,
-        title="Queue",
+        # MSG: Title of the queue page.
+        title=_("Queue"),
         admin=is_admin(),
     )
 

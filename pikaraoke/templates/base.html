@@ -543,7 +543,13 @@
     </div>
 
     <div class="box" style="margin-top: 5px;">
-      <header class="title">
+      {# Written once here rather than per page: the heading is chrome, and its
+         text is the same string the <title> tag uses. #}
+      <header class="page-header">
+        <div class="page-heading">
+          <h1 class="title">{% block heading %}{{ title }}{% endblock %}</h1>
+          {% block heading_action %}{% endblock %}
+        </div>
         {% block header %}{% endblock %}
       </header>
       <div class="content">
