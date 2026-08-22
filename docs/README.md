@@ -127,10 +127,10 @@ To run under a path prefix (e.g., `/karaoke`), add `--base-path /your-path` and 
 <div style="display: flex; flex-wrap: wrap;">
 <img width="250" alt="pikaraoke-nowplaying" src="images/screenshot-now-playing.png">
 <img width="250" alt="pikaraoke-queue" src="images/screenshot-queue.png">
-<img width="250" alt="pikaraoke-play-history" src="images/screenshot-play-history.png">
 <img width="250" alt="pikaraoke-browse" src="images/screenshot-songs-all.png">
 <img width="250" alt="pikaraoke-search" src="images/screenshot-songs-search.png">
 <img width="250" alt="pikaraoke-add-new" src="images/screenshot-add-new.png">
+<img width="250" alt="pikaraoke-play-history" src="images/screenshot-play-history.png">
 <img width="400" height="300" alt="pikaraoke-tv2" src="https://user-images.githubusercontent.com/4107190/95813564-019fa200-0ccd-11eb-95e1-57a002c357a3.png">
 </div>
 
