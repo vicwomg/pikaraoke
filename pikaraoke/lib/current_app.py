@@ -14,18 +14,22 @@ from pikaraoke.karaoke import Karaoke
 
 
 def is_admin() -> bool:
-    """Determine if the current app's admin password matches the admin cookie value
-    This function checks if the provided password is `None` or if it matches
-    the value of the "admin" cookie in the current Flask request. If the password
-    is `None`, the function assumes the user is an admin. If the "admin" cookie
-    is present and its value matches the provided password, the function returns `True`.
-    Otherwise, it returns `False`.
+    """Determine if the current request is authenticated as admin.
+
+    Validates session tokens via the session manager. If no admin password
+    is set (None), returns True. Otherwise, validates the session token
+    from the admin_session cookie.
+
     Returns:
-        bool: `True` if the password matches the admin cookie or if the password is `None`,
-              `False` otherwise.
+        bool: True if admin, False otherwise.
     """
     password = get_admin_password()
-    return password is None or request.cookies.get("admin") == password
+    if password is None:
+        return True
+
+    k = get_karaoke_instance()
+    token = request.cookies.get("admin_session")
+    return k.session_manager.validate_session(token)
 
 
 def get_karaoke_instance() -> Karaoke:
