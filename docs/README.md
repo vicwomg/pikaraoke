@@ -9,6 +9,7 @@ PiKaraoke is a cross-platform karaoke server that brings the professional "KTV" 
 - 🌐 YouTube & Local Media: Play your own files or access more from the web.
 - 🎹 Live Pitch Shifting: Adjust the key of any song to match your vocal range.
 - 🛠️ Admin Control: Manage the queue and settings via a password-protected admin mode.
+- 📊 Session Management: Every night is recorded automatically—browse the play history, then see which songs and performers topped the charts.
 - 🎯 Hyper-accurate vocal performance scoring system: (not really, it's random. But kind of fun!)
 - 🐧 Lightweight & Versatile: Runs anywhere from a basic Raspberry Pi to a high-end PC.
 
@@ -124,11 +125,12 @@ To run under a path prefix (e.g., `/karaoke`), add `--base-path /your-path` and 
 ## Screenshots
 
 <div style="display: flex; flex-wrap: wrap;">
-<img width="250" alt="pikaraoke-nowplaying" src="https://user-images.githubusercontent.com/4107190/95813193-2cd5c180-0ccc-11eb-89f4-11a69676dc6f.png">
-<img width="250" alt="pikaraoke-queue" src="https://user-images.githubusercontent.com/4107190/95813195-2d6e5800-0ccc-11eb-8f00-1369350a8a1c.png">
-<img width="250"  alt="pikaraoke-browse" src="https://user-images.githubusercontent.com/4107190/95813182-27787700-0ccc-11eb-82c8-fde7f0a631c1.png">
-<img width="250"  alt="pikaraoke-search1" src="https://user-images.githubusercontent.com/4107190/95813197-2e06ee80-0ccc-11eb-9bf9-ddb24d988332.png">
-<img width="250"  alt="pikaraoke-search2" src="https://user-images.githubusercontent.com/4107190/95813190-2ba49480-0ccc-11eb-84e3-f902cbd489a2.png">
+<img width="250" alt="pikaraoke-nowplaying" src="images/screenshot-now-playing.png">
+<img width="250" alt="pikaraoke-queue" src="images/screenshot-queue.png">
+<img width="250" alt="pikaraoke-browse" src="images/screenshot-songs-all.png">
+<img width="250" alt="pikaraoke-search" src="images/screenshot-songs-search.png">
+<img width="250" alt="pikaraoke-add-new" src="images/screenshot-add-new.png">
+<img width="250" alt="pikaraoke-play-history" src="images/screenshot-play-history.png">
 <img width="400" height="300" alt="pikaraoke-tv2" src="https://user-images.githubusercontent.com/4107190/95813564-019fa200-0ccd-11eb-95e1-57a002c357a3.png">
 </div>
 
