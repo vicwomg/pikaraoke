@@ -12,6 +12,7 @@ if not hasattr(werkzeug, "__version__"):
     werkzeug.__version__ = "3.0.0"
 
 from pikaraoke.routes.admin import admin_bp
+from pikaraoke.routes.controller import controller_bp
 from pikaraoke.routes.files import files_bp
 from pikaraoke.routes.preferences import preferences_bp
 from pikaraoke.routes.queue import queue_bp
@@ -28,13 +29,20 @@ STATE_CHANGING_ENDPOINTS = {
     "files.delete_file",
     "queue.add_random",
     "queue.queue_edit",
+    "controller.skip",
+    "controller.pause",
+    "controller.restart",
+    "controller.transpose",
+    "controller.volume",
+    "controller.vol_up",
+    "controller.vol_down",
 }
 
 
 @pytest.fixture
 def url_map():
     app = Flask(__name__)
-    for blueprint in (admin_bp, files_bp, preferences_bp, queue_bp):
+    for blueprint in (admin_bp, controller_bp, files_bp, preferences_bp, queue_bp):
         app.register_blueprint(blueprint)
     return app.url_map
 
