@@ -79,7 +79,7 @@ class TestLogin:
 
     def test_logout_drops_the_session(self, client):
         _login(client)
-        client.get("/logout")
+        client.post("/logout")
 
         with client.session_transaction() as session:
             assert "admin" not in session

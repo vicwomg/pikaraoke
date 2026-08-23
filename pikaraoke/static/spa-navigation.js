@@ -223,7 +223,6 @@
             basePath + '/quit',
             basePath + '/shutdown',
             basePath + '/reboot',
-            basePath + '/logout',
             basePath + '/login',
             basePath + '/update_ytdl',
             basePath + '/refresh',

@@ -209,7 +209,7 @@ def set_admin_password(form):
     return redirect(url_for("info.info"))
 
 
-@admin_bp.route("/logout")
+@admin_bp.route("/logout", methods=["POST"])
 def logout():
     """Log out of admin mode."""
     session.pop("admin", None)

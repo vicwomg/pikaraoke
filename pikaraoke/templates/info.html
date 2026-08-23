@@ -879,8 +879,10 @@
 								{# MSG: Button which removes the administrator password, making everyone an admin. #}
 								<button class="button is-danger is-outlined">{% trans %}Clear password{% endtrans %}</button>
 							</form>
-							{# MSG: Link which will log out the user from admin mode. #}
-							<a class="button is-primary" href="{{ url_for('admin.logout') }}">{% trans %}Log out{% endtrans %}</a>
+							<form action="{{ url_for('admin.logout') }}" method="post">
+								{# MSG: Button which logs the user out of admin mode. #}
+								<button class="button is-primary">{% trans %}Log out{% endtrans %}</button>
+							</form>
 						</div>
 					{% endif %}
 				</div>
