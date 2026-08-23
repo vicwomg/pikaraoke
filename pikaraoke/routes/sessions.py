@@ -75,7 +75,8 @@ def sessions():
     return render_template(
         "sessions.html",
         site_title=get_site_name(),
-        title="Sessions",
+        # MSG: Title of the session management page.
+        title=_("Sessions"),
         page_size=SESSIONS_PAGE_SIZE,
         # The API rejects anything longer, so the page enforces the same cap
         # rather than letting the host type a name that is refused on submit.
@@ -90,7 +91,8 @@ def history(query):
     return render_template(
         "history.html",
         site_title=get_site_name(),
-        title="Play History",
+        # MSG: Title of the page logging everything that has been sung.
+        title=_("Play History"),
         page_size=PLAYS_PAGE_SIZE,
         # Deleting an entry is a host action; queuing a song back up is not.
         admin=is_admin(),
@@ -111,7 +113,8 @@ def rankings(query):
     return render_template(
         "rankings.html",
         site_title=get_site_name(),
-        title="Rankings",
+        # MSG: Title of the most-played songs and most active singers page.
+        title=_("Rankings"),
         top_songs=k.play_history.get_top_songs(query["songs"], session_uuid),
         top_performers=k.play_history.get_singers(
             session_uuid, limit=query["performers"], completed_only=True

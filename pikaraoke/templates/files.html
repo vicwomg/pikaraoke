@@ -208,20 +208,18 @@
 	});
 </script>
 
-{% endblock %} {% block header %}
-{# The admin action shares the heading's row at every width rather than floating
-   over it, so it lines up against the same right edge as the content below. #}
-<div id="songs-heading">
-	<h1>
-		{% block title %}{{title}}{% if letter %}<span id="letter-heading">: "{{ letter.upper() }}"</span>{% endif %}{% endblock %}
-	</h1>
-	{% if admin %}
-	<a class="batch-edit-btn" href="{{ url_for('batch_song_renamer.browse')}}" title="Bulk rename"
-		><i class="icon icon-edit"></i>{# MSG: Button to open the batch song renamer page. #} {% trans %}Bulk rename{%
-		endtrans %}</a
-	>
-	{% endif %}
-</div>
+{% endblock %} {% block heading %}{{ title }}{% if letter %}<span id="letter-heading">: "{{ letter.upper() }}"</span>{% endif %}{% endblock %}
+
+{% block heading_action %}
+{% if admin %}
+<a class="batch-edit-btn" href="{{ url_for('batch_song_renamer.browse')}}" title="Bulk rename"
+	><i class="icon icon-edit"></i>{# MSG: Button to open the batch song renamer page. #} {% trans %}Bulk rename{%
+	endtrans %}</a
+>
+{% endif %}
+{% endblock %}
+
+{% block header %}
 {# MSG: Subtitle under the Songs heading, explaining that this page lists songs already downloaded. #}
 <p class="subtitle is-6">{% trans %}Available in the library{% endtrans %}</p>
 <style>
@@ -259,17 +257,6 @@
 		overflow-wrap: anywhere;
 	}
 
-	#songs-heading {
-		display: flex;
-		justify-content: space-between;
-		/* Baseline, not center: the link should sit on the heading's text line
-		   rather than float halfway up a much taller h1. */
-		align-items: baseline;
-		gap: 1rem;
-	}
-	#songs-heading h1 {
-		margin-bottom: 0;
-	}
 	.batch-edit-btn {
 		font-size: 0.875rem;
 		white-space: nowrap;

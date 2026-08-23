@@ -230,17 +230,15 @@
 		{% endif %}
 	});
 </script>
-{% endblock %} {% block header %}
-<h1>
-	{% block title %} {# MSG: Header showing the currently playing song. #} {% trans %}Now Playing{% endtrans %}
-	<img
-		style="display: none"
-		class="playing_gif control-box"
-		width="40"
-		src="{{  url_for('static', filename='images/now-playing.png') }}"
-	/>{% endblock %}
-</h1>
-{% endblock %} {% block content %}
+{% endblock %} {% block heading %}{{ title }}
+<img
+	style="display: none"
+	class="playing_gif control-box"
+	width="40"
+	src="{{  url_for('static', filename='images/now-playing.png') }}"
+/>{% endblock %}
+
+{% block content %}
 
 <p class="is-size-4 has-text-warning" id="now-playing">&nbsp;</p>
 

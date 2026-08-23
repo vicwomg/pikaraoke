@@ -40,7 +40,8 @@ def info():
     return render_template(
         "info.html",
         site_title=site_name,
-        title="Info",
+        # MSG: Title of the settings and system information page.
+        title=_("Settings"),
         url=url,
         admin=is_admin(),
         admin_password=admin_password,

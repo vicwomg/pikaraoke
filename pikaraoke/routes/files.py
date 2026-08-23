@@ -236,7 +236,8 @@ def _render_edit_page(k, song_path: str, new_name: str, referrer: str, error: st
     return render_template(
         "edit.html",
         site_title=get_site_name(),
-        title="Rename Song",
+        # MSG: Title of the page where a song can be renamed.
+        title=_("Rename Song"),
         song=song_path,
         # What is on disk, which on a failed save is precisely what did not change.
         raw_stem=k.song_manager.filename_from_path(song_path, tidy=False),
