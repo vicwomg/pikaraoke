@@ -22,12 +22,12 @@ Love PiKaraoke? This project is independently maintained and free for everyone t
 
 - [Supported Devices / OS / Platforms](#supported-devices--os--platforms)
 - [Quick Install](#quick-install)
-- [Manual Installation](#manual-installation)
+- [Manual Installation](#manual-installation-advanced-users)
 - [Usage](#usage)
 - [Docker](#docker-instructions)
 - [Screenshots](#screenshots)
 - [Developing pikaraoke](#developing-pikaraoke)
-- [Troubleshooting](#troubleshooting)
+- [Troubleshooting](#troubleshooting-and-guides)
 
 ## Supported Devices / OS / Platforms
 
@@ -152,6 +152,6 @@ See the [Pikaraoke development guide](https://github.com/vicwomg/pikaraoke/wiki/
 
 ## Troubleshooting and guides
 
-See the [TROUBLESHOOTING wiki](https://github.com/vicwomg/pikaraoke/wiki/FAQ-&-Troubleshooting) for help with issues.
+See the [Troubleshooting wiki](https://github.com/vicwomg/pikaraoke/wiki/Troubleshooting) for help with issues.
 
 There are also some great guides [on the wiki](https://github.com/vicwomg/pikaraoke/wiki/) to running pikaraoke in all manner of bizarre places including Android, Chromecast, and embedded TVs!
