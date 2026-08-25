@@ -1,7 +1,10 @@
-"""The host-only routes that change state must not answer GET.
+"""The routes that change state must not answer GET.
 
-SameSite=Lax still attaches the admin cookie to a top-level GET navigation, so
-a route that mutates on GET can be fired by a link on any page the host visits.
+For the host-only ones the reason is the admin cookie: SameSite=Lax still
+attaches it to a top-level GET navigation, so a route that mutates on GET can be
+fired by a link on any page the host visits. The routes open to the room borrow
+no privilege, but a state change still does not belong on the verb that link
+prefetchers, previews and proxy retries are free to replay unasked.
 """
 
 import pytest
@@ -28,6 +31,7 @@ STATE_CHANGING_ENDPOINTS = {
     "preferences.clear_preferences",
     "files.delete_file",
     "queue.add_random",
+    "queue.enqueue_form",
     "queue.queue_edit",
     "controller.skip",
     "controller.pause",
