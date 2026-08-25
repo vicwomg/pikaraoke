@@ -31,13 +31,6 @@ class ReorderForm(Schema):
     )
 
 
-class EnqueueQuery(Schema):
-    song = fields.String(required=True, metadata={"description": "Path to the song file"})
-    user = fields.String(
-        load_default="", metadata={"description": "Name of the user adding the song"}
-    )
-
-
 class EnqueueForm(Schema):
     song_to_add = fields.String(required=True, metadata={"description": "Path to the song file"})
     song_added_by = fields.String(
@@ -186,17 +179,10 @@ def _do_enqueue(song: str, user: str) -> str:
     return json.dumps({"song": song_title, "success": rc})
 
 
-@queue_bp.route("/enqueue", methods=["GET"])
-@queue_bp.arguments(EnqueueQuery, location="query")
-def enqueue(query):
-    """Add a song to the queue (used by the file browser)."""
-    return _do_enqueue(query["song"], query["user"])
-
-
 @queue_bp.route("/enqueue", methods=["POST"])
 @queue_bp.arguments(EnqueueForm, location="form")
 def enqueue_form(form):
-    """Add a song to the queue (used by the search page)."""
+    """Add a song to the queue."""
     return _do_enqueue(form["song_to_add"], form["song_added_by"])
 
 

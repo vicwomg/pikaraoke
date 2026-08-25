@@ -460,7 +460,7 @@
 
   // Execute playback action and close modal
   window.executePlaybackAction = function(action) {
-      $.get(window.pikaraokeConfig.basePath + '/' + action);
+      $.post(window.pikaraokeConfig.basePath + '/' + action);
       window.closeNowPlayingOptions();
   };
 
@@ -489,13 +489,6 @@
       $(document).on('click', '.now-playing-options-btn', function(e) {
           e.preventDefault();
           openNowPlayingOptions();
-      });
-
-      // Playback controls handler (still used for any inline buttons if needed)
-      $(document).on('click', '.playback-btn', function(e) {
-          e.preventDefault();
-          var action = $(this).data('action');
-          $.get(window.pikaraokeConfig.basePath + '/' + action);
       });
   });
 

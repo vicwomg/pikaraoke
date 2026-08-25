@@ -1,7 +1,10 @@
-"""The host-only routes that change state must not answer GET.
+"""The routes that change state must not answer GET.
 
-SameSite=Lax still attaches the admin cookie to a top-level GET navigation, so
-a route that mutates on GET can be fired by a link on any page the host visits.
+For the host-only ones the reason is the admin cookie: SameSite=Lax still
+attaches it to a top-level GET navigation, so a route that mutates on GET can be
+fired by a link on any page the host visits. The routes open to the room borrow
+no privilege, but a state change still does not belong on the verb that link
+prefetchers, previews and proxy retries are free to replay unasked.
 """
 
 import pytest
@@ -12,6 +15,7 @@ if not hasattr(werkzeug, "__version__"):
     werkzeug.__version__ = "3.0.0"
 
 from pikaraoke.routes.admin import admin_bp
+from pikaraoke.routes.controller import controller_bp
 from pikaraoke.routes.files import files_bp
 from pikaraoke.routes.preferences import preferences_bp
 from pikaraoke.routes.queue import queue_bp
@@ -27,14 +31,22 @@ STATE_CHANGING_ENDPOINTS = {
     "preferences.clear_preferences",
     "files.delete_file",
     "queue.add_random",
+    "queue.enqueue_form",
     "queue.queue_edit",
+    "controller.skip",
+    "controller.pause",
+    "controller.restart",
+    "controller.transpose",
+    "controller.volume",
+    "controller.vol_up",
+    "controller.vol_down",
 }
 
 
 @pytest.fixture
 def url_map():
     app = Flask(__name__)
-    for blueprint in (admin_bp, files_bp, preferences_bp, queue_bp):
+    for blueprint in (admin_bp, controller_bp, files_bp, preferences_bp, queue_bp):
         app.register_blueprint(blueprint)
     return app.url_map
 
