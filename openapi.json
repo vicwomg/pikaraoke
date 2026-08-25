@@ -113,41 +113,6 @@
       }
     },
     "/enqueue": {
-      "get": {
-        "parameters": [
-          {
-            "in": "query",
-            "name": "song",
-            "description": "Path to the song file",
-            "schema": {
-              "type": "string"
-            },
-            "required": true
-          },
-          {
-            "in": "query",
-            "name": "user",
-            "description": "Name of the user adding the song",
-            "schema": {
-              "type": "string",
-              "default": ""
-            },
-            "required": false
-          }
-        ],
-        "responses": {
-          "422": {
-            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
-          },
-          "default": {
-            "$ref": "#/components/responses/DEFAULT_ERROR"
-          }
-        },
-        "summary": "Add a song to the queue (used by the file browser).",
-        "tags": [
-          "queue"
-        ]
-      },
       "post": {
         "responses": {
           "422": {
@@ -167,7 +132,7 @@
             }
           }
         },
-        "summary": "Add a song to the queue (used by the search page).",
+        "summary": "Add a song to the queue.",
         "tags": [
           "queue"
         ]
@@ -580,7 +545,7 @@
       }
     },
     "/skip": {
-      "get": {
+      "post": {
         "responses": {
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -593,7 +558,7 @@
       }
     },
     "/pause": {
-      "get": {
+      "post": {
         "responses": {
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -606,7 +571,7 @@
       }
     },
     "/transpose/{semitones}": {
-      "get": {
+      "post": {
         "responses": {
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -630,7 +595,7 @@
       ]
     },
     "/restart": {
-      "get": {
+      "post": {
         "responses": {
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -643,7 +608,7 @@
       }
     },
     "/volume/{volume}": {
-      "get": {
+      "post": {
         "responses": {
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -667,7 +632,7 @@
       ]
     },
     "/vol_up": {
-      "get": {
+      "post": {
         "responses": {
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -680,7 +645,7 @@
       }
     },
     "/vol_down": {
-      "get": {
+      "post": {
         "responses": {
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
