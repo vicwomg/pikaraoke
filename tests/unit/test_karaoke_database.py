@@ -32,9 +32,14 @@ CREATE TABLE IF NOT EXISTS metadata (
 );
 """
 
-# Added by the v2 migration. Kept apart from the durable year/genre, which a
-# storefront re-run must never clear.
-_NEW_IN_V2 = {"suggested_genre", "suggested_year", "suggested_score", "metadata_country"}
+# Added by the v2 migration.
+_NEW_IN_V2 = {
+    "suggested_genre",
+    "suggested_year",
+    "suggested_score",
+    "metadata_country",
+    "musical_key",
+}
 
 
 def _song_columns(conn):
@@ -64,7 +69,7 @@ class TestInit:
         ver = db._conn.execute("PRAGMA user_version").fetchone()[0]
         assert ver == 2
 
-    def test_fresh_schema_has_the_enrichment_staging_columns(self, db):
+    def test_fresh_schema_has_the_new_v2_columns(self, db):
         assert _NEW_IN_V2 <= _song_columns(db._conn)
 
     def test_fresh_schema_keeps_the_durable_year_and_genre(self, db):
@@ -155,15 +160,14 @@ class TestSchemaV2Migration:
         db = KaraokeDatabase(legacy_db_path)
         row = db._conn.execute(
             "SELECT file_path, youtube_id, artist, title, suggested_genre, "
-            "suggested_year, suggested_score, metadata_country FROM songs"
+            "suggested_year, suggested_score, metadata_country, musical_key FROM songs"
         ).fetchone()
         db.close()
-        assert tuple(row) == ("/songs/existing.mp4", "dQw4w9WgXcQ", "Beyonce", "Halo", *[None] * 4)
+        assert tuple(row) == ("/songs/existing.mp4", "dQw4w9WgXcQ", "Beyonce", "Halo", *[None] * 5)
 
     def test_reopening_does_not_re_run_the_migration(self, legacy_db_path):
-        # Catches a literal PRAGMA user_version = 1 in _create_schema: that
-        # re-stamps the old version every launch, so the second open re-runs
-        # ALTER TABLE and dies with "duplicate column name".
+        # Catches a literal PRAGMA user_version = 1: the second open would
+        # re-run ALTER TABLE and die with "duplicate column name".
         for _ in range(3):
             db = KaraokeDatabase(legacy_db_path)
             db.close()
