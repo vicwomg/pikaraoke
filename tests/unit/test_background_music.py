@@ -97,3 +97,30 @@ class TestBackgroundPlaylist:
         karaoke.bg_music_path = make_path(tmp_path)
 
         assert client.get("/bg_playlist").get_json() == []
+
+    def test_lists_every_track_and_leaves_other_files_out(self, client, karaoke, tmp_path):
+        for name in ["a.mp3", "b.MP4", "notes.txt"]:
+            (tmp_path / name).write_text(name, encoding="utf-8")
+        karaoke.bg_music_path = str(tmp_path)
+
+        playlist = client.get("/bg_playlist").get_json()
+
+        assert sorted(playlist) == ["/bg_music/a.mp3", "/bg_music/b.MP4"]
+
+    def test_caps_the_playlist_at_fifty_tracks(self, client, karaoke, tmp_path):
+        for i in range(60):
+            (tmp_path / f"track{i}.mp3").write_text("audio", encoding="utf-8")
+        karaoke.bg_music_path = str(tmp_path)
+
+        assert len(client.get("/bg_playlist").get_json()) == 50
+
+    # `?` is left out: Windows refuses it in a filename, so no such track exists.
+    @pytest.mark.parametrize("name", ["a b&c.mp3", "café — träck.mp4", "a#b.mp3"])
+    def test_a_listed_url_fetches_its_own_track(self, client, karaoke, tmp_path, name):
+        """The URL the playlist hands the player has to survive the round trip."""
+        (tmp_path / name).write_text(name, encoding="utf-8")
+        karaoke.bg_music_path = str(tmp_path)
+
+        (url,) = client.get("/bg_playlist").get_json()
+
+        assert client.get(url).get_data(as_text=True) == name
