@@ -55,10 +55,16 @@ const formatTime = (seconds) => {
   return `${formattedMinutes}:${formattedSeconds}`;
 }
 
+const releaseProbeVideo = (probe) => {
+  probe.pause();
+  probe.removeAttribute('src');
+  probe.load();
+};
+
 const testAutoplayCapability = async () => {
   // Test if autoplay with audio is allowed using a real video file
+  const testVideo = document.createElement('video');
   try {
-    const testVideo = document.createElement('video');
     testVideo.playsInline = true;
     testVideo.muted = true;  // Start muted (always allowed)
     testVideo.src = withBasePath("/static/video/test_autoplay.mp4");
@@ -78,16 +84,20 @@ const testAutoplayCapability = async () => {
     await new Promise(resolve => setTimeout(resolve, 500));
 
     // Check if browser paused or muted the video
-    if (testVideo.muted || testVideo.paused) {
-      testVideo.pause();
+    const autoplayBlocked = testVideo.muted || testVideo.paused;
+    // Release before handleConfirmation starts the background media: pausing
+    // leaves the decoded stream held, and a device with a media pipeline limit
+    // counts this probe against it for the rest of the session.
+    releaseProbeVideo(testVideo);
+    if (autoplayBlocked) {
       $('#permissions-modal').addClass('is-active');
     } else {
-      testVideo.pause();
       handleConfirmation();
     }
   } catch (e) {
     // Autoplay blocked
     console.log("Autoplay error thrown", e);
+    releaseProbeVideo(testVideo);
     $('#permissions-modal').addClass('is-active');
   }
 };
