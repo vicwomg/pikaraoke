@@ -144,6 +144,10 @@ const getNextBgMusicSong = () => {
 
 const playBGMusic = async (play) => {
   const audio = getBackgroundMusicPlayer();
+  // The fade-out defers pause() into its completion callback, and isMediaPlaying
+  // reads true until it lands, so without this a toggle inside the fade window
+  // is skipped as redundant and the stale pause inverts the element.
+  $(audio).stop(true);
   if (play) {
     if (PikaraokeConfig.disableBgMusic) return;
     if (!autoplayConfirmed) return;
@@ -151,10 +155,11 @@ const playBGMusic = async (play) => {
 
     if (!audio.getAttribute('src')) audio.setAttribute('src', getNextBgMusicSong());
 
-    if (isMediaPlaying(audio)) return;
-    audio.volume = 0;
-    if (audio.readyState <= 2) await audio.load();
-    await audio.play().catch(e => console.log("Autoplay blocked (music)"));
+    if (!isMediaPlaying(audio)) {
+      audio.volume = 0;
+      if (audio.readyState <= 2) await audio.load();
+      await audio.play().catch(e => console.log("Autoplay blocked (music)"));
+    }
     $(audio).animate({ volume: PikaraokeConfig.bgMusicVolume }, 2000);
   } else {
     if (audio) {
