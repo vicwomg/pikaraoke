@@ -8,6 +8,7 @@ from gevent import monkey, spawn
 
 monkey.patch_all()
 
+import datetime
 import logging
 import os
 import sys
@@ -21,17 +22,13 @@ from flask_socketio import SocketIO
 
 from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
+from pikaraoke.lib.admin_auth import AdminAuth
 from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.browser import Browser
 from pikaraoke.lib.current_app import get_karaoke_instance, is_admin
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
-from pikaraoke.lib.get_platform import (
-    get_data_directory,
-    get_platform,
-    has_js_runtime,
-    is_windows,
-)
+from pikaraoke.lib.get_platform import get_platform, has_js_runtime, is_windows
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.url_prefix import BasePathMiddleware
 from pikaraoke.lib.youtube_dl import upgrade_youtubedl
@@ -65,7 +62,11 @@ babel = Babel()
 
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+# Not SESSION_COOKIE_SECURE: on plain HTTP the browser would never send it back.
+app.permanent_session_lifetime = datetime.timedelta(days=90)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
@@ -311,8 +312,21 @@ def main() -> None:
     k.events.on("download_started", _broadcast_in_context("download_started"))
     k.events.on("download_stopped", _broadcast_in_context("download_stopped"))
 
+    admin_auth = AdminAuth(k.preferences)
+    app.secret_key = admin_auth.secret_key
+    app.config["ADMIN_AUTH"] = admin_auth
+
+    # Passing the flag persists it; omitting it keeps the stored one, empty clears it.
+    if args.admin_password is not None:
+        admin_auth.set_password(args.admin_password)
+
+    if not admin_auth.is_password_set():
+        logging.info(
+            "No admin password set: everyone on the network can control playback and "
+            "shut down the system. Set one on the info page."
+        )
+
     # expose shared configuration variables to the flask app
-    app.config["ADMIN_PASSWORD"] = args.admin_password
     app.config["SITE_NAME"] = "PiKaraoke"
 
     # Expose some functions to jinja templates. The session globals are bound at

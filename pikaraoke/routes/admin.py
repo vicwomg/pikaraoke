@@ -1,6 +1,5 @@
 """Admin routes for system control and authentication."""
 
-import datetime
 import os
 import subprocess
 import sys
@@ -8,17 +7,23 @@ import threading
 import time
 
 import flask_babel
-from flask import flash, jsonify, make_response, redirect, url_for
+from flask import flash, jsonify, redirect, session, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.karaoke import Karaoke
-from pikaraoke.lib.current_app import get_admin_password, get_karaoke_instance, is_admin
+from pikaraoke.lib.current_app import get_admin_auth, get_karaoke_instance, is_admin
 from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
 
 _ = flask_babel.gettext
 
 admin_bp = Blueprint("admin", __name__)
+
+
+class AdminPasswordForm(Schema):
+    admin_password = fields.String(
+        load_default="", metadata={"description": "New admin password; empty clears it"}
+    )
 
 
 class AuthForm(Schema):
@@ -161,41 +166,53 @@ def expand_fs():
 @admin_bp.arguments(AuthForm, location="form")
 def auth(form):
     """Authenticate as admin."""
-    admin_password = get_admin_password()
-    p = form["admin_password"]
     next_url = form["next"]
 
     # Validate next_url to prevent open redirect vulnerabilities
     if not next_url.startswith("/"):
         next_url = "/"
 
-    if p == admin_password:
-        resp = make_response(redirect(next_url))
-        expire_date = datetime.datetime.now()
-        expire_date = expire_date + datetime.timedelta(days=90)
-        # Not secure=True: PiKaraoke serves plain HTTP on a LAN, so the browser
-        # would never send the cookie back.
-        resp.set_cookie(
-            "admin",
-            admin_password,
-            expires=expire_date,
-            httponly=True,
-            samesite="Lax",
-        )
+    admin_auth = get_admin_auth()
+    if admin_auth.verify(form["admin_password"]):
+        session["admin"] = admin_auth.session_token
+        session.permanent = True
         # MSG: Message shown after logging in as admin successfully
         flash(_("Admin mode granted!"), "is-success")
     else:
-        resp = make_response(redirect(next_url))
         # MSG: Message shown after failing to login as admin
         flash(_("Incorrect admin password!"), "is-danger")
-    return resp
+    return redirect(next_url)
 
 
-@admin_bp.route("/logout")
+@admin_bp.route("/admin_password", methods=["POST"])
+@admin_bp.arguments(AdminPasswordForm, location="form")
+def set_admin_password(form):
+    """Set, change or clear the admin password without restarting."""
+    if not is_admin():
+        # MSG: Message shown after trying to change the admin password without permission.
+        flash(_("You don't have permission to change the admin password"), "is-danger")
+        return redirect(url_for("info.info"))
+
+    # No current-password field: an admin session can already shut the box down.
+    password = form["admin_password"]
+    admin_auth = get_admin_auth()
+    admin_auth.set_password(password)
+    if password:
+        # set_password logged every device out; keep the one that just set it.
+        session["admin"] = admin_auth.session_token
+        session.permanent = True
+        # MSG: Message shown after setting a new admin password.
+        flash(_("Admin password set. Other devices will need to log in again."), "is-success")
+    else:
+        # MSG: Message shown after clearing the admin password, making everyone an admin.
+        flash(_("Admin password cleared. Everyone is an admin again."), "is-warning")
+    return redirect(url_for("info.info"))
+
+
+@admin_bp.route("/logout", methods=["POST"])
 def logout():
     """Log out of admin mode."""
-    resp = make_response(redirect(url_for("info.info")))
-    resp.set_cookie("admin", "", httponly=True, samesite="Lax")
+    session.pop("admin", None)
     # MSG: Message shown after logging out as admin successfully
     flash(_("Logged out of admin mode!"), "is-success")
-    return resp
+    return redirect(url_for("info.info"))

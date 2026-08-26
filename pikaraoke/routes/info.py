@@ -9,7 +9,7 @@ from pikaraoke import VERSION
 from pikaraoke.constants import ITUNES_COUNTRIES, LANGUAGES, per_page_options
 from pikaraoke.lib import keep_awake
 from pikaraoke.lib.current_app import (
-    get_admin_password,
+    get_admin_auth,
     get_karaoke_instance,
     get_site_name,
     is_admin,
@@ -28,7 +28,6 @@ def info():
     k = get_karaoke_instance()
     site_name = get_site_name()
     url = k.url
-    admin_password = get_admin_password()
     is_linux_platform = is_linux()
 
     preferred_language = k.preferences.get("preferred_language", "en")
@@ -44,7 +43,7 @@ def info():
         title=_("Settings"),
         url=url,
         admin=is_admin(),
-        admin_password=admin_password,
+        admin_password_set=get_admin_auth().is_password_set(),
         platform=k.platform,
         os_version=k.os_version,
         ffmpeg_version=k.ffmpeg_version,

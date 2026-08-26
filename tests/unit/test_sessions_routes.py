@@ -18,7 +18,9 @@ from unittest.mock import MagicMock, patch
 
 from flask_babel import Babel
 
+from pikaraoke.lib.admin_auth import AdminAuth
 from pikaraoke.lib.play_history_manager import SESSION_NAME_MAX_LENGTH
+from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.routes.sessions import sessions_bp
 from pikaraoke.routes.sessions_api import sessions_api_bp
 
@@ -26,10 +28,17 @@ ADMIN_PASSWORD = "secret"
 
 
 @pytest.fixture
-def app():
+def admin_auth(tmp_path):
+    store = AdminAuth(PreferenceManager(str(tmp_path / "config.ini")))
+    store.set_password(ADMIN_PASSWORD)
+    return store
+
+
+@pytest.fixture
+def app(admin_auth):
     test_app = Flask(__name__)
-    test_app.secret_key = "test"
-    test_app.config["ADMIN_PASSWORD"] = ADMIN_PASSWORD
+    test_app.secret_key = admin_auth.secret_key
+    test_app.config["ADMIN_AUTH"] = admin_auth
     test_app.config["SITE_NAME"] = "PiKaraoke"
     Babel(test_app)
     test_app.register_blueprint(sessions_api_bp)
@@ -47,9 +56,10 @@ def client(app):
 
 
 @pytest.fixture
-def admin_client(app):
+def admin_client(app, admin_auth):
     c = app.test_client()
-    c.set_cookie("admin", ADMIN_PASSWORD)
+    with c.session_transaction() as session:
+        session["admin"] = admin_auth.session_token
     return c
 
 

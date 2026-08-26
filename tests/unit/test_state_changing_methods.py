@@ -27,6 +27,8 @@ STATE_CHANGING_ENDPOINTS = {
     "admin.shutdown",
     "admin.reboot",
     "admin.expand_fs",
+    "admin.logout",
+    "admin.set_admin_password",
     "preferences.change_preferences",
     "preferences.clear_preferences",
     "files.delete_file",
