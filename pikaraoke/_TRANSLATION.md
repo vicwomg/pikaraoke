@@ -84,7 +84,7 @@ app startup when any `.po` file is newer than its `.mo` counterpart.
 You can also run the pybabel steps manually from the `./pikaraoke` subdirectory:
 
 ```shell
-$ pybabel extract -F babel.cfg -o messages.pot --add-comments="MSG:" --strip-comment-tags  --sort-by-file .
+$ pybabel extract -F babel.cfg -o messages.pot --add-comments="MSG:" --strip-comment-tags -k _lazy --sort-by-file .
 $ pybabel update -i messages.pot -d translations
 # Update any translations/**/messages.po files
 $ pybabel compile -d translations/

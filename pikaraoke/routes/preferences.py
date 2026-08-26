@@ -26,6 +26,7 @@ class ChangePreferenceForm(Schema):
 
 
 @preferences_bp.route("/change_preferences", methods=["POST"])
+# MSG: Message shown after trying to change preferences without admin permissions.
 @host_only(_lazy("You don't have permission to change preferences"))
 @preferences_bp.arguments(ChangePreferenceForm, location="form")
 def change_preferences(form):
@@ -42,6 +43,7 @@ def change_preferences(form):
 
 
 @preferences_bp.route("/clear_preferences", methods=["POST"])
+# MSG: Message shown after trying to clear preferences without admin permissions.
 @host_only(_lazy("You don't have permission to clear preferences"))
 def clear_preferences():
     """Reset all preferences to defaults."""

@@ -72,6 +72,7 @@ def get_queue():
 
 
 @queue_bp.route("/queue/addrandom/<int:amount>", methods=["POST"])
+# MSG: Message shown after trying to add random songs without admin permissions.
 @host_only(_lazy("You don't have permission to add random songs"))
 def add_random(amount):
     """Add random songs to the queue."""

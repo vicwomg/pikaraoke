@@ -94,6 +94,10 @@ def extract() -> None:
             str(POT_FILE),
             "--add-comments=MSG:",
             "--strip-comment-tags",
+            # lazy_gettext is not one of Babel's default keywords, so the refusal
+            # messages in the @host_only decorators are dropped without this.
+            "-k",
+            "_lazy",
             "--sort-by-file",
             ".",
         ]

@@ -210,6 +210,7 @@ def browse():
 
 
 @files_bp.route("/files/delete", methods=["POST"])
+# MSG: Message shown after trying to delete a song without admin permissions.
 @host_only(_lazy("You don't have permission to delete songs"))
 @files_bp.arguments(SongReferrerQuery, location="query")
 def delete_file(query):
@@ -253,6 +254,7 @@ def _render_edit_page(k, song_path: str, new_name: str, referrer: str, error: st
 
 
 @files_bp.route("/files/edit", methods=["GET"])
+# MSG: Message shown after trying to rename a song without admin permissions.
 @host_only(_lazy("You don't have permission to rename songs"))
 @files_bp.arguments(SongReferrerQuery, location="query")
 def edit_file(query):
@@ -269,6 +271,7 @@ def edit_file(query):
 
 
 @files_bp.route("/files/edit", methods=["POST"])
+# MSG: Message shown after trying to rename a song without admin permissions.
 @host_only(_lazy("You don't have permission to rename songs"))
 @files_bp.arguments(EditFileForm, location="form")
 def rename_file(form):

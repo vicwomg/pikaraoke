@@ -52,6 +52,7 @@ def delayed_halt(cmd: int, k: Karaoke):
 
 
 @admin_bp.route("/update_ytdl", methods=["POST"])
+# MSG: Message shown after trying to update yt-dlp without admin permissions.
 @host_only(_lazy("You don't have permission to update yt-dlp"))
 def update_ytdl():
     """Update yt-dlp to the latest version."""
@@ -91,6 +92,7 @@ def sync_library():
 
 
 @admin_bp.route("/quit", methods=["POST"])
+# MSG: Message shown after trying to quit pikaraoke without admin permissions.
 @host_only(_lazy("You don't have permission to quit"))
 def quit():
     """Exit the PiKaraoke application."""
@@ -104,6 +106,7 @@ def quit():
 
 
 @admin_bp.route("/shutdown", methods=["POST"])
+# MSG: Message shown after trying to shut down the system without admin permissions.
 @host_only(_lazy("You don't have permission to shut down"))
 def shutdown():
     """Shut down the host system."""
@@ -117,6 +120,7 @@ def shutdown():
 
 
 @admin_bp.route("/reboot", methods=["POST"])
+# MSG: Message shown after trying to reboot the system without admin permissions.
 @host_only(_lazy("You don't have permission to Reboot"))
 def reboot():
     """Reboot the host system."""
@@ -130,6 +134,7 @@ def reboot():
 
 
 @admin_bp.route("/expand_fs", methods=["POST"])
+# MSG: Message shown after trying to expand the filesystem without admin permissions
 @host_only(_lazy("You don't have permission to resize the filesystem"))
 def expand_fs():
     """Expand filesystem on Raspberry Pi."""
@@ -169,6 +174,7 @@ def auth(form):
 
 
 @admin_bp.route("/admin_password", methods=["POST"])
+# MSG: Message shown after trying to change the admin password without admin permissions.
 @host_only(_lazy("You don't have permission to change the admin password"))
 @admin_bp.arguments(AdminPasswordForm, location="form")
 def set_admin_password(form):
