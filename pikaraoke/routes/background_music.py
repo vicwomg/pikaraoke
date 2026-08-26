@@ -52,7 +52,7 @@ def bg_music(file):
 def bg_playlist():
     """Get a randomized background music playlist."""
     k = get_karaoke_instance()
-    if (k.bg_music_path == None) or (not os.path.exists(k.bg_music_path)):
+    if k.bg_music_path is None or not os.path.isdir(k.bg_music_path):
         return jsonify([])
     base_url = url_for("bg_music.bg_music", file="").rstrip("/")
     playlist = create_randomized_playlist(k.bg_music_path, base_url, 50)

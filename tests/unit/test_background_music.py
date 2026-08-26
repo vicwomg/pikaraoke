@@ -16,6 +16,20 @@ def app():
 
 
 @pytest.fixture
+def karaoke():
+    """A karaoke instance whose bg_music_path each test sets for itself."""
+    k = MagicMock()
+    with patch("pikaraoke.routes.background_music.get_karaoke_instance", return_value=k):
+        yield k
+
+
+def _a_file(tmp_path):
+    track = tmp_path / "song.mp3"
+    track.write_text("audio", encoding="utf-8")
+    return str(track)
+
+
+@pytest.fixture
 def music_dir(tmp_path):
     """A music directory with a song in it, and a canary file one level up."""
     music = tmp_path / "music"
@@ -66,3 +80,20 @@ class TestBackgroundMusicPath:
     def test_a_track_declares_its_own_type(self, client, music_dir, track, expected_type):
         """The playlist accepts mp4 as well as mp3, and Safari believes the header."""
         assert client.get(f"/bg_music/{track}").mimetype == expected_type
+
+
+class TestBackgroundPlaylist:
+    @pytest.mark.parametrize(
+        "make_path",
+        [
+            pytest.param(lambda tmp_path: None, id="unset"),
+            pytest.param(lambda tmp_path: str(tmp_path / "nope"), id="missing"),
+            pytest.param(_a_file, id="a-file-not-a-directory"),
+        ],
+    )
+    def test_a_path_that_is_not_a_directory_is_an_empty_playlist(
+        self, client, karaoke, tmp_path, make_path
+    ):
+        karaoke.bg_music_path = make_path(tmp_path)
+
+        assert client.get("/bg_playlist").get_json() == []
