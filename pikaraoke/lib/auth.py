@@ -48,12 +48,16 @@ def install_auth_gate(app: Flask) -> None:
     @app.before_request
     def require_admin():
         # An unmatched rule is a 404, and Flask's to answer.
-        if request.endpoint is None or is_admin():
+        if request.endpoint is None:
             return None
         if request.endpoint in _LIBRARY_ENDPOINTS:
             return None
         view = app.view_functions.get(request.endpoint)
         if getattr(view, "pika_public", False):
+            return None
+        # Last, because it re-reads config.ini: ~0.4ms on a desktop and several
+        # times that on a Pi, which the public routes serving HLS segments skip.
+        if is_admin():
             return None
         return _refuse(
             getattr(view, "pika_refusal", None),
