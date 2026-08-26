@@ -39,7 +39,6 @@ def change_preferences(form):
         if preference in _SCORE_PHRASE_KEYS:
             broadcast_event("score_phrases_update", _get_active_score_phrases(k))
     return jsonify([success, message])
-    return redirect(url_for("info.info"))
 
 
 @preferences_bp.route("/clear_preferences", methods=["POST"])
