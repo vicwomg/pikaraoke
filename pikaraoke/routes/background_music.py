@@ -45,7 +45,7 @@ def bg_music(file):
     refuses one that escapes the directory.
     """
     k = get_karaoke_instance()
-    return send_from_directory(k.bg_music_path, file, mimetype="audio/mpeg")
+    return send_from_directory(k.bg_music_path, file)
 
 
 @background_music_bp.route("/bg_playlist", methods=["GET"])

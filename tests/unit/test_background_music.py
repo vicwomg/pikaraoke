@@ -21,6 +21,7 @@ def music_dir(tmp_path):
     music = tmp_path / "music"
     music.mkdir()
     (music / "song.mp3").write_text("legit-audio", encoding="utf-8")
+    (music / "song.mp4").write_text("legit-video", encoding="utf-8")
     (tmp_path / "secret.txt").write_text(CANARY, encoding="utf-8")
 
     k = MagicMock()
@@ -57,3 +58,11 @@ class TestBackgroundMusicPath:
 
     def test_unknown_song_is_404(self, client, music_dir):
         assert client.get("/bg_music/nothing-here.mp3").status_code == 404
+
+    @pytest.mark.parametrize(
+        ("track", "expected_type"),
+        [("song.mp3", "audio/mpeg"), ("song.mp4", "video/mp4")],
+    )
+    def test_a_track_declares_its_own_type(self, client, music_dir, track, expected_type):
+        """The playlist accepts mp4 as well as mp3, and Safari believes the header."""
+        assert client.get(f"/bg_music/{track}").mimetype == expected_type
