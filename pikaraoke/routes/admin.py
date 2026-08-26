@@ -197,6 +197,8 @@ def set_admin_password(form):
 
 
 @admin_bp.route("/logout", methods=["POST"])
+# Public though the button is admin-only: it clears the caller's own
+# session and grants nothing, so gating it would refuse a no-op.
 @public
 def logout():
     """Log out of admin mode."""
