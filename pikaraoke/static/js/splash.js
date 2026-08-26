@@ -190,6 +190,15 @@ const shouldBackgroundMediaPlay = () => {
     !nowPlaying.up_next;
 };
 
+// Asserts both media's desired state rather than acting on the one that moved,
+// so turning either off leaves the other playing. playBGMusic(true) means "do
+// not start" when the preference is off, so the caller resolves it here.
+const applyBackgroundMediaState = () => {
+  const shouldPlay = shouldBackgroundMediaPlay();
+  playBGMusic(shouldPlay && !PikaraokeConfig.disableBgMusic);
+  playBGVideo(shouldPlay && hasBgVideo && !PikaraokeConfig.disableBgVideo);
+};
+
 const updateBackgroundMediaState = (immediate = false) => {
   // Clear any pending resume
   if (bgMediaResumeTimeout) {
@@ -197,23 +206,14 @@ const updateBackgroundMediaState = (immediate = false) => {
     bgMediaResumeTimeout = null;
   }
 
-  if (shouldBackgroundMediaPlay()) {
-    if (immediate) {
-      playBGMusic(true);
-      if (hasBgVideo) playBGVideo(true);
-    } else {
-      bgMediaResumeTimeout = setTimeout(() => {
-        bgMediaResumeTimeout = null;
-        if (shouldBackgroundMediaPlay()) {
-          playBGMusic(true);
-          if (hasBgVideo) playBGVideo(true);
-        }
-      }, bgMediaResumeDelay);
-    }
-  } else {
-    playBGMusic(false);
-    playBGVideo(false);
+  if (immediate || !shouldBackgroundMediaPlay()) {
+    applyBackgroundMediaState();
+    return;
   }
+  bgMediaResumeTimeout = setTimeout(() => {
+    bgMediaResumeTimeout = null;
+    applyBackgroundMediaState();
+  }, bgMediaResumeDelay);
 };
 
 const flashNotification = (message, categoryClass) => {
@@ -522,14 +522,9 @@ const stopClock = () => {
   clockIntervalId = null;
 }
 
-const toggleBGMedia = (configKey, playFn, disabled) => {
-  PikaraokeConfig[configKey] = disabled;
-  disabled ? playFn(false) : shouldBackgroundMediaPlay() && playFn(true);
-};
-
 const PREFERENCE_EFFECTS = {
-  disable_bg_video:    (v) => toggleBGMedia("disableBgVideo", playBGVideo, v),
-  disable_bg_music:    (v) => toggleBGMedia("disableBgMusic", playBGMusic, v),
+  disable_bg_video:    (v) => { PikaraokeConfig.disableBgVideo = v; applyBackgroundMediaState(); },
+  disable_bg_music:    (v) => { PikaraokeConfig.disableBgMusic = v; applyBackgroundMediaState(); },
   disable_score:       (v) => { PikaraokeConfig.disableScore = v; },
   show_splash_clock:   (v) => {
     PikaraokeConfig.showSplashClock = v;
