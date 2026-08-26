@@ -9,6 +9,9 @@ import requests
 
 from pikaraoke.lib.youtube_dl import (
     _PREVIEW_ATTEMPTS,
+    POSTPROCESS_PREFIX,
+    PROGRESS_PREFIX,
+    SIZE_PREFIX,
     _serves_bytes,
     build_ytdl_download_command,
     get_stream_url,
@@ -145,6 +148,28 @@ class TestBuildYtdlDownloadCommand:
         tiers = cmd[cmd.index("-f") + 1].split("/")
         assert tiers[1] == f"best[ext!=webm][height<={height}]"
         assert tiers[2] == "best[ext!=webm]"
+
+    @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
+    def test_progress_templates(self, mock_js):
+        """The download panel reads these templates, not yt-dlp's prose."""
+        cmd = build_ytdl_download_command(
+            video_url="https://www.youtube.com/watch?v=test123",
+            download_path="/songs",
+        )
+        assert "--newline" in cmd
+        templates = [cmd[i + 1] for i, arg in enumerate(cmd) if arg == "--progress-template"]
+        assert len(templates) == 2
+        download, postprocess = templates
+        assert download.startswith(f"download:{PROGRESS_PREFIX}")
+        # The discriminator for which pass of a "+" selector is running.
+        assert "%(info.vcodec)s" in download
+        assert postprocess == f"postprocess:{POSTPROCESS_PREFIX}%(progress.postprocessor)s"
+        # Both formats' sizes, printed before the first byte; no progress line carries them.
+        size = cmd[cmd.index("--print") + 1]
+        assert size.startswith(f"before_dl:{SIZE_PREFIX}")
+        assert "requested_formats" in size
+        # --print implies --quiet, which silences every progress line above it.
+        assert "--no-quiet" in cmd
 
     @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
     def test_with_proxy(self, mock_js):

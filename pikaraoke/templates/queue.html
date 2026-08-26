@@ -170,7 +170,88 @@
   }
 
 
-  // Download Progress Polling
+  // yt-dlp's status is the machine state; these are what a person reads. Only the
+  // phases that report a number carry one: the merge holds a full bar with no
+  // percentage of its own, and printing "100%" beside it read as a hang.
+  var DOWNLOAD_PHASES = {
+      // {# MSG: Download phase shown while yt-dlp resolves the video, before any bytes arrive. #}
+      'starting': { label: {{ _('Preparing') | tojson }} },
+      // {# MSG: Download phase shown while a failed download waits to start again. The attempt tag says it is a retry. #}
+      'retrying': { label: {{ _('Preparing') | tojson }} },
+      // {# MSG: Download phase shown while the video stream is transferring. #}
+      'downloading': { label: {{ _('Downloading video') | tojson }}, percent: true, rate: true },
+      // {# MSG: Download phase shown while the separate audio stream is transferring. #}
+      'downloading audio': { label: {{ _('Downloading audio') | tojson }}, percent: true, rate: true },
+      // {# MSG: Download phase shown while ffmpeg combines the downloaded video and audio. #}
+      'merging': { label: {{ _('Merging') | tojson }} },
+      // {# MSG: Download phase shown once the download has finished. #}
+      'complete': { label: {{ _('Complete') | tojson }}, percent: true }
+  };
+  // {# MSG: Tag on the active download showing which attempt is running, e.g. "Retrying 2/5". #}
+  var RETRYING_LABEL = {{ _('Retrying') | tojson }};
+
+  // Download progress polling. The bar draws a reported percentage and nothing else;
+  // the phases yt-dlp cannot number animate in place instead of advancing.
+  window.queuePage_renderActiveDownload = function(status) {
+      var host = document.getElementById('downloads-active');
+      var d = status.active;
+      if (!d) {
+          host.innerHTML = '';
+          host.removeAttribute('data-url');
+          return;
+      }
+
+      if (host.getAttribute('data-url') !== d.url) {
+          host.setAttribute('data-url', d.url);
+          host.innerHTML = `
+              <div class="box mb-4 has-background-dark">
+                  <h4 class="title is-5 mb-2 dl-title"></h4>
+                  <div class="dl-bar"><div class="dl-bar-fill"></div></div>
+                  <div class="dl-meta is-size-7">
+                      <span class="dl-phase-group">
+                          <span class="dl-phase"></span>
+                          <span class="tag is-info is-light is-rounded dl-attempt is-hidden"></span>
+                      </span>
+                      <span class="dl-percent"></span>
+                      <span class="dl-meta-rate">
+                          <span class="dl-speed"></span>
+                          <span>{{ _('ETA') | forceescape }}&nbsp;<span class="dl-eta"></span></span>
+                      </span>
+                  </div>
+              </div>`;
+          host.querySelector('.dl-title').textContent = d.title;
+          // Flush the 0% start, or the first width lands with nothing to transition from.
+          void host.querySelector('.dl-bar-fill').offsetWidth;
+      }
+
+      // An unknown status still shows everything rather than blanking the readout.
+      var phase = DOWNLOAD_PHASES[d.status] || { label: d.status, percent: true, rate: true };
+
+      // The byte count survives a silence; the rate does not. A stalled download keeps
+      // its fill and its percentage and gives up the speed and the ETA.
+      var waiting = d.stalled || d.status === 'merging';
+
+      var fill = host.querySelector('.dl-bar-fill');
+      fill.style.width = d.progress + '%';
+      fill.classList.toggle('is-waiting', waiting);
+      host.querySelector('.dl-bar').classList
+          .toggle('is-waiting', d.status === 'starting' || d.status === 'retrying');
+
+      host.querySelector('.dl-phase').textContent = phase.label;
+
+      var attempt = host.querySelector('.dl-attempt');
+      attempt.classList.toggle('is-hidden', !d.attempts);
+      attempt.textContent = `${RETRYING_LABEL} ${d.attempts + 1}/${status.max_attempts}`;
+
+      var percent = host.querySelector('.dl-percent');
+      percent.classList.toggle('is-hidden', !phase.percent);
+      percent.textContent = Math.round(d.progress) + '%';
+
+      host.querySelector('.dl-meta-rate').classList.toggle('is-hidden', !phase.rate || waiting);
+      host.querySelector('.dl-speed').textContent = d.speed;
+      host.querySelector('.dl-eta').textContent = d.eta;
+  };
+
   window.queuePage_getDownloads = function() {
       // Clean up existing timer if any
       if (window.downloadPollTimer) {
@@ -185,30 +266,6 @@
       $.get('{{ url_for("queue.get_current_downloads") }}', function(data) {
           var status = JSON.parse(data);
           var html = "";
-
-          if (status.active) {
-              var d = status.active;
-              var progressClass = "is-info";
-              if (d.status === 'complete') progressClass = "is-success";
-              if (d.status === 'error') progressClass = "is-danger";
-              var attempt = d.attempts > 0 ? ` (${d.attempts + 1}/${status.max_attempts})` : '';
-
-              html += `
-                  <div class="box mb-4 has-background-dark">
-                      <h4 class="title is-5 mb-2">${d.title}</h4>
-                      <!-- inline style to ensure background visibility if theme overrides it -->
-                      <progress class="progress ${progressClass}" value="${d.progress}" max="100" style="background-color: #dbdbdb;">${d.progress}%</progress>
-                      <div class="level is-mobile is-size-7 mt-1">
-                          <div class="level-left">
-                              <span class="level-item text-muted"><b>Status:</b>&nbsp;${d.status}${attempt}</span>
-                          </div>
-                          <div class="level-right">
-                              <span class="level-item"><b>Speed:</b>&nbsp;${d.speed}&nbsp;&nbsp;&nbsp;<b>ETA:</b>&nbsp;${d.eta}</span>
-                          </div>
-                      </div>
-                  </div>
-              `;
-          }
 
           if (status.pending && status.pending.length > 0) {
               html += `<div class="content"><h5 class="title is-6 mb-2">{{ _('Pending downloads') | forceescape }}</h5>`;
@@ -246,12 +303,15 @@
               html += `</div>`;
           }
 
-          if (html) {
-              $("#downloads-container").html(html);
+          // Show the section first: a card built inside display:none has no layout,
+          // so its fill would land at full width with nothing to transition from.
+          if (status.active || html) {
               $("#downloads-section").fadeIn();
           } else {
               $("#downloads-section").fadeOut();
           }
+          window.queuePage_renderActiveDownload(status);
+          $("#downloads-rest").html(html);
 
           // Continue polling only if there are active items or pending downloads
           // Error items don't need constant polling
@@ -577,9 +637,10 @@
 </div>
 {% endif %}
 
-<div id="downloads-section" style="display:none; margin-top: 30px; border-top: 1px solid #dbdbdb; padding-top: 20px;">
+<div id="downloads-section" style="display:none; margin-top: 30px; border-top: 1px solid var(--dark-border); padding-top: 20px;">
     <h3 class="title is-4">{{ _('Download queue') }}</h3>
-    <div id="downloads-container"></div>
+    <div id="downloads-active"></div>
+    <div id="downloads-rest"></div>
 </div>
 
 {% endblock %}
