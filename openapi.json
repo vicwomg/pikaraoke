@@ -531,8 +531,34 @@
         ]
       }
     },
+    "/admin_password": {
+      "post": {
+        "responses": {
+          "422": {
+            "$ref": "#/components/responses/UNPROCESSABLE_ENTITY"
+          },
+          "default": {
+            "$ref": "#/components/responses/DEFAULT_ERROR"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminPasswordForm"
+              }
+            }
+          }
+        },
+        "summary": "Set, change or clear the admin password without restarting.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/logout": {
-      "get": {
+      "post": {
         "responses": {
           "default": {
             "$ref": "#/components/responses/DEFAULT_ERROR"
@@ -1639,6 +1665,17 @@
             "type": "string",
             "default": "/",
             "description": "URL to redirect to after login"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminPasswordForm": {
+        "type": "object",
+        "properties": {
+          "admin_password": {
+            "type": "string",
+            "default": "",
+            "description": "New admin password; empty clears it"
           }
         },
         "additionalProperties": false
