@@ -81,6 +81,9 @@ def _browse(
     with (
         patch("pikaraoke.routes.files.get_karaoke_instance", return_value=k),
         patch("pikaraoke.routes.files.get_site_name", return_value="PiKaraoke"),
+        # Two seams, two jobs: the gate decides access, the route's own call
+        # decides whether the template renders the admin controls.
+        patch("pikaraoke.lib.auth.is_admin", return_value=admin),
         patch("pikaraoke.routes.files.is_admin", return_value=admin),
     ):
         return client.get("/browse" + query)
@@ -332,6 +335,7 @@ def _patched(k, admin=True):
     return (
         patch("pikaraoke.routes.files.get_karaoke_instance", return_value=k),
         patch("pikaraoke.routes.files.get_site_name", return_value="PiKaraoke"),
+        patch("pikaraoke.lib.auth.is_admin", return_value=admin),
         patch("pikaraoke.routes.files.is_admin", return_value=admin),
     )
 
@@ -379,7 +383,7 @@ class TestRenamePermission:
         k = MagicMock()
         response = _post_rename(client, k, admin=False, referrer="/queue")
         assert response.status_code == 302
-        assert response.headers["Location"] == "/queue"
+        assert response.headers["Location"] == "/"
         k.song_manager.rename.assert_not_called()
 
 

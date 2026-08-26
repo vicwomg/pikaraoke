@@ -4,36 +4,17 @@ import csv
 import io
 
 import flask_babel
-from flask import Response, jsonify, request
+from flask import Response, jsonify
 from flask_smorest import Blueprint
 from marshmallow import Schema, ValidationError, fields, validate, validates_schema
 
-from pikaraoke.lib.current_app import get_karaoke_instance, is_admin
+from pikaraoke.lib.auth import public
+from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.play_history_manager import RESET_SCOPES, SESSION_NAME_MAX_LENGTH
 
 _ = flask_babel.gettext
 
 sessions_api_bp = Blueprint("sessions_api", __name__)
-
-# The play log is the one thing the whole room may read: the Play History page
-# is open to every device, so guests can see what has been sung and queue it up
-# again. Everything else here -- the singer directory, which is effectively the
-# guest list, and every mutation -- stays with the host.
-_PUBLIC_ENDPOINTS = {"sessions_api.get_plays"}
-
-
-@sessions_api_bp.before_request
-def require_admin():
-    """Gate every endpoint in this blueprint that is not named above.
-
-    Deny by default, with an allowlist, rather than a check per route: a new
-    endpoint added here is host-only until someone decides otherwise, instead of
-    being public because a decorator was forgotten.
-    """
-    if request.endpoint in _PUBLIC_ENDPOINTS or is_admin():
-        return None
-    return jsonify({"error": "Unauthorized"}), 403
-
 
 # Paging bounds shared by the list endpoints. Capped rather than left open: these
 # queries run on a Pi that is transcoding video at the same time, and SQLite reads
@@ -175,7 +156,10 @@ def get_singers(query):
     return jsonify({"singers": singers})
 
 
+# The one thing here the whole room may read: a guest looks up what they sang
+# last time and queues it again.
 @sessions_api_bp.route("/api/history/plays")
+@public
 @sessions_api_bp.arguments(PlaysQuery, location="query")
 def get_plays(query):
     """Paginated play log, newest first, optionally scoped to one session."""
@@ -258,15 +242,7 @@ def update_session(form, session_uuid):
 @sessions_api_bp.route("/api/history", methods=["DELETE"])
 @sessions_api_bp.arguments(ResetHistoryQuery, location="query")
 def reset_history(query):
-    """Erase play history: one session's plays, or everything on record.
-
-    Gated here as well as by the blueprint. The Play History page is already
-    open to the whole room, so the blueprint's allowlist is the only thing
-    standing between a guest and this; an irreversible delete does not rest on
-    one line in a set literal.
-    """
-    if not is_admin():
-        return jsonify({"error": "Unauthorized"}), 403
+    """Erase play history: one session's plays, or everything on record."""
 
     k = get_karaoke_instance()
     if query["scope"] == "all":

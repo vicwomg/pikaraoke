@@ -24,6 +24,7 @@ from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.admin_auth import AdminAuth
 from pikaraoke.lib.args import parse_pikaraoke_args
+from pikaraoke.lib.auth import install_auth_gate
 from pikaraoke.lib.browser import Browser
 from pikaraoke.lib.current_app import get_karaoke_instance, is_admin
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
@@ -134,6 +135,9 @@ for bp in _api_blueprints:
 
 for bp in _internal_blueprints:
     app.register_blueprint(bp)
+
+# After registration, so every endpoint the gate reads exists.
+install_auth_gate(app)
 
 
 def get_locale() -> str | None:

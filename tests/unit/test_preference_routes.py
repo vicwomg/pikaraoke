@@ -9,8 +9,10 @@ from flask import Flask
 if not hasattr(werkzeug, "__version__"):
     werkzeug.__version__ = "3.0.0"
 
+from pikaraoke.lib.auth import install_auth_gate
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.routes.preferences import preferences_bp
+from tests.conftest import StubAdminAuth
 
 ROUTE_PREFIX = "pikaraoke.routes.preferences"
 
@@ -19,7 +21,9 @@ ROUTE_PREFIX = "pikaraoke.routes.preferences"
 def app():
     test_app = Flask(__name__)
     test_app.secret_key = "test"
+    test_app.config["ADMIN_AUTH"] = StubAdminAuth(admin=True)
     test_app.register_blueprint(preferences_bp)
+    install_auth_gate(test_app)
     return test_app
 
 
@@ -33,7 +37,6 @@ def route_mocks():
     """Patch all external dependencies used by preference routes."""
     with (
         patch(f"{ROUTE_PREFIX}.get_karaoke_instance") as mock_get_instance,
-        patch(f"{ROUTE_PREFIX}.is_admin", return_value=True),
         patch(f"{ROUTE_PREFIX}.broadcast_event") as mock_broadcast,
         patch(f"{ROUTE_PREFIX}._get_active_score_phrases") as mock_phrases,
     ):

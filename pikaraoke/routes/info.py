@@ -8,6 +8,7 @@ from flask_smorest import Blueprint
 from pikaraoke import VERSION
 from pikaraoke.constants import ITUNES_COUNTRIES, LANGUAGES, per_page_options
 from pikaraoke.lib import keep_awake
+from pikaraoke.lib.auth import host_only, public
 from pikaraoke.lib.current_app import (
     get_admin_auth,
     get_karaoke_instance,
@@ -23,6 +24,7 @@ info_bp = Blueprint("info", __name__)
 
 
 @info_bp.route("/info")
+@public
 def info():
     """System information and settings page."""
     k = get_karaoke_instance()
@@ -99,14 +101,13 @@ def info():
 
 
 @info_bp.route("/info/stats")
+@host_only(json=True)
 def get_system_stats():
     """Get system statistics (CPU, Memory, Disk).
 
     Returns:
         JSON response with system stats.
     """
-    if not is_admin():
-        return jsonify({"error": "Unauthorized"}), 403
 
     # cpu
     try:
