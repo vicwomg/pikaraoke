@@ -70,8 +70,6 @@ EXPECTED_PUBLIC_ENDPOINTS = {
     "images.logo",
     "images.qrcode",
     "info.info",
-    "metadata.auto_format",
-    "metadata.suggest_names",
     "now_playing.now_playing",
     "queue.delete_download_error",
     "queue.enqueue_form",

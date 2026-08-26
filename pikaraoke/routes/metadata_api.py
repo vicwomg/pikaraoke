@@ -3,7 +3,7 @@
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
-from pikaraoke.lib.auth import public
+from pikaraoke.lib.auth import host_only
 from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.metadata_parser import regex_tidy
 from pikaraoke.lib.metadata_providers import get_provider, suggest_metadata
@@ -22,7 +22,7 @@ class SuggestNamesQuery(Schema):
 
 
 @metadata_bp.route("/metadata/auto-format")
-@public
+@host_only(json=True)
 @metadata_bp.arguments(AutoFormatQuery, location="query")
 def auto_format(query):
     """Apply regex_tidy to a filename and return the formatted result."""
@@ -31,7 +31,7 @@ def auto_format(query):
 
 
 @metadata_bp.route("/metadata/suggest-names")
-@public
+@host_only(json=True)
 @metadata_bp.arguments(SuggestNamesQuery, location="query")
 def suggest_names(query):
     """Search for track suggestions matching a filename."""
