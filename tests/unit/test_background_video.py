@@ -1,5 +1,6 @@
-"""Tests for the background video: which one is chosen, and what serves it."""
+"""Tests for the background videos: which ones play, and what serves them."""
 
+import json
 import re
 from unittest.mock import MagicMock, patch
 
@@ -97,14 +98,14 @@ class TestServingOneVideo:
         assert client.get("/stream/bg_video/one.mp4").status_code == 404
 
 
-def _rendered_video_url(client):
-    """The URL the splash page hands its video element, or "" if it has none."""
+def _rendered_playlist(client):
+    """The video URLs the splash page hands its player, in the order they play."""
     page = client.get("/splash").get_data(as_text=True)
-    return re.search(r"bgVideoUrl: \"(.*?)\",", page).group(1)
+    return json.loads(re.search(r"bgVideoPlaylist: (\[.*?\]),", page).group(1))
 
 
-class TestChoosingTheVideo:
-    """The choice is made once, as the page renders."""
+class TestChoosingTheVideos:
+    """The order is settled once, as the page renders."""
 
     @pytest.fixture
     def app(self):
@@ -127,26 +128,28 @@ class TestChoosingTheVideo:
         ):
             yield k
 
-    def test_serves_a_video_the_directory_holds(self, client, karaoke, video_dir):
+    def test_plays_every_video_the_directory_holds_and_nothing_else(
+        self, client, karaoke, video_dir
+    ):
         karaoke.bg_video_path = str(video_dir)
 
-        assert _rendered_video_url(client) in (
+        assert sorted(_rendered_playlist(client)) == [
             "/stream/bg_video/one.mp4",
             "/stream/bg_video/two.webm",
-        )
+        ]
 
-    def test_eventually_picks_a_different_video(self, client, karaoke, video_dir):
-        """Random, not "always the first" -- two videos, so twenty renders that
-        all agree would be a one-in-a-million coincidence."""
+    def test_eventually_renders_a_different_order(self, client, karaoke, video_dir):
+        """Shuffled, not "always the same first" -- two videos, so twenty renders
+        that all agree would be a one-in-a-million coincidence."""
         karaoke.bg_video_path = str(video_dir)
 
-        assert len({_rendered_video_url(client) for _ in range(20)}) == 2
+        assert len({tuple(_rendered_playlist(client)) for _ in range(20)}) == 2
 
-    def test_a_path_naming_one_video_always_returns_it(self, client, karaoke, video_dir):
+    def test_a_path_naming_one_video_plays_that_video_alone(self, client, karaoke, video_dir):
         """The --dolphly path, and the behaviour that existed before directories."""
         karaoke.bg_video_path = str(video_dir / "one.mp4")
 
-        assert _rendered_video_url(client) == "/stream/bg_video/one.mp4"
+        assert _rendered_playlist(client) == ["/stream/bg_video/one.mp4"]
 
     @pytest.mark.parametrize(
         "make_path",
@@ -163,4 +166,4 @@ class TestChoosingTheVideo:
         (tmp_path / "notes.txt").write_text("not a video", encoding="utf-8")
         karaoke.bg_video_path = make_path(tmp_path)
 
-        assert _rendered_video_url(client) == ""
+        assert _rendered_playlist(client) == []

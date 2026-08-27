@@ -11,7 +11,9 @@ let volume = 0.85;
 const playbackStartTimeout = 10000;
 const bgMediaResumeDelay = 2000;
 let isScoreShown = false;
-const hasBgVideo = Boolean(PikaraokeConfig.bgVideoUrl);
+const bgVideoPlaylist = PikaraokeConfig.bgVideoPlaylist;
+const hasBgVideo = bgVideoPlaylist.length > 0;
+let bgVideoIndex = 0;
 let currentVideoUrl = null;
 let hlsInstance = null;
 let idleTime = 0;
@@ -172,9 +174,9 @@ const playBGVideo = async (play) => {
     if (!autoplayConfirmed) return;
 
     if (isMediaPlaying(bgVideo)) return;
-    // No withBasePath: the server built this one with url_for, which already
+    // No withBasePath: the server built these with url_for, which already
     // carries the base path.
-    $("#bg-video").attr("src", PikaraokeConfig.bgVideoUrl);
+    $("#bg-video").attr("src", bgVideoPlaylist[bgVideoIndex]);
     if (bgVideo.readyState <= 2) await bgVideo.load();
     bgVideo.play().catch(() => console.log("Autoplay blocked (video)"));
     bgVideoContainer.fadeIn(2000);
@@ -497,6 +499,21 @@ const setupBackgroundMusicPlayer = () => {
   });
 }
 
+const setupBackgroundVideoPlayer = () => {
+  if (!hasBgVideo) return;
+  const bgVideo = getBackgroundVideoPlayer();
+  // A lone video loops on the element rather than being fetched again every
+  // time it ends. More than one advances instead, and loop would suppress the
+  // `ended` that does it.
+  bgVideo.loop = bgVideoPlaylist.length === 1;
+  bgVideo.addEventListener("ended", async () => {
+    bgVideoIndex = (bgVideoIndex + 1) % bgVideoPlaylist.length;
+    bgVideo.setAttribute("src", bgVideoPlaylist[bgVideoIndex]);
+    await bgVideo.load();
+    bgVideo.play().catch(() => console.log("Autoplay blocked (video)"));
+  });
+}
+
 const handleUnsupportedBrowser = () => {
   if (!isSupportedBrowser) {
     let modalContents = document.getElementById("permissions-modal-content");
@@ -721,6 +738,7 @@ $(function () {
   setupOverlayMenus();
   setupVideoPlayer();
   setupBackgroundMusicPlayer();
+  setupBackgroundVideoPlayer();
 
   // Handle browser compatibility
   handleUnsupportedBrowser();

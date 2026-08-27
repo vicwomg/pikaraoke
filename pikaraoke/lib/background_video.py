@@ -14,17 +14,20 @@ def video_directory(path: str) -> str:
     return os.path.dirname(path) if os.path.isfile(path) else path
 
 
-def pick_video(path: str | None) -> str | None:
-    """The name of one video from `path`, picked at random when it is a directory.
+def video_playlist(path: str | None, limit: int = 50) -> list[str]:
+    """The videos at `path` in the order they will play, shuffled afresh each time.
 
     Resolved once as the splash screen renders, never per request: the route
     answers range requests, so choosing per request would serve one video's
-    bytes against another video's length.
+    bytes against another video's length. The limit matches the music
+    playlist's, and for the same reason -- the whole list is rendered into the
+    page.
     """
     if path is None or not os.path.exists(path):
-        return None
+        return []
     if os.path.isfile(path):
         name = os.path.basename(path)
-        return name if name.lower().endswith(VIDEO_EXTENSIONS) else None
+        return [name] if name.lower().endswith(VIDEO_EXTENSIONS) else []
     videos = [f for f in os.listdir(path) if f.lower().endswith(VIDEO_EXTENSIONS)]
-    return random.choice(videos) if videos else None
+    random.shuffle(videos)
+    return videos[:limit]
