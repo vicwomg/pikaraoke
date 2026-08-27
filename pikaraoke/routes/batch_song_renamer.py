@@ -5,6 +5,7 @@ import unicodedata
 
 import flask_babel
 from flask import (
+    Response,
     jsonify,
     redirect,
     render_template,
@@ -127,8 +128,8 @@ def _names_match(name: str, correct_name: str | None) -> bool:
     return normalized_name == normalized_correct
 
 
-def _error_response(message: str) -> dict:
-    return {"success": False, "message": message, "categoryClass": "is-danger"}
+def _error(message: str) -> Response:
+    return jsonify({"success": False, "message": message, "categoryClass": "is-danger"})
 
 
 @batch_song_renamer_bp.route("/batch-song-renamer", methods=["GET"])
@@ -239,36 +240,28 @@ def rename_song(form):
 
     if k.is_song_in_use(old_name):
         # MSG: Message shown after trying to edit a song that is queued or playing.
-        return jsonify(
-            _error_response(
-                _("Error: Can't edit this song because it is queued or playing") + ": " + old_name
-            )
+        return _error(
+            _("Error: Can't edit this song because it is queued or playing: %s") % old_name
         )
 
     target = k.song_manager.rename_target(old_name, new_name)
     if rename_collides(old_name, target):
         # MSG: Message shown after trying to rename a file to a name that already exists.
-        return jsonify(
-            _error_response(
-                _("Error renaming file: '%s' to '%s', Filename already exists")
-                % (old_name, os.path.basename(target))
-            )
+        return _error(
+            _("Error renaming file: '%s' to '%s', Filename already exists")
+            % (old_name, os.path.basename(target))
         )
 
     try:
         new_path = k.rename_song(old_name, new_name)
     except SongInUseError:
         # MSG: Message shown when the song being renamed started playing mid-edit.
-        return jsonify(
-            _error_response(
-                _(
-                    "This song started playing while you were editing it. Rename it when it finishes."
-                )
-            )
+        return _error(
+            _("This song started playing while you were editing it. Rename it when it finishes.")
         )
     except OSError as e:
         logging.error(f"Error renaming file: {e}")
         # MSG: Message shown after a rename failed. Followed by the system error.
-        return jsonify(_error_response(_("Error renaming file: %s") % e))
+        return _error(_("Error renaming file: %s") % e)
 
     return jsonify({"success": True, "new_file_name": new_path})
