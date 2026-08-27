@@ -15,6 +15,7 @@ from pikaraoke.constants import ITUNES_COUNTRIES, per_page_options
 from pikaraoke.karaoke import SongInUseError
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
 from pikaraoke.lib.metadata_parser import youtube_id_suffix
+from pikaraoke.lib.song_manager import rename_collides
 
 _ = flask_babel.gettext
 
@@ -302,7 +303,7 @@ def rename_file(form):
     # A song already named what you asked for is done, not a collision with itself.
     if target == old_name:
         return redirect(referrer)
-    if os.path.isfile(target):
+    if rename_collides(old_name, target):
         # MSG: Message shown after trying to rename a song to a name already in use.
         error = _("A song called '%s' already exists.") % os.path.basename(target)
         return _render_edit_page(k, old_name, new_name, referrer, error)
