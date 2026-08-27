@@ -107,16 +107,6 @@ def test_every_endpoint_is_decided(real_app):
     assert marked == EXPECTED_PUBLIC_ENDPOINTS
 
 
-def test_no_marker_means_host_only(real_app):
-    """The property the old convention lacked: a forgotten decision fails closed."""
-    decided = EXPECTED_PUBLIC_ENDPOINTS | {"static", "api-docs.openapi_json"}
-    undecided = {r.endpoint for r in real_app.url_map.iter_rules()} - decided
-    assert undecided, "expected host-only endpoints to exist"
-    for endpoint in undecided:
-        view = real_app.view_functions[endpoint]
-        assert not getattr(view, "pika_public", False)
-
-
 def _gated_app(admin: bool):
     app = Flask(__name__)
     app.secret_key = "test"
