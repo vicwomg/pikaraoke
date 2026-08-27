@@ -17,7 +17,6 @@ from flask_smorest import Blueprint
 
 _ = flask_babel.gettext
 
-from pikaraoke.lib.background_video import video_directory
 from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.file_resolver import FileResolver, get_tmp_dir
 
@@ -225,11 +224,13 @@ def stream_bg_video(file):
     path = k.bg_video_path
     if path is None or not os.path.exists(path):
         abort(404)
-    # A path naming one video serves that video only. Its neighbours are in the
-    # same folder, and pointing at a file is not consent to share them.
-    if os.path.isfile(path) and file != os.path.basename(path):
-        abort(404)
-    return send_from_directory(video_directory(path), file)
+    directory = path
+    if os.path.isfile(path):
+        # Pointing at one video is not consent to share the rest of its folder.
+        if file != os.path.basename(path):
+            abort(404)
+        directory = os.path.dirname(path)
+    return send_from_directory(directory, file)
 
 
 # subtitle .ass

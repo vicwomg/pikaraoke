@@ -8,7 +8,7 @@ from flask import jsonify, render_template, url_for
 from flask_smorest import Blueprint
 
 from pikaraoke.karaoke import Karaoke
-from pikaraoke.lib.background_video import video_playlist
+from pikaraoke.lib.background_video import video_choices
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
 from pikaraoke.lib.raspi_wifi_config import get_raspi_wifi_text
 
@@ -86,7 +86,7 @@ def splash():
                 # handle raspiwifi connection mode
                 text = get_raspi_wifi_text()
 
-    bg_videos = video_playlist(k.bg_video_path)
+    bg_videos = video_choices(k.bg_video_path)
 
     return render_template(
         "splash.html",

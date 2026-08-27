@@ -9,25 +9,17 @@ import random
 VIDEO_EXTENSIONS = (".mp4", ".m4v", ".webm")
 
 
-def video_directory(path: str) -> str:
-    """The folder videos are served from, whether the path names one or holds them."""
-    return os.path.dirname(path) if os.path.isfile(path) else path
+def video_choices(path: str | None, limit: int = 50) -> list[str]:
+    """The videos at `path` the splash screen picks one of each time it idles.
 
-
-def video_playlist(path: str | None, limit: int = 50) -> list[str]:
-    """The videos at `path` in the order they will play, shuffled afresh each time.
-
-    Resolved once as the splash screen renders, never per request: the route
-    answers range requests, so choosing per request would serve one video's
-    bytes against another video's length. The limit matches the music
-    playlist's, and for the same reason -- the whole list is rendered into the
-    page.
+    Resolved as the page renders, never per request: the route answers range
+    requests, so choosing per request would serve one video's bytes against
+    another video's length. Shuffled before the limit is applied so a folder
+    larger than it does not always offer the same videos.
     """
     if path is None or not os.path.exists(path):
         return []
-    if os.path.isfile(path):
-        name = os.path.basename(path)
-        return [name] if name.lower().endswith(VIDEO_EXTENSIONS) else []
-    videos = [f for f in os.listdir(path) if f.lower().endswith(VIDEO_EXTENSIONS)]
+    names = [os.path.basename(path)] if os.path.isfile(path) else os.listdir(path)
+    videos = [name for name in names if name.lower().endswith(VIDEO_EXTENSIONS)]
     random.shuffle(videos)
     return videos[:limit]

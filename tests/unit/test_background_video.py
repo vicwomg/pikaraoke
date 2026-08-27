@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from pikaraoke.lib.background_video import video_choices
 from pikaraoke.routes.splash import splash_bp
 from pikaraoke.routes.stream import stream_bp
 from tests.conftest import make_route_app
@@ -98,14 +99,15 @@ class TestServingOneVideo:
         assert client.get("/stream/bg_video/one.mp4").status_code == 404
 
 
-def _rendered_playlist(client):
-    """The video URLs the splash page hands its player, in the order they play."""
+def _rendered_choices(client):
+    """The video URLs the splash page offers its player to pick from."""
     page = client.get("/splash").get_data(as_text=True)
-    return json.loads(re.search(r"bgVideoPlaylist: (\[.*?\]),", page).group(1))
+    return json.loads(re.search(r"bgVideoChoices: (\[.*?\]),", page).group(1))
 
 
 class TestChoosingTheVideos:
-    """The order is settled once, as the page renders."""
+    """The candidates are settled once, as the page renders; the page picks
+    one of them each time it idles."""
 
     @pytest.fixture
     def app(self):
@@ -128,28 +130,30 @@ class TestChoosingTheVideos:
         ):
             yield k
 
-    def test_plays_every_video_the_directory_holds_and_nothing_else(
+    def test_offers_every_video_the_directory_holds_and_nothing_else(
         self, client, karaoke, video_dir
     ):
         karaoke.bg_video_path = str(video_dir)
 
-        assert sorted(_rendered_playlist(client)) == [
+        assert sorted(_rendered_choices(client)) == [
             "/stream/bg_video/one.mp4",
             "/stream/bg_video/two.webm",
         ]
 
-    def test_eventually_renders_a_different_order(self, client, karaoke, video_dir):
-        """Shuffled, not "always the same first" -- two videos, so twenty renders
-        that all agree would be a one-in-a-million coincidence."""
-        karaoke.bg_video_path = str(video_dir)
+    def test_a_folder_larger_than_the_limit_still_offers_every_video(self, tmp_path):
+        """Shuffled before the cut, so the videos past it get their turn."""
+        for name in ("a.mp4", "b.mp4", "c.mp4", "d.mp4"):
+            (tmp_path / name).write_text("a video", encoding="utf-8")
 
-        assert len({tuple(_rendered_playlist(client)) for _ in range(20)}) == 2
+        offered = {v for _ in range(20) for v in video_choices(str(tmp_path), limit=2)}
 
-    def test_a_path_naming_one_video_plays_that_video_alone(self, client, karaoke, video_dir):
-        """The --dolphly path, and the behaviour that existed before directories."""
+        assert offered == {"a.mp4", "b.mp4", "c.mp4", "d.mp4"}
+
+    def test_a_path_naming_one_video_offers_that_video_alone(self, client, karaoke, video_dir):
+        """The only shape --bg-video-path had before directories were supported."""
         karaoke.bg_video_path = str(video_dir / "one.mp4")
 
-        assert _rendered_playlist(client) == ["/stream/bg_video/one.mp4"]
+        assert _rendered_choices(client) == ["/stream/bg_video/one.mp4"]
 
     @pytest.mark.parametrize(
         "make_path",
@@ -166,4 +170,4 @@ class TestChoosingTheVideos:
         (tmp_path / "notes.txt").write_text("not a video", encoding="utf-8")
         karaoke.bg_video_path = make_path(tmp_path)
 
-        assert _rendered_playlist(client) == []
+        assert _rendered_choices(client) == []

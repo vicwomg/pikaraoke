@@ -11,7 +11,7 @@
 <script>
   // Use this config object to pass data from the jinja2 template to the splash.js code
   const PikaraokeConfig = {
-    bgVideoPlaylist: {{ bg_video_urls | tojson }},
+    bgVideoChoices: {{ bg_video_urls | tojson }},
     disableScore: "{{ disable_score }}" == 'True',
     bgMusicVolume: "{{ bg_music_volume }}" * 1,
     disableBgMusic: "{{ disable_bg_music }}" == 'True',
@@ -112,8 +112,7 @@
 </div>
 
 <div id="bg-video-container" class="video-container">
-  <video id="bg-video" poster="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" disableRemotePlayback playsinline webkit-playsinline muted loop style="object-fit: cover">
-  </video>
+  <video id="bg-video" poster="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" disableRemotePlayback playsinline webkit-playsinline muted loop style="object-fit: cover"></video>
 </div>
 
 <div id="score" style="display: none">

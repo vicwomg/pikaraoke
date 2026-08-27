@@ -283,7 +283,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     background.add_argument(
         "--bg-video-path",
         nargs="+",
-        help="Path to a custom background video for the splash screen: either a single mp4, m4v or webm file, or a directory of them to be played in a random order.",
+        help="Path to a custom background video for the splash screen. Either a single mp4, m4v or webm file, or a directory of them, one of which is picked at random each time the splash screen returns.",
         default=None,
         required=False,
     )
