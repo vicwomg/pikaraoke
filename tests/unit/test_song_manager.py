@@ -223,7 +223,7 @@ class TestRename:
 
 
 class TestRenameCollides:
-    """Only a *different* song's file is a clash. Meaningful on NTFS and APFS."""
+    """Only a different song's file is a clash, whatever the filesystem makes of case."""
 
     def test_a_free_name_does_not_collide(self, tmp_path):
         song = tmp_path / "Old.mp4"
