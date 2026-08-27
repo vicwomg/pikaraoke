@@ -211,7 +211,8 @@ def stream_bg_video():
     k = get_karaoke_instance()
     file_path = k.bg_video_path
     if k.bg_video_path is not None:
-        return send_file(os.path.abspath(file_path), mimetype="video/mp4")
+        # No mimetype: the extension decides, so a .webm is not announced as mp4.
+        return send_file(os.path.abspath(file_path))
     else:
         return Response("Background video not found.", status=404)
 
