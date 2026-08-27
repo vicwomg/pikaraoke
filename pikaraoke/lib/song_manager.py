@@ -17,6 +17,39 @@ from pikaraoke.lib.metadata_parser import (
 from pikaraoke.lib.song_list import SongList
 
 
+def _is_same_file(src: str, dst: str) -> bool:
+    """True when `dst` exists and is `src` itself, as a case-only rename's target is.
+
+    Asks the filesystem rather than comparing case: on NTFS and APFS a case-only
+    change makes the target "exist" when it is this very song, but on ext4 two
+    songs really can differ only in case, and that one is a clash.
+    """
+    return os.path.isfile(dst) and os.path.samefile(src, dst)
+
+
+def rename_collides(song_path: str, target: str) -> bool:
+    """True when `target` is a different song's file, so a rename must refuse."""
+    try:
+        return os.path.isfile(target) and not _is_same_file(song_path, target)
+    except OSError:
+        # The song went away underneath us, so `target` is not ours to take.
+        return True
+
+
+def _rename_path(src: str, dst: str) -> None:
+    """os.rename, hopping via a temp name when `dst` is `src` in another case.
+
+    NTFS and APFS do not see `A` -> `a` as a move. The temp suffix sits after
+    the media extension so a concurrent scan cannot index the hop.
+    """
+    if src != dst and _is_same_file(src, dst):
+        temp = f"{dst}.pikaraoke-tmp"
+        os.rename(src, temp)
+        os.rename(temp, dst)
+    else:
+        os.rename(src, dst)
+
+
 class SongManager:
     """Manages the song library and file operations.
 
@@ -259,16 +292,23 @@ class SongManager:
         Args:
             song_path: Full path to the current song file.
             new_name: New filename (without extension).
+
+        Raises:
+            FileExistsError: `new_name` is already another song's file.
         """
         new_name = sanitize_filename(new_name)
         logging.info(f"Renaming song: '{song_path}' to: {new_name}")
         companions = self._get_companion_files(song_path)
         dirpath = os.path.dirname(song_path)
         new_path = self.rename_target(song_path, new_name)
-        os.rename(song_path, new_path)
+        # The caller's pre-check races: POSIX os.rename replaces an existing
+        # target silently, so the last word on a clash has to be here.
+        if rename_collides(song_path, new_path):
+            raise FileExistsError(f"'{os.path.basename(new_path)}' already exists")
+        _rename_path(song_path, new_path)
         for companion in companions:
             companion_ext = os.path.splitext(companion)[1]
-            os.rename(companion, os.path.join(dirpath, new_name + companion_ext))
+            _rename_path(companion, os.path.join(dirpath, new_name + companion_ext))
         self.songs.rename(song_path, new_path)
         self._db.update_path(song_path, new_path)
         # A rename is the user correcting the name, not a display preference, so
