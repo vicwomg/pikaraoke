@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from pikaraoke.lib.events import EventSystem
-from pikaraoke.lib.song_manager import SongManager
+from pikaraoke.lib.song_manager import SongManager, rename_collides
 
 
 def _native(path: Path) -> str:
@@ -155,6 +155,15 @@ class TestRename:
         assert not song.exists()
         assert (tmp_path / "New Name---abc.mp4").exists()
 
+    def test_renames_a_song_to_the_same_name_in_another_case(self, tmp_path, mock_db):
+        """NTFS and APFS do not see this as a move, so rename hops via a temp name."""
+        song = tmp_path / "old name---abc.mp4"
+        song.write_text("fake")
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
+        sm.songs.add_if_valid(_native(song))
+        sm.rename(_native(song), "Old Name---abc")
+        assert [f.name for f in tmp_path.iterdir()] == ["Old Name---abc.mp4"]
+
     def test_renames_cdg_companion(self, tmp_path, mock_db):
         song = tmp_path / "Old---abc.mp4"
         cdg = tmp_path / "Old---abc.cdg"
@@ -211,6 +220,33 @@ class TestRename:
         sm.rename(_native(subfolder / "Old---abc.mp3"), "New---abc")
 
         assert (subfolder / "New---abc.cdg").exists()
+
+
+class TestRenameCollides:
+    """Only a *different* song's file is a clash. Meaningful on NTFS and APFS."""
+
+    def test_a_free_name_does_not_collide(self, tmp_path):
+        song = tmp_path / "Old.mp4"
+        song.write_text("fake")
+        assert not rename_collides(_native(song), _native(tmp_path / "New.mp4"))
+
+    def test_another_song_collides(self, tmp_path):
+        song = tmp_path / "Old.mp4"
+        taken = tmp_path / "Taken.mp4"
+        song.write_text("fake")
+        taken.write_text("fake")
+        assert rename_collides(_native(song), _native(taken))
+
+    def test_changing_only_the_case_does_not_collide(self, tmp_path):
+        """The target 'exists' on a case-insensitive filesystem because it is this song."""
+        song = tmp_path / "Old.mp4"
+        song.write_text("fake")
+        assert not rename_collides(_native(song), _native(tmp_path / "OLD.mp4"))
+
+    def test_a_vanished_song_cannot_claim_the_target(self, tmp_path):
+        taken = tmp_path / "Taken.mp4"
+        taken.write_text("fake")
+        assert rename_collides(_native(tmp_path / "Gone.mp4"), _native(taken))
 
 
 class TestRenameTarget:
