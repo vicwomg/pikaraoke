@@ -208,9 +208,14 @@ def translate_entry(entry: polib.POEntry, translator: GoogleTranslator) -> str |
         return None
 
 
-def auto_translate() -> None:
-    """Find untranslated and fuzzy entries in all .po files and translate them."""
+def auto_translate() -> dict[str, list[tuple[str, str]]]:
+    """Find untranslated and fuzzy entries in all .po files and translate them.
+
+    Returns the one-word strings written, keyed by msgid, for `report_one_word`.
+    """
     print("\n--- Auto-translate ---")
+
+    one_word: dict[str, list[tuple[str, str]]] = {}
 
     for locale, google_code in LOCALE_TO_GOOGLE.items():
         po_path = TRANSLATIONS_DIR / locale / "LC_MESSAGES" / "messages.po"
@@ -253,6 +258,8 @@ def auto_translate() -> None:
                         if existing
                         else AUTO_TRANSLATED_COMMENT
                     )
+                if len(entry.msgid.split()) == 1:
+                    one_word.setdefault(entry.msgid, []).append((locale, result))
                 translated_count += 1
                 print(".", end="", flush=True)
         except KeyboardInterrupt:
@@ -263,6 +270,26 @@ def auto_translate() -> None:
         print()  # newline after dots
         po.save(str(po_path))
         print(f"  {locale}: translated {translated_count}/{len(entries_to_translate)} entries")
+
+    return one_word
+
+
+def report_one_word(one_word: dict[str, list[tuple[str, str]]]) -> None:
+    """Print the one-word strings across locales, for review.
+
+    `_validate_placeholders` checks structure, not sense, and a msgid with no
+    sentence around it is where the sense goes wrong: a run returned "ETA" as the
+    name of a Thai government agency.
+    """
+    if not one_word:
+        return
+
+    print("\n--- Review: one-word strings ---")
+    for msgid in sorted(one_word):
+        print(f"\n  {msgid}")
+        for locale, msgstr in sorted(one_word[msgid]):
+            print(f"    {locale:12} {msgstr}")
+    print(f"\n  {len(one_word)} to check. Longer strings carry their own context; these do not.")
 
 
 def compile_translations() -> None:
@@ -279,6 +306,9 @@ def compile_translations() -> None:
 
 
 def main() -> None:
+    # The review report prints Thai and CJK, which a cp1252 Windows console cannot encode.
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(description="Automated translation workflow for PiKaraoke")
     parser.add_argument(
         "--extract-po-only",
@@ -306,10 +336,12 @@ def main() -> None:
         if not args.keep_obsolete:
             prune_obsolete()
 
+    one_word: dict[str, list[tuple[str, str]]] = {}
     if not args.extract_po_only:
-        auto_translate()
+        one_word = auto_translate()
 
     compile_translations()
+    report_one_word(one_word)
     print("\nDone!")
 
 
