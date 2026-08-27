@@ -5,11 +5,19 @@ import re
 import time
 
 import flask_babel
-from flask import Response, make_response, request, send_file
+from flask import (
+    Response,
+    abort,
+    make_response,
+    request,
+    send_file,
+    send_from_directory,
+)
 from flask_smorest import Blueprint
 
 _ = flask_babel.gettext
 
+from pikaraoke.lib.background_video import video_directory
 from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.file_resolver import FileResolver, get_tmp_dir
 
@@ -205,16 +213,23 @@ def stream_full(id):
     return stream_file_path_full(file_path)
 
 
-@stream_bp.route("/stream/bg_video")
-def stream_bg_video():
-    """Stream the background video file."""
+@stream_bp.route("/stream/bg_video/<file>")
+def stream_bg_video(file):
+    """Serve one background video by name.
+
+    send_from_directory, not send_file: `file` comes from the URL, and only
+    this refuses one that escapes the directory. No mimetype, so the extension
+    decides and a .webm is not announced as mp4.
+    """
     k = get_karaoke_instance()
-    file_path = k.bg_video_path
-    if k.bg_video_path is not None:
-        # No mimetype: the extension decides, so a .webm is not announced as mp4.
-        return send_file(os.path.abspath(file_path))
-    else:
-        return Response("Background video not found.", status=404)
+    path = k.bg_video_path
+    if path is None or not os.path.exists(path):
+        abort(404)
+    # A path naming one video serves that video only. Its neighbours are in the
+    # same folder, and pointing at a file is not consent to share them.
+    if os.path.isfile(path) and file != os.path.basename(path):
+        abort(404)
+    return send_from_directory(video_directory(path), file)
 
 
 # subtitle .ass

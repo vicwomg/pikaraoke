@@ -11,7 +11,7 @@ let volume = 0.85;
 const playbackStartTimeout = 10000;
 const bgMediaResumeDelay = 2000;
 let isScoreShown = false;
-const hasBgVideo = PikaraokeConfig.hasBgVideo;
+const hasBgVideo = Boolean(PikaraokeConfig.bgVideoUrl);
 let currentVideoUrl = null;
 let hlsInstance = null;
 let idleTime = 0;
@@ -172,7 +172,9 @@ const playBGVideo = async (play) => {
     if (!autoplayConfirmed) return;
 
     if (isMediaPlaying(bgVideo)) return;
-    $("#bg-video").attr("src", withBasePath("/stream/bg_video"));
+    // No withBasePath: the server built this one with url_for, which already
+    // carries the base path.
+    $("#bg-video").attr("src", PikaraokeConfig.bgVideoUrl);
     if (bgVideo.readyState <= 2) await bgVideo.load();
     bgVideo.play().catch(() => console.log("Autoplay blocked (video)"));
     bgVideoContainer.fadeIn(2000);

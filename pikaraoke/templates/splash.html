@@ -11,7 +11,7 @@
 <script>
   // Use this config object to pass data from the jinja2 template to the splash.js code
   const PikaraokeConfig = {
-    hasBgVideo: "{{ has_bg_video }}" == 'True',
+    bgVideoUrl: {{ bg_video_url | tojson }},
     disableScore: "{{ disable_score }}" == 'True',
     bgMusicVolume: "{{ bg_music_volume }}" * 1,
     disableBgMusic: "{{ disable_bg_music }}" == 'True',
