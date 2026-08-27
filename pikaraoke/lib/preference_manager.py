@@ -76,6 +76,11 @@ class PreferenceManager:
         else:
             self.config_file_path = config_file_path
 
+        # Read once, silently ignoring a missing file. This is the only instance,
+        # in one process, and every write goes through set() or clear(), which
+        # keep _config_obj current without going back to disk.
+        self._config_obj.read(self.config_file_path, encoding="utf-8")
+
         logging.debug(f"Using config file: {self.config_file_path}")
 
     def _migrate_legacy_config(self) -> None:
@@ -96,9 +101,6 @@ class PreferenceManager:
         self, preference: str, default_value: Any = None, section: str = "USERPREFERENCES"
     ) -> Any:
         """Get a preference value, auto-converting to bool/int/float."""
-        # Silently ignores missing files
-        self._config_obj.read(self.config_file_path, encoding="utf-8")
-
         if not self._config_obj.has_section(section):
             return default_value
 
