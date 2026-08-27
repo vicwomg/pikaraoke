@@ -396,8 +396,9 @@ def parse_pikaraoke_args() -> argparse.Namespace:
             os.path.dirname(__file__), "..", "static", "video", "the_drive_by_visualdon.mp4"
         )
 
-    if bg_video_path is not None and not os.path.isfile(bg_video_path):
-        print(f"Background video not found: {bg_video_path}. Setting to None")
+    if bg_video_path is not None and not os.path.exists(bg_video_path):
+        print(f"Background video not found: {bg_video_path}. Using the default.")
+        bg_video_path = None
 
     dl_path = os.path.expanduser(arg_path_parse(args.download_path) or default_dl_dir)
 
