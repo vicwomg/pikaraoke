@@ -1,6 +1,6 @@
+import logging
 import os
 import re
-import time
 import unicodedata
 
 import flask_babel
@@ -16,8 +16,10 @@ from flask_paginate import Pagination
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
+from pikaraoke.karaoke import SongInUseError
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
-from pikaraoke.lib.metadata_parser import clear_song_name_cache, get_song_correct_name
+from pikaraoke.lib.metadata_parser import get_song_correct_name, youtube_id_suffix
+from pikaraoke.lib.song_manager import rename_collides
 
 _ = flask_babel.gettext
 
@@ -230,44 +232,43 @@ def get_songs_to_rename(query):
 def rename_song(form):
     """Rename a song file."""
     k = get_karaoke_instance()
-
-    if "new_name" not in form or "old_name" not in form:
-        # MSG: Message shown after trying to edit a song without specifying the filename.
-        return jsonify(_error_response(_("Error: No filename parameters were specified!")))
-
-    new_name = form["new_name"].strip()
     old_name = form["old_name"]
+    # The proposal is a display name. The YouTube id lives only in the
+    # filename, and nothing can recover it once a rename drops it.
+    new_name = form["new_name"].strip() + youtube_id_suffix(old_name)
 
-    if k.queue_manager.is_song_in_queue(old_name):
-        # MSG: Message shown after trying to edit a song that is in the queue.
+    if k.is_song_in_use(old_name):
+        # MSG: Message shown after trying to edit a song that is queued or playing.
         return jsonify(
             _error_response(
-                _("Error: Can't edit this song because it is in the current queue: ") + old_name
+                _("Error: Can't edit this song because it is queued or playing") + ": " + old_name
             )
         )
 
-    file_extension = os.path.splitext(old_name)[1]
-    old_filename = k.song_manager.filename_from_path(old_name, remove_youtube_id=False)
-    new_full_path = os.path.join(k.song_manager.download_path, new_name + file_extension)
-    is_case_only_rename = old_filename.lower() == new_name.lower() and old_filename != new_name
-
-    # Block renaming to an existing file (unless it's just a case change)
-    if os.path.isfile(new_full_path) and not is_case_only_rename:
+    target = k.song_manager.rename_target(old_name, new_name)
+    if rename_collides(old_name, target):
         # MSG: Message shown after trying to rename a file to a name that already exists.
         return jsonify(
             _error_response(
                 _("Error renaming file: '%s' to '%s', Filename already exists")
-                % (old_name, new_name + file_extension)
+                % (old_name, os.path.basename(target))
             )
         )
 
-    if is_case_only_rename:
-        # Two-step rename for case-insensitive filesystems (e.g. Windows)
-        temp_name = f"{new_name}_temp_{int(time.time() * 1000)}"
-        k.song_manager.rename(old_name, temp_name)
-        temp_path = os.path.join(k.song_manager.download_path, temp_name + file_extension)
-        k.song_manager.rename(temp_path, new_name)
-    else:
-        k.song_manager.rename(old_name, new_name)
+    try:
+        new_path = k.rename_song(old_name, new_name)
+    except SongInUseError:
+        # MSG: Message shown when the song being renamed started playing mid-edit.
+        return jsonify(
+            _error_response(
+                _(
+                    "This song started playing while you were editing it. Rename it when it finishes."
+                )
+            )
+        )
+    except OSError as e:
+        logging.error(f"Error renaming file: {e}")
+        # MSG: Message shown after a rename failed. Followed by the system error.
+        return jsonify(_error_response(_("Error renaming file: %s") % e))
 
-    return jsonify({"success": True, "new_file_name": new_full_path})
+    return jsonify({"success": True, "new_file_name": new_path})
