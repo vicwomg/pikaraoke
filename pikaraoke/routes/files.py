@@ -13,13 +13,12 @@ from marshmallow import Schema, fields
 
 from pikaraoke.constants import ITUNES_COUNTRIES, per_page_options
 from pikaraoke.karaoke import SongInUseError
-from pikaraoke.lib.auth import host_only, public
+from pikaraoke.lib.auth import public
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
 from pikaraoke.lib.metadata_parser import youtube_id_suffix
 from pikaraoke.lib.song_manager import rename_collides
 
 _ = flask_babel.gettext
-_lazy = flask_babel.lazy_gettext
 
 # DB format values that have a matching icon in static/images/formats/
 _FORMAT_ICONS = {"mp4", "avi", "mkv", "mov", "webm", "cdg", "ass"}
@@ -210,8 +209,6 @@ def browse():
 
 
 @files_bp.route("/files/delete", methods=["POST"])
-# MSG: Message shown after trying to delete a song without admin permissions.
-@host_only(_lazy("You don't have permission to delete songs"))
 @files_bp.arguments(SongReferrerQuery, location="query")
 def delete_file(query):
     """Delete a song file."""
@@ -254,8 +251,6 @@ def _render_edit_page(k, song_path: str, new_name: str, referrer: str, error: st
 
 
 @files_bp.route("/files/edit", methods=["GET"])
-# MSG: Message shown after trying to rename a song without admin permissions.
-@host_only(_lazy("You don't have permission to rename songs"))
 @files_bp.arguments(SongReferrerQuery, location="query")
 def edit_file(query):
     """Show the song rename page."""
@@ -271,8 +266,6 @@ def edit_file(query):
 
 
 @files_bp.route("/files/edit", methods=["POST"])
-# MSG: Message shown after trying to rename a song without admin permissions.
-@host_only(_lazy("You don't have permission to rename songs"))
 @files_bp.arguments(EditFileForm, location="form")
 def rename_file(form):
     """Process a song rename.

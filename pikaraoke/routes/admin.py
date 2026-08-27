@@ -12,12 +12,11 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.karaoke import Karaoke
-from pikaraoke.lib.auth import host_only, public
+from pikaraoke.lib.auth import answers_json, public
 from pikaraoke.lib.current_app import get_admin_auth, get_karaoke_instance
 from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
 
 _ = flask_babel.gettext
-_lazy = flask_babel.lazy_gettext
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -52,8 +51,6 @@ def delayed_halt(cmd: int, k: Karaoke):
 
 
 @admin_bp.route("/update_ytdl", methods=["POST"])
-# MSG: Message shown after trying to update yt-dlp without admin permissions.
-@host_only(_lazy("You don't have permission to update yt-dlp"))
 def update_ytdl():
     """Update yt-dlp to the latest version."""
     k = get_karaoke_instance()
@@ -73,7 +70,7 @@ def update_ytdl():
 
 
 @admin_bp.route("/library_stats")
-@host_only(json=True)
+@answers_json
 def library_stats():
     """Return song count for the admin dashboard."""
     k = get_karaoke_instance()
@@ -81,7 +78,7 @@ def library_stats():
 
 
 @admin_bp.route("/sync_library", methods=["POST"])
-@host_only(json=True)
+@answers_json
 def sync_library():
     """Trigger a background library scan."""
     k = get_karaoke_instance()
@@ -92,8 +89,6 @@ def sync_library():
 
 
 @admin_bp.route("/quit", methods=["POST"])
-# MSG: Message shown after trying to quit pikaraoke without admin permissions.
-@host_only(_lazy("You don't have permission to quit"))
 def quit():
     """Exit the PiKaraoke application."""
     k = get_karaoke_instance()
@@ -106,8 +101,6 @@ def quit():
 
 
 @admin_bp.route("/shutdown", methods=["POST"])
-# MSG: Message shown after trying to shut down the system without admin permissions.
-@host_only(_lazy("You don't have permission to shut down"))
 def shutdown():
     """Shut down the host system."""
     k = get_karaoke_instance()
@@ -120,8 +113,6 @@ def shutdown():
 
 
 @admin_bp.route("/reboot", methods=["POST"])
-# MSG: Message shown after trying to reboot the system without admin permissions.
-@host_only(_lazy("You don't have permission to Reboot"))
 def reboot():
     """Reboot the host system."""
     k = get_karaoke_instance()
@@ -134,8 +125,6 @@ def reboot():
 
 
 @admin_bp.route("/expand_fs", methods=["POST"])
-# MSG: Message shown after trying to expand the filesystem without admin permissions
-@host_only(_lazy("You don't have permission to resize the filesystem"))
 def expand_fs():
     """Expand filesystem on Raspberry Pi."""
     k = get_karaoke_instance()
@@ -174,12 +163,9 @@ def auth(form):
 
 
 @admin_bp.route("/admin_password", methods=["POST"])
-# MSG: Message shown after trying to change the admin password without admin permissions.
-@host_only(_lazy("You don't have permission to change the admin password"))
 @admin_bp.arguments(AdminPasswordForm, location="form")
 def set_admin_password(form):
     """Set, change or clear the admin password without restarting."""
-
     # No current-password field: an admin session can already shut the box down.
     password = form["admin_password"]
     admin_auth = get_admin_auth()

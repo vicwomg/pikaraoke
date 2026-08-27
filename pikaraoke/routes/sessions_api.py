@@ -243,7 +243,6 @@ def update_session(form, session_uuid):
 @sessions_api_bp.arguments(ResetHistoryQuery, location="query")
 def reset_history(query):
     """Erase play history: one session's plays, or everything on record."""
-
     k = get_karaoke_instance()
     if query["scope"] == "all":
         k.play_history.clear_all_history()

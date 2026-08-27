@@ -10,7 +10,7 @@ from flask import flash, redirect, render_template, request, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
-from pikaraoke.lib.auth import host_only, public
+from pikaraoke.lib.auth import answers_json, public
 from pikaraoke.lib.current_app import (
     broadcast_event,
     get_karaoke_instance,
@@ -19,7 +19,6 @@ from pikaraoke.lib.current_app import (
 )
 
 _ = flask_babel.gettext
-_lazy = flask_babel.lazy_gettext
 
 queue_bp = Blueprint("queue", __name__)
 
@@ -72,8 +71,6 @@ def get_queue():
 
 
 @queue_bp.route("/queue/addrandom/<int:amount>", methods=["POST"])
-# MSG: Message shown after trying to add random songs without admin permissions.
-@host_only(_lazy("You don't have permission to add random songs"))
 def add_random(amount):
     """Add random songs to the queue."""
     k = get_karaoke_instance()
@@ -89,11 +86,10 @@ def add_random(amount):
 
 
 @queue_bp.route("/queue/reorder", methods=["POST"])
-@host_only(json=True)
+@answers_json
 @queue_bp.arguments(ReorderForm, location="form")
 def reorder(form):
     """Handle drag-and-drop reordering of the queue."""
-
     k = get_karaoke_instance()
     try:
         success = k.queue_manager.reorder(form["old_index"], form["new_index"])

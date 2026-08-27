@@ -24,22 +24,16 @@ def public(view: Callable) -> Callable:
     return view
 
 
-def host_only(message=None, *, json: bool = False) -> Callable:
-    """Host-only, refusing with `message` rather than the generic wording.
+def answers_json(view: Callable) -> Callable:
+    """Refuse in JSON: this endpoint returns JSON but does not sit under `/api`.
 
-    `message` takes a `lazy_gettext` string: this runs at import, before a
-    request has picked a language. Set `json` on an endpoint that always answers
-    JSON but does not sit under `/api`, where the medium would otherwise be read
-    off the request. Omitting the decorator does not open a route -- only
+    Without it the medium is read off the request, which for these routes means
+    trusting `X-Requested-With` -- correct today only because every caller
+    happens to be jQuery. Marking a route does not gate it; only omitting
     `public` does.
     """
-
-    def wrap(view: Callable) -> Callable:
-        view.pika_refusal = message
-        view.pika_refusal_json = json
-        return view
-
-    return wrap
+    view.pika_refusal_json = True
+    return view
 
 
 def install_auth_gate(app: Flask) -> None:
@@ -59,10 +53,7 @@ def install_auth_gate(app: Flask) -> None:
         # times that on a Pi, which the public routes serving HLS segments skip.
         if is_admin():
             return None
-        return _refuse(
-            getattr(view, "pika_refusal", None),
-            getattr(view, "pika_refusal_json", False),
-        )
+        return _refuse(getattr(view, "pika_refusal_json", False))
 
 
 def _wants_json() -> bool:
@@ -74,11 +65,10 @@ def _wants_json() -> bool:
     )
 
 
-def _refuse(message, force_json: bool = False):
+def _refuse(force_json: bool = False):
     """One refusal for the whole app, in the medium the caller is reading."""
     if force_json or _wants_json():
         return jsonify({"error": "Unauthorized"}), 403
-    # flash() puts the message in the session, where only str survives.
     # MSG: Message shown when someone who is not the host tries a host-only action.
-    flash(str(message) if message else _("You don't have permission to do that"), "is-danger")
+    flash(_("You don't have permission to do that"), "is-danger")
     return redirect(url_for("home.home"))

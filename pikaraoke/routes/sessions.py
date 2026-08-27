@@ -5,12 +5,11 @@ from flask import render_template
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields, validate
 
-from pikaraoke.lib.auth import host_only, public
+from pikaraoke.lib.auth import public
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
 from pikaraoke.lib.play_history_manager import SESSION_NAME_MAX_LENGTH
 
 _ = flask_babel.gettext
-_lazy = flask_babel.lazy_gettext
 
 sessions_bp = Blueprint("sessions", __name__)
 
@@ -56,8 +55,6 @@ def _filter_sessions() -> list[dict]:
 
 
 @sessions_bp.route("/sessions")
-# MSG: Message shown when a non-admin tries to open a host-only history page
-@host_only(_lazy("You don't have permission to view this page"))
 def sessions():
     """Session management: the night in progress, and every night on record."""
     return render_template(

@@ -5,7 +5,7 @@ from flask import Flask
 from flask_babel import Babel
 from flask_smorest import Api
 
-from pikaraoke.lib.auth import host_only, install_auth_gate, public
+from pikaraoke.lib.auth import answers_json, install_auth_gate, public
 from pikaraoke.routes.admin import admin_bp
 from pikaraoke.routes.background_music import background_music_bp
 from pikaraoke.routes.batch_song_renamer import batch_song_renamer_bp
@@ -126,8 +126,7 @@ def _gated_app(admin: bool):
     app.add_url_rule("/open", "open", public(lambda: "open"))
     app.add_url_rule("/closed", "closed", lambda: "closed")
     app.add_url_rule("/api/closed", "api_closed", lambda: "closed")
-    app.add_url_rule("/named", "named", host_only("bespoke refusal")(lambda: "x"))
-    app.add_url_rule("/json", "json", host_only(json=True)(lambda: "x"))
+    app.add_url_rule("/json", "json", answers_json(lambda: "x"))
     install_auth_gate(app)
     return app
 
@@ -165,10 +164,11 @@ class TestRefusal:
         assert response.status_code == 403
         assert response.get_json() == {"error": "Unauthorized"}
 
-    def test_a_bespoke_message_survives(self, guest):
-        guest.get("/named")
+    def test_a_page_refusal_says_so(self, guest):
+        """The redirect carries the reason, or it reads as a broken link."""
+        guest.get("/closed")
         with guest.session_transaction() as session:
-            assert "bespoke refusal" in str(session["_flashes"])
+            assert "permission" in str(session["_flashes"])
 
     def test_an_unmatched_path_is_a_404_not_a_refusal(self, guest):
         assert guest.get("/nothing-here").status_code == 404
