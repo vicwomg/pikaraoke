@@ -23,10 +23,10 @@ def karaoke():
         yield k
 
 
-def _a_file(tmp_path):
-    track = tmp_path / "song.mp3"
-    track.write_text("audio", encoding="utf-8")
-    return str(track)
+def _a_file_that_is_not_a_track(tmp_path):
+    notes = tmp_path / "notes.txt"
+    notes.write_text("not audio", encoding="utf-8")
+    return str(notes)
 
 
 @pytest.fixture
@@ -88,12 +88,10 @@ class TestBackgroundPlaylist:
         [
             pytest.param(lambda tmp_path: None, id="unset"),
             pytest.param(lambda tmp_path: str(tmp_path / "nope"), id="missing"),
-            pytest.param(_a_file, id="a-file-not-a-directory"),
+            pytest.param(_a_file_that_is_not_a_track, id="not-a-track"),
         ],
     )
-    def test_a_path_that_is_not_a_directory_is_an_empty_playlist(
-        self, client, karaoke, tmp_path, make_path
-    ):
+    def test_a_path_with_no_tracks_is_an_empty_playlist(self, client, karaoke, tmp_path, make_path):
         karaoke.bg_music_path = make_path(tmp_path)
 
         assert client.get("/bg_playlist").get_json() == []
@@ -124,3 +122,27 @@ class TestBackgroundPlaylist:
         (url,) = client.get("/bg_playlist").get_json()
 
         assert client.get(url).get_data(as_text=True) == name
+
+
+class TestBackgroundMusicPathNamingOneTrack:
+    """--bg-music-path may name a single track rather than a folder of them."""
+
+    @pytest.fixture
+    def single_track(self, karaoke, tmp_path):
+        track = tmp_path / "just this one.mp3"
+        track.write_text("the-only-track", encoding="utf-8")
+        (tmp_path / "neighbour.mp3").write_text("not-listed", encoding="utf-8")
+        karaoke.bg_music_path = str(track)
+        return track
+
+    def test_the_playlist_is_that_track_alone(self, client, single_track):
+        assert client.get("/bg_playlist").get_json() == ["/bg_music/just%20this%20one.mp3"]
+
+    def test_the_listed_url_serves_it(self, client, single_track):
+        (url,) = client.get("/bg_playlist").get_json()
+
+        assert client.get(url).get_data(as_text=True) == "the-only-track"
+
+    def test_a_neighbour_in_the_same_folder_is_not_served(self, client, single_track):
+        """Naming one track is not consent to share the rest of its folder."""
+        assert client.get("/bg_music/neighbour.mp3").status_code == 404
