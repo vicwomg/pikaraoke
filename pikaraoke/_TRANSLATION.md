@@ -66,6 +66,12 @@ python build_scripts/update_translations.py --keep-obsolete
 Auto-translated entries are marked with an `# auto-translated` translator
 comment. Search for this comment to find entries that need human review.
 
+The run ends by listing every one-word string it translated, side by side
+across locales. Those are where machine translation goes wrong: a longer
+string carries its own context, but a bare label does not, and a run
+returned `ETA` as the name of a Thai government agency. Read that list
+before committing.
+
 Obsolete entries (`#~` prefixed, left behind when a `msgid` is removed or
 changed beyond recognition) are pruned automatically during the update step.
 Pass `--keep-obsolete` to retain them.

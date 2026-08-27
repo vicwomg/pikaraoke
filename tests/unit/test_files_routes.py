@@ -452,6 +452,14 @@ class TestRenameFailuresKeepYourWork:
         assert "already exists" in response.data.decode()
         k.rename_song.assert_not_called()
 
+    def test_changing_only_the_case_is_not_a_collision(self, client, app, existing_song):
+        """On NTFS and APFS the target 'exists' only because it is this very song."""
+        k = _karaoke_for_rename()
+        new_name = existing_song.stem.upper()
+        response = self._submit(client, k, existing_song, new_file_name=new_name)
+        assert response.status_code == 302
+        k.rename_song.assert_called_once_with(str(existing_song), new_name)
+
     def test_saving_the_name_it_already_has_is_not_a_collision(self, client, app, existing_song):
         """A song that already fits the naming convention is done, not in conflict with itself."""
         k = _karaoke_for_rename()
