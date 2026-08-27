@@ -164,6 +164,23 @@ class TestRename:
         sm.rename(_native(song), "Old Name---abc")
         assert [f.name for f in tmp_path.iterdir()] == ["Old Name---abc.mp4"]
 
+    def test_a_song_already_at_the_target_is_never_overwritten(self, tmp_path, mock_db):
+        """The route checks first, but that check is outside the lock this runs under."""
+        song = tmp_path / "Old---abc.mp4"
+        taken = tmp_path / "Taken---def.mp4"
+        song.write_text("fake")
+        taken.write_text("keep me")
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
+        sm.songs.add_if_valid(_native(song))
+
+        with pytest.raises(FileExistsError) as excinfo:
+            sm.rename(_native(song), "Taken---def")
+
+        # Our refusal, not the one os.rename raises for itself on Windows only.
+        assert "'Taken---def.mp4' already exists" in str(excinfo.value)
+        assert taken.read_text() == "keep me"
+        assert song.exists()
+
     def test_renames_cdg_companion(self, tmp_path, mock_db):
         song = tmp_path / "Old---abc.mp4"
         cdg = tmp_path / "Old---abc.cdg"

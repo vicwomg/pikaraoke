@@ -292,12 +292,19 @@ class SongManager:
         Args:
             song_path: Full path to the current song file.
             new_name: New filename (without extension).
+
+        Raises:
+            FileExistsError: `new_name` is already another song's file.
         """
         new_name = sanitize_filename(new_name)
         logging.info(f"Renaming song: '{song_path}' to: {new_name}")
         companions = self._get_companion_files(song_path)
         dirpath = os.path.dirname(song_path)
         new_path = self.rename_target(song_path, new_name)
+        # The caller's pre-check races: POSIX os.rename replaces an existing
+        # target silently, so the last word on a clash has to be here.
+        if rename_collides(song_path, new_path):
+            raise FileExistsError(f"'{os.path.basename(new_path)}' already exists")
         _rename_path(song_path, new_path)
         for companion in companions:
             companion_ext = os.path.splitext(companion)[1]
