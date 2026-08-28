@@ -49,7 +49,7 @@ repos:
     name: Format Markdown Files
     additional_dependencies:
     - mdformat-black
-    args: [--number]
+    args: [--number, --end-of-line=keep]
 
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v4.5.0
