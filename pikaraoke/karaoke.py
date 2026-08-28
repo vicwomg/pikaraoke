@@ -234,7 +234,8 @@ class Karaoke:
             self.download_path,
             db=self.db,
             events=self.events,
-            get_title_tidy=lambda: self.enable_title_tidy,
+            # Preference attributes are set on self by PreferenceManager.load().
+            get_title_tidy=lambda: self.enable_title_tidy,  # pylint: disable=no-member
         )
         self._scanner = LibraryScanner(self.db)
         self._sync_lock = threading.Lock()
