@@ -275,6 +275,15 @@ class TestGetStreamUrl:
             assert "[vcodec!=none][acodec!=none]" in fmt
 
     @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
+    def test_requests_android_player_client(self, mock_js):
+        """Test the client is pinned; the default resolves itag 18 then is refused on it."""
+        with self._run_with_output(b"https://rr1.googlevideo.com/videoplayback?x=1\n") as mock_run:
+            with self._serving(True):
+                get_stream_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+            cmd = mock_run.call_args[0][0]
+            assert cmd[cmd.index("--extractor-args") + 1] == "youtube:player_client=android"
+
+    @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
     def test_returns_progressive_url(self, mock_js):
         """Test that a verified progressive URL is returned."""
         url = "https://rr1.googlevideo.com/videoplayback?itag=18"
