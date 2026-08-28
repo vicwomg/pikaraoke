@@ -24,7 +24,8 @@ _HAS_PACTL = is_linux() and shutil.which("pactl") is not None
 # so default it to the running user's runtime dir. Child pactl processes inherit
 # os.environ, so setting it here is enough.
 if _HAS_PACTL and not os.environ.get("XDG_RUNTIME_DIR"):
-    os.environ["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"
+    # os.getuid is Unix-only; the _HAS_PACTL guard keeps this off Windows.
+    os.environ["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"  # pylint: disable=no-member
     logging.info(
         "XDG_RUNTIME_DIR was unset; defaulting to %s for pactl",
         os.environ["XDG_RUNTIME_DIR"],
@@ -32,6 +33,7 @@ if _HAS_PACTL and not os.environ.get("XDG_RUNTIME_DIR"):
 
 # sounddevice is only needed on non-Linux platforms
 _SOUNDDEVICE_AVAILABLE = False
+sd = None
 if not _HAS_PACTL:
     try:
         import sounddevice as sd

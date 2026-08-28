@@ -30,14 +30,17 @@ repos:
     name: Format Python Code
     args: [--line-length, '100']
 
-- repo: https://github.com/PyCQA/pylint
-  rev: v3.0.1
+  # Run from the project environment, not an isolated one: pylint infers types
+  # through imports, and without the project's dependencies installed it reports
+  # 163 spurious import-errors instead of real findings.
+- repo: local
   hooks:
   - id: pylint
     name: Lint Python Code
-    entry: bash -c 'echo $PATH'
+    entry: uv run --group translations pylint --rcfile=code_quality/.pylintrc
     language: system
     types: [python]
+    require_serial: true
 
 - repo: https://github.com/executablebooks/mdformat
   rev: 0.7.17

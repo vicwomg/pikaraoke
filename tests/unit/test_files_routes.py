@@ -384,7 +384,7 @@ class TestRenamePermission:
         response = _post_rename(client, k, admin=False, referrer="/queue")
         assert response.status_code == 302
         assert response.headers["Location"] == "/"
-        k.song_manager.rename.assert_not_called()
+        k.song_manager.rename.assert_not_called()  # pylint: disable=no-member
 
 
 class TestRenameThePlayingSong:
