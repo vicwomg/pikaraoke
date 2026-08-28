@@ -83,7 +83,7 @@ def splash():
             )
             if "Mode:Master" in status:
                 # handle raspiwifi connection mode
-                text = get_raspi_wifi_text()
+                text = get_raspi_wifi_text(k.url)
 
     return render_template(
         "splash.html",
