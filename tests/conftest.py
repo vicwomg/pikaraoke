@@ -35,7 +35,11 @@ _BASE_TEMPLATE_ENDPOINTS = [
 
 
 class StubAdminAuth:
-    """Just enough of AdminAuth for is_admin() to answer a fixed way."""
+    """Just enough of AdminAuth for is_admin() to answer a fixed way.
+
+    No password set means everyone is an admin; a password set that no session
+    token matches means nobody is.
+    """
 
     def __init__(self, admin: bool) -> None:
         self._admin = admin
@@ -66,8 +70,7 @@ def make_route_app(blueprint, linked_endpoints, admin: bool = True):
         # The blueprint under test defines some of these for real; stubbing over
         # one would replace the view the test is exercising.
         if endpoint not in app.view_functions:
-            stub = public(lambda: "")
-            app.add_url_rule(rule, endpoint, stub, methods=["GET"])
+            app.add_url_rule(rule, endpoint, public(lambda: ""), methods=["GET"])
 
     @app.context_processor
     def inject_path_config():
@@ -75,7 +78,7 @@ def make_route_app(blueprint, linked_endpoints, admin: bool = True):
 
     # app.py binds these at import for the same reason: base.html calls them on
     # every render, so a page rendered without them fails on an undefined name.
-    # Off by default -- a test that wants the admin or KJ markup overrides them.
+    # The session pair is off unless a test overrides it.
     app.jinja_env.globals.update(
         url_escape=quote,
         is_admin=lambda: admin,

@@ -8,6 +8,7 @@ from collections.abc import Callable
 
 import flask_babel
 from flask import Flask, flash, jsonify, redirect, request, url_for
+from flask.typing import ResponseReturnValue
 
 from pikaraoke.lib.current_app import is_admin
 
@@ -40,7 +41,7 @@ def install_auth_gate(app: Flask) -> None:
     """Refuse every request whose endpoint is not marked `@public`."""
 
     @app.before_request
-    def require_admin():
+    def require_admin() -> ResponseReturnValue | None:
         # An unmatched rule is a 404, and Flask's to answer.
         if request.endpoint is None:
             return None
@@ -56,18 +57,15 @@ def install_auth_gate(app: Flask) -> None:
         return _refuse(getattr(view, "pika_refusal_json", False))
 
 
-def _wants_json() -> bool:
-    """Whether the caller reads a JSON body rather than a rendered page."""
-    return (
-        request.path.startswith("/api/")
+def _refuse(force_json: bool) -> ResponseReturnValue:
+    """One refusal for the whole app, in the medium the caller is reading."""
+    wants_json = (
+        force_json
+        or request.path.startswith("/api/")
         or request.headers.get("X-Requested-With") == "XMLHttpRequest"
         or request.accept_mimetypes.best == "application/json"
     )
-
-
-def _refuse(force_json: bool = False):
-    """One refusal for the whole app, in the medium the caller is reading."""
-    if force_json or _wants_json():
+    if wants_json:
         return jsonify({"error": "Unauthorized"}), 403
     # MSG: Message shown when someone who is not the host tries a host-only action.
     flash(_("You don't have permission to do that"), "is-danger")

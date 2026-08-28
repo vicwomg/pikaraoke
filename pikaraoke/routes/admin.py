@@ -88,40 +88,34 @@ def sync_library():
     return jsonify({"status": "already_syncing"})
 
 
+def _announce_halt(cmd: int, message: str):
+    """Tell every screen in the room, then halt once the page has rendered."""
+    k = get_karaoke_instance()
+    flash(message, "is-danger")
+    k.send_notification(message, "danger")
+    threading.Thread(target=delayed_halt, args=[cmd, k]).start()
+    return redirect(url_for("home.home"))
+
+
 @admin_bp.route("/quit", methods=["POST"])
 def quit():
     """Exit the PiKaraoke application."""
-    k = get_karaoke_instance()
-    msg = _("Exiting pikaraoke now!")
-    flash(msg, "is-danger")
-    k.send_notification(msg, "danger")
-    th = threading.Thread(target=delayed_halt, args=[0, k])
-    th.start()
-    return redirect(url_for("home.home"))
+    # MSG: Message shown after quitting pikaraoke.
+    return _announce_halt(0, _("Exiting pikaraoke now!"))
 
 
 @admin_bp.route("/shutdown", methods=["POST"])
 def shutdown():
     """Shut down the host system."""
-    k = get_karaoke_instance()
-    msg = _("Shutting down system now!")
-    flash(msg, "is-danger")
-    k.send_notification(msg, "danger")
-    th = threading.Thread(target=delayed_halt, args=[1, k])
-    th.start()
-    return redirect(url_for("home.home"))
+    # MSG: Message shown after shutting down the system.
+    return _announce_halt(1, _("Shutting down system now!"))
 
 
 @admin_bp.route("/reboot", methods=["POST"])
 def reboot():
     """Reboot the host system."""
-    k = get_karaoke_instance()
-    msg = _("Rebooting system now!")
-    flash(msg, "is-danger")
-    k.send_notification(msg, "danger")
-    th = threading.Thread(target=delayed_halt, args=[2, k])
-    th.start()
-    return redirect(url_for("home.home"))
+    # MSG: Message shown after rebooting the system.
+    return _announce_halt(2, _("Rebooting system now!"))
 
 
 @admin_bp.route("/expand_fs", methods=["POST"])

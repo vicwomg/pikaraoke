@@ -1,4 +1,4 @@
-"""Admin-only API for play history: sessions, plays, singers, and CSV export."""
+"""API for play history: sessions, plays, singers, and CSV export."""
 
 import csv
 import io
