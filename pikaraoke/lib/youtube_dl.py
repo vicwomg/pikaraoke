@@ -251,16 +251,23 @@ PREVIEW_FORMAT = (
     "/worst[protocol=https][vcodec!=none][acodec!=none]"
 )
 
-# YouTube answers 403 to a freshly resolved itag 18 URL often enough that it has to be
-# proven here: downloads survive it by retrying, a <video> element gets one attempt.
-# Two consecutive refusals then a working URL is a routinely observed sequence.
+# The SABR rollout is session-dependent, so even a good client is occasionally refused,
+# and a <video> element gets one attempt at a bad URL.
 _PREVIEW_ATTEMPTS = 3
 _VERIFY_TIMEOUT_SECONDS = 5
 
 
 def _resolve_stream_url(video_url: str) -> str | None:
     """Ask yt-dlp for a progressive stream URL. No guarantee it will serve bytes."""
-    cmd = yt_dlp_cmd + ["-g", "-f", PREVIEW_FORMAT] + _js_runtime_args()
+    # YouTube refuses the stream URLs yt-dlp's default client resolves, but serves android's.
+    cmd = yt_dlp_cmd + [
+        "-g",
+        "-f",
+        PREVIEW_FORMAT,
+        "--extractor-args",
+        "youtube:player_client=android",
+    ]
+    cmd += _js_runtime_args()
     cmd += [video_url]
     logging.debug(f"yt-dlp get stream URL command: {' '.join(cmd)}")
     try:
