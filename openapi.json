@@ -1385,7 +1385,6 @@
           }
         },
         "summary": "Erase play history: one session's plays, or everything on record.",
-        "description": "Gated here as well as by the blueprint. The Play History page is already\nopen to the whole room, so the blueprint's allowlist is the only thing\nstanding between a guest and this; an irreversible delete does not rest on\none line in a set literal.",
         "tags": [
           "sessions_api"
         ]
