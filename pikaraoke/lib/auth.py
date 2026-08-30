@@ -25,18 +25,6 @@ def public(view: Callable) -> Callable:
     return view
 
 
-def answers_json(view: Callable) -> Callable:
-    """Refuse in JSON: this endpoint returns JSON but does not sit under `/api`.
-
-    Without it the medium is read off the request, which for these routes means
-    trusting `X-Requested-With` -- correct today only because every caller
-    happens to be jQuery. Marking a route does not gate it; only omitting
-    `public` does.
-    """
-    view.pika_refusal_json = True
-    return view
-
-
 def install_auth_gate(app: Flask) -> None:
     """Refuse every request whose endpoint is not marked `@public`."""
 
@@ -54,18 +42,17 @@ def install_auth_gate(app: Flask) -> None:
         # times that on a Pi, which the public routes serving HLS segments skip.
         if is_admin():
             return None
-        return _refuse(getattr(view, "pika_refusal_json", False))
+        return _refuse()
 
 
-def _refuse(force_json: bool) -> ResponseReturnValue:
-    """One refusal for the whole app, in the medium the caller is reading."""
-    wants_json = (
-        force_json
-        or request.path.startswith("/api/")
-        or request.headers.get("X-Requested-With") == "XMLHttpRequest"
-        or request.accept_mimetypes.best == "application/json"
-    )
-    if wants_json:
+def _refuse() -> ResponseReturnValue:
+    """One refusal for the whole app, in the medium the caller is reading.
+
+    The path is the whole answer: every JSON route sits under `/api` and no page
+    does, which `test_route_mediums.py` holds the tree to. Nothing is left to
+    guess from the request headers.
+    """
+    if request.path.startswith("/api/"):
         return jsonify({"error": "Unauthorized"}), 403
     # MSG: Message shown when someone who is not the host tries a host-only action.
     flash(_("You don't have permission to do that"), "is-danger")

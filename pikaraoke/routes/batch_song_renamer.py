@@ -10,7 +10,6 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.karaoke import SongInUseError
-from pikaraoke.lib.auth import answers_json
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
 from pikaraoke.lib.metadata_parser import get_song_correct_name, youtube_id_suffix
 from pikaraoke.lib.song_manager import rename_collides
@@ -213,7 +212,6 @@ def get_songs_to_rename(query):
 
 
 @batch_song_renamer_bp.route("/api/batch-song-renamer/rename-song", methods=["POST"])
-@answers_json
 @batch_song_renamer_bp.arguments(RenameSongForm, location="form")
 def rename_song(form):
     """Rename a song file."""

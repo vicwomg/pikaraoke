@@ -5,7 +5,7 @@ from flask import Flask
 from flask_babel import Babel
 from flask_smorest import Api
 
-from pikaraoke.lib.auth import answers_json, install_auth_gate, public
+from pikaraoke.lib.auth import install_auth_gate, public
 from pikaraoke.routes import API_BLUEPRINTS, INTERNAL_BLUEPRINTS
 from tests.conftest import StubAdminAuth
 
@@ -88,7 +88,6 @@ def _gated_app(admin: bool):
     app.add_url_rule("/open", "open", public(lambda: "open"))
     app.add_url_rule("/closed", "closed", lambda: "closed")
     app.add_url_rule("/api/closed", "api_closed", lambda: "closed")
-    app.add_url_rule("/json", "json", answers_json(lambda: "x"))
     install_auth_gate(app)
     return app
 
@@ -116,15 +115,10 @@ class TestRefusal:
         assert response.status_code == 403
         assert response.get_json() == {"error": "Unauthorized"}
 
-    def test_an_xhr_refuses_in_json(self, guest):
+    def test_a_page_refusal_ignores_an_xhr_header(self, guest):
+        """The path decides. A page is a page however the browser asked for it."""
         response = guest.get("/closed", headers={"X-Requested-With": "XMLHttpRequest"})
-        assert response.status_code == 403
-
-    def test_a_json_route_refuses_in_json_without_sniffing(self, guest):
-        """Declared rather than guessed: no /api prefix, no XHR header."""
-        response = guest.get("/json")
-        assert response.status_code == 403
-        assert response.get_json() == {"error": "Unauthorized"}
+        assert response.status_code == 302
 
     def test_a_page_refusal_says_so(self, guest):
         """The redirect carries the reason, or it reads as a broken link."""

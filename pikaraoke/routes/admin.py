@@ -12,7 +12,7 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.karaoke import Karaoke
-from pikaraoke.lib.auth import answers_json, public
+from pikaraoke.lib.auth import public
 from pikaraoke.lib.current_app import get_admin_auth, get_karaoke_instance
 from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
 
@@ -70,7 +70,6 @@ def update_ytdl():
 
 
 @admin_bp.route("/api/library_stats")
-@answers_json
 def library_stats():
     """Return song count for the admin dashboard."""
     k = get_karaoke_instance()
@@ -78,7 +77,6 @@ def library_stats():
 
 
 @admin_bp.route("/api/sync_library", methods=["POST"])
-@answers_json
 def sync_library():
     """Trigger a background library scan."""
     k = get_karaoke_instance()

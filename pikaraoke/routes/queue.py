@@ -10,7 +10,7 @@ from flask import flash, jsonify, redirect, render_template, request, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
-from pikaraoke.lib.auth import answers_json, public
+from pikaraoke.lib.auth import public
 from pikaraoke.lib.current_app import (
     broadcast_event,
     get_karaoke_instance,
@@ -86,7 +86,6 @@ def add_random(amount):
 
 
 @queue_bp.route("/api/queue/reorder", methods=["POST"])
-@answers_json
 @queue_bp.arguments(ReorderForm, location="form")
 def reorder(form):
     """Handle drag-and-drop reordering of the queue."""
