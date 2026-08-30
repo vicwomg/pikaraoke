@@ -1659,11 +1659,6 @@
             "type": "string",
             "default": "",
             "description": "Admin password"
-          },
-          "next": {
-            "type": "string",
-            "default": "/",
-            "description": "URL to redirect to after login"
           }
         },
         "additionalProperties": false
