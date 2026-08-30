@@ -8,11 +8,7 @@ prefetchers, previews and proxy retries are free to replay unasked.
 """
 
 import pytest
-import werkzeug
 from flask import Flask
-
-if not hasattr(werkzeug, "__version__"):
-    werkzeug.__version__ = "3.0.0"
 
 from pikaraoke.routes.admin import admin_bp
 from pikaraoke.routes.controller import controller_bp

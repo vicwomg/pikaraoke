@@ -3,11 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-import werkzeug
 from flask import Flask
-
-if not hasattr(werkzeug, "__version__"):
-    werkzeug.__version__ = "3.0.0"
 
 from pikaraoke.lib.auth import install_auth_gate
 from pikaraoke.lib.preference_manager import PreferenceManager

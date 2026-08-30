@@ -4,12 +4,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-import werkzeug
 from flask import Flask
-
-# Monkeypatch werkzeug.__version__ for Flask compatibility if missing
-if not hasattr(werkzeug, "__version__"):
-    werkzeug.__version__ = "3.0.0"
 
 from pikaraoke.routes.now_playing import nowplaying_bp
 

@@ -3,12 +3,8 @@
 import datetime
 
 import pytest
-import werkzeug
 from flask import Flask
 from flask_babel import Babel
-
-if not hasattr(werkzeug, "__version__"):
-    werkzeug.__version__ = "3.0.0"
 
 from pikaraoke.lib.admin_auth import AdminAuth
 from pikaraoke.lib.auth import install_auth_gate, public

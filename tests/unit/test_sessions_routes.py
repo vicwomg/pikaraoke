@@ -5,17 +5,10 @@ endpoint in these blueprints must be closed to non-admins.
 """
 
 import json
-
-import pytest
-import werkzeug
-from flask import Flask
-
-# Monkeypatch werkzeug.__version__ for Flask compatibility if missing
-if not hasattr(werkzeug, "__version__"):
-    werkzeug.__version__ = "3.0.0"
-
 from unittest.mock import MagicMock, patch
 
+import pytest
+from flask import Flask
 from flask_babel import Babel
 
 from pikaraoke.lib.admin_auth import AdminAuth
