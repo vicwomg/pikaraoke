@@ -23,27 +23,29 @@ from pikaraoke.routes.sessions_api import sessions_api_bp
 from pikaraoke.routes.splash import splash_bp
 from pikaraoke.routes.stream import stream_bp
 
-# Shown in /apidocs when swagger is enabled.
+# Shown in /apidocs when swagger is enabled: each carries at least one /api/
+# route, which is where a route answering a program lives.
 API_BLUEPRINTS = [
     queue_bp,
     search_bp,
-    files_bp,
     preferences_bp,
     admin_bp,
-    controller_bp,
     background_music_bp,
-    images_bp,
     nowplaying_bp,
-    stream_bp,
     metadata_bp,
     sessions_api_bp,
 ]
 
-# Hidden from /apidocs.
+# Hidden from /apidocs. The last three do carry an /api/ route, hidden with the
+# page they sit beside because the rule above is per blueprint, not per route.
 INTERNAL_BLUEPRINTS = [
     home_bp,
+    sessions_bp,
+    files_bp,
+    controller_bp,
+    images_bp,
+    stream_bp,
     info_bp,
     splash_bp,
     batch_song_renamer_bp,
-    sessions_bp,
 ]
