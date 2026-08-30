@@ -7,7 +7,7 @@ import threading
 import time
 
 import flask_babel
-from flask import flash, jsonify, redirect, session, url_for
+from flask import Response, flash, jsonify, redirect, session, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
@@ -88,7 +88,7 @@ def sync_library():
     return jsonify({"status": "already_syncing"})
 
 
-def _announce_halt(cmd: int, message: str):
+def _announce_halt(cmd: int, message: str) -> Response:
     """Tell every screen in the room, then halt once the page has rendered."""
     k = get_karaoke_instance()
     flash(message, "is-danger")
