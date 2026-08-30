@@ -1,5 +1,39 @@
 # Changelog
 
+## [1.23.0](https://github.com/vicwomg/pikaraoke/compare/1.22.0...1.23.0) (2026-08-28)
+
+
+### Features
+
+* set the admin password without restarting ([#896](https://github.com/vicwomg/pikaraoke/issues/896)) ([6b3cae8](https://github.com/vicwomg/pikaraoke/commit/6b3cae8fd53d460271197f2ccff1c8b981519c48))
+
+
+### Bug Fixes
+
+* block background music path traversal ([#884](https://github.com/vicwomg/pikaraoke/issues/884)) ([c445870](https://github.com/vicwomg/pikaraoke/commit/c4458707a5c175969098aed653f7dbdc33377eb1))
+* default download format ([#883](https://github.com/vicwomg/pikaraoke/issues/883)) ([780c55d](https://github.com/vicwomg/pikaraoke/commit/780c55d7b81f6c1e0bf984736489f52fb6e9fecc))
+* give headings a consistent scale and a single owner ([#891](https://github.com/vicwomg/pikaraoke/issues/891)) ([8872a32](https://github.com/vicwomg/pikaraoke/commit/8872a32a7315fff205e077d6e95f4a6490f9d824))
+* loosen exact pins so Dependabot can resolve ([#882](https://github.com/vicwomg/pikaraoke/issues/882)) ([ca26647](https://github.com/vicwomg/pikaraoke/commit/ca26647ae2e40788349c7565479265c31d4f5894))
+* put the download bar on one honest scale ([#889](https://github.com/vicwomg/pikaraoke/issues/889)) ([1f315b8](https://github.com/vicwomg/pikaraoke/commit/1f315b8eadec679b746152a04768cfe1ca277285))
+* rename a song to another case without refusing ([#905](https://github.com/vicwomg/pikaraoke/issues/905)) ([d088faa](https://github.com/vicwomg/pikaraoke/commit/d088faa5f8a01f3cf4945295287b233fae5256ae))
+* require POST for the host-only routes that change state ([#886](https://github.com/vicwomg/pikaraoke/issues/886)) ([5af2de0](https://github.com/vicwomg/pikaraoke/commit/5af2de08c3686bdd973282f978abea721077c693))
+* require POST for the playback control routes ([#895](https://github.com/vicwomg/pikaraoke/issues/895)) ([4bf9215](https://github.com/vicwomg/pikaraoke/commit/4bf921510e10b2bb8ccd9c251b13e7532bbc8060))
+* resolve previews under the android client ([#910](https://github.com/vicwomg/pikaraoke/issues/910)) ([3d73fb5](https://github.com/vicwomg/pikaraoke/commit/3d73fb53c791152bfac915db56381dc4c7dd64a5))
+* set SameSite and HttpOnly on the admin cookie ([#885](https://github.com/vicwomg/pikaraoke/issues/885)) ([cccd1ee](https://github.com/vicwomg/pikaraoke/commit/cccd1ee27f0927b7e85392a35170f0eb3067ffaf))
+* stop a raced rename overwriting a song ([#907](https://github.com/vicwomg/pikaraoke/issues/907)) ([a7ca0b1](https://github.com/vicwomg/pikaraoke/commit/a7ca0b1f2ea13a68564e28c8c6dad49f286a119a))
+* stop the batch renamer dropping YouTube ids ([#906](https://github.com/vicwomg/pikaraoke/issues/906)) ([4a525a1](https://github.com/vicwomg/pikaraoke/commit/4a525a13570a62aa14e6513aa4a5c3973ea53399))
+
+
+### Performance Improvements
+
+* read config.ini once, not on every get ([#901](https://github.com/vicwomg/pikaraoke/issues/901)) ([701c094](https://github.com/vicwomg/pikaraoke/commit/701c094c28de3618f74e13f54ca3560733b9ea28))
+
+
+### Documentation
+
+* fix the dead links in the README ([#897](https://github.com/vicwomg/pikaraoke/issues/897)) ([8901fdc](https://github.com/vicwomg/pikaraoke/commit/8901fdce07c267a975ed6dd862860af21736aa09))
+* refresh the README screenshots and note session management ([#890](https://github.com/vicwomg/pikaraoke/issues/890)) ([f7d40e7](https://github.com/vicwomg/pikaraoke/commit/f7d40e7fd93776d4b06f5057cd504c31ad28c68f))
+
 ## [1.22.0](https://github.com/vicwomg/pikaraoke/compare/1.21.0...1.22.0) (2026-08-19)
 
 

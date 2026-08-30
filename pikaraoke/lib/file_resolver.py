@@ -123,7 +123,7 @@ class FileResolver:
         """
         create_tmp_dir()
         self.tmp_dir = get_tmp_dir()
-        self.resolved_file_path = self.process_file(file_path)
+        self.process_file(file_path)
         # Include timestamp to ensure unique stream UIDs for repeated plays
         unique_string = f"{file_path}_{time.time()}"
         self.stream_uid = string_to_hash(unique_string)

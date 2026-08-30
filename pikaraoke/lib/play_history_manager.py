@@ -281,12 +281,10 @@ class PlayHistoryManager:
     def get_current_session(self) -> dict | None:
         """Return the open session, or None if none is active."""
         if not self._session_cached:
-            rows = self.db.query(
-                f"""
+            rows = self.db.query(f"""
                 SELECT id, uuid, name, {_local("started_at", "started_at")}, ended_at
                 FROM sessions WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1
-                """
-            )
+                """)
             self._cached_session = dict(rows[0]) if rows else None
             self._session_cached = True
         return self._cached_session

@@ -34,6 +34,11 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-pre-commit-
 
+    - name: Install uv
+      # The pylint hook runs from the project environment, so uv must resolve it.
+      # setup-uv stopped publishing moving major tags at v8, so pin the exact version.
+      uses: astral-sh/setup-uv@v9.0.0
+
     - name: Install Requirements
       run: python3 -m pip install docstr-coverage==2.3.2 pre-commit==3.7.1
 
@@ -44,9 +49,7 @@ jobs:
     - name: Docstring Coverage
       run: |
         mkdir -p docs/badges/ docstr
-        mv code_quality/.docstr.yaml . # --config option didn't work
-        docstr-coverage 2>&1 | tee docstr/docstring_coverage.txt
-        ls docs/badges
+        docstr-coverage --config code_quality/.docstr.yaml pikaraoke/ 2>&1 | tee docstr/docstring_coverage.txt
 
   commitlint:
     runs-on: ubuntu-latest
