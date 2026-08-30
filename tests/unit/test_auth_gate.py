@@ -6,23 +6,7 @@ from flask_babel import Babel
 from flask_smorest import Api
 
 from pikaraoke.lib.auth import answers_json, install_auth_gate, public
-from pikaraoke.routes.admin import admin_bp
-from pikaraoke.routes.background_music import background_music_bp
-from pikaraoke.routes.batch_song_renamer import batch_song_renamer_bp
-from pikaraoke.routes.controller import controller_bp
-from pikaraoke.routes.files import files_bp
-from pikaraoke.routes.home import home_bp
-from pikaraoke.routes.images import images_bp
-from pikaraoke.routes.info import info_bp
-from pikaraoke.routes.metadata_api import metadata_bp
-from pikaraoke.routes.now_playing import nowplaying_bp
-from pikaraoke.routes.preferences import preferences_bp
-from pikaraoke.routes.queue import queue_bp
-from pikaraoke.routes.search import search_bp
-from pikaraoke.routes.sessions import sessions_bp
-from pikaraoke.routes.sessions_api import sessions_api_bp
-from pikaraoke.routes.splash import splash_bp
-from pikaraoke.routes.stream import stream_bp
+from pikaraoke.routes import API_BLUEPRINTS, INTERNAL_BLUEPRINTS
 from tests.conftest import StubAdminAuth
 
 
@@ -30,30 +14,18 @@ from tests.conftest import StubAdminAuth
 def real_app():
     """Every blueprint the app registers, wired the same way.
 
-    Built here rather than imported from app.py, which parses argv and opens the
-    data directory at import.
+    Off the same lists app.py registers, so a new blueprint cannot reach the app
+    while missing here. Built rather than imported from app.py, which parses
+    argv and opens the data directory at import.
     """
     app = Flask(__name__)
     app.config.update(
         API_TITLE="PiKaraoke", API_VERSION="test", OPENAPI_VERSION="3.0.2", OPENAPI_URL_PREFIX="/"
     )
     api = Api(app)
-    for bp in (
-        queue_bp,
-        search_bp,
-        files_bp,
-        preferences_bp,
-        admin_bp,
-        controller_bp,
-        background_music_bp,
-        images_bp,
-        nowplaying_bp,
-        stream_bp,
-        metadata_bp,
-        sessions_api_bp,
-    ):
+    for bp in API_BLUEPRINTS:
         api.register_blueprint(bp)
-    for bp in (home_bp, info_bp, splash_bp, batch_song_renamer_bp, sessions_bp):
+    for bp in INTERNAL_BLUEPRINTS:
         app.register_blueprint(bp)
     return app
 
